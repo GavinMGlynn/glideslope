@@ -513,8 +513,8 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       at its stall warning, within its lesson's height with no exceptions,
       and left thirty seconds in it, within a height worked out for it from
       its speed and sink.* Both checks exist, the instructor flies the
-      recovery, and engaging or letting it go steps no control (that test
-      not yet seen to fail). Still missing: left thirty seconds, the A320
+      recovery, and engaging or letting it go steps no control. Still
+      missing (re-measured 2026-10-10 on #155's stack): left thirty seconds, the A320
       (1.95 g) and Mosquito (2.22 g) over 2 g, their wings passing their
       lift's peak at speed; at the warning the F-15C, F-35B, Learjet and
       S.23 past their lesson's height and the Mosquito never level again;
