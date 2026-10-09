@@ -506,12 +506,16 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is
       kept above 194 and 255 kt for it. Since 2026-10-07 each has its own
       yaw damper and their plans fly from 159 and 140 kt, every plan speed
-      of every aircraft held. Missing: below their plan floors, from their
-      approach speeds, the 737-300 (137-157 kt), A380 (136-186), B-2
-      (124-149), Learjet (125) and F-35B (159-169) still swing or leave
-      their models' tables. *Verification: every aircraft holds a heading
-      in a 20 kt crosswind from its approach speed up, its sideslip within a
-      stated bound.*
+      of every aircraft held. Since 2026-10-10 the speeds below each plan
+      floor are flown as an approach is, gear and landing flap down at the
+      weight the approach speed is for, and every aircraft then holds its
+      sideslip within a degree from its approach speed up; the swings were
+      the trial's, flown clean and heavy below the speed she can fly so.
+      Missing: with full flap the 787-8 from 168 kt and the A380 from 166
+      are still 2.0 to 2.9 degrees off their heading 30 s after the wind
+      arrives, and are left out of the test. *Verification: every aircraft
+      holds a heading in a 20 kt crosswind from its approach speed up, its
+      sideslip within a stated bound.*
 - [ ] **The autopilot's stall recovery, held to what a stall lesson can
       ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). *Verification:
       every aeroplane taught a stall is recovered within 2 g both handed over
@@ -1282,6 +1286,14 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
+
+- [ ] **The F-35B with her gear down cannot hold her height slow.** On the
+      autopilot at 3,000 ft at her combat loading she loses 2,836 ft at
+      her approach speed, 159 kt, and 777 at 174; from 184 kt she holds it
+      within 163 ft. Her sideslip stays within 0.01 degree (PROJECT_STATUS,
+      2026-10-10). *Verification: the cause found - thrust, lift or the
+      autopilot - and her height held from her approach speed, or her
+      approach speed raised to what she holds.*
 
 - [ ] **The Cherokee makes 2.2 kt less at full throttle than her figures
       file was measured at.** 126.8 kt level at 3,000 ft against 129 on

@@ -52,6 +52,11 @@ struct ApproachSpeeds {
     // usually 1.3 times - not always: a manual that gives its own approach
     // speed is flown at that (`PublishedFigures::approach_kcas`).
     double stall_kts = 0.0;
+    // **The loading those speeds are for**, by name in her figures file: the
+    // one her landing stall was measured at. A B-2A's 124 kt is for her
+    // light loading, 177,160 lb, and at her model's own weight she stalls
+    // above it. Empty where no figures were read.
+    std::string loading;
     double flap = 1.0;     // the landing flap setting, 0 to 1
     double speedbrake = 0.0; // the speedbrake lever down the approach, 0 to 1
     double flare_ft = 15.0; // height of the wheels above the threshold to begin the flare

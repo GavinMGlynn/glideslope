@@ -811,7 +811,8 @@ GLIDESLOPE_TEST(every_aircraft_knows_the_alpha_and_sideslip_its_tables_hold) {
 GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables_and_judges_it_not_held) {
     const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "f22");
     const glideslope::sim::CrosswindFlown f =
-        glideslope::sim::fly_heading_in_crosswind(data(), e, 120.0, false, 30.0, 1.0);
+        glideslope::sim::fly_heading_in_crosswind(data(), e, 120.0, false, 30.0,
+                                                  glideslope::sim::TrialConfiguration::gear_down());
     std::printf("  f22 at 120 kt in calm air, gear down: left its tables %s, sideslip at most %.1f\n",
                 f.left_tables ? "yes" : "no", f.most_sideslip_ever_deg);
     check(f.left_tables, "she left her tables, and the flight was stopped");
@@ -833,7 +834,8 @@ GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables
 GLIDESLOPE_TEST(the_f22a_held_at_130_kt_on_the_autopilot_departs) {
     const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "f22");
     const glideslope::sim::CrosswindFlown f =
-        glideslope::sim::fly_heading_in_crosswind(data(), e, 130.0, false, 30.0, 1.0);
+        glideslope::sim::fly_heading_in_crosswind(data(), e, 130.0, false, 30.0,
+                                                  glideslope::sim::TrialConfiguration::gear_down());
     std::printf("  f22 at 130 kt in calm air, gear down: left its tables %s, sideslip at most %.1f\n",
                 f.left_tables ? "yes" : "no", f.most_sideslip_ever_deg);
     check(f.left_tables, "she left her tables at 130 kt");

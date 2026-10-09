@@ -13,6 +13,7 @@
 #include <string>
 
 #include "sim/catalogue.hpp"
+#include "sim/lander.hpp"
 
 namespace glideslope::sim {
 
@@ -116,11 +117,31 @@ struct CrosswindFlown {
                worst_heading_deg <= 2.0;
     }
 };
-// `gear`: clean, up, unless asked otherwise - 1 for down, as the F-22A's
-// departure at 130 kt is pinned (test_catalogue.cpp).
+// **What a trial is flown in**: clean - gear up where it retracts, flaps
+// and speedbrakes in, at the weight her model starts at - by default; or,
+// from `landing`, an approach's: gear down, her own landing flap and
+// approach speedbrake, at the loading her approach speed is for
+// (ApproachSpeeds) - what she flies her approach speed in.
+struct TrialConfiguration {
+    double gear = 0.0;
+    double flaps = 0.0;
+    double speedbrake = 0.0;
+    // A loading in her figures file, by name; empty, her model's own.
+    std::string loading;
+
+    static TrialConfiguration landing(const ApproachSpeeds& approach) {
+        return {1.0, approach.flap, approach.speedbrake, approach.loading};
+    }
+    // Clean but for the gear, down: as the F-22A's departures at 130 and
+    // 120 kt were measured and are pinned (test_catalogue.cpp).
+    static TrialConfiguration gear_down() {
+        return {1.0, 0.0, 0.0, {}};
+    }
+};
 CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
                                         const CatalogueEntry& entry, double airspeed_kts,
-                                        bool windy, double settle_s = 30.0, double gear = 0.0);
+                                        bool windy, double settle_s = 30.0,
+                                        const TrialConfiguration& configuration = {});
 
 // Flies `entry` round the tightest orbit allowed at `trial.airspeed_kts`, at
 // 3,000 ft over Sydney, clean, with the throttle it starts at in the
