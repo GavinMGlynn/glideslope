@@ -170,7 +170,7 @@ def main() -> None:
         f"{os.path.basename(args.checkpoint)} (sha256 {sha256(args.checkpoint)}) and "
         f"{os.path.basename(vecnorm_of(args.checkpoint))} (sha256 {sha256(vecnorm_of(args.checkpoint))}).",
         "Exporting that checkpoint with export.py is deterministic and gives this file;",
-        "training itself is not reproducible (PPO over parallel environments).",
+        "training it again with the command below, on the same packages and machine, gives that checkpoint.",
         f"Packages: {versions}.",
         "Flown by src/sim/learnt.cpp. Observation and action: tools/rl/landing.py.",
     ]

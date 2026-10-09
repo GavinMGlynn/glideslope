@@ -40,6 +40,12 @@
     (carburetor heat off and mixture leaned to maximum RPM) is 2300 to 2420 RPM."
   </figure>
 
+  <figure name="rated_power" unit="hp" value="160" tolerance_percent="3"
+          altitude_ft="0" rpm="2700" speed_kcas="120">
+    Section 1, engine: the Lycoming O-320-D2J, "160 rated BHP at 2700 RPM";
+    full throttle and full rich at sea level, the propeller turning 2,700.
+  </figure>
+
   <figure name="takeoff_ground_roll" unit="ft" value="890" tolerance_percent="10"
           flaps_deg="10" lift_off_kcas="55.6">
     Section 1, performance specifications: ground roll 890 ft; figure 5-5 gives

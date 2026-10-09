@@ -744,8 +744,12 @@ GLIDESLOPE_TEST(the_ai_climbs_a_cessna_172p_at_its_handbooks_speeds_to_its_publi
 
 // **Each light aeroplane's engine makes its rated power at its rated rpm**,
 // full throttle and full rich at sea level, as its handbook or type
-// certificate rates it. Not the Cessna 172P's: its engine makes 222 hp at
-// 2,700 rpm, and the learnt landing was trained on it (docs/COMPLETION_PLAN.md).
+// certificate rates it. The Cessna 172P's made 222 hp at 2,700 rpm until its
+// learnt landing was trained again on 160 (docs/PROJECT_STATUS.md).
+GLIDESLOPE_TEST(the_cessna_172ps_engine_makes_160_hp_at_2700_rpm) {
+    expect_figure("c172p", "rated_power");
+}
+
 GLIDESLOPE_TEST(the_cessna_182ss_engine_makes_230_hp_at_2400_rpm) {
     expect_figure("c182", "rated_power");
 }
@@ -848,8 +852,9 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // it at its handbook's speeds, on 2026-10-08.
     // A hundred and twenty-one: the Cessna 182S's ceiling, as the AI climbs
     // to it at its handbook's speeds, on 2026-10-09.
-    check(figures_in_files == 121,
-          "a hundred and twenty-one figures, one test each above; found " +
+    // A hundred and twenty-two: the Cessna 172P's rated power, on 2026-10-09.
+    check(figures_in_files == 122,
+          "a hundred and twenty-two figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 
