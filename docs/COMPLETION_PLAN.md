@@ -502,20 +502,11 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       and in a 20 kt wind, holds within 10 m after the first quarter-turn,
       and Claude's two plans within 7 m.
 - [x] **The B-2 and the F-22 yaw from side to side in a crosswind when
-      slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
-      of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is
-      kept above 194 and 255 kt for it. Since 2026-10-07 each has its own
-      yaw damper and their plans fly from 159 and 140 kt, every plan speed
-      of every aircraft held. Since 2026-10-10 the speeds below each plan
-      floor are flown as an approach is, gear and landing flap down at the
-      weight the approach speed is for, and every aircraft then holds its
-      sideslip within a degree from its approach speed up; the swings were
-      the trial's, flown clean and heavy below the speed she can fly so.
-      *Verification: every aircraft holds a heading in a 20 kt crosswind
-      from its approach speed up, its sideslip within a stated bound.* Done
-      2026-10-10: every speed of every aircraft, sideslip within a degree
-      after 30 s and heading within two by 45 s (the slowest, the 787-8 at
-      193 kt with full flap, by 33.5 s).
+      slow.** Done 2026-10-10: flown below each plan floor as an approach is,
+      every aircraft holds its sideslip within a degree (the F-35B under 181
+      kt is named under "The F-35B lands on her power"). *Verification: every
+      aircraft holds a heading in a 20 kt crosswind from its approach speed
+      up, its sideslip within a stated bound.*
 - [ ] **The autopilot's stall recovery, held to what a stall lesson can
       ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). *Verification:
       every aeroplane taught a stall is recovered within 2 g both handed over
@@ -722,6 +713,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       join it from the take-off, every aeroplane inside the same bands.
 
 ---
+
+- [ ] **The AI's approach speed is for the weight its figures give, not
+      the weight it flies at.** The server flies each aircraft at its
+      model's own weight and lands it at its unscaled reference speed: the
+      B-2A's 124 kt is for 177,160 lb and her model weighs 327,000, where
+      124 kt is below her stall. *Verification: every aircraft the AI lands
+      flies its reference speed scaled for the weight it has, landed light
+      and heavy on a server.*
 
 ## Phase 11 — Traffic and separation
 
@@ -1287,14 +1286,6 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
 
-- [ ] **The F-35B with her gear down cannot hold her height slow.** On the
-      autopilot at 3,000 ft at her combat loading she loses 2,836 ft at
-      her approach speed, 159 kt, and 777 at 174; from 184 kt she holds it
-      within 163 ft. Her sideslip stays within 0.01 degree (PROJECT_STATUS,
-      2026-10-10). *Verification: the cause found - thrust, lift or the
-      autopilot - and her height held from her approach speed, or her
-      approach speed raised to what she holds.*
-
 - [ ] **The Cherokee makes 2.2 kt less at full throttle than her figures
       file was measured at.** 126.8 kt level at 3,000 ft against 129 on
       2026-10-06, the same on main and on this stack; her plan's fastest,
@@ -1319,7 +1310,9 @@ outside resource or a larger project.
       runway where its airframe would, and is judged a strike.* Owner
       2026-10-09: no public source.
 - [ ] **The F-35B lands on her power**: her model flies the glidepath at
-      19.5 degrees of incidence and its flare runs out of nose. *Verification:
+      19.5 degrees of incidence and its flare runs out of nose; level at
+      3,000 ft below 181 kt the same incidence is past the autopilot's 15
+      degrees of nose and she sinks (PROJECT_STATUS, 2026-10-10). *Verification:
       the F-35B flies her approach at her published incidence and flares
       with her throttle closing.* Owner 2026-10-09: no public approach angle
       of attack.

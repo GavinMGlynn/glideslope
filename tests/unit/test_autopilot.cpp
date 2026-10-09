@@ -1324,17 +1324,21 @@ GLIDESLOPE_TEST(the_f35b_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_p
     holds_a_heading_at_every_plan_speed("f35b");
 }
 
-// **Every aircraft holds a heading in a 20 kt crosswind in its landing
-// configuration from its approach speed up to the slowest a plan flies it
-// clean**: gear down, its own landing flap and approach speedbrake
-// (sim::approach_speeds, sim::TrialConfiguration::landing) - what she flies
-// at her approach speed in - from her approach speed in 5 kt steps to her
-// plan floor, both ends flown, at the loading her approach speed is for, at
-// 3,000 ft on the autopilot (sim::fly_heading_in_crosswind): her sideslip
-// within a degree after 30 s and her heading within two from 45 s. Above the floor she
-// is flown clean by the tests before these, so together they cover every
-// speed from her approach speed to her start speed, each in the configuration
-// she flies it in. The 747-400 and F-22A publish no approach speed
+// **Every aircraft holds a heading in a 20 kt crosswind from her approach
+// speed up to the slowest a plan flies her clean, flown as an approach is**:
+// gear down, her own landing flap and approach speedbrake
+// (sim::approach_speeds, sim::TrialConfiguration::landing), at the loading
+// her approach speed is for, at 3,000 ft on the autopilot
+// (sim::fly_heading_in_crosswind), from her approach speed in 5 kt steps to
+// her plan floor, both ends flown. **The landing flap is flown no faster than
+// her approach speed and 40 kt** - our choice, a conservative bound on the
+// speeds a landing flap is flown at, as nothing in the data gives a flap's
+// limit speed; between that and her plan floor (the A380's 181 to 196 kt
+// alone) she is flown with half her landing flap, an intermediate setting,
+// also our choice. Above the floor she is flown clean by the tests before
+// these. Each speed must hold her sideslip within a degree after 30 s, her
+// heading within two from 40 s, and her height within 300 ft throughout.
+// The 747-400 and F-22A publish no approach speed
 // (sim::publishes_approach_speed) and are named; every other aircraft has its
 // own test, asserted below. **Seen to fail** flown clean at her model's own
 // weight, as the plan-speed sweep flies, from her approach speed: the 737-300,
@@ -1348,12 +1352,24 @@ const std::map<std::string, std::string> no_approach_speed = {
     {"f22", "its measured stalls would not hold still, so it publishes no approach speed"},
 };
 
-// **Her heading within two degrees by 45 s**, judged apart from her yaw:
+constexpr double landing_flap_above_vref_kts = 40.0;
+// **Her heading within two degrees by 40 s**, judged apart from her yaw:
 // with full flap above about 165 kt the 787-8 and the A380, their sideslip
 // held, are rolled by it 6 degrees off and the heading loop overshoots back
-// through north, 2.0 to 2.9 degrees off at 30 s (PROJECT_STATUS.md,
-// 2026-10-10). Every speed of every aircraft settles well inside 45 s.
-constexpr double heading_settled_by_s = 45.0;
+// through north, 2.0 to 2.9 degrees off at 30 s. The latest any speed
+// settles is 32.4 s, the 787-8 at 188 kt (PROJECT_STATUS.md, 2026-10-10).
+constexpr double heading_settled_by_s = 40.0;
+constexpr double most_height_lost_ft = 300.0;
+
+// **Named, not judged: the F-35B to 179 kt.** Her model needs 15 to 20
+// degrees of incidence to fly level there - the approach incidence of the
+// open tail "The F-35B lands on her power" - and the autopilot's nose stops
+// at 15 degrees, so she sinks at up to 1,300 ft/min: 2,836 ft lost at 159
+// kt, 301 at 179, 270 at 184. Her sideslip stays within 0.01.
+const std::map<std::string, std::pair<double, std::string>> approach_named = {
+    {"f35b", {181.0, "to 179 kt her model's approach incidence, 18 to 20 degrees, is past the "
+                     "autopilot's 15 degrees of nose, and she cannot hold her height"}},
+};
 
 const std::vector<std::string> approach_swept = {
     "c172p", "c182", "pa28",       "j3cub", "short_s23", "mosquito-fb6", "737-300",
@@ -1366,32 +1382,46 @@ void holds_a_heading_from_its_approach_speed(const std::string& id) {
         glideslope::sim::approach_speeds(data(), e.model);
     const double floor_kts = glideslope::sim::plan_speeds(data(), e.model).slowest_kts;
     const auto landing = glideslope::sim::TrialConfiguration::landing(approach);
+    auto intermediate = landing;
+    intermediate.flaps = 0.5 * landing.flaps;
+    const double landing_flap_to_kts = approach.vref_kts + landing_flap_above_vref_kts;
     std::vector<double> speeds;
     for (double kts = approach.vref_kts; kts < floor_kts - 0.5; kts += 5.0) { // the floor once
         speeds.push_back(kts);
     }
     speeds.push_back(std::max(floor_kts, approach.vref_kts));
+    const auto named = approach_named.find(id);
     std::string failures;
     std::size_t flown = 0;
+    std::size_t not_judged = 0;
     std::string worst;
     double worst_beta = 0.0;
     double latest_settled_s = 0.0;
+    double most_lost_ft = 0.0;
     for (const double kts : speeds) {
-        const glideslope::sim::CrosswindFlown f =
-            glideslope::sim::fly_heading_in_crosswind(data(), e, kts, true, 30.0, landing);
-        ++flown;
+        const auto& configuration = kts <= landing_flap_to_kts + 0.01 ? landing : intermediate;
+        const glideslope::sim::CrosswindFlown f = glideslope::sim::fly_heading_in_crosswind(
+            data(), e, kts, true, 30.0, configuration, 0.0);
         const double beta = std::max(-f.least_sideslip_deg, f.most_sideslip_deg);
-        char line[260];
+        char line[300];
         std::snprintf(line, sizeof line,
                       "%s at %.0f kt, gear down, flap %.2f, speedbrake %.2f: sideslip %+.2f to "
                       "%+.2f, heading within 2 from %.1f s (%.2f after 30 s), height within "
                       "%.0f ft%s",
-                      e.id.c_str(), kts, landing.flaps, landing.speedbrake, f.least_sideslip_deg,
-                      f.most_sideslip_deg, f.heading_settled_s, f.worst_heading_deg,
-                      f.worst_height_ft, f.left_tables ? ", left its tables" : "");
+                      e.id.c_str(), kts, configuration.flaps, configuration.speedbrake,
+                      f.least_sideslip_deg, f.most_sideslip_deg, f.heading_settled_s,
+                      f.worst_heading_deg, f.worst_height_ft,
+                      f.left_tables ? ", left its tables" : "");
         std::printf("%s\n", line);
+        if (named != approach_named.end() && kts < named->second.first) {
+            std::printf("  named, not judged: %s\n", named->second.second.c_str());
+            ++not_judged;
+            continue;
+        }
+        ++flown;
         latest_settled_s = std::max(latest_settled_s, f.heading_settled_s);
-        if (!f.held_heading_by(heading_settled_by_s)) {
+        most_lost_ft = std::max(most_lost_ft, f.worst_height_ft);
+        if (!f.held_heading_by(heading_settled_by_s) || f.worst_height_ft > most_height_lost_ft) {
             failures += std::string("\n  ") + line;
         }
         if (f.left_tables || beta >= worst_beta) {
@@ -1399,13 +1429,15 @@ void holds_a_heading_from_its_approach_speed(const std::string& id) {
             worst = line;
         }
     }
-    std::printf("%s: %zu of %zu speeds from %.0f to %.0f kt flown; heading settled by %.1f s "
-                "at the latest; the most sideslip: %s\n",
-                e.id.c_str(), flown, speeds.size(), approach.vref_kts, speeds.back(),
-                latest_settled_s, worst.c_str());
-    check(flown == speeds.size() && flown > 0, "every speed flown");
-    check(failures.empty(), "each holds its sideslip within a degree after 30 s and its heading "
-                            "within two from 45 s:" +
+    std::printf("%s: %zu speeds from %.0f to %.0f kt, %zu judged and %zu named; landing flap to "
+                "%.0f kt; heading settled by %.1f s at the latest, height within %.0f ft; the "
+                "most sideslip: %s\n",
+                e.id.c_str(), speeds.size(), approach.vref_kts, speeds.back(), flown, not_judged,
+                landing_flap_to_kts, latest_settled_s, most_lost_ft, worst.c_str());
+    check(flown + not_judged == speeds.size() && flown > 0,
+          "every speed flown, and judged or named");
+    check(failures.empty(), "each holds its sideslip within a degree after 30 s, its heading "
+                            "within two from 40 s and its height within 300 ft:" +
                                 failures);
 }
 

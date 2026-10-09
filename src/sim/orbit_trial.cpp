@@ -21,7 +21,8 @@ namespace glideslope::sim {
 CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
                                         const CatalogueEntry& entry, double airspeed_kts,
                                         bool windy, double settle_s,
-                                        const TrialConfiguration& configuration) {
+                                        const TrialConfiguration& configuration,
+                                        double height_from_s) {
     constexpr int steps_per_second = 120;
     Aircraft aircraft(data / "jsbsim", entry.model);
     InitialConditions ic;
@@ -74,6 +75,10 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
         }
         const double beta = aircraft.property("aero/beta-deg");
         out.most_sideslip_ever_deg = std::max(out.most_sideslip_ever_deg, std::abs(beta));
+        if (i >= static_cast<int>(height_from_s * steps_per_second)) {
+            out.worst_height_ft = std::max(
+                out.worst_height_ft, std::abs(aircraft.property("position/h-sl-ft") - 3000.0));
+        }
         if (std::abs(std::remainder(aircraft.property("attitude/psi-deg"), 360.0)) > 2.0) {
             out.heading_settled_s = static_cast<double>(i + 1) / steps_per_second;
         }
@@ -83,8 +88,6 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
             out.worst_heading_deg =
                 std::max(out.worst_heading_deg,
                          std::abs(std::remainder(aircraft.property("attitude/psi-deg"), 360.0)));
-            out.worst_height_ft = std::max(
-                out.worst_height_ft, std::abs(aircraft.property("position/h-sl-ft") - 3000.0));
             out.slowest_kts = std::min(out.slowest_kts, aircraft.property("velocities/vc-kts"));
         }
     }
