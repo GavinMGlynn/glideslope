@@ -18,7 +18,7 @@ namespace glideslope::sim {
 
 CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
                                         const CatalogueEntry& entry, double airspeed_kts,
-                                        bool windy, double settle_s) {
+                                        bool windy, double settle_s, double gear) {
     constexpr int steps_per_second = 120;
     Aircraft aircraft(data / "jsbsim", entry.model);
     InitialConditions ic;
@@ -28,7 +28,7 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
     ic.heading_deg = 0.0;
     ic.airspeed_kts = airspeed_kts;
     ic.engine_running = true;
-    ic.gear = 0.0; // clean: up, where it retracts (Aircraft::initialize)
+    ic.gear = gear; // clean, up, unless asked (fixed gear stays down)
     aircraft.initialize(ic);
     if (windy) {
         Conditions wind;
@@ -37,7 +37,7 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
     }
     Controls controls;
     controls.throttle = entry.start_throttle;
-    controls.gear = 0.0;
+    controls.gear = gear;
     Autopilot autopilot(aircraft, controls);
     AutopilotModes modes = autopilot.modes();
     modes.heading_deg = 0.0;

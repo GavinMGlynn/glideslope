@@ -340,6 +340,22 @@ glide-speeds` and `plan-speeds`, the F-22A's from 120 kt as before):
   restored, both green.
 - **The selftest hash does not move** (`182dd6c996e0ee4c`, linux-release):
   it flies no trial.
+- **Found after (another agent's run): `the_f22a_held_at_130_kt_on_the_autopilot_departs`
+  (#153) failed on this change**, and so did
+  `a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables_and_judges_it_not_held`:
+  both pinned the F-22A departing on the autopilot in calm air at 3,000 ft,
+  at 130 and 120 kt, in the heading trial, which flew her gear down. **Gear
+  up, she does not depart**: her model's flight controls give her thrust
+  vectoring, full pitch rate (a third with the gear down) and leading-edge
+  flaps only with the gear up. Flown up, at 130 and 120 kt her sideslip
+  stays 0.00 and she leaves no table; she sinks instead (350 ft at 130,
+  1,900 at 120 over the two minutes), and she first leaves her tables at
+  95. **Both tests now ask for her gear down**
+  (`fly_heading_in_crosswind`'s new `gear`, up by default), the situation
+  each was measured in: at 130 kt her sideslip 10.4 when she leaves her
+  tables, as measured; at 120 she leaves them. Red without it (left no
+  table, sideslip 0.0), green with it; with every crosswind, catalogue,
+  tables, one-step-past and F-22A test, 65 of 65.
 
 ### A jet's orbit entered from a waypoint holds its circle: joined going its way, flown by a loiter law after ArduPilot's, 2026-10-09 — item done
 
