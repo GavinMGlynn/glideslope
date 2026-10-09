@@ -294,7 +294,7 @@ the displacement. So the item stays open.
     (1985 POH section 1, figure 5-11; 558 m needed), C182S 1350 ft (1997
     Information Manual section 1; 589 m), Cherokee 180 E 1150 ft (Owner's
     Handbook section I; 502 m) - times 1.43, the landing distance within 70
-    per cent of that available: EASA Air OPS CAT.POL.A.230(a), performance
+    per cent of that available: EASA Air OPS CAT.POL.A.330(a), performance
     class B, recommended to every pilot by the UK CAA's Safety Sense leaflet 7.
   - **Transports** (`basis="field_length"`, factor 1): the airport planning
     document's landing field length, which is already the demonstrated
@@ -346,7 +346,13 @@ Both reverted.
 `a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_told_of_and_on_no_other`
 has an eighth refusal, a runway 1 m short once its displaced threshold is
 taken off, told back to the model. `a_runways_file_gives_each_open_runway_end_with_a_place_and_a_heading`
-reads 16R's 279 ft displaced threshold and its landing length.
+reads 16R's 279 ft displaced threshold and its landing length, and a
+runway displaced at both ends (Bankstown's 11C 508 ft, 29C 196 ft), each
+way's landing length less its own end's, the two different; **seen to
+fail** with both ends given the `le_` end's displacement; reverted. (The
+light margin's rule is CAT.POL.A.330(a), landing on dry runways for
+performance class B; first cited as A.230, class A's, and corrected on
+review.)
 Run again, all passing (linux-debug, 37 tests, after the Learjet and F-15C
 gained figures): the figures-reading tests, every copilot and planner
 unit test, and every recording played back - the CBD orbit by OpenAI and by
