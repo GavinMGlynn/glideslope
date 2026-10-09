@@ -25,6 +25,7 @@
 #include <memory>
 #include <numbers>
 #include <string>
+#include <tuple>
 #include <vector>
 
 using glideslope::sim::FlightPlan;
@@ -1081,6 +1082,14 @@ namespace {
 // calm air; in wind, half way out, two radii out and the diagonal arrivals,
 // which calm air covers - the wind changes the speed round, which the
 // entries from the centre and on the circle already meet in every quarter.
+// **Five tests a jet**, so that none runs long on CI: in calm air, one for
+// each quarter of the compass it arrives heading - north and north-east
+// (with the centre's), east and south-east, south and south-west, west and
+// north-west - and one in the wind. As one test each, three passed ctest's
+// 900 s in CI's linux-debug; in halves of the compass, the F-22A's ran 291
+// and 315 s locally in linux-debug, four at a time.
+// `every_jet_enters_every_orbit_entry_once_across_its_five_tests` holds the
+// five to the whole space, each entry once.
 const std::vector<std::string> entering_jets = {
     "737-300", "747-400", "787-8", "a320", "a380", "learjet35a", "b2", "f15c", "f22", "f35b",
 };
@@ -1089,22 +1098,30 @@ constexpr double entered_within_m = 30.0;
 constexpr double joined_within_m = 100.0;
 constexpr double entry_wind_kts = 20.0;
 
-void enter_its_orbits(const std::string& id) {
-    const std::filesystem::path data =
-        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
-    const auto entry = glideslope::sim::find_aircraft(data, id);
-    const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, entry.model);
-    const double kts = std::clamp(220.0, speeds.slowest_kts, speeds.fastest_kts);
-    const double radius_m = std::ceil(glideslope::sim::least_orbit_radius_m(kts));
-    const std::vector<double> calm_from_centre = {0.0, 0.5, 1.0, 2.0};
-    const std::vector<double> windy_from_centre = {0.0, 1.0};
-    std::size_t cases = 0;
-    std::size_t flown = 0;
-    double worst_m[2] = {0.0, 0.0};
-    double worst_join_m[2] = {0.0, 0.0};
-    std::string failures;
+enum class EntryPart { calm_north, calm_east, calm_south, calm_west, windy };
+constexpr EntryPart entry_parts[] = {EntryPart::calm_north, EntryPart::calm_east,
+                                     EntryPart::calm_south, EntryPart::calm_west,
+                                     EntryPart::windy};
+
+struct EntryCase {
+    bool windy = false;
+    bool right = false;
+    double from_centre = 0.0; // radii
+    int eighth = 0;           // arriving at 45 degrees times this
+    bool operator<(const EntryCase& o) const {
+        return std::tie(windy, right, from_centre, eighth) <
+               std::tie(o.windy, o.right, o.from_centre, o.eighth);
+    }
+};
+
+// The whole space: calm air, both ways round, the centre once and three
+// places from eight ways (50); wind, both ways round, the centre once and on
+// the circle from four (10).
+std::vector<EntryCase> every_entry() {
+    std::vector<EntryCase> out;
     for (const bool windy : {false, true}) {
-        const std::vector<double>& from_centre = windy ? windy_from_centre : calm_from_centre;
+        const std::vector<double> from_centre =
+            windy ? std::vector<double>{0.0, 1.0} : std::vector<double>{0.0, 0.5, 1.0, 2.0};
         // Calm air every eighth of the compass, wind every quarter.
         const int step = windy ? 2 : 1;
         for (const bool right : {false, true}) {
@@ -1113,55 +1130,96 @@ void enter_its_orbits(const std::string& id) {
                     if (from == 0.0 && eighth > 0) {
                         continue; // from the centre, flown from north alone (above)
                     }
-                    ++cases;
-                    glideslope::sim::OrbitEntry trial;
-                    trial.airspeed_kts = kts;
-                    trial.radius_m = radius_m;
-                    trial.from_centre = from;
-                    trial.arriving_deg = 45.0 * eighth;
-                    trial.right = right;
-                    trial.wind_kts = windy ? entry_wind_kts : 0.0;
-                    const glideslope::sim::OrbitEntered f =
-                        glideslope::sim::fly_orbit_from_waypoint(data, entry, trial);
-                    ++flown;
-                    const double off_m = f.worst_off_m(radius_m);
-                    const double join_off_m = f.worst_join_off_m(radius_m);
-                    worst_m[windy] = std::max(worst_m[windy], off_m);
-                    worst_join_m[windy] = std::max(worst_join_m[windy], join_off_m);
-                    char which[400];
-                    std::snprintf(which, sizeof which,
-                                  "%s round %.0f m at %.0f kt %s %s, from a waypoint %.1f radii "
-                                  "out arriving at %03.0f: %.2f turns, %.0f to %.0f m from "
-                                  "joining (%.0f off), %.0f to %.0f m from a quarter-turn (%.0f "
-                                  "off), within %.0f ft",
-                                  id.c_str(), radius_m, kts, right ? "right" : "left",
-                                  windy ? "in a 20 kt wind" : "in calm air", from,
-                                  trial.arriving_deg, f.turns, f.join_nearest_m,
-                                  f.join_farthest_m, join_off_m, f.nearest_m, f.farthest_m, off_m,
-                                  f.worst_height_ft);
-                    std::fprintf(stderr, "%s\n", which);
-                    if (f.left_tables || !f.joined || f.turns < 0.99 ||
-                        off_m > entered_within_m || join_off_m > joined_within_m ||
-                        f.worst_height_ft > 50.0) {
-                        failures += std::string("\n  ") + which;
-                    }
+                    out.push_back({windy, right, from, eighth});
                 }
             }
         }
     }
-    // Both ways round. Calm: the centre once, and three places from eight
-    // ways. Wind: the centre once, and on the circle from four.
-    const std::size_t calm = 2 * (1 + (calm_from_centre.size() - 1) * 8);
-    const std::size_t windy = 2 * (1 + (windy_from_centre.size() - 1) * 4);
-    const std::size_t space = calm + windy;
+    return out;
+}
+constexpr std::size_t every_entry_count = 2 * (1 + 3 * 8) + 2 * (1 + 1 * 4);
+
+bool in_part(const EntryCase& c, EntryPart part) {
+    switch (part) {
+    case EntryPart::calm_north:
+        return !c.windy && c.eighth / 2 == 0;
+    case EntryPart::calm_east:
+        return !c.windy && c.eighth / 2 == 1;
+    case EntryPart::calm_south:
+        return !c.windy && c.eighth / 2 == 2;
+    case EntryPart::calm_west:
+        return !c.windy && c.eighth / 2 == 3;
+    case EntryPart::windy:
+        return c.windy;
+    }
+    return false;
+}
+
+std::vector<EntryCase> entries_in(EntryPart part) {
+    std::vector<EntryCase> out;
+    for (const EntryCase& c : every_entry()) {
+        if (in_part(c, part)) {
+            out.push_back(c);
+        }
+    }
+    return out;
+}
+
+void enter_its_orbits(const std::string& id, EntryPart part) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto entry = glideslope::sim::find_aircraft(data, id);
+    const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, entry.model);
+    const double kts = std::clamp(220.0, speeds.slowest_kts, speeds.fastest_kts);
+    const double radius_m = std::ceil(glideslope::sim::least_orbit_radius_m(kts));
+    const std::vector<EntryCase> cases = entries_in(part);
+    std::size_t flown = 0;
+    double worst_m = 0.0;
+    double worst_join_m = 0.0;
+    std::string failures;
+    for (const EntryCase& c : cases) {
+        glideslope::sim::OrbitEntry trial;
+        trial.airspeed_kts = kts;
+        trial.radius_m = radius_m;
+        trial.from_centre = c.from_centre;
+        trial.arriving_deg = 45.0 * c.eighth;
+        trial.right = c.right;
+        trial.wind_kts = c.windy ? entry_wind_kts : 0.0;
+        const glideslope::sim::OrbitEntered f =
+            glideslope::sim::fly_orbit_from_waypoint(data, entry, trial);
+        ++flown;
+        const double off_m = f.worst_off_m(radius_m);
+        const double join_off_m = f.worst_join_off_m(radius_m);
+        worst_m = std::max(worst_m, off_m);
+        worst_join_m = std::max(worst_join_m, join_off_m);
+        char which[400];
+        std::snprintf(which, sizeof which,
+                      "%s round %.0f m at %.0f kt %s %s, from a waypoint %.1f radii out arriving "
+                      "at %03.0f: %.2f turns, %.0f to %.0f m from joining (%.0f off), %.0f to "
+                      "%.0f m from a quarter-turn (%.0f off), within %.0f ft",
+                      id.c_str(), radius_m, kts, c.right ? "right" : "left",
+                      c.windy ? "in a 20 kt wind" : "in calm air", c.from_centre,
+                      trial.arriving_deg, f.turns, f.join_nearest_m, f.join_farthest_m,
+                      join_off_m, f.nearest_m, f.farthest_m, off_m, f.worst_height_ft);
+        std::fprintf(stderr, "%s\n", which);
+        if (f.left_tables || !f.joined || f.turns < 0.99 || off_m > entered_within_m ||
+            join_off_m > joined_within_m || f.worst_height_ft > 50.0) {
+            failures += std::string("\n  ") + which;
+        }
+    }
+    // In calm air each quarter is three places from two ways, both ways round
+    // (12), and the north's the centre's too (14); in wind, the centre and on
+    // the circle from four (10).
+    const std::size_t expected = part == EntryPart::calm_north ? 14
+                                 : part == EntryPart::windy    ? 10
+                                                               : 12;
     std::fprintf(stderr,
-                 "%s: %zu of %zu entries flown (%zu calm, %zu in wind); at worst, in calm air, "
-                 "%.0f m off its circle from joining it and %.0f m from a quarter-turn; in a 20 "
-                 "kt wind, %.0f and %.0f m\n",
-                 id.c_str(), flown, space, calm, windy, worst_join_m[0], worst_m[0],
-                 worst_join_m[1], worst_m[1]);
-    check(cases == space && flown == space,
-          id + ": every entry flown, " + std::to_string(flown) + " of " + std::to_string(space));
+                 "%s: %zu of %zu entries flown; at worst %.0f m off its circle from joining it "
+                 "and %.0f m from a quarter-turn\n",
+                 id.c_str(), flown, expected, worst_join_m, worst_m);
+    check(cases.size() == expected && flown == expected,
+          id + ": every entry of this part flown, " + std::to_string(flown) + " of " +
+              std::to_string(expected));
     check(failures.empty(), id + " joins its circle going its way and holds it within 100 m "
                                  "from there, within 30 m after the first quarter-turn, and its "
                                  "height within 50 ft, once round:" +
@@ -1191,35 +1249,182 @@ GLIDESLOPE_TEST(every_jet_has_its_own_test_of_entering_an_orbit_from_a_waypoint)
               std::to_string(tested.size()));
 }
 
-GLIDESLOPE_TEST(the_boeing_737_300_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("737-300");
+// **Each jet's five tests fly the whole space between them, each entry
+// once**: every entry is in exactly one part, and the parts together are all
+// 60 - which each jet's five tests, flying their part each, then cover.
+GLIDESLOPE_TEST(every_jet_enters_every_orbit_entry_once_across_its_five_tests) {
+    const std::vector<EntryCase> space = every_entry();
+    std::map<EntryCase, int> seen;
+    std::size_t in_parts = 0;
+    for (const EntryPart part : entry_parts) {
+        for (const EntryCase& c : entries_in(part)) {
+            ++seen[c];
+            ++in_parts;
+        }
+    }
+    std::size_t once = 0;
+    for (const EntryCase& c : space) {
+        const auto found = seen.find(c);
+        once += found != seen.end() && found->second == 1 ? std::size_t{1} : std::size_t{0};
+    }
+    std::fprintf(stderr, "%zu entries in the space, %zu in the five parts, %zu once\n",
+                 space.size(), in_parts, once);
+    check(space.size() == every_entry_count && in_parts == every_entry_count &&
+              once == every_entry_count && seen.size() == every_entry_count,
+          "the five parts take all " + std::to_string(every_entry_count) +
+              " entries, each once: " + std::to_string(space.size()) + " in the space, " +
+              std::to_string(in_parts) + " in the parts, " + std::to_string(once) + " once");
 }
-GLIDESLOPE_TEST(the_boeing_747_400_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("747-400");
+
+GLIDESLOPE_TEST(the_boeing_737_300_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("737-300", EntryPart::calm_north);
 }
-GLIDESLOPE_TEST(the_boeing_787_8_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("787-8");
+GLIDESLOPE_TEST(the_boeing_737_300_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("737-300", EntryPart::calm_east);
 }
-GLIDESLOPE_TEST(the_airbus_a320_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("a320");
+GLIDESLOPE_TEST(the_boeing_737_300_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("737-300", EntryPart::calm_south);
 }
-GLIDESLOPE_TEST(the_airbus_a380_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("a380");
+GLIDESLOPE_TEST(the_boeing_737_300_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("737-300", EntryPart::calm_west);
 }
-GLIDESLOPE_TEST(the_learjet_35a_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("learjet35a");
+GLIDESLOPE_TEST(the_boeing_737_300_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("737-300", EntryPart::windy);
 }
-GLIDESLOPE_TEST(the_b2a_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("b2");
+GLIDESLOPE_TEST(the_boeing_747_400_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("747-400", EntryPart::calm_north);
 }
-GLIDESLOPE_TEST(the_f15c_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("f15c");
+GLIDESLOPE_TEST(the_boeing_747_400_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("747-400", EntryPart::calm_east);
 }
-GLIDESLOPE_TEST(the_f22a_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("f22");
+GLIDESLOPE_TEST(the_boeing_747_400_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("747-400", EntryPart::calm_south);
 }
-GLIDESLOPE_TEST(the_f35b_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
-    enter_its_orbits("f35b");
+GLIDESLOPE_TEST(the_boeing_747_400_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("747-400", EntryPart::calm_west);
+}
+GLIDESLOPE_TEST(the_boeing_747_400_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("747-400", EntryPart::windy);
+}
+GLIDESLOPE_TEST(the_boeing_787_8_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("787-8", EntryPart::calm_north);
+}
+GLIDESLOPE_TEST(the_boeing_787_8_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("787-8", EntryPart::calm_east);
+}
+GLIDESLOPE_TEST(the_boeing_787_8_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("787-8", EntryPart::calm_south);
+}
+GLIDESLOPE_TEST(the_boeing_787_8_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("787-8", EntryPart::calm_west);
+}
+GLIDESLOPE_TEST(the_boeing_787_8_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("787-8", EntryPart::windy);
+}
+GLIDESLOPE_TEST(the_airbus_a320_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("a320", EntryPart::calm_north);
+}
+GLIDESLOPE_TEST(the_airbus_a320_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("a320", EntryPart::calm_east);
+}
+GLIDESLOPE_TEST(the_airbus_a320_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("a320", EntryPart::calm_south);
+}
+GLIDESLOPE_TEST(the_airbus_a320_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("a320", EntryPart::calm_west);
+}
+GLIDESLOPE_TEST(the_airbus_a320_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("a320", EntryPart::windy);
+}
+GLIDESLOPE_TEST(the_airbus_a380_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("a380", EntryPart::calm_north);
+}
+GLIDESLOPE_TEST(the_airbus_a380_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("a380", EntryPart::calm_east);
+}
+GLIDESLOPE_TEST(the_airbus_a380_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("a380", EntryPart::calm_south);
+}
+GLIDESLOPE_TEST(the_airbus_a380_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("a380", EntryPart::calm_west);
+}
+GLIDESLOPE_TEST(the_airbus_a380_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("a380", EntryPart::windy);
+}
+GLIDESLOPE_TEST(the_learjet_35a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("learjet35a", EntryPart::calm_north);
+}
+GLIDESLOPE_TEST(the_learjet_35a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("learjet35a", EntryPart::calm_east);
+}
+GLIDESLOPE_TEST(the_learjet_35a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("learjet35a", EntryPart::calm_south);
+}
+GLIDESLOPE_TEST(the_learjet_35a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("learjet35a", EntryPart::calm_west);
+}
+GLIDESLOPE_TEST(the_learjet_35a_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("learjet35a", EntryPart::windy);
+}
+GLIDESLOPE_TEST(the_b2a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("b2", EntryPart::calm_north);
+}
+GLIDESLOPE_TEST(the_b2a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("b2", EntryPart::calm_east);
+}
+GLIDESLOPE_TEST(the_b2a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("b2", EntryPart::calm_south);
+}
+GLIDESLOPE_TEST(the_b2a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("b2", EntryPart::calm_west);
+}
+GLIDESLOPE_TEST(the_b2a_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("b2", EntryPart::windy);
+}
+GLIDESLOPE_TEST(the_f15c_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("f15c", EntryPart::calm_north);
+}
+GLIDESLOPE_TEST(the_f15c_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("f15c", EntryPart::calm_east);
+}
+GLIDESLOPE_TEST(the_f15c_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("f15c", EntryPart::calm_south);
+}
+GLIDESLOPE_TEST(the_f15c_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("f15c", EntryPart::calm_west);
+}
+GLIDESLOPE_TEST(the_f15c_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("f15c", EntryPart::windy);
+}
+GLIDESLOPE_TEST(the_f22a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("f22", EntryPart::calm_north);
+}
+GLIDESLOPE_TEST(the_f22a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("f22", EntryPart::calm_east);
+}
+GLIDESLOPE_TEST(the_f22a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("f22", EntryPart::calm_south);
+}
+GLIDESLOPE_TEST(the_f22a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("f22", EntryPart::calm_west);
+}
+GLIDESLOPE_TEST(the_f22a_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("f22", EntryPart::windy);
+}
+GLIDESLOPE_TEST(the_f35b_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle) {
+    enter_its_orbits("f35b", EntryPart::calm_north);
+}
+GLIDESLOPE_TEST(the_f35b_enters_an_orbit_from_a_waypoint_in_calm_air_heading_east_or_southeast_and_holds_its_circle) {
+    enter_its_orbits("f35b", EntryPart::calm_east);
+}
+GLIDESLOPE_TEST(the_f35b_enters_an_orbit_from_a_waypoint_in_calm_air_heading_south_or_southwest_and_holds_its_circle) {
+    enter_its_orbits("f35b", EntryPart::calm_south);
+}
+GLIDESLOPE_TEST(the_f35b_enters_an_orbit_from_a_waypoint_in_calm_air_heading_west_or_northwest_and_holds_its_circle) {
+    enter_its_orbits("f35b", EntryPart::calm_west);
+}
+GLIDESLOPE_TEST(the_f35b_enters_an_orbit_from_a_waypoint_in_a_20_kt_wind_and_holds_its_circle) {
+    enter_its_orbits("f35b", EntryPart::windy);
 }
 
 namespace {
