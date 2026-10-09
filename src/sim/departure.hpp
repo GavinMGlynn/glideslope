@@ -146,6 +146,18 @@ public:
     Departure(const Aircraft& aircraft, const Runway& runway,
               const DepartureSpeeds& speeds, double to_ft = 500.0);
 
+    // **A take-off taken over just after lift-off** (Controller::to_ai):
+    // her wheels have left `runway` - the ground they last bore weight on,
+    // along the track she was rolling - and the take-off goes on from
+    // there as though it had flown her off: rotated, the climb held off the
+    // runway to the screen height and her flap brought up as a take-off's
+    // is, and over through `to_ft`. `standing_ft` is her height over the
+    // runway as her wheels last bore weight; `handed` the controls she has,
+    // the stick's place taken into the trim so that nothing steps.
+    static Departure from_lift_off(const Aircraft& aircraft, const Runway& runway,
+                                   double standing_ft, const DepartureSpeeds& speeds,
+                                   const Controls& handed, double to_ft);
+
     Controls fly();
     // **The fastest it may climb out at** (Controller::limit_speed): her
     // plan's fastest, which the gust allowance is not taken past.

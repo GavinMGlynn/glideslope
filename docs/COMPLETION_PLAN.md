@@ -665,12 +665,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       skip is landed to a stop.* Done 2026-10-10: every landplane handed
       over with her wheels clear of the runway, within a second and three
       feet of their last contact, is landed to a stop.
-- [ ] **A take-off handed to the AI at lift-off is not climbed away.**
+- [x] **A take-off handed to the AI at lift-off is not climbed away.**
       Handed over the moment her wheels leave the runway, she is given the
       plain autopilot, which holds the height she had: 7 of 13 landplanes
       touch the runway again within 30 seconds. *Verification: every
       landplane handed over at lift-off climbs away and never touches the
-      runway again.*
+      runway again.* Done 2026-10-10: handed over just after lift-off she is
+      given the take-off's own climb-out to 500 ft, and all 13 climb away
+      without touching; one levelled low down is not taken for a take-off.
 - [x] **The F-35B's circuit touches down two kilometres short of the
       runway**, at 165 knots, and rolls on to it. Nothing checks where along
       the runway a circuit touches. *Verification: every circuit touches down
@@ -1325,6 +1327,12 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
+
+- [ ] **The autopilot holds a low height loosely in an airliner's take-off
+      configuration.** Asked to hold 200 ft with her take-off flap and gear
+      out, the A380 swings 15 ft either side of it at up to 350 ft/min for
+      three minutes before it settles. *Verification: every airliner holding
+      a height at her take-off flap settles within 100 ft/min in a minute.*
 
 - [ ] **A jet, the Mosquito or the S.23 slowed from cruise into her climb
       sinks 2 to 6.4 kt past her climb speed.** Only a light aeroplane has
