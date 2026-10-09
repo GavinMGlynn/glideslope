@@ -142,4 +142,9 @@
     159 kt, the slowest a route may fly it, went round unstalled: at 13.6
     and 13.7 degrees of alpha, where her lift peaked at 13.5 and 13.7.
   </glide_speeds>
+
+  <no_landing_distance>
+    The USAF fact sheet gives no landing distance: no runway is refused it for
+    length.
+  </no_landing_distance>
 </published_figures>

@@ -1874,7 +1874,47 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
             throw std::runtime_error(file.string() + " gives <takeoff_speeds> twice");
         }
     }
+    // **The runway it needs to land, or why nothing says**: exactly one of
+    // `<landing_distance>` and `<no_landing_distance>`, so that no aircraft
+    // is left out of the landing's length check without its file saying so.
+    JSBSim::Element* landing = root->FindElement("landing_distance");
+    JSBSim::Element* no_landing = root->FindElement("no_landing_distance");
+    if (root->GetNumElements("landing_distance") + root->GetNumElements("no_landing_distance") !=
+        1) {
+        throw std::runtime_error(file.string() +
+                                 " must give one of <landing_distance ft=\"...\" basis=\"...\" "
+                                 "factor=\"...\"> and <no_landing_distance>, the reason");
+    }
+    if (landing != nullptr) {
+        for (const char* key : {"ft", "basis", "factor"}) {
+            if (!landing->HasAttribute(key)) {
+                throw std::runtime_error(file.string() + " gives <landing_distance> without " +
+                                         key);
+            }
+        }
+        const double ft = landing->GetAttributeValueAsNumber("ft");
+        const double factor = landing->GetAttributeValueAsNumber("factor");
+        out.landing_basis = landing->GetAttributeValue("basis");
+        if (out.landing_basis != "over_50_ft_obstacle" && out.landing_basis != "field_length") {
+            throw std::runtime_error(file.string() + " gives a <landing_distance> basis '" +
+                                     out.landing_basis +
+                                     "', not over_50_ft_obstacle or field_length");
+        }
+        if (!(ft > 0.0 && factor >= 1.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a <landing_distance> not above 0, or a factor "
+                                     "below 1");
+        }
+        out.landing_need_m = ft * 0.3048 * factor;
+    }
+    if (no_landing != nullptr && no_landing->GetNumDataLines() == 0) {
+        throw std::runtime_error(file.string() + " gives <no_landing_distance> without its reason");
+    }
     return out;
+}
+
+double landing_need_m(const std::filesystem::path& data, const std::string& model) {
+    return read_published_figures(data / "figures" / (model + ".xml")).landing_need_m;
 }
 
 PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model) {

@@ -118,6 +118,16 @@ struct PublishedFigures {
     double measured_climb_kcas = 0.0;
     double measured_takeoff_flaps_deg = 0.0;
     double measured_takeoff_lbs = 0.0;
+    // **The runway it needs to land**, metres: `<landing_distance ft="..."
+    // basis="..." factor="...">`, its published landing distance times the
+    // margin the file states for its class - a light aeroplane's handbook
+    // distance over a 50 ft obstacle, or a transport's landing field length,
+    // which is already the demonstrated distance over 0.6 (14 CFR
+    // 121.195(b)). 0 where the file says, by `<no_landing_distance>`, that
+    // nothing published gives one, and why: then no runway is refused it for
+    // length. Every file says one or the other, once.
+    double landing_need_m = 0.0;
+    std::string landing_basis; // "over_50_ft_obstacle", "field_length"; empty: none
 };
 
 struct FigureResult {
@@ -137,6 +147,11 @@ PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& mod
 // The slowest a glide may fly `model`, KCAS: its figures file's
 // `<glide_speeds>`. Throws as `read_published_figures` does.
 double glide_slowest_kts(const std::filesystem::path& data, const std::string& model);
+
+// The runway `model` needs to land, metres (`PublishedFigures::landing_need_m`),
+// or 0 where nothing published gives it. Throws as `read_published_figures`
+// does.
+double landing_need_m(const std::filesystem::path& data, const std::string& model);
 
 // **A plan file is held to the aircraft it flies, and its speeds, as it is
 // read**, as a model's plan is (copilot/planner.cpp): throws FlightPlanError

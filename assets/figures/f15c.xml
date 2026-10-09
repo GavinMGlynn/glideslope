@@ -189,4 +189,9 @@
   <glide_speeds slowest_kcas="170">
     170 kt; from 160, the slowest a route may fly it, to 165 it stalled.
   </glide_speeds>
+
+  <no_landing_distance>
+    The Standard Aircraft Characteristics give no landing distance: no runway is
+    refused it for length.
+  </no_landing_distance>
 </published_figures>

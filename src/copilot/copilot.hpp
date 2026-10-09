@@ -20,9 +20,9 @@
 //     speed to the best climb; and with the engine stopped, only a glide. A
 //     glide flies neither its waypoints' heights nor their airspeeds, so
 //     neither is checked, but its orbits must be wide enough for its airspeed;
-//   - `land`, last, only on one of the runways nearby it was told of, under
-//     power, by an aircraft with an approach speed, and after no orbit flown
-//     for ever.
+//   - `land`, last, only on one of the runways nearby it was told of, long
+//     enough for it (Brief::landing_need_m), under power, by an aircraft
+//     with an approach speed, and after no orbit flown for ever.
 //
 // **It never slows the step.** A question is asked on a thread of its own,
 // and the answer, checked there, is picked up by whoever steps the
@@ -76,6 +76,10 @@ struct Brief {
     // The slowest a glide may fly it (sim::glide_slowest_kts), measured; 0
     // where not given.
     double glide_slowest_kts = 0.0;
+    // **The runway it needs to land**, metres (sim::landing_need_m): its
+    // published landing distance times its class's margin. 0 where nothing
+    // published gives one, and then no runway is refused it for length.
+    double landing_need_m = 0.0;
     std::string task; // what the pilot said, "follow the coast north to Palm Beach"
 };
 
@@ -170,9 +174,11 @@ const world::RunwayEnd* landing_field(const std::vector<world::RunwayEnd>& field
 // **Why `plan`'s landing may not be flown**, or empty if it may, or if it has
 // none: the checks a copilot's route and a planner's plan are both held to -
 // an aircraft with an approach speed to land at, no orbit before it flown for
-// ever, and a runway of `fields`, the ones the model was told of. A copilot's
-// glide is refused a landing before this is asked.
-std::string landing_refusal(double approach_kts, const sim::FlightPlan& plan,
+// ever, a runway of `fields`, the ones the model was told of, and that
+// runway's landing length (world::landing_length_m) at least `need_m`, what
+// the aircraft needs; a `need_m` of 0, none published, refuses none for
+// length. A copilot's glide is refused a landing before this is asked.
+std::string landing_refusal(double approach_kts, double need_m, const sim::FlightPlan& plan,
                             const std::vector<world::RunwayEnd>& fields);
 
 // Asks `provider` what to do now, and checks what it says: waits for the

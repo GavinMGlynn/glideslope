@@ -102,6 +102,14 @@ std::vector<RunwayEnd> read_runways(std::string_view csv) {
             r.elevation_ft = number_of(field(end + "elevation_ft"));
             r.heading_deg = number_of(field(end + "heading_degT"));
             r.length_m = length_m;
+            // Optional: a file without the column, or an empty field, displaces
+            // nothing; a displacement not inside the runway is not believed.
+            if (column.contains(end + "displaced_threshold_ft")) {
+                const double displaced_m = number_of(field(end + "displaced_threshold_ft")) * 0.3048;
+                if (displaced_m > 0.0 && displaced_m < length_m) {
+                    r.displaced_m = displaced_m;
+                }
+            }
             r.surface = field("surface");
             if (r.airport.empty() || r.ident.empty() || r.ident.starts_with('H') ||
                 !(r.latitude_deg >= -90.0 && r.latitude_deg <= 90.0) ||
