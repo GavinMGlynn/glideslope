@@ -265,6 +265,90 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Why the learnt landing flies fast, and a first try at training it stabilized, 2026-10-10 — item still open
+
+**What is not done first.** The item. No checkpoint trained here is
+stabilized by 500 ft from its gate's corners, so the committed policy is
+unchanged, the learnt landing keeps its exemption from the stabilized gate
+(controller.cpp's comment still says why), and its tests are unchanged.
+What lands is the training's reward for the speed from 500 ft down, and the
+gate's own judgement in the training's log; the next part of training starts
+from them.
+
+**Why it flies fast.** The approach's speed was shaped only by a potential
+(env.py's `potential`, Ng, Harada and Russell 1999), and a potential changes
+no optimum: the shaping telescopes to the potential at the end less the one
+at the start, and this one fades to nothing at the runway - so in all the
+policy was rewarded for the touch alone. It learnt to dive down the
+glidepath on power and touch from a fast approach. Traced at the gate's
+corner 2.4 miles out, 60 m left, 20 m low (calm, 57 kt): throttle up to 0.92,
+pitch down to -5.9 degrees, 91.6 kt at 466 ft, back to 61 kt only at 62 ft.
+The observation has what it needs - the speed off the reference is one of
+its inputs (`(kcas - vref) / 10`) - so option 2 of the item (the observation
+lacks it) does not apply.
+
+**The committed policy at the gate's 160 corners** (a scratch script flying
+them in JSBSim's Python bindings, judged as sim::unstabilized judges, two
+seconds running between 500 and 50 ft): 160 of 160 unstabilized; at most
+35.3 kt fast and 9.5 kt slow; all 160 land within the limits (worst 190
+ft/min, 2.14 m). In C++, with the gate judging the learnt landing (a change
+made and taken out again, below), the calm corners went round at "31 kt fast
+at 482 ft" and the like, 41 to 53 s running.
+
+**The reward** (tools/rl/env.py, `STABILIZED`): each tenth of a second
+between 500 and 50 ft over the runway, outside +5/-2 kt of the approach
+speed - inside the gate's +10/-5, a margin - costs `per_kt` a knot to 30,
+and outside the gate's own band `outside_gate` more. The Flier judges the
+gate's way too, step by step (`judge_the_gate`, `Flight.most_unstable_s`),
+and train.py logs how many of the last 400 flights it would have sent round.
+
+**Tried** (seed 160, four environments, niced, from the committed policy's
+checkpoint, step27000004.zip, sha256 ae2920df...; ~3,500 decisions a
+second):
+1. `per_kt` 0.02, nothing for the gate's band, learning rate 1e-4, the noise
+   held as before (`--log-std -2.5257`), four million decisions. The
+   training's flights the gate would send round fell from 385 of 400 to 58
+   by 29.9 million, landings within the limits 399 of 400; then rose again
+   to 380 by 30.8 million. At the corners: 29M 94 of 160 unstabilized (3
+   short of the landing limits; at most 18.1 kt fast, 12.7 slow), 30M 86 (0
+   short; 15.6 fast, 10.0 slow).
+2. From 30M at learning rate 3e-5: the same turn, 86 to 388 of 400 within a
+   million; at 31M all 160 corners unstabilized and 110 short of the
+   landing limits (off the centreline).
+3. `per_kt` 0.05 and `outside_gate` 0.3, from 30M at 3e-5: the same, 370 of
+   400 by 31M; at the corners 160 unstabilized, 120 short.
+
+**Why it turns slow.** Traced at 31M (part 3), calm, the near low corner:
+on speed from 400 to 120 ft, then the flare begins at about 100 ft and
+takes the speed to 49.5 kt by 53 ft - 10 kt slow where the gate still
+judges it - and to 45 kt at the touch, 106 ft/min. A flare from 100 ft buys
+a soft touch the touchdown's reward pays for (some 80 a touch) more than
+the speed's cost below 100 ft takes away. The gate judges down to 50 ft,
+where the policy has been flaring for 50 ft. **What next** (not tried, the
+time box spent): the flare taught to start lower - the speed's cost made
+to outweigh the touch's sink term, or the speed judged in training to the
+height the simulation's own flare starts - and the slow corner's pull-up
+from 20 m low (52 kt at 469 ft) needs the same. Starting again from the
+committed checkpoint rather than from 30M, whose landings were already
+turning, is the first thing to try.
+
+**The C++ for the gate, made and taken out.** LearntLander judged by
+sim::unstabilized at its policy's own speed each step (its `unstabilized()`
+reason once sustained, `most_unstable_s()`), and the controller going
+around for it - to the gate's runway, or for `to_ai_learnt_approach`,
+which sets no gate runway, the learnt landing's own - counting it as the
+gate's go-around; the 160-corner tests also asserting stabilized; and a
+new test building the go-around explicitly with 25 kt of wind shear at
+400 ft. With the committed policy the corner tests went red as above
+(seen to fail). Not committed: with no policy that meets the gate it would
+send the learnt landing round from every corner.
+
+**Verification** (linux-release, DISPLAY and WAYLAND_DISPLAY unset): nothing
+under src/ or tests/ changes. The selftest hash does not move
+(`182dd6c996e0ee4c`): it flies a pilot's input log and no approach, so a new
+policy would not move it either. tools/rl is not built or tested by ctest;
+env.py was run by the three trainings above and by the scratch evaluation.
+
 ### From the review of #162: handed over at any moment of a take-off's first 40 s, a touch-and-go, and the controllers' figures tested, 2026-10-10 — item stays done
 
 **What is still not done, first.** A frontend that stopped calling
