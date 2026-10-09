@@ -134,6 +134,11 @@ else()
             list(APPEND _asking --copilot-routine 20 --take-back-at ${TAKE_BACK_AT})
         endif()
     endif()
+    # THINKING, for a run by hand: each answer taken that many seconds after
+    # its question (10 unless given) - a slow machine's copilot, built.
+    if(DEFINED THINKING)
+        list(APPEND _asking --copilot-thinking ${THINKING})
+    endif()
     if(DEFINED MODEL)
         list(APPEND _asking --copilot-model "${MODEL}")
     endif()

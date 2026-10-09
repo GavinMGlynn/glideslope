@@ -633,7 +633,9 @@ std::optional<net::Watched> Online::watched_controls(double local_s) const {
     if (!clock_.known() || watched_.empty()) {
         return std::nullopt;
     }
-    const double at = clock_.now(local_s) - net::shown_behind_s;
+    // At the clock the aircraft watched is drawn at, so that its gauges
+    // move with it.
+    const double at = drawn_at_.peek(local_s, clock_) - net::shown_behind_s;
     const auto after = watched_.lower_bound(at);
     if (after == watched_.end()) {
         // Past the newest: held where it was, as a gauge would be.

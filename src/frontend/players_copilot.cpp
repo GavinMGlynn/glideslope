@@ -230,6 +230,7 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
     if (ai_flying_ && !ai_now && engaged_) {
         engaged_ = false;
         wanted_.reset();
+        wanted_routine_ = false;
         route_.clear();
         said_.push_back("its pilot has taken it back: the copilot stands by");
     }
@@ -246,10 +247,12 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
     if (engine_stopped && !engine_said_ && engaged_) {
         engine_said_ = true;
         wanted_ = "the engine has stopped";
+        wanted_routine_ = false;
     }
     if (!wanted_ && engaged_ && ai_now && !helper_->asking() && answered_at_s_ &&
         o_.routine_s > 0.0 && simulation_s - *answered_at_s_ >= o_.routine_s) {
         wanted_ = "a routine look";
+        wanted_routine_ = true;
     }
     if (wanted_ && !helper_->asking()) {
         const std::string event = *wanted_;
@@ -270,6 +273,8 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
             })) {
             said_.push_back("asked its copilot, " + event);
             asked_about_ = event;
+            routine_out_ = wanted_routine_;
+            wanted_routine_ = false;
             wanted_.reset();
             asked_at_s_ = simulation_s;
             ++questions_;
@@ -306,8 +311,9 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
         // most; a routine look comes round anyway.
         answered_at_s_ = simulation_s;
         said_.push_back(std::string("its copilot could not be told where it is: ") + e.what());
-        if (asked_about_ != "a routine look" && ++asked_again_ <= 2) {
+        if (!routine_out_ && ++asked_again_ <= 2) {
             wanted_ = asked_about_;
+            wanted_routine_ = false; // a routine look is never asked again
         }
         return std::nullopt;
     }

@@ -298,11 +298,21 @@ Tests (tests/unit/test_interpolation.cpp):
 - `the_clock_aircraft_are_drawn_at_does_not_step_under_long_uneven_frames`:
   the table below, five seeds each - 20 runs of a minute, asserted all run -
   each frame's step held to a tenth of the frame (what the slew can move in
-  it: 2.9 m at 42 m/s and 700 ms), and the clock drawn at within 0.7 s of the
-  fit. Measured 0.00 ms in every case. **Seen to fail** with the fitted clock
-  drawn at instead (`clock.now`, `clock.rate()`): "with passes of 17 ms the
-  clock drawn at stepped 6.009 ms in a frame, 35.3% of it"; reverted, it
-  passes.
+  it: 2.9 m at 42 m/s and 700 ms) - measured 0.00 ms in every case, which is
+  near circular, since the step is measured against the clock's own `rate()`
+  and that counts its pace. **So it is judged from outside as well** (from
+  the review): over every frame, from two drawn times, the clock drawn at
+  must go at the fit's rate within the slew's tenth (at worst 0.006, 0.018,
+  0.100 and 0.100 off it, by kind of pass); and it must stay within the
+  longest pass of the fit, how far a pass can put the fit out (at most 16,
+  27, 107 and 256 ms off it) - not 0.5 s, which the snap holds whatever
+  happens and which would say nothing. **Seen to fail three ways**: with the
+  fitted clock drawn at instead (`clock.now`, `clock.rate()`), first "with
+  passes of 17 ms the clock drawn at stepped 6.009 ms in a frame, 35.3% of
+  it", and with the outside checks in, "the clock drawn at went at 0.694 of
+  real time over a frame where the fit went at 0.999"; with the slew's cap
+  taken out (`pace_ = difference / settle_s`), "went at 0.706 ... where the
+  fit went at 0.920". Each reverted, it passes.
 - `a_real_change_of_the_sessions_clock_is_followed_within_its_stated_time`:
   the latency changed 20 s in by +0.3 s, -0.3 s and +2 s: settled to a
   millisecond in 5.68, 6.90 and 9.32 s against 12 s; the 2 s change snapped
@@ -358,6 +368,14 @@ Stamping each update with when it arrived was not open: they are read a
 pass at a time, and only the socket's own timestamps could say when within
 it each came, so the clock is slewed (above).
 
+**`others()` moves the clock on, so it is called once a frame**; the
+watched aircraft's controls are read at the same clock without moving it
+(`ShownClock::peek`). `session_now_s_` - the time the server's air and the
+prediction are on - stays the fit's: the two are apart by no more than the
+longest pass, and never past 0.5 s, where the clock drawn at snaps to the
+fit. **A snap is a step, and may go backwards** - a latency risen by two
+seconds, a server started again - which the header says.
+
 **Fixed: the take-back test only sometimes tested its rule.** CI run
 37866144089's windows-debug job failed
 `a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back_as_recorded`
@@ -373,14 +391,25 @@ its copilot has a routine look out (`frontend::PlayersCopilot::looking`), and
 an answer cannot be taken sooner than `thinking_s`, 10 s of the session's
 clock, after it was asked - so one always comes after the take-back. The test
 passes `TAKE_BACK_AT=looking` (tests/CMakeLists.txt,
-tests/cmake/server_copilot.cmake); `--take-back-at S` is kept.
+tests/cmake/server_copilot.cmake); `--take-back-at S` is kept. A look out
+is a flag set when the routine look is asked, not the words it was asked
+with. The flag refuses, exit 2, without a `--copilot` task and a
+`--copilot-routine`, and a run that never had a routine look out to take it
+back during ends 1, saying so (that path not exercised by a test).
+`--copilot-thinking S` (for tests; `THINKING` in the script, by hand) sets
+how long an answer is taken after its question.
 
 **Verified** (linux-release): the test passes (84 s), its client saying "asked
 its copilot, a routine look", then "its pilot has taken it back: the copilot
 stands by", then "its copilot answered with a route of 1, and was not heard";
-the server handed the aircraft to the AI once. Not seen red in this change:
-its rule's own red (the standing by taken out) is the 2026-09-30 one, and the
-race it removes was not built.
+the server handed the aircraft to the AI once. **Seen red** (by hand, each
+reverted): the old timed take-back (`TAKE_BACK_AT=40`) with every answer
+taken 21 s after its question (`THINKING=21`, a first answer at 26 s, as a
+slow machine's) failed with CI's own words, "no route came after the
+take-back, so the rule was not tested", while `looking` with the same delay
+passed; and `looking` with the standing by taken out (`engaged_` left set in
+`taken_back` and in `look`) failed both of two runs, its client sending "its
+copilot's route of 1 at 45 s", after the take-back.
 
 ### A landing on a runway too short for the aircraft is refused, for ten of the sixteen, 2026-10-09 — item open
 

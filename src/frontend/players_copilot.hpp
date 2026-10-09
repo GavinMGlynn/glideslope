@@ -103,6 +103,7 @@ public:
     // The player asks: at the next look, and engaged from then.
     void ask() {
         wanted_ = "the pilot has asked";
+        wanted_routine_ = false;
         engaged_ = true;
     }
     // **Handed to the AI by its player, with this copilot as the model that
@@ -112,6 +113,7 @@ public:
     // the question so that the hand-over is planned as one.
     void handed_over(const std::string& words = {}) {
         wanted_ = "the pilot has handed you the aircraft";
+        wanted_routine_ = false;
         if (!words.empty()) {
             *wanted_ += ", saying: " + words;
         }
@@ -128,6 +130,7 @@ public:
         }
         engaged_ = false;
         wanted_.reset();
+        wanted_routine_ = false;
         route_.clear();
     }
     bool engaged() const {
@@ -138,7 +141,7 @@ public:
     // the aircraft back now (`--take-back-while-looking`) has an answer come
     // after the take-back every time, not only when the clocks fall right.
     bool looking() const {
-        return helper_->asking() && asked_about_ == "a routine look";
+        return helper_->asking() && routine_out_;
     }
 
     // **A look, between two frames**, with the newest update's clock and the
@@ -178,6 +181,10 @@ private:
     bool ai_flying_ = false;
     bool engine_said_ = false;
     std::optional<std::string> wanted_;
+    // Whether what is wanted, and what was last asked, is a routine look:
+    // flags, not the words said, for `looking`.
+    bool wanted_routine_ = false;
+    bool routine_out_ = false;
     std::optional<double> asked_at_s_;
     std::optional<double> answered_at_s_;
     std::vector<sim::Waypoint> route_;

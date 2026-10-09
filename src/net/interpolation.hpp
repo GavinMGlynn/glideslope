@@ -190,7 +190,14 @@ private:
 // would draw every aircraft seconds wrong for most of a minute. One within it
 // settles to a millisecond within `settles_within_s`, 12 s: half a second at
 // a tenth is 5 s, and the last tenth of a second, at most, takes
-// `settle_s * ln(100)` more, 4.6 s.
+// `settle_s * ln(100)` more, 4.6 s. **A snap is a step, and may go
+// backwards**: the session's clock found two seconds earlier than it was
+// drawn at (a latency risen that much, a server started again) puts what is
+// drawn two seconds back, at once. Only a snap does; `snaps()` counts them.
+//
+// **`at` is stateful**: it moves the clock on to `local_s`, so it is called
+// once a frame, by the one thing drawing at it; anything else wanting the
+// same frame's time asks `peek`, which changes nothing.
 class ShownClock {
 public:
     static constexpr double most_slew = 0.1;
@@ -201,6 +208,11 @@ public:
     // The session's time to draw at this machine's `local_s`, following
     // `clock`, which must be known.
     double at(double local_s, const SessionClock& clock);
+    // Where `at` left it, carried on to `local_s` at `rate()`, changing
+    // nothing; the fit's own time before `at` has been asked.
+    double peek(double local_s, const SessionClock& clock) const {
+        return has_ ? shown_s_ + rate() * (local_s - local_s_) : clock.now(local_s);
+    }
     // How fast what `at` gives moves on from here, in session seconds a
     // second of this machine's: the fitted rate and the pace together.
     double rate() const { return rate_ + pace_; }

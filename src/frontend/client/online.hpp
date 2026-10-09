@@ -189,7 +189,9 @@ public:
     // a server started again counts from nought, under it.
     std::optional<double> old_session_s() const { return old_session_s_; }
 
-    // Every other aircraft, where it is to be drawn at `local_s`.
+    // Every other aircraft, where it is to be drawn at `local_s`. **Called
+    // once a frame**: it moves on the clock they are drawn at
+    // (net::ShownClock), which never steps.
     std::vector<Other> others(double local_s);
 
     // **Riding along** in the aircraft numbered `number` (`WATCH`), or in
@@ -416,7 +418,13 @@ private:
     int arrived_in_ = 0;
     net::SessionClock clock_;
     // The clock the others - and its own while the AI flies it - are drawn
-    // at: the session's, slewed and never stepped (net::ShownClock).
+    // at: the session's, slewed and never stepped (net::ShownClock), moved
+    // on by `others` and read by `watched_controls`. The session's own,
+    // `clock_`, still says `session_now_s_` - the time the server's air and
+    // the prediction are on, which must be the fit's, not what is drawn:
+    // the two are apart by no more than the longest pass (256 ms at most in
+    // the unit test's passes of up to 700 ms), and never past 0.5 s, where
+    // the clock drawn at snaps to the fit.
     net::ShownClock drawn_at_;
     // The session's clock as of this frame (`fly`), which the server's air
     // is on, and how much of what the server has said has been taken in:
