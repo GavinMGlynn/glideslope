@@ -20,6 +20,7 @@
 // the runway's own elevation.
 
 #include "sim/aircraft.hpp"
+#include "sim/catalogue.hpp"
 #include "sim/leaner.hpp"
 #include "sim/lander.hpp"
 
@@ -40,6 +41,19 @@ struct DepartureSpeeds {
     // what a jet climbs out at before it cleans up and accelerates.
     double initial_climb_kts = 75.0;
     double flap = 0.0;        // the take-off flap setting, 0 to 1
+    // **The height the take-off flap starts coming up at**, feet above the
+    // runway, once she is at `initial_climb_kts`. A light aeroplane's is 50:
+    // the FAA's Airplane Flying Handbook (FAA-H-8083-3C, chapter 6, the
+    // short-field take-off) climbs over the 50 ft obstacle, then "when the
+    // airplane is stabilized at Vy, the landing gear (if retractable) and
+    // flaps should be retracted ... in increments to avoid sudden loss of
+    // lift and settling of the airplane". Every other's is 400: no change of
+    // configuration below 400 ft on the take-off path, 14 CFR 25.111(c)(4),
+    // which binds the airliners and the business jet and is the most a
+    // warbird, a flying boat or a fighter is held to without a handbook
+    // height of its own. Speeds made by hand, with no class to go by, take
+    // the higher (`flaps_up_ft`, below, gives either).
+    double flaps_up_ft = 400.0;
     // **A flying boat's running attitude on the water**, degrees, held from
     // the start of the run until the rotation speed, and three more from
     // there until the hull is clear - as Arthur Gouge flew the Short S.23's
@@ -81,6 +95,10 @@ struct DepartureSpeeds {
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                                  const std::string& model);
 
+// The height a take-off starts raising its flap at, feet above the runway,
+// for an aeroplane of class `of` (DepartureSpeeds::flaps_up_ft).
+double flaps_up_ft(AircraftClass of);
+
 class Departure {
 public:
     enum class Stage { roll, rotate, climb, done };
@@ -94,6 +112,10 @@ public:
     // had - the controls a controller hands over - to lean from.
     void hand_mixture(double mixture);
     Stage stage() const { return stage_; }
+    // **Through its height with its take-off trim off**: where the take-off
+    // was over before it waited for the flap too. The take-off trials read
+    // their climb away here, at the take-off flap their speeds were found at.
+    bool climbed_out() const { return climbed_out_; }
 
     // Where the aeroplane is with respect to the runway, as the last `fly`
     // saw it: metres down the runway from the threshold, right of the
@@ -124,6 +146,14 @@ private:
     Runway runway_;
     DepartureSpeeds speeds_;
     double to_ft_ = 500.0;
+    // The flap lever as this take-off has it, the notch it is moving to,
+    // and the flaps' own position a step ago and how many steps they have
+    // stood still.
+    double flap_lever_ = 0.0;
+    double flap_aim_ = 0.0;
+    double last_flap_deg_ = 0.0;
+    int flaps_still_steps_ = 0;
+    bool climbed_out_ = false;
     Stage stage_ = Stage::roll;
 
     double along_m_ = 0.0;
@@ -160,6 +190,9 @@ private:
 
     void measure();
     void read_the_gear();
+    void retract_flaps(double kcas);
+    // The lever up and the flaps stopped.
+    bool flaps_up() const;
 
 public:
     // The speeds she is flown at, for what she weighs.

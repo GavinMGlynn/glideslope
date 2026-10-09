@@ -1619,6 +1619,10 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
         ic.gear = 1.0;
         aircraft.initialize(ic);
         glideslope::sim::Controller controller(aircraft, glideslope::sim::Controls{});
+        // The speed the take-off climbs her away at, for what she weighs
+        // (Departure::speeds), read while it flies her.
+        double climb_kts = 0.0;
+        double slowest_climb_kcas = std::numeric_limits<double>::infinity();
         controller.to_ai_flying(plan, glideslope::sim::departure_speeds(data, entry.model));
 
         // **The take-off autopilot flies it off**: flying from the first step,
@@ -1651,6 +1655,7 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
                 break;
             }
             if (!took_off) {
+                climb_kts = controller.departure()->speeds().initial_climb_kts;
                 continue;
             }
             const double d = glideslope::sim::distance_m(
@@ -1678,29 +1683,46 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
                 std::numbers::pi / 180.0;
             worst_off_leg_m =
                 std::max(worst_off_leg_m, std::abs(std::asin(std::sin(from) * std::sin(angle))) * r);
+            // The first leg's climb: from the hand-over until she is within
+            // 50 ft of the waypoint's height.
+            if (aircraft.property("position/h-sl-ft") < 1950.0) {
+                slowest_climb_kcas = std::min(slowest_climb_kcas, aircraft.state().airspeed_kts);
+            }
         }
         std::fprintf(stderr,
                      "%s: taken off to %.0f ft, and passed OUT %.0f m off at %.0f ft, in %d s, "
-                     "straying at most %.0f m from the leg from where it was handed over\n",
+                     "straying at most %.0f m from the leg from where it was handed over; "
+                     "climbing it at no less than %.1f KCAS (climb speed %.1f)\n",
                      id.c_str(), handed_over_at_ft, closest_m, altitude_there_ft,
-                     steps / steps_per_second, worst_off_leg_m);
+                     steps / steps_per_second, worst_off_leg_m, slowest_climb_kcas, climb_kts);
+        // **The first leg is climbed at her climb speed**: the speed the
+        // take-off climbs her away at for what she weighs, which she is
+        // handed over at, less 5. From there, clean, the autopilot's floor
+        // takes her on to her published best-climb speed. Measured: the
+        // 172P 1.7 under, the 182S 0.1 under, the Cherokee 2.6 over; the
+        // Cub, which has no flap, 4.8 under, as before the take-off flap
+        // came up - why was not traced. With the take-off flap kept out the
+        // Cherokee bled to 51.5 KCAS against her 63.8.
+        check(climb_kts > 0.0 && slowest_climb_kcas >= climb_kts - 5.0,
+              id + " climbed its first leg at no less than " +
+                  std::to_string(slowest_climb_kcas) + " KCAS, against its climb speed of " +
+                  std::to_string(climb_kts) + " less 5");
         check(departing && took_off && handed_over_at_ft >= 500.0,
               id + " was taken off by the take-off autopilot, which handed it to the "
                    "plan at " + std::to_string(handed_over_at_ft) + " ft (500 asked)");
         check(controller.navigator() != nullptr && controller.navigator()->finished(),
               id + " flew the plan to its end after taking off");
-        // **What strays it is the climb's airspeed.** The plan climbs each
-        // of them at about 700 ft/min with its take-off flap still out, and
-        // its heading 2.5 to 3 degrees short of the waypoint's bearing until
-        // the airspeed builds; so the slower the climb's airspeed and the
-        // longer the climb, the further off the leg. The Cherokee, full rich
-        // below 5,000 ft as her handbook has it, bleeds from 58 to 52 KCAS
-        // and strays 151 m; leaned on the same engine, gaining 60 to 66, 79
-        // m; the others at most 65. Flying the leg from the threshold
-        // instead strays 219 to 383 m, so 200 still tells the two apart.
-        check(worst_off_leg_m <= 200.0,
+        // **What strays it is the climb's airspeed**: the heading sits 2.5
+        // to 3 degrees short of the waypoint's bearing until the airspeed
+        // builds, so the slower the climb, the further off the leg. With
+        // her take-off flap handed to the plan and kept out, the Cherokee,
+        // full rich, bled from 58 to 52 KCAS and strayed 151 m; with it up
+        // before the hand-over (sim/departure.hpp), 46 m, and the others at
+        // most 66. Flying the leg from the threshold instead strays 219 to
+        // 383 m.
+        check(worst_off_leg_m <= 100.0,
               id + " flew its first leg from where the take-off handed over, straying " +
-                  std::to_string(worst_off_leg_m) + " m from it (at most 200)");
+                  std::to_string(worst_off_leg_m) + " m from it (at most 100)");
         check(closest_m <= 100.0 && std::abs(altitude_there_ft - 2000.0) <= 50.0,
               id + " passed its waypoint " + std::to_string(closest_m) +
                   " m off (at most 100), at " + std::to_string(altitude_there_ft) +
@@ -1709,6 +1731,180 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
     }
     check(!light.empty() && flown == light.size(),
           "every light aeroplane in the catalogue flown: " + std::to_string(flown));
+}
+
+// **The take-off flap comes up before the plan has her, and stays up.** Every
+// aircraft the catalogue holds - a seaplane from water - is taken off by a
+// plan to 500 ft and flown on to a waypoint 15 km off at 3,000 ft. By the
+// hand-over to the plan the flap lever is up and the flaps have stopped
+// there; from the moment they are up to the waypoint they never come out
+// again, and she is never slower than her flaps-up stall: the stall at the
+// least flap her figures publish (for the airliners that is their take-off
+// flap's, a little below the clean stall; the 747-400 and the F-22A publish
+// none, and are named below). The lever moves no faster than a
+// hand, a 120th of its travel a step, and it stops at every notch between
+// the take-off flap and up for at least a second.
+GLIDESLOPE_TEST(every_aircraft_raises_its_take_off_flap_before_the_plan_has_it_and_keeps_above_its_flaps_up_stall) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const std::vector<glideslope::sim::CatalogueEntry> catalogue =
+        glideslope::sim::read_catalogue(data);
+    std::string failures;
+    const auto expect = [&](bool condition, const std::string& what) {
+        if (!condition) {
+            failures += "\n  " + what;
+        }
+    };
+    std::size_t flown = 0;
+    std::size_t with_flap = 0;
+    for (const auto& entry : catalogue) {
+        const std::string& id = entry.id;
+        const glideslope::sim::DepartureSpeeds speeds =
+            glideslope::sim::departure_speeds(data, entry.model);
+        const glideslope::sim::PlanSpeeds allowed = glideslope::sim::plan_speeds(data, entry.model);
+        const double leg_kts = std::clamp(speeds.climb_kts, allowed.slowest_kts, allowed.fastest_kts);
+        // Her flaps-up stall: the stall at the least flap her figures publish.
+        const glideslope::sim::PublishedFigures figures =
+            glideslope::sim::read_published_figures(data / "figures" / (entry.model + ".xml"));
+        double stall_kcas = 0.0;
+        double stall_flap_deg = std::numeric_limits<double>::infinity();
+        for (const auto& spec : figures.figures) {
+            if (spec.flight != "stall_speed") {
+                continue;
+            }
+            const auto at = spec.conditions.find("flaps_deg");
+            const double flap_deg = at == spec.conditions.end() ? 0.0 : at->second;
+            if (flap_deg < stall_flap_deg) {
+                stall_flap_deg = flap_deg;
+                stall_kcas = spec.published;
+            }
+        }
+        const FlightPlan plan = parse_flight_plan(
+            "aircraft " + id + "\nrunway 07 -33.9461 151.1772 0 70 3000\ntakeoff 500\n" +
+            "waypoint OUT -33.85 151.30 3000 " + std::to_string(static_cast<int>(leg_kts)) + "\n");
+        glideslope::sim::Aircraft aircraft(data / "jsbsim", entry.model);
+        const bool seaplane = entry.seaplane;
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [seaplane](double, double) { return seaplane; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = plan.takeoff->runway.threshold_lat_deg;
+        ic.longitude_deg = plan.takeoff->runway.threshold_lon_deg;
+        ic.altitude_ft = plan.takeoff->runway.elevation_ft;
+        ic.terrain_elevation_ft = plan.takeoff->runway.elevation_ft;
+        ic.heading_deg = plan.takeoff->runway.heading_deg;
+        ic.airspeed_kts = 0.0;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Controller controller(aircraft, glideslope::sim::Controls{});
+        controller.to_ai_flying(plan, speeds);
+
+        // **Flaps the pilot works**: an aeroplane whose figures give its
+        // flaps no travel has none to work. The F-22A's model moves its own
+        // flaperons as its flight controls see fit, under fcs/flap-pos-deg,
+        // and no lever reaches them.
+        const bool has_position =
+            figures.flaps_full_deg > 0.0 && aircraft.has_property("fcs/flap-pos-deg");
+        const auto flap_deg = [&] {
+            return has_position ? aircraft.property("fcs/flap-pos-deg") : 0.0;
+        };
+        // The notches the lever must stop at on the way up.
+        std::vector<double> stops;
+        for (const double notch : aircraft.flap_notches()) {
+            if (notch > 1e-9 && notch < speeds.flap - 1e-9) {
+                stops.push_back(notch);
+            }
+        }
+        std::vector<int> held_at(stops.size(), 0);
+        double last_lever = speeds.flap;
+        double fastest_lever = 0.0;
+        bool flaps_were_up = speeds.flap <= 0.0;
+        bool out_again = false;
+        double slowest_up_kcas = std::numeric_limits<double>::infinity();
+        bool handed_over = false;
+        double handed_lever = -1.0;
+        double handed_deg = -1.0;
+        double handed_ft = 0.0;
+        double up_at_ft = 0.0;
+        bool airborne = false;
+        bool reached = false;
+        int steps = 0;
+        for (; steps < 15 * 60 * steps_per_second; ++steps) {
+            const glideslope::sim::Controls c = controller.fly();
+            aircraft.set_controls(c);
+            aircraft.step();
+            const double height_ft = aircraft.property("position/h-sl-ft");
+            airborne = airborne || height_ft > 20.0;
+            fastest_lever = std::max(fastest_lever, std::abs(c.flaps - last_lever));
+            for (std::size_t i = 0; i < stops.size(); ++i) {
+                if (std::abs(c.flaps - stops[i]) < 1e-9 && std::abs(last_lever - stops[i]) < 1e-9) {
+                    ++held_at[i];
+                }
+            }
+            last_lever = c.flaps;
+            if (!handed_over && controller.departure() == nullptr) {
+                handed_over = true;
+                handed_lever = c.flaps;
+                handed_deg = flap_deg();
+                handed_ft = height_ft;
+            }
+            if (airborne && !flaps_were_up && c.flaps <= 0.0 && flap_deg() <= 0.5) {
+                flaps_were_up = true;
+                up_at_ft = height_ft;
+            }
+            if (flaps_were_up && airborne) {
+                out_again = out_again || c.flaps > 0.0 || flap_deg() > 0.5;
+                slowest_up_kcas = std::min(slowest_up_kcas, aircraft.state().airspeed_kts);
+            }
+            const glideslope::sim::Navigator* navigator = controller.navigator();
+            if (handed_over && navigator != nullptr && navigator->finished()) {
+                reached = true;
+                break;
+            }
+        }
+        std::fprintf(stderr,
+                     "%s: take-off flap %.3f (%zu notches between it and up); up at %.0f ft; "
+                     "handed over at %.0f ft with the lever at %.3f and the flaps at %.2f deg; "
+                     "slowest with them up %.1f KCAS against a stall of %.1f; fastest lever "
+                     "%.5f a step; %s in %d s\n",
+                     id.c_str(), speeds.flap, stops.size(), up_at_ft, handed_ft, handed_lever,
+                     handed_deg, slowest_up_kcas, stall_kcas, fastest_lever,
+                     reached ? "reached OUT" : "did not reach OUT", steps / steps_per_second);
+        if (speeds.flap > 0.0) {
+            ++with_flap;
+        }
+        expect(handed_over && reached, id + " was taken off and flew its plan to OUT");
+        expect(handed_lever == 0.0 && handed_deg <= 0.5,
+               id + " was handed to the plan with its lever at " + std::to_string(handed_lever) +
+                   " and its flaps at " + std::to_string(handed_deg) + " deg (up asked)");
+        expect(flaps_were_up && !out_again,
+               id + "'s flaps came up and stayed up to OUT");
+        // **Two publish no stall**, and their speeds were measured from their
+        // models (`<takeoff_speeds>`): the 747-400 and the F-22A. They are
+        // left out of the stall bound and nothing else, and the test says
+        // so if either comes to publish one.
+        const bool no_stall_published = id == "747-400" || id == "f22";
+        expect(no_stall_published == (stall_kcas <= 0.0),
+               id + (no_stall_published ? " is named as publishing no stall, and publishes one"
+                                        : " publishes no stall, and is not named"));
+        expect(no_stall_published || slowest_up_kcas >= stall_kcas,
+               id + " was never slower than its flaps-up stall with them up: " +
+                   std::to_string(slowest_up_kcas) + " KCAS against " + std::to_string(stall_kcas));
+        expect(fastest_lever <= 1.0 / steps_per_second + 1e-9,
+               id + "'s lever moved " + std::to_string(fastest_lever) + " in a step (at most 1/120)");
+        for (std::size_t i = 0; i < stops.size(); ++i) {
+            expect(held_at[i] >= steps_per_second,
+                   id + "'s lever stood at its notch " + std::to_string(stops[i]) + " for " +
+                       std::to_string(held_at[i]) + " steps (a second asked)");
+        }
+        ++flown;
+    }
+    std::fprintf(stderr, "%zu of %zu aircraft flown, %zu taking off with flap\n", flown,
+                 catalogue.size(), with_flap);
+    check(flown == catalogue.size() && flown > 0,
+          "every aircraft in the catalogue flown: " + std::to_string(flown) + " of " +
+              std::to_string(catalogue.size()));
+    check(failures.empty(), "every aircraft's take-off flap up before the plan:" + failures);
 }
 
 // **A plan that ends in a landing** (`land`): read - the runway whole, as a

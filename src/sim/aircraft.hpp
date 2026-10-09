@@ -343,6 +343,15 @@ public:
         return go_around_flaps_;
     }
 
+    // **The flap lever's notches**, 0 to 1 and in order, 0 and 1 among
+    // them: the settings of the kinematic its model's flap command drives,
+    // each as the lever position that asks for it (aircraft.cpp). The
+    // Cherokee's 0, 10, 25 and 40 degrees are 0, 0.25, 0.625 and 1. Empty
+    // where the model has no such kinematic.
+    const std::vector<double>& flap_notches() const {
+        return flap_notches_;
+    }
+
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
     // elevation, from now on. Heights, InitialConditions' altitude included,
     // are then above the WGS84 ellipsoid, which is JSBSim's sea level; the
@@ -532,6 +541,7 @@ private:
     double yaw_damper_per_degps_ = 0.05;
     double rudder_integral_rate_ = 0.05;
     std::optional<double> go_around_flaps_;
+    std::vector<double> flap_notches_;
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;

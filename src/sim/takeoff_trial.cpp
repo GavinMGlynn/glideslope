@@ -69,7 +69,9 @@ TakeoffFlown fly_takeoff_trial(const std::filesystem::path& data, const Catalogu
             out.slowest_airborne_kts =
                 std::min(out.slowest_airborne_kts, aircraft.state().airspeed_kts);
         }
-        if (departure.stage() == Departure::Stage::done) {
+        // **Climbed out**, where the take-off was over when these trials
+        // were written: it now climbs on until its take-off flap is up too.
+        if (departure.climbed_out()) {
             out.handed_over = true;
             out.handed_over_kts = aircraft.state().airspeed_kts;
             break;
@@ -100,6 +102,10 @@ MeasuredTakeoff measure_takeoff_speeds(const std::filesystem::path& data,
         speeds.rotate_kts = rotate_kts;
         speeds.climb_kts = climb_kts;
         speeds.initial_climb_kts = climb_kts;
+        // **Measured at the take-off flap**, as the speeds are written
+        // (`flaps_deg`): the flap stays out to where the climb away is read
+        // (Departure::climbed_out).
+        speeds.flaps_up_ft = std::numeric_limits<double>::infinity();
         speeds.flap = figures.flaps_full_deg > 0.0
                           ? std::clamp(out.flaps_deg / figures.flaps_full_deg, 0.0, 1.0)
                           : 0.0;
