@@ -241,4 +241,34 @@ double SessionClock::now(double local_s) const {
     return at_zero_s_ + rate_ * local_s;
 }
 
+double ShownClock::at(double local_s, const SessionClock& clock) {
+    const double fitted = clock.now(local_s);
+    if (!has_) {
+        has_ = true;
+        local_s_ = local_s;
+        shown_s_ = fitted;
+        rate_ = clock.rate();
+        return shown_s_;
+    }
+    const double dt = std::max(0.0, local_s - local_s_);
+    // Moved on as it was moving: the rate, and the pace - but never past
+    // the difference that pace was chosen to close.
+    double slewed = pace_ * dt;
+    if (std::abs(slewed) > std::abs(aimed_s_)) {
+        slewed = aimed_s_;
+    }
+    shown_s_ += rate_ * dt + slewed;
+    local_s_ = std::max(local_s_, local_s);
+    rate_ = clock.rate();
+    double difference = fitted - shown_s_;
+    if (std::abs(difference) > snap_beyond_s) {
+        shown_s_ = fitted;
+        difference = 0.0;
+        ++snaps_;
+    }
+    aimed_s_ = difference;
+    pace_ = std::clamp(difference / settle_s, -most_slew, most_slew);
+    return shown_s_;
+}
+
 } // namespace glideslope::net

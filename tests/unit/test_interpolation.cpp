@@ -680,3 +680,170 @@ GLIDESLOPE_TEST(a_wreck_that_flies_again_is_drawn_where_it_flies_again_moving_sa
     std::printf("  %zu frames after flying again: at worst %.3f m off and %.1f m/s\n", drawn,
                 worst_from_m, fastest_mps);
 }
+
+namespace {
+
+// Updates thirty a second over 100 ms of latency and 10 ms of jitter, heard
+// as the window client hears them: a pass at a time, every one at the
+// pass's own time. Every third pass is long - `long_s`, or up to it at
+// random - and the rest 17 ms. The worst step of the clock drawn at: how far
+// a frame's time is from where the frame before, moving on at the rate it
+// gave, carries it.
+struct ClockRun {
+    double worst_step_s = 0.0;
+    double worst_step_share = 0.0; // of its frame's length
+    std::size_t frames = 0;
+};
+template <typename Drawn>
+ClockRun run_passes(unsigned seed, double long_s, bool at_random, Drawn drawn) {
+    std::mt19937 random(seed);
+    std::uniform_real_distribution<double> unit(0.0, 1.0);
+    struct Arrival {
+        double local_s;
+        double session_s;
+    };
+    std::vector<Arrival> arrivals;
+    for (int i = 0; i < 60 * 30; ++i) {
+        const double session_s = i / 30.0;
+        arrivals.push_back({session_s + 0.100 + 0.010 * unit(random), session_s});
+    }
+    std::sort(arrivals.begin(), arrivals.end(),
+              [](const Arrival& a, const Arrival& b) { return a.local_s < b.local_s; });
+    glideslope::net::SessionClock clock;
+    ClockRun run;
+    std::size_t next = 0;
+    double local_s = 0.0;
+    bool before = false;
+    double before_local_s = 0.0;
+    double before_s = 0.0;
+    double before_rate = 1.0;
+    for (int pass = 0; local_s < 60.0; ++pass) {
+        local_s += pass % 3 == 0 ? long_s * (at_random ? unit(random) : 1.0) : 0.017;
+        for (; next < arrivals.size() && arrivals[next].local_s <= local_s; ++next) {
+            clock.heard(arrivals[next].session_s, local_s);
+        }
+        if (!clock.known()) {
+            continue;
+        }
+        double rate = 1.0;
+        const double shown_s = drawn(local_s, clock, rate);
+        // Judged after the fit's first window, as a player sees it.
+        if (before && local_s > 3.0) {
+            const double dt = local_s - before_local_s;
+            const double step = std::abs(shown_s - before_s - before_rate * dt);
+            run.worst_step_s = std::max(run.worst_step_s, step);
+            if (dt > 0.0) {
+                run.worst_step_share = std::max(run.worst_step_share, step / dt);
+            }
+            ++run.frames;
+        }
+        before = true;
+        before_local_s = local_s;
+        before_s = shown_s;
+        before_rate = rate;
+    }
+    return run;
+}
+
+} // namespace
+
+// **The clock aircraft are drawn at does not step under long, uneven
+// frames** (net::ShownClock). The session's fitted clock jumped by up to a
+// pass when the window client's passes were long and uneven, because every
+// update heard in a pass is heard at the pass's time: 88.9 ms in one frame
+// with passes up to 400 ms, 165.5 ms up to 700 ms - 3.8 and 7.0 m at 42 m/s,
+// the kind of CI's 5.4 m step (PROJECT_STATUS.md, 2026-10-09). The table:
+// passes of 17 ms; 329 ms every third pass; up to 400 ms and up to 700 ms at
+// random - five seeds each, twenty runs of a minute. The bound on a frame's
+// step is what the slew can move in it, a tenth of the frame - at 42 m/s
+// and 700 ms, 2.9 m; and the clock drawn at stays within the most a pass
+// can put the fit out, 0.7 s, of it.
+GLIDESLOPE_TEST(the_clock_aircraft_are_drawn_at_does_not_step_under_long_uneven_frames) {
+    struct Case {
+        double long_s;
+        bool at_random;
+    };
+    const Case cases[] = {{0.017, false}, {0.329, false}, {0.400, true}, {0.700, true}};
+    std::size_t runs = 0;
+    for (const Case& c : cases) {
+        double worst_s = 0.0;
+        double worst_share = 0.0;
+        for (unsigned seed = 0; seed < 5; ++seed) {
+            glideslope::net::ShownClock shown;
+            const ClockRun run = run_passes(
+                seed, c.long_s, c.at_random,
+                [&](double local_s, const glideslope::net::SessionClock& clock, double& rate) {
+                    const double s = shown.at(local_s, clock);
+                    rate = shown.rate();
+                    check(std::abs(s - clock.now(local_s)) <= 0.7,
+                          "the clock drawn at is more than 0.7 s from the session's");
+                    return s;
+                });
+            check(run.frames > 100, "the clock was judged at " + std::to_string(run.frames) +
+                                        " frames of a minute");
+            worst_s = std::max(worst_s, run.worst_step_s);
+            worst_share = std::max(worst_share, run.worst_step_share);
+            ++runs;
+        }
+        check(worst_share <= glideslope::net::ShownClock::most_slew + 1e-9,
+              "with passes " + std::string(c.at_random ? "up to " : "of ") +
+                  std::to_string(c.long_s * 1000.0) + " ms the clock drawn at stepped " +
+                  std::to_string(worst_s * 1000.0) + " ms in a frame, " +
+                  std::to_string(worst_share * 100.0) + "% of it, past the slew's tenth");
+        std::printf("  passes %s %.0f ms: the worst step %.2f ms (%.2f m at 42 m/s), %.1f%% "
+                    "of its frame\n",
+                    c.at_random ? "up to" : "of", c.long_s * 1000.0, worst_s * 1000.0,
+                    worst_s * 42.0, worst_share * 100.0);
+    }
+    check(runs == 20, "four kinds of pass by five seeds, not " + std::to_string(runs));
+}
+
+// **A real change of the session's clock is followed**: one within
+// ShownClock::snap_beyond_s settles to a millisecond within
+// settles_within_s; one past it is taken at once, and what the fit does
+// after it - it has heard nothing for two seconds - settles as well. A
+// server at real time, updates thirty a second heard at 60 frames a second,
+// and its latency changed at 20 s by 0.3 s either way (the fit takes it as
+// an offset) - and by 2 s, as a server stalled and caught up.
+GLIDESLOPE_TEST(a_real_change_of_the_sessions_clock_is_followed_within_its_stated_time) {
+    std::size_t cases = 0;
+    for (const double change_s : {0.3, -0.3, 2.0}) {
+        glideslope::net::SessionClock clock;
+        glideslope::net::ShownClock shown;
+        double settled_at_s = -1.0;
+        for (int frame = 0; frame < 60 * 60; ++frame) {
+            const double local_s = frame / 60.0;
+            const double latency_s = 0.1 + (local_s >= 20.0 ? change_s : 0.0);
+            const double session_s = local_s - latency_s;
+            if (frame % 2 == 0 && session_s > 0.0) {
+                clock.heard(session_s, local_s);
+            }
+            if (!clock.known()) {
+                continue;
+            }
+            const double off = std::abs(shown.at(local_s, clock) - clock.now(local_s));
+            if (local_s >= 20.0) {
+                if (off > 0.001) {
+                    settled_at_s = -1.0;
+                } else if (settled_at_s < 0.0) {
+                    settled_at_s = local_s;
+                }
+            }
+        }
+        check(settled_at_s >= 20.0,
+              "a change of " + std::to_string(change_s) + " s never settled to a millisecond");
+        const double took_s = settled_at_s - 20.0;
+        const bool snapped = std::abs(change_s) > glideslope::net::ShownClock::snap_beyond_s;
+        const double within_s = glideslope::net::ShownClock::settles_within_s;
+        check(took_s <= within_s, "a change of " + std::to_string(change_s) + " s took " +
+                                      std::to_string(took_s) + " s to settle, past " +
+                                      std::to_string(within_s));
+        check(shown.snaps() == (snapped ? 1 : 0),
+              "a change of " + std::to_string(change_s) + " s was taken at once " +
+                  std::to_string(shown.snaps()) + " times");
+        std::printf("  a change of %+.1f s settled to a millisecond in %.2f s\n", change_s,
+                    took_s);
+        ++cases;
+    }
+    check(cases == 3, "three changes, not " + std::to_string(cases));
+}
