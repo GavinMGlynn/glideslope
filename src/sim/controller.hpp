@@ -231,6 +231,8 @@ public:
     // **Whether the AI is recovering from a stall it noticed coming**
     // (controller.cpp, `notice_a_stall`).
     bool recovering_from_a_stall() const { return before_the_stall_.has_value(); }
+    // How many stalls it has noticed and recovered from, and handed back.
+    int stalls_recovered() const { return stalls_noticed_; }
 
 private:
     // The AI engaged with the plain autopilot, and nothing else.
@@ -241,6 +243,10 @@ private:
     // and how many steps it has been recovered for.
     std::optional<AutopilotModes> before_the_stall_;
     int recovered_steps_ = 0;
+    // Watching for a stall again: false from a hand-back until the speed is
+    // clear of the warning by the warning's own margin again.
+    bool stall_armed_ = true;
+    int stalls_noticed_ = 0;
 
     const Aircraft& a_;
     Flying flying_ = Flying::pilot;

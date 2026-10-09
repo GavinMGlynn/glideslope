@@ -18,6 +18,7 @@
 #include "sim/vacate.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
+#include "world/weather.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -3515,6 +3516,134 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
     check(walked == taught.able.size(), "every aeroplane taught a stall was flown");
     check(walked + taught.left_out.size() == roster,
           "every aeroplane in the roster was flown or left out with its reason");
+}
+
+
+// **The AI pilot notices a stall twice, when it is slowed into one twice.**
+// The Cessna 172P given to the AI and asked to hold her height at ten knots
+// under her stall; once recovered and handed back what she was flying, she is
+// asked for it again. She is noticed and recovered a second time - the
+// warning is watched again once she is clear of it by its own margin
+// (sim/controller.cpp, `stall_armed_`), which at her approach speed she is.
+GLIDESLOPE_TEST(the_ai_pilot_notices_a_second_stall_after_handing_the_first_back) {
+    const auto entry = glideslope::sim::find_aircraft(data(), "c172p");
+    const std::optional<glideslope::sim::ApproachSpeeds> lands =
+        glideslope::sim::landing_speeds(data(), entry.model);
+    check(lands.has_value(), "the 172P publishes how she lands");
+    InFlight f = airborne("c172p", stalls_are_practised_at(entry));
+    glideslope::sim::Controls held;
+    held.throttle = 0.6;
+    held.flaps = lands->flap;
+    held.gear = 1.0;
+    glideslope::sim::Controller controller(*f.aircraft, held);
+    controller.lands_with(*lands);
+    controller.to_ai();
+    const auto ask_too_slow = [&] {
+        glideslope::sim::AutopilotModes modes = controller.autopilot()->modes();
+        modes.heading_deg = f.start_heading_deg;
+        modes.altitude_ft = f.aircraft->property("position/h-sl-ft");
+        modes.airspeed_kts = lands->stall_kts - 10.0;
+        controller.autopilot()->set(modes);
+    };
+    ask_too_slow();
+    int asked_again_at = -1;
+    for (int tick = 0; tick < 600 * steps_per_second && controller.stalls_recovered() < 2;
+         ++tick) {
+        if (controller.stalls_recovered() == 1 && asked_again_at < 0) {
+            asked_again_at = tick;
+            ask_too_slow();
+        }
+        const glideslope::sim::Controls c = controller.fly();
+        f.aircraft->set_controls(c);
+        f.aircraft->step();
+    }
+    std::printf("  c172p recovered %d times; asked too slow again at %.1f s\n",
+                controller.stalls_recovered(),
+                static_cast<double>(asked_again_at) / steps_per_second);
+    check(asked_again_at >= 0, "the first stall was noticed and handed back");
+    check(controller.stalls_recovered() == 2, "and the second was noticed and handed back");
+}
+
+// **The AI pilot notices no stall in ordinary flight**: every aeroplane that
+// publishes how she lands (the 747-400 and F-22A do not, and are not
+// watched), given to the AI at her start speed in moderate turbulence,
+// cruising for three minutes and then climbing at 500 ft/min towards 3,000
+// ft higher at her best-climb speed for three more. Neither flight is
+// noticed as a stall. Asked for 1,000 ft/min, the Short S.23 - whose
+// autopilot has no climb floor (only a light aeroplane's has) - slowed to
+// 68.8 kt, under her 71.3 kt warning, and was rightly noticed: that climb
+// was more than she has. **Not walked
+// here, named**: the take-off and the approach fly their own laws, which the
+// notice does not watch (sim/controller.cpp: only the plain autopilot is);
+// the go-around's circuit and an engine-out glide are flown at or above the
+// approach and best-glide speeds, which are above every warning, and are not
+// flown here.
+GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_turbulence) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    std::size_t flown = 0;
+    std::size_t not_watched = 0;
+    std::vector<std::string> faults;
+    for (const auto& entry : roster) {
+        const std::optional<glideslope::sim::ApproachSpeeds> lands =
+            glideslope::sim::landing_speeds(data(), entry.model);
+        if (!lands) {
+            ++not_watched;
+            continue;
+        }
+        InFlight f = airborne(entry.id, stalls_are_practised_at(entry));
+        glideslope::world::WeatherReport report;
+        report.surface.metar =
+            glideslope::world::parse_metar("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013");
+        report.surface.latitude_deg = -33.9461;
+        report.surface.longitude_deg = 151.1772;
+        report.turbulence_severity = 3; // moderate
+        report.air_seed = 0xa170;
+        f.aircraft->set_weather(
+            std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0));
+        glideslope::sim::Controls held;
+        held.throttle = 0.7;
+        glideslope::sim::Controller controller(*f.aircraft, held);
+        controller.lands_with(*lands);
+        controller.to_ai();
+        glideslope::sim::AutopilotModes modes = controller.autopilot()->modes();
+        modes.heading_deg = f.start_heading_deg;
+        modes.altitude_ft = f.aircraft->property("position/h-sl-ft");
+        modes.airspeed_kts = entry.start_airspeed_kts;
+        controller.autopilot()->set(modes);
+        double slowest = 1e9;
+        bool noticed = false;
+        const glideslope::sim::DepartureSpeeds departs =
+            glideslope::sim::departure_speeds(data(), entry.model);
+        for (int tick = 0; tick < 360 * steps_per_second; ++tick) {
+            if (tick == 180 * steps_per_second) {
+                modes.altitude_ft = *modes.altitude_ft + 3000.0;
+                modes.vertical_speed_fpm = 500.0;
+                modes.airspeed_kts = departs.climb_kts;
+                controller.autopilot()->set(modes);
+            }
+            const glideslope::sim::Controls c = controller.fly();
+            f.aircraft->set_controls(c);
+            f.aircraft->step();
+            slowest = std::min(slowest, f.aircraft->property("velocities/vc-kts"));
+            noticed = noticed || controller.recovering_from_a_stall();
+        }
+        std::printf("  %-13s slowest %5.1f kt, warning at %5.1f: %s\n", entry.id.c_str(),
+                    slowest,
+                    lands->stall_kts + std::max(5.0, 0.05 * lands->stall_kts),
+                    noticed ? "NOTICED" : "not noticed");
+        if (noticed) {
+            faults.push_back(entry.id + " was noticed stalling in ordinary flight");
+        }
+        ++flown;
+    }
+    for (const std::string& fault : faults) {
+        std::printf("  %s\n", fault.c_str());
+    }
+    check(faults.empty(), std::to_string(faults.size()) + " noticed; the first: " +
+                              (faults.empty() ? "" : faults.front()));
+    check(flown + not_watched == roster.size() && not_watched == 2,
+          "every aeroplane flown, or named as unwatched: " + std::to_string(flown) + " and " +
+              std::to_string(not_watched));
 }
 
 // **The stall recovery takes the flaps up to a go-around's, at a hand's pace,
