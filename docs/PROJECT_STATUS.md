@@ -294,6 +294,16 @@ figure 5-7's speeds), so drag due to lift is what grows up high.
 source):
 - **Drag due to lift x0.75** (in place of x1.15): an efficiency of 0.69,
   the lowest of the sources.
+- **Only through attached flow**: the rows past the lift's peak (0.28 rad)
+  are JSBSim's as pinned, since past the stall the drag is separation's, not
+  lift's. Scaled with the rest, CI run 37858975068 was red on every platform
+  once #136's stall recovery was under it: left thirty seconds in the stall,
+  the 182S was handed over at 70.2 kt sinking 1,511 ft/min (main: 62.6 kt,
+  1,156) and its recovery peaked at 1.82 g, over the 2 g limit less its 10%.
+  With the stalled rows kept: 63.1 kt, 1,176 ft/min, 1.53 g (main 1.52);
+  the figures below are with them.
+  `every_published_figure_has_a_flight_and_every_flight_a_figure`'s count,
+  120, had not been raised for the new ceiling figure; it is 121.
 - **Zero-lift drag 0.027 -> 0.030**, so that cruise and top speed stay in
   range: drag moved from lift to the airframe.
 - **The windmilling propeller's drag, 0.021, charged only while the engine
@@ -322,7 +332,7 @@ source):
 | Cruise, 6,000 ft | 140 KTAS | ±3 kt | 139.6 | 138.7 |
 | Top speed | 145 KTAS | ±3 kt | 147.3 | 144.1 |
 | Glide | 8.9:1 | ±10% | 8.93 | 8.99 |
-| Stalls, up / 20 / full | 54-56, 50-52, 49-50 KCAS | ±2 kt | 55.3, 51.4, 49.8 | 55.6, 51.7, 50.0 |
+| Stalls, up / 20 / full | 54-56, 50-52, 49-50 KCAS | ±2 kt | 55.3, 51.4, 49.8 | 55.1, 51.3, 49.7 |
 
 `plan-speeds c182` and `glide-speeds c182` measure what the figures file
 holds (64 and 129 kt; 64): unchanged. Level at full throttle at 3,000 ft
