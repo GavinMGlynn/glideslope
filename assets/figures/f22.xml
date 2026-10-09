@@ -101,13 +101,14 @@
     fifth over its start speed, held all four ways.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
-       glide-speeds f22` on 2026-10-07 (linux-release): from the slowest a
+       glide-speeds f22` on 2026-10-10 (linux-release): from the slowest a
        route may fly it up in 5 kt steps, each glided round the tightest
-       orbit allowed from 30,000 ft, every engine stopped, clean, both ways
-       round (sim::glide_tightest_orbit), until one went round without its
-       wing passing the angle its lift peaked at, nor 25 degrees. -->
-  <glide_speeds slowest_kcas="255">
-    None was found: from 140 kt, her slowest under power since 2026-10-07, to 275 it stalls before it is half way round - to 265 departing past 95 degrees of alpha, why is not found - and from 280 to 360 it is less than half way round at 1,000 ft. 255 kt, her slowest under power before, is kept, so that a copilot asks no glide of her she was not asked before; the glide tests name it.
+       orbit allowed from 30,000 ft, every engine stopped, clean - gear up -
+       both ways round (sim::glide_tightest_orbit), until one went round
+       without its wing passing the angle its lift peaked at, nor 25
+       degrees. -->
+  <glide_speeds slowest_kcas="225">
+    225 kt asserted; 140 to 220 observed departing past 89 degrees of alpha before a third of the way round. At 225 she goes round both ways at 8.1 degrees at most. Her climb speed, 220, is below it, so 225 is the one speed a glide may ask of her. Before 2026-10-10 the trial flew her with her gear down, and she glided at no speed from 140 to 335 kt.
   </glide_speeds>
   <!-- **Her take-off speeds, measured from her model, not published**: she
        publishes neither a rotation nor a climb speed. Measured by

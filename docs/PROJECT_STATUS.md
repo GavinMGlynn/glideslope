@@ -265,6 +265,67 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The trials fly clean with the gear up: the F-22A glides at 225 kt, and every aircraft round its tightest orbit at every glide it may be asked, 2026-10-10 — item open until its tests are run on it
+
+**What was wrong.** Every trial in `sim/orbit_trial.cpp` - the glide round
+the tightest orbit, the tightest orbit under power, the orbit entered from a
+waypoint, the heading in a crosswind and the full-throttle level speed - is
+described as clean, and flew with the gear down: `InitialConditions::gear`
+and `Controls::gear` default to 1, and none of them set it. Aircraft with
+fixed gear (the Cessnas, the Cherokee, the Cub) and the S.23 are as they
+were. **The F-22A's departures were this**: gear down (the model's
+`CDgear`, 0.02 of drag) with her flaperons, which her flight controls lower
+as she slows, she could not hold any glide speed within the glide's 12
+degrees of path and the autopilot's 10 degrees of nose down, slowed, and
+departed past 89 degrees of alpha. Not her lateral-directional stability,
+her tables, the bank or the yaw (sideslip within 0.1 degree until the
+departure).
+
+**What changed.** Each of the five trials begins with the gear up
+(`ic.gear = 0`, `controls.gear = 0`; `Aircraft::initialize` leaves fixed
+gear down whatever it is asked). Nothing else: the glide keeps its 12
+degrees of path and the autopilot its 10 degrees of nose down, and the
+stall is judged as before.
+
+**Measured again, every aircraft** (linux-release, `glideslope_cli
+glide-speeds` and `plan-speeds`, the F-22A's from 120 kt as before):
+- **Slowest glides**: the F-22A **225 kt**, from 255 - 225 asserted; 140 to
+  220 observed departing past 89 degrees of alpha before a third of the way
+  round; at 225 round both ways at 8.1 degrees at most. Her climb speed, 220,
+  is under it, so **225 is the one glide a copilot may ask of her**. Every
+  other aircraft's is unchanged: the 737-300 172, 747-400 235, 787-8 203,
+  A320 167, A380 201, B-2A 159, C172P 60, C182 64, F-15C 170, F-35B 204, Cub
+  43, Learjet 140, Mosquito 128, Cherokee 64, S.23 86.
+- **The F-15C's deep stall at 160 and 165 kt stays with her gear up**: 170
+  asserted; 160 and 165 observed settling at 42.5 degrees of alpha, a
+  little under half way round. Her slowest glide stays 170.
+- **Plan speeds**: unchanged for fifteen. **The Mosquito's fastest is 264
+  kt, from 219**: gear up she flies level at 287 kt at full throttle at
+  3,000 ft, against 231 with it down, and 264 - a fifth over her start
+  speed, where the sweep begins - held all four ways. Her file says 264.
+- **Found on the base, not from the gear: the Cherokee** (fixed gear) now
+  makes 126.8 kt level at full throttle, against 129 when her file was
+  written, so the command writes 112 where her file says 117. 117 still
+  held all four ways with 9.8 kt in hand, so the file is kept; the 2.2 kt
+  is from #153's autopilot changes beneath this branch, a tail for Later.
+- **Nothing needs a steeper glide**: every aircraft glides round at every
+  speed it may be asked at with 12 degrees and 10 down. The first version
+  of #155 (c74abcca and 5bb8066f, never merged, **superseded by this
+  entry**) gave every glide 20 degrees of path and nose, then the F-22A and
+  F-15C alone, and judged a stall in each configuration of flap: each was
+  answering the gear left down, and none is in. Its finding that the F-22A's
+  flaperons steepen her glide stands; with the gear up it does not take her
+  past 12 degrees at 225.
+
+**Verification** (linux-release, locally):
+- Not yet, at this commit: the glide bands of every aircraft, the orbit,
+  plan-speed, heading and copilot tests, and the server and client glide
+  recordings, run on the change - running. The measurements above are
+  the CLI's on it.
+- The F-22A's band is 225 alone
+  (`the_f22a_glides_round_its_tightest_orbit_at_225_kt_without_stalling`,
+  renamed from `..._at_255_kt_...`, which named her as gliding nowhere).
+
 ### A jet's orbit entered from a waypoint holds its circle: joined going its way, flown by a loiter law after ArduPilot's, 2026-10-09 — item done
 
 **What the item's figures were.** The 460 m was Claude's 2026-10-06 plans

@@ -252,7 +252,7 @@
     side.
   </figure>
   <!-- **The speeds a plan may fly her at**, measured by `glideslope_cli
-       plan-speeds mosquito-fb6` on 2026-10-02 (linux-release): the tightest orbit a
+       plan-speeds mosquito-fb6` on 2026-10-10 (linux-release): the tightest orbit a
        plan may ask at each speed (sim/orbit_trial.hpp), flown clean by the
        navigator and autopilot at 3,000 ft, both ways round, in calm air and
        in a 10 kt wind, each to hold its height within 50 ft and its speed
@@ -261,8 +261,8 @@
        the slowest sought up from its approach speed in 5 kt steps,
        the fastest down from a fifth over its start speed, and written by
        the command's one rule (src/frontend/cli/main.cpp, plan_speeds). -->
-  <plan_speeds slowest_kcas="123" fastest_kcas="219">
-    The slowest, 123 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 2,189 m circle. The fastest, 219 kt, is 5 kt under the fastest that held with 5 kt of power in hand: she flies level at 231 kt at full throttle at 3,000 ft, so 224 kt is the most a plan may ask that leaves her that (sim::holds_plan_speed, 2026-10-06; it was 229).
+  <plan_speeds slowest_kcas="123" fastest_kcas="264">
+    The slowest, 123 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 2,189 m circle. The fastest, 264 kt, a fifth over its start speed, held all four ways, with power in hand: she flies level at 287 kt at full throttle at 3,000 ft. Until 2026-10-10 the trial flew her with her gear down, level at 231 kt at full throttle, and her fastest was 219.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
        glide-speeds mosquito-fb6` on 2026-10-06 (linux-release): from the slowest a
