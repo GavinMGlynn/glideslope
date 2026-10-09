@@ -568,6 +568,7 @@ Controls Autopilot::fly() {
                     hold_speed_within_kts) {
                 holding_speed_ = true;
                 early_hold_ = !at_stop;
+                early_holds_ += early_hold_ ? 1 : 0;
                 climb_limit_fpm_ = std::min(climb_fpm, climb_wanted);
             } else if (holding_speed_) {
                 // **Engaged early, the climb she has is held while the

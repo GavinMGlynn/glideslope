@@ -3667,6 +3667,74 @@ GLIDESLOPE_TEST(slowed_from_cruise_into_a_climb_every_aeroplane_sinks_no_more_th
               std::to_string(not_slower) + " not slower, of " + std::to_string(roster.size()));
 }
 
+// **Slowed in level flight to a speed under her best climb, a light
+// aeroplane settles on it, and the speed floor takes over early no more
+// than once.** The C172P from 100 kt to 60 (her floor 75.4) and the J-3 Cub
+// from 60 to 43 (her floor 47.8), at the weight her figures fly her at, at
+// 5,000 ft in calm air, her height held, for three minutes: the early hold
+// (sim/autopilot.cpp) engages at most once, and from a minute on her speed
+// is within 2 kt of the speed asked. Both light aeroplanes whose floor is
+// above a speed a plan asks of them are flown; the C182 and PA-28's
+// slowest plan speeds are their approach speeds too, and are left out as
+// the same law.
+GLIDESLOPE_TEST(a_light_aeroplane_slowed_level_below_her_climb_speed_settles_on_it_and_the_floor_takes_over_early_at_most_once) {
+    struct Case {
+        const char* id;
+        double from_kts;
+        double to_kts;
+    };
+    const Case cases[] = {{"c172p", 100.0, 60.0}, {"j3cub", 60.0, 43.0}};
+    std::size_t flown = 0;
+    std::vector<std::string> faults;
+    for (const Case& k : cases) {
+        InFlight f = airborne(k.id, 5000.0, k.from_kts);
+        glideslope::sim::Controls held;
+        held.throttle = glideslope::sim::find_aircraft(data(), k.id).start_throttle;
+        glideslope::sim::Controller controller(*f.aircraft, held);
+        controller.to_ai();
+        glideslope::sim::AutopilotModes modes = controller.autopilot()->modes();
+        modes.heading_deg = f.start_heading_deg;
+        modes.altitude_ft = f.aircraft->property("position/h-sl-ft");
+        modes.airspeed_kts = k.from_kts;
+        controller.autopilot()->set(modes);
+        double slowest = 1e9;
+        double fastest = 0.0;
+        for (int tick = 0; tick < 240 * steps_per_second; ++tick) {
+            if (tick == 60 * steps_per_second) {
+                modes.airspeed_kts = k.to_kts;
+                controller.autopilot()->set(modes);
+            }
+            const glideslope::sim::Controls c = controller.fly();
+            f.aircraft->set_controls(c);
+            f.aircraft->step();
+            if (tick >= 120 * steps_per_second) {
+                const double kts = f.aircraft->property("velocities/vc-kts");
+                slowest = std::min(slowest, kts);
+                fastest = std::max(fastest, kts);
+            }
+        }
+        const long holds = controller.autopilot()->early_holds();
+        std::printf("  %-6s %.0f to %.0f kt level: %ld early holds, %.1f to %.1f kt from a "
+                    "minute on\n",
+                    k.id, k.from_kts, k.to_kts, holds, slowest, fastest);
+        if (holds > 1) {
+            faults.push_back(std::string(k.id) + " took over early " + std::to_string(holds) +
+                             " times");
+        }
+        if (slowest < k.to_kts - 2.0 || fastest > k.to_kts + 2.0) {
+            faults.push_back(std::string(k.id) + " held " + std::to_string(slowest) + " to " +
+                             std::to_string(fastest) + " kt");
+        }
+        ++flown;
+    }
+    for (const std::string& fault : faults) {
+        std::printf("  %s\n", fault.c_str());
+    }
+    check(flown == 2, "both flown: " + std::to_string(flown));
+    check(faults.empty(), std::to_string(faults.size()) + " faults; the first: " +
+                              (faults.empty() ? "" : faults.front()));
+}
+
 // **Every plan's slowest keeps its gust allowance over the stall warning,
 // at the weight a plan flies her at.** For every aircraft in the catalogue,
 // her figures' `<plan_speeds weight_lbs>` is her model's own weight (what
@@ -3713,6 +3781,157 @@ GLIDESLOPE_TEST(every_plan_floor_keeps_its_gust_allowance_over_the_stall_warning
               std::to_string(no_stall) + " of " + std::to_string(roster.size()));
 }
 
+namespace {
+
+// **A plan's speed as the controller holds it**: `id` at 3,000 ft over
+// Sydney, loaded with `loading` (none: her model's own weight), given the
+// AI flying a one-waypoint plan at `asked_kts`, in `weather` (none: still
+// air), told her plan's speeds as the server tells them (limit_speed,
+// plans_within); the airspeed its autopilot is asked to hold after a step.
+double held_for_a_plan(const std::string& id, double asked_kts,
+                       std::shared_ptr<glideslope::sim::Weather> weather,
+                       const glideslope::sim::Loading* loading = nullptr) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    if (loading != nullptr) {
+        aircraft.load(*loading);
+    }
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9461;
+    ic.longitude_deg = 151.1772;
+    ic.altitude_ft = 3000.0;
+    ic.heading_deg = 0.0;
+    ic.airspeed_kts = entry.start_airspeed_kts;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    if (weather) {
+        aircraft.set_weather(weather);
+    }
+    glideslope::sim::Controls held;
+    held.throttle = entry.start_throttle;
+    glideslope::sim::Controller controller(aircraft, held);
+    const glideslope::sim::PlanSpeeds plannable = glideslope::sim::plan_speeds(data(), entry.model);
+    controller.limit_speed(plannable.fastest_kts);
+    controller.plans_within(plannable);
+    char text[200];
+    std::snprintf(text, sizeof text, "aircraft %s\nwaypoint NORTH -33.50 151.1772 3000 %.1f\n",
+                  id.c_str(), asked_kts);
+    controller.to_ai(glideslope::sim::parse_flight_plan(text));
+    for (int step = 0; step < 2; ++step) {
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+    }
+    controller.fly();
+    return controller.autopilot()->modes().airspeed_kts.value_or(0.0);
+}
+
+std::shared_ptr<glideslope::world::ReportedWeather> moderate_turbulence() {
+    glideslope::world::WeatherReport report;
+    report.surface.metar =
+        glideslope::world::parse_metar("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013");
+    report.surface.latitude_deg = -33.9461;
+    report.surface.longitude_deg = 151.1772;
+    report.turbulence_severity = 3;
+    report.air_seed = 0xa170;
+    return std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0);
+}
+
+} // namespace
+
+// **A plan's speed is held half the gust factor faster in turbulence, up to
+// her fastest, and as asked in calm air** - through the Controller, its
+// navigator and a ReportedWeather, as the server flies one: the C172P at her
+// model's weight, her plan's speeds 60 to 110 kt. Four cases: 80 kt in calm
+// air, 80 in still air with no weather at all, 80 in moderate turbulence
+// (gust factor 15: 87.5), and 108 in it (capped at 110).
+GLIDESLOPE_TEST(the_controller_holds_a_plans_speed_half_the_gust_factor_faster_in_turbulence_up_to_her_fastest) {
+    glideslope::world::WeatherReport calm;
+    calm.surface.metar =
+        glideslope::world::parse_metar("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013");
+    calm.surface.latitude_deg = -33.9461;
+    calm.surface.longitude_deg = 151.1772;
+    const double in_calm = held_for_a_plan(
+        "c172p", 80.0, std::make_shared<glideslope::world::ReportedWeather>(calm, nullptr, 0.0));
+    const double in_still = held_for_a_plan("c172p", 80.0, nullptr);
+    const double in_turbulence = held_for_a_plan("c172p", 80.0, moderate_turbulence());
+    const double capped = held_for_a_plan("c172p", 108.0, moderate_turbulence());
+    std::printf("  c172p held: calm %.2f, still %.2f, moderate %.2f, 108 in moderate %.2f\n",
+                in_calm, in_still, in_turbulence, capped);
+    check(std::abs(in_calm - 80.0) < 1e-9, "in calm air as asked: " + std::to_string(in_calm));
+    check(std::abs(in_still - 80.0) < 1e-9, "with no weather as asked: " + std::to_string(in_still));
+    check(std::abs(in_turbulence - 87.5) < 1e-9,
+          "in moderate turbulence 7.5 faster: " + std::to_string(in_turbulence));
+    check(std::abs(capped - 110.0) < 1e-9, "capped at her fastest: " + std::to_string(capped));
+}
+
+// **A plan's slowest is flown for what she weighs** (Controller::plans_within,
+// sim::for_weight): the J-3 Cub asked 43 kt, her plan's slowest at her
+// model's 752 lb, is held at 43 there and, loaded to her gross 1,220 lb, at
+// 43 x sqrt(1,220 / 752) = 54.8; asked 60, above it, at 60 either way.
+GLIDESLOPE_TEST(the_controller_holds_a_plans_slowest_for_what_she_weighs) {
+    const auto figures = glideslope::sim::read_published_figures(data() / "figures" / "j3cub.xml");
+    check(figures.loadings.count("gross") == 1, "the Cub's figures name her gross loading");
+    const glideslope::sim::Loading& gross = figures.loadings.at("gross").loading;
+    const double light = held_for_a_plan("j3cub", 43.0, nullptr);
+    const double heavy = held_for_a_plan("j3cub", 43.0, nullptr, &gross);
+    const double above = held_for_a_plan("j3cub", 60.0, nullptr, &gross);
+    const double want = 43.0 * std::sqrt(1220.0 / 752.0);
+    std::printf("  j3cub held at 43 asked: %.2f at 752 lb, %.2f at 1,220 (want %.2f); 60 "
+                "asked at 1,220: %.2f\n",
+                light, heavy, want, above);
+    check(std::abs(light - 43.0) < 1e-9, "at her model's weight as asked: " + std::to_string(light));
+    check(std::abs(heavy - want) < 0.05, "at her gross weight her slowest for it: " +
+                                             std::to_string(heavy));
+    check(std::abs(above - 60.0) < 1e-9, "a faster speed as asked: " + std::to_string(above));
+}
+
+// **The air's gust factor reaches the aircraft, and blends with its
+// weather**: an aircraft flown in calm air has none after a step; the
+// weather changed to moderate turbulence over a 60 s blend, it has 15 times
+// the blend's share after each step - 0 to 15 by its end - and 15 after it.
+GLIDESLOPE_TEST(an_aircraft_has_its_airs_gust_factor_after_a_step_blended_as_its_weather_is) {
+    glideslope::world::WeatherReport calm;
+    calm.surface.metar =
+        glideslope::world::parse_metar("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013");
+    calm.surface.latitude_deg = -33.9461;
+    calm.surface.longitude_deg = 151.1772;
+    glideslope::world::WeatherReport rough = calm;
+    rough.turbulence_severity = 3;
+    InFlight f = airborne("c172p", 3000.0);
+    const auto weather = std::make_shared<glideslope::world::ReportedWeather>(calm, nullptr, 60.0);
+    f.aircraft->set_weather(weather);
+    f.aircraft->step();
+    check(f.aircraft->gust_factor_kt() == 0.0,
+          "in calm air none: " + std::to_string(f.aircraft->gust_factor_kt()));
+    const double changed_s = f.aircraft->property("simulation/sim-time-sec");
+    weather->update(rough, changed_s);
+    std::size_t checked = 0;
+    std::string faults;
+    for (int step = 0; step < 70 * steps_per_second; ++step) {
+        f.aircraft->step();
+        if (step % steps_per_second != 0) {
+            continue;
+        }
+        ++checked;
+        // The weather was asked at the step's start, a step before now.
+        const double at_s = f.aircraft->property("simulation/sim-time-sec") -
+                            1.0 / static_cast<double>(steps_per_second);
+        const double share = std::clamp((at_s - changed_s) / 60.0, 0.0, 1.0);
+        if (std::abs(f.aircraft->gust_factor_kt() - 15.0 * share) > 0.01) {
+            faults += "\n  at " + std::to_string(at_s - changed_s) + " s: " +
+                      std::to_string(f.aircraft->gust_factor_kt()) + ", want " +
+                      std::to_string(15.0 * share);
+        }
+    }
+    std::printf("  checked %zu seconds of the blend and after; ended at %.2f kt\n", checked,
+                f.aircraft->gust_factor_kt());
+    check(checked == 70, "every second checked: " + std::to_string(checked));
+    check(faults.empty(), "the gust factor blended as the weather:" + faults);
+    check(f.aircraft->gust_factor_kt() == 15.0, "after the blend, moderate's 15");
+}
+
 // **In gusts or turbulence the AI climbs faster by half the gust factor**
 // (sim::in_gusts, world::gust_factor_kt): the METAR's spread of its gusts
 // over its mean wind, or the spread a turbulence severity is read from,
@@ -3734,7 +3953,8 @@ GLIDESLOPE_TEST(the_ai_climbs_half_the_gust_factor_faster_in_gusts_or_turbulence
                             const std::string& what) {
         ++tried;
         const double got = glideslope::world::gust_factor_kt(r);
-        const glideslope::sim::DepartureSpeeds in = glideslope::sim::in_gusts(book, got);
+        const glideslope::sim::DepartureSpeeds in =
+            glideslope::sim::in_gusts(book, got, std::nullopt);
         check(std::abs(got - factor_kt) < 1e-9 &&
                   std::abs(in.climb_kts - (47.8 + factor_kt / 2.0)) < 1e-9 &&
                   std::abs(in.initial_climb_kts - (47.8 + factor_kt / 2.0)) < 1e-9,
@@ -3764,6 +3984,12 @@ GLIDESLOPE_TEST(the_ai_climbs_half_the_gust_factor_faster_in_gusts_or_turbulence
     check(glideslope::sim::in_gusts(58.0, 15.0, 62.0) == 62.0, "capped at her fastest");
     check(glideslope::sim::in_gusts(70.0, 15.0, 62.0) == 70.0,
           "a speed already past her fastest is not lowered");
+    // **The climb out likewise**: capped at her fastest, never lowered.
+    const glideslope::sim::DepartureSpeeds capped = glideslope::sim::in_gusts(book, 30.0, 55.0);
+    check(capped.climb_kts == 55.0 && capped.initial_climb_kts == 55.0,
+          "a climb out 15 kt faster is capped at a fastest of 55");
+    check(glideslope::sim::in_gusts(book, 30.0, 40.0).climb_kts == 47.8,
+          "a climb speed past her fastest is not lowered");
 }
 
 // **The AI pilot notices no stall in ordinary flight, with 3 kt to spare**:
@@ -3836,10 +4062,12 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
         controller.autopilot()->set(modes);
         double slowest[3] = {1e9, 1e9, 1e9};
         bool noticed = false;
-        // Her climb speed in this air: half its gust factor over her best.
+        // Her climb speed in this air: half its gust factor over her best,
+        // up to her plan's fastest.
         const glideslope::sim::DepartureSpeeds departs = glideslope::sim::in_gusts(
             glideslope::sim::departure_speeds(data(), entry.model),
-            glideslope::world::gust_factor_kt(report));
+            glideslope::world::gust_factor_kt(report),
+            glideslope::sim::plan_speeds(data(), entry.model).fastest_kts);
         const double weight_lbs = f.aircraft->property("inertia/weight-lbs");
         // The slowest a plan may fly her at what she weighs.
         const glideslope::sim::PlanSpeeds plan = glideslope::sim::for_weight(

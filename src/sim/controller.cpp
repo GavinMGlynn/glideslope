@@ -292,6 +292,7 @@ void Controller::to_ai_take_off(const Runway& runway, const DepartureSpeeds& spe
                                 double to_ft) {
     engage();
     departure_.emplace(a_, runway, speeds, to_ft);
+    departure_->limit_speed(fastest_kts_);
     departure_->hand_mixture(applied_.mixture);
 }
 
@@ -549,12 +550,18 @@ Controls Controller::fly() {
             if (glide_kts_) {
                 modes = gliding(modes);
             } else if (modes.airspeed_kts && !on_final_legs_) {
-                // **In gusts or turbulence, half the gust factor faster**
-                // (sim::in_gusts), up to her plan's fastest: a plan's or a
-                // route's speed, as her climb out is. The legs to final are
-                // the approach's, and flown at its speed.
-                modes.airspeed_kts =
-                    in_gusts(*modes.airspeed_kts, a_.gust_factor_kt(), fastest_kts_);
+                // **No slower than her plan's slowest for what she weighs**
+                // (plans_within); then, **in gusts or turbulence, half the
+                // gust factor faster** (sim::in_gusts), up to her plan's
+                // fastest: a plan's or a route's speed, as her climb out
+                // is. The legs to final are the approach's, and flown at
+                // its speed.
+                double kts = *modes.airspeed_kts;
+                if (plan_speeds_) {
+                    kts = std::max(
+                        kts, for_weight(*plan_speeds_, a_.property("inertia/weight-lbs")).slowest_kts);
+                }
+                modes.airspeed_kts = in_gusts(kts, a_.gust_factor_kt(), fastest_kts_);
             }
             autopilot_->set(modes);
         }

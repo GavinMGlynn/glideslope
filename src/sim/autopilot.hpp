@@ -99,6 +99,9 @@ public:
     // How many steps the elevator's trim has been held from winding nose-up
     // because the wing was seen to stall (autopilot.cpp): for tests.
     long trim_held_steps() const { return trim_held_steps_; }
+    // How many times the speed floor has taken over before the throttle
+    // was at its stop (`early_hold_`), since it was made.
+    long early_holds() const { return early_holds_; }
     // **The fastest it may hold**: the most the speed asked may be raised
     // to for a climb the nose cannot give (autopilot.cpp: with the nose at
     // its highest and the climb short), the aircraft's fastest a plan may
@@ -136,6 +139,7 @@ private:
     // Engaged before the throttle reached its stop, because it could not in
     // time: the climb held where it was until the speed is near the least.
     bool early_hold_ = false;
+    long early_holds_ = 0;
     double climb_limit_fpm_ = 0.0;
     double last_kts_ = 0.0;
     double kts_per_s_ = 0.0; // the airspeed's trend, smoothed over a second

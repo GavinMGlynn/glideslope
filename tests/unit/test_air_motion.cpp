@@ -522,3 +522,40 @@ GLIDESLOPE_TEST(
           "then a tailwind: " + std::to_string(-most_tailwind) + " m/s at " +
               std::to_string(most_tailwind_at));
 }
+
+// **A severity and the least gust spread that implies it round-trip**:
+// every severity 0 to 5 that `severity_from_gust_spread` names, its least
+// spread (`gust_spread_of_severity`) read back to it, and a tenth of a knot
+// under that spread to the severity below; 6 and 7, which no spread
+// implies, at the most it names, 30 kt, read as severe (5). And every
+// spread 0 to 40 kt in tenths, read to a severity whose least spread is at
+// or under it and the next one's over it: 401 spreads, 8 severities.
+GLIDESLOPE_TEST(a_turbulence_severity_and_the_least_gust_spread_that_implies_it_round_trip) {
+    using glideslope::world::gust_spread_of_severity;
+    using glideslope::world::severity_from_gust_spread;
+    std::size_t severities = 0;
+    for (int s = 0; s <= 7; ++s) {
+        ++severities;
+        const double spread = gust_spread_of_severity(s);
+        const int named = std::min(s, 5);
+        check(severity_from_gust_spread(spread) == named,
+              "severity " + std::to_string(s) + "'s spread " + std::to_string(spread) +
+                  " reads back as " + std::to_string(severity_from_gust_spread(spread)));
+        if (s >= 1 && s <= 5) {
+            check(severity_from_gust_spread(spread - 0.1) == s - 1,
+                  "a tenth under severity " + std::to_string(s) + "'s spread is the one below");
+        }
+    }
+    std::size_t spreads = 0;
+    for (int tenths = 0; tenths <= 400; ++tenths) {
+        ++spreads;
+        const double spread = tenths / 10.0;
+        const int s = severity_from_gust_spread(spread);
+        check(gust_spread_of_severity(s) <= spread + 1e-9 &&
+                  (s >= 5 || gust_spread_of_severity(s + 1) > spread),
+              std::to_string(spread) + " kt reads as severity " + std::to_string(s));
+    }
+    check(severities == 8 && spreads == 401,
+          "every severity and spread: " + std::to_string(severities) + " and " +
+              std::to_string(spreads));
+}

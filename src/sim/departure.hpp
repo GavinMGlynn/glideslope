@@ -121,9 +121,11 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
 // best-rate speed leaves the least over the stall of any speed she climbs
 // at: in moderate turbulence a J-3 Cub at 1,220 lb climbing at her 47.8 kt
 // dipped to 40.9 against her 39.9 kt stall warning. The same for every
-// aircraft - the rule is the air's, not the aeroplane's. Unchanged in calm
-// air (0).
-DepartureSpeeds in_gusts(DepartureSpeeds speeds, double gust_factor_kt);
+// aircraft - the rule is the air's, not the aeroplane's. Each never past
+// `fastest_kts` - her plan's fastest - where one is given, nor lowered, as
+// a plan's speed is (below). Unchanged in calm air (0).
+DepartureSpeeds in_gusts(DepartureSpeeds speeds, double gust_factor_kt,
+                         std::optional<double> fastest_kts);
 
 // **A speed the AI holds from a plan or a route, in gusty or turbulent
 // air**: `kts` raised by half of `gust_factor_kt`, as her climb is
@@ -145,6 +147,15 @@ public:
               const DepartureSpeeds& speeds, double to_ft = 500.0);
 
     Controls fly();
+    // **The fastest it may climb out at** (Controller::limit_speed): her
+    // plan's fastest, which the gust allowance is not taken past.
+    void limit_speed(std::optional<double> fastest_kts) { fastest_kts_ = fastest_kts; }
+    // **The speed she climbs away at, in the air she is in now**: her
+    // initial climb speed, half the air's gust factor faster in gusts or
+    // turbulence (sim::in_gusts, Aircraft::gust_factor_kt), up to her
+    // fastest - read as she flies, so weather flown in after the take-off
+    // was given, or changing during it, is the air she climbs out in.
+    double climb_kts() const;
     // The mixture it is handed, where that is not what the aircraft last
     // had - the controls a controller hands over - to lean from.
     void hand_mixture(double mixture);
@@ -182,6 +193,7 @@ private:
     std::optional<MixtureLeaner> leaner_;
     Runway runway_;
     DepartureSpeeds speeds_;
+    std::optional<double> fastest_kts_;
     double to_ft_ = 500.0;
     // The flap lever as this take-off has it, the notch it is moving to,
     // and the flaps' own position a step ago and how many steps they have
