@@ -515,11 +515,11 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       its speed and sink.* Both checks exist, the instructor flies the
       recovery, engaging or letting it go steps no control, and the AI pilot
       notices a stall warning and recovers (the A380 and Mosquito named).
-      Still missing: left thirty seconds, the A320 (1.95 g) and Mosquito
-      (2.22 g) over 2 g; at the warning the F-15C, F-35B, Learjet and S.23
-      past their lesson's height and the Mosquito never level again. A level
-      stall entry closes the two fighters but waits on the late-recovery
-      test being rebuilt for it.
+      The lesson's entry now holds the height level to the warning. Still
+      missing: left thirty seconds, the A320 (1.90 g) and Mosquito (2.22 g)
+      over 2 g; at the warning the Learjet (385 of 350 ft) and S.23 (184 of
+      200, short of the 10% margin) are named, and the Mosquito is never
+      level again.
 - [x] **A light aeroplane's take-off hands over slower than the plan's
       climb floor.** Done 2026-10-09: the take-off climbs her at her
       handbook's best-climb speed whatever she weighs, as the plan does, and

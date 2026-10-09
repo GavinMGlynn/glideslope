@@ -95,6 +95,16 @@ struct AutopilotModes {
     // stalled wing, less lift at more angle; as the nose comes down the lift
     // rises back through its peak and the angle is learned on the way.
     bool speed_on_elevator = false;
+    // **A stall's entry: the height held into the stall, whatever the wing's
+    // angle.** The pitch envelope's top, 15 degrees, then bounds the flight
+    // path rather than the nose: the nose may rise as far above it as the
+    // angle of attack the wing has, so the height is held level as the speed
+    // comes back to the warning, as the FAA's stall tasks enter it
+    // (Airplane Flying Handbook, FAA-H-8083-3C, chapter 5; AC 120-109A's
+    // approach to stall). Without it a fighter in her landing configuration,
+    // needing 29 degrees of alpha at her warning, sank into it at 4,400
+    // ft/min with her nose at 15. Every other mode is as before.
+    bool hold_height_to_the_stall = false;
 };
 
 // Where to land: the landing threshold, and the runway from it.
