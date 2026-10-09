@@ -72,6 +72,7 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     // Vref, by the usual convention: a third above the stall in the landing
     // configuration - or the manual's own approach speed, where it gives one.
     speeds.stall_kts = landing->published;
+    speeds.loading = landing->loading;
     speeds.vref_kts =
         figures.approach_kcas > 0.0 ? figures.approach_kcas : 1.3 * landing->published;
     // A faster approach comes down faster on the same glidepath, so it needs

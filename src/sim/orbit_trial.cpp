@@ -5,11 +5,13 @@
 #include <cstdio>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/controller.hpp"
+#include "sim/figures.hpp"
 #include "sim/navigator.hpp"
 #include "sim/plan.hpp"
 #include "sim/weather.hpp"
@@ -18,7 +20,8 @@ namespace glideslope::sim {
 
 CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
                                         const CatalogueEntry& entry, double airspeed_kts,
-                                        bool windy, double settle_s, double gear) {
+                                        bool windy, double settle_s,
+                                        const TrialConfiguration& configuration) {
     constexpr int steps_per_second = 120;
     Aircraft aircraft(data / "jsbsim", entry.model);
     InitialConditions ic;
@@ -28,7 +31,20 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
     ic.heading_deg = 0.0;
     ic.airspeed_kts = airspeed_kts;
     ic.engine_running = true;
-    ic.gear = gear; // clean, up, unless asked (fixed gear stays down)
+    if (!configuration.loading.empty()) {
+        const PublishedFigures figures =
+            read_published_figures(data / "figures" / (entry.model + ".xml"));
+        const auto loading = figures.loadings.find(configuration.loading);
+        if (loading == figures.loadings.end()) {
+            throw std::runtime_error(entry.model + "'s figures name no loading " +
+                                     configuration.loading);
+        }
+        aircraft.load(loading->second.loading);
+    }
+    // Clean by default: up, where it retracts (Aircraft::initialize).
+    ic.gear = configuration.gear;
+    ic.flaps = configuration.flaps;
+    ic.speedbrake = configuration.speedbrake;
     aircraft.initialize(ic);
     if (windy) {
         Conditions wind;
@@ -37,7 +53,9 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
     }
     Controls controls;
     controls.throttle = entry.start_throttle;
-    controls.gear = gear;
+    controls.gear = configuration.gear;
+    controls.flaps = configuration.flaps;
+    controls.speedbrake = configuration.speedbrake;
     Autopilot autopilot(aircraft, controls);
     AutopilotModes modes = autopilot.modes();
     modes.heading_deg = 0.0;

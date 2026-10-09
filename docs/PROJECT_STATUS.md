@@ -265,6 +265,73 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A heading in a crosswind from each approach speed, flown as an approach is: gear and landing flap down at the approach speed's weight; the swings were the trial's, 2026-10-10 — tail not done
+
+**Measured first, on the base (#155, the trials gear up).** The swings named
+on 2026-10-07 below each plan floor were flown clean, gear up, at the
+weight each model starts at - not as an aeroplane flies her approach speed.
+`sim::fly_heading_in_crosswind` now takes a `TrialConfiguration`: clean by
+default, or `TrialConfiguration::landing(approach_speeds(...))` - gear
+down, her landing flap and approach speedbrake (the B-2A's drag rudders at
+half), and, new, **the loading her approach speed is for**
+(`ApproachSpeeds::loading`, the loading her landing stall was measured at).
+Each figure below is the 20 kt crosswind from the west, 3,000 ft, settled
+30 s, from her approach speed in 5 kt steps to her plan floor.
+
+- **Gear and landing flap alone, at her model's own weight**: the 737-300
+  held her sideslip within 0.02 degree everywhere (heading 2.16 off at
+  172 kt); the A380 within 0.38 (heading over 2 from 191); the 787-8 within
+  0.92 (heading over 2 from 173); the **B-2A still left her tables at 124
+  to 139 kt** and swung 53 degrees at 144 - traced at 124 kt: throttle shut
+  to hold the speed, the nose raised for the height, alpha 13 degrees in
+  2 s and 64 by 16 s, a deep stall, not a yaw; and the **F-35B lost 3,000
+  ft**, 3.1 degrees of sideslip at 159.
+- **And at the approach speed's loading** (the B-2A's light 177,160 lb,
+  for which her 124 kt is 1.3 times her measured stall of 95.4; the
+  F-35B's combat 39,750): every sideslip within 0.91 degree. B-2A at most
+  0.69 (124 kt), 737-300 0.02, A380 0.05, Learjet 0.01, F-35B 0.00, 787-8
+  0.91 (148 kt, a Dutch roll damping out over some 20 s).
+
+**The cause.** None of the five swings was the yaw damper's. Below her plan
+floor - the slowest she can hold clean - each was flown clean and heavier
+than her approach speed is for: the wing ran out of lift, the autopilot
+raised the nose into the stall, and the sideslip that followed was the
+departure's. No damper gain changed and none was scheduled on dynamic
+pressure: in the configuration the speeds belong to, every aircraft's
+sideslip is held at the gains of 2026-10-07.
+
+**What is not done.** With full flap above about 165 kt, the 787-8 (from
+168) and the A380 (from 166) hold their sideslip within 0.4 degree but are
+still 2.0 to 2.9 degrees off their heading 30 s after the wind arrives:
+rolled by the sideslip they turn 6 degrees off, and the heading loop
+overshoots back through north, settled by about 40 s. Clean at the same
+speeds they hold it within 2. They are left out of the test, named; the
+item stays open on them. Found on the way, in "Later": the **F-35B with
+her gear down does not hold her height slow** - 2,836 ft lost at 159 kt,
+777 at 174, within 163 from 184 - her sideslip within 0.01.
+
+**Verification** (linux-release, locally):
+- `the_<id>_holds_a_heading_in_a_20_kt_crosswind_in_its_landing_configuration_from_its_approach_speed`
+  (new, fourteen - every aircraft with an approach speed) and
+  `every_aircraft_with_an_approach_speed_has_its_own_test_of_a_heading_in_a_crosswind_from_it`
+  (new: the fourteen, and the 747-400 and F-22A named as publishing none):
+  from her approach speed in 5 kt steps to her plan floor, both flown;
+  sideslip within 1 degree and heading within 2 after 30 s. 15 of 15
+  green; 13 speeds of the 787-8's and A380's left out and counted. Above
+  the floor the clean sweep (2026-10-07) flies on. **Seen to fail** on the
+  base's trial (clean, model weight): the 737-300, 787-8, A380, B-2A and
+  F-35B red, as above; and with the gear and flap alone, the B-2A and
+  F-35B still red.
+- Every test matching crosswind, approach, land, lander, catalogue, orbit
+  or glide (268) in linux-release: green but for the client and server
+  tests, which were run before those binaries were built; built, those
+  seven and their kin (15) were run again: green.
+- **The selftest hash does not move** (`182dd6c996e0ee4c`): it flies an
+  input log, not these trials.
+- CI's cost tables carry the fifteen new tests at estimates (2 s each in
+  release, times 30, 25 and 10 for the debug builds) until
+  `tools/ci_test_costs.py` measures them.
+
 ### The plan-speed refusal test asks the Mosquito past her gear-up top speed, 2026-10-10
 
 Gear up (this PR) the Mosquito's fastest plan speed is 264 kt, not 219, so
