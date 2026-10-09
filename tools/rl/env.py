@@ -12,6 +12,14 @@ slowly, for touching near the centreline and on the runway. Before it, the
 approach is shaped by a potential - near the centreline, on the glidepath,
 tracking down the runway, at the speed - and moving the controls about costs
 a little. After it, bouncing and banking cost. Going wrong costs.
+
+**The speed is judged from 500 ft down, every tenth of a second**, as
+sim::StabilizedApproach judges the approach autopilot: the shaping above
+cannot do it, because a potential changes no optimum (Ng, Harada and Russell,
+1999) and this one fades to nothing at the runway - with it alone the policy
+learnt to dive down the glidepath on power and pass 500 ft up to 35 kt fast,
+which flared well. Outside a band inside the gate's +10/-5 kt costs, by the
+knot (`STABILIZED`).
 """
 
 from __future__ import annotations
@@ -33,6 +41,20 @@ JSBSIM_ROOT = os.path.join(REPO, "assets", "jsbsim")
 # touch's reward, the centreline's most of all, was invisible for all but
 # the last twenty seconds. 0.999 to the power of the last 200 is 0.82.
 GAMMA = 0.999
+
+# **The stabilized approach the speed is held to**: from `gate_ft` over the
+# runway down to `down_to_ft`, as sim::StabilizedApproach judges it (500 and
+# 50 ft, +10/-5 kt of the approach speed), each tenth of a second outside
+# `fast_kts` over or `slow_kts` under the approach speed costs `per_kt` for
+# each knot outside, to `most_kts`. The band is narrower than the gate's, a
+# margin for the mean action and for the simulation's own flight of it.
+STABILIZED = dict(gate_ft=500.0, down_to_ft=50.0, fast_kts=5.0, slow_kts=2.0, per_kt=0.02,
+                  most_kts=30.0, judged_fast_kts=10.0, judged_slow_kts=5.0)
+
+
+def outside_band(kts: float, vref_kts: float, fast_kts: float, slow_kts: float) -> float:
+    """How many knots `kts` is outside +`fast_kts`/-`slow_kts` of `vref_kts`."""
+    return max(0.0, kts - vref_kts - fast_kts) + max(0.0, vref_kts - slow_kts - kts)
 
 
 class Flier:
@@ -61,6 +83,7 @@ class Flier:
         self.touch_above_m = 0.0
         self.touch_agl_ft = 0.0
         self.t = 0.0
+        self.unstable_steps = 0
         self.readings = L.read(self.fdm)
         w = L.where(self.readings, self.rw)
         self.phi = self.potential(self.readings, w)
@@ -115,6 +138,8 @@ class Flier:
                 self.touch_above_m = w.above_m
                 self.touch_agl_ft = self.fdm["position/h-agl-ft"]
                 reward += self.touchdown_reward(f.touch)
+            if not f.touched:
+                self.judge_the_gate()
             if f.touched:
                 rise_ft = self.fdm["position/h-agl-ft"] - self.touch_agl_ft
                 f.highest_after_touch_ft = max(f.highest_after_touch_ft, rise_ft)
@@ -159,6 +184,13 @@ class Flier:
         phi = self.potential(r, w)
         reward += GAMMA * phi - self.phi
         self.phi = phi
+        # **Off its speed from 500 ft down costs, every tenth of a second**
+        # (STABILIZED): a cost, so nothing is gained by flying on.
+        above_ft = w.above_m * L.FEET_PER_METRE
+        st = STABILIZED
+        if st["down_to_ft"] <= above_ft <= st["gate_ft"]:
+            off = outside_band(r[9], self.ap.vref_kts, st["fast_kts"], st["slow_kts"])
+            reward -= st["per_kt"] * min(off, st["most_kts"])
         # **Off the centreline on short final costs, every tenth of a second**:
         # inside 1,500 m of the threshold, a hundredth for each metre off it,
         # to fifty. A cost, so nothing is gained by flying on; the touch short
@@ -169,6 +201,20 @@ class Flier:
             f.ended = "out of time"
             return obs, reward, True, True
         return obs, reward, False, False
+
+    def judge_the_gate(self) -> None:
+        """The stabilized gate's judgement, step by step, as sim::unstabilized
+        makes it of the speed: the longest it found her outside +10/-5 kt
+        between 500 and 50 ft, running, for the training's log and the
+        evaluation. Rewards nothing itself."""
+        st = STABILIZED
+        above_ft = (self.fdm["position/h-sl-ft"] - self.rw.elevation_ft)
+        kts = self.fdm["velocities/vc-kts"]
+        off = (st["down_to_ft"] <= above_ft <= st["gate_ft"] and
+               outside_band(kts, self.ap.vref_kts, st["judged_fast_kts"], st["judged_slow_kts"]) > 0.0)
+        self.unstable_steps = self.unstable_steps + 1 if off else 0
+        f = self.flight
+        f.most_unstable_s = max(f.most_unstable_s, self.unstable_steps / L.STEPS_PER_SECOND)
 
     @staticmethod
     def touchdown_reward(t: L.Touch) -> float:
@@ -252,6 +298,7 @@ class LandingEnv(gym.Env):
                 "across_m": f.touch.across_m,
                 "along_m": f.touch.along_m,
                 "ended": f.ended,
+                "most_unstable_s": f.most_unstable_s,
             }
         return (
             np.asarray(obs, dtype=np.float64),
