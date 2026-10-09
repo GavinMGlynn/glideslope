@@ -794,6 +794,17 @@ A HUD cannot hold a link; the client shows the credit's text on screen and
 prints it with the link when the flight's weather is fetched, as
 `glideslope_cli weather` does.
 
+### The runway's condition: what a wet or slippery runway gives a braked wheel
+
+Read by `sim/runway_condition.hpp` and `world/weather.hpp` (2026-10-10).
+
+| | |
+|---|---|
+| Source, the codes and their coefficients | FAA Advisory Circular 25-32, *Landing Performance Data for Time-of-Arrival Landing Performance Assessments*, dated 12/22/15: table 2, Runway Surface Condition - Pilot-Reported Braking Action - Wheel Braking Coefficient Correlation Matrix, and section 8.3. As published at <https://www.faa.gov/documentlibrary/media/advisory_circular/ac_25-32.pdf>, SHA-256 `e9588da75cd51d8f9d3c005eb4d289166b380da3412de366ec8cd553484e82f4` |
+| Source, the wet runway's coefficient | 14 CFR 25.109(c)(1)-(2), the smooth wet runway's maximum tire-to-ground braking coefficient (the 100 psi curve) and the anti-skid efficiency (0.80, fully modulating), as on eCFR (<https://www.ecfr.gov/current/title-14/part-25/section-25.109>), read 2026-10-10; its curves are the image <https://img.federalregister.gov/ER18FE98.004/ER18FE98.004_large.png> |
+| Source, the wet runway's length | 14 CFR 121.195(d): 115 per cent of the dry runway, as on eCFR (<https://www.ecfr.gov/current/title-14/part-121/section-121.195>), read 2026-10-10 |
+| Source, how far a METAR's weather reaches | ICAO Annex 3, appendix 3, on present weather (VC: between about 8 and 16 km of the aerodrome; paragraph not checked) and the Federal Meteorological Handbook No. 1 (vicinity: 5 to 10 statute miles); not downloaded, named |
+
 ## Written here, from no outside source
 
 Some of what ships is this project's own writing rather than anyone else's

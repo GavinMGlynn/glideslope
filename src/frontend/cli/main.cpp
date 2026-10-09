@@ -948,7 +948,7 @@ int plan_command(const std::filesystem::path& data, const std::vector<std::strin
     const glideslope::sim::CatalogueEntry entry = glideslope::sim::find_aircraft(data, aircraft);
     glideslope::copilot::PlanRequest request =
         // Planned with no weather - still air, its runways dry.
-        glideslope::frontend::plan_request_for(data, entry.id, false);
+        glideslope::frontend::plan_request_for(data, entry.id, std::nullopt);
     request.command = command;
     request.airport = airport;
     const std::vector<glideslope::world::RunwayEnd> all = glideslope::world::world_runways(
@@ -2485,10 +2485,10 @@ int stay(glideslope::platform::UdpSocket& socket,
             predicting->track_to(track_out);
         }
     }
-    // **Whether the server's weather wets the runways** (frontend::runway_wet),
+    // **Whether the server's weather wets the runways** (frontend::wet_runways),
     // from the last METAR it told: its copilot is told so. A METAR that cannot
     // be read leaves it as it was, as the air before it is kept.
-    bool runway_wet_heard = false;
+    std::optional<glideslope::world::WetRunways> wet_runways_heard;
     const auto say_heard = [&](const std::string& line) {
         std::fprintf(stderr, "client %s: %s\n", me.c_str(), line.c_str());
         if (heard_out) {
@@ -3061,7 +3061,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                             cc.asked = true;
                             cc.seat->ask();
                         }
-                        const auto route = cc.seat->look(now_s, a, runway_wet_heard);
+                        const auto route = cc.seat->look(now_s, a, wet_runways_heard);
                         for (const std::string& line : cc.seat->said()) {
                             say_heard(line);
                         }
@@ -3284,8 +3284,10 @@ int stay(glideslope::platform::UdpSocket& socket,
                         if (!w.metar.empty()) {
                             told_air.surface.metar = glideslope::world::parse_metar(w.metar);
                         }
-                        runway_wet_heard =
-                            glideslope::frontend::runway_wet(w.metar.empty() ? nullptr : &told_air);
+                        told_air.surface.latitude_deg = w.latitude_deg;
+                        told_air.surface.longitude_deg = w.longitude_deg;
+                        wet_runways_heard = glideslope::frontend::wet_runways(
+                            w.metar.empty() ? nullptr : &told_air);
                     } catch (const glideslope::world::MetarError&) {
                     }
                     std::string why;

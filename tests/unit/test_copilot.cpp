@@ -572,7 +572,7 @@ GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land
     for (const auto& entry : catalogue) {
         const glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, entry.id);
         const glideslope::copilot::PlanRequest request =
-            glideslope::frontend::plan_request_for(data, entry.id, false);
+            glideslope::frontend::plan_request_for(data, entry.id, std::nullopt);
         check(request.landing_need_m == brief.landing_need_m,
               entry.id + ": the planner and the copilot are held to the same need");
         // An approach speed to land at, whatever it is: what is asked here is
@@ -599,17 +599,20 @@ GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land
             return plan;
         };
         // Wet, as the frontends brief it.
+        // Wet within a kilometre of the synthetic runway, at 0, 0.
+        const glideslope::world::WetRunways wet_here{0.0, 0.0, 1000.0};
         const glideslope::copilot::PlanRequest wet_request =
-            glideslope::frontend::plan_request_for(data, entry.id, true);
-        check(wet_request.runway_wet && !request.runway_wet &&
-                  wet_request.landing_need_m == brief.wet_landing_need_m &&
+            glideslope::frontend::plan_request_for(data, entry.id, wet_here);
+        check(wet_request.wet_runways && !request.wet_runways &&
+                  wet_request.wet_landing_need_m == brief.wet_landing_need_m &&
                   std::abs(brief.wet_landing_need_m -
                            need_m * glideslope::sim::wet_landing_factor) < 1e-9,
               entry.id + ": briefed wet, it needs 1.15 times as much, for the planner too");
         const auto why_when = [&](const glideslope::world::RunwayEnd& end, bool wet) {
             return glideslope::copilot::landing_refusal(
-                approach_kts, wet ? brief.wet_landing_need_m : need_m, wet, landing_on(end),
-                {end});
+                approach_kts, need_m, brief.wet_landing_need_m,
+                wet ? std::optional<glideslope::world::WetRunways>(wet_here) : std::nullopt,
+                landing_on(end), {end});
         };
         const auto why = [&](const glideslope::world::RunwayEnd& end) {
             return why_when(end, false);
@@ -1332,7 +1335,7 @@ GLIDESLOPE_TEST(every_aircraft_is_planned_and_routed_from_its_own_speeds_with_or
     std::vector<std::string> without_approach;
     for (const auto& entry : catalogue) {
         glideslope::copilot::PlanRequest request =
-            glideslope::frontend::plan_request_for(data, entry.id, false);
+            glideslope::frontend::plan_request_for(data, entry.id, std::nullopt);
         const glideslope::copilot::PlanRequest at_sydney = sydney("orbit the CBD");
         request.command = at_sydney.command;
         request.airport = at_sydney.airport;
@@ -1402,27 +1405,17 @@ GLIDESLOPE_TEST(every_aircraft_is_planned_and_routed_from_its_own_speeds_with_or
 // **A session whose METAR reports rain at the station refuses a landing on a
 // runway long enough dry but short wet**, through what the server and the
 // clients tell their copilots and planners: the session's weather report, as
-// the server flies it, read by `frontend::runway_wet` into the copilot's
+// the server flies it, read by `frontend::wet_runways` into the copilot's
 // Situation and the planner's request, held against the brief the server
 // keeps for the aircraft (`frontend::brief_for`). A C172P needs 558 m dry and
 // 642 m wet (1,280 ft over 50 ft, times 1.43, times 1.15); the runway has
-// 600. In the same session with no rain it is taken.
+// 600. In the same session with no rain it is taken; **and with the rain's
+// station 8.1 km from the runway**, past what a METAR's present weather
+// reaches (world::metar_radius_m, 8 km), it is taken too, where at 7.9 km it
+// is refused.
 GLIDESLOPE_TEST(a_session_whose_metar_reports_rain_refuses_a_runway_long_enough_dry_but_short_wet) {
     const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     const glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, "c172p");
-    const auto session = [](const std::string& metar) {
-        glideslope::world::WeatherReport r;
-        r.surface.metar = glideslope::world::parse_metar(metar);
-        r.surface.latitude_deg = -33.9268;
-        r.surface.longitude_deg = 150.9960;
-        r.surface.elevation_m = 8.0;
-        return r;
-    };
-    const glideslope::world::WeatherReport raining =
-        session("METAR YSBK 100600Z 29012KT 6000 -RA BKN015 14/12 Q1012");
-    const glideslope::world::WeatherReport dry =
-        session("METAR YSBK 100600Z 29012KT 9999 FEW030 14/08 Q1012");
-
     glideslope::world::RunwayEnd end;
     end.airport = "YSBK";
     end.ident = "29C";
@@ -1431,6 +1424,26 @@ GLIDESLOPE_TEST(a_session_whose_metar_reports_rain_refuses_a_runway_long_enough_
     end.elevation_ft = 26;
     end.heading_deg = 285;
     end.length_m = 600;
+    // The station `away_m` north of the runway's threshold.
+    const auto session = [&](const std::string& metar, double away_m) {
+        glideslope::world::WeatherReport r;
+        r.surface.metar = glideslope::world::parse_metar(metar);
+        r.surface.latitude_deg = end.latitude_deg + away_m / 111195.0;
+        r.surface.longitude_deg = end.longitude_deg;
+        r.surface.elevation_m = 8.0;
+        const double d = glideslope::sim::distance_m(end.latitude_deg, end.longitude_deg,
+                                                     r.surface.latitude_deg,
+                                                     r.surface.longitude_deg);
+        check(std::abs(d - away_m) < 20.0,
+              "the station is " + std::to_string(d) + " m away, not " + std::to_string(away_m));
+        return r;
+    };
+    const std::string rain = "METAR YSBK 100600Z 29012KT 6000 -RA BKN015 14/12 Q1012";
+    const glideslope::world::WeatherReport raining = session(rain, 0.0);
+    const glideslope::world::WeatherReport raining_near = session(rain, 7900.0);
+    const glideslope::world::WeatherReport raining_far = session(rain, 8100.0);
+    const glideslope::world::WeatherReport dry =
+        session("METAR YSBK 100600Z 29012KT 9999 FEW030 14/08 Q1012", 0.0);
     check(end.length_m > brief.landing_need_m && end.length_m < brief.wet_landing_need_m,
           "the runway is long enough dry and short wet: " + std::to_string(brief.landing_need_m) +
               " and " + std::to_string(brief.wet_landing_need_m) + " m needed");
@@ -1450,24 +1463,36 @@ GLIDESLOPE_TEST(a_session_whose_metar_reports_rain_refuses_a_runway_long_enough_
         now.heading_deg = 285;
         now.airspeed_kts = 90;
         now.fields = {end};
-        now.runway_wet = glideslope::frontend::runway_wet(&weather);
+        now.wet_runways = glideslope::frontend::wet_runways(&weather);
         return glideslope::copilot::change_refusal(brief, now, land);
     };
     const auto planner_says = [&](const glideslope::world::WeatherReport& weather) {
         const glideslope::copilot::PlanRequest request = glideslope::frontend::plan_request_for(
-            data, "c172p", glideslope::frontend::runway_wet(&weather));
+            data, "c172p", glideslope::frontend::wet_runways(&weather));
         return glideslope::copilot::landing_refusal(request.approach_kts, request.landing_need_m,
-                                                    request.runway_wet, land.plan, {end});
+                                                    request.wet_landing_need_m,
+                                                    request.wet_runways, land.plan, {end});
     };
-    const std::string wet_copilot = copilot_says(raining);
-    const std::string wet_planner = planner_says(raining);
     const std::string meant =
         "the runway YSBK 29C has 600 m to land on, and the aircraft needs 642 m on a wet runway: "
         "choose a longer one";
-    check(wet_copilot == meant && wet_planner == meant,
-          "in the rain the copilot and the planner refuse it as '" + meant + "': '" +
-              wet_copilot + "' and '" + wet_planner + "'");
-    check(copilot_says(dry).empty() && planner_says(dry).empty(),
-          "with no rain it is taken: '" + copilot_says(dry) + "' and '" + planner_says(dry) + "'");
-    check(!glideslope::frontend::runway_wet(nullptr), "still air, no weather, is a dry runway");
+    std::size_t refused = 0;
+    for (const auto* weather : {&raining, &raining_near}) {
+        const std::string wet_copilot = copilot_says(*weather);
+        const std::string wet_planner = planner_says(*weather);
+        check(wet_copilot == meant && wet_planner == meant,
+              "in the rain the copilot and the planner refuse it as '" + meant + "': '" +
+                  wet_copilot + "' and '" + wet_planner + "'");
+        ++refused;
+    }
+    std::size_t taken = 0;
+    for (const auto* weather : {&dry, &raining_far}) {
+        check(copilot_says(*weather).empty() && planner_says(*weather).empty(),
+              "with no rain, or rain 8.1 km off, it is taken: '" + copilot_says(*weather) +
+                  "' and '" + planner_says(*weather) + "'");
+        ++taken;
+    }
+    check(!glideslope::frontend::wet_runways(nullptr), "still air, no weather, wets nothing");
+    check(refused == 2 && taken == 2,
+          "refused at the station and 7.9 km off, taken dry and 8.1 km off");
 }

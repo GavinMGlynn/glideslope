@@ -29,6 +29,7 @@
 #include "sim/plan.hpp"
 #include "world/runways.hpp"
 
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -55,7 +56,8 @@ struct PlanRequest {
     // The runway it needs to land, metres, as the copilot's Brief has it: 0
     // where nothing published gives one.
     double landing_need_m = 0.0;
-    bool runway_wet = false; // as the Brief's
+    double wet_landing_need_m = 0.0; // as the Brief's
+    std::optional<world::WetRunways> wet_runways; // as the Situation's
     std::string airport;       // where it stands, "YSSY"
     std::vector<world::RunwayEnd> runways; // that airport's
     // **Where it may land**: runway ends near the airport - its own among

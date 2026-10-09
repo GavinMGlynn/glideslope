@@ -565,7 +565,12 @@ private:
     double applied_pressure_hpa_ = 1013.25;
     int applied_turbulence_ = 0;
     double dry_braking_friction_ = 0.0;
+    double dry_rolling_friction_ = 0.0;
     int runway_condition_ = 6;
+    // The pedals as asked, and the share of them the runway takes.
+    double left_brake_ = 0.0;
+    double right_brake_ = 0.0;
+    double brake_share_ = 1.0;
 };
 
 } // namespace glideslope::sim

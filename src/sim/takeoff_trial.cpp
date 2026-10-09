@@ -25,7 +25,7 @@ bool TakeoffFlown::held(const DepartureSpeeds& speeds) const {
 }
 
 TakeoffFlown fly_takeoff_trial(const std::filesystem::path& data, const CatalogueEntry& entry,
-                               const DepartureSpeeds& speeds) {
+                               const DepartureSpeeds& speeds, std::shared_ptr<Weather> weather) {
     constexpr int steps_per_second = 120;
     Runway runway;
     runway.name = "trial";
@@ -38,6 +38,9 @@ TakeoffFlown fly_takeoff_trial(const std::filesystem::path& data, const Catalogu
     Aircraft aircraft(data / "jsbsim", entry.model);
     aircraft.set_terrain(std::make_shared<FunctionTerrain>([](double, double) { return 0.0; },
                                                            [](double, double) { return false; }));
+    if (weather) {
+        aircraft.set_weather(std::move(weather));
+    }
     InitialConditions ic;
     ic.latitude_deg = runway.threshold_lat_deg;
     ic.longitude_deg = runway.threshold_lon_deg;
@@ -61,6 +64,19 @@ TakeoffFlown fly_takeoff_trial(const std::filesystem::path& data, const Catalogu
         if (std::optional<std::string> why = judge.judge(aircraft)) {
             out.wrecked = *why;
             break;
+        }
+        if (departure.unstuck_along_m() <= 0.0) {
+            // Across the runway's line, metres: north and east of the
+            // threshold, on a sphere's metres, turned to the runway.
+            const AircraftState s = aircraft.state();
+            constexpr double metres_per_degree = 111195.0;
+            constexpr double radians = 3.14159265358979323846 / 180.0;
+            const double north_m = (s.latitude_deg - runway.threshold_lat_deg) * metres_per_degree;
+            const double east_m = (s.longitude_deg - runway.threshold_lon_deg) *
+                                  metres_per_degree * std::cos(runway.threshold_lat_deg * radians);
+            const double h = runway.heading_deg * radians;
+            out.widest_across_m = std::max(out.widest_across_m,
+                                           std::abs(east_m * std::cos(h) - north_m * std::sin(h)));
         }
         if (departure.unstuck_along_m() > 0.0) {
             if (out.unstuck_kts == 0.0) {

@@ -1192,11 +1192,12 @@ struct Unplannable : std::runtime_error {
 glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
                                            const Planner& planner,
                                            const glideslope::copilot::Task& task,
-                                           bool runway_wet, std::string& said_by) {
+                                           std::optional<glideslope::world::WetRunways> wet_runways,
+                                           std::string& said_by) {
     const glideslope::sim::CatalogueEntry entry =
         glideslope::sim::find_aircraft(data, task.aircraft);
     glideslope::copilot::PlanRequest request =
-        glideslope::frontend::plan_request_for(data, entry.id, runway_wet);
+        glideslope::frontend::plan_request_for(data, entry.id, wet_runways);
     request.command = task.command;
     request.airport = task.airport;
     const bool played_back = !planner.playback.empty();
@@ -1251,7 +1252,7 @@ public:
     Fleet(const std::filesystem::path& data, const std::vector<Flown>& fly, int ai,
           const std::filesystem::path& plan_file, const std::map<int, Planner>& planners,
           const std::filesystem::path& task_file, double departure_spacing_s,
-          bool runway_wet, const Planner& hand_over_planner = {})
+          std::optional<glideslope::world::WetRunways> wet_runways, const Planner& hand_over_planner = {})
         : departure_spacing_s_(departure_spacing_s),
           hand_over_planner_(hand_over_planner),
           hand_over_words_(hand_over_planner.provider.empty()
@@ -1394,7 +1395,7 @@ public:
                     }
                     std::string by;
                     const glideslope::copilot::Planned planned =
-                        plan_by_model(data, planner->second, *task, runway_wet, by);
+                        plan_by_model(data, planner->second, *task, wet_runways, by);
                     std::printf("%s planned by %s, in %d answer%s\n", name.c_str(), by.c_str(),
                                 planned.attempts, planned.attempts == 1 ? "" : "s");
                     for (const std::string& why : planned.refused) {
@@ -2064,7 +2065,7 @@ public:
         }
         const glideslope::copilot::Brief& brief = *a.brief;
         glideslope::copilot::Situation now;
-        now.runway_wet = glideslope::frontend::runway_wet(weather());
+        now.wet_runways = glideslope::frontend::wet_runways(weather());
         now.latitude_deg = lat;
         now.longitude_deg = lon;
         now.altitude_ft = craft.property("position/h-sl-ft") - undulation_ft;
@@ -2357,7 +2358,7 @@ public:
     glideslope::copilot::Situation situation_of(const Aircraft& a) {
         const glideslope::sim::Aircraft& craft = *a.aircraft;
         glideslope::copilot::Situation now;
-        now.runway_wet = glideslope::frontend::runway_wet(weather());
+        now.wet_runways = glideslope::frontend::wet_runways(weather());
         now.latitude_deg = craft.property("position/lat-geod-deg");
         now.longitude_deg = craft.property("position/long-gc-deg");
         now.altitude_ft = craft.property("position/h-sl-ft") -
@@ -4652,14 +4653,21 @@ int run(const Options& o) {
         }
     }
     if (!o.fly.empty() || o.ai > 0) {
+        // A --metar's station is --station, or the first aircraft's place -
+        // which is not known until the fleet is: its planners are told the
+        // runways are wet at --station, and only where one is given.
         glideslope::world::WeatherReport given;
-        if (!o.metar.empty()) {
+        if (!o.metar.empty() && o.station) {
             given.surface.metar = glideslope::world::parse_metar(o.metar);
+            given.surface.latitude_deg = (*o.station)[0];
+            given.surface.longitude_deg = (*o.station)[1];
         }
-        const bool runway_wet = glideslope::frontend::runway_wet(
-            station_weather ? &*station_weather : o.metar.empty() ? nullptr : &given);
+        const auto wet_runways = glideslope::frontend::wet_runways(
+            station_weather                  ? &*station_weather
+            : !o.metar.empty() && o.station ? &given
+                                            : nullptr);
         fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s,
-                      runway_wet, o.hand_over_planner);
+                      wet_runways, o.hand_over_planner);
         fleet->fail_engines_at(o.fail_engine_at_s);
         if (!o.ai_on_final.empty()) {
             const std::string refused = fleet->ai_on_final(o.ai_on_final);

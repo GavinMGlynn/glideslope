@@ -54,6 +54,14 @@ double isa_temperature_c(double height_m);
 // unreported wind is calm; an unreported temperature or pressure standard.
 sim::Conditions surface_conditions(const SurfaceReport& report);
 
+// **How far a METAR's present weather reaches**: 8 km. Weather reported
+// without "VC" is at the aerodrome; "VC" is its vicinity, between about 8
+// and 16 km (ICAO Annex 3, appendix 3; the US's FMH-1 puts the
+// vicinity at 5 to 10 statute miles). A runway is wet by a report's
+// weather only within this of its station (with_air_motion,
+// frontend::wet_runways), and dry beyond it.
+inline constexpr double metar_radius_m = 8000.0;
+
 // **The runway condition a report implies** (sim/runway_condition.hpp): wet,
 // code 5, while precipitation falls at the station - rain, drizzle, snow, snow
 // grains, ice pellets, hail, small hail or unknown precipitation, of any

@@ -24,6 +24,15 @@ struct RunwayError : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+// **Where the runways are wet**: within `radius_m` of a place - a METAR's
+// station, whose present weather is what is at the aerodrome (frontend::
+// wet_runways). Runways beyond it are dry.
+struct WetRunways {
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double radius_m = 0.0;
+};
+
 struct RunwayEnd {
     std::string airport; // its ICAO or local ident, "YSSY"
     std::string ident;   // the end's, "34L"

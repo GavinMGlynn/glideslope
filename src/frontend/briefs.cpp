@@ -37,13 +37,18 @@ copilot::Brief brief_for(const std::filesystem::path& data, const std::string& c
     return b;
 }
 
-bool runway_wet(const world::WeatherReport* report) {
-    return report != nullptr &&
-           world::runway_condition_of(report->surface.metar) != sim::dry_runway;
+std::optional<world::WetRunways> wet_runways(const world::WeatherReport* report) {
+    if (report == nullptr ||
+        world::runway_condition_of(report->surface.metar) == sim::dry_runway) {
+        return std::nullopt;
+    }
+    return world::WetRunways{report->surface.latitude_deg, report->surface.longitude_deg,
+                             world::metar_radius_m};
 }
 
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
-                                      const std::string& catalogue_id, bool wet) {
+                                      const std::string& catalogue_id,
+                                      std::optional<world::WetRunways> wet) {
     const copilot::Brief b = brief_for(data, catalogue_id);
     copilot::PlanRequest r;
     r.aircraft = b.aircraft;
@@ -53,8 +58,9 @@ copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
     r.fastest_kts = b.fastest_kts;
     r.climb_kts = b.climb_kts;
     r.cruise_kts = b.cruise_kts;
-    r.landing_need_m = wet ? b.wet_landing_need_m : b.landing_need_m;
-    r.runway_wet = wet;
+    r.landing_need_m = b.landing_need_m;
+    r.wet_landing_need_m = b.wet_landing_need_m;
+    r.wet_runways = wet;
     return r;
 }
 
