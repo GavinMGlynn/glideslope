@@ -521,8 +521,8 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 - [x] **A light aeroplane's take-off hands over slower than the plan's
       climb floor.** Done 2026-10-09: the take-off climbs her at her
       handbook's best-climb speed whatever she weighs, as the plan does, and
-      the autopilot takes her on without pitching up or running past it; the
-      worst, the 182S, 1.1 kt over. *Verification: every light aeroplane's
+      the autopilot takes her on without pitching up, easing the take-off's
+      climb down to the plan's; the worst, the 182S, 1.1 kt over. *Verification: every light aeroplane's
       first leg is climbed within 2 kt of one climb speed, from the
       hand-over.*
 - [x] **On tight, slow orbits the navigator flies inside the circle.**
@@ -1275,6 +1275,14 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
 
+- [ ] **A plan's first leg strays further since the take-off climbs at the
+      published speed.** Climbing at her handbook's Vy rather than the
+      slower speed for her weight, each light aeroplane strays 11 to 17 m
+      further from the line of a first leg that turns (the 172P 62 -> 80 m),
+      within the test's 100 m; the faster climb should stray less, so why
+      is not known (PROJECT_STATUS, 2026-10-10). *Verification: the extra
+      stray traced to its cause, and either removed or explained in the
+      test.*
 - [ ] **Tail strikes for the F-15C, A380 and F-35B, against published
       attitudes.** The Learjet's tail strikes and the take-off lessons name
       a strike (done 2026-10-06); the F-15C has no contact behind her main

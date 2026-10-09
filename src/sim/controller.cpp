@@ -318,6 +318,15 @@ Controls Controller::fly() {
             }
             departure_.reset();
             autopilot_.emplace(a_, applied_);
+            // **A light aeroplane's climb is eased down to the plan's**
+            // (Autopilot::ease_climb): handed over at full throttle on her
+            // best-climb floor. A jet climbs away at thousands of feet a
+            // minute, which 25 ft/min a second would take minutes to bring
+            // down; the F-22A, eased, climbed past her orbit's height to
+            // 14,000 ft.
+            if (a_.climb_floor_kts()) {
+                autopilot_->ease_climb(a_.property("velocities/h-dot-fps") * 60.0);
+            }
             if (navigator_) {
                 navigator_->begin_here();
             }

@@ -1601,3 +1601,227 @@ GLIDESLOPE_TEST(an_autopilot_handed_a_spiral_rolls_its_wings_level_before_it_rai
     }
     check(flown == 2, "both pitch laws were flown");
 }
+
+namespace {
+
+// What holding a speed in rough air costs: the airspeed's spread, its RMS
+// off the speed asked, and how often the throttle turns back.
+struct RoughSpeedHold {
+    double spread_kts = 0.0;
+    double rms_kts = 0.0;
+    int reversals = 0;
+    double travel = 0.0;
+};
+
+// `id` at its catalogue start speed and throttle, at 4,000 ft heading north
+// in moderate turbulence (MIL-F-8785C severity 3), held on the autopilot at
+// that speed and height: a minute to settle, then three measured. A reversal
+// is the throttle turning back after moving at least 0.02 of its travel one
+// way, so a hand's jitter is not counted.
+RoughSpeedHold hold_speed_in_moderate_turbulence(const std::string& id) {
+    const CatalogueEntry e = glideslope::sim::find_aircraft(data(), id);
+    Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 4000.0;
+    ic.heading_deg = 0.0;
+    ic.airspeed_kts = e.start_airspeed_kts;
+    ic.engine_running = true;
+    ic.gear = 0.0;
+    aircraft.initialize(ic);
+    glideslope::world::WeatherReport report;
+    report.surface.metar =
+        glideslope::world::parse_metar("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013");
+    report.surface.latitude_deg = -33.9;
+    report.surface.longitude_deg = 151.2;
+    report.turbulence_severity = 3;
+    report.air_seed = 0xa170;
+    aircraft.set_weather(
+        std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0));
+    glideslope::sim::Controls controls;
+    controls.throttle = e.start_throttle;
+    Autopilot autopilot(aircraft, controls);
+    AutopilotModes modes = autopilot.modes();
+    modes.heading_deg = 0.0;
+    modes.altitude_ft = 4000.0;
+    modes.airspeed_kts = e.start_airspeed_kts;
+    autopilot.set(modes);
+    RoughSpeedHold out;
+    double lowest = 1e9;
+    double highest = 0.0;
+    double sum_sq = 0.0;
+    int measured = 0;
+    double last_throttle = controls.throttle;
+    double extreme = controls.throttle;
+    int direction = 0;
+    for (int i = 0; i < 240 * steps_per_second; ++i) {
+        const glideslope::sim::Controls c = autopilot.fly();
+        aircraft.set_controls(c);
+        aircraft.step();
+        if (i < 60 * steps_per_second) {
+            last_throttle = c.throttle;
+            extreme = c.throttle;
+            continue;
+        }
+        const double kts = aircraft.property("velocities/vc-kts");
+        lowest = std::min(lowest, kts);
+        highest = std::max(highest, kts);
+        sum_sq += (kts - e.start_airspeed_kts) * (kts - e.start_airspeed_kts);
+        ++measured;
+        out.travel += std::abs(c.throttle - last_throttle);
+        last_throttle = c.throttle;
+        if (direction >= 0 && c.throttle > extreme) {
+            extreme = c.throttle;
+            direction = 1;
+        } else if (direction <= 0 && c.throttle < extreme) {
+            extreme = c.throttle;
+            direction = -1;
+        } else if (std::abs(c.throttle - extreme) >= 0.02) {
+            ++out.reversals;
+            direction = -direction;
+            extreme = c.throttle;
+        }
+    }
+    out.spread_kts = highest - lowest;
+    out.rms_kts = std::sqrt(sum_sq / measured);
+    return out;
+}
+
+} // namespace
+
+// **The throttle holds a speed in rough air without reading the speed's
+// trend.** Five classes, held at their start speeds at 4,000 ft in moderate
+// turbulence for three minutes (hold_speed_in_moderate_turbulence): the
+// slow-spooling 747-400 and A380, the business jet, the Mosquito and the
+// 172P. Each one's RMS off the speed asked is held to 5% over what it
+// measured on 2026-10-10 (linux-release), and its throttle reversals to 10%
+// over. **A lead on the speed's trend was tried for the take-off's hand-over
+// and taken out** (PROJECT_STATUS, 2026-10-10): reading the speed two
+// seconds ahead, the RMS went 747-400 3.35 -> 3.61, A380 3.81 -> 4.27,
+// Learjet 3.21 -> 3.63, Mosquito 6.14 -> 8.18, 172P 2.99 -> 3.23, with
+// 10 to 25% fewer reversals; the turbulence's own trend is noise to it.
+GLIDESLOPE_TEST(the_autopilot_holds_five_classes_speeds_in_moderate_turbulence_to_their_measured_spread) {
+    struct Measured {
+        const char* id;
+        double rms_kts;
+        int reversals;
+    };
+    const Measured measured[] = {{"747-400", 3.35, 210},
+                                 {"a380", 3.81, 200},
+                                 {"learjet35a", 3.21, 210},
+                                 {"mosquito-fb6", 6.14, 156},
+                                 {"c172p", 2.99, 221}};
+    std::size_t flown = 0;
+    for (const Measured& m : measured) {
+        const RoughSpeedHold h = hold_speed_in_moderate_turbulence(m.id);
+        std::fprintf(stderr,
+                     "%s: speed spread %.2f kt, RMS %.2f kt; throttle reversals %d, travel %.2f\n",
+                     m.id, h.spread_kts, h.rms_kts, h.reversals, h.travel);
+        check(h.rms_kts <= 1.05 * m.rms_kts,
+              std::string(m.id) + " held its speed to an RMS of " + std::to_string(h.rms_kts) +
+                  " kt (at most " + std::to_string(1.05 * m.rms_kts) + ")");
+        check(h.reversals <= static_cast<int>(1.1 * m.reversals),
+              std::string(m.id) + " reversed its throttle " + std::to_string(h.reversals) +
+                  " times (at most " + std::to_string(static_cast<int>(1.1 * m.reversals)) + ")");
+        ++flown;
+    }
+    check(flown == 5, "five classes flown: " + std::to_string(flown));
+}
+
+namespace {
+
+// What engaging the autopilot to hold height in a descent does: the most
+// load off 1 g, the most any control moved in a step, and how far she sank
+// below the height she was engaged at.
+struct LevelOff {
+    double most_g_off = 0.0;
+    double fastest_control = 0.0;
+    double sank_ft = 0.0;
+    double descent_fpm = 0.0;
+};
+
+// `id` at its catalogue start speed at 6,000 ft, flown down at 1,000 ft/min
+// by one autopilot for 40 s, then handed to a new one engaged as she is -
+// holding her height, the autopilot's own on engaging - and flown 30 s.
+LevelOff level_off_from_a_descent(const std::string& id) {
+    const CatalogueEntry e = glideslope::sim::find_aircraft(data(), id);
+    Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 6000.0;
+    ic.heading_deg = 0.0;
+    ic.airspeed_kts = e.start_airspeed_kts;
+    ic.engine_running = true;
+    ic.gear = 0.0;
+    aircraft.initialize(ic);
+    glideslope::sim::Controls controls;
+    controls.throttle = e.start_throttle;
+    std::optional<Autopilot> autopilot(std::in_place, aircraft, controls);
+    AutopilotModes modes = autopilot->modes();
+    modes.heading_deg = 0.0;
+    modes.altitude_ft.reset();
+    modes.vertical_speed_fpm = -1000.0;
+    modes.airspeed_kts = e.start_airspeed_kts;
+    autopilot->set(modes);
+    for (int i = 0; i < 40 * steps_per_second; ++i) {
+        controls = autopilot->fly();
+        aircraft.set_controls(controls);
+        aircraft.step();
+    }
+    LevelOff out;
+    out.descent_fpm = aircraft.property("velocities/h-dot-fps") * 60.0;
+    const double engaged_ft = aircraft.property("position/h-sl-ft");
+    autopilot.emplace(aircraft, controls);
+    glideslope::sim::Controls last = controls;
+    for (int i = 0; i < 30 * steps_per_second; ++i) {
+        const glideslope::sim::Controls c = autopilot->fly();
+        out.fastest_control = std::max(
+            {out.fastest_control, std::abs(c.elevator - last.elevator),
+             std::abs(c.aileron - last.aileron), std::abs(c.rudder - last.rudder),
+             std::abs(c.throttle - last.throttle)});
+        last = c;
+        aircraft.set_controls(c);
+        aircraft.step();
+        out.most_g_off =
+            std::max(out.most_g_off, std::abs(aircraft.property("accelerations/Nz") - 1.0));
+        out.sank_ft = std::max(out.sank_ft, engaged_ft - aircraft.property("position/h-sl-ft"));
+    }
+    return out;
+}
+
+} // namespace
+
+// **Engaged in a descent, the autopilot levels her off within half a g, no
+// control faster than a hand.** Its climb loop starts from the pitch she
+// has whatever climb is asked first (sim/autopilot.cpp); engaged holding her
+// height while coming down at 1,000 ft/min, that is the seed it always had,
+// and the nose comes up as the integral winds. Half a g is AC 25.1329-1C's
+// most for a pilot's recovery to a normal flight path (chapter 8, page 78:
+// "an incremental normal acceleration in the order of 0.5 g is considered
+// the maximum for this type of maneuver"), the nearest stated figure; a hand
+// is 1/120 of a control's travel a step. Measured (2026-10-10), g off 1 /
+// sank below: the 172P 0.12 / 56 ft; the 737-300 0.29 / 38; the 747-400
+// 0.22 / 49. A seed that started from her pitch whatever was asked, tried
+// on the way, levelled them off firmer - 0.18, 0.39, 0.27 g - and failed to
+// recover a stalled 737-300 engaged at 36 degrees of alpha.
+GLIDESLOPE_TEST(the_autopilot_engaged_in_a_descent_levels_off_within_half_a_g_at_a_hands_pace) {
+    std::size_t flown = 0;
+    for (const std::string id : {"c172p", "737-300", "747-400"}) {
+        const LevelOff l = level_off_from_a_descent(id);
+        std::fprintf(stderr,
+                     "%s: engaged descending %.0f ft/min; at most %.3f g off 1, a control "
+                     "moving at most %.5f a step, sinking %.0f ft below\n",
+                     id.c_str(), l.descent_fpm, l.most_g_off, l.fastest_control, l.sank_ft);
+        check(l.descent_fpm <= -900.0,
+              id + " was engaged coming down at " + std::to_string(l.descent_fpm) + " ft/min");
+        check(l.most_g_off <= 0.5, id + " levelled off at " + std::to_string(l.most_g_off) +
+                                       " g off 1 (at most 0.5)");
+        check(l.fastest_control <= 1.0 / 120.0 + 1e-9,
+              id + " moved a control " + std::to_string(l.fastest_control) +
+                  " in a step (at most 1/120)");
+        ++flown;
+    }
+    check(flown == 3, "a light aeroplane and two jets flown: " + std::to_string(flown));
+}

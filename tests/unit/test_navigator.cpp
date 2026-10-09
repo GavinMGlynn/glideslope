@@ -1696,20 +1696,23 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
                      "climbing it at no less than %.1f KCAS (climb speed %.1f)\n",
                      id.c_str(), handed_over_at_ft, closest_m, altitude_there_ft,
                      steps / steps_per_second, worst_off_leg_m, slowest_climb_kcas, climb_kts);
-        // **The first leg is climbed at her climb speed**, less 5: the
-        // speed the take-off climbs her away at, which she is handed over
-        // at, and the autopilot's floor holds her at clean. Asked for 80 kt
-        // here, she climbs faster than it where she can. Measured
-        // (2026-10-09, the climb no longer scaled by her weight): the 172P
-        // 1.7 under, the 182S 2.0, the Cub 2.1, the Cherokee 1.6. Scaled,
-        // she was handed over under the floor, and the Cub, 8 kt under it,
-        // sagged 4.8 kt further while the floor wound her climb back. With
-        // the take-off flap kept out the Cherokee bled to 51.5 KCAS against
-        // her 63.8, then her climb speed for her weight.
+        // **The first leg is never climbed more than 5 kt under her climb
+        // speed**: the speed the take-off climbs her away at, which she is
+        // handed over at, and the autopilot's floor holds her at clean.
+        // Five, not the 2 the straight climb is held to (the next test),
+        // because this leg turns, and a turn may spend 3 kt of it
+        // (sim/autopilot.cpp). Asked for 80 kt here, she climbs faster than
+        // it where she can. Measured (2026-10-10): the 172P 0.6 under, the
+        // 182S 2.5 (in her turn), the Cub 0.3, the Cherokee 0.7. Before the
+        // take-off climbed her at her published speed, she was handed over
+        // under the floor, and the Cub, 8 kt under it, sagged 4.8 kt further
+        // while the floor wound her climb back. With the take-off flap kept
+        // out the Cherokee bled to 51.5 KCAS against her 63.8, then her
+        // climb speed for her weight.
         check(climb_kts > 0.0 && slowest_climb_kcas >= climb_kts - 5.0,
               id + " climbed its first leg at no less than " +
                   std::to_string(slowest_climb_kcas) + " KCAS, against its climb speed of " +
-                  std::to_string(climb_kts) + " less 5");
+                  std::to_string(climb_kts) + " (at most 5 under)");
         check(departing && took_off && handed_over_at_ft >= 500.0,
               id + " was taken off by the take-off autopilot, which handed it to the "
                    "plan at " + std::to_string(handed_over_at_ft) + " ft (500 asked)");
@@ -1724,8 +1727,9 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
         // most 66. Flying the leg from the threshold instead strays 219 to
         // 383 m. Handed over at her published climb speed rather than the
         // slower one for her weight (2026-10-09), each strays 11 to 17 m
-        // more - the 172P 79 m, the 182S 81, the Cub 39, the Cherokee 59 -
-        // which the airspeed alone does not explain; not traced.
+        // more - now the 172P 80 m, the 182S 80, the Cub 40, the Cherokee
+        // 60 - which the airspeed alone does not explain; not traced, and
+        // a Later item in docs/COMPLETION_PLAN.md.
         check(worst_off_leg_m <= 100.0,
               id + " flew its first leg from where the take-off handed over, straying " +
                   std::to_string(worst_off_leg_m) + " m from it (at most 100)");
@@ -1751,15 +1755,15 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
 // - **No step at the hand-over**: she is handed over within 1 kt of it.
 // - **The first leg is climbed at it**: within 2 kt of it from the
 //   hand-over until she is within 50 ft of the waypoint's height.
-// Measured (linux-release), handed over at / slowest / fastest against her
-// climb speed, KCAS: the 172P 74.8 / 74.8 / 75.7 against 75.4; the 182S
-// 81.4 / 81.4 / 83.1 against 82.0; the Cub 47.5 / 47.5 / 48.5 against
-// 47.8; the Cherokee 73.5 / 73.4 / 74.6 against 73.9. Before the autopilot
-// seeded its climb loop with the pitch she had and read the speed's trend
-// on the throttle (sim/autopilot.cpp), she was pitched up as she was handed
-// over and ran on past her speed as the plan's 700 ft/min took over from
-// the take-off's full-power climb: the 182S 80.6 to 84.0, the 172P down to
-// 73.6.
+// Measured (linux-release, 2026-10-10), handed over at / slowest / fastest
+// against her climb speed, KCAS: the 172P 74.8 / 74.8 / 75.8 against 75.4;
+// the 182S 81.4 / 81.4 / 83.1 against 82.0; the Cub 47.5 / 47.5 / 48.9
+// against 47.8; the Cherokee 73.5 / 73.1 / 75.0 against 73.9. Before the
+// autopilot seeded its climb loop with the pitch she had and eased the
+// take-off's climb down to the plan's (sim/autopilot.cpp), she was pitched
+// up as she was handed over and ran on past her speed as the plan's 700
+// ft/min took over from the take-off's full-power climb: the 182S 80.6 to
+// 84.0, the 172P down to 73.6.
 // Straight ahead because a turn may spend 3 kt (sim/autopilot.cpp) and this
 // is about the climb's speed, not the turn's. Before, the take-off climbed
 // her at her published speed scaled by the square root of her weight and
