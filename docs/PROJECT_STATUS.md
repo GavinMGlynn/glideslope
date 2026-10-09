@@ -265,7 +265,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The trials fly clean with the gear up: the F-22A glides at 225 kt, and every aircraft round its tightest orbit at every glide it may be asked, 2026-10-10 — item open until its tests are run on it
+### The trials fly clean with the gear up: the F-22A glides at 225 kt, and every aircraft round its tightest orbit at every glide it may be asked, 2026-10-10 — item done
 
 **What was wrong.** Every trial in `sim/orbit_trial.cpp` - the glide round
 the tightest orbit, the tightest orbit under power, the orbit entered from a
@@ -303,11 +303,13 @@ glide-speeds` and `plan-speeds`, the F-22A's from 120 kt as before):
   kt, from 219**: gear up she flies level at 287 kt at full throttle at
   3,000 ft, against 231 with it down, and 264 - a fifth over her start
   speed, where the sweep begins - held all four ways. Her file says 264.
-- **Found on the base, not from the gear: the Cherokee** (fixed gear) now
-  makes 126.8 kt level at full throttle, against 129 when her file was
-  written, so the command writes 112 where her file says 117. 117 still
-  held all four ways with 9.8 kt in hand, so the file is kept; the 2.2 kt
-  is from #153's autopilot changes beneath this branch, a tail for Later.
+- **Not from the gear, and not from this stack: the Cherokee** (fixed
+  gear) makes 126.8 kt level at full throttle, against 129 when her file
+  was written (2026-10-06), so `plan-speeds pa28` writes 112 where her file
+  says 117. Measured the same, 126.8, on origin/main (b509a715), on #153
+  (a0b74faa) and on #154 (71cbe6cc): something on main since 2026-10-06
+  moved it. 117 still held all four ways with 9.8 kt in hand, so her file
+  is kept; why the 2.2 kt is a tail for Later.
 - **Nothing needs a steeper glide**: every aircraft glides round at every
   speed it may be asked at with 12 degrees and 10 down. The first version
   of #155 (c74abcca and 5bb8066f, never merged, **superseded by this
@@ -318,13 +320,26 @@ glide-speeds` and `plan-speeds`, the F-22A's from 120 kt as before):
   past 12 degrees at 225.
 
 **Verification** (linux-release, locally):
-- Not yet, at this commit: the glide bands of every aircraft, the orbit,
-  plan-speed, heading and copilot tests, and the server and client glide
-  recordings, run on the change - running. The measurements above are
-  the CLI's on it.
-- The F-22A's band is 225 alone
-  (`the_f22a_glides_round_its_tightest_orbit_at_225_kt_without_stalling`,
+- `ctest -R "glide|mosquito|selftest|one_step_past|plan_speed"`: 132 of
+  132 green, every glide band of every aircraft among them, and
+  `every_glide_of_every_aircraft_each_way_round_is_flown_by_exactly_one_glide_test`
+  asserting every glide each way in exactly one band. The F-22A's band is
+  225 alone (`the_f22a_glides_round_its_tightest_orbit_at_225_kt_without_stalling`,
   renamed from `..._at_255_kt_...`, which named her as gliding nowhere).
+- Of the wider run (437 matching glide, orbit, plan, speed, f22, heading,
+  crosswind, figures, copilot, engine, stall, selftest, catalogue or
+  tables), the 54 that finished passed before it was stopped for time -
+  among them the server and client copilot recordings, both glides on a
+  server when the engine stops (`..._glides_its_aircraft_on_a_server_when_the_engine_stops_as_recorded`,
+  `..._glides_when_the_engine_stops_while_it_is_thinking_as_recorded`),
+  the F-15C's and F-22A's orbits from a waypoint and their crosswind
+  sweeps. No recording moved.
+- **Seen to fail** with the gear put back down in the five trials: the
+  F-22A at 225 kt departs both ways (90 degrees of alpha a fifth of the way
+  round), and the Mosquito round her tightest orbit at 264 kt makes 231;
+  restored, both green.
+- **The selftest hash does not move** (`182dd6c996e0ee4c`, linux-release):
+  it flies no trial.
 
 ### A jet's orbit entered from a waypoint holds its circle: joined going its way, flown by a loiter law after ArduPilot's, 2026-10-09 — item done
 
