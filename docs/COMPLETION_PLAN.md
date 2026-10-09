@@ -524,6 +524,16 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       Short S.23 184 against 200 (named by the 10% margin only), and the
       Mosquito is never level after her warning, from her own pitching
       moment (a Later item).
+- [ ] **The AI notices a stall the J-3 Cub is not in, in moderate
+      turbulence.** At 1,220 lb her warning is 39.9 kt; her airspeed dips 7
+      to 8 kt in gusts, to 40.1 (39.7 in CI) at her best-climb speed and to
+      37.7 at her plan's slowest, 43 kt - her light-weight approach speed,
+      not scaled for her weight. To decide with evidence: scale the plan's
+      slowest for weight, or watch something steadier than the instant's
+      airspeed (smoothed over a second, it noticed the stalls it must too
+      late). *Verification: every aeroplane cruising, climbing and at its
+      plan's slowest in moderate turbulence, the Cub unnamed, is never
+      noticed, and every stall-notice test still passes.*
 - [x] **A light aeroplane's take-off hands over slower than the plan's
       climb floor.** Done 2026-10-09: the take-off climbs her at her
       handbook's best-climb speed whatever she weighs, as the plan does, and

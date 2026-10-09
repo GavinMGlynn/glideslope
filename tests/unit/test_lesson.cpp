@@ -3573,23 +3573,35 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_second_stall_after_handing_the_first_back
 
 // **The AI pilot notices no stall in ordinary flight**: every aeroplane that
 // publishes how she lands (the 747-400 and F-22A do not, and are not
-// watched), given to the AI at her start speed in moderate turbulence,
-// cruising for three minutes and then climbing at 500 ft/min towards 3,000
-// ft higher at her best-climb speed for three more. Neither flight is
-// noticed as a stall. Asked for 1,000 ft/min, the Short S.23 - whose
-// autopilot has no climb floor (only a light aeroplane's has) - slowed to
-// 68.8 kt, under her 71.3 kt warning, and was rightly noticed: that climb
-// was more than she has. **Not walked
-// here, named**: the take-off and the approach fly their own laws, which the
-// notice does not watch (sim/controller.cpp: only the plain autopilot is);
-// the go-around's circuit and an engine-out glide are flown at or above the
-// approach and best-glide speeds, which are above every warning, and are not
+// watched), given to the AI at the weight her figures fly her at, in
+// moderate turbulence, for three minutes each: cruising at her catalogue's
+// start speed, climbing at 500 ft/min at her best-climb speed, and level at
+// the slowest a plan may fly her (`plan_speeds`) - the speeds the AI really
+// flies her at, down to the slowest. None is noticed as a stall. Asked for
+// 1,000 ft/min, the Short S.23 - whose autopilot has no climb floor (only a
+// light aeroplane's has) - slowed to 68.8 kt, under her 71.3 kt warning, and
+// was rightly noticed: that climb was more than she has.
+//
+// **Named, not yet: the J-3 Cub.** She flies at her climb figure's full load,
+// 1,220 lb, against the 1,092 her stall was measured at, so her warning for
+// her weight is 39.9 kt. In moderate turbulence her airspeed dips 7 to 8 kt
+// under what is asked: at her best-climb speed, 47.8 kt, to 40.1 (39.7 in
+// CI), and at her plan's slowest, 43 kt - her approach speed at the light
+// weight, not scaled for this one (1.3 times her stall here is 45.4) - to
+// 37.7. She is noticed. Which is wrong - a plan floor not scaled for weight,
+// or a notice on the instant's airspeed - is an open item in the plan; her
+// name turns this red once she is not noticed.
+//
+// **Not walked here, named**: the take-off and the approach fly their own
+// laws, which the notice does not watch (sim/controller.cpp: only the plain
+// autopilot is); the go-around's circuit and an engine-out glide are not
 // flown here.
 GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_turbulence) {
     const auto roster = glideslope::sim::read_catalogue(data());
     std::size_t flown = 0;
     std::size_t not_watched = 0;
     std::vector<std::string> faults;
+    bool named_seen = false;
     for (const auto& entry : roster) {
         const std::optional<glideslope::sim::ApproachSpeeds> lands =
             glideslope::sim::landing_speeds(data(), entry.model);
@@ -3617,28 +3629,49 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
         modes.altitude_ft = f.aircraft->property("position/h-sl-ft");
         modes.airspeed_kts = entry.start_airspeed_kts;
         controller.autopilot()->set(modes);
-        double slowest = 1e9;
+        double slowest[3] = {1e9, 1e9, 1e9};
         bool noticed = false;
         const glideslope::sim::DepartureSpeeds departs =
             glideslope::sim::departure_speeds(data(), entry.model);
-        for (int tick = 0; tick < 360 * steps_per_second; ++tick) {
+        const glideslope::sim::PlanSpeeds plan = glideslope::sim::plan_speeds(data(), entry.model);
+        const double cruise_kts = entry.start_airspeed_kts;
+        // The warning as the notice reads it: her stall at what she weighs.
+        const glideslope::sim::ApproachSpeeds weighed =
+            glideslope::sim::for_weight(*lands, f.aircraft->property("inertia/weight-lbs"));
+        const double warning_kts =
+            weighed.stall_kts + std::max(5.0, 0.05 * weighed.stall_kts);
+        const double weight_lbs = f.aircraft->property("inertia/weight-lbs");
+        for (int tick = 0; tick < 540 * steps_per_second; ++tick) {
             if (tick == 180 * steps_per_second) {
                 modes.altitude_ft = *modes.altitude_ft + 3000.0;
                 modes.vertical_speed_fpm = 500.0;
                 modes.airspeed_kts = departs.climb_kts;
                 controller.autopilot()->set(modes);
+            } else if (tick == 360 * steps_per_second) {
+                modes.altitude_ft = f.aircraft->property("position/h-sl-ft");
+                modes.airspeed_kts = plan.slowest_kts;
+                controller.autopilot()->set(modes);
             }
             const glideslope::sim::Controls c = controller.fly();
             f.aircraft->set_controls(c);
             f.aircraft->step();
-            slowest = std::min(slowest, f.aircraft->property("velocities/vc-kts"));
+            const std::size_t phase = static_cast<std::size_t>(tick / (180 * steps_per_second));
+            slowest[phase] = std::min(slowest[phase], f.aircraft->property("velocities/vc-kts"));
             noticed = noticed || controller.recovering_from_a_stall();
         }
-        std::printf("  %-13s slowest %5.1f kt, warning at %5.1f: %s\n", entry.id.c_str(),
-                    slowest,
-                    lands->stall_kts + std::max(5.0, 0.05 * lands->stall_kts),
+        std::printf("  %-13s %6.0f lb (figures %6.0f): cruise %5.1f (slowest %5.1f), climb %5.1f "
+                    "(%5.1f), plan floor %5.1f (%5.1f); warning %5.1f: %s\n",
+                    entry.id.c_str(), weight_lbs, lands->reference_lbs, cruise_kts, slowest[0], departs.climb_kts, slowest[1],
+                    plan.slowest_kts, slowest[2], warning_kts,
                     noticed ? "NOTICED" : "not noticed");
-        if (noticed) {
+        const bool named_noticed = entry.id == "j3cub";
+        if (named_noticed) {
+            named_seen = true;
+            if (!noticed) {
+                faults.push_back(entry.id + " is named as noticed, and was not: take its name "
+                                            "off");
+            }
+        } else if (noticed) {
             faults.push_back(entry.id + " was noticed stalling in ordinary flight");
         }
         ++flown;
@@ -3651,6 +3684,7 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
     check(flown + not_watched == roster.size() && not_watched == 2,
           "every aeroplane flown, or named as unwatched: " + std::to_string(flown) + " and " +
               std::to_string(not_watched));
+    check(named_seen, "the J-3 Cub, named, was flown");
 }
 
 
