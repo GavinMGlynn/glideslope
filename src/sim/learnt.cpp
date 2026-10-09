@@ -5,6 +5,7 @@
 #include <cstdio>
 #include <fstream>
 #include <map>
+#include <optional>
 #include <sstream>
 #include <stdexcept>
 #include <utility>
@@ -127,6 +128,18 @@ LearntPolicy LearntPolicy::read(const std::filesystem::path& file) {
     p.flaps = one("flaps");
     p.glidepath_deg = one("glidepath_deg");
     p.aim_m = one("aim_m");
+    {
+        const auto found = kv.find("trained_lbs");
+        if (found == kv.end()) {
+            throw fail("no trained_lbs, the weights it was trained at");
+        }
+        const std::vector<double> lbs = numbers(found->second, "trained_lbs");
+        if (lbs.size() != 2 || !(lbs[0] > 0.0) || !(lbs[1] >= lbs[0])) {
+            throw fail("trained_lbs is not the least and most it weighed, above 0");
+        }
+        p.trained_least_lbs = lbs[0];
+        p.trained_most_lbs = lbs[1];
+    }
     if (whole(one("observations"), 1.0, widest_layer, "observations") != observations ||
         whole(one("actions"), 1.0, widest_layer, "actions") != actions) {
         throw fail("its observations and actions are not the " +
@@ -403,6 +416,15 @@ std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
         return "the learnt landing is the " + policy.aircraft + "'s, and this is the " +
                aircraft.figures().model;
     }
+    // **At a weight it was trained at**, or not hers: a heavier or lighter
+    // aeroplane is flown by the approach autopilot at the speed for her
+    // weight (sim::for_weight), the policy flying only its own.
+    if (const double lbs = aircraft.property("inertia/weight-lbs"); !policy.trained_for(lbs)) {
+        std::snprintf(text, sizeof text,
+                      "%.0f lb; the learnt landing was trained at %.0f to %.0f", lbs,
+                      policy.trained_least_lbs, policy.trained_most_lbs);
+        return text;
+    }
     const LandingReadings r = LandingReadings::of(aircraft);
     const Where w = where(r, runway);
     constexpr double metres_per_nm = 1852.0;
@@ -526,6 +548,19 @@ std::shared_ptr<const LearntPolicy> learnt_landing(const std::filesystem::path& 
                                  "'s learnt landing, not the " + model + "'s");
     }
     return policy;
+}
+
+double approach_kts_flown(const std::filesystem::path& data, const std::string& model) {
+    const std::optional<ApproachSpeeds> speeds = landing_speeds(data, model);
+    if (!speeds) {
+        return 0.0;
+    }
+    const Aircraft aircraft(data / "jsbsim", model);
+    const double lbs = aircraft.loaded_weight_lbs();
+    if (const auto policy = learnt_landing(data, model); policy && policy->trained_for(lbs)) {
+        return policy->vref_kts;
+    }
+    return for_weight(*speeds, lbs).vref_kts;
 }
 
 } // namespace glideslope::sim

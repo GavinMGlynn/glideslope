@@ -1578,8 +1578,7 @@ public:
             const double out_m = (2.0 + 0.5 * players) * 1852.0;
             ic = glideslope::sim::final_approach_start(
                 *on_final_, out_m, final_start_kts(model, *final_speeds, *aircraft),
-                                                       final_speeds->flap, final_speeds->aim_m,
-                                                       3.0);
+                final_speeds->flap, final_speeds->aim_m, 3.0);
             ic.terrain_elevation_ft =
                 collision_->height_above_ellipsoid(ic.latitude_deg, ic.longitude_deg) *
                 feet_per_metre;
@@ -1750,9 +1749,11 @@ public:
                             "on final\n", static_cast<unsigned>(a.index), a.model.c_str());
                 continue;
             }
-            glideslope::sim::InitialConditions ic = glideslope::sim::final_approach_start(
-                *runway, out_nm * 1852.0, final_start_kts(a.model, *speeds, *a.aircraft),
-                speeds->flap, speeds->aim_m, 3.0);
+            glideslope::sim::InitialConditions ic =
+                glideslope::sim::final_approach_start(
+                    *runway, out_nm * 1852.0,
+                    final_start_kts(a.model, *speeds, *a.aircraft), speeds->flap,
+                    speeds->aim_m, 3.0);
             ic.terrain_elevation_ft =
                 collision_->height_above_ellipsoid(ic.latitude_deg, ic.longitude_deg) *
                 feet_per_metre;
@@ -1929,16 +1930,17 @@ public:
     }
 
     // **The speed one put on final starts at**: her learnt landing's own,
-    // where her model has one - its gate admits her only near the speed it
-    // was trained at (sim::Controller::to_ai_approach) - and otherwise her
-    // approach speed for what she weighs as loaded (sim::for_weight), which
-    // is what her approach autopilot will fly.
+    // where her model has one trained at her weight - its gate admits her
+    // only near the speed it was trained at (sim::Controller::to_ai_approach)
+    // - and otherwise her approach speed for what she weighs as loaded
+    // (sim::for_weight), which is what her approach autopilot will fly.
     double final_start_kts(const std::string& model, const glideslope::sim::ApproachSpeeds& speeds,
                            const glideslope::sim::Aircraft& aircraft) {
-        if (const auto policy = learnt_for(model)) {
+        const double lbs = aircraft.loaded_weight_lbs();
+        if (const auto policy = learnt_for(model); policy && policy->trained_for(lbs)) {
             return policy->vref_kts;
         }
-        return glideslope::sim::for_weight(speeds, aircraft.loaded_weight_lbs()).vref_kts;
+        return glideslope::sim::for_weight(speeds, lbs).vref_kts;
     }
 
     // The learnt landing for a model, read once; null for none, and for one

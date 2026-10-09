@@ -9,6 +9,7 @@
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
 #include "sim/lander.hpp"
+#include "sim/learnt.hpp"
 
 namespace glideslope::frontend {
 
@@ -17,8 +18,12 @@ copilot::Brief brief_for(const std::filesystem::path& data, const std::string& c
     copilot::Brief b;
     b.aircraft = entry.id;
     b.aircraft_name = entry.name;
+    // **The speed she will be flown down final at**, for the loading she
+    // will have - her model's own, which is what a server flies - not her
+    // figures' speed for theirs: the B-2A's book 124 kt is for 177,160 lb,
+    // and at her model's 327,000 the AI flies 168.5 (sim::approach_kts_flown).
     if (sim::publishes_approach_speed(data, entry.model)) {
-        b.approach_kts = std::round(sim::approach_speeds(data, entry.model).vref_kts);
+        b.approach_kts = std::round(sim::approach_kts_flown(data, entry.model));
     }
     const sim::PlanSpeeds plannable = sim::plan_speeds(data, entry.model);
     b.slowest_kts = plannable.slowest_kts;

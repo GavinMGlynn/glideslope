@@ -98,7 +98,10 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
 // weight. `speeds` scaled by sqrt(weight_lbs / reference_lbs), and its
 // `reference_lbs` made `weight_lbs`, so that scaling again is a no-op.
 // Returned as given where it names no reference weight, the weight is
-// not above 0, or it is within a pound of the reference. The flare height, the flap and the touchdown sink are kept.
+// not above 0, or it is within a pound of the reference. The flare height,
+// the flap and the touchdown sink are kept. **The weight is a snapshot**:
+// a lander or a circuit takes it when it begins, and the fuel burnt after
+// does not change the speed it flies.
 ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs);
 
 // Whether `approach_speeds` has a stall speed to work from: false for the

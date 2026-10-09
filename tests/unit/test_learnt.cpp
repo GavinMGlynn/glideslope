@@ -869,11 +869,64 @@ GLIDESLOPE_TEST(a_policy_file_that_does_not_fit_the_simulation_is_refused) {
     refused(changed("layer 25 64 tanh", "layer 25 64.5 tanh"), "a layer of fractional size");
     refused(changed("layer 25 64 tanh", "layer 25 99999999 tanh"), "an enormous layer");
     refused(changed("layers ", "layers 3.5"), "a fractional number of layers");
+    refused(changed("trained_lbs ", "trained_at 1730.0 1880.0"), "a policy with no weights trained at");
+    refused(changed("trained_lbs ", "trained_lbs 1880.0 1730.0"), "trained weights least above most");
+    refused(changed("trained_lbs ", "trained_lbs 1730.0"), "one trained weight, not two");
     refused("", "an empty file");
-    check(tried == 18, "every one of the 18 wrong files was tried: " + std::to_string(tried));
+    check(tried == 21, "every one of the 21 wrong files was tried: " + std::to_string(tried));
     const LearntPolicy p = LearntPolicy::read(policy_file());
     check(!p.layers.empty() && p.layers.front().inputs == 25 && p.layers.back().outputs == 4,
           "the committed policy takes 25 observations and gives 4 actions");
+    check(p.trained_least_lbs == 1730.0 && p.trained_most_lbs == 1880.0,
+          "the committed policy was trained at 1,730 to 1,880 lb");
+}
+
+// **The learnt landing is offered only at a weight it was trained at**:
+// 1,730 to 1,880 lb, her model with 25 to 100 lb a tank (tools/rl/landing.py's
+// TRAINING_FUEL_LBS). Put at its gate with 25 and 100 lb a tank she is
+// inside it; with 24, two pounds under, and 101, two over, she is refused,
+// the weight said - and handed to the AI with the policy, the approach
+// autopilot flies her at the speed for her weight (sim::for_weight), not the
+// policy's, and the learnt landing never has her.
+GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_c172p_heavier_or_lighter_than_it_was_trained_at) {
+    const auto policy = the_policy();
+    const Runway runway = a_runway();
+    struct Case {
+        double fuel_lbs;
+        bool inside;
+    };
+    const std::vector<Case> cases = {{25.0, true}, {100.0, true}, {24.0, false}, {101.0, false}};
+    std::size_t walked = 0;
+    for (const Case& c : cases) {
+        auto aircraft = at(*policy, Start{0.0, 0.0, 0.0}, c.fuel_lbs);
+        const double lbs = aircraft->property("inertia/weight-lbs");
+        const std::string why = glideslope::sim::outside_learnt_gate(*aircraft, runway, *policy);
+        std::printf("  %.0f lb a tank, %.0f lb: %s\n", c.fuel_lbs, lbs,
+                    why.empty() ? "at the gate" : why.c_str());
+        if (c.inside) {
+            check(why.empty(), "at " + std::to_string(lbs) + " lb she is at the gate: " + why);
+        } else {
+            check(why.find("lb; the learnt landing was trained at 1730 to 1880") !=
+                      std::string::npos,
+                  "at " + std::to_string(lbs) + " lb she is refused for her weight: " + why);
+            glideslope::sim::Controller controller(*aircraft,
+                                                   glideslope::sim::trimmed_controls(*aircraft));
+            controller.to_ai_approach(runway, speeds(), policy);
+            const double want = glideslope::sim::for_weight(speeds(), lbs).vref_kts;
+            check(controller.lander() != nullptr &&
+                      std::abs(controller.lander()->speeds().vref_kts - want) < 0.01,
+                  "the approach autopilot flies her at the " + std::to_string(want) +
+                      " kt for her weight");
+            for (int tick = 0; tick < 60 * steps_per_second; ++tick) {
+                aircraft->set_controls(controller.fly());
+                aircraft->step();
+                check(controller.learnt() == nullptr,
+                      "the learnt landing never has her at " + std::to_string(lbs) + " lb");
+            }
+        }
+        ++walked;
+    }
+    check(walked == 4, "both sides of both bounds: " + std::to_string(walked) + " of 4");
 }
 
 // **A copilot's route arriving during a learnt landing replaces it**, as it

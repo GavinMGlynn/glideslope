@@ -44,6 +44,17 @@ struct LearntPolicy {
     double flaps = 0.0; // the landing flap, held throughout
     double glidepath_deg = 3.0;
     double aim_m = 300.0; // where the glidepath aims, past the threshold
+    // **The weights it was trained at**, pounds, least and most: `trained_lbs`
+    // in its file. Outside them its gate refuses her (outside_learnt_gate)
+    // and she is landed by the approach autopilot at the speed for her
+    // weight - the policy flies `vref_kts` whatever she weighs.
+    double trained_least_lbs = 0.0;
+    double trained_most_lbs = 0.0;
+
+    // Whether `weight_lbs` is within the weights it was trained at.
+    bool trained_for(double weight_lbs) const {
+        return weight_lbs >= trained_least_lbs && weight_lbs <= trained_most_lbs;
+    }
 
     struct Layer {
         std::size_t inputs = 0;
@@ -159,6 +170,15 @@ Controls trimmed_controls(const Aircraft& aircraft);
 // another model.
 std::shared_ptr<const LearntPolicy> learnt_landing(const std::filesystem::path& data,
                                                    const std::string& model);
+
+// **The speed the AI flies her final approach at, at her model's own
+// loading** - what a server flies every aircraft at - for a brief to tell:
+// her learnt landing's own where she has one trained at that weight (the AI
+// flies her to its gate at it, sim::Controller::to_ai_approach), and
+// otherwise her approach speed for that weight (sim::for_weight). 0 where
+// her figures publish no stall speed. Throws as approach_speeds and
+// learnt_landing do.
+double approach_kts_flown(const std::filesystem::path& data, const std::string& model);
 
 // Flies `aircraft` down to `runway` with `policy`, as sim::Lander does with
 // its own laws: call `fly` once a step for that step's controls.

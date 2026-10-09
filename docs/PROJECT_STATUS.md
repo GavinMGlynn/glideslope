@@ -302,7 +302,7 @@ rotation (`DepartureSpeeds::reference_lbs`).
   `Aircraft::loaded_weight_lbs()` (empty, on board and fuel, known before
   `initialize`, where `inertia/weight-lbs` is not).
 - **The learnt landing is not scaled.** The C172P's policy was trained at
-  59.8 kt from 1,680 lb to her model's 1,880 (tools/rl/landing.py) and its
+  59.8 kt from 1,730 lb to her model's 1,880 (`trained_lbs`) and its
   gate admits her within -3/+8 kt of that. Scaled for 1,880 she would come
   down at 52.9 and never meet it - which is what first broke the players'
   and client's learnt-landing tests here. So `to_ai_approach` with a policy
@@ -312,9 +312,9 @@ rotation (`DepartureSpeeds::reference_lbs`).
   corners pass unchanged (test_learnt, below).
 - The server says, for an AI put on final: "aircraft N, an AI's MODEL at W
   lb, is flown down final at K kt; her figures give F kt for R lb".
-- The briefing's approach speed (frontend/briefs.cpp) and the CLI's
-  crosswind sweep start are the figures' own, unchanged: the brief is the
-  book, and the sweep is #157's measurement at the approach speed's weight.
+- The CLI's crosswind sweep starts at the figures' own speed, unchanged:
+  it is #157's measurement at the approach speed's weight. The brief is
+  changed (review, below).
 
 **Figures** (linux-release; the speed flown, and the least and most over it
 from 500 ft to 50, at each model's own weight, by the AI through a
@@ -377,6 +377,65 @@ figures' loadings every speed is the published one, held within -1.0/+0.5.
   the scaled speed broke (above), are green.
 - **The selftest hash does not move** (`182dd6c996e0ee4c`): it flies a
   pilot's input log and no approach.
+
+**From the review of #158** (same day):
+- **The learnt landing is bounded to the weights it was trained at**:
+  `trained_lbs 1730.0 1880.0` in assets/rl/c172p-landing.txt - her model
+  with 25 to 100 lb a tank, tools/rl/landing.py's `TRAINING_FUEL_LBS` (the
+  entry above said 1,680, her model with none; she was never trained
+  there). `LearntPolicy::read` refuses a file without it, reversed, or with
+  one number; tools/rl/policy_file.py reads and writes it and export.py
+  works it out from the model (the committed file round-trips through
+  policy_file.py byte for byte). `outside_learnt_gate` refuses her outside
+  it, "1882 lb; the learnt landing was trained at 1730 to 1880"; handed to
+  the AI with the policy at such a weight, `to_ai_approach` flies the
+  approach autopilot at the speed for her weight from the start, and the
+  server starts her on final at it.
+- **The brief tells the speed the AI flies**, for the loading she will
+  have - her model's own, which a server flies: `sim::approach_kts_flown`,
+  the policy's speed where she has a learnt landing trained at that weight,
+  the speed for her weight otherwise. Briefed, rounded: 737-300 126 (was
+  137), 787-8 155 (148), A320 142 (147), A380 159 (136), B-2A 169 (124),
+  C172P 60 (60), C182 58 (64), F-15C 153 (160), F-35B 170 (159), J-3 Cub 36
+  (43), Learjet 35A 130 (125), Mosquito 129 (123), PA-28 56 (64), S.23 80
+  (86). The CLI's brief, the copilot's and the server's planners all use
+  `frontend::brief_for`. Every recorded planner exchange is for the C172P,
+  briefed 60 kt as before, so no prompt changed and nothing was
+  re-recorded.
+- `for_weight`'s header says the weight is a snapshot, taken when a lander
+  or circuit begins; the server's two `final_approach_start` calls are
+  clang-formatted and the long comment line wrapped.
+
+**Verification of the review's fixes** (linux-release, locally):
+- `the_learnt_landing_is_refused_a_c172p_heavier_or_lighter_than_it_was_trained_at`
+  (new): at its gate with 25 and 100 lb a tank (1,730 and 1,880 lb) inside;
+  with 24 and 101 (1,728 and 1,882) refused for her weight, flown by the
+  approach autopilot at the speed for it, and never handed to the learnt
+  landing in a minute. **Seen to fail** with the check taken out: 1,728 lb
+  at the gate.
+- `a_policy_file_that_does_not_fit_the_simulation_is_refused`: three more
+  wrong files, 21 in all, and the committed policy's range read.
+- `every_aircrafts_brief_tells_the_approach_speed_the_ai_flies_her_at_for_her_models_weight`
+  (new): every aircraft (16), each of the 14 with an approach speed put on
+  final at her model's weight and handed to the AI as a server hands her;
+  her brief must be her approach autopilot's speed to the knot, and the
+  747-400 and F-22A briefed none. **Seen to fail** briefing the figures'
+  speed: the 737-300 briefed 137 and flown at 126.5.
+- `an_aeroplane_landing_on_a_runway_another_is_on_goes_around_and_lands_once_it_has_left`
+  went red with the bound: its second C172P, handed to the learnt
+  landing, was put on final at her figures' 2,400 lb, which the policy was
+  never trained at. She is now put there at her model's own weight, as a
+  server's is (`put_on_final`'s `model_weight`), and is handed to it.
+- The run before, plus every copilot, planner, recording, route and
+  catalogue test - 406, with
+  `every_aircraft_the_data_holds_that_alights_on_water_does_not_roll_out_on_it`
+  (the S.23's alighting, not in the run before): green but for that one
+  (fixed, above, and green with every test matching learnt, 31) and two
+  recorded-planner server tests that could not listen on their ports while
+  another working copy's tests held them, green run again; the tests that
+  ask a provider live skipped without keys. Every recording plays back
+  unchanged.
+- The selftest hash does not move (`182dd6c996e0ee4c`).
 
 ### A heading in a crosswind from each approach speed, flown as an approach is: gear and landing flap down at the approach speed's weight; the swings were the trial's, 2026-10-10 — item done
 
