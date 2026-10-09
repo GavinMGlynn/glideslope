@@ -488,7 +488,9 @@ GLIDESLOPE_TEST(an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_ci
                          "%.0f m from the centre\n",
                          which.c_str(), joined_at_m, most_turns, nearest_m, farthest_m);
             check(navigator.next() == 1, "the orbit is left for the next waypoint, " + which);
-            check(joined_at_m >= radius_m - 101.0 && joined_at_m <= radius_m + 1.0,
+            // Either side: since 2026-10-09 it is joined only going its way
+            // round, which steered out from the centre may be just outside.
+            check(joined_at_m >= radius_m - 101.0 && joined_at_m <= radius_m + 101.0,
                   "joined the circle within 100 m of it, " + which + ": " +
                       std::to_string(joined_at_m) + " m out");
             check(most_turns >= 0.99 && most_turns <= 1.01,
@@ -813,8 +815,9 @@ void fly_its_tightest_orbits(const std::string& id, End end,
 // down too, and the B-2 stalled turning towards it. At the fastest, the
 // navigator turned in towards the circle by 90 degrees a kilometre whatever
 // the speed, and the jets swung through their 13 to 19 km circles by up to
-// 18% of the radius (3.3 km, the F-15C at 360 kt); it now turns in by what
-// brings it back in twelve seconds at its airspeed (sim/navigator.cpp).
+// 18% of the radius (3.3 km, the F-15C at 360 kt); it turned in by what
+// brought it back in twelve seconds at its airspeed, and since 2026-10-09 asks
+// the autopilot for the bank of L1 guidance's loiter law (sim/navigator.cpp).
 GLIDESLOPE_TEST(every_aircraft_has_its_own_tests_of_its_tightest_orbits_and_one_step_past_them) {
     std::vector<AircraftClass> grouped;
     for (const auto& group : tightest_orbit_groups) {
