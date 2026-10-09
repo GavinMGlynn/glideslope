@@ -265,6 +265,104 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A jet's orbit entered from a waypoint holds its circle: joined going its way, flown by L1 guidance's loiter law, 2026-10-09 — item done
+
+**What the item's figures were.** The 460 m was Claude's 2026-10-06 plans
+(the F-22A's on a 9.4 km circle). Flown again on this tree, both recorded
+plans - a waypoint at the CBD, then a 7,003 m orbit left at 220 kt - held
+within 10 m from the half-turn `fly-plan` measures from, and so did the
+747-400's on de45cc78, where the 460 m was written down. What was wrong
+showed only once an orbit was entered from the places a plan can put the
+waypoint before it.
+
+**The new test builds that**: `sim::fly_orbit_from_waypoint`
+(`sim/orbit_trial.hpp`) flies an aircraft at 3,000 ft from 5 km short of a
+waypoint at the orbit's centre, half a radius out, on the circle or two
+radii out, south of the centre, arriving from each of the eight points of
+the compass, then once round the orbit. `the_<jet>_enters_an_orbit_from_a_waypoint_and_holds_its_circle`,
+one for each of the ten jets (the airliners, the business jet, the fighters
+and the bomber; `every_jet_has_its_own_test_of_entering_an_orbit_from_a_waypoint`
+holds the list to the catalogue's), flies each at 220 kt - the speed
+Claude asked of both - or the nearest its plan speeds allow, round the
+tightest circle a plan may ask at it, both ways round: 50 entries each,
+the count asserted. Left out, by name in the test: from the centre, the
+seven arrivals other than north (the same flight turned, in calm air), and
+wind (the tightest-orbit tests fly in it). Each must join the circle, stay
+within the 100 m it is joined within from there, within 60 m from a
+quarter-turn, and within 50 ft of its height.
+
+**Red on the old navigator**: the 747-400 strayed up to 6.1 km off its
+7 km circle. Two causes. It was "on the circle" - joined, counting and
+held to it - as soon as it was within 100 m, whichever way it was going:
+arriving at a waypoint on the circle heading across it or the wrong way, it
+was then turned round onto the circle, a turn kilometres wide. And from
+inside, it closed at 45 degrees and then turned in by what brought it back
+in twelve seconds - faster than a jet's heading loop, whose own time is
+about v/g (11.5 s at 220 kt), can follow; it swung through the circle.
+Capping the closing angle at an arc it could fly (a first attempt, in the
+WIP commit) brought the swing to 257-421 m from joining and 49-93 m from a
+quarter-turn, and was touchy: a capture bank of 10 degrees gave the 747
+33 m, 12 degrees 131 m.
+
+**The fix** (`sim/navigator.cpp`), general, no aircraft named:
+- Joined only going its way round: within 100 m and its track within 20
+  degrees of the circle's.
+- On the circle, and out to it from inside, the navigator asks the autopilot
+  for a bank, not a heading (`AutopilotModes::bank_deg`, new; the autopilot
+  flies it within the bank it sustains, and a turn away from the separation
+  monitor still overrides it): the loiter law of L1 guidance (Park, Deyst
+  and How, "A New Nonlinear Guidance Logic for Trajectory Tracking", AIAA
+  GNC 2004; ArduPilot's AP_L1_Control loiter read for the details, none of
+  its code used) - tan bank = (w^2 off + 2 zeta w v_out + v_round^2 /
+  max(r/2, d)) / g, w = 2 pi / period, damping 0.75, the spring and damper
+  let go while it goes round the wrong way. It flies it inside the circle,
+  joined or not, and outside within its L1 distance (zeta period v / pi) and
+  250 m going its way round; farther out, joined or not, the tangent line as
+  before - L1's capture. Each limit was found by a test going red: held by
+  the loiter law only once joined, a Mosquito that crossed its circle not
+  yet going its way followed the tangent line round 200 m outside it and
+  never joined (`the_tightest_orbit_at_the_fastest_speed_..._mosquito_fb6`,
+  in wind); held by it anywhere once joined, a Cherokee gliding at 30,000
+  ft, short of the bank her circle needs there, looped 1.5 km off it and
+  never round its centre (`the_piper_pa28_glides_round_...`, and the
+  C182's, Learjet's and F-15C's glides); within the whole L1 distance, a
+  kilometre for a jet, it took over the tangent line too soon and the
+  747-400 swung 350 m outside after joining.
+- The period: ArduPilot's 17 s swung the 747-400 7 km off (its bank cannot
+  follow so fast), 25 s 1.9 km; 40 s and 60 s held every entry, 40 the
+  tighter (747-400 8 m, 16 at 60). 40 s it is. The heading law's 12 s
+  closing, its 45-degree intercept and its trim integral are gone.
+
+**After**, linux-release, every jet's 50 entries: within 100 m from joining
+(the join band itself) and within 4 to 9 m from a quarter-turn - the
+737-300 5, 747-400 8, 787-8 9, A320 4, A380 5, Learjet 4, B-2 4, F-15C 8,
+F-22A 4, F-35B 4 - and within 50 ft of the height. Claude's two recorded plans
+(`take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_for_the_{747-400,f22}_by_anthropic_as_recorded_and_flown`)
+are now held to the Cessna's 60 m, not 500 (`CIRCLE_M` dropped): the
+747-400 flies 6,995 to 7,001 m round its 7,003 m, the F-22A 6,999 to 7,006;
+the Cessna's two, 1,452-1,455 m of 1,447 and 1,492-1,495 m of 1,500.
+
+**What else moved**: `an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_circle`
+asserted the Cessna joined from inside; steered out from the centre it now
+joins going its way just outside (1,586 to 1,600 m of 1,500, 1,250 to 1,270
+of 1,172), so it is held to joining within 100 m either side, and round the
+circle from there within 10 m. Everything else that flies an orbit, a plan
+or a glide - 234 tests in linux-release (`ctest -R
+"orbit|navigator|plan|glide|monitor|turned_away|between_two_layers|16r|handing_the_aircraft"`,
+less the window client's and the server's, which were not built here),
+among them every aircraft's tightest orbits at its slowest and fastest and
+one step past them, every glide round the tightest orbit, the take-offs
+from 16R flown on to the orbit, and the four CBD orbits as recorded - is
+green; the five that ask a model now report themselves skipped.
+
+The selftest hash does not move (`182dd6c996e0ee4c`, linux-release): it
+flies the test pilot, not the navigator. The new tests' entries in
+`tests/ci_costs/*.txt` are **estimates** - 45 s each in the release
+builds (30 to 41 s locally), 60 on Windows' release and clang, 135 in the
+debug builds - until `tools/ci_test_costs.py` measures them.
+
+### The autopilot takes a light aeroplane from her take-off within 2 kt of her climb speed: its climb loop starts from her pitch, and its throttle reads the speed's trend, 2026-10-09 — item done
+
 ### The simulation works out the ground under a place once, and finds a property it has not got once, 2026-10-10 — item still open
 
 **What is still missing, first.** "One test takes 15-22 minutes in Linux

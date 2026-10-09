@@ -574,7 +574,11 @@ Controls Autopilot::fly() {
     }
     double bank_wanted = 0.0;
     const std::optional<double> heading_deg = away_deg_ ? away_deg_ : modes_.heading_deg;
-    if (heading_deg) {
+    if (!away_deg_ && modes_.bank_deg) {
+        // A bank asked for: flown, with none of the heading's integral.
+        bank_integral_deg_ = 0.0;
+        bank_wanted = std::clamp(*modes_.bank_deg, -sustained_bank_deg_, sustained_bank_deg_);
+    } else if (heading_deg) {
         const double off = std::remainder(*heading_deg - a_.property("attitude/psi-deg"), 360.0);
         if (std::abs(off) < bank_integral_within_deg) {
             bank_integral_deg_ =

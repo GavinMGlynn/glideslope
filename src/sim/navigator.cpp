@@ -21,39 +21,43 @@ constexpr double most_intercept_deg = 30.0;
 // The drift is averaged over five seconds, and measured only moving.
 constexpr double drift_average_s = 5.0;
 constexpr double least_speed_fps = 10.0;
-// **Round an orbit the heading asked for is kept ahead of the tangent by what
-// the autopilot needs to bank for the circle**, atan(v_air v_ground / g r)
-// (sim::heading_off_for_bank_deg); turned in towards the circle by the angle
-// that would bring it back in twelve seconds at its airspeed, 45 degrees at
-// most; and trimmed by an integral on that, a sixtieth of it a second, 15
-// degrees at most, while it is turned in by 9 or less. Turned in by a fixed
-// 90 degrees a kilometre, a jet at 360 kt swung 3.5 km either side of its
-// 18.8 km circle; twenty seconds let a C172P at 100 kt run 67 m wide, and
-// fifteen the S.23 at 86 kt 67 m inside (PROJECT_STATUS.md).
-constexpr double orbit_closing_s = 12.0;
-constexpr double most_orbit_intercept_deg = 45.0;
-constexpr double orbit_trim_per_s = 1.0 / 60.0;
-constexpr double most_orbit_trim_deg = 15.0;
-constexpr double most_trimmed_in_deg = 9.0;
 constexpr double gravity_mps2 = 9.80665;
+// **Round an orbit, and out to it from inside, the bank is asked for, not a
+// heading**: the loiter law of L1 guidance (Park, Deyst and How, "A New
+// Nonlinear Guidance Logic for Trajectory Tracking", AIAA GNC 2004, the law
+// ArduPilot's loiter flies) - the centripetal acceleration of the circle at
+// the speed it is gone round, and a spring and a damper on how far off it is
+// and how fast it moves off, set by a period and a damping ratio: tan bank =
+// (w^2 off + 2 zeta w outward + v_round^2 / r) / g, w = 2 pi / period. Turned
+// back in by none while going round the wrong way. Its period is the time the
+// heaviest aeroplane's bank needs: at 17 s, ArduPilot's for small aircraft,
+// the 747-400 swung 7 km off its circle, at 25 s 1.9 km, and at 40 s it held
+// within 8 m (PROJECT_STATUS.md, 2026-10-09). The heading law it replaced -
+// turned in by what brought it back in twelve seconds, 45 degrees at most -
+// asked a jet to turn faster than its heading loop, whose own time is about
+// v / g, 11.5 s at 220 kt, could follow, and from a waypoint at the centre the
+// 747-400 swung 6 km through its 7 km circle.
+constexpr double loiter_period_s = 40.0;
+constexpr double loiter_damping = 0.75;
+// Outside the circle the loiter law has it within this, at most (below).
+// Within its whole L1 distance - a kilometre for a jet at 220 kt - it took
+// over the tangent line too soon, turned in at its most bank and swung a
+// 747-400 350 m outside its circle after joining it; within 250 m every jet
+// held within the 100 m it joined within.
+constexpr double loiter_outside_m = 250.0;
 // On an orbit's circle, and counting the turns round it: within this of it,
-// either side. From outside it is flown to along the line that meets it at a
-// tangent, the way round it is flown, so it is joined going round - flown
-// straight at its centre, an aeroplane crossed it at right angles and could
-// not turn onto it; from inside - a plan that flies to the orbit's centre
-// first - the aircraft is steered out to it, and the turns spiralling out are
-// not counted.
+// either side, and going its way round (below). From outside it is flown to
+// along the line that meets it at a tangent, the way round it is flown, so it
+// is joined going round - flown straight at its centre, an aeroplane crossed
+// it at right angles and could not turn onto it; from inside - a plan that
+// flies to the orbit's centre first - the loiter law steers it out to it, and
+// the turns spiralling out are not counted.
 constexpr double orbit_joined_m = 100.0;
 // **And going its way round**: its track within this of the circle's. Joined
 // whichever way it was going, a jet that reached a waypoint on its circle
 // heading across it was held to the circle from there, and turning round
 // onto it swung kilometres through it (PROJECT_STATUS.md, 2026-10-09).
 constexpr double orbit_joined_deg = 20.0;
-// **The bank it is turned onto the circle at**, from inside it or swung
-// outside it: less than the autopilot's most, 25 degrees, which the
-// tightest orbit allowed - two and a half times the circle turned at 25 -
-// leaves room for.
-constexpr double capture_bank_deg = 15.0;
 
 double normalised(double degrees) {
     const double d = std::fmod(degrees, 360.0);
@@ -149,7 +153,6 @@ AutopilotModes Navigator::steer() {
                 circling_ = true;
                 around_deg_ = around;
                 turned_deg_ = 0.0;
-                trim_deg_ = 0.0;
             }
             if (circling_) {
                 // How far round, the way it is flown.
@@ -167,7 +170,21 @@ AutopilotModes Navigator::steer() {
                     continue;
                 }
             }
-            if (!circling_ && off_circle_m > 0.0) {
+            // The loiter law has it inside the circle, and outside it within
+            // its L1 distance, zeta period v / pi, and loiter_outside_m, going
+            // its way round; farther out, joined or not, the tangent line - L1
+            // guidance's capture.
+            // Flown along the tangent line that near, a Mosquito that had
+            // crossed the circle not yet going its way followed the line round
+            // 200 m outside it and never joined it; held by the loiter law
+            // far outside, a Cherokee gliding at 30,000 ft, which could not
+            // bank enough for her circle there, looped round and round 1.5 km
+            // off it, never round its centre.
+            const double ground_mps = std::hypot(north, east) * 0.3048;
+            const double l1_m = loiter_damping * loiter_period_s * ground_mps / std::numbers::pi;
+            const bool near_going_round =
+                off_circle_m <= std::min(l1_m, loiter_outside_m) && std::abs(track_off_deg) < 90.0;
+            if (off_circle_m > 0.0 && !near_going_round) {
                 // Outside: along the line that meets the circle at a tangent,
                 // the way round it is flown, so it is joined going its way.
                 const double to_centre = bearing_deg(lat, lon, to.latitude_deg, to.longitude_deg);
@@ -179,56 +196,25 @@ AutopilotModes Navigator::steer() {
                 modes.airspeed_kts = to.airspeed_kts;
                 break;
             }
-            const double air_mps = air_fps * 0.3048;
-            // Degrees turned in for each metre off the circle.
-            const double in_per_metre =
-                std::atan(1.0 / (std::max(air_mps, 1.0) * orbit_closing_s)) / radians;
-            if (circling_ && std::abs(in_per_metre * off_circle_m) <= most_trimmed_in_deg) {
-                trim_deg_ = std::clamp(trim_deg_ + orbit_trim_per_s * in_per_metre *
-                                                       off_circle_m * dt,
-                                       -most_orbit_trim_deg, most_orbit_trim_deg);
+            // On the circle, or inside it: the loiter law (above). Over the
+            // ground, metres a second: outward from the centre, and round the
+            // way the orbit is flown.
+            const double v_north = north * 0.3048;
+            const double v_east = east * 0.3048;
+            const double out_north = std::cos(around * radians);
+            const double out_east = std::sin(around * radians);
+            const double outward_mps = v_north * out_north + v_east * out_east;
+            const double way = to.orbit->right ? 1.0 : -1.0;
+            const double round_mps = way * (v_east * out_north - v_north * out_east);
+            const double omega = 2.0 * std::numbers::pi / loiter_period_s;
+            double back = omega * omega * off_circle_m +
+                          2.0 * loiter_damping * omega * outward_mps;
+            if (round_mps < 0.0) {
+                back = std::max(back, 0.0);
             }
-            // Along the tangent, ahead of it by the heading the autopilot needs
-            // to bank for the circle, turned in towards the circle - to the
-            // right of the tangent, flying round to the right - or out. Round
-            // a circle over the ground the track turns at the ground speed
-            // over the radius, and the air is turned through that at the
-            // airspeed: tan bank = v_air v_ground / g r.
-            const double ground_mps = std::hypot(north, east) * 0.3048;
-            // The rate the track turns at, round the way the orbit is flown:
-            // the circle's.
-            double in = std::clamp(in_per_metre * off_circle_m, -most_orbit_intercept_deg,
-                                   most_orbit_intercept_deg);
-            double turning = ground_mps / r;
-            // **No more than it can turn out of onto the circle**: the angle
-            // to it of the arc it would turn along at the capture bank, met
-            // at a tangent - curving round the way the circle does from
-            // inside, the other way from outside. Closing faster, it could
-            // not turn onto the circle in time, and swung through it.
-            const double turn_m = std::min(air_mps * ground_mps / (gravity_mps2 *
-                                                                   std::tan(capture_bank_deg * radians)),
-                                           0.9 * r);
-            const double rho = std::max(from_centre_m, 1.0);
-            const bool inside = off_circle_m < 0.0;
-            const double centres_m = inside ? r - turn_m : r + turn_m;
-            const double cos_at = std::clamp(
-                (rho * rho + turn_m * turn_m - centres_m * centres_m) / (2.0 * rho * turn_m),
-                -1.0, 1.0);
-            const double most_in_deg =
-                inside ? std::acos(cos_at) / radians : 180.0 - std::acos(cos_at) / radians;
-            if (std::abs(in) > most_in_deg) {
-                in = std::copysign(most_in_deg, in);
-                // Along the arc.
-                turning = std::copysign(gravity_mps2 * std::tan(capture_bank_deg * radians) / std::max(air_mps, 1.0), inside ? 1.0 : -1.0);
-            }
-            // Ahead by the heading the autopilot needs to bank for that turn:
-            // over the ground the track turns at it, and the air is turned
-            // through it at the airspeed - tan bank = v_air rate / g; round
-            // the circle, v_air v_ground / g r.
-            const double bank_deg = std::atan(air_mps * turning / gravity_mps2) / radians;
-            const double lead_deg = heading_off_for_bank_deg(bank_deg);
-            const double turned_in = lead_deg + in + trim_deg_;
-            track = to.orbit->right ? around + 90.0 + turned_in : around - 90.0 - turned_in;
+            const double round_mps2 = round_mps * round_mps / std::max(0.5 * r, from_centre_m);
+            modes.bank_deg = way * std::atan((back + round_mps2) / gravity_mps2) / radians;
+            track = along;
             off_m = 0.0;
             orbiting = true;
             modes.altitude_ft = to.altitude_ft;

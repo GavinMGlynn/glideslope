@@ -8,9 +8,11 @@
 // for the leg's track where the aircraft is abeam of it, turned back towards
 // the leg by 30 degrees for each kilometre off it, up to 30; turned into the
 // wind by the drift the aircraft has - the difference between where it points
-// and where it goes, averaged over five seconds - or round an orbit, whose
-// drift changes as it turns, by the wind, found the same way, which does not;
-// and it asks the autopilot for the waypoint's altitude and airspeed. A
+// and where it goes, averaged over five seconds - or, flying to an orbit from
+// outside it, by the wind, found the same way; round an orbit, and out to it
+// from inside, it asks the autopilot for a bank rather than a heading (L1
+// guidance's loiter law, navigator.cpp); and it asks the autopilot for the
+// waypoint's altitude and airspeed. A
 // waypoint is passed when it is abeam: when the leg ahead of the aircraft is
 // gone. The Earth is a sphere of radius
 // 6,371 km for this, which is within 0.5% of the ellipsoid's distances.
@@ -84,12 +86,11 @@ private:
     double wind_east_fps_ = 0.0;
     double last_track_deg_ = 0.0;
     // Round an orbit: whether on its circle - come within orbit_joined_m of
-    // it, and counting - the bearing from its centre when last steered, how
-    // far round it has come, and the trim the radius has found.
+    // it going its way, and counting - the bearing from its centre when last
+    // steered, and how far round it has come.
     bool circling_ = false;
     double around_deg_ = 0.0;
     double turned_deg_ = 0.0;
-    double trim_deg_ = 0.0;
 };
 
 } // namespace glideslope::sim
