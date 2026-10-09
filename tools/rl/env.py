@@ -63,9 +63,27 @@ GAMMA = 0.999
 # the softest touch and the limit. The gate sends round after two seconds
 # running, twenty decisions: at 2.0 a decision those cost 40, more than any
 # touch could gain, and ten seconds of a slow flare 200.
-STABILIZED = dict(gate_ft=500.0, down_to_ft=20.0, fast_kts=5.0, slow_kts=2.0, per_kt=0.05,
-                  most_kts=30.0, outside_gate=2.0, judged_down_to_ft=50.0,
+#
+# **Going wrong is never a way out of it.** Charged some 2.6 a decision for
+# 700 decisions, a policy 25 kt fast from 500 ft would rather go wrong in the
+# air for its 70 (tried 2026-10-10: from the committed policy at 0.05 a knot
+# and learning rate 1e-4 its landings within the limits fell from 399 of 400
+# to 179 within 1.2 million decisions). Going wrong now costs as well the
+# most the speed could still have cost, at `least_fpm` from where it went
+# wrong (`speed_cost_left`), and the knot costs 0.02 again.
+STABILIZED = dict(gate_ft=500.0, down_to_ft=20.0, fast_kts=5.0, slow_kts=2.0, per_kt=0.02,
+                  most_kts=30.0, outside_gate=2.0, least_fpm=300.0, judged_down_to_ft=50.0,
                   judged_fast_kts=10.0, judged_slow_kts=5.0)
+
+
+def speed_cost_left(above_ft: float) -> float:
+    """The most the speed can cost from `above_ft` down (STABILIZED): every
+    decision outside the gate's band and `most_kts` off, descending at no
+    more than `least_fpm`."""
+    st = STABILIZED
+    feet = max(0.0, min(above_ft, st["gate_ft"]) - st["down_to_ft"])
+    decisions = feet / (st["least_fpm"] / 600.0)
+    return decisions * (st["per_kt"] * st["most_kts"] + st["outside_gate"])
 
 
 def outside_band(kts: float, vref_kts: float, fast_kts: float, slow_kts: float) -> float:
@@ -192,7 +210,9 @@ class Flier:
         wrong = L.crashed(r, w)
         if wrong:
             f.ended = wrong
-            return obs, reward - 70.0, True, False
+            # **And the most the speed could still have cost** (STABILIZED),
+            # so that ending the flight is never a way out of it.
+            return obs, reward - 70.0 - speed_cost_left(w.above_m * L.FEET_PER_METRE), True, False
         # Flying the approach well is shaped by a potential (Ng, Harada and
         # Russell, 1999): the reward is how much better the aeroplane is
         # placed than a tenth of a second ago, which cannot be farmed by
