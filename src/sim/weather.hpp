@@ -27,6 +27,11 @@ struct Conditions {
     // The runway condition code of the ground beneath (sim/runway_condition.hpp):
     // 6 dry to 1 ice. Its braked wheels grip as that code says.
     int runway_condition = 6;
+    // **The air's gust factor**, knots (world::gust_factor_kt): its gusts'
+    // spread over its mean wind, or what its turbulence's severity is read
+    // from. The AI flies half of it over the speeds it holds (sim::in_gusts).
+    // 0 in calm, steady air.
+    double gust_factor_kt = 0.0;
 };
 
 class Weather {

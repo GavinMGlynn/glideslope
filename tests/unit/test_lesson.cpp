@@ -3756,6 +3756,14 @@ GLIDESLOPE_TEST(the_ai_climbs_half_the_gust_factor_faster_in_gusts_or_turbulence
     expect(report("XXXX 181200Z 27015G27KT 9999 SKC 15/05 Q1013", 1), 12.0,
            "15 gusting 27 in light turbulence");
     check(tried == 13, "every case tried: " + std::to_string(tried) + " of 13");
+    // **And a plan's or a route's speed held** (the controller's, and the
+    // light aeroplane's climb floor): raised by half, up to her plan's
+    // fastest, never lowered, unchanged in calm air - four cases.
+    check(glideslope::sim::in_gusts(43.0, 0.0, 62.0) == 43.0, "calm: as asked");
+    check(glideslope::sim::in_gusts(43.0, 15.0, 62.0) == 50.5, "moderate: 7.5 faster");
+    check(glideslope::sim::in_gusts(58.0, 15.0, 62.0) == 62.0, "capped at her fastest");
+    check(glideslope::sim::in_gusts(70.0, 15.0, 62.0) == 70.0,
+          "a speed already past her fastest is not lowered");
 }
 
 // **The AI pilot notices no stall in ordinary flight, with 3 kt to spare**:
@@ -3765,8 +3773,10 @@ GLIDESLOPE_TEST(the_ai_climbs_half_the_gust_factor_faster_in_gusts_or_turbulence
 // catalogue's start speed, climbing at 500 ft/min at her climb speed in this
 // air - her best-climb speed and half its gust factor, 7.5 kt for moderate
 // turbulence's 15 (sim::in_gusts, world::gust_factor_kt) - and level at the
-// slowest a plan may fly her at that weight (`plan_speeds`, `for_weight`):
-// the speeds the AI really flies her at, down to the slowest. None is
+// slowest a plan may fly her at that weight (`plan_speeds`, `for_weight`),
+// held as a plan's speed is in this air - half its gust factor over, up to
+// her plan's fastest (sim::in_gusts, Controller::fly): the speeds the AI
+// really flies her at, down to the slowest. None is
 // noticed as a stall, and in every phase her slowest stays at least 3 kt
 // over her warning, so that another machine's turbulence does not tip her
 // over it. Asked for 1,000 ft/min, the Short S.23 - whose autopilot has no
@@ -3778,15 +3788,12 @@ GLIDESLOPE_TEST(the_ai_climbs_half_the_gust_factor_faster_in_gusts_or_turbulence
 // manual's best-climb speed, 47.8 kt, her airspeed dipped 7 kt in the
 // turbulence, to 40.9 (40.1 before her climb speed was captured without
 // sinking past it; 39.7 in CI), and she was named here until her climb took
-// the gust allowance a pilot takes (2026-10-10). Now 44.5, 4.6 over.
+// the gust allowance a pilot takes (2026-10-10). Now 50.3, 10.4 over, her
+// climb floor raised by it too.
 //
-// **Named, not yet: the Short S.23's plan floor.** Level at the slowest a
-// plan may fly her at 40,500 lb, 92.9 kt, her airspeed falls 19.8 kt in the
-// turbulence, to 73.1 against her 71.3 kt warning (77.1 before her climb
-// was flown faster, which leaves her in other air when she slows): she has
-// no speed floor, and dips more than any light aeroplane. Under 3 kt over
-// her warning she is named - noticed or not - and her name turns this red
-// once she has the 3 kt.
+// **The Short S.23 at her plan's slowest**, 92.9 kt at 40,500 lb, fell to
+// 73.1 against her 71.3 kt warning while it was held as in calm air; held
+// half the gust factor faster, as a plan's speed now is, she keeps 8.7 kt.
 //
 // **Not walked here, named**: the take-off and the approach fly their own
 // laws, which the notice does not watch (sim/controller.cpp: only the plain
@@ -3800,7 +3807,6 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
     std::size_t not_watched = 0;
     std::size_t phases_with_margin = 0;
     std::vector<std::string> faults;
-    bool named_seen = false;
     for (const auto& entry : roster) {
         const std::optional<glideslope::sim::ApproachSpeeds> lands =
             glideslope::sim::landing_speeds(data(), entry.model);
@@ -3851,7 +3857,10 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
                 controller.autopilot()->set(modes);
             } else if (tick == 360 * steps_per_second) {
                 modes.altitude_ft = f.aircraft->property("position/h-sl-ft");
-                modes.airspeed_kts = plan.slowest_kts;
+                // As a plan's speed is held in this air (Controller::fly):
+                // half its gust factor over, up to her plan's fastest.
+                modes.airspeed_kts = glideslope::sim::in_gusts(
+                    plan.slowest_kts, glideslope::world::gust_factor_kt(report), plan.fastest_kts);
                 controller.autopilot()->set(modes);
             }
             const glideslope::sim::Controls c = controller.fly();
@@ -3864,18 +3873,14 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
         std::printf("  %-13s %6.0f lb (figures %6.0f): cruise %5.1f (slowest %5.1f), climb %5.1f "
                     "(%5.1f), plan floor %5.1f (%5.1f); warning %5.1f: %s\n",
                     entry.id.c_str(), weight_lbs, lands->reference_lbs, cruise_kts, slowest[0],
-                    departs.climb_kts, slowest[1], plan.slowest_kts, slowest[2], warning_kts,
+                    departs.climb_kts, slowest[1],
+                    glideslope::sim::in_gusts(plan.slowest_kts,
+                                              glideslope::world::gust_factor_kt(report),
+                                              plan.fastest_kts),
+                    slowest[2], warning_kts,
                     noticed ? "NOTICED" : "not noticed");
         for (std::size_t phase = 0; phase < 3; ++phase) {
             const bool spare = slowest[phase] >= warning_kts + to_spare_kts;
-            if (entry.id == "short_s23" && phase == 2) {
-                named_seen = true;
-                if (spare) {
-                    faults.push_back(entry.id + "'s plan floor is named as short of its 3 kt, "
-                                                "and had them: take its name off");
-                }
-                continue;
-            }
             if (spare) {
                 ++phases_with_margin;
             } else {
@@ -3899,10 +3904,9 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
     check(flown + not_watched == roster.size() && not_watched == 2,
           "every aeroplane flown, or named as unwatched: " + std::to_string(flown) + " and " +
               std::to_string(not_watched));
-    check(phases_with_margin == 3 * flown - 1,
+    check(phases_with_margin == 3 * flown,
           std::to_string(phases_with_margin) + " of " + std::to_string(3 * flown) +
-              " phases with 3 kt to spare; the one left out, the S.23's plan floor, is named");
-    check(named_seen, "the Short S.23, named, was flown");
+              " phases with 3 kt to spare");
 }
 
 

@@ -1,5 +1,6 @@
 #include "sim/autopilot.hpp"
 
+#include "sim/departure.hpp"
 #include "sim/fixed_step.hpp"
 
 #include <algorithm>
@@ -531,7 +532,10 @@ Controls Autopilot::fly() {
             holding_speed_ = false;
             turn_allowance_kts_ = 0.0;
         } else {
-            double least_kts = *floor_kts;
+            // **In gusts or turbulence the floor is half the gust factor
+            // higher** (sim::in_gusts), as the climb asked is: up to the
+            // fastest she may hold, where one is given.
+            double least_kts = in_gusts(*floor_kts, a_.gust_factor_kt(), fastest_kts_);
             if (modes_.airspeed_kts && *modes_.airspeed_kts < least_kts) {
                 least_kts = *modes_.airspeed_kts -
                             std::min(least_kts - *modes_.airspeed_kts, below_asked_kts);

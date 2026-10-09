@@ -385,6 +385,9 @@ public:
     // as her weather gave it before her last step: 6, dry, without weather.
     // Her braked wheels grip as it says.
     int runway_condition() const { return runway_condition_; }
+    // **The gust factor of the air she flies in**, knots, as her weather gave
+    // it before her last step (Conditions::gust_factor_kt): 0 without weather.
+    double gust_factor_kt() const { return gust_factor_kt_; }
 
     // Sets what is on board. Call before initialize(); the weight is what JSBSim
     // computes from it once the aircraft is initialised.
@@ -567,6 +570,7 @@ private:
     double dry_braking_friction_ = 0.0;
     double dry_rolling_friction_ = 0.0;
     int runway_condition_ = 6;
+    double gust_factor_kt_ = 0.0;
     // The pedals as asked, and the share of them the runway takes.
     double left_brake_ = 0.0;
     double right_brake_ = 0.0;
