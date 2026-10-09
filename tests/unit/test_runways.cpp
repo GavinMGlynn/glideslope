@@ -77,6 +77,20 @@ GLIDESLOPE_TEST(a_runways_file_gives_each_open_runway_end_with_a_place_and_a_hea
               r.elevation_ft == 21.0 && r.heading_deg == 348.0,
           "as the take-off autopilot has a runway, at the ground's height given");
 
+    // **Displaced at both ends**: each way of landing loses its own end's
+    // displacement, not the other's (Bankstown's 11C/29C, 508 ft and 196 ft).
+    const std::vector<RunwayEnd> both = read_runways(
+        header + "233357,27130,\"YSBK\",4644,98,\"ASP\",1,0,\"11C\",-33.9196,150.984,20,"
+                 "124,508,\"29C\",-33.9268,150.996,26,304,196\n");
+    check(both.size() == 2 && both[0].ident == "11C" && both[1].ident == "29C" &&
+              std::abs(glideslope::world::landing_length_m(both[0]) - (4644 - 508) * 0.3048) <
+                  1e-9 &&
+              std::abs(glideslope::world::landing_length_m(both[1]) - (4644 - 196) * 0.3048) <
+                  1e-9 &&
+              glideslope::world::landing_length_m(both[0]) !=
+                  glideslope::world::landing_length_m(both[1]),
+          "a runway displaced at both ends: 11C lands on 4644 - 508 ft, 29C on 4644 - 196 ft");
+
     check(refused("", "empty"), "an empty file");
     check(refused("\"id\",\"airport_ident\"\n", "no column"), "a file that is not runways");
 }
