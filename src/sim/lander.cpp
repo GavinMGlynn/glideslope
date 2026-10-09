@@ -14,7 +14,9 @@ namespace {
 constexpr double degrees = 180.0 / 3.14159265358979323846;
 constexpr double feet_per_metre = 3.280839895013123;
 constexpr double steps_per_second = 120.0;
-// The least throttle a jet is flown down the approach at, spooled (fly_laws).
+// The least throttle a jet is flown down the approach at, spooled: a stand-in
+// for an engine's approach idle, which is an N1 floor, not a lever position
+// (fly_laws; 14 CFR 25.119 and 33.73).
 constexpr double jet_approach_idle = 0.25;
 
 // **The approach is a local problem.** Five miles of runway centreline does
@@ -1038,8 +1040,19 @@ Controls Lander::fly_laws() {
         // a draggy enough approach to be flown at idle, a gust that took
         // speed off left her 6 to 8 kt slow for over two seconds, which the
         // stabilized-approach gate sends round. Real jets keep an approach
-        // idle above flight idle for this; here a quarter of the throttle's
-        // travel (`jet_approach_idle`), and the speed error worked at 0.1
+        // idle above flight idle for this. 14 CFR 25.119 sizes the landing
+        // climb on "the power or thrust that is available 8 seconds after
+        // initiation of movement of the power or thrust controls from the
+        // minimum flight idle to the go-around power or thrust setting", and
+        // 14 CFR 33.73(b) asks an engine for "95 percent rated takeoff power
+        // or thrust in not over 5 seconds" from minimum flight idle; engines
+        // meet them with an approach idle above flight idle, scheduled with
+        // the gear and the landing flap (the PW2037-powered 757 has ground,
+        // minimum flight and approach idle; the 737's approach idle is about
+        // 32% N1). Here a quarter of the throttle's travel
+        // (`jet_approach_idle`) is our stand-in for that schedule - a real
+        // one is an N1 floor, not a lever position - and the speed error is
+        // worked at 0.1
         // where a propeller, which answers at once, keeps 0.05 - down to
         // twice the flare height, below which she is flown as before.
         const bool near_the_flare =
