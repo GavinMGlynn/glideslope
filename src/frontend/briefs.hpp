@@ -22,12 +22,18 @@ namespace glideslope::frontend {
 // (sim::departure_speeds - published, or measured where nothing published
 // gives one), the speeds a plan may fly it at (sim::plan_speeds) and its
 // cruise. The task is left for the caller. Throws as they do.
-copilot::Brief brief_for(const std::filesystem::path& data, const std::string& catalogue_id);
+//
+// **On a runway of `runway_condition`** (sim/runway_condition.hpp): any but
+// dry is wet, and the runway it needs to land is 1.15 times the dry one
+// (sim::wet_landing_factor, 14 CFR 121.195(d)).
+copilot::Brief brief_for(const std::filesystem::path& data, const std::string& catalogue_id,
+                         int runway_condition = 6);
 
 // The same, as a planner's request; the command, airport and runways are
 // left for the caller.
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
-                                      const std::string& catalogue_id);
+                                      const std::string& catalogue_id,
+                                      int runway_condition = 6);
 
 // **Where a plan from an airport may land** (copilot::PlanRequest::fields):
 // the airports of `all` within `landing_fields_m` of the first end of

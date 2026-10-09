@@ -2,6 +2,7 @@
 
 #include "sim/autopilot.hpp"
 #include "sim/figures.hpp"
+#include "sim/runway_condition.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -144,6 +145,7 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
     // strike attitude below level is not one - a flying boat's keel and
     // floats read as one - and is not used.
     const Aircraft::Stance stance = aircraft.stance();
+    tail_wheel_ = stance.found && stance.tail_wheel;
     if (stance.found && stance.tail_wheel) {
         most_flare_pitch_deg_ = stance.standing_pitch_deg;
     } else if (stance.found && stance.strike_pitch_deg > 0.0 &&
@@ -663,14 +665,26 @@ Controls Lander::fly_laws() {
                 std::max(1.0, runway_.length_m - touchdown_along_m_ - 300.0) * feet_per_metre;
             autobrake_fps2_ = std::clamp(vg_fps * vg_fps / (2.0 * left_ft), 5.0, 14.0);
         }
-        const double autobrake_fps2 = autobrake_fps2_;
+        // **On a runway that is not dry, all the brakes from the touch**: a
+        // wet or slippery runway's landing distance is worked out with full
+        // anti-skid braking once the brakes are on (AC 25-32 section 8.3, its
+        // "full braking configuration"), and what the runway can give falls
+        // short of what a dry one's setting asks; so she is braked at MAX's
+        // deceleration and her anti-skid - JSBSim's brakes, which never lock -
+        // takes what the runway gives. Set for a dry runway's 300 m to spare,
+        // an A320 handed over on a wet 1,725 m one ran 8 m off its end. **Not
+        // a tailwheel aeroplane**, whose braking is held back by her nose
+        // going over, not by the runway: braked so, a Mosquito stood on her
+        // nose; braked as on a dry runway she stops on a wet one.
+        const bool slippery = a_.runway_condition() != dry_runway && !tail_wheel_;
+        const double autobrake_fps2 = slippery ? 14.0 : autobrake_fps2_;
         // **A jet brakes from the touch**: the handbook's chapter 16 begins
         // braking "as soon after touchdown and wheel spin-up as possible",
         // with the nose-wheel already coming down and the spoilers putting
         // her weight on the wheels. Waiting for nine tenths of the reference
         // speed, an F-15C with her nose down - no longer braking on her
         // wing's drag - took twenty seconds to get there and ran 3.4 km.
-        if (jet_ || vg_kts < 0.9 * speeds_.vref_kts) {
+        if (jet_ || slippery || vg_kts < 0.9 * speeds_.vref_kts) {
             brake_ = std::clamp(brake_ + 0.1 * (autobrake_fps2 - decel_fps2_) / steps_per_second,
                                 0.0, 1.0);
         }

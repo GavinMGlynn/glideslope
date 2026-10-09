@@ -13,6 +13,7 @@
 #include "sim/lesson.hpp"
 #include "sim/lesson_run.hpp"
 #include "sim/plan.hpp"
+#include "sim/runway_condition.hpp"
 #include "sim/learnt.hpp"
 #include "sim/test_pilot.hpp"
 #include "sim/vacate.hpp"
@@ -4548,7 +4549,8 @@ enum class OnTheRoll {
     half_her_speed_gone,
     after_the_pilots_touch,
     landed_by_hand,
-    landed_by_hand_on_a_short_runway
+    landed_by_hand_on_a_short_runway,
+    landed_by_hand_on_a_wet_short_runway
 };
 
 // **A short runway**: the same threshold, 1,500 m long. Braked at autobrake
@@ -4559,6 +4561,26 @@ glideslope::sim::Runway a_short_runway() {
     r.name = "the short runway";
     r.length_m = 1500.0;
     return r;
+}
+
+// **A wet short runway for `model`**: as long as her wet landing distance -
+// 14 CFR 121.195(d)'s 1.15 times the dry (sim::wet_landing_factor) - taking
+// as the dry the longer of the short runway every landplane stops on dry
+// (1,500 m) and the runway her figures say she needs to land
+// (sim::landing_need_m; the six that publish none, 1,500 m): 1,725 m for
+// most, 2,225 m for the A380, 2,459 m for the F-15C. Wet: runway condition
+// code 5.
+glideslope::sim::Runway a_wet_short_runway(const std::string& model) {
+    glideslope::sim::Runway r = a_short_runway();
+    r.name = "the wet short runway";
+    r.length_m = std::max(a_short_runway().length_m, glideslope::sim::landing_need_m(data(), model)) *
+                 glideslope::sim::wet_landing_factor;
+    return r;
+}
+
+bool on_a_short_runway(OnTheRoll when) {
+    return when == OnTheRoll::landed_by_hand_on_a_short_runway ||
+           when == OnTheRoll::landed_by_hand_on_a_wet_short_runway;
 }
 
 const char* name_of(OnTheRoll when) {
@@ -4573,6 +4595,8 @@ const char* name_of(OnTheRoll when) {
         return "landed by hand";
     case OnTheRoll::landed_by_hand_on_a_short_runway:
         return "landed by hand on a short runway";
+    case OnTheRoll::landed_by_hand_on_a_wet_short_runway:
+        return "landed by hand on a wet short runway";
     }
     return "?";
 }
@@ -4617,14 +4641,23 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
     flying.throttle = 0.4;
     flying.gear = 1.0;
     glideslope::sim::Controller controller(aircraft, flying);
-    const bool by_hand =
-        when == OnTheRoll::landed_by_hand || when == OnTheRoll::landed_by_hand_on_a_short_runway;
-    if (when == OnTheRoll::landed_by_hand_on_a_short_runway) {
+    const bool by_hand = when == OnTheRoll::landed_by_hand || on_a_short_runway(when);
+    if (on_a_short_runway(when)) {
         // Told the runway she rolls on, as the server and the client tell
         // theirs from the world's (world::runway_rolled_on).
-        controller.finds_runways_with([](const glideslope::sim::Aircraft&) {
-            return std::optional<glideslope::sim::Runway>(a_short_runway());
+        const glideslope::sim::Runway rolled_on =
+            when == OnTheRoll::landed_by_hand_on_a_wet_short_runway
+                ? a_wet_short_runway(entry.model)
+                : a_short_runway();
+        controller.finds_runways_with([rolled_on](const glideslope::sim::Aircraft&) {
+            return std::optional<glideslope::sim::Runway>(rolled_on);
         });
+    }
+    if (when == OnTheRoll::landed_by_hand_on_a_wet_short_runway) {
+        // Wet everywhere, still air: the weather gives her runway code 5.
+        glideslope::sim::Conditions wet;
+        wet.runway_condition = glideslope::sim::wet_runway;
+        aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wet));
     }
     if (by_hand) {
         // The pilot has her from the start, and the AI is told only how
@@ -4770,15 +4803,23 @@ void every_landplane_taken_back(OnTheRoll when) {
     const auto taught = everyone_taught("approach-and-landing");
     std::vector<std::string> landplanes;
     std::vector<std::string> left_out;
+    // **On the wet runway, the F-35B is named too**: she publishes no landing
+    // distance, so none says how long a wet runway she needs, and touching
+    // at 155 kt, where a wet runway gives a braked wheel 0.135 (14 CFR
+    // 25.109(c)), she needs about 2,320 m of the 1,725.
+    const bool wet = when == OnTheRoll::landed_by_hand_on_a_wet_short_runway;
     for (const std::string& id : taught) {
         if (glideslope::sim::find_aircraft(data(), id).seaplane) {
             left_out.push_back(id);
+            std::printf("  left out - %s: a flying boat, afloat, is never still\n", id.c_str());
+        } else if (wet && id == "f35b") {
+            left_out.push_back(id);
+            std::printf("  left out - %s: no published landing distance to size a wet runway "
+                        "by, and 1,725 m is short of the 2,320 she needs wet\n",
+                        id.c_str());
         } else {
             landplanes.push_back(id);
         }
-    }
-    for (const std::string& id : left_out) {
-        std::printf("  left out - %s: a flying boat, afloat, is never still\n", id.c_str());
     }
     std::vector<std::string> wrong;
     std::size_t flown = 0;
@@ -4804,7 +4845,7 @@ void every_landplane_taken_back(OnTheRoll when) {
         if (!r.lander_given) {
             wrong.push_back(where + " was not given her landing back");
         } else if (when != OnTheRoll::landed_by_hand &&
-                   when != OnTheRoll::landed_by_hand_on_a_short_runway &&
+                   !on_a_short_runway(when) &&
                    std::abs(r.lander_touched_past_m - r.touched_past_m) > 5.0) {
             // (Landed by hand, no approach was given: the AI's runway is the
             // line she rolls along from where it took her, and she touched,
@@ -4819,9 +4860,11 @@ void every_landplane_taken_back(OnTheRoll when) {
         if (!r.stopped) {
             wrong.push_back(where + " did not stop");
         }
-        const double length_m = when == OnTheRoll::landed_by_hand_on_a_short_runway
-                                    ? a_short_runway().length_m
-                                    : a_runway().length_m;
+        const double length_m =
+            when == OnTheRoll::landed_by_hand_on_a_wet_short_runway
+                ? a_wet_short_runway(glideslope::sim::find_aircraft(data(), id).model).length_m
+            : when == OnTheRoll::landed_by_hand_on_a_short_runway   ? a_short_runway().length_m
+                                                                    : a_runway().length_m;
         if (r.stopped_past_m < 0.0 || r.stopped_past_m > length_m ||
             std::abs(r.stopped_across_m) > half_width_m) {
             wrong.push_back(where + " stopped off the runway, " +
@@ -4855,9 +4898,10 @@ void every_landplane_taken_back(OnTheRoll when) {
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong taking back " +
                              name_of(when) + ", the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(landplanes.size() + left_out.size() == taught.size() && left_out.size() == 1,
+    check(landplanes.size() + left_out.size() == taught.size() &&
+              left_out.size() == (wet ? 2U : 1U),
           "every aeroplane taught the approach is a landplane flown here or the one flying "
-          "boat named: " + std::to_string(landplanes.size()) + " and " +
+          "boat named (and wet, the F-35B): " + std::to_string(landplanes.size()) + " and " +
               std::to_string(left_out.size()) + " of " + std::to_string(taught.size()));
     check(flown == landplanes.size(), "every landplane was taken back " +
                                           std::string(name_of(when)) + ": " +
@@ -4900,6 +4944,15 @@ GLIDESLOPE_TEST(an_aeroplane_landed_by_hand_and_handed_over_on_its_roll_is_lande
 // autobrake 3, which ran the 737-300 and the F-15C off its end.
 GLIDESLOPE_TEST(a_landing_flown_by_hand_on_a_short_runway_is_stopped_on_it_by_the_ai) {
     every_landplane_taken_back(OnTheRoll::landed_by_hand_on_a_short_runway);
+}
+
+// **And on a wet one, a runway 15 per cent longer, she is stopped on it
+// too**: every landplane landed by hand on a 1,725 m runway of condition
+// code 5 - her braked wheels gripping as 14 CFR 25.109(c) says a wet
+// runway lets them, less than half her model's dry friction at speed - and
+// handed over half a second after the touch.
+GLIDESLOPE_TEST(every_landplane_landed_by_hand_on_a_wet_short_runway_is_stopped_on_it_by_the_ai) {
+    every_landplane_taken_back(OnTheRoll::landed_by_hand_on_a_wet_short_runway);
 }
 
 // **Handed over taxiing, she is stopped with the throttle no more than half

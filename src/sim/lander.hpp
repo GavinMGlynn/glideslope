@@ -366,6 +366,7 @@ private:
     // nose lowered as soon as it touches, towards `lowering_pitch_deg_`,
     // which falls from the attitude it touched at, and its spoilers out.
     bool jet_ = false;
+    bool tail_wheel_ = false; // Aircraft::stance's
     double lowering_pitch_deg_ = 0.0;
 
     // Her main wheels, where her model puts them: JSBSim's structural frame,

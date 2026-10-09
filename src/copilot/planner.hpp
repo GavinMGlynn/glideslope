@@ -55,6 +55,7 @@ struct PlanRequest {
     // The runway it needs to land, metres, as the copilot's Brief has it: 0
     // where nothing published gives one.
     double landing_need_m = 0.0;
+    bool runway_wet = false; // as the Brief's
     std::string airport;       // where it stands, "YSSY"
     std::vector<world::RunwayEnd> runways; // that airport's
     // **Where it may land**: runway ends near the airport - its own among

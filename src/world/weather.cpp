@@ -1,5 +1,6 @@
 #include "world/weather.hpp"
 
+#include "sim/runway_condition.hpp"
 #include "world/air_motion.hpp"
 #include "world/json.hpp"
 
@@ -122,6 +123,21 @@ double isa_temperature_c(double height_m) {
     return 15.0 - 0.0065 * height_m;
 }
 
+int runway_condition_of(const Metar& metar) {
+    for (const Metar::PresentWeather& w : metar.weather) {
+        if (w.vicinity) {
+            continue;
+        }
+        for (const std::string& p : w.phenomena) {
+            if (p == "RA" || p == "DZ" || p == "SN" || p == "SG" || p == "PL" || p == "GS" ||
+                p == "GR" || p == "UP") {
+                return sim::wet_runway;
+            }
+        }
+    }
+    return sim::dry_runway;
+}
+
 sim::Conditions surface_conditions(const SurfaceReport& report) {
     constexpr double mps_per_knot = 1852.0 / 3600.0;
     constexpr double radians = 3.14159265358979323846 / 180.0;
@@ -141,6 +157,7 @@ sim::Conditions surface_conditions(const SurfaceReport& report) {
     if (m.qnh_hpa) {
         c.sea_level_pressure_hpa = *m.qnh_hpa;
     }
+    c.runway_condition = runway_condition_of(m);
     return c;
 }
 
@@ -450,6 +467,8 @@ sim::Conditions ReportedWeather::at(double latitude_deg, double longitude_deg,
     c.sea_level_pressure_hpa =
         mix(before.sea_level_pressure_hpa, now.sea_level_pressure_hpa);
     c.wind_at_20ft_mps = mix(before.wind_at_20ft_mps, now.wind_at_20ft_mps);
+    // The runway changes halfway, as a code cannot be mixed.
+    c.runway_condition = w < 0.5 ? before.runway_condition : now.runway_condition;
     return c;
 }
 

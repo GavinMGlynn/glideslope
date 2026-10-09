@@ -649,9 +649,19 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       stabilized-approach gate does not judge it. *Verification: from every
       corner of its gate it is stabilized by 500 ft and lands.*
 - [ ] **A landing taken over on its roll is braked for a dry runway**: a
-      wet or contaminated one, which needs more, is not known.
+      wet or contaminated one, which needs more, is not known. Wet is now
+      known - rain in the METAR wets the runway, the wheels grip as the FAA
+      says a wet runway lets them, and the AI brakes for it - and a short wet
+      runway is refused a planned landing. Still missing: nothing reports a
+      contaminated runway (snow, slush, ice), so only dry and wet are flown.
       *Verification: on a wet short runway an aeroplane handed over on its
-      roll still stops on it.*
+      roll still stops on it* - met 2026-10-10 by 12 of the 13 landplanes;
+      the F-35B, with no published landing distance, is named.
+- [ ] **A landing handed over in a skip is not landed.** Handed to the AI
+      the moment a pilot's landing has bounced its wheels clear, even by an
+      inch, she is given the plain autopilot, which never stops her (a 787
+      on a wet runway ran 23 km). *Verification: a landing handed over in a
+      skip is landed to a stop.*
 - [x] **The F-35B's circuit touches down two kilometres short of the
       runway**, at 165 knots, and rolls on to it. Nothing checks where along
       the runway a circuit touches. *Verification: every circuit touches down
@@ -1306,6 +1316,18 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
+
+- [ ] **A contaminated runway is flown when reported, and nothing reports
+      one.** The simulation brakes on every FAA runway condition code, but a
+      METAR's weather says only that rain or snow is falling, not how deep it
+      lies; Europe's runway-state group, which does, is not read. Nor is a
+      runway still wet after the rain stops. *Verification: a report of
+      slush or ice on a runway makes it slippery to the aircraft on it.*
+- [ ] **Wet runways judged with one tyre for every aircraft.** The wet
+      grip is the FAA's curve for a 100 psi tyre with anti-skid; a Cessna's
+      tyres are softer and grip more, an airliner's harder and grip less, and
+      a light aeroplane has no anti-skid. *Verification: each aircraft's tyre
+      pressure and brakes are sourced and used.*
 
 - [ ] **The Cherokee makes 2.2 kt less at full throttle than her figures
       file was measured at.** 126.8 kt level at 3,000 ft against 129 on

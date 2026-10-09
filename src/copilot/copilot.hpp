@@ -80,6 +80,10 @@ struct Brief {
     // published landing distance times its class's margin. 0 where nothing
     // published gives one, and then no runway is refused it for length.
     double landing_need_m = 0.0;
+    // **Whether the runway it lands on is wet** (runway condition code 5 or
+    // worse, sim/runway_condition.hpp): then `landing_need_m` is already 1.15
+    // times the dry need (frontend::brief_for).
+    bool runway_wet = false;
     std::string task; // what the pilot said, "follow the coast north to Palm Beach"
 };
 
@@ -177,8 +181,11 @@ const world::RunwayEnd* landing_field(const std::vector<world::RunwayEnd>& field
 // ever, a runway of `fields`, the ones the model was told of, and that
 // runway's landing length (world::landing_length_m) at least `need_m`, what
 // the aircraft needs; a `need_m` of 0, none published, refuses none for
-// length. A copilot's glide is refused a landing before this is asked.
-std::string landing_refusal(double approach_kts, double need_m, const sim::FlightPlan& plan,
+// length. A copilot's glide is refused a landing before this is asked. A
+// `wet` runway's need is given already lengthened (frontend::brief_for), and
+// a refusal says the runway is wet.
+std::string landing_refusal(double approach_kts, double need_m, bool wet,
+                            const sim::FlightPlan& plan,
                             const std::vector<world::RunwayEnd>& fields);
 
 // Asks `provider` what to do now, and checks what it says: waits for the
