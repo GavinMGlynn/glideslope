@@ -1165,6 +1165,9 @@ constexpr double feet_per_metre = 3.280839895013123;
 struct PlanProgress {
     static constexpr double level_ft = 10.0;
     bool departing = false;
+    // The speed its take-off climbed out at, in the air it was in
+    // (Departure::climb_kts), until it handed over.
+    double climb_out_kts = 0.0;
     double handed_over_ft = -1.0; // above the runway; below nought: not yet
     std::size_t leg = 0;
     std::string orbit;
@@ -3073,13 +3076,10 @@ private:
         if (!a.own_plan) {
             a.controller->to_ai(stacked(plan_, a.stack_ft));
         } else if (a.own_plan->takeoff) {
-            // **Climbed out faster in gusts** (sim::in_gusts): half the
-            // session's gust factor over her climb speed.
-            a.controller->to_ai_flying(
-                *a.own_plan,
-                glideslope::sim::in_gusts(a.departure, weather() != nullptr
-                                                           ? glideslope::world::gust_factor_kt(*weather())
-                                                           : 0.0));
+            // Climbed out half the air's gust factor faster in gusts, as
+            // she flies (Departure::climb_kts): the weather is flown in
+            // after the plans are given.
+            a.controller->to_ai_flying(*a.own_plan, a.departure);
             a.progress.departing = true;
         } else {
             a.controller->to_ai(*a.own_plan);
@@ -3093,9 +3093,15 @@ private:
     void follow(Aircraft& a) {
         PlanProgress& p = a.progress;
         const glideslope::sim::AircraftState s = a.aircraft->state();
+        if (p.departing && a.controller->departure() != nullptr) {
+            p.climb_out_kts = a.controller->departure()->climb_kts();
+        }
         if (p.departing && a.controller->departure() == nullptr) {
             p.departing = false;
             p.handed_over_ft = s.altitude_ft - a.own_plan->takeoff->runway.elevation_ft;
+            std::printf("aircraft %u, an AI's %s, climbed out at %.1f kt (%.1f in still air)\n",
+                        static_cast<unsigned>(a.index), a.model.c_str(), p.climb_out_kts,
+                        a.departure.initial_climb_kts);
         }
         const glideslope::sim::Navigator* navigator = a.controller->navigator();
         if (p.departing || navigator == nullptr || navigator->finished()) {
@@ -3176,7 +3182,10 @@ private:
         // **No faster than her fastest a plan may ask**, whatever a climb
         // the nose cannot give asks of the autopilot (Autopilot::limit_speed).
         try {
-            controller->limit_speed(glideslope::sim::plan_speeds(data_, model).fastest_kts);
+            const glideslope::sim::PlanSpeeds plannable = glideslope::sim::plan_speeds(data_, model);
+            controller->limit_speed(plannable.fastest_kts);
+            // And no slower than her slowest for what she weighs.
+            controller->plans_within(plannable);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "  %s: no plan speeds, so no speed raised for a climb (%s)\n",
                          model.c_str(), e.what());

@@ -219,16 +219,20 @@ DepartureSpeeds speeds_from_figures(const std::filesystem::path& data,
 
 } // namespace
 
-DepartureSpeeds in_gusts(DepartureSpeeds speeds, double gust_factor_kt) {
-    const double allowance_kts = 0.5 * std::max(gust_factor_kt, 0.0);
-    speeds.climb_kts += allowance_kts;
-    speeds.initial_climb_kts += allowance_kts;
-    return speeds;
-}
-
 double in_gusts(double kts, double gust_factor_kt, std::optional<double> fastest_kts) {
     const double raised = kts + 0.5 * std::max(gust_factor_kt, 0.0);
     return fastest_kts ? std::max(kts, std::min(raised, *fastest_kts)) : raised;
+}
+
+DepartureSpeeds in_gusts(DepartureSpeeds speeds, double gust_factor_kt,
+                         std::optional<double> fastest_kts) {
+    speeds.climb_kts = in_gusts(speeds.climb_kts, gust_factor_kt, fastest_kts);
+    speeds.initial_climb_kts = in_gusts(speeds.initial_climb_kts, gust_factor_kt, fastest_kts);
+    return speeds;
+}
+
+double Departure::climb_kts() const {
+    return in_gusts(speeds_, a_.gust_factor_kt(), fastest_kts_).initial_climb_kts;
 }
 
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
@@ -324,7 +328,7 @@ void Departure::retract_flaps(double kcas) {
         static_cast<double>(flaps_still_steps_) >= flaps_settle_s * steps_per_second;
     if (flap_lever_ <= 0.0 || !settled ||
         above_m_ * feet_per_metre < speeds_.flaps_up_ft ||
-        kcas < speeds_.initial_climb_kts - flaps_up_within_kts) {
+        kcas < climb_kts() - flaps_up_within_kts) {
         return;
     }
     // The next notch up: the highest below the lever.
@@ -697,12 +701,12 @@ Controls Departure::fly_laws() {
         // itself, so none of this was flown.)
         if (climb_target_kts_ == 0.0) {
             climb_target_kts_ =
-                on_water ? speeds_.initial_climb_kts : std::min(kcas, speeds_.initial_climb_kts);
+                on_water ? climb_kts() : std::min(kcas, climb_kts());
             climb_gain_ktps_ =
-                std::max({accel_ktps_, 1.0, (speeds_.initial_climb_kts - climb_target_kts_) / 20.0});
+                std::max({accel_ktps_, 1.0, (climb_kts() - climb_target_kts_) / 20.0});
         }
         climb_target_kts_ = std::min(climb_target_kts_ + climb_gain_ktps_ / steps_per_second,
-                                     speeds_.initial_climb_kts);
+                                     climb_kts());
         const double fast_by = kcas - climb_target_kts_;
         const double ki = fast_by < 0.0 ? 0.05 : 0.2;
         rotate_pitch_ = std::clamp(rotate_pitch_ + ki * fast_by / steps_per_second,

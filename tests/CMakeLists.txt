@@ -246,9 +246,13 @@ set(GLIDESLOPE_UNIT_TESTS
     the_ai_pilot_notices_a_second_stall_after_handing_the_first_back
     the_ai_pilot_notices_a_heavy_b2a_stall_coming_at_the_warning_for_her_weight
     the_ai_climbs_half_the_gust_factor_faster_in_gusts_or_turbulence_and_as_ever_in_calm_air
+    the_controller_holds_a_plans_speed_half_the_gust_factor_faster_in_turbulence_up_to_her_fastest
+    the_controller_holds_a_plans_slowest_for_what_she_weighs
+    an_aircraft_has_its_airs_gust_factor_after_a_step_blended_as_its_weather_is
     the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_turbulence
     every_plan_floor_keeps_its_gust_allowance_over_the_stall_warning_at_the_weight_a_plan_flies_her_at
     slowed_from_cruise_into_a_climb_every_aeroplane_sinks_no_more_than_2_kt_under_its_climb_speed
+    a_light_aeroplane_slowed_level_below_her_climb_speed_settles_on_it_and_the_floor_takes_over_early_at_most_once
     the_trim_is_never_held_for_a_stall_on_approaches_and_climbs_in_moderate_turbulence
     the_stall_recovery_raises_the_flaps_to_the_go_around_setting_at_a_hands_pace_where_the_figures_give_one
     the_stall_recovery_never_lowers_flaps_raised_past_the_go_around_setting
@@ -748,6 +752,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_restored_in_a_gust_flies_on_in_the_same_air
     a_recorded_gusty_metar_gives_winds_between_its_mean_and_gust_speeds
     turbulence_has_drydens_intensity_at_each_height_and_severity
+    a_turbulence_severity_and_the_least_gust_spread_that_implies_it_round_trip
     a_recorded_response_sets_the_wind_near_the_ground_through_its_boundary_layer
     an_answer_that_is_not_json_is_fetched_again_and_then_taken_for_a_failed_download
     only_a_weather_service_that_does_not_answer_is_weather_not_to_be_had
@@ -3403,6 +3408,25 @@ add_test(NAME two_planned_aircraft_wrecked_together_on_one_runway_fly_again_one_
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_planned_together.cmake)
 set_tests_properties(two_planned_aircraft_wrecked_together_on_one_runway_fly_again_one_after_the_other
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1200)
+
+# **An AI aircraft taken off on its plan climbs out half its weather's gust
+# factor faster**, and as ever in a steady wind (sim::in_gusts). See
+# cmake/server_climbs_out_in_gusts.cmake.
+foreach(_case IN ITEMS "gusts|YSSY 181200Z 16010G25KT 9999 SKC 15/05 Q1013|82.9"
+                       "steady|YSSY 181200Z 16010KT 9999 SKC 15/05 Q1013|75.4")
+    string(REPLACE "|" ";" _case "${_case}")
+    list(GET _case 0 _what)
+    list(GET _case 1 _metar)
+    list(GET _case 2 _climb)
+    add_test(NAME the_servers_ai_climbs_out_half_the_gust_factor_faster_in_${_what}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot
+            "-DMETAR=${_metar}" -DCLIMB=${_climb}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_climbs_out_in_gusts.cmake)
+    set_tests_properties(the_servers_ai_climbs_out_half_the_gust_factor_faster_in_${_what}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+endforeach()
 
 # **An AI aircraft whose runways cannot be read is said to be unplannable and
 # flies the plan file**; the server goes on. See cmake/server_planned_runways.cmake.

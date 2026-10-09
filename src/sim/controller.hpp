@@ -217,6 +217,12 @@ public:
     // - raises its speed for a climb; the take-off, the approach, the flare,
     // the roll-out, the learnt landing and the vacating fly their own laws.
     void limit_speed(std::optional<double> fastest_kts) { fastest_kts_ = fastest_kts; }
+    // **The speeds a plan may fly her at** (sim::plan_speeds), measured at
+    // her model's weight: a plan's or a route's speed under the slowest is
+    // flown at the slowest for what she weighs now (sim::for_weight) - so
+    // loaded heavier than her model, she is flown faster, as her stall is
+    // higher. Not given, a plan's speeds are flown as asked.
+    void plans_within(std::optional<PlanSpeeds> speeds) { plan_speeds_ = speeds; }
     // Whether the AI's autopilot is flying it now - not a take-off, a
     // landing, a glide or its pilot - so that a limit on its height can be
     // flown. A glide cannot climb to a floor: it is given way to instead.
@@ -264,6 +270,7 @@ private:
     std::optional<Vacate> vacate_;
     bool vacates_ = false;
     std::optional<double> fastest_kts_;
+    std::optional<PlanSpeeds> plan_speeds_;
     Vacate::SpotFree spot_free_;
     RunwayClearQuery runway_clear_;
     bool runway_not_clear(const Runway& runway) const;

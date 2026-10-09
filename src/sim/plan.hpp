@@ -184,18 +184,6 @@ struct PlanSpeeds {
     double weight_lbs = 0.0;
 };
 
-// **The gust allowance a plan's slowest keeps over the stall warning**, at
-// the weight it was measured at: 10 kt. A plan's slowest is flown level and
-// round orbits for as long as a plan says, in whatever air there is, so it
-// keeps what a pilot keeps on an approach in turbulent air - "the normal
-// approach speed plus one-half of the wind gust factor" (FAA, Airplane
-// Flying Handbook, FAA-H-8083-3C, chapter 9, "Turbulent Air Approach and
-// Landing": 70 kt with 15 kt gusts is flown at 77) - and more: in moderate
-// turbulence the AI's held speed was measured to dip up to 8 kt under what
-// it asked of a light aeroplane, and 10 kt leaves 2 over that.
-// `glideslope_cli plan-speeds` seeks no slowest below the warning plus this.
-constexpr double plan_gust_allowance_kts = 10.0;
-
 // **The speeds a plan may fly her at, at what she weighs**: the slowest
 // raised by the square root of `weight_lbs` over the weight it was measured
 // at, as a stall speed is (sim::for_weight on her approach speeds), where
