@@ -147,7 +147,10 @@ public:
     // **A look, between two frames**, with the newest update's clock and the
     // player's own aircraft in it. Returns a route to send when an answer is
     // due and changes the route. Never waits for the model.
-    std::optional<net::CopilotRoute> look(double simulation_s, const net::AircraftState& own);
+    // `runway_wet` is whether the weather the client flies wets the runways
+    // (frontend::runway_wet): a landing then needs the wet runway.
+    std::optional<net::CopilotRoute> look(double simulation_s, const net::AircraftState& own,
+                                          bool runway_wet);
 
     // What has happened since last asked, a line each, for the log.
     std::vector<std::string> said();
@@ -165,7 +168,7 @@ private:
     // Worked out on the question's thread: see above.
     copilot::Situation situation(double simulation_s, const net::AircraftState& own,
                                  const std::string& event, std::vector<sim::Waypoint> route,
-                                 const std::shared_ptr<Ground>& ground);
+                                 const std::shared_ptr<Ground>& ground, bool runway_wet);
 
     PlayersCopilotOptions o_;
     std::unique_ptr<copilot::Copilot> helper_;

@@ -80,10 +80,9 @@ struct Brief {
     // published landing distance times its class's margin. 0 where nothing
     // published gives one, and then no runway is refused it for length.
     double landing_need_m = 0.0;
-    // **Whether the runway it lands on is wet** (runway condition code 5 or
-    // worse, sim/runway_condition.hpp): then `landing_need_m` is already 1.15
-    // times the dry need (frontend::brief_for).
-    bool runway_wet = false;
+    // **And on a wet runway**: 1.15 times as much (frontend::brief_for), 0
+    // where `landing_need_m` is. Which applies is the Situation's.
+    double wet_landing_need_m = 0.0;
     std::string task; // what the pilot said, "follow the coast north to Palm Beach"
 };
 
@@ -137,6 +136,9 @@ struct Situation {
     std::vector<sim::Waypoint> route;
     // Runways nearby, nearest first: where it may land.
     std::vector<world::RunwayEnd> fields;
+    // **Whether the runways are wet**, as the weather flown says
+    // (frontend::runway_wet): a landing then needs the Brief's wet need.
+    bool runway_wet = false;
     // Why it is asked now: "the pilot has asked", "the engine has stopped",
     // "a routine look".
     std::string event;

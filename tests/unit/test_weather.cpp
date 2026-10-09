@@ -1307,7 +1307,12 @@ GLIDESLOPE_TEST(each_runway_condition_codes_wheel_braking_coefficient_is_ac_25_3
     for (const int code : {6, 0, 7, -1}) {
         try {
             (void)wheel_braking_coefficient(code, 50.0);
-        } catch (const std::invalid_argument&) {
+        } catch (const std::invalid_argument& e) {
+            const std::string said = e.what();
+            const std::string meant =
+                "no wheel braking coefficient for runway condition code " + std::to_string(code);
+            check(said == meant, "code " + std::to_string(code) + " refused as '" + meant +
+                                     "', not '" + said + "'");
             ++refused;
         }
     }

@@ -279,6 +279,13 @@ private:
     // this or for anything else.
     std::optional<Lander> landing_;
     std::optional<ApproachSpeeds> landing_speeds_;
+    // When her wheels last bore weight, as fly() saw them, and her height
+    // over the ground then: a hand-over within a second of it and no more
+    // than three feet above is a hand-over on the roll.
+    static constexpr double skip_s = 1.0;
+    static constexpr double skip_ft = 3.0;
+    std::optional<double> wheels_down_at_s_;
+    double wheels_down_agl_ft_ = 0.0;
     std::shared_ptr<const LearntPolicy> landing_policy_;
     // Flying a plan's way on to its final approach (`land`): six and four
     // miles out on the centreline.

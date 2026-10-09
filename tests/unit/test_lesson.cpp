@@ -4550,7 +4550,8 @@ enum class OnTheRoll {
     after_the_pilots_touch,
     landed_by_hand,
     landed_by_hand_on_a_short_runway,
-    landed_by_hand_on_a_wet_short_runway
+    landed_by_hand_on_a_wet_short_runway,
+    landed_by_hand_and_taken_back_in_a_skip
 };
 
 // **A short runway**: the same threshold, 1,500 m long. Braked at autobrake
@@ -4597,6 +4598,8 @@ const char* name_of(OnTheRoll when) {
         return "landed by hand on a short runway";
     case OnTheRoll::landed_by_hand_on_a_wet_short_runway:
         return "landed by hand on a wet short runway";
+    case OnTheRoll::landed_by_hand_and_taken_back_in_a_skip:
+        return "landed by hand and taken back in a skip";
     }
     return "?";
 }
@@ -4618,6 +4621,7 @@ struct TakenBackOnTheRoll {
     double touched_past_m = 0.0;
     double lander_touched_past_m = 0.0;
     bool lander_given = false; // the AI was given her landing back
+    bool wheels_bore_weight_at_take_back = false;
     std::string wreck;         // what wrecked her, or nothing
     // From the first touch, whoever had her; and the AI's own, from the
     // take-back - or, taken back in a bounce, from the touch it came down to.
@@ -4641,7 +4645,18 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
     flying.throttle = 0.4;
     flying.gear = 1.0;
     glideslope::sim::Controller controller(aircraft, flying);
-    const bool by_hand = when == OnTheRoll::landed_by_hand || on_a_short_runway(when);
+    const bool in_a_skip = when == OnTheRoll::landed_by_hand_and_taken_back_in_a_skip;
+    const bool by_hand =
+        when == OnTheRoll::landed_by_hand || on_a_short_runway(when) || in_a_skip;
+    // **A skip, built**: the runway let down half a metre two steps before
+    // the take-back, and left there, so that her wheels are clear of it as
+    // she is handed over, whatever her own landing did.
+    const auto let_down_m = std::make_shared<double>(0.0);
+    if (in_a_skip) {
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [let_down_m](double, double) { return -*let_down_m; },
+            [](double, double) { return false; }));
+    }
     if (on_a_short_runway(when)) {
         // Told the runway she rolls on, as the server and the client tell
         // theirs from the world's (world::runway_rolled_on).
@@ -4739,7 +4754,11 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
         } else if (pilots_own && handed_over) {
             controller.set_pilot(pilot);
         }
+        if (in_a_skip && take_back >= 0 && tick == take_back - 2) {
+            *let_down_m = 0.5;
+        }
         if (tick == take_back) {
+            out.wheels_bore_weight_at_take_back = aircraft.property("gear/wow") > 0.5;
             controller.to_ai();
             out.taken_back = true;
             out.taken_back_kts = groundspeed_kts();
@@ -4804,9 +4823,10 @@ void every_landplane_taken_back(OnTheRoll when) {
     std::vector<std::string> landplanes;
     std::vector<std::string> left_out;
     // **On the wet runway, the F-35B is named too**: she publishes no landing
-    // distance, so none says how long a wet runway she needs, and touching
-    // at 155 kt, where a wet runway gives a braked wheel 0.135 (14 CFR
-    // 25.109(c)), she needs about 2,320 m of the 1,725.
+    // distance - one of the five the plan's Later item on a landing distance
+    // from a primary source names - so none says how long a wet runway she
+    // needs, and touching at 155 kt, where a wet runway gives a braked wheel
+    // 0.135 (14 CFR 25.109(c)), she needs about 2,320 m of the 1,725.
     const bool wet = when == OnTheRoll::landed_by_hand_on_a_wet_short_runway;
     for (const std::string& id : taught) {
         if (glideslope::sim::find_aircraft(data(), id).seaplane) {
@@ -4815,7 +4835,7 @@ void every_landplane_taken_back(OnTheRoll when) {
         } else if (wet && id == "f35b") {
             left_out.push_back(id);
             std::printf("  left out - %s: no published landing distance to size a wet runway "
-                        "by, and 1,725 m is short of the 2,320 she needs wet\n",
+                        "by (a Later item), and 1,725 m is short of the 2,320 she needs wet\n",
                         id.c_str());
         } else {
             landplanes.push_back(id);
@@ -4842,10 +4862,15 @@ void every_landplane_taken_back(OnTheRoll when) {
                                              : "wrecked first, " + r.wreck));
             continue;
         }
+        if (when == OnTheRoll::landed_by_hand_and_taken_back_in_a_skip &&
+            r.wheels_bore_weight_at_take_back) {
+            wrong.push_back(where + ": her wheels bore weight at the take-back - no skip was built");
+        }
         if (!r.lander_given) {
             wrong.push_back(where + " was not given her landing back");
         } else if (when != OnTheRoll::landed_by_hand &&
                    !on_a_short_runway(when) &&
+                   when != OnTheRoll::landed_by_hand_and_taken_back_in_a_skip &&
                    std::abs(r.lander_touched_past_m - r.touched_past_m) > 5.0) {
             // (Landed by hand, no approach was given: the AI's runway is the
             // line she rolls along from where it took her, and she touched,
@@ -4953,6 +4978,15 @@ GLIDESLOPE_TEST(a_landing_flown_by_hand_on_a_short_runway_is_stopped_on_it_by_th
 // handed over half a second after the touch.
 GLIDESLOPE_TEST(every_landplane_landed_by_hand_on_a_wet_short_runway_is_stopped_on_it_by_the_ai) {
     every_landplane_taken_back(OnTheRoll::landed_by_hand_on_a_wet_short_runway);
+}
+
+// **Handed over in a skip, she is landed to a stop**: every landplane landed
+// by hand and handed over half a second after the touch with her wheels
+// clear of the runway - the runway let down half a metre beneath her two
+// steps before, so that none bears weight, asserted for each. Handed over so,
+// a 787 on a wet runway was given the plain autopilot and ran 22.7 km.
+GLIDESLOPE_TEST(every_landplane_landed_by_hand_and_handed_over_in_a_skip_is_landed_to_a_stop) {
+    every_landplane_taken_back(OnTheRoll::landed_by_hand_and_taken_back_in_a_skip);
 }
 
 // **Handed over taxiing, she is stopped with the throttle no more than half

@@ -1,7 +1,6 @@
 #include "sim/runway_condition.hpp"
 
 #include <algorithm>
-#include <cmath>
 #include <stdexcept>
 #include <string>
 
@@ -34,8 +33,9 @@ double wheel_braking_coefficient(int code, double groundspeed_kts) {
     case 1:
         return 0.083;
     default:
-        throw std::invalid_argument("no wheel braking coefficient for runway condition code " +
-                                    std::to_string(code));
+        throw std::invalid_argument(
+            std::string("no wheel braking coefficient for runway condition code ") +
+            std::to_string(code));
     }
 }
 

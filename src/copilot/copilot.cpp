@@ -325,8 +325,9 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
         if (change.glide_kts) {
             return "a glide does not land: it ends over its field";
         }
-        return landing_refusal(b.approach_kts, b.landing_need_m, b.runway_wet, change.plan,
-                               now.fields);
+        return landing_refusal(b.approach_kts,
+                               now.runway_wet ? b.wet_landing_need_m : b.landing_need_m,
+                               now.runway_wet, change.plan, now.fields);
     }
     return {};
 }
