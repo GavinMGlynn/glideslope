@@ -1199,6 +1199,12 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - The learnt policy's 160 corner landings timed out on CI's Ubuntu debug, split one test a wind 2026-10-08 (owed: a month of CI runs)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*
+- [ ] **The engine-stop prediction test fails on Windows clang when the
+      server is held up**: its client, pacing 1.6 to 1.7 times its own clock
+      to catch up, is put right by metres and misses its speed bound - since
+      before 2026-10-09, on branches and on main. *Verification: the test
+      passes with the server held up for a second on purpose, on every
+      platform, and a month of CI runs.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the
