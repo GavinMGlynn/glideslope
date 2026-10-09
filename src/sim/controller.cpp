@@ -84,6 +84,7 @@ Controller::Controller(const Aircraft& aircraft, const Controls& controls)
 void Controller::engage() {
     flying_ = Flying::ai;
     before_the_stall_.reset();
+    stall_armed_ = true;
     mixture_held_ = false;
     catching_up_ = false;
     easing_in_ = false;
@@ -236,8 +237,15 @@ void Controller::notice_a_stall() {
     const double recovered_kts = landing_speeds_->vref_kts;
     const double kts = a_.property("velocities/vc-kts");
     if (!before_the_stall_) {
+        // **Noticed again only once clear of the warning by its own margin
+        // again**: handed back at her approach speed, a gust or a plan's
+        // slow speed would otherwise have her noticed again at once.
+        if (!stall_armed_) {
+            stall_armed_ = kts >= warning_kts + (warning_kts - stall_kts);
+        }
         const bool airborne = a_.property("gear/wow") < 0.5 && !a_.in_water();
-        if (!airborne || autopilot_->modes().speed_on_elevator || kts > warning_kts) {
+        if (!stall_armed_ || !airborne || autopilot_->modes().speed_on_elevator ||
+            kts > warning_kts) {
             return;
         }
         before_the_stall_ = autopilot_->modes();
@@ -252,6 +260,8 @@ void Controller::notice_a_stall() {
         // recovered at - what slowed her - is raised to it.
         AutopilotModes modes = *before_the_stall_;
         before_the_stall_.reset();
+        stall_armed_ = false;
+        ++stalls_noticed_;
         if (modes.altitude_ft) {
             modes.altitude_ft = a_.property("position/h-sl-ft");
         }
@@ -328,6 +338,7 @@ void Controller::to_ai_learnt_approach(const Runway& runway, const ApproachSpeed
 void Controller::to_pilot() {
     flying_ = Flying::pilot;
     before_the_stall_.reset();
+    stall_armed_ = true;
     glide_kts_.reset();
     catching_up_ = true;
     // The mixture the AI left, held as the ratio it gives (JSBSim meters the
