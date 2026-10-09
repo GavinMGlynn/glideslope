@@ -30,10 +30,11 @@ measurements with every change except that one, against all of them together
 (see docs/PROJECT_STATUS.md for the full table):
 
   Propeller (engine/prop_75in2f.xml)
-    cp_factor 1.22, ct_factor 0.955
-                         The propeller absorbed too little power, so the engine
-                         over-revved and climbed too fast (static 2538 RPM,
-                         climb 1147 fpm, against 2316 and 742).
+    cp_factor 0.88, ct_factor 0.96
+                         Sized for the engine's 160 hp (below): static 2,351
+                         RPM, climb 763 fpm, cruise 119.6 KTAS. With the
+                         pinned factors of 1.0 the propeller absorbs too
+                         little and the engine over-revs.
     C_THRUST x1.35 at advance ratio <= 0.2, fading to x1.0 at 0.5
                          Lowering the RPM lowered static thrust with it, and the
                          ground roll grew (1216 ft, against 922). Take-off runs
@@ -57,6 +58,12 @@ measurements with every change except that one, against all of them together
                          For the stalls with 10 and 30 degrees of flap.
 
   Engine (engine/eng_io320.xml)
+    <bsfc> 0.32 removed  The handbook (section 1) rates the O-320-D2J at "160
+                         rated BHP at 2700 RPM". JSBSim's piston engine makes
+                         power as the fuel burnt over the bsfc, and 0.32
+                         lb/hp/h - below what any petrol engine burns at full
+                         rich - made 209-222 hp; without it JSBSim sizes the
+                         engine to its maxhp, 160.
     MIXTURE table        The FAA's mixture curve, for JSBSim's own, which made
                          most power at 9.9 parts of air to one of fuel, found
                          by leaning high up; see tools/piston_mixture.py.
@@ -77,8 +84,8 @@ ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
 OUT = ROOT / "assets" / "jsbsim"
 
-CP_FACTOR = 1.22
-CT_FACTOR = 0.955
+CP_FACTOR = 0.88
+CT_FACTOR = 0.96
 LOW_J_THRUST = 1.35
 CDO = "0.031"
 DRAG_DUE_TO_ALPHA_SCALE = 0.72
@@ -178,6 +185,7 @@ def airframe():
 
 def engine():
     text = (PINNED / "engine" / "eng_io320.xml").read_text()
+    text = replace_once(text, r"\n\s*<bsfc>\s*0\.32\s*</bsfc>", "", "the engine's bsfc")
     return with_best_power_mixture(text, "make_c172p")
 
 

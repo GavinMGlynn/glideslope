@@ -5,8 +5,8 @@
   <diameter unit="IN"> 75.0 </diameter>
   <numblades> 2 </numblades>
   <!-- glideslope: see tools/make_c172p.py -->
-  <cp_factor> 1.22 </cp_factor>
-  <ct_factor> 0.955 </ct_factor>
+  <cp_factor> 0.88 </cp_factor>
+  <ct_factor> 0.96 </ct_factor>
   <minpitch> 22 </minpitch>
   <maxpitch> 22 </maxpitch>
 

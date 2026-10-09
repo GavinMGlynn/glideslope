@@ -961,11 +961,13 @@ Found while implementing something else. Added when found, not when remembered.
       flight, is richened and runs again.* Done 2026-10-06: at 7,000 and
       12,000 ft. Richened to full rich, as it was, at 12,000 ft it never ran
       again; it is now given back the mixture it was leaned to.
-- [ ] **The Cessna 172P's engine makes 209 hp from 160.** Corrected, the
+- [x] **The Cessna 172P's engine makes 209 hp from 160.** Corrected, the
       learnt landing trained on the old engine lands too hard, so the policy
       needs training again (PROJECT_STATUS, 2026-10-08). *Verification: the
       engine makes 160 hp, and its figures and the learnt landing stay
-      within theirs.*
+      within theirs.* Done 2026-10-09: 160.4 hp, every figure in range, and
+      the policy trained again on it lands from all 160 gate corners at 190
+      ft/min at worst.
 - [x] **The Cessna 182S's climb falls away high up**: leaned, it reaches
       about 13,000 ft against its handbook's 18,100. Its engine and
       propeller check out; the chart needs much less drag high up than the
