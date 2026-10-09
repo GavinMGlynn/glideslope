@@ -867,10 +867,6 @@ Found while implementing something else. Added when found, not when remembered.
       gate's corners it passes 500 ft outside the stabilized-approach speeds,
       so it is not held to them. *Verification: from every corner of its gate
       it is stabilized by 500 ft and lands.*
-- [ ] **On a runway shorter than about 900 m the approach aims past the
-      touchdown zone**, and would go around however it was flown.
-      *Verification: every landplane lands on a short runway, touching down
-      in its first third.*
 - [x] **The F-35B climbs away on a raised go-around circuit**: over ground
       rising beside the runway, on the downwind leg at 2,900 ft she climbs
       to 6,000 ft and flies on past base. *Verification: she flies the

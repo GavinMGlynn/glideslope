@@ -93,6 +93,15 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
                const ApproachSpeeds& speeds, double glidepath_deg)
     : a_(aircraft), runway_(runway), speeds_(speeds),
       glidepath_rad_(glidepath_deg / degrees), jet_(aircraft.figures().jet) {
+    // **The aim is inside the touchdown zone, on any runway.** The FAA's
+    // Airplane Flying Handbook (FAA-H-8083-3C, chapter 9) has the aiming
+    // point short of where she touches - the round out and the float carry
+    // her past it - and on a short field moves it towards the threshold.
+    // So she aims at 300 m, or half the touchdown zone where that is less,
+    // the other half for the float: on a runway under 900 m the first
+    // third is short of 300 m, and aimed at 300 every approach went around
+    // for the touchdown zone, round and round.
+    speeds_.aim_m = std::min(speeds_.aim_m, 0.5 * StabilizedApproach::touchdown_zone_m(runway_));
     if (a_.mixture_lever()) {
         leaner_.emplace(a_, a_.property("fcs/mixture-cmd-norm[0]"));
     }

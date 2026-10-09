@@ -276,10 +276,7 @@ outside +10/-5 kt of its reference speed - up to 35 kt fast, and a few
 corners 5 kt slow - and lands within its limits all the same; held to the
 gate, all 160 would have gone around (each of the five corner tests, 32 of
 32). Its own gate box is what admits it; teaching the policy to hold its
-speed is a tail. **On a runway shorter than about 900 m the approach's aim
-point (300 m) is past the first third**, so an approach there would go
-around for the touchdown zone however it was flown - the aim is not moved
-for short runways (a tail; no test lands on one by the approach autopilot).
+speed is a tail.
 
 **The rule** (`sim::StabilizedApproach`, `sim::unstabilized`,
 `src/sim/lander.hpp`): at and below a 500 ft gate (the FAA Safety Team's
@@ -295,6 +292,15 @@ per aircraft: the speed is each aircraft's `vref_kts`, from its figures. The
 approach lander goes around, from the approach or the flare, and says why
 (`Lander::why_gone_around`); the go-around circuit then flies her round
 to land again, as from a balloon.
+
+**The aim is inside the touchdown zone on any runway.** On a runway under
+900 m the first third is shorter than the 300 m the approach aimed at, and
+every approach there went around for the zone, round the circuit for ever.
+The lander now aims at 300 m or half the touchdown zone, whichever is less
+- the Airplane Flying Handbook (ch. 9) has the aiming point short of the
+touchdown, the float carrying her past it, and moved towards the threshold
+on a short field - the other half for the float. A runway of 1,800 m or
+more is aimed at as before.
 
 **The go-around climbs from a sink.** The go-around flew the incidence
 learnt on the path; begun two seconds into an approach 20 kt fast, that had
@@ -317,12 +323,20 @@ flying boat named (no runway to fly round to), 13 each:
 - `a_stabilized_approach_does_not_go_around`: from two miles out on the
   glidepath at her reference speed, every one touches down with no
   go-around.
+- `a_light_aeroplane_lands_on_a_runway_under_900_m_without_going_around`:
+  an 800 m runway (twice the 172P handbook's 1,335 ft landing distance over
+  50 ft), every light landplane taught the approach (4, counted): none goes
+  around; the 172P touches 167 m along, the 182 163, the Cub 139, the
+  Cherokee 177, against a zone ending at 267 m, and each stops on the
+  runway (291 to 462 m along). **Seen to fail** aimed at 300 m: all four
+  went around, "would touch down 303 to 328 m past the threshold; the
+  touchdown zone ends at 267 m".
 - **Seen to fail**: the trigger switched off, the fast and high tests red
   for all 13 (eight jets and the Mosquito, too high, flown into the ground
   at 630 to 940 ft/min); with the slow limit at half a knot, the stabilized
   test red (the 737-300 and the 172P "1 kt slow"); both reverted.
 - The landing, lesson, circuit, go-around, gusts, vacating and learnt-landing
-  tests pass (74, including the light-and-heavy landings without a
+  tests pass (76 with the short runway's, including the light-and-heavy landings without a
   go-around and all 160 learnt corners, which do not see the gate).
   The server's multi-process landing tests were not run here.
 

@@ -4727,6 +4727,89 @@ GLIDESLOPE_TEST(a_stabilized_approach_does_not_go_around) {
     every_landplane_arriving(Arriving::as_flown);
 }
 
+// **On a runway under 900 m a light aeroplane lands without going around**,
+// touching down in its first third and stopped on it. 800 m: under the 900
+// m at which the first third is shorter than the 300 m the approach aims at
+// on a long runway, and twice the distance a light aeroplane here needs to
+// land over a 50 ft obstacle (the 172P's handbook, 1,335 ft at sea level).
+// Every light landplane taught the approach, counted.
+GLIDESLOPE_TEST(a_light_aeroplane_lands_on_a_runway_under_900_m_without_going_around) {
+    const auto taught = everyone_taught("approach-and-landing");
+    glideslope::sim::Runway runway = a_runway();
+    runway.length_m = 800.0;
+    const double zone_m = glideslope::sim::StabilizedApproach::touchdown_zone_m(runway);
+    std::size_t light = 0;
+    std::size_t flown = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        if (entry.aircraft_class != glideslope::sim::AircraftClass::light_aircraft) {
+            continue;
+        }
+        ++light;
+        const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        put_on_final(aircraft, entry, runway, published);
+        glideslope::sim::Controls flying;
+        flying.throttle = 0.4;
+        flying.gear = 1.0;
+        glideslope::sim::Controller controller(aircraft, flying);
+        controller.to_ai_approach(runway, published);
+        glideslope::sim::GroundJudge judge(false);
+        std::string why;
+        std::string wreck;
+        bool stopped = false;
+        double touched_m = -1.0;
+        for (int tick = 0; tick < 600 * steps_per_second; ++tick) {
+            aircraft.set_controls(controller.fly());
+            aircraft.step();
+            const auto* l = controller.lander();
+            if (l == nullptr) {
+                break; // gone around and handed on: not landed
+            }
+            if (why.empty() && !l->why_gone_around().empty()) {
+                why = l->why_gone_around();
+            }
+            if (touched_m < 0.0 && l->touched()) {
+                touched_m = l->touchdown_along_m();
+            }
+            if (const auto what = judge.judge(aircraft)) {
+                wreck = *what;
+                break;
+            }
+            if (l->stage() == glideslope::sim::Lander::Stage::stopped) {
+                stopped = true;
+                break;
+            }
+        }
+        const glideslope::sim::AircraftState s = aircraft.state();
+        const auto at = glideslope::sim::on_runway_frame(runway, s.latitude_deg, s.longitude_deg);
+        std::printf("  %-8s %s%s, touched %.0f m along (zone %.0f m), %s %.0f m along%s%s\n",
+                    id.c_str(), why.empty() ? "no go-around" : "went around: ", why.c_str(),
+                    touched_m, zone_m, stopped ? "stopped" : "NOT STOPPED", at.along_m,
+                    wreck.empty() ? "" : ", wrecked: ", wreck.c_str());
+        ++flown;
+        if (!why.empty()) {
+            wrong.push_back(id + " went around: " + why);
+        }
+        if (touched_m < 0.0 || touched_m > zone_m) {
+            wrong.push_back(id + " touched down " + std::to_string(touched_m) +
+                            " m along, not in the first third");
+        }
+        if (!wreck.empty() || !stopped || at.along_m < 0.0 || at.along_m > runway.length_m) {
+            wrong.push_back(id + " was not stopped on the runway: " + wreck);
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(light >= 3 && flown == light,
+          "every light landplane taught the approach landed: " + std::to_string(flown) +
+              " of " + std::to_string(light));
+}
+
 // **The speed raised for a climb is never raised past the fastest she may
 // hold** (Autopilot::limit_speed). Built where it is raised: the F-35B, the
 // aeroplane whose nose reaches its stop short of the climb round a
