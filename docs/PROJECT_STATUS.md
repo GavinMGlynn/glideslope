@@ -350,7 +350,12 @@ loses separation for as long as they fly together.
   hand-overs in the air flown as recorded or holding course, taken back at
   once, the climb-through and head-on Cessnas, the ceiling and floor, the
   four CBD orbits as recorded (OpenAI's, Anthropic's, the 747-400's and the
-  F-22's), and the selftest's five: 20 of 20, linux-debug.
+  F-22's), and the selftest's five: 20 of 20, linux-debug. And for the
+  autopilot's upset rule, every test matching stall, rolled, take-over,
+  taken, recover, bank, turns ninety, spin, hand-over, handed, heading and
+  spiral but the window client's and the live models': 184 of 184 (the
+  first pass ran beside the pre-push build, which relinked the test binary
+  under it; the 152 it left not run or failed passed run again alone).
 
 The two new tests' linux-debug costs in `tests/ci_costs/linux-debug.txt` are
 estimates - this machine's time and half again - until CI's own replace them.
