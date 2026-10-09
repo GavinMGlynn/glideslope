@@ -36,7 +36,10 @@
 #include <simgear/props/props.hxx>
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
 #include <functional>
 #include <limits>
 #include <numbers>
@@ -81,6 +84,17 @@ bool retractable_gear(const JSBSim::FGFDMExec& exec) {
 // terrain's height; the normal comes from the terrain's slope there, by central
 // differences 15 m to each side - half a Copernicus DEM sample, so it is the
 // slope of the cell the wheel is on. JSBSim works in feet.
+//
+// **A place asked about again is answered from what was found there**, not
+// from five more of the terrain's heights. JSBSim asks about the aircraft's
+// own location at every read of its height above the ground or of the
+// ground's elevation - several times a step, and twice more in every
+// Aircraft::state - and the same location gets the same answer, so the
+// answer is kept: the places asked about lately, each matched on its exact
+// Earth-centred coordinates, bit for bit, under the same ellipsoid. Nothing
+// near a place stands for it, so the ground is exactly where the terrain
+// says, and the answer is the one working it out again would give, because
+// the terrain is a function of position (sim/terrain.hpp).
 class TerrainGround : public JSBSim::FGGroundCallback {
 public:
     TerrainGround(std::shared_ptr<Terrain> terrain, double semimajor_ft,
@@ -91,10 +105,68 @@ public:
                       JSBSim::FGLocation& contact, JSBSim::FGColumnVector3& normal,
                       JSBSim::FGColumnVector3& velocity,
                       JSBSim::FGColumnVector3& angular_velocity) const override {
-        constexpr double feet_per_metre = 1.0 / 0.3048;
-        constexpr double degrees = 180.0 / 3.14159265358979323846;
         velocity.InitMatrix();
         angular_velocity.InitMatrix();
+        const std::array<double, 3> at{location(1), location(2), location(3)};
+        Found& slot = found_[slot_of(at)];
+        if (!slot.known || !same_bits(slot.at, at)) {
+            slot.agl_ft = work_out(location, slot.contact, slot.normal);
+            slot.at = at;
+            slot.known = true;
+        }
+        contact = slot.contact;
+        normal = slot.normal;
+        return slot.agl_ft;
+    }
+
+    void SetEllipse(double semimajor_ft, double semiminor_ft) override {
+        a_ = semimajor_ft;
+        b_ = semiminor_ft;
+        found_ = {};
+    }
+
+private:
+    // A place, and what was found there.
+    struct Found {
+        bool known = false;
+        std::array<double, 3> at{};
+        double agl_ft = 0.0;
+        JSBSim::FGLocation contact;
+        JSBSim::FGColumnVector3 normal;
+    };
+    // Enough for the aircraft's own location to stay while each of its
+    // contacts is asked about in a step. A place's slot is picked by its
+    // bits, so which slot it lands in changes only how often it is worked
+    // out again, never what is found.
+    static constexpr std::size_t slots = 64;
+
+    static std::uint64_t bits_of(double d) {
+        std::uint64_t bits = 0;
+        std::memcpy(&bits, &d, sizeof bits);
+        return bits;
+    }
+
+    // The same place bit for bit: not ==, which takes -0 for 0.
+    static bool same_bits(const std::array<double, 3>& a, const std::array<double, 3>& b) {
+        return bits_of(a[0]) == bits_of(b[0]) && bits_of(a[1]) == bits_of(b[1]) &&
+               bits_of(a[2]) == bits_of(b[2]);
+    }
+
+    static std::size_t slot_of(const std::array<double, 3>& at) {
+        std::uint64_t h = 0xcbf29ce484222325ULL;
+        for (const double d : at) {
+            h = (h ^ bits_of(d)) * 0x100000001b3ULL;
+            h ^= h >> 29;
+        }
+        return static_cast<std::size_t>(h % slots);
+    }
+
+    // The contact point below `location`, the ground's normal there, and the
+    // height above it in feet, from the terrain.
+    double work_out(const JSBSim::FGLocation& location, JSBSim::FGLocation& contact,
+                    JSBSim::FGColumnVector3& normal) const {
+        constexpr double feet_per_metre = 1.0 / 0.3048;
+        constexpr double degrees = 180.0 / 3.14159265358979323846;
         JSBSim::FGLocation here = location;
         here.SetEllipse(a_, b_);
         const double latitude = here.GetGeodLatitudeRad();
@@ -131,15 +203,10 @@ public:
         return here.GetGeodAltitude() - height_ft;
     }
 
-    void SetEllipse(double semimajor_ft, double semiminor_ft) override {
-        a_ = semimajor_ft;
-        b_ = semiminor_ft;
-    }
-
-private:
     std::shared_ptr<Terrain> terrain_;
     double a_;
     double b_;
+    mutable std::array<Found, slots> found_{};
 };
 
 } // namespace
@@ -394,6 +461,7 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
       go_around_flaps_(catalogue.go_around_flaps),
       model_(model),
       exec_(quiet_exec()) {
+    nodes_ = PropertyNodes(exec_->GetPropertyManager()->GetNode());
     const std::u8string utf8 = jsbsim_root.u8string();
     const SGPath root = SGPath::fromUtf8(std::string(utf8.begin(), utf8.end()));
     exec_->SetRootDir(root);
@@ -1332,15 +1400,7 @@ bool Aircraft::gear_retracts() const {
 }
 
 SGPropertyNode* Aircraft::node(const std::string& name) const {
-    const auto found = nodes_.find(name);
-    if (found != nodes_.end()) {
-        return found->second;
-    }
-    SGPropertyNode* n = exec_->GetPropertyManager()->GetNode(name);
-    if (n != nullptr) {
-        nodes_.emplace(name, n);
-    }
-    return n;
+    return nodes_.find(name);
 }
 
 void Aircraft::set(const std::string& name, double v) {

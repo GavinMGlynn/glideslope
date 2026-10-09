@@ -262,7 +262,7 @@ void Dem::forget_blocks(const TileKey& key) {
     for (auto it = block_cache_.begin(); it != block_cache_.end();) {
         if (it->first.latitude == key.latitude && it->first.longitude == key.longitude &&
             it->first.layer == key.layer) {
-            block_order_.remove(it->first);
+            block_order_.erase(it->second.order);
             it = block_cache_.erase(it);
         } else {
             ++it;
@@ -273,9 +273,8 @@ void Dem::forget_blocks(const TileKey& key) {
 const Dem::Tile& Dem::tile(DemCell cell, Layer layer) {
     const TileKey key{cell.latitude, cell.longitude, layer};
     if (const auto it = tile_cache_.find(key); it != tile_cache_.end()) {
-        tile_order_.remove(key);
-        tile_order_.push_front(key);
-        return it->second;
+        tile_order_.splice(tile_order_.begin(), tile_order_, it->second.order);
+        return it->second.tile;
     }
     Tile t;
     t.layer = layer;
@@ -308,7 +307,8 @@ const Dem::Tile& Dem::tile(DemCell cell, Layer layer) {
         forget_blocks(oldest);
     }
     tile_order_.push_front(key);
-    return tile_cache_.emplace(key, std::move(t)).first->second;
+    return tile_cache_.emplace(key, CachedTile{std::move(t), tile_order_.begin()})
+        .first->second.tile;
 }
 
 float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
@@ -336,9 +336,10 @@ float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
             // tile, and goes with it. Taken away before, it is not again
             // (take_away throws), so this recurses once at most.
             const TileKey tile_key{cell.latitude, cell.longitude, t.layer};
-            Tile gone = std::move(tile_cache_.at(tile_key));
+            CachedTile& cached = tile_cache_.at(tile_key);
+            Tile gone = std::move(cached.tile);
+            tile_order_.erase(cached.order);
             tile_cache_.erase(tile_key);
-            tile_order_.remove(tile_key);
             forget_blocks(tile_key);
             if (!take_away(gone, cell, why)) {
                 throw DemError(why);
@@ -349,13 +350,14 @@ float Dem::stored_sample(const Tile& t, DemCell cell, std::int64_t row,
             block_cache_.erase(block_order_.back());
             block_order_.pop_back();
         }
-        it = block_cache_.emplace(key, std::move(block)).first;
+        block_order_.push_front(key);
+        it = block_cache_.emplace(key, CachedBlock{std::move(block), block_order_.begin()})
+                 .first;
     } else {
-        block_order_.remove(key);
+        block_order_.splice(block_order_.begin(), block_order_, it->second.order);
     }
-    block_order_.push_front(key);
     const float value =
-        it->second[static_cast<std::size_t>(row % image.block_height) *
+        it->second.values[static_cast<std::size_t>(row % image.block_height) *
                        image.block_width +
                    static_cast<std::size_t>(column % image.block_width)];
     if (t.tiff.nodata && value == *t.tiff.nodata) {

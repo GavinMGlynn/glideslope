@@ -179,6 +179,7 @@ add_library(glideslope_sim STATIC
     src/sim/aircraft.cpp
     src/sim/figures.cpp
     src/sim/fixed_step.cpp
+    src/sim/property_nodes.cpp
     src/sim/selftest.cpp
     src/sim/autopilot.cpp
     src/sim/catalogue.cpp

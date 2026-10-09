@@ -5,6 +5,7 @@
 #include "sim/departure.hpp"
 #include "sim/lander.hpp"
 #include "sim/plan.hpp"
+#include "sim/property_nodes.hpp"
 #include "sim/test_pilot.hpp"
 
 #include <algorithm>
@@ -15,6 +16,8 @@
 #include <optional>
 #include <string>
 #include <vector>
+
+#include <simgear/props/props.hxx>
 
 using glideslope::sim::Aircraft;
 using glideslope::sim::Controller;
@@ -516,4 +519,37 @@ GLIDESLOPE_TEST(a_plan_turned_away_from_and_let_go_is_flown_on_past_every_waypoi
     check(controller.navigator()->finished(), "the plan was finished");
     check(most_step <= 1.0 / steps_per_second + 1e-9,
           "no control moved faster than a hand at the turn or its release");
+}
+
+GLIDESLOPE_TEST(a_property_a_model_has_not_got_is_found_once_something_makes_it) {
+    // A property found absent is not looked for again until it can have come;
+    // but it can come, as JSBSim's SetPropertyValue makes one where there is
+    // none. Each way it can: a new child of a node that is there, a path none
+    // of which is there, and an index beside one that is - each looked for
+    // twice before it is made, then found, and found again.
+    const SGPropertyNode_ptr root = new SGPropertyNode;
+    root->getNode("fcs/elevator-cmd-norm", true)->setDoubleValue(0.5);
+    const glideslope::sim::PropertyNodes nodes(root.ptr());
+    check(nodes.find("fcs/elevator-cmd-norm") != nullptr &&
+              nodes.find("fcs/elevator-cmd-norm")->getDoubleValue() == 0.5,
+          "a property that is there is found");
+    int made = 0;
+    for (const std::string name :
+         {"fcs/speedbrake-cmd-norm", "hydro/environment/water-level-ft",
+          "fcs/feather-cmd-norm[1]"}) {
+        check(nodes.find(name) == nullptr && nodes.find(name) == nullptr,
+              name + ": not there, asked twice");
+        if (name == "fcs/feather-cmd-norm[1]") {
+            // Its neighbour made first: a child of the same node, and still
+            // not the one asked for.
+            root->getNode("fcs/feather-cmd-norm[0]", true);
+            check(nodes.find(name) == nullptr, name + ": not there beside [0]");
+        }
+        SGPropertyNode* n = root->getNode(name, true);
+        n->setDoubleValue(1.0);
+        check(nodes.find(name) == n && nodes.find(name) == n,
+              name + ": made, it is found, and found again");
+        ++made;
+    }
+    check(made == 3, "three ways a property comes, of three: " + std::to_string(made));
 }
