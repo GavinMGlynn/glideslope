@@ -14,8 +14,7 @@
 
 namespace glideslope::frontend {
 
-copilot::Brief brief_for(const std::filesystem::path& data, const std::string& catalogue_id,
-                         int runway_condition) {
+copilot::Brief brief_for(const std::filesystem::path& data, const std::string& catalogue_id) {
     const sim::CatalogueEntry entry = sim::find_aircraft(data, catalogue_id);
     copilot::Brief b;
     b.aircraft = entry.id;
@@ -34,16 +33,18 @@ copilot::Brief brief_for(const std::filesystem::path& data, const std::string& c
     b.cruise_kts = entry.start_airspeed_kts;
     b.glide_slowest_kts = sim::glide_slowest_kts(data, entry.model);
     b.landing_need_m = sim::landing_need_m(data, entry.model);
-    b.runway_wet = runway_condition != sim::dry_runway;
-    if (b.runway_wet) {
-        b.landing_need_m *= sim::wet_landing_factor;
-    }
+    b.wet_landing_need_m = b.landing_need_m * sim::wet_landing_factor;
     return b;
 }
 
+bool runway_wet(const world::WeatherReport* report) {
+    return report != nullptr &&
+           world::runway_condition_of(report->surface.metar) != sim::dry_runway;
+}
+
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
-                                      const std::string& catalogue_id, int runway_condition) {
-    const copilot::Brief b = brief_for(data, catalogue_id, runway_condition);
+                                      const std::string& catalogue_id, bool wet) {
+    const copilot::Brief b = brief_for(data, catalogue_id);
     copilot::PlanRequest r;
     r.aircraft = b.aircraft;
     r.aircraft_name = b.aircraft_name;
@@ -52,8 +53,8 @@ copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
     r.fastest_kts = b.fastest_kts;
     r.climb_kts = b.climb_kts;
     r.cruise_kts = b.cruise_kts;
-    r.landing_need_m = b.landing_need_m;
-    r.runway_wet = b.runway_wet;
+    r.landing_need_m = wet ? b.wet_landing_need_m : b.landing_need_m;
+    r.runway_wet = wet;
     return r;
 }
 

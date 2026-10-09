@@ -120,7 +120,16 @@ void Controller::to_ai() {
     // take-off - she is landed to the stop on the line she is rolling along,
     // not handed the plain autopilot, which holds what she is doing and
     // would never stop her.
-    if (landing_speeds_ && a_.property("gear/wow") > 0.5 && !a_.in_water() &&
+    //
+    // **On her wheels, or in a skip off them**: her wheels bore weight within
+    // the last `skip_s`, and she is no more than `skip_ft` higher than she
+    // was then. Handed over a step after her wheels left the runway in a
+    // skip, a 787 on a wet runway was given the plain autopilot and ran
+    // 22.7 km.
+    const bool in_a_skip =
+        wheels_down_at_s_ && a_.state().sim_time_s - *wheels_down_at_s_ <= skip_s &&
+        a_.property("position/h-agl-ft") - wheels_down_agl_ft_ <= skip_ft;
+    if (landing_speeds_ && (a_.property("gear/wow") > 0.5 || in_a_skip) && !a_.in_water() &&
         std::abs(a_.property("velocities/vg-fps")) >= 1.0 && pilot_.throttle <= 0.5) {
         const std::optional<Runway> under = runway_under_ ? runway_under_(a_) : std::nullopt;
         lander_.emplace(under ? Lander::on_its_roll(a_, *landing_speeds_, *under)
@@ -390,6 +399,10 @@ bool Controller::runway_not_clear(const Runway& runway) const {
 }
 
 Controls Controller::fly() {
+    if (a_.property("gear/wow") > 0.5) {
+        wheels_down_at_s_ = a_.state().sim_time_s;
+        wheels_down_agl_ft_ = a_.property("position/h-agl-ft");
+    }
     if (flying_ == Flying::ai) {
         // **Landed, she taxis off the runway** and stops beside it, where
         // she is told to (`vacates_runways`).

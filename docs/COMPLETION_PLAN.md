@@ -648,20 +648,23 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. *Verification: from every
       corner of its gate it is stabilized by 500 ft and lands.*
-- [ ] **A landing taken over on its roll is braked for a dry runway**: a
-      wet or contaminated one, which needs more, is not known. Wet is now
-      known - rain in the METAR wets the runway, the wheels grip as the FAA
-      says a wet runway lets them, and the AI brakes for it - and a short wet
-      runway is refused a planned landing. Still missing: nothing reports a
-      contaminated runway (snow, slush, ice), so only dry and wet are flown.
+- [x] **A landing taken over on its roll is braked for a dry runway**: a
+      wet or contaminated one, which needs more, is not known.
       *Verification: on a wet short runway an aeroplane handed over on its
-      roll still stops on it* - met 2026-10-10 by 12 of the 13 landplanes;
-      the F-35B, with no published landing distance, is named.
-- [ ] **A landing handed over in a skip is not landed.** Handed to the AI
+      roll still stops on it.* Done 2026-10-10: rain in the session's METAR
+      wets the runway, the wheels grip as the FAA's wet-runway rule says,
+      and 12 of 13 landplanes stop on a wet runway 1.15 times their dry need
+      (the F-35B named: she has no published landing distance, a Later
+      item); a session's copilot and planner refuse a runway long enough dry
+      but short wet. Contaminated runways are flown when given; nothing
+      reports one (Later).
+- [x] **A landing handed over in a skip is not landed.** Handed to the AI
       the moment a pilot's landing has bounced its wheels clear, even by an
       inch, she is given the plain autopilot, which never stops her (a 787
       on a wet runway ran 23 km). *Verification: a landing handed over in a
-      skip is landed to a stop.*
+      skip is landed to a stop.* Done 2026-10-10: every landplane handed
+      over with her wheels clear of the runway, within a second and three
+      feet of their last contact, is landed to a stop.
 - [x] **The F-35B's circuit touches down two kilometres short of the
       runway**, at 165 knots, and rolls on to it. Nothing checks where along
       the runway a circuit touches. *Verification: every circuit touches down

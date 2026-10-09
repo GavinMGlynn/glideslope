@@ -24,6 +24,7 @@
 // after every tick.
 
 #include "flight.hpp"
+#include "frontend/briefs.hpp"
 #include "frontend/players_copilot.hpp"
 #include "online.hpp"
 #include "pass.hpp"
@@ -1897,7 +1898,10 @@ static int run_program(int argc, char** argv) {
                         const auto& [heard_s, own] = *online->own_heard();
                         const glideslope::world::Geodetic at =
                             glideslope::world::to_geodetic({own.x_m, own.y_m, own.z_m});
-                        if (auto route = copilot->look(heard_s, own)) {
+                        if (auto route = copilot->look(
+                                heard_s, own,
+                                glideslope::frontend::runway_wet(
+                                    flight ? flight->weather_report() : nullptr))) {
                             const glideslope::net::RouteWaypoint& first = route->waypoints.front();
                             route_to = glideslope::sim::Waypoint{};
                             route_to->name = first.name;

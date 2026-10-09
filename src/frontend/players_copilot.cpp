@@ -176,9 +176,11 @@ std::vector<std::string> PlayersCopilot::said() {
 copilot::Situation PlayersCopilot::situation(double simulation_s, const net::AircraftState& own,
                                              const std::string& event,
                                              std::vector<sim::Waypoint> route,
-                                             const std::shared_ptr<Ground>& ground) {
+                                             const std::shared_ptr<Ground>& ground,
+                                             bool runway_wet) {
     const world::Geodetic at = world::to_geodetic({own.x_m, own.y_m, own.z_m});
     copilot::Situation now;
+    now.runway_wet = runway_wet;
     now.seconds = simulation_s;
     now.latitude_deg = at.latitude_deg;
     now.longitude_deg = at.longitude_deg;
@@ -220,7 +222,8 @@ copilot::Situation PlayersCopilot::situation(double simulation_s, const net::Air
 }
 
 std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
-                                                      const net::AircraftState& own) {
+                                                      const net::AircraftState& own,
+                                                      bool runway_wet) {
     if (gone_) {
         return std::nullopt;
     }
@@ -261,7 +264,7 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
         // future each, for one is not to be read from two threads - and
         // what making it threw taken as the question not answered.
         if (helper_->ask([this, simulation_s, own, event, route = std::move(route),
-                          ground = ground_]() mutable {
+                          ground = ground_, runway_wet]() mutable {
                 const world::FetchesGivenUp given_up(going_);
                 std::shared_ptr<Ground> had;
                 try {
@@ -269,7 +272,7 @@ std::optional<net::CopilotRoute> PlayersCopilot::look(double simulation_s,
                 } catch (const std::exception& e) {
                     throw GroundNotHad(e.what());
                 }
-                return situation(simulation_s, own, event, std::move(route), had);
+                return situation(simulation_s, own, event, std::move(route), had, runway_wet);
             })) {
             said_.push_back("asked its copilot, " + event);
             asked_about_ = event;
