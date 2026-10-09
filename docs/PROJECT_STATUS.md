@@ -318,10 +318,13 @@ no diversion, and a circuit flown for ever is no answer, so landing is the
 stated choice over holding.
 
 **No floor on the touchdown zone's go-around.** A float past the zone's end
-at a few feet goes around (two seconds on): the AFH (ch. 9, "Go-Arounds
-(Rejected Landings)") treats a go-around as possible at any point in the
-landing, down to the flare, and a landing past the first third is the one it
-says to reject. Touchdown margins to the zone's end, the least in each test
+at a few feet goes around (two seconds on). The AFH (FAA-H-8083-3C, ch. 9,
+"Go-Arounds (Rejected Landings)",
+https://www.faa.gov/sites/faa.gov/files/regulations_policies/handbooks_manuals/aviation/airplane_handbook/10_afh_ch9.pdf):
+"the need to discontinue a landing may arise at any point in the landing
+process", and "the most critical go-around is one started when very close to
+the ground" - critical, not forbidden. It also gives an unstable approach as
+a reason to go around, with 500 ft typical in VMC. Touchdown margins to the zone's end, the least in each test
 (linux-release): fast 190 m, too high 189 m, as flown 192 m (each the
 Mosquito, touching ~724 m along a 914 m zone), gusts 227 m (the Mosquito),
 the short runway 90 m (the Cherokee, 177 of 267 m).
