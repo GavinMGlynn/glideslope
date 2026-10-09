@@ -14,6 +14,8 @@ namespace {
 constexpr double degrees = 180.0 / 3.14159265358979323846;
 constexpr double feet_per_metre = 3.280839895013123;
 constexpr double steps_per_second = 120.0;
+// The least throttle a jet is flown down the approach at, spooled (fly_laws).
+constexpr double jet_approach_idle = 0.25;
 
 // **The approach is a local problem.** Five miles of runway centreline does
 // not need great-circle geometry: the metres in a degree of latitude and of
@@ -1030,7 +1032,20 @@ Controls Lander::fly_laws() {
             kcas_rate_ += (rate - kcas_rate_) / (0.5 * steps_per_second); // half a second
         }
         last_kcas_ = kcas;
-        c.throttle = std::clamp(throttle_ + speed_error * 0.05 - kcas_rate_ * 0.1 +
+        // **A jet's engines are flown spooled, and twice as firmly**: a
+        // turbofan from idle takes seconds to give its thrust - a 787-8's went
+        // from 2,800 to 14,500 lb over five seconds of full throttle - so on
+        // a draggy enough approach to be flown at idle, a gust that took
+        // speed off left her 6 to 8 kt slow for over two seconds, which the
+        // stabilized-approach gate sends round. Real jets keep an approach
+        // idle above flight idle for this; here a quarter of the throttle's
+        // travel (`jet_approach_idle`), and the speed error worked at 0.1
+        // where a propeller, which answers at once, keeps 0.05 - down to
+        // twice the flare height, below which she is flown as before.
+        const bool near_the_flare =
+            above_m_ * feet_per_metre - wheels_hang_ft(s) <= 2.0 * flare_height_ft();
+        const double speed_gain = jet_ && !near_the_flare ? 0.1 : 0.05;
+        c.throttle = std::clamp(throttle_ + speed_error * speed_gain - kcas_rate_ * 0.1 +
                                     sinking_fpm * 0.0005,
                                 0.0, 1.0);
         // **Near the ground the power comes on only a little at a time.**
@@ -1042,8 +1057,15 @@ Controls Lander::fly_laws() {
         // centreline by the time she touched. A pilot's hand makes small
         // corrections over the threshold, not a burst. (Closing it outright
         // there left her eight knots slow crossing the threshold.)
-        if (above_m_ * feet_per_metre - wheels_hang_ft(s) <= 2.0 * flare_height_ft()) {
+        if (near_the_flare) {
             c.throttle = std::min(c.throttle, last_throttle_ + 0.5 / steps_per_second);
+        }
+        // Spooled down to twice the flare height, and from there let come
+        // back to idle as it will: a 787-8 still at a quarter throttle into
+        // her flare touched at 146 knots and bounced fifteen feet.
+        if (jet_ && !near_the_flare) {
+            c.throttle = std::max(c.throttle, jet_approach_idle);
+            throttle_ = std::max(throttle_, jet_approach_idle);
         }
         last_throttle_ = c.throttle;
     }

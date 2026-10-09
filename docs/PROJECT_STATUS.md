@@ -305,9 +305,29 @@ the gusts test's severity-3 turbulence. FSF ALAR Briefing Note 7.1:
 acceptable", frequent or sustained ones are not. The gate now goes around
 only after two seconds running unstabilized (`sustained_s`, a stated
 choice). The target already carries half the gust factor where the approach
-is flown so (the AFH's practice, the gusts test's +5 kt). The 787-8 in those
-gusts still sits 8 kt slow for over two seconds at 390 ft - sustained - and
-is named in the test as the lander's gust tail, not the gate's.
+is flown so (the AFH's practice, the gusts test's +5 kt).
+
+**A jet's engines flown spooled** (CI's macOS release run 37882278266 sent
+the A380 round in the gusts test, "6 kt slow at 446 ft"; on Linux she
+landed, and the 787-8 had been named out for 8 kt slow). The cause, from the
+787-8's trace: on these approaches a jet is flown at idle, her throttle
+working between 0 and 0.4, and a turbofan from idle is slow to give thrust -
+hers went from 2,800 to 14,500 lb over five seconds of full throttle - so a
+gust that took speed off left her slow for seconds. Real jets keep an
+approach idle above flight idle for this. The lander now holds a jet's
+throttle at no less than a quarter of its travel, and works her speed error
+at 0.1 where a propeller keeps 0.05, both down to twice the flare height and
+not below it (still spooled into the flare, the 787-8 hand-landing test's
+787 was left with her throttle too far open at the take-back). The worst
+deviation each held for the gate's whole two seconds in the gusts test,
+linux-release, against 5 kt slow and 10 kt fast: 737-300 2.1 / 1.1, 787-8
+2.9 / 0.9, A320 2.4 / 1.6, A380 3.0 / 3.0, B-2A 1.4 / 4.0, 172P 2.0 / 3.7,
+182 1.5 / 3.3, F-15C 0.5 / 0.0, F-35B 0.5 / -0.1, Cub 2.6 / 2.7, Learjet
+0.9 / 0.1, Mosquito 0.2 / 1.2, Cherokee 1.5 / 2.3, S.23 2.4 / 4.2 - at
+least 2.0 kt inside the slow limit and 5.8 inside the fast. The 787-8 is no
+longer named: all fourteen are judged. Seen to fail on the law before
+(f6b4e9bd), the 787-8 not named: sent round, "8 kt slow at 387 ft". The
+propeller aeroplanes' figures are unchanged.
 
 **Bounded: two go-arounds for the gate, then the third is landed** (from the
 review). `Controller` counts the go-arounds the gate made since the approach
@@ -337,8 +357,8 @@ for each 200 ft/min she climbs slower than 300.
 
 **Verification of the review's fixes**, each seen red first:
 - `an_approach_flown_well_in_gusts_is_not_sent_round_by_the_stabilized_gate`
-  (14, the 787-8 named): judged a step at a time, 12 sent round ("5 kt slow
-  at 478 ft" and the like); now none.
+  (all 14): judged a step at a time, 12 sent round ("5 kt slow at 478 ft"
+  and the like); now none, with the margins above.
 - `an_approach_unstabilized_every_time_goes_around_twice_and_then_lands`: the
   172P with air rising 4 m/s on every short final goes around twice ("12 kt
   fast at 293 ft"), flies the circuit each time, and lands the third,
@@ -351,8 +371,9 @@ for each 200 ft/min she climbs slower than 300.
   With the gate applied to the learnt landing: sent round at 500 ft ("33 kt
   fast"), not stopped.
 - 181 tests matching the landing, lesson, circuit, go-around, gusts, stall,
-  instructor and learnt-landing names pass; the selftest hash is unmoved
-  (`182dd6c996e0ee4c`).
+  instructor, taken-back and learnt-landing names pass, with the jets'
+  spooled approach; the least touchdown margin to the zone's end is 189 m;
+  the selftest hash is unmoved (`182dd6c996e0ee4c`).
 
 **The aim is inside the touchdown zone on any runway.** On a runway under
 900 m the first third is shorter than the 300 m the approach aimed at, and

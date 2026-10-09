@@ -1484,7 +1484,26 @@ struct Approached {
     bool went_around = false;
     std::string why;
     bool unstabilized = false; // sent round by the stabilized-approach gate
+    // Her speed over the target, knots, each step the gate judges speed -
+    // from 500 ft down to 50, not yet down.
+    std::vector<double> gate_over_kts;
 };
+
+// **The worst deviation held for the gate's whole window**: the most she was
+// slow (or fast) by at every step of some two seconds running.
+double worst_sustained(const std::vector<double>& over_kts, bool slow) {
+    const auto window = static_cast<std::size_t>(
+        glideslope::sim::StabilizedApproach::sustained_s * steps_per_second);
+    double worst = -1e9;
+    for (std::size_t i = 0; i + window <= over_kts.size(); ++i) {
+        double held = 1e9;
+        for (std::size_t k = i; k < i + window; ++k) {
+            held = std::min(held, slow ? -over_kts[k] : over_kts[k]);
+        }
+        worst = std::max(worst, held);
+    }
+    return worst;
+}
 
 // **The same approach at another weight or in other air**: a loading in
 // place of the lesson's, with the reference speed worked for its weight as a
@@ -1609,6 +1628,12 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
         const std::size_t which = run.stage();
         run.update(aircraft, tick);
         const double kts = aircraft.property("velocities/vc-kts");
+        if (const double above_ft = lander.above_m() * feet_per_metre;
+            !lander.touched() && above_ft <= 500.0 && above_ft >= 50.0 &&
+            (lander.stage() == glideslope::sim::Lander::Stage::approach ||
+             lander.stage() == glideslope::sim::Lander::Stage::flare)) {
+            out.gate_over_kts.push_back(aircraft.state().airspeed_kts - flown_with.vref_kts);
+        }
         if (which < out.stage_least.size()) {
             out.stage_least[which] = std::min(out.stage_least[which], kts);
             out.stage_most[which] = std::max(out.stage_most[which], kts);
@@ -2077,30 +2102,26 @@ GLIDESLOPE_TEST(every_aeroplane_flown_down_in_gusts_reaches_the_runway_or_goes_a
 // aeroplane taught the approach (14), down final in the gusts above with
 // half the gust factor on her reference speed, is never sent round for an
 // approach not stabilized - its gust spikes are momentary
-// (StabilizedApproach::sustained_s). Balloons in gusts are the lander's own
-// tail, and the go-arounds they make are named, not counted here. Each
-// touchdown's margin to the touchdown zone's end is printed.
+// (StabilizedApproach::sustained_s), and a jet's engines are kept spooled to
+// answer them. Balloons in gusts are the lander's own tail, and the
+// go-arounds they make are not counted here. Each touchdown's margin to the
+// touchdown zone's end is printed, and the worst slow and fast deviation she
+// held for the gate's whole two seconds, against its 5 and 10 kt.
 GLIDESLOPE_TEST(an_approach_flown_well_in_gusts_is_not_sent_round_by_the_stabilized_gate) {
     const auto taught = everyone_taught("approach-and-landing");
     const double zone_m = glideslope::sim::StabilizedApproach::touchdown_zone_m(a_runway());
     std::size_t flown = 0;
-    std::size_t named = 0;
     std::vector<std::string> wrong;
     const ApproachVariant gusty{"gusty", std::nullopt, gusty_down_the_runway(), 5.0};
     for (const std::string& id : taught) {
         const Approached r = fly_the_approach(id, 0.0, &gusty);
         ++flown;
-        std::printf("  %-13s in gusts: %s%s; touched %4.0f m along, %4.0f m inside the zone\n",
+        const double slow = worst_sustained(r.gate_over_kts, true);
+        const double fast = worst_sustained(r.gate_over_kts, false);
+        std::printf("  %-13s in gusts: %s%s; touched %4.0f m along, %4.0f m inside the zone; "
+                    "held %.1f kt slow (limit 5), %.1f kt fast (limit 10)\n",
                     id.c_str(), r.went_around ? "went around: " : "landed", r.why.c_str(),
-                    r.touch_along_m, zone_m - r.touch_along_m);
-        // Named: the 787-8 sits 8 kt slow for over two seconds running at
-        // 390 ft in these gusts - sustained, not momentary - which is the
-        // lander's own gust tail, not the gate's.
-        if (id == "787-8") {
-            std::printf("  left out - 787-8: sustained 8 kt slow in these gusts\n");
-            ++named;
-            continue;
-        }
+                    r.touch_along_m, zone_m - r.touch_along_m, slow, fast);
         if (r.unstabilized) {
             wrong.push_back(id + " was sent round by the gate: " + r.why);
         }
@@ -2110,9 +2131,9 @@ GLIDESLOPE_TEST(an_approach_flown_well_in_gusts_is_not_sent_round_by_the_stabili
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 14 && flown == taught.size() && named == 1,
-          "every one of the fourteen aeroplanes taught the approach flown in gusts, one "
-          "named: " + std::to_string(flown));
+    check(taught.size() == 14 && flown == taught.size(),
+          "every one of the fourteen aeroplanes taught the approach flown in gusts: " +
+              std::to_string(flown));
 }
 
 // **The F-15C comes down the approach at its flight manual's speed**, not at
