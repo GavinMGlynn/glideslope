@@ -387,6 +387,11 @@ public:
     void load(const Loading& loading);
     // What each of its fuel tanks holds full, pounds, by JSBSim's index.
     std::vector<double> tank_capacities_lbs() const;
+    // **What she weighs as loaded**, pounds - empty, what is on board and
+    // her fuel - as JSBSim adds them up, and known before initialize(),
+    // where `inertia/weight-lbs` is not yet: for a start's speed that
+    // depends on it (sim::for_weight).
+    double loaded_weight_lbs() const;
 
     // Puts the aircraft at `ic`, at rest in the sense that no time has passed,
     // with the engine running if asked. Throws std::runtime_error if JSBSim

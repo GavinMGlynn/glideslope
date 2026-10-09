@@ -1551,6 +1551,9 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
         const double variant_lbs = weight_lbs(
             entry.model, [&](glideslope::sim::Aircraft& a) { a.load(*variant->loading); });
         flown_with.vref_kts *= std::sqrt(variant_lbs / lesson_lbs);
+        // Scaled here, with the offset over it: the lander is told so, and
+        // does not scale it again (sim::for_weight).
+        flown_with.reference_lbs = variant_lbs;
     }
     if (variant != nullptr) {
         flown_with.vref_kts += variant->add_kts;
@@ -2058,6 +2061,204 @@ GLIDESLOPE_TEST(every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce
           "every aeroplane flown in every case or named: " + std::to_string(flown) +
               " flown and " + std::to_string(left_out) + " named of " +
               std::to_string(2 * taught.size()));
+}
+
+namespace {
+
+// **An approach the AI flies as a server's is flown**: two miles out on the
+// glidepath, established, at the weight `figures_loading` says - her figures'
+// own loading for her approach speed, or, false, her model's own weight,
+// which is what a server flies every aircraft at - handed to the AI through
+// a `Controller` with her published speeds, unscaled, as the server hands
+// them (`to_ai_approach`). She starts at her reference speed for what she
+// weighs (sim::for_weight), as the server starts her.
+struct WeighedApproach {
+    double weight_lbs = 0.0;
+    double published_kts = 0.0; // her figures' reference speed
+    double reference_lbs = 0.0; // and the weight it is for
+    double scaled_kts = 0.0;    // for what she weighs
+    double flown_kts = 0.0;     // what her approach autopilot was given
+    double gate_least_over_kts = 1e9; // over `scaled_kts`, 500 ft down to 50
+    double gate_most_over_kts = -1e9;
+    double most_alpha_deg = -1e9;
+    bool went_around = false;
+    std::string why;
+    bool stopped = false;
+    double touch_along_m = 0.0;
+    glideslope::test::AfterTouch after;
+};
+
+WeighedApproach ai_approach_at_a_weight(const std::string& id, bool figures_loading) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const glideslope::sim::Runway runway = a_runway();
+    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; },
+        [water = entry.seaplane](double, double) { return water; }));
+    if (figures_loading) {
+        load_for_the_approach(aircraft, entry.model);
+    }
+    WeighedApproach out;
+    out.after.judged_as(entry.seaplane);
+    out.weight_lbs = aircraft.loaded_weight_lbs();
+    out.published_kts = published.vref_kts;
+    out.reference_lbs = published.reference_lbs;
+    out.scaled_kts = glideslope::sim::for_weight(published, out.weight_lbs).vref_kts;
+
+    const double out_m = 2.0 * metres_per_nm;
+    const double heading = runway.heading_deg / degrees;
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg =
+        runway.threshold_lat_deg + (-out_m * std::cos(heading)) /
+                                       metres_per_degree_latitude(runway.threshold_lat_deg);
+    ic.longitude_deg =
+        runway.threshold_lon_deg + (-out_m * std::sin(heading)) /
+                                       metres_per_degree_longitude(runway.threshold_lat_deg);
+    ic.altitude_ft = runway.elevation_ft + (out_m + published.aim_m) *
+                                               std::tan(3.0 / degrees) * feet_per_metre;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = out.scaled_kts;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    ic.flaps = published.flap;
+    ic.speedbrake = published.speedbrake;
+    ic.flight_path_deg = -3.0;
+    ic.trim = true;
+    aircraft.initialize(ic);
+    check(std::abs(aircraft.property("inertia/weight-lbs") - out.weight_lbs) < 1.0,
+          id + " weighs what she was loaded to: " +
+              std::to_string(aircraft.property("inertia/weight-lbs")) + " lb, not " +
+              std::to_string(out.weight_lbs));
+
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    flying.flaps = published.flap;
+    glideslope::sim::Controller controller(aircraft, flying);
+    controller.to_ai_approach(runway, published);
+    check(controller.lander() != nullptr, id + ": the AI has an approach to fly");
+    out.flown_kts = controller.lander()->speeds().vref_kts;
+
+    for (int tick = 0; tick < 600 * steps_per_second; ++tick) {
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        out.after.watch(aircraft);
+        const glideslope::sim::Lander* lander = controller.lander();
+        if (lander == nullptr || controller.circuit() != nullptr ||
+            lander->stage() == glideslope::sim::Lander::Stage::go_around) {
+            out.went_around = true;
+            if (lander != nullptr && out.why.empty()) {
+                out.why = lander->why_gone_around();
+            }
+            break;
+        }
+        if (!lander->touched()) {
+            out.most_alpha_deg = std::max(out.most_alpha_deg, aircraft.property("aero/alpha-deg"));
+            const double above_ft = lander->above_m() * feet_per_metre;
+            if (above_ft <= 500.0 && above_ft >= 50.0) {
+                const double over = aircraft.state().airspeed_kts - out.scaled_kts;
+                out.gate_least_over_kts = std::min(out.gate_least_over_kts, over);
+                out.gate_most_over_kts = std::max(out.gate_most_over_kts, over);
+            }
+        }
+        out.touch_along_m = lander->touchdown_along_m();
+        // A flying boat is done below twenty knots on the water, as her
+        // lesson is: afloat with her engines idling she is never quite still.
+        if (entry.seaplane ? lander->touched() && aircraft.in_water() &&
+                                 aircraft.property("velocities/vc-kts") <= 20.0
+                           : lander->stage() == glideslope::sim::Lander::Stage::stopped) {
+            out.stopped = true;
+            break;
+        }
+    }
+    return out;
+}
+
+// Every aeroplane with an approach speed, at one weight, judged.
+void every_ai_approach_at_a_weight(bool figures_loading) {
+    const auto taught = everyone_taught("approach-and-landing");
+    const char* weight = figures_loading ? "her figures' loading" : "her model's own weight";
+    std::size_t flown = 0;
+    std::size_t scaled = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : taught) {
+        const WeighedApproach r = ai_approach_at_a_weight(id, figures_loading);
+        ++flown;
+        std::printf("  %-13s %8.0f lb (figure's %8.0f): %5.1f kt -> %5.1f, flown at %5.1f; "
+                    "500-50 ft %+5.1f to %+5.1f, most alpha %4.1f; touched %4.0f ft/min "
+                    "%4.0f m along%s%s%s\n",
+                    id.c_str(), r.weight_lbs, r.reference_lbs, r.published_kts, r.scaled_kts,
+                    r.flown_kts, r.gate_least_over_kts, r.gate_most_over_kts, r.most_alpha_deg,
+                    r.after.touch_sink_fpm, r.touch_along_m,
+                    r.went_around ? ", WENT AROUND: " : "", r.why.c_str(),
+                    r.stopped ? "" : ", NOT STOPPED");
+        if (std::abs(r.weight_lbs - r.reference_lbs) > 1.0) {
+            ++scaled;
+        }
+        // **Flown at the speed for what she weighs**: what the approach
+        // autopilot was given, and what she held from 500 ft to 50 - within
+        // the stabilized approach's +10/-5 kt of it.
+        if (std::abs(r.flown_kts - r.scaled_kts) > 0.1) {
+            wrong.push_back(id + " was given " + std::to_string(r.flown_kts) +
+                            " kt to fly, not the " + std::to_string(r.scaled_kts) +
+                            " for what she weighs");
+        }
+        if (r.gate_least_over_kts < -glideslope::sim::StabilizedApproach::most_slow_kts ||
+            r.gate_most_over_kts > glideslope::sim::StabilizedApproach::most_fast_kts) {
+            wrong.push_back(id + " flew " + std::to_string(r.gate_least_over_kts) + " to " +
+                            std::to_string(r.gate_most_over_kts) + " kt over " +
+                            std::to_string(r.scaled_kts) + " from 500 ft to 50");
+        }
+        if (r.went_around) {
+            wrong.push_back(id + " went around: " + r.why);
+        }
+        for (const std::string& w : r.after.what_went_wrong(id)) {
+            wrong.push_back(w);
+        }
+        for (const std::string& w : r.after.how_the_gear_took_it(id, settled_within_ft)) {
+            wrong.push_back(w);
+        }
+        for (const std::string& w : inside_the_touchdown_zone(id, weight, r.touch_along_m)) {
+            wrong.push_back(w);
+        }
+        if (!r.stopped && !r.went_around) {
+            wrong.push_back(id + " did not stop");
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong at " + weight +
+                             ", the first: " + (wrong.empty() ? "" : wrong.front()));
+    check(taught.size() == 14, "fourteen aeroplanes with an approach speed, not " +
+                                   std::to_string(taught.size()));
+    check(flown == taught.size(), "every one flown: " + std::to_string(flown) + " of " +
+                                      std::to_string(taught.size()));
+    std::printf("  %zu of %zu flown at a weight other than her speed's\n", scaled, flown);
+}
+
+} // namespace
+
+// **The AI flies her approach at the speed for what she weighs** - her
+// reference speed times the square root of her weight over the weight her
+// figures give it for (sim::for_weight) - **and lands within its limits.**
+// Every aeroplane with an approach speed (14), at her model's own weight -
+// what a server flies every aircraft at - handed to the AI with her
+// published speeds as a server hands them. Each must be given the scaled
+// speed, hold it within the stabilized approach's +10/-5 kt from 500 ft to
+// 50, never go around, touch inside the touchdown zone unwrecked by the
+// server's rule, stay upright on her wheels and stop.
+GLIDESLOPE_TEST(the_ai_flies_every_approach_at_the_speed_for_its_models_own_weight_and_lands_within_its_limits) {
+    every_ai_approach_at_a_weight(false);
+}
+
+// **And at the loading her figures give the speed for**, where the scaling
+// is none: the same 14, judged the same.
+GLIDESLOPE_TEST(the_ai_flies_every_approach_at_the_speed_for_its_figures_loading_and_lands_within_its_limits) {
+    every_ai_approach_at_a_weight(true);
 }
 
 // **In gusts every aeroplane is flown down to the runway, or goes around** -
@@ -5011,8 +5212,11 @@ GLIDESLOPE_TEST(the_speed_the_autopilot_raises_for_a_climb_never_passes_the_fast
     flying.gear = 1.0;
     glideslope::sim::Controller controller(aircraft, flying);
     controller.to_ai_approach(runway, published);
-    const double circuit_kts = published.vref_kts + 20.0;
-    const double fastest_kts = circuit_kts + 11.0;
+    // Her circuit is flown at 20 kt over her approach speed for what she
+    // weighs when she goes around (sim::for_weight) - the fuel her approach
+    // burnt off her figures' loading - so the fastest is set from it then.
+    double circuit_kts = published.vref_kts + 20.0;
+    double fastest_kts = circuit_kts + 11.0;
     controller.limit_speed(fastest_kts);
     bool told = false;
     int circling = 0;
@@ -5027,6 +5231,11 @@ GLIDESLOPE_TEST(the_speed_the_autopilot_raises_for_a_climb_never_passes_the_fast
         aircraft.set_controls(controller.fly());
         aircraft.step();
         if (controller.circuit() != nullptr) {
+            if (circling == 0) {
+                circuit_kts = controller.circuit()->speeds().vref_kts + 20.0;
+                fastest_kts = circuit_kts + 11.0;
+                controller.limit_speed(fastest_kts);
+            }
             ++circling;
             if (circling > 60 * steps_per_second) {
                 fastest_seen_kts =

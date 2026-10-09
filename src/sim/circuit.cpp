@@ -34,7 +34,10 @@ double across_runway_m(const Runway& r, double latitude_deg, double longitude_de
 
 GoAroundCircuit::GoAroundCircuit(const Aircraft& aircraft, const Runway& runway,
                                  const ApproachSpeeds& speeds, const CircuitEntry& entry)
-    : a_(aircraft), runway_(runway), speeds_(speeds), entry_(entry),
+    // Her speeds for what she weighs (`for_weight`); already so from a
+    // lander, and scaled again they are the same.
+    : a_(aircraft), runway_(runway),
+      speeds_(for_weight(speeds, aircraft.property("inertia/weight-lbs"))), entry_(entry),
       leg_(entry.from_take_off ? Leg::crosswind : Leg::upwind) {
     // **A faster aeroplane flies a bigger circuit, and the two numbers that
     // make it are one number**: circuit height from a thousand feet for a
