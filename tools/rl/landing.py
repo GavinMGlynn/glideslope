@@ -369,6 +369,9 @@ class Flight:
     worst_roll_after_touch_deg: float = 0.0
     least_pitch_after_touch_deg: float = 0.0
     seconds: float = 0.0
+    # The longest the stabilized gate's speed found her outside +10/-5 kt
+    # between 500 and 50 ft, running (env.py's Flier.judge_the_gate).
+    most_unstable_s: float = 0.0
 
 
 # How long after the touch the policy flies on: none. The simulation hands
