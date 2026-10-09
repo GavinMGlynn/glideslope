@@ -314,7 +314,17 @@ landed, and the 787-8 had been named out for 8 kt slow). The cause, from the
 working between 0 and 0.4, and a turbofan from idle is slow to give thrust -
 hers went from 2,800 to 14,500 lb over five seconds of full throttle - so a
 gust that took speed off left her slow for seconds. Real jets keep an
-approach idle above flight idle for this. The lander now holds a jet's
+approach idle above flight idle for this. 14 CFR 25.119 (eCFR, checked)
+sizes the landing climb on "the power or thrust that is available 8 seconds
+after initiation of movement of the power or thrust controls from the
+minimum flight idle to the go-around power or thrust setting"; 14 CFR
+33.73(b) asks an engine for "95 percent rated takeoff power or thrust in not
+over 5 seconds" from the minimum flight idle lever position. Engines meet
+them with an approach idle above flight idle, scheduled with the gear and
+the landing flap: the PW2037-powered 757 has ground, minimum flight and
+approach idle, and the 737's approach idle is about 32% N1. The lander's
+quarter of the throttle's travel is our stand-in for that schedule - a real
+one is an N1 floor, not a lever position. The lander now holds a jet's
 throttle at no less than a quarter of its travel, and works her speed error
 at 0.1 where a propeller keeps 0.05, both down to twice the flare height and
 not below it (still spooled into the flare, the 787-8 hand-landing test's
