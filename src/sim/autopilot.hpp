@@ -96,6 +96,9 @@ public:
     // for tests of the upset rule.
     double pitch_asked_deg() const { return pitch_command_deg_; }
     double elevator_trim() const { return elevator_trim_; }
+    // How many steps the elevator's trim has been held from winding nose-up
+    // because the wing was seen to stall (autopilot.cpp): for tests.
+    long trim_held_steps() const { return trim_held_steps_; }
     // **The fastest it may hold**: the most the speed asked may be raised
     // to for a climb the nose cannot give (autopilot.cpp: with the nose at
     // its highest and the climb short), the aircraft's fastest a plan may
@@ -158,6 +161,13 @@ private:
     double sink_integral_fpm_ = 0.0;
     // A stall's entry has flown past the angle its lift peaked at.
     bool past_the_peak_ = false;
+    // The wing seen going over its lift's peak, and the trends that show it.
+    bool seen_to_stall_ = false;
+    double alpha_trend_ = 0.0;
+    double lift_trend_ = 0.0;
+    double last_alpha_ = 0.0;
+    double last_lift_ = 0.0;
+    long trim_held_steps_ = 0;
     // Where the wing's lift has been seen to peak in this configuration: the
     // greatest lift coefficient, the angle of attack it came at, and the
     // flaps and gear it was seen with.

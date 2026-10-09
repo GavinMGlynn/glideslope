@@ -2742,43 +2742,9 @@ GLIDESLOPE_TEST(a_climb_at_the_wrong_speed_is_named_in_the_debrief) {
 
 namespace {
 
-// **The stall recovery, as the lesson's flight and the instructor both ask
-// for it**: the autopilot's stall recovery (AutopilotModes::speed_on_elevator),
-// asked for five knots past the speed the lesson's recovery ends at, the
-// height let go. A column held forward by a fixed amount recovers a Cessna
-// and flies a Learjet into the ground; this puts each aeroplane's nose down
-// with its own controls until the wing unloads and the speed comes. The
-// vertical speed the instructor used to ask for held a mushing B-2A in the
-// stall to the ground, raising the nose against a sink it could not stop.
-//
-// **Five knots past the lesson's recovery speed, and no more.** Half as much
-// again as the stall, which it used to be asked for, is far past it in the
-// jets and the Mosquito: they dived for it, and at the lesson's entry's end
-// the 737-300 lost 878 ft getting there and levelling off, against 515 now.
-void ask_for_the_stall_recovery(glideslope::sim::AutopilotModes& modes,
-                                double recovered_kts) {
-    modes.altitude_ft.reset();
-    modes.airspeed_kts = recovered_kts + 5.0;
-    modes.speed_on_elevator = true;
-    modes.hold_height_to_the_stall = false;
-}
-
-// **A stall's entry, on the autopilot**: asked for a speed below the stall,
-// which closes the throttle and holds the height by raising the nose, and
-// the height held level to the stall however far the nose must rise for it
-// (AutopilotModes::hold_height_to_the_stall) - the FAA's stall tasks hold
-// the altitude as the speed comes back. A light aeroplane's altitude hold
-// gives up height rather than fly slower than its best-climb speed or a
-// slower speed asked for, so asked for none she is held at her best-climb
-// speed and never stalls.
-void ask_for_the_stall_entry(glideslope::sim::AutopilotModes& modes, double stall_kts) {
-    modes.airspeed_kts = stall_kts - 10.0;
-    modes.hold_height_to_the_stall = true;
-}
-
 // The speed a stall lesson's recovery ends at, for this aeroplane.
 double recovery_ends_at_kts(const Lesson& lesson, const glideslope::sim::LessonSpeeds& speeds) {
-    return glideslope::sim::figure_of(lesson.stages.back().until_value, speeds);
+    return glideslope::sim::stall_recovery_ends_at_kts(lesson, speeds);
 }
 
 // **Watching a stall recovered**, the same for the lesson's flight and the
@@ -2964,7 +2930,7 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
             // gives up height rather than fly slower than its best-climb
             // speed or a slower speed asked for, so asked for none she is
             // held at her best-climb speed and never stalls.
-            ask_for_the_stall_entry(modes, f.speeds.stall_kts);
+            glideslope::sim::fly_the_stall_entry(modes, f.speeds);
             autopilot->set(modes);
         }
         const auto& a = *f.aircraft;
@@ -2996,7 +2962,7 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
                     autopilot = std::make_unique<glideslope::sim::Autopilot>(*f.aircraft,
                                                                              last_controls);
                 }
-                ask_for_the_stall_recovery(modes, watch.recovered_kts);
+                glideslope::sim::fly_the_stall_recovery(modes, lesson, f.speeds);
                 autopilot->set(modes);
                 engaging = true;
             }
@@ -6161,7 +6127,7 @@ Demonstrated demonstrate_a_climb(const std::string& id) {
 // **The instructor asks for a speed, not for a throttle.** Asking the
 // autopilot to hold a speed below the stall closes the throttle for it and
 // holds the height by raising the nose, which is the entry; the recovery is
-// the lesson's own (ask_for_the_stall_recovery), which opens the throttle and
+// the lesson's own (sim::fly_the_stall_recovery), which opens the throttle and
 // puts the nose down. The version before reached into the controls and set
 // the throttle to 0 and then to 1 by hand, which no controller can hand over.
 //
@@ -6183,13 +6149,13 @@ Demonstrated demonstrate_a_stall(const std::string& id, double start_ft, double 
     const auto dawdle = static_cast<int>(std::lround(left_s * steps_per_second));
     const Demonstrated shown = demonstrate_in_the_air(
         id, "stalls", start_ft, 20, [](glideslope::sim::AutopilotModes&, const InFlight&) {},
-        [watch, dawdle, recovering = false, stalled_at = -1](
+        [watch, dawdle, lesson, recovering = false, stalled_at = -1](
             glideslope::sim::Autopilot& ap, const LessonRun& run, const InFlight& f,
             int since) mutable {
             glideslope::sim::AutopilotModes m = ap.modes();
             const auto& a = *f.aircraft;
             if (since == 0) {
-                ask_for_the_stall_entry(m, f.speeds.stall_kts);
+                glideslope::sim::fly_the_stall_entry(m, f.speeds);
                 ap.set(m);
             }
             if (recovering) {
@@ -6204,7 +6170,7 @@ Demonstrated demonstrate_a_stall(const std::string& id, double start_ft, double 
                 if (since - stalled_at >= dawdle) {
                     recovering = true;
                     watch->hand_over(a);
-                    ask_for_the_stall_recovery(m, watch->recovered_kts);
+                    glideslope::sim::fly_the_stall_recovery(m, lesson, f.speeds);
                     ap.set(m);
                 }
             }
@@ -6289,7 +6255,7 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_stall_and_hands_it_over) {
 // the stall to the ground, demonstrated from thirty seconds in one is
 // recovered within 2 g and the height its speed and sink need
 // (height_bound_ft), with the tolerance in hand. One aeroplane, not every
-// one: both flights ask for the recovery through ask_for_the_stall_recovery,
+// one: both flights ask for the recovery through sim::fly_the_stall_recovery,
 // and what the recovery does for every aeroplane is the left-thirty-seconds
 // test's to judge. This pins that the demonstration asks for it.
 GLIDESLOPE_TEST(an_instructor_demonstrating_a_stall_recovers_a_b2_left_thirty_seconds_in_it) {
