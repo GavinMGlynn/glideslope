@@ -184,6 +184,9 @@ public:
     const Vacate* vacate() const { return vacate_ ? &*vacate_ : nullptr; }
     // The circuit a go-around is being flown round, if one is.
     const GoAroundCircuit* circuit() const { return circuit_ ? &*circuit_ : nullptr; }
+    // How many times this approach has gone around for being unstabilized;
+    // from StabilizedApproach::most_go_arounds on, the gate is waived.
+    int unstable_go_arounds() const { return unstable_go_arounds_; }
     const LearntLander* learnt() const { return learnt_ ? &*learnt_ : nullptr; }
     // Hands it back to the pilot.
     void to_pilot();
@@ -237,6 +240,7 @@ private:
     std::optional<Lander> lander_;
     // A go-around flown round to the approach again.
     std::optional<GoAroundCircuit> circuit_;
+    int unstable_go_arounds_ = 0;
     // Off the runway after landing, and stopped beside it.
     std::optional<Vacate> vacate_;
     bool vacates_ = false;

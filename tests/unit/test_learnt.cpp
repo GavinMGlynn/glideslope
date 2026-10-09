@@ -1429,6 +1429,63 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_i
 // out - and the learnt landing must touch her down within its limits and
 // stop her on the runway. The same approach given no policy is never handed
 // over: the approach autopilot lands her itself.
+// **The learnt landing is not sent round by the stabilized-approach gate**
+// (sim::StabilizedApproach; controller.cpp says why). Built at one of its
+// gate's fast corners - 2.4 miles out, 60 m right, 20 m high, 5 degrees
+// off, 8 kt over its speed, calm - where the gate, had it judged her, finds
+// her unstabilized for its two seconds running: an AI approach offered the
+// learnt landing, handed to it there, never goes around, and is landed and
+// stopped by it.
+GLIDESLOPE_TEST(the_learnt_landing_at_a_fast_corner_of_its_gate_is_not_sent_round_by_the_stabilized_gate) {
+    using Gate = glideslope::sim::LearntGate;
+    const auto policy = the_policy();
+    const Runway runway = a_runway();
+    auto aircraft = placed("c172p", runway, *policy, Gate::furthest_m - 5.0,
+                           Gate::most_across_m - 0.5, Gate::most_off_glidepath_m - 0.5,
+                           Gate::most_off_heading_deg - 0.1,
+                           policy->vref_kts + Gate::most_over_vref_kts - 0.2, policy->flaps);
+    check(glideslope::sim::outside_learnt_gate(*aircraft, runway, *policy).empty(),
+          "she is at the gate");
+    glideslope::sim::Controller controller(*aircraft, glideslope::sim::trimmed_controls(*aircraft));
+    controller.to_ai_approach(runway, speeds(), policy);
+    bool handed = false;
+    long unstable_steps = 0;
+    long most_unstable_steps = 0;
+    std::string why;
+    bool went_around = false;
+    bool stopped = false;
+    for (long tick = 0; tick < 420L * steps_per_second && !stopped; ++tick) {
+        aircraft->set_controls(controller.fly());
+        aircraft->step();
+        const LearntLander* l = controller.learnt();
+        handed = handed || l != nullptr;
+        if (l != nullptr && l->stage() == LearntLander::Stage::flying && !l->touched()) {
+            const std::string now = glideslope::sim::unstabilized(
+                runway, speeds(), l->rollout().glidepath_deg(), l->rollout().along_m(),
+                l->rollout().above_m(), aircraft->state().airspeed_kts);
+            unstable_steps = now.empty() ? 0 : unstable_steps + 1;
+            if (unstable_steps > most_unstable_steps) {
+                most_unstable_steps = unstable_steps;
+                why = now;
+            }
+        }
+        went_around = went_around || controller.circuit() != nullptr ||
+                      (controller.lander() != nullptr &&
+                       controller.lander()->stage() == glideslope::sim::Lander::Stage::go_around);
+        stopped = l != nullptr && l->stage() == LearntLander::Stage::stopped;
+    }
+    std::printf("  unstabilized %.1f s running at most (%s); %s, %s\n",
+                static_cast<double>(most_unstable_steps) / steps_per_second, why.c_str(),
+                went_around ? "WENT AROUND" : "no go-around",
+                stopped ? "stopped by the learnt landing" : "NOT STOPPED");
+    check(static_cast<double>(most_unstable_steps) >=
+              glideslope::sim::StabilizedApproach::sustained_s * steps_per_second,
+          "the gate would have sent her round: so the exemption is tested");
+    check(handed, "she was handed to the learnt landing at its gate");
+    check(!went_around, "the learnt landing was not sent round");
+    check(stopped, "the learnt landing stopped her");
+}
+
 GLIDESLOPE_TEST(an_ai_approach_is_handed_to_the_learnt_landing_inside_its_gate_and_landed_within_its_limits) {
     const auto policy = the_policy();
     const Runway runway = a_runway();

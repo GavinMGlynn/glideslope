@@ -293,6 +293,64 @@ approach lander goes around, from the approach or the flare, and says why
 (`Lander::why_gone_around`); the go-around circuit then flies her round
 to land again, as from a balloon.
 
+**Adapted, not adopted.** The 500 ft gate is airline practice (FSF ALAR
+Briefing Note 7.1's VMC gate) and the +10/-5 kt is the Private Pilot ACS's
+approach standard; neither is a rule the AI is bound by, and both are
+applied here as the go-around's trigger.
+
+**Sustained, not momentary** (from the review of #146). Judged step by step,
+a gust's spike sent 12 of 14 aeroplanes round from a well-flown approach in
+the gusts test's severity-3 turbulence. FSF ALAR Briefing Note 7.1:
+"momentary overshoots made necessary by atmospheric conditions are
+acceptable", frequent or sustained ones are not. The gate now goes around
+only after two seconds running unstabilized (`sustained_s`, a stated
+choice). The target already carries half the gust factor where the approach
+is flown so (the AFH's practice, the gusts test's +5 kt). The 787-8 in those
+gusts still sits 8 kt slow for over two seconds at 390 ft - sustained - and
+is named in the test as the lander's gust tail, not the gate's.
+
+**Bounded: two go-arounds for the gate, then the third is landed** (from the
+review). `Controller` counts the go-arounds the gate made since the approach
+was given; from `most_go_arounds` (2) the next approach is flown with the
+gate waived - a balloon or a runway not clear still sends her round. Airline
+practice commonly allows two approaches and then a diversion; this AI has
+no diversion, and a circuit flown for ever is no answer, so landing is the
+stated choice over holding.
+
+**No floor on the touchdown zone's go-around.** A float past the zone's end
+at a few feet goes around (two seconds on): the AFH (ch. 9, "Go-Arounds
+(Rejected Landings)") treats a go-around as possible at any point in the
+landing, down to the flare, and a landing past the first third is the one it
+says to reject. Touchdown margins to the zone's end, the least in each test
+(linux-release): fast 190 m, too high 189 m, as flown 192 m (each the
+Mosquito, touching ~724 m along a 914 m zone), gusts 227 m (the Mosquito),
+the short runway 90 m (the Cherokee, 177 of 267 m).
+
+**The go-around climbs to 300 ft/min, not only out of a sink.** Gone around
+two seconds after the gate (now sustained), a Cherokee 17 kt fast at 470 ft
+held the path's incidence and flew level at full power under the 500 ft
+that ends a go-around, for half an hour. The incidence now rises a degree
+for each 200 ft/min she climbs slower than 300.
+
+**Verification of the review's fixes**, each seen red first:
+- `an_approach_flown_well_in_gusts_is_not_sent_round_by_the_stabilized_gate`
+  (14, the 787-8 named): judged a step at a time, 12 sent round ("5 kt slow
+  at 478 ft" and the like); now none.
+- `an_approach_unstabilized_every_time_goes_around_twice_and_then_lands`: the
+  172P with air rising 4 m/s on every short final goes around twice ("12 kt
+  fast at 293 ft"), flies the circuit each time, and lands the third,
+  stopped 945 m along. Unbounded: five go-arounds and no landing in the half
+  hour.
+- `the_learnt_landing_at_a_fast_corner_of_its_gate_is_not_sent_round_by_the_stabilized_gate`
+  (test_learnt.cpp): at the corner 2.4 miles out, 60 m right, 20 m high, 5
+  degrees off and 8 kt fast, the gate would find her unstabilized for 46.6 s
+  running; handed the learnt landing she never goes around and is stopped.
+  With the gate applied to the learnt landing: sent round at 500 ft ("33 kt
+  fast"), not stopped.
+- 181 tests matching the landing, lesson, circuit, go-around, gusts, stall,
+  instructor and learnt-landing names pass; the selftest hash is unmoved
+  (`182dd6c996e0ee4c`).
+
 **The aim is inside the touchdown zone on any runway.** On a runway under
 900 m the first third is shorter than the 300 m the approach aimed at, and
 every approach there went around for the zone, round the circuit for ever.
