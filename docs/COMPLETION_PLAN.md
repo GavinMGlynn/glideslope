@@ -8,14 +8,15 @@ the design decisions behind it in `REQUIREMENTS.md`.
 
 **`[x]` means 100% of the item, and nothing less.** An open item names what is
 missing. An item without a verification cannot be ticked. Tails found while
-implementing something go in at the bottom the moment they are found.
+implementing something go in the phase they belong to, among its open items, if they
+are a regression or a correctness bug; anything else goes to Later (owner, 2026-10-09).
 
 `[x]` done · `[ ]` not started, or **In progress** where the text says so
 
 **The plan is finished when this returns nothing:**
 
 ```sh
-sed -n '/^## Phase /,/^## Tails/p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
+sed -n '/^## Phase /,/^## Later/p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
 ```
 
 The phases are worked in order: the flight model and state set/resume first, the
@@ -339,574 +340,10 @@ ends in a debrief, never a score.
 
 ---
 
-## Tails
+## Phase 9 — Aircraft and flight models
 
-Found while implementing something else. Added when found, not when remembered.
+Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to what its handbook or manual publishes.
 
-- [x] **On tight, slow orbits the navigator flies inside the circle.**
-      *Verification: an orbit at the tightest radius allowed, at the approach
-      speed, is flown within a stated distance of its circle, measured, not
-      assumed.* Done 2026-09-30: every light aeroplane within 60 m, Claude's
-      CBD plan within 19 m; what cannot be flown is the two tails below.
-
-- [x] **A plan may fly a jet clean at its approach speed**, a flaps-down
-      figure: round their tightest orbit at it, six jets come down to the
-      ground and the A320 loses 600 ft. The planner needs a clean floor for
-      each aircraft. *Verification: every aircraft holds every speed a plan
-      may ask of it round its tightest orbit, measured.* Done 2026-10-02:
-      each aircraft's slowest and fastest are measured and in its figures
-      file; plans, the copilot's routes and plan files outside them are
-      refused; all sixteen hold their height and speed round the orbit
-      every 5 kt between them.
-
-- [x] **At its fastest, a fast aircraft's tightest orbit is flown well off
-      its circle.** Round 13 to 19 km circles at 300 to 360 kt the jets
-      hold their height and speed but wander up to 18% of the radius off the
-      circle (3.3 km, the F-15C); the light aeroplanes stay within 60 m.
-      *Verification: every aircraft at the fastest a plan may ask holds its
-      tightest circle within a stated distance, measured.* Done 2026-10-06:
-      once round the join every jet holds within 2% of the radius and the
-      rest within 60 m, on Linux and Windows; a plan's fastest now leaves 5
-      kt of full-throttle speed in hand, which brought six aircraft's down.
-- [ ] **A glide may still be asked of a jet at its approach speed.** Now
-      measured, and each aircraft's slowest glide, measured, is in its
-      figures file; every aircraft glides round unstalled but the F-22,
-      which departs at every speed it may glide at, why not found.
-      *Verification: every aircraft glides round its tightest orbit at every
-      speed a glide may be asked at without stalling, measured.*
-- [x] **A model cannot plan the 747-400 or the F-22, nor a copilot route
-      them.** Neither publishes an approach or a take-off speed, and a
-      model's plan takes off. *Verification: a model plans each of the
-      sixteen aircraft and its plan is flown.* Done 2026-10-06: their take-off
-      speeds are measured from their models (the owner's decision); each of
-      the sixteen is planned and routed from its own speeds, and takes off;
-      Claude's plans for the two are recorded and flown round their orbits.
-- [ ] **A jet's orbit entered from a waypoint swings 460 m off its circle.**
-      Flying Claude's plan round the CBD, the 747-400 and F-22A held their
-      height but strayed up to 460 m off 7 and 9 km circles, against the
-      60 m a Cessna holds. *Verification: each jet flies a model's orbit
-      within 60 m of its circle.*
-- [ ] **The B-2 and the F-22 yaw from side to side in a crosswind when
-      slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
-      of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is
-      kept above 194 and 255 kt for it. Since 2026-10-07 each has its own
-      yaw damper and their plans fly from 159 and 140 kt, every plan speed
-      of every aircraft held. Missing: below their plan floors, from their
-      approach speeds, the 737-300 (137-157 kt), A380 (136-186), B-2
-      (124-149), Learjet (125) and F-35B (159-169) still swing or leave
-      their models' tables. *Verification: every aircraft holds a heading
-      in a 20 kt crosswind from its approach speed up, its sideslip within a
-      stated bound.*
-
-- [x] **In wind the Cub and the Cherokee yaw from side to side.** Holding
-      a heading in a 10 kt crosswind, with no plan, the autopilot's J-3 Cub
-      and PA-28 sideslip 35 degrees either way every few seconds; in calm air
-      they do not. (The Cessnas did too, at cruise.) The autopilot now damps
-      yaw, and their orbits in wind are flown again. *Verification: every
-      light aeroplane holds a heading in a 20 kt crosswind with its sideslip
-      within a stated bound.*
-
-- [x] **Offer the learnt landing in a session.** A player's 172 on final
-      is handed to it at its gate on a server and landed - L in the window
-      client, which says why on its HUD when refused - and an AI 172 whose
-      flight plan ends in a landing (`land`) is flown on to the final approach
-      and handed to it at the gate. *Verification: an AI aircraft on a server is
-      landed by it when asked, and a client's aircraft handed over at the
-      gate is too.* Done 2026-10-08: the AI flying `sydney-arrival.plan` and
-      the window client's 172 both landed within 5 m and 300 ft/min and
-      stopped on the runway; the window client refused with its flaps moving,
-      told why, and handed over by L.
-- [ ] **An AI aircraft that arrives between two layers inside 1.5 nm of
-      one is under the minimum until it has turned 1.5 nm away** (39 s
-      measured): nothing yet moves the layers apart to make room, and a
-      handed aircraft flying a copilot's route is not measured in a run.
-      *Verification: every AI aircraft a server runs, planned or not, stays a
-      stated distance from every other along the whole of its route,
-      measured over a whole run.*
-
-- [x] **On the DEM at Sydney's 16R the runway is not flat enough to take off
-      from.** *Verification: every aeroplane takes off from 16R on the DEM,
-      and what the collision ground under a runway may do is measured.* Done
-      2026-10-06: flattened 2026-10-01, and with the 747-400 and F-22A given
-      take-off speeds, all fifteen landplanes take off from 16R and fly on to
-      the orbit; the ground under seven reference runways is measured and held.
-
-- [x] **After the take-off hands over, the Learjet 35A and the Mosquito come
-      down on Botany Bay.** *Verification: every aeroplane that takes off
-      from 16R flies the plan to its orbit with nothing wrecked.* Done
-      2026-10-06: the plan asked both for 80 knots, below their stalls. The
-      fix is the 2026-10-02 refusal of such plans; the test now flies each
-      at speeds it may be planned at, and all thirteen reach the orbit.
-
-- [x] **Runways that meet at different slopes still pull each other's
-      surface.** *Verification (the owner's, 2026-10-07): no runway in the
-      world pulled more than 0.1 m off where pavements overlap, and the
-      overlaps' worst measured and stated.* Done 2026-10-07: the nearest
-      runway now wins; off the overlaps none is pulled more than a
-      millimetre; on them the worst is 0.61 m (LKMB 04/22), 262 over 0.1 m.
-
-- [x] **The F-15C landed wheels-up rocks from wing tip to wing tip, and on
-      Windows it now breaks up.** *Verification: the F-15C rests on its
-      airframe without rocking, and the wheels-up test passes on every
-      platform.* Done 2026-09-26.
-
-- [x] **The network checks on macOS drew another aircraft metres off** (8.6 m
-      at 100 ms, 8.5 m at 200 ms). *Verification: the cause found, and the
-      check run a hundred times on macOS within its bound.* Done 2026-09-30:
-      an aircraft guessed through late updates now comes back from where it
-      was drawn; both checks passed a hundred times each on macOS.
-
-- [x] **A HUD test fails, rather than skipping, when the weather service
-      does not answer** (Windows CI, 2026-09-25: WinHTTP 12002 from
-      Open-Meteo). *Verification: with no weather to be had, the HUD tests
-      that fly in live weather report themselves skipped.* Done 2026-09-25:
-      skipped even where the network is required, since live weather is
-      never kept. A service that refuses the request, or an answer that
-      can't be read, still fails there, and so does a missing DEM.
-
-- [x] **A client the server has let go cannot come back.** Both clients now
-      join again by themselves, and neither does when the operator dropped
-      it. *Verification: a client stalled past the timeout joins again by
-      itself - the command-line client and the one with the window.*
-- [x] **Nothing tests a client going back to its old session** when a forged
-      refusal made it try to join again. Both clients are now tested; the
-      command-line one, back in its session, numbered its inputs from 1 again
-      and the server dropped them - fixed. *Verification: a client refused by a
-      forger while its session is merely quiet goes back to that session, and
-      the server makes no second player - both clients.*
-- [x] **A client goes back to a session already let go** when an update the
-      server sent before letting it go arrives while it joins again: the
-      server has admitted its new initiation, so a ghost session holds a slot
-      and an aircraft until its timeout, and the client is lost for about 13 s.
-      *Verification: a client whose session was let go, with the server's last
-      updates held until it tries to join again, joins again without going
-      back, and is admitted once.* Done 2026-10-06: it goes back only on the
-      old session's answer to a knock of its own.
-- [x] **The client with the window builds its flight without reading its
-      socket**, so a slow build can outlast the server's timeout and be let
-      go. Its session is now kept from a thread of its own whenever it is
-      away - building its flight, or in any long frame. *Verification: a
-      window client that takes longer than the server's timeout to build its
-      flight is not let go, nor one whose frames take longer.*
-- [ ] **The client's half of a session is written twice** - the command-line
-      client's own and the shared one the window client uses - and a bug was
-      found in one and not the other. Joining again, knocking and believing
-      a refusal are one piece now; the rest - the handshake, reading updates,
-      the stall and the goodbye - is still two. *Verification: both clients
-      use one session, and every rejoin and going-back test passes through it.*
-- [x] **Nothing tests the client with the window refused `DROPPED`** when every
-      one of the server's goodbyes was lost. *Verification: a window client
-      dropped with its goodbyes lost tries to join again, is refused, and stops
-      saying it was dropped.* Done 2026-10-06.
-- [x] **The tests' fixed ports lay in Linux's ephemeral range** (478xx, where
-      it hands out 32768 to 60999), so a client's socket could take one before
-      its test's server listened: "cannot listen on port 47853" on CI,
-      2026-09-26. They now come from one block, 24700 to 24799, below every
-      platform's ephemeral range. *Verification: a test walks every test's
-      port, relays included, and fails on one in 32768-65535, outside the
-      block, or shared; seen to fail with 47853 put back.*
-- [x] **A client cannot say it is leaving**, so a server notices only by
-      the silence. *Verification: a client that leaves is let go at once.*
-      Done 2026-09-26: both clients say goodbye, sealed, as they go, and the
-      server lets them go at once; a goodbye from anyone else lets nobody go.
-- [x] **One player on two addresses flies two aircraft**: a client that
-      starts again from a new port while its old session is still live is
-      given a second aircraft until the old one times out. *Verification: a
-      second session for a key takes over that player's slot and aircraft,
-      and a test with one key on two addresses counts one aircraft.* Done
-      2026-09-29: it takes over once it has sent something sealed, which a
-      replayed handshake cannot, so a replay takes nothing from a live player.
-- [x] **A player who starts again on a full server waits out the timeout**:
-      their new session is refused as a stranger's would be, because the
-      server spares a full session the work of finding out who is asking.
-      *Verification: on a server of one player, the player started again from
-      a new port is flying again at once.* Done 2026-10-02: a full server
-      reads an initiation as far as its key, a few times a second at most, and
-      lets a player's key back in; a stranger is still refused.
-- [x] **The client with the window does not blend its own aircraft at a
-      switch** - handed over (A on a server), taken back or taken over - as
-      the network checks' model of a display does. *Verification: what it
-      shows of its own aircraft, measured sixty times a second across each
-      switch, steps less than 5 m at a hand-over and a take-back, and less
-      than 2.5 m at a take-over, where unblended it is about 5 m - each past
-      its bound with the blend taken out.* Done 2026-09-27: 1.1 m at worst.
-- [ ] **A client whose every frame is slow is not shown to stay under the
-      20 m correction bound** (the window client beside other tests in a
-      sanitized build, every frame 0.8 s and more: 21.4 m once; CI run
-      36674576086, the slow-frames test: linux-debug 20.624 m, windows-debug
-      29.491 m). The plain on-server window test on the debug presets is in
-      the same regime. *Verification: the
-      on-server window test with every frame held a second stays under 20 m.*
-- [x] **The client with the window is not tested with its updates
-      reordered across a take-over**; it has the guard the command-line client
-      needed. *Verification: an update from before the take-over, heard after
-      it, leaves the client flying the aircraft it took.* Done 2026-10-06.
-- [x] **The HUD check read the horizon, crossing the rows below the HUD, as a
-      line of the HUD.** *Verification: a line that does not begin at the
-      HUD's margin is not judged, and an extra HUD line still is.* Done
-      2026-09-25.
-- [x] **`tools/windows_build.sh` does not work from a git worktree**, where
-      agents work: Windows git cannot follow a worktree's `.git` file.
-      *Verification: an agent's worktree builds on Windows with the script
-      as it stands.* Done 2026-09-26: it fetches from the repository's
-      common git directory instead of the working tree.
-- [x] **The horizon can cross the HUD's own rows**, and three HUD checks
-      compare those lines exactly. *Verification: a frame with the horizon
-      drawn across every HUD row, built on purpose, is read and judged
-      correctly.* Done 2026-09-25: the text is drawn small enough to stay
-      left of the horizon; under 474 pixels wide the horizon crosses it.
-- [x] **The horizon can cross the checklist's rows** too, down the top right,
-      and the checklist test compares them whole. *Verification: a frame with
-      the horizon drawn across every checklist row, built on purpose, is read
-      correctly.* Done 2026-09-26: the checklist is drawn over a panel that
-      dims what is behind it by half, as the credits are, so the horizon
-      shows through it rather than crossing its letters.
-- [x] **A weather service's answer that is not JSON ended the flight.**
-      *Verification: an answer that is not JSON is fetched again, and three
-      in a row are a download that failed.* Done 2026-09-25.
-- [x] **Tests that need a download failed, rather than skipping, when
-      Open-Meteo answered with something that was not JSON** (Windows CI,
-      2026-09-26). *Verification: with the weather service unreachable, or
-      answering nothing or a page that is not JSON, the live-weather unit test
-      and the HUD tests report themselves skipped; an answer that begins as
-      JSON and does not parse, or is JSON but not a report, still fails.*
-      Done 2026-09-27: one shared rule for the client tests' skips.
-- [x] **The HUD tests failed when Open-Meteo answered 429, Too Many
-      Requests** (Windows CI, 2026-09-27). *Verification: a 429 is tried
-      again after the wait it asks for, never more than 10 s, and a 429 to
-      every try is weather not to be had, so the HUD test skips; any other
-      refusal still fails.* Done 2026-09-27.
-- [x] **Quitting during a slow or rate-limited weather refresh could hang
-      the exit for about 80 s.** *Verification: quitting while the weather
-      service answers 429 ends the program within a couple of seconds.* Done
-      2026-09-29: within 2 s of a quit with no refresh, while refused with a
-      429 and while a download never finishes, on Linux and Windows.
-
-- [x] **A client opened the model a server named as a path.** *Verification:
-      every aircraft's id is known by the catalogue and eight hostile ones are
-      not.* Done 2026-09-25.
-
-- [x] **The client with the window does not hand over on a server**: pressing A
-      online does nothing. *Verification: the client with the window hands its
-      aircraft to the AI and takes it back on a server, and what it shows does
-      not step; A pressed during a take-over's round trip hands over the
-      aircraft taken, or, the take-over refused, the one kept.* Done
-      2026-10-07: the server says when it refuses a take-over (protocol
-      version 7), and A waits for the answer.
-
-- [ ] **The client with the window does not blend corrections to its
-      prediction**, as the command-line client does. *Verification:
-      corrections are blended, and the largest step away from a switch is
-      held to a bound, failing clearly with the blend taken out.* The blend
-      is in and unit-tested (2026-09-29). Still missing: large corrections
-      built through the client itself, a bound on the hand-over test seen to
-      fail, and whether the older steps CI saw (6.2 and 24.5 m in the
-      hand-over test, 2.77 m at a take-over) were the session's clock,
-      which stepped under long, uneven frames and is now slewed (2026-10-09).
-- [x] **The display model is written twice**, in the command-line client
-      and in the client with the window. *Verification: one presentation-free
-      module serves both, with a unit test that builds long frames across a
-      switch and bounds the step.* Done 2026-10-06.
-
-- [x] **A headless client drawing thousands of frames runs the software
-      Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a
-      headless client draws ten thousand frames, and its memory stays level.*
-      Done 2026-09-26.
-- [ ] **The autopilot's stall recovery, held to what a stall lesson can
-      ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). *Verification:
-      every aeroplane taught a stall is recovered within 2 g both handed over
-      at its stall warning, within its lesson's height with no exceptions,
-      and left thirty seconds in it, within a height worked out for it from
-      its speed and sink.* Both checks exist, the instructor flies the
-      recovery, and engaging or letting it go steps no control (that test
-      not yet seen to fail). Still missing: left thirty seconds, the A320
-      (1.95 g) and Mosquito (2.22 g) over 2 g, their wings passing their
-      lift's peak at speed; at the warning the F-15C, F-35B, Learjet and
-      S.23 past their lesson's height and the Mosquito never level again;
-      and the AI pilot noticing a stall.
-- [x] **A client assumed the server's clock keeps real time**, and drew other
-      aircraft from guesses when a slow server's clock ran behind. *Verification:
-      against servers at 80%, 100% and 125% of real time, with jitter and loss,
-      the client's clock stays within 20 ms ahead and 50 ms behind.* Done
-      2026-09-25.
-- [x] **On Windows a DEM tile can fail to open while another test renames a
-      fresh copy into place.** Seen on CI: `cannot open ...S34_00_E151_00_DEM.tif`.
-      *Verification: many processes fetching and reading one tile at once on
-      Windows all read it.* Done 2026-09-25: tiles are opened sharing
-      deletion; sixteen fetchers and readers at once, 200 times over, all read
-      the whole tile on Windows, where before the fix 1396 of 3200 could not
-      open it.
-- [x] **On Windows a DEM tile can be refused as `Access is denied` while a
-      second fetch replaces it** (CI, windows-clang, 1 of 3200 threads).
-      *Verification: a tile, a water mask and a pinned file whose name is
-      held delete-pending are each waited for and read whole on Windows, and
-      the many-at-once test passes 20 times over there.* Done 2026-09-26: a
-      fetched file never replaces one already in place, and a refusal that
-      passes is asked again for up to 3 seconds.
-- [x] **A cached tile cut short by a power cut is never fetched again.**
-      Nothing flushes a download to disk before it is moved into place, and
-      nothing deletes a cached file that cannot be read. *Verification: a
-      cached tile cut short, or damaged, is fetched again and read whole.*
-      Done 2026-09-30: downloads reach the disk before they take their name,
-      and a cached tile, water mask or pinned file that cannot be read whole
-      is taken away and fetched again - a tile once, not on every query.
-- [x] **Over a network a client's own aircraft is corrected by metres**, because
-      the server does not say how far into its latest input it had flown.
-      *Verification: through 200 ms with jitter and loss, the worst prediction
-      error is under a metre.* Done 2026-09-27: the server says it, and the
-      client places the server's word on its own clock by it. A unit test
-      with built jitter and loss holds a metre on every machine (1 cm at
-      200 ms); the network checks measured 0.26 and 0.39 m at 200 ms.
-- [ ] **A server that falls behind real time puts its clients' prediction off
-      by metres**: it flies each input for fewer steps than the client does.
-      *Verification: a server slowed on purpose keeps a predicting client's
-      error under a metre.* Both clients now fly at the server's pace
-      (2026-10-08); the command-line client holds it. Still missing: the
-      window client is still put right 6 to 9 m against a slowed server, and
-      10 to 13 m against one keeping time, untested and unexplained; and on
-      Windows one update in a hundred is off by two steps (1.1 m) - a named
-      limit, its cause found (2026-10-08), not fixed.
-- [ ] **On Windows the server's word is placed two steps off now and then**:
-      Windows' 15.6 ms timers spread the clocks' difference, and the least of
-      it moves. *Verification: on Windows debug the paced test's 99th
-      percentile under a metre in ten runs.*
-- [ ] **The window copilot test's copilot never answered once** (Windows
-      release): asked, then nothing in five minutes, the aircraft on the
-      ground. *Verification: the cause named, and a month of CI runs without
-      it failing.*
-- [x] **Two server tests counted wall-clock seconds on slow runners**: one
-      counted inputs still in flight, and a late client arrived before a slow
-      server was flying. *Verification: the client waits for its last input to
-      be applied, and the late one for the server to say it is flying; each is
-      seen to fail on a deliberate bug.* Done 2026-09-24.
-- [x] **The hooks' test, run by the pre-push hook, committed into the
-      repository being pushed** and set it bare. *Verification: run with git's
-      hook variables naming a decoy repository, it leaves the decoy exactly as
-      it was.* Done 2026-09-24.
-- [x] **CI's actions run on Node.js 20, which GitHub has deprecated.**
-      *Verification: a CI run's annotations name no action as targeting
-      Node.js 20.* Done 2026-09-24.
-- [x] **Windows debug programs can crash on their way out**, when Windows
-      starts a thread as they exit. *Verification: a program can still
-      allocate in the last call the loader makes into it, and the tests that
-      crashed run hundreds of times without a crash.* Done 2026-09-24.
-- [x] **The state-stream test measured the runner, not the server.**
-      *Verification: every update is counted against the simulation's own
-      steps, exactly, and one dropped in ten fails it.* Done 2026-09-24.
-- [x] **The handshake is not quite the Noise protocol it is named after**, so a
-      standard Noise client cannot complete it. *Verification: the handshake
-      completes against an independent Noise implementation.* Done 2026-09-24:
-      both ends match the `cacophony` implementation's known-answer vector byte
-      for byte.
-- [x] **Two players can be given the same aircraft number.** A slot is a key's
-      rank, so a player whose key sorts first moves everyone after them; the
-      server numbers a player's aircraft by the slot it had on arrival, and a
-      later player can be handed a number already flying. *Verification: four
-      clients joining in the reverse of their keys' order each fly their own
-      aircraft, under four different numbers.* Done 2026-09-24.
-- [x] **Stalls entered in the landing configuration.** *Verification: the
-      stall is entered in the configuration its reference speed was measured
-      in, and every aeroplane recovers within the lesson's height.* Done
-      2026-09-23.
-- [x] **The runway lessons fly at their figures' weight.** *Verification:
-      every lesson flies at its figures' weight, with the circuit still flying
-      its pattern.* Done 2026-09-23.
-- [x] **The PA-28 loses five times the height the other light aircraft lose
-      entering a stall.** *Verification: all four enter a stall within the same
-      band.* Done 2026-09-23: it was the clean entry.
-- [x] **The F-15C, F-35B and Learjet leave the ground far past their rotation
-      speed.** The F-15C lifts off at 230 knots where its flight manual gives
-      157. *Verification: each lifts off within ten knots of its rotation
-      speed, and can be rotated early.* Done 2026-09-26: all thirteen
-      landplanes, at every loading, leave within ten knots of their rotation
-      speed for their weight and sooner when rotated early; the F-15C's model
-      speed is itself 21 knots above its manual's.
-- [x] **The Learjet ends its landing roll nose down through the runway.**
-      *Verification: every aeroplane the AI lands ends its rollout upright on
-      its wheels.* Done 2026-09-24: the Learjet already stopped level; three
-      jets bounced off the runway and one rocked a wingtip on to it. Jets now
-      land as jets are landed - nose down, spoilers out, brakes on.
-- [x] **The F-35B's circuit touches down two kilometres short of the
-      runway**, at 165 knots, and rolls on to it. Nothing checks where along
-      the runway a circuit touches. *Verification: every circuit touches down
-      on the runway, past its threshold.* Done 2026-09-27: every circuit and
-      every approach lesson now touches down on the runway, past its
-      threshold; the approach autopilot held the F-35B's nose below what her
-      glidepath needs.
-- [x] **The flare starts at no more than 10 degrees of pitch**, so an
-      aeroplane on the glidepath above that (the F-35B) has its nose pushed
-      down at 30 ft and touches down flat and fast. *Verification: every
-      aeroplane's flare begins at the attitude it flew the glidepath at, and
-      its touchdown pitch is below its tail-strike attitude.* Done 2026-09-27.
-- [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
-      (26-28 minutes a Windows configure). *Verification: a new runner image
-      costs one rebuild, saved, not one per run.* Windows restores from public
-      GitHub Packages, which pull requests may now write to; no pull
-      request's upload is seen yet. Linux and macOS use a cache keyed on the
-      image. No new Windows compiler came in the week to 2026-10-07 (every
-      configure restored all 39 packages), so the rebuild is not yet seen.
-- [ ] **A CI run takes 90-120 minutes where its jobs need about 40**: the
-      Actions caches overflowed their 10 GB and builds compiled from nothing.
-      *Verification: pull requests' builds restore main's ccache with most
-      compiles hits, and a run's time from push to result is measured and
-      stated.* Run 37570543750 (2026-10-07, four other runs queued beside
-      it): warm builds 2.6-3.9 min, but clang-cl's ccache had been evicted
-      (0 hits, 17 min), because two generations of main's caches stood
-      together until a run ended. Each build now prunes its older entry as
-      soon as it saves, and a merge no longer saves the 3 GB downloads
-      again. Not yet seen on main. Run 37577077798: 63 minutes from push
-      to result, all but macOS done in 37; macOS's five runners, shared
-      with other runs, set the rest.
-- [x] **CI's Windows builds have no compiler cache**, so each compiles
-      everything on every push (build jobs 14-17 minutes). *Verification: on
-      CI, a Windows build after a saved cache hits most of its compiles, and
-      its build job's time is measured cold and warm.* Done 2026-10-07:
-      MSVC's builds hit 791 of 792 compiles, 4 minutes; clang-cl's 722 of
-      824 with a pull request's changes, a 7-minute job (run 37561340650),
-      against 17 minutes cold (run 37570543750).
-- [x] **CI's cost tables do not know the plan-speed tests.** The eight
-      tightest-orbit tests, renamed or new, and the one-step-past test
-      (2026-10-02) count 60 s each in tests/ci_costs until a green run is
-      measured with tools/ci_test_costs.py. *Verification: every test in
-      the tables, from a green run.* Done 2026-10-07: every table from three
-      green runs, no shard warning of an unmeasured test; the shard counts
-      raised to about 15 minutes of measured work each.
-- [ ] **A Windows configure on CI sometimes takes 30 minutes in vcpkg**,
-      even after an exact hit on its binary cache. *Verification: every
-      Windows configure whose vcpkg cache hit takes under 3 minutes, over a
-      week of runs on main.* Found 2026-09-30: a rebuild on a newer image's
-      compiler, repeated by every pull request; pull requests may upload now.
-      Counted 2026-10-07: no rebuild since 2026-09-30, vcpkg's restore under
-      a minute every time, but 8 of 163 configures took 3-6 minutes, in
-      SDL's compiler checks after vcpkg had finished - still over the bound.
-- [ ] **One test takes 15-22 minutes in Linux debug**: the AI aircraft
-      kept 500 ft or 1.5 nm apart, 882 s and 1,295 s, so its shard ran 26
-      minutes of a 30-minute limit whatever the dealing. *Verification:
-      every test under 10 minutes on CI's Linux debug.*
-- [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
-      43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
-      *Verification: every shard's longest run on CI stays under two thirds of
-      its job's limit.* Done 2026-09-29: tests are dealt to shards by their
-      measured cost, a fixture with its tests, and a test checks every shard
-      between them runs every test once; the worst shard on CI took 17.7 of
-      30 minutes, macOS debug's 11.8.
-- [x] **Taking an aeroplane back on its landing roll does not finish the
-      landing**: it is handed the plain autopilot, which never stops it.
-      *Verification: an approach taken back on the roll is landed to a stop.*
-      Done 2026-09-27: every landplane, taken back at the touch, at half
-      speed or after the pilot's own touch, stops on the runway upright; the
-      flying boat, never still afloat, is left out.
-- [x] **A landing the pilot flies with no approach given to the AI is
-      still handed the plain autopilot** when the AI takes it back on the
-      roll, and is never stopped. *Verification: an aeroplane landed by
-      hand and taken back on the roll is landed to a stop.* Done 2026-10-06:
-      every landplane so handed over stops on the runway, held to the line
-      she rolls along and braked at autobrake 3.
-- [x] **The AI knows no runway for a landing flown by hand**: taken over on
-      the roll it holds her track and brakes at a fixed rate, not for the
-      runway left. *Verification: a landing flown by hand on a short runway
-      is stopped on it by the AI.* Done 2026-10-08: she is given the world's
-      runway she rolls on and braked for what is left of it; every landplane
-      stops on a 1,500 m runway, where six ran off it.
-- [x] **An A320 taken at the touch by a pilot who lets the stick go rises
-      4.1 ft after the AI takes her back**, against three for everything
-      else. *Verification: every landplane taken back at the touch rises
-      less than three feet after it.* Done 2026-10-06: she rises 0.8 ft,
-      and her named bound is gone.
-- [x] **The AI's own touchdown in the 787-8, F-15C and F-35B is a crash by
-      the server's rule** (707, 976 and 883 ft/min, past the gear's 600).
-      *Verification: every aeroplane the AI lands touches down within what
-      its gear takes.* Done 2026-10-01: flared to the wheels, the hardest
-      touches at 469 ft/min (the F-15C) and none rises half a foot after.
-- [x] **Nothing bounds where along the runway a jet touches down**: they
-      touch 520 to 809 m past the threshold, and an F-15C at 800 m would run
-      off a 6,000 ft runway. *Verification: every aeroplane the AI lands
-      touches inside a touchdown zone stated for it.* Done 2026-10-06: every
-      one in both lessons touches inside the FAA's touchdown zone, the first
-      3,000 ft, at 246 to 725 m.
-- [x] **The F-15C balloons in her flare**, climbing at about 100 ft/min at
-      five feet before settling. *Verification: no aeroplane the AI lands
-      climbs in its flare.* Done 2026-10-06: the F-15C no longer did, but the
-      737-300, A380 and Mosquito did; the flare now judges the sink a moment
-      ahead, and none climbs in either lesson.
-- [ ] **The F-35B lands on her power**: her model flies the glidepath at
-      19.5 degrees of incidence and its flare runs out of nose. *Verification:
-      the F-35B flies her approach at her published incidence and flares
-      with her throttle closing.*
-- [x] **The touchdown sink the AI flares to is set, not published** (200
-      ft/min for jets, 40 otherwise). *Verification: each aeroplane's comes
-      from a source the figures file names.* Done 2026-10-09 (owner's
-      decision): the figures files cite NASA's go-around criteria study,
-      whose touchdown criterion is 360 ft/min, and every aircraft's target
-      is held within it.
-- [x] **The AI does not go around from a balloon**: a Mosquito given back
-      from a pilot's over-pulled flare zooms to fifty feet and comes down at
-      958 ft/min. *Verification: every aeroplane given back in a balloon
-      lands within what its gear takes or goes around.* Done 2026-10-06: the
-      Mosquito goes around to 500 ft and the other twelve land.
-- [ ] **The AI cannot land in gusts**: in moderate turbulence ten of
-      fourteen aeroplanes balloon, bounce or come down hard, and the flying
-      boat is lifted into a go-around; at her light loading the 737-300
-      balloons, and the Mosquito at her heaviest. *Verification: every
-      aeroplane lands light, heavy and in gusts with none named, and a
-      gust on an approach flown well makes no go-around.*
-- [ ] **The AI's go-around circuit knows no traffic**: an approach long or
-      fast now goes around, but two circuits are kept apart only by the
-      separation monitor's height limits. *Verification: an aeroplane that
-      goes around is flown round and landed (done), one arriving long or fast
-      goes around (done), and two going around together are kept apart and
-      both land.*
-- [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
-      stabilized-approach gate does not judge it. *Verification: from every
-      corner of its gate it is stabilized by 500 ft and lands.*
-- [x] **The F-35B climbs away on a raised go-around circuit**: over ground
-      rising beside the runway, on the downwind leg at 2,900 ft she climbs
-      to 6,000 ft and flies on past base. *Verification: she flies the
-      rising-ground go-around and lands, as the other twelve do.* Done
-      2026-10-08: at her highest pitch she could not climb at the speed
-      asked, and the autopilot never asked for more; now it does, and she
-      climbs to her circuit, flies every leg and lands with the other twelve.
-- [x] **The circuit's rules are written twice**: the go-around's circuit
-      and the circuit lessons' AI fly the same legs from separate code.
-      *Verification: the circuit lessons are flown by the go-around's
-      circuit, with their figures unchanged.* Done 2026-10-08: the lessons
-      join it from the take-off, every aeroplane inside the same bands.
-- [ ] **A landing taken over on its roll is braked for a dry runway**: a
-      wet or contaminated one, which needs more, is not known.
-      *Verification: on a wet short runway an aeroplane handed over on its
-      roll still stops on it.*
-- [x] **The B-2A cannot slow down on the approach.** *Verification: the
-      B-2A crosses the threshold within five knots of its reference speed,
-      and rises less than half a foot after it first touches.* Done
-      2026-10-02: flown down with her drag rudders half open she crosses at
-      124.1 knots against 124.0, and flared to her wheels she rises 0.0 ft.
-      A pilot opens them by hand since the speedbrake item below.
-- [x] **A pilot has no control for the speedbrakes.** No stick, throttle or
-      key binding moves the speedbrake lever, so by hand the B-2A cannot open
-      its drag rudders and an airliner cannot use its spoilers.
-      *Verification: the speedbrake lever is moved from a stick, a throttle
-      quadrant and the keyboard, and the bomber lessons' bands come back to
-      what the AI flies.* Done 2026-10-07: a stick's and a quadrant's buttons,
-      the quadrant's last lever, and the semicolon and apostrophe keys move
-      it; the HUD shows it where there are speedbrakes; the bomber lessons'
-      bands are `vref+12` and `vref+15` again, and flown by hand with the
-      lever half out the B-2A stays inside, and stowed she does not.
-- [x] **No in-client help lists the controls.** The keys and buttons are
-      only in the README and the bindings file, not in `glideslope --help`
-      or on screen. *Verification: the client shows every control's key and
-      button, held to the bindings by a test.* Done 2026-10-08: F1 shows
-      every key and every binding, made from the bindings file and the
-      keyboard's own table, and read back off a real frame.
-- [x] **The F-15C's speedbrake draws no drag.** Her model moves the surface
-      but its aerodynamics ignores it, so the lever does nothing in her.
-      *Verification: with the lever out she slows, held level, as the
-      airliners do.* Done 2026-10-07: the F-15 aerodynamic database's drag,
-      31 knots slower in ten seconds from 300; and as there, it stays in
-      past 15 degrees of alpha.
-- [x] **The Learjet's stabilizer cannot trim her in cruise**, so a pilot
-      flying by hand holds the stick forward. *Verification: the Learjet
-      cruises from 250 to 350 knots with its elevator near neutral.* Done
-      2026-09-30: her stabilizer's travel is her maintenance manual's.
 - [ ] **The Learjet cannot be rotated early**: full back stick lifts her
       nose only near her rotation speed. Her heights now come from her
       drawings (2026-10-09) and were not the cause: she leaves at 124 knots
@@ -922,11 +359,6 @@ Found while implementing something else. Added when found, not when remembered.
       allow 14.0 to 15.6 degrees). *Verification: every nose-wheel
       aeroplane's tail strikes the runway where its airframe would, and is
       judged a strike.*
-- [x] **A `--terrain ion` run can hang for ever, past its own timeout.**
-      *Verification: a timed-out run is gone and leaves no cache lock.* Done
-      2026-09-26: against a stand-in ion that never finishes sending, a run
-      told to stop is gone within a second or two, one left alone ends when
-      its frame is written, and either way the cache takes a write at once.
 - [ ] **The F-15C's stall, held to her flight manual's speed** (owner,
       2026-10-09): at full aft stick she settles at 100 knots or less; her
       angle of attack is reported, not judged, as no primary source turns
@@ -935,22 +367,6 @@ Found while implementing something else. Added when found, not when remembered.
       settles at 110.1 knots, and 100 needs 21 per cent more lift and drag
       than she makes at the angle she settles at. *Verification:
       held at full aft stick, the F-15C settles at 100 knots or less.*
-- [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
-      the turn.** *Verification: a light aeroplane near its ceiling holds its
-      height through a 90-degree turn as it does at 3,000 ft.* Done
-      2026-09-24: all four light aeroplanes, through quarter turns and full
-      circles, each way, at two speeds.
-- [x] **The altitude hold flies an aeroplane into the stall when asked for a
-      height it cannot hold.** *Verification: a light aeroplane asked for a
-      height above its ceiling gives up height, not airspeed, and never
-      drops below its best-climb speed.* Done 2026-09-25, for all four light
-      aeroplanes; other classes have no such floor.
-- [x] **A copilot recording breaks when two runways swap places.** Played
-      back, a question matches its recording but for its numbers, so a
-      flight a little different that lists two runways in the other order
-      must be recorded again. *Verification: a played-back flight whose
-      runways come in another order still plays.* Done 2026-10-06: the
-      runways' order is disregarded with their numbers; nothing else's.
 - [x] **The leaner richening an engine that stops while leaned has no
       test.** *Verification: an engine the leaner had leaned, stopped in
       flight, is richened and runs again.* Done 2026-10-06: at 7,000 and
@@ -1001,6 +417,199 @@ Found while implementing something else. Added when found, not when remembered.
       rich below 5,000 ft, and its stall recovery within its lesson.* Done
       2026-10-09: the recovery raises her flaps to her handbooks' 25-degree
       climb-out setting, and she loses 131 ft of 300.
+- [x] **A checklist item's band is not held against what the aeroplane can
+      reach.** *Verification: every band is shown reachable, and one outside its
+      lever's travel turns the test red.* Done 2026-09-21.
+- [x] **Propeller and mixture levers for the pilot.** *Verification: keys and
+      bindings move each lever, and the S.23's and Mosquito's rpm follow them.*
+      Done 2026-09-21.
+- [x] **Four visual models are drawn sunk into the ground.** *Verification:
+      every model's lowest point sits within the same distance of its lowest
+      wheel contact.* Done 2026-09-22.
+- [x] **The F-35A becomes the F-35B.** *Verification: it flies its published
+      Mach and range, its model sits on its flight model, and it rests on its
+      airframe wheels up.* Done 2026-09-22.
+- [x] **Stalls entered in the landing configuration.** *Verification: the
+      stall is entered in the configuration its reference speed was measured
+      in, and every aeroplane recovers within the lesson's height.* Done
+      2026-09-23.
+- [x] **The PA-28 loses five times the height the other light aircraft lose
+      entering a stall.** *Verification: all four enter a stall within the same
+      band.* Done 2026-09-23: it was the clean entry.
+- [x] **The F-15C, F-35B and Learjet leave the ground far past their rotation
+      speed.** The F-15C lifts off at 230 knots where its flight manual gives
+      157. *Verification: each lifts off within ten knots of its rotation
+      speed, and can be rotated early.* Done 2026-09-26: all thirteen
+      landplanes, at every loading, leave within ten knots of their rotation
+      speed for their weight and sooner when rotated early; the F-15C's model
+      speed is itself 21 knots above its manual's.
+- [x] **The Learjet ends its landing roll nose down through the runway.**
+      *Verification: every aeroplane the AI lands ends its rollout upright on
+      its wheels.* Done 2026-09-24: the Learjet already stopped level; three
+      jets bounced off the runway and one rocked a wingtip on to it. Jets now
+      land as jets are landed - nose down, spoilers out, brakes on.
+- [x] **The B-2A cannot slow down on the approach.** *Verification: the
+      B-2A crosses the threshold within five knots of its reference speed,
+      and rises less than half a foot after it first touches.* Done
+      2026-10-02: flown down with her drag rudders half open she crosses at
+      124.1 knots against 124.0, and flared to her wheels she rises 0.0 ft.
+      A pilot opens them by hand since the speedbrake item below.
+- [x] **A pilot has no control for the speedbrakes.** No stick, throttle or
+      key binding moves the speedbrake lever, so by hand the B-2A cannot open
+      its drag rudders and an airliner cannot use its spoilers.
+      *Verification: the speedbrake lever is moved from a stick, a throttle
+      quadrant and the keyboard, and the bomber lessons' bands come back to
+      what the AI flies.* Done 2026-10-07: a stick's and a quadrant's buttons,
+      the quadrant's last lever, and the semicolon and apostrophe keys move
+      it; the HUD shows it where there are speedbrakes; the bomber lessons'
+      bands are `vref+12` and `vref+15` again, and flown by hand with the
+      lever half out the B-2A stays inside, and stowed she does not.
+- [x] **The F-15C's speedbrake draws no drag.** Her model moves the surface
+      but its aerodynamics ignores it, so the lever does nothing in her.
+      *Verification: with the lever out she slows, held level, as the
+      airliners do.* Done 2026-10-07: the F-15 aerodynamic database's drag,
+      31 knots slower in ten seconds from 300; and as there, it stays in
+      past 15 degrees of alpha.
+- [x] **The Learjet's stabilizer cannot trim her in cruise**, so a pilot
+      flying by hand holds the stick forward. *Verification: the Learjet
+      cruises from 250 to 350 knots with its elevator near neutral.* Done
+      2026-09-30: her stabilizer's travel is her maintenance manual's.
+- [x] **Every aircraft's airframe meets the ground with its wheels up.**
+      *Verification: every aircraft landed wheels up rests on its airframe
+      within the stated friction's distance.* Done 2026-09-22.
+- [x] **The F-15C's airframe slides on the wrong friction.** *Verification: its
+      wheels-up landing stops in the stated friction's distance.* Done
+      2026-09-22.
+- [x] **The F-15C landed wheels-up rocks from wing tip to wing tip, and on
+      Windows it now breaks up.** *Verification: the F-15C rests on its
+      airframe without rocking, and the wheels-up test passes on every
+      platform.* Done 2026-09-26.
+
+---
+
+## Phase 10a — Navigator, plans and take-off
+
+The autopilot's navigator and the plans it flies: orbits, glides, the speeds a plan may ask, the take-off, and the lessons' autopilot.
+
+- [ ] **A glide may still be asked of a jet at its approach speed.** Now
+      measured, and each aircraft's slowest glide, measured, is in its
+      figures file; every aircraft glides round unstalled but the F-22,
+      which departs at every speed it may glide at, why not found.
+      *Verification: every aircraft glides round its tightest orbit at every
+      speed a glide may be asked at without stalling, measured.*
+- [ ] **A jet's orbit entered from a waypoint swings 460 m off its circle.**
+      Flying Claude's plan round the CBD, the 747-400 and F-22A held their
+      height but strayed up to 460 m off 7 and 9 km circles, against the
+      60 m a Cessna holds. *Verification: each jet flies a model's orbit
+      within 60 m of its circle.*
+- [ ] **The B-2 and the F-22 yaw from side to side in a crosswind when
+      slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
+      of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is
+      kept above 194 and 255 kt for it. Since 2026-10-07 each has its own
+      yaw damper and their plans fly from 159 and 140 kt, every plan speed
+      of every aircraft held. Missing: below their plan floors, from their
+      approach speeds, the 737-300 (137-157 kt), A380 (136-186), B-2
+      (124-149), Learjet (125) and F-35B (159-169) still swing or leave
+      their models' tables. *Verification: every aircraft holds a heading
+      in a 20 kt crosswind from its approach speed up, its sideslip within a
+      stated bound.*
+- [ ] **The autopilot's stall recovery, held to what a stall lesson can
+      ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). *Verification:
+      every aeroplane taught a stall is recovered within 2 g both handed over
+      at its stall warning, within its lesson's height with no exceptions,
+      and left thirty seconds in it, within a height worked out for it from
+      its speed and sink.* Both checks exist, the instructor flies the
+      recovery, and engaging or letting it go steps no control (that test
+      not yet seen to fail). Still missing: left thirty seconds, the A320
+      (1.95 g) and Mosquito (2.22 g) over 2 g, their wings passing their
+      lift's peak at speed; at the warning the F-15C, F-35B, Learjet and
+      S.23 past their lesson's height and the Mosquito never level again;
+      and the AI pilot noticing a stall.
+- [ ] **A light aeroplane's take-off hands over slower than the plan's
+      climb floor.** The take-off climbs at her climb speed for her weight
+      (the 172P 67 KCAS) and the plan's autopilot at the published one (75),
+      so she accelerates for half a minute after the hand-over; the Cub,
+      with no flap, climbs her first leg 5 kt under either (PROJECT_STATUS,
+      2026-10-09). *Verification: every light aeroplane's first leg is
+      climbed within 2 kt of one climb speed, from the hand-over.*
+- [x] **On tight, slow orbits the navigator flies inside the circle.**
+      *Verification: an orbit at the tightest radius allowed, at the approach
+      speed, is flown within a stated distance of its circle, measured, not
+      assumed.* Done 2026-09-30: every light aeroplane within 60 m, Claude's
+      CBD plan within 19 m; what cannot be flown is the two tails below.
+- [x] **A plan may fly a jet clean at its approach speed**, a flaps-down
+      figure: round their tightest orbit at it, six jets come down to the
+      ground and the A320 loses 600 ft. The planner needs a clean floor for
+      each aircraft. *Verification: every aircraft holds every speed a plan
+      may ask of it round its tightest orbit, measured.* Done 2026-10-02:
+      each aircraft's slowest and fastest are measured and in its figures
+      file; plans, the copilot's routes and plan files outside them are
+      refused; all sixteen hold their height and speed round the orbit
+      every 5 kt between them.
+- [x] **At its fastest, a fast aircraft's tightest orbit is flown well off
+      its circle.** Round 13 to 19 km circles at 300 to 360 kt the jets
+      hold their height and speed but wander up to 18% of the radius off the
+      circle (3.3 km, the F-15C); the light aeroplanes stay within 60 m.
+      *Verification: every aircraft at the fastest a plan may ask holds its
+      tightest circle within a stated distance, measured.* Done 2026-10-06:
+      once round the join every jet holds within 2% of the radius and the
+      rest within 60 m, on Linux and Windows; a plan's fastest now leaves 5
+      kt of full-throttle speed in hand, which brought six aircraft's down.
+- [x] **A model cannot plan the 747-400 or the F-22, nor a copilot route
+      them.** Neither publishes an approach or a take-off speed, and a
+      model's plan takes off. *Verification: a model plans each of the
+      sixteen aircraft and its plan is flown.* Done 2026-10-06: their take-off
+      speeds are measured from their models (the owner's decision); each of
+      the sixteen is planned and routed from its own speeds, and takes off;
+      Claude's plans for the two are recorded and flown round their orbits.
+- [x] **In wind the Cub and the Cherokee yaw from side to side.** Holding
+      a heading in a 10 kt crosswind, with no plan, the autopilot's J-3 Cub
+      and PA-28 sideslip 35 degrees either way every few seconds; in calm air
+      they do not. (The Cessnas did too, at cruise.) The autopilot now damps
+      yaw, and their orbits in wind are flown again. *Verification: every
+      light aeroplane holds a heading in a 20 kt crosswind with its sideslip
+      within a stated bound.*
+- [x] **Offer the learnt landing in a session.** A player's 172 on final
+      is handed to it at its gate on a server and landed - L in the window
+      client, which says why on its HUD when refused - and an AI 172 whose
+      flight plan ends in a landing (`land`) is flown on to the final approach
+      and handed to it at the gate. *Verification: an AI aircraft on a server is
+      landed by it when asked, and a client's aircraft handed over at the
+      gate is too.* Done 2026-10-08: the AI flying `sydney-arrival.plan` and
+      the window client's 172 both landed within 5 m and 300 ft/min and
+      stopped on the runway; the window client refused with its flaps moving,
+      told why, and handed over by L.
+- [x] **On the DEM at Sydney's 16R the runway is not flat enough to take off
+      from.** *Verification: every aeroplane takes off from 16R on the DEM,
+      and what the collision ground under a runway may do is measured.* Done
+      2026-10-06: flattened 2026-10-01, and with the 747-400 and F-22A given
+      take-off speeds, all fifteen landplanes take off from 16R and fly on to
+      the orbit; the ground under seven reference runways is measured and held.
+- [x] **After the take-off hands over, the Learjet 35A and the Mosquito come
+      down on Botany Bay.** *Verification: every aeroplane that takes off
+      from 16R flies the plan to its orbit with nothing wrecked.* Done
+      2026-10-06: the plan asked both for 80 knots, below their stalls. The
+      fix is the 2026-10-02 refusal of such plans; the test now flies each
+      at speeds it may be planned at, and all thirteen reach the orbit.
+- [x] **Runways that meet at different slopes still pull each other's
+      surface.** *Verification (the owner's, 2026-10-07): no runway in the
+      world pulled more than 0.1 m off where pavements overlap, and the
+      overlaps' worst measured and stated.* Done 2026-10-07: the nearest
+      runway now wins; off the overlaps none is pulled more than a
+      millimetre; on them the worst is 0.61 m (LKMB 04/22), 262 over 0.1 m.
+- [x] **The runway lessons fly at their figures' weight.** *Verification:
+      every lesson flies at its figures' weight, with the circuit still flying
+      its pattern.* Done 2026-09-23.
+- [x] **The autopilot banks to its limit even when the aeroplane cannot sustain
+      the turn.** *Verification: a light aeroplane near its ceiling holds its
+      height through a 90-degree turn as it does at 3,000 ft.* Done
+      2026-09-24: all four light aeroplanes, through quarter turns and full
+      circles, each way, at two speeds.
+- [x] **The altitude hold flies an aeroplane into the stall when asked for a
+      height it cannot hold.** *Verification: a light aeroplane asked for a
+      height above its ceiling gives up height, not airspeed, and never
+      drops below its best-climb speed.* Done 2026-09-25, for all four light
+      aeroplanes; other classes have no such floor.
 - [x] **A plan flown after the take-off keeps the take-off flap out.** The
       Cherokee climbs its first leg and cruises with 25 degrees, so the
       climb gets no floor and, full rich, its speed bleeds to 52 knots
@@ -1010,51 +619,315 @@ Found while implementing something else. Added when found, not when remembered.
       a time, at its climb speed, from 50 ft for a light aeroplane and 400
       for any other, before the plan has her; all 16 aircraft checked, and
       the Cherokee's first leg strays 46 m where it strayed 151.
-- [ ] **A light aeroplane's take-off hands over slower than the plan's
-      climb floor.** The take-off climbs at her climb speed for her weight
-      (the 172P 67 KCAS) and the plan's autopilot at the published one (75),
-      so she accelerates for half a minute after the hand-over; the Cub,
-      with no flap, climbs her first leg 5 kt under either (PROJECT_STATUS,
-      2026-10-09). *Verification: every light aeroplane's first leg is
-      climbed within 2 kt of one climb speed, from the hand-over.*
-- [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
-      *Verification: a Windows machine fetches and reads ion's layer.json, and
-      the weather still arrives.* Done 2026-10-01: Windows could not undo the
-      kind of compression the weather service picks when offered it, so
-      Windows now offers only the kind it can undo. Verified on the
-      development machine, which has a token; CI has none and skips the ion
-      test.
-- [x] **A checklist item's band is not held against what the aeroplane can
-      reach.** *Verification: every band is shown reachable, and one outside its
-      lever's travel turns the test red.* Done 2026-09-21.
-- [x] **Nothing here compiles first-party code under clang.** *Verification: a
-      test compiles every source under clang and fails on an unused constant GCC
-      accepts.* Done 2026-09-21.
-- [x] **One download that fails once reds the tree.** *Verification: a missing
-      file is tried three times before failing, and a present one is not
-      fetched.* Done 2026-09-21.
-- [x] **Tests that run at once share one Cesium cache.** *Verification: the
-      client tests run together and no run reports a locked database.* Done
-      2026-09-21.
 - [x] **Runways on the DEM**, which shows bumps a runway does not have.
       *Verification: decided in `REQUIREMENTS.md`; if smoothed, reference
       runways roll with no bump beyond a bound.* Done 2026-10-01: flattened
       for every runway the data places; reference runways within 5 cm.
-- [x] **Every aircraft's airframe meets the ground with its wheels up.**
-      *Verification: every aircraft landed wheels up rests on its airframe
-      within the stated friction's distance.* Done 2026-09-22.
-- [x] **Propeller and mixture levers for the pilot.** *Verification: keys and
-      bindings move each lever, and the S.23's and Mosquito's rpm follow them.*
-      Done 2026-09-21.
-- [x] **Four visual models are drawn sunk into the ground.** *Verification:
-      every model's lowest point sits within the same distance of its lowest
-      wheel contact.* Done 2026-09-22.
-- [x] **The F-15C's airframe slides on the wrong friction.** *Verification: its
-      wheels-up landing stops in the stated friction's distance.* Done
-      2026-09-22.
-- [x] **The F-35A becomes the F-35B.** *Verification: it flies its published
-      Mach and range, its model sits on its flight model, and it rests on its
-      airframe wheels up.* Done 2026-09-22.
+
+---
+
+## Phase 10b — Landing, go-around and the AI pilot
+
+The AI's approach, flare, touchdown, roll-out and go-around, and the learnt landing.
+
+- [ ] **The F-35B lands on her power**: her model flies the glidepath at
+      19.5 degrees of incidence and its flare runs out of nose. *Verification:
+      the F-35B flies her approach at her published incidence and flares
+      with her throttle closing.*
+- [ ] **The AI cannot land in gusts**: in moderate turbulence ten of
+      fourteen aeroplanes balloon, bounce or come down hard, and the flying
+      boat is lifted into a go-around; at her light loading the 737-300
+      balloons, and the Mosquito at her heaviest. *Verification: every
+      aeroplane lands light, heavy and in gusts with none named, and a
+      gust on an approach flown well makes no go-around.*
+- [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
+      stabilized-approach gate does not judge it. *Verification: from every
+      corner of its gate it is stabilized by 500 ft and lands.*
+- [ ] **A landing taken over on its roll is braked for a dry runway**: a
+      wet or contaminated one, which needs more, is not known.
+      *Verification: on a wet short runway an aeroplane handed over on its
+      roll still stops on it.*
+- [x] **The F-35B's circuit touches down two kilometres short of the
+      runway**, at 165 knots, and rolls on to it. Nothing checks where along
+      the runway a circuit touches. *Verification: every circuit touches down
+      on the runway, past its threshold.* Done 2026-09-27: every circuit and
+      every approach lesson now touches down on the runway, past its
+      threshold; the approach autopilot held the F-35B's nose below what her
+      glidepath needs.
+- [x] **The flare starts at no more than 10 degrees of pitch**, so an
+      aeroplane on the glidepath above that (the F-35B) has its nose pushed
+      down at 30 ft and touches down flat and fast. *Verification: every
+      aeroplane's flare begins at the attitude it flew the glidepath at, and
+      its touchdown pitch is below its tail-strike attitude.* Done 2026-09-27.
+- [x] **Taking an aeroplane back on its landing roll does not finish the
+      landing**: it is handed the plain autopilot, which never stops it.
+      *Verification: an approach taken back on the roll is landed to a stop.*
+      Done 2026-09-27: every landplane, taken back at the touch, at half
+      speed or after the pilot's own touch, stops on the runway upright; the
+      flying boat, never still afloat, is left out.
+- [x] **A landing the pilot flies with no approach given to the AI is
+      still handed the plain autopilot** when the AI takes it back on the
+      roll, and is never stopped. *Verification: an aeroplane landed by
+      hand and taken back on the roll is landed to a stop.* Done 2026-10-06:
+      every landplane so handed over stops on the runway, held to the line
+      she rolls along and braked at autobrake 3.
+- [x] **The AI knows no runway for a landing flown by hand**: taken over on
+      the roll it holds her track and brakes at a fixed rate, not for the
+      runway left. *Verification: a landing flown by hand on a short runway
+      is stopped on it by the AI.* Done 2026-10-08: she is given the world's
+      runway she rolls on and braked for what is left of it; every landplane
+      stops on a 1,500 m runway, where six ran off it.
+- [x] **An A320 taken at the touch by a pilot who lets the stick go rises
+      4.1 ft after the AI takes her back**, against three for everything
+      else. *Verification: every landplane taken back at the touch rises
+      less than three feet after it.* Done 2026-10-06: she rises 0.8 ft,
+      and her named bound is gone.
+- [x] **The AI's own touchdown in the 787-8, F-15C and F-35B is a crash by
+      the server's rule** (707, 976 and 883 ft/min, past the gear's 600).
+      *Verification: every aeroplane the AI lands touches down within what
+      its gear takes.* Done 2026-10-01: flared to the wheels, the hardest
+      touches at 469 ft/min (the F-15C) and none rises half a foot after.
+- [x] **Nothing bounds where along the runway a jet touches down**: they
+      touch 520 to 809 m past the threshold, and an F-15C at 800 m would run
+      off a 6,000 ft runway. *Verification: every aeroplane the AI lands
+      touches inside a touchdown zone stated for it.* Done 2026-10-06: every
+      one in both lessons touches inside the FAA's touchdown zone, the first
+      3,000 ft, at 246 to 725 m.
+- [x] **The F-15C balloons in her flare**, climbing at about 100 ft/min at
+      five feet before settling. *Verification: no aeroplane the AI lands
+      climbs in its flare.* Done 2026-10-06: the F-15C no longer did, but the
+      737-300, A380 and Mosquito did; the flare now judges the sink a moment
+      ahead, and none climbs in either lesson.
+- [x] **The touchdown sink the AI flares to is set, not published** (200
+      ft/min for jets, 40 otherwise). *Verification: each aeroplane's comes
+      from a source the figures file names.* Done 2026-10-09 (owner's
+      decision): the figures files cite NASA's go-around criteria study,
+      whose touchdown criterion is 360 ft/min, and every aircraft's target
+      is held within it.
+- [x] **The AI does not go around from a balloon**: a Mosquito given back
+      from a pilot's over-pulled flare zooms to fifty feet and comes down at
+      958 ft/min. *Verification: every aeroplane given back in a balloon
+      lands within what its gear takes or goes around.* Done 2026-10-06: the
+      Mosquito goes around to 500 ft and the other twelve land.
+- [x] **The F-35B climbs away on a raised go-around circuit**: over ground
+      rising beside the runway, on the downwind leg at 2,900 ft she climbs
+      to 6,000 ft and flies on past base. *Verification: she flies the
+      rising-ground go-around and lands, as the other twelve do.* Done
+      2026-10-08: at her highest pitch she could not climb at the speed
+      asked, and the autopilot never asked for more; now it does, and she
+      climbs to her circuit, flies every leg and lands with the other twelve.
+- [x] **The circuit's rules are written twice**: the go-around's circuit
+      and the circuit lessons' AI fly the same legs from separate code.
+      *Verification: the circuit lessons are flown by the go-around's
+      circuit, with their figures unchanged.* Done 2026-10-08: the lessons
+      join it from the take-off, every aeroplane inside the same bands.
+
+---
+
+## Phase 11 — Traffic and separation
+
+AI aircraft kept apart from each other and clear of the runway.
+
+- [ ] **An AI aircraft that arrives between two layers inside 1.5 nm of
+      one is under the minimum until it has turned 1.5 nm away** (39 s
+      measured): nothing yet moves the layers apart to make room, and a
+      handed aircraft flying a copilot's route is not measured in a run.
+      *Verification: every AI aircraft a server runs, planned or not, stays a
+      stated distance from every other along the whole of its route,
+      measured over a whole run.*
+- [ ] **The AI's go-around circuit knows no traffic**: an approach long or
+      fast now goes around, but two circuits are kept apart only by the
+      separation monitor's height limits. *Verification: an aeroplane that
+      goes around is flown round and landed (done), one arriving long or fast
+      goes around (done), and two going around together are kept apart and
+      both land.*
+- [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
+      landed now leaves the runway, one arriving at a runway not clear goes
+      around, and a copilot's route may end in a landing on a runway the
+      server knows (protocol 10).
+      *Verification: two AI aircraft on plans ending at one runway both land,
+      the second once the first has left it; and a copilot's route that ends
+      in a landing is landed and leaves the runway.* Done 2026-10-08.
+
+---
+
+## Phase 12a — Prediction, clocks and the server's weather
+
+A client's prediction held to the server's: correction bounds, the clocks' difference, what a state update carries, and the weather a client flies.
+
+Found re-reading the living documents at the end of Phase 8, 2026-10-02: the lobby, the
+session, the weather and the terrain dataset, the weather over hills, the blend, the gusts and
+the window client in the server's weather (and a few more, in the phases below) were each
+named in `PROJECT_STATUS.md` as not done, with no item here.
+
+- [ ] **A client whose every frame is slow is not shown to stay under the
+      20 m correction bound** (the window client beside other tests in a
+      sanitized build, every frame 0.8 s and more: 21.4 m once; CI run
+      36674576086, the slow-frames test: linux-debug 20.624 m, windows-debug
+      29.491 m). The plain on-server window test on the debug presets is in
+      the same regime. *Verification: the
+      on-server window test with every frame held a second stays under 20 m.*
+- [ ] **A server that falls behind real time puts its clients' prediction off
+      by metres**: it flies each input for fewer steps than the client does.
+      *Verification: a server slowed on purpose keeps a predicting client's
+      error under a metre.* Both clients now fly at the server's pace
+      (2026-10-08); the command-line client holds it. Still missing: the
+      window client is still put right 6 to 9 m against a slowed server, and
+      10 to 13 m against one keeping time, untested and unexplained; and on
+      Windows one update in a hundred is off by two steps (1.1 m) - a named
+      limit, its cause found (2026-10-08), not fixed.
+- [ ] **On Windows the server's word is placed two steps off now and then**:
+      Windows' 15.6 ms timers spread the clocks' difference, and the least of
+      it moves. *Verification: on Windows debug the paced test's 99th
+      percentile under a metre in ten runs.*
+- [ ] **On a server the air has no ground's lift**: the server and its
+      clients fly the weather over no ground, because the lift is too costly
+      for a predicting client. *Verification: a client predicting over hills
+      in a strong wind is within the same bound as over the sea, the lift
+      flown on both ends.* Still missing, found 2026-10-08: the headless
+      predicting client flies over no ground at all, so it needs the
+      collision DEM first.
+- [ ] **A client's gusts are not the server's while its clocks' difference
+      settles**, a step or two out, metres in a strong gust. *Verification: a
+      client predicting in gusting air stays within the steady air's bound.*
+      2026-10-08: at the server's moment the client's gusts are the
+      server's exactly, and a step out they are not; still missing: an
+      end-to-end test that tells a wrong gust clock (the steady bound passed
+      one five seconds out), and the cause of a worst of up to 4 m in a
+      weather's change, where the steady air's is 0.4 m.
+- [ ] **A 172 a window client joins on final leaves the gate in seconds**:
+      left alone, it is 8 degrees off the runway's heading six seconds in. The
+      client keeps the server's flaps and throttle but not its pitch trim,
+      which no update carries; whether that is why is not yet measured.
+      *Verification: a window client joining on final and touching nothing is
+      still at the gate thirty seconds later.*
+- [ ] **The engine-stop prediction test fails on Windows clang when the
+      server is held up**: its client, pacing 1.6 to 1.7 times its own clock
+      to catch up, is put right by metres and misses its speed bound - since
+      before 2026-10-09, on branches and on main. *Verification: the test
+      passes with the server held up for a second on purpose, on every
+      platform, and a month of CI runs.*
+- [x] **The network checks on macOS drew another aircraft metres off** (8.6 m
+      at 100 ms, 8.5 m at 200 ms). *Verification: the cause found, and the
+      check run a hundred times on macOS within its bound.* Done 2026-09-30:
+      an aircraft guessed through late updates now comes back from where it
+      was drawn; both checks passed a hundred times each on macOS.
+- [x] **A client assumed the server's clock keeps real time**, and drew other
+      aircraft from guesses when a slow server's clock ran behind. *Verification:
+      against servers at 80%, 100% and 125% of real time, with jitter and loss,
+      the client's clock stays within 20 ms ahead and 50 ms behind.* Done
+      2026-09-25.
+- [x] **Over a network a client's own aircraft is corrected by metres**, because
+      the server does not say how far into its latest input it had flown.
+      *Verification: through 200 ms with jitter and loss, the worst prediction
+      error is under a metre.* Done 2026-09-27: the server says it, and the
+      client places the server's word on its own clock by it. A unit test
+      with built jitter and loss holds a metre on every machine (1 cm at
+      200 ms); the network checks measured 0.26 and 0.39 m at 200 ms.
+- [x] **A player's copilot is told whether the engine runs.** No state update
+      said so, so on a server a player's copilot was told it did, and would
+      not glide. *Verification: an engine stopped on a server is said to the
+      player's copilot, which answers with a glide the server flies.* Done
+      2026-09-30, with Phase 8's "The copilot flies with you".
+- [x] **A client predicting its own aircraft does not know its engine has
+      stopped.** An engine that stops on the server while the player flies is
+      still run by the client's prediction, and put right correction by
+      correction. *Verification: with an engine stopped under a player flying
+      it, the client's corrections are as small as with it running.* Done
+      2026-10-06, by the median error (14 mm after, 42 mm before); the
+      update names which engine stopped (protocol version 04).
+- [x] **The lobby, the session, the weather and the terrain dataset
+      travel.** A joining client is told each, and every change of the
+      weather; it flies the server's weather, and refuses other ground.
+      *Verification: a client joining a server is told each, and its
+      prediction flies in the server's weather.* Done 2026-10-06.
+- [x] **A client joining while a weather blends in flies the new one whole**:
+      the server sends only the newest weather, not the one it blends from,
+      so until the blend ends the joining client's air is not the server's.
+      *Verification: a client joining mid-blend predicts within the same
+      bound as one there before it.* Done 2026-10-08: told what it blends
+      from first, 0.043 m against 0.046 m.
+- [x] **Nothing tests the client with the window in the server's weather.**
+      *Verification: the window client on a server with a METAR says it flies
+      it, and its prediction error is within the headless client's bound.*
+      Done 2026-10-08: median 0.003 m, held to 0.1 m.
+
+---
+
+## Phase 12b — Sessions, joining and the protocol
+
+Joining, leaving, being dropped and coming back; the handshake, the reliable layer and the messages' limits.
+
+- [ ] **The client's half of a session is written twice** - the command-line
+      client's own and the shared one the window client uses - and a bug was
+      found in one and not the other. Joining again, knocking and believing
+      a refusal are one piece now; the rest - the handshake, reading updates,
+      the stall and the goodbye - is still two. *Verification: both clients
+      use one session, and every rejoin and going-back test passes through it.*
+- [x] **A client the server has let go cannot come back.** Both clients now
+      join again by themselves, and neither does when the operator dropped
+      it. *Verification: a client stalled past the timeout joins again by
+      itself - the command-line client and the one with the window.*
+- [x] **Nothing tests a client going back to its old session** when a forged
+      refusal made it try to join again. Both clients are now tested; the
+      command-line one, back in its session, numbered its inputs from 1 again
+      and the server dropped them - fixed. *Verification: a client refused by a
+      forger while its session is merely quiet goes back to that session, and
+      the server makes no second player - both clients.*
+- [x] **A client goes back to a session already let go** when an update the
+      server sent before letting it go arrives while it joins again: the
+      server has admitted its new initiation, so a ghost session holds a slot
+      and an aircraft until its timeout, and the client is lost for about 13 s.
+      *Verification: a client whose session was let go, with the server's last
+      updates held until it tries to join again, joins again without going
+      back, and is admitted once.* Done 2026-10-06: it goes back only on the
+      old session's answer to a knock of its own.
+- [x] **The client with the window builds its flight without reading its
+      socket**, so a slow build can outlast the server's timeout and be let
+      go. Its session is now kept from a thread of its own whenever it is
+      away - building its flight, or in any long frame. *Verification: a
+      window client that takes longer than the server's timeout to build its
+      flight is not let go, nor one whose frames take longer.*
+- [x] **Nothing tests the client with the window refused `DROPPED`** when every
+      one of the server's goodbyes was lost. *Verification: a window client
+      dropped with its goodbyes lost tries to join again, is refused, and stops
+      saying it was dropped.* Done 2026-10-06.
+- [x] **A client cannot say it is leaving**, so a server notices only by
+      the silence. *Verification: a client that leaves is let go at once.*
+      Done 2026-09-26: both clients say goodbye, sealed, as they go, and the
+      server lets them go at once; a goodbye from anyone else lets nobody go.
+- [x] **One player on two addresses flies two aircraft**: a client that
+      starts again from a new port while its old session is still live is
+      given a second aircraft until the old one times out. *Verification: a
+      second session for a key takes over that player's slot and aircraft,
+      and a test with one key on two addresses counts one aircraft.* Done
+      2026-09-29: it takes over once it has sent something sealed, which a
+      replayed handshake cannot, so a replay takes nothing from a live player.
+- [x] **A player who starts again on a full server waits out the timeout**:
+      their new session is refused as a stranger's would be, because the
+      server spares a full session the work of finding out who is asking.
+      *Verification: on a server of one player, the player started again from
+      a new port is flying again at once.* Done 2026-10-02: a full server
+      reads an initiation as far as its key, a few times a second at most, and
+      lets a player's key back in; a stranger is still refused.
+- [x] **The client with the window is not tested with its updates
+      reordered across a take-over**; it has the guard the command-line client
+      needed. *Verification: an update from before the take-over, heard after
+      it, leaves the client flying the aircraft it took.* Done 2026-10-06.
+- [x] **A client opened the model a server named as a path.** *Verification:
+      every aircraft's id is known by the catalogue and eight hostile ones are
+      not.* Done 2026-09-25.
+- [x] **The handshake is not quite the Noise protocol it is named after**, so a
+      standard Noise client cannot complete it. *Verification: the handshake
+      completes against an independent Noise implementation.* Done 2026-09-24:
+      both ends match the `cacophony` implementation's known-answer vector byte
+      for byte.
+- [x] **Two players can be given the same aircraft number.** A slot is a key's
+      rank, so a player whose key sorts first moves everyone after them; the
+      server numbers a player's aircraft by the slot it had on arrival, and a
+      later player can be handed a number already flying. *Verification: four
+      clients joining in the reverse of their keys' order each fly their own
+      aircraft, under four different numbers.* Done 2026-09-24.
 - [x] **The reliable layer believes an acknowledgement it is told.**
       *Verification: a forged acknowledgement lets go of nothing not yet
       acknowledged.* Done 2026-09-22.
@@ -1081,75 +954,6 @@ Found while implementing something else. Added when found, not when remembered.
       test failed three runs of three and passes three of three now; a relay
       holding the server's last words when the server goes is seen to lose
       them before the fix and pass them on after.* Done 2026-09-30.
-- [x] **The geoid came from one host, and SourceForge went down.** Its
-      download link served a page in place of the file and every platform
-      went red. *Verification: the geoid is fetched from a GitHub copy of the
-      same pinned file, with SourceForge after it, every source checked
-      against the one pin; a test shows a source serving the wrong bytes or an
-      error is passed over, and that the program and the tests fetch from the
-      same sources.* Done 2026-10-01.
-- [x] **The aircraft models' source files came only from SourceForge**,
-      which served a page in place of every one on 2026-10-01. *Verification:
-      with SourceForge unreachable, every file is fetched from its second
-      source with its pinned bytes.* Done 2026-10-01: Software Heritage for
-      60, and a release of this repository for the other 15.
-- [x] **A player's copilot is told whether the engine runs.** No state update
-      said so, so on a server a player's copilot was told it did, and would
-      not glide. *Verification: an engine stopped on a server is said to the
-      player's copilot, which answers with a glide the server flies.* Done
-      2026-09-30, with Phase 8's "The copilot flies with you".
-- [x] **A client predicting its own aircraft does not know its engine has
-      stopped.** An engine that stops on the server while the player flies is
-      still run by the client's prediction, and put right correction by
-      correction. *Verification: with an engine stopped under a player flying
-      it, the client's corrections are as small as with it running.* Done
-      2026-10-06, by the median error (14 mm after, 42 mm before); the
-      update names which engine stopped (protocol version 04).
-
-- [x] **A model planning an aircraft left to the AI is not told the plan it
-      flies.** Left by a player who goes, it flies the server's plan file
-      until the server's model answers, and the model is told no route is
-      flown. *Verification: the model is told the plan file's waypoints still
-      to fly.* Done 2026-10-06; Claude's recording made again.
-- [x] **The window client's hand-over model is chosen at start**, by a flag,
-      not in flight, and its refusal for want of a key is tested only on the
-      headless client. *Verification: a key cycles the model in flight, and
-      the window client with no key says the model is refused and its
-      aircraft is held.* Done 2026-10-06: M.
-
-Found re-reading the living documents at the end of Phase 8, 2026-10-02:
-each was named in `PROJECT_STATUS.md` as not done, with no item here.
-
-- [x] **The lobby, the session, the weather and the terrain dataset
-      travel.** A joining client is told each, and every change of the
-      weather; it flies the server's weather, and refuses other ground.
-      *Verification: a client joining a server is told each, and its
-      prediction flies in the server's weather.* Done 2026-10-06.
-- [ ] **On a server the air has no ground's lift**: the server and its
-      clients fly the weather over no ground, because the lift is too costly
-      for a predicting client. *Verification: a client predicting over hills
-      in a strong wind is within the same bound as over the sea, the lift
-      flown on both ends.* Still missing, found 2026-10-08: the headless
-      predicting client flies over no ground at all, so it needs the
-      collision DEM first.
-- [x] **A client joining while a weather blends in flies the new one whole**:
-      the server sends only the newest weather, not the one it blends from,
-      so until the blend ends the joining client's air is not the server's.
-      *Verification: a client joining mid-blend predicts within the same
-      bound as one there before it.* Done 2026-10-08: told what it blends
-      from first, 0.043 m against 0.046 m.
-- [ ] **A client's gusts are not the server's while its clocks' difference
-      settles**, a step or two out, metres in a strong gust. *Verification: a
-      client predicting in gusting air stays within the steady air's bound.*
-      2026-10-08: at the server's moment the client's gusts are the
-      server's exactly, and a step out they are not; still missing: an
-      end-to-end test that tells a wrong gust clock (the steady bound passed
-      one five seconds out), and the cause of a worst of up to 4 m in a
-      weather's change, where the steady air's is 0.4 m.
-- [x] **Nothing tests the client with the window in the server's weather.**
-      *Verification: the window client on a server with a METAR says it flies
-      it, and its prediction error is within the headless client's bound.*
-      Done 2026-10-08: median 0.003 m, held to 0.1 m.
 - [x] **A player cannot choose an aeroplane on a server**: a player flies
       what the server's plan flies. *Verification: a player asks for an
       aeroplane when joining and flies it, and every other client draws it
@@ -1161,6 +965,58 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       client sending faster than a stated rate is held to it, and
       `THREATS.md` states the rate.* Done 2026-10-06: 240 datagrams and 8
       requests a second per session.
+- [x] **Nothing tests the client with the window joining a server that has
+      started again** with its key from `--store`. *Verification: the window
+      client, its server restarted under it, joins again and flies an
+      aircraft the new server gives it.* Done 2026-10-06.
+
+---
+
+## Phase 12c — The window client
+
+What the client with the window does that the command-line client does, and what it draws.
+
+- [ ] **The client with the window does not blend corrections to its
+      prediction**, as the command-line client does. *Verification:
+      corrections are blended, and the largest step away from a switch is
+      held to a bound, failing clearly with the blend taken out.* The blend
+      is in and unit-tested (2026-09-29). Still missing: large corrections
+      built through the client itself, a bound on the hand-over test seen to
+      fail, and whether the older steps CI saw (6.2 and 24.5 m in the
+      hand-over test, 2.77 m at a take-over) were the session's clock,
+      which stepped under long, uneven frames and is now slewed (2026-10-09).
+- [x] **The client with the window does not blend its own aircraft at a
+      switch** - handed over (A on a server), taken back or taken over - as
+      the network checks' model of a display does. *Verification: what it
+      shows of its own aircraft, measured sixty times a second across each
+      switch, steps less than 5 m at a hand-over and a take-back, and less
+      than 2.5 m at a take-over, where unblended it is about 5 m - each past
+      its bound with the blend taken out.* Done 2026-09-27: 1.1 m at worst.
+- [x] **A weather service's answer that is not JSON ended the flight.**
+      *Verification: an answer that is not JSON is fetched again, and three
+      in a row are a download that failed.* Done 2026-09-25.
+- [x] **Quitting during a slow or rate-limited weather refresh could hang
+      the exit for about 80 s.** *Verification: quitting while the weather
+      service answers 429 ends the program within a couple of seconds.* Done
+      2026-09-29: within 2 s of a quit with no refresh, while refused with a
+      429 and while a download never finishes, on Linux and Windows.
+- [x] **The client with the window does not hand over on a server**: pressing A
+      online does nothing. *Verification: the client with the window hands its
+      aircraft to the AI and takes it back on a server, and what it shows does
+      not step; A pressed during a take-over's round trip hands over the
+      aircraft taken, or, the take-over refused, the one kept.* Done
+      2026-10-07: the server says when it refuses a take-over (protocol
+      version 7), and A waits for the answer.
+- [x] **The display model is written twice**, in the command-line client
+      and in the client with the window. *Verification: one presentation-free
+      module serves both, with a unit test that builds long frames across a
+      switch and bounds the step.* Done 2026-10-06.
+- [x] **No in-client help lists the controls.** The keys and buttons are
+      only in the README and the bindings file, not in `glideslope --help`
+      or on screen. *Verification: the client shows every control's key and
+      button, held to the bindings by a test.* Done 2026-10-08: F1 shows
+      every key and every binding, made from the bindings file and the
+      keyboard's own table, and read back off a real frame.
 - [x] **The HUD's horizon line is not the horizon**: it moves a hundredth of
       the frame a degree of pitch, and the drawn terrain does not line up
       with it. *Verification: over level ground the HUD's horizon lies on the
@@ -1168,10 +1024,121 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       walked.* Done 2026-10-06: the line is the camera's own horizon; over
       the Nullarbor, at pitches of -15, 0 and 15 by banks from -60 to 60, it
       lies within 4 pixels of the horizon drawn (the Earth's curve is 1.8).
-- [x] **Nothing tests the client with the window joining a server that has
-      started again** with its key from `--store`. *Verification: the window
-      client, its server restarted under it, joins again and flies an
-      aircraft the new server gives it.* Done 2026-10-06.
+
+---
+
+## Phase 13 — The copilot and planner
+
+The language model that plans: its routes, its recordings and what it is told.
+
+- [ ] **The window copilot test's copilot never answered once** (Windows
+      release): asked, then nothing in five minutes, the aircraft on the
+      ground. *Verification: the cause named, and a month of CI runs without
+      it failing.*
+- [ ] **No model has yet been seen to answer a copilot's question with a
+      landing**: the copilot may end a route in one since 2026-10-08, but no
+      recorded live answer of the copilot's does (the planner's has, since
+      2026-10-09). *Verification: a recording of a model asked to land at a
+      runway nearby answers with a landing the server flies.*
+- [ ] **A landing on a runway too short for the aircraft is refused, for
+      ten of the sixteen**: the copilot's routes and the planner's plans
+      are held to each aircraft's published landing distance with its
+      class's margin, against the runway less any displaced threshold.
+      Still missing: the J-3 Cub, Mosquito, S.23 (a flying boat), F-22A,
+      F-35B and B-2A have no landing distance from a primary source, so
+      nothing refuses them; and the runways listed to the model do not yet
+      say their landing length or what the aircraft needs. *Verification: a landing on
+      a runway shorter than the aircraft lands in is refused, saying so, for
+      every aircraft.*
+- [x] **A copilot recording breaks when two runways swap places.** Played
+      back, a question matches its recording but for its numbers, so a
+      flight a little different that lists two runways in the other order
+      must be recorded again. *Verification: a played-back flight whose
+      runways come in another order still plays.* Done 2026-10-06: the
+      runways' order is disregarded with their numbers; nothing else's.
+- [x] **A model planning an aircraft left to the AI is not told the plan it
+      flies.** Left by a player who goes, it flies the server's plan file
+      until the server's model answers, and the model is told no route is
+      flown. *Verification: the model is told the plan file's waypoints still
+      to fly.* Done 2026-10-06; Claude's recording made again.
+- [x] **The window client's hand-over model is chosen at start**, by a flag,
+      not in flight, and its refusal for want of a key is tested only on the
+      headless client. *Verification: a key cycles the model in flight, and
+      the window client with no key says the model is refused and its
+      aircraft is held.* Done 2026-10-06: M.
+- [x] **A model's flight plan cannot end in a landing**: the planner, which
+      plans a flight from the ground, is now offered `land` as the copilot is,
+      held to the same checks. *Verification: Claude, asked to take off from
+      Sydney and land at Bankstown, answers with a plan ending there, and the
+      server's AI flies it and lands it on Bankstown's 29C.* Done 2026-10-09.
+
+---
+
+## Phase 14a — CI and its speed
+
+The pipeline: its length, its caches and what it costs a pull request.
+
+- [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
+      (26-28 minutes a Windows configure). *Verification: a new runner image
+      costs one rebuild, saved, not one per run.* Windows restores from public
+      GitHub Packages, which pull requests may now write to; no pull
+      request's upload is seen yet. Linux and macOS use a cache keyed on the
+      image. No new Windows compiler came in the week to 2026-10-07 (every
+      configure restored all 39 packages), so the rebuild is not yet seen.
+- [ ] **A CI run takes 90-120 minutes where its jobs need about 40**: the
+      Actions caches overflowed their 10 GB and builds compiled from nothing.
+      *Verification: pull requests' builds restore main's ccache with most
+      compiles hits, and a run's time from push to result is measured and
+      stated.* Run 37570543750 (2026-10-07, four other runs queued beside
+      it): warm builds 2.6-3.9 min, but clang-cl's ccache had been evicted
+      (0 hits, 17 min), because two generations of main's caches stood
+      together until a run ended. Each build now prunes its older entry as
+      soon as it saves, and a merge no longer saves the 3 GB downloads
+      again. Not yet seen on main. Run 37577077798: 63 minutes from push
+      to result, all but macOS done in 37; macOS's five runners, shared
+      with other runs, set the rest.
+- [ ] **A Windows configure on CI sometimes takes 30 minutes in vcpkg**,
+      even after an exact hit on its binary cache. *Verification: every
+      Windows configure whose vcpkg cache hit takes under 3 minutes, over a
+      week of runs on main.* Found 2026-09-30: a rebuild on a newer image's
+      compiler, repeated by every pull request; pull requests may upload now.
+      Counted 2026-10-07: no rebuild since 2026-09-30, vcpkg's restore under
+      a minute every time, but 8 of 163 configures took 3-6 minutes, in
+      SDL's compiler checks after vcpkg had finished - still over the bound.
+- [ ] **One test takes 15-22 minutes in Linux debug**: the AI aircraft
+      kept 500 ft or 1.5 nm apart, 882 s and 1,295 s, so its shard ran 26
+      minutes of a 30-minute limit whatever the dealing. *Verification:
+      every test under 10 minutes on CI's Linux debug.*
+- [x] **CI's actions run on Node.js 20, which GitHub has deprecated.**
+      *Verification: a CI run's annotations name no action as targeting
+      Node.js 20.* Done 2026-09-24.
+- [x] **CI's Windows builds have no compiler cache**, so each compiles
+      everything on every push (build jobs 14-17 minutes). *Verification: on
+      CI, a Windows build after a saved cache hits most of its compiles, and
+      its build job's time is measured cold and warm.* Done 2026-10-07:
+      MSVC's builds hit 791 of 792 compiles, 4 minutes; clang-cl's 722 of
+      824 with a pull request's changes, a 7-minute job (run 37561340650),
+      against 17 minutes cold (run 37570543750).
+- [x] **CI's cost tables do not know the plan-speed tests.** The eight
+      tightest-orbit tests, renamed or new, and the one-step-past test
+      (2026-10-02) count 60 s each in tests/ci_costs until a green run is
+      measured with tools/ci_test_costs.py. *Verification: every test in
+      the tables, from a green run.* Done 2026-10-07: every table from three
+      green runs, no shard warning of an unmeasured test; the shard counts
+      raised to about 15 minutes of measured work each.
+- [x] **A Linux debug test shard nearly fills CI's 30-minute budget** (27 min
+      43 s, 2026-09-27), mostly the circuit lessons at about 980 s each.
+      *Verification: every shard's longest run on CI stays under two thirds of
+      its job's limit.* Done 2026-09-29: tests are dealt to shards by their
+      measured cost, a fixture with its tests, and a test checks every shard
+      between them runs every test once; the worst shard on CI took 17.7 of
+      30 minutes, macOS debug's 11.8.
+
+---
+
+## Phase 14b — Tests, downloads and tooling
+
+Flaky and fragile tests, downloads that fail once, the build scripts, and the month of clean nightly runs.
 
 - [ ] **A month of clean nightly runs.** Each of these needs only runs
       watched or counted, no code, and each is owed the count named; one that
@@ -1194,45 +1161,126 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       - The learnt policy's 160 corner landings timed out on CI's Ubuntu debug, split one test a wind 2026-10-08 (owed: a month of CI runs)
       *Verification: 30 consecutive nightly runs with none of these failing,
       or each failure's cause found and fixed under its own item.*
-- [ ] **The engine-stop prediction test fails on Windows clang when the
-      server is held up**: its client, pacing 1.6 to 1.7 times its own clock
-      to catch up, is put right by metres and misses its speed bound - since
-      before 2026-10-09, on branches and on main. *Verification: the test
-      passes with the server held up for a second on purpose, on every
-      platform, and a month of CI runs.*
-- [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
-      landed now leaves the runway, one arriving at a runway not clear goes
-      around, and a copilot's route may end in a landing on a runway the
-      server knows (protocol 10).
-      *Verification: two AI aircraft on plans ending at one runway both land,
-      the second once the first has left it; and a copilot's route that ends
-      in a landing is landed and leaves the runway.* Done 2026-10-08.
-- [ ] **No model has yet been seen to answer a copilot's question with a
-      landing**: the copilot may end a route in one since 2026-10-08, but no
-      recorded live answer of the copilot's does (the planner's has, since
-      2026-10-09). *Verification: a recording of a model asked to land at a
-      runway nearby answers with a landing the server flies.*
-- [x] **A model's flight plan cannot end in a landing**: the planner, which
-      plans a flight from the ground, is now offered `land` as the copilot is,
-      held to the same checks. *Verification: Claude, asked to take off from
-      Sydney and land at Bankstown, answers with a plan ending there, and the
-      server's AI flies it and lands it on Bankstown's 29C.* Done 2026-10-09.
-- [ ] **A landing on a runway too short for the aircraft is refused, for
-      ten of the sixteen**: the copilot's routes and the planner's plans
-      are held to each aircraft's published landing distance with its
-      class's margin, against the runway less any displaced threshold.
-      Still missing: the J-3 Cub, Mosquito, S.23 (a flying boat), F-22A,
-      F-35B and B-2A have no landing distance from a primary source, so
-      nothing refuses them; and the runways listed to the model do not yet
-      say their landing length or what the aircraft needs. *Verification: a landing on
-      a runway shorter than the aircraft lands in is refused, saying so, for
-      every aircraft.*
-- [ ] **A 172 a window client joins on final leaves the gate in seconds**:
-      left alone, it is 8 degrees off the runway's heading six seconds in. The
-      client keeps the server's flaps and throttle but not its pitch trim,
-      which no update carries; whether that is why is not yet measured.
-      *Verification: a window client joining on final and touching nothing is
-      still at the gate thirty seconds later.*
+- [x] **A HUD test fails, rather than skipping, when the weather service
+      does not answer** (Windows CI, 2026-09-25: WinHTTP 12002 from
+      Open-Meteo). *Verification: with no weather to be had, the HUD tests
+      that fly in live weather report themselves skipped.* Done 2026-09-25:
+      skipped even where the network is required, since live weather is
+      never kept. A service that refuses the request, or an answer that
+      can't be read, still fails there, and so does a missing DEM.
+- [x] **The tests' fixed ports lay in Linux's ephemeral range** (478xx, where
+      it hands out 32768 to 60999), so a client's socket could take one before
+      its test's server listened: "cannot listen on port 47853" on CI,
+      2026-09-26. They now come from one block, 24700 to 24799, below every
+      platform's ephemeral range. *Verification: a test walks every test's
+      port, relays included, and fails on one in 32768-65535, outside the
+      block, or shared; seen to fail with 47853 put back.*
+- [x] **The HUD check read the horizon, crossing the rows below the HUD, as a
+      line of the HUD.** *Verification: a line that does not begin at the
+      HUD's margin is not judged, and an extra HUD line still is.* Done
+      2026-09-25.
+- [x] **`tools/windows_build.sh` does not work from a git worktree**, where
+      agents work: Windows git cannot follow a worktree's `.git` file.
+      *Verification: an agent's worktree builds on Windows with the script
+      as it stands.* Done 2026-09-26: it fetches from the repository's
+      common git directory instead of the working tree.
+- [x] **The horizon can cross the HUD's own rows**, and three HUD checks
+      compare those lines exactly. *Verification: a frame with the horizon
+      drawn across every HUD row, built on purpose, is read and judged
+      correctly.* Done 2026-09-25: the text is drawn small enough to stay
+      left of the horizon; under 474 pixels wide the horizon crosses it.
+- [x] **The horizon can cross the checklist's rows** too, down the top right,
+      and the checklist test compares them whole. *Verification: a frame with
+      the horizon drawn across every checklist row, built on purpose, is read
+      correctly.* Done 2026-09-26: the checklist is drawn over a panel that
+      dims what is behind it by half, as the credits are, so the horizon
+      shows through it rather than crossing its letters.
+- [x] **Tests that need a download failed, rather than skipping, when
+      Open-Meteo answered with something that was not JSON** (Windows CI,
+      2026-09-26). *Verification: with the weather service unreachable, or
+      answering nothing or a page that is not JSON, the live-weather unit test
+      and the HUD tests report themselves skipped; an answer that begins as
+      JSON and does not parse, or is JSON but not a report, still fails.*
+      Done 2026-09-27: one shared rule for the client tests' skips.
+- [x] **The HUD tests failed when Open-Meteo answered 429, Too Many
+      Requests** (Windows CI, 2026-09-27). *Verification: a 429 is tried
+      again after the wait it asks for, never more than 10 s, and a 429 to
+      every try is weather not to be had, so the HUD test skips; any other
+      refusal still fails.* Done 2026-09-27.
+- [x] **A headless client drawing thousands of frames runs the software
+      Vulkan driver out of memory** (seen in WSL, lavapipe). *Verification: a
+      headless client draws ten thousand frames, and its memory stays level.*
+      Done 2026-09-26.
+- [x] **On Windows a DEM tile can fail to open while another test renames a
+      fresh copy into place.** Seen on CI: `cannot open ...S34_00_E151_00_DEM.tif`.
+      *Verification: many processes fetching and reading one tile at once on
+      Windows all read it.* Done 2026-09-25: tiles are opened sharing
+      deletion; sixteen fetchers and readers at once, 200 times over, all read
+      the whole tile on Windows, where before the fix 1396 of 3200 could not
+      open it.
+- [x] **On Windows a DEM tile can be refused as `Access is denied` while a
+      second fetch replaces it** (CI, windows-clang, 1 of 3200 threads).
+      *Verification: a tile, a water mask and a pinned file whose name is
+      held delete-pending are each waited for and read whole on Windows, and
+      the many-at-once test passes 20 times over there.* Done 2026-09-26: a
+      fetched file never replaces one already in place, and a refusal that
+      passes is asked again for up to 3 seconds.
+- [x] **A cached tile cut short by a power cut is never fetched again.**
+      Nothing flushes a download to disk before it is moved into place, and
+      nothing deletes a cached file that cannot be read. *Verification: a
+      cached tile cut short, or damaged, is fetched again and read whole.*
+      Done 2026-09-30: downloads reach the disk before they take their name,
+      and a cached tile, water mask or pinned file that cannot be read whole
+      is taken away and fetched again - a tile once, not on every query.
+- [x] **Two server tests counted wall-clock seconds on slow runners**: one
+      counted inputs still in flight, and a late client arrived before a slow
+      server was flying. *Verification: the client waits for its last input to
+      be applied, and the late one for the server to say it is flying; each is
+      seen to fail on a deliberate bug.* Done 2026-09-24.
+- [x] **The hooks' test, run by the pre-push hook, committed into the
+      repository being pushed** and set it bare. *Verification: run with git's
+      hook variables naming a decoy repository, it leaves the decoy exactly as
+      it was.* Done 2026-09-24.
+- [x] **Windows debug programs can crash on their way out**, when Windows
+      starts a thread as they exit. *Verification: a program can still
+      allocate in the last call the loader makes into it, and the tests that
+      crashed run hundreds of times without a crash.* Done 2026-09-24.
+- [x] **The state-stream test measured the runner, not the server.**
+      *Verification: every update is counted against the simulation's own
+      steps, exactly, and one dropped in ten fails it.* Done 2026-09-24.
+- [x] **A `--terrain ion` run can hang for ever, past its own timeout.**
+      *Verification: a timed-out run is gone and leaves no cache lock.* Done
+      2026-09-26: against a stand-in ion that never finishes sending, a run
+      told to stop is gone within a second or two, one left alone ends when
+      its frame is written, and either way the cache takes a write at once.
+- [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
+      *Verification: a Windows machine fetches and reads ion's layer.json, and
+      the weather still arrives.* Done 2026-10-01: Windows could not undo the
+      kind of compression the weather service picks when offered it, so
+      Windows now offers only the kind it can undo. Verified on the
+      development machine, which has a token; CI has none and skips the ion
+      test.
+- [x] **Nothing here compiles first-party code under clang.** *Verification: a
+      test compiles every source under clang and fails on an unused constant GCC
+      accepts.* Done 2026-09-21.
+- [x] **One download that fails once reds the tree.** *Verification: a missing
+      file is tried three times before failing, and a present one is not
+      fetched.* Done 2026-09-21.
+- [x] **Tests that run at once share one Cesium cache.** *Verification: the
+      client tests run together and no run reports a locked database.* Done
+      2026-09-21.
+- [x] **The geoid came from one host, and SourceForge went down.** Its
+      download link served a page in place of the file and every platform
+      went red. *Verification: the geoid is fetched from a GitHub copy of the
+      same pinned file, with SourceForge after it, every source checked
+      against the one pin; a test shows a source serving the wrong bytes or an
+      error is passed over, and that the program and the tests fetch from the
+      same sources.* Done 2026-10-01.
+- [x] **The aircraft models' source files came only from SourceForge**,
+      which served a page in place of every one on 2026-10-01. *Verification:
+      with SourceForge unreachable, every file is fetched from its second
+      source with its pinned bytes.* Done 2026-10-01: Software Heritage for
+      60, and a release of this repository for the other 15.
 
 ---
 

@@ -489,7 +489,7 @@ verification.
 - **Phase 7 — User/AI controller swap** across the network, including player
   disconnect.
 - **Phase 8 — LLM copilot**, then RL agents as a stretch goal.
-- **Tails:** found work, added at the bottom the moment it is found.
+- **Tails:** found work, kept in the phase it belongs to (Phases 9 to 14) if a regression or a correctness bug, else in Later (owner, 2026-10-09).
 
 ## 8. Development and documentation strategy (from gearstick)
 
@@ -502,7 +502,7 @@ deterministic integer simulation, the adaptation for this project is stated.
 |---|---|---|
 | `CLAUDE.md` | Working conventions: the shape of the project, discipline rules, project specifics, layout. | Status or progress. |
 | `docs/FEATURES.md` | The menu, at the altitude of "what would the player notice". Each entry tagged `CORE`, `WANTED`, `CANDIDATE`, `DONE` or `OUT`. Rejected ideas stay, with their reasons, so they are not re-proposed. Ends with "Deliberately not" and "Open questions". | Any implementation: no data structures, formats or function names. |
-| `docs/COMPLETION_PLAN.md` | The road to done, in phases. One line per item saying what it is and how you would know it works, plus a Tails section for found work. A user document: keep it a summary. | Implementation detail, test-name inventories, design rationale. |
+| `docs/COMPLETION_PLAN.md` | The road to done, in phases. One line per item saying what it is and how you would know it works, plus Phases 9 to 14 for found work (the former Tails). A user document: keep it a summary. | Implementation detail, test-name inventories, design rationale. |
 | `docs/PROJECT_STATUS.md` | The single source of truth for what works today, gaps named first. Where detail and rationale live. Newest first. | Claims of "working" for anything partial. |
 | `docs/TRANSPORT.md` | The wire protocol, byte for byte, and what it does not claim. | — |
 | `docs/THREATS.md` | What is defended, from whom, how, what is deliberately not defended, and the order of work. | — |
@@ -524,7 +524,7 @@ deterministic integer simulation, the adaptation for this project is stated.
 - The plan is finished when this returns nothing:
 
   ```
-  sed -n '/^## Phase /,/^## Tails/p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
+  sed -n '/^## Phase /,/^## Later/p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
   ```
 
 ### 8.2 Discipline
