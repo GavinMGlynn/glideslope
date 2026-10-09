@@ -780,6 +780,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind
     the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_those_it_gives_way_to_and_no_other
     a_cessna_climbing_through_another_or_meeting_one_head_on_is_kept_apart_by_the_monitor_and_without_it_is_not
+    an_aircraft_handed_to_the_ai_between_two_layers_is_turned_away_and_kept_apart_from_both_after_its_arrival
     an_autopilot_holding_a_climb_stops_at_its_ceiling_and_one_holding_a_descent_at_its_floor
     an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_they_are_wrong
     a_landing_is_read_from_a_plan_and_refused_where_it_is_wrong
@@ -2654,6 +2655,19 @@ add_test(NAME an_aircraft_handed_to_the_ai_is_measured_against_every_other_ai_ai
 set_tests_properties(an_aircraft_handed_to_the_ai_is_measured_against_every_other_ai_aircraft_and_kept_apart_from_them
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/handed_kept_apart)
+
+# **An aircraft its player rolled into a spiral over two AI layers, handed to
+# the AI in it, is rolled level and kept apart from both.** See
+# cmake/server_handed_spiral_kept_apart.cmake.
+add_test(NAME an_aircraft_its_player_rolled_into_a_spiral_over_two_ai_layers_handed_to_the_ai_is_rolled_level_and_never_loses_separation_from_either
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/handed_spiral_kept_apart -DPORT=24704
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_handed_spiral_kept_apart.cmake)
+set_tests_properties(an_aircraft_its_player_rolled_into_a_spiral_over_two_ai_layers_handed_to_the_ai_is_rolled_level_and_never_loses_separation_from_either
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/handed_spiral_kept_apart)
 
 # **A player's C172P on final is handed to the learnt landing and landed by
 # the server; a C182S, and a C172P outside the gate, are refused it.** See

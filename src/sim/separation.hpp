@@ -26,7 +26,17 @@
 //     the height it is flying to: held below it if it is below, above if
 //     above. Like a resolution advisory, it acts on heights only, and only
 //     through the autopilot - the limit is a ceiling or a floor on the height
-//     the autopilot flies to, never a control moved. Nothing turns.
+//     the autopilot flies to, never a control moved. Nothing turns - but
+//     one squeezed between two, below.
+//   - **Squeezed between two**, which no height keeps it apart from - one
+//     handed to the AI after its player had come down between two layers
+//     1,000 ft apart, where no height is 700 ft from both: it is turned
+//     away, a heading the autopilot turns to at its own rates, and held
+//     in the middle of the gap until 1.5 nm from every one it would pass
+//     through, then taken above them all or below, as a controller's
+//     safety alert turns and climbs an aircraft (FAA JO 7110.65 2-1-6).
+//     TCAS's resolution advisories are vertical only, and the vertical
+//     alone cannot be had here.
 //
 // **Who gives way**: an AI aircraft whose autopilot is flying (not one taking
 // off, landing or gliding with its engine stopped, nor a person's), to every aircraft that does not give way -
@@ -83,10 +93,12 @@ struct Traffic {
 };
 
 // A limit on the height an aircraft's autopilot flies to, and which aircraft
-// it keeps it clear of (its index), or nothing.
+// it keeps it clear of (its index), or nothing; and, squeezed between two, a
+// heading to turn to, away from them - true, degrees.
 struct HeightLimit {
     std::optional<double> floor_ft;
     std::optional<double> ceiling_ft;
+    std::optional<double> heading_deg;
     std::optional<std::size_t> clear_of;
 };
 

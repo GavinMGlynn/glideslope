@@ -195,6 +195,17 @@ constexpr double configuration_moved = 0.5; // degrees of flap, or a twentieth o
 constexpr double elevator_per_degree = 0.05;
 constexpr double elevator_per_degps = 0.03;
 constexpr double trim_rate = 0.02;
+// **An upset**: banked past this, the wings are brought level before the nose
+// is raised - unload, roll, then pull, the nose-low recovery of the FAA's
+// Airplane Upset Prevention and Recovery Training Aid (AC 120-111) - and the
+// elevator's trim is not wound on a pitch it cannot have. Pulling in a spiral
+// tightens it: a Cessna handed over at 65 degrees of bank, 49 nose down,
+// pulled for 20 s with its trim winding up, rolled level only after it, and
+// zoomed 400 ft through the height it was held to, to 52 kt.
+constexpr double upset_bank_deg = 45.0;
+// The bank asked comes back to level this fast in an upset, three times a
+// turn's: the aileron it takes still moves no faster than a hand.
+constexpr double upset_roll_rate_degps = 15.0;
 // **No loop moves a control faster than a pilot's hand: its full travel in a
 // second, 1/120 of it in a step.** In ordinary flight none of them comes near
 // this and the limit never binds. It binds where the laws are reading a fast
@@ -496,6 +507,7 @@ Controls Autopilot::fly() {
 
     // Heading, through bank, to aileron.
     const double phi = a_.property("attitude/phi-deg");
+    const bool upset = std::abs(phi) > upset_bank_deg;
     const double p = degrees(a_.property("velocities/p-rad_sec"));
     if (std::abs(bank_command_deg_) < banked_deg) {
         turn_energy_ft_ = energy_ft;
@@ -519,9 +531,9 @@ Controls Autopilot::fly() {
         }
     }
     double bank_wanted = 0.0;
-    if (modes_.heading_deg) {
-        const double off = std::remainder(
-            *modes_.heading_deg - a_.property("attitude/psi-deg"), 360.0);
+    const std::optional<double> heading_deg = away_deg_ ? away_deg_ : modes_.heading_deg;
+    if (heading_deg) {
+        const double off = std::remainder(*heading_deg - a_.property("attitude/psi-deg"), 360.0);
         if (std::abs(off) < bank_integral_within_deg) {
             bank_integral_deg_ =
                 std::clamp(bank_integral_deg_ + bank_integral_per_degree * off * dt,
@@ -530,7 +542,13 @@ Controls Autopilot::fly() {
         bank_wanted = std::clamp(bank_per_degree * off + bank_integral_deg_,
                                  -sustained_bank_deg_, sustained_bank_deg_);
     }
-    bank_command_deg_ = toward(bank_command_deg_, bank_wanted, bank_rate_degps * dt);
+    // In an upset, wings level first, and briskly: no turn is asked until
+    // they are, and the bank asked comes back at the upset's roll rate.
+    if (upset) {
+        bank_wanted = 0.0;
+    }
+    bank_command_deg_ = toward(bank_command_deg_, bank_wanted,
+                               (upset ? upset_roll_rate_degps : bank_rate_degps) * dt);
     // **The bank it is asked for, not one near it**: an integral finds the
     // aileron the bank needs held. Proportional alone, it settled where the
     // aileron's error balanced the aeroplane's own roll: a Cessna 182 asked
@@ -666,8 +684,12 @@ Controls Autopilot::fly() {
         const double pitch_wanted = std::clamp(
             pitch_integral_deg_ + pitch_per_fpm * climb_off, least_pitch_deg,
             most_pitch_deg);
-        const double pitch_next =
-            toward(pitch_command_deg_, pitch_wanted, pitch_rate_degps * dt);
+        double pitch_next = toward(pitch_command_deg_, pitch_wanted, pitch_rate_degps * dt);
+        // **Rolled past the upset's bank, the wings come level before the
+        // nose comes up** (sim/autopilot.hpp): the nose is not raised.
+        if (upset) {
+            pitch_next = std::min(pitch_next, pitch_command_deg_);
+        }
         // The integral winds only while the pitch asked for is the pitch given.
         if (pitch_next == pitch_wanted) {
             pitch_integral_deg_ += pitch_integral_per_fpm * climb_off * dt;
@@ -681,7 +703,9 @@ Controls Autopilot::fly() {
     was_on_speed_ = on_speed;
     const double theta_off = pitch_command_deg_ - a_.property("attitude/theta-deg");
     const double q = degrees(a_.property("velocities/q-rad_sec"));
-    elevator_trim_ = std::clamp(elevator_trim_ + trim_rate * theta_off * dt, -1.0, 1.0);
+    if (!upset) {
+        elevator_trim_ = std::clamp(elevator_trim_ + trim_rate * theta_off * dt, -1.0, 1.0);
+    }
     c.elevator =
         elevator_trim_ + elevator_per_degree * theta_off - elevator_per_degps * q;
 

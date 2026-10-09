@@ -27,6 +27,11 @@
 // go-around setting where the aeroplane's figures give one, until the caller
 // lets it go.
 //
+// **Handed an upset - banked past 45 degrees - it rolls level before it
+// pulls**: no turn is asked until the wings are level, the bank asked comes
+// back three times a turn's rate, the nose is not raised and the elevator's
+// trim is not wound until then (autopilot.cpp, `upset_bank_deg`).
+//
 // **Asked for a height it cannot hold, it gives up height, not airspeed.**
 // When the climb asked for would take the airspeed below the aeroplane's
 // best-climb speed - or the speed asked for, where that is slower - the climb
@@ -75,6 +80,11 @@ public:
         floor_ft_ = floor_ft;
         ceiling_ft_ = ceiling_ft;
     }
+    // **A heading to turn to instead of the one asked** (sim/separation.hpp:
+    // turned away from two it is squeezed between), kept apart from the
+    // modes as the height's limits are; none flies the modes' heading. The
+    // turn is the heading loop's own - its bank, and the rate it rolls at.
+    void turn_away(std::optional<double> heading_deg) { away_deg_ = heading_deg; }
     // **The fastest it may hold**: the most the speed asked may be raised
     // to for a climb the nose cannot give (autopilot.cpp: with the nose at
     // its highest and the climb short), the aircraft's fastest a plan may
@@ -97,6 +107,7 @@ private:
     std::optional<double> floor_ft_;
     std::optional<double> ceiling_ft_;
     std::optional<double> fastest_kts_;
+    std::optional<double> away_deg_;
     Controls last_;
     // Holding the speed rather than the height: the most climb the altitude
     // hold may ask for, found by an integral on the airspeed, while it binds.

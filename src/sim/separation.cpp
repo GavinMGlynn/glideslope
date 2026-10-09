@@ -84,6 +84,13 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
         held[i] = traffic[i].held_ft;
     }
     const double apart_ft = Separation::minimum_ft + Separation::margin_ft;
+    // One it gives way to and is near: which, the heights it may be at, and
+    // whether the one giving way keeps above it.
+    struct Near {
+        std::size_t j;
+        Band band;
+        bool above;
+    };
     for (std::size_t i = 0; i < n; ++i) {
         const Traffic& g = traffic[i];
         if (!g.gives_way) {
@@ -92,6 +99,7 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
         HeightLimit& limit = limits[i];
         std::optional<std::size_t> floor_for;
         std::optional<std::size_t> ceiling_for;
+        std::vector<Near> near;
         for (std::size_t j = 0; j < n; ++j) {
             const Traffic& p = traffic[j];
             // Only to those it gives way to: every one that does not, and
@@ -114,6 +122,7 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
             if (!above && ceiling < g.ground_ft + Separation::least_above_ground_ft) {
                 above = true; // not pushed into the ground: over it instead
             }
+            near.push_back({j, band, above});
             if (above) {
                 const double floor = band.high_ft + apart_ft;
                 if (!limit.floor_ft || floor > *limit.floor_ft) {
@@ -125,17 +134,64 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
                 ceiling_for = j;
             }
         }
-        // Held between two that leave no room: the side that asks less of it.
+        // **Squeezed between two that leave no room** - an aircraft come
+        // down between two layers 1,000 ft apart, where no height is 700 ft
+        // from both: no height alone keeps it apart, so it is turned away
+        // and taken to a height clear of all of them, as a controller's
+        // safety alert does ("turn left heading ..., climb ... immediately",
+        // FAA JO 7110.65 2-1-6). Above every one of them or below, the side
+        // that asks less of it, and not into the ground. **It goes there
+        // only once 1.5 nm from every one it would pass through**: until
+        // then it is held in the middle of the gap, as far from both as the
+        // gap allows, and turned directly away from the nearest of those.
         if (limit.floor_ft && limit.ceiling_ft && *limit.floor_ft > *limit.ceiling_ft) {
-            if (*limit.floor_ft - g.altitude_ft <= g.altitude_ft - *limit.ceiling_ft) {
-                limit.ceiling_ft.reset();
-                ceiling_for.reset();
-            } else {
-                limit.floor_ft.reset();
-                floor_for.reset();
+            double top = -1e18;
+            double bottom = 1e18;
+            for (const Near& k : near) {
+                top = std::max(top, k.band.high_ft + apart_ft);
+                bottom = std::min(bottom, k.band.low_ft - apart_ft);
             }
+            const bool can_descend = bottom >= g.ground_ft + Separation::least_above_ground_ft;
+            const bool up = !can_descend || top - g.altitude_ft <= g.altitude_ft - bottom;
+            // Those it would pass through: the side it goes to.
+            std::optional<std::size_t> nearest;
+            double nearest_m = 1e18;
+            bool clear = true;
+            for (const Near& k : near) {
+                if (k.above == up) {
+                    continue;
+                }
+                const double d = horizontal_m(g, traffic[k.j]);
+                clear = clear && d >= Separation::minimum_m;
+                if (d < nearest_m) {
+                    nearest_m = d;
+                    nearest = k.j;
+                }
+            }
+            if (nearest) {
+                const Traffic& p = traffic[*nearest];
+                limit.heading_deg = std::fmod(
+                    bearing_deg(p.latitude_deg, p.longitude_deg, g.latitude_deg, g.longitude_deg) +
+                        360.0,
+                    360.0);
+            }
+            if (clear) {
+                if (up) {
+                    limit.floor_ft = top;
+                    limit.ceiling_ft.reset();
+                } else {
+                    limit.ceiling_ft = bottom;
+                    limit.floor_ft.reset();
+                }
+            } else {
+                const double middle = 0.5 * (*limit.floor_ft + *limit.ceiling_ft);
+                limit.floor_ft = middle;
+                limit.ceiling_ft = middle;
+            }
+            limit.clear_of = nearest ? nearest : (up ? ceiling_for : floor_for);
+        } else {
+            limit.clear_of = ceiling_for ? ceiling_for : floor_for;
         }
-        limit.clear_of = ceiling_for ? ceiling_for : floor_for;
         held[i] = limited(held[i], limit);
     }
     return limits;
