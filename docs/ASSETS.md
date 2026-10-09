@@ -81,7 +81,7 @@ entertainment purposes only."
 | | |
 | --- | --- |
 | Source | `ext/jsbsim`, JSBSim-Team/jsbsim at `v1.3.1` (`3b25f25`): `aircraft/pa28/pa28.xml`, `engine/engIO360C.xml`, and `engine/prop_75in2f.xml` for its propeller |
-| Changes | Made by `tools/make_pa28.py`, whose docstring lists each change and why: the handbook's empty weight, seats and tanks; flaps at 10, 25 and 40 degrees; main wheels that no longer castor; a fixed-pitch 76 in propeller in place of the model's constant-speed one, with its power and thrust at low advance ratio; the 172's gear springs and dampers; the stabilator's moment and lift; the lift curve and flap lift for the stalls; induced drag with ground effect; zero-lift and gear drag. The engine file is unchanged. |
+| Changes | Made by `tools/make_pa28.py`, whose docstring lists each change and why: the handbook's empty weight, seats and tanks; flaps at 10, 25 and 40 degrees; main wheels that no longer castor; a fixed-pitch 76 in propeller in place of the model's constant-speed one, with its power and thrust at low advance ratio; the 172's gear springs and dampers; the stabilator's moment and lift; the lift curve and flap lift for the stalls; induced drag with ground effect; zero-lift and gear drag; the FAA's mixture curve on the engine, and a float carburettor. |
 | In the repository | `assets/jsbsim/`, as the script makes it (`aircraft/pa28/pa28.xml`, `engine/engIO360C.xml`, `engine/prop_pa28_76in.xml`); a test fails if they differ |
 | Licence | LGPL-2.1, as the JSBSim repository; the modified files remain under it, and its text ships as `licenses/JSBSim.txt` |
 
@@ -89,7 +89,7 @@ entertainment purposes only."
 
 | | |
 | --- | --- |
-| Source | Piper Cherokee 180 "E" Owner's Handbook, P/N 753 806, issued October 1969, revised January 1974, sections I, III and V, as copied at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>; the Airplane Flight Manual, Model PA-28-180, FAA approved 3 August 1962, revision 4, for the calibrated stalling speeds, as copied at <https://www.nehemiahaviation.com/files/pa28flightmanual.pdf>; FAA type certificate data sheet 2A13, revision 64, section III, for the static rpm |
+| Source | Piper Cherokee 180 "E" Owner's Handbook, P/N 753 806, issued October 1969, revised January 1974, sections I, III and V, as copied at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>; the Airplane Flight Manual, Model PA-28-180, FAA approved 3 August 1962, revision 4, for the calibrated stalling speeds, as copied at <https://www.nehemiahaviation.com/files/pa28flightmanual.pdf>; FAA type certificate data sheet 2A13, revision 64, section III, for the static rpm; for the go-around flap, which none of the Cherokee 180 handbooks gives, Middle Georgia State University's Warrior PA-28-161 Pilot's Checklist (2025), "Balked landing, go-around: maximum power, flaps 25°", at <https://www.mga.edu/aviation/knight-flight/aircraft-information-procedures/docs/Warrior_Checklist.pdf> |
 | In the repository | `assets/figures/pa28.xml`: individual numbers, each with its section, not the handbook's text or charts |
 | Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
 

@@ -977,14 +977,16 @@ Found while implementing something else. Added when found, not when remembered.
       and all eleven figures are in range. The handbook's sea-level climb
       and ceiling cannot both be met closely by any drag polar; both are
       inside 10%, at +8% and -6%.
-- [ ] **The Cherokee's engine makes most power far too rich**, at 9.9 parts
+- [x] **The Cherokee's engine makes most power far too rich**, at 9.9 parts
       of air to one of fuel against the FAA's 12 to 13.8; the other three
       light aeroplanes are fixed (PROJECT_STATUS, 2026-10-08). On the FAA's
       curve its stall at the warning is never recovered, with #136's
       recovery too: it cannot be level at the lesson's recovery speed with
       40 degrees of flap (PROJECT_STATUS, 2026-10-09). *Verification:
       leaned for best power, each engine sits between 12 and 13.8 to 1, and
-      every figure stays in range.*
+      every figure stays in range.* Done 2026-10-09: on the FAA's curve,
+      leaned she sits at 12.9 to 13.2 to 1, and her nine figures are in
+      range (her ceiling 12,279 ft against 13,000).
 - [x] **The Cub's carburettor runs too rich to climb past about 8,000 ft.**
       It has no mixture lever, and JSBSim enriches every engine as the air
       pressure falls, where a float carburettor enriches only as the square
@@ -992,14 +994,23 @@ Found while implementing something else. Added when found, not when remembered.
       against its manual's 14,000. *Verification: flown solo, the Cub climbs
       to within 10% of 14,000 ft.* Done 2026-10-06: a float carburettor's
       metering, and the FAA's mixture curve; solo it climbs to 13,637 ft.
-- [ ] **The Cherokee is leaned below 5,000 ft, where its handbook has it
+- [x] **The Cherokee is leaned below 5,000 ft, where its handbook has it
       full rich.** Held full rich there, its stall recovered at 4,950 ft
       loses 328 ft against its lesson's 300; on the FAA's mixture curve it
       is not recovered at all: with 40 degrees of flap at the recovery's
       speed it sinks 190 ft/min at full power, though slower it climbs; the
       least-sink recovery of #136 does not change that - the lesson's
       recovery would have to raise the flap or ask a speed she can hold. *Verification: the Cherokee full
-      rich below 5,000 ft, and its stall recovery within its lesson.*
+      rich below 5,000 ft, and its stall recovery within its lesson.* Done
+      2026-10-09 (the owner's decision): the stall recovery raises the flaps,
+      at a hand's pace, to the go-around setting an aeroplane's figures
+      give - 25 degrees for the Cherokee, Piper's PA-28 balked-landing flap.
+      Full rich below 5,000 ft, she loses 131 ft of 300 at her warning.
+- [ ] **Two failures found on the stacked base, not from the Cherokee's
+      branch**: left thirty seconds in a stall the 182S pulls 1.82 g, past
+      2 g with the test's 10% in hand, since its drag changed; and the
+      figures test counts 121 figures against its 120 (PROJECT_STATUS,
+      2026-10-09). *Verification: both tests pass.*
 - [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *Verification: a Windows machine fetches and reads ion's layer.json, and
       the weather still arrives.* Done 2026-10-01: Windows could not undo the

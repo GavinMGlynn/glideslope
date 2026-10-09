@@ -2,6 +2,7 @@
 
 #include "sim/catalogue.hpp"
 #include "sim/departure.hpp"
+#include "sim/figures.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
@@ -148,7 +149,8 @@ namespace {
 // What the catalogue in `data` says of the model that the aircraft keeps,
 // read once for both: a light aeroplane's published best-climb speed, from its
 // figures (none for any other class), whether its engines have a mixture
-// lever, and whether it has speedbrakes. None of it where there is no
+// lever, whether it has speedbrakes, and the flap lever a go-around takes
+// its flaps up to, from its figures. None of it where there is no
 // catalogue.
 CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::string& model) {
     CatalogueFacts found;
@@ -169,6 +171,14 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
         found.speedbrakes = found.speedbrakes || e.speedbrakes;
         found.yaw_damper_per_degps = e.yaw_damper_per_degps;
         found.rudder_integral_rate = e.rudder_integral_rate;
+        const std::filesystem::path figures = data / "figures" / (model + ".xml");
+        if (std::filesystem::is_regular_file(figures)) {
+            const PublishedFigures published = read_published_figures(figures);
+            if (published.go_around_flaps_deg) {
+                found.go_around_flaps =
+                    *published.go_around_flaps_deg / published.flaps_full_deg;
+            }
+        }
     }
     return found;
 }
@@ -302,6 +312,7 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
       full_rich_below_ft_(catalogue.full_rich_below_ft), speedbrakes_(catalogue.speedbrakes),
       yaw_damper_per_degps_(catalogue.yaw_damper_per_degps),
       rudder_integral_rate_(catalogue.rudder_integral_rate),
+      go_around_flaps_(catalogue.go_around_flaps),
       model_(model),
       exec_(quiet_exec()) {
     const std::u8string utf8 = jsbsim_root.u8string();

@@ -143,10 +143,16 @@ GLIDESLOPE_TEST(the_leaner_rests_at_full_rich_at_full_throttle_low_down) {
 
 namespace {
 
-// The aircraft whose catalogue gives them a mixture lever below a height -
-// the two Cessnas; the Cherokee is leaned at every height (its catalogue).
-const char* const lever_aircraft[] = {"c172p", "c182"};
-constexpr std::size_t lever_aircraft_count = 2;
+// The aircraft whose catalogue gives them a mixture lever, full rich below a
+// height: the two Cessnas below 3,000 ft (the 172P handbook's figure 5-6),
+// the Cherokee below 5,000 (its handbook's section III).
+const char* const lever_aircraft[] = {"c172p", "c182", "pa28"};
+constexpr std::size_t lever_aircraft_count = 3;
+
+// The height its handbook has it full rich below, which its catalogue says.
+double handbook_full_rich_ft(const std::string& model) {
+    return model == "pa28" ? 5000.0 : 3000.0;
+}
 
 // How long the lever is cut off: long enough to stop the engine, short
 // enough that its propeller still turns. The 182S's model charges a
@@ -265,7 +271,7 @@ GLIDESLOPE_TEST(an_engine_the_leaner_was_leaning_that_stops_is_richened_and_runs
 }
 
 // **Full rich below the catalogue's height, leaned above it.** Each
-// aeroplane whose catalogue has it full rich below 3,000 ft, at full
+// aeroplane whose catalogue has it full rich below a height, at full
 // throttle: level at 2,000 ft, handed over on 0.8 of the lever, it is
 // richened to its stop within ten seconds and held there for two minutes;
 // level at 6,000 ft, handed over full rich, it is leaned within ninety
@@ -277,8 +283,10 @@ GLIDESLOPE_TEST(the_leaner_holds_full_rich_below_the_catalogues_height_and_leans
     for (const char* model : lever_aircraft) {
         ++flown;
         LeverFlight low(model, 2000.0, 100.0, 0.8);
-        check(low.aircraft.full_rich_below_ft() == 3000.0,
-              std::string(model) + "'s catalogue has it full rich below 3,000 ft");
+        const double rich_ft = handbook_full_rich_ft(model);
+        check(low.aircraft.full_rich_below_ft() == rich_ft,
+              std::string(model) + "'s catalogue has it full rich below " +
+                  std::to_string(rich_ft) + " ft");
         low.fly(10.0);
         double least = 1.0;
         for (int i = 0; i < 120 * steps_per_second; ++i) {
@@ -295,16 +303,18 @@ GLIDESLOPE_TEST(the_leaner_holds_full_rich_below_the_catalogues_height_and_leans
         std::printf("%s: at %.0f ft the lever rested at %.3f at the least; at %.0f ft at "
                     "%.3f at the most\n",
                     model, low.height(), least, high.height(), most);
-        check(low.height() < 3000.0 && least >= 0.999,
-              std::string(model) + " below 3,000 ft is full rich: " + std::to_string(least));
-        check(high.height() > 3000.0 && most < 0.95,
-              std::string(model) + " above 3,000 ft is leaned: " + std::to_string(most));
+        check(low.height() < rich_ft && least >= 0.999,
+              std::string(model) + " below its full-rich height is full rich: " +
+                  std::to_string(least));
+        check(high.height() > rich_ft && most < 0.95,
+              std::string(model) + " above its full-rich height is leaned: " +
+                  std::to_string(most));
     }
     check(flown == lever_aircraft_count, "every lever aircraft flown: " + std::to_string(flown));
 }
 
 // **An engine leaned high up that stops low down is given full rich**, not
-// the ratio it was leaned to up there. Each Cessna leaned at 8,000 ft for a
+// the ratio it was leaned to up there. Each aeroplane leaned at 8,000 ft for a
 // minute and a half, then brought down on a fifth of the throttle to below
 // 2,500 ft, where the leaner richens it to its stop; then its lever cut off
 // five seconds, and given back: it runs, and the lever stays at full rich.
@@ -348,11 +358,10 @@ GLIDESLOPE_TEST(an_engine_leaned_high_up_that_stops_below_the_full_rich_height_i
 // 8,000 ft, handed over full rich and leaned for two minutes; over the
 // minute after, its ratio never leaves that band. On JSBSim's own mixture
 // curve the leaner settled near 9.9 to 1. The Cub has no lever, and is not
-// leaned. Left out: the Cherokee, still on JSBSim's curve - on the FAA's
-// its stall at 4,950 ft was not recovered (docs/COMPLETION_PLAN.md).
+// leaned.
 GLIDESLOPE_TEST(every_engine_the_leaner_leans_sits_between_12_and_13_8_parts_of_air_to_one_of_fuel) {
     std::size_t flown = 0;
-    std::printf("%zu aeroplanes with a mixture lever leaned; left out: pa28, on JSBSim's curve\n",
+    std::printf("%zu aeroplanes with a mixture lever leaned; none left out\n",
                 lever_aircraft_count);
     for (const char* model : lever_aircraft) {
         ++flown;

@@ -366,6 +366,22 @@
               <output>fcs/flap-pos-norm</output>
             </aerosurface_scale>
         </channel>
+        <channel name="Float carburettor">
+            <!-- glideslope: see tools/piston_mixture.py -->
+            <fcs_function name="fcs/carburettor-mixture">
+                <function>
+                    <product>
+                        <property>fcs/mixture-cmd-norm[0]</property>
+                        <property>atmosphere/delta</property>
+                        <pow>
+                            <property>atmosphere/sigma</property>
+                            <value>-0.5</value>
+                        </pow>
+                    </product>
+                </function>
+                <output>fcs/mixture-pos-norm[0]</output>
+            </fcs_function>
+        </channel>
     </flight_control>
     <aerodynamics>
 

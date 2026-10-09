@@ -18,6 +18,7 @@
 
 #include <filesystem>
 #include <map>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -56,6 +57,11 @@ struct PublishedFigures {
     std::string model;
     std::string source;
     double flaps_full_deg = 0.0; // the flaps' travel at a command of 1; 0, none
+    // **The flap a go-around takes the flaps up to**, degrees, where its
+    // handbook gives one (`go_around_flaps_deg`): what the autopilot's stall
+    // recovery raises them to (sim/autopilot.cpp). None: the recovery leaves
+    // the flaps where they are.
+    std::optional<double> go_around_flaps_deg;
     // The speedbrake lever the aeroplane is flown down an approach with, 0 to
     // 1: 0 for all but one that has nothing else to slow it - a B-2A, with
     // no flap, lands with its drag rudders open.

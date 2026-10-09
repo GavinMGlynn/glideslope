@@ -1666,6 +1666,15 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                  " does not give flaps_full_deg, the flaps' travel");
     }
     out.flaps_full_deg = root->GetAttributeValueAsNumber("flaps_full_deg");
+    if (root->HasAttribute("go_around_flaps_deg")) {
+        out.go_around_flaps_deg = root->GetAttributeValueAsNumber("go_around_flaps_deg");
+        if (!(*out.go_around_flaps_deg >= 0.0 &&
+              *out.go_around_flaps_deg < out.flaps_full_deg)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a go_around_flaps_deg that is not between 0 and "
+                                     "its full flap");
+        }
+    }
     if (root->HasAttribute("approach_speedbrake")) {
         out.approach_speedbrake = root->GetAttributeValueAsNumber("approach_speedbrake");
         if (!(out.approach_speedbrake >= 0.0 && out.approach_speedbrake <= 1.0)) {

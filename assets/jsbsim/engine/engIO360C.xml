@@ -22,4 +22,25 @@
   <maxthrottle>               1.0  </maxthrottle>
   <minthrottle>               0.1  </minthrottle>
   <sparkfaildrop>             0.1 </sparkfaildrop>
+  <!-- glideslope: the mixture's power shape, from the FAA's
+       FAA-H-8083-32; see tools/piston_mixture.py -->
+  <table name="MIXTURE" type="internal">
+    <tableData>
+      0.0500  0.0000
+      0.0526  0.6005
+      0.0556  1.0063
+      0.0588  1.2278
+      0.0625  1.2995
+      0.0680  1.2806
+      0.0725  1.2360
+      0.0765  1.1796
+      0.0800  1.1235
+      0.0884  1.0004
+      0.1000  0.8483
+      0.1100  0.7055
+      0.1176  0.5371
+      0.1215  0.2971
+      0.1250  0.0000
+    </tableData>
+  </table>
 </piston_engine>
