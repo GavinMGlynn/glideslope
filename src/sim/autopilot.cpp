@@ -308,6 +308,23 @@ constexpr double ease_climb_fpm_per_s = 25.0;
 // to buy back what the turn spent. The two rules then agree: the bank limit
 // keeps a turn within 3 knots, and the floor catches only what gets past it.
 //
+// **Nor does it wait for the throttle when the throttle cannot be there in
+// time.** Asked from cruise into her best-rate climb, a light aeroplane's
+// throttle is cut to idle for the slower speed, and opens again at a quarter
+// of its travel a second only as the speed comes down to it - four seconds
+// to its stop, while she slows two knots a second with the nose up for the
+// climb. The floor waited for the stop, and every light aeroplane sank 4.9
+// to 6.3 knots through her climb speed, the J-3 Cub from 47.8 to 42.6. So
+// the floor also takes over while the speed, on its trend, would reach the
+// least before the throttle could reach its stop: the throttle opens fully
+// at once, and the climb she has is held - not wound down on how fast she
+// is still slowing, which took a Cessna down 800 ft/min at 80 knots - until
+// she is within its knot of the least or no longer slowing; from there the
+// limit finds the climb that keeps the speed, as above. It is the speed
+// capture of a flight level change - the speed on the climb while the power
+// comes up - for the one transition this autopilot otherwise flies on the
+// throttle alone. Now each is within 1.3 knots of her climb speed.
+//
 // This is the underspeed protection of Lambregts' total energy control
 // (AIAA 83-2239), which short of speed gives the elevator to the speed and
 // the throttle all it has - as a floor alone rather than the whole scheme,
@@ -321,6 +338,10 @@ constexpr double speed_trend_s = 5.0;
 constexpr double speed_trend_filter_s = 1.0;
 constexpr double climb_limit_per_knot = 30.0;        // ft/min a second
 constexpr double climb_limit_per_knot_moved = 500.0; // ft/min
+// Slowing faster than this, a knot a second, the floor may take over before
+// the throttle is at its stop (below); slowed into a climb from cruise a
+// light aeroplane slows two.
+constexpr double slowing_kts_per_s = 1.0;
 
 // Flaps up, and gear up where it retracts: the configuration the best-climb
 // speed is published in, and the only one it is a floor for.
@@ -524,15 +545,39 @@ Controls Autopilot::fly() {
             }
             least_kts -= turn_allowance_kts_;
             const double over_kts = kts - least_kts;
+            // **Or the throttle cannot be at its stop in time**: slowing
+            // towards the least, the speed would be there before the
+            // throttle, at `throttle_rate`, could open fully - a light
+            // aeroplane asked into her best-rate climb from cruise, which
+            // wants all her power, with her throttle cut for the slower
+            // speed (`early_hold_`, below). Only while she is slowing by
+            // more than `slowing_kts_per_s`: level at her best-climb speed,
+            // a wobble's tenths of a knot a second engaged it, opened the
+            // throttle, and a Cessna at 3,000 ft held her height only to
+            // 17 ft, and 23 in a turn.
+            const bool too_late =
+                modes_.airspeed_kts && kts_per_s_ < -slowing_kts_per_s && over_kts > 0.0 &&
+                (throttle_stop - last_.throttle) / throttle_rate >= over_kts / -kts_per_s_;
             const bool at_stop = !modes_.airspeed_kts || last_.throttle >= throttle_stop;
-            if (!holding_speed_ && at_stop &&
+            if (!holding_speed_ && (at_stop || too_late) &&
                 over_kts + speed_trend_s * std::min(kts_per_s_, 0.0) <
                     hold_speed_within_kts) {
                 holding_speed_ = true;
+                early_hold_ = !at_stop;
                 climb_limit_fpm_ = std::min(climb_fpm, climb_wanted);
             } else if (holding_speed_) {
-                climb_limit_fpm_ += climb_limit_per_knot * over_kts * dt +
-                                    climb_limit_per_knot_moved * moved_kts;
+                // **Engaged early, the climb she has is held while the
+                // throttle opens**, until the speed is within the hold's
+                // knot of the least, or no longer slowing: from there the
+                // limit finds the climb that keeps it, and lets go once she
+                // has the climb asked. Wound from the start, on how fast she was
+                // still slowing, it took her down 800 ft/min at 80 kt.
+                early_hold_ =
+                    early_hold_ && over_kts > hold_speed_within_kts && kts_per_s_ < 0.0;
+                if (!early_hold_) {
+                    climb_limit_fpm_ += climb_limit_per_knot * over_kts * dt +
+                                        climb_limit_per_knot_moved * moved_kts;
+                }
             }
             if (holding_speed_) {
                 // **Bounded, so it cannot wind up**: no more than the climb
@@ -889,6 +934,7 @@ Controls Autopilot::fly() {
         const double wanted = holding_speed_ || on_speed
                                   ? 1.0
                                   : throttle_integral_ + throttle_per_knot * speed_off;
+
         const double next =
             std::clamp(toward(last_.throttle, wanted, throttle_rate * dt), 0.0, 1.0);
         if (holding_speed_ || on_speed) {

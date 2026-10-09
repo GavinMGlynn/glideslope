@@ -527,12 +527,13 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 - [ ] **The AI notices a stall the J-3 Cub is not in, in moderate
       turbulence.** **Still missing: her climb.** At 1,220 lb her warning is
       39.9 kt, and climbing at her manual's best-climb speed for that load,
-      47.8 kt, gusts take her to 40.1 (39.7 in CI) - under the 3 kt margin
-      the test asks; the test names her climb until it is decided. Done
-      2026-10-10: a plan's slowest is raised for the weight flown, as a stall
-      is, and every figures file's keeps 10 kt over the stall warning at the
-      weight a plan flies it at (the B-2A's rose to 169 kt, the Mosquito's
-      to 129, both their approach speeds there). *Verification: every
+      47.8 kt, the gusts take her to 40.9 - under the 3 kt margin the test
+      asks; the test names her climb until it is decided. Done 2026-10-10: a
+      plan's slowest is raised for the weight flown, as a stall is, and
+      every figures file's keeps 10 kt over the stall warning at the weight
+      a plan flies it at (the B-2A's rose to 169 kt, the Mosquito's to 129);
+      and a light aeroplane slowed from cruise into her climb no longer
+      sinks 5 to 6 kt through her climb speed, but 1.3 at most. *Verification: every
       aeroplane cruising, climbing and at its plan's slowest in moderate
       turbulence stays 3 kt over its warning and is never noticed, the Cub's
       climb unnamed, and every stall-notice test still passes.*
@@ -1328,6 +1329,11 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
 
+- [ ] **A jet, the Mosquito or the S.23 slowed from cruise into her climb
+      sinks 2 to 6.4 kt past her climb speed.** Only a light aeroplane has
+      a speed floor to capture it with; the others' climb speeds are not a
+      best-rate climb to hold as one. *Verification: the capture test's six
+      named aeroplanes within 2 kt, unnamed.*
 - [ ] **The B-2A's and Mosquito's slowest glides are under their plan's
       slowest.** Their `<glide_speeds>`, 159 and 128 kt, were measured from
       floors since raised to 169 and 129; a brief already takes the higher,
