@@ -133,6 +133,9 @@ private:
     // Holding the speed rather than the height: the most climb the altitude
     // hold may ask for, found by an integral on the airspeed, while it binds.
     bool holding_speed_ = false;
+    // Engaged before the throttle reached its stop, because it could not in
+    // time: the climb held where it was until the speed is near the least.
+    bool early_hold_ = false;
     double climb_limit_fpm_ = 0.0;
     double last_kts_ = 0.0;
     double kts_per_s_ = 0.0; // the airspeed's trend, smoothed over a second
