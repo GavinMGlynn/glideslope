@@ -28,6 +28,7 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
     ic.heading_deg = 0.0;
     ic.airspeed_kts = airspeed_kts;
     ic.engine_running = true;
+    ic.gear = 0.0; // clean: up, where it retracts (Aircraft::initialize)
     aircraft.initialize(ic);
     if (windy) {
         Conditions wind;
@@ -36,6 +37,7 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
     }
     Controls controls;
     controls.throttle = entry.start_throttle;
+    controls.gear = 0.0;
     Autopilot autopilot(aircraft, controls);
     AutopilotModes modes = autopilot.modes();
     modes.heading_deg = 0.0;
@@ -90,6 +92,7 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
     ic.heading_deg = plan.start->heading_deg;
     ic.airspeed_kts = plan.start->airspeed_kts;
     ic.engine_running = true;
+    ic.gear = 0.0; // clean: up, where it retracts (Aircraft::initialize)
     aircraft.initialize(ic);
     if (trial.windy) {
         Conditions wind;
@@ -98,6 +101,7 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
     }
     Controls controls;
     controls.throttle = entry.start_throttle;
+    controls.gear = 0.0;
     Autopilot autopilot(aircraft, controls);
     Navigator navigator(aircraft, plan);
 
@@ -186,6 +190,7 @@ OrbitEntered fly_orbit_from_waypoint(const std::filesystem::path& data,
     ic.heading_deg = plan.start->heading_deg;
     ic.airspeed_kts = plan.start->airspeed_kts;
     ic.engine_running = true;
+    ic.gear = 0.0; // clean: up, where it retracts (Aircraft::initialize)
     aircraft.initialize(ic);
     if (trial.wind_kts > 0.0) {
         Conditions wind;
@@ -194,6 +199,7 @@ OrbitEntered fly_orbit_from_waypoint(const std::filesystem::path& data,
     }
     Controls controls;
     controls.throttle = entry.start_throttle;
+    controls.gear = 0.0;
     Autopilot autopilot(aircraft, controls);
     Navigator navigator(aircraft, plan);
 
@@ -252,12 +258,14 @@ GlideOrbitFlown glide_tightest_orbit(const std::filesystem::path& data,
     ic.heading_deg = right ? 270.0 : 90.0; // on the circle, along it
     ic.airspeed_kts = kts;
     ic.engine_running = true;
+    ic.gear = 0.0; // clean: up, where it retracts (Aircraft::initialize)
     aircraft.initialize(ic);
     for (int e = 0; e < aircraft.figures().engines; ++e) {
         aircraft.fail_engine(e, true);
     }
     Controls controls;
     controls.throttle = entry.start_throttle;
+    controls.gear = 0.0;
     Controller controller(aircraft, controls);
     controller.to_ai(std::move(plan));
     controller.set_glide(kts);
@@ -320,9 +328,11 @@ double full_throttle_level_kts(const std::filesystem::path& data, const Catalogu
     ic.heading_deg = 0.0;
     ic.airspeed_kts = from_kts;
     ic.engine_running = true;
+    ic.gear = 0.0; // clean: up, where it retracts (Aircraft::initialize)
     aircraft.initialize(ic);
     Controls controls;
     controls.throttle = entry.start_throttle;
+    controls.gear = 0.0;
     Autopilot autopilot(aircraft, controls);
     AutopilotModes modes = autopilot.modes();
     modes.heading_deg = 0.0;

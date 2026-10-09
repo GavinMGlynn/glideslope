@@ -484,10 +484,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 
 The autopilot's navigator and the plans it flies: orbits, glides, the speeds a plan may ask, the take-off, and the lessons' autopilot.
 
-- [ ] **A glide may still be asked of a jet at its approach speed.** Now
-      measured, and each aircraft's slowest glide, measured, is in its
-      figures file; every aircraft glides round unstalled but the F-22,
-      which departs at every speed it may glide at, why not found.
+- [ ] **A glide may still be asked of a jet at its approach speed.** Each
+      aircraft's slowest glide is measured with its gear up - the F-22A's
+      225 kt, her one glide; the tests are not yet run on it.
       *Verification: every aircraft glides round its tightest orbit at every
       speed a glide may be asked at without stalling, measured.*
 - [x] **A jet's orbit entered from a waypoint swings 460 m off its circle.**

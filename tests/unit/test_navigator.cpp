@@ -1512,7 +1512,7 @@ const std::vector<GlideBand> glide_bands = {
     {"f15c", Ways::left, 190, 200},
     {"f15c", Ways::right, 170, 185},
     {"f15c", Ways::right, 190, 200},
-    {"f22", Ways::both, 255, 255},
+    {"f22", Ways::both, 225, 225},
     {"f35b", Ways::both, 204, 204},
 };
 
@@ -1942,15 +1942,11 @@ GLIDESLOPE_TEST(the_f15c_glides_round_its_tightest_orbit_turning_right_from_190_
     glides_in_band("f15c", Ways::right, 190);
 }
 
-// **The F-22 glides nowhere, and why is not found**: from 140 kt, its slowest
-// under power, to 275 it stalls before it is half way round - to 265 departing
-// past 95 degrees of alpha - and from 280 to 360 it is less than half way
-// round at 1,000 ft (2026-10-07). Its file keeps 255, its slowest under power
-// before, as its slowest glide. Not a floor to raise: it is named, and the
-// tail stays open.
-GLIDESLOPE_TEST(the_f22a_glides_round_its_tightest_orbit_at_255_kt_without_stalling) {
-    glides_in_band("f22", Ways::both, 255,
-                   "departs at every glide from 255 to 335 kt, why not found");
+// **The F-22A glides at 225 kt**, her one glide: 220, 5 below, departs, and
+// her climb speed, 220, is under it. She glided nowhere while the trial
+// flew her gear down (2026-10-10).
+GLIDESLOPE_TEST(the_f22a_glides_round_its_tightest_orbit_at_225_kt_without_stalling) {
+    glides_in_band("f22", Ways::both, 225);
 }
 
 GLIDESLOPE_TEST(the_f35b_glides_round_its_tightest_orbit_at_204_kt_without_stalling) {

@@ -124,6 +124,10 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
 // 3,000 ft over Sydney, clean, with the throttle it starts at in the
 // catalogue. `data` is the data directory (with jsbsim/ in it). Thirty
 // minutes at most.
+// **Clean is gear up** where it retracts, in every trial here: the
+// initial conditions' and the controls' gear default to down, and until
+// 2026-10-10 every one of these trials flew with it down - the F-22A glided
+// at no speed, and the Mosquito's fastest was 219 kt, not 264.
 OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const CatalogueEntry& entry,
                               const OrbitTrial& trial);
 
