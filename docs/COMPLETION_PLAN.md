@@ -1071,16 +1071,7 @@ The pipeline: its length, its caches and what it costs a pull request.
       GitHub Packages, Linux and macOS from a cache keyed on the image, and a
       newer merge no longer cancels main's run before it saves. Owed: no new
       Windows compiler has come since 2026-09-30, so the rebuild is unseen.
-- [ ] **A CI run takes 90-120 minutes where its jobs need about 40**.
-      *Verification: pull requests' builds restore main's ccache with most
-      compiles hits, and a run's time from push to result is measured and
-      stated.* The caches fit now and pull requests build warm (86-95% hits,
-      2026-10-09). With several runs in flight a pull request's took 148
-      minutes, its macOS jobs waiting for the account's five macOS runners;
-      by the owner's decision (2026-10-09) a pull request now runs macOS
-      release only, four macOS jobs instead of ten, and macOS debug's tests
-      run on main after the merge and nightly. Owed: a pull request's run
-      timed with this in place.
+
 - [ ] **A Windows configure on CI sometimes takes 30 minutes in vcpkg**,
       even after an exact hit on its binary cache. *Verification: every
       Windows configure whose vcpkg cache hit takes under 3 minutes, over a
@@ -1093,7 +1084,17 @@ The pipeline: its length, its caches and what it costs a pull request.
       *Verification: every test under 10 minutes on CI's Linux debug.* Owed:
       most of its time is the ground's height looked up afresh at every read
       of the height above ground, a change to the simulation not yet made.
-- [x] **CI's actions run on Node.js 20, which GitHub has deprecated.**
+- [x] **A CI run takes 90-120 minutes where its jobs need about 40**.
+      *Verification: pull requests' builds restore main's ccache with most
+      compiles hits, and a run's time from push to result is measured and
+      stated.* The caches fit now and pull requests build warm (86-95% hits,
+      2026-10-09). With several runs in flight a pull request's took 148
+      minutes, its macOS jobs waiting for the account's five macOS runners;
+      by the owner's decision (2026-10-09) a pull request now runs macOS
+      release only, four macOS jobs instead of ten, and macOS debug's tests
+      run on main after the merge and nightly. Done 2026-10-09: PR #150's run 37933227320, with
+      this in place, took 46 minutes from push to result, every build
+      restoring main's ccache at 79-91% hits.- [x] **CI's actions run on Node.js 20, which GitHub has deprecated.**
       *Verification: a CI run's annotations name no action as targeting
       Node.js 20.* Done 2026-09-24.
 - [x] **CI's Windows builds have no compiler cache**, so each compiles
