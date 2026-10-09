@@ -10,12 +10,12 @@
 #
 # **An item before the first `## Phase` is not phase work and is skipped.**
 # Three tails once landed in the preamble - the script that inserted them
-# looked for the "## Tails" heading with a plain string search and found the
+# looked for the "## Later" heading with a plain string search and found the
 # one inside the preamble own `sed` example instead - and this named them as
 # the next thing to do.
 plan="$(dirname "$0")/../docs/COMPLETION_PLAN.md"
 if [ "$1" = "--all" ]; then
-    awk '/^## Phase /{p=$0} /^## Tails/{exit} /^- \[ \]/{if (p != "") print p" | "$0}' "$plan"
+    awk '/^## Phase /{p=$0} /^## Later/{exit} /^- \[ \]/{if (p != "") print p" | "$0}' "$plan"
     exit 0
 fi
-awk '/^## Phase /{p=$0} /^## Tails/{exit} /^- \[ \]/{if (p != "") {print p; print; exit}}' "$plan"
+awk '/^## Phase /{p=$0} /^## Later/{exit} /^- \[ \]/{if (p != "") {print p; print; exit}}' "$plan"
