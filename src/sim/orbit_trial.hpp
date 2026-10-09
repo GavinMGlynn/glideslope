@@ -116,9 +116,11 @@ struct CrosswindFlown {
                worst_heading_deg <= 2.0;
     }
 };
+// `gear`: clean, up, unless asked otherwise - 1 for down, as the F-22A's
+// departure at 130 kt is pinned (test_catalogue.cpp).
 CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
                                         const CatalogueEntry& entry, double airspeed_kts,
-                                        bool windy, double settle_s = 30.0);
+                                        bool windy, double settle_s = 30.0, double gear = 0.0);
 
 // Flies `entry` round the tightest orbit allowed at `trial.airspeed_kts`, at
 // 3,000 ft over Sydney, clean, with the throttle it starts at in the
