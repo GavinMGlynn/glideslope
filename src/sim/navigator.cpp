@@ -44,6 +44,16 @@ constexpr double gravity_mps2 = 9.80665;
 // first - the aircraft is steered out to it, and the turns spiralling out are
 // not counted.
 constexpr double orbit_joined_m = 100.0;
+// **And going its way round**: its track within this of the circle's. Joined
+// whichever way it was going, a jet that reached a waypoint on its circle
+// heading across it was held to the circle from there, and turning round
+// onto it swung kilometres through it (PROJECT_STATUS.md, 2026-10-09).
+constexpr double orbit_joined_deg = 20.0;
+// **The bank it is turned onto the circle at**, from inside it or swung
+// outside it: less than the autopilot's most, 25 degrees, which the
+// tightest orbit allowed - two and a half times the circle turned at 25 -
+// leaves room for.
+constexpr double capture_bank_deg = 15.0;
 
 double normalised(double degrees) {
     const double d = std::fmod(degrees, 360.0);
@@ -129,7 +139,13 @@ AutopilotModes Navigator::steer() {
                 bearing_deg(to.latitude_deg, to.longitude_deg, lat, lon);
             const double r = to.orbit->radius_m;
             const double off_circle_m = from_centre_m - r;
-            if (!circling_ && std::abs(off_circle_m) <= orbit_joined_m) {
+            // Its track over the ground off the circle's, the way round it is
+            // flown.
+            const double along = to.orbit->right ? around + 90.0 : around - 90.0;
+            const double track_off_deg =
+                std::remainder(std::atan2(east, north) / radians - along, 360.0);
+            if (!circling_ && std::abs(off_circle_m) <= orbit_joined_m &&
+                std::abs(track_off_deg) <= orbit_joined_deg) {
                 circling_ = true;
                 around_deg_ = around;
                 turned_deg_ = 0.0;
@@ -179,11 +195,38 @@ AutopilotModes Navigator::steer() {
             // over the radius, and the air is turned through that at the
             // airspeed: tan bank = v_air v_ground / g r.
             const double ground_mps = std::hypot(north, east) * 0.3048;
-            const double bank_deg =
-                std::atan(air_mps * ground_mps / (gravity_mps2 * r)) / radians;
+            // The rate the track turns at, round the way the orbit is flown:
+            // the circle's.
+            double in = std::clamp(in_per_metre * off_circle_m, -most_orbit_intercept_deg,
+                                   most_orbit_intercept_deg);
+            double turning = ground_mps / r;
+            // **No more than it can turn out of onto the circle**: the angle
+            // to it of the arc it would turn along at the capture bank, met
+            // at a tangent - curving round the way the circle does from
+            // inside, the other way from outside. Closing faster, it could
+            // not turn onto the circle in time, and swung through it.
+            const double turn_m = std::min(air_mps * ground_mps / (gravity_mps2 *
+                                                                   std::tan(capture_bank_deg * radians)),
+                                           0.9 * r);
+            const double rho = std::max(from_centre_m, 1.0);
+            const bool inside = off_circle_m < 0.0;
+            const double centres_m = inside ? r - turn_m : r + turn_m;
+            const double cos_at = std::clamp(
+                (rho * rho + turn_m * turn_m - centres_m * centres_m) / (2.0 * rho * turn_m),
+                -1.0, 1.0);
+            const double most_in_deg =
+                inside ? std::acos(cos_at) / radians : 180.0 - std::acos(cos_at) / radians;
+            if (std::abs(in) > most_in_deg) {
+                in = std::copysign(most_in_deg, in);
+                // Along the arc.
+                turning = std::copysign(gravity_mps2 * std::tan(capture_bank_deg * radians) / std::max(air_mps, 1.0), inside ? 1.0 : -1.0);
+            }
+            // Ahead by the heading the autopilot needs to bank for that turn:
+            // over the ground the track turns at it, and the air is turned
+            // through it at the airspeed - tan bank = v_air rate / g; round
+            // the circle, v_air v_ground / g r.
+            const double bank_deg = std::atan(air_mps * turning / gravity_mps2) / radians;
             const double lead_deg = heading_off_for_bank_deg(bank_deg);
-            const double in = std::clamp(in_per_metre * off_circle_m,
-                                         -most_orbit_intercept_deg, most_orbit_intercept_deg);
             const double turned_in = lead_deg + in + trim_deg_;
             track = to.orbit->right ? around + 90.0 + turned_in : around - 90.0 - turned_in;
             off_m = 0.0;

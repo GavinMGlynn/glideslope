@@ -7,6 +7,7 @@
 // slowest and fastest each aircraft may be planned at (its `<plan_speeds>`,
 // in its figures file).
 
+#include <algorithm>
 #include <filesystem>
 #include <functional>
 #include <string>
@@ -52,6 +53,43 @@ struct OrbitFlown {
                fastest_kts <= asked_kts + 5.0;
     }
 };
+
+// **An orbit entered from the waypoint before it**, as a model plans one -
+// "waypoint CBD ..., orbit CBD ...": `entry` at 3,000 ft, begun 5 km short
+// of the waypoint flying `arriving_deg` true towards it, flown by the
+// navigator and the autopilot to it, then on round the orbit once. The orbit
+// is centred over Sydney's CBD and the waypoint is `from_centre` radii due
+// south of the centre: 0 at it, 1 on the circle.
+struct OrbitEntry {
+    double airspeed_kts = 0.0;
+    double radius_m = 0.0;
+    double from_centre = 0.0;  // the waypoint, in radii south of the centre
+    double arriving_deg = 0.0; // the track flown to it, true
+    bool right = false;        // the way round
+    bool windy = false;        // a 10 kt wind from the west, or calm air
+};
+struct OrbitEntered {
+    bool joined = false; // came within 100 m of the circle, and counted round it
+    double turns = 0.0;  // round it, counted from joining it
+    // From the centre, from joining it - within 100 m of it - once round:
+    double join_nearest_m = 0.0;
+    double join_farthest_m = 0.0;
+    // And from a quarter-turn on:
+    double nearest_m = 0.0;
+    double farthest_m = 0.0;
+    double worst_height_ft = 0.0; // from joining it
+    bool left_tables = false;
+    // The most it strayed off its circle, either side, from joining it and
+    // from a quarter-turn on.
+    double worst_join_off_m(double radius_m) const {
+        return std::max(radius_m - join_nearest_m, join_farthest_m - radius_m);
+    }
+    double worst_off_m(double radius_m) const {
+        return std::max(radius_m - nearest_m, farthest_m - radius_m);
+    }
+};
+OrbitEntered fly_orbit_from_waypoint(const std::filesystem::path& data,
+                                     const CatalogueEntry& entry, const OrbitEntry& trial);
 
 // **A heading held in a crosswind**: `entry` at 3,000 ft heading north at
 // `airspeed_kts`, the autopilot alone holding the heading, the height and
