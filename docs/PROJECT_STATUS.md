@@ -358,6 +358,13 @@ and this seventh - the command line and the choice. Not edited by hand.
   `the_client_with_the_window_stalled_past_the_timeout_joins_again_by_itself`
   failed once with the machine loaded by other builds and passed alone;
   it touches no aeroplane's engine.
+- **Restacked on the 182S, Cherokee and F-15C work** (on 2968b729): the 417
+  tests that fly the 172P or read its figures - stall recoveries, lessons,
+  glides, orbits, plans and routes, departures, the lander and leaner,
+  prediction, restore, separation, crashes, the selftest, the learnt
+  landing's gate and the cross-platform check - green in linux-release, at
+  -j4. The figures count 122 across the catalogue and 11 for the 172P; the
+  selftest hash is `182dd6c996e0ee4c` on the combined tree too.
 
 **The selftest hash moves**, deliberately: `be036519d2c19ea0` ->
 `182dd6c996e0ee4c` in linux-release. The selftest flies the 172P, whose
