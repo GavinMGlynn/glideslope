@@ -122,10 +122,15 @@
        in a 10 kt wind, each to hold its height within 50 ft and its speed
        within 5 kt, and a heading held on the autopilot alone in calm air
        and a 20 kt crosswind (sideslip within a degree, heading within two);
-       the slowest sought up from its approach speed in 5 kt steps,
+       the slowest sought up in 5 kt steps from its approach speed, or
+       from 10 kt over its stall warning where that is more (both at
+       `weight_lbs`; sim::least_plan_slowest_kts, since 2026-10-10),
        the fastest down from a fifth over its start speed, and written by
-       the command's one rule (src/frontend/cli/main.cpp, plan_speeds). -->
-  <plan_speeds slowest_kcas="204" fastest_kcas="360">
+       the command's one rule (src/frontend/cli/main.cpp, plan_speeds), at
+       `weight_lbs`, her model's own weight, which the trial flies and a
+       server flies her at; heavier, the slowest is raised for her weight
+       (sim::for_weight). -->
+  <plan_speeds slowest_kcas="204" fastest_kcas="360" weight_lbs="45400">
     The slowest, 204 kt, is 5 kt over the slowest that held: its approach speed is a flaps-down figure, and flown clean at 194 kt it lost 108 ft round its 5,446 m circle, and below that more; 199 kt held all four ways. The fastest, 360 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli

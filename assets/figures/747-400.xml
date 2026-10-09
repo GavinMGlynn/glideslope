@@ -102,8 +102,11 @@
        and a 20 kt crosswind (sideslip within a degree, heading within two);
        the slowest sought up from its approach speed (or where said) in 5 kt steps,
        the fastest down from a fifth over its start speed, and written by
-       the command's one rule (src/frontend/cli/main.cpp, plan_speeds). -->
-  <plan_speeds slowest_kcas="220" fastest_kcas="300">
+       the command's one rule (src/frontend/cli/main.cpp, plan_speeds), at
+       `weight_lbs`, her model's own weight, which the trial flies and a
+       server flies her at; heavier, the slowest is raised for her weight
+       (sim::for_weight). -->
+  <plan_speeds slowest_kcas="220" fastest_kcas="300" weight_lbs="754313">
     The slowest, 220 kt, is 5 kt over the slowest that held: it publishes no stall speed, so has no approach speed, and the sweep began at 160 kt (`plan-speeds 747-400 160`); below 215 kt it came down 500 ft before it reached its circle (at 210 kt, its 6,381 m circle); 215 kt held all four ways. The fastest, 300 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli

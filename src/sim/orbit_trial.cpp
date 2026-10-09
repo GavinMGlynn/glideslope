@@ -385,6 +385,20 @@ double full_throttle_level_kts(const std::filesystem::path& data, const Catalogu
     return last_average;
 }
 
+double plan_weight_lbs(const std::filesystem::path& data, const CatalogueEntry& entry) {
+    return Aircraft(data / "jsbsim", entry.model).loaded_weight_lbs();
+}
+
+double least_plan_slowest_kts(const std::filesystem::path& data, const CatalogueEntry& entry) {
+    if (!publishes_approach_speed(data, entry.model)) {
+        return 0.0;
+    }
+    const ApproachSpeeds published = approach_speeds(data, entry.model);
+    const ApproachSpeeds weighed = for_weight(published, plan_weight_lbs(data, entry));
+    return std::max({std::round(published.vref_kts), std::ceil(weighed.vref_kts),
+                     std::ceil(stall_warning_kts(weighed.stall_kts) + plan_gust_allowance_kts)});
+}
+
 bool holds_plan_speed(const std::filesystem::path& data, const CatalogueEntry& entry,
                       double airspeed_kts, const std::function<void(const std::string&)>& said) {
     const auto tell = [&](const std::string& line) {

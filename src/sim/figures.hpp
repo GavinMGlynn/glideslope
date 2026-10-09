@@ -101,6 +101,10 @@ struct PublishedFigures {
     // that is held, and never below it.
     double plan_slowest_kcas = 0.0;
     double plan_fastest_kcas = 0.0;
+    // **And the weight they were measured at**, pounds: `weight_lbs`, her
+    // model's own - the trial loads nothing, and a server flies her at it.
+    // Heavier, her slowest is raised for her weight (sim::for_weight).
+    double plan_weight_lbs = 0.0;
     // **The slowest a glide may be flown at**, KCAS: `<glide_speeds
     // slowest_kcas="...">`, which every file gives. Measured, not worked out
     // (`glideslope_cli glide-speeds`, sim::glide_tightest_orbit): the slowest,
@@ -139,8 +143,9 @@ struct FigureResult {
     }
 };
 
-// The slowest and fastest a plan may fly `model`, KCAS: its figures file's
-// `<plan_speeds>`, read from `data`/figures. Throws as
+// The slowest and fastest a plan may fly `model`, KCAS, and the weight they
+// were measured at: its figures file's `<plan_speeds>`, read from
+// `data`/figures. For another weight, sim::for_weight. Throws as
 // `read_published_figures` does.
 PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model);
 

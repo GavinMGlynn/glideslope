@@ -194,6 +194,16 @@ double least_orbit_radius_m(double airspeed_kts) {
     return 2.5 * v * v / (9.80665 * std::tan(most_bank_deg * radians));
 }
 
+PlanSpeeds for_weight(const PlanSpeeds& speeds, double weight_lbs) {
+    if (!(speeds.weight_lbs > 0.0) || !(weight_lbs > speeds.weight_lbs + 1.0)) {
+        return speeds;
+    }
+    PlanSpeeds out = speeds;
+    out.slowest_kts *= std::sqrt(weight_lbs / speeds.weight_lbs);
+    out.weight_lbs = weight_lbs;
+    return out;
+}
+
 bool within_plan_speeds(const PlanSpeeds& speeds, double kts) {
     return kts >= speeds.slowest_kts - 0.5 && kts <= speeds.fastest_kts + 0.5;
 }

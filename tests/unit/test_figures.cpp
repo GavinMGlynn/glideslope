@@ -864,13 +864,14 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
 // changed, so a refusal is that element's and nothing else's.
 GLIDESLOPE_TEST(the_speeds_a_plan_may_fly_an_aircraft_at_are_read_and_refused_where_they_are_wrong) {
     const PublishedFigures c172p = read_published_figures(figures_file("c172p"));
-    check(c172p.plan_slowest_kcas == 60.0 && c172p.plan_fastest_kcas == 110.0,
-          "the C172P may be planned from 60 to 110 kt");
+    check(c172p.plan_slowest_kcas == 60.0 && c172p.plan_fastest_kcas == 110.0 &&
+              c172p.plan_weight_lbs == 1880.0,
+          "the C172P may be planned from 60 to 110 kt, at her model's 1,880 lb");
 
     std::ifstream in(figures_file("c172p"));
     const std::string text((std::istreambuf_iterator<char>(in)),
                            std::istreambuf_iterator<char>());
-    const std::string element = "<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"110\">";
+    const std::string element = "<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"110\" weight_lbs=\"1880\">";
     const auto at = text.find(element);
     if (at == std::string::npos) {
         fail("assets/figures/c172p.xml does not give " + element);
@@ -888,21 +889,35 @@ GLIDESLOPE_TEST(the_speeds_a_plan_may_fly_an_aircraft_at_are_read_and_refused_wh
         out << changed;
     };
 
-    write("<plan_speeds slowest_kcas=\"55\" fastest_kcas=\"125\"></plan_speeds>");
+    write("<plan_speeds slowest_kcas=\"55\" fastest_kcas=\"125\" weight_lbs=\"2000\">"
+          "</plan_speeds>");
     const PublishedFigures written = read_published_figures(file);
-    check(written.plan_slowest_kcas == 55.0 && written.plan_fastest_kcas == 125.0,
+    check(written.plan_slowest_kcas == 55.0 && written.plan_fastest_kcas == 125.0 &&
+              written.plan_weight_lbs == 2000.0,
           "other speeds, written the same way, are read back as written");
     const std::pair<const char*, const char*> wrong[] = {
         {"", "gives no <plan_speeds"},
-        {"<plan_speeds fastest_kcas=\"120\"></plan_speeds>", "gives no <plan_speeds"},
-        {"<plan_speeds slowest_kcas=\"60\"></plan_speeds>", "gives no <plan_speeds"},
-        {"<plan_speeds slowest_kcas=\"0\" fastest_kcas=\"120\"></plan_speeds>", "not above 0"},
-        {"<plan_speeds slowest_kcas=\"120\" fastest_kcas=\"120\"></plan_speeds>",
+        {"<plan_speeds fastest_kcas=\"120\" weight_lbs=\"1880\"></plan_speeds>",
+         "gives no <plan_speeds"},
+        {"<plan_speeds slowest_kcas=\"60\" weight_lbs=\"1880\"></plan_speeds>",
+         "gives no <plan_speeds"},
+        // **Nor without the weight they were measured at** (sim::for_weight).
+        {"<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\"></plan_speeds>",
+         "gives no <plan_speeds"},
+        {"<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\" weight_lbs=\"0\"></plan_speeds>",
+         "not above 0"},
+        {"<plan_speeds slowest_kcas=\"0\" fastest_kcas=\"120\" weight_lbs=\"1880\"></plan_speeds>",
+         "not above 0"},
+        {"<plan_speeds slowest_kcas=\"120\" fastest_kcas=\"120\" weight_lbs=\"1880\">"
+         "</plan_speeds>",
          "the fastest above the slowest"},
-        {"<plan_speeds slowest_kcas=\"130\" fastest_kcas=\"120\"></plan_speeds>",
+        {"<plan_speeds slowest_kcas=\"130\" fastest_kcas=\"120\" weight_lbs=\"1880\">"
+         "</plan_speeds>",
          "the fastest above the slowest"},
-        {"<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\"></plan_speeds>"
-         "<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\"></plan_speeds>",
+        {"<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\" weight_lbs=\"1880\">"
+         "</plan_speeds>"
+         "<plan_speeds slowest_kcas=\"60\" fastest_kcas=\"120\" weight_lbs=\"1880\">"
+         "</plan_speeds>",
          "gives <plan_speeds> twice"},
     };
     std::string failures;

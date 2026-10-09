@@ -117,6 +117,10 @@ ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs) {
     return out;
 }
 
+double stall_warning_kts(double stall_kts) {
+    return stall_kts + std::max(5.0, 0.05 * stall_kts);
+}
+
 Lander::Lander(const Aircraft& aircraft, const Runway& runway,
                const ApproachSpeeds& speeds, double glidepath_deg)
     // **Flown at the speeds for what she weighs now** (`for_weight`): the

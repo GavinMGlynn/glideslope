@@ -175,11 +175,35 @@ FlightPlan parse_flight_plan(std::string_view text);
 double least_orbit_radius_m(double airspeed_kts);
 
 // **The slowest and fastest a plan may fly an aircraft**, KCAS: its figures
-// file's `<plan_speeds>` (sim::plan_speeds).
+// file's `<plan_speeds>` (sim::plan_speeds), and the weight they were
+// measured at - her model's own, which is what a server flies her at.
 struct PlanSpeeds {
     double slowest_kts = 0.0;
     double fastest_kts = 0.0;
+    // Pounds; 0 where none is known, and then they are flown as given.
+    double weight_lbs = 0.0;
 };
+
+// **The gust allowance a plan's slowest keeps over the stall warning**, at
+// the weight it was measured at: 10 kt. A plan's slowest is flown level and
+// round orbits for as long as a plan says, in whatever air there is, so it
+// keeps what a pilot keeps on an approach in turbulent air - "the normal
+// approach speed plus one-half of the wind gust factor" (FAA, Airplane
+// Flying Handbook, FAA-H-8083-3C, chapter 9, "Turbulent Air Approach and
+// Landing": 70 kt with 15 kt gusts is flown at 77) - and more: in moderate
+// turbulence the AI's held speed was measured to dip up to 8 kt under what
+// it asked of a light aeroplane, and 10 kt leaves 2 over that.
+// `glideslope_cli plan-speeds` seeks no slowest below the warning plus this.
+constexpr double plan_gust_allowance_kts = 10.0;
+
+// **The speeds a plan may fly her at, at what she weighs**: the slowest
+// raised by the square root of `weight_lbs` over the weight it was measured
+// at, as a stall speed is (sim::for_weight on her approach speeds), where
+// she is heavier - so the margin it keeps over her stall warning grows with
+// her stall, never shrinks. Never lowered where she is lighter: a slower
+// speed than the one measured is one no trial flew. The fastest is kept.
+// Returned as given where it names no weight, or within a pound of it.
+PlanSpeeds for_weight(const PlanSpeeds& speeds, double weight_lbs);
 
 // Whether `kts`, as a plan writes it in whole knots, is within `speeds`:
 // half a knot either side - the one rule the planner, the copilot's routes

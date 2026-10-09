@@ -594,7 +594,7 @@ GLIDESLOPE_TEST(a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_ref
           "started at 147 kt she is refused, the start named: " + start);
     const std::string fast =
         verdict("aircraft mosquito-fb6\nwaypoint A -33.90 151.2093 3000 270\n");
-    check(fast.find("A is flown at 270 kt, outside 123 to 264 kt") != std::string::npos,
+    check(fast.find("A is flown at 270 kt, outside 129 to 264 kt") != std::string::npos,
           "the Mosquito at 270 kt, more than she makes, is refused: " + fast);
     const std::string other = verdict(plan_text("sydney-harbour.plan"), "a320");
     check(other.find("the plan is for the c172p, and the aircraft flown is the a320") !=
@@ -648,16 +648,18 @@ GLIDESLOPE_TEST(a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_ref
 // more too cautiously (the A320's put at 172, it holds 157: seen red); one
 // written 5 kt too cautiously lands on the cliff and is caught where the
 // platform falls that side. plan-speeds' own 5 kt keeps every figure a step
-// clear of the cliff. Every aircraft whose slowest is above
-// its approach speed (or that has none) is flown there, and every one whose
+// clear of the cliff. Every aircraft whose slowest is above where its
+// search begins - its approach speed, at least for the weight a plan flies
+// it at and 10 kt over its stall warning there (sim::least_plan_slowest_kts,
+// since 2026-10-10) - or that has none, is flown there, and every one whose
 // fastest is below a fifth over its start speed: none may hold what a plan
 // asks (sim::holds_plan_speed - the orbit four ways, a heading in calm air
 // and a crosswind). The rest are at the bound plans were held to before,
 // which nothing is asked past.
 namespace {
 
-// One aircraft of the test below: its slowest tried 10 kt slower where it is
-// above its approach speed (or it has none), its fastest 10 kt faster where
+// One aircraft of the test below: its slowest tried 15 kt slower where it is
+// above where its search begins (or it has none), its fastest 10 kt faster where
 // it is below a fifth over its start speed; each bound tried or at the old
 // bound, and none held.
 enum class Bounds { both, slowest, fastest };
@@ -669,12 +671,11 @@ void holds_nothing_one_step_past(const std::string& id, Bounds bounds = Bounds::
     std::size_t tried = 0;
     std::size_t at_the_old_bound = 0;
     const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, e.model);
-    double approach = 0.0;
-    try {
-        approach = std::round(glideslope::sim::approach_speeds(data, e.model).vref_kts);
-    } catch (const std::runtime_error&) {
-        // The 747-400 and the F-22 have none: their slowest was sought.
-    }
+    // **Where the search for its slowest begins** (sim::least_plan_slowest_kts):
+    // its approach speed, or that for the weight a plan flies it at, or its
+    // stall warning there plus the gust allowance, whichever is most. 0 for
+    // the 747-400 and the F-22, which have no stall: their slowest was sought.
+    const double approach = glideslope::sim::least_plan_slowest_kts(data, e);
     const auto past = [&](double kts, const char* which) {
         // **Past the fastest, power in hand is asked first**: it is the last
         // and cheapest of what holds_plan_speed asks, and where it fails
@@ -723,7 +724,7 @@ void holds_nothing_one_step_past(const std::string& id, Bounds bounds = Bounds::
         past(speeds.slowest_kts - 15.0, "slowest");
     } else {
         ++at_the_old_bound;
-        std::printf("%s's slowest is at the old bound, its approach speed\n", e.id.c_str());
+        std::printf("%s's slowest is at the old bound, where its search begins\n", e.id.c_str());
     }
     if (bounds == Bounds::slowest) {
         ++at_the_old_bound; // its own test's

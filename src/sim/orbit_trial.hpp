@@ -219,6 +219,23 @@ double full_throttle_level_kts(const std::filesystem::path& data, const Catalogu
 // What a plan's speed must leave in hand at full throttle (below).
 inline constexpr double plan_speed_power_margin_kts = 5.0;
 
+// **The weight a plan flies `entry` at**, pounds: her model's own, loaded
+// with nothing - what `holds_plan_speed` flies and a server flies her at,
+// and what her figures' `<plan_speeds weight_lbs="...">` must say.
+double plan_weight_lbs(const std::filesystem::path& data, const CatalogueEntry& entry);
+
+// **The least a plan's slowest may be for `entry`**, KCAS in whole knots, at
+// the weight a plan flies her at (`plan_weight_lbs`): her approach speed as
+// her figures give it, to the nearest knot, as the search for her slowest
+// always began - nothing a plan was let fly before is taken away; and, each
+// rounded up, her approach
+// speed for that weight (sim::for_weight); and her stall warning for that
+// weight (sim::stall_warning_kts) plus the gust allowance
+// (sim::plan_gust_allowance_kts). Where she publishes no stall, 0: nothing
+// is known to keep her above. Where `glideslope_cli plan-speeds` begins its
+// search for the slowest.
+double least_plan_slowest_kts(const std::filesystem::path& data, const CatalogueEntry& entry);
+
 // **Whether `entry` holds `airspeed_kts` as a plan may ask it**: round the
 // tightest orbit at it both ways, in calm air and in a 10 kt wind, its
 // height within 50 ft and its speed within 5 kt (each stopped once lost);
