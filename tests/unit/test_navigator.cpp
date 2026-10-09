@@ -1757,6 +1757,17 @@ GLIDESLOPE_TEST(every_aircraft_raises_its_take_off_flap_before_the_plan_has_it_a
     };
     std::size_t flown = 0;
     std::size_t with_flap = 0;
+    // **The notches each lever stops at on the way up**, between its
+    // take-off flap and up, from its model's flap kinematic: the 737's 1
+    // and 2 under its 5, the A320's 1, 2 and 5 under its 10, one each under
+    // the 747's 20, the A380's 17, the 182S's 20 and the Cherokee's 25.
+    // None for the 172P, 787 and Learjet, whose take-off flap is their
+    // first notch, nor for the seven that take off clean.
+    const std::map<std::string, std::size_t> notches_between{
+        {"737-300", 2}, {"747-400", 1}, {"787-8", 0},     {"a320", 3},
+        {"a380", 1},    {"b2", 0},      {"c172p", 0},     {"c182", 1},
+        {"f15c", 0},    {"f22", 0},     {"f35b", 0},      {"j3cub", 0},
+        {"learjet35a", 0}, {"mosquito-fb6", 0}, {"pa28", 1}, {"short_s23", 0}};
     for (const auto& entry : catalogue) {
         const std::string& id = entry.id;
         const glideslope::sim::DepartureSpeeds speeds =
@@ -1829,8 +1840,12 @@ GLIDESLOPE_TEST(every_aircraft_raises_its_take_off_flap_before_the_plan_has_it_a
         bool airborne = false;
         bool reached = false;
         int steps = 0;
+        double first_lever = -1.0;
         for (; steps < 15 * 60 * steps_per_second; ++steps) {
             const glideslope::sim::Controls c = controller.fly();
+            if (steps == 0) {
+                first_lever = c.flaps;
+            }
             aircraft.set_controls(c);
             aircraft.step();
             const double height_ft = aircraft.property("position/h-sl-ft");
@@ -1873,7 +1888,20 @@ GLIDESLOPE_TEST(every_aircraft_raises_its_take_off_flap_before_the_plan_has_it_a
         if (speeds.flap > 0.0) {
             ++with_flap;
         }
+        expect(first_lever == speeds.flap,
+               id + " began its take-off with its lever at " + std::to_string(first_lever) +
+                   ", its take-off flap " + std::to_string(speeds.flap));
+        const auto expected = notches_between.find(id);
+        expect(expected != notches_between.end() && expected->second == stops.size(),
+               id + " has " + std::to_string(stops.size()) +
+                   " notches between its take-off flap and up, not the number stated");
         expect(handed_over && reached, id + " was taken off and flew its plan to OUT");
+        // **The take-off climbs past its 500 ft while the flap comes up**,
+        // the airliners to 1,056-1,194 ft, but never past 1,500 ft above
+        // the runway, where it ends whatever the flap (Departure, 14 CFR
+        // 25.111(a)); 50 ft in hand for the step that crosses it.
+        expect(handed_ft <= 1550.0,
+               id + " was handed over at " + std::to_string(handed_ft) + " ft (1,500 at most)");
         expect(handed_lever == 0.0 && handed_deg <= 0.5,
                id + " was handed to the plan with its lever at " + std::to_string(handed_lever) +
                    " and its flaps at " + std::to_string(handed_deg) + " deg (up asked)");
@@ -1901,9 +1929,14 @@ GLIDESLOPE_TEST(every_aircraft_raises_its_take_off_flap_before_the_plan_has_it_a
     }
     std::fprintf(stderr, "%zu of %zu aircraft flown, %zu taking off with flap\n", flown,
                  catalogue.size(), with_flap);
-    check(flown == catalogue.size() && flown > 0,
+    // **The space, as numbers**: the catalogue's sixteen, every one flown,
+    // nine of them taking off with flap - so one added, or a take-off flap
+    // gained or lost, is seen here.
+    check(catalogue.size() == 16 && flown == catalogue.size() &&
+              notches_between.size() == catalogue.size(),
           "every aircraft in the catalogue flown: " + std::to_string(flown) + " of " +
-              std::to_string(catalogue.size()));
+              std::to_string(catalogue.size()) + " (16 stated)");
+    check(with_flap == 9, "nine take off with flap: " + std::to_string(with_flap));
     check(failures.empty(), "every aircraft's take-off flap up before the plan:" + failures);
 }
 

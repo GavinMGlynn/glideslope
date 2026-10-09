@@ -45,6 +45,9 @@ constexpr double flaps_settle_s = 1.0;
 constexpr double a_hands_pace = 1.0 / steps_per_second;
 // The flaps standing still: moving less than this a step, degrees.
 constexpr double flaps_still_deg = 1e-6;
+// Where a take-off whose flap will not come up ends anyway (fly_laws).
+constexpr double take_off_path_ft = 1500.0;
+constexpr double take_off_power_s = 300.0;
 
 
 // A figure by the flight that measures it, or null.
@@ -240,6 +243,15 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
         leaner_.emplace(a_, a_.property("fcs/mixture-cmd-norm[0]"));
     }
     measure();
+    // **Taken over in the air, the flap lever is where it was found**: a
+    // take-off handed back mid-climb with its flap already up would
+    // otherwise put the take-off flap out again. It comes up from there as
+    // a take-off's does. Only on the ground is it set to the take-off flap.
+    if (a_.property("gear/wow") < 0.5 && !a_.in_water() &&
+        a_.has_property("fcs/flap-cmd-norm")) {
+        flap_lever_ = std::clamp(a_.property("fcs/flap-cmd-norm"), 0.0, 1.0);
+        flap_aim_ = flap_lever_;
+    }
     standing_m_ = above_m_;
     standing_pitch_deg_ = a_.state().pitch_deg;
     // **The stick as she is handed over is where this autopilot last put
@@ -435,8 +447,24 @@ Controls Departure::fly_laws() {
         retract_flaps(kcas);
         c.flaps = flap_lever_;
     }
+    //
+    // **But it always ends.** A take-off that never makes the speed its flap
+    // comes up at - asked for one she cannot reach, or short of thrust -
+    // would climb on for ever. So once climbed out it also ends, with the
+    // flap left where the speed allowed, at whichever comes first:
+    //   - 1,500 ft above the runway, where the take-off path ends
+    //     (14 CFR 25.111(a): "at least 1,500 feet above the takeoff
+    //     surface"); this also bounds how far past its height a take-off
+    //     climbs while the flap comes up;
+    //   - five minutes after the throttle was opened, the most rated
+    //     take-off power may be used for (14 CFR 1.1, "rated takeoff
+    //     power").
+    // The plan's autopilot then holds the flap it is handed.
+    ++steps_;
     climbed_out_ = climbed_out_ || (above_m_ * feet_per_metre >= to_ft_ && takeoff_trim_ == 0.0);
-    if (stage_ != Stage::done && climbed_out_ && flaps_up()) {
+    const bool path_over = above_m_ * feet_per_metre >= take_off_path_ft ||
+                           static_cast<double>(steps_) >= take_off_power_s * steps_per_second;
+    if (stage_ != Stage::done && climbed_out_ && (flaps_up() || path_over)) {
         stage_ = Stage::done;
     } else if (unstuck_) {
         stage_ = Stage::climb;
