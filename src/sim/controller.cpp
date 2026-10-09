@@ -226,6 +226,7 @@ void Controller::to_ai_flying(FlightPlan plan, const DepartureSpeeds& speeds) {
 void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                 double glidepath_deg) {
     engage();
+    unstable_go_arounds_ = 0;
     lander_.emplace(a_, runway, speeds, glidepath_deg);
     lander_->hand_mixture(applied_.mixture);
 }
@@ -388,6 +389,7 @@ Controls Controller::fly() {
             // **Gone around, she is flown round again** to the same runway
             // (sim/circuit.hpp), not left climbing on the plain autopilot.
             if (lander_->gone_around()) {
+                unstable_go_arounds_ += lander_->went_around_unstabilized() ? 1 : 0;
                 circuit_.emplace(a_, lander_->runway(), lander_->speeds());
             }
             lander_.reset();
@@ -397,6 +399,9 @@ Controls Controller::fly() {
             if (circuit_->on_final()) {
                 lander_.emplace(a_, circuit_->runway(), circuit_->speeds());
                 lander_->hand_mixture(applied_.mixture);
+                if (unstable_go_arounds_ >= StabilizedApproach::most_go_arounds) {
+                    lander_->waive_the_gate();
+                }
                 circuit_.reset();
                 applied_ = lander_->fly();
                 return applied_;

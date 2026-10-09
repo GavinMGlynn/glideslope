@@ -500,11 +500,16 @@ Controls Lander::fly_laws() {
         why_gone_around_ = "a balloon above the flare";
     }
     // **Not stabilized at and below the gate: go around** (StabilizedApproach).
-    if (!touched_ && (stage_ == Stage::approach || stage_ == Stage::flare)) {
+    // Two seconds running of it, not a gust's moment.
+    if (judges_the_gate_ && !touched_ &&
+        (stage_ == Stage::approach || stage_ == Stage::flare)) {
         std::string why = unstabilized(runway_, speeds_, glidepath_deg(), along_m_,
                                        above_m_, kcas);
-        if (!why.empty()) {
+        unstable_steps_ = why.empty() ? 0 : unstable_steps_ + 1;
+        if (!why.empty() && static_cast<double>(unstable_steps_) >=
+                                StabilizedApproach::sustained_s * steps_per_second) {
             go_around(std::move(why));
+            unstabilized_ = true;
         }
     }
 
@@ -767,8 +772,11 @@ Controls Lander::fly_laws() {
         // reference speed; an approach gone around from twenty knots fast,
         // two seconds after it began, had learnt a jet's wing at next to no
         // lift, and holding that at full power an A320 dived on into the
-        // ground at 5,000 ft/min. A degree for each 200 ft/min of sink.
-        const double sinking_deg = std::max(0.0, -s.climb_rate_fpm) / 200.0;
+        // ground at 5,000 ft/min. A degree for each 200 ft/min she climbs
+        // slower than 300 ft/min: a Cherokee gone around 17 kt fast at 470
+        // ft, held at that incidence, flew level at full power under the
+        // 500 ft that ends a go-around and never reached it.
+        const double sinking_deg = std::max(0.0, 300.0 - s.climb_rate_fpm) / 200.0;
         const double want_alpha_deg =
             std::min(most_flare_alpha_deg(),
                      (path_alpha_known_ ? path_alpha_deg_ : 8.0) + sinking_deg);

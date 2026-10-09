@@ -111,6 +111,21 @@ struct StabilizedApproach {
     // purpose.
     static constexpr double speed_judged_down_to_ft = 50.0;
     static constexpr double longest_zone_m = 914.4; // 3,000 ft
+    // **Sustained, not momentary.** FSF ALAR Briefing Note 7.1: "momentary
+    // overshoots made necessary by atmospheric conditions are acceptable",
+    // frequent or sustained ones are not. Two seconds running is the stated
+    // choice for sustained: judged step by step, a gust's spike sent twelve
+    // of fourteen aeroplanes round from a well-flown approach in severity-3
+    // turbulence. (The target already carries half the gust factor where
+    // the approach is flown so - the AFH's practice, ApproachSpeeds' own.)
+    static constexpr double sustained_s = 2.0;
+    // **Two go-arounds for being unstabilized, and the third approach is
+    // landed with the gate waived** (Controller). Airline practice commonly
+    // allows two approaches and then a diversion; this AI has nowhere to
+    // divert to, and a circuit flown for ever is no answer, so the third is
+    // flown as the approach was before the gate - a balloon, or a runway
+    // not clear, still sends her round. A stated choice, not a rule found.
+    static constexpr int most_go_arounds = 2;
     // The touchdown zone's far end, metres past the threshold.
     static double touchdown_zone_m(const Runway& runway) {
         return std::min(runway.length_m / 3.0, longest_zone_m);
@@ -147,6 +162,12 @@ public:
     // **Why she went around by herself**, from an approach not stabilized
     // (`unstabilized`) or a balloon; empty if she has not, or was told to.
     const std::string& why_gone_around() const { return why_gone_around_; }
+    // Whether she went around for an approach not stabilized.
+    bool went_around_unstabilized() const { return unstabilized_; }
+    // **The gate waived** (StabilizedApproach::most_go_arounds): this
+    // approach is landed however it is flown.
+    void waive_the_gate() { judges_the_gate_ = false; }
+    bool judges_the_gate() const { return judges_the_gate_; }
 
     Lander(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
            double glidepath_deg = 3.0);
@@ -248,6 +269,9 @@ private:
     double glidepath_rad_ = 0.0;
     Stage stage_ = Stage::approach;
     std::string why_gone_around_;
+    bool unstabilized_ = false;
+    bool judges_the_gate_ = true;
+    long unstable_steps_ = 0; // steps running the gate has found her unstabilized
 
     double along_m_ = 0.0;
     double across_m_ = 0.0;
