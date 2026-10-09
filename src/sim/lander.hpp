@@ -99,9 +99,15 @@ std::optional<ApproachSpeeds> landing_speeds(const std::filesystem::path& data,
 // touchdown zone - the first third of the runway (Airplane Flying Handbook,
 // FAA-H-8083-3C, chapter 9) or its first 3,000 ft (the Pilot/Controller
 // Glossary's touchdown zone), whichever is less. An approach that is not, at
-// and below the gate, is gone around from (AC 120-71B, appendix on
-// stabilized approaches). Nothing here is per aircraft: the speed is each
-// one's own `vref_kts`, from its figures.
+// and below the gate, is gone around from: the AFH (ch. 9, "Go-Arounds
+// (Rejected Landings)", https://www.faa.gov/sites/faa.gov/files/
+// regulations_policies/handbooks_manuals/aviation/airplane_handbook/
+// 10_afh_ch9.pdf) gives an unstable approach as a reason to go around, 500
+// ft typical in VMC, and "the need to discontinue a landing may arise at any
+// point in the landing process" - so there is no height below which the
+// touchdown zone is not judged, though "the most critical go-around is one
+// started when very close to the ground". Nothing here is per aircraft: the
+// speed is each one's own `vref_kts`, from its figures.
 struct StabilizedApproach {
     static constexpr double gate_ft = 500.0;
     static constexpr double most_fast_kts = 10.0;
