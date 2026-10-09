@@ -23,7 +23,9 @@
 //
 // or, when asked to recover from a stall, the throttle to its stop and the
 // sink a speed short allows -> pitch, the wing held below its stall and below
-// the angle that pulls 1.6 g, until the caller lets it go.
+// the angle that pulls 1.6 g, and the flaps taken up at a hand's pace to the
+// go-around setting where the aeroplane's figures give one, until the caller
+// lets it go.
 //
 // **Asked for a height it cannot hold, it gives up height, not airspeed.**
 // When the climb asked for would take the airspeed below the aeroplane's

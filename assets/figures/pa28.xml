@@ -15,8 +15,22 @@
   calibrated, and has no airspeed calibration table; they are taken as
   calibrated, the flight manual's stalls being so, and converted to knots
   (1 mph = 0.869 kt). The tolerances are this project's, as the Cessnas' are.
+
+  go_around_flaps_deg, the flap a go-around (a balked landing) takes the
+  flaps up to at once, and what the autopilot's stall recovery raises them
+  to: 25 degrees, the second notch. The "E" handbook gives no balked-landing
+  procedure (section III's approach and landing speaks of a go-around only
+  as the reason to keep the carburettor heat off), nor do the 1962 flight
+  manual, the 1973 Cherokee 180 handbook or the Archer II's of 1976. 25
+  degrees is the setting the Cherokee's own handbook takes off with when
+  it must climb out short (section III, take-off: "lowering flaps to 25"),
+  and the one Piper's later PA-28s go around with: the Warrior's checklist,
+  "Balked landing, go-around: maximum power, flaps 25 degrees, 63 KIAS" and
+  "Flaps - retract to 25 degrees", then "slowly retract" once clear
+  (Middle Georgia State University's Warrior PA-28-161 pilot's checklist,
+  2025, from the PA-28-161 handbook).
 -->
-<published_figures aircraft="pa28" flaps_full_deg="40">
+<published_figures aircraft="pa28" flaps_full_deg="40" go_around_flaps_deg="25">
   <source>Piper Cherokee 180 "E" Owner's Handbook, 1969-1974</source>
 
   <!-- 2,400 lb, the gross weight the handbook's figures are for: its

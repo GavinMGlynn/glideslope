@@ -264,6 +264,7 @@ struct CatalogueFacts {
     bool speedbrakes = false;
     double yaw_damper_per_degps = 0.05;
     double rudder_integral_rate = 0.05;
+    std::optional<double> go_around_flaps;
 };
 
 // One aircraft: a JSBSim instance loaded from model files.
@@ -331,6 +332,15 @@ public:
     }
     double rudder_integral_rate() const {
         return rudder_integral_rate_;
+    }
+
+    // **The flap lever a go-around takes the flaps up to**, 0 to 1, where its
+    // published figures give one (`go_around_flaps_deg`, sim/figures.hpp):
+    // what the autopilot's stall recovery raises the flaps to. None for an
+    // aircraft whose figures give none, or a model loaded where there is no
+    // catalogue.
+    std::optional<double> go_around_flaps() const {
+        return go_around_flaps_;
     }
 
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
@@ -521,6 +531,7 @@ private:
                                               std::numeric_limits<double>::infinity()};
     double yaw_damper_per_degps_ = 0.05;
     double rudder_integral_rate_ = 0.05;
+    std::optional<double> go_around_flaps_;
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;

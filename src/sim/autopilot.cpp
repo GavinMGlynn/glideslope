@@ -706,6 +706,20 @@ Controls Autopilot::fly() {
     c.elevator = toward(last_.elevator, c.elevator, a_hands_pace);
     c.rudder = toward(last_.rudder, c.rudder, a_hands_pace);
 
+    // **The recovery takes the flaps up to a go-around's**, where the
+    // aeroplane's figures give one (Aircraft::go_around_flaps), at a hand's
+    // pace, and never lowers them. A Cherokee at full power and full rich at
+    // 4,700 ft with her 40 degrees of landing flap, at the stall lesson's
+    // recovery speed, sinks 190 ft/min for as long as she is flown, so she is
+    // never level and never recovered; her handbook's family goes around at
+    // 25 degrees (assets/figures/pa28.xml). An aeroplane whose figures give
+    // none keeps the flaps it was handed, as every one did before.
+    if (on_speed) {
+        if (const std::optional<double> go_around = a_.go_around_flaps()) {
+            c.flaps = toward(last_.flaps, std::min(last_.flaps, *go_around), a_hands_pace);
+        }
+    }
+
     // Airspeed, to throttle.
     if (modes_.airspeed_kts) {
         // **With the nose at its highest and the climb short, the speed

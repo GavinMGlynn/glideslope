@@ -94,13 +94,23 @@ The changes, and what each is for:
                          advance ratio about 0.5, was 15% short (620 ft/min,
                          against 725). Now 534 lb, 3.4 lb a horsepower.
 
-The engine (engine/engIO360C.xml) is copied unchanged: 180 hp at 2,700 rpm
-is the O-360-A3A's rating.
+The engine (engine/engIO360C.xml): 180 hp at 2,700 rpm is the O-360-A3A's
+rating, unchanged.
+    MIXTURE table        The FAA's mixture curve, for JSBSim's own, which made
+                         most power at 9.9 parts of air to one of fuel; see
+                         tools/piston_mixture.py.
+
+  Carburettor (aircraft/pa28/pa28.xml)
+    Float carburettor    The O-360-A3A is carburetted, so its mixture richens
+                         with height as the square root of the density, not
+                         as the pressure; see tools/piston_mixture.py.
 """
 
 import pathlib
 import re
 import sys
+
+from piston_mixture import with_best_power_mixture, with_float_carburettor
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
@@ -272,7 +282,12 @@ def airframe():
             r"<contact type=\"BOGEY\" name=\"" + contact + r"\">(.*?)\s*<max_steer unit=\"DEG\"> 0\.0 </max_steer>"
             r"(\s*<brake_group> NONE </brake_group>)?(\s*<retractable>0</retractable>)?",
             r'<contact type="STRUCTURE" name="' + contact + r'">\1', f"the {contact} contact")
-    return text
+    return with_float_carburettor(text, "make_pa28")
+
+
+def engine():
+    text = (PINNED / "engine" / "engIO360C.xml").read_text()
+    return with_best_power_mixture(text, "make_pa28")
 
 
 def propeller():
@@ -307,7 +322,7 @@ def scaled(text, name, low_advance, full_at):
 def outputs():
     return {
         OUT / "aircraft" / "pa28" / "pa28.xml": airframe(),
-        OUT / "engine" / "engIO360C.xml": (PINNED / "engine" / "engIO360C.xml").read_text(),
+        OUT / "engine" / "engIO360C.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),
     }
 

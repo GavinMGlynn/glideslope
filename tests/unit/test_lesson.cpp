@@ -2250,6 +2250,13 @@ struct Result {
     // (negative where it was not let go).
     double engaged_step = 0.0;
     double let_go_step = -1.0;
+    // The flap lever through the recovery, which is the autopilot's from the
+    // hand-over: where it was handed over, where it ended, the lowest it went
+    // and the most it moved in a step.
+    double flaps_handed = -1.0;
+    double flaps_end = -1.0;
+    double flaps_lowest = 2.0;
+    double flaps_most_step = 0.0;
 };
 
 // **A turn, flown by the autopilot.** `sink_fpm` other than zero makes her
@@ -2715,7 +2722,20 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
             // accord. Full power for the recovery.
             c.throttle = recovering ? 1.0 : 0.0;
         }
-        c.flaps = landing_flap;
+        // **The flaps are the flight's until the hand-over, and the
+        // recovery's from it**: it takes them up to a go-around's where the
+        // aeroplane's figures give one (sim/autopilot.cpp).
+        if (recovering) {
+            if (out.flaps_handed < 0.0) {
+                out.flaps_handed = last_controls.flaps;
+            }
+            out.flaps_most_step =
+                std::max(out.flaps_most_step, std::abs(c.flaps - last_controls.flaps));
+            out.flaps_lowest = std::min(out.flaps_lowest, c.flaps);
+            out.flaps_end = c.flaps;
+        } else {
+            c.flaps = landing_flap;
+        }
         c.gear = 1.0;
         last_controls = c;
         f.aircraft->set_controls(c);
@@ -3124,6 +3144,66 @@ GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_f
     check(faults.empty(), std::to_string(faults.size()) + " flights stepped a control or were "
                           "not let go; the first: " + (faults.empty() ? "" : faults.front()));
     check(flights == 2 * taught.able.size(), "every aeroplane taught a stall was flown twice");
+    check(walked + taught.left_out.size() == roster,
+          "every aeroplane in the roster was flown or left out with its reason");
+}
+
+// **The stall recovery takes the flaps up to a go-around's, at a hand's pace,
+// where the aeroplane's figures give one, and leaves them where they are
+// where they give none.** Every aeroplane taught a stall, handed to the
+// recovery at its stall warning in its landing configuration: with a
+// go-around setting (`go_around_flaps_deg`, its published figures) the lever
+// ends there and goes no lower; without one it ends where it was handed over.
+// On no step does the lever move more than a hand's pace. A Cherokee at full
+// rich below 5,000 ft with her 40 degrees still out at the lesson's recovery
+// speed sinks 190 ft/min and is never recovered; her family's handbooks go
+// around at 25 (assets/figures/pa28.xml).
+GLIDESLOPE_TEST(the_stall_recovery_raises_the_flaps_to_the_go_around_setting_at_a_hands_pace_where_the_figures_give_one) {
+    constexpr double a_hands_pace = 1.0 / static_cast<double>(steps_per_second);
+    const Taught taught = taught_for("stalls");
+    const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
+    std::size_t walked = 0;
+    std::size_t with_a_setting = 0;
+    std::vector<std::string> faults;
+    for (const std::string& id : taught.able) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        const auto figures = glideslope::sim::read_published_figures(
+            data() / "figures" / (entry.model + ".xml"));
+        const Result r = fly_a_stall(id, 0.0, false, true, true);
+        std::optional<double> go_around;
+        if (figures.go_around_flaps_deg) {
+            go_around = *figures.go_around_flaps_deg / figures.flaps_full_deg;
+            ++with_a_setting;
+        }
+        const double wanted = go_around ? std::min(*go_around, r.flaps_handed) : r.flaps_handed;
+        std::printf("  %-13s flaps handed over at %.3f, ended at %.3f (wanted %.3f), lowest "
+                    "%.3f, most in a step %.5f%s\n",
+                    id.c_str(), r.flaps_handed, r.flaps_end, wanted, r.flaps_lowest,
+                    r.flaps_most_step, go_around ? ", has a go-around setting" : "");
+        if (r.flaps_handed < 0.0) {
+            faults.push_back(id + " was never handed to its recovery");
+        } else if (std::abs(r.flaps_end - wanted) > 1e-9 || r.flaps_lowest < wanted - 1e-9) {
+            faults.push_back(id + "'s flaps ended at " + std::to_string(r.flaps_end) +
+                             " (lowest " + std::to_string(r.flaps_lowest) + "), against " +
+                             std::to_string(wanted));
+        } else if (r.flaps_most_step > a_hands_pace + 1e-12) {
+            faults.push_back(id + "'s flaps moved " + std::to_string(r.flaps_most_step) +
+                             " in a step, against " + std::to_string(a_hands_pace));
+        }
+        ++walked;
+    }
+    std::printf("  of the %zu aeroplanes, %zu flown (%zu with a go-around setting) and %zu "
+                "left out\n",
+                roster, walked, with_a_setting, taught.left_out.size());
+    for (const std::string& said : taught.left_out) {
+        std::printf("      left out - %s\n", said.c_str());
+    }
+    for (const std::string& fault : faults) {
+        std::printf("  %s\n", fault.c_str());
+    }
+    check(faults.empty(), std::to_string(faults.size()) + " recoveries left the flaps wrong; "
+                          "the first: " + (faults.empty() ? "" : faults.front()));
+    check(with_a_setting > 0, "at least one aeroplane taught a stall has a go-around setting");
     check(walked + taught.left_out.size() == roster,
           "every aeroplane in the roster was flown or left out with its reason");
 }
