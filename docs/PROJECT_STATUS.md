@@ -265,6 +265,69 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The window client's steps at a switch traced to its session clock; the take-back test takes the aircraft back on the event, 2026-10-09 — the item stays open
+
+**What is still missing first.** Nothing is fixed in the client with the
+window yet: its steps are traced to a cause, below, with evidence, but the
+cause is not fixed, no test builds a large correction through the client
+itself, and the hand-over test's step away from a switch is still held to no
+bound seen to fail. "The client with the window does not blend corrections"
+stays `[ ]`.
+
+**The cause of the steps drawn from the updates** (not yet fixed). CI run
+37866144089 (PR #143, windows-release, attempt 1) failed
+`the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route`
+at 5.683 m against 5 m, and its own lines say what made it: "frame 1 after a
+switch, 329 ms long, drawn from the updates: 5.414 m from where it was carried
+at 42.3 m/s, the blend moving 0.269 m"; the largest step otherwise was the same
+kind, "frame 5 after a switch, 70 ms long, drawn from the updates: 3.330 m ...
+at 36.4 m/s, the blend moving 0.000 m"; the prediction's own corrections were
+small (median 0.000 m, the worst 0.400 m once its clocks' difference was
+known). So it was not the blend nor a correction: what is drawn from the
+updates moved 128 ms (and 92 ms) of flight more or less than its own path
+velocity said - **the session's clock it is drawn at stepped**. Why:
+`Online::listen` hears every update that arrived during a pass at the pass's
+own time (`arrived_s_`), not when each arrived, and `net::SessionClock` takes
+its offset from the update that "waited least" over the last second. With
+long, uneven passes - CI's software renderer draws 150 to 330 ms - which
+update looks least delayed changes as the best one ages out of that window,
+and the offset, so the clock, jumps by up to a pass. Built on its own (a
+scratch program, not kept, over `net::SessionClock` alone: updates at 30 Hz,
+100 ms latency, 10 ms jitter, every third pass long, five seeds): passes of
+17 ms step the clock 1.3 ms at worst (0.05 m at 42.3 m/s); fixed 329 ms passes
+16.8 ms (0.71 m); passes of up to 400 ms at random 88.9 ms (3.76 m), and up to
+700 ms 165.5 ms (7.00 m) - CI's size. Predicted frames do not use that clock,
+which is why the steps CI saw at a take-over (2.77 m) and in the hand-over
+test (6.2 and 24.5 m) are to be read again against this: those runs' lines
+are gone. **The fix it wants** (not made): the clock the others - and its own
+while the AI flies it - are drawn at is slewed, never stepped (a bounded rate
+toward `SessionClock::now`, the slew counted in the path velocity), or each
+update stamped with when it arrived rather than when the pass read it.
+
+**Fixed: the take-back test only sometimes tested its rule.** CI run
+37866144089's windows-debug job failed
+`a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back_as_recorded`
+with "no route came after the take-back, so the rule was not tested". The
+player took the aircraft back 40 s in, and the routine look that should have
+been out then is asked 20 s after the first answer, which is taken 10 s after
+the question at 5 s - 35 s, with 5 s to spare. A first answer later than 20 s
+- its copilot's ground (a geoid, the DEM, the world's runways) made on a slow
+debug machine - put the look after the take-back, and nothing came after it.
+Now the client takes the aircraft back on the event, not the clock:
+`glideslope_cli connect ... --take-back-while-looking` takes it back as soon as
+its copilot has a routine look out (`frontend::PlayersCopilot::looking`), and
+an answer cannot be taken sooner than `thinking_s`, 10 s of the session's
+clock, after it was asked - so one always comes after the take-back. The test
+passes `TAKE_BACK_AT=looking` (tests/CMakeLists.txt,
+tests/cmake/server_copilot.cmake); `--take-back-at S` is kept.
+
+**Verified** (linux-release): the test passes (84 s), its client saying "asked
+its copilot, a routine look", then "its pilot has taken it back: the copilot
+stands by", then "its copilot answered with a route of 1, and was not heard";
+the server handed the aircraft to the AI once. Not seen red in this change:
+its rule's own red (the standing by taken out) is the 2026-09-30 one, and the
+race it removes was not built.
+
 ### A landing on a runway too short for the aircraft is refused, for ten of the sixteen, 2026-10-09 — item open
 
 **Windows build, fixed after CI.** MSVC kept `world::landing_length_m` (an

@@ -108,6 +108,10 @@ struct ConnectCopilot {
     // Taken back (`--take-back-at`): it leaves `stay_s` of the session's
     // clock after an update first shows its player with it again.
     bool taken_back = false;
+    // Or taken back as soon as its copilot has a routine look out
+    // (`--take-back-while-looking`): the answer to it then comes after the
+    // take-back, whatever the machine's speed.
+    bool take_back_while_looking = false;
     std::optional<double> back_since_s;
     // Held by the AI with no model planning it: from when the update first
     // shows the AI flying it, how it was flying, for what is said at the end.
@@ -343,7 +347,9 @@ void print_usage(std::FILE* out) {
         "                            behind, and says how far its own was put right\n"
         "                            --hand-over-at S asks, S seconds in, for its own\n"
         "                            aircraft to be handed to the AI pilot, and\n"
-        "                            --take-back-at S for it back;\n"
+        "                            --take-back-at S for it back (or\n"
+        "                            --take-back-while-looking, once its copilot has\n"
+        "                            a routine look out);\n"
         "                            --learnt-landing-at S, S seconds in, for it to be\n"
         "                            handed to the learnt landing, and with\n"
         "                            --until-landed leaves once that has it at rest; with\n"
@@ -2751,7 +2757,9 @@ int stay(glideslope::platform::UdpSocket& socket,
                 ask(glideslope::net::Controller::learnt_landing);
                 say_heard("asked for the learnt landing");
             }
-            if (take_back_at_s >= 0.0 && up_s >= take_back_at_s && !asked_to_take_back) {
+            const bool back_now = (take_back_at_s >= 0.0 && up_s >= take_back_at_s) ||
+                                  (hc.take_back_while_looking && hc.seat && hc.seat->looking());
+            if (back_now && !asked_to_take_back) {
                 asked_to_take_back = true;
                 ask(glideslope::net::Controller::person);
                 // Its copilot stands by now, not when an update first shows
@@ -4402,6 +4410,10 @@ static int run_program(int argc, char** argv) {
                 if (args[i] == "--dive-after" && i + 1 < args.size()) {
                     dive_after_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
                     ++i;
+                    continue;
+                }
+                if (args[i] == "--take-back-while-looking") {
+                    connect_copilot.take_back_while_looking = true;
                     continue;
                 }
                 if (args[i] == "--take-back-at" && i + 1 < args.size()) {

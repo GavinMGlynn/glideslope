@@ -133,6 +133,13 @@ public:
     bool engaged() const {
         return engaged_;
     }
+    // **A routine look is out**: asked, and not yet answered - which it
+    // cannot be for `thinking_s` of the session's clock. A test that takes
+    // the aircraft back now (`--take-back-while-looking`) has an answer come
+    // after the take-back every time, not only when the clocks fall right.
+    bool looking() const {
+        return helper_->asking() && asked_about_ == "a routine look";
+    }
 
     // **A look, between two frames**, with the newest update's clock and the
     // player's own aircraft in it. Returns a route to send when an answer is
