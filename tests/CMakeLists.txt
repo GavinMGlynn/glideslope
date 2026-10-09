@@ -2665,7 +2665,7 @@ add_test(NAME an_aircraft_its_player_rolled_into_a_spiral_over_two_ai_layers_han
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/handed_spiral_kept_apart -DPORT=24704
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/handed_spiral_kept_apart -DPORT=24940
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_handed_spiral_kept_apart.cmake)
 set_tests_properties(an_aircraft_its_player_rolled_into_a_spiral_over_two_ai_layers_handed_to_the_ai_is_rolled_level_and_never_loses_separation_from_either
     PROPERTIES SKIP_RETURN_CODE 77)
