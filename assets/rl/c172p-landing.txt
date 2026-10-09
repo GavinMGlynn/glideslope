@@ -1,20 +1,30 @@
 # The C172P's final approach and landing, learnt by reinforcement learning.
 # Made by tools/rl/train.py (PPO) and written by tools/rl/export.py;
 # do not edit - train again and export.
-# Seed 160. Training steps (decisions, ten a second): 27000004 in all: 4000000 on the 160 hp engine, from the policy committed before it at 23000004.
-# tools/rl as trained: 9d789a0b for its last four million decisions; before them as the policy it was resumed from says (4f6fc88, ff5d66c, dc7a155).
+# Seed 160. Training steps (decisions, ten a second): 27000004 in all: 10000004 by its 21-input parent, then 13000000 with the 25 inputs, the last 4000000 of them on the 160 hp engine.
+# tools/rl as trained: 9d789a0b for its last four million decisions; before them 4f6fc88, ff5d66c, and for its 21-input parent dc7a155 and uncommitted work before it.
 # Source checkpoint, kept outside the repository: step27000004.zip (sha256 ae2920df4f75024340139ce76736e80f7a1ca43edb274bc749504bf1af4c0946) and step27000004.vecnorm (sha256 dbd090e731184ab2bc5b380a2409aa2e81c860b8ed92116e4ef5d91db84160fb).
 # Exporting that checkpoint with export.py is deterministic and gives this file;
 # training it again with the command below, on the same packages and machine, gives that checkpoint.
 # Packages: jsbsim 1.3.1, gymnasium 1.3.0, stable_baselines3 2.9.0, torch 2.14.0+cpu, numpy 2.5.3.
 # Flown by src/sim/learnt.cpp. Observation and action: tools/rl/landing.py.
-# The command, from the committed policy's checkpoint step23000004 (sha256 41cf2907...):
-#   nice -n 10 python tools/rl/train.py --seed 160 --envs 8 --steps 6000000 --resume step23000004.zip --lr 3e-5 --log-std -2.5257
-#   stopped past 27.4 million; this is its checkpoint at 27000004. Run again with --steps 4000000 it trained the same weights.
-# Why again: the C172P's engine was corrected from 209-222 hp to its rated 160 (tools/make_c172p.py), and the policy
-# before this one sank 301-311 ft/min at 22 of its gate's 160 corners on it.
+# Its lineage, each part resumed from the one before (train.py --resume):
+#   1. five million decisions, 21 inputs, an earlier reward (it learnt to land short), 16 environments;
+#   2. five million at dc7a155, 12 environments; its last checkpoint was then chosen on the verification's starts;
+#   3. carried over to 25 inputs, the four new ones weighted nothing (warm_start.py's first version, at ff5d66c);
+#   4. three million at ff5d66c, the action noise held at a standard deviation of 0.08 (learning rate 3e-4);
+#   5. four million at 4f6fc88, learning rate 1e-4, the noise held as before;
+#   6. six million at 4f6fc88 from part 5's checkpoint at 17 million, learning rate 3e-5 - the policy committed before this
+#      one, its checkpoint at 23 million (step23000004.zip, sha256 41cf29077c3888fc1a7bd0c5e1a263eaacb530661e67ddef0f59d62c105d41bd);
+#   7. four million at 9d789a0b on the 160 hp engine (tools/make_c172p.py), from part 6's checkpoint, learning rate 3e-5:
+#      nice -n 10 python tools/rl/train.py --seed 160 --envs 8 --steps 6000000 --resume step23000004.zip --lr 3e-5 --log-std -2.5257
+#      stopped past 27.4 million; this is its checkpoint at 27000004. Run again with --steps 4000000 it trained the same weights.
+# Parts 1 to 4 were trained with the fuel never refilled (JSBSim's RunIC does not), mostly on part-full tanks and
+# at the end on empty ones; parts 5 to 7 with 25 to 100 lb a tank drawn for each flight.
+# Part 7 because the C172P's engine was corrected from 209-222 hp to its rated 160, on which part 6's policy fell short at
+# 22 of its gate's 160 corners (20 at 301-311 ft/min, 2 touching before the threshold).
 # Chosen on the forty held-out starts alone (evaluate.py --held-out, a fresh aeroplane each), at 25, 50, 75 and
-# 100 lb a tank, the first checkpoint with all 160 within the limits (24M: 144; 25M: 159; 26M: 159; 27M: 160).
+# 100 lb a tank, the first of part 7's checkpoints with all 160 within the limits (24M: 144; 25M: 159; 26M: 159; 27M: 160).
 # Worst at 100 lb a tank: 219 ft/min, 4.25 m across. The verification's starts were flown only by this export and the tests.
 glideslope-policy 1
 aircraft c172p
