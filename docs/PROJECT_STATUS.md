@@ -329,8 +329,8 @@ restored - in brackets, what failed):
 - **The full linux-release ctest** (every test, no filter): 1,179 tests,
   1,154 passed, 24 skipped, 1 failed - the copilot walls test above, run
   before its fix; after it, it and the plan, notice and wiring tests pass
-  (31 run again). The 24 skipped: the 13 that ask a live model with no
-  key in the environment, and those that need a Windows host, a display or
+  (31 run again). The 24 skipped: the 15 that ask a live model with no
+  key in the environment, and 9 that need a Windows host, a display or
   a GPU. The selftest hash does not move, `182dd6c996e0ee4c`.
 
 **Why the B-2A's and Mosquito's glide speeds under their new plan floors
