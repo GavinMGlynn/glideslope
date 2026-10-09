@@ -301,6 +301,85 @@ Tabulated tabulated(const std::filesystem::path& file) {
     return t;
 }
 
+// **The flap lever's notches**: the settings of the kinematic the flap
+// command drives (`<kinematic>` with `<input>fcs/flap-cmd-norm</input>`), in
+// the model or in a system file it names, as lever positions - each setting
+// over the last, which is where JSBSim's kinematic puts a command of 1
+// (FGKinemat::Run). The 172P's 0, 10, 20 and 30 degrees are 0, 1/3, 2/3 and
+// 1. Empty where no kinematic is found.
+void find_flap_settings(JSBSim::Element* el, std::vector<double>& settings) {
+    if (el == nullptr || !settings.empty()) {
+        return;
+    }
+    if (el->GetName() == "kinematic") {
+        JSBSim::Element* input = el->FindElement("input");
+        JSBSim::Element* traverse = el->FindElement("traverse");
+        if (input != nullptr && traverse != nullptr &&
+            input->GetDataLine().find("fcs/flap-cmd-norm") != std::string::npos) {
+            for (JSBSim::Element* setting = traverse->FindElement("setting"); setting != nullptr;
+                 setting = traverse->FindNextElement("setting")) {
+                JSBSim::Element* position = setting->FindElement("position");
+                if (position != nullptr) {
+                    const std::vector<double> v = numbers_in(position->GetDataLine());
+                    if (!v.empty()) {
+                        settings.push_back(v.front());
+                    }
+                }
+            }
+            return;
+        }
+    }
+    for (unsigned int i = 0; i < el->GetNumElements(); ++i) {
+        find_flap_settings(el->GetElement(i), settings);
+    }
+}
+
+JSBSim::Element* load_xml(JSBSim::FGXMLFileRead& reader, const std::filesystem::path& file) {
+    if (!std::filesystem::is_regular_file(file)) {
+        return nullptr;
+    }
+    const std::u8string utf8 = file.u8string();
+    return reader.LoadXMLDocument(SGPath::fromUtf8(std::string(utf8.begin(), utf8.end())), false);
+}
+
+std::vector<double> flap_notches_of(const std::filesystem::path& file) {
+    std::vector<double> settings;
+    JSBSim::FGXMLFileRead reader;
+    JSBSim::Element* root = load_xml(reader, file);
+    if (root == nullptr) {
+        return {};
+    }
+    find_flap_settings(root, settings);
+    for (JSBSim::Element* system = root->FindElement("system");
+         system != nullptr && settings.empty(); system = root->FindNextElement("system")) {
+        std::string name = system->GetAttributeValue("file");
+        if (name.empty()) {
+            continue;
+        }
+        if (name.size() < 4 || name.substr(name.size() - 4) != ".xml") {
+            name += ".xml";
+        }
+        for (const std::filesystem::path& at :
+             {file.parent_path() / "Systems" / name, file.parent_path() / name}) {
+            JSBSim::FGXMLFileRead system_reader;
+            find_flap_settings(load_xml(system_reader, at), settings);
+            if (!settings.empty()) {
+                break;
+            }
+        }
+    }
+    if (settings.size() < 2 || settings.back() <= settings.front()) {
+        return {};
+    }
+    std::vector<double> notches;
+    for (const double setting : settings) {
+        notches.push_back((setting - settings.front()) / (settings.back() - settings.front()));
+    }
+    std::sort(notches.begin(), notches.end());
+    notches.erase(std::unique(notches.begin(), notches.end()), notches.end());
+    return notches;
+}
+
 } // namespace
 
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model)
@@ -337,6 +416,7 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
     if (t.beta_low <= t.beta_high) {
         beta_range_rad_ = {t.beta_low, t.beta_high};
     }
+    flap_notches_ = flap_notches_of(jsbsim_root / "aircraft" / model / (model + ".xml"));
     if (hydrodynamics_) {
         exec_->SetPropertyValue(water_level, out_of_reach_ft);
     }

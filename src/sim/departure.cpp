@@ -1,5 +1,6 @@
 #include "sim/departure.hpp"
 
+#include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
 
 #include <algorithm>
@@ -31,6 +32,19 @@ constexpr double self_rotated_deg = 2.0;
 // How far short of the attitude her tail strikes at the nose is held on the
 // wheels, degrees.
 constexpr double strike_margin_deg = 2.0;
+// **The take-off flap comes up** (DepartureSpeeds::flaps_up_ft): from 50 ft
+// above the runway for a light aeroplane, 400 for any other, once she is
+// within flaps_up_within_kts of her initial climb speed; a notch at a time,
+// the lever moved at a hand's pace - its whole travel in a second, as the
+// autopilot moves every control - and the next notch only once the flaps
+// have run to the last and stood there for flaps_settle_s.
+constexpr double light_flaps_up_ft = 50.0;
+constexpr double transport_flaps_up_ft = 400.0;
+constexpr double flaps_up_within_kts = 2.0;
+constexpr double flaps_settle_s = 1.0;
+constexpr double a_hands_pace = 1.0 / steps_per_second;
+// The flaps standing still: moving less than this a step, degrees.
+constexpr double flaps_still_deg = 1e-6;
 
 
 // A figure by the flight that measures it, or null.
@@ -67,8 +81,10 @@ double condition(const FigureSpec& spec, const std::string& name, double missing
 
 } // namespace
 
-DepartureSpeeds departure_speeds(const std::filesystem::path& data,
-                                 const std::string& model) {
+namespace {
+
+DepartureSpeeds speeds_from_figures(const std::filesystem::path& data,
+                                    const std::string& model) {
     const PublishedFigures figures =
         read_published_figures(data / "figures" / (model + ".xml"));
 
@@ -198,9 +214,28 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
     return speeds;
 }
 
+} // namespace
+
+DepartureSpeeds departure_speeds(const std::filesystem::path& data,
+                                 const std::string& model) {
+    DepartureSpeeds speeds = speeds_from_figures(data, model);
+    speeds.flaps_up_ft = transport_flaps_up_ft;
+    for (const CatalogueEntry& e : read_catalogue(data)) {
+        if (e.model == model) {
+            speeds.flaps_up_ft = flaps_up_ft(e.aircraft_class);
+        }
+    }
+    return speeds;
+}
+
+double flaps_up_ft(AircraftClass of) {
+    return of == AircraftClass::light_aircraft ? light_flaps_up_ft : transport_flaps_up_ft;
+}
+
 Departure::Departure(const Aircraft& aircraft, const Runway& runway,
                      const DepartureSpeeds& speeds, double to_ft)
-    : a_(aircraft), runway_(runway), speeds_(speeds), to_ft_(to_ft) {
+    : a_(aircraft), runway_(runway), speeds_(speeds), to_ft_(to_ft), flap_lever_(speeds.flap),
+      flap_aim_(speeds.flap) {
     if (a_.mixture_lever()) {
         leaner_.emplace(a_, a_.property("fcs/mixture-cmd-norm[0]"));
     }
@@ -226,6 +261,53 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
         speeds_.rotate_kts *= scale;
         speeds_.initial_climb_kts *= scale;
     }
+}
+
+// **The take-off flap brought up**, a notch at a time where the model's
+// lever has notches (Aircraft::flap_notches), at a hand's pace: from the
+// height her speeds give and at her initial climb speed, and each notch only
+// once the flaps have run to the last and stood a second there. With no
+// notches the lever comes all the way up in one movement.
+void Departure::retract_flaps(double kcas) {
+    const bool has_position = a_.has_property("fcs/flap-pos-deg");
+    const double flap_deg = has_position ? a_.property("fcs/flap-pos-deg") : 0.0;
+    if (std::abs(flap_deg - last_flap_deg_) < flaps_still_deg) {
+        ++flaps_still_steps_;
+    } else {
+        flaps_still_steps_ = 0;
+    }
+    last_flap_deg_ = flap_deg;
+    // The lever on its way to a notch, and set exactly on it at the last.
+    const auto move_lever = [this] {
+        flap_lever_ = std::abs(flap_aim_ - flap_lever_) <= a_hands_pace
+                          ? flap_aim_
+                          : flap_lever_ + std::copysign(a_hands_pace, flap_aim_ - flap_lever_);
+    };
+    if (flap_lever_ != flap_aim_) {
+        move_lever();
+        return;
+    }
+    const bool settled =
+        static_cast<double>(flaps_still_steps_) >= flaps_settle_s * steps_per_second;
+    if (flap_lever_ <= 0.0 || !settled ||
+        above_m_ * feet_per_metre < speeds_.flaps_up_ft ||
+        kcas < speeds_.initial_climb_kts - flaps_up_within_kts) {
+        return;
+    }
+    // The next notch up: the highest below the lever.
+    double next = 0.0;
+    for (const double notch : a_.flap_notches()) {
+        if (notch < flap_lever_ - 1e-9) {
+            next = notch;
+        }
+    }
+    flap_aim_ = next;
+    move_lever();
+}
+
+bool Departure::flaps_up() const {
+    return flap_lever_ <= 0.0 &&
+           static_cast<double>(flaps_still_steps_) >= flaps_settle_s * steps_per_second;
 }
 
 // What she stands on, from her model's own contacts (Aircraft::stance).
@@ -271,7 +353,11 @@ Controls Departure::fly_laws() {
     Controls c;
     c.gear = 1.0;
     c.propeller = 1.0;
-    c.flaps = speeds_.flap;
+    // **The flaps where the take-off has them**: the take-off flap, until
+    // they come up (retract_flaps, below). They were once put back to the
+    // take-off flap on the step the take-off ended, and handed to the plan
+    // so: the Cherokee flew her first leg and cruised with 25 degrees out.
+    c.flaps = flap_lever_;
     // **Trimmed for take-off**, where the aeroplane's model says what that
     // is: the Learjet 35A's flight manual sets its stabilizer for take-off by
     // the centre of gravity (figure 2-2), and without it the elevator alone
@@ -341,14 +427,19 @@ Controls Departure::fly_laws() {
     // with 0.33 of nose-up stabilizer, which it kept for the whole flight:
     // the autopilot holds the trim it is handed. She climbs on until it is
     // off - a few seconds more.
-    if (stage_ != Stage::done && above_m_ * feet_per_metre >= to_ft_ && takeoff_trim_ == 0.0) {
+    //
+    // **Nor while her take-off flap is still out**: she climbs on until it
+    // is up and the flaps have stopped, so the plan is handed an aeroplane
+    // clean, at the height and speed her flaps came up at.
+    if (unstuck_) {
+        retract_flaps(kcas);
+        c.flaps = flap_lever_;
+    }
+    climbed_out_ = climbed_out_ || (above_m_ * feet_per_metre >= to_ft_ && takeoff_trim_ == 0.0);
+    if (stage_ != Stage::done && climbed_out_ && flaps_up()) {
         stage_ = Stage::done;
     } else if (unstuck_) {
         stage_ = Stage::climb;
-        // The flaps come up once the aeroplane is safely climbing away.
-        if (above_m_ * feet_per_metre > 200.0) {
-            c.flaps = 0.0;
-        }
     } else if (kcas >= speeds_.rotate_kts || (!on_water && pilot_rotated) ||
                (!on_water && kcas + std::max(0.0, accel_ktps_ * rotation_lead_s(s.pitch_deg) -
                                                       lift_off_after_kts) >=

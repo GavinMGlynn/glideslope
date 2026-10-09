@@ -1006,12 +1006,22 @@ Found while implementing something else. Added when found, not when remembered.
       rich below 5,000 ft, and its stall recovery within its lesson.* Done
       2026-10-09: the recovery raises her flaps to her handbooks' 25-degree
       climb-out setting, and she loses 131 ft of 300.
-- [ ] **A plan flown after the take-off keeps the take-off flap out.** The
+- [x] **A plan flown after the take-off keeps the take-off flap out.** The
       Cherokee climbs its first leg and cruises with 25 degrees, so the
       climb gets no floor and, full rich, its speed bleeds to 52 knots
       (PROJECT_STATUS, 2026-10-09). *Verification: every light aeroplane's
       flaps are up once the plan has it, and its first leg is flown at its
-      climb speed.*
+      climb speed.* Done 2026-10-09: the take-off raises its flap a notch at
+      a time, at its climb speed, from 50 ft for a light aeroplane and 400
+      for any other, before the plan has her; all 16 aircraft checked, and
+      the Cherokee's first leg strays 46 m where it strayed 151.
+- [ ] **A light aeroplane's take-off hands over slower than the plan's
+      climb floor.** The take-off climbs at her climb speed for her weight
+      (the 172P 67 KCAS) and the plan's autopilot at the published one (75),
+      so she accelerates for half a minute after the hand-over; the Cub,
+      with no flap, climbs her first leg 5 kt under either (PROJECT_STATUS,
+      2026-10-09). *Verification: every light aeroplane's first leg is
+      climbed within 2 kt of one climb speed, from the hand-over.*
 - [x] **Cesium ion on Windows, where a body arrives compressed unasked.**
       *Verification: a Windows machine fetches and reads ion's layer.json, and
       the weather still arrives.* Done 2026-10-01: Windows could not undo the
