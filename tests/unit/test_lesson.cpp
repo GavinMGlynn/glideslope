@@ -3377,8 +3377,7 @@ GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_with
     every_stall_recovered_within(
         false, 30.0, "left thirty seconds in the stall",
         [](const Result& r, double) { return height_bound_ft(r); },
-        {{"a320", Fault::load, 1.90},
-         {"mosquito-fb6", Fault::load, 2.22}});
+        {});
 }
 
 // **Engaging the stall recovery and letting it go steps no control.** Every
