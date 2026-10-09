@@ -321,8 +321,7 @@ minimum flight idle to the go-around power or thrust setting"; 14 CFR
 33.73(b) asks an engine for "95 percent rated takeoff power or thrust in not
 over 5 seconds" from the minimum flight idle lever position. Engines meet
 them with an approach idle above flight idle, scheduled with the gear and
-the landing flap: the PW2037-powered 757 has ground, minimum flight and
-approach idle, and the 737's approach idle is about 32% N1. The lander's
+the landing flap. The lander's
 quarter of the throttle's travel is our stand-in for that schedule - a real
 one is an N1 floor, not a lever position. The lander now holds a jet's
 throttle at no less than a quarter of its travel, and works her speed error
