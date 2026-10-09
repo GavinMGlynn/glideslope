@@ -1968,11 +1968,12 @@ GLIDESLOPE_TEST(a_landing_is_read_from_a_plan_and_refused_where_it_is_wrong) {
         {head + "land R -33.9 151.2 30000 168 3962\n", "the elevation must be a number"},
         {head + land + land, "a second land line"},
         {"aircraft c172p\n" + land, "no waypoints"},
+        {head + land + "waypoint B -33 151 3000 100\n", "`land` is the last line"},
     };
     std::size_t refusals = 0;
     for (const auto& [text, says] : wrong) {
         check(refused(text, says), "refused, saying \"" + says + "\":\n" + text);
         ++refusals;
     }
-    check(refusals == 8, "eight ways wrong, and every one refused");
+    check(refusals == 9, "nine ways wrong, and every one refused");
 }

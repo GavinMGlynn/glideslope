@@ -476,6 +476,86 @@ GLIDESLOPE_TEST(a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_t
           "a runway with no elevation is not offered to land on");
 }
 
+GLIDESLOPE_TEST(the_runways_a_plan_may_land_on_are_the_nearest_airports_whole_and_no_more_than_the_caps) {
+    // **Synthetic airports** on the meridian, `km` north of the origin, each
+    // with `ends` runway ends there: no downloaded data.
+    using glideslope::world::RunwayEnd;
+    const auto airport = [](const std::string& name, double km, int ends, bool elevation = true) {
+        std::vector<RunwayEnd> out;
+        for (int i = 0; i < ends; ++i) {
+            RunwayEnd e;
+            e.airport = name;
+            e.ident = std::to_string(i + 1);
+            e.latitude_deg = km / 111.2 + 0.0001 * i;
+            e.longitude_deg = 0.0;
+            e.elevation_ft = elevation ? 10.0 : std::numeric_limits<double>::quiet_NaN();
+            e.heading_deg = 10.0 * i;
+            e.length_m = 1000;
+            out.push_back(e);
+        }
+        return out;
+    };
+    const auto joined = [](std::initializer_list<std::vector<RunwayEnd>> parts) {
+        std::vector<RunwayEnd> out;
+        for (const auto& p : parts) {
+            out.insert(out.end(), p.begin(), p.end());
+        }
+        return out;
+    };
+    const auto offered = [](const std::vector<RunwayEnd>& fields) {
+        std::vector<std::pair<std::string, int>> out;
+        for (const RunwayEnd& e : fields) {
+            if (out.empty() || out.back().first != e.airport) {
+                out.emplace_back(e.airport, 0);
+            }
+            ++out.back().second;
+        }
+        return out;
+    };
+    const auto said = [](const std::vector<std::pair<std::string, int>>& airports) {
+        std::string out;
+        for (const auto& [name, n] : airports) {
+            out += name + " (" + std::to_string(n) + ") ";
+        }
+        return out;
+    };
+    using glideslope::frontend::landing_fields;
+    using glideslope::frontend::most_landing_airports;
+    using glideslope::frontend::most_landing_fields;
+    check(most_landing_airports == 4 && most_landing_fields == 24,
+          "the caps are four airports and 24 runway ends");
+
+    // Two big airports near - six ends each, as Sydney's and Bankstown's -
+    // and a third, smaller one further: the third is offered. So is a
+    // fourth; a fifth is past the airports' cap, one 60 km off past the
+    // radius, and one whose only end has no elevation is not an airport to
+    // land at.
+    const auto home = airport("HOME", 0, 6);
+    const auto all = joined({home, airport("BIG", 5, 6), airport("UNKNOWN", 10, 1, false),
+                             airport("THIRD", 20, 2), airport("FOURTH", 25, 2),
+                             airport("FIFTH", 30, 2), airport("FAR", 60, 2)});
+    const auto near = offered(landing_fields(all, home));
+    const std::vector<std::pair<std::string, int>> expected{
+        {"HOME", 6}, {"BIG", 6}, {"THIRD", 2}, {"FOURTH", 2}};
+    check(near == expected,
+          "the nearest four airports, each whole: " + said(expected) + "- not " + said(near));
+
+    // An airport with more ends than are left under the cap is passed over
+    // whole, not cut short, and the next nearest offered.
+    const auto crowded = offered(landing_fields(
+        joined({home, airport("GIANT", 3, 20), airport("BIG", 5, 6), airport("THIRD", 20, 2)}),
+        home));
+    const std::vector<std::pair<std::string, int>> without_giant{
+        {"HOME", 6}, {"BIG", 6}, {"THIRD", 2}};
+    check(crowded == without_giant,
+          "26 ends would pass the cap of 24, so GIANT is passed over: " + said(without_giant) +
+              "- not " + said(crowded));
+
+    // None where the airport says no elevation.
+    check(landing_fields(all, airport("HOME", 0, 2, false)).empty(),
+          "nothing offered from an airport with no elevation");
+}
+
 GLIDESLOPE_TEST(a_task_file_names_its_aircraft_airport_and_words_and_anything_else_is_refused) {
     // The server's own, as committed.
     std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_PROJECT_DIR) / "assets" / "tasks" /

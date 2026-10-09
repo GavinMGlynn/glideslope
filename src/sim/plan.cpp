@@ -72,6 +72,11 @@ FlightPlan parse_flight_plan(std::string_view text) {
             (w[0] == "land" && plan.landing)) {
             throw wrong("a second " + w[0] + " line");
         }
+        // **`land` is the last line**: anything after it would be read and
+        // never flown, the landing being flown after the last waypoint.
+        if (plan.landing) {
+            throw wrong("`land` is the last line of a plan, and `" + w[0] + "` follows it");
+        }
         if (w[0] == "aircraft") {
             if (w.size() != 2) {
                 throw wrong("aircraft NAME");
