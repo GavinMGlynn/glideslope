@@ -156,6 +156,8 @@ private:
     bool was_on_speed_ = false;
     double speed_integral_deg_ = 0.0;
     double sink_integral_fpm_ = 0.0;
+    // A stall's entry has flown past the angle its lift peaked at.
+    bool past_the_peak_ = false;
     // Where the wing's lift has been seen to peak in this configuration: the
     // greatest lift coefficient, the angle of attack it came at, and the
     // flaps and gear it was seen with.

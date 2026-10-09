@@ -190,6 +190,8 @@ constexpr double steepest_unload_deg = -30.0;
 constexpr double unload_rate_degps = 8.0;
 constexpr double pull_out_most_g = 1.6;
 constexpr double pitch_per_g_over = 10.0;
+constexpr double past_the_peak_deg = 0.3;
+constexpr double above_the_nose_deg = 5.0;
 constexpr double configuration_moved = 0.5; // degrees of flap, or a twentieth of the gear
 // Pitch to elevator, the pitch rate's damping, and the trim the integral finds.
 constexpr double elevator_per_degree = 0.05;
@@ -643,6 +645,33 @@ Controls Autopilot::fly() {
     // jolt; clamping the target lets the command walk there at the pitch
     // rate, which is the autopilot taking over rather than grabbing.
     const bool on_speed = modes_.speed_on_elevator && modes_.airspeed_kts.has_value();
+    // **Entering a stall, the envelope's top bounds the flight path, not the
+    // nose** (AutopilotModes::hold_height_to_the_stall): the nose may rise
+    // above it by the angle of attack the wing has - **until the wing has
+    // gone past the angle its lift peaked at**, by three tenths of a degree,
+    // and from then until the mode is let go the top is the nose's again.
+    // The entry is to the stall, not into it: held level past the peak, a
+    // 737-300 left thirty seconds was flown into a stall she was never
+    // recovered from, and an F-35B and a Short S.23 pulled 2.9 g getting out.
+    // Let go a degree past it, the A320 left thirty seconds pulled 2.13 g,
+    // two degrees 2.22; three tenths, 1.90. **And never more than 5 degrees
+    // above the nose**: a wing whose lift is flat at its peak, as the
+    // 172P's, mushes without ever going past it by three tenths, and asked
+    // for the flight path's top the pitch command wound up to 30 degrees
+    // with her nose at 7 - and the recovery, engaged from that command,
+    // zoomed her up past 20 degrees of pitch. A nose that follows, as a
+    // fighter's does, is not held back by it.
+    if (!modes_.hold_height_to_the_stall) {
+        past_the_peak_ = false;
+    } else if (a_.property("aero/alpha-deg") > stall_alpha_deg_ + past_the_peak_deg) {
+        past_the_peak_ = true;
+    }
+    const double top_deg =
+        modes_.hold_height_to_the_stall && !past_the_peak_
+            ? std::max(most_pitch_deg,
+                       std::min(most_pitch_deg + std::max(a_.property("aero/alpha-deg"), 0.0),
+                                a_.property("attitude/theta-deg") + above_the_nose_deg))
+            : most_pitch_deg;
     if (on_speed) {
         const double short_kts = *modes_.airspeed_kts - kts;
         // The flight path as the wing sees it: the pitch less the angle of
@@ -735,8 +764,7 @@ Controls Autopilot::fly() {
         pitch_integral_deg_ = pitch_command_deg_ - pitch_per_fpm * climb_off;
     } else {
         const double pitch_wanted = std::clamp(
-            pitch_integral_deg_ + pitch_per_fpm * climb_off, least_pitch_deg,
-            most_pitch_deg);
+            pitch_integral_deg_ + pitch_per_fpm * climb_off, least_pitch_deg, top_deg);
         double pitch_next = toward(pitch_command_deg_, pitch_wanted, pitch_rate_degps * dt);
         // **Rolled past the upset's bank, the wings come level before the
         // nose comes up** (sim/autopilot.hpp): the nose is not raised.
@@ -751,7 +779,7 @@ Controls Autopilot::fly() {
     }
     // **The nose at its highest and the climb still short**: the pitch can
     // give no more of the climb, so the speed must - see the throttle.
-    nose_at_stop_ = !on_speed && pitch_command_deg_ >= most_pitch_deg &&
+    nose_at_stop_ = !on_speed && pitch_command_deg_ >= top_deg &&
                     climb_off > nose_at_stop_short_fpm;
     was_on_speed_ = on_speed;
     const double theta_off = pitch_command_deg_ - a_.property("attitude/theta-deg");

@@ -2760,6 +2760,20 @@ void ask_for_the_stall_recovery(glideslope::sim::AutopilotModes& modes,
     modes.altitude_ft.reset();
     modes.airspeed_kts = recovered_kts + 5.0;
     modes.speed_on_elevator = true;
+    modes.hold_height_to_the_stall = false;
+}
+
+// **A stall's entry, on the autopilot**: asked for a speed below the stall,
+// which closes the throttle and holds the height by raising the nose, and
+// the height held level to the stall however far the nose must rise for it
+// (AutopilotModes::hold_height_to_the_stall) - the FAA's stall tasks hold
+// the altitude as the speed comes back. A light aeroplane's altitude hold
+// gives up height rather than fly slower than its best-climb speed or a
+// slower speed asked for, so asked for none she is held at her best-climb
+// speed and never stalls.
+void ask_for_the_stall_entry(glideslope::sim::AutopilotModes& modes, double stall_kts) {
+    modes.airspeed_kts = stall_kts - 10.0;
+    modes.hold_height_to_the_stall = true;
 }
 
 // The speed a stall lesson's recovery ends at, for this aeroplane.
@@ -2950,7 +2964,7 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
             // gives up height rather than fly slower than its best-climb
             // speed or a slower speed asked for, so asked for none she is
             // held at her best-climb speed and never stalls.
-            modes.airspeed_kts = f.speeds.stall_kts - 10.0;
+            ask_for_the_stall_entry(modes, f.speeds.stall_kts);
             autopilot->set(modes);
         }
         const auto& a = *f.aircraft;
@@ -3354,9 +3368,7 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
         // The Mosquito, at 20,000 ft with its flaps and gear down, cannot be
         // level at its recovery speed on full power, and is never called
         // recovered; it is held to the height it lost by the flight's end.
-        {{"f15c", Fault::height, 543.0},
-         {"f35b", Fault::height, 773.0},
-         {"learjet35a", Fault::height, 409.0},
+        {{"learjet35a", Fault::height, 385.0},
          {"mosquito-fb6", Fault::not_recovered, 3095.0},
          {"short_s23", Fault::height, 184.0}});
 }
@@ -3365,7 +3377,7 @@ GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_with
     every_stall_recovered_within(
         false, 30.0, "left thirty seconds in the stall",
         [](const Result& r, double) { return height_bound_ft(r); },
-        {{"a320", Fault::load, 1.95},
+        {{"a320", Fault::load, 1.90},
          {"mosquito-fb6", Fault::load, 2.22}});
 }
 
@@ -6178,7 +6190,7 @@ Demonstrated demonstrate_a_stall(const std::string& id, double start_ft, double 
             glideslope::sim::AutopilotModes m = ap.modes();
             const auto& a = *f.aircraft;
             if (since == 0) {
-                m.airspeed_kts = f.speeds.stall_kts - 10.0;
+                ask_for_the_stall_entry(m, f.speeds.stall_kts);
                 ap.set(m);
             }
             if (recovering) {
