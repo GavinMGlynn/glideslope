@@ -364,6 +364,26 @@ glide-speeds` and `plan-speeds`, the F-22A's from 120 kt as before):
   tables, as measured; at 120 she leaves them. Red without it (left no
   table, sideslip 0.0), green with it; with every crosswind, catalogue,
   tables, one-step-past and F-22A test, 65 of 65.
+- **Found on macOS release CI (run 37972664910): the A320 held 152 kt and
+  the 747-400 210, each 10 kt under its slowest**, which
+  `the_<id>_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_fastest`
+  asks to hold nothing. On Linux the same tree fails both, as plan-speeds
+  measured them: the A320 at 152 holds left both ways and departs turning
+  right in calm air, the 747-400 at 210 comes down 500 ft before her
+  circle. That step is the cliff - the speed where a wing just departs or
+  just holds - and which side it falls is the platform's. **Measured again
+  gear up on this tree, every aircraft's `plan-speeds` is unchanged** from
+  the gear-up figures above (A320 162 to 300, 747-400 220 to 300; first
+  held 157 and 215 on Linux), so no figure moves. **The test now asks 15 kt
+  under the slowest, not 10**: the step under the first speed that held,
+  past the cliff (the A320 at 147 and the 747-400 at 205 fail on Linux as
+  every slower step does). Past the fastest it stays 10: power, which moves
+  by tenths of a knot between platforms. It still catches a slowest written
+  10 kt or more too cautiously - seen red with the A320's put at 172 (she
+  holds 157) - and one 5 kt too cautious where the platform falls that side
+  of the cliff. plan-speeds' own 5 kt keeps every figure a step clear of
+  it. Every plan-speed, one-step-past, tightest-orbit and glide test, 143,
+  green on Linux release; macOS is CI's to show.
 
 ### A jet's orbit entered from a waypoint holds its circle: joined going its way, flown by a loiter law after ArduPilot's, 2026-10-09 — item done
 
