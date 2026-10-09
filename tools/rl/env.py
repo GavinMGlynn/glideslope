@@ -46,10 +46,15 @@ GAMMA = 0.999
 # runway down to `down_to_ft`, as sim::StabilizedApproach judges it (500 and
 # 50 ft, +10/-5 kt of the approach speed), each tenth of a second outside
 # `fast_kts` over or `slow_kts` under the approach speed costs `per_kt` for
-# each knot outside, to `most_kts`. The band is narrower than the gate's, a
-# margin for the mean action and for the simulation's own flight of it.
-STABILIZED = dict(gate_ft=500.0, down_to_ft=50.0, fast_kts=5.0, slow_kts=2.0, per_kt=0.02,
-                  most_kts=30.0, judged_fast_kts=10.0, judged_slow_kts=5.0)
+# each knot outside, to `most_kts`, and outside the gate's own band
+# `outside_gate` more. The band is narrower than the gate's, a margin for the
+# mean action and for the simulation's own flight of it. **Not yet enough**
+# (docs/PROJECT_STATUS.md, 2026-10-10): fine-tuned with it, the policy left
+# its fast approach and then began its flare at 100 ft, 10 kt slow by 50 ft -
+# the touch's softer sink paid for it - and its landings fell apart; no
+# policy trained with it is committed.
+STABILIZED = dict(gate_ft=500.0, down_to_ft=50.0, fast_kts=5.0, slow_kts=2.0, per_kt=0.05,
+                  most_kts=30.0, outside_gate=0.3, judged_fast_kts=10.0, judged_slow_kts=5.0)
 
 
 def outside_band(kts: float, vref_kts: float, fast_kts: float, slow_kts: float) -> float:
@@ -191,6 +196,8 @@ class Flier:
         if st["down_to_ft"] <= above_ft <= st["gate_ft"]:
             off = outside_band(r[9], self.ap.vref_kts, st["fast_kts"], st["slow_kts"])
             reward -= st["per_kt"] * min(off, st["most_kts"])
+            if outside_band(r[9], self.ap.vref_kts, st["judged_fast_kts"], st["judged_slow_kts"]) > 0.0:
+                reward -= st["outside_gate"]
         # **Off the centreline on short final costs, every tenth of a second**:
         # inside 1,500 m of the threshold, a hundredth for each metre off it,
         # to fifty. A cost, so nothing is gained by flying on; the touch short
