@@ -756,8 +756,12 @@ ClockRun run_passes(unsigned seed, double long_s, bool at_random, Drawn drawn) {
 // passes of 17 ms; 329 ms every third pass; up to 400 ms and up to 700 ms at
 // random - five seeds each, twenty runs of a minute. The bound on a frame's
 // step is what the slew can move in it, a tenth of the frame - at 42 m/s
-// and 700 ms, 2.9 m; and the clock drawn at stays within the most a pass
-// can put the fit out, 0.7 s, of it.
+// and 700 ms, 2.9 m. That step is measured against the clock's own rate(),
+// which counts its pace, so it is judged from outside too: the clock drawn
+// at stays within the longest pass of the fit - how far a pass can put the
+// fit out - and
+// over every frame - two drawn times apart - goes at the fit's rate within
+// the slew's tenth.
 GLIDESLOPE_TEST(the_clock_aircraft_are_drawn_at_does_not_step_under_long_uneven_frames) {
     struct Case {
         double long_s;
@@ -768,15 +772,46 @@ GLIDESLOPE_TEST(the_clock_aircraft_are_drawn_at_does_not_step_under_long_uneven_
     for (const Case& c : cases) {
         double worst_s = 0.0;
         double worst_share = 0.0;
+        double worst_off_s = 0.0;
+        double worst_pace = 0.0;
+        // How far a pass can put the fit out: the longest pass. (A snap
+        // keeps it within 0.5 s whatever happens, so that alone says
+        // nothing here.)
+        const double longest_s = std::max(c.long_s, 0.017);
         for (unsigned seed = 0; seed < 5; ++seed) {
             glideslope::net::ShownClock shown;
+            // **Judged from outside as well**, not by its own rate(): how
+            // far from the fit it is drawn, and how fast it went over each
+            // frame, from two drawn times - which must be the fit's rate,
+            // as it was at the frame's start, within the slew's tenth.
+            bool had = false;
+            double had_local_s = 0.0;
+            double had_s = 0.0;
+            double had_fit_rate = 1.0;
             const ClockRun run = run_passes(
                 seed, c.long_s, c.at_random,
                 [&](double local_s, const glideslope::net::SessionClock& clock, double& rate) {
                     const double s = shown.at(local_s, clock);
                     rate = shown.rate();
-                    check(std::abs(s - clock.now(local_s)) <= 0.7,
-                          "the clock drawn at is more than 0.7 s from the session's");
+                    const double off_s = std::abs(s - clock.now(local_s));
+                    worst_off_s = std::max(worst_off_s, off_s);
+                    check(off_s <= longest_s, "the clock drawn at is " +
+                                                  std::to_string(off_s) +
+                                                  " s from the session's, past the longest "
+                                                  "pass, " + std::to_string(longest_s));
+                    if (had && local_s > had_local_s && local_s > 3.0) {
+                        const double went = (s - had_s) / (local_s - had_local_s);
+                        const double past = std::abs(went - had_fit_rate);
+                        worst_pace = std::max(worst_pace, past);
+                        check(past <= glideslope::net::ShownClock::most_slew + 1e-9,
+                              "the clock drawn at went at " + std::to_string(went) +
+                                  " of real time over a frame where the fit went at " +
+                                  std::to_string(had_fit_rate));
+                    }
+                    had = true;
+                    had_local_s = local_s;
+                    had_s = s;
+                    had_fit_rate = clock.rate();
                     return s;
                 });
             check(run.frames > 100, "the clock was judged at " + std::to_string(run.frames) +
@@ -791,9 +826,9 @@ GLIDESLOPE_TEST(the_clock_aircraft_are_drawn_at_does_not_step_under_long_uneven_
                   std::to_string(worst_s * 1000.0) + " ms in a frame, " +
                   std::to_string(worst_share * 100.0) + "% of it, past the slew's tenth");
         std::printf("  passes %s %.0f ms: the worst step %.2f ms (%.2f m at 42 m/s), %.1f%% "
-                    "of its frame\n",
+                    "of its frame; at most %.0f ms off the fit, and %.3f off its rate\n",
                     c.at_random ? "up to" : "of", c.long_s * 1000.0, worst_s * 1000.0,
-                    worst_s * 42.0, worst_share * 100.0);
+                    worst_s * 42.0, worst_share * 100.0, worst_off_s * 1000.0, worst_pace);
     }
     check(runs == 20, "four kinds of pass by five seeds, not " + std::to_string(runs));
 }

@@ -3403,6 +3403,14 @@ int stay(glideslope::platform::UdpSocket& socket,
         std::printf("left: the server collides on other ground than this client\n");
         return 1;
     }
+    // **Asked to take it back while its copilot looked, and it never did**:
+    // the run did not build what it was for, and says so rather than pass.
+    if (connect_copilot.take_back_while_looking && !asked_to_take_back) {
+        std::fprintf(stderr, "glideslope_cli: --take-back-while-looking, and its copilot "
+                             "never had a routine look out to take it back during\n");
+        say_heard("never taken back: its copilot never had a routine look out");
+        return 1;
+    }
     return answered > 0 ? 0 : 1;
 }
 
@@ -4300,6 +4308,7 @@ static int run_program(int argc, char** argv) {
                     const std::string v(args[i + 1]);
                     const bool of_the_model = args[i] == "--copilot-provider" ||
                                               args[i] == "--copilot-routine" ||
+                                              args[i] == "--copilot-thinking" ||
                                               args[i] == "--copilot-model" ||
                                               args[i] == "--copilot-record" ||
                                               args[i] == "--copilot-playback";
@@ -4319,6 +4328,20 @@ static int run_program(int argc, char** argv) {
                         c.record = v;
                     } else if (args[i] == "--copilot-playback") {
                         c.playback = v;
+                    } else if (args[i] == "--copilot-thinking") {
+                        // For tests: how long, on the session's clock, an
+                        // answer is taken after its question - a slow
+                        // machine's copilot, built.
+                        char* end = nullptr;
+                        c.thinking_s = std::strtod(v.c_str(), &end);
+                        if (end == v.c_str() || *end != '\0' || !(c.thinking_s >= 0.0) ||
+                            !std::isfinite(c.thinking_s)) {
+                            std::fprintf(stderr,
+                                         "glideslope_cli: --copilot-thinking wants a number of "
+                                         "seconds, not '%s'\n",
+                                         v.c_str());
+                            return 2;
+                        }
                     } else if (args[i] == "--copilot-routine") {
                         char* end = nullptr;
                         c.routine_s = std::strtod(v.c_str(), &end);
@@ -4479,6 +4502,16 @@ static int run_program(int argc, char** argv) {
                                  "than nothing\n");
                     return 2;
                 }
+            }
+            // **Taken back while its copilot looks** needs a copilot that
+            // looks: one asked a task, with a routine.
+            if (connect_copilot.take_back_while_looking &&
+                (!connect_copilot.options || connect_copilot.options->task.empty() ||
+                 !(connect_copilot.options->routine_s > 0.0))) {
+                std::fprintf(stderr, "glideslope_cli: --take-back-while-looking takes the "
+                                     "aircraft back while its copilot has a routine look out, "
+                                     "and there is no --copilot with a --copilot-routine\n");
+                return 2;
             }
             if ((connect_copilot.route_for_another || connect_copilot.route_when_wrecked) &&
                 connect_copilot.route_file.empty()) {
