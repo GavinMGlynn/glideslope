@@ -806,8 +806,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // rated power at their rated rpm, and the Cub's ceiling, on 2026-10-06.
     // A hundred and twenty: the Cessna 172P's ceiling, as the AI climbs to
     // it at its handbook's speeds, on 2026-10-08.
-    check(figures_in_files == 120,
-          "a hundred and twenty figures, one test each above; found " +
+    // A hundred and twenty-one: the Cessna 182S's ceiling, as the AI climbs
+    // to it at its handbook's speeds, on 2026-10-09.
+    check(figures_in_files == 121,
+          "a hundred and twenty-one figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 

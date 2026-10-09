@@ -84,6 +84,17 @@ The changes, and what each is for:
                          both in range: the handbook's two figures between
                          them ask for almost no drag due to lift at all
                          (PROJECT_STATUS, 2026-10-09), which no polar gives.
+                         Only up to the angle of attack the lift peaks at,
+                         0.28 rad: past it the flow has separated and the
+                         drag is not due to lift but to separation, which
+                         rises with the angle (a separated wing's drag is
+                         about its normal force times sin alpha), so the
+                         pinned rows past the stall are kept as JSBSim had
+                         them. Scaled with the rest, an aeroplane left
+                         thirty seconds in the stall sank at 1,511 ft/min,
+                         not 1,156, and its recovery pulled 1.82 g against
+                         the 2 g the airworthiness rules allow with 10% in
+                         hand.
     The windmilling propeller's drag, 0.021 with the engine stopped
                          The handbook glides with the propeller windmilling
                          (8.9:1, figure 3-1), and in JSBSim the propeller of
@@ -151,6 +162,7 @@ LIFT_DUE_TO_ALPHA = {
 FULL_FLAP_LIFT = 0.44
 ELEVATOR_DRAG = "0.02"
 DRAG_DUE_TO_ALPHA_SCALE = 0.75
+LIFT_PEAK_ALPHA = max(LIFT_DUE_TO_ALPHA, key=LIFT_DUE_TO_ALPHA.get)
 ZERO_LIFT_DRAG = "0.030"
 WINDMILLING_DRAG = 0.021
 LOW_J_THRUST = 1.12
@@ -266,7 +278,8 @@ def airframe():
     rows = []
     for row in m.group(1).split("\n"):
         alpha, cd = row.split()
-        rows.append(f"                              {alpha}\t{float(cd) * DRAG_DUE_TO_ALPHA_SCALE:.4f}")
+        scale = DRAG_DUE_TO_ALPHA_SCALE if float(alpha) <= LIFT_PEAK_ALPHA else 1.0
+        rows.append(f"                              {alpha}\t{float(cd) * scale:.4f}")
     text = with_rows(text, m, rows)
 
     text = replace_once(
