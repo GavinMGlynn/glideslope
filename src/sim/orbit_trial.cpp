@@ -74,6 +74,9 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
         }
         const double beta = aircraft.property("aero/beta-deg");
         out.most_sideslip_ever_deg = std::max(out.most_sideslip_ever_deg, std::abs(beta));
+        if (std::abs(std::remainder(aircraft.property("attitude/psi-deg"), 360.0)) > 2.0) {
+            out.heading_settled_s = static_cast<double>(i + 1) / steps_per_second;
+        }
         if (i >= settled) {
             out.least_sideslip_deg = std::min(out.least_sideslip_deg, beta);
             out.most_sideslip_deg = std::max(out.most_sideslip_deg, beta);
