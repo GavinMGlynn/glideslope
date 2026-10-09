@@ -606,10 +606,9 @@ Found while implementing something else. Added when found, not when remembered.
       held to a bound, failing clearly with the blend taken out.* The blend
       is in and unit-tested (2026-09-29). Still missing: large corrections
       built through the client itself, a bound on the hand-over test seen to
-      fail, and a fix for the steps CI has seen with the blend in: those
-      drawn from the updates are the session's clock stepping under long,
-      uneven frames (2026-10-09; 6.2 and 24.5 m in the hand-over test and
-      2.77 m at a take-over still to be read against it).
+      fail, and whether the older steps CI saw (6.2 and 24.5 m in the
+      hand-over test, 2.77 m at a take-over) were the session's clock,
+      which stepped under long, uneven frames and is now slewed (2026-10-09).
 - [x] **The display model is written twice**, in the command-line client
       and in the client with the window. *Verification: one presentation-free
       module serves both, with a unit test that builds long frames across a

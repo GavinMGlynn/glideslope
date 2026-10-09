@@ -415,6 +415,9 @@ private:
     double arrived_s_ = 0.0;
     int arrived_in_ = 0;
     net::SessionClock clock_;
+    // The clock the others - and its own while the AI flies it - are drawn
+    // at: the session's, slewed and never stepped (net::ShownClock).
+    net::ShownClock drawn_at_;
     // The session's clock as of this frame (`fly`), which the server's air
     // is on, and how much of what the server has said has been taken in:
     // the weathers flown, and whether its ground was compared.

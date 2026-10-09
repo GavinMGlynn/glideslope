@@ -164,4 +164,57 @@ private:
     double at_zero_s_ = 0.0;
 };
 
+// **The clock aircraft are drawn at: the session's, slewed and never
+// stepped.** `SessionClock` is refitted at every update, and the updates are
+// heard a pass at a time, all at the pass's own time - so with long, uneven
+// passes (a software renderer's 150 to 700 ms) which update looks to have
+// waited least changes as the best one ages out of its window, and the fit
+// jumps by up to a pass. Drawn at that clock, an aircraft at 42 m/s jumped
+// 5.4 m in one frame (CI run 37866144089; PROJECT_STATUS.md, 2026-10-09).
+//
+// This one follows the fit without jumping. Each frame it moves at the rate
+// it was moving at - the session's fitted rate plus a pace chosen at the end
+// of the frame before - so that an aircraft carried on at its drawn velocity
+// (`rate()` counts the pace) is where the next frame draws it; only then is
+// the pace chosen again, toward the fit: the difference over `settle_s`, at
+// most `most_slew` of real time either way. A frame never carries it past the
+// difference it was aimed at.
+//
+// **The numbers, and why.** `most_slew` 0.1: an aircraft drawn a tenth fast
+// or slow for a moment is not seen as a jump, while it still takes up a
+// pass's worth of the fit (700 ms) in seven seconds. `settle_s` 1 s, longer
+// than any frame these clients draw, so a pace chosen at one frame's end
+// does not overshoot in the next. A difference past `snap_beyond_s`, 0.5 s -
+// joined again, or a server stalled and caught up - is a real change of the
+// session's clock, larger than any pass, and is taken at once: slewed, it
+// would draw every aircraft seconds wrong for most of a minute. One within it
+// settles to a millisecond within `settles_within_s`, 12 s: half a second at
+// a tenth is 5 s, and the last tenth of a second, at most, takes
+// `settle_s * ln(100)` more, 4.6 s.
+class ShownClock {
+public:
+    static constexpr double most_slew = 0.1;
+    static constexpr double settle_s = 1.0;
+    static constexpr double snap_beyond_s = 0.5;
+    static constexpr double settles_within_s = 12.0;
+
+    // The session's time to draw at this machine's `local_s`, following
+    // `clock`, which must be known.
+    double at(double local_s, const SessionClock& clock);
+    // How fast what `at` gives moves on from here, in session seconds a
+    // second of this machine's: the fitted rate and the pace together.
+    double rate() const { return rate_ + pace_; }
+    // How many times it was taken at once, past snap_beyond_s.
+    int snaps() const { return snaps_; }
+
+private:
+    bool has_ = false;
+    double local_s_ = 0.0;
+    double shown_s_ = 0.0;
+    double rate_ = 1.0;
+    double pace_ = 0.0;
+    double aimed_s_ = 0.0; // the difference the pace was chosen to close
+    int snaps_ = 0;
+};
+
 } // namespace glideslope::net

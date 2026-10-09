@@ -265,16 +265,71 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The window client's steps at a switch traced to its session clock; the take-back test takes the aircraft back on the event, 2026-10-09 — the item stays open
+### The window client draws at a clock that does not step; the take-back test takes the aircraft back on the event, 2026-10-09 — the item stays open
 
-**What is still missing first.** Nothing is fixed in the client with the
-window yet: its steps are traced to a cause, below, with evidence, but the
-cause is not fixed, no test builds a large correction through the client
-itself, and the hand-over test's step away from a switch is still held to no
-bound seen to fail. "The client with the window does not blend corrections"
-stays `[ ]`.
+**What is still missing first.** No test builds a large correction through
+the client itself, and the hand-over test's step away from a switch is still
+held to no bound seen to fail; and the steps CI saw before this (6.2 and
+24.5 m in the hand-over test, 2.77 m at a take-over) have no lines left to
+say whether they were this clock. "The client with the window does not blend
+corrections" stays `[ ]`. The command-line client's display model still draws
+at the fitted clock: it reads its updates in short loops, not a long pass,
+and its bounds have held; it is not changed here.
 
-**The cause of the steps drawn from the updates** (not yet fixed). CI run
+**Fixed: the clock the window client draws at stepped.** `net::ShownClock`
+(net/interpolation.*) follows `net::SessionClock` without stepping: each frame
+it moves on at the rate it was moving - the fitted rate plus a pace chosen at
+the end of the frame before - and only then chooses its pace again, toward the
+fit: the difference over 1 s, at most a tenth of real time either way, never
+carried past the difference it aimed at. `rate()` counts the pace, and
+`client::Online::others` draws the others - and its own while the AI flies it -
+at it, their path velocity at that rate, so an aircraft carried on at its
+drawn velocity is where the next frame draws it. **The numbers**: a tenth,
+because an aircraft drawn a tenth fast or slow for a moment is not seen as a
+jump, and a pass's worth of the fit (700 ms) is still taken up in seven
+seconds; 1 s to settle, longer than any frame drawn, so a pace does not
+overshoot; a difference past 0.5 s - joined again, a server stalled and caught
+up, larger than any pass - is taken at once, since slewed it would draw every
+aircraft seconds wrong for most of a minute. One within it settles to a
+millisecond within 12 s (5 s at a tenth, and the last tenth of a second
+`ln(100)` seconds more).
+
+Tests (tests/unit/test_interpolation.cpp):
+- `the_clock_aircraft_are_drawn_at_does_not_step_under_long_uneven_frames`:
+  the table below, five seeds each - 20 runs of a minute, asserted all run -
+  each frame's step held to a tenth of the frame (what the slew can move in
+  it: 2.9 m at 42 m/s and 700 ms), and the clock drawn at within 0.7 s of the
+  fit. Measured 0.00 ms in every case. **Seen to fail** with the fitted clock
+  drawn at instead (`clock.now`, `clock.rate()`): "with passes of 17 ms the
+  clock drawn at stepped 6.009 ms in a frame, 35.3% of it"; reverted, it
+  passes.
+- `a_real_change_of_the_sessions_clock_is_followed_within_its_stated_time`:
+  the latency changed 20 s in by +0.3 s, -0.3 s and +2 s: settled to a
+  millisecond in 5.68, 6.90 and 9.32 s against 12 s; the 2 s change snapped
+  once, the others never.
+
+**Through the client itself** (linux-release, by hand,
+`client_hands_over.cmake` with `SLOW_FRAMES`, which holds a pass that much
+longer after each tenth of a second at full speed - uneven frames; the frame
+guard then fails the run as not testing its bound, as it should, and the
+figures are read from what it printed): the largest step away from a switch,
+drawn from the updates, "from where it was carried" -
+
+| passes held | fitted clock (before) | slewed clock (now) |
+|---|---|---|
+| 300 ms | 0.799 m (310 ms frame, 41.8 m/s) | 0.126 m (314 ms, 39.8 m/s) |
+| 600 ms | 1.625 m (616 ms frame, 37.6 m/s) | 0.521 m (612 ms, 39.3 m/s) |
+
+One run each, through a relay of 100 ms and no jitter: smaller than CI's
+5.4 m, where the runner's network and frames were rougher, but the same
+kind, and down by two thirds and more.
+
+**The copilot test's 5 m bound at a switch is not tightened**: CI's 5.683 m
+there was 5.414 m of this clock and 0.269 m of the blend, so with the clock
+slewed it would have been about 0.3 m - but that is one run's arithmetic, not
+a measurement on the runner that failed, and a bound is changed on evidence.
+
+**The cause of the steps drawn from the updates.** CI run
 37866144089 (PR #143, windows-release, attempt 1) failed
 `the_client_with_the_window_asks_its_copilot_and_the_server_flies_its_route`
 at 5.683 m against 5 m, and its own lines say what made it: "frame 1 after a
@@ -297,12 +352,11 @@ scratch program, not kept, over `net::SessionClock` alone: updates at 30 Hz,
 17 ms step the clock 1.3 ms at worst (0.05 m at 42.3 m/s); fixed 329 ms passes
 16.8 ms (0.71 m); passes of up to 400 ms at random 88.9 ms (3.76 m), and up to
 700 ms 165.5 ms (7.00 m) - CI's size. Predicted frames do not use that clock,
-which is why the steps CI saw at a take-over (2.77 m) and in the hand-over
-test (6.2 and 24.5 m) are to be read again against this: those runs' lines
-are gone. **The fix it wants** (not made): the clock the others - and its own
-while the AI flies it - are drawn at is slewed, never stepped (a bounded rate
-toward `SessionClock::now`, the slew counted in the path velocity), or each
-update stamped with when it arrived rather than when the pass read it.
+and the steps CI saw at a take-over (2.77 m) and in the hand-over test (6.2
+and 24.5 m) cannot now be read against this: those runs' lines are gone.
+Stamping each update with when it arrived was not open: they are read a
+pass at a time, and only the socket's own timestamps could say when within
+it each came, so the clock is slewed (above).
 
 **Fixed: the take-back test only sometimes tested its rule.** CI run
 37866144089's windows-debug job failed

@@ -361,6 +361,7 @@ void Online::noticed() {
     reconciled_s_.reset();
     own_word_.reset();
     clock_ = net::SessionClock{};
+    drawn_at_ = net::ShownClock{};
     origin_.reset();
     shown_.clear();
     wrecked_.clear();
@@ -579,7 +580,10 @@ std::vector<Other> Online::others(double local_s) {
     if (!clock_.known() || !origin_) {
         return out;
     }
-    const double now = clock_.now(local_s);
+    // **Drawn at a clock that does not step** under long, uneven passes,
+    // and the path's velocity at the pace that clock goes (net::ShownClock).
+    const double now = drawn_at_.at(local_s, clock_);
+    const double drawn_rate = drawn_at_.rate();
     for (auto& [number, shown] : shown_) {
         // Its own is drawn as any other only while the AI flies it.
         if (!shown.known() || (number == mine_ && !own_ai_flying_)) {
@@ -603,7 +607,7 @@ std::vector<Other> Online::others(double local_s) {
         const std::array<double, 3> path = shown.path_velocity();
         const world::Ecef v = world::ned_to_ecef(world::to_geodetic(*origin_), path[0], path[1],
                                                  path[2]);
-        o.path_mps = {v.x * clock_.rate(), v.y * clock_.rate(), v.z * clock_.rate()};
+        o.path_mps = {v.x * drawn_rate, v.y * drawn_rate, v.z * drawn_rate};
         o.ai_flying = ai_[number];
         o.wrecked = wrecked_[number];
         out.push_back(o);
