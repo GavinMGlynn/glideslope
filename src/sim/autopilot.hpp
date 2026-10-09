@@ -102,6 +102,11 @@ public:
     // ask (sim::plan_speeds). None: never raised. No model here gives a
     // flap or gear speed, so this is the only bound beside 40 kt.
     void limit_speed(std::optional<double> fastest_kts) { fastest_kts_ = fastest_kts; }
+    // **Handed over climbing `climb_fpm`**: a climb asked that is less is
+    // eased down to from it, not stepped to (autopilot.cpp,
+    // `ease_climb_fpm_per_s`). Once the climb asked is reached, or is more,
+    // it is flown as asked.
+    void ease_climb(double climb_fpm) { eased_climb_fpm_ = climb_fpm; }
     // How far the speed asked has been raised for a climb now, knots.
     double climb_speed_kts() const { return climb_speed_kts_; }
     // The height it is flying to, within its limits, or none when it holds
@@ -119,6 +124,8 @@ private:
     std::optional<double> ceiling_ft_;
     std::optional<double> fastest_kts_;
     std::optional<double> away_deg_;
+    std::optional<double> eased_climb_fpm_;
+    bool seed_climb_ = true; // the climb loop's integral, seeded on the first step
     Controls last_;
     // Holding the speed rather than the height: the most climb the altitude
     // hold may ask for, found by an integral on the airspeed, while it binds.

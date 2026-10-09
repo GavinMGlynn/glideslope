@@ -80,7 +80,9 @@ struct DepartureSpeeds {
     // a maximum weight of 2400 pounds and may be used for any lesser weight.
     // However, to achieve the performance specified in Section 5 for takeoff
     // distance, the speed appropriate to the particular weight must be
-    // used" - the take-off's speeds by weight, the climb's not. It is the
+    // used" - the take-off's speeds by weight, the climb's not. That is the
+    // 172P's handbook's, taken as typical of the class, and deliberately the
+    // handbook's simplification: Vy does fall a little with weight. It is the
     // speed the autopilot's best-climb floor holds after the hand-over
     // (Aircraft::climb_floor_kts), so the plan is handed her at the speed it
     // will hold. False for every other class, whose initial climb is V2 and
