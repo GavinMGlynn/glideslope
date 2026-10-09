@@ -195,9 +195,10 @@ constexpr double configuration_moved = 0.5; // degrees of flap, or a twentieth o
 constexpr double elevator_per_degree = 0.05;
 constexpr double elevator_per_degps = 0.03;
 constexpr double trim_rate = 0.02;
-// **An upset**: banked past this, the wings are brought level before the nose
-// is raised - unload, roll, then pull, the nose-low recovery of the FAA's
-// Airplane Upset Prevention and Recovery Training Aid (AC 120-111) - and the
+// **An upset**: banked past this - 45 degrees, AC 120-111's own definition of
+// an upset's bank - the wings are brought level before the nose is raised -
+// unload, roll, then pull, the nose-low recovery of the FAA's Airplane Upset
+// Prevention and Recovery Training Aid (AC 120-111) - and the
 // elevator's trim is not wound on a pitch it cannot have. Pulling in a spiral
 // tightens it: a Cessna handed over at 65 degrees of bank, 49 nose down,
 // pulled for 20 s with its trim winding up, rolled level only after it, and
@@ -666,9 +667,15 @@ Controls Autopilot::fly() {
         }
         const double down_rate_degps =
             short_kts > 0.0 || stalled ? unload_rate_degps : pitch_rate_degps;
-        const double pitch_next = std::clamp(pitch_wanted,
-                                             pitch_command_deg_ - down_rate_degps * dt,
-                                             pitch_command_deg_ + pitch_rate_degps * dt);
+        double pitch_next = std::clamp(pitch_wanted, pitch_command_deg_ - down_rate_degps * dt,
+                                       pitch_command_deg_ + pitch_rate_degps * dt);
+        // Rolled past the upset's bank, here too the nose is not raised -
+        // an approach, a glide or a stall recovery as much as a cruise: a
+        // pull while banked past 45 degrees tightens the turn, not the
+        // descent, and a stall recovery with a wing down unloads first.
+        if (upset) {
+            pitch_next = std::min(pitch_next, pitch_command_deg_);
+        }
         // **The integral winds only while the law's pitch is the pitch
         // given**: not while the command is still walking there, and not
         // while the law asks for more than the envelope allows at either end,

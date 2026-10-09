@@ -4,6 +4,7 @@
 #include "sim/controller.hpp"
 #include "sim/departure.hpp"
 #include "sim/lander.hpp"
+#include "sim/plan.hpp"
 #include "sim/test_pilot.hpp"
 
 #include <algorithm>
@@ -11,6 +12,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <functional>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -443,4 +445,75 @@ GLIDESLOPE_TEST(a_glide_with_the_engine_stopped_holds_its_airspeed_on_the_elevat
           "towards its waypoint: " + std::to_string(away_at_45 - away) +
               " m nearer in a minute and a half");
     check(f.controller.glide() == 68.0, "the glide is what the controller says it flies");
+}
+
+// **Turned away and let go, the plan is flown on**: the Cessna off Bondi on
+// a plan of three waypoints up the coast, turned away to the south (the
+// separation monitor's heading, `turn_away`) for 60 s from 20 s in, then let
+// go: it turns back and passes every waypoint, in order, one at a time; no
+// control moves faster than a hand at the turn or its release; and the
+// heading loop's integral, found on the away heading, is let go with it.
+GLIDESLOPE_TEST(a_plan_turned_away_from_and_let_go_is_flown_on_past_every_waypoint_in_order) {
+    Aircraft aircraft{GLIDESLOPE_TEST_DATA_DIR, "c172p"};
+    Controller controller{aircraft, Controls{}};
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.89;
+    ic.longitude_deg = 151.28;
+    ic.altitude_ft = 2000.0;
+    ic.heading_deg = 0.0;
+    ic.airspeed_kts = 100.0;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    controller.to_ai(glideslope::sim::parse_flight_plan(
+        "aircraft c172p\nstart -33.89 151.28 2000 0 100\n"
+        "waypoint A -33.86 151.29 2000 100\n"
+        "waypoint B -33.83 151.31 2000 100\n"
+        "waypoint C -33.80 151.30 2000 100\n"));
+    const int second = steps_per_second;
+    const std::size_t waypoints = controller.navigator()->plan().waypoints.size();
+    std::vector<std::size_t> passed_in_order;
+    std::size_t next = controller.navigator()->next();
+    double heading_when_turned = 0.0;
+    double most_step = 0.0;
+    Controls last;
+    bool first = true;
+    int step = 0;
+    for (; step < 900 * second && !controller.navigator()->finished(); ++step) {
+        if (step == 20 * second) {
+            controller.turn_away(180.0);
+        }
+        if (step == 80 * second) {
+            heading_when_turned = aircraft.property("attitude/psi-deg");
+            controller.turn_away(std::nullopt);
+        }
+        const Controls c = controller.fly();
+        if (!first) {
+            most_step = std::max({most_step, std::abs(c.aileron - last.aileron),
+                                  std::abs(c.elevator - last.elevator),
+                                  std::abs(c.rudder - last.rudder)});
+        }
+        first = false;
+        last = c;
+        aircraft.set_controls(c);
+        aircraft.step();
+        if (controller.navigator()->next() != next) {
+            next = controller.navigator()->next();
+            passed_in_order.push_back(next);
+        }
+    }
+    std::fprintf(stderr,
+                 "turned away, heading %.0f at the release; %zu of %zu waypoints passed by %.0f s; "
+                 "most control step %.5f\n",
+                 heading_when_turned, passed_in_order.size(), waypoints,
+                 static_cast<double>(step) / second, most_step);
+    check(std::abs(std::remainder(heading_when_turned - 180.0, 360.0)) < 10.0,
+          "it was turned away, to the south, before it was let go");
+    bool in_order = passed_in_order.size() == waypoints;
+    for (std::size_t k = 0; k < passed_in_order.size(); ++k) {
+        in_order = in_order && passed_in_order[k] == k + 1;
+    }
+    check(in_order, "let go, it passed every waypoint, one at a time, in order");
+    check(controller.navigator()->finished(), "the plan was finished");
+    check(most_step <= 1.0 / steps_per_second + 1e-9,
+          "no control moved faster than a hand at the turn or its release");
 }

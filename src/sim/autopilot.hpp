@@ -84,7 +84,18 @@ public:
     // turned away from two it is squeezed between), kept apart from the
     // modes as the height's limits are; none flies the modes' heading. The
     // turn is the heading loop's own - its bank, and the rate it rolls at.
-    void turn_away(std::optional<double> heading_deg) { away_deg_ = heading_deg; }
+    // Released, the heading loop's integral - found on the away heading's
+    // turn - is let go, so the plan's heading is flown afresh.
+    void turn_away(std::optional<double> heading_deg) {
+        if (away_deg_ && !heading_deg) {
+            bank_integral_deg_ = 0.0;
+        }
+        away_deg_ = heading_deg;
+    }
+    // The pitch it asks for, degrees, and the elevator's trim it has found:
+    // for tests of the upset rule.
+    double pitch_asked_deg() const { return pitch_command_deg_; }
+    double elevator_trim() const { return elevator_trim_; }
     // **The fastest it may hold**: the most the speed asked may be raised
     // to for a climb the nose cannot give (autopilot.cpp: with the nose at
     // its highest and the climb short), the aircraft's fastest a plan may
