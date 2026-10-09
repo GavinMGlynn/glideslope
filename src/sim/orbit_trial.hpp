@@ -40,7 +40,7 @@ struct OrbitFlown {
     double join_nearest_m = 0.0;
     double join_farthest_m = 0.0;
     // From the first quarter-turn on:
-    double worst_height_ft = 0.0; // off the orbit's height, either way
+    double worst_height_ft = 0.0; // after `height_from_s`, which may be 0 // off the orbit's height, either way
     double slowest_kts = 0.0;     // calibrated
     double fastest_kts = 0.0;
     // **Past its tables**: its alpha or sideslip left what its aerodynamics'
@@ -152,7 +152,8 @@ struct TrialConfiguration {
 CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
                                         const CatalogueEntry& entry, double airspeed_kts,
                                         bool windy, double settle_s = 30.0,
-                                        const TrialConfiguration& configuration = {});
+                                        const TrialConfiguration& configuration = {},
+                                        double height_from_s = 30.0);
 
 // Flies `entry` round the tightest orbit allowed at `trial.airspeed_kts`, at
 // 3,000 ft over Sydney, clean, with the throttle it starts at in the
