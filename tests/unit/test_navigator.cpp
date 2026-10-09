@@ -593,9 +593,9 @@ GLIDESLOPE_TEST(a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_ref
     check(start.find("the start is at 147 kt, outside 162 to 300 kt") != std::string::npos,
           "started at 147 kt she is refused, the start named: " + start);
     const std::string fast =
-        verdict("aircraft mosquito-fb6\nwaypoint A -33.90 151.2093 3000 240\n");
-    check(fast.find("A is flown at 240 kt, outside 123 to 219 kt") != std::string::npos,
-          "the Mosquito at 240 kt, more than she makes, is refused: " + fast);
+        verdict("aircraft mosquito-fb6\nwaypoint A -33.90 151.2093 3000 270\n");
+    check(fast.find("A is flown at 270 kt, outside 123 to 264 kt") != std::string::npos,
+          "the Mosquito at 270 kt, more than she makes, is refused: " + fast);
     const std::string other = verdict(plan_text("sydney-harbour.plan"), "a320");
     check(other.find("the plan is for the c172p, and the aircraft flown is the a320") !=
               std::string::npos,

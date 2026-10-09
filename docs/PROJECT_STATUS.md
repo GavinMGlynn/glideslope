@@ -265,6 +265,14 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The plan-speed refusal test asks the Mosquito past her gear-up top speed, 2026-10-10
+
+Gear up (this PR) the Mosquito's fastest plan speed is 264 kt, not 219, so
+`a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_refused_and_none_in_the_data_does`
+asking her 240 kt no longer tested its rule (found by PR #158's run). It now
+asks 270 kt and expects "outside 123 to 264 kt": the same rule, past her own
+measured top.
+
 ### The trials fly clean with the gear up: the F-22A glides at 225 kt, and every aircraft round its tightest orbit at every glide it may be asked, 2026-10-10 — item done
 
 **What was wrong.** Every trial in `sim/orbit_trial.cpp` - the glide round
