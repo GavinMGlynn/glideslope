@@ -153,6 +153,82 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
     return out;
 }
 
+OrbitEntered fly_orbit_from_waypoint(const std::filesystem::path& data,
+                                     const CatalogueEntry& entry, const OrbitEntry& trial) {
+    constexpr int steps_per_second = 120;
+    constexpr double centre_lat = -33.8688;
+    constexpr double centre_lon = 151.2093;
+    constexpr double begun_short_m = 5000.0;
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    const double per_lat = metres_per_degree_latitude(centre_lat);
+    const double per_lon = metres_per_degree_longitude(centre_lat);
+    const double way_lat = centre_lat - trial.from_centre * trial.radius_m / per_lat;
+    const double way_lon = centre_lon;
+    const double start_lat =
+        way_lat - begun_short_m * std::cos(trial.arriving_deg * radians) / per_lat;
+    const double start_lon =
+        way_lon - begun_short_m * std::sin(trial.arriving_deg * radians) / per_lon;
+    char lines[600];
+    std::snprintf(lines, sizeof lines,
+                  "aircraft %s\nstart %.6f %.6f 3000 %.1f %.0f\n"
+                  "waypoint WAY %.6f %.6f 3000 %.0f\n"
+                  "orbit CBD %.6f %.6f %.0f 3000 %.0f 1 %s\n"
+                  "waypoint NORTH -33.50 151.2093 3000 %.0f\n",
+                  entry.id.c_str(), start_lat, start_lon, trial.arriving_deg, trial.airspeed_kts,
+                  way_lat, way_lon, trial.airspeed_kts, centre_lat, centre_lon, trial.radius_m,
+                  trial.airspeed_kts, trial.right ? "right" : "left", trial.airspeed_kts);
+    const FlightPlan plan = parse_flight_plan(lines);
+    Aircraft aircraft(data / "jsbsim", entry.model);
+    InitialConditions ic;
+    ic.latitude_deg = plan.start->latitude_deg;
+    ic.longitude_deg = plan.start->longitude_deg;
+    ic.altitude_ft = plan.start->altitude_ft;
+    ic.heading_deg = plan.start->heading_deg;
+    ic.airspeed_kts = plan.start->airspeed_kts;
+    ic.engine_running = true;
+    aircraft.initialize(ic);
+    if (trial.windy) {
+        Conditions wind;
+        wind.wind_east_mps = 10.0 * 1852.0 / 3600.0;
+        aircraft.set_weather(std::make_shared<SteadyWeather>(wind));
+    }
+    Controls controls;
+    controls.throttle = entry.start_throttle;
+    Autopilot autopilot(aircraft, controls);
+    Navigator navigator(aircraft, plan);
+
+    OrbitEntered out;
+    out.nearest_m = std::numeric_limits<double>::infinity();
+    out.join_nearest_m = std::numeric_limits<double>::infinity();
+    const int most_steps = 30 * 60 * steps_per_second;
+    for (int step = 0; step < most_steps && navigator.next() <= 1; ++step) {
+        autopilot.set(navigator.steer());
+        aircraft.set_controls(autopilot.fly());
+        aircraft.step();
+        if (aircraft.outside_its_tables()) {
+            out.left_tables = true;
+            break;
+        }
+        if (navigator.next() != 1 || !navigator.circling()) {
+            continue;
+        }
+        out.joined = true;
+        out.turns = std::max(out.turns, navigator.turns_flown());
+        const double d =
+            distance_m(centre_lat, centre_lon, aircraft.property("position/lat-geod-deg"),
+                       aircraft.property("position/long-gc-deg"));
+        out.join_nearest_m = std::min(out.join_nearest_m, d);
+        out.join_farthest_m = std::max(out.join_farthest_m, d);
+        if (navigator.turns_flown() >= 0.25) {
+            out.nearest_m = std::min(out.nearest_m, d);
+            out.farthest_m = std::max(out.farthest_m, d);
+        }
+        out.worst_height_ft = std::max(
+            out.worst_height_ft, std::abs(aircraft.property("position/h-sl-ft") - 3000.0));
+    }
+    return out;
+}
+
 GlideOrbitFlown glide_tightest_orbit(const std::filesystem::path& data,
                                      const CatalogueEntry& entry, double airspeed_kts,
                                      bool right) {

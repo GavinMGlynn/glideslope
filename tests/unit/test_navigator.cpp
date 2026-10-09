@@ -1057,6 +1057,147 @@ GLIDESLOPE_TEST(the_f35b_holds_nothing_a_plan_asks_one_step_past_its_slowest_or_
 
 namespace {
 
+// **A jet's orbit entered from a waypoint**, as a model plans "orbit the CBD":
+// a waypoint, then the orbit (sim::fly_orbit_from_waypoint). Flying Claude's
+// plans round 7 and 9.4 km circles, the 747-400 and the F-22A swung 460 m
+// off them (PROJECT_STATUS.md, 2026-10-06). Each jet at the speed Claude
+// asked of both, 220 kt - or the nearest a plan may ask of it - round the
+// tightest circle a plan may ask at it, which is what the planner offers a
+// model; entered from a waypoint at its centre, half way out, on the circle
+// and two radii out, arriving at it from every eighth of the compass, both
+// ways round. Each joins its circle going its way, holds it within the 100 m
+// it joined within from there and within 60 m - as a Cessna does - from a
+// quarter-turn, once round, and its height within 50 ft.
+// **Left out, by name**: a waypoint at the centre is flown at from north
+// alone - from the centre, every other arrival is the same flight turned,
+// in calm air; and wind, which the tightest-orbit tests fly through.
+const std::vector<std::string> entering_jets = {
+    "737-300", "747-400", "787-8", "a320", "a380", "learjet35a", "b2", "f15c", "f22", "f35b",
+};
+constexpr double entered_within_m = 60.0;
+// Joined within 100 m of it (sim/navigator.cpp), it is held to that from there.
+constexpr double joined_within_m = 100.0;
+
+void enter_its_orbits(const std::string& id) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto entry = glideslope::sim::find_aircraft(data, id);
+    const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, entry.model);
+    const double kts = std::clamp(220.0, speeds.slowest_kts, speeds.fastest_kts);
+    const double radius_m = std::ceil(glideslope::sim::least_orbit_radius_m(kts));
+    const std::vector<double> from_centre = {0.0, 0.5, 1.0, 2.0};
+    std::size_t cases = 0;
+    std::size_t flown = 0;
+    double worst_m = 0.0;
+    double worst_join_m = 0.0;
+    std::string failures;
+    for (const bool right : {false, true}) {
+        for (const double from : from_centre) {
+            for (int eighth = 0; eighth < 8; ++eighth) {
+                if (from == 0.0 && eighth > 0) {
+                    continue; // from the centre, flown from north alone (above)
+                }
+                ++cases;
+                glideslope::sim::OrbitEntry trial;
+                trial.airspeed_kts = kts;
+                trial.radius_m = radius_m;
+                trial.from_centre = from;
+                trial.arriving_deg = 45.0 * eighth;
+                trial.right = right;
+                const glideslope::sim::OrbitEntered f =
+                    glideslope::sim::fly_orbit_from_waypoint(data, entry, trial);
+                ++flown;
+                const double off_m = f.worst_off_m(radius_m);
+                const double join_off_m = f.worst_join_off_m(radius_m);
+                worst_m = std::max(worst_m, off_m);
+                worst_join_m = std::max(worst_join_m, join_off_m);
+                char which[400];
+                std::snprintf(which, sizeof which,
+                              "%s round %.0f m at %.0f kt %s, from a waypoint %.1f radii out "
+                              "arriving at %03.0f: %.2f turns, %.0f to %.0f m from joining "
+                              "(%.0f off), %.0f to %.0f m from a quarter-turn (%.0f off), "
+                              "within %.0f ft",
+                              id.c_str(), radius_m, kts, right ? "right" : "left", from,
+                              trial.arriving_deg, f.turns, f.join_nearest_m, f.join_farthest_m,
+                              join_off_m, f.nearest_m, f.farthest_m, off_m, f.worst_height_ft);
+                std::fprintf(stderr, "%s\n", which);
+                if (f.left_tables || !f.joined || f.turns < 0.99 || off_m > entered_within_m ||
+                    join_off_m > joined_within_m || f.worst_height_ft > 50.0) {
+                    failures += std::string("\n  ") + which;
+                }
+            }
+        }
+    }
+    // Both ways round: the centre once, and three places from eight ways.
+    const std::size_t space = 2 * (1 + (from_centre.size() - 1) * 8);
+    std::fprintf(stderr,
+                 "%s: %zu of %zu entries flown, at worst %.0f m off its circle from joining it "
+                 "and %.0f m from a quarter-turn\n",
+                 id.c_str(), flown, space, worst_join_m, worst_m);
+    check(cases == space && flown == space,
+          id + ": every entry flown, " + std::to_string(flown) + " of " + std::to_string(space));
+    check(failures.empty(), id + " joins its circle going its way and holds it within 100 m "
+                                 "from there, within 60 m from a quarter-turn, and its height "
+                                 "within 50 ft, once round:" +
+                                failures);
+}
+
+} // namespace
+
+// The jets entering are the catalogue's airliners, business jets, fighters
+// and bombers, each once.
+GLIDESLOPE_TEST(every_jet_has_its_own_test_of_entering_an_orbit_from_a_waypoint) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    std::vector<std::string> jets;
+    for (const auto& e : glideslope::sim::read_catalogue(data)) {
+        if (e.aircraft_class == AircraftClass::airliner ||
+            e.aircraft_class == AircraftClass::business_jet ||
+            e.aircraft_class == AircraftClass::fighter || e.aircraft_class == AircraftClass::bomber) {
+            jets.push_back(e.id);
+        }
+    }
+    std::vector<std::string> tested = entering_jets;
+    std::sort(jets.begin(), jets.end());
+    std::sort(tested.begin(), tested.end());
+    check(tested == jets && std::adjacent_find(tested.begin(), tested.end()) == tested.end(),
+          "each of the " + std::to_string(jets.size()) + " jets has its own test, once: " +
+              std::to_string(tested.size()));
+}
+
+GLIDESLOPE_TEST(the_boeing_737_300_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("737-300");
+}
+GLIDESLOPE_TEST(the_boeing_747_400_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("747-400");
+}
+GLIDESLOPE_TEST(the_boeing_787_8_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("787-8");
+}
+GLIDESLOPE_TEST(the_airbus_a320_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("a320");
+}
+GLIDESLOPE_TEST(the_airbus_a380_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("a380");
+}
+GLIDESLOPE_TEST(the_learjet_35a_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("learjet35a");
+}
+GLIDESLOPE_TEST(the_b2a_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("b2");
+}
+GLIDESLOPE_TEST(the_f15c_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("f15c");
+}
+GLIDESLOPE_TEST(the_f22a_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("f22");
+}
+GLIDESLOPE_TEST(the_f35b_enters_an_orbit_from_a_waypoint_and_holds_its_circle) {
+    enter_its_orbits("f35b");
+}
+
+namespace {
+
 // **A band of the glide tests**: the speeds a glide may be asked of an
 // aircraft from `from_kts` to `to_kts`, one way round or both, flown in a
 // test of its own so that none flies long on CI. First by class, then by
