@@ -41,11 +41,28 @@
 #include "sim/learnt.hpp"
 #include "sim/navigator.hpp"
 
+#include <filesystem>
 #include <functional>
 #include <memory>
 #include <optional>
+#include <string>
+#include <vector>
 
 namespace glideslope::sim {
+
+// **What her figures tell a controller**: how she lands (`landing_speeds`),
+// for a landing taken over on its roll, and how she takes off
+// (`departure_speeds`), for a take-off taken over at lift-off - the one place
+// the server's controllers (`controller_for`) and the client's (`Flight`)
+// are told them from, so that a test of it is a test of theirs. Either is
+// none where her figures do not give it, and `unread` says why: a hand-over
+// there is the plain autopilot.
+struct HerFigures {
+    std::optional<ApproachSpeeds> lands;
+    std::optional<DepartureSpeeds> takes_off;
+    std::vector<std::string> unread;
+};
+HerFigures her_figures(const std::filesystem::path& data, const std::string& model);
 
 class Controller {
 public:
@@ -109,29 +126,44 @@ public:
     // over on the step their wheels left back on the runway within 30 s.
     // Without them such a hand-over is the plain autopilot.
     void takes_off_with(const DepartureSpeeds& speeds) { takeoff_speeds_ = speeds; }
+    // Both, from `her_figures`: what each gives.
+    void told(const HerFigures& figures);
+    // How she was told she takes off, or null.
+    const DepartureSpeeds* takeoff_speeds() const {
+        return takeoff_speeds_ ? &*takeoff_speeds_ : nullptr;
+    }
+    const ApproachSpeeds* landing_speeds() const {
+        return landing_speeds_ ? &*landing_speeds_ : nullptr;
+    }
     // **Just after lift-off**, as a hand-over now would find her: off her
     // wheels and out of the water, with the pilot's throttle more than half
     // open - the line the roll's hand-over draws between a landing and a
-    // take-off - and either within a second of her wheels (the skip's
-    // second, at the very lift-off, before she has a climb to show) or
-    // climbing at more than `lift_off_climbing_fpm`; never since her wheels
-    // left higher than `lift_off_below_ft` above the ground she left, and
-    // within `lift_off_within_s` of it.
+    // take-off - never since her wheels left higher than
+    // `lift_off_below_ft` above the ground she left, and either within
+    // `lift_off_settling_s` of them, whatever her climb, or climbing at more
+    // than `lift_off_climbing_fpm` within `lift_off_within_s`.
     bool lifting_off() const;
     // **The thresholds**: 400 ft is the height below which a take-off path
     // changes nothing of her configuration (14 CFR 25.111(c)(4)) and the
     // highest any class raises its take-off flap from
     // (DepartureSpeeds::flaps_up_ft) - above it the take-off's work is done
-    // but for the flap, and a hold there holds her clear of the ground. 100
-    // ft/min is what the stall recovery counts as level
-    // (`notice_a_stall`), so a level hand-over is never a climb. Five
-    // minutes is the most rated take-off power may be used for (14 CFR 1.1),
-    // where a take-off's own law ends (sim::Departure). 500 ft is where the
-    // AI's own take-off ends by default (`to_ai_take_off`).
+    // but for the flap, and a hold there holds her clear of the ground.
+    // **40 s is how long a take-off takes to settle into its climb**, and a
+    // quarter more: flown off by the take-off's law, a PA-28 accelerates
+    // level at 20 ft in ground effect and first climbs steadily 31.6 s after
+    // her wheels leave, the A380 sinks at 1,100 ft/min at 8 s, the Mosquito
+    // holds 100 ft from 7 to 12 s - so before it her climb says nothing, and
+    // a hand-over then at power and low down is a take-off. After it, 100
+    // ft/min is what the stall recovery counts as level (`notice_a_stall`),
+    // so a level hand-over is never a climb. Five minutes is the most rated
+    // take-off power may be used for (14 CFR 1.1), where a take-off's own
+    // law ends (sim::Departure). 500 ft is where the AI's own take-off ends
+    // by default (`to_ai_take_off`).
     static constexpr double lift_off_below_ft = 400.0;
     static constexpr double lift_off_climbing_fpm = 100.0;
     static constexpr double lift_off_throttle = 0.5;
     static constexpr double lift_off_within_s = 300.0;
+    static constexpr double lift_off_settling_s = 40.0;
     static constexpr double lift_off_climb_to_ft = 500.0;
     void to_ai(FlightPlan plan);
 

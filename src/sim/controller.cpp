@@ -78,6 +78,33 @@ FlightPlan final_legs(const Runway& runway, const ApproachSpeeds& speeds) {
 
 } // namespace
 
+HerFigures her_figures(const std::filesystem::path& data, const std::string& model) {
+    HerFigures figures;
+    try {
+        figures.lands = landing_speeds(data, model);
+        if (!figures.lands) {
+            figures.unread.push_back("no approach speeds: her figures publish no stall speed");
+        }
+    } catch (const std::exception& e) {
+        figures.unread.push_back(std::string("no approach speeds: ") + e.what());
+    }
+    try {
+        figures.takes_off = departure_speeds(data, model);
+    } catch (const std::exception& e) {
+        figures.unread.push_back(std::string("no departure speeds: ") + e.what());
+    }
+    return figures;
+}
+
+void Controller::told(const HerFigures& figures) {
+    if (figures.lands) {
+        lands_with(*figures.lands);
+    }
+    if (figures.takes_off) {
+        takes_off_with(*figures.takes_off);
+    }
+}
+
 Controller::Controller(const Aircraft& aircraft, const Controls& controls)
     : a_(aircraft), pilot_(controls), applied_(controls) {}
 
@@ -150,7 +177,7 @@ bool Controller::lifting_off() const {
     const double since_s = a_.state().sim_time_s - *wheels_down_at_s_;
     const double ground_ft = wheels_down_alt_ft_ - wheels_down_agl_ft_;
     const bool climbing = a_.property("velocities/h-dot-fps") * 60.0 > lift_off_climbing_fpm;
-    return since_s <= lift_off_within_s && (since_s <= skip_s || climbing) &&
+    return since_s <= lift_off_within_s && (since_s <= lift_off_settling_s || climbing) &&
            highest_since_wheels_ft_ - ground_ft <= lift_off_below_ft &&
            a_.state().altitude_ft - ground_ft <= lift_off_below_ft;
 }
