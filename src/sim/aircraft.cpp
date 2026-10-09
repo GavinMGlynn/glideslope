@@ -520,6 +520,12 @@ std::vector<double> Aircraft::tank_capacities_lbs() const {
     return out;
 }
 
+double Aircraft::loaded_weight_lbs() const {
+    const auto mass = exec_->GetMassBalance();
+    return mass->GetEmptyWeight() + mass->GetTotalPointMassWeight() +
+           exec_->GetPropulsion()->GetTanksWeight();
+}
+
 void Aircraft::load(const Loading& loading) {
     const auto set = [this](const std::string& name, double value) {
         if (!exec_->GetPropertyManager()->HasNode(name)) {

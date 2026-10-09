@@ -714,13 +714,18 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 
 ---
 
-- [ ] **The AI's approach speed is for the weight its figures give, not
+- [x] **The AI's approach speed is for the weight its figures give, not
       the weight it flies at.** The server flies each aircraft at its
       model's own weight and lands it at its unscaled reference speed: the
       B-2A's 124 kt is for 177,160 lb and her model weighs 327,000, where
       124 kt is below her stall. *Verification: every aircraft the AI lands
       flies its reference speed scaled for the weight it has, landed light
-      and heavy on a server.*
+      and heavy on a server.* Done 2026-10-10: the reference speed goes as
+      the square root of the weight, in the approach, the gate, the circuit
+      and the go-around; all fourteen land at their models' weights and
+      their figures', and a server lands a light PA-28 and a heavy B-2A and
+      A380. The C172P flies to her learnt landing's gate at the speed it was
+      trained at.
 
 ## Phase 11 — Traffic and separation
 

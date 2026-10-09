@@ -761,7 +761,11 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
                      ((out_m + speeds.aim_m) * std::tan(3.0 / degrees) + high_m) * feet_per_metre;
     ic.terrain_elevation_ft = runway.elevation_ft;
     ic.heading_deg = runway.heading_deg;
-    ic.airspeed_kts = policy ? policy->vref_kts : speeds.vref_kts;
+    // At her approach speed for what she weighs (sim::for_weight), as the
+    // approach autopilot will fly it; a learnt landing at its policy's own.
+    ic.airspeed_kts = policy ? policy->vref_kts
+                             : glideslope::sim::for_weight(speeds, aircraft.loaded_weight_lbs())
+                                   .vref_kts;
     ic.engine_running = true;
     ic.flaps = policy ? policy->flaps : speeds.flap;
     ic.flight_path_deg = -3.0;

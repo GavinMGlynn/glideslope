@@ -57,6 +57,11 @@ struct ApproachSpeeds {
     // light loading, 177,160 lb, and at her model's own weight she stalls
     // above it. Empty where no figures were read.
     std::string loading;
+    // **What that loading weighs**, pounds: the weight `vref_kts` and
+    // `stall_kts` are for. 0 where no figures were read - speeds made by
+    // hand - and then they are flown as given, at any weight
+    // (`for_weight`).
+    double reference_lbs = 0.0;
     double flap = 1.0;     // the landing flap setting, 0 to 1
     double speedbrake = 0.0; // the speedbrake lever down the approach, 0 to 1
     double flare_ft = 15.0; // height of the wheels above the threshold to begin the flare
@@ -83,6 +88,18 @@ struct ApproachSpeeds {
 // reference speed guessed is a reference speed that means nothing.
 ApproachSpeeds approach_speeds(const std::filesystem::path& data,
                                const std::string& model);
+
+// **Her approach speeds for what she weighs.** A stall speed goes as the
+// square root of the weight (the lift at the stall is the weight: W =
+// 1/2 rho V^2 S CLmax), and so does a reference speed taken as a margin
+// over it: the FAA's Airplane Flying Handbook (FAA-H-8083-3C, chapter 5,
+// "Weight": the stall speed rises with weight, as its square root) and
+// every transport's flight manual, whose Vref is tabled against landing
+// weight. `speeds` scaled by sqrt(weight_lbs / reference_lbs), and its
+// `reference_lbs` made `weight_lbs`, so that scaling again is a no-op.
+// Returned as given where it names no reference weight, the weight is
+// not above 0, or it is within a pound of the reference. The flare height, the flap and the touchdown sink are kept.
+ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs);
 
 // Whether `approach_speeds` has a stall speed to work from: false for the
 // 747-400 and the F-22A, whose measured stalls would not hold still.

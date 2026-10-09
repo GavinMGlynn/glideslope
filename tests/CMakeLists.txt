@@ -267,6 +267,8 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aeroplane_landing_on_a_runway_another_is_on_goes_around_and_lands_once_it_has_left
     how_she_lands_is_what_her_approach_is_flown_at_or_none_without_a_stall_speed
     every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce_or_a_go_around
+    the_ai_flies_every_approach_at_the_speed_for_its_models_own_weight_and_lands_within_its_limits
+    the_ai_flies_every_approach_at_the_speed_for_its_figures_loading_and_lands_within_its_limits
     every_aeroplane_flown_down_in_gusts_reaches_the_runway_or_goes_around
     an_approach_flown_well_in_gusts_is_not_sent_round_by_the_stabilized_gate
     a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed_without_a_stall
@@ -2768,6 +2770,27 @@ add_test(NAME the_servers_ai_c172p_flying_a_plan_that_ends_in_a_landing_is_hande
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai_learnt_landing.cmake)
 set_tests_properties(the_servers_ai_c172p_flying_a_plan_that_ends_in_a_landing_is_handed_to_the_learnt_landing_at_its_gate_and_landed
     PROPERTIES SKIP_RETURN_CODE 77)
+
+# **The server's AI aircraft, put on final at their models' own weights, are
+# flown down at the approach speeds for those weights and landed, with no
+# go-around**: heavy, the B-2A and A380, far heavier than their figures'
+# speeds are for; light, the PA-28, 610 lb lighter. See
+# cmake/server_ai_lands_at_its_model_weight.cmake.
+# Each at her approach speed for that weight: the unit test's figures
+# (the_ai_flies_every_approach_at_the_speed_for_its_models_own_weight...).
+set(_kts_b2 168.5)
+set(_kts_a380 159.4)
+set(_kts_pa28 55.6)
+foreach(_model IN ITEMS b2 a380 pa28)
+    add_test(NAME the_servers_ai_${_model}_on_final_at_its_models_own_weight_is_landed_at_the_approach_speed_for_it
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DPLAN=${CMAKE_CURRENT_SOURCE_DIR}/data/plans/${_model}-on-final.plan
+            -DMODEL=${_model} -DSTEPS=36000 -DKTS=${_kts_${_model}}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai_lands_at_its_model_weight.cmake)
+    set_tests_properties(the_servers_ai_${_model}_on_final_at_its_models_own_weight_is_landed_at_the_approach_speed_for_it
+        PROPERTIES SKIP_RETURN_CODE 77)
+endforeach()
 
 # **Two AI aircraft on plans ending at one runway both land, the second once
 # the first has left it.** See cmake/server_two_land_on_one_runway.cmake.

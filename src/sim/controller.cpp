@@ -234,7 +234,19 @@ void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& spee
 void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
                                 std::shared_ptr<const LearntPolicy> learnt_at_gate,
                                 double glidepath_deg) {
-    to_ai_approach(runway, speeds, glidepath_deg);
+    // **Down to the learnt landing's gate at its policy's own speed**, not
+    // the one for what she weighs (sim::for_weight): its gate admits her
+    // only within -3/+8 kt of the speed it was trained at, over the weights
+    // it was trained at - the C172P's 59.8 kt from 1,680 lb to her model's
+    // 1,880 (tools/rl/landing.py), where scaled for 1,880 she would come
+    // down at 52.9 and never meet it. Gone around, or landed from past it,
+    // she is flown at the speed for her weight (`gate_speeds_`).
+    ApproachSpeeds to_gate = speeds;
+    if (learnt_at_gate) {
+        to_gate.vref_kts = learnt_at_gate->vref_kts;
+        to_gate.reference_lbs = 0.0;
+    }
+    to_ai_approach(runway, to_gate, glidepath_deg);
     at_gate_ = std::move(learnt_at_gate);
     gate_runway_ = runway;
     gate_speeds_ = speeds;
@@ -430,7 +442,9 @@ Controls Controller::fly() {
             landing_speeds_ && !glide_kts_) {
             const Runway runway = *navigator_->plan().landing;
             if (!on_final_legs_) {
-                navigator_.emplace(a_, final_legs(runway, *landing_speeds_));
+                navigator_.emplace(
+                    a_, final_legs(runway, for_weight(*landing_speeds_,
+                                                      a_.property("inertia/weight-lbs"))));
                 on_final_legs_ = true;
             } else if (landing_policy_) {
                 to_ai_approach(runway, *landing_speeds_, landing_policy_);

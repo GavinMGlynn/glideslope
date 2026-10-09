@@ -72,9 +72,16 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     // Vref, by the usual convention: a third above the stall in the landing
     // configuration - or the manual's own approach speed, where it gives one.
     speeds.stall_kts = landing->published;
-    speeds.loading = landing->loading;
     speeds.vref_kts =
         figures.approach_kcas > 0.0 ? figures.approach_kcas : 1.3 * landing->published;
+    // **And the weight they are for**: the manual's approach speed's
+    // loading where it gives one, the landing stall's otherwise - a figure
+    // naming no loading is flown at the file's first.
+    speeds.loading =
+        figures.approach_kcas > 0.0 ? figures.approach_loading : landing->loading;
+    const auto weighed = figures.loadings.find(speeds.loading);
+    speeds.reference_lbs =
+        weighed != figures.loadings.end() ? weighed->second.total_lbs : figures.total_lbs;
     // A faster approach comes down faster on the same glidepath, so it needs
     // longer to round out: the flare starts a quarter of a foot up for every
     // knot of approach speed, which is fifteen feet for a Cessna and ten for
@@ -94,9 +101,27 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     return speeds;
 }
 
+ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs) {
+    // Within the pound a figures file's loading is held to of its stated
+    // weight (sim/figures.cpp), she is at that loading: flown as published.
+    if (!(speeds.reference_lbs > 0.0) || !(weight_lbs > 0.0) ||
+        std::abs(weight_lbs - speeds.reference_lbs) <= 1.0) {
+        return speeds;
+    }
+    ApproachSpeeds out = speeds;
+    const double scale = std::sqrt(weight_lbs / speeds.reference_lbs);
+    out.vref_kts *= scale;
+    out.stall_kts *= scale;
+    out.reference_lbs = weight_lbs;
+    return out;
+}
+
 Lander::Lander(const Aircraft& aircraft, const Runway& runway,
                const ApproachSpeeds& speeds, double glidepath_deg)
-    : a_(aircraft), runway_(runway), speeds_(speeds),
+    // **Flown at the speeds for what she weighs now** (`for_weight`): the
+    // approach, the stabilized gate's +10/-5 kt round it and the flare.
+    : a_(aircraft), runway_(runway),
+      speeds_(for_weight(speeds, aircraft.property("inertia/weight-lbs"))),
       glidepath_rad_(glidepath_deg / degrees), jet_(aircraft.figures().jet) {
     // **The aim is inside the touchdown zone, on any runway.** The FAA's
     // Airplane Flying Handbook (FAA-H-8083-3C, chapter 9) has the aiming
