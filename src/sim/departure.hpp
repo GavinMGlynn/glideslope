@@ -125,6 +125,13 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
 // air (0).
 DepartureSpeeds in_gusts(DepartureSpeeds speeds, double gust_factor_kt);
 
+// **A speed the AI holds from a plan or a route, in gusty or turbulent
+// air**: `kts` raised by half of `gust_factor_kt`, as her climb is
+// (above), but never past `fastest_kts` - her plan's fastest - where one is
+// given, nor ever lowered: a speed already above it is flown as asked.
+// `kts` unchanged in calm air (0).
+double in_gusts(double kts, double gust_factor_kt, std::optional<double> fastest_kts);
+
 // The height a take-off starts raising its flap at, feet above the runway,
 // for an aeroplane of class `of` (DepartureSpeeds::flaps_up_ft).
 double flaps_up_ft(AircraftClass of);

@@ -1015,6 +1015,7 @@ void Aircraft::apply_weather() {
     // airframe's scraping by, is left at 1: a wet runway's braking
     // coefficient is no measure of a free-rolling wheel's cornering.
     runway_condition_ = c.runway_condition;
+    gust_factor_kt_ = c.gust_factor_kt;
     brake_share_ = 1.0;
     if (c.runway_condition != dry_runway && dry_braking_friction_ > dry_rolling_friction_) {
         const double kts = value("velocities/vg-fps") / 1.68781;

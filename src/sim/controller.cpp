@@ -548,6 +548,13 @@ Controls Controller::fly() {
             AutopilotModes modes = navigator_->steer();
             if (glide_kts_) {
                 modes = gliding(modes);
+            } else if (modes.airspeed_kts && !on_final_legs_) {
+                // **In gusts or turbulence, half the gust factor faster**
+                // (sim::in_gusts), up to her plan's fastest: a plan's or a
+                // route's speed, as her climb out is. The legs to final are
+                // the approach's, and flown at its speed.
+                modes.airspeed_kts =
+                    in_gusts(*modes.airspeed_kts, a_.gust_factor_kt(), fastest_kts_);
             }
             autopilot_->set(modes);
         }

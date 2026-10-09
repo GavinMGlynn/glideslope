@@ -166,6 +166,7 @@ sim::Conditions conditions_at(const WeatherReport& report, double height_msl_m) 
     sim::Conditions c = surface_conditions(report.surface);
     // JSBSim's own turbulence is left off: with_air_motion makes the air's.
     c.turbulence_severity = 0;
+    c.gust_factor_kt = gust_factor_kt(report);
     const double ground = report.surface.elevation_m;
     const double above_ground = height_msl_m - ground;
     const sim::Conditions surface = c;
@@ -484,6 +485,7 @@ sim::Conditions ReportedWeather::at(double latitude_deg, double longitude_deg,
     c.wind_at_20ft_mps = mix(before.wind_at_20ft_mps, now.wind_at_20ft_mps);
     // The runway changes halfway, as a code cannot be mixed.
     c.runway_condition = w < 0.5 ? before.runway_condition : now.runway_condition;
+    c.gust_factor_kt = mix(before.gust_factor_kt, now.gust_factor_kt);
     return c;
 }
 

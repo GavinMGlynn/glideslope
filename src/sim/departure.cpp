@@ -226,6 +226,11 @@ DepartureSpeeds in_gusts(DepartureSpeeds speeds, double gust_factor_kt) {
     return speeds;
 }
 
+double in_gusts(double kts, double gust_factor_kt, std::optional<double> fastest_kts) {
+    const double raised = kts + 0.5 * std::max(gust_factor_kt, 0.0);
+    return fastest_kts ? std::max(kts, std::min(raised, *fastest_kts)) : raised;
+}
+
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                                  const std::string& model) {
     DepartureSpeeds speeds = speeds_from_figures(data, model);
