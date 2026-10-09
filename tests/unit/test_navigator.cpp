@@ -637,12 +637,23 @@ GLIDESLOPE_TEST(a_plan_file_asking_a_speed_its_aircraft_cannot_hold_clean_is_ref
 
 // **A slowest or fastest written too cautiously, or by hand, is caught**:
 // `glideslope_cli plan-speeds` writes the first speed that held with 5 kt
-// to spare, so 10 kt past it is the last speed it saw not hold. Every
-// aircraft whose slowest is above its approach speed (or that has none) is
-// flown there, and every one whose fastest is below a fifth over its start
-// speed: none may hold what a plan asks (sim::holds_plan_speed - the orbit
-// four ways, a heading in calm air and a crosswind). The rest are at the
-// bound plans were held to before, which nothing is asked past.
+// to spare. Past the fastest, 10 kt is the last speed it saw not hold - a
+// matter of power, which moves by tenths of a knot between platforms.
+// **Past the slowest, 15 kt: the step under the first speed that held, not
+// the step next to it.** The step next to it is the cliff, where a wing
+// just departs or just holds, and which side it falls varies by platform:
+// with the trials' gear up (2026-10-10), the A320 at 152 kt departed turning
+// right on Linux and held all four ways on macOS (CI run 37972664910), and
+// the 747-400 held 210 on macOS. 15 past catches a figure written 10 kt or
+// more too cautiously (the A320's put at 172, it holds 157: seen red); one
+// written 5 kt too cautiously lands on the cliff and is caught where the
+// platform falls that side. plan-speeds' own 5 kt keeps every figure a step
+// clear of the cliff. Every aircraft whose slowest is above
+// its approach speed (or that has none) is flown there, and every one whose
+// fastest is below a fifth over its start speed: none may hold what a plan
+// asks (sim::holds_plan_speed - the orbit four ways, a heading in calm air
+// and a crosswind). The rest are at the bound plans were held to before,
+// which nothing is asked past.
 namespace {
 
 // One aircraft of the test below: its slowest tried 10 kt slower where it is
@@ -698,10 +709,10 @@ void holds_nothing_one_step_past(const std::string& id, Bounds bounds = Bounds::
                                                                              line.c_str());
                                                              });
         }
-        std::printf("%s 10 kt past its %s, at %.0f kt: %s\n", e.id.c_str(), which, kts,
+        std::printf("%s past its %s, at %.0f kt: %s\n", e.id.c_str(), which, kts,
                     held ? "held" : "not held");
         if (held) {
-            failures += "\n  " + e.id + " holds " + std::to_string(kts) + " kt, 10 past its " +
+            failures += "\n  " + e.id + " holds " + std::to_string(kts) + " kt, past its " +
                         which;
         }
         ++tried;
@@ -709,7 +720,7 @@ void holds_nothing_one_step_past(const std::string& id, Bounds bounds = Bounds::
     if (bounds == Bounds::fastest) {
         ++at_the_old_bound; // its own test's
     } else if (speeds.slowest_kts > approach) {
-        past(speeds.slowest_kts - 10.0, "slowest");
+        past(speeds.slowest_kts - 15.0, "slowest");
     } else {
         ++at_the_old_bound;
         std::printf("%s's slowest is at the old bound, its approach speed\n", e.id.c_str());
@@ -724,7 +735,8 @@ void holds_nothing_one_step_past(const std::string& id, Bounds bounds = Bounds::
                     e.id.c_str());
     }
     check(tried + at_the_old_bound == 2, e.id + "'s slowest and fastest tried or at the old bound");
-    check(failures.empty(), "none held 10 kt past what its file gives:" + failures);
+    check(failures.empty(),
+          "none held 15 kt under its slowest nor 10 over its fastest:" + failures);
 }
 
 } // namespace
