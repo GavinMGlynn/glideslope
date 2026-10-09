@@ -670,8 +670,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       plain autopilot, which holds the height she had: 7 of 13 landplanes
       touch the runway again within 30 seconds. *Verification: every
       landplane handed over at lift-off climbs away and never touches the
-      runway again.* Done 2026-10-10: handed over just after lift-off she is
-      given the take-off's own climb-out to 500 ft, and all 13 climb away
+      runway again.* Done 2026-10-10: handed over at any moment of the ten
+      seconds after lift-off, or leaving the runway from a touch-and-go, she
+      is given the take-off's own climb-out to 500 ft, and all 13 climb away
       without touching; one levelled low down is not taken for a take-off.
 - [x] **The F-35B's circuit touches down two kilometres short of the
       runway**, at 165 knots, and rolls on to it. Nothing checks where along

@@ -1819,15 +1819,15 @@ public:
     // its gate where her model has one.
     void land_on_final(Aircraft& a) {
         a.controller = controller_for(*a.aircraft, a.model, trimmed_controls(*a.aircraft));
-        const auto speeds = lands_with_.find(a.model);
-        if (speeds == lands_with_.end() || !speeds->second) {
+        const auto speeds = figures_.find(a.model);
+        if (speeds == figures_.end() || !speeds->second.lands) {
             hold_course(a);
             return;
         }
         if (const auto policy = learnt_for(a.model)) {
-            a.controller->to_ai_approach(*a.on_final_to, *speeds->second, policy);
+            a.controller->to_ai_approach(*a.on_final_to, *speeds->second.lands, policy);
         } else {
-            a.controller->to_ai_approach(*a.on_final_to, *speeds->second);
+            a.controller->to_ai_approach(*a.on_final_to, *speeds->second.lands);
         }
         // **Said: the speed she is flown down at, for what she weighs**
         // (sim::for_weight), and her figures' speed and the weight it is for.
@@ -1836,7 +1836,7 @@ public:
                         "her figures give %.1f kt for %.0f lb\n",
                         static_cast<unsigned>(a.index), a.model.c_str(),
                         a.aircraft->property("inertia/weight-lbs"), lander->speeds().vref_kts,
-                        speeds->second->vref_kts, speeds->second->reference_lbs);
+                        speeds->second.lands->vref_kts, speeds->second.lands->reference_lbs);
             std::fflush(stdout);
         }
         a.learnt_runway = a.on_final_to->name;
@@ -1909,8 +1909,8 @@ public:
             if (!a.controller) {
                 a.controller = controller_for(*a.aircraft, a.model, a.held);
             }
-            const auto speeds = lands_with_.find(a.model);
-            if (speeds == lands_with_.end() || !speeds->second) {
+            const auto speeds = figures_.find(a.model);
+            if (speeds == figures_.end() || !speeds->second.lands) {
                 return "the " + a.model + " has no approach speeds to roll out at";
             }
             a.copilot_route.clear();
@@ -1919,7 +1919,7 @@ public:
             if (!ai_flying(a)) {
                 a.controller->set_pilot(a.held);
             }
-            a.controller->to_ai_learnt_approach(*gate.runway, *speeds->second, policy);
+            a.controller->to_ai_learnt_approach(*gate.runway, *speeds->second.lands, policy);
             a.learnt_runway = gate.runway->name;
             a.learnt_said = false;
             announced_.push_back({index, glideslope::net::Controller::learnt_landing,
@@ -3142,7 +3142,7 @@ private:
         }
     }
 
-    // **A controller for an aircraft, told how she lands** (from her
+    // **A controller for an aircraft, told how she lands and takes off** (from her
     // figures, once a model): a landing a player made with no approach given
     // to the AI, handed to it on its roll, is landed to the stop rather than
     // held by the plain autopilot. An aeroplane that publishes no stall speed
@@ -3151,38 +3151,19 @@ private:
     controller_for(const glideslope::sim::Aircraft& aircraft, const std::string& model,
                    const glideslope::sim::Controls& controls) {
         auto controller = std::make_unique<glideslope::sim::Controller>(aircraft, controls);
-        auto it = lands_with_.find(model);
-        if (it == lands_with_.end()) {
-            std::optional<glideslope::sim::ApproachSpeeds> speeds;
-            try {
-                speeds = glideslope::sim::landing_speeds(data_, model);
-            } catch (const std::exception& e) {
-                // No figures to read: nothing to tell her controller, and
-                // said, not swallowed.
-                std::fprintf(stderr, "  %s: no approach speeds for a landing taken over on "
-                                     "its roll (%s)\n", model.c_str(), e.what());
+        // **Told how she lands and takes off, from her figures**
+        // (sim::her_figures, read once a model): a landing a player made,
+        // handed over on its roll, is landed to the stop, and a take-off
+        // handed over at lift-off is climbed away, rather than either held
+        // by the plain autopilot. What her figures do not give is said once.
+        auto it = figures_.find(model);
+        if (it == figures_.end()) {
+            it = figures_.emplace(model, glideslope::sim::her_figures(data_, model)).first;
+            for (const std::string& why : it->second.unread) {
+                std::fprintf(stderr, "  %s: %s\n", model.c_str(), why.c_str());
             }
-            it = lands_with_.emplace(model, speeds).first;
         }
-        if (it->second) {
-            controller->lands_with(*it->second);
-        }
-        // **And how she takes off**, for a take-off a player hands to the AI
-        // just after lift-off: climbed away, not held at the height she has.
-        auto departs = takes_off_with_.find(model);
-        if (departs == takes_off_with_.end()) {
-            std::optional<glideslope::sim::DepartureSpeeds> speeds;
-            try {
-                speeds = glideslope::sim::departure_speeds(data_, model);
-            } catch (const std::exception& e) {
-                std::fprintf(stderr, "  %s: no departure speeds for a take-off taken over at "
-                                     "lift-off (%s)\n", model.c_str(), e.what());
-            }
-            departs = takes_off_with_.emplace(model, speeds).first;
-        }
-        if (departs->second) {
-            controller->takes_off_with(*departs->second);
-        }
+        controller->told(it->second);
         // And the learnt landing, where she has one, for a plan that ends in
         // a landing (`land`).
         controller->lands_learnt(learnt_for(model));
@@ -3700,9 +3681,8 @@ private:
         std::string why;
     };
     std::map<std::string, Speeds> speeds_;
-    // How each model lands, for its controllers (`controller_for`).
-    std::map<std::string, std::optional<glideslope::sim::ApproachSpeeds>> lands_with_;
-    std::map<std::string, std::optional<glideslope::sim::DepartureSpeeds>> takes_off_with_;
+    // How each model lands and takes off, for its controllers (`controller_for`).
+    std::map<std::string, glideslope::sim::HerFigures> figures_;
     std::map<std::string, std::shared_ptr<const glideslope::sim::LearntPolicy>> learnt_;
     // Where players start, on final (`--players-on-final`), or none.
     std::optional<glideslope::sim::Runway> on_final_;

@@ -314,14 +314,10 @@ private:
     std::unique_ptr<sim::Aircraft> aircraft_;
     // Made at the first step, from the pilot's controls then.
     std::unique_ptr<sim::Controller> controller_;
-    // How she lands, for a landing flown by hand and handed to the AI on its
-    // roll (`Controller::lands_with`); none where her figures publish no
-    // stall speed.
-    std::optional<sim::ApproachSpeeds> lands_with_;
-    // How she takes off, for a take-off flown by hand and handed to the AI
-    // just after lift-off (`Controller::takes_off_with`); none where her
-    // figures give no departure speeds.
-    std::optional<sim::DepartureSpeeds> takes_off_with_;
+    // How she lands and takes off, for a landing flown by hand and handed to
+    // the AI on its roll and a take-off handed over at lift-off
+    // (sim::her_figures, `Controller::told`).
+    sim::HerFigures figures_;
     // On a server: the prediction, and the sequence of the inputs being flown.
     std::unique_ptr<sim::Prediction> prediction_;
     // Where each step flown forward left the aircraft, and whether the

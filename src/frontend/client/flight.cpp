@@ -71,12 +71,10 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
 
     aircraft_entry_ = sim::find_aircraft(data, start.aircraft);
     aircraft_ = std::make_unique<sim::Aircraft>(data / "jsbsim", aircraft_entry_.model);
-    lands_with_ = sim::landing_speeds(data, aircraft_entry_.model);
-    try {
-        takes_off_with_ = sim::departure_speeds(data, aircraft_entry_.model);
-    } catch (const std::exception& e) {
-        std::fprintf(stderr, "  %s: no departure speeds for a take-off handed over at lift-off "
-                             "(%s)\n", aircraft_entry_.model.c_str(), e.what());
+    // How she lands and takes off, as the server's controllers are told.
+    figures_ = sim::her_figures(data, aircraft_entry_.model);
+    for (const std::string& why : figures_.unread) {
+        std::fprintf(stderr, "  %s: %s\n", aircraft_entry_.model.c_str(), why.c_str());
     }
 
     // Its checklists. Every aircraft in the roster ships them and a test
@@ -238,12 +236,7 @@ void Flight::step(const sim::Controls& controls) {
     }
     if (!controller_) {
         controller_ = std::make_unique<sim::Controller>(*aircraft_, controls);
-        if (lands_with_) {
-            controller_->lands_with(*lands_with_);
-        }
-        if (takes_off_with_) {
-            controller_->takes_off_with(*takes_off_with_);
-        }
+        controller_->told(figures_);
         // On which runway, as the server's controllers are told.
         controller_->finds_runways_with([ground = collision_](const sim::Aircraft& rolling) {
             return world::runway_rolled_on(ground->runways(), rolling,
