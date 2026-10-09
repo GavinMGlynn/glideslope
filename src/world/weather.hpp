@@ -85,6 +85,14 @@ struct WeatherReport {
     std::vector<Microburst> microbursts;
 };
 
+// **A report's gust factor**, knots: the spread of its METAR's gusts over
+// its mean wind, or, where its turbulence is given a severity, the spread
+// that severity is read from (gust_spread_of_severity) where that is more -
+// moderate turbulence 15 kt. 0 in calm, steady air. What the AI adds half of
+// to its climb speed (sim::in_gusts), as a pilot adds half the gust factor
+// to the approach (FAA-H-8083-3C, chapter 9).
+double gust_factor_kt(const WeatherReport& report);
+
 // The seed a station's report at a time gives its air: from the station and
 // the observation's day, hour and minute, so every machine that has the report
 // has the seed.

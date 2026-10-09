@@ -3713,28 +3713,80 @@ GLIDESLOPE_TEST(every_plan_floor_keeps_its_gust_allowance_over_the_stall_warning
               std::to_string(no_stall) + " of " + std::to_string(roster.size()));
 }
 
+// **In gusts or turbulence the AI climbs faster by half the gust factor**
+// (sim::in_gusts, world::gust_factor_kt): the METAR's spread of its gusts
+// over its mean wind, or the spread a turbulence severity is read from,
+// whichever is more. Every case: calm air, steady wind, gusts alone, each
+// severity 0 to 7 alone, and gusts with a severity on either side of them -
+// 1 + 1 + 1 + 8 + 2 = 13. Calm air changes nothing.
+GLIDESLOPE_TEST(the_ai_climbs_half_the_gust_factor_faster_in_gusts_or_turbulence_and_as_ever_in_calm_air) {
+    glideslope::sim::DepartureSpeeds book;
+    book.climb_kts = 47.8;
+    book.initial_climb_kts = 47.8;
+    std::size_t tried = 0;
+    const auto report = [](const char* metar, std::optional<int> severity) {
+        glideslope::world::WeatherReport r;
+        r.surface.metar = glideslope::world::parse_metar(metar);
+        r.turbulence_severity = severity;
+        return r;
+    };
+    const auto expect = [&](const glideslope::world::WeatherReport& r, double factor_kt,
+                            const std::string& what) {
+        ++tried;
+        const double got = glideslope::world::gust_factor_kt(r);
+        const glideslope::sim::DepartureSpeeds in = glideslope::sim::in_gusts(book, got);
+        check(std::abs(got - factor_kt) < 1e-9 &&
+                  std::abs(in.climb_kts - (47.8 + factor_kt / 2.0)) < 1e-9 &&
+                  std::abs(in.initial_climb_kts - (47.8 + factor_kt / 2.0)) < 1e-9,
+              what + ": gust factor " + std::to_string(got) + ", climb " +
+                  std::to_string(in.climb_kts));
+    };
+    expect(report("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013", std::nullopt), 0.0, "calm");
+    expect(report("XXXX 181200Z 27015KT 9999 SKC 15/05 Q1013", std::nullopt), 0.0,
+           "a steady 15 kt");
+    expect(report("XXXX 181200Z 27015G27KT 9999 SKC 15/05 Q1013", std::nullopt), 12.0,
+           "15 gusting 27");
+    const double by_severity[8] = {0.0, 5.0, 10.0, 15.0, 20.0, 30.0, 30.0, 30.0};
+    for (int s = 0; s <= 7; ++s) {
+        expect(report("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013", s),
+               by_severity[s], "severity " + std::to_string(s));
+    }
+    expect(report("XXXX 181200Z 27015G27KT 9999 SKC 15/05 Q1013", 3), 15.0,
+           "15 gusting 27 in moderate turbulence");
+    expect(report("XXXX 181200Z 27015G27KT 9999 SKC 15/05 Q1013", 1), 12.0,
+           "15 gusting 27 in light turbulence");
+    check(tried == 13, "every case tried: " + std::to_string(tried) + " of 13");
+}
+
 // **The AI pilot notices no stall in ordinary flight, with 3 kt to spare**:
 // every aeroplane that publishes how she lands (the 747-400 and F-22A do
 // not, and are not watched), given to the AI at the weight her figures fly
 // her at, in moderate turbulence, for three minutes each: cruising at her
-// catalogue's start speed, climbing at 500 ft/min at her best-climb speed,
-// and level at the slowest a plan may fly her at that weight
-// (`plan_speeds`, `for_weight`) - the speeds the AI really flies her at,
-// down to the slowest. None is noticed as a stall, and in every phase her
-// slowest stays at least 3 kt over her warning, so that another machine's
-// turbulence does not tip her over it. Asked for 1,000 ft/min, the Short
-// S.23 - whose autopilot has no climb floor (only a light aeroplane's has) -
-// slowed to 68.8 kt, under her 71.3 kt warning, and was rightly noticed:
-// that climb was more than she has.
+// catalogue's start speed, climbing at 500 ft/min at her climb speed in this
+// air - her best-climb speed and half its gust factor, 7.5 kt for moderate
+// turbulence's 15 (sim::in_gusts, world::gust_factor_kt) - and level at the
+// slowest a plan may fly her at that weight (`plan_speeds`, `for_weight`):
+// the speeds the AI really flies her at, down to the slowest. None is
+// noticed as a stall, and in every phase her slowest stays at least 3 kt
+// over her warning, so that another machine's turbulence does not tip her
+// over it. Asked for 1,000 ft/min, the Short S.23 - whose autopilot has no
+// climb floor (only a light aeroplane's has) - slowed to 68.8 kt, under her
+// 71.3 kt warning, and was rightly noticed: that climb was more than she has.
 //
-// **Named, not yet: the J-3 Cub's climb.** At her climb figure's full load,
-// 1,220 lb, against the 1,092 her stall was measured at, her warning is
-// 39.9 kt; climbing at her manual's best-climb speed, 47.8 kt, which is for
-// that full load, her airspeed dips 7 kt in the turbulence, to 40.9 (40.1
-// before her climb speed was captured without sinking past it, 2026-10-10;
-// 39.7 in CI). Less than 3 kt over her warning, she is named here - noticed
-// or not - and her name turns this red once she has the 3 kt. Her plan's
-// slowest, raised for her weight, is not named: it keeps its margin.
+// **The J-3 Cub, at her climb figure's full load**, 1,220 lb against the
+// 1,092 her stall was measured at, has a 39.9 kt warning. Climbing at her
+// manual's best-climb speed, 47.8 kt, her airspeed dipped 7 kt in the
+// turbulence, to 40.9 (40.1 before her climb speed was captured without
+// sinking past it; 39.7 in CI), and she was named here until her climb took
+// the gust allowance a pilot takes (2026-10-10). Now 44.5, 4.6 over.
+//
+// **Named, not yet: the Short S.23's plan floor.** Level at the slowest a
+// plan may fly her at 40,500 lb, 92.9 kt, her airspeed falls 19.8 kt in the
+// turbulence, to 73.1 against her 71.3 kt warning (77.1 before her climb
+// was flown faster, which leaves her in other air when she slows): she has
+// no speed floor, and dips more than any light aeroplane. Under 3 kt over
+// her warning she is named - noticed or not - and her name turns this red
+// once she has the 3 kt.
 //
 // **Not walked here, named**: the take-off and the approach fly their own
 // laws, which the notice does not watch (sim/controller.cpp: only the plain
@@ -3778,8 +3830,10 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
         controller.autopilot()->set(modes);
         double slowest[3] = {1e9, 1e9, 1e9};
         bool noticed = false;
-        const glideslope::sim::DepartureSpeeds departs =
-            glideslope::sim::departure_speeds(data(), entry.model);
+        // Her climb speed in this air: half its gust factor over her best.
+        const glideslope::sim::DepartureSpeeds departs = glideslope::sim::in_gusts(
+            glideslope::sim::departure_speeds(data(), entry.model),
+            glideslope::world::gust_factor_kt(report));
         const double weight_lbs = f.aircraft->property("inertia/weight-lbs");
         // The slowest a plan may fly her at what she weighs.
         const glideslope::sim::PlanSpeeds plan = glideslope::sim::for_weight(
@@ -3813,13 +3867,12 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
                     departs.climb_kts, slowest[1], plan.slowest_kts, slowest[2], warning_kts,
                     noticed ? "NOTICED" : "not noticed");
         for (std::size_t phase = 0; phase < 3; ++phase) {
-            const bool named = entry.id == "j3cub" && phase == 1;
             const bool spare = slowest[phase] >= warning_kts + to_spare_kts;
-            if (named) {
+            if (entry.id == "short_s23" && phase == 2) {
                 named_seen = true;
                 if (spare) {
-                    faults.push_back(entry.id + "'s climb is named as short of its 3 kt, and "
-                                                "had them: take its name off");
+                    faults.push_back(entry.id + "'s plan floor is named as short of its 3 kt, "
+                                                "and had them: take its name off");
                 }
                 continue;
             }
@@ -3833,7 +3886,7 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
                 faults.push_back(said);
             }
         }
-        if (noticed && entry.id != "j3cub") {
+        if (noticed) {
             faults.push_back(entry.id + " was noticed stalling in ordinary flight");
         }
         ++flown;
@@ -3848,8 +3901,8 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
               std::to_string(not_watched));
     check(phases_with_margin == 3 * flown - 1,
           std::to_string(phases_with_margin) + " of " + std::to_string(3 * flown) +
-              " phases with 3 kt to spare; the one left out, the Cub's climb, is named");
-    check(named_seen, "the J-3 Cub, named, was flown");
+              " phases with 3 kt to spare; the one left out, the S.23's plan floor, is named");
+    check(named_seen, "the Short S.23, named, was flown");
 }
 
 

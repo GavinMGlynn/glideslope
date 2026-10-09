@@ -231,6 +231,11 @@ Enu microburst_wind(const Microburst& burst, const Enu& offset, double time_s) {
     return {out.east * strength, out.north * strength, out.up * strength};
 }
 
+double gust_spread_of_severity(int severity) {
+    constexpr std::array<double, 6> spread_kt{0.0, 5.0, 10.0, 15.0, 20.0, 30.0};
+    return spread_kt[static_cast<std::size_t>(std::clamp(severity, 0, 5))];
+}
+
 int severity_from_gust_spread(double spread_kt) {
     if (spread_kt >= 30.0) {
         return 5;

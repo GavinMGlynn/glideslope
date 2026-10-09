@@ -525,18 +525,18 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       Mosquito is never level after her warning, from her own pitching
       moment (a Later item).
 - [ ] **The AI notices a stall the J-3 Cub is not in, in moderate
-      turbulence.** **Still missing: her climb.** At 1,220 lb her warning is
-      39.9 kt, and climbing at her manual's best-climb speed for that load,
-      47.8 kt, the gusts take her to 40.9 - under the 3 kt margin the test
-      asks; the test names her climb until it is decided. Done 2026-10-10: a
-      plan's slowest is raised for the weight flown, as a stall is, and
-      every figures file's keeps 10 kt over the stall warning at the weight
-      a plan flies it at (the B-2A's rose to 169 kt, the Mosquito's to 129);
-      and a light aeroplane slowed from cruise into her climb no longer
-      sinks 5 to 6 kt through her climb speed, but 1.3 at most. *Verification: every
-      aeroplane cruising, climbing and at its plan's slowest in moderate
-      turbulence stays 3 kt over its warning and is never noticed, the Cub's
-      climb unnamed, and every stall-notice test still passes.*
+      turbulence.** **Still missing: the Short S.23's plan floor.** In the
+      test's turbulence, level at the slowest a plan may fly her at 40,500
+      lb (92.9 kt), she falls to 73.1 kt against her 71.3 warning - under
+      the 3 kt margin - and the test names her. Done 2026-10-10: a plan's
+      slowest raised for the weight flown and 10 kt over the warning; a
+      light aeroplane slowed into her climb captures it within 1.3 kt; and
+      in gusts or turbulence the AI climbs half the gust factor faster, as
+      a pilot flies the approach (the Cub's climb now 4.6 kt over her
+      warning). *Verification: every aeroplane cruising, climbing and at its
+      plan's slowest in moderate turbulence stays 3 kt over its warning and
+      is never noticed, none named, and every stall-notice test still
+      passes.*
 - [x] **A light aeroplane's take-off hands over slower than the plan's
       climb floor.** Done 2026-10-09: the take-off climbs her at her
       handbook's best-climb speed whatever she weighs, as the plan does, and
@@ -1329,6 +1329,12 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
 
+- [ ] **A plan's climbs and slowest speeds take no gust allowance.** In
+      gusts or turbulence the AI's take-off climb is flown half the gust
+      factor faster, but a plan's own waypoint speeds, the copilot's routes
+      and the light aeroplane's climb floor are as in calm air.
+      *Verification: in moderate turbulence a plan's climb and its slowest
+      are flown half the gust factor faster, and calm air unchanged.*
 - [ ] **A jet, the Mosquito or the S.23 slowed from cruise into her climb
       sinks 2 to 6.4 kt past her climb speed.** Only a light aeroplane has
       a speed floor to capture it with; the others' climb speeds are not a
