@@ -311,6 +311,28 @@ aeroplane, from data:
   handed a clean aeroplane, which also gives the autopilot's best-climb
   floor to the light aeroplanes from the hand-over.
 
+**After the review** (#144):
+- **The take-off always ends.** Waiting for the flap, one that never made
+  its flap speed climbed on for ever. Once climbed out it now also ends,
+  the flap left where the speed allowed, at 1,500 ft above the runway,
+  where the take-off path ends (14 CFR 25.111(a)), or five minutes after
+  the throttle opened, the limit on rated take-off power (14 CFR 1.1),
+  whichever comes first. The flap still never comes up below its speed.
+  The 1,500 ft also bounds the overshoot past the height asked while the
+  flap comes up: the airliners, asked for 500 ft, hand over at 1,056 to
+  1,194 ft (940 for the 747-400), and the new test holds every hand-over
+  to 1,500 ft. A take-off asked for more than 1,500 ft ends at its height,
+  flap or not.
+- **The S.23 uses the 400 ft gate**, as every aeroplane not light does:
+  she has no handbook height of her own. Her take-off is flown with no
+  flap (her speeds give none, and no notch is read from her motor-driven
+  flaps), so today nothing waits on it.
+- **Taken over in the air**, a take-off starts its lever where the lever
+  was found, not at the take-off flap; only on the ground is it set to the
+  take-off flap.
+- **No model has a flap whose first detent is not 0**: every one of the
+  ten with a flap kinematic starts at 0, so that case is exercised by none.
+
 **Measured** (linux-release), from the new test: up at / handed over at,
 ft; the slowest with them up against the least-flap stall published, KCAS:
 pa28 86 / 500, 66.4 vs 58.2; c172p 80 / 500, 65.0 vs 51.8; c182 108 / 500,
@@ -333,7 +355,12 @@ tail).
 
 **The 747-400's measured climb-away speed moved, and was measured again**:
 190 -> 170 kt (`<takeoff_speeds>`, `glideslope_cli takeoff-speeds 747-400`:
-the slowest she climbed away at, 187.1 -> 165.2 kt). The old measurement
+the slowest she climbed away at, 187.1 -> 165.2 kt). At 165.2 she sagged
+5 kt under the slowest speed the measurement asks, 170, with her nose at
+the take-off autopilot's highest; 170 is written. The rotation text
+changed with it, the speed she ran on to before leaving the ground now
+"168 kt from 115 to 150" where it read "167 kt from 130 to 150"; her
+rotation speed is unchanged at 160. The old measurement
 read it with her flaps running up from 200 ft, the old law, though the
 file says flaps 20. The trial (`sim/takeoff_trial.cpp`) now holds the
 take-off flap to where it reads the climb away, and reads it at
@@ -362,6 +389,27 @@ CBD at 3,000 ft and 220 kt.
   lever at 0.625000"), the lever moving all at once ("0.625000 in a step"),
   no notch held, and the Cherokee at 49.4 KCAS against her 58.2 stall;
   restored, green.
+- The new test now also states its space as numbers - 16 aircraft, 9
+  taking off with flap, each aircraft's notches between its take-off flap
+  and up (the 737 2, the A320 3, the 747, A380, 182S and Cherokee 1, the
+  rest 0) - and holds every hand-over to 1,500 ft and every take-off's
+  first lever to its take-off flap.
+- `the_flap_levers_notches_are_the_settings_of_each_models_flap_kinematic`
+  (new): all 16 read, six held to their model files - the 172P 0, 1/3,
+  2/3, 1; the Cherokee 0, 0.25, 0.625, 1; the 737 and A320 nine settings
+  each; the Learjet 0, 0.2, 0.5, 1; the Mosquito 0, 1.
+- `a_take_off_that_never_makes_its_flap_speed_ends_with_the_flap_still_out`
+  (new): the Cherokee asked to climb away at 140 KCAS, past her top
+  speed, to 20 ft. At full throttle it ends at 1,500 ft after 223 s; with
+  the throttle held to six tenths from 300 ft, at 298 ft after five
+  minutes; never faster than 88.5 KCAS, the lever at 0.625 throughout.
+  **Seen to fail** with the fallback taken out: "the take-off ended within
+  five minutes: after 600 s", at 3,892 ft; restored, green.
+- `a_take_off_taken_over_in_the_air_never_puts_out_a_flap_it_found_up`
+  (new): the Cherokee at 300 ft and 70 KCAS, flaps up, given to a take-off
+  with a 25-degree flap: the lever stays at 0 and the take-off ends in
+  15 s. **Seen to fail** with the lever started at the take-off flap:
+  "the lever stayed up: at most 0.625000"; restored, green.
 - The first-leg test's climb-speed check, **seen to fail** the same way:
   "pa28 climbed its first leg at no less than 51.541286 KCAS, against its
   climb speed of 63.821254 less 5"; restored, green.

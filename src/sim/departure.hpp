@@ -154,6 +154,7 @@ private:
     double last_flap_deg_ = 0.0;
     int flaps_still_steps_ = 0;
     bool climbed_out_ = false;
+    int steps_ = 0; // flown since the throttle began to open
     Stage stage_ = Stage::roll;
 
     double along_m_ = 0.0;

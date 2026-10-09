@@ -7,8 +7,10 @@
 #include "sim/takeoff_trial.hpp"
 #include "sim/terrain.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <map>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -283,4 +285,163 @@ GLIDESLOPE_TEST(the_747_and_the_f22_take_off_at_the_speeds_measured_from_their_m
     check(held == measured.size(), "each took off at its measured speeds: " +
                                        std::to_string(held) + " of " +
                                        std::to_string(measured.size()));
+}
+
+namespace {
+
+// The Cherokee standing on the runway, or flying over it at `height_ft`
+// and `kts` with `flaps` out.
+std::unique_ptr<glideslope::sim::Aircraft> a_cherokee(double height_ft, double kts, double flaps) {
+    const Runway runway = a_runway();
+    auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", "pa28");
+    aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft + height_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = kts;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    ic.flaps = flaps;
+    aircraft->initialize(ic);
+    return aircraft;
+}
+
+} // namespace
+
+// **The flap lever's notches are its model's own**: the settings of the
+// kinematic its flap command drives, as lever positions. Every aircraft in
+// the catalogue is read; six are held to what their model files say. Every
+// model's first setting is 0 - none here has a flap whose lowest detent is
+// not up - so a first setting other than 0 is exercised by no model.
+GLIDESLOPE_TEST(the_flap_levers_notches_are_the_settings_of_each_models_flap_kinematic) {
+    const std::map<std::string, std::vector<double>> expected{
+        {"737-300", {0.0, 1.0 / 40, 2.0 / 40, 5.0 / 40, 10.0 / 40, 15.0 / 40, 25.0 / 40, 30.0 / 40, 1.0}},
+        {"a320", {0.0, 1.0 / 40, 2.0 / 40, 5.0 / 40, 10.0 / 40, 15.0 / 40, 25.0 / 40, 30.0 / 40, 1.0}},
+        {"c172p", {0.0, 1.0 / 3, 2.0 / 3, 1.0}},
+        {"pa28", {0.0, 0.25, 0.625, 1.0}},
+        {"learjet35a", {0.0, 0.2, 0.5, 1.0}},
+        {"mosquito-fb6", {0.0, 1.0}},
+    };
+    std::size_t walked = 0;
+    std::size_t held = 0;
+    std::string failures;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        const std::vector<double>& notches = aircraft.flap_notches();
+        std::string listed;
+        for (const double n : notches) {
+            listed += " " + std::to_string(n);
+        }
+        std::printf("  %s:%s\n", entry.id.c_str(), listed.empty() ? " none" : listed.c_str());
+        ++walked;
+        // Up and fully down among them, in order, wherever there are any.
+        if (!notches.empty() &&
+            (notches.front() != 0.0 || notches.back() != 1.0 ||
+             !std::is_sorted(notches.begin(), notches.end()))) {
+            failures += "\n  " + entry.id + "'s notches do not run from 0 to 1 in order:" + listed;
+        }
+        const auto want = expected.find(entry.id);
+        if (want == expected.end()) {
+            continue;
+        }
+        ++held;
+        bool same = want->second.size() == notches.size();
+        for (std::size_t i = 0; same && i < notches.size(); ++i) {
+            same = std::abs(want->second[i] - notches[i]) < 1e-12;
+        }
+        if (!same) {
+            failures += "\n  " + entry.id + "'s notches are" + listed;
+        }
+    }
+    check(walked == 16 && held == expected.size(),
+          "all 16 aircraft read, and the six held: " + std::to_string(walked) + ", " +
+              std::to_string(held));
+    check(failures.empty(), "each lever's notches as its model gives them:" + failures);
+}
+
+// **A take-off that never makes the speed its flap comes up at still ends**,
+// with its flap still out. Built explicitly: the Cherokee asked to climb
+// away at 140 KCAS, past her top speed, with her 25-degree take-off flap,
+// and to end the take-off at 20 ft. Her flap would come up only at 138
+// KCAS, which she never reaches; without a way out the take-off climbs on
+// for ever. Flown so, she climbs on and it ends at 1,500 ft above the
+// runway, where the take-off path ends (14 CFR 25.111(a)). Flown again with
+// her throttle held to six tenths from 300 ft - short of thrust - she holds
+// about 300 ft and climbs no higher, and it ends five minutes after the
+// throttle opened
+// (14 CFR 1.1's limit on take-off power). Both times the lever never left
+// the take-off flap.
+GLIDESLOPE_TEST(a_take_off_that_never_makes_its_flap_speed_ends_with_the_flap_still_out) {
+    const auto fly = [](double most_throttle_off, const std::string& how) {
+        auto aircraft = a_cherokee(0.0, 0.0, 0.0);
+        DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), "pa28");
+        speeds.climb_kts = 140.0;
+        speeds.initial_climb_kts = 140.0;
+        speeds.reference_lbs = 0.0; // asked for 140 whatever she weighs
+        Departure departure(*aircraft, a_runway(), speeds, 20.0);
+        int steps = 0;
+        double fastest_kcas = 0.0;
+        double lowest_lever = 1.0;
+        for (; steps < 10 * 60 * steps_per_second; ++steps) {
+            glideslope::sim::Controls c = departure.fly();
+            if (departure.above_m() * 3.280839895013123 > 300.0) {
+                c.throttle = std::min(c.throttle, most_throttle_off);
+            }
+            lowest_lever = std::min(lowest_lever, c.flaps);
+            aircraft->set_controls(c);
+            aircraft->step();
+            fastest_kcas = std::max(fastest_kcas, aircraft->state().airspeed_kts);
+            if (departure.stage() == Departure::Stage::done) {
+                break;
+            }
+        }
+        const double ended_ft = departure.above_m() * 3.280839895013123;
+        std::printf("  %s: ended after %d s at %.0f ft, never faster than %.1f KCAS, the lever "
+                    "never below %.3f\n",
+                    how.c_str(), steps / steps_per_second, ended_ft, fastest_kcas, lowest_lever);
+        check(departure.stage() == Departure::Stage::done && steps <= 300 * steps_per_second,
+              how + ": the take-off ended within five minutes: after " +
+                  std::to_string(steps / steps_per_second) + " s");
+        check(fastest_kcas < speeds.initial_climb_kts - 2.0 && lowest_lever == speeds.flap,
+              how + ": the flap stayed at the take-off flap, the speed never at the flap's: "
+                    "lever at least " + std::to_string(lowest_lever) + ", at most " +
+                  std::to_string(fastest_kcas) + " KCAS");
+        return std::pair{steps, ended_ft};
+    };
+    const auto [climbing_steps, climbing_ft] = fly(1.0, "at full throttle");
+    check(climbing_ft >= 1500.0 && climbing_steps < 300 * steps_per_second,
+          "at full throttle it ended at 1,500 ft: " + std::to_string(climbing_ft));
+    const auto [short_steps, short_ft] = fly(0.6, "at six tenths throttle from 300 ft");
+    check(short_ft < 1500.0 && short_steps >= 300 * steps_per_second - 1,
+          "at six tenths throttle from 300 ft it ended at five minutes, below 1,500 ft: " +
+              std::to_string(short_ft) + " ft, " + std::to_string(short_steps) + " steps");
+}
+
+// **Taken over in the air, the take-off keeps the flap it found**: the
+// Cherokee flying at 300 ft and 70 KCAS with her flaps up, given to a
+// take-off whose flap is 25 degrees, never has her lever put down - a
+// take-off handed back mid-climb once put the take-off flap out again.
+GLIDESLOPE_TEST(a_take_off_taken_over_in_the_air_never_puts_out_a_flap_it_found_up) {
+    auto aircraft = a_cherokee(300.0, 70.0, 0.0);
+    const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), "pa28");
+    check(speeds.flap > 0.0, "the Cherokee takes off with flap: " + std::to_string(speeds.flap));
+    Departure departure(*aircraft, a_runway(), speeds);
+    double most_lever = 0.0;
+    int steps = 0;
+    for (; steps < 120 * steps_per_second && departure.stage() != Departure::Stage::done;
+         ++steps) {
+        const glideslope::sim::Controls c = departure.fly();
+        most_lever = std::max(most_lever, c.flaps);
+        aircraft->set_controls(c);
+        aircraft->step();
+    }
+    std::printf("  the lever at most %.3f in %d s, the flaps at %.2f deg at the end\n", most_lever,
+                steps / steps_per_second, aircraft->property("fcs/flap-pos-deg"));
+    check(most_lever == 0.0, "the lever stayed up: at most " + std::to_string(most_lever));
+    check(departure.stage() == Departure::Stage::done,
+          "the take-off ended: " + std::to_string(steps / steps_per_second) + " s");
 }
