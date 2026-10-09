@@ -73,13 +73,14 @@ class Landings(BaseCallback):
             x for x in touched
             if x["sink_fpm"] < 300 and abs(x["across_m"]) <= 5 and 0 <= x["along_m"] <= 1200
         ]
+        unstable = sum(1 for x in r if x.get("most_unstable_s", 0.0) >= 2.0)
         sinks = [x["sink_fpm"] for x in touched]
         ends: dict[str, int] = {}
         for x in r:
             ends[x["ended"]] = ends.get(x["ended"], 0) + 1
         print(
             f"{self.num_timesteps:>10} steps {time.time() - self.started:7.0f} s: "
-            f"{len(touched)}/{len(r)} touched, {len(good)} within limits; "
+            f"{len(touched)}/{len(r)} touched, {len(good)} within limits, {unstable} unstabilized; "
             f"sink median {np.median(sinks) if sinks else float('nan'):.0f} fpm, across median "
             f"{np.median([abs(x['across_m']) for x in touched]) if touched else float('nan'):.1f} m; ends {ends}",
             flush=True,
