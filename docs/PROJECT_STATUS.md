@@ -353,7 +353,13 @@ plan in a landing on 16L after one turn, and in the server's two-planner
 test came down through Claude's orbit, which the separation monitor held
 off its height until 1.84 turns (`each_ai_aircraft_is_planned_...` red).
 The rule now says `land` only when the pilot asks for a landing; recorded
-again, none of the four lands. Green on the new recordings: the four
+again, none of the four lands. **Restacked on the take-off flap's branch**
+(whose 747-400 climbs at 170 kt measured, not 190, which changes what she
+is told): of the five planner recordings only the 747-400's no longer
+played back, and it alone was recorded again, live (no key in it); all
+five then play back, and the 747's take-off, orbit and figures tests and
+the walk of every aircraft through its take-off flap are green on the
+combined tree. Green on the new recordings: the four
 `..._as_recorded_and_flown`, `each_ai_aircraft_is_planned_...`,
 `every_ai_aircraft_a_server_runs_planned_or_not_is_kept_500_ft_...`,
 `two_planned_aircraft_wrecked_together_...`,
