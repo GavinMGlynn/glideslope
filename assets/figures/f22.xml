@@ -88,8 +88,11 @@
        and a 20 kt crosswind (sideslip within a degree, heading within two);
        the slowest sought up from its approach speed (or where said) in 5 kt steps,
        the fastest down from a fifth over its start speed, and written by
-       the command's one rule (src/frontend/cli/main.cpp, plan_speeds). -->
-  <plan_speeds slowest_kcas="140" fastest_kcas="360">
+       the command's one rule (src/frontend/cli/main.cpp, plan_speeds), at
+       `weight_lbs`, her model's own weight, which the trial flies and a
+       server flies her at; heavier, the slowest is raised for her weight
+       (sim::for_weight). -->
+  <plan_speeds slowest_kcas="140" fastest_kcas="360" weight_lbs="61570">
     The slowest, 140 kt, is 5 kt over the first that held, 135: she
     publishes no stall speed, so has no approach speed, and the sweep began
     at 120 kt; below 135 she came down 500 ft before reaching her circle. At

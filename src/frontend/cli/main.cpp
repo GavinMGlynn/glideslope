@@ -276,7 +276,9 @@ void print_usage(std::FILE* out) {
         "                            in calm air and a 10 kt wind, holding its height\n"
         "                            within 50 ft and its speed within 5 kt. The\n"
         "                            slowest is sought up from FROM_KT (default its\n"
-        "                            approach speed) in 5 kt steps; the fastest down\n"
+        "                            approach speed, or its stall warning plus 10 kt\n"
+        "                            at the weight it is planned at if more) in 5 kt\n"
+        "                            steps; the fastest down\n"
         "                            from a fifth over its start speed, the same way.\n"
         "                            --every flies the speeds the file gives instead,\n"
         "                            every 5 kt from its slowest to its fastest, and\n"
@@ -480,9 +482,11 @@ int fly_figures(const std::filesystem::path& data, const std::string& model,
 // is asked what a plan may ask of it (sim::holds_plan_speed) - the tightest
 // orbit four ways, and a heading in calm air and a crosswind. The slowest is
 // sought at speeds rising from FROM_KT, or its approach speed, by 5 kt; the
-// fastest at speeds falling from a fifth over its start speed. **What to
-// write in its `<plan_speeds>` is printed, by one rule**: where the approach
-// speed (or the fifth over the start speed) held, that - nothing a plan was
+// fastest at speeds falling from a fifth over its start speed. The slowest
+// sought is never under its stall warning plus a gust allowance, at the
+// weight a plan flies it at (sim::least_plan_slowest_kts). **What to
+// write in its `<plan_speeds>` is printed, by one rule**: where the first
+// speed sought (or the fifth over the start speed) held, that - nothing a plan was
 // let fly before is taken away; where it did not, the first that held, with
 // 5 kt to spare. `--every` instead flies the speeds the file gives, every
 // 5 kt from its slowest to its fastest, and exits 1 unless every one held.
@@ -504,7 +508,14 @@ int plan_speeds(const std::filesystem::path& data, const std::vector<std::string
                                      word + "'");
         }
     } else if (!every) {
-        from = std::round(glideslope::sim::approach_speeds(data, entry.model).vref_kts);
+        // Her approach speed, and her stall warning plus a gust allowance at
+        // the weight a plan flies her at (sim::least_plan_slowest_kts); an
+        // aircraft that publishes no stall has neither, and is given FROM_KT.
+        from = glideslope::sim::least_plan_slowest_kts(data, entry);
+        if (from == 0.0) {
+            throw std::runtime_error("plan-speeds: " + entry.id +
+                                     " publishes no stall speed; give FROM_KT");
+        }
     }
     const auto say = [](const std::string& line) {
         std::printf("%s\n", line.c_str());
@@ -558,8 +569,9 @@ int plan_speeds(const std::filesystem::path& data, const std::vector<std::string
     const double fastest = last_held == top ? last_held : last_held - 5.0;
     std::printf("%s: slowest held %.0f kt, fastest held %.0f kt\n", entry.id.c_str(),
                 first_held, last_held);
-    std::printf("%s: write <plan_speeds slowest_kcas=\"%.0f\" fastest_kcas=\"%.0f\">\n",
-                entry.id.c_str(), slowest, fastest);
+    std::printf("%s: write <plan_speeds slowest_kcas=\"%.0f\" fastest_kcas=\"%.0f\" "
+                "weight_lbs=\"%.0f\">\n",
+                entry.id.c_str(), slowest, fastest, glideslope::sim::plan_weight_lbs(data, entry));
     return 0;
 }
 

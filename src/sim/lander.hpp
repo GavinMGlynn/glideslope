@@ -104,6 +104,12 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
 // does not change the speed it flies.
 ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs);
 
+// **Where the stall warning sounds**, KCAS, over a stall of `stall_kts`: no
+// less than 5 knots or 5% above it, whichever is more (14 CFR 25.207(c)) -
+// where the AI pilot notices a stall coming (Controller::notice_a_stall),
+// and what a plan's slowest keeps its gust allowance over.
+double stall_warning_kts(double stall_kts);
+
 // Whether `approach_speeds` has a stall speed to work from: false for the
 // 747-400 and the F-22A, whose measured stalls would not hold still.
 bool publishes_approach_speed(const std::filesystem::path& data, const std::string& model);

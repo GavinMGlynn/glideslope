@@ -525,15 +525,17 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       Mosquito is never level after her warning, from her own pitching
       moment (a Later item).
 - [ ] **The AI notices a stall the J-3 Cub is not in, in moderate
-      turbulence.** At 1,220 lb her warning is 39.9 kt; her airspeed dips 7
-      to 8 kt in gusts, to 40.1 (39.7 in CI) at her best-climb speed and to
-      37.7 at her plan's slowest, 43 kt - her light-weight approach speed,
-      not scaled for her weight. To decide with evidence: scale the plan's
-      slowest for weight, or watch something steadier than the instant's
-      airspeed (smoothed over a second, it noticed the stalls it must too
-      late). *Verification: every aeroplane cruising, climbing and at its
-      plan's slowest in moderate turbulence, the Cub unnamed, is never
-      noticed, and every stall-notice test still passes.*
+      turbulence.** **Still missing: her climb.** At 1,220 lb her warning is
+      39.9 kt, and climbing at her manual's best-climb speed for that load,
+      47.8 kt, gusts take her to 40.1 (39.7 in CI) - under the 3 kt margin
+      the test asks; the test names her climb until it is decided. Done
+      2026-10-10: a plan's slowest is raised for the weight flown, as a stall
+      is, and every figures file's keeps 10 kt over the stall warning at the
+      weight a plan flies it at (the B-2A's rose to 169 kt, the Mosquito's
+      to 129, both their approach speeds there). *Verification: every
+      aeroplane cruising, climbing and at its plan's slowest in moderate
+      turbulence stays 3 kt over its warning and is never noticed, the Cub's
+      climb unnamed, and every stall-notice test still passes.*
 - [x] **A light aeroplane's take-off hands over slower than the plan's
       climb floor.** Done 2026-10-09: the take-off climbs her at her
       handbook's best-climb speed whatever she weighs, as the plan does, and
@@ -1326,6 +1328,12 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
 
+- [ ] **The B-2A's and Mosquito's slowest glides are under their plan's
+      slowest.** Their `<glide_speeds>`, 159 and 128 kt, were measured from
+      floors since raised to 169 and 129; a brief already takes the higher,
+      so nothing glides slower, but the figures want measuring again
+      (`glideslope_cli glide-speeds`) and their glide tests renaming.
+      *Verification: each figure is what the command writes now.*
 - [ ] **A contaminated runway is flown when reported, and nothing reports
       one.** The simulation brakes on every FAA runway condition code, but a
       METAR's weather says only that rain or snow is falling, not how deep it

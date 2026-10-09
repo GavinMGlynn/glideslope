@@ -1820,14 +1820,17 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
     // aircraft without them could be planned at a speed it cannot hold.
     JSBSim::Element* speeds = root->FindElement("plan_speeds");
     if (speeds == nullptr || !speeds->HasAttribute("slowest_kcas") ||
-        !speeds->HasAttribute("fastest_kcas")) {
+        !speeds->HasAttribute("fastest_kcas") || !speeds->HasAttribute("weight_lbs")) {
         throw std::runtime_error(file.string() +
                                  " gives no <plan_speeds slowest_kcas=\"...\" "
-                                 "fastest_kcas=\"...\">, the speeds a plan may fly it at");
+                                 "fastest_kcas=\"...\" weight_lbs=\"...\">, the speeds a plan "
+                                 "may fly it at and the weight they were measured at");
     }
     out.plan_slowest_kcas = speeds->GetAttributeValueAsNumber("slowest_kcas");
     out.plan_fastest_kcas = speeds->GetAttributeValueAsNumber("fastest_kcas");
-    if (!(out.plan_slowest_kcas > 0.0 && out.plan_fastest_kcas > out.plan_slowest_kcas)) {
+    out.plan_weight_lbs = speeds->GetAttributeValueAsNumber("weight_lbs");
+    if (!(out.plan_slowest_kcas > 0.0 && out.plan_fastest_kcas > out.plan_slowest_kcas &&
+          out.plan_weight_lbs > 0.0)) {
         throw std::runtime_error(file.string() +
                                  " gives <plan_speeds> that are not above 0, the fastest above "
                                  "the slowest");
@@ -1919,7 +1922,7 @@ double landing_need_m(const std::filesystem::path& data, const std::string& mode
 
 PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model) {
     const PublishedFigures f = read_published_figures(data / "figures" / (model + ".xml"));
-    return {f.plan_slowest_kcas, f.plan_fastest_kcas};
+    return {f.plan_slowest_kcas, f.plan_fastest_kcas, f.plan_weight_lbs};
 }
 
 double glide_slowest_kts(const std::filesystem::path& data, const std::string& model) {

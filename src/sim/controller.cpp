@@ -236,8 +236,6 @@ void Controller::notice_a_stall() {
     if (!landing_speeds_ || landing_speeds_->stall_kts <= 0.0) {
         return;
     }
-    constexpr double least_margin_kts = 5.0;
-    constexpr double margin_of_stall = 0.05;
     constexpr double level_within_fpm = 100.0;
     constexpr int recovered_for = 5 * steps_per_second;
     // **At what she weighs now** (`for_weight`): the figures' stall is for
@@ -245,8 +243,7 @@ void Controller::notice_a_stall() {
     // above her light loading's 95 kt.
     const ApproachSpeeds speeds = for_weight(*landing_speeds_, a_.property("inertia/weight-lbs"));
     const double stall_kts = speeds.stall_kts;
-    const double warning_kts =
-        stall_kts + std::max(least_margin_kts, margin_of_stall * stall_kts);
+    const double warning_kts = stall_warning_kts(stall_kts);
     const double recovered_kts = speeds.vref_kts;
     const double kts = a_.property("velocities/vc-kts");
     if (!before_the_stall_) {
