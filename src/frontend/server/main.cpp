@@ -3073,7 +3073,13 @@ private:
         if (!a.own_plan) {
             a.controller->to_ai(stacked(plan_, a.stack_ft));
         } else if (a.own_plan->takeoff) {
-            a.controller->to_ai_flying(*a.own_plan, a.departure);
+            // **Climbed out faster in gusts** (sim::in_gusts): half the
+            // session's gust factor over her climb speed.
+            a.controller->to_ai_flying(
+                *a.own_plan,
+                glideslope::sim::in_gusts(a.departure, weather() != nullptr
+                                                           ? glideslope::world::gust_factor_kt(*weather())
+                                                           : 0.0));
             a.progress.departing = true;
         } else {
             a.controller->to_ai(*a.own_plan);

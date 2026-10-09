@@ -219,6 +219,13 @@ DepartureSpeeds speeds_from_figures(const std::filesystem::path& data,
 
 } // namespace
 
+DepartureSpeeds in_gusts(DepartureSpeeds speeds, double gust_factor_kt) {
+    const double allowance_kts = 0.5 * std::max(gust_factor_kt, 0.0);
+    speeds.climb_kts += allowance_kts;
+    speeds.initial_climb_kts += allowance_kts;
+    return speeds;
+}
+
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                                  const std::string& model) {
     DepartureSpeeds speeds = speeds_from_figures(data, model);

@@ -299,6 +299,14 @@ Lift lift_of(const WeatherReport& report) {
     return lift;
 }
 
+double gust_factor_kt(const WeatherReport& report) {
+    const Metar& m = report.surface.metar;
+    const double mean_kt = m.wind_speed_kt.value_or(0.0);
+    const double spread_kt = std::max(0.0, m.gust_kt.value_or(mean_kt) - mean_kt);
+    return std::max(spread_kt,
+                    gust_spread_of_severity(report.turbulence_severity.value_or(0)));
+}
+
 sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
                                 const GroundAt& ground, sim::Conditions mean,
                                 double latitude_deg, double longitude_deg,

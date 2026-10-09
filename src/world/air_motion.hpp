@@ -93,4 +93,9 @@ Enu microburst_wind(const Microburst& burst, const Enu& offset, double time_s);
 // 4 from 20 and severe (5) from 30.
 int severity_from_gust_spread(double spread_kt);
 
+// **The least gust spread that implies a severity**, knots - the inverse of
+// `severity_from_gust_spread`: none for 0, then 5, 10, 15 (moderate), 20,
+// and 30 from severe (5) up, the most that mapping names.
+double gust_spread_of_severity(int severity);
+
 } // namespace glideslope::world

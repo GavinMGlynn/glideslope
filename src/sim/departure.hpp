@@ -112,6 +112,19 @@ struct DepartureSpeeds {
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                                  const std::string& model);
 
+// **Her climb speeds in gusty or turbulent air**: `speeds` with its climb
+// speed and its initial climb speed each raised by half of `gust_factor_kt`
+// (world::gust_factor_kt), the rule a pilot flies the approach by in
+// turbulent air - "the normal approach speed plus one-half of the wind gust
+// factor" (FAA, Airplane Flying Handbook, FAA-H-8083-3C, chapter 9,
+// "Turbulent Air Approach and Landing") - applied to the climb, where the
+// best-rate speed leaves the least over the stall of any speed she climbs
+// at: in moderate turbulence a J-3 Cub at 1,220 lb climbing at her 47.8 kt
+// dipped to 40.9 against her 39.9 kt stall warning. The same for every
+// aircraft - the rule is the air's, not the aeroplane's. Unchanged in calm
+// air (0).
+DepartureSpeeds in_gusts(DepartureSpeeds speeds, double gust_factor_kt);
+
 // The height a take-off starts raising its flap at, feet above the runway,
 // for an aeroplane of class `of` (DepartureSpeeds::flaps_up_ft).
 double flaps_up_ft(AircraftClass of);
