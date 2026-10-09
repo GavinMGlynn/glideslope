@@ -228,9 +228,19 @@ public:
     // The aircraft's controls for the next step. Call it once a step.
     Controls fly();
 
+    // **Whether the AI is recovering from a stall it noticed coming**
+    // (controller.cpp, `notice_a_stall`).
+    bool recovering_from_a_stall() const { return before_the_stall_.has_value(); }
+
 private:
     // The AI engaged with the plain autopilot, and nothing else.
     void engage();
+    // A stall warning noticed, and recovered from (`landing_speeds_`'s stall).
+    void notice_a_stall();
+    // What the autopilot was flying when the warning came, while it recovers;
+    // and how many steps it has been recovered for.
+    std::optional<AutopilotModes> before_the_stall_;
+    int recovered_steps_ = 0;
 
     const Aircraft& a_;
     Flying flying_ = Flying::pilot;
