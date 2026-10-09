@@ -1206,13 +1206,20 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       *Verification: two AI aircraft on plans ending at one runway both land,
       the second once the first has left it; and a copilot's route that ends
       in a landing is landed and leaves the runway.* Done 2026-10-08.
-- [ ] **No model has yet been seen to answer with a landing**: the copilot
-      may end a route in one since 2026-10-08, but no recorded live answer
-      does. *Verification: a recording of a model asked to land at a runway
-      nearby answers with a landing the server flies.*
-- [ ] **A model's flight plan cannot end in a landing**: the planner, which
-      plans a flight from the ground, is not offered `land` as the copilot
-      now is. *Verification: a plan asked to end at a runway is landed there.*
+- [ ] **No model has yet been seen to answer a copilot's question with a
+      landing**: the copilot may end a route in one since 2026-10-08, but no
+      recorded live answer of the copilot's does (the planner's has, since
+      2026-10-09). *Verification: a recording of a model asked to land at a
+      runway nearby answers with a landing the server flies.*
+- [x] **A model's flight plan cannot end in a landing**: the planner, which
+      plans a flight from the ground, is now offered `land` as the copilot is,
+      held to the same checks. *Verification: Claude, asked to take off from
+      Sydney and land at Bankstown, answers with a plan ending there, and the
+      server's AI flies it and lands it on Bankstown's 29C.* Done 2026-10-09.
+- [ ] **Nothing refuses a landing on a runway too short for the aircraft**:
+      neither the copilot's routes nor the planner's plans hold a runway's
+      length to anything. *Verification: a landing on a runway shorter than
+      the aircraft lands in is refused, saying so, for every aircraft.*
 - [ ] **A 172 a window client joins on final leaves the gate in seconds**:
       left alone, it is 8 degrees off the runway's heading six seconds in. The
       client keeps the server's flaps and throttle but not its pitch trim,

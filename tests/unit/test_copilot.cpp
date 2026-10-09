@@ -389,6 +389,93 @@ GLIDESLOPE_TEST(a_plan_from_words_is_checked_and_refused_back_to_the_model_until
     }
 }
 
+GLIDESLOPE_TEST(a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_told_of_and_on_no_other) {
+    // **Offered as the copilot is**: the command, and where it may land.
+    auto request = sydney("take off, fly to Bankstown and land there");
+    glideslope::world::RunwayEnd ysbk;
+    ysbk.airport = "YSBK";
+    ysbk.ident = "29C";
+    ysbk.latitude_deg = -33.9268;
+    ysbk.longitude_deg = 150.996002;
+    ysbk.elevation_ft = 26;
+    ysbk.heading_deg = 285;
+    ysbk.length_m = 1100;
+    request.fields = {request.runways[0], request.runways[1], ysbk};
+    const std::string instructions = glideslope::copilot::planning_instructions();
+    check(instructions.find("land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M") !=
+                  std::string::npos &&
+              instructions.find("`land`, last") != std::string::npos,
+          "the planner is told how to land:\n" + instructions);
+    const std::string asked = glideslope::copilot::planning_request(request);
+    check(asked.find("Runways it may land on") != std::string::npos &&
+              asked.find("YSBK runway 29C -33.926800 150.996002 26 285 1100") != std::string::npos &&
+              asked.find("YSSY runway 16R -33.929401 151.171997 8 168 3962") != std::string::npos,
+          "and the runways it may land on, as the copilot is:\n" + asked);
+
+    const std::string from_34l = "aircraft c172p\n"
+                                 "runway 34L -33.964298 151.181000 14 348 3962\n"
+                                 "takeoff 800\n";
+    const std::string to_bankstown = "waypoint EAST_OF_YSBK -33.93 151.05 1500 90\n";
+    const std::string land_29c = "land YSBK_29C -33.926800 150.996002 26 285 1100\n";
+    const std::string lands = from_34l + to_bankstown + land_29c;
+    Scripted first_time({lands});
+    const auto planned = glideslope::copilot::plan_from_words(first_time, request);
+    check(planned.attempts == 1 && planned.plan.landing &&
+              planned.plan.landing->name == "YSBK_29C" &&
+              planned.plan.landing->heading_deg == 285.0 && planned.plan.waypoints.size() == 1,
+          "a plan ending in a landing on a runway it was told of is taken, first time");
+
+    // **Every way a landing is refused**, each told back and then the plan
+    // that lands taken: the copilot's checks (copilot::landing_refusal), and
+    // `land` last.
+    auto no_approach = request;
+    no_approach.approach_kts = 0;
+    no_approach.slowest_kts = 62;
+    auto told_none = request;
+    told_none.fields.clear();
+    auto unknown_height = request;
+    unknown_height.fields.back().elevation_ft = std::numeric_limits<double>::quiet_NaN();
+    struct Refusal {
+        const glideslope::copilot::PlanRequest* request;
+        std::string plan;
+        std::string says;
+    };
+    const std::vector<Refusal> refusals{
+        {&request, from_34l + land_29c + to_bankstown, "`land` is the last line"},
+        {&request, from_34l + to_bankstown + "land YSBK_29C -33.9 151.0 26 285 1100\n",
+         "none of the runways"},
+        {&request, from_34l + to_bankstown + "land YSBK_11C -33.926800 150.996002 26 105 1100\n",
+         "none of the runways"},
+        {&request, from_34l + "orbit ROUND -33.93 151.05 1500 1500 90 0 left\n" + land_29c,
+         "goes round for ever"},
+        {&no_approach, lands, "no approach speed"},
+        {&told_none, lands, "none of the runways"},
+        {&unknown_height, lands, "none of the runways"},
+    };
+    std::size_t covered = 0;
+    for (const Refusal& r : refusals) {
+        Scripted model({r.plan, from_34l + to_bankstown});
+        const auto then = glideslope::copilot::plan_from_words(model, *r.request);
+        check(then.attempts == 2 && then.refused.size() == 1 &&
+                  then.refused[0].find(r.says) != std::string::npos,
+              "\"" + r.plan + "\" is refused, saying \"" + r.says + "\": " +
+                  (then.refused.empty() ? std::string("it was taken") : then.refused[0]));
+        check(model.conversations.size() == 2 &&
+                  model.conversations[1][2].text.find(r.says) != std::string::npos,
+              "and the refusal is told back to the model: " + r.says);
+        ++covered;
+    }
+    check(covered == 7 && refusals.size() == 7, "all 7 ways a plan's landing is refused were tried");
+    check(glideslope::copilot::planning_request(no_approach).find(
+              "It has no approach speed, so a plan for it does not land") != std::string::npos &&
+              glideslope::copilot::planning_request(no_approach).find("Runways it may land on") ==
+                  std::string::npos,
+          "an aircraft with no approach speed is told it does not land, and offered no runway");
+    check(glideslope::copilot::planning_request(unknown_height).find("YSBK runway") ==
+              std::string::npos,
+          "a runway with no elevation is not offered to land on");
+}
+
 GLIDESLOPE_TEST(a_task_file_names_its_aircraft_airport_and_words_and_anything_else_is_refused) {
     // The server's own, as committed.
     std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_PROJECT_DIR) / "assets" / "tasks" /

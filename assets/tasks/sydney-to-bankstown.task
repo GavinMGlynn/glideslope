@@ -1,0 +1,8 @@
+# A flight from the ground that ends in a landing: what a server's AI
+# aircraft is asked to plan with --ai-task, and what the planner's landing
+# tests ask a model (tests/cmake/planned_landing.cmake). The model is told the
+# aircraft, the airport's runways, the runways near it it may land on, and the
+# task; it answers with a flight plan the autopilot flies - nothing else.
+aircraft c172p
+airport YSSY
+task take off, fly to Bankstown airport and land there

@@ -249,9 +249,14 @@ Change read_change(const Brief& b, const Situation& now, const std::string& answ
 }
 
 const world::RunwayEnd* landing_field(const Situation& now, const sim::Runway& landing) {
+    return landing_field(now.fields, landing);
+}
+
+const world::RunwayEnd* landing_field(const std::vector<world::RunwayEnd>& fields,
+                                      const sim::Runway& landing) {
     const world::RunwayEnd* found = nullptr;
     double nearest = landing_within_m;
-    for (const world::RunwayEnd& end : now.fields) {
+    for (const world::RunwayEnd& end : fields) {
         const double d = sim::distance_m(landing.threshold_lat_deg, landing.threshold_lon_deg,
                                          end.latitude_deg, end.longitude_deg);
         const double off = std::abs(std::remainder(landing.heading_deg - end.heading_deg, 360.0));
@@ -316,23 +321,33 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
     // **A landing is on a runway it was told of**, flown under power, by an
     // aircraft with an approach speed to fly it at, and reached: no orbit
     // before it goes round for ever.
-    if (const auto& landing = change.plan.landing) {
+    if (change.plan.landing) {
         if (change.glide_kts) {
             return "a glide does not land: it ends over its field";
         }
-        if (b.approach_kts <= 0.0) {
-            return "the aircraft has no approach speed to land at";
+        return landing_refusal(b.approach_kts, change.plan, now.fields);
+    }
+    return {};
+}
+
+std::string landing_refusal(double approach_kts, const sim::FlightPlan& plan,
+                            const std::vector<world::RunwayEnd>& fields) {
+    const auto& landing = plan.landing;
+    if (!landing) {
+        return {};
+    }
+    if (approach_kts <= 0.0) {
+        return "the aircraft has no approach speed to land at";
+    }
+    for (const sim::Waypoint& w : plan.waypoints) {
+        if (w.orbit && w.orbit->turns == 0) {
+            return "the orbit " + w.name + " goes round for ever, so the landing after it "
+                   "is never flown";
         }
-        for (const sim::Waypoint& w : change.plan.waypoints) {
-            if (w.orbit && w.orbit->turns == 0) {
-                return "the orbit " + w.name + " goes round for ever, so the landing after it "
-                       "is never flown";
-            }
-        }
-        if (landing_field(now, *landing) == nullptr) {
-            return "the landing " + landing->name + " is on none of the runways nearby: copy "
-                   "one's runway line, with `land` for `runway`";
-        }
+    }
+    if (landing_field(fields, *landing) == nullptr) {
+        return "the landing " + landing->name + " is on none of the runways nearby: copy "
+               "one's runway line, with `land` for `runway`";
     }
     return {};
 }
