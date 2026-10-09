@@ -1080,35 +1080,32 @@ The pipeline: its length, its caches and what it costs a pull request.
 
 - [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
       (26-28 minutes a Windows configure). *Verification: a new runner image
-      costs one rebuild, saved, not one per run.* Windows restores from public
-      GitHub Packages, which pull requests may now write to; no pull
-      request's upload is seen yet. Linux and macOS use a cache keyed on the
-      image. No new Windows compiler came in the week to 2026-10-07 (every
-      configure restored all 39 packages), so the rebuild is not yet seen.
-- [ ] **A CI run takes 90-120 minutes where its jobs need about 40**: the
-      Actions caches overflowed their 10 GB and builds compiled from nothing.
+      costs one rebuild, saved, not one per run.* Windows restores from
+      GitHub Packages, Linux and macOS from a cache keyed on the image, and a
+      newer merge no longer cancels main's run before it saves. Owed: no new
+      Windows compiler has come since 2026-09-30, so the rebuild is unseen.
+- [ ] **A CI run takes 90-120 minutes where its jobs need about 40**.
       *Verification: pull requests' builds restore main's ccache with most
       compiles hits, and a run's time from push to result is measured and
-      stated.* Run 37570543750 (2026-10-07, four other runs queued beside
-      it): warm builds 2.6-3.9 min, but clang-cl's ccache had been evicted
-      (0 hits, 17 min), because two generations of main's caches stood
-      together until a run ended. Each build now prunes its older entry as
-      soon as it saves, and a merge no longer saves the 3 GB downloads
-      again. Not yet seen on main. Run 37577077798: 63 minutes from push
-      to result, all but macOS done in 37; macOS's five runners, shared
-      with other runs, set the rest.
+      stated.* The caches fit now and pull requests build warm (86-95% hits,
+      2026-10-09). With several runs in flight a pull request's took 148
+      minutes, its macOS jobs waiting for the account's five macOS runners;
+      by the owner's decision (2026-10-09) a pull request now runs macOS
+      release only, four macOS jobs instead of ten, and macOS debug's tests
+      run on main after the merge and nightly. Owed: a pull request's run
+      timed with this in place.
 - [ ] **A Windows configure on CI sometimes takes 30 minutes in vcpkg**,
       even after an exact hit on its binary cache. *Verification: every
       Windows configure whose vcpkg cache hit takes under 3 minutes, over a
-      week of runs on main.* Found 2026-09-30: a rebuild on a newer image's
-      compiler, repeated by every pull request; pull requests may upload now.
-      Counted 2026-10-07: no rebuild since 2026-09-30, vcpkg's restore under
-      a minute every time, but 8 of 163 configures took 3-6 minutes, in
-      SDL's compiler checks after vcpkg had finished - still over the bound.
+      week of runs on main.* No rebuild since 2026-09-30; 2 of main's 152 in
+      the week to 2026-10-09 took just over 3 minutes. vcpkg is now fetched
+      from the runner's own copy where it has the commit. Owed: a week on
+      main after that.
 - [ ] **One test takes 15-22 minutes in Linux debug**: the AI aircraft
-      kept 500 ft or 1.5 nm apart, 882 s and 1,295 s, so its shard ran 26
-      minutes of a 30-minute limit whatever the dealing. *Verification:
-      every test under 10 minutes on CI's Linux debug.*
+      kept 500 ft or 1.5 nm apart, so its shard runs 26 of its 30 minutes.
+      *Verification: every test under 10 minutes on CI's Linux debug.* Owed:
+      most of its time is the ground's height looked up afresh at every read
+      of the height above ground, a change to the simulation not yet made.
 - [x] **CI's actions run on Node.js 20, which GitHub has deprecated.**
       *Verification: a CI run's annotations name no action as targeting
       Node.js 20.* Done 2026-09-24.

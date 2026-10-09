@@ -10,12 +10,21 @@ on:
   schedule:
     - cron: '0 16 * * *'
 
-# One run per branch. A newer push says everything an older run would have, so
-# the older run is cancelled rather than left to hold a runner.
+# One run per branch. On a pull request a newer push says everything an older
+# run would have, so the older run is cancelled rather than left to hold a
+# runner. On main a run in progress finishes, and a newer merge's run waits
+# for it (a newer one still replaces it while it waits): main's runs save the
+# caches every pull request restores, and a run cancelled after vcpkg had
+# rebuilt for a new runner image saved nothing, so the next run rebuilt
+# again. Seven of main's runs were cancelled on 2026-10-09 before 06:00 UTC,
+# five of them 20-31 minutes in. A run still waiting is replaced by a newer
+# merge's, though, so with merges close together a commit on main can go
+# without a run of its own - its changes are in the newer commit's run - and
+# the nightly run, every build and test job on main's head, is the backstop.
 concurrency:
   # The event too: a merge's build-only run must not cancel the nightly full run.
   group: ci-${{ github.ref }}-${{ github.event_name }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # The windowed frame tests skip where there is no display to open a window on;
 # here that is a failure, and the Linux jobs run their tests on Xvfb.
@@ -456,6 +465,20 @@ jobs:
 
   # ---------------------------------------------------------------------------
   # macOS
+  #
+  # **On a pull request, macOS builds and tests release only; macOS debug
+  # builds and runs its five test shards on main after the merge, and in the
+  # nightly run** (the owner's decision, 2026-10-09). The account has five
+  # macOS runners, and a pull request's run held up to ten macOS jobs - two
+  # builds, seven test shards, the package - about 150 runner-minutes, so two runs at
+  # once already queued: with six pull requests in flight, run 37872093478's
+  # macOS jobs waited 62 to 123 minutes for a runner and the run took 148
+  # minutes, where everything else was done in 47. Now a pull request holds
+  # four at most: the release build, two shards, and the package when the
+  # `changes` job says a file it depends on changed. A failure only macOS
+  # debug finds - its sanitizers, mostly - shows after the merge, as a red
+  # main fixed at once; Linux debug runs the same sanitizers on every pull
+  # request.
   # ---------------------------------------------------------------------------
   macos-build:
     name: macOS ${{ matrix.preset }} - build
@@ -465,7 +488,8 @@ jobs:
     timeout-minutes: 45
     strategy:
       fail-fast: false
-      matrix: { preset: [macos-debug, macos-release] }
+      matrix:
+        preset: ${{ fromJSON(github.event_name == 'pull_request' && '["macos-release"]' || '["macos-debug", "macos-release"]') }}
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
       CCACHE_MAXSIZE: 600M
@@ -562,11 +586,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: macos-debug, shard: 1, of: 5 }
-          - { preset: macos-debug, shard: 2, of: 5 }
-          - { preset: macos-debug, shard: 3, of: 5 }
-          - { preset: macos-debug, shard: 4, of: 5 }
-          - { preset: macos-debug, shard: 5, of: 5 }
           - { preset: macos-release, shard: 1, of: 2 }
           - { preset: macos-release, shard: 2, of: 2 }
     steps:
@@ -595,8 +614,70 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+      # Nightly and on a dispatch, not after a merge: a merge's 3 GB of
+      # downloads would be saved again unchanged (Rocky's job saves them
+      # after a merge only when their pinned lists changed).
       - uses: actions/cache/save@v6
-        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'push' }}
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          enableCrossOsArchive: true
+
+
+  # macOS debug's shards: after a merge, nightly and on a dispatch - never on
+  # a pull request (above, at macOS's builds, why). The steps are
+  # macos-test's, repeated: tests/cmake/ci_shards.cmake reads each test
+  # job's matrix rows and its call of the dealing from this file.
+  macos-debug-test:
+    name: macOS ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
+    needs: macos-build
+    if: ${{ github.event_name != 'pull_request' }}
+    runs-on: macos-15
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: macos-debug, shard: 1, of: 5 }
+          - { preset: macos-debug, shard: 2, of: 5 }
+          - { preset: macos-debug, shard: 3, of: 5 }
+          - { preset: macos-debug, shard: 4, of: 5 }
+          - { preset: macos-debug, shard: 5, of: 5 }
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/macos-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-macos-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
+        run: |
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+      # Nightly and on a dispatch, not after a merge: a merge's 3 GB of
+      # downloads would be saved again unchanged (Rocky's job saves them
+      # after a merge only when their pinned lists changed).
+      - uses: actions/cache/save@v6
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'push' }}
         with:
           path: |
             .downloads/*
@@ -983,7 +1064,8 @@ jobs:
   prune-caches:
     name: Old caches pruned
     if: ${{ !cancelled() && github.event_name == 'push' }}
-    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, windows-build, windows-test]
+    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, macos-debug-test,
+            windows-build, windows-test]
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -1020,8 +1102,8 @@ jobs:
   all-green:
     name: CI passed
     if: ${{ always() }}
-    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, windows-build,
-            windows-test, cross-platform, server-image, changes, package]
+    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, macos-debug-test,
+            windows-build, windows-test, cross-platform, server-image, changes, package]
     runs-on: ubuntu-latest
     steps:
       - name: Every job passed
@@ -1031,9 +1113,14 @@ jobs:
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
           # Packaging is skipped when nothing it depends on changed, which is
           # a pass; anything else skipped, failed or cancelled is not.
-          # On main, after a merge, only the builds run (the tree was tested
-          # before it merged): a job skipped there is a pass too.
+          # On main, after a merge, only the builds and macOS debug's tests
+          # run (the rest was tested before it merged): the other test jobs
+          # skipped there are a pass, and macos-debug-test must pass. On a
+          # pull request macos-debug-test is skipped by design (the owner's
+          # decision of 2026-10-09; see macOS's builds), which is a pass.
           echo "$NEEDS" | jq -e --arg event "${{ github.event_name }}" 'to_entries | all(.[];
               .value.result == "success"
-              or (.value.result == "skipped" and (.key == "package" or ($event == "push"
-                  and (.key | IN("ubuntu-test", "macos-test", "windows-test", "server-image"))))))' > /dev/null
+              or (.value.result == "skipped" and (.key == "package"
+                  or ($event == "push"
+                      and (.key | IN("ubuntu-test", "macos-test", "windows-test", "server-image")))
+                  or ($event == "pull_request" and .key == "macos-debug-test"))))' > /dev/null

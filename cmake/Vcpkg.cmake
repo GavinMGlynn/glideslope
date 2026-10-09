@@ -52,16 +52,61 @@ if(NOT CMAKE_TOOLCHAIN_FILE)
         find_program(GLIDESLOPE_GIT git REQUIRED)
         file(REMOVE_RECURSE "${_vcpkg}")
         file(MAKE_DIRECTORY "${_vcpkg}")
-        foreach(_step
-                "init;--quiet"
-                "fetch;--quiet;--depth;1;${GLIDESLOPE_VCPKG_REPOSITORY};${GLIDESLOPE_VCPKG_COMMIT}"
-                "-c;advice.detachedHead=false;checkout;--quiet;FETCH_HEAD")
-            execute_process(COMMAND "${GLIDESLOPE_GIT}" ${_step}
+        string(TIMESTAMP _t0 "%s" UTC)
+        execute_process(COMMAND "${GLIDESLOPE_GIT}" init --quiet
+                        WORKING_DIRECTORY "${_vcpkg}" RESULT_VARIABLE _rc)
+        if(NOT _rc EQUAL 0)
+            message(FATAL_ERROR "vcpkg: git init failed (${_rc})")
+        endif()
+        # **A clone already on the machine is asked first.** GitHub's runners
+        # carry vcpkg's whole history at VCPKG_INSTALLATION_ROOT; the pinned
+        # commit is fetched from there when it has it - the same commit, so
+        # the same tree, checked by git's hashes - and from GitHub otherwise.
+        # Fetching from GitHub took 19 to 60 s of a Windows configure on CI
+        # (PROJECT_STATUS, 2026-10-09).
+        set(_from "${GLIDESLOPE_VCPKG_REPOSITORY}")
+        set(_fetched FALSE)
+        file(TO_CMAKE_PATH "$ENV{VCPKG_INSTALLATION_ROOT}" _local)
+        if(NOT _local STREQUAL "" AND EXISTS "${_local}/.git")
+            # file:// with --depth, since a plain path ignores it; a Windows
+            # path, C:/vcpkg, takes a third slash: file:///C:/vcpkg.
+            if(_local MATCHES "^/")
+                set(_url "file://${_local}")
+            else()
+                set(_url "file:///${_local}")
+            endif()
+            execute_process(COMMAND "${GLIDESLOPE_GIT}" fetch --quiet --depth 1
+                                    "${_url}" ${GLIDESLOPE_VCPKG_COMMIT}
+                            WORKING_DIRECTORY "${_vcpkg}" RESULT_VARIABLE _rc
+                            OUTPUT_QUIET ERROR_VARIABLE _err)
+            if(_rc EQUAL 0)
+                set(_from "${_local}")
+                set(_fetched TRUE)
+            else()
+                string(STRIP "${_err}" _err)
+                message(STATUS "vcpkg: ${_local} could not give the commit (${_rc}: ${_err}); "
+                               "fetching from GitHub")
+            endif()
+        endif()
+        if(NOT _fetched)
+            execute_process(COMMAND "${GLIDESLOPE_GIT}" fetch --quiet --depth 1
+                                    ${GLIDESLOPE_VCPKG_REPOSITORY} ${GLIDESLOPE_VCPKG_COMMIT}
                             WORKING_DIRECTORY "${_vcpkg}" RESULT_VARIABLE _rc)
             if(NOT _rc EQUAL 0)
-                message(FATAL_ERROR "vcpkg: git ${_step} failed (${_rc})")
+                message(FATAL_ERROR "vcpkg: git fetch from ${GLIDESLOPE_VCPKG_REPOSITORY} failed (${_rc})")
             endif()
-        endforeach()
+        endif()
+        string(TIMESTAMP _t1 "%s" UTC)
+        execute_process(COMMAND "${GLIDESLOPE_GIT}" -c advice.detachedHead=false
+                                checkout --quiet FETCH_HEAD
+                        WORKING_DIRECTORY "${_vcpkg}" RESULT_VARIABLE _rc)
+        if(NOT _rc EQUAL 0)
+            message(FATAL_ERROR "vcpkg: git checkout failed (${_rc})")
+        endif()
+        string(TIMESTAMP _t2 "%s" UTC)
+        math(EXPR _fetch_s "${_t1} - ${_t0}")
+        math(EXPR _checkout_s "${_t2} - ${_t1}")
+        message(STATUS "vcpkg: fetched from ${_from} in ${_fetch_s} s, checked out in ${_checkout_s} s")
         if(CMAKE_HOST_WIN32)
             set(_bootstrap "${_vcpkg}/bootstrap-vcpkg.bat")
         else()
@@ -72,6 +117,9 @@ if(NOT CMAKE_TOOLCHAIN_FILE)
         if(NOT _rc EQUAL 0)
             message(FATAL_ERROR "vcpkg: bootstrapping failed (${_rc})")
         endif()
+        string(TIMESTAMP _t3 "%s" UTC)
+        math(EXPR _bootstrap_s "${_t3} - ${_t2}")
+        message(STATUS "vcpkg: bootstrapped in ${_bootstrap_s} s")
         file(TOUCH "${_vcpkg}/.glideslope-bootstrapped")
     endif()
     file(LOCK "${_vcpkg}.lock" RELEASE)
