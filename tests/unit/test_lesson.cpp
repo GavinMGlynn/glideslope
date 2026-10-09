@@ -4563,6 +4563,170 @@ GLIDESLOPE_TEST(an_aeroplane_going_around_beside_rising_ground_flies_its_circuit
     every_landplane_goes_around(true);
 }
 
+namespace {
+
+// **How an approach is begun, for the stabilized-approach tests**: as
+// put_on_final has her, two miles out on the glidepath; or fast; or high.
+enum class Arriving { as_flown, fast, high };
+
+struct Arrival {
+    std::string why;      // why she went around by herself, or empty
+    bool circuit = false; // flew the go-around's circuit
+    bool stopped = false; // stopped on the runway (as flown: down on it)
+    std::string wreck;
+};
+
+Arrival arrive(const glideslope::sim::CatalogueEntry& entry,
+               const glideslope::sim::Runway& runway,
+               const glideslope::sim::ApproachSpeeds& published, Arriving how) {
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    put_on_final(aircraft, entry, runway, published);
+    if (how != Arriving::as_flown) {
+        // **Built, not hoped for.** Fast: 20 kt over her reference speed at
+        // 495 ft on the glidepath, just under the gate - started above it,
+        // her throttle took some or all of the knots off before she reached
+        // it, as much as it could in the seconds she had. High: a kilometre before the threshold at
+        // 450 ft, 227 ft over the glidepath - under the gate, and that high
+        // her path down would meet the runway past the zone's end.
+        const bool fast = how == Arriving::fast;
+        const double gp = std::tan(3.0 / degrees);
+        const double out_m = fast ? 495.0 / feet_per_metre / gp - published.aim_m : 1000.0;
+        const double above_ft = fast ? 495.0 : 450.0;
+        const double heading = runway.heading_deg / degrees;
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg =
+            runway.threshold_lat_deg + (-out_m * std::cos(heading)) /
+                                           metres_per_degree_latitude(runway.threshold_lat_deg);
+        ic.longitude_deg =
+            runway.threshold_lon_deg + (-out_m * std::sin(heading)) /
+                                           metres_per_degree_longitude(runway.threshold_lat_deg);
+        ic.altitude_ft = runway.elevation_ft + above_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.airspeed_kts = published.vref_kts + (fast ? 20.0 : 0.0);
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        ic.flaps = published.flap;
+        ic.speedbrake = published.speedbrake;
+        // Fast, she is trimmed level, under power: at idle down the
+        // glidepath an A320 20 kt over her reference speed gathers speed, and
+        // JSBSim cannot trim her so. (Nor the Mosquito level: she is flown
+        // from as she is put, and goes around at once all the same.)
+        ic.flight_path_deg = fast ? 0.0 : -3.0;
+        ic.trim = true;
+        aircraft.initialize(ic);
+    }
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    glideslope::sim::Controller controller(aircraft, flying);
+    controller.to_ai_approach(runway, published);
+    controller.limit_speed(glideslope::sim::plan_speeds(data(), entry.model).fastest_kts);
+    glideslope::sim::GroundJudge judge(false);
+    Arrival a;
+    for (int tick = 0; tick < 1800 * steps_per_second; ++tick) {
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        if (const auto* l = controller.lander();
+            l && a.why.empty() && !l->why_gone_around().empty()) {
+            a.why = l->why_gone_around();
+        }
+        a.circuit = a.circuit || controller.circuit() != nullptr;
+        if (const auto what = judge.judge(aircraft)) {
+            a.wreck = *what;
+            break;
+        }
+        if (controller.circuit() == nullptr && controller.lander() &&
+            controller.lander()->stage() == glideslope::sim::Lander::Stage::stopped) {
+            const glideslope::sim::AircraftState s = aircraft.state();
+            const auto at =
+                glideslope::sim::on_runway_frame(runway, s.latitude_deg, s.longitude_deg);
+            a.stopped = at.along_m >= 0.0 && at.along_m <= runway.length_m &&
+                        std::abs(at.across_m) <= glideslope::sim::Lander::runway_half_width_m;
+            break;
+        }
+        // An approach flown well is over, for this, once she is down.
+        if (how == Arriving::as_flown && a.why.empty() && controller.lander() &&
+            controller.lander()->touched()) {
+            a.stopped = true;
+            break;
+        }
+    }
+    return a;
+}
+
+// Every landplane taught the approach (the flying boat named: it has no
+// runway to fly round to), arriving `how`: an approach that is not
+// stabilized goes around, for the reason it is not, is flown round the
+// circuit and lands, stopped on the runway; one that is touches down with
+// no go-around.
+void every_landplane_arriving(Arriving how) {
+    const auto taught = everyone_taught("approach-and-landing");
+    const glideslope::sim::Runway runway = a_runway();
+    std::size_t flown = 0;
+    std::size_t left_out = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat has no runway to fly round to\n",
+                        id.c_str());
+            ++left_out;
+            continue;
+        }
+        const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+        const Arrival a = arrive(entry, runway, published, how);
+        std::printf("  %-13s %s%s%s%s%s\n", id.c_str(),
+                    a.why.empty() ? "no go-around" : "went around: ", a.why.c_str(),
+                    a.circuit ? ", flew the circuit" : "", a.stopped ? ", landed" : ", NOT LANDED",
+                    a.wreck.empty() ? "" : (", wrecked: " + a.wreck).c_str());
+        ++flown;
+        const bool should = how != Arriving::as_flown;
+        const std::string want = how == Arriving::fast ? "kt fast" : "touchdown zone";
+        if (should && a.why.find(want) == std::string::npos) {
+            wrong.push_back(id + " did not go around for '" + want + "': '" + a.why + "'");
+        }
+        if (!should && !a.why.empty()) {
+            wrong.push_back(id + " went around from an approach flown well: " + a.why);
+        }
+        if (should && !a.circuit) {
+            wrong.push_back(id + " was not flown round the circuit");
+        }
+        if (!a.wreck.empty() || !a.stopped) {
+            wrong.push_back(id + " did not land: " + a.wreck);
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(flown + left_out == taught.size() && left_out == 1,
+          "every landplane taught the approach arrived, the flying boat named: " +
+              std::to_string(flown) + " of " + std::to_string(taught.size() - left_out));
+}
+
+} // namespace
+
+// **An approach flown 20 kt fast goes around and then lands**: under the
+// 500 ft gate more than ten knots over her reference speed is not a
+// stabilized approach (sim::StabilizedApproach).
+GLIDESLOPE_TEST(an_approach_twenty_knots_fast_at_the_gate_goes_around_and_lands) {
+    every_landplane_arriving(Arriving::fast);
+}
+
+// **An approach too high to touch down in the touchdown zone goes around
+// and then lands.**
+GLIDESLOPE_TEST(an_approach_too_high_to_touch_down_in_the_zone_goes_around_and_lands) {
+    every_landplane_arriving(Arriving::high);
+}
+
+// **And an approach flown well does not go around**: from two miles out on
+// the glidepath at her reference speed, she touches down with no go-around.
+GLIDESLOPE_TEST(a_stabilized_approach_does_not_go_around) {
+    every_landplane_arriving(Arriving::as_flown);
+}
+
 // **The speed raised for a climb is never raised past the fastest she may
 // hold** (Autopilot::limit_speed). Built where it is raised: the F-35B, the
 // aeroplane whose nose reaches its stop short of the climb round a

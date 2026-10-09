@@ -34,6 +34,7 @@
 #include "sim/leaner.hpp"
 #include "sim/plan.hpp"
 
+#include <algorithm>
 #include <filesystem>
 #include <optional>
 #include <string>
@@ -89,6 +90,45 @@ bool publishes_approach_speed(const std::filesystem::path& data, const std::stri
 std::optional<ApproachSpeeds> landing_speeds(const std::filesystem::path& data,
                                              const std::string& model);
 
+// **A stabilized approach, or a go-around.** The FAA's criteria for a visual
+// approach: stabilized by 500 ft over the runway (the FAA Safety Team's "It's
+// All in Your Approach", and FSF ALAR Briefing Note 7.1's VMC gate), on speed
+// within +10/-5 knots of the approach speed (the Private Pilot Airman
+// Certification Standards, FAA-S-ACS-6, "Normal Approach and Landing": the
+// recommended approach speed or 1.3 Vso, +10/-5 knots), and down in the
+// touchdown zone - the first third of the runway (Airplane Flying Handbook,
+// FAA-H-8083-3C, chapter 9) or its first 3,000 ft (the Pilot/Controller
+// Glossary's touchdown zone), whichever is less. An approach that is not, at
+// and below the gate, is gone around from (AC 120-71B, appendix on
+// stabilized approaches). Nothing here is per aircraft: the speed is each
+// one's own `vref_kts`, from its figures.
+struct StabilizedApproach {
+    static constexpr double gate_ft = 500.0;
+    static constexpr double most_fast_kts = 10.0;
+    static constexpr double most_slow_kts = 5.0;
+    // **The speed is judged down to fifty feet**, the height an approach
+    // crosses the threshold at: below it the flare takes the speed off on
+    // purpose.
+    static constexpr double speed_judged_down_to_ft = 50.0;
+    static constexpr double longest_zone_m = 914.4; // 3,000 ft
+    // The touchdown zone's far end, metres past the threshold.
+    static double touchdown_zone_m(const Runway& runway) {
+        return std::min(runway.length_m / 3.0, longest_zone_m);
+    }
+};
+
+// **Why an approach not yet down must be gone around from**, in words, or
+// empty while it is stabilized: `along_m` before the threshold (negative
+// past it) and `above_m` over its elevation, as the Lander measures them,
+// at `kcas`. Above the gate nothing is judged. Below it, the speed outside
+// +10/-5 knots of `vref_kts` down to fifty feet; and, to the touch, a
+// touchdown that will not be in the zone - where her path down the glidepath
+// from here would meet the runway (her height over the threshold's elevation
+// at the glidepath's angle, ahead of where she is) is past the zone's end,
+// which once she is past the end herself and still in the air it is.
+std::string unstabilized(const Runway& runway, const ApproachSpeeds& speeds, double glidepath_deg,
+                         double along_m, double above_m, double kcas);
+
 class Lander {
 public:
     enum class Stage { approach, flare, rollout, stopped, go_around };
@@ -101,8 +141,12 @@ public:
     bool gone_around() const;
     // **Go around now**, as told to - by a controller, or the runway not
     // clear: from the approach or the flare, not once she has touched. The
-    // go-around is flown as one from a balloon is.
-    void go_around();
+    // go-around is flown as one from a balloon is. `why`, when it is her own
+    // reason (an approach not stabilized), for `why_gone_around`.
+    void go_around(std::string why = {});
+    // **Why she went around by herself**, from an approach not stabilized
+    // (`unstabilized`) or a balloon; empty if she has not, or was told to.
+    const std::string& why_gone_around() const { return why_gone_around_; }
 
     Lander(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
            double glidepath_deg = 3.0);
@@ -134,6 +178,7 @@ public:
     // round to again (sim/circuit.hpp).
     const Runway& runway() const { return runway_; }
     const ApproachSpeeds& speeds() const { return speeds_; }
+    double glidepath_deg() const;
 
     // **The most incidence the flare raises the nose to**: twelve degrees,
     // or four over what she flew the glidepath at, short of the stall
@@ -202,6 +247,7 @@ private:
     ApproachSpeeds speeds_;
     double glidepath_rad_ = 0.0;
     Stage stage_ = Stage::approach;
+    std::string why_gone_around_;
 
     double along_m_ = 0.0;
     double across_m_ = 0.0;

@@ -855,15 +855,22 @@ Found while implementing something else. Added when found, not when remembered.
       balloons, and the Mosquito at her heaviest. *Verification: every
       aeroplane lands light, heavy and in gusts with none named, and a
       gust on an approach flown well makes no go-around.*
-- [ ] **The AI does not go around from a landing that is only long or
-      fast, and its circuit knows no traffic.** Since 2026-10-08 a go-around
-      is cleaned up and flown round a circuit, at its height over the
-      highest ground of it, to land again; but only a balloon makes it go
-      around by itself, and nothing sequences it with other aircraft in the
-      circuit beyond the separation monitor's height limits. *Verification:
-      an aeroplane that goes around is flown round and landed (done), one
-      arriving long or fast goes around, and two going around together are
-      kept apart and both land.*
+- [ ] **The AI's go-around circuit knows no traffic.** Since 2026-10-09 an
+      approach fast or slow under 500 ft, or that would touch down past the
+      touchdown zone, goes around by the FAA's stabilized-approach criteria
+      and is flown round to land; but nothing sequences two circuits beyond
+      the separation monitor's height limits. *Verification: an aeroplane
+      that goes around is flown round and landed (done), one arriving long or
+      fast goes around (done), and two going around together are kept apart
+      and both land.*
+- [ ] **The learnt landing flies its approach up to 35 kt fast**: from its
+      gate's corners it passes 500 ft outside the stabilized-approach speeds,
+      so it is not held to them. *Verification: from every corner of its gate
+      it is stabilized by 500 ft and lands.*
+- [ ] **On a runway shorter than about 900 m the approach aims past the
+      touchdown zone**, and would go around however it was flown.
+      *Verification: every landplane lands on a short runway, touching down
+      in its first third.*
 - [x] **The F-35B climbs away on a raised go-around circuit**: over ground
       rising beside the runway, on the downwind leg at 2,900 ft she climbs
       to 6,000 ft and flies on past base. *Verification: she flies the

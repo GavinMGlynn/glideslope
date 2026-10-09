@@ -5,6 +5,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 #include <stdexcept>
 
 namespace glideslope::sim {
@@ -270,11 +271,49 @@ Lander Lander::on_its_roll(const Aircraft& aircraft, const ApproachSpeeds& speed
     return l;
 }
 
-void Lander::go_around() {
+std::string unstabilized(const Runway& runway, const ApproachSpeeds& speeds, double glidepath_deg,
+                         double along_m, double above_m, double kcas) {
+    const double above_ft = above_m * feet_per_metre;
+    if (above_ft > StabilizedApproach::gate_ft) {
+        return {};
+    }
+    char why[160];
+    if (above_ft >= StabilizedApproach::speed_judged_down_to_ft) {
+        const double over_kts = kcas - speeds.vref_kts;
+        if (over_kts > StabilizedApproach::most_fast_kts) {
+            std::snprintf(why, sizeof why, "%.0f kt fast at %.0f ft; no more than %.0f", over_kts,
+                          above_ft, StabilizedApproach::most_fast_kts);
+            return why;
+        }
+        if (-over_kts > StabilizedApproach::most_slow_kts) {
+            std::snprintf(why, sizeof why, "%.0f kt slow at %.0f ft; no more than %.0f",
+                          -over_kts, above_ft, StabilizedApproach::most_slow_kts);
+            return why;
+        }
+    }
+    const double zone_m = StabilizedApproach::touchdown_zone_m(runway);
+    const double touches_m =
+        -along_m + std::max(0.0, above_m) / std::tan(glidepath_deg / degrees);
+    if (touches_m > zone_m) {
+        std::snprintf(why, sizeof why,
+                      "would touch down %.0f m past the threshold; the touchdown zone ends at "
+                      "%.0f m",
+                      touches_m, zone_m);
+        return why;
+    }
+    return {};
+}
+
+double Lander::glidepath_deg() const {
+    return glidepath_rad_ * degrees;
+}
+
+void Lander::go_around(std::string why) {
     if (touched_ || (stage_ != Stage::approach && stage_ != Stage::flare)) {
         return;
     }
     stage_ = Stage::go_around;
+    why_gone_around_ = std::move(why);
     // From the attitude and the power she has, so that nothing steps.
     flare_pitch_ = a_.state().pitch_deg;
     last_throttle_ = a_.property("fcs/throttle-cmd-norm[0]");
@@ -449,6 +488,15 @@ Controls Lander::fly_laws() {
     if (stage_ == Stage::flare && !on_ground && s.climb_rate_fpm > 0.0 &&
         above_m_ * feet_per_metre - wheels_hang_ft(s) > flare_height_ft()) {
         stage_ = Stage::go_around;
+        why_gone_around_ = "a balloon above the flare";
+    }
+    // **Not stabilized at and below the gate: go around** (StabilizedApproach).
+    if (!touched_ && (stage_ == Stage::approach || stage_ == Stage::flare)) {
+        std::string why = unstabilized(runway_, speeds_, glidepath_deg(), along_m_,
+                                       above_m_, kcas);
+        if (!why.empty()) {
+            go_around(std::move(why));
+        }
     }
 
     // --- where the nose points -------------------------------------------
@@ -704,7 +752,17 @@ Controls Lander::fly_laws() {
         last_throttle_ = c.throttle;
         c.speedbrake = 0.0;
         const double alpha_deg = a_.property("aero/alpha-deg");
-        const double want_alpha_deg = path_alpha_known_ ? path_alpha_deg_ : 8.0;
+        // **And more of it while she still sinks**, up to the flare's own
+        // limit, short of the stall: the attitude that stops the descent.
+        // The path's incidence alone was learnt on a path flown at her
+        // reference speed; an approach gone around from twenty knots fast,
+        // two seconds after it began, had learnt a jet's wing at next to no
+        // lift, and holding that at full power an A320 dived on into the
+        // ground at 5,000 ft/min. A degree for each 200 ft/min of sink.
+        const double sinking_deg = std::max(0.0, -s.climb_rate_fpm) / 200.0;
+        const double want_alpha_deg =
+            std::min(most_flare_alpha_deg(),
+                     (path_alpha_known_ ? path_alpha_deg_ : 8.0) + sinking_deg);
         const double toward = s.pitch_deg + (want_alpha_deg - alpha_deg);
         flare_pitch_ = std::clamp(toward, flare_pitch_ - 3.0 / steps_per_second,
                                   flare_pitch_ + 3.0 / steps_per_second);

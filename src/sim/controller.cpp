@@ -327,6 +327,11 @@ Controls Controller::fly() {
             go_around();
             return fly();
         }
+        // **The learnt landing is not judged by the stabilized-approach
+        // gate** (StabilizedApproach): its policy was trained to land, not
+        // to hold its speed, and from all 160 corners of its own gate it
+        // passes 500 ft up to 35 kt over the reference speed - and lands
+        // within its limits. Its gate box is what admits it.
         if (learnt_) {
             if (learnt_->stage() != LearntLander::Stage::stopped) {
                 const Controls landing = learnt_->fly();
