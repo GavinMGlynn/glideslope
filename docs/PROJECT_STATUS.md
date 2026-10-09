@@ -265,7 +265,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Why the learnt landing flies fast, and a first try at training it stabilized, 2026-10-10 — item still open
+### Why the learnt landing flies fast, and two rounds of training it stabilized, 2026-10-10 — item still open
 
 **What is not done first.** The item. No checkpoint trained here is
 stabilized by 500 ft from its gate's corners, so the committed policy is
@@ -292,7 +292,7 @@ them in JSBSim's Python bindings, judged as sim::unstabilized judges, two
 seconds running between 500 and 50 ft): 160 of 160 unstabilized; at most
 35.3 kt fast and 9.5 kt slow; all 160 land within the limits (worst 190
 ft/min, 2.14 m). In C++, with the gate judging the learnt landing (a change
-made and taken out again, below), the calm corners went round at "31 kt fast
+made and kept off this branch, below), the calm corners went round at "31 kt fast
 at 482 ft" and the like, 41 to 53 s running.
 
 **The reward** (tools/rl/env.py, `STABILIZED`): each tenth of a second
@@ -340,14 +340,83 @@ which sets no gate runway, the learnt landing's own - counting it as the
 gate's go-around; the 160-corner tests also asserting stabilized; and a
 new test building the go-around explicitly with 25 kt of wind shear at
 400 ft. With the committed policy the corner tests went red as above
-(seen to fail). Not committed: with no policy that meets the gate it would
-send the learnt landing round from every corner.
+(seen to fail). Not merged: with no policy that meets the gate it would
+send the learnt landing round from every corner. Kept on the branch
+`learnt-landing-gate-wip` (below).
 
 **Verification** (linux-release, DISPLAY and WAYLAND_DISPLAY unset): nothing
 under src/ or tests/ changes. The selftest hash does not move
 (`182dd6c996e0ee4c`): it flies a pilot's input log and no approach, so a new
 policy would not move it either. tools/rl is not built or tested by ctest;
 env.py was run by the three trainings above and by the scratch evaluation.
+
+**A second round, the same day: still no policy, and why.** Starting again
+from the committed checkpoint (step27000004), as the first round's next step
+said:
+- **The speed costed down to where the simulation's flare begins**, 20 ft over
+  the runway (sim::Lander flares the C172P at a quarter of a foot a knot, 15
+  ft, with her wheels about 5 ft below where her height is measured from), not
+  the gate's 50 ft.
+- **Outside the gate's own +10/-5 kt costs 2.0 a decision.** The touch's sink
+  term is 40 exp(-(sink/250)^2) - sink/50: 40 at no sink, 31 at the slow
+  flare's 106 ft/min, 3.5 at 300 - so at most 36.5 between the softest touch
+  and the limit. The gate's two seconds are twenty decisions, which at 2.0
+  cost 40.
+- **Going wrong is no way out of it.** In the first try of this round (0.05 a
+  knot, learning rate 1e-4), a policy 25 kt fast was charged some 2.6 a
+  decision for 700 decisions, far more than the 70 for going wrong in the air.
+  Its landings within the limits fell from 399 of 400 to 179 in 1.2 million
+  decisions. Going wrong now costs as well the most the speed could still
+  have cost from there (`speed_cost_left`, at 300 ft/min), and the knot is
+  back to 0.02.
+
+Every one of these runs came apart within a million decisions. The
+training's landings within the limits fell from 399 of 400 to 91 (learning
+rate 3e-5) and to 291 (1e-4). The checkpoints flew faster, not slower: 37 to
+52 kt fast at the corners. **The likely cause, not proven:** costing the
+speed down to 20 ft charges the policy's own long flare, which bleeds the
+speed from 100 ft. The nearest way out it finds is to come down faster, so
+that it is still on speed low down. Learning a later flare, its whole
+touchdown, is a much larger change than a fine-tune at these rates makes
+before its landings fail.
+
+**Every checkpoint, at the gate's 160 corners** (tools/rl/corners.py, now
+committed: "unstabilized" is the gate's two seconds running outside +10/-5
+kt between 500 and 50 ft; "outside limits" is evaluate.py's landing limits
+of 300 ft/min, 5 m and on the runway):
+
+| run | reward | checkpoint | unstabilized | outside limits | most fast / slow kt | worst sink, across |
+| --- | --- | --- | --- | --- | --- | --- |
+| committed | potential only | 27.0M | 160 | 0 | 35.3 / 9.5 | 190, 2.14 m |
+| 1 (lr 1e-4) | 0.02/kt to 50 ft | 28M | 156 | 28 | 46.9 / 13.7 | 178, 5.87 m |
+| 1 | | 29M | 94 | 3 | 18.1 / 12.7 | 197, 6.27 m |
+| 1 | | **30M** | **86** | **0** | 15.6 / 10.0 | 177, 4.73 m |
+| 1 | | 31M | 52 | 91 | 17.7 / 8.2 | 179, 11.78 m |
+| 2 (from 30M, 3e-5) | same | 31M | 160 | 110 | 15.6 / 12.6 | 192, 12.18 m |
+| 3 (from 30M, 3e-5) | 0.05/kt + 0.3 outside the gate, to 50 ft | 31M | 160 | 120 | 15.6 / 13.0 | 143, 9.68 m |
+| 4 (1e-4) | 0.05/kt + 2.0, to 20 ft | 27.5M | 160 | 43 | 40.6 / 17.2 | 369, 8.63 m |
+| 4 | | 28M | 156 | 111 | 52.3 / 20.4 | 850, 28.52 m |
+| 5 (1e-4) | 0.02/kt + 2.0 to 20 ft, going wrong charged | 27.5M | 160 | 29 | 49.3 / 16.7 | 288, 5.91 m |
+| 6 (3e-5) | same as 5 | 27.5M | 160 | 94 | 24.6 / 17.5 | 206, 5.89 m |
+| 6 | | 28M | 154 | 159 | 37.2 / 21.4 | 948, 27.75 m |
+
+All runs used seed 160 and four environments, niced, with the noise held
+(`--log-std -2.5257`). Runs 4 to 6 saved a checkpoint every half million
+decisions (`--every`) and were stopped once they had come apart. **Best on
+both counts: run 1's 30M**, with 0 outside the limits and 86 of 160 sent
+round - not good enough to commit. tools/rl/env.py is left with run 5 and
+6's reward, which nothing committed was trained with.
+
+**What remains for the item:**
+- A policy that holds its speed to the flare and flares late. That probably
+  means training the flare as its own stage, or starting from the approach
+  autopilot's flare (sim::Lander's, which already lands every corner
+  stabilized), rather than fine-tuning this policy into it.
+- The gate's C++ judging is kept on the pushed branch
+  `learnt-landing-gate-wip` (c22e42d7, not for merging): LearntLander judged
+  at its policy's speed, the controller going around for it, the corner tests
+  asserting it, and the wind-shear go-around test. It is to be rebased on
+  once a policy meets the gate.
 
 ### From the review of #162: handed over at any moment of a take-off's first 40 s, a touch-and-go, and the controllers' figures tested, 2026-10-10 — item stays done
 

@@ -648,9 +648,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. *Verification: from every
       corner of its gate it is stabilized by 500 ft and lands.* Found
-      2026-10-10: its training rewarded the touch alone; now it costs the
-      speed from 500 ft down, but trained with it the policy flares from
-      100 ft, 10 kt slow, and no policy that meets the gate is trained yet.
+      2026-10-10: its training rewarded the touch alone. Costing the speed,
+      the policy then flares from 100 ft, 10 kt slow; costing it lower
+      wrecks its landings. The best try still fails the gate at 86 of 160
+      corners, so the flare must be trained afresh.
 - [x] **A landing taken over on its roll is braked for a dry runway**: a
       wet or contaminated one, which needs more, is not known.
       *Verification: on a wet short runway an aeroplane handed over on its
