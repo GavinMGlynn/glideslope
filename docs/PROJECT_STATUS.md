@@ -279,8 +279,8 @@ waypoint before it.
 (`sim/orbit_trial.hpp`) flies an aircraft at 3,000 ft from 5 km short of a
 waypoint at the orbit's centre, half a radius out, on the circle or two
 radii out, south of the centre, arriving from each of the eight points of
-the compass, then once round the orbit. `the_<jet>_enters_an_orbit_from_a_waypoint_and_holds_its_circle`,
-one for each of the ten jets (the airliners, the business jet, the fighters
+the compass, then once round the orbit. `the_<jet>_enters_an_orbit_from_a_waypoint_..._and_holds_its_circle`,
+for each of the ten jets (the airliners, the business jet, the fighters
 and the bomber; `every_jet_has_its_own_test_of_entering_an_orbit_from_a_waypoint`
 holds the list to the catalogue's), flies each at 220 kt - the speed
 Claude asked of both - or the nearest its plan speeds allow, round the
@@ -388,9 +388,25 @@ green; the five that ask a model now report themselves skipped.
 
 The selftest hash does not move (`182dd6c996e0ee4c`, linux-release): it
 flies the test pilot, not the navigator. The new tests' entries in
-`tests/ci_costs/*.txt` are **estimates** - 45 s each in the release
-builds (30 to 41 s locally), 60 on Windows' release and clang, 135 in the
-debug builds - until `tools/ci_test_costs.py` measures them.
+`tests/ci_costs/*.txt` are **estimates** (below) until
+`tools/ci_test_costs.py` measures them.
+
+**Split for CI's time** (after #154's first CI run): as one test a jet,
+the F-15C's, A320's and A380's ran past ctest's 900 s in CI's linux-debug
+(run 37957098079). Each jet's 60 entries are now five tests, none dropped:
+`..._in_calm_air_heading_north_or_northeast_...` (arriving at 0 and 45
+degrees, with the centre's: 14 entries), `..._heading_east_or_southeast_...`,
+`..._heading_south_or_southwest_...` and `..._heading_west_or_northwest_...`
+(12 each), and `..._in_a_20_kt_wind_...` (10). Each asserts its own count;
+`every_jet_enters_every_orbit_entry_once_across_its_five_tests` builds the
+whole space (60) and the five parts and asserts every entry is in exactly
+one. Halves of the compass were tried first: the F-22A's ran 291 and 315 s
+locally in linux-debug. In quarters, locally in linux-debug four at a time,
+the 50 tests took 56 to 94 s, the F-22A's 111 to 150 (its north quarter).
+The ci_costs entries are those times x2.2 for the debug builds (CI's
+linux-debug took over 900 s for what took about 410 here) and x0.15 for
+the release builds (a tenth of debug here, and half again for CI's
+runners) - estimates still.
 
 ### The autopilot takes a light aeroplane from her take-off within 2 kt of her climb speed: its climb loop starts from her pitch, and its throttle reads the speed's trend, 2026-10-09 — item done
 
