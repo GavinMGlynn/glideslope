@@ -2445,7 +2445,10 @@ struct InFlight {
 // it was still on its way down to, and never reached the height that ends the
 // first stage. The four light aircraft never showed this because their cruise
 // and their climb are twenty knots apart.
-InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0) {
+// `loading`, where given, is what she is loaded with in place of the one her
+// figures were measured at.
+InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0,
+                  const glideslope::sim::Loading* loading = nullptr) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     InFlight out;
     out.aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim",
@@ -2462,7 +2465,11 @@ InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0)
         start_kcas > 0.0 ? start_kcas : entry.start_airspeed_kts;
     ic.engine_running = true;
     ic.gear = 0.0;
-    load_as_its_figures_were_measured(*out.aircraft, entry.model);
+    if (loading != nullptr) {
+        out.aircraft->load(*loading);
+    } else {
+        load_as_its_figures_were_measured(*out.aircraft, entry.model);
+    }
     out.aircraft->initialize(ic);
     // **An aeroplane that publishes no figures still has lessons.** Eleven of
     // the sixteen publish no stall speed and most publish no rate of climb,
@@ -3644,6 +3651,58 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
     check(flown + not_watched == roster.size() && not_watched == 2,
           "every aeroplane flown, or named as unwatched: " + std::to_string(flown) + " and " +
               std::to_string(not_watched));
+}
+
+
+// **The AI's stall warning is for what she weighs.** The B-2A at her maximum
+// loading, 336,500 lb, against the 177,160 lb light loading her published
+// stall (95.4 kt) was measured at: slowed by the AI asked to hold her height
+// at ten knots under her published stall, she is noticed at her warning for
+// her weight - her stall scaled by the square root of the weights
+// (sim::for_weight), 131 kt, plus its margin - and not at the light
+// loading's, 100 kt, which she would stall long before.
+GLIDESLOPE_TEST(the_ai_pilot_notices_a_heavy_b2a_stall_coming_at_the_warning_for_her_weight) {
+    const auto entry = glideslope::sim::find_aircraft(data(), "b2");
+    const std::optional<glideslope::sim::ApproachSpeeds> lands =
+        glideslope::sim::landing_speeds(data(), entry.model);
+    check(lands.has_value(), "the B-2A publishes how she lands");
+    const auto figures = glideslope::sim::read_published_figures(
+        data() / "figures" / (entry.model + ".xml"));
+    check(figures.loadings.count("maximum") == 1, "the B-2A's figures name her maximum loading");
+    InFlight f = airborne("b2", stalls_are_practised_at(entry), 0.0,
+                          &figures.loadings.at("maximum").loading);
+    const double weight_lbs = f.aircraft->property("inertia/weight-lbs");
+    const glideslope::sim::ApproachSpeeds heavy = glideslope::sim::for_weight(*lands, weight_lbs);
+    const double warning_kts = heavy.stall_kts + std::max(5.0, 0.05 * heavy.stall_kts);
+    glideslope::sim::Controls held;
+    held.throttle = 0.6;
+    held.flaps = lands->flap;
+    held.speedbrake = lands->speedbrake;
+    held.gear = 1.0;
+    glideslope::sim::Controller controller(*f.aircraft, held);
+    controller.lands_with(*lands);
+    controller.to_ai();
+    glideslope::sim::AutopilotModes modes = controller.autopilot()->modes();
+    modes.heading_deg = f.start_heading_deg;
+    modes.altitude_ft = f.aircraft->property("position/h-sl-ft");
+    modes.airspeed_kts = lands->stall_kts - 10.0;
+    controller.autopilot()->set(modes);
+    double noticed_at = -1.0;
+    for (int tick = 0; tick < 300 * steps_per_second && noticed_at < 0.0; ++tick) {
+        const glideslope::sim::Controls c = controller.fly();
+        f.aircraft->set_controls(c);
+        f.aircraft->step();
+        if (controller.recovering_from_a_stall()) {
+            noticed_at = f.aircraft->property("velocities/vc-kts");
+        }
+    }
+    std::printf("  b2 at %.0f lb: stall for her weight %.1f kt, warning %.1f; published stall "
+                "%.1f; noticed at %.1f kt\n",
+                weight_lbs, heavy.stall_kts, warning_kts, lands->stall_kts, noticed_at);
+    check(weight_lbs > 300000.0, "she is heavy: " + std::to_string(weight_lbs) + " lb");
+    check(noticed_at >= warning_kts - 1.0,
+          "noticed at her warning for her weight, " + std::to_string(warning_kts) +
+              " kt, not at " + std::to_string(noticed_at));
 }
 
 // **The stall recovery takes the flaps up to a go-around's, at a hand's pace,

@@ -212,8 +212,8 @@ AutopilotModes Controller::gliding(AutopilotModes modes) {
 // first sign of it, its warning, which the rules have sound no less than 5
 // knots or 5% above the stall, whichever is more (14 CFR 25.207(c)), the
 // same margin the stall lessons give theirs. The stall is her published one
-// with everything down (`lands_with`): the lowest she has, so in any other
-// configuration the warning comes late, never early; an aeroplane that
+// with everything down (`lands_with`), scaled to what she weighs now: the
+// lowest she has, so clean or banked the warning comes late, never early; an aeroplane that
 // publishes none is not watched. **The recovery is the autopilot's own**
 // (AutopilotModes::speed_on_elevator): the nose down until the wing is
 // unloaded, full power, and the speed flown to her approach speed - the
@@ -231,10 +231,14 @@ void Controller::notice_a_stall() {
     constexpr double margin_of_stall = 0.05;
     constexpr double level_within_fpm = 100.0;
     constexpr int recovered_for = 5 * steps_per_second;
-    const double stall_kts = landing_speeds_->stall_kts;
+    // **At what she weighs now** (`for_weight`): the figures' stall is for
+    // the loading it was measured at, and a B-2A at 327,000 lb stalls far
+    // above her light loading's 95 kt.
+    const ApproachSpeeds speeds = for_weight(*landing_speeds_, a_.property("inertia/weight-lbs"));
+    const double stall_kts = speeds.stall_kts;
     const double warning_kts =
         stall_kts + std::max(least_margin_kts, margin_of_stall * stall_kts);
-    const double recovered_kts = landing_speeds_->vref_kts;
+    const double recovered_kts = speeds.vref_kts;
     const double kts = a_.property("velocities/vc-kts");
     if (!before_the_stall_) {
         // **Noticed again only once clear of the warning by its own margin
