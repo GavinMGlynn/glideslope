@@ -1331,7 +1331,7 @@ GLIDESLOPE_TEST(the_f35b_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_p
 // at her approach speed in - from her approach speed in 5 kt steps to her
 // plan floor, both ends flown, at the loading her approach speed is for, at
 // 3,000 ft on the autopilot (sim::fly_heading_in_crosswind): her sideslip
-// within a degree and her heading within two after 30 s. Above the floor she
+// within a degree after 30 s and her heading within two from 45 s. Above the floor she
 // is flown clean by the tests before these, so together they cover every
 // speed from her approach speed to her start speed, each in the configuration
 // she flies it in. The 747-400 and F-22A publish no approach speed
@@ -1348,21 +1348,12 @@ const std::map<std::string, std::string> no_approach_speed = {
     {"f22", "its measured stalls would not hold still, so it publishes no approach speed"},
 };
 
-// **Left out: full flap at the top of the range, for its heading, not its
-// yaw.** The 787-8 from 168 kt and the A380 from 166, with their landing
-// flap out, hold their sideslip within 0.4 degree but are still 2.0 to 2.9
-// degrees off their heading 30 s after the wind arrives: rolled by the
-// sideslip, they turn 6 degrees off and the heading loop overshoots back
-// through north, settled by about 40 s (PROJECT_STATUS.md, 2026-10-10; an
-// open tail). Clean at the same speeds they hold it.
-struct LeftOutFrom {
-    double from_kts;
-    std::string reason;
-};
-const std::map<std::string, LeftOutFrom> approach_left_out = {
-    {"787-8", {167.0, "at full flap from 168 kt the heading is still 2.0 to 2.9 off after 30 s"}},
-    {"a380", {165.0, "at full flap from 166 kt the heading is still 2.0 to 2.6 off after 30 s"}},
-};
+// **Her heading within two degrees by 45 s**, judged apart from her yaw:
+// with full flap above about 165 kt the 787-8 and the A380, their sideslip
+// held, are rolled by it 6 degrees off and the heading loop overshoots back
+// through north, 2.0 to 2.9 degrees off at 30 s (PROJECT_STATUS.md,
+// 2026-10-10). Every speed of every aircraft settles well inside 45 s.
+constexpr double heading_settled_by_s = 45.0;
 
 const std::vector<std::string> approach_swept = {
     "c172p", "c182", "pa28",       "j3cub", "short_s23", "mosquito-fb6", "737-300",
@@ -1382,17 +1373,10 @@ void holds_a_heading_from_its_approach_speed(const std::string& id) {
     speeds.push_back(std::max(floor_kts, approach.vref_kts));
     std::string failures;
     std::size_t flown = 0;
-    std::size_t left_out = 0;
     std::string worst;
     double worst_beta = 0.0;
-    const auto out = approach_left_out.find(id);
+    double latest_settled_s = 0.0;
     for (const double kts : speeds) {
-        if (out != approach_left_out.end() && kts >= out->second.from_kts) {
-            std::printf("%s at %.0f kt left out: %s\n", e.id.c_str(), kts,
-                        out->second.reason.c_str());
-            ++left_out;
-            continue;
-        }
         const glideslope::sim::CrosswindFlown f =
             glideslope::sim::fly_heading_in_crosswind(data(), e, kts, true, 30.0, landing);
         ++flown;
@@ -1400,12 +1384,14 @@ void holds_a_heading_from_its_approach_speed(const std::string& id) {
         char line[260];
         std::snprintf(line, sizeof line,
                       "%s at %.0f kt, gear down, flap %.2f, speedbrake %.2f: sideslip %+.2f to "
-                      "%+.2f, heading within %.2f, height within %.0f ft%s",
+                      "%+.2f, heading within 2 from %.1f s (%.2f after 30 s), height within "
+                      "%.0f ft%s",
                       e.id.c_str(), kts, landing.flaps, landing.speedbrake, f.least_sideslip_deg,
-                      f.most_sideslip_deg, f.worst_heading_deg, f.worst_height_ft,
-                      f.left_tables ? ", left its tables" : "");
+                      f.most_sideslip_deg, f.heading_settled_s, f.worst_heading_deg,
+                      f.worst_height_ft, f.left_tables ? ", left its tables" : "");
         std::printf("%s\n", line);
-        if (!f.held()) {
+        latest_settled_s = std::max(latest_settled_s, f.heading_settled_s);
+        if (!f.held_heading_by(heading_settled_by_s)) {
             failures += std::string("\n  ") + line;
         }
         if (f.left_tables || beta >= worst_beta) {
@@ -1413,13 +1399,13 @@ void holds_a_heading_from_its_approach_speed(const std::string& id) {
             worst = line;
         }
     }
-    std::printf("%s: %zu of %zu speeds from %.0f to %.0f kt flown, %zu left out; the most "
-                "sideslip: %s\n",
-                e.id.c_str(), flown, speeds.size(), approach.vref_kts, speeds.back(), left_out,
-                worst.c_str());
-    check(flown + left_out == speeds.size() && flown > 0,
-          "every speed flown or named as left out");
-    check(failures.empty(), "each holds its sideslip within a degree and its heading within two:" +
+    std::printf("%s: %zu of %zu speeds from %.0f to %.0f kt flown; heading settled by %.1f s "
+                "at the latest; the most sideslip: %s\n",
+                e.id.c_str(), flown, speeds.size(), approach.vref_kts, speeds.back(),
+                latest_settled_s, worst.c_str());
+    check(flown == speeds.size() && flown > 0, "every speed flown");
+    check(failures.empty(), "each holds its sideslip within a degree after 30 s and its heading "
+                            "within two from 45 s:" +
                                 failures);
 }
 

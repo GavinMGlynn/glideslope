@@ -106,6 +106,10 @@ struct CrosswindFlown {
     double slowest_kts = 0.0;
     // From the start:
     double most_sideslip_ever_deg = 0.0;
+    // **When her heading settled**: seconds from the start after which it
+    // stayed within two degrees of north to the end - the step after the
+    // last one more than two off. 0 if it never was.
+    double heading_settled_s = 0.0;
     // **Past its tables**: its alpha or sideslip left what its aerodynamics'
     // tables hold (Aircraft::outside_its_tables), and the flight was stopped
     // there - not held, whatever else it did.
@@ -115,6 +119,13 @@ struct CrosswindFlown {
     bool held() const {
         return !left_tables && -least_sideslip_deg <= 1.0 && most_sideslip_deg <= 1.0 &&
                worst_heading_deg <= 2.0;
+    }
+    // Its sideslip within a degree after `settle_s`, as `held`, and its
+    // heading within two from `heading_by_s` on: a heading loop's settling
+    // judged on its own time, where the yaw is judged by the sideslip.
+    bool held_heading_by(double heading_by_s) const {
+        return !left_tables && -least_sideslip_deg <= 1.0 && most_sideslip_deg <= 1.0 &&
+               heading_settled_s <= heading_by_s;
     }
 };
 // **What a trial is flown in**: clean - gear up where it retracts, flaps

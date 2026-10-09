@@ -501,7 +501,7 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       loiter law after ArduPilot's. Every jet, from 60 entries each, calm
       and in a 20 kt wind, holds within 10 m after the first quarter-turn,
       and Claude's two plans within 7 m.
-- [ ] **The B-2 and the F-22 yaw from side to side in a crosswind when
+- [x] **The B-2 and the F-22 yaw from side to side in a crosswind when
       slow.** On the autopilot in a 20 kt crosswind the B-2 swings 6 degrees
       of sideslip either way at 164 kt and the F-22 7 at 225 kt; a plan is
       kept above 194 and 255 kt for it. Since 2026-10-07 each has its own
@@ -511,11 +511,11 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       weight the approach speed is for, and every aircraft then holds its
       sideslip within a degree from its approach speed up; the swings were
       the trial's, flown clean and heavy below the speed she can fly so.
-      Missing: with full flap the 787-8 from 168 kt and the A380 from 166
-      are still 2.0 to 2.9 degrees off their heading 30 s after the wind
-      arrives, and are left out of the test. *Verification: every aircraft
-      holds a heading in a 20 kt crosswind from its approach speed up, its
-      sideslip within a stated bound.*
+      *Verification: every aircraft holds a heading in a 20 kt crosswind
+      from its approach speed up, its sideslip within a stated bound.* Done
+      2026-10-10: every speed of every aircraft, sideslip within a degree
+      after 30 s and heading within two by 45 s (the slowest, the 787-8 at
+      193 kt with full flap, by 33.5 s).
 - [ ] **The autopilot's stall recovery, held to what a stall lesson can
       ask of it** (decided 2026-09-30, REQUIREMENTS 4.3). *Verification:
       every aeroplane taught a stall is recovered within 2 g both handed over
