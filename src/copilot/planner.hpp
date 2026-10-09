@@ -52,6 +52,9 @@ struct PlanRequest {
     double fastest_kts = 0.0;
     double climb_kts = 0.0;    // its best climb speed
     double cruise_kts = 0.0;   // a comfortable cruise
+    // The runway it needs to land, metres, as the copilot's Brief has it: 0
+    // where nothing published gives one.
+    double landing_need_m = 0.0;
     std::string airport;       // where it stands, "YSSY"
     std::vector<world::RunwayEnd> runways; // that airport's
     // **Where it may land**: runway ends near the airport - its own among

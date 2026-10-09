@@ -435,6 +435,11 @@ GLIDESLOPE_TEST(a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_t
     told_none.fields.clear();
     auto unknown_height = request;
     unknown_height.fields.back().elevation_ft = std::numeric_limits<double>::quiet_NaN();
+    // An aircraft needing more than 29C's 1100 m less a 60 m displaced
+    // threshold: refused for its length, as the runway data has it.
+    auto too_short = request;
+    too_short.landing_need_m = 1100.0 - 60.0 + 1.0;
+    too_short.fields.back().displaced_m = 60.0;
     struct Refusal {
         const glideslope::copilot::PlanRequest* request;
         std::string plan;
@@ -451,6 +456,7 @@ GLIDESLOPE_TEST(a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_t
         {&no_approach, lands, "no approach speed"},
         {&told_none, lands, "none of the runways"},
         {&unknown_height, lands, "none of the runways"},
+        {&too_short, lands, "has 1040 m to land on, and the aircraft needs 1041 m"},
     };
     std::size_t covered = 0;
     for (const Refusal& r : refusals) {
@@ -465,7 +471,7 @@ GLIDESLOPE_TEST(a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_t
               "and the refusal is told back to the model: " + r.says);
         ++covered;
     }
-    check(covered == 7 && refusals.size() == 7, "all 7 ways a plan's landing is refused were tried");
+    check(covered == 8 && refusals.size() == 8, "all 8 ways a plan's landing is refused were tried");
     check(glideslope::copilot::planning_request(no_approach).find(
               "It has no approach speed, so a plan for it does not land") != std::string::npos &&
               glideslope::copilot::planning_request(no_approach).find("Runways it may land on") ==
@@ -474,6 +480,89 @@ GLIDESLOPE_TEST(a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_t
     check(glideslope::copilot::planning_request(unknown_height).find("YSBK runway") ==
               std::string::npos,
           "a runway with no elevation is not offered to land on");
+}
+
+// **Every aircraft is refused a runway just too short for it, and given one
+// just long enough**, by the one landing check both the copilot and the
+// planner ask (copilot::landing_refusal), its need from its figures file:
+// synthetic runways a metre either side of it, one with a displaced
+// threshold, so the length that counts is the one landed on. An aircraft
+// whose file publishes no landing distance is named, and refused nothing for
+// length - even a 10 m runway.
+GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land_on_and_given_a_longer_one) {
+    const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto catalogue = glideslope::sim::read_catalogue(data);
+    // The aircraft whose files say nothing published gives a landing
+    // distance (`<no_landing_distance>`), each file saying why.
+    const std::vector<std::string> unpublished{"b2",           "f15c",      "f22",  "f35b",
+                                               "j3cub",        "learjet35a", "mosquito-fb6",
+                                               "short_s23"};
+    constexpr std::size_t aircraft = 16;
+    check(catalogue.size() == aircraft,
+          "the catalogue holds " + std::to_string(catalogue.size()) + " aircraft, not " +
+              std::to_string(aircraft));
+    std::size_t refused_and_taken = 0;
+    std::vector<std::string> without;
+    for (const auto& entry : catalogue) {
+        const glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, entry.id);
+        const glideslope::copilot::PlanRequest request =
+            glideslope::frontend::plan_request_for(data, entry.id);
+        check(request.landing_need_m == brief.landing_need_m,
+              entry.id + ": the planner and the copilot are held to the same need");
+        // An approach speed to land at, whatever it is: what is asked here is
+        // the length.
+        const double approach_kts = 100.0;
+        const double need_m = brief.landing_need_m;
+        const auto runway = [](double length_m, double displaced_m) {
+            glideslope::world::RunwayEnd end;
+            end.airport = "SYNTH";
+            end.ident = "09";
+            end.latitude_deg = 0.0;
+            end.longitude_deg = 0.0;
+            end.elevation_ft = 0.0;
+            end.heading_deg = 90.0;
+            end.length_m = length_m;
+            end.displaced_m = displaced_m;
+            return end;
+        };
+        const auto landing_on = [](const glideslope::world::RunwayEnd& end) {
+            glideslope::sim::FlightPlan plan;
+            glideslope::sim::Runway r = glideslope::world::as_runway(end, end.elevation_ft);
+            r.name = "SYNTH_09";
+            plan.landing = r;
+            return plan;
+        };
+        const auto why = [&](const glideslope::world::RunwayEnd& end) {
+            return glideslope::copilot::landing_refusal(approach_kts, need_m, landing_on(end),
+                                                        {end});
+        };
+        if (need_m <= 0.0) {
+            without.push_back(entry.id);
+            check(why(runway(10.0, 0.0)).empty(),
+                  entry.id + " publishes no landing distance, and is refused nothing for length");
+            continue;
+        }
+        const auto short_of = runway(need_m - 1.0, 0.0);
+        const auto long_enough = runway(need_m + 1.0, 0.0);
+        // As long, less a displaced threshold that takes it under.
+        const auto displaced = runway(need_m + 1.0, 2.0);
+        const std::string short_why = why(short_of);
+        const std::string displaced_why = why(displaced);
+        const bool ok = short_why.find("to land on, and the aircraft needs") != std::string::npos &&
+                        displaced_why.find("to land on") != std::string::npos &&
+                        why(long_enough).empty();
+        check(ok, entry.id + " needs " + std::to_string(need_m) + " m: just short \"" +
+                      short_why + "\", displaced \"" + displaced_why + "\", just long \"" +
+                      why(long_enough) + "\"");
+        refused_and_taken += ok ? 1U : 0U;
+    }
+    check(without == unpublished, "the aircraft with no published landing distance are the "
+                                  "eight named, and no others");
+    check(refused_and_taken + without.size() == aircraft &&
+              refused_and_taken == aircraft - unpublished.size(),
+          std::to_string(refused_and_taken) + " of " +
+              std::to_string(aircraft - unpublished.size()) +
+              " aircraft with a landing distance refused short and given long");
 }
 
 GLIDESLOPE_TEST(the_runways_a_plan_may_land_on_are_the_nearest_airports_whole_and_no_more_than_the_caps) {

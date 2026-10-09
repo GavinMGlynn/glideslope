@@ -145,4 +145,13 @@
   <glide_speeds slowest_kcas="64">
     64 kt, the slowest a route may fly it, went round unstalled.
   </glide_speeds>
+
+  <landing_distance ft="1350" basis="over_50_ft_obstacle" factor="1.43">
+    Section 1, performance specifications: landing, total distance over 50 ft
+    obstacle 1350 ft (ground roll 590 ft), at its maximum weight, sea level,
+    standard day. Times 1.43, a light aeroplane's margin: the landing distance
+    within 70 per cent of the landing distance available, EASA Air OPS
+    CAT.POL.A.230(a) for performance class B, which the UK CAA's Safety Sense
+    leaflet 7, Aeroplane Performance, recommends to every pilot.
+  </landing_distance>
 </published_figures>

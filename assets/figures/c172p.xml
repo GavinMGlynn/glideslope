@@ -134,4 +134,16 @@
   <glide_speeds slowest_kcas="60">
     60 kt, the slowest a route may fly it, went round unstalled.
   </glide_speeds>
+
+  <landing_distance ft="1280" basis="over_50_ft_obstacle" factor="1.43">
+    Section 1, performance specifications, of the 1985 Model 172P handbook (the
+    printing read for this; the 1981 one above was not to hand): total distance
+    over a 50 ft obstacle 1280 ft - figure 5-11, short field, flaps 30, power
+    off, maximum braking, paved level dry runway, zero wind, 2400 lb, sea level,
+    between its 10 C 1265 ft and 20 C 1295 ft. Times 1.43, a light aeroplane's
+    margin: the landing distance within 70 per cent of the landing distance
+    available, EASA Air OPS CAT.POL.A.230(a) for performance class B, which the
+    UK CAA's Safety Sense leaflet 7, Aeroplane Performance, recommends to every
+    pilot.
+  </landing_distance>
 </published_figures>

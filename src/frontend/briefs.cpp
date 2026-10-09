@@ -26,6 +26,7 @@ copilot::Brief brief_for(const std::filesystem::path& data, const std::string& c
     b.climb_kts = sim::departure_speeds(data, entry.model).climb_kts;
     b.cruise_kts = entry.start_airspeed_kts;
     b.glide_slowest_kts = sim::glide_slowest_kts(data, entry.model);
+    b.landing_need_m = sim::landing_need_m(data, entry.model);
     return b;
 }
 
@@ -40,6 +41,7 @@ copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
     r.fastest_kts = b.fastest_kts;
     r.climb_kts = b.climb_kts;
     r.cruise_kts = b.cruise_kts;
+    r.landing_need_m = b.landing_need_m;
     return r;
 }
 

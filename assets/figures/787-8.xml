@@ -159,4 +159,12 @@
   <glide_speeds slowest_kcas="203">
     203 kt; from 193, the slowest a route may fly it, to 198 it stalled.
   </glide_speeds>
+
+  <landing_distance ft="5400" basis="field_length" factor="1">
+    Figure 3.4.1, page 3-29: FAA/EASA landing runway length, flaps 30, dry
+    runway, sea level, standard day, zero wind, at the 380,000 lb maximum
+    landing weight - about 5,400 ft, read from the chart. Factor 1: a landing
+    field length is already the demonstrated distance over 0.6, the margin of 14
+    CFR 121.195(b), so it is the runway needed as it stands.
+  </landing_distance>
 </published_figures>

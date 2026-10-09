@@ -325,12 +325,12 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
         if (change.glide_kts) {
             return "a glide does not land: it ends over its field";
         }
-        return landing_refusal(b.approach_kts, change.plan, now.fields);
+        return landing_refusal(b.approach_kts, b.landing_need_m, change.plan, now.fields);
     }
     return {};
 }
 
-std::string landing_refusal(double approach_kts, const sim::FlightPlan& plan,
+std::string landing_refusal(double approach_kts, double need_m, const sim::FlightPlan& plan,
                             const std::vector<world::RunwayEnd>& fields) {
     const auto& landing = plan.landing;
     if (!landing) {
@@ -345,9 +345,19 @@ std::string landing_refusal(double approach_kts, const sim::FlightPlan& plan,
                    "is never flown";
         }
     }
-    if (landing_field(fields, *landing) == nullptr) {
+    const world::RunwayEnd* field = landing_field(fields, *landing);
+    if (field == nullptr) {
         return "the landing " + landing->name + " is on none of the runways nearby: copy "
                "one's runway line, with `land` for `runway`";
+    }
+    // **Long enough for it**, as the runway data has it, not as the line was
+    // written: its length less any displaced threshold.
+    const double length_m = world::landing_length_m(*field);
+    if (need_m > 0.0 && length_m < need_m) {
+        return "the runway " + field->airport + " " + field->ident + " has " +
+               std::to_string(static_cast<long>(std::floor(length_m))) +
+               " m to land on, and the aircraft needs " +
+               std::to_string(static_cast<long>(std::ceil(need_m))) + " m: choose a longer one";
     }
     return {};
 }

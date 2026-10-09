@@ -124,4 +124,13 @@
   <takeoff_speeds rotate_kcas="160" climb_kcas="170" flaps_deg="20" weight_lbs="754313">
     Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 155 kt; 160 is written, 5 kt to spare. Rotated at 100 to 150 kt she ran on, and left the ground more than 15 kt past it - at 168 kt from 115 to 150. The climb away: asked 170 to 260 kt, at 500 ft she was never slower than 165.2 kt, 5 kt under the slowest asked - the slowest she climbs away at with her nose held no higher than the take-off autopilot holds it - which is written rounded up. At flaps 20, the take-off field length's, held to 500 ft, and 754,313 lb, the weight her model flies a plan at. Measured again on 2026-10-09 (linux-release): until then the take-off raised its flaps at once from 200 ft, so the climb away was read with them running up, at 187.1 kt.
   </takeoff_speeds>
+
+  <landing_distance ft="6200" basis="field_length" factor="1">
+    Figure 3.4.2, page 3-36: F.A.R. landing runway length, flaps 30, dry runway,
+    sea level, zero wind, at the 574,000 lb maximum landing weight above - about
+    6,200 ft, read from the chart. Factor 1: a landing field length is already
+    the demonstrated distance over 0.6, the margin of 14 CFR 121.195(b), so it
+    is the runway needed as it stands. It has no approach speed, so nothing
+    plans it a landing yet.
+  </landing_distance>
 </published_figures>

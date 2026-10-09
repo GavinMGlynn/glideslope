@@ -154,4 +154,10 @@
   <glide_speeds slowest_kcas="140">
     140 kt, the slowest a route may fly it, went round unstalled.
   </glide_speeds>
+
+  <no_landing_distance>
+    The AFM's landing distance chart is not in the pages of it this project has
+    read, and no other source to hand gives one: no runway is refused it for
+    length until one is read.
+  </no_landing_distance>
 </published_figures>

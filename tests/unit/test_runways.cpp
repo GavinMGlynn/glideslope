@@ -61,6 +61,12 @@ GLIDESLOPE_TEST(a_runways_file_gives_each_open_runway_end_with_a_place_and_a_hea
     check(ends[1].ident == "34L" && std::isnan(ends[1].elevation_ft) &&
               ends[1].heading_deg == 348.0,
           "its other end, 34L, with no elevation given");
+    check(std::abs(ends[0].displaced_m - 279 * 0.3048) < 1e-9 &&
+              std::abs(glideslope::world::landing_length_m(ends[0]) - (12999 - 279) * 0.3048) <
+                  1e-9 &&
+              ends[1].displaced_m == 0.0 &&
+              glideslope::world::landing_length_m(ends[1]) == ends[1].length_m,
+          "16R's threshold displaced 279 ft, its landing length the less for it; 34L's none");
     check(ends[2].airport == "YYYY" && ends[2].ident == "36" && ends[2].heading_deg == 0.0,
           "of a runway with one end's heading missing, the other end");
     check(glideslope::world::runways_at(ends, "YSSY").size() == 2 &&

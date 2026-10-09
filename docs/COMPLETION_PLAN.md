@@ -1222,10 +1222,16 @@ each was named in `PROJECT_STATUS.md` as not done, with no item here.
       held to the same checks. *Verification: Claude, asked to take off from
       Sydney and land at Bankstown, answers with a plan ending there, and the
       server's AI flies it and lands it on Bankstown's 29C.* Done 2026-10-09.
-- [ ] **Nothing refuses a landing on a runway too short for the aircraft**:
-      neither the copilot's routes nor the planner's plans hold a runway's
-      length to anything. *Verification: a landing on a runway shorter than
-      the aircraft lands in is refused, saying so, for every aircraft.*
+- [ ] **A landing on a runway too short for the aircraft is refused, for
+      eight of the sixteen**: the copilot's routes and the planner's plans
+      are held to each aircraft's published landing distance with its
+      class's margin, less any displaced threshold. Still missing: the
+      Learjet 35A, J-3 Cub, Mosquito, S.23, F-15C, F-22A, F-35B and B-2A
+      publish no landing distance this project has read, so nothing refuses
+      them; and the runways listed to the model do not yet say their
+      landing length or what the aircraft needs. *Verification: a landing on
+      a runway shorter than the aircraft lands in is refused, saying so, for
+      every aircraft.*
 - [ ] **A 172 a window client joins on final leaves the gate in seconds**:
       left alone, it is 8 degrees off the runway's heading six seconds in. The
       client keeps the server's flaps and throttle but not its pitch trim,
