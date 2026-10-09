@@ -28,25 +28,6 @@ std::string whole(double d) {
 constexpr double least_height_ft = 500.0;
 constexpr double farthest_m = 200000.0;
 
-// **`land` is a plan's last line**, as it is a copilot's route's: a waypoint
-// after it would be read, and never flown.
-std::string landing_not_last(const std::string& text) {
-    std::istringstream in(text);
-    bool landed = false;
-    for (std::string line; std::getline(in, line);) {
-        std::istringstream words(line);
-        std::string word;
-        if (!(words >> word) || word[0] == '#') {
-            continue;
-        }
-        if (landed) {
-            return "`land` is the last line of a plan, and `" + line + "` follows it";
-        }
-        landed = word == "land";
-    }
-    return {};
-}
-
 } // namespace
 
 // The answer less any Markdown fence a model puts round it.
@@ -281,10 +262,7 @@ Planned plan_from_words(Provider& provider, const PlanRequest& request) {
         std::string why;
         try {
             out.plan = sim::parse_flight_plan(text);
-            why = landing_not_last(text);
-            if (why.empty()) {
-                why = refusal(request, out.plan);
-            }
+            why = refusal(request, out.plan);
         } catch (const sim::FlightPlanError& e) {
             why = e.what();
         }

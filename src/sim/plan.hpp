@@ -143,8 +143,8 @@ struct FlightPlan {
     std::optional<Runway> landing;
 };
 
-// Throws FlightPlanError naming the line of anything it cannot read, and for a
-// plan with no aircraft or no waypoints, with both a start and a take-off, or
+// Throws FlightPlanError naming the line of anything it cannot read, for a
+// line after `land`, and for a plan with no aircraft or no waypoints, with both a start and a take-off, or
 // with a runway and no take-off from it or the other way round.
 FlightPlan parse_flight_plan(std::string_view text);
 

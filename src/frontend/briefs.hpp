@@ -30,12 +30,16 @@ copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
                                       const std::string& catalogue_id);
 
 // **Where a plan from an airport may land** (copilot::PlanRequest::fields):
-// the runway ends of `all` that say their elevation within `landing_fields_m`
-// of the first such end of `airport`'s, nearest first, at most
-// `most_landing_fields` - so that the airport's own and its neighbours' are
-// among them. None where the airport has no end with an elevation.
+// the airports of `all` within `landing_fields_m` of the first end of
+// `airport`'s that says its elevation, nearest first, each with all its ends
+// that say theirs - at most `most_landing_airports` airports and
+// `most_landing_fields` ends. An airport whose ends would pass that cap is
+// passed over whole and the next tried, so that a big neighbour does not
+// crowd the smaller ones out. None where the airport has no end with an
+// elevation.
 inline constexpr double landing_fields_m = 40000.0;
-inline constexpr std::size_t most_landing_fields = 12;
+inline constexpr std::size_t most_landing_airports = 4;
+inline constexpr std::size_t most_landing_fields = 24;
 std::vector<world::RunwayEnd> landing_fields(const std::vector<world::RunwayEnd>& all,
                                              const std::vector<world::RunwayEnd>& airport);
 

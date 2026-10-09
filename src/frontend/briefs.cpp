@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <string>
 #include <utility>
 
 #include "sim/catalogue.hpp"
@@ -49,22 +50,51 @@ std::vector<world::RunwayEnd> landing_fields(const std::vector<world::RunwayEnd>
     if (from == airport.end()) {
         return {};
     }
-    std::vector<std::pair<double, const world::RunwayEnd*>> near;
+    // Each airport's ends with an elevation within the radius, nearest
+    // first, and the airport as near as its nearest end.
+    struct Airport {
+        double nearest_m = 0.0;
+        std::vector<std::pair<double, const world::RunwayEnd*>> ends;
+    };
+    std::vector<std::pair<std::string, Airport>> airports;
     for (const world::RunwayEnd& end : all) {
         if (!copilot::plannable(end)) {
             continue;
         }
         const double d = sim::distance_m(from->latitude_deg, from->longitude_deg, end.latitude_deg,
                                          end.longitude_deg);
-        if (d <= landing_fields_m) {
-            near.emplace_back(d, &end);
+        if (d > landing_fields_m) {
+            continue;
         }
+        auto at = std::find_if(airports.begin(), airports.end(),
+                               [&](const auto& a) { return a.first == end.airport; });
+        if (at == airports.end()) {
+            airports.push_back({end.airport, Airport{d, {}}});
+            at = airports.end() - 1;
+        }
+        at->second.nearest_m = std::min(at->second.nearest_m, d);
+        at->second.ends.emplace_back(d, &end);
     }
-    std::stable_sort(near.begin(), near.end(),
-                     [](const auto& x, const auto& y) { return x.first < y.first; });
+    std::stable_sort(airports.begin(), airports.end(), [](const auto& x, const auto& y) {
+        return x.second.nearest_m < y.second.nearest_m;
+    });
+    // **Whole airports, nearest first**: one with more ends than are left
+    // under the cap is passed over, not cut short, and the next tried.
     std::vector<world::RunwayEnd> out;
-    for (std::size_t i = 0; i < near.size() && i < most_landing_fields; ++i) {
-        out.push_back(*near[i].second);
+    std::size_t taken = 0;
+    for (auto& [name, a] : airports) {
+        if (taken == most_landing_airports) {
+            break;
+        }
+        if (out.size() + a.ends.size() > most_landing_fields) {
+            continue;
+        }
+        std::stable_sort(a.ends.begin(), a.ends.end(),
+                         [](const auto& x, const auto& y) { return x.first < y.first; });
+        for (const auto& e : a.ends) {
+            out.push_back(*e.second);
+        }
+        ++taken;
     }
     return out;
 }

@@ -283,16 +283,22 @@ check broken; the unit test's was (below).
   airport and its runway line, those with an elevation - or, for an aircraft
   with no approach speed, says it does not land.
 - **Where it may land** (`PlanRequest::fields`) is filled by
-  `frontend::landing_fields`: the runway ends with an elevation within 40 km
-  of the airport's first, nearest first, at most 12 - Sydney's own and
-  Bankstown's, for YSSY. `glideslope_cli plan` and the server's
-  `--ai-planner` fill it the same, so a recording made by one plays back in
-  the other.
+  `frontend::landing_fields`: whole airports within 40 km of the airport's
+  first end with an elevation, nearest first, each with all its ends that
+  have one - at most 4 airports and 24 ends, an airport that would pass the
+  ends' cap passed over whole and the next tried. From YSSY that is Sydney's
+  six ends, Bankstown's six and Hoxton Park's two. (First chosen as the 12
+  nearest ends, which Sydney and Bankstown filled alone, crowding every
+  other airport out; changed on review.) `glideslope_cli plan` and the
+  server's `--ai-planner` fill it the same, so a recording made by one plays
+  back in the other.
 - **The same checks as a copilot's landing**: `copilot::landing_refusal`,
   taken out of `change_refusal` and called by both - an approach speed, no
   orbit for ever before it, and a runway it was told of (`landing_field`,
   now also over a list of ends: threshold within 100 m, heading within 5
-  degrees). The planner refuses `land` anywhere but last.
+  degrees). **`land` is the last line of any plan**: the plan reader itself
+  (`sim::parse_flight_plan`) refuses a line after it, so a plan file, a
+  planner's plan and a copilot's route are all held to it.
 - **The server lands a planned landing on its own ground's runway**, as a
   copilot's route's (`add_planned`): the collision ground's end there
   (`ends_near`, `landing_field`) - its threshold, heading, length and the
@@ -303,6 +309,16 @@ check broken; the unit test's was (below).
   and land there", for a C172P at YSSY.
 
 **Verification.**
+`the_runways_a_plan_may_land_on_are_the_nearest_airports_whole_and_no_more_than_the_caps`
+(unit, synthetic airports on a meridian, no downloads): with two six-end
+airports near, the third and fourth are offered whole, a fifth is past the
+airports' cap, one 60 km off past the radius and one with no elevation not
+offered; a 20-end airport that would pass the 24 ends is passed over whole;
+the caps asserted. **Seen to fail** on the nearest-ends selection: "HOME (6)
+BIG (6) THIRD (2) FOURTH (2) - not ... FIFTH (2)". The plan reader's test
+(`a_landing_is_read_from_a_plan_and_refused_where_it_is_wrong`) has a ninth
+case, a waypoint after `land`; **seen to fail**, with the planner's
+`land`-last refusal, with the reader's check taken out; reverted.
 `a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_told_of_and_on_no_other`
 (unit, a stand-in model): the instructions carry `land` and the request the
 runways to land on; a plan ending on Bankstown 29C is taken first time;
@@ -320,8 +336,10 @@ final to YSBK 29C and touches down under 300 ft/min within 5 m of the
 centreline, stopped on it, unwrecked (133 s, linux-debug).
 `..._asking_anthropic_now` (live, `GLIDESLOPE_LIVE_MODEL=1`, skipped
 without it or a key) asks Claude Haiku 4.5 by `glideslope_cli plan --record`
-and flies what it recorded the same way. **Run live 2026-10-09, twice**:
-both times Claude answered in one answer, taking off from 16R (`takeoff
+and flies what it recorded the same way. **Run live 2026-10-09, three times** (the third
+after the airports' selection changed the runways listed, which no
+recording then played back to, so all five planner recordings were made
+again): each time Claude answered in one answer, taking off from 16R (`takeoff
 1000`), one waypoint BANKSTOWN, and `land 29C -33.926800 150.996002 26 304
 1415`; the first flight touched down at 155 ft/min, +2.04 m across, stopped
 440 m along and -3.38 m across.
