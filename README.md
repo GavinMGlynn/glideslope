@@ -390,7 +390,11 @@ models' recorded answers, so the copilot is tested with no key at all.
 - **Flight dynamics:** [JSBSim](https://github.com/JSBSim-Team/jsbsim), LGPL-2.1;
   the models derived from it remain under its licence.
 - **Visual models:** [FlightGear](https://www.flightgear.org/)'s aircraft, each
-  licence recorded in [`docs/ASSETS.md`](docs/ASSETS.md).
+  licence recorded in [`docs/ASSETS.md`](docs/ASSETS.md); and the Learjet 35A's:
+  This work is based on "Bombardier Learjet 35A" (https://sketchfab.com/3d-models/bombardier-learjet-35a-c0af95a623734d7aba3ca13ce508975f)
+  by mudkipz321 (https://sketchfab.com/mudkipz321) licensed under CC-BY-4.0
+  (http://creativecommons.org/licenses/by/4.0/) - changed: its exterior only,
+  with fewer triangles and flat colours.
 - **Terrain streaming and rendering:** [Cesium Native](https://github.com/CesiumGS/cesium-native),
   Apache-2.0; windowing, input and GPU through [SDL3](https://libsdl.org/).
 - **Elevation and collision terrain:** produced using Copernicus WorldDEM-30 ©
