@@ -281,7 +281,7 @@ GLIDESLOPE_TEST(every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_cross
 //
 // **The J-3 Cub is named and left out**: in 15 kt across she ground-loops
 // after the touch dry - 726 m from the centreline, on her back - and wet,
-// which is no wet runway's doing (a Later item).
+// which is no wet runway's doing (an open item in Phase 10b).
 GLIDESLOPE_TEST(every_light_aircraft_landed_on_a_wet_runway_in_a_15_kt_crosswind_stays_on_it_as_on_a_dry_one) {
     std::size_t walked = 0;
     std::size_t compared = 0;

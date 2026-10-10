@@ -254,7 +254,7 @@ with #150's CI changes on it). The first commit was on 2026-09-17.
 | Pull requests merged | **148** (`gh pr list --state merged`) |
 | First-party code | **~140,900 lines**: `src/` 56,800, `tests/` 73,200, `tools/` 10,900 (`wc -l` of tracked files; `ext/` excluded) |
 | Tests | **1,071** registered with ctest (`ctest -N` on a build of the morning of 2026-10-09, 1,044, plus the 28 registered since and less the one taken out): unit tests and scripted end-to-end scenarios (rendered frames read back, servers and clients in separate processes, packages unpacked and run) |
-| Completion plan | **95 of 95** items ticked in Phases 0 to 8; **118** done and **26** open in Phases 9 to 14, the work found along the way; 17 items set aside for later (16 open) (`docs/COMPLETION_PLAN.md`) |
+| Completion plan | **95 of 95** items ticked in Phases 0 to 8; **129** done and **45** open in Phases 9 to 15, the work found along the way and the work once set aside (owner, 2026-10-11: everything is implemented eventually) (`docs/COMPLETION_PLAN.md`) |
 | CI, on every pull request | Ubuntu (debug, release), Rocky Linux 9, macOS 15 (debug, release), Windows (MSVC debug and release, clang-cl) - plus cross-platform flight agreement, the server's container image, and packages run in stock containers; measured test costs, more shards and a Windows compiler cache bring a run to about 63 minutes, from about 80; test jobs are given 45 minutes. A nightly run repeats the multi-process tests |
 | Living documents | ~30,100 lines across `docs/`, of which `PROJECT_STATUS.md` alone is ~23,800 |
 | Aircraft, lessons | 16 aircraft, 15 drawn; a checklist for each, nine phases of flight; 42 lessons across 7 classes |

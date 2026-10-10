@@ -5272,7 +5272,7 @@ void every_landplane_taken_back(OnTheRoll when) {
     std::vector<std::string> landplanes;
     std::vector<std::string> left_out;
     // **On the wet runway, the F-35B is named too**: she publishes no landing
-    // distance - one of the five the plan's Later item on a landing distance
+    // distance - one of the five the plan's Phase 10b item on a landing distance
     // from a primary source names - so none says how long a wet runway she
     // needs, and touching at 155 kt, where a wet runway gives a braked wheel
     // 0.135 (14 CFR 25.109(c)), she needs about 2,320 m of the 1,725.
@@ -5284,7 +5284,7 @@ void every_landplane_taken_back(OnTheRoll when) {
         } else if (wet && id == "f35b") {
             left_out.push_back(id);
             std::printf("  left out - %s: no published landing distance to size a wet runway "
-                        "by (a Later item), and 1,725 m is short of the 2,320 she needs wet\n",
+                        "by (an open item), and 1,725 m is short of the 2,320 she needs wet\n",
                         id.c_str());
         } else {
             landplanes.push_back(id);
