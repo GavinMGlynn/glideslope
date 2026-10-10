@@ -124,8 +124,8 @@
        `weight_lbs`, her model's own weight, which the trial flies and a
        server flies her at; heavier, the slowest is raised for her weight
        (sim::for_weight). -->
-  <plan_speeds slowest_kcas="64" fastest_kcas="117" weight_lbs="1790">
-    The slowest, 64 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 593 m circle. The fastest, 117 kt, is 5 kt under the fastest that held with 5 kt of power in hand: she flies level at 129 kt at full throttle at 3,000 ft, so 122 kt is the most a plan may ask that leaves her that (sim::holds_plan_speed, 2026-10-06; it was 132).
+  <plan_speeds slowest_kcas="64" fastest_kcas="112" weight_lbs="1790">
+    The slowest, 64 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 593 m circle. The fastest, 112 kt, is 5 kt under the fastest that held with 5 kt of power in hand: she flies level at 126.8 kt at full throttle at 3,000 ft, full rich as her handbook has her below 5,000 ft, so 117 kt is the most a plan may ask that leaves her that (sim::holds_plan_speed, 2026-10-10). It was 117 from 2026-10-06, when she made 129 kt leaned, on JSBSim's own mixture table; 132 before that.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
        glide-speeds pa28` on 2026-10-06 (linux-release): from the slowest a
