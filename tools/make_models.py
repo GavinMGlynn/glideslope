@@ -20,9 +20,12 @@ script did. `--refresh` is the only mode that reaches the network:
 it walks each aircraft's model XML, discovers the files, and rewrites that
 list. The other two modes read the cache and fail if a pinned file is missing.
 
-**Which aircraft ship a model, and which do not.** Fourteen of the sixteen do.
-FlightGear has no model for the Learjet 35A, and none of the F-35A - only the
-F-35B, a different airframe with a lift fan - so those two have none. Eight
+**Which aircraft ship a model, and where from.** All sixteen. Fifteen are
+FlightGear's. FlightGear has no Learjet of any mark, so the Learjet 35A's is
+a glTF 2.0 model from Sketchfab under CC-BY-4.0, which the project owner
+provides by hand because Sketchfab serves it only to a signed-in account:
+see GLTF below, and `--from`, which lets a test check the fifteen fetched
+models where the owner's copy is absent. Of the fifteen, eight
 state a licence in their own directory. The other six - the A380, B-2, F-15,
 F-22, Mosquito and Short Empire - state none at any level, and ship on
 FGAddon's project-wide requirement that its content is GPL, which is a policy
@@ -78,6 +81,8 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import io
+import json
 import math
 import os
 import pathlib
@@ -86,6 +91,7 @@ import struct
 import sys
 import urllib.error
 import urllib.request
+import zipfile
 from xml.etree import ElementTree
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -252,10 +258,79 @@ AIRCRAFT = {
     ),
 }
 
-# FlightGear has no model of these at all.
-NO_MODEL = {
-    "learjet35a": "FGAddon has no Learjet of any mark",
+# The models that come from somewhere other than FlightGear: a glTF 2.0
+# archive the project owner provides, which no URL serves (see `local_path`).
+#
+#   archive  the file, under the owner's model directory, pinned in
+#            sources.txt by size and SHA-256
+#   parts    the node whose children are the model's parts
+#   exterior the parts that are the outside of the aeroplane, as prefixes of
+#            their names: an allow-list, as `include` is above
+#   materials_out  materials, within a part taken, that are its inside
+#   pose_s   the moment of the model's own animation it is taken at
+#   cell_m   the cell its vertices are gathered into (see `cluster`)
+#   frame    the frame it is authored in: "ac3d" is FlightGear's AC3D frame
+#   licence  what the source states, and the file it states it in
+GLTF = {
+    # FGAddon has no Learjet of any mark. This is "Bombardier Learjet 35A" by
+    # mudkipz321 on Sketchfab, under CC-BY-4.0, as its license.txt says; the
+    # credit it asks for is in docs/ASSETS.md and README.md.
+    #
+    # It is a 2.7-million-triangle scene with a whole cabin: seats, belts,
+    # carpet, a panel of dials and switches, tray tables, the engines'
+    # inner stages. Its parts are named, and named plainly - "Fuselage With
+    # Interior", "Seat Belts", "Wing Pods" - so the exterior is taken by name.
+    # The one exterior part that carries cabin with it, the fuselage, carries
+    # it as its own materials (carpet, fabric, wood), which are left out.
+    # `--list` prints every part and material left out.
+    #
+    # Its own pose has the main wheels half folded and the nose leg up, as no
+    # frame of its animation does: the animation lowers the gear by 11.6 s
+    # and starts to open the cabin door at 13.8 s, so it is taken at 12.5 s,
+    # gear down and locked and the door shut.
+    #
+    # Its frame is read off its own names: the parts named "L" are at +Z, the
+    # nose at -X and the fin at +Y - FlightGear's AC3D frame exactly.
+    "learjet35a": dict(
+        archive="learjet35a/bombardier_learjet_35a.zip",
+        gltf="scene.gltf", bin="scene.bin",
+        parts="GLTF_SceneRootNode",
+        exterior=("Nose Antenna", "Cube Antennas", "Rectangle Antenna",
+                  "Small Antenna", "Rounded Cube Antenna", "Antenna B",
+                  "Tiny Antenna", "Rear Antenna", "Medium Antenna",
+                  "Antenna Rod",
+                  "Nose Gear", "Nose Retract", "Main Gear", "Main Piston",
+                  "Piston ", "Gear Door", "Landing Gear Shaft",
+                  "Retract Support Mount",
+                  "Lower Door", "Upper Door", "Bottom Door Arm",
+                  "Flap", "Tail", "Rudder Pivot",
+                  "Engine Mounts", "Nacelle", "Engine Cones", "Fan Blades",
+                  "Cocopit Glass", "Rear Fin", "Windsheild humps",
+                  "Underside Light", "Fuselage Wing Section",
+                  "Fuselage With Interior", "Wing", "WIng", "Nav Lights"),
+        materials_out=("CarpetTwistNatural001_4K", "FabricFleece001_3K",
+                       "WoodFineDark"),
+        pose_s=12.5,
+        cell_m=0.04,
+        frame="ac3d",
+        licence="CC-BY-4.0, in the archive's license.txt",
+    ),
 }
+
+# Where the owner keeps a model no URL serves. Sketchfab serves a download
+# only to a signed-in account, so the file cannot be fetched by a test; it is
+# put here by hand (docs/ASSETS.md says how) and checked against its pin.
+LOCAL_PREFIX = "local:"
+LOCAL_DIR = "~/.cache/glideslope-models"
+
+
+def local_path(url: str) -> pathlib.Path:
+    """The file a `local:` source names: under LOCAL_DIR, or wherever
+    GLIDESLOPE_MODELS_DIR says the owner keeps that directory instead."""
+    rest = url[len(LOCAL_PREFIX):]
+    base = os.environ.get("GLIDESLOPE_MODELS_DIR") or \
+        os.path.expanduser(LOCAL_DIR)
+    return pathlib.Path(base) / rest
 
 MESH_MAGIC = b"GSMESH\0"
 MESH_VERSION = 1
@@ -386,11 +461,13 @@ def read_sources() -> dict[str, tuple[int, str, list[str]]]:
 
 
 def write_sources(files: dict[str, tuple[int, str, list[str]]]) -> None:
-    lines = ["# The FlightGear files glideslope's visual models are made from,",
-             "# each pinned by SHA-256: name, size in bytes, SHA-256, then the",
-             "# URLs that serve it, tried in order, each checked against it.",
-             "# Written by tools/make_models.py --refresh; see docs/ASSETS.md",
-             "# for each model's source, revision and licence."]
+    lines = ["# The files glideslope's visual models are made from, each pinned",
+             "# by SHA-256: name, size in bytes, SHA-256, then the URLs that",
+             "# serve it, tried in order, each checked against it. A source",
+             "# no URL serves is `local:` and a path under the owner's model",
+             "# directory, ~/.cache/glideslope-models; tests/cmake/fetch.cmake",
+             "# passes over it. Written by tools/make_models.py --refresh; see",
+             "# docs/ASSETS.md for each model's source, revision and licence."]
     for name in sorted(files):
         size, sha, urls = files[name]
         lines.append(" ".join([name, str(size), sha, *urls]))
@@ -429,6 +506,28 @@ class Files:
                     raise
                 last = e
         raise last
+
+    def local(self, key: str, spec: dict) -> bytes:
+        """A model the owner provides, read from where sources.txt says and
+        checked against its pin - or, refreshing, pinned as it is found."""
+        name = f"{key}-" + posixpath.basename(spec["archive"])
+        url = LOCAL_PREFIX + spec["archive"]
+        path = local_path(url)
+        if not path.exists():
+            raise FileNotFoundError(
+                f"{path} is missing: it is the owner's copy of a model no URL "
+                f"serves, which docs/ASSETS.md says how to provide")
+        data = path.read_bytes()
+        sha = hashlib.sha256(data).hexdigest()
+        want = self.pinned.get(name)
+        if not self.refresh:
+            if want is None:
+                raise ValueError(f"{name} is not pinned in {SOURCES}")
+            if want[1] != sha:
+                raise ValueError(f"{path} is not what is pinned as {name}: "
+                                 f"{sha}, not {want[1]}")
+        self.used[name] = (len(data), sha, [url])
+        return data
 
     def _one(self, key: str, spec: dict, path: str) -> bytes:
         name = pinned_name(key, path)
@@ -712,6 +811,206 @@ def _mesh_3ds(data: bytes, at: int, end: int, name: str, index_of: dict):
     obj.surfaces = [(material_of[i], list(face))
                     for i, face in enumerate(faces)]
     return obj
+
+
+# --- glTF 2.0 ---------------------------------------------------------------
+
+def _mat4_mul(a, b):
+    """4x4 product, both column-major as glTF writes them."""
+    return tuple(sum(a[k * 4 + r] * b[c * 4 + k] for k in range(4))
+                 for c in range(4) for r in range(4))
+
+
+def _mat4_of(node: dict):
+    """A glTF node's local transform, column-major: its `matrix`, or T * R * S."""
+    if "matrix" in node:
+        return tuple(float(v) for v in node["matrix"])
+    tx, ty, tz = node.get("translation", (0.0, 0.0, 0.0))
+    qx, qy, qz, qw = node.get("rotation", (0.0, 0.0, 0.0, 1.0))
+    sx, sy, sz = node.get("scale", (1.0, 1.0, 1.0))
+    r = (1 - 2 * (qy * qy + qz * qz), 2 * (qx * qy + qz * qw), 2 * (qx * qz - qy * qw),
+         2 * (qx * qy - qz * qw), 1 - 2 * (qx * qx + qz * qz), 2 * (qy * qz + qx * qw),
+         2 * (qx * qz + qy * qw), 2 * (qy * qz - qx * qw), 1 - 2 * (qx * qx + qy * qy))
+    return (r[0] * sx, r[1] * sx, r[2] * sx, 0.0,
+            r[3] * sy, r[4] * sy, r[5] * sy, 0.0,
+            r[6] * sz, r[7] * sz, r[8] * sz, 0.0,
+            tx, ty, tz, 1.0)
+
+
+def _mat4_apply(m, v):
+    return (m[0] * v[0] + m[4] * v[1] + m[8] * v[2] + m[12],
+            m[1] * v[0] + m[5] * v[1] + m[9] * v[2] + m[13],
+            m[2] * v[0] + m[6] * v[1] + m[10] * v[2] + m[14])
+
+
+_GLTF_COMPONENT = {5120: "b", 5121: "B", 5122: "h", 5123: "H", 5125: "I",
+                   5126: "f"}
+_GLTF_WIDTH = {"SCALAR": 1, "VEC2": 2, "VEC3": 3, "VEC4": 4}
+
+
+def _gltf_accessor(gltf: dict, binary: bytes, index: int) -> list[tuple]:
+    """An accessor's elements, each a tuple, through its buffer view's stride."""
+    accessor = gltf["accessors"][index]
+    if "sparse" in accessor or "bufferView" not in accessor:
+        raise ValueError(f"accessor {index}: sparse or bufferless accessors "
+                         "are not read")
+    view = gltf["bufferViews"][accessor["bufferView"]]
+    if view.get("buffer", 0) != 0:
+        raise ValueError("only a glTF with a single buffer is read")
+    code = _GLTF_COMPONENT[accessor["componentType"]]
+    width = _GLTF_WIDTH[accessor["type"]]
+    element = struct.calcsize("<" + code * width)
+    stride = view.get("byteStride") or element
+    start = view.get("byteOffset", 0) + accessor.get("byteOffset", 0)
+    count = accessor["count"]
+    if stride == element:
+        flat = struct.unpack_from(f"<{count * width}{code}", binary, start)
+        return [flat[i:i + width] for i in range(0, len(flat), width)]
+    unpack = struct.Struct("<" + code * width).unpack_from
+    return [unpack(binary, start + i * stride) for i in range(count)]
+
+
+def _linear_to_srgb(c: float) -> float:
+    """glTF's base colour factor is linear; AC3D's and 3D Studio's colours,
+    which the renderer takes as they are, are the colours as displayed."""
+    c = min(max(c, 0.0), 1.0)
+    return 12.92 * c if c <= 0.0031308 else 1.055 * c ** (1.0 / 2.4) - 0.055
+
+
+def _gltf_name(node: dict) -> str:
+    """A node's name without the "_<n>" Sketchfab's exporter appends to it."""
+    name = node.get("name", "")
+    head, _, tail = name.rpartition("_")
+    return head if head and tail.isdigit() else name
+
+
+def _slerp(a, b, f):
+    dot = sum(x * y for x, y in zip(a, b))
+    if dot < 0.0:
+        b, dot = tuple(-x for x in b), -dot
+    if dot > 0.9995:
+        q = tuple(x + (y - x) * f for x, y in zip(a, b))
+    else:
+        theta = math.acos(dot)
+        wa = math.sin((1.0 - f) * theta) / math.sin(theta)
+        wb = math.sin(f * theta) / math.sin(theta)
+        q = tuple(wa * x + wb * y for x, y in zip(a, b))
+    n = math.sqrt(sum(x * x for x in q))
+    return tuple(x / n for x in q)
+
+
+def gltf_posed(gltf: dict, binary: bytes, seconds: float) -> list[dict]:
+    """The nodes as the first animation leaves them `seconds` into it.
+
+    A model exported from an animated scene can carry, as its nodes' own
+    transforms, a pose no frame of the animation shows: the Learjet's has
+    its main wheels half folded into the wells and its nose leg up. The
+    animation is what places them, so the walk takes the nodes at a stated
+    moment of it, its channels interpolated as glTF says - linearly, and a
+    rotation by spherical interpolation.
+    """
+    nodes = [dict(n) for n in gltf["nodes"]]
+    animations = gltf.get("animations", [])
+    if not animations:
+        return nodes
+    animation = animations[0]
+    for channel in animation["channels"]:
+        sampler = animation["samplers"][channel["sampler"]]
+        if sampler.get("interpolation", "LINEAR") != "LINEAR":
+            raise ValueError("only linear animation is read")
+        times = [t[0] for t in _gltf_accessor(gltf, binary, sampler["input"])]
+        values = _gltf_accessor(gltf, binary, sampler["output"])
+        path = channel["target"]["path"]
+        if path not in ("translation", "rotation", "scale"):
+            raise ValueError(f"an animation of {path} is not read")
+        if seconds <= times[0]:
+            value = values[0]
+        elif seconds >= times[-1]:
+            value = values[-1]
+        else:
+            i = next(k for k in range(1, len(times)) if times[k] >= seconds)
+            f = (seconds - times[i - 1]) / (times[i] - times[i - 1])
+            a, b = values[i - 1], values[i]
+            value = _slerp(a, b, f) if path == "rotation" else \
+                tuple(x + (y - x) * f for x, y in zip(a, b))
+        node = nodes[channel["target"]["node"]]
+        if "matrix" in node:
+            raise ValueError("an animated node has a matrix")
+        node[path] = list(value)
+    return nodes
+
+
+def gltf_triangles(gltf: dict, binary: bytes, spec: dict, dropped: list):
+    """(colour, crease, triangle) for every exterior triangle, in the body frame.
+
+    The scene's nodes are walked with their transforms composed. Under the
+    node `spec["parts"]` names, a part - one of its children, with all of its
+    own - is taken only if its name begins with one of `spec["exterior"]`:
+    an allow-list, as `include` is for FlightGear's model XML. Within a part
+    taken, a primitive whose material is one of `spec["materials_out"]` is
+    left out. What is left out is recorded in `dropped` as (what, why,
+    triangles).
+    """
+    nodes = gltf_posed(gltf, binary, spec["pose_s"]) if "pose_s" in spec \
+        else gltf["nodes"]
+    materials = gltf.get("materials", [])
+    colours = []
+    for material in materials:
+        factor = material.get("pbrMetallicRoughness", {}).get(
+            "baseColorFactor", (1.0, 1.0, 1.0, 1.0))
+        colours.append(tuple(_linear_to_srgb(c) for c in factor[:3]))
+    to_body = spec["to_body"]
+    scale = spec.get("scale", 1.0)
+    out = []
+
+    def triangles_in(index: int) -> int:
+        node = nodes[index]
+        n = 0
+        if "mesh" in node:
+            for p in gltf["meshes"][node["mesh"]]["primitives"]:
+                n += gltf["accessors"][p["indices"]]["count"] // 3
+        return n + sum(triangles_in(c) for c in node.get("children", ()))
+
+    def take(index: int, parent) -> None:
+        node = nodes[index]
+        here = _mat4_mul(parent, _mat4_of(node))
+        if "mesh" in node:
+            for p in gltf["meshes"][node["mesh"]]["primitives"]:
+                if p.get("mode", 4) != 4:
+                    raise ValueError("only triangle lists are read")
+                material = materials[p["material"]] if "material" in p else {}
+                name = material.get("name", "")
+                count = gltf["accessors"][p["indices"]]["count"] // 3
+                if name in spec.get("materials_out", ()):
+                    dropped.append((f"{_gltf_name(node)}: {name}",
+                                    "an interior material", count))
+                    continue
+                colour = colours[p["material"]] if "material" in p \
+                    else (1.0, 1.0, 1.0)
+                positions = _gltf_accessor(gltf, binary,
+                                           p["attributes"]["POSITION"])
+                placed = [to_body(_mat4_apply(here, v)) for v in positions]
+                placed = [(x * scale, y * scale, z * scale) for x, y, z in placed]
+                flat = [i[0] for i in _gltf_accessor(gltf, binary, p["indices"])]
+                for i in range(0, len(flat) - 2, 3):
+                    out.append((colour, spec.get("crease", 45.0),
+                                (placed[flat[i]], placed[flat[i + 1]],
+                                 placed[flat[i + 2]])))
+        for child in node.get("children", ()):
+            if index == parts and not _gltf_name(nodes[child]).startswith(
+                    spec["exterior"]):
+                dropped.append((_gltf_name(nodes[child]), "not exterior",
+                                triangles_in(child)))
+                continue
+            take(child, here)
+
+    parts = next(i for i, n in enumerate(nodes)
+                 if n.get("name") == spec["parts"])
+    identity = (1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0,
+                0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0)
+    for root in gltf["scenes"][gltf.get("scene", 0)]["nodes"]:
+        take(root, identity)
+    return out
 
 
 def read_geometry(data: bytes, path: str):
@@ -1053,8 +1352,73 @@ def write_mesh(vertices, indices) -> bytes:
 
 # --- making them ------------------------------------------------------------
 
+def cluster(tris, cell: float):
+    """The triangles with their vertices gathered into cells `cell` across.
+
+    Vertex clustering (Rossignac and Borrel, 1993): space is cut into cubes
+    `cell` on a side, every vertex in one cube and of one colour becomes
+    their mean, and a triangle with two corners in one cube - which has
+    become a line or a point - goes, as does a second triangle on the same
+    three cells the same way round. It needs nothing outside the standard
+    library, it is deterministic, and its error is bounded by the cell: no
+    vertex moves by more than a cell's diagonal. What it costs is detail
+    finer than a cell: an aerial a centimetre thick is lost. Colour is part
+    of the cell, so a stripe is not smeared into the paint around it.
+    """
+    def cell_of(colour, p):
+        return (colour, math.floor(p[0] / cell), math.floor(p[1] / cell),
+                math.floor(p[2] / cell))
+
+    members: dict[tuple, dict] = {}
+    for colour, _crease, tri in tris:
+        for p in tri:
+            members.setdefault(cell_of(colour, p), {})[p] = None
+    centre = {k: tuple(sum(q[i] for q in v) / len(v) for i in range(3))
+              for k, v in members.items()}
+    out = []
+    seen = set()
+    for colour, crease, tri in tris:
+        cells = [cell_of(colour, p) for p in tri]
+        if cells[0] == cells[1] or cells[1] == cells[2] or cells[0] == cells[2]:
+            continue
+        # The same three cells the same way round, from wherever it starts.
+        first = cells.index(min(cells))
+        key = tuple(cells[first:] + cells[:first])
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append((colour, crease, tuple(centre[c] for c in cells)))
+    return out
+
+
+def make_gltf(files: Files, key: str, spec: dict, dropped: list):
+    """The triangles of a model the owner provides, in the body frame, and
+    how many there were before they were gathered."""
+    archive = zipfile.ZipFile(io.BytesIO(files.local(key, spec)))
+    gltf = json.loads(archive.read(spec["gltf"]))
+    if not str(gltf.get("asset", {}).get("version", "")).startswith("2."):
+        raise ValueError(f"{key}: {spec['gltf']} is not glTF 2.0")
+    if gltf.get("extensionsRequired"):
+        raise ValueError(f"{key}: needs {gltf['extensionsRequired']}")
+    binary = archive.read(spec["bin"])
+    frames = {"ac3d": body_from_ac3d}
+    whole = dict(spec, to_body=frames[spec["frame"]])
+    tris = gltf_triangles(gltf, binary, whole, dropped)
+    return cluster(tris, spec["cell_m"]), len(tris)
+
+
 def make(files: Files, key: str, spec: dict, listing: list | None = None):
     """The mesh bytes, and what went into them."""
+    if "archive" in spec:
+        dropped: list = []
+        tris, read = make_gltf(files, key, spec, dropped)
+        if listing is not None:
+            listing.extend(dropped)
+            listing.append(("(what is taken)", f"{read} triangles, gathered "
+                            f"into {len(tris)}", 0))
+        vertices, indices = build_mesh(tris)
+        return (write_mesh(vertices, indices), len(vertices),
+                len(indices) // 3, [spec["archive"]])
     found: list = []
     walk_model(files, key, spec, spec["entry"], IDENTITY, (0.0, 0.0, 0.0),
                found, listing)
@@ -1080,22 +1444,48 @@ def main() -> int:
                         help="reach the network and re-pin the sources")
     parser.add_argument("--cache", help="where the pinned files are kept")
     parser.add_argument("--only", help="one model, for working on it")
+    parser.add_argument("--from", dest="source", default="all",
+                        choices=("all", "fetched", "local"),
+                        help="only the models made from fetched sources, or "
+                             "only those made from the owner's own copies")
     parser.add_argument("--list", action="store_true",
                         help="print the <model> children the walk saw, and "
-                             "whether `include` took them")
+                             "whether `include` took them; for a glTF, what "
+                             "was left out")
     args = parser.parse_args()
 
     files = Files(cache_dir(args.cache), args.refresh)
-    wanted = {args.only: AIRCRAFT[args.only]} if args.only else AIRCRAFT
+    everything = {**AIRCRAFT, **GLTF}
+    if args.only:
+        wanted = {args.only: everything[args.only]}
+    elif args.source == "fetched":
+        wanted = AIRCRAFT
+    elif args.source == "local":
+        wanted = GLTF
+    else:
+        wanted = everything
     stale = []
     for key, spec in wanted.items():
         listing: list | None = [] if args.list else None
         try:
             data, verts, tris, found = make(files, key, spec, listing)
         except FileNotFoundError as e:
+            if args.refresh and "archive" in spec:
+                # The owner's copy is not here to re-pin: its pin stands.
+                print(f"{key}: {e}; keeping its pin", file=sys.stderr)
+                name = f"{key}-" + posixpath.basename(spec["archive"])
+                if name in files.pinned:
+                    files.used[name] = files.pinned[name]
+                continue
             print(f"{key}: {e}", file=sys.stderr)
             return 77
         if listing is not None:
+            if "archive" in spec:
+                print(f"== {key}: {spec['archive']}, left out:")
+                for what, why, count in listing:
+                    print(f"  {what}: {why}" + (f", {count} triangles"
+                                               if count else ""))
+                continue
             print(f"== {key}: {spec['entry']}")
             for depth, name, target, take in listing:
                 print(f"  {'  ' * depth}{'[x]' if take else '[ ]'} "
@@ -1113,7 +1503,7 @@ def main() -> int:
                   f"{verts} vertices, {len(data) / 1024:.0f} KiB, from "
                   f"{len(found)} geometry file(s)")
 
-    if args.refresh and not args.only:
+    if args.refresh and not args.only and args.source == "all":
         write_sources(files.used)
         print(f"pinned {len(files.used)} files in "
               f"{SOURCES.relative_to(ROOT)}")
