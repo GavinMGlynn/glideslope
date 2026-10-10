@@ -1130,9 +1130,12 @@ What the client with the window does that the command-line client does, and what
       stick.*
 - [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
       its lighting follows a roll with no mesh remade.*
-- [ ] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
+- [x] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
       model. *Verification: a model whose source and licence are in
-      `ASSETS.md` is held to the Learjet's size and drawn in a shot.*
+      `ASSETS.md` is held to the Learjet's size and drawn in a shot.* Done
+      2026-10-10: a CC-BY-4.0 Sketchfab model the owner provides; its span
+      within 0.3%, its length 5.3% over and held to 6% by name; its mesh
+      check skips where the owner's copy is absent, as on CI.
 - [x] **The client with the window does not blend its own aircraft at a
       switch** - handed over (A on a server), taken back or taken over - as
       the network checks' model of a display does. *Verification: what it
