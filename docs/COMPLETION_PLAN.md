@@ -748,9 +748,6 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       *Verification: the circuit lessons are flown by the go-around's
       circuit, with their figures unchanged.* Done 2026-10-08: the lessons
       join it from the take-off, every aeroplane inside the same bands.
-
----
-
 - [x] **The AI's approach speed is for the weight its figures give, not
       the weight it flies at.** The server flies each aircraft at its
       model's own weight and lands it at its unscaled reference speed: the
@@ -764,6 +761,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       A380, and every brief tells the speed the AI will fly. The C172P
       flies to her learnt landing's gate at the speed it was trained at,
       and only at the weights it was trained at.
+
+---
 
 ## Phase 11 — Traffic and separation
 
