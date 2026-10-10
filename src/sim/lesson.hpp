@@ -12,6 +12,9 @@
 //   warning VALUE                 a stall lesson's: the airspeed its class's
 //                                 stall warning sounds at, the first sign of
 //                                 the stall, as a figure (below): `stall+7`
+//   height FEET                   the height above the ground the lesson is
+//                                 practised at, where a safe height is part
+//                                 of it: a stall lesson's
 //   stage TEXT...                 a stage of the lesson, in the order flown
 //   do TEXT...                    what to do at this stage: what the pilot is
 //                                 told, and what the instructor demonstrates
@@ -137,6 +140,11 @@ struct Lesson {
     // what the autopilot's stall recovery is held to recovering from within
     // the lesson's height (REQUIREMENTS.md 4.3).
     std::optional<LessonNumber> stall_warning;
+    // **The height it is practised at**, above the ground, in feet, where
+    // the lesson names one: a stall is practised at a safe height, and at
+    // what height is the lesson's to say, since what an aeroplane can do
+    // there - be level again with her flaps and gear down - depends on it.
+    std::optional<double> practised_at_ft;
     std::vector<LessonStage> stages;
 };
 

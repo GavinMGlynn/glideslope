@@ -554,6 +554,35 @@ GLIDESLOPE_TEST(the_mosquito_fb6_climbs_to_20000_ft_in_about_hj679s_time) {
     expect_figure("mosquito-fb6", "time_to_20000_ft");
 }
 
+GLIDESLOPE_TEST(the_mosquito_fb6_climbs_with_flaps_and_wheels_down_at_climbing_power_as_her_pilots_notes_say) {
+    expect_figure("mosquito-fb6", "climb_flaps_and_gear_down");
+}
+
+// **High up she cannot be level with her flaps and wheels down**, which is
+// why her stall lesson is practised at 5,000 ft and not the jets' 20,000
+// (assets/lessons/second-world-war-stalls.lesson). The same flight as her
+// Pilot's Notes' climb with everything down (para. 48), flown at 20,000 ft
+// on full throttle, the supercharger in high gear, at 130 knots - her stall
+// lesson's recovery speed, 35 over her 95-knot stall - sinks: the Merlins
+// have not the power there that the Notes' climb has low down.
+GLIDESLOPE_TEST(the_mosquito_fb6_sinks_at_20000_ft_on_full_throttle_with_flaps_and_wheels_down) {
+    const PublishedFigures figures = read_published_figures(figures_file("mosquito-fb6"));
+    const auto it = std::find_if(figures.figures.begin(), figures.figures.end(),
+                                 [](const auto& f) { return f.name == "climb_flaps_and_gear_down"; });
+    check(it != figures.figures.end(), "her figures give her climb with everything down");
+    auto high = *it;
+    high.conditions["altitude_ft"] = 20000.0;
+    high.conditions["speed_kcas"] = 130.0;
+    high.conditions["rpm"] = 3000.0;
+    high.conditions["fs_gear_above_ft"] = 0.0;
+    high.conditions.erase("boost_psi");
+    high.published = 0.0;
+    const double fpm = fly_figure(data_dir, figures, high).measured;
+    std::printf("at 20,000 ft, 130 kt, full throttle, flaps 45 and wheels down: %.0f ft/min\n",
+                fpm);
+    check(fpm < 0.0, "she sinks there, " + std::to_string(fpm) + " ft/min");
+}
+
 GLIDESLOPE_TEST(the_mosquito_fb6_stalls_clean_near_its_pilots_notes_speed) {
     expect_figure("mosquito-fb6", "stall_speed_clean");
 }
@@ -853,8 +882,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // A hundred and twenty-one: the Cessna 182S's ceiling, as the AI climbs
     // to it at its handbook's speeds, on 2026-10-09.
     // A hundred and twenty-two: the Cessna 172P's rated power, on 2026-10-09.
-    check(figures_in_files == 122,
-          "a hundred and twenty-two figures, one test each above; found " +
+    // A hundred and twenty-three: the Mosquito's climb with her flaps and
+    // wheels down, her Pilot's Notes' para. 48, on 2026-10-10.
+    check(figures_in_files == 123,
+          "a hundred and twenty-three figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 

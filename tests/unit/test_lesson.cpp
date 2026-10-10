@@ -227,17 +227,15 @@ glideslope::sim::DepartureSpeeds book_departure_speeds(const std::filesystem::pa
     return speeds;
 }
 
-// **Where this aeroplane practises a stall.** A light aeroplane decelerates
-// to the stall in a few hundred feet; a clean jet at idle descends a long way
-// while it slows, and doing that from five thousand feet puts it in the
-// ground before it stalls. **A flying boat is neither**: it is slow enough to
-// want the low height and its ceiling is about 16,000 ft, so twenty thousand
-// is a height it cannot reach at all.
+// **Where this aeroplane practises a stall**: the height above the ground
+// her class's stall lesson says (`height`), and why each is what it is is
+// said in the lesson. Every stall lesson names one.
 double stalls_are_practised_at(const glideslope::sim::CatalogueEntry& entry) {
-    const bool slow =
-        entry.aircraft_class == glideslope::sim::AircraftClass::light_aircraft ||
-        entry.aircraft_class == glideslope::sim::AircraftClass::seaplane;
-    return slow ? 5000.0 : 20000.0;
+    const auto lesson = lesson_for(entry, "stalls");
+    check(lesson.has_value(), entry.id + " has a stalls lesson for its class");
+    check(lesson->practised_at_ft.has_value(),
+          lesson->id + " says the height it is practised at");
+    return *lesson->practised_at_ft;
 }
 
 // This aeroplane's published figures, resolved without throwing: what it has
@@ -384,6 +382,7 @@ const char* a_whole_lesson() {
            "name A lesson with every command in it\n"
            "teaches light-aircraft\n"
            "warning stall+7\n"
+           "height 5000\n"
            "stage The first stage\n"
            "do One thing to do\n"
            "do And another\n"
@@ -408,6 +407,8 @@ GLIDESLOPE_TEST(a_lesson_written_down_and_read_back_is_the_one_that_was_written)
     check(lesson.stall_warning && lesson.stall_warning->reference == "stall" &&
               std::abs(lesson.stall_warning->offset - 7.0) < 1e-9,
           "and where its stall warning sounds");
+    check(lesson.practised_at_ft && std::abs(*lesson.practised_at_ft - 5000.0) < 1e-9,
+          "and the height it is practised at");
     check(lesson.stages.size() == 2,
           "two stages, not " + std::to_string(lesson.stages.size()));
 
@@ -457,6 +458,10 @@ GLIDESLOPE_TEST(a_lesson_file_that_is_wrong_is_refused_and_says_where) {
         {"hold without words", "name N\nstage S\ndo X\nuntil a >= 1\nhold b 1 9\n"},
         {"need without words", "name N\nstage S\ndo X\nuntil a >= 1\nneed b >= 1\n"},
         {"need with a bad operator", "name N\nstage S\ndo X\nuntil a >= 1\nneed b == 1 T\n"},
+        {"a height with no number", "name N\nheight\nstage S\ndo X\nuntil a >= 1\n"},
+        {"a height in words", "name N\nheight high\nstage S\ndo X\nuntil a >= 1\n"},
+        {"a height of nothing", "name N\nheight 0\nstage S\ndo X\nuntil a >= 1\n"},
+        {"two heights", "name N\nheight 5000\nheight 9000\nstage S\ndo X\nuntil a >= 1\n"},
     };
     std::size_t refused = 0;
     for (const auto& [what, text] : wrong) {
@@ -471,7 +476,7 @@ GLIDESLOPE_TEST(a_lesson_file_that_is_wrong_is_refused_and_says_where) {
     }
     check(refused == wrong.size(),
           "all " + std::to_string(wrong.size()) + " ways of being wrong were walked");
-    check(refused == 18, "eighteen ways, and the list above holds eighteen");
+    check(refused == 22, "twenty-two ways, and the list above holds twenty-two");
 
     // And the one that is right is not refused.
     (void)parse_lesson("whole", a_whole_lesson());
@@ -3341,11 +3346,7 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
     every_stall_recovered_within(
         true, 0.0, "at the stall warning",
         [](const Result&, double lesson_ft) { return lesson_ft; },
-        // The Mosquito, at 20,000 ft with its flaps and gear down, cannot be
-        // level at its recovery speed on full power, and is never called
-        // recovered; it is held to the height it lost by the flight's end.
         {{"learjet35a", Fault::height, 385.0},
-         {"mosquito-fb6", Fault::not_recovered, 3095.0},
          {"short_s23", Fault::height, 184.0}});
 }
 
@@ -3353,7 +3354,10 @@ GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_with
     every_stall_recovered_within(
         false, 30.0, "left thirty seconds in the stall",
         [](const Result& r, double) { return height_bound_ft(r); },
-        {});
+        // The Mosquito, practised at 5,000 ft since 2026-10-10, pulls 1.88 g
+        // there: inside 2 g, but not with the 10% in hand (at 20,000 ft she
+        // pulled 1.71, in thinner air at a higher true speed).
+        {{"mosquito-fb6", Fault::load, 1.89}});
 }
 
 // **Engaging the stall recovery and letting it go steps no control.** Every
@@ -3364,10 +3368,7 @@ GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_with
 // The throttle, flaps and gear are the flight's, not the autopilot's, here.
 // The recovery brings its pitch command down to the nose at once when the wing
 // is stalled, which without that pace would move the elevator by tenths of
-// its travel in a step. **The Mosquito at her warning is never let go**: at
-// 20,000 ft with her flaps and gear down she cannot be level at her recovery
-// speed, and is never called recovered (the warning test names her for it);
-// her engaging is judged, and her name turns this red once she is let go.
+// its travel in a step.
 GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_faster_than_a_hand) {
     constexpr double a_hands_pace = 1.0 / static_cast<double>(steps_per_second);
     const Taught taught = taught_for("stalls");
@@ -3382,11 +3383,7 @@ GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_f
             const char* when = at_the_warning ? "at its warning" : "left thirty seconds";
             std::printf("  %-13s %-19s engaged moving %.5f, let go moving %.5f\n", id.c_str(),
                         when, r.engaged_step, r.let_go_step);
-            const bool named_never_let_go = at_the_warning && id == "mosquito-fb6";
-            if (named_never_let_go && r.let_go_step >= 0.0) {
-                faults.push_back(id + " " + when + " is named as never let go, and was: take "
-                                                   "its name off");
-            } else if (r.let_go_step < 0.0 && !named_never_let_go) {
+            if (r.let_go_step < 0.0) {
                 faults.push_back(id + " " + when + " was never let go: not recovered");
             } else if (std::max(r.engaged_step, r.let_go_step) > a_hands_pace + 1e-12) {
                 faults.push_back(id + " " + when + " moved a control " +
@@ -3426,12 +3423,12 @@ GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_f
 // **Two named, not yet**, each for that fault alone; a name whose aeroplane
 // now passes turns this red, so it is taken off. The A380 dips 0.7 kt under
 // her published stall before the speed comes (104.1 against 104.9). The
-// Mosquito at 20,000 ft with her flaps and gear down cannot be level at her
-// approach speed, as she cannot at her lesson's recovery speed.
+// Mosquito dips 0.5 kt under hers (94.0 against 94.5) at 5,000 ft, where her
+// lesson has practised it since 2026-10-10, and is level again 122 ft lower.
 GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
     const std::map<std::string, std::string> not_yet = {
         {"a380", "slowed under her stall"},
-        {"mosquito-fb6", "not back at her approach speed and level"}};
+        {"mosquito-fb6", "slowed under her stall"}};
     std::set<std::string> named_seen;
     const Taught taught = taught_for("stalls");
     const std::size_t roster = glideslope::sim::read_catalogue(data()).size();

@@ -40,6 +40,11 @@
 name Stalls in a business jet
 teaches business-jet
 
+# **Practised at twenty thousand feet above the ground**: at idle a clean jet
+# descends while she slows, and from five thousand feet she would be in the
+# ground before she stalled.
+height 20000
+
 # **The first sign of the stall is its warning**, where the autopilot's stall
 # recovery is held to recovering within this lesson's height (REQUIREMENTS.md
 # 4.3). The rules have the warning begin no less than 5 knots or 5% above the

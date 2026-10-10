@@ -582,6 +582,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_mosquito_fb6_climbs_in_ms_gear_near_hj679s_rate
     the_mosquito_fb6_climbs_in_fs_gear_near_hj679s_rate
     the_mosquito_fb6_climbs_to_20000_ft_in_about_hj679s_time
+    the_mosquito_fb6_climbs_with_flaps_and_wheels_down_at_climbing_power_as_her_pilots_notes_say
+    the_mosquito_fb6_sinks_at_20000_ft_on_full_throttle_with_flaps_and_wheels_down
     the_mosquito_fb6_stalls_clean_near_its_pilots_notes_speed
     the_mosquito_fb6_stalls_wheels_and_flaps_down_near_its_pilots_notes_speed
     the_mosquito_fb6_takes_off_over_50_ft_in_about_the_b_ivs_distance

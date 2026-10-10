@@ -1,6 +1,7 @@
 #include "sim/lesson.hpp"
 
 #include <algorithm>
+#include <cmath>
 #include <fstream>
 #include <iterator>
 #include <sstream>
@@ -137,6 +138,24 @@ Lesson parse_lesson(const std::string& id, std::string_view text) {
                 throw wrong("a lesson has one stall warning, and this one already has it");
             }
             lesson.stall_warning = at;
+        } else if (w[0] == "height") {
+            double feet = 0.0;
+            try {
+                std::size_t used = 0;
+                feet = w.size() == 2 ? std::stod(w[1], &used) : 0.0;
+                if (w.size() == 2 && used != w[1].size()) {
+                    feet = 0.0;
+                }
+            } catch (const std::exception&) {
+                feet = 0.0;
+            }
+            if (!(feet > 0.0) || !std::isfinite(feet)) {
+                throw wrong("height FEET, above the ground and more than nothing");
+            }
+            if (lesson.practised_at_ft) {
+                throw wrong("a lesson is practised at one height, and this one already has it");
+            }
+            lesson.practised_at_ft = feet;
         } else if (w[0] == "stage") {
             if (w.size() < 2) {
                 throw wrong("stage TEXT");
