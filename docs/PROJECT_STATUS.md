@@ -265,6 +265,294 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The gust landings judged over eight seeds and every platform: four of fourteen land within limits with a margin, ten are named, 2026-10-11 — item still open
+
+**What is missing first.** Ten of the fourteen are named in the gusts test.
+**Gust landings magnify a platform's floating point**: CI run 38006839738
+(head 975d9480) failed the gust tests on macOS and Windows that passed on
+Linux - the 787-8 touched at 398 ft/min on macOS (seed 2) and climbed at
+201 ft/min in her flare on Windows (seed 3), landing 921 m along a 914 m
+zone; the A320 touched at 404 and 421 on Windows (seeds 1, 2) and climbed
+at 143 (seed 3); the C172P touched at 419 on Windows (seed 3). The same
+seed is different gusts at the flare on each platform, so a pass on Linux
+by 25 ft/min on three seeds held nowhere else. The named list is now a
+statement of robustness: an aeroplane is judged only if it passes eight
+seeds here with a margin on every limit and failed on no platform in CI.
+
+**Judged** (all eight seeds, linux-release, each limit with its margin):
+C182, J-3 Cub, Learjet 35A, PA-28. Least margins: sink 54 ft/min (against
+360), touchdown zone 445 m, rise 0.81 ft (against 1), flare climb 75 ft/min
+(against 100).
+
+**Named**, with why: 737-300 (a 113 ft/min balloon, seed 2); 787-8, A320
+and C172P (CI's failures above; here the 787-8 rises 0.85 ft on seed 6 and
+the A320 touches at 363 on seed 5); A380 (367 ft/min, seed 1; a 196
+balloon, seed 2); B-2A (a gust rolls her on to a wingtip as she touches,
+seed 8); F-15C (397, seed 2); F-35B (348 on seed 6, inside by only 12);
+Mosquito (her nose pitched up by her main wheels' touch, a 2.9 ft bounce);
+S.23 (her flare flown to her centre of gravity, the tail now in Phase 10b).
+Named before this change: 737-300, A380, F-15C, Mosquito, S.23.
+
+**What changed**:
+- The gust tests are one a seed, eight seeds, each flying all fourteen
+  (`in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_1` to
+  `_8`), each 34.7 s in a local linux-debug (seed 1). The judged must pass
+  each limit by a margin (`gusty_margin_fpm` 25 ft/min of sink and climb,
+  0.25 ft of rise, 25 m of zone).
+- No change to the lander. The 787-8 and A320 were not made robust in this
+  round: on Linux they pass most seeds by 30 to 270 ft/min, but the
+  platforms' spread on one seed is a few hundred ft/min, more than any
+  margin they have.
+- Rebased on main after #161 and #162 merged. The two tails this item
+  found, the rollout's airspeed outside gusts and the flying boat's flare to
+  her keel, are now open items in Phase 10b: the owner removed Later on
+  2026-10-11.
+
+**Verification:**
+- The eight gust tests, the stabilized-gate gust test and the spool-up test
+  pass (linux-release); the eight seeds' least margins for the judged are
+  above. Seen red: the 787-8, A320 and C172P failed on CI's macOS and
+  Windows (run 38006839738) while judged, and the B-2A (seed 8) and F-35B
+  (seed 6) failed seeds 4 to 8 here while judged.
+- The selftest hash does not move: 182dd6c996e0ee4c.
+
+### In gusts the flare's power is worked on the sink when a jet's engines will answer, measured on her model; nine of fourteen land within limits on three seeds, five are named, 2026-10-10 — item still open
+
+**What is missing first.** Five are still named in the gusts test: the
+737-300 balloons at 113 ft/min in her flare (seed 2, against 100); the A380
+meets the runway at 367 ft/min (seed 1) and balloons at 196 (seed 2); the
+F-15C meets it at 397 (seed 2) - she passed every seed by 13 ft/min before
+this round, and the cushion worked on her spool-up costs her that seed; the
+Mosquito's main wheels' touch pitches her nose up from 3.6 to 6.8 degrees
+against an elevator already at three quarters of its nose-down travel, and
+she bounces 2.9 ft (seed 2) and 2.4 (seed 3); and the S.23, whose flare is
+flown to her centre of gravity rather than her hull (Later). Named before
+this round: 737-300, 787-8, A380, Learjet 35A, C182, Mosquito, S.23, A320,
+F-15C. Un-named, each passing every seed by 25 ft/min and more: 787-8,
+A320, Learjet 35A, C182.
+
+**Spool-up, measured on the model** (`sim::spool_up_s`, into
+`ApproachSpeeds::spool_s` by `approach_speeds`): each jet standing on her
+brakes, her throttle at the approach's spooled quarter for ten seconds and
+then opened fully, the seconds until her first engine's N1 has come 90% of
+the way to where full throttle takes it in twenty; measured once a model in
+a process. 737-300 and A320 5.21 s, 787-8 8.19, A380 7.56, Learjet 3.53,
+B-2A, F-15C and F-35B 1.77; every propeller aeroplane 0. (From the idle
+stop they are 2.9 to 12.2 s; the approach never flies there.)
+
+**What changed** (sim/lander.cpp; in gusts alone):
+- **The cushion is asked of the sink predicted a spool-up ahead** (the
+  sink's trend, which carries the gusts' vertical component), and taken off
+  by the same prediction - not by the sink now, which had a 737-300's full
+  throttle reach 92% N1 as her sink was arrested. **And not asked where it
+  would arrive after the touch**: where half her spool-up is more than the
+  time left (her wheels' height over her sink), her power stays where the
+  approach left it. (The whole spool-up there put the F-15C over 360 on two
+  seeds; half of it, one.) This ended the Learjet's and the 787-8's
+  balloons and hard touches and the A320's thin margin: 737-300 seed 2 from
+  425 ft/min and a 292 balloon to 325 and 113.
+- **At the touch, the throttle closed at once** (the AFH: retarded to idle
+  once the main wheels are on), not at a hand's pace; and **firmer forward
+  pressure** while she can fly - four degrees under the attitude she touched
+  at, not two. This ended the C182's rise (1.04 ft, seed 1, to 0.11). A
+  jet's nose already comes down and her spoilers out from the touch, as
+  before; the A380's 2.6 ft rise went with the cushion (0.44).
+
+**Verification:**
+- New: `every_jets_spool_up_is_measured_from_its_model_and_a_propeller_has_none`
+  - all fourteen taught the approach, each jet's above 0 and under 10 s and
+  each propeller aeroplane's 0, coverage asserted. Seen red: measured from
+  the idle stop, the 787-8's 12.2 s and the A380's 11.2 failed it, which is
+  what moved the measurement to the approach's quarter throttle.
+- The six gust tests pass with nine judged on every seed - 787-8, A320,
+  B-2A, C172P, C182, F-35B, J-3 Cub, Learjet 35A, PA-28 - least margins
+  sink 30 ft/min (787-8, seed 1: 330), touchdown zone 191 m (A320), rise
+  0.56 ft, flare climb 34 ft/min (B-2A). **Seen red**: the 787-8, A320,
+  Learjet and C182, judged now, were named on the commit before for
+  failing (365 ft/min; 108 ft/min balloon; 1.14 ft rise) or margins under 25.
+- 159 tests matching land, lander, learnt, go_around, approach, gust, flare,
+  circuit, taken_back, handed and spool pass (linux-release).
+- Local linux-debug: seed 1's first half 11.7 s, the spool-up test 2.9 s.
+- The selftest hash does not move: 182dd6c996e0ee4c.
+
+### In gusts a longer round out, a firm touch for every aeroplane, and a balloon met ahead; five of fourteen land within limits on three seeds, nine are named, 2026-10-10 — item still open
+
+**What is missing first.** Nine of the fourteen are still named in the
+gusts test (`not_yet_landed_in_gusts`): the 737-300 balloons at 292 ft/min
+and meets the runway at 425 (seed 2); the 787-8 meets it at 365 (seed 1);
+the A380 rises 2.6 ft after touching (seed 1) and balloons at 205 (seed 2);
+the Learjet 35A, judged before this round, now balloons at 108 against the
+100 allowed (seed 1); the C182 rises 1.14 ft (seed 1); the Mosquito bounces
+3.7 ft (seed 2); the S.23 meets the water at 571 (her flare flown to her
+centre of gravity, the tail in Later); and the A320 and F-15C pass all three
+seeds but by only 22 and 13 ft/min of sink, too narrowly to hold on another
+platform's gusts. Named before this round: 737-300, 787-8, A380, F-15C,
+F-35B, A320, C172P, C182, Mosquito, S.23. Now judged and passing every seed:
+B-2A, C172P, F-35B, J-3 Cub, PA-28 (the C172P and F-35B newly).
+
+**Traced first** (787-8, seed 3, the worst at 634 ft/min; then the 737-300,
+seeds 1 and 2): held on her raised speed to within 3 kt down to 50 ft, she
+entered her flare at 45 ft sinking 944 ft/min against the path's 740 - a
+down-gust, `atmosphere/turb-down-fps` reading 100 to 340 ft/min down through
+her round out - with her throttle at full by the cushion but her N1 at 53%,
+rising a point every tenth of a second. Her nose came up two degrees a
+second, a degree above level when her wheels met the runway. The 737-300's
+nose, trimmed nose-down for her raised speed, did not move in her flare's
+first second while its gain came in. And on seed 2 the cushion's full
+throttle reached her engines - 92% N1 - just as the sink was arrested, and
+she climbed at 300 ft/min with her lever closing at half its travel a
+second.
+
+**What changed** (sim/lander.cpp; in gusts alone, so calm and steady-wind
+landings fly as before):
+- **A longer round out, begun higher**: the flare's height from 0.07 g
+  rather than 0.1, so a gust's added sink at its start is arrested in the
+  height there is. This was the change that mattered: the 737-300 seed 1 from
+  571 to 209 ft/min, the 787-8 seed 3 from 639 to 30, the F-15C and F-35B
+  under 360 on two seeds of three. (0.06 was tried: no better, and the
+  F-15C's seed 1 went to 371.)
+- **Every aeroplane flown on at 150 ft/min** (`gusty_touchdown_fpm`), a
+  jet's 200 softened to it: the last second's gusts add up to 200 ft/min
+  either way, and aimed at 200 the F-15C and F-35B met the runway at 450 to
+  520. This put the F-15C and F-35B within limits on every seed, and the
+  Learjet's seed 1 over (a balloon of 108).
+- **The flare's attitude gain comes in over an eighth of a second**, not a
+  second.
+- **A balloon judged a moment ahead**: the nose is held once the climb 0.3 s
+  ahead (the sink's trend) is above level, not once she climbs, and let
+  down a degree for each 100 ft/min of it, no lower than where the flare
+  began - the AFH's (ch. 9, "Ballooning") hold the attitude and let her
+  settle. This un-named the C172P (seed 3, from 140 to 57 ft/min).
+- **The cushion's power off as soon as the sink is arrested**, at a full
+  travel a second, to the flare's half-throttle floor.
+- **A jet's last-feet attitude hold waived while she still sinks more than
+  150 ft/min past what the flare wants.** Alone it moved the 787-8 by
+  5 ft/min; it stays, as the hold's reason (a nose still rotating at the
+  touch) does not apply to a nose that has not yet come up.
+- Tried and not kept: flying the glidepath's sink from her groundspeed
+  rather than her airspeed in gusts (the 787-8 sank 80 ft/min faster than
+  the path into a 15 kt wind) - the 737-300 and 787-8 a little better, the
+  Learjet and F-15C landing longer and the Mosquito bouncing 7.6 ft; and
+  capping a jet's cushion at 0.3 over the flare's throttle - the F-15C back
+  over 360 on two seeds, the 737-300's balloon unchanged.
+
+**Verification:**
+- The six gust tests,
+  `in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_{1,2,3}_{first,second}_half`,
+  pass with five judged; any aeroplane failing a seed or passing one by
+  under 25 ft/min is named. Least margins of those judged over the three
+  seeds: sink 47 ft/min (C172P, seed 1: 313), touchdown zone 219 m (F-35B),
+  rise 0.62 ft (PA-28), flare climb 43 ft/min (C172P, seed 3: 57). **Seen
+  red**: the C172P and F-35B, now judged, failed on the commit before
+  (140 ft/min climbing in her flare, seed 3; 465 ft/min, seed 2).
+- In a local linux-debug, seed 2: the first half 13.4 s, the second 27.2 s, both passing
+  (two at once, ctest -j4) - well under the 150 s asked.
+- 158 tests matching land, lander, learnt, go_around, approach, gust, flare,
+  circuit, taken_back and handed pass (linux-release).
+- The selftest hash does not move: 182dd6c996e0ee4c.
+
+### In gusts the AI flies half the gust factor faster with the power on to the touch; four of fourteen land within limits on three seeds, ten are named, 2026-10-10 — item still open
+
+**What is missing first.** Ten of the fourteen aeroplanes taught the
+approach do not yet land in moderate turbulence within the limits below, on
+at least one of three turbulence seeds, and are named in the test: the
+737-300, 787-8, A380, F-15C and F-35B meet the runway harder than 360 ft/min
+(a jet's flare does not arrest a gust's added sink: 568, 634, 443, 474 and
+465 at their worst); the A320 and C172P are lifted in their flares (107 and
+140 ft/min, seed 3); the C182 rises 1.18 ft after touching (seed 1); the
+Mosquito bounces 3.4 ft (seed 2); and the S.23's flare is flown to her
+centre of gravity, six feet over the hull that meets the water (she has no
+wheel, `Aircraft::contact_points` counts none), and she meets it at 577
+ft/min (seed 1). None of the 42 cases goes around any more. The light and
+heavy loadings' two balloons are as they were. Two tails found on the way
+are in COMPLETION_PLAN.md's Later.
+
+**What changed** (sim/lander.cpp, from the FAA's Airplane Flying Handbook,
+FAA-H-8083-3C, ch. 9, "Turbulent Air Approach and Landing", "Ballooning"
+and "Bouncing During Touchdown"). None of it acts in air with no gust
+factor: calm and steady-wind landings fly as before.
+- **The approach is flown at her reference speed plus half the air's gust
+  factor** (`Lander::approach_kts`, from `Aircraft::gust_factor_kt`, #161's),
+  the additive capped at 15 kt (`most_gust_additive_kts`: Airbus limits its
+  increment over VLS to 15 kt, and Boeing's study cut its wind additive from
+  20 to 15, as code7700.com's "Approach Speed Additives" quotes them). The
+  flare's height is worked from the speed flown.
+- **The stabilized gate is widened by the additive**: fast is judged over
+  the raised speed, slow under the bare reference (`unstabilized`'s
+  `gust_additive_kts`). Judged round the raised speed, the C172P and C182
+  were sent round "8 kt slow" and "7 kt slow" on seed 2 - slow of the raised
+  speed, at it of the reference: the additive is the margin a lull eats.
+- **The power stays on to the touch** - "the throttle retarded to idling
+  position only after the main wheels contact the landing surface" - eased
+  in the flare to no less than half what the flare found; held at all of
+  it, the F-35B ballooned above her flare's height and the Mosquito floated
+  past the touchdown zone. A jet is kept spooled (`jet_approach_idle`) into
+  the flare, not let back to idle at twice the flare height: a 737-300 had
+  0.03 of her throttle in a flare that put her on the runway at 638 ft/min.
+- **A sink in the flare is cushioned with power** from 150 ft/min past what
+  the flare wants, whatever the nose ("applying sufficient power to cushion
+  the subsequent touchdown"); in calm air from 300, and only with the nose
+  out, as before.
+- **A firmer touch**: the flare's touchdown sink no softer than 150 ft/min
+  (`gusty_touchdown_fpm`); a jet's own 200 kept.
+- **The rollout judges whether she still flies by her airspeed along her
+  nose, or her groundspeed where that is more.** On her groundspeed, a
+  C172P touching at 55 kt into the 15 kt wind was rolling at 40 - "slow" -
+  and had her stick most of the way back with her wing still carrying her:
+  her nose rose from 4.5 to 10 degrees on the runway, she flew off it
+  5.6 ft and came down on her tail. This alone ended every light
+  aeroplane's bounce and airframe strike in the gusts test. **In gusts
+  only**: so judged in steady air as well, the learnt landing from its
+  gate's left corner in its most crosswind did not stop, not yet understood
+  (a tail, Later).
+- **Bounces and balloons** are as the lander already flew them, which is the
+  AFH's: a balloon above the flare's height goes around ("when ballooning is
+  excessive ... execute a go-around immediately"), and a bounce below it is
+  flown down again by the flare's law - now with the power on in gusts.
+- Tried and not kept: holding all the flare's power (above); and beginning
+  the flare in gusts at the height her present sink needs (v^2 / 0.2 g), which
+  moved the jets' hard touches about without removing them (A380 seed 1 443
+  to 337, 787-8 seed 3 634 to 538, Learjet seed 3 then ballooned at 265).
+  Flying the S.23's flare to her keel touched her at 61 ft/min in gusts, but
+  in calm air at her model's weight her hull rose 1.27 ft after touching,
+  against the calm test's 0.5: a tail, Later.
+
+**Measured** (linux-release), 14 aeroplanes x 3 seeds in the gusts test's
+air. Before, on seed 1, nine of fourteen failed: 737-300 473 ft/min, 787-8
+534, C172P and C182 and PA-28 struck their airframes (the C172P 5.6 ft back
+in the air), F-15C wrecked at 767, F-35B 360.4, Mosquito 458 and a balloon
+at 169 ft/min, S.23 sent round by a balloon above her flare. After, the four
+judged (B-2A, J-3 Cub, Learjet 35A, PA-28) on every seed, least margins:
+sink 66 ft/min (B-2A, seed 1: 294), touchdown zone 447 m, rise 0.61 ft
+(PA-28, seed 3), flare climb 26 ft/min (Learjet, seed 1: 74).
+
+**Verification:**
+- New, six tests (each seed in two halves of seven, each 1 to 11 s in
+  linux-release; the test they replace took 220 s on CI's linux-debug for
+  all fourteen, so about 110 s a half there - not measured in a local
+  linux-debug):
+  `in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_{1,2,3}_{first,second}_half`.
+  Fifteen knots down the runway, severity-3 turbulence, gust factor 15 kt
+  (`world::gust_spread_of_severity(3)`), the turbulence seeded 1, 2 and 3
+  (`Aircraft::set_weather`'s new `turbulence_seed`, 1 by default as
+  before): each aeroplane not named must land - not go around - inside the
+  touchdown zone, no harder than 360 ft/min (NASA's go-around criteria
+  study's 6 ft/s, the calm tests' bound), unwrecked, upright, risen no more
+  than 1 ft (the AFH's "very slight" bounce), climbing no faster than
+  100 ft/min in her flare, and stop. Coverage asserted: fourteen taught,
+  each half's judged and named making up its seven. An aeroplane that fails
+  any seed is named whole, since another platform's floating point gives
+  her other gusts on a seed she passes here. **Seen red** on the lander
+  before (seed 1): the PA-28, judged now, struck her airframe.
+- Replaced: `every_aeroplane_flown_down_in_gusts_reaches_the_runway_or_goes_around`,
+  which judged nothing. tests/ci_costs carry the six at half its cost each.
+- `an_approach_flown_well_in_gusts_is_not_sent_round_by_the_stabilized_gate`
+  now has the gust factor flown by the lander (no 5 kt added by the test):
+  all 14 pass.
+- 158 tests matching land, lander, learnt, go_around, approach, gust, flare,
+  circuit, taken_back and handed pass (linux-release; the live ones skip).
+- The selftest hash does not move: 182dd6c996e0ee4c (it flies no landing).
+
 ### The Learjet's 6% length accepted by the owner; the exit crash made an item, 2026-10-11 — docs only
 
 **The owner's decision, 2026-10-11**: the Learjet 35A's model ships as
