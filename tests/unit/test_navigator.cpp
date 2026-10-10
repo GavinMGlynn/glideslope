@@ -2110,7 +2110,7 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
         // slower one for her weight (2026-10-09), each strays 11 to 17 m
         // more - now the 172P 80 m, the 182S 80, the Cub 40, the Cherokee
         // 60 - which the airspeed alone does not explain; not traced, and
-        // a Later item in docs/COMPLETION_PLAN.md.
+        // an open item in Phase 10a of docs/COMPLETION_PLAN.md.
         check(worst_off_leg_m <= 100.0,
               id + " flew its first leg from where the take-off handed over, straying " +
                   std::to_string(worst_off_leg_m) + " m from it (at most 100)");

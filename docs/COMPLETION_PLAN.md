@@ -8,15 +8,16 @@ the design decisions behind it in `REQUIREMENTS.md`.
 
 **`[x]` means 100% of the item, and nothing less.** An open item names what is
 missing. An item without a verification cannot be ticked. Tails found while
-implementing something go in the phase they belong to, among its open items, if they
-are a regression or a correctness bug; anything else goes to Later (owner, 2026-10-09).
+implementing something go in the phase they belong to, among its open items
+(owner, 2026-10-11: there is no Later section; everything is implemented
+eventually).
 
 `[x]` done · `[ ]` not started, or **In progress** where the text says so
 
 **The plan is finished when this returns nothing:**
 
 ```sh
-sed -n '/^## Phase /,/^## Later/p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
+sed -n '/^## Phase /,$p' docs/COMPLETION_PLAN.md | grep '^- \[ \]'
 ```
 
 The phases are worked in order: the flight model and state set/resume first, the
@@ -344,6 +345,33 @@ ends in a debrief, never a score.
 
 Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to what its handbook or manual publishes.
 
+- [ ] **The Cherokee makes 2.2 kt less at full throttle than her figures
+      file was measured at.** 126.8 kt level at 3,000 ft against 129 on
+      2026-10-06, the same on main and on this stack; her plan's fastest,
+      117, still holds (PROJECT_STATUS, 2026-10-10). *Verification: the
+      change traced to the commit that made it, and her figure measured
+      again or the change undone.*
+- [ ] **Tail strikes for the F-15C, A380 and F-35B, against published
+      attitudes.** The Learjet's tail strikes and the take-off lessons name
+      a strike (done 2026-10-06); the F-15C has no contact behind her main
+      wheels, the A380 strikes her outboard engines first, and the F-35B
+      flies off before her tail touches. No strike attitude is published for
+      any of them, nor for the Learjet (her drawings allow 14.0 to 15.6
+      degrees). *Verification: every nose-wheel aeroplane's tail strikes the
+      runway where its airframe would, and is judged a strike.* Owner
+      2026-10-09: no public source.
+- [ ] **The F-35B cannot hover, land vertically or take off short**: its lift
+      fan is not modelled. *Verification: it hovers at its published thrust,
+      lands vertically, and takes off in its published short distance.*
+- [ ] **The Mosquito's model is never level after a stall warning with full
+      flap and gear: her own pitching moment.** Recovered at her stall
+      warning at 20,000 ft, 45 degrees of flap and the gear down, she loses
+      3,095 ft and is never level again; at 140 kt she pulls 2.1 g with her
+      elevator half nose-down (PROJECT_STATUS, 2026-10-10, the stall
+      recovery closed by the owner's decision). *Verification: her model
+      level at her lesson's recovery speed with full flap and gear, or her
+      lesson flown in the configuration her Pilot's Notes give, and her
+      recovery at the warning within 600 ft.*
 - [x] **The Learjet cannot be rotated early**: full back stick lifts her
       nose only near her rotation speed. *Verification: the Learjet held
       fully back from 85 percent of her rotation speed leaves the runway
@@ -484,6 +512,30 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 
 The autopilot's navigator and the plans it flies: orbits, glides, the speeds a plan may ask, the take-off, and the lessons' autopilot.
 
+- [ ] **The autopilot holds a low height loosely in an airliner's take-off
+      configuration.** Asked to hold 200 ft with her take-off flap and gear
+      out, the A380 swings 15 ft either side of it at up to 350 ft/min for
+      three minutes before it settles. *Verification: every airliner holding
+      a height at her take-off flap settles within 100 ft/min in a minute.*
+- [ ] **A jet, the Mosquito or the S.23 slowed from cruise into her climb
+      sinks 2 to 6.4 kt past her climb speed.** Only a light aeroplane has
+      a speed floor to capture it with; the others' climb speeds are not a
+      best-rate climb to hold as one. *Verification: the capture test's six
+      named aeroplanes within 2 kt, unnamed.*
+- [ ] **The B-2A's and Mosquito's slowest glides are under their plan's
+      slowest.** Their `<glide_speeds>`, 159 and 128 kt, were measured from
+      floors since raised to 169 and 129; a brief already takes the higher,
+      so nothing glides slower, but the figures want measuring again
+      (`glideslope_cli glide-speeds`) and their glide tests renaming.
+      *Verification: each figure is what the command writes now.*
+- [ ] **A plan's first leg strays further since the take-off climbs at the
+      published speed.** Climbing at her handbook's Vy rather than the
+      slower speed for her weight, each light aeroplane strays 11 to 17 m
+      further from the line of a first leg that turns (the 172P 62 -> 80 m),
+      within the test's 100 m; the faster climb should stray less, so why
+      is not known (PROJECT_STATUS, 2026-10-10). *Verification: the extra
+      stray traced to its cause, and either removed or explained in the
+      test.*
 - [x] **A glide may still be asked of a jet at its approach speed.** Each
       aircraft's slowest glide is measured with its gear up, and every
       aircraft glides round unstalled at every speed it may be asked to
@@ -523,7 +575,7 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       short at the warning: the Learjet 35A loses 385 ft against 350, the
       Short S.23 184 against 200 (named by the 10% margin only), and the
       Mosquito is never level after her warning, from her own pitching
-      moment (a Later item).
+      moment (an open item in Phase 9).
 - [x] **The AI notices a stall the J-3 Cub is not in, in moderate
       turbulence.** Done 2026-10-10: a plan's slowest is raised for the
       weight flown and keeps 10 kt over the stall warning; a light aeroplane
@@ -645,16 +697,63 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       balloons, and the Mosquito at her heaviest. *Verification: every
       aeroplane lands light, heavy and in gusts with none named, and a
       gust on an approach flown well makes no go-around.*
+- [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
+      stabilized-approach gate does not judge it. By the owner's decision of
+      2026-10-11, a larger project: its flare trained as its own
+      stage, or started from the approach autopilot's flare. The gate's
+      judging waits on branch `learnt-landing-gate-wip`. *Verification:
+      from every corner of its gate it is stabilized by 500 ft and lands.*
+- [ ] **A contaminated runway is flown when reported, and nothing reports
+      one.** The simulation brakes on every FAA runway condition code, but a
+      METAR's weather says only that rain or snow is falling, not how deep it
+      lies; Europe's runway-state group, which does, is not read. Nor is a
+      runway still wet after the rain stops. *Verification: a report of
+      slush or ice on a runway makes it slippery to the aircraft on it.*
+- [ ] **A wet runway does not change a rolling tyre's grip sideways.**
+      Only the brakes feel the water; a source for a wet tyre's cornering
+      grip was not found. *Verification: a wet runway's side grip from a
+      published source, and a crosswind roll-out held to it.*
+- [ ] **The AI cannot land the J-3 Cub in a 15 kt crosswind**: she
+      ground-loops after the touch, dry or wet. No crosswind limit is
+      published for her. *Verification: a published limit, and the Cub
+      landed within it.*
+- [ ] **Wet runways judged with one tyre for every aircraft.** The wet
+      grip is the FAA's curve for a 100 psi tyre with anti-skid; a Cessna's
+      tyres are softer and grip more, an airliner's harder and grip less, and
+      a light aeroplane has no anti-skid. *Verification: each aircraft's tyre
+      pressure and brakes are sourced and used.*
+- [ ] **The F-35B lands on her power**: her model flies the glidepath at
+      19.5 degrees of incidence and its flare runs out of nose; level at
+      3,000 ft below 181 kt the same incidence is past the autopilot's 15
+      degrees of nose and she sinks (PROJECT_STATUS, 2026-10-10). *Verification:
+      the F-35B flies her approach at her published incidence and flares
+      with her throttle closing.* Owner 2026-10-09: no public approach angle
+      of attack.
+- [ ] **A runway too short refused for the five with no public landing
+      figure, and the runways a model is shown say their length.** The J-3
+      Cub, Mosquito, F-22A, F-35B and B-2A have no landing distance from a
+      primary source, so nothing refuses them a short runway; the S.23 is a
+      flying boat, and the check does not apply to her. The runway lines a
+      model is shown do not say their landing length or what the aircraft
+      needs, though the check refuses a short one all the same.
+      *Verification: each of the five refused a runway shorter than a cited
+      figure, and the model shown each runway's landing length.* Owner
+      2026-10-09.
+- [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
+      *Verification: each light aircraft's policy lands within the
+      autopilot's limits from the same starts, in calm air and a 10-knot
+      crosswind.* Owner 2026-10-09: needs RL training per aircraft; the
+      172P's is retrained first.
 - [x] **A landing taken over on its roll is braked for a dry runway**: a
       wet or contaminated one, which needs more, is not known.
       *Verification: on a wet short runway an aeroplane handed over on its
       roll still stops on it.* Done 2026-10-10: rain in the session's METAR
       wets the runway, the wheels grip as the FAA's wet-runway rule says,
       and 12 of 13 landplanes stop on a wet runway 1.15 times their dry need
-      (the F-35B named: she has no published landing distance, a Later
-      item); a session's copilot and planner refuse a runway long enough dry
+      (the F-35B named: she has no published landing distance, an open
+      item in Phase 10b); a session's copilot and planner refuse a runway long enough dry
       but short wet. Contaminated runways are flown when given; nothing
-      reports one (Later).
+      reports one (an open item in Phase 10b).
 - [x] **A landing handed over in a skip is not landed.** Handed to the AI
       the moment a pilot's landing has bounced its wheels clear, even by an
       inch, she is given the plain autopilot, which never stops her (a 787
@@ -844,6 +943,10 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       before 2026-10-09, on branches and on main. *Verification: the test
       passes with the server held up for a second on purpose, on every
       platform, and a month of CI runs.*
+- [ ] **A flight flies one station's weather wherever it goes**: nothing
+      picks the nearest station. *Verification: a flight from one station to
+      another flies the nearer's weather, changing between them with no step
+      in the wind.*
 - [x] **The network checks on macOS drew another aircraft metres off** (8.6 m
       at 100 ms, 8.5 m at 200 ms). *Verification: the cause found, and the
       check run a hundred times on macOS within its bound.* Done 2026-09-30:
@@ -1022,6 +1125,14 @@ What the client with the window does that the command-line client does, and what
       fail, and whether the older steps CI saw (6.2 and 24.5 m in the
       hand-over test, 2.77 m at a take-over) were the session's clock,
       which stepped under long, uneven frames and is now slewed (2026-10-09).
+- [ ] **A livery on the aeroplane, and its control surfaces moving.**
+      *Verification: a shot shows a livery, and the ailerons move with the
+      stick.*
+- [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
+      its lighting follows a roll with no mesh remade.*
+- [ ] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
+      model. *Verification: a model whose source and licence are in
+      `ASSETS.md` is held to the Learjet's size and drawn in a shot.*
 - [x] **The client with the window does not blend its own aircraft at a
       switch** - handed over (A on a server), taken back or taken over - as
       the network checks' model of a display does. *Verification: what it
@@ -1061,6 +1172,11 @@ What the client with the window does that the command-line client does, and what
       walked.* Done 2026-10-06: the line is the camera's own horizon; over
       the Nullarbor, at pitches of -15, 0 and 15 by banks from -60 to 60, it
       lies within 4 pixels of the horizon drawn (the Earth's curve is 1.8).
+- [x] **The keyboard has no flaps, and a window client joining forgets the
+      server's.** F and R now work the flaps a notch a press, and a client
+      joining keeps the server's flaps and throttle. *Verification: a window
+      client started on final keeps full flap, sets it from the keyboard, and
+      is handed to the learnt landing.* Done 2026-10-08.
 
 ---
 
@@ -1084,7 +1200,8 @@ The language model that plans: its routes, its recordings and what it is told.
       its class's margin, against the runway less any displaced threshold.
       *Verification: a landing on a runway shorter than the aircraft lands
       in is refused, saying so, for each of the ten.* Done 2026-10-09; the
-      six with no public figure went to Later by the owner's decision.
+      six with no public figure were set aside by the owner's decision,
+      now an open item in Phase 10b.
 - [x] **A copilot recording breaks when two runways swap places.** Played
       back, a question matches its recording but for its numbers, so a
       flight a little different that lists two runways in the other order
@@ -1320,99 +1437,11 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 
 ---
 
-## Later - not part of the current goal
+## Phase 15 — The whole world, its sky and scenery, and the game shipped
 
-Moved here by the owner's decision of 2026-10-06: each needs a decision, an
-outside resource or a larger project.
+Terrain and weather beyond where a flight starts, scenery to fly over, and
+downloads and a server for anyone: the first goal's world, widened.
 
-- [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
-      stabilized-approach gate does not judge it. Moved here by the owner's
-      decision of 2026-10-11, a larger project: its flare trained as its own
-      stage, or started from the approach autopilot's flare. The gate's
-      judging waits on branch `learnt-landing-gate-wip`. *Verification:
-      from every corner of its gate it is stabilized by 500 ft and lands.*
-- [ ] **The autopilot holds a low height loosely in an airliner's take-off
-      configuration.** Asked to hold 200 ft with her take-off flap and gear
-      out, the A380 swings 15 ft either side of it at up to 350 ft/min for
-      three minutes before it settles. *Verification: every airliner holding
-      a height at her take-off flap settles within 100 ft/min in a minute.*
-
-- [ ] **A jet, the Mosquito or the S.23 slowed from cruise into her climb
-      sinks 2 to 6.4 kt past her climb speed.** Only a light aeroplane has
-      a speed floor to capture it with; the others' climb speeds are not a
-      best-rate climb to hold as one. *Verification: the capture test's six
-      named aeroplanes within 2 kt, unnamed.*
-- [ ] **The B-2A's and Mosquito's slowest glides are under their plan's
-      slowest.** Their `<glide_speeds>`, 159 and 128 kt, were measured from
-      floors since raised to 169 and 129; a brief already takes the higher,
-      so nothing glides slower, but the figures want measuring again
-      (`glideslope_cli glide-speeds`) and their glide tests renaming.
-      *Verification: each figure is what the command writes now.*
-- [ ] **A contaminated runway is flown when reported, and nothing reports
-      one.** The simulation brakes on every FAA runway condition code, but a
-      METAR's weather says only that rain or snow is falling, not how deep it
-      lies; Europe's runway-state group, which does, is not read. Nor is a
-      runway still wet after the rain stops. *Verification: a report of
-      slush or ice on a runway makes it slippery to the aircraft on it.*
-- [ ] **A wet runway does not change a rolling tyre's grip sideways.**
-      Only the brakes feel the water; a source for a wet tyre's cornering
-      grip was not found. *Verification: a wet runway's side grip from a
-      published source, and a crosswind roll-out held to it.*
-- [ ] **The AI cannot land the J-3 Cub in a 15 kt crosswind**: she
-      ground-loops after the touch, dry or wet. No crosswind limit is
-      published for her. *Verification: a published limit, and the Cub
-      landed within it.*
-- [ ] **Wet runways judged with one tyre for every aircraft.** The wet
-      grip is the FAA's curve for a 100 psi tyre with anti-skid; a Cessna's
-      tyres are softer and grip more, an airliner's harder and grip less, and
-      a light aeroplane has no anti-skid. *Verification: each aircraft's tyre
-      pressure and brakes are sourced and used.*
-
-- [ ] **The Cherokee makes 2.2 kt less at full throttle than her figures
-      file was measured at.** 126.8 kt level at 3,000 ft against 129 on
-      2026-10-06, the same on main and on this stack; her plan's fastest,
-      117, still holds (PROJECT_STATUS, 2026-10-10). *Verification: the
-      change traced to the commit that made it, and her figure measured
-      again or the change undone.*
-- [ ] **A plan's first leg strays further since the take-off climbs at the
-      published speed.** Climbing at her handbook's Vy rather than the
-      slower speed for her weight, each light aeroplane strays 11 to 17 m
-      further from the line of a first leg that turns (the 172P 62 -> 80 m),
-      within the test's 100 m; the faster climb should stray less, so why
-      is not known (PROJECT_STATUS, 2026-10-10). *Verification: the extra
-      stray traced to its cause, and either removed or explained in the
-      test.*
-- [ ] **Tail strikes for the F-15C, A380 and F-35B, against published
-      attitudes.** The Learjet's tail strikes and the take-off lessons name
-      a strike (done 2026-10-06); the F-15C has no contact behind her main
-      wheels, the A380 strikes her outboard engines first, and the F-35B
-      flies off before her tail touches. No strike attitude is published for
-      any of them, nor for the Learjet (her drawings allow 14.0 to 15.6
-      degrees). *Verification: every nose-wheel aeroplane's tail strikes the
-      runway where its airframe would, and is judged a strike.* Owner
-      2026-10-09: no public source.
-- [ ] **The F-35B lands on her power**: her model flies the glidepath at
-      19.5 degrees of incidence and its flare runs out of nose; level at
-      3,000 ft below 181 kt the same incidence is past the autopilot's 15
-      degrees of nose and she sinks (PROJECT_STATUS, 2026-10-10). *Verification:
-      the F-35B flies her approach at her published incidence and flares
-      with her throttle closing.* Owner 2026-10-09: no public approach angle
-      of attack.
-- [ ] **A runway too short refused for the five with no public landing
-      figure, and the runways a model is shown say their length.** The J-3
-      Cub, Mosquito, F-22A, F-35B and B-2A have no landing distance from a
-      primary source, so nothing refuses them a short runway; the S.23 is a
-      flying boat, and the check does not apply to her. The runway lines a
-      model is shown do not say their landing length or what the aircraft
-      needs, though the check refuses a short one all the same.
-      *Verification: each of the five refused a runway shorter than a cited
-      figure, and the model shown each runway's landing length.* Owner
-      2026-10-09.
-- [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
-      *Verification: each light aircraft's policy lands within the
-      autopilot's limits from the same starts, in calm air and a 10-knot
-      crosswind.* Owner 2026-10-09: needs RL training per aircraft; the
-      172P's is retrained first.
 - [ ] **Terrain over the whole Earth, streamed as an aircraft flies.**
       *Verification: a Sydney-to-Melbourne flight draws terrain the whole way,
       with tiles in memory under a bound.*
@@ -1422,9 +1451,6 @@ outside resource or a larger project.
 - [ ] **Thermals from the ground beneath them, and lee waves trapped under a
       stable layer.** *Verification: no thermal over open water on a convective
       day, and trapped lee waves at the two-layer wavelength.*
-- [ ] **The F-35B cannot hover, land vertically or take off short**: its lift
-      fan is not modelled. *Verification: it hovers at its published thrust,
-      lands vertically, and takes off in its published short distance.*
 - [ ] **Signed and notarised macOS builds.** *Verification: a downloaded package
       opens with no Gatekeeper warning.*
 - [ ] **One Linux download for every distribution** — an AppImage or Flatpak.
@@ -1433,29 +1459,3 @@ outside resource or a larger project.
       names a running server a client reaches with `--online`.*
 - [ ] **Free buildings for the default scenery.** *Verification: a source
       recorded in `ASSETS.md`, and a shot of a city shows its buildings.*
-- [ ] **A livery on the aeroplane, and its control surfaces moving.**
-      *Verification: a shot shows a livery, and the ailerons move with the
-      stick.*
-- [ ] **The aeroplane is lit by a light baked into its mesh.** *Verification:
-      its lighting follows a roll with no mesh remade.*
-- [ ] **The Mosquito's model is never level after a stall warning with full
-      flap and gear: her own pitching moment.** Recovered at her stall
-      warning at 20,000 ft, 45 degrees of flap and the gear down, she loses
-      3,095 ft and is never level again; at 140 kt she pulls 2.1 g with her
-      elevator half nose-down (PROJECT_STATUS, 2026-10-10, the stall
-      recovery closed by the owner's decision). *Verification: her model
-      level at her lesson's recovery speed with full flap and gear, or her
-      lesson flown in the configuration her Pilot's Notes give, and her
-      recovery at the warning within 600 ft.*
-- [ ] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
-      model. *Verification: a model whose source and licence are in
-      `ASSETS.md` is held to the Learjet's size and drawn in a shot.*
-- [ ] **A flight flies one station's weather wherever it goes**: nothing
-      picks the nearest station. *Verification: a flight from one station to
-      another flies the nearer's weather, changing between them with no step
-      in the wind.*
-- [x] **The keyboard has no flaps, and a window client joining forgets the
-      server's.** F and R now work the flaps a notch a press, and a client
-      joining keeps the server's flaps and throttle. *Verification: a window
-      client started on final keeps full flap, sets it from the keyboard, and
-      is handed to the learnt landing.* Done 2026-10-08.

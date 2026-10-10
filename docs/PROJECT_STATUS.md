@@ -265,6 +265,10 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The completion plan has no Later section, 2026-10-11 — no item changes state
+
+By the owner's decision of 2026-10-11 ("I don't want a later section - it should be incorporated into phases. We are going to implement everything eventually"), Later's 28 items (27 open, 1 done) moved into their phases byte for byte - Phase 9 four, 10a four, 10b eight, 12a one, 12c four - and seven with no existing phase (terrain over the whole Earth, weather seen as it is, thermals and lee waves, buildings, signed macOS builds, one Linux download, a hosted server) into a new Phase 15; the dated decisions in them, and four references to Later in other items, reworded minimally. The finished-when command (here and in REQUIREMENTS.md) and `tools/next_item.sh` now read to the end of the file, so Phase 9's reopened items come first: `tools/next_item.sh` names the Cherokee's 2.2 kt. Checked by a script: the multiset of item blocks the same but for the rewordings, 45 open and 224 done before and after, the finished-when command counting all 45, and no `---` rule but before a `## ` heading.
+
 ### Why the learnt landing flies fast, and two rounds of training it stabilized, 2026-10-10 — item moved to Later
 
 **The owner's decision, 2026-10-11:** the item moves to Later as a larger
