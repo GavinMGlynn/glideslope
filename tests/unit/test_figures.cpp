@@ -583,6 +583,31 @@ GLIDESLOPE_TEST(the_mosquito_fb6_sinks_at_20000_ft_on_full_throttle_with_flaps_a
     check(fpm < 0.0, "she sinks there, " + std::to_string(fpm) + " ft/min");
 }
 
+// **Clean she climbs faster than with everything down**, at the same height,
+// speed and power: the upper bound of her figure for the climb with flaps
+// and wheels down is this clean climb, measured from her model, and this
+// holds it there - the everything-down climb's figure must stay under the
+// clean one the model flies now.
+GLIDESLOPE_TEST(the_mosquito_fb6_climbs_faster_clean_than_with_flaps_and_wheels_down) {
+    const PublishedFigures figures = read_published_figures(figures_file("mosquito-fb6"));
+    const auto it = std::find_if(figures.figures.begin(), figures.figures.end(),
+                                 [](const auto& f) { return f.name == "climb_flaps_and_gear_down"; });
+    check(it != figures.figures.end(), "her figures give her climb with everything down");
+    const double down = fly_figure(data_dir, figures, *it).measured;
+    auto clean = *it;
+    clean.conditions["flaps_deg"] = 0.0;
+    clean.conditions["gear"] = 0.0;
+    const double clean_fpm = fly_figure(data_dir, figures, clean).measured;
+    std::printf("at 1,000 ft, 120 kt, +9 and 2,850 rpm: clean %.0f ft/min, everything down "
+                "%.0f, the figure's upper bound %.0f\n",
+                clean_fpm, down, it->high);
+    check(down < clean_fpm, "with everything down she climbs slower than clean");
+    // Within 2%, what another machine's floating point may move it by.
+    check(std::abs(it->high - clean_fpm) <= 0.02 * clean_fpm,
+          "the figure's upper bound, " + std::to_string(it->high) +
+              ", is her clean climb, " + std::to_string(clean_fpm));
+}
+
 GLIDESLOPE_TEST(the_mosquito_fb6_stalls_clean_near_its_pilots_notes_speed) {
     expect_figure("mosquito-fb6", "stall_speed_clean");
 }

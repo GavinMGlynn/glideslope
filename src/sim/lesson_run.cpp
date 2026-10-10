@@ -147,10 +147,32 @@ void LessonRun::remember_the_start(const Aircraft& aircraft) {
     }
 }
 
+void LessonRun::judge_the_height(const Aircraft& aircraft, std::int64_t tick) {
+    double agl_ft = 0.0;
+    if (!lesson_.practised_at_ft || lesson_.stages.empty() ||
+        !value_of(aircraft, "position/h-agl-ft", agl_ft)) {
+        return;
+    }
+    const double practised_ft = *lesson_.practised_at_ft;
+    if (std::abs(agl_ft - practised_ft) <= height_within_ft) {
+        return;
+    }
+    const auto feet = [](double ft) {
+        return std::to_string(static_cast<long long>(std::lround(ft)));
+    };
+    debrief_.push_back({"Begun at " + feet(agl_ft) + " ft above the ground: this lesson is "
+                        "practised at " + feet(practised_ft) + " ft" +
+                        (agl_ft < practised_ft ? ", for the height it may need"
+                                               : ", where the aeroplane can do what it asks"),
+                        lesson_.stages.front().name, tick});
+}
+
 void LessonRun::update(const Aircraft& aircraft, std::int64_t tick) {
-    // The first tick of the lesson is the first stage own beginning.
+    // The first tick of the lesson is the first stage own beginning, and
+    // where it was begun is judged then.
     if (!noted_) {
         remember_the_start(aircraft);
+        judge_the_height(aircraft, tick);
         noted_ = true;
     }
     // **More than one stage may end on a tick**, when a stage's `until` is

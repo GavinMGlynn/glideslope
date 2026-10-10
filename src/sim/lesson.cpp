@@ -224,6 +224,10 @@ Lesson parse_lesson(const std::string& id, std::string_view text) {
     if (lesson.stages.empty()) {
         throw LessonError(id + ".lesson must have at least one stage");
     }
+    if (lesson.stall_warning && !lesson.practised_at_ft) {
+        throw LessonError(id + ".lesson is a stall lesson and must say the height it is "
+                               "practised at: height FEET");
+    }
     for (const LessonStage& stage : lesson.stages) {
         if (stage.until_property.empty()) {
             throw LessonError(id + ".lesson: the stage \"" + stage.name +

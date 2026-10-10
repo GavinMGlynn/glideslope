@@ -168,13 +168,15 @@
        41), low gear, low down where a landing is missed. Nothing else holds the
        flaps' and the gear's drag to a figure. -->
   <figure name="climb_flaps_and_gear_down" flight="climb_rate" loading="pn-18000"
-          unit="ft/min" min="0" max="1740"
+          unit="ft/min" min="0" max="2400"
           altitude_ft="1000" speed_kcas="120" boost_psi="9" rpm="2850"
           flaps_deg="45" gear="1" fs_gear_above_ft="99999">
     [PN50] para. 48: she climbs at 120 knots with 45 degrees of flap and the
     wheels down at climbing power, at 18,000 lb, the weight para. 47 lands
     her at. "Satisfactorily" is no figure: a climb, more than nothing, and
-    less than the 1,740 ft/min HJ679 climbed clean at that power [HJ679].
+    slower than she climbs clean at the same height, speed and power - about
+    2,400 ft/min, measured from her model on 2026-10-10, not a published
+    figure; a test holds the bound to that clean climb.
   </figure>
   <figure name="time_to_20000_ft" flight="time_to_altitude" loading="hj679"
           unit="min" value="12.85" tolerance_percent="10"

@@ -462,6 +462,7 @@ GLIDESLOPE_TEST(a_lesson_file_that_is_wrong_is_refused_and_says_where) {
         {"a height in words", "name N\nheight high\nstage S\ndo X\nuntil a >= 1\n"},
         {"a height of nothing", "name N\nheight 0\nstage S\ndo X\nuntil a >= 1\n"},
         {"two heights", "name N\nheight 5000\nheight 9000\nstage S\ndo X\nuntil a >= 1\n"},
+        {"a stall warning and no height", "name N\nwarning stall+5\nstage S\ndo X\nuntil a >= 1\n"},
     };
     std::size_t refused = 0;
     for (const auto& [what, text] : wrong) {
@@ -476,7 +477,7 @@ GLIDESLOPE_TEST(a_lesson_file_that_is_wrong_is_refused_and_says_where) {
     }
     check(refused == wrong.size(),
           "all " + std::to_string(wrong.size()) + " ways of being wrong were walked");
-    check(refused == 22, "twenty-two ways, and the list above holds twenty-two");
+    check(refused == 23, "twenty-three ways, and the list above holds twenty-three");
 
     // And the one that is right is not refused.
     (void)parse_lesson("whole", a_whole_lesson());
@@ -3051,6 +3052,45 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
 
 // **A stall entered and recovered properly loses little height**, and the
 // lesson says nothing about it.
+// **A stall lesson begun away from its height says so, first.** Every
+// aeroplane taught a stall, its class's stall lesson begun at the height it
+// names, 1,000 ft below it and 1,000 ft above it (or, for a lesson at
+// 5,000 ft, at 20,000, the height the Mosquito's was flown at until
+// 2026-10-10): at its height the debrief says nothing of where it began, and
+// away from it the first line says it. One step of the lesson each.
+GLIDESLOPE_TEST(a_stall_lesson_begun_away_from_the_height_it_is_practised_at_says_so_first) {
+    const Taught taught = taught_for("stalls");
+    const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
+    std::size_t walked = 0;
+    std::size_t flights = 0;
+    for (const std::string& id : taught.able) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        const Lesson lesson = *lesson_for(entry, "stalls");
+        const double at = stalls_are_practised_at(entry);
+        const double above = at < 20000.0 ? 20000.0 : at + 1000.0;
+        for (const double begun : {at, at - 1000.0, above}) {
+            InFlight f = airborne(id, begun);
+            LessonRun run(lesson, f.speeds);
+            run.update(*f.aircraft, 0);
+            const auto said = run.debrief_lines();
+            const bool told = !said.empty() && said.front().rfind("Begun at ", 0) == 0;
+            std::printf("  %-13s begun at %6.0f ft, practised at %6.0f: %s\n", id.c_str(),
+                        begun, at, told ? said.front().c_str() : "nothing said");
+            check(told == (begun != at), id + " begun at " + std::to_string(begun) +
+                                             " ft, its lesson practised at " +
+                                             std::to_string(at) +
+                                             (told ? ", is told so" : ", is told nothing"));
+            ++flights;
+        }
+        ++walked;
+    }
+    std::printf("  of the %zu aeroplanes, %zu begun three ways (%zu) and %zu left out\n", roster,
+                walked, flights, taught.left_out.size());
+    check(flights == 3 * taught.able.size(), "every aeroplane taught a stall was begun three ways");
+    check(walked + taught.left_out.size() == roster,
+          "every aeroplane in the roster was flown or left out with its reason");
+}
+
 GLIDESLOPE_TEST(the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     const auto taught = everyone_taught("stalls");
     std::size_t walked = 0;
