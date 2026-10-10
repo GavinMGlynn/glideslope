@@ -358,7 +358,9 @@ def airframe():
     text = replace_once(text, r"(<axis name=\"DRAG\">\n)",
                         lambda m: m.group(1) + mach
                         + airliner.windmill_function(2, FAN_DIAMETER_IN, WINDMILL_DRAG) + "\n", "the drag axis")
-    return scraping_airframe(text)
+    # The tail strike, measured from her visual model by tools/ground.py.
+    return ground.with_tail_strike(
+        scraping_airframe(text), MODEL, MAXIMUM_WEIGHT_LBS, script=SCRIPT)
 
 
 def outputs():

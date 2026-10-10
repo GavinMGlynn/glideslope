@@ -265,6 +265,126 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Every nose-wheel aeroplane's tail strike measured from her airframe, 2026-10-10 — item stays open
+
+**What is still not true first: four tests are red on this branch.** The
+strikes are lower than the models had them, and the autopilots that hold
+the nose two degrees short of the strike now hold it lower:
+- **The F-15C rises 0.61 ft after her wheels meet the runway**, 0.5 allowed,
+  in `the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief`,
+  `every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce_or_a_go_around`
+  and `the_ai_flies_every_approach_at_the_speed_for_its_figures_loading_and_lands_within_its_limits`:
+  her flare is held to 13.2 degrees where her old flank contact let it reach
+  17.2 (she touched at 11.7). Not looked into.
+- **The A380 at her light loading strikes her tail taking off**
+  (`every_landplane_takes_off_at_every_loading_within_ten_knots_of_its_speed_for_its_weight_and_unhurt`,
+  "wrecked: struck the ground with its airframe", rotated at 115.6 kt, off
+  at 117.1): held two degrees short of 12.3 she overshoots it. Her old model
+  had nothing behind her main wheels below 34 degrees, so it may always
+  have overshot unseen. Not looked into.
+- **The F-22A's measured rotation speed is 110 kt, her figures file 105**
+  (`the_measured_take_off_speeds_in_the_747_and_f22_figures_are_what_the_measurement_makes`):
+  her strike fell from 46.2 to 16.5 degrees, so the rotation measured
+  against it moved. The file is to be re-measured.
+- The broad re-run below had not finished when this was committed.
+
+Also: five of the thirteen strike with their
+wheels just lifted, not on them - the 747-400, 787-8, F-22A and F-35B held
+fully back, and the Learjet as before - so their strike in the test is
+above their airframe's attitude (by up to 2.4 degrees, the F-22A), held only
+to be no lower than it and within three. No manufacturer's strike attitude
+was found for any of them to check the meshes against; the figures below
+that are quoted are forum or study-card figures, not documents. The
+Learjet's is still from her maintenance manual's drawing (no mesh), and
+the 747-400 and F-22A still fly no take-off of their own.
+
+**How it is measured.** `tools/ground.py` `tail_strike()` measures, on each
+aeroplane's visual mesh, the least pitch at which anything of her airframe
+behind her main wheels meets the ground, pivoting on the aft edge of the
+mesh's own main tyres - not the flight model's, since a mesh's undercarriage
+can sit well away from the model's (the 747-400's 49 in, the B-2A's 90, the
+F-22A's 123). The undercarriage itself is anything lower than half the
+typical belly height, `_profile()`'s rule. That point is placed on the
+flight model at the same offset from its own main wheels, as a scraping
+STRUCTURE contact - `TAIL_STRIKE`, or `LEFT_`/`RIGHT_TAIL_STRIKE` mirrored
+where it is off the centreline - by `ground.with_tail_strike()`, called by
+all twelve `tools/make_*.py` with a mesh. Four source contacts that struck
+before the drawn airframe and sat below it are taken out: the C172P's tail
+skid (8 in below her drawn tail; 10.3 degrees against 11.7), the C182's
+(31 in; 11.3 against 15.8), the PA-28's (5 in; 14.2 against 16.1), and the
+787-8's own `TAIL_STRIKE` (145 in below the drawn tail cone; 10.5 against
+11.5); and the B-2A's keel `TAIL`, placed by the alignment on wheels 90 in
+forward of the mesh's (14.3 against 15.3).
+
+**Measured, and against what is quoted** (mesh; model; the test's strike):
+
+| aeroplane | strikes on | as drawn | model | struck | quoted |
+|---|---|---|---|---|---|
+| 737-300 | aft fuselage, on the keel | 12.5 | 12.5 | 12.2 | — |
+| 747-400 | aft fuselage, on the keel | 12.8 | 12.8 | 13.1, wheels off | — |
+| 787-8 | aft fuselage, on the keel | 11.5 | 11.5 | 11.6, wheels off | — |
+| A320 | aft fuselage, 28 in off the keel | 12.9 | 12.9 | 12.8 | 11.5-11.7 struts compressed, 13.5 extended (pilots' forums, brainly) |
+| A380 | aft lower fuselage, 17 m behind her body gear | 12.3 | 12.3 | 11.9 | 11.5 compressed, 13.5 extended (an A380 limitations study card, Quizlet; not an Airbus document) |
+| B-2A | wing trailing-edge tips | 15.3 | 15.2 (wing tip) | 15.1 | — |
+| C172P | aft fuselage, on the keel | 11.7 | 11.7 | 11.7 | — |
+| C182 | aft fuselage, on the keel | 15.8 | 15.8 | 15.6 | — |
+| F-15C | stabilator tips | 15.2 | 15.2 | 14.9 | — |
+| F-22A | stabilator tips | 16.5 | 16.5 | 18.9, wheels off | — |
+| F-35B | tail surfaces, 38 in off the keel | 21.6 | 21.6 | 23.0, wheels off | — |
+| PA-28 | aft fuselage, on the keel | 16.1 | 16.1 | 15.8 | — |
+| Learjet 35A | ventral fin (drawing) | 14.0 | 14.0 | 14.3, wheels off | — |
+
+Airbus's A380 Aircraft Characteristics gives no rotation clearance (the
+make script's comment, 2-3-0), and the owner found no public source
+(2026-10-09). The A380 strikes her aft fuselage at 12.3, not her outboard
+engines at 34: the engines are ahead of her main wheels and were never what
+she struck; her old model's only contacts behind them were her wing tips.
+Of the commonly quoted figures, both Airbus ones bracket the mesh's.
+
+**Tests.**
+- `the_airframe_contacts_measured_from_the_meshes_agree_with_what_is_published`
+  (`ground.py --check`) now also holds every one of the sixteen flight
+  models: the twelve nose-wheel aeroplanes with a mesh must strike within a
+  quarter of a degree of their mesh, and the four without (the Learjet, from
+  her drawing; the Cub and the Mosquito on tail wheels; the Short S.23) are
+  named; it fails unless that is twelve and four of sixteen. **Seen to
+  fail** on the models as they were: all twelve, from the 737-300 0.3 degrees
+  early to the F-22A's 46.2 against 16.5.
+- `an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_so` now
+  puts all thirteen nose-wheel aeroplanes to it, not nine: the F-15C (a tail
+  now), the F-35B held fully back from brake release (held back from her
+  rotation she flies off first), and the 747-400 and F-22A - which have no
+  take-off to fly - run up on full power with the stick fully back from
+  brake release, steered by nothing. Each must strike on a contact behind
+  her main wheels, read from JSBSim's own touch flags, and her debrief name
+  it; on her wheels within a degree of her contacts' attitude, with them
+  lifted no lower than it and within three. Three named: the Cub and the
+  S.23, with no tail to strike, and the Mosquito. **Seen to fail** on the
+  old models: the 747-400, F-15C, F-22A and F-35B "held fully back and
+  never struck".
+- The approach test's `no_tail_to_strike` no longer names the F-15C.
+
+**Found on the way, fixed.** The approach and circuit tests read each
+aeroplane's stance from one never initialised, when JSBSim's centre of
+gravity reads nought: the F-15C, whose structural frame runs negative, was
+taken for a tail-wheel aeroplane (so she was named as having no tail and
+passed), and the Mosquito for a nose-wheel one. They now initialise her
+first (`initialized_for_her_stance`), and the Mosquito is named with the
+Cub and the S.23. `tools/align_models.py` leaves a tail strike out of its
+shape measure (it is placed from the mesh's wheels, not the fit); the
+offsets are unchanged, and the shape distances fell where a skid left -
+the 787-8's from 2.19 m to 0.58, the C172P's 0.30 to 0.06, the C182's 0.56
+to 0.05 - more evidence the skids were off the airframe.
+
+**Re-run** (linux-release): of the take-off, rotation, lesson, flare,
+approach, circuit, landing, ground-contact and committed-model tests
+(`ctest -R` over take_off, rotat, lesson, flare, approach, gear_up,
+airframe, belly, contact, committed, tail, strike, ground, landing,
+debrief, circuit and 16r), the four above are red; the over-rotation, the
+ground-contact check, the alignment and every committed-model check pass,
+and the circuit lesson passes. **The selftest hash does not move**,
+`182dd6c996e0ee4c`: the C172P's new contact never touches in it.
+
 ### The completion plan has no Later section, 2026-10-11 — no item changes state
 
 By the owner's decision of 2026-10-11 ("I don't want a later section - it should be incorporated into phases. We are going to implement everything eventually"), Later's 28 items (27 open, 1 done) moved into their phases byte for byte - Phase 9 four, 10a four, 10b eight, 12a one, 12c four - and seven with no existing phase (terrain over the whole Earth, weather seen as it is, thermals and lee waves, buildings, signed macOS builds, one Linux download, a hosted server) into a new Phase 15; the dated decisions in them, and four references to Later in other items, reworded minimally. The finished-when command (here and in REQUIREMENTS.md) and `tools/next_item.sh` now read to the end of the file, so Phase 9's reopened items come first: `tools/next_item.sh` names the Cherokee's 2.2 kt. Checked by a script: the multiset of item blocks the same but for the rewordings, 45 open and 224 done before and after, the finished-when command counting all 45, and no `---` rule but before a `## ` heading.

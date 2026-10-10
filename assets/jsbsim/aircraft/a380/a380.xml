@@ -189,6 +189,28 @@
             <spring_coeff unit="LBS/FT"> 633828 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 126766 </damping_coeff>
         </contact>
+        <contact type="STRUCTURE" name="LEFT_TAIL_STRIKE">
+            <location unit="IN">
+                <x> 2470.3 </x>
+                <y> -19.0 </y>
+                <z> 207.8 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 5070626 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 893941 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="RIGHT_TAIL_STRIKE">
+            <location unit="IN">
+                <x> 2470.3 </x>
+                <y> 19.0 </y>
+                <z> 207.8 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 5070626 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 893941 </damping_coeff>
+        </contact>
     </ground_reactions>
     <propulsion>
         <engine file="Trent970">

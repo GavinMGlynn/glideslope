@@ -254,6 +254,28 @@
             <brake_group> NONE </brake_group>
             <retractable>0</retractable>
         </contact>
+        <contact type="STRUCTURE" name="LEFT_TAIL_STRIKE">
+            <location unit="IN">
+                <x> 1193.0 </x>
+                <y> -28.2 </y>
+                <z> -26.6 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 688000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 121293 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="RIGHT_TAIL_STRIKE">
+            <location unit="IN">
+                <x> 1193.0 </x>
+                <y> 28.2 </y>
+                <z> -26.6 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 688000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 121293 </damping_coeff>
+        </contact>
     </ground_reactions>
     <propulsion>
         <engine file="CFM56-5B4">

@@ -178,6 +178,28 @@
             <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
         </contact>
+        <contact type="STRUCTURE" name="LEFT_TAIL_STRIKE">
+            <location unit="IN">
+                <x> 602.5 </x>
+                <y> -38.4 </y>
+                <z> 24.1 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="RIGHT_TAIL_STRIKE">
+            <location unit="IN">
+                <x> 602.5 </x>
+                <y> 38.4 </y>
+                <z> 24.1 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 240000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
+        </contact>
     </ground_reactions>
     <propulsion>
         <engine file="F135-PW-600">

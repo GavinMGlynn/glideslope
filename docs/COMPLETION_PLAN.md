@@ -351,15 +351,17 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       117, still holds (PROJECT_STATUS, 2026-10-10). *Verification: the
       change traced to the commit that made it, and her figure measured
       again or the change undone.*
-- [ ] **Tail strikes for the F-15C, A380 and F-35B, against published
-      attitudes.** The Learjet's tail strikes and the take-off lessons name
-      a strike (done 2026-10-06); the F-15C has no contact behind her main
-      wheels, the A380 strikes her outboard engines first, and the F-35B
-      flies off before her tail touches. No strike attitude is published for
-      any of them, nor for the Learjet (her drawings allow 14.0 to 15.6
-      degrees). *Verification: every nose-wheel aeroplane's tail strikes the
-      runway where its airframe would, and is judged a strike.* Owner
-      2026-10-09: no public source.
+- [ ] **Every nose-wheel aeroplane strikes its tail where its airframe
+      would.** Each one's tail strike is now measured from her visual model
+      (the Learjet's from her drawings) and is a contact in her flight
+      model, and all thirteen strike and are judged so (2026-10-10). Not
+      yet: with the strikes lower, the F-15C rises 0.6 ft after touching
+      down (0.5 allowed), the A380 strikes her tail taking off light, and
+      the F-22A's measured rotation speed moved from 105 to 110 kt. No
+      manufacturer's strike attitude was found (owner 2026-10-09).
+      *Verification: every nose-wheel aeroplane's tail strikes the runway
+      where its airframe would, and is judged a strike, with every
+      take-off, approach and landing test green.*
 - [ ] **The F-35B cannot hover, land vertically or take off short**: its lift
       fan is not modelled. *Verification: it hovers at its published thrust,
       lands vertically, and takes off in its published short distance.*

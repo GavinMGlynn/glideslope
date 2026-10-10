@@ -73,14 +73,23 @@ The changes, and what each is for:
                         height.
     bleed 0.04 -> 0      The 787 takes no bleed air from its engines: its cabin
                         is pressurised by electric compressors.
+
+  Tail strike
+    TAIL_STRIKE, re-placed
+                        Her tail strikes where her airframe does: measured
+                        from her visual model by tools/ground.py, 11.5
+                        degrees. The source's contact sat 145 in below her
+                        drawn tail and struck at 10.5.
 """
 
 import sys
 
 import airliner
+import ground
 from airliner import OUT, PINNED
 
 SCRIPT = "make_787_8"
+MAXIMUM_WEIGHT_LBS = 502500  # the -8's published maximum take-off weight
 MODEL = "787-8"
 ENGINE = "Trent1000"
 DRAG_DIVERGENCE = 0.86
@@ -202,7 +211,11 @@ def airframe():
     text = replace_once(text, r"(\n    <function name=\"aero/force/Drag_flap\">)",
                         lambda mm: "\n" + airliner.windmill_function(2, FAN_DIAMETER_IN, WINDMILL_DRAG, "    ")
                         + mm.group(1), "the flap drag function")
-    return text
+    # The tail strike, measured from her visual model by tools/ground.py,
+    # in place of the source model's, which strikes a degree before her
+    # drawn tail would and sits 145 in below it.
+    return ground.with_tail_strike(
+        text, MODEL, MAXIMUM_WEIGHT_LBS, replacing=("TAIL_STRIKE",), script=SCRIPT)
 
 
 def outputs():

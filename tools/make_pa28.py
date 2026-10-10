@@ -104,17 +104,28 @@ rating, unchanged.
     Float carburettor    The O-360-A3A is carburetted, so its mixture richens
                          with height as the square root of the density, not
                          as the pressure; see tools/piston_mixture.py.
+
+  Tail strike
+    TAIL_SKID -> TAIL_STRIKE
+                         Her tail strikes where her airframe does: measured
+                         from her visual model by tools/ground.py, 16.1
+                         degrees. The source's skid sat 5 in below her drawn
+                         tail and struck at 14.2.
 """
 
 import pathlib
 import re
 import sys
 
+import ground
 from piston_mixture import with_best_power_mixture, with_float_carburettor
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
 OUT = ROOT / "assets" / "jsbsim"
+SCRIPT = "make_pa28"
+MODEL = "pa28"
+MAXIMUM_WEIGHT_LBS = 2400  # the Cherokee 180's maximum weight
 
 EMPTY_WEIGHT_LBS = 1310
 TANK_LBS = 150
@@ -282,7 +293,12 @@ def airframe():
             r"<contact type=\"BOGEY\" name=\"" + contact + r"\">(.*?)\s*<max_steer unit=\"DEG\"> 0\.0 </max_steer>"
             r"(\s*<brake_group> NONE </brake_group>)?(\s*<retractable>0</retractable>)?",
             r'<contact type="STRUCTURE" name="' + contact + r'">\1', f"the {contact} contact")
-    return with_float_carburettor(text, "make_pa28")
+    # The tail strike, measured from her visual model by tools/ground.py,
+    # in place of the source model's tail skid, 5 in below her drawn tail,
+    # which struck 1.9 degrees before it would.
+    return ground.with_tail_strike(
+        with_float_carburettor(text, "make_pa28"), MODEL, MAXIMUM_WEIGHT_LBS,
+        replacing=("TAIL_SKID",), script=SCRIPT)
 
 
 def engine():

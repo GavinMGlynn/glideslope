@@ -72,17 +72,28 @@ measurements with every change except that one, against all of them together
     Float carburettor    The O-320-D2J is carburetted (section 1), so its
                          mixture richens with height as the square root of the
                          density, not as the pressure; see tools/piston_mixture.py.
+
+  Tail strike (aircraft/c172p/c172p.xml)
+    TAIL_SKID -> TAIL_STRIKE
+                         Her tail strikes where her airframe does: measured
+                         from her visual model by tools/ground.py, 11.7
+                         degrees. The source's skid sat 8 in below her drawn
+                         tail and struck at 10.3.
 """
 
 import pathlib
 import re
 import sys
 
+import ground
 from piston_mixture import with_best_power_mixture, with_float_carburettor
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
 OUT = ROOT / "assets" / "jsbsim"
+SCRIPT = "make_c172p"
+MODEL = "c172p"
+MAXIMUM_WEIGHT_LBS = 2400  # the 172P's maximum weight, its handbook's
 
 CP_FACTOR = 0.88
 CT_FACTOR = 0.96
@@ -180,7 +191,12 @@ def airframe():
         r"\1\n        <!-- glideslope: this is JSBSim's c172p with the changes listed in\n"
         r"             tools/make_c172p.py, which made it. Do not edit it by hand. -->",
         "the file header")
-    return with_float_carburettor(text, "make_c172p")
+    # The tail strike, measured from her visual model by tools/ground.py,
+    # in place of the source model's tail skid, 8 in below her drawn tail,
+    # which struck 1.4 degrees before it would.
+    return ground.with_tail_strike(
+        with_float_carburettor(text, "make_c172p"), MODEL, MAXIMUM_WEIGHT_LBS,
+        replacing=("TAIL_SKID",), script=SCRIPT)
 
 
 def engine():
