@@ -379,8 +379,10 @@ public:
     // Flies the aircraft in `weather` from now on: before every step, JSBSim's
     // wind, temperature, pressure and turbulence are set from the conditions
     // where the aircraft is. Without it, JSBSim's still standard atmosphere.
-    // Turbulence is seeded the same every time, so a flight in it repeats.
-    void set_weather(std::shared_ptr<Weather> weather);
+    // Turbulence is seeded the same every time, so a flight in it repeats:
+    // with `turbulence_seed`, 1 unless a test asks for other gusts in the
+    // same air (the gust landing's seeds).
+    void set_weather(std::shared_ptr<Weather> weather, int turbulence_seed = 1);
     // **The runway condition code she last rolled on** (sim/runway_condition.hpp),
     // as her weather gave it before her last step: 6, dry, without weather.
     // Her braked wheels grip as it says.

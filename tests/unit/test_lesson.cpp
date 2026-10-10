@@ -20,6 +20,7 @@
 #include "sim/vacate.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
+#include "world/air_motion.hpp"
 #include "world/weather.hpp"
 
 #include <algorithm>
@@ -1518,6 +1519,7 @@ struct ApproachVariant {
     std::optional<glideslope::sim::Loading> loading; // none: the lesson's
     std::shared_ptr<glideslope::sim::Weather> weather;
     double add_kts = 0.0;
+    int seed = 1; // the turbulence's (Aircraft::set_weather)
 };
 
 // What she weighs, loaded by `load`, in pounds.
@@ -1593,7 +1595,7 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
         aircraft.load(*variant->loading);
     }
     if (variant != nullptr && variant->weather) {
-        aircraft.set_weather(variant->weather);
+        aircraft.set_weather(variant->weather, variant->seed);
     }
     // Established on the approach: the flap it is flown with is already down,
     // and it is already coming down the glidepath rather than level on it.
@@ -1970,6 +1972,7 @@ std::shared_ptr<glideslope::sim::Weather> gusty_down_the_runway() {
     c.wind_east_mps = -wind_mps * std::sin(heading);
     c.turbulence_severity = 3;
     c.wind_at_20ft_mps = wind_mps;
+    c.gust_factor_kt = glideslope::world::gust_spread_of_severity(c.turbulence_severity);
     return std::make_shared<glideslope::sim::SteadyWeather>(c);
 }
 
@@ -2264,42 +2267,241 @@ GLIDESLOPE_TEST(the_ai_flies_every_approach_at_the_speed_for_its_figures_loading
     every_ai_approach_at_a_weight(true);
 }
 
-// **In gusts every aeroplane is flown down to the runway, or goes around** -
-// and no more is claimed. The lander has no answer to turbulence yet (a tail
-// in docs/COMPLETION_PLAN.md): flown at the lesson's loading down a
-// fifteen-knot wind with severity-3 turbulence (`gusty_down_the_runway`),
-// most balloon, bounce or come down hard, and the flying boat is lifted into
-// a go-around. Nor is it the same case on every platform: turbulence turns
-// floating point's differences into different gusts at the flare, and on
-// CI the F-15C ballooned at 53 ft/min on Windows, was wrecked at 780 on
-// macOS and landed cleanly on Linux. So how each lands is shown, not judged;
-// what is asserted is that each of the 14 reached the runway or went around.
-GLIDESLOPE_TEST(every_aeroplane_flown_down_in_gusts_reaches_the_runway_or_goes_around) {
-    const auto taught = everyone_taught("approach-and-landing");
+namespace {
+
+// **What a landing in gusts is held to.** The touch no harder than NASA's
+// go-around criteria study's 6 ft/s, 360 ft/min (Zaal et al., NTRS
+// 20205010611), which the calm landings are held to too; risen no more than
+// a foot after the wheels met the runway - the Airplane Flying Handbook's
+// (FAA-H-8083-3C, ch. 9) "very slight" bounce, which a follow-up landing
+// takes, against the half foot of calm air; and no climb in the flare faster
+// than 100 ft/min, a gust's lift held rather than a balloon flown.
+constexpr double gusty_most_sink_fpm = 360.0;
+constexpr double gusty_settle_ft = 1.0;
+constexpr double gusty_most_flare_climb_fpm = 100.0;
+// **And with a margin**: an aeroplane judged passes each limit by 25 ft/min
+// of sink and of climb, a quarter of a foot of rise and 25 m of touchdown
+// zone. **Gust landings magnify a platform's floating point**: the same seed
+// flies differently on Linux, macOS and Windows - CI run 38006839738 had
+// the 787-8 touch at 398 ft/min on macOS on a seed she passed by 30 on
+// Linux, and climb 201 ft/min in her flare on Windows - so a bare pass on
+// one platform says nothing of another. The judged are those that pass
+// every seed here with this margin and passed on every platform in CI; the
+// named list is a statement of robustness, not of a Linux pass.
+constexpr double gusty_margin_fpm = 25.0;
+constexpr double gusty_margin_ft = 0.25;
+constexpr double gusty_margin_m = 25.0;
+
+// **Named and not judged, with why** - flown and shown all the same, each on
+// every seed: an aeroplane that fails one seed would fail another platform's
+// gusts on a seed she passes here, so she is named whole. What is wrong is
+// the item "The AI cannot land in gusts" in docs/COMPLETION_PLAN.md, still
+// open. Any that fails a seed here or on any platform in CI, or passes one
+// without the margin, is named. (linux-release, 2026-10-10.)
+const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
+    static const std::map<std::string, std::string> named = {
+        {"737-300", "a gust's lift in her flare climbs her at 113 ft/min (seed 2)"},
+        {"787-8", "she touches at 398 ft/min on macOS (seed 2) and climbs at 201 ft/min "
+                  "in her flare on Windows (seed 3), CI run 38006839738; here she rises "
+                  "0.85 ft after touching (seed 6)"},
+        {"a320", "she touches at 404 and 421 ft/min on Windows (seeds 1 and 2) and climbs "
+                 "at 143 in her flare (seed 3), CI run 38006839738; here 363 (seed 5)"},
+        {"a380", "she meets the runway at 367 ft/min (seed 1), and a gust's lift in her "
+                 "flare climbs her at 196 ft/min (seed 2)"},
+        {"b2", "a gust rolls her on to a wingtip as she touches (seed 8)"},
+        {"c172p", "she touches at 419 ft/min on Windows (seed 3), CI run 38006839738"},
+        {"f15c", "she meets the runway at 397 ft/min (seed 2)"},
+        {"f35b", "she touches at 348 ft/min (seed 6), inside the limit by only 12"},
+        {"mosquito-fb6", "her main wheels' touch pitches her nose up from 3.6 to 6.8 degrees "
+                         "against her elevator, and she bounces 2.9 ft (seed 2), 2.4 (seed 3)"},
+        {"short_s23", "her flare is flown to her centre of gravity, six feet over the "
+                      "hull that meets the water, and she meets it at 571 ft/min (seed 1)"},
+    };
+    return named;
+}
+
+// **Every aeroplane in `ids`, landed in moderate turbulence seeded `seed`**:
+// down final in `gusty_down_the_runway`, her approach speed raised by the
+// lander for its gust factor (none added here). Each must land - not go
+// around - inside the touchdown zone, no harder than `gusty_most_sink_fpm`,
+// unwrecked, upright, risen no more than `gusty_settle_ft`, climbing no
+// faster than `gusty_most_flare_climb_fpm` in her flare, and stop. Each
+// case's margin to each limit is printed, and the least of them.
+void every_aeroplane_lands_in_gusts(int seed, const std::vector<std::string>& ids) {
+    const double zone_m = glideslope::sim::StabilizedApproach::touchdown_zone_m(a_runway());
     std::size_t flown = 0;
-    std::vector<std::string> wrong;
-    const ApproachVariant gusty{"gusty", std::nullopt, gusty_down_the_runway(), 5.0};
-    for (const std::string& id : taught) {
+    std::vector<std::string> judged_wrong;
+    std::vector<std::string> shown_wrong;
+    ApproachVariant gusty{"gusty", std::nullopt, gusty_down_the_runway(), 0.0};
+    gusty.seed = seed;
+    double least_sink = 1e9;
+    double least_zone = 1e9;
+    double least_rise = 1e9;
+    double least_climb = 1e9;
+    std::size_t named = 0;
+    for (const std::string& id : ids) {
         const Approached r = fly_the_approach(id, 0.0, &gusty);
-        ++flown;
-        std::printf("  %-13s in gusts: %s, touched %4.0f ft/min %4.0f m along, rose %.2f ft, "
-                    "most climb in the flare %4.0f ft/min%s\n",
-                    id.c_str(), r.went_around ? "went around" : "landed",
-                    r.after.touch_sink_fpm, r.touch_along_m, r.after.highest_ft,
-                    r.flare.most_climb_fpm,
+        const std::string where = id + " (gusts, seed " + std::to_string(seed) + ")";
+        const auto excuse = not_yet_landed_in_gusts().find(id);
+        const bool judged = excuse == not_yet_landed_in_gusts().end();
+        if (judged) {
+            ++flown;
+        } else {
+            ++named;
+            std::printf("  named, not judged - %s: %s\n", id.c_str(), excuse->second.c_str());
+        }
+        std::vector<std::string>& wrong = judged ? judged_wrong : shown_wrong;
+        std::printf("  %-13s seed %d: %s%s, touched %4.0f ft/min %4.0f m along, rose %.2f ft, "
+                    "most climb in the flare %4.0f ft/min; margins: sink %4.0f, zone %4.0f m, "
+                    "rise %.2f ft, climb %4.0f%s\n",
+                    id.c_str(), seed, r.went_around ? "WENT AROUND: " : "landed",
+                    r.why.c_str(), r.after.touch_sink_fpm, r.touch_along_m, r.after.highest_ft,
+                    r.flare.most_climb_fpm, gusty_most_sink_fpm - r.after.touch_sink_fpm,
+                    zone_m - r.touch_along_m, gusty_settle_ft - r.after.highest_ft,
+                    gusty_most_flare_climb_fpm - r.flare.most_climb_fpm,
                     r.after.wreck.empty() ? "" : (", wrecked: " + r.after.wreck).c_str());
-        if (!r.after.touched && !r.went_around) {
-            wrong.push_back(id + " in gusts neither reached the runway nor went around");
+        if (r.went_around) {
+            wrong.push_back(where + " went around: " + r.why);
+            continue;
+        }
+        if (judged) {
+            least_sink = std::min(least_sink, gusty_most_sink_fpm - r.after.touch_sink_fpm);
+            least_zone = std::min(least_zone, zone_m - r.touch_along_m);
+            least_rise = std::min(least_rise, gusty_settle_ft - r.after.highest_ft);
+            least_climb =
+                std::min(least_climb, gusty_most_flare_climb_fpm - r.flare.most_climb_fpm);
+        }
+        for (const std::string& w : r.after.what_went_wrong(where)) {
+            wrong.push_back(w);
+        }
+        for (const std::string& w :
+             r.after.how_the_gear_took_it(where, gusty_settle_ft - gusty_margin_ft)) {
+            wrong.push_back(w);
+        }
+        if (r.after.touch_sink_fpm > gusty_most_sink_fpm - gusty_margin_fpm) {
+            wrong.push_back(where + " touched at " + std::to_string(r.after.touch_sink_fpm) +
+                            " ft/min, not 25 inside " + std::to_string(gusty_most_sink_fpm));
+        }
+        if (r.flare.most_climb_fpm > gusty_most_flare_climb_fpm - gusty_margin_fpm) {
+            wrong.push_back(where + " climbed at " + std::to_string(r.flare.most_climb_fpm) +
+                            " ft/min in its flare, not 25 inside " +
+                            std::to_string(gusty_most_flare_climb_fpm) + ": a balloon");
+        }
+        for (const std::string& w : inside_the_touchdown_zone(id, "gusts", r.touch_along_m)) {
+            wrong.push_back(w);
+        }
+        if (zone_m - r.touch_along_m < gusty_margin_m) {
+            wrong.push_back(where + " touched " + std::to_string(r.touch_along_m) +
+                            " m along, not 25 m inside the touchdown zone");
+        }
+        if (!r.stopped) {
+            wrong.push_back(where + " did not stop");
+        }
+    }
+    std::printf("  seed %d, least margins of those judged: sink %.0f ft/min, zone %.0f m, "
+                "rise %.2f ft, flare climb %.0f ft/min\n",
+                seed, least_sink, least_zone, least_rise, least_climb);
+    for (const std::string& w : shown_wrong) {
+        std::printf("      (named) %s\n", w.c_str());
+    }
+    for (const std::string& w : judged_wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(judged_wrong.empty(), std::to_string(judged_wrong.size()) +
+                                    " things went wrong, the first: " +
+                                    (judged_wrong.empty() ? "" : judged_wrong.front()));
+    check(flown + named == ids.size(), "every one flown and judged or named: " +
+                                           std::to_string(flown) + " judged and " +
+                                           std::to_string(named) + " named of " +
+                                           std::to_string(ids.size()));
+}
+
+// The fourteen taught the approach, every one in each seed's test (under
+// 50 s in a local linux-debug). Coverage asserted: fourteen taught.
+std::vector<std::string> gusty_all() {
+    const auto taught = everyone_taught("approach-and-landing");
+    check(taught.size() == 14, "fourteen aeroplanes taught the approach, not " +
+                                   std::to_string(taught.size()));
+    return taught;
+}
+
+} // namespace
+
+// **Every jet's spool-up is measured from her model, and a propeller has
+// none.** The flare's power in gusts is worked on the sink as far ahead as
+// her engines take to answer (`ApproachSpeeds::spool_s`): every aeroplane
+// taught the approach (14) has it from `approach_speeds` - a jet's above
+// zero and under ten seconds, from her own engine's N1 (`sim::spool_up_s`),
+// and a propeller aeroplane's zero. Coverage asserted: fourteen, each a jet
+// or not by her figures.
+GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_has_none) {
+    const auto taught = everyone_taught("approach-and-landing");
+    std::size_t jets = 0;
+    std::size_t propellers = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        const bool jet = glideslope::sim::Aircraft(data() / "jsbsim", entry.model).figures().jet;
+        const double spool = glideslope::sim::approach_speeds(data(), entry.model).spool_s;
+        std::printf("  %-13s %s: spool-up %.2f s\n", id.c_str(), jet ? "jet" : "propeller",
+                    spool);
+        if (jet) {
+            ++jets;
+            if (!(spool > 0.0 && spool < 10.0)) {
+                wrong.push_back(id + "'s spool-up is " + std::to_string(spool) + " s");
+            }
+        } else {
+            ++propellers;
+            if (spool != 0.0) {
+                wrong.push_back(id + ", a propeller aeroplane, has a spool-up of " +
+                                std::to_string(spool) + " s");
+            }
         }
     }
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
-    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 14 && flown == taught.size(),
-          "every one of the fourteen aeroplanes taught the approach flown in gusts: " +
-              std::to_string(flown));
+    check(taught.size() == 14 && jets + propellers == taught.size(),
+          "fourteen, each a jet or a propeller: " + std::to_string(jets) + " jets and " +
+              std::to_string(propellers) + " propellers");
+}
+
+// **In moderate turbulence the AI lands every aeroplane not named within
+// its limits** - four of fourteen; the ten named (`not_yet_landed_in_gusts`)
+// are flown and shown. Fifteen knots down the runway with severity-3
+// turbulence, its gust factor 15 kt (world::gust_spread_of_severity), flown
+// as the Airplane Flying Handbook (FAA-H-8083-3C, ch. 9, "Turbulent Air
+// Approach and Landing") flies it: half the gust factor on the approach
+// speed, the power on to the touch and a firmer touch. Seeded eight ways, a
+// test a seed, since a platform's floating point gives the same seed other
+// gusts at the flare (`gusty_margin_fpm`): each judged aeroplane passes all
+// eight with a margin, printed. Seen red on the lander before (seed 1): the
+// C172P and PA-28 struck their airframes after bouncing.
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_1) {
+    every_aeroplane_lands_in_gusts(1, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_2) {
+    every_aeroplane_lands_in_gusts(2, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_3) {
+    every_aeroplane_lands_in_gusts(3, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_4) {
+    every_aeroplane_lands_in_gusts(4, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_5) {
+    every_aeroplane_lands_in_gusts(5, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_6) {
+    every_aeroplane_lands_in_gusts(6, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_7) {
+    every_aeroplane_lands_in_gusts(7, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_8) {
+    every_aeroplane_lands_in_gusts(8, gusty_all());
 }
 
 // **An approach flown well in gusts is not sent round by the gate**: every
@@ -2316,7 +2518,7 @@ GLIDESLOPE_TEST(an_approach_flown_well_in_gusts_is_not_sent_round_by_the_stabili
     const double zone_m = glideslope::sim::StabilizedApproach::touchdown_zone_m(a_runway());
     std::size_t flown = 0;
     std::vector<std::string> wrong;
-    const ApproachVariant gusty{"gusty", std::nullopt, gusty_down_the_runway(), 5.0};
+    const ApproachVariant gusty{"gusty", std::nullopt, gusty_down_the_runway(), 0.0};
     for (const std::string& id : taught) {
         const Approached r = fly_the_approach(id, 0.0, &gusty);
         ++flown;
