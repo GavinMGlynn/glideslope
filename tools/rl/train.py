@@ -101,12 +101,15 @@ def main() -> None:
                     help="resuming: hold the action noise at this log standard deviation")
     ap.add_argument("--every", type=int, default=1_000_000,
                     help="a checkpoint every this many decisions")
+    ap.add_argument("--speed-costs", action="store_true",
+                    help="the stabilized approach's speed costs (env.py's STABILIZED); "
+                         "without it, the reward the committed policy was trained with")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     torch.set_num_threads(1)
 
     def make(i: int):
-        return lambda: LandingEnv(seed=args.seed * 1000 + i)
+        return lambda: LandingEnv(seed=args.seed * 1000 + i, speed_costs=args.speed_costs)
 
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])
     if args.resume:

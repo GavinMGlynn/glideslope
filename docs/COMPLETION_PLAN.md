@@ -645,13 +645,6 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       balloons, and the Mosquito at her heaviest. *Verification: every
       aeroplane lands light, heavy and in gusts with none named, and a
       gust on an approach flown well makes no go-around.*
-- [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
-      stabilized-approach gate does not judge it. *Verification: from every
-      corner of its gate it is stabilized by 500 ft and lands.* Found
-      2026-10-10: its training rewarded the touch alone. Costing the speed,
-      the policy then flares from 100 ft, 10 kt slow; costing it lower
-      wrecks its landings. The best try still fails the gate at 86 of 160
-      corners, so the flare must be trained afresh.
 - [x] **A landing taken over on its roll is braked for a dry runway**: a
       wet or contaminated one, which needs more, is not known.
       *Verification: on a wet short runway an aeroplane handed over on its
@@ -1332,6 +1325,12 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
 Moved here by the owner's decision of 2026-10-06: each needs a decision, an
 outside resource or a larger project.
 
+- [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
+      stabilized-approach gate does not judge it. Moved here by the owner's
+      decision of 2026-10-11, a larger project: its flare trained as its own
+      stage, or started from the approach autopilot's flare. The gate's
+      judging waits on branch `learnt-landing-gate-wip`. *Verification:
+      from every corner of its gate it is stabilized by 500 ft and lands.*
 - [ ] **The autopilot holds a low height loosely in an airliner's take-off
       configuration.** Asked to hold 200 ft with her take-off flap and gear
       out, the A380 swings 15 ft either side of it at up to 350 ft/min for

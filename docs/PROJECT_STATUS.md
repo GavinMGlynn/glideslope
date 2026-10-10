@@ -265,7 +265,24 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Why the learnt landing flies fast, and two rounds of training it stabilized, 2026-10-10 — item still open
+### Why the learnt landing flies fast, and two rounds of training it stabilized, 2026-10-10 — item moved to Later
+
+**The owner's decision, 2026-10-11:** the item moves to Later as a larger
+project - the flare trained as its own stage, or started from the approach
+autopilot's flare. These findings land as they are, and the tools still make
+the committed policy. **The speed costs are an option, off by default**:
+`Flier(..., speed_costs=False)`, `LandingEnv(speed_costs=False)` and train.py's
+`--speed-costs`. The default reward is the one the committed policy was
+trained with, so train.py run with the command and seed recorded in its header
+trains it again. **Checked:** six episodes of the training's own starts
+(seeds 160000 to 160005, flown by the committed policy, every other one with
+noise of 0.3 added to its actions), 7,398 steps through main's env.py (at
+fca3494a) and through this one side by side. Every observation and ending is
+identical, and so is every reward with the default: 0 of 7,398 differ. With
+`speed_costs=True`, 4,048 differ, by up to 2.6. (A scratch script, not
+committed.) The `--every` option keeps its default of a million, where the
+checkpoints were before.
+
 
 **What is not done first.** The item. No checkpoint trained here is
 stabilized by 500 ft from its gate's corners, so the committed policy is

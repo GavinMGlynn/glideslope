@@ -13,13 +13,19 @@ approach is shaped by a potential - near the centreline, on the glidepath,
 tracking down the runway, at the speed - and moving the controls about costs
 a little. After it, bouncing and banking cost. Going wrong costs.
 
-**The speed is judged from 500 ft down, every tenth of a second**, as
-sim::StabilizedApproach judges the approach autopilot: the shaping above
-cannot do it, because a potential changes no optimum (Ng, Harada and Russell,
-1999) and this one fades to nothing at the runway - with it alone the policy
-learnt to dive down the glidepath on power and pass 500 ft up to 35 kt fast,
-which flared well. Outside a band inside the gate's +10/-5 kt costs, by the
-knot (`STABILIZED`).
+**The default reward is the one the committed policy was trained with**, so
+that train.py with the command and seed its header records trains it again.
+With it the approach's speed is shaped by the potential alone, which changes
+no optimum (Ng, Harada and Russell, 1999) and fades to nothing at the runway:
+the committed policy dives down the glidepath on power and passes 500 ft up
+to 35 kt fast.
+
+**`speed_costs=True`** (train.py `--speed-costs`) adds the stabilized
+approach's speed costs (`STABILIZED`, tried 2026-10-10 and not enough - see
+docs/PROJECT_STATUS.md): the speed off a band inside the gate's +10/-5 kt
+from 500 ft down to the flare, every tenth of a second, and going wrong
+charged what the speed could still have cost. No committed policy was
+trained with them.
 """
 
 from __future__ import annotations
@@ -95,9 +101,12 @@ class Flier:
     """One aeroplane flown decision by decision: the part of the environment
     that a trained policy is evaluated with too."""
 
-    def __init__(self, runway: L.Runway, approach: L.Approach):
+    def __init__(self, runway: L.Runway, approach: L.Approach, speed_costs: bool = False):
         self.rw = runway
         self.ap = approach
+        # The stabilized approach's speed costs (STABILIZED), or the reward
+        # the committed policy was trained with (the default).
+        self.speed_costs = speed_costs
         self.fdm = L.new_fdm(JSBSIM_ROOT)
         # What she weighs with no fuel: the empty aeroplane and what is on
         # board, as the model has them.
@@ -212,7 +221,9 @@ class Flier:
             f.ended = wrong
             # **And the most the speed could still have cost** (STABILIZED),
             # so that ending the flight is never a way out of it.
-            return obs, reward - 70.0 - speed_cost_left(w.above_m * L.FEET_PER_METRE), True, False
+            if self.speed_costs:
+                reward -= speed_cost_left(w.above_m * L.FEET_PER_METRE)
+            return obs, reward - 70.0, True, False
         # Flying the approach well is shaped by a potential (Ng, Harada and
         # Russell, 1999): the reward is how much better the aeroplane is
         # placed than a tenth of a second ago, which cannot be farmed by
@@ -224,7 +235,7 @@ class Flier:
         # (STABILIZED): a cost, so nothing is gained by flying on.
         above_ft = w.above_m * L.FEET_PER_METRE
         st = STABILIZED
-        if st["down_to_ft"] <= above_ft <= st["gate_ft"]:
+        if self.speed_costs and st["down_to_ft"] <= above_ft <= st["gate_ft"]:
             off = outside_band(r[9], self.ap.vref_kts, st["fast_kts"], st["slow_kts"])
             reward -= st["per_kt"] * min(off, st["most_kts"])
             if outside_band(r[9], self.ap.vref_kts, st["judged_fast_kts"], st["judged_slow_kts"]) > 0.0:
@@ -311,9 +322,9 @@ def wind(rng: np.random.Generator) -> dict[str, float]:
 class LandingEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, seed: int = 0):
+    def __init__(self, seed: int = 0, speed_costs: bool = False):
         super().__init__()
-        self.flier = Flier(L.Runway(), L.Approach())
+        self.flier = Flier(L.Runway(), L.Approach(), speed_costs)
         self.observation_space = gym.spaces.Box(-np.inf, np.inf, (L.OBSERVATIONS,), np.float64)
         self.action_space = gym.spaces.Box(-1.0, 1.0, (L.ACTIONS,), np.float32)
         self.rng = np.random.default_rng(seed)
