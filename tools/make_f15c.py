@@ -432,7 +432,9 @@ def airframe():
     if n != 2:
         raise SystemExit(f"{SCRIPT}: found {n} engines, not 2 - has the pinned model changed?")
     text = with_nasa_pitch(with_mach_lift(over_its_wheels(text)))
-    return with_speedbrake(with_flanks(scraping_airframe(with_mach_drag(text))))
+    # The tail strike, measured from her visual model by tools/ground.py.
+    return ground.with_tail_strike(
+        with_speedbrake(with_flanks(scraping_airframe(with_mach_drag(text)))), MODEL, MAXIMUM_WEIGHT_LBS, script=SCRIPT)
 
 
 def with_speedbrake(text):

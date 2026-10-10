@@ -139,7 +139,9 @@ def airframe():
     text = replace_once(text, r"(\n\s*<function name=\"aero/coefficient/CDgear\">)",
                         lambda mm: "\n" + airliner.windmill_function(4, FAN_DIAMETER_IN, WINDMILL_DRAG) + "\n"
                         + mm.group(1), "the gear drag function")
-    return text
+    # The tail strike, measured from her visual model by tools/ground.py.
+    return ground.with_tail_strike(
+        text, MODEL, MAXIMUM_WEIGHT_LBS, script=SCRIPT)
 
 
 def outputs():

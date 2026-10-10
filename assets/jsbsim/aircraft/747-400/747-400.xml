@@ -200,6 +200,17 @@
             <spring_coeff unit="LBS/FT"> 3500000 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 617043 </damping_coeff>
         </contact>
+        <contact type="STRUCTURE" name="TAIL_STRIKE">
+            <location unit="IN">
+                <x> 2790.9 </x>
+                <y> 0.0 </y>
+                <z> 65.1 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 3500000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 617043 </damping_coeff>
+        </contact>
     </ground_reactions>
     <propulsion>
         <engine file="CF6-80C2B1F">
