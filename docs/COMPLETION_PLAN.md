@@ -345,12 +345,14 @@ ends in a debrief, never a score.
 
 Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to what its handbook or manual publishes.
 
-- [ ] **The Cherokee makes 2.2 kt less at full throttle than her figures
+- [x] **The Cherokee makes 2.2 kt less at full throttle than her figures
       file was measured at.** 126.8 kt level at 3,000 ft against 129 on
       2026-10-06, the same on main and on this stack; her plan's fastest,
       117, still holds (PROJECT_STATUS, 2026-10-10). *Verification: the
       change traced to the commit that made it, and her figure measured
-      again or the change undone.*
+      again or the change undone.* Done 2026-10-11: #142's mixture curve
+      and full rich below 5,000 ft, as her handbook has it; her plan's
+      fastest measured again, 112 kt.
 - [ ] **Tail strikes for the F-15C, A380 and F-35B, against published
       attitudes.** The Learjet's tail strikes and the take-off lessons name
       a strike (done 2026-10-06); the F-15C has no contact behind her main
