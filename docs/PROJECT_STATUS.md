@@ -265,14 +265,16 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The Cherokee's 2.2 kt traced to her mixture: full rich on the FAA's curve; her plan's fastest measured again, 112 kt, 2026-10-11 — item done
+### The Cherokee's 2.2 kt traced to her mixture: full rich on the FAA's curve; her plan's fastest measured again, 112 kt, 2026-10-10 — item done
 
 **What changed.** 80aa204a (#142, 2026-10-09), which gave her engine the
 FAA's mixture curve and a float carburettor (tools/make_pa28.py,
 tools/piston_mixture.py) and held her full rich below 5,000 ft
 (`mixture-lever 5000`, her handbook's rule). Nothing else: her JSBSim files
 and catalogue entry are unchanged since. **Measured** with
-`glideslope_cli --data DIR plan-speeds pa28` (linux-release, at 1f3430cf),
+`glideslope_cli --data DIR plan-speeds pa28` (linux-release, at 1f3430cf;
+the commit that lands this, 31ecf991, changes only her plan speeds and the
+docs, and the tests below ran on its tree),
 the full-throttle level speed at 3,000 ft, on the build's data and on three
 scratch copies of it (not committed):
 
@@ -310,10 +312,14 @@ ceiling is flown on the autopilot, whose leaner holds her full rich below
   "pa28|cherokee|leaner|every_aircraft_has_its_own|every_aircrafts_fastest_plan_speed|plan_speeds"`,
   33 of 34 passed, the server's landing of her skipped, its server not
   built here): her figures, both tightest orbits at 64 and 112 kt, one step
-  past each (122 kt makes 126.8 level, not 5 kt in hand), her crosswind
+  past each, her crosswind
   headings at every plan speed, every aircraft's fastest leaving 5 kt in
   hand, the leaner's six, the plan-speeds CLI refusals, and her tuning
   script's files.
+- **One step past her fastest passes by 0.2 kt**: 122 kt needs 127.0 level
+  at full throttle for its 5 kt in hand, and she makes 126.8, so a few
+  tenths of a knot more from her would flip that test red, and plan-speeds
+  would then write 117 again.
 
 ### The completion plan has no Later section, 2026-10-11 — no item changes state
 
