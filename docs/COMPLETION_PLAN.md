@@ -691,12 +691,27 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 
 The AI's approach, flare, touchdown, roll-out and go-around, and the learnt landing.
 
-- [ ] **The AI cannot land in gusts**: in moderate turbulence ten of
-      fourteen aeroplanes balloon, bounce or come down hard, and the flying
-      boat is lifted into a go-around; at her light loading the 737-300
-      balloons, and the Mosquito at her heaviest. *Verification: every
-      aeroplane lands light, heavy and in gusts with none named, and a
-      gust on an approach flown well makes no go-around.*
+- [ ] **The AI cannot land every aeroplane in gusts**: she now flies half
+      the gust factor faster with the power on to the touch, and in moderate
+      turbulence lands only four of fourteen within limits with a margin on
+      eight seeds and every platform; gusts magnify each platform's floating
+      point, and the 787-8, A320 and C172P that pass on Linux fail on macOS
+      or Windows, the 737-300 and A380 balloon, the F-15C and F-35B come down
+      hard or nearly, the B-2A puts a wingtip down, the Mosquito bounces, and
+      the flying boat comes down hard; at her light loading the 737-300 balloons, and the
+      Mosquito at her heaviest. *Verification: every aeroplane lands light,
+      heavy and in gusts with none named, and a gust on an approach flown
+      well makes no go-around.*
+- [ ] **The landing rollout judges whether she still flies by her
+      groundspeed outside gusts**, so a steady headwind leaves her stick
+      back while her wing still lifts; judged by her airspeed there, the
+      learnt landing in its strongest left crosswind does not stop.
+      *Verification: in a steady 15 kt headwind every aeroplane rolls out
+      without lifting off, and the learnt landing's crosswind tests pass.*
+- [ ] **The flying boat's flare is flown to her centre of gravity, not her
+      hull.** Flown to her keel she touches gently in gusts, but in calm air
+      her hull then rises 1.3 ft after touching. *Verification: the S.23
+      lands in calm air and in gusts within the landplanes' limits.*
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-11, a larger project: its flare trained as its own

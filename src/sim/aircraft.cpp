@@ -962,10 +962,10 @@ void Aircraft::freeze_fuel(bool frozen) {
     exec_->GetPropulsion()->SetFuelFreeze(frozen);
 }
 
-void Aircraft::set_weather(std::shared_ptr<Weather> weather) {
+void Aircraft::set_weather(std::shared_ptr<Weather> weather, int turbulence_seed) {
     weather_ = std::move(weather);
     // The same turbulence every flight, so a flight in it can be repeated.
-    exec_->SetPropertyValue("atmosphere/randomseed", 1.0);
+    exec_->SetPropertyValue("atmosphere/randomseed", static_cast<double>(turbulence_seed));
     applied_temperature_offset_c_ = std::nan("");
     applied_pressure_hpa_ = std::nan("");
     applied_turbulence_ = -1;

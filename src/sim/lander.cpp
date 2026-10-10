@@ -3,11 +3,16 @@
 #include "sim/autopilot.hpp"
 #include "sim/figures.hpp"
 #include "sim/runway_condition.hpp"
+#include "sim/terrain.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <map>
+#include <memory>
+#include <mutex>
 #include <stdexcept>
+#include <vector>
 
 namespace glideslope::sim {
 namespace {
@@ -19,6 +24,8 @@ constexpr double steps_per_second = 120.0;
 // for an engine's approach idle, which is an N1 floor, not a lever position
 // (fly_laws; 14 CFR 25.119 and 33.73).
 constexpr double jet_approach_idle = 0.25;
+// **The touch flown in gusts**, feet a minute (fly_laws).
+constexpr double gusty_touchdown_fpm = 150.0;
 
 // **The approach is a local problem.** Five miles of runway centreline does
 // not need great-circle geometry: the metres in a degree of latitude and of
@@ -99,7 +106,66 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     if (figures.touchdown_fpm > 0.0) {
         speeds.touchdown_fpm = figures.touchdown_fpm;
     }
+    speeds.spool_s = spool_up_s(data / "jsbsim", model);
     return speeds;
+}
+
+double spool_up_s(const std::filesystem::path& jsbsim_root, const std::string& model) {
+    static std::mutex guard;
+    static std::map<std::string, double> measured;
+    const std::string key = (jsbsim_root / model).string();
+    {
+        const std::lock_guard<std::mutex> lock(guard);
+        if (const auto found = measured.find(key); found != measured.end()) {
+            return found->second;
+        }
+    }
+    Aircraft a(jsbsim_root, model);
+    if (!a.figures().jet) {
+        const std::lock_guard<std::mutex> lock(guard);
+        measured[key] = 0.0;
+        return 0.0;
+    }
+    a.set_terrain(std::make_shared<FunctionTerrain>([](double, double) { return 0.0; }));
+    InitialConditions ic;
+    ic.engine_running = true;
+    a.initialize(ic);
+    const auto n1 = [&a] { return a.property("propulsion/engine[0]/n1"); };
+    Controls c;
+    c.left_brake = 1.0;
+    c.right_brake = 1.0;
+    c.mixture = 1.0;
+    c.propeller = 1.0;
+    c.throttle = jet_approach_idle;
+    constexpr int settle = 10 * 120;
+    constexpr int window = 20 * 120;
+    for (int i = 0; i < settle; ++i) {
+        a.set_controls(c);
+        a.step();
+    }
+    const double idle = n1();
+    c.throttle = 1.0;
+    std::vector<double> trace;
+    trace.reserve(window);
+    for (int i = 0; i < window; ++i) {
+        a.set_controls(c);
+        a.step();
+        trace.push_back(n1());
+    }
+    const double full = trace.back();
+    double out = 0.0;
+    if (full > idle + 1.0) {
+        const double at = idle + 0.9 * (full - idle);
+        for (std::size_t i = 0; i < trace.size(); ++i) {
+            if (trace[i] >= at) {
+                out = static_cast<double>(i + 1) / steps_per_second;
+                break;
+            }
+        }
+    }
+    const std::lock_guard<std::mutex> lock(guard);
+    measured[key] = out;
+    return out;
 }
 
 ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs) {
@@ -173,6 +239,15 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
     }
 }
 
+double Lander::approach_kts() const {
+    return speeds_.vref_kts +
+           std::min(most_gust_additive_kts, 0.5 * std::max(0.0, a_.gust_factor_kt()));
+}
+
+bool Lander::in_gusts() const {
+    return a_.gust_factor_kt() > 0.0;
+}
+
 double Lander::flare_height_ft() const {
     // **High enough to round out in.** A quarter of a foot a knot is fifteen
     // feet for a Cessna, but it is capped at thirty, and an F-15C coming
@@ -182,8 +257,14 @@ double Lander::flare_height_ft() const {
     // v^2 / (2 x 0.1 g) of height - 47 feet for her, 26 for a 787, five for
     // a Cessna, whose quarter of a foot a knot is the more - so the flare
     // begins at whichever is the higher.
-    constexpr double round_out_g = 0.1;
-    const double sink_fps = speeds_.vref_kts * 1.68781 * std::tan(glidepath_rad_);
+    // **In gusts, a longer, gentler round out**: seven hundredths of a g,
+    // begun higher, so that a gust's added sink at its start is arrested in
+    // the height there is. Begun at a tenth of a g, a 737-300 and a 787-8
+    // entering their flares at 850 to 940 ft/min - a down-gust over the
+    // path's 740 - met the runway at 571 and 639 ft/min, their noses a
+    // degree up when their wheels met it.
+    const double round_out_g = in_gusts() ? 0.07 : 0.1;
+    const double sink_fps = approach_kts() * 1.68781 * std::tan(glidepath_rad_);
     return std::max(speeds_.flare_ft, sink_fps * sink_fps / (2.0 * round_out_g * 32.174));
 }
 
@@ -317,7 +398,7 @@ Lander Lander::on_its_roll(const Aircraft& aircraft, const ApproachSpeeds& speed
 }
 
 std::string unstabilized(const Runway& runway, const ApproachSpeeds& speeds, double glidepath_deg,
-                         double along_m, double above_m, double kcas) {
+                         double along_m, double above_m, double kcas, double gust_additive_kts) {
     const double above_ft = above_m * feet_per_metre;
     if (above_ft > StabilizedApproach::gate_ft) {
         return {};
@@ -325,9 +406,10 @@ std::string unstabilized(const Runway& runway, const ApproachSpeeds& speeds, dou
     char why[160];
     if (above_ft >= StabilizedApproach::speed_judged_down_to_ft) {
         const double over_kts = kcas - speeds.vref_kts;
-        if (over_kts > StabilizedApproach::most_fast_kts) {
-            std::snprintf(why, sizeof why, "%.0f kt fast at %.0f ft; no more than %.0f", over_kts,
-                          above_ft, StabilizedApproach::most_fast_kts);
+        if (over_kts - gust_additive_kts > StabilizedApproach::most_fast_kts) {
+            std::snprintf(why, sizeof why, "%.0f kt fast at %.0f ft; no more than %.0f",
+                          over_kts - gust_additive_kts, above_ft,
+                          StabilizedApproach::most_fast_kts);
             return why;
         }
         if (-over_kts > StabilizedApproach::most_slow_kts) {
@@ -540,7 +622,7 @@ Controls Lander::fly_laws() {
     if (judges_the_gate_ && !touched_ &&
         (stage_ == Stage::approach || stage_ == Stage::flare)) {
         std::string why = unstabilized(runway_, speeds_, glidepath_deg(), along_m_,
-                                       above_m_, kcas);
+                                       above_m_, kcas, approach_kts() - speeds_.vref_kts);
         unstable_steps_ = why.empty() ? 0 : unstable_steps_ + 1;
         if (!why.empty() && static_cast<double>(unstable_steps_) >=
                                 StabilizedApproach::sustained_s * steps_per_second) {
@@ -598,7 +680,10 @@ Controls Lander::fly_laws() {
         // **Closed at a hand's pace, not in a step**: the flare may have
         // added power to fly the path on, and it comes off over at most a
         // second.
-        c.throttle = std::max(0.0, last_throttle_ - 1.0 / steps_per_second);
+        // **In gusts, closed at the touch**: the AFH (ch. 9) has the throttle
+        // retarded to idle once the main wheels are on, and the gusts'
+        // power kept on to the touch is not wanted after it.
+        c.throttle = in_gusts() ? 0.0 : std::max(0.0, last_throttle_ - 1.0 / steps_per_second);
         last_throttle_ = c.throttle;
         // **The stick comes back as she slows, and then stays back.** On a
         // tailwheel aeroplane that is what holds the tail down; brakes
@@ -614,9 +699,27 @@ Controls Lander::fly_laws() {
         // back. So while the speed is there the attitude she touched at is
         // held, and the stick is eased back as the speed goes, all the way
         // back by half the reference speed, where no wing will carry her.
+        //
+        // **Her airspeed, not her groundspeed, is what still flies her.**
+        // Judged on the groundspeed, a C172P touching at 55 knots into a
+        // fifteen-knot wind was rolling at 40 - "slow" - and had her stick
+        // most of the way back with her wing still carrying her: her nose
+        // rose from four and a half degrees to ten on the runway and she flew
+        // off it again, five and a half feet, and came down on her tail. In
+        // still air the two are the same. Her airspeed along her nose, or
+        // her groundspeed where that is more (a crosswind, a tailwind).
+        // The more of the two, so that a crosswind, whose air across her
+        // lifts nothing, is judged as before: on her whole airspeed four of
+        // the learnt landing's crosswind tests failed, a C172P not stopping.
+        // **In gusts alone, for now**: so judged in steady air too, the
+        // learnt landing from its gate's corner in its most crosswind from
+        // the left did not stop, which is not yet understood (a tail).
         const double vg_kts = a_.property("velocities/vg-fps") / 1.68781;
+        const double flying_kts =
+            in_gusts() ? std::max(vg_kts, kcas * std::cos(a_.property("aero/beta-deg") / degrees))
+                       : vg_kts;
         const double flying = std::clamp(
-            (vg_kts - 0.5 * speeds_.vref_kts) / std::max(1.0, 0.4 * speeds_.vref_kts), 0.0,
+            (flying_kts - 0.5 * speeds_.vref_kts) / std::max(1.0, 0.4 * speeds_.vref_kts), 0.0,
             1.0);
         // **With a little forward pressure while she is fast**, as the FAA's
         // Airplane Flying Handbook (FAA-H-8083-3C, chapter 14) lands a
@@ -624,7 +727,12 @@ Controls Lander::fly_laws() {
         // touched at, the Mosquito - touching at 116 knots, a reference of
         // 123 - was still flying, and bounced seventy feet. Two degrees below
         // it at speed, easing to the attitude itself as she slows.
-        const double hold_error = touchdown_pitch_deg_ - 2.0 * flying - s.pitch_deg;
+        // **In gusts, firmer forward pressure** - four degrees under the
+        // attitude she touched at while she can fly, not two - so that a
+        // gust over her wing does not lift her off again (the AFH, ch. 9,
+        // flies her on to the runway in turbulence and holds her there).
+        const double forward_deg = in_gusts() ? 4.0 : 2.0;
+        const double hold_error = touchdown_pitch_deg_ - forward_deg * flying - s.pitch_deg;
         const double hold = std::clamp(
             0.05 * hold_error - 0.05 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
         c.elevator = flying * hold + (1.0 - flying) * 1.0;
@@ -858,6 +966,20 @@ Controls Lander::fly_laws() {
             flare_throttle_ = last_throttle_;
         }
         c.throttle = std::max(0.0, last_throttle_ - 0.5 / steps_per_second);
+        // **In gusts the power stays on to the touch.** The FAA's Airplane
+        // Flying Handbook (FAA-H-8083-3C, ch. 9, "Turbulent Air Approach and
+        // Landing"): power-on approaches, "the throttle retarded to idling
+        // position only after the main wheels contact the landing surface",
+        // since closing it early "may cause a sudden increase in the descent
+        // rate which could result in a hard landing". So in gusts the flare
+        // eases the throttle only to half what it found, and holds that
+        // until her wheels are down (the rollout closes it). Held where the
+        // flare found it, all of it, an F-35B ballooned above her flare's
+        // height and a Mosquito floated past the touchdown zone.
+        const bool gusty = in_gusts();
+        if (gusty) {
+            c.throttle = std::max(c.throttle, std::min(throttle_before, 0.5 * flare_throttle_));
+        }
         last_throttle_ = c.throttle;
         // **To her wheels, not her centre of gravity.** The flare was flown
         // to the height of her centre of gravity, and a B-2A's wheels hang
@@ -872,8 +994,17 @@ Controls Lander::fly_laws() {
         // for a light aeroplane held off to touch gently, two hundred for a
         // jet, flown on to the runway rather than held off to float.
         const double high_ft = std::max(0.0, above_m_ * feet_per_metre - wheels_hang_ft(s));
+        // **In gusts, every aeroplane flown on at `gusty_touchdown_fpm`**:
+        // held off to touch at forty feet a minute, a gust's lift or lull at
+        // the last foot is a balloon or a drop, and the AFH (ch. 9) lands in
+        // turbulence at a higher speed and lets her on. A jet's own 200 is
+        // softened to it: the last second's gusts add up to 200 ft/min either
+        // way, and aimed at 200 an F-15C and an F-35B met the runway at 450
+        // to 520.
+        const double touchdown_fpm =
+            gusty ? gusty_touchdown_fpm : speeds_.touchdown_fpm;
         const double want_fpm =
-            -(speeds_.touchdown_fpm + 150.0 * high_ft / std::max(1.0, flare_height_ft()));
+            -(touchdown_fpm + 150.0 * high_ft / std::max(1.0, flare_height_ft()));
         const double fpm_error = want_fpm - s.climb_rate_fpm;
         // **Where the sink is going, not only where it is.** The path follows
         // the nose a second or so behind it, so a nose raised until the sink
@@ -951,8 +1082,21 @@ Controls Lander::fly_laws() {
         // (How high is `most_flare_alpha_deg`'s.)
         const double most_alpha_deg = most_flare_alpha_deg();
         const double alpha_deg = a_.property("aero/alpha-deg");
-        if (alpha_deg > most_alpha_deg || s.climb_rate_fpm > 0.0) {
+        //
+        // **In gusts, judged a moment ahead, and let down a little**: a
+        // gust's lift in the round out is seen coming in the sink's trend,
+        // and the AFH (ch. 9, "Ballooning") has the attitude held and the
+        // airplane let settle, never more nose. Held only once she climbed,
+        // a 737-300 and an A380 with the longer gusty round out climbed at
+        // 328 and 367 ft/min in their flares.
+        const double ahead_climb_fpm =
+            gusty ? s.climb_rate_fpm + lead_s * climb_trend_fpm_s_ : s.climb_rate_fpm;
+        if (alpha_deg > most_alpha_deg || s.climb_rate_fpm > 0.0 || ahead_climb_fpm > 0.0) {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg);
+        }
+        if (gusty && ahead_climb_fpm > 0.0) {
+            flare_pitch_ = std::max(flare_begun_pitch_,
+                                    flare_pitch_ - 1.0 * ahead_climb_fpm / 100.0);
         }
         // **And brought back under it, if she is over it** - as she can be
         // given back from a pilot's flare: the nose comes down by as much as
@@ -973,7 +1117,13 @@ Controls Lander::fly_laws() {
         // to the touch; with her flare no longer ballooning (above), the
         // Mosquito held there met the runway flat and fast - at 107 knots,
         // sinking 120 ft/min against the 40 wanted - and bounced four feet.
-        if (jet_ && high_ft < 0.2 * flare_height_ft()) {
+        // **Unless, in gusts, she is still sinking well past what the flare
+        // wants**: a 787-8 still sinking at 800 ft/min had her nose frozen
+        // at a degree above level by it, and met the runway at 634. (Alone
+        // this moved her by 5 ft/min; with the longer round out of
+        // `flare_height_ft` she is not so low and fast when it applies.)
+        const bool still_sinking = gusty && fpm_error > 150.0;
+        if (jet_ && high_ft < 0.2 * flare_height_ft() && !still_sinking) {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg);
         }
         // **The power comes off as the sink is arrested, not before.** Closed
@@ -990,12 +1140,44 @@ Controls Lander::fly_laws() {
         // travel for each 25 ft/min she sinks past the margin.
         const bool nose_out = flare_pitch_ >= most_flare_pitch_deg_ - 1.0 ||
                               alpha_deg > most_alpha_deg;
-        if (fpm_error > 300.0) {
+        //
+        // **In gusts a sink is cushioned with power, whatever the nose**: the
+        // AFH (ch. 9, "Bouncing During Touchdown") follows a slight bounce
+        // "by applying sufficient power to cushion the subsequent
+        // touchdown", and a lull or a down-gust in the round out is the same
+        // sink. From 150 ft/min past what the flare wants, not 300.
+        const double cushion_from_fpm = gusty ? 150.0 : 300.0;
+        //
+        // **Worked on the sink when the power will arrive**, in gusts: her
+        // engines answer `spool_s` after the lever (measured on her model -
+        // 1.8 s for an F-15C, 5.2 for a 737-300, 8.2 for a 787-8), so the
+        // cushion is asked of the sink predicted that far ahead, and taken
+        // off by it. Asked of the sink now, a 737-300's full throttle reached
+        // 92% N1 as her sink was arrested and she climbed at 300 ft/min in
+        // her flare. **And not asked at all where it would come after the
+        // touch**: her wheels' height over her sink is the time left, and a
+        // jet whose engines take longer has her power where the approach
+        // left it.
+        const double sink_now_fpm = std::max(1.0, -s.climb_rate_fpm);
+        const double time_left_s = 60.0 * high_ft / sink_now_fpm;
+        const double power_lead_s = std::max(lead_s, std::min(speeds_.spool_s, time_left_s));
+        const double power_error =
+            gusty ? want_fpm - (s.climb_rate_fpm + power_lead_s * climb_trend_fpm_s_) : fpm_error;
+        const bool power_in_time = !gusty || 0.5 * speeds_.spool_s < time_left_s;
+        if (power_error > cushion_from_fpm && power_in_time) {
             const double want_throttle =
-                nose_out ? std::clamp(flare_throttle_ + 0.004 * (fpm_error - 300.0), 0.0, 1.0)
-                         : throttle_before;
+                nose_out || gusty
+                    ? std::clamp(flare_throttle_ + 0.004 * (power_error - cushion_from_fpm), 0.0,
+                                 1.0)
+                    : throttle_before;
             c.throttle = std::clamp(want_throttle, throttle_before - 0.5 / steps_per_second,
                                     throttle_before + 0.5 / steps_per_second);
+            last_throttle_ = c.throttle;
+        } else if (gusty && power_error < 0.0) {
+            // **And taken off again as soon as the sink is arrested**, judged
+            // as far ahead, at twice a hand's pace.
+            const double floor = std::min(throttle_before, 0.5 * flare_throttle_);
+            c.throttle = std::max(floor, throttle_before - 1.0 / steps_per_second);
             last_throttle_ = c.throttle;
         }
         want_pitch = flare_pitch_;
@@ -1065,7 +1247,7 @@ Controls Lander::fly_laws() {
         // more than 300 ft/min faster than the glidepath asks for opens the
         // throttle in proportion, and stops it winding back while it lasts.
         // An approach that is on its path never comes near the margin.
-        const double speed_error = speeds_.vref_kts - kcas;
+        const double speed_error = approach_kts() - kcas;
         const double sinking_fpm = std::max(0.0, fpm_error - 300.0);
         // **Mostly in proportion, a little by the integral.** The integral
         // was 0.24 of the throttle a second for each knot, and set a
@@ -1124,8 +1306,12 @@ Controls Lander::fly_laws() {
         }
         // Spooled down to twice the flare height, and from there let come
         // back to idle as it will: a 787-8 still at a quarter throttle into
-        // her flare touched at 146 knots and bounced fifteen feet.
-        if (jet_ && !near_the_flare) {
+        // her flare touched at 146 knots and bounced fifteen feet. **In
+        // gusts, spooled into the flare too**, so that its power is there to
+        // cushion a gust's sink (the flare's, below): a 737-300 let come back
+        // to idle at 46 ft had 0.03 of her throttle in a flare that sank her
+        // on to the runway at 638 ft/min.
+        if (jet_ && (!near_the_flare || in_gusts())) {
             c.throttle = std::max(c.throttle, jet_approach_idle);
             throttle_ = std::max(throttle_, jet_approach_idle);
         }
@@ -1140,8 +1326,12 @@ Controls Lander::fly_laws() {
     // way down - an F-35B's rose half a degree a second - and the round
     // out was over before the nose had done it. Brought in over a second,
     // so that the elevator does not step as the flare begins.
-    flare_gain_ = stage_ == Stage::flare ? std::min(3.0, flare_gain_ + 2.0 / steps_per_second)
-                                         : 1.0;
+    // **In gusts brought in over an eighth of a second**: a 737-300's nose,
+    // trimmed nose-down for her raised speed, did not move in her flare's
+    // first second while the gain came in.
+    flare_gain_ = stage_ == Stage::flare
+                      ? std::min(3.0, flare_gain_ + (in_gusts() ? 8.0 : 2.0) / steps_per_second)
+                      : 1.0;
     c.elevator =
         std::clamp(flare_gain_ * (0.05 * pitch_error - 0.05 * q_degps) + pitch_trim_, -1.0, 1.0);
     return c;

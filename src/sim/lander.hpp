@@ -79,7 +79,24 @@ struct ApproachSpeeds {
     // aiming three hundred metres down the runway puts the aeroplane about
     // fifty feet up as it crosses, which is where an aeroplane should be.
     double aim_m = 300.0;
+    // **How long her engines take to answer the lever**, seconds: from the
+    // approach's spooled quarter throttle, the throttle opened fully, to 90%
+    // of the way to the N1 it brings - measured on her
+    // model (`spool_up_s`), for a jet; 0 for a propeller, which answers at
+    // once, and for speeds made by hand. In gusts the flare's power is
+    // worked on the sink this far ahead (lander.cpp).
+    double spool_s = 0.0;
 };
+
+// **Her engines' spool-up, measured on her model**: `model` loaded from
+// `jsbsim_root`, standing on her brakes at sea level, her throttle held at
+// the approach's spooled quarter (the lander's approach idle) for ten
+// seconds and then opened fully; the seconds until her first engine's N1
+// has come 90% of the way from there to where full throttle takes it in
+// twenty. (From the idle stop it is 3 to 12 s; the approach never flies
+// there.) 0 for a model with no turbine. Measured once a model
+// in a process, and kept.
+double spool_up_s(const std::filesystem::path& jsbsim_root, const std::string& model);
 
 // The speeds for an aircraft, from `data`/figures/MODEL.xml: the lowest
 // published stall speed in the landing configuration, times 1.3 - or, where
@@ -178,8 +195,13 @@ struct StabilizedApproach {
 // from here would meet the runway (her height over the threshold's elevation
 // at the glidepath's angle, ahead of where she is) is past the zone's end,
 // which once she is past the end herself and still in the air it is.
+// **In gusts the band is widened by what they add** (`gust_additive_kts`,
+// Lander::approach_kts): fast is judged over the raised speed, slow under
+// the bare reference - the additive is the margin a lull is meant to eat,
+// and a lull that eats it is not an approach slow.
 std::string unstabilized(const Runway& runway, const ApproachSpeeds& speeds, double glidepath_deg,
-                         double along_m, double above_m, double kcas);
+                         double along_m, double above_m, double kcas,
+                         double gust_additive_kts = 0.0);
 
 class Lander {
 public:
@@ -237,6 +259,27 @@ public:
     const Runway& runway() const { return runway_; }
     const ApproachSpeeds& speeds() const { return speeds_; }
     double glidepath_deg() const;
+    // **The speed she is flown down the approach at, in the air she is in
+    // now**: her reference speed for her weight, plus half the air's gust
+    // factor (Aircraft::gust_factor_kt) up to `most_gust_additive_kts` -
+    // the FAA's "normal approach speed plus one-half of the wind gust
+    // factor" (Airplane Flying Handbook, FAA-H-8083-3C, chapter 9,
+    // "Turbulent Air Approach and Landing"). The stabilized gate judges
+    // her +10/-5 kt round this, not round the bare reference. The
+    // reference itself in calm air.
+    double approach_kts() const;
+    // **The most the gusts add**, knots: Airbus limits the increment over
+    // its approach speed to 15 kt, and Boeing's study cut its wind additive
+    // from 20 to 15 (both as code7700.com's "Approach Speed Additives"
+    // quotes them). Reached at a gust factor of 30, severe turbulence.
+    static constexpr double most_gust_additive_kts = 15.0;
+    // **Whether she is landed as in gusts** (`approach_kts` raised): a
+    // power-on flare to a firm touch, the throttle closed only once her
+    // wheels are down, a sink cushioned with power and the power off again
+    // once it is arrested, a jet kept spooled to the touch, a longer round
+    // out begun higher, and a gust's lift met by holding and letting down
+    // the nose (lander.cpp). Any gust factor over 0.
+    bool in_gusts() const;
 
     // **The most incidence the flare raises the nose to**: twelve degrees,
     // or four over what she flew the glidepath at, short of the stall
