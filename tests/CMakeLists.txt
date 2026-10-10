@@ -1115,10 +1115,22 @@ set_tests_properties(the_files_the_visual_models_are_made_from_arrive_with_their
 
 add_test(NAME the_committed_visual_models_are_what_their_script_writes
     COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
-        -DSCRIPT=tools/make_models.py "-DARGS=--cache;${GLIDESLOPE_DOWNLOADS_DIR}"
+        -DSCRIPT=tools/make_models.py "-DARGS=--cache;${GLIDESLOPE_DOWNLOADS_DIR};--from;fetched"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
 set_tests_properties(the_committed_visual_models_are_what_their_script_writes
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED model_sources TIMEOUT 900)
+
+# The Learjet's model is made from a file no URL serves - Sketchfab gives it
+# only to a signed-in account - which the owner keeps under
+# ~/.cache/glideslope-models (docs/ASSETS.md says how). Where it is, its pin
+# is checked and the committed mesh is held to what the script makes of it;
+# where it is not, as on CI, this reports itself skipped, never passed.
+add_test(NAME the_committed_learjet_model_is_what_its_script_makes_of_the_owners_copy
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_models.py "-DARGS=--from;local"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_learjet_model_is_what_its_script_makes_of_the_owners_copy
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 300)
 
 # tools/make_models.py --refresh against a stand-in network: a 429 or 503 is
 # reported as itself and never taken for a missing file, and a source serving
