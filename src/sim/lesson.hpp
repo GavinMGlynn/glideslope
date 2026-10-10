@@ -14,7 +14,7 @@
 //                                 the stall, as a figure (below): `stall+7`
 //   height FEET                   the height above the ground the lesson is
 //                                 practised at, where a safe height is part
-//                                 of it: a stall lesson's
+//                                 of it: a stall lesson must give one
 //   stage TEXT...                 a stage of the lesson, in the order flown
 //   do TEXT...                    what to do at this stage: what the pilot is
 //                                 told, and what the instructor demonstrates

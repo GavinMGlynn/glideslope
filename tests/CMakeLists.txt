@@ -236,6 +236,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_turn_that_loses_height_is_named_in_the_debrief
     the_climb_lesson_flown_by_the_book_leaves_an_empty_debrief
     a_climb_at_the_wrong_speed_is_named_in_the_debrief
+    a_stall_lesson_begun_away_from_the_height_it_is_practised_at_says_so_first
     the_stalls_lesson_flown_by_the_book_leaves_an_empty_debrief
     a_stall_recovered_badly_is_named_in_the_debrief
     every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_more_than_its_lesson_allows_within_2_g
@@ -584,6 +585,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_mosquito_fb6_climbs_to_20000_ft_in_about_hj679s_time
     the_mosquito_fb6_climbs_with_flaps_and_wheels_down_at_climbing_power_as_her_pilots_notes_say
     the_mosquito_fb6_sinks_at_20000_ft_on_full_throttle_with_flaps_and_wheels_down
+    the_mosquito_fb6_climbs_faster_clean_than_with_flaps_and_wheels_down
     the_mosquito_fb6_stalls_clean_near_its_pilots_notes_speed
     the_mosquito_fb6_stalls_wheels_and_flaps_down_near_its_pilots_notes_speed
     the_mosquito_fb6_takes_off_over_50_ft_in_about_the_b_ivs_distance

@@ -92,6 +92,14 @@ public:
     // How far through: the stages completed.
     std::size_t completed() const { return stage_; }
 
+    // **A lesson begun away from the height it is practised at says so**,
+    // first in its debrief: more than this many feet above the ground below
+    // the lesson's `height`, or above it. Below, it is not the safe height
+    // the lesson was written for; above, the aeroplane may not do there what
+    // the lesson asks - the Mosquito, with her flaps and wheels down, cannot
+    // be level at 20,000 ft at the speed her stall lesson recovers to.
+    static constexpr double height_within_ft = 500.0;
+
     // What to do differently, in the order it happened.
     const std::vector<Fault>& debrief() const { return debrief_; }
     // The same as the lesson's own words alone, which is what a screen shows.
@@ -100,6 +108,7 @@ public:
 private:
     void judge_needs(const Aircraft& aircraft, std::int64_t tick);
     void remember_the_start(const Aircraft& aircraft);
+    void judge_the_height(const Aircraft& aircraft, std::int64_t tick);
     // A property, the runner's own ones included. False if this aeroplane
     // has not got it.
     bool read(const Aircraft& aircraft, const std::string& property,

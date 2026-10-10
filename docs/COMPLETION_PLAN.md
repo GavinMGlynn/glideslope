@@ -371,11 +371,14 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       recovery closed by the owner's decision). *Verification: her model
       level at her lesson's recovery speed with full flap and gear, or her
       lesson flown in the configuration her Pilot's Notes give, and her
-      recovery at the warning within 600 ft.* Done 2026-10-10: not her
-      pitching moment but her engines' power at 20,000 ft. Her model climbs
-      with everything down as her Pilot's Notes say (a new figure), so her
-      lesson now practises the stall at 5,000 ft, and recovered at her
-      warning she loses 46 ft.
+      recovery at the warning within 600 ft.* Done 2026-10-10: closed by
+      flying her stall lesson at 5,000 ft, where she can level with
+      everything down - recovered at her warning she loses 46 ft; at 20,000
+      ft she still cannot, as her Notes' climb figure implies. It was her
+      engines' power there, not her pitching moment. No period or RAF height
+      for practising a stall was found; 5,000 ft is the light aeroplanes',
+      and her Notes' climb with everything down is a low-level figure. A
+      stall lesson begun away from its height now says so first.
 - [ ] **The Mosquito practised at 5,000 ft pulls 1.88 g left thirty seconds
       in a stall, and the AI lets her 0.5 kt under her stall.** Both are
       inside what she can do, but not with the 10% every recovery is held

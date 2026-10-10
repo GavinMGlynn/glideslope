@@ -33,8 +33,10 @@ teaches second-world-war
 # at 20,000 ft, on full throttle at the recovery's 130 knots with everything
 # down, she sinks 340 ft a minute (tests/unit/test_figures.cpp flies both),
 # and recovered at her warning there she was never level again.
-# The Notes give no height to practise a stall at; five thousand feet is the
-# light aeroplanes' and the flying boat's. Left thirty seconds in the stall
+# No height to practise a stall at was found in the Notes, nor in any other
+# period or RAF source searched; five thousand feet is the light aeroplanes'
+# and the flying boat's, and her Notes' climb with everything down is a
+# figure for low down. Left thirty seconds in the stall
 # from it she is at 2,900 ft at her lowest; recovered at her warning she
 # loses 46 ft.
 height 5000
