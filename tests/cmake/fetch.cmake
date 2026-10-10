@@ -25,6 +25,14 @@ foreach(_line IN LISTS _lines)
     list(GET _fields 1 _size)
     list(GET _fields 2 _sha256)
     list(SUBLIST _fields 3 -1 _urls)
+    # A `local:` source is one no URL serves - the Learjet's model, which
+    # Sketchfab gives only to a signed-in account. The owner provides it by
+    # hand; the test that reads it reports itself skipped without it.
+    list(GET _urls 0 _first)
+    if(_first MATCHES "^local:")
+        message(STATUS "${_name}: not fetched; the owner provides it (${_first})")
+        continue()
+    endif()
     set(_path "${DIR}/${_name}")
     if(EXISTS "${_path}")
         file(SHA256 "${_path}" _have)

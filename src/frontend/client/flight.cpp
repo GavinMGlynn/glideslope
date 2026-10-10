@@ -86,8 +86,8 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
         checklist_.reset();
     }
 
-    // Its visual model, where it ships one: one aircraft does not, because
-    // FlightGear has no Learjet 35A, and docs/ASSETS.md says so.
+    // Its visual model, where it ships one: every aircraft in the roster
+    // does, and docs/ASSETS.md records each one's source and licence.
     // Where there is one, there is an alignment saying where it sits on this
     // aeroplane, and a model without one is a mistake rather than an absence.
     if (auto visual = visual_of(data, aircraft_entry_.id)) {

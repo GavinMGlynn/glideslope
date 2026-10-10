@@ -11,7 +11,7 @@ published length.
 **Why the mesh and not the flight model.** The hunt for JSBSim models carrying
 these points ran over FGAddon, FGMEMBERS, JSBSim's own aircraft and two
 university mirrors of them, and found one belly in total - the 737-300's. The
-mesh, by contrast, is already here for fifteen of the sixteen aircraft, is the
+mesh, by contrast, is already here for every one of the aircraft, is the
 shape the player sees, and is scaled right: no mesh this reads is more than
 0.8% from its aeroplane's published length, once a nose boom is set aside.
 check() holds every one of them to that, and to its published span less

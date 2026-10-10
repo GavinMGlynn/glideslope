@@ -1,8 +1,10 @@
-# The FlightGear files glideslope's visual models are made from,
-# each pinned by SHA-256: name, size in bytes, SHA-256, then the
-# URLs that serve it, tried in order, each checked against it.
-# Written by tools/make_models.py --refresh; see docs/ASSETS.md
-# for each model's source, revision and licence.
+# The files glideslope's visual models are made from, each pinned
+# by SHA-256: name, size in bytes, SHA-256, then the URLs that
+# serve it, tried in order, each checked against it. A source
+# no URL serves is `local:` and a path under the owner's model
+# directory, ~/.cache/glideslope-models; tests/cmake/fetch.cmake
+# passes over it. Written by tools/make_models.py --refresh; see
+# docs/ASSETS.md for each model's source, revision and licence.
 fgmodel-737-300-Models_737-300.ac 3327850 5a236e16ef01f5e831274ac3e766b1550ad672e13a957f71692d51f4fe305ac7 https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft/737-300/Models/737-300.ac?p=21588 https://archive.softwareheritage.org/api/1/content/sha256:5a236e16ef01f5e831274ac3e766b1550ad672e13a957f71692d51f4fe305ac7/raw/ https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/737-300/Models/737-300.ac?format=raw
 fgmodel-737-300-Models_737-300.xml 50016 4bbed5e50331a143783a873063f33b7402f316879fe31867c055b4df109f052b https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft/737-300/Models/737-300.xml?p=21588 https://archive.softwareheritage.org/api/1/content/sha256:4bbed5e50331a143783a873063f33b7402f316879fe31867c055b4df109f052b/raw/ https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/737-300/Models/737-300.xml?format=raw
 fgmodel-747-400-Models_747-400.xml 6155 8b5eaed391392f75a3a03325d02c19ce8e6a9c66f5417a5ec4ed0eecf6d6f5c1 https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft/747-400/Models/747-400.xml?p=21588 https://archive.softwareheritage.org/api/1/content/sha256:8b5eaed391392f75a3a03325d02c19ce8e6a9c66f5417a5ec4ed0eecf6d6f5c1/raw/ https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/747-400/Models/747-400.xml?format=raw
@@ -78,3 +80,4 @@ fgmodel-short_s23-Models_Short_Empire.ac 3957392 2d58a7ac86fb1ad6d224f78435df4e7
 fgmodel-short_s23-Models_Short_Empire.xml 22519 ee207d6730af78e424b64d3707de79434247d3a504e4be8f26149ce000db7f6e https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft/Short_Empire/Models/Short_Empire.xml?p=21588 https://archive.softwareheritage.org/api/1/content/sha256:ee207d6730af78e424b64d3707de79434247d3a504e4be8f26149ce000db7f6e/raw/ https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/Short_Empire/Models/Short_Empire.xml?format=raw
 fgmodel-short_s23-Models_propeller.ac 182576 0ad88a10d23ed49f0d10a92625e9e70312d1cf74cf6a79b9a5186b924af4bada https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft/Short_Empire/Models/propeller.ac?p=21588 https://archive.softwareheritage.org/api/1/content/sha256:0ad88a10d23ed49f0d10a92625e9e70312d1cf74cf6a79b9a5186b924af4bada/raw/ https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/Short_Empire/Models/propeller.ac?format=raw
 fgmodel-short_s23-Models_propeller.xml 2081 dc31ae83fdda88516e1118748153867564a3fcac7a1f20fd1daef9c93164b562 https://svn.code.sf.net/p/flightgear/fgaddon/trunk/Aircraft/Short_Empire/Models/propeller.xml?p=21588 https://archive.softwareheritage.org/api/1/content/sha256:dc31ae83fdda88516e1118748153867564a3fcac7a1f20fd1daef9c93164b562/raw/ https://sourceforge.net/p/flightgear/fgaddon/21588/tree/trunk/Aircraft/Short_Empire/Models/propeller.xml?format=raw
+learjet35a-bombardier_learjet_35a.zip 97449158 1340ab25eeb79dee4afd3fa78310095fdfd1471c128c4b8da105faf3050ce04a local:learjet35a/bombardier_learjet_35a.zip

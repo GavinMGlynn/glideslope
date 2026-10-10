@@ -42,11 +42,12 @@ it is the lowest model point within a radius of it in plan - three per cent of
 the model's length, and never less than 0.3 m. The offset is the mean of the
 differences, held to zero across the centreline because the model and the
 flight model are both symmetric, and walked until it settles. It is walked
-from three starts - nothing at all, the model's own lowest tenth put on the
-flight model's undercarriage, and a move straight down - and the one that
-settles closest is taken: from a bad start the walk settles in the wrong
-place, and the A380, whose model is 22.7 m from its flight model along the
-fuselage, is never found from nothing.
+from four starts - nothing at all, the model's own lowest tenth put on the
+flight model's undercarriage, a move straight down, and the best of every
+placement along the model a radius apart - and the one that settles closest
+is taken: from a bad start the walk settles in the wrong place, and the
+A380, whose model is 22.7 m from its flight model along the fuselage, is
+never found from nothing, nor the Learjet from any of the first three.
 
 **What is left over is recorded too.** A flight model and a visual model of the
 same aeroplane do not always agree, and no placement can make them. JSBSim's
@@ -198,6 +199,33 @@ def _walk(points, targets, start, radius):
     return offset, left
 
 
+def _swept(lowest, targets, low, high, radius):
+    """The start, of every placement along the model a radius apart, that
+    leaves the undercarriage nearest the model's lowest tenth beneath it.
+
+    The other starts find each aeroplane but one. The Learjet's lowest tenth
+    is its wheels and its open gear doors, many more of them at the mains
+    than at the nose, so their middle is not the middle of its three
+    contacts; started there the walk settles with every wheel a metre aft of
+    its contact, scoring 0.23 m, where the placement that puts each wheel on
+    its contact scores 0.06. Walking the length finds the right valley, and
+    the walk from it finds the bottom.
+    """
+    z = max(t[2] for t in targets) - high[2]
+    best = None
+    steps = int((high[0] - low[0]) / radius) + 1
+    for n in range(-steps, steps + 1):
+        x = sum(t[0] for t in targets) / len(targets) \
+            - (low[0] + high[0]) / 2.0 + n * radius
+        left = [math.dist([t[0] - x, t[1], t[2] - z],
+                          _beneath(lowest, [t[0] - x, t[1], t[2] - z], radius))
+                for t in targets]
+        score = sum(left) / len(left)
+        if best is None or score < best[0]:
+            best = (score, x)
+    return (best[1], 0.0, z)
+
+
 def measure(model_id: str):
     """What one aircraft's line says, and the contacts it was fitted to."""
     points, low, high = read_mesh(MODELS / f"{model_id}.mesh")
@@ -213,6 +241,7 @@ def measure(model_id: str):
         (0.0, 0.0, 0.0),
         tuple(theirs[k] - middle[k] for k in range(3)),
         (0.0, 0.0, max(t[2] for t in targets) - high[2]),
+        _swept(lowest, targets, low, high, radius),
     ]
 
     best = None

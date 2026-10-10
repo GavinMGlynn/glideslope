@@ -367,7 +367,9 @@ in the repository.
 
 ### Aircraft visual models, from FlightGear's aircraft
 
-Fourteen of the sixteen aircraft ship a visual model. The geometry is AC3D
+All sixteen aircraft ship a visual model: fifteen from FlightGear, here, and
+the Learjet 35A from Sketchfab, below, because FlightGear has none. The
+FlightGear geometry is AC3D
 (`.ac`), and for the A380 also 3D Studio (`.3ds`), placed by FlightGear model
 XML; `tools/make_models.py` fetches the pinned files listed in
 `assets/models/sources.txt`, each by URL and SHA-256, flattens each aircraft's
@@ -575,15 +577,50 @@ the F-15's `f15c.ac` and `f15c.xml`; and the Mosquito's `Mosquito-FB6.xml`,
 | Licence | GPL, on FGAddon's project-wide requirement that its content is GPL - a policy, not a grant stated by the author, on which the project owner decided on 2026-09-20 that this model ships. What was looked at: no licence file at any level. `Short_Empire-set.xml` and `Models/Short_Empire.xml` each carry "Copyright (C) 2007 - 2025 Anders Gidenstam ... This file is licensed under the GPL license version 2 or later", which is a grant, but it is on those two files and not on the geometry; `AUTHORS` credits the propeller models to the Boeing 314 and the engine model to the Lockheed-Vega, without terms. |
 | In the repository | `assets/models/short_s23.mesh`, 85,604 triangles, as `tools/make_models.py` makes it; a test fails if it differs |
 
-### Aircraft with no visual model
+### The Learjet's visual model, from Sketchfab
 
-One aircraft ships none: FlightGear has no model of it.
+FlightGear has no Learjet of any mark, so the Learjet 35A's model is not
+FlightGear's: it is a glTF 2.0 model from Sketchfab, under CC-BY-4.0, which
+asks for the credit below wherever the work is shared. It is credited here and
+in `README.md`, which ships in every package beside the mesh.
 
-### No visual model: learjet35a
+`tools/make_models.py` reads glTF 2.0 with Python's standard library - the
+node tree and its transforms, each primitive's positions and indices, and
+each material's base colour factor as the flat diffuse colour, turned from
+glTF's linear colour to the displayed colour AC3D's materials are written
+in. No texture is read, so the parts this model colours by texture - the
+fuselage, the nacelles, the fin's paint, the tip tanks - take their factor,
+which is white. Normals are not read: they are worked out from the faces by
+the same crease angle as every other model's, because the faces are changed
+(below) and the model's own normals would no longer fit them.
+
+**How the owner provides it.** Sketchfab gives the download only to a
+signed-in account, so no test can fetch it, and at 97 MB it is far too big to
+commit. Its line in `assets/models/sources.txt` is `local:` and a path under
+`~/.cache/glideslope-models` (or the directory `GLIDESLOPE_MODELS_DIR`
+names): sign in at the source URL below, choose Download, "glTF", and put
+the archive, unopened, at
+`~/.cache/glideslope-models/learjet35a/bombardier_learjet_35a.zip`. The
+script checks it against its SHA-256 and refuses any other file.
+`tests/cmake/fetch.cmake` passes over a `local:` line, and
+`the_committed_learjet_model_is_what_its_script_makes_of_the_owners_copy`
+reports itself skipped where the archive is absent - as it is on CI - never
+passed.
+
+### Visual model: learjet35a - "Bombardier Learjet 35A" by mudkipz321
 
 | | |
 | --- | --- |
-| Why | FlightGear has no Learjet of any mark in FGAddon, so there is nothing to take. |
+| Source | <https://sketchfab.com/3d-models/bombardier-learjet-35a-c0af95a623734d7aba3ca13ce508975f>, by mudkipz321 (<https://sketchfab.com/mudkipz321>): the glTF archive Sketchfab serves, `bombardier_learjet_35a.zip` - `scene.gltf`, `scene.bin`, 29 textures and `license.txt`; its `scene.gltf` names the same title, author, source and licence |
+| Revision | The archive the project owner downloaded, 97,449,158 bytes, SHA-256 `1340ab25eeb79dee4afd3fa78310095fdfd1471c128c4b8da105faf3050ce04a`; its files are dated 2023-01-25 and were written by Sketchfab-14.85.0. Sketchfab has no revisions, so the hash is the version |
+| Licence | CC-BY-4.0 (<http://creativecommons.org/licenses/by/4.0/>), in the archive's `license.txt`: "Author must be credited. Commercial use is allowed." |
+| Credit | This work is based on "Bombardier Learjet 35A" (https://sketchfab.com/3d-models/bombardier-learjet-35a-c0af95a623734d7aba3ca13ce508975f) by mudkipz321 (https://sketchfab.com/mudkipz321) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/) |
+| Changed | The exterior alone; the undercarriage lowered; the 888,429 triangles left gathered into 130,084; flat colours, no textures; turned into the body frame. Each is below |
+| Left out | The whole cabin and cockpit, by part: the model's parts are named plainly, and only those named as the outside are taken - an allow-list in the script, as `include` is for FlightGear's. 258 parts are left out, 1,782,376 triangles: the seats, belts, buckles, springs and cushions; the panel's dials, switches, buttons, radios, compass and yoke; the throttle and rudder pedals; the tray tables, cup holders and metal box; the cabin's window trims (315,392 triangles on their own), light rings, lights, vents, side walls, door frame and inner shell; the airstair's spring, wires and rope; and the engines' inner stages, shafts and blades behind the fans. The fuselage part carries the cabin floor and trim as its own materials, and those - carpet, fabric and wood, 16,928 triangles, and the cabin door's 256 of fabric lining - are left out of it. Of the model's 2,687,989 triangles, 888,429 are taken. `python3 tools/make_models.py --only learjet35a --list` prints every one |
+| Pose | The model's own pose has its main wheels half folded and its nose leg up, as no frame of its animation does. The animation lowers the gear by 11.6 s and begins to open the cabin door at 13.8 s, so the model is taken at 12.5 s: gear down and locked, door shut. The control surfaces are where the animation has them then, the flaps a little down |
+| Fewer triangles | Vertex clustering (Rossignac and Borrel, 1993), in the standard library: every vertex in one 4 cm cube and of one colour becomes their mean, and a triangle that collapses goes. No vertex moves more than the cube's diagonal, 7 cm; detail finer than that, such as a centimetre-thick aerial, is lost. 4 cm is the cell that keeps the mesh within the size of the others |
+| Size | 15.60 m long, 12.01 m across the tip tanks and 3.84 m high, against the maintenance manual's 48 ft 7 in (14.81 m), 39 ft 6 in (12.03 m) and 12 ft 3 in (3.73 m), 6-00-01 (above): the span within 0.3% and the height 3% over, and the length 5.3% over - the fuselage itself is 14.29 m, and the tailplane's tips trail 1.31 m aft of it. The test that holds every model's size names the Learjet and holds its length to 6%. Placed on the flight model by `tools/align_models.py`, its wheels are within 0.07 m of the flight model's contacts and its tip tanks and ventral fin within 0.14 m of those contacts, which the flight model takes from the flight manual's stations and the NTSB's drawing |
+| In the repository | `assets/models/learjet35a.mesh`, 130,084 triangles, 2.5 MB, as `tools/make_models.py` makes it; a test fails if it differs, where the owner's archive is present |
 
 ### The Copernicus DEM, GLO-30 Public
 
