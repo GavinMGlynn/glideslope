@@ -363,7 +363,7 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 - [ ] **The F-35B cannot hover, land vertically or take off short**: its lift
       fan is not modelled. *Verification: it hovers at its published thrust,
       lands vertically, and takes off in its published short distance.*
-- [ ] **The Mosquito's model is never level after a stall warning with full
+- [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses
       3,095 ft and is never level again; at 140 kt she pulls 2.1 g with her
@@ -371,7 +371,17 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       recovery closed by the owner's decision). *Verification: her model
       level at her lesson's recovery speed with full flap and gear, or her
       lesson flown in the configuration her Pilot's Notes give, and her
-      recovery at the warning within 600 ft.*
+      recovery at the warning within 600 ft.* Done 2026-10-10: not her
+      pitching moment but her engines' power at 20,000 ft. Her model climbs
+      with everything down as her Pilot's Notes say (a new figure), so her
+      lesson now practises the stall at 5,000 ft, and recovered at her
+      warning she loses 46 ft.
+- [ ] **The Mosquito practised at 5,000 ft pulls 1.88 g left thirty seconds
+      in a stall, and the AI lets her 0.5 kt under her stall.** Both are
+      inside what she can do, but not with the 10% every recovery is held
+      to; both are named in their tests (PROJECT_STATUS, 2026-10-10).
+      *Verification: both within their bounds with the 10% in hand, and
+      unnamed.*
 - [x] **The Learjet cannot be rotated early**: full back stick lifts her
       nose only near her rotation speed. *Verification: the Learjet held
       fully back from 85 percent of her rotation speed leaves the runway

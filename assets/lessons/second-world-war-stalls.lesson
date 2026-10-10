@@ -24,6 +24,21 @@
 name Stalls in a wartime twin
 teaches second-world-war
 
+# **Practised at five thousand feet above the ground, not twenty thousand**,
+# because she is stalled with her flaps and wheels down and must be level
+# again with them still down. Her Pilot's Notes give that she "will climb
+# satisfactorily at approximately 120 knots with flaps and undercarriage
+# down at climbing power" (A.P. 2019E, 1950, para. 48, going round again: low
+# down, where a landing is missed). High up her Merlins have not that power:
+# at 20,000 ft, on full throttle at the recovery's 130 knots with everything
+# down, she sinks 340 ft a minute (tests/unit/test_figures.cpp flies both),
+# and recovered at her warning there she was never level again.
+# The Notes give no height to practise a stall at; five thousand feet is the
+# light aeroplanes' and the flying boat's. Left thirty seconds in the stall
+# from it she is at 2,900 ft at her lowest; recovered at her warning she
+# loses 46 ft.
+height 5000
+
 # **The first sign of the stall is its warning**, where the autopilot's stall
 # recovery is held to recovering within this lesson's height (REQUIREMENTS.md
 # 4.3). The rules have the warning begin no less than 5 knots or 5% above the

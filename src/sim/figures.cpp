@@ -520,9 +520,10 @@ double takeoff_swing(const std::filesystem::path& root, const PublishedFigures& 
     return -level * trial / (led - level);
 }
 
-// Full throttle, flaps up, holding the climb speed; the average climb rate over
+// Full throttle, holding the climb speed; the average climb rate over
 // forty seconds that pass through the altitude - sea level if none is given -
-// after thirty to settle. The engines at the stated boost and rpm, if any; a
+// after thirty to settle. The flaps up and the gear up, unless `flaps_deg`
+// and `gear` say otherwise. The engines at the stated boost and rpm, if any; a
 // two-speed supercharger held in low gear up to `fs_gear_above_ft`, if stated,
 // and automatic above it; the radiator shutters open if `radiators_open`.
 double climb_rate(const std::filesystem::path& root, const PublishedFigures& figures,
@@ -534,12 +535,15 @@ double climb_rate(const std::filesystem::path& root, const PublishedFigures& fig
     // the altitude; the Cessna's from 600 ft below sea level.
     const double start =
         at_altitude ? altitude - spec.published * (30.0 + 20.0) / 60.0 : -600.0;
-    Flight f(root, figures, spec, airborne(start, kcas, true));
+    InitialConditions ic = airborne(start, kcas, true);
+    ic.gear = condition_or(spec, "gear", 0.0);
+    Flight f(root, figures, spec, ic);
     const bool powered = spec.conditions.count("boost_psi") != 0;
     Power power = figure_power(spec, condition_or(spec, "boost_psi", 0.0), 0);
     const double fs_above = condition_or(spec, "fs_gear_above_ft", 0.0);
     Controls c;
     c.throttle = 1.0;
+    c.flaps = flaps_command(figures, condition_or(spec, "flaps_deg", 0.0));
     c.cooling_flaps.fill(condition_or(spec, "radiators_open", 0.0));
     const auto hold = [&] {
         if (powered) {

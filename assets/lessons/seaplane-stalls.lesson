@@ -31,6 +31,12 @@
 name Stalls in a flying boat
 teaches seaplane
 
+# **Practised at five thousand feet above the ground**: a flying boat
+# slows to the stall in a few hundred feet, and loses no more than that
+# recovering, so five thousand is a safe height with room to spare. Her
+# ceiling is about 16,000 ft, so the jets' twenty thousand she cannot reach.
+height 5000
+
 # **The first sign of the stall is its warning**, where the autopilot's stall
 # recovery is held to recovering within this lesson's height (REQUIREMENTS.md
 # 4.3). The rules have the warning begin no less than 5 knots or 5% above the
