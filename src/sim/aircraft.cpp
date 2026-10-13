@@ -448,6 +448,55 @@ std::vector<double> flap_notches_of(const std::filesystem::path& file) {
     return notches;
 }
 
+// **Whether a flap lever moves her flaps**: whether any element of the model,
+// or of a system file it names, reads the flap command. The F-22A's flaps
+// are her own, scheduled on her speed and Mach number, and read no lever.
+bool reads_flap_command(JSBSim::Element* el) {
+    if (el == nullptr) {
+        return false;
+    }
+    for (unsigned int i = 0; i < el->GetNumDataLines(); ++i) {
+        if (el->GetDataLine(i).find("fcs/flap-cmd-norm") != std::string::npos) {
+            return true;
+        }
+    }
+    for (unsigned int i = 0; i < el->GetNumElements(); ++i) {
+        if (reads_flap_command(el->GetElement(i))) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool flap_lever_of(const std::filesystem::path& file) {
+    JSBSim::FGXMLFileRead reader;
+    JSBSim::Element* root = load_xml(reader, file);
+    if (root == nullptr) {
+        return false;
+    }
+    if (reads_flap_command(root)) {
+        return true;
+    }
+    for (JSBSim::Element* system = root->FindElement("system"); system != nullptr;
+         system = root->FindNextElement("system")) {
+        std::string name = system->GetAttributeValue("file");
+        if (name.empty()) {
+            continue;
+        }
+        if (name.size() < 4 || name.substr(name.size() - 4) != ".xml") {
+            name += ".xml";
+        }
+        for (const std::filesystem::path& at :
+             {file.parent_path() / "Systems" / name, file.parent_path() / name}) {
+            JSBSim::FGXMLFileRead system_reader;
+            if (reads_flap_command(load_xml(system_reader, at))) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
 } // namespace
 
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model)
@@ -486,6 +535,7 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
         beta_range_rad_ = {t.beta_low, t.beta_high};
     }
     flap_notches_ = flap_notches_of(jsbsim_root / "aircraft" / model / (model + ".xml"));
+    flap_lever_ = flap_lever_of(jsbsim_root / "aircraft" / model / (model + ".xml"));
     // **What her braked wheels grip a dry runway with**: the static and
     // rolling friction of the wheel with brakes that grips most, which a
     // slippery runway's brake share is worked from (apply_weather).

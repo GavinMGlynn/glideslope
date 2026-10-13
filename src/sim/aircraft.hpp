@@ -370,6 +370,13 @@ public:
     const std::vector<double>& flap_notches() const {
         return flap_notches_;
     }
+    // **Whether a flap lever moves her flaps**: her model, or a system file
+    // it names, reads the flap command. False for an aeroplane whose flaps
+    // are her own, scheduled on her speed - the F-22A's - and for one with
+    // none.
+    bool flap_lever() const {
+        return flap_lever_;
+    }
 
     // Stands the aircraft on `terrain` instead of JSBSim's level ground at one
     // elevation, from now on. Heights, InitialConditions' altitude included,
@@ -581,6 +588,7 @@ private:
     double rudder_integral_rate_ = 0.05;
     std::optional<double> go_around_flaps_;
     std::vector<double> flap_notches_;
+    bool flap_lever_ = false;
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;

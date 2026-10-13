@@ -329,8 +329,8 @@ constexpr double ease_climb_fpm_per_s = 25.0;
 // 10,400 ft in one supercharger gear, and the S.23's the speed of its sea-level
 // climb at one boost. None is the speed below which no height can be held,
 // and a jet is kept from slowing by its angle of attack and a minimum speed,
-// which this autopilot does not model. So they have no floor, as before, and
-// a test names each.
+// which this autopilot does not model. So they have no floor - but they have
+// its capture (below), at the speed asked.
 //
 // **Only clean: flaps up, and the gear up where it retracts.** The best-climb
 // speed is published clean, and it is the aeroplane's best climb only so; with
@@ -371,6 +371,23 @@ constexpr double ease_climb_fpm_per_s = 25.0;
 // comes up - for the one transition this autopilot otherwise flies on the
 // throttle alone. Now each is within 1.3 knots of her climb speed.
 //
+// **Every aeroplane has that capture, at the speed asked, though only a light
+// aeroplane has the floor** (`capture_only`). Slowed from cruise into her
+// climb every other aeroplane sank 2.0 to 4.5 knots past her climb speed -
+// the F-22A from 300 to 215.5 against 220 - for the same reason: her throttle
+// at idle, opening only as the speed came, too late for the climb's power,
+// while the climb went on spending speed. Her climb speed is no floor (above),
+// but the speed asked is the speed to capture: so for her the least is the
+// speed asked, the hold engages only as the capture - when the throttle
+// cannot be at its stop in time, never merely because it is there - and once
+// she has the climb asked it lets go, as a light aeroplane's does. Each is now
+// within 0.9 knots. A lead on the throttle alone, its speed error read ahead
+// by her deceleration over half the time the throttle needs to come back to
+// where it was, was tried first and not kept: every one of them sank further,
+// the S.23 to 95.2 and the F-22A to 210.9, because the climb's power is more
+// than the cruise's the throttle came back to, and the lead shrank as the
+// throttle opened.
+//
 // This is the underspeed protection of Lambregts' total energy control
 // (AIAA 83-2239), which short of speed gives the elevator to the speed and
 // the throttle all it has - as a floor alone rather than the whole scheme,
@@ -391,8 +408,12 @@ constexpr double slowing_kts_per_s = 1.0;
 
 // Flaps up, and gear up where it retracts: the configuration the best-climb
 // speed is published in, and the only one it is a floor for.
+// **Her flaps are a lever's** (Aircraft::flap_lever): an aeroplane whose flaps
+// are her own, scheduled on her speed as the F-22A's are, has them out by 3
+// degrees at 252 kt and 15 at 220, her climb speed, and is clean whatever
+// they are - she has no other way to fly.
 bool clean(const Aircraft& a) {
-    if (a.has_property("fcs/flap-pos-deg") &&
+    if (a.flap_lever() && a.has_property("fcs/flap-pos-deg") &&
         a.property("fcs/flap-pos-deg") > clean_flaps_deg) {
         return false;
     }
@@ -569,7 +590,9 @@ Controls Autopilot::fly() {
     // Held back, when the speed is short, to what keeps the airspeed at the
     // least it may fly at.
     const double climb_asked = climb_wanted;
-    if (const std::optional<double> floor_kts = a_.climb_floor_kts()) {
+    const std::optional<double> floor_kts = a_.climb_floor_kts();
+    const bool capture_only = !floor_kts;
+    if (floor_kts || modes_.airspeed_kts) {
         const double speed_now_fps = a_.property("velocities/vt-fps");
         if (!clean(a_)) {
             // **No floor with the flaps or the gear out, and none held over.**
@@ -580,8 +603,10 @@ Controls Autopilot::fly() {
             // **In gusts or turbulence the floor is half the gust factor
             // higher** (sim::in_gusts), as the climb asked is: up to the
             // fastest she may hold, where one is given.
-            double least_kts = in_gusts(*floor_kts, a_.gust_factor_kt(), fastest_kts_);
-            if (modes_.airspeed_kts && *modes_.airspeed_kts < least_kts) {
+            double least_kts = capture_only
+                                   ? *modes_.airspeed_kts
+                                   : in_gusts(*floor_kts, a_.gust_factor_kt(), fastest_kts_);
+            if (!capture_only && modes_.airspeed_kts && *modes_.airspeed_kts < least_kts) {
                 least_kts = *modes_.airspeed_kts -
                             std::min(least_kts - *modes_.airspeed_kts, below_asked_kts);
             }
@@ -607,7 +632,8 @@ Controls Autopilot::fly() {
             const bool too_late =
                 modes_.airspeed_kts && kts_per_s_ < -slowing_kts_per_s && over_kts > 0.0 &&
                 (throttle_stop - last_.throttle) / throttle_rate >= over_kts / -kts_per_s_;
-            const bool at_stop = !modes_.airspeed_kts || last_.throttle >= throttle_stop;
+            const bool at_stop =
+                !capture_only && (!modes_.airspeed_kts || last_.throttle >= throttle_stop);
             if (!holding_speed_ && (at_stop || too_late) &&
                 over_kts + speed_trend_s * std::min(kts_per_s_, 0.0) <
                     hold_speed_within_kts) {
@@ -637,8 +663,17 @@ Controls Autopilot::fly() {
                 // hold captures heights at: short of power the descent that
                 // keeps the speed is steeper than that, and bounded there a
                 // Cherokee on a fifth of its throttle slowed to 63 knots.
+                // **Where it is a capture alone, it holds back a climb and
+                // never asks for a descent**: level, descending or gliding
+                // the elevator is not what spends her speed, and no floor
+                // says she must keep it. Let down to a descent, the F-22A
+                // gliding round her tightest orbit stalled, and the 747-400
+                // and F-35B entering an orbit level from a faster speed
+                // strayed 74 ft from their height.
                 const double steepest_fpm =
-                    -speed_now_fps * 60.0 * std::sin(-least_pitch_deg * std::numbers::pi / 180.0);
+                    capture_only ? 0.0
+                                 : -speed_now_fps * 60.0 *
+                                       std::sin(-least_pitch_deg * std::numbers::pi / 180.0);
                 climb_limit_fpm_ = std::clamp(climb_limit_fpm_, steepest_fpm,
                                               std::max(climb_wanted, steepest_fpm));
                 if (climb_limit_fpm_ >= climb_wanted) {

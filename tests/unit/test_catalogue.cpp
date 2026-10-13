@@ -20,6 +20,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 using glideslope::sim::CatalogueEntry;
@@ -262,6 +263,66 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_a
                   " KCAS for a minute: " + std::to_string(h.altitude_ft) + " ft, " +
                   std::to_string(h.airspeed_kts) + " KCAS");
     }
+}
+
+// **Every aircraft's flap lever is found where her flaps answer one**
+// (Aircraft::flap_lever, which the autopilot's clean configuration reads):
+// flown 30 s at 3,000 ft and her start speed on the autopilot, once with the
+// flap control at 0 and once at 1, her flaps move by more than half a degree
+// between the two exactly where her model is found to read the lever. The
+// F-22A's flaps are scheduled on her speed - up at her start speed, out by 15
+// degrees at her climb speed - and read none: she is the case the lever is
+// found for, and is checked by name. Every aircraft is flown, counted.
+GLIDESLOPE_TEST(every_aircraft_has_a_flap_lever_exactly_where_her_flaps_answer_one) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    const auto flaps_after = [&](const CatalogueEntry& e, double lever) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 3000.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Controls controls;
+        controls.throttle = e.start_throttle;
+        controls.gear = 0.0;
+        controls.flaps = lever;
+        glideslope::sim::Autopilot autopilot(aircraft, controls);
+        glideslope::sim::AutopilotModes modes = autopilot.modes();
+        modes.altitude_ft = 3000.0;
+        modes.airspeed_kts = e.start_airspeed_kts;
+        autopilot.set(modes);
+        for (int i = 0; i < 30 * steps_per_second; ++i) {
+            aircraft.set_controls(autopilot.fly());
+            aircraft.step();
+        }
+        return std::pair{aircraft.has_property("fcs/flap-pos-deg")
+                             ? aircraft.property("fcs/flap-pos-deg")
+                             : 0.0,
+                         aircraft.flap_lever()};
+    };
+    std::size_t with_lever = 0;
+    std::size_t without = 0;
+    bool f22_flown = false;
+    for (const CatalogueEntry& e : catalogue) {
+        const auto [up_deg, lever] = flaps_after(e, 0.0);
+        const auto [down_deg, lever_again] = flaps_after(e, 1.0);
+        const bool answers = down_deg - up_deg > 0.5;
+        std::printf("  %-13s flaps %5.1f with the lever up, %5.1f down; lever found: %s\n",
+                    e.id.c_str(), up_deg, down_deg, lever ? "yes" : "no");
+        check(lever == lever_again && lever == answers,
+              e.id + "'s flaps " + (answers ? "answer" : "do not answer") +
+                  " the lever, and her model is found " + (lever ? "to read" : "not to read") +
+                  " one");
+        (lever ? with_lever : without) += 1;
+        f22_flown = f22_flown || (e.id == "f22" && !lever);
+    }
+    check(with_lever + without == catalogue.size(),
+          "every aircraft flown: " + std::to_string(with_lever) + " with a lever and " +
+              std::to_string(without) + " without, of " + std::to_string(catalogue.size()));
+    check(f22_flown, "the F-22A, whose flaps are her own, was flown and has no lever");
 }
 
 // Every aircraft the data holds, chosen to fly, takes off: from a runway at
