@@ -511,11 +511,18 @@ struct Stopped {
     bool stopped = false;
     bool read_for_her_brakes = true;
     double least_share = 1.0;
+    // Braked steps on which the brakes were given the pedal (the share above
+    // it) and the share (the share below it), and whether every braked step
+    // gave the brakes exactly the less of the two.
+    std::size_t given_the_pedal = 0;
+    std::size_t given_the_share = 0;
+    bool the_less_of_the_two = true;
 };
 
 Stopped stopped_from_20_kt(const glideslope::sim::CatalogueEntry& entry,
                            const glideslope::sim::Conditions& conditions,
-                           std::optional<glideslope::sim::WheelBrakes> fitted = std::nullopt) {
+                           std::optional<glideslope::sim::WheelBrakes> fitted = std::nullopt,
+                           double pedal = 1.0) {
     using glideslope::sim::Aircraft;
     const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), entry.model);
     Runway runway = a_runway();
@@ -555,15 +562,15 @@ Stopped stopped_from_20_kt(const glideslope::sim::CatalogueEntry& entry,
         if (braking) {
             c.throttle = 0.0;
             c.throttle_offset = {};
-            c.left_brake = 1.0;
-            c.right_brake = 1.0;
+            c.left_brake = pedal;
+            c.right_brake = pedal;
             // A tailwheel aeroplane braked holds her stick fully back, and
             // her pedals only half on: fully on, the Mosquito stands on her
             // nose even so.
             if (departure.tail_wheel()) {
                 c.elevator = 1.0;
-                c.left_brake = 0.5;
-                c.right_brake = 0.5;
+                c.left_brake = std::min(pedal, 0.5);
+                c.right_brake = std::min(pedal, 0.5);
             }
         }
         aircraft.set_controls(c);
@@ -582,6 +589,16 @@ Stopped stopped_from_20_kt(const glideslope::sim::CatalogueEntry& entry,
                                    conditions.runway_condition, kts, brakes);
             out.read_for_her_brakes = out.read_for_her_brakes && read;
             out.least_share = std::min(out.least_share, aircraft.brake_share());
+            const double asked = c.left_brake;
+            const double share = aircraft.brake_share();
+            const double commanded = aircraft.property("fcs/left-brake-cmd-norm");
+            out.the_less_of_the_two =
+                out.the_less_of_the_two && commanded == std::min(asked, share);
+            if (share > asked) {
+                ++out.given_the_pedal;
+            } else {
+                ++out.given_the_share;
+            }
         }
     }
     return out;
@@ -695,4 +712,56 @@ GLIDESLOPE_TEST(an_aeroplane_without_anti_skid_stops_later_on_a_wet_runway_than_
     check(without + with + 1 == catalogue.size() && without == 5,
           "every landplane without anti-skid stopped both ways: " + std::to_string(without) +
               ", and " + std::to_string(with) + " with one");
+}
+
+// **The runway's share is a ceiling on the pedals, not a scale**: every
+// landplane (the flying boat named), stopped from 20 kt with her pedals a
+// fifth of the way down, is given at every braked step exactly the less of
+// the pedal and the runway's share - on a wet runway, where her share is
+// above a fifth, the pedal as pressed; on ice (code 1, AC 25-32's 0.083),
+// where it is below, the share. Scaled, as the brakes were until
+// 2026-10-13, a light pedal on a wet runway lost grip the runway would have
+// given it.
+GLIDESLOPE_TEST(a_light_pedal_on_a_slippery_runway_is_given_as_pressed_up_to_the_runways_share) {
+    const auto catalogue = glideslope::sim::read_catalogue(data());
+    glideslope::sim::Conditions wet;
+    wet.runway_condition = glideslope::sim::wet_runway;
+    glideslope::sim::Conditions ice;
+    ice.runway_condition = glideslope::sim::most_slippery_runway;
+    constexpr double pedal = 0.2;
+    std::size_t flown = 0;
+    std::size_t left_out = 0;
+    for (const auto& entry : catalogue) {
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat has no wheels to brake\n",
+                        entry.id.c_str());
+            ++left_out;
+            continue;
+        }
+        const Stopped on_wet = stopped_from_20_kt(entry, wet, std::nullopt, pedal);
+        const Stopped on_ice = stopped_from_20_kt(entry, ice, std::nullopt, pedal);
+        std::printf("  %-13s wet: %zu steps given the pedal, %zu the share (least %.3f); ice: %zu "
+                    "and %zu (least %.3f)\n",
+                    entry.id.c_str(), on_wet.given_the_pedal, on_wet.given_the_share,
+                    on_wet.least_share, on_ice.given_the_pedal, on_ice.given_the_share,
+                    on_ice.least_share);
+        // (On ice a light aeroplane's idle propeller out-pulls a fifth of
+        // her brakes - the C182S rolled the whole 300 s - so only the wet
+        // runway is asked to stop her.)
+        check(on_wet.stopped && on_wet.wrecked.empty() && on_ice.wrecked.empty(),
+              entry.id + " stopped wet, unwrecked: " + on_wet.wrecked + on_ice.wrecked);
+        check(on_wet.the_less_of_the_two && on_ice.the_less_of_the_two,
+              entry.id + "'s brakes were given the less of the pedal and the share");
+        check(on_wet.given_the_pedal > 0 && on_wet.given_the_share == 0,
+              entry.id + " on a wet runway was given the pedal as pressed: " +
+                  std::to_string(on_wet.given_the_pedal) + " steps, and the share " +
+                  std::to_string(on_wet.given_the_share));
+        check(on_ice.given_the_share > 0,
+              entry.id + " on ice was given the share below the pedal: " +
+                  std::to_string(on_ice.given_the_share) + " steps");
+        ++flown;
+    }
+    check(flown + left_out == catalogue.size() && left_out == 1,
+          "every landplane braked lightly: " + std::to_string(flown) + " of " +
+              std::to_string(catalogue.size() - 1));
 }
