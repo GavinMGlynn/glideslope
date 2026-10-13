@@ -295,13 +295,17 @@
     The slowest, 129 kt, is her approach speed at her model's 19,800 lb (her book's 123 kt is for 18,000; sim::for_weight), where the search for it now begins (sim::least_plan_slowest_kts), and it held all four ways round its circle and in the crosswind: `glideslope_cli plan-speeds mosquito-fb6`, 2026-10-10 (linux-release). Until then it was 123, her approach speed at the lighter weight. The fastest, 264 kt, a fifth over its start speed, held all four ways, with power in hand: she flies level at 287 kt at full throttle at 3,000 ft. Until 2026-10-10 the trial flew her with her gear down, level at 231 kt at full throttle, and her fastest was 219.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
-       glide-speeds mosquito-fb6` on 2026-10-06 (linux-release): from the slowest a
+       glide-speeds mosquito-fb6` on 2026-10-13 (linux-release): from the slowest a
        route may fly it up in 5 kt steps, each glided round the tightest
        orbit allowed from 30,000 ft, every engine stopped, clean, both ways
        round (sim::glide_tightest_orbit), until one went round without its
        wing passing the angle its lift peaked at, nor 25 degrees. -->
-  <glide_speeds slowest_kcas="128">
-    128 kt; at 123, the slowest a route may fly it, it stalled.
+  <glide_speeds slowest_kcas="129">
+    129 kt, the slowest a route may fly it, went round unstalled both ways,
+    at 9.1 degrees of alpha, where her lift peaked. It was 128, measured on
+    2026-10-06 when a route's slowest was 123, where she stalled; since her
+    plan's slowest was raised to 129 (2026-10-10) no glide was asked under
+    it, and the figure is measured again from there.
   </glide_speeds>
 
   <no_landing_distance>
