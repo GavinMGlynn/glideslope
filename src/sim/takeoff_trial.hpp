@@ -55,7 +55,8 @@ TakeoffFlown fly_takeoff_trial(const std::filesystem::path& data, const Catalogu
 // by 5 kt, each climbing away at 20 more, until one lifts off by its
 // rotation (TakeoffFlown::lifted_off), and written with 5 kt to spare,
 // plan-speeds' rule; the climb away is the slowest speed at 500 ft of any
-// asked from 10 to 100 kt over that, rounded up to 5 kt. Each trial is told
+// asked from 10 to 100 kt over that, rounded up to 5 kt, and never within 10
+// kt of the rotation speed (14 CFR 25.107(c)(2)). Each trial is told
 // to `say`, a line.
 struct MeasuredTakeoff {
     double rotate_kts = 0.0;       // to write: the first that held, and 5

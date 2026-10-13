@@ -276,6 +276,10 @@ the item stays open for them. The tail-wheel aeroplanes and the flying boat
 are not rotated on a nose wheel and are not held.
 
 **What landed.**
+- **A figures-parser test**,
+  `the_rotation_rate_a_take_off_is_held_to_is_read_and_refused_outside_0_to_10`:
+  the A320's rate read as three, the C172P's as none, ten read back, and
+  nought, -3, 10.5 and 40 refused, each naming `rotation_degps`.
 - **Each held aeroplane's rate is data**: `rotation_degps` on her figures
   file's root, cited there, read into `DepartureSpeeds::rotation_degps` and
   `rotation_held`. Three degrees a second for all six: Boeing's flight crew
@@ -294,8 +298,10 @@ are not rotated on a nose wheel and are not held.
 - **The test**,
   `every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_every_loading_no_faster_than_it`:
   the six at their 24 loadings, at a plan's speeds; the rate is her pitch
-  change over each quarter second wholly on her main wheels once rotating,
-  one degree a second of tolerance; the ten others named, with why. Seen red
+  change over each quarter second wholly on the runway (some wheel on it
+  at every step) once rotating, one degree a second of tolerance, and no
+  less than half her rate, so a loading never measured cannot pass; the ten
+  others named, with why. Seen red
   with the hold switched off: all 24 loadings too fast (and in round one, with
   every nose-wheel aeroplane given a rate, 40 of 42). Worst now: A320 light 3.62
   against 3 (was 7.51), A380 light 3.60 (was 7.60), 747-400 light 3.88,
@@ -312,7 +318,13 @@ are not rotated on a nose wheel and are not held.
 - **Her measured speeds, re-measured** (`glideslope_cli takeoff-speeds
   747-400 100`): the rotation is unchanged, 155 the first that holds and 160
   written; the slowest climb away fell from 165.2 kt to 163.8 with her
-  rotation held, and is written 165, where it was 170.
+  rotation held, which rounds up to 165 - five over her rotation speed, and
+  her plans' climb floor with it. **The measurement now writes no climb
+  away within ten knots of the rotation speed** (`measure_takeoff_speeds`):
+  14 CFR 25.107(c)(2) puts V2 above VR by the speed she gains before 35 ft,
+  and ten knots is this project's floor for it. Hers stays 170, and her
+  recorded plan, whose prompt carries it, is unchanged. The F-22A's, 220
+  against 110, is untouched by it.
 - **Rotating early is judged by where she was rotated**
   (`a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`): her
   nose a degree above where she rolled at 20 kt more than five knots sooner
@@ -322,8 +334,9 @@ are not rotated on a nose wheel and are not held.
   at 141 kt against 151). Not by her lift-off, which the held rate rightly
   moves: the 737-300 hauled back early now flies off 2.4 kt sooner than by
   the book, not 3. A tail-wheel aeroplane, whose nose never comes up on her
-  wheels by the book, is judged as before by her lift-off. The debrief still
-  names the fault. Seen red with the early pull at the book's own rotation:
+  wheels by the book, is judged as before by her lift-off; every nose-wheel
+  aeroplane's nose must have come up by the book, so none falls back to it.
+  The debrief still names the fault. Seen red with the early pull at the book's own rotation:
   "737-300 was rotated early: her nose up at 141.2 knots, by the book at
   141.2". (Read from where she stands, the 737's nose was up at 1.5 kt: she
   settles more than a degree on her gear as she moves.)
@@ -357,7 +370,7 @@ out).**
 
 **Verification.** Every test matching
 "take|rotat|lift|hand|depart|climb_away|strike|lesson|fault", with the
-server and client built: 180 tests, 171 pass and nine are skipped for want of a language model's key, none red. The 747-400's recorded plan (`tests/data/copilot/cbd-orbit-747-400-anthropic.jsonl`) was recorded again from Claude Haiku: her figures' climb speed is in the prompt, and the recording was refused as made for another request. The selftest hash does not move:
+server and client built: 181 tests, 172 pass and nine are skipped for want of a language model's key, none red.. The selftest hash does not move:
 182dd6c996e0ee4c.
 
 ### A plan's first leg strays further at the published climb speed because a turn's size goes with the square of the speed, 2026-10-13 — item done

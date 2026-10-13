@@ -547,9 +547,10 @@ Controls Departure::fly_laws() {
         stage_ = Stage::done;
     } else if (unstuck_) {
         stage_ = Stage::climb;
-    } else if (kcas >= speeds_.rotate_kts || (!on_water && pilot_rotated) ||
-               (!on_water && kcas + std::max(0.0, accel_ktps_ * rotation_lead_s(s.pitch_deg, speeds_.rotation_degps) -
-                                                      lift_off_after_kts) >=
+    } else if (const double lead_kts =
+                   accel_ktps_ * rotation_lead_s(s.pitch_deg, speeds_.rotation_degps);
+               kcas >= speeds_.rotate_kts || (!on_water && pilot_rotated) ||
+               (!on_water && kcas + std::max(0.0, lead_kts - lift_off_after_kts) >=
                                  speeds_.rotate_kts)) {
         // **The rotation begins as early as it takes**, so that she leaves
         // the ground within lift_off_after_kts of the speed she should leave

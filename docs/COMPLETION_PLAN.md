@@ -524,13 +524,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 
 The autopilot's navigator and the plans it flies: orbits, glides, the speeds a plan may ask, the take-off, and the lessons' autopilot.
 
-- [ ] **The take-off autopilot rotates at a held rate.** It eases the pull
-      as the nose nears the tail strike, but airliners still come up at 7 to
-      8 degrees a second (PROJECT_STATUS, 2026-10-13). The airliners and
-      the B-2A now rotate at a held three degrees a second; the light
-      aeroplanes, the fighters and the Learjet do not yet. *Verification: every
-      nose-wheel aeroplane at every loading rotates no faster than its stated
-      rate on her wheels, and every take-off and hand-over test stays green.*
+- [ ] **The take-off autopilot rotates at a held rate.** The airliners and
+      the B-2A do, at three degrees a second; the light aeroplanes, fighters
+      and Learjet do not yet. *Verification: every nose-wheel aeroplane at
+      every loading rotates no faster than its stated rate on her wheels,
+      and every take-off and hand-over test stays green.*
 - [x] **The autopilot holds a low height loosely in an airliner's take-off
       configuration.** Asked to hold 200 ft with her take-off flap and gear
       out, the A380 swings 15 ft either side of it at up to 350 ft/min (488

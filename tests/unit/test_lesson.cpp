@@ -1052,10 +1052,13 @@ GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_i
 // has, rotates on her wheels no faster than it** (`rotation_degps`,
 // sim::DepartureSpeeds) and a degree a second more: the airliners and the
 // B-2A, whose rotation is a tail-strike risk. The rate is her pitch
-// attitude's change over each quarter second she spends wholly on her main
-// wheels once the rotation has begun - what a pilot or a flight-data
-// recorder calls the rotation rate - so that one step's jolt of the nose
-// wheel leaving is not read as a rotation. Until 2026-10-13 the take-off
+// attitude's change over each quarter second that she spends wholly on the
+// runway - some wheel of hers on it (`gear/wow`) at every step of it - once
+// the rotation has begun: what a pilot or a flight-data recorder calls the
+// rotation rate, read over a quarter second so that one step's jolt of the
+// nose wheel leaving is not read as a rotation. **And at least half her
+// rate**, so that a loading whose rotation was never measured on her wheels
+// - no quarter second of it - cannot pass by reading nought. Until 2026-10-13 the take-off
 // autopilot only eased its pull as the nose neared her tail strike, and the
 // A380 at her light loading came up at 7.7 degrees a second, the A320 at 7.5.
 //
@@ -1163,8 +1166,9 @@ GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_e
             }
             ++loadings_flown;
             const double stated = departure.speeds().rotation_degps;
-            std::printf("  %-13s %-13s %6.1f %6.2f %6.1f %6.1f %6.1f %6.1f %6.1f\n", entry.id.c_str(),
-                        name.c_str(), stated, peak_degps, rotate_kts, departure.speeds().rotate_kts, off_kts, off_pitch,
+            std::printf("  %-13s %-13s %6.1f %6.2f %6.1f %6.1f %6.1f %6.1f %6.1f\n",
+                        entry.id.c_str(), name.c_str(), stated, peak_degps, rotate_kts,
+                        departure.speeds().rotate_kts, off_kts, off_pitch,
                         departure.strike_pitch_deg());
             std::fflush(stdout);
             const std::string who = entry.id + " at " + name;
@@ -1175,6 +1179,11 @@ GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_e
                 wrong.push_back(who + " rotated at " + std::to_string(peak_degps) +
                                 " deg/s on her wheels, over her " + std::to_string(stated) +
                                 " and " + std::to_string(tolerance_degps));
+            }
+            if (peak_degps < 0.5 * stated) {
+                wrong.push_back(who + " was measured rotating at no more than " +
+                                std::to_string(peak_degps) + " deg/s on her wheels, under half "
+                                "her " + std::to_string(stated));
             }
         }
     }
@@ -1366,8 +1375,17 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
         // **A tail-wheel aeroplane is flown off level**, her tail raised on
         // the roll, and by the book her nose never comes up on her wheels:
         // hers is judged as it always was, by where she left the runway,
-        // three knots sooner than by the book.
-        if (book.nose_up_kts == 0.0) {
+        // three knots sooner than by the book. Every nose-wheel aeroplane's
+        // nose must have come up by the book, so none falls back to that.
+        const bool tail_wheel = [&] {
+            const auto found = glideslope::sim::find_aircraft(data(), rotated);
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", found.model);
+            initialized_for_her_stance(aircraft);
+            return aircraft.stance().tail_wheel;
+        }();
+        check(tail_wheel || book.nose_up_kts > 0.0,
+              rotated + ", a nose-wheel aeroplane, had her nose come up on her wheels by the book");
+        if (tail_wheel) {
             check(early.off_at_kts < book.off_at_kts - 3.0,
                   rotated + " really did come off earlier: " +
                       std::to_string(early.off_at_kts) + " against " +
