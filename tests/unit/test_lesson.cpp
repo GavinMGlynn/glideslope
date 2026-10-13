@@ -3012,25 +3012,18 @@ void rolls_out_in_a_steady_wind(double head_kts,
 } // namespace
 
 GLIDESLOPE_TEST(in_a_steady_15_kt_headwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again) {
-    // **Named and not judged, with why**. The item "In a steady headwind the
-    // S.23 skips off the water after alighting" in docs/COMPLETION_PLAN.md
-    // is open on her, and waits on Phase 9's "The S.23's hull is not a
-    // planing hull". When her hull is fixed, take her out of this list and
-    // judge her with the rest.
-    rolls_out_in_a_steady_wind(
-        15.0, {{"short_s23", "she alights at 1.6 degrees, her hull's planing pitches her to 4 "
-                             "against her elevator, and she skips 1.0 ft off the water at her "
-                             "reference speed (7.6 ft judged by her groundspeed)"}});
+    // **Every one judged, the flying boat too**: on her planing hull
+    // (2026-10-14) the S.23 rises 0.20 ft after alighting, where on her
+    // pinned model's she skipped 1.0 ft off the water.
+    rolls_out_in_a_steady_wind(15.0, {});
 }
 
-// **In a steady 10 kt tailwind every landplane lands and rolls out without
+// **In a steady 10 kt tailwind every aeroplane lands and rolls out without
 // lifting off again, and stops**: the rollout judged by her groundspeed,
-// there the more of the two. The thirteen landplanes are judged; the S.23
-// is flown and shown, not judged, as in the headwind.
-GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_landplane_lands_and_rolls_out_without_lifting_off_again) {
-    rolls_out_in_a_steady_wind(
-        -10.0, {{"short_s23", "a flying boat, whose hull is not yet a planing hull (Phase 9); "
-                              "judged with the landplanes when it is"}});
+// there the more of the two. All fourteen are judged, the flying boat with
+// the landplanes since her hull planes (2026-10-14).
+GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again) {
+    rolls_out_in_a_steady_wind(-10.0, {});
 }
 
 // **An approach flown well in gusts is not sent round by the gate**: every

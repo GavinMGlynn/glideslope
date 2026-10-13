@@ -265,7 +265,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The S.23's hull is a planing hull: Savitsky's lift at its centre of pressure, the afterbody planing, and she holds the step in calm air; in gusts she touches flat and skips, 2026-10-14 — item done
+### The S.23's hull is a planing hull: Savitsky's lift at its centre of pressure, the afterbody planing, and she holds the step in calm air; in gusts she touches flat and skips, 2026-10-14 — item done, and the headwind item
 
 **What is still missing, first**: **in gusts the S.23 skips off the water**,
 worse than on the wip branch. The gust test's eight seeds rise 1.73 to
@@ -364,10 +364,16 @@ Seed 1 came back down at 726 ft/min. Without the forebody's centre of
 pressure (on this tree, the moment's input removed from the built copy),
 seeds 1 and 5 rose 2.38 and 1.98 ft, and the calm hop was 0.54.
 
-**Found on the way**: in a steady 15 kt headwind she now rises 0.20 ft
-after touching (1.0 before), and in a 10 kt tailwind 0.23, both under
-those tests' 0.5; she is still named in both, and the headwind item in
-Phase 10b may be judged on her.
+**And Phase 10b's "In a steady headwind the S.23 skips off the water after
+alighting" is done with it.** In a steady 15 kt headwind she now rises
+0.20 ft after touching (1.0 on her pinned hull, 7.58 judged by her
+groundspeed, both seen red 2026-10-13), and in a 10 kt tailwind 0.23,
+both under those tests' 0.5; she touches at 87 and 89 ft/min, her least
+pitch 4.3 and 4.2 degrees, and slows to taxi speed. She is no longer named
+in either: both tests judge all fourteen (coverage asserted, 14 judged and
+none named), and the tailwind test is renamed for it,
+`in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again`
+(it was `..._every_landplane_...`).
 
 **Sources pinned** (docs/ASSETS.md, "The Short S.23's hull"): NACA ARR
 3F30 and NACA TN 923. Savitsky (1964) is cited from Marine Technology
@@ -385,6 +391,9 @@ Phase 10b may be judged on her.
   the eight gust seeds pass with her named, their S.23 figures above.
 - `python3 tools/make_short_s23.py --check`: the committed model is what
   the script makes.
+- `in_a_steady_15_kt_headwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again`
+  and `in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again`:
+  green with the S.23 judged, 14 of 14.
 - The selftest hash does not move: 182dd6c996e0ee4c (it flies a C172P).
 
 ### A runway reported contaminated is slippery: the METAR's runway-state group read onto the runway it names, the list never waited for, and every client told; rain that has stopped still wets, 2026-10-14 — item done
