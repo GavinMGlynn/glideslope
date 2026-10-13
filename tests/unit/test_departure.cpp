@@ -919,6 +919,7 @@ GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_grou
     std::size_t with = 0;
     std::size_t without = 0;
     std::vector<std::string> left_out;
+    std::vector<std::string> gone_nan;
     std::vector<std::string> wrong;
     for (const glideslope::sim::CatalogueEntry& e : roster) {
         if (e.seaplane) {
@@ -929,9 +930,24 @@ GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_grou
         }
         const bool reversers = e.reverse_idle_kts.has_value();
         const GroundRun most = ground_run(e, 0.0, 1.0, seconds);
-        // **A standing aircraft's state has no NaN in it**: the J-3 Cub's had
-        // one on macOS (CI run 38439516577), which this names.
+        // **A flight gone NaN says nothing of the lever.** The J-3 Cub's
+        // whole flight goes NaN standing on macOS release (CI run
+        // 38443070583) - her model, not the lever, which she has none of -
+        // and that is
+        // every_aircraft_standing_on_her_brakes_at_idle_stays_finite's to
+        // fail on (COMPLETION_PLAN Phase 9, "The J-3 Cub's flight goes NaN
+        // standing on macOS release"). So she alone, and only then, is named
+        // and left out of the lever's comparison; any other aircraft gone NaN
+        // is wrong here.
         if (const std::string nan = nans(most.state); !nan.empty()) {
+            if (e.id == "j3cub") {
+                gone_nan.push_back(e.id);
+                std::printf("  left out - %s: her flight went NaN standing (%s), which "
+                            "every_aircraft_standing_on_her_brakes_at_idle_stays_finite fails "
+                            "on; the lever is not compared\n",
+                            e.id.c_str(), nan.c_str());
+                continue;
+            }
             wrong.push_back(e.id + " standing has a NaN in her state: " + nan);
         }
         if (most.says_reversers != reversers) {
@@ -994,11 +1010,11 @@ GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_grou
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " aircraft are not as the catalogue says, "
                          "the first: " + (wrong.empty() ? "" : wrong.front()));
-    check(with == 5 && with + without + left_out.size() == roster.size() && roster.size() == 16 &&
-              left_out.size() == 1U,
+    check(with == 5 && with + without + gone_nan.size() + left_out.size() == roster.size() &&
+              roster.size() == 16 && left_out.size() == 1U && gone_nan.size() <= 1U,
           "all sixteen were asked: " + std::to_string(with) + " with reversers, " +
-              std::to_string(without) + " without, " + std::to_string(left_out.size()) +
-              " left out");
+              std::to_string(without) + " without, " + std::to_string(gone_nan.size()) +
+              " gone NaN, " + std::to_string(left_out.size()) + " left out");
 }
 
 // **In the air the reverse lever does nothing**: the reversers' air-ground
@@ -1170,4 +1186,97 @@ GLIDESLOPE_TEST(bounced_with_her_reversers_out_she_gets_her_thrust_back_once_the
     check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     check(flown == 5, "all five with reversers were bounced: " + std::to_string(flown));
+}
+
+// **Every aircraft standing on her brakes at idle stays finite**: every
+// landplane in the catalogue (the flying boat named: afloat she has no
+// brakes to stand on) stands on the runway for twenty seconds, throttle
+// closed and brakes fully on, as the reversers test stands her; and at every
+// step every floating-point number in her JSBSim property tree
+// (Aircraft::numbers, 549 to 775 a model) must be finite. On the first
+// that is not, she fails naming the step, the first properties to go and,
+// from the step before, those and her gear, propeller, engine, forces and
+// accelerations - so that wherever it happens (the J-3 Cub on macOS release,
+// CI run 38443070583) the run says what went first.
+GLIDESLOPE_TEST(every_aircraft_standing_on_her_brakes_at_idle_stays_finite) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    constexpr int seconds = 20;
+    std::size_t stood = 0;
+    std::vector<std::string> left_out;
+    std::vector<std::string> wrong;
+    for (const glideslope::sim::CatalogueEntry& e : roster) {
+        if (e.seaplane) {
+            left_out.push_back(e.id);
+            std::printf("  left out - %s: a flying boat, afloat, has no brakes to stand on\n",
+                        e.id.c_str());
+            continue;
+        }
+        const Runway runway = a_runway();
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Controls c;
+        c.left_brake = 1.0;
+        c.right_brake = 1.0;
+        const std::vector<std::string> names = aircraft.number_names();
+        std::vector<double> before = aircraft.numbers();
+        bool finite = true;
+        for (int step = 0; step < seconds * steps_per_second && finite; ++step) {
+            aircraft.set_controls(c);
+            aircraft.step();
+            const std::vector<double> now = aircraft.numbers();
+            std::vector<std::size_t> gone;
+            for (std::size_t i = 0; i < now.size(); ++i) {
+                if (!std::isfinite(now[i])) {
+                    gone.push_back(i);
+                }
+            }
+            if (!gone.empty()) {
+                finite = false;
+                std::string first;
+                for (std::size_t k = 0; k < gone.size() && k < 12; ++k) {
+                    first += (k == 0 ? "" : ", ") + names[gone[k]];
+                }
+                wrong.push_back(e.id + " went non-finite at step " + std::to_string(step + 1) +
+                                " (" + std::to_string(gone.size()) + " of " +
+                                std::to_string(names.size()) + " numbers), first: " + first);
+                std::printf("  %s, step %d: %zu numbers not finite; the step before:\n",
+                            e.id.c_str(), step + 1, gone.size());
+                std::size_t shown = 0;
+                for (std::size_t i = 0; i < names.size() && shown < 80; ++i) {
+                    const std::string& n = names[i];
+                    const bool watched =
+                        std::find(gone.begin(), gone.begin() + std::min<std::ptrdiff_t>(12, static_cast<std::ptrdiff_t>(gone.size())), i) !=
+                            gone.begin() + std::min<std::ptrdiff_t>(12, static_cast<std::ptrdiff_t>(gone.size())) ||
+                        n.rfind("gear/unit", 0) == 0 || n.rfind("propulsion/engine[0]", 0) == 0 ||
+                        n.rfind("accelerations/", 0) == 0 || n.rfind("forces/", 0) == 0;
+                    if (watched) {
+                        std::printf("    %-48s %a -> %a\n", n.c_str(), before[i], now[i]);
+                        ++shown;
+                    }
+                }
+            }
+            before = now;
+        }
+        std::printf("  %-13s %s for %d s, %zu numbers watched\n", e.id.c_str(),
+                    finite ? "finite" : "NOT FINITE", seconds, names.size());
+        ++stood;
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went non-finite standing, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(stood + left_out.size() == roster.size() && roster.size() == 16 && left_out.size() == 1U,
+          "all sixteen were asked: " + std::to_string(stood) + " stood, " +
+              std::to_string(left_out.size()) + " left out");
 }

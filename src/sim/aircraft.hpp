@@ -576,6 +576,12 @@ public:
     void set_replay_state(const ReplayState& state);
     // The flight controls' properties ReplayState::controls holds, by name.
     std::vector<std::string> replay_properties() const;
+    // **Every number in her JSBSim property tree**: the names of every
+    // readable floating-point property, in a fixed order taken once, and
+    // their values now in that order - for a test that watches the whole
+    // flight model for a value going NaN or infinite.
+    std::vector<std::string> number_names() const;
+    std::vector<double> numbers() const;
 
     // Any JSBSim property by name, for code that needs more than state()
     // reports - the published-figure checks read the gear, the flaps and the
@@ -615,6 +621,10 @@ private:
     PropertyNodes nodes_;
     // ReplayState's flight-control nodes, found once, and their names.
     std::vector<SGPropertyNode*> replay_nodes_;
+    // number_names' nodes and names, found on first asking.
+    mutable std::vector<SGPropertyNode*> number_nodes_;
+    mutable std::vector<std::string> number_names_;
+    void find_numbers() const;
     std::vector<std::string> replay_names_;
     void find_replay_nodes();
 
