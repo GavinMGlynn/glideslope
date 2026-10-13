@@ -265,6 +265,22 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+
+### No player can fly a lesson: an open item in Phase 12c, 2026-10-13 — docs only
+
+Lessons and the instructor (Phase 5c, ticked 2026-09-23 and 2026-09-24) are
+flown only through the simulation's `LessonRun`, by the tests' instructor and
+stall flights: nothing in `src/frontend/` - the window client, the server or
+`glideslope_cli` - starts a lesson or hands an aircraft to the instructor, found
+while reviewing #169. `FEATURES.md` has lessons as `CORE` and the instructor as
+`WANTED`, so a player would notice both missing. The simulation's part stays
+ticked, as its verifications are met in it; reaching a lesson from the client
+is a new open item in Phase 12c, the window client.
+
+The dates written 2026-10-11 in the plan, this file, `REQUIREMENTS.md`,
+`ASSETS.md`, the README and `tools/next_item.sh` were 2026-10-10, the day the
+work was done; corrected here.
+
 ### The C182 and the J-3 Cub named from CI's seed 8 off Linux; two of fourteen judged, twelve named, 2026-10-13 — item still open
 
 **What is missing first.** Twelve of fourteen are named in the gusts test;
@@ -281,7 +297,7 @@ gains the C182 and the J-3 Cub, with the run and the figure each; the
 test's comment and the item's text say two of fourteen. No change to the
 lander; the selftest hash does not move.
 
-### The gust landings judged over eight seeds and every platform: four of fourteen land within limits with a margin, ten are named, 2026-10-11 — item still open
+### The gust landings judged over eight seeds and every platform: four of fourteen land within limits with a margin, ten are named, 2026-10-10 — item still open
 
 **What is missing first.** Ten of the fourteen are named in the gusts test.
 **Gust landings magnify a platform's floating point**: CI run 38006839738
@@ -322,7 +338,7 @@ Named before this change: 737-300, A380, F-15C, Mosquito, S.23.
 - Rebased on main after #161 and #162 merged. The two tails this item
   found, the rollout's airspeed outside gusts and the flying boat's flare to
   her keel, are now open items in Phase 10b: the owner removed Later on
-  2026-10-11.
+  2026-10-10.
 
 **Verification:**
 - The eight gust tests, the stabilized-gate gust test and the spool-up test
@@ -569,9 +585,9 @@ sink 66 ft/min (B-2A, seed 1: 294), touchdown zone 447 m, rise 0.61 ft
   circuit, taken_back and handed pass (linux-release; the live ones skip).
 - The selftest hash does not move: 182dd6c996e0ee4c (it flies no landing).
 
-### The Learjet's 6% length accepted by the owner; the exit crash made an item, 2026-10-11 — docs only
+### The Learjet's 6% length accepted by the owner; the exit crash made an item, 2026-10-10 — docs only
 
-**The owner's decision, 2026-10-11**: the Learjet 35A's model ships as
+**The owner's decision, 2026-10-10**: the Learjet 35A's model ships as
 built. Its length, 15.60 m against the maintenance manual's 14.81 (5.3%
 over), is accepted at the 6% the size test holds it to by name; the excess
 is the artist's tail - the fuselage is 14.29 m and the tailplane's tips trail
@@ -865,13 +881,13 @@ turbulence and mosquito, 166 of 166; and climb, figure, ceiling, glide,
 orbit and land, 370 of 370. The selftest hash does not move,
 `182dd6c996e0ee4c`.
 
-### The completion plan has no Later section, 2026-10-11 — no item changes state
+### The completion plan has no Later section, 2026-10-10 — no item changes state
 
-By the owner's decision of 2026-10-11 ("I don't want a later section - it should be incorporated into phases. We are going to implement everything eventually"), Later's 28 items (27 open, 1 done) moved into their phases byte for byte - Phase 9 four, 10a four, 10b eight, 12a one, 12c four - and seven with no existing phase (terrain over the whole Earth, weather seen as it is, thermals and lee waves, buildings, signed macOS builds, one Linux download, a hosted server) into a new Phase 15; the dated decisions in them, and four references to Later in other items, reworded minimally. The finished-when command (here and in REQUIREMENTS.md) and `tools/next_item.sh` now read to the end of the file, so Phase 9's reopened items come first: `tools/next_item.sh` names the Cherokee's 2.2 kt. Checked by a script: the multiset of item blocks the same but for the rewordings, 45 open and 224 done before and after, the finished-when command counting all 45, and no `---` rule but before a `## ` heading.
+By the owner's decision of 2026-10-10 ("I don't want a later section - it should be incorporated into phases. We are going to implement everything eventually"), Later's 28 items (27 open, 1 done) moved into their phases byte for byte - Phase 9 four, 10a four, 10b eight, 12a one, 12c four - and seven with no existing phase (terrain over the whole Earth, weather seen as it is, thermals and lee waves, buildings, signed macOS builds, one Linux download, a hosted server) into a new Phase 15; the dated decisions in them, and four references to Later in other items, reworded minimally. The finished-when command (here and in REQUIREMENTS.md) and `tools/next_item.sh` now read to the end of the file, so Phase 9's reopened items come first: `tools/next_item.sh` names the Cherokee's 2.2 kt. Checked by a script: the multiset of item blocks the same but for the rewordings, 45 open and 224 done before and after, the finished-when command counting all 45, and no `---` rule but before a `## ` heading.
 
 ### Why the learnt landing flies fast, and two rounds of training it stabilized, 2026-10-10 — item moved to Later
 
-**The owner's decision, 2026-10-11:** the item moves to Later as a larger
+**The owner's decision, 2026-10-10:** the item moves to Later as a larger
 project - the flare trained as its own stage, or started from the approach
 autopilot's flare. These findings land as they are, and the tools still make
 the committed policy. **The speed costs are an option, off by default**:

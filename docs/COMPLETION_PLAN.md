@@ -9,7 +9,7 @@ the design decisions behind it in `REQUIREMENTS.md`.
 **`[x]` means 100% of the item, and nothing less.** An open item names what is
 missing. An item without a verification cannot be ticked. Tails found while
 implementing something go in the phase they belong to, among its open items
-(owner, 2026-10-11: there is no Later section; everything is implemented
+(owner, 2026-10-10: there is no Later section; everything is implemented
 eventually).
 
 `[x]` done · `[ ]` not started, or **In progress** where the text says so
@@ -727,7 +727,7 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       lands in calm air and in gusts within the landplanes' limits.*
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
-      2026-10-11, a larger project: its flare trained as its own
+      2026-10-10, a larger project: its flare trained as its own
       stage, or started from the approach autopilot's flare. The gate's
       judging waits on branch `learnt-landing-gate-wip`. *Verification:
       from every corner of its gate it is stabilized by 500 ft and lands.*
@@ -1164,6 +1164,11 @@ What the client with the window does that the command-line client does, and what
       and the Learjet 35A alike; the same run with `--imagery off` exits 0
       (PROJECT_STATUS, 2026-10-10, the Learjet drawn). *Verification: a shot
       run with imagery on, whose tile is refused, exits 0.*
+- [ ] **No player can fly a lesson or watch the instructor.** Lessons and
+      the instructor run in the simulation and its tests alone; no client,
+      server or command line starts one (PROJECT_STATUS, 2026-10-13).
+      *Verification: a player chooses a lesson in the window client, the
+      instructor flies it first and hands over, and the debrief is shown.*
 - [x] **The Learjet 35A is drawn as nothing**: FlightGear has no Learjet
       model. *Verification: a model whose source and licence are in
       `ASSETS.md` is held to the Learjet's size and drawn in a shot.* Done
