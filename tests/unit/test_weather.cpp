@@ -2,6 +2,7 @@
 
 #include "sim/aircraft.hpp"
 #include "sim/runway_condition.hpp"
+#include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
 #include "sim/weather.hpp"
 #include "world/json.hpp"
@@ -13,6 +14,7 @@
 #include <array>
 #include <atomic>
 #include <chrono>
+#include <cstdio>
 #include <cmath>
 #include <filesystem>
 #include <fstream>
@@ -1450,8 +1452,10 @@ GLIDESLOPE_TEST(a_metars_rain_wets_the_runways_within_8_km_of_its_station_and_no
 
 // **A change of runway is taken halfway through the blend**, as a code cannot
 // be mixed: a dry report blended into a wet one over 300 s gives code 6 at
-// 149 s and code 5 at 151 s; and back from wet to dry the same. Coverage: both
-// directions, either side of halfway.
+// 149 s and code 5 at 151 s; and back from wet to dry the same, but for the
+// rain's still lying (world::still_wet_after_rain_s): halfway, at 150 s, it
+// stops, and the runway dries 1,800 s after that. Coverage: both directions,
+// either side of the turn.
 GLIDESLOPE_TEST(a_runway_turning_wet_or_dry_in_a_blend_turns_halfway_through_it) {
     std::size_t walked = 0;
     for (const bool to_wet : {true, false}) {
@@ -1460,13 +1464,388 @@ GLIDESLOPE_TEST(a_runway_turning_wet_or_dry_in_a_blend_turns_halfway_through_it)
         weather.update(reported_at_the_origin(to_wet ? raining_metar : dry_metar), 0.0);
         const int before = to_wet ? glideslope::sim::dry_runway : glideslope::sim::wet_runway;
         const int after = to_wet ? glideslope::sim::wet_runway : glideslope::sim::dry_runway;
-        const int at_149 = weather.at(0.0, 0.0, 10.0, 149.0).runway_condition;
-        const int at_151 = weather.at(0.0, 0.0, 10.0, 151.0).runway_condition;
+        const double turn = to_wet ? 150.0 : 150.0 + glideslope::world::still_wet_after_rain_s;
+        const int at_149 = weather.at(0.0, 0.0, 10.0, turn - 1.0).runway_condition;
+        const int at_151 = weather.at(0.0, 0.0, 10.0, turn + 1.0).runway_condition;
         check(at_149 == before && at_151 == after,
               std::string(to_wet ? "dry to wet" : "wet to dry") + ": " +
-                  std::to_string(at_149) + " at 149 s and " + std::to_string(at_151) +
-                  " at 151 s");
+                  std::to_string(at_149) + " a second before " + std::to_string(turn) +
+                  " s and " + std::to_string(at_151) + " a second after");
         ++walked;
     }
     check(walked == 2, "both directions walked");
+}
+
+namespace {
+
+// A METAR at `temperature` with `group` after its QNH.
+Metar with_runway_state(const std::string& group, const std::string& temperature = "00/M02") {
+    return parse_metar("METAR UUEE 100600Z 18005MPS 9999 OVC010 " + temperature + " Q1012 " +
+                       group);
+}
+
+} // namespace
+
+// **Each runway-state deposit and depth gives its runway condition code**:
+// WMO-No. 306's code tables read into the FAA's matrix (AC 25-32 table 2), as
+// world::runway_condition_of says. Every deposit of table 0919 (0 to 9, and /
+// not reported) at every depth of table 1079 (00 to 90, 92 to 99, and //)
+// over 51 per cent of the runway or more - 11 x 100 groups - each read back
+// as it was written and given its code; compacted snow and frozen ruts at
+// -15 C and -14 C; every extent of table 0519 (1, 2, 5, 9 and /) with every
+// deposit; every braking action of table 0366 (91 to 95) on every deposit;
+// and CLRD and SNOCLO. Left out, named: a measured friction coefficient (00
+// to 90) is walked only once, as it gives no code (the matrix's column is
+// braking action, not a measured coefficient).
+GLIDESLOPE_TEST(every_runway_state_deposit_and_depth_maps_to_its_runway_condition_code) {
+    using glideslope::world::runway_condition_of;
+    // The matrix, by deposit: the code at 3 mm or less (or a depth that does
+    // not matter), deeper, and on a runway closed with its depth not said; 0
+    // where there is no code.
+    struct Expected {
+        char deposit;
+        int shallow, deep, closed;
+    };
+    const std::vector<Expected> matrix{
+        {'0', 6, 6, 6}, {'1', 5, 5, 5}, {'2', 5, 2, 1}, {'3', 5, 5, 5},
+        {'4', 5, 3, 1}, {'5', 5, 3, 1}, {'6', 5, 2, 1}, {'7', 1, 1, 1},
+        {'8', 3, 3, 3}, {'9', 3, 3, 3}, {'/', 0, 0, 0},
+    };
+    std::vector<std::string> depths;
+    for (int d = 0; d <= 99; ++d) {
+        if (d != 91) {
+            depths.push_back((d < 10 ? "0" : "") + std::to_string(d));
+        }
+    }
+    depths.push_back("//");
+    std::size_t walked = 0;
+    for (const Expected& e : matrix) {
+        for (const std::string& depth : depths) {
+            const std::string group = std::string("R24/") + e.deposit + "9" + depth + "//";
+            const Metar m = with_runway_state(group);
+            check(m.runway_states.size() == 1 && m.runway_states_refused.empty(),
+                  group + " is read");
+            const Metar::RunwayState& s = m.runway_states.front();
+            check(s.runway == "24" && s.extent == 9 && !s.friction,
+                  group + ": its runway and extent");
+            check(e.deposit == '/' ? !s.deposit : s.deposit == e.deposit - '0',
+                  group + ": its deposit");
+            check(depth == "//" ? !s.depth : s.depth == std::stoi(depth), group + ": its depth");
+            const int d = depth == "//" ? 0 : std::stoi(depth);
+            const int expected = d == 99 ? e.closed : (d > 3 ? e.deep : e.shallow);
+            const std::optional<int> code = runway_condition_of(s, m.temperature_c);
+            check(expected == 0 ? !code : code == expected,
+                  group + " is code " + std::to_string(expected) + ", not " +
+                      (code ? std::to_string(*code) : std::string("none")));
+            ++walked;
+        }
+    }
+    constexpr std::size_t groups = 11 * 100;
+    check(walked == groups && depths.size() == 100,
+          "every deposit at every depth: " + std::to_string(walked) + " of " +
+              std::to_string(groups));
+
+    // Compacted snow and frozen ruts are 4 at -15 C and colder, 3 warmer.
+    std::size_t cold = 0;
+    for (const char deposit : {'8', '9'}) {
+        const std::string group = std::string("R24/") + deposit + "905//";
+        for (const auto& [temperature, code] :
+             std::vector<std::pair<std::string, int>>{{"M15/M18", 4}, {"M14/M18", 3}}) {
+            const Metar m = with_runway_state(group, temperature);
+            check(runway_condition_of(m.runway_states.front(), m.temperature_c) == code,
+                  group + " at " + temperature + " is code " + std::to_string(code));
+            ++cold;
+        }
+    }
+    check(cold == 4, "both deposits either side of -15 C");
+
+    // 25 per cent or less covered is dry, whatever lies there; more, or not
+    // said, is the deposit's.
+    std::size_t extents = 0;
+    for (const Expected& e : matrix) {
+        for (const char extent : {'1', '2', '5', '9', '/'}) {
+            const std::string group = std::string("R24/") + e.deposit + extent + "10//";
+            const Metar m = with_runway_state(group);
+            const int expected = extent == '1' || extent == '2' ? 6 : e.deep;
+            const std::optional<int> code =
+                runway_condition_of(m.runway_states.front(), m.temperature_c);
+            check(expected == 0 ? !code : code == expected,
+                  group + " is code " + std::to_string(expected));
+            ++extents;
+        }
+    }
+    check(extents == 11 * 5, "every extent with every deposit");
+
+    // Braking action: 91 poor, 1, to 95 good, 5, alone, and the more slippery
+    // of it and a deposit's code; a measured coefficient gives nothing.
+    std::size_t braking = 0;
+    for (int action = 91; action <= 95; ++action) {
+        for (const Expected& e : matrix) {
+            const std::string group =
+                std::string("R24/") + e.deposit + "910" + std::to_string(action);
+            const Metar m = with_runway_state(group);
+            const int by_braking = action - 90;
+            const int expected = e.deposit == '/' ? by_braking : std::min(e.deep, by_braking);
+            check(runway_condition_of(m.runway_states.front(), m.temperature_c) == expected,
+                  group + " is code " + std::to_string(expected));
+            ++braking;
+        }
+    }
+    check(braking == 5 * 11, "every braking action on every deposit");
+    check(!runway_condition_of(with_runway_state("R24/////45").runway_states.front(), 0.0),
+          "a measured coefficient alone gives no code");
+
+    // CLRD is dry; SNOCLO, the aerodrome closed by snow, the most slippery.
+    const Metar cleared = with_runway_state("R24L/CLRD//");
+    check(cleared.runway_states.size() == 1 && cleared.runway_states.front().cleared &&
+              cleared.runway_states.front().runway == "24L" &&
+              runway_condition_of(cleared.runway_states.front(), 0.0) == 6,
+          "CLRD is code 6");
+    for (const std::string closed : {"R/SNOCLO", "SNOCLO"}) {
+        const Metar m = with_runway_state(closed);
+        check(m.runway_states.size() == 1 && m.runway_states.front().snow_closed &&
+                  m.runway_states.front().all_runways &&
+                  runway_condition_of(m.runway_states.front(), 0.0) == 1,
+              closed + " is code 1 on every runway");
+    }
+}
+
+// **The older eight figures and the newer group name their runways**: 24,
+// and 74 - 24 with 50 added - its right parallel, 24R; 88 all runways and 99
+// all of them repeated; R24L/ its left. A runway visual range (R24/P1500N)
+// is not a state. And a state names its runway from either end: 24 is 06's
+// runway, 24R 06L's, and a number alone names its left parallel too.
+GLIDESLOPE_TEST(a_runway_states_eight_figures_and_its_newer_group_name_the_same_runways) {
+    const Metar m = with_runway_state(
+        "R24/P1500N 24290195 74290195 88290195 99290195 R24L/290195 R88/290195");
+    check(m.runway_states_refused.empty(), "nothing refused");
+    check(m.runway_states.size() == 6, "six states, and no visual range among them: " +
+                                           std::to_string(m.runway_states.size()));
+    check(m.runway_states[0].runway == "24" && m.runway_states[1].runway == "24R" &&
+              m.runway_states[2].all_runways && !m.runway_states[2].repeated &&
+              m.runway_states[3].all_runways && m.runway_states[3].repeated &&
+              m.runway_states[4].runway == "24L" && m.runway_states[5].all_runways,
+          "each names its runway");
+    check(m.runway_states[1].deposit == 2 && m.runway_states[1].extent == 9 &&
+              m.runway_states[1].depth == 1 && m.runway_states[1].friction == 95,
+          "the eight figures read as the group's six");
+    const auto end = [](const std::string& ident) {
+        glideslope::world::RunwayEnd e;
+        e.ident = ident;
+        return e;
+    };
+    using glideslope::world::names;
+    Metar::RunwayState s;
+    s.runway = "24";
+    check(names(s, end("24")) && names(s, end("06")) && names(s, end("24L")) &&
+              names(s, end("06R")) && !names(s, end("24R")) && !names(s, end("15")),
+          "24 names 24 and 06, and their left parallel");
+    s.runway = "24R";
+    check(names(s, end("24R")) && names(s, end("06L")) && !names(s, end("24L")) &&
+              !names(s, end("06R")),
+          "24R names 24R and 06L only");
+    s.runway = "36";
+    check(names(s, end("18")) && names(s, end("36")), "36 names 18");
+}
+
+// **A runway-state group that is not one is refused, saying why**, and the
+// rest of the report read: every way a group can be wrong - a character no
+// table has, a reserved extent, depth or friction, a runway that cannot be
+// one in either form, 88 with a letter, a depth half reported, CLRD followed
+// by neither // nor figures. None of them is a state, and the QNH after them
+// is read.
+GLIDESLOPE_TEST(a_malformed_runway_state_group_is_refused_with_its_reason) {
+    const std::vector<std::pair<std::string, std::string>> malformed{
+        {"R24/2X0195", "'X' is in no runway-state code table"},
+        {"R24/230195", "extent 3 is reserved in code table 0519 (1, 2, 5 or 9)"},
+        {"R24/299195", "depth 91 is reserved in code table 1079"},
+        {"R24/290197", "friction 97 is reserved in code table 0366"},
+        {"R37/290195", "runway 37 is not 01 to 36, 88 or 99"},
+        {"R74/290195", "runway 74 is not 01 to 36, 88 or 99"},
+        {"37290195", "runway 37 is not 01 to 36, 51 to 86 (a right parallel), 88 or 99"},
+        {"R88L/290195", "88 and 99 are all runways, and take no letter"},
+        {"R24/29/195", "a depth or friction is two figures or //, not one of each"},
+        {"R24/CLRDX9", "CLRD is followed by // or a friction's two figures"},
+    };
+    std::size_t refused = 0;
+    for (const auto& [group, why] : malformed) {
+        const Metar m = parse_metar("METAR UUEE 100600Z 18005MPS 9999 OVC010 00/M02 " + group +
+                                    " Q1012");
+        check(m.runway_states.empty(), group + " is no state");
+        check(m.runway_states_refused.size() == 1 &&
+                  m.runway_states_refused.front() == group + ": " + why,
+              group + " refused as '" + why + "', not '" +
+                  (m.runway_states_refused.empty() ? std::string()
+                                                   : m.runway_states_refused.front()) +
+                  "'");
+        check(m.qnh_hpa == 1012.0, group + ": the report read on past it");
+        ++refused;
+    }
+    check(refused == malformed.size() && refused == 10, "all ten refused");
+}
+
+// **Rain that has stopped leaves the runway wet**: recent rain, drizzle or
+// snow (RERA, REDZ, RESHSN, RETSRA, REFZRA) at the station is code 5 as rain
+// falling is, and recent fog is not; and a report of rain followed by a dry
+// one leaves the runways near the station wet for half an hour
+// (world::still_wet_after_rain_s) from when the dry one takes over, then dry
+// - and none of it 8.1 km away.
+GLIDESLOPE_TEST(a_runway_is_still_wet_after_the_rain_stops) {
+    std::size_t recent = 0;
+    for (const std::string group : {"RERA", "REDZ", "RESHSN", "RETSRA", "REFZRA"}) {
+        const Metar m =
+            parse_metar("METAR XXXX 100600Z 18010KT 9999 FEW030 14/08 Q1012 " + group);
+        check(m.recent_weather.size() == 1, group + " is read as recent weather");
+        check(glideslope::world::runway_condition_of(m) == glideslope::sim::wet_runway,
+              group + " wets the runway");
+        ++recent;
+    }
+    check(recent == 5, "five recent weathers");
+    check(glideslope::world::runway_condition_of(
+              parse_metar("METAR XXXX 100600Z 18010KT 9999 FEW030 14/08 Q1012 REFG")) ==
+              glideslope::sim::dry_runway,
+          "recent fog does not");
+
+    glideslope::world::ReportedWeather weather(reported_at_the_origin(raining_metar), nullptr,
+                                               0.0);
+    weather.update(reported_at_the_origin(dry_metar), 600.0);
+    const auto code = [&](double north_m, double t) {
+        return weather.at(north_m / 111195.0, 0.0, 10.0, t).runway_condition;
+    };
+    check(code(0.0, 600.0 + 1799.0) == glideslope::sim::wet_runway,
+          "wet 29 min 59 s after the rain stopped");
+    check(code(0.0, 600.0 + 1801.0) == glideslope::sim::dry_runway, "dry at 30 min 1 s");
+    check(code(8100.0, 700.0) == glideslope::sim::dry_runway, "dry beyond the station's reach");
+}
+
+namespace {
+
+// **A C172P rolled to 40 kt along runway 24 and braked to a stop**, in the
+// weather `metar` reports from her threshold: how far she rolled braking,
+// metres, the runway condition code she stopped on, and how far from the
+// centreline she ever was.
+struct Stopped {
+    double distance_m = 0.0;
+    int code = 0;
+    double across_m = 0.0;
+};
+
+Stopped braked_on_runway_24(const std::string& metar) {
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    constexpr double metres_per_degree = 111319.49;
+    constexpr double latitude = 55.97;
+    constexpr double longitude = 37.41;
+    glideslope::world::WeatherReport report;
+    report.surface.metar = parse_metar(metar);
+    report.surface.latitude_deg = latitude;
+    report.surface.longitude_deg = longitude;
+    // Runway 24, 3,000 m from its threshold here, and 06 from its far end.
+    glideslope::world::RunwayEnd end24;
+    end24.airport = "UUEE";
+    end24.ident = "24";
+    end24.latitude_deg = latitude;
+    end24.longitude_deg = longitude;
+    end24.heading_deg = 240.0;
+    end24.length_m = 3000.0;
+    glideslope::world::RunwayEnd end06 = end24;
+    end06.ident = "06";
+    end06.heading_deg = 60.0;
+    end06.latitude_deg = latitude + 3000.0 * std::cos(240.0 * radians) / metres_per_degree;
+    end06.longitude_deg = longitude + 3000.0 * std::sin(240.0 * radians) /
+                                          (metres_per_degree * std::cos(latitude * radians));
+    report.runways = {end24, end06};
+
+    glideslope::sim::Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    aircraft.set_weather(
+        std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = latitude;
+    ic.longitude_deg = longitude;
+    ic.heading_deg = 240.0;
+    ic.airspeed_kts = 0.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+    const auto along_and_across = [&] {
+        const glideslope::sim::AircraftState s = aircraft.state();
+        const double east =
+            (s.longitude_deg - longitude) * metres_per_degree * std::cos(latitude * radians);
+        const double north = (s.latitude_deg - latitude) * metres_per_degree;
+        const double h = 240.0 * radians;
+        return std::pair<double, double>{east * std::sin(h) + north * std::cos(h),
+                                         east * std::cos(h) - north * std::sin(h)};
+    };
+    // Full power to 40 kt along the runway, then idle and both brakes held
+    // until she stops.
+    glideslope::sim::TestPilot pilot(aircraft);
+    bool braking = false;
+    double from = 0.0;
+    Stopped out;
+    for (int step = 0; step < 300 * 120; ++step) {
+        const double kts = aircraft.property("velocities/vg-fps") / 1.68781;
+        if (!braking && kts >= 40.0) {
+            braking = true;
+            from = along_and_across().first;
+        }
+        if (braking && kts < 0.5) {
+            break;
+        }
+        glideslope::sim::Controls c;
+        c.throttle = braking ? 0.0 : 1.0;
+        c.left_brake = braking ? 1.0 : 0.0;
+        c.right_brake = c.left_brake;
+        c.rudder = pilot.steer_to(240.0);
+        aircraft.set_controls(c);
+        aircraft.step();
+        out.across_m = std::max(out.across_m, std::abs(along_and_across().second));
+    }
+    out.distance_m = along_and_across().first - from;
+    out.code = aircraft.runway_condition();
+    return out;
+}
+
+} // namespace
+
+// **A METAR's slush or ice on a runway makes that runway slippery to the
+// aircraft braking on it.** A C172P braked from 40 kt on runway 24 of a
+// station whose METAR reports slush 20 mm deep on 24 (R24/6920//) stops on
+// code 2 and rolls farther than dry; ice (R24/7901//, and in the older eight
+// figures 24790195) on code 1 and farther still; ice reported on runway 15,
+// another, leaves 24 as dry as no report does, as does slush over 25 per
+// cent of 24 or less (R24/6220//). Each roll on the runway, within 30 m of
+// its centreline.
+GLIDESLOPE_TEST(a_metar_reporting_slush_or_ice_on_a_runway_makes_it_slippery_to_an_aircraft_braking_on_it) {
+    const std::string base = "METAR UUEE 100600Z 00000KT 9999 OVC010 M02/M04 Q1012";
+    const Stopped dry = braked_on_runway_24(base);
+    const Stopped slush = braked_on_runway_24(base + " R24/6920//");
+    const Stopped ice = braked_on_runway_24(base + " R24/7901//");
+    const Stopped ice_older = braked_on_runway_24(base + " 24790195");
+    const Stopped elsewhere = braked_on_runway_24(base + " R15/7901//");
+    const Stopped patches = braked_on_runway_24(base + " R24/6220//");
+    for (const auto& [name, s] : std::vector<std::pair<std::string, Stopped>>{
+             {"dry", dry},
+             {"slush", slush},
+             {"ice", ice},
+             {"ice, eight figures", ice_older},
+             {"ice on 15", elsewhere},
+             {"slush on a quarter", patches}}) {
+        std::printf("  %-20s code %d, stopped in %6.1f m, %.1f m from the centreline\n",
+                    name.c_str(), s.code, s.distance_m, s.across_m);
+        check(s.across_m < 30.0, name + ": on the runway throughout");
+    }
+    check(dry.code == 6 && slush.code == 2 && ice.code == 1 && ice_older.code == 1 &&
+              elsewhere.code == 6 && patches.code == 6,
+          "the codes she stopped on: dry 6, slush 2, ice 1, ice elsewhere 6, patches 6");
+    check(slush.distance_m > 1.5 * dry.distance_m,
+          "slush stops her in " + std::to_string(slush.distance_m) + " m, against " +
+              std::to_string(dry.distance_m) + " dry");
+    check(ice.distance_m > slush.distance_m,
+          "ice stops her in " + std::to_string(ice.distance_m) + " m, against slush's " +
+              std::to_string(slush.distance_m));
+    check(std::abs(ice_older.distance_m - ice.distance_m) < 0.01, "the older figures alike");
+    check(std::abs(elsewhere.distance_m - dry.distance_m) < 0.01 &&
+              std::abs(patches.distance_m - dry.distance_m) < 0.01,
+          "ice on another runway and slush on a quarter of this one stop her as dry");
 }

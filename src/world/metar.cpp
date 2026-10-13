@@ -1,5 +1,6 @@
 #include "world/metar.hpp"
 
+#include <cctype>
 #include <regex>
 #include <sstream>
 #include <vector>
@@ -34,7 +35,105 @@ double signed_tenths(const std::string& text) {
     return text[0] == '1' ? -v : v;
 }
 
+// The runway a state group names: "24", "24R" (or, in the eight figures,
+// "74", which is 24R), all of them for 88 and 99. False, with why, for a
+// number that cannot be a runway.
+bool runway_named(const std::string& number, const std::string& letter, bool eight_figures,
+                  Metar::RunwayState& state, std::string& why) {
+    const int n = std::stoi(number);
+    if (n == 88 || n == 99) {
+        if (!letter.empty()) {
+            why = "88 and 99 are all runways, and take no letter";
+            return false;
+        }
+        state.all_runways = true;
+        state.repeated = n == 99;
+        return true;
+    }
+    if (n >= 1 && n <= 36) {
+        state.runway = number + letter;
+        return true;
+    }
+    if (eight_figures && n >= 51 && n <= 86) {
+        const int right = n - 50;
+        state.runway = (right < 10 ? "0" : "") + std::to_string(right) + "R";
+        return true;
+    }
+    why = "runway " + number + " is not 01 to 36" +
+          (eight_figures ? ", 51 to 86 (a right parallel), 88 or 99" : ", 88 or 99");
+    return false;
+}
+
+// One code of a state group: two figures, or "//" not reported.
+std::optional<int> figures(const std::string& text) {
+    return text.find('/') == std::string::npos ? std::optional<int>(std::stoi(text))
+                                               : std::nullopt;
+}
+
+// ERCReReRBRBR, its six characters: each a figure or "/", and no code a table
+// reserves. False, with why, for one that is not.
+bool state_read(const std::string& six, Metar::RunwayState& state, std::string& why) {
+    if (six.substr(0, 4) == "CLRD") {
+        // CLRD//, or CLRD with the friction after it.
+        const std::string friction = six.substr(4);
+        if (friction != "//" &&
+            !(std::isdigit(static_cast<unsigned char>(friction[0])) != 0 &&
+              std::isdigit(static_cast<unsigned char>(friction[1])) != 0)) {
+            why = "CLRD is followed by // or a friction's two figures";
+            return false;
+        }
+        state.cleared = true;
+        state.friction = figures(friction);
+        return true;
+    }
+    for (const char c : six) {
+        if (c != '/' && std::isdigit(static_cast<unsigned char>(c)) == 0) {
+            why = std::string("'") + c + "' is in no runway-state code table";
+            return false;
+        }
+    }
+    const std::string depth = six.substr(2, 2);
+    const std::string friction = six.substr(4, 2);
+    if ((depth[0] == '/') != (depth[1] == '/') || (friction[0] == '/') != (friction[1] == '/')) {
+        why = "a depth or friction is two figures or //, not one of each";
+        return false;
+    }
+    if (six[0] != '/') {
+        state.deposit = six[0] - '0';
+    }
+    if (six[1] != '/') {
+        const int extent = six[1] - '0';
+        if (extent != 1 && extent != 2 && extent != 5 && extent != 9) {
+            why = "extent " + std::to_string(extent) +
+                  " is reserved in code table 0519 (1, 2, 5 or 9)";
+            return false;
+        }
+        state.extent = extent;
+    }
+    state.depth = figures(depth);
+    if (state.depth == 91) {
+        why = "depth 91 is reserved in code table 1079";
+        return false;
+    }
+    state.friction = figures(friction);
+    if (state.friction && *state.friction >= 96 && *state.friction <= 98) {
+        why = "friction " + friction + " is reserved in code table 0366";
+        return false;
+    }
+    return true;
+}
+
 } // namespace
+
+std::optional<double> deposit_depth_mm(int depth_code) {
+    if (depth_code >= 0 && depth_code <= 90) {
+        return static_cast<double>(depth_code);
+    }
+    if (depth_code >= 92 && depth_code <= 98) {
+        return 100.0 + 50.0 * (depth_code - 92);
+    }
+    return std::nullopt;
+}
 
 Metar parse_metar(std::string_view report) {
     std::istringstream in{std::string(report)};
@@ -66,6 +165,14 @@ Metar parse_metar(std::string_view report) {
         R"((\+|-|VC)?(MI|PR|BC|DR|BL|SH|TS|FZ)?((?:DZ|RA|SN|SG|IC|PL|GR|GS|UP|BR|FG|FU|VA|DU|SA|HZ|PY|PO|SQ|FC|SS|DS)*))");
     static const std::regex cloud(R"((FEW|SCT|BKN|OVC)(\d{3})(CB|TCU|///)?)");
     static const std::regex obscured(R"(VV(\d{3}))");
+    static const std::regex recent(
+        R"(RE(MI|PR|BC|DR|BL|SH|TS|FZ)?((?:DZ|RA|SN|SG|IC|PL|GR|GS|UP|FC|VA|SS|DS)*))");
+    // A runway's state: R24/290195, R24L/CLRD//; or the older eight figures,
+    // 24290195, 88CLRD//. Six characters after the runway, and not a runway
+    // visual range's ([PM]dddd[UDN]).
+    static const std::regex state_new(R"(R(\d{2})([LCR]?)/([0-9A-Z/]{6}))");
+    static const std::regex state_old(R"((\d{2})((?:[0-9/]{6})|(?:CLRD..)))");
+    static const std::regex visual_range(R"([PM]?\d{4}[UDN]?)");
 
     Metar m;
     for (const std::string& w : words) {
@@ -124,6 +231,41 @@ Metar parse_metar(std::string_view report) {
                 }
                 m.wind_shift = shift;
             }
+            continue;
+        }
+        if (w == "SNOCLO" || w == "R/SNOCLO") {
+            Metar::RunwayState state;
+            state.all_runways = true;
+            state.snow_closed = true;
+            m.runway_states.push_back(state);
+            continue;
+        }
+        {
+            const bool newer = std::regex_match(w, match, state_new) &&
+                               !std::regex_match(match[3].str(), visual_range);
+            const bool older = !newer && w.size() == 8 && std::regex_match(w, match, state_old);
+            if (newer || older) {
+                Metar::RunwayState state;
+                std::string why;
+                const std::string letter = newer ? match[2].str() : "";
+                const std::string six = newer ? match[3].str() : match[2].str();
+                if (runway_named(match[1], letter, older, state, why) &&
+                    state_read(six, state, why)) {
+                    m.runway_states.push_back(state);
+                } else {
+                    m.runway_states_refused.push_back(w + ": " + why);
+                }
+                continue;
+            }
+        }
+        if (std::regex_match(w, match, recent) && (match[1].matched || match[2].length() > 0)) {
+            Metar::PresentWeather p;
+            p.descriptor = match[1];
+            const std::string codes = match[2];
+            for (std::size_t c = 0; c + 1 < codes.size(); c += 2) {
+                p.phenomena.push_back(codes.substr(c, 2));
+            }
+            m.recent_weather.push_back(p);
             continue;
         }
         if (w == "WS") {

@@ -1529,6 +1529,13 @@ public:
                     }
                 }
                 return session_now_s_;
+            }, [this](glideslope::world::WeatherReport& report) {
+                // The runways a reported state lies on, as the server's.
+                std::string not_had;
+                station_runways_.attach(report, &not_had);
+                if (!not_had.empty()) {
+                    std::fprintf(stderr, "glideslope_cli: %s\n", not_had.c_str());
+                }
             });
         }
         if (!air_->heard(w, aloft, &why)) {
@@ -2247,6 +2254,8 @@ private:
     // The server's air (`weather`), and the geoid its heights are over.
     std::unique_ptr<glideslope::world::Geoid> geoid_for_air_;
     std::optional<glideslope::frontend::HeardAir> air_;
+    glideslope::frontend::StationRunways station_runways_{
+        glideslope::platform::cache_directory(), glideslope::world::http_fetch()};
     double session_now_s_ = 0.0;
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
     std::unique_ptr<glideslope::sim::Prediction> prediction_;

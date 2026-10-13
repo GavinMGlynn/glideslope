@@ -23,6 +23,7 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace glideslope::frontend {
 
@@ -32,6 +33,25 @@ namespace glideslope::frontend {
 // one the server flew and its clients did not. A report that fits is
 // returned as it was.
 world::WeatherReport fit_to_send(world::WeatherReport report);
+
+// **The runways a report's runway states lie on**: its station's, from
+// OurAirports' runways (world::world_runways), fetched and read once and
+// only for a report that has a runway state, so that a report without one
+// reaches no network. Runways that cannot be had leave the report without
+// any - its states then lie on no runway, and the runways are as its weather
+// says - and are not asked for again; `attach` says why, once, in `why`.
+class StationRunways {
+public:
+    StationRunways(std::filesystem::path cache, world::Fetch fetch)
+        : cache_(std::move(cache)), fetch_(std::move(fetch)) {}
+    void attach(world::WeatherReport& report, std::string* why = nullptr);
+
+private:
+    std::filesystem::path cache_;
+    world::Fetch fetch_;
+    std::optional<std::vector<world::RunwayEnd>> all_;
+    bool given_up_ = false;
+};
 
 // What the server sends of the weather it flies: still air (an empty METAR)
 // for none, and the forecast above the station as a `WEATHER_ALOFT` where the
@@ -92,8 +112,12 @@ private:
 // because an aircraft given no weather keeps the last it was given.
 class HeardAir {
 public:
-    HeardAir(const world::Geoid* geoid, world::GroundAt ground, std::function<double()> clock)
-        : geoid_(geoid), ground_(std::move(ground)), clock_(std::move(clock)) {}
+    // `on_runways` lays each report's runway states on its station's runways,
+    // as the server does (StationRunways); without it they lie on none.
+    HeardAir(const world::Geoid* geoid, world::GroundAt ground, std::function<double()> clock,
+             std::function<void(world::WeatherReport&)> on_runways = {})
+        : geoid_(geoid), ground_(std::move(ground)), clock_(std::move(clock)),
+          on_runways_(std::move(on_runways)) {}
 
     // **A METAR these rules cannot read is refused**, and the air flown
     // before it kept: false, with why. A server of this version never sends
@@ -110,6 +134,7 @@ private:
     const world::Geoid* geoid_;
     world::GroundAt ground_;
     std::function<double()> clock_;
+    std::function<void(world::WeatherReport&)> on_runways_;
     std::shared_ptr<world::ReportedWeather> reported_;
     std::shared_ptr<sim::Weather> air_;
     bool still_ = true;

@@ -2210,6 +2210,7 @@ public:
     // until the lift is cheap enough for a client to fly it too
     // (COMPLETION_PLAN.md).
     void fly_in(glideslope::world::WeatherReport report, double blend_s) {
+        on_its_runways(report);
         air_ = std::make_shared<glideslope::world::ReportedWeather>(
             std::move(report), &geoid_, blend_s, glideslope::world::GroundAt{});
         session_air_ = std::make_shared<glideslope::frontend::SessionClocked>(
@@ -2225,10 +2226,21 @@ public:
     }
     // **A new report, blended in from now** over the blend `fly_in` was given.
     void weather_changes(glideslope::world::WeatherReport report) {
+        on_its_runways(report);
         air_->update(std::move(report), now_s());
         previous_changed_at_s_ = weather_changed_at_s_;
         weather_changed_at_s_ = now_s();
         ++weathers_;
+    }
+    // **A report's runway states laid on its station's runways**
+    // (frontend::StationRunways), so that an aircraft on a runway reported
+    // contaminated brakes on it as reported; said once if they cannot be had.
+    void on_its_runways(glideslope::world::WeatherReport& report) {
+        std::string why;
+        station_runways_.attach(report, &why);
+        if (!why.empty()) {
+            std::fprintf(stderr, "glideslope_server: %s\n", why.c_str());
+        }
     }
     // What is flown, for the clients: none is still air.
     const glideslope::world::WeatherReport* weather() const {
@@ -3648,6 +3660,8 @@ private:
     std::shared_ptr<glideslope::world::CollisionGround> collision_;
     // The weather (`fly_in`): none until it is given, which is still air.
     std::shared_ptr<glideslope::world::ReportedWeather> air_;
+    glideslope::frontend::StationRunways station_runways_{
+        glideslope::platform::cache_directory(), glideslope::world::http_fetch()};
     std::shared_ptr<glideslope::sim::Weather> session_air_;
     double weather_changed_at_s_ = 0.0;
     double previous_changed_at_s_ = 0.0;
