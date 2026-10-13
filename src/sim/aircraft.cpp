@@ -811,7 +811,7 @@ std::vector<Aircraft::ContactPoint> Aircraft::contact_points() const {
     for (int i = 0; i < ground->GetNumGearUnits(); ++i) {
         const auto unit = ground->GetGearUnit(i);
         out.push_back({unit->GetLocationX(), unit->GetLocationY(), unit->GetLocationZ(),
-                       is_wheel(*unit), unit->GetName()});
+                       is_wheel(*unit), unit->GetName(), unit->IsBogey()});
     }
     return out;
 }

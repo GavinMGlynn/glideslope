@@ -522,6 +522,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       Windows it now breaks up.** *Verification: the F-15C rests on its
       airframe without rocking, and the wheels-up test passes on every
       platform.* Done 2026-09-26.
+- [ ] **The S.23's hull is not a planing hull**: its lift is a flat clip,
+      its buoyancy has a tail above the water, and nothing models the
+      afterbody, so she skips and porpoises on the step. *Verification: her
+      hull from a cited planing model (Savitsky, with an afterbody term from
+      NACA's porpoising work), her take-off figures in range, and in calm
+      air she holds the step without porpoising.*
 
 ---
 
@@ -746,17 +752,18 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       air, and the thirteen landplanes roll out into 15 kt without lifting
       off. The flying boat still rises 1.0 ft off the water as her hull
       pitches her up. This waits on Phase 9's "The S.23's hull is not a
-      planing hull" (open PR #184). *Verification: in a steady 15 kt
+      planing hull". *Verification: in a steady 15 kt
       headwind every aeroplane rolls out without lifting off.*
 - [ ] **The rollout's autobrake winds up when there is nothing to slow.**
       It keeps adding brake while her deceleration falls short. Blown
       sideways at a walking pace, a C172P had her brakes wound up and was
       put on her nose. *Verification: a rollout held at low groundspeed with
       no deceleration keeps her brake bounded and her nose above -5 degrees.*
-- [ ] **The flying boat's flare is flown to her centre of gravity, not her
-      hull.** Flown to her keel she touches gently in gusts, but in calm air
-      her hull then rises 1.3 ft after touching. *Verification: the S.23
-      lands in calm air and in gusts within the landplanes' limits.*
+- [ ] **The flying boat lands in gusts without skipping.** Her flare is
+      flown to her hull and she touches gently, but her hull skips off the
+      water in gusts; it waits on Phase 9's "The S.23's hull is not a
+      planing hull". *Verification: the S.23 lands in calm air and in
+      gusts within the landplanes' limits.*
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own

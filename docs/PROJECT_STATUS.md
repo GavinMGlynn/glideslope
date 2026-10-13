@@ -265,6 +265,198 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The S.23's hull tried as a planing hull: her gust landings' pass was an artefact of her buoyancy tail, and the hull waits on Phase 9, 2026-10-13 — item still open
+
+**What is missing, first**: the S.23's hull is not a planing hull, and she
+skips and porpoises on the water in gusts and in calm air. Her flying-boat
+landing item in Phase 10b waits on a new Phase 9 item, "The S.23's hull is
+not a planing hull". Nothing from this round is merged. The work is kept on
+branch `s23-planing-hull-wip` at 9c67bec1, three WIP commits on #184's
+d736416b: the hull, the buoyancy fade with a porpoise test, and a
+step-attitude hold in the lander.
+
+**What her pinned model's hull does** (JSBSim's Short_S23, its
+hydrodynamics unchanged until now):
+- Its planing lift is a flat clip. Above 34 kt it is 20,000 lb (1,000 x
+  a tweak factor of 20) wherever the hull's reference point is within
+  6.5 ft of the water. It rises over 0.6 ft of height, with nothing
+  growing with immersion, and is cut to zero beyond about 4 degrees of bank.
+- Its buoyancy table, from its author's Gerris runs, gives about 1,000 lb
+  with her keel nearly 3 ft clear of the water, and nothing only from 9 ft.
+- Nothing models the afterbody planing.
+
+**The buoyancy tail hid skipping.** A landing's touch, and every rise the
+tests measure, is taken from the first step the water's forces act. With
+the tail, that was with her keel about 3 ft up, so a skip below that height
+was never seen. The gust seeds that passed on the Savitsky hull before the
+tail was cut (risen at most 0.49 ft) passed on that artefact.
+
+**Tried on the wip branch** (`tools/make_short_s23.py`, nothing
+hand-edited in assets/jsbsim):
+- **Savitsky's planing lift** (1964, "Hydrodynamic Design of Planing
+  Hulls"): C_L0 = 0.012 lambda^0.5 tau^1.1 on 1/2 rho V^2 b^2, with beam
+  b = 10 ft. lambda is the main step's immersion over b sin(tau), from the
+  keel skids' geometry, capped at 4. tau is the hull's trim plus the angle
+  her sink adds. The hydrostatic term is left to the buoyancy table, and
+  there is no deadrise correction (unsourced). The roll cut-off is removed:
+  kept, it dropped the lift mid-run and she porpoised on take-off.
+- **Heave damping** of the water's added mass, rho (pi/8) b^2 V (strip
+  theory, as in Zarnick's DTNSRDC-78/032), about 9,200 lb per ft/s at
+  70 kt, wetted in over the step's first 0.5 ft (an estimate). The same
+  term at the step's lever, 4.53 ft squared, damps pitch.
+- **The buoyancy faded out as the keel clears the water**: force, pitch and
+  roll moments faded to nothing over the keel's first 0.25 ft above the
+  surface, the immersed table its author's. Buoyancy is the water
+  displaced, so none acts with the hull out of it.
+- A calm-air test, `a_flying_boat_alighting_in_calm_air_holds_the_step_
+  without_porpoising_down_to_taxi_speed`. From her hull's touch to 20 kt,
+  no rise over 0.5 ft above the lowest she has been since.
+- In the lander, a hull on the water is held at her touchdown attitude
+  until off the step (FAA-H-8083-23, ch. 6, "Normal Landing"). It replaces
+  a wheel's rollout, which eases the stick back as she slows and took her
+  trim from 5 to 12.5 degrees on the step. Its gain (0.2 a degree) was
+  fitted.
+
+**Measured** (linux-release):
+
+| | pinned hull (#184) | Savitsky hull | and buoyancy fade | range |
+|---|---|---|---|---|
+| take-off time, 45,000 lb | 32.86 s | 35.5 s | 30.99 s | 25.93-35.08 |
+| take-off run, 45,000 lb | 823 yd | 862 yd | 682 yd | 675.75-914.25 |
+| take-off time, standard | 25.20 s | 27.25 s | 24.13 s | 21-27 |
+| draught | 3.68 ft | 3.69 ft | 3.69 ft | 3.5-4.5 |
+| calm hop on the water | 4.10 ft | - | 0.86 ft (0.50 with the hold) | 0.5 |
+
+The take-offs are back in range with the buoyancy faded; the run only 6
+yd inside. The porpoise test is red on #184's hull (4.10 ft, seen) and on
+the new one (0.86 ft). With the hold it reaches 0.50 against 0.5, which is
+not a robust pass.
+
+The gust test's eight seeds on the faded hull with the hold. The rise
+limit is 1.0 ft, less 0.25 margin:
+
+| seed | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| touched, ft/min | 213 | 130 | 119 | 175 | 189 | 284 | 224 | 166 |
+| rose, ft | 1.67 | 0.25 | 0.23 | 0.35 | 1.06 | 1.20 | 1.05 | 2.18 |
+
+Without the hold, seed 1 rose 1.52 and seed 8 2.20: the hold is not what
+fails them.
+
+**Open questions**:
+- **Afterbody planing.** Above about 9 degrees of trim her lowest keel
+  point is the afterbody, and she rides it with no planing lift there.
+  NACA's porpoising stability limits are the source for that term.
+- **Whether a step-attitude hold belongs in the lander.** It is the
+  handbook's technique, but its gain was fitted to the test, and even with
+  the elevator near full nose-down her trim drifts to 9 degrees on the
+  step.
+- **The hop limit on the step.** 0.5 ft is the calm landing's limit on a
+  rise, taken over for a hull planing on the water.
+
+**Verification**: none landed; docs only. The figures above are from
+linux-release runs of the take-off figures (`glideslope_cli figures
+short_s23`), the new test, and the eight gust seeds on the wip branch's
+states.
+
+### The flying boat flares to her hull, and is down when her keel is in the water; in gusts her planing hull still throws her off it, 2026-10-13 — item still open
+
+**What is still missing, first**: in moderate turbulence the Short S.23's
+planing hull throws her off the water after she touches, on three of the
+gust test's eight seeds - she rises 1.26 ft (seed 1), 0.81 (seed 6) and
+1.57 (seed 8) over where the water first bore her, against the gust
+limit's 1.0 less its 0.25 margin - so she stays named in the gust tests.
+She no longer touches hard (the most is 312 ft/min, seed 8, against 571
+before). And in calm air, judged and passing, her hull still porpoises on
+the step after the touch: the model's planing lift (`hydro/hull-lift-lbs`,
+its tweak factor 20, clipped at 20,000 lb) rises from nothing to its clip
+in about 0.3 ft of immersion with nothing to damp it, and she skips in
+diminishing hops of 1 to 2.5 ft, down to 35 kt, her elevator fully back -
+all of them below the height the water first felt her, which is what the
+test measures a rise from. A flight-model property, measured, not fixed.
+
+**The calm-air rise, traced** (linux-release, the S.23 at her model's
+34,717 lb, calm, every step logged). Her model's water forces begin with
+her keel still about three feet above the surface: `hydro/active-norm`
+goes to 1 on a few hundred pounds of buoyancy with her hull reference
+point 8.95 ft up and her centre of gravity 13.1, while her planing lift
+begins with the CG at 9.1. `Aircraft::in_water` is that first trace, and
+the lander took it for the touch. So the earlier attempt's flare to her
+keel ended three feet early: the rollout closed her throttle and held her
+attitude, she sank on to the water from 115 to 150 ft/min, her planing lift
+rose to its 20,000 lb clip and pitched her nose up 4 to 8 degrees, and she
+was thrown 5.6 ft back up, 1.26 ft above where the water first felt her
+(`rose 1.260367 ft`, against the calm limit's 0.5). It was neither the
+flare's power (closed, 0.00, from 29 ft) nor the keel height used too late;
+it was the touch taken too early.
+
+**How a flying boat is landed** (FAA, Seaplane, Skiplane, and Float/Ski
+Equipped Helicopter Operations Handbook, FAA-H-8083-23, ch. 6, "Normal
+Landing"): the nose raised smoothly to the touchdown attitude - "almost the
+same as for taxiing on the step" - back pressure against the nose's
+dropping as the hull meets the water; "when the seaplane is definitely on
+the water, close the throttle and maintain the touchdown attitude until
+the seaplane begins to come off the step". The lander's flare already
+closes the power by its end in calm air and its rollout holds the attitude
+she touched at; what was wrong was where it thought the water was.
+
+**What changed** (sim/lander.cpp, sim/aircraft.cpp):
+- **The flare's reference point comes from her contacts.** Her main wheels,
+  as before; where her model has no wheel and has JSBSim's hydrodynamics
+  (`Aircraft::alights_on_water`), every undercarriage contact
+  (JSBSim's BOGEY: `Aircraft::ContactPoint::bogey`, new) - for the S.23 her
+  keel's forward, step and aft points and her floats' keels - the lowest of
+  them at her attitude and bank now. Before, a flying boat had no wheels,
+  `wheels_hang_ft` was 0, and her flare was flown to her centre of gravity,
+  nine feet over her keel. No name: any model that can be in the water and
+  has no wheel gets it. A landplane never does: a model naming no main
+  wheel is a fault, and a fixed skid written as a BOGEY would otherwise
+  hang her flare from it unnoticed (`Lander::lands_on_wheels`,
+  `lands_on_hull`).
+- **Down is the keel in the water** (`Lander::down`): weight on a wheel, or
+  the water's forces on her with the lowest of what she lands on at or
+  below the surface. Two places ask it: the touch (`notice_the_touch`, and
+  so the rollout that follows it) and a pilot's hand-back (`still_landing`).
+  So `touchdown_agl_ft_`, the height a bounce is judged from, is now her
+  centre of gravity's height when her keel reaches the water, no longer
+  where the water's forces first acted, about 3 ft higher. Her height,
+  JSBSim's `position/h-agl-ft`, is measured to the water's surface: the
+  terrain's elevation there, which is the water's.
+- The gust test's naming of the S.23 now says what is wrong.
+- A new test, `every_landplane_flares_to_her_main_wheels_and_a_flying_boat_
+  to_her_hull`: the lander finds main wheels in each of the thirteen
+  landplanes taught the approach, and her hull in the one flying boat
+  (coverage asserted, 14). Seen red: with `lands_on_wheels` forced false,
+  "13 wrong, the first: 737-300, a landplane, is not flared to her main
+  wheels".
+
+**Measured** (linux-release). Calm, her model's weight: the hull meets the
+water at 75 ft/min, 463 m along, and she rises nothing over where the
+water first felt her (before, the keel law: 1.26 ft, red). In gusts, eight
+seeds, touched at 37, 181, 105, 180, 121, 180, 51 and 312 ft/min, 256 to
+426 m along, flare climbs no faster than 71 ft/min; risen 1.26, 0.00,
+0.00, 0.00, 0.70, 0.81, 0.16 and 1.57 ft. Before, flown to her centre of
+gravity, she met the water at 571 ft/min on seed 1.
+
+**Verification:**
+- **Seen red on the old law**: with the flare flown to her keel and the
+  first trace of the water taken for the touch,
+  `the_ai_flies_every_approach_at_the_speed_for_its_models_own_weight_and_lands_within_its_limits`
+  failed on the S.23 alone, "rose 1.260367 ft ... more than 0.500000";
+  green with the touch at her keel. Seen again on this tree: `Lander::down`
+  reverted to `in_water()` alone, the same test failed the same way, 1.260367
+  ft; restored, green.
+- Seed 1's rise in gusts, 1.26 ft, is its own run's (1.257249 ft in the
+  gust test's output), not the calm figure's 1.260367.
+- The landing, water, lander, gust, flare and lesson tests pass
+  (linux-release, `ctest -R` over every test naming the S.23, water, a
+  landing, the lander, gusts, the flare, a hull, an instructor or a
+  lesson), 136 tests in linux-release with the server built: 135 passed and
+  one skipped (it asks Anthropic live, with no key). The one client test
+  named for the learnt landing on final, which needs the client built, is
+  left to CI.
+- The selftest hash does not move: 182dd6c996e0ee4c (it flies a C172P).
+
 ### The rollout judges her lift by her airspeed in all air: thirteen roll out into a steady headwind, the S.23 does not, 2026-10-13 — item still open
 
 **What is still missing, first**: **the Short S.23 skips 1.03 ft off the

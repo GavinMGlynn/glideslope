@@ -2586,6 +2586,47 @@ GLIDESLOPE_TEST(the_ai_flies_every_approach_at_the_speed_for_its_figures_loading
     every_ai_approach_at_a_weight(true);
 }
 
+// **Every landplane's flare is flown to her main wheels, and a flying boat's
+// to her hull**: the lander finds every landplane taught the approach main
+// wheels in her model, and the one that alights on water - her model's
+// hydrodynamics, the catalogue's `seaplane` - her hull's and floats' contacts
+// instead; none is flown to her bare centre of gravity, and no landplane's
+// flare hangs from a contact that is not a wheel. Coverage asserted: the
+// fourteen taught the approach, thirteen landplanes and one flying boat.
+GLIDESLOPE_TEST(every_landplane_flares_to_her_main_wheels_and_a_flying_boat_to_her_hull) {
+    const auto taught = everyone_taught("approach-and-landing");
+    std::size_t landplanes = 0;
+    std::size_t boats = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        const glideslope::sim::Lander lander(
+            aircraft, a_runway(), glideslope::sim::approach_speeds(data(), entry.model));
+        std::printf("  %-13s %s: flared to %s\n", id.c_str(),
+                    entry.seaplane ? "flying boat" : "landplane",
+                    lander.lands_on_wheels() ? "her main wheels"
+                    : lander.lands_on_hull() ? "her hull"
+                                             : "her centre of gravity");
+        if (entry.seaplane) {
+            ++boats;
+            if (!lander.lands_on_hull() || !aircraft.alights_on_water()) {
+                wrong.push_back(id + ", a flying boat, is not flared to her hull");
+            }
+        } else {
+            ++landplanes;
+            if (!lander.lands_on_wheels() || aircraft.alights_on_water()) {
+                wrong.push_back(id + ", a landplane, is not flared to her main wheels");
+            }
+        }
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(taught.size() == 14 && landplanes == 13 && boats == 1,
+          "fourteen taught the approach, thirteen landplanes and one flying boat: " +
+              std::to_string(landplanes) + " and " + std::to_string(boats));
+}
+
 namespace {
 
 // **What a landing in gusts is held to.** The touch no harder than NASA's
@@ -2637,8 +2678,9 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
         {"f35b", "she touches at 348 ft/min (seed 6), inside the limit by only 12"},
         {"mosquito-fb6", "her main wheels' touch pitches her nose up from 3.6 to 6.8 degrees "
                          "against her elevator, and she bounces 2.9 ft (seed 2), 2.4 (seed 3)"},
-        {"short_s23", "her flare is flown to her centre of gravity, six feet over the "
-                      "hull that meets the water, and she meets it at 571 ft/min (seed 1)"},
+        {"short_s23", "flared to her hull she touches no harder than 312 ft/min, but her "
+                      "planing hull's lift throws her off the water: she rises 1.26 ft (seed "
+                      "1), 0.81 (seed 6) and 1.57 (seed 8) over where the water first bore her"},
     };
     return named;
 }
