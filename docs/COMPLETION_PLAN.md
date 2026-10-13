@@ -358,7 +358,7 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       *Verification: every nose-wheel aeroplane's tail strikes the runway
       where its airframe would, and is judged a strike, with every take-off,
       approach and landing test green.* Done 2026-10-13.
-- [ ] **The F-35B's short take-off is 698 ft, not her required 600, and
+- [ ] **The F-35B's short take-off is 709 ft, not her required 600, and
       nothing flies her between jet-borne and wing-borne flight.** She hovers
       and lands vertically on the hover control law; no pilot's controls or
       AI plan reach her lift system yet (PROJECT_STATUS, 2026-10-13).
