@@ -133,7 +133,7 @@
   </figure>
 
   <figure name="short_takeoff" flight="short_takeoff" from="measured" loading="short_takeoff"
-          fuel_frozen="1" unit="ft" value="697.5" tolerance_percent="5" temperature_offset_c="17.1"
+          fuel_frozen="1" unit="ft" value="708.8" tolerance_percent="5" temperature_offset_c="17.1"
           headwind_kt="10" roll_deg="42" lift_deg="58" rotate_kcas="70" strike_margin_deg="2"
           rotate_pitch_gain="0.14" rotate_rate_gain="8">
     **Measured, not published - and short of the requirement above, which
@@ -145,14 +145,16 @@
     further aft); the brakes off and full STOVL power; at 70 KCAS both swung
     to 58 degrees and the nose raised to 2 degrees under the attitude her
     tail strikes at - her airframe's, read from her model's contacts as the
-    departure and the lander read it (22.2 degrees on 2026-10-13, so 20.2) -
+    departure and the lander read it (21.6 degrees since #170 measured her
+    strike contacts from her mesh, so 19.6) -
     on the stabilator and the fan's share, 0.14 of the fan's travel a degree
     short and 8 a radian a second of pitch rate, the hover's gains; the
     ground from the brakes' release to the wheels leaving it, and she climbs
     on to 50 ft without touching again or striking her tail. Swept on
-    2026-10-13 over the swing's speed (50 to 70 KCAS) and angle (48 to 64):
-    64 degrees at 70 KCAS leaves in 689 ft but at 60 KCAS does not climb, so
-    58 is taken. What her model lacks for 600 ft is named in
+    2026-10-13 over the swing's speed (50 to 70 KCAS) and angle (48 to 64)
+    at the 22.2-degree strike she had before #170: 64 degrees at 70 KCAS
+    left in 689 ft but at 60 KCAS did not climb, so 58 was taken; measured
+    again on #170's 21.6 degrees, 708.8 ft (64 at 70: 700.5). What her model lacks for 600 ft is named in
     COMPLETION_PLAN.md.
   </figure>
 

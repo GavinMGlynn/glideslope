@@ -325,7 +325,7 @@ performance, and all of their aerodynamics, is not public; what the models
 estimate is listed in `docs/PROJECT_STATUS.md`. **The F-35B's lift system -
 lift fan, roll posts and swivelling nozzle - is modelled to Rolls-Royce's and
 Pratt & Whitney's thrusts** and she hovers and lands vertically; **her short
-take-off is flown and measured at 698 ft, longer than the 600 ft required of
+take-off is flown and measured at 709 ft, longer than the 600 ft required of
 her**, and **no transition between jet-borne and wing-borne flight is
 flown**, and **no service
 ceiling is claimed for it**, because Lockheed Martin publishes none for any

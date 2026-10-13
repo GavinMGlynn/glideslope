@@ -265,6 +265,20 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The F-35B's lift system on #170's tail-strike contacts: her short take-off 708.8 ft, 2026-10-13 — item still open
+
+Rebased on #170, which measured her tail-strike contacts from her mesh:
+she strikes at 21.6 degrees, not 22.2, so her short take-off rotates to
+19.6 and leaves in **708.8 ft** (was 697.5; 600 required). Checked again at
+the new attitude: 52 degrees at 60 KCAS 721.8 ft, 58 at 60 736.3, 52 at 70
+740.9, 58 at 70 708.8 (kept), 64 at 70 700.5. Everything else measured
+again and unchanged: hover thrust 40,644.5 lbf, hover height 0.01 ft,
+vertical landing 179.56 ft/min, hover endurance 5.57 min, and her
+conventional figures to the CLI's last digit (Mach 1.61, 1,371.92 nm,
+122.24 kt, 2,007.74 ft, 20,390.55 ft/min). 128 figures (#170's main had
+123, the Mosquito's flaps-down climb among them). The selftest hash does
+not move, `182dd6c996e0ee4c`.
+
 ### From the review of #171: her take-off attitude from her tail-strike attitude, a STOVL envelope, the hover's wind envelope, and her hover endurance, 2026-10-13 — item still open
 
 **What is missing, first**: **no transition between jet-borne and
@@ -276,7 +290,7 @@ No pilot's controls or AI plan reach her lift system.
 - **The short take-off's attitude follows her airframe**: the flight reads
   the attitude her tail strikes at from her model's contacts
   (`Aircraft::stance`, as the departure and the lander do), 22.2 degrees
-  today, and rotates to `strike_margin_deg` (2) under it, failing if her
+  today, and rotates to `strike_margin_deg` (2) under it (22.2 then; 21.6 since #170, see the entry above), failing if her
   pitch on the wheels reaches it. The rotation's gains, 0.14 of the fan's
   travel a degree and 8 a radian a second, are the figure's attributes.
   #170 (tail strikes from airframes) will move her contacts; on its landing
