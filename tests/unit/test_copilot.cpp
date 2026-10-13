@@ -13,6 +13,7 @@
 #include "world/json.hpp"
 #include "world/weather.hpp"
 
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -673,6 +674,29 @@ GLIDESLOPE_TEST(the_five_with_no_published_landing_distance_are_refused_a_runway
     };
     const std::vector<Measured> measured{
         {"j3cub", 1400.0}, {"mosquito-fb6", 5500.0}, {"f35b", 9200.0}, {"b2", 9100.0}};
+    // **The same set the re-fly tests find**: tests/CMakeLists.txt makes a
+    // `the_<aircraft>_lands_within_her_measured_landing_distance` for each
+    // figures file whose landing distance is measured, read from the files,
+    // and fails to configure unless there are four. Here every aircraft in
+    // the catalogue is read, and those measured must be the four pinned.
+    {
+        std::vector<std::string> found;
+        for (const auto& entry : glideslope::sim::read_catalogue(data)) {
+            if (glideslope::sim::read_published_figures(data / "figures" / (entry.model + ".xml"))
+                    .landing_basis == "measured") {
+                found.push_back(entry.id);
+            }
+        }
+        std::vector<std::string> pinned;
+        for (const Measured& m : measured) {
+            pinned.emplace_back(m.id);
+        }
+        std::sort(found.begin(), found.end());
+        std::sort(pinned.begin(), pinned.end());
+        check(found == pinned, "the aircraft whose landing distance is measured are the " +
+                                   std::to_string(pinned.size()) + " pinned here, " +
+                                   std::to_string(found.size()) + " found");
+    }
     const auto runway = [](double length_m) {
         glideslope::world::RunwayEnd end;
         end.airport = "SYNTH";

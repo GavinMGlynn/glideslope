@@ -10,7 +10,8 @@
 # again and fails unless she stopped on the runway, within the figure and
 # no more than a tenth short of it: a model changed so that she rolls
 # further than her figure, or a figure left far over what she now needs,
-# both turn it red. The figure is written 2 per cent over what she used,
+# both turn it red. The figure is written by tools/measured_landing.py, 2
+# per cent over what she used,
 # rounded up to 100 ft, for the drift between machines.
 
 if(NOT DEFINED PROGRAM OR NOT DEFINED AIRCRAFT OR NOT DEFINED FIGURES)
