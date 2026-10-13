@@ -103,6 +103,7 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     // knots fast with its throttles shut; it is flown down with its drag
     // rudders open (assets/figures/b2.xml says from what).
     speeds.speedbrake = figures.approach_speedbrake;
+    speeds.warning_margin_kts = figures.stall_warning_kts;
     if (figures.touchdown_fpm > 0.0) {
         speeds.touchdown_fpm = figures.touchdown_fpm;
     }
@@ -183,8 +184,8 @@ ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs) {
     return out;
 }
 
-double stall_warning_kts(double stall_kts) {
-    return stall_kts + std::max(5.0, 0.05 * stall_kts);
+double stall_warning_kts(double stall_kts, double own_margin_kts) {
+    return stall_kts + std::max({5.0, 0.05 * stall_kts, own_margin_kts});
 }
 
 Lander::Lander(const Aircraft& aircraft, const Runway& runway,

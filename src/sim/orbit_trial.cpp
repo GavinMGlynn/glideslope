@@ -396,7 +396,8 @@ double least_plan_slowest_kts(const std::filesystem::path& data, const Catalogue
     const ApproachSpeeds published = approach_speeds(data, entry.model);
     const ApproachSpeeds weighed = for_weight(published, plan_weight_lbs(data, entry));
     return std::max({std::round(published.vref_kts), std::ceil(weighed.vref_kts),
-                     std::ceil(stall_warning_kts(weighed.stall_kts) + plan_gust_allowance_kts)});
+                     std::ceil(stall_warning_kts(weighed.stall_kts, weighed.warning_margin_kts) +
+                               plan_gust_allowance_kts)});
 }
 
 bool holds_plan_speed(const std::filesystem::path& data, const CatalogueEntry& entry,

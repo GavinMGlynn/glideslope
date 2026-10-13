@@ -3273,8 +3273,12 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
         if (tick >= settling) {
             // Throttle closed for the entry: the autopilot holds the height by
             // raising the nose, and she slows towards the stall of her own
-            // accord. Full power for the recovery.
-            c.throttle = recovering ? 1.0 : 0.0;
+            // accord. Full power for the recovery once the wing is unstalled,
+            // as the lesson says ("Full power as the nose comes down") and the
+            // autopilot does (Autopilot::unloading): held where it was until
+            // then.
+            c.throttle = recovering ? (autopilot->unloading() ? last_controls.throttle : 1.0)
+                                    : 0.0;
         }
         // **The flaps are the flight's until the hand-over, and the
         // recovery's from it**: it takes them up to a go-around's where the
@@ -3675,10 +3679,11 @@ GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_with
     every_stall_recovered_within(
         false, 30.0, "left thirty seconds in the stall",
         [](const Result& r, double) { return height_bound_ft(r); },
-        // The Mosquito, practised at 5,000 ft since 2026-10-10, pulls 1.88 g
-        // there: inside 2 g, but not with the 10% in hand (at 20,000 ft she
-        // pulled 1.71, in thinner air at a higher true speed).
-        {{"mosquito-fb6", Fault::load, 1.89}});
+        // None named. The Mosquito was until 2026-10-13, at 1.88 g: given
+        // full power as her nose went down, her propellers' slipstream lifted
+        // her wing as it came back through its peak at 123 knots. Power once
+        // the wing is unstalled (Autopilot::unloading), 1.69.
+        {});
 }
 
 // **Engaging the stall recovery and letting it go steps no control.** Every
@@ -3741,15 +3746,20 @@ GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_f
 // hold flies every one of them into the stall. The height each loses is
 // printed, not judged: the lesson's own checks judge the recovery.
 //
-// **Two named, not yet**, each for that fault alone; a name whose aeroplane
-// now passes turns this red, so it is taken off. The A380 dips 0.7 kt under
-// her published stall before the speed comes (104.1 against 104.9). The
-// Mosquito dips 0.5 kt under hers (94.0 against 94.5) at 5,000 ft, where her
-// lesson has practised it since 2026-10-10, and is level again 122 ft lower.
+// **With the 10% every recovery is held to**: how far she slows under her
+// warning, a tenth over, is no more than her warning's margin over her stall
+// at what she weighs - the warning as the notice reads it, her own where her
+// figures give one (sim::stall_warning_kts).
+//
+// **One named, not yet**, for that fault alone; a name whose aeroplane now
+// passes turns this red, so it is taken off. The A380 dips 0.7 kt under her
+// published stall before the speed comes (104.1 against 104.9). The Mosquito
+// was named until 2026-10-13, 0.5 kt under hers (94.0 against 94.5) noticed
+// at the rule's 5 kt; noticed at her own buffet, 10 kt over, she is slowest
+// at 98.5.
 GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
     const std::map<std::string, std::string> not_yet = {
-        {"a380", "slowed under her stall"},
-        {"mosquito-fb6", "slowed under her stall"}};
+        {"a380", "slowed under her stall"}};
     std::set<std::string> named_seen;
     const Taught taught = taught_for("stalls");
     const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
@@ -3773,6 +3783,10 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
         modes.altitude_ft = f.aircraft->property("position/h-sl-ft");
         modes.airspeed_kts = lands->stall_kts - 10.0;
         controller.autopilot()->set(modes);
+        const glideslope::sim::ApproachSpeeds weighed =
+            glideslope::sim::for_weight(*lands, f.aircraft->property("inertia/weight-lbs"));
+        const double warning_kts =
+            glideslope::sim::stall_warning_kts(weighed.stall_kts, weighed.warning_margin_kts);
         double slowest = 1e9;
         double highest = f.aircraft->property("position/h-sl-ft");
         double lowest = highest;
@@ -3805,14 +3819,20 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
             }
         }
         std::printf("  %-13s noticed %s, slowest %5.1f kt against a stall of %5.1f, lost %5.0f "
-                    "ft, %s\n",
+                    "ft, %s; warned at %5.1f over a stall of %5.1f for her weight\n",
                     id.c_str(), noticed ? "yes" : "no", slowest, lands->stall_kts,
-                    highest - lowest, recovered ? "recovered" : "NOT RECOVERED");
+                    highest - lowest, recovered ? "recovered" : "NOT RECOVERED", warning_kts,
+                    weighed.stall_kts);
         std::string fault;
         if (!noticed) {
             fault = "the stall coming was not noticed";
         } else if (slowest < lands->stall_kts) {
             fault = "slowed under her stall";
+        } else if ((warning_kts - slowest) * (1.0 + between_machines) >
+                   warning_kts - weighed.stall_kts) {
+            fault = "slowed " + std::to_string(warning_kts - slowest) + " kt under her warning, "
+                    "against its margin of " + std::to_string(warning_kts - weighed.stall_kts) +
+                    " with 10% in hand";
         } else if (!recovered) {
             fault = "not back at her approach speed and level";
         }
@@ -4394,7 +4414,8 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
         // The warning as the notice reads it: her stall at what she weighs.
         const glideslope::sim::ApproachSpeeds weighed =
             glideslope::sim::for_weight(*lands, weight_lbs);
-        const double warning_kts = glideslope::sim::stall_warning_kts(weighed.stall_kts);
+        const double warning_kts =
+            glideslope::sim::stall_warning_kts(weighed.stall_kts, weighed.warning_margin_kts);
         for (int tick = 0; tick < 540 * steps_per_second; ++tick) {
             if (tick == 180 * steps_per_second) {
                 modes.altitude_ft = *modes.altitude_ft + 3000.0;

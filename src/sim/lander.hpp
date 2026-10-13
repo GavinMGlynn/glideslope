@@ -62,6 +62,10 @@ struct ApproachSpeeds {
     // hand - and then they are flown as given, at any weight
     // (`for_weight`).
     double reference_lbs = 0.0;
+    // **Where her own stall warning begins**, knots over `stall_kts`, as her
+    // figures give it (`PublishedFigures::stall_warning_kts`); 0 where they
+    // give none, and the rule's margin is kept (`stall_warning_kts`).
+    double warning_margin_kts = 0.0;
     double flap = 1.0;     // the landing flap setting, 0 to 1
     double speedbrake = 0.0; // the speedbrake lever down the approach, 0 to 1
     double flare_ft = 15.0; // height of the wheels above the threshold to begin the flare
@@ -122,10 +126,13 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
 ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs);
 
 // **Where the stall warning sounds**, KCAS, over a stall of `stall_kts`: no
-// less than 5 knots or 5% above it, whichever is more (14 CFR 25.207(c)) -
-// where the AI pilot notices a stall coming (Controller::notice_a_stall),
-// and what a plan's slowest keeps its gust allowance over.
-double stall_warning_kts(double stall_kts);
+// less than 5 knots or 5% above it, whichever is more (14 CFR 25.207(c)), or
+// `own_margin_kts` above it where the aeroplane's own warning comes sooner
+// (ApproachSpeeds::warning_margin_kts: the Mosquito's buffet, "some 10
+// knots before the stall") - where the AI pilot notices a stall coming
+// (Controller::notice_a_stall), and what a plan's slowest keeps its gust
+// allowance over.
+double stall_warning_kts(double stall_kts, double own_margin_kts = 0.0);
 
 // Whether `approach_speeds` has a stall speed to work from: false for the
 // 747-400 and the F-22A, whose measured stalls would not hold still.
