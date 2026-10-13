@@ -348,6 +348,19 @@ macOS; nothing here is platform code. `glideslope_cli selftest`: the hash
 does not move, 182dd6c996e0ee4c (the selftest flies the test pilot, not the
 autopilot).
 
+**Rebased onto #174 and the tail-strike take-off** (main at 3ab6ef24): the
+throttle keeps #174's hold while the stalled wing unloads (`unloading_`,
+released after 5 s, under 1,500 ft or with the nose at its floor) ahead of
+this term - `unloading_ ? last_.throttle : holding_speed_ || on_speed ? 1.0
+: integral + gain x (speed off + climb as knots)` - and its release logic is
+unchanged. The take-off now lifts each airliner off a little differently, so
+the figures above moved: settled at 737-300 31.9 s, 747-400 12.1, 787-8
+26.9, A320 31.1, A380 29.4; after the first minute at most 21 ft/min, 6.1
+ft off (the 787-8) and 0.1 kt. The 348 linux-release tests matching stall,
+recover, airliner, f22, mosquito, climb, approach, land or unload pass (5
+live model calls skipped, no key); the F-22A still departs at 130 kt; the
+selftest hash does not move, 182dd6c996e0ee4c.
+
 ### The F-35B's lift system on #170's tail-strike contacts: her short take-off 708.8 ft, 2026-10-13 — item still open
 
 Rebased on #170, which measured her tail-strike contacts from her mesh:

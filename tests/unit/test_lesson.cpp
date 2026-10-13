@@ -6169,9 +6169,10 @@ LowHold holds_a_low_height(const glideslope::sim::CatalogueEntry& entry, double 
 // speed after the first minute. The A380 swung 15.6 ft either side of it at
 // up to 488 ft/min for all four, never settling: the throttle chased the
 // speed her climb traded for height, and climbed her further
-// (sim/autopilot.cpp, `climb_as_speed_s`). Now (2026-10-13), settled at:
-// 737-300 25 s, 747-400 12, 787-8 26, A320 26, A380 30; after the first
-// minute at most 5.1 ft off (the 787-8) and 0.1 kt.
+// (sim/autopilot.cpp, `climb_as_speed_s`). Now (2026-10-13, on #174 and
+// the tail-strike take-off), settled at: 737-300 32 s, 747-400 12, 787-8
+// 27, A320 31, A380 29; after the first minute at most 6.1 ft off (the
+// 787-8) and 0.1 kt.
 // **Coverage**: every airliner in the roster, by its class - five. The
 // other classes are left out, named: the item is the airliners' take-off
 // flap, which none of them flies a low hold at (their take-offs, and the

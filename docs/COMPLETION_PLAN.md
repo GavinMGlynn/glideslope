@@ -536,7 +536,7 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       *Verification: every airliner holding a height at her take-off flap
       settles within 100 ft/min in a minute.* Done 2026-10-13: the throttle
       no longer chases the speed a climb trades for height; all five settle
-      in 12 to 31 s.
+      in 12 to 32 s.
 - [ ] **A jet, the Mosquito or the S.23 slowed from cruise into her climb
       sinks 2 to 6.4 kt past her climb speed.** Only a light aeroplane has
       a speed floor to capture it with; the others' climb speeds are not a
