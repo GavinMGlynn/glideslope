@@ -2450,52 +2450,6 @@ GLIDESLOPE_TEST(a_waypoint_marked_flyover_is_passed_within_100_m_by_an_aircraft_
     check(failures.empty(), "each flew over its waypoint within 100 m:" + failures);
 }
 
-// **Every turn is flown by, whatever its angle**: one aircraft of each class
-// at her cruise speed, 45, 120 and 150 degrees, left and right, from 4 turn
-// radii of leg onto 6. Past 120 degrees the arc tightens to keep the lead the
-// 120-degree turn has, down to the radius at 25 degrees (sim::fly_by), so
-// 150 is flown at the autopilot's most bank, with none to spare, and strays
-// most. Each strays off the next leg, past it or from where its arc meets it,
-// less than its bound in her turn radius at 25 degrees: a tenth to 120
-// degrees, 0.15 at 150. Measured (2026-10-13): to 120 at most 0.015 (the
-// Mosquito turning -120); at 150 the F-15C 0.121 right and 0.103 left, the
-// 172P 0.064, every other under 0.09.
-GLIDESLOPE_TEST(a_turn_of_45_120_or_150_degrees_either_way_at_a_waypoint_strays_within_its_bound_in_an_aircraft_of_every_class) {
-    const auto space = one_of_each_class();
-    constexpr double radians = std::numbers::pi / 180.0;
-    std::size_t flown = 0;
-    std::string failures;
-    for (const auto& e : space) {
-        const double kts = cruise_kts(e);
-        const double true_mps = kts * 1852.0 / 3600.0 * 1.08;
-        const double r = true_mps * true_mps / (9.80665 * std::tan(15.0 * radians));
-        for (const double angle : {45.0, 120.0, 150.0}) {
-            for (const double way : {1.0, -1.0}) {
-                const TurnFlown f =
-                    fly_legs(e, kts, {0.0, way * angle}, {4.0 * r + 3000.0, 6.0 * r + 3000.0});
-                const double stray = std::max(f.past_m, f.after_m) / f.radius_m;
-                const double bound = angle > 140.0 ? 0.15 : 0.1;
-                char line[200];
-                std::snprintf(line, sizeof line,
-                              "%s at %.0f kt turning %+.0f: %.0f m past, %.0f m off after, %.3f "
-                              "of her %.0f m radius (at most %.2f)",
-                              e.id.c_str(), kts, way * angle, f.past_m, f.after_m, stray,
-                              f.radius_m, bound);
-                std::fprintf(stderr, "%s\n", line);
-                if (!f.finished || !(stray < bound)) {
-                    failures += std::string("\n  ") + line;
-                }
-                ++flown;
-            }
-        }
-    }
-    const std::size_t cases = space.size() * 3 * 2;
-    check(space.size() == glideslope::sim::aircraft_class_count && flown == cases,
-          "one aircraft of each class, three angles, both ways: " + std::to_string(flown) +
-              " of " + std::to_string(cases));
-    check(failures.empty(), "each within its bound:" + failures);
-}
-
 // **No fly-by cuts its waypoint by more than most_fly_by_miss_m**
 // (sim/turn_laws.hpp, 278 m): one aircraft of each class, at her climb speed
 // and her cruise speed (each held to what a plan may fly her at), turning 45,
@@ -2505,8 +2459,19 @@ GLIDESLOPE_TEST(a_turn_of_45_120_or_150_degrees_either_way_at_a_waypoint_strays_
 // near as her arc at 22 passes it, the nearest she can with bank to spare;
 // within 25 m of either for her flight off her arc. Each turn's
 // stray off the next leg is held to its bound as in the angles' test: a
-// tenth of her radius at 25 degrees to 120, 0.15 at 150.
-GLIDESLOPE_TEST(a_turn_of_45_90_120_or_150_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+// tenth of her radius at 25 degrees to 120, 0.15 at 150: past 120 degrees
+// the arc tightens to keep the lead the 120-degree turn has, down to the
+// radius at 25 degrees (sim::fly_by), so 150 is flown with no bank to spare
+// and strays most. These take in, at her cruise speed, every turn of the
+// angles test they replaced (45, 120 and 150 degrees, cruise only), which
+// would have run past 900 s in linux-debug beside them. **One test for each
+// angle**, 28 turns each, so that none runs long on CI: together, 112 turns,
+// in linux-debug the whole ran past 900 s.
+namespace {
+
+const std::vector<double> fly_by_cap_angles = {45.0, 90.0, 120.0, 150.0};
+
+void passes_within_the_fly_by_cap(double angle) {
     const std::filesystem::path data =
         std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     const auto space = one_of_each_class();
@@ -2526,7 +2491,7 @@ GLIDESLOPE_TEST(a_turn_of_45_90_120_or_150_degrees_at_a_waypoint_passes_it_withi
         for (const double kts : {climb, cruise_kts(e)}) {
             const double true_mps = kts * 1852.0 / 3600.0 * 1.08;
             const double r = true_mps * true_mps / (9.80665 * std::tan(15.0 * radians));
-            for (const double angle : {45.0, 90.0, 120.0, 150.0}) {
+            {
                 for (const double way : {1.0, -1.0}) {
                     const TurnFlown f = fly_legs(e, kts, {0.0, way * angle},
                                                  {4.0 * r + 3000.0, 6.0 * r + 3000.0});
@@ -2567,21 +2532,50 @@ GLIDESLOPE_TEST(a_turn_of_45_90_120_or_150_degrees_at_a_waypoint_passes_it_withi
             }
         }
     }
-    const std::size_t cases = space.size() * 2 * 4 * 2;
+    const std::size_t cases = space.size() * 2 * 2;
     std::fprintf(stderr,
-                 "%zu aircraft x 2 speeds x 4 angles x 2 ways = %zu turns: %zu flown, %zu flown "
+                 "%zu aircraft x 2 speeds x 2 ways at %.0f degrees = %zu turns: %zu flown, %zu flown "
                  "over; nearest pass at worst %.0f m, %.2f of what it is allowed; stray at worst "
                  "%.2f of its bound\n",
-                 space.size(), cases, flown, flown_over, worst_miss_m, worst_over_allowed,
-                 worst_stray);
+                 space.size(), angle, cases, flown, flown_over, worst_miss_m,
+                 worst_over_allowed, worst_stray);
     check(space.size() == glideslope::sim::aircraft_class_count && flown == cases,
-          "one aircraft of each class, both speeds, four angles, both ways: " +
+          "one aircraft of each class, both speeds, both ways: " +
               std::to_string(flown) + " of " + std::to_string(cases));
     check(flown_over == 0, "none flown over: " + std::to_string(flown_over));
     check(failures.empty(), "each passed its waypoint within " + std::to_string(cap_m) +
                                 " m, or its 22-degree arc's miss where that is more, and 25 m, "
                                 "and strayed within its bound:" +
                                 failures);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(a_turn_of_45_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(45.0);
+}
+
+GLIDESLOPE_TEST(a_turn_of_90_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(90.0);
+}
+
+GLIDESLOPE_TEST(a_turn_of_120_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(120.0);
+}
+
+GLIDESLOPE_TEST(a_turn_of_150_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(150.0);
+}
+
+// **The four fly-by cap tests together turn 112 times**, as the one they were
+// split from did: four angles, each 28 turns - an aircraft of each of the
+// seven classes, at two speeds, both ways.
+GLIDESLOPE_TEST(the_fly_by_cap_tests_together_turn_an_aircraft_of_every_class_112_times_at_four_angles) {
+    check(fly_by_cap_angles == std::vector<double>{45.0, 90.0, 120.0, 150.0},
+          "the four angles, 45, 90, 120 and 150 degrees");
+    const std::size_t turns = fly_by_cap_angles.size() * one_of_each_class().size() * 2 * 2;
+    check(turns == 112, "four angles x seven classes x two speeds x two ways: " +
+                            std::to_string(turns));
 }
 
 // **In a 20 kt wind across the first leg**: from the west, the leg north, and
