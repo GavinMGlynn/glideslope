@@ -528,14 +528,14 @@ GLIDESLOPE_TEST(the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_t
 
 // **The rate her rotation is held to is read, and one that is no rotation or
 // a snatch is refused** (`rotation_degps`, sim::Departure): the A320's file
-// read as it is, a C172P's - which gives none, and is not held - as nought,
+// read as it is, an F-22A's - which gives none, and is not held - as nought,
 // and the A320's own with that one attribute changed: ten, the most allowed,
 // read back; nought, less and more than ten refused, each naming it.
 GLIDESLOPE_TEST(the_rotation_rate_a_take_off_is_held_to_is_read_and_refused_outside_0_to_10) {
     check(read_published_figures(figures_file("a320")).rotation_degps == 3.0,
           "the A320 is rotated at three degrees a second");
-    check(read_published_figures(figures_file("c172p")).rotation_degps == 0.0,
-          "the C172P gives none, so her rotation is not held");
+    check(read_published_figures(figures_file("f22")).rotation_degps == 0.0,
+          "the F-22A gives none, so her rotation is not held");
 
     std::ifstream in(figures_file("a320"));
     const std::string text((std::istreambuf_iterator<char>(in)),

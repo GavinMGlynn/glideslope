@@ -26,7 +26,14 @@
   forty a light aeroplane is, a B-2A in ground effect floated two
   kilometres down the runway.
 -->
-<published_figures aircraft="f15c" flaps_full_deg="0" touchdown_fpm="200">
+<!--
+  **rotation_degps** is the rate the take-off autopilot rotates her at on
+  her wheels (sim/departure.hpp): four degrees a second. Nothing found
+  gives hers; "most aircraft should be rotated at three to four degrees per
+  second" ("Rotation Rate", code7700.com), and a fighter,
+  whose tail strike is far off, takes the top of it.
+-->
+<published_figures aircraft="f15c" rotation_degps="4" flaps_full_deg="0" touchdown_fpm="200">
   <source>USAF Standard Aircraft Characteristics, F-15C, 1992</source>
 
   <!-- 45,713 lb, Mission I's take-off weight (page 4): the empty weight,

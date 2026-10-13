@@ -530,8 +530,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 The autopilot's navigator and the plans it flies: orbits, glides, the speeds a plan may ask, the take-off, and the lessons' autopilot.
 
 - [ ] **The take-off autopilot rotates at a held rate.** The airliners and
-      the B-2A do, at three degrees a second; the light aeroplanes, fighters
-      and Learjet do not yet. *Verification: every nose-wheel aeroplane at
+      the B-2A do, at three degrees a second, and the light aeroplanes, the
+      F-15C, the F-35B and the Learjet at four; the F-22A does not yet, her
+      own pitch loop winding up on her wheels. *Verification: every nose-wheel aeroplane at
       every loading rotates no faster than its stated rate on her wheels,
       and every take-off and hand-over test stays green.*
 - [x] **The autopilot holds a low height loosely in an airliner's take-off

@@ -265,6 +265,70 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The light aeroplanes, the F-15C, the F-35B and the Learjet rotate at a held four degrees a second; the F-22A not yet, 2026-10-13 — item still open
+
+**What is still not true first.** **The F-22A's rotation is not held**: her
+figures give no rate, and she rotates under the old law. Her own pitch
+loop winds up on her wheels (the entry below, round three); it was not
+tried again here. JSBSim's `<integrator>` is a PID whose trigger holds
+(positive) or zeroes (negative) it, and her stabilator is driven by that
+integrator alone, so zeroing it on her nose wheel would leave her no
+stabilator to lift it with - a ground mode has to put the stick on the
+stabilator directly, as #175's round three did, and that moved her
+measured rotation speed from 110 kt to 140. The item stays open for her.
+
+**What landed.**
+- **Six more aeroplanes are given a rate**, `rotation_degps="4"` on their
+  figures' root, cited there: the C172P, the C182 and the PA-28 (their
+  handbooks give none; the FAA's Airplane Flying Handbook, chapter 5, asks
+  for a smooth rotation; "most aircraft should be rotated at three to four
+  degrees per second", code7700.com, "Rotation Rate"), the F-15C and the
+  F-35B (nothing found giving theirs), and the Learjet 35A (the Gulfstream
+  G500's flight manual, quoted there, has ten degrees in three to four
+  seconds).
+- **The rate law's stick moves no faster than two of its travel a second**
+  (`rate_stick_slew_per_s`, sim::Departure), twice a hand's pace. Held at
+  four without it, the C172P's stick rang from stop to stop at twenty
+  cycles a second on her wheels - 0.3 of stick per degree a second off is
+  far more than her elevator needs, as it is not for an airliner's - and
+  where the cycle happened to be as her wheels left, she was handed over
+  with the stick at its stop; `Departure::from_lift_off` took it as trim,
+  her nose went from 7.9 to 12.6 degrees in a few steps and she struck the
+  runway again. With it, she leaves with 0.12 of stick (0.13 under the old
+  law), and her stick never reaches a stop on her wheels at either
+  loading (222 of her 316 held steps had, with the rate read as a
+  six-step mean instead - tried and dropped; capping the rate's part of
+  the stick at a quarter either way, or on the pull side alone, let the
+  A320 at her light loading come up at 4.33 and 4.15 - tried and dropped).
+  The slew limit moves the airliners' peaks by no more than 0.04 deg/s.
+- **The test** (`every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_every_loading_no_faster_than_it`)
+  now flies twelve aeroplanes at 44 loadings, four named and left out (the
+  flying boat, the two tail-wheel aeroplanes, the F-22A). Worst of the new
+  six, against four and the degree's tolerance: the F-35B at her
+  vertical-landing loading 4.44 (8.6 under the old law), the C182 at her
+  model's 4.42 (8.2), the F-15C at her model's 4.38, the Learjet at her
+  light loading 4.33 (8.6), the C172P at her model's 4.17, the PA-28 3.97.
+  Each leaves at least 3.7 degrees below her strike attitude. Past her
+  rotation speed at lift-off: the Learjet at her light loading 8.6 kt, the
+  F-35B 6.4 to 7.8, the F-15C 5.4 to 7.0, the light aeroplanes 1.0 to 4.6.
+  `the_rotation_rate_a_take_off_is_held_to_is_read_and_refused_outside_0_to_10`
+  reads the F-22A's figures for "none" now, the C172P's having one.
+- **Seen red**: with the C172P given four and no slew limit,
+  `every_landplane_handed_over_at_lift_off_climbs_away_through_500_ft_and_never_touches_the_runway`
+  and `the_cessnas_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway`
+  failed ("c172p handed over at lift-off touched the runway again"); with
+  it they pass.
+- **Measured take-off speeds do not move**: only the 747-400 and the F-22A
+  have them, and neither is changed here;
+  `the_measured_take_off_speeds_in_the_747_and_f22_figures_are_what_the_measurement_makes`
+  passes.
+
+**Verification.** linux-release, the server and client built: every test
+matching "take|rotat|lift|hand|depart|climb_away|strike|lesson|fault|selftest",
+189 tests, 180 pass and nine are skipped (eight for want of a language
+model's key, one Windows-only), none red. The selftest hash does not move:
+182dd6c996e0ee4c.
+
 ### The fly-by cap tests split by speed too: eight of 14 turns, the slowest about 320 s of linux-debug's 900, 2026-10-13 — item stays done
 
 **What is still missing, first.** Nothing of the item. The CI times are
