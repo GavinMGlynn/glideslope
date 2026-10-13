@@ -6109,18 +6109,25 @@ void every_landplane_taken_back(OnTheRoll when) {
     // on from a second after the take-back, at idle and with her spoilers
     // out, but no flight model here has reverse thrust, which an airliner's
     // crew uses on a wet runway and AC 25-32 section 10 credits, and her hand
-    // landing touched fast. (The F-15C has no reversers.) The runway is the regulation's - a field length already
-    // the dry distance over 0.6, times 1.15. Logged 2026-10-13: the A320
-    // touching at 144 kt, pedals 1.0, decelerating 5.1 to 5.5 ft/s^2 from 140
-    // to 110 kt on a wet wheel braking coefficient of 0.14 to 0.18. Each must
-    // still stop, unwrecked, on the centreline; and each must overrun, so
-    // that the day one does not, this list is shortened.
-    const std::map<std::string, std::string> overrun_wet = {
-        {"787-8", "228 psi tyres, touching at 146.5 kt, and no reverse thrust modelled"},
-        {"a320", "209 psi tyres, touching at 144.1 kt, and no reverse thrust modelled"},
-        {"f15c", "305 psi tyres, touching at 157.8 kt; she has no reversers, and her runway is "
-                 "the transport's margin on her dry flight-manual distance, not her manual's "
-                 "own wet one"}};
+    // landing touched fast. (The F-15C has no reversers.) The runway is the
+    // regulation's - a field length already the dry distance over 0.6, times
+    // 1.15. Logged 2026-10-13: the A320 touching at 144 kt, pedals 1.0,
+    // decelerating 5.1 to 5.5 ft/s^2 from 140 to 110 kt on a wet wheel
+    // braking coefficient of 0.14 to 0.18. Each must still stop, unwrecked,
+    // on the centreline; each must overrun, so that the day one does not,
+    // this list is shortened; and none by more than her ceiling, a little
+    // above what she overran by on 2026-10-13 (19, 84 and 20 m), so that an
+    // overrun growing is not passed as named.
+    struct Overrun {
+        double most_m;
+        std::string why;
+    };
+    const std::map<std::string, Overrun> overrun_wet = {
+        {"787-8", {25.0, "228 psi tyres, touching at 146.5 kt, and no reverse thrust modelled"}},
+        {"a320", {90.0, "209 psi tyres, touching at 144.1 kt, and no reverse thrust modelled"}},
+        {"f15c", {25.0, "305 psi tyres, touching at 157.8 kt; she has no reversers, and her "
+                        "runway is the transport's margin on her dry flight-manual "
+                        "distance, not her manual's own wet one"}}};
     std::size_t overran = 0;
     for (const std::string& id : taught) {
         if (glideslope::sim::find_aircraft(data(), id).seaplane) {
@@ -6181,11 +6188,17 @@ void every_landplane_taken_back(OnTheRoll when) {
                                                                     : a_runway().length_m;
         const bool named_overrun = wet && overrun_wet.count(id) > 0;
         if (named_overrun) {
-            std::printf("  named - %s overran the wet runway by %.0f m: %s\n",
-                        id.c_str(), r.stopped_past_m - length_m, overrun_wet.at(id).c_str());
+            const Overrun& named = overrun_wet.at(id);
+            const double overrun_m = r.stopped_past_m - length_m;
+            std::printf("  named - %s overran the wet runway by %.0f m (at most %.0f): %s\n",
+                        id.c_str(), overrun_m, named.most_m, named.why.c_str());
             if (r.stopped_past_m <= length_m) {
                 wrong.push_back(where + " is named as overrunning the wet runway, and stopped "
                                         "on it, " + std::to_string(r.stopped_past_m) + " m");
+            } else if (overrun_m > named.most_m) {
+                wrong.push_back(where + " overran the wet runway by " +
+                                std::to_string(overrun_m) + " m, more than the " +
+                                std::to_string(named.most_m) + " named");
             } else {
                 ++overran;
             }

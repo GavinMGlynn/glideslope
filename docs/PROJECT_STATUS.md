@@ -272,8 +272,15 @@ short runway** now that each brakes on her own tyres, and are named in
 `every_landplane_landed_by_hand_on_a_wet_short_runway_is_stopped_on_it_by_the_ai`:
 the 787-8 at 1,911 m of 1,893 (228 psi), the A320 at 1,809 of 1,725 (209
 psi) and the F-15C at 2,478 of 2,459 (305 psi). It was green before only
-because every tyre was 100 psi. A new Phase 10b item: reverse thrust on a
-wet roll-out. **Four pressures are estimates** (F-22A, F-35B, B-2A,
+because every tyre was 100 psi. A new Phase 10b item. Reversers alone are
+not shown to be the answer: the 787-8's and F-15C's ~20 m on ~2 km is the
+size of the hand landing's fast touch (146.5 and 157.8 kt) against the 1.15
+margin, a candidate cause as much as the missing reverse thrust. Each
+named overrun is bounded (25, 90 and 25 m), so a growing one fails.
+**#185 (short runways)** sizes wet runways for the Cub and Mosquito, which
+may overrun on these brakes: whichever of the two lands second re-runs the
+wet short-runway test and extends the named list or fixes the sizing.
+**Four pressures are estimates** (F-22A, F-35B, B-2A,
 Mosquito) and the anti-skid class of the 737-300 and the four military
 aircraft is this project's reading: no document names it.
 
@@ -350,12 +357,24 @@ aircraft is this project's reading: no document names it.
   Cub 63.8 / 47.3, Mosquito 63.6 / 43.7, PA-28 41.6 / 29.9 - and dry exactly
   as far. **Seen to fail** with the same seeded bug: "c172p without
   anti-skid stopped in 30.63 m wet, with it 30.63"; reverted.
+- `a_light_pedal_on_a_slippery_runway_is_given_as_pressed_up_to_the_runways_share`:
+  every landplane (the flying boat named) braked from 20 kt at a fifth of
+  her pedals is given exactly min(pedal, share) at every braked step - the
+  pedal on a wet runway (share 0.46 to 0.96), the share on ice (0.05 to
+  0.13); on ice a light aeroplane's idle propeller out-pulls a fifth of her
+  brakes, so only wet is asked to stop. **Seen to fail** with the old
+  pedal times share: "737-300's brakes were given the less of the pedal and
+  the share"; reverted.
+- The named wet overruns are each bounded; **seen to fail** with the
+  A320's ceiling at 50 m: "a320 ... overran the wet runway by 83.7 m, more
+  than the 50 named"; reverted.
 - `an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong`
   now also reads all four anti-skids and refuses a landplane without
   brakes, an unknown anti-skid, a missing one and a 0 psi tyre.
 - Run again (linux-release, 148 tests by name - wet, brakes, landings on a
   runway, roll, figures, stops, short runways, published, the catalogue,
-  METARs, the runway condition; 3 that ask a live model skipped): all 148
+  METARs, the runway condition; 3 that ask a live model skipped), and the
+  light-pedal test: all 149
   passed, the three wet overruns named. The published figures tests all
   pass: dry is untouched (share 1).
 - **The selftest hash does not move**, `182dd6c996e0ee4c`: it flies dry.
