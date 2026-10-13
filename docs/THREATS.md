@@ -715,6 +715,15 @@ sequence further ahead of its own than the session's input rate could account
 for, and something must bound how many packets an address may send per second.
 Neither is written.
 
+**The STOVL mode selector (control 18, since `0C`) makes the server build a
+controller.** A player whose selector reaches 0.5 or more in an aeroplane
+with a lift system is given a `sim::Controller` for the rest of the session
+(server `controller_for`), once: it is read as a threshold, not a value, so
+any frame at or above 0.5 is STOVL mode and any below is conventional
+flight, and an aeroplane without a lift system ignores it; a refused STOVL
+command above her cleared airspeed is flown with the fan's doors closed
+(`sim::apply`), never thrown out of the server's step.
+
 ## Amplification
 
 **The server replies now, so it amplifies now.** Two replies go to an address

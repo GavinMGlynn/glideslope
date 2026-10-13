@@ -4,6 +4,9 @@
 #include "frontend/same_air.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/controller.hpp"
+#include "sim/figures.hpp"
+#include "sim/learnt.hpp"
 #include "sim/pacing.hpp"
 #include "sim/prediction.hpp"
 #include "sim/terrain.hpp"
@@ -1674,3 +1677,197 @@ GLIDESLOPE_TEST(a_client_paces_itself_by_its_words_before_and_after_its_clocks_d
     ++states;
     check(states == 6, "six states were paced in: " + std::to_string(states));
 }
+
+// **A predicting client and the server agree through her STOVL mode**: the
+// F-35B at her vertical-landing loading, level at 150 ft and 200 KCAS over
+// flat ground in calm air, the pilot's selector to STOVL at one second, the
+// stick held forward from 170 s, flown to 260 s. The server flies each input
+// 100 ms late through its controller (sim::Controller, the server's own), and
+// its motion comes back 100 ms after that every fifth step; the client
+// predicts on the same inputs and is put right by it (sim::Prediction). Both
+// must convert, hover and land - each stage seen on both - and once the
+// clocks' difference is known no correction may move the client more than
+// the motion test's 0.1 m. A client that flew her controls raw never
+// converted, and was put right by metres at every word.
+GLIDESLOPE_TEST(a_predicting_client_and_the_server_fed_the_same_stovl_inputs_agree_through_a_conversion_a_hover_and_a_landing) {
+    using glideslope::sim::apply;
+    using glideslope::sim::Controller;
+    using glideslope::sim::Motion;
+    using glideslope::sim::PublishedFigures;
+    using glideslope::sim::read_published_figures;
+    using glideslope::sim::trimmed_controls;
+    constexpr double bound_m = 0.1;
+    const PublishedFigures figures = read_published_figures(
+        std::string(GLIDESLOPE_TEST_FIGURES_DIR) + "/f35b.xml");
+    const auto start = [&](Aircraft& a) {
+        a.load(figures.loadings.at("vertical_landing").loading);
+        a.set_terrain(flat_ground());
+        InitialConditions ic;
+        ic.latitude_deg = -33.9461;
+        ic.longitude_deg = 151.1772;
+        ic.heading_deg = 70.0;
+        ic.altitude_ft = 150.0;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = 200.0;
+        ic.gear = 0.0;
+        ic.trim = true;
+        a.initialize(ic);
+        a.freeze_fuel(true);
+    };
+    Aircraft server_aircraft(data() / "jsbsim", "f35b");
+    Aircraft client_aircraft(data() / "jsbsim", "f35b");
+    start(server_aircraft);
+    start(client_aircraft);
+    const Controls trimmed = trimmed_controls(server_aircraft);
+    const auto inputs = [&](int frame) {
+        Controls c = trimmed;
+        c.stovl = frame >= steps_per_second ? 1.0 : 0.0;
+        c.elevator = frame >= 170 * steps_per_second ? -1.0 : 0.0;
+        return c;
+    };
+    Controller server(server_aircraft, trimmed);
+    Prediction client(client_aircraft);
+    const int one_way = 100 * steps_per_second / 2000;
+    const int every = 5;
+    struct Posted {
+        int arrives_at = 0;
+        Motion motion;
+        std::uint32_t applied = 0;
+        std::uint64_t server_steps = 0;
+    };
+    std::deque<Posted> post;
+    std::uint64_t server_steps = 0;
+    double worst_m = 0.0;
+    double settling_m = 0.0;
+    std::size_t heard = 0;
+    // The stages each side reached: converted, hovering, down.
+    std::set<std::string> seen;
+    const auto stages = [&](const Aircraft& a, const std::string& side) {
+        if (a.property("fcs/stovl-pos-norm") >= 1.0) {
+            seen.insert(side + " converted");
+        }
+        if (a.property("fcs/stovl-pos-norm") >= 1.0 &&
+            a.property("fcs/nozzle-pos-deg") >= 89.5 &&
+            std::hypot(a.property("velocities/v-north-fps"),
+                       a.property("velocities/v-east-fps")) < 5.0 &&
+            a.state().height_above_ground_ft > 100.0) {
+            seen.insert(side + " hovering");
+        }
+        if (a.property("gear/wow") > 0.5) {
+            seen.insert(side + " down");
+        }
+    };
+    const int frames = 260 * steps_per_second;
+    for (int frame = 0; frame < frames; ++frame) {
+        client.step(static_cast<std::uint32_t>(frame + 1), inputs(frame));
+        stages(client_aircraft, "client");
+        const int theirs = frame - one_way;
+        if (theirs >= 0) {
+            server.set_pilot(inputs(theirs));
+            apply(server_aircraft, server);
+            server_aircraft.step();
+            ++server_steps;
+            stages(server_aircraft, "server");
+            if (theirs % every == 0) {
+                post.push_back({frame + one_way, server_aircraft.motion(),
+                                static_cast<std::uint32_t>(theirs + 1), server_steps});
+            }
+        }
+        while (!post.empty() && post.front().arrives_at <= frame) {
+            const bool settled = client.settled();
+            const Prediction::Correction c = client.reconcile(
+                post.front().motion, post.front().applied, 1, post.front().server_steps);
+            if (settled) {
+                worst_m = std::max(worst_m, c.moved_m);
+                ++heard;
+            } else {
+                settling_m = std::max(settling_m, c.moved_m);
+            }
+            post.pop_front();
+        }
+    }
+    std::string stages_seen;
+    for (const std::string& s : seen) {
+        stages_seen += " " + s + ";";
+    }
+    std::printf("  %zu words heard settled, worst correction %.4f m (settling %.4f m);%s\n",
+                heard, worst_m, settling_m, stages_seen.c_str());
+    check(seen.size() == 6, "every stage on both sides, not:" + stages_seen);
+    check(heard > 1000, "the server was heard " + std::to_string(heard) + " times");
+    check(worst_m <= bound_m, "the worst correction was " + std::to_string(worst_m) +
+                                  " m, over the " + std::to_string(bound_m) + " m bound");
+}
+
+// **Put back to its own state, a prediction flies again to exactly where it
+// was**, through her STOVL mode: the F-35B flown as above, and at each of
+// four moments - slowing wing-borne for the conversion (60 s), jet-borne
+// (115 s), hovering (165 s) and letting down (185 s) - its whole state is
+// taken, a second more is flown, and it is put back to that state and flown
+// through the same second again. Where it ends must be within a tenth of a
+// millimetre of where it was - JSBSim's own state taken and put back is not
+// bitwise, and moved it 0.3 to 11 micrometres - with the lift fan's and the
+// nozzle's commands within a thousandth: the transition law, its autopilot,
+// its hover law and their integrals are put back with it
+// (Controller::PilotsLaws). Left as the newest step had them, she was flown
+// again to 0.5 mm to 23 cm from where she had been, the fan's command 0.02
+// off.
+GLIDESLOPE_TEST(a_stovl_prediction_put_back_to_its_own_state_flies_again_to_exactly_where_it_was) {
+    using glideslope::sim::PublishedFigures;
+    using glideslope::sim::read_published_figures;
+    using glideslope::sim::trimmed_controls;
+    const PublishedFigures figures = read_published_figures(
+        std::string(GLIDESLOPE_TEST_FIGURES_DIR) + "/f35b.xml");
+    Aircraft a(data() / "jsbsim", "f35b");
+    a.load(figures.loadings.at("vertical_landing").loading);
+    a.set_terrain(flat_ground());
+    InitialConditions ic;
+    ic.latitude_deg = -33.9461;
+    ic.longitude_deg = 151.1772;
+    ic.heading_deg = 70.0;
+    ic.altitude_ft = 150.0;
+    ic.terrain_elevation_ft = 0.0;
+    ic.airspeed_kts = 200.0;
+    ic.gear = 0.0;
+    ic.trim = true;
+    a.initialize(ic);
+    a.freeze_fuel(true);
+    const Controls trimmed = trimmed_controls(a);
+    const auto inputs = [&](int frame) {
+        Controls c = trimmed;
+        c.stovl = frame >= steps_per_second ? 1.0 : 0.0;
+        c.elevator = frame >= 170 * steps_per_second ? -1.0 : 0.0;
+        return c;
+    };
+    Prediction client(a);
+    check(client.laws() != nullptr, "her prediction flies her through a controller");
+    const std::vector<int> moments{60, 115, 165, 185};
+    std::size_t checked = 0;
+    int frame = 0;
+    for (const int at_s : moments) {
+        for (; frame < at_s * steps_per_second; ++frame) {
+            client.step(static_cast<std::uint32_t>(frame + 1), inputs(frame));
+        }
+        const AircraftSnapshot then = a.capture();
+        const auto then_sequence = static_cast<std::uint32_t>(frame);
+        for (int i = 0; i < steps_per_second; ++i, ++frame) {
+            client.step(static_cast<std::uint32_t>(frame + 1), inputs(frame));
+        }
+        const double nozzle_was = a.property("fcs/nozzle-cmd-deg");
+        const double fan_was = a.property("fcs/lift-fan-cmd-norm");
+        const Prediction::Correction c = client.reconcile(then, then_sequence);
+        std::printf("  at %d s: flew %zu again, moved %.9f m, nozzle %.4f, fan %.6f\n", at_s,
+                    c.replayed, c.moved_m, a.property("fcs/nozzle-cmd-deg"),
+                    a.property("fcs/lift-fan-cmd-norm"));
+        check(c.replayed == static_cast<std::size_t>(steps_per_second),
+              "a second flown again at " + std::to_string(at_s) + " s");
+        check(c.moved_m < 1e-4, "at " + std::to_string(at_s) + " s it moved " +
+                                    std::to_string(c.moved_m) + " m flown again");
+        check(std::abs(a.property("fcs/nozzle-cmd-deg") - nozzle_was) < 1e-3 &&
+                  std::abs(a.property("fcs/lift-fan-cmd-norm") - fan_was) < 1e-3,
+              "and her lift system's commands are the same at " + std::to_string(at_s) + " s");
+        ++checked;
+    }
+    check(checked == moments.size() && checked == 4, "all four moments were checked");
+    check(client.laws()->transition() != nullptr, "she was still in STOVL mode");
+}
+

@@ -270,9 +270,9 @@ are the risks the phase order is built around:
 **What is still missing, first.** **The item stays open**: her measured
 rolling landing distance (9,200 ft) is not yet revisited now that a plan can
 land her vertically, and **no multi-process test flies a player's STOVL
-selector through a server** - the server gives such a player a controller
-(below) and the client's prediction always had one, but only the
-single-process tests below fly it. **Only the height is the stick's in STOVL
+selector through a server**: the server gives such a player a controller
+and the client's prediction flies her through one (below), and the two are
+held together in one process, not over a socket. **Only the height is the stick's in STOVL
 mode**: the left-hand inceptor's speed, the stick's sideways translation and
 the pedals' heading in a hover, which the F-35B's "unified" control laws
 give her pilot, are not; she slows to a hover where she stops and holds her
@@ -327,10 +327,27 @@ the transition law:
   controls, the selector last (docs/TRANSPORT.md, and the doc client). A
   peer on `0B` is refused at the envelope with `WRONG_VERSION`, as at every
   version change (server_gearstick's refusal now expects `474c44530c0401`).
-- **The server**: a player whose selector reaches 1 in a lift-system
-  aeroplane is given a controller (`controller_for`), as the client's
-  prediction always has one; every caller puts a controller's controls and
-  lift system on the aircraft with `sim::apply`.
+- **The server**: a player whose selector reaches 0.5 in a lift-system
+  aeroplane is given a controller (`controller_for`); every caller puts a
+  controller's controls and lift system on the aircraft with `sim::apply`,
+  which never throws for her envelope: STOVL mode asked above her cleared
+  airspeed (`fcs/stovl-limit-kcas`, which the transition law never asks
+  but a dive while converting could meet) is flown with the fan's doors
+  closing and the rest as asked (`sim::put_lift_system`). THREATS.md says
+  the selector builds a controller and is read as a threshold.
+- **The client's prediction** (from the review of #190): `sim::Prediction`
+  flew the client's controls raw, so a networked client's F-35B never
+  converted while the server's did. An aircraft with a lift system is now
+  predicted through a pilot's `Controller`, and its state - the controls
+  applied, the mixture held, the transition law with its autopilot, hover
+  law and their integrals, the height asked (`Controller::PilotsLaws`) -
+  is kept with each step held and put back before the steps are flown
+  again, by the motion's correction, the snapshot's and an adoption alike.
+  `Transition` is copyable for it (its autopilot and hover law are held by
+  value). Every other aircraft is predicted as before.
+- **The height asked is the plan's hover's** while the AI flies a vertical
+  landing, so a pilot taking her back in the hover holds it - before, the
+  height she was at when the transition began, 1,000 ft in the test.
 - **The keyboard**: H selects STOVL mode and N conventional flight, a new
   `select` binding mode (thrown at a press, left where it is thrown), in the
   help with the rest; `stovl` is a control a bindings file may name.
@@ -355,10 +372,38 @@ the transition law:
 - `every_control_the_flight_model_has_is_one_the_wire_carries` holds
   nineteen doubles; `the_protocol_version_moves_with_the_collision_ground`
   holds version 12 and the doc client's `0x0C`.
+- `a_predicting_client_and_the_server_fed_the_same_stovl_inputs_agree_through_a_conversion_a_hover_and_a_landing`:
+  the server's controller flying each input 100 ms late, its motion back
+  100 ms later every fifth step; both convert, hover and land, and the
+  worst of 6,212 corrections once settled is 0.0256 m (bound 0.1 m). Seen
+  red on the code before this: the client never converted.
+- `a_stovl_prediction_put_back_to_its_own_state_flies_again_to_exactly_where_it_was`:
+  at 60, 115, 165 and 185 s a second flown again from her own state lands
+  0.3 to 11 micrometres from where it was (JSBSim's restore is not
+  bitwise), the fan's and nozzle's commands within a thousandth; with the
+  controller not put back, 0.5 mm to 23 cm and the fan's command 0.02 off -
+  seen red so, the 0.1 mm bound broken.
+- `an_f35b_taken_back_by_her_pilot_in_a_plans_hover_holds_the_hovers_height`:
+  taken back 10 s into the plan's hover, she holds 150 ft within 0.48 ft
+  for a minute; seen red with the height not written back (asked 1,000 ft,
+  588 ft off).
+- `the_f35bs_stovl_selector_at_its_edges_is_flown_and_never_throws`: six
+  edges, the count asserted - selected at 270 KCAS, at 60 ft (the doors
+  begin no lower than 98 ft), on the ground (converted, still down, lifted
+  by the stick), toggled every half second for 20 s, a hovering F-35B
+  handed to the AI (held within 10 ft), and STOVL mode put on her at 300
+  KCAS (flown closed, not thrown; seen red with the guard removed: it
+  threw).
+- `an_envelope_that_is_wrong_is_refused_with_the_reason_it_is_wrong`: a `0B` datagram is refused as `WRONG_VERSION`
+  by name.
 - **Seen failing**: the plan's point not passed to the transition law, she
   touched 17,542 ft from the pad; the stick's height rate made nothing, she
   was not down five minutes after the stick went forward. Both reverted.
-- Re-run, green (linux-release): 299 tests matching f35b, stovl, protocol,
+- After the review of #190, rebased onto #191: 311 tests matching f35b, stovl,
+  prediction, protocol, inputs, keyboard, levers, plan, copilot, transport,
+  gearstick, selftest, vertical and controller (not the windowed ones), all
+  green (linux-release), -j4.
+- Before it, green (linux-release): 299 tests matching f35b, stovl, protocol,
   input, plan, copilot, transport, gearstick and selftest - every F-35B
   test, her hover, transition, short take-off and vertical landing, and
   the copilot playbacks - and 121 matching keyboard, help, bindings, levers,

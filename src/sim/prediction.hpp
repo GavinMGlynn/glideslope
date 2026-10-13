@@ -21,6 +21,7 @@
 // client's business.
 
 #include "sim/aircraft.hpp"
+#include "sim/controller.hpp"
 #include "sim/fixed_step.hpp"
 
 #include <algorithm>
@@ -68,7 +69,20 @@ inline constexpr std::size_t pace_window = 10;
 class Prediction {
 public:
     // Flies `aircraft`, which the caller owns and must outlive this.
-    explicit Prediction(Aircraft& aircraft) : aircraft_(aircraft) {}
+    //
+    // **An aircraft with a lift system is flown through a pilot's
+    // controller** (sim::Controller), as the server flies a player's: her
+    // STOVL mode selector hands her lift system to the transition law, which
+    // the server runs, so a prediction flying her controls raw never
+    // converted while the server's aircraft did. The controller's state
+    // (Controller::PilotsLaws) is kept with each step held and put back
+    // before the steps are flown again, as the motion is. Any other aircraft
+    // is flown on its controls as they are.
+    explicit Prediction(Aircraft& aircraft);
+
+    // The controller her lift system is flown through; null for an aircraft
+    // without one.
+    const Controller* laws() const { return laws_ ? &*laws_ : nullptr; }
 
     // One step of the client's own flying: the input for this frame, kept
     // until the server says it has applied it.
@@ -194,13 +208,20 @@ private:
         // What the motion does not carry, as the step began: flown again from
         // the server's word, the step is flown from this (ReplayState).
         ReplayState before;
+        // And the lift system's controller as the step began, if she has one.
+        std::optional<Controller::PilotsLaws> laws_before;
     };
+
+    // One step's controls put on the aircraft: through the controller, for
+    // an aircraft with a lift system.
+    void put(const Controls& controls);
 
     // What the motion does not carry put back to the first step held, before
     // it is flown again.
     void as_at_first_held();
 
     Aircraft& aircraft_;
+    std::optional<Controller> laws_;
     std::deque<Applied> held_;
     // The step each input still held, or still to be put right from, began on.
     std::map<std::uint32_t, std::uint64_t> began_;
