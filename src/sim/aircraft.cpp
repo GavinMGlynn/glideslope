@@ -553,6 +553,19 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
                 dry_rolling_friction_ = exec_->GetPropertyValue(
                     "gear/unit[" + std::to_string(i) + "]/rolling_friction_coeff");
             }
+            // **Her wheels' dry grip sideways**: JSBSim's side force peaks
+            // at a wheel's static friction, which a runway that is not dry
+            // scales (apply_weather). A wheel is a bogey that rolls more
+            // freely than it grips; a bogey that does not - the A320's
+            // tail and wingtips, a flying boat's keel - is a scraping
+            // point, and keeps its own.
+            const std::string unit_name = "gear/unit[" + std::to_string(i) + "]";
+            if (unit->IsBogey() &&
+                exec_->GetPropertyValue(unit_name + "/rolling_friction_coeff") <
+                    unit->GetstaticFCoeff()) {
+                wheel_static_friction_.push_back(
+                    {unit_name + "/static_friction_coeff", unit->GetstaticFCoeff()});
+            }
         }
     }
     if (hydrodynamics_) {
@@ -1148,26 +1161,57 @@ void Aircraft::apply_weather() {
     // braked below the runway's limit grips what it is asked (it was the
     // pedal times the share until 2026-10-13, which took grip from a light
     // steering brake that the runway would have given).
+    //
+    // **And its grip on a rolling wheel sideways**, since 2026-10-14. JSBSim
+    // gives a wheel no more side force than its static friction s - the
+    // peak of its cornering curve - times the ground's factor. On a runway
+    // that is not dry every wheel's s is scaled by her side grip share
+    // (sim/runway_condition.hpp): the wet tyre's cornering coefficient over
+    // the dry tyre's, from NASA's measurements, at her groundspeed and her
+    // main tyres' pressure. JSBSim brakes with the same s, so the pedal
+    // sent is scaled back up, (s - r) / (share s - r), to brake exactly as
+    // before: a wet wheel's braking is the code's coefficient, as above,
+    // and its cornering is its own. Dry, nothing is touched.
     runway_condition_ = c.runway_condition;
     gust_factor_kt_ = c.gust_factor_kt;
     brake_share_ = 1.0;
+    side_grip_ = 1.0;
+    brake_scale_ = 1.0;
     runway_braking_coefficient_ = std::numeric_limits<double>::quiet_NaN();
-    if (c.runway_condition != dry_runway && dry_braking_friction_ > dry_rolling_friction_) {
+    const bool wheels =
+        dry_braking_friction_ > dry_rolling_friction_ || !wheel_static_friction_.empty();
+    if (c.runway_condition != dry_runway && wheels) {
         if (!wheel_brakes_) {
             throw std::runtime_error(model_ + " is on a runway of condition code " +
                                      std::to_string(c.runway_condition) +
                                      ", and nothing says what tyres and anti-skid she has");
         }
         const double kts = value("velocities/vg-fps") / 1.68781;
-        runway_braking_coefficient_ =
-            wheel_braking_coefficient(c.runway_condition, kts, *wheel_brakes_);
-        brake_share_ = std::clamp(
-            (runway_braking_coefficient_ - dry_rolling_friction_) /
-                (dry_braking_friction_ - dry_rolling_friction_),
-            0.0, 1.0);
+        side_grip_ = held_side_grip_ ? *held_side_grip_
+                                     : side_grip_share(c.runway_condition, kts,
+                                                       wheel_brakes_->tyre_pressure_psi);
+        if (dry_braking_friction_ > dry_rolling_friction_) {
+            runway_braking_coefficient_ =
+                wheel_braking_coefficient(c.runway_condition, kts, *wheel_brakes_);
+            brake_share_ = std::clamp(
+                (runway_braking_coefficient_ - dry_rolling_friction_) /
+                    (dry_braking_friction_ - dry_rolling_friction_),
+                0.0, 1.0);
+            if (side_grip_ < 1.0) {
+                brake_scale_ = (dry_braking_friction_ - dry_rolling_friction_) /
+                               std::max(side_grip_ * dry_braking_friction_ - dry_rolling_friction_,
+                                        1e-3);
+            }
+        }
     }
-    set("fcs/left-brake-cmd-norm", std::min(left_brake_, brake_share_));
-    set("fcs/right-brake-cmd-norm", std::min(right_brake_, brake_share_));
+    if (side_grip_ != applied_side_grip_) {
+        for (const auto& [property, dry] : wheel_static_friction_) {
+            set(property, dry * side_grip_);
+        }
+        applied_side_grip_ = side_grip_;
+    }
+    set("fcs/left-brake-cmd-norm", std::min(left_brake_, brake_share_) * brake_scale_);
+    set("fcs/right-brake-cmd-norm", std::min(right_brake_, brake_share_) * brake_scale_);
 }
 
 void Aircraft::step() {

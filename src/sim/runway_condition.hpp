@@ -84,6 +84,49 @@ double wet_wheel_braking_coefficient(double groundspeed_kts, const WheelBrakes& 
 // model's own and has no figure here, and for any code not from 1 to 6.
 double wheel_braking_coefficient(int code, double groundspeed_kts, const WheelBrakes& brakes);
 
+// **A free-rolling tyre's grip sideways** - its cornering-force friction
+// coefficient, the side force over the weight on it at the yaw angle that
+// gives the most - on a runway that is not dry.
+//
+// **On a wet runway it is a share of the runway's maximum braking
+// coefficient**, from NASA TN D-7743 (Dreher and Tanner, 1974), table II:
+// five 30 x 11.5-14.5 type VIII tyres at 265 psi, braked and yawed on the
+// same damp concrete at 5, 50 and 100 knots. The most unbraked cornering
+// coefficient over 4, 8 and 12 degrees of yaw, over the unyawed tyre's
+// maximum braking coefficient, averages 0.571 at 5 kt, 0.603 at 50 and
+// 0.769 at 100 (each tyre's in tests/unit/test_weather.cpp). It is read
+// linearly between, and held beyond.
+double wet_cornering_share(double groundspeed_kts);
+
+// **The dry runway's cornering coefficient**, what the wet's is measured
+// against: NASA TN D-7351 (Tanner and Dreher, 1973), figure 7, a 40 x 14-16
+// type VII tyre at 155 psi and 10 degrees of yaw, unbraked, on dry concrete
+// - its fairing read as 0.48 at 5 kt falling to 0.43 at 100, read linearly
+// between and held beyond.
+double dry_cornering_coefficient(double groundspeed_kts);
+
+// **The runway's maximum coefficient**: what a braked wheel on runway
+// condition `code` grips before any anti-skid takes its share -
+// `wheel_braking_coefficient` for a fully modulating anti-skid over its
+// 0.80. On a wet runway, 25.109(c)(1)'s curve at the tyre's pressure.
+double runway_maximum_coefficient(int code, double groundspeed_kts, double tyre_pressure_psi);
+
+// **The free-rolling tyre's cornering coefficient on runway condition
+// `code`**: TN D-7743's share at the groundspeed times the runway's maximum
+// coefficient for the tyre's pressure. Predicted for TN D-7351's tyre, it
+// is that report's damp-runway figure 7 within 0.05 (the test). Codes 1 to
+// 4 carry the wet runway's share to their own maximum coefficient, which
+// no source here measured cornering on. Throws for dry, as
+// `wheel_braking_coefficient` does.
+double cornering_coefficient(int code, double groundspeed_kts, double tyre_pressure_psi);
+
+// **The share of her dry side grip a tyre keeps on runway condition
+// `code`**: its cornering coefficient over the dry runway's, at most 1 -
+// the wet runway's loss of side grip as the reports measured it, laid on
+// her flight model's own dry side friction as the brakes' share is laid on
+// its braking. 1 on a dry runway.
+double side_grip_share(int code, double groundspeed_kts, double tyre_pressure_psi);
+
 // **A wet runway's landing distance is 1.15 times the dry**: 14 CFR
 // 121.195(d) holds a turbojet to an effective runway at least 115 per cent
 // of what (b) asks of a dry one when the runway may be wet or slippery.
