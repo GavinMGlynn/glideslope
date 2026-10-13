@@ -81,6 +81,12 @@ struct PublishedFigures {
     // her flight manual's or her class's, which the file cites. 0 where the
     // file gives none, and her rotation is then not held.
     double rotation_degps = 0.0;
+    // **The stick the rotation's rate loop asks for each degree a second
+    // she is off that rate** (`rotation_stick_per_degps`, sim::Departure):
+    // her elevator's authority over her pitch rate on her wheels, so that
+    // the loop neither lags nor rings. 0 where the file gives none, and the
+    // loop's own default (0.3, the airliners') is used.
+    double rotation_stick_per_degps = 0.0;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;

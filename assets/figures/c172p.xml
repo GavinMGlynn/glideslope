@@ -23,14 +23,21 @@
 -->
 <!--
   **rotation_degps** is the rate the take-off autopilot rotates her at on
-  her wheels (sim/departure.hpp): four degrees a second. Her handbook gives
-  none - it has her nose raised to the lift-off attitude - and the FAA's
-  Airplane Flying Handbook (FAA-H-8083-3C, chapter 5) asks only that it be
-  raised smoothly; "most aircraft should be rotated at three to four degrees
-  per second" ("Rotation Rate", code7700.com), and a light aeroplane takes
-  the top of it.
+  her wheels (sim/departure.hpp): four degrees a second, a tuning value.
+  Her handbook gives none - it has her nose raised to the lift-off
+  attitude - and the FAA's Airplane Flying Handbook (FAA-H-8083-3C,
+  chapter 5) asks only that it be raised smoothly. The rule of thumb is
+  "three to four degrees per second" for most aircraft ("Rotation Rate",
+  code7700.com); four is its top, and holds her within a degree a second
+  of it at every loading (docs/PROJECT_STATUS.md, 2026-10-13).
+
+  **rotation_stick_per_degps** is the stick her rate loop asks for each
+  degree a second she is off it, a tuning value: a tenth. At the 0.3 an
+  airliner takes, her stick rang from stop to stop twenty times a second
+  on her wheels; at 0.15 it still turned back eight times; at 0.1 three to
+  five (docs/PROJECT_STATUS.md, 2026-10-13).
 -->
-<published_figures aircraft="c172p" rotation_degps="4" flaps_full_deg="30">
+<published_figures aircraft="c172p" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="30">
   <source>Cessna Model 172P Pilot's Operating Handbook, 12 May 1981</source>
 
   <!-- 2400 lb, the maximum take-off weight the handbook's figures are for:

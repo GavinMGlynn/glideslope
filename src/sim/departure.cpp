@@ -39,23 +39,24 @@ constexpr double strike_margin_deg = 2.0;
 constexpr double rotation_rate_per_deg_short = 1.0;
 // **The rate held on her wheels** (Departure::fly_laws): a nose-wheel
 // aeroplane's stick, once her nose is coming at a quarter of her rate, is
-// her pitch rate's: a tenth of the stick's travel for each three tenths of a
-// degree a second off the rate asked for, at once, and the pull under it
+// her pitch rate's: her own stick for each degree a second off the rate
+// asked for (0.3 for most), at once, and the pull under it
 // moved by two of her rates' worth of travel a second for each degree a
 // second it is off - half the travel a second for an aeroplane rotated at
 // four. Found by flying every nose-wheel aeroplane at every loading
 // (docs/PROJECT_STATUS.md, 2026-10-13).
 constexpr double rate_held_from = 0.25;
-constexpr double rate_stick_per_degps = 0.3;
+// **Her pitch rate as the loop reads it is smoothed** over about two and
+// a half steps, and **the stick asked per degree a second off the rate is
+// her own** (DepartureSpeeds::rotation_stick_per_degps, from her figures;
+// 0.3 where they give none). At 0.3 and read step by step, the C172P's
+// stick rang from stop to stop twenty times a second on her wheels - a
+// limit cycle of a loop whose gain is too high for her elevator with the
+// step's lag - and she left the runway with it at its stop; handed over
+// there, the stick was taken as trim and she was flown back on to the
+// runway (docs/PROJECT_STATUS.md, 2026-10-13).
+constexpr double rate_filter_steps = 2.5;
 constexpr double rate_pull_rates_per_s = 2.0;
-// **And the stick it asks moves no faster than twice a hand's pace**, two
-// of its travel a second. Without it the C172P's stick rang from stop to
-// stop twenty times a second on her wheels - her elevator answers far
-// more for its travel than an airliner's - and she left the runway with it
-// at its stop; handed over there, the stick was taken as trim and she was
-// flown back on to the runway (docs/PROJECT_STATUS.md, 2026-10-13). With
-// it she leaves with 0.12 of stick, as the old law left her with 0.13.
-constexpr double rate_stick_slew_per_s = 2.0;
 // **How fast the pull builds while her nose will not come**, of the stick's
 // travel a second: half, as the F-15's flight manual has the stick brought
 // back (T.O. 1F-15A-1, figure A3-6: one half aft stick over one second);
@@ -270,11 +271,14 @@ double Departure::climb_kts() const {
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                                  const std::string& model) {
     DepartureSpeeds speeds = speeds_from_figures(data, model);
-    const double rotation_degps =
-        read_published_figures(data / "figures" / (model + ".xml")).rotation_degps;
-    if (rotation_degps > 0.0) {
-        speeds.rotation_degps = rotation_degps;
+    const PublishedFigures figures =
+        read_published_figures(data / "figures" / (model + ".xml"));
+    if (figures.rotation_degps > 0.0) {
+        speeds.rotation_degps = figures.rotation_degps;
         speeds.rotation_held = true;
+    }
+    if (figures.rotation_stick_per_degps > 0.0) {
+        speeds.rotation_stick_per_degps = figures.rotation_stick_per_degps;
     }
     speeds.flaps_up_ft = transport_flaps_up_ft;
     for (const CatalogueEntry& e : read_catalogue(data)) {
@@ -751,7 +755,7 @@ Controls Departure::fly_laws() {
         // **On a nose-wheel aeroplane's wheels the rate is held**, not
         // merely its growth: once her nose is coming at a quarter of the
         // rate asked, the stick is her pitch rate's (rate_held_from,
-        // rate_stick_per_degps, rate_pull_rates_per_s), taken over from
+        // rotation_stick_per_degps, rate_pull_rates_per_s), taken over from
         // where the stick was so that it does not jump. The pull it built
         // to lift the nose wheel is more than the nose needs once it is off,
         // and more still as she gains speed: easing it only as the nose
@@ -765,11 +769,16 @@ Controls Departure::fly_laws() {
         // (docs/PROJECT_STATUS.md, 2026-10-13). A tail-wheel aeroplane, whose
         // tail is raised on the roll and who is flown off level, is never
         // held.
-        const double rate_error = rate_wanted - q_now;
+        // Her pitch rate as the loop reads it: smoothed over about two and a
+        // half steps (rate_filter_steps), so that one step's jolt of her
+        // gear is not answered stick for stick.
+        q_filtered_degps_ += (q_now - q_filtered_degps_) / rate_filter_steps;
+        const double rate_error = rate_wanted - q_filtered_degps_;
+        const double gain = speeds_.rotation_stick_per_degps;
         if (on_ground && !tail_wheel_ && speeds_.rotation_held && !rate_engaged_ &&
-            q_now >= rate_held_from * rate_wanted) {
+            q_filtered_degps_ >= rate_held_from * rate_wanted) {
             rate_engaged_ = true;
-            pull_ = std::clamp(last_elevator_ - pitch_trim_ - rate_stick_per_degps * rate_error,
+            pull_ = std::clamp(last_elevator_ - pitch_trim_ - gain * rate_error,
                                0.0, 1.0);
         }
         if (on_ground && rate_engaged_) {
@@ -777,10 +786,7 @@ Controls Departure::fly_laws() {
                                            rate_error / steps_per_second,
                                0.0, 1.0);
             rate_held_ = true;
-            const double was = last_elevator_ - pitch_trim_;
-            rate_stick_ = std::clamp(pull_ + rate_stick_per_degps * rate_error,
-                                     was - rate_stick_slew_per_s / steps_per_second,
-                                     was + rate_stick_slew_per_s / steps_per_second);
+            rate_stick_ = pull_ + gain * rate_error;
         } else {
             const bool too_fast = on_ground && q_now > slowing_to + 1.0;
             if (lagging_deg > 1.0 && q_now < rate_wanted &&
