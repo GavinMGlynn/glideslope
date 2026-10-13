@@ -269,7 +269,7 @@ void Flight::step(const sim::Controls& controls) {
         }
     }
     controller_->set_pilot(controls);
-    aircraft_->set_controls(controller_->fly());
+    glideslope::sim::apply(*aircraft_, *controller_);
     aircraft_->step();
     ++tick_;
     if (checklist_) {

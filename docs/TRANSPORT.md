@@ -71,6 +71,8 @@ Said first, because a transport's limits matter more than its features.
   Version `0B` is on the same ground, and is the first whose server tells
   every client the runways its weather lays a condition on, and until when
   the runways near its station stay wet (`RUNWAY_CONDITIONS`, below).
+  Version `0C` is on the same ground, and is the first whose input frame
+  carries nineteen controls, the STOVL mode selector last (below, "Inputs").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -81,7 +83,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `0B` |
+| 4 | 1 | version | `0C` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -127,7 +129,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `0B`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `0C`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -929,7 +931,7 @@ have not been sent yet.
 | `u32` | the newest frame's sequence number, from 1 |
 | `u8` | how many frames follow, 1 to 4 |
 | | then, per frame, oldest first: |
-| `i16` x18 | the eighteen controls |
+| `i16` x19 | the nineteen controls |
 
 The frames are consecutive, so only the newest sequence is sent: the oldest
 is the newest less one fewer than the count.
@@ -949,7 +951,7 @@ flew the stick's exact number while the server flew the rounded one, the two
 would diverge for a reason no measurement could explain. So the client rounds
 first and flies the rounded value.
 
-The eighteen controls, in order, **every one of them sent in every frame**:
+The nineteen controls, in order, **every one of them sent in every frame**:
 a frame is the whole cockpit, and the server flies exactly what it says. A
 control a client does not move must be sent at the value that leaves the
 aeroplane alone - which for several is not nought.
@@ -974,6 +976,7 @@ aeroplane alone - which for several is not nought.
 | 15 | cooling flaps, port engine | 0 to 1 | 1 open | 0 |
 | 16 | cooling flaps, starboard engine | 0 to 1 | the same | 0 |
 | 17 | reverse | 0 to 1 | 0 stowed; more deploys the thrust reversers on the ground, 0.1 idle reverse, 1 maximum | 0 |
+| 18 | STOVL mode | 0 or 1 | 1 asks a lift-system aeroplane's flight controls for STOVL mode, 0 for conventional flight; in STOVL mode her flight controls fly the lift system and the elevator asks for height | 0 |
 
 An aeroplane without a control ignores it. **Nothing is clamped on the way in**
 but each engine's throttle-plus-offset, which is held to 0 to 1: a value outside
@@ -982,7 +985,7 @@ one. **Frames of all zeros are not "no input"**: they cut the mixture and raise
 the gear. The wire itself does not know what the controls are - the flight
 model hands them over as a flat list and takes them back the same way, which is
 what keeps the list above and the simulation from drifting apart when a control
-is added; a test holds the count to eighteen.
+is added; a test holds the count to nineteen.
 
 ### What is inside a sealed body
 

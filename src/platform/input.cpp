@@ -27,7 +27,8 @@ const std::map<std::string, Control>& control_names() {
         {"left_brake", Control::left_brake},
         {"right_brake", Control::right_brake},
         {"brakes", Control::brakes},
-        {"speedbrake", Control::speedbrake}};
+        {"speedbrake", Control::speedbrake},
+        {"stovl", Control::stovl}};
     return names;
 }
 
@@ -57,6 +58,7 @@ std::vector<double*> fields(Control c, sim::Controls& controls) {
     case Control::right_brake: return {&controls.right_brake};
     case Control::brakes: return {&controls.left_brake, &controls.right_brake};
     case Control::speedbrake: return {&controls.speedbrake};
+    case Control::stovl: return {&controls.stovl};
     }
     return {};
 }
@@ -342,6 +344,7 @@ const std::vector<KeyboardBinding>& keyboard_bindings() {
          "APOSTROPHE"},
         {Control::flaps, Mode::step, SDL_SCANCODE_R, SDL_SCANCODE_F, "R", "F"},
         {Control::brakes, Mode::hold, SDL_SCANCODE_UNKNOWN, SDL_SCANCODE_B, "", "B"},
+        {Control::stovl, Mode::select, SDL_SCANCODE_N, SDL_SCANCODE_H, "N", "H"},
     };
     return keys;
 }
@@ -437,9 +440,10 @@ std::vector<std::string> controls_help(const std::vector<Binding>& bindings) {
                                      ? std::string(k.more_name)
                                      : std::string(k.less_name) + " " + k.more_name;
         lines.push_back(" " + padded(keys, 28) + help_name(k.control) +
-                        (k.mode == Mode::hold   ? " HELD"
-                         : k.mode == Mode::step ? " A NOTCH A PRESS"
-                                                : ""));
+                        (k.mode == Mode::hold     ? " HELD"
+                         : k.mode == Mode::step   ? " A NOTCH A PRESS"
+                         : k.mode == Mode::select ? " OFF, ON"
+                                                  : ""));
     }
     for (const DeviceKind device : {DeviceKind::flight_stick, DeviceKind::throttle}) {
         lines.push_back(help_name(device));
@@ -515,6 +519,12 @@ void KeyboardControls::apply(sim::Controls& controls, double seconds,
             notch(k.less, flaps_up_, -1.0);
             break;
         }
+        case Mode::select:
+            // Thrown by a press, and left where it is thrown.
+            for (double* f : moved) {
+                *f = down(k.more) ? 1.0 : down(k.less) ? 0.0 : *f;
+            }
+            break;
         case Mode::hold:
             if (down(k.more) || brakes_) {
                 for (double* f : moved) {

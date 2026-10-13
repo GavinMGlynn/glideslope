@@ -372,11 +372,19 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       published thrust, lands vertically, and takes off in its published
       short distance.* Done 2026-10-13.
 - [ ] **No pilot or AI plan flies the F-35B between jet-borne and
-      wing-borne flight**: only tests fly her transition law, from 200 kt to
-      a 150 ft hover and back. When a plan can land her vertically, her
-      measured rolling landing distance (9,200 ft) is revisited.
-      *Verification: she is flown into a hover and out again, and a pilot
-      and an AI plan each convert her.*
+      wing-borne flight**: since 2026-10-14 a pilot's STOVL selector (H and
+      N) and stick, and a plan's `land_vertically`, fly her transition law
+      (PROJECT_STATUS, 2026-10-14). Still to do: her measured rolling
+      landing distance (9,200 ft) revisited, and a player's selector flown
+      through a server in a multi-process test. *Verification: she is flown
+      into a hover and out again, and a pilot and an AI plan each convert
+      her.*
+- [ ] **The F-35B's pilot flies only her height in STOVL mode**: her
+      throttle's speed, the stick's sideways translation and the pedals'
+      heading in a hover are not the pilot's, and a plan given to the AI
+      while she hovers is not flown. *Verification: a pilot flies her
+      jet-borne at a chosen speed and moves her sideways in a hover, and a
+      plan given her hovering converts her back and is flown.*
 - [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses

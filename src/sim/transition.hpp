@@ -71,11 +71,35 @@ public:
 
     // What it is asked: a hover, or wing-borne flight at `kcas`; at
     // `height_ft` above the ground beneath her either way.
+    //
+    // **A hover may be over a point** (`over`): she is steered at it
+    // wing-borne, while it is more than `steer_within_ft` away - jet-borne
+    // her law flies her speed along her heading and nothing across it, so a
+    // turn there would leave her drifting sideways; jet-borne, the speed asked is no more than she stops in at her
+    // own rate by the distance to it along her heading, so that she slows to
+    // a stop over it; and the hover law holds over it, not over where she
+    // stopped. Without one she hovers where she stops, as before.
+    //
+    // **And hovering, she lets down to land** when `land` is asked (the hover
+    // law's own landing, Hover::Target::land).
+    struct Point {
+        double latitude_deg = 0.0;
+        double longitude_deg = 0.0;
+    };
     struct Target {
         bool hover = true;
         double height_ft = 150.0;
         double kcas = 200.0;
+        bool land = false;
+        std::optional<Point> over;
     };
+    static constexpr double steer_within_ft = 2000.0;
+
+    // **How far ahead of a point she must be asked for a hover over it** to
+    // stop over it, from `kcas` wing-borne: the distance she stops in at her
+    // own rate from her conversion speed, half again, and half a minute at
+    // her conversion speed for the fan's doors to open - feet.
+    static double stops_within_ft(const Aircraft& aircraft, double kcas);
 
     // Taken over from whatever is flying her now with `flying` - wing-borne
     // when her lift system is not converted, hovering when she stands on the
@@ -110,6 +134,10 @@ private:
     void seed_jet_borne(const Hover::Command& flying, bool from_hover);
     // The least height she converts at, or the height asked if higher.
     double conversion_height_ft(const Target& target) const;
+    // Turned toward `target`'s point while it is far off; and the distance
+    // to it along her heading, ft, if there is one.
+    void steer_at(const Target& target);
+    std::optional<double> ahead_of_point_ft(const Target& target) const;
     Hover::Command fly_wing_borne(const Target& target, bool converted);
     Hover::Command fly_jet_borne(const Target& target, bool back);
 

@@ -3294,3 +3294,46 @@ GLIDESLOPE_TEST(a_landing_is_read_from_a_plan_and_refused_where_it_is_wrong) {
     }
     check(refusals == 9, "nine ways wrong, and every one refused");
 }
+
+// **A plan that ends in a vertical landing** (`land_vertically`): read - the
+// point and the hover's seconds - and refused wherever it is wrong, each way
+// built: its words, each number out of its range, a second one, one after
+// `land` or before it, and a line after it.
+GLIDESLOPE_TEST(a_vertical_landing_is_read_from_a_plan_and_refused_where_it_is_wrong) {
+    const FlightPlan plan = parse_flight_plan(
+        "aircraft f35b\n"
+        "start -33.9461 151.1772 1000 70 250\n"
+        "waypoint EAST -33.9122 151.2895 1000 250\n"
+        "land_vertically PAD -33.8629 151.4527 30\n");
+    check(plan.vertical_landing && plan.vertical_landing->name == "PAD" &&
+              plan.vertical_landing->latitude_deg == -33.8629 &&
+              plan.vertical_landing->longitude_deg == 151.4527 &&
+              plan.vertical_landing->hover_s == 30.0 && !plan.landing &&
+              plan.waypoints.size() == 1,
+          "the point landed on and the hover's seconds, after the waypoints");
+    check(!parse_flight_plan("aircraft f35b\nwaypoint A -33 151 3000 100\n").vertical_landing,
+          "a plan without one lands nowhere");
+
+    const std::string head = "aircraft f35b\nwaypoint A -33 151 3000 100\n";
+    const std::string pad = "land_vertically P -33.9 151.2 30\n";
+    const std::string land = "land R -33.9 151.2 8 168 3962\n";
+    const std::vector<std::pair<std::string, std::string>> wrong{
+        {head + "land_vertically P -33.9 151.2\n", "land_vertically NAME"},
+        {head + "land_vertically P -33.9 151.2 30 more\n", "land_vertically NAME"},
+        {head + "land_vertically P -95 151.2 30\n", "the latitude must be a number"},
+        {head + "land_vertically P -33.9 190 30\n", "the longitude must be a number"},
+        {head + "land_vertically P -33.9 151.2 -1\n", "the hover's seconds must be a number"},
+        {head + "land_vertically P -33.9 151.2 601\n", "the hover's seconds must be a number"},
+        {head + pad + pad, "a second land_vertically line"},
+        {head + land + pad, "`land` is the last line"},
+        {head + pad + land, "`land_vertically` is the last line"},
+        {head + pad + "waypoint B -33 151 3000 100\n", "`land_vertically` is the last line"},
+        {"aircraft f35b\n" + pad, "no waypoints"},
+    };
+    std::size_t refusals = 0;
+    for (const auto& [text, says] : wrong) {
+        check(refused(text, says), "refused, saying \"" + says + "\":\n" + text);
+        ++refusals;
+    }
+    check(refusals == 11, "eleven ways wrong, and every one refused");
+}

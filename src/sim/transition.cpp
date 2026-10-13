@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <cmath>
 #include <stdexcept>
+#include <utility>
 
 namespace glideslope::sim {
 
@@ -113,6 +114,50 @@ double Transition::wing_borne_pitch_deg() const {
            (q_psf * a_.property("metrics/Sw-sqft") * lift_slope_per_rad_) * deg_per_rad;
 }
 
+namespace {
+
+constexpr double earth_radius_ft = 20902231.0;
+
+// Feet north and east of `here` to `there`, on a sphere, as the hover law
+// reckons its drift.
+std::pair<double, double> north_east_ft(double lat_deg, double lon_deg,
+                                        const Transition::Point& there) {
+    const double north = (there.latitude_deg - lat_deg) * rad_per_deg * earth_radius_ft;
+    const double east = (there.longitude_deg - lon_deg) * rad_per_deg * earth_radius_ft *
+                        std::cos(lat_deg * rad_per_deg);
+    return {north, east};
+}
+
+} // namespace
+
+double Transition::stops_within_ft(const Aircraft& aircraft, double kcas) {
+    const double convert_kcas = aircraft.property("fcs/stovl-convert-kcas");
+    const double v_fps = std::max(kcas, convert_kcas) * fps_per_kt;
+    const double rate_fps2 = aircraft.property("fcs/transition-slow-kt-per-s") * fps_per_kt;
+    return 1.5 * v_fps * v_fps / (2.0 * rate_fps2) + 30.0 * convert_kcas * fps_per_kt;
+}
+
+void Transition::steer_at(const Target& target) {
+    if (!target.hover || !target.over) {
+        return;
+    }
+    const AircraftState s = a_.state();
+    const auto [north, east] = north_east_ft(s.latitude_deg, s.longitude_deg, *target.over);
+    if (std::hypot(north, east) > steer_within_ft) {
+        heading_deg_ = std::fmod(std::atan2(east, north) * deg_per_rad + 360.0, 360.0);
+    }
+}
+
+std::optional<double> Transition::ahead_of_point_ft(const Target& target) const {
+    if (!target.over) {
+        return std::nullopt;
+    }
+    const AircraftState s = a_.state();
+    const auto [north, east] = north_east_ft(s.latitude_deg, s.longitude_deg, *target.over);
+    const double psi = heading_deg_ * rad_per_deg;
+    return north * std::cos(psi) + east * std::sin(psi);
+}
+
 double Transition::conversion_height_ft(const Target& target) const {
     return std::max(target.height_ft, least_ft_);
 }
@@ -162,6 +207,12 @@ Hover::Command Transition::step(const Target& target) {
     const bool reversed =
         last_asked_hover_.has_value() && *last_asked_hover_ != target.hover;
     last_asked_hover_ = target.hover;
+    // Steered wing-borne only: jet-borne her law flies her speed along her
+    // heading and nothing across it, so a turn there leaves her drifting
+    // sideways at what she had.
+    if (stage_ == Stage::wing_borne || (stage_ == Stage::converting && autopilot_)) {
+        steer_at(target);
+    }
     // Where the ask sends her from the stage she is in.
     switch (stage_) {
     case Stage::wing_borne:
@@ -194,6 +245,9 @@ Hover::Command Transition::step(const Target& target) {
         } else if (target.hover && speed_asked_kt_ <= 0.0 && ground_kt(a_) < hover_kt &&
                    a_.property("fcs/nozzle-pos-deg") >= nozzle_down_deg - 0.5) {
             become_hovering(last_);
+            if (target.over) {
+                hover_->hold_over(target.over->latitude_deg, target.over->longitude_deg);
+            }
         }
         break;
     case Stage::hovering:
@@ -212,7 +266,7 @@ Hover::Command Transition::step(const Target& target) {
         break;
     case Stage::jet_borne: c = fly_jet_borne(target, false); break;
     case Stage::hovering:
-        c = hover_->step({target.height_ft - hover_base_ft_, false});
+        c = hover_->step({target.height_ft - hover_base_ft_, target.land});
         break;
     }
     last_ = c;
@@ -266,7 +320,14 @@ Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
 
     // The speed asked, moving at her rate toward a hover or past her
     // conversion speed.
-    if (target.hover) {
+    if (target.hover && target.over) {
+        // Over a point: no faster than she stops in by it, at her rate,
+        // and never faster than she was. Past it, nothing.
+        const double ahead_ft = std::max(*ahead_of_point_ft(target), 0.0);
+        const double rate_fps2 = slow_kt_per_s_ * fps_per_kt;
+        const double stops_kt = std::sqrt(2.0 * rate_fps2 * ahead_ft) * kt_per_fps;
+        speed_asked_kt_ = stops_kt < hover_kt ? 0.0 : std::min(speed_asked_kt_, stops_kt);
+    } else if (target.hover) {
         speed_asked_kt_ = std::max(speed_asked_kt_ - slow_kt_per_s_ * dt, 0.0);
     } else {
         speed_asked_kt_ = std::min(speed_asked_kt_ + gather_kt_per_s_ * dt,

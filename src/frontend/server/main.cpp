@@ -2665,6 +2665,14 @@ public:
                 }
                 continue;
             }
+            // **A player's STOVL mode selector is flown by a controller**:
+            // her lift system is her flight-control laws', never the
+            // player's (sim/controller.hpp), so selecting it gives her
+            // one, as the client's prediction always has.
+            if (!a.controller && a.slot >= 0 && a.held.stovl >= 0.5 &&
+                a.aircraft->has_lift_system()) {
+                a.controller = controller_for(*a.aircraft, a.model, a.held);
+            }
             if (a.controller) {
                 // The AI pilot: its autopilot and navigator decide the
                 // controls, which is what "the LLM plans, the controllers
@@ -2674,7 +2682,7 @@ public:
                 if (a.slot >= 0) {
                     a.controller->set_pilot(a.held);
                 }
-                a.aircraft->set_controls(a.controller->fly());
+                glideslope::sim::apply(*a.aircraft, *a.controller);
             } else {
                 a.aircraft->set_controls(a.held);
             }
