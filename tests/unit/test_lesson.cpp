@@ -515,6 +515,11 @@ struct Flown {
     double climb_most_kts = -1e9;
     // The speed the take-off autopilot began its rotation at.
     double rotation_began_kts = 0.0;
+    // And the speed her nose had come a degree up from where she stands at,
+    // on her wheels: the rotation itself, whoever flew it.
+    double nose_up_kts = 0.0;
+    // Her rotation speed for what she weighs (sim::Departure).
+    double rotate_kts = 0.0;
 };
 
 // **A flying boat takes off from water and alights on it.** The runway's
@@ -596,6 +601,8 @@ Flown fly_the_take_off(const std::string& id, double early_from_kts,
     double out_least = 1e9;
     double out_most = -1e9;
     double out_off_at_kts = 0.0;
+    double out_nose_up_kts = 0.0;
+    double rolling_pitch_deg = -99.0;
     double out_climb_least = 1e9;
     double out_climb_most = -1e9;
     bool pulled = false;
@@ -658,6 +665,18 @@ Flown fly_the_take_off(const std::string& id, double early_from_kts,
         if (run.stage() > was && was == lift_off_stage) {
             out_off_at_kts = aircraft.property("velocities/vc-kts");
         }
+        // **Rotated**: her nose a degree above where she rolled at 20 knots,
+        // still on her wheels - whoever raised it. From where she rolls, not
+        // where she stands: a 737-300 settles on her gear by more than a
+        // degree as she starts to move.
+        if (rolling_pitch_deg < -90.0 && aircraft.property("velocities/vc-kts") >= 20.0) {
+            rolling_pitch_deg = aircraft.property("attitude/theta-deg");
+        }
+        if (out_nose_up_kts == 0.0 && rolling_pitch_deg > -90.0 &&
+            aircraft.property("gear/wow") > 0.5 &&
+            aircraft.property("attitude/theta-deg") > rolling_pitch_deg + 1.0) {
+            out_nose_up_kts = aircraft.property("velocities/vc-kts");
+        }
         if (aircraft.property("position/h-agl-ft") > 15.0) {
             const double theta = aircraft.property("attitude/theta-deg");
             out_least = std::min(out_least, theta);
@@ -675,7 +694,7 @@ Flown fly_the_take_off(const std::string& id, double early_from_kts,
     }
     return {run.debrief_lines(), where, run.completed(), it->stages.size(), out_least,
             out_most, out_off_at_kts, out_climb_least, out_climb_most,
-            departure.rotation_began_kts()};
+            departure.rotation_began_kts(), out_nose_up_kts, departure.speeds().rotate_kts};
 }
 
 } // namespace
@@ -1043,13 +1062,11 @@ GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_i
 // the 747-400 and the F-22A, whose speeds are measured from their models,
 // are flown with the rest. **Left out, and named**: the tail-wheel
 // aeroplanes (the Cub, the Mosquito), whose tail is raised on the roll and
-// who are flown off level, and the flying boat. **Flown and not judged: the
-// F-22A**, who still comes up at ten degrees a second. Her stick commands a
-// pitch rate through her model's own flight control system, whose integrator
-// winds up to full stabilator while her nose wheel holds the nose down, and
-// unwinds at well under a second's notice once it comes - the item stays
-// open for her. Seen red with the rate held on the wheels taken out
-// (docs/PROJECT_STATUS.md, 2026-10-13).
+// who are flown off level, and the flying boat. **The F-22A is held** since
+// her model has a ground mode (tools/make_f22.py): before it her pitch
+// loop's integrator wound up on her wheels and she came up at ten degrees a
+// second whatever her stick did. Seen red with the rate held on the wheels
+// taken out (docs/PROJECT_STATUS.md, 2026-10-13).
 GLIDESLOPE_TEST(every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheels_no_faster_than_her_stated_rate) {
     constexpr double tolerance_degps = 1.0;
     constexpr int window = steps_per_second / 4;
@@ -1059,7 +1076,6 @@ GLIDESLOPE_TEST(every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheel
     std::size_t loadings_named = 0;
     std::vector<std::string> left_out;
     std::vector<std::string> wrong;
-    std::vector<std::string> not_judged;
     std::printf("  %-13s %-13s %6s %6s %6s %6s %6s %6s %6s\n", "aircraft", "loading", "stated",
                 "peak", "begun", "Vr", "off", "pitch", "strike");
     for (const auto& entry : glideslope::sim::read_catalogue(data())) {
@@ -1152,9 +1168,7 @@ GLIDESLOPE_TEST(every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheel
             if (off_kts == 0.0) {
                 wrong.push_back(who + " did not leave the runway rotated");
             }
-            if (entry.id == "f22") {
-                not_judged.push_back(who + ": " + std::to_string(peak_degps) + " deg/s");
-            } else if (peak_degps > stated + tolerance_degps) {
+            if (peak_degps > stated + tolerance_degps) {
                 wrong.push_back(who + " rotated at " + std::to_string(peak_degps) +
                                 " deg/s on her wheels, over her " + std::to_string(stated) +
                                 " and " + std::to_string(tolerance_degps));
@@ -1163,9 +1177,6 @@ GLIDESLOPE_TEST(every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheel
     }
     for (const std::string& why : left_out) {
         std::printf("  left out - %s\n", why.c_str());
-    }
-    for (const std::string& what : not_judged) {
-        std::printf("  flown, not judged - %s\n", what.c_str());
     }
     std::string all;
     for (const std::string& what : wrong) {
@@ -1179,17 +1190,14 @@ GLIDESLOPE_TEST(every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheel
     check(loadings_flown == loadings_named, "every loading flown: " +
                                                 std::to_string(loadings_flown) + " of " +
                                                 std::to_string(loadings_named));
-    std::printf("  %zu loadings of %zu nose-wheel landplanes flown, %zu of them not judged\n",
-                loadings_flown, walked, not_judged.size());
+    std::printf("  %zu loadings of %zu nose-wheel landplanes flown\n", loadings_flown, walked);
     check(walked == 13, "thirteen nose-wheel landplanes flown, not " + std::to_string(walked));
     // **The size of the space, stated apart from the loop**: the thirteen
     // models' own loadings and the loadings their figures name - 38 for the
     // eleven with a book take-off, four for the 747-400 and two for the
-    // F-22A - of which the F-22A's two are not judged.
+    // F-22A.
     check(loadings_flown == 44, "forty-four loadings flown, not " +
                                     std::to_string(loadings_flown));
-    check(not_judged.size() == 2, "the F-22A's two loadings alone not judged, not " +
-                                      std::to_string(not_judged.size()));
 }
 
 // **A take-off to the lowest height a plan may ask hands on no take-off
@@ -1337,16 +1345,37 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
             check(book.debrief.empty(), rotated + ": the same take-off by the book says nothing");
             continue;
         }
-        check(early.off_at_kts < book.off_at_kts - 3.0,
-              rotated + " really did come off earlier: " + std::to_string(early.off_at_kts) +
-                  " against " + std::to_string(book.off_at_kts));
-        // **Or her tail struck**: hauled fully back from 85 percent of her
-        // speed the 737-300 drags her tail along the runway at 12.9
-        // degrees and leaves at 143 knots, and the strike is what her
-        // debrief names. Held two degrees short of the strike instead, she
-        // did not leave until 161, later than by the book: at that attitude
-        // she cannot fly off early without striking, so the strike is how
-        // her early rotation is caught.
+        // **Rotating early is judged by where she was rotated**: her nose a
+        // degree up more than five knots sooner than by the book - the
+        // lesson's own margin - and short of her rotation speed. Against the
+        // book's own rotation, not her rotation speed alone: the book begins
+        // its rotation short of that speed by what she gains while the nose
+        // comes up (sim::Departure), so its own nose is up before it. And not
+        // by where she left the runway, which the rate held on her wheels
+        // rightly moves: hauled fully back from 85 percent of her speed the
+        // 737-300 snatches her nose up at ten degrees a second and her
+        // wheels leave for a moment at 12.7 degrees; back on them the rate
+        // held keeps her short of her strike, and she flies off at 160
+        // knots, 2.4 sooner than by the book. Her debrief names the early
+        // rotation all the same.
+        //
+        // **A tail-wheel aeroplane is flown off level**, her tail raised on
+        // the roll, and by the book her nose never comes up on her wheels:
+        // hers is judged as it always was, by where she left the runway,
+        // three knots sooner than by the book.
+        if (book.nose_up_kts == 0.0) {
+            check(early.off_at_kts < book.off_at_kts - 3.0,
+                  rotated + " really did come off earlier: " +
+                      std::to_string(early.off_at_kts) + " against " +
+                      std::to_string(book.off_at_kts));
+        } else {
+            check(early.nose_up_kts > 0.0 && early.nose_up_kts < book.nose_up_kts - 5.0 &&
+                      early.nose_up_kts < early.rotate_kts,
+                  rotated + " was rotated early: her nose up at " +
+                      std::to_string(early.nose_up_kts) + " knots, by the book at " +
+                      std::to_string(book.nose_up_kts) + ", her rotation speed " +
+                      std::to_string(early.rotate_kts));
+        }
         names_that_fault_and_no_other(rotated, "take-off", early.debrief,
                                       {"attitude/theta-deg", "need:velocities/vc-kts",
                                        "lesson/airframe-down"},

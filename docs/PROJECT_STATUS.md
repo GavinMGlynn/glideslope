@@ -265,13 +265,74 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The take-off autopilot holds a rotation rate on the wheels for eleven of thirteen nose-wheel aeroplanes; five other tests red, so not landed, 2026-10-13 — item still open
+### The take-off autopilot holds a rotation rate on the wheels; the F-22A given a ground mode; four tests still red, so not landed, 2026-10-13 — item still open
 
 **What is still not true first.** This branch (`takeoff-held-rotation-rate`,
-a draft pull request) is **not mergeable**: with the rate held, five tests
-outside the new one are red, below, and the time box ran out before they
-were traced to the end. The F-22A is not held at all - she still comes up
-at ten degrees a second. Nothing here is on `main`.
+a draft pull request) is **not mergeable**. In the second round's run of
+every test matching "take|rotat|lift|hand|depart|climb_away|strike|lesson|fault"
+(server and client built), 180 tests, four are red, 167 pass and nine are
+skipped for want of a language model's key:
+- `every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheels_no_faster_than_her_stated_rate`:
+  the F-22A at her model's loading peaks at 13.1 deg/s on her wheels (her
+  combat loading 4.4). Not traced; likely the moment her wheels unload, as
+  the C172P's below.
+- `the_measured_take_off_speeds_in_the_747_and_f22_figures_are_what_the_measurement_makes`:
+  the 747-400's `<takeoff_speeds>` are no longer what the measurement makes
+  with the rate held (the F-22A's are re-pinned, below). Not re-measured.
+- `every_landplane_handed_over_at_lift_off_climbs_away_through_500_ft_and_never_touches_the_runway`
+  and `the_cessnas_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway`:
+  the C172P, traced below, not fixed.
+Nothing here is on `main`.
+
+**Round two, 2026-10-13.**
+- **The F-22A has a ground mode** (`tools/make_f22.py`, "A ground mode"):
+  on her wheels the stick moves her stabilators directly and her pitch
+  loop's integrator is let down to nought; off them the loop is blended back
+  in over two seconds - as Airbus's normal law has a ground mode, a direct
+  stick-to-elevator relation, with the flight mode blended in after lift-off
+  (A320 FCOM, Flight Controls, Normal Law). In the air nothing changes. Her
+  combat loading now rotates at 4.4 deg/s, from ten. **Her measured
+  take-off speeds moved, from the measurement**: `glideslope_cli
+  takeoff-speeds f22 100` finds no rotation from 100 to 130 kt that has her
+  5 ft up within 15 kt (she is up at 142 to 154 whatever), 135 the first
+  that does; 140 is written (was 110, found when her pitch loop snatched her
+  nose up at ten degrees a second), and the climb away is unchanged at 220.
+- **Rotating early is judged by where she was rotated**
+  (`a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`): her
+  nose a degree above where she rolled at 20 kt more than five knots sooner
+  than by the book, and short of her rotation speed - against the book's own
+  rotation, because the book begins its rotation short of that speed by what
+  she gains while the nose comes up, so its nose is up before it (the 737-300
+  by the book at 141 kt against 151). A tail-wheel aeroplane, flown off
+  level, has no nose-up on her wheels by the book and is judged as before,
+  by her lift-off. Green; **seen red** with the early pull moved to the
+  book's own rotation: "737-300 was rotated early: her nose up at 141.2
+  knots, by the book at 141.2". (Measured from where she stands, the 737's
+  nose read as up at 1.5 kt: she settles on her gear by more than a degree
+  as she moves.)
+- **The C172P handed over at lift-off, traced, not fixed.** With the rate
+  held her stick is 0.975 back as her wheels first leave: at 4 deg/s her
+  elevator is at its stop from her nose wheel's lifting at 44 kt to her
+  lift-off at 56.7. The hand-over takes the stick as trim
+  (`Departure::from_lift_off`), and in 0.15 s her nose went from 7.9 to 12.3
+  degrees, her main wheels back on the runway twice, then to 29 degrees and
+  16.5 of incidence. With the law on `main` her stick at lift-off was 0.13,
+  at 8.1 degrees, and she climbed away at 9 to 10 degrees. Tried, each
+  still touching: the stick handed over as pull rather than trim (her
+  wheels still touch 0.05 s after); her rate at 3; the pull capped at the
+  one that lifted her nose wheel, scaled down with dynamic pressure (the
+  rate loop then pushed 0.87 forward on the pitch-rate jump as her wheels
+  unloaded, and she was flown back on); the rate aimed at the 10-degree
+  take-off attitude (the F-35B then left 19.5 kt past her rotation speed).
+  The jump in her pitch rate as her main wheels unload is the thing to meet
+  next: a stick held at its stop through the lift-off.
+- **The 747-400 leaves 11.1 kt past her rotation speed at her light
+  loading** (4.6 degrees nose up, 131.9 kt against 120.8), 7.3 at her
+  model's. Her rotation speed is measured at one weight, 754,313 lb, and
+  scaled by the square root of her weight; she leaves at four to six
+  degrees, her lift-off set by her speed rather than her attitude, and at
+  her light weight she gains speed fastest through the rotation. Within the
+  15 kt her trial allows; not traced further.
 
 **What was built.**
 - **Each aeroplane's rate is data**: `rotation_degps` on her figures file's
@@ -300,7 +361,7 @@ at ten degrees a second. Nothing here is on `main`.
   speeds (the 747-400 and F-22A included); the rate is her pitch change over
   each quarter second wholly on her main wheels once rotating; one degree a
   second of tolerance. The Cub, the Mosquito and the S.23 are named left out;
-  the F-22A's two loadings are flown and named, not judged. **Green, and
+  the F-22A, judged since round two (above), is red at one loading. **Green then, and
   seen red** with the hold switched off: 40 of the 42 judged loadings too
   fast.
 
@@ -314,7 +375,7 @@ combat 7.4, F-15C 6.9, 747-400 light 11.1 (her measured speeds' trial
 allows 15), every airliner within 5. Every one leaves at least 2.9 degrees
 below her strike attitude.
 
-**Red with the rate held, and what is known of each.**
+**Red with the rate held in round one, and what was known of each** (round two, above, supersedes it).
 - **The F-22A** (`the_747_and_the_f22_take_off_at_the_speeds_measured_from_their_models`,
   and so `the_measured_take_off_speeds_in_the_747_and_f22_figures_are_what_the_measurement_makes`):
   unstuck at 136 kt against 110 + 15. Her stick commands a pitch rate
