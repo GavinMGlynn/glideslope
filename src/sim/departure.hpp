@@ -96,6 +96,9 @@ struct DepartureSpeeds {
     // rate the attitude asked of her is raised at, and not held.
     double rotation_degps = 4.0;
     bool rotation_held = false;
+    // **The stick her rate loop asks per degree a second off the rate**:
+    // her figures' `rotation_stick_per_degps`, or 0.3 where they give none.
+    double rotation_stick_per_degps = 0.3;
 };
 
 // The speeds for an aircraft, from `data`/figures/MODEL.xml.
@@ -257,6 +260,7 @@ private:
     bool rate_engaged_ = false;
     bool rate_held_ = false;
     double rate_stick_ = 0.0;
+    double q_filtered_degps_ = 0.0;
     double rotate_pitch_ = 0.0;
     bool rotation_begun_ = false;
     double rotation_began_kts_ = 0.0;

@@ -28,10 +28,11 @@
 -->
 <!--
   **rotation_degps** is the rate the take-off autopilot rotates her at on
-  her wheels (sim/departure.hpp): four degrees a second. Nothing found
-  gives hers; "most aircraft should be rotated at three to four degrees per
-  second" ("Rotation Rate", code7700.com), and a fighter,
-  whose tail strike is far off, takes the top of it.
+  her wheels (sim/departure.hpp): four degrees a second, a tuning value.
+  Nothing found gives hers; the rule of thumb is "three to four degrees per
+  second" for most aircraft ("Rotation Rate", code7700.com), and four, its
+  top, holds her within a degree a second of it at every loading
+  (docs/PROJECT_STATUS.md, 2026-10-13).
 -->
 <published_figures aircraft="f15c" rotation_degps="4" flaps_full_deg="0" touchdown_fpm="200">
   <source>USAF Standard Aircraft Characteristics, F-15C, 1992</source>

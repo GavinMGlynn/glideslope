@@ -1049,38 +1049,35 @@ GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_i
 }
 
 // **Every aeroplane her figures give a rotation rate, at every loading she
-// has, rotates on her wheels no faster than it** (`rotation_degps`,
-// sim::DepartureSpeeds) and a degree a second more: the airliners and the
-// B-2A at three, whose rotation is a tail-strike risk; the C172P, the C182,
-// the PA-28, the F-15C, the F-35B and the Learjet 35A at four. The rate is her pitch
-// attitude's change over each quarter second that she spends wholly on the
-// runway - some wheel of hers on it (`gear/wow`) at every step of it - once
-// the rotation has begun: what a pilot or a flight-data recorder calls the
-// rotation rate, read over a quarter second so that one step's jolt of the
-// nose wheel leaving is not read as a rotation. **And at least half her
-// rate**, so that a loading whose rotation was never measured on her wheels
-// - no quarter second of it - cannot pass by reading nought. Until 2026-10-13 the take-off
-// autopilot only eased its pull as the nose neared her tail strike, and the
-// A380 at her light loading came up at 7.7 degrees a second, the A320 at 7.5.
-//
-// Flown at the speeds a plan's take-off flies (sim::departure_speeds), so
-// the 747-400, whose speeds are measured from her model, is flown with the
-// rest. **Left out, and named**: the tail-wheel aeroplanes, the flying boat,
-// and the one nose-wheel aeroplane whose figures give no rate yet, the
-// F-22A, whose own pitch loop winds up on her wheels
-// (docs/PROJECT_STATUS.md, 2026-10-13; an open item in Phase 10a).
-// Seen red with the rate held on the wheels taken out.
+// has, rotates on her wheels no faster than it** (`rotation_degps`) and a
+// degree a second more, no slower than half it, and without her stick
+// ringing. The rate is her pitch change over each quarter second wholly on
+// the runway (`gear/wow` at every step) once the rotation has begun, so
+// that one step's jolt of the nose wheel is not read as a rotation. Flown
+// at a plan's take-off speeds (sim::departure_speeds). **Left out, and
+// named**: the tail-wheel aeroplanes, the flying boat, and the F-22A, whose
+// figures give no rate yet (docs/PROJECT_STATUS.md, 2026-10-13). Seen red
+// with the rate hold taken out, and the ringing seen red on the C172P's
+// loop of #181's first commit (0.3 of stick per degree a second, read step
+// by step), with its stick's slew limit in.
 GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_every_loading_no_faster_than_it) {
     constexpr double tolerance_degps = 1.0;
     constexpr int window = steps_per_second / 4;
+    // **The stick does not ring**: it turns back on her wheels no more
+    // than this many times in her whole rotation - a move of more than
+    // stick_still the other way from its last. The C172P's turned back 62
+    // times on her loop of #181's first commit, and 15 with its slew limit;
+    // every loading now turns back at most five.
+    constexpr int most_reversals = 8;
+    constexpr double stick_still = 0.002;
     std::size_t catalogue = 0;
     std::size_t walked = 0;
     std::size_t loadings_flown = 0;
     std::size_t loadings_named = 0;
     std::vector<std::string> left_out;
     std::vector<std::string> wrong;
-    std::printf("  %-13s %-13s %6s %6s %6s %6s %6s %6s %6s\n", "aircraft", "loading", "stated",
-                "peak", "begun", "Vr", "off", "pitch", "strike");
+    std::printf("  %-13s %-13s %6s %6s %6s %6s %6s %6s %6s %5s\n", "aircraft", "loading", "stated",
+                "peak", "begun", "Vr", "off", "pitch", "strike", "turns");
     for (const auto& entry : glideslope::sim::read_catalogue(data())) {
         ++catalogue;
         if (entry.seaplane) {
@@ -1145,8 +1142,26 @@ GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_e
             double rotate_kts = 0.0;
             double off_kts = 0.0;
             double off_pitch = 0.0;
+            // **How often her stick turns back on her wheels**: each step on
+            // which the stick moves the other way from its last move, once
+            // the rotation has begun.
+            double last_stick = 0.0;
+            double last_move = 0.0;
+            int reversals = 0;
             for (int tick = 0; tick < 120 * steps_per_second && off_kts == 0.0; ++tick) {
-                aircraft.set_controls(departure.fly());
+                const glideslope::sim::Controls controls = departure.fly();
+                const bool held_on_wheels =
+                    departure.stage() == glideslope::sim::Departure::Stage::rotate &&
+                    aircraft.property("gear/wow") > 0.5;
+                const double move = controls.elevator - last_stick;
+                if (held_on_wheels && std::abs(move) > stick_still && move * last_move < 0.0) {
+                    ++reversals;
+                }
+                if (std::abs(move) > stick_still) {
+                    last_move = move;
+                }
+                last_stick = controls.elevator;
+                aircraft.set_controls(controls);
                 aircraft.step();
                 const bool down = aircraft.property("gear/wow") > 0.5;
                 const bool rotating =
@@ -1167,10 +1182,10 @@ GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_e
             }
             ++loadings_flown;
             const double stated = departure.speeds().rotation_degps;
-            std::printf("  %-13s %-13s %6.1f %6.2f %6.1f %6.1f %6.1f %6.1f %6.1f\n",
+            std::printf("  %-13s %-13s %6.1f %6.2f %6.1f %6.1f %6.1f %6.1f %6.1f %5d\n",
                         entry.id.c_str(), name.c_str(), stated, peak_degps, rotate_kts,
                         departure.speeds().rotate_kts, off_kts, off_pitch,
-                        departure.strike_pitch_deg());
+                        departure.strike_pitch_deg(), reversals);
             std::fflush(stdout);
             const std::string who = entry.id + " at " + name;
             if (off_kts == 0.0) {
@@ -1180,6 +1195,11 @@ GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_e
                 wrong.push_back(who + " rotated at " + std::to_string(peak_degps) +
                                 " deg/s on her wheels, over her " + std::to_string(stated) +
                                 " and " + std::to_string(tolerance_degps));
+            }
+            if (reversals > most_reversals) {
+                wrong.push_back(who + "'s stick turned back " + std::to_string(reversals) +
+                                " times on her wheels, more than " +
+                                std::to_string(most_reversals));
             }
             if (peak_degps < 0.5 * stated) {
                 wrong.push_back(who + " was measured rotating at no more than " +

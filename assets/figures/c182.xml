@@ -22,12 +22,13 @@
 -->
 <!--
   **rotation_degps** is the rate the take-off autopilot rotates her at on
-  her wheels (sim/departure.hpp): four degrees a second. Her handbook gives
-  none - it has her nose raised to the lift-off attitude - and the FAA's
-  Airplane Flying Handbook (FAA-H-8083-3C, chapter 5) asks only that it be
-  raised smoothly; "most aircraft should be rotated at three to four degrees
-  per second" ("Rotation Rate", code7700.com), and a light
-  aeroplane takes the top of it.
+  her wheels (sim/departure.hpp): four degrees a second, a tuning value.
+  Her handbook gives none - it has her nose raised to the lift-off
+  attitude - and the FAA's Airplane Flying Handbook (FAA-H-8083-3C,
+  chapter 5) asks only that it be raised smoothly. The rule of thumb is
+  "three to four degrees per second" for most aircraft ("Rotation Rate",
+  code7700.com); four is its top, and holds her within a degree a second
+  of it at every loading (docs/PROJECT_STATUS.md, 2026-10-13).
 -->
 <published_figures aircraft="c182" rotation_degps="4" flaps_full_deg="38">
   <source>Cessna Model 182S Skylane Information Manual, 1997</source>

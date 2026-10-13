@@ -2075,6 +2075,17 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "most 10");
         }
     }
+    // **A rate-loop gain that is none, or more than the whole stick for a
+    // degree a second, is refused.**
+    if (root->HasAttribute("rotation_stick_per_degps")) {
+        out.rotation_stick_per_degps =
+            root->GetAttributeValueAsNumber("rotation_stick_per_degps");
+        if (!(out.rotation_stick_per_degps > 0.0 && out.rotation_stick_per_degps <= 1.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a rotation_stick_per_degps that is not above 0 "
+                                     "and at most 1");
+        }
+    }
     if (JSBSim::Element* source = root->FindElement("source")) {
         out.source = collapse_whitespace(source->GetDataLine());
     }
