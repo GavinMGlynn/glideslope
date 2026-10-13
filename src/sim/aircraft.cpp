@@ -1260,6 +1260,25 @@ void for_each_property(
     }
 }
 
+void every_number(SGPropertyNode* base, SGPropertyNode* node,
+                  std::vector<SGPropertyNode*>& nodes, std::vector<std::string>& names) {
+    for (int i = 0; i < node->nChildren(); ++i) {
+        SGPropertyNode* child = node->getChild(i);
+        if (child->nChildren() > 0) {
+            every_number(base, child, nodes, names);
+            continue;
+        }
+        if (!child->hasValue() || !child->getAttribute(SGPropertyNode::READ)) {
+            continue;
+        }
+        if (child->getType() == simgear::props::DOUBLE ||
+            child->getType() == simgear::props::FLOAT) {
+            nodes.push_back(child);
+            names.push_back(child->getPath(true).substr(base->getPath(true).size() + 1));
+        }
+    }
+}
+
 // This instance's inertial frame, from its own Earth position angle.
 JSBSim::FGMatrix33 inertial_to_earth(double epa) {
     return {std::cos(epa), std::sin(epa), 0.0, -std::sin(epa), std::cos(epa), 0.0,
@@ -1300,6 +1319,28 @@ AircraftSnapshot Aircraft::capture() const {
         s.properties.emplace_back(name, node->getDoubleValue());
     });
     return s;
+}
+
+void Aircraft::find_numbers() const {
+    if (number_nodes_.empty()) {
+        SGPropertyNode* base = exec_->GetPropertyManager()->GetNode();
+        every_number(base, base, number_nodes_, number_names_);
+    }
+}
+
+std::vector<std::string> Aircraft::number_names() const {
+    find_numbers();
+    return number_names_;
+}
+
+std::vector<double> Aircraft::numbers() const {
+    find_numbers();
+    std::vector<double> out;
+    out.reserve(number_nodes_.size());
+    for (SGPropertyNode* n : number_nodes_) {
+        out.push_back(n->getDoubleValue());
+    }
+    return out;
 }
 
 void Aircraft::restore(const AircraftSnapshot& s) {
