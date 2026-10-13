@@ -282,6 +282,14 @@ public:
     static constexpr double walking_pace_pedal = 0.3;
     static constexpr double standing_pedal = 0.45;
     static constexpr double creeping_kts = 2.0;
+    // **And what stops a creep her idle thrust drives** (lander.cpp): every
+    // engine's throttle closed and her speed growing under `creeping_kts`.
+    // 0.8: an F-15C's idle thrust beat 0.55 and she never stopped in 15 kt
+    // across; at 0.8 she stops as on main. (A C172P was put on her nose at
+    // 0.6 only with power run up against her brakes; here the throttle is
+    // closed on every engine.) **These are global defaults**: every
+    // aircraft's rollout uses them; none has her own.
+    static constexpr double idle_pedal = 0.8;
     static constexpr double walking_pace_ceiling(double vg_kts) {
         const double slow = (creeping_kts - vg_kts) / (creeping_kts - 1.0);
         return walking_pace_pedal + (standing_pedal - walking_pace_pedal) *

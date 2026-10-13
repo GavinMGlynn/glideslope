@@ -815,7 +815,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       0.45 at a creep. Every landplane held at walking pace stays under that
       and stops nose up, and in 15 kt across each stops within 2 s of main.
       One learnt start (half fuel, 10 kt across) is named: her gear throws
-      her over at 1.2 kt, the new Phase 9 item.
+      her over at 1.2 kt, the new Phase 9 item. After review, the same limit
+      holds on a wet runway too, and a gust pushing her with the throttle
+      closed winds her brakes no further than 0.8.
+- [ ] **The Mosquito swings below walking pace.** With her steering brake
+      faded near a stop, she turns 36 to 155 degrees before she stops.
+      *Verification: every landplane rolling at walking pace stops within 30
+      degrees of her heading, in calm air and 15 kt across.*
 - [ ] **The flying boat lands in gusts without skipping.** Her flare is
       flown to her hull and she touches gently, but in gusts she touches
       flat - under one degree, below NACA TN 923's lower trim limit - and

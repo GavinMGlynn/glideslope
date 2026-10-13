@@ -960,13 +960,30 @@ Controls Lander::fly_laws() {
         // her weight on the wheels. Waiting for nine tenths of the reference
         // speed, an F-15C with her nose down - no longer braking on her
         // wing's drag - took twenty seconds to get there and ran 3.4 km.
+        // **What may be added at walking pace** (below): on a wet runway as
+        // on a dry one.
+        bool idle_drives_her = false;
+        if (vg_kts < creeping_kts && decel_fps2_ < 0.0) {
+            idle_drives_her = true;
+            for (int e = 0; e < a_.engine_count(); ++e) {
+                idle_drives_her =
+                    idle_drives_her &&
+                    a_.property("fcs/throttle-cmd-norm[" + std::to_string(e) + "]") <= 0.01;
+            }
+        }
+        const double walking_most =
+            std::max(std::min(brake_, 1.0),
+                     idle_drives_her ? idle_pedal : walking_pace_ceiling(vg_kts));
         if (slippery) {
             // All of the pedals, at a hand's pace - half a second from none
             // to full - and the anti-skid (Aircraft) lets through what the
             // runway takes. Found by the deceleration as on a dry runway,
             // the brakes took two seconds to come fully on, and an A320
-            // ran 3 m off a wet 1,725 m runway.
-            brake_ = std::min(1.0, brake_ + 2.0 / steps_per_second);
+            // ran 3 m off a wet 1,725 m runway. **Below walking pace, no
+            // further than on a dry runway**: handed over at walking pace on
+            // a wet one, she was braked to full with nothing to slow.
+            brake_ = std::min(vg_kts < autobrake_off_kts ? walking_most : 1.0,
+                              brake_ + 2.0 / steps_per_second);
         } else if (jet_ || vg_kts < 0.9 * speeds_.vref_kts) {
             // **And it stands down at walking pace** (`autobrake_off_kts`),
             // as an airliner's is taken off before taxi speed - Airbus's
@@ -980,18 +997,15 @@ Controls Lander::fly_laws() {
             // speed (`walking_pace_ceiling`, lander.hpp) if she has less, and
             // still lets it off where she slows faster than it asks.
             // **But a creep her idle thrust drives is stopped**: under
-            // `creeping_kts`, her throttle closed and her speed growing, the
-            // brakes are not holding her engines' idle, and more is put on.
-            // An F-15C at idle on 0.43 gathered speed from 1.4 kt to 1.9 in a
-            // minute and never stopped. The clamp at full is its other
+            // `creeping_kts`, every engine's throttle closed and her speed
+            // growing, the brakes are not holding her engines' idle, and more
+            // is put on - up to `idle_pedal` and no further, so that a gust
+            // pushing her along cannot wind it to full. An F-15C at idle on
+            // 0.43 gathered speed from 1.4 kt to 1.9 in a minute and never
+            // stopped. The clamp at full is its other
             // anti-windup: the integral is the pedal, so none is stored past
             // the stop to be unwound later.
-            const bool idle_drives_her = vg_kts < creeping_kts && decel_fps2_ < 0.0 &&
-                                         a_.property("fcs/throttle-cmd-norm[0]") <= 0.01;
-            const double most =
-                vg_kts < autobrake_off_kts && !idle_drives_her
-                    ? std::max(std::min(brake_, 1.0), walking_pace_ceiling(vg_kts))
-                    : 1.0;
+            const double most = vg_kts < autobrake_off_kts ? walking_most : 1.0;
             brake_ = std::clamp(brake_ + 0.1 * (autobrake_fps2 - decel_fps2_) / steps_per_second,
                                 0.0, most);
         }
