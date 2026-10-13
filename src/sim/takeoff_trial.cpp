@@ -172,7 +172,13 @@ MeasuredTakeoff measure_takeoff_speeds(const std::filesystem::path& data,
         return out;
     }
     out.slowest_away_kts = slowest;
-    out.climb_kts = std::ceil(slowest / 5.0) * 5.0;
+    // **And never within ten knots of her rotation speed.** 14 CFR
+    // 25.107(c)(2) puts V2 above VR by the speed she gains before 35 ft; ten
+    // knots is this project's floor for it. Without it the 747-400, her
+    // rotation held to three degrees a second (2026-10-13), climbed away at
+    // 163.8 kt and was written 165, five over her rotation speed of 160,
+    // loosening the floor every plan holds her above.
+    out.climb_kts = std::max(std::ceil(slowest / 5.0) * 5.0, out.rotate_kts + 10.0);
     return out;
 }
 

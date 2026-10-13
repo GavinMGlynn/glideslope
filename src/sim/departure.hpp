@@ -250,7 +250,10 @@ private:
     double pull_ = 0.0; // the stick brought back while the nose will not come
     // **The rate held on her wheels** (rate_held_from, in departure.cpp):
     // whether it has taken the stick this rotation, whether it holds it this
-    // step, and where it puts it, less the trim.
+    // step, and where it puts it, less the trim. Never reset: a Departure
+    // flies one take-off, and nothing in it begins its roll again - there
+    // is no aborted take-off - while the controller makes a new one for each
+    // take-off it is given (Controller::to_ai_take_off, from_lift_off).
     bool rate_engaged_ = false;
     bool rate_held_ = false;
     double rate_stick_ = 0.0;

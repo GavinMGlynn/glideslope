@@ -492,6 +492,58 @@ GLIDESLOPE_TEST(the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_t
                                            std::to_string(refused));
 }
 
+// **The rate her rotation is held to is read, and one that is no rotation or
+// a snatch is refused** (`rotation_degps`, sim::Departure): the A320's file
+// read as it is, a C172P's - which gives none, and is not held - as nought,
+// and the A320's own with that one attribute changed: ten, the most allowed,
+// read back; nought, less and more than ten refused, each naming it.
+GLIDESLOPE_TEST(the_rotation_rate_a_take_off_is_held_to_is_read_and_refused_outside_0_to_10) {
+    check(read_published_figures(figures_file("a320")).rotation_degps == 3.0,
+          "the A320 is rotated at three degrees a second");
+    check(read_published_figures(figures_file("c172p")).rotation_degps == 0.0,
+          "the C172P gives none, so her rotation is not held");
+
+    std::ifstream in(figures_file("a320"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const std::string attribute = "rotation_degps=\"3\"";
+    const auto at = text.find(attribute);
+    if (at == std::string::npos) {
+        fail("assets/figures/a320.xml does not give rotation_degps=\"3\"");
+    }
+    // A name no other run of this test, in this build or another, shares.
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_rotation_degps_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& value) {
+        std::string changed = text;
+        changed.replace(at, attribute.size(), "rotation_degps=\"" + value + "\"");
+        std::ofstream out(file);
+        out << changed;
+    };
+
+    write("10");
+    check(read_published_figures(file).rotation_degps == 10.0,
+          "a rate of ten, the most allowed, is read back as written");
+    const char* const wrong[] = {"0", "-3", "10.5", "40"};
+    std::size_t refused = 0;
+    for (const char* value : wrong) {
+        write(value);
+        try {
+            read_published_figures(file);
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            check(said.find("rotation_degps") != std::string::npos,
+                  std::string("the refusal of ") + value + " names rotation_degps: " + said);
+            ++refused;
+        }
+    }
+    std::filesystem::remove(file);
+    check(refused == std::size(wrong), "all four rates outside 0 to 10 were refused, not " +
+                                           std::to_string(refused));
+}
+
 // **Every aircraft's flare touches down within NASA's criterion.** Zaal et
 // al., "Go-Around Criteria Refinement for Transport Category Aircraft"
 // (AIAA Journal of Air Transportation, NTRS 20205010611), take a touchdown
