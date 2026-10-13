@@ -968,8 +968,24 @@ Controls Lander::fly_laws() {
             // ran 3 m off a wet 1,725 m runway.
             brake_ = std::min(1.0, brake_ + 2.0 / steps_per_second);
         } else if (jet_ || vg_kts < 0.9 * speeds_.vref_kts) {
+            // **And it stands down at walking pace** (`autobrake_off_kts`),
+            // as an airliner's is taken off before taxi speed - Airbus's
+            // A340 procedure, as the TSB gives it (A05H0002, 1.17.6):
+            // "Autobrake must be disengaged before reaching 20 knots." A
+            // deceleration it cannot meet only winds it up: a C172P blown
+            // sideways at 1.5 kt, with nothing to slow, had her brakes wound
+            // from 0.31 to 0.58 and was put on her nose; held rolling at
+            // 3 kt, every landplane's wound to full. So there it puts on no
+            // brake past what she has, or past `walking_pace_pedal` - the
+            // pedal that stops a creep - if she has less, and still lets it
+            // off where she slows faster than it asks. The clamp is its
+            // other anti-windup: the integral is the pedal, never more than
+            // full, so none is stored past the stop to be unwound later.
+            const double most = vg_kts < autobrake_off_kts
+                                    ? std::max(std::min(brake_, 1.0), walking_pace_pedal)
+                                    : 1.0;
             brake_ = std::clamp(brake_ + 0.1 * (autobrake_fps2 - decel_fps2_) / steps_per_second,
-                                0.0, 1.0);
+                                0.0, most);
         }
         if (s.pitch_deg < -4.0) {
             brake_ = 0.0;
