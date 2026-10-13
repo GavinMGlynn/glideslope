@@ -55,6 +55,30 @@ The changes, and what each is for:
                         in inverse proportion to the dynamic pressure times the
                         tail's effectiveness past PITCH_GAIN_PRESSURE, as a
                         fly-by-wire aircraft's are scheduled.
+    The pitch loop on her wheels
+                        The pitch loop commands a pitch rate through an
+                        integrator that alone drives the stabilators, and on
+                        her wheels, with her nose wheel holding her nose
+                        down, it wound to full stabilator whatever the stick
+                        asked: she came up at ten to thirteen degrees a
+                        second. It is given a ground mode, as fly-by-wire
+                        aircraft have one: on any wheel, the integrator is
+                        washed out (PITCH_GROUND_WASHOUT_PER_S) and its gain
+                        raised by as much, so that the stick commands a pitch
+                        rate through a proportional loop, the stabilator in
+                        proportion to the rate she is short of; off her
+                        wheels both fade to the flight law over
+                        PITCH_GROUND_BLEND_S. NASA TM-112208 (Franklin, 1997,
+                        a lift-fan STOVL fighter's control laws) initialises
+                        its rate command integrator on weight on wheels; the
+                        A320's normal law flies a ground mode, stick to
+                        elevator, and blends it into its flight mode over
+                        five seconds after lift-off. The integrator's state is
+                        the stabilator's command in both laws, so the flight
+                        law takes over from where the ground law left it.
+                        Held instead of washed out, the integrator would
+                        leave her nothing on her wheels to lift the nose
+                        with.
     The roll stick      The stick commanded a roll rate in proportion to its
                         travel - its first tenth 22 degrees a second - and any
                         pilot's small corrections, a person's or glideslope's
@@ -122,6 +146,14 @@ SEPARATION_ALPHA = 0.785
 # The tail's moment, in lb/sq ft of dynamic pressure times its effectiveness,
 # past which the pitch loop's gains are scheduled down.
 PITCH_GAIN_PRESSURE = 1000.0
+# The pitch loop's ground mode: on her wheels the loop's integrator is
+# washed out at this rate, per second, and its gain raised by as much, so
+# that it follows the pitch rate she is short of within a tenth of a second
+# and holds a stabilator in proportion to it, instead of winding to its stop
+# against her nose wheel; off them both fade to the flight law's over
+# PITCH_GROUND_BLEND_S.
+PITCH_GROUND_WASHOUT_PER_S = 10.0
+PITCH_GROUND_BLEND_S = 5.0
 # The roll stick's shaping: the roll rate it commands, as a fraction of the
 # model's, is the stick's travel times this plus the rest times its square.
 ROLL_STICK_CENTRE_GAIN = 0.25
@@ -201,6 +233,7 @@ def airframe():
     text = with_mach_lift(text)
     text = with_mach_tail(text)
     text = with_pitch_gain_schedule(text)
+    text = with_pitch_ground_mode(text)
     text, n = re.subn(r"(<pure_gain name=\"fcs/throttle[12]\">\s*<input>fcs/t[12]-summer</input>\s*<gain>)1\.001(</gain>)",
                       r"\g<1>1\2", text)
     if n != 2:
@@ -311,6 +344,62 @@ def with_pitch_gain_schedule(text):
         lambda m: schedule + m.group(1) + "<product>\n                    <property>fcs/pitch-gain-schedule</property>\n"
         "                    <sum>" + m.group(2) + "</sum>\n                    </product>" + m.group(3),
         "the pitch loop's gains")
+
+
+def with_pitch_ground_mode(text):
+    """The pitch loop's ground mode: its integrator washed out on her wheels,
+    so that her stick commands a pitch rate through a proportional loop
+    there, and the washout faded out over PITCH_GROUND_BLEND_S once she is
+    off them. The integrator's state is the stabilator's command in both
+    laws, so the flight law takes over from where the ground law left it."""
+    mode = (
+        '            <!-- glideslope: tools/make_f22.py - the ground mode -->\n'
+        '            <switch name="fcs/pitch-ground-wow">\n'
+        '                <default value="0"/>\n'
+        '                <test value="1">\n'
+        '                    gear/wow eq 1\n'
+        '                </test>\n'
+        '            </switch>\n'
+        '\n'
+        '            <actuator name="fcs/pitch-ground-mode">\n'
+        '                <input>fcs/pitch-ground-wow</input>\n'
+        f'                <rate_limit sense="decr"> {1.0 / PITCH_GROUND_BLEND_S:g} </rate_limit>\n'
+        '            </actuator>\n'
+        '\n'
+        '            <fcs_function name="fcs/pitch-ground-washout">\n'
+        '                <function>\n'
+        '                    <product>\n'
+        '                        <property>fcs/pitch-ground-mode</property>\n'
+        '                        <property>fcs/pitch-rate-integrator</property>\n'
+        '                    </product>\n'
+        '                </function>\n'
+        '            </fcs_function>\n'
+        '\n'
+        '            <fcs_function name="fcs/pitch-integrator-gain">\n'
+        '                <function>\n'
+        '                    <sum>\n'
+        '                        <value>1</value>\n'
+        '                        <product>\n'
+        f'                            <value>{PITCH_GROUND_WASHOUT_PER_S - 1.0:g}</value>\n'
+        '                            <property>fcs/pitch-ground-mode</property>\n'
+        '                        </product>\n'
+        '                    </sum>\n'
+        '                </function>\n'
+        '            </fcs_function>\n'
+        '\n')
+    text = replace_once(text, r"(            <deadband name=\"fcs/pitch-windup-trigger\">)",
+                        lambda m: mode + m.group(1), "the pitch loop's windup trigger")
+    text = replace_once(
+        text,
+        r"(<summer name=\"fcs/pitch-rate-error\">\s*<input>fcs/q-gear-down-limiter</input>\s*"
+        r"<input>-velocities/q-aero-rad_sec</input>\s*<input>-fcs/pitch-windup-trigger</input>\n)",
+        lambda m: m.group(1) + "                <input>-fcs/pitch-ground-washout</input>\n",
+        "the pitch loop's rate error")
+    return replace_once(
+        text,
+        r"(<integrator name=\"fcs/pitch-rate-integrator\">\s*<!--trigger>fcs/pitch-int-trigger</trigger-->\s*"
+        r"<input>fcs/pitch-rate-error</input>\s*<c1>) 1 (</c1>)",
+        r"\1fcs/pitch-integrator-gain\2", "the pitch loop's integrator's gain")
 
 
 def outputs():

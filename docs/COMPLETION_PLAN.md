@@ -553,12 +553,15 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 
 The autopilot's navigator and the plans it flies: orbits, glides, the speeds a plan may ask, the take-off, and the lessons' autopilot.
 
-- [ ] **The take-off autopilot rotates at a held rate.** The airliners and
+- [x] **The take-off autopilot rotates at a held rate.** The airliners and
       the B-2A do, at three degrees a second, and the light aeroplanes, the
-      F-15C, the F-35B and the Learjet at four; the F-22A does not yet.
+      fighters and the Learjet at four.
       *Verification: every nose-wheel aeroplane at every loading rotates no
       faster than its stated rate on her wheels, and every take-off and
-      hand-over test stays green.*
+      hand-over test stays green.* Done 2026-10-14: the F-22A's flight
+      controls were given a ground mode, as fly-by-wire aircraft have, and
+      she comes up at 4.5 to 4.7 degrees a second; her rotation speed,
+      re-measured, is 150 kt (the Air Force's one published figure: 143).
 - [x] **The autopilot holds a low height loosely in an airliner's take-off
       configuration.** Asked to hold 200 ft with her take-off flap and gear
       out, the A380 swings 15 ft either side of it at up to 350 ft/min (488

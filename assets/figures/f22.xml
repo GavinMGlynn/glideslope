@@ -26,7 +26,25 @@
   forty a light aeroplane is, a B-2A in ground effect floated two
   kilometres down the runway.
 -->
-<published_figures aircraft="f22" flaps_full_deg="0" touchdown_fpm="200">
+<!--
+  **rotation_degps** is the rate the take-off autopilot rotates her at on
+  her wheels (sim/departure.hpp): four degrees a second, a tuning value, as
+  the F-15C's and the F-35B's. Nothing published gives hers; the rule of
+  thumb is "three to four degrees per second" for most aircraft ("Rotation
+  Rate", code7700.com). It holds because her flight controls' pitch loop has
+  a ground mode (tools/make_f22.py): without it her loop's integrator wound
+  to full stabilator against her nose wheel and she came up at ten to
+  thirteen degrees a second whatever her stick did.
+
+  **rotation_stick_per_degps** is the stick her rate loop asks for each
+  degree a second she is off it, a tuning value: a tenth, as the
+  C172P's. Her stick already commands a pitch rate through her own flight
+  controls, so more rings: at her measured take-off speeds her stick
+  turned back once on her wheels at 0.1, five and seven times at 0.15,
+  seven and eight at 0.2, and eight at 0.25, against the test's eight
+  (docs/PROJECT_STATUS.md, 2026-10-14).
+-->
+<published_figures aircraft="f22" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="0" touchdown_fpm="200">
   <source>DoD Selected Acquisition Report, F-22, December 2010; USAF F-22 fact sheet</source>
 
   <!-- 54,960 lb: the fact sheet's empty weight, 43,340 lb; the pilot, 230
@@ -113,14 +131,19 @@
   <glide_speeds slowest_kcas="225">
     225 kt asserted; 140 to 220 observed departing past 89 degrees of alpha before a third of the way round. At 225 she goes round both ways at 8.1 degrees at most. Her climb speed, 220, is below it, so 225 is the one speed a glide may ask of her. Before 2026-10-10 the trial flew her with her gear down, and she glided at no speed from 140 to 335 kt.
   </glide_speeds>
-  <!-- **Her take-off speeds, measured from her model, not published**: she
-       publishes neither a rotation nor a climb speed. Measured by
-       `glideslope_cli takeoff-speeds` on 2026-10-06 (linux-debug), the
-       project owner's decision of that day (REQUIREMENTS.md section 9):
+  <!-- **Her take-off speeds, measured from her model, not published as a
+       schedule**: her flight manual is not public. Measured by
+       `glideslope_cli takeoff-speeds f22` on 2026-10-14 (linux-release), the
+       project owner's decision of 2026-10-06 (REQUIREMENTS.md section 9):
        taken off a level 3,500 m runway at sea level in calm air by the
-       take-off autopilot (sim/takeoff_trial.hpp). -->
-  <takeoff_speeds rotate_kcas="110" climb_kcas="220" flaps_deg="0" weight_lbs="61570">
-    Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 105 kt (re-measured 2026-10-13: rotated at 100 she now strikes her stabilators, her tail strike measured from her airframe at 16.5 degrees, where her model's was 46); 110 is written, 5 kt to spare, and she leaves the ground at about 119. The climb away: asked 115 to 205 kt, at military power she was at 500 ft never slower than 216.3 kt, and faster the faster asked - she cannot be held slower - which is written rounded up. With no flap, at 61,570 lb, the weight her model flies a plan at.
+       take-off autopilot (sim/takeoff_trial.hpp), her nose held to four
+       degrees a second on her wheels. **One published pair to compare**:
+       the Air Force's Accident Investigation Board report on the F-22A at
+       NAS Fallon, 13 April 2018 (released 15 November 2018), gives that
+       day's take-off data for a military power take-off as 143 KCAS to
+       rotate and 164 KCAS to take off, at a weight it does not give. -->
+  <takeoff_speeds rotate_kcas="150" climb_kcas="225" flaps_deg="0" weight_lbs="61570">
+    Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 145 kt, unstuck (5 ft up) at 156 kt; 150 is written, 5 kt to spare, and she is unstuck at about 158 - against the Fallon report's 143 and 164. Rotated sooner, her nose comes up at four degrees a second and she floats in ground effect: rotated at 110 she was unstuck only at 143, and at 140 at 155, just over 15 kt on. Until 2026-10-14 110 was written: her pitch loop's integrator, wound up against her nose wheel, snatched her nose up at ten to thirteen degrees a second and threw her off at about 119. The climb away: asked 120 to 205 kt, at military power she was at 500 ft never slower than 222.7 kt, and faster the faster asked - she cannot be held slower - which is written rounded up. With no flap, at 61,570 lb, the weight her model flies a plan at.
   </takeoff_speeds>
 
   <no_landing_distance>
