@@ -106,7 +106,7 @@ OUT = ROOT / "assets" / "jsbsim"
 
 PINNED_S23 = PINNED / "aircraft" / "Short_S23"
 MODEL = "short_s23"
-UNCHANGED_SYSTEMS = ["electrical", "fuel-system", "Short_S23-hydrodynamics", "take-off-ap"]
+UNCHANGED_SYSTEMS = ["electrical", "fuel-system", "take-off-ap"]
 DRAG_FACTOR = 1.9
 SHARED_SYSTEMS = ["hydrodynamics", "hydrodynamic-planing-floats", "sperry-a2-autopilot"]
 ENGINE_FILES = ["eng_PegasusXc", "prop_deHavilland5000"]
@@ -196,6 +196,168 @@ def aerodynamics():
         "the drag's factor")
 
 
+# The planing hull (see "Hydrodynamics" above). Feet, from the keel skids and
+# the model's hydrodynamic reference point (HRP): the step 1.83 m below it and
+# 10.5 m aft of the bow, the HRP 341.73 in aft of it.
+STEP_BELOW_HRP_FT = -FOREBODY_KEEL_Z / 0.3048
+STEP_AFT_OF_HRP_FT = (10.5 - 341.73 * 0.0254) / 0.3048
+# Savitsky's dynamic lift coefficient, C_L0 = 0.012 lambda^0.5 tau^1.1.
+SAVITSKY_DYNAMIC = 0.012
+# The added mass's heave damping, rho (pi / 8) b^2 V, full once the step is
+# this deep; and its lever in pitch, the step's distance aft of the centre of
+# gravity (9.12 m), squared.
+FULLY_WETTED_FT = 0.5
+STEP_LEVER_FT = (10.5 - 9.12) / 0.3048
+
+PLANING_LIFT = f"""  <fcs_function name="hydro/hull-lift-lbs">
+   <function>
+    <description>Lift due to hull moving in water</description>
+    <!-- glideslope: Savitsky's planing lift, smooth in the step's immersion,
+         in place of the pinned model's step to 20,000 lb; see
+         tools/make_short_s23.py. -->
+    <product>
+     <value>{SAVITSKY_DYNAMIC}</value>
+     <pow>
+      <property>hydro/glideslope/wetted-length-beams</property>
+      <value>0.5</value>
+     </pow>
+     <pow>
+      <property>hydro/glideslope/trim-deg</property>
+      <value>1.1</value>
+     </pow>
+     <value>0.5</value>
+     <property>hydro/glideslope/rho-slug_ft3</property>
+     <property>hydro/v-fps</property>
+     <property>hydro/v-fps</property>
+     <property>hydro/hull-beam-ft2</property>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/rho-slug_ft3">
+   <function>
+    <quotient>
+     <property>hydro/environment/rho-lbs_ft3</property>
+     <value>32.174</value>
+    </quotient>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/step-immersion-ft">
+   <description>How deep the main step is below the water.</description>
+   <function>
+    <max>
+     <value>0.0</value>
+     <difference>
+      <sum>
+       <product>
+        <value>{STEP_BELOW_HRP_FT:.3f}</value>
+        <cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos>
+       </product>
+       <product>
+        <value>{STEP_AFT_OF_HRP_FT:.3f}</value>
+        <sin><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></sin>
+       </product>
+      </sum>
+      <property>hydro/hull/height-agl-ft</property>
+     </difference>
+    </max>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/trim-deg">
+   <description>The planing bottom's incidence to the water's flow: the
+    hull's trim and the angle her sink adds to it.</description>
+   <function>
+    <max>
+     <value>0.5</value>
+     <min>
+      <value>20.0</value>
+      <sum>
+       <property>hydro/hull/pitch-deg</property>
+       <product>
+        <value>57.29578</value>
+        <atan2>
+         <property>velocities/v-down-fps</property>
+         <max><value>1.0</value><property>hydro/v-fps</property></max>
+        </atan2>
+       </product>
+      </sum>
+     </min>
+    </max>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/wetted-length-beams">
+   <description>The keel's wetted length aft of the step's waterline, in
+    beams: its immersion over the sine of the trim.</description>
+   <function>
+    <min>
+     <value>4.0</value>
+     <quotient>
+      <property>hydro/glideslope/step-immersion-ft</property>
+      <product>
+       <property>hydro/hull-beam-ft</property>
+       <sin><product><property>hydro/glideslope/trim-deg</property><value>0.0174533</value></product></sin>
+      </product>
+     </quotient>
+    </min>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/added-mass-damping-lbs_fps">
+   <description>The heave damping of the water's added mass, rho (pi/8) b^2 V,
+    wetted in over the step's first {FULLY_WETTED_FT} ft.</description>
+   <function>
+    <product>
+     <value>0.392699</value>
+     <property>hydro/glideslope/rho-slug_ft3</property>
+     <property>hydro/hull-beam-ft2</property>
+     <property>hydro/v-fps</property>
+     <min>
+      <value>1.0</value>
+      <quotient>
+       <property>hydro/glideslope/step-immersion-ft</property>
+       <value>{FULLY_WETTED_FT}</value>
+      </quotient>
+     </min>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/heave-damping-lbs">
+   <function>
+    <product>
+     <property>hydro/glideslope/added-mass-damping-lbs_fps</property>
+     <property>velocities/v-down-fps</property>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/step-pitch-damping-lbsft">
+   <function>
+    <product>
+     <value>{-STEP_LEVER_FT ** 2:.2f}</value>
+     <property>hydro/glideslope/added-mass-damping-lbs_fps</property>
+     <property>velocities/thetadot-rad_sec</property>
+    </product>
+   </function>
+  </fcs_function>
+"""
+
+
+def hydrodynamics():
+    text = (PINNED_S23 / "Systems" / "Short_S23-hydrodynamics.xml").read_text()
+    text = replace_once(text, r"  <fcs_function name=\"hydro/hull-lift-lbs\">.*?</fcs_function>\n",
+                        lambda m: PLANING_LIFT, "the hull's lift")
+    text = replace_once(text, r"(      <property>hydro/damping-lift-lbs</property>\n)",
+                        r"\1      <property>hydro/glideslope/heave-damping-lbs</property>\n",
+                        "the hull's lifts' sum")
+    return replace_once(text, r"(   <input> hydro/hull-pitch-moment-lbsft </input>\n)",
+                        r"\1   <input> hydro/glideslope/step-pitch-damping-lbsft </input>\n",
+                        "the pitch moments' sum")
+
+
 def engines():
     text = (PINNED_S23 / "Systems" / "engines.xml").read_text()
     for control in ("throttle", "advance", "mixture"):
@@ -254,6 +416,7 @@ def outputs():
         OUT / "aircraft" / MODEL / "Systems" / "datcom_aero.xml": aerodynamics(),
         OUT / "aircraft" / MODEL / "Systems" / "engines.xml": engines(),
         OUT / "aircraft" / MODEL / "Systems" / "flaps.xml": flaps(),
+        OUT / "aircraft" / MODEL / "Systems" / "Short_S23-hydrodynamics.xml": hydrodynamics(),
     }
     for name in UNCHANGED_SYSTEMS:
         out[OUT / "aircraft" / MODEL / "Systems" / f"{name}.xml"] = \
