@@ -548,14 +548,20 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       what the command writes now; their glide tests are renamed, and a test
       holds every aeroplane's slowest glide to the first a glide is asked.
       *Verification: each figure is what the command writes now.*
-- [ ] **A plan's first leg strays further since the take-off climbs at the
-      published speed.** Climbing at her handbook's Vy rather than the
-      slower speed for her weight, each light aeroplane strays 11 to 17 m
-      further from the line of a first leg that turns (the 172P 62 -> 80 m),
-      within the test's 100 m; the faster climb should stray less, so why
-      is not known (PROJECT_STATUS, 2026-10-10). *Verification: the extra
-      stray traced to its cause, and either removed or explained in the
-      test.*
+- [x] **A plan's first leg strays further since the take-off climbs at the
+      published speed.** Traced: the stray is her turn onto a leg that
+      starts where she is, and a turn's size grows with the square of her
+      speed, so the faster climb strays more, not less (the 172P 63 -> 80 m).
+      The autopilot's own turn laws, flown at her speed, predict every
+      aeroplane's stray within 2 m, and the test now holds each to that.
+      *Verification: the extra stray traced to its cause, and either removed
+      or explained in the test.*
+- [ ] **The navigator turns at a waypoint only once abeam of it.** Nothing
+      leads the turn onto the next leg, so each turn carries the aircraft
+      off that leg as the first leg's does, by an amount growing with the
+      square of her speed. *Verification: a plan with a turning waypoint is
+      flown with the turn led from her turn radius, and the stray off the
+      next leg measured smaller, in every class.*
 - [x] **A glide may still be asked of a jet at its approach speed.** Each
       aircraft's slowest glide is measured with its gear up, and every
       aircraft glides round unstalled at every speed it may be asked to
