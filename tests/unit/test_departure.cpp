@@ -783,39 +783,60 @@ struct GroundRun {
     bool says_reversers = false;
 };
 
-// Each field two states differ in, both values to the last bit.
+// **Every number in a state, by name**, for comparing two to the last bit
+// and finding a NaN: AircraftState's own == takes a NaN as unequal to itself,
+// so two identical flights with a NaN anywhere in them compare unequal (as
+// the J-3 Cub's did on macOS, 2026-10-14).
+std::vector<std::pair<const char*, double>> fields_of(const glideslope::sim::AircraftState& s) {
+    return {{"time", s.sim_time_s},
+            {"latitude", s.latitude_deg},
+            {"longitude", s.longitude_deg},
+            {"altitude", s.altitude_ft},
+            {"height", s.height_above_ground_ft},
+            {"terrain", s.terrain_elevation_ft},
+            {"roll", s.roll_deg},
+            {"pitch", s.pitch_deg},
+            {"heading", s.heading_deg},
+            {"u", s.u_fps},
+            {"v", s.v_fps},
+            {"w", s.w_fps},
+            {"p", s.p_radps},
+            {"q", s.q_radps},
+            {"r", s.r_radps},
+            {"airspeed", s.airspeed_kts},
+            {"climb", s.climb_rate_fpm},
+            {"rpm", s.engine_rpm},
+            {"on water", s.on_water ? 1.0 : 0.0},
+            {"ditched", s.ditched ? 1.0 : 0.0}};
+}
+
+// Each field two states differ in, both values to the last bit; empty where
+// they are the same bit for bit.
 std::string differences(const glideslope::sim::AircraftState& a,
                         const glideslope::sim::AircraftState& b) {
+    const auto x = fields_of(a);
+    const auto y = fields_of(b);
     std::string out;
-    const auto field = [&](const char* name, double x, double y) {
-        if (std::memcmp(&x, &y, sizeof x) != 0) {
+    for (std::size_t i = 0; i < x.size(); ++i) {
+        if (std::memcmp(&x[i].second, &y[i].second, sizeof(double)) != 0) {
             char line[160];
-            std::snprintf(line, sizeof line, "%s %a against %a; ", name, x, y);
+            std::snprintf(line, sizeof line, "%s %a against %a; ", x[i].first, x[i].second,
+                          y[i].second);
             out += line;
         }
-    };
-    field("time", a.sim_time_s, b.sim_time_s);
-    field("latitude", a.latitude_deg, b.latitude_deg);
-    field("longitude", a.longitude_deg, b.longitude_deg);
-    field("altitude", a.altitude_ft, b.altitude_ft);
-    field("height", a.height_above_ground_ft, b.height_above_ground_ft);
-    field("terrain", a.terrain_elevation_ft, b.terrain_elevation_ft);
-    field("roll", a.roll_deg, b.roll_deg);
-    field("pitch", a.pitch_deg, b.pitch_deg);
-    field("heading", a.heading_deg, b.heading_deg);
-    field("u", a.u_fps, b.u_fps);
-    field("v", a.v_fps, b.v_fps);
-    field("w", a.w_fps, b.w_fps);
-    field("p", a.p_radps, b.p_radps);
-    field("q", a.q_radps, b.q_radps);
-    field("r", a.r_radps, b.r_radps);
-    field("airspeed", a.airspeed_kts, b.airspeed_kts);
-    field("climb", a.climb_rate_fpm, b.climb_rate_fpm);
-    field("rpm", a.engine_rpm, b.engine_rpm);
-    if (a.on_water != b.on_water || a.ditched != b.ditched) {
-        out += "on water or ditched; ";
     }
-    return out.empty() ? "no field differs bit for bit (a NaN compared unequal?)" : out;
+    return out;
+}
+
+// The fields of `s` that are NaN, named; empty where none is.
+std::string nans(const glideslope::sim::AircraftState& s) {
+    std::string out;
+    for (const auto& [name, value] : fields_of(s)) {
+        if (std::isnan(value)) {
+            out += std::string(out.empty() ? "" : ", ") + name;
+        }
+    }
+    return out;
 }
 
 GroundRun ground_run(const glideslope::sim::CatalogueEntry& entry, double throttle, double reverse,
@@ -887,7 +908,11 @@ GroundRun ground_run(const glideslope::sim::CatalogueEntry& entry, double thrott
 // reverse "approximately five seconds" after it was selected (A05H0002,
 // 1.16): a real engine's maximum reverse is a lower N1 than its full
 // throttle, and is reached sooner. One without reversers stands exactly as she stands with the lever
-// stowed, to the last bit of her state.
+// stowed, to the last bit of her state - compared field by field bit for bit,
+// so that a flight is the same as itself whatever is in it - and the same
+// as she stands stowed twice, so that a flight that differs run to run is
+// told apart from one the lever changed. And no standing aircraft's state
+// has a NaN in it.
 GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_ground_and_every_other_ignores_the_lever) {
     const auto roster = glideslope::sim::read_catalogue(data());
     constexpr double seconds = 20.0;
@@ -904,6 +929,11 @@ GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_grou
         }
         const bool reversers = e.reverse_idle_kts.has_value();
         const GroundRun most = ground_run(e, 0.0, 1.0, seconds);
+        // **A standing aircraft's state has no NaN in it**: the J-3 Cub's had
+        // one on macOS (CI run 38439516577), which this names.
+        if (const std::string nan = nans(most.state); !nan.empty()) {
+            wrong.push_back(e.id + " standing has a NaN in her state: " + nan);
+        }
         if (most.says_reversers != reversers) {
             wrong.push_back(e.id + ": her flight model's reversers are not her catalogue's");
         }
@@ -912,12 +942,13 @@ GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_grou
             // lever not involved - is told apart from one the lever changed.
             const GroundRun stowed = ground_run(e, 0.0, 0.0, seconds);
             const GroundRun again = ground_run(e, 0.0, 0.0, seconds);
-            if (!(stowed.state == again.state)) {
+            if (const std::string differ = differences(stowed.state, again.state);
+                !differ.empty()) {
                 wrong.push_back(e.id + " stood differently twice with the lever stowed - not the "
-                                "lever: " + differences(stowed.state, again.state));
-            } else if (!(stowed.state == most.state)) {
-                wrong.push_back(e.id + " has no reversers, and the lever changed her: " +
-                                differences(stowed.state, most.state));
+                                "lever: " + differ);
+            } else if (const std::string changed = differences(stowed.state, most.state);
+                       !changed.empty()) {
+                wrong.push_back(e.id + " has no reversers, and the lever changed her: " + changed);
             }
             ++without;
             continue;
