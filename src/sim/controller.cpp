@@ -285,6 +285,15 @@ std::optional<Controls> Controller::fly_lift_system() {
         if (!wanted) {
             return std::nullopt;
         }
+        // **On the ground, heavier than she can hover, STOVL mode does
+        // nothing**: the transition law, made on her wheels, stands her
+        // converted for a vertical take-off she could not hold. Her lift
+        // system is left as it is and the controls are the pilot's - she
+        // may still roll for a take-off on the wing - until she is in the
+        // air, where the law holds her wing-borne (`too_heavy_to_hover`).
+        if (on_ground && too_heavy_to_hover()) {
+            return std::nullopt;
+        }
         // **Seeded from what she flies, never from the stick**: in STOVL
         // mode the pilot's stick asks a height and a speed, not the
         // surfaces, so the transition law begins from the elevator, the
