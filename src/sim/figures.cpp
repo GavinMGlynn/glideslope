@@ -1935,6 +1935,17 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "the 600 ft/min the gear takes");
         }
     }
+    // **A rotation rate that is no rotation, or a snatch, is refused.**
+    // Airline and certification practice is two to four degrees a second;
+    // ten is past anything a pilot would fly.
+    if (root->HasAttribute("rotation_degps")) {
+        out.rotation_degps = root->GetAttributeValueAsNumber("rotation_degps");
+        if (!(out.rotation_degps > 0.0 && out.rotation_degps <= 10.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a rotation_degps that is not above 0 and at "
+                                     "most 10");
+        }
+    }
     if (JSBSim::Element* source = root->FindElement("source")) {
         out.source = collapse_whitespace(source->GetDataLine());
     }

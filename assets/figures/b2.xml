@@ -34,7 +34,13 @@
   forty a light aeroplane is, a B-2A in ground effect floated two
   kilometres down the runway.
 -->
-<published_figures aircraft="b2" flaps_full_deg="0" approach_speedbrake="0.5" touchdown_fpm="200">
+<!--
+  **rotation_degps** is the rate the take-off autopilot rotates her at on
+  her wheels (sim/departure.hpp): three degrees a second, an airliner's
+  (Boeing's flight crew training manuals, "2 to 3 degrees per second";
+  Airbus about three): no document found gives hers.
+-->
+<published_figures aircraft="b2" rotation_degps="3" flaps_full_deg="0" approach_speedbrake="0.5" touchdown_fpm="200">
   <source>USAF B-2 Spirit fact sheet</source>
 
   <!-- 336,500 lb, the maximum take-off weight: 160,000 lb, taken as the empty

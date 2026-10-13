@@ -20,7 +20,14 @@
   which increase speeds by approximately 3 knots" (page ii); the model is the
   aircraft with them.
 -->
-<published_figures aircraft="c182" flaps_full_deg="38">
+<!--
+  **rotation_degps** is the rate the take-off autopilot rotates her at on
+  her wheels (sim/departure.hpp): four degrees a second. No handbook found
+  gives a rate; it is the one the take-off autopilot raised every nose at
+  before each aeroplane had her own, kept for the light aeroplanes and the
+  fighters, which are rotated more briskly than an airliner.
+-->
+<published_figures aircraft="c182" rotation_degps="4" flaps_full_deg="38">
   <source>Cessna Model 182S Skylane Information Manual, 1997</source>
 
   <!-- 3,100 lb, the maximum take-off weight the handbook's figures are for:
