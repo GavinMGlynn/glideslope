@@ -65,10 +65,12 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // same day to 07, when a refused take-over was said to the client, and to 08,
 // when a swap could ask for the learnt landing, and on 2026-10-08 to 09,
 // when the learnt landing refused was said to the client, and the same day to
-// 0A, when a copilot's route could end in a landing: the document gives the
-// envelope's version as `0A`. A test reads this line to keep the two together
+// 0A, when a copilot's route could end in a landing, on 2026-10-13 to 0B,
+// when the server told every client its runways' conditions, and on
+// 2026-10-14 to 0C, when an input frame took a nineteenth control, the STOVL
+// mode selector: the document gives the envelope's version as `0C`. A test reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x0B;
+constexpr std::uint8_t kVersion = 0x0C;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;
@@ -610,10 +612,10 @@ std::int16_t fraction(double v) {
     return static_cast<std::int16_t>(std::lround(c * 32767.0));
 }
 
-using Frame = std::array<std::int16_t, 18>;
+using Frame = std::array<std::int16_t, 19>;
 
 Frame full_left_aileron() {
-    std::array<double, 18> c{};
+    std::array<double, 19> c{};
     c[0] = 0.0;   // elevator
     c[1] = -1.0;  // aileron: +1 rolls right, so -1 is full left
     c[2] = 0.0;   // rudder
@@ -632,6 +634,7 @@ Frame full_left_aileron() {
     c[15] = 0.0;  // cooling flaps, port
     c[16] = 0.0;  // cooling flaps, starboard
     c[17] = 0.0;  // reverse, stowed
+    c[18] = 0.0;  // STOVL mode: conventional flight
     Frame f{};
     for (std::size_t i = 0; i < f.size(); ++i) f[i] = fraction(c[i]);
     return f;

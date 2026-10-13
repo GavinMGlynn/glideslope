@@ -40,7 +40,8 @@ bool towards(Controls& from, const Controls& to) {
           std::pair{&from.cooling_flaps[0], to.cooling_flaps[0]},
           std::pair{&from.cooling_flaps[1], to.cooling_flaps[1]},
           std::pair{&from.speedbrake, to.speedbrake},
-          std::pair{&from.reverse, to.reverse}}) {
+          std::pair{&from.reverse, to.reverse},
+          std::pair{&from.stovl, to.stovl}}) {
         met = towards(*control, wanted) && met;
     }
     return met;
@@ -202,9 +203,120 @@ bool Controller::climb_out_if_lifting_off() {
     return true;
 }
 
+FlightPlan Controller::to_its_point(FlightPlan plan) const {
+    if (plan.vertical_landing && a_.has_lift_system() && !plan.waypoints.empty()) {
+        Waypoint point = plan.waypoints.back();
+        point.name = plan.vertical_landing->name;
+        point.latitude_deg = plan.vertical_landing->latitude_deg;
+        point.longitude_deg = plan.vertical_landing->longitude_deg;
+        point.fly_over = true;
+        point.orbit.reset();
+        plan.waypoints.push_back(point);
+    }
+    return plan;
+}
+
+bool Controller::vertical_landing_due() const {
+    if (!navigator_ || !navigator_->plan().vertical_landing || departure_ || lander_ ||
+        learnt_ || circuit_ || vacate_ || glide_kts_) {
+        return false;
+    }
+    if (navigator_->finished()) {
+        return true;
+    }
+    // Flying to the point, the last waypoint `to_its_point` added.
+    if (navigator_->next() + 1 < navigator_->plan().waypoints.size()) {
+        return false;
+    }
+    const FlightPlan::VerticalLanding& v = *navigator_->plan().vertical_landing;
+    const AircraftState s = a_.state();
+    const double ft =
+        distance_m(s.latitude_deg, s.longitude_deg, v.latitude_deg, v.longitude_deg) / 0.3048;
+    return ft <= Transition::stops_within_ft(a_, a_.property("velocities/vc-kts"));
+}
+
+std::optional<Controls> Controller::fly_lift_system() {
+    const bool on_ground = a_.property("gear/wow") > 0.5;
+    const double least_ft = a_.property("fcs/stovl-convert-least-ft");
+    // Taken back in STOVL mode: held there until the selector moves.
+    bool selected = pilot_.stovl >= 0.5;
+    if (flying_ == Flying::pilot && selector_at_take_back_) {
+        if (pilot_.stovl != *selector_at_take_back_) {
+            selector_at_take_back_.reset();
+        } else {
+            selected = true;
+        }
+    }
+    if (!stovl_) {
+        const bool wanted = flying_ == Flying::ai ? vertical_landing_due() : selected;
+        if (!wanted) {
+            return std::nullopt;
+        }
+        stovl_.emplace(a_, Hover::Command{applied_, held_lift_});
+        const double agl = a_.state().height_above_ground_ft;
+        stovl_height_ft_ = on_ground ? agl : std::max(agl, least_ft);
+        hovering_since_s_.reset();
+    }
+    const bool hovering = stovl_->stage() == Transition::Stage::hovering;
+    if (!hovering) {
+        hovering_since_s_.reset();
+    } else if (!hovering_since_s_) {
+        hovering_since_s_ = a_.state().sim_time_s;
+    }
+    Transition::Target target;
+    target.kcas = a_.property("fcs/stovl-convert-kcas");
+    if (flying_ == Flying::ai) {
+        if (navigator_ && navigator_->plan().vertical_landing) {
+            const FlightPlan::VerticalLanding& v = *navigator_->plan().vertical_landing;
+            target.height_ft = std::max(vertical_hover_ft, least_ft);
+            target.over = Transition::Point{v.latitude_deg, v.longitude_deg};
+            target.land = hovering_since_s_ &&
+                          a_.state().sim_time_s - *hovering_since_s_ >= v.hover_s;
+        } else {
+            // Holding the hover she was handed in.
+            target.height_ft = stovl_height_ft_;
+            target.land = hovering && stovl_height_ft_ <= land_below_ft;
+        }
+    } else if (selected) {
+        // **The stick asks for height**: back to climb, forward to sink.
+        const double e = std::clamp(pilot_.elevator, -1.0, 1.0);
+        const double fps = e >= 0.0 ? e * stick_climb_fps : e * stick_sink_fps;
+        stovl_height_ft_ += fps / static_cast<double>(steps_per_second);
+        stovl_height_ft_ = std::max(stovl_height_ft_, hovering ? 0.0 : least_ft);
+        target.height_ft = stovl_height_ft_;
+        target.land = hovering && stovl_height_ft_ <= land_below_ft;
+    } else {
+        target.hover = false;
+        target.height_ft = std::max(stovl_height_ft_, least_ft);
+        if (on_ground) {
+            // On the ground the selector back is conventional flight at
+            // once: the fan's doors close, the nozzle aft.
+            held_lift_ = LiftSystem{};
+            lift_ = held_lift_;
+            stovl_.reset();
+            catching_up_ = true;
+            return std::nullopt;
+        }
+    }
+    const Hover::Command c = stovl_->step(target);
+    applied_ = c.controls;
+    applied_.stovl = target.hover ? 1.0 : 0.0;
+    held_lift_ = c.lift;
+    lift_ = c.lift;
+    // Converted back and wing-borne: the controls are the pilot's again, at
+    // a hand's pace.
+    if (!target.hover && stovl_->stage() == Transition::Stage::wing_borne &&
+        a_.property("fcs/stovl-pos-norm") <= 0.0) {
+        stovl_.reset();
+        catching_up_ = true;
+        return std::nullopt;
+    }
+    return applied_;
+}
+
 void Controller::to_ai(FlightPlan plan) {
     engage();
-    navigator_.emplace(a_, std::move(plan));
+    navigator_.emplace(a_, to_its_point(std::move(plan)));
     // **Just after lift-off, the climb-out first**, and the plan from where
     // it leaves her, as a plan that takes off is flown (`to_ai_flying`).
     climb_out_if_lifting_off();
@@ -218,7 +330,7 @@ void Controller::replan(FlightPlan plan) {
         return;
     }
     on_final_legs_ = false;
-    navigator_.emplace(a_, std::move(plan));
+    navigator_.emplace(a_, to_its_point(std::move(plan)));
 }
 
 void Controller::set_glide(std::optional<double> airspeed_kts) {
@@ -370,7 +482,7 @@ void Controller::to_ai_flying(FlightPlan plan, const DepartureSpeeds& speeds) {
     }
     const FlightPlan::TakeOff takeoff = *plan.takeoff;
     to_ai_take_off(takeoff.runway, speeds, takeoff.to_ft);
-    navigator_.emplace(a_, std::move(plan));
+    navigator_.emplace(a_, to_its_point(std::move(plan)));
 }
 
 void Controller::to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
@@ -425,6 +537,10 @@ void Controller::to_pilot() {
     held_mixture_ = applied_.mixture;
     held_delta_ = std::max(a_.property("atmosphere/delta"), 1e-3);
     lever_at_take_back_.reset();
+    selector_at_take_back_.reset();
+    if (stovl_) {
+        selector_at_take_back_ = pilot_.stovl;
+    }
     easing_in_ = false;
     autopilot_.reset();
     navigator_.reset();
@@ -481,6 +597,12 @@ Controls Controller::fly() {
         highest_since_wheels_ft_ = s.altitude_ft;
     } else {
         highest_since_wheels_ft_ = std::max(highest_since_wheels_ft_, a_.state().altitude_ft);
+    }
+    lift_.reset();
+    if (a_.has_lift_system()) {
+        if (const std::optional<Controls> lifted = fly_lift_system()) {
+            return *lifted;
+        }
     }
     if (flying_ == Flying::ai) {
         // **Landed, she taxis off the runway** and stops beside it, where
@@ -692,6 +814,13 @@ Controls Controller::fly() {
     }
     applied_ = wanted;
     return applied_;
+}
+
+void apply(Aircraft& aircraft, Controller& controller) {
+    aircraft.set_controls(controller.fly());
+    if (const LiftSystem* lift = controller.lift()) {
+        aircraft.set_lift_system(*lift);
+    }
 }
 
 } // namespace glideslope::sim

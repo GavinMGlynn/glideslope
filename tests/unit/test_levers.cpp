@@ -349,3 +349,35 @@ GLIDESLOPE_TEST(the_keyboard_sets_the_flaps_a_notch_a_press_to_exactly_full_and_
     }
     check(kinds == 2, "both kinds of device were looked at");
 }
+
+// **The STOVL mode selector from the keyboard**: H selects STOVL mode and N
+// conventional flight, each at a press and left where it is thrown; a key
+// held is one throw. Every key from every position is walked: two
+// positions, two keys, four throws - and a frame with neither key leaves it.
+GLIDESLOPE_TEST(the_keyboard_selects_stovl_mode_with_h_and_conventional_flight_with_n) {
+    std::size_t walked = 0;
+    for (const double from : {0.0, 1.0}) {
+        for (const auto& [key, want] :
+             {std::pair{SDL_SCANCODE_H, 1.0}, std::pair{SDL_SCANCODE_N, 0.0}}) {
+            KeyboardControls keyboard;
+            Controls c;
+            c.stovl = from;
+            Keys keys;
+            keys.down(key);
+            for (int i = 0; i < 2 * steps_per_second; ++i) {
+                keyboard.apply(c, 1.0 / steps_per_second, keys.held, key_count);
+            }
+            keys.up(key);
+            for (int i = 0; i < steps_per_second; ++i) {
+                keyboard.apply(c, 1.0 / steps_per_second, keys.held, key_count);
+            }
+            check(c.stovl == want, std::string(key == SDL_SCANCODE_H ? "H" : "N") + " from " +
+                                       std::to_string(from) + " left the selector at " +
+                                       std::to_string(c.stovl) + ", not " +
+                                       std::to_string(want));
+            ++walked;
+        }
+    }
+    check(walked == 4, "every key from every position was walked: " + std::to_string(walked));
+}
+

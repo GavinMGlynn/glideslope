@@ -16,6 +16,7 @@
 //   waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT [flyover]
 //   orbit NAME LATITUDE LONGITUDE RADIUS_M ALTITUDE_FT AIRSPEED_KT TURNS left|right
 //   land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M  after the last
+//   land_vertically NAME LATITUDE LONGITUDE HOVER_S    or this, after the last
 //
 // with `#` beginning a comment. Degrees are WGS84's, altitudes above sea
 // level, airspeeds calibrated.
@@ -49,6 +50,15 @@
 // (sim::Controller). Where a plan's runway lies is the plan's to say; a
 // caller that knows the ground better - the server, from the ground it
 // collides on - may put its elevation right.
+//
+// **Or in a vertical landing**, for an aeroplane with a lift system (the
+// F-35B): `land_vertically` names a point, and once the last waypoint is
+// passed she flies on to it, converts to STOVL mode and slows, wing-borne
+// and then jet-borne, to stop in a hover over it, hovers there HOVER_S
+// seconds and lets down onto it (sim::Controller, sim/transition.hpp). The
+// hover's height is the transition law's own; the ground's height under the
+// point is the flight model's. An aeroplane without a lift system flies
+// such a plan's last waypoint on, as one with no landing does.
 
 #include <optional>
 #include <stdexcept>
@@ -170,10 +180,19 @@ struct FlightPlan {
     // **Landed on, after the last waypoint** (`land`), or none: the plan's
     // last leg then goes on flying the autopilot's last waypoint.
     std::optional<Runway> landing;
+    // **Or landed on vertically, after the last waypoint**
+    // (`land_vertically`), hovering over the point `hover_s` seconds first.
+    struct VerticalLanding {
+        std::string name;
+        double latitude_deg = 0.0;
+        double longitude_deg = 0.0;
+        double hover_s = 0.0;
+    };
+    std::optional<VerticalLanding> vertical_landing;
 };
 
 // Throws FlightPlanError naming the line of anything it cannot read, for a
-// line after `land`, and for a plan with no aircraft or no waypoints, with both a start and a take-off, or
+// line after `land` or `land_vertically`, for both of them, and for a plan with no aircraft or no waypoints, with both a start and a take-off, or
 // with a runway and no take-off from it or the other way round.
 FlightPlan parse_flight_plan(std::string_view text);
 

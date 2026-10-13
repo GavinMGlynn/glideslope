@@ -90,8 +90,11 @@ struct InitialConditions {
 
 // **A STOVL aeroplane's lift system** - the F-35B's lift fan, roll posts and
 // swivelling nozzle (tools/make_f35b.py) - as its flight controls take it.
-// Not yet part of Controls, and so not sent by a client: only the hover
-// and transition control laws (sim/hover.hpp, sim/transition.hpp) set it.
+// Not part of Controls, and so not sent by a client: as in the aeroplane,
+// her pilot has no nozzle lever. The pilot's STOVL mode selector
+// (Controls::stovl) hands it to her flight-control laws, the hover and
+// transition laws (sim/hover.hpp, sim/transition.hpp), which set it
+// (sim::Controller).
 // Its positions are flight-control properties, and so are in a replay's
 // state like every other.
 struct LiftSystem {
@@ -144,6 +147,13 @@ struct Controls {
     // An aircraft without reversers ignores it (tools/airliner.py).
     double reverse = 0.0;
     static constexpr double reverse_idle = 0.1;
+    // **The STOVL mode selector**: 1 asks her flight controls for STOVL
+    // mode, 0 for conventional flight. An aeroplane without a lift system
+    // ignores it. As the F-35B's own pilot has it (sim/controller.hpp,
+    // "unified control"), there is no nozzle or fan lever: in STOVL mode
+    // her flight-control laws command the lift system, and the stick asks
+    // them for height.
+    double stovl = 0.0;
 
     // **Every control as a flat list, and back again.** The wire sends a
     // client's inputs to the server (net/inputs.hpp), and the network knows
@@ -152,14 +162,14 @@ struct Controls {
     // stops the two drifting apart when a control is added - and
     // `sizeof(Controls)` is held by a test, so a new field that is not put
     // in here is caught rather than quietly left out of every flight.
-    static constexpr std::size_t control_count = 18;
+    static constexpr std::size_t control_count = 19;
     std::array<double, control_count> as_list() const {
         return {elevator,      aileron,    rudder,         throttle,
                 mixture,       flaps,      left_brake,     right_brake,
                 pitch_trim,    propeller,  gear,           supercharger,
                 speedbrake,    throttle_offset[0],         throttle_offset[1],
                 cooling_flaps[0],          cooling_flaps[1],
-                reverse};
+                reverse,       stovl};
     }
     static Controls from_list(const std::array<double, control_count>& v) {
         Controls c;
@@ -179,6 +189,7 @@ struct Controls {
         c.throttle_offset = {v[13], v[14]};
         c.cooling_flaps = {v[15], v[16]};
         c.reverse = v[17];
+        c.stovl = v[18];
         return c;
     }
     bool operator==(const Controls&) const = default;
@@ -526,8 +537,8 @@ public:
     // std::logic_error on an aircraft without one, and std::invalid_argument
     // for STOVL mode asked above the airspeed her model clears it to
     // (`fcs/stovl-limit-kcas`). The transition law (sim/transition.hpp)
-    // flies her between wing-borne flight and a hover; no pilot's controls
-    // or AI plan reach it yet.
+    // flies her between wing-borne flight and a hover, for her pilot's STOVL
+    // mode selector and for a plan's vertical landing (sim::Controller).
     bool has_lift_system() const;
     void set_lift_system(const LiftSystem& lift);
 

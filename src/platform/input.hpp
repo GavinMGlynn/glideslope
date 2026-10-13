@@ -46,11 +46,16 @@ enum class Control {
     // The speedbrake lever: 0 stowed, 1 fully out. An aircraft without
     // speedbrakes ignores it.
     speedbrake,
+    // The STOVL mode selector (sim::Controls::stovl): 1 STOVL mode, 0
+    // conventional flight. An aircraft without a lift system ignores it.
+    stovl,
 };
 
 enum class Source { axis, button, hat };
 
-enum class Mode { centred, lever, hold, step };
+// `select`, the keyboard's alone: one key sets its control to 0 and the
+// other to 1, as a switch is thrown.
+enum class Mode { centred, lever, hold, step, select };
 
 // SDL's hat directions, as bits.
 enum HatDirection : std::uint8_t {
@@ -107,7 +112,10 @@ private:
 // **The keyboard, beside any flight controller.** The arrows fly it, Z and X
 // work the rudder, Page Up and Page Down the throttle, the comma and full
 // stop the mixture, the square brackets the propeller, and the semicolon and
-// apostrophe the speedbrake lever, in and out; B holds the brakes. **F lowers
+// apostrophe the speedbrake lever, in and out; B holds the brakes; H selects
+// STOVL mode and N conventional flight, in a lift-system aeroplane (the
+// F-35B: sim/controller.hpp), where the up and down arrows then ask her for
+// height. **F lowers
 // the flaps a notch and R raises them one**, a third of their travel a press
 // as a stick's flap buttons do (assets/input/bindings.txt): the landing flap
 // is three presses, and exactly full, which is what the learnt landing's gate
@@ -141,7 +149,8 @@ private:
 // `centred` pair moves its control to -0.5 (`less`) or +0.5 (`more`) while
 // held; a `lever` pair moves it down or up at half its travel a second; a
 // `step` pair (the flaps) moves it a notch, a third, at each press; a `hold`
-// key (`more` alone) holds it at 1. Scancodes are SDL's.
+// key (`more` alone) holds it at 1; a `select` pair sets it to 0 (`less`) or
+// 1 (`more`) at a press. Scancodes are SDL's.
 struct KeyboardBinding {
     Control control = Control::aileron;
     Mode mode = Mode::centred;

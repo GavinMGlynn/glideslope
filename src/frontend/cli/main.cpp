@@ -802,7 +802,7 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
     double stop_across_m = 0.0;
     double stop_along_m = 0.0;
     for (long tick = 0; tick < 600L * glideslope::sim::steps_per_second && !stopped; ++tick) {
-        aircraft.set_controls(controller.fly());
+        glideslope::sim::apply(aircraft, controller);
         aircraft.step();
         const glideslope::sim::Lander* rolling = nullptr;
         if (const auto* l = controller.learnt()) {
@@ -1131,7 +1131,7 @@ int fly_plan(const std::filesystem::path& data, const std::vector<std::string_vi
     };
     std::int64_t step = 0;
     for (; step < most_steps; ++step) {
-        aircraft.set_controls(controller.fly());
+        glideslope::sim::apply(aircraft, controller);
         aircraft.step();
         if (const auto wrecked = judge.judge(aircraft)) {
             std::printf("wrecked, %.0f s in: %s\n", seconds(step), wrecked->c_str());

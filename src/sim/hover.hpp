@@ -59,6 +59,14 @@ public:
     // One 120 Hz step's commands.
     Command step(const Target& target);
 
+    // **The point it holds over**, from the next step: degrees of WGS84.
+    // Where it was taken over unless this moves it - a plan's vertical
+    // landing, the point she was slowed to (sim/transition.hpp).
+    void hold_over(double latitude_deg, double longitude_deg) {
+        latitude_deg_ = latitude_deg;
+        longitude_deg_ = longitude_deg;
+    }
+
     // Its height above where it stood, ft; and how far it has drifted from
     // its point, ft.
     double height_ft() const;

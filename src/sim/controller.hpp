@@ -31,6 +31,39 @@
 // **One way, and this landing only**: the first step the pilot has her that
 // she is not still landing on that runway - a go-around, a turn off, a stop -
 // the lander is dropped, and a take-back after it is the plain autopilot.
+//
+// **A STOVL aeroplane's lift system is flown by her flight-control laws**,
+// never by a lever: the F-35B's pilot has no nozzle lever. Lockheed Martin's
+// and Pratt & Whitney's account of her control laws (Walker, Fuller and
+// Wurth, "F-35B Integrated Flight-Propulsion Control Development", AIAA
+// 2013-4243, its abstract) calls them "unified": in STOVL mode the stick
+// commands rate of climb or flight path and the left-hand inceptor
+// longitudinal acceleration, and the flight-control computer turns what
+// they ask into the lift fan's, the roll posts' and the nozzle's commands.
+// Here that computer is the transition law (sim/transition.hpp), and:
+//
+//   the pilot's STOVL mode selector (Controls::stovl) at 1 converts her and
+//   slows her to a hover where she stops, at the height she had - no lower
+//   than her least conversion height; on the ground, she stands converted.
+//   In STOVL mode the stick's fore-and-aft asks for height: full back
+//   climbs at the hover law's 10 ft/s, full forward sinks at its 6, and
+//   asked down to `land_below_ft` she lets down and lands. The selector
+//   back at 0 converts her back to wing-borne flight at her conversion
+//   speed, and once she is, the controls are the pilot's again, reached
+//   from the law's at a hand's pace; on the ground, at once. **Only the
+//   height is the stick's yet**: the throttle's speed, the stick's sideways
+//   translation and the pedals' heading in a hover are not.
+//
+//   a plan's vertical landing (FlightPlan::vertical_landing) is flown to
+//   the point, and from `Transition::stops_within_ft` of it the transition
+//   law converts her and stops her in a hover over it at `vertical_hover_ft`,
+//   holds it the plan's seconds, and lets her down onto it.
+//
+// **The lift system is handed over as everything else is**: given to the AI
+// in STOVL mode, the AI holds the hover she is in at the height asked
+// (a plan given her then is not flown until she is converted back - not yet
+// done); taken back in it, she stays in STOVL mode until the pilot's
+// selector moves from where it was at the take-back.
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
@@ -40,6 +73,7 @@
 #include "sim/lander.hpp"
 #include "sim/learnt.hpp"
 #include "sim/navigator.hpp"
+#include "sim/transition.hpp"
 
 #include <filesystem>
 #include <functional>
@@ -300,6 +334,30 @@ public:
 
     // The aircraft's controls for the next step. Call it once a step.
     Controls fly();
+    // **Her lift system's commands for the next step**, from the last
+    // `fly`, while her flight-control laws fly it; else null, and her lift
+    // system keeps what it was last given. `apply` below puts both on her.
+    const LiftSystem* lift() const {
+        return lift_ ? &*lift_ : nullptr;
+    }
+    // The transition law, while it flies her lift system; else null.
+    const Transition* transition() const {
+        return stovl_ ? &*stovl_ : nullptr;
+    }
+    // In STOVL mode, the height asked of the transition law above the
+    // ground beneath her, ft.
+    double stovl_height_asked_ft() const {
+        return stovl_height_ft_;
+    }
+    // **The thresholds**: the height under which the stick's height asks
+    // for a landing; the height a plan's vertical landing hovers at - the
+    // F-35B's first hover's, "a zero airspeed hover at 150 feet above the
+    // runway" (sim/transition.hpp); and the stick's climb and sink, the
+    // hover law's (sim/hover.cpp).
+    static constexpr double land_below_ft = 20.0;
+    static constexpr double vertical_hover_ft = 150.0;
+    static constexpr double stick_climb_fps = 10.0;
+    static constexpr double stick_sink_fps = 6.0;
 
     // **Whether the AI is recovering from a stall it noticed coming**
     // (controller.cpp, `notice_a_stall`).
@@ -310,6 +368,21 @@ public:
 private:
     // The AI engaged with the plain autopilot, and nothing else.
     void engage();
+    // **The lift system's laws**, while they fly her: the controls, and
+    // `lift_` set; none while they do not.
+    std::optional<Controls> fly_lift_system();
+    // Whether the AI's plan's vertical landing is to be begun now.
+    bool vertical_landing_due() const;
+    // A plan with a vertical landing flown to its point: the point added as
+    // its last waypoint, at the height and speed of the one before.
+    FlightPlan to_its_point(FlightPlan plan) const;
+    std::optional<Transition> stovl_;
+    std::optional<LiftSystem> lift_;
+    LiftSystem held_lift_;
+    double stovl_height_ft_ = 0.0;
+    std::optional<double> hovering_since_s_;
+    // Taken back in STOVL mode, the selector then, held until it moves.
+    std::optional<double> selector_at_take_back_;
     // A stall warning noticed, and recovered from (`landing_speeds_`'s stall).
     void notice_a_stall();
     // What the autopilot was flying when the warning came, while it recovers;
@@ -394,5 +467,11 @@ private:
     double held_delta_ = 1.0;
     std::optional<double> lever_at_take_back_;
 };
+
+// **One step's commands put on `aircraft`**: `controller`'s controls, and
+// its lift system's while its laws fly one. What each caller does once a
+// step, so that the server's, the client's prediction and the tools' are
+// the same.
+void apply(Aircraft& aircraft, Controller& controller);
 
 } // namespace glideslope::sim

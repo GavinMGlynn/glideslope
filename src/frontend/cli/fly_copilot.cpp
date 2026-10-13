@@ -437,7 +437,7 @@ int fly_copilot(const std::filesystem::path& data, const std::vector<std::string
             std::this_thread::sleep_until(due);
         }
 
-        aircraft.set_controls(controller.fly());
+        glideslope::sim::apply(aircraft, controller);
         aircraft.step();
         if (const auto wrecked = judge.judge(aircraft)) {
             std::printf("wrecked, %.0f s in: %s\n", seconds(step), wrecked->c_str());
