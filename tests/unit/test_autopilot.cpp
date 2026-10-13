@@ -972,6 +972,85 @@ GLIDESLOPE_TEST(a_cherokee_asked_for_a_height_it_cannot_hold_gives_up_height_not
 // integral), the airliners' 25.2-27.2 (25.1-26.2 without); an integral left
 // to run while the bank lagged its command took the 787 and the A380 to 29.8,
 // and this to red.
+// **A bank asked is the bank held**: every aircraft, at her climb speed and
+// her cruise speed (each held to the speeds a plan may fly her at), level at
+// 5,000 ft in calm air, asked for 15 and 25 degrees of bank each way - as a
+// navigator's loiter law asks round an orbit or a fly-by turn - holds it
+// within a degree from 40 s on, over the next 20 s. Where a turn at full
+// throttle has spent what it may, the autopilot banks less on purpose
+// (Autopilot::bank_limit_deg), and that bank is the one held to. Before the
+// aileron's integral worked at any bank, it worked only at the bank limit:
+// the Cherokee at 74 kt, asked for 20, held 15.7.
+GLIDESLOPE_TEST(every_aircraft_asked_for_a_steady_bank_of_15_or_25_degrees_holds_it_within_a_degree) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    std::string failures;
+    std::size_t flown = 0;
+    std::size_t limited = 0;
+    for (const CatalogueEntry& e : catalogue) {
+        const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data(), e.model);
+        const double climb_kts = glideslope::sim::departure_speeds(data(), e.model).climb_kts;
+        for (const double asked_kts : {climb_kts, e.start_airspeed_kts}) {
+            const double kts =
+                std::round(std::clamp(asked_kts, speeds.slowest_kts, speeds.fastest_kts));
+            for (const double bank : {15.0, 25.0, -15.0, -25.0}) {
+                Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+                glideslope::sim::InitialConditions ic;
+                ic.latitude_deg = -33.9;
+                ic.longitude_deg = 151.2;
+                ic.altitude_ft = 5000.0;
+                ic.heading_deg = 0.0;
+                ic.airspeed_kts = kts;
+                ic.engine_running = true;
+                ic.gear = 0.0;
+                aircraft.initialize(ic);
+                glideslope::sim::Controls controls;
+                controls.throttle = e.start_throttle;
+                Autopilot autopilot(aircraft, controls);
+                AutopilotModes modes = autopilot.modes();
+                modes.heading_deg.reset();
+                modes.bank_deg = bank;
+                modes.altitude_ft = 5000.0;
+                modes.airspeed_kts = kts;
+                autopilot.set(modes);
+                double worst = 0.0;
+                double least_limit = 25.0;
+                for (int i = 0; i < 60 * steps_per_second; ++i) {
+                    aircraft.set_controls(autopilot.fly());
+                    aircraft.step();
+                    if (i >= 40 * steps_per_second) {
+                        const double held = std::min(std::abs(bank), autopilot.bank_limit_deg());
+                        least_limit = std::min(least_limit, autopilot.bank_limit_deg());
+                        worst = std::max(worst, std::abs(std::abs(aircraft.property(
+                                                             "attitude/phi-deg")) -
+                                                         held));
+                    }
+                }
+                if (least_limit < std::abs(bank)) {
+                    ++limited;
+                }
+                ++flown;
+                char line[200];
+                std::snprintf(line, sizeof line,
+                              "%s at %.0f KCAS asked %+.0f: held within %.2f degrees (its "
+                              "limit at least %.1f)",
+                              e.id.c_str(), kts, bank, worst, least_limit);
+                std::printf("%s\n", line);
+                if (!(worst <= 1.0)) {
+                    failures += std::string("\n  ") + line;
+                }
+            }
+        }
+    }
+    const std::size_t cases = catalogue.size() * 2 * 4;
+    std::printf("%zu aircraft x 2 speeds x 4 banks = %zu cases: %zu flown, %zu at a lesser "
+                "limit\n",
+                catalogue.size(), cases, flown, limited);
+    check(flown == cases && flown > 0,
+          "every aircraft at both speeds and all four banks: " + std::to_string(flown) + " of " +
+              std::to_string(cases));
+    check(failures.empty(), "each holds its bank within a degree:" + failures);
+}
+
 GLIDESLOPE_TEST(every_aircraft_turns_ninety_degrees_without_overbanking_or_overshooting) {
     constexpr double most_bank_deg = 28.0;
     constexpr double most_overshoot_deg = 4.0;
