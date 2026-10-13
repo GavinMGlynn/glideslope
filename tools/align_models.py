@@ -278,9 +278,13 @@ def measure(model_id: str):
     # are not fitted to - the undercarriage is what has to meet the ground -
     # but how far the model lies from them is what says the two models are
     # of the same aeroplane, so it is measured and recorded.
+    # A tail strike (tools/ground.py, tail_strike) is counted but not
+    # measured: it is placed from the mesh's own main wheels, not from this
+    # fit, so how far it lies from the fitted mesh measures the two
+    # undercarriages' distance apart, already in `on`, and not the shape.
     elsewhere = 0.0
     others = [c for i, c in enumerate(contacts) if i not in set(on)]
-    for _name, target in others:
+    for _name, target in (c for c in others if not c[0].endswith("TAIL_STRIKE")):
         q = [target[k] - offset[k] for k in range(3)]
         elsewhere = max(elsewhere, min(math.dist(p, q) for p in points))
     return (offset, len(on), worst, len(others), elsewhere,

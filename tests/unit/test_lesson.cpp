@@ -26,6 +26,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <exception>
 #include <filesystem>
 #include <functional>
 #include <map>
@@ -1368,11 +1369,21 @@ constexpr double strike_margin_deg = 2.5;
 // contact aft of its main wheels says nothing a tail could strike.
 const std::map<std::string, std::string>& no_tail_to_strike() {
     static const std::map<std::string, std::string> named = {
-        {"f15c", "her model has no contact behind her main wheels"},
         {"j3cub", "she stands on a tail wheel, her tail down already"},
+        {"mosquito-fb6", "she stands on a tail wheel, her tail down already"},
         {"short_s23", "a flying boat, alighting on her hull and not on wheels"},
     };
     return named;
+}
+
+// **Her stance needs her initialised**: `Aircraft::stance` reads her centre
+// of gravity, which JSBSim works out only when she is initialised - before,
+// it reads nought, and an aeroplane whose structural frame runs negative,
+// the F-15C's, was taken for one standing on a tail wheel.
+void initialized_for_her_stance(glideslope::sim::Aircraft& aircraft) {
+    glideslope::sim::InitialConditions ic;
+    ic.engine_running = false;
+    aircraft.initialize(ic);
 }
 
 // **Every flare begins at the attitude the glidepath was flown at, and
@@ -1381,6 +1392,7 @@ std::vector<std::string> flared_from_the_path(const std::string& id, const std::
                                               const FlareWatch& f) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    initialized_for_her_stance(aircraft);
     const glideslope::sim::Aircraft::Stance stance = aircraft.stance();
     const bool strikes = !entry.seaplane && stance.found && !stance.tail_wheel &&
                          stance.strike_pitch_deg < 90.0;
@@ -1427,6 +1439,7 @@ std::size_t the_strike_check_is_seen_red(std::vector<std::string>& wrong) {
     std::size_t put = 0;
     for (const auto& entry : glideslope::sim::read_catalogue(data())) {
         glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        initialized_for_her_stance(aircraft);
         const auto stance = aircraft.stance();
         if (entry.seaplane || !stance.found || stance.tail_wheel ||
             stance.strike_pitch_deg >= 90.0) {
@@ -1731,17 +1744,23 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
 // she cannot fly off before her nose is past the strike. With them down the
 // Learjet 35A and the A380 flew off first. Each must strike, at an
 // attitude within a degree of the one her contacts say her tail strikes at
-// (`Aircraft::stance`), and her take-off lesson's debrief must name it. The
-// aeroplanes with no tail to strike are the approach test's (above); the
-// others left out are named below, with their reasons.
+// (`Aircraft::stance`), on a contact behind her main wheels, and her take-off
+// lesson's debrief must name it. Where her tail strikes on her contacts is
+// her airframe's: tools/ground.py measures it from her visual model and
+// holds her flight model to it within a quarter of a degree
+// (the_airframe_contacts_measured_from_the_meshes_agree_with_what_is_published),
+// the Learjet's from her maintenance manual's drawing.
+//
+// **Two are held back from brake release instead**: the F-35B, which held
+// back from her rotation flies off before her tail reaches the runway, and
+// the 747-400 and the F-22A, which have no take-off to fly - neither has a
+// climbing speed in its figures, so `sim::departure_speeds` refuses them -
+// and are run up on full power, the stick held fully back, steered by
+// nothing. The aeroplanes with no tail to strike are the approach test's
+// (above).
 GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_so) {
-    const std::map<std::string, std::string> cannot_take_off = {
-        {"747-400", "no climbing speed in its figures, so no take-off to fly"},
-        {"f22", "no climbing speed in its figures, so no take-off to fly"},
-        {"mosquito-fb6", "she stands on a tail wheel, her tail down already"},
-        {"f35b", "her model's tail strikes at 22 degrees, and held fully back she flies off "
-                 "before it (the tail \"The Learjet has nothing behind its main wheels\")"},
-    };
+    const std::set<std::string> held_back_from_the_roll = {"f35b", "747-400", "f22"};
+    const std::set<std::string> no_take_off = {"747-400", "f22"};
     std::size_t catalogue = 0;
     std::size_t struck = 0;
     std::vector<std::string> left_out;
@@ -1752,12 +1771,9 @@ GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_s
             left_out.push_back(entry.id + ": " + no_tail_to_strike().at(entry.id));
             continue;
         }
-        if (cannot_take_off.count(entry.id) != 0) {
-            left_out.push_back(entry.id + ": " + cannot_take_off.at(entry.id));
-            continue;
-        }
+        const bool flies_a_take_off = no_take_off.count(entry.id) == 0;
+        const bool from_the_roll = held_back_from_the_roll.count(entry.id) != 0;
         const glideslope::sim::Runway runway = a_runway();
-        const auto speeds = glideslope::sim::departure_speeds(data(), entry.model);
         glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
         aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
             [](double, double) { return 0.0; }, [](double, double) { return false; }));
@@ -1775,15 +1791,44 @@ GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_s
         const glideslope::sim::Aircraft::Stance stance = aircraft.stance();
         const auto lesson = lesson_for(entry, "take-off");
         check(lesson.has_value(), entry.id + " has a take-off lesson");
-        LessonRun run(*lesson, glideslope::sim::LessonSpeeds{speeds.rotate_kts, speeds.climb_kts});
-        glideslope::sim::Departure departure(aircraft, runway, speeds);
+        glideslope::sim::LessonSpeeds lesson_speeds;
+        std::optional<glideslope::sim::Departure> departure;
+        if (flies_a_take_off) {
+            const auto speeds = glideslope::sim::departure_speeds(data(), entry.model);
+            lesson_speeds = glideslope::sim::LessonSpeeds{speeds.rotate_kts, speeds.climb_kts};
+            departure.emplace(aircraft, runway, speeds);
+        }
+        LessonRun run(*lesson, lesson_speeds);
+        // The main wheels she pivots on, as `Aircraft::stance` finds them.
+        const std::vector<glideslope::sim::Aircraft::ContactPoint> points =
+            aircraft.contact_points();
+        double main_z = 1e9;
+        for (const auto& p : points) {
+            if (std::abs(p.y_in) > 1.0) {
+                main_z = std::min(main_z, p.z_in);
+            }
+        }
+        double main_x = -1e9;
+        for (const auto& p : points) {
+            if (std::abs(p.y_in) > 1.0 && p.z_in < main_z + 1.0) {
+                main_x = std::max(main_x, p.x_in);
+            }
+        }
         const double standing_ft = aircraft.property("position/h-agl-ft");
         double strike_pitch_deg = 0.0;
         double strike_kts = 0.0;
         bool hit = false;
+        bool behind = true;
+        bool on_her_wheels = false;
         for (int tick = 0; tick < 240 * steps_per_second; ++tick) {
-            glideslope::sim::Controls controls = departure.fly();
-            if (departure.stage() != glideslope::sim::Departure::Stage::roll) {
+            glideslope::sim::Controls controls;
+            if (departure) {
+                controls = departure->fly();
+            } else {
+                controls.throttle = 1.0;
+            }
+            if (from_the_roll ||
+                departure->stage() != glideslope::sim::Departure::Stage::roll) {
                 controls.elevator = 1.0;
             }
             controls.flaps = 0.0;
@@ -1794,6 +1839,25 @@ GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_s
                 hit = true;
                 strike_pitch_deg = aircraft.state().pitch_deg;
                 strike_kts = aircraft.property("velocities/vc-kts");
+                on_her_wheels = aircraft.contact().wheels;
+                // **On a contact behind her main wheels**: her tail, not a
+                // wing tip, a nacelle or her belly ahead of them.
+                // JSBSim names a contact's properties by its type: a
+                // STRUCTURE's under contact/, a BOGEY's - a skid written as
+                // one - under gear/, numbered in one sequence.
+                const auto touching = [&](std::size_t i) {
+                    const std::string unit = "unit[" + std::to_string(i) + "]/WOW";
+                    try {
+                        return aircraft.property("contact/" + unit) > 0.5;
+                    } catch (const std::exception&) {
+                        return aircraft.property("gear/" + unit) > 0.5;
+                    }
+                };
+                for (std::size_t i = 0; i < points.size(); ++i) {
+                    if (!points[i].wheel && touching(i) && points[i].x_in <= main_x + 1.0) {
+                        behind = false;
+                    }
+                }
                 break;
             }
             if (aircraft.property("position/h-agl-ft") > standing_ft + 15.0) {
@@ -1804,7 +1868,9 @@ GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_s
         std::printf("  %-12s strikes at %5.1f by her contacts; %s", entry.id.c_str(),
                     stance.strike_pitch_deg, hit ? "struck at " : "never struck\n");
         if (hit) {
-            std::printf("%.1f degrees, %.0f knots\n", strike_pitch_deg, strike_kts);
+            std::printf("%.1f degrees, %.0f knots%s%s\n", strike_pitch_deg, strike_kts,
+                        on_her_wheels ? "" : ", her wheels off",
+                        from_the_roll ? ", held back from the roll" : "");
         }
         for (const std::string& said : debrief) {
             std::printf("      %s\n", said.c_str());
@@ -1815,10 +1881,20 @@ GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_s
             continue;
         }
         ++struck;
-        if (std::abs(strike_pitch_deg - stance.strike_pitch_deg) > 1.0) {
+        // **On her wheels she strikes within a degree of it**; settling on
+        // to her tail with her wheels just lifted - the 747-400, 787-8,
+        // F-22A, F-35B and Learjet 35A, at or near their speed to fly - she
+        // is higher than her wheels let her pitch on the runway, and strikes
+        // above it: never below it, and within three.
+        const double over_deg = strike_pitch_deg - stance.strike_pitch_deg;
+        if (on_her_wheels ? std::abs(over_deg) > 1.0 : (over_deg < -1.0 || over_deg > 3.0)) {
             wrong.push_back(entry.id + " struck at " + std::to_string(strike_pitch_deg) +
-                            " degrees, not within one of " +
-                            std::to_string(stance.strike_pitch_deg));
+                            " degrees " + (on_her_wheels ? "on her wheels" : "with them off") +
+                            ", against " + std::to_string(stance.strike_pitch_deg) +
+                            " by her contacts");
+        }
+        if (!behind) {
+            wrong.push_back(entry.id + " struck something ahead of her main wheels, not her tail");
         }
         const bool said_so = std::any_of(debrief.begin(), debrief.end(), [](const std::string& s) {
             return s.find("Keep the airframe off the runway") != std::string::npos;
@@ -1835,12 +1911,11 @@ GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_s
         all += "\n    " + what;
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong:" + all);
-    // **Coverage**: sixteen aircraft; nine struck, and seven named - the three
-    // with no tail to strike, the two with no take-off, the Mosquito on her
-    // tail wheel and the F-35B.
+    // **Coverage**: sixteen aircraft; every one of the thirteen that stands
+    // on a nose wheel struck, and the three with no tail to strike named.
     check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
     check(struck + left_out.size() == catalogue, "every aircraft struck or named");
-    check(struck == 9, "nine aeroplanes struck their tails, not " + std::to_string(struck));
+    check(struck == 13, "thirteen aeroplanes struck their tails, not " + std::to_string(struck));
 }
 
 // **Flown by the book, the approach lesson leaves an empty debrief** - for
@@ -5997,7 +6072,8 @@ constexpr double lift_off_sweep_step_s = 0.5;
 // is climbed away** - in ground effect, before she has a climb to show:
 // each landplane of the part named `part`, handed over every half second
 // from the step her wheels leave to ten seconds after, 21 hand-overs each,
-// counted. Each is given the climb-out, never touches the runway again,
+// counted. Each is given the climb-out (the autopilot, if she is already
+// above 400 ft, as the rule says), never touches the runway again,
 // passes 500 ft and is the autopilot's within three minutes. And each one's
 // take-off settles into its climb inside the rule's time since lift-off
 // (Controller::lift_off_settling_s), which was set from what this prints.
@@ -6036,9 +6112,22 @@ void sweep_after_lift_off(const std::string& part) {
                 continue;
             }
             ++handed;
-            if (!r.given_take_off) {
+            // **Above 400 ft the take-off's work is done**
+            // (Controller::lift_off_below_ft), and the rule hands her to the
+            // autopilot instead: a jet climbing at 5,500 ft/min is there
+            // about ten seconds after her wheels leave. The F-15C, her
+            // rotation eased short of her tail strike, is 411 ft up at 10.0
+            // s (386 without the easing), and was failed for being given
+            // what the rule gives. Below it she must have the climb-out.
+            const bool past_the_take_off =
+                r.handed_ft > glideslope::sim::Controller::lift_off_below_ft;
+            if (!r.given_take_off && !past_the_take_off) {
                 wrong.push_back(where + " (" + std::to_string(r.handed_ft) + " ft, " +
                                 std::to_string(r.climb_fpm) + " ft/min) was not given the climb-out");
+            }
+            if (r.given_take_off && past_the_take_off) {
+                wrong.push_back(where + " (" + std::to_string(r.handed_ft) +
+                                " ft) was given the climb-out above the take-off's height");
             }
             if (r.came_down) {
                 wrong.push_back(where + " touched the runway again");

@@ -1138,7 +1138,14 @@ Controls Lander::fly_laws() {
         // still sinking at 800 ft/min, had nothing else to arrest it with.
         // The power goes on from where the flare found it, by a tenth of its
         // travel for each 25 ft/min she sinks past the margin.
-        const bool nose_out = flare_pitch_ >= most_flare_pitch_deg_ - 1.0 ||
+        //
+        // **Out, where her nose is, not where it is asked to be.** The
+        // attitude asked runs ahead of the nose, and read from it an F-15C,
+        // her flare held two degrees short of her tail strike at 13.2, had
+        // her power raised from a third to two thirds with her nose still at
+        // eleven degrees and coming up; she met the runway with a third of
+        // it still on and rose 0.61 ft off her gear's rebound.
+        const bool nose_out = s.pitch_deg >= most_flare_pitch_deg_ - 1.0 ||
                               alpha_deg > most_alpha_deg;
         //
         // **In gusts a sink is cushioned with power, whatever the nose**: the

@@ -224,12 +224,14 @@ def airframe():
         "                </function>\n"
         "            </fcs_function>\n" + m.group(1) + "fcs/roll-stick-shaped" + m.group(2),
         "the roll stick")
-    return replace_once(
+    text = replace_once(
         text,
         r"            <function name=\"aero/coefficient/CD0\">.*?<function name=\"aero/coefficient/CDmach\">.*?</function>\n",
         lambda m: fighter.drag_functions(SUBSONIC_ZERO_LIFT_DRAG, WAVE_DRAG, make_f15c.WAVE_DECAY, ASPECT,
                                          SPAN_EFFICIENCY, make_f15c.SUPERSONIC_LIFT_DRAG, SEPARATION_ALPHA),
         "the drag at zero lift, induced drag and drag rise")
+    # The tail strike, measured from her visual model by tools/ground.py.
+    return ground.with_tail_strike(text, MODEL, MAXIMUM_WEIGHT_LBS, script=SCRIPT)
 
 
 def with_mach_lift(text):

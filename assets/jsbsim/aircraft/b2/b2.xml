@@ -166,11 +166,22 @@
             <spring_coeff unit="LBS/FT"> 1346000 </spring_coeff>
             <damping_coeff unit="LBS/FT/SEC"> 237297 </damping_coeff>
         </contact>
-        <contact type="STRUCTURE" name="TAIL">
+        <contact type="STRUCTURE" name="LEFT_TAIL_STRIKE">
             <location unit="IN">
-                <x> 748.5 </x>
-                <y> -0.6 </y>
-                <z> -41.9 </z>
+                <x> 741.3 </x>
+                <y> -862.5 </y>
+                <z> -37.2 </z>
+            </location>
+            <static_friction> 0.4 </static_friction>
+            <dynamic_friction> 0.4 </dynamic_friction>
+            <spring_coeff unit="LBS/FT"> 1346000 </spring_coeff>
+            <damping_coeff unit="LBS/FT/SEC"> 237297 </damping_coeff>
+        </contact>
+        <contact type="STRUCTURE" name="RIGHT_TAIL_STRIKE">
+            <location unit="IN">
+                <x> 741.3 </x>
+                <y> 862.5 </y>
+                <z> -37.2 </z>
             </location>
             <static_friction> 0.4 </static_friction>
             <dynamic_friction> 0.4 </dynamic_friction>

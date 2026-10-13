@@ -70,6 +70,7 @@ import math
 import sys
 
 import airliner
+import ground
 import written
 from airliner import OUT, PINNED
 
@@ -255,7 +256,8 @@ def ground_reactions():
                           ("LEFT_INBOARD_ENGINE", NOSE_X + 22.23, -14.8, GROUND_Z + 1.05),
                           ("RIGHT_INBOARD_ENGINE", NOSE_X + 22.23, 14.8, GROUND_Z + 1.05)):
         out += written.structure(name, inches(x), inches(y), inches(z), 0.5 * weight, 0.1 * weight)
-    return out + "    </ground_reactions>\n"
+    # The tail strike, measured from her visual model by tools/ground.py.
+    return ground.with_tail_strike(out + "    </ground_reactions>\n", MODEL, weight, script=SCRIPT)
 
 
 def propulsion():

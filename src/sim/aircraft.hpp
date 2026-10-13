@@ -428,6 +428,7 @@ public:
         double y_in = 0.0;
         double z_in = 0.0;
         bool wheel = false;
+        std::string name; // as her model names it
     };
     std::vector<ContactPoint> contact_points() const;
     // **What she stands on, worked from those points**: whether on a tail

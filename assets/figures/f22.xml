@@ -119,8 +119,8 @@
        project owner's decision of that day (REQUIREMENTS.md section 9):
        taken off a level 3,500 m runway at sea level in calm air by the
        take-off autopilot (sim/takeoff_trial.hpp). -->
-  <takeoff_speeds rotate_kcas="105" climb_kcas="220" flaps_deg="0" weight_lbs="61570">
-    Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 100 kt; 105 is written, 5 kt to spare, and she leaves the ground at about 115. The climb away: asked 115 to 205 kt, at military power she was at 500 ft never slower than 216.3 kt, and faster the faster asked - she cannot be held slower - which is written rounded up. With no flap, at 61,570 lb, the weight her model flies a plan at.
+  <takeoff_speeds rotate_kcas="110" climb_kcas="220" flaps_deg="0" weight_lbs="61570">
+    Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 105 kt (re-measured 2026-10-13: rotated at 100 she now strikes her stabilators, her tail strike measured from her airframe at 16.5 degrees, where her model's was 46); 110 is written, 5 kt to spare, and she leaves the ground at about 119. The climb away: asked 115 to 205 kt, at military power she was at 500 ft never slower than 216.3 kt, and faster the faster asked - she cannot be held slower - which is written rounded up. With no flap, at 61,570 lb, the weight her model flies a plan at.
   </takeoff_speeds>
 
   <no_landing_distance>

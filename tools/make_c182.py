@@ -140,17 +140,28 @@ The changes, and what each is for:
                          at 9.9 to 1 - 6.6% more than full rich at sea level,
                          found by leaning high up; see tools/piston_mixture.py.
                          Every figure stays in range with both.
+
+  Tail strike
+    TAIL_SKID -> TAIL_STRIKE
+                         Her tail strikes where her airframe does: measured
+                         from her visual model by tools/ground.py, 15.8
+                         degrees. The source's skid sat 31 in below her drawn
+                         tail and struck at 11.3.
 """
 
 import pathlib
 import re
 import sys
 
+import ground
 from piston_mixture import with_best_power_mixture
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
 OUT = ROOT / "assets" / "jsbsim"
+SCRIPT = "make_c182"
+MODEL = "c182"
+MAXIMUM_WEIGHT_LBS = 3100  # the 182S's maximum take-off weight, its handbook's
 
 EMPTY_WEIGHT_LBS = 1925
 TANK_LBS = 276
@@ -293,7 +304,12 @@ def airframe():
         r"\g<1>" + ELEVATOR_DRAG + r"\2", "the elevator's drag")
     text = replace_once(text, r"(\n)(    </flight_control>)", r"\1" + STOPPED_ENGINE_FRICTION + r"\2",
                         "the end of the flight controls")
-    return text
+    # The tail strike, measured from her visual model by tools/ground.py,
+    # in place of the source model's tail skid, 31 in below her drawn tail,
+    # which struck 4.5 degrees before it would.
+    return ground.with_tail_strike(
+        text, MODEL, MAXIMUM_WEIGHT_LBS,
+        replacing=("TAIL_SKID",), script=SCRIPT)
 
 
 WINDMILLING_PROPELLER = """            <function name="aero/coefficient/CDwindmill">
