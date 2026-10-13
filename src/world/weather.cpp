@@ -248,7 +248,11 @@ std::vector<ContaminatedRunway> contaminated_runways(const Metar& metar,
             continue;
         }
         for (const RunwayEnd& end : station_runways) {
-            if (names(state, end) && out.size() < most_contaminated_runways) {
+            const bool readable =
+                std::abs(end.latitude_deg) <= 90.0 && std::abs(end.longitude_deg) <= 180.0 &&
+                end.heading_deg >= 0.0 && end.heading_deg <= 360.0 && end.length_m > 0.0 &&
+                end.length_m <= longest_runway_laid_m;
+            if (readable && names(state, end) && out.size() < most_contaminated_runways) {
                 out.push_back({end, *code});
             }
         }

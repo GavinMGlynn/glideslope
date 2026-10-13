@@ -123,10 +123,16 @@ struct ContaminatedRunway {
 };
 // The most a report lays: two ends of eight runways.
 inline constexpr std::size_t most_contaminated_runways = 16;
+// **The longest runway an end may be**, metres: what a client's reader of
+// net::RunwayConditions allows. The longest in the world is under 6 km.
+inline constexpr double longest_runway_laid_m = 20000.0;
 
 // **The runways a report's states lie on**: for each state with a code more
 // slippery than dry, each end of `station_runways` it names (world::names),
-// in order, at most most_contaminated_runways of them.
+// in order, at most most_contaminated_runways of them. An end no client
+// would read - off the Earth, heading outside 0 to 360 degrees, of no length
+// or longer than longest_runway_laid_m, or not a number - is left out, so that a
+// server never says what every client refuses.
 std::vector<ContaminatedRunway> contaminated_runways(const Metar& metar,
                                                      const std::vector<RunwayEnd>& station_runways);
 
