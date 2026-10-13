@@ -1500,6 +1500,12 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
       with SourceForge unreachable, every file is fetched from its second
       source with its pinned bytes.* Done 2026-10-01: Software Heritage for
       60, and a release of this repository for the other 15.
+- [ ] **Many airborne tests fly with the gear down without meaning to.**
+      A test that hands a controller default controls lowers the gear of
+      every aircraft whose gear retracts. *Verification: every airborne
+      test's gear is what it states - the helper starts it as the aircraft
+      starts, an audit names the tests that mean it down - and every test is
+      green.*
 
 ---
 
