@@ -4,7 +4,9 @@
 #include "sim/catalogue.hpp"
 #include "sim/crash.hpp"
 #include "sim/fixed_step.hpp"
+#include "sim/hover.hpp"
 #include "sim/terrain.hpp"
+#include "sim/weather.hpp"
 #include "sim/test_pilot.hpp"
 
 #include <input_output/FGXMLElement.h>
@@ -1572,6 +1574,112 @@ double cruise_range(const std::filesystem::path& root, const PublishedFigures& f
     return 0.95 * fuel / 6.0 * (full + 4.0 * half + empty) + 0.05 * fuel * empty;
 }
 
+// **The lift system's thrust**: converted on the ground, the nozzle down and
+// the throttle at the top STOVL mode allows, against the brakes, loaded heavy
+// enough to stay there; once the engine has spooled, the lift fan's, both
+// roll posts' and the nozzle's upward part, added.
+double hover_thrust(const std::filesystem::path& root, const PublishedFigures& figures,
+                    const FigureSpec& spec) {
+    Flight f(root, figures, spec, on_the_runway());
+    LiftSystem lift;
+    lift.stovl = 1.0;
+    lift.nozzle_deg = 90.0;
+    Controls c;
+    c.left_brake = c.right_brake = 1.0;
+    for (int i = 0; i < steps(30); ++i) {
+        f.aircraft.set_lift_system(lift);
+        c.throttle = f.aircraft.property("fcs/stovl-pos-norm") >= 1.0 ? 1.0 : 0.0;
+        f.fly(c);
+    }
+    if (f.aircraft.property("gear/wow") < 0.5) {
+        throw std::runtime_error("the lift system lifted it off the ground: load it heavier");
+    }
+    const auto& a = f.aircraft;
+    return a.property("external_reactions/lift-fan/magnitude") +
+           a.property("external_reactions/left-roll-post/magnitude") +
+           a.property("external_reactions/right-roll-post/magnitude") +
+           a.property("propulsion/engine/thrust-lbs") *
+               std::sin(a.property("propulsion/engine/pitch-angle-rad"));
+}
+
+// Converted on the ground and lifted vertically to `altitude_ft` above it by
+// the hover control law (sim/hover.hpp), and held there a minute to settle.
+// Throws if it is not there within three minutes.
+void lift_to_hover(Flight& f, Hover& hover, double height_ft) {
+    const Hover::Target target{height_ft, false};
+    int settled = 0;
+    for (int i = 0; i < steps(180); ++i) {
+        const Hover::Command c = hover.step(target);
+        f.aircraft.set_lift_system(c.lift);
+        f.fly(c.controls);
+        settled = std::abs(hover.height_ft() - height_ft) < 2.0 ? settled + 1 : 0;
+        if (settled == steps(60)) {
+            return;
+        }
+    }
+    throw std::runtime_error("not hovering at " + std::to_string(height_ft) + " ft after three minutes: at " +
+                             std::to_string(hover.height_ft()) + " ft");
+}
+
+void within_its_drift(const FigureSpec& spec, const Hover& hover) {
+    if (hover.drift_ft() > condition(spec, "most_drift_ft")) {
+        throw std::runtime_error("drifted " + std::to_string(hover.drift_ft()) + " ft from where it rose");
+    }
+}
+
+// **A hover held**: lifted to `altitude_ft` and settled there (lift_to_hover),
+// then `seconds` more; the most its height strays from `altitude_ft` in them.
+// Throws if it drifts more than `most_drift_ft` from where it rose.
+double hover_height_held(const std::filesystem::path& root, const PublishedFigures& figures,
+                         const FigureSpec& spec) {
+    Flight f(root, figures, spec, on_the_runway());
+    Hover hover(f.aircraft);
+    const double height_ft = condition(spec, "altitude_ft");
+    lift_to_hover(f, hover, height_ft);
+    // A wind across it from the left, rising over ten seconds: every loop
+    // flown, the aeroplane pushed sideways and turned into the wind.
+    const double wind_mps = condition_or(spec, "crosswind_kt", 0.0) * 0.514444;
+    const double across_rad = (on_the_runway().heading_deg + 90.0) * 3.14159265358979323846 / 180.0;
+    double worst = 0.0;
+    for (int i = 0; i < steps(condition(spec, "seconds")); ++i) {
+        if (wind_mps > 0.0 && i <= steps(10)) {
+            Conditions air;
+            const double share = static_cast<double>(i) / static_cast<double>(steps(10));
+            air.wind_north_mps = share * wind_mps * std::cos(across_rad);
+            air.wind_east_mps = share * wind_mps * std::sin(across_rad);
+            f.aircraft.set_weather(std::make_shared<SteadyWeather>(air));
+        }
+        const Hover::Command c = hover.step({height_ft, false});
+        f.aircraft.set_lift_system(c.lift);
+        f.fly(c.controls);
+        worst = std::max(worst, std::abs(hover.height_ft() - height_ft));
+        within_its_drift(spec, hover);
+    }
+    return worst;
+}
+
+// **A vertical landing**: lifted to `altitude_ft` and settled (lift_to_hover),
+// then let down; the sink, ft/min, as its wheels first touch. Throws if it
+// drifts more than `most_drift_ft` from where it rose, or has not touched in
+// three minutes.
+double vertical_landing(const std::filesystem::path& root, const PublishedFigures& figures,
+                        const FigureSpec& spec) {
+    Flight f(root, figures, spec, on_the_runway());
+    Hover hover(f.aircraft);
+    const double height_ft = condition(spec, "altitude_ft");
+    lift_to_hover(f, hover, height_ft);
+    for (int i = 0; i < steps(180); ++i) {
+        const Hover::Command c = hover.step({height_ft, true});
+        f.aircraft.set_lift_system(c.lift);
+        f.fly(c.controls);
+        within_its_drift(spec, hover);
+        if (f.aircraft.property("gear/wow") > 0.5) {
+            return -f.aircraft.state().climb_rate_fpm;
+        }
+    }
+    throw std::runtime_error("not down three minutes after letting down from the hover");
+}
+
 using FlightFn = std::function<double(const std::filesystem::path&,
                                       const PublishedFigures&, const FigureSpec&)>;
 
@@ -1604,6 +1712,9 @@ const std::vector<std::pair<std::string, FlightFn>>& flights() {
         {"cruise_range", cruise_range},
         {"water_takeoff", water_takeoff},
         {"draught", draught},
+        {"hover_thrust", hover_thrust},
+        {"hover_height_held", hover_height_held},
+        {"vertical_landing", vertical_landing},
     };
     return all;
 }
@@ -1795,7 +1906,7 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
               "takeoff_pitch_deg", "mach", "throttle", "from_kcas", "to_kcas", "rate_fpm",
               "mach_to", "fuel_frozen", "altitude_to_ft", "propeller_lever",
               "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft", "clmax",
-              "speed_falls_kt_per_1000_ft"}) {
+              "speed_falls_kt_per_1000_ft", "seconds", "most_drift_ft", "crosswind_kt"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }

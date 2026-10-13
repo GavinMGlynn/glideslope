@@ -10,13 +10,31 @@ fighter whose are - the F-4C, in NASA CR-2144. Its figures, in
 assets/figures/f35b.xml, are its maximum Mach and its range; nothing more is
 claimed.
 
-**What this is not: the lift fan is not modelled.** The F-35B is a STOVL
-aeroplane, and its shaft-driven LiftFan, three-bearing swivel nozzle and roll
-posts are what make it one. None of that is here. This model flies the B's
-wing, weights, engine and published conventional figures, and takes off and
-lands on a runway like any other fighter. Hovering, vertical landing and short
-take-off are named in COMPLETION_PLAN.md as work not done, not quietly left
-out.
+**Her LiftSystem: the lift fan, the roll posts and the swivelling nozzle.**
+The F-35B is a STOVL aeroplane, and in STOVL mode her engine's thrust is
+shared between Rolls-Royce's shaft-driven LiftFan behind the cockpit, a roll
+post in each wing and the three-bearing swivel module (3BSM) that turns the
+engine's own jet down. Here the 3BSM is the engine's own thruster, vectored
+from 0 to 95 degrees by JSBSim's thrust-vectoring property; the fan and the
+two posts are JSBSim external forces, pointing up, each a fixed share of what
+the engine's thruster passes, and its share taken from it: Rolls-Royce gives
+the fan "more than 20,000 lbf", each post 1,950 lbf and the 3BSM 18,000 lbf,
+41,900 lbf in all, and Pratt & Whitney gives the propulsion system a hover
+thrust of 40,650 lbf, which is the total here, shared as Rolls-Royce shares
+it. In STOVL mode the engine's throttle stops short of its afterburner -
+Lockheed's own card says the vertical thrust is "without afterburner" - and
+the power the fan's shaft takes from it is the engine's thrust its nozzle no
+longer passes, which JSBSim's thrust reverser (a cosine on the thrust) stands
+for. Converting to STOVL mode opens the fan and posts in CONVERSION_S
+seconds; the nozzle swivels at Rolls-Royce's 95 degrees in 2.5 seconds.
+Height is the throttle; pitch the fan's inlet vanes, which Lockheed says
+modulate its thrust; roll the share of the fan air between the posts; yaw
+the nozzle swivelled sideways. Where the fan, posts and nozzle are, how far
+each control moves its thrust, and how long the conversion takes are not
+published, and are estimated below, each with its number; nothing models
+the ground's effect on a jet in a hover - no suckdown, fountain or hot gas
+taken back into the inlet. A short take-off - the fan and nozzle part-way
+down on the roll - is not yet flown here, and is named in COMPLETION_PLAN.md.
 
 **Why the B and not the A.** FGAddon has no F-35A, so the A could have no
 visual model and nothing to rest on with its wheels up. It has an F-35B, under
@@ -43,6 +61,21 @@ Where each number comes from:
     Every moment's derivative, from its power approach (table IV-1), non-
     dimensional and so carried to the F-35B's wing; its inertias at 38,925 lb
     (table IV-2) as radii of gyration, scaled by the root of the wings' areas.
+  Rolls-Royce, "We put the vertical lift in the F-35B Lightning II" (the
+  LiftSystem poster)
+    The LiftFan "more than 20,000 lbf"; the roll posts "a further 1,950 lbf
+    of thrust each"; the 3BSM "can rotate through 95 degrees in 2.5 seconds
+    and passes 18,000 lbf of thrust".
+  Pratt & Whitney, F135 Engine Fast Facts, Q4 2021 (S18016.10.21)
+    The F135-PW-600's Hover Thrust Class, 40,650 lbs.
+  Lockheed Martin, F-35B product card (2015, FG15-1280_002)
+    "40,500 lb Vertical", "Vertical = without afterburner": the hover is
+    flown without it.
+  Wiegand et al., F-35 Air Vehicle Technology Overview (Lockheed Martin,
+  AIAA 2018-3368)
+    The fan's inlet guide vanes "provide thrust modulation"; the roll posts
+    "produce about 10 percent of the vertical thrust" (here 9.3, Rolls-
+    Royce's share).
   JSBSim's F100-PW-229, made the F135 as tools/make_f15c.py makes the F100-
   PW-220 (tools/fighter.py's thrust with speed and height, the F100's shape),
   its throttle ratios set to fly the maximum Mach.
@@ -142,6 +175,29 @@ STABILATOR_DEG, FLAPERON_DEG, RUDDER_DEG = 25.0, 25.0, 30.0
 PITCH_DAMPER_GAIN, YAW_DAMPER_GAIN = 1.0, 1.0
 
 
+# **Her LiftSystem** (the docstring). Rolls-Royce's thrusts, shared out of
+# Pratt & Whitney's hover thrust.
+HOVER_THRUST_LBF = 40650.0
+LIFT_FAN_LBF, ROLL_POST_LBF, NOZZLE_LBF = 20000.0, 1950.0, 18000.0
+LIFT_SYSTEM_LBF = LIFT_FAN_LBF + 2.0 * ROLL_POST_LBF + NOZZLE_LBF
+NOZZLE_MAX_DEG = 95.0
+NOZZLE_RATE_DEG_S = 95.0 / 2.5
+# The throttle in STOVL mode, short of the afterburner: JSBSim's turbine
+# lights it above 0.99.
+STOVL_THROTTLE = 0.99
+# Estimated, as nothing published gives them: the fan's centre, behind the
+# cockpit; the posts, as far out in the wings as their structure allows;
+# the time the doors take to open and the fan to clutch in; how far the fan's
+# vanes move its thrust either way of its share; how much of one post's air
+# can be sent to the other; and how far the nozzle swivels sideways.
+LIFT_FAN_X_IN = 200.0
+ROLL_POST_Y_IN = 115.0
+CONVERSION_S = 8.0
+FAN_MODULATION = 0.10
+POST_SHIFT = 0.8
+NOZZLE_YAW_DEG = 12.0
+
+
 def metrics():
     return ("    <metrics>\n"
             f"        <wingarea unit=\"FT2\"> {AREA:.1f} </wingarea>\n"
@@ -216,7 +272,7 @@ def propulsion():
             "            <feed>0</feed>\n"
             "            <feed>1</feed>\n"
             "            <thruster file=\"direct\">\n"
-            + written.location(560.0, 0.0, 0.0, "                ") +
+            + written.location(nozzle_x(), 0.0, 0.0, "                ") +
             "            </thruster>\n"
             "        </engine>\n"
             + "".join("        <tank type=\"FUEL\">\n"
@@ -248,7 +304,125 @@ def flight_control():
     out += written.surface("Rudder", ["fcs/rudder-cmd-norm", "fcs/yaw-trim-cmd-norm", "fcs/yaw-damper"],
                            -rad(RUDDER_DEG), rad(RUDDER_DEG), "fcs/rudder-pos-rad")
     out += written.kinematic("Gear", "gear/gear-cmd-norm", [0, 1], [0, 5], "gear/gear-pos-norm")
-    return out + "        </channel>\n    </flight_control>\n"
+    return out + "        </channel>\n" + lift_system() + "    </flight_control>\n"
+
+
+def cg_x():
+    """The empty aeroplane's centre of gravity, where the posts are and what
+    the fan and the nozzle balance about."""
+    return mac(0.25)
+
+
+def nozzle_x():
+    """**The 3BSM's exit, where the fan's share balances it** about the
+    centre of gravity, the one place that leaves her hovering with her pitch
+    control at its middle. Not published."""
+    return cg_x() + LIFT_FAN_LBF * (cg_x() - LIFT_FAN_X_IN) / NOZZLE_LBF
+
+
+def stovl_thrust_lbf():
+    """The engine's thrust at sea level, standing, at STOVL_THROTTLE, as
+    JSBSim's turbine gives it: idle + (military - idle) x N2 squared, the
+    military table being 1 there (fighter.thrust_table)."""
+    idle = fighter.table((PINNED / "engine" / "F100-PW-229.xml").read_text(), "IdleThrust")(0.0, 0.0)
+    return float(MILITARY_THRUST) * (idle + (1.0 - idle) * STOVL_THROTTLE ** 2)
+
+
+def nozzle_share():
+    """What the nozzle passes in a hover as a fraction of the engine's thrust
+    at STOVL_THROTTLE: its share of the hover thrust, over that thrust."""
+    return HOVER_THRUST_LBF * NOZZLE_LBF / LIFT_SYSTEM_LBF / stovl_thrust_lbf()
+
+
+def external_reactions():
+    """The lift fan and the roll posts, pointing up, and the nozzle's sideways
+    part when it swivels; the LiftSystem channel sets their magnitudes."""
+    def force(name, x, y, direction):
+        dx, dy, dz = direction
+        return (f"        <force name=\"{name}\" frame=\"BODY\">\n"
+                + written.location(x, y, 0.0, "            ") +
+                "            <direction>\n"
+                f"                <x> {dx} </x>\n                <y> {dy} </y>\n                <z> {dz} </z>\n"
+                "            </direction>\n"
+                "        </force>\n")
+    return ("    <external_reactions>\n"
+            + force("lift-fan", LIFT_FAN_X_IN, 0.0, (0, 0, -1))
+            + force("left-roll-post", cg_x(), -ROLL_POST_Y_IN, (0, 0, -1))
+            + force("right-roll-post", cg_x(), ROLL_POST_Y_IN, (0, 0, -1))
+            + force("nozzle-side", nozzle_x(), 0.0, (0, -1, 0))
+            + "    </external_reactions>\n")
+
+
+def lift_system():
+    """The LiftSystem channel. `fcs/stovl-cmd-norm` 1 converts to STOVL mode
+    and 0 back; `fcs/nozzle-cmd-deg` swivels the nozzle down;
+    `fcs/lift-fan-cmd-norm`, -1 to 1, moves the fan's thrust either side of
+    its share (pitch, 1 nose up: the fan is ahead of the centre of gravity); `fcs/roll-post-cmd-norm` sends the posts'
+    air to one side (roll, 1 right wing down); `fcs/nozzle-yaw-cmd-norm`
+    swivels the nozzle sideways (yaw, 1 nose right). In conventional flight
+    every one of them is nothing: the forces are zero and the nozzle is
+    straight."""
+    i = "            "
+    thrust = "propulsion/engine/thrust-lbs"
+
+    def fn(name, body, output):
+        return (f"{i}<fcs_function name=\"{name}\">\n{i}    <function>\n{body}"
+                f"{i}    </function>\n{i}    <output>{output}</output>\n{i}</fcs_function>\n")
+
+    def share(name, lbf, gain, control, output):
+        return fn(name, f"{i}        <product>\n{i}            <property>{thrust}</property>\n"
+                        f"{i}            <property>fcs/stovl-pos-norm</property>\n"
+                        f"{i}            <value>{lbf / NOZZLE_LBF:.6f}</value>\n"
+                        f"{i}            <sum><value>1</value><product><value>{gain}</value>"
+                        f"<property>{control}</property></product></sum>\n{i}        </product>\n", output)
+
+    out = "".join(f"        <property value=\"0\">fcs/{name}</property>\n" for name in
+                  ("stovl-cmd-norm", "nozzle-cmd-deg", "lift-fan-cmd-norm", "roll-post-cmd-norm",
+                   "nozzle-yaw-cmd-norm"))
+    out += "        <channel name=\"LiftSystem\">\n"
+    out += written.kinematic("Conversion", "fcs/stovl-cmd-norm", [0, 1], [0, CONVERSION_S], "fcs/stovl-pos-norm")
+    out += fn("STOVL Throttle",
+              f"{i}        <min>\n{i}            <property>fcs/throttle-cmd-norm</property>\n"
+              f"{i}            <difference><value>1</value><product><value>{1.0 - STOVL_THROTTLE:.2f}</value>"
+              f"<property>fcs/stovl-pos-norm</property></product></difference>\n{i}        </min>\n",
+              "fcs/throttle-pos-norm")
+    # The nozzle swivels only as far as the conversion has gone.
+    out += fn("Nozzle Demand",
+              f"{i}        <product>\n{i}            <property>fcs/nozzle-cmd-deg</property>\n"
+              f"{i}            <property>fcs/stovl-pos-norm</property>\n{i}        </product>\n",
+              "fcs/nozzle-demand-deg")
+    out += (f"{i}<actuator name=\"Nozzle\">\n{i}    <input>fcs/nozzle-demand-deg</input>\n"
+            f"{i}    <rate_limit>{NOZZLE_RATE_DEG_S:.1f}</rate_limit>\n"
+            f"{i}    <clipto><min>0</min><max>{NOZZLE_MAX_DEG:.1f}</max></clipto>\n"
+            f"{i}    <output>fcs/nozzle-pos-deg</output>\n{i}</actuator>\n")
+    out += fn("Nozzle Vector",
+              f"{i}        <product>\n{i}            <property>fcs/nozzle-pos-deg</property>\n"
+              f"{i}            <value>{math.pi / 180.0:.12f}</value>\n{i}        </product>\n",
+              "propulsion/engine/pitch-angle-rad")
+    # The power the fan's shaft and the posts take: the nozzle passes only its
+    # share, as JSBSim's reverser takes the cosine of its angle off the thrust.
+    out += fn("Shaft Power",
+              f"{i}        <acos>\n{i}            <difference><value>1</value><product>"
+              f"<value>{1.0 - nozzle_share():.6f}</value><property>fcs/stovl-pos-norm</property>"
+              f"</product></difference>\n{i}        </acos>\n",
+              "propulsion/engine/reverser-angle-rad")
+    for name in ("lift-fan", "roll-post", "nozzle-yaw"):
+        out += (f"{i}<pure_gain name=\"{name} limit\">\n{i}    <input>fcs/{name}-cmd-norm</input>\n"
+                f"{i}    <gain>1</gain>\n{i}    <clipto><min>-1</min><max>1</max></clipto>\n"
+                f"{i}    <output>fcs/{name}-pos-norm</output>\n{i}</pure_gain>\n")
+    out += share("Lift Fan", LIFT_FAN_LBF, FAN_MODULATION, "fcs/lift-fan-pos-norm",
+                 "external_reactions/lift-fan/magnitude")
+    out += share("Left Roll Post", ROLL_POST_LBF, POST_SHIFT, "fcs/roll-post-pos-norm",
+                 "external_reactions/left-roll-post/magnitude")
+    out += share("Right Roll Post", ROLL_POST_LBF, -POST_SHIFT, "fcs/roll-post-pos-norm",
+                 "external_reactions/right-roll-post/magnitude")
+    out += fn("Nozzle Side",
+              f"{i}        <product>\n{i}            <property>{thrust}</property>\n"
+              f"{i}            <property>fcs/stovl-pos-norm</property>\n"
+              f"{i}            <sin><product><value>{math.radians(NOZZLE_YAW_DEG):.6f}</value>"
+              f"<property>fcs/nozzle-yaw-pos-norm</property></product></sin>\n{i}        </product>\n",
+              "external_reactions/nozzle-side/magnitude")
+    return out + "        </channel>\n"
 
 
 def lift_table(indent):
@@ -330,7 +504,7 @@ def airframe():
             "        <filecreationdate>2026-09-19</filecreationdate>\n"
             "        <description>Lockheed Martin F-35B Lightning II, F135-PW-600</description>\n"
             "    </fileheader>\n"
-            + metrics() + mass_balance() + ground_reactions() + propulsion() + flight_control()
+            + metrics() + mass_balance() + ground_reactions() + external_reactions() + propulsion() + flight_control()
             + aerodynamics() + "</fdm_config>\n")
 
 

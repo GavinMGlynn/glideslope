@@ -304,6 +304,23 @@ GLIDESLOPE_TEST(the_f35b_flies_more_than_its_published_range_on_internal_fuel) {
     expect_figure("f35b", "range");
 }
 
+// **The F-35B's lift system**: its thrust at hover power is Pratt &
+// Whitney's; held by the hover control law at 150 ft for a minute, as BF-1
+// first did, it keeps its height within 10 ft; and let down from there it
+// touches under 6 ft/s. Each was seen to fail with the lift system taken out
+// of her model (PROJECT_STATUS, 2026-10-10).
+GLIDESLOPE_TEST(the_f35bs_lift_system_makes_pratt_and_whitneys_hover_thrust) {
+    expect_figure("f35b", "hover_thrust");
+}
+
+GLIDESLOPE_TEST(the_f35b_hovers_at_150_ft_for_a_minute_within_10_ft) {
+    expect_figure("f35b", "hover_height_held");
+}
+
+GLIDESLOPE_TEST(the_f35b_lands_vertically_from_a_hover_under_6_ft_a_second) {
+    expect_figure("f35b", "vertical_landing");
+}
+
 GLIDESLOPE_TEST(the_b2_flies_at_high_subsonic_speed) {
     expect_figure("b2", "high_subsonic_speed");
 }
@@ -946,8 +963,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // A hundred and twenty-two: the Cessna 172P's rated power, on 2026-10-09.
     // A hundred and twenty-three: the Mosquito's climb with her flaps and
     // wheels down, her Pilot's Notes' para. 48, on 2026-10-10.
-    check(figures_in_files == 123,
-          "a hundred and twenty-three figures, one test each above; found " +
+    // A hundred and twenty-six: the F-35B's hover thrust, hover and
+    // vertical landing, on 2026-10-10.
+    check(figures_in_files == 126,
+          "a hundred and twenty-six figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 

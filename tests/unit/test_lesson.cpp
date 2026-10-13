@@ -1013,7 +1013,8 @@ GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_i
     // thirteen models' own loadings, and the loadings their figures name -
     // or the one they all fly at, where they name none. Counted by the loop
     // alone, a loading the loop never built could not be missed.
-    check(loadings_flown == 49, "forty-nine loadings flown, not " +
+    // Fifty since 2026-10-10: the F-35B's vertical-landing loading.
+    check(loadings_flown == 50, "fifty loadings flown, not " +
                                     std::to_string(loadings_flown));
 }
 

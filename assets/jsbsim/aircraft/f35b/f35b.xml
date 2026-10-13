@@ -201,13 +201,63 @@
             <damping_coeff unit="LBS/FT/SEC"> 42312 </damping_coeff>
         </contact>
     </ground_reactions>
+    <external_reactions>
+        <force name="lift-fan" frame="BODY">
+            <location unit="IN">
+                <x> 200.0 </x>
+                <y> 0.0 </y>
+                <z> 0.0 </z>
+            </location>
+            <direction>
+                <x> 0 </x>
+                <y> 0 </y>
+                <z> -1 </z>
+            </direction>
+        </force>
+        <force name="left-roll-post" frame="BODY">
+            <location unit="IN">
+                <x> 345.7 </x>
+                <y> -115.0 </y>
+                <z> 0.0 </z>
+            </location>
+            <direction>
+                <x> 0 </x>
+                <y> 0 </y>
+                <z> -1 </z>
+            </direction>
+        </force>
+        <force name="right-roll-post" frame="BODY">
+            <location unit="IN">
+                <x> 345.7 </x>
+                <y> 115.0 </y>
+                <z> 0.0 </z>
+            </location>
+            <direction>
+                <x> 0 </x>
+                <y> 0 </y>
+                <z> -1 </z>
+            </direction>
+        </force>
+        <force name="nozzle-side" frame="BODY">
+            <location unit="IN">
+                <x> 507.7 </x>
+                <y> 0.0 </y>
+                <z> 0.0 </z>
+            </location>
+            <direction>
+                <x> 0 </x>
+                <y> -1 </y>
+                <z> 0 </z>
+            </direction>
+        </force>
+    </external_reactions>
     <propulsion>
         <engine file="F135-PW-600">
             <feed>0</feed>
             <feed>1</feed>
             <thruster file="direct">
                 <location unit="IN">
-                    <x> 560.0 </x>
+                    <x> 507.7 </x>
                     <y> 0.0 </y>
                     <z> 0.0 </z>
                 </location>
@@ -299,6 +349,129 @@
                 </traverse>
                 <output>gear/gear-pos-norm</output>
             </kinematic>
+        </channel>
+        <property value="0">fcs/stovl-cmd-norm</property>
+        <property value="0">fcs/nozzle-cmd-deg</property>
+        <property value="0">fcs/lift-fan-cmd-norm</property>
+        <property value="0">fcs/roll-post-cmd-norm</property>
+        <property value="0">fcs/nozzle-yaw-cmd-norm</property>
+        <channel name="LiftSystem">
+            <kinematic name="Conversion">
+                <input>fcs/stovl-cmd-norm</input>
+                <traverse>
+                    <setting>
+                        <position> 0 </position>
+                        <time> 0 </time>
+                    </setting>
+                    <setting>
+                        <position> 1 </position>
+                        <time> 8.0 </time>
+                    </setting>
+                </traverse>
+                <output>fcs/stovl-pos-norm</output>
+            </kinematic>
+            <fcs_function name="STOVL Throttle">
+                <function>
+                    <min>
+                        <property>fcs/throttle-cmd-norm</property>
+                        <difference><value>1</value><product><value>0.01</value><property>fcs/stovl-pos-norm</property></product></difference>
+                    </min>
+                </function>
+                <output>fcs/throttle-pos-norm</output>
+            </fcs_function>
+            <fcs_function name="Nozzle Demand">
+                <function>
+                    <product>
+                        <property>fcs/nozzle-cmd-deg</property>
+                        <property>fcs/stovl-pos-norm</property>
+                    </product>
+                </function>
+                <output>fcs/nozzle-demand-deg</output>
+            </fcs_function>
+            <actuator name="Nozzle">
+                <input>fcs/nozzle-demand-deg</input>
+                <rate_limit>38.0</rate_limit>
+                <clipto><min>0</min><max>95.0</max></clipto>
+                <output>fcs/nozzle-pos-deg</output>
+            </actuator>
+            <fcs_function name="Nozzle Vector">
+                <function>
+                    <product>
+                        <property>fcs/nozzle-pos-deg</property>
+                        <value>0.017453292520</value>
+                    </product>
+                </function>
+                <output>propulsion/engine/pitch-angle-rad</output>
+            </fcs_function>
+            <fcs_function name="Shaft Power">
+                <function>
+                    <acos>
+                        <difference><value>1</value><product><value>0.315387</value><property>fcs/stovl-pos-norm</property></product></difference>
+                    </acos>
+                </function>
+                <output>propulsion/engine/reverser-angle-rad</output>
+            </fcs_function>
+            <pure_gain name="lift-fan limit">
+                <input>fcs/lift-fan-cmd-norm</input>
+                <gain>1</gain>
+                <clipto><min>-1</min><max>1</max></clipto>
+                <output>fcs/lift-fan-pos-norm</output>
+            </pure_gain>
+            <pure_gain name="roll-post limit">
+                <input>fcs/roll-post-cmd-norm</input>
+                <gain>1</gain>
+                <clipto><min>-1</min><max>1</max></clipto>
+                <output>fcs/roll-post-pos-norm</output>
+            </pure_gain>
+            <pure_gain name="nozzle-yaw limit">
+                <input>fcs/nozzle-yaw-cmd-norm</input>
+                <gain>1</gain>
+                <clipto><min>-1</min><max>1</max></clipto>
+                <output>fcs/nozzle-yaw-pos-norm</output>
+            </pure_gain>
+            <fcs_function name="Lift Fan">
+                <function>
+                    <product>
+                        <property>propulsion/engine/thrust-lbs</property>
+                        <property>fcs/stovl-pos-norm</property>
+                        <value>1.111111</value>
+                        <sum><value>1</value><product><value>0.1</value><property>fcs/lift-fan-pos-norm</property></product></sum>
+                    </product>
+                </function>
+                <output>external_reactions/lift-fan/magnitude</output>
+            </fcs_function>
+            <fcs_function name="Left Roll Post">
+                <function>
+                    <product>
+                        <property>propulsion/engine/thrust-lbs</property>
+                        <property>fcs/stovl-pos-norm</property>
+                        <value>0.108333</value>
+                        <sum><value>1</value><product><value>0.8</value><property>fcs/roll-post-pos-norm</property></product></sum>
+                    </product>
+                </function>
+                <output>external_reactions/left-roll-post/magnitude</output>
+            </fcs_function>
+            <fcs_function name="Right Roll Post">
+                <function>
+                    <product>
+                        <property>propulsion/engine/thrust-lbs</property>
+                        <property>fcs/stovl-pos-norm</property>
+                        <value>0.108333</value>
+                        <sum><value>1</value><product><value>-0.8</value><property>fcs/roll-post-pos-norm</property></product></sum>
+                    </product>
+                </function>
+                <output>external_reactions/right-roll-post/magnitude</output>
+            </fcs_function>
+            <fcs_function name="Nozzle Side">
+                <function>
+                    <product>
+                        <property>propulsion/engine/thrust-lbs</property>
+                        <property>fcs/stovl-pos-norm</property>
+                        <sin><product><value>0.209440</value><property>fcs/nozzle-yaw-pos-norm</property></product></sin>
+                    </product>
+                </function>
+                <output>external_reactions/nozzle-side/magnitude</output>
+            </fcs_function>
         </channel>
     </flight_control>
     <aerodynamics>
