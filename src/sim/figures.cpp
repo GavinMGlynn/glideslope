@@ -1679,6 +1679,10 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "its full flap");
         }
     }
+    // **No more than 20 knots**: twice the one published warning found, the
+    // Mosquito's 10 (A.P. 2019E, 1950, para. 43 (ii)), and four times the
+    // rule's least (14 CFR 25.207(c)). A margin past it is more likely a
+    // stall speed written where a margin belongs than a warning: refused.
     if (root->HasAttribute("stall_warning_kts")) {
         out.stall_warning_kts = root->GetAttributeValueAsNumber("stall_warning_kts");
         if (!(out.stall_warning_kts > 0.0 && out.stall_warning_kts <= 20.0)) {

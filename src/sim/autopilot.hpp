@@ -103,7 +103,13 @@ public:
     // **Unloading a stalled wing**: flying the stall recovery with the wing
     // still past the angle it stalled at, when the throttle is held where it
     // is (autopilot.cpp) - full power comes once the wing is unstalled.
+    // It holds it for no longer than a few seconds, nor near the ground, nor
+    // once the nose is at its floor and the wing still not unloading.
     bool unloading() const { return unloading_; }
+    // The longest the throttle has been held so, seconds, and how many times
+    // the hold has been let go before the wing unstalled: for tests.
+    double longest_unload_s() const { return longest_unload_s_; }
+    long unload_releases() const { return unload_releases_; }
     // How many times the speed floor has taken over before the throttle
     // was at its stop (`early_hold_`), since it was made.
     long early_holds() const { return early_holds_; }
@@ -172,6 +178,10 @@ private:
     double speed_integral_deg_ = 0.0;
     double sink_integral_fpm_ = 0.0;
     bool unloading_ = false;
+    bool unload_released_ = false;
+    double unload_s_ = 0.0;
+    double longest_unload_s_ = 0.0;
+    long unload_releases_ = 0;
     // A stall's entry has flown past the angle its lift peaked at.
     bool past_the_peak_ = false;
     // The wing seen going over its lift's peak, and the trends that show it.

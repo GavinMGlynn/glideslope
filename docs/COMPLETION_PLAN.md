@@ -377,15 +377,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       for practising a stall was found; 5,000 ft is the light aeroplanes',
       and her Notes' climb with everything down is a low-level figure. A
       stall lesson begun away from its height now says so first.
-- [x] **The Mosquito practised at 5,000 ft pulls 1.88 g left thirty seconds
-      in a stall, and the AI lets her 0.5 kt under her stall.** Both are
-      inside what she can do, but not with the 10% every recovery is held
-      to; both are named in their tests (PROJECT_STATUS, 2026-10-10).
-      *Verification: both within their bounds with the 10% in hand, and
-      unnamed.* Done 2026-10-13: the recovery gives full power once the wing
-      is unstalled, as the FAA teaches, and she pulls 1.69 g; the AI notices
-      her stall at her own warning, her Pilot's Notes' buffet 10 knots
-      over, and she is slowest 4 knots above it. Neither is named.
+- [x] **The Mosquito, recovered from a stall and flown by the AI, keeps the
+      10% margin.** *Verification: her recovery and the AI's notice within
+      their bounds with the 10% in hand, and unnamed.* Done 2026-10-13: 1.69 g
+      and 4 kt over her stall (PROJECT_STATUS, 2026-10-13).
 - [x] **The Learjet cannot be rotated early**: full back stick lifts her
       nose only near her rotation speed. *Verification: the Learjet held
       fully back from 85 percent of her rotation speed leaves the runway
