@@ -56,11 +56,17 @@ The changes, and what each is for:
                         tools/airliner.py), where JSBSim's generic turbofan
                         table held its thrust far too well with speed and
                         height.
+
+**The alpha-rate terms on the dynamic pressure without its sideways part**
+(tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
+angle of attack is undefined, its rate swings, and multiplied by the whole
+dynamic pressure it pitched her by tens of degrees a second.
 """
 
 import re
 import sys
 
+import alpha_rate
 import airliner
 import ground
 from airliner import OUT, PINNED
@@ -157,7 +163,7 @@ def airframe():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(airframe(), REVERSERS, SCRIPT),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(alpha_rate.with_qbar_uw(airframe(), "make_747_400"), REVERSERS, SCRIPT),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

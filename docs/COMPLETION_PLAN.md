@@ -345,6 +345,19 @@ ends in a debrief, never a score.
 
 Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to what its handbook or manual publishes.
 
+- [x] **A nose-wheel aeroplane braked to a stop in a crosswind is pitched
+      by her alpha-rate terms.** As she stops, the air meets her from the
+      side, her angle of attack is undefined and its rate swings; multiplied
+      by the whole dynamic pressure, it pitched a C172P at up to 62 deg/s
+      and struck her tail. Those terms now use the dynamic pressure without
+      its sideways part, as JSBSim's maintainers advise. This is the second
+      cause of the gear item of #195. *Verification: every nose-wheel
+      landplane braked to a stop in a 15 kt crosswind, at every brake level,
+      keeps her pitch rate under 20 deg/s.* Done 2026-10-14.
+- [ ] **The Mosquito's alpha-rate term counts the crosswind.** Her model is
+      written by hand, not made by a script, so the change above did not
+      reach her. *Verification: her alpha-rate term uses the dynamic
+      pressure without its sideways part.*
 - [x] **The J-3 Cub's flight goes NaN standing on macOS release**: braked
       fully with her stick central she went over on her nose there and her
       flight blew up; now stood as a pilot stands a tail-wheel aeroplane

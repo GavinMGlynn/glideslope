@@ -94,11 +94,17 @@ payload's place, the damping in roll and yaw and the side force, the
 engines' thrust with height and speed, the drag rise's Mach, the gear's
 springs and the wheels' size, the fan's, for a stopped engine's drag, and
 where the stabilizer's rigging neutral lies on the flight model's scale.
+
+**The alpha-rate terms on the dynamic pressure without its sideways part**
+(tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
+angle of attack is undefined, its rate swings, and multiplied by the whole
+dynamic pressure it pitched her by tens of degrees a second.
 """
 
 import math
 import sys
 
+import alpha_rate
 import airliner
 import fighter
 import written
@@ -563,7 +569,7 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_qbar_uw(airframe(), "make_learjet35a"),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

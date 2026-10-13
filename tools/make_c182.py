@@ -147,12 +147,18 @@ The changes, and what each is for:
                          from her visual model by tools/ground.py, 15.8
                          degrees. The source's skid sat 31 in below her drawn
                          tail and struck at 11.3.
+
+**The alpha-rate terms on the dynamic pressure without its sideways part**
+(tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
+angle of attack is undefined, its rate swings, and multiplied by the whole
+dynamic pressure it pitched her by tens of degrees a second.
 """
 
 import pathlib
 import re
 import sys
 
+import alpha_rate
 import ground
 from piston_mixture import with_best_power_mixture
 
@@ -397,7 +403,7 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / "c182" / "c182.xml": airframe(),
+        OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_qbar_uw(airframe(), "make_c182"),
         OUT / "engine" / "engIO540AB1A5.xml": engine(),
         OUT / "engine" / "prop_81in2v.xml": propeller(),
     }
