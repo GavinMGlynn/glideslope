@@ -63,6 +63,11 @@ struct PublishedFigures {
     // aeroplane's handbooks, which the file cites. None: the recovery leaves
     // the flaps where they are.
     std::optional<double> go_around_flaps_deg;
+    // **Where her own stall warning begins**, knots above her stall
+    // (`stall_warning_kts`): the buffet or the horn her handbooks give, which
+    // the AI's notice and her plan's slowest keep, where it is more than the
+    // rule's 5 knots or 5% (sim::stall_warning_kts). 0, none given.
+    double stall_warning_kts = 0.0;
     // The speedbrake lever the aeroplane is flown down an approach with, 0 to
     // 1: 0 for all but one that has nothing else to slow it - a B-2A, with
     // no flap, lands with its drag rudders open.

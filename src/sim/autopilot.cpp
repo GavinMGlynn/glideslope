@@ -745,6 +745,10 @@ Controls Autopilot::fly() {
         const double alpha_deg = a_.property("aero/alpha-deg");
         const double path_deg = theta_deg - alpha_deg;
         const bool stalled = alpha_deg >= stall_alpha_deg_;
+        // Seen going over its lift's peak (`seen_to_stall_`), not only at
+        // the greatest angle seen yet, which a wing slowing towards its stall
+        // is on every step.
+        unloading_ = seen_to_stall_ && alpha_deg > stall_alpha_deg_ + past_the_peak_deg;
         if (stalled) {
             pitch_command_deg_ = std::min(pitch_command_deg_, theta_deg);
         }
@@ -828,6 +832,7 @@ Controls Autopilot::fly() {
         // takes the pitch on from where it is.
         pitch_integral_deg_ = pitch_command_deg_ - pitch_per_fpm * climb_off;
     } else {
+        unloading_ = false;
         const double pitch_wanted = std::clamp(
             pitch_integral_deg_ + pitch_per_fpm * climb_off, least_pitch_deg, top_deg);
         double pitch_next = toward(pitch_command_deg_, pitch_wanted, pitch_rate_degps * dt);
@@ -936,7 +941,18 @@ Controls Autopilot::fly() {
         // power it has, whatever the airspeed loop makes of a speed that is
         // where it was asked to be; the integral follows, so letting go of
         // the speed takes the throttle on from where it is.
-        const double wanted = holding_speed_ || on_speed
+        // **Not while the wing is still stalled, though**: the recovery
+        // unloads the wing first and opens the throttle after, as the FAA
+        // teaches (Airplane Flying Handbook, FAA-H-8083-3C, chapter 5: reduce
+        // the angle of attack, then add power), and the throttle is held
+        // where it is until the wing, seen to stall, is back below the angle
+        // its lift peaked at (`unloading_`). The
+        // propellers' slipstream lifts the wing behind them: a Mosquito left
+        // thirty seconds in her stall at 5,000 ft, given full power as her
+        // nose went down, pulled 1.88 g coming back through her lift's peak
+        // at 123 knots; given it once the wing was unstalled, 1.69.
+        const double wanted = unloading_ ? last_.throttle
+                              : holding_speed_ || on_speed
                                   ? 1.0
                                   : throttle_integral_ + throttle_per_knot * speed_off;
 

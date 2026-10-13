@@ -21,7 +21,8 @@
 //   and, where the aircraft has a mixture lever, the mixture leaned for best
 //     power by the engine's answer (sim/leaner.hpp);
 //
-// or, when asked to recover from a stall, the throttle to its stop and the
+// or, when asked to recover from a stall, the throttle to its stop once the
+// wing is unstalled (held where it is until then) and the
 // sink a speed short allows -> pitch, the wing held below its stall and below
 // the angle that pulls 1.6 g, and the flaps taken up at a hand's pace to the
 // go-around setting where the aeroplane's figures give one, until the caller
@@ -99,6 +100,10 @@ public:
     // How many steps the elevator's trim has been held from winding nose-up
     // because the wing was seen to stall (autopilot.cpp): for tests.
     long trim_held_steps() const { return trim_held_steps_; }
+    // **Unloading a stalled wing**: flying the stall recovery with the wing
+    // still past the angle it stalled at, when the throttle is held where it
+    // is (autopilot.cpp) - full power comes once the wing is unstalled.
+    bool unloading() const { return unloading_; }
     // How many times the speed floor has taken over before the throttle
     // was at its stop (`early_hold_`), since it was made.
     long early_holds() const { return early_holds_; }
@@ -166,6 +171,7 @@ private:
     bool was_on_speed_ = false;
     double speed_integral_deg_ = 0.0;
     double sink_integral_fpm_ = 0.0;
+    bool unloading_ = false;
     // A stall's entry has flown past the angle its lift peaked at.
     bool past_the_peak_ = false;
     // The wing seen going over its lift's peak, and the trends that show it.

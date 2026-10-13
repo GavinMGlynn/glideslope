@@ -284,7 +284,9 @@ AutopilotModes Controller::gliding(AutopilotModes modes) {
 // **The AI pilot notices a stall coming, and recovers from it** - at the
 // first sign of it, its warning, which the rules have sound no less than 5
 // knots or 5% above the stall, whichever is more (14 CFR 25.207(c)), the
-// same margin the stall lessons give theirs. The stall is her published one
+// same margin the stall lessons give theirs - or sooner, where her figures
+// give her own warning sooner (ApproachSpeeds::warning_margin_kts: the
+// Mosquito's buffet, 10 knots over). The stall is her published one
 // with everything down (`lands_with`), scaled to what she weighs now: the
 // lowest she has, so clean or banked the warning comes late, never early; an aeroplane that
 // publishes none is not watched. **The recovery is the autopilot's own**
@@ -307,7 +309,7 @@ void Controller::notice_a_stall() {
     // above her light loading's 95 kt.
     const ApproachSpeeds speeds = for_weight(*landing_speeds_, a_.property("inertia/weight-lbs"));
     const double stall_kts = speeds.stall_kts;
-    const double warning_kts = stall_warning_kts(stall_kts);
+    const double warning_kts = stall_warning_kts(stall_kts, speeds.warning_margin_kts);
     const double recovered_kts = speeds.vref_kts;
     const double kts = a_.property("velocities/vc-kts");
     if (!before_the_stall_) {

@@ -25,8 +25,17 @@
 
   The model is the aircraft as both trials flew it, with a drop tank under
   each wing.
+
+  stall_warning_kts, where her own warning of the stall begins above it:
+  [PN50] para. 43 (ii), "Warning of the approach of the stall is given by
+  pronounced buffeting of the control surfaces, the onset of which can be
+  felt some 10 knots before the stall itself." The AI notices a stall coming
+  there (sim::stall_warning_kts), not at the rule's 5 knots: noticed at 5,
+  slowing at nearly 3 knots a second with her throttles shut, she was
+  half a knot under her stall before the power and the lowered nose brought
+  the speed (docs/PROJECT_STATUS.md, 2026-10-13).
 -->
-<published_figures aircraft="mosquito-fb6" flaps_full_deg="45">
+<published_figures aircraft="mosquito-fb6" flaps_full_deg="45" stall_warning_kts="10">
   <source>A&amp;AEE reports 767,e (HX809, HJ679) and A.P. 2019E Pilot's Notes</source>
 
   <!-- HX809's level speeds were "corrected to 95% of the take-off weight",

@@ -1679,6 +1679,14 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "its full flap");
         }
     }
+    if (root->HasAttribute("stall_warning_kts")) {
+        out.stall_warning_kts = root->GetAttributeValueAsNumber("stall_warning_kts");
+        if (!(out.stall_warning_kts > 0.0 && out.stall_warning_kts <= 20.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a stall_warning_kts that is not above 0 and at "
+                                     "most 20");
+        }
+    }
     if (root->HasAttribute("approach_speedbrake")) {
         out.approach_speedbrake = root->GetAttributeValueAsNumber("approach_speedbrake");
         if (!(out.approach_speedbrake >= 0.0 && out.approach_speedbrake <= 1.0)) {
