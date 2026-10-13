@@ -265,6 +265,81 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The flying boat flares to her hull, and is down when her keel is in the water; in gusts her planing hull still throws her off it, 2026-10-13 — item still open
+
+**What is still missing, first**: in moderate turbulence the Short S.23's
+planing hull throws her off the water after she touches, on three of the
+gust test's eight seeds - she rises 1.26 ft (seed 1), 0.81 (seed 6) and
+1.57 (seed 8) over where the water first bore her, against the gust
+limit's 1.0 less its 0.25 margin - so she stays named in the gust tests.
+She no longer touches hard (the most is 312 ft/min, seed 8, against 571
+before). And in calm air, judged and passing, her hull still porpoises on
+the step after the touch: the model's planing lift (`hydro/hull-lift-lbs`,
+its tweak factor 20, clipped at 20,000 lb) rises from nothing to its clip
+in about 0.3 ft of immersion with nothing to damp it, and she skips in
+diminishing hops of 1 to 2.5 ft, down to 35 kt, her elevator fully back -
+all of them below the height the water first felt her, which is what the
+test measures a rise from. A flight-model property, measured, not fixed.
+
+**The calm-air rise, traced** (linux-release, the S.23 at her model's
+34,717 lb, calm, every step logged). Her model's water forces begin with
+her keel still about three feet above the surface: `hydro/active-norm`
+goes to 1 on a few hundred pounds of buoyancy with her hull reference
+point 8.95 ft up and her centre of gravity 13.1, while her planing lift
+begins with the CG at 9.1. `Aircraft::in_water` is that first trace, and
+the lander took it for the touch. So the earlier attempt's flare to her
+keel ended three feet early: the rollout closed her throttle and held her
+attitude, she sank on to the water from 115 to 150 ft/min, her planing lift
+rose to its 20,000 lb clip and pitched her nose up 4 to 8 degrees, and she
+was thrown 5.6 ft back up, 1.26 ft above where the water first felt her
+(`rose 1.260367 ft`, against the calm limit's 0.5). It was neither the
+flare's power (closed, 0.00, from 29 ft) nor the keel height used too late;
+it was the touch taken too early.
+
+**How a flying boat is landed** (FAA, Seaplane, Skiplane, and Float/Ski
+Equipped Helicopter Operations Handbook, FAA-H-8083-23, ch. 6, "Normal
+Landing"): the nose raised smoothly to the touchdown attitude - "almost the
+same as for taxiing on the step" - back pressure against the nose's
+dropping as the hull meets the water; "when the seaplane is definitely on
+the water, close the throttle and maintain the touchdown attitude until
+the seaplane begins to come off the step". The lander's flare already
+closes the power by its end in calm air and its rollout holds the attitude
+she touched at; what was wrong was where it thought the water was.
+
+**What changed** (sim/lander.cpp, sim/aircraft.cpp):
+- **The flare's reference point comes from her contacts.** Her main wheels,
+  as before; where her model has no wheel, every undercarriage contact
+  (JSBSim's BOGEY: `Aircraft::ContactPoint::bogey`, new) - for the S.23 her
+  keel's forward, step and aft points and her floats' keels - the lowest of
+  them at her attitude and bank now. Before, a flying boat had no wheels,
+  `wheels_hang_ft` was 0, and her flare was flown to her centre of gravity,
+  nine feet over her keel. No name: any aeroplane without wheels gets it.
+- **Down is the keel in the water** (`Lander::down`): weight on a wheel, or
+  the water's forces on her with the lowest of what she lands on at or
+  below the surface. The touch, the rollout and a pilot's hand-back
+  (`still_landing`) all ask it.
+- The gust test's naming of the S.23 now says what is wrong.
+
+**Measured** (linux-release). Calm, her model's weight: the hull meets the
+water at 75 ft/min, 463 m along, and she rises nothing over where the
+water first felt her (before, the keel law: 1.26 ft, red). In gusts, eight
+seeds, touched at 37, 181, 105, 180, 121, 180, 51 and 312 ft/min, 256 to
+426 m along, flare climbs no faster than 71 ft/min; risen 1.26, 0.00,
+0.00, 0.00, 0.70, 0.81, 0.16 and 1.57 ft. Before, flown to her centre of
+gravity, she met the water at 571 ft/min on seed 1.
+
+**Verification:**
+- **Seen red on the old law**: with the flare flown to her keel and the
+  first trace of the water taken for the touch,
+  `the_ai_flies_every_approach_at_the_speed_for_its_models_own_weight_and_lands_within_its_limits`
+  failed on the S.23 alone, "rose 1.260367 ft ... more than 0.500000";
+  green with the touch at her keel.
+- The landing, water, lander, gust, flare and lesson tests pass
+  (linux-release, `ctest -R` over every test naming the S.23, water, a
+  landing, the lander, gusts, the flare, a hull, an instructor or a
+  lesson): see the pull request.
+- The selftest hash does not move: 182dd6c996e0ee4c (it flies a C172P).
+
 ### The F-35B flown from wing-borne flight into a hover and out again: the transition law, 2026-10-13 — item still open
 
 **What is still missing, first**: **no pilot's controls and no AI plan

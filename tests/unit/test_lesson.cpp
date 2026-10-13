@@ -2615,8 +2615,9 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
         {"f35b", "she touches at 348 ft/min (seed 6), inside the limit by only 12"},
         {"mosquito-fb6", "her main wheels' touch pitches her nose up from 3.6 to 6.8 degrees "
                          "against her elevator, and she bounces 2.9 ft (seed 2), 2.4 (seed 3)"},
-        {"short_s23", "her flare is flown to her centre of gravity, six feet over the "
-                      "hull that meets the water, and she meets it at 571 ft/min (seed 1)"},
+        {"short_s23", "flared to her hull she touches no harder than 312 ft/min, but her "
+                      "planing hull's lift throws her off the water: she rises 1.26 ft (seed "
+                      "1), 0.81 (seed 6) and 1.57 (seed 8) over where the water first bore her"},
     };
     return named;
 }

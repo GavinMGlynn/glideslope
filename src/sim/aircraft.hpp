@@ -447,13 +447,17 @@ public:
     Contact contact() const;
     // **Every point her model can touch the ground with**, touching or not:
     // where it is on the airframe - JSBSim's structural frame, inches, x aft,
-    // y right, z up - and whether it is a wheel, in `contact`'s sense.
+    // y right, z up - and whether it is a wheel, in `contact`'s sense, and
+    // whether it is undercarriage at all: JSBSim's BOGEY, which a wheel is,
+    // and a flying boat's keel and floats are, against a STRUCTURE point - a
+    // nose, a tail, a wingtip.
     struct ContactPoint {
         double x_in = 0.0;
         double y_in = 0.0;
         double z_in = 0.0;
         bool wheel = false;
         std::string name; // as her model names it
+        bool bogey = false;
     };
     std::vector<ContactPoint> contact_points() const;
     // **What she stands on, worked from those points**: whether on a tail

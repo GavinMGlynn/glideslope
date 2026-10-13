@@ -741,9 +741,11 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       learnt landing in its strongest left crosswind does not stop.
       *Verification: in a steady 15 kt headwind every aeroplane rolls out
       without lifting off, and the learnt landing's crosswind tests pass.*
-- [ ] **The flying boat's flare is flown to her centre of gravity, not her
-      hull.** Flown to her keel she touches gently in gusts, but in calm air
-      her hull then rises 1.3 ft after touching. *Verification: the S.23
+- [ ] **The flying boat lands in gusts without skipping.** Her flare is
+      now flown to her hull, and she lands in calm air within limits and
+      in gusts no harder than 312 ft/min; but her planing hull's lift throws
+      her off the water on three of eight gust seeds (up to 1.57 ft), and
+      porpoises her on the step even in calm air. *Verification: the S.23
       lands in calm air and in gusts within the landplanes' limits.*
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of

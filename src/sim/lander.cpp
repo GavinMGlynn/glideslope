@@ -224,8 +224,14 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
         most_flare_pitch_deg_ = stance.strike_pitch_deg - 2.0;
     }
     throttle_ = 0.5;
-    // Her main wheels: the lowest wheels off the centreline, as `stance`
-    // finds them - every one that low, so a bogie's rows all count.
+    // **What she lands on, from her model's contacts.** Her main wheels: the
+    // lowest wheels off the centreline, as `stance` finds them - every one
+    // that low, so a bogie's rows all count. **And where she has no wheel,
+    // her hull and floats**: every undercarriage contact (JSBSim's BOGEY)
+    // she has, the lowest of which at her attitude meets the water first -
+    // the step of a flying boat's keel, nose up, or a float, banked. Flown
+    // to her centre of gravity instead, a flying boat's flare began and
+    // ended nine feet too high: her keel hangs that far below it.
     const std::vector<Aircraft::ContactPoint> points = aircraft.contact_points();
     double main_z = 1e9;
     for (const Aircraft::ContactPoint& p : points) {
@@ -235,7 +241,14 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
     }
     for (const Aircraft::ContactPoint& p : points) {
         if (p.wheel && std::abs(p.y_in) > 1.0 && p.z_in < main_z + 1.0) {
-            main_wheels_.push_back({p.x_in, p.y_in, p.z_in});
+            lands_on_.push_back({p.x_in, p.y_in, p.z_in});
+        }
+    }
+    if (lands_on_.empty()) {
+        for (const Aircraft::ContactPoint& p : points) {
+            if (p.bogey && !p.wheel) {
+                lands_on_.push_back({p.x_in, p.y_in, p.z_in});
+            }
         }
     }
 }
@@ -278,7 +291,7 @@ double Lander::wheels_hang_ft(const AircraftState& s) const {
     const double theta = s.pitch_deg / degrees;
     const double phi = s.roll_deg / degrees;
     double lowest_ft = 0.0;
-    for (const Wheel& w : main_wheels_) {
+    for (const Point& w : lands_on_) {
         const double forward_ft = -(w.x_in - cg_x) / 12.0;
         const double right_ft = w.y_in / 12.0;
         const double down_ft = -(w.z_in - cg_z) / 12.0;
@@ -324,7 +337,7 @@ bool Lander::still_landing(double throttle) const {
         return false;
     }
     // Down, whoever put her down: the rollout finds her there.
-    if (a_.property("gear/wow") > 0.5 || a_.in_water()) {
+    if (down(s)) {
         return true;
     }
     // **Climbing with the power on is a go-around**, not a bounce.
@@ -451,8 +464,25 @@ bool Lander::gone_around() const {
     return stage_ == Stage::go_around && above_m_ * feet_per_metre >= go_around_ft;
 }
 
+bool Lander::down(const AircraftState& s) const {
+    if (a_.property("gear/wow") > 0.5) {
+        return true;
+    }
+    // **A hull is down when it is in the water, not when the water first
+    // feels it.** Her model's water forces begin with her keel still three
+    // feet above the surface - a few hundred pounds of buoyancy against her
+    // 35,000 - and taken for the touch they ended the flare there: she was
+    // let sink on to the water at 150 ft/min with the power closing, and
+    // her planing hull's lift threw her 5.6 ft back up off it - 1.26 ft over
+    // where the water first felt her, in calm air at her model's weight. So she
+    // is down when the water has her and the lowest of what she lands on,
+    // her keel's step, has reached it.
+    return a_.in_water() &&
+           a_.property("position/h-agl-ft") - wheels_hang_ft(s) <= 0.0;
+}
+
 bool Lander::notice_the_touch(const AircraftState& s) {
-    const bool on_ground = a_.property("gear/wow") > 0.5 || a_.in_water();
+    const bool on_ground = down(s);
     if (on_ground && !touched_) {
         touched_ = true;
         touchdown_pitch_deg_ = s.pitch_deg;
