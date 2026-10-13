@@ -265,6 +265,67 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The autobrake stands down at walking pace: held rolling at 3 kt, no landplane's winds past 0.3; a C172P in 15 kt across creeps longer before she stops, 2026-10-14 — item still open
+
+**What is still missing, first**: **a creep left slower to stop.** With the
+autobrake held to 0.3 below walking pace, a C172P landed in a 15 kt
+crosswind (`every_light_aircraft_landed_on_a_wet_runway_in_a_15_kt_crosswind_stays_on_it_as_on_a_dry_one`,
+its dry landing) creeps at about 0.9 kt for 273 s more before she stops:
+stopped 621 m along after 651 s, against 500 m after 378 s on the old law.
+In the learnt landing's 10 kt crosswind from the left, 12 of the 36 starts
+of the C172P's ten-knot and fuel tests (`the_learnt_policy_lands_the_c172p_*`)
+and the landing handed over at the gate stop 42 to 60 m later than before,
+though nearer the centreline (0.5 to 1.0 m across, against about 4 m). Every test still passes. **Tried and not kept**: a pedal of 0.4 stops
+the C172P's creep as the old law did (500 m, 378 s), but one learnt corner
+(2.40 nm, +60 m across, -20 m high, -5 deg, 67.6 kt, 15 kt from the left)
+did not stop; 0.5 put a C172P held at walking pace in 15 kt across on her
+nose (-9.9 deg) and a 787-8 to -7.3. What stops a crosswind creep without
+the pedal that tips her is still to be found, so the item stays open.
+
+**The change** (`sim::Lander`'s rollout brakes): below
+`Lander::autobrake_off_kts`, 5 kt over the ground, the autobrake adds no
+brake past what she has, or past `Lander::walking_pace_pedal`, 0.3, if she
+has less; it still lets brake off where she slows faster than it asks. The
+clamp at full was already its other anti-windup: the integral is the
+pedal, so none is stored past the stop. Real autobrakes stand down before
+taxi speed: Airbus's A340 procedure, as the TSB gives it (A05H0002,
+1.17.6, p. 68): "Autobrake must be disengaged before reaching 20 knots."
+A walking pace, not 20 kt, because the light aeroplanes' rollout is braked
+to its stop by the same law. `Lander::autobrake()` reads the pedal.
+
+**Verification** (linux-release):
+- New: `every_landplane_held_rolling_at_walking_pace_keeps_her_autobrake_down_and_her_nose_up`.
+  Every landplane taught the approach (13 of 14, asserted; the S.23,
+  afloat, has no brakes) is settled on her brakes, given to the rollout on
+  the runway, and held at 3 kt for a minute by the test's throttle, so her
+  autobrake's deceleration can never be met. Each autobrake stays at or
+  under 0.3, and each nose above -5 degrees (least: the C182's -2.5);
+  each held between 1.5 and 5 kt on average over the last 40 s (1.50 to
+  3.00). Seen red on the old law: every one's autobrake went to 1.0, ten
+  were never moved, and the 787-8's nose went to -15.4, the C172P's to
+  -25.3.
+- New: `every_landplane_held_rolling_at_walking_pace_in_a_15_kt_crosswind_keeps_her_autobrake_down_and_her_nose_up`,
+  the same in 15 kt straight across the runway, which starts once she is
+  settled. Every autobrake is judged: at most 0.3. The J-3 Cub's nose and
+  pace are named and shown, not judged: she weathervanes about 30 degrees
+  into the wind, the rollout's rudder and steering brake (0.9 on one wheel)
+  hold her there, and the test's throttle runs her to full power against
+  them until she breaks away and goes over. Her autobrake stays at 0.3. In
+  10 kt across every landplane passes all of it, the Cub too. Seen red on
+  the old law: every autobrake at 1.0 but the Cub's (0.87), the C172P on
+  her nose (-25.3), the F-15C rolled 25 degrees.
+- Re-run, all passing on both laws, figures compared: the rollout in a
+  steady headwind and tailwind, the wet runway tests (her own tyres, anti-skid,
+  wet short runway, light aeroplanes in 15 kt across), the crosswind
+  landings, the learnt landing (every corner in all five winds, a quarter,
+  half and three quarters of fuel, ten knots across, at the gate, handed
+  over), the reversers (three), the take-backs on the roll (six), the
+  calm, short-runway, go-around and seed-1 gust landings. Only the C172P
+  figures named above moved by more than a metre; the C182 and PA-28 by
+  1 to 6 m.
+- The selftest hash does not move: 182dd6c996e0ee4c (it flies a C172P with
+  no lander).
+
 ### A wet runway's side grip from NASA's measurements, laid on every wheel, 2026-10-14 — item done
 
 **What is not claimed, first.** **The wet side grip makes a wet roll-out

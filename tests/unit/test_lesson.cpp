@@ -3129,6 +3129,174 @@ GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_w
     rolls_out_in_a_steady_wind(-10.0, {});
 }
 
+// **The autobrake does not wind up with nothing to slow.** Every landplane
+// taught the approach (13; the flying boat, afloat, has no brakes - named)
+// is given to the rollout standing on the runway's centreline and is held
+// rolling at walking pace, 3 kt over the ground, by a throttle the test
+// works for the whole minute: the deceleration her autobrake is set to can
+// never be met. Below the rollout's walking pace (sim::Lander's
+// `autobrake_off_kts`) her autobrake must put on no more than
+// `walking_pace_pedal`, and her nose must stay above -5 degrees. Coverage
+// asserted: every landplane flown, and each held at walking pace for the
+// minute's last forty seconds - her groundspeed averaged between 1.5 and 5
+// kt. Seen red on the old law, which added 0.1 of its shortfall a second
+// whatever her speed: every landplane's autobrake wound to full.
+namespace {
+
+void held_at_walking_pace(double crosswind_kts,
+                          const std::map<std::string, std::string>& named) {
+    constexpr double held_kts = 3.0;
+    constexpr double most_pedal = glideslope::sim::Lander::walking_pace_pedal + 1e-9;
+    constexpr double least_pitch_deg = -5.0;
+    constexpr int seconds = 60;
+    constexpr int judged_from_s = 20;
+    constexpr int settle_s = 5;
+    const auto taught = everyone_taught("approach-and-landing");
+    const glideslope::sim::Runway runway = a_runway();
+    std::size_t flown = 0;
+    std::size_t held = 0;
+    std::vector<std::string> left_out;
+    std::size_t shown = 0;
+    std::vector<std::string> wrong;
+    std::vector<std::string> shown_wrong;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        if (entry.seaplane) {
+            left_out.push_back(id);
+            std::printf("  left out - %s: a flying boat, afloat, has no brakes\n", id.c_str());
+            continue;
+        }
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+        // Settled on her wheels first, in still air on her brakes at idle:
+        // the first second of a start on the ground drops her on to her
+        // gear. Then the wind.
+        glideslope::sim::Controls parked;
+        parked.left_brake = 1.0;
+        parked.right_brake = 1.0;
+        for (int step = 0; step < settle_s * steps_per_second; ++step) {
+            aircraft.set_controls(parked);
+            aircraft.step();
+        }
+        if (crosswind_kts != 0.0) {
+            // Straight across the runway from the left: from 340, towards 160.
+            glideslope::sim::Conditions c;
+            const double towards = (runway.heading_deg + 90.0) / degrees;
+            const double mps = crosswind_kts * 0.514444;
+            c.wind_north_mps = mps * std::cos(towards);
+            c.wind_east_mps = mps * std::sin(towards);
+            c.wind_at_20ft_mps = mps;
+            aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(c));
+        }
+        auto lander = glideslope::sim::Lander::on_its_roll(
+            aircraft, glideslope::sim::approach_speeds(data(), entry.model), runway);
+        double integral = 0.0;
+        double most_pedal_seen = 0.0;
+        double least_pitch_seen = 1e9;
+        double worst_roll = 0.0;
+        double sum_kts = 0.0;
+        int judged = 0;
+        for (int step = 0; step < seconds * steps_per_second; ++step) {
+            glideslope::sim::Controls c = lander.fly();
+            const double vg_kts = aircraft.property("velocities/vg-fps") / 1.68781;
+            const double error = held_kts - vg_kts;
+            // The test's hand on the throttle, holding her at walking pace:
+            // power on slowly and off ten times as fast, so that when she
+            // breaks away from a wheel braked to steer her she is not run
+            // up past walking pace on the power she needed to start.
+            const double rate = error > 0.0 ? 0.03 : 0.3;
+            integral = std::clamp(integral + rate * error / steps_per_second, 0.0, 1.0);
+            c.throttle = std::clamp(integral + 0.1 * error, 0.0, 1.0);
+            aircraft.set_controls(c);
+            aircraft.step();
+            const auto s = aircraft.state();
+            most_pedal_seen = std::max(most_pedal_seen, lander.autobrake());
+            least_pitch_seen = std::min(least_pitch_seen, s.pitch_deg);
+            worst_roll = std::max(worst_roll, std::abs(s.roll_deg));
+            if (step >= judged_from_s * steps_per_second) {
+                sum_kts += aircraft.property("velocities/vg-fps") / 1.68781;
+                ++judged;
+            }
+        }
+        ++flown;
+        const bool all_judged = named.count(id) == 0;
+        if (!all_judged) {
+            ++shown;
+            std::printf("  named, her autobrake judged and the rest shown - %s: %s\n",
+                        id.c_str(), named.at(id).c_str());
+        }
+        const double mean_kts = sum_kts / std::max(1, judged);
+        std::printf("  %-13s held at %.2f kt, autobrake at most %.3f, least pitch %.1f deg, "
+                    "most roll %.1f deg\n",
+                    id.c_str(), mean_kts, most_pedal_seen, least_pitch_seen, worst_roll);
+        std::fflush(stdout);
+        if (most_pedal_seen > most_pedal) {
+            wrong.push_back(id + "'s autobrake wound to " + std::to_string(most_pedal_seen));
+        }
+        std::vector<std::string>& to = all_judged ? wrong : shown_wrong;
+        if (mean_kts >= 1.5 && mean_kts <= 5.0) {
+            ++held;
+        } else {
+            to.push_back(id + " was not held at walking pace: " + std::to_string(mean_kts) +
+                            " kt");
+        }
+        if (least_pitch_seen <= least_pitch_deg) {
+            to.push_back(id + "'s nose went down to " + std::to_string(least_pitch_seen) +
+                            " deg");
+        }
+        if (worst_roll > 15.0) {
+            to.push_back(id + " rolled " + std::to_string(worst_roll) + " deg");
+        }
+    }
+    for (const std::string& w : shown_wrong) {
+        std::printf("      (named) %s\n", w.c_str());
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(taught.size() == 14 && flown == 13 && left_out.size() == 1 &&
+              shown == named.size() && held + named.size() >= flown,
+          "every landplane of fourteen flown, her autobrake judged, and held at walking pace "
+          "or named; the flying boat left out: " +
+              std::to_string(flown) + " flown, " + std::to_string(held) + " held, " +
+              std::to_string(shown) + " named, " + std::to_string(left_out.size()) +
+              " left out");
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(every_landplane_held_rolling_at_walking_pace_keeps_her_autobrake_down_and_her_nose_up) {
+    held_at_walking_pace(0.0, {});
+}
+
+// **And blown sideways by 15 kt straight across the runway** - the most the
+// learnt landing's gate takes, and the wind that put the C172P on her nose.
+// Every landplane's autobrake is judged. The Cub's nose and her walking pace
+// are shown, not judged: at walking pace she weathervanes thirty degrees into
+// a wind square across her, the rollout's rudder and steering brake (0.9 on
+// her downwind wheel) hold her there, and the test's hand runs her up to
+// full power against them until she breaks away and goes over - her
+// autobrake at most 0.3 throughout. In 10 kt across, every one passes all
+// of it, the Cub too.
+GLIDESLOPE_TEST(every_landplane_held_rolling_at_walking_pace_in_a_15_kt_crosswind_keeps_her_autobrake_down_and_her_nose_up) {
+    held_at_walking_pace(
+        15.0, {{"j3cub", "weathervaned into 15 kt square across her and held there by her "
+                         "steering brake, the test's throttle runs her to full power against "
+                         "it and she goes over; her autobrake is judged"}});
+}
+
 // **An approach flown well in gusts is not sent round by the gate**: every
 // aeroplane taught the approach (14), down final in the gusts above with
 // half the gust factor on her reference speed, is never sent round for an

@@ -267,6 +267,11 @@ public:
     // Autobrake 3's deceleration on the 737, feet a second squared: what a
     // landing taken over on its roll is braked to.
     static constexpr double roll_autobrake_fps2 = 7.2;
+    // **Walking pace, knots over the ground, below which the autobrake
+    // stands down** (the rollout's brakes, lander.cpp): it adds no brake
+    // past what she has, or past `walking_pace_pedal` if she has less.
+    static constexpr double autobrake_off_kts = 5.0;
+    static constexpr double walking_pace_pedal = 0.3;
 
     // One 120 Hz step's controls. Call once a step, as the aircraft is now.
     Controls fly();
@@ -355,6 +360,9 @@ public:
     // threshold. Meaningless before touchdown.
     double touchdown_across_m() const { return touchdown_across_m_; }
     double touchdown_along_m() const { return touchdown_along_m_; }
+    // The autobrake's pedal on the roll, 0 to 1, both wheels alike: what the
+    // rudder's differential braking is added to and taken from.
+    double autobrake() const { return brake_; }
 
 private:
     // The controls, but for the mixture.
