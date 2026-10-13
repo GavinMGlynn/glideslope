@@ -25,6 +25,7 @@
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -1753,7 +1754,8 @@ Stopped braked_on_runway_24(const std::string& metar) {
     end06.latitude_deg = latitude + 3000.0 * std::cos(240.0 * radians) / metres_per_degree;
     end06.longitude_deg = longitude + 3000.0 * std::sin(240.0 * radians) /
                                           (metres_per_degree * std::cos(latitude * radians));
-    report.runways = {end24, end06};
+    report.contaminated =
+        glideslope::world::contaminated_runways(report.surface.metar, {end24, end06});
 
     glideslope::sim::Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, "c172p");
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
@@ -1848,4 +1850,43 @@ GLIDESLOPE_TEST(a_metar_reporting_slush_or_ice_on_a_runway_makes_it_slippery_to_
     check(std::abs(elsewhere.distance_m - dry.distance_m) < 0.01 &&
               std::abs(patches.distance_m - dry.distance_m) < 0.01,
           "ice on another runway and slush on a quarter of this one stop her as dry");
+}
+
+// **Real reports carrying a runway's state are read, every group, and each
+// given its code.** aviationweather.gov's response for ULLI, USSS, UUEE and
+// UUWW at 15:00 UTC on 2026-10-13 (tests/data/weather/, docs/ASSETS.md):
+// Russia's METARs still carry the group, where those of the US never did and
+// most of Europe's stopped with the GRF in November 2021. Six groups in four
+// reports, none refused: ULLI's 28R (290050, wet, under 1 mm, friction
+// 0.50), USSS's 26R (250060, wet over 26 to 50 per cent), UUEE's 06R and 06C
+// (290245, wet 2 mm) and UUWW's 24 (290050) are all code 5, and USSS's 26L
+// (CLRD60, cleared, friction 0.60) code 6. USSS's remark R26L/QFE752/1002 is
+// a remark, and not read as a state.
+GLIDESLOPE_TEST(real_metars_carrying_a_runways_state_are_read_and_each_given_its_code) {
+    std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) /
+                         "data/weather/aviationweather-runway-states-2026-10-13.json",
+                     std::ios::binary);
+    check(static_cast<bool>(in), "can read the recorded runway states");
+    const auto reports = glideslope::world::parse_aviationweather(
+        std::string(std::istreambuf_iterator<char>(in), {}));
+    check(reports.size() == 4, "four reports");
+    const std::vector<std::tuple<std::string, std::string, bool, int>> expected{
+        {"ULLI", "28R", false, 5}, {"USSS", "26L", true, 6}, {"USSS", "26R", false, 5},
+        {"UUEE", "06R", false, 5}, {"UUEE", "06C", false, 5}, {"UUWW", "24", false, 5}};
+    std::size_t read = 0;
+    for (const glideslope::world::SurfaceReport& r : reports) {
+        const Metar& m = r.metar;
+        check(m.runway_states_refused.empty(), m.station + ": nothing refused");
+        for (const Metar::RunwayState& s : m.runway_states) {
+            check(read < expected.size(), "no more states than expected");
+            const auto& [station, runway, cleared, code] = expected[read];
+            check(m.station == station && s.runway == runway && s.cleared == cleared,
+                  station + " " + runway + " read as " + m.station + " " + s.runway);
+            check(glideslope::world::runway_condition_of(s, m.temperature_c) == code,
+                  station + " " + runway + " is code " + std::to_string(code));
+            ++read;
+        }
+    }
+    check(read == expected.size() && read == 6,
+          "every state read: " + std::to_string(read) + " of 6");
 }

@@ -26,7 +26,7 @@ namespace glideslope::net {
 class Told {
 public:
     // What a message changed, if anything a caller acts on.
-    enum class Heard { nothing, session, lobby, dataset, weather };
+    enum class Heard { nothing, session, lobby, dataset, weather, runway_conditions };
 
     // **Takes one reliable message**, whatever its kind; a kind this does not
     // keep - an aircraft's definition, a swap - is `nothing` here.
@@ -41,6 +41,13 @@ public:
     // How many whole weathers have been heard: one on joining, and one more
     // for each change.
     int weathers() const { return weathers_; }
+    // **The newest runway conditions**, and how many have been heard. They
+    // are for the weather that took over when they say: a client flying
+    // another drops them.
+    const std::optional<RunwayConditions>& runway_conditions() const {
+        return runway_conditions_;
+    }
+    int runway_conditions_heard() const { return runway_conditions_heard_; }
     // **The whole weather heard before the newest**, and its forecast: what
     // the newest blends from, if it still blends. A server tells a client
     // joining mid-blend this first, so that one making its air from the
@@ -58,6 +65,8 @@ private:
     std::optional<Weather> before_;
     std::optional<WeatherAloft> before_aloft_;
     int weathers_ = 0;
+    std::optional<RunwayConditions> runway_conditions_;
+    int runway_conditions_heard_ = 0;
 };
 
 } // namespace glideslope::net

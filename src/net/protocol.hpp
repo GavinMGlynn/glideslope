@@ -57,8 +57,10 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // announcing, the learnt landing. Version 9: the same ground, and the learnt
 // landing refused said to the client that asked, and why
 // (`LEARNT_LANDING_REFUSED`). Version 10 (`0A`): the same ground, and a
-// copilot's route that may end in a landing (`COPILOT_ROUTE`).
-inline constexpr std::uint8_t protocol_version = 10;
+// copilot's route that may end in a landing (`COPILOT_ROUTE`). Version 11
+// (`0B`): the same ground, and the runways the server's weather lays a
+// condition on, and until when they stay wet (`RUNWAY_CONDITIONS`).
+inline constexpr std::uint8_t protocol_version = 11;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

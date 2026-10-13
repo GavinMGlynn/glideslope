@@ -804,6 +804,9 @@ set(GLIDESLOPE_UNIT_TESTS
     a_malformed_runway_state_group_is_refused_with_its_reason
     a_runway_is_still_wet_after_the_rain_stops
     a_metar_reporting_slush_or_ice_on_a_runway_makes_it_slippery_to_an_aircraft_braking_on_it
+    a_client_joining_after_the_rain_flies_the_wet_runway_the_server_does
+    real_metars_carrying_a_runways_state_are_read_and_each_given_its_code
+    the_runways_a_reported_state_lies_on_are_laid_when_had_and_never_waited_for
     a_recorded_winds_aloft_response_sets_the_wind_at_every_level_it_reports_and_between
     an_aircraft_in_a_steady_crosswind_drifts_with_it_and_turbulence_disturbs_it_only_when_on
     a_new_weather_report_blends_in_over_its_interval_with_no_step_in_the_wind
@@ -3535,6 +3538,17 @@ add_test(NAME an_ai_aircraft_whose_runways_cannot_be_read_flies_the_plan_file_an
 set_tests_properties(an_ai_aircraft_whose_runways_cannot_be_read_flies_the_plan_file_and_the_server_goes_on
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planned_runways)
+
+# **A server keeps its rate while the runways a reported state lies on are
+# slow to come.** See cmake/server_runways_slow.cmake.
+add_test(NAME a_server_keeps_stepping_at_its_rate_while_the_runways_a_reported_state_lies_on_are_slow_to_come
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_runways_slow
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_runways_slow.cmake)
+set_tests_properties(a_server_keeps_stepping_at_its_rate_while_the_runways_a_reported_state_lies_on_are_slow_to_come
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_runways_slow)
 
 # **What the server refuses about planned AI aircraft**, each in words a
 # person can act on, before anything is fetched or flown.

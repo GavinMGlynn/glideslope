@@ -64,6 +64,15 @@ Told::Heard Told::hear(std::span<const std::uint8_t> body) {
         ++weathers_;
         return Heard::weather;
     }
+    case Message::runway_conditions: {
+        RunwayConditions m;
+        if (!read(body, m)) {
+            return Heard::nothing;
+        }
+        runway_conditions_ = std::move(m);
+        ++runway_conditions_heard_;
+        return Heard::runway_conditions;
+    }
     case Message::aircraft:
     case Message::controller_swap:
     case Message::watch:

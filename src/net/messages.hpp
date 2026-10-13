@@ -61,6 +61,7 @@ enum class Message : std::uint8_t {
     copilot_route = 9,
     take_over_refused = 10,
     learnt_landing_refused = 11,
+    runway_conditions = 12,
 };
 
 // Whether `kind` is one this version knows.
@@ -167,6 +168,31 @@ struct Weather {
     // it has arrived the weather is not flown, so that a report is never
     // flown for a moment without the forecast above it.
     bool aloft_follows = false;
+};
+
+// **A runway the server's weather lays a condition on**: the end it is
+// measured from - its threshold, true heading and length - and its runway
+// condition code, 1 (ice) to 5 (wet), as world::ContaminatedRunway.
+struct RunwayCondition {
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double heading_deg = 0.0;
+    double length_m = 0.0;
+    std::uint8_t code = 5;
+};
+
+// **The runways the server's weather lays a condition on, and until when the
+// runways near its station stay wet** from rain it flew before - what a
+// client cannot know from the METAR alone: the runways a state lies on are
+// the server's to fetch, and rain that stopped before a client joined it
+// never heard. Sent after every `WEATHER` (and its `WEATHER_ALOFT`), and
+// again when the server's runways come; for the weather that took over at
+// `weather_changed_at_s`, and dropped by a client flying another.
+struct RunwayConditions {
+    double weather_changed_at_s = 0.0;
+    std::optional<double> wet_until_s;
+    std::vector<RunwayCondition> now;    // the newest weather's runways
+    std::vector<RunwayCondition> before; // those of the one it blends from
 };
 
 // **The forecast above the station.** Sent after a `WEATHER`, and only where
@@ -302,6 +328,8 @@ inline constexpr double most_blend_s = 86400.0;
 inline constexpr std::size_t most_waypoint_name_bytes = 32;
 // The longest reason a refusal gives.
 inline constexpr std::size_t most_reason_bytes = 160;
+// The most runways a `RUNWAY_CONDITIONS` carries for each weather.
+inline constexpr std::size_t most_runway_conditions = 16;
 
 // **The most a message body may be**: a datagram, less the envelope in front
 // of it and the reliable layer's number and acknowledgement. Nothing
@@ -331,6 +359,7 @@ std::vector<std::uint8_t> write(const Watch& m);
 std::vector<std::uint8_t> write(const CopilotRoute& m);
 std::vector<std::uint8_t> write(const TakeOverRefused& m);
 std::vector<std::uint8_t> write(const LearntLandingRefused& m);
+std::vector<std::uint8_t> write(const RunwayConditions& m);
 
 // Which kind a body is, or nothing if it is empty or a kind this version
 // does not know.
@@ -351,6 +380,7 @@ bool read(std::span<const std::uint8_t> body, ControllerSwap& out);
 bool read(std::span<const std::uint8_t> body, Watch& out);
 bool read(std::span<const std::uint8_t> body, TakeOverRefused& out);
 bool read(std::span<const std::uint8_t> body, LearntLandingRefused& out);
+bool read(std::span<const std::uint8_t> body, RunwayConditions& out);
 bool read(std::span<const std::uint8_t> body, CopilotRoute& out);
 
 // **The aeroplane a player asks for when joining** (REQUIREMENTS 4.2, decided

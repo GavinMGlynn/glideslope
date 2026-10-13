@@ -431,6 +431,10 @@ private:
     // the weathers flown, and whether its ground was compared.
     double session_now_s_ = 0.0;
     int weathers_flown_ = 0;
+    // The runway conditions last laid (net::Told::runway_conditions_heard),
+    // and on which of the server's weathers (Flight::server_weathers).
+    int runway_conditions_laid_ = 0;
+    std::int64_t runway_conditions_weather_ = 0;
     bool ground_compared_ = false;
     // Which session what it was told came in: net::ClientSession::joined_again.
     int told_in_ = 0;

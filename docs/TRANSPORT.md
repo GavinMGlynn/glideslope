@@ -68,6 +68,9 @@ Said first, because a transport's limits matter more than its features.
   (`LEARNT_LANDING_REFUSED`, below).
   Version `0A` is on the same ground, and is the first whose
   `COPILOT_ROUTE` may end in a landing (below).
+  Version `0B` is on the same ground, and is the first whose server tells
+  every client the runways its weather lays a condition on, and until when
+  the runways near its station stay wet (`RUNWAY_CONDITIONS`, below).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -78,7 +81,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `0A` |
+| 4 | 1 | version | `0B` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -124,7 +127,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `0A`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `0B`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -438,6 +441,7 @@ is that kind's fields in the order given here.
 | `09` | `COPILOT_ROUTE` |
 | `0A` | `TAKE_OVER_REFUSED` |
 | `0B` | `LEARNT_LANDING_REFUSED` |
+| `0C` | `RUNWAY_CONDITIONS` |
 
 A kind this version does not know is not a message, and is refused rather
 than skipped.
@@ -638,14 +642,16 @@ must arrive, in this order, once the session is proven (it has opened
 something sealed under it) and on the update after: `TERRAIN_DATASET`, then
 `SESSION` - its clock as it was when sent - then `LOBBY`, then `WEATHER`, and
 `WEATHER_ALOFT` after it where the weather has a forecast (and, while a
-weather blends in, the one it blends from before it, the same way); then each
-`AIRCRAFT`. After that:
+weather blends in, the one it blends from before it, the same way), then
+`RUNWAY_CONDITIONS`; then each `AIRCRAFT`. After that:
 
 - **the lobby again, whole, whenever it is not what was last sent** - a
   player joining or going;
 - **the weather again whenever it changes**: a station's fetched again
   (every fifteen minutes by default), or a test's change, each saying when it
-  took over and over how long it blends in;
+  took over and over how long it blends in, with `RUNWAY_CONDITIONS` after
+  it;
+- **the runways' conditions again when the server's runways come**;
 - the ground and the session never again: neither changes in a session.
 
 A client joined again after being let go is in a new session, and is told all
@@ -841,6 +847,55 @@ not queue an answer for is said in its log.
 | `u8` | `0B`, the kind |
 | `u8` | the aircraft's number, as the request gave it |
 | text | why, 0 to 160 bytes |
+
+### `RUNWAY_CONDITIONS`
+
+**What a client cannot know from the METAR alone** (since `0B`): the runways
+its runway-state groups lie on, which are the server's to fetch (OurAirports'
+runways, at the station), and how long the runways near the station stay wet
+from rain the server flew before - which a client joining after the rain
+never heard. So the server sends both, as what it flies rather than what it
+was made from: each runway a state lays a condition on, as the end it is
+measured from - its threshold, true heading and length - with the runway
+condition code, and the moment, on the simulation's clock, until which the
+runways within 8 km of the station are wet (code 5) whatever the weather says.
+
+**When.** After every `WEATHER` (and its `WEATHER_ALOFT`) - on joining, and
+at every change - and again when the server's runways come, which is not at
+once: they are fetched off the stepping thread, and until they have come a
+state lies on no runway, on the server and in what it says. **For one
+weather**: it names the moment the weather it is for took over, and a client
+flying another drops it. A client joining while a weather blends in is told
+the runways of the one it blends from too, after both weathers.
+
+| written as | field |
+| --- | --- |
+| `u8` | `0C`, the kind |
+| `f64` | when the weather it is for took over, on the simulation's clock, not below nought |
+| `u8` | `01` if the runways stay wet until a moment, `00` if not |
+| `f64` | that moment, on the simulation's clock, not below nought; `0` when not given |
+| `u8` | how many runways the weather now lays a condition on, at most 16 |
+| | then, per runway: |
+| `f64` | its threshold's latitude, degrees |
+| `f64` | its longitude, degrees |
+| `f64` | its true heading, 0 to 360 degrees |
+| `f64` | its length, metres, more than nought and at most 20,000 |
+| `u8` | its runway condition code, `01` (ice) to `05` (wet) |
+| | then: |
+| `u8` | how many the weather it blends from lays a condition on, at most 16 |
+| | and each as above |
+
+At its limits this is 1,076 bytes. A place on a runway is on it when it is
+along it from the threshold no farther than its length and within 30 m of
+its centreline; the most slippery code of any runway it is on, and of the
+weather's own, is flown. **It does not say** which runway state a condition
+came from, nor anything of a runway more than 8 km from the station: beyond
+that every runway is dry, as for the weather.
+
+A reader refuses a moment below nought, a flag that is neither `00` nor `01`,
+a time with the flag `00` that is not `0`, a count over 16, a runway past
+either pole or 180 degrees, a heading below nought or over 360, a length of
+nought or less or over 20 km, and a code that is not `01` to `05`.
 
 ### What a reader must refuse
 

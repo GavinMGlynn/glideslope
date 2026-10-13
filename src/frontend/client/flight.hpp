@@ -272,6 +272,10 @@ public:
     bool heard_weather(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
                        std::function<double()> clock, std::int64_t count, std::string& why);
     std::int64_t server_weathers() const { return server_weathers_; }
+    // **The runways the server's air lays a condition on** (net::
+    // RunwayConditions), laid on its weather if they are for it: false if
+    // not, or there is no server's weather.
+    bool heard_runway_conditions(const net::RunwayConditions& conditions);
     gfx::Station weather_station() const;
 
     // Simulation time, seconds.
@@ -290,9 +294,10 @@ public:
 
 private:
     void refresh_weather();
-    // A report's runway states laid on its station's runways
-    // (frontend::StationRunways); said once if they cannot be had.
-    void on_its_runways(world::WeatherReport& report);
+    // A report's runway states laid on its station's runways once they are
+    // had (frontend::StationRunways): looked at every frame, never waited
+    // for. Its own weather only: the server's says its runways itself.
+    void lay_runways_when_had();
     void report_navigation();
 
     // The body's axes in ECEF - forward, starboard and down - and the

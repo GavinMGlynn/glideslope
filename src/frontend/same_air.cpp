@@ -4,7 +4,11 @@
 #include "world/metar.hpp"
 #include "world/runway_ground.hpp"
 
+#include <chrono>
+#include <cmath>
 #include <cstdint>
+#include <limits>
+#include <memory>
 #include <fstream>
 #include <iterator>
 #include <span>
@@ -14,25 +18,99 @@
 
 namespace glideslope::frontend {
 
-void StationRunways::attach(world::WeatherReport& report, std::string* why) {
-    if (report.surface.metar.runway_states.empty()) {
-        return;
+StationRunways::StationRunways(std::filesystem::path cache, world::Fetch fetch)
+    : load_([cache = std::move(cache), fetch = std::move(fetch)] {
+          return world::world_runways(cache, fetch);
+      }) {}
+
+StationRunways::~StationRunways() {
+    // Before loading_ is destroyed, which waits for its thread.
+    give_up_ = true;
+}
+
+bool StationRunways::lay(world::ReportedWeather& air, std::string* why) {
+    if (air.runways_laid() || !air.has_runway_states() || cannot_) {
+        return false;
     }
-    if (!all_ && !given_up_) {
+    if (!all_) {
+        if (!loading_.valid()) {
+            loading_ = std::async(std::launch::async, [this] {
+                const world::FetchesGivenUp given_up(give_up_);
+                return std::make_shared<const std::vector<world::RunwayEnd>>(load_());
+            });
+            return false;
+        }
+        if (loading_.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+            return false;
+        }
         try {
-            all_ = world::world_runways(cache_, fetch_);
+            all_ = loading_.get();
         } catch (const std::exception& e) {
-            given_up_ = true;
+            cannot_ = true;
             if (why != nullptr) {
                 *why = std::string("the runways cannot be had, and a runway's reported state "
-                                   "is not flown: ") +
+                                   "lies on none: ") +
                        e.what();
             }
+            return false;
         }
     }
-    if (all_) {
-        report.runways = world::runways_at(*all_, report.surface.metar.station);
+    air.lay_runways(*all_);
+    return true;
+}
+
+namespace {
+
+net::RunwayCondition condition_said(const world::ContaminatedRunway& c) {
+    return {c.end.latitude_deg, c.end.longitude_deg, c.end.heading_deg, c.end.length_m,
+            static_cast<std::uint8_t>(c.code)};
+}
+
+world::ContaminatedRunway condition_heard(const net::RunwayCondition& c) {
+    world::ContaminatedRunway out;
+    out.end.latitude_deg = c.latitude_deg;
+    out.end.longitude_deg = c.longitude_deg;
+    out.end.heading_deg = c.heading_deg;
+    out.end.length_m = c.length_m;
+    out.code = c.code;
+    return out;
+}
+
+} // namespace
+
+net::RunwayConditions runway_conditions_said(const world::ReportedWeather& air,
+                                             double changed_at_s, double now_s) {
+    net::RunwayConditions out;
+    out.weather_changed_at_s = changed_at_s;
+    if (std::isfinite(air.wet_until_s()) && air.wet_until_s() >= 0.0) {
+        out.wet_until_s = air.wet_until_s();
     }
+    for (const world::ContaminatedRunway& c : air.report().contaminated) {
+        out.now.push_back(condition_said(c));
+    }
+    if (const world::WeatherReport* before = air.blending_from(now_s)) {
+        for (const world::ContaminatedRunway& c : before->contaminated) {
+            out.before.push_back(condition_said(c));
+        }
+    }
+    return out;
+}
+
+bool HeardAir::conditions_heard(const net::RunwayConditions& conditions) {
+    if (!reported_ || still_ || conditions.weather_changed_at_s != changed_at_s_) {
+        return false;
+    }
+    std::vector<world::ContaminatedRunway> now;
+    std::vector<world::ContaminatedRunway> before;
+    for (const net::RunwayCondition& c : conditions.now) {
+        now.push_back(condition_heard(c));
+    }
+    for (const net::RunwayCondition& c : conditions.before) {
+        before.push_back(condition_heard(c));
+    }
+    reported_->lay(std::move(now), std::move(before),
+                   conditions.wet_until_s.value_or(-std::numeric_limits<double>::infinity()));
+    return true;
 }
 
 world::WeatherReport fit_to_send(world::WeatherReport report) {
@@ -146,9 +224,7 @@ bool HeardAir::heard(const net::Weather& weather, const std::optional<net::Weath
         still_ = true;
         return true;
     }
-    if (on_runways_) {
-        on_runways_(*report);
-    }
+    changed_at_s_ = weather.changed_at_s;
     if (!reported_ || still_) {
         reported_ = std::make_shared<world::ReportedWeather>(std::move(*report), geoid_,
                                                              weather.blend_s, ground_);

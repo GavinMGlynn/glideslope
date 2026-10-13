@@ -125,6 +125,7 @@ bool known_message(std::uint8_t kind) {
     case Message::copilot_route:
     case Message::take_over_refused:
     case Message::learnt_landing_refused:
+    case Message::runway_conditions:
         return true;
     }
     return false;
@@ -298,6 +299,87 @@ bool read(std::span<const std::uint8_t> body, Weather& out) {
         (got.latitude_deg != 0.0 || got.longitude_deg != 0.0 || got.elevation_m != 0.0 ||
          got.turbulence_severity || got.air_seed != 0 || !got.microbursts.empty() ||
          got.aloft_follows)) {
+        return false;
+    }
+    out = std::move(got);
+    return true;
+}
+
+// ---- the runways' conditions --------------------------------------------
+
+namespace {
+
+void write_runway_conditions(Writer& w, const std::vector<RunwayCondition>& all) {
+    w.u8(static_cast<std::uint8_t>(all.size()));
+    for (const RunwayCondition& c : all) {
+        w.f64(c.latitude_deg);
+        w.f64(c.longitude_deg);
+        w.f64(c.heading_deg);
+        w.f64(c.length_m);
+        w.u8(c.code);
+    }
+}
+
+// **A runway on the Earth, of a length a runway has, with a code from 1 to
+// 5**: a code of 6 (dry) or 0 (nil) is not a condition laid, and a runway
+// past the pole, heading past a full turn, or of no length or longer than
+// 20 km is not one.
+bool read_runway_conditions(MessageReader& r, std::vector<RunwayCondition>& out) {
+    bool ok = true;
+    const std::size_t n = count(r, most_runway_conditions, ok);
+    if (!ok) {
+        return false;
+    }
+    out.clear();
+    for (std::size_t i = 0; i < n; ++i) {
+        RunwayCondition c;
+        c.latitude_deg = r.f64();
+        c.longitude_deg = r.f64();
+        c.heading_deg = r.f64();
+        c.length_m = r.f64();
+        c.code = r.u8();
+        if (!r.ok() || std::abs(c.latitude_deg) > 90.0 || std::abs(c.longitude_deg) > 180.0 ||
+            c.heading_deg < 0.0 || c.heading_deg > 360.0 || !(c.length_m > 0.0) ||
+            c.length_m > 20000.0 || c.code < 1 || c.code > 5) {
+            return false;
+        }
+        out.push_back(c);
+    }
+    return r.ok();
+}
+
+} // namespace
+
+std::vector<std::uint8_t> write(const RunwayConditions& m) {
+    Writer w = begin_message(Message::runway_conditions);
+    w.f64(m.weather_changed_at_s);
+    w.u8(m.wet_until_s ? 1u : 0u);
+    w.f64(m.wet_until_s.value_or(0.0));
+    write_runway_conditions(w, m.now);
+    write_runway_conditions(w, m.before);
+    return w.take();
+}
+
+bool read(std::span<const std::uint8_t> body, RunwayConditions& out) {
+    bool is_kind = false;
+    MessageReader r = after_kind(body, Message::runway_conditions, is_kind);
+    if (!is_kind) {
+        return false;
+    }
+    RunwayConditions got;
+    got.weather_changed_at_s = r.f64();
+    const std::uint8_t has_wet = r.u8();
+    const double wet_until = r.f64();
+    // The time is held to nought when the flag says there is none.
+    if (!r.ok() || has_wet > 1 || (has_wet == 0 && wet_until != 0.0) ||
+        got.weather_changed_at_s < 0.0 || wet_until < 0.0) {
+        return false;
+    }
+    if (has_wet == 1) {
+        got.wet_until_s = wet_until;
+    }
+    if (!read_runway_conditions(r, got.now) || !read_runway_conditions(r, got.before) ||
+        !r.done()) {
         return false;
     }
     out = std::move(got);

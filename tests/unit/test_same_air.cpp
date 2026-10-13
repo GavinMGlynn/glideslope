@@ -13,16 +13,22 @@
 
 #include <algorithm>
 #include <array>
+#include <atomic>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iterator>
 #include <memory>
 #include <optional>
 #include <span>
+#include <stdexcept>
 #include <string>
+#include <thread>
+#include <tuple>
+#include <utility>
 #include <vector>
 
 using glideslope::test::check;
@@ -457,4 +463,180 @@ GLIDESLOPE_TEST(a_weather_whose_metar_cannot_be_read_is_refused_and_the_air_befo
     glideslope::frontend::HeardAir fresh(nullptr, {}, [] { return 0.0; });
     check(!fresh.heard(bad, std::nullopt) && fresh.air() == nullptr,
           "refused first, there is no weather at all");
+}
+
+namespace {
+
+// Runway 24 at 55.97 N 37.41 E, 3,000 m long, and its other end, 06.
+std::vector<glideslope::world::RunwayEnd> runway_24_and_06() {
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    constexpr double metres_per_degree = 111319.49;
+    glideslope::world::RunwayEnd end24;
+    end24.airport = "UUEE";
+    end24.ident = "24";
+    end24.latitude_deg = 55.97;
+    end24.longitude_deg = 37.41;
+    end24.heading_deg = 240.0;
+    end24.length_m = 3000.0;
+    glideslope::world::RunwayEnd end06 = end24;
+    end06.ident = "06";
+    end06.heading_deg = 60.0;
+    end06.latitude_deg = 55.97 + 3000.0 * std::cos(240.0 * radians) / metres_per_degree;
+    end06.longitude_deg = 37.41 + 3000.0 * std::sin(240.0 * radians) /
+                                      (metres_per_degree * std::cos(55.97 * radians));
+    return {end24, end06};
+}
+
+glideslope::world::WeatherReport at_uuee(const std::string& metar) {
+    glideslope::world::WeatherReport r;
+    r.surface.metar = glideslope::world::parse_metar(metar);
+    r.surface.latitude_deg = 55.97;
+    r.surface.longitude_deg = 37.41;
+    return r;
+}
+
+// What a server tells a client joining now of `air`, through the wire's bytes:
+// the weather, then the runways' conditions.
+void joins(const glideslope::world::ReportedWeather& air, double changed_at_s, double now_s,
+           glideslope::net::Told& told, glideslope::frontend::HeardAir& client) {
+    const glideslope::frontend::WeatherSaid said =
+        glideslope::frontend::weather_said(&air.report(), changed_at_s, 0.0);
+    check(told.hear(all_of(glideslope::net::write(said.weather))) ==
+              glideslope::net::Told::Heard::weather,
+          "the weather is heard");
+    check(client.heard(*told.weather(), told.aloft()), "and flown");
+    const glideslope::net::RunwayConditions rc =
+        glideslope::frontend::runway_conditions_said(air, changed_at_s, now_s);
+    check(told.hear(all_of(glideslope::net::write(rc))) ==
+              glideslope::net::Told::Heard::runway_conditions,
+          "the runways' conditions are heard");
+    check(client.conditions_heard(*told.runway_conditions()), "and laid on the weather flown");
+}
+
+} // namespace
+
+// **A client joining ten minutes after the rain flies the wet runway the
+// server does, and one with no runways of its own the server's icy one.** A
+// server flies rain at a station, then from 600 s a dry report: its runways
+// stay wet until 2,400 s (world::still_wet_after_rain_s). A client joining at
+// 1,200 s is told only the dry report - the rain it never heard - and the
+// runways' conditions (`RUNWAY_CONDITIONS`): at the station, at 1,200 s and
+// 2,399 s, its runway is the server's code 5, and at 2,401 s both are dry. A
+// second server flies ice reported on runway 24, its runways laid
+// (frontend::StationRunways): a client that has fetched no runways is told
+// them and flies code 1 on 24 as the server does, and 6 off it. Told the
+// weather alone, without the conditions, the joining client is dry - what it
+// flew before this.
+GLIDESLOPE_TEST(a_client_joining_after_the_rain_flies_the_wet_runway_the_server_does) {
+    const std::string rain = "METAR UUEE 140600Z 18005KT 6000 -RA BKN015 04/02 Q1012";
+    const std::string dry = "METAR UUEE 140700Z 18005KT 9999 FEW030 04/01 Q1013";
+    glideslope::world::ReportedWeather server(at_uuee(rain), nullptr, 0.0);
+    server.update(at_uuee(dry), 600.0);
+    double now_s = 1200.0;
+    const auto clock = [&now_s] { return now_s; };
+    glideslope::net::Told told;
+    glideslope::frontend::HeardAir client(nullptr, {}, clock);
+    joins(server, 600.0, now_s, told, client);
+    glideslope::frontend::HeardAir weather_alone(nullptr, {}, clock);
+    weather_alone.heard(*told.weather(), told.aloft());
+
+    std::size_t compared = 0;
+    for (const auto& [t, code] : std::vector<std::pair<double, int>>{
+             {1200.0, 5}, {2399.0, 5}, {2401.0, 6}}) {
+        now_s = t;
+        const int theirs = server.at(55.97, 37.41, 150.0, t).runway_condition;
+        const int ours = client.air()->at(55.97, 37.41, 150.0, 0.0).runway_condition;
+        check(theirs == code && ours == code,
+              "at " + std::to_string(t) + " s the server's runway is " + std::to_string(theirs) +
+                  " and the joining client's " + std::to_string(ours) + ", both to be " +
+                  std::to_string(code));
+        ++compared;
+    }
+    now_s = 1200.0;
+    check(weather_alone.air()->at(55.97, 37.41, 150.0, 0.0).runway_condition == 6,
+          "told the weather alone, the joining client's runway is dry");
+
+    // Ice on 24, laid by the server; the client has no runways at all.
+    const std::string icy = "METAR UUEE 140800Z 18005KT 9999 FEW030 M02/M04 Q1013 R24/7901//";
+    glideslope::world::ReportedWeather icy_server(at_uuee(icy), nullptr, 0.0);
+    glideslope::frontend::StationRunways runways([] { return runway_24_and_06(); });
+    std::string why;
+    while (!runways.lay(icy_server, &why)) {
+        check(why.empty(), "the runways are had: " + why);
+        std::this_thread::yield();
+    }
+    glideslope::net::Told told_icy;
+    glideslope::frontend::HeardAir icy_client(nullptr, {}, clock);
+    joins(icy_server, 0.0, 1200.0, told_icy, icy_client);
+    const double along_24 = 55.97 - 0.004; // 0.4 km down 24, south-west of its threshold
+    const double on_24_lon = 37.41 - 0.004 * std::tan(60.0 * 3.14159265358979323846 / 180.0) /
+                                         std::cos(55.97 * 3.14159265358979323846 / 180.0);
+    for (const auto& [lat, lon, code] : std::vector<std::tuple<double, double, int>>{
+             {along_24, on_24_lon, 1}, {55.97 + 0.01, 37.41, 6}}) {
+        const int theirs = icy_server.at(lat, lon, 150.0, 1200.0).runway_condition;
+        const int ours = icy_client.air()->at(lat, lon, 150.0, 0.0).runway_condition;
+        check(theirs == code && ours == code,
+              "the server's runway is " + std::to_string(theirs) + " and the client's " +
+                  std::to_string(ours) + ", both to be " + std::to_string(code));
+        ++compared;
+    }
+    check(compared == 5, "every moment and place compared");
+}
+
+// **The runways a reported state lies on are never waited for.** A source
+// held until the test lets it go: `lay` returns at once, not laid, as often
+// as it is asked, and the air's runway is the weather's alone (dry); let go,
+// the runways are laid the next time it is asked and the runway is icy. One
+// that fails is never laid, says why once, and is not asked again.
+GLIDESLOPE_TEST(the_runways_a_reported_state_lies_on_are_laid_when_had_and_never_waited_for) {
+    std::promise<void> release;
+    std::shared_future<void> released = release.get_future().share();
+    std::atomic<int> loads{0};
+    glideslope::frontend::StationRunways runways([released, &loads] {
+        ++loads;
+        released.wait();
+        return runway_24_and_06();
+    });
+    glideslope::world::ReportedWeather air(
+        at_uuee("METAR UUEE 140800Z 18005KT 9999 FEW030 M02/M04 Q1013 R24/7901//"), nullptr,
+        0.0);
+    const double lat = 55.97 - 0.004;
+    const double lon = 37.41 - 0.004 * std::tan(60.0 * 3.14159265358979323846 / 180.0) /
+                                   std::cos(55.97 * 3.14159265358979323846 / 180.0);
+    std::size_t asked = 0;
+    for (; asked < 1000; ++asked) {
+        check(!runways.lay(air), "not laid while the source holds them");
+    }
+    check(air.at(lat, lon, 150.0, 0.0).runway_condition == 6,
+          "until they come, the state lies on no runway");
+    release.set_value();
+    while (!runways.lay(air)) {
+        std::this_thread::yield();
+    }
+    check(loads == 1, "fetched once, for all those asks: " + std::to_string(loads.load()));
+    check(air.at(lat, lon, 150.0, 0.0).runway_condition == 1 && air.runways_laid(),
+          "laid once they came: ice on 24");
+    check(!runways.lay(air), "and not laid again");
+
+    std::atomic<int> tries{0};
+    {
+        glideslope::frontend::StationRunways failing(
+            [&tries]() -> std::vector<glideslope::world::RunwayEnd> {
+                ++tries;
+                throw std::runtime_error("nothing listens");
+            });
+        glideslope::world::ReportedWeather other(
+            at_uuee("METAR UUEE 140800Z 18005KT 9999 FEW030 M02/M04 Q1013 R24/7901//"), nullptr,
+            0.0);
+        std::string why;
+        while (why.empty()) {
+            check(!failing.lay(other, &why), "a source that fails lays nothing");
+            std::this_thread::yield();
+        }
+        check(why.find("nothing listens") != std::string::npos, "and says why: " + why);
+        std::string again;
+        check(!failing.lay(other, &again) && again.empty(), "once");
+    } // let go: whatever it began is waited for here
+    check(tries == 1, "and is not asked again: asked " + std::to_string(tries.load()) + " times");
+    check(asked == 1000, "asked a thousand times while held");
 }
