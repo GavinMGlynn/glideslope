@@ -273,7 +273,12 @@ added to the copilot's or the planner's request changes it for every
 recording: played back, a request matches its recording but for its numbers
 (`copilot::Match::but_numbers`), so a new word, or a new number, is a new
 request, and all 13 copilot recordings in `tests/data/copilot/` would have
-to be recorded again against the live models. That waits on the owner. The
+to be recorded again against the live models. **It waits to be batched with
+the fly-over prompt change** (Phase 13, the copilot marks fly-over
+waypoints), the owner's decision of 2026-10-13, so that the 13 recordings
+are recorded again once; the wording proposed is ", N m to land on" at the
+end of each runway line (its length less any displaced threshold) and "It
+needs N m of runway to land on, M m wet." in the aircraft's brief. The
 check itself refuses a short runway, and its refusal tells the model the
 runway's landing length and the aircraft's need, as before. **The F-22A has
 no figure**: she publishes no stall speed, so has no approach speed, and
