@@ -756,12 +756,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       Mosquito at her heaviest. *Verification: every aeroplane lands light,
       heavy and in gusts with none named, and a gust on an approach flown
       well makes no go-around.*
-- [ ] **In a steady headwind the S.23 skips off the water after
+- [x] **In a steady headwind the S.23 skips off the water after
       alighting.** The rollout now judges her lift by her airspeed in all
       air, and the thirteen landplanes roll out into 15 kt without lifting
-      off. On her planing hull (2026-10-14) the flying boat rises 0.20 ft,
-      inside the limit, but she is still named in the test. *Verification: in a steady 15 kt
-      headwind every aeroplane rolls out without lifting off.*
+      off. *Verification: in a steady 15 kt headwind every aeroplane rolls
+      out without lifting off.* Done 2026-10-14: on her planing hull the
+      S.23 rises 0.20 ft (0.23 in a 10 kt tailwind), and all fourteen are
+      judged.
 - [ ] **The rollout's autobrake winds up when there is nothing to slow.**
       It keeps adding brake while her deceleration falls short. Blown
       sideways at a walking pace, a C172P had her brakes wound up and was
