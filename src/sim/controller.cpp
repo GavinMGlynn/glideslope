@@ -235,9 +235,13 @@ FlightPlan Controller::to_its_point(FlightPlan plan) const {
     return plan;
 }
 
+bool Controller::too_heavy_to_hover() const {
+    return a_.property("inertia/weight-lbs") > a_.property("fcs/stovl-hover-most-lbs");
+}
+
 bool Controller::vertical_landing_due() const {
     if (!navigator_ || !navigator_->plan().vertical_landing || departure_ || lander_ ||
-        learnt_ || circuit_ || vacate_ || glide_kts_) {
+        learnt_ || circuit_ || vacate_ || glide_kts_ || too_heavy_to_hover()) {
         return false;
     }
     if (navigator_->finished()) {
@@ -281,7 +285,22 @@ std::optional<Controls> Controller::fly_lift_system() {
         if (!wanted) {
             return std::nullopt;
         }
-        stovl_.emplace(a_, Hover::Command{applied_, held_lift_});
+        // **Seeded from what she flies, never from the stick**: in STOVL
+        // mode the pilot's stick asks a height and a speed, not the
+        // surfaces, so the transition law begins from the elevator, the
+        // ailerons, the rudder and the throttle the aircraft has. A
+        // controller made on the step the selector arrived (the server's,
+        // `controller_for`) holds the pilot's stick as what it applied -
+        // full forward, it seeded the wing-borne autopilot's elevator at
+        // full nose-down, and from 300 KCAS she dived 334 ft in five
+        // seconds; through a server, into the ground (PROJECT_STATUS,
+        // 2026-10-14).
+        Controls seed = applied_;
+        seed.elevator = -a_.property("fcs/elevator-cmd-norm");
+        seed.aileron = a_.property("fcs/aileron-cmd-norm");
+        seed.rudder = a_.property("fcs/rudder-cmd-norm");
+        seed.throttle = a_.property("fcs/throttle-cmd-norm[0]");
+        stovl_.emplace(a_, Hover::Command{seed, held_lift_});
         // The lever is the pilot's speed once it moves from where it was.
         lever_at_selection_ = pilot_.throttle;
         const double agl = a_.state().height_above_ground_ft;
@@ -347,6 +366,14 @@ std::optional<Controls> Controller::fly_lift_system() {
         inceptors.side = std::clamp(pilot_.aileron, -1.0, 1.0);
         inceptors.pedals = std::clamp(pilot_.rudder, -1.0, 1.0);
         target.pilot = inceptors;
+        // **Heavier than she can hover**, STOVL mode is flown wing-borne at
+        // her conversion speed, the stick still asking her height: slowed
+        // to a hover, the lift system could not hold her.
+        if (too_heavy_to_hover() && !hovering) {
+            target.hover = false;
+            target.land = false;
+            target.pilot.reset();
+        }
     } else {
         target.hover = false;
         target.height_ft = std::max(stovl_height_ft_, least_ft);
@@ -368,7 +395,7 @@ std::optional<Controls> Controller::fly_lift_system() {
     // Converted back and wing-borne: the controls are the pilot's again, at
     // a hand's pace.
     if (!target.hover && stovl_->stage() == Transition::Stage::wing_borne &&
-        a_.property("fcs/stovl-pos-norm") <= 0.0) {
+        a_.property("fcs/stovl-pos-norm") <= 0.0 && !(flying_ == Flying::pilot && selected)) {
         stovl_.reset();
         if (flying_ == Flying::ai) {
             // The AI's plan from here: the autopilot from the controls the

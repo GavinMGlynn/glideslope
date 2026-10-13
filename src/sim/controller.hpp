@@ -416,6 +416,11 @@ private:
     std::optional<Controls> fly_lift_system();
     // Whether the AI's plan's vertical landing is to be begun now.
     bool vertical_landing_due() const;
+    // Heavier than her model's `fcs/stovl-hover-most-lbs`: no hover is
+    // asked of her - a pilot's STOVL mode is flown wing-borne at her
+    // conversion speed, the stick asking her height, and a plan's vertical
+    // landing is not begun.
+    bool too_heavy_to_hover() const;
     // A plan with a vertical landing flown to its point: the point added as
     // its last waypoint, at the height and speed of the one before.
     FlightPlan to_its_point(FlightPlan plan) const;

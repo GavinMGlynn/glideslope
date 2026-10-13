@@ -401,10 +401,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       the server through a conversion, a hover and a landing. Her rolling
       landing figure (9,200 ft) was revisited on 2026-10-14: it still holds
       for a runway landing, and a vertical landing needs no runway. Still to
-      do: a player's selector flown through a server in a multi-process
-      test - tried on 2026-10-14, the server's F-35B, selected from 300 kt
-      at 2,200 ft with the stick forward, hit the ground before hovering,
-      not yet explained. *Verification: she is flown
+      do: a player's vertical landing through a server - a player's selector
+      is flown through a server since 2026-10-14, but every server gives her
+      her model's 45,400 lb, too heavy to hover, so she is held wing-borne;
+      no server gives a player a loading. *Verification: she is flown
       into a hover and out again, and a pilot and an AI plan each convert
       her.*
 - [x] **The F-35B's pilot flies only her height in STOVL mode**: her

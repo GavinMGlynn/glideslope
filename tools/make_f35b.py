@@ -285,6 +285,13 @@ STOVL_CONVERT_LEAST_FT = 100.0
 # not traced to its source) and the pedals a turn to 10 degrees a second
 # (estimated: none is published).
 STOVL_LEVER_DETENT = 0.25
+# **The most she is flown into a hover at**, lb: her hover thrust less 2 per
+# cent for the lift system's control (estimated: none is published), so
+# 39,837 lb - over her combat loading's 39,750, at which she hovers. Heavier,
+# the transition law holds her wing-borne at her conversion speed in STOVL
+# mode: at her plan weight, 45,400 lb, slowed to a hover she sank at 4,369
+# ft/min into the ground (PROJECT_STATUS, 2026-10-14).
+STOVL_HOVER_MOST_LBS = HOVER_THRUST_LBF * 0.98
 STOVL_TRC_KT = 30.0
 # **Backward, 20 kt: a limit of this model, not of the aeroplane.** Farley
 # and Kjelgaard (above) give 30 kt back; flown backward at 30 kt this model
@@ -542,6 +549,7 @@ def lift_system():
                         ("transition-gathering-pitch-deg", f"{TRANSITION_GATHERING_PITCH_DEG:.1f}"),
                         ("stovl-convert-least-ft", f"{STOVL_CONVERT_LEAST_FT:.0f}"),
                         ("stovl-lever-detent", f"{STOVL_LEVER_DETENT:.2f}"),
+                        ("stovl-hover-most-lbs", f"{STOVL_HOVER_MOST_LBS:.0f}"),
                         ("stovl-trc-kt", f"{STOVL_TRC_KT:.1f}"),
                         ("stovl-trc-aft-kt", f"{STOVL_TRC_AFT_KT:.1f}"),
                         ("stovl-trc-side-kt", f"{STOVL_TRC_SIDE_KT:.1f}"),

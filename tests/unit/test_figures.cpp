@@ -2666,3 +2666,161 @@ GLIDESLOPE_TEST(the_f35bs_stovl_selector_at_its_edges_is_flown_and_never_throws)
     check(cases == 6, "every edge was flown: " + std::to_string(cases) + " of 6");
 }
 
+
+// **STOVL mode selected with the stick held forward from the first step,
+// the stick asks a bounded descent and never the surfaces**: her
+// controller made as the server makes it, on the step the selector
+// arrives, holding the pilot's controls - STOVL mode, the stick full
+// forward, the lever at 0.7 and never moved - from two starts, each
+// counted:
+//
+//   300 KCAS at 2,200 ft   above her STOVL clearance and high: what a
+//                          player is given through a server;
+//   250 KCAS at 1,000 ft   at her clearance.
+//
+// Each converts, hovers and lands within fifteen minutes, her wheels
+// touching only after the hover, under the hover law's 6 ft/s; until
+// she hovers she is never lower than her least conversion height (100 ft)
+// less 10 ft, never sinks faster than 600 ft/min - the stick's 6 ft/s and
+// the laws' tracking - and her pitch stays within 15 degrees of level. On
+// the code before, the transition law's autopilot was seeded with the
+// stick's full nose-down elevator: from 300 KCAS she dived 334 ft in five
+// seconds, sinking past 600 ft/min.
+GLIDESLOPE_TEST(stovl_selected_with_the_stick_forward_from_the_first_step_descends_at_a_bounded_rate_converts_hovers_and_lands_the_f35b) {
+    using namespace glideslope::sim;
+    struct Start {
+        double height_ft;
+        double kcas;
+    };
+    const std::vector<Start> starts{{2200.0, 300.0}, {1000.0, 250.0}};
+    std::size_t flown = 0;
+    for (const Start& start : starts) {
+        TransitionFlight f = f35b_level_at(start.height_ft, start.kcas);
+        const double least = f.a->property("fcs/stovl-convert-least-ft");
+        Controls pilot;
+        pilot.stovl = 1.0;
+        pilot.throttle = 0.7;
+        pilot.elevator = -1.0;
+        Controller controller(*f.a, pilot);
+        std::optional<double> hovering_s;
+        std::optional<double> touched_s;
+        double touch_sink_fps = 0.0;
+        double most_sink_fpm = 0.0;
+        double lowest_before_ft = 1e9;
+        double most_pitch = 0.0;
+        for (int i = 0; i < 15 * 60 * 120 && !touched_s; ++i) {
+            controller.set_pilot(pilot);
+            apply(*f.a, controller);
+            f.a->step();
+            const AircraftState s = f.a->state();
+            const Transition* t = controller.transition();
+            if (!hovering_s && t && t->stage() == Transition::Stage::hovering) {
+                hovering_s = s.sim_time_s;
+            }
+            if (!hovering_s) {
+                most_sink_fpm = std::max(most_sink_fpm, -s.climb_rate_fpm);
+                lowest_before_ft = std::min(lowest_before_ft, s.height_above_ground_ft);
+                most_pitch = std::max(most_pitch, std::abs(s.pitch_deg));
+            }
+            if (f.a->property("gear/wow") > 0.5) {
+                touched_s = s.sim_time_s;
+                touch_sink_fps = -s.climb_rate_fpm / 60.0;
+            }
+        }
+        const std::string at = std::to_string(static_cast<int>(start.kcas)) + " KCAS, " +
+                               std::to_string(static_cast<int>(start.height_ft)) + " ft";
+        std::printf("  from %s: hovering at %.1f s, down at %.1f s at %.2f ft/s; before the "
+                    "hover sinking at most %.0f ft/min, lowest %.0f ft, pitch %.1f\n",
+                    at.c_str(), hovering_s.value_or(-1.0), touched_s.value_or(-1.0),
+                    touch_sink_fps, most_sink_fpm, lowest_before_ft, most_pitch);
+        check(hovering_s.has_value(), "from " + at + " she never hovered");
+        check(touched_s.has_value() && hovering_s && *touched_s > *hovering_s,
+              "from " + at + " her wheels did not touch after the hover");
+        check(touch_sink_fps < 6.0, "from " + at + " she touched at " +
+                                        std::to_string(touch_sink_fps) + " ft/s");
+        check(most_sink_fpm <= 600.0, "from " + at + " she sank at " +
+                                          std::to_string(most_sink_fpm) + " ft/min");
+        check(lowest_before_ft >= least - 10.0, "from " + at + " she was down to " +
+                                                    std::to_string(lowest_before_ft) +
+                                                    " ft before the hover");
+        check(most_pitch <= 15.0, "from " + at + " her pitch reached " +
+                                      std::to_string(most_pitch));
+        ++flown;
+    }
+    check(flown == starts.size() && flown == 2, std::to_string(flown) + " starts of 2 flown");
+}
+
+// **Heavier than she can hover, STOVL mode holds her wing-borne**: at her
+// plan weight - her model's own loading, 45,400 lb, which the server gives
+// a player, over her 39,837 lb hover limit (`fcs/stovl-hover-most-lbs`) -
+// begun level at 2,200 ft and 300 KCAS, her controller made as the server
+// makes it with the pilot's STOVL mode selected, the stick full forward and
+// the lever never moved, flown ten minutes: never slowed into jet-borne
+// flight or a hover, held at her conversion speed within 10 kt once there,
+// let down by the stick no lower than her least conversion height less 10
+// ft, never sinking faster than 600 ft/min, her wheels never touching. On
+// the code before, she was slowed to a hover she could not hold and sank
+// into the ground at 4,369 ft/min - what a player's F-35B did through a
+// server.
+GLIDESLOPE_TEST(heavier_than_she_can_hover_the_f35bs_stovl_mode_holds_her_wing_borne_at_her_conversion_speed) {
+    using namespace glideslope::sim;
+    Aircraft a(data_dir, "f35b");
+    InitialConditions ic;
+    ic.latitude_deg = -33.9461;
+    ic.longitude_deg = 151.1772;
+    ic.heading_deg = 270.0;
+    ic.altitude_ft = 2200.0;
+    ic.terrain_elevation_ft = 0.0;
+    ic.airspeed_kts = 300.0;
+    ic.gear = 0.0;
+    ic.engine_running = true;
+    ic.trim = true;
+    a.initialize(ic);
+    a.freeze_fuel(true);
+    const double weight = a.property("inertia/weight-lbs");
+    const double most = a.property("fcs/stovl-hover-most-lbs");
+    const double convert = a.property("fcs/stovl-convert-kcas");
+    const double least = a.property("fcs/stovl-convert-least-ft");
+    check(weight > most, "her model's weight " + std::to_string(weight) +
+                             " lb is not over her hover limit " + std::to_string(most));
+    Controls pilot;
+    pilot.stovl = 1.0;
+    pilot.throttle = 0.7;
+    pilot.elevator = -1.0;
+    Controller controller(a, pilot);
+    bool slowed = false;
+    bool touched = false;
+    double most_sink_fpm = 0.0;
+    double lowest_ft = 1e9;
+    double most_off_kt = 0.0;
+    bool at_speed = false;
+    for (int i = 0; i < 600 * 120; ++i) {
+        controller.set_pilot(pilot);
+        apply(a, controller);
+        a.step();
+        const AircraftState s = a.state();
+        const Transition* t = controller.transition();
+        slowed = slowed || (t && (t->stage() == Transition::Stage::jet_borne ||
+                                  t->stage() == Transition::Stage::hovering));
+        touched = touched || a.property("gear/wow") > 0.5;
+        most_sink_fpm = std::max(most_sink_fpm, -s.climb_rate_fpm);
+        lowest_ft = std::min(lowest_ft, s.height_above_ground_ft);
+        const double kcas = a.property("velocities/vc-kts");
+        at_speed = at_speed || kcas <= convert + 2.0;
+        if (at_speed) {
+            most_off_kt = std::max(most_off_kt, std::abs(kcas - convert));
+        }
+    }
+    std::printf("  %.0f lb over %.0f: slowed %s, lowest %.0f ft, sinking at most %.0f ft/min, "
+                "off %.0f KCAS by at most %.1f kt, converted %.2f, transition law %s\n",
+                weight, most, slowed ? "yes" : "no", lowest_ft, most_sink_fpm, convert,
+                most_off_kt, a.property("fcs/stovl-pos-norm"),
+                controller.transition() ? "flying" : "let go");
+    check(!slowed, "heavier than she can hover she was slowed into jet-borne flight");
+    check(!touched, "her wheels touched");
+    check(controller.transition() != nullptr, "STOVL mode was let go with the selector at it");
+    check(lowest_ft >= least - 10.0, "she was down to " + std::to_string(lowest_ft) + " ft");
+    check(most_sink_fpm <= 600.0, "she sank at " + std::to_string(most_sink_fpm) + " ft/min");
+    check(at_speed && most_off_kt <= 10.0,
+          "at her conversion speed she strayed " + std::to_string(most_off_kt) + " kt");
+}
