@@ -52,8 +52,9 @@
 //   speed, and once she is, the controls are the pilot's again, reached
 //   from the law's at a hand's pace; on the ground, at once. **And her
 //   left-hand inceptor, the stick's sideways and the pedals**
-//   (Transition::Inceptors): the throttle lever, once moved from where it
-//   was when STOVL mode was selected, asks a ground speed either side of its
+//   (Transition::Inceptors): the throttle lever, once moved past
+//   `lever_release` from where it was at the selector's last rising edge,
+//   asks a ground speed either side of its
 //   detent (`fcs/stovl-lever-detent`) under her translational rate command
 //   and an acceleration above it; in the hover the stick's sideways asks a
 //   ground speed to the side and the pedals a turn. Jet-borne, the stick's
@@ -69,7 +70,8 @@
 // plan given her then is flown - converted back at her conversion speed
 // and flown wing-borne, or, its vertical landing nearer than she stops in,
 // moved to its point in the hover at her translational rate command's
-// speed (waypoints within `Transition::steer_within_ft` of her counted
+// speed (the first waypoints within `Transition::steer_within_ft` of her,
+// flown by with no orbit, counted
 // passed) and let down there. Taken back in it, she stays in STOVL mode
 // until the pilot's selector moves from where it was at the take-back.
 
@@ -371,6 +373,7 @@ public:
         std::optional<double> hovering_since_s;
         std::optional<double> selector_at_take_back;
         std::optional<double> lever_at_selection;
+        bool selector_was = false;
     };
     PilotsLaws pilots_laws() const;
     void restore(const PilotsLaws& laws);
@@ -392,8 +395,12 @@ public:
     static constexpr double vertical_hover_ft = 150.0;
     static constexpr double stick_climb_fps = 10.0;
     static constexpr double stick_sink_fps = 6.0;
-    // Within this of her lever's detent, the lever is at it.
+    // Within this of her lever's detent, the lever is at it; and the lever
+    // latched at a selection is the pilot's once it has moved more than
+    // `lever_release` from where it was (a hand resting on it, or a
+    // keyboard's or a network's rounding, moves it less).
     static constexpr double lever_detent_width = 0.02;
+    static constexpr double lever_release = 0.05;
 
     // **Whether the AI is recovering from a stall it noticed coming**
     // (controller.cpp, `notice_a_stall`).
@@ -422,6 +429,8 @@ private:
     // Selected or taken back in STOVL mode, the throttle lever then, held
     // until it moves: an unmoved lever is not the pilot's speed.
     std::optional<double> lever_at_selection_;
+    // Whether the selector asked STOVL mode last step, for its rising edge.
+    bool selector_was_ = false;
     // A stall warning noticed, and recovered from (`landing_speeds_`'s stall).
     void notice_a_stall();
     // What the autopilot was flying when the warning came, while it recovers;

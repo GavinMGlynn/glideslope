@@ -2033,34 +2033,40 @@ void near(double got, double wanted, double within, const std::string& what) {
 // **In a hover her pilot moves her with the lever, the stick and the
 // pedals** (Transition::Inceptors, her unified control laws' translational
 // rate command): hovering at 300 ft on the selector, begun level at 200
-// KCAS, the lever is moved from where it was to half way between its
-// detent and its forward stop, and held 40 s; to its detent, 30 s; to its
-// aft stop, 40 s; to its detent, 30 s; the stick full right 40 s and
-// centred 30 s; the right pedal full 18 s; and released, 20 s. Each asks a
-// ground speed in proportion, and each is flown to within 2 kt of its 15
-// kt forward, 30 kt back and 20 kt right - across it under 3 kt - and to a
-// stop within 1 kt at the detent and centred, her heading moved under 3
-// degrees by the sideways flight; the pedal turns her at its 10 degrees a
-// second within 1 over the last 10 s, her place held within 50 ft, and
-// released she holds the heading she was left on within 3 degrees. Her
-// height is held within 10 ft of what is asked and her attitudes within
-// 15 degrees of pitch and 10 of bank throughout, her wheels never touching.
-// Eight phases, each counted.
+// KCAS, every direction the table has is flown - six, asserted:
+//
+//   forward   the lever half way from its detent to its forward stop, 40 s:
+//             15 kt ahead within 2, under 3 across;
+//   aft       the lever at its aft stop, 40 s: 20 kt back within 2;
+//   right     the stick full right, 40 s: 20 kt right within 2, under 3
+//             ahead;
+//   left      the stick full left, 40 s: 20 kt left within 2;
+//   turn right, turn left   each pedal full, 18 s: 10 degrees a second
+//             within 1 over the last 10, her place held within 50 ft.
+//
+// Speeds are averaged over each phase's last 12 s, two of her hover's
+// swings, and swing no more than 6 kt. Between them the lever at its detent
+// or the stick centred, 30 s, stops her within 1 kt; flown sideways her
+// heading moves under 3 degrees; a pedal released, she holds the heading
+// she was left on within 3. Her height is held within 10 ft of what is
+// asked, her pitch within 15 degrees and her bank within 10 throughout,
+// her wheels never touching. Measured: pitch 9.3, bank 7.7.
 GLIDESLOPE_TEST(in_a_hover_the_f35bs_pilot_moves_her_forward_back_sideways_and_turns_her_with_the_lever_stick_and_pedals) {
     using namespace glideslope::sim;
     TransitionFlight f = f35b_level_at(300.0, 200.0);
     PilotsHover h = pilots_hover(f);
     const double detent = f.a->property("fcs/stovl-lever-detent");
-    std::size_t phases = 0;
+    const std::set<std::string> table{"forward", "aft", "right", "left", "turn right",
+                                      "turn left"};
+    std::set<std::string> covered;
     double most_swing_kt = 0.0;
     const auto heading = [&] { return h.controller->transition()->hover()->heading_deg(); };
-    // Holds `lever`, `side` and `pedals` for `seconds`; her speed then along
-    // and across the heading held.
+    // Holds `lever`, `side` and `pedals` for `seconds`; her speed averaged
+    // over its last 12 s along and across the heading held.
     const auto hold = [&](double lever, double side, double pedals, double seconds) {
         h.pilot.throttle = lever;
         h.pilot.aileron = side;
         h.pilot.rudder = pedals;
-        // Averaged over its last 12 s, two of her hover's swings.
         h.fly(f, seconds - 12.0);
         double sum_ahead = 0.0;
         double sum_right = 0.0;
@@ -2077,52 +2083,157 @@ GLIDESLOPE_TEST(in_a_hover_the_f35bs_pilot_moves_her_forward_back_sideways_and_t
         }
         most_swing_kt = std::max(most_swing_kt, high - low);
         check(h.controller->transition() && h.controller->transition()->hover(),
-              "she left the hover in phase " + std::to_string(phases + 1));
-        ++phases;
+              "she left the hover");
         return std::pair{sum_ahead / (12.0 * 120.0), sum_right / (12.0 * 120.0)};
+    };
+    const auto stops = [&](const std::string& what) {
+        const auto [a0, r0] = hold(detent, 0.0, 0.0, 30.0);
+        near(std::hypot(a0, r0), 0.0, 1.0, what + ", kt");
     };
     auto [ahead, right] = hold(detent + 0.5 * (1.0 - detent), 0.0, 0.0, 40.0);
     near(ahead, 15.0, 2.0, "lever half forward, kt ahead");
     near(right, 0.0, 3.0, "lever half forward, kt across");
-    std::tie(ahead, right) = hold(detent, 0.0, 0.0, 30.0);
-    near(std::hypot(ahead, right), 0.0, 1.0, "lever at its detent, kt");
+    covered.insert("forward");
+    stops("lever at its detent");
     std::tie(ahead, right) = hold(0.0, 0.0, 0.0, 40.0);
     near(ahead, -20.0, 2.0, "lever full aft, kt ahead");
     near(right, 0.0, 3.0, "lever full aft, kt across");
-    std::tie(ahead, right) = hold(detent, 0.0, 0.0, 30.0);
-    near(std::hypot(ahead, right), 0.0, 1.0, "lever at its detent again, kt");
-    const double heading_before = f.a->state().heading_deg;
-    std::tie(ahead, right) = hold(detent, 1.0, 0.0, 40.0);
-    near(right, 20.0, 2.0, "stick full right, kt to the right");
-    near(ahead, 0.0, 3.0, "stick full right, kt ahead");
-    std::tie(ahead, right) = hold(detent, 0.0, 0.0, 30.0);
-    near(std::hypot(ahead, right), 0.0, 1.0, "stick centred, kt");
-    near(std::remainder(f.a->state().heading_deg - heading_before, 360.0), 0.0, 3.0,
-         "flown sideways, degrees her heading moved");
-    const AircraftState before_turn = f.a->state();
-    h.pilot.rudder = 1.0;
-    h.fly(f, 8.0);
-    const double from_deg = f.a->state().heading_deg;
-    h.fly(f, 10.0);
-    ++phases;
-    near(std::remainder(f.a->state().heading_deg - from_deg, 360.0) / 10.0, 10.0, 1.0,
-         "right pedal, degrees a second");
-    near(distance_m(before_turn.latitude_deg, before_turn.longitude_deg,
-                    f.a->state().latitude_deg, f.a->state().longitude_deg) /
-             0.3048,
-         0.0, 50.0, "turning, ft from where she began it");
-    hold(detent, 0.0, 0.0, 20.0);
-    near(std::remainder(f.a->state().heading_deg - heading(), 360.0), 0.0, 3.0,
-         "pedal released, degrees off the heading she was left on");
-    std::printf("  height off what was asked by at most %.2f ft; pitch %.1f, bank %.1f; "
-                "speeds swung %.2f kt at most\n",
-                h.most_off_ft, h.most_pitch, h.most_bank, most_swing_kt);
-    check(phases == 8, std::to_string(phases) + " phases flown, not 8");
+    covered.insert("aft");
+    stops("lever at its detent again");
+    for (const double side : {1.0, -1.0}) {
+        const std::string name = side > 0.0 ? "right" : "left";
+        const double heading_before = f.a->state().heading_deg;
+        std::tie(ahead, right) = hold(detent, side, 0.0, 40.0);
+        near(right, 20.0 * side, 2.0, "stick full " + name + ", kt to the right");
+        near(ahead, 0.0, 3.0, "stick full " + name + ", kt ahead");
+        stops("stick centred from the " + name);
+        near(std::remainder(f.a->state().heading_deg - heading_before, 360.0), 0.0, 3.0,
+             "flown " + name + ", degrees her heading moved");
+        covered.insert(name);
+    }
+    for (const double pedal : {1.0, -1.0}) {
+        const std::string name = pedal > 0.0 ? "turn right" : "turn left";
+        const AircraftState before_turn = f.a->state();
+        h.pilot.rudder = pedal;
+        h.fly(f, 8.0);
+        const double from_deg = f.a->state().heading_deg;
+        h.fly(f, 10.0);
+        near(std::remainder(f.a->state().heading_deg - from_deg, 360.0) / 10.0, 10.0 * pedal,
+             1.0, name + ", degrees a second");
+        near(distance_m(before_turn.latitude_deg, before_turn.longitude_deg,
+                        f.a->state().latitude_deg, f.a->state().longitude_deg) /
+                 0.3048,
+             0.0, 50.0, name + ", ft from where she began it");
+        hold(detent, 0.0, 0.0, 20.0);
+        near(std::remainder(f.a->state().heading_deg - heading(), 360.0), 0.0, 3.0,
+             name + " released, degrees off the heading she was left on");
+        covered.insert(name);
+    }
+    std::printf("  covered %zu of the table's %zu; height off what was asked by at most %.2f "
+                "ft; pitch %.1f, bank %.1f; speeds swung %.2f kt at most\n",
+                covered.size(), table.size(), h.most_off_ft, h.most_pitch, h.most_bank,
+                most_swing_kt);
+    check(covered == table, std::to_string(covered.size()) + " of the table's " +
+                                std::to_string(table.size()) + " directions flown");
     check(most_swing_kt <= 6.0, "her speed swung " + std::to_string(most_swing_kt) + " kt");
     check(h.most_off_ft <= 10.0, "her height strayed " + std::to_string(h.most_off_ft) + " ft");
     check(h.most_pitch <= 15.0, "her pitch reached " + std::to_string(h.most_pitch));
     check(h.most_bank <= 10.0, "her bank reached " + std::to_string(h.most_bank));
     check(!h.touched, "her wheels touched");
+}
+
+// **Her lever is the pilot's only once moved past its dead band from where
+// it was at each selection** (Controller::lever_release, 0.05): begun level
+// at 300 ft and 200 KCAS, three cases, each counted:
+//
+//   at full     selected with the lever at its forward stop, nudged 0.001
+//               back 10 s on: not sent gathering speed, she hovers within
+//               ten minutes;
+//   at idle     selected with the lever at its aft stop, nudged 0.001
+//               forward 10 s on: not sent 20 kt back, she hovers within ten
+//               minutes and, a minute on, has not moved faster than 1 kt;
+//   toggled     selected with the lever where it was, moved to its forward
+//               stop a second on (the pilot's from there), and the selector
+//               thrown back to conventional flight the step the fan's doors
+//               are half open and to STOVL mode a second later: latched
+//               again at the forward stop there, she hovers within ten
+//               minutes.
+GLIDESLOPE_TEST(the_f35bs_lever_is_the_pilots_only_once_moved_past_its_dead_band_from_each_selection) {
+    using namespace glideslope::sim;
+    std::size_t cases = 0;
+    const auto hovers_within = [](TransitionFlight& f, PilotsHover& h, double seconds) {
+        for (int i = 0; i < static_cast<int>(seconds * 120.0); ++i) {
+            h.fly(f, 1.0 / 120.0);
+            const Transition* t = h.controller->transition();
+            if (t && t->stage() == Transition::Stage::hovering) {
+                return true;
+            }
+        }
+        return false;
+    };
+    const auto begun = [](TransitionFlight& f, double lever) {
+        PilotsHover h;
+        h.pilot = trimmed_controls(*f.a);
+        h.controller = std::make_unique<Controller>(*f.a, h.pilot);
+        h.pilot.throttle = lever;
+        h.pilot.stovl = 1.0;
+        return h;
+    };
+    {
+        TransitionFlight f = f35b_level_at(300.0, 200.0);
+        PilotsHover h = begun(f, 1.0);
+        h.fly(f, 10.0);
+        h.pilot.throttle = 0.999;
+        const bool hovering = hovers_within(f, h, 600.0);
+        std::printf("  at full, nudged: %s\n", hovering ? "hovers" : "never hovers");
+        check(hovering, "selected at full and nudged 0.001, she never hovered");
+        ++cases;
+    }
+    {
+        TransitionFlight f = f35b_level_at(300.0, 200.0);
+        PilotsHover h = begun(f, 0.0);
+        h.fly(f, 10.0);
+        h.pilot.throttle = 0.001;
+        const bool hovering = hovers_within(f, h, 600.0);
+        double fastest_kt = 0.0;
+        for (int i = 0; i < 60 * 120 && hovering; ++i) {
+            h.fly(f, 1.0 / 120.0);
+            fastest_kt = std::max(fastest_kt, std::hypot(f.a->property("velocities/v-north-fps"),
+                                                         f.a->property("velocities/v-east-fps")) *
+                                                  3600.0 / 6076.12);
+        }
+        std::printf("  at idle, nudged: %s, fastest a minute on %.2f kt\n",
+                    hovering ? "hovers" : "never hovers", fastest_kt);
+        check(hovering, "selected at idle and nudged 0.001, she never hovered");
+        check(fastest_kt <= 1.0, "nudged at idle she moved at " + std::to_string(fastest_kt) +
+                                     " kt in the hover");
+        ++cases;
+    }
+    {
+        TransitionFlight f = f35b_level_at(300.0, 200.0);
+        PilotsHover h = begun(f, trimmed_controls(*f.a).throttle);
+        h.fly(f, 1.0);
+        h.pilot.throttle = 1.0;
+        double half_open_at = -1.0;
+        for (int i = 0; i < 300 * 120 && half_open_at < 0.0; ++i) {
+            h.fly(f, 1.0 / 120.0);
+            if (f.conversion() >= 0.5) {
+                half_open_at = f.a->state().sim_time_s;
+            }
+        }
+        check(half_open_at >= 0.0, "the fan's doors were never half open");
+        h.pilot.stovl = 0.0;
+        h.fly(f, 1.0);
+        const double between = f.conversion();
+        h.pilot.stovl = 1.0;
+        const bool hovering = hovers_within(f, h, 600.0);
+        std::printf("  toggled at %.1f s, the doors %.2f open a second on: %s\n", half_open_at,
+                    between, hovering ? "hovers" : "never hovers");
+        check(between > 0.0 && between < 1.0, "the selector was not thrown back mid-conversion");
+        check(hovering, "selected again with the lever at its stop, she never hovered");
+        ++cases;
+    }
+    check(cases == 3, std::to_string(cases) + " cases, not 3");
 }
 
 // **Jet-borne her pilot's lever is an acceleration**: hovering as above, the
@@ -2223,12 +2334,19 @@ std::string plan_line(const char* kind, const char* name, std::pair<double, doub
 //                  it: she converts back, flies to it, converts again and
 //                  lands on it within 30 ft, within 20 minutes;
 //   a near pad     a waypoint where she hovers and a vertical landing 1,200
-//                  ft ahead and 900 ft right, closer than she stops in: she
-//                  is not converted back but moved to it in the hover, and
-//                  lands on it within 30 ft, within 10 minutes.
+//                  ft ahead and 900 ft right, closer than she stops in: the
+//                  waypoint, flown by with no orbit and within 2,000 ft, is
+//                  counted passed; she is not converted back but moved to
+//                  the pad in the hover, and lands on it within 30 ft,
+//                  within 10 minutes;
+//   a near fly-over  a waypoint to be flown over 1,000 ft ahead, then a
+//                  vertical landing 1,500 ft ahead and 300 right: the
+//                  fly-over is not counted passed - she is flown out of the
+//                  hover, passes within 200 ft of it, and lands on the pad
+//                  within 30 ft, within 15 minutes.
 //
 // Her attitudes within 15 degrees of pitch and 30 of bank (the plan's
-// turns are the autopilot's). Three cases, each counted.
+// turns are the autopilot's). Four cases, each counted.
 GLIDESLOPE_TEST(a_plan_given_the_ai_while_the_f35b_hovers_is_flown_converted_back_or_moved_in_the_hover) {
     using namespace glideslope::sim;
     std::size_t cases = 0;
@@ -2311,7 +2429,40 @@ GLIDESLOPE_TEST(a_plan_given_the_ai_while_the_f35b_hovers_is_flown_converted_bac
         attitudes(h, "a near pad");
         ++cases;
     }
-    check(cases == 3, std::to_string(cases) + " cases, not 3");
+    {
+        TransitionFlight f = f35b_level_at(300.0, 200.0);
+        PilotsHover h = pilots_hover(f);
+        const auto over = off_her_nose(*f.a, 1000.0 * 0.3048, 0.0);
+        const auto pad = off_her_nose(*f.a, 1500.0 * 0.3048, 300.0 * 0.3048);
+        h.controller->to_ai(parse_flight_plan(
+            "aircraft f35b\n" + plan_line("waypoint", "OVER", over, "300 200 flyover") +
+            plan_line("land_vertically", "PAD", pad, "10")));
+        double nearest_over = 1e9;
+        bool released = false;
+        bool jet_borne = false;
+        std::optional<double> touched;
+        for (int i = 0; i < 15 * 60 * 120 && !touched; ++i) {
+            h.fly(f, 1.0 / 120.0, true);
+            const Transition* t = h.controller->transition();
+            released = released || t == nullptr;
+            jet_borne = jet_borne || (t && t->stage() == Transition::Stage::jet_borne);
+            nearest_over = std::min(nearest_over, feet_from(*f.a, over.first, over.second));
+            if (f.a->property("gear/wow") > 0.5) {
+                touched = feet_from(*f.a, pad.first, pad.second);
+            }
+        }
+        std::printf("  a near fly-over: jet-borne %s, converted back %s, passed %.0f ft from it, "
+                    "touched %.1f ft from the pad\n",
+                    jet_borne ? "yes" : "no", released ? "yes" : "no", nearest_over,
+                    touched.value_or(-1.0));
+        check(jet_borne, "she was not flown out of the hover for the fly-over waypoint");
+        check(nearest_over <= 200.0,
+              "she passed the fly-over waypoint " + std::to_string(nearest_over) + " ft off");
+        check(touched && *touched <= 30.0, "she did not land on the pad after the fly-over");
+        attitudes(h, "a near fly-over");
+        ++cases;
+    }
+    check(cases == 4, std::to_string(cases) + " cases, not 4");
 }
 
 // **Taken back by her pilot in a plan's hover, she holds the hover's

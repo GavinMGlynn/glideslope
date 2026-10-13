@@ -286,6 +286,11 @@ STOVL_CONVERT_LEAST_FT = 100.0
 # (estimated: none is published).
 STOVL_LEVER_DETENT = 0.25
 STOVL_TRC_KT = 30.0
+# **Backward, 20 kt: a limit of this model, not of the aeroplane.** Farley
+# and Kjelgaard (above) give 30 kt back; flown backward at 30 kt this model
+# swings 10 degrees in pitch and never settles (between 25 and 34 kt back
+# over 40 s, PROJECT_STATUS 2026-10-14), and at 20 kt its speed swings
+# under 4 kt. Put back to 30 when it holds 30 (COMPLETION_PLAN, Phase 9).
 STOVL_TRC_AFT_KT = 20.0
 STOVL_TRC_SIDE_KT = 20.0
 STOVL_TURN_DEG_S = 10.0

@@ -1819,15 +1819,19 @@ GLIDESLOPE_TEST(a_predicting_client_and_the_server_fed_the_same_stovl_inputs_agr
                                     " m, over the " + std::to_string(bound_m) + " m bound");
 }
 
-// **And while her pilot moves her in the hover** (Transition::Inceptors):
-// the selector to STOVL at one second; hovering, the lever from where it was
-// to half way between its detent and its forward stop at 170 s, back to its
-// detent at 195 s; the stick full right from 215 to 235 s; the right pedal
-// full from 245 to 255 s; the stick forward from 275 s to land, flown to 340
-// s. Both sides must be seen in the hover going ahead and to the right at
-// more than 10 kt, turning right at more than 5 degrees a second, and down -
-// eight stages - and no correction once settled may move the client more
-// than 0.1 m.
+// **And while her pilot moves her in STOVL mode** (Transition::Inceptors),
+// every way the table has: the selector to STOVL at one second; hovering,
+// the lever from where it was to half way between its detent and its
+// forward stop at 170 s, to its detent at 190, to its aft stop at 205 and
+// its detent at 225; the stick full right from 240 to 255 s and full left
+// from 265 to 280; the right pedal from 290 to 298 s and the left from 305
+// to 313; the lever at its forward stop from 320 s - past her translational
+// rate command's 30 kt, jet-borne - at its aft stop from 345, and at its
+// detent from 395; the stick forward from 450 s to land, flown to 540 s.
+// Both sides must be seen, in STOVL mode, going ahead, back, right and left
+// at more than 10 kt, turning right and left at more than 5 degrees a
+// second, jet-borne past 40 kt, and down - sixteen stages, asserted - and
+// no correction once settled may move the client more than 0.1 m.
 GLIDESLOPE_TEST(a_predicting_client_and_the_server_agree_while_her_pilot_moves_the_f35b_in_the_hover) {
     constexpr double bound_m = 0.1;
     const StovlAgreement r = stovl_agreement(
@@ -1837,27 +1841,50 @@ GLIDESLOPE_TEST(a_predicting_client_and_the_server_agree_while_her_pilot_moves_t
             c.stovl = s >= 1.0 ? 1.0 : 0.0;
             // Her model's detent (fcs/stovl-lever-detent), and half way to
             // the stop past it.
+            const double detent = 0.25;
             if (s >= 170.0) {
-                c.throttle = s < 195.0 ? 0.25 + 0.5 * 0.75 : 0.25;
+                c.throttle = s < 190.0   ? detent + 0.5 * (1.0 - detent)
+                             : s < 205.0 ? detent
+                             : s < 225.0 ? 0.0
+                             : s < 320.0 ? detent
+                             : s < 345.0 ? 1.0
+                             : s < 395.0 ? 0.0
+                                         : detent;
             }
-            c.aileron = s >= 215.0 && s < 235.0 ? 1.0 : 0.0;
-            c.rudder = s >= 245.0 && s < 255.0 ? 1.0 : 0.0;
-            c.elevator = s >= 275.0 ? -1.0 : 0.0;
+            c.aileron = s >= 240.0 && s < 255.0 ? 1.0 : s >= 265.0 && s < 280.0 ? -1.0 : 0.0;
+            c.rudder = s >= 290.0 && s < 298.0 ? 1.0 : s >= 305.0 && s < 313.0 ? -1.0 : 0.0;
+            c.elevator = s >= 450.0 ? -1.0 : 0.0;
             return c;
         },
-        340, [](const Aircraft& a, const std::string& side, std::set<std::string>& seen) {
+        540, [](const Aircraft& a, const std::string& side, std::set<std::string>& seen) {
+            const double kt = 3600.0 / 6076.12;
+            const double n = a.property("velocities/v-north-fps") * kt;
+            const double e = a.property("velocities/v-east-fps") * kt;
+            if (a.property("fcs/stovl-pos-norm") >= 1.0 && std::hypot(n, e) > 40.0) {
+                seen.insert(side + " jet-borne");
+            }
             if (stovl_hovering(a)) {
                 const double psi = a.state().heading_deg * 3.14159265358979323846 / 180.0;
-                const double n = a.property("velocities/v-north-fps") * 3600.0 / 6076.12;
-                const double e = a.property("velocities/v-east-fps") * 3600.0 / 6076.12;
-                if (n * std::cos(psi) + e * std::sin(psi) > 10.0) {
+                const double ahead = n * std::cos(psi) + e * std::sin(psi);
+                const double right = -n * std::sin(psi) + e * std::cos(psi);
+                const double turn = a.state().r_radps * 180.0 / 3.14159265358979323846;
+                if (ahead > 10.0) {
                     seen.insert(side + " ahead");
                 }
-                if (-n * std::sin(psi) + e * std::cos(psi) > 10.0) {
+                if (ahead < -10.0) {
+                    seen.insert(side + " back");
+                }
+                if (right > 10.0) {
                     seen.insert(side + " right");
                 }
-                if (a.state().r_radps * 180.0 / 3.14159265358979323846 > 5.0) {
-                    seen.insert(side + " turning");
+                if (right < -10.0) {
+                    seen.insert(side + " left");
+                }
+                if (turn > 5.0) {
+                    seen.insert(side + " turning right");
+                }
+                if (turn < -5.0) {
+                    seen.insert(side + " turning left");
                 }
             }
             if (a.property("gear/wow") > 0.5) {
@@ -1867,7 +1894,7 @@ GLIDESLOPE_TEST(a_predicting_client_and_the_server_agree_while_her_pilot_moves_t
     const Aircraft probe(data() / "jsbsim", "f35b");
     check(std::abs(probe.property("fcs/stovl-lever-detent") - 0.25) < 1e-9,
           "her lever's detent is the 0.25 flown here");
-    check(r.seen.size() == 8, "every stage on both sides, not all");
+    check(r.seen.size() == 16, std::to_string(r.seen.size()) + " of the 16 stages seen");
     check(r.heard > 1000, "the server was heard " + std::to_string(r.heard) + " times");
     check(r.worst_m <= bound_m, "the worst correction was " + std::to_string(r.worst_m) +
                                     " m, over the " + std::to_string(bound_m) + " m bound");
