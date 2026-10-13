@@ -141,7 +141,7 @@ double rolling_out_deg(double ground_mps, double bank_deg, double roll_lag_s = 0
 
 } // namespace
 
-FlyBy fly_by(double ground_mps, double turn_deg, double in_m, double out_m) {
+FlyBy fly_by(double ground_mps, double turn_deg, double in_m, double out_m, double wind_mps) {
     const double a = std::abs(turn_deg);
     if (a <= 2.0 * rolling_out_deg(ground_mps, fly_by_bank_deg) || a >= 179.0) {
         return {};
@@ -158,6 +158,26 @@ FlyBy fly_by(double ground_mps, double turn_deg, double in_m, double out_m) {
     }
     t.meets_m = std::min(t.radius_m * half,
                          tightest_m * std::tan(0.5 * longest_lead_deg * radians));
+    // **No fly-by passes its waypoint further off than most_fly_by_miss_m**
+    // (sim/turn_laws.hpp) where she can help it: where its arc would, the arc
+    // is tightened until it passes that near, r = miss / (1 / cos(A / 2) - 1),
+    // and the lead with it - but no tighter than her arc at
+    // fly_by_cap_bank_deg, the nearest she can pass and still turn onto the
+    // next leg with bank to spare. Flown over instead, a jet's 90-degree turn
+    // swung 1.1 turn radii past the next leg.
+    // At the fastest she may go over the ground through the turn, her speed
+    // through the air and the wind's together: worked at her speed as the
+    // turn began, across a 20 kt wind, the 172P turning onto it from behind
+    // needed more than 25 degrees and swung 0.142 of her radius past the leg.
+    if (std::hypot(t.meets_m, t.radius_m) - t.radius_m > most_fly_by_miss_m) {
+        const double r =
+            std::max(most_fly_by_miss_m / (1.0 / std::cos(0.5 * a * radians) - 1.0),
+                     radius_at_m(ground_mps + wind_mps, fly_by_cap_bank_deg));
+        if (r < t.radius_m) {
+            t.radius_m = r;
+            t.meets_m = std::min(r * half, tightest_m * std::tan(0.5 * longest_lead_deg * radians));
+        }
+    }
     const double roll_in_m =
         ground_mps * (0.5 * fly_by_bank_deg / bank_rate_degps + roll_lag_allowed_s);
     t.lead_m = t.meets_m + roll_in_m;
@@ -414,7 +434,8 @@ AutopilotModes Navigator::steer() {
             turn_deg = std::remainder(outbound - inbound, 360.0);
             turn = fly_by(ground_mps, turn_deg, leg * earth_radius_m,
                           distance_m(to.latitude_deg, to.longitude_deg, then.latitude_deg,
-                                     then.longitude_deg));
+                                     then.longitude_deg),
+                          std::hypot(wind_north_fps_, wind_east_fps_) * 0.3048);
         }
         if (ahead_m <= turn.lead_m) {
             // Abeam, or as near as the turn onto the next leg begins: passed.

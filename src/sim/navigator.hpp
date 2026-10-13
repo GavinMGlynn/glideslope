@@ -43,8 +43,10 @@ struct FlyBy {
 };
 
 // The turn the navigator flies at a waypoint turning `turn_deg` either way at
-// `ground_mps` over the ground, from a leg `in_m` long onto one `out_m` long.
-FlyBy fly_by(double ground_mps, double turn_deg, double in_m, double out_m);
+// `ground_mps` over the ground, from a leg `in_m` long onto one `out_m` long,
+// in a wind of `wind_mps`.
+FlyBy fly_by(double ground_mps, double turn_deg, double in_m, double out_m,
+             double wind_mps = 0.0);
 
 class Navigator {
 public:

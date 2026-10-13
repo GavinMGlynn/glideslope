@@ -252,8 +252,10 @@ GLIDESLOPE_TEST(
         // by within 100 m of where its fly-by arc passes it**: the arc the
         // navigator flies (sim::fly_by), at her speed over the ground as she
         // passed it, whose centre is sqrt(meets^2 + r^2) from the waypoint.
-        // THE_HEADS and BRIDGE are landmarks the plan flies over; OLYMPIC,
-        // turned more than 120 degrees, is flown by on a tighter arc.
+        // THE_HEADS, BRIDGE and OLYMPIC are landmarks the plan flies over: the
+        // client's own test holds each within 100 m (client_autopilot.cmake),
+        // and flown by, OLYMPIC, turned more than 120 degrees, was passed
+        // 1,213 m off even with its miss capped (sim/turn_laws.hpp).
         for (std::size_t i = 0; i < plan.waypoints.size(); ++i) {
             double arc_passes_m = 0.0;
             const auto& w = plan.waypoints;
@@ -2492,6 +2494,94 @@ GLIDESLOPE_TEST(a_turn_of_45_120_or_150_degrees_either_way_at_a_waypoint_strays_
           "one aircraft of each class, three angles, both ways: " + std::to_string(flown) +
               " of " + std::to_string(cases));
     check(failures.empty(), "each within its bound:" + failures);
+}
+
+// **No fly-by cuts its waypoint by more than most_fly_by_miss_m**
+// (sim/turn_laws.hpp, 278 m): one aircraft of each class, at her climb speed
+// and her cruise speed (each held to what a plan may fly her at), turning 45,
+// 90, 120 and 150 degrees, right and left, from 4 turn radii of leg onto 6,
+// passes the waypoint within it - flown by on an arc tightened to pass that
+// near - or, where even 22 degrees of bank cannot (fly_by_cap_bank_deg), as
+// near as her arc at 22 passes it, the nearest she can with bank to spare;
+// within 25 m of either for her flight off her arc. Each turn's
+// stray off the next leg is held to its bound as in the angles' test: a
+// tenth of her radius at 25 degrees to 120, 0.15 at 150.
+GLIDESLOPE_TEST(a_turn_of_45_90_120_or_150_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto space = one_of_each_class();
+    constexpr double radians = std::numbers::pi / 180.0;
+    const double cap_m = glideslope::sim::most_fly_by_miss_m;
+    std::size_t flown = 0;
+    std::size_t flown_over = 0;
+    double worst_miss_m = 0.0;
+    double worst_over_allowed = 0.0;
+    double worst_stray = 0.0;
+    std::string failures;
+    for (const auto& e : space) {
+        const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, e.model);
+        const double climb = std::round(
+            std::clamp(glideslope::sim::departure_speeds(data, e.model).climb_kts,
+                       speeds.slowest_kts, speeds.fastest_kts));
+        for (const double kts : {climb, cruise_kts(e)}) {
+            const double true_mps = kts * 1852.0 / 3600.0 * 1.08;
+            const double r = true_mps * true_mps / (9.80665 * std::tan(15.0 * radians));
+            for (const double angle : {45.0, 90.0, 120.0, 150.0}) {
+                for (const double way : {1.0, -1.0}) {
+                    const TurnFlown f = fly_legs(e, kts, {0.0, way * angle},
+                                                 {4.0 * r + 3000.0, 6.0 * r + 3000.0});
+                    const double stray = std::max(f.past_m, f.after_m) / f.radius_m;
+                    const double bound = angle > 140.0 ? 0.15 : 0.1;
+                    if (f.arc_passes_m[0] <= 0.0) {
+                        ++flown_over;
+                    }
+                    worst_miss_m = std::max(worst_miss_m, f.closest_m[0]);
+                    worst_stray = std::max(worst_stray, stray / bound);
+                    char line[220];
+                    std::snprintf(line, sizeof line,
+                                  "%s at %.0f kt turning %+.0f: passed it %.0f m off (%s), "
+                                  "strayed %.3f of her %.0f m radius (at most %.2f)",
+                                  e.id.c_str(), kts, way * angle, f.closest_m[0],
+                                  f.arc_passes_m[0] > 0.0 ? "flown by" : "flown over", stray,
+                                  f.radius_m, bound);
+                    std::fprintf(stderr, "%s\n", line);
+                    // Where the cap could not bind, the miss of her arc at
+                    // fly_by_cap_bank_deg, at her true airspeed as she passed
+                    // it; and 25 m for her flight off her arc, which is at
+                    // most 4 m past the cap (the 172P at 75 kt), and 1% of
+                    // the arc for her speed over the ground against the
+                    // true airspeed it is worked from here (the F-15C at
+                    // 300 kt, 2 m over 6,934).
+                    const double tightest_m =
+                        f.radius_m * std::tan(glideslope::sim::most_bank_deg * radians) /
+                        std::tan(glideslope::sim::fly_by_cap_bank_deg * radians);
+                    const double arc_m =
+                        tightest_m * (1.0 / std::cos(0.5 * angle * radians) - 1.0);
+                    const double allowed_m = std::max(cap_m, 1.01 * arc_m) + 25.0;
+                    worst_over_allowed = std::max(worst_over_allowed, f.closest_m[0] / allowed_m);
+                    if (!f.finished || !(f.closest_m[0] <= allowed_m) || !(stray < bound)) {
+                        failures += std::string("\n  ") + line;
+                    }
+                    ++flown;
+                }
+            }
+        }
+    }
+    const std::size_t cases = space.size() * 2 * 4 * 2;
+    std::fprintf(stderr,
+                 "%zu aircraft x 2 speeds x 4 angles x 2 ways = %zu turns: %zu flown, %zu flown "
+                 "over; nearest pass at worst %.0f m, %.2f of what it is allowed; stray at worst "
+                 "%.2f of its bound\n",
+                 space.size(), cases, flown, flown_over, worst_miss_m, worst_over_allowed,
+                 worst_stray);
+    check(space.size() == glideslope::sim::aircraft_class_count && flown == cases,
+          "one aircraft of each class, both speeds, four angles, both ways: " +
+              std::to_string(flown) + " of " + std::to_string(cases));
+    check(flown_over == 0, "none flown over: " + std::to_string(flown_over));
+    check(failures.empty(), "each passed its waypoint within " + std::to_string(cap_m) +
+                                " m, or its 22-degree arc's miss where that is more, and 25 m, "
+                                "and strayed within its bound:" +
+                                failures);
 }
 
 // **In a 20 kt wind across the first leg**: from the west, the leg north, and
