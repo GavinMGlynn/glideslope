@@ -520,6 +520,13 @@ struct Flown {
     double nose_up_kts = 0.0;
     // Her rotation speed for what she weighs (sim::Departure).
     double rotate_kts = 0.0;
+    // **When the roll ended**, seconds from brakes off; 0 if it never did.
+    double off_at_s = 0.0;
+    // **Her pitch's swings on the step**: past the hump (40 kt) and before
+    // she is off, each reversal of her pitch by a degree or more from the
+    // last extreme counts one - a porpoise's rhythmic pitching, which a
+    // planing hull held in its trim range does not do.
+    int step_swings = 0;
 };
 
 // **A flying boat takes off from water and alights on it.** The runway's
@@ -607,6 +614,11 @@ Flown fly_the_take_off(const std::string& id, double early_from_kts,
     double out_climb_most = -1e9;
     bool pulled = false;
     bool let_go = false;
+    double out_off_at_s = 0.0;
+    int out_step_swings = 0;
+    double swing_extreme_deg = 0.0;
+    int swing_sense = 0; // +1 rising, -1 falling, 0 not yet known
+    bool swing_started = false;
     for (int tick = 0; tick < 300 * steps_per_second && !run.finished(); ++tick) {
         glideslope::sim::Controls controls = departure.fly();
         // **Rotating early is flown, not faked.** The stick comes fully
@@ -664,6 +676,28 @@ Flown fly_the_take_off(const std::string& id, double early_from_kts,
         // a flying boat.
         if (run.stage() > was && was == lift_off_stage) {
             out_off_at_kts = aircraft.property("velocities/vc-kts");
+            out_off_at_s = static_cast<double>(tick) / steps_per_second;
+        }
+        if (entry.seaplane && run.stage() <= lift_off_stage &&
+            aircraft.property("velocities/vc-kts") >= 40.0) {
+            const double theta = aircraft.property("attitude/theta-deg");
+            if (!swing_started) {
+                swing_extreme_deg = theta;
+                swing_started = true;
+            } else if (swing_sense == 0) {
+                // Which way she is going first, once she has gone a degree.
+                if (std::abs(theta - swing_extreme_deg) >= 1.0) {
+                    swing_sense = theta > swing_extreme_deg ? 1 : -1;
+                    swing_extreme_deg = theta;
+                }
+            } else if ((swing_sense > 0) == (theta > swing_extreme_deg)) {
+                swing_extreme_deg = theta; // still going the same way
+            } else if (std::abs(theta - swing_extreme_deg) >= 1.0) {
+                // Turned back a degree or more from the last extreme.
+                ++out_step_swings;
+                swing_sense = -swing_sense;
+                swing_extreme_deg = theta;
+            }
         }
         // **Rotated**: her nose a degree above where she rolled at 20 knots,
         // still on her wheels - whoever raised it. From where she rolls, not
@@ -694,7 +728,8 @@ Flown fly_the_take_off(const std::string& id, double early_from_kts,
     }
     return {run.debrief_lines(), where, run.completed(), it->stages.size(), out_least,
             out_most, out_off_at_kts, out_climb_least, out_climb_most,
-            departure.rotation_began_kts(), out_nose_up_kts, departure.speeds().rotate_kts};
+            departure.rotation_began_kts(), out_nose_up_kts, departure.speeds().rotate_kts,
+            out_off_at_s, out_step_swings};
 }
 
 } // namespace
@@ -1344,14 +1379,31 @@ GLIDESLOPE_TEST(a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief) {
         const Flown book = fly_the_take_off(rotated, 0.0, 1.0);
         const Flown early = fly_the_take_off(rotated, 0.85 * book.rotation_began_kts, 1.0);
         // **A flying boat is flown nose low on the step** instead (see
-        // `fly_the_take_off`): she porpoises, and does not come off sooner -
-        // later, or not at all.
+        // `fly_the_take_off`): she porpoises, and her run is longer. The
+        // FAA's Seaplane Handbook (FAA-H-8083-23, ch. 4, "Porpoising"): held
+        // too low, a crest builds under the bow, she rides over it and digs
+        // in again, each oscillation more severe; and "porpoising can also
+        // cause a premature lift-off with an extremely high angle of
+        // attack" (ch. 5: it can "throw the seaplane into the air with
+        // inadequate airspeed for flight"). So not her speed off the water,
+        // which a porpoise can throw her off below the book's - the S.23 dug
+        // her bow in at 74 knots and was thrown off at 15 degrees, under the
+        // book's 79 - but the porpoising itself, and the time it costs her.
         if (glideslope::sim::find_aircraft(data(), id).seaplane) {
-            std::printf("  %s by the book: off at %.0f knots; nose low on the step: %s\n",
-                        id.c_str(), book.off_at_kts,
-                        early.off_at_kts > 0.0 ? "off later" : "never off the water");
-            check(early.off_at_kts == 0.0 || early.off_at_kts > book.off_at_kts,
-                  id + " held nose low on the step did not come off sooner");
+            std::printf("  %s by the book: off at %.1f knots after %.1f s, %d swings on the "
+                        "step; nose low on the step: %s %.1f knots after %.1f s, %d swings\n",
+                        id.c_str(), book.off_at_kts, book.off_at_s, book.step_swings,
+                        early.off_at_kts > 0.0 ? "off at" : "never off the water",
+                        early.off_at_kts, early.off_at_s, early.step_swings);
+            check(book.step_swings == 0,
+                  id + " by the book swung her pitch " + std::to_string(book.step_swings) +
+                      " times on the step: she porpoised with nothing wrong");
+            check(early.step_swings >= 4,
+                  id + " held nose low on the step swung her pitch only " +
+                      std::to_string(early.step_swings) + " times: she did not porpoise");
+            check(early.off_at_kts == 0.0 || early.off_at_s > book.off_at_s,
+                  id + " held nose low on the step was off the water no later than by the "
+                       "book");
             names_that_fault_and_no_other(id, "take-off", early.debrief,
                                           {"attitude/theta-deg"},
                                           "held nose low on the step");
