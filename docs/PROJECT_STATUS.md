@@ -303,7 +303,12 @@ source and are not used.
 `sim::read_published_figures` accepts): `glideslope_cli land` hands each to
 the approach autopilot at a gate 2 nm out, at sea level in calm air, every
 tank full, and the runway she used, threshold to stop, is written 2 per cent
-over and rounded up to 100 ft for the drift between machines:
+over and rounded up to 100 ft for the drift between machines - 2 to 7 per
+cent over in all. **The figure line is written by `tools/measured_landing.py`**
+from a `land` run; the re-fly test below is the check. Each figure is the
+AI's demonstrated landing at sea level, in calm air, with full tanks, plus
+that allowance: **not a regulatory distance and not a minimum**, and nothing
+in it allows for weight, heat, height or a tailwind:
 
 | Aircraft | Touched | Stopped | Written | Needed |
 | --- | --- | --- | --- | --- |
@@ -313,10 +318,10 @@ over and rounded up to 100 ft for the drift between machines:
 | B-2A | 621 m in | 2,708 m | 9,100 ft | 2,774 m |
 
 **Factor 1**, where a published distance gets its class's margin: the AI's
-own landing is not a demonstrated minimum but the landing a plan flies, and
-for those that publish one it comes out near the factored figure already -
-the 172P stops 547 m in against her 558 m need, the F-15C 2,252 m against
-2,138 m. **The F-35B's need is her rolling landing's**: she can land
+own landing is not a demonstrated minimum but the landing a plan flies. For
+those that publish one it approximates the factored figure for some only:
+the 172P stops 547 m in against her 558 m need, but the F-15C stops 2,252 m
+in, 5 per cent over her factored 2,138 m. **The F-35B's need is her rolling landing's**: she can land
 vertically, on a pad, but no plan flies her to a hover yet (the transition
 law's item, above), so a planned landing is the approach autopilot's rolling
 one; when a plan can convert her, a pad will do, and her figures file says
@@ -329,7 +334,10 @@ so.
   brief and the plan request the frontends make, refused a runway a metre
   short by the copilot and the planner alike, saying so, and given one a
   metre over; the F-22A refused a landing on 10 km of runway for having no
-  approach speed. Five of five.
+  approach speed. Five of five. It also reads every aircraft's figures file
+  and checks that those with a measured landing distance are exactly the
+  four it pins - the set the re-fly tests below find by globbing the same
+  files, so the two cannot name different aircraft.
 - `the_<aircraft>_lands_within_her_measured_landing_distance`, one for each
   figures file with a measured landing distance, found by reading the files
   (configure fails unless there are four): `land` flown again must stop
@@ -340,12 +348,23 @@ so.
 - `every_landplane_landed_by_hand_on_a_wet_short_runway_is_stopped_on_it_by_the_ai`:
   **the F-35B is no longer left out** - her wet runway is now sized from her
   measured need, 3,225 m, and she stops 2,359 m in. 13 of 13 landplanes.
+  **Whichever of #185 and #186 lands second** runs this test again on the
+  merged tree and refreshes the wet runway lengths written in
+  `a_wet_short_runway`'s comment (1,928, 3,190 and 3,225 m here), which are
+  worked by hand from the figures.
 - **Seen red**: with `read_published_figures` giving a measured basis no
   need, the five test and the every-aircraft test failed; with the B-2A's
   figure put at 8,000 ft, `the_b2_lands_within_her_measured_landing_distance`
   failed, "stopped 2708 m past the threshold, not from 2194 to 2438 m". Both
   reverted.
 - The selftest hash does not move, `182dd6c996e0ee4c`.
+
+**Tail - the F-35B's landing distance when a plan can land her vertically.**
+Her 9,200 ft is her rolling landing's, because no plan flies her into a hover
+(Phase 9, "No pilot or AI plan flies the F-35B between jet-borne and
+wing-borne flight", which now says so). When one does, her need for a
+vertical landing is a pad, and the check must know which landing the plan
+flies; her figure is revisited then.
 
 ### The F-35B flown from wing-borne flight into a hover and out again: the transition law, 2026-10-13 — item still open
 

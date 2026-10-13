@@ -3695,7 +3695,10 @@ endforeach()
 # figures file whose landing distance is measured, not published (basis
 # "measured" - the J-3 Cub, Mosquito, F-35B and B-2A), is landed again by
 # `land` and must stop within it, and no more than a tenth short. Found by
-# reading the files, so none is left out. See cmake/measured_landing.cmake.
+# reading the files, so none is left out; the C++ test
+# the_five_with_no_published_landing_distance_... checks its pinned four are
+# the same set. The figure is written by tools/measured_landing.py. See
+# cmake/measured_landing.cmake.
 file(GLOB _figures_files "${PROJECT_SOURCE_DIR}/assets/figures/*.xml")
 set(_measured_landings 0)
 foreach(_file IN LISTS _figures_files)

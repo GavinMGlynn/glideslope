@@ -365,8 +365,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       short distance.* Done 2026-10-13.
 - [ ] **No pilot or AI plan flies the F-35B between jet-borne and
       wing-borne flight**: only tests fly her transition law, from 200 kt to
-      a 150 ft hover and back. *Verification: she is flown into a hover and
-      out again, and a pilot and an AI plan each convert her.*
+      a 150 ft hover and back. When a plan can land her vertically, her
+      measured rolling landing distance (9,200 ft) is revisited.
+      *Verification: she is flown into a hover and out again, and a pilot
+      and an AI plan each convert her.*
 - [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses
