@@ -275,7 +275,12 @@ ground roll of about 3,200 ft, which the RCR 16 line turns into about
 7,000). Her runway is now that times the same 1.67 as her dry figure, 4,174
 m, in place of 1.15 on the dry (2,459 m), which was shorter than her own
 manual says she needs unfactored; she stops at 2,478 m. **A pilot has no binding for the reverse lever**: it is in the controls and
-on the wire, and only the AI moves it (a new Phase 10b item). **Two numbers
+on the wire, and only the AI moves it (a new Phase 10b item). **A client
+built before this, sending seventeen controls, is let in and its every input
+dropped** as the wrong length (`net::InputReceiver` reads eighteen and
+refuses what is left short), as TRANSPORT.md's pre-release rule allows - the
+version does not move with a layout - so mixed builds do not fly together
+and are not refused by name either (a new Phase 12b item). **Two numbers
 are estimates**: the sleeves' two-second travel and the A320's pivoting doors
 taken at the cascade's 0.31. **The reverse spool is slow**: 7.2 to 7.8 s from
 the lever to nine tenths of full reverse, against the TSB's A340 at about
@@ -311,7 +316,16 @@ F-35B 159.2 (158.9). No test-pilot problem; the overruns were stopping force.
   down (AC 25-32 10.1.3); on a runway that is not dry, maximum until the
   type's speed, then idle; on a dry one idle only - a certified dry distance
   takes no reverse (IFALPA 12ADOBL03, with Boeing); stowed for good at taxi
-  speed, taken as 20 kt over the ground. The lever at a hand's pace.
+  speed, taken as 20 kt over the ground. The lever at a hand's pace, begun
+  early by the knots she loses while it moves, so that it is at idle by the
+  type's speed and stowed by taxi speed, not at them. Off the roll again - a
+  bounce, a balloon gone around from - the lever is stowed at a hand's pace
+  and the roll's count and stow begun again (`Lander::fly`, from the
+  review of #188).
+- The reversing engines' throttles are held at idle until the sleeves are
+  home, not only while the lever is out: off the ground in a bounce the
+  sleeves stow on their own, and a sleeve half out at full throttle was
+  reverse thrust in the air (from the review of #188).
 - Every source is in `docs/ASSETS.md`, "Thrust reversers".
 
 **The F-15C's wet runway.** `<wet_landing_distance ft basis factor>` in
@@ -320,8 +334,12 @@ a figures file, read as `<landing_distance>` is and only beside one
 it where given and the dry need times 1.15 otherwise, and the copilot's
 brief and the wet short-runway test both use it. Only the F-15C gives one.
 
+**The F-15C's dry ground roll** in her figures file was 2,500 ft; read
+again from the scan at 400 dpi the 4,200 ft total meets the dry line at
+3,180 ft, and the text says about 3,200 (a comment: no number used reads it).
+
 **Figures.** On the wet short runway, landed by hand and taken back,
-maximum reverse: 737-300 1,552 m to 1,338 (of 1,725); 787-8 1,911 to 1,552
+maximum reverse (before the lead, below): 737-300 1,552 m to 1,338 (of 1,725); 787-8 1,911 to 1,552
 (of 1,893); A320 1,809 to 1,478 (of 1,725); A380 1,860 to 1,679 (of 2,225).
 Dry (the short runway, idle reverse only): 737-300 1,214 to 1,211 m, 787-8
 1,272 to 1,250, A320 1,219 to 1,216, A380 1,310 to 1,295. **The published
@@ -348,6 +366,27 @@ F-35B) have no reversers.
   reverse within 8 s; the ten without stand bit-identical with the lever out.
   **Seen to fail** with the effectiveness set to 0.40: "737-300 engine 0
   reversed 0.399988 of her thrust, not 0.31"; reverted.
+- The roll-out tests (`every_landplane_taken_back`, every take-back, dry
+  and wet) ask every step of each reversing aircraft's lever: none out
+  before a second after the mains are down; dry, idle reverse exactly; wet,
+  maximum; at idle by her IDLE_BY_KT; stowed below 20 kt; and a landplane
+  without reversers never moves it. **Each seen to fail** on its own seeded
+  bug, reverted: selected at once ("0.016667, before a second after the
+  mains were down"); maximum dry ("dry, the reverse went to 1.000000");
+  half wet ("wet, the reverse went to 0.500000, not maximum"); no lead
+  ("0.991667 at 59.95 kt, not idle by 60"); stowed at 10 kt ("0.100000, at
+  19.95 kt over the ground, below taxi speed"). With the lead the wet stops
+  are 737-300 1,349 m, 787-8 1,563, A320 1,494, A380 1,687. Run again
+  after the review's fixes, 175 tests by name (linux-release): all passed,
+  4 that ask a live model skipped; the selftest hash still 182dd6c996e0ee4c.
+- `bounced_with_her_reversers_out_she_gets_her_thrust_back_once_they_are_stowed_and_climbs_away`:
+  each of the five run to her rotation speed, reversed fully on her wheels
+  for four seconds, then the runway dropped ten feet with the lever stowed
+  and full throttle: every reversing engine's throttle is idle until the
+  sleeves are in and full after, and 40 s on she is 402 (A380) to 1,163 ft
+  (A320) up and climbing. **Seen to fail** with the throttle released as the
+  lever is stowed: "a320: a reversing engine had power before its sleeves
+  were in"; reverted.
 - `no_aircraft_deploys_her_reversers_in_the_air`: all 16 fly bit-identical
   at 5,000 ft with the lever out. **Seen to fail** with the weight-on-wheels
   test made always true: "5 aircraft flew differently with the reverse lever

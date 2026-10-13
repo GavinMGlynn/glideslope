@@ -347,28 +347,40 @@ void Lander::measure() {
 //     taken here as 20 knots over the ground, the speed Airbus's procedure
 //     has the autobrake off by.
 // The lever moves at a hand's pace: out of stowed in a twentieth of a second,
-// up to maximum in about a second more, and back to idle in two - "at a rate
-// commensurate with the deceleration rate".
+// up to maximum in about a second more, and back to idle in as long - begun
+// early enough, at the rate she is slowing, to be at idle by her speed and
+// stowed by taxi speed. Off the runway again (a bounce, a balloon gone around
+// from) it is stowed at the same pace and the roll's count begun again
+// (Lander::fly); the sleeves stow with the weight off the wheels whatever the
+// lever, and her forward thrust waits for them (tools/airliner.py).
 double Lander::reverse_thrust(double kcas, double vg_kts, bool slippery) {
     const std::optional<double> idle_by_kts = a_.reverse_idle_kts();
     if (!idle_by_kts || !a_.has_reversers()) {
         return 0.0;
     }
     constexpr double taxi_kts = 20.0;
+    // Out of stowed and back at a hand's pace, two a second; between the
+    // idle detent and maximum at one a second, up and down.
+    constexpr double out_per_s = 2.0;
+    constexpr double power_per_s = 1.0;
+    // **Begun early enough to be there by the speed, not at it**: the knots
+    // she loses while the lever comes back, at the rate she is slowing, and
+    // a knot - half of one to stow - over.
+    const double slowing_kts_per_s = std::max(0.0, decel_fps2_) / 1.68781;
+    const double to_idle_kts =
+        slowing_kts_per_s * std::max(0.0, reverse_ - Controls::reverse_idle) / power_per_s + 1.0;
+    const double to_stow_kts = slowing_kts_per_s * Controls::reverse_idle / out_per_s + 0.5;
     ++rolled_steps_;
-    if (vg_kts < taxi_kts) {
+    if (vg_kts < taxi_kts + to_stow_kts) {
         reverse_stowed_ = true;
     }
     double want = 0.0;
     if (!reverse_stowed_ && rolled_steps_ >= steps_per_second) {
-        want = slippery && kcas > *idle_by_kts ? 1.0 : Controls::reverse_idle;
+        want = slippery && kcas > *idle_by_kts + to_idle_kts ? 1.0 : Controls::reverse_idle;
     }
-    // Out of stowed and back at a hand's pace, two a second; between the
-    // idle detent and maximum at one a second up and a half down.
     const bool beyond_idle = reverse_ > Controls::reverse_idle ||
                              (reverse_ == Controls::reverse_idle && want > reverse_);
-    const double per_second = !beyond_idle ? 2.0 : want > reverse_ ? 1.0 : 0.5;
-    const double step = per_second / steps_per_second;
+    const double step = (beyond_idle ? power_per_s : out_per_s) / steps_per_second;
     reverse_ = want > reverse_ ? std::min(want, reverse_ + step) : std::max(want, reverse_ - step);
     return reverse_;
 }
@@ -648,6 +660,14 @@ void Lander::hand_mixture(double mixture) {
 
 Controls Lander::fly() {
     Controls c = fly_laws();
+    if (stage_ != Stage::rollout && stage_ != Stage::stopped) {
+        // Not on the roll (reverse_thrust): the lever stowed at a hand's
+        // pace, and the roll's count begun again for the next touch.
+        rolled_steps_ = 0;
+        reverse_stowed_ = false;
+        reverse_ = std::max(0.0, reverse_ - 2.0 / steps_per_second);
+        c.reverse = reverse_;
+    }
     c.mixture = leaner_ ? leaner_->lean(c.throttle) : 1.0;
     return c;
 }

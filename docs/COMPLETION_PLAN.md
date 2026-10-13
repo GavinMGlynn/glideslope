@@ -1078,6 +1078,12 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
 
 Joining, leaving, being dropped and coming back; the handshake, the reliable layer and the messages' limits.
 
+- [ ] **A client with another control layout is not refused by name**: the
+      version does not move with a message's layout before a first release,
+      so a client sending 17 controls to a server reading 18 is let in and
+      every input it sends is dropped as the wrong length. *Verification: a
+      client with a mismatched layout is refused at the handshake, saying
+      so, before the first release.*
 - [ ] **The client's half of a session is written twice** - the command-line
       client's own and the shared one the window client uses - and a bug was
       found in one and not the other. Joining again, knocking and believing

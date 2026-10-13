@@ -631,15 +631,17 @@
             </fcs_function>
             <switch name="fcs/reverse-throttle-0">
                 <default value="fcs/throttle-cmd-norm[0]"/>
-                <test value="fcs/reverse-power-norm">
+                <test logic="OR" value="fcs/reverse-power-norm">
                     fcs/reverser-cmd-norm gt 0
+                    fcs/reverser-pos-norm gt 0
                 </test>
                 <output>fcs/throttle-pos-norm[0]</output>
             </switch>
             <switch name="fcs/reverse-throttle-1">
                 <default value="fcs/throttle-cmd-norm[1]"/>
-                <test value="fcs/reverse-power-norm">
+                <test logic="OR" value="fcs/reverse-power-norm">
                     fcs/reverser-cmd-norm gt 0
+                    fcs/reverser-pos-norm gt 0
                 </test>
                 <output>fcs/throttle-pos-norm[1]</output>
             </switch>
