@@ -119,11 +119,17 @@ The changes, and what each is for:
                         F119's own, set by the report's supercruise at military
                         power and its acceleration in afterburner. The military
                         table allows for the idle thrust JSBSim adds to it.
+
+**The alpha-rate terms on the dynamic pressure without its sideways part**
+(tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
+angle of attack is undefined, its rate swings, and multiplied by the whole
+dynamic pressure it pitched her by tens of degrees a second.
 """
 
 import re
 import sys
 
+import alpha_rate
 import airliner
 import fighter
 import ground
@@ -413,7 +419,7 @@ def with_pitch_ground_mode(text):
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_qbar_uw(airframe(), "make_f22"),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

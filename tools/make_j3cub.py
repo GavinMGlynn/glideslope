@@ -85,12 +85,18 @@ The changes, and what each is for:
                         for 2,060 rpm static; and its thrust by 0.69, for the
                         manual's climb and cruise - the generic curve's
                         efficiency, 0.85 at best, now 0.66.
+
+**The alpha-rate terms on the dynamic pressure without its sideways part**
+(tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
+angle of attack is undefined, its rate swings, and multiplied by the whole
+dynamic pressure it pitched her by tens of degrees a second.
 """
 
 import pathlib
 import re
 import sys
 
+import alpha_rate
 from piston_mixture import with_best_power_mixture, with_float_carburettor
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
@@ -237,7 +243,7 @@ def controls():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_qbar_uw(airframe(), "make_j3cub"),
         OUT / "aircraft" / MODEL / "Systems" / f"{SYSTEM}.xml": controls(),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),

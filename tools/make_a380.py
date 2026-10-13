@@ -68,11 +68,17 @@ margins - with the stall at 108 knots; the pitching moment at zero lift, set
 to trim with little elevator; the yaw damper, which the A380 has and the
 747's derivatives need; and the gear's springs, the roll spoilers' share,
 and the weights' and tanks' positions, estimates.
+
+**The alpha-rate terms on the dynamic pressure without its sideways part**
+(tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
+angle of attack is undefined, its rate swings, and multiplied by the whole
+dynamic pressure it pitched her by tens of degrees a second.
 """
 
 import math
 import sys
 
+import alpha_rate
 import airliner
 import ground
 import written
@@ -447,7 +453,7 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(airframe(), REVERSERS, SCRIPT),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(alpha_rate.with_qbar_uw(airframe(), "make_a380"), REVERSERS, SCRIPT),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

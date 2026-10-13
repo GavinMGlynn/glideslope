@@ -111,12 +111,18 @@ rating, unchanged.
                          from her visual model by tools/ground.py, 16.1
                          degrees. The source's skid sat 5 in below her drawn
                          tail and struck at 14.2.
+
+**The alpha-rate terms on the dynamic pressure without its sideways part**
+(tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
+angle of attack is undefined, its rate swings, and multiplied by the whole
+dynamic pressure it pitched her by tens of degrees a second.
 """
 
 import pathlib
 import re
 import sys
 
+import alpha_rate
 import ground
 from piston_mixture import with_best_power_mixture, with_float_carburettor
 
@@ -337,7 +343,7 @@ def scaled(text, name, low_advance, full_at):
 
 def outputs():
     return {
-        OUT / "aircraft" / "pa28" / "pa28.xml": airframe(),
+        OUT / "aircraft" / "pa28" / "pa28.xml": alpha_rate.with_qbar_uw(airframe(), "make_pa28"),
         OUT / "engine" / "engIO360C.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),
     }

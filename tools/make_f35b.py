@@ -123,12 +123,18 @@ surfaces' travel; how far the flaperons droop in STOVL mode and how
 far forward the thrust split goes; and the pitch and yaw dampers its fly-by-wire flight
 controls stand for. The airframe's own contacts, which it rests on with its
 wheels up, are measured from its visual model by tools/ground.py.
+
+**The alpha-rate terms on the dynamic pressure without its sideways part**
+(tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
+angle of attack is undefined, its rate swings, and multiplied by the whole
+dynamic pressure it pitched her by tens of degrees a second.
 """
 
 import math
 import re
 import sys
 
+import alpha_rate
 import airliner
 import fighter
 import ground
@@ -746,7 +752,7 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_qbar_uw(airframe(), "make_f35b"),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

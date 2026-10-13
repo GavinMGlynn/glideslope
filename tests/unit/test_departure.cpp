@@ -1204,6 +1204,177 @@ GLIDESLOPE_TEST(bounced_with_her_reversers_out_she_gets_her_thrust_back_once_the
 // more than ten feet up or ten feet a second, she fails, printing her trace
 // every half second to there (on macOS the Cub's ratio of air to fuel went
 // infinite only once she was a million feet up, CI run 38447161811).
+// **Every nose-wheel landplane braked to a stop in a 15 kt crosswind keeps
+// her pitch rate under `most_q_degps`**: each landplane of the catalogue
+// that stands on a nose wheel (`Aircraft::stance`; the two tail-wheel
+// aeroplanes and the flying boat named) is started on the runway, stood five
+// seconds on full brakes in calm air, given 15 kt straight across from the
+// left (the C172P POH's demonstrated crosswind), run up to `from_kts` on the
+// throttle by the take-off autopilot's steering (Departure: its rudder and
+// ailerons; her brakes off, her stick central), and then braked on both
+// wheels at every level of `brake_levels`, throttle closed, to a stop and
+// five seconds standing. From the brakes on, her pitch rate stays under the
+// bound, nothing but her wheels touches the runway (GroundJudge), and she
+// stops. **The bound**: the dip of her nose as the brakes come on is the
+// largest honest pitch rate, the C182's 12.1 deg/s at full brakes; 20 is
+// above it. **Seen red on the models before tools/alpha_rate.py**, built as
+// CI's Rocky 9 and Ubuntu jobs build (-march=x86-64-v2): near a stop, her
+// sideslip going to 90 degrees, her alpha-rate terms pitched the C172P at 38
+// to 62 deg/s and struck her tail at brakes 0.6 to 1.0, the F-15C at 24 and
+// struck, the 787-8 at 28 and struck, the F-22 at 18.5 and struck. Whether
+// a braked aeroplane's nose may go below -5 degrees (the C182's goes to -5.7
+// at full brakes, calm or not) is not judged here. Coverage asserted:
+// thirteen aeroplanes at five brake levels.
+GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_pitch_rate_under_a_bound) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    constexpr double brake_levels[] = {0.2, 0.4, 0.6, 0.8, 1.0};
+    constexpr double crosswind_kts = 15.0;
+    constexpr double from_kts = 10.0;
+    constexpr double most_q_degps = 20.0;
+    constexpr int stand_s = 5;
+    constexpr int run_up_s = 60;
+    constexpr int stop_s = 90;
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    const auto kts_of = [](const glideslope::sim::Aircraft& a) {
+        return a.property("velocities/vg-fps") / 1.68781;
+    };
+    std::size_t runs = 0;
+    std::size_t planes = 0;
+    std::size_t named = 0;
+    double worst_q = 0.0;
+    std::string worst_where;
+    std::vector<std::string> wrong;
+    for (const glideslope::sim::CatalogueEntry& e : roster) {
+        if (e.seaplane) {
+            ++named;
+            std::printf("  named - %s: a flying boat, afloat, has no brakes\n", e.id.c_str());
+            continue;
+        }
+        const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), e.model);
+        bool counted = false;
+        for (const double brake : brake_levels) {
+            const Runway runway = a_runway();
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+            aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                [](double, double) { return 0.0; }, [](double, double) { return false; }));
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = runway.threshold_lat_deg;
+            ic.longitude_deg = runway.threshold_lon_deg;
+            ic.altitude_ft = runway.elevation_ft;
+            ic.terrain_elevation_ft = runway.elevation_ft;
+            ic.heading_deg = runway.heading_deg;
+            ic.engine_running = true;
+            ic.gear = 1.0;
+            aircraft.initialize(ic);
+            if (const auto stance = aircraft.stance(); !stance.found || stance.tail_wheel) {
+                ++named;
+                std::printf("  named - %s: she stands on a tail wheel\n", e.id.c_str());
+                break;
+            }
+            if (!counted) {
+                counted = true;
+                ++planes;
+            }
+            ++runs;
+            glideslope::sim::Controls parked;
+            parked.left_brake = 1.0;
+            parked.right_brake = 1.0;
+            for (int step = 0; step < stand_s * steps_per_second; ++step) {
+                aircraft.set_controls(parked);
+                aircraft.step();
+            }
+            glideslope::sim::Conditions wind;
+            const double towards = (runway.heading_deg + 90.0) / degrees;
+            const double mps = crosswind_kts * 0.514444;
+            wind.wind_north_mps = mps * std::cos(towards);
+            wind.wind_east_mps = mps * std::sin(towards);
+            wind.wind_at_20ft_mps = mps;
+            aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
+            Departure steering(aircraft, runway, speeds);
+            double throttle = 0.0;
+            bool rolling = false;
+            for (int step = 0; step < run_up_s * steps_per_second; ++step) {
+                if (kts_of(aircraft) >= from_kts) {
+                    rolling = true;
+                    break;
+                }
+                glideslope::sim::Controls c = steering.fly();
+                throttle = std::min(1.0, throttle + 0.2 / steps_per_second);
+                c.throttle = throttle;
+                c.left_brake = 0.0;
+                c.right_brake = 0.0;
+                c.elevator = 0.0;
+                aircraft.set_controls(c);
+                aircraft.step();
+            }
+            glideslope::sim::GroundJudge judge(false);
+            double most_q = 0.0;
+            double most_q_at_kts = 0.0;
+            std::string wrecked;
+            bool stopped = false;
+            int stood_steps = 0;
+            for (int step = 0; rolling && step < stop_s * steps_per_second &&
+                               stood_steps < stand_s * steps_per_second;
+                 ++step) {
+                glideslope::sim::Controls c = steering.fly();
+                c.throttle = 0.0;
+                c.left_brake = brake;
+                c.right_brake = brake;
+                c.elevator = 0.0;
+                aircraft.set_controls(c);
+                aircraft.step();
+                const double q = std::abs(aircraft.state().q_radps) * degrees;
+                if (q > most_q) {
+                    most_q = q;
+                    most_q_at_kts = kts_of(aircraft);
+                }
+                if (wrecked.empty()) {
+                    if (std::optional<std::string> why = judge.judge(aircraft)) {
+                        wrecked = *why;
+                    }
+                }
+                stopped = stopped || kts_of(aircraft) < 0.2;
+                if (stopped) {
+                    ++stood_steps;
+                }
+            }
+            char where[96];
+            std::snprintf(where, sizeof where, "%s at brake %.1f", e.id.c_str(), brake);
+            std::printf("  %-26s most pitch rate %5.1f deg/s (at %4.1f kt)%s%s\n", where, most_q,
+                        most_q_at_kts, stopped ? "" : ", NOT STOPPED",
+                        wrecked.empty() ? "" : (", " + wrecked).c_str());
+            if (most_q > worst_q) {
+                worst_q = most_q;
+                worst_where = where;
+            }
+            if (!rolling) {
+                wrong.push_back(std::string(where) + ": never rolled at 10 kt");
+            }
+            if (most_q > most_q_degps) {
+                wrong.push_back(std::string(where) + ": pitched at " + std::to_string(most_q) +
+                                " deg/s");
+            }
+            if (!wrecked.empty()) {
+                wrong.push_back(std::string(where) + ": " + wrecked);
+            }
+            if (rolling && !stopped) {
+                wrong.push_back(std::string(where) + ": did not stop");
+            }
+        }
+    }
+    std::printf("  worst: %.1f deg/s, %s\n", worst_q, worst_where.c_str());
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(roster.size() == 16 && planes == 13 && named == 3 &&
+              runs == planes * std::size(brake_levels),
+          "thirteen nose-wheel aeroplanes of sixteen at five brake levels, three named: " +
+              std::to_string(planes) + " in " + std::to_string(runs) + " runs, " +
+              std::to_string(named) + " named");
+}
+
 GLIDESLOPE_TEST(every_aircraft_standing_on_her_brakes_at_idle_stays_finite_and_on_the_ground) {
     const auto roster = glideslope::sim::read_catalogue(data());
     constexpr int seconds = 20;
