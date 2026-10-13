@@ -1197,10 +1197,20 @@ void Aircraft::apply_weather() {
                 (runway_braking_coefficient_ - dry_rolling_friction_) /
                     (dry_braking_friction_ - dry_rolling_friction_),
                 0.0, 1.0);
+            // **The scale needs share s well above r**, or (s - r) / (share
+            // s - r) runs away. Twice r is the floor: no runway code reaches
+            // it for any catalogue aeroplane - the least share, code 2 past
+            // a 29 psi tyre's hydroplaning speed, is about 0.09, and the
+            // largest 2r/s is 0.08 (static 0.5, rolling 0.02) - and were one
+            // to, her wheels would be given that much grip sideways rather
+            // than a pedal beyond reach.
+            side_grip_ = std::max(side_grip_, 2.0 * dry_rolling_friction_ / dry_braking_friction_);
             if (side_grip_ < 1.0) {
+                // A pedal above 1: JSBSim's FGFCS::SetLBrake and SetRBrake
+                // store the command as given, unclamped, and FGLGear brakes
+                // with r + pedal (s - r), which is what this relies on.
                 brake_scale_ = (dry_braking_friction_ - dry_rolling_friction_) /
-                               std::max(side_grip_ * dry_braking_friction_ - dry_rolling_friction_,
-                                        1e-3);
+                               (side_grip_ * dry_braking_friction_ - dry_rolling_friction_);
             }
         }
     }

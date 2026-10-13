@@ -1513,6 +1513,9 @@ GLIDESLOPE_TEST(a_wet_runways_side_grip_is_nasas_measurement_of_a_wet_tyres_corn
                                                std::to_string(kts) + " kt");
             }
             last = wet;
+            // Codes 1 to 4 (snow, slush, ice) are an extrapolation: the wet
+            // runway's share carried to their own coefficients, measured by
+            // no source here. Only their bounds are checked.
             for (int code = 1; code <= 5; ++code) {
                 const double share = side_grip_share(code, kts, psi);
                 check(share > 0.0 && share <= 1.0,
