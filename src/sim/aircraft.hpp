@@ -90,7 +90,7 @@ struct InitialConditions {
 // **A STOVL aeroplane's lift system** - the F-35B's lift fan, roll posts and
 // swivelling nozzle (tools/make_f35b.py) - as its flight controls take it.
 // Not yet part of Controls, and so not sent by a client: only the hover
-// control law (sim/hover.hpp) sets it. Its positions are flight-control
+// and transition control laws (sim/hover.hpp, sim/transition.hpp) set it. Its positions are flight-control
 // properties, and so are in a replay's state like every other.
 struct LiftSystem {
     double stovl = 0.0;      // 1 converts to STOVL mode, 0 back
@@ -480,8 +480,9 @@ public:
     // take effect from the next step. set_lift_system throws
     // std::logic_error on an aircraft without one, and std::invalid_argument
     // for STOVL mode asked above the airspeed her model clears it to
-    // (`fcs/stovl-limit-kcas`): **transition between jet-borne and wing-borne
-    // flight is not flown** by anything here.
+    // (`fcs/stovl-limit-kcas`). The transition law (sim/transition.hpp)
+    // flies her between wing-borne flight and a hover; no pilot's controls
+    // or AI plan reach it yet.
     bool has_lift_system() const;
     void set_lift_system(const LiftSystem& lift);
 

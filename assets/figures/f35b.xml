@@ -17,7 +17,9 @@
 
   **Her lift system is modelled** (tools/make_f35b.py): its hover thrust is
   Pratt & Whitney's, and she hovers and lands vertically on the hover
-  control law (src/sim/hover.hpp). Her short take-off is flown and measured
+  control law (src/sim/hover.hpp), and converts between wing-borne flight
+  and a hover on the transition law (src/sim/transition.hpp). Her short
+  take-off is flown and measured
   (short_takeoff, below), inside the 600 ft her requirement asks.
 -->
 <!--
@@ -130,6 +132,42 @@
     loading with her fuel burning, and held until she cannot keep her height
     within 10 ft; the minutes from settling. Her fuel flow follows her
     engine's core thrust (JSBSim's turbine), not the lift system's.
+  </figure>
+
+  <!-- **Her transitions between wing-borne flight and a hover**
+       (src/sim/transition.hpp), flown as Lockheed Martin's Code One tells
+       BF-1's first (docs/ASSETS.md): "conversion to STOVL mode at 200
+       knots", then "a decelerating approach to a zero airspeed hover at
+       150 feet above the runway"; and out of the hover, "accelerating and
+       converting back to conventional flight mode". The speed and the
+       height are published; the bounds - the height she may lose, 30 ft,
+       and her attitude, 15 degrees of pitch and 10 of bank - are this
+       project's, and calm air is the only air flown. -->
+  <figure name="transition_to_hover" flight="transition_to_hover" loading="vertical_landing"
+          fuel_frozen="1" unit="ft" min="0" max="30" altitude_ft="150" speed_kcas="200" seconds="30"
+          most_pitch_deg="15" most_bank_deg="10" most_drift_ft="30">
+    From 200 KCAS level at 150 ft to a hover there, at her vertical-landing
+    loading, and held 30 s by the hover law; the most height she loses.
+  </figure>
+
+  <figure name="transition_to_hover_combat" flight="transition_to_hover" loading="combat"
+          fuel_frozen="1" unit="ft" min="0" max="30" altitude_ft="150" speed_kcas="200" seconds="30"
+          most_pitch_deg="15" most_bank_deg="10" most_drift_ft="30">
+    The same at her combat loading, 2,220 lb heavier.
+  </figure>
+
+  <figure name="transition_from_hover" flight="transition_from_hover" loading="vertical_landing"
+          fuel_frozen="1" unit="ft" min="0" max="30" altitude_ft="150" speed_kcas="200"
+          most_pitch_deg="15" most_bank_deg="10">
+    Lifted to a hover at 150 ft at her vertical-landing loading, then
+    accelerated, converted back at 200 KCAS and flown on wing-borne at it;
+    the most height she loses.
+  </figure>
+
+  <figure name="transition_from_hover_combat" flight="transition_from_hover" loading="combat"
+          fuel_frozen="1" unit="ft" min="0" max="30" altitude_ft="150" speed_kcas="200"
+          most_pitch_deg="15" most_bank_deg="10">
+    The same at her combat loading, 2,220 lb heavier.
   </figure>
 
   <figure name="short_takeoff_required" flight="short_takeoff" loading="short_takeoff"

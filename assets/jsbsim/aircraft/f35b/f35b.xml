@@ -359,6 +359,7 @@
         <property value="90">fcs/fan-cmd-deg</property>
         <property value="0.99">fcs/stovl-throttle-max</property>
         <property value="250">fcs/stovl-limit-kcas</property>
+        <property value="200">fcs/stovl-convert-kcas</property>
         <channel name="LiftSystem">
             <kinematic name="Conversion">
                 <input>fcs/stovl-cmd-norm</input>

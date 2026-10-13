@@ -49,6 +49,13 @@ public:
     explicit Hover(const Aircraft& aircraft);
     Hover(const Aircraft& aircraft, Pace pace);
 
+    // **Taken over in the air** from whatever was flying her with `flying`
+    // (the transition law, sim/transition.hpp): the point, heading and
+    // height it holds are where she is now, and its throttle, fan and posts
+    // start where `flying` has them, so that taking over steps nothing.
+    // Converted, the nozzle down, or its first steps close the throttle.
+    Hover(const Aircraft& aircraft, const Command& flying);
+
     // One 120 Hz step's commands.
     Command step(const Target& target);
 
