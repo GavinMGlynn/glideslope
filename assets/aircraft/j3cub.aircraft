@@ -13,3 +13,6 @@ name Piper J-3 Cub
 model j3cub
 class light-aircraft
 start 60 0.74
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# Piper J3C-65 manual: 8.00x4 tyres at 15 psi; heel brakes, no anti-skid.
+brakes 15 none

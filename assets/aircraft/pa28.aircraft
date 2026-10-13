@@ -17,3 +17,7 @@ start 110 0.82
 # in the FULL RICH position for all operations under 5000 feet", section
 # III, cruising), and leaned above.
 mixture-lever 5000
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# Piper PA-28 Cherokee owner's handbooks (PA-28-140; 150/160/180, 753-683):
+# 6.00-6 mains at 24 psi; Cleveland disc brakes on a hand lever, no anti-skid.
+brakes 24 none

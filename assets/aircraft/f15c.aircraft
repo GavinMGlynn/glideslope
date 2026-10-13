@@ -16,3 +16,9 @@ class fighter
 start 300 0.49
 # The speedbrake lever works its speedbrake (src/sim/catalogue.hpp).
 speedbrakes
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# UFC 3-260-02 (draft, Oct 2014) table 4-1a: the F-15's 34.5x9.75-18 main at
+# 305 psi, at 81,000 lb (an F-15E's weight - the C's is not given apart);
+# Hydro-Aire's Mark III, continuously modulating (Crane's brake control
+# overview).
+brakes 305 fully-modulating

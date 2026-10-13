@@ -265,6 +265,81 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Each landplane's own tyres and brakes on a wet runway, 2026-10-13 — item still open
+
+**What is still not done, first.** **Three landplanes no longer stop on the
+wet short runway** sized by 14 CFR 121.195(d)'s 1.15 times the dry need,
+now that each brakes on her own tyres: the 787-8 at 1,911 m of 1,893 (228
+psi), the A320 at 1,809 of 1,725 (209 psi) and the F-15C at 2,478 of 2,459
+(305 psi). `every_landplane_landed_by_hand_on_a_wet_short_runway_is_stopped_on_it_by_the_ai`
+is **red on this branch**; it was green only because every tyre was 100
+psi. Whether the 1.15 factor or the AI's wet roll-out is what gives was not
+settled inside the time box. **Four pressures are estimates** (F-22A,
+F-35B, B-2A, Mosquito) and the anti-skid class of the 737-300 and the four
+military aircraft is this project's reading: no document names it.
+
+**What changed.**
+- `sim/runway_condition.hpp`: `WheelBrakes` (tyre psi, `AntiSkid`), and
+  the wet curve now 14 CFR 25.109(c)(1)'s four, for 50, 100, 200 and 300
+  psi, linearly interpolated as (c)(1) allows and held at their ends (no
+  extrapolation: a 15 psi Cub tyre is given 50 psi's curve); the speed held
+  to 200 kt (the 50 psi cubic turns up from about 240). (c)(2)'s 0.80,
+  0.50 and 0.30, and **no anti-skid 0.55**: a wheel braked by hand locks
+  and skids, and NASA TM X-72650 (Horne, 1975) figure 8 puts mu skid at
+  about 0.6 of mu max at low speed and 0.5 from 60 kt (NASA TP-1080 agrees).
+  AC 25-32 table 2's other codes take each anti-skid's share over 0.80
+  (its note 3: 0.625, 0.375), and code 2's hydroplaning speed is 9 sqrt(P)
+  of her own P (note 4).
+- Every landplane's catalogue file has `brakes PSI ANTI_SKID`, each with
+  its source in a comment and in `docs/ASSETS.md`; a landplane's file
+  without one is refused. 737-300 201 psi, 747-400 200, 787-8 228, A320
+  209, A380 218, Learjet 35A 156, F-15C 305 (all anti-skid); F-22A 286,
+  F-35B 300, B-2A 224 (estimates, anti-skid); C172P 28, C182S 42, PA-28 24,
+  J-3 Cub 15, Mosquito 50 (estimate) - none of the five with anti-skid.
+- `Aircraft::wheel_brakes()` (from her file), `set_wheel_brakes`,
+  `brake_share()` and `runway_braking_coefficient()`. A model loaded
+  without a catalogue and put on a wet runway throws, naming what is
+  missing.
+- **The brake share is a ceiling, not a scale**: the pedals are given
+  min(pedal, share), not pedal times share. Scaled, a light steering brake
+  lost grip the runway would have given it, and the Mosquito, braking to
+  steer on her own softer, anti-skid-less share (0.47), wandered 6.31 m
+  from the centreline wet against 4.13 dry; capped, 4.13 both.
+
+**Verification.**
+- `a_wet_runways_grip_is_read_for_the_tyres_pressure_and_the_anti_skid`:
+  the four curves at a standstill and 100 kt, 150 psi halfway, held at 29
+  and 305; a softer tyre never grips less at every pound from 20 to 320 and
+  every knot to 170 (51,471 points, asserted; 171 to 200 kt left out and
+  named: the rule's 200 and 300 psi fits cross at 174 kt); every kind, code
+  and knot (4,020) its share over 0.80; a 29 psi tyre's hydroplaning at 41.2
+  kt. **Seen to fail** with the interpolation's weight set to 0: "100 psi's
+  curve: 0.883 standing"; reverted.
+- `each_aircraft_stops_on_a_wet_runway_on_her_own_tyres_and_brakes`: all 15
+  landplanes (the flying boat named), braked from 20 kt (a tailwheel
+  aeroplane's stick back and pedals half on - fully on the Mosquito stands
+  on her nose), are given at every braked step her own coefficient; stop
+  later wet than dry; and later than on the 100 psi modulating tyre where
+  hers grips less (all 15 do: 737-300 16.7 m against 15.9, A320 17.9 / 16.9,
+  F-15C 25.9 / 20.1, C172P 38.6 / 30.6, Cub 63.8 / 51.3). **Seen to fail**
+  with the aircraft braking on the 100 psi tyre again: "737-300's wheels
+  were given what the runway gives her tyres and brakes"; reverted.
+- `an_aeroplane_without_anti_skid_stops_later_on_a_wet_runway_than_with_it`:
+  all five without (the count asserted) stop later wet than the same
+  aeroplane fully modulating - C172P 38.6 m against 28.3, C182S 47.2 / 33.8,
+  Cub 63.8 / 47.3, Mosquito 63.6 / 43.7, PA-28 41.6 / 29.9 - and dry exactly
+  as far. **Seen to fail** with the same seeded bug: "c172p without
+  anti-skid stopped in 30.63 m wet, with it 30.63"; reverted.
+- `an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong`
+  now also reads all four anti-skids and refuses a landplane without
+  brakes, an unknown anti-skid, a missing one and a 0 psi tyre.
+- Run again (linux-release, 148 tests by name - wet, brakes, landings on a
+  runway, roll, figures, stops, short runways, published, the catalogue,
+  METARs, the runway condition; 3 that ask a live model skipped): 147
+  passed, 1 failed - the wet short runway above. The published figures
+  tests all pass: dry is untouched (share 1).
+- **The selftest hash does not move**, `182dd6c996e0ee4c`: it flies dry.
+
 ### The S.23's hull tried as a planing hull: her gust landings' pass was an artefact of her buoyancy tail, and the hull waits on Phase 9, 2026-10-13 — item still open
 
 **What is missing, first**: the S.23's hull is not a planing hull, and she

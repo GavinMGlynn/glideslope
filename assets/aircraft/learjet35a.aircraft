@@ -17,3 +17,8 @@ class business-jet
 start 250 0.49
 # The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
 speedbrakes
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# Learjet 35/36 maintenance manual 12-10-05: 17.5x5.75-8 mains at 146-156 psi
+# cold, loaded, the basic aeroplane's (the top of it taken); Jane's: fully
+# modulated anti-skid.
+brakes 156 fully-modulating

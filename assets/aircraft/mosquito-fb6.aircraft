@@ -14,3 +14,9 @@ name de Havilland Mosquito FB Mk VI
 model mosquito-fb6
 class second-world-war
 start 220 0.45
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# An ESTIMATE: her Pilot's Notes give no tyre pressure. About 10,200 lb on
+# each Dunlop main tyre over a contact patch of about 190 square inches, 45 to
+# 60 psi; 50 taken. Dunlop pneumatic brakes, no anti-skid (the Maxaret came
+# after the war).
+brakes 50 none

@@ -436,7 +436,7 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
     {
         std::ofstream out(copy / "aircraft" / "trainer.aircraft", std::ios::binary);
         out << "# A trainer, for the test.\nname Slow Trainer\nmodel c172p\nclass "
-               "light-aircraft\nstart 80 0.55\n";
+               "light-aircraft\nstart 80 0.55\nbrakes 29 none\n";
     }
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(copy);
     check(catalogue.size() == glideslope::sim::read_catalogue(data()).size() + 1,
@@ -455,7 +455,7 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
     {
         std::ofstream out(copy / "aircraft" / "ghost.aircraft", std::ios::binary);
         out << "name Ghost\nmodel no_such_model\nclass light-aircraft\nstart 100 "
-               "0.7\n";
+               "0.7\nbrakes 29 none\n";
     }
     bool refused_model = false;
     try {
@@ -491,27 +491,53 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
               "x", "name A\nmodel m\nclass seaplane\nstart 90 0.6\nseaplane\n")
                   .seaplane &&
               !glideslope::sim::parse_catalogue_entry(
-                   "x", "name A\nmodel m\nclass light-aircraft\nstart 90 0.6\n")
+                   "x", "name A\nmodel m\nclass light-aircraft\nstart 90 0.6\nbrakes 29 none\n")
                    .seaplane,
           "an aircraft is a seaplane only if its file says so");
     // The autopilot's rudder gains: both numbers, each 0 to 1, or the
     // defaults where the file says nothing.
-    const std::string gains = "name A\nmodel m\nclass bomber\nstart 90 0.6\n";
+    const std::string gains = "name A\nmodel m\nclass bomber\nstart 90 0.6\nbrakes 200 fully-modulating\n";
     const CatalogueEntry given = glideslope::sim::parse_catalogue_entry(
         "x", gains + "yaw-damper 0.07 0.01\n");
     const CatalogueEntry not_given = glideslope::sim::parse_catalogue_entry("x", gains);
     check(given.yaw_damper_per_degps == 0.07 && given.rudder_integral_rate == 0.01 &&
               not_given.yaw_damper_per_degps == 0.05 && not_given.rudder_integral_rate == 0.05,
           "a yaw-damper line gives both gains, and none gives 0.05 and 0.05");
-    check(refused(gains + "yaw-damper 0.05\n", "line 5: yaw-damper PER_DEGPS INTEGRAL_RATE"),
+    check(refused(gains + "yaw-damper 0.05\n", "line 6: yaw-damper PER_DEGPS INTEGRAL_RATE"),
           "a yaw-damper line with one number");
     check(refused(gains + "yaw-damper 0.05 2\n", "rudder integral"),
           "a yaw-damper line whose integral rate is past 1");
     check(glideslope::sim::parse_catalogue_entry("x",
                                                  "name Two  Words # a comment\nmodel "
-                                                 "m\nclass light-aircraft\nstart 90 0.6\n")
+                                                 "m\nclass light-aircraft\nstart 90 0.6\nbrakes 29 none\n")
                   .name == "Two Words",
           "a name of words, a comment after it");
+    // **A landplane's brakes**: her tyres' pressure and her anti-skid, each
+    // of the four kinds; a landplane without them is refused, a seaplane not.
+    const std::string plane = "name A\nmodel m\nclass light-aircraft\nstart 90 0.6\n";
+    using glideslope::sim::AntiSkid;
+    std::size_t kinds = 0;
+    for (const auto& [word, kind] :
+         std::vector<std::pair<std::string, AntiSkid>>{
+             {"fully-modulating", AntiSkid::fully_modulating},
+             {"quasi-modulating", AntiSkid::quasi_modulating},
+             {"on-off", AntiSkid::on_off},
+             {"none", AntiSkid::none}}) {
+        const auto b =
+            glideslope::sim::parse_catalogue_entry("x", plane + "brakes 42.5 " + word + "\n")
+                .brakes;
+        check(b && b->tyre_pressure_psi == 42.5 && b->anti_skid == kind,
+              "brakes 42.5 " + word + " read as it says");
+        ++kinds;
+    }
+    check(kinds == 4, "all four anti-skids read: " + std::to_string(kinds));
+    check(refused(plane, "must give its brakes"), "a landplane without brakes");
+    check(refused(plane + "brakes 42 abs\n", "line 5: no anti-skid \"abs\""),
+          "an anti-skid that is not one of the four");
+    check(refused(plane + "brakes 42\n", "line 5: brakes TYRE_PSI ANTI_SKID"),
+          "a brakes line without its anti-skid");
+    check(refused(plane + "brakes 0 none\n", "line 5: the tyre pressure"),
+          "a tyre with no pressure");
     bool none = false;
     try {
         glideslope::sim::find_aircraft(data(), "no_such_aircraft");

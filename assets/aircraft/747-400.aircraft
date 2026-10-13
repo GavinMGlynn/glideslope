@@ -15,3 +15,7 @@ class airliner
 start 250 0.58
 # The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
 speedbrakes
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# Boeing D6-58326-1 rev F, 7.2: H49x19.0-22 mains at 200 psi loaded, at
+# 873,000-877,000 lb; Hydro-Aire's wheel-by-wheel brake system control unit.
+brakes 200 fully-modulating
