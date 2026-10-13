@@ -340,6 +340,31 @@ public:
     const LiftSystem* lift() const {
         return lift_ ? &*lift_ : nullptr;
     }
+    // **What a pilot's controller carries from step to step**, for a
+    // prediction that flies a pilot's inputs again from the server's word
+    // (sim::Prediction): the controls applied and on their way to the
+    // pilot's, the mixture held after a take-back, and the lift system's
+    // laws - the transition law, with its autopilot, hover law and their
+    // integrals - and what they were asked. Copied out before a step and put
+    // back before the steps are flown again, they are flown again as they
+    // were. Only while the pilot flies: the AI's state is not in it.
+    struct PilotsLaws {
+        Controls pilot;
+        Controls applied;
+        bool catching_up = false;
+        bool mixture_held = false;
+        double held_mixture = 1.0;
+        double held_delta = 1.0;
+        std::optional<double> lever_at_take_back;
+        std::optional<Transition> stovl;
+        std::optional<LiftSystem> lift;
+        LiftSystem held_lift;
+        double stovl_height_ft = 0.0;
+        std::optional<double> hovering_since_s;
+        std::optional<double> selector_at_take_back;
+    };
+    PilotsLaws pilots_laws() const;
+    void restore(const PilotsLaws& laws);
     // The transition law, while it flies her lift system; else null.
     const Transition* transition() const {
         return stovl_ ? &*stovl_ : nullptr;
@@ -468,10 +493,19 @@ private:
     std::optional<double> lever_at_take_back_;
 };
 
+// **A lift system's commands put on `aircraft`, never thrown**: as
+// Aircraft::set_lift_system, but STOVL mode asked above the airspeed her
+// model clears it to (`fcs/stovl-limit-kcas`) - which the transition law
+// never asks, converting at her conversion speed, but a dive while
+// converting could meet - is flown with the fan's doors closing (STOVL mode
+// 0) and the rest as asked, and an aircraft without a lift system is left
+// alone. Whether the commands went on as asked.
+bool put_lift_system(Aircraft& aircraft, const LiftSystem& lift);
+
 // **One step's commands put on `aircraft`**: `controller`'s controls, and
-// its lift system's while its laws fly one. What each caller does once a
-// step, so that the server's, the client's prediction and the tools' are
-// the same.
+// its lift system's while its laws fly one (`put_lift_system`, so nothing
+// here throws for her envelope). What each caller does once a step, so that
+// the server's, the client's prediction and the tools' are the same.
 void apply(Aircraft& aircraft, Controller& controller);
 
 } // namespace glideslope::sim

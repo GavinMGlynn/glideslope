@@ -95,7 +95,7 @@ Transition::Transition(const Aircraft& aircraft, const Hover::Command& flying)
     const bool nozzle_down = a_.property("fcs/nozzle-pos-deg") >= nozzle_down_deg - 0.5;
     if (a_.property("gear/wow") > 0.5) {
         stage_ = Stage::hovering;
-        hover_ = std::make_unique<Hover>(a_);
+        hover_.emplace(a_);
         hover_base_ft_ = a_.state().height_above_ground_ft;
     } else if (conversion >= 1.0 && nozzle_down && ground_kt(a_) < hover_kt) {
         become_hovering(flying);
@@ -103,7 +103,7 @@ Transition::Transition(const Aircraft& aircraft, const Hover::Command& flying)
         become_jet_borne(flying);
     } else {
         stage_ = Stage::wing_borne;
-        autopilot_ = std::make_unique<Autopilot>(a_, flying.controls);
+        autopilot_.emplace(a_, flying.controls);
     }
 }
 
@@ -184,7 +184,7 @@ void Transition::seed_jet_borne(const Hover::Command& flying, bool from_hover) {
 void Transition::become_jet_borne(const Hover::Command& flying) {
     stage_ = Stage::jet_borne;
     autopilot_.reset();
-    const bool from_hover = hover_ != nullptr;
+    const bool from_hover = hover_.has_value();
     hover_.reset();
     heading_deg_ = a_.state().heading_deg;
     seed_jet_borne(flying, from_hover);
@@ -195,7 +195,7 @@ void Transition::become_hovering(const Hover::Command& flying) {
     autopilot_.reset();
     Hover::Command handed = flying;
     handed.lift.fan_deg = nozzle_down_deg;
-    hover_ = std::make_unique<Hover>(a_, handed);
+    hover_.emplace(a_, handed);
     hover_base_ft_ = a_.state().height_above_ground_ft;
 }
 
@@ -227,7 +227,7 @@ Hover::Command Transition::step(const Target& target) {
         } else if (!target.hover && conversion <= 0.0) {
             stage_ = Stage::wing_borne;
             if (!autopilot_) {
-                autopilot_ = std::make_unique<Autopilot>(a_, last_.controls);
+                autopilot_.emplace(a_, last_.controls);
             }
         } else if (reversed && !autopilot_) {
             seed_jet_borne(last_, false);

@@ -192,7 +192,8 @@ struct FlightPlan {
 };
 
 // Throws FlightPlanError naming the line of anything it cannot read, for a
-// line after `land` or `land_vertically`, for both of them, and for a plan with no aircraft or no waypoints, with both a start and a take-off, or
+// line after `land` or `land_vertically`, for both of them, and for a plan
+// with no aircraft or no waypoints, with both a start and a take-off, or
 // with a runway and no take-off from it or the other way round.
 FlightPlan parse_flight_plan(std::string_view text);
 

@@ -374,9 +374,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 - [ ] **No pilot or AI plan flies the F-35B between jet-borne and
       wing-borne flight**: since 2026-10-14 a pilot's STOVL selector (H and
       N) and stick, and a plan's `land_vertically`, fly her transition law
-      (PROJECT_STATUS, 2026-10-14). Still to do: her measured rolling
-      landing distance (9,200 ft) revisited, and a player's selector flown
-      through a server in a multi-process test. *Verification: she is flown
+      (PROJECT_STATUS, 2026-10-14), and a client's prediction agrees with
+      the server through a conversion, a hover and a landing. Still to do:
+      her measured rolling landing distance (9,200 ft) revisited, and a
+      player's selector flown through a server in a multi-process test. *Verification: she is flown
       into a hover and out again, and a pilot and an AI plan each convert
       her.*
 - [ ] **The F-35B's pilot flies only her height in STOVL mode**: her
@@ -1323,6 +1324,12 @@ What the client with the window does that the command-line client does, and what
 
 The language model that plans: its routes, its recordings and what it is told.
 
+- [ ] **The copilot and planner do not know a vertical landing.** A plan
+      may end in `land_vertically` since 2026-10-14 and the AI flies it in
+      the F-35B, but neither model is told of it, so asked to land her on a
+      pad neither can. *Verification: asked to land the F-35B vertically at
+      a named point, the planner's plan ends in one and she is landed there;
+      recorded and played back.*
 - [ ] **The copilot marks the waypoints it means to fly over.** A plan's
       waypoint may now say it is flown over rather than by, but the copilot
       and the planner never say it, so a route's landmark is passed as far

@@ -72,13 +72,20 @@ public:
     // What it is asked: a hover, or wing-borne flight at `kcas`; at
     // `height_ft` above the ground beneath her either way.
     //
-    // **A hover may be over a point** (`over`): she is steered at it
-    // wing-borne, while it is more than `steer_within_ft` away - jet-borne
-    // her law flies her speed along her heading and nothing across it, so a
-    // turn there would leave her drifting sideways; jet-borne, the speed asked is no more than she stops in at her
-    // own rate by the distance to it along her heading, so that she slows to
-    // a stop over it; and the hover law holds over it, not over where she
-    // stopped. Without one she hovers where she stops, as before.
+    // **A hover may be over a point** (`over`):
+    //
+    //   wing-borne   she is steered at it while it is more than
+    //                `steer_within_ft` away;
+    //   jet-borne    she is not steered - her law flies her speed along her
+    //                heading and nothing across it, so a turn there would
+    //                leave her drifting sideways - and the speed asked is no
+    //                more than she stops in, at her own rate, by the
+    //                distance to it along her heading, so that she slows to
+    //                a stop over it;
+    //   hovering     the hover law holds over it, not over where she
+    //                stopped.
+    //
+    // Without one she hovers where she stops, as before.
     //
     // **And hovering, she lets down to land** when `land` is asked (the hover
     // law's own landing, Hover::Target::land).
@@ -115,7 +122,7 @@ public:
     }
     // The hover law flying her, while she hovers; else none.
     const Hover* hover() const {
-        return hover_.get();
+        return hover_ ? &*hover_ : nullptr;
     }
     // The speed the jet-borne law asks of her now, knots along her heading.
     double speed_asked_kt() const {
@@ -157,8 +164,8 @@ private:
     Stage stage_ = Stage::wing_borne;
     std::optional<bool> last_asked_hover_;
     double heading_deg_ = 0.0;
-    std::unique_ptr<Autopilot> autopilot_;
-    std::unique_ptr<Hover> hover_;
+    std::optional<Autopilot> autopilot_;
+    std::optional<Hover> hover_;
     double hover_base_ft_ = 0.0;
     // The jet-borne law's integrals and what it asks.
     double speed_asked_kt_ = 0.0;

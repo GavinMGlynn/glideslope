@@ -17,9 +17,28 @@ double how_far_apart_m(const AircraftState& a, const AircraftState& b) {
     return std::sqrt(over_ground * over_ground + up * up);
 }
 
+Prediction::Prediction(Aircraft& aircraft) : aircraft_(aircraft) {
+    if (aircraft_.has_lift_system()) {
+        laws_.emplace(aircraft_, Controls{});
+    }
+}
+
+void Prediction::put(const Controls& controls) {
+    if (laws_) {
+        laws_->set_pilot(controls);
+        apply(aircraft_, *laws_);
+    } else {
+        aircraft_.set_controls(controls);
+    }
+}
+
 void Prediction::step(std::uint32_t sequence, const Controls& controls) {
     ReplayState before = aircraft_.replay_state();
-    aircraft_.set_controls(controls);
+    std::optional<Controller::PilotsLaws> laws_before;
+    if (laws_) {
+        laws_before.emplace(laws_->pilots_laws());
+    }
+    put(controls);
     flying_step_ = steps_;
     aircraft_.step();
     // **Where an input began here**, known only where the sequence changes
@@ -32,7 +51,7 @@ void Prediction::step(std::uint32_t sequence, const Controls& controls) {
         began_.try_emplace(sequence, steps_);
     }
     flying_ = sequence;
-    held_.push_back({sequence, controls, steps_, std::move(before)});
+    held_.push_back({sequence, controls, steps_, std::move(before), std::move(laws_before)});
     ++steps_;
     // A client this far behind has a problem this layer cannot solve; the
     // oldest inputs are dropped rather than held for ever.
@@ -53,11 +72,14 @@ Prediction::Correction Prediction::reconcile(const AircraftSnapshot& server,
     began_.erase(began_.begin(), began_.upper_bound(last_applied));
 
     aircraft_.restore(server);
+    if (laws_ && !held_.empty() && held_.front().laws_before) {
+        laws_->restore(*held_.front().laws_before);
+    }
 
     // And forward again through everything it had not.
     Correction out;
     for (const Applied& a : held_) {
-        aircraft_.set_controls(a.controls);
+        put(a.controls);
         flying_step_ = a.step;
         aircraft_.step();
         ++out.replayed;
@@ -110,7 +132,7 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     aircraft_.set_motion(server);
     as_at_first_held();
     for (const Applied& a : held_) {
-        aircraft_.set_controls(a.controls);
+        put(a.controls);
         flying_step_ = a.step;
         aircraft_.step();
         ++out.replayed;
@@ -132,6 +154,10 @@ void Prediction::as_at_first_held() {
     // way.
     if (!held_.empty()) {
         aircraft_.set_replay_state(held_.front().before);
+        // And the lift system's controller as it was then.
+        if (laws_ && held_.front().laws_before) {
+            laws_->restore(*held_.front().laws_before);
+        }
     }
 }
 
@@ -174,7 +200,7 @@ std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) 
     aircraft_.set_motion(motion);
     as_at_first_held();
     for (const Applied& a : held_) {
-        aircraft_.set_controls(a.controls);
+        put(a.controls);
         flying_step_ = a.step;
         aircraft_.step();
     }

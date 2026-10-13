@@ -269,6 +269,9 @@ std::optional<Controls> Controller::fly_lift_system() {
         if (navigator_ && navigator_->plan().vertical_landing) {
             const FlightPlan::VerticalLanding& v = *navigator_->plan().vertical_landing;
             target.height_ft = std::max(vertical_hover_ft, least_ft);
+            // Kept as the height asked, so that a pilot taking her back in
+            // the hover holds it, not the height she was at when it began.
+            stovl_height_ft_ = target.height_ft;
             target.over = Transition::Point{v.latitude_deg, v.longitude_deg};
             target.land = hovering_since_s_ &&
                           a_.state().sim_time_s - *hovering_since_s_ >= v.hover_s;
@@ -312,6 +315,47 @@ std::optional<Controls> Controller::fly_lift_system() {
         return std::nullopt;
     }
     return applied_;
+}
+
+Controller::PilotsLaws Controller::pilots_laws() const {
+    PilotsLaws out;
+    out.pilot = pilot_;
+    out.applied = applied_;
+    out.catching_up = catching_up_;
+    out.mixture_held = mixture_held_;
+    out.held_mixture = held_mixture_;
+    out.held_delta = held_delta_;
+    out.lever_at_take_back = lever_at_take_back_;
+    if (stovl_) {
+        out.stovl.emplace(*stovl_);
+    }
+    out.lift = lift_;
+    out.held_lift = held_lift_;
+    out.stovl_height_ft = stovl_height_ft_;
+    out.hovering_since_s = hovering_since_s_;
+    out.selector_at_take_back = selector_at_take_back_;
+    return out;
+}
+
+void Controller::restore(const PilotsLaws& laws) {
+    pilot_ = laws.pilot;
+    applied_ = laws.applied;
+    catching_up_ = laws.catching_up;
+    mixture_held_ = laws.mixture_held;
+    held_mixture_ = laws.held_mixture;
+    held_delta_ = laws.held_delta;
+    lever_at_take_back_ = laws.lever_at_take_back;
+    // A transition law holds the aircraft by reference, and so is built
+    // again from the copy rather than assigned.
+    stovl_.reset();
+    if (laws.stovl) {
+        stovl_.emplace(*laws.stovl);
+    }
+    lift_ = laws.lift;
+    held_lift_ = laws.held_lift;
+    stovl_height_ft_ = laws.stovl_height_ft;
+    hovering_since_s_ = laws.hovering_since_s;
+    selector_at_take_back_ = laws.selector_at_take_back;
 }
 
 void Controller::to_ai(FlightPlan plan) {
@@ -816,10 +860,25 @@ Controls Controller::fly() {
     return applied_;
 }
 
+bool put_lift_system(Aircraft& aircraft, const LiftSystem& lift) {
+    if (!aircraft.has_lift_system()) {
+        return false;
+    }
+    if (lift.stovl > 0.0 && aircraft.property("velocities/vc-kts") >
+                                aircraft.property("fcs/stovl-limit-kcas")) {
+        LiftSystem closed = lift;
+        closed.stovl = 0.0;
+        aircraft.set_lift_system(closed);
+        return false;
+    }
+    aircraft.set_lift_system(lift);
+    return true;
+}
+
 void apply(Aircraft& aircraft, Controller& controller) {
     aircraft.set_controls(controller.fly());
     if (const LiftSystem* lift = controller.lift()) {
-        aircraft.set_lift_system(*lift);
+        put_lift_system(aircraft, *lift);
     }
 }
 

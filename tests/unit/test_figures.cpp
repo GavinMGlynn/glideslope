@@ -1953,3 +1953,205 @@ GLIDESLOPE_TEST(a_pilots_stovl_selector_and_stick_fly_the_f35b_to_a_hover_onto_t
     check(most_pitch <= 15.0, "her pitch reached " + std::to_string(most_pitch));
     check(most_bank <= 10.0, "her bank reached " + std::to_string(most_bank));
 }
+
+// **Taken back by her pilot in a plan's hover, she holds the hover's
+// height**: the AI's vertical landing (as above) hovering 10 s over the pad
+// at 150 ft, of the 30 it would hold, is handed to the pilot, whose selector
+// is at conventional flight and stick centred. She stays in STOVL mode -
+// the selector has not moved since the take-back - and holds the 150 ft the
+// hover asked, within 10 ft, for a minute, her wheels off the ground; not
+// the 1,000 ft she was at when the plan's transition began.
+GLIDESLOPE_TEST(an_f35b_taken_back_by_her_pilot_in_a_plans_hover_holds_the_hovers_height) {
+    using namespace glideslope::sim;
+    TransitionFlight f = f35b_level_at(1000.0, 250.0);
+    const FlightPlan plan = parse_flight_plan(
+        "aircraft f35b\n"
+        "start -33.9461 151.1772 1000 70 250\n"
+        "waypoint EAST -33.9122 151.2895 1000 250\n"
+        "land_vertically PAD -33.8629 151.4527 30\n");
+    const Controls pilot = trimmed_controls(*f.a);
+    Controller controller(*f.a, pilot);
+    controller.to_ai(plan);
+    std::optional<double> hovering_from_s;
+    for (int i = 0; i < 20 * 60 * 120; ++i) {
+        apply(*f.a, controller);
+        f.a->step();
+        const Transition* t = controller.transition();
+        if (t && t->stage() == Transition::Stage::hovering && !hovering_from_s) {
+            hovering_from_s = f.a->state().sim_time_s;
+        }
+        if (hovering_from_s && f.a->state().sim_time_s - *hovering_from_s >= 10.0) {
+            break;
+        }
+    }
+    check(hovering_from_s.has_value(), "she never came to the plan's hover");
+    controller.to_pilot();
+    double most_off_ft = 0.0;
+    bool touched = false;
+    for (int i = 0; i < 60 * 120; ++i) {
+        controller.set_pilot(pilot);
+        apply(*f.a, controller);
+        f.a->step();
+        most_off_ft = std::max(most_off_ft, std::abs(f.agl() - 150.0));
+        touched = touched || f.a->property("gear/wow") > 0.5;
+    }
+    std::printf("  taken back at %.0f ft asked: off 150 ft by at most %.2f ft in a minute\n",
+                controller.stovl_height_asked_ft(), most_off_ft);
+    check(controller.transition() != nullptr, "she left STOVL mode with the selector unmoved");
+    check(controller.stovl_height_asked_ft() == 150.0,
+          "the height asked is " + std::to_string(controller.stovl_height_asked_ft()) +
+              " ft, not the hover's 150");
+    check(most_off_ft <= 10.0, "she strayed " + std::to_string(most_off_ft) + " ft from 150");
+    check(!touched, "her wheels touched");
+}
+
+// **Her STOVL selector at its edges, each built and flown**, none throwing:
+//
+//   above 250 KCAS     selected level at 1,000 ft and 270 KCAS, past her
+//                      STOVL clearance: slowed wing-borne first, converted,
+//                      hovering within ten minutes;
+//   below 100 ft       selected level at 60 ft and 200 KCAS: the fan's doors
+//                      begin to open no lower than her least conversion
+//                      height, less the law's 2 ft, and she hovers with her
+//                      wheels off the ground;
+//   on the ground      selected standing: converted where she stands, still
+//                      down 30 s on, and lifted off by the stick;
+//   toggled quickly    at 300 ft and 200 KCAS, the selector thrown every
+//                      half second for twenty seconds, then left at STOVL:
+//                      hovering within ten minutes, her wheels off the ground;
+//   handed to the AI   hovering at 300 ft on the selector, handed to the AI:
+//                      held within 10 ft of it for a minute;
+//   refused above it   STOVL mode put on her at 300 KCAS (sim::put_lift_system):
+//                      flown with the fan's doors closed, not thrown.
+GLIDESLOPE_TEST(the_f35bs_stovl_selector_at_its_edges_is_flown_and_never_throws) {
+    using namespace glideslope::sim;
+    std::size_t cases = 0;
+    std::vector<std::string> failed;
+    const auto fail_if = [&](bool bad, const std::string& what) {
+        if (bad) {
+            failed.push_back(what);
+        }
+    };
+    // Flies `pilot` (changed by `script` each step) through a controller for
+    // up to `seconds`, until `done`; whether it was done.
+    const auto fly = [](Aircraft& a, Controller& c, Controls& pilot, double seconds,
+                        const std::function<void(int)>& script,
+                        const std::function<bool()>& done) {
+        for (int i = 0; i < static_cast<int>(seconds * 120.0); ++i) {
+            script(i);
+            c.set_pilot(pilot);
+            apply(a, c);
+            a.step();
+            if (done()) {
+                return true;
+            }
+        }
+        return false;
+    };
+    const auto hovering = [](const Controller& c) {
+        return c.transition() && c.transition()->stage() == Transition::Stage::hovering;
+    };
+    const auto none = [](int) {};
+    try {
+        {
+            TransitionFlight f = f35b_level_at(1000.0, 270.0);
+            Controls pilot = trimmed_controls(*f.a);
+            Controller c(*f.a, pilot);
+            pilot.stovl = 1.0;
+            const bool ok = fly(*f.a, c, pilot, 600.0, none, [&] { return hovering(c); });
+            fail_if(!ok, "selected above 250 KCAS: not hovering in ten minutes");
+            ++cases;
+        }
+        {
+            TransitionFlight f = f35b_level_at(60.0, 200.0);
+            Controls pilot = trimmed_controls(*f.a);
+            Controller c(*f.a, pilot);
+            pilot.stovl = 1.0;
+            double lowest_converting = 1e9;
+            bool touched = false;
+            const bool ok = fly(*f.a, c, pilot, 600.0, none, [&] {
+                // Where the fan's doors began to open.
+                if (f.conversion() > 0.0 && lowest_converting > 1e8) {
+                    lowest_converting = f.agl();
+                }
+                touched = touched || f.a->property("gear/wow") > 0.5;
+                return hovering(c);
+            });
+            fail_if(!ok, "selected at 60 ft: not hovering in ten minutes");
+            fail_if(lowest_converting < 98.0,
+                    "selected at 60 ft: converting from " + std::to_string(lowest_converting) + " ft");
+            fail_if(touched, "selected at 60 ft: her wheels touched");
+            ++cases;
+        }
+        {
+            auto a = f35b_standing("vertical_landing", 0.0, 0.0);
+            Controls pilot;
+            pilot.gear = 1.0;
+            Controller c(*a, pilot);
+            pilot.stovl = 1.0;
+            fly(*a, c, pilot, 30.0, none, [] { return false; });
+            fail_if(a->property("fcs/stovl-pos-norm") < 1.0,
+                    "selected on the ground: not converted 30 s on");
+            fail_if(a->property("gear/wow") < 0.5, "selected on the ground: not still down");
+            pilot.elevator = 1.0;
+            const bool up = fly(*a, c, pilot, 60.0, none,
+                                [&] { return a->state().height_above_ground_ft > 50.0; });
+            fail_if(!up, "selected on the ground: the stick back did not lift her 50 ft");
+            ++cases;
+        }
+        {
+            TransitionFlight f = f35b_level_at(300.0, 200.0);
+            Controls pilot = trimmed_controls(*f.a);
+            Controller c(*f.a, pilot);
+            bool touched = false;
+            fly(*f.a, c, pilot, 20.0, [&](int i) { pilot.stovl = (i / 60) % 2 == 0 ? 1.0 : 0.0; },
+                [] { return false; });
+            pilot.stovl = 1.0;
+            const bool ok = fly(*f.a, c, pilot, 600.0, none, [&] {
+                touched = touched || f.a->property("gear/wow") > 0.5;
+                return hovering(c);
+            });
+            fail_if(!ok, "toggled quickly: not hovering in ten minutes");
+            fail_if(touched, "toggled quickly: her wheels touched");
+            ++cases;
+        }
+        {
+            TransitionFlight f = f35b_level_at(300.0, 200.0);
+            Controls pilot = trimmed_controls(*f.a);
+            Controller c(*f.a, pilot);
+            pilot.stovl = 1.0;
+            const bool ok = fly(*f.a, c, pilot, 600.0, none, [&] { return hovering(c); });
+            fly(*f.a, c, pilot, 30.0, none, [] { return false; });
+            c.to_ai();
+            double most_off = 0.0;
+            fly(*f.a, c, pilot, 60.0, none, [&] {
+                most_off = std::max(most_off, std::abs(f.agl() - 300.0));
+                return false;
+            });
+            fail_if(!ok, "handed to the AI: never hovering on the selector");
+            fail_if(most_off > 10.0, "handed to the AI: strayed " + std::to_string(most_off) +
+                                         " ft from 300");
+            ++cases;
+        }
+        {
+            TransitionFlight f = f35b_level_at(3000.0, 300.0);
+            LiftSystem lift;
+            lift.stovl = 1.0;
+            const bool as_asked = put_lift_system(*f.a, lift);
+            fail_if(as_asked, "refused above it: put on as asked at 300 KCAS");
+            fail_if(f.a->property("fcs/stovl-cmd-norm") != 0.0,
+                    "refused above it: STOVL mode commanded at 300 KCAS");
+            ++cases;
+        }
+    } catch (const std::exception& e) {
+        failed.push_back(std::string("threw: ") + e.what());
+    }
+    std::string all;
+    for (const std::string& w : failed) {
+        all += "\n    " + w;
+    }
+    std::printf("  %zu of 6 edges flown\n", cases);
+    check(failed.empty(), std::to_string(failed.size()) + " wrong:" + all);
+    check(cases == 6, "every edge was flown: " + std::to_string(cases) + " of 6");
+}
+
