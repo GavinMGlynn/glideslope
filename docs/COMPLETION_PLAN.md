@@ -542,11 +542,11 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       a speed floor to capture it with; the others' climb speeds are not a
       best-rate climb to hold as one. *Verification: the capture test's six
       named aeroplanes within 2 kt, unnamed.*
-- [ ] **The B-2A's and Mosquito's slowest glides are under their plan's
-      slowest.** Their `<glide_speeds>`, 159 and 128 kt, were measured from
-      floors since raised to 169 and 129; a brief already takes the higher,
-      so nothing glides slower, but the figures want measuring again
-      (`glideslope_cli glide-speeds`) and their glide tests renaming.
+- [x] **The B-2A's and Mosquito's slowest glides are under their plan's
+      slowest.** Measured again with `glideslope_cli glide-speeds`: 169 and
+      129 kt, their plan's slowest, and every other aeroplane's figure is
+      what the command writes now; their glide tests are renamed, and a test
+      holds every aeroplane's slowest glide to the first a glide is asked.
       *Verification: each figure is what the command writes now.*
 - [ ] **A plan's first leg strays further since the take-off climbs at the
       published speed.** Climbing at her handbook's Vy rather than the

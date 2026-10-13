@@ -140,14 +140,18 @@
     The fastest, 300 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
-       glide-speeds b2` on 2026-10-07 (linux-release): from the slowest a
+       glide-speeds b2` on 2026-10-13 (linux-release): from the slowest a
        route may fly it up in 5 kt steps, each glided round the tightest
        orbit allowed from 30,000 ft, every engine stopped, clean, both ways
        round (sim::glide_tightest_orbit), until one went round without its
        wing passing the angle its lift peaked at, nor 25 degrees. -->
-  <glide_speeds slowest_kcas="159">
-    159 kt, the slowest a route may fly it, went round unstalled: at 13.6
-    and 13.7 degrees of alpha, where her lift peaked at 13.5 and 13.7.
+  <glide_speeds slowest_kcas="169">
+    169 kt, the slowest a route may fly it, went round unstalled: at 11.8
+    and 11.7 degrees of alpha, where her lift peaked at 11.7 both ways,
+    within the half degree the trial allows past it. It
+    was 159, measured on 2026-10-07 when a route's slowest was 159; since
+    her plan's slowest was raised to 169 (2026-10-10) no glide was asked
+    under it, and the figure is measured again from there.
   </glide_speeds>
 
   <no_landing_distance>

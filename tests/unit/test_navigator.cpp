@@ -1463,7 +1463,7 @@ const std::vector<GlideBand> glide_bands = {
     {"j3cub", Ways::both, 43, 48},
     {"short_s23", Ways::left, 86, 100},
     {"short_s23", Ways::right, 86, 100},
-    {"mosquito-fb6", Ways::both, 128, 148},
+    {"mosquito-fb6", Ways::both, 129, 148},
     {"737-300", Ways::left, 172, 192},
     {"737-300", Ways::left, 197, 217},
     {"737-300", Ways::left, 222, 242},
@@ -1515,10 +1515,10 @@ const std::vector<GlideBand> glide_bands = {
     {"learjet35a", Ways::right, 170, 195},
     {"learjet35a", Ways::right, 200, 225},
     {"learjet35a", Ways::right, 230, 240},
-    {"b2", Ways::left, 159, 179},
+    {"b2", Ways::left, 169, 179},
     {"b2", Ways::left, 184, 204},
     {"b2", Ways::left, 209, 230},
-    {"b2", Ways::right, 159, 179},
+    {"b2", Ways::right, 169, 179},
     {"b2", Ways::right, 184, 204},
     {"b2", Ways::right, 209, 230},
     {"f15c", Ways::left, 170, 185},
@@ -1683,6 +1683,54 @@ GLIDESLOPE_TEST(every_glide_of_every_aircraft_each_way_round_is_flown_by_exactly
           "every glide in exactly one band:" + failures);
 }
 
+// **Every aircraft's slowest glide, each way round, begins a glide test**, and
+// is the slowest a glide may be asked of it: so the band that begins there
+// pins its figures file's `<glide_speeds>` to what `glideslope_cli
+// glide-speeds` measures (glides_in_band), for every aircraft and not only
+// where the figure happens to be the first speed asked. A figure under the
+// slowest a route may fly it is never asked - the brief takes the higher -
+// and so goes unchecked: the B-2A's 159 kt and the Mosquito's 128 were
+// measured from floors since raised to 169 and 129, and stood until
+// 2026-10-13 (PROJECT_STATUS.md).
+GLIDESLOPE_TEST(every_aircrafts_slowest_glide_each_way_round_is_the_first_asked_and_begins_the_glide_test_that_pins_it) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    std::size_t space = 0;
+    std::size_t covered = 0;
+    std::string failures;
+    for (const auto& e : glideslope::sim::read_catalogue(data)) {
+        glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, e.id);
+        const double figure_kts = brief.glide_slowest_kts;
+        const double first_kts = glide_speeds_asked(brief).front();
+        brief.glide_slowest_kts = 0.0;
+        const double routed_kts = std::round(glideslope::copilot::slowest_routed_kts(brief));
+        for (const bool right : {false, true}) {
+            ++space;
+            bool begins = false;
+            for (const GlideBand& b : glide_bands) {
+                const std::vector<bool> w = ways_of(b.ways);
+                begins = begins || (e.id == b.id && b.from_kts == figure_kts &&
+                                    std::find(w.begin(), w.end(), right) != w.end());
+            }
+            const bool asked = std::abs(figure_kts - first_kts) < 0.5 &&
+                               figure_kts > routed_kts - 0.5;
+            covered += begins && asked ? 1U : 0U;
+            if (!asked) {
+                failures += "\n  " + e.id + "'s slowest glide, " + std::to_string(figure_kts) +
+                            " kt, is not the first asked, " + std::to_string(first_kts) +
+                            " (a route's slowest " + std::to_string(routed_kts) + ")";
+            } else if (!begins) {
+                failures += "\n  " + e.id + "'s slowest glide, " + std::to_string(figure_kts) +
+                            " kt, begins no band turning " + (right ? "right" : "left");
+            }
+        }
+    }
+    std::printf("%zu aircraft-ways: %zu with a slowest glide that is asked and begins a band\n",
+                space, covered);
+    check(failures.empty() && covered == space && space > 0,
+          "every slowest glide asked, and pinned by its band:" + failures);
+}
+
 GLIDESLOPE_TEST(the_cessna_172p_glides_round_its_tightest_orbit_from_60_to_75_kt_without_stalling) {
     glides_in_band("c172p", Ways::both, 60);
 }
@@ -1707,8 +1755,8 @@ GLIDESLOPE_TEST(the_short_s23_glides_round_its_tightest_orbit_turning_right_from
     glides_in_band("short_s23", Ways::right, 86);
 }
 
-GLIDESLOPE_TEST(the_mosquito_fb6_glides_round_its_tightest_orbit_from_128_to_148_kt_without_stalling) {
-    glides_in_band("mosquito-fb6", Ways::both, 128);
+GLIDESLOPE_TEST(the_mosquito_fb6_glides_round_its_tightest_orbit_from_129_to_148_kt_without_stalling) {
+    glides_in_band("mosquito-fb6", Ways::both, 129);
 }
 
 GLIDESLOPE_TEST(the_boeing_737_300_glides_round_its_tightest_orbit_turning_left_from_172_to_192_kt_without_stalling) {
@@ -1915,8 +1963,8 @@ GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_fr
     glides_in_band("learjet35a", Ways::right, 230);
 }
 
-GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_159_to_179_kt_without_stalling) {
-    glides_in_band("b2", Ways::left, 159);
+GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_169_to_179_kt_without_stalling) {
+    glides_in_band("b2", Ways::left, 169);
 }
 
 GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_184_to_204_kt_without_stalling) {
@@ -1927,8 +1975,8 @@ GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_209_to
     glides_in_band("b2", Ways::left, 209);
 }
 
-GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_right_from_159_to_179_kt_without_stalling) {
-    glides_in_band("b2", Ways::right, 159);
+GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_right_from_169_to_179_kt_without_stalling) {
+    glides_in_band("b2", Ways::right, 169);
 }
 
 GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_right_from_184_to_204_kt_without_stalling) {
