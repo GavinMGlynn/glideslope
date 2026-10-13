@@ -4240,26 +4240,25 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_second_stall_after_handing_the_first_back
 
 // **Slowed from cruise into a climb, the AI captures the climb speed without
 // sinking past it.** Every aeroplane in the catalogue, at the weight her
-// figures fly her at, in calm air: two minutes level at her catalogue's start
-// speed, then asked for 500 ft/min at her best-climb speed for three minutes.
-// Where that is slower than her cruise, her slowest from then on is no more
-// than 2 kt under it. Until 2026-10-10 a light aeroplane's speed floor
-// (sim/autopilot.cpp) waited for the throttle to reach its stop - opening at
-// a quarter of its travel a second from the idle the slower speed had cut it
-// to - and every light aeroplane sank 4.9 to 6.3 kt through her climb speed,
-// the J-3 Cub to 42.6 under her 47.8 (seen red here). Where her climb speed
-// is not slower than her cruise - a jet asked to speed up into her climb -
-// nothing is captured from above, and she is counted as such.
+// figures fly her at, clean - her gear up - in calm air: two minutes level at
+// her catalogue's start speed, then asked for 500 ft/min at her best-climb
+// speed for three minutes. Where that is slower than her cruise, her slowest
+// from then on is no more than 2 kt under it. Until 2026-10-10 a light
+// aeroplane's speed floor (sim/autopilot.cpp) waited for the throttle to
+// reach its stop - opening at a quarter of its travel a second from the idle
+// the slower speed had cut it to - and every light aeroplane sank 4.9 to 6.3
+// kt through her climb speed, the J-3 Cub to 42.6 under her 47.8 (seen red
+// here). Until 2026-10-13 only a light aeroplane had that capture, and the
+// B-2A, F-15C, F-22A, F-35B, Learjet 35A, Mosquito and Short S.23 sank 2.0
+// to 4.5 kt past (seen red here); now every aeroplane's capture holds the
+// climb back while her throttle comes up. Where her climb speed is not
+// slower than her cruise - a jet asked to speed up into her climb - nothing
+// is captured from above, and she is counted as such.
 //
-// **Named, not yet: the six with no speed floor** - the B-2A, F-15C, F-22A,
-// F-35B, Mosquito and Short S.23, whose climb speeds are not a best-rate
-// climb the autopilot may hold as a floor (sim/autopilot.cpp says why). They
-// sink 2.0 to 6.4 kt past it; each turns this red once it does not.
+// **Her gear up**: until 2026-10-13 the controls she was handed had it down,
+// and every aeroplane whose gear retracts flew the test with it out.
 GLIDESLOPE_TEST(slowed_from_cruise_into_a_climb_every_aeroplane_sinks_no_more_than_2_kt_under_its_climb_speed) {
     constexpr double bound_kts = 2.0;
-    const std::vector<std::string> no_floor = {"b2",   "f15c",         "f22",
-                                               "f35b", "mosquito-fb6", "short_s23"};
-    std::size_t named_flown = 0;
     const auto roster = glideslope::sim::read_catalogue(data());
     std::size_t slowed = 0;
     std::size_t not_slower = 0;
@@ -4270,6 +4269,7 @@ GLIDESLOPE_TEST(slowed_from_cruise_into_a_climb_every_aeroplane_sinks_no_more_th
         InFlight f = airborne(entry.id, stalls_are_practised_at(entry));
         glideslope::sim::Controls held;
         held.throttle = entry.start_throttle;
+        held.gear = 0.0;
         glideslope::sim::Controller controller(*f.aircraft, held);
         controller.to_ai();
         glideslope::sim::AutopilotModes modes = controller.autopilot()->modes();
@@ -4305,15 +4305,7 @@ GLIDESLOPE_TEST(slowed_from_cruise_into_a_climb_every_aeroplane_sinks_no_more_th
             continue;
         }
         ++slowed;
-        const bool sank = slowest < departs.climb_kts - bound_kts;
-        const bool named = std::find(no_floor.begin(), no_floor.end(), entry.id) != no_floor.end();
-        if (named) {
-            ++named_flown;
-            if (!sank) {
-                faults.push_back(entry.id + " is named as sinking past, and did not: take its "
-                                            "name off");
-            }
-        } else if (sank) {
+        if (slowest < departs.climb_kts - bound_kts) {
             char said[200];
             std::snprintf(said, sizeof said, "%s sank to %.1f kt, under her %.1f less %.0f",
                           entry.id.c_str(), slowest, departs.climb_kts, bound_kts);
@@ -4325,8 +4317,6 @@ GLIDESLOPE_TEST(slowed_from_cruise_into_a_climb_every_aeroplane_sinks_no_more_th
     }
     check(faults.empty(), std::to_string(faults.size()) + " sank past; the first: " +
                               (faults.empty() ? "" : faults.front()));
-    check(named_flown == no_floor.size(), "every one named was flown and slowed: " +
-                                              std::to_string(named_flown));
     check(slowed + not_slower == roster.size(),
           "every aeroplane flown: " + std::to_string(slowed) + " slowed and " +
               std::to_string(not_slower) + " not slower, of " + std::to_string(roster.size()));

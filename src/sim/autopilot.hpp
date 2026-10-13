@@ -41,7 +41,11 @@
 // and the aeroplane climbs as far as it can at that speed, or comes down,
 // rather than pitching up into the stall. Only for a light aeroplane, flaps
 // and gear up: the best-climb speed is its own published one, read when the
-// model loads (sim::Aircraft's `climb_floor_kts`).
+// model loads (sim::Aircraft's `climb_floor_kts`). **Every aeroplane has its
+// capture, though**: slowing into a climb faster than her throttle could
+// open to its stop in time, the climb is held back at the speed asked - for
+// a light aeroplane the floor - while the throttle comes up, and let go once
+// she has the climb asked (autopilot.cpp, `capture_only`).
 //
 // **Engaging it steps nothing.** It starts from the controls the aircraft has
 // and the attitude it is in: each integral is set so the first controls it

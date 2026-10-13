@@ -542,11 +542,14 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       settles within 100 ft/min in a minute.* Done 2026-10-13: the throttle
       no longer chases the speed a climb trades for height; all five settle
       in 12 to 32 s.
-- [ ] **A jet, the Mosquito or the S.23 slowed from cruise into her climb
+- [x] **A jet, the Mosquito or the S.23 slowed from cruise into her climb
       sinks 2 to 6.4 kt past her climb speed.** Only a light aeroplane has
       a speed floor to capture it with; the others' climb speeds are not a
       best-rate climb to hold as one. *Verification: the capture test's six
-      named aeroplanes within 2 kt, unnamed.*
+      named aeroplanes within 2 kt, unnamed.* Done 2026-10-13: every
+      aeroplane now holds her climb back while her throttle comes up, as a
+      light aeroplane did; all within 0.9 kt, none named, and the test now
+      flies them with the gear up, which it never had.
 - [x] **The B-2A's and Mosquito's slowest glides are under their plan's
       slowest.** Measured again with `glideslope_cli glide-speeds`: 169 and
       129 kt, their plan's slowest, and every other aeroplane's figure is
