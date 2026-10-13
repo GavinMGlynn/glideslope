@@ -68,6 +68,9 @@ constexpr double aileron_per_degps = 0.02;
 // slower than the roll; never more than a quarter of the travel.
 constexpr double aileron_trim_per_degree = 0.004;
 constexpr double most_aileron_trim = 0.25;
+// The bank asked counts as steady, for that integral, unless it falls
+// towards level faster than this, degrees a second (below).
+constexpr double steady_bank_degps = 0.5;
 constexpr double offset_fade_s = 2.0;
 // The ball to rudder.
 constexpr double rudder_per_degree = 0.1;
@@ -741,6 +744,7 @@ Controls Autopilot::fly() {
     if (upset) {
         bank_wanted = 0.0;
     }
+    const double bank_command_was_deg = bank_command_deg_;
     bank_command_deg_ = toward(bank_command_deg_, bank_wanted,
                                (upset ? upset_roll_rate_degps : bank_rate_degps) * dt);
     // **The bank it is asked for, not one near it**: an integral finds the
@@ -748,20 +752,38 @@ Controls Autopilot::fly() {
     // aileron's error balanced the aeroplane's own roll: a Cessna 182 asked
     // for 25 degrees banked 30 to the left and 25 to the right, and near its
     // ceiling the extra bank's drag cost it the height.
-    // **Only while the bank is at its limit**, which is a limit and must
-    // hold, and once the bank commanded has caught up with the bank wanted -
-    // no longer walking towards it at the roll rate. Rolling in, the bank
-    // lags the command by design, and an integral wound up on that lag
-    // overbanked every turn by 4 degrees, and the 747, 787 and A380 to 29.6
-    // to 29.8 (every_aircraft_turns_ninety_degrees_without_overbanking_or_overshooting). Below the limit the heading loop
-    // closes round the bank, and its own integral trims the roll: this one,
-    // left on there, chased turbulence (a climb in moderate turbulence
-    // settled in 38 s against 30), a stall's wing drop (a flying boat not
-    // recovered from its stall), and an orbit's changing bank in wind (196 m
-    // off the circle against 160). Otherwise it fades out at the rate it was
-    // found.
-    if (std::abs(bank_command_deg_) >= banked_deg &&
-        std::abs(std::abs(bank_wanted) - sustained_bank_deg_) < 0.01 &&
+    // **At any bank turned at** - banked_deg or more asked, not in an upset -
+    // once the bank commanded has caught up with the bank wanted, no longer
+    // walking towards it at the roll rate. Rolling in, the bank lags the
+    // command by design, and an integral wound up on that lag overbanked
+    // every turn by 4 degrees, and the 747, 787 and A380 to 29.6 to 29.8
+    // (every_aircraft_turns_ninety_degrees_without_overbanking_or_overshooting).
+    // **And not wound further against the aileron's stop**: with the aileron
+    // already at full travel the way the error asks, more trim buys nothing
+    // and would have to unwind after. It worked only at the bank limit until
+    // 2026-10-13, and below it every bank asked was held short: asked for 15,
+    // the Cherokee at 74 kt was 4.2 short, the Mosquito, the S.23 and the 182
+    // up to 3 (every_aircraft_asked_for_a_steady_bank_of_15_or_25_degrees_holds_it_within_a_degree),
+    // and a navigator's arc, flown by a bank asked, was flown wide.
+    // **And only while the bank asked is not falling towards level**, faster
+    // than steady_bank_degps: rolling out onto a heading, the bank asked falls
+    // away by several degrees a second, the bank lags it, and an integral
+    // wound up on that lag turned the Mosquito 4.29 degrees past her heading
+    // (3.94 held to a bank moving under 1 degree a second either way; 3.78
+    // under this) against the 3.45 she turned with it at the bank limit alone.
+    // Held to a bank moving either way under this, the loiter law's arc,
+    // whose bank asked moves as it corrects, lost the integral: the Cherokee
+    // strayed 0.092 of her radius off a fly-by turn, against 0.066.
+    // Wings level it is off: there, left on, it chased turbulence (a climb in
+    // moderate turbulence settled in 38 s against 30) and a stall's wing
+    // drop (a flying boat not recovered from its stall). Otherwise it fades
+    // out at the rate it was found.
+    const double bank_error_deg = bank_command_deg_ - phi;
+    const bool at_stop =
+        std::abs(last_.aileron) >= 0.999 && bank_error_deg * last_.aileron > 0.0;
+    const bool steady =
+        std::abs(bank_command_deg_) - std::abs(bank_command_was_deg) > -steady_bank_degps * dt;
+    if (!upset && !at_stop && steady && std::abs(bank_command_deg_) >= banked_deg &&
         std::abs(bank_wanted - bank_command_deg_) < 0.01) {
         aileron_trim_ = std::clamp(
             aileron_trim_ + aileron_trim_per_degree * (bank_command_deg_ - phi) * dt,

@@ -102,6 +102,10 @@ public:
     // for tests of the upset rule.
     double pitch_asked_deg() const { return pitch_command_deg_; }
     double elevator_trim() const { return elevator_trim_; }
+    // The most it will bank now, degrees: 25, or less where a turn at full
+    // throttle has spent what it may (autopilot.cpp). For tests of the bank
+    // hold.
+    double bank_limit_deg() const { return sustained_bank_deg_; }
     // How many steps the elevator's trim has been held from winding nose-up
     // because the wing was seen to stall (autopilot.cpp): for tests.
     long trim_held_steps() const { return trim_held_steps_; }

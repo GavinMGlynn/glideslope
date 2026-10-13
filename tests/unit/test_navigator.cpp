@@ -2120,7 +2120,6 @@ void turns_onto_the_next_leg(const std::vector<AircraftClass>& group) {
         }
     }
     std::size_t flown = 0;
-    std::size_t named_cases = 0;
     std::string failures;
     for (const auto& entry : space) {
         const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(data, entry.model);
@@ -2212,19 +2211,7 @@ void turns_onto_the_next_leg(const std::vector<AircraftClass>& group) {
                           entry.id.c_str(), which.c_str(), kts, asked_kts, true_mps, turned_at_m,
                           past_m, after_m, stray_m / radius_m, radius_m);
             std::fprintf(stderr, "%s\n", line);
-            // **Named, not met: the Cherokee at her climb speed**, 0.142 of
-            // her radius (52 m of 368, 2026-10-13). Asked for a bank she
-            // holds about four fifths of it - 15.7 for 20 - because the
-            // autopilot's aileron integral works only at its bank limit, so
-            // she flies the arc wide and rolls out past the leg. It is the
-            // open item's missing part (COMPLETION_PLAN.md, Phase 10a); held
-            // here to a fifth, so that it cannot grow unseen.
-            const bool named = entry.id == "pa28" && which == "climb";
-            const double within = named ? 0.2 : 0.1;
-            if (named) {
-                ++named_cases;
-            }
-            if (!navigator.finished() || true_mps <= 0.0 || stray_m >= within * radius_m) {
+            if (!navigator.finished() || true_mps <= 0.0 || stray_m >= 0.1 * radius_m) {
                 failures += std::string("\n  ") + line;
             }
             ++flown;
@@ -2236,14 +2223,9 @@ void turns_onto_the_next_leg(const std::vector<AircraftClass>& group) {
     check(!space.empty() && flown == cases,
           "every aircraft of the group at both speeds: " + std::to_string(flown) + " of " +
               std::to_string(cases));
-    const bool has_cherokee =
-        std::any_of(space.begin(), space.end(), [](const auto& e) { return e.id == "pa28"; });
-    check(named_cases == (has_cherokee ? 1u : 0u),
-          "the one case named, the Cherokee at her climb speed, flown where she is in the group: " +
-              std::to_string(named_cases));
     check(failures.empty(),
           "each flew its plan to the end, straying off the next leg less than a tenth of its "
-          "turn radius (the one named, a fifth):" +
+          "turn radius:" +
               failures);
 }
 
