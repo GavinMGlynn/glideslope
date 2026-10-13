@@ -140,24 +140,29 @@
        knots", then "a decelerating approach to a zero airspeed hover at
        150 feet above the runway"; and out of the hover, "accelerating and
        converting back to conventional flight mode". The speed and the
-       height are published; the bounds - the height she may lose, 30 ft,
-       and her attitude, 15 degrees of pitch and 10 of bank - are this
-       project's, and calm air is the only air flown. -->
+       height are published; the bounds - the height she may lose, 10 ft,
+       the height she may rise, 25 ft (the conversion balloons her about
+       20), and her attitude, 15 degrees of pitch and 10 of bank - are this
+       project's. Calm air is the only air flown, and her fuel is frozen at
+       each loading's: a run with it burning is in PROJECT_STATUS. -->
   <figure name="transition_to_hover" flight="transition_to_hover" loading="vertical_landing"
-          fuel_frozen="1" unit="ft" min="0" max="30" altitude_ft="150" speed_kcas="200" seconds="30"
+          fuel_frozen="1" unit="ft" min="0" max="10" altitude_ft="150" speed_kcas="200"
+          most_rise_ft="25" seconds="30"
           most_pitch_deg="15" most_bank_deg="10" most_drift_ft="30">
     From 200 KCAS level at 150 ft to a hover there, at her vertical-landing
     loading, and held 30 s by the hover law; the most height she loses.
   </figure>
 
   <figure name="transition_to_hover_combat" flight="transition_to_hover" loading="combat"
-          fuel_frozen="1" unit="ft" min="0" max="30" altitude_ft="150" speed_kcas="200" seconds="30"
+          fuel_frozen="1" unit="ft" min="0" max="10" altitude_ft="150" speed_kcas="200"
+          most_rise_ft="25" seconds="30"
           most_pitch_deg="15" most_bank_deg="10" most_drift_ft="30">
     The same at her combat loading, 2,220 lb heavier.
   </figure>
 
   <figure name="transition_from_hover" flight="transition_from_hover" loading="vertical_landing"
-          fuel_frozen="1" unit="ft" min="0" max="30" altitude_ft="150" speed_kcas="200"
+          fuel_frozen="1" unit="ft" min="0" max="10" altitude_ft="150" speed_kcas="200"
+          most_rise_ft="25"
           most_pitch_deg="15" most_bank_deg="10">
     Lifted to a hover at 150 ft at her vertical-landing loading, then
     accelerated, converted back at 200 KCAS and flown on wing-borne at it;
@@ -165,7 +170,8 @@
   </figure>
 
   <figure name="transition_from_hover_combat" flight="transition_from_hover" loading="combat"
-          fuel_frozen="1" unit="ft" min="0" max="30" altitude_ft="150" speed_kcas="200"
+          fuel_frozen="1" unit="ft" min="0" max="10" altitude_ft="150" speed_kcas="200"
+          most_rise_ft="25"
           most_pitch_deg="15" most_bank_deg="10">
     The same at her combat loading, 2,220 lb heavier.
   </figure>

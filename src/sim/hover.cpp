@@ -65,7 +65,8 @@ Hover::Hover(const Aircraft& aircraft, Pace pace) : a_(aircraft), pace_(pace) {
     last_.controls.gear = 1.0;
 }
 
-Hover::Hover(const Aircraft& aircraft, const Command& flying) : Hover(aircraft, Pace{}) {
+Hover::Hover(const Aircraft& aircraft, const Command& flying)
+    : Hover(aircraft, Pace{}) {
     last_ = flying;
     throttle_integral_ = std::clamp(flying.controls.throttle, 0.0, stovl_throttle_);
     fan_integral_ = std::clamp(flying.lift.fan, -0.5, 0.5);

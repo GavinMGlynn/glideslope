@@ -3,6 +3,8 @@
 #include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
 #include "sim/hover.hpp"
+#include "sim/learnt.hpp"
+#include "sim/transition.hpp"
 #include "sim/lander.hpp"
 #include "sim/weather.hpp"
 
@@ -327,21 +329,26 @@ GLIDESLOPE_TEST(the_f35b_lands_vertically_from_a_hover_under_6_ft_a_second) {
 // **She converts between wing-borne flight and a hover, both ways**, at her
 // vertical-landing and her combat loadings (sim/transition.hpp): from 200
 // KCAS level at 150 ft to a hover there, as BF-1's first hover was flown,
-// and from the hover back to 200 KCAS converted; never losing more than 30
-// ft nor passing 15 degrees of pitch or 10 of bank, nor touching the ground.
-GLIDESLOPE_TEST(the_f35b_slows_from_200_kt_level_to_a_hover_at_150_ft_within_30_ft_and_her_attitudes) {
+// and from the hover back to 200 KCAS converted; never losing more than 10
+// ft nor rising more than 25, nor passing 15 degrees of pitch or 10 of bank,
+// nor touching the ground.
+GLIDESLOPE_TEST(
+    the_f35b_slows_from_200_kt_level_to_a_hover_at_150_ft_within_10_ft_and_her_attitudes) {
     expect_figure("f35b", "transition_to_hover");
 }
 
-GLIDESLOPE_TEST(the_f35b_slows_to_a_hover_at_her_combat_weight_within_30_ft_and_her_attitudes) {
+GLIDESLOPE_TEST(
+    the_f35b_slows_to_a_hover_at_her_combat_weight_within_10_ft_and_her_attitudes) {
     expect_figure("f35b", "transition_to_hover_combat");
 }
 
-GLIDESLOPE_TEST(the_f35b_accelerates_from_a_hover_to_200_kt_and_converts_back_within_30_ft_and_her_attitudes) {
+GLIDESLOPE_TEST(
+    the_f35b_accelerates_from_a_hover_to_200_kt_and_converts_back_within_10_ft_and_her_attitudes) {
     expect_figure("f35b", "transition_from_hover");
 }
 
-GLIDESLOPE_TEST(the_f35b_accelerates_out_of_a_hover_at_her_combat_weight_within_30_ft_and_her_attitudes) {
+GLIDESLOPE_TEST(
+    the_f35b_accelerates_out_of_a_hover_at_her_combat_weight_within_10_ft_and_her_attitudes) {
     expect_figure("f35b", "transition_from_hover_combat");
 }
 
@@ -1411,4 +1418,262 @@ GLIDESLOPE_TEST(the_f35b_hovers_in_every_wind_to_20_kt_from_every_side_at_two_we
         all += "\n    " + n;
     }
     check(not_held.empty(), std::to_string(not_held.size()) + " not held:" + all);
+}
+
+namespace {
+
+// **Her transitions asked to change their minds** (sim/transition.hpp), each
+// flown on one aircraft at her vertical-landing loading over flat ground in
+// calm air, watched every step: the most she sinks below and rises above the
+// height asked, her pitch and bank, and whether her wheels touch.
+struct TransitionFlight {
+    std::unique_ptr<glideslope::sim::Aircraft> a;
+    std::unique_ptr<glideslope::sim::Transition> t;
+    double height_ft = 150.0;
+    double most_lost_ft = 0.0;
+    double most_risen_ft = 0.0;
+    double most_pitch_deg = 0.0;
+    double most_bank_deg = 0.0;
+    bool touched = false;
+    int steps = 0;
+
+    double conversion() const {
+        return a->property("fcs/stovl-pos-norm");
+    }
+    double kcas() const {
+        return a->property("velocities/vc-kts");
+    }
+    double agl() const {
+        return a->state().height_above_ground_ft;
+    }
+    glideslope::sim::Transition::Stage stage() const {
+        return t->stage();
+    }
+
+    void step(const glideslope::sim::Transition::Target& target) {
+        const glideslope::sim::Hover::Command c = t->step(target);
+        a->set_lift_system(c.lift);
+        a->set_controls(c.controls);
+        a->step();
+        ++steps;
+        const glideslope::sim::AircraftState s = a->state();
+        most_lost_ft = std::max(most_lost_ft, height_ft - s.height_above_ground_ft);
+        most_risen_ft = std::max(most_risen_ft, s.height_above_ground_ft - height_ft);
+        most_pitch_deg = std::max(most_pitch_deg, std::abs(s.pitch_deg));
+        most_bank_deg = std::max(most_bank_deg, std::abs(s.roll_deg));
+        touched = touched || a->property("gear/wow") > 0.5;
+    }
+
+    // Flies `target` until `done` holds, at most `seconds`; whether it did.
+    template <typename Done>
+    bool until(const glideslope::sim::Transition::Target& target, double seconds,
+               Done done) {
+        for (int i = 0; i < static_cast<int>(seconds * 120.0); ++i) {
+            step(target);
+            if (done()) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void fly(const glideslope::sim::Transition::Target& target, double seconds) {
+        for (int i = 0; i < static_cast<int>(seconds * 120.0); ++i) {
+            step(target);
+        }
+    }
+
+    // Her attitudes within 15 degrees of pitch and 10 of bank, her wheels off
+    // the ground, and she no more than 10 ft below the height asked.
+    void within_bounds(const std::string& what) const {
+        check(!touched, what + ": her wheels touched");
+        check(most_pitch_deg <= 15.0,
+              what + ": her pitch reached " + std::to_string(most_pitch_deg));
+        check(most_bank_deg <= 10.0,
+              what + ": her bank reached " + std::to_string(most_bank_deg));
+        check(most_lost_ft <= 10.0,
+              what + ": she sank " + std::to_string(most_lost_ft) + " ft");
+        std::printf("  %s: lost %.2f ft, rose %.2f ft, pitch %.2f, bank %.2f, %.1f s\n",
+                    what.c_str(), most_lost_ft, most_risen_ft, most_pitch_deg,
+                    most_bank_deg, steps / 120.0);
+    }
+};
+
+// Level at `height_ft` over flat ground at `kcas`, trimmed, the transition
+// law taking her as she is.
+TransitionFlight f35b_level_at(double height_ft, double kcas) {
+    using namespace glideslope::sim;
+    const PublishedFigures figures = read_published_figures(figures_file("f35b"));
+    TransitionFlight f;
+    f.height_ft = height_ft;
+    f.a = std::make_unique<Aircraft>(data_dir, "f35b");
+    f.a->load(figures.loadings.at("vertical_landing").loading);
+    InitialConditions ic;
+    ic.latitude_deg = -33.9461;
+    ic.longitude_deg = 151.1772;
+    ic.heading_deg = 70.0;
+    ic.altitude_ft = height_ft;
+    ic.terrain_elevation_ft = 0.0;
+    ic.airspeed_kts = kcas;
+    ic.gear = 0.0;
+    ic.trim = true;
+    f.a->initialize(ic);
+    f.a->freeze_fuel(true);
+    Hover::Command flying;
+    flying.controls = trimmed_controls(*f.a);
+    f.t = std::make_unique<Transition>(*f.a, flying);
+    return f;
+}
+
+// Standing on flat ground, lifted by the transition law's hover to
+// `height_ft` and settled there 30 s.
+TransitionFlight f35b_hovering_at(double height_ft) {
+    using namespace glideslope::sim;
+    TransitionFlight f;
+    f.height_ft = height_ft;
+    f.a = f35b_standing("vertical_landing", 0.0, 0.0);
+    f.a->freeze_fuel(true);
+    f.t = std::make_unique<Transition>(*f.a, Hover::Command{});
+    int settled = 0;
+    const bool up = f.until({true, height_ft, 200.0}, 180.0, [&] {
+        settled = std::abs(f.agl() - height_ft) < 2.0 ? settled + 1 : 0;
+        return settled == 30 * 120;
+    });
+    check(up, "not hovering at " + std::to_string(height_ft) +
+                  " ft three minutes after lifting");
+    f.most_lost_ft = f.most_risen_ft = f.most_pitch_deg = f.most_bank_deg = 0.0;
+    f.touched = false;
+    f.steps = 0;
+    return f;
+}
+
+} // namespace
+
+// **Asked back to wing-borne flight half-way through converting to a
+// hover**, she closes the fan's doors from where they are - they open no
+// further - and flies on wing-borne at 200 KCAS: converted back within 10 s
+// of the ask, and a minute later within 5 kt of 200 and 10 ft of 150.
+GLIDESLOPE_TEST(
+    the_f35b_asked_back_to_wing_borne_half_way_through_converting_closes_the_fan_and_flies_on_at_200_kt) {
+    using namespace glideslope::sim;
+    TransitionFlight f = f35b_level_at(150.0, 200.0);
+    check(f.until({true, 150.0, 200.0}, 60.0, [&] { return f.conversion() >= 0.5; }),
+          "not half converted a minute after a hover was asked");
+    const double at_ask = f.conversion();
+    double most_open = at_ask;
+    const bool back = f.until({false, 150.0, 200.0}, 10.0, [&] {
+        most_open = std::max(most_open, f.conversion());
+        return f.stage() == Transition::Stage::wing_borne && f.conversion() <= 0.0;
+    });
+    check(most_open <= at_ask + 0.01, "the fan's doors opened on to " +
+                                          std::to_string(most_open) + " from " +
+                                          std::to_string(at_ask));
+    check(back, "not converted back 10 s after the ask: stage " +
+                    std::to_string(static_cast<int>(f.stage())) + ", conversion " +
+                    std::to_string(f.conversion()));
+    f.fly({false, 150.0, 200.0}, 60.0);
+    check(f.stage() == Transition::Stage::wing_borne, "not wing-borne a minute on");
+    check(std::abs(f.kcas() - 200.0) <= 5.0,
+          "at " + std::to_string(f.kcas()) + " KCAS a minute on");
+    check(std::abs(f.agl() - 150.0) <= 10.0,
+          "at " + std::to_string(f.agl()) + " ft a minute on");
+    f.within_bounds("asked back half converted");
+}
+
+// **Asked for a hover again half-way through converting back**, she opens
+// the fan's doors again, slows and hovers at 150 ft: hovering within four
+// minutes of the second ask, held 30 s.
+GLIDESLOPE_TEST(
+    the_f35b_asked_for_a_hover_again_half_way_through_converting_back_hovers_at_150_ft) {
+    using namespace glideslope::sim;
+    TransitionFlight f = f35b_hovering_at(150.0);
+    check(f.until({false, 150.0, 200.0}, 180.0,
+                  [&] {
+                      return f.stage() == Transition::Stage::converting &&
+                             f.conversion() <= 0.5;
+                  }),
+          "not half converted back three minutes after wing-borne flight was asked");
+    const bool hovering = f.until({true, 150.0, 200.0}, 240.0, [&] {
+        return f.stage() == Transition::Stage::hovering;
+    });
+    check(hovering,
+          "not hovering four minutes after the hover was asked again: stage " +
+              std::to_string(static_cast<int>(f.stage())));
+    f.fly({true, 150.0, 200.0}, 30.0);
+    check(f.stage() == Transition::Stage::hovering, "not hovering 30 s on");
+    check(std::abs(f.agl() - 150.0) <= 10.0,
+          "at " + std::to_string(f.agl()) + " ft 30 s on");
+    f.within_bounds("hover asked again converting back");
+}
+
+// **Asked for wing-borne flight slower than her conversion speed**, at 150
+// KCAS, she gathers speed to her conversion speed, 200 KCAS, converts back
+// there and is held there: the slower part of the ask is refused
+// (sim/transition.hpp says why). The conversion back begun no slower than
+// 199 KCAS, and two minutes after it she is wing-borne within 5 kt of 200
+// and 10 ft of 150 ft.
+GLIDESLOPE_TEST(
+    the_f35b_asked_for_wing_borne_flight_at_150_kt_converts_back_at_200_and_is_held_there) {
+    using namespace glideslope::sim;
+    TransitionFlight f = f35b_hovering_at(150.0);
+    double began_kcas = 0.0;
+    check(f.until({false, 150.0, 150.0}, 180.0,
+                  [&] {
+                      began_kcas = f.kcas();
+                      return f.conversion() < 1.0;
+                  }),
+          "not converting back three minutes after wing-borne flight at 150 KCAS was "
+          "asked");
+    check(began_kcas >= 199.0,
+          "converting back begun at " + std::to_string(began_kcas) + " KCAS");
+    f.fly({false, 150.0, 150.0}, 120.0);
+    check(f.stage() == Transition::Stage::wing_borne && f.conversion() <= 0.0,
+          "not wing-borne two minutes on");
+    check(std::abs(f.kcas() - 200.0) <= 5.0,
+          "at " + std::to_string(f.kcas()) + " KCAS two minutes on");
+    check(std::abs(f.agl() - 150.0) <= 10.0,
+          "at " + std::to_string(f.agl()) + " ft two minutes on");
+    f.within_bounds("wing-borne asked at 150 KCAS");
+}
+
+// **She converts no lower than her model's least conversion height**
+// (`fcs/stovl-convert-least-ft`, 100 ft; tools/make_f35b.py), either way.
+// Asked from 200 KCAS at 50 ft for a hover at 50 ft, she climbs to it before
+// the fan's doors open, then lets down to 50 ft jet-borne and hovers there;
+// asked from that hover for wing-borne flight at 50 ft, she climbs to it
+// before they close, and lets down wing-borne after.
+GLIDESLOPE_TEST(the_f35b_converts_no_lower_than_100_ft_either_way_when_asked_at_50_ft) {
+    using namespace glideslope::sim;
+    TransitionFlight f = f35b_level_at(50.0, 200.0);
+    const double least = f.a->property("fcs/stovl-convert-least-ft");
+    check(least == 100.0,
+          "her least conversion height is " + std::to_string(least) + " ft, not 100");
+    double lowest_open = 1e9;
+    const bool hovering = f.until({true, 50.0, 200.0}, 300.0, [&] {
+        if (f.conversion() > 0.0 && f.conversion() < 1.0) {
+            lowest_open = std::min(lowest_open, f.agl());
+        }
+        return f.stage() == Transition::Stage::hovering;
+    });
+    check(hovering, "not hovering five minutes after a hover at 50 ft was asked");
+    check(lowest_open >= least - 2.0,
+          "the fan's doors opened at " + std::to_string(lowest_open) + " ft");
+    f.fly({true, 50.0, 200.0}, 60.0);
+    check(std::abs(f.agl() - 50.0) <= 5.0,
+          "hovering at " + std::to_string(f.agl()) + " ft, not 50");
+    double lowest_closing = 1e9;
+    const bool back = f.until({false, 50.0, 200.0}, 300.0, [&] {
+        if (f.conversion() > 0.0 && f.conversion() < 1.0) {
+            lowest_closing = std::min(lowest_closing, f.agl());
+        }
+        return f.stage() == Transition::Stage::wing_borne && f.conversion() <= 0.0;
+    });
+    check(back,
+          "not wing-borne five minutes after wing-borne flight at 50 ft was asked");
+    check(lowest_closing >= least - 2.0,
+          "the fan's doors closed at " + std::to_string(lowest_closing) + " ft");
+    f.fly({false, 50.0, 200.0}, 120.0);
+    check(std::abs(f.agl() - 50.0) <= 10.0,
+          "at " + std::to_string(f.agl()) + " ft two minutes on, not 50");
+    f.within_bounds("asked at 50 ft");
 }

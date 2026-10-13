@@ -90,8 +90,9 @@ struct InitialConditions {
 // **A STOVL aeroplane's lift system** - the F-35B's lift fan, roll posts and
 // swivelling nozzle (tools/make_f35b.py) - as its flight controls take it.
 // Not yet part of Controls, and so not sent by a client: only the hover
-// and transition control laws (sim/hover.hpp, sim/transition.hpp) set it. Its positions are flight-control
-// properties, and so are in a replay's state like every other.
+// and transition control laws (sim/hover.hpp, sim/transition.hpp) set it.
+// Its positions are flight-control properties, and so are in a replay's
+// state like every other.
 struct LiftSystem {
     double stovl = 0.0;      // 1 converts to STOVL mode, 0 back
     double nozzle_deg = 0.0; // the nozzle swivelled down, 0 to 95

@@ -226,6 +226,29 @@ STOVL_LIMIT_KCAS = 288.0 / 1.150779
 # knots "before accelerating and converting back to conventional flight
 # mode" - and is taken as the same.
 STOVL_CONVERT_KCAS = 200.0
+# **How the transition law flies her between them** (sim/transition.hpp),
+# estimated, as nothing published gives them: how fast she slows to a hover
+# and gathers speed out of one jet-borne, knots a second - 2 takes her from
+# 200 knots to a hover in 100 s, Code One giving the sequence and the speeds
+# but not the time; the attitude she gathers speed toward by her conversion
+# speed, low so that her jets carry more of her and the throttle that holds
+# her height gives her thrust enough (at 8 degrees she stuck at 195 KCAS, at
+# 11.5 at 166); and the least height above the ground she converts at either
+# way. Code One's conversions were flown at 5,000 ft, and at 200 knots before
+# a decelerating approach to a hover at 150 ft; no least height is published.
+# 100 ft is ten times the most the transitions measured here may sink (10 ft,
+# their tests' bound) and five times what the conversion balloons her (about
+# 20 ft): her conversion's height excursions are kept well clear of the
+# ground.
+TRANSITION_SLOW_KT_S = 2.0
+TRANSITION_GATHER_KT_S = 3.0
+TRANSITION_GATHERING_PITCH_DEG = 4.0
+STOVL_CONVERT_LEAST_FT = 100.0
+# Her wing's lift slope at her conversion speed (about Mach 0.3 at sea
+# level), a radian, the slope her lift table is written with (lift_table):
+# from which the transition law reckons the attitude she flies wing-borne at
+# her conversion speed for what she weighs.
+TRANSITION_MACH = 0.3
 # Estimated, as nothing published gives them: the fan's centre, behind the
 # cockpit; the posts, as far out in the wings as their structure allows;
 # the time the doors take to open and the fan to clutch in; how far the fan's
@@ -459,6 +482,18 @@ def lift_system():
     out += f"        <property value=\"{STOVL_LIMIT_KCAS:.0f}\">fcs/stovl-limit-kcas</property>\n"
     # And the speed the transition law converts her at (sim/transition.hpp).
     out += f"        <property value=\"{STOVL_CONVERT_KCAS:.0f}\">fcs/stovl-convert-kcas</property>\n"
+    # And the rest of what it reads of her: the nozzle's and the fan's vane
+    # box's travel, its estimated rates, attitude and least height, and her
+    # wing's lift slope at her conversion speed.
+    for name, value in (("nozzle-max-deg", f"{NOZZLE_MAX_DEG:.1f}"), ("fan-min-deg", f"{FAN_MIN_DEG:.2f}"),
+                        ("fan-max-deg", f"{FAN_MAX_DEG:.1f}"),
+                        ("transition-slow-kt-per-s", f"{TRANSITION_SLOW_KT_S:.1f}"),
+                        ("transition-gather-kt-per-s", f"{TRANSITION_GATHER_KT_S:.1f}"),
+                        ("transition-gathering-pitch-deg", f"{TRANSITION_GATHERING_PITCH_DEG:.1f}"),
+                        ("stovl-convert-least-ft", f"{STOVL_CONVERT_LEAST_FT:.0f}"),
+                        ("transition-lift-slope-per-rad",
+                         f"{fighter.lift_slope(TRANSITION_MACH, ASPECT, SWEEP_QUARTER_CHORD):.4f}")):
+        out += f"        <property value=\"{value}\">fcs/{name}</property>\n"
     out += "        <channel name=\"LiftSystem\">\n"
     out += written.kinematic("Conversion", "fcs/stovl-cmd-norm", [0, 1], [0, CONVERSION_S], "fcs/stovl-pos-norm")
     out += fn("STOVL Throttle",
