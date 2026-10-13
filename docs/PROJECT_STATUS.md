@@ -331,8 +331,9 @@ speed from her catalogue start speed; slowest from then on, before -> after):
 | C172P, C182, J-3 Cub, PA-28 | 75.4, 82.0, 47.8, 73.9 | 74.1, 81.3, 47.8, 72.7 | the same |
 
 The 737-300, 787-8, A320 and A380 climb faster than their cruise and are
-counted as not slowed. The Learjet passed the old test only because she flew
-it gear down (238.1).
+counted as not slowed. The "before" column is the old code flown clean, as
+the test now flies it. The Learjet passed the old test only because it flew
+her gear down: 238.1 there, inside the 2 kt, against 237.2 clean.
 
 **Tests**:
 - `slowed_from_cruise_into_a_climb_every_aeroplane_sinks_no_more_than_2_kt_under_its_climb_speed`:
@@ -345,7 +346,8 @@ it gear down (238.1).
   without - the B-2A, F-15C, F-22A, F-35B and J-3 Cub), counted, the F-22A
   by name. **Seen red** with the finding inverted: "737-300's flaps answer
   the lever, and her model is found not to read one".
-- **The broad run** (linux-release, `ctest -j4`, DISPLAY unset): every
+- **The broad run - a subset chosen by name, not the full suite**
+  (linux-release, `ctest -j4`, DISPLAY unset): every
   in-process unit test whose name speaks of a climb, a take-off, a first leg,
   a departure, an orbit, a glide, a plan, a hand-over, a ceiling, the
   autopilot, a height, turbulence, a gust, a stall, a turn, a cruise, a
@@ -358,6 +360,26 @@ it gear down (238.1).
 
 **The selftest hash does not move**, `182dd6c996e0ee4c`: its C172P has a
 floor, and no flaps her lever does not move.
+
+**The flap lever's detection is a substring match.** `flap_lever_of`
+(sim/aircraft.cpp) calls a model's flaps a lever's when any data line of
+the model, or of a system file it names, contains `fcs/flap-cmd-norm`. A
+comment, a property merely declared, or a lever read by something other
+than the flaps would be taken for one, and a lever read under another name
+missed. It is right for all sixteen today, and the new test flies each to
+check it; an aircraft added where it is wrong turns that test red.
+
+**Found on the way, a new open item in Phase 14b: many airborne tests fly
+gear-down without meaning to.** `Controls::gear` defaults to 1, so a test
+that hands a controller or autopilot default controls lowers the gear of
+every aircraft whose gear retracts, whatever its initial conditions said.
+The capture test was one (fixed here). The reviewer of #178 found the same
+in tests/unit/test_lesson.cpp at about lines 3884, 3994, 4253, 4494, 4603,
+4796, 4935, 5130, 8323 and 8688, the landing tests at about 2225, 7264 and
+7443 (where gear down may be meant), and about 100 more `Controls`
+declarations in the other test files. Each needs its gear stated - the
+helper starting it as the aircraft starts - and an audit naming those that
+mean it down; their figures may move when it is.
 
 ### From the review of #179: the thrust split never NaN, each flaperon's droop and roll held to its travel; her short take-off 592.5 ft, 2026-10-13 — item done
 
