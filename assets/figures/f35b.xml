@@ -17,8 +17,8 @@
 
   **Her lift system is modelled** (tools/make_f35b.py): its hover thrust is
   Pratt & Whitney's, and she hovers and lands vertically on the hover
-  control law (src/sim/hover.hpp). Her short take-off is not yet flown, and
-  no short take-off distance is listed.
+  control law (src/sim/hover.hpp). Her short take-off is flown and measured
+  (short_takeoff, below), longer than the 600 ft her requirement asks.
 -->
 <!--
   **touchdown_fpm** is the sink the AI's flare brings the wheels to the
@@ -55,19 +55,40 @@
     <tank index="1" lbs="6550"/>
   </loading>
 
+  <!-- **Her short take-off and vertical landing requirement**, the
+       Department of Defense's F-35 Selected Acquisition Report of December
+       2014, the STOVL key performance parameter's threshold: "With two 1000#
+       JDAMs and two internal AIM-120s, full expendables, execute a 600 foot
+       ... STO from LHA, LHD, and aircraft carriers (sea level, tropical day,
+       10 kts operational WOD) and with a combat radius of 450 nm (STOVL
+       profile). Also must perform STOVL vertical landing with two 1000#
+       JDAMs and two internal AIM-120s, full expendables, and fuel to fly the
+       STOVL Recovery profile." Its current estimate: 569 ft, "fuel to fly
+       456nm". -->
+
   <!-- 37,530 lb: the empty weight, 32,300 lb (Fast Facts); the pilot, 230
-       lb; and 5,000 lb of fuel and weapons - two AIM-120s, 670 lb, and 4,330
-       lb of fuel. **No vertical-landing weight is published** in any
-       document this project could read (searched 2026-10-10): secondary
-       pages quote a 5,000 lb "Vertical Lift Bring Back" of fuel and weapons
-       from the STOVL requirement, but name no source this project could
-       read, so the weight is this project's choice, not a published figure.
-       It leaves Pratt & Whitney's hover thrust 8 per cent over the weight. -->
+       lb; the requirement's stores, two 1,000 lb JDAMs and two AIM-120s,
+       2,670 lb; and 2,330 lb of fuel. **The fuel is this project's**: the
+       recovery profile's fuel is not published, so no vertical-landing
+       weight is. 2,330 lb makes 5,000 lb of fuel and weapons, the "Vertical
+       Lift Bring Back" secondary pages quote with no source this project
+       could read; it leaves Pratt & Whitney's hover thrust 8 per cent over
+       the weight. -->
   <loading name="vertical_landing" total_lbs="37530">
     <pointmass index="0" lbs="230"/>
-    <pointmass index="1" lbs="670"/>
-    <tank index="0" lbs="2165"/>
-    <tank index="1" lbs="2165"/>
+    <pointmass index="1" lbs="2670"/>
+    <tank index="0" lbs="1165"/>
+    <tank index="1" lbs="1165"/>
+  </loading>
+
+  <!-- 48,300 lb: the empty weight, the pilot, the requirement's stores and
+       all 13,100 lb of internal fuel - the fuel for its 450 nm radius, which
+       the product card gives as the radius on internal fuel. -->
+  <loading name="short_takeoff" total_lbs="48300">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="2670"/>
+    <tank index="0" lbs="6550"/>
+    <tank index="1" lbs="6550"/>
   </loading>
 
   <figure name="hover_thrust" flight="hover_thrust" loading="full" fuel_frozen="1"
@@ -101,6 +122,26 @@
     held under 6 ft/s (360 ft/min), the touchdown criterion this file's
     touchdown_fpm cites, and the point it rose from within 30 ft. No F-35B
     vertical landing sink is published.
+  </figure>
+
+  <figure name="short_takeoff" flight="short_takeoff" from="measured" loading="short_takeoff"
+          fuel_frozen="1" unit="ft" value="877.6" tolerance_percent="5" temperature_offset_c="17.1"
+          headwind_kt="10" roll_deg="42" lift_deg="52" rotate_kcas="60" takeoff_pitch_deg="15">
+    **Measured, not published - and short of the requirement above, which
+    is 600 ft (its estimate 569).** Flown at sea level on a tropical day -
+    89.8 F, 17.1 C warmer than standard (MIL-STD-210A's tropical atmosphere, 549.5 R at sea level, as Public Domain Aeronautical Software tabulates it)
+    - into 10 kt: converted at idle on the brakes, the nozzle and the fan's
+    thrust 42 degrees from straight aft (the fan's vane box goes no further
+    aft); the brakes off and full STOVL power; at 60 KCAS both swung to 52
+    degrees and the nose raised to 15 on the stabilator and the fan's share;
+    the ground from the brakes' release to the wheels leaving it, and she
+    climbs on to 50 ft. Swept on 2026-10-13 over the swing's speed (50 to 90
+    KCAS), its angle (46 to 90) and the attitude (10 to 18): 15 degrees is
+    held as the most her tail is taken to allow, which nothing publishes
+    (Raymer's 15-degree tipback, tools/make_f35b.py); at 18 she leaves in
+    756 ft. What her model lacks for the rest is named in COMPLETION_PLAN.md:
+    the flaperons drooped for a short take-off, the thrust split between fan
+    and nozzle that pitches her, and the fan's own lift on the roll.
   </figure>
 
   <figure name="maximum_mach" fuel_frozen="1" flight="best_level_mach" loading="combat"

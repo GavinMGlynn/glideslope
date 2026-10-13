@@ -95,6 +95,7 @@ struct InitialConditions {
 struct LiftSystem {
     double stovl = 0.0;      // 1 converts to STOVL mode, 0 back
     double nozzle_deg = 0.0; // the nozzle swivelled down, 0 to 95
+    double fan_deg = 90.0;   // the fan's thrust from straight aft, 41.75 to 104: 90 straight down
     double fan = 0.0;        // -1..1, the fan's thrust either side of its share: 1 nose up
     double roll_post = 0.0;  // -1..1, the posts' air sent to one side: 1 right wing down
     double nozzle_yaw = 0.0; // -1..1, the nozzle swivelled sideways: 1 nose right

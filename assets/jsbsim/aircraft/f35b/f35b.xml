@@ -355,6 +355,7 @@
         <property value="0">fcs/lift-fan-cmd-norm</property>
         <property value="0">fcs/roll-post-cmd-norm</property>
         <property value="0">fcs/nozzle-yaw-cmd-norm</property>
+        <property value="90">fcs/fan-cmd-deg</property>
         <channel name="LiftSystem">
             <kinematic name="Conversion">
                 <input>fcs/stovl-cmd-norm</input>
@@ -429,6 +430,28 @@
                 <clipto><min>-1</min><max>1</max></clipto>
                 <output>fcs/nozzle-yaw-pos-norm</output>
             </pure_gain>
+            <actuator name="Fan Vanes">
+                <input>fcs/fan-cmd-deg</input>
+                <rate_limit>40.0</rate_limit>
+                <clipto><min>41.75</min><max>104.0</max></clipto>
+                <output>fcs/fan-pos-deg</output>
+            </actuator>
+            <fcs_function name="Fan X">
+                <function>
+                    <product>
+                        <value>1</value><cos><product><property>fcs/fan-pos-deg</property><value>0.017453292520</value></product></cos>
+                    </product>
+                </function>
+                <output>external_reactions/lift-fan/x</output>
+            </fcs_function>
+            <fcs_function name="Fan Z">
+                <function>
+                    <product>
+                        <value>-1</value><sin><product><property>fcs/fan-pos-deg</property><value>0.017453292520</value></product></sin>
+                    </product>
+                </function>
+                <output>external_reactions/lift-fan/z</output>
+            </fcs_function>
             <fcs_function name="Lift Fan">
                 <function>
                     <product>

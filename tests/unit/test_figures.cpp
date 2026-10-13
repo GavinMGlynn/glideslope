@@ -321,6 +321,14 @@ GLIDESLOPE_TEST(the_f35b_lands_vertically_from_a_hover_under_6_ft_a_second) {
     expect_figure("f35b", "vertical_landing");
 }
 
+// **Her short take-off is measured, and is longer than her requirement's 600
+// ft**: the model's own, held so that it still does what it did
+// (assets/figures/f35b.xml says what it lacks). Seen to fail with the fan's
+// thrust held straight down.
+GLIDESLOPE_TEST(the_f35b_takes_off_short_in_the_distance_her_own_model_gave) {
+    expect_figure("f35b", "short_takeoff");
+}
+
 GLIDESLOPE_TEST(the_b2_flies_at_high_subsonic_speed) {
     expect_figure("b2", "high_subsonic_speed");
 }

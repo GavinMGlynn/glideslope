@@ -175,7 +175,7 @@ licence checked.
 | Airbus A380-841 | Airliner | Written here from Airbus's and the certifying authorities' documents |
 | McDonnell Douglas F-15C Eagle | Fighter | Held to the Air Force's figures: Mach, climb, ceiling, turn rate |
 | Lockheed Martin F-22A Raptor | Fighter | Held to the Department of Defense's figures |
-| Lockheed Martin F-35B Lightning II | Fighter | Written here from what is published; her lift system hovers and lands her vertically, and her short take-off is not yet flown |
+| Lockheed Martin F-35B Lightning II | Fighter | Written here from what is published; her lift system hovers and lands her vertically; her short take-off is longer than her requirement's |
 | Northrop Grumman B-2A Spirit | Bomber | Written here from what is published, and no more |
 
 ```sh
