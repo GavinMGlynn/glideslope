@@ -648,6 +648,50 @@
 
  <channel name="Force Z (up)">
 
+  <fcs_function name="hydro/glideslope/keel-immersion-ft">
+   <description>glideslope: how deep the lowest point of the keel is in the
+    water, negative where it is clear; see tools/make_short_s23.py.</description>
+   <function>
+    <difference>
+     <max>
+      <sum><!-- KEEL_FORWARD -->
+       <product><value>6.004</value><cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos></product>
+       <product><value>-14.698</value><sin><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></sin></product>
+      </sum>
+      <sum><!-- KEEL_STEP -->
+       <product><value>6.004</value><cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos></product>
+       <product><value>5.971</value><sin><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></sin></product>
+      </sum>
+      <sum><!-- KEEL_AFT -->
+       <product><value>1.870</value><cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos></product>
+       <product><value>27.625</value><sin><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></sin></product>
+      </sum>
+     </max>
+     <property>hydro/hull/height-agl-ft</property>
+    </difference>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/hull-wet-norm">
+   <description>glideslope: 1 with the keel in the water, falling to 0 as it
+    rises 0.25 ft clear of it.</description>
+   <function>
+    <max>
+     <value>0.0</value>
+     <min>
+      <value>1.0</value>
+      <sum>
+       <value>1.0</value>
+       <quotient>
+        <property>hydro/glideslope/keel-immersion-ft</property>
+        <value>0.25</value>
+       </quotient>
+      </sum>
+     </min>
+    </max>
+   </function>
+  </fcs_function>
+
   <fcs_function name="hydro/buoyancy-lbs">
    <documentation>
     Lift due to buoyancy.
@@ -656,6 +700,7 @@
    <function>
     <product>
      <value> 0.22480894 </value>
+     <property>hydro/glideslope/hull-wet-norm</property>
      <table>
       <independentVar lookup="row">hydro/hull/pitch-deg</independentVar>
       <independentVar lookup="column">hydro/hull/roll-deg</independentVar>
@@ -1174,6 +1219,7 @@
    <function>
     <product>
      <value> 0.73756215 </value>
+     <property>hydro/glideslope/hull-wet-norm</property>
      <table>
       <independentVar lookup="row">hydro/hull/pitch-deg</independentVar>
       <independentVar lookup="column">hydro/hull/roll-deg</independentVar>
@@ -1459,6 +1505,7 @@
    <function>
     <product>
      <value> 0.73756215 </value>
+     <property>hydro/glideslope/hull-wet-norm</property>
      <table>
       <independentVar lookup="row">hydro/hull/pitch-deg</independentVar>
       <independentVar lookup="column">hydro/hull/roll-deg</independentVar>

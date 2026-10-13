@@ -346,8 +346,71 @@ PLANING_LIFT = f"""  <fcs_function name="hydro/hull-lift-lbs">
 """
 
 
+# **Buoyancy is the water her hull displaces**, so none once her keel is
+# clear of it. The pinned model's table, from its author's Gerris runs, gives
+# about 1,000 lb with the hull's reference point 7 ft up and her keel near 3 ft
+# clear of the water, and none only from 9 ft. Its force and its pitch and
+# roll moments are kept where the keel is in the water and faded out over the keel's first
+# BUOYANCY_FADE_FT above it.
+BUOYANCY_FADE_FT = 0.25
+HRP_X_M = 341.73 * 0.0254
+
+
+def keel_depth_ft(name, x, z):
+    """A keel point's depth below the reference point at the hull's pitch, as
+    a JSBSim expression: below cos(pitch) + aft sin(pitch), feet."""
+    below = -z / 0.3048
+    aft = (x - HRP_X_M) / 0.3048
+    pitch = "<product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product>"
+    return (f"      <sum><!-- {name} -->\n"
+            f"       <product><value>{below:.3f}</value><cos>{pitch}</cos></product>\n"
+            f"       <product><value>{aft:.3f}</value><sin>{pitch}</sin></product>\n"
+            f"      </sum>\n")
+
+
+HULL_WET = (f"""  <fcs_function name="hydro/glideslope/keel-immersion-ft">
+   <description>glideslope: how deep the lowest point of the keel is in the
+    water, negative where it is clear; see tools/make_short_s23.py.</description>
+   <function>
+    <difference>
+     <max>
+""" + "".join(keel_depth_ft(name, x, z) for name, x, _, z in KEEL) + f"""     </max>
+     <property>hydro/hull/height-agl-ft</property>
+    </difference>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/hull-wet-norm">
+   <description>glideslope: 1 with the keel in the water, falling to 0 as it
+    rises {BUOYANCY_FADE_FT} ft clear of it.</description>
+   <function>
+    <max>
+     <value>0.0</value>
+     <min>
+      <value>1.0</value>
+      <sum>
+       <value>1.0</value>
+       <quotient>
+        <property>hydro/glideslope/keel-immersion-ft</property>
+        <value>{BUOYANCY_FADE_FT}</value>
+       </quotient>
+      </sum>
+     </min>
+    </max>
+   </function>
+  </fcs_function>
+
+""")
+
+
 def hydrodynamics():
     text = (PINNED_S23 / "Systems" / "Short_S23-hydrodynamics.xml").read_text()
+    text = replace_once(text, r"(  <fcs_function name=\"hydro/buoyancy-lbs\">)",
+                        lambda m: HULL_WET + m.group(1), "the hull's buoyancy")
+    for name in ("buoyancy-lbs", "buoyancy-pitch-moment-lbsft", "buoyancy-roll-moment-lbsft"):
+        text = replace_once(text, rf"(<fcs_function name=\"hydro/{name}\">.*?<product>\n.*?</value>\n)",
+                            r"\1     <property>hydro/glideslope/hull-wet-norm</property>\n",
+                            f"the hull's {name}")
     text = replace_once(text, r"  <fcs_function name=\"hydro/hull-lift-lbs\">.*?</fcs_function>\n",
                         lambda m: PLANING_LIFT, "the hull's lift")
     text = replace_once(text, r"(      <property>hydro/damping-lift-lbs</property>\n)",

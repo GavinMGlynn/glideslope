@@ -2389,6 +2389,9 @@ struct WeighedApproach {
     bool stopped = false;
     double touch_along_m = 0.0;
     glideslope::test::AfterTouch after;
+    // On the water, from her hull's touch to the stop: the most her centre
+    // of gravity rose over the lowest it had been since - a hop off the step.
+    double most_hop_ft = 0.0;
 };
 
 WeighedApproach ai_approach_at_a_weight(const std::string& id, bool figures_loading) {
@@ -2444,6 +2447,7 @@ WeighedApproach ai_approach_at_a_weight(const std::string& id, bool figures_load
     controller.to_ai_approach(runway, published);
     check(controller.lander() != nullptr, id + ": the AI has an approach to fly");
     out.flown_kts = controller.lander()->speeds().vref_kts;
+    double lowest_on_water_ft = 1e9;
 
     for (int tick = 0; tick < 600 * steps_per_second; ++tick) {
         aircraft.set_controls(controller.fly());
@@ -2468,6 +2472,11 @@ WeighedApproach ai_approach_at_a_weight(const std::string& id, bool figures_load
             }
         }
         out.touch_along_m = lander->touchdown_along_m();
+        if (lander->touched() && aircraft.in_water()) {
+            const double agl_ft = aircraft.property("position/h-agl-ft");
+            lowest_on_water_ft = std::min(lowest_on_water_ft, agl_ft);
+            out.most_hop_ft = std::max(out.most_hop_ft, agl_ft - lowest_on_water_ft);
+        }
         // A flying boat is done below twenty knots on the water, as her
         // lesson is: afloat with her engines idling she is never quite still.
         if (entry.seaplane ? lander->touched() && aircraft.in_water() &&
@@ -2562,6 +2571,47 @@ GLIDESLOPE_TEST(the_ai_flies_every_approach_at_the_speed_for_its_models_own_weig
 // is none: the same 14, judged the same.
 GLIDESLOPE_TEST(the_ai_flies_every_approach_at_the_speed_for_its_figures_loading_and_lands_within_its_limits) {
     every_ai_approach_at_a_weight(true);
+}
+
+// **A flying boat alighting in calm air stays on the step, not hopping off
+// it**: every aeroplane taught the approach that alights on water (one, the
+// Short S.23), landed by the AI at her model's own weight, from the moment
+// her hull meets the water until she is down to twenty knots - taxiing - never
+// rises more than `most_hop_ft` over the lowest she has been since. The FAA's
+// Seaplane Handbook (FAA-H-8083-23, ch. 6, "Normal Landing") has her held at
+// her touchdown attitude until she comes off the step, and skipping or
+// porpoising is a fault; the half foot is the calm landing's own limit on a
+// rise. Coverage asserted: every seaplane taught the approach is flown. Seen
+// red on her pinned model's planing lift, a step to 20,000 lb.
+GLIDESLOPE_TEST(a_flying_boat_alighting_in_calm_air_holds_the_step_without_porpoising_down_to_taxi_speed) {
+    constexpr double most_hop_ft = 0.5;
+    std::size_t seaplanes = 0;
+    std::size_t flown = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : everyone_taught("approach-and-landing")) {
+        if (!glideslope::sim::find_aircraft(data(), id).seaplane) {
+            continue;
+        }
+        ++seaplanes;
+        const WeighedApproach r = ai_approach_at_a_weight(id, false);
+        std::printf("  %-13s touched %4.0f ft/min; most hop on the water %.2f ft%s%s\n",
+                    id.c_str(), r.after.touch_sink_fpm, r.most_hop_ft,
+                    r.went_around ? ", WENT AROUND" : "", r.stopped ? "" : ", NOT SLOWED");
+        if (r.went_around || !r.stopped) {
+            wrong.push_back(id + " did not alight and slow to taxi speed");
+            continue;
+        }
+        ++flown;
+        if (r.most_hop_ft > most_hop_ft) {
+            wrong.push_back(id + " hopped " + std::to_string(r.most_hop_ft) +
+                            " ft off the water, more than " + std::to_string(most_hop_ft));
+        }
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(seaplanes == 1 && flown == seaplanes,
+          "every seaplane taught the approach flown: " + std::to_string(flown) + " of " +
+              std::to_string(seaplanes));
 }
 
 namespace {
