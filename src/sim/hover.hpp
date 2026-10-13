@@ -61,6 +61,7 @@ private:
     const Aircraft& a_;
     Pace pace_;
     double standing_ft_ = 0.0;
+    double stovl_throttle_ = 0.0;
     double heading_deg_ = 0.0;
     double latitude_deg_ = 0.0;
     double longitude_deg_ = 0.0;

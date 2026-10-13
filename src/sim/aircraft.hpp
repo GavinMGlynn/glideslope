@@ -468,7 +468,10 @@ public:
 
     // **Whether it has a lift system** (LiftSystem), and its commands, which
     // take effect from the next step. set_lift_system throws
-    // std::logic_error on an aircraft without one.
+    // std::logic_error on an aircraft without one, and std::invalid_argument
+    // for STOVL mode asked above the airspeed her model clears it to
+    // (`fcs/stovl-limit-kcas`): **transition between jet-borne and wing-borne
+    // flight is not flown** by anything here.
     bool has_lift_system() const;
     void set_lift_system(const LiftSystem& lift);
 

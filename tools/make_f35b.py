@@ -29,7 +29,9 @@ for. Converting to STOVL mode opens the fan and posts in CONVERSION_S
 seconds; the nozzle swivels at Rolls-Royce's 95 degrees in 2.5 seconds.
 Height is the throttle; pitch the fan's inlet vanes, which Lockheed says
 modulate its thrust; roll the share of the fan air between the posts; yaw
-the nozzle swivelled sideways. Where the fan, posts and nozzle are, how far
+the nozzle swivelled sideways, its thrust along its axis less by the cosine
+of the swivel so that swivelling makes none. Above STOVL_LIMIT_KCAS the
+simulation refuses STOVL mode. Where the fan, posts and nozzle are, how far
 each control moves its thrust, and how long the conversion takes are not
 published, and are estimated below, each with its number; nothing models
 the ground's effect on a jet in a hover - no suckdown, fountain or hot gas
@@ -193,6 +195,11 @@ FAN_MIN_DEG, FAN_MAX_DEG, FAN_RATE_DEG_S = 41.75, 104.0, 40.0
 # The throttle in STOVL mode, short of the afterburner: JSBSim's turbine
 # lights it above 0.99.
 STOVL_THROTTLE = 0.99
+# **The fastest she converts at, or flies converted**: the LiftFan "must
+# operate in STOVL conditions which result in a 288 mph crosswind to the
+# LiftFan intake" (Rolls-Royce's poster) - 250 kt, taken as her airspeed
+# with the fan's doors open. Above it Aircraft::set_lift_system refuses.
+STOVL_LIMIT_KCAS = 288.0 / 1.150779
 # Estimated, as nothing published gives them: the fan's centre, behind the
 # cockpit; the posts, as far out in the wings as their structure allows;
 # the time the doors take to open and the fan to clutch in; how far the fan's
@@ -388,6 +395,11 @@ def lift_system():
                   ("stovl-cmd-norm", "nozzle-cmd-deg", "lift-fan-cmd-norm", "roll-post-cmd-norm",
                    "nozzle-yaw-cmd-norm"))
     out += "        <property value=\"90\">fcs/fan-cmd-deg</property>\n"
+    # What the simulation reads of her lift system: the throttle's top in
+    # STOVL mode (sim/hover.cpp), and the fastest she may convert at
+    # (Aircraft::set_lift_system).
+    out += f"        <property value=\"{STOVL_THROTTLE}\">fcs/stovl-throttle-max</property>\n"
+    out += f"        <property value=\"{STOVL_LIMIT_KCAS:.0f}\">fcs/stovl-limit-kcas</property>\n"
     out += "        <channel name=\"LiftSystem\">\n"
     out += written.kinematic("Conversion", "fcs/stovl-cmd-norm", [0, 1], [0, CONVERSION_S], "fcs/stovl-pos-norm")
     out += fn("STOVL Throttle",
@@ -408,17 +420,25 @@ def lift_system():
               f"{i}        <product>\n{i}            <property>fcs/nozzle-pos-deg</property>\n"
               f"{i}            <value>{math.pi / 180.0:.12f}</value>\n{i}        </product>\n",
               "propulsion/engine/pitch-angle-rad")
-    # The power the fan's shaft and the posts take: the nozzle passes only its
-    # share, as JSBSim's reverser takes the cosine of its angle off the thrust.
-    out += fn("Shaft Power",
-              f"{i}        <acos>\n{i}            <difference><value>1</value><product>"
-              f"<value>{1.0 - nozzle_share():.6f}</value><property>fcs/stovl-pos-norm</property>"
-              f"</product></difference>\n{i}        </acos>\n",
-              "propulsion/engine/reverser-angle-rad")
     for name in ("lift-fan", "roll-post", "nozzle-yaw"):
         out += (f"{i}<pure_gain name=\"{name} limit\">\n{i}    <input>fcs/{name}-cmd-norm</input>\n"
                 f"{i}    <gain>1</gain>\n{i}    <clipto><min>-1</min><max>1</max></clipto>\n"
                 f"{i}    <output>fcs/{name}-pos-norm</output>\n{i}</pure_gain>\n")
+    # The power the fan's shaft and the posts take: the nozzle passes only its
+    # share, as JSBSim's reverser takes the cosine of its angle off the
+    # thrust; and swivelled sideways, only the cosine of the swivel of that
+    # along its axis, the sine going to the nozzle's sideways force - so that
+    # swivelling it makes no thrust.
+    yaw = math.radians(NOZZLE_YAW_DEG)
+    out += fn("Shaft Power",
+              f"{i}        <acos>\n{i}            <product>\n"
+              f"{i}                <difference><value>1</value><product>"
+              f"<value>{1.0 - nozzle_share():.6f}</value><property>fcs/stovl-pos-norm</property>"
+              f"</product></difference>\n"
+              f"{i}                <cos><product><value>{yaw:.6f}</value>"
+              f"<property>fcs/nozzle-yaw-pos-norm</property></product></cos>\n"
+              f"{i}            </product>\n{i}        </acos>\n",
+              "propulsion/engine/reverser-angle-rad")
     # The fan's thrust vectored by its vane box, forward and up.
     out += (f"{i}<actuator name=\"Fan Vanes\">\n{i}    <input>fcs/fan-cmd-deg</input>\n"
             f"{i}    <rate_limit>{FAN_RATE_DEG_S:.1f}</rate_limit>\n"
@@ -438,8 +458,8 @@ def lift_system():
     out += fn("Nozzle Side",
               f"{i}        <product>\n{i}            <property>{thrust}</property>\n"
               f"{i}            <property>fcs/stovl-pos-norm</property>\n"
-              f"{i}            <sin><product><value>{math.radians(NOZZLE_YAW_DEG):.6f}</value>"
-              f"<property>fcs/nozzle-yaw-pos-norm</property></product></sin>\n{i}        </product>\n",
+              f"{i}            <tan><product><value>{math.radians(NOZZLE_YAW_DEG):.6f}</value>"
+              f"<property>fcs/nozzle-yaw-pos-norm</property></product></tan>\n{i}        </product>\n",
               "external_reactions/nozzle-side/magnitude")
     return out + "        </channel>\n"
 

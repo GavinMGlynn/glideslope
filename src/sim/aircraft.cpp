@@ -910,6 +910,13 @@ void Aircraft::set_lift_system(const LiftSystem& lift) {
     if (!has_lift_system()) {
         throw std::logic_error("this aircraft has no lift system");
     }
+    // **Her STOVL envelope**: converted, or converting, only at or below the
+    // airspeed her model states (tools/make_f35b.py).
+    const double limit_kcas = value("fcs/stovl-limit-kcas");
+    if (lift.stovl > 0.0 && value("velocities/vc-kts") > limit_kcas) {
+        throw std::invalid_argument("STOVL mode refused at " + std::to_string(value("velocities/vc-kts")) +
+                                    " KCAS: her lift system is cleared to " + std::to_string(limit_kcas));
+    }
     set("fcs/stovl-cmd-norm", lift.stovl);
     set("fcs/nozzle-cmd-deg", lift.nozzle_deg);
     set("fcs/fan-cmd-deg", lift.fan_deg);

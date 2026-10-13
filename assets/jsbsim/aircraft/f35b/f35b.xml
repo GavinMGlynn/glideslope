@@ -356,6 +356,8 @@
         <property value="0">fcs/roll-post-cmd-norm</property>
         <property value="0">fcs/nozzle-yaw-cmd-norm</property>
         <property value="90">fcs/fan-cmd-deg</property>
+        <property value="0.99">fcs/stovl-throttle-max</property>
+        <property value="250">fcs/stovl-limit-kcas</property>
         <channel name="LiftSystem">
             <kinematic name="Conversion">
                 <input>fcs/stovl-cmd-norm</input>
@@ -404,14 +406,6 @@
                 </function>
                 <output>propulsion/engine/pitch-angle-rad</output>
             </fcs_function>
-            <fcs_function name="Shaft Power">
-                <function>
-                    <acos>
-                        <difference><value>1</value><product><value>0.315387</value><property>fcs/stovl-pos-norm</property></product></difference>
-                    </acos>
-                </function>
-                <output>propulsion/engine/reverser-angle-rad</output>
-            </fcs_function>
             <pure_gain name="lift-fan limit">
                 <input>fcs/lift-fan-cmd-norm</input>
                 <gain>1</gain>
@@ -430,6 +424,17 @@
                 <clipto><min>-1</min><max>1</max></clipto>
                 <output>fcs/nozzle-yaw-pos-norm</output>
             </pure_gain>
+            <fcs_function name="Shaft Power">
+                <function>
+                    <acos>
+                        <product>
+                            <difference><value>1</value><product><value>0.315387</value><property>fcs/stovl-pos-norm</property></product></difference>
+                            <cos><product><value>0.209440</value><property>fcs/nozzle-yaw-pos-norm</property></product></cos>
+                        </product>
+                    </acos>
+                </function>
+                <output>propulsion/engine/reverser-angle-rad</output>
+            </fcs_function>
             <actuator name="Fan Vanes">
                 <input>fcs/fan-cmd-deg</input>
                 <rate_limit>40.0</rate_limit>
@@ -490,7 +495,7 @@
                     <product>
                         <property>propulsion/engine/thrust-lbs</property>
                         <property>fcs/stovl-pos-norm</property>
-                        <sin><product><value>0.209440</value><property>fcs/nozzle-yaw-pos-norm</property></product></sin>
+                        <tan><product><value>0.209440</value><property>fcs/nozzle-yaw-pos-norm</property></product></tan>
                     </product>
                 </function>
                 <output>external_reactions/nozzle-side/magnitude</output>

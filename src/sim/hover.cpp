@@ -15,10 +15,9 @@ constexpr double pi = 3.14159265358979323846;
 constexpr double rad_per_deg = pi / 180.0;
 constexpr double earth_radius_ft = 20902231.0;
 
-// The nozzle straight down, and the throttle's top in STOVL mode (her
-// model's flight controls hold it there too: tools/make_f35b.py).
+// The nozzle straight down. The throttle's top in STOVL mode is her
+// model's (`fcs/stovl-throttle-max`, tools/make_f35b.py), read from it.
 constexpr double nozzle_down_deg = 90.0;
-constexpr double stovl_throttle = 0.99;
 
 // Height: the climb or sink asked of the height's error, a second, within a
 // climb and a sink; and the throttle on the rate's error, proportional and
@@ -56,6 +55,7 @@ Hover::Hover(const Aircraft& aircraft, Pace pace) : a_(aircraft), pace_(pace) {
     if (!a_.has_lift_system()) {
         throw std::logic_error("only an aircraft with a lift system hovers");
     }
+    stovl_throttle_ = a_.property("fcs/stovl-throttle-max");
     const AircraftState s = a_.state();
     standing_ft_ = s.height_above_ground_ft;
     heading_deg_ = s.heading_deg;
@@ -100,9 +100,9 @@ Hover::Command Hover::step(const Target& target) {
     }
     const double rate_error = wanted_fps - s.climb_rate_fpm / 60.0;
     if (!(target.land && on_ground)) {
-        throttle_integral_ = std::clamp(throttle_integral_ + rate_integral * rate_error * dt, 0.0, stovl_throttle);
+        throttle_integral_ = std::clamp(throttle_integral_ + rate_integral * rate_error * dt, 0.0, stovl_throttle_);
     }
-    double throttle = std::clamp(throttle_integral_ + rate_gain * rate_error, 0.0, stovl_throttle);
+    double throttle = std::clamp(throttle_integral_ + rate_gain * rate_error, 0.0, stovl_throttle_);
     if (target.land && on_ground) {
         throttle = 0.0;
     }

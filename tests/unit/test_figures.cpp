@@ -2,7 +2,9 @@
 
 #include "sim/catalogue.hpp"
 #include "sim/figures.hpp"
+#include "sim/hover.hpp"
 #include "sim/lander.hpp"
+#include "sim/weather.hpp"
 
 #include <algorithm>
 #include <filesystem>
@@ -973,8 +975,11 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // wheels down, her Pilot's Notes' para. 48, on 2026-10-10.
     // A hundred and twenty-six: the F-35B's hover thrust, hover and
     // vertical landing, on 2026-10-10.
-    check(figures_in_files == 126,
-          "a hundred and twenty-six figures, one test each above; found " +
+    // A hundred and twenty-seven: the F-35B's short take-off, measured, on
+    // 2026-10-13.
+    // A hundred and twenty-eight: her hover endurance, measured, the same day.
+    check(figures_in_files == 128,
+          "a hundred and twenty-eight figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 
@@ -1110,4 +1115,137 @@ GLIDESLOPE_TEST(the_slowest_a_glide_may_fly_an_aircraft_at_is_read_and_refused_w
     }
     std::filesystem::remove(file);
     check(failures.empty(), "every one wrong is refused, saying why:" + failures);
+}
+
+GLIDESLOPE_TEST(the_f35b_hovers_five_and_a_half_minutes_on_her_vertical_landing_fuel) {
+    expect_figure("f35b", "hover_endurance");
+}
+
+namespace {
+
+// The F-35B loaded as her figures file's `loading` says, standing on the
+// runway the figures are flown from, in a steady wind of `wind_kt` blowing
+// from `from_deg` off her nose, clockwise.
+std::unique_ptr<glideslope::sim::Aircraft> f35b_standing(const std::string& loading, double wind_kt,
+                                                          double from_deg) {
+    using namespace glideslope::sim;
+    const PublishedFigures figures = read_published_figures(figures_file("f35b"));
+    auto a = std::make_unique<Aircraft>(data_dir, "f35b");
+    a->load(figures.loadings.at(loading).loading);
+    InitialConditions ic;
+    ic.latitude_deg = -33.9461;
+    ic.longitude_deg = 151.1772;
+    ic.heading_deg = 70.0;
+    a->initialize(ic);
+    // The air moves away from where the wind blows from.
+    const double towards = (ic.heading_deg + from_deg + 180.0) * 3.14159265358979323846 / 180.0;
+    Conditions air;
+    air.wind_north_mps = wind_kt * 0.514444 * std::cos(towards);
+    air.wind_east_mps = wind_kt * 0.514444 * std::sin(towards);
+    a->set_weather(std::make_shared<SteadyWeather>(air));
+    return a;
+}
+
+} // namespace
+
+// **Her STOVL envelope**: converting is refused above the airspeed her model
+// clears her lift system to, 250 KCAS, and allowed below it; conventional
+// flight is never refused; an aircraft with no lift system refuses one.
+GLIDESLOPE_TEST(the_f35b_is_refused_stovl_mode_above_250_kcas_and_allowed_below) {
+    using namespace glideslope::sim;
+    for (const double kcas : {240.0, 260.0}) {
+        Aircraft a(data_dir, "f35b");
+        InitialConditions ic;
+        ic.latitude_deg = -33.9461;
+        ic.longitude_deg = 151.1772;
+        ic.altitude_ft = 5000.0;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = kcas;
+        ic.gear = 0.0;
+        a.initialize(ic);
+        check(std::abs(a.property("fcs/stovl-limit-kcas") - 250.0) < 1e-9,
+              "her model clears STOVL mode to 250 KCAS");
+        check(std::abs(a.property("velocities/vc-kts") - kcas) < 1.0,
+              "she is flying at " + std::to_string(kcas) + " KCAS");
+        LiftSystem lift;
+        lift.stovl = 1.0;
+        bool refused = false;
+        try {
+            a.set_lift_system(lift);
+        } catch (const std::invalid_argument&) {
+            refused = true;
+        }
+        check(refused == (kcas > 250.0),
+              "STOVL mode at " + std::to_string(kcas) + " KCAS was " + (refused ? "refused" : "allowed"));
+        a.set_lift_system(LiftSystem{});
+    }
+    Aircraft c172p(data_dir, "c172p");
+    bool refused = false;
+    try {
+        c172p.set_lift_system(LiftSystem{});
+    } catch (const std::logic_error&) {
+        refused = true;
+    }
+    check(refused, "an aircraft without a lift system refuses one");
+}
+
+// **Where the hover control law holds her**: lifted from the runway to 150 ft
+// in a steady wind, settled 30 s and held a minute, in 0, 5, 10, 15 and 20
+// kt from ahead, her right, behind and her left, at her vertical-landing
+// weight and at her combat weight. Held: her height within 10 ft of 150 and
+// her point within 30 ft, for the minute. The space: 2 weights x (calm + 4
+// winds x 4 sides) = 34 hovers, every one flown.
+GLIDESLOPE_TEST(the_f35b_hovers_in_every_wind_to_20_kt_from_every_side_at_two_weights) {
+    using namespace glideslope::sim;
+    const std::vector<std::string> loadings = {"vertical_landing", "combat"};
+    const std::vector<double> winds = {0.0, 5.0, 10.0, 15.0, 20.0};
+    const std::vector<double> sides = {0.0, 90.0, 180.0, 270.0};
+    const int per_second = 120;
+    std::size_t flown = 0;
+    std::vector<std::string> not_held;
+    for (const std::string& loading : loadings) {
+        for (const double kt : winds) {
+            for (const double side : sides) {
+                if (kt == 0.0 && side != 0.0) {
+                    continue; // calm has no side
+                }
+                ++flown;
+                auto a = f35b_standing(loading, kt, side);
+                Hover hover(*a);
+                double worst_ft = 0.0;
+                double drift_ft = 0.0;
+                bool settled = false;
+                int settled_steps = 0;
+                int held_steps = 0;
+                for (int i = 0; i < 300 * per_second && held_steps < 60 * per_second; ++i) {
+                    const Hover::Command c = hover.step({150.0, false});
+                    a->set_lift_system(c.lift);
+                    a->set_controls(c.controls);
+                    a->step();
+                    if (!settled) {
+                        settled_steps = std::abs(hover.height_ft() - 150.0) < 2.0 ? settled_steps + 1 : 0;
+                        settled = settled_steps == 30 * per_second;
+                        continue;
+                    }
+                    ++held_steps;
+                    worst_ft = std::max(worst_ft, std::abs(hover.height_ft() - 150.0));
+                    drift_ft = std::max(drift_ft, hover.drift_ft());
+                }
+                const bool held =
+                    settled && held_steps == 60 * per_second && worst_ft <= 10.0 && drift_ft <= 30.0;
+                std::printf("  %-17s %4.0f kt from %3.0f: %-13s height %.2f ft, drift %.1f ft\n",
+                            loading.c_str(), kt, side, held ? "held" : (settled ? "NOT HELD" : "never settled"),
+                            worst_ft, drift_ft);
+                if (!held) {
+                    not_held.push_back(loading + " " + std::to_string(kt) + " kt from " + std::to_string(side));
+                }
+            }
+        }
+    }
+    check(flown == 34, "34 hovers flown, not " + std::to_string(flown));
+    std::string all;
+    for (const std::string& n : not_held) {
+        all += "\n    " + n;
+    }
+    check(not_held.empty(), std::to_string(not_held.size()) + " not held:" + all);
 }
