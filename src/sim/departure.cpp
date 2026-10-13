@@ -48,6 +48,14 @@ constexpr double rotation_rate_per_deg_short = 1.0;
 constexpr double rate_held_from = 0.25;
 constexpr double rate_stick_per_degps = 0.3;
 constexpr double rate_pull_rates_per_s = 2.0;
+// **And the stick it asks moves no faster than twice a hand's pace**, two
+// of its travel a second. Without it the C172P's stick rang from stop to
+// stop twenty times a second on her wheels - her elevator answers far
+// more for its travel than an airliner's - and she left the runway with it
+// at its stop; handed over there, the stick was taken as trim and she was
+// flown back on to the runway (docs/PROJECT_STATUS.md, 2026-10-13). With
+// it she leaves with 0.12 of stick, as the old law left her with 0.13.
+constexpr double rate_stick_slew_per_s = 2.0;
 // **How fast the pull builds while her nose will not come**, of the stick's
 // travel a second: half, as the F-15's flight manual has the stick brought
 // back (T.O. 1F-15A-1, figure A3-6: one half aft stick over one second);
@@ -751,13 +759,12 @@ Controls Departure::fly_laws() {
         // at 7.6 degrees a second and an A320 at 7.5, and a rate check
         // added to that law brought the worst to 5.5. **Only where her
         // figures give her a rate** (`rotation_held`): the airliners and the
-        // B-2A, whose rotation is a tail-strike risk. The light aeroplanes,
-        // the fighters and the Learjet are left to the law below for now:
-        // held, a C172P's elevator was at its stop through her lift-off and
-        // she bounced on her main wheels as they unloaded, and the F-22A's
-        // own pitch loop wound up on her wheels (docs/PROJECT_STATUS.md,
-        // 2026-10-13). A tail-wheel aeroplane, whose tail is raised on the
-        // roll and who is flown off level, is never held.
+        // B-2A at three degrees a second, the light aeroplanes, the F-15C,
+        // the F-35B and the Learjet 35A at four. The F-22A is left to the
+        // law below for now: her own pitch loop winds up on her wheels
+        // (docs/PROJECT_STATUS.md, 2026-10-13). A tail-wheel aeroplane, whose
+        // tail is raised on the roll and who is flown off level, is never
+        // held.
         const double rate_error = rate_wanted - q_now;
         if (on_ground && !tail_wheel_ && speeds_.rotation_held && !rate_engaged_ &&
             q_now >= rate_held_from * rate_wanted) {
@@ -770,7 +777,10 @@ Controls Departure::fly_laws() {
                                            rate_error / steps_per_second,
                                0.0, 1.0);
             rate_held_ = true;
-            rate_stick_ = pull_ + rate_stick_per_degps * rate_error;
+            const double was = last_elevator_ - pitch_trim_;
+            rate_stick_ = std::clamp(pull_ + rate_stick_per_degps * rate_error,
+                                     was - rate_stick_slew_per_s / steps_per_second,
+                                     was + rate_stick_slew_per_s / steps_per_second);
         } else {
             const bool too_fast = on_ground && q_now > slowing_to + 1.0;
             if (lagging_deg > 1.0 && q_now < rate_wanted &&

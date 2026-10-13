@@ -89,11 +89,11 @@ struct DepartureSpeeds {
     // ten, or a speed measured at one weight, and goes with her weight.
     bool climb_for_any_weight = false;
     // **The rate she is rotated at on her wheels**, degrees of pitch a
-    // second: her figures' `rotation_degps`, and `rotation_held` true. Her
-    // figures give one where her rotation is a tail-strike risk - the
-    // airliners and the B-2A - and the rate is then held on her wheels
-    // (sim::Departure). Where they give none, four, the rate the attitude
-    // asked of her is raised at, and not held.
+    // second: her figures' `rotation_degps`, and `rotation_held` true. Every
+    // nose-wheel aeroplane's figures give one but the F-22A's - three for
+    // the airliners and the B-2A, four for the rest - and the rate is then
+    // held on her wheels (sim::Departure). Where they give none, four, the
+    // rate the attitude asked of her is raised at, and not held.
     double rotation_degps = 4.0;
     bool rotation_held = false;
 };
