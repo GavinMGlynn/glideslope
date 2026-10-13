@@ -265,9 +265,25 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The autobrake adds no brake past 0.3 at walking pace, 0.45 at a creep; one learnt start named, her gear throwing her over near a stop, 2026-10-14 — item done; one found
+### The autobrake adds no brake past 0.3 at walking pace, 0.45 at a creep; one learnt start named, her gear throwing her over near a stop, 2026-10-14 — item still open; two found
 
-**Named, first**: **one learnt landing is left out.** In
+**What is still missing, first**: **the verification rests on named
+cases**, so the item stays open and this lands as an improvement:
+- The Mosquito swings 36 to 155 degrees below walking pace (the heading
+  check, below). Measured with the steering-brake fade taken out, in the
+  same three walking-pace tests, she swings 80.6 degrees in calm air, 81.0
+  wet and 155.8 in 15 kt across, against 84.8, 36.2 and 155.4 with it. The
+  fade does not cause her swing; on a wet runway it halves it. Its own item
+  (Phase 10b).
+- The Cub in 15 kt across goes over before the rollout has her. She does
+  the same without the fade.
+- One learnt start is named (below), for the Phase 9 gear impulse.
+- The 0.8 allowance for an idle creep is barely exercised on the jets: the
+  gust test pushes only the four light aeroplanes past 1.3 kt, and the jets'
+  brakes hold them at 1 kt and 0.45. It also sits above the 0.6 that tipped
+  a C172P held against power, though here the throttle is closed.
+
+**Named, also**: **one learnt landing is left out.** In
 `the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_half_its_fuel`,
 the start from -50 m across, -15 m high, in a 10 kt crosswind is thrown on
 her nose at 1.2 kt and does not stop. On main she stops 608 m along. The
@@ -305,8 +321,8 @@ main's.
   degrees of her heading at the hand-over. Every landplane does, at most
   4 degrees, except the Mosquito. She is named, and a new item opened (Phase
   10b, "The Mosquito swings below walking pace"): 85 degrees in calm air,
-  36 wet and 155 in 15 kt across. Whether she swung so before the steering
-  brake was faded was not measured.
+  36 wet and 155 in 15 kt across. With the fade taken out: 81, 81 and 156
+  (above). The fade does not cause it.
 - **The constants are global defaults**, noted in lander.hpp: every
   aircraft uses them, and none has her own.
 

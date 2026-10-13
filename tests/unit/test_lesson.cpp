@@ -3354,13 +3354,14 @@ void walking_pace_then_stop(double crosswind_kts,
 
 } // namespace
 
-// The Mosquito is named for her heading: below walking pace, her steering
-// brake faded, she swings 85 degrees before she stops - the open Phase 10b
-// item "The Mosquito swings below walking pace".
+// The Mosquito is named for her heading: below walking pace she swings 36
+// to 155 degrees before she stops, and 81 to 156 with her steering brake not
+// faded - the fade does not cause it. The open Phase 10b item "The Mosquito
+// swings below walking pace".
 const std::map<std::string, std::string>& mosquito_swings() {
     static const std::map<std::string, std::string> named{
-        {"mosquito-fb6", "swings 36 to 155 degrees below walking pace with her steering brake "
-                         "faded, before she stops"}};
+        {"mosquito-fb6", "swings 36 to 155 degrees below walking pace before she stops, "
+                         "and as far with her steering brake not faded"}};
     return named;
 }
 
