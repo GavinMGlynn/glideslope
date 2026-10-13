@@ -820,31 +820,31 @@ GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables
     check(!f.held(), "and it is not held");
 }
 
-// **The F-22A held at 130 kt on the autopilot, with her gear down, holds her
-// heading and her speed and gives up height**, 10 kt under her slowest: a
-// stated flight figure, so that a change to the autopilot that moves it
-// shows. Gear down, as she was measured until 2026-10-10: with it up her
-// flight controls give her their thrust vectoring and full pitch rate, and
-// she holds 130 either way. She departed here (her sideslip 10.4 when she
-// left her tables) until 2026-10-13, when the throttle stopped answering
-// the speed a climb trades for height (sim/autopilot.cpp,
-// `climb_as_speed_s`): behind her power curve, sinking, the throttle opens
-// before her speed has gone, as a throttle reading the speed's trend did
-// (tried and taken out 2026-10-10, PROJECT_STATUS). Measured (2026-10-13):
-// held, 130.0 kt at the slowest, 240 ft off her height at worst.
-GLIDESLOPE_TEST(the_f22a_held_at_130_kt_on_the_autopilot_with_her_gear_down_holds_her_heading_and_speed_and_gives_up_height) {
+// **The F-22A held at 130 kt on the autopilot departs**, 10 kt under her
+// slowest, **with her gear down**: a stated flight figure, so that a change
+// to the autopilot that moves it shows. Measured with the gear down, the
+// trial's default until 2026-10-10; flown with it up - the trials' clean
+// since - she holds 130 without departing, her flight controls giving her
+// their thrust vectoring and full pitch rate only with the gear up, so the
+// gear is put down here to keep the situation it pins. Measured (2026-10-10): she leaves her tables, her
+// sideslip 10.4 by then. Reading the speed's trend on the throttle, tried
+// and taken out (PROJECT_STATUS, 2026-10-10), held her there: the throttle
+// opened as her speed began to fall rather than once it had, and she never
+// slowed into the departure.
+// **Her sideslip as she goes is no longer pinned** (2026-10-13): since the
+// throttle stopped chasing the speed a climb trades for height, up to 3 kt
+// of it (sim/autopilot.cpp, `climb_as_speed_s`), she still departs at 130
+// but her sideslip by then is 0.0, and from 125 to 129 kt it was 4.0 to
+// 15.8 - not a figure to hold her to, where the departure itself is.
+// Unbounded, that term held her at 130 kt, giving up 240 ft. **The edge**:
+// she departs at 125, 127, 129 and 130 kt and holds at 131, 133 and 135 -
+// within a knot of it here (PROJECT_STATUS, 2026-10-13).
+GLIDESLOPE_TEST(the_f22a_held_at_130_kt_on_the_autopilot_departs) {
     const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "f22");
     const glideslope::sim::CrosswindFlown f =
         glideslope::sim::fly_heading_in_crosswind(data(), e, 130.0, false, 30.0,
                                                   glideslope::sim::TrialConfiguration::gear_down());
-    std::printf("  f22 at 130 kt in calm air, gear down: left its tables %s, held %s, "
-                "%.1f kt at the slowest, %.1f ft off her height at worst\n",
-                f.left_tables ? "yes" : "no", f.held() ? "yes" : "no", f.slowest_kts,
-                f.worst_height_ft);
-    check(!f.left_tables && f.held(), "she holds her heading at 130 kt, inside her tables");
-    check(f.slowest_kts >= 129.0, "and her speed: " + std::to_string(f.slowest_kts) +
-                                       " kt at the slowest (130.0 measured; at least 129)");
-    check(f.worst_height_ft >= 100.0 && f.worst_height_ft <= 400.0,
-          "giving up " + std::to_string(f.worst_height_ft) +
-              " ft of her height (240 measured; 100 to 400)");
+    std::printf("  f22 at 130 kt in calm air, gear down: left its tables %s, sideslip at most %.1f\n",
+                f.left_tables ? "yes" : "no", f.most_sideslip_ever_deg);
+    check(f.left_tables, "she left her tables at 130 kt");
 }

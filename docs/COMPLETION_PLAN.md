@@ -531,11 +531,12 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       rate on her wheels, and every take-off and hand-over test stays green.*
 - [x] **The autopilot holds a low height loosely in an airliner's take-off
       configuration.** Asked to hold 200 ft with her take-off flap and gear
-      out, the A380 swings 15 ft either side of it at up to 350 ft/min for
-      three minutes before it settles. *Verification: every airliner holding
-      a height at her take-off flap settles within 100 ft/min in a minute.*
-      Done 2026-10-13: the throttle no longer chases the speed a climb
-      trades for height; all five settle in 12 to 31 s.
+      out, the A380 swings 15 ft either side of it at up to 350 ft/min (488
+      when climbed to it at 500 ft/min) for minutes before it settles.
+      *Verification: every airliner holding a height at her take-off flap
+      settles within 100 ft/min in a minute.* Done 2026-10-13: the throttle
+      no longer chases the speed a climb trades for height; all five settle
+      in 12 to 31 s.
 - [ ] **A jet, the Mosquito or the S.23 slowed from cruise into her climb
       sinks 2 to 6.4 kt past her climb speed.** Only a light aeroplane has
       a speed floor to capture it with; the others' climb speeds are not a
