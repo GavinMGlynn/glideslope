@@ -239,6 +239,23 @@ bool names(const Metar::RunwayState& state, const RunwayEnd& end) {
     return matches(end_number, end_letter) || matches(other_number, other_letter);
 }
 
+std::vector<ContaminatedRunway> contaminated_runways(const Metar& metar,
+                                                     const std::vector<RunwayEnd>& station_runways) {
+    std::vector<ContaminatedRunway> out;
+    for (const Metar::RunwayState& state : metar.runway_states) {
+        const std::optional<int> code = runway_condition_of(state, metar.temperature_c);
+        if (!code || *code >= sim::dry_runway) {
+            continue;
+        }
+        for (const RunwayEnd& end : station_runways) {
+            if (names(state, end) && out.size() < most_contaminated_runways) {
+                out.push_back({end, *code});
+            }
+        }
+    }
+    return out;
+}
+
 bool on_runway(const RunwayEnd& end, double latitude_deg, double longitude_deg) {
     constexpr double radians = 3.14159265358979323846 / 180.0;
     constexpr double metres_per_degree = 111319.49; // on the equatorial sphere
@@ -432,17 +449,10 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
         mean.runway_condition = sim::dry_runway;
     } else {
         // A runway's reported state, on the runway it names.
-        const Metar& reported = report.surface.metar;
-        for (const Metar::RunwayState& state : reported.runway_states) {
-            const std::optional<int> code = runway_condition_of(state, reported.temperature_c);
-            if (!code || *code >= mean.runway_condition) {
-                continue;
-            }
-            for (const RunwayEnd& end : report.runways) {
-                if (names(state, end) && on_runway(end, latitude_deg, longitude_deg)) {
-                    mean.runway_condition = *code;
-                    break;
-                }
+        for (const ContaminatedRunway& c : report.contaminated) {
+            if (c.code < mean.runway_condition &&
+                on_runway(c.end, latitude_deg, longitude_deg)) {
+                mean.runway_condition = c.code;
             }
         }
     }
@@ -583,9 +593,35 @@ void ReportedWeather::update(WeatherReport report, double now_s) {
     }
     previous_ = std::move(current_);
     previous_lift_ = current_lift_;
+    runways_laid_ = false;
     current_ = std::move(report);
     current_lift_ = lift_of(current_);
     changed_at_s_ = now_s;
+}
+
+bool ReportedWeather::has_runway_states() const {
+    return !current_.surface.metar.runway_states.empty() ||
+           (previous_ && !previous_->surface.metar.runway_states.empty());
+}
+
+void ReportedWeather::lay_runways(const std::vector<RunwayEnd>& all) {
+    current_.contaminated = contaminated_runways(
+        current_.surface.metar, runways_at(all, current_.surface.metar.station));
+    if (previous_) {
+        previous_->contaminated = contaminated_runways(
+            previous_->surface.metar, runways_at(all, previous_->surface.metar.station));
+    }
+    runways_laid_ = true;
+}
+
+void ReportedWeather::lay(std::vector<ContaminatedRunway> now,
+                          std::vector<ContaminatedRunway> before, double wet_until_s) {
+    current_.contaminated = std::move(now);
+    if (previous_) {
+        previous_->contaminated = std::move(before);
+    }
+    wet_until_s_ = wet_until_s;
+    runways_laid_ = true;
 }
 
 sim::Conditions ReportedWeather::at(double latitude_deg, double longitude_deg,

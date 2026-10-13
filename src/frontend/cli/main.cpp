@@ -1503,6 +1503,13 @@ public:
     // heard: its own aircraft flies it, on the session's clock - the server's
     // air, not a fetch of this client's own - with the geoid built the first
     // time a weather that is not still air is heard, from the cache.
+    // The runways the server's air lays a condition on, laid on the
+    // weather flown if they are for it (frontend::HeardAir::conditions_heard).
+    void runway_conditions(const glideslope::net::RunwayConditions& conditions) {
+        if (air_) {
+            (void)air_->conditions_heard(conditions);
+        }
+    }
     // False, with why, for a weather refused (frontend::HeardAir::heard).
     bool weather(const glideslope::net::Weather& w,
                  const std::optional<glideslope::net::WeatherAloft>& aloft, std::string& why) {
@@ -1529,13 +1536,6 @@ public:
                     }
                 }
                 return session_now_s_;
-            }, [this](glideslope::world::WeatherReport& report) {
-                // The runways a reported state lies on, as the server's.
-                std::string not_had;
-                station_runways_.attach(report, &not_had);
-                if (!not_had.empty()) {
-                    std::fprintf(stderr, "glideslope_cli: %s\n", not_had.c_str());
-                }
             });
         }
         if (!air_->heard(w, aloft, &why)) {
@@ -2254,8 +2254,6 @@ private:
     // The server's air (`weather`), and the geoid its heights are over.
     std::unique_ptr<glideslope::world::Geoid> geoid_for_air_;
     std::optional<glideslope::frontend::HeardAir> air_;
-    glideslope::frontend::StationRunways station_runways_{
-        glideslope::platform::cache_directory(), glideslope::world::http_fetch()};
     double session_now_s_ = 0.0;
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
@@ -3315,6 +3313,22 @@ int stay(glideslope::platform::UdpSocket& socket,
                     if (predicting && !connect_air.own_air &&
                         !predicting->weather(w, told.aloft(), why)) {
                         say_heard("refused the server's weather, and flies the last: " + why);
+                    }
+                    break;
+                }
+                case glideslope::net::Told::Heard::runway_conditions: {
+                    const glideslope::net::RunwayConditions& rc = *told.runway_conditions();
+                    const std::string wet =
+                        rc.wet_until_s ? std::to_string(*rc.wet_until_s) + " s" : "none";
+                    char said[200];
+                    std::snprintf(said, sizeof(said),
+                                  "told the runways: %zu contaminated, %zu blended from, wet "
+                                  "until %s (for the weather from %.3f s)",
+                                  rc.now.size(), rc.before.size(), wet.c_str(),
+                                  rc.weather_changed_at_s);
+                    say_heard(said);
+                    if (predicting && !connect_air.own_air) {
+                        predicting->runway_conditions(rc);
                     }
                     break;
                 }

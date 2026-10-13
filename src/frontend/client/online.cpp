@@ -279,6 +279,16 @@ void Online::hear(Flight& flight) {
             }
             std::fflush(stdout);
         }
+        // **The runways the server's air lays a condition on**, laid whenever
+        // they are new or the weather they are for was flown again - a
+        // flight made since; dropped when for another weather.
+        if (told.runway_conditions() && ground_compared_ && other_ground_.empty() &&
+            (told.runway_conditions_heard() != runway_conditions_laid_ ||
+             flight.server_weathers() != runway_conditions_weather_)) {
+            runway_conditions_laid_ = told.runway_conditions_heard();
+            runway_conditions_weather_ = flight.server_weathers();
+            (void)flight.heard_runway_conditions(*told.runway_conditions());
+        }
     }
     // **Put right with the session let go**: a correction replays the
     // inputs since over the collision DEM, which may fetch a tile, and a

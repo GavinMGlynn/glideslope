@@ -356,6 +356,36 @@ std::vector<Kind> every_kind() {
                        glideslope::net::LearntLandingRefused got;
                        return glideslope::net::read(b, got);
                    }});
+
+    glideslope::net::RunwayConditions rc;
+    rc.weather_changed_at_s = 600.25;
+    rc.wet_until_s = 2550.5;
+    rc.now = {{55.97, 37.41, 240.0, 3000.0, 1}, {55.96, 37.40, 60.0, 3000.0, 2}};
+    rc.before = {{-33.95, 151.18, 155.5, 3962.0, 3}};
+    out.push_back({Message::runway_conditions, "runway_conditions", glideslope::net::write(rc),
+                   [rc](std::span<const std::uint8_t> b) {
+                       glideslope::net::RunwayConditions got;
+                       if (!glideslope::net::read(b, got)) return false;
+                       const auto same = [](const auto& x, const auto& y) {
+                           if (x.size() != y.size()) return false;
+                           for (std::size_t i = 0; i < x.size(); ++i) {
+                               if (x[i].latitude_deg != y[i].latitude_deg ||
+                                   x[i].longitude_deg != y[i].longitude_deg ||
+                                   x[i].heading_deg != y[i].heading_deg ||
+                                   x[i].length_m != y[i].length_m || x[i].code != y[i].code) {
+                                   return false;
+                               }
+                           }
+                           return true;
+                       };
+                       return got.weather_changed_at_s == rc.weather_changed_at_s &&
+                              got.wet_until_s == rc.wet_until_s && same(got.now, rc.now) &&
+                              same(got.before, rc.before);
+                   },
+                   [](std::span<const std::uint8_t> b) {
+                       glideslope::net::RunwayConditions got;
+                       return glideslope::net::read(b, got);
+                   }});
     return out;
 }
 
@@ -390,12 +420,12 @@ GLIDESLOPE_TEST(every_message_writes_and_reads_back_what_went_into_it) {
         ++walked;
     }
     // **The space this walked, stated**: the six kinds the item names, the
-    // forecast, which aircraft a client watches, a copilot's route, and a
-    // take-over refused.
-    check(walked == 11, "eleven kinds were walked, not " + std::to_string(walked));
+    // forecast, which aircraft a client watches, a copilot's route, a
+    // take-over refused, a learnt landing refused and the runways' conditions.
+    check(walked == 12, "twelve kinds were walked, not " + std::to_string(walked));
 }
 
-// **A body of one kind is never read as another.** All eighty-one pairs are
+// **A body of one kind is never read as another.** All 144 pairs are
 // tried, because a reader that accepted another kind's bytes would hand a
 // caller a message it never sent.
 GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
@@ -414,8 +444,8 @@ GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
             ++pairs;
         }
     }
-    check(pairs == 121, "all hundred and twenty-one pairs were tried, not " + std::to_string(pairs));
-    check(refused == 110, "a hundred and ten of them are refused, not " + std::to_string(refused));
+    check(pairs == 144, "all hundred and forty-four pairs were tried, not " + std::to_string(pairs));
+    check(refused == 132, "a hundred and thirty-two of them are refused, not " + std::to_string(refused));
 }
 
 // **Every truncation of every message is refused.** A datagram can arrive
@@ -445,7 +475,7 @@ GLIDESLOPE_TEST(every_message_with_anything_trailing_is_refused) {
         check(!k.reads(longer), k.name + " with a byte after it must be refused");
         ++walked;
     }
-    check(walked == 11, "every kind was tried");
+    check(walked == 12, "every kind was tried");
 }
 
 // **Every single-byte change to every message either reads or is refused,
@@ -497,7 +527,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++kinds;
         }
     }
-    check(kinds == 11, "eleven kinds are known, not " + std::to_string(kinds));
+    check(kinds == 12, "twelve kinds are known, not " + std::to_string(kinds));
 
     std::size_t controllers = 0;
     for (int v = 0; v < 256; ++v) {
@@ -530,7 +560,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++not_a_kind;
         }
     }
-    check(not_a_kind == 245, "two hundred and forty-five first bytes are no kind, not " +
+    check(not_a_kind == 244, "two hundred and forty-four first bytes are no kind, not " +
                                  std::to_string(not_a_kind));
     check(!glideslope::net::kind_of({}).has_value(), "and an empty body is none");
 }
@@ -542,15 +572,15 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
 // that these six go through, not that something does.
 //
 // The channel loses what it is told to: `lose` is a bit per datagram in the
-// order they are put on the wire, counting both directions. Twelve bits is
-// 4,096 patterns, and datagrams past the twelfth all arrive, so every
+// order they are put on the wire, counting both directions. Thirteen bits
+// is 8,192 patterns, and datagrams past the thirteenth all arrive, so every
 // exchange finishes and the test can say what came out.
 GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_loss) {
     const std::vector<Kind> kinds = every_kind();
-    check(kinds.size() == 11,
-          "the six the item names, the forecast, a watch, a route and two refusals");
+    check(kinds.size() == 12, "the six the item names, the forecast, a watch, a route, two "
+                              "refusals and the runways' conditions");
 
-    constexpr int mask_width = 12;
+    constexpr int mask_width = 13;
     constexpr std::uint32_t patterns = 1u << mask_width;
     std::uint32_t walked = 0;
     std::uint32_t with_loss = 0;
@@ -604,7 +634,7 @@ GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_l
         if (!finished || arrived.size() != kinds.size()) {
             glideslope::test::fail(
                 "with loss pattern " + std::to_string(lose) + ", " +
-                std::to_string(arrived.size()) + " of eleven messages arrived" +
+                std::to_string(arrived.size()) + " of twelve messages arrived" +
                 (finished ? "" : " and it never finished"));
         }
         // In order, once each, and each one still itself: the bytes are not
@@ -628,13 +658,13 @@ GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_l
     check(walked == patterns, "every pattern of loss was walked: " +
                                   std::to_string(walked) + " of " +
                                   std::to_string(patterns));
-    check(patterns == 4096, "there are 4,096 patterns over twelve datagrams");
-    // Eleven messages with nothing lost are over in twelve datagrams -
-    // eleven out and one acknowledgement back - so every bit of a pattern
-    // touches one, and only the empty pattern loses nothing: 4,095 do.
-    check(with_loss == 4095, "4,095 of the patterns lost something, not " +
+    check(patterns == 8192, "there are 8,192 patterns over thirteen datagrams");
+    // Twelve messages with nothing lost are over in thirteen datagrams -
+    // twelve out and one acknowledgement back - so every bit of a pattern
+    // touches one, and only the empty pattern loses nothing: 8,191 do.
+    check(with_loss == 8191, "8,191 of the patterns lost something, not " +
                                  std::to_string(with_loss));
-    std::printf("  11 messages through 4,096 loss patterns; worst took %llu datagrams\n",
+    std::printf("  12 messages through 8,192 loss patterns; worst took %llu datagrams\n",
                 static_cast<unsigned long long>(worst_datagrams));
 }
 
@@ -666,7 +696,8 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
         {Message::watch, "WATCH"},
         {Message::copilot_route, "COPILOT_ROUTE"},
         {Message::take_over_refused, "TAKE_OVER_REFUSED"},
-        {Message::learnt_landing_refused, "LEARNT_LANDING_REFUSED"}};
+        {Message::learnt_landing_refused, "LEARNT_LANDING_REFUSED"},
+        {Message::runway_conditions, "RUNWAY_CONDITIONS"}};
     std::size_t walked = 0;
     for (const auto& [kind, name] : kinds) {
         char buf[8];
@@ -677,7 +708,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
               name + " is a kind the code knows");
         ++walked;
     }
-    check(walked == 11, "every kind was walked");
+    check(walked == 12, "every kind was walked");
 
     // Every controller, by value and by name.
     const std::vector<std::pair<Controller, std::string>> controllers{
@@ -811,10 +842,17 @@ GLIDESLOPE_TEST(every_message_filled_to_its_limits_fits_in_one_datagram) {
     learnt.why = std::string(glideslope::net::most_reason_bytes, 'R');
     hold("learnt_landing_refused", glideslope::net::write(learnt));
 
+    // Every runway at its limit, for the weather now and the one before.
+    glideslope::net::RunwayConditions rc;
+    rc.wet_until_s = 1.0;
+    rc.now.assign(glideslope::net::most_runway_conditions, {-89.0, -179.0, 359.0, 19999.0, 1});
+    rc.before = rc.now;
+    hold("runway_conditions", glideslope::net::write(rc));
+
     // **The space this walked, stated**: every kind there is but `WATCH` and
     // `TAKE_OVER_REFUSED`, a byte each with nothing to fill, and each one
     // filled rather than sampled.
-    check(walked == 9, "every kind was filled to its limits, not " +
+    check(walked == 10, "every kind was filled to its limits, not " +
                            std::to_string(walked));
     // And the forecast this project really fetches fits, which is the case
     // that matters: nineteen pressure levels and four near-ground winds.
@@ -866,7 +904,8 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
         {Message::watch, "WATCH"},
         {Message::copilot_route, "COPILOT_ROUTE"},
         {Message::take_over_refused, "TAKE_OVER_REFUSED"},
-        {Message::learnt_landing_refused, "LEARNT_LANDING_REFUSED"}};
+        {Message::learnt_landing_refused, "LEARNT_LANDING_REFUSED"},
+        {Message::runway_conditions, "RUNWAY_CONDITIONS"}};
     std::size_t named = 0;
     for (const auto& [kind, name] : kinds) {
         check(glideslope::net::known_message(static_cast<std::uint8_t>(kind)),
@@ -884,7 +923,7 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
     }
     check(named == known, "every kind the code knows was looked for: " +
                               std::to_string(named) + " of " + std::to_string(known));
-    check(named == 11, "eleven kinds, not " + std::to_string(named));
+    check(named == 12, "twelve kinds, not " + std::to_string(named));
 
     // **It says what it does not defend.** A threats document that only
     // listed defences would be the more dangerous for it.
@@ -1049,6 +1088,31 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
                        CopilotRoute got;
                        return glideslope::net::read(b, got);
                    }});
+    fields.clear();
+
+    // One runway, for the weather now, so that each field appears once.
+    glideslope::net::RunwayConditions rc;
+    rc.weather_changed_at_s = next();
+    rc.wet_until_s = next();
+    glideslope::net::RunwayCondition runway;
+    runway.latitude_deg = next();
+    runway.longitude_deg = next();
+    runway.heading_deg = next();
+    runway.length_m = next();
+    runway.code = 2;
+    rc.now = {runway};
+    ranged_fields.push_back({rc.weather_changed_at_s, 0.0, std::numeric_limits<double>::max()});
+    ranged_fields.push_back({*rc.wet_until_s, 0.0, std::numeric_limits<double>::max()});
+    ranged_fields.push_back({runway.latitude_deg, -90.0, 90.0});
+    ranged_fields.push_back({runway.longitude_deg, -180.0, 180.0});
+    ranged_fields.push_back({runway.heading_deg, 0.0, 360.0});
+    ranged_fields.push_back(
+        {runway.length_m, std::numeric_limits<double>::denorm_min(), 20000.0});
+    out.push_back({"runway_conditions", glideslope::net::write(rc), fields,
+                   [](std::span<const std::uint8_t> b) {
+                       glideslope::net::RunwayConditions got;
+                       return glideslope::net::read(b, got);
+                   }});
     return out;
 }
 
@@ -1061,7 +1125,7 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 // infinite duration never ends. A number that is not one is refused exactly
 // as a bad count or a trailing byte is.
 //
-// **The space, stated.** Five kinds of message carry thirty-two
+// **The space, stated.** Six kinds of message carry thirty-eight
 // floating-point fields between them:
 //
 //   - `SESSION`, one - the simulation's clock;
@@ -1071,6 +1135,8 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 //   - `CONTROLLER_SWAP`, one;
 //   - `COPILOT_ROUTE`, the glide's airspeed, four per waypoint and one more
 //     per orbit, and five for its landing.
+//   - `RUNWAY_CONDITIONS`, when its weather changed, until when it is wet,
+//     and four per runway.
 //
 // **The four kinds left out are named**: `LOBBY`, `AIRCRAFT`,
 // `TERRAIN_DATASET` and `WATCH` carry no floating-point field at all - slot
@@ -1082,8 +1148,9 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
 // must still read - except in the four fields with a range of their own (a
 // `WEATHER`'s place, when it changed and its blend), where the largest and
 // most negative doubles are outside (the most negative alone, for when it
-// changed, which has no top) and must be refused: 192 refusals of NaN and
-// infinity, 153 readings and 7 refusals out of range, each counted.
+// changed, which has no top) and must be refused - and so in the six of
+// `RUNWAY_CONDITIONS`, every one ranged: 228 refusals of NaN and infinity,
+// 171 readings and 19 refusals out of range, each counted.
 GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an_infinity) {
     // The bit patterns that are not a number. Both infinities, and NaNs
     // quiet and signalling, signed and with a payload, because a reader that
@@ -1107,15 +1174,15 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
         {0x0000000000000001ull, "the smallest subnormal"}};
 
     const std::vector<WithNumbers> kinds = every_kind_that_carries_a_number();
-    check(kinds.size() == 5,
-          "five of the ten kinds carry a floating-point field, not " +
+    check(kinds.size() == 6,
+          "six of the twelve kinds carry a floating-point field, not " +
               std::to_string(kinds.size()));
 
     std::size_t walked = 0;
     std::size_t refused = 0;
     std::size_t accepted = 0;
     std::size_t out_of_range = 0;
-    check(ranged_fields.size() == 4, "four fields have ranges of their own");
+    check(ranged_fields.size() == 10, "ten fields have ranges of their own");
     for (const WithNumbers& k : kinds) {
         check(k.reads(k.bytes), k.name + " reads as it stands");
         for (const double field : k.fields) {
@@ -1133,7 +1200,7 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
             }
             const auto range = std::find_if(ranged_fields.begin(), ranged_fields.end(),
                                             [&](const Ranged& r) { return r.value == field; });
-            const bool ranged = k.name == "weather" && range != ranged_fields.end();
+            const bool ranged = range != ranged_fields.end();
             for (const auto& [bits, what] : a_number) {
                 std::vector<std::uint8_t> changed = k.bytes;
                 put_bits(changed, at[0], bits);
@@ -1155,17 +1222,18 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
             ++walked;
         }
     }
-    check(walked == 32, "thirty-two floating-point fields were walked, not " +
+    check(walked == 38, "thirty-eight floating-point fields were walked, not " +
                             std::to_string(walked));
-    check(refused == 32 * 6, "192 numbers that are not numbers were refused, not " +
+    check(refused == 38 * 6, "228 numbers that are not numbers were refused, not " +
                                  std::to_string(refused));
-    // Outside: both extremes for the place and the blend, the most negative
-    // alone for when it changed.
-    check(accepted == 32 * 5 - 7, "153 extreme numbers still read, not " +
-                                      std::to_string(accepted));
-    check(out_of_range == 7, "7 outside a ranged field's range were refused, not " +
-                                 std::to_string(out_of_range));
-    std::printf("  32 floating-point fields: %zu refused, %zu still read, %zu out of range\n",
+    // Outside: both extremes for a weather's place and blend and a runway's
+    // place and heading, the most negative alone for when a weather changed
+    // and until when it is wet, and a runway of no length either way too.
+    check(accepted == 38 * 5 - 19, "171 extreme numbers still read, not " +
+                                       std::to_string(accepted));
+    check(out_of_range == 19, "19 outside a ranged field's range were refused, not " +
+                                  std::to_string(out_of_range));
+    std::printf("  38 floating-point fields: %zu refused, %zu still read, %zu out of range\n",
                 refused, accepted, out_of_range);
 }
 

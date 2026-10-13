@@ -788,7 +788,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       and the runway it names given the FAA code its deposit and depth make;
       a C172P braked from 40 kt stops in 78 m dry, 292 m in reported slush
       and 550 m on reported ice. Rain that has stopped keeps the runway wet
-      for half an hour, an estimate.
+      for half an hour, an estimate. The runway list is fetched without ever
+      holding up the server or a client, and the server tells every client
+      its runways' conditions, so a client joining after the rain agrees
+      with it. **Its reach is small**: since ICAO dropped the group from
+      METARs in November 2021 few States send it - Russia's still do, every
+      report; none of 20 other European and Central Asian stations sampled
+      did - and the US never has.
 - [ ] **A copilot or planner is not told a runway is reported
       contaminated.** It judges each runway dry or wet, and no landing
       distance on snow, slush or ice is known for any aircraft.

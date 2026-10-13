@@ -19,7 +19,9 @@
 #include "world/weather.hpp"
 
 #include <filesystem>
+#include <atomic>
 #include <functional>
+#include <future>
 #include <memory>
 #include <optional>
 #include <string>
@@ -34,24 +36,44 @@ namespace glideslope::frontend {
 // returned as it was.
 world::WeatherReport fit_to_send(world::WeatherReport report);
 
-// **The runways a report's runway states lie on**: its station's, from
-// OurAirports' runways (world::world_runways), fetched and read once and
-// only for a report that has a runway state, so that a report without one
-// reaches no network. Runways that cannot be had leave the report without
-// any - its states then lie on no runway, and the runways are as its weather
-// says - and are not asked for again; `attach` says why, once, in `why`.
+// **The runways a report's runway states lie on**, laid on the air flown
+// once they are had - and never waited for. OurAirports' runways
+// (world::world_runways) are fetched and read on a thread of their own, begun
+// the first time the air flown has a runway's state, so that air without one
+// reaches no network; the stepping thread and the frame loop only look
+// whether they have come. **Until they have**, a state reported lies on no
+// runway, and the runways are as the weather alone says - wet in rain, dry
+// otherwise - and from the step after they come, on the runway it names.
+// Runways that cannot be had are never laid and not asked for again, and
+// `lay` says why, once. Let go while they are being fetched, the fetch is
+// given up (world::FetchesGivenUp) and only that is waited for.
 class StationRunways {
 public:
-    StationRunways(std::filesystem::path cache, world::Fetch fetch)
-        : cache_(std::move(cache)), fetch_(std::move(fetch)) {}
-    void attach(world::WeatherReport& report, std::string* why = nullptr);
+    using Load = std::function<std::vector<world::RunwayEnd>()>;
+    StationRunways(std::filesystem::path cache, world::Fetch fetch);
+    // Any other source, for a test: a slow one, or one that fails.
+    explicit StationRunways(Load load) : load_(std::move(load)) {}
+    ~StationRunways();
+    StationRunways(const StationRunways&) = delete;
+    StationRunways& operator=(const StationRunways&) = delete;
+
+    // **Lays the runways on `air` if it wants them and they are had**: true
+    // when it has just laid them - what `air` flies has changed. Never waits.
+    bool lay(world::ReportedWeather& air, std::string* why = nullptr);
 
 private:
-    std::filesystem::path cache_;
-    world::Fetch fetch_;
-    std::optional<std::vector<world::RunwayEnd>> all_;
-    bool given_up_ = false;
+    Load load_;
+    std::atomic<bool> give_up_{false};
+    std::future<std::shared_ptr<const std::vector<world::RunwayEnd>>> loading_;
+    std::shared_ptr<const std::vector<world::RunwayEnd>> all_;
+    bool cannot_ = false;
 };
+
+// **What a server says of the runways its air lays a condition on**
+// (net::RunwayConditions), for the weather that took over at `changed_at_s`,
+// at `now_s` on the session's clock.
+net::RunwayConditions runway_conditions_said(const world::ReportedWeather& air,
+                                             double changed_at_s, double now_s);
 
 // What the server sends of the weather it flies: still air (an empty METAR)
 // for none, and the forecast above the station as a `WEATHER_ALOFT` where the
@@ -112,18 +134,22 @@ private:
 // because an aircraft given no weather keeps the last it was given.
 class HeardAir {
 public:
-    // `on_runways` lays each report's runway states on its station's runways,
-    // as the server does (StationRunways); without it they lie on none.
-    HeardAir(const world::Geoid* geoid, world::GroundAt ground, std::function<double()> clock,
-             std::function<void(world::WeatherReport&)> on_runways = {})
-        : geoid_(geoid), ground_(std::move(ground)), clock_(std::move(clock)),
-          on_runways_(std::move(on_runways)) {}
+    HeardAir(const world::Geoid* geoid, world::GroundAt ground, std::function<double()> clock)
+        : geoid_(geoid), ground_(std::move(ground)), clock_(std::move(clock)) {}
 
     // **A METAR these rules cannot read is refused**, and the air flown
     // before it kept: false, with why. A server of this version never sends
     // one, and a client is not to be ended by one that does.
     bool heard(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
                std::string* why = nullptr);
+
+    // **The runways the server's air lays a condition on**, and until when
+    // the runways near the station stay wet - laid on the weather flown if
+    // they are for it (the one that took over when they say), and dropped
+    // otherwise: false. So a client flies the server's runways without
+    // fetching any, and a client joined after the rain the wet runway the
+    // server still flies.
+    bool conditions_heard(const net::RunwayConditions& conditions);
 
     // What an aircraft is to fly: null for still air from the start.
     const std::shared_ptr<sim::Weather>& air() const { return air_; }
@@ -134,8 +160,9 @@ private:
     const world::Geoid* geoid_;
     world::GroundAt ground_;
     std::function<double()> clock_;
-    std::function<void(world::WeatherReport&)> on_runways_;
     std::shared_ptr<world::ReportedWeather> reported_;
+    // When the weather flown took over, as its server said.
+    double changed_at_s_ = 0.0;
     std::shared_ptr<sim::Weather> air_;
     bool still_ = true;
 };

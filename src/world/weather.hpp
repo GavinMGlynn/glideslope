@@ -113,13 +113,32 @@ bool names(const Metar::RunwayState& state, const RunwayEnd& end);
 // any runway is on it, and no parallel 120 m or more away is.
 bool on_runway(const RunwayEnd& end, double latitude_deg, double longitude_deg);
 
+// **A runway a reported state has laid a condition on**: the end it is
+// measured from (its threshold, heading and length) and the code. What a
+// server sends its clients (net::RunwayConditions), so that a client flies
+// the server's runways without fetching any.
+struct ContaminatedRunway {
+    RunwayEnd end;
+    int code = 6;
+};
+// The most a report lays: two ends of eight runways.
+inline constexpr std::size_t most_contaminated_runways = 16;
+
+// **The runways a report's states lie on**: for each state with a code more
+// slippery than dry, each end of `station_runways` it names (world::names),
+// in order, at most most_contaminated_runways of them.
+std::vector<ContaminatedRunway> contaminated_runways(const Metar& metar,
+                                                     const std::vector<RunwayEnd>& station_runways);
+
 // What a flight's weather is made of.
 struct WeatherReport {
     SurfaceReport surface;
-    // **The runways at the report's station** (world::runways_at), which its
-    // runway-state groups name; with none, a state reported is read and
-    // lies on no runway, and the runways are as the weather alone says.
-    std::vector<RunwayEnd> runways;
+    // **The runways its runway-state groups lie on** (contaminated_runways):
+    // laid once the station's runways are had, which is not at once
+    // (frontend::StationRunways); until then, and with none, a state
+    // reported lies on no runway, and the runways are as the weather alone
+    // says.
+    std::vector<ContaminatedRunway> contaminated;
     std::optional<WindsAloft> aloft;
     // The turbulence's severity, 0 none to 7 (world/air_motion.hpp), or, when
     // not given, what the METAR's gusts imply.
@@ -199,7 +218,7 @@ using GroundAt = std::function<double(double latitude_deg, double longitude_deg)
 // **The runway is the report's only near its station**: beyond
 // metar_radius_m, dry. Within it, as the report's weather says
 // (runway_condition_of), or more slippery where a runway-state group names
-// a runway of `report.runways` the place is on (on_runway).
+// one of `report.contaminated` the place is on (on_runway).
 sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
                                 const GroundAt& ground, sim::Conditions mean,
                                 double latitude_deg, double longitude_deg,
@@ -275,6 +294,24 @@ public:
         return blend_seconds_;
     }
 
+    // **Whether a report flown has a runway's state**, the latest or the
+    // one it blends from: what wants the station's runways laid.
+    bool has_runway_states() const;
+    // Whether the runways have been laid on what is flown now - by
+    // lay_runways or lay - since it was made or last updated.
+    bool runways_laid() const { return runways_laid_; }
+    // **Lays both reports' states on the station's runways** - `all`, every
+    // runway, of which each report's station's are taken - once they are had.
+    void lay_runways(const std::vector<RunwayEnd>& all);
+    // **Lays what a server says it laid** (net::RunwayConditions): the latest
+    // report's runways, the one it blends from's, and until when the runways
+    // near the station stay wet.
+    void lay(std::vector<ContaminatedRunway> now, std::vector<ContaminatedRunway> before,
+             double wet_until_s);
+    // Until when the runways near the station stay wet from the rain before
+    // (still_wet_after_rain_s); -infinity, not at all.
+    double wet_until_s() const { return wet_until_s_; }
+
     // The report now: the latest, even while it is blending in.
     const WeatherReport& report() const {
         return current_;
@@ -302,6 +339,7 @@ private:
     // Until when the runways near the station stay wet from rain the report
     // before said (still_wet_after_rain_s); -infinity, never.
     double wet_until_s_ = -std::numeric_limits<double>::infinity();
+    bool runways_laid_ = false;
     const Geoid* geoid_;
     double blend_seconds_;
 };

@@ -1021,6 +1021,7 @@ struct Connection {
     bool told_session = false;
     std::vector<std::uint8_t> lobby_told;
     int weathers_told = -1;
+    int runway_conditions_told = -1;
 };
 
 // **Every initiation that has made a session, remembered after the session
@@ -2210,7 +2211,6 @@ public:
     // until the lift is cheap enough for a client to fly it too
     // (COMPLETION_PLAN.md).
     void fly_in(glideslope::world::WeatherReport report, double blend_s) {
-        on_its_runways(report);
         air_ = std::make_shared<glideslope::world::ReportedWeather>(
             std::move(report), &geoid_, blend_s, glideslope::world::GroundAt{});
         session_air_ = std::make_shared<glideslope::frontend::SessionClocked>(
@@ -2223,25 +2223,48 @@ public:
         weather_changed_at_s_ = now_s();
         weather_blend_s_ = blend_s;
         ++weathers_;
+        ++runway_conditions_;
     }
     // **A new report, blended in from now** over the blend `fly_in` was given.
     void weather_changes(glideslope::world::WeatherReport report) {
-        on_its_runways(report);
         air_->update(std::move(report), now_s());
         previous_changed_at_s_ = weather_changed_at_s_;
         weather_changed_at_s_ = now_s();
         ++weathers_;
+        ++runway_conditions_;
     }
-    // **A report's runway states laid on its station's runways**
-    // (frontend::StationRunways), so that an aircraft on a runway reported
-    // contaminated brakes on it as reported; said once if they cannot be had.
-    void on_its_runways(glideslope::world::WeatherReport& report) {
+    // **A report's runway states laid on its station's runways once they
+    // are had** (frontend::StationRunways), so that an aircraft on a runway
+    // reported contaminated brakes on it as reported. Looked at before every
+    // step and never waited for: until the runways come - fetched on a
+    // thread of their own - the state lies on no runway. Said once if they
+    // cannot be had; told every client again when laid.
+    void lay_runways_when_had() {
+        if (!air_) {
+            return;
+        }
         std::string why;
-        station_runways_.attach(report, &why);
+        if (station_runways_.lay(*air_, &why)) {
+            ++runway_conditions_;
+            std::printf("runways laid at %.3f s: %zu reported contaminated\n", now_s(),
+                        air_->report().contaminated.size());
+            std::fflush(stdout);
+        }
         if (!why.empty()) {
             std::fprintf(stderr, "glideslope_server: %s\n", why.c_str());
         }
     }
+    // **What the clients are told of the runways** (net::RunwayConditions),
+    // and how many times it has changed: after every weather, and when the
+    // runways are laid.
+    std::optional<glideslope::net::RunwayConditions> runway_conditions_said() const {
+        if (!air_) {
+            return std::nullopt;
+        }
+        return glideslope::frontend::runway_conditions_said(*air_, weather_changed_at_s_,
+                                                            now_s());
+    }
+    int runway_conditions() const { return runway_conditions_; }
     // What is flown, for the clients: none is still air.
     const glideslope::world::WeatherReport* weather() const {
         return air_ ? &air_->report() : nullptr;
@@ -3667,6 +3690,7 @@ private:
     double previous_changed_at_s_ = 0.0;
     double weather_blend_s_ = 0.0;
     int weathers_ = 0;
+    int runway_conditions_ = 0;
     std::shared_ptr<glideslope::sim::FunctionTerrain> ground_;
     std::filesystem::path data_;
     std::vector<Aircraft> flown_;
@@ -4975,6 +4999,7 @@ int run(const Options& o) {
                     apply_due(connection.second, *fleet, stepped + i);
                 }
                 weather_due();
+                fleet->lay_runways_when_had();
                 for (const std::string& line : fleet->step()) {
                     std::printf("%s\n", line.c_str());
                     std::fflush(stdout);
@@ -5060,6 +5085,16 @@ int run(const Options& o) {
                     send(glideslope::net::write(said_air.weather));
                     if (said_air.aloft) {
                         send(glideslope::net::write(*said_air.aloft));
+                    }
+                }
+                // **The runways its air lays a condition on**, after every
+                // weather and again when they are laid: a client has no
+                // runways of its own to lay a state on, and did not hear
+                // rain that stopped before it joined.
+                if (c.runway_conditions_told != fleet->runway_conditions()) {
+                    c.runway_conditions_told = fleet->runway_conditions();
+                    if (const auto said = fleet->runway_conditions_said()) {
+                        send(glideslope::net::write(*said));
                     }
                 }
                 // **Every aircraft introduced**, and again if its number has
