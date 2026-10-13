@@ -32,6 +32,18 @@ constexpr double self_rotated_deg = 2.0;
 // How far short of the attitude her tail strikes at the nose is held on the
 // wheels, degrees.
 constexpr double strike_margin_deg = 2.0;
+// **The rotation's rate**, degrees a second: four, the pilot's rate the nose
+// was already raised at, and slowing as the nose nears the attitude her tail
+// strike lets her be held at, a degree a second for each degree short of it,
+// so that it does not overshoot. Unlimited, an A380 at her light loading
+// rotated at nearly nine degrees a second and was carried past her strike
+// attitude as her wheels left the runway. Airline practice is nearer three
+// (as the project took it on 2026-10-13, not checked against a document
+// here); tried at three, with the slowing aimed at the take-off attitude,
+// the F-15C left 12 knots past her rotation speed and the F-35B 28, past the
+// ten the take-off test allows.
+constexpr double rotation_rate_degps = 4.0;
+constexpr double rotation_rate_per_deg_short = 1.0;
 // **The take-off flap comes up** (DepartureSpeeds::flaps_up_ft): from 50 ft
 // above the runway for a light aeroplane, 400 for any other, once she is
 // within flaps_up_within_kts of her initial climb speed; a notch at a time,
@@ -67,7 +79,7 @@ const FigureSpec* by_flight(const PublishedFigures& figures, const std::string& 
 // but the F-15C gains thirteen knots a second and left 9.2 past its rotation
 // speed, 0.8 inside the ten allowed; with it, 4.5.
 double rotation_lead_s(double pitch_deg) {
-    return std::max(0.0, (10.0 - pitch_deg) / 4.0) + 0.45;
+    return std::max(0.0, (10.0 - pitch_deg) / rotation_rate_degps) + 0.45;
 }
 
 // What the aeroplane weighed for a figure: its loading's total, or the
@@ -663,7 +675,7 @@ Controls Departure::fly_laws() {
             // she climbed away, and flew her back on to the runway.
             pitch_trim_ = std::max(pitch_trim_, 0.0);
         }
-        rotate_pitch_ = std::min(rotate_pitch_ + 4.0 / steps_per_second, 10.0);
+        rotate_pitch_ = std::min(rotate_pitch_ + rotation_rate_degps / steps_per_second, 10.0);
         want_pitch = on_ground ? rotate_pitch_ : std::max(rotate_pitch_, left_at_pitch_deg_);
         // **While the nose will not come, the stick goes further back** -
         // half its travel a second, as the F-15's flight manual has the
@@ -690,11 +702,30 @@ Controls Departure::fly_laws() {
             pull_ = std::min(pull_ + held - last_elevator_, 1.0);
         }
         const double lagging_deg = want_pitch - s.pitch_deg;
-        if (lagging_deg > 1.0 && s.q_radps * degrees < 4.0 &&
+        // **At the rotation's rate** (rotation_rate_degps), slowing as she
+        // nears the attitude her tail strike lets her be held at: the pull
+        // grows while the nose comes up slower than that, and is eased off,
+        // twice as fast, while it comes up faster on her wheels - off them,
+        // a nose hauled up by a pilot is the climb's to bring down, and
+        // eased off there a C172P rotated early at 45 knots was flown flat
+        // in ground effect to her rotation speed before fifteen feet, and
+        // her take-off lesson no longer saw the early rotation. Slowed short
+        // of the take-off attitude instead, the F-35B, which lifts off at
+        // more than it, ran on twenty-five knots past her rotation speed.
+        const double held_at_deg = strike_pitch_deg_ - strike_margin_deg;
+        // Far from it, only the pull's growth is held to the rate; the nose
+        // is let run on faster, as it was before there was a limit to
+        // approach.
+        const double slowing_to = std::max(
+            rotation_rate_per_deg_short * (held_at_deg - s.pitch_deg), 0.0);
+        const double rate_wanted = std::min(slowing_to, rotation_rate_degps);
+        const double q_now = s.q_radps * degrees;
+        const bool too_fast = on_ground && q_now > slowing_to + 1.0;
+        if (lagging_deg > 1.0 && q_now < rate_wanted &&
             s.pitch_deg < strike_pitch_deg_ - strike_margin_deg - 1.0) {
             pull_ = std::min(pull_ + 0.5 / steps_per_second, 1.0);
-        } else if (lagging_deg <= 1.0) {
-            pull_ = std::max(pull_ - 0.25 / steps_per_second, 0.0);
+        } else if (lagging_deg <= 1.0 || too_fast) {
+            pull_ = std::max(pull_ - (too_fast ? 0.5 : 0.25) / steps_per_second, 0.0);
         }
     } else {
         // Climbing: the attitude that holds the best climb speed - half a

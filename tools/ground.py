@@ -291,6 +291,109 @@ def flanks(model_id, wheel_z=None):
     return out
 
 
+# **Where an aeroplane's tail strikes.** An aeroplane rotated on its main
+# wheels pivots about the aft edge of their tyres, and its tail strikes at the
+# least pitch at which anything of its airframe behind them reaches the
+# ground: the angle, in the body frame, from the pivot to that point. Which
+# point that is - a tail cone, a ventral fin, a tailpipe, a stabilator's tip,
+# an aft fuselage - is the mesh's to say, not a guess about the type's shape.
+#
+# **The pivot is the mesh's own main wheels**, not the flight model's: the
+# angle is a property of the airframe as drawn, and a mesh's undercarriage
+# can sit metres from where the flight model puts its contacts (the
+# 747-400's is up to 3.4 m out, alignment.txt). The point is then placed on
+# the flight model by the same offset from its own main wheels, so that she
+# strikes at the drawn angle on her own wheels.
+#
+# The main wheels are the lowest points off the centreline within
+# MAIN_SEARCH_IN of the flight model's main wheels; their pivot, the aft-most
+# of those within TYRE_BOTTOM_IN of the lowest. The undercarriage itself -
+# the tyres' own rear, a bogie's aft wheels, its doors - is anything lower
+# than GEAR_SHARE of the typical belly height above the pivot, the same rule
+# _profile() drops it by.
+MAIN_SEARCH_IN = 300.0
+TYRE_BOTTOM_IN = 1.0
+# Off the centreline, for finding main wheels: clear of a nose wheel's tyre.
+MAIN_OFF_CENTRE_IN = 20.0
+# A strike point further off the centreline than this is given its mirror
+# image too, so that a rotated aeroplane meets the runway on both sides, as a
+# symmetric airframe does, and does not roll on to one.
+MIRROR_BEYOND_IN = 2.0
+
+
+def wheel_contacts(model_id):
+    """The flight model's contacts, (name, x, y, z, is_wheel), inches.
+
+    A wheel is what Aircraft::contact_points() calls one: a BOGEY that
+    retracts, steers or brakes. A tail skid written as a BOGEY is not.
+    """
+    root = ElementTree.fromstring((JSBSIM / model_id / f"{model_id}.xml").read_bytes())
+    out = []
+    for c in root.findall("ground_reactions/contact"):
+        x, y, z = (v / IN for v in _triplet(c.find("location")))
+        wheel = False
+        if c.get("type") == "BOGEY":
+            retracts = (c.findtext("retractable") or "0").strip() not in ("0", "")
+            steer = c.find("max_steer")
+            steers = steer is not None and abs(float(steer.text)) > 0.0
+            brakes = (c.findtext("brake_group") or "NONE").strip().upper() != "NONE"
+            wheel = retracts or steers or brakes
+        out.append((c.get("name"), x, y, z, wheel))
+    return out
+
+
+def model_main_wheels(model_id):
+    """(x, z) of the flight model's main wheels as Aircraft::stance pivots on
+    them: the lowest contacts off the centreline, the aft-most of those."""
+    cs = wheel_contacts(model_id)
+    main_z = min(z for _n, _x, y, z, _w in cs if abs(y) > 1.0)
+    main_x = max(x for _n, x, y, z, _w in cs if abs(y) > 1.0 and z < main_z + 1.0)
+    return main_x, main_z
+
+
+def model_strike(model_id):
+    """(pitch, name) at which the flight model's tail strikes, as
+    Aircraft::stance works it: the least angle, pivoting on the main wheels,
+    to any contact behind them that is not a wheel. (None, None) if none."""
+    main_x, main_z = model_main_wheels(model_id)
+    best = (None, None)
+    for name, x, _y, z, wheel in wheel_contacts(model_id):
+        if x > main_x + 1.0 and not wheel:
+            pitch = math.degrees(math.atan((z - main_z) / (x - main_x)))
+            if best[0] is None or pitch < best[0]:
+                best = (pitch, name)
+    return best
+
+
+def tail_strike(model_id):
+    """Where the airframe strikes the runway when rotated on its main wheels.
+
+    Returns (pitch, contacts): the pitch in degrees at which the airframe
+    behind the mesh's main wheels first meets the ground, and that point as
+    contacts on the flight model, (name, x, y, z) in structural inches - one
+    on the centreline, or a mirrored pair.
+    """
+    points, _wheel_z = in_structural_frame(model_id)
+    model_x, model_z = model_main_wheels(model_id)
+    off = [p for p in points
+           if abs(p[1]) > MAIN_OFF_CENTRE_IN and abs(p[0] - model_x) < MAIN_SEARCH_IN]
+    tyre_z = min(p[2] for p in off)
+    pivot_x = max(p[0] for p in off if p[2] < tyre_z + TYRE_BOTTOM_IN)
+    _kept, _every, typical = _profile(points, tyre_z)
+    behind = [p for p in points
+              if p[0] > pivot_x + 1.0 and p[2] - tyre_z > GEAR_SHARE * typical]
+    if not behind:
+        raise SystemExit(f"ground.py: {model_id} has no airframe behind its main wheels")
+    pitch, at = min((math.degrees(math.atan((p[2] - tyre_z) / (p[0] - pivot_x))), p)
+                    for p in behind)
+    x = round(model_x + at[0] - pivot_x, 1)
+    z = round(model_z + at[2] - tyre_z, 1)
+    y = round(abs(at[1]), 1)
+    if y > MIRROR_BEYOND_IN:
+        return pitch, [("LEFT_TAIL_STRIKE", x, -y, z), ("RIGHT_TAIL_STRIKE", x, y, z)]
+    return pitch, [("TAIL_STRIKE", x, 0.0, z)]
+
+
 def contact_elements(points, weight_lbs, indent="        "):
     """`points`, (name, x, y, z) in inches, as scraping JSBSim <contact>s."""
     spring, damping = stiffness(weight_lbs)
@@ -308,6 +411,29 @@ def contact_elements(points, weight_lbs, indent="        "):
                 f'{indent}    <damping_coeff unit="LBS/FT/SEC"> {damping:.0f} </damping_coeff>\n'
                 f'{indent}</contact>\n')
     return out
+
+
+def with_tail_strike(text, model_id, weight_lbs, replacing=(), script="ground.py"):
+    """A flight model's `text` with its tail strike, measured by tail_strike(),
+    added to its ground reactions as scraping contacts.
+
+    `replacing` names contacts behind the main wheels that strike before the
+    airframe does - a hand-placed tail skid below the drawn tail - and are
+    taken out: each must be there, once.
+    """
+    import re
+    for name in replacing:
+        text, n = re.subn(rf'\n *<contact type="[A-Z]+" name="{name}">(?:(?!</contact>).)*?</contact>',
+                          "", text, flags=re.S)
+        if n != 1:
+            raise SystemExit(f"{script}: found {n} contacts named {name}, not one")
+    _pitch, points = tail_strike(model_id)
+    text, n = re.subn(r"(\n)( *</ground_reactions>)",
+                      lambda m: m.group(1) + contact_elements(points, weight_lbs) + m.group(2),
+                      text, count=1)
+    if n != 1:
+        raise SystemExit(f"{script}: found no ground reactions to add a tail strike to")
+    return text
 
 
 def contacts(model_id, weight_lbs, indent="        ", wheel_z=None):
@@ -351,6 +477,21 @@ FLIGHTGEAR_737_BELLY_IN = 43.7
 BELLY_AGREEMENT_IN = 10.0
 
 
+# How far a flight model's tail strike may be from her mesh's: the rounding
+# of a contact to a tenth of an inch, and a wing tip or keel contact placed by
+# the alignment that meets the ground within a fraction of a degree of the
+# drawn tail (the B-2's wing tip, 0.15 degrees before it).
+STRIKE_AGREEMENT_DEG = 0.25
+# The flight models whose tail strike is not measured from a mesh, and why.
+NO_TAIL_STRIKE_FROM_MESH = {
+    "learjet35a": "no mesh; her ventral fin is measured off her maintenance manual's "
+                  "drawing (tools/make_learjet35a.py)",
+    "j3cub": "she stands on a tail wheel, her tail down already",
+    "mosquito-fb6": "she stands on a tail wheel, her tail down already",
+    "short_s23": "a flying boat, alighting on her hull and not on wheels",
+}
+
+
 def check():
     """Everything this module claims, checked. Returns the number of faults."""
     faults = []
@@ -383,9 +524,33 @@ def check():
         faults.append(f"the mesh and FlightGear's 737-300 differ by {off:.1f} in, more "
                       f"than the {BELLY_AGREEMENT_IN} in this method claims")
 
+    # **Every nose-wheel aeroplane's tail strikes where its airframe would**:
+    # her flight model, pivoting on its main wheels, first meets the ground
+    # behind them at the pitch her mesh does, within STRIKE_AGREEMENT_DEG.
+    struck = []
+    for model_id in sorted(p.name for p in JSBSIM.iterdir() if p.is_dir()):
+        if model_id in NO_TAIL_STRIKE_FROM_MESH:
+            print(f"  {model_id:<12} tail strike not measured: "
+                  f"{NO_TAIL_STRIKE_FROM_MESH[model_id]}")
+            continue
+        drawn, _points = tail_strike(model_id)
+        modelled, name = model_strike(model_id)
+        print(f"  {model_id:<12} tail strikes at {drawn:5.2f} degrees as drawn; "
+              f"her flight model at {modelled:5.2f}, on {name}")
+        if abs(modelled - drawn) > STRIKE_AGREEMENT_DEG:
+            faults.append(f"{model_id}'s flight model strikes at {modelled:.2f} degrees on "
+                          f"{name}, her airframe at {drawn:.2f}")
+        struck.append(model_id)
+
     # **The space this walked, stated.**
     if len(PUBLISHED_M) != 5:
         faults.append(f"{len(PUBLISHED_M)} aircraft were checked, not the five derived this way")
+    every = len([p for p in JSBSIM.iterdir() if p.is_dir()])
+    print(f"  tail strikes: {len(struck)} of {every} flight models measured, "
+          f"{len(NO_TAIL_STRIKE_FROM_MESH)} named")
+    if every != 16 or len(struck) != 12 or len(struck) + len(NO_TAIL_STRIKE_FROM_MESH) != every:
+        faults.append(f"{len(struck)} tail strikes checked and {len(NO_TAIL_STRIKE_FROM_MESH)} "
+                      f"named, of {every} flight models: not twelve and four of sixteen")
     for fault in faults:
         print(f"  FAULT: {fault}")
     return len(faults)

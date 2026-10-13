@@ -351,15 +351,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       her handbook says; her plan's fastest is now 112 kt. *Verification:
       the change traced to the commit that made it, and her figure measured
       again.* Done 2026-10-10.
-- [ ] **Tail strikes for the F-15C, A380 and F-35B, against published
-      attitudes.** The Learjet's tail strikes and the take-off lessons name
-      a strike (done 2026-10-06); the F-15C has no contact behind her main
-      wheels, the A380 strikes her outboard engines first, and the F-35B
-      flies off before her tail touches. No strike attitude is published for
-      any of them, nor for the Learjet (her drawings allow 14.0 to 15.6
-      degrees). *Verification: every nose-wheel aeroplane's tail strikes the
-      runway where its airframe would, and is judged a strike.* Owner
-      2026-10-09: no public source.
+- [x] **Every nose-wheel aeroplane strikes its tail where its airframe
+      would.** Each strike is measured from her visual model (the Learjet's
+      from her drawings) and is a contact in her flight model; five strike
+      with their wheels just lifted (PROJECT_STATUS, 2026-10-13).
+      *Verification: every nose-wheel aeroplane's tail strikes the runway
+      where its airframe would, and is judged a strike, with every take-off,
+      approach and landing test green.* Done 2026-10-13.
 - [ ] **The F-35B cannot hover, land vertically or take off short**: its lift
       fan is not modelled. *Verification: it hovers at its published thrust,
       lands vertically, and takes off in its published short distance.*
@@ -525,6 +523,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 
 The autopilot's navigator and the plans it flies: orbits, glides, the speeds a plan may ask, the take-off, and the lessons' autopilot.
 
+- [ ] **The take-off autopilot rotates at a held rate.** It eases the pull
+      as the nose nears the tail strike, but airliners still come up at 7 to
+      8 degrees a second (PROJECT_STATUS, 2026-10-13). *Verification: every
+      nose-wheel aeroplane at every loading rotates no faster than its stated
+      rate on her wheels, and every take-off and hand-over test stays green.*
 - [ ] **The autopilot holds a low height loosely in an airliner's take-off
       configuration.** Asked to hold 200 ft with her take-off flap and gear
       out, the A380 swings 15 ft either side of it at up to 350 ft/min for

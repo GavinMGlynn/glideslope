@@ -795,7 +795,20 @@ GLIDESLOPE_TEST(each_visual_model_is_where_its_flight_model_says_the_aeroplane_i
         const std::vector<std::array<double, 3>> points = contacts(aircraft);
         check(static_cast<int>(points.size()) == a.wheels + a.shape,
               id + " has the contacts its alignment counts");
+        // **A tail strike is placed from the mesh's own main wheels**, not
+        // from this alignment (tools/ground.py, tail_strike), so it lies
+        // off the aligned model by as far as the two undercarriages are
+        // apart - the F-22A's 3.1 m. Its place is checked there instead, by
+        // the_airframe_contacts_measured_from_the_meshes_agree_with_what_is_published,
+        // and it is not held here.
+        const std::vector<glideslope::sim::Aircraft::ContactPoint> named =
+            aircraft.contact_points();
+        check(named.size() == points.size(), id + "'s contacts are named one for one");
         for (std::size_t i = 0; i < points.size(); ++i) {
+            const std::string& name = named[i].name;
+            if (name.size() >= 11 && name.compare(name.size() - 11, 11, "TAIL_STRIKE") == 0) {
+                continue;
+            }
             const double d = nearest(model, a.offset, points[i]);
             check(d <= allowed,
                   id + "'s contact " + std::to_string(i) + " is " +

@@ -206,7 +206,8 @@ def ground_reactions():
     # The airframe's own contacts, so that it has something to land on with
     # its wheels up; measured from its visual model by tools/ground.py.
     out += ground.contacts(MODEL, weight, wheel_z=WHEEL_Z)
-    return out + "    </ground_reactions>\n"
+    # The tail strike, measured from her visual model by tools/ground.py.
+    return ground.with_tail_strike(out + "    </ground_reactions>\n", MODEL, weight, script=SCRIPT)
 
 
 def propulsion():
