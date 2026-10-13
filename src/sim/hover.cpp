@@ -14,6 +14,7 @@ constexpr double dt = 1.0 / static_cast<double>(steps_per_second);
 constexpr double pi = 3.14159265358979323846;
 constexpr double rad_per_deg = pi / 180.0;
 constexpr double earth_radius_ft = 20902231.0;
+constexpr double fps_per_kt = 6076.12 / 3600.0;
 
 // The nozzle straight down. The throttle's top in STOVL mode is her
 // model's (`fcs/stovl-throttle-max`, tools/make_f35b.py), read from it.
@@ -42,6 +43,8 @@ constexpr double yaw_gain = 2.0, yaw_rate_gain = 3.0;
 constexpr double drift_gain = 0.03;
 constexpr double place_gain = 0.003;
 constexpr double most_tilt_rad = 6.0 * rad_per_deg;
+// Under this, a foot a second, she has stopped after a ground speed asked.
+constexpr double stopped_fps = 1.0;
 
 double toward(double from, double to, double most) {
     return from + std::clamp(to - from, -most, most);
@@ -116,6 +119,31 @@ Hover::Command Hover::step(const Target& target) {
     }
     c.controls.throttle = toward(c.controls.throttle, throttle, pace_.throttle_per_s * dt);
 
+    // **A ground speed asked is flown by her speed alone**, not by a point
+    // moved at it - she would lag it and, the speed asked gone, be pulled
+    // back to it: while one is asked, and until she has stopped after it,
+    // the point she holds over is where she is, and stopped, she holds over
+    // where she stopped (a translational rate command's standstill). The
+    // heading she holds turns as asked.
+    const double ahead_fps = target.ahead_kt * fps_per_kt;
+    const double right_fps = target.right_kt * fps_per_kt;
+    if (!on_ground) {
+        if (ahead_fps != 0.0 || right_fps != 0.0) {
+            translating_ = true;
+        } else if (translating_ && std::hypot(a_.property("velocities/v-north-fps"),
+                                              a_.property("velocities/v-east-fps")) < stopped_fps) {
+            translating_ = false;
+        }
+        if (translating_) {
+            latitude_deg_ = s.latitude_deg;
+            longitude_deg_ = s.longitude_deg;
+        }
+        if (target.turn_degps != 0.0) {
+            heading_deg_ = std::fmod(heading_deg_ + target.turn_degps * dt + 360.0, 360.0);
+        }
+    }
+    const double turn_radps = on_ground ? 0.0 : target.turn_degps * rad_per_deg;
+
     // Where it is and how it moves, along its heading and across it.
     const double psi = heading_deg_ * rad_per_deg;
     const double north = (s.latitude_deg - latitude_deg_) * rad_per_deg * earth_radius_ft;
@@ -129,10 +157,10 @@ Hover::Command Hover::step(const Target& target) {
     const double v_right = -v_north * std::sin(psi) + v_east * std::cos(psi);
 
     // Tilted back to stop going ahead, and over to stop going right.
-    const double pitch_wanted =
-        std::clamp(drift_gain * v_ahead + place_gain * ahead, -most_tilt_rad, most_tilt_rad);
-    const double roll_wanted =
-        std::clamp(-(drift_gain * v_right + place_gain * right), -most_tilt_rad, most_tilt_rad);
+    const double pitch_wanted = std::clamp(drift_gain * (v_ahead - ahead_fps) + place_gain * ahead,
+                                           -most_tilt_rad, most_tilt_rad);
+    const double roll_wanted = std::clamp(-(drift_gain * (v_right - right_fps) + place_gain * right),
+                                          -most_tilt_rad, most_tilt_rad);
     const double pitch_error = pitch_wanted - s.pitch_deg * rad_per_deg;
     const double roll_error = roll_wanted - s.roll_deg * rad_per_deg;
     const double heading_error = std::remainder(heading_deg_ - s.heading_deg, 360.0) * rad_per_deg;
@@ -144,7 +172,8 @@ Hover::Command Hover::step(const Target& target) {
                                  : fan_integral_ + pitch_gain * pitch_error - pitch_rate_gain * s.q_radps;
     const double post = on_ground ? post_integral_
                                   : post_integral_ + roll_gain * roll_error - roll_rate_gain * s.p_radps;
-    const double yaw = on_ground ? 0.0 : yaw_gain * heading_error - yaw_rate_gain * s.r_radps;
+    const double yaw =
+        on_ground ? 0.0 : yaw_gain * heading_error - yaw_rate_gain * (s.r_radps - turn_radps);
     const double most = pace_.control_per_s * dt;
     c.lift.fan = toward(c.lift.fan, std::clamp(fan, -1.0, 1.0), most);
     c.lift.roll_post = toward(c.lift.roll_post, std::clamp(post, -1.0, 1.0), most);

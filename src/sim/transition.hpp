@@ -93,12 +93,39 @@ public:
         double latitude_deg = 0.0;
         double longitude_deg = 0.0;
     };
+    //
+    // **Flown by a pilot** (`pilot`), her unified control laws' inceptors,
+    // each from -1 to 1, in STOVL mode:
+    //
+    //   lever    the left-hand inceptor's travel from its detent, aft to
+    //            forward. Under her translational rate command's speed
+    //            (`fcs/stovl-trc-kt`) it asks a ground speed along her
+    //            heading in proportion - aft of the detent backward, to
+    //            `fcs/stovl-trc-aft-kt`; above
+    //            it, an acceleration - forward at her gathering rate, aft at
+    //            her slowing rate, the detent holding the speed - up to her
+    //            conversion speed. Either is reached at those rates. None
+    //            is a lever the pilot has not moved: she slows to a hover,
+    //            as without a pilot.
+    //   side     the stick's sideways travel: in the hover a ground speed
+    //            to the right, in proportion, to `fcs/stovl-trc-side-kt`;
+    //   pedals   the pedals: in the hover a turn to the right, in
+    //            proportion, to `fcs/stovl-turn-degps`.
+    //
+    // Jet-borne the stick's sideways and the pedals are not flown yet: her
+    // law holds her heading and her wings level there.
+    struct Inceptors {
+        std::optional<double> lever;
+        double side = 0.0;
+        double pedals = 0.0;
+    };
     struct Target {
         bool hover = true;
         double height_ft = 150.0;
         double kcas = 200.0;
         bool land = false;
         std::optional<Point> over;
+        std::optional<Inceptors> pilot;
     };
     static constexpr double steer_within_ft = 2000.0;
 
@@ -147,6 +174,8 @@ private:
     std::optional<double> ahead_of_point_ft(const Target& target) const;
     Hover::Command fly_wing_borne(const Target& target, bool converted);
     Hover::Command fly_jet_borne(const Target& target, bool back);
+    // The speed asked moved as the pilot's lever asks it.
+    void fly_lever(double lever);
 
     const Aircraft& a_;
     // Read from her model.
@@ -160,6 +189,10 @@ private:
     double gather_kt_per_s_ = 0.0;
     double gathering_pitch_deg_ = 0.0;
     double lift_slope_per_rad_ = 0.0;
+    double trc_kt_ = 0.0;
+    double trc_aft_kt_ = 0.0;
+    double trc_side_kt_ = 0.0;
+    double turn_degps_ = 0.0;
 
     Stage stage_ = Stage::wing_borne;
     std::optional<bool> last_asked_hover_;

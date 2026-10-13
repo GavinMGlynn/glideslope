@@ -1608,7 +1608,7 @@ double hover_thrust(const std::filesystem::path& root, const PublishedFigures& f
 // the hover control law (sim/hover.hpp), and held there a minute to settle.
 // Throws if it is not there within three minutes.
 void lift_to_hover(Flight& f, Hover& hover, double height_ft) {
-    const Hover::Target target{height_ft, false};
+    const Hover::Target target{height_ft, false, 0.0, 0.0, 0.0};
     int settled = 0;
     for (int i = 0; i < steps(180); ++i) {
         const Hover::Command c = hover.step(target);
@@ -1651,7 +1651,7 @@ double hover_height_held(const std::filesystem::path& root, const PublishedFigur
             air.wind_east_mps = share * wind_mps * std::sin(across_rad);
             f.aircraft.set_weather(std::make_shared<SteadyWeather>(air));
         }
-        const Hover::Command c = hover.step({height_ft, false});
+        const Hover::Command c = hover.step({height_ft, false, 0.0, 0.0, 0.0});
         f.aircraft.set_lift_system(c.lift);
         f.fly(c.controls);
         worst = std::max(worst, std::abs(hover.height_ft() - height_ft));
@@ -1673,7 +1673,7 @@ double hover_endurance(const std::filesystem::path& root, const PublishedFigures
     const double height_ft = condition(spec, "altitude_ft");
     lift_to_hover(f, hover, height_ft);
     for (int i = 0; i < steps(3600); ++i) {
-        const Hover::Command c = hover.step({height_ft, false});
+        const Hover::Command c = hover.step({height_ft, false, 0.0, 0.0, 0.0});
         f.aircraft.set_lift_system(c.lift);
         f.fly(c.controls);
         within_its_drift(spec, hover);
@@ -1695,7 +1695,7 @@ double vertical_landing(const std::filesystem::path& root, const PublishedFigure
     const double height_ft = condition(spec, "altitude_ft");
     lift_to_hover(f, hover, height_ft);
     for (int i = 0; i < steps(180); ++i) {
-        const Hover::Command c = hover.step({height_ft, true});
+        const Hover::Command c = hover.step({height_ft, true, 0.0, 0.0, 0.0});
         f.aircraft.set_lift_system(c.lift);
         f.fly(c.controls);
         within_its_drift(spec, hover);
@@ -1763,7 +1763,7 @@ double transition_to_hover(const std::filesystem::path& root,
     TransitionWatch watch{height_ft, condition(spec, "most_pitch_deg"),
                           condition(spec, "most_bank_deg"),
                           condition(spec, "most_rise_ft")};
-    const Transition::Target target{true, height_ft, condition(spec, "speed_kcas"), false, {}};
+    const Transition::Target target{true, height_ft, condition(spec, "speed_kcas"), false, {}, {}};
     for (int i = 0; i < steps(600); ++i) {
         const Hover::Command c = transition.step(target);
         f.aircraft.set_lift_system(c.lift);
@@ -1800,7 +1800,7 @@ double transition_from_hover(const std::filesystem::path& root,
         if (i == steps(180)) {
             throw std::runtime_error("not hovering three minutes after lifting");
         }
-        const Hover::Command c = transition.step({true, height_ft, kcas, false, {}});
+        const Hover::Command c = transition.step({true, height_ft, kcas, false, {}, {}});
         f.aircraft.set_lift_system(c.lift);
         f.fly(c.controls);
         settled = std::abs(f.aircraft.state().height_above_ground_ft - height_ft) < 2.0
@@ -1810,7 +1810,7 @@ double transition_from_hover(const std::filesystem::path& root,
     TransitionWatch watch{height_ft, condition(spec, "most_pitch_deg"),
                           condition(spec, "most_bank_deg"),
                           condition(spec, "most_rise_ft")};
-    const Transition::Target target{false, height_ft, kcas, false, {}};
+    const Transition::Target target{false, height_ft, kcas, false, {}, {}};
     int there = 0;
     for (int i = 0; i < steps(300); ++i) {
         const Hover::Command c = transition.step(target);

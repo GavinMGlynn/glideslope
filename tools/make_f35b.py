@@ -264,6 +264,31 @@ TRANSITION_SLOW_KT_S = 2.0
 TRANSITION_GATHER_KT_S = 3.0
 TRANSITION_GATHERING_PITCH_DEG = 4.0
 STOVL_CONVERT_LEAST_FT = 100.0
+# **Her unified control laws' inceptors in STOVL mode** (sim/transition.hpp,
+# Transition::Inceptors). Walker, Fuller and Wurth (AIAA 2013-4243, its
+# abstract) give the left-hand inceptor longitudinal acceleration; Graham
+# Tomlinson ("Test Flying the Joint Strike Fighter", 2011) "the throttle
+# commands acceleration and deceleration", and his and Guy Norris's
+# (Aviation Week, 3 October 2011) translational rate command "in the hover
+# allows the pilot to make small positional corrections ... and will then
+# bring the aircraft to a standstill if the pilot releases the controls";
+# under it "the aircraft's speed over the ground is proportional to control
+# displacement" (Elan Head, The Air Current, 14 March 2024). John Farley,
+# of the VAAC Harrier her laws were flown on first ("A V/STOL Flight Control
+# Journey", c. 2006): "either side of the aft detent gives the pilot a closed
+# loop control of ground speed up to 30 kt forwards or backwards ... the
+# rudder pedals command yaw rate"; and Chris Kjelgaard (2012) has the F-35B
+# in STOVL mode fly backwards at 30 knots. So: the lever's detent a quarter
+# of its travel from its aft stop (estimated: "aft" is all Farley gives),
+# 30 kt of ground speed either way of it, the stick's sideways a ground speed
+# to 20 kt (estimated: a forum's quotation of the VAAC's full lateral input,
+# not traced to its source) and the pedals a turn to 10 degrees a second
+# (estimated: none is published).
+STOVL_LEVER_DETENT = 0.25
+STOVL_TRC_KT = 30.0
+STOVL_TRC_AFT_KT = 20.0
+STOVL_TRC_SIDE_KT = 20.0
+STOVL_TURN_DEG_S = 10.0
 # Her wing's lift slope at her conversion speed (about Mach 0.3 at sea
 # level), a radian, the slope her lift table is written with (lift_table):
 # from which the transition law reckons the attitude she flies wing-borne at
@@ -511,6 +536,11 @@ def lift_system():
                         ("transition-gather-kt-per-s", f"{TRANSITION_GATHER_KT_S:.1f}"),
                         ("transition-gathering-pitch-deg", f"{TRANSITION_GATHERING_PITCH_DEG:.1f}"),
                         ("stovl-convert-least-ft", f"{STOVL_CONVERT_LEAST_FT:.0f}"),
+                        ("stovl-lever-detent", f"{STOVL_LEVER_DETENT:.2f}"),
+                        ("stovl-trc-kt", f"{STOVL_TRC_KT:.1f}"),
+                        ("stovl-trc-aft-kt", f"{STOVL_TRC_AFT_KT:.1f}"),
+                        ("stovl-trc-side-kt", f"{STOVL_TRC_SIDE_KT:.1f}"),
+                        ("stovl-turn-degps", f"{STOVL_TURN_DEG_S:.1f}"),
                         ("transition-lift-slope-per-rad",
                          f"{fighter.lift_slope(TRANSITION_MACH, ASPECT, SWEEP_QUARTER_CHORD):.4f}")):
         out += f"        <property value=\"{value}\">fcs/{name}</property>\n"

@@ -50,9 +50,14 @@
 //   asked down to `land_below_ft` she lets down and lands. The selector
 //   back at 0 converts her back to wing-borne flight at her conversion
 //   speed, and once she is, the controls are the pilot's again, reached
-//   from the law's at a hand's pace; on the ground, at once. **Only the
-//   height is the stick's yet**: the throttle's speed, the stick's sideways
-//   translation and the pedals' heading in a hover are not.
+//   from the law's at a hand's pace; on the ground, at once. **And her
+//   left-hand inceptor, the stick's sideways and the pedals**
+//   (Transition::Inceptors): the throttle lever, once moved from where it
+//   was when STOVL mode was selected, asks a ground speed either side of its
+//   detent (`fcs/stovl-lever-detent`) under her translational rate command
+//   and an acceleration above it; in the hover the stick's sideways asks a
+//   ground speed to the side and the pedals a turn. Jet-borne, the stick's
+//   sideways and the pedals are not flown yet.
 //
 //   a plan's vertical landing (FlightPlan::vertical_landing) is flown to
 //   the point, and from `Transition::stops_within_ft` of it the transition
@@ -60,10 +65,13 @@
 //   holds it the plan's seconds, and lets her down onto it.
 //
 // **The lift system is handed over as everything else is**: given to the AI
-// in STOVL mode, the AI holds the hover she is in at the height asked
-// (a plan given her then is not flown until she is converted back - not yet
-// done); taken back in it, she stays in STOVL mode until the pilot's
-// selector moves from where it was at the take-back.
+// in STOVL mode, the AI holds the hover she is in at the height asked; a
+// plan given her then is flown - converted back at her conversion speed
+// and flown wing-borne, or, its vertical landing nearer than she stops in,
+// moved to its point in the hover at her translational rate command's
+// speed (waypoints within `Transition::steer_within_ft` of her counted
+// passed) and let down there. Taken back in it, she stays in STOVL mode
+// until the pilot's selector moves from where it was at the take-back.
 
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
@@ -362,6 +370,7 @@ public:
         double stovl_height_ft = 0.0;
         std::optional<double> hovering_since_s;
         std::optional<double> selector_at_take_back;
+        std::optional<double> lever_at_selection;
     };
     PilotsLaws pilots_laws() const;
     void restore(const PilotsLaws& laws);
@@ -383,6 +392,8 @@ public:
     static constexpr double vertical_hover_ft = 150.0;
     static constexpr double stick_climb_fps = 10.0;
     static constexpr double stick_sink_fps = 6.0;
+    // Within this of her lever's detent, the lever is at it.
+    static constexpr double lever_detent_width = 0.02;
 
     // **Whether the AI is recovering from a stall it noticed coming**
     // (controller.cpp, `notice_a_stall`).
@@ -408,6 +419,9 @@ private:
     std::optional<double> hovering_since_s_;
     // Taken back in STOVL mode, the selector then, held until it moves.
     std::optional<double> selector_at_take_back_;
+    // Selected or taken back in STOVL mode, the throttle lever then, held
+    // until it moves: an unmoved lever is not the pilot's speed.
+    std::optional<double> lever_at_selection_;
     // A stall warning noticed, and recovered from (`landing_speeds_`'s stall).
     void notice_a_stall();
     // What the autopilot was flying when the warning came, while it recovers;
@@ -501,6 +515,11 @@ private:
 // 0) and the rest as asked, and an aircraft without a lift system is left
 // alone. Whether the commands went on as asked.
 bool put_lift_system(Aircraft& aircraft, const LiftSystem& lift);
+
+// **A lever's travel from its detent**, -1 at its aft stop to 1 at its
+// forward stop, 0 within `Controller::lever_detent_width` of the detent: the
+// F-35B's left-hand inceptor in STOVL mode (Transition::Inceptors).
+double lever_travel(double lever, double detent);
 
 // **One step's commands put on `aircraft`**: `controller`'s controls, and
 // its lift system's while its laws fly one (`put_lift_system`, so nothing

@@ -761,6 +761,75 @@ GLIDESLOPE_TEST(the_five_with_no_published_landing_distance_are_refused_a_runway
     check(refused == 5, std::to_string(refused) + " of the five refused a short runway");
 }
 
+// **The F-35B's two landings, each judged as it is flown**: a plan's `land`
+// on a runway is flown by the approach autopilot as a rolling landing, so it
+// is held to her measured rolling figure (9,200 ft) - refused a runway a
+// metre short of it by the copilot's check and the planner's alike, given
+// one a metre over; and a plan's `land_vertically` needs no runway - it is
+// flown to a hover over its point and let down (sim::Controller) - so no
+// runway length refuses it: with no runway told, and with only a runway a
+// metre short told, neither check refuses it. Four judgements, counted.
+GLIDESLOPE_TEST(the_f35b_is_held_to_her_rolling_figure_on_a_runway_and_refused_no_vertical_landing_for_length) {
+    const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, "f35b");
+    const glideslope::copilot::PlanRequest request =
+        glideslope::frontend::plan_request_for(data, "f35b", std::nullopt);
+    check(std::abs(brief.landing_need_m - 9200.0 * 0.3048) < 1e-6,
+          "her need is her rolling 9,200 ft: " + std::to_string(brief.landing_need_m) + " m");
+    const auto runway = [](double length_m) {
+        glideslope::world::RunwayEnd end;
+        end.airport = "SYNTH";
+        end.ident = "09";
+        end.heading_deg = 90.0;
+        end.length_m = length_m;
+        return end;
+    };
+    const auto short_of = runway(brief.landing_need_m - 1.0);
+    const auto long_enough = runway(brief.landing_need_m + 1.0);
+    glideslope::sim::FlightPlan rolling;
+    {
+        glideslope::sim::Runway r = glideslope::world::as_runway(short_of, short_of.elevation_ft);
+        r.name = "SYNTH_09";
+        rolling.landing = r;
+    }
+    glideslope::sim::FlightPlan rolling_long;
+    {
+        glideslope::sim::Runway r =
+            glideslope::world::as_runway(long_enough, long_enough.elevation_ft);
+        r.name = "SYNTH_09";
+        rolling_long.landing = r;
+    }
+    glideslope::sim::FlightPlan vertical;
+    glideslope::sim::FlightPlan::VerticalLanding pad;
+    pad.name = "PAD";
+    pad.latitude_deg = 0.01;
+    pad.longitude_deg = 0.01;
+    pad.hover_s = 30.0;
+    vertical.vertical_landing = pad;
+    std::size_t judged = 0;
+    const auto both = [&](const glideslope::sim::FlightPlan& plan,
+                          const std::vector<glideslope::world::RunwayEnd>& fields) {
+        const std::string copilot_why = glideslope::copilot::landing_refusal(
+            brief.approach_kts, brief.landing_need_m, brief.wet_landing_need_m, std::nullopt, plan,
+            fields);
+        const std::string planner_why = glideslope::copilot::landing_refusal(
+            request.approach_kts, request.landing_need_m, request.wet_landing_need_m,
+            request.wet_runways, plan, fields);
+        check(copilot_why == planner_why,
+              "the copilot's \"" + copilot_why + "\" and the planner's \"" + planner_why + "\"");
+        ++judged;
+        return copilot_why;
+    };
+    const std::string short_why = both(rolling, {short_of});
+    check(short_why.find("to land on, and the aircraft needs") != std::string::npos,
+          "a rolling landing a metre short: \"" + short_why + "\"");
+    check(both(rolling_long, {long_enough}).empty(), "a rolling landing a metre over refused");
+    check(both(vertical, {}).empty(), "a vertical landing with no runway told refused");
+    check(both(vertical, {short_of}).empty(),
+          "a vertical landing with only a short runway told refused");
+    check(judged == 4, std::to_string(judged) + " judgements, not 4");
+}
+
 GLIDESLOPE_TEST(the_runways_a_plan_may_land_on_are_the_nearest_airports_whole_and_no_more_than_the_caps) {
     // **Synthetic airports** on the meridian, `km` north of the origin, each
     // with `ends` runway ends there: no downloaded data.

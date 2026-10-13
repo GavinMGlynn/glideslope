@@ -90,6 +90,10 @@ Transition::Transition(const Aircraft& aircraft, const Hover::Command& flying)
     gather_kt_per_s_ = a_.property("fcs/transition-gather-kt-per-s");
     gathering_pitch_deg_ = a_.property("fcs/transition-gathering-pitch-deg");
     lift_slope_per_rad_ = a_.property("fcs/transition-lift-slope-per-rad");
+    trc_kt_ = a_.property("fcs/stovl-trc-kt");
+    trc_aft_kt_ = a_.property("fcs/stovl-trc-aft-kt");
+    trc_side_kt_ = a_.property("fcs/stovl-trc-side-kt");
+    turn_degps_ = a_.property("fcs/stovl-turn-degps");
     heading_deg_ = a_.state().heading_deg;
     const double conversion = a_.property("fcs/stovl-pos-norm");
     const bool nozzle_down = a_.property("fcs/nozzle-pos-deg") >= nozzle_down_deg - 0.5;
@@ -199,6 +203,22 @@ void Transition::become_hovering(const Hover::Command& flying) {
     hover_base_ft_ = a_.state().height_above_ground_ft;
 }
 
+void Transition::fly_lever(double lever) {
+    const double u = std::clamp(lever, -1.0, 1.0);
+    if (speed_asked_kt_ > trc_kt_ || (speed_asked_kt_ >= trc_kt_ && u > 0.0)) {
+        // Above her translational rate command: an acceleration.
+        speed_asked_kt_ = std::min(
+            speed_asked_kt_ + u * (u > 0.0 ? gather_kt_per_s_ : slow_kt_per_s_) * dt,
+            convert_kcas_);
+        return;
+    }
+    // Under it: a ground speed, reached at her rates.
+    const double wanted = u * (u >= 0.0 ? trc_kt_ : trc_aft_kt_);
+    speed_asked_kt_ = wanted > speed_asked_kt_
+                          ? std::min(speed_asked_kt_ + gather_kt_per_s_ * dt, wanted)
+                          : std::max(speed_asked_kt_ - slow_kt_per_s_ * dt, wanted);
+}
+
 Hover::Command Transition::step(const Target& target) {
     const double kcas = a_.property("velocities/vc-kts");
     const double conversion = a_.property("fcs/stovl-pos-norm");
@@ -253,6 +273,16 @@ Hover::Command Transition::step(const Target& target) {
     case Stage::hovering:
         if (!target.hover && a_.property("gear/wow") < 0.5) {
             become_jet_borne(last_);
+        } else if (target.hover && target.pilot && target.pilot->lever &&
+                   a_.property("gear/wow") < 0.5) {
+            // The pilot's lever moves the hover, and past her translational
+            // rate command she is jet-borne again, gathering speed.
+            fly_lever(*target.pilot->lever);
+            if (speed_asked_kt_ > trc_kt_) {
+                become_jet_borne(last_);
+            }
+        } else {
+            speed_asked_kt_ = 0.0;
         }
         break;
     }
@@ -265,9 +295,35 @@ Hover::Command Transition::step(const Target& target) {
                        : fly_jet_borne(target, !target.hover);
         break;
     case Stage::jet_borne: c = fly_jet_borne(target, false); break;
-    case Stage::hovering:
-        c = hover_->step({target.height_ft - hover_base_ft_, target.land});
+    case Stage::hovering: {
+        Hover::Target asked{target.height_ft - hover_base_ft_, target.land, 0.0, 0.0, 0.0};
+        if (target.over && !target.pilot) {
+            // **Over a point not yet under her, she is moved to it in the
+            // hover** at her translational rate command's speed, slowing at
+            // her own rate to stop over it: the point the hover law holds
+            // moves to it, and the hover law is told how fast.
+            const auto [north, east] =
+                north_east_ft(hover_->latitude_deg(), hover_->longitude_deg(), *target.over);
+            const double away_ft = std::hypot(north, east);
+            const double v_kt = std::min(
+                trc_kt_, std::sqrt(2.0 * slow_kt_per_s_ * fps_per_kt * away_ft) * kt_per_fps);
+            if (v_kt * fps_per_kt * dt >= away_ft || v_kt < 0.5) {
+                hover_->hold_over(target.over->latitude_deg, target.over->longitude_deg);
+            } else {
+                const double bearing = std::atan2(east, north);
+                const double psi = hover_->heading_deg() * rad_per_deg;
+                asked.ahead_kt = v_kt * std::cos(bearing - psi);
+                asked.right_kt = v_kt * std::sin(bearing - psi);
+            }
+        }
+        if (target.pilot) {
+            asked.ahead_kt = target.pilot->lever ? speed_asked_kt_ : 0.0;
+            asked.right_kt = std::clamp(target.pilot->side, -1.0, 1.0) * trc_side_kt_;
+            asked.turn_degps = std::clamp(target.pilot->pedals, -1.0, 1.0) * turn_degps_;
+        }
+        c = hover_->step(asked);
         break;
+    }
     }
     last_ = c;
     return c;
@@ -327,6 +383,8 @@ Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
         const double rate_fps2 = slow_kt_per_s_ * fps_per_kt;
         const double stops_kt = std::sqrt(2.0 * rate_fps2 * ahead_ft) * kt_per_fps;
         speed_asked_kt_ = stops_kt < hover_kt ? 0.0 : std::min(speed_asked_kt_, stops_kt);
+    } else if (target.hover && target.pilot && target.pilot->lever) {
+        fly_lever(*target.pilot->lever);
     } else if (target.hover) {
         speed_asked_kt_ = std::max(speed_asked_kt_ - slow_kt_per_s_ * dt, 0.0);
     } else {
