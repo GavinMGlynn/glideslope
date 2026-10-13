@@ -784,13 +784,19 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       ground-loops after the touch, dry or wet. No crosswind limit is
       published for her. *Verification: a published limit, and the Cub
       landed within it.*
-- [ ] **Wet runways judged with each aircraft's own tyres and brakes.**
-      Every landplane now brakes on her own tyre pressure and anti-skid
-      (2026-10-13), but four pressures (F-22A, F-35B, B-2A, Mosquito) are
-      estimates, and on their own tyres the 787-8, A320 and F-15C no longer
-      stop on a wet runway 1.15 times their dry need. *Verification: each
-      aircraft's tyre pressure and brakes are sourced and used, and every
-      landplane stops on her wet runway.*
+- [x] **Wet runways judged with each aircraft's own tyres and brakes.** The
+      wet grip is read for each landplane's own tyre pressure and anti-skid,
+      softer tyres gripping more and a light aeroplane's brakes without
+      anti-skid less. *Verification: each aircraft's tyre pressure and brakes
+      are sourced and used.* Done 2026-10-13: four pressures (F-22A, F-35B,
+      B-2A, Mosquito) are stated estimates.
+- [ ] **No reverse thrust on a wet runway's roll-out.** On their own tyres,
+      braked fully, the 787-8 and A320 run 19 m and 84 m past a wet runway of
+      the regulation's length: no flight model here has reversers, which a
+      crew uses on a wet runway. The F-15C, which has none, runs 20 m past
+      hers, sized from her dry figure. *Verification: the airliners stop on
+      the wet runway with their reversers, and the F-15C's wet runway is sized
+      from her flight manual's own wet figure.*
 - [ ] **The F-35B lands on her power**: her model flies the glidepath at
       19.5 degrees of incidence and its flare runs out of nose; level at
       3,000 ft below 181 kt the same incidence is past the autopilot's 15

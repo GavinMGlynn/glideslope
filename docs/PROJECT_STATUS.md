@@ -265,18 +265,38 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Each landplane's own tyres and brakes on a wet runway, 2026-10-13 — item still open
+### Each landplane's own tyres and brakes on a wet runway, 2026-10-13 — item done; one found
 
-**What is still not done, first.** **Three landplanes no longer stop on the
-wet short runway** sized by 14 CFR 121.195(d)'s 1.15 times the dry need,
-now that each brakes on her own tyres: the 787-8 at 1,911 m of 1,893 (228
-psi), the A320 at 1,809 of 1,725 (209 psi) and the F-15C at 2,478 of 2,459
-(305 psi). `every_landplane_landed_by_hand_on_a_wet_short_runway_is_stopped_on_it_by_the_ai`
-is **red on this branch**; it was green only because every tyre was 100
-psi. Whether the 1.15 factor or the AI's wet roll-out is what gives was not
-settled inside the time box. **Four pressures are estimates** (F-22A,
-F-35B, B-2A, Mosquito) and the anti-skid class of the 737-300 and the four
-military aircraft is this project's reading: no document names it.
+**What is still not done, first.** **Three landplanes run past the wet
+short runway** now that each brakes on her own tyres, and are named in
+`every_landplane_landed_by_hand_on_a_wet_short_runway_is_stopped_on_it_by_the_ai`:
+the 787-8 at 1,911 m of 1,893 (228 psi), the A320 at 1,809 of 1,725 (209
+psi) and the F-15C at 2,478 of 2,459 (305 psi). It was green before only
+because every tyre was 100 psi. A new Phase 10b item: reverse thrust on a
+wet roll-out. **Four pressures are estimates** (F-22A, F-35B, B-2A,
+Mosquito) and the anti-skid class of the 737-300 and the four military
+aircraft is this project's reading: no document names it.
+
+**Which side was wrong** (looked at before changing either):
+- **The AI brakes fully.** The A320's roll logged once a second: pedals
+  1.0 from about a second after the take-back, throttle idle, spoilers
+  out, decelerating 5.1 to 5.5 ft/s^2 from 140 to 110 kt on a wet
+  coefficient of 0.14 to 0.18 - the brakes at the runway's limit. What a
+  crew would add on a wet runway is reverse thrust (AC 25-32 section 10
+  credits it), and no flight model here has a reverser. The hand landing
+  also touched fast: the A320 at 144 kt, 342 m in.
+- **The runway is the regulation's.** The test sizes it at 1.15 times the
+  longer of 1,500 m and `landing_need_m`, which for the airliners is a
+  landing field length - the chart's own "actual distance / 0.6", 14 CFR
+  121.195(b) - and for the F-15C her flight manual's dry distance over 50
+  ft times 1.67, the same margin. The A320's is longer than the rule needs
+  (1,725 m against 1.15 times her 1,341). Neither the 1.15 nor the grip
+  curves were touched.
+- So the three are flown and named: each must still stop, unwrecked and on
+  the centreline, and each must overrun - named so that the day one stops,
+  the list is shortened. **Seen to fail** with the C172P named among them:
+  "c172p ... is named as overrunning the wet runway, and stopped on it,
+  567.6 m"; reverted.
 
 **What changed.**
 - `sim/runway_condition.hpp`: `WheelBrakes` (tyre psi, `AntiSkid`), and
@@ -335,9 +355,9 @@ military aircraft is this project's reading: no document names it.
   brakes, an unknown anti-skid, a missing one and a 0 psi tyre.
 - Run again (linux-release, 148 tests by name - wet, brakes, landings on a
   runway, roll, figures, stops, short runways, published, the catalogue,
-  METARs, the runway condition; 3 that ask a live model skipped): 147
-  passed, 1 failed - the wet short runway above. The published figures
-  tests all pass: dry is untouched (share 1).
+  METARs, the runway condition; 3 that ask a live model skipped): all 148
+  passed, the three wet overruns named. The published figures tests all
+  pass: dry is untouched (share 1).
 - **The selftest hash does not move**, `182dd6c996e0ee4c`: it flies dry.
 
 ### The S.23's hull tried as a planing hull: her gust landings' pass was an artefact of her buoyancy tail, and the hull waits on Phase 9, 2026-10-13 — item still open
