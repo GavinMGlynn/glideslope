@@ -76,6 +76,15 @@ The changes, and what each is for:
                         five seconds after lift-off. The integrator's state is
                         the stabilator's command in both laws, so the flight
                         law takes over from where the ground law left it.
+                        **It engages on every touch of a wheel, not only at
+                        the take-off**: at once on a landing, a bounce or a
+                        touch-and-go, and it fades out again over the same
+                        five seconds after each. That is unmeasured: she has
+                        no approach speed, so nothing lands her. Clear of the
+                        ground and five seconds after her wheels have left
+                        it, the loop is the pinned model's, so her figures in
+                        the air are unchanged by it; within those five
+                        seconds of a lift-off she flies the blend.
                         Held instead of washed out, the integrator would
                         leave her nothing on her wheels to lift the nose
                         with.

@@ -562,6 +562,8 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       controls were given a ground mode, as fly-by-wire aircraft have, and
       she comes up at 4.5 to 4.7 degrees a second; her rotation speed,
       re-measured, is 150 kt (the Air Force's one published figure: 143).
+      The ground mode also engages on every landing, bounce and
+      touch-and-go, which is not measured: nothing lands her yet.
 - [x] **The autopilot holds a low height loosely in an airliner's take-off
       configuration.** Asked to hold 200 ft with her take-off flap and gear
       out, the A380 swings 15 ft either side of it at up to 350 ft/min (488
