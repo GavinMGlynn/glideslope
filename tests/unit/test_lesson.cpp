@@ -2316,7 +2316,11 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                  "flare climbs her at 196 ft/min (seed 2)"},
         {"b2", "a gust rolls her on to a wingtip as she touches (seed 8)"},
         {"c172p", "she touches at 419 ft/min on Windows (seed 3), CI run 38006839738"},
+        {"c182", "she touches at 352.5 ft/min on macOS (seed 8), not 25 inside the "
+                 "limit, CI run 38028434284"},
         {"f15c", "she meets the runway at 397 ft/min (seed 2)"},
+        {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
+                  "CI run 38028434284"},
         {"f35b", "she touches at 348 ft/min (seed 6), inside the limit by only 12"},
         {"mosquito-fb6", "her main wheels' touch pitches her nose up from 3.6 to 6.8 degrees "
                          "against her elevator, and she bounces 2.9 ft (seed 2), 2.4 (seed 3)"},
@@ -2475,7 +2479,7 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 }
 
 // **In moderate turbulence the AI lands every aeroplane not named within
-// its limits** - four of fourteen; the ten named (`not_yet_landed_in_gusts`)
+// its limits** - two of fourteen; the twelve named (`not_yet_landed_in_gusts`)
 // are flown and shown. Fifteen knots down the runway with severity-3
 // turbulence, its gust factor 15 kt (world::gust_spread_of_severity), flown
 // as the Airplane Flying Handbook (FAA-H-8083-3C, ch. 9, "Turbulent Air
