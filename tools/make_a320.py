@@ -22,6 +22,14 @@ it by a test; to change the aircraft, change this script and run it.
 
 The changes, and what each is for:
 
+  Thrust reversers, added (aircraft/a320/a320.xml)
+                        The model had none, and a wet runway's landing is
+                        stopped with them (AC 25-32, section 10): on
+                        both CFM56-5B4s, pivoting doors,
+                        a channel deploying them on the reverse lever with
+                        the weight on the wheels, reversing 0.31 of the
+                        engine's thrust - see tools/airliner.py.
+
   Airframe (aircraft/a320/a320.xml)
     Weights and loading The operating empty weight the planning document uses
                         in its examples, 41,244 kg (90,927 lb), where the model
@@ -114,6 +122,9 @@ import ground
 from airliner import OUT, PINNED
 
 SCRIPT = "make_a320"
+# The engines with thrust reversers, by JSBSim's index: both CFM56-5B4s, pivoting doors
+# (tools/airliner.py, before reverser_channel, says what each is and where from).
+REVERSERS = (0, 1)
 MODEL = "a320"
 MAXIMUM_WEIGHT_LBS = 172000  # the -200's published maximum take-off weight
 AIRFRAME_CONTACTS = 9        # its wing tips, nacelles, nose and tail
@@ -365,7 +376,7 @@ def airframe():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(airframe(), REVERSERS, SCRIPT),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

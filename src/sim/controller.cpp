@@ -39,7 +39,8 @@ bool towards(Controls& from, const Controls& to) {
           std::pair{&from.throttle_offset[1], to.throttle_offset[1]},
           std::pair{&from.cooling_flaps[0], to.cooling_flaps[0]},
           std::pair{&from.cooling_flaps[1], to.cooling_flaps[1]},
-          std::pair{&from.speedbrake, to.speedbrake}}) {
+          std::pair{&from.speedbrake, to.speedbrake},
+          std::pair{&from.reverse, to.reverse}}) {
         met = towards(*control, wanted) && met;
     }
     return met;

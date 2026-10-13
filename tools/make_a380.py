@@ -26,7 +26,11 @@ Where each number comes from:
     outboard pairs 29.6 m and 51.4 m apart; the fuel, 253,983 kg; and the
     operating empty weight, 285,000 kg, which the AC does not give: its
     payload-range chart (figure 3-2-1-991-001) for the 575 t variant carries a
-    structural payload of 84 t to the zero-fuel weight of 369 t.
+    structural payload of 84 t to the zero-fuel weight of 369 t. And its
+    thrust reversers, on the inboard engines only (2-12-0, "Thrust
+    Reverser": "It is only installed on the aircraft inboard position
+    nacelles"), a translating sleeve over cascades, reversing 0.31 of the
+    engine's thrust - see tools/airliner.py.
   Airbus, A380 Facts and Figures, February 2022
     The wing's reference area, 845 sq m, and the sweep of its quarter chord,
     33.5 degrees. Its mean aerodynamic chord, which no source gives, is the
@@ -75,6 +79,9 @@ import written
 from airliner import OUT, PINNED
 
 SCRIPT = "make_a380"
+# The engines with thrust reversers, by JSBSim's index: the two inboard Trent 970s only, a translating sleeve over cascades
+# (tools/airliner.py, before reverser_channel, says what each is and where from).
+REVERSERS = (1, 2)
 MODEL = "a380"
 ENGINE = "Trent970"
 
@@ -440,7 +447,7 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(airframe(), REVERSERS, SCRIPT),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

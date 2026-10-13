@@ -21,3 +21,8 @@ speedbrakes
 # modulating: the FAA's braking working group (2019) puts its efficiency
 # within 5 per cent of a digital system's; no document names its class.
 brakes 201 fully-modulating
+# Her CFM56-3s' cascade thrust reversers (tools/make_737_300.py), and the
+# reverse brought to idle at 60 kt: Boeing's 737 Flight Crew Training Manual
+# (as excerpted in NTSB DCA19MA143, attachment 17) - "Reverse thrust is
+# reduced to idle between 60 KIAS and taxi speed" (docs/ASSETS.md).
+reversers 60

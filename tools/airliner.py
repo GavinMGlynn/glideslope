@@ -113,3 +113,123 @@ def main(outputs, script):
         print(f"run: python3 tools/{script}.py", file=sys.stderr)
         return 1
     return 0
+
+
+# **Thrust reversers.** Every airliner here reverses only her fan's air: the
+# CFM56-3 (737-300), CF6-80C2 (747-400) and Trent family (787-8, A380) by a
+# translating sleeve over cascades, the A320's CFM56-5B by pivoting doors -
+# "In the case of sliding sleeve and pivoting blocker door types of thrust
+# reverser, only the direction of the bypassed air is reversed, while the
+# direction of core airflow is unchanged" (Aircraft Commerce no. 92, 2014,
+# "Thrust reverser repair process & economics", p. 48; docs/ASSETS.md). The
+# A380's are on her inboard engines only (her Aircraft Characteristics,
+# 2-12-0: "It is only installed on the aircraft inboard position nacelles").
+#
+# **How much they reverse**: a cascade reverser's overall effectiveness - its
+# reverse force over the engine's forward thrust at the same setting, the core
+# still pushing forward - is "about 0.31, which is typical of cascade thrust
+# reversers" (NASA TM-2000-210300, Asbury and Yetter, 2000, p. 21, the
+# baseline cascade at a bypass ratio of 9). The pivoting doors are given the
+# same: no source to hand gives theirs, and they too turn the fan's air alone.
+# JSBSim's direct thruster scales its thrust by the cosine of its reverser
+# angle, so the sleeve's full travel is the angle whose cosine is -0.31.
+REVERSER_EFFECTIVENESS = 0.31
+# **The sleeves' travel, stowed to deployed**: two seconds, this project's
+# estimate - no document to hand gives a type's. With the engines' own spool
+# from idle to full throttle it puts each airliner at nine tenths of full
+# reverse 7.2 to 7.8 seconds after the lever (PROJECT_STATUS, 2026-10-14),
+# against the A340's five on the TSB's flight data (A05H0002, 1.16: "the N1
+# parameters of the four engines stabilized at maximum reverse approximately
+# five seconds later"): a real engine's maximum reverse is a lower N1 than
+# its full throttle, and is reached sooner.
+REVERSER_TRAVEL_S = 2.0
+# **The reverse lever**: 0 stowed; anything more deploys the reversers, with the
+# weight on the wheels (the air-ground interlock every type has); 0.1 is the
+# idle reverse detent; from there to 1, idle to maximum reverse power. Its
+# power is held at idle until the sleeves are fully out - "thrust reverser
+# interlocks that prevent the pilot from applying reverse thrust until the
+# reverser is deployed" (AC 25-32, 10.1.4) - and while it is out of stowed the
+# forward throttles of the engines that reverse are idle, as the levers'
+# interlock holds them.
+REVERSE_IDLE_DETENT = 0.1
+
+
+def reverser_channel(engines, indent="        "):
+    """The reverse lever, `fcs/reverse-cmd-norm`, and a flight control
+    channel deploying the thrust reversers of `engines`
+    (JSBSim's indices) on it and
+    driving their engines' power from it while they are out."""
+    i = indent
+    angle = math.acos(-REVERSER_EFFECTIVENESS)
+    out = (f"{i}<!-- glideslope: the reverse lever, stowed. -->\n"
+           f"{i}<property value=\"0\">fcs/reverse-cmd-norm</property>\n"
+           f"{i}<channel name=\"Thrust Reversers\">\n"
+           f"{i}    <!-- glideslope: tools/airliner.py, reverser_channel. The reverse lever\n"
+           f"{i}         fcs/reverse-cmd-norm: 0 stowed, {REVERSE_IDLE_DETENT} idle reverse, 1 maximum. -->\n"
+           f"{i}    <switch name=\"fcs/reverser-cmd-norm\">\n"
+           f"{i}        <default value=\"0\"/>\n"
+           f"{i}        <test logic=\"AND\" value=\"1\">\n"
+           f"{i}            fcs/reverse-cmd-norm gt 0\n"
+           f"{i}            gear/wow eq 1\n"
+           f"{i}        </test>\n"
+           f"{i}    </switch>\n"
+           f"{i}    <kinematic name=\"fcs/reverser-pos-norm\">\n"
+           f"{i}        <input>fcs/reverser-cmd-norm</input>\n"
+           f"{i}        <traverse>\n"
+           f"{i}            <setting><position>0</position><time>0</time></setting>\n"
+           f"{i}            <setting><position>1</position><time>{REVERSER_TRAVEL_S:g}</time></setting>\n"
+           f"{i}        </traverse>\n"
+           f"{i}    </kinematic>\n"
+           f"{i}    <fcs_function name=\"fcs/reverser-angle-rad\">\n"
+           f"{i}        <function>\n"
+           f"{i}            <product>\n"
+           f"{i}                <property>fcs/reverser-pos-norm</property>\n"
+           f"{i}                <value>{angle:.4f}</value>\n"
+           f"{i}            </product>\n"
+           f"{i}        </function>\n")
+    for e in engines:
+        out += f"{i}        <output>propulsion/engine[{e}]/reverser-angle-rad</output>\n"
+    out += (f"{i}    </fcs_function>\n"
+            f"{i}    <switch name=\"fcs/reverser-unlocked\">\n"
+            f"{i}        <default value=\"0\"/>\n"
+            f"{i}        <test value=\"1\">\n"
+            f"{i}            fcs/reverser-pos-norm ge 0.999\n"
+            f"{i}        </test>\n"
+            f"{i}    </switch>\n"
+            f"{i}    <fcs_function name=\"fcs/reverse-power-norm\">\n"
+            f"{i}        <function>\n"
+            f"{i}            <product>\n"
+            f"{i}                <property>fcs/reverser-unlocked</property>\n"
+            f"{i}                <max>\n"
+            f"{i}                    <value>0</value>\n"
+            f"{i}                    <quotient>\n"
+            f"{i}                        <difference>\n"
+            f"{i}                            <min>\n"
+            f"{i}                                <property>fcs/reverse-cmd-norm</property>\n"
+            f"{i}                                <value>1</value>\n"
+            f"{i}                            </min>\n"
+            f"{i}                            <value>{REVERSE_IDLE_DETENT:g}</value>\n"
+            f"{i}                        </difference>\n"
+            f"{i}                        <value>{1.0 - REVERSE_IDLE_DETENT:g}</value>\n"
+            f"{i}                    </quotient>\n"
+            f"{i}                </max>\n"
+            f"{i}            </product>\n"
+            f"{i}        </function>\n"
+            f"{i}    </fcs_function>\n")
+    for e in engines:
+        out += (f"{i}    <switch name=\"fcs/reverse-throttle-{e}\">\n"
+                f"{i}        <default value=\"fcs/throttle-cmd-norm[{e}]\"/>\n"
+                f"{i}        <test value=\"fcs/reverse-power-norm\">\n"
+                f"{i}            fcs/reverser-cmd-norm gt 0\n"
+                f"{i}        </test>\n"
+                f"{i}        <output>fcs/throttle-pos-norm[{e}]</output>\n"
+                f"{i}    </switch>\n")
+    return out + f"{i}</channel>\n"
+
+
+def with_reversers(text, engines, script):
+    """The airframe `text` with thrust reversers on `engines`, their channel
+    the flight controls' last."""
+    return replace_once(text, r"(\n)([ \t]*</flight_control>)",
+                        lambda mm: mm.group(1) + reverser_channel(engines) + mm.group(2),
+                        "the end of the flight controls", script)

@@ -17,6 +17,14 @@ it by a test; to change the aircraft, change this script and run it.
 
 The changes, and what each is for:
 
+  Thrust reversers, added (aircraft/747-400/747-400.xml)
+                        The model had none, and a wet runway's landing is
+                        stopped with them (AC 25-32, section 10): on
+                        all four CF6-80C2s, a translating sleeve over cascades,
+                        a channel deploying them on the reverse lever with
+                        the weight on the wheels, reversing 0.31 of the
+                        engine's thrust - see tools/airliner.py.
+
   Airframe (aircraft/747-400/747-400.xml)
     Weights and loading The planning document's operating empty weight,
                         394,088 lb (three classes, 400 seats), where the model
@@ -58,6 +66,9 @@ import ground
 from airliner import OUT, PINNED
 
 SCRIPT = "make_747_400"
+# The engines with thrust reversers, by JSBSim's index: all four CF6-80C2s, a translating sleeve over cascades
+# (tools/airliner.py, before reverser_channel, says what each is and where from).
+REVERSERS = (0, 1, 2, 3)
 MODEL = "747-400"
 ENGINE = "CF6-80C2B1F"
 OPERATING_EMPTY_LBS = 394088
@@ -146,7 +157,7 @@ def airframe():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(airframe(), REVERSERS, SCRIPT),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

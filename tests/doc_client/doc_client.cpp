@@ -610,10 +610,10 @@ std::int16_t fraction(double v) {
     return static_cast<std::int16_t>(std::lround(c * 32767.0));
 }
 
-using Frame = std::array<std::int16_t, 17>;
+using Frame = std::array<std::int16_t, 18>;
 
 Frame full_left_aileron() {
-    std::array<double, 17> c{};
+    std::array<double, 18> c{};
     c[0] = 0.0;   // elevator
     c[1] = -1.0;  // aileron: +1 rolls right, so -1 is full left
     c[2] = 0.0;   // rudder
@@ -631,6 +631,7 @@ Frame full_left_aileron() {
     c[14] = 0.0;  // throttle offset, starboard
     c[15] = 0.0;  // cooling flaps, port
     c[16] = 0.0;  // cooling flaps, starboard
+    c[17] = 0.0;  // reverse, stowed
     Frame f{};
     for (std::size_t i = 0; i < f.size(); ++i) f[i] = fraction(c[i]);
     return f;

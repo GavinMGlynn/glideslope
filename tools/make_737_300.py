@@ -17,6 +17,14 @@ it by a test; to change the aircraft, change this script and run it.
 
 The changes, and what each is for:
 
+  Thrust reversers, added (aircraft/737-300/737-300.xml)
+                        The model had none, and a wet runway's landing is
+                        stopped with them (AC 25-32, section 10): on
+                        both CFM56-3s, a translating sleeve over cascades,
+                        a channel deploying them on the reverse lever with
+                        the weight on the wheels, reversing 0.31 of the
+                        engine's thrust - see tools/airliner.py.
+
   Airframe (aircraft/737-300/737-300.xml)
     No network sockets  The model opened a telnet port, 5137, and a UDP port,
                         5139, for programs to drive it, whenever it was loaded;
@@ -90,6 +98,9 @@ import ground
 from airliner import OUT, PINNED
 
 SCRIPT = "make_737_300"
+# The engines with thrust reversers, by JSBSim's index: both CFM56-3s, a translating sleeve over cascades
+# (tools/airliner.py, before reverser_channel, says what each is and where from).
+REVERSERS = (0, 1)
 MODEL = "737-300"
 ENGINE = "CFM56-3B1"
 OPERATING_EMPTY_LBS = 72540
@@ -259,7 +270,7 @@ def airframe():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(airframe(), REVERSERS, SCRIPT),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

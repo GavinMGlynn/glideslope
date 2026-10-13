@@ -765,3 +765,203 @@ GLIDESLOPE_TEST(a_light_pedal_on_a_slippery_runway_is_given_as_pressed_up_to_the
           "every landplane braked lightly: " + std::to_string(flown) + " of " +
               std::to_string(catalogue.size() - 1));
 }
+
+namespace {
+
+// One aircraft standing on the runway with her brakes on for `seconds`, her
+// throttle at `throttle` and her reverse lever at `reverse`: each engine's
+// force at the end, pounds, forward positive - JSBSim's thrust property is
+// the thruster's, after the reverser's cosine (FGThruster::Calculate) - and
+// how long the engines took to reach nine tenths of their reverse.
+struct GroundRun {
+    std::vector<double> thrust_lbs;
+    double to_most_reverse_s = 0.0;
+    glideslope::sim::AircraftState state;
+    bool says_reversers = false;
+};
+
+GroundRun ground_run(const glideslope::sim::CatalogueEntry& entry, double throttle, double reverse,
+                     double seconds) {
+    const Runway runway = a_runway();
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = 0.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+    glideslope::sim::Controls c;
+    c.throttle = throttle;
+    c.reverse = reverse;
+    c.left_brake = 1.0;
+    c.right_brake = 1.0;
+    GroundRun out;
+    out.says_reversers = aircraft.has_reversers();
+    const auto force_lbs = [&](int e) {
+        return aircraft.property("propulsion/engine[" + std::to_string(e) + "]/thrust-lbs");
+    };
+    const int steps = static_cast<int>(seconds * steps_per_second);
+    std::vector<double> total_lbs;
+    for (int step = 0; step < steps; ++step) {
+        aircraft.set_controls(c);
+        aircraft.step();
+        double sum = 0.0;
+        for (int e = 0; e < aircraft.engine_count(); ++e) {
+            sum += force_lbs(e);
+        }
+        total_lbs.push_back(sum);
+    }
+    for (int e = 0; e < aircraft.engine_count(); ++e) {
+        out.thrust_lbs.push_back(force_lbs(e));
+    }
+    const double most = total_lbs.empty() ? 0.0 : total_lbs.back();
+    for (std::size_t i = 0; i < total_lbs.size(); ++i) {
+        if (most < 0.0 && total_lbs[i] <= 0.9 * most) {
+            out.to_most_reverse_s = static_cast<double>(i + 1) / steps_per_second;
+            break;
+        }
+    }
+    out.state = aircraft.state();
+    return out;
+}
+
+} // namespace
+
+// **Every aircraft with thrust reversers is pushed back by them on the
+// ground, by the cascade's share, and every other ignores the lever.** Every
+// landplane in the catalogue (the flying boat named: afloat she has no brakes
+// to stand on) stands on the runway with her brakes on for twenty seconds,
+// three ways: at full throttle, at full reverse and at idle reverse. One
+// whose catalogue says `reversers` must say so herself; at full reverse each
+// reversing engine must push back 0.31 of what it pushed forward at full
+// throttle (tools/airliner.py: NASA TM-2000-210300's cascade reverser),
+// within 0.01, and the engines reach nine tenths of it within eight seconds
+// of the lever; an engine without one - the A380's outboard pair - stays
+// forward, at idle; and at idle reverse the reversing engines push back. The
+// eight is what they take, 7.2 to 7.8 s - the sleeves' two and each engine's
+// spool from idle to full throttle - against the TSB's A340, at maximum
+// reverse "approximately five seconds" after it was selected (A05H0002,
+// 1.16): a real engine's maximum reverse is a lower N1 than its full
+// throttle, and is reached sooner. One without reversers stands exactly as she stands with the lever
+// stowed, to the last bit of her state.
+GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_ground_and_every_other_ignores_the_lever) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    constexpr double seconds = 20.0;
+    std::size_t with = 0;
+    std::size_t without = 0;
+    std::vector<std::string> left_out;
+    std::vector<std::string> wrong;
+    for (const glideslope::sim::CatalogueEntry& e : roster) {
+        if (e.seaplane) {
+            left_out.push_back(e.id);
+            std::printf("  left out - %s: a flying boat, afloat, has no brakes to stand on\n",
+                        e.id.c_str());
+            continue;
+        }
+        const bool reversers = e.reverse_idle_kts.has_value();
+        const GroundRun most = ground_run(e, 0.0, 1.0, seconds);
+        if (most.says_reversers != reversers) {
+            wrong.push_back(e.id + ": her flight model's reversers are not her catalogue's");
+        }
+        if (!reversers) {
+            const GroundRun stowed = ground_run(e, 0.0, 0.0, seconds);
+            if (!(stowed.state == most.state)) {
+                wrong.push_back(e.id + " has no reversers, and the lever changed her");
+            }
+            ++without;
+            continue;
+        }
+        const GroundRun forward = ground_run(e, 1.0, 0.0, seconds);
+        const GroundRun idle = ground_run(e, 0.0, glideslope::sim::Controls::reverse_idle, seconds);
+        double idle_lbs = 0.0;
+        std::size_t reversing = 0;
+        for (std::size_t i = 0; i < forward.thrust_lbs.size(); ++i) {
+            const double share = most.thrust_lbs[i] / forward.thrust_lbs[i];
+            std::printf("  %-10s engine %zu: %7.0f lb forward, %7.0f in reverse (%+.3f), "
+                        "%6.0f at idle reverse; nine tenths of reverse in %.2f s\n",
+                        e.id.c_str(), i, forward.thrust_lbs[i], most.thrust_lbs[i], share,
+                        idle.thrust_lbs[i], most.to_most_reverse_s);
+            if (most.thrust_lbs[i] < 0.0) {
+                ++reversing;
+                idle_lbs += idle.thrust_lbs[i];
+                if (std::abs(share + 0.31) > 0.01) {
+                    wrong.push_back(e.id + " engine " + std::to_string(i) + " reversed " +
+                                    std::to_string(-share) + " of her thrust, not 0.31");
+                }
+            } else if (most.thrust_lbs[i] > 0.1 * forward.thrust_lbs[i]) {
+                wrong.push_back(e.id + " engine " + std::to_string(i) +
+                                " has no reverser and was not at idle: " +
+                                std::to_string(most.thrust_lbs[i]) + " lb");
+            }
+        }
+        if (reversing == 0) {
+            wrong.push_back(e.id + " has reversers and no engine reversed");
+        }
+        if (!(idle_lbs < 0.0)) {
+            wrong.push_back(e.id + "'s reversing engines at idle reverse pushed " +
+                            std::to_string(idle_lbs) + " lb, not back");
+        }
+        if (!(most.to_most_reverse_s > 0.0 && most.to_most_reverse_s <= 8.0)) {
+            wrong.push_back(e.id + " took " + std::to_string(most.to_most_reverse_s) +
+                            " s to reach her reverse, not eight or less");
+        }
+        ++with;
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " aircraft are not as the catalogue says, "
+                         "the first: " + (wrong.empty() ? "" : wrong.front()));
+    check(with == 5 && with + without + left_out.size() == roster.size() && roster.size() == 16 &&
+              left_out.size() == 1U,
+          "all sixteen were asked: " + std::to_string(with) + " with reversers, " +
+              std::to_string(without) + " without, " + std::to_string(left_out.size()) +
+              " left out");
+}
+
+// **In the air the reverse lever does nothing**: the reversers' air-ground
+// interlock. Every aircraft in the catalogue, flown for ten seconds from her
+// catalogue start at 5,000 ft, gear up, on the throttle she starts with,
+// flies exactly the same flight with the lever at maximum reverse as stowed.
+GLIDESLOPE_TEST(no_aircraft_deploys_her_reversers_in_the_air) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    const auto fly = [&](const glideslope::sim::CatalogueEntry& e, double lever) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Controls c;
+        c.throttle = e.start_throttle;
+        c.gear = 0.0;
+        c.reverse = lever;
+        for (int i = 0; i < 10 * steps_per_second; ++i) {
+            aircraft.set_controls(c);
+            aircraft.step();
+        }
+        return aircraft.state();
+    };
+    std::size_t flown = 0;
+    std::vector<std::string> wrong;
+    for (const glideslope::sim::CatalogueEntry& e : roster) {
+        if (!(fly(e, 0.0) == fly(e, 1.0))) {
+            wrong.push_back(e.id);
+        }
+        ++flown;
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) +
+                             " aircraft flew differently with the reverse lever out, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(flown == roster.size() && flown == 16,
+          "all sixteen were flown: " + std::to_string(flown));
+}

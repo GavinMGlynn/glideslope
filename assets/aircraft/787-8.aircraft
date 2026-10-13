@@ -19,3 +19,7 @@ speedbrakes
 # Boeing D6-58333 rev Q, 7.2: 50x20.0R22 mains at 228 psi loaded, at
 # 503,500 lb; Hydro-Aire's digital brake system control.
 brakes 228 fully-modulating
+# Her Trent 1000s' cascade thrust reversers (tools/make_787_8.py), and the
+# reverse brought to idle at 60 kt, as Boeing's training manual has it (the
+# 737-300's file says where; docs/ASSETS.md).
+reversers 60
