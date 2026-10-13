@@ -2636,6 +2636,47 @@ GLIDESLOPE_TEST(every_landplane_flares_to_her_main_wheels_and_a_flying_boat_to_h
               std::to_string(landplanes) + " and " + std::to_string(boats));
 }
 
+// **No landplane has an afterbody, and the flying boat's meets the water at
+// her keel's angle**: the lander finds the trim her afterbody keel meets the
+// water at (`Lander::afterbody_deg`), which bounds her hold on the step,
+// only on a hull - 0 for each of the thirteen landplanes taught the
+// approach - and for the S.23 it is the 10.81 degrees her keel skids rise at
+// from her step to her stern (1.26 m over 6.6 m, tools/make_short_s23.py).
+// Coverage asserted: the fourteen taught the approach, thirteen landplanes
+// and one flying boat.
+GLIDESLOPE_TEST(no_landplane_has_an_afterbody_and_the_flying_boats_meets_the_water_at_her_keels_angle) {
+    const auto taught = everyone_taught("approach-and-landing");
+    std::size_t landplanes = 0;
+    std::size_t boats = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        const glideslope::sim::Lander lander(
+            aircraft, a_runway(), glideslope::sim::approach_speeds(data(), entry.model));
+        std::printf("  %-13s %s: afterbody meets the water at %.2f deg\n", id.c_str(),
+                    entry.seaplane ? "flying boat" : "landplane", lander.afterbody_deg());
+        if (entry.seaplane) {
+            ++boats;
+            if (std::abs(lander.afterbody_deg() - 10.81) > 0.01) {
+                wrong.push_back(id + "'s afterbody meets the water at " +
+                                std::to_string(lander.afterbody_deg()) + " deg, not 10.81");
+            }
+        } else {
+            ++landplanes;
+            if (lander.afterbody_deg() != 0.0) {
+                wrong.push_back(id + ", a landplane, has an afterbody at " +
+                                std::to_string(lander.afterbody_deg()) + " deg");
+            }
+        }
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(taught.size() == 14 && landplanes == 13 && boats == 1,
+          "fourteen taught the approach, thirteen landplanes and one flying boat: " +
+              std::to_string(landplanes) + " and " + std::to_string(boats));
+}
+
 // **A flying boat alighting in calm air stays on the step, not hopping off
 // it**: every aeroplane taught the approach that alights on water (one, the
 // Short S.23), landed by the AI at her model's own weight, from the moment
@@ -2932,10 +2973,11 @@ GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_
 // approach (14), down final in fifteen knots straight down the runway with
 // no turbulence and no gust factor, must not go around, must stay on her
 // wheels the right way up, rise no more than `settled_within_ft` after her
-// wheels met the runway, and stop. Coverage asserted: fourteen flown, one
-// named (the S.23, below), thirteen judged. Seen red on the rollout judged
-// by groundspeed in steady air: the C172P, C182, Cub and PA-28 flew off the
-// runway again, 2.7 to 6.6 ft, three of them striking their airframes.
+// wheels met the runway, and stop. Coverage asserted: fourteen flown and
+// judged, none named - the S.23 with the landplanes since her hull planes
+// (2026-10-14). Seen red on the rollout judged by groundspeed in steady
+// air: the C172P, C182, Cub and PA-28 flew off the runway again, 2.7 to 6.6
+// ft, three of them striking their airframes, and the S.23 7.58 ft.
 namespace {
 
 // **Every aeroplane taught the approach (14), landed in a steady wind of
