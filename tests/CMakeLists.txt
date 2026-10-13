@@ -572,6 +572,9 @@ set(GLIDESLOPE_UNIT_TESTS
     the_short_s23_climbs_at_its_published_rate_at_sea_level
     the_f35b_reaches_mach_1_6_at_its_best_altitude
     the_f35b_flies_more_than_its_published_range_on_internal_fuel
+    the_f35bs_lift_system_makes_pratt_and_whitneys_hover_thrust
+    the_f35b_hovers_at_150_ft_for_a_minute_within_10_ft
+    the_f35b_lands_vertically_from_a_hover_under_6_ft_a_second
     the_b2_flies_at_high_subsonic_speed
     the_b2_still_climbs_at_its_published_ceiling
     the_b2_flies_about_its_published_range_unrefuelled

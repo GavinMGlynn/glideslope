@@ -902,6 +902,21 @@ void Aircraft::set_controls(const Controls& c) {
     set("fcs/pitch-trim-cmd-norm", -c.pitch_trim);
 }
 
+bool Aircraft::has_lift_system() const {
+    return has_property("fcs/stovl-cmd-norm");
+}
+
+void Aircraft::set_lift_system(const LiftSystem& lift) {
+    if (!has_lift_system()) {
+        throw std::logic_error("this aircraft has no lift system");
+    }
+    set("fcs/stovl-cmd-norm", lift.stovl);
+    set("fcs/nozzle-cmd-deg", lift.nozzle_deg);
+    set("fcs/lift-fan-cmd-norm", lift.fan);
+    set("fcs/roll-post-cmd-norm", lift.roll_post);
+    set("fcs/nozzle-yaw-cmd-norm", lift.nozzle_yaw);
+}
+
 void Aircraft::fail_engine(int engine, bool feather) {
     const std::string n = "[" + std::to_string(engine) + "]";
     const auto e = exec_->GetPropulsion()->GetEngine(static_cast<unsigned>(engine));

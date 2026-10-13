@@ -358,9 +358,15 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       *Verification: every nose-wheel aeroplane's tail strikes the runway
       where its airframe would, and is judged a strike, with every take-off,
       approach and landing test green.* Done 2026-10-13.
-- [ ] **The F-35B cannot hover, land vertically or take off short**: its lift
-      fan is not modelled. *Verification: it hovers at its published thrust,
-      lands vertically, and takes off in its published short distance.*
+- [ ] **The F-35B cannot take off short; nor can a pilot or the AI hover
+      her.** Her lift fan, roll posts and swivelling nozzle make Pratt &
+      Whitney's 40,650 lbf, and the hover control law hovers her at 150 ft in
+      a crosswind and lands her vertically (done 2026-10-10). Still missing:
+      the short take-off (600 ft from a flat deck, the program's requirement
+      since 2012, its primary source not yet read), the lift system in a
+      pilot's controls and on the wire, and the AI hovering in a session.
+      *Verification: it hovers at its published thrust, lands vertically,
+      and takes off in its published short distance.*
 - [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses

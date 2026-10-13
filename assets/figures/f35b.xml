@@ -15,9 +15,10 @@
   F-35A was held to is the Air Force's fact sheet, for the A alone. Nothing
   published gives the F-35B one, so none is claimed.
 
-  **The lift fan is not modelled** (tools/make_f35b.py), so none of the STOVL
-  figures - hover thrust, vertical landing, short take-off - can be checked
-  and none is listed.
+  **Her lift system is modelled** (tools/make_f35b.py): its hover thrust is
+  Pratt & Whitney's, and she hovers and lands vertically on the hover
+  control law (src/sim/hover.hpp). Her short take-off is not yet flown, and
+  no short take-off distance is listed.
 -->
 <!--
   **touchdown_fpm** is the sink the AI's flare brings the wheels to the
@@ -53,6 +54,54 @@
     <tank index="0" lbs="6550"/>
     <tank index="1" lbs="6550"/>
   </loading>
+
+  <!-- 37,530 lb: the empty weight, 32,300 lb (Fast Facts); the pilot, 230
+       lb; and 5,000 lb of fuel and weapons - two AIM-120s, 670 lb, and 4,330
+       lb of fuel. **No vertical-landing weight is published** in any
+       document this project could read (searched 2026-10-10): secondary
+       pages quote a 5,000 lb "Vertical Lift Bring Back" of fuel and weapons
+       from the STOVL requirement, but name no source this project could
+       read, so the weight is this project's choice, not a published figure.
+       It leaves Pratt & Whitney's hover thrust 8 per cent over the weight. -->
+  <loading name="vertical_landing" total_lbs="37530">
+    <pointmass index="0" lbs="230"/>
+    <pointmass index="1" lbs="670"/>
+    <tank index="0" lbs="2165"/>
+    <tank index="1" lbs="2165"/>
+  </loading>
+
+  <figure name="hover_thrust" flight="hover_thrust" loading="full" fuel_frozen="1"
+          unit="lbf" value="40650" tolerance_percent="1">
+    Pratt &amp; Whitney's F135 Fast Facts (Q4 2021): the F135-PW-600's
+    "Hover Thrust Class 40,650 lbs" - the lift fan's, the roll posts' and the
+    swivelled nozzle's, without afterburner. Measured at sea level, standing,
+    the nozzle down and the throttle at its STOVL top; loaded full so that it
+    stays on the ground. Lockheed's 2015 F-35B card gives "40,500 lb
+    Vertical", and its hover-pit test of 2009 measured 41,100 against a
+    requirement of 40,550: all within a per cent and a bit of this.
+  </figure>
+
+  <figure name="hover_height_held" flight="hover_height_held" loading="vertical_landing"
+          fuel_frozen="1" unit="ft" min="0" max="10" altitude_ft="150" seconds="60" crosswind_kt="10"
+          most_drift_ft="30">
+    Lockheed Martin's release of 18 March 2010 on the first vertical landing:
+    BF-1 "hovered about 150 feet above the airfield for approximately one
+    minute" before letting down. Lifted vertically to 150 ft by the hover
+    control law in calm air, settled, and held a minute more as a 10 kt wind
+    rises across her from the left over ten seconds - so that her roll and
+    yaw are flown as well as her height and pitch; the most her height
+    strays, which this project holds within 10 ft, and the point she rose
+    from within 30 ft. The weight is this project's (the loading above).
+  </figure>
+
+  <figure name="vertical_landing" flight="vertical_landing" loading="vertical_landing"
+          fuel_frozen="1" unit="ft/min" min="0" max="360" altitude_ft="150"
+          most_drift_ft="30">
+    Let down from the 150 ft hover above; the sink as the wheels first touch,
+    held under 6 ft/s (360 ft/min), the touchdown criterion this file's
+    touchdown_fpm cites, and the point it rose from within 30 ft. No F-35B
+    vertical landing sink is published.
+  </figure>
 
   <figure name="maximum_mach" fuel_frozen="1" flight="best_level_mach" loading="combat"
           unit="Mach" value="1.6" tolerance="0.05" altitude_ft="30000" altitude_to_ft="50000"

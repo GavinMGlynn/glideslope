@@ -87,6 +87,19 @@ struct InitialConditions {
     double roll_deg = 0.0;
 };
 
+// **A STOVL aeroplane's lift system** - the F-35B's lift fan, roll posts and
+// swivelling nozzle (tools/make_f35b.py) - as its flight controls take it.
+// Not yet part of Controls, and so not sent by a client: only the hover
+// control law (sim/hover.hpp) sets it. Its positions are flight-control
+// properties, and so are in a replay's state like every other.
+struct LiftSystem {
+    double stovl = 0.0;      // 1 converts to STOVL mode, 0 back
+    double nozzle_deg = 0.0; // the nozzle swivelled down, 0 to 95
+    double fan = 0.0;        // -1..1, the fan's thrust either side of its share: 1 nose up
+    double roll_post = 0.0;  // -1..1, the posts' air sent to one side: 1 right wing down
+    double nozzle_yaw = 0.0; // -1..1, the nozzle swivelled sideways: 1 nose right
+};
+
 // What the pilot is doing, each in JSBSim's normalised command range.
 struct Controls {
     double elevator = 0.0; // -1 (nose down) .. 1 (nose up)
@@ -451,6 +464,12 @@ public:
 
     // The controls take effect from the next step.
     void set_controls(const Controls& controls);
+
+    // **Whether it has a lift system** (LiftSystem), and its commands, which
+    // take effect from the next step. set_lift_system throws
+    // std::logic_error on an aircraft without one.
+    bool has_lift_system() const;
+    void set_lift_system(const LiftSystem& lift);
 
     // Stops engine `engine` - 0 the first, the port engine of a twin - as a
     // failure does, and feathers its propeller if `feather`.

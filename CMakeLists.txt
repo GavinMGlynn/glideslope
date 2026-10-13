@@ -188,6 +188,7 @@ add_library(glideslope_sim STATIC
     src/sim/lander.cpp
     src/sim/circuit.cpp
     src/sim/vacate.cpp
+    src/sim/hover.cpp
     src/sim/learnt.cpp
     src/sim/leaner.cpp
     src/sim/departure.cpp

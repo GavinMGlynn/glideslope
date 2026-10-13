@@ -322,8 +322,10 @@ JSBSim's LGPL-2.1, whose text ships as `licenses/JSBSim.txt`. A test fails if
 the committed files differ from what the scripts write. Their figures are
 `assets/figures/f35b.xml` and `assets/figures/b2.xml`. Much of both aircraft's
 performance, and all of their aerodynamics, is not public; what the models
-estimate is listed in `docs/PROJECT_STATUS.md`. **The F-35B's lift fan is not
-modelled**, so none of its STOVL performance is claimed, and **no service
+estimate is listed in `docs/PROJECT_STATUS.md`. **The F-35B's lift system -
+lift fan, roll posts and swivelling nozzle - is modelled to Rolls-Royce's and
+Pratt & Whitney's thrusts** and she hovers and lands vertically; **her short
+take-off is not yet flown**, and **no service
 ceiling is claimed for it**, because Lockheed Martin publishes none for any
 F-35.
 
@@ -335,11 +337,17 @@ F-35.
 | United States Air Force, Abbreviated Accident Investigation Board report, B-2A T/N 89-0129, Whiteman AFB, 14 September 2021, 12 January 2022 | <https://www.afjag.af.mil/Portals/77/AIB-Reports/2021/AAIB%20Report%20-%20B-2%20Mishap%20TN%2089-0129%20-%20FINAL.pdf>, read through the Internet Archive (20220317215755), SHA-256 `8353586f927dcca5dd1f3f6a583f3a5692eba9071940d0b57ded1c4884053376` | The one landing published (pp. 12-13), and not an ordinary one: an emergency landing with two hydraulic systems failed, flown at 143 knots - "slightly higher than the recommended approach speed", for forecast wind shear - at a light weight; touching down at 129 knots, 3.9 degrees of pitch, just under 6 of alpha, its main wheels lifting one side at a time and airborne again for a second, before its left main gear collapsed. Weak evidence of how the aeroplane floats; no number in the model is set from it |
 | Sweetman, Inside the Stealth Bomber, 2005, p. 73, and Chudoba, Stability and Control of Conventional and Unconventional Aircraft Configurations, 2001, pp. 201-202 | Not read directly: quoted by Wikipedia's Northrop B-2 Spirit article and by Cross, Faber and Telles, The B2 - Bomber, AOE 4124, Virginia Tech, 2009 (<https://archive.aoe.vt.edu/mason/Mason_f/B2Spr09.pdf>) | That its drag rudders are split (Sweetman) and stand open in flight at low speed (Chudoba). That opened on both sides together they are its speedbrakes is from an enthusiasts' page, targetlock.org.uk's B-2 Spirit: Structure and Systems (<http://targetlock.org.uk/b-2/systems.html>), and Wikipedia's Deceleron article (<https://en.wikipedia.org/wiki/Deceleron>); the two books are quoted by Wikipedia's Northrop B-2 Spirit article (<https://en.wikipedia.org/wiki/Northrop_B-2_Spirit>) and the Virginia Tech project. The drag rudders' size is estimated by eye from published photographs; nothing gives it |
 | NASA CR-2144, Heffley and Jewell, Aircraft Handling Qualities Data, December 1972, section IV, the F-4C | As in the A380's entry above | The F-35B's moments' derivatives and inertias - the F-4C's, the nearest published fighter's |
+| Rolls-Royce, "We put the vertical lift in the F-35B Lightning II" (the LiftSystem poster) | <https://www.rolls-royce.com/~/media/Files/R/Rolls-Royce/documents/defence-aerospace/8-1-liftsystem-poster.pdf>, SHA-256 `444cecf30bcabca53016c45c428f184b933ce4281b0055cefe12c318eb7c81ce` | The LiftFan "more than 20,000 lbf"; the roll posts "a further 1,950 lbf of thrust each"; the 3BSM "can rotate through 95 degrees in 2.5 seconds and passes 18,000 lbf of thrust" - the lift system's shares and the nozzle's travel and rate |
+| Pratt & Whitney, F135 Engine Fast Facts, Q4 2021, S18016.10.21 | <https://filecache.mediaroom.com/mr5mr_prattwhitney/182932/download/F135%20Fast%20Facts_Q4%202021_Final.pdf>, SHA-256 `5aa0595a9014b5e06d60256f1be604bc2320d2d4d58c8b7ccc2926797353631b` | The F135-PW-600's "Hover Thrust Class 40,650 lbs", the lift system's total in a hover; also its "Short Takeoff Thrust Class 40,740 lbs", for the short take-off still to be flown |
+| Lockheed Martin, F-35B product card, ©2015, FG15-1280_002 | <https://www.f35.com/content/dam/lockheed-martin/aero/f35/documents/fg15-1280_002_f-35b_pc.pdf>, SHA-256 `a47cfca78c2bb9587443ff6aa8d8d8b43b55572c4f227c8eef21c1e4dadb19a1` | "40,500 lb Vertical", "Vertical = without afterburner": the hover is flown short of the afterburner |
+| Wiegand, Bullick, Catt, Hamstra, Walker and Wurth, F-35 Air Vehicle Technology Overview, Lockheed Martin, AIAA 2018-3368 | <https://www.lockheedmartin.com/content/dam/lockheed-martin/eo/documents/webt/F-35_Air_Vehicle_Technology_Overview.pdf>, SHA-256 `708cfe220fdb55f438c54492beb82fc7c24ed197b1394c1135f7c60f59bd9761` | The fan's inlet guide vanes "provide thrust modulation" (her pitch control in a hover); the roll posts "produce about 10 percent of the vertical thrust" (Rolls-Royce's figures give 9.3) |
+| Lockheed Martin, "Lockheed Martin F-35B Exceeds STOVL Thrust Requirement", 23 April 2009 | <https://news.lockheedmartin.com/2009-04-23-Lockheed-Martin-F-35B-Exceeds-STOVL-Thrust-Requirement>, SHA-256 of the page as fetched 2026-10-10 `487fbec539c94720db3f5f7bffa306507101d9989060058d566ce21d3c8c0c0f` | "41,100 pounds of vertical thrust against our requirement of 40,550 pounds" in the hover pit: a check on the hover thrust |
+| Lockheed Martin, "Lockheed Martin F-35 Joint Strike Fighter Succeeds in First Vertical Landing", 18 March 2010 | <https://news.lockheedmartin.com/2010-03-18-Lockheed-Martin-F-35-Joint-Strike-Fighter-Succeeds-in-First-Vertical-Landing>, SHA-256 of the page as fetched 2026-10-10 `2ade28b0a79c04d89e2ec3f141f149cd473df0124fcd2664929a81b2a2e87f85` | BF-1 "150 feet above the airfield ... hover for approximately one minute then descend": the hover's height and length |
 | Raymer, Aircraft Design: A Conceptual Approach, the tipback angle | A textbook | Where the F-35B's main wheels are, which nothing published gives: 15 degrees behind the centre of gravity seen from the ground |
 
 **Only facts are taken** - numbers and a few words quoted with each figure -
 not the documents' text. Nothing suggests Lockheed Martin, Northrop Grumman,
-Pratt & Whitney, General Electric or the Air Force endorses these models.
+Pratt & Whitney, Rolls-Royce, General Electric or the Air Force endorses these models.
 
 ### The Mosquito FB Mk VI: its trials, Pilot's Notes and engine curves
 

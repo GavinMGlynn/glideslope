@@ -1,8 +1,10 @@
 # The Lockheed Martin F-35B Lightning II, one F135-PW-600: a flight model
 # written for glideslope from what is published of it - its size, weights and
 # engine, and its maximum Mach and range (assets/figures/f35b.xml) - by
-# tools/make_f35b.py. The F-35B is a STOVL aeroplane and its lift fan is not
-# modelled: it takes off and lands on a runway like any other fighter.
+# tools/make_f35b.py. The F-35B is a STOVL aeroplane: her lift fan, roll posts
+# and swivelling nozzle are modelled, and the hover control law hovers and
+# lands her vertically; the AI still takes her off and lands her on a runway
+# like any other fighter, and her short take-off is not yet flown.
 #
 #   name TEXT...                 what it is called
 #   model NAME                   its JSBSim model, in data/jsbsim/aircraft
