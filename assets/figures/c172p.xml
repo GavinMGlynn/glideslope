@@ -21,14 +21,7 @@
   coordinated level turn has to turn at g tan(bank) / true airspeed, and that
   is checked instead.
 -->
-<!--
-  **rotation_degps** is the rate the take-off autopilot rotates her at on
-  her wheels (sim/departure.hpp): four degrees a second. No handbook found
-  gives a rate; it is the one the take-off autopilot raised every nose at
-  before each aeroplane had her own, kept for the light aeroplanes and the
-  fighters, which are rotated more briskly than an airliner.
--->
-<published_figures aircraft="c172p" rotation_degps="4" flaps_full_deg="30">
+<published_figures aircraft="c172p" flaps_full_deg="30">
   <source>Cessna Model 172P Pilot's Operating Handbook, 12 May 1981</source>
 
   <!-- 2400 lb, the maximum take-off weight the handbook's figures are for:

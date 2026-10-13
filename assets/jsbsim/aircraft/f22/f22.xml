@@ -992,26 +992,9 @@
                 <input>-fcs/pitch-windup-trigger</input>
             </summer>
 
-            <fcs_function name="fcs/pitch-rate-error-held">
-                <!-- glideslope: tools/make_f22.py - on the wheels the integrator
-                     is let down to nought, not wound up -->
-                <function>
-                    <sum>
-                        <product>
-                            <difference><value>1</value><property>gear/wow</property></difference>
-                            <property>fcs/pitch-rate-error</property>
-                        </product>
-                        <product>
-                            <value>-5.0</value>
-                            <property>gear/wow</property>
-                            <property>fcs/pitch-rate-integrator</property>
-                        </product>
-                    </sum>
-                </function>
-            </fcs_function>
             <integrator name="fcs/pitch-rate-integrator">
                 <!--trigger>fcs/pitch-int-trigger</trigger-->
-                <input>fcs/pitch-rate-error-held</input>
+                <input>fcs/pitch-rate-error</input>
                 <c1> 1 </c1>
                 <clipto>
                     <min>-0.5236</min>
@@ -1187,35 +1170,8 @@
                 </range>
             </aerosurface_scale >
 
-            <switch name="fcs/ground-mode">
-                <!-- glideslope: tools/make_f22.py - the stick direct to the
-                     stabilators on the wheels, blended out off them -->
-                <default value="0"/>
-                <test logic="AND" value="1">
-                    gear/wow gt 0
-                </test>
-            </switch>
-            <actuator name="fcs/ground-mode-blend">
-                <input>fcs/ground-mode</input>
-                <rate_limit>0.50</rate_limit>
-            </actuator>
-            <fcs_function name="fcs/elevator-law">
-                <function>
-                    <sum>
-                        <product>
-                            <property>fcs/ground-mode-blend</property>
-                            <property>fcs/elevator-cmd-limiter</property>
-                        </product>
-                        <product>
-                            <difference><value>1</value><property>fcs/ground-mode-blend</property></difference>
-                            <property>fcs/el-reg-scale</property>
-                        </product>
-                    </sum>
-                </function>
-            </fcs_function>
-
             <actuator name="fcs/elevator-act">
-                <input>fcs/elevator-law</input>
+                <input> fcs/el-reg-scale</input>
                 <rate_limit> 2 </rate_limit>
                 <clipto>
                     <min> -1 </min>

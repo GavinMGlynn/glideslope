@@ -55,22 +55,6 @@ The changes, and what each is for:
                         in inverse proportion to the dynamic pressure times the
                         tail's effectiveness past PITCH_GAIN_PRESSURE, as a
                         fly-by-wire aircraft's are scheduled.
-    A ground mode       The pitch loop commands a pitch rate and integrates its
-                        error, and on her wheels, with the nose wheel holding
-                        the nose down, the integrator wound up to full
-                        stabilator: once the nose came it took two seconds to
-                        unwind, and she rotated at ten degrees a second
-                        whatever the stick did. On the wheels the stick now
-                        moves the stabilators directly and the integrator is
-                        let down to nought (GROUND_INTEGRATOR_DECAY_PER_S);
-                        off them the pitch loop is blended back in over
-                        GROUND_MODE_BLEND_S. This is how fly-by-wire aircraft
-                        are flown on the ground: Airbus's normal law has a
-                        ground mode, "a direct relationship between sidestick
-                        deflection and elevator deflection", with the flight
-                        mode blended in after lift-off (A320 FCOM, Flight
-                        Controls, Normal Law). The two figures are this
-                        project's; nothing published gives the F-22A's.
     The roll stick      The stick commanded a roll rate in proportion to its
                         travel - its first tenth 22 degrees a second - and any
                         pilot's small corrections, a person's or glideslope's
@@ -141,11 +125,6 @@ PITCH_GAIN_PRESSURE = 1000.0
 # The roll stick's shaping: the roll rate it commands, as a fraction of the
 # model's, is the stick's travel times this plus the rest times its square.
 ROLL_STICK_CENTRE_GAIN = 0.25
-# The ground mode: how fast the pitch loop's integrator is let down on the
-# wheels, of itself a second, and how long the stick's direct authority takes
-# to blend out off them, seconds.
-GROUND_INTEGRATOR_DECAY_PER_S = 5.0
-GROUND_MODE_BLEND_S = 2.0
 
 # **The airframe, so that a wheels-up landing meets the runway.** JSBSim gives
 # a retracted wheel no force, and this model had nothing else to touch the
@@ -222,7 +201,6 @@ def airframe():
     text = with_mach_lift(text)
     text = with_mach_tail(text)
     text = with_pitch_gain_schedule(text)
-    text = with_ground_mode(text)
     text, n = re.subn(r"(<pure_gain name=\"fcs/throttle[12]\">\s*<input>fcs/t[12]-summer</input>\s*<gain>)1\.001(</gain>)",
                       r"\g<1>1\2", text)
     if n != 2:
@@ -333,68 +311,6 @@ def with_pitch_gain_schedule(text):
         lambda m: schedule + m.group(1) + "<product>\n                    <property>fcs/pitch-gain-schedule</property>\n"
         "                    <sum>" + m.group(2) + "</sum>\n                    </product>" + m.group(3),
         "the pitch loop's gains")
-
-
-def with_ground_mode(text):
-    """On her wheels the stick moves the stabilators directly, and the pitch
-    loop's integrator is let down to nought; off them the pitch loop is
-    blended back in over GROUND_MODE_BLEND_S. In the air nothing changes."""
-    held = (
-        '            <fcs_function name="fcs/pitch-rate-error-held">\n'
-        "                <!-- glideslope: tools/make_f22.py - on the wheels the integrator\n"
-        "                     is let down to nought, not wound up -->\n"
-        "                <function>\n"
-        "                    <sum>\n"
-        "                        <product>\n"
-        "                            <difference><value>1</value><property>gear/wow</property></difference>\n"
-        "                            <property>fcs/pitch-rate-error</property>\n"
-        "                        </product>\n"
-        "                        <product>\n"
-        f"                            <value>-{GROUND_INTEGRATOR_DECAY_PER_S:.1f}</value>\n"
-        "                            <property>gear/wow</property>\n"
-        "                            <property>fcs/pitch-rate-integrator</property>\n"
-        "                        </product>\n"
-        "                    </sum>\n"
-        "                </function>\n"
-        "            </fcs_function>\n")
-    text = replace_once(
-        text,
-        r"(            <integrator name=\"fcs/pitch-rate-integrator\">\s*<!--trigger>fcs/pitch-int-trigger</trigger-->\s*<input>)"
-        r"fcs/pitch-rate-error(</input>)",
-        lambda m: held + m.group(1) + "fcs/pitch-rate-error-held" + m.group(2),
-        "the pitch loop's integrator")
-    blend = (
-        '            <switch name="fcs/ground-mode">\n'
-        "                <!-- glideslope: tools/make_f22.py - the stick direct to the\n"
-        "                     stabilators on the wheels, blended out off them -->\n"
-        '                <default value="0"/>\n'
-        '                <test logic="AND" value="1">\n'
-        "                    gear/wow gt 0\n"
-        "                </test>\n"
-        "            </switch>\n"
-        '            <actuator name="fcs/ground-mode-blend">\n'
-        "                <input>fcs/ground-mode</input>\n"
-        f"                <rate_limit>{1.0 / GROUND_MODE_BLEND_S:.2f}</rate_limit>\n"
-        "            </actuator>\n"
-        '            <fcs_function name="fcs/elevator-law">\n'
-        "                <function>\n"
-        "                    <sum>\n"
-        "                        <product>\n"
-        "                            <property>fcs/ground-mode-blend</property>\n"
-        "                            <property>fcs/elevator-cmd-limiter</property>\n"
-        "                        </product>\n"
-        "                        <product>\n"
-        "                            <difference><value>1</value><property>fcs/ground-mode-blend</property></difference>\n"
-        "                            <property>fcs/el-reg-scale</property>\n"
-        "                        </product>\n"
-        "                    </sum>\n"
-        "                </function>\n"
-        "            </fcs_function>\n\n")
-    return replace_once(
-        text,
-        r"(            <actuator name=\"fcs/elevator-act\">\s*<input>) fcs/el-reg-scale(</input>)",
-        lambda m: blend + m.group(1) + "fcs/elevator-law" + m.group(2),
-        "the stabilators' command")
 
 
 def outputs():

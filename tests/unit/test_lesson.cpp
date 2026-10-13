@@ -1048,9 +1048,10 @@ GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_i
                                     std::to_string(loadings_flown));
 }
 
-// **Every nose-wheel aeroplane, at every loading it has, rotates on her
-// wheels no faster than her stated rate** (`rotation_degps` in her figures,
-// sim::DepartureSpeeds) and a degree a second more. The rate is her pitch
+// **Every aeroplane her figures give a rotation rate, at every loading she
+// has, rotates on her wheels no faster than it** (`rotation_degps`,
+// sim::DepartureSpeeds) and a degree a second more: the airliners and the
+// B-2A, whose rotation is a tail-strike risk. The rate is her pitch
 // attitude's change over each quarter second she spends wholly on her main
 // wheels once the rotation has begun - what a pilot or a flight-data
 // recorder calls the rotation rate - so that one step's jolt of the nose
@@ -1059,15 +1060,13 @@ GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_i
 // A380 at her light loading came up at 7.7 degrees a second, the A320 at 7.5.
 //
 // Flown at the speeds a plan's take-off flies (sim::departure_speeds), so
-// the 747-400 and the F-22A, whose speeds are measured from their models,
-// are flown with the rest. **Left out, and named**: the tail-wheel
-// aeroplanes (the Cub, the Mosquito), whose tail is raised on the roll and
-// who are flown off level, and the flying boat. **The F-22A is held** since
-// her model has a ground mode (tools/make_f22.py): before it her pitch
-// loop's integrator wound up on her wheels and she came up at ten degrees a
-// second whatever her stick did. Seen red with the rate held on the wheels
-// taken out (docs/PROJECT_STATUS.md, 2026-10-13).
-GLIDESLOPE_TEST(every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheels_no_faster_than_her_stated_rate) {
+// the 747-400, whose speeds are measured from her model, is flown with the
+// rest. **Left out, and named**: the tail-wheel aeroplanes, the flying boat,
+// and the nose-wheel aeroplanes whose figures give no rate - the light
+// aeroplanes, the fighters and the Learjet, whose rotation is not yet held
+// (docs/PROJECT_STATUS.md, 2026-10-13; an open item in Phase 10a). Seen red
+// with the rate held on the wheels taken out.
+GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_every_loading_no_faster_than_it) {
     constexpr double tolerance_degps = 1.0;
     constexpr int window = steps_per_second / 4;
     std::size_t catalogue = 0;
@@ -1098,6 +1097,10 @@ GLIDESLOPE_TEST(every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheel
                 left_out.push_back(entry.id + ": a tail-wheel aeroplane, flown off level");
                 continue;
             }
+        }
+        if (!speeds.rotation_held) {
+            left_out.push_back(entry.id + ": her figures give no rotation rate; not yet held");
+            continue;
         }
         ++walked;
         const auto figures =
@@ -1185,18 +1188,19 @@ GLIDESLOPE_TEST(every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheel
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong:" + all);
     check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
     check(walked + left_out.size() == catalogue, "every aircraft flown or named");
-    check(left_out.size() == 3, "three left out - the flying boat and two tail-wheel - not " +
-                                    std::to_string(left_out.size()));
+    // Three named for what they are, seven - the C172P, the C182, the
+    // PA-28, the F-15C, the F-22A, the F-35B and the Learjet 35A - for the
+    // rate their figures do not yet give.
+    check(left_out.size() == 10, "ten left out - the flying boat, two tail-wheel and seven "
+                                 "given no rate - not " + std::to_string(left_out.size()));
     check(loadings_flown == loadings_named, "every loading flown: " +
                                                 std::to_string(loadings_flown) + " of " +
                                                 std::to_string(loadings_named));
-    std::printf("  %zu loadings of %zu nose-wheel landplanes flown\n", loadings_flown, walked);
-    check(walked == 13, "thirteen nose-wheel landplanes flown, not " + std::to_string(walked));
-    // **The size of the space, stated apart from the loop**: the thirteen
-    // models' own loadings and the loadings their figures name - 38 for the
-    // eleven with a book take-off, four for the 747-400 and two for the
-    // F-22A.
-    check(loadings_flown == 44, "forty-four loadings flown, not " +
+    std::printf("  %zu loadings of %zu aeroplanes given a rate flown\n", loadings_flown, walked);
+    check(walked == 6, "six aeroplanes given a rate flown, not " + std::to_string(walked));
+    // **The size of the space, stated apart from the loop**: the six
+    // models' own loadings and the three their figures each name.
+    check(loadings_flown == 24, "twenty-four loadings flown, not " +
                                     std::to_string(loadings_flown));
 }
 

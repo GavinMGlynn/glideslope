@@ -49,12 +49,13 @@ constexpr double rate_held_from = 0.25;
 constexpr double rate_stick_per_degps = 0.3;
 constexpr double rate_pull_rates_per_s = 2.0;
 // **How fast the pull builds while her nose will not come**, of the stick's
-// travel a second: a nose-wheel aeroplane's the whole travel, since the
-// rate held takes it out as the nose comes; a tail-wheel aeroplane's half,
-// as the F-15's flight manual has the stick brought back (T.O. 1F-15A-1,
-// figure A3-6: one half aft stick over one second).
-constexpr double nose_wheel_pull_per_s = 1.0;
-constexpr double tail_wheel_pull_per_s = 0.5;
+// travel a second: half, as the F-15's flight manual has the stick brought
+// back (T.O. 1F-15A-1, figure A3-6: one half aft stick over one second);
+// the whole travel where her rate is held, which takes it out as the nose
+// comes - at half, the F-35B, then held, left 13 kt past her rotation
+// speed.
+constexpr double pull_per_s = 0.5;
+constexpr double rate_held_pull_per_s = 1.0;
 // **The take-off flap comes up** (DepartureSpeeds::flaps_up_ft): from 50 ft
 // above the runway for a light aeroplane, 400 for any other, once she is
 // within flaps_up_within_kts of her initial climb speed; a notch at a time,
@@ -265,6 +266,7 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
         read_published_figures(data / "figures" / (model + ".xml")).rotation_degps;
     if (rotation_degps > 0.0) {
         speeds.rotation_degps = rotation_degps;
+        speeds.rotation_held = true;
     }
     speeds.flaps_up_ft = transport_flaps_up_ft;
     for (const CatalogueEntry& e : read_catalogue(data)) {
@@ -696,7 +698,7 @@ Controls Departure::fly_laws() {
             std::min(rotate_pitch_ + speeds_.rotation_degps / steps_per_second, 10.0);
         want_pitch = on_ground ? rotate_pitch_ : std::max(rotate_pitch_, left_at_pitch_deg_);
         // **While the nose will not come, the stick goes further back**
-        // (nose_wheel_pull_per_s, tail_wheel_pull_per_s). The attitude law
+        // (pull_per_s, rate_held_pull_per_s). The attitude law
         // alone asks a twentieth of the travel for each degree the nose is
         // short, and its trim winds in
         // at three hundredths a second: an aeroplane heavy on its nose
@@ -746,11 +748,17 @@ Controls Departure::fly_laws() {
         // and more still as she gains speed: easing it only as the nose
         // neared her strike attitude, an A380 at her light loading came up
         // at 7.6 degrees a second and an A320 at 7.5, and a rate check
-        // added to that law brought the worst to 5.5. A tail-wheel
-        // aeroplane, whose tail is raised on the roll and who is flown off
-        // level, is left to the law below.
+        // added to that law brought the worst to 5.5. **Only where her
+        // figures give her a rate** (`rotation_held`): the airliners and the
+        // B-2A, whose rotation is a tail-strike risk. The light aeroplanes,
+        // the fighters and the Learjet are left to the law below for now:
+        // held, a C172P's elevator was at its stop through her lift-off and
+        // she bounced on her main wheels as they unloaded, and the F-22A's
+        // own pitch loop wound up on her wheels (docs/PROJECT_STATUS.md,
+        // 2026-10-13). A tail-wheel aeroplane, whose tail is raised on the
+        // roll and who is flown off level, is never held.
         const double rate_error = rate_wanted - q_now;
-        if (on_ground && !tail_wheel_ && !rate_engaged_ &&
+        if (on_ground && !tail_wheel_ && speeds_.rotation_held && !rate_engaged_ &&
             q_now >= rate_held_from * rate_wanted) {
             rate_engaged_ = true;
             pull_ = std::clamp(last_elevator_ - pitch_trim_ - rate_stick_per_degps * rate_error,
@@ -766,7 +774,8 @@ Controls Departure::fly_laws() {
             const bool too_fast = on_ground && q_now > slowing_to + 1.0;
             if (lagging_deg > 1.0 && q_now < rate_wanted &&
                 s.pitch_deg < strike_pitch_deg_ - strike_margin_deg - 1.0) {
-                const double builds = tail_wheel_ ? tail_wheel_pull_per_s : nose_wheel_pull_per_s;
+                const double builds =
+                    speeds_.rotation_held ? rate_held_pull_per_s : pull_per_s;
                 pull_ = std::min(pull_ + builds / steps_per_second, 1.0);
             } else if (lagging_deg <= 1.0 || too_fast) {
                 pull_ = std::max(pull_ - (too_fast ? 0.5 : 0.25) / steps_per_second, 0.0);
