@@ -648,6 +648,50 @@
 
  <channel name="Force Z (up)">
 
+  <fcs_function name="hydro/glideslope/keel-immersion-ft">
+   <description>glideslope: how deep the lowest point of the keel is in the
+    water, negative where it is clear; see tools/make_short_s23.py.</description>
+   <function>
+    <difference>
+     <max>
+      <sum><!-- KEEL_FORWARD -->
+       <product><value>6.004</value><cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos></product>
+       <product><value>-14.698</value><sin><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></sin></product>
+      </sum>
+      <sum><!-- KEEL_STEP -->
+       <product><value>6.004</value><cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos></product>
+       <product><value>5.971</value><sin><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></sin></product>
+      </sum>
+      <sum><!-- KEEL_AFT -->
+       <product><value>1.870</value><cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos></product>
+       <product><value>27.625</value><sin><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></sin></product>
+      </sum>
+     </max>
+     <property>hydro/hull/height-agl-ft</property>
+    </difference>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/hull-wet-norm">
+   <description>glideslope: 1 with the keel in the water, falling to 0 as it
+    rises 0.25 ft clear of it.</description>
+   <function>
+    <max>
+     <value>0.0</value>
+     <min>
+      <value>1.0</value>
+      <sum>
+       <value>1.0</value>
+       <quotient>
+        <property>hydro/glideslope/keel-immersion-ft</property>
+        <value>0.25</value>
+       </quotient>
+      </sum>
+     </min>
+    </max>
+   </function>
+  </fcs_function>
+
   <fcs_function name="hydro/buoyancy-lbs">
    <documentation>
     Lift due to buoyancy.
@@ -656,6 +700,7 @@
    <function>
     <product>
      <value> 0.22480894 </value>
+     <property>hydro/glideslope/hull-wet-norm</property>
      <table>
       <independentVar lookup="row">hydro/hull/pitch-deg</independentVar>
       <independentVar lookup="column">hydro/hull/roll-deg</independentVar>
@@ -790,48 +835,319 @@
   <fcs_function name="hydro/hull-lift-lbs">
    <function>
     <description>Lift due to hull moving in water</description>
+    <!-- glideslope: Savitsky's planing lift, smooth in the step's immersion,
+         in place of the pinned model's step to 20,000 lb; see
+         tools/make_short_s23.py. -->
     <product>
-     <property>hydro/hull-beam-ft3</property>
-     <property>hydro/lift-tweak-factor</property>
-     <!-- From Boeing314A: Lift_at_step -->
-     <table>
-      <independentVar lookup="row">attitude/roll-rad</independentVar>
-      <independentVar lookup="column">hydro/v-kt</independentVar>
-      <independentVar lookup="table">hydro/hull/height-agl-ft</independentVar>
-      <tableData breakPoint="0.0">
-                                        0.0   34.0000  44.0000
-                             -0.0690    0.0   0.0000   0.0000
-                             -0.0590    0.0   0.0000   0.5000
-                             -0.0490    0.0   0.5000   1.0000
-                             -0.0290    0.0   1.0000   1.0000
-                              0.0290    0.0   1.0000   1.0000
-                              0.0490    0.0   0.5000   1.0000
-                              0.0590    0.0   0.0000   0.5000
-                              0.0690    0.0   0.0000   0.0000
-      </tableData>
-      <tableData breakPoint="5.9">
-                                        0.0   34.0000  44.0000
-                             -0.0690    0.0   0.0000   0.0000
-                             -0.0590    0.0   0.0000   0.5000
-                             -0.0490    0.0   0.5000   1.0000
-                             -0.0290    0.0   1.0000   1.0000
-                              0.0290    0.0   1.0000   1.0000
-                              0.0490    0.0   0.5000   1.0000
-                              0.0590    0.0   0.0000   0.5000
-                              0.0690    0.0   0.0000   0.0000
-      </tableData>
-      <tableData breakPoint="6.5">
-                                        0.0   34.0000  44.0000
-                             -0.0690    0.0   0.0000   0.0000
-                             -0.0590    0.0   0.0000   0.0000
-                             -0.0490    0.0   0.0000   0.0000
-                             -0.0290    0.0   0.0000   0.0000
-                              0.0290    0.0   0.0000   0.0000
-                              0.0490    0.0   0.0000   0.0000
-                              0.0590    0.0   0.0000   0.0000
-                              0.0690    0.0   0.0000   0.0000
-      </tableData>
-     </table>
+     <value>0.012</value>
+     <pow>
+      <property>hydro/glideslope/forebody-wetted-length-beams</property>
+      <value>0.5</value>
+     </pow>
+     <pow>
+      <property>hydro/glideslope/trim-deg</property>
+      <value>1.1</value>
+     </pow>
+     <value>0.5</value>
+     <property>hydro/glideslope/rho-slug_ft3</property>
+     <property>hydro/v-fps</property>
+     <property>hydro/v-fps</property>
+     <property>hydro/hull-beam-ft2</property>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/rho-slug_ft3">
+   <function>
+    <quotient>
+     <property>hydro/environment/rho-lbs_ft3</property>
+     <value>32.174</value>
+    </quotient>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/step-immersion-ft">
+   <description>How deep the main step is below the water.</description>
+   <function>
+    <max>
+     <value>0.0</value>
+     <difference>
+      <sum>
+       <product>
+        <value>6.004</value>
+        <cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos>
+       </product>
+       <product>
+        <value>5.971</value>
+        <sin><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></sin>
+       </product>
+      </sum>
+      <property>hydro/hull/height-agl-ft</property>
+     </difference>
+    </max>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/trim-deg">
+   <description>The planing bottom's incidence to the water's flow: the
+    hull's trim and the angle her sink adds to it.</description>
+   <function>
+    <max>
+     <value>0.5</value>
+     <min>
+      <value>20.0</value>
+      <sum>
+       <property>hydro/hull/pitch-deg</property>
+       <product>
+        <value>57.29578</value>
+        <atan2>
+         <property>velocities/v-down-fps</property>
+         <max><value>1.0</value><property>hydro/v-fps</property></max>
+        </atan2>
+       </product>
+      </sum>
+     </min>
+    </max>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/forebody-wetted-length-beams">
+   <description>The keel's wetted length aft of the step's waterline, in
+    beams: its immersion over the sine of the trim.</description>
+   <function>
+    <min>
+     <value>4.0</value>
+     <quotient>
+      <property>hydro/glideslope/step-immersion-ft</property>
+      <product>
+       <property>hydro/hull-beam-ft</property>
+       <sin><product><property>hydro/glideslope/trim-deg</property><value>0.0174533</value></product></sin>
+      </product>
+     </quotient>
+    </min>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/added-mass-damping-lbs_fps">
+   <description>The heave damping of the water's added mass, rho (pi/8) b^2 V,
+    wetted in over the step's first 0.5 ft.</description>
+   <function>
+    <product>
+     <value>0.392699</value>
+     <property>hydro/glideslope/rho-slug_ft3</property>
+     <property>hydro/hull-beam-ft2</property>
+     <property>hydro/v-fps</property>
+     <min>
+      <value>1.0</value>
+      <quotient>
+       <property>hydro/glideslope/step-immersion-ft</property>
+       <value>0.5</value>
+      </quotient>
+     </min>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/heave-damping-lbs">
+   <function>
+    <product>
+     <property>hydro/glideslope/added-mass-damping-lbs_fps</property>
+     <property>velocities/v-down-fps</property>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/step-pitch-damping-lbsft">
+   <function>
+    <product>
+     <value>-20.50</value>
+     <property>hydro/glideslope/added-mass-damping-lbs_fps</property>
+     <property>velocities/thetadot-rad_sec</property>
+    </product>
+   </function>
+  </fcs_function>
+  <fcs_function name="hydro/glideslope/forebody-pressure-centre-ft">
+   <description>Savitsky's centre of pressure, forward of the trailing edge:
+    lambda b (0.75 - 1 / (5.21 C_V^2 / lambda^2 + 2.39)).</description>
+   <function>
+    <product>
+     <property>hydro/glideslope/forebody-wetted-length-beams</property>
+     <property>hydro/hull-beam-ft</property>
+     <difference>
+      <value>0.75</value>
+      <quotient>
+       <value>1.0</value>
+       <sum>
+        <value>2.39</value>
+        <quotient>
+         <product>
+          <value>5.21</value>
+          <property>hydro/coefficients/C_V</property>
+          <property>hydro/coefficients/C_V</property>
+         </product>
+         <max>
+          <value>0.0001</value>
+          <product>
+           <property>hydro/glideslope/forebody-wetted-length-beams</property>
+           <property>hydro/glideslope/forebody-wetted-length-beams</property>
+          </product>
+         </max>
+        </quotient>
+       </sum>
+      </quotient>
+     </difference>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/forebody-pitch-moment-lbsft">
+   <description>The forebody's planing lift acts at its centre of pressure,
+    forward of the step, not at the reference point where JSBSim applies
+    it: the moment that moves it there.</description>
+   <function>
+    <product>
+     <value>-1.0</value>
+     <property>hydro/hull-lift-lbs</property>
+     <difference>
+      <value>5.971</value>
+      <property>hydro/glideslope/forebody-pressure-centre-ft</property>
+     </difference>
+     <cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/afterbody-trim-deg">
+   <description>The afterbody keel's incidence to the water: the planing
+    trim less its angle to the forebody keel, 10.81 degrees.</description>
+   <function>
+    <max>
+     <value>0.0</value>
+     <difference>
+      <property>hydro/glideslope/trim-deg</property>
+      <value>10.808</value>
+     </difference>
+    </max>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/stern-immersion-ft">
+   <description>How deep the afterbody keel's aft end is below the water.</description>
+   <function>
+    <max>
+     <value>0.0</value>
+     <difference>
+      <sum><!-- KEEL_AFT -->
+       <product><value>1.870</value><cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos></product>
+       <product><value>27.625</value><sin><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></sin></product>
+      </sum>
+      <property>hydro/hull/height-agl-ft</property>
+     </difference>
+    </max>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/afterbody-wetted-length-beams">
+   <description>The afterbody keel's wetted length forward of the stern, in
+    beams, no longer than the afterbody (22.04 ft).</description>
+   <function>
+    <max>
+     <value>0.01</value>
+     <min>
+      <quotient>
+       <value>22.045</value>
+       <property>hydro/hull-beam-ft</property>
+      </quotient>
+      <quotient>
+       <property>hydro/glideslope/stern-immersion-ft</property>
+       <product>
+        <property>hydro/hull-beam-ft</property>
+        <max>
+         <value>0.001</value>
+         <sin><product><property>hydro/glideslope/afterbody-trim-deg</property><value>0.0174533</value></product></sin>
+        </max>
+       </product>
+      </quotient>
+     </min>
+    </max>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/afterbody-lift-lbs">
+   <description>The afterbody's planing lift, Savitsky's at its own trim.</description>
+   <function>
+    <product>
+     <value>0.012</value>
+     <pow>
+      <property>hydro/glideslope/afterbody-wetted-length-beams</property>
+      <value>0.5</value>
+     </pow>
+     <pow>
+      <property>hydro/glideslope/afterbody-trim-deg</property>
+      <value>1.1</value>
+     </pow>
+     <value>0.5</value>
+     <property>hydro/glideslope/rho-slug_ft3</property>
+     <property>hydro/v-fps</property>
+     <property>hydro/v-fps</property>
+     <property>hydro/hull-beam-ft2</property>
+     <min>
+      <value>1.0</value>
+      <quotient>
+       <property>hydro/glideslope/stern-immersion-ft</property>
+       <value>0.001</value>
+      </quotient>
+     </min>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/afterbody-pressure-centre-ft">
+   <description>Savitsky's centre of pressure, forward of the trailing edge:
+    lambda b (0.75 - 1 / (5.21 C_V^2 / lambda^2 + 2.39)).</description>
+   <function>
+    <product>
+     <property>hydro/glideslope/afterbody-wetted-length-beams</property>
+     <property>hydro/hull-beam-ft</property>
+     <difference>
+      <value>0.75</value>
+      <quotient>
+       <value>1.0</value>
+       <sum>
+        <value>2.39</value>
+        <quotient>
+         <product>
+          <value>5.21</value>
+          <property>hydro/coefficients/C_V</property>
+          <property>hydro/coefficients/C_V</property>
+         </product>
+         <max>
+          <value>0.0001</value>
+          <product>
+           <property>hydro/glideslope/afterbody-wetted-length-beams</property>
+           <property>hydro/glideslope/afterbody-wetted-length-beams</property>
+          </product>
+         </max>
+        </quotient>
+       </sum>
+      </quotient>
+     </difference>
+    </product>
+   </function>
+  </fcs_function>
+
+  <fcs_function name="hydro/glideslope/afterbody-pitch-moment-lbsft">
+   <description>The afterbody's lift, acting at its centre of pressure aft
+    of the reference point, where the water's forces are applied: nose down.</description>
+   <function>
+    <product>
+     <value>-1.0</value>
+     <property>hydro/glideslope/afterbody-lift-lbs</property>
+     <difference>
+      <value>27.625</value>
+      <property>hydro/glideslope/afterbody-pressure-centre-ft</property>
+     </difference>
+     <cos><product><property>hydro/hull/pitch-deg</property><value>0.0174533</value></product></cos>
     </product>
    </function>
   </fcs_function>
@@ -920,6 +1236,8 @@
       <property>hydro/float-planing-lift-lbs[0]</property>
       <property>hydro/float-planing-lift-lbs[1]</property>
       <property>hydro/damping-lift-lbs</property>
+      <property>hydro/glideslope/heave-damping-lbs</property>
+      <property>hydro/glideslope/afterbody-lift-lbs</property>
      </sum>
     </product>
    </function>
@@ -1087,6 +1405,7 @@
    <function>
     <product>
      <value> 0.73756215 </value>
+     <property>hydro/glideslope/hull-wet-norm</property>
      <table>
       <independentVar lookup="row">hydro/hull/pitch-deg</independentVar>
       <independentVar lookup="column">hydro/hull/roll-deg</independentVar>
@@ -1275,6 +1594,9 @@
    <input> hydro/buoyancy-pitch-moment-lbsft </input>
    <input> hydro/damping-pitch-moment-lbsft </input>
    <input> hydro/hull-pitch-moment-lbsft </input>
+   <input> hydro/glideslope/step-pitch-damping-lbsft </input>
+   <input> hydro/glideslope/forebody-pitch-moment-lbsft </input>
+   <input> hydro/glideslope/afterbody-pitch-moment-lbsft </input>
    <!-- input> hydro/step-pitch-moment-lbsft </input -->
   </summer>
 
@@ -1371,6 +1693,7 @@
    <function>
     <product>
      <value> 0.73756215 </value>
+     <property>hydro/glideslope/hull-wet-norm</property>
      <table>
       <independentVar lookup="row">hydro/hull/pitch-deg</independentVar>
       <independentVar lookup="column">hydro/hull/roll-deg</independentVar>

@@ -2086,6 +2086,16 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "and at most 1");
         }
     }
+    // **An elevator that moves nothing, or a coefficient past any
+    // aeroplane's, is refused.**
+    if (root->HasAttribute("elevator_full_cm")) {
+        out.elevator_full_cm = root->GetAttributeValueAsNumber("elevator_full_cm");
+        if (!(out.elevator_full_cm > 0.0 && out.elevator_full_cm <= 2.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives an elevator_full_cm that is not above 0 and at "
+                                     "most 2");
+        }
+    }
     if (JSBSim::Element* source = root->FindElement("source")) {
         out.source = collapse_whitespace(source->GetDataLine());
     }

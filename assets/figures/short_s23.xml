@@ -35,8 +35,16 @@
   Gouge's wind tunnel gave with 28 degrees of flap (p. 680), which the model's,
   1.77 with its 25, matches. The cruising speed, 165 mph at 4 x 510 bhp, names
   a power and no altitude.
+
+  **elevator_full_cm** is not a published figure: her flight model's own
+  pitching moment coefficient at full elevator, 0.28 - the DATCOM table
+  aero/coefficient/CmDe in assets/jsbsim/aircraft/short_s23/Systems/
+  datcom_aero.xml, read at her elevator's 18 degrees of travel (0.3142 rad,
+  fcs/elevator/pos-rad), 0.2827 trailing edge down and 0.2825 up. The
+  lander damps her trim held on the step by the pitch acceleration it gives
+  her (sim/lander.cpp, docs/PROJECT_STATUS.md 2026-10-14).
 -->
-<published_figures aircraft="short_s23" flaps_full_deg="25">
+<published_figures aircraft="short_s23" flaps_full_deg="25" elevator_full_cm="0.28">
   <source>Flight, 29 October 1936 and 17 and 24 December 1936</source>
 
   <!-- 40,500 lb, the standard boat: the model's 34,717 lb as it loads - its
