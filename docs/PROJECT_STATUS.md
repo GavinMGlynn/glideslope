@@ -1791,7 +1791,18 @@ bound.
 player's STOVL selector through a real server**, so the item "No pilot or
 AI plan flies the F-35B between jet-borne and wing-borne flight" stays
 open on that alone: the server and the client's prediction are held
-together in one process (below), not over a socket. **She flies backward
+together in one process (below), not over a socket. **One was tried, and
+found something**: the command-line client joined a real server asking for
+the F-35B (started at her catalogue's 300 KCAS, 2,200 ft over Sydney
+airport heading west, one AI Cessna), predicting, through a 100 ms relay,
+its every input STOVL mode selected with the stick full forward and the
+lever still. The server's F-35B was a wreck - "hit the ground sinking at
+4364 ft/min" - before any hover. Not yet explained: the in-process tests
+all begin at 300 ft or 1,000 ft and at most 250 KCAS, none above her
+STOVL clearance with the stick held forward from the start and a long way
+to come down. The test (a `--stovl-land` pilot for `glideslope_cli connect
+--predict`, meeting the DEM as the server does, and a cmake harness) is
+not committed: a test that fails would make the tree red. **She flies backward
 at 20 kt, not 30**: Farley and Kjelgaard (below) give 30, but her model
 flown backward at 30 kt swings 10 degrees in pitch and never settles
 (between -25 and -34 kt over 40 s); at 20 kt it swings under 4 kt (a new

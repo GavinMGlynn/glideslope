@@ -402,7 +402,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       landing figure (9,200 ft) was revisited on 2026-10-14: it still holds
       for a runway landing, and a vertical landing needs no runway. Still to
       do: a player's selector flown through a server in a multi-process
-      test. *Verification: she is flown
+      test - tried on 2026-10-14, the server's F-35B, selected from 300 kt
+      at 2,200 ft with the stick forward, hit the ground before hovering,
+      not yet explained. *Verification: she is flown
       into a hover and out again, and a pilot and an AI plan each convert
       her.*
 - [x] **The F-35B's pilot flies only her height in STOVL mode**: her
