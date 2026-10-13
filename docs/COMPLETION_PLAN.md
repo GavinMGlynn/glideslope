@@ -741,12 +741,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       Mosquito at her heaviest. *Verification: every aeroplane lands light,
       heavy and in gusts with none named, and a gust on an approach flown
       well makes no go-around.*
-- [ ] **The landing rollout judges whether she still flies by her
-      groundspeed outside gusts**, so a steady headwind leaves her stick
-      back while her wing still lifts; judged by her airspeed there, the
-      learnt landing in its strongest left crosswind does not stop.
-      *Verification: in a steady 15 kt headwind every aeroplane rolls out
-      without lifting off, and the learnt landing's crosswind tests pass.*
+- [ ] **In a steady headwind the S.23 skips off the water after
+      alighting.** The rollout now judges her lift by her airspeed in all
+      air, and the thirteen landplanes roll out into 15 kt without lifting
+      off; the flying boat still rises 1.0 ft off the water, her hull
+      pitching her up. *Verification: in a steady 15 kt headwind every
+      aeroplane rolls out without lifting off, and the learnt landing's
+      crosswind tests pass.*
 - [ ] **The flying boat's flare is flown to her centre of gravity, not her
       hull.** Flown to her keel she touches gently in gusts, but in calm air
       her hull then rises 1.3 ft after touching. *Verification: the S.23

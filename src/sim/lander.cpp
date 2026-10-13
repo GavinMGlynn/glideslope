@@ -712,13 +712,12 @@ Controls Lander::fly_laws() {
         // The more of the two, so that a crosswind, whose air across her
         // lifts nothing, is judged as before: on her whole airspeed four of
         // the learnt landing's crosswind tests failed, a C172P not stopping.
-        // **In gusts alone, for now**: so judged in steady air too, the
-        // learnt landing from its gate's corner in its most crosswind from
-        // the left did not stop, which is not yet understood (a tail).
+        // **In steady air as in gusts**: judged so only in gusts, a C172P,
+        // C182, Cub, PA-28 and S.23 landed into a steady fifteen-knot
+        // headwind rose off the runway again, 2.7 to 7.6 ft.
         const double vg_kts = a_.property("velocities/vg-fps") / 1.68781;
         const double flying_kts =
-            in_gusts() ? std::max(vg_kts, kcas * std::cos(a_.property("aero/beta-deg") / degrees))
-                       : vg_kts;
+            std::max(vg_kts, kcas * std::cos(a_.property("aero/beta-deg") / degrees));
         const double flying = std::clamp(
             (flying_kts - 0.5 * speeds_.vref_kts) / std::max(1.0, 0.4 * speeds_.vref_kts), 0.0,
             1.0);
