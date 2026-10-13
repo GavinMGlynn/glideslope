@@ -190,6 +190,15 @@ constexpr double stall_alpha_kept_below = 0.1;
 constexpr double steepest_unload_deg = -30.0;
 constexpr double unload_rate_degps = 8.0;
 constexpr double pull_out_most_g = 1.6;
+// **The power held off while a stalled wing is unloaded, for no longer than
+// five seconds**: the longest unload measured across the roster, left thirty
+// seconds in the stall, is the F-35B's 3.6 s, and five is that with 40% over.
+// **Nor under 1,500 ft above the ground**, the least height the FAA's Private
+// Pilot ACS (FAA-S-ACS-6, the stall tasks) has a single-engine aeroplane's
+// stall recovered by: lower, the height the power saves is worth more than
+// the load it adds.
+constexpr double most_unload_s = 5.0;
+constexpr double least_unload_agl_ft = 1500.0;
 constexpr double pitch_per_g_over = 10.0;
 constexpr double past_the_peak_deg = 0.3;
 constexpr double above_the_nose_deg = 5.0;
@@ -748,7 +757,8 @@ Controls Autopilot::fly() {
         // Seen going over its lift's peak (`seen_to_stall_`), not only at
         // the greatest angle seen yet, which a wing slowing towards its stall
         // is on every step.
-        unloading_ = seen_to_stall_ && alpha_deg > stall_alpha_deg_ + past_the_peak_deg;
+        const bool past_its_peak_now =
+            seen_to_stall_ && alpha_deg > stall_alpha_deg_ + past_the_peak_deg;
         if (stalled) {
             pitch_command_deg_ = std::min(pitch_command_deg_, theta_deg);
         }
@@ -831,8 +841,32 @@ Controls Autopilot::fly() {
         // The vertical speed loop follows, so that letting go of the speed
         // takes the pitch on from where it is.
         pitch_integral_deg_ = pitch_command_deg_ - pitch_per_fpm * climb_off;
+        // **Unloading the stalled wing before the power comes, but not for
+        // ever** (the throttle, below): the hold is let go on the first of
+        // `most_unload_s` since it began, the ground nearer than
+        // `least_unload_agl_ft`, or the nose at its floor with the angle of
+        // attack not falling - a wing the elevator cannot unload, which
+        // only the power and the speed it brings will.
+        if (!past_its_peak_now) {
+            unloading_ = false;
+            unload_released_ = false;
+            unload_s_ = 0.0;
+        } else {
+            unload_s_ += dt;
+            longest_unload_s_ = std::max(longest_unload_s_, unload_s_);
+            const bool too_long = unload_s_ >= most_unload_s;
+            const bool too_low = a_.property("position/h-agl-ft") < least_unload_agl_ft;
+            const bool stuck = pitch_command_deg_ <= floor_deg + 1e-9 && alpha_trend_ >= 0.0;
+            if (!unload_released_ && (too_long || too_low || stuck)) {
+                unload_released_ = true;
+                ++unload_releases_;
+            }
+            unloading_ = !unload_released_;
+        }
     } else {
         unloading_ = false;
+        unload_released_ = false;
+        unload_s_ = 0.0;
         const double pitch_wanted = std::clamp(
             pitch_integral_deg_ + pitch_per_fpm * climb_off, least_pitch_deg, top_deg);
         double pitch_next = toward(pitch_command_deg_, pitch_wanted, pitch_rate_degps * dt);
