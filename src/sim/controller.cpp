@@ -206,6 +206,25 @@ bool Controller::climb_out_if_lifting_off() {
 FlightPlan Controller::to_its_point(FlightPlan plan) const {
     if (plan.vertical_landing && a_.has_lift_system() && !plan.waypoints.empty()) {
         Waypoint point = plan.waypoints.back();
+        // **Given her in STOVL mode, the waypoints she hovers by are passed**:
+        // the first waypoints, within `Transition::steer_within_ft` of her -
+        // nearer than she could turn for converted back - each flown by
+        // with no orbit, are counted passed, once, as the plan is given. A
+        // waypoint flown over, or orbited, is flown however near it is.
+        if (stovl_) {
+            const AircraftState s = a_.state();
+            std::size_t k = 0;
+            while (k < plan.waypoints.size() && !plan.waypoints[k].fly_over &&
+                   !plan.waypoints[k].orbit &&
+                   distance_m(s.latitude_deg, s.longitude_deg, plan.waypoints[k].latitude_deg,
+                              plan.waypoints[k].longitude_deg) /
+                           0.3048 <=
+                       Transition::steer_within_ft) {
+                ++k;
+            }
+            plan.waypoints.erase(plan.waypoints.begin(),
+                                 plan.waypoints.begin() + static_cast<std::ptrdiff_t>(k));
+        }
         point.name = plan.vertical_landing->name;
         point.latitude_deg = plan.vertical_landing->latitude_deg;
         point.longitude_deg = plan.vertical_landing->longitude_deg;
@@ -247,6 +266,16 @@ std::optional<Controls> Controller::fly_lift_system() {
             selected = true;
         }
     }
+    // **The lever is latched at every selection**: on each rising edge of
+    // the pilot's selector - the first, and again after a 1, 0, 1 part-way
+    // through a conversion - the lever is not the pilot's speed until it has
+    // moved more than `lever_release` from where it was then.
+    if (flying_ == Flying::pilot) {
+        if (selected && !selector_was_) {
+            lever_at_selection_ = pilot_.throttle;
+        }
+        selector_was_ = selected;
+    }
     if (!stovl_) {
         const bool wanted = flying_ == Flying::ai ? vertical_landing_due() : selected;
         if (!wanted) {
@@ -274,27 +303,6 @@ std::optional<Controls> Controller::fly_lift_system() {
     // The plan's waypoints she passes meanwhile are counted passed, so that
     // one she hovers over is not flown back to.
     bool plan_to_fly = false;
-    if (flying_ == Flying::ai && navigator_ && navigator_->plan().vertical_landing &&
-        !navigator_->finished()) {
-        // **Waypoints she hovers by**: before a vertical landing, those
-        // within `Transition::steer_within_ft` of her - nearer than her
-        // conversion back would let her turn for - are counted passed.
-        FlightPlan rest = navigator_->plan();
-        const AircraftState s = a_.state();
-        std::size_t k = navigator_->next();
-        while (k + 1 < rest.waypoints.size() &&
-               distance_m(s.latitude_deg, s.longitude_deg, rest.waypoints[k].latitude_deg,
-                          rest.waypoints[k].longitude_deg) /
-                       0.3048 <=
-                   Transition::steer_within_ft) {
-            ++k;
-        }
-        if (k != navigator_->next()) {
-            rest.waypoints.erase(rest.waypoints.begin(),
-                                 rest.waypoints.begin() + static_cast<std::ptrdiff_t>(k));
-            navigator_.emplace(a_, std::move(rest));
-        }
-    }
     if (flying_ == Flying::ai && navigator_ && !navigator_->finished() && !vertical_landing_due()) {
         navigator_->steer();
         plan_to_fly = !navigator_->finished() && !vertical_landing_due();
@@ -329,7 +337,7 @@ std::optional<Controls> Controller::fly_lift_system() {
         // (Transition::Inceptors): the lever's travel from its detent once
         // it has moved from where it was when STOVL mode was selected, or
         // she was taken back in it.
-        if (lever_at_selection_ && pilot_.throttle != *lever_at_selection_) {
+        if (lever_at_selection_ && std::abs(pilot_.throttle - *lever_at_selection_) > lever_release) {
             lever_at_selection_.reset();
         }
         Transition::Inceptors inceptors;
@@ -395,6 +403,7 @@ Controller::PilotsLaws Controller::pilots_laws() const {
     out.hovering_since_s = hovering_since_s_;
     out.selector_at_take_back = selector_at_take_back_;
     out.lever_at_selection = lever_at_selection_;
+    out.selector_was = selector_was_;
     return out;
 }
 
@@ -418,6 +427,7 @@ void Controller::restore(const PilotsLaws& laws) {
     hovering_since_s_ = laws.hovering_since_s;
     selector_at_take_back_ = laws.selector_at_take_back;
     lever_at_selection_ = laws.lever_at_selection;
+    selector_was_ = laws.selector_was;
 }
 
 double lever_travel(double lever, double detent) {
@@ -659,6 +669,8 @@ void Controller::to_pilot() {
     if (stovl_) {
         selector_at_take_back_ = pilot_.stovl;
         lever_at_selection_ = pilot_.throttle;
+        // Held in STOVL mode by the take-back: not a selection to latch at.
+        selector_was_ = true;
     }
     easing_in_ = false;
     autopilot_.reset();

@@ -413,17 +413,21 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       plan given her hovering converts her back and is flown.* Done
       2026-10-14: the lever asks a ground speed near the hover and an
       acceleration above it, the stick a sideways speed and the pedals a
-      turn, each within 2 kt or a degree a second of what is asked; a plan
-      given her hovering is flown (PROJECT_STATUS, 2026-10-14).
+      turn, each within 2 kt or a degree a second of what is asked, every
+      direction flown; a plan given her hovering is flown (PROJECT_STATUS,
+      2026-10-14).
 - [ ] **The F-35B flies backward at only 20 kt in the hover**: published
       accounts give her (and the VAAC Harrier her laws were first flown on)
       30 kt back, but her model swings 10 degrees in pitch past 20.
-      *Verification: she is held steady at 30 kt backward, and her limit put
-      back to 30.*
+      *Verification: her limit put back to 30 kt, she holds 30 kt backward
+      within 2 kt, averaged over 12 s, her speed swinging under 6 kt and her
+      pitch within 15 degrees.*
 - [ ] **Jet-borne, the F-35B's stick sideways and pedals do nothing**: in
       STOVL mode between the hover and her conversion speed her law holds
-      her heading and wings level. *Verification: jet-borne, the stick turns
-      her and the pedals move her heading, within stated bounds.*
+      her heading and wings level. *Verification: jet-borne at 60 kt, the
+      stick full over turns her at least 3 degrees a second, banked under
+      30, and full pedal moves her heading at least 5 degrees in 10 s, her
+      height within 15 ft.*
 - [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses

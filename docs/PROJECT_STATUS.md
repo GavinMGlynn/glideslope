@@ -1819,10 +1819,15 @@ a closed loop control of ground speed up to 30 kt forwards or backwards ...
 the rudder pedals command yaw rate"; Chris Kjelgaard (2012) - she flies
 backwards at 30 kt in STOVL mode.
 
-- **The lever** (the throttle) is the pilot's speed once it has moved from
-  where it was when STOVL mode was selected, or she was taken back in it
-  (`lever_at_selection`, so the selector alone still slows her to a hover
-  where she stops, as before). Its travel from its detent
+- **The lever** (the throttle) is the pilot's speed once it has moved more
+  than 0.05 of its travel (`Controller::lever_release`) from where it was
+  at the selector's last rising edge - every one, including a 1, 0, 1
+  part-way through a conversion - or when she was taken back in STOVL mode
+  (`lever_at_selection`, `selector_was`): the selector alone still slows her
+  to a hover where she stops, as before, and a hand resting on the lever, or
+  a keyboard's or the wire's rounding, does not send her gathering speed.
+  (From the review of #194: it was an exact compare, released by any
+  movement, and latched only when the transition law was made.) Its travel from its detent
   (`fcs/stovl-lever-detent`, 0.25, estimated: Farley says only "aft"), within
   2 per cent of travel the detent itself, asks under 30 kt
   (`fcs/stovl-trc-kt`) a ground speed along her heading in proportion -
@@ -1855,7 +1860,12 @@ counted passed, and once the fan has stopped the autopilot is engaged from
 the controls the law left and the leg begins where she is. A plan whose
 vertical landing is nearer than she stops in is not converted back: before
 it, waypoints within `Transition::steer_within_ft` (2,000 ft) of her are
-counted passed, and hovering she is moved to the pad (`Transition::step`,
+counted passed - **only those flown by with no orbit**: a fly-over or an
+orbit is flown however near it is, out of the hover. They are dropped once,
+from the plan as it is given (`Controller::to_its_point`), not every step.
+**The cost**: such a waypoint near her - one the plan meant as a turning
+point a few hundred feet off - is not flown at all; she goes straight to the
+pad in the hover. Hovering she is moved to the pad (`Transition::step`,
 `Target::over` while hovering) at no more than 30 kt, slowing at her own
 rate to stop over it, and let down there. A plan given her standing on the
 ground in STOVL mode is not tested. Handed a plan just after lift-off in
@@ -1873,14 +1883,22 @@ vertical landing (Phase 13).
 **Verification** (linux-release, -j4, DISPLAY and WAYLAND_DISPLAY unset):
 
 - `in_a_hover_the_f35bs_pilot_moves_her_forward_back_sideways_and_turns_her_with_the_lever_stick_and_pedals`:
-  hovering at 300 ft, averaged over the last 12 s of each phase - the lever
-  half forward 14.97 kt (asked 15), full aft -19.96 (asked 20 back), at its
-  detent 0.00 and 0.04, the stick full right 20.07 kt across with 0.31
-  ahead, centred 0.05, her heading moved 0.00 degrees by it; the right
-  pedal 9.99 degrees a second, 0.79 ft from where the turn began, released
-  0.00 off the heading she was left on. Height off what was asked at most
-  0.52 ft, pitch 9.3, bank 7.7, speeds swinging at most 3.90 kt; eight
-  phases counted.
+  hovering at 300 ft, every direction of the table flown - forward, aft,
+  right, left, turn right and turn left, six of six asserted - averaged over
+  the last 12 s of each phase: the lever half forward 14.97 kt (asked 15),
+  full aft -19.96 (asked 20 back), at its detent 0.00 and 0.04; the stick
+  full right 20.07 kt across, full left -20.08, 0.31 ahead each, centred
+  0.05, her heading moved 0.00 degrees; each pedal 9.99 degrees a second
+  its way, 0.27 and 0.12 ft from where the turn began, released 0.00 off
+  the heading she was left on. Height off what was asked at most 0.52 ft,
+  speeds swinging at most 3.90 kt. **Her attitudes, measured: pitch 9.3
+  degrees, bank 7.7** (bounds 15 and 10).
+- `the_f35bs_lever_is_the_pilots_only_once_moved_past_its_dead_band_from_each_selection`:
+  selected at the forward stop and nudged 0.001 - she hovers; at the aft
+  stop and nudged 0.001 - she hovers, 0.71 kt at most a minute on; the
+  lever moved to its forward stop after selection and the selector thrown
+  back with the doors half open (4.0 s) and forward a second later (0.38
+  open) - latched again, she hovers. Three cases counted.
 - `jet_borne_the_f35bs_pilots_lever_gathers_holds_and_sheds_her_speed_and_brings_her_back_to_a_hover`:
   the lever forward, jet-borne and 100 kt in 37.1 s; at the detent 30 s
   within 3.75 kt of 100; aft to under 30 kt asked, and at the detent she
@@ -1889,12 +1907,17 @@ vertical landing (Phase 13).
   two waypoints 10 and 20 km on - converted back, passed 15 ft and 999 ft
   off them; a pad 26 km on after a waypoint - converted back, converted
   again, touched 0.5 ft from it; a pad 1,200 ft ahead and 900 right - not
-  converted back, moved to it in the hover and touched 0.1 ft from it.
-  Pitch at most 12.6, bank 7.7; three cases counted.
+  converted back, moved to it in the hover and touched 0.1 ft from it; a
+  fly-over waypoint 1,000 ft ahead before a pad 1,500 ft ahead - flown out
+  of the hover, jet-borne, over it within 2 ft, and down 2.1 ft from the
+  pad. **Her attitudes, measured: pitch 8.0 to 12.6 degrees, bank 0.7 to
+  7.7** (bounds 15 and 30); four cases counted.
 - `a_predicting_client_and_the_server_agree_while_her_pilot_moves_the_f35b_in_the_hover`:
-  the lever, the stick right and the pedal in the hover, then the stick
-  forward to land; both sides seen ahead, right, turning and down, and the
-  worst of 8,132 settled corrections 0.0256 m (bound 0.1 m). The STOVL
+  every inceptor every way - the lever forward, aft, and past 30 kt
+  jet-borne and back, the stick right and left, each pedal - then the stick
+  forward to land; both sides seen ahead, back, right, left, turning right
+  and left, jet-borne past 40 kt and down, sixteen stages asserted, and the
+  worst of 12,932 settled corrections 0.0256 m (bound 0.1 m). The STOVL
   agreement test it shares its harness with
   (`stovl_agreement`, test_prediction.cpp) gives what it gave: 6,212
   corrections, worst 0.0256 m.
@@ -1908,10 +1931,19 @@ vertical landing (Phase 13).
   a runway a metre short of 9,200 ft refused by the copilot's check and
   the planner's, a metre over given; a vertical landing refused by neither,
   with no runway told or only a short one; four judgements counted. It pins
-  what the check already did; not seen red.
-- **Seen failing**: the stick's sideways not passed to the hover law, 0.00
-  kt across, not 20; a plan given her hovering never converting her back,
-  "she was not converted back for the plan". Both reverted.
+  what the check already did. **Seen red** with the check refusing a plan
+  with a vertical landing and no runway: "a vertical landing with no runway
+  told refused".
+- **Seen failing**, each reverted: the stick's sideways not passed to the
+  hover law, 0.00 kt across, not 20; a plan given her hovering never
+  converting her back, "she was not converted back for the plan"; the
+  lever's ground speed made nothing, -0.0002 kt ahead, not 15; the pedals
+  passed nothing, 0.0000 degrees a second, not 10; the hover's path to a
+  pad cut, "she did not land on the near pad"; the lever released by any
+  movement (an exact compare), "selected at full and nudged 0.001, she
+  never hovered"; no latch at the selector's rising edge, "selected again
+  with the lever at its stop, she never hovered"; a fly-over counted
+  passed, "she was not flown out of the hover for the fly-over waypoint".
 - Green, with the rest: 67 tests matching f35b, stovl, hover, transition,
   vertical, prediction, the committed F-35B, controller, keyboard and
   selftest (not windowed), and 354 matching plan, lands, landing, hands and
