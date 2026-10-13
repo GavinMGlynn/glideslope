@@ -636,6 +636,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_f35bs_lever_is_the_pilots_only_once_moved_past_its_dead_band_from_each_selection
     jet_borne_the_f35bs_pilots_lever_gathers_holds_and_sheds_her_speed_and_brings_her_back_to_a_hover
     a_plan_given_the_ai_while_the_f35b_hovers_is_flown_converted_back_or_moved_in_the_hover
+    stovl_selected_with_the_stick_forward_from_the_first_step_descends_at_a_bounded_rate_converts_hovers_and_lands_the_f35b
+    heavier_than_she_can_hover_the_f35bs_stovl_mode_holds_her_wing_borne_at_her_conversion_speed
     the_b2_flies_at_high_subsonic_speed
     the_b2_still_climbs_at_its_published_ceiling
     the_b2_flies_about_its_published_range_unrefuelled
@@ -2331,6 +2333,20 @@ add_test(NAME a_client_predicting_its_aircraft_stops_its_engine_when_the_server_
 set_tests_properties(a_client_predicting_its_aircraft_stops_its_engine_when_the_server_says_and_is_put_right_no_more
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_engine_prediction)
+
+# **A player's STOVL selector through a server is flown by her transition
+# law** - the F-35B a server gives, too heavy to hover, held wing-borne at
+# her conversion speed - **and the client's prediction agrees.**
+# See cmake/server_stovl_landing.cmake.
+add_test(NAME a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing -DPORT=24990
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_landing.cmake)
+set_tests_properties(a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing)
 # **And against a server behind real time, by centimetres**: its clock at a
 # set 0.6 of real time. Serial: a busy runner would slow it further.
 add_test(NAME a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres

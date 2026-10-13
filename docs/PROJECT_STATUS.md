@@ -1785,13 +1785,90 @@ bound.
 - The selftest hash does not move: 182dd6c996e0ee4c.
 
 
+### Through a server, a player's F-35B too heavy to hover is held wing-borne in STOVL mode; the stick never the surfaces when the law takes her; the selector through a real server, 2026-10-14 — item still open
+
+**What is still missing, first.** **No player's vertical landing is flown
+through a server**: a server gives a player's F-35B her model's own
+loading, 45,400 lb - nothing in the catalogue, the plan or the
+initiation chooses another - and that is over the 39,837 lb she is now
+flown into a hover at, so through a server her STOVL mode holds her
+wing-borne. The multi-process test below flies the selector through a
+real server and holds the client to it; it does not convert her, hover or
+land her. Closing the item needs a server that gives a player a loading
+(and a prediction told it). **The hover limit is estimated**: her hover
+thrust (Pratt & Whitney's 40,650 lbf) less 2 per cent for control; none
+is published.
+
+**What the server run found, and why.** Through a real server, the
+player's F-35B selected into STOVL mode at her 300 KCAS start, 2,200 ft,
+with the stick forward, was a wreck before any hover: "hit the ground
+sinking at 4368 ft/min". Reproduced in one process
+(`glideslope_tests`, flown as the server builds her controller): two
+faults.
+
+- **Her weight.** At 45,400 lb, slowed to a hover, the throttle reached
+  its STOVL top (0.99) at 110 s and 91 KCAS, and she sank faster as the
+  wing's lift went - 625 ft/min at 120 s, 1,831 at 140, 4,369 when she hit
+  - the server's number to the foot a minute. Every in-process STOVL test
+  had flown her at her vertical-landing loading, 37,530 lb. **Now**
+  `Controller::too_heavy_to_hover` (her model's `fcs/stovl-hover-most-lbs`,
+  tools/make_f35b.py): heavier, a pilot's STOVL mode asks the transition
+  law for wing-borne flight at her conversion speed, the stick still asking
+  her height (to her least conversion height, no lower), and is not let go
+  while the selector is at it; a plan's vertical landing is not begun, its
+  last waypoint flown on, as for an aeroplane without a lift system. As
+  fuel burns below the limit, the next step's ask is a hover.
+- **The stick seeded the law.** A controller made on the step the
+  selector arrived - the server's (`controller_for`, given the pilot's
+  input) - held the pilot's controls as what it had applied, and the
+  transition law's wing-borne autopilot was engaged from them: the stick
+  full forward was a full nose-down elevator, and from 300 KCAS she dived
+  334 ft in five seconds, sinking 7,721 ft/min, before the autopilot had
+  her back. **Now** the law is seeded from what the aircraft flies (her
+  elevator, ailerons, rudder and throttle commands), never from the stick:
+  in STOVL mode the stick asks a height at 10 ft/s up and 6 down, and never
+  moves a surface. That rate is what the stick asked before too; only the
+  seed was wrong.
+
+**Verification** (linux-release):
+
+- `stovl_selected_with_the_stick_forward_from_the_first_step_descends_at_a_bounded_rate_converts_hovers_and_lands_the_f35b`:
+  her controller made as the server makes it, the stick forward from the
+  first step, at her vertical-landing loading. From 300 KCAS at 2,200 ft:
+  hovering at 159.3 s, down at 398.7 s at 3.00 ft/s, before the hover
+  sinking at most 476 ft/min, lowest 1,335 ft, pitch 10.6. From 250 KCAS at
+  1,000 ft: hovering at 133.8 s, down at 194.4 s at 3.00 ft/s, at most 486
+  ft/min, lowest 276 ft, pitch 10.7 (bounds 600 ft/min, 90 ft, 15
+  degrees). Two starts counted. **Seen red** with the law seeded from the
+  stick: "she sank at 7721 ft/min".
+- `heavier_than_she_can_hover_the_f35bs_stovl_mode_holds_her_wing_borne_at_her_conversion_speed`:
+  at 45,400 lb from 300 KCAS at 2,200 ft, the stick forward ten minutes:
+  never slowed into jet-borne flight, at 200 KCAS within 2.0 kt, lowest 100
+  ft, sinking at most 378 ft/min, never touching, STOVL mode kept. **Seen
+  red** with the limit off: slowed, sinking 4,555 ft/min, down to 3 ft.
+- `a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees`
+  (tests/cmake/server_stovl_landing.cmake, multi-process): a server, one AI
+  Cessna, a 100 ms relay, and `glideslope_cli connect --aircraft f35b
+  --predict --stovl-land` - a new pilot for the command-line client, STOVL
+  mode and the stick forward from its first input, the lever still, its
+  prediction built over the DEM as the server's ground is - until 3,000
+  updates are compared: no wreck, never converted, 200 KCAS at the end,
+  0 corrections too large to hide, the worst error 0.908 m (bound 2 m) and
+  the median 0.019 m (bound 5 cm). 124 s. **Seen red** before the two fixes:
+  the server's F-35B a wreck, "hit the ground sinking at 4364 ft/min" and
+  "4368" in two runs.
+- Green with the rest: the targeted F-35B, STOVL, hover, transition,
+  vertical, prediction, controller, plan, help and committed-asset tests.
+- **The selftest hash does not move**, `182dd6c996e0ee4c`.
+
 ### The F-35B's pilot flies her speed, her sideways movement and her heading in STOVL mode, and a plan given her hovering is flown; her rolling landing figure revisited, 2026-10-14 — one item done, one still open
 
 **What is still missing, first.** **No multi-process test flies a
 player's STOVL selector through a real server**, so the item "No pilot or
 AI plan flies the F-35B between jet-borne and wing-borne flight" stays
 open on that alone: the server and the client's prediction are held
-together in one process (below), not over a socket. **One was tried, and
+together in one process (below), not over a socket. (Since closed but for
+a player's vertical landing: the entry above.) **One was tried, and
 found something**: the command-line client joined a real server asking for
 the F-35B (started at her catalogue's 300 KCAS, 2,200 ft over Sydney
 airport heading west, one AI Cessna), predicting, through a 100 ms relay,

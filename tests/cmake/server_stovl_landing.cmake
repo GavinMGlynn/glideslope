@@ -1,0 +1,124 @@
+# server_stovl_landing.cmake - a player's STOVL selector flown through a
+# real server: the server's F-35B and the client's prediction fly the same
+# transition law, and agree.
+#
+#   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli>
+#         -DIMPAIR=<glideslope_impair> -DDATA=<data dir> -DCACHE=<downloads dir>
+#         -DWORK=<scratch> -DPORT=<a port> -P server_stovl_landing.cmake
+#
+# **Built, not hoped for.** A server with one AI and a plan that starts its
+# player at 2,200 ft over Sydney airport heading west, over land; the
+# command-line client joins it asking for the F-35B (`--aircraft f35b`) and
+# predicts its own aircraft (`--predict`) through a relay that holds every
+# datagram 100 ms each way. Its pilot (`--stovl-land`) selects STOVL mode
+# with its first input and holds the stick full forward, the lever still.
+#
+# **What a server gives a player is her model's own loading, 45,400 lb**,
+# over the 39,837 lb she is flown into a hover at (`fcs/stovl-hover-most-lbs`):
+# so on the server and in the prediction alike her STOVL mode holds her
+# wing-borne at her conversion speed and the stick lets her down to her
+# least conversion height (100 ft), and no further. Before that limit she
+# was slowed to a hover she could not hold and was a wreck here, "hit the
+# ground sinking at 4368 ft/min" - and flown raw, the stick full forward
+# would have dived her in sooner. **Not built here**: a server that gives a
+# player an F-35B light enough to hover, so no player's vertical landing is
+# flown through a server (COMPLETION_PLAN, Phase 9). The client stays until
+# 3,000 updates are compared (`--until-compared`): the event, not a time.
+#
+# **What must hold**: no wreck heard; the client's prediction never
+# converted, was let down no lower than 90 ft above the ground and ends at
+# her 200 KCAS conversion speed within 10 kt; no correction too large to
+# hide; and the prediction's error - the server's word against where the
+# client had flown her to - never more than 2 m, its median under 5 cm,
+# over at least 3,000 updates. Measured (linux-release, 2026-10-14): the
+# worst 0.908 m, 71 s in, as she slowed; the median 0.019 m; 200 KCAS at
+# the end, 1,491 ft above the ground at the lowest (the 3,000 updates are
+# two minutes, before the stick has let her down far).
+#
+# It needs the DEM's tiles, so without the network it reports itself skipped
+# (exit 77), never passed.
+
+cmake_minimum_required(VERSION 3.28)
+
+if(DEFINED CACHE)
+    set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
+endif()
+set(_store "${WORK}/stovl.sqlite")
+set(_heard "${WORK}/heard.txt")
+set(_plan "${WORK}/stovl.plan")
+file(REMOVE "${_store}" "${_heard}")
+# The AI - a server with none gives nobody an aircraft - flies the plan from
+# its start, north; the player starts two layers (2,000 ft) above it, west.
+file(WRITE "${_plan}" "aircraft c172p\n"
+                      "start -33.9461 151.1772 200 270 100\n"
+                      "waypoint NORTH -33.5000 151.1772 1500 100\n")
+execute_process(
+    COMMAND "${SERVER}" --port 0 --seconds 0.05 --ai 0 --store "${_store}"
+    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+if(NOT _out MATCHES "server key ([0-9a-f][0-9a-f]+)\n")
+    message(FATAL_ERROR "the server did not print a key:\n${_out}${_err}")
+endif()
+set(_key "${CMAKE_MATCH_1}")
+execute_process(
+    COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}"
+    RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
+if(NOT _rc EQUAL 0)
+    message(STATUS "the server could not get its terrain: ${_err}")
+    cmake_language(EXIT 77)
+endif()
+
+math(EXPR _relay "${PORT} + 1")
+execute_process(
+    COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 900 --after 1
+            --aircraft f35b --predict --stovl-land --until-compared 3000
+            --heard "${_heard}"
+    COMMAND "${SERVER}" --port ${PORT} --seconds 1000 --until-empty --ai 1 --headless
+            --data "${DATA}" --timeout 5 --store "${_store}" --plan "${_plan}"
+    COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
+            --loss 0 --seed 1 --until-input-ends --seconds 1000
+    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+if(NOT _rcs STREQUAL "0;0;0")
+    message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
+endif()
+if(_out MATCHES "is a wreck" OR _err MATCHES "is a wreck")
+    message(FATAL_ERROR "an aircraft was a wreck:\n${_out}\n${_err}")
+endif()
+file(READ "${_heard}" _said)
+if(NOT _said MATCHES "stovl: converted at ([-0-9.]+) s, hovering at ([-0-9.]+) s, down at ([-0-9.]+) s; the server's word: hovering (yes|no), at rest (yes|no); lowest ([-0-9]+) ft above the ground, ([0-9]+) KCAS at the end")
+    message(FATAL_ERROR "the client never said how its STOVL flight went:\n${_said}\n${_err}")
+endif()
+set(_converted "${CMAKE_MATCH_1}")
+set(_lowest "${CMAKE_MATCH_6}")
+set(_kcas "${CMAKE_MATCH_7}")
+if(NOT _converted STREQUAL "-1.0")
+    message(FATAL_ERROR "heavier than she can hover, she was converted at ${_converted} s:\n${_said}")
+endif()
+if(_lowest LESS 90)
+    message(FATAL_ERROR "she was let down to ${_lowest} ft above the ground:\n${_said}")
+endif()
+if(_kcas LESS 190 OR _kcas GREATER 210)
+    message(FATAL_ERROR "she ended at ${_kcas} KCAS, not her conversion speed:\n${_said}")
+endif()
+if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
+    message(FATAL_ERROR "the client did not say its prediction error:\n${_said}")
+endif()
+set(_compared "${CMAKE_MATCH_1}")
+math(EXPR _worst_mm "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
+if(_compared LESS 3000)
+    message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
+endif()
+if(_worst_mm GREATER 2000)
+    message(FATAL_ERROR "the worst prediction error was ${_worst_mm} mm, over 2 m:\n${_said}")
+endif()
+if(NOT _said MATCHES "predicted: [0-9]+ corrections, the worst [0-9.]+ m, 0 too large to hide")
+    message(FATAL_ERROR "a correction was too large to hide:\n${_said}")
+endif()
+if(NOT _said MATCHES "prediction error median: ([0-9]+)\\.([0-9][0-9][0-9]) m")
+    message(FATAL_ERROR "the client did not say its median error:\n${_said}")
+endif()
+math(EXPR _median_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
+if(_median_mm GREATER 50)
+    message(FATAL_ERROR "the median prediction error was ${_median_mm} mm, over 5 cm:\n${_said}")
+endif()
+message(STATUS "held wing-borne: lowest ${_lowest} ft, ${_kcas} KCAS at the end; ${_compared} "
+               "updates compared, the worst ${_worst_mm} mm, the median ${_median_mm} mm")
