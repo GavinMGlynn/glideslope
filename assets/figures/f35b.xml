@@ -143,11 +143,14 @@
   </figure>
 
   <figure name="short_takeoff" flight="short_takeoff" from="measured" loading="short_takeoff"
-          fuel_frozen="1" unit="ft" value="591.5" tolerance_percent="5" temperature_offset_c="17.1"
+          fuel_frozen="1" unit="ft" value="592.5" tolerance_percent="5" temperature_offset_c="17.1"
           headwind_kt="10" roll_deg="42" lift_deg="58" rotate_kcas="70" strike_margin_deg="2"
           rotate_pitch_gain="0.14" rotate_rate_gain="8">
     **Measured: inside the requirement's 600 ft (its estimate 569)**, which
-    the figure above holds her to. Flown at sea level on a tropical day -
+    the figure above holds her to. **It does not validate her flaperons'
+    droop**: how far they droop (20 degrees) and their lift are estimates,
+    and without the droop she takes 699.4 ft - so the 600 ft is met on an
+    estimate, not shown by her model. Flown at sea level on a tropical day -
     89.8 F, 17.1 C warmer than standard (MIL-STD-210A's tropical atmosphere,
     549.5 R at sea level, as Public Domain Aeronautical Software tabulates
     it) - into 10 kt: converted at idle on the brakes, which droops her
@@ -161,7 +164,9 @@
     gains the fan's share was flown on before the split; the ground from the
     brakes' release to the wheels leaving it, and she climbs on to 50 ft
     without touching again or striking her tail. 708.8 ft before her model
-    had the split and the droop; 699.4 with the split and no droop. Swept
+    had the split and the droop; 699.4 with the split and no droop; 591.5
+    before each flaperon's droop and roll were held to its travel together
+    (from the review of #179). Swept
     again at these gains on 2026-10-13: 52 degrees at 60 KCAS 685.3 ft, 58
     at 60 722.1, 52 at 70 621.5, 64 at 70 573.8, 58 at 75 613.6, 64 at 75
     592.3, 70 at 70 touched again; 58 at 70 is kept, as before. The

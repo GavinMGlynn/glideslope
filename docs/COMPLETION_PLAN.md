@@ -358,10 +358,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       *Verification: every nose-wheel aeroplane's tail strikes the runway
       where its airframe would, and is judged a strike, with every take-off,
       approach and landing test green.* Done 2026-10-13.
-- [x] **The F-35B takes off in her required short distance**: 591.5 ft
-      against 600, her nose raised by the thrust split between fan and
-      nozzle and her flaperons drooped; how far they droop is estimated
-      (PROJECT_STATUS, 2026-10-13). *Verification: it hovers at its
+- [x] **The F-35B takes off in her required short distance**: 592.5 ft,
+      699 without the estimated 20-degree flaperon droop (PROJECT_STATUS,
+      2026-10-13). *Verification: it hovers at its
       published thrust, lands vertically, and takes off in its published
       short distance.* Done 2026-10-13.
 - [ ] **Nothing flies the F-35B between jet-borne and wing-borne flight**:

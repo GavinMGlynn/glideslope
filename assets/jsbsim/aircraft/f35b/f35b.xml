@@ -433,34 +433,40 @@
             </pure_gain>
             <fcs_function name="Thrust Split">
                 <function>
+                    <max>
                     <product>
                         <value>0.327778</value>
                         <property>fcs/stovl-pos-norm</property>
                         <property>fcs/thrust-split-pos-norm</property>
                     </product>
+                    <difference><value>1</value><quotient><value>1</value><difference><value>1</value><product><value>0.315387</value><property>fcs/stovl-pos-norm</property></product></difference></quotient></difference>
+                    </max>
                 </function>
                 <output>fcs/thrust-split-share</output>
+            </fcs_function>
+            <fcs_function name="Lift System Base">
+                <function>
+                    <product>
+                        <quotient><property>propulsion/engine/thrust-lbs</property><cos><property>propulsion/engine/reverser-angle-rad</property></cos></quotient>
+                        <difference><value>1</value><product><value>0.315387</value><property>fcs/stovl-pos-norm</property></product></difference>
+                        <cos><product><value>0.209440</value><property>fcs/nozzle-yaw-pos-norm</property></product></cos>
+                    </product>
+                </function>
+                <output>fcs/lift-system-base-lbf</output>
             </fcs_function>
             <fcs_function name="Shaft Power">
                 <function>
                     <acos>
+                    <max><value>-1</value><min><value>1</value>
                         <product>
                             <difference><value>1</value><product><value>0.315387</value><property>fcs/stovl-pos-norm</property></product></difference>
                             <difference><value>1</value><property>fcs/thrust-split-share</property></difference>
                             <cos><product><value>0.209440</value><property>fcs/nozzle-yaw-pos-norm</property></product></cos>
                         </product>
+                    </min></max>
                     </acos>
                 </function>
                 <output>propulsion/engine/reverser-angle-rad</output>
-            </fcs_function>
-            <fcs_function name="Lift System Base">
-                <function>
-                    <quotient>
-                        <property>propulsion/engine/thrust-lbs</property>
-                        <difference><value>1</value><property>fcs/thrust-split-share</property></difference>
-                    </quotient>
-                </function>
-                <output>fcs/lift-system-base-lbf</output>
             </fcs_function>
             <actuator name="Fan Vanes">
                 <input>fcs/fan-cmd-deg</input>
@@ -531,6 +537,38 @@
                     </product>
                 </function>
                 <output>fcs/flaperon-droop-deg</output>
+            </fcs_function>
+            <fcs_function name="Left Flaperon">
+                <function>
+                    <sum>
+                        <product><property>fcs/flaperon-droop-deg</property><value>0.017453292520</value></product>
+                        <property>fcs/left-aileron-pos-rad</property>
+                    </sum>
+                </function>
+                <clipto><min>-0.4363</min><max>0.4363</max></clipto>
+                <output>fcs/left-flaperon-rad</output>
+            </fcs_function>
+            <fcs_function name="Right Flaperon">
+                <function>
+                    <sum>
+                        <product><property>fcs/flaperon-droop-deg</property><value>0.017453292520</value></product>
+                        <property>fcs/right-aileron-pos-rad</property>
+                    </sum>
+                </function>
+                <clipto><min>-0.4363</min><max>0.4363</max></clipto>
+                <output>fcs/right-flaperon-rad</output>
+            </fcs_function>
+            <fcs_function name="Flaperon Mean">
+                <function>
+                    <product><value>0.5</value><sum><property>fcs/left-flaperon-rad</property><property>fcs/right-flaperon-rad</property></sum></product>
+                </function>
+                <output>fcs/flaperon-droop-rad</output>
+            </fcs_function>
+            <fcs_function name="Flaperon Roll">
+                <function>
+                    <product><value>0.5</value><difference><property>fcs/left-flaperon-rad</property><property>fcs/right-flaperon-rad</property></difference></product>
+                </function>
+                <output>fcs/flaperon-roll-rad</output>
             </fcs_function>
             <fcs_function name="Nozzle Side">
                 <function>
@@ -626,8 +664,8 @@
                 <product>
                     <property>aero/qbar-psf</property>
                     <property>metrics/Sw-sqft</property>
-                    <property>fcs/flaperon-droop-deg</property>
-                    <value>0.008155</value>
+                    <property>fcs/flaperon-droop-rad</property>
+                    <value>0.46723</value>
                 </product>
             </function>
         </axis>
@@ -788,8 +826,8 @@
                 <product>
                     <property>aero/qbar-psf</property>
                     <property>metrics/Sw-sqft</property>
-                    <property>fcs/flaperon-droop-deg</property>
-                    <value>0.00075</value>
+                    <property>fcs/flaperon-droop-rad</property>
+                    <value>0.042972</value>
                 </product>
             </function>
         </axis>
@@ -808,7 +846,7 @@
                 <product>
                     <property>aero/qbar-psf</property>
                     <property>metrics/Sw-sqft</property>
-                    <property>fcs/left-aileron-pos-rad</property>
+                    <property>fcs/flaperon-roll-rad</property>
                     <value>-0.071</value>
                 </product>
             </function>
@@ -861,7 +899,7 @@
                     <property>aero/qbar-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/bw-ft</property>
-                    <property>fcs/left-aileron-pos-rad</property>
+                    <property>fcs/flaperon-roll-rad</property>
                     <value>0.114</value>
                 </product>
             </function>
@@ -925,8 +963,8 @@
                     <property>aero/qbar-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/cbarw-ft</property>
-                    <property>fcs/flaperon-droop-deg</property>
-                    <value>-0.002039</value>
+                    <property>fcs/flaperon-droop-rad</property>
+                    <value>-0.11681</value>
                 </product>
             </function>
         </axis>
@@ -969,7 +1007,7 @@
                     <property>aero/qbar-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/bw-ft</property>
-                    <property>fcs/left-aileron-pos-rad</property>
+                    <property>fcs/flaperon-roll-rad</property>
                     <value>-0.0082</value>
                 </product>
             </function>
