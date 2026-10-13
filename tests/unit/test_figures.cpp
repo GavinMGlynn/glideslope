@@ -324,6 +324,27 @@ GLIDESLOPE_TEST(the_f35b_lands_vertically_from_a_hover_under_6_ft_a_second) {
     expect_figure("f35b", "vertical_landing");
 }
 
+// **She converts between wing-borne flight and a hover, both ways**, at her
+// vertical-landing and her combat loadings (sim/transition.hpp): from 200
+// KCAS level at 150 ft to a hover there, as BF-1's first hover was flown,
+// and from the hover back to 200 KCAS converted; never losing more than 30
+// ft nor passing 15 degrees of pitch or 10 of bank, nor touching the ground.
+GLIDESLOPE_TEST(the_f35b_slows_from_200_kt_level_to_a_hover_at_150_ft_within_30_ft_and_her_attitudes) {
+    expect_figure("f35b", "transition_to_hover");
+}
+
+GLIDESLOPE_TEST(the_f35b_slows_to_a_hover_at_her_combat_weight_within_30_ft_and_her_attitudes) {
+    expect_figure("f35b", "transition_to_hover_combat");
+}
+
+GLIDESLOPE_TEST(the_f35b_accelerates_from_a_hover_to_200_kt_and_converts_back_within_30_ft_and_her_attitudes) {
+    expect_figure("f35b", "transition_from_hover");
+}
+
+GLIDESLOPE_TEST(the_f35b_accelerates_out_of_a_hover_at_her_combat_weight_within_30_ft_and_her_attitudes) {
+    expect_figure("f35b", "transition_from_hover_combat");
+}
+
 // **Her short take-off is measured**: the model's own, held so that it still
 // does what it did. Seen to fail with the fan's thrust held straight down.
 GLIDESLOPE_TEST(the_f35b_takes_off_short_in_the_distance_her_own_model_gave) {
@@ -1038,8 +1059,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // A hundred and twenty-eight: her hover endurance, measured, the same day.
     // A hundred and twenty-nine: her short take-off inside her required 600
     // ft, the same day.
-    check(figures_in_files == 129,
-          "a hundred and twenty-nine figures, one test each above; found " +
+    // A hundred and thirty-three: her transitions to a hover and out of one,
+    // each at two loadings, on 2026-10-13.
+    check(figures_in_files == 133,
+          "a hundred and thirty-three figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 

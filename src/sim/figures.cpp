@@ -5,6 +5,8 @@
 #include "sim/crash.hpp"
 #include "sim/fixed_step.hpp"
 #include "sim/hover.hpp"
+#include "sim/learnt.hpp"
+#include "sim/transition.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 #include "sim/test_pilot.hpp"
@@ -1704,6 +1706,117 @@ double vertical_landing(const std::filesystem::path& root, const PublishedFigure
     throw std::runtime_error("not down three minutes after letting down from the hover");
 }
 
+// **What a transition is held to**: her attitude within `most_pitch_deg`
+// nose up or down and `most_bank_deg` either way, her wheels off the
+// ground, every step; and the most she has sunk below `altitude_ft`.
+struct TransitionWatch {
+    double height_ft;
+    double most_pitch_deg;
+    double most_bank_deg;
+    double most_lost_ft = 0.0;
+
+    void see(const Aircraft& a, const Transition& t) {
+        const AircraftState s = a.state();
+        most_lost_ft = std::max(most_lost_ft, height_ft - s.height_above_ground_ft);
+        std::string what;
+        if (std::abs(s.pitch_deg) > most_pitch_deg) {
+            what = "her pitch reached " + std::to_string(s.pitch_deg) + " degrees";
+        } else if (std::abs(s.roll_deg) > most_bank_deg) {
+            what = "her bank reached " + std::to_string(s.roll_deg) + " degrees";
+        } else if (a.property("gear/wow") > 0.5) {
+            what = "she touched the ground";
+        }
+        if (!what.empty()) {
+            throw std::runtime_error(what + " at " + std::to_string(s.airspeed_kts) + " KCAS, " +
+                                     std::to_string(s.height_above_ground_ft) + " ft, stage " +
+                                     std::to_string(static_cast<int>(t.stage())));
+        }
+    }
+};
+
+// **From wing-borne flight to a hover** (sim/transition.hpp): begun level
+// at `altitude_ft` above flat ground at `speed_kcas`, trimmed, and asked for a
+// hover at the same height; once the hover law has her, held `seconds`
+// more. The most she sinks below `altitude_ft` on the way, ft; throws if
+// her attitude passes `most_pitch_deg` or `most_bank_deg`, if she touches
+// the ground, if she is not hovering in ten minutes, or if she drifts more
+// than `most_drift_ft` from the point the hover law took her over.
+double transition_to_hover(const std::filesystem::path& root, const PublishedFigures& figures,
+                           const FigureSpec& spec) {
+    const double height_ft = condition(spec, "altitude_ft");
+    InitialConditions ic = on_the_runway();
+    ic.altitude_ft = height_ft;
+    ic.terrain_elevation_ft = 0.0;
+    ic.airspeed_kts = condition(spec, "speed_kcas");
+    ic.gear = 0.0;
+    ic.trim = true;
+    Flight f(root, figures, spec, ic);
+    Hover::Command flying;
+    flying.controls = trimmed_controls(f.aircraft);
+    Transition transition(f.aircraft, flying);
+    TransitionWatch watch{height_ft, condition(spec, "most_pitch_deg"), condition(spec, "most_bank_deg")};
+    const Transition::Target target{true, height_ft, condition(spec, "speed_kcas")};
+    for (int i = 0; i < steps(600); ++i) {
+        const Hover::Command c = transition.step(target);
+        f.aircraft.set_lift_system(c.lift);
+        f.fly(c.controls);
+        watch.see(f.aircraft, transition);
+        if (transition.stage() == Transition::Stage::hovering) {
+            for (int j = 0; j < steps(condition(spec, "seconds")); ++j) {
+                const Hover::Command h = transition.step(target);
+                f.aircraft.set_lift_system(h.lift);
+                f.fly(h.controls);
+                watch.see(f.aircraft, transition);
+                within_its_drift(spec, *transition.hover());
+            }
+            return watch.most_lost_ft;
+        }
+    }
+    throw std::runtime_error("not hovering ten minutes after a hover was asked");
+}
+
+// **From a hover to wing-borne flight** (sim/transition.hpp): converted on
+// flat ground and lifted to `altitude_ft` by the transition law's hover,
+// settled a minute, then asked for wing-borne flight at `speed_kcas` at the same
+// height. The most she sinks below `altitude_ft` from then until she is
+// converted back and within 5 knots of `speed_kcas` for ten seconds, ft; throws as
+// transition_to_hover does, or if that is not done in five minutes.
+double transition_from_hover(const std::filesystem::path& root, const PublishedFigures& figures,
+                             const FigureSpec& spec) {
+    const double height_ft = condition(spec, "altitude_ft");
+    const double kcas = condition(spec, "speed_kcas");
+    Flight f(root, figures, spec, on_the_runway());
+    Transition transition(f.aircraft, Hover::Command{});
+    int settled = 0;
+    for (int i = 0; settled < steps(60); ++i) {
+        if (i == steps(180)) {
+            throw std::runtime_error("not hovering three minutes after lifting");
+        }
+        const Hover::Command c = transition.step({true, height_ft, kcas});
+        f.aircraft.set_lift_system(c.lift);
+        f.fly(c.controls);
+        settled = std::abs(f.aircraft.state().height_above_ground_ft - height_ft) < 2.0 ? settled + 1 : 0;
+    }
+    TransitionWatch watch{height_ft, condition(spec, "most_pitch_deg"), condition(spec, "most_bank_deg")};
+    const Transition::Target target{false, height_ft, kcas};
+    int there = 0;
+    for (int i = 0; i < steps(300); ++i) {
+        const Hover::Command c = transition.step(target);
+        f.aircraft.set_lift_system(c.lift);
+        f.fly(c.controls);
+        watch.see(f.aircraft, transition);
+        const bool done = transition.stage() == Transition::Stage::wing_borne &&
+                          f.aircraft.property("fcs/stovl-pos-norm") <= 0.0 &&
+                          std::abs(f.aircraft.property("velocities/vc-kts") - kcas) < 5.0;
+        there = done ? there + 1 : 0;
+        if (there == steps(10)) {
+            return watch.most_lost_ft;
+        }
+    }
+    throw std::runtime_error("not wing-borne at " + std::to_string(kcas) +
+                             " KCAS five minutes after leaving the hover");
+}
+
 // **A short take-off**, as the F-35B's requirement states it: in air
 // `temperature_offset_c` warmer than standard, into `headwind_kt`. Converted
 // on the brakes, the nozzle and the fan's thrust at `roll_deg` from straight
@@ -1831,6 +1944,8 @@ const std::vector<std::pair<std::string, FlightFn>>& flights() {
         {"vertical_landing", vertical_landing},
         {"short_takeoff", short_takeoff},
         {"hover_endurance", hover_endurance},
+        {"transition_to_hover", transition_to_hover},
+        {"transition_from_hover", transition_from_hover},
     };
     return all;
 }
@@ -2035,7 +2150,7 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
               "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft", "clmax",
               "speed_falls_kt_per_1000_ft", "seconds", "most_drift_ft", "crosswind_kt",
               "temperature_offset_c", "headwind_kt", "roll_deg", "lift_deg", "strike_margin_deg",
-              "rotate_pitch_gain", "rotate_rate_gain"}) {
+              "rotate_pitch_gain", "rotate_rate_gain", "most_pitch_deg", "most_bank_deg"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }

@@ -65,6 +65,13 @@ Hover::Hover(const Aircraft& aircraft, Pace pace) : a_(aircraft), pace_(pace) {
     last_.controls.gear = 1.0;
 }
 
+Hover::Hover(const Aircraft& aircraft, const Command& flying) : Hover(aircraft, Pace{}) {
+    last_ = flying;
+    throttle_integral_ = std::clamp(flying.controls.throttle, 0.0, stovl_throttle_);
+    fan_integral_ = std::clamp(flying.lift.fan, -0.5, 0.5);
+    post_integral_ = std::clamp(flying.lift.roll_post, -0.5, 0.5);
+}
+
 double Hover::height_ft() const {
     return a_.state().height_above_ground_ft - standing_ft_;
 }

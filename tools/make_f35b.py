@@ -88,6 +88,10 @@ Where each number comes from:
     system pitching moment applied to the aircraft", and "The 3BSM can
     vector up to 23,900 pounds of thrust at the maximum rearward thrust
     split" - the split's reach.
+  Lockheed Martin, Code One, "F-35 Lightning II Flight Test Update 1" (2010)
+    BF-1 converted to STOVL mode "at 200 knots", slowed to sixty and flew "a
+    decelerating approach to a zero airspeed hover at 150 feet": the speed
+    the transition law converts her at.
   F-35 Joint Program Office (Joe DellaVedova), "F-35B Lightning II
   completes first land-based ski jump launch", DVIDS, 24 June 2015
     "The F-35B's design allows it to automatically position the control
@@ -213,6 +217,15 @@ STOVL_THROTTLE = 0.99
 # LiftFan intake" (Rolls-Royce's poster) - 250 kt, taken as her airspeed
 # with the fan's doors open. Above it Aircraft::set_lift_system refuses.
 STOVL_LIMIT_KCAS = 288.0 / 1.150779
+# **The speed she converts at, either way** (sim/transition.hpp): Lockheed
+# Martin's Code One, "F-35 Lightning II Flight Test Update 1" (2010): BF-1's
+# lead STOVL pilot "initiates conversion to STOVL mode at 200 knots", on her
+# first hover and her first vertical landing, and her third STOVL flight
+# flew "airborne conversions at 200 knots and 5,000 feet". The speed she
+# converts back at is not given - on her first STOVL flight she slowed to 180
+# knots "before accelerating and converting back to conventional flight
+# mode" - and is taken as the same.
+STOVL_CONVERT_KCAS = 200.0
 # Estimated, as nothing published gives them: the fan's centre, behind the
 # cockpit; the posts, as far out in the wings as their structure allows;
 # the time the doors take to open and the fan to clutch in; how far the fan's
@@ -444,6 +457,8 @@ def lift_system():
     # (Aircraft::set_lift_system).
     out += f"        <property value=\"{STOVL_THROTTLE}\">fcs/stovl-throttle-max</property>\n"
     out += f"        <property value=\"{STOVL_LIMIT_KCAS:.0f}\">fcs/stovl-limit-kcas</property>\n"
+    # And the speed the transition law converts her at (sim/transition.hpp).
+    out += f"        <property value=\"{STOVL_CONVERT_KCAS:.0f}\">fcs/stovl-convert-kcas</property>\n"
     out += "        <channel name=\"LiftSystem\">\n"
     out += written.kinematic("Conversion", "fcs/stovl-cmd-norm", [0, 1], [0, CONVERSION_S], "fcs/stovl-pos-norm")
     out += fn("STOVL Throttle",
