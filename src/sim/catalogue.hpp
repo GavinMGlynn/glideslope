@@ -33,6 +33,11 @@
 //                                wet runway's grip is read for
 //                                (sim/runway_condition.hpp). Every aircraft
 //                                that is not a seaplane must give it
+//   reversers IDLE_BY_KT         her engines have thrust reversers that the
+//                                reverse lever works, and her type's training
+//                                manual has them brought to idle reverse at
+//                                this speed, knots: Boeing's 60, Airbus's 70.
+//                                A test holds this to her flight model
 //
 // with `#` beginning a comment. Its published figures, if it has them, are
 // data/figures/MODEL.xml, and its selftest's log data/selftest/MODEL.log.
@@ -83,6 +88,9 @@ struct CatalogueEntry {
     bool mixture_lever = false;
     double full_rich_below_ft = 0.0; // with a mixture lever
     bool speedbrakes = false;
+    // Her thrust reversers, and the speed they are brought to idle at; none
+    // where she has none.
+    std::optional<double> reverse_idle_kts;
     // The autopilot's rudder: its yaw damper's travel per degree a second of
     // yaw rate, and its integral's rate on the sideslip (sim/autopilot.cpp).
     double yaw_damper_per_degps = 0.05;

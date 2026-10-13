@@ -21,3 +21,7 @@ speedbrakes
 # 15 bar, 218 psi, at 562,000 kg; the braking control system's anti-skid,
 # digital and fully modulating.
 brakes 218 fully-modulating
+# Her cascade thrust reversers, on her inboard Trent 970s only
+# (tools/make_a380.py), and the reverse brought to idle at 70 kt, as
+# Airbus's procedure has it (the A320's file says where; docs/ASSETS.md).
+reversers 70

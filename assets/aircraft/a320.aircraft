@@ -20,3 +20,8 @@ speedbrakes
 # 209 psi, at 77,400 kg (200 at 73,900); the BSCU's anti-skid holds each
 # wheel's slip, fully modulating (AAIB report 6/2007 describes it).
 brakes 209 fully-modulating
+# Her CFM56-5B's pivoting-door thrust reversers (tools/make_a320.py), and
+# the reverse brought to idle at 70 kt: Airbus's normal procedure, as the
+# TSB's report A05H0002 (1.17.6) gives it - "At 70 knots ... move the thrust
+# levers to idle reverse" - and stowed at taxi speed (docs/ASSETS.md).
+reversers 70

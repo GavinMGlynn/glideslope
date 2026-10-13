@@ -22,6 +22,14 @@ which hold what the planning document says, 101,343 kg, within 0.3%.
 
 The changes, and what each is for:
 
+  Thrust reversers, added (aircraft/787-8/787-8.xml)
+                        The model had none, and a wet runway's landing is
+                        stopped with them (AC 25-32, section 10): on
+                        both Trent 1000s, a translating sleeve over cascades,
+                        a channel deploying them on the reverse lever with
+                        the weight on the wheels, reversing 0.31 of the
+                        engine's thrust - see tools/airliner.py.
+
   Airframe (aircraft/787-8/787-8.xml)
     Lift_due_to_alpha   The model's lift rose at 5.75 a radian only to 2
                         degrees, then at 3.25, to 1.34 at its stall, and its
@@ -89,6 +97,9 @@ import ground
 from airliner import OUT, PINNED
 
 SCRIPT = "make_787_8"
+# The engines with thrust reversers, by JSBSim's index: both Trent 1000s, a translating sleeve over cascades
+# (tools/airliner.py, before reverser_channel, says what each is and where from).
+REVERSERS = (0, 1)
 MAXIMUM_WEIGHT_LBS = 502500  # the -8's published maximum take-off weight
 MODEL = "787-8"
 ENGINE = "Trent1000"
@@ -220,7 +231,7 @@ def airframe():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(airframe(), REVERSERS, SCRIPT),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

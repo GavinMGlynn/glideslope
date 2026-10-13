@@ -874,7 +874,7 @@ have not been sent yet.
 | `u32` | the newest frame's sequence number, from 1 |
 | `u8` | how many frames follow, 1 to 4 |
 | | then, per frame, oldest first: |
-| `i16` x17 | the seventeen controls |
+| `i16` x18 | the eighteen controls |
 
 The frames are consecutive, so only the newest sequence is sent: the oldest
 is the newest less one fewer than the count.
@@ -894,7 +894,7 @@ flew the stick's exact number while the server flew the rounded one, the two
 would diverge for a reason no measurement could explain. So the client rounds
 first and flies the rounded value.
 
-The seventeen controls, in order, **every one of them sent in every frame**:
+The eighteen controls, in order, **every one of them sent in every frame**:
 a frame is the whole cockpit, and the server flies exactly what it says. A
 control a client does not move must be sent at the value that leaves the
 aeroplane alone - which for several is not nought.
@@ -918,6 +918,7 @@ aeroplane alone - which for several is not nought.
 | 14 | throttle offset, starboard engine | -1 to 1 | the same | 0 |
 | 15 | cooling flaps, port engine | 0 to 1 | 1 open | 0 |
 | 16 | cooling flaps, starboard engine | 0 to 1 | the same | 0 |
+| 17 | reverse | 0 to 1 | 0 stowed; more deploys the thrust reversers on the ground, 0.1 idle reverse, 1 maximum | 0 |
 
 An aeroplane without a control ignores it. **Nothing is clamped on the way in**
 but each engine's throttle-plus-offset, which is held to 0 to 1: a value outside
@@ -926,7 +927,7 @@ one. **Frames of all zeros are not "no input"**: they cut the mixture and raise
 the gear. The wire itself does not know what the controls are - the flight
 model hands them over as a flat list and takes them back the same way, which is
 what keeps the list above and the simulation from drifting apart when a control
-is added; a test holds the count to seventeen.
+is added; a test holds the count to eighteen.
 
 ### What is inside a sealed body
 

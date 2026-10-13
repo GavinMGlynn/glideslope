@@ -265,6 +265,91 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Thrust reversers on the five airliners: the 787-8 and A320 stop on the wet runway, the F-15C still does not, 2026-10-14 — item still open
+
+**What is still not done, first.** **The F-15C still overruns the wet
+short runway by 20 m** (2,478 m of 2,459) and stays named: she has no
+reversers, and her runway - the transport's 1.67 and 1.15 on her flight
+manual's 4,200 ft dry - is shorter than that manual's own unfactored wet
+distance, about 9,000 ft (figure A8-3 read through its RCR 16 reflector, to
+perhaps 500 ft). A runway sized from that would not ask her to stop short at
+all, so she is named rather than given it, and the item stays open on her.
+**A pilot has no binding for the reverse lever**: it is in the controls and
+on the wire, and only the AI moves it (a new Phase 10b item). **Two numbers
+are estimates**: the sleeves' two-second travel and the A320's pivoting doors
+taken at the cascade's 0.31. **The reverse spool is slow**: 7.2 to 7.8 s from
+the lever to nine tenths of full reverse, against the TSB's A340 at about
+five, because each engine spools to its full throttle where a real one's
+reverse limit is a lower N1. The Learjet 35A is given none: her reversers
+are an option her flight manual leaves to a supplement not to hand, and it
+warns against them on slippery runways.
+
+**The fast touch was not fast.** Against each aircraft's reference speed the
+hand landing touches at or under it: 737-300 133.8 kt (Vref 137.4), 787-8
+146.5 (147.8), A320 144.1 (147.3), A380 131.7 (136.3), F-15C 157.8 (160.0),
+F-35B 159.2 (158.9). No test-pilot problem; the overruns were stopping force.
+
+**What changed.**
+- `tools/airliner.py`: `reverser_channel` / `with_reversers`. The reverse
+  lever `fcs/reverse-cmd-norm` (0 stowed, 0.1 idle reverse, 1 maximum)
+  deploys the reversers only with weight on the wheels, the sleeves taking
+  2 s; their angle is acos(-0.31) at full travel, JSBSim's direct thruster
+  scaling its thrust by the cosine; the power is held at idle until the
+  sleeves are out (AC 25-32 10.1.4), then follows the lever past the detent;
+  and the reversing engines' forward throttles are idle while it is out of
+  stowed. Made into the 737-300, 747-400 and 787-8 (cascades), A320
+  (pivoting doors) and A380 (the inboard pair only) by their make scripts.
+- `sim::Controls::reverse`, the eighteenth control: on the wire (TRANSPORT.md,
+  control 17; the count eighteen), the doc-only client and the controller's
+  hand's pace. Protocol version not moved: the document's "It does not keep
+  the version with the layout, yet".
+- The catalogue's `reversers IDLE_BY_KT`: 60 for the Boeings (the 737 FCTM,
+  "Reverse thrust is reduced to idle between 60 KIAS and taxi speed"), 70 for
+  the Airbuses (the TSB's A05H0002, 1.17.6, "At 70 knots ... idle reverse").
+  `Aircraft::has_reversers()`, `reverse_idle_kts()`.
+- `Lander::reverse_thrust`: idle reverse a second after the main wheels are
+  down (AC 25-32 10.1.3); on a runway that is not dry, maximum until the
+  type's speed, then idle; on a dry one idle only - a certified dry distance
+  takes no reverse (IFALPA 12ADOBL03, with Boeing); stowed for good at taxi
+  speed, taken as 20 kt over the ground. The lever at a hand's pace.
+- Every source is in `docs/ASSETS.md`, "Thrust reversers".
+
+**Figures.** On the wet short runway, landed by hand and taken back,
+maximum reverse: 737-300 1,552 m to 1,338 (of 1,725); 787-8 1,911 to 1,552
+(of 1,893); A320 1,809 to 1,478 (of 1,725); A380 1,860 to 1,679 (of 2,225).
+Dry (the short runway, idle reverse only): 737-300 1,214 to 1,211 m, 787-8
+1,272 to 1,250, A320 1,219 to 1,216, A380 1,310 to 1,295. **The published
+dry distances do not move**: the airliners' are their documents' figures,
+which no flight measures, and the three measured ones (B-2A, Mosquito,
+F-35B) have no reversers.
+
+**Verification.**
+- `every_landplane_landed_by_hand_on_a_wet_short_runway_is_stopped_on_it_by_the_ai`:
+  the 787-8 and A320 un-named; the F-15C named and bounded at 25 m. **Seen to
+  fail** with the AI never reversing: "787-8 ... stopped off the runway,
+  1911.3 m past the threshold"; reverted.
+- `every_aircraft_with_reversers_is_pushed_back_by_them_on_the_ground_and_every_other_ignores_the_lever`:
+  the 15 landplanes (the flying boat named) stand braked; the five whose
+  catalogue says `reversers` say so themselves, each reversing engine pushes
+  back 0.310 of its full-throttle thrust (737-300 6,200 of 19,998 lb), the
+  A380's outboard pair stay at idle forward, idle reverse pushes back, full
+  reverse within 8 s; the ten without stand bit-identical with the lever out.
+  **Seen to fail** with the effectiveness set to 0.40: "737-300 engine 0
+  reversed 0.399988 of her thrust, not 0.31"; reverted.
+- `no_aircraft_deploys_her_reversers_in_the_air`: all 16 fly bit-identical
+  at 5,000 ft with the lever out. **Seen to fail** with the weight-on-wheels
+  test made always true: "5 aircraft flew differently with the reverse lever
+  out, the first: 737-300"; reverted.
+- `every_control_the_flight_model_has_is_one_the_wire_carries` and
+  `the_transport_document_and_the_code_agree_about_the_inputs` at eighteen.
+- Run (linux-release, 151 tests by name - taken back, landed, roll-outs,
+  short runways, wet, stops, brakes, the made models, the transport, the
+  doc-only client, inputs, controls, prediction, levers, the catalogue,
+  selftest, the lander, approaches, reverse): all passed, 4 that ask a live
+  model skipped.
+- **The selftest hash does not move**, `182dd6c996e0ee4c`: the C172P has no
+  reversers.
+
 ### Each landplane's own tyres and brakes on a wet runway, 2026-10-13 — item done; one found
 
 **What is still not done, first.** **Three landplanes run past the wet

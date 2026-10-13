@@ -321,6 +321,58 @@ void Lander::measure() {
     above_m_ = (s.altitude_ft - runway_.elevation_ft) / feet_per_metre;
 }
 
+// **Reverse thrust on the roll, as the training manuals have it**, for an
+// aircraft with reversers (tools/airliner.py) - none for any other.
+//   - **Selected a second after the main wheels are down**: AC 25-32
+//     (10.1.3) allows no less than a second for the first action, and both
+//     makers select it as soon as the mains are on - Boeing's 737 FCTM "After
+//     touchdown, with the thrust levers at idle, rapidly raise the reverse
+//     thrust levers up and aft to the interlock position"; Airbus's, as the
+//     TSB gives it (A05H0002, 1.17.6), "After main gear touchdown, the PF will
+//     select idle reverse".
+//   - **Maximum on a runway that is not dry**, once deployed - Airbus's
+//     "The PF will select maximum reverse once the 'Reverse verts' call is
+//     heard", Boeing's "Maintain reverse thrust as required, up to maximum,
+//     until stopping on the remaining runway is assured"; AC 25-32 section 10
+//     credits it there. **Idle on a dry one**: a certified dry landing
+//     distance takes no reverse at all (IFALPA 12ADOBL03, with Boeing: "no
+//     reverse thrust is used in this stopping demonstration"), and her
+//     brakes hold a dry runway's autobrake setting on their own; idle reverse
+//     takes away her engines' idle forward thrust and no more.
+//   - **Brought to idle reverse at her type's speed**, Boeing's 60 knots
+//     ("Reverse thrust is reduced to idle between 60 KIAS and taxi speed"),
+//     Airbus's 70 ("At 70 knots ... the PF will move the thrust levers to idle
+//     reverse") - the catalogue's `reversers` line.
+//   - **And stowed at taxi speed**, both makers' word for it, and for good:
+//     taken here as 20 knots over the ground, the speed Airbus's procedure
+//     has the autobrake off by.
+// The lever moves at a hand's pace: out of stowed in a twentieth of a second,
+// up to maximum in about a second more, and back to idle in two - "at a rate
+// commensurate with the deceleration rate".
+double Lander::reverse_thrust(double kcas, double vg_kts, bool slippery) {
+    const std::optional<double> idle_by_kts = a_.reverse_idle_kts();
+    if (!idle_by_kts || !a_.has_reversers()) {
+        return 0.0;
+    }
+    constexpr double taxi_kts = 20.0;
+    ++rolled_steps_;
+    if (vg_kts < taxi_kts) {
+        reverse_stowed_ = true;
+    }
+    double want = 0.0;
+    if (!reverse_stowed_ && rolled_steps_ >= steps_per_second) {
+        want = slippery && kcas > *idle_by_kts ? 1.0 : Controls::reverse_idle;
+    }
+    // Out of stowed and back at a hand's pace, two a second; between the
+    // idle detent and maximum at one a second up and a half down.
+    const bool beyond_idle = reverse_ > Controls::reverse_idle ||
+                             (reverse_ == Controls::reverse_idle && want > reverse_);
+    const double per_second = !beyond_idle ? 2.0 : want > reverse_ ? 1.0 : 0.5;
+    const double step = per_second / steps_per_second;
+    reverse_ = want > reverse_ ? std::min(want, reverse_ + step) : std::max(want, reverse_ - step);
+    return reverse_;
+}
+
 bool Lander::still_landing(double throttle) const {
     const AircraftState s = a_.state();
     // Stopped is over the ground, as `fly` has it.
@@ -860,6 +912,7 @@ Controls Lander::fly_laws() {
         const double outside = brake * (1.0 - steer);
         c.left_brake = c.rudder > 0.0 ? inside : outside;
         c.right_brake = c.rudder > 0.0 ? outside : inside;
+        c.reverse = reverse_thrust(kcas, vg_kts, slippery);
         return c;
     }
 

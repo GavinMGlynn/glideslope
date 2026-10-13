@@ -5252,7 +5252,7 @@ GLIDESLOPE_TEST(every_aeroplane_flies_the_turns_lesson_of_its_own_class) {
 namespace {
 
 // The largest a control moved in one step, over every control there is.
-// The seventeen controls, in the order `Controls::as_list()` gives them, so
+// The eighteen controls, in the order `Controls::as_list()` gives them, so
 // a step can name the control it happened in rather than only its size.
 const char* control_name(std::size_t i) {
     static const char* names[] = {
@@ -5260,7 +5260,7 @@ const char* control_name(std::size_t i) {
         "mixture",    "flaps",       "left brake",    "right brake",
         "pitch trim", "propeller",   "gear",          "supercharger",
         "speedbrake", "throttle offset 0",            "throttle offset 1",
-        "cooling flap 0",            "cooling flap 1"};
+        "cooling flap 0",            "cooling flap 1",            "reverse"};
     // As many as there are controls.
     static_assert(std::size(names) == glideslope::sim::Controls::control_count);
     return i < std::size(names) ? names[i] : "?";
@@ -5889,6 +5889,8 @@ struct TakenBackOnTheRoll {
     bool taken_back = false;
     bool stopped = false;
     double touched_kts = 0.0;    // groundspeed as the wheels met the runway
+    double vref_kts = 0.0;       // her reference speed, which the approach is flown to
+    double most_reverse = 0.0;   // the furthest the reverse lever went
     double taken_back_kts = 0.0; // and as the AI took her back
     double stopped_past_m = 0.0; // past the threshold, where she stopped
     double stopped_across_m = 0.0;
@@ -5986,6 +5988,7 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
     glideslope::sim::Lander shadow(aircraft, runway, published);
     glideslope::sim::GroundJudge judge(entry.seaplane);
     TakenBackOnTheRoll out;
+    out.vref_kts = published.vref_kts;
     out.after.judged_as(entry.seaplane);
     out.ai.judged_as(entry.seaplane);
     bool handed_over = by_hand;
@@ -6054,6 +6057,7 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
             }
         }
         last = now;
+        out.most_reverse = std::max(out.most_reverse, now.reverse);
         aircraft.set_controls(now);
         aircraft.step();
         out.after.watch(aircraft);
@@ -6104,30 +6108,31 @@ void every_landplane_taken_back(OnTheRoll when) {
     std::vector<std::string> landplanes;
     std::vector<std::string> left_out;
     const bool wet = when == OnTheRoll::landed_by_hand_on_a_wet_short_runway;
-    // **And three are flown but named as running past its end**, each braked
-    // on her own tyres (sim/runway_condition.hpp): the AI's brakes are fully
-    // on from a second after the take-back, at idle and with her spoilers
-    // out, but no flight model here has reverse thrust, which an airliner's
-    // crew uses on a wet runway and AC 25-32 section 10 credits, and her hand
-    // landing touched fast. (The F-15C has no reversers.) The runway is the
-    // regulation's - a field length already the dry distance over 0.6, times
-    // 1.15. Logged 2026-10-13: the A320 touching at 144 kt, pedals 1.0,
-    // decelerating 5.1 to 5.5 ft/s^2 from 140 to 110 kt on a wet wheel
-    // braking coefficient of 0.14 to 0.18. Each must still stop, unwrecked,
-    // on the centreline; each must overrun, so that the day one does not,
-    // this list is shortened; and none by more than her ceiling, a little
-    // above what she overran by on 2026-10-13 (19, 84 and 20 m), so that an
-    // overrun growing is not passed as named.
+    // **And one is flown but named as running past its end**, braked on her
+    // own tyres (sim/runway_condition.hpp): the F-15C, who has no reversers.
+    // The airliners named here before (the 787-8 and A320, 2026-10-13) now
+    // stop on it with theirs (sim/lander.cpp, reverse_thrust; 2026-10-14:
+    // 787-8 1,552 m of 1,893, A320 1,478 of 1,725). Her runway is the
+    // transport's margin on her flight manual's dry distance over 50 ft
+    // (4,200 ft, times 1.67 and 1.15: 2,459 m), and the same manual's own wet
+    // figure is longer still: its figure A8-3 (T.O. 1F-15A-1, change 4) read
+    // for RCR 16, wet, at her weight, sea level, standard day and no wind,
+    // gives about 9,000 ft over 50 ft unfactored - so a runway sized from it
+    // would not ask her to stop short at all, and she is named rather than
+    // given it. She touches at her reference speed (157.8 kt against 160),
+    // not fast. She must still stop, unwrecked, on the centreline; she must
+    // overrun, so that the day she does not, this list is shortened; and by
+    // no more than her ceiling, a little above what she overran by on
+    // 2026-10-13 and still does (20 m), so that a growing overrun is not
+    // passed as named.
     struct Overrun {
         double most_m;
         std::string why;
     };
     const std::map<std::string, Overrun> overrun_wet = {
-        {"787-8", {25.0, "228 psi tyres, touching at 146.5 kt, and no reverse thrust modelled"}},
-        {"a320", {90.0, "209 psi tyres, touching at 144.1 kt, and no reverse thrust modelled"}},
-        {"f15c", {25.0, "305 psi tyres, touching at 157.8 kt; she has no reversers, and her "
-                        "runway is the transport's margin on her dry flight-manual "
-                        "distance, not her manual's own wet one"}}};
+        {"f15c", {25.0, "305 psi tyres, touching at her reference speed; she has no reversers, "
+                        "and her runway is the transport's margin on her dry flight-manual "
+                        "distance, shorter than her manual's own wet one (about 9,000 ft)"}}};
     std::size_t overran = 0;
     for (const std::string& id : taught) {
         if (glideslope::sim::find_aircraft(data(), id).seaplane) {
@@ -6141,13 +6146,14 @@ void every_landplane_taken_back(OnTheRoll when) {
     std::size_t flown = 0;
     for (const std::string& id : landplanes) {
         const TakenBackOnTheRoll r = take_back_on_the_roll(id, when);
-        std::printf("  %-13s %-14s touched %5.1f kt at %4.0f m (the AI has %4.0f m), taken "
-                    "back %5.1f kt at %.1f ft: %s %6.0f m past the threshold, %5.1f m across; "
+        std::printf("  %-13s %-14s touched %5.1f kt (vref %5.1f) at %4.0f m (the AI has %4.0f m), "
+                    "taken back %5.1f kt at %.1f ft, reverse to %.2f: %s %6.0f m past the "
+                    "threshold, %5.1f m across; "
                     "bank %.1f, nose %.1f, rose %.1f ft after the take-back (%.1f from the "
                     "first touch, %.1f from the AI's), step %.4f%s%s\n",
-                    id.c_str(), name_of(when), r.touched_kts, r.touched_past_m,
+                    id.c_str(), name_of(when), r.touched_kts, r.vref_kts, r.touched_past_m,
                     r.lander_touched_past_m, r.taken_back_kts, r.agl_at_take_back_ft,
-                    r.stopped ? "stopped" : "NOT STOPPED", r.stopped_past_m,
+                    r.most_reverse, r.stopped ? "stopped" : "NOT STOPPED", r.stopped_past_m,
                     r.stopped_across_m, r.after.worst_roll_deg, r.after.least_pitch_deg,
                     r.rise_after_take_back_ft, r.after.highest_ft, r.ai.highest_ft,
                     r.worst_to_ai, r.wreck.empty() ? "" : ", wrecked: ", r.wreck.c_str());

@@ -237,6 +237,7 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
             found.full_rich_below_ft = e.full_rich_below_ft;
         }
         found.speedbrakes = found.speedbrakes || e.speedbrakes;
+        found.reverse_idle_kts = e.reverse_idle_kts;
         found.yaw_damper_per_degps = e.yaw_damper_per_degps;
         found.brakes = e.brakes;
         found.rudder_integral_rate = e.rudder_integral_rate;
@@ -507,6 +508,7 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
                    const CatalogueFacts& catalogue)
     : climb_floor_kts_(catalogue.climb_floor_kts), mixture_lever_(catalogue.mixture_lever),
       full_rich_below_ft_(catalogue.full_rich_below_ft), speedbrakes_(catalogue.speedbrakes),
+      reverse_idle_kts_(catalogue.reverse_idle_kts),
       yaw_damper_per_degps_(catalogue.yaw_damper_per_degps),
       rudder_integral_rate_(catalogue.rudder_integral_rate),
       go_around_flaps_(catalogue.go_around_flaps),
@@ -941,6 +943,10 @@ void Aircraft::set_controls(const Controls& c) {
             set(spoilers, c.speedbrake);
         }
     }
+    // Only a model that declares them has thrust reversers.
+    if (has_reversers()) {
+        set("fcs/reverse-cmd-norm", c.reverse);
+    }
     // Only a model that declares the switch has one.
     if (has_property("fcs/supercharger-cmd-norm")) {
         set("fcs/supercharger-cmd-norm", c.supercharger);
@@ -952,6 +958,10 @@ void Aircraft::set_controls(const Controls& c) {
     set("fcs/left-brake-cmd-norm", std::min(left_brake_, brake_share_));
     set("fcs/right-brake-cmd-norm", std::min(right_brake_, brake_share_));
     set("fcs/pitch-trim-cmd-norm", -c.pitch_trim);
+}
+
+bool Aircraft::has_reversers() const {
+    return has_property("fcs/reverse-cmd-norm");
 }
 
 bool Aircraft::has_lift_system() const {

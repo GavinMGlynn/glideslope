@@ -312,6 +312,9 @@ public:
     // where she touched, once she has - and not a go-around, climbing with
     // the throttle open.
     bool still_landing(double throttle) const;
+    // The reverse lever for this step of the roll, at `kcas` and `vg_kts`,
+    // on a runway that is or is not `slippery` (lander.cpp says how).
+    double reverse_thrust(double kcas, double vg_kts, bool slippery);
     // While the pilot has her, once a step: where she is, and whether and
     // where she touched - so that, given her back, it knows she has landed.
     // Nothing it flies with is moved.
@@ -384,6 +387,11 @@ private:
     double aileron_trim_ = 0.0;
     double autobrake_fps2_ = 0.0; // set at the touch, for the runway left
     double brake_ = 0.0;         // held to the autobrake's deceleration
+    // The reverse lever on the roll (Controls::reverse): the steps she has
+    // rolled for, its position, and whether it has been stowed for good.
+    int rolled_steps_ = 0;
+    double reverse_ = 0.0;
+    bool reverse_stowed_ = false;
     double last_vg_fps_ = -1.0;  // the last step's groundspeed
     double decel_fps2_ = 0.0;    // how fast she is slowing, smoothed
     double flare_pitch_ = 0.0;

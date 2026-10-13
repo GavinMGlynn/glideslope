@@ -498,6 +498,92 @@
             <output>fcs/speedbrake-pos-norm</output>
         </kinematic>
       </channel>
+        <!-- glideslope: the reverse lever, stowed. -->
+        <property value="0">fcs/reverse-cmd-norm</property>
+        <channel name="Thrust Reversers">
+            <!-- glideslope: tools/airliner.py, reverser_channel. The reverse lever
+                 fcs/reverse-cmd-norm: 0 stowed, 0.1 idle reverse, 1 maximum. -->
+            <switch name="fcs/reverser-cmd-norm">
+                <default value="0"/>
+                <test logic="AND" value="1">
+                    fcs/reverse-cmd-norm gt 0
+                    gear/wow eq 1
+                </test>
+            </switch>
+            <kinematic name="fcs/reverser-pos-norm">
+                <input>fcs/reverser-cmd-norm</input>
+                <traverse>
+                    <setting><position>0</position><time>0</time></setting>
+                    <setting><position>1</position><time>2</time></setting>
+                </traverse>
+            </kinematic>
+            <fcs_function name="fcs/reverser-angle-rad">
+                <function>
+                    <product>
+                        <property>fcs/reverser-pos-norm</property>
+                        <value>1.8860</value>
+                    </product>
+                </function>
+                <output>propulsion/engine[0]/reverser-angle-rad</output>
+                <output>propulsion/engine[1]/reverser-angle-rad</output>
+                <output>propulsion/engine[2]/reverser-angle-rad</output>
+                <output>propulsion/engine[3]/reverser-angle-rad</output>
+            </fcs_function>
+            <switch name="fcs/reverser-unlocked">
+                <default value="0"/>
+                <test value="1">
+                    fcs/reverser-pos-norm ge 0.999
+                </test>
+            </switch>
+            <fcs_function name="fcs/reverse-power-norm">
+                <function>
+                    <product>
+                        <property>fcs/reverser-unlocked</property>
+                        <max>
+                            <value>0</value>
+                            <quotient>
+                                <difference>
+                                    <min>
+                                        <property>fcs/reverse-cmd-norm</property>
+                                        <value>1</value>
+                                    </min>
+                                    <value>0.1</value>
+                                </difference>
+                                <value>0.9</value>
+                            </quotient>
+                        </max>
+                    </product>
+                </function>
+            </fcs_function>
+            <switch name="fcs/reverse-throttle-0">
+                <default value="fcs/throttle-cmd-norm[0]"/>
+                <test value="fcs/reverse-power-norm">
+                    fcs/reverser-cmd-norm gt 0
+                </test>
+                <output>fcs/throttle-pos-norm[0]</output>
+            </switch>
+            <switch name="fcs/reverse-throttle-1">
+                <default value="fcs/throttle-cmd-norm[1]"/>
+                <test value="fcs/reverse-power-norm">
+                    fcs/reverser-cmd-norm gt 0
+                </test>
+                <output>fcs/throttle-pos-norm[1]</output>
+            </switch>
+            <switch name="fcs/reverse-throttle-2">
+                <default value="fcs/throttle-cmd-norm[2]"/>
+                <test value="fcs/reverse-power-norm">
+                    fcs/reverser-cmd-norm gt 0
+                </test>
+                <output>fcs/throttle-pos-norm[2]</output>
+            </switch>
+            <switch name="fcs/reverse-throttle-3">
+                <default value="fcs/throttle-cmd-norm[3]"/>
+                <test value="fcs/reverse-power-norm">
+                    fcs/reverser-cmd-norm gt 0
+                </test>
+                <output>fcs/throttle-pos-norm[3]</output>
+            </switch>
+        </channel>
     </flight_control>
     <aerodynamics>
 

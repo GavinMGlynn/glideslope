@@ -137,6 +137,13 @@ struct Controls {
     // on the ground the ground spoilers too. An aircraft without them
     // ignores it.
     double speedbrake = 0.0;
+    // The thrust reverse levers, all the engines' together: 0 stowed; any
+    // more deploys the reversers, with the weight on the wheels; 0.1 is the
+    // idle reverse detent (`reverse_idle`), and 1 maximum reverse. While it is
+    // out of stowed the reversing engines' forward throttles are held at idle.
+    // An aircraft without reversers ignores it (tools/airliner.py).
+    double reverse = 0.0;
+    static constexpr double reverse_idle = 0.1;
 
     // **Every control as a flat list, and back again.** The wire sends a
     // client's inputs to the server (net/inputs.hpp), and the network knows
@@ -145,13 +152,14 @@ struct Controls {
     // stops the two drifting apart when a control is added - and
     // `sizeof(Controls)` is held by a test, so a new field that is not put
     // in here is caught rather than quietly left out of every flight.
-    static constexpr std::size_t control_count = 17;
+    static constexpr std::size_t control_count = 18;
     std::array<double, control_count> as_list() const {
         return {elevator,      aileron,    rudder,         throttle,
                 mixture,       flaps,      left_brake,     right_brake,
                 pitch_trim,    propeller,  gear,           supercharger,
                 speedbrake,    throttle_offset[0],         throttle_offset[1],
-                cooling_flaps[0],          cooling_flaps[1]};
+                cooling_flaps[0],          cooling_flaps[1],
+                reverse};
     }
     static Controls from_list(const std::array<double, control_count>& v) {
         Controls c;
@@ -170,6 +178,7 @@ struct Controls {
         c.speedbrake = v[12];
         c.throttle_offset = {v[13], v[14]};
         c.cooling_flaps = {v[15], v[16]};
+        c.reverse = v[17];
         return c;
     }
     bool operator==(const Controls&) const = default;
@@ -283,6 +292,7 @@ struct CatalogueFacts {
     bool mixture_lever = false;
     double full_rich_below_ft = 0.0;
     bool speedbrakes = false;
+    std::optional<double> reverse_idle_kts;
     double yaw_damper_per_degps = 0.05;
     double rudder_integral_rate = 0.05;
     std::optional<double> go_around_flaps;
@@ -343,6 +353,16 @@ public:
     // loaded where there is no catalogue.
     bool speedbrakes() const {
         return speedbrakes_;
+    }
+
+    // **Whether the reverse lever does anything**: her flight model's
+    // reversers (tools/airliner.py), which the catalogue's `reversers` line
+    // is held to by a test; and the speed, knots, her type's training manual
+    // has the reverse brought to idle at, from that line - none for a model
+    // loaded where there is no catalogue.
+    bool has_reversers() const;
+    std::optional<double> reverse_idle_kts() const {
+        return reverse_idle_kts_;
     }
 
     // **The autopilot's rudder gains**: its yaw damper's travel per degree a
@@ -606,6 +626,7 @@ private:
     bool mixture_lever_ = false;
     double full_rich_below_ft_ = 0.0;
     bool speedbrakes_ = false;
+    std::optional<double> reverse_idle_kts_;
     std::pair<double, double> alpha_range_rad_{-std::numeric_limits<double>::infinity(),
                                                std::numeric_limits<double>::infinity()};
     std::pair<double, double> beta_range_rad_{-std::numeric_limits<double>::infinity(),

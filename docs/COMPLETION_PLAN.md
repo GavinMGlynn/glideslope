@@ -790,10 +790,16 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       anti-skid less. *Verification: each aircraft's tyre pressure and brakes
       are sourced and used.* Done 2026-10-13: four pressures (F-22A, F-35B,
       B-2A, Mosquito) are stated estimates.
-- [ ] **Three overrun a regulation-length wet runway**, braked fully: the
-      787-8 by 19 m, A320 by 84 m, F-15C by 20 m. Candidate causes: the hand
-      landing's fast touch (144 to 158 kt) against the 1.15 margin, and no
-      reverse thrust in any model. *Verification: each stops on it.*
+- [ ] **Three overrun a regulation-length wet runway**, braked fully. The
+      five airliners now have thrust reversers, used on the roll as their
+      makers' manuals say, and the 787-8 and A320 stop on it; the touches
+      were never fast (each at or below her reference speed). **Still
+      missing: the F-15C**, who has no reversers, overruns by 20 m - her
+      runway is shorter than her own flight manual's wet distance (about
+      9,000 ft). *Verification: each stops on it.*
+- [ ] **A pilot has no key or lever for reverse thrust**: the reverse lever
+      is in the controls and on the wire, and only the AI moves it.
+      *Verification: a binding moves it, as every other lever's does.*
 - [ ] **The F-35B lands on her power**: her model flies the glidepath at
       19.5 degrees of incidence and its flare runs out of nose; level at
       3,000 ft below 181 kt the same incidence is past the autopilot's 15

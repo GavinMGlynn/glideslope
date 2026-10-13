@@ -19,3 +19,7 @@ speedbrakes
 # Boeing D6-58326-1 rev F, 7.2: H49x19.0-22 mains at 200 psi loaded, at
 # 873,000-877,000 lb; Hydro-Aire's wheel-by-wheel brake system control unit.
 brakes 200 fully-modulating
+# Her CF6-80C2s' cascade thrust reversers, on all four (tools/make_747_400.py),
+# and the reverse brought to idle at 60 kt, as Boeing's training manual has
+# it (the 737-300's file says where; docs/ASSETS.md).
+reversers 60
