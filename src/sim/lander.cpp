@@ -107,6 +107,7 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     if (figures.touchdown_fpm > 0.0) {
         speeds.touchdown_fpm = figures.touchdown_fpm;
     }
+    speeds.elevator_full_cm = figures.elevator_full_cm;
     speeds.spool_s = spool_up_s(data / "jsbsim", model);
     return speeds;
 }
@@ -252,6 +253,26 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
         for (const Aircraft::ContactPoint& p : points) {
             if (p.bogey && !p.wheel) {
                 lands_on_.push_back({p.x_in, p.y_in, p.z_in});
+            }
+        }
+        // **Where her afterbody meets the water** (NACA ARR 3F30, Benson and
+        // Klein: a hull is two planing surfaces in tandem, the afterbody's
+        // keel inclined to the forebody's): her keel on the centreline, her
+        // step the aftmost of its lowest points, and the shallowest angle up
+        // from it to a keel point further aft.
+        const Point* step = nullptr;
+        for (const Point& p : lands_on_) {
+            if (std::abs(p.y_in) < 1.0 &&
+                (step == nullptr || p.z_in < step->z_in - 1.0 ||
+                 (p.z_in < step->z_in + 1.0 && p.x_in > step->x_in))) {
+                step = &p;
+            }
+        }
+        for (const Point& p : lands_on_) {
+            if (step != nullptr && std::abs(p.y_in) < 1.0 && p.x_in > step->x_in + 1.0 &&
+                p.z_in > step->z_in + 1.0) {
+                const double deg = std::atan2(p.z_in - step->z_in, p.x_in - step->x_in) * degrees;
+                afterbody_deg_ = afterbody_deg_ > 0.0 ? std::min(afterbody_deg_, deg) : deg;
             }
         }
     }
@@ -842,6 +863,43 @@ Controls Lander::fly_laws() {
         const double hold = std::clamp(
             0.05 * hold_error - 0.05 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
         c.elevator = flying * hold + (1.0 - flying) * 1.0;
+        // **A hull on the water is held at the attitude she touched at, until
+        // she comes off the step**, and only then is the stick brought fully
+        // back: the FAA's Seaplane Handbook (FAA-H-8083-23, ch. 6, "Normal
+        // Landing"), "maintain the touchdown attitude until the seaplane
+        // begins to come off the step. Once it begins to settle into the
+        // plowing attitude, apply full up elevator"; and NACA TN 923 (Benson,
+        // 1943), the trim "held within the stable range". Eased back as she
+        // slowed, as a wheel's rollout is, the S.23's trim rose from four and
+        // a half degrees to nine on the step and she skipped along it. Off
+        // the step is her wing's half of the reference speed, where `flying`
+        // runs out.
+        // **Its gains are hers, not fitted.** The stick is all the way
+        // forward by the trim at which her afterbody meets the water - TN
+        // 923's skipping, and the upper limit's high-angle porpoising - so a
+        // degree of error asks for one part in her margin to it. And damped
+        // at 0.7 of critical on her elevator's authority now: the pitch
+        // acceleration a full stick gives her, q S c Cm_full / Iyy, from her
+        // figures' `elevator_full_cm` and her model's dynamic pressure, wing
+        // and inertia. With none given, undamped.
+        if (a_.in_water() && a_.property("gear/wow") <= 0.5 && afterbody_deg_ > 0.0) {
+            const double per_deg = 1.0 / std::max(1.0, afterbody_deg_ - touchdown_pitch_deg_);
+            const double full_stick_degps2 =
+                a_.property("aero/qbar-psf") * a_.property("metrics/Sw-sqft") *
+                a_.property("metrics/cbarw-ft") * speeds_.elevator_full_cm /
+                std::max(1.0, a_.property("inertia/iyy-slugs_ft2")) * degrees;
+            constexpr double damping_ratio = 0.7;
+            const double per_degps =
+                full_stick_degps2 > 0.0
+                    ? 2.0 * damping_ratio * std::sqrt(per_deg * full_stick_degps2) /
+                          full_stick_degps2
+                    : 0.0;
+            const double attitude_error = touchdown_pitch_deg_ - s.pitch_deg;
+            const double on_the_step =
+                std::clamp(per_deg * attitude_error - per_degps * s.q_radps * degrees + pitch_trim_,
+                           -1.0, 1.0);
+            c.elevator = flying > 0.0 ? on_the_step : 1.0;
+        }
         // **A jet is landed as the handbook lands a jet**, not as it lands a
         // Cub. The FAA's Airplane Flying Handbook (FAA-H-8083-3C), chapter
         // 16, "Touchdown and Rollout": the nose-wheel is lowered on to the
