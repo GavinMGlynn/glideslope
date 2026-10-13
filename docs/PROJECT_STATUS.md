@@ -1817,7 +1817,16 @@ faults.
   her height (to her least conversion height, no lower), and is not let go
   while the selector is at it; a plan's vertical landing is not begun, its
   last waypoint flown on, as for an aeroplane without a lift system. As
-  fuel burns below the limit, the next step's ask is a hover.
+  fuel burns below the limit, the next step's ask is a hover. **Held so,
+  the stick's sideways and the pedals do nothing**: the law flies the
+  heading she had and her wings level, so a heavy F-35B in STOVL mode
+  cannot be turned until the selector goes back (or she burns under the
+  limit). **On the ground, heavier, STOVL mode does nothing** (from the
+  review of #194): the law made on her wheels stood her converted for a
+  vertical take-off she could not hold; now no law is made there, her lift
+  system is left as it is and the controls are the pilot's, so she can be
+  rolled off on the wing, and once in the air the selector holds her
+  wing-borne.
 - **The stick seeded the law.** A controller made on the step the
   selector arrived - the server's (`controller_for`, given the pilot's
   input) - held the pilot's controls as what it had applied, and the
@@ -1846,6 +1855,16 @@ faults.
   never slowed into jet-borne flight, at 200 KCAS within 2.0 kt, lowest 100
   ft, sinking at most 378 ft/min, never touching, STOVL mode kept. **Seen
   red** with the limit off: slowed, sinking 4,555 ft/min, down to 3 ft.
+- `on_the_ground_heavier_than_she_can_hover_the_f35bs_stovl_selector_does_nothing`:
+  standing at 45,400 lb, brakes on, idle, STOVL selected and the stick
+  full back a minute: never converted (0.00), no law made, never lifted, no
+  wreck. **Seen red** without the guard: converted 1.00, a law made (she
+  did not lift - she cannot - nor was she judged a wreck).
+- `burned_below_her_hover_limit_in_stovl_mode_the_f35b_converts_and_hovers`:
+  at 39,990 lb (combat and 240 lb), fuel burning, STOVL mode from 200
+  KCAS at 1,000 ft: held wing-borne until under the limit at 82.1 s, then
+  converted and hovering at 191.8 s; lowest 986 ft, sinking at most 516
+  ft/min, pitch 13.8 (bounds 90 ft, 600 ft/min, 15 degrees).
 - `a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees`
   (tests/cmake/server_stovl_landing.cmake, multi-process): a server, one AI
   Cessna, a 100 ms relay, and `glideslope_cli connect --aircraft f35b
@@ -1854,7 +1873,8 @@ faults.
   prediction built over the DEM as the server's ground is - until 3,000
   updates are compared: no wreck, never converted, 200 KCAS at the end,
   0 corrections too large to hide, the worst error 0.908 m (bound 2 m) and
-  the median 0.019 m (bound 5 cm). 124 s. **Seen red** before the two fixes:
+  the median 0.019 m (bound 5 cm) - **from one run**; 124 s, in
+  tests/ci_costs as an estimate until CI measures it. **Seen red** before the two fixes:
   the server's F-35B a wreck, "hit the ground sinking at 4364 ft/min" and
   "4368" in two runs.
 - Green with the rest: the targeted F-35B, STOVL, hover, transition,
