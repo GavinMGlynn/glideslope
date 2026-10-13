@@ -975,15 +975,23 @@ Controls Lander::fly_laws() {
             // deceleration it cannot meet only winds it up: a C172P blown
             // sideways at 1.5 kt, with nothing to slow, had her brakes wound
             // from 0.31 to 0.58 and was put on her nose; held rolling at
-            // 3 kt, every landplane's wound to full. So there it puts on no
-            // brake past what she has, or past `walking_pace_pedal` - the
-            // pedal that stops a creep - if she has less, and still lets it
-            // off where she slows faster than it asks. The clamp is its
-            // other anti-windup: the integral is the pedal, never more than
-            // full, so none is stored past the stop to be unwound later.
-            const double most = vg_kts < autobrake_off_kts
-                                    ? std::max(std::min(brake_, 1.0), walking_pace_pedal)
-                                    : 1.0;
+            // 3 kt, every landplane's went to full. So below walking pace it
+            // puts on no brake past what she has, or past the ceiling at her
+            // speed (`walking_pace_ceiling`, lander.hpp) if she has less, and
+            // still lets it off where she slows faster than it asks.
+            // **But a creep her idle thrust drives is stopped**: under
+            // `creeping_kts`, her throttle closed and her speed growing, the
+            // brakes are not holding her engines' idle, and more is put on.
+            // An F-15C at idle on 0.43 gathered speed from 1.4 kt to 1.9 in a
+            // minute and never stopped. The clamp at full is its other
+            // anti-windup: the integral is the pedal, so none is stored past
+            // the stop to be unwound later.
+            const bool idle_drives_her = vg_kts < creeping_kts && decel_fps2_ < 0.0 &&
+                                         a_.property("fcs/throttle-cmd-norm[0]") <= 0.01;
+            const double most =
+                vg_kts < autobrake_off_kts && !idle_drives_her
+                    ? std::max(std::min(brake_, 1.0), walking_pace_ceiling(vg_kts))
+                    : 1.0;
             brake_ = std::clamp(brake_ + 0.1 * (autobrake_fps2 - decel_fps2_) / steps_per_second,
                                 0.0, most);
         }
@@ -1001,7 +1009,14 @@ Controls Lander::fly_laws() {
         // half its travel the rudder brings in the brake on the side the
         // nose is wanted, up to six tenths, and lets the other off.
         // (A positive rudder yaws the nose left, as above.)
-        const double steer = std::clamp((std::abs(c.rudder) - 0.5) / 0.5, 0.0, 1.0);
+        // **Not near a stop**: below walking pace the steering brake fades
+        // with her speed to none at a stop, where it turns her nothing and
+        // only stands her on one wheel - nine tenths of it, on a Cub
+        // weathervaned in 15 kt across, held her while power was run up
+        // against it, until she broke away and went over.
+        const double steer =
+            std::clamp((std::abs(c.rudder) - 0.5) / 0.5, 0.0, 1.0) *
+            std::clamp(vg_kts / autobrake_off_kts, 0.0, 1.0);
         const double inside = std::clamp(brake + 0.6 * steer, 0.0, 1.0);
         const double outside = brake * (1.0 - steer);
         c.left_brake = c.rudder > 0.0 ? inside : outside;
