@@ -460,6 +460,20 @@ public:
     // wheel braking coefficient read for her tyres and anti-skid; NaN on a
     // dry runway, where her flight model's own friction is what they grip.
     double runway_braking_coefficient() const { return runway_braking_coefficient_; }
+    // **The share of her dry grip sideways her wheels were given** at her
+    // last step: 1 on a dry runway, and on another her tyres' cornering
+    // there over the dry (side_grip_share, sim/runway_condition.hpp).
+    double side_grip() const { return side_grip_; }
+    // **What her pedals were multiplied by** at her last step, so that her
+    // wheels, their static friction scaled by her side grip, brake as the
+    // runway gives them: 1 where the side grip is whole.
+    double brake_scale() const { return brake_scale_; }
+    // **Holds her side grip share at `share` on a runway that is not dry**,
+    // whatever the runway gives, her brakes still braking as the runway's
+    // code says: the wet runway's braking with the dry runway's grip
+    // sideways, to measure what the side grip alone does. For tests;
+    // nothing else holds it. nullopt lets the runway give it again.
+    void hold_side_grip(std::optional<double> share) { held_side_grip_ = share; }
     // **The gust factor of the air she flies in**, knots, as her weather gave
     // it before her last step (Conditions::gust_factor_kt): 0 without weather.
     double gust_factor_kt() const { return gust_factor_kt_; }
@@ -682,6 +696,14 @@ private:
     double right_brake_ = 0.0;
     double brake_share_ = 1.0;
     double runway_braking_coefficient_ = std::numeric_limits<double>::quiet_NaN();
+    // Each wheel's static friction property and its dry value, the side
+    // grip share last laid on them, and the pedal's scale that keeps the
+    // brakes as the runway gives them (apply_weather).
+    std::vector<std::pair<std::string, double>> wheel_static_friction_;
+    double side_grip_ = 1.0;
+    double applied_side_grip_ = 1.0;
+    double brake_scale_ = 1.0;
+    std::optional<double> held_side_grip_;
 };
 
 } // namespace glideslope::sim

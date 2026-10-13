@@ -5,6 +5,7 @@
 #include "sim/crash.hpp"
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
+#include "sim/controller.hpp"
 #include "sim/runway_condition.hpp"
 #include "sim/lander.hpp"
 #include "sim/takeoff_trial.hpp"
@@ -596,7 +597,8 @@ Stopped stopped_from_20_kt(const glideslope::sim::CatalogueEntry& entry,
             const double share = aircraft.brake_share();
             const double commanded = aircraft.property("fcs/left-brake-cmd-norm");
             out.the_less_of_the_two =
-                out.the_less_of_the_two && commanded == std::min(asked, share);
+                out.the_less_of_the_two &&
+                commanded == std::min(asked, share) * aircraft.brake_scale();
             if (share > asked) {
                 ++out.given_the_pedal;
             } else {
@@ -766,6 +768,250 @@ GLIDESLOPE_TEST(a_light_pedal_on_a_slippery_runway_is_given_as_pressed_up_to_the
     }
     check(flown + left_out == catalogue.size() && left_out == 1,
           "every landplane braked lightly: " + std::to_string(flown) + " of " +
+              std::to_string(catalogue.size() - 1));
+}
+
+namespace {
+
+// How a roll-out in a crosswind went.
+struct RolledOut {
+    bool handed = false;
+    bool stopped = false;
+    std::string wrecked;
+    double handed_kts = 0.0;
+    double handed_across_m = 0.0; // from the centreline at the hand-over
+    double worst_across_m = 0.0;  // from the hand-over to the stop
+    double least_side_grip = 1.0;
+    // The most she slid sideways over the runway, feet a second: her
+    // velocity across her own heading (velocities/v-fps, body axes, over
+    // the ground), from the hand-over to the stop.
+    double worst_slide_fps = 0.0;
+};
+
+// **A roll-out in a crosswind**: `entry` run up the runway's centreline by
+// the take-off autopilot in `crosswind_kts` straight across from the left
+// (from 340 onto the 070 runway) until her wheels roll at `from_kts`; then
+// her throttle closed and her brakes fully on - a tailwheel aeroplane's
+// stick held fully back and her brakes half on, as the stopping test's are
+// - steered to the centreline by the take-off autopilot's own law, to a
+// stop. On a runway of condition `code`.
+RolledOut rolled_out(const glideslope::sim::CatalogueEntry& entry, int code, double crosswind_kts,
+                     double from_kts, std::optional<double> held_side_grip = std::nullopt) {
+    using glideslope::sim::Aircraft;
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    constexpr double fps_per_kt = 1.68781;
+    const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), entry.model);
+    const Runway runway = a_runway();
+    Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::Conditions conditions;
+    conditions.runway_condition = code;
+    aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(conditions));
+    aircraft.hold_side_grip(held_side_grip);
+    glideslope::sim::Conditions across = conditions;
+    const double towards = (runway.heading_deg - 90.0 + 180.0) / degrees;
+    const double mps = crosswind_kts * 0.514444;
+    across.wind_north_mps = mps * std::cos(towards);
+    across.wind_east_mps = mps * std::sin(towards);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+    Departure departure(aircraft, runway, speeds);
+    const std::optional<glideslope::sim::ApproachSpeeds> lands =
+        glideslope::sim::her_figures(data(), entry.model).lands;
+    std::optional<glideslope::sim::Lander> lander;
+    glideslope::sim::GroundJudge judge(false);
+    RolledOut out;
+    for (int step = 0; step < 400 * steps_per_second; ++step) {
+        const double kts = aircraft.property("velocities/vg-fps") / fps_per_kt;
+        if (!out.handed && kts >= from_kts) {
+            lander.emplace(glideslope::sim::Lander::on_its_roll(aircraft, *lands, runway));
+            lander->resume(0.0);
+            aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(across));
+            out.handed = true;
+            out.handed_kts = kts;
+            out.handed_across_m = departure.across_m();
+        }
+        if (out.handed && kts < 0.5) {
+            out.stopped = true;
+            break;
+        }
+        const glideslope::sim::Controls c = lander ? lander->fly() : departure.fly();
+        aircraft.set_controls(c);
+        aircraft.step();
+        if (std::optional<std::string> why = judge.judge(aircraft)) {
+            out.wrecked = *why;
+            break;
+        }
+        if (out.handed) {
+            out.worst_across_m = std::max(out.worst_across_m, std::abs(lander->across_m()));
+            out.least_side_grip = std::min(out.least_side_grip, aircraft.side_grip());
+            out.worst_slide_fps =
+                std::max(out.worst_slide_fps, std::abs(aircraft.property("velocities/v-fps")));
+        }
+    }
+    return out;
+}
+
+// The crosswind of the roll-out tests, knots: the C172P's POH demonstrates
+// 15 kt.
+constexpr double rollout_crosswind_kts = 15.0;
+
+// Each landplane's roll-out begins at nine tenths of her rotation speed:
+// as fast as she rolls on the runway without lifting her nose.
+double rollout_from_kts(const glideslope::sim::CatalogueEntry& entry) {
+    const double vr = glideslope::sim::departure_speeds(data(), entry.model).rotate_kts;
+    const auto lands = glideslope::sim::her_figures(data(), entry.model).lands;
+    return 0.9 * std::min(vr, lands ? lands->vref_kts : vr);
+}
+
+} // namespace
+
+// **The wet side grip alone makes her slide**: every landplane of the
+// roll-out test, rolled out on a wet runway as 15 kt of crosswind arrives,
+// twice - her side grip as the wet runway gives it, and held at her dry
+// (Aircraft::hold_side_grip), her brakes braking as the wet runway's code
+// says both times, so that only the grip sideways differs. The eight jets
+// slide across their own heading at least 1.5 ft/s faster at the worst with
+// the wet side grip (measured 2026-10-14: the 737-300 10.7 against 6.9, the
+// B-2A 4.1 against 2.3, the least gap 1.7). Named and not asserted, their
+// gaps printed: the C172P, C182 and PA-28, whose 30 to 35 psi tyres keep
+// three quarters or more of their dry grip at their slow roll-outs (gaps 0,
+// 0.4 and 1.8 ft/s), and the Mosquito, a tailwheel aeroplane, who slides
+// less wet (25.8 against 28.8). **How far from the centreline she goes is
+// not what differs**: the roll-out's steering holds her, and most jets end
+// nearer it wet (the 787-8 13.5 m against 19.1).
+GLIDESLOPE_TEST(on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_makes_every_jet_slide_faster_across_her_heading) {
+    const auto catalogue = glideslope::sim::read_catalogue(data());
+    const std::map<std::string, std::string> named = {
+        {"c172p", "her tyres keep three quarters or more of their dry grip"},
+        {"c182", "her tyres keep three quarters or more of their dry grip"},
+        {"pa28", "her tyres keep three quarters or more of their dry grip"},
+        {"mosquito-fb6", "a tailwheel aeroplane, she slides less wet"}};
+    constexpr double more_fps = 1.5;
+    std::size_t asserted = 0;
+    std::size_t printed = 0;
+    std::size_t left_out = 0;
+    std::vector<std::string> wrong;
+    for (const auto& entry : catalogue) {
+        if (entry.seaplane || entry.id == "j3cub" ||
+            !glideslope::sim::her_figures(data(), entry.model).lands) {
+            ++left_out; // as in the roll-out test above, each named there
+            continue;
+        }
+        const RolledOut wet = rolled_out(entry, glideslope::sim::wet_runway,
+                                         rollout_crosswind_kts, rollout_from_kts(entry));
+        const RolledOut held = rolled_out(entry, glideslope::sim::wet_runway,
+                                          rollout_crosswind_kts, rollout_from_kts(entry), 1.0);
+        std::printf("  %-13s slid %.2f ft/s with the wet side grip, %.2f held dry (%.2f m and "
+                    "%.2f m from the centreline)%s\n",
+                    entry.id.c_str(), wet.worst_slide_fps, held.worst_slide_fps,
+                    wet.worst_across_m, held.worst_across_m,
+                    named.count(entry.id) ? (" - named: " + named.at(entry.id)).c_str() : "");
+        if (!(wet.stopped && held.stopped && wet.wrecked.empty() && held.wrecked.empty())) {
+            wrong.push_back(entry.id + " did not roll out to a stop both ways, unwrecked: " +
+                            wet.wrecked + held.wrecked);
+        }
+        if (named.count(entry.id)) {
+            ++printed;
+            continue;
+        }
+        if (wet.worst_slide_fps < held.worst_slide_fps + more_fps) {
+            wrong.push_back(entry.id + " slid " + std::to_string(wet.worst_slide_fps) +
+                            " ft/s with the wet side grip, against " +
+                            std::to_string(held.worst_slide_fps) + " held dry");
+        }
+        ++asserted;
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(asserted == 8 && printed == named.size() && left_out == 4 &&
+              asserted + printed + left_out == catalogue.size(),
+          "eight jets asserted, four named, four left out: " + std::to_string(asserted) + ", " +
+              std::to_string(printed) + ", " + std::to_string(left_out) + " of " +
+              std::to_string(catalogue.size()));
+}
+
+// **On a wet runway, in a 15 kt crosswind, every landplane the AI lands
+// rolls out and stays on it**, her tyres gripping sideways as a wet tyre
+// does (sim/runway_condition.hpp, NASA TN D-7743 and D-7351): run up to nine
+// tenths of the lesser of her rotation and approach speeds in calm air and
+// handed to the landing's roll-out, told the runway, as 15 kt arrives from
+// the left, she stops on the runway, unwrecked, never farther from its
+// centreline than its half-width (30 m; the most, 26.8 m, the Mosquito, on
+// 2026-10-14), her side grip at its least below 0.8 of her dry - the wet
+// runway's loss was laid on her. Dry is flown and printed beside it. Left
+// out, named: the flying boat, which has no wheels; the 747-400 and the
+// F-22A, which publish no stall speed, so the AI lands neither; and the
+// J-3 Cub, whose roll-out never brings her below half a knot. Coverage is
+// asserted: twelve rolled, four left out.
+GLIDESLOPE_TEST(every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_and_stays_on_it) {
+    const auto catalogue = glideslope::sim::read_catalogue(data());
+    constexpr double most_across_m = glideslope::sim::Lander::runway_half_width_m;
+    std::size_t rolled = 0;
+    std::size_t left_out = 0;
+    std::vector<std::string> wrong;
+    for (const auto& entry : catalogue) {
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat has no wheels\n", entry.id.c_str());
+            ++left_out;
+            continue;
+        }
+        if (entry.id == "j3cub") {
+            std::printf("  left out - j3cub: the roll-out never brings her below half a knot "
+                        "in 400 s, and she ground-loops landing in 15 kt across (an open "
+                        "item)\n");
+            ++left_out;
+            continue;
+        }
+        if (!glideslope::sim::her_figures(data(), entry.model).lands) {
+            std::printf("  left out - %s: she publishes no stall speed, so the AI lands her "
+                        "nowhere\n",
+                        entry.id.c_str());
+            ++left_out;
+            continue;
+        }
+        const RolledOut dry = rolled_out(entry, glideslope::sim::dry_runway,
+                                         rollout_crosswind_kts, rollout_from_kts(entry));
+        const RolledOut wet = rolled_out(entry, glideslope::sim::wet_runway,
+                                         rollout_crosswind_kts, rollout_from_kts(entry));
+        std::printf("  %-13s from %5.1f kt (%.2f m across): worst %.2f m across dry, %.2f wet, "
+                    "side grip at least %.3f%s%s\n",
+                    entry.id.c_str(), wet.handed_kts, wet.handed_across_m, dry.worst_across_m,
+                    wet.worst_across_m, wet.least_side_grip,
+                    wet.stopped ? "" : ", NOT STOPPED",
+                    wet.wrecked.empty() ? "" : (", wrecked: " + wet.wrecked).c_str());
+        if (!(wet.handed && wet.stopped && wet.wrecked.empty())) {
+            wrong.push_back(entry.id + " did not roll out to a stop on the wet runway, "
+                                       "unwrecked: " + wet.wrecked);
+        }
+        if (wet.worst_across_m > most_across_m) {
+            wrong.push_back(entry.id + " went " + std::to_string(wet.worst_across_m) +
+                            " m from the centreline rolling out wet in the crosswind");
+        }
+        if (wet.least_side_grip >= 0.8) {
+            wrong.push_back(entry.id + "'s side grip was not laid on her: at least " +
+                            std::to_string(wet.least_side_grip));
+        }
+        ++rolled;
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(rolled + left_out == catalogue.size() && left_out == 4 && rolled == 12,
+          "every landplane the AI lands rolled out: " + std::to_string(rolled) + " of " +
               std::to_string(catalogue.size() - 1));
 }
 

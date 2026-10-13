@@ -841,10 +841,18 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       distance on snow, slush or ice is known for any aircraft.
       *Verification: a landing on a runway reported icy is refused, or
       sized from a published contaminated-runway figure.*
-- [ ] **A wet runway does not change a rolling tyre's grip sideways.**
-      Only the brakes feel the water; a source for a wet tyre's cornering
-      grip was not found. *Verification: a wet runway's side grip from a
-      published source, and a crosswind roll-out held to it.*
+- [x] **A wet runway does not change a rolling tyre's grip sideways.**
+      Wet wheels now keep the share of their dry side grip NASA measured
+      (TN D-7743, checked against TN D-7351); every landplane the AI lands
+      rolls out on a wet runway in 15 kt across and stays on it, and with
+      braking held equal the wet grip alone makes every jet slide faster
+      across her heading. *Verification: a wet runway's side grip from a
+      published source, and a crosswind roll-out held to it.* Done
+      2026-10-14: held to the runway's half-width, since the AI's roll-out
+      drifts up to 21 m even dry; the light aeroplanes barely feel it.
+- [ ] **The AI's roll-out drifts 10 to 21 m from the centreline when a 15
+      kt crosswind arrives**, dry as wet. *Verification: every landplane
+      rolled out as 15 kt arrives stays within 5 m of the centreline.*
 - [ ] **The AI cannot land the J-3 Cub in a 15 kt crosswind**: she
       ground-loops after the touch, dry or wet. No crosswind limit is
       published for her. *Verification: a published limit, and the Cub

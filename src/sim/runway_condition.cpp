@@ -92,4 +92,43 @@ double wheel_braking_coefficient(int code, double groundspeed_kts, const WheelBr
     }
 }
 
+namespace {
+
+// Linear between (x0, y0) and (x1, y1), held beyond either end.
+double between(double x, double x0, double y0, double x1, double y1) {
+    const double w = std::clamp((x - x0) / (x1 - x0), 0.0, 1.0);
+    return y0 + w * (y1 - y0);
+}
+
+} // namespace
+
+double wet_cornering_share(double groundspeed_kts) {
+    // TN D-7743 table II's means at 5, 50 and 100 knots.
+    return groundspeed_kts < 50.0 ? between(groundspeed_kts, 5.0, 0.571, 50.0, 0.603)
+                                  : between(groundspeed_kts, 50.0, 0.603, 100.0, 0.769);
+}
+
+double dry_cornering_coefficient(double groundspeed_kts) {
+    return between(groundspeed_kts, 5.0, 0.48, 100.0, 0.43);
+}
+
+double runway_maximum_coefficient(int code, double groundspeed_kts, double tyre_pressure_psi) {
+    const WheelBrakes free_rolling{tyre_pressure_psi, AntiSkid::fully_modulating};
+    return wheel_braking_coefficient(code, groundspeed_kts, free_rolling) /
+           anti_skid_efficiency(AntiSkid::fully_modulating);
+}
+
+double cornering_coefficient(int code, double groundspeed_kts, double tyre_pressure_psi) {
+    return wet_cornering_share(groundspeed_kts) *
+           runway_maximum_coefficient(code, groundspeed_kts, tyre_pressure_psi);
+}
+
+double side_grip_share(int code, double groundspeed_kts, double tyre_pressure_psi) {
+    if (code == dry_runway) {
+        return 1.0;
+    }
+    return std::min(1.0, cornering_coefficient(code, groundspeed_kts, tyre_pressure_psi) /
+                             dry_cornering_coefficient(groundspeed_kts));
+}
+
 } // namespace glideslope::sim

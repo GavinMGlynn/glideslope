@@ -275,9 +275,8 @@ GLIDESLOPE_TEST(every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_cross
 // 15 kt straight across from the left, dry and on runway condition code 5,
 // stops on the wet runway, the right way up, never farther from its
 // centreline than the runway's half-width nor than 1 m beyond the farthest
-// she went dry. Her wheels' side force is her model's on a wet runway as on
-// a dry one: the wet runway's braking coefficient is a braked wheel's, not a
-// measure of cornering.
+// she went dry. Since 2026-10-14 her wheels keep, sideways, only the share
+// of their dry grip a wet tyre keeps (sim/runway_condition.hpp).
 //
 // **The J-3 Cub is named and left out**: in 15 kt across she ground-loops
 // after the touch dry - 726 m from the centreline, on her back - and wet,

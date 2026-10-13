@@ -1421,6 +1421,109 @@ GLIDESLOPE_TEST(a_wet_runways_grip_is_read_for_the_tyres_pressure_and_the_anti_s
           "code 2's hydroplaning at the tyre's own pressure");
 }
 
+// **A wet runway's side grip is NASA's measurement of it.** TN D-7743
+// (Dreher and Tanner, 1974) table II, transcribed: for each of its five
+// 30 x 11.5-14.5 tyres, on damp concrete, the unyawed tyre's maximum braking
+// coefficient and the unbraked cornering coefficient at 4, 8 and 12 degrees
+// of yaw, at about 5, 50 and 100 knots. The share used at each speed is the
+// mean over the five tyres of the most cornering over the braking, to three
+// places; read linearly between and held beyond. Then the mapping is held
+// to a second report it was not made from: TN D-7351 (Tanner and Dreher,
+// 1973) figure 7, a 40 x 14-16 tyre at 155 psi and 10 degrees of yaw,
+// whose damp fairing reads 0.44 at 5 kt, 0.26 at 50 and 0.20 at 100 -
+// predicted by the share times 25.109(c)(1)'s curve at 155 psi within 0.05;
+// its dry fairing (0.48 to 0.43) is the dry coefficient. The share of dry
+// side grip is above 0 and at most 1 on every code, 1 on a dry runway, and
+// on a wet one falls from 5 to 100 kt for every tyre pressure the
+// catalogue has, at every knot.
+GLIDESLOPE_TEST(a_wet_runways_side_grip_is_nasas_measurement_of_a_wet_tyres_cornering) {
+    using glideslope::sim::cornering_coefficient;
+    using glideslope::sim::side_grip_share;
+    using glideslope::sim::wet_cornering_share;
+    struct Row {
+        char tyre;
+        double kts;                     // the unyawed run's groundspeed
+        double braking;                 // its maximum braking coefficient, damp
+        std::array<double, 3> cornering; // unbraked, at 4, 8 and 12 degrees of yaw
+    };
+    // Table II, the damp ("dry or damp surface") columns, at the three speeds.
+    const std::vector<Row> table{
+        {'A', 5, 0.56, {0.27, 0.31, 0.32}},   {'A', 47, 0.35, {0.19, 0.20, 0.16}},
+        {'A', 98, 0.30, {0.14, 0.10, 0.10}},  {'B', 5, 0.64, {0.25, 0.32, 0.33}},
+        {'B', 56, 0.36, {0.22, 0.18, 0.18}},  {'B', 103, 0.20, {0.21, 0.13, 0.07}},
+        {'C', 5, 0.57, {0.27, 0.34, 0.41}},   {'C', 51, 0.44, {0.21, 0.22, 0.23}},
+        {'C', 106, 0.26, {0.20, 0.16, 0.15}}, {'D', 5, 0.64, {0.26, 0.32, 0.36}},
+        {'D', 53, 0.31, {0.20, 0.20, 0.20}},  {'D', 102, 0.21, {0.18, 0.12, 0.15}},
+        {'E', 5, 0.64, {0.23, 0.27, 0.31}},   {'E', 54, 0.30, {0.18, 0.20, 0.16}},
+        {'E', 97, 0.20, {0.14, 0.10, 0.05}}};
+    std::size_t rows = 0;
+    for (const double nominal : {5.0, 50.0, 100.0}) {
+        double sum = 0.0;
+        int tyres = 0;
+        for (const Row& r : table) {
+            if (std::abs(r.kts - nominal) > 10.0) {
+                continue;
+            }
+            const double most = std::max({r.cornering[0], r.cornering[1], r.cornering[2]});
+            std::printf("  TN D-7743 tyre %c at %3.0f kt: cornering %.2f over braking %.2f, "
+                        "%.3f\n",
+                        r.tyre, r.kts, most, r.braking, most / r.braking);
+            sum += most / r.braking;
+            ++tyres;
+            ++rows;
+        }
+        const double mean = sum / tyres;
+        check(tyres == 5 && std::abs(wet_cornering_share(nominal) - mean) < 0.0005,
+              "the share at " + std::to_string(nominal) + " kt is the five tyres' mean " +
+                  std::to_string(mean) + ", not " + std::to_string(wet_cornering_share(nominal)));
+    }
+    check(rows == table.size() && rows == 15,
+          "every row of the table used: " + std::to_string(rows));
+    check(wet_cornering_share(0.0) == wet_cornering_share(5.0) &&
+              wet_cornering_share(150.0) == wet_cornering_share(100.0) &&
+              std::abs(wet_cornering_share(75.0) - 0.5 * (0.603 + 0.769)) < 1e-12 &&
+              std::abs(wet_cornering_share(27.5) - 0.5 * (0.571 + 0.603)) < 1e-12 &&
+              std::abs(wet_cornering_share(49.999) - 0.603) < 1e-5,
+          "read linearly between and held beyond");
+
+    // TN D-7351 figure 7, read: damp 0.44, 0.26 and 0.20; dry 0.48 to 0.43.
+    const std::vector<std::pair<double, double>> damp{{5.0, 0.44}, {50.0, 0.26}, {100.0, 0.20}};
+    for (const auto& [kts, read] : damp) {
+        const double predicted = cornering_coefficient(glideslope::sim::wet_runway, kts, 155.0);
+        std::printf("  TN D-7351 at %3.0f kt: damp cornering %.2f read, %.3f predicted\n", kts,
+                    read, predicted);
+        check(std::abs(predicted - read) < 0.05,
+              "TN D-7351's damp cornering at " + std::to_string(kts) + " kt, " +
+                  std::to_string(read) + ", predicted as " + std::to_string(predicted));
+    }
+    check(glideslope::sim::dry_cornering_coefficient(5.0) == 0.48 &&
+              glideslope::sim::dry_cornering_coefficient(100.0) == 0.43,
+          "the dry cornering is TN D-7351's dry fairing");
+
+    std::size_t walked = 0;
+    for (const double psi : {29.0, 30.0, 35.0, 45.0, 100.0, 155.0, 200.0, 228.0, 305.0}) {
+        check(side_grip_share(glideslope::sim::dry_runway, 50.0, psi) == 1.0,
+              "a dry runway takes nothing");
+        double last = 1.0;
+        for (int kts = 0; kts <= 160; ++kts) {
+            const double wet = side_grip_share(glideslope::sim::wet_runway, kts, psi);
+            if (kts >= 5 && kts <= 100) {
+                check(wet <= last + 1e-12, std::to_string(psi) +
+                                               " psi grips no more sideways faster, at " +
+                                               std::to_string(kts) + " kt");
+            }
+            last = wet;
+            for (int code = 1; code <= 5; ++code) {
+                const double share = side_grip_share(code, kts, psi);
+                check(share > 0.0 && share <= 1.0,
+                      "code " + std::to_string(code) + "'s share is above 0 and at most 1");
+            }
+            ++walked;
+        }
+    }
+    check(walked == 9u * 161u, "every pressure and knot: " + std::to_string(walked));
+}
+
 namespace {
 
 // A report of `metar` at a station on the equator's meridian, 0, 0.
