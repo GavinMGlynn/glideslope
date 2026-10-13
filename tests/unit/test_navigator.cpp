@@ -2465,13 +2465,17 @@ GLIDESLOPE_TEST(a_waypoint_marked_flyover_is_passed_within_100_m_by_an_aircraft_
 // and strays most. These take in, at her cruise speed, every turn of the
 // angles test they replaced (45, 120 and 150 degrees, cruise only), which
 // would have run past 900 s in linux-debug beside them. **One test for each
-// angle**, 28 turns each, so that none runs long on CI: together, 112 turns,
+// angle and speed**, 14 turns each, so that none runs long on CI: together,
+// 112 turns; split by angle alone, 28 each, the slowest was estimated at
+// 650 s of linux-debug's 900, too near for a slow runner; and before that,
 // in linux-debug the whole ran past 900 s.
 namespace {
 
 const std::vector<double> fly_by_cap_angles = {45.0, 90.0, 120.0, 150.0};
 
-void passes_within_the_fly_by_cap(double angle) {
+enum class Speed { climb, cruise };
+
+void passes_within_the_fly_by_cap(double angle, Speed speed) {
     const std::filesystem::path data =
         std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     const auto space = one_of_each_class();
@@ -2488,7 +2492,7 @@ void passes_within_the_fly_by_cap(double angle) {
         const double climb = std::round(
             std::clamp(glideslope::sim::departure_speeds(data, e.model).climb_kts,
                        speeds.slowest_kts, speeds.fastest_kts));
-        for (const double kts : {climb, cruise_kts(e)}) {
+        for (const double kts : {speed == Speed::climb ? climb : cruise_kts(e)}) {
             const double true_mps = kts * 1852.0 / 3600.0 * 1.08;
             const double r = true_mps * true_mps / (9.80665 * std::tan(15.0 * radians));
             {
@@ -2532,15 +2536,15 @@ void passes_within_the_fly_by_cap(double angle) {
             }
         }
     }
-    const std::size_t cases = space.size() * 2 * 2;
+    const std::size_t cases = space.size() * 2;
     std::fprintf(stderr,
-                 "%zu aircraft x 2 speeds x 2 ways at %.0f degrees = %zu turns: %zu flown, %zu flown "
+                 "%zu aircraft x 2 ways at %.0f degrees = %zu turns: %zu flown, %zu flown "
                  "over; nearest pass at worst %.0f m, %.2f of what it is allowed; stray at worst "
                  "%.2f of its bound\n",
                  space.size(), angle, cases, flown, flown_over, worst_miss_m,
                  worst_over_allowed, worst_stray);
     check(space.size() == glideslope::sim::aircraft_class_count && flown == cases,
-          "one aircraft of each class, both speeds, both ways: " +
+          "one aircraft of each class, both ways: " +
               std::to_string(flown) + " of " + std::to_string(cases));
     check(flown_over == 0, "none flown over: " + std::to_string(flown_over));
     check(failures.empty(), "each passed its waypoint within " + std::to_string(cap_m) +
@@ -2551,30 +2555,48 @@ void passes_within_the_fly_by_cap(double angle) {
 
 } // namespace
 
-GLIDESLOPE_TEST(a_turn_of_45_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
-    passes_within_the_fly_by_cap(45.0);
+GLIDESLOPE_TEST(a_turn_of_45_degrees_at_a_waypoint_at_her_climb_speed_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(45.0, Speed::climb);
 }
 
-GLIDESLOPE_TEST(a_turn_of_90_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
-    passes_within_the_fly_by_cap(90.0);
+GLIDESLOPE_TEST(a_turn_of_45_degrees_at_a_waypoint_at_her_cruise_speed_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(45.0, Speed::cruise);
 }
 
-GLIDESLOPE_TEST(a_turn_of_120_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
-    passes_within_the_fly_by_cap(120.0);
+GLIDESLOPE_TEST(a_turn_of_90_degrees_at_a_waypoint_at_her_climb_speed_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(90.0, Speed::climb);
 }
 
-GLIDESLOPE_TEST(a_turn_of_150_degrees_at_a_waypoint_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
-    passes_within_the_fly_by_cap(150.0);
+GLIDESLOPE_TEST(a_turn_of_90_degrees_at_a_waypoint_at_her_cruise_speed_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(90.0, Speed::cruise);
 }
 
-// **The four fly-by cap tests together turn 112 times**, as the one they were
-// split from did: four angles, each 28 turns - an aircraft of each of the
-// seven classes, at two speeds, both ways.
+GLIDESLOPE_TEST(a_turn_of_120_degrees_at_a_waypoint_at_her_climb_speed_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(120.0, Speed::climb);
+}
+
+GLIDESLOPE_TEST(a_turn_of_120_degrees_at_a_waypoint_at_her_cruise_speed_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(120.0, Speed::cruise);
+}
+
+GLIDESLOPE_TEST(a_turn_of_150_degrees_at_a_waypoint_at_her_climb_speed_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(150.0, Speed::climb);
+}
+
+GLIDESLOPE_TEST(a_turn_of_150_degrees_at_a_waypoint_at_her_cruise_speed_passes_it_within_the_fly_by_cap_in_an_aircraft_of_every_class) {
+    passes_within_the_fly_by_cap(150.0, Speed::cruise);
+}
+
+// **The eight fly-by cap tests together turn 112 times**, as the one they
+// were split from did: four angles at two speeds, each 14 turns - an aircraft
+// of each of the seven classes, both ways.
 GLIDESLOPE_TEST(the_fly_by_cap_tests_together_turn_an_aircraft_of_every_class_112_times_at_four_angles) {
     check(fly_by_cap_angles == std::vector<double>{45.0, 90.0, 120.0, 150.0},
           "the four angles, 45, 90, 120 and 150 degrees");
-    const std::size_t turns = fly_by_cap_angles.size() * one_of_each_class().size() * 2 * 2;
-    check(turns == 112, "four angles x seven classes x two speeds x two ways: " +
+    const std::size_t tests = fly_by_cap_angles.size() * 2; // climb and cruise
+    const std::size_t turns = tests * one_of_each_class().size() * 2;
+    check(tests == 8 && turns == 112,
+          "eight tests of four angles x two speeds, x seven classes x two ways: " +
                             std::to_string(turns));
 }
 
