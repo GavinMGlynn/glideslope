@@ -33,6 +33,19 @@
 
 namespace glideslope::sim {
 
+// **A fly-by turn** (navigator.cpp): how far short of its waypoint it
+// begins, the radius of its arc, and how far past the waypoint the arc meets
+// the next leg, metres. No lead: the waypoint is flown over.
+struct FlyBy {
+    double lead_m = 0.0;
+    double radius_m = 0.0;
+    double meets_m = 0.0;
+};
+
+// The turn the navigator flies at a waypoint turning `turn_deg` either way at
+// `ground_mps` over the ground, from a leg `in_m` long onto one `out_m` long.
+FlyBy fly_by(double ground_mps, double turn_deg, double in_m, double out_m);
+
 class Navigator {
 public:
     // Flying `plan` from where `aircraft` is now.
@@ -101,6 +114,7 @@ private:
     double turn_centre_latitude_deg_ = 0.0;
     double turn_centre_longitude_deg_ = 0.0;
     double turn_radius_m_ = 0.0;
+    double turn_bank_deg_ = 0.0; // the bank its arc needs at her speed then
     double turn_lead_m_ = 0.0;
     // How long since it began, and how far her bank lags the bank asked,
     // once measured (negative until then).

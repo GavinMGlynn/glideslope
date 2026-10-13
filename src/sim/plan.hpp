@@ -13,7 +13,7 @@
 //   start LATITUDE LONGITUDE ALTITUDE_FT HEADING_DEG AIRSPEED_KT   in the air
 //   runway NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M
 //   takeoff HEIGHT_FT                   or on that runway's threshold, to go
-//   waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT
+//   waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT [flyover]
 //   orbit NAME LATITUDE LONGITUDE RADIUS_M ALTITUDE_FT AIRSPEED_KT TURNS left|right
 //   land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M  after the last
 //
@@ -24,6 +24,15 @@
 // `takeoff` together - the runway's threshold, where it faces along it, and
 // the take-off autopilot (sim/departure.hpp) flying it to HEIGHT_FT above the
 // runway before the navigator takes over. Not both.
+//
+// **A waypoint is flown by unless it says `flyover`**: where a leg follows
+// it, the turn onto that leg begins before it and cuts the corner, so that it
+// ends on the next leg, as an FMS flies an ARINC 424 fly-by waypoint
+// (sim/navigator.cpp). A landmark meant to be flown over says `flyover`, and
+// is passed abeam before the turn begins, as before 2026-10-13: a tour's
+// headland or bridge, which a fly-by turn would pass hundreds of metres off.
+// The last waypoint, and one an orbit follows, are flown over whatever they
+// say.
 //
 // **An orbit is a waypoint flown round**: flown to like any other, and from
 // its circle's edge flown round it, turning left or right, TURNS times before
@@ -127,6 +136,9 @@ struct Waypoint {
     double longitude_deg = 0.0;
     double altitude_ft = 0.0;
     double airspeed_kts = 0.0;
+    // Flown over rather than by: passed abeam, and only then turned from
+    // (`flyover` on its line).
+    bool fly_over = false;
     // Flown round, if it is an orbit.
     struct Orbit {
         double radius_m = 0.0;

@@ -976,9 +976,10 @@ GLIDESLOPE_TEST(a_cherokee_asked_for_a_height_it_cannot_hold_gives_up_height_not
 // her cruise speed (each held to the speeds a plan may fly her at), level at
 // 5,000 ft in calm air, asked for 15 and 25 degrees of bank each way - as a
 // navigator's loiter law asks round an orbit or a fly-by turn - holds it
-// within a degree from 40 s on, over the next 20 s. Where a turn at full
-// throttle has spent what it may, the autopilot banks less on purpose
-// (Autopilot::bank_limit_deg), and that bank is the one held to. Before the
+// within a degree from 40 s on, over the next 20 s. **None of them is at a
+// lesser bank limit** (Autopilot::bank_limit_deg, below 25 where a turn at
+// full throttle has spent what it may), which the test asserts: each is held
+// to the bank asked, not to a limit that could hide a bank held short. Before the
 // aileron's integral worked at any bank, it worked only at the bank limit:
 // the Cherokee at 74 kt, asked for 20, held 15.7.
 GLIDESLOPE_TEST(every_aircraft_asked_for_a_steady_bank_of_15_or_25_degrees_holds_it_within_a_degree) {
@@ -1018,7 +1019,7 @@ GLIDESLOPE_TEST(every_aircraft_asked_for_a_steady_bank_of_15_or_25_degrees_holds
                     aircraft.set_controls(autopilot.fly());
                     aircraft.step();
                     if (i >= 40 * steps_per_second) {
-                        const double held = std::min(std::abs(bank), autopilot.bank_limit_deg());
+                        const double held = std::abs(bank);
                         least_limit = std::min(least_limit, autopilot.bank_limit_deg());
                         worst = std::max(worst, std::abs(std::abs(aircraft.property(
                                                              "attitude/phi-deg")) -
@@ -1048,7 +1049,90 @@ GLIDESLOPE_TEST(every_aircraft_asked_for_a_steady_bank_of_15_or_25_degrees_holds
     check(flown == cases && flown > 0,
           "every aircraft at both speeds and all four banks: " + std::to_string(flown) + " of " +
               std::to_string(cases));
+    check(limited == 0, "no case at a lesser bank limit, so each is held to the bank asked: " +
+                            std::to_string(limited) + " were");
     check(failures.empty(), "each holds its bank within a degree:" + failures);
+}
+
+// **No trim a turn found is left on the aileron once the wings come level**:
+// every aircraft at her cruise speed, at 5,000 ft in moderate turbulence,
+// asked for 25 degrees of bank for 60 s - so the aileron's integral finds the
+// trim the turn needs, gusts and all - and then for wings level. From when
+// the bank commanded falls below 5 degrees the trim is gone - under a
+// thousandth of the aileron's travel - within 1.5 s, the 1 s it falls in
+// from its most and half that again. Near the ground, after a turn onto
+// final, a trim left on is a wing going down.
+GLIDESLOPE_TEST(the_ailerons_trim_from_a_turn_in_gusts_is_gone_within_half_a_second_of_the_wings_coming_level) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    std::string failures;
+    std::size_t flown = 0;
+    std::size_t trimmed = 0;
+    for (const CatalogueEntry& e : catalogue) {
+        Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.heading_deg = 0.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Conditions gusts;
+        gusts.turbulence_severity = 3; // moderate
+        aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(gusts));
+        glideslope::sim::Controls controls;
+        controls.throttle = e.start_throttle;
+        Autopilot autopilot(aircraft, controls);
+        AutopilotModes modes = autopilot.modes();
+        modes.heading_deg.reset();
+        modes.bank_deg = 8.0;
+        modes.altitude_ft = 5000.0;
+        modes.airspeed_kts = e.start_airspeed_kts;
+        autopilot.set(modes);
+        double most_trim = 0.0;
+        for (int i = 0; i < 60 * steps_per_second; ++i) {
+            aircraft.set_controls(autopilot.fly());
+            aircraft.step();
+            most_trim = std::max(most_trim, std::abs(autopilot.aileron_trim()));
+        }
+        modes.bank_deg.reset(); // wings level
+        autopilot.set(modes);
+        int level_at = -1;
+        int gone_at = -1;
+        for (int i = 0; i < 30 * steps_per_second && gone_at < 0; ++i) {
+            aircraft.set_controls(autopilot.fly());
+            aircraft.step();
+            if (level_at < 0 && std::abs(autopilot.bank_commanded_deg()) < 5.0) {
+                level_at = i;
+            }
+            if (level_at >= 0 && std::abs(autopilot.aileron_trim()) < 0.001) {
+                gone_at = i;
+            }
+        }
+        if (most_trim >= 0.001) {
+            ++trimmed;
+        }
+        const double took_s =
+            gone_at < 0 ? 1e9 : static_cast<double>(gone_at - level_at) / steps_per_second;
+        char line[200];
+        std::snprintf(line, sizeof line,
+                      "%s: trim up to %.4f in the turn, gone %.2f s after the bank commanded "
+                      "fell below 5 degrees",
+                      e.id.c_str(), most_trim, took_s);
+        std::printf("%s\n", line);
+        if (level_at < 0 || !(took_s <= 0.5)) {
+            failures += std::string("\n  ") + line;
+        }
+        ++flown;
+    }
+    std::printf("%zu aircraft: %zu flown, %zu with a trim found in the turn\n", catalogue.size(),
+                flown, trimmed);
+    check(flown == catalogue.size() && flown > 0,
+          "every aircraft flown: " + std::to_string(flown));
+    check(trimmed > 0, "a trim was found in some turn, so its going is tested: " +
+                           std::to_string(trimmed));
+    check(failures.empty(), "each trim gone within 0.5 s:" + failures);
 }
 
 GLIDESLOPE_TEST(every_aircraft_turns_ninety_degrees_without_overbanking_or_overshooting) {

@@ -59,10 +59,11 @@ constexpr double g_fps2 = 32.174;
 constexpr double bank_integral_per_degree = 0.1;
 constexpr double bank_integral_within_deg = 10.0;
 constexpr double most_bank_integral_deg = 5.0;
-// Bank to aileron, and the roll rate's damping; an aileron offset at engaging,
-// fading over two seconds.
+// Bank to aileron, and the roll rate's damping.
 constexpr double aileron_per_degree = 0.04;
 constexpr double aileron_per_degps = 0.02;
+// An aileron offset at engaging, fading over two seconds.
+constexpr double offset_fade_s = 2.0;
 // The aileron the bank needs held, found by an integral: a tenth of the
 // proportional gain a second, so it settles over about ten seconds, well
 // slower than the roll; never more than a quarter of the travel.
@@ -71,7 +72,9 @@ constexpr double most_aileron_trim = 0.25;
 // The bank asked counts as steady, for that integral, unless it falls
 // towards level faster than this, degrees a second (below).
 constexpr double steady_bank_degps = 0.5;
-constexpr double offset_fade_s = 2.0;
+// Wings level asked, the integral is gone within this, seconds, from its
+// most (below).
+constexpr double aileron_trim_level_s = 1.0;
 // The ball to rudder.
 constexpr double rudder_per_degree = 0.1;
 // **The sideslip's integral** holds the rudder a steady sideslip needs, at
@@ -768,16 +771,23 @@ Controls Autopilot::fly() {
     // **And only while the bank asked is not falling towards level**, faster
     // than steady_bank_degps: rolling out onto a heading, the bank asked falls
     // away by several degrees a second, the bank lags it, and an integral
-    // wound up on that lag turned the Mosquito 4.29 degrees past her heading
-    // (3.94 held to a bank moving under 1 degree a second either way; 3.78
-    // under this) against the 3.45 she turned with it at the bank limit alone.
-    // Held to a bank moving either way under this, the loiter law's arc,
-    // whose bank asked moves as it corrects, lost the integral: the Cherokee
-    // strayed 0.092 of her radius off a fly-by turn, against 0.066.
-    // Wings level it is off: there, left on, it chased turbulence (a climb in
-    // moderate turbulence settled in 38 s against 30) and a stall's wing
-    // drop (a flying boat not recovered from its stall). Otherwise it fades
-    // out at the rate it was found.
+    // wound up on that lag turned the Mosquito 4.29 degrees past her heading,
+    // against the 3.45 she turned with it at the bank limit alone and the 4
+    // the test allows. Swept (2026-10-13), the gate at 0.25, 0.5 and 1 degree
+    // a second turned her 3.70, 3.78 and 3.95 past, and strayed the Cherokee
+    // 0.066, 0.063 and 0.063 of her radius off a fly-by turn: 0.5 is the
+    // middle, clear of both bounds, and is what the orbit, lesson and landing
+    // tests were run against. Held to a bank moving either way under it, not
+    // only falling, the loiter law's arc, whose bank asked moves as it
+    // corrects, lost the integral, and the Cherokee strayed 0.092.
+    // **Wings level it is gone at once**: below banked_deg asked, or in an
+    // upset, it falls to nothing within aileron_trim_level_s, so no trim a
+    // turn found is left on the aileron as the wings come level - near the
+    // ground, after a turn onto final, a held trim is a wing going down.
+    // Left on wings level, it chased turbulence (a climb in moderate
+    // turbulence settled in 38 s against 30) and a stall's wing drop (a
+    // flying boat not recovered from its stall). Banked but not found -
+    // rolling, or the bank falling - it fades out at the rate it was found.
     const double bank_error_deg = bank_command_deg_ - phi;
     const bool at_stop =
         std::abs(last_.aileron) >= 0.999 && bank_error_deg * last_.aileron > 0.0;
@@ -788,6 +798,8 @@ Controls Autopilot::fly() {
         aileron_trim_ = std::clamp(
             aileron_trim_ + aileron_trim_per_degree * (bank_command_deg_ - phi) * dt,
             -most_aileron_trim, most_aileron_trim);
+    } else if (upset || std::abs(bank_command_deg_) < banked_deg) {
+        aileron_trim_ = toward(aileron_trim_, 0.0, most_aileron_trim / aileron_trim_level_s * dt);
     } else {
         aileron_trim_ = toward(aileron_trim_, 0.0, most_aileron_trim / 10.0 * dt);
     }

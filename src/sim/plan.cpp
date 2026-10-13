@@ -96,8 +96,8 @@ FlightPlan parse_flight_plan(std::string_view text) {
             s.airspeed_kts = number(w[5], line_number, "the airspeed", 1.0, 1000.0);
             plan.start = s;
         } else if (w[0] == "waypoint") {
-            if (w.size() != 6) {
-                throw wrong("waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT");
+            if ((w.size() != 6 && w.size() != 7) || (w.size() == 7 && w[6] != "flyover")) {
+                throw wrong("waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT [flyover]");
             }
             Waypoint p;
             p.name = w[1];
@@ -106,6 +106,7 @@ FlightPlan parse_flight_plan(std::string_view text) {
             p.altitude_ft =
                 number(w[4], line_number, "the altitude", -1500.0, 100000.0);
             p.airspeed_kts = number(w[5], line_number, "the airspeed", 1.0, 1000.0);
+            p.fly_over = w.size() == 7;
             plan.waypoints.push_back(p);
         } else if (w[0] == "orbit") {
             if (w.size() != 9 || (w[8] != "left" && w[8] != "right")) {

@@ -162,6 +162,16 @@ GLIDESLOPE_TEST(a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wron
           "a command it does not know, by its line");
     check(refused("aircraft c172p\nwaypoint A -33 151 3000\n", "line 2: waypoint NAME"),
           "a waypoint missing its airspeed");
+    check(refused("aircraft c172p\nwaypoint A -33 151 3000 100 over\n",
+                  "line 2: waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT [flyover]"),
+          "a waypoint whose seventh word is not flyover");
+    {
+        const FlightPlan marked = parse_flight_plan(
+            "aircraft c172p\nwaypoint A -33 151 3000 100 flyover\nwaypoint B -33.1 151 3000 100\n");
+        check(marked.waypoints.size() == 2 && marked.waypoints[0].fly_over &&
+                  !marked.waypoints[1].fly_over,
+              "a waypoint marked flyover is flown over, and one not marked is flown by");
+    }
     check(refused("aircraft c172p\n# a comment\nwaypoint A -95 151 3000 100\n",
                   "line 3: the latitude must be a number"),
           "a latitude off the Earth");
@@ -239,36 +249,33 @@ GLIDESLOPE_TEST(
               "every waypoint is passed, in order" + air);
         // Stated from what was measured (PROJECT_STATUS.md): each waypoint passed
         // within 100 m, at its altitude within 50 ft - **and a waypoint flown
-        // by within 100 m of where its fly-by arc passes it**: the arc tangent
-        // to both legs at the navigator's bank, radius r at her speed over the
-        // ground as she passed it, passes r (1 / cos(A / 2) - 1) from it for a
-        // turn of A up to 120 degrees, and further turns are flown over
-        // (sim/navigator.cpp). In calm air THE_HEADS, a sharp turn left, was
-        // passed 771 m off against its arc's 769; BRIDGE 15.7 against 14.8;
-        // OLYMPIC, turned more than 120 degrees, 0.4.
+        // by within 100 m of where its fly-by arc passes it**: the arc the
+        // navigator flies (sim::fly_by), at her speed over the ground as she
+        // passed it, whose centre is sqrt(meets^2 + r^2) from the waypoint.
+        // THE_HEADS and BRIDGE are landmarks the plan flies over; OLYMPIC,
+        // turned more than 120 degrees, is flown by on a tighter arc.
         for (std::size_t i = 0; i < plan.waypoints.size(); ++i) {
             double arc_passes_m = 0.0;
-            if (i + 1 < plan.waypoints.size()) {
-                const auto& w = plan.waypoints;
+            const auto& w = plan.waypoints;
+            if (i + 1 < w.size() && !w[i].fly_over) {
+                const double from_lat = i == 0 ? plan.start->latitude_deg : w[i - 1].latitude_deg;
+                const double from_lon =
+                    i == 0 ? plan.start->longitude_deg : w[i - 1].longitude_deg;
                 const double a_deg = std::remainder(
                     glideslope::sim::bearing_deg(w[i].latitude_deg, w[i].longitude_deg,
                                                  w[i + 1].latitude_deg, w[i + 1].longitude_deg) -
-                        (i == 0 ? glideslope::sim::bearing_deg(
-                                      plan.start->latitude_deg, plan.start->longitude_deg,
-                                      w[0].latitude_deg, w[0].longitude_deg)
-                                : glideslope::sim::bearing_deg(w[i].latitude_deg,
-                                                               w[i].longitude_deg,
-                                                               w[i - 1].latitude_deg,
-                                                               w[i - 1].longitude_deg) +
-                                      180.0),
+                        glideslope::sim::bearing_deg(w[i].latitude_deg, w[i].longitude_deg,
+                                                     from_lat, from_lon) -
+                        180.0,
                     360.0);
-                const double r = ground_mps_there[i] * ground_mps_there[i] /
-                                 (9.80665 * std::tan(glideslope::sim::fly_by_bank_deg *
-                                                     std::numbers::pi / 180.0));
-                // Past 120 degrees, flown over.
-                if (std::abs(a_deg) <= 120.0) {
-                    arc_passes_m =
-                        r * (1.0 / std::cos(0.5 * a_deg * std::numbers::pi / 180.0) - 1.0);
+                const glideslope::sim::FlyBy turn = glideslope::sim::fly_by(
+                    ground_mps_there[i], a_deg,
+                    glideslope::sim::distance_m(from_lat, from_lon, w[i].latitude_deg,
+                                                w[i].longitude_deg),
+                    glideslope::sim::distance_m(w[i].latitude_deg, w[i].longitude_deg,
+                                                w[i + 1].latitude_deg, w[i + 1].longitude_deg));
+                if (turn.lead_m > 0.0) {
+                    arc_passes_m = std::hypot(turn.meets_m, turn.radius_m) - turn.radius_m;
                 }
             }
             std::fprintf(stderr,
@@ -2248,6 +2255,354 @@ GLIDESLOPE_TEST(every_fighter_and_bomber_turning_90_degrees_at_a_waypoint_at_her
 
 GLIDESLOPE_TEST(every_warbird_and_seaplane_turning_90_degrees_at_a_waypoint_at_her_climb_and_cruise_speeds_strays_off_the_next_leg_less_than_a_tenth_of_her_turn_radius) {
     turns_onto_the_next_leg(tightest_orbit_groups[3]);
+}
+
+namespace {
+
+// **One aircraft of each class**, the first the catalogue holds of it: the
+// turns below are flown by these, and every class has one.
+std::vector<glideslope::sim::CatalogueEntry> one_of_each_class() {
+    std::vector<glideslope::sim::CatalogueEntry> out;
+    for (const auto& e : glideslope::sim::read_catalogue(
+             std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path())) {
+        if (std::none_of(out.begin(), out.end(), [&](const auto& o) {
+                return o.aircraft_class == e.aircraft_class;
+            })) {
+            out.push_back(e);
+        }
+    }
+    return out;
+}
+
+// Her cruise speed - her catalogue start speed - held to what a plan may fly
+// her at.
+double cruise_kts(const glideslope::sim::CatalogueEntry& e) {
+    const glideslope::sim::PlanSpeeds speeds = glideslope::sim::plan_speeds(
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path(), e.model);
+    return std::round(std::clamp(e.start_airspeed_kts, speeds.slowest_kts, speeds.fastest_kts));
+}
+
+struct TurnFlown {
+    bool finished = false;
+    bool one_waypoint_a_step = true; // never two passed on one step
+    // The most any waypoint with a leg after it was passed short of itself,
+    // along the leg to it, as a share of half the shorter leg it joins.
+    double most_lead_share = 0.0;
+    double radius_m = 0.0;           // her turn's at 25 degrees, true airspeed
+    double past_m = 0.0;             // the farthest past the turn's next leg
+    double after_m = 0.0;            // the farthest off it from where its arc meets it
+    std::vector<double> closest_m;   // each waypoint's nearest
+    std::vector<double> arc_passes_m; // and where its arc passes it
+};
+
+// **A plan of legs flown level at 5,000 ft**, from north-bound at `kts`,
+// each leg `legs_m[k]` long on the bearing `bearings_deg[k]`, the waypoints
+// at their ends, the first `fly_over` if asked; in a wind from the west of
+// `wind_kts`. The stray is measured off the leg after the first waypoint.
+TurnFlown fly_legs(const glideslope::sim::CatalogueEntry& e, double kts,
+                   const std::vector<double>& bearings_deg, const std::vector<double>& legs_m,
+                   double wind_kts = 0.0, bool fly_over = false) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    constexpr double radians = std::numbers::pi / 180.0;
+    constexpr double earth_m = 6371000.0;
+    std::vector<std::pair<double, double>> at{{-34.0, 151.0}};
+    for (std::size_t k = 0; k < legs_m.size(); ++k) {
+        const auto [lat, lon] = at.back();
+        at.emplace_back(lat + legs_m[k] * std::cos(bearings_deg[k] * radians) / (earth_m * radians),
+                        lon + legs_m[k] * std::sin(bearings_deg[k] * radians) /
+                                  (earth_m * radians * std::cos(lat * radians)));
+    }
+    std::string text = "aircraft " + e.id + "\n";
+    char line[200];
+    std::snprintf(line, sizeof line, "start %.7f %.7f 5000 %.1f %.0f\n", at[0].first,
+                  at[0].second, bearings_deg[0], kts);
+    text += line;
+    for (std::size_t k = 1; k < at.size(); ++k) {
+        std::snprintf(line, sizeof line, "waypoint W%zu %.7f %.7f 5000 %.0f%s\n", k, at[k].first,
+                      at[k].second, kts, k == 1 && fly_over ? " flyover" : "");
+        text += line;
+    }
+    const FlightPlan plan = parse_flight_plan(text);
+    glideslope::sim::Aircraft aircraft(data / "jsbsim", e.model);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = at[0].first;
+    ic.longitude_deg = at[0].second;
+    ic.altitude_ft = 5000.0;
+    ic.heading_deg = bearings_deg[0];
+    ic.airspeed_kts = kts;
+    ic.engine_running = true;
+    ic.gear = 0.0;
+    aircraft.initialize(ic);
+    if (wind_kts > 0.0) {
+        glideslope::sim::Conditions wind;
+        wind.wind_east_mps = wind_kts * 1852.0 / 3600.0;
+        aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
+    }
+    glideslope::sim::Controls controls;
+    controls.throttle = e.start_throttle;
+    glideslope::sim::Autopilot autopilot(aircraft, controls);
+    glideslope::sim::Navigator navigator(aircraft, plan);
+    TurnFlown f;
+    f.closest_m.assign(plan.waypoints.size(), std::numeric_limits<double>::infinity());
+    f.arc_passes_m.assign(plan.waypoints.size(), 0.0);
+    const double turn_deg =
+        legs_m.size() > 1 ? std::remainder(bearings_deg[1] - bearings_deg[0], 360.0) : 0.0;
+    const double way = turn_deg >= 0.0 ? 1.0 : -1.0;
+    double meets_m = 0.0;
+    int steps = 0;
+    const int most_steps = 30 * 60 * steps_per_second;
+    while (!navigator.finished() && steps < most_steps) {
+        const std::size_t was = navigator.next();
+        autopilot.set(navigator.steer());
+        aircraft.set_controls(autopilot.fly());
+        aircraft.step();
+        ++steps;
+        const double lat = aircraft.property("position/lat-geod-deg");
+        const double lon = aircraft.property("position/long-gc-deg");
+        f.one_waypoint_a_step = f.one_waypoint_a_step && navigator.next() <= was + 1;
+        if (navigator.next() != was && was + 1 < plan.waypoints.size()) {
+            // Where the arc it turns on passes the waypoint, at her speed
+            // over the ground now.
+            const double ground_mps = std::hypot(aircraft.property("velocities/v-north-fps"),
+                                                 aircraft.property("velocities/v-east-fps")) *
+                                      0.3048;
+            const glideslope::sim::FlyBy turn = glideslope::sim::fly_by(
+                ground_mps, std::remainder(bearings_deg[was + 1] - bearings_deg[was], 360.0),
+                legs_m[was], legs_m[was + 1]);
+            const double short_m = glideslope::sim::distance_m(
+                                       lat, lon, plan.waypoints[was].latitude_deg,
+                                       plan.waypoints[was].longitude_deg) *
+                                   std::cos((glideslope::sim::bearing_deg(
+                                                 lat, lon, plan.waypoints[was].latitude_deg,
+                                                 plan.waypoints[was].longitude_deg) -
+                                             bearings_deg[was]) *
+                                            radians);
+            f.most_lead_share = std::max(
+                f.most_lead_share, short_m / (0.5 * std::min(legs_m[was], legs_m[was + 1])));
+            if (turn.lead_m > 0.0 && !plan.waypoints[was].fly_over) {
+                f.arc_passes_m[was] = std::hypot(turn.meets_m, turn.radius_m) - turn.radius_m;
+            }
+            if (was == 0) {
+                const double true_mps = aircraft.property("velocities/vt-fps") * 0.3048;
+                f.radius_m = true_mps * true_mps /
+                             (9.80665 * std::tan(glideslope::sim::most_bank_deg * radians));
+                meets_m = plan.waypoints[0].fly_over || turn.lead_m <= 0.0 ? f.radius_m
+                                                                          : turn.meets_m;
+            }
+        }
+        for (std::size_t k = 0; k < plan.waypoints.size(); ++k) {
+            f.closest_m[k] = std::min(f.closest_m[k],
+                                      glideslope::sim::distance_m(lat, lon,
+                                                                  plan.waypoints[k].latitude_deg,
+                                                                  plan.waypoints[k].longitude_deg));
+        }
+        if (navigator.next() != 1 || legs_m.size() < 2) {
+            continue;
+        }
+        // Off the leg after the first waypoint: right of it positive.
+        const double from = glideslope::sim::distance_m(at[1].first, at[1].second, lat, lon) / earth_m;
+        const double angle = (glideslope::sim::bearing_deg(at[1].first, at[1].second, lat, lon) -
+                              glideslope::sim::bearing_deg(at[1].first, at[1].second,
+                                                           at[2].first, at[2].second)) *
+                             radians;
+        const double across = std::asin(std::sin(from) * std::sin(angle));
+        const double along = std::copysign(
+            std::acos(std::clamp(std::cos(from) / std::cos(across), -1.0, 1.0)), std::cos(angle));
+        // Past it is on the side away from the turn's: left of it, turning right.
+        f.past_m = std::max(f.past_m, -way * across * earth_m);
+        if (along * earth_m >= meets_m) {
+            f.after_m = std::max(f.after_m, std::abs(across) * earth_m);
+        }
+    }
+    f.finished = navigator.finished();
+    return f;
+}
+
+} // namespace
+
+// **A waypoint marked `flyover` is flown over**: one aircraft of each class,
+// at her cruise speed, north along 8 km to a waypoint marked flyover and then
+// turned 90 degrees right, passes it within 100 m - as she passes an ordinary
+// waypoint with no leg after it. Flown by, the same turn passes it 0.4 of her
+// turn's radius off (sim::fly_by), hundreds of metres to kilometres.
+GLIDESLOPE_TEST(a_waypoint_marked_flyover_is_passed_within_100_m_by_an_aircraft_of_every_class) {
+    const auto space = one_of_each_class();
+    std::size_t flown = 0;
+    std::string failures;
+    for (const auto& e : space) {
+        const double kts = cruise_kts(e);
+        const TurnFlown f = fly_legs(e, kts, {0.0, 90.0}, {8000.0, 8000.0}, 0.0, true);
+        char line[200];
+        std::snprintf(line, sizeof line, "%s at %.0f kt: passed W1, flown over, %.1f m off", e.id.c_str(),
+                      kts, f.closest_m[0]);
+        std::fprintf(stderr, "%s\n", line);
+        if (!f.finished || f.closest_m[0] > 100.0) {
+            failures += std::string("\n  ") + line;
+        }
+        ++flown;
+    }
+    check(space.size() == glideslope::sim::aircraft_class_count && flown == space.size(),
+          "one aircraft of each of the " + std::to_string(glideslope::sim::aircraft_class_count) +
+              " classes flown: " + std::to_string(flown));
+    check(failures.empty(), "each flew over its waypoint within 100 m:" + failures);
+}
+
+// **Every turn is flown by, whatever its angle**: one aircraft of each class
+// at her cruise speed, 45, 120 and 150 degrees, left and right, from 4 turn
+// radii of leg onto 6. Past 120 degrees the arc tightens to keep the lead the
+// 120-degree turn has, down to the radius at 25 degrees (sim::fly_by), so
+// 150 is flown at the autopilot's most bank, with none to spare, and strays
+// most. Each strays off the next leg, past it or from where its arc meets it,
+// less than its bound in her turn radius at 25 degrees: a tenth to 120
+// degrees, 0.15 at 150. Measured (2026-10-13): to 120 at most 0.015 (the
+// Mosquito turning -120); at 150 the F-15C 0.121 right and 0.103 left, the
+// 172P 0.064, every other under 0.09.
+GLIDESLOPE_TEST(a_turn_of_45_120_or_150_degrees_either_way_at_a_waypoint_strays_within_its_bound_in_an_aircraft_of_every_class) {
+    const auto space = one_of_each_class();
+    constexpr double radians = std::numbers::pi / 180.0;
+    std::size_t flown = 0;
+    std::string failures;
+    for (const auto& e : space) {
+        const double kts = cruise_kts(e);
+        const double true_mps = kts * 1852.0 / 3600.0 * 1.08;
+        const double r = true_mps * true_mps / (9.80665 * std::tan(15.0 * radians));
+        for (const double angle : {45.0, 120.0, 150.0}) {
+            for (const double way : {1.0, -1.0}) {
+                const TurnFlown f =
+                    fly_legs(e, kts, {0.0, way * angle}, {4.0 * r + 3000.0, 6.0 * r + 3000.0});
+                const double stray = std::max(f.past_m, f.after_m) / f.radius_m;
+                const double bound = angle > 140.0 ? 0.15 : 0.1;
+                char line[200];
+                std::snprintf(line, sizeof line,
+                              "%s at %.0f kt turning %+.0f: %.0f m past, %.0f m off after, %.3f "
+                              "of her %.0f m radius (at most %.2f)",
+                              e.id.c_str(), kts, way * angle, f.past_m, f.after_m, stray,
+                              f.radius_m, bound);
+                std::fprintf(stderr, "%s\n", line);
+                if (!f.finished || !(stray < bound)) {
+                    failures += std::string("\n  ") + line;
+                }
+                ++flown;
+            }
+        }
+    }
+    const std::size_t cases = space.size() * 3 * 2;
+    check(space.size() == glideslope::sim::aircraft_class_count && flown == cases,
+          "one aircraft of each class, three angles, both ways: " + std::to_string(flown) +
+              " of " + std::to_string(cases));
+    check(failures.empty(), "each within its bound:" + failures);
+}
+
+// **In a 20 kt wind across the first leg**: from the west, the leg north, and
+// turned 90 degrees right - onto a tailwind, her speed over the ground and so
+// her arc's radius growing through the turn - and left, onto a headwind. A
+// light aeroplane, an airliner and a fighter (the first of each class), at
+// her cruise speed: each strays less than a tenth of her radius at 25
+// degrees, as in calm air. Measured (2026-10-13): at most the 172P's 0.044,
+// turning onto the tailwind.
+GLIDESLOPE_TEST(a_turn_at_a_waypoint_in_a_20_kt_crosswind_strays_within_its_bound) {
+    const auto all = one_of_each_class();
+    std::vector<glideslope::sim::CatalogueEntry> space;
+    for (const auto& e : all) {
+        if (e.aircraft_class == glideslope::sim::AircraftClass::light_aircraft ||
+            e.aircraft_class == glideslope::sim::AircraftClass::airliner ||
+            e.aircraft_class == glideslope::sim::AircraftClass::fighter) {
+            space.push_back(e);
+        }
+    }
+    constexpr double radians = std::numbers::pi / 180.0;
+    std::size_t flown = 0;
+    std::string failures;
+    for (const auto& e : space) {
+        const double kts = cruise_kts(e);
+        const double true_mps = kts * 1852.0 / 3600.0 * 1.08;
+        const double r = true_mps * true_mps / (9.80665 * std::tan(15.0 * radians));
+        for (const double way : {1.0, -1.0}) {
+            const TurnFlown f =
+                fly_legs(e, kts, {0.0, way * 90.0}, {4.0 * r + 3000.0, 6.0 * r + 3000.0}, 20.0);
+            const double stray = std::max(f.past_m, f.after_m) / f.radius_m;
+            char line[200];
+            std::snprintf(line, sizeof line,
+                          "%s at %.0f kt turning %+.0f in a 20 kt wind from the west: %.0f m "
+                          "past, %.0f m off after, %.3f of her %.0f m radius",
+                          e.id.c_str(), kts, way * 90.0, f.past_m, f.after_m, stray, f.radius_m);
+            std::fprintf(stderr, "%s\n", line);
+            if (!f.finished || !(stray < 0.1)) {
+                failures += std::string("\n  ") + line;
+            }
+            ++flown;
+        }
+    }
+    check(space.size() == 3 && flown == 6,
+          "a light aeroplane, an airliner and a fighter, both ways: " + std::to_string(flown));
+    check(failures.empty(), "each within its bound:" + failures);
+}
+
+// **Short legs do not run waypoints together**: one aircraft of each class at
+// her cruise speed, zigzagging 90 degrees right and left over four legs each
+// 1.6 turn radii at 15 degrees and 7 s long - shorter than twice the lead a
+// full arc would want - so each lead is held to half a leg and its arc
+// tightened to fit (sim::fly_by). Each waypoint is passed on a step of its
+// own, in order, and within 100 m of where its tightened arc passes it.
+// Measured (2026-10-13): within 15 m, every one.
+GLIDESLOPE_TEST(a_plan_of_legs_shorter_than_their_turns_passes_each_waypoint_in_turn_near_its_arc) {
+    const auto space = one_of_each_class();
+    constexpr double radians = std::numbers::pi / 180.0;
+    std::size_t flown = 0;
+    std::string failures;
+    for (const auto& e : space) {
+        const double kts = cruise_kts(e);
+        const double true_mps = kts * 1852.0 / 3600.0 * 1.08;
+        const double r = true_mps * true_mps / (9.80665 * std::tan(15.0 * radians));
+        // Each lead held to half a leg, its arc 0.8 of her radius at 15
+        // degrees: under 19 degrees of bank, which she can fly.
+        const double short_m = 1.6 * r + 2.0 * true_mps * 3.5;
+        const TurnFlown f = fly_legs(e, kts, {0.0, 90.0, 0.0, 90.0, 0.0, 90.0},
+                                     {4.0 * r, short_m, short_m, short_m, short_m, 4.0 * r});
+        std::string worst;
+        bool near = true;
+        for (std::size_t k = 0; k + 1 < f.closest_m.size(); ++k) {
+            near = near && std::abs(f.closest_m[k] - f.arc_passes_m[k]) <= 100.0;
+            char part[80];
+            std::snprintf(part, sizeof part, " W%zu %.0f (arc %.0f)", k + 1, f.closest_m[k],
+                          f.arc_passes_m[k]);
+            worst += part;
+        }
+        const std::string line =
+            e.id + " over legs of " + std::to_string(static_cast<int>(short_m)) + " m: passed" +
+            worst + (f.one_waypoint_a_step ? ", each on its own step" : ", two on one step");
+        std::fprintf(stderr, "%s\n", line.c_str());
+        if (!f.finished || !f.one_waypoint_a_step || !near) {
+            failures += "\n  " + line;
+        }
+        // **And legs far shorter than a turn** - 0.4 of the radius at 15
+        // degrees, which no arc she can fly fits: each waypoint is passed no
+        // further short of itself than half the shorter leg it joins, so no
+        // lead begins before the waypoint before it is reached. Not held to
+        // the arcs, which want more than 25 degrees of bank, nor to a step of
+        // its own each: overshooting a leg shorter than her tightest turn,
+        // she comes abeam of the next waypoint too.
+        const double shortest_m = 0.4 * r;
+        const TurnFlown g = fly_legs(e, kts, {0.0, 90.0, 0.0, 90.0, 0.0, 90.0},
+                                     {4.0 * r, shortest_m, shortest_m, shortest_m, shortest_m,
+                                      4.0 * r});
+        char shortest[200];
+        std::snprintf(shortest, sizeof shortest,
+                      "%s over legs of %.0f m: passed at most %.2f of half a leg short",
+                      e.id.c_str(), shortest_m, g.most_lead_share);
+        std::fprintf(stderr, "%s\n", shortest);
+        if (!g.finished || !(g.most_lead_share <= 1.01)) {
+            failures += std::string("\n  ") + shortest;
+        }
+        flown += 2;
+    }
+    check(space.size() == glideslope::sim::aircraft_class_count && flown == 2 * space.size(),
+          "one aircraft of each class, over both lengths of leg: " + std::to_string(flown));
+    check(failures.empty(),
+          "each passed every waypoint on a step of its own and within 100 m of its arc, and "
+          "over the shortest legs no more than half a leg short of it:" +
+              failures);
 }
 
 GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane) {
