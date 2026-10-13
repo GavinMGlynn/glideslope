@@ -370,7 +370,7 @@ out).**
 
 **Verification.** Every test matching
 "take|rotat|lift|hand|depart|climb_away|strike|lesson|fault", with the
-server and client built: 181 tests, 172 pass and nine are skipped for want of a language model's key, none red.. The selftest hash does not move:
+server and client built: 181 tests, 172 pass and nine are skipped for want of a language model's key, none red. The selftest hash does not move:
 182dd6c996e0ee4c.
 
 ### A plan's first leg strays further at the published climb speed because a turn's size goes with the square of the speed, 2026-10-13 — item done
