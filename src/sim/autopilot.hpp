@@ -17,7 +17,8 @@
 //   altitude -> vertical speed, at most the climb rate asked for -> pitch,
 //     with an integral -> elevator, damped by the pitch rate, with an
 //     integral that finds the trim;
-//   airspeed -> throttle, with an integral;
+//   airspeed -> throttle, with an integral, less the speed a climb in
+//     excess of the one asked is trading for height;
 //   and, where the aircraft has a mixture lever, the mixture leaned for best
 //     power by the engine's answer (sim/leaner.hpp);
 //

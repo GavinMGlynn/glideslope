@@ -265,6 +265,64 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### Every airliner holds a low height at her take-off flap within a minute: the throttle no longer chases the speed her climb trades, 2026-10-13 — item done
+
+**The cause.** Taken off at her take-off flap with her gear down and, from
+the 35 ft screen, asked by the autopilot to hold 200 ft and the speed she
+had, the A380 swung 15.6 ft either side of it at up to 488 ft/min for the
+whole four minutes she was flown, a ten-second period. The trace: as she
+climbed she slowed, by g times the climb over her speed, and the airspeed
+loop opened the throttle for those knots - which climbed her further, and
+the reverse on the way down: the phugoid's exchange of height for speed fed
+back through the engines. Her thrust is a large part of her climb at 134 kt,
+and her engines spool slowly, so the throttle's answer came late enough to
+pump it. With the throttle frozen she settled in 43 s; with the pitch
+command held within 2 to 5 degrees of her nose (her pitch lagging it was the
+other candidate) she still swung at 267 to 384 ft/min. The other four
+airliners settled in 12 to 36 s.
+
+**The fix** (`climb_as_speed_s`, sim/autopilot.cpp): the speed the throttle's
+proportional term answers is less the climb's excess over the one asked,
+as the knots that excess trades in 2 s (g x excess / true airspeed x 2 s) -
+Lambregts' total energy rule (AIAA 83-2239), the throttle for the energy's
+rate, applied to the proportional term alone; the integral still finds the
+speed asked. In a steady climb or level, flown as asked, it is nothing. One
+constant for every aeroplane, from each one's own climb and speed, not a
+gain per aeroplane: at 1 s the A380 settles in 62 s, at 2 s in 31, at 4 s in
+17, and the other airliners stay within a second of where they were. **Not
+for a light aeroplane flying clean**, where the speed floor is already the
+energy rule for that trade: with both, a Cherokee handed over near her
+ceiling at her best-climb speed came back to her height in 109 s, past the
+test's 90 (85 before); without it there, 85 again.
+
+**A pinned figure moved, and was restated**: the F-22A held at 130 kt on the
+autopilot with her gear down, 10 kt under her slowest, used to slow into a
+departure (sideslip 10.4 as she left her tables); the throttle now opens as
+she sinks behind her power curve, and she holds her heading and 130.0 kt,
+giving up 240 ft. `the_f22a_held_at_130_kt_on_the_autopilot_departs` is now
+`the_f22a_held_at_130_kt_on_the_autopilot_with_her_gear_down_holds_her_heading_and_speed_and_gives_up_height`,
+pinning that (held, at least 129 kt, 100 to 400 ft). The figure has flipped
+before with small changes to the throttle (2026-10-10's speed-trend lead);
+she is on an edge there.
+
+**Verification**:
+`every_airliner_at_her_take_off_flap_and_gear_holds_a_low_height_settled_inside_a_minute`
+(tests/unit/test_lesson.cpp): every airliner in the roster, by its class -
+five, coverage asserted - taken off at her take-off flap and gear down and
+asked at 35 ft to hold 200 ft, settles under 100 ft/min inside 60 s and
+stays so for four minutes; flap and gear asserted where the take-off had
+them. Settled at: 737-300 25.1 s, 747-400 11.9, 787-8 26.0, A320 25.6, A380
+30.5 (at most 17 ft/min and 2.8 ft off after the first minute). Seen failing
+on the old code: the A380 never settled (240 s, 488 ft/min). The 533 unit
+tests (linux-release) whose names match autopilot, height, climb, approach,
+plan, take-off, lesson, altitude, navigator, orbit, ceiling, level, hold,
+airliner, speed, stall, turn, heading, landing, glide, circuit or go-around
+pass (two skipped: Windows-only file tests); with the term on light
+aeroplanes clean as well, the Cherokee's ceiling test failed, as above.
+Not run on Windows or macOS; nothing here is platform code. The selftest hash
+does not move: 182dd6c996e0ee4c (the selftest flies the test pilot, not the
+autopilot).
+
 ### The F-35B's lift system on #170's tail-strike contacts: her short take-off 708.8 ft, 2026-10-13 — item still open
 
 Rebased on #170, which measured her tail-strike contacts from her mesh:

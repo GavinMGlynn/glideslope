@@ -6071,7 +6071,141 @@ void say_wrong(const std::vector<std::string>& wrong) {
                              (wrong.empty() ? "" : wrong.front()));
 }
 
+// How an airliner held a low height at her take-off flap.
+struct LowHold {
+    bool engaged = false;
+    double engaged_kts = 0.0;   // her speed when it was engaged, which it holds
+    double settled_s = 0.0;     // after the last step she climbed or sank 100 ft/min or more
+    double worst_fpm = 0.0;     // the most she climbed or sank, after the first minute
+    double most_off_ft = 0.0;   // and the furthest from the height
+    double flap = 0.0;          // her flap command, 0 to 1, throughout
+    double least_gear = 1.0;    // the least her gear was down
+    double slowest_kts = 1e9;   // after the first minute
+    double fastest_kts = 0.0;
+};
+
+// `entry` taken off by the take-off autopilot at her take-off flap with her
+// gear down and, at the 35 ft screen, handed to an autopilot asked to hold
+// 200 ft at 500 ft/min and the speed she has - the levelling of
+// `HandedOver::level_low_down`, which found the swing - and flown `seconds`
+// from then, her flap and gear where the take-off had them.
+LowHold holds_a_low_height(const glideslope::sim::CatalogueEntry& entry, double seconds) {
+    constexpr double level_ft = 200.0;
+    constexpr double settled_fpm = 100.0;
+    const glideslope::sim::Runway runway = a_runway();
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    load_as_its_figures_were_measured(aircraft, entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+    const auto departs = glideslope::sim::departure_speeds(data(), entry.model);
+    glideslope::sim::Departure takeoff(aircraft, runway, departs);
+    std::optional<glideslope::sim::Autopilot> held;
+    LowHold r;
+    r.flap = departs.flap;
+    bool left = false;
+    long engaged_at = -1;
+    // Up to five minutes on the runway and climbing to the screen.
+    const long most_ticks = static_cast<long>((300.0 + seconds) * steps_per_second);
+    for (long tick = 0; tick < most_ticks; ++tick) {
+        left = left || aircraft.property("gear/wow") < 0.5;
+        glideslope::sim::Controls c = takeoff.fly();
+        if (!held && left && aircraft.property("position/h-agl-ft") >= 35.0) {
+            held.emplace(aircraft, c);
+            glideslope::sim::AutopilotModes modes = held->modes();
+            modes.altitude_ft = runway.elevation_ft + level_ft;
+            modes.vertical_speed_fpm = 500.0;
+            held->set(modes);
+            r.engaged = true;
+            r.engaged_kts = aircraft.property("velocities/vc-kts");
+            engaged_at = tick;
+        }
+        if (held) {
+            c = held->fly();
+            r.flap = std::abs(c.flaps - departs.flap) > 1e-9 ? -1.0 : r.flap;
+        }
+        aircraft.set_controls(c);
+        aircraft.step();
+        if (!held) {
+            continue;
+        }
+        const double t = static_cast<double>(tick - engaged_at + 1) / steps_per_second;
+        const double climb_fpm = aircraft.property("velocities/h-dot-fps") * 60.0;
+        const double kts = aircraft.property("velocities/vc-kts");
+        r.least_gear = std::min(r.least_gear, aircraft.property("gear/gear-pos-norm"));
+        if (std::abs(climb_fpm) >= settled_fpm) {
+            r.settled_s = t;
+        }
+        if (t > 60.0) {
+            r.worst_fpm = std::max(r.worst_fpm, std::abs(climb_fpm));
+            r.most_off_ft = std::max(
+                r.most_off_ft, std::abs(aircraft.state().altitude_ft - runway.elevation_ft -
+                                        level_ft));
+            r.slowest_kts = std::min(r.slowest_kts, kts);
+            r.fastest_kts = std::max(r.fastest_kts, kts);
+        }
+        if (t >= seconds) {
+            break;
+        }
+    }
+    return r;
+}
+
 } // namespace
+
+// **Every airliner holds a low height at her take-off flap**: taken off at
+// her take-off flap with her gear down and, from the 35 ft screen, asked by
+// the autopilot to hold 200 ft and the speed she has, each settles - climbing
+// or sinking less than 100 ft/min - inside the first minute and stays so for
+// the four minutes she is flown. The A380 swung 15.6 ft either side of it at
+// up to 488 ft/min for all four, never settling: the throttle chased the
+// speed her climb traded for height, and climbed her further
+// (sim/autopilot.cpp, `climb_as_speed_s`). Now (2026-10-13), settled at:
+// 737-300 25 s, 747-400 12, 787-8 26, A320 26, A380 31. Coverage: every
+// airliner in the roster, by its class.
+GLIDESLOPE_TEST(every_airliner_at_her_take_off_flap_and_gear_holds_a_low_height_settled_inside_a_minute) {
+    constexpr double flown_s = 240.0;
+    std::vector<std::string> wrong;
+    std::size_t airliners = 0;
+    std::size_t flown = 0;
+    for (const glideslope::sim::CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+        if (e.aircraft_class != glideslope::sim::AircraftClass::airliner) {
+            continue;
+        }
+        ++airliners;
+        const LowHold r = holds_a_low_height(e, flown_s);
+        std::printf("  %-10s at %5.1f kt, flap %.2f, gear %.2f: settled %5.1f s; after a "
+                    "minute at most %4.0f ft/min, %4.1f ft off, %5.1f to %5.1f kt\n",
+                    e.id.c_str(), r.engaged_kts, r.flap, r.least_gear, r.settled_s,
+                    r.worst_fpm, r.most_off_ft, r.slowest_kts, r.fastest_kts);
+        if (!r.engaged) {
+            wrong.push_back(e.id + " never reached the 35 ft screen");
+            continue;
+        }
+        ++flown;
+        // The situation, built: her take-off flap, out, and her gear down.
+        if (r.flap <= 0.0 || r.least_gear < 1.0) {
+            wrong.push_back(e.id + " was not held at her take-off flap and gear");
+        }
+        if (r.settled_s > 60.0) {
+            wrong.push_back(e.id + " settled only after " + std::to_string(r.settled_s) +
+                            " s, swinging at up to " + std::to_string(r.worst_fpm) +
+                            " ft/min after the first minute");
+        }
+    }
+    say_wrong(wrong);
+    check(airliners > 0 && flown == airliners,
+          "every airliner in the roster flown: " + std::to_string(flown) + " of " +
+              std::to_string(airliners));
+}
 
 // **The server's and the client's controllers are told how every
 // landplane takes off and lands**: `sim::her_figures`, which both tell their
