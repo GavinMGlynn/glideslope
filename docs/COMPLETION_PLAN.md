@@ -706,10 +706,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 
 - [ ] **The AI cannot land every aeroplane in gusts**: she now flies half
       the gust factor faster with the power on to the touch, and in moderate
-      turbulence lands only four of fourteen within limits with a margin on
+      turbulence lands only two of fourteen within limits with a margin on
       eight seeds and every platform; gusts magnify each platform's floating
-      point, and the 787-8, A320 and C172P that pass on Linux fail on macOS
-      or Windows, the 737-300 and A380 balloon, the F-15C and F-35B come down
+      point, and the 787-8, A320, C172P, C182 and Cub that pass on Linux
+      fail on macOS or Windows, the 737-300 and A380 balloon, the F-15C and F-35B come down
       hard or nearly, the B-2A puts a wingtip down, the Mosquito bounces, and
       the flying boat comes down hard; at her light loading the 737-300 balloons, and the
       Mosquito at her heaviest. *Verification: every aeroplane lands light,
