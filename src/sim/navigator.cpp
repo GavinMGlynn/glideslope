@@ -68,6 +68,72 @@ constexpr double orbit_joined_m = 100.0;
 // onto it swung kilometres through it (PROJECT_STATUS.md, 2026-10-09).
 constexpr double orbit_joined_deg = 20.0;
 
+// **A waypoint with a leg after it is flown by, not over**: the turn onto
+// the next leg begins before the waypoint, so that it ends on that leg
+// rather than carried past it - a fly-by waypoint, which ICAO defines as "a
+// waypoint which requires turn anticipation to allow tangential interception
+// of the next segment" (Doc 8168, PANS-OPS), and whose distance of turn
+// anticipation FAA Order 8260-44A gives as DTA = r tan(A / 2), A the course
+// change, r the turn's radius: the arc of radius r tangent to both legs
+// leaves this one r tan(A / 2) before the waypoint and meets the next as far
+// past it. Here r is her turn at fly_by_bank_deg (sim/turn_laws.hpp), V^2 /
+// (g tan 15), V her speed over the ground, and the turn begins earlier by
+// half the time the bank takes to come at bank_rate_degps, as the turn lags
+// an arc flown from the moment it begins by that much.
+//
+// **The arc is flown, not the heading at its end**: round its centre by the
+// loiter law, which asks the bank the circle needs and corrects her onto it.
+// Turned by the heading law instead - a degree of bank a degree off, at most
+// 25 - the turn could only be started at the right moment, and no moment
+// suited every aeroplane: the Cherokee at 74 kt, slow to roll, strayed a
+// fifth of her turn's radius past the leg, and a jet at 300 kt, the heading
+// law's roll-out and the leg's intercept together too lightly damped at her
+// speed, a tenth (PROJECT_STATUS.md, 2026-10-13). Flown at 15 degrees, 10
+// under the autopilot's most - the bank PANS-OPS builds departure and
+// en-route turns at - the loiter law has those 10 to pull her back onto an
+// arc her roll lag let her drift off. At 20 the airliners strayed two to
+// three times as far. The arc is left once her track is within what her
+// roll-out still turns her through of the next leg's: wings level is asked,
+// and the leg's law takes her the rest of the way.
+//
+// **The last waypoint, one an orbit follows, and a turn of more than 120
+// degrees are flown over**, passed abeam as before: 120 is the most a fly-by
+// turn may be in PANS-OPS' RNAV criteria, and the lead grows without bound
+// towards 180. So is a turn too small to need an arc, within twice what the
+// roll-out turns through.
+constexpr double most_fly_by_deg = 120.0;
+// **And earlier again by the roll lag allowed for**: her bank lags the bank
+// asked by up to this. Begun late, an aeroplane is outside her arc with less
+// bank to spare to come back to it; begun early, inside it, the loiter law
+// banks her less. Without it the Cherokee at 74 kt went past the leg
+// further; at twice it every aeroplane strayed further, begun too early.
+constexpr double roll_lag_allowed_s = 1.5;
+
+double fly_by_radius_m(double ground_mps) {
+    return ground_mps * ground_mps / (gravity_mps2 * std::tan(fly_by_bank_deg * radians));
+}
+
+// What her heading still turns through as she rolls out of the arc's bank at
+// bank_rate_degps, degrees: half the time the roll-out takes at the arc's
+// rate of turn, and as long again as her bank lags the bank asked,
+// `roll_lag_s`.
+double rolling_out_deg(double ground_mps, double roll_lag_s = 0.0) {
+    const double rate_degps =
+        gravity_mps2 * std::tan(fly_by_bank_deg * radians) / std::max(ground_mps, 1.0) / radians;
+    return rate_degps * (0.5 * fly_by_bank_deg / bank_rate_degps + roll_lag_s);
+}
+
+// How far short of the waypoint the turn onto the next leg begins, metres, for
+// a turn of `turn_deg` either way: 0 for a waypoint flown over.
+double fly_by_lead_m(double ground_mps, double turn_deg) {
+    const double a = std::abs(turn_deg);
+    if (a > most_fly_by_deg || a <= 2.0 * rolling_out_deg(ground_mps)) {
+        return 0.0;
+    }
+    const double roll_in_s = 0.5 * fly_by_bank_deg / bank_rate_degps + roll_lag_allowed_s;
+    return fly_by_radius_m(ground_mps) * std::tan(0.5 * a * radians) + ground_mps * roll_in_s;
+}
+
 double normalised(double degrees) {
     const double d = std::fmod(degrees, 360.0);
     return d < 0.0 ? d + 360.0 : d;
@@ -98,6 +164,57 @@ AirVelocity air_velocity(const Aircraft& a) {
     return out;
 }
 
+// **The loiter law's bank** (above), degrees, right wing down positive: for
+// a circle of `radius_m` flown `right` or left, from `from_centre_m` off its
+// centre on the bearing `around_deg` from it, going `north_fps` and
+// `east_fps` over the ground with `air` its velocity through the air.
+double loiter_bank_deg(double from_centre_m, double around_deg, double north_fps,
+                       double east_fps, const AirVelocity& air, double radius_m, bool right) {
+    // Over the ground, metres a second: outward from the centre, and round the
+    // way the circle is flown.
+    const double v_north = north_fps * 0.3048;
+    const double v_east = east_fps * 0.3048;
+    const double out_north = std::cos(around_deg * radians);
+    const double out_east = std::sin(around_deg * radians);
+    const double outward_mps = v_north * out_north + v_east * out_east;
+    const double way = right ? 1.0 : -1.0;
+    const double round_mps = way * (v_east * out_north - v_north * out_east);
+    const double omega = 2.0 * std::numbers::pi / loiter_period_s;
+    double back = omega * omega * (from_centre_m - radius_m) +
+                  2.0 * loiter_damping * omega * outward_mps;
+    if (round_mps < 0.0) {
+        back = std::max(back, 0.0);
+    }
+    // Square across the ground track, which the bank - square across the
+    // air's - meets at the crab angle between them.
+    const double air_fps = std::hypot(air.north_fps, air.east_fps);
+    const double cos_crab = std::clamp(
+        (air.north_fps * north_fps + air.east_fps * east_fps) /
+            std::max(air_fps * std::hypot(north_fps, east_fps), 1.0),
+        0.5, 1.0);
+    const double round_mps2 =
+        round_mps * round_mps / (std::max(0.5 * radius_m, from_centre_m) * cos_crab);
+    return way * std::atan((back + round_mps2) / gravity_mps2) / radians;
+}
+
+// Where `distance_m` along the great circle leaving (`latitude_deg`,
+// `longitude_deg`) on `bearing` comes to, on the sphere.
+struct Place {
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+};
+
+Place along_from(double latitude_deg, double longitude_deg, double bearing, double distance) {
+    const double d = distance / earth_radius_m;
+    const double p1 = latitude_deg * radians;
+    const double b = bearing * radians;
+    const double p2 =
+        std::asin(std::sin(p1) * std::cos(d) + std::cos(p1) * std::sin(d) * std::cos(b));
+    const double dl = std::atan2(std::sin(b) * std::sin(d) * std::cos(p1),
+                                 std::cos(d) - std::sin(p1) * std::sin(p2));
+    return {p2 / radians, longitude_deg + dl / radians};
+}
+
 } // namespace
 
 Navigator::Navigator(const Aircraft& aircraft, FlightPlan plan)
@@ -109,6 +226,7 @@ void Navigator::begin_here() {
     from_latitude_deg_ = a_.property("position/lat-geod-deg");
     from_longitude_deg_ = a_.property("position/long-gc-deg");
     last_track_deg_ = a_.property("attitude/psi-deg");
+    turning_ = false;
     // The wind as it is now, not calm: a plan taken over in the air, or
     // after a take-off, starts from the wind there.
     const AirVelocity air = air_velocity(a_);
@@ -173,6 +291,7 @@ AutopilotModes Navigator::steer() {
                     // Round as often as asked: on from here.
                     circling_ = false;
                     turned_deg_ = 0.0;
+                    turning_ = false;
                     from_latitude_deg_ = lat;
                     from_longitude_deg_ = lon;
                     ++next_;
@@ -205,31 +324,9 @@ AutopilotModes Navigator::steer() {
                 modes.airspeed_kts = to.airspeed_kts;
                 break;
             }
-            // On the circle, or inside it: the loiter law (above). Over the
-            // ground, metres a second: outward from the centre, and round the
-            // way the orbit is flown.
-            const double v_north = north * 0.3048;
-            const double v_east = east * 0.3048;
-            const double out_north = std::cos(around * radians);
-            const double out_east = std::sin(around * radians);
-            const double outward_mps = v_north * out_north + v_east * out_east;
-            const double way = to.orbit->right ? 1.0 : -1.0;
-            const double round_mps = way * (v_east * out_north - v_north * out_east);
-            const double omega = 2.0 * std::numbers::pi / loiter_period_s;
-            double back = omega * omega * off_circle_m +
-                          2.0 * loiter_damping * omega * outward_mps;
-            if (round_mps < 0.0) {
-                back = std::max(back, 0.0);
-            }
-            // Square across the ground track, which the bank - square across
-            // the air's - meets at the crab angle between them.
-            const double cos_crab = std::clamp(
-                (air.north_fps * north + air.east_fps * east) /
-                    std::max(air_fps * std::hypot(north, east), 1.0),
-                0.5, 1.0);
-            const double round_mps2 =
-                round_mps * round_mps / (std::max(0.5 * r, from_centre_m) * cos_crab);
-            modes.bank_deg = way * std::atan((back + round_mps2) / gravity_mps2) / radians;
+            // On the circle, or inside it: the loiter law (above).
+            modes.bank_deg = loiter_bank_deg(from_centre_m, around, north, east, air, r,
+                                             to.orbit->right);
             track = along;
             off_m = 0.0;
             orbiting = true;
@@ -254,8 +351,47 @@ AutopilotModes Navigator::steer() {
             std::acos(std::clamp(std::cos(flown) / std::cos(across), -1.0, 1.0)),
             std::cos(angle));
         const double ahead_m = (leg - along) * earth_radius_m;
-        if (ahead_m <= 0.0) {
-            // Abeam: passed.
+        // Flown by where a leg follows it (fly_by_lead_m): the turn onto that
+        // leg begins its lead short of it.
+        const double ground_mps = std::hypot(north, east) * 0.3048;
+        double lead_m = 0.0;
+        double turn_deg = 0.0;
+        double outbound = 0.0;
+        if (next_ + 1 < plan_.waypoints.size() && !plan_.waypoints[next_ + 1].orbit) {
+            const Waypoint& then = plan_.waypoints[next_ + 1];
+            // The leg's course arriving at the waypoint, or, along a leg too
+            // short to have one, her track over the ground.
+            const double inbound =
+                leg * earth_radius_m > 1.0
+                    ? bearing_deg(to.latitude_deg, to.longitude_deg, from_latitude_deg_,
+                                  from_longitude_deg_) +
+                          180.0
+                    : std::atan2(east, north) / radians;
+            outbound =
+                bearing_deg(to.latitude_deg, to.longitude_deg, then.latitude_deg, then.longitude_deg);
+            turn_deg = std::remainder(outbound - inbound, 360.0);
+            lead_m = fly_by_lead_m(ground_mps, turn_deg);
+        }
+        if (ahead_m <= lead_m) {
+            // Abeam, or as near as the turn onto the next leg begins: passed.
+            turning_ = lead_m > 0.0;
+            if (turning_) {
+                // The arc tangent to both legs: its centre square to the
+                // next leg from where it meets it, on the side turned to.
+                const double r = fly_by_radius_m(ground_mps);
+                turn_right_ = turn_deg > 0.0;
+                turn_radius_m_ = r;
+                turn_lead_m_ = lead_m;
+                turn_s_ = 0.0;
+                roll_lag_s_ = -1.0;
+                rolling_out_ = false;
+                const Place meets = along_from(to.latitude_deg, to.longitude_deg, outbound,
+                                               r * std::tan(0.5 * std::abs(turn_deg) * radians));
+                const Place centre = along_from(meets.latitude_deg, meets.longitude_deg,
+                                                outbound + (turn_right_ ? 90.0 : -90.0), r);
+                turn_centre_latitude_deg_ = centre.latitude_deg;
+                turn_centre_longitude_deg_ = centre.longitude_deg;
+            }
             from_latitude_deg_ = to.latitude_deg;
             from_longitude_deg_ = to.longitude_deg;
             ++next_;
@@ -266,6 +402,49 @@ AutopilotModes Navigator::steer() {
         // waypoint turned back by the angle the offset makes.
         track = bearing_deg(lat, lon, to.latitude_deg, to.longitude_deg) +
                 std::atan2(off_m, ahead_m) / radians;
+        // **Round a fly-by turn's arc** (fly_by_lead_m) until her track is
+        // within what her roll-out turns her through of the leg's, then wings
+        // level until they are, or her track is within half a degree of the
+        // leg's; or - should she never come round - until she is twice the
+        // lead past its waypoint. Then the leg's law.
+        if (turning_) {
+            const double still_to_turn_deg =
+                (turn_right_ ? 1.0 : -1.0) *
+                std::remainder(track - std::atan2(east, north) / radians, 360.0);
+            // **Her roll lag, measured as she rolls in**: how much longer
+            // than the bank asked her bank took to come to half the arc's.
+            // The Short S.23 at 100 kt took 1.5 s longer, and rolled out as
+            // late: left the arc on the roll-out alone, she turned 16 degrees
+            // past it against the 7 allowed for, and came onto the leg from
+            // 79 m inside it (with the arc at 20 degrees).
+            const double phi = std::abs(a_.property("attitude/phi-deg"));
+            turn_s_ += dt;
+            if (roll_lag_s_ < 0.0 && phi >= 0.5 * fly_by_bank_deg) {
+                roll_lag_s_ = std::max(turn_s_ - 0.5 * fly_by_bank_deg / bank_rate_degps, 0.0);
+            }
+            if (rolling_out_ ||
+                still_to_turn_deg <= rolling_out_deg(ground_mps, std::max(roll_lag_s_, 0.0))) {
+                // **Rolled out at the roll rate**, wings level asked, as
+                // rolling_out_deg has it: handed to the heading law's bank of
+                // a degree a degree off instead, she closed the last of her
+                // turn slowly, crossing V^2 / g sin(what was left) towards
+                // the leg against the arc's r (1 - cos(what was left)).
+                rolling_out_ = true;
+            }
+            if (along * earth_radius_m >= 2.0 * turn_lead_m_ || still_to_turn_deg <= 0.5 ||
+                (rolling_out_ && phi < 1.0)) {
+                turning_ = false;
+            } else if (rolling_out_) {
+                modes.bank_deg = 0.0;
+                off_m = 0.0;
+            } else {
+                modes.bank_deg = loiter_bank_deg(
+                    distance_m(turn_centre_latitude_deg_, turn_centre_longitude_deg_, lat, lon),
+                    bearing_deg(turn_centre_latitude_deg_, turn_centre_longitude_deg_, lat, lon),
+                    north, east, air, turn_radius_m_, turn_right_);
+                off_m = 0.0;
+            }
+        }
         modes.altitude_ft = to.altitude_ft;
         modes.airspeed_kts = to.airspeed_kts;
         break;
