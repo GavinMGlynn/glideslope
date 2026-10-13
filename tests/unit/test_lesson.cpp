@@ -5673,9 +5673,10 @@ glideslope::sim::Runway a_short_runway() {
 // 14 CFR 121.195(d)'s 1.15 times the dry (sim::wet_landing_factor) - taking
 // as the dry the longer of the short runway every landplane stops on dry
 // (1,500 m) and the runway her figures say she needs to land
-// (sim::landing_need_m; the six that publish none, 1,500 m): 1,725 m for
-// most, 2,225 m for the A380, 2,459 m for the F-15C. Wet: runway condition
-// code 5.
+// (sim::landing_need_m; the F-22A, which has none, 1,500 m): 1,725 m for
+// most, 2,225 m for the A380, 2,459 m for the F-15C, and from their measured
+// landings (2026-10-13) 1,928 m for the Mosquito, 3,190 m for the B-2A and
+// 3,225 m for the F-35B. Wet: runway condition code 5.
 glideslope::sim::Runway a_wet_short_runway(const std::string& model) {
     glideslope::sim::Runway r = a_short_runway();
     r.name = "the wet short runway";
@@ -5927,21 +5928,10 @@ void every_landplane_taken_back(OnTheRoll when) {
     const auto taught = everyone_taught("approach-and-landing");
     std::vector<std::string> landplanes;
     std::vector<std::string> left_out;
-    // **On the wet runway, the F-35B is named too**: she publishes no landing
-    // distance - one of the five the plan's Phase 10b item on a landing distance
-    // from a primary source names - so none says how long a wet runway she
-    // needs, and touching at 155 kt, where a wet runway gives a braked wheel
-    // 0.135 (14 CFR 25.109(c)), she needs about 2,320 m of the 1,725.
-    const bool wet = when == OnTheRoll::landed_by_hand_on_a_wet_short_runway;
     for (const std::string& id : taught) {
         if (glideslope::sim::find_aircraft(data(), id).seaplane) {
             left_out.push_back(id);
             std::printf("  left out - %s: a flying boat, afloat, is never still\n", id.c_str());
-        } else if (wet && id == "f35b") {
-            left_out.push_back(id);
-            std::printf("  left out - %s: no published landing distance to size a wet runway "
-                        "by (an open item), and 1,725 m is short of the 2,320 she needs wet\n",
-                        id.c_str());
         } else {
             landplanes.push_back(id);
         }
@@ -6029,9 +6019,9 @@ void every_landplane_taken_back(OnTheRoll when) {
                              name_of(when) + ", the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     check(landplanes.size() + left_out.size() == taught.size() &&
-              left_out.size() == (wet ? 2U : 1U),
+              left_out.size() == 1U,
           "every aeroplane taught the approach is a landplane flown here or the one flying "
-          "boat named (and wet, the F-35B): " + std::to_string(landplanes.size()) + " and " +
+          "boat named: " + std::to_string(landplanes.size()) + " and " +
               std::to_string(left_out.size()) + " of " + std::to_string(taught.size()));
     check(flown == landplanes.size(), "every landplane was taken back " +
                                           std::string(name_of(when)) + ": " +

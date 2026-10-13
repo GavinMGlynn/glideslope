@@ -774,6 +774,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_recording_played_back_but_its_numbers_answers_the_same_runways_listed_in_another_order
     every_aircraft_is_planned_and_routed_from_its_own_speeds_with_or_without_an_approach_speed
     every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land_on_and_given_a_longer_one
+    the_five_with_no_published_landing_distance_are_refused_a_runway_shorter_than_a_measured_one
     a_session_whose_metar_reports_rain_refuses_a_runway_long_enough_dry_but_short_wet
     every_aircrafts_brief_tells_the_approach_speed_the_ai_flies_her_at_for_her_models_weight
     a_plan_changed_while_the_ai_flies_moves_no_control_at_the_change_and_is_flown
@@ -3690,6 +3691,30 @@ foreach(_bad
             "-DSTDERR_MATCHES=${_says}"
             -P ${GLIDESLOPE_EXPECT_RUN})
 endforeach()
+# **A measured landing distance is what the measurement makes**: every
+# figures file whose landing distance is measured, not published (basis
+# "measured" - the J-3 Cub, Mosquito, F-35B and B-2A), is landed again by
+# `land` and must stop within it, and no more than a tenth short. Found by
+# reading the files, so none is left out. See cmake/measured_landing.cmake.
+file(GLOB _figures_files "${PROJECT_SOURCE_DIR}/assets/figures/*.xml")
+set(_measured_landings 0)
+foreach(_file IN LISTS _figures_files)
+    file(READ "${_file}" _text)
+    if(_text MATCHES "<landing_distance [^>]*basis=\"measured\"")
+        get_filename_component(_model "${_file}" NAME_WE)
+        string(REPLACE "-" "_" _name "${_model}")
+        add_test(NAME the_${_name}_lands_within_her_measured_landing_distance
+            COMMAND ${CMAKE_COMMAND}
+                -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DAIRCRAFT=${_model}
+                -DFIGURES=${_file}
+                -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/measured_landing.cmake)
+        math(EXPR _measured_landings "${_measured_landings} + 1")
+    endif()
+endforeach()
+if(NOT _measured_landings EQUAL 4)
+    message(FATAL_ERROR "${_measured_landings} figures files give a measured landing distance, "
+                        "not the four the tests and docs name")
+endif()
 add_test(NAME the_cli_refuses_a_learnt_landing_for_an_aircraft_that_has_none
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=land j3cub --learnt" -DEXIT=1

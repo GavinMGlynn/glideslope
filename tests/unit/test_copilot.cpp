@@ -6,6 +6,7 @@
 #include "frontend/briefs.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/controller.hpp"
+#include "sim/figures.hpp"
 #include "sim/learnt.hpp"
 #include "sim/runway_condition.hpp"
 #include "sim/terrain.hpp"
@@ -559,10 +560,10 @@ GLIDESLOPE_TEST(every_aircrafts_brief_tells_the_approach_speed_the_ai_flies_her_
 GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land_on_and_given_a_longer_one) {
     const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     const auto catalogue = glideslope::sim::read_catalogue(data);
-    // The aircraft whose files say nothing published gives a landing
-    // distance (`<no_landing_distance>`), each file saying why.
-    const std::vector<std::string> unpublished{"b2",    "f22",          "f35b",
-                                               "j3cub", "mosquito-fb6", "short_s23"};
+    // The aircraft whose files give no landing distance at all
+    // (`<no_landing_distance>`), each saying why: the F-22A, which has no
+    // approach speed to land at, and the flying boat.
+    const std::vector<std::string> unpublished{"f22", "short_s23"};
     constexpr std::size_t aircraft = 16;
     check(catalogue.size() == aircraft,
           "the catalogue holds " + std::to_string(catalogue.size()) + " aircraft, not " +
@@ -645,13 +646,90 @@ GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land
                       wet_long_why + "\"");
         refused_and_taken += ok ? 1U : 0U;
     }
-    check(without == unpublished, "the aircraft with no published landing distance are the "
-                                  "six named, and no others");
+    check(without == unpublished, "the aircraft with no landing distance are the two named, "
+                                  "and no others");
     check(refused_and_taken + without.size() == aircraft &&
               refused_and_taken == aircraft - unpublished.size(),
           std::to_string(refused_and_taken) + " of " +
               std::to_string(aircraft - unpublished.size()) +
               " aircraft with a landing distance refused short and given long");
+}
+
+// **The five that publish no landing distance are refused a runway shorter
+// than their measured one**: the J-3 Cub, Mosquito, F-35B and B-2A each
+// carry the runway her model used, threshold to stop, landed by the approach
+// autopilot (`glideslope_cli land`, 2026-10-13), as a `measured` landing
+// distance - the figure pinned here, so a change to a file is seen - and
+// both the copilot and the planner refuse a runway a metre shorter, from
+// the brief and the plan request the frontends make. The F-22A cannot be
+// measured, having no approach speed, and is refused a landing on any
+// runway, even 10 km of one, for that. The flying boat is the one aircraft
+// the check does not apply to.
+GLIDESLOPE_TEST(the_five_with_no_published_landing_distance_are_refused_a_runway_shorter_than_a_measured_one) {
+    const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    struct Measured {
+        const char* id;
+        double ft;
+    };
+    const std::vector<Measured> measured{
+        {"j3cub", 1400.0}, {"mosquito-fb6", 5500.0}, {"f35b", 9200.0}, {"b2", 9100.0}};
+    const auto runway = [](double length_m) {
+        glideslope::world::RunwayEnd end;
+        end.airport = "SYNTH";
+        end.ident = "09";
+        end.heading_deg = 90.0;
+        end.length_m = length_m;
+        return end;
+    };
+    const auto landing_on = [](const glideslope::world::RunwayEnd& end) {
+        glideslope::sim::FlightPlan plan;
+        glideslope::sim::Runway r = glideslope::world::as_runway(end, end.elevation_ft);
+        r.name = "SYNTH_09";
+        plan.landing = r;
+        return plan;
+    };
+    std::size_t refused = 0;
+    for (const Measured& m : measured) {
+        const auto entry = glideslope::sim::find_aircraft(data, m.id);
+        const glideslope::sim::PublishedFigures f = glideslope::sim::read_published_figures(
+            data / "figures" / (entry.model + ".xml"));
+        const glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, m.id);
+        const glideslope::copilot::PlanRequest request =
+            glideslope::frontend::plan_request_for(data, m.id, std::nullopt);
+        const double need_m = m.ft * 0.3048;
+        check(f.landing_basis == "measured" && std::abs(brief.landing_need_m - need_m) < 1e-6 &&
+                  request.landing_need_m == brief.landing_need_m && brief.approach_kts > 0.0,
+              std::string(m.id) + " is briefed her measured " + std::to_string(m.ft) +
+                  " ft, with an approach speed to land at: " + f.landing_basis + ", " +
+                  std::to_string(brief.landing_need_m) + " m");
+        const auto short_of = runway(need_m - 1.0);
+        const auto long_enough = runway(need_m + 1.0);
+        const std::string copilot_why = glideslope::copilot::landing_refusal(
+            brief.approach_kts, brief.landing_need_m, brief.wet_landing_need_m, std::nullopt,
+            landing_on(short_of), {short_of});
+        const std::string planner_why = glideslope::copilot::landing_refusal(
+            request.approach_kts, request.landing_need_m, request.wet_landing_need_m,
+            request.wet_runways, landing_on(short_of), {short_of});
+        const std::string long_why = glideslope::copilot::landing_refusal(
+            brief.approach_kts, brief.landing_need_m, brief.wet_landing_need_m, std::nullopt,
+            landing_on(long_enough), {long_enough});
+        const bool ok = copilot_why.find("to land on, and the aircraft needs") != std::string::npos &&
+                        planner_why == copilot_why && long_why.empty();
+        check(ok, std::string(m.id) + ": a metre short \"" + copilot_why + "\", planned \"" +
+                      planner_why + "\", a metre over \"" + long_why + "\"");
+        refused += ok ? 1U : 0U;
+    }
+    // The F-22A: no approach speed, so every landing is refused her.
+    const glideslope::copilot::Brief f22 = glideslope::frontend::brief_for(data, "f22");
+    const auto ten_km = runway(10000.0);
+    const std::string f22_why = glideslope::copilot::landing_refusal(
+        f22.approach_kts, f22.landing_need_m, f22.wet_landing_need_m, std::nullopt,
+        landing_on(ten_km), {ten_km});
+    check(f22.approach_kts == 0.0 && f22_why == "the aircraft has no approach speed to land at",
+          "the F-22A is refused a landing on 10 km of runway for having no approach speed: \"" +
+              f22_why + "\"");
+    refused += f22_why.empty() ? 0U : 1U;
+    check(refused == 5, std::to_string(refused) + " of the five refused a short runway");
 }
 
 GLIDESLOPE_TEST(the_runways_a_plan_may_land_on_are_the_nearest_airports_whole_and_no_more_than_the_caps) {

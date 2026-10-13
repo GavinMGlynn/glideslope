@@ -133,10 +133,22 @@
     43 kt, the slowest a route may fly it, went round unstalled.
   </glide_speeds>
 
-  <no_landing_distance>
-    Searched 2026-10-09: the owner's manual and How to Fly a Piper Cub, as read,
-    give none; 470 ft over 50 ft and a 290 ft roll appear only on aggregator
-    sites (pilotfriend, risingup, AOPA's guide) without a primary source, so
-    they are not used. No runway is refused it for length.
-  </no_landing_distance>
+  <landing_distance ft="1400" basis="measured" factor="1">
+    Measured, not published, on 2026-10-13 by `glideslope_cli land j3cub`
+    (linux-release): landed by the approach autopilot from a final-approach gate
+    2 nm out, on a level runway at sea level in calm air, every tank full, she
+    touched 292 m in and stopped 399 m past the threshold, which she crossed on
+    the 3-degree glidepath aimed 300 m in, at about 50 ft. Written 2 per cent
+    over that, rounded up to 100 ft, for the drift between machines (her flight
+    is not expected to agree to the metre across platforms). Factor 1: the
+    runway the AI used is not a demonstrated minimum but the landing a plan
+    flies, and for the aircraft that publish one it comes out near the factored
+    figure already (the 172P stops 547 m in against her 1,280 ft times 1.43, 558
+    m; the F-15C 2,252 m against her 4,200 ft times 1.67, 2,138 m), so it is the
+    runway needed as it stands. Searched again 2026-10-13: the owner's manual
+    and How to Fly a Piper Cub give no distance; the L-4's Pilot's Flight
+    Operating Instructions (AN 01-140DA-1) are sold, not published; and the 470
+    ft over 50 ft quoted by AOPA's guide, risingup and pilotfriend has no
+    primary source.
+  </landing_distance>
 </published_figures>

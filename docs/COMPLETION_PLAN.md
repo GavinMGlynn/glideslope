@@ -778,12 +778,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       with her throttle closing.* Owner 2026-10-09: no public approach angle
       of attack.
 - [ ] **A runway too short refused for the five with no public landing
-      figure, and the runways a model is shown say their length.** The J-3
-      Cub, Mosquito, F-22A, F-35B and B-2A have no landing distance from a
-      primary source, so nothing refuses them a short runway; the S.23 is a
-      flying boat, and the check does not apply to her. The runway lines a
-      model is shown do not say their landing length or what the aircraft
-      needs, though the check refuses a short one all the same.
+      figure, and the runways a model is shown say their length.** Since
+      2026-10-13 the J-3 Cub, Mosquito, F-35B and B-2A, none published, are
+      refused a runway shorter than the one their model lands in (measured,
+      PROJECT_STATUS); the F-22A has no approach speed, so every landing is
+      refused her, and no figure is measured for her. Still missing: the
+      runway lines a model is shown do not say their landing length or what
+      the aircraft needs - saying so changes every model's prompt, so all 13
+      copilot recordings must be recorded again, which waits on the owner.
       *Verification: each of the five refused a runway shorter than a cited
       figure, and the model shown each runway's landing length.* Owner
       2026-10-09.
@@ -798,8 +800,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       roll still stops on it.* Done 2026-10-10: rain in the session's METAR
       wets the runway, the wheels grip as the FAA's wet-runway rule says,
       and 12 of 13 landplanes stop on a wet runway 1.15 times their dry need
-      (the F-35B named: she has no published landing distance, an open
-      item in Phase 10b); a session's copilot and planner refuse a runway long enough dry
+      (the F-35B named: she had no landing distance; all 13 since
+      2026-10-13, hers measured); a session's copilot and planner refuse a runway long enough dry
       but short wet. Contaminated runways are flown when given; nothing
       reports one (an open item in Phase 10b).
 - [x] **A landing handed over in a skip is not landed.** Handed to the AI

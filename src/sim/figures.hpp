@@ -137,11 +137,13 @@ struct PublishedFigures {
     // margin the file states for its class - a light aeroplane's handbook
     // distance over a 50 ft obstacle, or a transport's landing field length,
     // which is already the demonstrated distance over 0.6 (14 CFR
-    // 121.195(b)). 0 where the file says, by `<no_landing_distance>`, that
-    // nothing published gives one, and why: then no runway is refused it for
-    // length. Every file says one or the other, once.
+    // 121.195(b)) - or, where nothing published gives one, basis "measured":
+    // the runway her model used, threshold to stop, landed by the approach
+    // autopilot (`glideslope_cli land`), times its class's margin. 0 where the
+    // file says, by `<no_landing_distance>`, why none applies: then no runway
+    // is refused it for length. Every file says one or the other, once.
     double landing_need_m = 0.0;
-    std::string landing_basis; // "over_50_ft_obstacle", "field_length"; empty: none
+    std::string landing_basis; // "over_50_ft_obstacle", "field_length", "measured"; empty: none
 };
 
 struct FigureResult {
