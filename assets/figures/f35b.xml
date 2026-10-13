@@ -18,7 +18,7 @@
   **Her lift system is modelled** (tools/make_f35b.py): its hover thrust is
   Pratt & Whitney's, and she hovers and lands vertically on the hover
   control law (src/sim/hover.hpp). Her short take-off is flown and measured
-  (short_takeoff, below), longer than the 600 ft her requirement asks.
+  (short_takeoff, below), inside the 600 ft her requirement asks.
 -->
 <!--
   **touchdown_fpm** is the sink the AI's flare brings the wheels to the
@@ -132,30 +132,41 @@
     engine's core thrust (JSBSim's turbine), not the lift system's.
   </figure>
 
-  <figure name="short_takeoff" flight="short_takeoff" from="measured" loading="short_takeoff"
-          fuel_frozen="1" unit="ft" value="708.8" tolerance_percent="5" temperature_offset_c="17.1"
+  <figure name="short_takeoff_required" flight="short_takeoff" loading="short_takeoff"
+          fuel_frozen="1" unit="ft" min="0" max="600" temperature_offset_c="17.1"
           headwind_kt="10" roll_deg="42" lift_deg="58" rotate_kcas="70" strike_margin_deg="2"
           rotate_pitch_gain="0.14" rotate_rate_gain="8">
-    **Measured, not published - and short of the requirement above, which
-    is 600 ft (its estimate 569).** Flown at sea level on a tropical day -
+    The Selected Acquisition Report's STOVL key performance parameter above:
+    a 600 ft short take-off at the requirement's loading, sea level, a
+    tropical day and 10 kt over the deck. Flown as the measured figure below
+    is, the same flight.
+  </figure>
+
+  <figure name="short_takeoff" flight="short_takeoff" from="measured" loading="short_takeoff"
+          fuel_frozen="1" unit="ft" value="591.5" tolerance_percent="5" temperature_offset_c="17.1"
+          headwind_kt="10" roll_deg="42" lift_deg="58" rotate_kcas="70" strike_margin_deg="2"
+          rotate_pitch_gain="0.14" rotate_rate_gain="8">
+    **Measured: inside the requirement's 600 ft (its estimate 569)**, which
+    the figure above holds her to. Flown at sea level on a tropical day -
     89.8 F, 17.1 C warmer than standard (MIL-STD-210A's tropical atmosphere,
     549.5 R at sea level, as Public Domain Aeronautical Software tabulates
-    it) - into 10 kt: converted at idle on the brakes, the nozzle and the
-    fan's thrust 42 degrees from straight aft (the fan's vane box goes no
-    further aft); the brakes off and full STOVL power; at 70 KCAS both swung
-    to 58 degrees and the nose raised to 2 degrees under the attitude her
-    tail strikes at - her airframe's, read from her model's contacts as the
-    departure and the lander read it (21.6 degrees since #170 measured her
-    strike contacts from her mesh, so 19.6) -
-    on the stabilator and the fan's share, 0.14 of the fan's travel a degree
-    short and 8 a radian a second of pitch rate, the hover's gains; the
-    ground from the brakes' release to the wheels leaving it, and she climbs
-    on to 50 ft without touching again or striking her tail. Swept on
-    2026-10-13 over the swing's speed (50 to 70 KCAS) and angle (48 to 64)
-    at the 22.2-degree strike she had before #170: 64 degrees at 70 KCAS
-    left in 689 ft but at 60 KCAS did not climb, so 58 was taken; measured
-    again on #170's 21.6 degrees, 708.8 ft (64 at 70: 700.5). What her model lacks for 600 ft is named in
-    COMPLETION_PLAN.md.
+    it) - into 10 kt: converted at idle on the brakes, which droops her
+    flaperons, the nozzle and the fan's thrust 42 degrees from straight aft
+    (the fan's vane box goes no further aft); the brakes off and full STOVL
+    power; at 70 KCAS both swung to 58 degrees and the nose raised to 2
+    degrees under the attitude her tail strikes at - her airframe's, read
+    from her model's contacts as the departure and the lander read it (21.6
+    degrees, so 19.6) - on the stabilator and the thrust split, 0.14 of the
+    split's travel a degree short and 8 a radian a second of pitch rate, the
+    gains the fan's share was flown on before the split; the ground from the
+    brakes' release to the wheels leaving it, and she climbs on to 50 ft
+    without touching again or striking her tail. 708.8 ft before her model
+    had the split and the droop; 699.4 with the split and no droop. Swept
+    again at these gains on 2026-10-13: 52 degrees at 60 KCAS 685.3 ft, 58
+    at 60 722.1, 52 at 70 621.5, 64 at 70 573.8, 58 at 75 613.6, 64 at 75
+    592.3, 70 at 70 touched again; 58 at 70 is kept, as before. The
+    rotation's gains move it most: 0.14 and 4, 490.8; 0.28 and 4, 430.7 -
+    so the gains are the ones it was flown on, not the shortest found.
   </figure>
 
   <figure name="maximum_mach" fuel_frozen="1" flight="best_level_mach" loading="combat"

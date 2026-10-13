@@ -580,6 +580,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_f35b_hovers_at_150_ft_for_a_minute_within_10_ft
     the_f35b_lands_vertically_from_a_hover_under_6_ft_a_second
     the_f35b_takes_off_short_in_the_distance_her_own_model_gave
+    the_f35b_takes_off_short_inside_her_required_600_ft
     the_f35b_hovers_five_and_a_half_minutes_on_her_vertical_landing_fuel
     the_f35b_is_refused_stovl_mode_above_250_kcas_and_allowed_below
     the_f35b_hovers_in_every_wind_to_20_kt_from_every_side_at_two_weights

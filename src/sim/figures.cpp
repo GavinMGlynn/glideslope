@@ -1710,7 +1710,7 @@ double vertical_landing(const std::filesystem::path& root, const PublishedFigure
 // aft, at full STOVL power; the brakes off, and at `rotate_kcas` the nozzle
 // and the fan swung to `lift_deg` and the nose raised to `strike_margin_deg`
 // under the attitude her tail strikes at (Aircraft::stance, as the departure
-// and the lander keep from it), on the stabilator and on the fan's share
+// and the lander keep from it), on the stabilator and on the thrust split
 // (`rotate_pitch_gain` a degree short, `rotate_rate_gain` a radian a second).
 // The ground covered from the brakes' release to the wheels leaving it;
 // throws if her tail would strike, or if she does not climb on to 50 ft
@@ -1759,11 +1759,12 @@ double short_takeoff(const std::filesystem::path& root, const PublishedFigures& 
     for (int i = 0; i < steps(60); ++i) {
         rotated = rotated || f.aircraft.property("velocities/vc-kts") >= rotate;
         if (rotated) {
-            // Rotated on the stabilator and the fan's share together, as the
-            // hover's pitch is held (sim/hover.hpp).
+            // Rotated on the stabilator and the thrust split together: the
+            // split sends the nozzle's thrust to the fan, ahead of her
+            // centre of gravity, the total unchanged.
             lift.nozzle_deg = lift.fan_deg = condition(spec, "lift_deg");
             c.elevator = f.pilot.pitch_to(pitch_deg);
-            lift.fan = std::clamp(
+            lift.split = std::clamp(
                 condition(spec, "rotate_pitch_gain") * (pitch_deg - f.aircraft.property("attitude/theta-deg")) -
                     condition(spec, "rotate_rate_gain") * f.aircraft.property("velocities/q-rad_sec"),
                 -1.0, 1.0);

@@ -323,12 +323,17 @@ GLIDESLOPE_TEST(the_f35b_lands_vertically_from_a_hover_under_6_ft_a_second) {
     expect_figure("f35b", "vertical_landing");
 }
 
-// **Her short take-off is measured, and is longer than her requirement's 600
-// ft**: the model's own, held so that it still does what it did
-// (assets/figures/f35b.xml says what it lacks). Seen to fail with the fan's
-// thrust held straight down.
+// **Her short take-off is measured**: the model's own, held so that it still
+// does what it did. Seen to fail with the fan's thrust held straight down.
 GLIDESLOPE_TEST(the_f35b_takes_off_short_in_the_distance_her_own_model_gave) {
     expect_figure("f35b", "short_takeoff");
+}
+
+// **And inside her requirement's 600 ft** (the Selected Acquisition Report's
+// key performance parameter). Seen to fail with her flaperons' droop taken
+// out of her built model (699.4 ft).
+GLIDESLOPE_TEST(the_f35b_takes_off_short_inside_her_required_600_ft) {
+    expect_figure("f35b", "short_takeoff_required");
 }
 
 GLIDESLOPE_TEST(the_b2_flies_at_high_subsonic_speed) {
@@ -1030,8 +1035,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // A hundred and twenty-seven: the F-35B's short take-off, measured, on
     // 2026-10-13.
     // A hundred and twenty-eight: her hover endurance, measured, the same day.
-    check(figures_in_files == 128,
-          "a hundred and twenty-eight figures, one test each above; found " +
+    // A hundred and twenty-nine: her short take-off inside her required 600
+    // ft, the same day.
+    check(figures_in_files == 129,
+          "a hundred and twenty-nine figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 

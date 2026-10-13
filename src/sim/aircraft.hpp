@@ -99,6 +99,9 @@ struct LiftSystem {
     double fan = 0.0;        // -1..1, the fan's thrust either side of its share: 1 nose up
     double roll_post = 0.0;  // -1..1, the posts' air sent to one side: 1 right wing down
     double nozzle_yaw = 0.0; // -1..1, the nozzle swivelled sideways: 1 nose right
+    // -1..1, the thrust split: the engine's thrust shared between the nozzle
+    // and the fan, the total unchanged; 1 the most forward, nose up.
+    double split = 0.0;
 };
 
 // What the pilot is doing, each in JSBSim's normalised command range.

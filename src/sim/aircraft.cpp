@@ -923,6 +923,7 @@ void Aircraft::set_lift_system(const LiftSystem& lift) {
     set("fcs/lift-fan-cmd-norm", lift.fan);
     set("fcs/roll-post-cmd-norm", lift.roll_post);
     set("fcs/nozzle-yaw-cmd-norm", lift.nozzle_yaw);
+    set("fcs/thrust-split-cmd-norm", lift.split);
 }
 
 void Aircraft::fail_engine(int engine, bool feather) {
