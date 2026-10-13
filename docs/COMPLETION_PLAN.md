@@ -804,12 +804,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       sideways at a walking pace, a C172P had her brakes wound up and was
       put on her nose. *Verification: a rollout held at low groundspeed with
       no deceleration keeps her brake bounded and her nose above -5 degrees.*
-      Below 5 kt the autobrake now adds no brake past 0.3 (2026-10-14), and
-      held at 3 kt every landplane's stays there. **Still missing**: a
-      C172P landed in 15 kt across creeps for four and a half minutes more
-      before she stops, and the learnt landing in 10 kt across stops up to
-      60 m later; a higher pedal stops the creep but leaves a learnt
-      landing unstopped.
+      Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
+      creep (2026-10-14). Every landplane held at walking pace keeps under
+      that and stops nose up, and in 15 kt across each stops within 2 s of
+      main's time. **Still missing**: one learnt landing (half fuel, 10 kt
+      across) is thrown on her nose by her gear at 1.2 kt, with no control
+      moving, and does not stop.
 - [ ] **The flying boat lands in gusts without skipping.** Her flare is
       flown to her hull and she touches gently, but in gusts she touches
       flat - under one degree, below NACA TN 923's lower trim limit - and

@@ -3362,13 +3362,20 @@ GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_in_a_15_kt_crosswind_has
 // as soon after her lesson ends as on main.** Every aeroplane taught the
 // approach but the flying boat (13, asserted), flown down final by her
 // lesson as the steady-wind rollout tests fly her, in 15 kt straight across
-// from the left, must stop on the runway, and within `most_to_the_stop_s` of
-// her lesson's end at thirty knots. With the autobrake held to 0.3 below
+// from the left, must stop on the runway, and from her lesson's end at
+// thirty knots within `margin_s` of the time main's lander took (a73844b2's
+// law, measured 2026-10-14 on linux-release: `mains`). With the autobrake held
+// to 0.3 below
 // walking pace (2026-10-14, a first try), a C172P at idle crept at 1.0 kt -
 // her idle thrust, 44 lbf, more than 0.3 of brake holds - and took 273 s
 // more to stop than on main.
 GLIDESLOPE_TEST(in_a_steady_15_kt_crosswind_every_landplane_stops_on_the_runway_as_soon_as_on_main) {
-    constexpr double most_to_the_stop_s = 60.0;
+    constexpr double margin_s = 2.0;
+    const std::map<std::string, double> mains{
+        {"737-300", 9.0}, {"787-8", 9.0},  {"a320", 9.4},       {"a380", 8.8},
+        {"b2", 8.9},      {"c172p", 4.8},  {"c182", 4.3},       {"f15c", 10.5},
+        {"f35b", 8.8},    {"j3cub", 2.9},  {"learjet35a", 8.9}, {"mosquito-fb6", 9.0},
+        {"pa28", 5.0}};
     const auto taught = everyone_taught("approach-and-landing");
     const double heading = a_runway().heading_deg / degrees;
     const double mps = 15.0 * 0.514444;
@@ -3400,9 +3407,13 @@ GLIDESLOPE_TEST(in_a_steady_15_kt_crosswind_every_landplane_stops_on_the_runway_
             wrong.push_back(where + " went around: " + r.why);
             continue;
         }
-        if (!r.stopped || r.to_the_stop_s > most_to_the_stop_s) {
+        const auto main_s = mains.find(id);
+        if (main_s == mains.end()) {
+            wrong.push_back(where + " has no time measured on main");
+        } else if (!r.stopped || r.to_the_stop_s > main_s->second + margin_s) {
             wrong.push_back(where + " took " + std::to_string(r.to_the_stop_s) +
-                            " s from her lesson's end to stop");
+                            " s from her lesson's end to stop, against " +
+                            std::to_string(main_s->second) + " on main");
         }
         if (r.stopped_along_m > a_runway().length_m) {
             wrong.push_back(where + " stopped " + std::to_string(r.stopped_along_m) +
@@ -3417,7 +3428,7 @@ GLIDESLOPE_TEST(in_a_steady_15_kt_crosswind_every_landplane_stops_on_the_runway_
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 14 && flown == 13 && left_out == 1,
+    check(taught.size() == 14 && flown == 13 && left_out == 1 && mains.size() == flown,
           "every landplane of fourteen flown, the flying boat left out: " +
               std::to_string(flown) + " and " + std::to_string(left_out));
 }
