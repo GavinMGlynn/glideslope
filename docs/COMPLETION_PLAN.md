@@ -526,10 +526,9 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 
 - [ ] **The take-off autopilot rotates at a held rate.** It eases the pull
       as the nose nears the tail strike, but airliners still come up at 7 to
-      8 degrees a second (PROJECT_STATUS, 2026-10-13). A held rate is built
-      on its branch, with a ground mode for the F-22A, but four tests are
-      still red with it: the F-22A at one loading, the 747-400's measured
-      speeds, and the C172P handed over at lift-off. *Verification: every
+      8 degrees a second (PROJECT_STATUS, 2026-10-13). The airliners and
+      the B-2A now rotate at a held three degrees a second; the light
+      aeroplanes, the fighters and the Learjet do not yet. *Verification: every
       nose-wheel aeroplane at every loading rotates no faster than its stated
       rate on her wheels, and every take-off and hand-over test stays green.*
 - [x] **The autopilot holds a low height loosely in an airliner's take-off

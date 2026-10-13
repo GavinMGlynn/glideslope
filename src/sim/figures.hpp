@@ -76,10 +76,10 @@ struct PublishedFigures {
     // wheels to the runway at (`touchdown_fpm`); 0 where the file gives
     // none, and `approach_speeds` then uses a light aeroplane's forty.
     double touchdown_fpm = 0.0;
-    // **The rate the take-off autopilot rotates her at on her wheels**,
-    // degrees of pitch a second (`rotation_degps`, sim::Departure): her
-    // flight manual's or her class's, which the file cites. 0 where the
-    // file gives none: a flying boat, which is not rotated.
+    // **The rate the take-off autopilot holds her rotation to on her
+    // wheels**, degrees of pitch a second (`rotation_degps`, sim::Departure):
+    // her flight manual's or her class's, which the file cites. 0 where the
+    // file gives none, and her rotation is then not held.
     double rotation_degps = 0.0;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;

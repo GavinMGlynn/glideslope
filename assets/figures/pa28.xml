@@ -30,14 +30,7 @@
   later PA-28: Middle Georgia State University's Warrior PA-28-161 pilot's
   checklist (2025), "Balked landing, go-around: maximum power, flaps 25".
 -->
-<!--
-  **rotation_degps** is the rate the take-off autopilot rotates her at on
-  her wheels (sim/departure.hpp): four degrees a second. No handbook found
-  gives a rate; it is the one the take-off autopilot raised every nose at
-  before each aeroplane had her own, kept for the light aeroplanes and the
-  fighters, which are rotated more briskly than an airliner.
--->
-<published_figures aircraft="pa28" rotation_degps="4" flaps_full_deg="40" go_around_flaps_deg="25">
+<published_figures aircraft="pa28" flaps_full_deg="40" go_around_flaps_deg="25">
   <source>Piper Cherokee 180 "E" Owner's Handbook, 1969-1974</source>
 
   <!-- 2,400 lb, the gross weight the handbook's figures are for: its

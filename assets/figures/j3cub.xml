@@ -24,14 +24,7 @@
   speed - the booklet's "design level flight speed", 90 mph, is the type
   certificate's limit, not a speed measured.
 -->
-<!--
-  **rotation_degps** is the rate the take-off autopilot rotates her at on
-  her wheels (sim/departure.hpp): four degrees a second, the rate the
-  attitude asked of her is raised at. She stands on a tail wheel, her tail
-  raised on the roll, and is flown off level: the rate is not held on her
-  wheels as it is on a nose-wheel aeroplane's.
--->
-<published_figures aircraft="j3cub" rotation_degps="4" flaps_full_deg="0">
+<published_figures aircraft="j3cub" flaps_full_deg="0">
   <source>Piper J3C-65 Owner's Manual; Piper, How to Fly a Piper Cub, 1945</source>
 
   <!-- 1,220 lb, the gross weight: the booklet's empty weight, 680 lb, and its

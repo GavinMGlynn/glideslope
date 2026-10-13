@@ -120,6 +120,7 @@ MeasuredTakeoff measure_takeoff_speeds(const std::filesystem::path& data,
         speeds.initial_climb_kts = climb_kts;
         if (figures.rotation_degps > 0.0) {
             speeds.rotation_degps = figures.rotation_degps;
+            speeds.rotation_held = true;
         }
         // **Measured at the take-off flap**, as the speeds are written
         // (`flaps_deg`): the flap stays out to where the climb away is read

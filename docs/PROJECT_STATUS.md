@@ -265,67 +265,43 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The take-off autopilot holds a rotation rate on the wheels; the F-22A given a ground mode; four tests still red, so not landed, 2026-10-13 — item still open
+### The airliners and the B-2A rotate at a held rate; the light aeroplanes, fighters and Learjet not yet, 2026-10-13 — item still open
 
-**What is still not true first.** This branch (`takeoff-held-rotation-rate`,
-a draft pull request) is **not mergeable**. In the second round's run of
-every test matching "take|rotat|lift|hand|depart|climb_away|strike|lesson|fault"
-(server and client built), 180 tests, four are red, 167 pass and nine are
-skipped for want of a language model's key:
-- `every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheels_no_faster_than_her_stated_rate`:
-  the F-22A at her model's loading peaks at 13.1 deg/s on her wheels (her
-  combat loading 4.4). Not traced; likely the moment her wheels unload, as
-  the C172P's below.
-- `the_measured_take_off_speeds_in_the_747_and_f22_figures_are_what_the_measurement_makes`:
-  the 747-400's `<takeoff_speeds>` are no longer what the measurement makes
-  with the rate held (the F-22A's are re-pinned, below). Not re-measured.
-- `every_landplane_handed_over_at_lift_off_climbs_away_through_500_ft_and_never_touches_the_runway`
-  and `the_cessnas_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway`:
-  the C172P, traced below, not fixed.
-Nothing here is on `main`.
+**What is still not true first.** The rate is held only for the six
+aeroplanes whose figures give one: the 737-300, 747-400, 787-8, A320, A380
+and B-2A. **The C172P, C182, PA-28, F-15C, F-22A, F-35B and Learjet 35A
+still rotate under the old law**, with the A320-like overshoot it allows
+(the C182 measured at 8.2 deg/s, the F-35B at 8.6, the Learjet at 8.6), and
+the item stays open for them. The tail-wheel aeroplanes and the flying boat
+are not rotated on a nose wheel and are not held.
 
-**Round two, 2026-10-13.**
-- **The F-22A has a ground mode** (`tools/make_f22.py`, "A ground mode"):
-  on her wheels the stick moves her stabilators directly and her pitch
-  loop's integrator is let down to nought; off them the loop is blended back
-  in over two seconds - as Airbus's normal law has a ground mode, a direct
-  stick-to-elevator relation, with the flight mode blended in after lift-off
-  (A320 FCOM, Flight Controls, Normal Law). In the air nothing changes. Her
-  combat loading now rotates at 4.4 deg/s, from ten. **Her measured
-  take-off speeds moved, from the measurement**: `glideslope_cli
-  takeoff-speeds f22 100` finds no rotation from 100 to 130 kt that has her
-  5 ft up within 15 kt (she is up at 142 to 154 whatever), 135 the first
-  that does; 140 is written (was 110, found when her pitch loop snatched her
-  nose up at ten degrees a second), and the climb away is unchanged at 220.
-- **Rotating early is judged by where she was rotated**
-  (`a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`): her
-  nose a degree above where she rolled at 20 kt more than five knots sooner
-  than by the book, and short of her rotation speed - against the book's own
-  rotation, because the book begins its rotation short of that speed by what
-  she gains while the nose comes up, so its nose is up before it (the 737-300
-  by the book at 141 kt against 151). A tail-wheel aeroplane, flown off
-  level, has no nose-up on her wheels by the book and is judged as before,
-  by her lift-off. Green; **seen red** with the early pull moved to the
-  book's own rotation: "737-300 was rotated early: her nose up at 141.2
-  knots, by the book at 141.2". (Measured from where she stands, the 737's
-  nose read as up at 1.5 kt: she settles on her gear by more than a degree
-  as she moves.)
-- **The C172P handed over at lift-off, traced, not fixed.** With the rate
-  held her stick is 0.975 back as her wheels first leave: at 4 deg/s her
-  elevator is at its stop from her nose wheel's lifting at 44 kt to her
-  lift-off at 56.7. The hand-over takes the stick as trim
-  (`Departure::from_lift_off`), and in 0.15 s her nose went from 7.9 to 12.3
-  degrees, her main wheels back on the runway twice, then to 29 degrees and
-  16.5 of incidence. With the law on `main` her stick at lift-off was 0.13,
-  at 8.1 degrees, and she climbed away at 9 to 10 degrees. Tried, each
-  still touching: the stick handed over as pull rather than trim (her
-  wheels still touch 0.05 s after); her rate at 3; the pull capped at the
-  one that lifted her nose wheel, scaled down with dynamic pressure (the
-  rate loop then pushed 0.87 forward on the pitch-rate jump as her wheels
-  unloaded, and she was flown back on); the rate aimed at the 10-degree
-  take-off attitude (the F-35B then left 19.5 kt past her rotation speed).
-  The jump in her pitch rate as her main wheels unload is the thing to meet
-  next: a stick held at its stop through the lift-off.
+**What landed.**
+- **Each held aeroplane's rate is data**: `rotation_degps` on her figures
+  file's root, cited there, read into `DepartureSpeeds::rotation_degps` and
+  `rotation_held`. Three degrees a second for all six: Boeing's flight crew
+  training manuals rotate "at 2 to 3 degrees per second"; Airbus asks about
+  three (Airbus Safety First, "A Focus on the Takeoff Rotation"); the B-2A
+  takes an airliner's, nothing found giving hers.
+- **The rate is held on her wheels** (`sim::Departure`): the pull builds at
+  the whole stick a second until her nose comes at a quarter of her rate
+  (half, as before, for an aeroplane not held); from there the stick is her
+  pitch rate's, taken over where it was - 0.3 of stick per degree a second
+  off the rate, at once, and the pull under it moved by two rates' worth a
+  second per degree a second off. When the rotation begins is worked from
+  her own rate. Tried and dropped: a lead on pitch acceleration (the PA-28's
+  gear rings her pitch rate at ±4 deg/s, and the derivative drove her stick
+  stop to stop).
+- **The test**,
+  `every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_every_loading_no_faster_than_it`:
+  the six at their 24 loadings, at a plan's speeds; the rate is her pitch
+  change over each quarter second wholly on her main wheels once rotating,
+  one degree a second of tolerance; the ten others named, with why. Seen red
+  with the hold switched off: all 24 loadings too fast (and in round one, with
+  every nose-wheel aeroplane given a rate, 40 of 42). Worst now: A320 light 3.62
+  against 3 (was 7.51), A380 light 3.60 (was 7.60), 747-400 light 3.88,
+  737-300 light 3.53, B-2A light 3.27, 787-8 light 3.15. Every one leaves at
+  least 2.9 degrees below her strike attitude; every airliner within 5 kt of
+  her rotation speed but the 747-400.
 - **The 747-400 leaves 11.1 kt past her rotation speed at her light
   loading** (4.6 degrees nose up, 131.9 kt against 120.8), 7.3 at her
   model's. Her rotation speed is measured at one weight, 754,313 lb, and
@@ -333,77 +309,56 @@ Nothing here is on `main`.
   degrees, her lift-off set by her speed rather than her attitude, and at
   her light weight she gains speed fastest through the rotation. Within the
   15 kt her trial allows; not traced further.
+- **Her measured speeds, re-measured** (`glideslope_cli takeoff-speeds
+  747-400 100`): the rotation is unchanged, 155 the first that holds and 160
+  written; the slowest climb away fell from 165.2 kt to 163.8 with her
+  rotation held, and is written 165, where it was 170.
+- **Rotating early is judged by where she was rotated**
+  (`a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`): her
+  nose a degree above where she rolled at 20 kt more than five knots sooner
+  than by the book, and short of her rotation speed - against the book's own
+  rotation, because the book begins its rotation short of that speed by what
+  she gains while the nose comes up (the 737-300 by the book has her nose up
+  at 141 kt against 151). Not by her lift-off, which the held rate rightly
+  moves: the 737-300 hauled back early now flies off 2.4 kt sooner than by
+  the book, not 3. A tail-wheel aeroplane, whose nose never comes up on her
+  wheels by the book, is judged as before by her lift-off. The debrief still
+  names the fault. Seen red with the early pull at the book's own rotation:
+  "737-300 was rotated early: her nose up at 141.2 knots, by the book at
+  141.2". (Read from where she stands, the 737's nose was up at 1.5 kt: she
+  settles more than a degree on her gear as she moves.)
 
-**What was built.**
-- **Each aeroplane's rate is data**: `rotation_degps` on her figures file's
-  root, cited there, read into `DepartureSpeeds::rotation_degps` (4 where
-  speeds are made by hand). Three for the airliners and the B-2A - Boeing's
-  flight crew training manuals rotate "at 2 to 3 degrees per second", and
-  Airbus asks about three (Airbus Safety First, "A Focus on the Takeoff
-  Rotation"). Four for the light aeroplanes, the fighters and the Learjet:
-  no document found gives theirs. **The Learjet at three** left the runway
-  11 kt past her rotation speed at her light loading, where full back stick
-  lifts her nose only 12 kt short of it and she gains 15 kt a second.
-- **The rate is held on a nose-wheel aeroplane's wheels**
-  (`sim::Departure`): until her nose comes at a quarter of the rate, the
-  pull builds as before (now the whole stick a second, not half - at half,
-  the F-35B left 13 kt past her rotation speed); from there the stick is her
-  pitch rate's, taken over where it was: 0.3 of stick per degree a second
-  off the rate, at once, and the pull under it moved by two rates' worth a
-  second per degree a second off. The rotation lead (when it begins) uses
-  her rate, not a fixed four. Tail-wheel aeroplanes are left to the old law.
-  - **Tried and dropped: a lead on pitch acceleration.** The PA-28's gear
-    makes her pitch rate ring at ±4 deg/s at 120 Hz, and the derivative
-    drove her stick from stop to stop: she left 25 kt late.
-- **The test**,
-  `every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheels_no_faster_than_her_stated_rate`:
-  thirteen nose-wheel landplanes at their 44 loadings, flown at a plan's
-  speeds (the 747-400 and F-22A included); the rate is her pitch change over
-  each quarter second wholly on her main wheels once rotating; one degree a
-  second of tolerance. The Cub, the Mosquito and the S.23 are named left out;
-  the F-22A, judged since round two (above), is red at one loading. **Green then, and
-  seen red** with the hold switched off: 40 of the 42 judged loadings too
-  fast.
+**Why the rest are not held, from three rounds of trying (all backed
+out).**
+- **The C172P handed over at lift-off touched the runway again.** Held at
+  4 deg/s her elevator is at its stop from her nose wheel's lifting at 44 kt
+  to her lift-off at 56.7, and she left with 0.975 of stick; the hand-over
+  takes the stick as trim (`Departure::from_lift_off`), and in 0.15 s her
+  nose went from 7.9 to 12.3 degrees and her main wheels struck twice more.
+  Under the old law her stick at lift-off is 0.13 and she climbs away at 9
+  to 10 degrees. Tried, each still touching: the stick handed over as pull
+  rather than trim; her rate at 3; the pull capped at the one that lifted
+  her nose wheel, scaled with dynamic pressure; the rate aimed at a 10-degree
+  take-off attitude (the F-35B then left 19.5 kt late); and releasing the
+  rate to the attitude law once her gear carried under a quarter of her
+  weight - that let her fly herself off, but released the fighters, the
+  787-8, the 747-400 and the PA-28 far too early: the F-35B left 50 kt
+  late, and the 787-8 and the B-2A handed over then touched down.
+- **The F-22A's own pitch loop winds up on her wheels**: her stick commands
+  a pitch rate, its integrator winds to full stabilator while her nose wheel
+  holds the nose, and she came up at ten degrees a second whatever her stick
+  did. A ground mode in her model (the stick direct to her stabilators on
+  her wheels, her pitch loop blended back in off them, as Airbus's normal
+  law's ground mode) brought her combat loading to 4.4 deg/s, but her
+  model's loading still peaked at 13.1, untraced, and moved her measured
+  rotation speed from 110 to 140. Left out of this change.
+- **The Learjet at three** left 11 kt past her rotation speed at her light
+  loading; at four she held, with the F-35B 7.4 kt late and the F-15C 6.9.
 
-**Measured, worst of each** (peak on her wheels against her rate; lift-off
-against her rotation speed for her weight): A320 light 3.62 against 3
-(before: 7.51), A380 light 3.60 (7.60), 737-300 light 3.53, B-2A light
-3.27, 787-8 light 3.15, 747-400 light 3.88; C182 4.38 against 4 (8.23),
-F-35B combat 4.41 (8.64), F-15C 4.37, Learjet light 4.33 (8.62); C172P and
-PA-28 under four. Lift-offs: Learjet light 8.6 kt past (was 4), F-35B
-combat 7.4, F-15C 6.9, 747-400 light 11.1 (her measured speeds' trial
-allows 15), every airliner within 5. Every one leaves at least 2.9 degrees
-below her strike attitude.
-
-**Red with the rate held in round one, and what was known of each** (round two, above, supersedes it).
-- **The F-22A** (`the_747_and_the_f22_take_off_at_the_speeds_measured_from_their_models`,
-  and so `the_measured_take_off_speeds_in_the_747_and_f22_figures_are_what_the_measurement_makes`):
-  unstuck at 136 kt against 110 + 15. Her stick commands a pitch rate
-  through her model's own flight control system (`fcs/pitch-rate-integrator`,
-  12 deg/s at full stick with the gear down), whose integrator winds to full
-  stabilator while her nose wheel pins the nose, and whose surface unwinds
-  over two seconds once it comes: the stick went full forward at 99 kt and
-  the stabilator crossed neutral at 105, the nose at ten degrees a second.
-  An outer rate loop cannot hold her; a ground mode in her model (a direct
-  stick on the wheels, as fly-by-wire airliners have) is the likely fix,
-  through `tools/make_f22.py`.
-- **The C172P handed over at lift-off touches the runway again**
-  (`every_landplane_handed_over_at_lift_off_climbs_away_through_500_ft_and_never_touches_the_runway`,
-  `the_cessnas_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway`):
-  handed over 4.6 ft up climbing 21 ft/min. Not yet traced.
-- **The 737-300 rotated early comes off 2.4 kt sooner than by the book, not
-  3** (`a_take_off_flown_with_one_fault_has_that_fault_in_its_debrief`):
-  hauled fully back from 122 kt she rotates at ten degrees a second, her
-  wheels leave for a moment at 12.7 degrees, and back on them the rate held
-  keeps her at twelve, short of her strike, until 160 kt. Her debrief still
-  names the fault. The test's own comment already allows the strike as the
-  way her early rotation is caught, but its check does not; which to change
-  is open.
-- Not run: the multi-process server and client tests, which other agents'
-  runs share ports with.
-
-**The selftest hash does not move**: 182dd6c996e0ee4c (it flies an input
-log, not the take-off autopilot).
+**Verification.** Every test matching
+"take|rotat|lift|hand|depart|climb_away|strike|lesson|fault", with the
+server and client built: 180 tests, 171 pass and nine are skipped for want of a language model's key, none red. The 747-400's recorded plan (`tests/data/copilot/cbd-orbit-747-400-anthropic.jsonl`) was recorded again from Claude Haiku: her figures' climb speed is in the prompt, and the recording was refused as made for another request. The selftest hash does not move:
+182dd6c996e0ee4c.
 
 ### A plan's first leg strays further at the published climb speed because a turn's size goes with the square of the speed, 2026-10-13 — item done
 
