@@ -6165,19 +6165,33 @@ LowHold holds_a_low_height(const glideslope::sim::CatalogueEntry& entry, double 
 // her take-off flap with her gear down and, from the 35 ft screen, asked by
 // the autopilot to hold 200 ft and the speed she has, each settles - climbing
 // or sinking less than 100 ft/min - inside the first minute and stays so for
-// the four minutes she is flown. The A380 swung 15.6 ft either side of it at
+// the four minutes she is flown, within 10 ft of the height and 1 kt of the
+// speed after the first minute. The A380 swung 15.6 ft either side of it at
 // up to 488 ft/min for all four, never settling: the throttle chased the
 // speed her climb traded for height, and climbed her further
 // (sim/autopilot.cpp, `climb_as_speed_s`). Now (2026-10-13), settled at:
-// 737-300 25 s, 747-400 12, 787-8 26, A320 26, A380 31. Coverage: every
-// airliner in the roster, by its class.
+// 737-300 25 s, 747-400 12, 787-8 26, A320 26, A380 30; after the first
+// minute at most 5.1 ft off (the 787-8) and 0.1 kt.
+// **Coverage**: every airliner in the roster, by its class - five. The
+// other classes are left out, named: the item is the airliners' take-off
+// flap, which none of them flies a low hold at (their take-offs, and the
+// light aeroplanes' speed floor, are tested by the take-off and ceiling
+// tests).
 GLIDESLOPE_TEST(every_airliner_at_her_take_off_flap_and_gear_holds_a_low_height_settled_inside_a_minute) {
     constexpr double flown_s = 240.0;
+    constexpr std::size_t airliners_in_the_roster = 5;
+    constexpr double most_off_ft = 10.0;
+    constexpr double most_off_kts = 1.0;
     std::vector<std::string> wrong;
+    const auto roster = glideslope::sim::read_catalogue(data());
     std::size_t airliners = 0;
     std::size_t flown = 0;
-    for (const glideslope::sim::CatalogueEntry& e : glideslope::sim::read_catalogue(data())) {
+    std::size_t left_out = 0;
+    for (const glideslope::sim::CatalogueEntry& e : roster) {
         if (e.aircraft_class != glideslope::sim::AircraftClass::airliner) {
+            std::printf("  left out - %s: a %s, not an airliner\n", e.id.c_str(),
+                        std::string(glideslope::sim::name_of(e.aircraft_class)).c_str());
+            ++left_out;
             continue;
         }
         ++airliners;
@@ -6200,11 +6214,23 @@ GLIDESLOPE_TEST(every_airliner_at_her_take_off_flap_and_gear_holds_a_low_height_
                             " s, swinging at up to " + std::to_string(r.worst_fpm) +
                             " ft/min after the first minute");
         }
+        if (r.most_off_ft > most_off_ft) {
+            wrong.push_back(e.id + " was " + std::to_string(r.most_off_ft) +
+                            " ft off her height after the first minute");
+        }
+        if (r.slowest_kts < r.engaged_kts - most_off_kts ||
+            r.fastest_kts > r.engaged_kts + most_off_kts) {
+            wrong.push_back(e.id + " flew " + std::to_string(r.slowest_kts) + " to " +
+                            std::to_string(r.fastest_kts) + " kt, asked " +
+                            std::to_string(r.engaged_kts));
+        }
     }
     say_wrong(wrong);
-    check(airliners > 0 && flown == airliners,
+    check(airliners == airliners_in_the_roster && flown == airliners &&
+              airliners + left_out == roster.size(),
           "every airliner in the roster flown: " + std::to_string(flown) + " of " +
-              std::to_string(airliners));
+              std::to_string(airliners) + ", 5 expected; " + std::to_string(left_out) +
+              " of other classes named");
 }
 
 // **The server's and the client's controllers are told how every

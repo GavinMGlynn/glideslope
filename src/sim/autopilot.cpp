@@ -242,18 +242,31 @@ constexpr double throttle_rate = 0.25;
 // answers - only its proportional part; the integral still finds the speed
 // asked. Holding 200 ft at her take-off flap and gear from the 35 ft screen,
 // the A380 - slow, heavy, her thrust a large part of her climb and slow to
-// spool - swung 15 ft either side at up to 490 ft/min for four minutes
+// spool - swung 15.6 ft either side at up to 488 ft/min for four minutes
 // without it; with the throttle frozen she settled in 43 s, so the speed
-// loop was the swing. At 1 s she settles in 62 s, at 2 s in 31, at 4 s in
-// 17; the other airliners within a second of where they were
-// (every_airliner_at_her_take_off_flap_and_gear_holds_a_low_height_settled_inside_a_minute).
-// In a steady climb or level flight, the climb as asked, it is nothing.
-// **Not for a light aeroplane, clean**: there the speed floor (below) is
-// the rule for that trade, and with both a Cherokee handed over near her
-// ceiling was back at her height in 109 s rather than 85. And the F-22A at
-// 130 kt with her gear down, 10 under her slowest, no longer slows into a
-// departure (test_catalogue.cpp).
+// loop was the swing. In a steady climb or level flight, the climb as
+// asked, it is nothing.
+// **2 s**: unclamped, at 1 s she settles in 62 s, at 2 s in 31, at 4 s in
+// 17. 2 s is the least that settles her with the item's minute halved -
+// a margin for the drift between machines - and so the least change to
+// everything else; 4 s moved the other airliners by up to 1.2 s more and
+// was not otherwise measured. Not chosen on the F-22A.
+// **No more than 3 kt** (`most_climb_as_kts`): the swing it damps is a knot
+// or two, and a climb short by thousands of feet a minute - a capture, or
+// an aeroplane sinking behind her power curve - is not this term's to
+// answer. Clamped at 3 the A380 settles in 30 s (2 kt, 40 s; 5, 31).
+// Unclamped, the F-22A held at 130 kt with her gear down, 10 under her
+// slowest and sinking, was held there by it, 240 ft down; clamped she
+// departs as she did (test_catalogue.cpp).
+// **Not for a light aeroplane, clean: a measured workaround, not a
+// principle.** Her speed floor (below) already gives the elevator the
+// speed and the throttle all it has when the speed runs short, and the two
+// count the same trade twice: with both, a Cherokee handed over near her
+// ceiling at her best-climb speed came back to her height in 109 s, past
+// the 90 her test allows (85 without the term). Off where the floor can
+// bind, she is as she was.
 constexpr double climb_as_speed_s = 2.0;
+constexpr double most_climb_as_kts = 3.0;
 constexpr double fps_per_kt = 1852.0 / 3600.0 / 0.3048;
 // **Handed over climbing faster than the climb asked, she is eased down to
 // it** (Autopilot::ease_climb), at 25 ft/min a second, rather than stepped:
@@ -1016,8 +1029,9 @@ Controls Autopilot::fly() {
         const double climb_as_kts =
             a_.climb_floor_kts() && clean(a_)
                 ? 0.0
-                : climb_as_speed_s * g_fps2 * (climb_off / 60.0) / std::max(speed_fps, 1.0) /
-                      fps_per_kt;
+                : std::clamp(climb_as_speed_s * g_fps2 * (climb_off / 60.0) /
+                                 std::max(speed_fps, 1.0) / fps_per_kt,
+                             -most_climb_as_kts, most_climb_as_kts);
         const double wanted =
             unloading_                   ? last_.throttle
             : holding_speed_ || on_speed ? 1.0
