@@ -770,9 +770,11 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       no deceleration keeps her brake bounded and her nose above -5 degrees.*
 - [ ] **The flying boat lands in gusts without skipping.** Her flare is
       flown to her hull and she touches gently, but in gusts she touches
-      flat - under one degree, below a hull's stable trims - and her planing
-      hull skips her 1.7 to 8 ft off the water. Her gust flare should put
-      her on the water at the trim she touches at in calm air. *Verification:
+      flat - under one degree, below NACA TN 923's lower trim limit - and
+      skips 1.7 to 8 ft off the water, worse than on main (0.8 to 1.6 ft):
+      the planing hull's centre of pressure and the flat touch both add to
+      it. Her gust flare should put her on the water at her calm touchdown
+      trim. *Verification:
       the S.23 lands in calm air and in gusts within the landplanes'
       limits.*
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the

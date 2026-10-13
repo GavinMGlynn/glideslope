@@ -244,6 +244,10 @@ public:
     // gravity.
     bool lands_on_wheels() const { return lands_on_wheels_; }
     bool lands_on_hull() const { return !lands_on_wheels_ && !lands_on_.empty(); }
+    // The trim her afterbody's keel meets the water at, degrees, from her
+    // hull's contacts; 0 for a landplane, or a hull with no keel aft of her
+    // step.
+    double afterbody_deg() const { return afterbody_deg_; }
 
     Lander(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
            double glidepath_deg = 3.0);

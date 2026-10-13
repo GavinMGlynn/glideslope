@@ -267,8 +267,15 @@ are the risks the phase order is built around:
 
 ### The S.23's hull is a planing hull: Savitsky's lift at its centre of pressure, the afterbody planing, and she holds the step in calm air; in gusts she touches flat and skips, 2026-10-14 — item done, and the headwind item
 
-**What is still missing, first**: **in gusts the S.23 skips off the water**,
-worse than on the wip branch. The gust test's eight seeds rise 1.73 to
+**What is still missing, first**: **in gusts the S.23 skips off the water,
+and worse than on main.** On main (#184's hull, its pinned planing clip)
+her eight seeds rose 1.26, 0.00, 0.00, 0.00, 0.70, 0.81, 0.16 and 1.57 ft,
+three over the limit (0.81 to 1.57); on this hull all eight are over it,
+1.73 to 8.09 ft, and seed 1 is wrecked. Two things make it so, both
+measured: **the hull's centre-of-pressure moment** - with that one moment
+taken out of the built model (A/B on this tree), seeds 1 and 5 rose 2.38
+and 1.98 ft against 8.09 and 4.43 with it - **and the flat touch in
+gusts**, below. It is worse than on the wip branch too. The gust test's eight seeds rise 1.73 to
 8.09 ft after she touches, against the gust limit's 1.0 less its 0.25
 margin, and on seed 1 she comes back down at 726 ft/min. She stays named
 in the gust tests and Phase 10b's "The flying boat lands in gusts without
@@ -349,9 +356,17 @@ just inside the 0.5. Its gains are no longer fitted:
 | calm hop on the water | 0.50 ft | 0.32 ft | 0.5 |
 
 All seven of her figures are in range (`glideslope_cli figures short_s23`:
-level speed 201.8 mph, climb 912 ft/min, landing stall 66.3 KCAS too). The
-take-offs lengthened with the lift moved aft, to 1 s and 0.2 s inside their
-ranges' tops; Gouge's own 30.5 s at 45,000 lb is the range's centre.
+level speed 201.8 mph, climb 912 ft/min, landing stall 66.3 KCAS too), but
+**the standard take-off is only 0.18 s inside its range** (26.82 s against
+27.00), and the 45,000 lb one 0.99 s (34.09 against 35.08). **The cause is
+the forebody's centre-of-pressure moment**: with it taken out of the built
+model (A/B on this tree), the take-offs are 23.35 s and 29.31 s - and the
+45,000 lb run 627.8 yd, short of its range's 675.75. Moved aft to its
+centre of pressure the lift pitches her nose down on the step, her trim
+sits lower than her best for resistance, and she takes longer to unstick.
+Gouge's own 30.5 s at 45,000 lb is the range's centre. A small change to
+the hull - Savitsky's hydrostatic term, below - takes the 45,000 lb
+take-off out of range.
 
 The gust test's eight seeds (rise limit 1.0 ft, less 0.25):
 
@@ -375,9 +390,27 @@ none named), and the tailwind test is renamed for it,
 `in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again`
 (it was `..._every_landplane_...`).
 
+**Savitsky's hydrostatic term, tried for the review of #191 and not
+kept.** Savitsky's C_L0 is tau^1.1 (0.012 lambda^0.5 + 0.0055 lambda^2.5 /
+C_V^2); the hull uses the first, dynamic, term alone, and its centre of
+pressure the full C_V form. Added to both the forebody's and the
+afterbody's lift (on 1/2 rho V^2 b^2 it is 0.0055 lambda^2.5 tau^1.1 on
+1/2 rho g b^3), measured on linux-release: the 45,000 lb take-off 35.64 s,
+**out of range** (35.08), its run 847.6 yd; the standard take-off 26.87 s;
+**the draught 3.30 ft, out of range** (3.5 to 4.5); the calm hop 0.32 ft;
+the headwind 0.20 ft and the tailwind 0.23; the gust seeds 9.26 (wrecked,
+607 ft/min), 4.77, 2.96, 14.44 (wrecked, 848 ft/min), 4.71, 2.62, 2.07 and
+1.74 ft. The term is the hydrostatic lift of the water displaced, which
+her model's buoyancy table already carries: added, it lifts her at rest
+too, so she floats 0.4 ft high. Kept untuned on branch
+`s23-savitsky-hydrostatic-wip` (3dd5b3e3). Using it means taking the
+hydrostatics from Savitsky and the buoyancy table off the planing hull,
+which is a change to the hull model, not a tweak.
+
 **Sources pinned** (docs/ASSETS.md, "The Short S.23's hull"): NACA ARR
-3F30 and NACA TN 923. Savitsky (1964) is cited from Marine Technology
-1(4), pp. 71-95; SNAME's copy is paywalled and not pinned.
+3F30 and NACA TN 923. Cited, not pinned: Savitsky (1964), Marine
+Technology 1(4), pp. 71-95, SNAME's copy paywalled; and Zarnick,
+DTNSRDC-78/032 (1978), not looked for.
 
 **Verification:**
 - `a_flying_boat_alighting_in_calm_air_holds_the_step_without_porpoising_down_to_taxi_speed`:
@@ -385,6 +418,12 @@ none named), and the tailwind test is renamed for it,
   forebody's centre of pressure: 0.54 ft. And on #184's hull, 4.10 ft
   (2026-10-13).
 - `glideslope_cli figures short_s23`: 7 of 7 in range, as above.
+- New for the review: `an_elevators_full_travel_pitching_moment_is_read_and_refused_outside_0_to_2`
+  (the S.23's 0.28 read, the A320's none, 2 read back, 0, -0.28 and 2.5
+  refused; seen red with the limit raised to 3: "refused, not 2") and
+  `no_landplane_has_an_afterbody_and_the_flying_boats_meets_the_water_at_her_keels_angle`
+  (13 landplanes at 0, the S.23 at 10.81; seen red with the angle's
+  default 1: "14 wrong, the first: 737-300"). Both green.
 - 57 tests over the S.23, a flying boat, a seaplane, water, the made
   models, the calm landings at both weights, the headwind and tailwind
   rollouts and the published figures pass (linux-release, `ctest -R`);
@@ -1111,7 +1150,7 @@ in a 10 kt crosswind creeping and not stopped.
   Seen red on the old law: the C172P, C182, Cub, PA-28 and S.23 above.
   Now the thirteen rise at most 0.13 ft (F-15C); the F-35B rises 0.06 and
   the rest 0.00.
-- New: `in_a_steady_10_kt_tailwind_every_landplane_lands_and_rolls_out_without_lifting_off_again`.
+- New: `in_a_steady_10_kt_tailwind_every_landplane_lands_and_rolls_out_without_lifting_off_again` (renamed `..._every_aeroplane_...` on 2026-10-14, when the S.23 was judged in it).
   This is the same check in a 10 kt tailwind, and again the S.23 is named.
   All thirteen pass: the most is the F-35B's 0.22 ft, and every one stops.
   It guards against a regression and was never red, because in a tailwind

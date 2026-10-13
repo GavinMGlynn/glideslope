@@ -632,6 +632,58 @@ GLIDESLOPE_TEST(the_rotation_loops_stick_per_degree_a_second_is_read_and_refused
                                            std::to_string(refused));
 }
 
+// **Her elevator's pitching moment at full travel is read, and one that is
+// none or past any aeroplane's is refused** (`elevator_full_cm`, which damps
+// the lander's hold of a hull's trim on the step): the S.23's 0.28 read as
+// written, the A320's - which gives none - as nought, and the A320's file
+// given one: 2, the most allowed, read back; nought, less and more than 2
+// refused, each naming it.
+GLIDESLOPE_TEST(an_elevators_full_travel_pitching_moment_is_read_and_refused_outside_0_to_2) {
+    check(read_published_figures(figures_file("short_s23")).elevator_full_cm == 0.28,
+          "the S.23's elevator gives a pitching moment coefficient of 0.28 at full travel");
+    check(read_published_figures(figures_file("a320")).elevator_full_cm == 0.0,
+          "the A320 gives none");
+
+    std::ifstream in(figures_file("a320"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const std::string attribute = "rotation_degps=\"3\"";
+    const auto at = text.find(attribute);
+    if (at == std::string::npos) {
+        fail("assets/figures/a320.xml does not give rotation_degps=\"3\"");
+    }
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_elevator_cm_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& value) {
+        std::string changed = text;
+        changed.replace(at, attribute.size(), attribute + " elevator_full_cm=\"" + value + "\"");
+        std::ofstream out(file);
+        out << changed;
+    };
+
+    write("2");
+    check(read_published_figures(file).elevator_full_cm == 2.0,
+          "a coefficient of 2, the most allowed, is read back as written");
+    const char* const wrong[] = {"0", "-0.28", "2.5"};
+    std::size_t refused = 0;
+    for (const char* value : wrong) {
+        write(value);
+        try {
+            read_published_figures(file);
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            check(said.find("elevator_full_cm") != std::string::npos,
+                  std::string("the refusal of ") + value + " names elevator_full_cm: " + said);
+            ++refused;
+        }
+    }
+    std::filesystem::remove(file);
+    check(refused == std::size(wrong), "all three coefficients outside 0 to 2 were refused, not " +
+                                           std::to_string(refused));
+}
+
 // **Every aircraft's flare touches down within NASA's criterion.** Zaal et
 // al., "Go-Around Criteria Refinement for Transport Category Aircraft"
 // (AIAA Journal of Air Transportation, NTRS 20205010611), take a touchdown

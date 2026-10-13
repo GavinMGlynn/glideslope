@@ -105,7 +105,10 @@ The changes, and what each is for:
                         Marine Technology, 1964), C_L0 = 0.012 lambda^0.5
                         tau^1.1 on 1/2 rho V^2 b^2, lambda the step's
                         immersion over b sin(tau), capped at 4, tau her trim
-                        and the angle her sink adds; no deadrise correction.
+                        and the angle her sink adds; no deadrise correction,
+                        and its hydrostatic term, 0.0055 lambda^2.5 tau^1.1
+                        / C_V^2, left to the buoyancy table, which carries
+                        the water displaced already.
                         It acts at Savitsky's centre of pressure, lambda b
                         (0.75 - 1 / (5.21 C_V^2 / lambda^2 + 2.39)) forward
                         of the step, not at the reference point where JSBSim
