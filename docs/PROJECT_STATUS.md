@@ -275,7 +275,17 @@ ground roll of about 3,200 ft, which the RCR 16 line turns into about
 7,000). Her runway is now that times the same 1.67 as her dry figure, 4,174
 m, in place of 1.15 on the dry (2,459 m), which was shorter than her own
 manual says she needs unfactored; she stops at 2,478 m. **A pilot has no binding for the reverse lever**: it is in the controls and
-on the wire, and only the AI moves it (a new Phase 10b item). **A client
+on the wire, and only the AI moves it (a new Phase 10b item). **On macOS
+release the J-3 Cub once stood differently with the lever out than stowed**
+(CI run 38427013483), though her model has no reversers and
+`Aircraft::set_controls` writes nothing for the lever without them; **the
+cause is not found.** On Linux her two flights are bit-identical, under
+valgrind (no uninitialised read) and with `MALLOC_PERTURB_` at 0, 165 and
+77. The test now flies each aircraft without reversers stowed twice and
+says which it is - a flight that differs run to run, the lever not
+involved, or one the lever changed - with every differing field to the last
+bit (**seen to fail** with the second flight 0.01 s shorter: "b2 stood
+differently twice with the lever stowed - not the lever: time ..."). **A client
 built before this, sending seventeen controls, is let in and its every input
 dropped** as the wrong length (`net::InputReceiver` reads eighteen and
 refuses what is left short), as TRANSPORT.md's pre-release rule allows - the

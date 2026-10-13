@@ -15,6 +15,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <map>
 #include <filesystem>
 #include <fstream>
@@ -782,6 +783,41 @@ struct GroundRun {
     bool says_reversers = false;
 };
 
+// Each field two states differ in, both values to the last bit.
+std::string differences(const glideslope::sim::AircraftState& a,
+                        const glideslope::sim::AircraftState& b) {
+    std::string out;
+    const auto field = [&](const char* name, double x, double y) {
+        if (std::memcmp(&x, &y, sizeof x) != 0) {
+            char line[160];
+            std::snprintf(line, sizeof line, "%s %a against %a; ", name, x, y);
+            out += line;
+        }
+    };
+    field("time", a.sim_time_s, b.sim_time_s);
+    field("latitude", a.latitude_deg, b.latitude_deg);
+    field("longitude", a.longitude_deg, b.longitude_deg);
+    field("altitude", a.altitude_ft, b.altitude_ft);
+    field("height", a.height_above_ground_ft, b.height_above_ground_ft);
+    field("terrain", a.terrain_elevation_ft, b.terrain_elevation_ft);
+    field("roll", a.roll_deg, b.roll_deg);
+    field("pitch", a.pitch_deg, b.pitch_deg);
+    field("heading", a.heading_deg, b.heading_deg);
+    field("u", a.u_fps, b.u_fps);
+    field("v", a.v_fps, b.v_fps);
+    field("w", a.w_fps, b.w_fps);
+    field("p", a.p_radps, b.p_radps);
+    field("q", a.q_radps, b.q_radps);
+    field("r", a.r_radps, b.r_radps);
+    field("airspeed", a.airspeed_kts, b.airspeed_kts);
+    field("climb", a.climb_rate_fpm, b.climb_rate_fpm);
+    field("rpm", a.engine_rpm, b.engine_rpm);
+    if (a.on_water != b.on_water || a.ditched != b.ditched) {
+        out += "on water or ditched; ";
+    }
+    return out.empty() ? "no field differs bit for bit (a NaN compared unequal?)" : out;
+}
+
 GroundRun ground_run(const glideslope::sim::CatalogueEntry& entry, double throttle, double reverse,
                      double seconds) {
     const Runway runway = a_runway();
@@ -872,9 +908,16 @@ GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_grou
             wrong.push_back(e.id + ": her flight model's reversers are not her catalogue's");
         }
         if (!reversers) {
+            // Stowed twice, so that a flight that differs run to run - the
+            // lever not involved - is told apart from one the lever changed.
             const GroundRun stowed = ground_run(e, 0.0, 0.0, seconds);
-            if (!(stowed.state == most.state)) {
-                wrong.push_back(e.id + " has no reversers, and the lever changed her");
+            const GroundRun again = ground_run(e, 0.0, 0.0, seconds);
+            if (!(stowed.state == again.state)) {
+                wrong.push_back(e.id + " stood differently twice with the lever stowed - not the "
+                                "lever: " + differences(stowed.state, again.state));
+            } else if (!(stowed.state == most.state)) {
+                wrong.push_back(e.id + " has no reversers, and the lever changed her: " +
+                                differences(stowed.state, most.state));
             }
             ++without;
             continue;
