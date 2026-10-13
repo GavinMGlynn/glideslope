@@ -744,10 +744,15 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 - [ ] **In a steady headwind the S.23 skips off the water after
       alighting.** The rollout now judges her lift by her airspeed in all
       air, and the thirteen landplanes roll out into 15 kt without lifting
-      off; the flying boat still rises 1.0 ft off the water, her hull
-      pitching her up. *Verification: in a steady 15 kt headwind every
-      aeroplane rolls out without lifting off, and the learnt landing's
-      crosswind tests pass.*
+      off. The flying boat still rises 1.0 ft off the water as her hull
+      pitches her up. This waits on Phase 9's "The S.23's hull is not a
+      planing hull" (open PR #184). *Verification: in a steady 15 kt
+      headwind every aeroplane rolls out without lifting off.*
+- [ ] **The rollout's autobrake winds up when there is nothing to slow.**
+      It keeps adding brake while her deceleration falls short. Blown
+      sideways at a walking pace, a C172P had her brakes wound up and was
+      put on her nose. *Verification: a rollout held at low groundspeed with
+      no deceleration keeps her brake bounded and her nose above -5 degrees.*
 - [ ] **The flying boat's flare is flown to her centre of gravity, not her
       hull.** Flown to her keel she touches gently in gusts, but in calm air
       her hull then rises 1.3 ft after touching. *Verification: the S.23
