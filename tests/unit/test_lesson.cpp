@@ -2827,6 +2827,89 @@ GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_
     every_aeroplane_lands_in_gusts(8, gusty_all());
 }
 
+// **In a steady 15 kt headwind every aeroplane lands and rolls out without
+// lifting off again.** The rollout eases her stick back as she slows, and
+// judges how slow by her airspeed along her nose - or her groundspeed, where
+// that is more - in steady air as in gusts (sim::Lander's rollout). Judged
+// by her groundspeed, a C172P touching at 55 kt into this wind is rolling at
+// 40 - "slow" - with her wing still carrying her: her stick comes back, her
+// nose rises and she flies off the runway again. Every aeroplane taught the
+// approach (14), down final in fifteen knots straight down the runway with
+// no turbulence and no gust factor, must not go around, must stay on her
+// wheels the right way up, rise no more than `settled_within_ft` after her
+// wheels met the runway, and stop. Coverage asserted: fourteen flown, one
+// named (the S.23, below), thirteen judged. Seen red on the rollout judged
+// by groundspeed in steady air: the C172P, C182, Cub and PA-28 flew off the
+// runway again, 2.7 to 6.6 ft, three of them striking their airframes.
+GLIDESLOPE_TEST(in_a_steady_15_kt_headwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again) {
+    const auto taught = everyone_taught("approach-and-landing");
+    const double heading = a_runway().heading_deg / degrees;
+    constexpr double wind_mps = 15.0 * 0.514444;
+    glideslope::sim::Conditions c;
+    // A wind from the runway's heading blows the other way.
+    c.wind_north_mps = -wind_mps * std::cos(heading);
+    c.wind_east_mps = -wind_mps * std::sin(heading);
+    c.wind_at_20ft_mps = wind_mps;
+    check(c.turbulence_severity == 0 && c.gust_factor_kt == 0.0,
+          "the headwind is steady: no turbulence and no gust factor");
+    const ApproachVariant headwind{"steady headwind", std::nullopt,
+                                   std::make_shared<glideslope::sim::SteadyWeather>(c), 0.0};
+    // **Named and not judged, with why** - flown and shown all the same. The
+    // item "In a steady headwind the S.23 skips off the water after
+    // alighting" in docs/COMPLETION_PLAN.md is open on it.
+    const std::map<std::string, std::string> named = {
+        {"short_s23", "she alights at 1.6 degrees, her hull's planing pitches her to 4 against "
+                      "her elevator, and she skips 1.0 ft off the water at her reference "
+                      "speed (7.6 ft judged by her groundspeed)"},
+    };
+    std::size_t flown = 0;
+    std::size_t left_out = 0;
+    std::vector<std::string> wrong;
+    std::vector<std::string> shown;
+    for (const std::string& id : taught) {
+        const Approached r = fly_the_approach(id, 0.0, &headwind);
+        const bool judged = named.count(id) == 0;
+        if (judged) {
+            ++flown;
+        } else {
+            ++left_out;
+            std::printf("  named, not judged - %s: %s\n", id.c_str(), named.at(id).c_str());
+        }
+        std::vector<std::string>& to = judged ? wrong : shown;
+        const std::string where = id + " (steady 15 kt headwind)";
+        std::printf("  %-13s %s%s, touched %4.0f ft/min %4.0f m along, rose %.2f ft after "
+                    "touching, least pitch %.1f deg%s\n",
+                    id.c_str(), r.went_around ? "WENT AROUND: " : "landed", r.why.c_str(),
+                    r.after.touch_sink_fpm, r.touch_along_m, r.after.highest_ft,
+                    r.after.least_pitch_deg, r.stopped ? "" : ", NOT STOPPED");
+        if (r.went_around) {
+            to.push_back(where + " went around: " + r.why);
+            continue;
+        }
+        for (const std::string& w : r.after.what_went_wrong(where)) {
+            to.push_back(w);
+        }
+        for (const std::string& w : r.after.how_the_gear_took_it(where, settled_within_ft)) {
+            to.push_back(w);
+        }
+        if (!r.stopped) {
+            to.push_back(where + " did not stop");
+        }
+    }
+    for (const std::string& w : shown) {
+        std::printf("      (named) %s\n", w.c_str());
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(taught.size() == 14 && flown + left_out == taught.size() && left_out == named.size(),
+          "every one of fourteen flown and judged or named: " + std::to_string(flown) +
+              " judged and " + std::to_string(left_out) + " named of " +
+              std::to_string(taught.size()));
+}
+
 // **An approach flown well in gusts is not sent round by the gate**: every
 // aeroplane taught the approach (14), down final in the gusts above with
 // half the gust factor on her reference speed, is never sent round for an
