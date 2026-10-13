@@ -33,8 +33,10 @@ the nozzle swivelled sideways. Where the fan, posts and nozzle are, how far
 each control moves its thrust, and how long the conversion takes are not
 published, and are estimated below, each with its number; nothing models
 the ground's effect on a jet in a hover - no suckdown, fountain or hot gas
-taken back into the inlet. A short take-off - the fan and nozzle part-way
-down on the roll - is not yet flown here, and is named in COMPLETION_PLAN.md.
+taken back into the inlet. The fan's vane box vectors its thrust aft for a
+short take-off, as Lockheed's paper gives its arc; her short take-off is
+flown (assets/figures/f35b.xml) and is longer than her requirement's 600 ft,
+for want of what is named in COMPLETION_PLAN.md.
 
 **Why the B and not the A.** FGAddon has no F-35A, so the A could have no
 visual model and nothing to rest on with its wheels up. It has an F-35B, under
@@ -73,7 +75,9 @@ Where each number comes from:
     flown without it.
   Wiegand et al., F-35 Air Vehicle Technology Overview (Lockheed Martin,
   AIAA 2018-3368)
-    The fan's inlet guide vanes "provide thrust modulation"; the roll posts
+    The fan's inlet guide vanes "provide thrust modulation"; its vane box
+    directs its thrust "in an arc of 41.75-104 degrees ... at a rate of 40
+    degrees per second"; the roll posts
     "produce about 10 percent of the vertical thrust" (here 9.3, Rolls-
     Royce's share).
   JSBSim's F100-PW-229, made the F135 as tools/make_f15c.py makes the F100-
@@ -182,6 +186,10 @@ LIFT_FAN_LBF, ROLL_POST_LBF, NOZZLE_LBF = 20000.0, 1950.0, 18000.0
 LIFT_SYSTEM_LBF = LIFT_FAN_LBF + 2.0 * ROLL_POST_LBF + NOZZLE_LBF
 NOZZLE_MAX_DEG = 95.0
 NOZZLE_RATE_DEG_S = 95.0 / 2.5
+# The fan's vane box (Wiegand et al.): its thrust "directed in an arc of
+# 41.75-104 degrees", measured here from straight aft, "at a rate of 40
+# degrees per second"; 90 is straight down.
+FAN_MIN_DEG, FAN_MAX_DEG, FAN_RATE_DEG_S = 41.75, 104.0, 40.0
 # The throttle in STOVL mode, short of the afterburner: JSBSim's turbine
 # lights it above 0.99.
 STOVL_THROTTLE = 0.99
@@ -379,6 +387,7 @@ def lift_system():
     out = "".join(f"        <property value=\"0\">fcs/{name}</property>\n" for name in
                   ("stovl-cmd-norm", "nozzle-cmd-deg", "lift-fan-cmd-norm", "roll-post-cmd-norm",
                    "nozzle-yaw-cmd-norm"))
+    out += "        <property value=\"90\">fcs/fan-cmd-deg</property>\n"
     out += "        <channel name=\"LiftSystem\">\n"
     out += written.kinematic("Conversion", "fcs/stovl-cmd-norm", [0, 1], [0, CONVERSION_S], "fcs/stovl-pos-norm")
     out += fn("STOVL Throttle",
@@ -410,6 +419,16 @@ def lift_system():
         out += (f"{i}<pure_gain name=\"{name} limit\">\n{i}    <input>fcs/{name}-cmd-norm</input>\n"
                 f"{i}    <gain>1</gain>\n{i}    <clipto><min>-1</min><max>1</max></clipto>\n"
                 f"{i}    <output>fcs/{name}-pos-norm</output>\n{i}</pure_gain>\n")
+    # The fan's thrust vectored by its vane box, forward and up.
+    out += (f"{i}<actuator name=\"Fan Vanes\">\n{i}    <input>fcs/fan-cmd-deg</input>\n"
+            f"{i}    <rate_limit>{FAN_RATE_DEG_S:.1f}</rate_limit>\n"
+            f"{i}    <clipto><min>{FAN_MIN_DEG:.2f}</min><max>{FAN_MAX_DEG:.1f}</max></clipto>\n"
+            f"{i}    <output>fcs/fan-pos-deg</output>\n{i}</actuator>\n")
+    for axis, op, sign in (("x", "cos", "<value>1</value>"), ("z", "sin", "<value>-1</value>")):
+        out += fn(f"Fan {axis.upper()}",
+                  f"{i}        <product>\n{i}            {sign}<{op}><product><property>fcs/fan-pos-deg</property>"
+                  f"<value>{math.pi / 180.0:.12f}</value></product></{op}>\n{i}        </product>\n",
+                  f"external_reactions/lift-fan/{axis}")
     out += share("Lift Fan", LIFT_FAN_LBF, FAN_MODULATION, "fcs/lift-fan-pos-norm",
                  "external_reactions/lift-fan/magnitude")
     out += share("Left Roll Post", ROLL_POST_LBF, POST_SHIFT, "fcs/roll-post-pos-norm",

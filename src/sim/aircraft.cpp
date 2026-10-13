@@ -912,6 +912,7 @@ void Aircraft::set_lift_system(const LiftSystem& lift) {
     }
     set("fcs/stovl-cmd-norm", lift.stovl);
     set("fcs/nozzle-cmd-deg", lift.nozzle_deg);
+    set("fcs/fan-cmd-deg", lift.fan_deg);
     set("fcs/lift-fan-cmd-norm", lift.fan);
     set("fcs/roll-post-cmd-norm", lift.roll_post);
     set("fcs/nozzle-yaw-cmd-norm", lift.nozzle_yaw);

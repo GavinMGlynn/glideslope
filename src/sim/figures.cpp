@@ -1680,6 +1680,83 @@ double vertical_landing(const std::filesystem::path& root, const PublishedFigure
     throw std::runtime_error("not down three minutes after letting down from the hover");
 }
 
+// **A short take-off**, as the F-35B's requirement states it: in air
+// `temperature_offset_c` warmer than standard, into `headwind_kt`. Converted
+// on the brakes, the nozzle and the fan's thrust at `roll_deg` from straight
+// aft, at full STOVL power; the brakes off, and at `rotate_kcas` the nozzle
+// and the fan swung to `lift_deg` and the nose raised to
+// `takeoff_pitch_deg`. The ground covered from the brakes' release to the
+// wheels leaving it; throws if she does not climb on to 50 ft above where
+// she stood without touching again.
+double short_takeoff(const std::filesystem::path& root, const PublishedFigures& figures,
+                     const FigureSpec& spec) {
+    const InitialConditions ic = on_the_runway();
+    Flight f(root, figures, spec, ic);
+    Conditions air;
+    air.temperature_offset_c = condition(spec, "temperature_offset_c");
+    const double wind_mps = condition(spec, "headwind_kt") * 0.514444;
+    const double heading_rad = ic.heading_deg * 3.14159265358979323846 / 180.0;
+    air.wind_north_mps = -wind_mps * std::cos(heading_rad);
+    air.wind_east_mps = -wind_mps * std::sin(heading_rad);
+    f.aircraft.set_weather(std::make_shared<SteadyWeather>(air));
+
+    LiftSystem lift;
+    lift.stovl = 1.0;
+    lift.fan_deg = condition(spec, "roll_deg");
+    lift.nozzle_deg = lift.fan_deg;
+    Controls c;
+    c.left_brake = c.right_brake = 1.0;
+    // Converted at idle on the brakes; then the brakes off and the throttle
+    // open together, so that the engine's spooling is in the distance.
+    for (int i = 0; i < steps(10); ++i) {
+        f.aircraft.set_lift_system(lift);
+        c.rudder = f.pilot.steer_to(ic.heading_deg);
+        f.fly(c);
+    }
+    if (f.aircraft.property("fcs/stovl-pos-norm") < 1.0 ||
+        f.aircraft.property("velocities/vg-fps") > 0.1) {
+        throw std::runtime_error("not converted and standing after ten seconds on the brakes");
+    }
+    c.left_brake = c.right_brake = 0.0;
+    c.throttle = 1.0;
+    const double standing_ft = f.aircraft.property("position/h-agl-ft");
+    const double rotate = condition(spec, "rotate_kcas");
+    std::optional<double> lift_off_ft;
+    double ground_ft = 0.0;
+    bool rotated = false;
+    for (int i = 0; i < steps(60); ++i) {
+        rotated = rotated || f.aircraft.property("velocities/vc-kts") >= rotate;
+        if (rotated) {
+            // Rotated on the stabilator and the fan's share together, as the
+            // hover's pitch is held (sim/hover.hpp).
+            const double pitch_deg = condition(spec, "takeoff_pitch_deg");
+            lift.nozzle_deg = lift.fan_deg = condition(spec, "lift_deg");
+            c.elevator = f.pilot.pitch_to(pitch_deg);
+            lift.fan = std::clamp(0.14 * (pitch_deg - f.aircraft.property("attitude/theta-deg")) -
+                                      8.0 * f.aircraft.property("velocities/q-rad_sec"),
+                                  -1.0, 1.0);
+        }
+        const bool down = f.aircraft.property("gear/wow") > 0.5;
+        c.rudder = down ? f.pilot.steer_to(ic.heading_deg) : f.pilot.coordinate();
+        c.aileron = down ? 0.0 : f.pilot.roll_to(0.0);
+        f.aircraft.set_lift_system(lift);
+        f.fly(c);
+        if (!lift_off_ft) {
+            ground_ft += f.aircraft.property("velocities/vg-fps") * dt;
+            if (f.aircraft.property("gear/wow") < 0.5) {
+                lift_off_ft = ground_ft;
+            }
+        } else if (f.aircraft.property("gear/wow") > 0.5) {
+            throw std::runtime_error("she touched the runway again after leaving it");
+        }
+        if (lift_off_ft && f.aircraft.property("position/h-agl-ft") > standing_ft + 50.0) {
+            return *lift_off_ft;
+        }
+    }
+    throw std::runtime_error(lift_off_ft ? "not 50 ft up a minute after the brakes came off"
+                                         : "still on the ground a minute after the brakes came off");
+}
+
 using FlightFn = std::function<double(const std::filesystem::path&,
                                       const PublishedFigures&, const FigureSpec&)>;
 
@@ -1715,6 +1792,7 @@ const std::vector<std::pair<std::string, FlightFn>>& flights() {
         {"hover_thrust", hover_thrust},
         {"hover_height_held", hover_height_held},
         {"vertical_landing", vertical_landing},
+        {"short_takeoff", short_takeoff},
     };
     return all;
 }
@@ -1906,7 +1984,8 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
               "takeoff_pitch_deg", "mach", "throttle", "from_kcas", "to_kcas", "rate_fpm",
               "mach_to", "fuel_frozen", "altitude_to_ft", "propeller_lever",
               "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft", "clmax",
-              "speed_falls_kt_per_1000_ft", "seconds", "most_drift_ft", "crosswind_kt"}) {
+              "speed_falls_kt_per_1000_ft", "seconds", "most_drift_ft", "crosswind_kt",
+              "temperature_offset_c", "headwind_kt", "roll_deg", "lift_deg"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }

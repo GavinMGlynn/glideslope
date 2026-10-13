@@ -4,7 +4,8 @@
 # tools/make_f35b.py. The F-35B is a STOVL aeroplane: her lift fan, roll posts
 # and swivelling nozzle are modelled, and the hover control law hovers and
 # lands her vertically; the AI still takes her off and lands her on a runway
-# like any other fighter, and her short take-off is not yet flown.
+# like any other fighter, and her short take-off, flown in a figure, is longer
+# than her requirement's.
 #
 #   name TEXT...                 what it is called
 #   model NAME                   its JSBSim model, in data/jsbsim/aircraft
