@@ -783,6 +783,24 @@ struct GroundRun {
     bool says_reversers = false;
 };
 
+// **Standing on her brakes as a pilot stands her**: all of the pedals - and
+// for a tail-wheel aeroplane, her stick fully back and her pedals half on, as
+// the wet stopping test above brakes her. Braked fully with the stick
+// central, from the level start JSBSim gives her and her engine still at
+// 1,790 rpm, the J-3 Cub was on the edge of going over on her nose: on Linux
+// she rocked back on to her tail, built with fused multiply-adds (as macOS's
+// arm64 is, and Linux with -mfma) she went over - 47 degrees nose down
+// after two seconds - and her flight then blew up to NaN (CI runs
+// 38443070583 and 38447161811; reproduced 2026-10-14 with -mfma
+// -ffp-contract=fast).
+void stand_on_her_brakes(const glideslope::sim::Aircraft& aircraft,
+                         glideslope::sim::Controls& c) {
+    const bool tail_wheel = aircraft.stance().tail_wheel;
+    c.elevator = tail_wheel ? 1.0 : 0.0;
+    c.left_brake = tail_wheel ? 0.5 : 1.0;
+    c.right_brake = c.left_brake;
+}
+
 // **Every number in a state, by name**, for comparing two to the last bit
 // and finding a NaN: AircraftState's own == takes a NaN as unequal to itself,
 // so two identical flights with a NaN anywhere in them compare unequal (as
@@ -858,8 +876,7 @@ GroundRun ground_run(const glideslope::sim::CatalogueEntry& entry, double thrott
     glideslope::sim::Controls c;
     c.throttle = throttle;
     c.reverse = reverse;
-    c.left_brake = 1.0;
-    c.right_brake = 1.0;
+    stand_on_her_brakes(aircraft, c);
     GroundRun out;
     out.says_reversers = aircraft.has_reversers();
     const auto force_lbs = [&](int e) {
@@ -919,7 +936,6 @@ GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_grou
     std::size_t with = 0;
     std::size_t without = 0;
     std::vector<std::string> left_out;
-    std::vector<std::string> gone_nan;
     std::vector<std::string> wrong;
     for (const glideslope::sim::CatalogueEntry& e : roster) {
         if (e.seaplane) {
@@ -930,24 +946,10 @@ GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_grou
         }
         const bool reversers = e.reverse_idle_kts.has_value();
         const GroundRun most = ground_run(e, 0.0, 1.0, seconds);
-        // **A flight gone NaN says nothing of the lever.** The J-3 Cub's
-        // whole flight goes NaN standing on macOS release (CI run
-        // 38443070583) - her model, not the lever, which she has none of -
-        // and that is
-        // every_aircraft_standing_on_her_brakes_at_idle_stays_finite's to
-        // fail on (COMPLETION_PLAN Phase 9, "The J-3 Cub's flight goes NaN
-        // standing on macOS release"). So she alone, and only then, is named
-        // and left out of the lever's comparison; any other aircraft gone NaN
-        // is wrong here.
+        // **A standing aircraft's state has no NaN in it** (the J-3 Cub's
+        // went NaN on macOS standing on her brakes as no pilot stands her;
+        // stand_on_her_brakes).
         if (const std::string nan = nans(most.state); !nan.empty()) {
-            if (e.id == "j3cub") {
-                gone_nan.push_back(e.id);
-                std::printf("  left out - %s: her flight went NaN standing (%s), which "
-                            "every_aircraft_standing_on_her_brakes_at_idle_stays_finite fails "
-                            "on; the lever is not compared\n",
-                            e.id.c_str(), nan.c_str());
-                continue;
-            }
             wrong.push_back(e.id + " standing has a NaN in her state: " + nan);
         }
         if (most.says_reversers != reversers) {
@@ -1010,11 +1012,11 @@ GLIDESLOPE_TEST(every_aircraft_with_reversers_is_pushed_back_by_them_on_the_grou
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " aircraft are not as the catalogue says, "
                          "the first: " + (wrong.empty() ? "" : wrong.front()));
-    check(with == 5 && with + without + gone_nan.size() + left_out.size() == roster.size() &&
-              roster.size() == 16 && left_out.size() == 1U && gone_nan.size() <= 1U,
+    check(with == 5 && with + without + left_out.size() == roster.size() && roster.size() == 16 &&
+              left_out.size() == 1U,
           "all sixteen were asked: " + std::to_string(with) + " with reversers, " +
-              std::to_string(without) + " without, " + std::to_string(gone_nan.size()) +
-              " gone NaN, " + std::to_string(left_out.size()) + " left out");
+              std::to_string(without) + " without, " + std::to_string(left_out.size()) +
+              " left out");
 }
 
 // **In the air the reverse lever does nothing**: the reversers' air-ground
@@ -1188,7 +1190,8 @@ GLIDESLOPE_TEST(bounced_with_her_reversers_out_she_gets_her_thrust_back_once_the
     check(flown == 5, "all five with reversers were bounced: " + std::to_string(flown));
 }
 
-// **Every aircraft standing on her brakes at idle stays finite**: every
+// **Every aircraft standing on her brakes at idle stays finite, and on the
+// ground**: every
 // landplane in the catalogue (the flying boat named: afloat she has no
 // brakes to stand on) stands on the runway for twenty seconds, throttle
 // closed and brakes fully on, as the reversers test stands her; and at every
@@ -1197,8 +1200,11 @@ GLIDESLOPE_TEST(bounced_with_her_reversers_out_she_gets_her_thrust_back_once_the
 // that is not, she fails naming the step, the first properties to go and,
 // from the step before, those and her gear, propeller, engine, forces and
 // accelerations - so that wherever it happens (the J-3 Cub on macOS release,
-// CI run 38443070583) the run says what went first.
-GLIDESLOPE_TEST(every_aircraft_standing_on_her_brakes_at_idle_stays_finite) {
+// CI run 38443070583) the run says what went first. And she must stand:
+// more than ten feet up or ten feet a second, she fails, printing her trace
+// every half second to there (on macOS the Cub's ratio of air to fuel went
+// infinite only once she was a million feet up, CI run 38447161811).
+GLIDESLOPE_TEST(every_aircraft_standing_on_her_brakes_at_idle_stays_finite_and_on_the_ground) {
     const auto roster = glideslope::sim::read_catalogue(data());
     constexpr int seconds = 20;
     std::size_t stood = 0;
@@ -1225,15 +1231,61 @@ GLIDESLOPE_TEST(every_aircraft_standing_on_her_brakes_at_idle_stays_finite) {
         ic.gear = 1.0;
         aircraft.initialize(ic);
         glideslope::sim::Controls c;
-        c.left_brake = 1.0;
-        c.right_brake = 1.0;
+        stand_on_her_brakes(aircraft, c);
         const std::vector<std::string> names = aircraft.number_names();
         std::vector<double> before = aircraft.numbers();
+        // Her trace, every half second, for when she goes wrong: the
+        // numbers that say whether she is still standing, and her engine's.
+        const std::vector<std::string> traced = {
+            "position/h-agl-ft", "velocities/vt-fps", "velocities/u-fps", "velocities/w-fps",
+            "velocities/q-rad_sec", "attitude/theta-deg", "aero/alpha-deg", "aero/qbar-psf",
+            "propulsion/engine/engine-rpm", "propulsion/engine/AFR",
+            "propulsion/engine/fuel-flow-rate-pps", "propulsion/engine/thrust-lbs",
+            "propulsion/engine/map-inhg", "fcs/mixture-pos-norm", "fcs/throttle-pos-norm",
+            "forces/fbx-gear-lbs", "forces/fbz-gear-lbs"};
+        std::vector<std::ptrdiff_t> traced_at;
+        for (const std::string& n : traced) {
+            const auto it = std::find(names.begin(), names.end(), n);
+            traced_at.push_back(it == names.end() ? -1 : it - names.begin());
+        }
+        std::vector<std::string> trace;
+        const double agl_at_start_ft = aircraft.property("position/h-agl-ft");
         bool finite = true;
-        for (int step = 0; step < seconds * steps_per_second && finite; ++step) {
+        bool standing = true;
+        for (int step = 0; step < seconds * steps_per_second && finite && standing; ++step) {
             aircraft.set_controls(c);
             aircraft.step();
             const std::vector<double> now = aircraft.numbers();
+            if (step % (steps_per_second / 2) == 0) {
+                std::string line = "    " + std::to_string(step + 1) + ":";
+                for (std::size_t k = 0; k < traced.size(); ++k) {
+                    char v[96];
+                    std::snprintf(v, sizeof v, " %s %.6g", traced[k].c_str(),
+                                  traced_at[k] < 0 ? 0.0 / 1.0 : now[static_cast<std::size_t>(traced_at[k])]);
+                    line += v;
+                }
+                trace.push_back(line);
+            }
+            // **Standing is standing**: ten feet higher or lower than she
+            // stood at the start (her centre of gravity's height, which is
+            // fourteen feet on a 747), or moving at more than ten feet a
+            // second, she has blown up
+            // before any number went non-finite - the J-3 Cub on macOS was
+            // 1,000,000 ft up with 10^25 lb on her by the step her mixture's
+            // ratio went infinite.
+            const double agl_ft = aircraft.property("position/h-agl-ft");
+            const double vt_fps = aircraft.property("velocities/vt-fps");
+            if (std::isfinite(agl_ft) && std::isfinite(vt_fps) &&
+                (std::abs(agl_ft - agl_at_start_ft) > 10.0 || vt_fps > 10.0)) {
+                standing = false;
+                wrong.push_back(e.id + " standing left the ground or moved at step " +
+                                std::to_string(step + 1) + ": " + std::to_string(agl_ft) +
+                                " ft up, " + std::to_string(vt_fps) + " ft/s");
+                std::printf("  %s's trace to step %d:\n", e.id.c_str(), step + 1);
+                for (const std::string& line : trace) {
+                    std::printf("%s\n", line.c_str());
+                }
+            }
             std::vector<std::size_t> gone;
             for (std::size_t i = 0; i < now.size(); ++i) {
                 if (!std::isfinite(now[i])) {
@@ -1268,7 +1320,14 @@ GLIDESLOPE_TEST(every_aircraft_standing_on_her_brakes_at_idle_stays_finite) {
             before = now;
         }
         std::printf("  %-13s %s for %d s, %zu numbers watched\n", e.id.c_str(),
-                    finite ? "finite" : "NOT FINITE", seconds, names.size());
+                    !finite ? "NOT FINITE" : !standing ? "NOT STANDING" : "finite and standing",
+                    seconds, names.size());
+        if (!finite && standing) {
+            std::printf("  %s's trace:\n", e.id.c_str());
+            for (const std::string& line : trace) {
+                std::printf("%s\n", line.c_str());
+            }
+        }
         ++stood;
     }
     for (const std::string& w : wrong) {

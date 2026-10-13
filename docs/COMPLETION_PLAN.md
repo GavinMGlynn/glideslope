@@ -345,10 +345,13 @@ ends in a debrief, never a score.
 
 Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to what its handbook or manual publishes.
 
-- [ ] **The J-3 Cub's flight goes NaN standing on macOS release**: on her
-      brakes at idle for twenty seconds every number of her flight becomes
-      NaN there, and on Linux none does. *Verification: the test that every
-      aircraft standing on her brakes at idle stays finite passes on every
+- [ ] **The J-3 Cub's flight goes NaN standing on macOS release**: braked
+      fully with her stick central she went over on her nose there and her
+      flight blew up. Now stood as a pilot stands a tail-wheel aeroplane
+      (stick back, pedals half on) she stays standing, on Linux and on a
+      Linux build made to round as macOS's does; macOS itself is still to
+      run. *Verification: the test that every aircraft standing on her
+      brakes at idle stays finite and on the ground passes on every
       platform.*
 - [x] **The Cherokee's full-throttle speed traced and her plan's fastest
       measured again.** She makes 126.8 kt level at 3,000 ft, not 129, since

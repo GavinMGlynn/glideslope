@@ -275,30 +275,33 @@ ground roll of about 3,200 ft, which the RCR 16 line turns into about
 7,000). Her runway is now that times the same 1.67 as her dry figure, 4,174
 m, in place of 1.15 on the dry (2,459 m), which was shorter than her own
 manual says she needs unfactored; she stops at 2,478 m. **A pilot has no binding for the reverse lever**: it is in the controls and
-on the wire, and only the AI moves it (a new Phase 10b item). **On macOS release the J-3 Cub's whole flight goes NaN standing** on her
-brakes at idle (CI run 38443070583: latitude, longitude, altitude, attitude,
-velocities, rates, climb and rpm all NaN), and on Linux it never does; the
-cause is not found (a new Phase 9 item). It is her model, not the lever:
-she has no reversers and nothing in her path reads it. Read for it here,
-none clearly unstable: her gear (mains 1,000 lb/ft and 500 lb/ft/s, tail 220
-and 110, on 680 lb empty - against the C172P's 5,400 and 1,600 on 1,500 lb
-- is at most 0.07 rad of its natural frequency and 0.27 of its damping a
-120 Hz step, and stable on Linux); her fixed-pitch propeller at idle turns,
-so its advance ratio has no 0/0; a pow of a value that macOS's libm leaves a
-hair below zero is the likeliest kind of cause, and only macOS can say.
-`every_aircraft_standing_on_her_brakes_at_idle_stays_finite` stands every
-landplane twenty seconds and checks every floating-point number in her
-JSBSim property tree (549 to 775 a model, `Aircraft::numbers`) at every
-step; on the first non-finite one it fails naming the step and the first
-properties to go, and prints those and her gear, engine, forces and
-accelerations from the step before - so the next macOS run names the
-first. **Seen to fail** with the pitch trim fed a NaN: "737-300 went
-non-finite at step 1 (53 of 668 numbers), first: fcs/pitch-trim-cmd-norm,
-fcs/elevator-pos-rad, ..."; reverted. It stays red on macOS until the Cub
-is fixed. The reversers test names her left out of the lever comparison
-only where her flight has gone NaN, pointing to that test, and finds any
-other aircraft gone NaN wrong; it compares states field by field, bit for
-bit, and stands each aircraft without reversers twice. **A client
+on the wire, and only the AI moves it (a new Phase 10b item). **The J-3 Cub's flight went NaN standing on macOS release - found, and
+fixed in the tests that stood her; macOS itself is still to confirm it.**
+The finite-check named her ratio of air to fuel going infinite at step
+1,452 (CI run 38447161811), but she was by then a million feet up with
+10^25 lb on her: the blow-up came first. **Reproduced on Linux** by building
+with fused multiply-adds (`-mfma -ffp-contract=fast`, as Apple's arm64
+clang contracts): braked fully, stick central, from JSBSim's level start
+with her engine still at 1,790 rpm, she went over on her nose - 47 degrees
+nose down after two seconds, 10 ft/s at step 281 - where the plain Linux
+build rocks her back on to her tail. So it was on the edge, and the tests
+stood her as no pilot would. `stand_on_her_brakes` now stands a tail-wheel
+aeroplane as the wet stopping test brakes one - stick fully back, pedals
+half on - and both the reversers test and
+`every_aircraft_standing_on_her_brakes_at_idle_stays_finite_and_on_the_ground`
+use it; on the FMA build both now pass, the Cub standing. The latter checks
+every floating-point number in her JSBSim property tree (549 to 775 a
+model, `Aircraft::numbers`) at every step, and that she stays within ten
+feet of the height she started at and under ten feet a second; on the first
+breach it fails naming the step and printing her trace every half second
+(height, speeds, attitude, engine, fuel flow, mixture ratio, gear forces).
+**Seen to fail** with a NaN pitch trim ("737-300 went non-finite at step 1
+(53 of 668 numbers), first: fcs/pitch-trim-cmd-norm, ...") and, on the FMA
+build before the fix, the Cub "standing left the ground or moved at step
+281: 1.15 ft up, 10.12 ft/s". What is not fixed is JSBSim's: an aeroplane
+on her nose goes on to blow up to NaN rather than lying still - the crash
+judge ends a flight long before that. The Phase 9 item stays open until
+macOS runs it. The reversers test no longer leaves her out. **A client
 built before this, sending seventeen controls, is let in and its every input
 dropped** as the wrong length (`net::InputReceiver` reads eighteen and
 refuses what is left short), as TRANSPORT.md's pre-release rule allows - the
