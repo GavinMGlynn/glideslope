@@ -275,17 +275,23 @@ ground roll of about 3,200 ft, which the RCR 16 line turns into about
 7,000). Her runway is now that times the same 1.67 as her dry figure, 4,174
 m, in place of 1.15 on the dry (2,459 m), which was shorter than her own
 manual says she needs unfactored; she stops at 2,478 m. **A pilot has no binding for the reverse lever**: it is in the controls and
-on the wire, and only the AI moves it (a new Phase 10b item). **On macOS
-release the J-3 Cub once stood differently with the lever out than stowed**
-(CI run 38427013483), though her model has no reversers and
-`Aircraft::set_controls` writes nothing for the lever without them; **the
-cause is not found.** On Linux her two flights are bit-identical, under
-valgrind (no uninitialised read) and with `MALLOC_PERTURB_` at 0, 165 and
-77. The test now flies each aircraft without reversers stowed twice and
-says which it is - a flight that differs run to run, the lever not
-involved, or one the lever changed - with every differing field to the last
-bit (**seen to fail** with the second flight 0.01 s shorter: "b2 stood
-differently twice with the lever stowed - not the lever: time ..."). **A client
+on the wire, and only the AI moves it (a new Phase 10b item). **On macOS release a standing J-3 Cub has a NaN in her state**, and which
+field is not yet known. Stowed twice she "stood differently ... no field
+differs bit for bit" (CI run 38439516577): the same bits both times, so a
+NaN, which AircraftState's == takes as unequal to itself. Her model has no
+reversers and nothing in her path reads the lever. On Linux no field is NaN
+(her calibrated airspeed is exactly 0 standing: JSBSim gives 0 below any
+Mach, and its 0/0-prone sqrt of the impact pressure gets exactly 0 here),
+valgrind finds no uninitialised read, and `MALLOC_PERTURB_` changes
+nothing. The reversers test now compares states field by field, bit for
+bit - so a flight is equal to itself whatever is in it - stands each
+aircraft without reversers twice to tell a flight that differs run to run
+from one the lever changed, and **fails naming every NaN field of every
+standing aircraft**, which the next macOS run will name. **Seen to fail**
+with a NaN added to the airspeed: "j3cub standing has a NaN in her state:
+airspeed" for every aircraft, and no "stood differently" - the bitwise
+comparison takes the NaN flights as equal; reverted. Until that run names the
+field, macOS release stays red on this test, as it should. **A client
 built before this, sending seventeen controls, is let in and its every input
 dropped** as the wrong length (`net::InputReceiver` reads eighteen and
 refuses what is left short), as TRANSPORT.md's pre-release rule allows - the
