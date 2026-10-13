@@ -265,6 +265,128 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The S.23's hull is a planing hull: Savitsky's lift at its centre of pressure, the afterbody planing, and she holds the step in calm air; in gusts she touches flat and skips, 2026-10-14 — item done
+
+**What is still missing, first**: **in gusts the S.23 skips off the water**,
+worse than on the wip branch. The gust test's eight seeds rise 1.73 to
+8.09 ft after she touches, against the gust limit's 1.0 less its 0.25
+margin, and on seed 1 she comes back down at 726 ft/min. She stays named
+in the gust tests and Phase 10b's "The flying boat lands in gusts without
+skipping" stays open. Traced on seed 1: the lander's gust flare puts her on
+the water at 0.75 degrees and 88 kt, below a hull's lower trim limit (NACA
+TN 923 has it about 4.5 degrees at 50 kt for the Navy's boats). At that
+trim the forebody's wetted length runs to Savitsky's cap of four beams, its
+centre of pressure about 23 ft ahead of the reference point, and its lift
+pitches her up 4 degrees in a third of a second off the water - low-angle
+porpoising, which the hull's centre of pressure now models and which the
+flat touch invites. What fixes it is in the gust flare, not the hull: touch
+her within the stable range, as she touches in calm air (4.5 degrees).
+
+**The hull** (`tools/make_short_s23.py`, its docstring's "Hydrodynamics";
+nothing hand-edited in assets/jsbsim), on the wip branch's four commits,
+rebased on main (its first, #184's flare to the hull, was already merged
+and is dropped):
+- **Savitsky's planing lift** (1964), as on the wip branch, and now **at
+  its centre of pressure**: lambda b (0.75 - 1 / (5.21 C_V^2 / lambda^2 +
+  2.39)) forward of the step (`hydro/glideslope/forebody-pitch-moment-
+  lbsft`). JSBSim applies the water's forces at the model's hydrodynamic
+  reference point, 1.4 ft ahead of her centre of gravity, so the lift
+  pitched her nose up; at the step's centre of pressure it pitches her
+  down by about as much as the model's own hull moment (`C_M`, from the
+  Sikorsky S-40's tank data) pitches her up. Traced in calm air before it:
+  her trim rose from 4.5 to 9 degrees on the step with the hold's elevator
+  at full nose-down. After it: 4.5 to 5, the elevator within 0.1 of
+  neutral.
+- **The afterbody planes** (`hydro/glideslope/afterbody-*`): past the trim
+  at which her afterbody keel meets the water - 10.81 degrees, its 1.26 m
+  rise over the 6.6 m from the step to the stern, from the keel skids'
+  geometry - Savitsky's lift at the afterbody's own trim (hers less 10.81),
+  its wetted length from the stern forward (the stern's immersion over the
+  sine of that trim, capped at the afterbody's 21.7 ft), acting at its own
+  centre of pressure 27.6 ft aft of the reference point less l_p: nose
+  down. The source is NACA's porpoising work: Benson and Klein, NACA ARR
+  3F30 (1943), a hull as "two planing surfaces in tandem", the afterbody's
+  keel inclined to the forebody's, and the upper trim limit where the trim
+  brings the afterbody into the forebody's wake; Benson, NACA TN 923
+  (1943), skipping where the trim at contact reaches that of the
+  afterbody's keel horizontal. Not modelled: the forebody's wake, which
+  lowers the water the afterbody meets (so this wets it a little early),
+  and the afterbody's narrowing (its beam is taken as the hull's). Seen
+  working before the forebody's centre of pressure was added: with the stick full back off the step
+  her trim reached 12.7 degrees and the afterbody's 7,800 to 9,900 lb
+  brought it back to 9.5.
+- Heave and pitch damping and the buoyancy fade, the wip branch's, as
+  recorded in the 2026-10-13 entry below.
+
+**The step-attitude hold is kept, its gains derived** (`sim::Lander::fly_laws`).
+The FAA's Seaplane Handbook (FAA-H-8083-23, ch. 6) holds the touchdown
+attitude until she comes off the step, and NACA TN 923 holds the trim
+"within the stable range"; without it, eased back as a wheel's rollout
+eases, her trim rose to 9.4 degrees on the step and she skipped 0.48 ft,
+just inside the 0.5. Its gains are no longer fitted:
+- **The attitude gain**: the stick is fully forward by the trim her
+  afterbody meets the water at, so one degree asks for one part in her
+  margin to it - 1/(10.81 - 4.55), 0.16 a degree, where the wip branch's
+  fitted 0.2. The angle is found from her model's hull contacts
+  (`Lander::afterbody_deg_`): the step the aftmost of her lowest keel
+  points, and the shallowest angle up from it to a keel point aft.
+- **The damping**: 0.7 of critical on her elevator's authority now, the
+  pitch acceleration a full stick gives her, q S c Cm_full / Iyy - 37 deg/s^2
+  at her 70 kt touch, 0.09 stick a degree a second, rising to 0.13 at 50 kt
+  as her dynamic pressure falls. Cm_full, 0.28, is her model's DATCOM
+  `CmDe` at her 18 degrees of elevator, given in her figures as
+  `elevator_full_cm` (new, `sim::PublishedFigures`, refused outside 0 to
+  2); q, S, c and Iyy are her model's at run time.
+
+**Measured** (linux-release):
+
+| | wip branch, 9c67bec1 | this item | range |
+|---|---|---|---|
+| take-off time, 45,000 lb | 30.99 s | 34.09 s | 25.93-35.08 |
+| take-off run, 45,000 lb | 682 yd | 797.5 yd | 675.75-914.25 |
+| take-off time, standard | 24.13 s | 26.82 s | 21-27 |
+| draught | 3.69 ft | 3.69 ft | 3.5-4.5 |
+| calm hop on the water | 0.50 ft | 0.32 ft | 0.5 |
+
+All seven of her figures are in range (`glideslope_cli figures short_s23`:
+level speed 201.8 mph, climb 912 ft/min, landing stall 66.3 KCAS too). The
+take-offs lengthened with the lift moved aft, to 1 s and 0.2 s inside their
+ranges' tops; Gouge's own 30.5 s at 45,000 lb is the range's centre.
+
+The gust test's eight seeds (rise limit 1.0 ft, less 0.25):
+
+| seed | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| touched, ft/min | 213 | 130 | 119 | 175 | 189 | 284 | 224 | 166 |
+| rose, ft | 8.09 | 4.44 | 2.57 | 6.97 | 4.43 | 2.60 | 2.03 | 1.73 |
+
+Seed 1 came back down at 726 ft/min. Without the forebody's centre of
+pressure (on this tree, the moment's input removed from the built copy),
+seeds 1 and 5 rose 2.38 and 1.98 ft, and the calm hop was 0.54.
+
+**Found on the way**: in a steady 15 kt headwind she now rises 0.20 ft
+after touching (1.0 before), and in a 10 kt tailwind 0.23, both under
+those tests' 0.5; she is still named in both, and the headwind item in
+Phase 10b may be judged on her.
+
+**Sources pinned** (docs/ASSETS.md, "The Short S.23's hull"): NACA ARR
+3F30 and NACA TN 923. Savitsky (1964) is cited from Marine Technology
+1(4), pp. 71-95; SNAME's copy is paywalled and not pinned.
+
+**Verification:**
+- `a_flying_boat_alighting_in_calm_air_holds_the_step_without_porpoising_down_to_taxi_speed`:
+  green, 0.32 ft against 0.5. **Seen red** on this tree without the
+  forebody's centre of pressure: 0.54 ft. And on #184's hull, 4.10 ft
+  (2026-10-13).
+- `glideslope_cli figures short_s23`: 7 of 7 in range, as above.
+- 57 tests over the S.23, a flying boat, a seaplane, water, the made
+  models, the calm landings at both weights, the headwind and tailwind
+  rollouts and the published figures pass (linux-release, `ctest -R`);
+  the eight gust seeds pass with her named, their S.23 figures above.
+- `python3 tools/make_short_s23.py --check`: the committed model is what
+  the script makes.
+- The selftest hash does not move: 182dd6c996e0ee4c (it flies a C172P).
+
 ### A runway reported contaminated is slippery: the METAR's runway-state group read onto the runway it names, the list never waited for, and every client told; rain that has stopped still wets, 2026-10-14 — item done
 
 **What is still missing, first.** **The copilot and planner are not told**:

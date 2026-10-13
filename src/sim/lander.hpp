@@ -78,6 +78,10 @@ struct ApproachSpeeds {
     // as its touchdown criterion (Zaal et al., AIAA Journal of Air
     // Transportation, NTRS 20205010611), which a test holds them to.
     double touchdown_fpm = 40.0;
+    // **Her elevator's pitching moment coefficient at full travel**, from
+    // her figures (`elevator_full_cm`); 0 where they give none. What damps
+    // a hull's trim held on the step (`Lander::fly_laws`).
+    double elevator_full_cm = 0.0;
     // **The glidepath aims past the threshold, not at it.** An approach flown
     // at the threshold puts the flare before it and the wheels on the grass;
     // aiming three hundred metres down the runway puts the aeroplane about
@@ -447,6 +451,11 @@ private:
     };
     std::vector<Point> lands_on_;
     bool lands_on_wheels_ = false;
+    // **The trim her afterbody's keel meets the water at**, degrees: pivoting
+    // on the aftmost of her hull's lowest keel points, her step, the least
+    // pitch at which a keel point aft of it comes as low. 0 where she has no
+    // hull, or no keel point aft of her step.
+    double afterbody_deg_ = 0.0;
     // How far the lowest of what she lands on hangs below her centre of
     // gravity, feet, at her attitude now - her wheels, or her hull; 0 where
     // her model names neither.

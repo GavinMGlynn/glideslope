@@ -87,6 +87,12 @@ struct PublishedFigures {
     // the loop neither lags nor rings. 0 where the file gives none, and the
     // loop's own default (0.3, the airliners') is used.
     double rotation_stick_per_degps = 0.0;
+    // **Her elevator's pitching moment coefficient at full travel**, nose up
+    // or down (`elevator_full_cm`), from her flight model's own table: with
+    // her dynamic pressure, wing and inertia, the pitch acceleration a full
+    // stick gives her, which the lander's hold of a hull's trim on the step
+    // is damped by (sim::Lander). 0 where the file gives none.
+    double elevator_full_cm = 0.0;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;
