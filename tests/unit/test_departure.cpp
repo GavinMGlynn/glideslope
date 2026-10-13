@@ -6,7 +6,9 @@
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
 #include "sim/runway_condition.hpp"
+#include "sim/lander.hpp"
 #include "sim/takeoff_trial.hpp"
+#include "sim/test_pilot.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 
@@ -964,4 +966,134 @@ GLIDESLOPE_TEST(no_aircraft_deploys_her_reversers_in_the_air) {
                              (wrong.empty() ? "" : wrong.front()));
     check(flown == roster.size() && flown == 16,
           "all sixteen were flown: " + std::to_string(flown));
+}
+
+// **Bounced with her reversers out, she gets her forward thrust back only
+// once they are stowed, and climbs away.** Every aircraft whose catalogue
+// gives her reversers takes off along the runway at full throttle, take-off
+// flap out, her stick a little forward, to her rotation speed (her departure
+// speeds); then closes her throttles and runs her reversers fully out, her
+// spoilers out to hold her down, for four seconds - long enough for the
+// sleeves to be home and the lever's power to follow. Then the runway drops
+// ten feet beneath her, as a bounce leaves her: the lever is stowed, the
+// spoilers in, the throttles to full and the nose held at eight degrees.
+// With no weight on her wheels the sleeves stow on their own; at every step
+// until they are in, each reversing engine's throttle must be held at idle
+// (tools/airliner.py) - a sleeve half out at full power is reverse thrust in
+// the air - and once they are in it must be the full throttle asked for.
+// Forty seconds after the bounce she must be more than 100 ft above the
+// dropped runway and climbing.
+GLIDESLOPE_TEST(bounced_with_her_reversers_out_she_gets_her_thrust_back_once_they_are_stowed_and_climbs_away) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    std::size_t flown = 0;
+    std::vector<std::string> wrong;
+    for (const glideslope::sim::CatalogueEntry& e : roster) {
+        if (!e.reverse_idle_kts) {
+            continue;
+        }
+        const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), e.model);
+        const Runway runway = a_runway();
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        const auto dropped_m = std::make_shared<double>(0.0);
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [dropped_m](double, double) { return -*dropped_m; },
+            [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        ic.flaps = speeds.flap;
+        aircraft.initialize(ic);
+        glideslope::sim::TestPilot pilot(aircraft);
+        glideslope::sim::Controls c;
+        c.gear = 1.0;
+        c.flaps = speeds.flap;
+        c.throttle = 1.0;
+        c.elevator = -0.3;
+        std::vector<int> reversing;
+        bool out_before = false;
+        bool held_at_idle = true;
+        bool full_once_home = false;
+        int reversed_at = -1;
+        int bounce = -1;
+        double climb_fpm = 0.0;
+        for (int step = 0; step < 240 * steps_per_second; ++step) {
+            const double kts = aircraft.property("velocities/vg-fps") / 1.68781;
+            if (reversed_at < 0 && kts >= speeds.rotate_kts) {
+                reversed_at = step;
+                c.throttle = 0.0;
+                c.reverse = 1.0;
+                c.speedbrake = 1.0;
+            }
+            if (reversed_at >= 0 && bounce < 0 && step == reversed_at + 4 * steps_per_second) {
+                bounce = step;
+                out_before = aircraft.property("fcs/reverser-pos-norm") >= 0.999 &&
+                             aircraft.property("gear/wow") > 0.5;
+                for (int n = 0; n < aircraft.engine_count(); ++n) {
+                    if (std::cos(aircraft.property("propulsion/engine[" + std::to_string(n) +
+                                                   "]/reverser-angle-rad")) < 0.0) {
+                        reversing.push_back(n);
+                    }
+                }
+                *dropped_m = 10.0 * 0.3048;
+                c.reverse = 0.0;
+                c.throttle = 1.0;
+                c.speedbrake = 0.0;
+            }
+            if (bounce >= 0) {
+                c.elevator = pilot.pitch_to(8.0);
+                c.aileron = pilot.roll_to(0.0);
+            }
+            aircraft.set_controls(c);
+            aircraft.step();
+            if (bounce < 0) {
+                continue;
+            }
+            const bool home = aircraft.property("fcs/reverser-pos-norm") <= 0.0;
+            for (int n : reversing) {
+                const double power =
+                    aircraft.property("fcs/throttle-pos-norm[" + std::to_string(n) + "]");
+                if (!home && power != 0.0) {
+                    held_at_idle = false;
+                }
+                if (home && power == 1.0) {
+                    full_once_home = true;
+                }
+            }
+            climb_fpm = aircraft.state().climb_rate_fpm;
+            if (step >= bounce + 40 * steps_per_second) {
+                break;
+            }
+        }
+        const double above_ft = aircraft.property("position/h-agl-ft");
+        std::printf("  %-10s %zu reversing, out at the bounce %s (%.0f kt), idle until stowed %s, "
+                    "full once in %s; 40 s on %.0f ft above the dropped runway, %+.0f ft/min\n",
+                    e.id.c_str(), reversing.size(), out_before ? "yes" : "NO",
+                    speeds.rotate_kts, held_at_idle ? "yes" : "NO",
+                    full_once_home ? "yes" : "NO", above_ft, climb_fpm);
+        if (bounce < 0 || !out_before || reversing.empty()) {
+            wrong.push_back(e.id + ": her reversers were not out on her wheels when she bounced");
+        }
+        if (!held_at_idle) {
+            wrong.push_back(e.id + ": a reversing engine had power before its sleeves were in");
+        }
+        if (!full_once_home) {
+            wrong.push_back(e.id + ": her full throttle never came back once they were");
+        }
+        if (!(above_ft > 100.0 && climb_fpm > 0.0)) {
+            wrong.push_back(e.id + " did not climb away: " + std::to_string(above_ft) + " ft, " +
+                            std::to_string(climb_fpm) + " ft/min");
+        }
+        ++flown;
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(flown == 5, "all five with reversers were bounced: " + std::to_string(flown));
 }

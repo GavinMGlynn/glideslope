@@ -5844,27 +5844,20 @@ glideslope::sim::Runway a_short_runway() {
     return r;
 }
 
-// **A wet short runway for `model`**: as long as her wet landing distance -
-// her own manual's, factored as her dry one is, where her figures give one
-// (the F-15C's, 4,174 m: T.O. 1F-15A-1 figure A8-3 at RCR 16, about 8,200
-// ft, times 1.67) - and otherwise 14 CFR 121.195(d)'s 1.15 times the dry
-// (sim::wet_landing_factor), taking as the dry the longer of the short
-// runway every landplane stops on dry (1,500 m) and the runway her figures
-// say she needs to land (sim::landing_need_m; the F-22A, which has none,
-// 1,500 m): 1,725 m for most, 2,225 m for the A380, and from their measured
+// **A wet short runway for `model`**: as long as her wet landing distance
+// (sim::wet_landing_need_m) - her own manual's, factored as her dry one is,
+// where her figures give one (the F-15C's, 4,174 m: T.O. 1F-15A-1 figure A8-3
+// at RCR 16, about 8,200 ft, times 1.67), and otherwise 14 CFR 121.195(d)'s
+// 1.15 times her dry need - and never shorter than 1.15 times the short
+// runway every landplane stops on dry (1,500 m; the F-22A, which has no
+// need, is given that): 1,725 m for most, 2,225 m for the A380, and from their measured
 // landings (2026-10-13) 1,928 m for the Mosquito, 3,190 m for the B-2A and
 // 3,225 m for the F-35B. Wet: runway condition code 5.
 glideslope::sim::Runway a_wet_short_runway(const std::string& model) {
     glideslope::sim::Runway r = a_short_runway();
     r.name = "the wet short runway";
-    const double own_wet_m =
-        glideslope::sim::read_published_figures(data() / "figures" / (model + ".xml"))
-            .own_wet_landing_need_m;
-    r.length_m = own_wet_m > 0.0
-                     ? own_wet_m
-                     : std::max(a_short_runway().length_m,
-                                glideslope::sim::landing_need_m(data(), model)) *
-                           glideslope::sim::wet_landing_factor;
+    r.length_m = std::max(a_short_runway().length_m * glideslope::sim::wet_landing_factor,
+                          glideslope::sim::wet_landing_need_m(data(), model));
     return r;
 }
 
@@ -5899,6 +5892,16 @@ struct TakenBackOnTheRoll {
     double touched_kts = 0.0;    // groundspeed as the wheels met the runway
     double vref_kts = 0.0;       // her reference speed, which the approach is flown to
     double most_reverse = 0.0;   // the furthest the reverse lever went
+    // The reverse lever at every step, with the speeds it is judged by and
+    // the step the mains first touched on (-1 before they have).
+    struct Lever {
+        int tick = 0;
+        double reverse = 0.0;
+        double kcas = 0.0;
+        double vg_kts = 0.0;
+    };
+    std::vector<Lever> levers;
+    int touch_tick = -1;
     double taken_back_kts = 0.0; // and as the AI took her back
     double stopped_past_m = 0.0; // past the threshold, where she stopped
     double stopped_across_m = 0.0;
@@ -6066,6 +6069,7 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
         }
         last = now;
         out.most_reverse = std::max(out.most_reverse, now.reverse);
+        out.levers.push_back({tick, now.reverse, aircraft.state().airspeed_kts, groundspeed_kts()});
         aircraft.set_controls(now);
         aircraft.step();
         out.after.watch(aircraft);
@@ -6076,6 +6080,7 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
                          aircraft.property("position/h-agl-ft") - out.agl_at_take_back_ft);
         }
         if (!was_touched && out.after.touched) {
+            out.touch_tick = tick;
             out.touched_kts = groundspeed_kts();
             out.touched_past_m = past_and_across().first;
         }
@@ -6092,6 +6097,58 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
     out.stopped_past_m = past_m;
     out.stopped_across_m = across_m;
     return out;
+}
+
+// **The AI's reverse thrust, as the training manuals have it**
+// (sim/lander.cpp, reverse_thrust), for an aircraft whose catalogue gives her
+// reversers - nothing asked of any other, whose lever must stay stowed: none
+// out until a second after her mains are down (AC 25-32 10.1.3); on a dry
+// runway, idle reverse and no more, once the AI has had her at 40 kt or more;
+// on a wet one, maximum; at idle or less at and below her catalogue's
+// IDLE_BY_KT; and stowed below 20 kt over the ground. Every step is asked.
+std::vector<std::string> reverse_as_the_manuals_say(const std::string& id,
+                                                    const TakenBackOnTheRoll& r, bool wet) {
+    std::vector<std::string> said;
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    constexpr double idle = glideslope::sim::Controls::reverse_idle;
+    if (!entry.reverse_idle_kts) {
+        if (r.most_reverse != 0.0) {
+            said.push_back("she has no reversers, and the AI moved the lever to " +
+                           std::to_string(r.most_reverse));
+        }
+        return said;
+    }
+    const double idle_by_kts = *entry.reverse_idle_kts;
+    for (const TakenBackOnTheRoll::Lever& l : r.levers) {
+        if (l.reverse <= 0.0) {
+            continue;
+        }
+        if (r.touch_tick < 0 || l.tick < r.touch_tick + steps_per_second) {
+            said.push_back("the reverse lever was out, " + std::to_string(l.reverse) +
+                           ", before a second after the mains were down");
+            break;
+        }
+        if (l.kcas <= idle_by_kts && l.reverse > idle + 1e-12) {
+            said.push_back("the reverse lever was at " + std::to_string(l.reverse) + " at " +
+                           std::to_string(l.kcas) + " kt, not idle by " +
+                           std::to_string(idle_by_kts));
+            break;
+        }
+        if (l.vg_kts < 20.0) {
+            said.push_back("the reverse lever was out, " + std::to_string(l.reverse) + ", at " +
+                           std::to_string(l.vg_kts) + " kt over the ground, below taxi speed");
+            break;
+        }
+    }
+    if (wet && r.most_reverse != 1.0) {
+        said.push_back("wet, the reverse went to " + std::to_string(r.most_reverse) +
+                       ", not maximum");
+    }
+    if (!wet && (r.most_reverse > idle || (r.taken_back_kts >= 40.0 && r.most_reverse != idle))) {
+        said.push_back("dry, the reverse went to " + std::to_string(r.most_reverse) +
+                       ", not idle reverse");
+    }
+    return said;
 }
 
 // **Every landplane taught the approach, taken back at `when`.** She must be
@@ -6228,6 +6285,9 @@ void every_landplane_taken_back(OnTheRoll when) {
                             " taking back");
         }
         for (const std::string& said : r.ai.what_went_wrong(id)) {
+            wrong.push_back(where + ": " + said);
+        }
+        for (const std::string& said : reverse_as_the_manuals_say(id, r, wet)) {
             wrong.push_back(where + ": " + said);
         }
         ++flown;

@@ -148,9 +148,11 @@ REVERSER_TRAVEL_S = 2.0
 # idle reverse detent; from there to 1, idle to maximum reverse power. Its
 # power is held at idle until the sleeves are fully out - "thrust reverser
 # interlocks that prevent the pilot from applying reverse thrust until the
-# reverser is deployed" (AC 25-32, 10.1.4) - and while it is out of stowed the
-# forward throttles of the engines that reverse are idle, as the levers'
-# interlock holds them.
+# reverser is deployed" (AC 25-32, 10.1.4) - and while it is out of stowed, or
+# the sleeves are not yet home, the forward throttles of the engines that
+# reverse are idle, as the levers' interlock holds them: off the ground again
+# in a bounce the sleeves stow on their own (the weight off the wheels), and
+# her forward thrust comes back only once they are in.
 REVERSE_IDLE_DETENT = 0.1
 
 
@@ -219,8 +221,9 @@ def reverser_channel(engines, indent="        "):
     for e in engines:
         out += (f"{i}    <switch name=\"fcs/reverse-throttle-{e}\">\n"
                 f"{i}        <default value=\"fcs/throttle-cmd-norm[{e}]\"/>\n"
-                f"{i}        <test value=\"fcs/reverse-power-norm\">\n"
+                f"{i}        <test logic=\"OR\" value=\"fcs/reverse-power-norm\">\n"
                 f"{i}            fcs/reverser-cmd-norm gt 0\n"
+                f"{i}            fcs/reverser-pos-norm gt 0\n"
                 f"{i}        </test>\n"
                 f"{i}        <output>fcs/throttle-pos-norm[{e}]</output>\n"
                 f"{i}    </switch>\n")
