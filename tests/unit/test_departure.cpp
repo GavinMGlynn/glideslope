@@ -874,28 +874,32 @@ double rollout_from_kts(const glideslope::sim::CatalogueEntry& entry) {
 
 } // namespace
 
-// **The wet side grip alone makes her slide**: every landplane of the
-// roll-out test, rolled out on a wet runway as 15 kt of crosswind arrives,
-// twice - her side grip as the wet runway gives it, and held at her dry
-// (Aircraft::hold_side_grip), her brakes braking as the wet runway's code
-// says both times, so that only the grip sideways differs. The eight jets
-// slide across their own heading at least 1.5 ft/s faster at the worst with
-// the wet side grip (measured 2026-10-14: the 737-300 10.7 against 6.9, the
-// B-2A 4.1 against 2.3, the least gap 1.7). Named and not asserted, their
-// gaps printed: the C172P, C182 and PA-28, whose 30 to 35 psi tyres keep
-// three quarters or more of their dry grip at their slow roll-outs (gaps 0,
-// 0.4 and 1.8 ft/s), and the Mosquito, a tailwheel aeroplane, who slides
-// less wet (25.8 against 28.8). **How far from the centreline she goes is
-// not what differs**: the roll-out's steering holds her, and most jets end
-// nearer it wet (the 787-8 13.5 m against 19.1).
+// **The wet side grip alone makes her slide** - the roll-out's check that
+// depends on the grip, which the roll-out test's 30 m bound does not: every
+// landplane of the roll-out test, rolled out on a wet runway as 15 kt of
+// crosswind arrives, twice - her side grip as the wet runway gives it, and
+// held at her dry (Aircraft::hold_side_grip), her brakes braking as the wet
+// runway's code says both times, so that only the grip sideways differs.
+// Each of the eight jets slides across her own heading, at the worst, at
+// least 1.2 times as fast with the wet side grip - a ratio, not a margin in
+// ft/s, so that a platform's own floating point moves both runs alike.
+// Measured 2026-10-14 on Linux: from 1.29 (A320, 14.2 ft/s against 11.0) to
+// 1.83 (787-8 10.8/5.9, A380 7.7/4.2). Named and not asserted, so that **no
+// assertion exercises a light aeroplane's wet side grip**: the C172P, C182
+// and PA-28, whose 30 to 35 psi tyres keep three quarters or more of their
+// dry grip at their slow roll-outs (1.00, 1.03 and 1.14), and the Mosquito,
+// who slides less wet (25.8 against 28.8, 0.90) - a tailwheel aeroplane,
+// whose sign is not explained: not investigated here. **How far from the
+// centreline she goes is not what differs**: the roll-out's steering holds
+// her, and most jets end nearer it wet (the 787-8 13.5 m against 19.1).
 GLIDESLOPE_TEST(on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_makes_every_jet_slide_faster_across_her_heading) {
     const auto catalogue = glideslope::sim::read_catalogue(data());
     const std::map<std::string, std::string> named = {
         {"c172p", "her tyres keep three quarters or more of their dry grip"},
         {"c182", "her tyres keep three quarters or more of their dry grip"},
         {"pa28", "her tyres keep three quarters or more of their dry grip"},
-        {"mosquito-fb6", "a tailwheel aeroplane, she slides less wet"}};
-    constexpr double more_fps = 1.5;
+        {"mosquito-fb6", "a tailwheel aeroplane, she slides less wet, not explained"}};
+    constexpr double at_least_times = 1.2;
     std::size_t asserted = 0;
     std::size_t printed = 0;
     std::size_t left_out = 0;
@@ -923,7 +927,7 @@ GLIDESLOPE_TEST(on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_ma
             ++printed;
             continue;
         }
-        if (wet.worst_slide_fps < held.worst_slide_fps + more_fps) {
+        if (wet.worst_slide_fps < at_least_times * held.worst_slide_fps) {
             wrong.push_back(entry.id + " slid " + std::to_string(wet.worst_slide_fps) +
                             " ft/s with the wet side grip, against " +
                             std::to_string(held.worst_slide_fps) + " held dry");

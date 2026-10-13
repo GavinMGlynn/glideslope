@@ -843,13 +843,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       sized from a published contaminated-runway figure.*
 - [x] **A wet runway does not change a rolling tyre's grip sideways.**
       Wet wheels now keep the share of their dry side grip NASA measured
-      (TN D-7743, checked against TN D-7351); every landplane the AI lands
-      rolls out on a wet runway in 15 kt across and stays on it, and with
-      braking held equal the wet grip alone makes every jet slide faster
-      across her heading. *Verification: a wet runway's side grip from a
-      published source, and a crosswind roll-out held to it.* Done
-      2026-10-14: held to the runway's half-width, since the AI's roll-out
-      drifts up to 21 m even dry; the light aeroplanes barely feel it.
+      (TN D-7743, checked against TN D-7351). Rolled out wet in 15 kt
+      across, braking held equal, every jet slides sideways at least 1.2
+      times as fast with the wet grip as with the dry. *Verification: a wet
+      runway's side grip from a published source, and a crosswind roll-out
+      held to it.* Done 2026-10-14: no assertion covers the light
+      aeroplanes, whose soft tyres barely lose grip, or the Mosquito, who
+      slides less wet; on snow, slush and ice the share is extrapolated.
 - [ ] **The AI's roll-out drifts 10 to 21 m from the centreline when a 15
       kt crosswind arrives**, dry as wet. *Verification: every landplane
       rolled out as 15 kt arrives stays within 5 m of the centreline.*

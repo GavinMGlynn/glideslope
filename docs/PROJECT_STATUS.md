@@ -270,7 +270,7 @@ are the risks the phase order is built around:
 **What is not claimed, first.** **The wet side grip makes a wet roll-out
 slide faster across her heading, not end farther from the centreline.**
 Braking held equal and only the side grip changed, every jet slides at least
-1.5 ft/s faster with the wet grip (the 787-8 10.8 against 5.9), but the AI's
+1.2 times as fast with the wet grip (the 787-8 10.8 against 5.9), but the AI's
 roll-out steers her back, and most jets end nearer the centreline wet (the
 787-8 13.5 m against 19.1). The light aeroplanes show little: their 30 to 35
 psi tyres keep three quarters or more of their dry grip at their slow
@@ -336,11 +336,20 @@ sideways, by how much NASA measured:
   every landplane of the roll-out test rolled out wet twice, the side grip
   as the runway gives it and held at dry (`Aircraft::hold_side_grip`, for
   tests), the brakes braking as the wet code says both times. The eight jets
-  slide across their heading at least 1.5 ft/s faster at worst with the wet
-  grip: 737-300 10.7 against 6.9 ft/s, 787-8 10.8/5.9, A320 14.2/11.0, A380
+  slide across their heading at least 1.2 times as fast at worst with the
+  wet grip - a ratio, so that a platform's floating point moves both runs
+  alike; the least measured, the A320's, 1.29 - and this is the item's
+  grip-dependent check, which the roll-out test's 30 m bound is not: 737-300 10.7 against 6.9 ft/s, 787-8 10.8/5.9, A320 14.2/11.0, A380
   7.7/4.2, B-2A 4.1/2.3, F-15C 5.8/3.8, F-35B 9.3/5.8, Learjet 7.5/4.8.
   Named and printed, not asserted: the C172P (27.1/27.1), C182 (11.7/11.3),
-  PA-28 (14.4/12.7) and Mosquito (25.8/28.8). Red with the share held at 1.
+  PA-28 (14.4/12.7) and Mosquito (25.8/28.8, a tailwheel aeroplane sliding
+  less wet, not explained, not investigated). No assertion exercises a light
+  aeroplane's wet side grip. Red with the share held at 1.
+- **The pedal's rescale has a real floor** (review of #192): the share is
+  held to at least 2r/s, where (s - r)/(share s - r) stays bounded; no code
+  reaches it for any catalogue aeroplane (least share about 0.09, largest
+  2r/s 0.08). It relies on JSBSim's SetLBrake and SetRBrake not clamping
+  the pedal, which they do not.
 - The stopping harness now checks the pedal sent is the less of pedal and
   share times the brake scale. With #188's reversers and the wet side grip
   together, every landplane landed by hand on her wet short runway stops on
