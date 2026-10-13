@@ -32,7 +32,14 @@
   forty a light aeroplane is, a B-2A in ground effect floated two
   kilometres down the runway.
 -->
-<published_figures aircraft="f35b" flaps_full_deg="0" touchdown_fpm="200">
+<!--
+  **rotation_degps** is the rate the take-off autopilot rotates her at on
+  her wheels (sim/departure.hpp): four degrees a second. No flight manual
+  found gives a rate - the F-15's brings the stick half back over a second
+  (T.O. 1F-15A-1, figure A3-6) - and four is the rate the take-off
+  autopilot raised every nose at before each aeroplane had her own.
+-->
+<published_figures aircraft="f35b" rotation_degps="4" flaps_full_deg="0" touchdown_fpm="200">
   <source>Lockheed Martin F-35B product card (2023); Lockheed Martin F-35 Fast Facts (April 2020)</source>
 
   <!-- 39,750 lb: the empty weight, 32,300 lb (Fast Facts); the pilot, 230

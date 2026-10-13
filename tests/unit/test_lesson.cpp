@@ -396,6 +396,16 @@ const char* a_whole_lesson() {
            "until position/h-agl-ft >= 500.0  # trailing comment\n";
 }
 
+// **Her stance needs her initialised**: `Aircraft::stance` reads her centre
+// of gravity, which JSBSim works out only when she is initialised - before,
+// it reads nought, and an aeroplane whose structural frame runs negative,
+// the F-15C's, was taken for one standing on a tail wheel.
+void initialized_for_her_stance(glideslope::sim::Aircraft& aircraft) {
+    glideslope::sim::InitialConditions ic;
+    ic.engine_running = false;
+    aircraft.initialize(ic);
+}
+
 } // namespace
 
 // **A lesson written down and read back is the one that was written**, with
@@ -1019,6 +1029,169 @@ GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_i
                                     std::to_string(loadings_flown));
 }
 
+// **Every nose-wheel aeroplane, at every loading it has, rotates on her
+// wheels no faster than her stated rate** (`rotation_degps` in her figures,
+// sim::DepartureSpeeds) and a degree a second more. The rate is her pitch
+// attitude's change over each quarter second she spends wholly on her main
+// wheels once the rotation has begun - what a pilot or a flight-data
+// recorder calls the rotation rate - so that one step's jolt of the nose
+// wheel leaving is not read as a rotation. Until 2026-10-13 the take-off
+// autopilot only eased its pull as the nose neared her tail strike, and the
+// A380 at her light loading came up at 7.7 degrees a second, the A320 at 7.5.
+//
+// Flown at the speeds a plan's take-off flies (sim::departure_speeds), so
+// the 747-400 and the F-22A, whose speeds are measured from their models,
+// are flown with the rest. **Left out, and named**: the tail-wheel
+// aeroplanes (the Cub, the Mosquito), whose tail is raised on the roll and
+// who are flown off level, and the flying boat. **Flown and not judged: the
+// F-22A**, who still comes up at ten degrees a second. Her stick commands a
+// pitch rate through her model's own flight control system, whose integrator
+// winds up to full stabilator while her nose wheel holds the nose down, and
+// unwinds at well under a second's notice once it comes - the item stays
+// open for her. Seen red with the rate held on the wheels taken out
+// (docs/PROJECT_STATUS.md, 2026-10-13).
+GLIDESLOPE_TEST(every_nose_wheel_aeroplane_at_every_loading_rotates_on_her_wheels_no_faster_than_her_stated_rate) {
+    constexpr double tolerance_degps = 1.0;
+    constexpr int window = steps_per_second / 4;
+    std::size_t catalogue = 0;
+    std::size_t walked = 0;
+    std::size_t loadings_flown = 0;
+    std::size_t loadings_named = 0;
+    std::vector<std::string> left_out;
+    std::vector<std::string> wrong;
+    std::vector<std::string> not_judged;
+    std::printf("  %-13s %-13s %6s %6s %6s %6s %6s %6s %6s\n", "aircraft", "loading", "stated",
+                "peak", "begun", "Vr", "off", "pitch", "strike");
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        ++catalogue;
+        if (entry.seaplane) {
+            left_out.push_back(entry.id + ": a flying boat, which is not rotated");
+            continue;
+        }
+        glideslope::sim::DepartureSpeeds speeds;
+        try {
+            speeds = glideslope::sim::departure_speeds(data(), entry.model);
+        } catch (const std::runtime_error& e) {
+            left_out.push_back(entry.id + ": " + e.what());
+            continue;
+        }
+        {
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+            initialized_for_her_stance(aircraft);
+            if (aircraft.stance().tail_wheel) {
+                left_out.push_back(entry.id + ": a tail-wheel aeroplane, flown off level");
+                continue;
+            }
+        }
+        ++walked;
+        const auto figures =
+            glideslope::sim::read_published_figures(data() / "figures" / (entry.model + ".xml"));
+        std::vector<std::pair<std::string, const glideslope::sim::Loading*>> loadings{
+            {"(model's)", nullptr}};
+        if (figures.loadings.empty()) {
+            loadings.emplace_back("(figures')", &figures.loading);
+        }
+        for (const auto& [name, loading] : figures.loadings) {
+            loadings.emplace_back(name, &loading.loading);
+        }
+        loadings_named += loadings.size();
+        for (const auto& [name, loading] : loadings) {
+            const glideslope::sim::Runway runway = a_runway();
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+            aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                [](double, double) { return 0.0; }, [](double, double) { return false; }));
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = runway.threshold_lat_deg;
+            ic.longitude_deg = runway.threshold_lon_deg;
+            ic.altitude_ft = runway.elevation_ft;
+            ic.terrain_elevation_ft = runway.elevation_ft;
+            ic.heading_deg = runway.heading_deg;
+            ic.airspeed_kts = 0.0;
+            ic.engine_running = true;
+            ic.gear = 1.0;
+            if (loading != nullptr) {
+                aircraft.load(*loading);
+            }
+            aircraft.initialize(ic);
+            glideslope::sim::Departure departure(aircraft, runway, speeds, 1000.0);
+            // Her pitch over the last quarter second, and how many of those
+            // steps she has been on her wheels in the rotation.
+            std::vector<double> pitch(window + 1, 0.0);
+            int on_wheels_rotating = 0;
+            double peak_degps = 0.0;
+            double rotate_kts = 0.0;
+            double off_kts = 0.0;
+            double off_pitch = 0.0;
+            for (int tick = 0; tick < 120 * steps_per_second && off_kts == 0.0; ++tick) {
+                aircraft.set_controls(departure.fly());
+                aircraft.step();
+                const bool down = aircraft.property("gear/wow") > 0.5;
+                const bool rotating =
+                    departure.stage() == glideslope::sim::Departure::Stage::rotate;
+                if (rotating && rotate_kts == 0.0) {
+                    rotate_kts = aircraft.state().airspeed_kts;
+                }
+                on_wheels_rotating = down && rotating ? on_wheels_rotating + 1 : 0;
+                std::rotate(pitch.begin(), pitch.begin() + 1, pitch.end());
+                pitch.back() = aircraft.state().pitch_deg;
+                if (on_wheels_rotating > window) {
+                    peak_degps = std::max(peak_degps, (pitch.back() - pitch.front()) * 4.0);
+                }
+                if (rotate_kts > 0.0 && !down) {
+                    off_kts = aircraft.state().airspeed_kts;
+                    off_pitch = aircraft.state().pitch_deg;
+                }
+            }
+            ++loadings_flown;
+            const double stated = departure.speeds().rotation_degps;
+            std::printf("  %-13s %-13s %6.1f %6.2f %6.1f %6.1f %6.1f %6.1f %6.1f\n", entry.id.c_str(),
+                        name.c_str(), stated, peak_degps, rotate_kts, departure.speeds().rotate_kts, off_kts, off_pitch,
+                        departure.strike_pitch_deg());
+            std::fflush(stdout);
+            const std::string who = entry.id + " at " + name;
+            if (off_kts == 0.0) {
+                wrong.push_back(who + " did not leave the runway rotated");
+            }
+            if (entry.id == "f22") {
+                not_judged.push_back(who + ": " + std::to_string(peak_degps) + " deg/s");
+            } else if (peak_degps > stated + tolerance_degps) {
+                wrong.push_back(who + " rotated at " + std::to_string(peak_degps) +
+                                " deg/s on her wheels, over her " + std::to_string(stated) +
+                                " and " + std::to_string(tolerance_degps));
+            }
+        }
+    }
+    for (const std::string& why : left_out) {
+        std::printf("  left out - %s\n", why.c_str());
+    }
+    for (const std::string& what : not_judged) {
+        std::printf("  flown, not judged - %s\n", what.c_str());
+    }
+    std::string all;
+    for (const std::string& what : wrong) {
+        all += "\n    " + what;
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong:" + all);
+    check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
+    check(walked + left_out.size() == catalogue, "every aircraft flown or named");
+    check(left_out.size() == 3, "three left out - the flying boat and two tail-wheel - not " +
+                                    std::to_string(left_out.size()));
+    check(loadings_flown == loadings_named, "every loading flown: " +
+                                                std::to_string(loadings_flown) + " of " +
+                                                std::to_string(loadings_named));
+    std::printf("  %zu loadings of %zu nose-wheel landplanes flown, %zu of them not judged\n",
+                loadings_flown, walked, not_judged.size());
+    check(walked == 13, "thirteen nose-wheel landplanes flown, not " + std::to_string(walked));
+    // **The size of the space, stated apart from the loop**: the thirteen
+    // models' own loadings and the loadings their figures name - 38 for the
+    // eleven with a book take-off, four for the 747-400 and two for the
+    // F-22A - of which the F-22A's two are not judged.
+    check(loadings_flown == 44, "forty-four loadings flown, not " +
+                                    std::to_string(loadings_flown));
+    check(not_judged.size() == 2, "the F-22A's two loadings alone not judged, not " +
+                                      std::to_string(not_judged.size()));
+}
+
 // **A take-off to the lowest height a plan may ask hands on no take-off
 // trim**, as one to a thousand feet does (above). The trim is washed off as
 // she climbs, a tenth of its travel a second, and a take-off ended at a
@@ -1376,16 +1549,6 @@ const std::map<std::string, std::string>& no_tail_to_strike() {
         {"short_s23", "a flying boat, alighting on her hull and not on wheels"},
     };
     return named;
-}
-
-// **Her stance needs her initialised**: `Aircraft::stance` reads her centre
-// of gravity, which JSBSim works out only when she is initialised - before,
-// it reads nought, and an aeroplane whose structural frame runs negative,
-// the F-15C's, was taken for one standing on a tail wheel.
-void initialized_for_her_stance(glideslope::sim::Aircraft& aircraft) {
-    glideslope::sim::InitialConditions ic;
-    ic.engine_running = false;
-    aircraft.initialize(ic);
 }
 
 // **Every flare begins at the attitude the glidepath was flown at, and

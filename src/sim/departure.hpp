@@ -88,6 +88,11 @@ struct DepartureSpeeds {
     // will hold. False for every other class, whose initial climb is V2 and
     // ten, or a speed measured at one weight, and goes with her weight.
     bool climb_for_any_weight = false;
+    // **The rate she is rotated at on her wheels**, degrees of pitch a
+    // second: her figures' `rotation_degps`. Speeds made by hand, with no
+    // figures to go by, take four, the rate the take-off autopilot raised
+    // every nose at before each aeroplane had her own.
+    double rotation_degps = 4.0;
 };
 
 // The speeds for an aircraft, from `data`/figures/MODEL.xml.
@@ -240,6 +245,12 @@ private:
     double climb_target_kts_ = 0.0; // the speed asked of her in the climb
     double climb_gain_ktps_ = 0.0;  // and how fast it builds
     double pull_ = 0.0; // the stick brought back while the nose will not come
+    // **The rate held on her wheels** (rate_held_from, in departure.cpp):
+    // whether it has taken the stick this rotation, whether it holds it this
+    // step, and where it puts it, less the trim.
+    bool rate_engaged_ = false;
+    bool rate_held_ = false;
+    double rate_stick_ = 0.0;
     double rotate_pitch_ = 0.0;
     bool rotation_begun_ = false;
     double rotation_began_kts_ = 0.0;

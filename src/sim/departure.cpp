@@ -32,18 +32,29 @@ constexpr double self_rotated_deg = 2.0;
 // How far short of the attitude her tail strikes at the nose is held on the
 // wheels, degrees.
 constexpr double strike_margin_deg = 2.0;
-// **The rotation's rate**, degrees a second: four, the pilot's rate the nose
-// was already raised at, and slowing as the nose nears the attitude her tail
-// strike lets her be held at, a degree a second for each degree short of it,
-// so that it does not overshoot. Unlimited, an A380 at her light loading
-// rotated at nearly nine degrees a second and was carried past her strike
-// attitude as her wheels left the runway. Airline practice is nearer three
-// (as the project took it on 2026-10-13, not checked against a document
-// here); tried at three, with the slowing aimed at the take-off attitude,
-// the F-15C left 12 knots past her rotation speed and the F-35B 28, past the
-// ten the take-off test allows.
-constexpr double rotation_rate_degps = 4.0;
+// **The rotation's rate** is each aeroplane's own (DepartureSpeeds::
+// rotation_degps, from her figures), slowing as the nose nears the attitude
+// her tail strike lets her be held at, a degree a second for each degree
+// short of it, so that it does not overshoot.
 constexpr double rotation_rate_per_deg_short = 1.0;
+// **The rate held on her wheels** (Departure::fly_laws): a nose-wheel
+// aeroplane's stick, once her nose is coming at a quarter of her rate, is
+// her pitch rate's: a tenth of the stick's travel for each three tenths of a
+// degree a second off the rate asked for, at once, and the pull under it
+// moved by two of her rates' worth of travel a second for each degree a
+// second it is off - half the travel a second for an aeroplane rotated at
+// four. Found by flying every nose-wheel aeroplane at every loading
+// (docs/PROJECT_STATUS.md, 2026-10-13).
+constexpr double rate_held_from = 0.25;
+constexpr double rate_stick_per_degps = 0.3;
+constexpr double rate_pull_rates_per_s = 2.0;
+// **How fast the pull builds while her nose will not come**, of the stick's
+// travel a second: a nose-wheel aeroplane's the whole travel, since the
+// rate held takes it out as the nose comes; a tail-wheel aeroplane's half,
+// as the F-15's flight manual has the stick brought back (T.O. 1F-15A-1,
+// figure A3-6: one half aft stick over one second).
+constexpr double nose_wheel_pull_per_s = 1.0;
+constexpr double tail_wheel_pull_per_s = 0.5;
 // **The take-off flap comes up** (DepartureSpeeds::flaps_up_ft): from 50 ft
 // above the runway for a light aeroplane, 400 for any other, once she is
 // within flaps_up_within_kts of her initial climb speed; a notch at a time,
@@ -73,13 +84,13 @@ const FigureSpec* by_flight(const PublishedFigures& figures, const std::string& 
 }
 
 // How long the rotation takes: the nose raised from where she sits to the
-// take-off attitude at a pilot's four degrees a second, **and the 0.45 s the
+// take-off attitude at her own rate (rotation_degps), **and the 0.45 s the
 // pull takes to build before the nose moves at all**. Without it every
 // aeroplane left later than aimed by 0.4 to 0.5 s - a knot or two for most,
 // but the F-15C gains thirteen knots a second and left 9.2 past its rotation
 // speed, 0.8 inside the ten allowed; with it, 4.5.
-double rotation_lead_s(double pitch_deg) {
-    return std::max(0.0, (10.0 - pitch_deg) / rotation_rate_degps) + 0.45;
+double rotation_lead_s(double pitch_deg, double rate_degps) {
+    return std::max(0.0, (10.0 - pitch_deg) / rate_degps) + 0.45;
 }
 
 // What the aeroplane weighed for a figure: its loading's total, or the
@@ -250,6 +261,11 @@ double Departure::climb_kts() const {
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                                  const std::string& model) {
     DepartureSpeeds speeds = speeds_from_figures(data, model);
+    const double rotation_degps =
+        read_published_figures(data / "figures" / (model + ".xml")).rotation_degps;
+    if (rotation_degps > 0.0) {
+        speeds.rotation_degps = rotation_degps;
+    }
     speeds.flaps_up_ft = transport_flaps_up_ft;
     for (const CatalogueEntry& e : read_catalogue(data)) {
         if (e.model == model) {
@@ -530,7 +546,7 @@ Controls Departure::fly_laws() {
     } else if (unstuck_) {
         stage_ = Stage::climb;
     } else if (kcas >= speeds_.rotate_kts || (!on_water && pilot_rotated) ||
-               (!on_water && kcas + std::max(0.0, accel_ktps_ * rotation_lead_s(s.pitch_deg) -
+               (!on_water && kcas + std::max(0.0, accel_ktps_ * rotation_lead_s(s.pitch_deg, speeds_.rotation_degps) -
                                                       lift_off_after_kts) >=
                                  speeds_.rotate_kts)) {
         // **The rotation begins as early as it takes**, so that she leaves
@@ -632,6 +648,7 @@ Controls Departure::fly_laws() {
     }
 
     // --- the elevator ------------------------------------------------------
+    rate_held_ = false;
     double want_pitch = 0.0;
     if (on_water && (stage_ == Stage::roll || stage_ == Stage::rotate)) {
         // **On the water the hull is held at its running attitude** - over
@@ -675,13 +692,13 @@ Controls Departure::fly_laws() {
             // she climbed away, and flew her back on to the runway.
             pitch_trim_ = std::max(pitch_trim_, 0.0);
         }
-        rotate_pitch_ = std::min(rotate_pitch_ + rotation_rate_degps / steps_per_second, 10.0);
+        rotate_pitch_ =
+            std::min(rotate_pitch_ + speeds_.rotation_degps / steps_per_second, 10.0);
         want_pitch = on_ground ? rotate_pitch_ : std::max(rotate_pitch_, left_at_pitch_deg_);
-        // **While the nose will not come, the stick goes further back** -
-        // half its travel a second, as the F-15's flight manual has the
-        // stick brought back (T.O. 1F-15A-1, figure A3-6: one half aft stick
-        // over one second). The attitude law alone asks a twentieth of the
-        // travel for each degree the nose is short, and its trim winds in
+        // **While the nose will not come, the stick goes further back**
+        // (nose_wheel_pull_per_s, tail_wheel_pull_per_s). The attitude law
+        // alone asks a twentieth of the travel for each degree the nose is
+        // short, and its trim winds in
         // at three hundredths a second: an aeroplane heavy on its nose
         // wheel, which needs the stick well back to lift it, was held on
         // the runway by it thirty knots past its rotation speed. **And
@@ -702,7 +719,7 @@ Controls Departure::fly_laws() {
             pull_ = std::min(pull_ + held - last_elevator_, 1.0);
         }
         const double lagging_deg = want_pitch - s.pitch_deg;
-        // **At the rotation's rate** (rotation_rate_degps), slowing as she
+        // **At the rotation's rate** (rotation_degps), slowing as she
         // nears the attitude her tail strike lets her be held at: the pull
         // grows while the nose comes up slower than that, and is eased off,
         // twice as fast, while it comes up faster on her wheels - off them,
@@ -718,14 +735,42 @@ Controls Departure::fly_laws() {
         // approach.
         const double slowing_to = std::max(
             rotation_rate_per_deg_short * (held_at_deg - s.pitch_deg), 0.0);
-        const double rate_wanted = std::min(slowing_to, rotation_rate_degps);
+        const double rate_wanted = std::min(slowing_to, speeds_.rotation_degps);
         const double q_now = s.q_radps * degrees;
-        const bool too_fast = on_ground && q_now > slowing_to + 1.0;
-        if (lagging_deg > 1.0 && q_now < rate_wanted &&
-            s.pitch_deg < strike_pitch_deg_ - strike_margin_deg - 1.0) {
-            pull_ = std::min(pull_ + 0.5 / steps_per_second, 1.0);
-        } else if (lagging_deg <= 1.0 || too_fast) {
-            pull_ = std::max(pull_ - (too_fast ? 0.5 : 0.25) / steps_per_second, 0.0);
+        // **On a nose-wheel aeroplane's wheels the rate is held**, not
+        // merely its growth: once her nose is coming at a quarter of the
+        // rate asked, the stick is her pitch rate's (rate_held_from,
+        // rate_stick_per_degps, rate_pull_rates_per_s), taken over from
+        // where the stick was so that it does not jump. The pull it built
+        // to lift the nose wheel is more than the nose needs once it is off,
+        // and more still as she gains speed: easing it only as the nose
+        // neared her strike attitude, an A380 at her light loading came up
+        // at 7.6 degrees a second and an A320 at 7.5, and a rate check
+        // added to that law brought the worst to 5.5. A tail-wheel
+        // aeroplane, whose tail is raised on the roll and who is flown off
+        // level, is left to the law below.
+        const double rate_error = rate_wanted - q_now;
+        if (on_ground && !tail_wheel_ && !rate_engaged_ &&
+            q_now >= rate_held_from * rate_wanted) {
+            rate_engaged_ = true;
+            pull_ = std::clamp(last_elevator_ - pitch_trim_ - rate_stick_per_degps * rate_error,
+                               0.0, 1.0);
+        }
+        if (on_ground && rate_engaged_) {
+            pull_ = std::clamp(pull_ + rate_pull_rates_per_s / speeds_.rotation_degps *
+                                           rate_error / steps_per_second,
+                               0.0, 1.0);
+            rate_held_ = true;
+            rate_stick_ = pull_ + rate_stick_per_degps * rate_error;
+        } else {
+            const bool too_fast = on_ground && q_now > slowing_to + 1.0;
+            if (lagging_deg > 1.0 && q_now < rate_wanted &&
+                s.pitch_deg < strike_pitch_deg_ - strike_margin_deg - 1.0) {
+                const double builds = tail_wheel_ ? tail_wheel_pull_per_s : nose_wheel_pull_per_s;
+                pull_ = std::min(pull_ + builds / steps_per_second, 1.0);
+            } else if (lagging_deg <= 1.0 || too_fast) {
+                pull_ = std::max(pull_ - (too_fast ? 0.5 : 0.25) / steps_per_second, 0.0);
+            }
         }
     } else {
         // Climbing: the attitude that holds the best climb speed - half a
@@ -846,6 +891,9 @@ Controls Departure::fly_laws() {
     }
     c.elevator =
         std::clamp(0.05 * pitch_error - 0.05 * q_degps + pitch_trim_ + pull_, -1.0, 1.0);
+    if (rate_held_) {
+        c.elevator = std::clamp(rate_stick_ + pitch_trim_, -1.0, 1.0);
+    }
     last_elevator_ = c.elevator;
     return c;
 }

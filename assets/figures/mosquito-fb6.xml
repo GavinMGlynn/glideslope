@@ -35,7 +35,14 @@
   half a knot under her stall before the power and the lowered nose brought
   the speed (docs/PROJECT_STATUS.md, 2026-10-13).
 -->
-<published_figures aircraft="mosquito-fb6" flaps_full_deg="45" stall_warning_kts="10">
+<!--
+  **rotation_degps** is the rate the take-off autopilot rotates her at on
+  her wheels (sim/departure.hpp): four degrees a second, the rate the
+  attitude asked of her is raised at. She stands on a tail wheel, her tail
+  raised on the roll, and is flown off level: the rate is not held on her
+  wheels as it is on a nose-wheel aeroplane's.
+-->
+<published_figures aircraft="mosquito-fb6" rotation_degps="4" flaps_full_deg="45" stall_warning_kts="10">
   <source>A&amp;AEE reports 767,e (HX809, HJ679) and A.P. 2019E Pilot's Notes</source>
 
   <!-- HX809's level speeds were "corrected to 95% of the take-off weight",
