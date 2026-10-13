@@ -1708,11 +1708,13 @@ double vertical_landing(const std::filesystem::path& root, const PublishedFigure
 
 // **What a transition is held to**: her attitude within `most_pitch_deg`
 // nose up or down and `most_bank_deg` either way, her wheels off the
-// ground, every step; and the most she has sunk below `altitude_ft`.
+// ground, and her height no more than `most_rise_ft` above `altitude_ft`,
+// every step; and the most she has sunk below `altitude_ft`.
 struct TransitionWatch {
     double height_ft;
     double most_pitch_deg;
     double most_bank_deg;
+    double most_rise_ft;
     double most_lost_ft = 0.0;
 
     void see(const Aircraft& a, const Transition& t) {
@@ -1725,11 +1727,15 @@ struct TransitionWatch {
             what = "her bank reached " + std::to_string(s.roll_deg) + " degrees";
         } else if (a.property("gear/wow") > 0.5) {
             what = "she touched the ground";
+        } else if (s.height_above_ground_ft - height_ft > most_rise_ft) {
+            what = "she rose " + std::to_string(s.height_above_ground_ft - height_ft) +
+                   " ft";
         }
         if (!what.empty()) {
-            throw std::runtime_error(what + " at " + std::to_string(s.airspeed_kts) + " KCAS, " +
-                                     std::to_string(s.height_above_ground_ft) + " ft, stage " +
-                                     std::to_string(static_cast<int>(t.stage())));
+            throw std::runtime_error(
+                what + " at " + std::to_string(s.airspeed_kts) + " KCAS, " +
+                std::to_string(s.height_above_ground_ft) + " ft, stage " +
+                std::to_string(static_cast<int>(t.stage())));
         }
     }
 };
@@ -1741,8 +1747,8 @@ struct TransitionWatch {
 // her attitude passes `most_pitch_deg` or `most_bank_deg`, if she touches
 // the ground, if she is not hovering in ten minutes, or if she drifts more
 // than `most_drift_ft` from the point the hover law took her over.
-double transition_to_hover(const std::filesystem::path& root, const PublishedFigures& figures,
-                           const FigureSpec& spec) {
+double transition_to_hover(const std::filesystem::path& root,
+                           const PublishedFigures& figures, const FigureSpec& spec) {
     const double height_ft = condition(spec, "altitude_ft");
     InitialConditions ic = on_the_runway();
     ic.altitude_ft = height_ft;
@@ -1754,7 +1760,9 @@ double transition_to_hover(const std::filesystem::path& root, const PublishedFig
     Hover::Command flying;
     flying.controls = trimmed_controls(f.aircraft);
     Transition transition(f.aircraft, flying);
-    TransitionWatch watch{height_ft, condition(spec, "most_pitch_deg"), condition(spec, "most_bank_deg")};
+    TransitionWatch watch{height_ft, condition(spec, "most_pitch_deg"),
+                          condition(spec, "most_bank_deg"),
+                          condition(spec, "most_rise_ft")};
     const Transition::Target target{true, height_ft, condition(spec, "speed_kcas")};
     for (int i = 0; i < steps(600); ++i) {
         const Hover::Command c = transition.step(target);
@@ -1781,8 +1789,8 @@ double transition_to_hover(const std::filesystem::path& root, const PublishedFig
 // height. The most she sinks below `altitude_ft` from then until she is
 // converted back and within 5 knots of `speed_kcas` for ten seconds, ft; throws as
 // transition_to_hover does, or if that is not done in five minutes.
-double transition_from_hover(const std::filesystem::path& root, const PublishedFigures& figures,
-                             const FigureSpec& spec) {
+double transition_from_hover(const std::filesystem::path& root,
+                             const PublishedFigures& figures, const FigureSpec& spec) {
     const double height_ft = condition(spec, "altitude_ft");
     const double kcas = condition(spec, "speed_kcas");
     Flight f(root, figures, spec, on_the_runway());
@@ -1795,9 +1803,13 @@ double transition_from_hover(const std::filesystem::path& root, const PublishedF
         const Hover::Command c = transition.step({true, height_ft, kcas});
         f.aircraft.set_lift_system(c.lift);
         f.fly(c.controls);
-        settled = std::abs(f.aircraft.state().height_above_ground_ft - height_ft) < 2.0 ? settled + 1 : 0;
+        settled = std::abs(f.aircraft.state().height_above_ground_ft - height_ft) < 2.0
+                      ? settled + 1
+                      : 0;
     }
-    TransitionWatch watch{height_ft, condition(spec, "most_pitch_deg"), condition(spec, "most_bank_deg")};
+    TransitionWatch watch{height_ft, condition(spec, "most_pitch_deg"),
+                          condition(spec, "most_bank_deg"),
+                          condition(spec, "most_rise_ft")};
     const Transition::Target target{false, height_ft, kcas};
     int there = 0;
     for (int i = 0; i < steps(300); ++i) {
@@ -1805,9 +1817,10 @@ double transition_from_hover(const std::filesystem::path& root, const PublishedF
         f.aircraft.set_lift_system(c.lift);
         f.fly(c.controls);
         watch.see(f.aircraft, transition);
-        const bool done = transition.stage() == Transition::Stage::wing_borne &&
-                          f.aircraft.property("fcs/stovl-pos-norm") <= 0.0 &&
-                          std::abs(f.aircraft.property("velocities/vc-kts") - kcas) < 5.0;
+        const bool done =
+            transition.stage() == Transition::Stage::wing_borne &&
+            f.aircraft.property("fcs/stovl-pos-norm") <= 0.0 &&
+            std::abs(f.aircraft.property("velocities/vc-kts") - kcas) < 5.0;
         there = done ? there + 1 : 0;
         if (there == steps(10)) {
             return watch.most_lost_ft;
@@ -2141,16 +2154,49 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                 " gives neither min and max nor a value and a tolerance");
         }
 
-        for (const char* key :
-             {"flaps_deg", "lift_off_kcas", "speed_kcas", "altitude_ft", "rpm",
-              "bank_deg", "boost_psi", "gear", "entry_kcas", "fs_gear_above_ft",
-              "radiators_open", "gear_change_boost_drop", "manifold_inhg", "lean",
-              "takeoff_pitch_deg", "mach", "throttle", "from_kcas", "to_kcas", "rate_fpm",
-              "mach_to", "fuel_frozen", "altitude_to_ft", "propeller_lever",
-              "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft", "clmax",
-              "speed_falls_kt_per_1000_ft", "seconds", "most_drift_ft", "crosswind_kt",
-              "temperature_offset_c", "headwind_kt", "roll_deg", "lift_deg", "strike_margin_deg",
-              "rotate_pitch_gain", "rotate_rate_gain", "most_pitch_deg", "most_bank_deg"}) {
+        for (const char* key : {"flaps_deg",
+                                "lift_off_kcas",
+                                "speed_kcas",
+                                "altitude_ft",
+                                "rpm",
+                                "bank_deg",
+                                "boost_psi",
+                                "gear",
+                                "entry_kcas",
+                                "fs_gear_above_ft",
+                                "radiators_open",
+                                "gear_change_boost_drop",
+                                "manifold_inhg",
+                                "lean",
+                                "takeoff_pitch_deg",
+                                "mach",
+                                "throttle",
+                                "from_kcas",
+                                "to_kcas",
+                                "rate_fpm",
+                                "mach_to",
+                                "fuel_frozen",
+                                "altitude_to_ft",
+                                "propeller_lever",
+                                "running_pitch_deg",
+                                "rotate_kcas",
+                                "keel_aft_ft",
+                                "keel_below_ft",
+                                "clmax",
+                                "speed_falls_kt_per_1000_ft",
+                                "seconds",
+                                "most_drift_ft",
+                                "crosswind_kt",
+                                "temperature_offset_c",
+                                "headwind_kt",
+                                "roll_deg",
+                                "lift_deg",
+                                "strike_margin_deg",
+                                "rotate_pitch_gain",
+                                "rotate_rate_gain",
+                                "most_pitch_deg",
+                                "most_bank_deg",
+                                "most_rise_ft"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }

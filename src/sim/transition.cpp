@@ -15,39 +15,19 @@ constexpr double pi = 3.14159265358979323846;
 constexpr double rad_per_deg = pi / 180.0;
 constexpr double deg_per_rad = 180.0 / pi;
 constexpr double kt_per_fps = 3600.0 / 6076.12;
-
-// **How fast she slows and gathers speed jet-borne**, knots a second: not
-// published - estimated. Two knots a second takes her from 200 knots to a
-// hover in a hundred seconds, about a mile and a half; Code One's account
-// gives the sequence and the speeds, not the time.
-constexpr double slow_kt_per_s = 2.0;
-constexpr double gather_kt_per_s = 3.0;
+constexpr double fps_per_kt = 6076.12 / 3600.0;
+// Sea-level density, slugs a cubic foot: a calibrated speed's dynamic
+// pressure, low and slow, as near as matters.
+constexpr double sea_level_slug_ft3 = 0.0023769;
 
 // The speed under which, the speed asked come to nothing, the hover law
-// takes her; and the most the speed asked runs past her conversion speed
-// accelerating, so that she reaches it.
+// takes her; the most the speed asked runs past her conversion speed
+// gathering speed, so that she reaches it; and how far short of her least
+// conversion height she may be and still convert.
 constexpr double hover_kt = 3.0;
 constexpr double past_conversion_kt = 20.0;
+constexpr double height_slack_ft = 2.0;
 
-// **The attitudes she gathers speed at and converts back to**, degrees.
-// Jet-borne she gathers speed toward `gathering_pitch_deg` by her
-// conversion speed: low, so that her jets carry more of her and the
-// throttle that holds her height gives her the thrust to accelerate - at 8
-// degrees she stuck at 195 KCAS, at 11.5 at 166 (PROJECT_STATUS,
-// 2026-10-13). Converting back, as the fan's lift goes her attitude is
-// raised toward `wing_borne_pitch_deg`, what she is trimmed at wing-borne
-// at her conversion speed and 150 ft - 11.7 degrees at her vertical-landing
-// loading, measured on her model, not published. Slowing, she starts from
-// the attitude she has as the conversion ends.
-constexpr double gathering_pitch_deg = 4.0;
-constexpr double wing_borne_pitch_deg = 11.7;
-
-// The thrust's angle from straight aft, degrees: the nozzle swivels to 95
-// (Rolls-Royce), the fan's vane box from 41.75 to 104 (Wiegand et al.,
-// AIAA 2018-3368); both are swung to the one angle, each within its travel.
-constexpr double nozzle_most_deg = 95.0;
-constexpr double fan_least_deg = 41.75;
-constexpr double fan_most_deg = 104.0;
 constexpr double nozzle_down_deg = 90.0;
 
 // The speed on the thrust's angle: degrees a knot too fast, and a knot a
@@ -100,27 +80,60 @@ Transition::Transition(const Aircraft& aircraft, const Hover::Command& flying)
         throw std::logic_error("only an aircraft with a lift system converts");
     }
     convert_kcas_ = a_.property("fcs/stovl-convert-kcas");
+    least_ft_ = a_.property("fcs/stovl-convert-least-ft");
     stovl_throttle_ = a_.property("fcs/stovl-throttle-max");
+    nozzle_most_deg_ = a_.property("fcs/nozzle-max-deg");
+    fan_least_deg_ = a_.property("fcs/fan-min-deg");
+    fan_most_deg_ = a_.property("fcs/fan-max-deg");
+    slow_kt_per_s_ = a_.property("fcs/transition-slow-kt-per-s");
+    gather_kt_per_s_ = a_.property("fcs/transition-gather-kt-per-s");
+    gathering_pitch_deg_ = a_.property("fcs/transition-gathering-pitch-deg");
+    lift_slope_per_rad_ = a_.property("fcs/transition-lift-slope-per-rad");
     heading_deg_ = a_.state().heading_deg;
-    const bool converted = a_.property("fcs/stovl-pos-norm") >= 1.0;
+    const double conversion = a_.property("fcs/stovl-pos-norm");
     const bool nozzle_down = a_.property("fcs/nozzle-pos-deg") >= nozzle_down_deg - 0.5;
     if (a_.property("gear/wow") > 0.5) {
         stage_ = Stage::hovering;
         hover_ = std::make_unique<Hover>(a_);
         hover_base_ft_ = a_.state().height_above_ground_ft;
-    } else if (converted && nozzle_down && ground_kt(a_) < hover_kt) {
+    } else if (conversion >= 1.0 && nozzle_down && ground_kt(a_) < hover_kt) {
         become_hovering(flying);
-    } else if (a_.property("fcs/stovl-pos-norm") > 0.0) {
+    } else if (conversion > 0.0) {
         become_jet_borne(flying);
     } else {
-        become_wing_borne(flying);
+        stage_ = Stage::wing_borne;
+        autopilot_ = std::make_unique<Autopilot>(a_, flying.controls);
     }
 }
 
-void Transition::become_wing_borne(const Hover::Command& flying) {
-    stage_ = Stage::wing_borne;
-    hover_.reset();
-    autopilot_ = std::make_unique<Autopilot>(a_, flying.controls);
+double Transition::wing_borne_pitch_deg() const {
+    const double v_fps = convert_kcas_ * fps_per_kt;
+    const double q_psf = 0.5 * sea_level_slug_ft3 * v_fps * v_fps;
+    return a_.property("inertia/weight-lbs") /
+           (q_psf * a_.property("metrics/Sw-sqft") * lift_slope_per_rad_) * deg_per_rad;
+}
+
+double Transition::conversion_height_ft(const Target& target) const {
+    return std::max(target.height_ft, least_ft_);
+}
+
+void Transition::seed_jet_borne(const Hover::Command& flying, bool from_hover) {
+    const AircraftState s = a_.state();
+    speed_from_kt_ = std::max(ahead_kt(a_, heading_deg_), 0.0);
+    speed_asked_kt_ = speed_from_kt_;
+    pitch_from_deg_ = from_hover ? 0.0 : s.pitch_deg;
+    back_pitch_from_deg_ = s.pitch_deg;
+    throttle_integral_ = std::clamp(flying.controls.throttle, 0.0, stovl_throttle_);
+    // The thrust's angle the command had: the nozzle's, until it is at its
+    // stop, and past it the fan's.
+    const double angle = flying.lift.nozzle_deg < nozzle_most_deg_
+                             ? flying.lift.nozzle_deg
+                             : flying.lift.fan_deg;
+    angle_integral_deg_ =
+        from_hover ? nozzle_down_deg : std::clamp(angle, 0.0, fan_most_deg_);
+    elevator_integral_ = flying.controls.elevator;
+    fan_integral_ = std::clamp(flying.lift.fan, -0.5, 0.5);
+    post_integral_ = std::clamp(flying.lift.roll_post, -0.5, 0.5);
 }
 
 void Transition::become_jet_borne(const Hover::Command& flying) {
@@ -129,16 +142,7 @@ void Transition::become_jet_borne(const Hover::Command& flying) {
     const bool from_hover = hover_ != nullptr;
     hover_.reset();
     heading_deg_ = a_.state().heading_deg;
-    speed_from_kt_ = std::max(ahead_kt(a_, heading_deg_), 0.0);
-    speed_asked_kt_ = speed_from_kt_;
-    pitch_from_deg_ = from_hover ? 0.0 : a_.state().pitch_deg;
-    throttle_integral_ = std::clamp(flying.controls.throttle, 0.0, stovl_throttle_);
-    angle_integral_deg_ =
-        from_hover ? nozzle_down_deg
-                   : std::clamp(flying.lift.nozzle_deg, 0.0, nozzle_most_deg);
-    elevator_integral_ = flying.controls.elevator;
-    fan_integral_ = std::clamp(flying.lift.fan, -0.5, 0.5);
-    post_integral_ = std::clamp(flying.lift.roll_post, -0.5, 0.5);
+    seed_jet_borne(flying, from_hover);
 }
 
 void Transition::become_hovering(const Hover::Command& flying) {
@@ -153,16 +157,20 @@ void Transition::become_hovering(const Hover::Command& flying) {
 Hover::Command Transition::step(const Target& target) {
     const double kcas = a_.property("velocities/vc-kts");
     const double conversion = a_.property("fcs/stovl-pos-norm");
-    // Where the target sends her from the stage she is in.
+    const double height = a_.state().height_above_ground_ft;
+    const bool high_enough = height >= least_ft_ - height_slack_ft;
+    const bool reversed =
+        last_asked_hover_.has_value() && *last_asked_hover_ != target.hover;
+    last_asked_hover_ = target.hover;
+    // Where the ask sends her from the stage she is in.
     switch (stage_) {
     case Stage::wing_borne:
-        if (target.hover && kcas <= convert_kcas_ + 2.0) {
+        if (target.hover && kcas <= convert_kcas_ + 2.0 && high_enough) {
             stage_ = Stage::converting;
-            converting_back_ = false;
         }
         break;
     case Stage::converting:
-        converting_back_ = !target.hover && (converting_back_ || kcas >= convert_kcas_);
+        // Which way the fan's doors go is the ask's alone.
         if (target.hover && conversion >= 1.0) {
             become_jet_borne(last_);
         } else if (!target.hover && conversion <= 0.0) {
@@ -170,14 +178,19 @@ Hover::Command Transition::step(const Target& target) {
             if (!autopilot_) {
                 autopilot_ = std::make_unique<Autopilot>(a_, last_.controls);
             }
+        } else if (reversed && !autopilot_) {
+            seed_jet_borne(last_, false);
         }
         break;
     case Stage::jet_borne:
-        // At her conversion speed she converts back, the jet-borne law
-        // still flying her until the fan has stopped.
-        if (!target.hover && kcas >= convert_kcas_) {
+        if (reversed) {
+            seed_jet_borne(last_, false);
+        }
+        // At her conversion speed, and high enough, she converts back, the
+        // jet-borne law still flying her until the fan has stopped.
+        if (!target.hover && kcas >= convert_kcas_ && high_enough) {
             stage_ = Stage::converting;
-            converting_back_ = true;
+            back_pitch_from_deg_ = a_.state().pitch_deg;
         } else if (target.hover && speed_asked_kt_ <= 0.0 && ground_kt(a_) < hover_kt &&
                    a_.property("fcs/nozzle-pos-deg") >= nozzle_down_deg - 0.5) {
             become_hovering(last_);
@@ -194,10 +207,10 @@ Hover::Command Transition::step(const Target& target) {
     switch (stage_) {
     case Stage::wing_borne: c = fly_wing_borne(target, false); break;
     case Stage::converting:
-        c = autopilot_ ? fly_wing_borne(target, !converting_back_)
-                       : fly_jet_borne(target);
+        c = autopilot_ ? fly_wing_borne(target, target.hover)
+                       : fly_jet_borne(target, !target.hover);
         break;
-    case Stage::jet_borne: c = fly_jet_borne(target); break;
+    case Stage::jet_borne: c = fly_jet_borne(target, false); break;
     case Stage::hovering:
         c = hover_->step({target.height_ft - hover_base_ft_, false});
         break;
@@ -210,15 +223,22 @@ Hover::Command Transition::fly_wing_borne(const Target& target, bool converted) 
     const AircraftState s = a_.state();
     AutopilotModes modes;
     modes.heading_deg = heading_deg_;
-    modes.altitude_ft = s.altitude_ft + (target.height_ft - s.height_above_ground_ft);
-    modes.airspeed_kts = target.hover ? convert_kcas_ : target.kcas;
+    // Asked for a hover, or converting, at her least conversion height at
+    // the lowest; and at her conversion speed, or no slower (the header says
+    // why).
+    const double height_ft = target.hover || stage_ == Stage::converting
+                                 ? conversion_height_ft(target)
+                                 : target.height_ft;
+    modes.altitude_ft = s.altitude_ft + (height_ft - s.height_above_ground_ft);
+    modes.airspeed_kts =
+        target.hover ? convert_kcas_ : std::max(target.kcas, convert_kcas_);
     autopilot_->set(modes);
     Hover::Command c;
     c.controls = autopilot_->fly();
     c.controls.gear = 0.0;
     c.lift.stovl = converted ? 1.0 : 0.0;
     c.lift.nozzle_deg = 0.0;
-    c.lift.fan_deg = fan_least_deg;
+    c.lift.fan_deg = fan_least_deg_;
     // The fan is ahead of her centre of gravity, and its thrust follows the
     // throttle the autopilot moves for the speed: while it turns, its share
     // holds the attitude the autopilot asks, as the jet-borne law's does.
@@ -235,30 +255,30 @@ Hover::Command Transition::fly_wing_borne(const Target& target, bool converted) 
     return c;
 }
 
-Hover::Command Transition::fly_jet_borne(const Target& target) {
+Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
     const AircraftState s = a_.state();
     Hover::Command c = last_;
     // Converting back: the jet-borne law flies her on as the fan stops.
-    const bool back = stage_ == Stage::converting && converting_back_;
     c.lift.stovl = back ? 0.0 : 1.0;
     c.lift.split = 0.0;
     c.controls.gear = back ? 0.0 : 1.0;
     c.controls.left_brake = c.controls.right_brake = 0.0;
 
-    // The speed asked, moving at its rate toward a hover or her conversion
-    // speed and past it.
+    // The speed asked, moving at her rate toward a hover or past her
+    // conversion speed.
     if (target.hover) {
-        speed_asked_kt_ = std::max(speed_asked_kt_ - slow_kt_per_s * dt, 0.0);
+        speed_asked_kt_ = std::max(speed_asked_kt_ - slow_kt_per_s_ * dt, 0.0);
     } else {
-        speed_asked_kt_ = std::min(speed_asked_kt_ + gather_kt_per_s * dt,
+        speed_asked_kt_ = std::min(speed_asked_kt_ + gather_kt_per_s_ * dt,
                                    convert_kcas_ + past_conversion_kt);
     }
     const double speed = ahead_kt(a_, heading_deg_);
 
-    // Height, on the throttle.
-    const double height = s.height_above_ground_ft;
-    const double wanted_fps =
-        std::clamp(height_gain * (target.height_ft - height), -sink_fps, climb_fps);
+    // Height, on the throttle: gathering speed, no lower than she converts.
+    const double height_ft =
+        target.hover ? target.height_ft : conversion_height_ft(target);
+    const double wanted_fps = std::clamp(
+        height_gain * (height_ft - s.height_above_ground_ft), -sink_fps, climb_fps);
     const double rate_error = wanted_fps - s.climb_rate_fpm / 60.0;
     throttle_integral_ = std::clamp(
         throttle_integral_ + rate_integral * rate_error * dt, 0.0, stovl_throttle_);
@@ -266,12 +286,13 @@ Hover::Command Transition::fly_jet_borne(const Target& target) {
         std::clamp(throttle_integral_ + rate_gain * rate_error, 0.0, stovl_throttle_);
     c.controls.throttle = toward(c.controls.throttle, throttle, throttle_per_s * dt);
 
-    // Speed, on the thrust's angle: too fast, swung further down.
+    // Speed, on the thrust's angle: too fast, swung further down; each
+    // within its travel.
     const double speed_error = speed - speed_asked_kt_;
     angle_integral_deg_ = std::clamp(
-        angle_integral_deg_ + angle_integral * speed_error * dt, 0.0, fan_most_deg);
+        angle_integral_deg_ + angle_integral * speed_error * dt, 0.0, fan_most_deg_);
     double angle =
-        std::clamp(angle_integral_deg_ + angle_gain * speed_error, 0.0, fan_most_deg);
+        std::clamp(angle_integral_deg_ + angle_gain * speed_error, 0.0, fan_most_deg_);
     // Come to a stop asked for a hover, straight down for the hover law.
     if (target.hover && speed_asked_kt_ <= 0.0 && ground_kt(a_) < hover_kt) {
         angle = nozzle_down_deg;
@@ -279,21 +300,29 @@ Hover::Command Transition::fly_jet_borne(const Target& target) {
     if (back) {
         angle = 0.0;
     }
-    c.lift.nozzle_deg = std::min(angle, nozzle_most_deg);
-    c.lift.fan_deg = std::clamp(angle, fan_least_deg, fan_most_deg);
+    c.lift.nozzle_deg = std::min(angle, nozzle_most_deg_);
+    c.lift.fan_deg = std::clamp(angle, fan_least_deg_, fan_most_deg_);
 
-    // Attitude: from the attitude she flies wing-borne to level as the speed
-    // goes, on the stabilator and the fan's share together.
-    const double pitch_top_deg = target.hover ? pitch_from_deg_ : gathering_pitch_deg;
-    const double speed_top_kt =
-        target.hover ? std::max(speed_from_kt_, 1.0) : convert_kcas_;
-    double pitch_wanted_deg =
-        pitch_top_deg * std::clamp(speed / speed_top_kt, 0.0, 1.0);
+    // Attitude, on the stabilator and the fan's share together: slowing,
+    // from the attitude she had when asked down to level as the speed goes;
+    // gathering speed, toward her gathering attitude by her conversion
+    // speed; converting back, toward her wing-borne attitude as the fan's
+    // lift goes.
+    double pitch_wanted_deg = 0.0;
     if (back) {
         const double gone =
             1.0 - std::clamp(a_.property("fcs/stovl-pos-norm"), 0.0, 1.0);
+        pitch_wanted_deg = back_pitch_from_deg_ +
+                           (wing_borne_pitch_deg() - back_pitch_from_deg_) * gone;
+    } else if (target.hover) {
+        pitch_wanted_deg = pitch_from_deg_ *
+                           std::clamp(speed / std::max(speed_from_kt_, 1.0), 0.0, 1.0);
+    } else {
+        const double share = std::clamp(
+            (speed - speed_from_kt_) / std::max(convert_kcas_ - speed_from_kt_, 1.0),
+            0.0, 1.0);
         pitch_wanted_deg =
-            gathering_pitch_deg + (wing_borne_pitch_deg - gathering_pitch_deg) * gone;
+            pitch_from_deg_ + (gathering_pitch_deg_ - pitch_from_deg_) * share;
     }
     const double pitch_error_deg = pitch_wanted_deg - s.pitch_deg;
     const double q_degps = s.q_radps * deg_per_rad;
