@@ -238,6 +238,7 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
         }
         found.speedbrakes = found.speedbrakes || e.speedbrakes;
         found.yaw_damper_per_degps = e.yaw_damper_per_degps;
+        found.brakes = e.brakes;
         found.rudder_integral_rate = e.rudder_integral_rate;
         const std::filesystem::path figures = data / "figures" / (model + ".xml");
         if (std::filesystem::is_regular_file(figures)) {
@@ -509,6 +510,7 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
       yaw_damper_per_degps_(catalogue.yaw_damper_per_degps),
       rudder_integral_rate_(catalogue.rudder_integral_rate),
       go_around_flaps_(catalogue.go_around_flaps),
+      wheel_brakes_(catalogue.brakes),
       model_(model),
       exec_(quiet_exec()) {
     nodes_ = PropertyNodes(exec_->GetPropertyManager()->GetNode());
@@ -947,8 +949,8 @@ void Aircraft::set_controls(const Controls& c) {
     // them, dry.
     left_brake_ = c.left_brake;
     right_brake_ = c.right_brake;
-    set("fcs/left-brake-cmd-norm", left_brake_ * brake_share_);
-    set("fcs/right-brake-cmd-norm", right_brake_ * brake_share_);
+    set("fcs/left-brake-cmd-norm", std::min(left_brake_, brake_share_));
+    set("fcs/right-brake-cmd-norm", std::min(right_brake_, brake_share_));
     set("fcs/pitch-trim-cmd-norm", -c.pitch_trim);
 }
 
@@ -1087,19 +1089,33 @@ void Aircraft::apply_weather() {
     // only the pressure the runway takes. The ground's own friction factor,
     // which JSBSim also scales the wheels' side force, steering and the
     // airframe's scraping by, is left at 1: a wet runway's braking
-    // coefficient is no measure of a free-rolling wheel's cornering.
+    // coefficient is no measure of a free-rolling wheel's cornering. The
+    // runway's mu is read for her own tyres' pressure and her own anti-skid
+    // (wheel_brakes_, from her catalogue file). The share is a ceiling, not a
+    // scale: a pedal pressed less than it is given as pressed, as a wheel
+    // braked below the runway's limit grips what it is asked (it was the
+    // pedal times the share until 2026-10-13, which took grip from a light
+    // steering brake that the runway would have given).
     runway_condition_ = c.runway_condition;
     gust_factor_kt_ = c.gust_factor_kt;
     brake_share_ = 1.0;
+    runway_braking_coefficient_ = std::numeric_limits<double>::quiet_NaN();
     if (c.runway_condition != dry_runway && dry_braking_friction_ > dry_rolling_friction_) {
+        if (!wheel_brakes_) {
+            throw std::runtime_error(model_ + " is on a runway of condition code " +
+                                     std::to_string(c.runway_condition) +
+                                     ", and nothing says what tyres and anti-skid she has");
+        }
         const double kts = value("velocities/vg-fps") / 1.68781;
+        runway_braking_coefficient_ =
+            wheel_braking_coefficient(c.runway_condition, kts, *wheel_brakes_);
         brake_share_ = std::clamp(
-            (wheel_braking_coefficient(c.runway_condition, kts) - dry_rolling_friction_) /
+            (runway_braking_coefficient_ - dry_rolling_friction_) /
                 (dry_braking_friction_ - dry_rolling_friction_),
             0.0, 1.0);
     }
-    set("fcs/left-brake-cmd-norm", left_brake_ * brake_share_);
-    set("fcs/right-brake-cmd-norm", right_brake_ * brake_share_);
+    set("fcs/left-brake-cmd-norm", std::min(left_brake_, brake_share_));
+    set("fcs/right-brake-cmd-norm", std::min(right_brake_, brake_share_));
 }
 
 void Aircraft::step() {

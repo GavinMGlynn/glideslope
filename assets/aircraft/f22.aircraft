@@ -21,3 +21,9 @@ speedbrakes
 # crosswind up to 245 kt, and at either change alone up to 190
 # (src/sim/autopilot.cpp).
 yaw-damper 0.15 0.005
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# An ESTIMATE: no pressure is published. Michelin rates her 37x11.5R18 main
+# at 275 psi unloaded for 36,000 lb, about what each carries at her greatest
+# weight; loaded, 4 per cent more, 286. Her anti-skid, digital and fully
+# modulating, is an estimate too: no public source.
+brakes 286 fully-modulating

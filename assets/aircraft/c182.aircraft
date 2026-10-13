@@ -16,3 +16,7 @@ start 120 0.65
 # Leaned above 3,000 ft, as Cessna's 172P handbook has it (figure 5-6); the
 # 182S's own gives its climb mixture as a placard of fuel flows by height.
 mixture-lever 3000
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# Cessna 182S Information Manual (1997), section 8: 6.00-6 mains at 42 psi;
+# hydraulic disc brakes, no anti-skid.
+brakes 42 none

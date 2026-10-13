@@ -27,6 +27,12 @@
 //                                of yaw rate, and its sideslip integral's
 //                                travel a second per degree; 0.05 and 0.05
 //                                where it says none (sim/autopilot.cpp)
+//   brakes TYRE_PSI ANTI_SKID    her main tyres' maximum operating pressure,
+//                                and her brakes' anti-skid: fully-modulating,
+//                                quasi-modulating, on-off or none - what a
+//                                wet runway's grip is read for
+//                                (sim/runway_condition.hpp). Every aircraft
+//                                that is not a seaplane must give it
 //
 // with `#` beginning a comment. Its published figures, if it has them, are
 // data/figures/MODEL.xml, and its selftest's log data/selftest/MODEL.log.
@@ -37,6 +43,8 @@
 #include <string>
 #include <string_view>
 #include <vector>
+
+#include "sim/runway_condition.hpp"
 
 namespace glideslope::sim {
 
@@ -79,11 +87,14 @@ struct CatalogueEntry {
     // yaw rate, and its integral's rate on the sideslip (sim/autopilot.cpp).
     double yaw_damper_per_degps = 0.05;
     double rudder_integral_rate = 0.05;
+    // Her main tyres and her brakes' anti-skid; none for a seaplane.
+    std::optional<WheelBrakes> brakes;
     AircraftClass aircraft_class = AircraftClass::light_aircraft;
 };
 
 // One aircraft's file. Throws CatalogueError naming the line of anything it
-// cannot read, and for a file missing its name, model, start or class.
+// cannot read, and for a file missing its name, model, start or class, or
+// a landplane's missing its brakes.
 CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view text);
 
 // Every aircraft in `data`/aircraft, by id. Throws CatalogueError for a file

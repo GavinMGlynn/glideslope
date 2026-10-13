@@ -21,3 +21,9 @@ speedbrakes
 # the default it swung her in a 20 kt crosswind up to 184 kt, though she holds
 # her orbits from 154 (src/sim/autopilot.cpp).
 yaw-damper 0.05 0.01
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# An ESTIMATE: no pressure is published. Goodyear rates her 43x16.0-20 main
+# at 215 psi unloaded for 38,600 lb, about what each of her eight carries at
+# her greatest weight; loaded, 4 per cent more, 224. Her anti-skid, fully
+# modulating, is an estimate too.
+brakes 224 fully-modulating

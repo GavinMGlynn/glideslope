@@ -19,3 +19,8 @@ name Lockheed Martin F-35B Lightning II
 model f35b
 class fighter
 start 300 0.47
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# An ESTIMATE: neither her tyre nor its pressure is published; 300 psi, by
+# the F-15's 305 and the F-22's 286. Her anti-skid, fully modulating, is an
+# estimate too (Hydro-Aire's Mark V was on the X-35).
+brakes 300 fully-modulating

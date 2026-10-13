@@ -2,6 +2,7 @@
 
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/crash.hpp"
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
 #include "sim/runway_condition.hpp"
@@ -17,6 +18,7 @@
 #include <fstream>
 #include <iterator>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -491,4 +493,206 @@ GLIDESLOPE_TEST(every_aircraft_takes_off_from_a_wet_runway_as_from_a_dry_one) {
     check(flown + left_out == catalogue.size() && left_out == 1,
           "every aircraft but the flying boat taken off dry and wet: " + std::to_string(flown) +
               " of " + std::to_string(catalogue.size() - 1));
+}
+
+namespace {
+
+// **A take-off stopped at 20 kt**: an aircraft on the take-off trial's
+// threshold, run up by the take-off autopilot until her wheels roll at 20
+// kt, then her throttle closed and both brakes fully on, steered as the
+// take-off autopilot steers - a tailwheel aeroplane's stick held fully
+// back and her brakes half on - to a stop - on `conditions`' runway, with her
+// own tyres and brakes or `fitted`. How far she ran braked, and whether at
+// every braked step the runway gave her wheels what her tyres and anti-skid
+// read on it (Aircraft::runway_braking_coefficient) - none where dry.
+struct Stopped {
+    double braked_m = 0.0;
+    std::string wrecked;
+    bool stopped = false;
+    bool read_for_her_brakes = true;
+    double least_share = 1.0;
+};
+
+Stopped stopped_from_20_kt(const glideslope::sim::CatalogueEntry& entry,
+                           const glideslope::sim::Conditions& conditions,
+                           std::optional<glideslope::sim::WheelBrakes> fitted = std::nullopt) {
+    using glideslope::sim::Aircraft;
+    const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), entry.model);
+    Runway runway = a_runway();
+    Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(conditions));
+    if (fitted) {
+        aircraft.set_wheel_brakes(*fitted);
+    }
+    const glideslope::sim::WheelBrakes brakes = *aircraft.wheel_brakes();
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = 0.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+    Departure departure(aircraft, runway, speeds);
+    glideslope::sim::GroundJudge judge(false);
+    Stopped out;
+    bool braking = false;
+    constexpr double fps_per_kt = 1.68781;
+    for (int step = 0; step < 300 * steps_per_second; ++step) {
+        const double kts = aircraft.property("velocities/vg-fps") / fps_per_kt;
+        if (!braking && kts >= 20.0) {
+            braking = true;
+        }
+        if (braking && kts < 0.5) {
+            out.stopped = true;
+            break;
+        }
+        glideslope::sim::Controls c = departure.fly();
+        if (braking) {
+            c.throttle = 0.0;
+            c.throttle_offset = {};
+            c.left_brake = 1.0;
+            c.right_brake = 1.0;
+            // A tailwheel aeroplane braked holds her stick fully back, and
+            // her pedals only half on: fully on, the Mosquito stands on her
+            // nose even so.
+            if (departure.tail_wheel()) {
+                c.elevator = 1.0;
+                c.left_brake = 0.5;
+                c.right_brake = 0.5;
+            }
+        }
+        aircraft.set_controls(c);
+        aircraft.step();
+        if (std::optional<std::string> why = judge.judge(aircraft)) {
+            out.wrecked = *why;
+            break;
+        }
+        if (braking) {
+            out.braked_m += kts * fps_per_kt * 0.3048 / steps_per_second;
+            const double given = aircraft.runway_braking_coefficient();
+            const bool read =
+                conditions.runway_condition == glideslope::sim::dry_runway
+                    ? std::isnan(given)
+                    : given == glideslope::sim::wheel_braking_coefficient(
+                                   conditions.runway_condition, kts, brakes);
+            out.read_for_her_brakes = out.read_for_her_brakes && read;
+            out.least_share = std::min(out.least_share, aircraft.brake_share());
+        }
+    }
+    return out;
+}
+
+} // namespace
+
+// **Each aircraft's wet stopping is her own tyres' and brakes'**: every
+// landplane (the flying boat named), stopped from 20 kt on a wet runway with
+// her brakes fully on, is given at every braked step the coefficient AC
+// 25-32 and 25.109(c) read for her catalogue's tyre pressure and anti-skid,
+// and her pedals the share of it they take; and fitted instead with the
+// tyre every aircraft was given before - 100 psi, fully modulating - she
+// stops sooner where that tyre grips more at 10 kt and later where it grips
+// less. A wet runway stops her later than a dry one.
+GLIDESLOPE_TEST(each_aircraft_stops_on_a_wet_runway_on_her_own_tyres_and_brakes) {
+    const auto catalogue = glideslope::sim::read_catalogue(data());
+    glideslope::sim::Conditions dry;
+    glideslope::sim::Conditions wet;
+    wet.runway_condition = glideslope::sim::wet_runway;
+    std::size_t stopped = 0;
+    std::size_t left_out = 0;
+    for (const auto& entry : catalogue) {
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat has no wheels to brake\n",
+                        entry.id.c_str());
+            ++left_out;
+            continue;
+        }
+        const glideslope::sim::WheelBrakes own = *entry.brakes;
+        const Stopped on_dry = stopped_from_20_kt(entry, dry);
+        const Stopped on_wet = stopped_from_20_kt(entry, wet);
+        const Stopped reference =
+            stopped_from_20_kt(entry, wet, glideslope::sim::reference_wheel_brakes);
+        const double mu_own = glideslope::sim::wet_wheel_braking_coefficient(10.0, own);
+        const double mu_reference = glideslope::sim::wet_wheel_braking_coefficient(
+            15.0, glideslope::sim::reference_wheel_brakes);
+        std::printf("  %-13s %5.0f psi %-12s mu(10 kt) %.3f against %.3f: dry %6.1f m, wet "
+                    "%6.1f m (share %.2f), 100 psi modulating %6.1f m\n",
+                    entry.id.c_str(), own.tyre_pressure_psi,
+                    own.anti_skid == glideslope::sim::AntiSkid::none ? "no anti-skid"
+                                                                     : "anti-skid",
+                    mu_own, mu_reference, on_dry.braked_m, on_wet.braked_m, on_wet.least_share,
+                    reference.braked_m);
+        check(on_dry.stopped && on_wet.stopped && reference.stopped && on_dry.wrecked.empty() &&
+                  on_wet.wrecked.empty() && reference.wrecked.empty(),
+              entry.id + " stopped, unwrecked, every time: " + on_dry.wrecked + on_wet.wrecked +
+                  reference.wrecked);
+        check(on_wet.read_for_her_brakes && on_dry.read_for_her_brakes &&
+                  reference.read_for_her_brakes,
+              entry.id + "'s wheels were given what the runway gives her tyres and brakes");
+        check(on_wet.least_share < 1.0,
+              entry.id + "'s brakes were held back on the wet runway: share " +
+                  std::to_string(on_wet.least_share));
+        check(on_wet.braked_m > on_dry.braked_m,
+              entry.id + " stopped in " + std::to_string(on_wet.braked_m) + " m wet, against " +
+                  std::to_string(on_dry.braked_m) + " dry");
+        check(mu_own < mu_reference ? on_wet.braked_m > reference.braked_m
+                                    : on_wet.braked_m < reference.braked_m,
+              entry.id + " on her own tyres and brakes stopped in " +
+                  std::to_string(on_wet.braked_m) + " m, on 100 psi fully modulating " +
+                  std::to_string(reference.braked_m));
+        ++stopped;
+    }
+    check(stopped + left_out == catalogue.size() && left_out == 1,
+          "every landplane stopped: " + std::to_string(stopped) + " of " +
+              std::to_string(catalogue.size() - 1));
+}
+
+// **An aeroplane without anti-skid stops later on a wet runway than with
+// one, all else equal**: every landplane whose catalogue says her brakes
+// have no anti-skid, stopped from 20 kt on a wet runway, runs farther than
+// the same aeroplane on the same tyres with a fully modulating anti-skid -
+// and on a dry runway, where her model's own friction is what she grips,
+// exactly as far. The count of them is asserted.
+GLIDESLOPE_TEST(an_aeroplane_without_anti_skid_stops_later_on_a_wet_runway_than_with_it) {
+    const auto catalogue = glideslope::sim::read_catalogue(data());
+    glideslope::sim::Conditions dry;
+    glideslope::sim::Conditions wet;
+    wet.runway_condition = glideslope::sim::wet_runway;
+    std::size_t without = 0;
+    std::size_t with = 0;
+    for (const auto& entry : catalogue) {
+        if (entry.seaplane) {
+            continue;
+        }
+        if (entry.brakes->anti_skid != glideslope::sim::AntiSkid::none) {
+            ++with;
+            continue;
+        }
+        glideslope::sim::WheelBrakes modulating = *entry.brakes;
+        modulating.anti_skid = glideslope::sim::AntiSkid::fully_modulating;
+        const Stopped wet_none = stopped_from_20_kt(entry, wet);
+        const Stopped wet_modulating = stopped_from_20_kt(entry, wet, modulating);
+        const Stopped dry_none = stopped_from_20_kt(entry, dry);
+        const Stopped dry_modulating = stopped_from_20_kt(entry, dry, modulating);
+        std::printf("  %-13s wet: %6.1f m without anti-skid, %6.1f m with; dry %6.1f and %6.1f\n",
+                    entry.id.c_str(), wet_none.braked_m, wet_modulating.braked_m,
+                    dry_none.braked_m, dry_modulating.braked_m);
+        check(wet_none.stopped && wet_modulating.stopped && wet_none.wrecked.empty() &&
+                  wet_modulating.wrecked.empty(),
+              entry.id + " stopped, unwrecked");
+        check(wet_none.braked_m > wet_modulating.braked_m,
+              entry.id + " without anti-skid stopped in " + std::to_string(wet_none.braked_m) +
+                  " m wet, with it " + std::to_string(wet_modulating.braked_m));
+        check(dry_none.braked_m == dry_modulating.braked_m,
+              entry.id + " dry: " + std::to_string(dry_none.braked_m) + " and " +
+                  std::to_string(dry_modulating.braked_m));
+        ++without;
+    }
+    check(without + with + 1 == catalogue.size() && without == 5,
+          "every landplane without anti-skid stopped both ways: " + std::to_string(without) +
+              ", and " + std::to_string(with) + " with one");
 }

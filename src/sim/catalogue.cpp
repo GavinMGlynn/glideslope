@@ -141,6 +141,25 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
             }
             e.yaw_damper_per_degps = number(w[1], "the yaw damper's gain", 0.0, 1.0);
             e.rudder_integral_rate = number(w[2], "the rudder integral's rate", 0.0, 1.0);
+        } else if (w[0] == "brakes") {
+            if (w.size() != 3) {
+                throw wrong("brakes TYRE_PSI ANTI_SKID");
+            }
+            WheelBrakes b;
+            b.tyre_pressure_psi = number(w[1], "the tyre pressure", 1.0, 1000.0);
+            if (w[2] == "fully-modulating") {
+                b.anti_skid = AntiSkid::fully_modulating;
+            } else if (w[2] == "quasi-modulating") {
+                b.anti_skid = AntiSkid::quasi_modulating;
+            } else if (w[2] == "on-off") {
+                b.anti_skid = AntiSkid::on_off;
+            } else if (w[2] == "none") {
+                b.anti_skid = AntiSkid::none;
+            } else {
+                throw wrong("no anti-skid \"" + w[2] +
+                            "\": fully-modulating, quasi-modulating, on-off or none");
+            }
+            e.brakes = b;
         } else {
             throw wrong("no command \"" + w[0] + "\"");
         }
@@ -148,6 +167,10 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
     if (e.name.empty() || e.model.empty() || !started || !classed) {
         throw CatalogueError(id + ".aircraft must give the aircraft's name, model, "
                                   "start and class");
+    }
+    if (!e.seaplane && !e.brakes) {
+        throw CatalogueError(id + ".aircraft must give its brakes - its tyres' pressure and "
+                                  "its anti-skid - as it is not a seaplane");
     }
     return e;
 }

@@ -15,3 +15,9 @@ class airliner
 start 250 0.53
 # The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
 speedbrakes
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# Boeing D6-58325-6 rev E, 7.2.4: H40x14.5-19 mains at 201 psi loaded,
+# at 140,000 lb. Her Hydro-Aire Hytrol Mark III anti-skid is taken as fully
+# modulating: the FAA's braking working group (2019) puts its efficiency
+# within 5 per cent of a digital system's; no document names its class.
+brakes 201 fully-modulating

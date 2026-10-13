@@ -1,6 +1,7 @@
 #pragma once
 
 #include "sim/property_nodes.hpp"
+#include "sim/runway_condition.hpp"
 
 #include <array>
 #include <filesystem>
@@ -285,6 +286,7 @@ struct CatalogueFacts {
     double yaw_damper_per_degps = 0.05;
     double rudder_integral_rate = 0.05;
     std::optional<double> go_around_flaps;
+    std::optional<WheelBrakes> brakes;
 };
 
 // One aircraft: a JSBSim instance loaded from model files.
@@ -412,6 +414,21 @@ public:
     // as her weather gave it before her last step: 6, dry, without weather.
     // Her braked wheels grip as it says.
     int runway_condition() const { return runway_condition_; }
+    // **Her main tyres and her brakes' anti-skid**, from her catalogue file:
+    // what a runway that is not dry gives her braked wheels is read for them
+    // (sim/runway_condition.hpp). None for a seaplane, or a model loaded
+    // where there is no catalogue - which a wet runway then refuses.
+    const std::optional<WheelBrakes>& wheel_brakes() const { return wheel_brakes_; }
+    // Fits her with other tyres or brakes than her file's, from the next step.
+    void set_wheel_brakes(const WheelBrakes& brakes) { wheel_brakes_ = brakes; }
+    // **The share of her pedals her brakes are given**, as her last step
+    // gave it: 1 on a dry runway, and on another the share that makes her
+    // braked wheels grip as that runway does for her tyres and anti-skid.
+    double brake_share() const { return brake_share_; }
+    // **What the runway gave her braked wheels** at her last step, the
+    // wheel braking coefficient read for her tyres and anti-skid; NaN on a
+    // dry runway, where her flight model's own friction is what they grip.
+    double runway_braking_coefficient() const { return runway_braking_coefficient_; }
     // **The gust factor of the air she flies in**, knots, as her weather gave
     // it before her last step (Conditions::gust_factor_kt): 0 without weather.
     double gust_factor_kt() const { return gust_factor_kt_; }
@@ -596,6 +613,7 @@ private:
     double yaw_damper_per_degps_ = 0.05;
     double rudder_integral_rate_ = 0.05;
     std::optional<double> go_around_flaps_;
+    std::optional<WheelBrakes> wheel_brakes_;
     std::vector<double> flap_notches_;
     bool flap_lever_ = false;
     std::string model_;
@@ -621,6 +639,7 @@ private:
     double left_brake_ = 0.0;
     double right_brake_ = 0.0;
     double brake_share_ = 1.0;
+    double runway_braking_coefficient_ = std::numeric_limits<double>::quiet_NaN();
 };
 
 } // namespace glideslope::sim

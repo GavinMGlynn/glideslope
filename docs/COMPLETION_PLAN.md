@@ -784,11 +784,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       ground-loops after the touch, dry or wet. No crosswind limit is
       published for her. *Verification: a published limit, and the Cub
       landed within it.*
-- [ ] **Wet runways judged with one tyre for every aircraft.** The wet
-      grip is the FAA's curve for a 100 psi tyre with anti-skid; a Cessna's
-      tyres are softer and grip more, an airliner's harder and grip less, and
-      a light aeroplane has no anti-skid. *Verification: each aircraft's tyre
-      pressure and brakes are sourced and used.*
+- [ ] **Wet runways judged with each aircraft's own tyres and brakes.**
+      Every landplane now brakes on her own tyre pressure and anti-skid
+      (2026-10-13), but four pressures (F-22A, F-35B, B-2A, Mosquito) are
+      estimates, and on their own tyres the 787-8, A320 and F-15C no longer
+      stop on a wet runway 1.15 times their dry need. *Verification: each
+      aircraft's tyre pressure and brakes are sourced and used, and every
+      landplane stops on her wet runway.*
 - [ ] **The F-35B lands on her power**: her model flies the glidepath at
       19.5 degrees of incidence and its flare runs out of nose; level at
       3,000 ft below 181 kt the same incidence is past the autopilot's 15

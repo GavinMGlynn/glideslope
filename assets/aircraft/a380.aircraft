@@ -16,3 +16,8 @@ class airliner
 start 250 0.57
 # The speedbrake lever works its speedbrakes or spoilers (src/sim/catalogue.hpp).
 speedbrakes
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# Airbus A380 Aircraft Characteristics (Dec 2025), 7-2-0: 1400x530R23 mains at
+# 15 bar, 218 psi, at 562,000 kg; the braking control system's anti-skid,
+# digital and fully modulating.
+brakes 218 fully-modulating

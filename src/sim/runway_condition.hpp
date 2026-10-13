@@ -21,21 +21,68 @@ inline constexpr int dry_runway = 6;
 inline constexpr int wet_runway = 5;
 inline constexpr int most_slippery_runway = 1;
 
-// **The wet runway's coefficient, 14 CFR 25.109(c)**: (c)(1)'s maximum
-// tire-to-ground braking coefficient on a smooth wet runway, its curve for a
-// 100 psi tyre, at a groundspeed in knots,
-//   -0.0437 (V/100)^3 + 0.320 (V/100)^2 - 0.805 (V/100) + 0.804,
-// times (c)(2)'s 0.80 for a fully modulating anti-skid system: 0.64 at a
-// standstill, 0.38 at 50 knots and 0.22 at 100.
-double wet_wheel_braking_coefficient(double groundspeed_kts);
+// **What a braked wheel has to grip with**: her main tyres' maximum
+// operating pressure, which 25.109(c)(1) reads the wet curve at, and the
+// anti-skid that modulates her brakes, which (c)(2) takes a share of it by.
+// Every landplane's catalogue file gives both, each from a source
+// (`brakes` in sim/catalogue.hpp, docs/ASSETS.md).
+enum class AntiSkid {
+    fully_modulating, // 0.80, 25.109(c)(2)
+    quasi_modulating, // 0.50
+    on_off,           // 0.30
+    none,             // a wheel braked by hand, sliding when it locks
+};
+
+struct WheelBrakes {
+    double tyre_pressure_psi = 100.0;
+    AntiSkid anti_skid = AntiSkid::fully_modulating;
+    bool operator==(const WheelBrakes&) const = default;
+};
+
+// **The tyre AC 25-32's table is written for**: 100 psi, with a fully
+// modulating anti-skid - what every aircraft was given before each had its
+// own.
+inline constexpr WheelBrakes reference_wheel_brakes{};
+
+// **A wheel braked without anti-skid on a wet runway** is braked until it
+// locks, and a locked wheel skids: it grips with the skidding coefficient,
+// not the peak. NASA TM X-72650 (Horne, *Wet Runways*, 1975), figure 8,
+// wet-runway braking tests: mu skid over mu max reads about 0.6 at 5 to 20
+// kt (0.45 of 0.75, 0.36 of 0.62) and about 0.5 from 60 kt (0.13 of 0.27,
+// 0.08 of 0.16); 0.55 is taken, the middle, at every speed. AC 25-32 table
+// 2, note 3, leaves an aeroplane without anti-skid "case-by-case"; this is
+// the case made for her.
+inline constexpr double no_anti_skid_share = 0.55;
+
+// The share of the wet runway's maximum coefficient an anti-skid gets,
+// 25.109(c)(2): 0.80, 0.50 and 0.30; and a wheel without one, braked by hand,
+// its locked wheel's skidding coefficient over the peak (runway_condition.cpp
+// gives the source).
+double anti_skid_efficiency(AntiSkid anti_skid);
+
+// **The smooth wet runway's maximum tyre-to-ground braking coefficient**,
+// 14 CFR 25.109(c)(1): its cubic in V/100, V the groundspeed in knots, for
+// tyres at 50, 100, 200 and 300 psi, linearly interpolated between them as
+// (c)(1) allows - and held at 50 psi below it and 300 above, where the rule
+// has no curve: a softer tyre is given no more grip than 50 psi's. Before
+// any anti-skid's share.
+double wet_runway_maximum_coefficient(double groundspeed_kts, double tyre_pressure_psi);
+
+// **The wet runway's coefficient, 14 CFR 25.109(c)**: (c)(1)'s maximum at the
+// tyre's pressure times (c)(2)'s efficiency for her anti-skid. For the
+// reference tyre, 0.64 at a standstill, 0.38 at 50 knots and 0.22 at 100.
+double wet_wheel_braking_coefficient(double groundspeed_kts, const WheelBrakes& brakes);
 
 // **The coefficient a runway of condition `code` gives at a groundspeed**,
 // AC 25-32 table 2: code 5, 25.109(c)'s (above); 4, 0.203; 3, 0.163; 2, half
 // 25.109(c)'s but no more than 0.163 below 85 per cent of the tyre's
-// hydroplaning speed - 9 sqrt(100 psi), 90 knots - and 0.053 from it; 1,
-// 0.083. Throws std::invalid_argument for dry (6), which is the model's own
-// and has no figure here, and for any code not from 1 to 6.
-double wheel_braking_coefficient(int code, double groundspeed_kts);
+// hydroplaning speed - 9 sqrt(P), P her tyre's pressure (note 4) - and 0.053
+// from it; 1, 0.083. Table 2's figures are for a fully modulating anti-skid;
+// note 3 multiplies them by 0.625 for a quasi-modulating one and 0.375 for
+// on-off - the efficiencies over 0.80 - and so here by her efficiency over
+// 0.80 for each. Throws std::invalid_argument for dry (6), which is the
+// model's own and has no figure here, and for any code not from 1 to 6.
+double wheel_braking_coefficient(int code, double groundspeed_kts, const WheelBrakes& brakes);
 
 // **A wet runway's landing distance is 1.15 times the dry**: 14 CFR
 // 121.195(d) holds a turbojet to an effective runway at least 115 per cent

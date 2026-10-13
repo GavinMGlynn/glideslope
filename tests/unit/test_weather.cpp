@@ -10,6 +10,7 @@
 #include "world/winds_aloft.hpp"
 
 #include <algorithm>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <cmath>
@@ -17,10 +18,12 @@
 #include <fstream>
 #include <future>
 #include <iterator>
+#include <limits>
 #include <memory>
 #include <optional>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 using glideslope::test::check;
@@ -1274,7 +1277,10 @@ GLIDESLOPE_TEST(a_metar_reporting_precipitation_at_the_station_wets_the_runway_a
 // from it. Dry is the model's own and has none here, nor has any code not
 // from 1 to 6.
 GLIDESLOPE_TEST(each_runway_condition_codes_wheel_braking_coefficient_is_ac_25_32s) {
-    using glideslope::sim::wheel_braking_coefficient;
+    const auto wheel_braking_coefficient = [](int code, double kts) {
+        return glideslope::sim::wheel_braking_coefficient(code, kts,
+                                                          glideslope::sim::reference_wheel_brakes);
+    };
     const auto near3 = [](double a, double b) { return std::abs(a - b) < 0.0005; };
     check(near3(wheel_braking_coefficient(5, 0.0), 0.8 * 0.804), "code 5 at a standstill");
     check(near3(wheel_braking_coefficient(5, 50.0), 0.381),
@@ -1319,6 +1325,96 @@ GLIDESLOPE_TEST(each_runway_condition_codes_wheel_braking_coefficient_is_ac_25_3
     check(codes == 5 && refused == 4,
           "codes 1 to 5 given a coefficient and 6, 0, 7 and -1 refused: " +
               std::to_string(codes) + " and " + std::to_string(refused));
+}
+
+// **A wet runway's grip is read for the tyre's pressure and the brakes'
+// anti-skid.** 14 CFR 25.109(c)(1)'s four curves, at 50, 100, 200 and 300
+// psi, are each given at its own pressure, interpolated linearly between
+// them, and held at their ends; a softer tyre never grips less, at every
+// whole pound from 20 to 320 psi and every knot from 0 to 170 - left out,
+// 171 to 200, where the rule's own 200 and 300 psi fits cross (at 174 kt,
+// 300 psi's is the higher by 0.004 at 200 kt), faster than any landplane
+// here touches. (c)(2)'s
+// anti-skids take 0.80, 0.50 and 0.30 of it, and a wheel without one, its
+// locked wheel's share (glideslope::sim::no_anti_skid_share); AC 25-32 table 2's other codes
+// take each the same share over 0.80, its note 3, at every code, kind and
+// knot. Code 2's hydroplaning speed is the tyre's own, 9 sqrt(P).
+GLIDESLOPE_TEST(a_wet_runways_grip_is_read_for_the_tyres_pressure_and_the_anti_skid) {
+    using glideslope::sim::AntiSkid;
+    using glideslope::sim::WheelBrakes;
+    using glideslope::sim::wet_runway_maximum_coefficient;
+    using glideslope::sim::wheel_braking_coefficient;
+    const auto near6 = [](double a, double b) { return std::abs(a - b) < 1e-6; };
+    // Each curve at a standstill is its constant, and at 100 kt the sum of
+    // its coefficients.
+    const std::vector<std::array<double, 3>> curves{
+        {50.0, 0.883, -0.0350 + 0.306 - 0.851 + 0.883},
+        {100.0, 0.804, -0.0437 + 0.320 - 0.805 + 0.804},
+        {200.0, 0.692, -0.0331 + 0.252 - 0.658 + 0.692},
+        {300.0, 0.614, -0.0401 + 0.263 - 0.611 + 0.614}};
+    for (const auto& [psi, standing, at_100] : curves) {
+        check(near6(wet_runway_maximum_coefficient(0.0, psi), standing) &&
+                  near6(wet_runway_maximum_coefficient(100.0, psi), at_100),
+              std::to_string(psi) + " psi's curve: " +
+                  std::to_string(wet_runway_maximum_coefficient(0.0, psi)) + " standing, " +
+                  std::to_string(wet_runway_maximum_coefficient(100.0, psi)) + " at 100 kt");
+    }
+    for (const double kts : {0.0, 50.0, 100.0, 150.0}) {
+        check(near6(wet_runway_maximum_coefficient(kts, 150.0),
+                    0.5 * (wet_runway_maximum_coefficient(kts, 100.0) +
+                           wet_runway_maximum_coefficient(kts, 200.0))),
+              "150 psi halfway between 100 and 200 at " + std::to_string(kts) + " kt");
+        check(wet_runway_maximum_coefficient(kts, 29.0) ==
+                      wet_runway_maximum_coefficient(kts, 50.0) &&
+                  wet_runway_maximum_coefficient(kts, 305.0) ==
+                      wet_runway_maximum_coefficient(kts, 300.0),
+              "held at 50 psi below it and 300 above, at " + std::to_string(kts) + " kt");
+    }
+    std::size_t walked = 0;
+    for (int kts = 0; kts <= 170; ++kts) {
+        double softer = std::numeric_limits<double>::infinity();
+        for (int psi = 20; psi <= 320; ++psi) {
+            const double mu = wet_runway_maximum_coefficient(kts, psi);
+            check(mu <= softer + 1e-12 && mu > 0.0,
+                  std::to_string(psi) + " psi grips no more than softer at " +
+                      std::to_string(kts) + " kt");
+            softer = mu;
+            ++walked;
+        }
+    }
+    check(walked == 171u * 301u,
+          "every knot to 170 and pound walked: " + std::to_string(walked) + " of " +
+              std::to_string(171u * 301u));
+
+    const std::vector<std::pair<AntiSkid, double>> kinds{
+        {AntiSkid::fully_modulating, 0.80},
+        {AntiSkid::quasi_modulating, 0.50},
+        {AntiSkid::on_off, 0.30},
+        {AntiSkid::none, glideslope::sim::no_anti_skid_share}};
+    std::size_t scaled = 0;
+    for (const auto& [kind, share] : kinds) {
+        check(glideslope::sim::anti_skid_efficiency(kind) == share, "the anti-skid's share");
+        const WheelBrakes these{150.0, kind};
+        const WheelBrakes modulating{150.0, AntiSkid::fully_modulating};
+        for (int code = 1; code <= 5; ++code) {
+            for (int kts = 0; kts <= 200; ++kts) {
+                check(near6(wheel_braking_coefficient(code, kts, these),
+                            share / 0.80 * wheel_braking_coefficient(code, kts, modulating)),
+                      "code " + std::to_string(code) + " at " + std::to_string(kts) +
+                          " kt, its anti-skid's share of the fully modulating");
+                ++scaled;
+            }
+        }
+    }
+    check(scaled == 4u * 5u * 201u, "every kind, code and knot: " + std::to_string(scaled));
+    check(near6(glideslope::sim::wet_wheel_braking_coefficient(0.0, {29.0, AntiSkid::none}),
+                glideslope::sim::no_anti_skid_share * 0.883),
+          "a 29 psi tyre without anti-skid at a standstill");
+    // A 29 psi tyre hydroplanes at 9 sqrt(29), 48.5 kt; 85 per cent, 41.2.
+    const WheelBrakes soft{29.0, AntiSkid::fully_modulating};
+    check(wheel_braking_coefficient(2, 41.0, soft) > 0.053 &&
+              wheel_braking_coefficient(2, 41.5, soft) == 0.053,
+          "code 2's hydroplaning at the tyre's own pressure");
 }
 
 namespace {

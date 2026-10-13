@@ -20,3 +20,7 @@ start 100 0.7
 # The handbook's maximum rate of climb, figure 5-6: "mixture leaned above
 # 3000 feet for maximum RPM".
 mixture-lever 3000
+# Her main tyres and brakes, for a wet runway's grip (docs/ASSETS.md):
+# Cessna 172P Pilot's Operating Handbook (1980), section 8: 6.00-6 mains at
+# 28 psi; single-disc toe brakes, no anti-skid.
+brakes 28 none
