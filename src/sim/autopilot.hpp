@@ -106,6 +106,10 @@ public:
     // throttle has spent what it may (autopilot.cpp). For tests of the bank
     // hold.
     double bank_limit_deg() const { return sustained_bank_deg_; }
+    // The aileron its bank integral holds, of the aileron's travel, and the
+    // bank it is commanding now, degrees: for tests of the bank hold.
+    double aileron_trim() const { return aileron_trim_; }
+    double bank_commanded_deg() const { return bank_command_deg_; }
     // How many steps the elevator's trim has been held from winding nose-up
     // because the wing was seen to stall (autopilot.cpp): for tests.
     long trim_held_steps() const { return trim_held_steps_; }

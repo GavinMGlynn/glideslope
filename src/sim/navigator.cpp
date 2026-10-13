@@ -96,12 +96,28 @@ constexpr double orbit_joined_deg = 20.0;
 // roll-out still turns her through of the next leg's: wings level is asked,
 // and the leg's law takes her the rest of the way.
 //
-// **The last waypoint, one an orbit follows, and a turn of more than 120
-// degrees are flown over**, passed abeam as before: 120 is the most a fly-by
-// turn may be in PANS-OPS' RNAV criteria, and the lead grows without bound
-// towards 180. So is a turn too small to need an arc, within twice what the
-// roll-out turns through.
-constexpr double most_fly_by_deg = 120.0;
+// **The last waypoint, one an orbit follows, and one marked `flyover` are
+// flown over** (sim/plan.hpp), passed abeam as before; so is a turn too small
+// to need an arc, within twice what the roll-out turns through.
+//
+// **A turn of more than 120 degrees is flown by on a tighter arc**, not
+// flown over: 120 is the most a fly-by turn may be in PANS-OPS' RNAV
+// criteria, and r tan(A / 2) grows without bound towards 180. Past 120 the
+// arc keeps the lead the 120-degree turn has, r tan 60, its radius shrinking
+// as the turn grows - down to the radius at the autopilot's most bank, 25
+// degrees, which it reaches at 143 degrees - and from there the arc is the
+// tightest she flies and the lead grows with it, up to its length at 160
+// degrees, r(25) tan 80, and no more. So nothing jumps at any angle: until
+// 2026-10-13 a turn of 120 degrees was led by 1.7 turn radii and one of 121
+// not at all.
+constexpr double widest_fly_by_deg = 120.0;
+constexpr double longest_lead_deg = 160.0;
+// **And no lead is more than half of either leg it joins**: led by more, the
+// next waypoint's lead could begin before this one was reached, and a plan
+// of short legs passed waypoints one after another on the same step. Capped,
+// the arc is made tighter to fit, the loiter law asking what bank it needs,
+// 25 at most.
+constexpr double leg_share = 0.5;
 // **And earlier again by the roll lag allowed for**: her bank lags the bank
 // asked by up to this. Begun late, an aeroplane is outside her arc with less
 // bank to spare to come back to it; begun early, inside it, the loiter law
@@ -109,30 +125,55 @@ constexpr double most_fly_by_deg = 120.0;
 // further; at twice it every aeroplane strayed further, begun too early.
 constexpr double roll_lag_allowed_s = 1.5;
 
-double fly_by_radius_m(double ground_mps) {
-    return ground_mps * ground_mps / (gravity_mps2 * std::tan(fly_by_bank_deg * radians));
+double radius_at_m(double ground_mps, double bank_deg) {
+    return ground_mps * ground_mps / (gravity_mps2 * std::tan(bank_deg * radians));
 }
 
-// What her heading still turns through as she rolls out of the arc's bank at
-// bank_rate_degps, degrees: half the time the roll-out takes at the arc's
+// What her heading still turns through as she rolls out of `bank_deg` at
+// bank_rate_degps, degrees: half the time the roll-out takes at that bank's
 // rate of turn, and as long again as her bank lags the bank asked,
 // `roll_lag_s`.
-double rolling_out_deg(double ground_mps, double roll_lag_s = 0.0) {
+double rolling_out_deg(double ground_mps, double bank_deg, double roll_lag_s = 0.0) {
     const double rate_degps =
-        gravity_mps2 * std::tan(fly_by_bank_deg * radians) / std::max(ground_mps, 1.0) / radians;
-    return rate_degps * (0.5 * fly_by_bank_deg / bank_rate_degps + roll_lag_s);
+        gravity_mps2 * std::tan(bank_deg * radians) / std::max(ground_mps, 1.0) / radians;
+    return rate_degps * (0.5 * bank_deg / bank_rate_degps + roll_lag_s);
 }
 
-// How far short of the waypoint the turn onto the next leg begins, metres, for
-// a turn of `turn_deg` either way: 0 for a waypoint flown over.
-double fly_by_lead_m(double ground_mps, double turn_deg) {
+} // namespace
+
+FlyBy fly_by(double ground_mps, double turn_deg, double in_m, double out_m) {
     const double a = std::abs(turn_deg);
-    if (a > most_fly_by_deg || a <= 2.0 * rolling_out_deg(ground_mps)) {
-        return 0.0;
+    if (a <= 2.0 * rolling_out_deg(ground_mps, fly_by_bank_deg) || a >= 179.0) {
+        return {};
     }
-    const double roll_in_s = 0.5 * fly_by_bank_deg / bank_rate_degps + roll_lag_allowed_s;
-    return fly_by_radius_m(ground_mps) * std::tan(0.5 * a * radians) + ground_mps * roll_in_s;
+    const double half = std::tan(0.5 * a * radians);
+    const double widest_m = radius_at_m(ground_mps, fly_by_bank_deg);
+    const double tightest_m = radius_at_m(ground_mps, most_bank_deg);
+    FlyBy t;
+    if (a <= widest_fly_by_deg) {
+        t.radius_m = widest_m;
+    } else {
+        t.radius_m = std::max(widest_m * std::tan(0.5 * widest_fly_by_deg * radians) / half,
+                              tightest_m);
+    }
+    t.meets_m = std::min(t.radius_m * half,
+                         tightest_m * std::tan(0.5 * longest_lead_deg * radians));
+    const double roll_in_m =
+        ground_mps * (0.5 * fly_by_bank_deg / bank_rate_degps + roll_lag_allowed_s);
+    t.lead_m = t.meets_m + roll_in_m;
+    const double most_m = leg_share * std::min(in_m, out_m);
+    if (t.lead_m > most_m) {
+        t.lead_m = most_m;
+        t.meets_m = std::max(most_m - roll_in_m, 0.0);
+        t.radius_m = t.meets_m / half;
+    }
+    if (t.radius_m < 1.0) {
+        return {};
+    }
+    return t;
 }
+
+namespace {
 
 double normalised(double degrees) {
     const double d = std::fmod(degrees, 360.0);
@@ -212,7 +253,7 @@ Place along_from(double latitude_deg, double longitude_deg, double bearing, doub
         std::asin(std::sin(p1) * std::cos(d) + std::cos(p1) * std::sin(d) * std::cos(b));
     const double dl = std::atan2(std::sin(b) * std::sin(d) * std::cos(p1),
                                  std::cos(d) - std::sin(p1) * std::sin(p2));
-    return {p2 / radians, longitude_deg + dl / radians};
+    return {p2 / radians, std::remainder(longitude_deg + dl / radians, 360.0)};
 }
 
 } // namespace
@@ -351,13 +392,14 @@ AutopilotModes Navigator::steer() {
             std::acos(std::clamp(std::cos(flown) / std::cos(across), -1.0, 1.0)),
             std::cos(angle));
         const double ahead_m = (leg - along) * earth_radius_m;
-        // Flown by where a leg follows it (fly_by_lead_m): the turn onto that
-        // leg begins its lead short of it.
+        // Flown by where a leg follows it (fly_by): the turn onto that leg
+        // begins its lead short of it.
         const double ground_mps = std::hypot(north, east) * 0.3048;
-        double lead_m = 0.0;
+        FlyBy turn;
         double turn_deg = 0.0;
         double outbound = 0.0;
-        if (next_ + 1 < plan_.waypoints.size() && !plan_.waypoints[next_ + 1].orbit) {
+        if (!to.fly_over && next_ + 1 < plan_.waypoints.size() &&
+            !plan_.waypoints[next_ + 1].orbit) {
             const Waypoint& then = plan_.waypoints[next_ + 1];
             // The leg's course arriving at the waypoint, or, along a leg too
             // short to have one, her track over the ground.
@@ -370,25 +412,30 @@ AutopilotModes Navigator::steer() {
             outbound =
                 bearing_deg(to.latitude_deg, to.longitude_deg, then.latitude_deg, then.longitude_deg);
             turn_deg = std::remainder(outbound - inbound, 360.0);
-            lead_m = fly_by_lead_m(ground_mps, turn_deg);
+            turn = fly_by(ground_mps, turn_deg, leg * earth_radius_m,
+                          distance_m(to.latitude_deg, to.longitude_deg, then.latitude_deg,
+                                     then.longitude_deg));
         }
-        if (ahead_m <= lead_m) {
+        if (ahead_m <= turn.lead_m) {
             // Abeam, or as near as the turn onto the next leg begins: passed.
-            turning_ = lead_m > 0.0;
+            turning_ = turn.lead_m > 0.0;
             if (turning_) {
-                // The arc tangent to both legs: its centre square to the
-                // next leg from where it meets it, on the side turned to.
-                const double r = fly_by_radius_m(ground_mps);
+                // The arc tangent to the next leg where it meets it, its
+                // centre square to the leg from there, on the side turned to.
                 turn_right_ = turn_deg > 0.0;
-                turn_radius_m_ = r;
-                turn_lead_m_ = lead_m;
+                turn_radius_m_ = turn.radius_m;
+                turn_bank_deg_ = std::min(
+                    std::atan(ground_mps * ground_mps / (gravity_mps2 * turn.radius_m)) / radians,
+                    most_bank_deg);
+                turn_lead_m_ = turn.lead_m;
                 turn_s_ = 0.0;
                 roll_lag_s_ = -1.0;
                 rolling_out_ = false;
-                const Place meets = along_from(to.latitude_deg, to.longitude_deg, outbound,
-                                               r * std::tan(0.5 * std::abs(turn_deg) * radians));
+                const Place meets =
+                    along_from(to.latitude_deg, to.longitude_deg, outbound, turn.meets_m);
                 const Place centre = along_from(meets.latitude_deg, meets.longitude_deg,
-                                                outbound + (turn_right_ ? 90.0 : -90.0), r);
+                                                outbound + (turn_right_ ? 90.0 : -90.0),
+                                                turn.radius_m);
                 turn_centre_latitude_deg_ = centre.latitude_deg;
                 turn_centre_longitude_deg_ = centre.longitude_deg;
             }
@@ -402,7 +449,7 @@ AutopilotModes Navigator::steer() {
         // waypoint turned back by the angle the offset makes.
         track = bearing_deg(lat, lon, to.latitude_deg, to.longitude_deg) +
                 std::atan2(off_m, ahead_m) / radians;
-        // **Round a fly-by turn's arc** (fly_by_lead_m) until her track is
+        // **Round a fly-by turn's arc** (fly_by) until her track is
         // within what her roll-out turns her through of the leg's, then wings
         // level until they are, or her track is within half a degree of the
         // leg's; or - should she never come round - until she is twice the
@@ -422,8 +469,8 @@ AutopilotModes Navigator::steer() {
             if (roll_lag_s_ < 0.0 && phi >= 0.5 * fly_by_bank_deg) {
                 roll_lag_s_ = std::max(turn_s_ - 0.5 * fly_by_bank_deg / bank_rate_degps, 0.0);
             }
-            if (rolling_out_ ||
-                still_to_turn_deg <= rolling_out_deg(ground_mps, std::max(roll_lag_s_, 0.0))) {
+            if (rolling_out_ || still_to_turn_deg <= rolling_out_deg(ground_mps, turn_bank_deg_,
+                                                                     std::max(roll_lag_s_, 0.0))) {
                 // **Rolled out at the roll rate**, wings level asked, as
                 // rolling_out_deg has it: handed to the heading law's bank of
                 // a degree a degree off instead, she closed the last of her

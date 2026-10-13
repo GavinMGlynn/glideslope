@@ -6,7 +6,7 @@
 #
 #   aircraft NAME
 #   start LATITUDE LONGITUDE ALTITUDE_FT HEADING_DEG AIRSPEED_KT     in the air
-#   waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT
+#   waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT [flyover]
 #   land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M
 #
 # Degrees are WGS84's, altitudes above sea level, airspeeds calibrated. The

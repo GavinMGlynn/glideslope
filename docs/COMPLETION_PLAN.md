@@ -566,9 +566,10 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       or explained in the test.*
 - [x] **The navigator turns at a waypoint only once abeam of it.** Done
       2026-10-13: it flies a waypoint by, leading the turn and flying its
-      arc onto the next leg, and the autopilot now holds any bank it is
-      asked for. Every aircraft strays at most 0.066 of her turn radius
-      (the Cherokee at her climb speed), against 1.1 to 1.6 before.
+      arc onto the next leg, unless the plan marks it to be flown over, at
+      any angle and however short the legs; the autopilot now holds any
+      bank it is asked for. Every aircraft strays at most 0.063 of her turn
+      radius (the Cherokee at her climb speed), against 1.1 to 1.6 before.
       *Verification: every aircraft, turning 90 degrees at a waypoint at her
       climb and cruise speeds, strays off the next leg less than a tenth of
       her turn radius at that speed and 25 degrees of bank.*
@@ -1253,6 +1254,12 @@ What the client with the window does that the command-line client does, and what
 
 The language model that plans: its routes, its recordings and what it is told.
 
+- [ ] **The copilot marks the waypoints it means to fly over.** A plan's
+      waypoint may now say it is flown over rather than by, but the copilot
+      and the planner never say it, so a route's landmark is passed as far
+      off as its turn cuts the corner. *Verification: asked to fly over a
+      named landmark and turn there, the copilot's route marks it, and the
+      aircraft passes it within 100 m; recorded and played back.*
 - [ ] **The window copilot test's copilot never answered once** (Windows
       release): asked, then nothing in five minutes, the aircraft on the
       ground. *Verification: the cause named, and a month of CI runs without
