@@ -336,7 +336,7 @@ key file's contents: none found.
 **Verified**, linux-release, display unset: the 15 tests above;
 `the_navigator_flies_a_plan_past_every_waypoint_in_calm_air_and_in_wind`
 and the client's vulkan tour test pass; and every `as_recorded` test, run
-one at a time: RECORDED_RESULT.
+one at a time: 16 of 16 passed.
 
 ### From the review of #180: fly-over waypoints, short legs and turns past 120 degrees, and the bank integral gone when the wings come level, 2026-10-13 — item stays done; the OpenAI coast recording must be made again
 
