@@ -469,20 +469,42 @@ def lift_system():
                 f"{i}    <gain>1</gain>\n{i}    <clipto><min>-1</min><max>1</max></clipto>\n"
                 f"{i}    <output>fcs/{name}-pos-norm</output>\n{i}</pure_gain>\n")
     # The thrust split (SPLIT_SHARE): the fraction of the nozzle's share sent
-    # to the fan, as far as the conversion has gone.
+    # to the fan, as far as the conversion has gone - and sent back no further
+    # than leaves the nozzle passing all the engine makes, which early in the
+    # conversion, the split fully aft, it would pass: 1 - 1 / (the nozzle's
+    # share at the split's middle) at the least.
+    middle = (f"<difference><value>1</value><product><value>{1.0 - nozzle_share():.6f}</value>"
+              f"<property>fcs/stovl-pos-norm</property></product></difference>")
     out += fn("Thrust Split",
-              f"{i}        <product>\n{i}            <value>{SPLIT_SHARE:.6f}</value>\n"
+              f"{i}        <max>\n{i}        <product>\n{i}            <value>{SPLIT_SHARE:.6f}</value>\n"
               f"{i}            <property>fcs/stovl-pos-norm</property>\n"
-              f"{i}            <property>fcs/thrust-split-pos-norm</property>\n{i}        </product>\n",
+              f"{i}            <property>fcs/thrust-split-pos-norm</property>\n{i}        </product>\n"
+              f"{i}        <difference><value>1</value><quotient><value>1</value>{middle}</quotient></difference>\n"
+              f"{i}        </max>\n",
               "fcs/thrust-split-share")
+    # What the nozzle would pass this step with the split at its middle,
+    # which each share is reckoned from: the engine's own thrust - the
+    # nozzle's of the step before over the reverser's cosine it had then -
+    # times this step's nozzle share and swivel, so that the fan and posts
+    # follow the conversion and the split in the step they move, and a step
+    # behind the engine alone.
+    yaw = math.radians(NOZZLE_YAW_DEG)
+    out += fn("Lift System Base",
+              f"{i}        <product>\n{i}            <quotient><property>{thrust}</property>"
+              f"<cos><property>propulsion/engine/reverser-angle-rad</property></cos></quotient>\n"
+              f"{i}            {middle}\n"
+              f"{i}            <cos><product><value>{yaw:.6f}</value>"
+              f"<property>fcs/nozzle-yaw-pos-norm</property></product></cos>\n{i}        </product>\n",
+              "fcs/lift-system-base-lbf")
     # The power the fan's shaft and the posts take: the nozzle passes only its
     # share, less what the split sends the fan, as JSBSim's reverser takes
     # the cosine of its angle off the thrust; and swivelled sideways, only the
     # cosine of the swivel of that along its axis, the sine going to the
     # nozzle's sideways force - so that swivelling it makes no thrust.
-    yaw = math.radians(NOZZLE_YAW_DEG)
+    # Its cosine is held to -1..1 as well, so that rounding can never make
+    # the angle NaN.
     out += fn("Shaft Power",
-              f"{i}        <acos>\n{i}            <product>\n"
+              f"{i}        <acos>\n{i}        <max><value>-1</value><min><value>1</value>\n{i}            <product>\n"
               f"{i}                <difference><value>1</value><product>"
               f"<value>{1.0 - nozzle_share():.6f}</value><property>fcs/stovl-pos-norm</property>"
               f"</product></difference>\n"
@@ -490,15 +512,8 @@ def lift_system():
               f"</difference>\n"
               f"{i}                <cos><product><value>{yaw:.6f}</value>"
               f"<property>fcs/nozzle-yaw-pos-norm</property></product></cos>\n"
-              f"{i}            </product>\n{i}        </acos>\n",
+              f"{i}            </product>\n{i}        </min></max>\n{i}        </acos>\n",
               "propulsion/engine/reverser-angle-rad")
-    # What the nozzle would pass with the split at its middle, which each
-    # share is reckoned from.
-    out += fn("Lift System Base",
-              f"{i}        <quotient>\n{i}            <property>{thrust}</property>\n"
-              f"{i}            <difference><value>1</value><property>fcs/thrust-split-share</property>"
-              f"</difference>\n{i}        </quotient>\n",
-              "fcs/lift-system-base-lbf")
     # The fan's thrust vectored by its vane box, forward and up.
     out += (f"{i}<actuator name=\"Fan Vanes\">\n{i}    <input>fcs/fan-cmd-deg</input>\n"
             f"{i}    <rate_limit>{FAN_RATE_DEG_S:.1f}</rate_limit>\n"
@@ -524,11 +539,29 @@ def lift_system():
                  "external_reactions/left-roll-post/magnitude")
     out += share("Right Roll Post", ROLL_POST_LBF, -POST_SHIFT, "fcs/roll-post-pos-norm",
                  "external_reactions/right-roll-post/magnitude")
-    # The flaperons drooped as far as the conversion has gone.
+    # The flaperons drooped as far as the conversion has gone; and each
+    # flaperon's droop and roll together held to its travel, the same
+    # FLAPERON_DEG the roll alone is (flight_control), so that drooped she
+    # rolls on what is left. What the wing sees is their mean (the droop) and
+    # half their difference (the roll); with no droop, exactly the roll.
     out += fn("Flaperon Droop",
               f"{i}        <product>\n{i}            <value>{FLAPERON_DROOP_DEG:.1f}</value>\n"
               f"{i}            <property>fcs/stovl-pos-norm</property>\n{i}        </product>\n",
               "fcs/flaperon-droop-deg")
+    travel = f"{math.radians(FLAPERON_DEG):.4f}"
+    for side in ("left", "right"):
+        out += (f"{i}<fcs_function name=\"{side.capitalize()} Flaperon\">\n{i}    <function>\n"
+                f"{i}        <sum>\n{i}            <product><property>fcs/flaperon-droop-deg</property>"
+                f"<value>{math.pi / 180.0:.12f}</value></product>\n"
+                f"{i}            <property>fcs/{side}-aileron-pos-rad</property>\n{i}        </sum>\n"
+                f"{i}    </function>\n{i}    <clipto><min>-{travel}</min><max>{travel}</max></clipto>\n"
+                f"{i}    <output>fcs/{side}-flaperon-rad</output>\n{i}</fcs_function>\n")
+    for name, op, output in (("Flaperon Mean", "sum", "fcs/flaperon-droop-rad"),
+                             ("Flaperon Roll", "difference", "fcs/flaperon-roll-rad")):
+        out += fn(name,
+                  f"{i}        <product><value>0.5</value><{op}><property>fcs/left-flaperon-rad</property>"
+                  f"<property>fcs/right-flaperon-rad</property></{op}></product>\n",
+                  output)
     out += fn("Nozzle Side",
               f"{i}        <product>\n{i}            <property>{thrust}</property>\n"
               f"{i}            <property>fcs/stovl-pos-norm</property>\n"
@@ -580,26 +613,26 @@ def aerodynamics():
     lift = [
         w.coefficient("CLalpha", "Lift_due_to_alpha", [q, s, "aero/function/kCLge", lift_table(t)]),
         w.coefficient("CLde", "Lift_due_to_stabilator", [q, s, "fcs/elevator-pos-rad", CL_DE]),
-        w.coefficient("CLdroop", "Lift_due_to_flaperon_droop", [q, s, "fcs/flaperon-droop-deg",
-                                                                 round(flap_lift_per_deg(), 6)]),
+        w.coefficient("CLdroop", "Lift_due_to_flaperon_droop", [q, s, "fcs/flaperon-droop-rad",
+                                                                 round(flap_lift_per_deg() * 180.0 / math.pi, 6)]),
     ]
     drag = [fighter.drag_functions(SUBSONIC_ZERO_LIFT_DRAG, WAVE_DRAG, make_f15c.WAVE_DECAY, ASPECT,
                                    SPAN_EFFICIENCY, make_f15c.SUPERSONIC_LIFT_DRAG, SEPARATION_ALPHA),
             w.coefficient("CDgear", "Drag_due_to_gear", [q, s, "gear/gear-pos-norm", 0.02]),
             w.coefficient("CDbeta", "Drag_due_to_sideslip", [q, s, "aero/mag-beta-rad", 0.25]),
             w.coefficient("CDde", "Drag_due_to_stabilator", [q, s, "fcs/mag-elevator-pos-rad", 0.03]),
-            w.coefficient("CDdroop", "Drag_due_to_flaperon_droop", [q, s, "fcs/flaperon-droop-deg",
-                                                                    FLAP_DRAG / FLAPERON_DROOP_DEG])]
+            w.coefficient("CDdroop", "Drag_due_to_flaperon_droop", [q, s, "fcs/flaperon-droop-rad",
+                                                                    FLAP_DRAG / math.radians(FLAPERON_DROOP_DEG)])]
     side = [
         w.coefficient("CYb", "Side_force_due_to_beta", [q, s, "aero/beta-rad", CY_BETA]),
-        w.coefficient("CYda", "Side_force_due_to_flaperons", [q, s, "fcs/left-aileron-pos-rad", 2.0 * CY_DA]),
+        w.coefficient("CYda", "Side_force_due_to_flaperons", [q, s, "fcs/flaperon-roll-rad", 2.0 * CY_DA]),
         w.coefficient("CYdr", "Side_force_due_to_rudders", [q, s, "fcs/rudder-pos-rad", CY_DR]),
     ]
     roll = [
         w.coefficient("Clb", "Roll_moment_due_to_beta", [q, s, b, "aero/beta-rad", CL_BETA]),
         w.coefficient("Clp", "Roll_moment_due_to_roll_rate", [q, s, b, "aero/bi2vel", "velocities/p-aero-rad_sec", CL_P]),
         w.coefficient("Clr", "Roll_moment_due_to_yaw_rate", [q, s, b, "aero/bi2vel", "velocities/r-aero-rad_sec", CL_R]),
-        w.coefficient("Clda", "Roll_moment_due_to_flaperons", [q, s, b, "fcs/left-aileron-pos-rad", 2.0 * CL_DA]),
+        w.coefficient("Clda", "Roll_moment_due_to_flaperons", [q, s, b, "fcs/flaperon-roll-rad", 2.0 * CL_DA]),
         w.coefficient("Cldr", "Roll_moment_due_to_rudders", [q, s, b, "fcs/rudder-pos-rad", CL_DR]),
     ]
     pitch = [
@@ -607,14 +640,14 @@ def aerodynamics():
         w.coefficient("Cmq", "Pitch_moment_due_to_pitch_rate", [q, s, c, "aero/ci2vel", "velocities/q-aero-rad_sec", CM_Q]),
         w.coefficient("Cmadot", "Pitch_moment_due_to_alpha_rate", [q, s, c, "aero/ci2vel", "aero/alphadot-rad_sec", CM_ADOT]),
         w.coefficient("Cmde", "Pitch_moment_due_to_stabilator", [q, s, c, "fcs/elevator-pos-rad", CM_DE]),
-        w.coefficient("Cmdroop", "Pitch_moment_due_to_flaperon_droop", [q, s, c, "fcs/flaperon-droop-deg",
-                                                                         round(-0.25 * flap_lift_per_deg(), 6)]),
+        w.coefficient("Cmdroop", "Pitch_moment_due_to_flaperon_droop", [q, s, c, "fcs/flaperon-droop-rad",
+                                                                         round(-0.25 * flap_lift_per_deg() * 180.0 / math.pi, 6)]),
     ]
     yaw = [
         w.coefficient("Cnb", "Yaw_moment_due_to_beta", [q, s, b, "aero/beta-rad", CN_BETA]),
         w.coefficient("Cnp", "Yaw_moment_due_to_roll_rate", [q, s, b, "aero/bi2vel", "velocities/p-aero-rad_sec", CN_P]),
         w.coefficient("Cnr", "Yaw_moment_due_to_yaw_rate", [q, s, b, "aero/bi2vel", "velocities/r-aero-rad_sec", CN_R]),
-        w.coefficient("Cnda", "Yaw_moment_due_to_flaperons", [q, s, b, "fcs/left-aileron-pos-rad", 2.0 * CN_DA]),
+        w.coefficient("Cnda", "Yaw_moment_due_to_flaperons", [q, s, b, "fcs/flaperon-roll-rad", 2.0 * CN_DA]),
         w.coefficient("Cndr", "Yaw_moment_due_to_rudders", [q, s, b, "fcs/rudder-pos-rad", CN_DR]),
     ]
     return w.axes((("LIFT", lift), ("DRAG", drag), ("SIDE", side), ("ROLL", roll), ("PITCH", pitch), ("YAW", yaw)))

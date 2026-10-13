@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <map>
+#include <cmath>
 #include <cstdio>
 #include <chrono>
 #include <filesystem>
@@ -1246,6 +1247,86 @@ GLIDESLOPE_TEST(the_f35b_is_refused_stovl_mode_above_250_kcas_and_allowed_below)
         refused = true;
     }
     check(refused, "an aircraft without a lift system refuses one");
+}
+
+// **The thrust split moves thrust and never makes or loses it**: at the
+// split's -1, 0 and 1, standing on the brakes spooled up to her STOVL top
+// and converting, every step of the conversion from stovl-pos-norm 0 to 1 -
+// the nozzle's, the fan's and each post's thrust, the nozzle's side force,
+// the reverser angle and the base they are reckoned from finite, and their
+// total, as a share of the engine's own thrust, what it is at the split's
+// middle at the same step, to rounding. Seen red without the split's clip in her model:
+// at -1 early in the conversion the reverser's cosine passed 1 and every
+// thrust was NaN.
+GLIDESLOPE_TEST(the_f35bs_thrust_split_at_either_end_and_the_middle_keeps_her_thrust_finite_and_its_total_the_engines) {
+    using namespace glideslope::sim;
+    const std::vector<double> splits = {0.0, -1.0, 1.0}; // the middle first, the reference
+    const int steps = 9 * 120;                          // the conversion takes 8 s
+    const std::vector<std::string> thrusts = {
+        "propulsion/engine/thrust-lbs", "propulsion/engine/reverser-angle-rad",
+        "external_reactions/lift-fan/magnitude", "external_reactions/left-roll-post/magnitude",
+        "external_reactions/right-roll-post/magnitude", "external_reactions/nozzle-side/magnitude",
+        "fcs/lift-system-base-lbf", "fcs/thrust-split-share"};
+    std::vector<double> middle(static_cast<std::size_t>(steps), 0.0);
+    for (const double split : splits) {
+        auto a = f35b_standing("full", 0.0, 0.0);
+        Controls c;
+        c.left_brake = c.right_brake = 1.0;
+        c.throttle = 0.99; // her STOVL top, so the engine is the same either side of converting
+        // Spooled up first, so that what she makes is the engine's steady thrust.
+        for (int i = 0; i < 15 * 120; ++i) {
+            a->set_lift_system(LiftSystem{});
+            a->set_controls(c);
+            a->step();
+        }
+        LiftSystem lift;
+        lift.stovl = 1.0;
+        lift.nozzle_deg = 90.0;
+        lift.split = split;
+        int converting = 0;
+        int converted = 0;
+        double engine_before = a->property("propulsion/engine/thrust-lbs") /
+                               std::cos(a->property("propulsion/engine/reverser-angle-rad"));
+        for (int i = 0; i < steps; ++i) {
+            a->set_lift_system(lift);
+            a->set_controls(c);
+            a->step();
+            const double s = a->property("fcs/stovl-pos-norm");
+            converting += s > 0.0 && s < 1.0 ? 1 : 0;
+            converted += s >= 1.0 ? 1 : 0;
+            for (const std::string& p : thrusts) {
+                check(std::isfinite(a->property(p)), p + " is not finite at split " + std::to_string(split) +
+                                                         ", stovl-pos-norm " + std::to_string(s));
+            }
+            // Her lift system's thrust over the engine's own - the nozzle's
+            // over the reverser's cosine - so that how fast she creeps on
+            // her brakes, which moves the engine's thrust, is out of it: the
+            // nozzle's over this step's, and the fan's and posts' over the
+            // step before's, which they are reckoned from.
+            const double engine = a->property("propulsion/engine/thrust-lbs") /
+                                  std::cos(a->property("propulsion/engine/reverser-angle-rad"));
+            const double total = a->property("propulsion/engine/thrust-lbs") / engine +
+                                 (a->property("external_reactions/lift-fan/magnitude") +
+                                  a->property("external_reactions/left-roll-post/magnitude") +
+                                  a->property("external_reactions/right-roll-post/magnitude")) /
+                                     engine_before;
+            engine_before = engine;
+            const auto at = static_cast<std::size_t>(i);
+            if (split == 0.0) {
+                middle[at] = total;
+            } else {
+                check(std::abs(total - middle[at]) <= 1e-9 * middle[at],
+                      "at split " + std::to_string(split) + ", stovl-pos-norm " + std::to_string(s) +
+                          " her thrust is " + std::to_string(total) + " of the engine's against " +
+                          std::to_string(middle[at]) + " at the middle");
+            }
+        }
+        // The whole conversion was walked: 8 s of it between 0 and 1, and
+        // converted after.
+        check(converting >= 8 * 120 - 2 && converted > 0,
+              "the conversion walked at split " + std::to_string(split) + ": " + std::to_string(converting) +
+                  " steps converting, " + std::to_string(converted) + " converted");
+    }
 }
 
 // **Where the hover control law holds her**: lifted from the runway to 150 ft

@@ -583,6 +583,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_f35b_takes_off_short_inside_her_required_600_ft
     the_f35b_hovers_five_and_a_half_minutes_on_her_vertical_landing_fuel
     the_f35b_is_refused_stovl_mode_above_250_kcas_and_allowed_below
+    the_f35bs_thrust_split_at_either_end_and_the_middle_keeps_her_thrust_finite_and_its_total_the_engines
     the_f35b_hovers_in_every_wind_to_20_kt_from_every_side_at_two_weights
     the_b2_flies_at_high_subsonic_speed
     the_b2_still_climbs_at_its_published_ceiling
