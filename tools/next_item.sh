@@ -9,7 +9,7 @@
 #   tools/next_item.sh --all    every open item, in plan order
 #
 # **Every phase is read, to the end of the file.** There is no Later section
-# (owner, 2026-10-11: everything is implemented eventually), so nothing after
+# (owner, 2026-10-10: everything is implemented eventually), so nothing after
 # the last phase is set aside.
 #
 # **An item before the first `## Phase` is not phase work and is skipped.**

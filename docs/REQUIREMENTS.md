@@ -489,7 +489,7 @@ verification.
 - **Phase 7 — User/AI controller swap** across the network, including player
   disconnect.
 - **Phase 8 — LLM copilot**, then RL agents as a stretch goal.
-- **Tails:** found work, kept in the phase it belongs to (Phases 9 to 15), among its open items (owner, 2026-10-11: there is no Later section; everything is implemented eventually).
+- **Tails:** found work, kept in the phase it belongs to (Phases 9 to 15), among its open items (owner, 2026-10-10: there is no Later section; everything is implemented eventually).
 
 ## 8. Development and documentation strategy (from gearstick)
 
@@ -864,7 +864,7 @@ The replacement:
   200 ft/min for jets, and every aircraft's target, is held within it.
 - **Learnt landings for other aircraft move to Later.** Each needs its own
   reinforcement-learning training; the Cessna 172P's is retrained first.
-  (2026-10-11: there is no Later; the item is open in Phase 10b.)
+  (2026-10-10: there is no Later; the item is open in Phase 10b.)
 - **The Learjet's centre-of-gravity height and the F-35B's approach angle of
   attack stay in the goal**, though no public source for either has been
   found.
