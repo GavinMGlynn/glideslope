@@ -243,8 +243,12 @@ def aerodynamics():
 # 10.5 m aft of the bow, the HRP 341.73 in aft of it.
 STEP_BELOW_HRP_FT = -FOREBODY_KEEL_Z / 0.3048
 STEP_AFT_OF_HRP_FT = (10.5 - 341.73 * 0.0254) / 0.3048
-# Savitsky's dynamic lift coefficient, C_L0 = 0.012 lambda^0.5 tau^1.1.
+# Savitsky's lift coefficient, C_L0 = tau^1.1 (0.012 lambda^0.5 + 0.0055
+# lambda^2.5 / C_V^2): its dynamic term on 1/2 rho V^2 b^2, and its
+# hydrostatic one, which with C_V^2 = V^2 / (g b) is 0.0055 lambda^2.5 tau^1.1
+# on 1/2 rho g b^3 - no speed in it, so no division by a speed near rest.
 SAVITSKY_DYNAMIC = 0.012
+SAVITSKY_HYDROSTATIC = 0.0055
 # The added mass's heave damping, rho (pi / 8) b^2 V, full once the step is
 # this deep; and its lever in pitch, the step's distance aft of the centre of
 # gravity (9.12 m), squared.
@@ -258,20 +262,34 @@ PLANING_LIFT = f"""  <fcs_function name="hydro/hull-lift-lbs">
          in place of the pinned model's step to 20,000 lb; see
          tools/make_short_s23.py. -->
     <product>
-     <value>{SAVITSKY_DYNAMIC}</value>
-     <pow>
-      <property>hydro/glideslope/forebody-wetted-length-beams</property>
-      <value>0.5</value>
-     </pow>
      <pow>
       <property>hydro/glideslope/trim-deg</property>
       <value>1.1</value>
      </pow>
-     <value>0.5</value>
-     <property>hydro/glideslope/rho-slug_ft3</property>
-     <property>hydro/v-fps</property>
-     <property>hydro/v-fps</property>
-     <property>hydro/hull-beam-ft2</property>
+     <sum>
+      <product>
+       <value>{SAVITSKY_DYNAMIC}</value>
+       <pow>
+        <property>hydro/glideslope/forebody-wetted-length-beams</property>
+        <value>0.5</value>
+       </pow>
+       <value>0.5</value>
+       <property>hydro/glideslope/rho-slug_ft3</property>
+       <property>hydro/v-fps</property>
+       <property>hydro/v-fps</property>
+       <property>hydro/hull-beam-ft2</property>
+      </product>
+      <product>
+       <value>{SAVITSKY_HYDROSTATIC}</value>
+       <pow>
+        <property>hydro/glideslope/forebody-wetted-length-beams</property>
+        <value>2.5</value>
+       </pow>
+       <value>0.5</value>
+       <property>hydro/environment/rho-lbs_ft3</property>
+       <property>hydro/hull-beam-ft3</property>
+      </product>
+     </sum>
     </product>
    </function>
   </fcs_function>
@@ -568,20 +586,34 @@ AFTERBODY = (f"""
    <description>The afterbody's planing lift, Savitsky's at its own trim.</description>
    <function>
     <product>
-     <value>{SAVITSKY_DYNAMIC}</value>
-     <pow>
-      <property>hydro/glideslope/afterbody-wetted-length-beams</property>
-      <value>0.5</value>
-     </pow>
      <pow>
       <property>hydro/glideslope/afterbody-trim-deg</property>
       <value>1.1</value>
      </pow>
-     <value>0.5</value>
-     <property>hydro/glideslope/rho-slug_ft3</property>
-     <property>hydro/v-fps</property>
-     <property>hydro/v-fps</property>
-     <property>hydro/hull-beam-ft2</property>
+     <sum>
+      <product>
+       <value>{SAVITSKY_DYNAMIC}</value>
+       <pow>
+        <property>hydro/glideslope/afterbody-wetted-length-beams</property>
+        <value>0.5</value>
+       </pow>
+       <value>0.5</value>
+       <property>hydro/glideslope/rho-slug_ft3</property>
+       <property>hydro/v-fps</property>
+       <property>hydro/v-fps</property>
+       <property>hydro/hull-beam-ft2</property>
+      </product>
+      <product>
+       <value>{SAVITSKY_HYDROSTATIC}</value>
+       <pow>
+        <property>hydro/glideslope/afterbody-wetted-length-beams</property>
+        <value>2.5</value>
+       </pow>
+       <value>0.5</value>
+       <property>hydro/environment/rho-lbs_ft3</property>
+       <property>hydro/hull-beam-ft3</property>
+      </product>
+     </sum>
      <min>
       <value>1.0</value>
       <quotient>

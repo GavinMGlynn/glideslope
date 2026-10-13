@@ -839,20 +839,34 @@
          in place of the pinned model's step to 20,000 lb; see
          tools/make_short_s23.py. -->
     <product>
-     <value>0.012</value>
-     <pow>
-      <property>hydro/glideslope/forebody-wetted-length-beams</property>
-      <value>0.5</value>
-     </pow>
      <pow>
       <property>hydro/glideslope/trim-deg</property>
       <value>1.1</value>
      </pow>
-     <value>0.5</value>
-     <property>hydro/glideslope/rho-slug_ft3</property>
-     <property>hydro/v-fps</property>
-     <property>hydro/v-fps</property>
-     <property>hydro/hull-beam-ft2</property>
+     <sum>
+      <product>
+       <value>0.012</value>
+       <pow>
+        <property>hydro/glideslope/forebody-wetted-length-beams</property>
+        <value>0.5</value>
+       </pow>
+       <value>0.5</value>
+       <property>hydro/glideslope/rho-slug_ft3</property>
+       <property>hydro/v-fps</property>
+       <property>hydro/v-fps</property>
+       <property>hydro/hull-beam-ft2</property>
+      </product>
+      <product>
+       <value>0.0055</value>
+       <pow>
+        <property>hydro/glideslope/forebody-wetted-length-beams</property>
+        <value>2.5</value>
+       </pow>
+       <value>0.5</value>
+       <property>hydro/environment/rho-lbs_ft3</property>
+       <property>hydro/hull-beam-ft3</property>
+      </product>
+     </sum>
     </product>
    </function>
   </fcs_function>
@@ -1077,20 +1091,34 @@
    <description>The afterbody's planing lift, Savitsky's at its own trim.</description>
    <function>
     <product>
-     <value>0.012</value>
-     <pow>
-      <property>hydro/glideslope/afterbody-wetted-length-beams</property>
-      <value>0.5</value>
-     </pow>
      <pow>
       <property>hydro/glideslope/afterbody-trim-deg</property>
       <value>1.1</value>
      </pow>
-     <value>0.5</value>
-     <property>hydro/glideslope/rho-slug_ft3</property>
-     <property>hydro/v-fps</property>
-     <property>hydro/v-fps</property>
-     <property>hydro/hull-beam-ft2</property>
+     <sum>
+      <product>
+       <value>0.012</value>
+       <pow>
+        <property>hydro/glideslope/afterbody-wetted-length-beams</property>
+        <value>0.5</value>
+       </pow>
+       <value>0.5</value>
+       <property>hydro/glideslope/rho-slug_ft3</property>
+       <property>hydro/v-fps</property>
+       <property>hydro/v-fps</property>
+       <property>hydro/hull-beam-ft2</property>
+      </product>
+      <product>
+       <value>0.0055</value>
+       <pow>
+        <property>hydro/glideslope/afterbody-wetted-length-beams</property>
+        <value>2.5</value>
+       </pow>
+       <value>0.5</value>
+       <property>hydro/environment/rho-lbs_ft3</property>
+       <property>hydro/hull-beam-ft3</property>
+      </product>
+     </sum>
      <min>
       <value>1.0</value>
       <quotient>
