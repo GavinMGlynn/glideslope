@@ -1021,6 +1021,7 @@ Controls Autopilot::fly() {
         // thirty seconds in her stall at 5,000 ft, given full power as her
         // nose went down, pulled 1.88 g coming back through her lift's peak
         // at 123 knots; given it once the wing was unstalled, 1.69.
+        //
         // The climb short of what is asked, as the knots it would buy in
         // `climb_as_speed_s` (above): a climb in excess is speed the
         // throttle is not to chase.
