@@ -568,6 +568,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       NACA's porpoising work), her take-off figures in range, and in calm
       air she holds the step without porpoising.* Done 2026-10-14: she
       hops 0.32 ft on the step against 0.5.
+- [ ] **A rolling aeroplane near a stop can be thrown on her nose by her
+      gear in one step.** A C172P rolling at 1.16 kt, nose 1.6 degrees and
+      brakes at 0.3, went to -376 deg/s of pitch in one step with no control
+      moving. JSBSim's switch between rolling and static friction near zero
+      speed is the likely cause, and it may be what tips the Cub on full
+      brakes. *Verification: every landplane rolled to a stop at a sweep of
+      brake levels shows no pitch rate over a stated bound.*
 
 ---
 
@@ -799,17 +806,16 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       out without lifting off.* Done 2026-10-14: on her planing hull the
       S.23 rises 0.20 ft (0.23 in a 10 kt tailwind), and all fourteen are
       judged.
-- [ ] **The rollout's autobrake winds up when there is nothing to slow.**
+- [x] **The rollout's autobrake winds up when there is nothing to slow.**
       It keeps adding brake while her deceleration falls short. Blown
       sideways at a walking pace, a C172P had her brakes wound up and was
       put on her nose. *Verification: a rollout held at low groundspeed with
       no deceleration keeps her brake bounded and her nose above -5 degrees.*
-      Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
-      creep (2026-10-14). Every landplane held at walking pace keeps under
-      that and stops nose up, and in 15 kt across each stops within 2 s of
-      main's time. **Still missing**: one learnt landing (half fuel, 10 kt
-      across) is thrown on her nose by her gear at 1.2 kt, with no control
-      moving, and does not stop.
+      Done 2026-10-14: below 5 kt the autobrake adds no brake past 0.3, or
+      0.45 at a creep. Every landplane held at walking pace stays under that
+      and stops nose up, and in 15 kt across each stops within 2 s of main.
+      One learnt start (half fuel, 10 kt across) is named: her gear throws
+      her over at 1.2 kt, the new Phase 9 item.
 - [ ] **The flying boat lands in gusts without skipping.** Her flare is
       flown to her hull and she touches gently, but in gusts she touches
       flat - under one degree, below NACA TN 923's lower trim limit - and
