@@ -332,11 +332,11 @@
     and over it for others (the F-15C stops 2,252 m in, 5 per cent over her
     2,138 m), so it only approximates a regulatory margin. Searched again
     2026-10-13: the product cards and Fast Facts give no landing distance, and
-    none of a shipborne rolling vertical landing is published. She can land
-    vertically, on a pad, but no plan flies her to a hover yet (Phase 9: no
-    pilot or AI plan flies the F-35B between jet-borne and wing-borne flight): a
-    planned landing is the approach autopilot's rolling one, so that is her
-    need; when a plan can convert her, a pad will do, and this figure is
-    revisited.
+    none of a shipborne rolling vertical landing is published. Revisited
+    2026-10-14, when a plan could land her vertically: a plan's `land` on a
+    runway is still flown by the approach autopilot as a rolling landing, so
+    this rolling figure is still what such a landing needs; a plan's
+    `land_vertically` is flown to a hover over its point and needs no runway,
+    and no runway length refuses it.
   </landing_distance>
 </published_figures>

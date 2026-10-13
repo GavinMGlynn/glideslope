@@ -398,17 +398,32 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       wing-borne flight**: since 2026-10-14 a pilot's STOVL selector (H and
       N) and stick, and a plan's `land_vertically`, fly her transition law
       (PROJECT_STATUS, 2026-10-14), and a client's prediction agrees with
-      the server through a conversion, a hover and a landing. Still to do:
-      her measured rolling landing distance (9,200 ft) revisited, and a
-      player's selector flown through a server in a multi-process test. *Verification: she is flown
+      the server through a conversion, a hover and a landing. Her rolling
+      landing figure (9,200 ft) was revisited on 2026-10-14: it still holds
+      for a runway landing, and a vertical landing needs no runway. Still to
+      do: a player's selector flown through a server in a multi-process
+      test. *Verification: she is flown
       into a hover and out again, and a pilot and an AI plan each convert
       her.*
-- [ ] **The F-35B's pilot flies only her height in STOVL mode**: her
+- [x] **The F-35B's pilot flies only her height in STOVL mode**: her
       throttle's speed, the stick's sideways translation and the pedals'
       heading in a hover are not the pilot's, and a plan given to the AI
       while she hovers is not flown. *Verification: a pilot flies her
       jet-borne at a chosen speed and moves her sideways in a hover, and a
-      plan given her hovering converts her back and is flown.*
+      plan given her hovering converts her back and is flown.* Done
+      2026-10-14: the lever asks a ground speed near the hover and an
+      acceleration above it, the stick a sideways speed and the pedals a
+      turn, each within 2 kt or a degree a second of what is asked; a plan
+      given her hovering is flown (PROJECT_STATUS, 2026-10-14).
+- [ ] **The F-35B flies backward at only 20 kt in the hover**: published
+      accounts give her (and the VAAC Harrier her laws were first flown on)
+      30 kt back, but her model swings 10 degrees in pitch past 20.
+      *Verification: she is held steady at 30 kt backward, and her limit put
+      back to 30.*
+- [ ] **Jet-borne, the F-35B's stick sideways and pedals do nothing**: in
+      STOVL mode between the hover and her conversion speed her law holds
+      her heading and wings level. *Verification: jet-borne, the stick turns
+      her and the pedals move her heading, within stated bounds.*
 - [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses

@@ -33,9 +33,19 @@ public:
 
     // What the law is asked: to convert, a height above where it stood on
     // the ground, and whether to let down to land.
+    //
+    // **And a ground speed and a turn**: `ahead_kt` along the heading it
+    // holds and `right_kt` across it, flown by her speed alone, and once
+    // they are nothing and she has stopped, held over where she stopped;
+    // and that heading turned at `turn_degps` - the F-35B's translational
+    // rate command and her pedals' yaw rate (sim/transition.hpp). None is
+    // a point held still, as before.
     struct Target {
         double height_ft = 0.0;
         bool land = false;
+        double ahead_kt = 0.0;
+        double right_kt = 0.0;
+        double turn_degps = 0.0;
     };
 
     struct Command {
@@ -65,12 +75,24 @@ public:
     void hold_over(double latitude_deg, double longitude_deg) {
         latitude_deg_ = latitude_deg;
         longitude_deg_ = longitude_deg;
+        translating_ = false;
     }
 
     // Its height above where it stood, ft; and how far it has drifted from
     // its point, ft.
     double height_ft() const;
     double drift_ft() const;
+    // The point it holds over now, degrees of WGS84.
+    double latitude_deg() const {
+        return latitude_deg_;
+    }
+    double longitude_deg() const {
+        return longitude_deg_;
+    }
+    // The heading it holds, degrees.
+    double heading_deg() const {
+        return heading_deg_;
+    }
 
 private:
     const Aircraft& a_;
@@ -80,6 +102,8 @@ private:
     double heading_deg_ = 0.0;
     double latitude_deg_ = 0.0;
     double longitude_deg_ = 0.0;
+    // Flying a ground speed asked, or stopping after one.
+    bool translating_ = false;
     double throttle_integral_ = 0.0;
     double fan_integral_ = 0.0;
     double post_integral_ = 0.0;

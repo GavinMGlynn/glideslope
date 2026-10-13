@@ -253,6 +253,8 @@ std::optional<Controls> Controller::fly_lift_system() {
             return std::nullopt;
         }
         stovl_.emplace(a_, Hover::Command{applied_, held_lift_});
+        // The lever is the pilot's speed once it moves from where it was.
+        lever_at_selection_ = pilot_.throttle;
         const double agl = a_.state().height_above_ground_ft;
         stovl_height_ft_ = on_ground ? agl : std::max(agl, least_ft);
         hovering_since_s_.reset();
@@ -265,7 +267,42 @@ std::optional<Controls> Controller::fly_lift_system() {
     }
     Transition::Target target;
     target.kcas = a_.property("fcs/stovl-convert-kcas");
-    if (flying_ == Flying::ai) {
+    // **A plan given her in STOVL mode** that is not yet at its vertical
+    // landing - a plan of waypoints, or a pad farther than she stops in -
+    // is flown wing-borne: she converts back at her conversion speed, and
+    // the plan is flown from there.
+    // The plan's waypoints she passes meanwhile are counted passed, so that
+    // one she hovers over is not flown back to.
+    bool plan_to_fly = false;
+    if (flying_ == Flying::ai && navigator_ && navigator_->plan().vertical_landing &&
+        !navigator_->finished()) {
+        // **Waypoints she hovers by**: before a vertical landing, those
+        // within `Transition::steer_within_ft` of her - nearer than her
+        // conversion back would let her turn for - are counted passed.
+        FlightPlan rest = navigator_->plan();
+        const AircraftState s = a_.state();
+        std::size_t k = navigator_->next();
+        while (k + 1 < rest.waypoints.size() &&
+               distance_m(s.latitude_deg, s.longitude_deg, rest.waypoints[k].latitude_deg,
+                          rest.waypoints[k].longitude_deg) /
+                       0.3048 <=
+                   Transition::steer_within_ft) {
+            ++k;
+        }
+        if (k != navigator_->next()) {
+            rest.waypoints.erase(rest.waypoints.begin(),
+                                 rest.waypoints.begin() + static_cast<std::ptrdiff_t>(k));
+            navigator_.emplace(a_, std::move(rest));
+        }
+    }
+    if (flying_ == Flying::ai && navigator_ && !navigator_->finished() && !vertical_landing_due()) {
+        navigator_->steer();
+        plan_to_fly = !navigator_->finished() && !vertical_landing_due();
+    }
+    if (plan_to_fly) {
+        target.hover = false;
+        target.height_ft = std::max(stovl_height_ft_, least_ft);
+    } else if (flying_ == Flying::ai) {
         if (navigator_ && navigator_->plan().vertical_landing) {
             const FlightPlan::VerticalLanding& v = *navigator_->plan().vertical_landing;
             target.height_ft = std::max(vertical_hover_ft, least_ft);
@@ -288,6 +325,20 @@ std::optional<Controls> Controller::fly_lift_system() {
         stovl_height_ft_ = std::max(stovl_height_ft_, hovering ? 0.0 : least_ft);
         target.height_ft = stovl_height_ft_;
         target.land = hovering && stovl_height_ft_ <= land_below_ft;
+        // **The left-hand inceptor, the stick's sideways and the pedals**
+        // (Transition::Inceptors): the lever's travel from its detent once
+        // it has moved from where it was when STOVL mode was selected, or
+        // she was taken back in it.
+        if (lever_at_selection_ && pilot_.throttle != *lever_at_selection_) {
+            lever_at_selection_.reset();
+        }
+        Transition::Inceptors inceptors;
+        if (!lever_at_selection_) {
+            inceptors.lever = lever_travel(pilot_.throttle, a_.property("fcs/stovl-lever-detent"));
+        }
+        inceptors.side = std::clamp(pilot_.aileron, -1.0, 1.0);
+        inceptors.pedals = std::clamp(pilot_.rudder, -1.0, 1.0);
+        target.pilot = inceptors;
     } else {
         target.hover = false;
         target.height_ft = std::max(stovl_height_ft_, least_ft);
@@ -311,7 +362,16 @@ std::optional<Controls> Controller::fly_lift_system() {
     if (!target.hover && stovl_->stage() == Transition::Stage::wing_borne &&
         a_.property("fcs/stovl-pos-norm") <= 0.0) {
         stovl_.reset();
-        catching_up_ = true;
+        if (flying_ == Flying::ai) {
+            // The AI's plan from here: the autopilot from the controls the
+            // transition law left, the leg from where she is.
+            autopilot_.emplace(a_, applied_);
+            if (navigator_) {
+                navigator_->begin_here();
+            }
+        } else {
+            catching_up_ = true;
+        }
         return std::nullopt;
     }
     return applied_;
@@ -334,6 +394,7 @@ Controller::PilotsLaws Controller::pilots_laws() const {
     out.stovl_height_ft = stovl_height_ft_;
     out.hovering_since_s = hovering_since_s_;
     out.selector_at_take_back = selector_at_take_back_;
+    out.lever_at_selection = lever_at_selection_;
     return out;
 }
 
@@ -356,14 +417,27 @@ void Controller::restore(const PilotsLaws& laws) {
     stovl_height_ft_ = laws.stovl_height_ft;
     hovering_since_s_ = laws.hovering_since_s;
     selector_at_take_back_ = laws.selector_at_take_back;
+    lever_at_selection_ = laws.lever_at_selection;
+}
+
+double lever_travel(double lever, double detent) {
+    const double off = lever - detent;
+    if (std::abs(off) < Controller::lever_detent_width) {
+        return 0.0;
+    }
+    return std::clamp(off >= 0.0 ? off / std::max(1.0 - detent, 1e-6) : off / std::max(detent, 1e-6),
+                      -1.0, 1.0);
 }
 
 void Controller::to_ai(FlightPlan plan) {
     engage();
     navigator_.emplace(a_, to_its_point(std::move(plan)));
     // **Just after lift-off, the climb-out first**, and the plan from where
-    // it leaves her, as a plan that takes off is flown (`to_ai_flying`).
-    climb_out_if_lifting_off();
+    // it leaves her, as a plan that takes off is flown (`to_ai_flying`) -
+    // but not in STOVL mode, where the transition law flies her first.
+    if (!stovl_) {
+        climb_out_if_lifting_off();
+    }
 }
 
 void Controller::replan(FlightPlan plan) {
@@ -584,6 +658,7 @@ void Controller::to_pilot() {
     selector_at_take_back_.reset();
     if (stovl_) {
         selector_at_take_back_ = pilot_.stovl;
+        lever_at_selection_ = pilot_.throttle;
     }
     easing_in_ = false;
     autopilot_.reset();
