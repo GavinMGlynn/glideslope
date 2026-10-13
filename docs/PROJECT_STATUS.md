@@ -284,6 +284,32 @@ steering brake was nil, and no creep was being driven. It is an impulse from
 her gear at the end of her roll, met at this brake history and not at
 main's.
 
+**From the review of #195**:
+- **The idle-creep allowance is bounded**: it adds brake only while every
+  engine's throttle is closed (not engine 0 alone), and only up to
+  `Lander::idle_pedal`, 0.8. Uncapped, a gust could wind the brakes to full.
+  0.55 was tried: the F-15C's idle beat it and she never stopped in 15 kt
+  across. At 0.8 she stops as on main. New:
+  `a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_closed_winds_her_brake_no_further_than_idle_needs`.
+  Each landplane is rolled to 1 kt and given to the rollout, then a 20 kt
+  gust blows from behind for 5 s. Judged: no brake added below 5 kt past
+  0.8, nose above -5 degrees, and she stops. The C172P, C182, Cub and PA-28
+  are pushed past 1.3 kt (1.34 to 3.0), asserted. The jets and the Mosquito
+  are held at 1 kt by their brakes, and are flown and judged. A 25 kt gust
+  pushed the C182 to 5.1 kt with her nose at -5.5. Seen red with the cap
+  at full: the C172P and PA-28 at 1.0, the Cub at 0.88.
+- **The wet runway's brakes are held to the same limit below walking
+  pace.** They went to full at a hand's pace whatever her speed. New:
+  `every_landplane_rolling_at_walking_pace_on_a_wet_runway_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up`.
+- **A heading check in the walking-pace tests**: each must stop within 30
+  degrees of her heading at the hand-over. Every landplane does, at most
+  4 degrees, except the Mosquito. She is named, and a new item opened (Phase
+  10b, "The Mosquito swings below walking pace"): 85 degrees in calm air,
+  36 wet and 155 in 15 kt across. Whether she swung so before the steering
+  brake was faded was not measured.
+- **The constants are global defaults**, noted in lander.hpp: every
+  aircraft uses them, and none has her own.
+
 **Found on the way, a new item (Phase 9): a rolling aeroplane near a stop
 can be thrown on her nose by her gear in one step.** JSBSim's switch between
 rolling and static friction near zero speed is the likely cause, and it may
@@ -334,7 +360,8 @@ bound.
   law too: it guards against the creep, which the 0.3 law failed by minutes.
 - Round one's 32 rollout, wet, crosswind, learnt (all five gate winds, the
   fuel tests), reverser and landing tests, and the three new ones: all 35
-  pass, the half-fuel learnt test with its one start named (above). Against
+  pass, and the two added after review (37), the half-fuel learnt test with
+  its one start named (above). Against
   main, no stop is more than 1.4 s later (the F-15C in 15 kt across).
 - The selftest hash does not move: 182dd6c996e0ee4c.
 
