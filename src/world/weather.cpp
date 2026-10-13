@@ -233,8 +233,9 @@ bool names(const Metar::RunwayState& state, const RunwayEnd& end) {
     const std::string other_letter = end_letter == "L"   ? "R"
                                      : end_letter == "R" ? "L"
                                                          : end_letter;
-    const auto matches = [number = number, letter = letter](int n, const std::string& l) {
-        return n == number && (l == letter || (letter.empty() && l == "L"));
+    const auto matches = [said_number = number, said_letter = letter](int n,
+                                                                       const std::string& l) {
+        return n == said_number && (l == said_letter || (said_letter.empty() && l == "L"));
     };
     return matches(end_number, end_letter) || matches(other_number, other_letter);
 }
