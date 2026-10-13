@@ -1090,11 +1090,13 @@ GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_i
 // the runway (`gear/wow` at every step) once the rotation has begun, so
 // that one step's jolt of the nose wheel is not read as a rotation. Flown
 // at a plan's take-off speeds (sim::departure_speeds). **Left out, and
-// named**: the tail-wheel aeroplanes, the flying boat, and the F-22A, whose
-// figures give no rate yet (docs/PROJECT_STATUS.md, 2026-10-13). Seen red
-// with the rate hold taken out, and the ringing seen red on the C172P's
-// loop of #181's first commit (0.3 of stick per degree a second, read step
-// by step), with its stick's slew limit in.
+// named**: the tail-wheel aeroplanes and the flying boat. The F-22A is
+// flown since her pitch loop was given a ground mode (tools/make_f22.py,
+// docs/PROJECT_STATUS.md, 2026-10-14). Seen red with the rate hold taken
+// out, and the ringing seen red on the C172P's loop of #181's first commit
+// (0.3 of stick per degree a second, read step by step), with its stick's
+// slew limit in; and the F-22A seen red without her ground mode, at 9.4
+// and 10.0 deg/s.
 GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_every_loading_no_faster_than_it) {
     constexpr double tolerance_degps = 1.0;
     constexpr int window = steps_per_second / 4;
@@ -1253,20 +1255,20 @@ GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_e
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong:" + all);
     check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
     check(walked + left_out.size() == catalogue, "every aircraft flown or named");
-    // Three named for what they are, and the F-22A for the rate her
-    // figures do not yet give.
-    check(left_out.size() == 4, "four left out - the flying boat, two tail-wheel and the "
-                                "F-22A - not " + std::to_string(left_out.size()));
+    // Three named for what they are.
+    check(left_out.size() == 3, "three left out - the flying boat and two tail-wheel - not " +
+                                    std::to_string(left_out.size()));
     check(loadings_flown == loadings_named, "every loading flown: " +
                                                 std::to_string(loadings_flown) + " of " +
                                                 std::to_string(loadings_named));
     std::printf("  %zu loadings of %zu aeroplanes given a rate flown\n", loadings_flown, walked);
-    check(walked == 12, "twelve aeroplanes given a rate flown, not " + std::to_string(walked));
-    // **The size of the space, stated apart from the loop**: the twelve
+    check(walked == 13, "thirteen aeroplanes given a rate flown, not " + std::to_string(walked));
+    // **The size of the space, stated apart from the loop**: the thirteen
     // models' own loadings and those their figures name - three each for
     // the six held at three; the C172P's, the C182's and the PA-28's one,
-    // the F-15C's three, the F-35B's four and the Learjet's four.
-    check(loadings_flown == 44, "forty-four loadings flown, not " +
+    // the F-15C's three, the F-22A's one, the F-35B's four and the
+    // Learjet's four.
+    check(loadings_flown == 46, "forty-six loadings flown, not " +
                                     std::to_string(loadings_flown));
 }
 
@@ -2046,9 +2048,16 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
 // the 747-400 and the F-22A, which have no take-off to fly - neither has a
 // climbing speed in its figures, so `sim::departure_speeds` refuses them -
 // and are run up on full power, the stick held fully back, steered by
-// nothing. The aeroplanes with no tail to strike are the approach test's
-// (above).
+// nothing. **The F-22A on part power, 0.6**: her stick commands a pitch
+// rate on her wheels (her ground mode, tools/make_f22.py), full back about
+// nine degrees a second, and on full power she gained speed so fast that
+// she flew off at 10 degrees and 120 knots before her tail reached the
+// runway. Pulled fully back on a slower run, she strikes at 16.3 to 16.4
+// degrees on her wheels from 0.5 to 0.7 of the throttle (77 to 91 knots);
+// at 0.8 at 16.6 with her wheels just off. The aeroplanes with no tail to
+// strike are the approach test's (above).
 GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_so) {
+    constexpr double f22_run_up_throttle = 0.6;
     const std::set<std::string> held_back_from_the_roll = {"f35b", "747-400", "f22"};
     const std::set<std::string> no_take_off = {"747-400", "f22"};
     std::size_t catalogue = 0;
@@ -2115,7 +2124,7 @@ GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_s
             if (departure) {
                 controls = departure->fly();
             } else {
-                controls.throttle = 1.0;
+                controls.throttle = entry.id == "f22" ? f22_run_up_throttle : 1.0;
             }
             if (from_the_roll ||
                 departure->stage() != glideslope::sim::Departure::Stage::roll) {

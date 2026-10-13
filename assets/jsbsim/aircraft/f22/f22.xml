@@ -977,6 +977,40 @@
                 </clipto>
             </pure_gain>
 
+            <!-- glideslope: tools/make_f22.py - the ground mode -->
+            <switch name="fcs/pitch-ground-wow">
+                <default value="0"/>
+                <test value="1">
+                    gear/wow eq 1
+                </test>
+            </switch>
+
+            <actuator name="fcs/pitch-ground-mode">
+                <input>fcs/pitch-ground-wow</input>
+                <rate_limit sense="decr"> 0.2 </rate_limit>
+            </actuator>
+
+            <fcs_function name="fcs/pitch-ground-washout">
+                <function>
+                    <product>
+                        <property>fcs/pitch-ground-mode</property>
+                        <property>fcs/pitch-rate-integrator</property>
+                    </product>
+                </function>
+            </fcs_function>
+
+            <fcs_function name="fcs/pitch-integrator-gain">
+                <function>
+                    <sum>
+                        <value>1</value>
+                        <product>
+                            <value>9</value>
+                            <property>fcs/pitch-ground-mode</property>
+                        </product>
+                    </sum>
+                </function>
+            </fcs_function>
+
             <deadband name="fcs/pitch-windup-trigger">
                 <input>fcs/pitch-rate-integrator</input>
                 <width>1.4</width>
@@ -990,12 +1024,13 @@
                 <input>fcs/q-gear-down-limiter</input>
                 <input>-velocities/q-aero-rad_sec</input>
                 <input>-fcs/pitch-windup-trigger</input>
+                <input>-fcs/pitch-ground-washout</input>
             </summer>
 
             <integrator name="fcs/pitch-rate-integrator">
                 <!--trigger>fcs/pitch-int-trigger</trigger-->
                 <input>fcs/pitch-rate-error</input>
-                <c1> 1 </c1>
+                <c1>fcs/pitch-integrator-gain</c1>
                 <clipto>
                     <min>-0.5236</min>
                     <max>0.8727</max>

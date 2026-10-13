@@ -764,9 +764,9 @@ Controls Departure::fly_laws() {
         // added to that law brought the worst to 5.5. **Only where her
         // figures give her a rate** (`rotation_held`): the airliners and the
         // B-2A at three degrees a second, the light aeroplanes, the F-15C,
-        // the F-35B and the Learjet 35A at four. The F-22A is left to the
-        // law below for now: her own pitch loop winds up on her wheels
-        // (docs/PROJECT_STATUS.md, 2026-10-13). A tail-wheel aeroplane, whose
+        // the F-22A, the F-35B and the Learjet 35A at four. The F-22A's own
+        // pitch loop has a ground mode for it (tools/make_f22.py): without
+        // it, it wound up on her wheels. A tail-wheel aeroplane, whose
         // tail is raised on the roll and who is flown off level, is never
         // held.
         // Her pitch rate as the loop reads it: smoothed over about two and a
