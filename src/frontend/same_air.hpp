@@ -20,6 +20,7 @@
 
 #include <filesystem>
 #include <atomic>
+#include <chrono>
 #include <functional>
 #include <future>
 #include <memory>
@@ -44,15 +45,22 @@ world::WeatherReport fit_to_send(world::WeatherReport report);
 // whether they have come. **Until they have**, a state reported lies on no
 // runway, and the runways are as the weather alone says - wet in rain, dry
 // otherwise - and from the step after they come, on the runway it names.
-// Runways that cannot be had are never laid and not asked for again, and
-// `lay` says why, once. Let go while they are being fetched, the fetch is
-// given up (world::FetchesGivenUp) and only that is waited for.
+// **Runways that cannot be had are asked for again an hour later**
+// (`retry_after`), not at once - every try is a fetch's own retries - and not
+// never, as a server runs for days; `lay` says why at each failure. Let go
+// while they are being fetched, the fetch is given up (world::FetchesGivenUp)
+// and only that is waited for.
 class StationRunways {
 public:
     using Load = std::function<std::vector<world::RunwayEnd>()>;
-    StationRunways(std::filesystem::path cache, world::Fetch fetch);
+    static constexpr std::chrono::steady_clock::duration default_retry_after =
+        std::chrono::hours(1);
+    StationRunways(std::filesystem::path cache, world::Fetch fetch,
+                   std::chrono::steady_clock::duration retry_after = default_retry_after);
     // Any other source, for a test: a slow one, or one that fails.
-    explicit StationRunways(Load load) : load_(std::move(load)) {}
+    explicit StationRunways(Load load,
+                            std::chrono::steady_clock::duration retry_after = default_retry_after)
+        : load_(std::move(load)), retry_after_(retry_after) {}
     ~StationRunways();
     StationRunways(const StationRunways&) = delete;
     StationRunways& operator=(const StationRunways&) = delete;
@@ -66,7 +74,9 @@ private:
     std::atomic<bool> give_up_{false};
     std::future<std::shared_ptr<const std::vector<world::RunwayEnd>>> loading_;
     std::shared_ptr<const std::vector<world::RunwayEnd>> all_;
-    bool cannot_ = false;
+    std::chrono::steady_clock::duration retry_after_;
+    // When the last try failed; none, if none has.
+    std::optional<std::chrono::steady_clock::time_point> failed_at_;
 };
 
 // **What a server says of the runways its air lays a condition on**

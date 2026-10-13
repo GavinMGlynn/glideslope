@@ -18,10 +18,12 @@
 
 namespace glideslope::frontend {
 
-StationRunways::StationRunways(std::filesystem::path cache, world::Fetch fetch)
+StationRunways::StationRunways(std::filesystem::path cache, world::Fetch fetch,
+                               std::chrono::steady_clock::duration retry_after)
     : load_([cache = std::move(cache), fetch = std::move(fetch)] {
           return world::world_runways(cache, fetch);
-      }) {}
+      }),
+      retry_after_(retry_after) {}
 
 StationRunways::~StationRunways() {
     // Before loading_ is destroyed, which waits for its thread.
@@ -29,10 +31,13 @@ StationRunways::~StationRunways() {
 }
 
 bool StationRunways::lay(world::ReportedWeather& air, std::string* why) {
-    if (air.runways_laid() || !air.has_runway_states() || cannot_) {
+    if (air.runways_laid() || !air.has_runway_states()) {
         return false;
     }
     if (!all_) {
+        if (failed_at_ && std::chrono::steady_clock::now() - *failed_at_ < retry_after_) {
+            return false;
+        }
         if (!loading_.valid()) {
             loading_ = std::async(std::launch::async, [this] {
                 const world::FetchesGivenUp given_up(give_up_);
@@ -46,10 +51,10 @@ bool StationRunways::lay(world::ReportedWeather& air, std::string* why) {
         try {
             all_ = loading_.get();
         } catch (const std::exception& e) {
-            cannot_ = true;
+            failed_at_ = std::chrono::steady_clock::now();
             if (why != nullptr) {
                 *why = std::string("the runways cannot be had, and a runway's reported state "
-                                   "lies on none: ") +
+                                   "lies on none until they are asked for again: ") +
                        e.what();
             }
             return false;

@@ -330,6 +330,8 @@ inline constexpr std::size_t most_waypoint_name_bytes = 32;
 inline constexpr std::size_t most_reason_bytes = 160;
 // The most runways a `RUNWAY_CONDITIONS` carries for each weather.
 inline constexpr std::size_t most_runway_conditions = 16;
+// The longest runway a `RUNWAY_CONDITIONS` may carry, metres.
+inline constexpr double most_runway_m = 20000.0;
 
 // **The most a message body may be**: a datagram, less the envelope in front
 // of it and the reliable layer's number and acknowledgement. Nothing

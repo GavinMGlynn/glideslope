@@ -1485,3 +1485,98 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_learnt_landing_refusal_is
     }
     check(bytes == 256, "every byte was written: " + std::to_string(bytes));
 }
+
+// **Every refusal the document names for `RUNWAY_CONDITIONS`**, each built on
+// purpose: a code of 0 or 6; a runway past either pole or past 180 degrees;
+// a heading below nought or over 360; a length of nought or over 20,000 m;
+// its weather's moment or its wet-until below nought; a wet flag of 2; a
+// wet-until with the flag `00`; and 17 runways, for now and for before.
+// Sixteen cases, each refused; and every edge - codes 1 and 5, headings 0
+// and 360, a length of 20,000 m, 16 runways - read.
+GLIDESLOPE_TEST(every_refusal_the_document_names_for_runway_conditions_is_refused) {
+    using glideslope::net::RunwayCondition;
+    using glideslope::net::RunwayConditions;
+    const RunwayCondition fine{55.97, 37.41, 240.0, 3000.0, 2};
+    const auto reads = [](const std::vector<std::uint8_t>& body) {
+        RunwayConditions got;
+        return glideslope::net::read(std::span<const std::uint8_t>(body.data(), body.size()),
+                                     got);
+    };
+    const auto with = [&](RunwayCondition c, bool before) {
+        RunwayConditions m;
+        m.weather_changed_at_s = 10.0;
+        m.wet_until_s = 20.0;
+        (before ? m.before : m.now) = {fine, c};
+        return glideslope::net::write(m);
+    };
+    std::size_t refused = 0;
+    std::size_t read_back = 0;
+    const auto refuse = [&](const std::vector<std::uint8_t>& body, const std::string& what) {
+        check(!reads(body), what + " is refused");
+        ++refused;
+    };
+    const auto read = [&](const std::vector<std::uint8_t>& body, const std::string& what) {
+        check(reads(body), what + " reads");
+        ++read_back;
+    };
+    RunwayCondition c = fine;
+    c.code = 0;
+    refuse(with(c, false), "code 0");
+    c.code = 6;
+    refuse(with(c, true), "code 6");
+    c = fine;
+    c.latitude_deg = 90.5;
+    refuse(with(c, false), "a runway past the pole");
+    c.latitude_deg = -90.5;
+    refuse(with(c, true), "a runway past the south pole");
+    c = fine;
+    c.longitude_deg = 180.5;
+    refuse(with(c, false), "a runway past 180 degrees");
+    c = fine;
+    c.heading_deg = -0.5;
+    refuse(with(c, false), "a heading below nought");
+    c.heading_deg = 360.5;
+    refuse(with(c, true), "a heading over 360");
+    c = fine;
+    c.length_m = 0.0;
+    refuse(with(c, false), "a length of nought");
+    c.length_m = 20000.5;
+    refuse(with(c, true), "a length over 20 km");
+    RunwayConditions m;
+    m.weather_changed_at_s = -1.0;
+    refuse(glideslope::net::write(m), "a moment below nought");
+    m.weather_changed_at_s = 1.0;
+    m.wet_until_s = -1.0;
+    refuse(glideslope::net::write(m), "a wet-until below nought");
+    m.wet_until_s = 5.0;
+    std::vector<std::uint8_t> body = glideslope::net::write(m);
+    body[9] = 2; // the wet flag, after the kind and the moment
+    refuse(body, "a wet flag of 2");
+    body[9] = 0; // the flag says none, and the time is 5
+    refuse(body, "a wet-until with the flag 00");
+    RunwayConditions many;
+    many.now.assign(glideslope::net::most_runway_conditions + 1, fine);
+    refuse(glideslope::net::write(many), "17 runways now");
+    many.before = many.now;
+    many.now.clear();
+    refuse(glideslope::net::write(many), "17 runways before");
+    many.before.clear();
+    std::vector<std::uint8_t> trailing = glideslope::net::write(many);
+    trailing.push_back(0);
+    refuse(trailing, "a byte after the last field");
+
+    c = fine;
+    c.code = 1;
+    c.heading_deg = 0.0;
+    read(with(c, false), "code 1, heading 0");
+    c.code = 5;
+    c.heading_deg = 360.0;
+    c.length_m = glideslope::net::most_runway_m;
+    read(with(c, true), "code 5, heading 360, 20,000 m");
+    many.now.assign(glideslope::net::most_runway_conditions, fine);
+    many.before = many.now;
+    read(glideslope::net::write(many), "16 runways now and before");
+    check(refused == 16 && read_back == 3,
+          "sixteen refused and three read: " + std::to_string(refused) + " and " +
+              std::to_string(read_back));
+}

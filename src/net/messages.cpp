@@ -340,7 +340,7 @@ bool read_runway_conditions(MessageReader& r, std::vector<RunwayCondition>& out)
         c.code = r.u8();
         if (!r.ok() || std::abs(c.latitude_deg) > 90.0 || std::abs(c.longitude_deg) > 180.0 ||
             c.heading_deg < 0.0 || c.heading_deg > 360.0 || !(c.length_m > 0.0) ||
-            c.length_m > 20000.0 || c.code < 1 || c.code > 5) {
+            c.length_m > most_runway_m || c.code < 1 || c.code > 5) {
             return false;
         }
         out.push_back(c);

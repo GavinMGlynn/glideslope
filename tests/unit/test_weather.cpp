@@ -9,6 +9,7 @@
 #include "world/metar.hpp"
 #include "world/weather.hpp"
 #include "world/winds_aloft.hpp"
+#include "net/messages.hpp"
 
 #include <algorithm>
 #include <array>
@@ -1889,4 +1890,39 @@ GLIDESLOPE_TEST(real_metars_carrying_a_runways_state_are_read_and_each_given_its
     }
     check(read == expected.size() && read == 6,
           "every state read: " + std::to_string(read) + " of 6");
+}
+
+// **An end no client would read is never laid.** Ice on all runways (R88/)
+// at a station whose runways are a 3,000 m one, and four no client's reader
+// of `RUNWAY_CONDITIONS` takes - 25,000 m long, of no length, heading 361
+// degrees, at latitude 91 - and one whose heading is not a number: only the
+// 3,000 m one is laid, so a server never says what every client refuses.
+GLIDESLOPE_TEST(a_runway_end_no_client_would_read_is_never_laid) {
+    glideslope::world::RunwayEnd good;
+    good.ident = "24";
+    good.latitude_deg = 55.97;
+    good.longitude_deg = 37.41;
+    good.heading_deg = 240.0;
+    good.length_m = 3000.0;
+    std::vector<glideslope::world::RunwayEnd> ends{good};
+    const std::vector<std::string> wrong{"25,000 m long", "of no length", "heading 361",
+                                         "at latitude 91", "heading not a number"};
+    for (std::size_t i = 0; i < wrong.size(); ++i) {
+        glideslope::world::RunwayEnd e = good;
+        e.ident = std::to_string(10 + i);
+        if (i == 0) e.length_m = 25000.0;
+        if (i == 1) e.length_m = 0.0;
+        if (i == 2) e.heading_deg = 361.0;
+        if (i == 3) e.latitude_deg = 91.0;
+        if (i == 4) e.heading_deg = std::numeric_limits<double>::quiet_NaN();
+        ends.push_back(e);
+    }
+    const Metar m = parse_metar("METAR UUEE 140800Z 18005KT 9999 FEW030 M02/M04 Q1013 R88/7901//");
+    const auto laid = glideslope::world::contaminated_runways(m, ends);
+    check(laid.size() == 1 && laid.front().end.ident == "24" && laid.front().code == 1,
+          "only the 3,000 m runway is laid, of " + std::to_string(ends.size()) + ": " +
+              std::to_string(laid.size()));
+    check(ends.size() == 1 + wrong.size() && wrong.size() == 5, "five wrong ends walked");
+    check(glideslope::world::longest_runway_laid_m == glideslope::net::most_runway_m,
+          "the longest laid is the longest a client reads");
 }

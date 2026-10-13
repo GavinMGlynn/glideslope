@@ -278,8 +278,9 @@ AC 25-32's matrix correlates codes with braking action, not with a
 measured coefficient. **Until the runway list has come, a state lies on no
 runway**: OurAirports' runways are fetched off the stepping thread and the
 frame loop the first time a report with a state is flown (from the cache in
-a moment; from the network, the first time ever, seconds; never, where they
-cannot be had, which is said once), and meanwhile the runway is as the
+a moment; from the network, the first time ever, seconds; where they
+cannot be had, asked for again an hour later, each failure said), and
+meanwhile the runway is as the
 weather alone says - wet in rain, dry otherwise - on the server and in what
 it tells its clients alike. **The reach is small, and said so**: ICAO's
 Amendment 80 to Annex 3 kept the group in METAR only until 3 November 2021,
@@ -347,7 +348,13 @@ and `lay` only looks whether it has come: the server asks before every step
 (`Flight::lay_runways_when_had`), and once it has, it lays both the report
 flown and the one it blends from (`ReportedWeather::lay_runways`) and the
 server says so ("runways laid at ..."). Let go while fetching, it gives the
-fetch up (`world::FetchesGivenUp`) and waits only for that.
+fetch up (`world::FetchesGivenUp`) and waits only for that. **A failed fetch
+is tried again an hour later** (`StationRunways::default_retry_after`), not
+never - a server runs for days - and each failure is said. **An end no
+client would read is never laid** (`world::contaminated_runways`): off the
+Earth, heading outside 0 to 360, of no length or over 20,000 m
+(`world::longest_runway_laid_m`, the reader's `net::most_runway_m`), or not
+a number - so the server never sends what every client refuses.
 
 **The clients are told, not left to fetch** (`RUNWAY_CONDITIONS`, kind
 `0C`, protocol version `0B`; `docs/TRANSPORT.md`). After every `WEATHER`,
@@ -428,11 +435,29 @@ European ANP FASID itself not found.
   limits (1,076 bytes), through 8,192 loss patterns, and its six
   floating-point fields each refusing NaN, infinity and its range (38 fields,
   228 refusals, 171 readings, 19 out of range); `docs/THREATS.md` names it.
-- 74 tests matching weather, METAR, wet, the runway state, same air, the
-  station, messages, the protocol version and the transport document - the
-  server and client weather sessions and the client written from the
-  document among them - pass in linux-debug, and 33 matching the documents.
-  **The selftest hash does not move**: `6e988ba216e5ee07` in linux-debug.
+- `a_runway_end_no_client_would_read_is_never_laid`: of a 3,000 m end and
+  five no reader takes (25,000 m, no length, heading 361, latitude 91, a NaN
+  heading), only the 3,000 m one is laid. **Seen red**: the length's top
+  removed - "only the 3,000 m runway is laid, of 6: 2".
+- `runways_that_could_not_be_had_are_asked_for_again_after_the_wait_and_each_failure_said`:
+  a source failing three times, waited out at once, is tried four times,
+  each failure said as itself, and laid at the fourth. **Seen red**: a
+  failure never tried again - the test never finished (killed at 60 s).
+- `every_refusal_the_document_names_for_runway_conditions_is_refused`:
+  sixteen cases refused (codes 0 and 6, each side of the poles and 180
+  degrees, headings -0.5 and 360.5, lengths 0 and 20,000.5, a moment or
+  wet-until below nought, a wet flag of 2, a time with the flag 00, 17
+  runways now or before, a trailing byte) and three edges read. **Seen
+  red**: the code's top removed - "code 6 is refused"; the heading's top
+  removed - `every_floating_point_field_of_every_message_refuses_a_nan_and_an_infinity`
+  "runway_conditions with the largest finite double at byte 35 is outside
+  its range and must be refused".
+- 81 tests matching weather, METAR, wet, the runway state, same air, the
+  station, messages, the protocol version and the documents - the server
+  and client weather sessions and the client written from the document
+  among them - pass in linux-debug. **The selftest hash does not move**:
+  `6e988ba216e5ee07` in linux-debug and `182dd6c996e0ee4c` in linux-release,
+  each the baseline recorded for that build type before this branch.
 
 ### Thrust reversers on the five airliners, and the F-15C's wet runway from her own manual: every landplane stops on the wet runway, 2026-10-14 — item done
 

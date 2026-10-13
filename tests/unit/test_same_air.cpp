@@ -13,6 +13,7 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <atomic>
 #include <cmath>
 #include <cstdint>
@@ -587,7 +588,7 @@ GLIDESLOPE_TEST(a_client_joining_after_the_rain_flies_the_wet_runway_the_server_
 // held until the test lets it go: `lay` returns at once, not laid, as often
 // as it is asked, and the air's runway is the weather's alone (dry); let go,
 // the runways are laid the next time it is asked and the runway is icy. One
-// that fails is never laid, says why once, and is not asked again.
+// that fails lays nothing, says why, and is not asked again within the hour.
 GLIDESLOPE_TEST(the_runways_a_reported_state_lies_on_are_laid_when_had_and_never_waited_for) {
     std::promise<void> release;
     std::shared_future<void> released = release.get_future().share();
@@ -637,6 +638,45 @@ GLIDESLOPE_TEST(the_runways_a_reported_state_lies_on_are_laid_when_had_and_never
         std::string again;
         check(!failing.lay(other, &again) && again.empty(), "once");
     } // let go: whatever it began is waited for here
-    check(tries == 1, "and is not asked again: asked " + std::to_string(tries.load()) + " times");
+    check(tries == 1, "and is not asked again within the hour: asked " +
+                          std::to_string(tries.load()) + " times");
     check(asked == 1000, "asked a thousand times while held");
+}
+
+// **Runways that could not be had are asked for again once the wait is
+// over, and each failure is said.** A source that fails, waited out at once
+// (`retry_after` of nought, where a server waits an hour): asked as `lay` is
+// asked again, it is tried again - three failures, each said - and once it
+// answers, the runways are laid. With the hour, it is tried once in the
+// same asks (the_runways_a_reported_state_lies_on_are_laid_when_had_and_never_waited_for).
+GLIDESLOPE_TEST(runways_that_could_not_be_had_are_asked_for_again_after_the_wait_and_each_failure_said) {
+    std::atomic<int> tries{0};
+    glideslope::frontend::StationRunways flaky(
+        [&tries]() -> std::vector<glideslope::world::RunwayEnd> {
+            if (++tries <= 3) {
+                throw std::runtime_error("nothing listens, try " + std::to_string(tries.load()));
+            }
+            return runway_24_and_06();
+        },
+        std::chrono::steady_clock::duration::zero());
+    glideslope::world::ReportedWeather air(
+        at_uuee("METAR UUEE 140800Z 18005KT 9999 FEW030 M02/M04 Q1013 R24/7901//"), nullptr,
+        0.0);
+    std::vector<std::string> said;
+    for (;;) {
+        std::string why;
+        if (flaky.lay(air, &why)) {
+            break;
+        }
+        if (!why.empty()) {
+            said.push_back(why);
+        }
+        std::this_thread::yield();
+    }
+    check(said.size() == 3, "each of the three failures said: " + std::to_string(said.size()));
+    for (std::size_t i = 0; i < said.size(); ++i) {
+        check(said[i].find("try " + std::to_string(i + 1)) != std::string::npos,
+              "failure " + std::to_string(i + 1) + " said as itself: " + said[i]);
+    }
+    check(tries == 4 && air.runways_laid(), "tried four times, and laid at the fourth");
 }
