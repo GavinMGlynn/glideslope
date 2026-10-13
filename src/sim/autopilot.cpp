@@ -232,6 +232,29 @@ constexpr double a_hands_pace = 1.0 / static_cast<double>(steps_per_second);
 constexpr double throttle_per_knot = 0.08;
 constexpr double throttle_integral_per_knot = 0.02;
 constexpr double throttle_rate = 0.25;
+// **The throttle does not answer speed the climb has traded for height**
+// (Lambregts' total energy, AIAA 83-2239: the throttle for the energy's
+// rate, the elevator for how it is shared). Climbing faster than asked she
+// slows by g times the excess over her speed, a second, and the airspeed
+// loop alone opens the throttle for it, which climbs her faster still: the
+// phugoid fed through the engines. So the climb's excess, as the knots it
+// would cost in `climb_as_speed_s`, is taken off the speed the throttle
+// answers - only its proportional part; the integral still finds the speed
+// asked. Holding 200 ft at her take-off flap and gear from the 35 ft screen,
+// the A380 - slow, heavy, her thrust a large part of her climb and slow to
+// spool - swung 15 ft either side at up to 490 ft/min for four minutes
+// without it; with the throttle frozen she settled in 43 s, so the speed
+// loop was the swing. At 1 s she settles in 62 s, at 2 s in 31, at 4 s in
+// 17; the other airliners within a second of where they were
+// (every_airliner_at_her_take_off_flap_and_gear_holds_a_low_height_settled_inside_a_minute).
+// In a steady climb or level flight, the climb as asked, it is nothing.
+// **Not for a light aeroplane, clean**: there the speed floor (below) is
+// the rule for that trade, and with both a Cherokee handed over near her
+// ceiling was back at her height in 109 s rather than 85. And the F-22A at
+// 130 kt with her gear down, 10 under her slowest, no longer slows into a
+// departure (test_catalogue.cpp).
+constexpr double climb_as_speed_s = 2.0;
+constexpr double fps_per_kt = 1852.0 / 3600.0 / 0.3048;
 // **Handed over climbing faster than the climb asked, she is eased down to
 // it** (Autopilot::ease_climb), at 25 ft/min a second, rather than stepped:
 // a take-off hands a light aeroplane over at full throttle climbing 1,000
@@ -985,10 +1008,21 @@ Controls Autopilot::fly() {
         // thirty seconds in her stall at 5,000 ft, given full power as her
         // nose went down, pulled 1.88 g coming back through her lift's peak
         // at 123 knots; given it once the wing was unstalled, 1.69.
-        const double wanted = unloading_ ? last_.throttle
-                              : holding_speed_ || on_speed
-                                  ? 1.0
-                                  : throttle_integral_ + throttle_per_knot * speed_off;
+        // The climb short of what is asked, as the knots it would buy in
+        // `climb_as_speed_s` (above): a climb in excess is speed the
+        // throttle is not to chase.
+        // Not where the speed floor is the rule for that trade - a light
+        // aeroplane, clean - which is Lambregts' own underspeed rule (above).
+        const double climb_as_kts =
+            a_.climb_floor_kts() && clean(a_)
+                ? 0.0
+                : climb_as_speed_s * g_fps2 * (climb_off / 60.0) / std::max(speed_fps, 1.0) /
+                      fps_per_kt;
+        const double wanted =
+            unloading_                   ? last_.throttle
+            : holding_speed_ || on_speed ? 1.0
+                                         : throttle_integral_ +
+                                               throttle_per_knot * (speed_off + climb_as_kts);
 
         const double next =
             std::clamp(toward(last_.throttle, wanted, throttle_rate * dt), 0.0, 1.0);
