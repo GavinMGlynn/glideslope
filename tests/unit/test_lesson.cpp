@@ -2841,27 +2841,31 @@ GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_
 // named (the S.23, below), thirteen judged. Seen red on the rollout judged
 // by groundspeed in steady air: the C172P, C182, Cub and PA-28 flew off the
 // runway again, 2.7 to 6.6 ft, three of them striking their airframes.
-GLIDESLOPE_TEST(in_a_steady_15_kt_headwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again) {
+namespace {
+
+// **Every aeroplane taught the approach (14), landed in a steady wind of
+// `head_kts` straight down the runway towards her** (a tailwind negative),
+// with no turbulence and no gust factor: none may go around, each must stay
+// on her wheels the right way up, rise no more than `settled_within_ft`
+// after her wheels met the runway, and stop. Those in `named` are flown and
+// shown, not judged; coverage asserted.
+void rolls_out_in_a_steady_wind(double head_kts,
+                                const std::map<std::string, std::string>& named) {
     const auto taught = everyone_taught("approach-and-landing");
     const double heading = a_runway().heading_deg / degrees;
-    constexpr double wind_mps = 15.0 * 0.514444;
+    const double wind_mps = head_kts * 0.514444;
     glideslope::sim::Conditions c;
     // A wind from the runway's heading blows the other way.
     c.wind_north_mps = -wind_mps * std::cos(heading);
     c.wind_east_mps = -wind_mps * std::sin(heading);
-    c.wind_at_20ft_mps = wind_mps;
+    c.wind_at_20ft_mps = std::abs(wind_mps);
     check(c.turbulence_severity == 0 && c.gust_factor_kt == 0.0,
-          "the headwind is steady: no turbulence and no gust factor");
-    const ApproachVariant headwind{"steady headwind", std::nullopt,
+          "the wind is steady: no turbulence and no gust factor");
+    const ApproachVariant headwind{"steady wind", std::nullopt,
                                    std::make_shared<glideslope::sim::SteadyWeather>(c), 0.0};
-    // **Named and not judged, with why** - flown and shown all the same. The
-    // item "In a steady headwind the S.23 skips off the water after
-    // alighting" in docs/COMPLETION_PLAN.md is open on it.
-    const std::map<std::string, std::string> named = {
-        {"short_s23", "she alights at 1.6 degrees, her hull's planing pitches her to 4 against "
-                      "her elevator, and she skips 1.0 ft off the water at her reference "
-                      "speed (7.6 ft judged by her groundspeed)"},
-    };
+    char wind_name[64];
+    std::snprintf(wind_name, sizeof wind_name, " (steady %.0f kt %s)", std::abs(head_kts),
+                  head_kts >= 0.0 ? "headwind" : "tailwind");
     std::size_t flown = 0;
     std::size_t left_out = 0;
     std::vector<std::string> wrong;
@@ -2876,7 +2880,7 @@ GLIDESLOPE_TEST(in_a_steady_15_kt_headwind_every_aeroplane_lands_and_rolls_out_w
             std::printf("  named, not judged - %s: %s\n", id.c_str(), named.at(id).c_str());
         }
         std::vector<std::string>& to = judged ? wrong : shown;
-        const std::string where = id + " (steady 15 kt headwind)";
+        const std::string where = id + wind_name;
         std::printf("  %-13s %s%s, touched %4.0f ft/min %4.0f m along, rose %.2f ft after "
                     "touching, least pitch %.1f deg%s\n",
                     id.c_str(), r.went_around ? "WENT AROUND: " : "landed", r.why.c_str(),
@@ -2908,6 +2912,30 @@ GLIDESLOPE_TEST(in_a_steady_15_kt_headwind_every_aeroplane_lands_and_rolls_out_w
           "every one of fourteen flown and judged or named: " + std::to_string(flown) +
               " judged and " + std::to_string(left_out) + " named of " +
               std::to_string(taught.size()));
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(in_a_steady_15_kt_headwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again) {
+    // **Named and not judged, with why**. The item "In a steady headwind the
+    // S.23 skips off the water after alighting" in docs/COMPLETION_PLAN.md
+    // is open on her, and waits on Phase 9's "The S.23's hull is not a
+    // planing hull". When her hull is fixed, take her out of this list and
+    // judge her with the rest.
+    rolls_out_in_a_steady_wind(
+        15.0, {{"short_s23", "she alights at 1.6 degrees, her hull's planing pitches her to 4 "
+                             "against her elevator, and she skips 1.0 ft off the water at her "
+                             "reference speed (7.6 ft judged by her groundspeed)"}});
+}
+
+// **In a steady 10 kt tailwind every landplane lands and rolls out without
+// lifting off again, and stops**: the rollout judged by her groundspeed,
+// there the more of the two. The thirteen landplanes are judged; the S.23
+// is flown and shown, not judged, as in the headwind.
+GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_landplane_lands_and_rolls_out_without_lifting_off_again) {
+    rolls_out_in_a_steady_wind(
+        -10.0, {{"short_s23", "a flying boat, whose hull is not yet a planing hull (Phase 9); "
+                              "judged with the landplanes when it is"}});
 }
 
 // **An approach flown well in gusts is not sent round by the gate**: every
