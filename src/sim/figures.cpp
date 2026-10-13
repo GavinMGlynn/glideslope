@@ -1658,6 +1658,30 @@ double hover_height_held(const std::filesystem::path& root, const PublishedFigur
     return worst;
 }
 
+// **How long she hovers on her fuel**: lifted to `altitude_ft` and settled
+// (lift_to_hover), her fuel burning, then held until she can no longer hold
+// her height within 10 ft of it; the minutes from settling. Her engine burns
+// as JSBSim's turbine does, its specific consumption on the core's thrust
+// before the fan's shaft takes its share - so in STOVL mode her fuel follows
+// the engine's thrust, not the lift system's.
+double hover_endurance(const std::filesystem::path& root, const PublishedFigures& figures,
+                       const FigureSpec& spec) {
+    Flight f(root, figures, spec, on_the_runway());
+    Hover hover(f.aircraft);
+    const double height_ft = condition(spec, "altitude_ft");
+    lift_to_hover(f, hover, height_ft);
+    for (int i = 0; i < steps(3600); ++i) {
+        const Hover::Command c = hover.step({height_ft, false});
+        f.aircraft.set_lift_system(c.lift);
+        f.fly(c.controls);
+        within_its_drift(spec, hover);
+        if (std::abs(hover.height_ft() - height_ft) > 10.0) {
+            return static_cast<double>(i) * dt / 60.0;
+        }
+    }
+    throw std::runtime_error("still hovering an hour on");
+}
+
 // **A vertical landing**: lifted to `altitude_ft` and settled (lift_to_hover),
 // then let down; the sink, ft/min, as its wheels first touch. Throws if it
 // drifts more than `most_drift_ft` from where it rose, or has not touched in
@@ -1684,10 +1708,13 @@ double vertical_landing(const std::filesystem::path& root, const PublishedFigure
 // `temperature_offset_c` warmer than standard, into `headwind_kt`. Converted
 // on the brakes, the nozzle and the fan's thrust at `roll_deg` from straight
 // aft, at full STOVL power; the brakes off, and at `rotate_kcas` the nozzle
-// and the fan swung to `lift_deg` and the nose raised to
-// `takeoff_pitch_deg`. The ground covered from the brakes' release to the
-// wheels leaving it; throws if she does not climb on to 50 ft above where
-// she stood without touching again.
+// and the fan swung to `lift_deg` and the nose raised to `strike_margin_deg`
+// under the attitude her tail strikes at (Aircraft::stance, as the departure
+// and the lander keep from it), on the stabilator and on the fan's share
+// (`rotate_pitch_gain` a degree short, `rotate_rate_gain` a radian a second).
+// The ground covered from the brakes' release to the wheels leaving it;
+// throws if her tail would strike, or if she does not climb on to 50 ft
+// above where she stood without touching again.
 double short_takeoff(const std::filesystem::path& root, const PublishedFigures& figures,
                      const FigureSpec& spec) {
     const InitialConditions ic = on_the_runway();
@@ -1719,6 +1746,11 @@ double short_takeoff(const std::filesystem::path& root, const PublishedFigures& 
     }
     c.left_brake = c.right_brake = 0.0;
     c.throttle = 1.0;
+    const Aircraft::Stance stance = f.aircraft.stance();
+    if (!stance.found || stance.tail_wheel || stance.strike_pitch_deg >= 90.0) {
+        throw std::runtime_error("her airframe gives no attitude her tail strikes at");
+    }
+    const double pitch_deg = stance.strike_pitch_deg - condition(spec, "strike_margin_deg");
     const double standing_ft = f.aircraft.property("position/h-agl-ft");
     const double rotate = condition(spec, "rotate_kcas");
     std::optional<double> lift_off_ft;
@@ -1729,14 +1761,18 @@ double short_takeoff(const std::filesystem::path& root, const PublishedFigures& 
         if (rotated) {
             // Rotated on the stabilator and the fan's share together, as the
             // hover's pitch is held (sim/hover.hpp).
-            const double pitch_deg = condition(spec, "takeoff_pitch_deg");
             lift.nozzle_deg = lift.fan_deg = condition(spec, "lift_deg");
             c.elevator = f.pilot.pitch_to(pitch_deg);
-            lift.fan = std::clamp(0.14 * (pitch_deg - f.aircraft.property("attitude/theta-deg")) -
-                                      8.0 * f.aircraft.property("velocities/q-rad_sec"),
-                                  -1.0, 1.0);
+            lift.fan = std::clamp(
+                condition(spec, "rotate_pitch_gain") * (pitch_deg - f.aircraft.property("attitude/theta-deg")) -
+                    condition(spec, "rotate_rate_gain") * f.aircraft.property("velocities/q-rad_sec"),
+                -1.0, 1.0);
         }
         const bool down = f.aircraft.property("gear/wow") > 0.5;
+        if (down && f.aircraft.property("attitude/theta-deg") >= stance.strike_pitch_deg) {
+            throw std::runtime_error("her tail struck the runway at " +
+                                     std::to_string(f.aircraft.property("attitude/theta-deg")) + " degrees");
+        }
         c.rudder = down ? f.pilot.steer_to(ic.heading_deg) : f.pilot.coordinate();
         c.aileron = down ? 0.0 : f.pilot.roll_to(0.0);
         f.aircraft.set_lift_system(lift);
@@ -1793,6 +1829,7 @@ const std::vector<std::pair<std::string, FlightFn>>& flights() {
         {"hover_height_held", hover_height_held},
         {"vertical_landing", vertical_landing},
         {"short_takeoff", short_takeoff},
+        {"hover_endurance", hover_endurance},
     };
     return all;
 }
@@ -1985,7 +2022,8 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
               "mach_to", "fuel_frozen", "altitude_to_ft", "propeller_lever",
               "running_pitch_deg", "rotate_kcas", "keel_aft_ft", "keel_below_ft", "clmax",
               "speed_falls_kt_per_1000_ft", "seconds", "most_drift_ft", "crosswind_kt",
-              "temperature_offset_c", "headwind_kt", "roll_deg", "lift_deg"}) {
+              "temperature_offset_c", "headwind_kt", "roll_deg", "lift_deg", "strike_margin_deg",
+              "rotate_pitch_gain", "rotate_rate_gain"}) {
             if (e->HasAttribute(key)) {
                 spec.conditions[key] = e->GetAttributeValueAsNumber(key);
             }
