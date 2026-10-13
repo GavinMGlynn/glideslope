@@ -564,13 +564,15 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       aeroplane's stray within 2 m, and the test now holds each within 4 m.
       *Verification: the extra stray traced to its cause, and either removed
       or explained in the test.*
-- [ ] **The navigator turns at a waypoint only once abeam of it.** Nothing
-      leads the turn onto the next leg, so each turn carries the aircraft
-      off that leg as the first leg's does, by an amount growing with the
-      square of her speed. *Verification: every aircraft, turning 90
-      degrees at a waypoint at her climb and cruise speeds, strays off the
-      next leg less than a tenth of her turn radius at that speed and 25
-      degrees of bank.*
+- [ ] **The navigator turns at a waypoint only once abeam of it.** It now
+      flies a waypoint by, leading the turn and flying its arc onto the next
+      leg, and 31 of the 32 turns stray at most 0.04 of the radius (before,
+      1.1 to 1.6). Missing: the Cherokee at her climb speed strays 0.14,
+      holding only four fifths of the bank asked; and the OpenAI coast
+      recording must be recorded again for the new flight. *Verification: every
+      aircraft, turning 90 degrees at a waypoint at her climb and cruise
+      speeds, strays off the next leg less than a tenth of her turn radius
+      at that speed and 25 degrees of bank.*
 - [x] **A glide may still be asked of a jet at its approach speed.** Each
       aircraft's slowest glide is measured with its gear up, and every
       aircraft glides round unstalled at every speed it may be asked to

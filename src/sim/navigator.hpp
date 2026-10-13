@@ -13,8 +13,10 @@
 // from inside, it asks the autopilot for a bank rather than a heading (a
 // loiter law after ArduPilot's, navigator.cpp); and it asks the autopilot for the
 // waypoint's altitude and airspeed. A
-// waypoint is passed when it is abeam: when the leg ahead of the aircraft is
-// gone. The Earth is a sphere of radius
+// waypoint is passed when it is abeam - when the leg ahead of the aircraft is
+// gone - or, where a leg follows it, flown by: passed short of it by the
+// distance the turn onto the next leg needs to end on it (fly_by_lead_m,
+// navigator.cpp), as an FMS anticipates a fly-by waypoint's turn. The Earth is a sphere of radius
 // 6,371 km for this, which is within 0.5% of the ellipsoid's distances.
 
 #include "sim/aircraft.hpp"
@@ -91,6 +93,21 @@ private:
     bool circling_ = false;
     double around_deg_ = 0.0;
     double turned_deg_ = 0.0;
+    // Round a fly-by turn's arc onto the leg being flown (navigator.cpp):
+    // the arc's centre, radius and way round, and how far short of its
+    // waypoint the turn began.
+    bool turning_ = false;
+    bool turn_right_ = false;
+    double turn_centre_latitude_deg_ = 0.0;
+    double turn_centre_longitude_deg_ = 0.0;
+    double turn_radius_m_ = 0.0;
+    double turn_lead_m_ = 0.0;
+    // How long since it began, and how far her bank lags the bank asked,
+    // once measured (negative until then).
+    double turn_s_ = 0.0;
+    double roll_lag_s_ = -1.0;
+    // Rolling out of the arc, wings level asked.
+    bool rolling_out_ = false;
 };
 
 } // namespace glideslope::sim
