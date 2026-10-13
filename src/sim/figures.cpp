@@ -2315,10 +2315,11 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         const double ft = landing->GetAttributeValueAsNumber("ft");
         const double factor = landing->GetAttributeValueAsNumber("factor");
         out.landing_basis = landing->GetAttributeValue("basis");
-        if (out.landing_basis != "over_50_ft_obstacle" && out.landing_basis != "field_length") {
+        if (out.landing_basis != "over_50_ft_obstacle" && out.landing_basis != "field_length" &&
+            out.landing_basis != "measured") {
             throw std::runtime_error(file.string() + " gives a <landing_distance> basis '" +
                                      out.landing_basis +
-                                     "', not over_50_ft_obstacle or field_length");
+                                     "', not over_50_ft_obstacle, field_length or measured");
         }
         if (!(ft > 0.0 && factor >= 1.0)) {
             throw std::runtime_error(file.string() +
