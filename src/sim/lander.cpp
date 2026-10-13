@@ -767,6 +767,22 @@ Controls Lander::fly_laws() {
         const double hold = std::clamp(
             0.05 * hold_error - 0.05 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
         c.elevator = flying * hold + (1.0 - flying) * 1.0;
+        // **A hull on the water is held at the attitude she touched at, until
+        // she comes off the step**, and only then is the stick brought fully
+        // back: the FAA's Seaplane Handbook (FAA-H-8083-23, ch. 6, "Normal
+        // Landing"), "maintain the touchdown attitude until the seaplane
+        // begins to come off the step. Once it begins to settle into the
+        // plowing attitude, apply full up elevator". Eased back as she slowed,
+        // as a wheel's rollout is, the S.23's trim rose from 5 to 12.5
+        // degrees on the step - past where a planing hull porpoises - and she
+        // hopped on and off it, 0.86 ft. Off the step is her wing's half of
+        // the reference speed, where `flying` runs out.
+        if (a_.in_water() && a_.property("gear/wow") <= 0.5) {
+            const double attitude_error = touchdown_pitch_deg_ - s.pitch_deg;
+            const double on_the_step = std::clamp(
+                0.2 * attitude_error - 0.1 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
+            c.elevator = flying > 0.0 ? on_the_step : 1.0;
+        }
         // **A jet is landed as the handbook lands a jet**, not as it lands a
         // Cub. The FAA's Airplane Flying Handbook (FAA-H-8083-3C), chapter
         // 16, "Touchdown and Rollout": the nose-wheel is lowered on to the
