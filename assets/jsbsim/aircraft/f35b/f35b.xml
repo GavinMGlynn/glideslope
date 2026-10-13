@@ -355,6 +355,7 @@
         <property value="0">fcs/lift-fan-cmd-norm</property>
         <property value="0">fcs/roll-post-cmd-norm</property>
         <property value="0">fcs/nozzle-yaw-cmd-norm</property>
+        <property value="0">fcs/thrust-split-cmd-norm</property>
         <property value="90">fcs/fan-cmd-deg</property>
         <property value="0.99">fcs/stovl-throttle-max</property>
         <property value="250">fcs/stovl-limit-kcas</property>
@@ -424,16 +425,42 @@
                 <clipto><min>-1</min><max>1</max></clipto>
                 <output>fcs/nozzle-yaw-pos-norm</output>
             </pure_gain>
+            <pure_gain name="thrust-split limit">
+                <input>fcs/thrust-split-cmd-norm</input>
+                <gain>1</gain>
+                <clipto><min>-1</min><max>1</max></clipto>
+                <output>fcs/thrust-split-pos-norm</output>
+            </pure_gain>
+            <fcs_function name="Thrust Split">
+                <function>
+                    <product>
+                        <value>0.327778</value>
+                        <property>fcs/stovl-pos-norm</property>
+                        <property>fcs/thrust-split-pos-norm</property>
+                    </product>
+                </function>
+                <output>fcs/thrust-split-share</output>
+            </fcs_function>
             <fcs_function name="Shaft Power">
                 <function>
                     <acos>
                         <product>
                             <difference><value>1</value><product><value>0.315387</value><property>fcs/stovl-pos-norm</property></product></difference>
+                            <difference><value>1</value><property>fcs/thrust-split-share</property></difference>
                             <cos><product><value>0.209440</value><property>fcs/nozzle-yaw-pos-norm</property></product></cos>
                         </product>
                     </acos>
                 </function>
                 <output>propulsion/engine/reverser-angle-rad</output>
+            </fcs_function>
+            <fcs_function name="Lift System Base">
+                <function>
+                    <quotient>
+                        <property>propulsion/engine/thrust-lbs</property>
+                        <difference><value>1</value><property>fcs/thrust-split-share</property></difference>
+                    </quotient>
+                </function>
+                <output>fcs/lift-system-base-lbf</output>
             </fcs_function>
             <actuator name="Fan Vanes">
                 <input>fcs/fan-cmd-deg</input>
@@ -459,19 +486,25 @@
             </fcs_function>
             <fcs_function name="Lift Fan">
                 <function>
+                    <sum>
                     <product>
-                        <property>propulsion/engine/thrust-lbs</property>
+                        <property>fcs/lift-system-base-lbf</property>
                         <property>fcs/stovl-pos-norm</property>
                         <value>1.111111</value>
                         <sum><value>1</value><product><value>0.1</value><property>fcs/lift-fan-pos-norm</property></product></sum>
                     </product>
+                    <product>
+                        <property>fcs/lift-system-base-lbf</property>
+                        <property>fcs/thrust-split-share</property>
+                    </product>
+                    </sum>
                 </function>
                 <output>external_reactions/lift-fan/magnitude</output>
             </fcs_function>
             <fcs_function name="Left Roll Post">
                 <function>
                     <product>
-                        <property>propulsion/engine/thrust-lbs</property>
+                        <property>fcs/lift-system-base-lbf</property>
                         <property>fcs/stovl-pos-norm</property>
                         <value>0.108333</value>
                         <sum><value>1</value><product><value>0.8</value><property>fcs/roll-post-pos-norm</property></product></sum>
@@ -482,13 +515,22 @@
             <fcs_function name="Right Roll Post">
                 <function>
                     <product>
-                        <property>propulsion/engine/thrust-lbs</property>
+                        <property>fcs/lift-system-base-lbf</property>
                         <property>fcs/stovl-pos-norm</property>
                         <value>0.108333</value>
                         <sum><value>1</value><product><value>-0.8</value><property>fcs/roll-post-pos-norm</property></product></sum>
                     </product>
                 </function>
                 <output>external_reactions/right-roll-post/magnitude</output>
+            </fcs_function>
+            <fcs_function name="Flaperon Droop">
+                <function>
+                    <product>
+                        <value>20.0</value>
+                        <property>fcs/stovl-pos-norm</property>
+                    </product>
+                </function>
+                <output>fcs/flaperon-droop-deg</output>
             </fcs_function>
             <fcs_function name="Nozzle Side">
                 <function>
@@ -577,6 +619,15 @@
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/elevator-pos-rad</property>
                     <value>0.24</value>
+                </product>
+            </function>
+            <function name="aero/coefficient/CLdroop">
+                <description>Lift_due_to_flaperon_droop</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>fcs/flaperon-droop-deg</property>
+                    <value>0.008155</value>
                 </product>
             </function>
         </axis>
@@ -732,6 +783,15 @@
                     <value>0.03</value>
                 </product>
             </function>
+            <function name="aero/coefficient/CDdroop">
+                <description>Drag_due_to_flaperon_droop</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>fcs/flaperon-droop-deg</property>
+                    <value>0.00075</value>
+                </product>
+            </function>
         </axis>
         <axis name="SIDE">
             <function name="aero/coefficient/CYb">
@@ -857,6 +917,16 @@
                     <property>metrics/cbarw-ft</property>
                     <property>fcs/elevator-pos-rad</property>
                     <value>-0.322</value>
+                </product>
+            </function>
+            <function name="aero/coefficient/Cmdroop">
+                <description>Pitch_moment_due_to_flaperon_droop</description>
+                <product>
+                    <property>aero/qbar-psf</property>
+                    <property>metrics/Sw-sqft</property>
+                    <property>metrics/cbarw-ft</property>
+                    <property>fcs/flaperon-droop-deg</property>
+                    <value>-0.002039</value>
                 </product>
             </function>
         </axis>

@@ -36,9 +36,11 @@ each control moves its thrust, and how long the conversion takes are not
 published, and are estimated below, each with its number; nothing models
 the ground's effect on a jet in a hover - no suckdown, fountain or hot gas
 taken back into the inlet. The fan's vane box vectors its thrust aft for a
-short take-off, as Lockheed's paper gives its arc; her short take-off is
-flown (assets/figures/f35b.xml) and is longer than her requirement's 600 ft,
-for want of what is named in COMPLETION_PLAN.md.
+short take-off, as Lockheed's paper gives its arc. Two more are hers on the
+short take-off's run: the thrust split, the engine's thrust moved between the
+nozzle and the fan, the total unchanged, which pitches her (SPLIT_SHARE); and
+her flaperons drooped as she converts (FLAPERON_DROOP_DEG). Her short
+take-off is flown (assets/figures/f35b.xml), inside her requirement's 600 ft.
 
 **Why the B and not the A.** FGAddon has no F-35A, so the A could have no
 visual model and nothing to rest on with its wheels up. It has an F-35B, under
@@ -81,7 +83,17 @@ Where each number comes from:
     directs its thrust "in an arc of 41.75-104 degrees ... at a rate of 40
     degrees per second"; the roll posts
     "produce about 10 percent of the vertical thrust" (here 9.3, Rolls-
-    Royce's share).
+    Royce's share); "Thrust split is defined as the ratio of main engine
+    thrust over lift fan thrust, typically used to represent the propulsion
+    system pitching moment applied to the aircraft", and "The 3BSM can
+    vector up to 23,900 pounds of thrust at the maximum rearward thrust
+    split" - the split's reach.
+  F-35 Joint Program Office (Joe DellaVedova), "F-35B Lightning II
+  completes first land-based ski jump launch", DVIDS, 24 June 2015
+    "The F-35B's design allows it to automatically position the control
+    surfaces and nozzles for takeoff": her flaperons drooped in STOVL mode.
+  Raymer, Aircraft Design: A Conceptual Approach, DATCOM's plain flap
+    The flaperons' droop's lift, at estimated effectiveness and span.
   JSBSim's F100-PW-229, made the F135 as tools/make_f15c.py makes the F100-
   PW-220 (tools/fighter.py's thrust with speed and height, the F100's shape),
   its throttle ratios set to fly the maximum Mach.
@@ -103,7 +115,8 @@ Estimated, as nothing published gives them, each named below with its number:
 the mean aerodynamic chord and where the wing, the centre of gravity, the
 tanks, the engine and the gear are; the gear's springs; the lift's curve past
 its straight line; the drag's numbers; the fuel its engine burns; the
-surfaces' travel; and the pitch and yaw dampers its fly-by-wire flight
+surfaces' travel; how far the flaperons droop in STOVL mode and how
+far forward the thrust split goes; and the pitch and yaw dampers its fly-by-wire flight
 controls stand for. The airframe's own contacts, which it rests on with its
 wheels up, are measured from its visual model by tools/ground.py.
 """
@@ -211,6 +224,35 @@ CONVERSION_S = 8.0
 FAN_MODULATION = 0.10
 POST_SHIFT = 0.8
 NOZZLE_YAW_DEG = 12.0
+
+# **The thrust split, her pitch control on the short take-off's run.**
+# Wiegand et al.: "Thrust split is defined as the ratio of main engine thrust
+# over lift fan thrust, typically used to represent the propulsion system
+# pitching moment applied to the aircraft", and "The 3BSM can vector up to
+# 23,900 pounds of thrust at the maximum rearward thrust split" - against
+# Rolls-Royce's 18,000 at the hover's, so the split moves up to 5,900 lbf,
+# 0.328 of the nozzle's share, from the fan to the nozzle. How far forward
+# it goes is not published; the same, estimated. The total does not change:
+# what the nozzle gives up the fan gains (lift_system).
+SPLIT_SHARE = (23900.0 - NOZZLE_LBF) / NOZZLE_LBF
+
+# **The flaperons drooped in STOVL mode.** Her flight controls set her
+# surfaces and nozzles for a short take-off themselves (the F-35 Joint
+# Program Office's release on her first ski-jump launch, 24 June 2015: "The
+# F-35B's design allows it to automatically position the control surfaces
+# and nozzles for takeoff"). How far the
+# flaperons droop is not published: an estimate, short of their 25 degrees
+# of travel so that they still roll her. Their lift is DATCOM's plain flap's
+# (Raymer, Aircraft Design, the flap's lift increment): the wing's slope,
+# the flap's effectiveness at a quarter of the chord deflected 20 degrees
+# (0.45 in theory, 0.7 of it past 15 degrees), and the share of the wing
+# behind the flaperons, estimated; its centre of pressure half the chord
+# back, a quarter behind the aerodynamic centre; and its drag DATCOM's
+# plain flap's at that deflection, estimated.
+FLAPERON_DROOP_DEG = 20.0
+FLAP_EFFECTIVENESS = 0.45 * 0.7
+FLAPPED_WING_SHARE = 0.5
+FLAP_DRAG = 0.015
 
 
 def metrics():
@@ -384,8 +426,10 @@ def lift_system():
         return (f"{i}<fcs_function name=\"{name}\">\n{i}    <function>\n{body}"
                 f"{i}    </function>\n{i}    <output>{output}</output>\n{i}</fcs_function>\n")
 
+    base = "fcs/lift-system-base-lbf"
+
     def share(name, lbf, gain, control, output):
-        return fn(name, f"{i}        <product>\n{i}            <property>{thrust}</property>\n"
+        return fn(name, f"{i}        <product>\n{i}            <property>{base}</property>\n"
                         f"{i}            <property>fcs/stovl-pos-norm</property>\n"
                         f"{i}            <value>{lbf / NOZZLE_LBF:.6f}</value>\n"
                         f"{i}            <sum><value>1</value><product><value>{gain}</value>"
@@ -393,7 +437,7 @@ def lift_system():
 
     out = "".join(f"        <property value=\"0\">fcs/{name}</property>\n" for name in
                   ("stovl-cmd-norm", "nozzle-cmd-deg", "lift-fan-cmd-norm", "roll-post-cmd-norm",
-                   "nozzle-yaw-cmd-norm"))
+                   "nozzle-yaw-cmd-norm", "thrust-split-cmd-norm"))
     out += "        <property value=\"90\">fcs/fan-cmd-deg</property>\n"
     # What the simulation reads of her lift system: the throttle's top in
     # STOVL mode (sim/hover.cpp), and the fastest she may convert at
@@ -420,25 +464,41 @@ def lift_system():
               f"{i}        <product>\n{i}            <property>fcs/nozzle-pos-deg</property>\n"
               f"{i}            <value>{math.pi / 180.0:.12f}</value>\n{i}        </product>\n",
               "propulsion/engine/pitch-angle-rad")
-    for name in ("lift-fan", "roll-post", "nozzle-yaw"):
+    for name in ("lift-fan", "roll-post", "nozzle-yaw", "thrust-split"):
         out += (f"{i}<pure_gain name=\"{name} limit\">\n{i}    <input>fcs/{name}-cmd-norm</input>\n"
                 f"{i}    <gain>1</gain>\n{i}    <clipto><min>-1</min><max>1</max></clipto>\n"
                 f"{i}    <output>fcs/{name}-pos-norm</output>\n{i}</pure_gain>\n")
+    # The thrust split (SPLIT_SHARE): the fraction of the nozzle's share sent
+    # to the fan, as far as the conversion has gone.
+    out += fn("Thrust Split",
+              f"{i}        <product>\n{i}            <value>{SPLIT_SHARE:.6f}</value>\n"
+              f"{i}            <property>fcs/stovl-pos-norm</property>\n"
+              f"{i}            <property>fcs/thrust-split-pos-norm</property>\n{i}        </product>\n",
+              "fcs/thrust-split-share")
     # The power the fan's shaft and the posts take: the nozzle passes only its
-    # share, as JSBSim's reverser takes the cosine of its angle off the
-    # thrust; and swivelled sideways, only the cosine of the swivel of that
-    # along its axis, the sine going to the nozzle's sideways force - so that
-    # swivelling it makes no thrust.
+    # share, less what the split sends the fan, as JSBSim's reverser takes
+    # the cosine of its angle off the thrust; and swivelled sideways, only the
+    # cosine of the swivel of that along its axis, the sine going to the
+    # nozzle's sideways force - so that swivelling it makes no thrust.
     yaw = math.radians(NOZZLE_YAW_DEG)
     out += fn("Shaft Power",
               f"{i}        <acos>\n{i}            <product>\n"
               f"{i}                <difference><value>1</value><product>"
               f"<value>{1.0 - nozzle_share():.6f}</value><property>fcs/stovl-pos-norm</property>"
               f"</product></difference>\n"
+              f"{i}                <difference><value>1</value><property>fcs/thrust-split-share</property>"
+              f"</difference>\n"
               f"{i}                <cos><product><value>{yaw:.6f}</value>"
               f"<property>fcs/nozzle-yaw-pos-norm</property></product></cos>\n"
               f"{i}            </product>\n{i}        </acos>\n",
               "propulsion/engine/reverser-angle-rad")
+    # What the nozzle would pass with the split at its middle, which each
+    # share is reckoned from.
+    out += fn("Lift System Base",
+              f"{i}        <quotient>\n{i}            <property>{thrust}</property>\n"
+              f"{i}            <difference><value>1</value><property>fcs/thrust-split-share</property>"
+              f"</difference>\n{i}        </quotient>\n",
+              "fcs/lift-system-base-lbf")
     # The fan's thrust vectored by its vane box, forward and up.
     out += (f"{i}<actuator name=\"Fan Vanes\">\n{i}    <input>fcs/fan-cmd-deg</input>\n"
             f"{i}    <rate_limit>{FAN_RATE_DEG_S:.1f}</rate_limit>\n"
@@ -449,12 +509,26 @@ def lift_system():
                   f"{i}        <product>\n{i}            {sign}<{op}><product><property>fcs/fan-pos-deg</property>"
                   f"<value>{math.pi / 180.0:.12f}</value></product></{op}>\n{i}        </product>\n",
                   f"external_reactions/lift-fan/{axis}")
-    out += share("Lift Fan", LIFT_FAN_LBF, FAN_MODULATION, "fcs/lift-fan-pos-norm",
-                 "external_reactions/lift-fan/magnitude")
+    # The fan: its share, moved by its vanes, and what the split sends it.
+    out += fn("Lift Fan",
+              f"{i}        <sum>\n{i}        <product>\n{i}            <property>{base}</property>\n"
+              f"{i}            <property>fcs/stovl-pos-norm</property>\n"
+              f"{i}            <value>{LIFT_FAN_LBF / NOZZLE_LBF:.6f}</value>\n"
+              f"{i}            <sum><value>1</value><product><value>{FAN_MODULATION}</value>"
+              f"<property>fcs/lift-fan-pos-norm</property></product></sum>\n{i}        </product>\n"
+              f"{i}        <product>\n{i}            <property>{base}</property>\n"
+              f"{i}            <property>fcs/thrust-split-share</property>\n{i}        </product>\n"
+              f"{i}        </sum>\n",
+              "external_reactions/lift-fan/magnitude")
     out += share("Left Roll Post", ROLL_POST_LBF, POST_SHIFT, "fcs/roll-post-pos-norm",
                  "external_reactions/left-roll-post/magnitude")
     out += share("Right Roll Post", ROLL_POST_LBF, -POST_SHIFT, "fcs/roll-post-pos-norm",
                  "external_reactions/right-roll-post/magnitude")
+    # The flaperons drooped as far as the conversion has gone.
+    out += fn("Flaperon Droop",
+              f"{i}        <product>\n{i}            <value>{FLAPERON_DROOP_DEG:.1f}</value>\n"
+              f"{i}            <property>fcs/stovl-pos-norm</property>\n{i}        </product>\n",
+              "fcs/flaperon-droop-deg")
     out += fn("Nozzle Side",
               f"{i}        <product>\n{i}            <property>{thrust}</property>\n"
               f"{i}            <property>fcs/stovl-pos-norm</property>\n"
@@ -492,6 +566,13 @@ def lift_table(indent):
             f"{indent}    <tableData>\n{head}{rows}{indent}    </tableData>\n{indent}</table>\n")
 
 
+def flap_lift_per_deg():
+    """The flaperons' droop's lift a degree (FLAPERON_DROOP_DEG): DATCOM's
+    plain flap, at low speed."""
+    return (fighter.lift_slope(0.2, ASPECT, SWEEP_QUARTER_CHORD) * FLAP_EFFECTIVENESS * FLAPPED_WING_SHARE
+            * math.pi / 180.0)
+
+
 def aerodynamics():
     t = "                    "
     w = written
@@ -499,12 +580,16 @@ def aerodynamics():
     lift = [
         w.coefficient("CLalpha", "Lift_due_to_alpha", [q, s, "aero/function/kCLge", lift_table(t)]),
         w.coefficient("CLde", "Lift_due_to_stabilator", [q, s, "fcs/elevator-pos-rad", CL_DE]),
+        w.coefficient("CLdroop", "Lift_due_to_flaperon_droop", [q, s, "fcs/flaperon-droop-deg",
+                                                                 round(flap_lift_per_deg(), 6)]),
     ]
     drag = [fighter.drag_functions(SUBSONIC_ZERO_LIFT_DRAG, WAVE_DRAG, make_f15c.WAVE_DECAY, ASPECT,
                                    SPAN_EFFICIENCY, make_f15c.SUPERSONIC_LIFT_DRAG, SEPARATION_ALPHA),
             w.coefficient("CDgear", "Drag_due_to_gear", [q, s, "gear/gear-pos-norm", 0.02]),
             w.coefficient("CDbeta", "Drag_due_to_sideslip", [q, s, "aero/mag-beta-rad", 0.25]),
-            w.coefficient("CDde", "Drag_due_to_stabilator", [q, s, "fcs/mag-elevator-pos-rad", 0.03])]
+            w.coefficient("CDde", "Drag_due_to_stabilator", [q, s, "fcs/mag-elevator-pos-rad", 0.03]),
+            w.coefficient("CDdroop", "Drag_due_to_flaperon_droop", [q, s, "fcs/flaperon-droop-deg",
+                                                                    FLAP_DRAG / FLAPERON_DROOP_DEG])]
     side = [
         w.coefficient("CYb", "Side_force_due_to_beta", [q, s, "aero/beta-rad", CY_BETA]),
         w.coefficient("CYda", "Side_force_due_to_flaperons", [q, s, "fcs/left-aileron-pos-rad", 2.0 * CY_DA]),
@@ -522,6 +607,8 @@ def aerodynamics():
         w.coefficient("Cmq", "Pitch_moment_due_to_pitch_rate", [q, s, c, "aero/ci2vel", "velocities/q-aero-rad_sec", CM_Q]),
         w.coefficient("Cmadot", "Pitch_moment_due_to_alpha_rate", [q, s, c, "aero/ci2vel", "aero/alphadot-rad_sec", CM_ADOT]),
         w.coefficient("Cmde", "Pitch_moment_due_to_stabilator", [q, s, c, "fcs/elevator-pos-rad", CM_DE]),
+        w.coefficient("Cmdroop", "Pitch_moment_due_to_flaperon_droop", [q, s, c, "fcs/flaperon-droop-deg",
+                                                                         round(-0.25 * flap_lift_per_deg(), 6)]),
     ]
     yaw = [
         w.coefficient("Cnb", "Yaw_moment_due_to_beta", [q, s, b, "aero/beta-rad", CN_BETA]),

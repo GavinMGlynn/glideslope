@@ -358,12 +358,18 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       *Verification: every nose-wheel aeroplane's tail strikes the runway
       where its airframe would, and is judged a strike, with every take-off,
       approach and landing test green.* Done 2026-10-13.
-- [ ] **The F-35B's short take-off is 709 ft, not her required 600, and
-      nothing flies her between jet-borne and wing-borne flight.** She hovers
-      and lands vertically on the hover control law; no pilot's controls or
-      AI plan reach her lift system yet (PROJECT_STATUS, 2026-10-13).
-      *Verification: it hovers at its published thrust, lands vertically,
-      and takes off in its published short distance.*
+- [x] **The F-35B takes off in her required short distance**: 591.5 ft
+      against 600, her nose raised by the thrust split between fan and
+      nozzle and her flaperons drooped; how far they droop is estimated
+      (PROJECT_STATUS, 2026-10-13). *Verification: it hovers at its
+      published thrust, lands vertically, and takes off in its published
+      short distance.* Done 2026-10-13.
+- [ ] **Nothing flies the F-35B between jet-borne and wing-borne flight**:
+      nothing converts her in the air, slows her into a hover or
+      accelerates her out of one, and no pilot's controls or AI plan reach
+      her lift system. *Verification: she is flown from wing-borne flight
+      into a hover and out of it again, and a pilot and an AI plan each
+      convert her.*
 - [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses
