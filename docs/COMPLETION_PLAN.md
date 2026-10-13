@@ -790,13 +790,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       anti-skid less. *Verification: each aircraft's tyre pressure and brakes
       are sourced and used.* Done 2026-10-13: four pressures (F-22A, F-35B,
       B-2A, Mosquito) are stated estimates.
-- [ ] **Three overrun a regulation-length wet runway**, braked fully. The
+- [x] **Three overrun a regulation-length wet runway**, braked fully. The
       five airliners now have thrust reversers, used on the roll as their
-      makers' manuals say, and the 787-8 and A320 stop on it; the touches
-      were never fast (each at or below her reference speed). **Still
-      missing: the F-15C**, who has no reversers, overruns by 20 m - her
-      runway is shorter than her own flight manual's wet distance (about
-      9,000 ft). *Verification: each stops on it.*
+      makers' manuals say, and the 787-8 and A320 stop on it; the F-15C's
+      wet runway is sized from her own flight manual's wet distance, and
+      she stops on it. The touches were never fast. *Verification: each
+      stops on it.* Done 2026-10-14: her wet distance is read from a chart,
+      to about 500 ft.
 - [ ] **A pilot has no key or lever for reverse thrust**: the reverse lever
       is in the controls and on the wire, and only the AI moves it.
       *Verification: a binding moves it, as every other lever's does.*

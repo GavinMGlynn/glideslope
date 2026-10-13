@@ -265,16 +265,16 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### Thrust reversers on the five airliners: the 787-8 and A320 stop on the wet runway, the F-15C still does not, 2026-10-14 — item still open
+### Thrust reversers on the five airliners, and the F-15C's wet runway from her own manual: every landplane stops on the wet runway, 2026-10-14 — item done
 
-**What is still not done, first.** **The F-15C still overruns the wet
-short runway by 20 m** (2,478 m of 2,459) and stays named: she has no
-reversers, and her runway - the transport's 1.67 and 1.15 on her flight
-manual's 4,200 ft dry - is shorter than that manual's own unfactored wet
-distance, about 9,000 ft (figure A8-3 read through its RCR 16 reflector, to
-perhaps 500 ft). A runway sized from that would not ask her to stop short at
-all, so she is named rather than given it, and the item stays open on her.
-**A pilot has no binding for the reverse lever**: it is in the controls and
+**What is still not done, first.** **The F-15C's wet distance is read from
+a chart**, to perhaps 500 ft: her flight manual's figure A8-3 through its
+RCR 16 (WET) reflector, about 8,200 ft over 50 ft at her weight, sea level,
+standard day, no wind (the dry 4,200 ft read through the same panels gives a
+ground roll of about 3,200 ft, which the RCR 16 line turns into about
+7,000). Her runway is now that times the same 1.67 as her dry figure, 4,174
+m, in place of 1.15 on the dry (2,459 m), which was shorter than her own
+manual says she needs unfactored; she stops at 2,478 m. **A pilot has no binding for the reverse lever**: it is in the controls and
 on the wire, and only the AI moves it (a new Phase 10b item). **Two numbers
 are estimates**: the sleeves' two-second travel and the A320's pivoting doors
 taken at the cascade's 0.31. **The reverse spool is slow**: 7.2 to 7.8 s from
@@ -314,6 +314,12 @@ F-35B 159.2 (158.9). No test-pilot problem; the overruns were stopping force.
   speed, taken as 20 kt over the ground. The lever at a hand's pace.
 - Every source is in `docs/ASSETS.md`, "Thrust reversers".
 
+**The F-15C's wet runway.** `<wet_landing_distance ft basis factor>` in
+a figures file, read as `<landing_distance>` is and only beside one
+(`PublishedFigures::own_wet_landing_need_m`); `sim::wet_landing_need_m` is
+it where given and the dry need times 1.15 otherwise, and the copilot's
+brief and the wet short-runway test both use it. Only the F-15C gives one.
+
 **Figures.** On the wet short runway, landed by hand and taken back,
 maximum reverse: 737-300 1,552 m to 1,338 (of 1,725); 787-8 1,911 to 1,552
 (of 1,893); A320 1,809 to 1,478 (of 1,725); A380 1,860 to 1,679 (of 2,225).
@@ -325,9 +331,15 @@ F-35B) have no reversers.
 
 **Verification.**
 - `every_landplane_landed_by_hand_on_a_wet_short_runway_is_stopped_on_it_by_the_ai`:
-  the 787-8 and A320 un-named; the F-15C named and bounded at 25 m. **Seen to
-  fail** with the AI never reversing: "787-8 ... stopped off the runway,
-  1911.3 m past the threshold"; reverted.
+  no aircraft named now; all 14 stop on their wet runways, the F-15C at
+  2,478 m of 4,174. **Seen to fail** with the AI never reversing: "787-8 ...
+  stopped off the runway, 1911.3 m past the threshold"; and with the F-15C's
+  own wet figure ignored: "f15c ... stopped off the runway, 2478.2 m past the
+  threshold"; each reverted.
+- `every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land_on_and_given_a_longer_one`:
+  wet, the F-15C is briefed her own wet need, every other 1.15 times her dry.
+  Run with the figures, published, brief and wet tests (99 by name): all
+  passed.
 - `every_aircraft_with_reversers_is_pushed_back_by_them_on_the_ground_and_every_other_ignores_the_lever`:
   the 15 landplanes (the flying boat named) stand braked; the five whose
   catalogue says `reversers` say so themselves, each reversing engine pushes

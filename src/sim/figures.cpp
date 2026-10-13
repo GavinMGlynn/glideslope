@@ -2339,6 +2339,29 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         }
         out.landing_need_m = ft * 0.3048 * factor;
     }
+    // **And a wet one, where her manual gives its own**: at most once, read as
+    // the dry one is, and only beside a dry one.
+    if (root->GetNumElements("wet_landing_distance") > 1) {
+        throw std::runtime_error(file.string() + " gives <wet_landing_distance> twice");
+    }
+    if (JSBSim::Element* wet = root->FindElement("wet_landing_distance")) {
+        for (const char* key : {"ft", "basis", "factor"}) {
+            if (!wet->HasAttribute(key)) {
+                throw std::runtime_error(file.string() + " gives <wet_landing_distance> without " +
+                                         key);
+            }
+        }
+        const double ft = wet->GetAttributeValueAsNumber("ft");
+        const double factor = wet->GetAttributeValueAsNumber("factor");
+        if (wet->GetAttributeValue("basis") != "over_50_ft_obstacle" || !(ft > 0.0 && factor >= 1.0) ||
+            landing == nullptr) {
+            throw std::runtime_error(file.string() +
+                                     " gives a <wet_landing_distance> that is not over a 50 ft "
+                                     "obstacle, not above 0, factored below 1, or without a dry "
+                                     "<landing_distance>");
+        }
+        out.own_wet_landing_need_m = ft * 0.3048 * factor;
+    }
     if (no_landing != nullptr && no_landing->GetNumDataLines() == 0) {
         throw std::runtime_error(file.string() + " gives <no_landing_distance> without its reason");
     }
@@ -2347,6 +2370,12 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
 
 double landing_need_m(const std::filesystem::path& data, const std::string& model) {
     return read_published_figures(data / "figures" / (model + ".xml")).landing_need_m;
+}
+
+double wet_landing_need_m(const std::filesystem::path& data, const std::string& model) {
+    const PublishedFigures f = read_published_figures(data / "figures" / (model + ".xml"));
+    return f.own_wet_landing_need_m > 0.0 ? f.own_wet_landing_need_m
+                                          : f.landing_need_m * wet_landing_factor;
 }
 
 PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model) {

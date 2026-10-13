@@ -214,4 +214,15 @@
     121.195(b) and 135.385(b). No regulation factors a military landing; the
     transport's margin is used as the stricter of the two this project states.
   </landing_distance>
+
+  <wet_landing_distance ft="8200" basis="over_50_ft_obstacle" factor="1.67">
+    The same figure A8-3, read through its RCR 16 (WET) reflector from the same
+    point: at 36,946 lb, sea level, standard day, zero wind, the dry ground roll
+    of about 3,200 ft (read here from the 4,200 ft total) is a wet one of about
+    7,000 ft, and a total over a 50 ft obstacle of about 8,200 ft - read from
+    the chart's scan at 400 dpi, to perhaps 500 ft either way. Times the same
+    1.67 as the dry figure: her manual's own wet distance, in place of the
+    transport's 1.15 on the dry (14 CFR 121.195(d)), which at 2,459 m is shorter
+    than her manual says she needs wet.
+  </wet_landing_distance>
 </published_figures>

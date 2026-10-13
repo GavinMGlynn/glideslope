@@ -150,6 +150,12 @@ struct PublishedFigures {
     // is refused it for length. Every file says one or the other, once.
     double landing_need_m = 0.0;
     std::string landing_basis; // "over_50_ft_obstacle", "field_length", "measured"; empty: none
+    // **The runway it needs to land on a wet runway, from its own figure**,
+    // metres: `<wet_landing_distance ft="..." basis="..." factor="...">`, read
+    // as `<landing_distance>` is, where its manual publishes one. 0 where it
+    // does not: then the wet need is the dry one times 14 CFR 121.195(d)'s
+    // 1.15 (`wet_landing_need_m`, below).
+    double own_wet_landing_need_m = 0.0;
 };
 
 struct FigureResult {
@@ -175,6 +181,12 @@ double glide_slowest_kts(const std::filesystem::path& data, const std::string& m
 // or 0 where nothing published gives it. Throws as `read_published_figures`
 // does.
 double landing_need_m(const std::filesystem::path& data, const std::string& model);
+
+// The runway `model` needs to land on a wet runway, metres: her figures'
+// own wet landing distance where they give one, and otherwise her dry need
+// times sim::wet_landing_factor (0 where she has no dry need either). Throws
+// as `read_published_figures` does.
+double wet_landing_need_m(const std::filesystem::path& data, const std::string& model);
 
 // **A plan file is held to the aircraft it flies, and its speeds, as it is
 // read**, as a model's plan is (copilot/planner.cpp): throws FlightPlanError

@@ -5845,18 +5845,26 @@ glideslope::sim::Runway a_short_runway() {
 }
 
 // **A wet short runway for `model`**: as long as her wet landing distance -
-// 14 CFR 121.195(d)'s 1.15 times the dry (sim::wet_landing_factor) - taking
-// as the dry the longer of the short runway every landplane stops on dry
-// (1,500 m) and the runway her figures say she needs to land
-// (sim::landing_need_m; the F-22A, which has none, 1,500 m): 1,725 m for
-// most, 2,225 m for the A380, 2,459 m for the F-15C, and from their measured
+// her own manual's, factored as her dry one is, where her figures give one
+// (the F-15C's, 4,174 m: T.O. 1F-15A-1 figure A8-3 at RCR 16, about 8,200
+// ft, times 1.67) - and otherwise 14 CFR 121.195(d)'s 1.15 times the dry
+// (sim::wet_landing_factor), taking as the dry the longer of the short
+// runway every landplane stops on dry (1,500 m) and the runway her figures
+// say she needs to land (sim::landing_need_m; the F-22A, which has none,
+// 1,500 m): 1,725 m for most, 2,225 m for the A380, and from their measured
 // landings (2026-10-13) 1,928 m for the Mosquito, 3,190 m for the B-2A and
 // 3,225 m for the F-35B. Wet: runway condition code 5.
 glideslope::sim::Runway a_wet_short_runway(const std::string& model) {
     glideslope::sim::Runway r = a_short_runway();
     r.name = "the wet short runway";
-    r.length_m = std::max(a_short_runway().length_m, glideslope::sim::landing_need_m(data(), model)) *
-                 glideslope::sim::wet_landing_factor;
+    const double own_wet_m =
+        glideslope::sim::read_published_figures(data() / "figures" / (model + ".xml"))
+            .own_wet_landing_need_m;
+    r.length_m = own_wet_m > 0.0
+                     ? own_wet_m
+                     : std::max(a_short_runway().length_m,
+                                glideslope::sim::landing_need_m(data(), model)) *
+                           glideslope::sim::wet_landing_factor;
     return r;
 }
 
@@ -6108,31 +6116,19 @@ void every_landplane_taken_back(OnTheRoll when) {
     std::vector<std::string> landplanes;
     std::vector<std::string> left_out;
     const bool wet = when == OnTheRoll::landed_by_hand_on_a_wet_short_runway;
-    // **And one is flown but named as running past its end**, braked on her
-    // own tyres (sim/runway_condition.hpp): the F-15C, who has no reversers.
-    // The airliners named here before (the 787-8 and A320, 2026-10-13) now
-    // stop on it with theirs (sim/lander.cpp, reverse_thrust; 2026-10-14:
-    // 787-8 1,552 m of 1,893, A320 1,478 of 1,725). Her runway is the
-    // transport's margin on her flight manual's dry distance over 50 ft
-    // (4,200 ft, times 1.67 and 1.15: 2,459 m), and the same manual's own wet
-    // figure is longer still: its figure A8-3 (T.O. 1F-15A-1, change 4) read
-    // for RCR 16, wet, at her weight, sea level, standard day and no wind,
-    // gives about 9,000 ft over 50 ft unfactored - so a runway sized from it
-    // would not ask her to stop short at all, and she is named rather than
-    // given it. She touches at her reference speed (157.8 kt against 160),
-    // not fast. She must still stop, unwrecked, on the centreline; she must
-    // overrun, so that the day she does not, this list is shortened; and by
-    // no more than her ceiling, a little above what she overran by on
-    // 2026-10-13 and still does (20 m), so that a growing overrun is not
-    // passed as named.
+    // **None is named as running past its end now.** Three were on
+    // 2026-10-13: the 787-8 and A320 stop with their reversers
+    // (sim/lander.cpp, reverse_thrust; 787-8 1,552 m of 1,893, A320 1,478 of
+    // 1,725), and the F-15C, who has none, on a runway sized from her own
+    // manual's wet distance (a_wet_short_runway). The list and its bound are
+    // kept, so that one found overrunning is named with her ceiling and why,
+    // and each named must overrun - the day she does not, the list is
+    // shortened - by no more than her ceiling.
     struct Overrun {
         double most_m;
         std::string why;
     };
-    const std::map<std::string, Overrun> overrun_wet = {
-        {"f15c", {25.0, "305 psi tyres, touching at her reference speed; she has no reversers, "
-                        "and her runway is the transport's margin on her dry flight-manual "
-                        "distance, shorter than her manual's own wet one (about 9,000 ft)"}}};
+    const std::map<std::string, Overrun> overrun_wet = {};
     std::size_t overran = 0;
     for (const std::string& id : taught) {
         if (glideslope::sim::find_aircraft(data(), id).seaplane) {

@@ -33,7 +33,7 @@ copilot::Brief brief_for(const std::filesystem::path& data, const std::string& c
     b.cruise_kts = entry.start_airspeed_kts;
     b.glide_slowest_kts = sim::glide_slowest_kts(data, entry.model);
     b.landing_need_m = sim::landing_need_m(data, entry.model);
-    b.wet_landing_need_m = b.landing_need_m * sim::wet_landing_factor;
+    b.wet_landing_need_m = sim::wet_landing_need_m(data, entry.model);
     return b;
 }
 

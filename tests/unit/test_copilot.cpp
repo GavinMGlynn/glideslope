@@ -556,8 +556,9 @@ GLIDESLOPE_TEST(every_aircrafts_brief_tells_the_approach_speed_the_ai_flies_her_
 // threshold, so the length that counts is the one landed on. An aircraft
 // whose file publishes no landing distance is named, and refused nothing for
 // length - even a 10 m runway. **And wet, it needs 1.15 times as much** (14
-// CFR 121.195(d)): the runway a metre long dry is refused it wet, saying so,
-// and one a metre over 1.15 times its need is given it.
+// CFR 121.195(d)), or her manual's own wet distance where her figures give
+// one (the F-15C, sim::wet_landing_need_m): the runway a metre long dry is
+// refused it wet, saying so, and one a metre over its wet need is given it.
 GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land_on_and_given_a_longer_one) {
     const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     const auto catalogue = glideslope::sim::read_catalogue(data);
@@ -607,9 +608,13 @@ GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land
             glideslope::frontend::plan_request_for(data, entry.id, wet_here);
         check(wet_request.wet_runways && !request.wet_runways &&
                   wet_request.wet_landing_need_m == brief.wet_landing_need_m &&
-                  std::abs(brief.wet_landing_need_m -
-                           need_m * glideslope::sim::wet_landing_factor) < 1e-9,
-              entry.id + ": briefed wet, it needs 1.15 times as much, for the planner too");
+                  brief.wet_landing_need_m ==
+                      glideslope::sim::wet_landing_need_m(data, entry.model) &&
+                  (entry.model == "f15c" ||
+                   std::abs(brief.wet_landing_need_m -
+                            need_m * glideslope::sim::wet_landing_factor) < 1e-9),
+              entry.id + ": briefed wet, it needs her own wet figure (the F-15C) or 1.15 "
+                         "times as much, for the planner too");
         const auto why_when = [&](const glideslope::world::RunwayEnd& end, bool wet) {
             return glideslope::copilot::landing_refusal(
                 approach_kts, need_m, brief.wet_landing_need_m,
@@ -631,7 +636,7 @@ GLIDESLOPE_TEST(every_aircraft_is_refused_a_runway_shorter_than_it_needs_to_land
         const auto displaced = runway(need_m + 1.0, 2.0);
         const std::string short_why = why(short_of);
         const std::string displaced_why = why(displaced);
-        const double wet_need_m = need_m * glideslope::sim::wet_landing_factor;
+        const double wet_need_m = brief.wet_landing_need_m;
         const std::string wet_why = why_when(long_enough, true);
         const std::string wet_long_why = why_when(runway(wet_need_m + 1.0, 0.0), true);
         const bool ok = short_why.find("to land on, and the aircraft needs") != std::string::npos &&
