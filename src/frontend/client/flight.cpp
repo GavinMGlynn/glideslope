@@ -43,6 +43,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     coverage_ = std::make_unique<world::DemCoverage>(
         std::string(std::istreambuf_iterator<char>(coverage_file), {}));
     fetch_ = world::http_fetch();
+    station_runways_.emplace(cache, fetch_);
     tiles_ = std::make_unique<world::DownloadedTiles>(cache, fetch_);
     geoid_ = std::make_unique<world::Geoid>(world::egm2008_geoid(cache, fetch_));
     collision_ = std::make_shared<world::CollisionGround>(
@@ -141,6 +142,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
             fetch_);
         report.microbursts = start.microbursts;
         microbursts_ = start.microbursts;
+        on_its_runways(report);
         // The air rises and sinks over the same ground the aircraft meets.
         weather_ = std::make_shared<world::ReportedWeather>(
             std::move(report), geoid_.get(), weather_blend_seconds,
@@ -148,6 +150,14 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
                 return ground->height_above_geoid(lat, lon);
             });
         aircraft_->set_weather(weather_);
+    }
+}
+
+void Flight::on_its_runways(world::WeatherReport& report) {
+    std::string why;
+    station_runways_->attach(report, &why);
+    if (!why.empty()) {
+        std::fprintf(stderr, "glideslope: %s\n", why.c_str());
     }
 }
 
@@ -336,7 +346,8 @@ bool Flight::heard_weather(const net::Weather& weather,
                                    }
                                }
                                return frame();
-                           });
+                           },
+                           [this](world::WeatherReport& report) { on_its_runways(report); });
         // None of its own from now: what was being fetched is let go.
         next_weather_.reset();
     }
@@ -363,6 +374,7 @@ void Flight::refresh_weather() {
         try {
             world::WeatherReport report = next_weather_->get();
             report.microbursts = microbursts_;
+            on_its_runways(report);
             weather_->update(std::move(report), now);
         } catch (const std::exception& e) {
             std::fprintf(stderr, "glideslope: the weather is not updated: %s\n",

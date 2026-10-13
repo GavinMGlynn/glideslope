@@ -12,9 +12,10 @@
 // prevailing visibility, in metres or statute miles (9999, 0800, CAVOK, 10SM,
 // 1 1/2SM, M1/4SM, P6SM); the weather present (-RA, +TSRA, VCSH, FZFG, BR);
 // and the cloud (FEW, SCT, BKN and OVC with their heights and CB or TCU; VV,
-// the sky obscured; SKC, CLR, NSC and NCD, none). Not read: runway visual
-// ranges, a minimum visibility in one direction, recent weather (RE), and
-// trends - groups after BECMG, TEMPO or NOSIG are forecasts, not
+// the sky obscured; SKC, CLR, NSC and NCD, none); recent weather (RERA,
+// RESHSN); and the state of the runway (R24/290195, 24290195, R/SNOCLO,
+// R24L/CLRD//). Not read: runway visual ranges, a minimum visibility in one
+// direction, and trends - groups after BECMG, TEMPO or NOSIG are forecasts, not
 // observations, and are not read as either.
 
 #include <optional>
@@ -67,6 +68,10 @@ struct Metar {
         std::vector<std::string> phenomena; // RA, SN, FG, BR, ...
     };
     std::vector<PresentWeather> weather;
+    // **Recent weather** (REw'w', WMO-No. 306 regulation 15.13.2): weather
+    // seen since the last routine report or in the last hour, whichever is
+    // shorter, but not now - "RERA", rain that has stopped. No intensity.
+    std::vector<PresentWeather> recent_weather;
 
     // The cloud, as reported, lowest first: its cover, in eighths - FEW 1 to
     // 2, SCT 3 to 4, BKN 5 to 7, OVC 8 - and its base above the station. VV is
@@ -109,7 +114,36 @@ struct Metar {
         bool frontal = false;
     };
     std::optional<WindShift> wind_shift;
+
+    // **The state of a runway**, as an airport's authority reported it
+    // (WMO-No. 306, FM 15 regulation 15.13.6; ICAO Annex 3 until
+    // 3 November 2021, and some States still): RDRDR/ERCReReRBRBR, or the
+    // older eight figures DRDRERCReReRBRBR, in which 50 is added to a right
+    // parallel's number. Each code is as reported, and absent where the
+    // report has "/" for it.
+    struct RunwayState {
+        // The runway named, "24" or "24R"; empty for all of them - 88, 99
+        // (the last report repeated, its runway not said) and SNOCLO.
+        std::string runway;
+        bool all_runways = false;
+        bool repeated = false;    // designator 99
+        bool snow_closed = false; // SNOCLO: the aerodrome closed by snow
+        bool cleared = false;     // CLRD: what lay on it has gone
+        std::optional<int> deposit;  // code table 0919, 0 to 9
+        std::optional<int> extent;   // code table 0519: 1, 2, 5 or 9
+        std::optional<int> depth;    // code table 1079: 0 to 90, 92 to 99
+        std::optional<int> friction; // code table 0366: 0 to 95, 99
+    };
+    std::vector<RunwayState> runway_states;
+    // **Each group read as a runway's state and not used**, with why: a
+    // reserved code, a runway that cannot be one, a character no table has.
+    std::vector<std::string> runway_states_refused;
 };
+
+// **How deep a deposit lies**, millimetres, from code table 1079: 00 less
+// than 1 mm (0), 01 to 90 that many, 92 to 98 10 to 40 cm. Absent for 99 (the
+// runway not operational, its depth not reported) and any other code.
+std::optional<double> deposit_depth_mm(int depth_code);
 
 // Throws MetarError if there is no station and time.
 Metar parse_metar(std::string_view report);

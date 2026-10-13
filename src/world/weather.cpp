@@ -7,6 +7,8 @@
 
 #include <algorithm>
 #include <thread>
+#include <utility>
+#include <cctype>
 #include <cmath>
 
 namespace glideslope::world {
@@ -125,18 +127,129 @@ double isa_temperature_c(double height_m) {
 }
 
 int runway_condition_of(const Metar& metar) {
-    for (const Metar::PresentWeather& w : metar.weather) {
+    const auto wets = [](const Metar::PresentWeather& w) {
         if (w.vicinity) {
-            continue;
+            return false;
         }
         for (const std::string& p : w.phenomena) {
             if (p == "RA" || p == "DZ" || p == "SN" || p == "SG" || p == "PL" || p == "GS" ||
                 p == "GR" || p == "UP") {
-                return sim::wet_runway;
+                return true;
             }
+        }
+        return false;
+    };
+    for (const Metar::PresentWeather& w : metar.weather) {
+        if (wets(w)) {
+            return sim::wet_runway;
+        }
+    }
+    for (const Metar::PresentWeather& w : metar.recent_weather) {
+        if (wets(w)) {
+            return sim::wet_runway;
         }
     }
     return sim::dry_runway;
+}
+
+std::optional<int> runway_condition_of(const Metar::RunwayState& state,
+                                       std::optional<double> temperature_c) {
+    if (state.snow_closed) {
+        return sim::most_slippery_runway;
+    }
+    if (state.cleared) {
+        return sim::dry_runway;
+    }
+    if (state.extent && (*state.extent == 1 || *state.extent == 2)) {
+        return sim::dry_runway;
+    }
+    std::optional<int> code;
+    if (state.deposit) {
+        // 3 mm, 1/8 in: what divides code 5 from the deeper codes. No depth
+        // reported (//) is a depth that does not matter.
+        const std::optional<double> depth =
+            state.depth ? deposit_depth_mm(*state.depth) : std::optional<double>(0.0);
+        const bool deep = depth && *depth > 3.0;
+        const bool closed = !depth; // 99: not operational, its depth not said
+        switch (*state.deposit) {
+        case 0:
+            code = sim::dry_runway;
+            break;
+        case 1: // damp
+        case 3: // rime or frost
+            code = sim::wet_runway;
+            break;
+        case 2: // wet, water patches
+        case 6: // slush
+            code = closed ? sim::most_slippery_runway : deep ? 2 : sim::wet_runway;
+            break;
+        case 4: // dry snow
+        case 5: // wet snow
+            code = closed ? sim::most_slippery_runway : deep ? 3 : sim::wet_runway;
+            break;
+        case 7: // ice
+            code = sim::most_slippery_runway;
+            break;
+        default: // 8 compacted or rolled snow, 9 frozen ruts or ridges
+            code = temperature_c && *temperature_c <= -15.0 ? 4 : 3;
+            break;
+        }
+    }
+    if (state.friction && *state.friction >= 91 && *state.friction <= 95) {
+        const int braking = *state.friction - 90; // 91 poor, 1 ... 95 good, 5
+        code = code ? std::min(*code, braking) : braking;
+    }
+    return code;
+}
+
+namespace {
+
+// "24R" as its number and letter; -1 for an ident with no number.
+std::pair<int, std::string> designator(const std::string& ident) {
+    std::size_t digits = 0;
+    while (digits < ident.size() &&
+           std::isdigit(static_cast<unsigned char>(ident[digits])) != 0) {
+        ++digits;
+    }
+    if (digits == 0 || digits > 2) {
+        return {-1, ident};
+    }
+    return {std::stoi(ident.substr(0, digits)), ident.substr(digits)};
+}
+
+} // namespace
+
+bool names(const Metar::RunwayState& state, const RunwayEnd& end) {
+    if (state.all_runways) {
+        return true;
+    }
+    const auto [number, letter] = designator(state.runway);
+    const auto [end_number, end_letter] = designator(end.ident);
+    if (end_number < 0) {
+        return false;
+    }
+    // The end's other end: 18 on, left and right swapped.
+    const int other_number = (end_number + 17) % 36 + 1;
+    const std::string other_letter = end_letter == "L"   ? "R"
+                                     : end_letter == "R" ? "L"
+                                                         : end_letter;
+    const auto matches = [number = number, letter = letter](int n, const std::string& l) {
+        return n == number && (l == letter || (letter.empty() && l == "L"));
+    };
+    return matches(end_number, end_letter) || matches(other_number, other_letter);
+}
+
+bool on_runway(const RunwayEnd& end, double latitude_deg, double longitude_deg) {
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    constexpr double metres_per_degree = 111319.49; // on the equatorial sphere
+    constexpr double half_width_m = 30.0;
+    const double east = std::remainder(longitude_deg - end.longitude_deg, 360.0) *
+                        metres_per_degree * std::cos(end.latitude_deg * radians);
+    const double north = (latitude_deg - end.latitude_deg) * metres_per_degree;
+    const double heading = end.heading_deg * radians;
+    const double along = east * std::sin(heading) + north * std::cos(heading);
+    const double across = east * std::cos(heading) - north * std::sin(heading);
+    return along >= 0.0 && along <= end.length_m && std::abs(across) <= half_width_m;
 }
 
 sim::Conditions surface_conditions(const SurfaceReport& report) {
@@ -317,6 +430,21 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
     if (sim::distance_m(latitude_deg, longitude_deg, report.surface.latitude_deg,
                         report.surface.longitude_deg) > metar_radius_m) {
         mean.runway_condition = sim::dry_runway;
+    } else {
+        // A runway's reported state, on the runway it names.
+        const Metar& reported = report.surface.metar;
+        for (const Metar::RunwayState& state : reported.runway_states) {
+            const std::optional<int> code = runway_condition_of(state, reported.temperature_c);
+            if (!code || *code >= mean.runway_condition) {
+                continue;
+            }
+            for (const RunwayEnd& end : report.runways) {
+                if (names(state, end) && on_runway(end, latitude_deg, longitude_deg)) {
+                    mean.runway_condition = *code;
+                    break;
+                }
+            }
+        }
     }
     constexpr double mps_per_knot = 1852.0 / 3600.0;
     constexpr double radians = 3.14159265358979323846 / 180.0;
@@ -448,6 +576,11 @@ ReportedWeather::ReportedWeather(WeatherReport report, const Geoid* geoid,
       ground_(std::move(ground)), geoid_(geoid), blend_seconds_(blend_seconds) {}
 
 void ReportedWeather::update(WeatherReport report, double now_s) {
+    // Rain the old report said keeps the runways wet a while after the new
+    // one takes over, at the blend's halfway as the runway does.
+    if (runway_condition_of(current_.surface.metar) != sim::dry_runway) {
+        wet_until_s_ = now_s + 0.5 * std::max(0.0, blend_seconds_) + still_wet_after_rain_s;
+    }
     previous_ = std::move(current_);
     previous_lift_ = current_lift_;
     current_ = std::move(report);
@@ -463,6 +596,12 @@ sim::Conditions ReportedWeather::at(double latitude_deg, double longitude_deg,
     sim::Conditions now =
         with_air_motion(current_, current_lift_, ground_, conditions_at(current_, msl),
                         latitude_deg, longitude_deg, msl, time_s);
+    // Still wet from the rain before, near the station.
+    if (time_s < wet_until_s_ && now.runway_condition == sim::dry_runway &&
+        sim::distance_m(latitude_deg, longitude_deg, current_.surface.latitude_deg,
+                        current_.surface.longitude_deg) <= metar_radius_m) {
+        now.runway_condition = sim::wet_runway;
+    }
     if (!previous_ || blend_seconds_ <= 0.0) {
         return now;
     }

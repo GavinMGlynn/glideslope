@@ -14,6 +14,27 @@
 
 namespace glideslope::frontend {
 
+void StationRunways::attach(world::WeatherReport& report, std::string* why) {
+    if (report.surface.metar.runway_states.empty()) {
+        return;
+    }
+    if (!all_ && !given_up_) {
+        try {
+            all_ = world::world_runways(cache_, fetch_);
+        } catch (const std::exception& e) {
+            given_up_ = true;
+            if (why != nullptr) {
+                *why = std::string("the runways cannot be had, and a runway's reported state "
+                                   "is not flown: ") +
+                       e.what();
+            }
+        }
+    }
+    if (all_) {
+        report.runways = world::runways_at(*all_, report.surface.metar.station);
+    }
+}
+
 world::WeatherReport fit_to_send(world::WeatherReport report) {
     std::string raw = report.surface.metar.raw;
     if (raw.size() <= net::most_metar_bytes) {
@@ -124,6 +145,9 @@ bool HeardAir::heard(const net::Weather& weather, const std::optional<net::Weath
         }
         still_ = true;
         return true;
+    }
+    if (on_runways_) {
+        on_runways_(*report);
     }
     if (!reported_ || still_) {
         reported_ = std::make_shared<world::ReportedWeather>(std::move(*report), geoid_,

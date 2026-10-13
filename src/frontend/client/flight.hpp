@@ -290,6 +290,9 @@ public:
 
 private:
     void refresh_weather();
+    // A report's runway states laid on its station's runways
+    // (frontend::StationRunways); said once if they cannot be had.
+    void on_its_runways(world::WeatherReport& report);
     void report_navigation();
 
     // The body's axes in ECEF - forward, starboard and down - and the
@@ -351,6 +354,7 @@ private:
     double weather_refresh_s_ = weather_refresh_seconds;
     std::vector<world::Microburst> microbursts_;
     std::shared_ptr<world::ReportedWeather> weather_;
+    std::optional<frontend::StationRunways> station_runways_;
     // The server's air, once it has said any (`heard_weather`).
     std::optional<frontend::HeardAir> heard_air_;
     std::int64_t server_weathers_ = 0;

@@ -9,12 +9,14 @@
 #include "world/geoid.hpp"
 #include "world/lift.hpp"
 #include "world/metar.hpp"
+#include "world/runways.hpp"
 #include "world/winds_aloft.hpp"
 
 #include <atomic>
 #include <chrono>
 #include <cstdint>
 #include <functional>
+#include <limits>
 #include <future>
 #include <optional>
 #include <string>
@@ -62,17 +64,62 @@ sim::Conditions surface_conditions(const SurfaceReport& report);
 // frontend::wet_runways), and dry beyond it.
 inline constexpr double metar_radius_m = 8000.0;
 
-// **The runway condition a report implies** (sim/runway_condition.hpp): wet,
-// code 5, while precipitation falls at the station - rain, drizzle, snow, snow
-// grains, ice pellets, hail, small hail or unknown precipitation, of any
-// intensity, not in the vicinity - and dry, 6, otherwise. A METAR does not say
-// how deep anything lies on a runway, so it never gives more than code 5's
-// "1/8 in or less", nor a runway still wet after the rain has stopped.
+// **The runway condition a report's weather implies** (sim/runway_condition.hpp):
+// wet, code 5, while precipitation falls at the station - rain, drizzle,
+// snow, snow grains, ice pellets, hail, small hail or unknown precipitation,
+// of any intensity, not in the vicinity - or has fallen and stopped since the
+// last routine report (recent weather: RERA, REDZ, RESN, ...); and dry, 6,
+// otherwise. A METAR's weather does not say how deep anything lies, so it
+// never gives more than code 5's "1/8 in or less": that is the runway-state
+// group's (below).
 int runway_condition_of(const Metar& metar);
+
+// **The runway condition code a runway's reported state gives**, AC 25-32
+// table 2 (the FAA's Runway Condition Assessment Matrix) read from WMO-No.
+// 306's code tables, at the report's temperature:
+// - SNOCLO, the aerodrome closed by snow: 1, the most slippery code flown
+//   (code 0, nil, is not one here);
+// - CLRD, cleared: 6;
+// - extent 1 or 2, 25 per cent of the runway or less covered: 6, as AC 25-32
+//   6.1 calls such a runway dry, whatever lies on the rest;
+// - deposit 0 clear and dry: 6; 1 damp, 3 rime or frost: 5; 7 ice: 1;
+// - 2 wet, 4 dry snow, 5 wet snow, 6 slush: 5 at 3 mm (1/8 in) deep or less,
+//   or with no depth that matters (//); deeper, 2 for water and slush, 3 for
+//   snow; and 1 for depth 99, the runway not operational;
+// - 8 compacted snow: 4 at -15 C and colder, 3 warmer or with no
+//   temperature; 9 frozen ruts or ridges, which the matrix does not name, as
+//   compacted snow (an estimate: it is compacted snow, frozen hard);
+// - and then a braking action reported (0366's 91 poor to 95 good) as the
+//   matrix's braking-action column has it - 95 good 5, 94 medium to good 4,
+//   93 medium 3, 92 medium to poor 2, 91 poor 1 - where that is more
+//   slippery, or alone where no deposit is reported. A measured friction
+//   coefficient (00 to 90) is not read: the matrix correlates codes with
+//   braking action, not with a measured coefficient.
+// Absent for a state that says nothing of the surface: no deposit and no
+// braking action.
+std::optional<int> runway_condition_of(const Metar::RunwayState& state,
+                                       std::optional<double> temperature_c);
+
+// **Whether a runway state names a runway end**: the end itself or its other
+// end (24R is 06L's runway). A designator without a letter names the runway
+// of that number without one, or its left parallel - the older eight
+// figures' convention, a right parallel's number having 50 added. All
+// runways - 88, 99, SNOCLO - name every one.
+bool names(const Metar::RunwayState& state, const RunwayEnd& end);
+
+// **Whether a place is on a runway**: along it from `end`'s threshold no
+// farther than its length, and within 30 m of its centreline - half the
+// widest runway ICAO Annex 14 asks for (60 m, code letter F), so that all of
+// any runway is on it, and no parallel 120 m or more away is.
+bool on_runway(const RunwayEnd& end, double latitude_deg, double longitude_deg);
 
 // What a flight's weather is made of.
 struct WeatherReport {
     SurfaceReport surface;
+    // **The runways at the report's station** (world::runways_at), which its
+    // runway-state groups name; with none, a state reported is read and
+    // lies on no runway, and the runways are as the weather alone says.
+    std::vector<RunwayEnd> runways;
     std::optional<WindsAloft> aloft;
     // The turbulence's severity, 0 none to 7 (world/air_motion.hpp), or, when
     // not given, what the METAR's gusts imply.
@@ -148,6 +195,11 @@ using GroundAt = std::function<double(double latitude_deg, double longitude_deg)
 // over the ground beneath - or the station's elevation, without `ground` -
 // carried by its drift. The terrain's lift is made from `ground`, and without
 // it there is none. JSBSim's own turbulence is left off: the air is all here.
+//
+// **The runway is the report's only near its station**: beyond
+// metar_radius_m, dry. Within it, as the report's weather says
+// (runway_condition_of), or more slippery where a runway-state group names
+// a runway of `report.runways` the place is on (on_runway).
 sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
                                 const GroundAt& ground, sim::Conditions mean,
                                 double latitude_deg, double longitude_deg,
@@ -188,9 +240,20 @@ private:
 // What CC BY 4.0 and Open-Meteo's terms ask to be shown beside its data.
 inline constexpr const char* open_meteo_credit = "Weather data by Open-Meteo.com";
 
+// **How long a runway stays wet after the rain has stopped**, seconds: half
+// an hour. An estimate, not a source's: pavement in sun dries in half an
+// hour to an hour and a half, and overcast and cool for hours longer (no
+// study of runways' drying was found). A report's recent weather (RERA)
+// already keeps it wet until the next routine report, up to an hour.
+inline constexpr double still_wet_after_rain_s = 1800.0;
+
 // A flight's weather: its report, and each new one blended in over an interval
 // rather than stepped to - every value moving linearly from what the old report
 // gave to what the new one gives, and the turbulence changing halfway.
+//
+// **A runway the old report wetted stays wet** (code 5, near the station)
+// for still_wet_after_rain_s after the new report takes over at the blend's
+// halfway, however dry the new report is.
 class ReportedWeather : public sim::Weather {
 public:
     // `geoid` converts the aircraft's height above the ellipsoid to height above
@@ -236,6 +299,9 @@ private:
     Lift current_lift_;
     GroundAt ground_;
     double changed_at_s_ = 0.0;
+    // Until when the runways near the station stay wet from rain the report
+    // before said (still_wet_after_rain_s); -infinity, never.
+    double wet_until_s_ = -std::numeric_limits<double>::infinity();
     const Geoid* geoid_;
     double blend_seconds_;
 };

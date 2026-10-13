@@ -778,12 +778,22 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       stage, or started from the approach autopilot's flare. The gate's
       judging waits on branch `learnt-landing-gate-wip`. *Verification:
       from every corner of its gate it is stabilized by 500 ft and lands.*
-- [ ] **A contaminated runway is flown when reported, and nothing reports
+- [x] **A contaminated runway is flown when reported, and nothing reports
       one.** The simulation brakes on every FAA runway condition code, but a
       METAR's weather says only that rain or snow is falling, not how deep it
       lies; Europe's runway-state group, which does, is not read. Nor is a
       runway still wet after the rain stops. *Verification: a report of
       slush or ice on a runway makes it slippery to the aircraft on it.*
+      Done 2026-10-14: a METAR's runway-state group, in either form, is read
+      and the runway it names given the FAA code its deposit and depth make;
+      a C172P braked from 40 kt stops in 78 m dry, 292 m in reported slush
+      and 550 m on reported ice. Rain that has stopped keeps the runway wet
+      for half an hour, an estimate.
+- [ ] **A copilot or planner is not told a runway is reported
+      contaminated.** It judges each runway dry or wet, and no landing
+      distance on snow, slush or ice is known for any aircraft.
+      *Verification: a landing on a runway reported icy is refused, or
+      sized from a published contaminated-runway figure.*
 - [ ] **A wet runway does not change a rolling tyre's grip sideways.**
       Only the brakes feel the water; a source for a wet tyre's cornering
       grip was not found. *Verification: a wet runway's side grip from a
@@ -840,8 +850,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       and 12 of 13 landplanes stop on a wet runway 1.15 times their dry need
       (the F-35B named: she had no landing distance; all 13 since
       2026-10-13, hers measured); a session's copilot and planner refuse a runway long enough dry
-      but short wet. Contaminated runways are flown when given; nothing
-      reports one (an open item in Phase 10b).
+      but short wet. Contaminated runways are flown when given, and a
+      METAR's runway-state group gives them (done 2026-10-14, Phase 10b).
 - [x] **A landing handed over in a skip is not landed.** Handed to the AI
       the moment a pilot's landing has bounced its wheels clear, even by an
       inch, she is given the plain autopilot, which never stops her (a 787

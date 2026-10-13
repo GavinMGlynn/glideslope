@@ -265,6 +265,114 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### A runway reported contaminated is slippery: the METAR's runway-state group read onto the runway it names, and rain that has stopped still wets, 2026-10-14 — item done
+
+**What is still missing, first.** **The copilot and planner are not told**:
+they judge each runway dry or wet (`world::WetRunways`), and a runway
+reported icy is judged as the weather alone says - no aircraft has a
+published landing distance on snow, slush or ice (a new Phase 10b item).
+**How long a runway stays wet is an estimate**, half an hour
+(`world::still_wet_after_rain_s`): no study of runways' drying was found.
+**A measured friction coefficient (0366's 00 to 90) is read and not used**:
+AC 25-32's matrix correlates codes with braking action, not with a
+measured coefficient. **The runways are fetched on the thread that wants
+them**, once: the first report with a runway state reads OurAirports'
+runways (`world::world_runways`, from the cache, or the network the first
+time ever) where it is attached - on the server's stepping thread for a
+refreshed report - and a report without one reaches nothing. **A client
+joining after the rain** is told the report now, not the one before it, so
+its prediction has the runway dry where the server, which saw the rain,
+keeps it wet for the half hour.
+
+**What it does.** `world::parse_metar` reads the state of the runway
+(WMO-No. 306 FM 15 regulation 15.13.6): the newer `R24/290195`,
+`R24L/CLRD//`, `R/SNOCLO` and `SNOCLO`, and the older eight figures
+`24290195`, in which 50 added to the number is the right parallel (74 is
+24R) and 88 is all runways, 99 the last report repeated; and recent weather
+(`RERA`, `RESHSN`; regulation 15.13.2). A group shaped as a state but not one
+- a character no table has, a reserved code (extent 0, 3, 4, 6-8; depth 91;
+friction 96-98), a runway not 01-36 (or 51-86 in the eight figures), 88 or
+99 with a letter, half a depth, CLRD with neither // nor figures - is put in
+`Metar::runway_states_refused` with why, and the rest of the report read.
+
+`world::runway_condition_of(state, temperature)` gives the FAA code
+(AC 25-32 table 2, the RCAM):
+
+| Deposit (0919) | 3 mm or less, or depth // | deeper | depth 99 (closed) |
+| --- | --- | --- | --- |
+| 0 clear and dry | 6 | 6 | 6 |
+| 1 damp, 3 rime or frost | 5 | 5 | 5 |
+| 2 wet, water patches | 5 | 2 | 1 |
+| 4 dry snow, 5 wet snow | 5 | 3 | 1 |
+| 6 slush | 5 | 2 | 1 |
+| 7 ice | 1 | 1 | 1 |
+| 8 compacted snow, 9 frozen ruts (estimate: as compacted) | 4 at -15 C and colder, 3 warmer or no temperature | same | same |
+| / not reported | none | none | none |
+
+Extent 1 or 2 (25 per cent or less covered) is 6, as AC 25-32 6.1 calls it
+dry; 5, 9 or / the deposit's. A braking action (0366's 91 poor to 95 good)
+is the matrix's column - 1 to 5 - and is taken where more slippery than the
+deposit's, or alone. CLRD is 6; SNOCLO 1 everywhere (code 0, nil, is not
+flown). Depth 99, the runway not operational with its depth not said, is 1.
+
+**On the runway it names.** `WeatherReport::runways` holds the station's
+runway ends (`world::runways_at`), attached by `frontend::StationRunways`
+only for a report with a state - by the server (`Fleet::fly_in`,
+`weather_changes`), the single-player client (its fetch and refreshes), and
+both clients' copy of the server's air (`HeardAir`'s new `on_runways`, so
+the prediction brakes as the server does). `world::with_air_motion`, within
+8 km of the station, gives an aircraft the state's code where it is on a
+runway the state names (`world::names`: either end, 24 is 06's runway, 24R
+06L's, a number alone its left parallel too; `world::on_runway`: along the
+end's length and within 30 m of its centreline, half Annex 14's widest,
+60 m) and that is more slippery than the weather's.
+
+**Still wet after the rain.** Recent rain, drizzle, snow or other
+precipitation wets the runway as falling rain does, and
+`world::ReportedWeather` keeps the runways near the station wet for
+`still_wet_after_rain_s` (1,800 s) after a report that wetted them gives way
+- from the blend's halfway, where the runway turns. **Sources**: none found
+for the drying time; it is stated as an estimate.
+
+**Sources pinned** in `docs/ASSETS.md`, "The runway's condition":
+WMO-No. 306 Volume I.1, 2011 edition updated 2013 (SHA-256
+2ed7574aa9014eb702e477317f70adad43cd2152582942579524d482ee736eb9) and its 1995
+edition for the eight figures (ba60b39a6f9f9ca77e6f71eb5f11a674d47f9e50936d3c32f695e411f2a393e3);
+ICAO State letter AN 10/1.1 ... 20/73 of 30 July 2020, Amendment 80 to
+Annex 3, which keeps the group in METAR only until 3 November 2021, the GRF's
+start (00be218b222aef9774657a5324237912099aa6874cb1721b2e5e8c1f604cb63f);
+AC 25-32 as before; the 50-added convention from a decoding guide, the
+European ANP FASID itself not found.
+
+**Verification.**
+- `every_runway_state_deposit_and_depth_maps_to_its_runway_condition_code`:
+  all 11 deposits at all 100 depths (1,100 groups), each read back and given
+  the table's code; compacted snow and frozen ruts at -15 and -14 C; every
+  extent with every deposit (55); every braking action on every deposit (55);
+  CLRD and SNOCLO in both forms. A measured coefficient is named and walked
+  once. **Seen red**: deep slush given 3 - "R24/2904// is code 2, not 3".
+- `a_runway_states_eight_figures_and_its_newer_group_name_the_same_runways`:
+  24, 74 (24R), 88, 99, R24L/, R88/; a runway visual range not a state; and
+  which ends a state names.
+- `a_malformed_runway_state_group_is_refused_with_its_reason`: ten ways,
+  each refused with its reason and the QNH after it read. **Seen red**:
+  the extent's reserved codes let through - "R24/230195 is no state".
+- `a_runway_is_still_wet_after_the_rain_stops`: RERA, REDZ, RESHSN, RETSRA,
+  REFZRA wet, REFG not; wet 1,799 s after a dry report, dry at 1,801 s, dry
+  8.1 km off. **Seen red**: no time kept - "wet 29 min 59 s after the rain
+  stopped"; and `a_runway_turning_wet_or_dry_in_a_blend_turns_halfway_through_it`
+  (now turning back to dry 1,800 s after halfway) red with it.
+- `a_metar_reporting_slush_or_ice_on_a_runway_makes_it_slippery_to_an_aircraft_braking_on_it`:
+  a C172P run to 40 kt on runway 24 and braked: dry code 6, 77.8 m; slush
+  20 mm (R24/6920//) code 2, 291.6 m; ice (R24/7901//, and 24790195) code 1,
+  550.0 m; ice on 15 and slush over a quarter of 24 (R24/6220//) code 6,
+  77.8 m; each within 4.4 m of the centreline. **Seen red**: the state never
+  laid on the runway - "the codes she stopped on: ...".
+- 48 tests matching weather, METAR, wet, the runway state, same air and the
+  station, server and client weather sessions among them, pass in
+  linux-debug. **The selftest hash does not move**: `6e988ba216e5ee07` in
+  linux-debug, as before.
+
 ### Thrust reversers on the five airliners, and the F-15C's wet runway from her own manual: every landplane stops on the wet runway, 2026-10-14 — item done
 
 **What is still not done, first.** **The F-15C's wet distance is read from
