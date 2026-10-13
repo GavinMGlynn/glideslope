@@ -9,14 +9,13 @@
 # Degrees are WGS84's, altitudes above sea level, airspeeds calibrated. The
 # navigator flies each leg along its great circle. A waypoint is flown by -
 # the turn onto the next leg begins before it - unless it says `flyover`, when
-# it is passed abeam first (src/sim/navigator.hpp). The Heads and the Harbour
-# Bridge are the tour's landmarks, flown over; Olympic Park is a turning
-# point, flown by.
+# it is passed abeam first (src/sim/navigator.hpp). The Heads, the Harbour
+# Bridge and Olympic Park are the tour's landmarks, each flown over.
 
 aircraft c172p
 start -33.905 151.290 3000 0 100
 
 waypoint THE_HEADS   -33.832 151.292 3000 100 flyover
 waypoint BRIDGE      -33.852 151.211 2500 100 flyover
-waypoint OLYMPIC     -33.847 151.063 2500 100
+waypoint OLYMPIC     -33.847 151.063 2500 100 flyover
 waypoint AIRPORT     -33.946 151.177 3000 90

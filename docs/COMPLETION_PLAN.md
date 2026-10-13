@@ -567,7 +567,8 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 - [x] **The navigator turns at a waypoint only once abeam of it.** Done
       2026-10-13: it flies a waypoint by, leading the turn and flying its
       arc onto the next leg, unless the plan marks it to be flown over, at
-      any angle and however short the legs; the autopilot now holds any
+      any angle and however short the legs, cutting a waypoint by no more
+      than 278 m where she can turn that tight; the autopilot now holds any
       bank it is asked for. Every aircraft strays at most 0.063 of her turn
       radius (the Cherokee at her climb speed), against 1.1 to 1.6 before.
       *Verification: every aircraft, turning 90 degrees at a waypoint at her
