@@ -1,6 +1,7 @@
 #include "sim/navigator.hpp"
 
 #include "sim/fixed_step.hpp"
+#include "sim/turn_laws.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -15,8 +16,8 @@ namespace {
 constexpr double earth_radius_m = 6371000.0;
 constexpr double radians = std::numbers::pi / 180.0;
 constexpr double dt = 1.0 / static_cast<double>(steps_per_second);
-// Back towards the leg: 30 degrees for each kilometre off it, 30 at most.
-constexpr double intercept_per_metre = 30.0 / 1000.0;
+// Back towards the leg: 30 degrees for each kilometre off it
+// (intercept_deg_per_metre, sim/turn_laws.hpp), 30 at most.
 constexpr double most_intercept_deg = 30.0;
 // The drift is averaged over five seconds, and measured only moving.
 constexpr double drift_average_s = 5.0;
@@ -276,7 +277,7 @@ AutopilotModes Navigator::steer() {
         off_m = 0.0;
     }
     last_track_deg_ = track;
-    const double course = track - std::clamp(intercept_per_metre * off_m,
+    const double course = track - std::clamp(intercept_deg_per_metre * off_m,
                                              -most_intercept_deg, most_intercept_deg);
     if (orbiting && air_fps > least_speed_fps) {
         // The heading whose air velocity and the wind together go along the

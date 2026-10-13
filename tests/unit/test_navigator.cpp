@@ -12,6 +12,7 @@
 #include "sim/navigator.hpp"
 #include "sim/orbit_trial.hpp"
 #include "sim/terrain.hpp"
+#include "sim/turn_laws.hpp"
 #include "sim/weather.hpp"
 
 #include <algorithm>
@@ -2019,9 +2020,13 @@ namespace {
 // **How far a turn onto a leg that starts where she is carries her off it**,
 // from the autopilot's and navigator's own laws alone, at a constant true
 // airspeed: the bank asked is a degree for each degree her heading is off
-// the course (25 at most) and is rolled to at 5 degrees a second
-// (sim/autopilot.cpp); the course is the leg's turned back 30 degrees for
-// each kilometre off it (sim/navigator.cpp); she turns at g tan(bank) / V.
+// the course (25 at most) and is rolled to at 5 degrees a second; the
+// course is the leg's turned back 30 degrees for each kilometre off it; she
+// turns at g tan(bank) / V. The figures are the ones the autopilot and the
+// navigator fly by (sim/turn_laws.hpp, and most_bank_deg), so retuning them
+// moves this with them. The bank limit is the autopilot's full one: a turn
+// that has spent its 3 kt may bank less (sim/autopilot.cpp), but these
+// never bank past 18.6 degrees.
 // Her bank is taken to be the bank asked, at once. A leg starting where she
 // is cannot be anticipated, so this is the least the turn onto it strays
 // under those laws - and since at a given bank she turns at a rate going as
@@ -2034,8 +2039,12 @@ double turn_onto_leg_strays_m(double true_mps, double turn_deg) {
     double off_m = 0.0;
     double most_m = 0.0;
     for (int step = 0; step < 60 * 120; ++step) {
-        const double wanted = std::clamp(off_course_deg + 30.0 / 1000.0 * off_m, -25.0, 25.0);
-        bank_deg += std::clamp(wanted - bank_deg, -5.0 * step_s, 5.0 * step_s);
+        using namespace glideslope::sim;
+        const double wanted =
+            std::clamp(bank_per_degree_off * (off_course_deg + intercept_deg_per_metre * off_m),
+                       -most_bank_deg, most_bank_deg);
+        bank_deg += std::clamp(wanted - bank_deg, -bank_rate_degps * step_s,
+                               bank_rate_degps * step_s);
         off_course_deg -=
             9.80665 * std::tan(bank_deg * radians) / true_mps / radians * step_s;
         off_m += true_mps * std::sin(off_course_deg * radians) * step_s;
@@ -2203,8 +2212,18 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
         // predicted / flown, the 172P 78 / 80, the 182S 79 / 80, the Cub
         // 39 / 40, the Cherokee 62 / 60; at the slower one 62 / 63, 63 /
         // 65, 28 / 30, 47 / 46. So nothing else strays her, and the check
-        // below holds every one within 10% of it: more is something else
-        // carrying her off the leg. (The "slower climb strays further" that
+        // below holds every one within 4 m of it: more is something else
+        // carrying her off the leg. Four metres, not a share of it, because
+        // what the model leaves out - the bank lagging the bank asked, her
+        // speed changing, her sideslip as she rolls - is a metre or two
+        // whatever the stray (the most is the Cherokee's 2.0 of 61.5, the
+        // Cub's 1.0 of 39.3), and twice that leaves room for another
+        // platform's flight to differ by as much again; a share would give
+        // the Cub 2 m to the Cherokee's 3. The bound is still tight enough
+        // to see a turn flown wrong: the autopilot rolling at 4 degrees a
+        // second rather than 5 strays the 172P 85.3 m against the 78.3
+        // predicted, and at 3, 93.5; the 100 m bound alone saw neither.
+        // (The "slower climb strays further" that
         // stood here was the Cherokee's take-off flap kept out, 151 m, since
         // brought up before the hand-over - sim/departure.hpp.) Flying the
         // leg from the threshold instead strays 219 to 383 m.
@@ -2215,19 +2234,15 @@ GLIDESLOPE_TEST(a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_
                                                             plan.waypoints[0].longitude_deg),
                            360.0);
         const double predicted_m = turn_onto_leg_strays_m(handed_over_true_mps, turn_deg);
-        std::fprintf(stderr,
-                     "%s: handed over at %.1f m/s true, %.1f degrees off the leg; its turn "
-                     "onto it predicted to stray %.1f m, and it strayed %.1f\n",
-                     id.c_str(), handed_over_true_mps, turn_deg, predicted_m, worst_off_leg_m);
         check(worst_off_leg_m <= 100.0,
               id + " flew its first leg from where the take-off handed over, straying " +
                   std::to_string(worst_off_leg_m) + " m from it (at most 100)");
-        check(predicted_m > 0.0 && std::abs(worst_off_leg_m - predicted_m) <= 0.1 * predicted_m,
+        check(predicted_m > 0.0 && std::abs(worst_off_leg_m - predicted_m) <= 4.0,
               id + " strayed " + std::to_string(worst_off_leg_m) +
                   " m from its first leg, against the " + std::to_string(predicted_m) +
                   " m its turn onto it at " + std::to_string(handed_over_true_mps) +
                   " m/s true and " + std::to_string(turn_deg) +
-                  " degrees predicts (within 10%)");
+                  " degrees predicts (within 4)");
         check(closest_m <= 100.0 && std::abs(altitude_there_ft - 2000.0) <= 50.0,
               id + " passed its waypoint " + std::to_string(closest_m) +
                   " m off (at most 100), at " + std::to_string(altitude_there_ft) +

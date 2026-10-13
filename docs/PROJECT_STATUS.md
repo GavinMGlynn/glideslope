@@ -272,7 +272,7 @@ cause and its explanation in the test; the stray is not removed, because
 nothing the navigator does can lead a turn onto a leg that starts where she
 is. Waypoint turns are not led either (the navigator turns once abeam),
 which is the same geometry mid-plan and is a new open item in Phase 10a.
-Test code only; no platform code, so not built on Windows.
+No behaviour changes, and no platform code, so it was not built on Windows.
 
 **The premise was wrong.** The item expected the faster climb to stray
 less, from the test's old account that the heading sat 2.5 to 3 degrees
@@ -307,7 +307,14 @@ now flies those laws alone at her speed - bank a degree per degree off the
 course, 5 degrees a second, 25 at most; the course 30 degrees a kilometre
 back toward the leg; turning at g tan(bank) / V at a constant true speed,
 her bank the one asked at once (`turn_onto_leg_strays_m` in
-tests/unit/test_navigator.cpp). Predicted / flown, metres:
+tests/unit/test_navigator.cpp). The model reads the figures the autopilot
+and navigator fly by, not copies of them: the bank per degree off, the roll
+rate and the intercept are now in src/sim/turn_laws.hpp, which
+autopilot.cpp and navigator.cpp include in place of their own constants,
+and the bank limit is `most_bank_deg` (sim/plan.hpp), the autopilot's full
+limit. A turn that has spent its 3 kt may bank less, but none of these banks
+past 18.6 degrees. Retuning any of them moves the prediction with it.
+Predicted / flown, metres:
 - Published climb speed: 172P 78.3 / 79.8, 182S 79.0 / 80.0, Cub 39.3 /
   40.3, Cherokee 61.5 / 59.5.
 - Slower climb speed for her weight: 172P 62.0 / 63, 182S 63.1 / 65, Cub
@@ -315,22 +322,29 @@ tests/unit/test_navigator.cpp). Predicted / flown, metres:
 Within 2 m everywhere: nothing but the turn strays her, at either speed.
 
 **The selftest hash does not move** (`182dd6c996e0ee4c`, linux-release):
-nothing but a test changed.
+the constants moved to a header and kept their values, so nothing flies
+differently.
 
 **Verified**, linux-release:
 - `a_plan_that_takes_off_leaves_its_runway_and_flies_its_waypoints_in_every_light_aeroplane`
-  now also checks each aeroplane's stray within 10% of what her turn
+  now also checks each aeroplane's stray within 4 m of what her turn
   predicts from her true speed and the turn at the hand-over, as well as
   the 100 m it had. Its comment carries the cause and the figures above.
-  **Seen to fail** with the autopilot's roll rate put at 3 degrees a second
-  instead of 5: "c172p strayed 93.538839 m from its first leg, against the
-  78.348309 m its turn onto it at 38.744257 m/s true and 23.658199 degrees
-  predicts (within 10%)". That stray is under the old 100 m bound, so the
-  old check alone stayed green. Restored, green.
+  The bound is 4 m, not a share of the stray, because the model's misses
+  (bank lag, speed change, sideslip) are 1 to 2 m whatever the stray: the
+  most is the Cherokee's 2.0 of 61.5. A share would give the Cub 2 m and the
+  Cherokee 3. Twice the worst miss leaves another platform as much again.
+  **Seen to fail** with the autopilot alone (not the shared figure) rolling
+  at 4 degrees a second instead of 5: "c172p strayed 85.315147 m from its
+  first leg, against the 78.348309 m its turn onto it at 38.744257 m/s
+  true and 23.658199 degrees predicts (within 4)". At 3 a second it strayed
+  93.5. Both are under the old 100 m bound, so the old check alone stayed
+  green. Restored, green.
 - Every test whose name speaks of the navigator, a take-off, a first leg, a
-  plan or a departure, and the selftest's, but not the server, client or
-  renderer ones: 147 by `ctest -j4 -R "navigator|take_off|takes_off|takeoff|first_leg|plan_|departure|selftest" -E "server|client|vulkan|window|shot"`,
-  143 passed and the 4 live-model `_now` tests skipped (no key given).
+  plan, a departure, a heading or a ninety-degree turn, the docs test and
+  the selftest's, but not the server, client or renderer ones: 207 by
+  `ctest -j4 -R "navigator|take_off|takes_off|takeoff|first_leg|plan_|departure|selftest|heading|turns_ninety|docs" -E "server|client|vulkan|window|shot"`,
+  203 passed and the 4 live-model `_now` tests skipped (no key given).
 
 ### Every aeroplane's glide speeds are what the command measures now: the B-2A's 169 kt, the Mosquito's 129, 2026-10-13 — item done
 

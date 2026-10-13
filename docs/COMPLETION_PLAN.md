@@ -553,15 +553,16 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       starts where she is, and a turn's size grows with the square of her
       speed, so the faster climb strays more, not less (the 172P 63 -> 80 m).
       The autopilot's own turn laws, flown at her speed, predict every
-      aeroplane's stray within 2 m, and the test now holds each to that.
+      aeroplane's stray within 2 m, and the test now holds each within 4 m.
       *Verification: the extra stray traced to its cause, and either removed
       or explained in the test.*
 - [ ] **The navigator turns at a waypoint only once abeam of it.** Nothing
       leads the turn onto the next leg, so each turn carries the aircraft
       off that leg as the first leg's does, by an amount growing with the
-      square of her speed. *Verification: a plan with a turning waypoint is
-      flown with the turn led from her turn radius, and the stray off the
-      next leg measured smaller, in every class.*
+      square of her speed. *Verification: every aircraft, turning 90
+      degrees at a waypoint at her climb and cruise speeds, strays off the
+      next leg less than a tenth of her turn radius at that speed and 25
+      degrees of bank.*
 - [x] **A glide may still be asked of a jet at its approach speed.** Each
       aircraft's slowest glide is measured with its gear up, and every
       aircraft glides round unstalled at every speed it may be asked to

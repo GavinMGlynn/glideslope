@@ -2,6 +2,7 @@
 
 #include "sim/departure.hpp"
 #include "sim/fixed_step.hpp"
+#include "sim/turn_laws.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -15,9 +16,8 @@ namespace {
 constexpr double dt = 1.0 / static_cast<double>(steps_per_second);
 
 // Heading to bank: a degree of bank for each degree off, 25 at most, moving
-// at 5 degrees a second.
-constexpr double bank_per_degree = 1.0;
-constexpr double bank_rate_degps = 5.0;
+// at 5 degrees a second (bank_per_degree_off, bank_rate_degps and
+// most_bank_deg, sim/turn_laws.hpp and sim/plan.hpp).
 // **But no more bank than the aeroplane can sustain.** A level turn needs
 // its weight over the cosine of the bank in lift, and the induced drag that
 // lift costs grows with its square, so a turn wants power a straight line
@@ -698,7 +698,7 @@ Controls Autopilot::fly() {
                 std::clamp(bank_integral_deg_ + bank_integral_per_degree * off * dt,
                            -most_bank_integral_deg, most_bank_integral_deg);
         }
-        bank_wanted = std::clamp(bank_per_degree * off + bank_integral_deg_,
+        bank_wanted = std::clamp(bank_per_degree_off * off + bank_integral_deg_,
                                  -sustained_bank_deg_, sustained_bank_deg_);
     }
     // In an upset, wings level first, and briskly: no turn is asked until
