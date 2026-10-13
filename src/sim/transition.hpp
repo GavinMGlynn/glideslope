@@ -142,7 +142,6 @@ private:
     double elevator_integral_ = 0.0;
     double fan_integral_ = 0.0;
     double post_integral_ = 0.0;
-    double angle_deg_ = 0.0;
     Hover::Command last_;
 };
 
