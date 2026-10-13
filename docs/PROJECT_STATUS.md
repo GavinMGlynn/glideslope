@@ -271,9 +271,19 @@ are the risks the phase order is built around:
 it and are said here: **her measured rotation speed is now 150 kt, not 110**,
 and **the over-rotation test runs her up on part power** (0.6), because on
 full power her new ground law flies her off before her tail reaches the
-runway. The ground mode is tuned on the take-off alone; landings are not
-judged for her, as she has no approach speed. Built only on Linux: no
-platform code.
+runway. **The ground mode engages on every touch of a wheel**, not only
+at the take-off: at once on a landing, a bounce or a touch-and-go, fading
+out again over five seconds after each. **That is unmeasured**: she has no
+approach speed, so no test or plan lands her. Of the tests that put her
+wheels down after flight, two fly her: she is dropped on her wheels from 25
+ft and from half a foot (wrecked and not wrecked, as the test asks), and put down
+with her wheels up (no wheel touches, so no ground mode); both pass. The
+take-backs, skips, touch-and-gos and landings leave her out for want of a
+Vref. **Her figures in the air are unchanged by construction**: clear of
+the ground and five seconds after her wheels have left it, her pitch loop
+is the pinned model's. Anything within five seconds of a lift-off flies the
+blended loop. **Only subsets of the suite were run** (below), not the full
+suite. Built only on Linux: no platform code.
 
 **The cause, from #175 round three and #181.** Her flight controls' pitch
 loop commands a pitch rate from her stick, and its integrator alone drives
@@ -289,11 +299,17 @@ wheels, which held her combat loading at 4.4 deg/s but moved her rotation to
   System, Displays, and Propulsion System for an ASTOVL Lift Fan Aircraft",
   Ames, October 1997): "The rate command integrator is initialized to the
   current value ... if flaps are up or the aircraft has weight on wheels
-  (wow)" - the integrator kept from winding while on the ground.
+  (wow)" (page 12 of the PDF) - the integrator kept from winding while on
+  the ground. **Pinned**: NTRS 19970036304,
+  https://ntrs.nasa.gov/api/citations/19970036304/downloads/19970036304.pdf,
+  2,731,545 bytes, SHA-256
+  `00911d6eeb3e41858cff9f210becf8a726b2a9052a97cbe5ce8921bec4998436`
+  (fetched 2026-10-14).
 - The A320's normal law (its FCOM, as quoted by airbusdriver.net, "Airbus
   Flight Control Laws"): a ground mode, a direct relation of stick to
   elevator before lift-off, and a blend of the ground law into the flight
-  law over five seconds after lift-off.
+  law over five seconds after lift-off. **Cited, not pinned**: a web page,
+  and the FCOM itself is not public.
 - Nothing published describes the F-22's own take-off law.
 
 **The change** (`tools/make_f22.py`, `with_pitch_ground_mode`; the model
@@ -334,7 +350,9 @@ to compare**: the Air Force's Accident Investigation Board report on the
 F-22A at NAS Fallon, 13 April 2018 (released 15 November 2018; quoted by The
 Aviationist and Air & Space Forces Magazine), gives that day's figures for a
 military power take-off as 143 KCAS to rotate and 164 KCAS to take off, at a
-weight it does not give. The 110 written before was her integrator's snatch:
+weight it does not give. **Cited, not pinned**: the report's PDF is on
+media.defense.gov and pacaf.af.mil, which refuse a scripted download
+("Access Denied", 403) - its figures here are as the two articles quote it. The 110 written before was her integrator's snatch:
 she was thrown off at about 119.
 
 **Verification** (linux-release, server and client built):
