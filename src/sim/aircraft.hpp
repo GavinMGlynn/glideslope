@@ -436,6 +436,9 @@ public:
     // afloat or planing has no weight on any wheel. False for an aircraft
     // with no hydrodynamics.
     bool in_water() const;
+    // Whether her model has JSBSim's hydrodynamics at all: a hull or floats
+    // that can be in the water.
+    bool alights_on_water() const { return hydrodynamics_; }
     // **What is touching the ground this step**: a wheel - a leg of the
     // undercarriage, which retracts, steers or brakes - and any other part of
     // the airframe: a wingtip, a nose, a belly, a flying boat's keel. What the
@@ -447,13 +450,17 @@ public:
     Contact contact() const;
     // **Every point her model can touch the ground with**, touching or not:
     // where it is on the airframe - JSBSim's structural frame, inches, x aft,
-    // y right, z up - and whether it is a wheel, in `contact`'s sense.
+    // y right, z up - and whether it is a wheel, in `contact`'s sense, and
+    // whether it is undercarriage at all: JSBSim's BOGEY, which a wheel is,
+    // and a flying boat's keel and floats are, against a STRUCTURE point - a
+    // nose, a tail, a wingtip.
     struct ContactPoint {
         double x_in = 0.0;
         double y_in = 0.0;
         double z_in = 0.0;
         bool wheel = false;
         std::string name; // as her model names it
+        bool bogey = false;
     };
     std::vector<ContactPoint> contact_points() const;
     // **What she stands on, worked from those points**: whether on a tail

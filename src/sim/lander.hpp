@@ -234,6 +234,12 @@ public:
     // approach is landed however it is flown.
     void waive_the_gate() { judges_the_gate_ = false; }
     bool judges_the_gate() const { return judges_the_gate_; }
+    // **What her flare is flown to**: her main wheels, found in her model;
+    // or, for a model that can be in the water and has none, her hull's and
+    // floats' contacts (`lands_on_hull`); or neither, and her centre of
+    // gravity.
+    bool lands_on_wheels() const { return lands_on_wheels_; }
+    bool lands_on_hull() const { return !lands_on_wheels_ && !lands_on_.empty(); }
 
     Lander(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
            double glidepath_deg = 3.0);
@@ -425,17 +431,22 @@ private:
     bool tail_wheel_ = false; // Aircraft::stance's
     double lowering_pitch_deg_ = 0.0;
 
-    // Her main wheels, where her model puts them: JSBSim's structural frame,
-    // inches, x aft, y right, z up (Aircraft::contact_points).
-    struct Wheel {
+    // What she lands on, where her model puts it: her main wheels, or where
+    // she has no wheel her hull's and floats' contacts. JSBSim's structural
+    // frame, inches, x aft, y right, z up (Aircraft::contact_points).
+    struct Point {
         double x_in, y_in, z_in;
     };
-    std::vector<Wheel> main_wheels_;
-    // How far her lowest main wheel hangs below her centre of gravity, feet,
-    // at her attitude now; 0 where her model names no main wheels.
+    std::vector<Point> lands_on_;
+    bool lands_on_wheels_ = false;
+    // How far the lowest of what she lands on hangs below her centre of
+    // gravity, feet, at her attitude now - her wheels, or her hull; 0 where
+    // her model names neither.
     double wheels_hang_ft(const AircraftState& s) const;
 
     void measure();
+    // Whether her weight is on her wheels, or her hull is in the water.
+    bool down(const AircraftState& s) const;
     // Whether she is on the ground or the water now; the first time she is,
     // where and how she touched is kept.
     bool notice_the_touch(const AircraftState& s);
