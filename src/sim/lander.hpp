@@ -269,9 +269,24 @@ public:
     static constexpr double roll_autobrake_fps2 = 7.2;
     // **Walking pace, knots over the ground, below which the autobrake
     // stands down** (the rollout's brakes, lander.cpp): it adds no brake
-    // past what she has, or past `walking_pace_pedal` if she has less.
+    // past what she has, or past `walking_pace_ceiling` at her speed if she
+    // has less - `walking_pace_pedal` while she rolls at `creeping_kts` or
+    // more, rising to `standing_pedal` by a knot, where she is creeping.
+    // **0.45, measured**: held to 0.3 all the way down, a C172P at idle in
+    // 15 kt across crept at 1.0 kt - her idle thrust, 44 lbf, more than 0.3
+    // holds - for 273 s more than on main; a flat 0.4 stopped her, but left
+    // one learnt landing's corner (2.40 nm, +60 m, -20 m, -5 deg, 15 kt from
+    // the left) unstopped; 0.6 put a C172P held against the throttle on her
+    // nose, -18.7 degrees. 0.45 stops the creep, the corners, and tips no one.
     static constexpr double autobrake_off_kts = 5.0;
     static constexpr double walking_pace_pedal = 0.3;
+    static constexpr double standing_pedal = 0.45;
+    static constexpr double creeping_kts = 2.0;
+    static constexpr double walking_pace_ceiling(double vg_kts) {
+        const double slow = (creeping_kts - vg_kts) / (creeping_kts - 1.0);
+        return walking_pace_pedal + (standing_pedal - walking_pace_pedal) *
+                                        (slow < 0.0 ? 0.0 : slow > 1.0 ? 1.0 : slow);
+    }
 
     // One 120 Hz step's controls. Call once a step, as the aircraft is now.
     Controls fly();
