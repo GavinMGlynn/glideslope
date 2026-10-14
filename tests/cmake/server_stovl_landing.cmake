@@ -36,10 +36,15 @@
 # difference known - no correction too large to hide (joining, at her 300
 # kt, the prediction may be put right by more: 20 m on a debug build); and
 # the prediction's error - the server's word against where the client had
-# flown her to - never more than 2 m, which is a step and a half at the
-# 330 kt she dives to (a step of the clocks' difference, held right to a
-# step and no closer, is 1.4 m there), its 95th percentile under 10 cm and
-# its median under 5 cm, over at least 3,000 updates. Measured
+# flown her to - never more than 2 m, its 95th percentile under 10 cm and
+# its median under 5 cm, over at least 3,000 updates. **The 2 m is one
+# step of the clocks' difference and a half at the 330 kt she dives to**
+# (a step is 1.4 m there, and the difference is held to a step and no
+# closer): it catches a prediction gone wrong, and cannot catch a
+# regression of under a metre in the worst update. The 95th percentile and
+# the median carry that. Once joined, the client must have been put right
+# at least nine times in ten of the updates compared, so that the 20 m is
+# held over the prediction and not over nothing. Measured
 # (2026-10-14): linux-release built for x86-64-v2, the worst 0.048 m and
 # 1.312 m in two runs, the 95th percentile 0.047 and 0.042 m, the median
 # 0.036 m; linux-debug, the worst 1.401 m, the 95th percentile 0.051 m, the
@@ -121,8 +126,21 @@ endif()
 if(_worst_mm GREATER 2000)
     message(FATAL_ERROR "the worst prediction error was ${_worst_mm} mm, over 2 m:\n${_said}")
 endif()
-if(NOT _said MATCHES "predicted, joined: [0-9]+ corrections, the worst [0-9.]+ m, 0 too large to hide")
-    message(FATAL_ERROR "a correction once joined was too large to hide:\n${_said}")
+if(NOT _said MATCHES "predicted, joined: ([0-9]+) corrections, the worst ([0-9.]+) m, ([0-9]+) too large to hide")
+    message(FATAL_ERROR "the client did not say its corrections once joined:\n${_said}")
+endif()
+set(_joined "${CMAKE_MATCH_1}")
+set(_joined_worst "${CMAKE_MATCH_2}")
+if(NOT CMAKE_MATCH_3 EQUAL 0)
+    message(FATAL_ERROR "${CMAKE_MATCH_3} corrections once joined were too large to hide:\n${_said}")
+endif()
+# **And the joined window is not empty**: the 20 m is held over at least
+# nine in ten of the updates compared - each compared update is a word heard
+# joined, so it is every one of them less a few heard together.
+math(EXPR _joined_least "${_compared} * 9 / 10")
+if(_joined LESS _joined_least)
+    message(FATAL_ERROR "only ${_joined} corrections once joined, under ${_joined_least} - nine in "
+                        "ten of the ${_compared} updates compared:\n${_said}")
 endif()
 if(NOT _said MATCHES "prediction error 95th percentile: ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its 95th percentile:\n${_said}")
@@ -140,4 +158,5 @@ if(_median_mm GREATER 50)
 endif()
 message(STATUS "held wing-borne: lowest ${_lowest} ft, ${_kcas} KCAS at the end; ${_compared} "
                "updates compared, the worst ${_worst_mm} mm, the 95th percentile ${_p95_mm} mm, "
-               "the median ${_median_mm} mm")
+               "the median ${_median_mm} mm; ${_joined} corrections once joined (at least "
+               "${_joined_least}), the worst ${_joined_worst} m")

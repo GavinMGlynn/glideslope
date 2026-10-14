@@ -71,6 +71,12 @@ Prediction::Correction Prediction::reconcile(const AircraftSnapshot& server,
     }
     began_.erase(began_.begin(), began_.upper_bound(last_applied));
 
+    // **The snapshot is the whole of what the replay starts from**: every
+    // writable property - the controls, the actuators, the tanks - and the
+    // engines, the server's own. So no held ReplayState is put back here, as
+    // the motion's reconcile does (as_at_first_held): that would put this
+    // client's own over the server's, and the first step held is kept, by
+    // fly_held_again, as the server had it.
     aircraft_.restore(server);
     if (laws_ && !held_.empty() && held_.front().laws_before) {
         laws_->restore(*held_.front().laws_before);

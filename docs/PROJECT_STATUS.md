@@ -1932,7 +1932,14 @@ four things:
   as a pilot would once flying: both laws are made from the same controls
   on the same step (the client's step 630 and the server's 766, which the
   clocks' difference joins). A player who joins already holding the
-  selector is still seeded apart - not fixed here; the tail below.
+  selector is still seeded apart - not fixed here, its own item in
+  COMPLETION_PLAN: until the server has applied an input it flies her on
+  the power it holds (0.6, the stick centred), and the prediction flies her
+  inputs from its first step on a model just loaded (its commands 0), so a
+  law made on the first input is seeded from different controls on each
+  side, and the server never sends the law's state to put the difference
+  right. Closing it wants both seeded from what both know - the pilot's
+  input, or the server's held controls told to the client.
 - **The DEM was read as the prediction began.** Its coverage, tiles' store
   and geoid held the client's first predicting frame 0.8 s in a debug
   build; the steps then flown at once were taken as begun on the input
@@ -1944,7 +1951,14 @@ four things:
   trip old is put right by up to 26 m before the clocks' difference is
   known on a debug build - no prediction could hide that - so the client
   now says its corrections once joined as well (`predicted, joined:`), and
-  the test holds those, not the joining's, to the 20 m.
+  the test holds those, not the joining's, to the 20 m - **over at least
+  nine in ten of the updates compared** (from the review of #194: an empty
+  joined window passed on nothing; 3,005 against 3,000 compared, measured).
+  **Seen red** with the joined count forced to nothing: "only 0
+  corrections once joined, under 2700". The snapshot's reconcile puts back
+  no held replay state before flying again - the snapshot carries every
+  writable property and the engines, the server's own - and the first step
+  held is kept as the server had it (said in the code).
 
 **The abort is not reproduced** by the test since: in three linux-debug
 runs here the client never aborted. The same assertion was met in one
