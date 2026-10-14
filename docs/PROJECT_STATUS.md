@@ -335,12 +335,14 @@ and for python_test.cmake to name its Python too.
   `Cmalpha` in the 737-300, 747-400, A320, A380, B-2A, C172P, C182 (and
   `CmDe`), F-15C, F-35B, Learjet 35A and PA-28; `Pitch_alpha` in the
   787-8; `Cma_M`, `CmDh`, `CmDtv` and `Cmq` in the F-22A; `pitch-alpha`
-  and `pitch-stall` in the Mosquito; `Cm_basic` in the S.23
-  (Systems/datcom_aero.xml). The helper that moves them is written and
-  shared (below); applying it to fifteen scripts and flying every figure
-  again is the rest of the item. Their figures in flight should barely
-  move (the Cub's did not, below); the large-sideslip ground runs are what
-  it would change.
+  and `pitch-stall` in the Mosquito; `Cm_basic` and `Cmq` in the S.23
+  (Systems/datcom_aero.xml). That list is the helper's own (below), run
+  over each committed model without writing it: it finds those terms and
+  no others, and applies cleanly to all fifteen. Calling it from their
+  fifteen scripts and flying every figure again is the rest of the item,
+  not done here: a whole-suite run. Whether their figures in flight move
+  is not measured (the Cub's do not, below); the swept wings are where
+  issue #89 says the guidance was not investigated.
 - **Braked hard stick central she still lifts her tail once in 15 kt
   across**: at her gross weight, braked at 0.5 with the wind from the
   right, her tail wheel leaves the runway for a moment (she stops on her
@@ -435,7 +437,10 @@ pass, the committed-model tests (all seventeen) among them (one run of
 them used a test binary stale from the 4.5 kt probe; the four walking-pace
 tests were rebuilt and run again, and pass). In the crosswind brake sweep,
 stick back, the Cub's pitch rate falls to 1.6 to 2.8 deg/s, from up to 9.5:
-her pitch term was in that too.
+her pitch term was in that too. In a `-march=x86-64-v2` debug build (no
+fused multiply-adds, as CI builds) and in linux-release, the 26 tests of
+the Cub, the walking pace, the tail wheels, the crosswind stops and the
+brake sweep pass, with the figures above the same to the printed digit.
 **Seen red**: with main's Cub model put back in the build's copy, the new
 test failed on all 60 crosswind runs - her tail came up standing, 0.38 to
 0.60 s after the wind came on (the air -1,391 to -2,016 ft-lb then), and
