@@ -377,8 +377,9 @@ The flight model - `assets/jsbsim/aircraft/mosquito-fb6/`,
 `assets/jsbsim/engine/merlin25.xml` and
 `assets/jsbsim/engine/prop_dh_hydromatic.xml` - is written for this project
 and is under its licence, GPL-3.0-or-later; no other simulator's Mosquito is
-used. `tools/make_mosquito_fb6.py` writes the airframe and engine and
-`tools/make_mosquito_propeller.py` the propeller. Its numbers come from these documents, and the figures it is held to
+used. `tools/make_mosquito_fb6.py` writes the airframe and engine, and
+`tools/make_mosquito_propeller.py` the propeller. The flight model's numbers
+come from these documents, and the figures it is held to
 (`assets/figures/mosquito-fb6.xml`) quote them by paragraph or figure.
 
 | Document | Copy consulted | What is taken from it |

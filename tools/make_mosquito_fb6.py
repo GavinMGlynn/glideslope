@@ -2,14 +2,15 @@
 """make_mosquito_fb6.py - glideslope's de Havilland Mosquito FB Mk VI, written
 from her trials and Pilot's Notes.
 
-JSBSim has no Mosquito, and no other simulator's Mosquito is used: her flight
-model was written for glideslope on 2026-09-19 (commit 22cf2f63, "The
-Mosquito FB Mk VI, written from its trials and Pilot's Notes") and held to
-fourteen of her published figures, which assets/figures/mosquito-fb6.xml
-quotes by paragraph or figure. Until 2026-10-14 her airframe and engine were
-committed as written and edited by hand; this script now carries them, as
-written, and makes from them, with the changes listed below, what is
-committed. Her propeller's tables are computed by
+This script carries her airframe's and engine's text verbatim, as written for
+glideslope in commit 22cf2f63 (2026-09-19, "The Mosquito FB Mk VI, written
+from its trials and Pilot's Notes"), and changes it only by the transforms
+listed at the end of this docstring. It is not derived from any other model:
+JSBSim has no Mosquito, and no other simulator's Mosquito is used. She is
+held to her published figures - fifteen, in assets/figures/mosquito-fb6.xml,
+each quoted by paragraph or figure. Until 2026-10-14 the two files were
+committed as written and edited by hand; now what is committed is what this
+script makes. Her propeller's tables are computed by
 tools/make_mosquito_propeller.py, as before.
 
     python3 tools/make_mosquito_fb6.py           write the files

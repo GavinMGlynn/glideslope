@@ -321,12 +321,15 @@ issue #89). Her model had no script, so #198 did not reach her.
 `alpha_rate.with_qbar_uw` to her airframe, its docstring listing the change:
 her one alpha-rate term is on `aero/qbarUW-psf`. A new test,
 `every_flight_models_alpha_rate_terms_leave_out_the_crosswind`, reads every
-aircraft under `assets/jsbsim/aircraft/` - 16, of which 15 have alpha-rate
-terms and the B-2A, named, has none - and fails if any such term is on
-`aero/qbar-psf` or `aero/qbar-area`, or if the count checked differs.
+aircraft under `assets/jsbsim/aircraft/` against a stated space - 16, the 15
+with alpha-rate terms listed by name and the B-2A named as having none - and
+fails if any property naming a dynamic pressure in such a term is other than
+`aero/qbarUW-psf`, or if the directory differs from that list.
 
 **Verification.** The new test passes; seen red with the change taken out of
-the script (it named her `pitch-alpha-rate`), green with it put back.
+the script (it named her `pitch-alpha-rate`), green with it put back; and,
+after the review of #200, red on a copy of the aircraft with her term spelt
+`aero/qbar-uw-psf` and a seventeenth directory added, naming both.
 `glideslope_cli figures mosquito-fb6`, before and after, all 15 in range
 in both builds; two moved, the rest to the digit:
 
