@@ -589,7 +589,7 @@
       <description>Pitch moment due to propeller induced velocity</description>
       <product>
           <property>propulsion/engine[0]/thrust-coefficient</property>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/bw-ft</property>
           <table>
@@ -607,7 +607,7 @@
     <function name="aero/moment/Pitch_alpha">
        <description>Pitch moment due to alpha</description>
        <product>
-           <property>aero/qbar-psf</property>
+           <property>aero/qbarUW-psf</property>
            <property>metrics/Sw-sqft</property>
            <property>metrics/cbarw-ft</property>
            <property>aero/alpha-rad</property>

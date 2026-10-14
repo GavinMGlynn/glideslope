@@ -570,17 +570,26 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       air she holds the step without porpoising.* Done 2026-10-14: she
       hops 0.32 ft on the step against 0.5.
 - [ ] **A rolling aeroplane near a stop can be thrown on her nose by her
-      gear in one step.** **Missing**: the Cub's crosswind pitch term (below);
-      the Mosquito tips onto her nose braked past 0.5, real or not unmeasured.
+      gear in one step.** **Missing**: the Mosquito tips onto her nose braked
+      past 0.5, real or not unmeasured. (The Cub's crosswind pitch term, its
+      other open part, is moved off the whole dynamic pressure, 2026-10-15.)
       *Verification: every landplane rolled to a stop at a sweep of brake
       levels shows no pitch rate over a stated bound.*
 - [ ] **The J-3 Cub's nose is pushed down by a crosswind**: her
-      angle-of-attack pitch term counts it; stick central she goes over
-      braked in 15 kt across, and held at 4.5 kt at taxi power in 15 kt
-      across she strikes at 21 degrees of roll. *Verification: that term,
-      and every other model's, uses the dynamic pressure without its
-      sideways part; stick central in 15 kt across her tail stays down; her
-      figures stay in range.*
+      angle-of-attack pitch term counts it. *Verification: that term, and
+      every other model's, uses the dynamic pressure without its sideways
+      part; stick central in 15 kt across her tail stays down; her figures
+      stay in range.* The Cub's is moved, her figures unmoved, and stick
+      central she stands, runs up and brakes in 15 kt across with her tail
+      down (2026-10-15). **Missing**: the other fifteen models' terms; and
+      at her gross weight braked at 0.5 her tail lifts once (her lift, below).
+- [ ] **The J-3 Cub is rolled onto her wing by a crosswind at walking
+      pace**: held at 4.5 kt at taxi power in 15 kt across she rolls 21
+      degrees and strikes, her pitch terms moved or not; and her lift still
+      counts the crosswind, but moved off it she rolls so at 3 kt too.
+      *Verification: her lift uses the dynamic pressure without its sideways
+      part, and held at every walking pace in 15 kt across she stays on her
+      wheels.*
 - [ ] **A C172P at full power on held brakes, stick back, sits on her
       tail**: she rears to 11 degrees, where a real one tends to slide; no test
       covers it now. *Verification: a C172P at full power on her brakes,
@@ -592,7 +601,8 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       no landplane rolled at walking pace and stopped touches the runway with
       anything but her wheels.* At taxi power none strikes at 3 kt
       (2026-10-15). **Missing**: only 3 kt of walking pace's 2-5 is flown,
-      and rolled at 4.5 kt in 15 kt across the Cub strikes (the item above).
+      and rolled at 4.5 kt in 15 kt across the Cub strikes, rolled onto her
+      wing (the Cub's walking-pace roll item above).
 
 ---
 
