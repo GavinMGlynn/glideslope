@@ -571,10 +571,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 - [ ] **A rolling aeroplane near a stop can be thrown on her nose by her
       gear in one step.** A C172P rolling at 1.16 kt, nose 1.6 degrees and
       brakes at 0.3, went to -376 deg/s of pitch in one step with no control
-      moving. JSBSim's switch between rolling and static friction near zero
-      speed is the likely cause, and it may be what tips the Cub on full
-      brakes. *Verification: every landplane rolled to a stop at a sweep of
-      brake levels shows no pitch rate over a stated bound.*
+      moving. Both causes found are fixed (the two items at the top of this
+      phase), and that learnt landing now stops. **Still missing**: the
+      sweep judges only nose-wheel aeroplanes; the Cub and the Mosquito are
+      not judged. *Verification: every landplane rolled to a stop at a sweep
+      of brake levels shows no pitch rate over a stated bound.*
 
 ---
 
@@ -813,9 +814,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       no deceleration keeps her brake bounded and her nose above -5 degrees.*
       Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
       creep, wet or dry (2026-10-14). **Still missing**: the verification
-      rests on named cases. The Mosquito's swing (below), the Cub in 15 kt
-      across, and one learnt start (the Phase 9 gear impulse) are named, and
-      the 0.8 allowance for an idle creep is barely exercised on the jets.
+      rests on named cases. The Mosquito's swing (below) and the Cub in 15
+      kt across are named, and the 0.8 allowance for an idle creep is
+      barely exercised on the jets.
 - [ ] **The Mosquito swings below walking pace.** She turns 36 to 155
       degrees before she stops. Without the steering-brake fade it is 81 to
       156 degrees, so the fade does not cause it. *Verification: every
