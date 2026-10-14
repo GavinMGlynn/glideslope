@@ -577,6 +577,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       nose-wheel aeroplanes; the Cub and the Mosquito are not judged, and the
       Cub goes over in 15 kt across. *Verification: every landplane rolled to a stop at a sweep
       of brake levels shows no pitch rate over a stated bound.*
+- [ ] **The walking-pace tests' throttle sits the C172P on her tail.**
+      Holding her at 3 kt against the autobrake, the test's hand winds to
+      full power with her stick back, and she rears to 11 degrees. *Verification:
+      every landplane rolled at walking pace and stopped strikes nothing.*
 
 ---
 
