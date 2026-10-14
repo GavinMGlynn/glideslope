@@ -1880,7 +1880,7 @@ faults.
   runs.
 - Green with the rest: the targeted F-35B, STOVL, hover, transition,
   vertical, prediction, controller, plan, help and committed-asset tests.
-- **The selftest hash does not move**, `182dd6c996e0ee4c`.
+- **The selftest hash does not move**: on main after #198, `de9bf01f96427593` (linux-release, rebased).
 
 **What CI found in the multi-process test, and why** (run 38479432893, the
 test then selecting STOVL mode with its first input): green on this
@@ -1989,7 +1989,16 @@ to 2 m, and the 95th percentile, new, to 10 cm. The in-process tests
 (`a_predicting_client_and_the_server_fed_the_same_stovl_inputs_...`, the
 hover one, the two put-backs) unchanged: worst correction 0.0166 m in
 every build; the 30 prediction tests (in-process and multi-process) green
-on linux-release; **the selftest hash does not move**, `182dd6c996e0ee4c`.
+on linux-release. **Rebased onto main after #198** (the alpha-rate terms
+moved her model): the STOVL multi-process test again, the worst 1.145 /
+1.270 / 1.460 m, the 95th percentile 0.047 / 0.047 / 0.051 m, the median
+0.036 m in each, 3,004 to 3,005 corrections once joined, none too large
+(linux-release / x86-64-v2 / linux-debug); the 75 F-35B, STOVL, hover,
+transition and prediction tests green on linux-release, and in linux-debug
+but for the frames-held test, cut off unfinished (green on release); on
+x86-64-v2 three multi-process ones that need the drawing client and the
+interpolation check, neither built there, failed for want of them;
+`glideslope_cli figures f35b` 15 of 15 in range; **the selftest hash does not move**, `de9bf01f96427593` on main after #198 (rebased, linux-release).
 
 ### The F-35B's pilot flies her speed, her sideways movement and her heading in STOVL mode, and a plan given her hovering is flown; her rolling landing figure revisited, 2026-10-14 — one item done, one still open
 
@@ -2166,7 +2175,7 @@ vertical landing (Phase 13).
   vertical, prediction, the committed F-35B, controller, keyboard and
   selftest (not windowed), and 354 matching plan, lands, landing, hands and
   take (not windowed; the live-model ones skipped without keys).
-- **The selftest hash does not move**, `182dd6c996e0ee4c`: the C172P has no
+- **The selftest hash does not move**, `de9bf01f96427593` on main after #198: the C172P has no
   lift system.
 ### A wet runway's side grip from NASA's measurements, laid on every wheel, 2026-10-14 — item done
 
