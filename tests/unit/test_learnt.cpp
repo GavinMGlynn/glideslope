@@ -621,17 +621,10 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_u
 // so that each fits well inside ctest's time on the slowest build.
 namespace {
 
-// A start left out of one load's judging, and why.
-struct NamedStart {
-    Start start;
-    std::string why;
-};
-
-void lands_every_start_with(double lbs, const std::vector<NamedStart>& left_out = {}) {
+void lands_every_start_with(double lbs) {
     const auto policy = the_policy();
     const std::vector<Start> all = starts();
     std::size_t flown = 0;
-    std::size_t shown = 0;
     double worst_sink = 0.0;
     double worst_across = 0.0;
     std::vector<std::string> failures;
@@ -639,28 +632,12 @@ void lands_every_start_with(double lbs, const std::vector<NamedStart>& left_out 
         std::printf("  with %.0f lb a tank:\n", lbs);
         const Landing l = land(policy, s, true, lbs);
         ++flown;
+        worst_sink = std::max(worst_sink, l.sink_fpm);
+        worst_across = std::max(worst_across, std::abs(l.across_m));
         std::vector<std::string> wrong = short_of_the_limits(l);
         for (const std::string& w : not_stopped_on_the_runway(l)) {
             wrong.push_back(w);
         }
-        const auto is_named = std::find_if(left_out.begin(), left_out.end(), [&](const NamedStart& n) {
-            return n.start.across_m == s.across_m && n.start.high_m == s.high_m &&
-                   n.start.crosswind_kts == s.crosswind_kts;
-        });
-        if (is_named != left_out.end()) {
-            // Shown, not judged - and when she lands within the limits, the
-            // name must go, so that the test grows back.
-            ++shown;
-            std::printf("  named, not judged - %s: %s\n", named(s).c_str(),
-                        is_named->why.c_str());
-            if (wrong.empty()) {
-                failures.push_back("from " + named(s) +
-                                   ": named, and now within the limits - take the name off");
-            }
-            continue;
-        }
-        worst_sink = std::max(worst_sink, l.sink_fpm);
-        worst_across = std::max(worst_across, std::abs(l.across_m));
         if (!wrong.empty()) {
             std::string text = "from " + named(s) + ":";
             for (const std::string& w : wrong) {
@@ -674,9 +651,6 @@ void lands_every_start_with(double lbs, const std::vector<NamedStart>& left_out 
                 lbs, flown - failures.size(), flown, worst_sink, worst_across);
     check(flown == all.size() && flown == 27,
           "every start was flown: " + std::to_string(flown) + " of 27");
-    check(shown == left_out.size() && left_out.size() <= 1,
-          "every start named was flown, and at most one is named: " + std::to_string(shown) +
-              " of " + std::to_string(left_out.size()));
     none_wrong(failures, flown, "landings fell short of the limits");
 }
 
@@ -686,15 +660,8 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_the_limits_from_every_s
     lands_every_start_with(25.0);
 }
 
-// **One start named**: from 50 m left, 15 m low, in 10 kt from the left,
-// she is thrown on her nose by her gear at 1.2 kt, in one step with no
-// control moving, and does not stop - the open Phase 9 item "A rolling
-// aeroplane near a stop can be thrown on her nose by her gear in one step".
 GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_half_its_fuel) {
-    lands_every_start_with(
-        50.0, {{{-50.0, -15.0, 10.0},
-                "thrown on her nose by her gear at 1.2 kt in one step, no control moving "
-                "(Phase 9: a rolling aeroplane near a stop thrown on her nose by her gear)"}});
+    lands_every_start_with(50.0);
 }
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_the_limits_from_every_start_with_three_quarters_of_its_fuel) {
