@@ -284,8 +284,16 @@ struct Motion {
 // **Not kept**, as JSBSim holds them in members with no setter: a lag
 // filter's or an actuator's own history (its lag, rate limit, hysteresis);
 // a turbine's fuel flow, EGT, oil temperature and EPR, and a piston's
-// temperatures; the fuel in the tanks. None moves the flight more than a
-// step's worth between the server and a client flying the same inputs.
+// temperatures. None moves the flight more than a step's worth between the
+// server and a client flying the same inputs.
+// **And the fuel in each tank**: not kept, every replay burned again the
+// fuel the steps it flew again had burned already - an F-35B at full power,
+// her prediction put right 25 times a second, burned it twice as fast as
+// the server's and was 250 lb lighter two minutes on, her transition law's
+// autopilot flying a lighter aeroplane than the server's (PROJECT_STATUS.md,
+// 2026-10-14). JSBSim weighs her from the tanks at the start of the next
+// step, so the step flown again first has the newest step's weight
+// (`inertia/weight-lbs`) to read, a step's fuel lighter.
 struct ReplayState {
     std::vector<double> thruster_rpm;
     // N1 and N2 in percent; NaN for an engine without that spool.
@@ -295,6 +303,8 @@ struct ReplayState {
     std::vector<int> phase;
     // The flight controls' values, in Aircraft::replay_properties' order.
     std::vector<double> controls;
+    // Each tank's contents, pounds.
+    std::vector<double> tank_lbs;
 };
 
 // What an aircraft keeps from the catalogue, read once when its model loads.

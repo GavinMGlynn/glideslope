@@ -1900,6 +1900,97 @@ GLIDESLOPE_TEST(a_predicting_client_and_the_server_agree_while_her_pilot_moves_t
                                     " m, over the " + std::to_string(bound_m) + " m bound");
 }
 
+// **A prediction put right at every word burns the fuel the server does**:
+// the F-35B trimmed level at 20,000 ft and 300 kt, her fuel burning, flown a
+// minute by the server and by a client predicting her on the same inputs,
+// the server's motion coming back every fifth step 100 ms each way - each
+// word flying again the steps since, 25 of them - as stovl_agreement's
+// does. Her weight must agree within a pound: both burned 89.9 lb,
+// measured (linux-release and linux-debug, 2026-10-14). Without the tanks
+// in the replay's state (sim::ReplayState) each step's fuel was burned
+// again by every word that flew it again, and the prediction burned 305.6
+// lb to the server's 89.9.
+GLIDESLOPE_TEST(a_prediction_put_right_at_every_word_burns_the_fuel_the_server_does) {
+    using glideslope::sim::apply;
+    using glideslope::sim::Controller;
+    using glideslope::sim::Motion;
+    const auto start = [&](Aircraft& a) {
+        a.set_terrain(flat_ground());
+        InitialConditions ic;
+        ic.latitude_deg = -33.9461;
+        ic.longitude_deg = 151.1772;
+        ic.heading_deg = 270.0;
+        ic.altitude_ft = 20000.0;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = 300.0;
+        ic.gear = 0.0;
+        ic.engine_running = true;
+        ic.trim = true;
+        a.initialize(ic);
+    };
+    Aircraft server_aircraft(data() / "jsbsim", "f35b");
+    Aircraft client_aircraft(data() / "jsbsim", "f35b");
+    start(server_aircraft);
+    start(client_aircraft);
+    // Trimmed level, as she is flown: left alone at full power she dives,
+    // and into the ground inside the minute from 20,000 ft at 850 kt.
+    const Controls trimmed = glideslope::sim::trimmed_controls(server_aircraft);
+    Controller server(server_aircraft, trimmed);
+    Prediction client(client_aircraft);
+    const int one_way = 100 * steps_per_second / 2000;
+    const int every = 5;
+    struct Posted {
+        int arrives_at = 0;
+        Motion motion;
+        std::uint32_t applied = 0;
+        std::uint64_t server_steps = 0;
+    };
+    std::deque<Posted> post;
+    std::uint64_t server_steps = 0;
+    std::size_t heard = 0;
+    const double full_lbs = server_aircraft.property("inertia/weight-lbs");
+    const int frames = 60 * steps_per_second;
+    for (int frame = 0; frame < frames + one_way; ++frame) {
+        if (frame < frames) {
+            client.step(static_cast<std::uint32_t>(frame + 1), trimmed);
+        }
+        const int theirs = frame - one_way;
+        if (theirs >= 0 && theirs < frames) {
+            server.set_pilot(trimmed);
+            apply(server_aircraft, server);
+            server_aircraft.step();
+            ++server_steps;
+            if (theirs % every == 0) {
+                post.push_back({frame + one_way, server_aircraft.motion(),
+                                static_cast<std::uint32_t>(theirs + 1), server_steps});
+            }
+        }
+        while (!post.empty() && post.front().arrives_at <= frame) {
+            (void)client.reconcile(post.front().motion, post.front().applied, 1,
+                                   post.front().server_steps);
+            ++heard;
+            post.pop_front();
+        }
+    }
+    const double server_lbs = server_aircraft.property("inertia/weight-lbs");
+    const double client_lbs = client_aircraft.property("inertia/weight-lbs");
+    std::printf("  %zu words heard; burned %.1f lb on the server, %.1f lb in the prediction; "
+                "%.0f ft above the ground at the end\n",
+                heard, full_lbs - server_lbs, full_lbs - client_lbs,
+                server_aircraft.state().height_above_ground_ft);
+    check(heard > 1000, "the server was heard " + std::to_string(heard) + " times");
+    // Flown clear of the ground, which the stick left alone dives her
+    // towards.
+    check(server_aircraft.state().height_above_ground_ft > 15000.0,
+          "she came down to " + std::to_string(server_aircraft.state().height_above_ground_ft) +
+              " ft above the ground");
+    check(full_lbs - server_lbs > 50.0,
+          "the server burned " + std::to_string(full_lbs - server_lbs) + " lb, not over 50");
+    check(std::abs(client_lbs - server_lbs) < 1.0,
+          "the prediction weighs " + std::to_string(client_lbs - server_lbs) +
+              " lb more than the server, not within a pound");
+}
+
 // **Put back to its own state, a prediction flies again to exactly where it
 // was**, through her STOVL mode: the F-35B flown as above, and at each of
 // four moments - slowing wing-borne for the conversion (60 s), jet-borne

@@ -180,8 +180,8 @@ std::size_t connect_until_compared = 0;
 // **(`--unpaced`)**: with `--predict`, fly at this machine's pace, not
 // steered to the server's (sim::Pacing) - what a test shows going wrong.
 bool connect_unpaced = false;
-// **(`--stovl-land`)**: with `--predict`, its pilot selects STOVL mode at
-// once, with the stick full forward and the lever left where it is, so that
+// **(`--stovl-land`)**: with `--predict`, its pilot selects STOVL mode five
+// seconds in, with the stick full forward and the lever left where it is, so that
 // its F-35B is flown by her transition law - converted, slowed to a hover,
 // let down and landed where she is light enough to hover, held wing-borne
 // at her conversion speed and let down to her least conversion height
@@ -392,7 +392,8 @@ void print_usage(std::FILE* out) {
         "                            --until-compared N (with --predict) stays until\n"
         "                            N updates are compared\n"
         "                            --stovl-land (with --predict) selects STOVL mode\n"
-        "                            with the stick forward and the lever still, and\n"
+        "                            five seconds in, with the stick forward and the\n"
+        "                            lever still, and\n"
         "                            leaves once its F-35B has hovered, landed, and\n"
         "                            the server says she is at rest (or as\n"
         "                            --until-compared says)\n"
@@ -1495,17 +1496,57 @@ constexpr double inputs_every_s = 1.0 / 30.0;
 class Predicting {
 public:
     // **A STOVL landing flown through a server** (`--stovl-land`): the
-    // pilot's controls, every input the same - STOVL mode selected, the
-    // stick full forward, the lever at 0.7 and never moved, so that it is
-    // never the pilot's speed - and the prediction built over the DEM.
+    // pilot's controls - for her first `stovl_selected_from` inputs the
+    // power a server holds for a player who has not touched anything (0.6,
+    // the stick centred), and from then on every input the same: STOVL mode
+    // selected, the stick full forward, the lever at 0.7 and never moved,
+    // so that it is never the pilot's speed - and the prediction built over
+    // the DEM.
+    //
+    // **Selected once the server is flying her inputs**, five seconds in, as
+    // a pilot would: the transition law is seeded from the controls she
+    // has when it is selected, and its integrals carry that seed for as
+    // long as it flies her. Selected with the first input, it was seeded on
+    // the server from the power the server held for her before any input
+    // had arrived (0.6), and in the prediction from a model just loaded (0):
+    // the two laws' throttle integrals began 0.6 apart and were still 0.17
+    // apart two minutes on (PROJECT_STATUS.md, 2026-10-14).
+    static constexpr std::uint32_t stovl_selected_from = 150;
+    //
+    // **The ground built before joining**: the DEM's coverage, its tiles'
+    // store and the geoid, read here rather than as the prediction begins.
+    // Read then, they held the first frame of the prediction for 0.8 s in a
+    // debug build: the steps it then flew at once were taken as begun on
+    // the input sent after the hold, the clocks' difference was put 55
+    // steps short, and once it came right the prediction was put right by
+    // 85 m (PROJECT_STATUS.md, 2026-10-14).
     void stovl_land() {
         stovl_land_ = true;
+        const std::filesystem::path data = glideslope::platform::data_directory();
+        std::ifstream coverage_file(data / "dem" / "coverage.txt", std::ios::binary);
+        if (!coverage_file) {
+            throw std::runtime_error("cannot read " + (data / "dem" / "coverage.txt").string());
+        }
+        const std::filesystem::path cache = glideslope::platform::cache_directory();
+        const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
+        dem_coverage_ = std::make_unique<glideslope::world::DemCoverage>(
+            std::string(std::istreambuf_iterator<char>(coverage_file), {}));
+        dem_tiles_ = std::make_unique<glideslope::world::DownloadedTiles>(cache, fetch);
+        dem_geoid_ = std::make_unique<glideslope::world::Geoid>(
+            glideslope::world::egm2008_geoid(cache, fetch));
+        collision_ = std::make_shared<glideslope::world::CollisionGround>(
+            std::make_shared<glideslope::world::Dem>(*dem_coverage_, *dem_tiles_,
+                                                     dem_geoid_.get()),
+            glideslope::world::runway_surfaces(data));
     }
-    static glideslope::sim::Controls stovl_pilot() {
+    static glideslope::sim::Controls stovl_pilot(std::uint32_t sequence) {
         glideslope::sim::Controls c;
-        c.stovl = 1.0;
-        c.throttle = 0.7;
-        c.elevator = -1.0;
+        c.throttle = 0.6;
+        if (sequence >= stovl_selected_from) {
+            c.stovl = 1.0;
+            c.throttle = 0.7;
+            c.elevator = -1.0;
+        }
         return c;
     }
     // Its prediction down after a hover, and the server's word at rest.
@@ -1730,6 +1771,11 @@ public:
                 }
                 (void)prediction_->hear_engine_stopped(engine_stopped);
                 const std::uint32_t applied = state.last_input_applied;
+                // Joined, and the clocks' difference known, before this word:
+                // a correction from here on is the prediction's, not the
+                // joining's (`predicted, joined:`).
+                const bool joined = answered_ && !resuming_ && local_s >= settled_at_s_ &&
+                                    prediction_->settled();
                 const auto c = prediction_->reconcile(
                     m, applied, state.yours->steps_into_input,
                     static_cast<std::uint64_t>(std::llround(
@@ -1836,6 +1882,11 @@ public:
                     if (taken_over_ > 0) {
                         ++snapped_since_;
                     }
+                }
+                if (joined) {
+                    ++corrections_joined_;
+                    worst_correction_joined_m_ = std::max(worst_correction_joined_m_, c.moved_m);
+                    snapped_joined_ += c.snapped ? 1 : 0;
                 }
             }
         }
@@ -2088,6 +2139,16 @@ public:
                       "predicted: %zu corrections, the worst %.3f m, %zu too large to hide",
                       corrections_, worst_correction_m_, snapped_);
         lines.emplace_back(line);
+        // **And once joined**: from the first word heard with the clocks'
+        // difference known, as the prediction error is compared. Joining,
+        // the prediction is flown on from an update a trip old over steps
+        // the server flew before any input of its had arrived, and put
+        // right by as much as it moved meanwhile - 20 m at the F-35B's 300
+        // kt on a slow machine, which no prediction could have hidden.
+        std::snprintf(line, sizeof line,
+                      "predicted, joined: %zu corrections, the worst %.3f m, %zu too large to hide",
+                      corrections_joined_, worst_correction_joined_m_, snapped_joined_);
+        lines.emplace_back(line);
         std::snprintf(line, sizeof line,
                       "prediction error: %zu updates compared, the worst %.3f m (%zu inputs "
                       "flown while joining or taking back, before the server had applied one, "
@@ -2231,24 +2292,9 @@ private:
         aircraft_->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
             [](double, double) { return 0.0; }, [](double, double) { return false; }));
         // **Landing, it meets the ground the server does**: the DEM, with
-        // every runway its own surface, as the server builds it.
-        if (stovl_land_) {
-            const std::filesystem::path data = glideslope::platform::data_directory();
-            std::ifstream coverage_file(data / "dem" / "coverage.txt", std::ios::binary);
-            if (!coverage_file) {
-                throw std::runtime_error("cannot read " + (data / "dem" / "coverage.txt").string());
-            }
-            const std::filesystem::path cache = glideslope::platform::cache_directory();
-            const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
-            dem_coverage_ = std::make_unique<glideslope::world::DemCoverage>(
-                std::string(std::istreambuf_iterator<char>(coverage_file), {}));
-            dem_tiles_ = std::make_unique<glideslope::world::DownloadedTiles>(cache, fetch);
-            dem_geoid_ = std::make_unique<glideslope::world::Geoid>(
-                glideslope::world::egm2008_geoid(cache, fetch));
-            auto collision = std::make_shared<glideslope::world::CollisionGround>(
-                std::make_shared<glideslope::world::Dem>(*dem_coverage_, *dem_tiles_,
-                                                         dem_geoid_.get()),
-                glideslope::world::runway_surfaces(data));
+        // every runway its own surface, as the server builds it (`stovl_land`).
+        if (collision_) {
+            const std::shared_ptr<glideslope::world::CollisionGround> collision = collision_;
             aircraft_->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
                 [collision](double lat, double lon) {
                     return collision->height_above_ellipsoid(lat, lon);
@@ -2372,6 +2418,7 @@ private:
     std::unique_ptr<glideslope::world::DemCoverage> dem_coverage_;
     std::unique_ptr<glideslope::world::DownloadedTiles> dem_tiles_;
     std::unique_ptr<glideslope::world::Geoid> dem_geoid_;
+    std::shared_ptr<glideslope::world::CollisionGround> collision_;
 
     std::map<std::uint8_t, std::string> models_;
     // The server's air (`weather`), and the geoid its heights are over.
@@ -2454,6 +2501,9 @@ private:
     std::size_t corrections_ = 0;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;
+    std::size_t corrections_joined_ = 0;
+    std::size_t snapped_joined_ = 0;
+    double worst_correction_joined_m_ = 0.0;
 };
 
 // **How long a session may go without anything opening under it before a
@@ -2827,7 +2877,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                     // What it sends is what it flies: rounded as the wire
                     // rounds it, as TRANSPORT.md asks, so that the two agree.
                     stick = glideslope::sim::Controls::from_list(glideslope::net::as_sent(
-                        (connect_stovl_land ? Predicting::stovl_pilot()
+                        (connect_stovl_land ? Predicting::stovl_pilot(sequence)
                                             : Predicting::pilot(sequence))
                             .as_list()));
                 }

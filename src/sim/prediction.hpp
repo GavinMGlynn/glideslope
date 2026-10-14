@@ -219,6 +219,9 @@ private:
     // What the motion does not carry put back to the first step held, before
     // it is flown again.
     void as_at_first_held();
+    // Every step held flown again, from the first, each kept as it began
+    // this time; how many.
+    std::size_t fly_held_again();
 
     Aircraft& aircraft_;
     std::optional<Controller> laws_;

@@ -78,12 +78,7 @@ Prediction::Correction Prediction::reconcile(const AircraftSnapshot& server,
 
     // And forward again through everything it had not.
     Correction out;
-    for (const Applied& a : held_) {
-        put(a.controls);
-        flying_step_ = a.step;
-        aircraft_.step();
-        ++out.replayed;
-    }
+    out.replayed = fly_held_again();
 
     out.moved_m = how_far_apart_m(was, aircraft_.state());
     out.snapped = out.moved_m > snap_beyond_m;
@@ -131,15 +126,33 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     began_.erase(began_.begin(), began_.lower_bound(last_applied));
     aircraft_.set_motion(server);
     as_at_first_held();
-    for (const Applied& a : held_) {
-        put(a.controls);
-        flying_step_ = a.step;
-        aircraft_.step();
-        ++out.replayed;
-    }
+    out.replayed = fly_held_again();
     out.moved_m = how_far_apart_m(was, aircraft_.state());
     out.snapped = out.moved_m > snap_beyond_m;
     return out;
+}
+
+std::size_t Prediction::fly_held_again() {
+    // **Each step held is kept as it was flown again**: what the motion does
+    // not carry and the lift system's controller, as the step began, from
+    // this replay - the server's word and the steps since - and no longer
+    // from the pass that first flew it. Kept from the first pass, each word
+    // put her controller back to whichever line of its own past that pass
+    // had flown: an F-35B's transition law was put back, word after word, to
+    // one of four such lines - its autopilot's engaging offset cycling
+    // among four values the server's never had, and at one word its pitch
+    // integral put back to a value its line had left 25 steps before
+    // (PROJECT_STATUS.md, 2026-10-14).
+    for (Applied& a : held_) {
+        a.before = aircraft_.replay_state();
+        if (laws_) {
+            a.laws_before.emplace(laws_->pilots_laws());
+        }
+        put(a.controls);
+        flying_step_ = a.step;
+        aircraft_.step();
+    }
+    return held_.size();
 }
 
 void Prediction::as_at_first_held() {
@@ -199,12 +212,7 @@ std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) 
     }
     aircraft_.set_motion(motion);
     as_at_first_held();
-    for (const Applied& a : held_) {
-        put(a.controls);
-        flying_step_ = a.step;
-        aircraft_.step();
-    }
-    return held_.size();
+    return fly_held_again();
 }
 
 } // namespace glideslope::sim
