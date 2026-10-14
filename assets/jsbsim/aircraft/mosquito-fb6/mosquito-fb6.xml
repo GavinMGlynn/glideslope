@@ -1233,7 +1233,7 @@
       </function>
       <function name="aero/moment/pitch-alpha-rate">
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <property>aero/ci2vel</property>
