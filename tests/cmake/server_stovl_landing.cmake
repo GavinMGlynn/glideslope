@@ -44,17 +44,20 @@
 # regression of under a metre in the worst update. The 95th percentile and
 # the median carry that. Once joined, the client must have been put right
 # at least nine times in ten of the updates compared, so that the 20 m is
-# held over the prediction and not over nothing. Measured
-# (2026-10-14, after the autopilot's seed was held within its pitch
-# envelope): linux-release the worst 1.247 and 0.007 m, the 95th percentile
-# 8 and 7 mm, the median 2 and 3 mm; x86-64-v2 1.388 and 0.003 m, 7 and 3
-# mm; linux-debug 1.170, 0.874 and 1.403 m, 7, 1 and 1 mm; lowest 778 to
-# 1,013 ft above the ground, 200 KCAS at the end. **How far she has dived
-# before her selector arrives is how long the join took** - untouched, the
-# server's F-35B dives - and the law pulls her out from any moment of her
-# first ten seconds
-# (a_heavy_f35b_selected_into_stovl_mode_at_any_moment_of_ten_seconds_untouched_...);
-# on CI, before that fix, she went down to 25 ft and into the ground.
+# held over the prediction and not over nothing. Measured (2026-10-14,
+# after the autopilot's seed was held within its pitch envelope):
+# linux-release the worst 1.247, 0.007 and 1.416 m, the 95th percentile 8,
+# 7 and 44 mm, the median 2, 3 and 31 mm (the third after the rebase onto
+# #192); x86-64-v2 1.388 and 0.003 m, 7 and 3 mm; linux-debug 1.170, 0.874
+# and 1.403 m, 7, 1 and 1 mm. The 95th percentile's single figures are not
+# representative: 44 mm is the 42 to 51 of runs before. Lowest 778 to
+# 1,013 ft above the ground, 200 KCAS at the end.
+#
+# **How far she has dived before her selector arrives is how long the join
+# took**: untouched, the server's F-35B dives, and the law pulls her out
+# from any moment of her first ten seconds (test_figures.cpp, "selected
+# into STOVL mode at any moment"); on CI before that she went down to 25 ft
+# and into the ground.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.

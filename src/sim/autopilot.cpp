@@ -551,7 +551,12 @@ Controls Autopilot::fly() {
     // and the integral, not wound while the command walked, never catching
     // up: she pulled out in shallow swings, and from a ten-second dive into
     // the ground (PROJECT_STATUS.md, 2026-10-14). The command still starts
-    // from her pitch and walks at the pitch rate, so nothing steps.
+    // from her pitch and walks at the pitch rate, so nothing steps. And
+    // taken over climbing past the top, the same the other way: seeded 41
+    // degrees nose-up, an F-15C handed over at 20 degrees held her nose at
+    // the top while the climb went, and was 2,041 ft above her height. The
+    // top is 15 in every mode here: the stall entry's higher one
+    // (hold_height_to_the_stall) is engaged level, never in such a climb.
     if (seed_climb_) {
         seed_climb_ = false;
         pitch_integral_deg_ =

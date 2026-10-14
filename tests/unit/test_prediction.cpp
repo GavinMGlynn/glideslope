@@ -4,8 +4,8 @@
 #include "frontend/same_air.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
-#include "sim/crash.hpp"
 #include "sim/controller.hpp"
+#include "sim/crash.hpp"
 #include "sim/figures.hpp"
 #include "sim/learnt.hpp"
 #include "sim/pacing.hpp"
@@ -2216,101 +2216,165 @@ GLIDESLOPE_TEST(a_stovl_prediction_moved_by_her_pilot_in_the_hover_put_back_flie
 
 
 
-// **A wreck the server holds is held by the prediction too, and nothing in
-// her goes to a NaN**: an F-35B at her model's own weight, 600 ft and 300
-// KCAS, the stick full forward, is flown on a server (an aircraft stepped
-// and judged as the server judges it) and in a prediction on the same
-// inputs, four steps an input, until the server's judge calls her a wreck.
-// The server then holds her, and its word is the same at every input for
-// ten seconds after; the prediction steps on through its inputs - STOVL
-// mode now selected, so that her transition law flies her - and is put
-// right by that word at each, the server's word that she is a wreck heard
-// first. Every number in
-// her property tree stays finite at every step of the 1,200, and she stays
-// within a millimetre of where the server holds her. **Seen red** flown on
-// as before: put back to where she struck at every word and flown through
-// the ground again for every input since, her whole state went to NaN at
-// the 125th word - what aborted a debug client on JSBSim's table assertion
-// (FGTable.cpp:618) on CI.
+// **A wreck the server holds is held by the prediction too, nothing in her
+// goes to a NaN, and she flies again from where the server starts her.** An
+// F-35B at her model's own weight, 600 ft and 300 KCAS over flat ground, the
+// stick full forward, is flown on a server - an aircraft stepped and judged
+// as the server steps and judges it - and in a prediction on the same
+// inputs, four steps an input, each server word heard three inputs (100 ms)
+// late, as through the test's relay. **As the server does**: once its judge
+// calls her a wreck it steps her no further for five seconds (`wreck_s`),
+// though it still takes each input - its word's `last_applied` goes on
+// rising, so the inputs the prediction holds stay a word's delay long - and
+// then flies her again from her start (2,200 ft, 300 KCAS, level), the
+// word saying she is no longer a wreck. Meanwhile the pilot selects STOVL
+// mode, the stick still forward, so that in the prediction her transition
+// law flies her; after the wreck, untouched (0.6, the stick centred,
+// STOVL mode off). What holds: every number in her property tree finite at
+// every step; while a wreck, within a millimetre of where the server holds
+// her; at every word, no more than 16 steps flown again (the three inputs'
+// delay and the one in flight); and from the word that she flies again,
+// every step within 5 cm of the server's at the same step, and within 5 mm
+// in the fifth second (2.5 cm and 1.4 mm, measured). The 5 cm is what is
+// not the motion: her engine and actuators, carried here through the wreck
+// where the server started her afresh, which no word puts right, and the
+// difference flies out as both settle. **Seen red** without the wreck
+// heard: 7.0 m from where the server holds her. Not a NaN here: with
+// `last_applied` rising, as the server's does, each word flies 12 steps
+// again at most. Held at the wreck's input instead - every input since
+// flown again at every word, through the ground - her whole state went to
+// a NaN at the 125th word, which is the hold's other half.
 GLIDESLOPE_TEST(a_prediction_told_its_aircraft_is_a_wreck_holds_her_where_the_server_does_and_never_goes_to_a_nan) {
+    using glideslope::sim::AircraftState;
+    using glideslope::sim::Motion;
     using glideslope::sim::steps_per_second;
-    const auto start = [&](Aircraft& x) {
-        x.set_terrain(flat_ground());
-        InitialConditions ic;
-        ic.latitude_deg = -33.9461;
-        ic.longitude_deg = 151.1772;
-        ic.heading_deg = 270.0;
-        ic.altitude_ft = 600.0;
-        ic.terrain_elevation_ft = 0.0;
-        ic.airspeed_kts = 300.0;
-        ic.gear = 0.0;
-        ic.engine_running = true;
-        x.initialize(ic);
-    };
+    InitialConditions ic;
+    ic.latitude_deg = -33.9461;
+    ic.longitude_deg = 151.1772;
+    ic.heading_deg = 270.0;
+    ic.altitude_ft = 600.0;
+    ic.terrain_elevation_ft = 0.0;
+    ic.airspeed_kts = 300.0;
+    ic.gear = 0.0;
+    ic.engine_running = true;
+    InitialConditions again = ic;
+    again.altitude_ft = 2200.0;
     Aircraft server(data() / "jsbsim", "f35b");
     Aircraft client(data() / "jsbsim", "f35b");
-    start(server);
-    start(client);
-    Controls k;
-    k.throttle = 0.6;
-    k.elevator = -1.0;
+    server.set_terrain(flat_ground());
+    client.set_terrain(flat_ground());
+    server.initialize(ic);
+    client.initialize(ic);
     Prediction p(client);
     glideslope::sim::GroundJudge judge(false);
-    std::uint32_t sequence = 0;
+    struct Word {
+        Motion motion;
+        std::uint32_t applied = 0;
+        std::size_t into = 0;
+        std::uint64_t steps = 0;
+        bool wrecked = false;
+    };
+    constexpr std::size_t delay_inputs = 3;
+    constexpr std::size_t most_replayed = (delay_inputs + 1) * 4;
+    std::deque<Word> on_the_way;
+    std::vector<AircraftState> server_at; // the server's state after each step
+    std::optional<std::uint64_t> wrecked_at;
+    std::optional<std::uint64_t> again_at;
     std::uint64_t steps = 0;
-    std::optional<std::string> why;
-    while (!why && steps < 60 * steps_per_second) {
-        ++sequence;
-        for (int i = 0; i < 4 && !why; ++i) {
-            server.set_controls(k);
-            server.step();
-            ++steps;
-            p.step(sequence, k);
-            why = judge.judge(server);
-        }
-    }
-    check(why.has_value(), "she was never a wreck");
-    const glideslope::sim::Motion wreck = server.motion();
-    const std::uint32_t applied = sequence;
-    const std::size_t into = static_cast<std::size_t>((steps - 1) % 4);
-    const glideslope::sim::AircraftState held = server.state();
-    // From here her pilot selects STOVL mode: in the prediction her
-    // transition law flies her from wherever the server's word puts her.
-    k.stovl = 1.0;
-    std::printf("  a wreck at step %llu: %s\n", static_cast<unsigned long long>(steps),
-                why->c_str());
-    int flown = 0;
+    std::uint32_t sequence = 0;
     int not_finite = 0;
     std::string first_not_finite;
-    double furthest_m = 0.0;
+    double furthest_held_m = 0.0;
+    double furthest_again_m = 0.0;
+    double furthest_last_m = 0.0;
+    std::size_t longest_replay = 0;
+    int words_again = 0;
     const std::vector<std::string> names = client.number_names();
-    for (int input = 0; input < 10 * 30; ++input) {
+    const std::uint64_t wreck_steps = 5 * steps_per_second;
+    while (!again_at || steps < *again_at + 5 * steps_per_second) {
         ++sequence;
+        Controls k;
+        k.throttle = 0.6;
+        if (!again_at) {
+            k.elevator = -1.0;
+            k.stovl = wrecked_at ? 1.0 : 0.0;
+        }
         for (int i = 0; i < 4; ++i) {
+            // The server's step: frozen while a wreck, flown again after.
+            if (wrecked_at && !again_at && steps >= *wrecked_at + wreck_steps) {
+                server.initialize(again);
+                judge.reset();
+                again_at = steps;
+            }
+            const bool held = wrecked_at && !again_at;
+            if (!held) {
+                server.set_controls(k);
+                server.step();
+                if (!wrecked_at && judge.judge(server)) {
+                    wrecked_at = steps + 1;
+                }
+            }
+            ++steps;
+            server_at.push_back(server.state());
+            // The client's step, held against the server's at that step
+            // once she flies again.
             p.step(sequence, k);
-            ++flown;
             const std::vector<double> numbers = client.numbers();
             for (std::size_t n = 0; n < numbers.size(); ++n) {
                 if (!std::isfinite(numbers[n])) {
                     if (not_finite == 0) {
-                        first_not_finite = names[n] + " at step " + std::to_string(flown);
+                        first_not_finite = names[n] + " at step " + std::to_string(steps);
                     }
                     ++not_finite;
                     break;
                 }
             }
+            if (words_again > 0) {
+                const double apart_m =
+                    glideslope::sim::how_far_apart_m(server_at.back(), client.state());
+                furthest_again_m = std::max(furthest_again_m, apart_m);
+                if (steps + steps_per_second >= *again_at + 5 * steps_per_second) {
+                    furthest_last_m = std::max(furthest_last_m, apart_m);
+                }
+            }
         }
-        p.hear_wrecked(true);
-        (void)p.reconcile(wreck, applied, into, steps);
-        furthest_m = std::max(furthest_m, glideslope::sim::how_far_apart_m(held, client.state()));
+        // Four steps into the input it applied: the clocks' difference nothing.
+        on_the_way.push_back({server.motion(), sequence, 4, steps, wrecked_at && !again_at});
+        if (on_the_way.size() > delay_inputs) {
+            const Word w = on_the_way.front();
+            on_the_way.pop_front();
+            p.hear_wrecked(w.wrecked);
+            const Prediction::Correction c = p.reconcile(w.motion, w.applied, w.into, w.steps);
+            longest_replay = std::max(longest_replay, c.replayed);
+            if (w.wrecked) {
+                furthest_held_m = std::max(furthest_held_m, glideslope::sim::how_far_apart_m(
+                                                                server_at[w.steps - 1],
+                                                                client.state()));
+            } else if (again_at && w.steps > *again_at) {
+                ++words_again;
+            }
+        }
+        check(steps < 120 * steps_per_second, "the flight never ended");
     }
-    std::printf("  %d steps flown after it: %d with a number not finite%s; at most %.6f m from "
-                "the server's\n",
-                flown, not_finite, not_finite > 0 ? (", first " + first_not_finite).c_str() : "",
-                furthest_m);
-    check(flown == 1200, std::to_string(flown) + " steps flown, not 1,200");
+    check(wrecked_at.has_value(), "she was never a wreck");
+    std::printf("  a wreck at step %llu, flown again at %llu; %llu steps in all: %d with a number "
+                "not finite%s; held at most %.6f m from the server's wreck; at most %zu steps "
+                "flown again at a word (bound %zu); flying again, at most %.6f m from the "
+                "server over %d words, %.6f m in the last second\n",
+                static_cast<unsigned long long>(*wrecked_at),
+                static_cast<unsigned long long>(*again_at), static_cast<unsigned long long>(steps),
+                not_finite, not_finite > 0 ? (", first " + first_not_finite).c_str() : "",
+                furthest_held_m, longest_replay, most_replayed, furthest_again_m, words_again,
+                furthest_last_m);
     check(not_finite == 0, std::to_string(not_finite) + " steps with a number not finite, the "
                                                         "first " + first_not_finite);
-    check(furthest_m < 0.001, "she was " + std::to_string(furthest_m) +
-                                  " m from where the server holds her");
+    check(furthest_held_m < 0.001, "held " + std::to_string(furthest_held_m) +
+                                       " m from where the server holds her");
+    check(longest_replay <= most_replayed,
+          std::to_string(longest_replay) + " steps flown again at one word");
+    check(words_again >= 100, std::to_string(words_again) + " words heard flying again, not 100");
+    check(furthest_again_m < 0.05, "flying again she was " + std::to_string(furthest_again_m) +
+                                       " m from the server");
+    check(furthest_last_m < 0.005, "flying again, in the last second she was " +
+                                       std::to_string(furthest_last_m) + " m from the server");
 }

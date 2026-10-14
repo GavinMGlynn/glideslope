@@ -2320,3 +2320,83 @@ GLIDESLOPE_TEST(the_trim_is_never_held_for_a_stall_on_approaches_and_climbs_in_m
           "one aeroplane of every class flown: " + std::to_string(flown_classes.size()) +
               " of " + std::to_string(glideslope::sim::aircraft_class_count));
 }
+
+// **Handed over in a climb steeper than its envelope, the autopilot brings
+// her back to her height.** An F-15C trimmed at 5,000 ft and 300 KCAS, full
+// power, pulled into a 20-degree climb (4,700 ft/min), and an F-35B into a
+// 25-degree one (5,100), each handed to the autopilot with the controls she
+// is pulled by, asked to hold the height she had there and her speed: the
+// nose asked down no faster than the envelope's 3 degrees a second, she
+// overshoots by no more than 1,200 ft, and 90 s on is within 250 ft of it
+// (1,039 and 197 ft; 998 and 159). The vertical-speed loop's integral is
+// seeded within its envelope (Autopilot::fly). **Seen red** seeded outside
+// it - at her pitch plus the proportional part of the climb she had over
+// the one asked, 41 degrees for the F-15C - it held her nose at the top
+// while the climb went: 2,041 ft above, and 1,349 above 90 s on. **Not
+// held here: the load.** Walking her nose down at 3 degrees a second at 300
+// KCAS the F-15C goes to -1.20 g and the F-35B to -0.16, seeded either way.
+GLIDESLOPE_TEST(an_autopilot_handed_a_fighter_climbing_past_its_pitch_envelope_brings_her_back_to_her_height) {
+    struct Case {
+        const char* id;
+        double pitch_deg;
+    };
+    int flown = 0;
+    for (const Case c : {Case{"f15c", 20.0}, Case{"f35b", 25.0}}) {
+        Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, c.id);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.heading_deg = 0.0;
+        ic.airspeed_kts = 300.0;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        ic.trim = true;
+        aircraft.initialize(ic);
+        // Pulled, and handed over with the controls she is pulled by.
+        glideslope::sim::Controls pull = glideslope::sim::trimmed_controls(aircraft);
+        pull.throttle = 1.0;
+        pull.elevator = std::min(1.0, pull.elevator + 0.3);
+        for (int i = 0; aircraft.state().pitch_deg < c.pitch_deg && i < 20 * steps_per_second;
+             ++i) {
+            aircraft.set_controls(pull);
+            aircraft.step();
+        }
+        const glideslope::sim::AircraftState handed = aircraft.state();
+        Autopilot autopilot(aircraft, pull);
+        AutopilotModes modes = autopilot.modes();
+        modes.heading_deg = 0.0;
+        modes.altitude_ft = handed.altitude_ft;
+        modes.airspeed_kts = 300.0;
+        autopilot.set(modes);
+        double most_above_ft = -1e9;
+        double least_g = 1e9;
+        double fastest_down_degps = 0.0;
+        double command_deg = autopilot.pitch_asked_deg();
+        for (int i = 0; i < 90 * steps_per_second; ++i) {
+            aircraft.set_controls(autopilot.fly());
+            aircraft.step();
+            fastest_down_degps = std::max(fastest_down_degps, (command_deg - autopilot.pitch_asked_deg()) *
+                                                                  static_cast<double>(steps_per_second));
+            command_deg = autopilot.pitch_asked_deg();
+            most_above_ft = std::max(most_above_ft, aircraft.state().altitude_ft - handed.altitude_ft);
+            least_g = std::min(least_g, aircraft.property("accelerations/Nz"));
+        }
+        const double off_ft = aircraft.state().altitude_ft - handed.altitude_ft;
+        std::printf("  %s handed over at %.1f degrees climbing %.0f ft/min: %.0f ft above at "
+                    "most, the nose asked down at %.2f degrees a second at most, %.2f g at "
+                    "least, %.0f ft off 90 s on\n",
+                    c.id, handed.pitch_deg, handed.climb_rate_fpm, most_above_ft,
+                    fastest_down_degps, least_g, off_ft);
+        check(handed.pitch_deg >= c.pitch_deg, std::string(c.id) + " was not pulled into her climb");
+        check(fastest_down_degps <= 3.0 + 1e-6, std::string(c.id) + "'s nose was asked down at " +
+                                                    std::to_string(fastest_down_degps) +
+                                                    " degrees a second");
+        check(most_above_ft <= 1200.0,
+              std::string(c.id) + " overshot by " + std::to_string(most_above_ft) + " ft");
+        check(std::abs(off_ft) <= 250.0,
+              std::string(c.id) + " was " + std::to_string(off_ft) + " ft off 90 s on");
+        ++flown;
+    }
+    check(flown == 2, std::to_string(flown) + " of 2 flown");
+}

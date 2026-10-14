@@ -523,7 +523,10 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             // heard together are those waiting since it joined.
             reconciled_s_ = state.simulation_time_s;
             resuming_ = false;
-            own_word_ = OwnWord{motion_of(*state.yours), 0, 0, 0, true, std::nullopt, false};
+            OwnWord word;
+            word.motion = motion_of(*state.yours);
+            word.adopt = true;
+            own_word_ = word;
         } else {
             // **Put right from the newest of the words heard together**, by
             // `hear`, once they are all heard; each older one says only the
@@ -538,14 +541,18 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             const auto own = std::find_if(
                 state.aircraft.begin(), state.aircraft.end(),
                 [&](const net::AircraftState& a) { return a.index == state.your_aircraft; });
-            own_word_ = OwnWord{motion_of(*state.yours), state.last_input_applied,
-                                state.yours->steps_into_input, server_steps, false,
-                                own != state.aircraft.end() &&
-                                        own->condition == net::Condition::engine_stopped
-                                    ? std::optional<int>(own->stopped_engine)
-                                    : std::nullopt,
-                                own != state.aircraft.end() &&
-                                    own->condition == net::Condition::wrecked};
+            OwnWord word;
+            word.motion = motion_of(*state.yours);
+            word.last_applied = state.last_input_applied;
+            word.steps_into = state.yours->steps_into_input;
+            word.server_steps = server_steps;
+            if (own != state.aircraft.end() &&
+                own->condition == net::Condition::engine_stopped) {
+                word.engine_stopped = static_cast<int>(own->stopped_engine);
+            }
+            word.wrecked =
+                own != state.aircraft.end() && own->condition == net::Condition::wrecked;
+            own_word_ = word;
             if (own_words_ == 0) {
                 first_own_word_s_ = state.simulation_time_s;
             }
