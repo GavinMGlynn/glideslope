@@ -1797,7 +1797,91 @@ real server and holds the client to it; it does not convert her, hover or
 land her. Closing the item needs a server that gives a player a loading
 (and a prediction told it). **The hover limit is estimated**: her hover
 thrust (Pratt & Whitney's 40,650 lbf) less 2 per cent for control; none
-is published.
+is published. **And what CI run 38517430777 found, still not true**
+(below): a player's F-35B that nobody has touched dives - the server
+gives her untrimmed at 300 KCAS and holds the stick centred, and she is
+sinking 5,600 ft/min by five seconds and 10,400 by ten - so how far she
+has dived when her selector arrives is how long the player took to join.
+Now pulled out from any moment of her first ten seconds; **not from
+later** - by 12.5 s she is at 780 ft sinking 12,800 ft/min, past what the
+autopilot's 3 degrees a second of pitch saves. The untrimmed start is a
+tail in COMPLETION_PLAN, not fixed here. **A prediction is held at a
+wreck only once the server's word says so**: for the trip before that word
+it flies on into the ground, as before; and the windowed client is given
+the same hold, compiled here and not run against a wreck.
+
+**What CI run 38517430777 found, and why** (2026-10-14, at 820a11a2). The
+multi-process test failed on four platforms, and its main cause was not
+the prediction: **the server's own F-35B went down.** "The server's word
+... lowest" 1 ft and a wreck (Ubuntu linux-debug), 25 ft (Windows
+release), 619 ft (macOS release), against about 770 here; Windows debug's
+client aborted on JSBSim's table assertion (FGTable.cpp:618) after "aircraft
+0 is a wreck"; macOS's 95th percentile was 0.901 m.
+
+- **The dive before the selector.** Until the selector arrives the server
+  flies her untouched: untrimmed, 0.6 throttle, the stick centred, she
+  dives. The test's pilot selects STOVL mode with its 150th input, so the
+  server has flown her so for the join's time and five seconds more - and
+  the join is longer on a slower machine. Flown in one process, selected
+  after 5 s she was at 1,925 ft sinking 5,600 ft/min; after 8.3 s, 1,526 ft
+  and 8,800; after 10 s, 1,260 ft and 10,400.
+- **The law's autopilot seeded the pull-out away.** Taken over from that
+  dive, the transition law's wing-borne autopilot seeded its vertical-speed
+  integral from her pitch less the proportional part of the climb she was
+  short of - 45 degrees nose-down from an 8,000 ft/min dive. As the dive
+  eased, the pitch it wanted eased down with it; the command walked down at
+  3 degrees a second, the integral not winding while it walked, and she
+  pulled out in swings of 1.6 g and back to 0.8 every five seconds: from
+  1,643 ft and 8,000 ft/min she bottomed at 134 ft, from 1,526 at 1 ft,
+  from 1,260 into the ground - CI's 25 ft and its wreck. **Now** the seed is
+  held within the pitch envelope (-10 to 15 degrees,
+  `Autopilot::fly`): the command still starts from her pitch and walks at
+  the pitch rate, so nothing steps, but it walks up and stays up. From 8.3
+  s she bottoms at 734 ft, from 10 s at 291. It is every aircraft's
+  autopilot: only an aircraft taken over in a climb or dive steeper than
+  the envelope's own is seeded differently.
+- **A wreck's replay went to a NaN.** The server holds a wreck where it
+  struck; the client's prediction was put back there at every word and
+  flown through the ground again for every input since, her transition law
+  flying her, and her whole state went to a NaN - what a debug JSBSim's
+  tables assert on. **Now** `Prediction::hear_wrecked`: told by the word
+  that she is a wreck, the prediction keeps each input (the clocks'
+  difference still told) but flies no step, forward or again, until she
+  flies again - in `glideslope_cli` and the windowed client
+  (`Flight::reconcile`) alike.
+- **The macOS 95th percentile went with the dive.** Diving, her speed was
+  past 330 kt and each step of the clocks' difference 1.4 m; held from the
+  start, the 95th percentile here fell from 47 mm to 7 and the median from
+  36 to 2 (below).
+
+**Verification of the fixes** (each in linux-release, x86-64-v2 and
+linux-debug, the same figures in each):
+
+- `a_heavy_f35b_selected_into_stovl_mode_at_any_moment_of_ten_seconds_untouched_is_pulled_out_above_her_least_conversion_height`:
+  45,400 lb, untrimmed at 2,200 ft and 300 KCAS, fuel burning, flown
+  untouched (0.6, the stick centred) to every 20th step of her first ten
+  seconds - 61 moments, all flown, counted and asserted - then STOVL mode
+  with the stick forward, her controller made on that step as the server
+  makes it, a minute on: never lower than 90 ft (her least conversion
+  height less 10), never touching, never slowed into jet-borne flight, and
+  a minute on within 100 ft of the height asked or climbing to it. The
+  lowest of all 178 ft (selected at step 1,180); from 10 s, 291. **Seen
+  red** with the seed as it was: selected at step 920 she went down to 72
+  ft. 5.1 s in linux-release, 47.5 s in linux-debug.
+- `a_prediction_told_its_aircraft_is_a_wreck_holds_her_where_the_server_does_and_never_goes_to_a_nan`:
+  an F-35B dived into flat ground on a server-side aircraft judged as the
+  server judges it (a wreck at step 496, "struck the ground with its
+  airframe"), the prediction flown on the same inputs; then 300 inputs
+  more, STOVL mode selected, each put right by the server's word that holds
+  her, the wreck heard first: 1,200 steps, none with any of her properties
+  not finite, never more than 0.000000 m from where the server holds her.
+  **Seen red** without the wreck heard: 1,005 steps not finite, the first
+  at step 196, 82.6 m from the server's.
+- The 297 in-process autopilot, hand-over, upset, stall, take-off, F-35B,
+  STOVL, hover and transition tests (`-R
+  "hand|take|upset|spiral|stall|autopilot|recover|f35b|stovl|hover|transition|engag|seed"`,
+  less the multi-process) and the 24 in-process prediction tests green on
+  linux-release. **The selftest hash does not move**: `de9bf01f96427593`.
 
 **What the server run found, and why.** Through a real server, the
 player's F-35B selected into STOVL mode at her 300 KCAS start, 2,200 ft,
@@ -1965,7 +2049,8 @@ runs here the client never aborted. The same assertion was met in one
 process, in a first draft of the fuel test: an F-35B left at full power
 with the stick alone dived into the ground at 850 kt, and the replay that
 flew her into it looked up her ground effect at a NaN height. Not shown to
-be what CI's client met.
+be what CI's client met. (Since CI run 38517430777: a wreck's replay
+going to a NaN reproduced in one process, and held - above.)
 
 **Not fixed: the laws in the prediction drift from the server's.** The
 server sends her motion, not her transition law's state, so a law that

@@ -1770,6 +1770,10 @@ public:
                     engine_stopped_at_s_ = local_s;
                 }
                 (void)prediction_->hear_engine_stopped(engine_stopped);
+                // **A wreck is held where the server holds it**, not flown
+                // through the ground at every word (sim::Prediction).
+                prediction_->hear_wrecked(own != state.aircraft.end() &&
+                                          own->condition == glideslope::net::Condition::wrecked);
                 const std::uint32_t applied = state.last_input_applied;
                 // Joined, and the clocks' difference known, before this word:
                 // a correction from here on is the prediction's, not the

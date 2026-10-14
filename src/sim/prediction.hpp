@@ -189,6 +189,19 @@ public:
     // whether it stopped one.
     bool hear_engine_stopped(std::optional<int> engine);
     int engines_stopped_for_the_server() const { return engines_stopped_; }
+    // **The server's word that the aircraft is a wreck** (a state update's
+    // condition), heard before it is put right by that word. The server
+    // flies a wreck no further - it is held where it struck until it flies
+    // again - and so, while it says so, neither does this: each input is
+    // kept as before, so the clocks' difference is still told, but no step
+    // is flown, forward or again, and the aircraft stays at the server's
+    // word. Flown on, a prediction put back at every word to where the
+    // server's F-35B struck the ground, and flown through it again for every
+    // input since, went to a NaN that a debug JSBSim's tables assert on
+    // (FGTable.cpp:618; PROJECT_STATUS.md, 2026-10-14). Heard not a wreck -
+    // flown again - it flies on.
+    void hear_wrecked(bool wrecked) { wrecked_ = wrecked; }
+    bool wrecked() const { return wrecked_; }
     // **When the step being flown - forward or flown again - is flown on the
     // server**, on the session's clock: this client's step `s` is the
     // server's step `s + offset`, flown at `(s + offset + 1) / 120` seconds
@@ -230,6 +243,7 @@ private:
     std::map<std::uint32_t, std::uint64_t> began_;
     std::uint64_t steps_ = 0;
     int engines_stopped_ = 0;
+    bool wrecked_ = false;
     std::optional<int> stopped_for_the_server_;
     // The input the last step was flown on.
     std::uint32_t flying_ = 0;

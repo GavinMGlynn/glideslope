@@ -38,9 +38,11 @@ void Prediction::step(std::uint32_t sequence, const Controls& controls) {
     if (laws_) {
         laws_before.emplace(laws_->pilots_laws());
     }
-    put(controls);
     flying_step_ = steps_;
-    aircraft_.step();
+    if (!wrecked_) {
+        put(controls);
+        aircraft_.step();
+    }
     // **Where an input began here**, known only where the sequence changes
     // after a step of another: the first input a prediction flies may have
     // begun before it did - one begun from the first update, or after a
@@ -154,9 +156,12 @@ std::size_t Prediction::fly_held_again() {
         if (laws_) {
             a.laws_before.emplace(laws_->pilots_laws());
         }
-        put(a.controls);
         flying_step_ = a.step;
-        aircraft_.step();
+        // A wreck is held at the server's word (hear_wrecked).
+        if (!wrecked_) {
+            put(a.controls);
+            aircraft_.step();
+        }
     }
     return held_.size();
 }

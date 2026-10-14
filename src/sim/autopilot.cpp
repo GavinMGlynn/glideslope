@@ -541,9 +541,22 @@ Controls Autopilot::fly() {
     // nose was stepped by the proportional part of it: a light aeroplane
     // handed from her take-off at 1,025 ft/min, eased (below) from that
     // climb, was pitched 4 degrees up, and the 172P sagged 3.2 kt.
+    //
+    // **And within the pitch envelope**: the integral is the pitch her
+    // steady climb wants, and no climb wants a pitch the envelope refuses.
+    // Taken over diving, the proportional part of the climb she was short
+    // of put it far below the envelope's floor - an F-35B handed over at
+    // 8,000 ft/min down was seeded 45 degrees nose-down - and as the dive
+    // eased the pitch wanted fell with it, the command walking back down
+    // and the integral, not wound while the command walked, never catching
+    // up: she pulled out in shallow swings, and from a ten-second dive into
+    // the ground (PROJECT_STATUS.md, 2026-10-14). The command still starts
+    // from her pitch and walks at the pitch rate, so nothing steps.
     if (seed_climb_) {
         seed_climb_ = false;
-        pitch_integral_deg_ = pitch_command_deg_ - pitch_per_fpm * (climb_wanted - climb_fpm);
+        pitch_integral_deg_ =
+            std::clamp(pitch_command_deg_ - pitch_per_fpm * (climb_wanted - climb_fpm),
+                       least_pitch_deg, most_pitch_deg);
     }
 
     // The airspeed and its trend, kept current whatever the modes and the

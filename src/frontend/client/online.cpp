@@ -307,7 +307,7 @@ void Online::hear(Flight& flight) {
     const bool known = flight.clocks_known();
     const auto c =
         flight.reconcile(word.motion, word.last_applied, word.steps_into, word.server_steps,
-                         word.engine_stopped);
+                         word.engine_stopped, word.wrecked);
     // **At the server's pace** (sim::Pacing): what its ticks are flown at
     // from here on.
     flight.pace_by_clocks(arrived_s_, clock_.known() ? std::optional<double>(clock_.rate())
@@ -523,7 +523,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             // heard together are those waiting since it joined.
             reconciled_s_ = state.simulation_time_s;
             resuming_ = false;
-            own_word_ = OwnWord{motion_of(*state.yours), 0, 0, 0, true, std::nullopt};
+            own_word_ = OwnWord{motion_of(*state.yours), 0, 0, 0, true, std::nullopt, false};
         } else {
             // **Put right from the newest of the words heard together**, by
             // `hear`, once they are all heard; each older one says only the
@@ -543,7 +543,9 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
                                 own != state.aircraft.end() &&
                                         own->condition == net::Condition::engine_stopped
                                     ? std::optional<int>(own->stopped_engine)
-                                    : std::nullopt};
+                                    : std::nullopt,
+                                own != state.aircraft.end() &&
+                                    own->condition == net::Condition::wrecked};
             if (own_words_ == 0) {
                 first_own_word_s_ = state.simulation_time_s;
             }
