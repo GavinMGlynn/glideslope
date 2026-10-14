@@ -1882,6 +1882,16 @@ linux-debug, the same figures in each):
   "hand|take|upset|spiral|stall|autopilot|recover|f35b|stovl|hover|transition|engag|seed"`,
   less the multi-process) and the 24 in-process prediction tests green on
   linux-release. **The selftest hash does not move**: `de9bf01f96427593`.
+- **The multi-process test through a server**, at 8dbbd86a, six runs:
+  linux-release lowest 1,013 and 1,010 ft, the worst error 1.247 and
+  0.007 m, the 95th percentile 8 and 7 mm, the median 2 and 3 mm;
+  x86-64-v2 1,013 and 1,013 ft, 1.388 and 0.003 m, 7 and 3 mm, 2 and 1
+  mm; linux-debug 778, 1,002 and 979 ft, 1.170, 0.874 and 1.403 m, 7, 1
+  and 1 mm, 2, 0 and 1 mm. 200 KCAS at the end in each, 3,004 to 3,005
+  corrections once joined, none too large to hide. Before, the lowest was
+  770 to 774 ft in release and 131 and 259 in linux-debug, and the 95th
+  percentile 42 to 51 mm. The worst stays a step of the clocks'
+  difference at her speed (held to 2 m); the bounds are unchanged.
 
 **What the server run found, and why.** Through a real server, the
 player's F-35B selected into STOVL mode at her 300 KCAS start, 2,200 ft,
