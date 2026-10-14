@@ -265,7 +265,7 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### From the review of #202: where the rolling ceiling bites, counted; walking pace at 4.5 kt, found, 2026-10-15
+### From the review of #202: where the rolling ceiling bites, counted; walking pace at 4.5 kt, found, 2026-10-15 — item still open
 
 **What is still not true first.**
 - **The rolling ceiling (0.3) cannot bite on three landplanes**, and is
@@ -282,8 +282,9 @@ are the risks the phase order is built around:
   degrees of pitch and 21.1 of roll, 5.0 s after the hand-over. So the
   entry below's "the Mosquito's swing was the old hand's too" holds at 3
   kt only; both findings are added to their open items (the Cub's
-  crosswind pitch term, Phase 9; the Mosquito's swing, Phase 10b). The
-  walking-pace item stays ticked: its tests hold her at 3 kt.
+  crosswind pitch term, Phase 9; the Mosquito's swing, Phase 10b). **The
+  walking-pace item is open again**: its verification is every walking
+  pace, 2-5 kt, and its tests fly only 3 kt, where none strikes.
 - **The Cub's old name, reconciled**: the crosswind test named her for
   going over "while the test's throttle rolls her up to walking pace,
   before the rollout has her". The
@@ -312,7 +313,7 @@ red**, targeted: with the rolling ceiling made the standing one
 only they, failed - ten dry, eleven wet, eleven across, wound to 0.31 to
 0.45 rolling; the named ones were not. Reverted, green.
 
-### The walking-pace tests' hand holds her at taxi power, and every strike is judged, 2026-10-15 — item done
+### The walking-pace tests' hand holds her at taxi power, and every strike is judged, 2026-10-15 — item still open (see the entry above)
 
 **What is still not true first.** **She is rolled at walking pace for under
 a second now, not half a minute**: at taxi power the autobrake stops every
