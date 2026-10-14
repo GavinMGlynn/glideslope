@@ -1849,10 +1849,12 @@ client aborted on JSBSim's table assertion (FGTable.cpp:618) after "aircraft
   difference still told) but flies no step, forward or again, until she
   flies again - in `glideslope_cli` and the windowed client
   (`Flight::reconcile`) alike.
-- **The macOS 95th percentile went with the dive.** Diving, her speed was
-  past 330 kt and each step of the clocks' difference 1.4 m; held from the
-  start, the 95th percentile here fell from 47 mm to 7 and the median from
-  36 to 2 (below).
+- **The macOS 95th percentile is not shown fixed.** Diving, her speed
+  was past 330 kt and each step of the clocks' difference 1.4 m. Held from
+  the start, six runs here gave a 95th percentile of 1 to 8 mm, but a
+  seventh, rebased onto main after #192, 44 mm (median 31) - the spread
+  before was 42 to 51 mm. CI's 0.901 m on macOS is not reproduced here and
+  not explained; the bound (10 cm) is unchanged.
 
 **Verification of the fixes** (each in linux-release, x86-64-v2 and
 linux-debug, the same figures in each):
@@ -1890,7 +1892,9 @@ linux-debug, the same figures in each):
   and 1 mm, 2, 0 and 1 mm. 200 KCAS at the end in each, 3,004 to 3,005
   corrections once joined, none too large to hide. Before, the lowest was
   770 to 774 ft in release and 131 and 259 in linux-debug, and the 95th
-  percentile 42 to 51 mm. The worst stays a step of the clocks'
+  percentile 42 to 51 mm. Rebased onto main after #192 (a3e6820b),
+  linux-release once more: lowest 1,010 ft, the worst 1.416 m, the 95th
+  percentile 44 mm, the median 31 mm. The worst stays a step of the clocks'
   difference at her speed (held to 2 m); the bounds are unchanged.
 
 **What the server run found, and why.** Through a real server, the
