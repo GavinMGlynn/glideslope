@@ -1534,30 +1534,47 @@ GLIDESLOPE_TEST(every_tail_wheel_aeroplane_started_at_rest_stands_on_all_three_w
               std::to_string(left_out));
 }
 
-// **Every nose-wheel landplane braked to a stop in a 15 kt crosswind keeps
-// her pitch rate under `most_q_degps`**: each landplane of the catalogue
-// that stands on a nose wheel (`Aircraft::stance`; the two tail-wheel
-// aeroplanes and the flying boat named) is started on the runway, stood five
-// seconds on full brakes in calm air, given 15 kt straight across from the
-// left (the C172P POH's demonstrated crosswind), run up to `from_kts` on the
-// throttle by the take-off autopilot's steering (Departure: its rudder and
-// ailerons; her brakes off, her stick central), and then braked on both
-// wheels at every level of `brake_levels`, throttle closed, to a stop and
-// five seconds standing. From the brakes on, her pitch rate stays under the
-// bound, nothing but her wheels touches the runway (GroundJudge), and she
-// stops. **The bound**: the dip of her nose as the brakes come on is the
-// largest honest pitch rate, the C182's 12.1 deg/s at full brakes; 20 is
-// above it. **Seen red on the models before tools/alpha_rate.py**, built as
-// CI's Rocky 9 and Ubuntu jobs build (-march=x86-64-v2): near a stop, her
-// sideslip going to 90 degrees, her alpha-rate terms pitched the C172P at 38
-// to 62 deg/s and struck her tail at brakes 0.6 to 1.0, the F-15C at 24 and
-// struck, the 787-8 at 28 and struck, the F-22 at 18.5 and struck. Whether
-// a braked aeroplane's nose may go below -5 degrees (the C182's goes to -5.7
-// at full brakes, calm or not) is not judged here. Coverage asserted:
-// thirteen aeroplanes at five brake levels.
-GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_pitch_rate_under_a_bound) {
+// **Every landplane braked to a stop in a 15 kt crosswind keeps her pitch
+// rate under `most_q_degps`**: each landplane of the catalogue (the flying
+// boat named) is started on the runway, stood five seconds on full brakes in
+// calm air, given 15 kt straight across from the left (the C172P POH's
+// demonstrated crosswind), run up to `from_kts` on the throttle by the
+// take-off autopilot's steering (Departure: its rudder; her brakes off), and
+// then braked on both wheels at every level of `brake_levels`, throttle
+// closed, to a stop and five seconds standing. From the brakes on, her pitch
+// rate stays under the bound, nothing but her wheels touches the runway
+// (GroundJudge), she does not go over (45 degrees), and she stops.
+//
+// **A nose-wheel aeroplane** is flown stick central, on Departure's
+// ailerons, at every level. **A tail-wheel aeroplane** (the J-3 Cub and the
+// Mosquito) is flown as one is taxied and braked: stick held fully back and
+// full aileron into the wind, throughout (FAA-H-8083-3, tailwheel
+// airplanes). She is braked at each level whose braking friction is no more
+// than her **tip ratio**: the distance of her centre of gravity behind her
+// main wheels over its height above them, at the attitude she stands at. A
+// brake that grips harder than that tips a tail-wheel aeroplane onto her
+// nose held still, as it would a real one; each such level is named with
+// both figures. Stick central, as the nose-wheel aeroplanes are flown, the
+// Cub went over at every level, 0.1 included: at full power her tail came
+// up by 10 kt (pitch 11.8 to 2.3 degrees), and braking from there tipped her.
+//
+// **The bound**: the dip of her nose as the brakes come on is the largest
+// honest pitch rate, the C182's 12.1 deg/s at full brakes; 20 is above it.
+// **Seen red on the models before tools/alpha_rate.py**, built as CI's Rocky
+// 9 and Ubuntu jobs build (-march=x86-64-v2): near a stop, her sideslip going
+// to 90 degrees, her alpha-rate terms pitched the C172P at 38 to 62 deg/s and
+// struck her tail at brakes 0.6 to 1.0, the F-15C at 24 and struck, the
+// 787-8 at 28 and struck, the F-22 at 18.5 and struck. **Seen red with the
+// tail-wheel aeroplanes flown stick central, on Departure's ailerons**: the
+// Cub pitched at 65 to 80 deg/s at brakes 0.1 to 0.3 and went over.
+// Whether a braked aeroplane's nose may go below -5 degrees (the C182's goes
+// to -5.7 at full brakes, calm or not) is not judged here. Coverage
+// asserted: fifteen landplanes at every tenth of brake, 150 levels: 137
+// flown (the thirteen nose-wheel aeroplanes at all ten, the Cub at 0.1 to
+// 0.3, the Mosquito at 0.1 to 0.4) and the thirteen over a tip ratio named.
+GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_pitch_rate_under_a_bound) {
     const auto roster = glideslope::sim::read_catalogue(data());
-    constexpr double brake_levels[] = {0.2, 0.4, 0.6, 0.8, 1.0};
+    constexpr double brake_levels[] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     constexpr double crosswind_kts = 15.0;
     constexpr double from_kts = 10.0;
     constexpr double most_q_degps = 20.0;
@@ -1569,8 +1586,11 @@ GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind
         return a.property("velocities/vg-fps") / 1.68781;
     };
     std::size_t runs = 0;
-    std::size_t planes = 0;
+    std::size_t nose_wheels = 0;
+    std::size_t tail_wheels = 0;
     std::size_t named = 0;
+    std::size_t levels_named = 0;
+    std::size_t tail_runs = 0;
     double worst_q = 0.0;
     std::string worst_where;
     std::vector<std::string> wrong;
@@ -1596,16 +1616,63 @@ GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind
             ic.engine_running = true;
             ic.gear = 1.0;
             aircraft.initialize(ic);
-            if (const auto stance = aircraft.stance(); !stance.found || stance.tail_wheel) {
-                ++named;
-                std::printf("  named - %s: she stands on a tail wheel\n", e.id.c_str());
-                break;
+            const auto stance = aircraft.stance();
+            check(stance.found, e.id + ": her stance was found");
+            const bool tail_wheel = stance.tail_wheel;
+            if (tail_wheel) {
+                // Her tip ratio at her standing pitch, from her centre of
+                // gravity and her main wheels (structural frame: x aft, z
+                // up), and the braking friction of `brake` on them (JSBSim's
+                // FGLGear: rolling, plus the brake's share of static less
+                // rolling).
+                const double cg_x = aircraft.property("inertia/cg-x-in");
+                const double cg_z = aircraft.property("inertia/cg-z-in");
+                const auto points = aircraft.contact_points();
+                const double pitch = stance.standing_pitch_deg / degrees;
+                std::size_t mains = 0;
+                double ratio = 0.0;
+                double friction = 0.0;
+                for (std::size_t i = 0; i < points.size(); ++i) {
+                    if (!points[i].bogey || !points[i].wheel || points[i].x_in >= cg_x) {
+                        continue;
+                    }
+                    ++mains;
+                    const double aft = cg_x - points[i].x_in;
+                    const double up = cg_z - points[i].z_in;
+                    ratio = (aft * std::cos(pitch) + up * std::sin(pitch)) /
+                            (up * std::cos(pitch) - aft * std::sin(pitch));
+                    const std::string unit = "gear/unit[" + std::to_string(i) + "]/";
+                    const double roll_f = aircraft.property(unit + "rolling_friction_coeff");
+                    const double still_f = aircraft.property(unit + "static_friction_coeff");
+                    friction = std::max(friction, roll_f + brake * (still_f - roll_f));
+                }
+                check(mains == 2, e.id + ": two main wheels ahead of her centre of gravity, " +
+                                      std::to_string(mains));
+                if (!(friction <= ratio)) {
+                    ++levels_named;
+                    std::printf("  named - %s at brake %.1f: braking friction %.2f over her tip "
+                                "ratio %.2f, she would go over held still\n",
+                                e.id.c_str(), brake, friction, ratio);
+                    continue;
+                }
             }
             if (!counted) {
                 counted = true;
-                ++planes;
+                ++(tail_wheel ? tail_wheels : nose_wheels);
             }
             ++runs;
+            if (tail_wheel) {
+                ++tail_runs;
+            }
+            // Stick fully back and full aileron into the wind (from the
+            // left) for a tail wheel; otherwise central, on Departure's
+            // ailerons.
+            const auto hands = [tail_wheel](glideslope::sim::Controls& c) {
+                c.elevator = tail_wheel ? 1.0 : 0.0;
+                if (tail_wheel) {
+                    c.aileron = -1.0;
+                }
+            };
             glideslope::sim::Controls parked;
             parked.left_brake = 1.0;
             parked.right_brake = 1.0;
@@ -1633,7 +1700,7 @@ GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind
                 c.throttle = throttle;
                 c.left_brake = 0.0;
                 c.right_brake = 0.0;
-                c.elevator = 0.0;
+                hands(c);
                 aircraft.set_controls(c);
                 aircraft.step();
             }
@@ -1650,11 +1717,11 @@ GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind
                 c.throttle = 0.0;
                 c.left_brake = brake;
                 c.right_brake = brake;
-                c.elevator = 0.0;
+                hands(c);
                 aircraft.set_controls(c);
                 aircraft.step();
                 const double q = std::abs(aircraft.state().q_radps) * degrees;
-                if (q > most_q) {
+                if (!(q <= most_q)) {
                     most_q = q;
                     most_q_at_kts = kts_of(aircraft);
                 }
@@ -1662,6 +1729,16 @@ GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind
                     if (std::optional<std::string> why = judge.judge(aircraft)) {
                         wrecked = *why;
                     }
+                }
+                // Gone over (past 45 degrees, or at no number): the run ends
+                // here, before her numbers reach a JSBSim table as NaN.
+                const double pitch_deg = aircraft.state().pitch_deg;
+                const double roll_deg = aircraft.state().roll_deg;
+                if (!(std::abs(pitch_deg) <= 45.0 && std::abs(roll_deg) <= 45.0)) {
+                    if (wrecked.empty()) {
+                        wrecked = "went over";
+                    }
+                    break;
                 }
                 stopped = stopped || kts_of(aircraft) < 0.2;
                 if (stopped) {
@@ -1680,7 +1757,7 @@ GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind
             if (!rolling) {
                 wrong.push_back(std::string(where) + ": never rolled at 10 kt");
             }
-            if (most_q > most_q_degps) {
+            if (!(most_q <= most_q_degps)) {
                 wrong.push_back(std::string(where) + ": pitched at " + std::to_string(most_q) +
                                 " deg/s");
             }
@@ -1698,11 +1775,19 @@ GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(roster.size() == 16 && planes == 13 && named == 3 &&
-              runs == planes * std::size(brake_levels),
-          "thirteen nose-wheel aeroplanes of sixteen at five brake levels, three named: " +
-              std::to_string(planes) + " in " + std::to_string(runs) + " runs, " +
-              std::to_string(named) + " named");
+    // Thirteen nose-wheel aeroplanes at all ten levels; the two tail-wheel
+    // ones at the levels under their tip ratio (the Cub three, the Mosquito
+    // four), the thirteen over it named; every level of each accounted for.
+    check(roster.size() == 16 && nose_wheels == 13 && tail_wheels == 2 && named == 1 &&
+              tail_runs == 7 && levels_named == 13 &&
+              tail_runs + levels_named == tail_wheels * std::size(brake_levels) &&
+              runs == nose_wheels * std::size(brake_levels) + tail_runs,
+          "fifteen landplanes of sixteen in 137 runs, thirteen brake levels and the flying "
+          "boat named: " +
+              std::to_string(nose_wheels) + " nose-wheel, " + std::to_string(tail_wheels) +
+              " tail-wheel in " + std::to_string(runs) + " runs (" +
+              std::to_string(tail_runs) + " tail-wheel), " + std::to_string(levels_named) +
+              " levels and " + std::to_string(named) + " named");
 }
 
 // **Every aircraft standing on her brakes at idle stays finite, and on the
