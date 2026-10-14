@@ -1,5 +1,6 @@
-"""alpha_rate.py - the alpha-rate terms of a flight model on the dynamic
-pressure without its sideways part.
+"""alpha_rate.py - the alpha-rate terms of a flight model, and the terms a
+script names that are keyed to the angle of attack, on the dynamic pressure
+without its sideways part.
 
 **Why.** JSBSim's angle of attack is atan2(w, u) and its rate is worked from
 u, w and their rates (FGAuxiliary). Where the air meets her from the side -
@@ -24,6 +25,9 @@ Every function of a model whose product names `aero/alphadot-rad_sec` has
 its `aero/qbar-psf` replaced by `aero/qbarUW-psf`, or its `aero/qbar-area`
 by `aero/qbarUW-psf` times `metrics/Sw-sqft`. A model with no such term
 fails, so that a script that applies this does not do so to nothing.
+
+`with_alpha_terms_on_qbar_uw` does the same for the terms keyed to the angle
+of attack itself that a script names, function by function (below).
 """
 
 import re
@@ -58,60 +62,69 @@ def with_qbar_uw(text, script):
 
 
 ALPHA = re.compile(r"aero/alpha-(rad|deg)<")
+FUNCTION = re.compile(r"<function name=\"([^\"]+)\">.*?</function>", re.S)
+
+
 def axis_pattern(name):
     return re.compile(r"<axis name=\"" + name + r"\"[^>]*>.*?</axis>", re.S)
 
 
-def with_pitch_alpha_on_qbar_uw(text, script, axes=("PITCH",)):
-    """`text`, a JSBSim model, with every pitching-moment term keyed to the
-    angle of attack on aero/qbarUW-psf.
+def with_alpha_terms_on_qbar_uw(text, script, terms):
+    """`text`, a JSBSim model, with the terms keyed to the angle of attack
+    that `terms` names - {axis: [function name, ...]} - on aero/qbarUW-psf.
 
-    **Why.** The same singularity in a second place: standing or slowing in a
+    **Why.** The alpha-rate fault in a second place: standing or slowing in a
     crosswind her angle of attack, atan2(w, u), is any angle at all - the
-    J-3 Cub's was 22 to 60 degrees standing in 15 kt across - and a pitching
-    moment that multiplies it, or looks it up, on the whole dynamic pressure
-    counts the crosswind in it: the Cub's Cm-alpha term pushed her nose down
-    by up to 1,500 ft-lb against the ~1,080 her weight holds her tail down
-    with, and she went over standing on her brakes. The pitching moment of a
-    wing and tailplane that are not swept is made by the air in the plane of
+    J-3 Cub's was 22 to 60 degrees standing in 15 kt across - and a term that
+    multiplies it, or looks it up, on the whole dynamic pressure counts the
+    crosswind in it: the Cub's Cm-alpha term pushed her nose down by up to
+    1,500 ft-lb against the ~1,080 her weight holds her tail down with, and
+    she went over standing on her brakes. The pitching moment and lift of a
+    wing and tailplane that are not swept are made by the air in the plane of
     u and w; the sideways part makes none. JSBSim's guidance, from issue #89
-    (https://github.com/JSBSim-Team/jsbsim/issues/89, Coconnier and dany93,
-    2019, written into the FlightGear wiki's "JSBSim Aerodynamics": "Using
-    QBarUW is more appropriate for Cm than the generic QBar"). In flight,
-    with a few degrees of sideslip, the two differ by its cosine squared.
+    (Coconnier's panel-method comparison: on an unswept wing the lift is
+    0.5 rho (U^2 + W^2) S CL), written into the FlightGear wiki's "JSBSim
+    Aerodynamics" (dany93, 2019): QBarUW "is more appropriate for Cm" and for
+    CL than the generic QBar - guidance tested on the C172, swept wings not
+    investigated. In flight, at a few degrees of sideslip, the two differ by
+    its cosine squared.
 
-    The same holds for her lift (bcoconni's panel-method comparison in issue
-    #89: on an unswept wing the lift is 0.5 rho (U^2 + W^2) S CL), and a
-    script may name the LIFT axis too in `axes`. Every function inside each
-    of `axes` (the PITCH axis alone, unless named) whose product reads
-    `aero/alpha-rad` or `aero/alpha-deg` - as a factor or as a table's
-    input - has its
+    **Chosen, not swept up.** Which terms move is the script's to name and
+    justify: a pitch-damping or elevator term keyed to alpha, or a swept
+    wing's, is not moved because it reads alpha. Each named function has its
     `aero/qbar-psf` replaced by `aero/qbarUW-psf`, or its `aero/qbar-area` by
-    `aero/qbarUW-psf` times `metrics/Sw-sqft`. A model with no such term
-    fails, so that a script that applies this does not do so to nothing.
+    `aero/qbarUW-psf` times `metrics/Sw-sqft`. It fails - so that a model
+    changed under the script is noticed - if a named axis is missing, if a
+    named function is not in its axis, does not read `aero/alpha-rad` or
+    `aero/alpha-deg`, or has no `aero/qbar-psf` or `aero/qbar-area`.
     """
-    changed = 0
+    for axis_name, names in terms.items():
+        wanted = set(names)
+        changed = set()
 
-    def fix(m):
-        nonlocal changed
-        block = m.group(0)
-        if not ALPHA.search(block):
-            return block
-        new = block.replace("<property>aero/qbar-area</property>",
-                            "<property>aero/qbarUW-psf</property>\n"
-                            "                    <property>metrics/Sw-sqft</property>")
-        new = new.replace("<property>aero/qbar-psf</property>",
-                          "<property>aero/qbarUW-psf</property>")
-        if new != block:
-            changed += 1
-        return new
+        def fix(m):
+            name, block = m.group(1), m.group(0)
+            if name not in wanted:
+                return block
+            if not ALPHA.search(block):
+                raise SystemExit(f"{script}: {name} does not read the angle of attack - "
+                                 f"has the model changed?")
+            new = block.replace("<property>aero/qbar-area</property>",
+                                "<property>aero/qbarUW-psf</property>\n"
+                                "                    <property>metrics/Sw-sqft</property>")
+            new = new.replace("<property>aero/qbar-psf</property>",
+                              "<property>aero/qbarUW-psf</property>")
+            if new == block:
+                raise SystemExit(f"{script}: {name} has no aero/qbar-psf or aero/qbar-area "
+                                 f"to replace - has the model changed?")
+            changed.add(name)
+            return new
 
-    def axis(m):
-        return re.sub(r"<function name=\"[^\"]+\">.*?</function>", fix, m.group(0), flags=re.S)
-
-    for name in axes:
-        text = axis_pattern(name).sub(axis, text)
-    if changed == 0:
-        raise SystemExit(f"{script}: no pitching-moment term keyed to alpha on the whole "
-                         f"dynamic pressure - has the model changed?")
+        pattern = axis_pattern(axis_name)
+        if not pattern.search(text):
+            raise SystemExit(f"{script}: no {axis_name} axis - has the model changed?")
+        text = pattern.sub(lambda m: FUNCTION.sub(fix, m.group(0)), text)
+        if changed != wanted:
+            raise SystemExit(f"{script}: in {axis_name}, {sorted(wanted - changed)} not found - "
+                             f"has the model changed?")
     return text

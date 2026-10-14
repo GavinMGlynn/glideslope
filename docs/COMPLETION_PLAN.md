@@ -579,17 +579,23 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       angle-of-attack pitch term counts it. *Verification: that term, and
       every other model's, uses the dynamic pressure without its sideways
       part; stick central in 15 kt across her tail stays down; her figures
-      stay in range.* The Cub's is moved, her figures unmoved, and stick
-      central she stands, runs up and brakes in 15 kt across with her tail
-      down (2026-10-15). **Missing**: the other fifteen models' terms; and
-      at her gross weight braked at 0.5 her tail lifts once (her lift, below).
+      stay in range.* **Missing**: the other fifteen models' terms, each
+      chosen and justified (damping, elevator and swept-wing terms are not
+      in by default); and braked at 0.5 her tail still lifts or she goes over
+      in three runs (her lift, the next item). The Cub's is moved (2026-10-15).
 - [ ] **The J-3 Cub is rolled onto her wing by a crosswind at walking
       pace**: held at 4.5 kt at taxi power in 15 kt across she rolls 21
-      degrees and strikes, her pitch terms moved or not; and her lift still
-      counts the crosswind, but moved off it she rolls so at 3 kt too.
-      *Verification: her lift uses the dynamic pressure without its sideways
-      part, and held at every walking pace in 15 kt across she stays on her
-      wheels.*
+      degrees and strikes; at 3 kt her roll turns on terms that should not
+      matter (5.4 degrees, or 20.8 and a strike with her propwash pitch term
+      left alone). Her lift still counts the crosswind, but moved off it she
+      rolls so at 3 kt too. *Verification: her lift uses the dynamic pressure
+      without its sideways part, and held at every walking pace in 15 kt
+      across she stays on her wheels.*
+- [ ] **The J-3 Cub braked stick central from 10 kt noses over in calm
+      air**, from half brake (solo, trainer) or 0.6 (gross); whether a real
+      one would, at her tip ratio of 0.45 to 0.50, is not measured.
+      *Verification: a cited figure for a Cub's braking with the stick
+      central, and her nose-over held to it.*
 - [ ] **A C172P at full power on held brakes, stick back, sits on her
       tail**: she rears to 11 degrees, where a real one tends to slide; no test
       covers it now. *Verification: a C172P at full power on her brakes,
