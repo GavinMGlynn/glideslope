@@ -2064,6 +2064,83 @@ GLIDESLOPE_TEST(a_stovl_prediction_put_back_to_its_own_state_flies_again_to_exac
     check(client.laws()->transition() != nullptr, "she was still in STOVL mode");
 }
 
+// **Each step held is kept as the newest replay flew it**
+// (Prediction::fly_held_again): her controller with it. Three F-35Bs on the
+// same inputs, the selector to STOVL at one second: the prediction `a`
+// flies 61 s; a server's word on 60 s - from an aircraft flown from 2 ft
+// higher - puts it right and it flies the second again; a second word, on
+// 60.5 s, is where a twin `c`, flown to 60.5 s and put right by the same
+// first word, was. That second word says what `a`'s own replay flew, so
+// put back to it with her controller as that replay had it, `a` flies to
+// where it already is. Kept as its first pass flew it - from 2 ft lower -
+// the controller put back was not the one the motion came with.
+GLIDESLOPE_TEST(a_prediction_put_right_twice_flies_the_second_word_from_the_controller_its_first_replay_left) {
+    using glideslope::sim::PublishedFigures;
+    using glideslope::sim::read_published_figures;
+    using glideslope::sim::trimmed_controls;
+    const PublishedFigures figures = read_published_figures(
+        std::string(GLIDESLOPE_TEST_FIGURES_DIR) + "/f35b.xml");
+    const auto start = [&](Aircraft& x, double altitude_ft) {
+        x.load(figures.loadings.at("vertical_landing").loading);
+        x.set_terrain(flat_ground());
+        InitialConditions ic;
+        ic.latitude_deg = -33.9461;
+        ic.longitude_deg = 151.1772;
+        ic.heading_deg = 70.0;
+        ic.altitude_ft = altitude_ft;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = 200.0;
+        ic.gear = 0.0;
+        ic.trim = true;
+        x.initialize(ic);
+        x.freeze_fuel(true);
+    };
+    Aircraft a(data() / "jsbsim", "f35b");
+    Aircraft c(data() / "jsbsim", "f35b");
+    Aircraft s(data() / "jsbsim", "f35b");
+    start(a, 150.0);
+    start(c, 150.0);
+    start(s, 152.0);
+    const Controls trimmed = trimmed_controls(a);
+    const auto inputs = [&](int frame) {
+        Controls k = trimmed;
+        k.stovl = frame >= steps_per_second ? 1.0 : 0.0;
+        return k;
+    };
+    Prediction pa(a);
+    Prediction pc(c);
+    Prediction ps(s);
+    const int first = 60 * steps_per_second;
+    const int second = first + steps_per_second / 2;
+    const int last = first + steps_per_second;
+    for (int frame = 0; frame < last; ++frame) {
+        pa.step(static_cast<std::uint32_t>(frame + 1), inputs(frame));
+        if (frame < second) {
+            pc.step(static_cast<std::uint32_t>(frame + 1), inputs(frame));
+        }
+        if (frame < first) {
+            ps.step(static_cast<std::uint32_t>(frame + 1), inputs(frame));
+        }
+    }
+    const AircraftSnapshot first_word = s.capture();
+    const Prediction::Correction once = pa.reconcile(first_word, static_cast<std::uint32_t>(first));
+    (void)pc.reconcile(first_word, static_cast<std::uint32_t>(first));
+    const AircraftSnapshot second_word = c.capture();
+    const Prediction::Correction twice =
+        pa.reconcile(second_word, static_cast<std::uint32_t>(second));
+    std::printf("  the first word moved her %.6f m, flying %zu again; the second %.9f m, "
+                "flying %zu again\n",
+                once.moved_m, once.replayed, twice.moved_m, twice.replayed);
+    check(pa.laws() != nullptr && pa.laws()->transition() != nullptr, "she was in STOVL mode");
+    check(once.moved_m > 0.1, "the first word moved her " + std::to_string(once.moved_m) +
+                                  " m, not over 0.1: it says nothing new");
+    check(once.replayed == static_cast<std::size_t>(steps_per_second) &&
+              twice.replayed == static_cast<std::size_t>(steps_per_second / 2),
+          "a second, then half of one, flown again");
+    check(twice.moved_m < 1e-4, "the second word moved her " + std::to_string(twice.moved_m) +
+                                    " m flown again from her own replay");
+}
+
 // **And moved by her pilot in the hover** (Transition::Inceptors): flown as
 // `a_predicting_client_and_the_server_agree_while_her_pilot_moves_the_f35b_in_the_hover`
 // flies her, put back half a second before the lever first moves (169.5 s:
