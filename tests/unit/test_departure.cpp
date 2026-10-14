@@ -1190,6 +1190,100 @@ GLIDESLOPE_TEST(bounced_with_her_reversers_out_she_gets_her_thrust_back_once_the
     check(flown == 5, "all five with reversers were bounced: " + std::to_string(flown));
 }
 
+// **Every tail-wheel aeroplane started at rest stands on all three wheels at
+// her stance pitch**: each landplane of the catalogue whose stance is on a
+// tail wheel (the J-3 Cub and the Mosquito; the nose-wheel ones and the
+// flying boat named) is started on the runway with no attitude asked, and
+// at once her pitch is within a degree of `Aircraft::stance`'s standing
+// pitch; then she stands ten seconds at idle on full brakes with her stick
+// central - the stand that put the Cub on her nose when she was started
+// level (CI run 38472468661) - and throughout her pitch stays within two
+// degrees of it, and at the end every wheel of hers carries weight. Seen
+// red on the level start: the Cub at 0 degrees against 12.1, then over on
+// her nose.
+GLIDESLOPE_TEST(every_tail_wheel_aeroplane_started_at_rest_stands_on_all_three_wheels_at_her_stance_pitch) {
+    const auto roster = glideslope::sim::read_catalogue(data());
+    constexpr int seconds = 10;
+    std::size_t tail_wheels = 0;
+    std::size_t nose_wheels = 0;
+    std::size_t left_out = 0;
+    std::vector<std::string> wrong;
+    for (const glideslope::sim::CatalogueEntry& e : roster) {
+        if (e.seaplane) {
+            ++left_out;
+            std::printf("  left out - %s: a flying boat\n", e.id.c_str());
+            continue;
+        }
+        const Runway runway = a_runway();
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+        const auto stance = aircraft.stance();
+        if (!stance.found || !stance.tail_wheel) {
+            ++nose_wheels;
+            std::printf("  named - %s: she stands on a nose wheel\n", e.id.c_str());
+            continue;
+        }
+        ++tail_wheels;
+        const double started = aircraft.state().pitch_deg;
+        glideslope::sim::Controls c;
+        c.left_brake = 1.0;
+        c.right_brake = 1.0;
+        double least = started;
+        double most = started;
+        for (int step = 0; step < seconds * steps_per_second; ++step) {
+            aircraft.set_controls(c);
+            aircraft.step();
+            least = std::min(least, aircraft.state().pitch_deg);
+            most = std::max(most, aircraft.state().pitch_deg);
+        }
+        std::size_t wheels = 0;
+        std::size_t touching = 0;
+        const auto points = aircraft.contact_points();
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            if (points[i].bogey && points[i].wheel) {
+                ++wheels;
+                if (aircraft.property("gear/unit[" + std::to_string(i) + "]/WOW") > 0.5) {
+                    ++touching;
+                }
+            }
+        }
+        std::printf("  %-13s stance %.2f deg: started at %.2f, stood between %.2f and %.2f, "
+                    "%zu of %zu wheels touching\n",
+                    e.id.c_str(), stance.standing_pitch_deg, started, least, most, touching,
+                    wheels);
+        if (std::abs(started - stance.standing_pitch_deg) > 1.0) {
+            wrong.push_back(e.id + " started at " + std::to_string(started) + " deg");
+        }
+        if (least < stance.standing_pitch_deg - 2.0 || most > stance.standing_pitch_deg + 2.0) {
+            wrong.push_back(e.id + " stood between " + std::to_string(least) + " and " +
+                            std::to_string(most) + " deg");
+        }
+        if (wheels != 3 || touching != wheels) {
+            wrong.push_back(e.id + " stood on " + std::to_string(touching) + " of " +
+                            std::to_string(wheels) + " wheels");
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(roster.size() == 16 && tail_wheels == 2 && nose_wheels == 13 && left_out == 1,
+          "two tail-wheel aeroplanes of sixteen stood, thirteen nose-wheel and the flying boat "
+          "named: " + std::to_string(tail_wheels) + ", " + std::to_string(nose_wheels) + ", " +
+              std::to_string(left_out));
+}
+
 // **Every aircraft standing on her brakes at idle stays finite, and on the
 // ground**: every
 // landplane in the catalogue (the flying boat named: afloat she has no
