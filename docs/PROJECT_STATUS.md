@@ -1805,10 +1805,40 @@ has dived when her selector arrives is how long the player took to join.
 Now pulled out from any moment of her first ten seconds; **not from
 later** - by 12.5 s she is at 780 ft sinking 12,800 ft/min, past what the
 autopilot's 3 degrees a second of pitch saves. The untrimmed start is a
-tail in COMPLETION_PLAN, not fixed here. **A prediction is held at a
-wreck only once the server's word says so**: for the trip before that word
-it flies on into the ground, as before; and the windowed client is given
-the same hold, compiled here and not run against a wreck.
+tail in COMPLETION_PLAN, not fixed here. **CI's debug abort is not shown
+to be the wreck's replay**: a replay through the ground goes to a NaN in
+one process only when every input since the wreck is flown again at every
+word; the server's `last_applied` goes on rising through a wreck, so each
+word flies 12 steps again, and flown so over flat ground nothing went
+non-finite even without the hold. **A prediction is held at a wreck only
+once the server's word says so**: for the trip before that word it flies
+on into the ground, as before; and the windowed client is given the same
+hold, compiled here and not run against a wreck. **Taken over in a climb
+past its envelope, the autopilot walks the nose down at 3 degrees a
+second whatever the seed**, and at 300 KCAS that pushes an F-15C to -1.2 g
+(before and after this change alike) - not held by any test.
+
+**CI run 38531751565 (f70c04da, with the fixes) is still red in this
+test on four jobs**, and none of it is reproduced here:
+
+- **Ubuntu linux-debug: wrecked twice, and the client aborted** on the same
+  table assertion, the wreck hold notwithstanding. Its client sent 762
+  inputs in the server's 68.8 s - about 11 a second, not 30 - so its
+  150th input, the selector, came far later than ten seconds into her
+  untouched dive, which nothing pulls her out of; the server says she was
+  rolled to 180 degrees. Where the client's NaN came from is not found:
+  not a wreck held (the hold is in this build), so a prediction flown into
+  the ground before the word, or after one flying again, is what is left.
+- **Windows release and debug: the worst error 3.56 and 2.99 m** (bound
+  2), the 95th percentile 1.28 and 1.22 m, held wing-borne (lowest 768 and
+  398 ft); **macOS release: the 95th percentile 0.890 m** (bound 10 cm),
+  lowest 1,081 ft. A step of the clocks' difference at her 200 KCAS is
+  0.86 m: on these runners one in twenty updates or more is placed a step
+  off, where here none are. Not explained.
+- **Ubuntu linux-debug, `a_pressed_during_a_take_over_hands_the_aircraft_taken_to_the_ai`**:
+  "the client drew nothing", after an imagery fetch's "Connection reset by
+  peer". The windowed client's word handling changed here
+  (`OwnWord.wrecked`); not shown to be the cause, nor ruled out.
 
 **What CI run 38517430777 found, and why** (2026-10-14, at 820a11a2). The
 multi-process test failed on four platforms, and its main cause was not
@@ -1840,14 +1870,22 @@ client aborted on JSBSim's table assertion (FGTable.cpp:618) after "aircraft
   s she bottoms at 734 ft, from 10 s at 291. It is every aircraft's
   autopilot: only an aircraft taken over in a climb or dive steeper than
   the envelope's own is seeded differently.
-- **A wreck's replay went to a NaN.** The server holds a wreck where it
-  struck; the client's prediction was put back there at every word and
-  flown through the ground again for every input since, her transition law
-  flying her, and her whole state went to a NaN - what a debug JSBSim's
-  tables assert on. **Now** `Prediction::hear_wrecked`: told by the word
+- **A wreck's replay can go to a NaN.** The server holds a wreck where it
+  struck, for `wreck_s` (5 s), and flies her again from her start
+  (`fly_again`). Through the wreck it still takes her player's inputs
+  (`Fleet::fly` does not ask whether she is a wreck), so the word's
+  `last_applied` goes on rising and at the respawn it is the newest input
+  the server had; the motion is the wreck's, frozen, and then her start's.
+  The client's prediction was put back to the wreck at every word and flown
+  on through the ground for the inputs since. Flown again for every input
+  since the wreck at every word, her transition law flying her, her whole
+  state went to a NaN in one process - what a debug JSBSim's tables assert
+  on; with `last_applied` rising, as the server's does, she was flown 12
+  steps through the ground at each word and only drifted 7 m from the
+  server's wreck. **Now** `Prediction::hear_wrecked`: told by the word
   that she is a wreck, the prediction keeps each input (the clocks'
-  difference still told) but flies no step, forward or again, until she
-  flies again - in `glideslope_cli` and the windowed client
+  difference still told) but flies no step, forward or again, until a word
+  says she flies again - in `glideslope_cli` and the windowed client
   (`Flight::reconcile`) alike.
 - **The macOS 95th percentile is not shown fixed.** Diving, her speed
   was past 330 kt and each step of the clocks' difference 1.4 m. Held from
@@ -1856,8 +1894,8 @@ client aborted on JSBSim's table assertion (FGTable.cpp:618) after "aircraft
   before was 42 to 51 mm. CI's 0.901 m on macOS is not reproduced here and
   not explained; the bound (10 cm) is unchanged.
 
-**Verification of the fixes** (each in linux-release, x86-64-v2 and
-linux-debug, the same figures in each):
+**Verification of the fixes** (the three in-process tests in
+linux-release, x86-64-v2 and linux-debug, the same figures in each):
 
 - `a_heavy_f35b_selected_into_stovl_mode_at_any_moment_of_ten_seconds_untouched_is_pulled_out_above_her_least_conversion_height`:
   45,400 lb, untrimmed at 2,200 ft and 300 KCAS, fuel burning, flown
@@ -1871,19 +1909,37 @@ linux-debug, the same figures in each):
   red** with the seed as it was: selected at step 920 she went down to 72
   ft. 5.1 s in linux-release, 47.5 s in linux-debug.
 - `a_prediction_told_its_aircraft_is_a_wreck_holds_her_where_the_server_does_and_never_goes_to_a_nan`:
-  an F-35B dived into flat ground on a server-side aircraft judged as the
-  server judges it (a wreck at step 496, "struck the ground with its
-  airframe"), the prediction flown on the same inputs; then 300 inputs
-  more, STOVL mode selected, each put right by the server's word that holds
-  her, the wreck heard first: 1,200 steps, none with any of her properties
-  not finite, never more than 0.000000 m from where the server holds her.
-  **Seen red** without the wreck heard: 1,005 steps not finite, the first
-  at step 196, 82.6 m from the server's.
+  an F-35B dived into flat ground on a server-side aircraft stepped and
+  judged as the server does (a wreck at step 496), the prediction flown on
+  the same inputs, each word three inputs late; the server holds her five
+  seconds, its `last_applied` rising, STOVL mode selected meanwhile, then
+  flies her again from 2,200 ft and 300 KCAS, untouched. Over 1,696 steps
+  none with any property not finite; while a wreck, 0.000000 m from where
+  the server holds her; at most 12 steps flown again at a word (bound 16,
+  the delay and the input in flight); flying again, over 147 words, at most
+  0.025 m from the server at the same step (bound 5 cm: her engine and
+  actuators, carried through the wreck here where the server started her
+  afresh) and 0.0014 m in the fifth second (bound 5 mm). **Seen red**
+  without the wreck heard: 7.0 m from the server's wreck; and, in a first
+  draft holding `last_applied` at the wreck's input, 1,005 steps not
+  finite.
+- `an_autopilot_handed_a_fighter_climbing_past_its_pitch_envelope_brings_her_back_to_her_height`
+  (from the review of #194: the seed is clamped at the top too): an F-15C
+  pulled into a 20-degree climb (4,656 ft/min) and an F-35B into a 25 (5,099)
+  at 300 KCAS, handed over with the controls she is pulled by and asked to
+  hold that height: the nose asked down at 3.00 degrees a second at most
+  (bound 3), 1,039 and 998 ft above at most (bound 1,200), 197 and 159 ft
+  off 90 s on (bound 250). **Seen red** seeded outside the envelope: the
+  F-15C 2,041 ft above, and 1,349 above 90 s on - the old seed held her
+  nose at the top while the climb went. The clamp is to 15 degrees in every
+  mode: the stall-entry mode (`hold_height_to_the_stall`), whose top may be
+  higher, is engaged level by the lessons, never in such a climb.
 - The 297 in-process autopilot, hand-over, upset, stall, take-off, F-35B,
   STOVL, hover and transition tests (`-R
   "hand|take|upset|spiral|stall|autopilot|recover|f35b|stovl|hover|transition|engag|seed"`,
   less the multi-process) and the 24 in-process prediction tests green on
-  linux-release. **The selftest hash does not move**: `de9bf01f96427593`.
+  linux-release, at 8dbbd86a. **The selftest hash does not move**:
+  `de9bf01f96427593`.
 - **The multi-process test through a server**, at 8dbbd86a, six runs:
   linux-release lowest 1,013 and 1,010 ft, the worst error 1.247 and
   0.007 m, the 95th percentile 8 and 7 mm, the median 2 and 3 mm;
