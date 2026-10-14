@@ -1956,6 +1956,290 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
               " judged, " + std::to_string(mosquito.tipped.size()) + " tipped");
 }
 
+// **The J-3 Cub flown stick central in a 15 kt crosswind keeps her tail
+// wheel on the runway wherever she keeps it there in calm air.** Her
+// angle-of-attack terms were on the whole dynamic pressure, `aero/qbar-psf`,
+// the crosswind's sideways part in it: standing in 15 kt across, her angle
+// of attack (atan2(w, u), meaningless with the air from the side) ran to 60
+// degrees, her Cm-alpha term pushed her nose down by up to 1,500 ft-lb
+// against the ~1,080 her weight holds her tail down with, and she went over
+// standing on her brakes, at every loading. Her pitch terms keyed to the
+// angle of attack are now on the dynamic pressure of u and w alone,
+// `aero/qbarUW-psf` (tools/alpha_rate.py, JSBSim issue #89).
+//
+// **Every scenario**: at every loading her figures give (solo, trainer,
+// gross; her model's own, with no one aboard, has no pilot to hold her stick
+// central and is not flown), in calm air and in 15 kt straight across from
+// the left and from the right, at every tenth of brake, 0.1 to 1.0, she is
+// started on the runway and stood on full brakes at idle for five seconds;
+// the wind comes on and she stands ten more; she is run up on a throttle
+// opening at 0.2 a second to full, brakes off, steered by Departure's rudder,
+// to 10 kt; and braked at that level, throttle closed, to a stop and five
+// seconds standing. Her elevator central throughout, and her ailerons full
+// into the wind, as a tail-wheel aeroplane is taxied in one (FAA-H-8083-3).
+// Her tail wheel's weight on wheels is read at every step from her settling
+// on her wheels, and nothing but her wheels may touch the runway
+// (GroundJudge), nor may she go past 45 degrees or to no number.
+//
+// **The rule**: standing and in the run-up her tail stays down in every
+// wind. Braking, in 15 kt across it stays down wherever it stays down in
+// calm air at the same loading and level. **Named, with the reason**: a
+// level at which her tail lifts braking in calm air too - braked that hard
+// stick central, her brakes' grip puts a tail-wheel aeroplane onto her nose
+// whatever the wind (her tip ratio is 0.45 to 0.50; a tail-wheel pilot brakes
+// with the stick back, and the sweep above judges her so). **Pinned**: those
+// levels, 0.5 to 1.0 solo and trainer, 0.6 to 1.0 gross. **And one run named
+// for an open item**: at her gross weight, braked at 0.5 in 15 kt from the
+// right, her tail comes up for a moment (she does not go over), where in calm
+// air it stays down - her lift terms still count the crosswind (her air's
+// upward force 358 lb against 104 in calm air as the brakes come on), Phase
+// 9's "The J-3 Cub's lift counts a crosswind". Pinned: it must still lift,
+// and she must stop on her wheels. Coverage asserted: three loadings, three
+// winds, ten levels, 90 runs; the 60 crosswind runs each judged or named.
+GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_tail_wheel_on_the_runway_wherever_she_does_in_calm_air) {
+    constexpr double brake_levels[] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+    constexpr double crosswind_kts = 15.0;
+    constexpr double from_kts = 10.0;
+    constexpr int calm_stand_s = 5;
+    constexpr int wind_stand_s = 10;
+    constexpr int run_up_s = 60;
+    constexpr int stop_s = 90;
+    constexpr int stood_s = 5;
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    const auto kts_of = [](const glideslope::sim::Aircraft& a) {
+        return a.property("velocities/vg-fps") / 1.68781;
+    };
+    const auto runway = a_runway();
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / "j3cub.xml");
+    // Her figures' loadings. Her model's own, with no one aboard, is not
+    // flown: there is no pilot to hold her stick central.
+    std::vector<std::pair<std::string, glideslope::sim::Loading>> loadings;
+    for (const auto& [name, l] : figures.loadings) {
+        loadings.emplace_back(name, l.loading);
+    }
+    // The wind from the left (+1) or the right (-1) of her heading, or none.
+    const std::pair<const char*, double> winds[] = {{"calm", 0.0}, {"left", 1.0}, {"right", -1.0}};
+    // Named for the open item on her lift (above): lifts, stops on her wheels.
+    const std::string lift_item = "gross, right, brake 0.5";
+    bool lift_item_lifted = false;
+    std::size_t runs = 0;
+    std::size_t judged = 0;
+    std::map<std::string, std::vector<double>> named; // by loading: levels lifting in calm too
+    std::vector<std::string> wrong;
+    for (const auto& [loading_name, loading] : loadings) {
+        std::map<double, bool> calm_lifted;
+        for (const auto& [wind_name, side] : winds) {
+            for (const double brake : brake_levels) {
+                char where[128];
+                std::snprintf(where, sizeof where, "%s, %s, brake %.1f", loading_name.c_str(),
+                              wind_name, brake);
+                glideslope::sim::Aircraft aircraft(data() / "jsbsim", "j3cub");
+                aircraft.load(loading);
+                aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                    [](double, double) { return 0.0; }, [](double, double) { return false; }));
+                glideslope::sim::InitialConditions ic;
+                ic.latitude_deg = runway.threshold_lat_deg;
+                ic.longitude_deg = runway.threshold_lon_deg;
+                ic.altitude_ft = runway.elevation_ft;
+                ic.terrain_elevation_ft = runway.elevation_ft;
+                ic.heading_deg = runway.heading_deg;
+                ic.engine_running = true;
+                ic.gear = 1.0;
+                aircraft.initialize(ic);
+                std::string tail_wow;
+                {
+                    const double cg_x = aircraft.property("inertia/cg-x-in");
+                    const auto points = aircraft.contact_points();
+                    for (std::size_t i = 0; i < points.size(); ++i) {
+                        if (points[i].bogey && points[i].wheel && points[i].x_in > cg_x) {
+                            tail_wow = "gear/unit[" + std::to_string(i) + "]/WOW";
+                        }
+                    }
+                }
+                check(!tail_wow.empty(), std::string(where) + ": her tail wheel was found");
+                ++runs;
+                std::string lifted;  // the phase and moment her tail first left the runway
+                std::string wrecked; // GroundJudge's, or gone over, or no number
+                bool stopped = false;
+                double most_air_m = 0.0; // the most nose-down air moment standing in the wind
+                // Her tail is watched from the end of the calm stand: she is
+                // started a little above her wheels and settles onto them.
+                bool settled = false;
+                glideslope::sim::GroundJudge judge(false);
+                const auto watch = [&](const char* phase, int step) {
+                    const auto s = aircraft.state();
+                    if (std::isnan(s.pitch_deg) || std::isnan(s.roll_deg) ||
+                        std::isnan(s.q_radps)) {
+                        wrecked = std::string("no number, ") + phase;
+                        return false;
+                    }
+                    if (settled && lifted.empty() && aircraft.property(tail_wow) < 0.5) {
+                        char what[160];
+                        std::snprintf(what, sizeof what,
+                                      "%s at %.2f s, %.1f kt, pitch %.2f, air %.0f ft-lb", phase,
+                                      step / double(steps_per_second), kts_of(aircraft),
+                                      s.pitch_deg, aircraft.property("moments/m-aero-lbsft"));
+                        lifted = what;
+                    }
+                    if (wrecked.empty()) {
+                        if (std::optional<std::string> why = judge.judge(aircraft)) {
+                            wrecked = *why + ", " + phase;
+                        }
+                    }
+                    if (!(std::abs(s.pitch_deg) <= 45.0 && std::abs(s.roll_deg) <= 45.0)) {
+                        if (wrecked.empty()) {
+                            wrecked = std::string("went over, ") + phase;
+                        }
+                        return false;
+                    }
+                    return true;
+                };
+                glideslope::sim::Controls parked;
+                parked.left_brake = 1.0;
+                parked.right_brake = 1.0;
+                bool going = true;
+                for (int step = 0; going && step < calm_stand_s * steps_per_second; ++step) {
+                    aircraft.set_controls(parked);
+                    aircraft.step();
+                    going = watch("standing in calm air", step);
+                }
+                settled = true;
+                going = going && watch("settled in calm air", calm_stand_s * steps_per_second);
+                glideslope::sim::Conditions wind;
+                const double towards = (runway.heading_deg + 90.0 * side) / degrees;
+                const double mps = crosswind_kts * 0.514444 * std::abs(side);
+                wind.wind_north_mps = mps * std::cos(towards);
+                wind.wind_east_mps = mps * std::sin(towards);
+                wind.wind_at_20ft_mps = mps;
+                aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
+                // Full aileron into the wind, as a tail-wheel aeroplane is
+                // taxied in one (from the left, stick left: -1).
+                parked.aileron = -side;
+                for (int step = 0; going && step < wind_stand_s * steps_per_second; ++step) {
+                    aircraft.set_controls(parked);
+                    aircraft.step();
+                    going = watch("standing", step);
+                    most_air_m = std::min(most_air_m, aircraft.property("moments/m-aero-lbsft"));
+                }
+                Departure steering(aircraft, runway,
+                                   glideslope::sim::departure_speeds(data(), "j3cub"));
+                double throttle = 0.0;
+                bool rolling = false;
+                for (int step = 0; going && step < run_up_s * steps_per_second; ++step) {
+                    if (kts_of(aircraft) >= from_kts) {
+                        rolling = true;
+                        break;
+                    }
+                    glideslope::sim::Controls c = steering.fly();
+                    throttle = std::min(1.0, throttle + 0.2 / steps_per_second);
+                    c.throttle = throttle;
+                    c.elevator = 0.0;
+                    c.aileron = -side;
+                    c.left_brake = 0.0;
+                    c.right_brake = 0.0;
+                    aircraft.set_controls(c);
+                    aircraft.step();
+                    going = watch("in the run-up", step);
+                }
+                const bool up_before_braking = !lifted.empty() || !wrecked.empty();
+                int stood = 0;
+                for (int step = 0; going && rolling && step < stop_s * steps_per_second &&
+                                   stood < stood_s * steps_per_second;
+                     ++step) {
+                    glideslope::sim::Controls c = steering.fly();
+                    c.throttle = 0.0;
+                    c.elevator = 0.0;
+                    c.aileron = -side;
+                    c.left_brake = brake;
+                    c.right_brake = brake;
+                    aircraft.set_controls(c);
+                    aircraft.step();
+                    going = watch("braking", step);
+                    stopped = stopped || kts_of(aircraft) < 0.2;
+                    if (stopped) {
+                        ++stood;
+                    }
+                }
+                std::printf("  %-32s air standing %5.0f ft-lb at most; tail %s%s%s\n", where,
+                            most_air_m, lifted.empty() ? "down" : ("UP " + lifted).c_str(),
+                            wrecked.empty() ? "" : (", " + wrecked).c_str(),
+                            stopped || !wrecked.empty() ? "" : ", NOT STOPPED");
+                if (up_before_braking) {
+                    wrong.push_back(std::string(where) + ": her tail came up " +
+                                    (lifted.empty() ? wrecked : lifted));
+                    continue;
+                }
+                if (!rolling) {
+                    wrong.push_back(std::string(where) + ": never rolled at 10 kt");
+                    continue;
+                }
+                const bool lifted_braking = !lifted.empty() || !wrecked.empty();
+                if (side == 0.0) {
+                    calm_lifted[brake] = lifted_braking;
+                    if (lifted_braking) {
+                        named[loading_name].push_back(brake);
+                    } else if (!stopped) {
+                        wrong.push_back(std::string(where) + ": did not stop");
+                    }
+                    continue;
+                }
+                if (where == lift_item) {
+                    lift_item_lifted = !lifted.empty() && wrecked.empty() && stopped;
+                    std::printf("    named - her lift terms still count the crosswind (Phase 9's "
+                                "\"The J-3 Cub's lift counts a crosswind\")\n");
+                    continue;
+                }
+                if (calm_lifted.count(brake) != 0 && calm_lifted.at(brake)) {
+                    std::printf("    named - her tail lifts braking at %.1f in calm air too: her "
+                                "brakes' grip past her tip ratio\n",
+                                brake);
+                    continue;
+                }
+                ++judged;
+                if (lifted_braking) {
+                    wrong.push_back(std::string(where) + ": her tail came up " +
+                                    (lifted.empty() ? wrecked : lifted) +
+                                    ", where in calm air it stays down");
+                } else if (!stopped) {
+                    wrong.push_back(std::string(where) + ": did not stop");
+                }
+            }
+        }
+    }
+    for (const auto& [name, levels] : named) {
+        std::printf("  %s: her tail lifts braking in calm air from", name.c_str());
+        for (const double l : levels) {
+            std::printf(" %.1f", l);
+        }
+        std::printf("\n");
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    std::size_t named_runs = 0;
+    for (const auto& [name, levels] : named) {
+        named_runs += 2 * levels.size();
+    }
+    named_runs += 1; // the lift item's
+    check(lift_item_lifted, lift_item + ": named for her lift, her tail still comes up, and she "
+                            "stops on her wheels; if it no longer lifts, judge it");
+    const std::size_t levels = std::size(brake_levels);
+    check(loadings.size() == 3 && runs == loadings.size() * std::size(winds) * levels,
+          "three loadings, three winds, ten levels: " + std::to_string(runs) + " runs");
+    check(judged + named_runs == loadings.size() * 2 * levels,
+          "every crosswind run judged or named: " + std::to_string(judged) + " judged, " +
+              std::to_string(named_runs) + " named");
+    const std::vector<double> from_half = {0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+    const std::vector<double> from_six_tenths = {0.6, 0.7, 0.8, 0.9, 1.0};
+    check(named.size() == 3 && named["solo"] == from_half && named["trainer"] == from_half &&
+              named["gross"] == from_six_tenths,
+          "named: solo and trainer from 0.5, gross from 0.6, as her tail lifts braking in calm "
+          "air");
+}
+
 // **Every aircraft standing on her brakes at idle stays finite, and on the
 // ground**: every
 // landplane in the catalogue (the flying boat named: afloat she has no

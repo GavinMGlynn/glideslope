@@ -90,6 +90,24 @@ The changes, and what each is for:
 (tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
 angle of attack is undefined, its rate swings, and multiplied by the whole
 dynamic pressure it pitched her by tens of degrees a second.
+
+**Her pitch terms keyed to the angle of attack on the same dynamic
+pressure** (alpha_rate.with_pitch_alpha_on_qbar_uw, 2026-10-15): Pitch_alpha
+and Pitch_propwash. With the air from the side her angle of attack is
+anything at all - 22 to 60 degrees standing in 15 kt across - and on the
+whole dynamic pressure her Cm-alpha term pushed her nose down by up to 1,500
+ft-lb against the ~1,080 her weight holds her tail down with: stick central
+she went over standing on her brakes in 15 kt across, at every loading.
+JSBSim's guidance, from issue #89 and the FlightGear wiki's "JSBSim
+Aerodynamics": QBarUW "is more appropriate for Cm" than the whole QBar. In
+flight, at a few degrees of sideslip, the two differ by its cosine squared.
+**Not her lift**: her lift terms keyed to the angle of attack still count
+the crosswind (her air's upward force 358 lb, braking from 10 kt in 15 kt
+across at her gross weight, against 104 in calm air), which the same
+guidance would move too; moved, she rolled 21 degrees and struck her
+airframe at walking pace in 15 kt across (the walking-pace test), where with
+her pitch terms alone moved she rolls 5.4 - why is not yet traced. An open
+item in Phase 9.
 """
 
 import pathlib
@@ -243,7 +261,8 @@ def controls():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_qbar_uw(airframe(), "make_j3cub"),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_pitch_alpha_on_qbar_uw(
+            alpha_rate.with_qbar_uw(airframe(), "make_j3cub"), "make_j3cub"),
         OUT / "aircraft" / MODEL / "Systems" / f"{SYSTEM}.xml": controls(),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),
