@@ -363,11 +363,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       cause of the gear item of #195. *Verification: every nose-wheel
       landplane braked to a stop in a 15 kt crosswind, at every brake level,
       keeps her pitch rate under 20 deg/s.* Done 2026-10-14.
-- [ ] **The Mosquito's alpha-rate term counts the crosswind.** Her model is
-      written by hand, not made by a script - an exception CLAUDE.md's
-      "made, not written" does not list - so the change above did not reach
-      her; editing it by hand is for the owner to decide. *Verification: her
-      alpha-rate term uses the dynamic pressure without its sideways part.*
+- [ ] **The Mosquito's alpha-rate term counts the crosswind.** Her model was
+      written by hand, so the change above did not reach her; it is now made
+      by a script, like every other model, but her term is not yet changed.
+      *Verification: her alpha-rate term uses the dynamic pressure without
+      its sideways part.*
 - [x] **The J-3 Cub's flight goes NaN standing on macOS release**: braked
       fully with her stick central she went over on her nose there and her
       flight blew up; now stood as a pilot stands a tail-wheel aeroplane

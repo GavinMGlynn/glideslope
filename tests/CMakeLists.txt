@@ -1388,6 +1388,13 @@ add_test(NAME the_committed_mosquito_propeller_is_what_its_script_computes
 set_tests_properties(the_committed_mosquito_propeller_is_what_its_script_computes
     PROPERTIES SKIP_RETURN_CODE 77)
 
+add_test(NAME the_committed_mosquito_airframe_and_engine_are_what_their_script_writes
+    COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=tools/make_mosquito_fb6.py
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/committed_assets.cmake)
+set_tests_properties(the_committed_mosquito_airframe_and_engine_are_what_their_script_writes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
 # The names go in a file: given on the command line they passed Windows'
 # 32,767-character limit, and the test was not even started there.
 string(REPLACE ";" "\n" _registered "${GLIDESLOPE_UNIT_TESTS}")
