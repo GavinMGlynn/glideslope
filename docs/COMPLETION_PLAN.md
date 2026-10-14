@@ -1476,11 +1476,11 @@ The pipeline: its length, its caches and what it costs a pull request.
       every read (2026-10-10): this test takes 99 s on this machine's Linux
       debug, 393 s before, with every figure it prints the same. Owed: its
       time on CI, from the first run after the merge.
-- [ ] **A Windows test job on a newer runner image than its build fails
+- [x] **A Windows test job on a newer runner image than its build fails
       every script check**: the Python the build found is not there.
       *Verification: a Windows test job on another image from its build
-      passes every script check.* Each Windows job now pins one Python, and the
-      build checks its configure took it. Owed: a run with jobs on two images.
+      passes every script check.* Done 2026-10-15: each Windows job pins one
+      Python, the build checks its configure took it (run 38637622313).
 - [x] **A CI run takes 90-120 minutes where its jobs need about 40**.
       *Verification: pull requests' builds restore main's ccache with most
       compiles hits, and a run's time from push to result is measured and
