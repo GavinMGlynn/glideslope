@@ -1648,6 +1648,9 @@ ReplayState Aircraft::replay_state() const {
     for (const SGPropertyNode* node : replay_nodes_) {
         out.controls.push_back(node->getDoubleValue());
     }
+    for (unsigned i = 0; i < propulsion->GetNumTanks(); ++i) {
+        out.tank_lbs.push_back(propulsion->GetTank(i)->GetContents());
+    }
     return out;
 }
 
@@ -1657,7 +1660,8 @@ void Aircraft::set_replay_state(const ReplayState& state) {
     const std::size_t engines = propulsion->GetNumEngines();
     if (state.thruster_rpm.size() != engines || state.n1.size() != engines ||
         state.n2.size() != engines || state.phase.size() != engines ||
-        state.controls.size() != replay_nodes_.size()) {
+        state.controls.size() != replay_nodes_.size() ||
+        state.tank_lbs.size() != propulsion->GetNumTanks()) {
         throw std::invalid_argument("the replay state is of another model");
     }
     for (unsigned i = 0; i < engines; ++i) {
@@ -1678,6 +1682,9 @@ void Aircraft::set_replay_state(const ReplayState& state) {
     }
     for (std::size_t i = 0; i < replay_nodes_.size(); ++i) {
         replay_nodes_[i]->setDoubleValue(state.controls[i]);
+    }
+    for (unsigned i = 0; i < propulsion->GetNumTanks(); ++i) {
+        propulsion->GetTank(i)->SetContents(state.tank_lbs[i]);
     }
 }
 

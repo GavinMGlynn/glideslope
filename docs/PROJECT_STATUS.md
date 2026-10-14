@@ -1868,18 +1868,111 @@ faults.
 - `a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees`
   (tests/cmake/server_stovl_landing.cmake, multi-process): a server, one AI
   Cessna, a 100 ms relay, and `glideslope_cli connect --aircraft f35b
-  --predict --stovl-land` - a new pilot for the command-line client, STOVL
-  mode and the stick forward from its first input, the lever still, its
+  --predict --stovl-land` - a new pilot for the command-line client: the
+  power a server holds for a player who has not touched anything (0.6) for
+  five seconds, then STOVL mode and the stick forward, the lever still, its
   prediction built over the DEM as the server's ground is - until 3,000
   updates are compared: no wreck, never converted, 200 KCAS at the end,
-  0 corrections too large to hide, the worst error 0.908 m (bound 2 m) and
-  the median 0.019 m (bound 5 cm) - **from one run**; 124 s, in
-  tests/ci_costs as an estimate until CI measures it. **Seen red** before the two fixes:
-  the server's F-35B a wreck, "hit the ground sinking at 4364 ft/min" and
-  "4368" in two runs.
+  once joined no correction too large to hide, the worst error under 2 m,
+  the 95th percentile under 10 cm and the median under 5 cm. Measured
+  below (what CI found). **Seen red** before the two fixes: the server's
+  F-35B a wreck, "hit the ground sinking at 4364 ft/min" and "4368" in two
+  runs.
 - Green with the rest: the targeted F-35B, STOVL, hover, transition,
   vertical, prediction, controller, plan, help and committed-asset tests.
 - **The selftest hash does not move**, `182dd6c996e0ee4c`.
+
+**What CI found in the multi-process test, and why** (run 38479432893, the
+test then selecting STOVL mode with its first input): green on this
+machine (0.908 m at worst) and red everywhere else - Windows "the worst
+prediction error was 3535 mm", Rocky 9 and macOS "a correction was too
+large to hide" (20.06 m), Ubuntu's debug build the client aborted on a
+JSBSim table's assertion (FGTable.cpp:618, a NaN looked up). Traced step
+by step - the server's controller and the client's prediction each
+logging her state and every integral of the transition law and its
+autopilot, joined on the server's step - in a build for x86-64-v2 (no
+fused multiply-adds, as CI), the default build and linux-debug, it was
+four things:
+
+- **A replay burned the fuel again.** The client's prediction is put back
+  to the server's motion at each word and flies the steps since again; the
+  fuel in her tanks was not put back with it (sim::ReplayState kept the
+  engines and the controls, not the tanks), so each step's fuel was burned
+  once for every word that flew it again: the prediction burned 486 lb to
+  the server's 234 in two minutes, and in a debug build, whose slower
+  frames fly more steps again, faster still. **Now** ReplayState keeps
+  each tank's contents. `a_prediction_put_right_at_every_word_burns_the_fuel_the_server_does`:
+  the F-35B trimmed level at 20,000 ft, a minute, words every fifth step
+  100 ms each way: both burn 89.9 lb (bound: a pound). **Seen red** without
+  it: 305.6 lb to 89.9.
+- **The controller put back was from a pass of its own past.** Each step
+  held kept the lift system's controller as the pass that first flew it
+  had it, never as a replay since had flown it; so each word put her
+  transition law back to one of four lines of its own past, a frame's
+  replay each - its autopilot's engaging offset cycling through four
+  values the server's never had, and at one word its pitch integral put
+  back to a value its line had left 25 steps before. **Now** each step
+  held is kept as the newest replay flew it (Prediction::fly_held_again),
+  and the trace shows no line but one. What it does to the error is not
+  told apart from a run's own spread (through the server, x86-64-v2: 1.270
+  m at worst before it, 0.048 m in the run after, 0.945 m in a later one);
+  **no test has been seen to fail without it** (below).
+- **Selected with the first input, the two laws began apart.** The server
+  made its controller when the selector arrived and seeded the transition
+  law from what the aircraft had: the power it holds for a player before
+  any input (0.6). The prediction, flying her inputs from its first step,
+  seeded its law from a model just loaded (0). The law's throttle
+  integral is never put right by the server - it sends her motion, not her
+  laws - and was still 0.17 apart two minutes on. **Now** the test's pilot
+  flies the server's held power five seconds and then selects STOVL mode,
+  as a pilot would once flying: both laws are made from the same controls
+  on the same step (the client's step 630 and the server's 766, which the
+  clocks' difference joins). A player who joins already holding the
+  selector is still seeded apart - not fixed here; the tail below.
+- **The DEM was read as the prediction began.** Its coverage, tiles' store
+  and geoid held the client's first predicting frame 0.8 s in a debug
+  build; the steps then flown at once were taken as begun on the input
+  sent after the hold, and the clocks' difference was put 55 steps short
+  (82 against 137) until a word that had waited less came 2.6 s later:
+  the prediction was put right by 85 m, and compared meanwhile 30 m off.
+  **Now** `--stovl-land` builds the ground before it joins (0.04 s left
+  at the start). And at her 300 kt a prediction joining from an update a
+  trip old is put right by up to 26 m before the clocks' difference is
+  known on a debug build - no prediction could hide that - so the client
+  now says its corrections once joined as well (`predicted, joined:`), and
+  the test holds those, not the joining's, to the 20 m.
+
+**The abort is not reproduced** by the test since: in three linux-debug
+runs here the client never aborted. The same assertion was met in one
+process, in a first draft of the fuel test: an F-35B left at full power
+with the stick alone dived into the ground at 850 kt, and the replay that
+flew her into it looked up her ground effect at a NaN height. Not shown to
+be what CI's client met.
+
+**Not fixed: the laws in the prediction drift from the server's.** The
+server sends her motion, not her transition law's state, so a law that
+has wandered in the client stays wandered: its autopilot's pitch loop is
+rate-limited at the edge of its integrating, so a thousandth of a degree
+decides whether a step's integral winds, and two minutes on the client's
+elevator trim was at its stop where the server's was 0.09. Her predicted
+pitch was then up to 4 degrees off the server's between words, her
+position still within centimetres. A tail in COMPLETION_PLAN. **Nor is a
+test yet written that fails with each step held kept from its first pass**
+(the fix above, seen only in the trace).
+
+**Measured** (`a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees`,
+2026-10-14, one run each): x86-64-v2 the worst error 0.945 m, the 95th
+percentile 0.048 m, the median 0.036 m, the worst correction once joined
+0.946 m; linux-release 0.048, 0.047 and 0.036 m, 0.009 m; linux-debug
+1.465, 0.047 and 0.036 m, 1.462 m (26 m joining). None too large to hide
+once joined; lowest 770, 774 and 131 ft above the ground, 200 KCAS at the
+end. **Its 99th percentile is a step**: 0.867 m (x86-64-v2) and 1.144 m
+(linux-debug) - the clocks' difference, held to a step and no closer,
+moving by one is 1.4 m at the 330 kt she dives to - so the worst is held
+to 2 m, and the 95th percentile, new, to 10 cm. The in-process tests
+(`a_predicting_client_and_the_server_fed_the_same_stovl_inputs_...`, the
+hover one, the two put-backs) unchanged: worst correction 0.0166 m in
+every build.
 
 ### The F-35B's pilot flies her speed, her sideways movement and her heading in STOVL mode, and a plan given her hovering is flown; her rolling landing figure revisited, 2026-10-14 — one item done, one still open
 

@@ -430,6 +430,14 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       stick full over turns her at least 3 degrees a second, banked under
       30, and full pedal moves her heading at least 5 degrees in 10 s, her
       height within 15 ft.*
+- [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
+      server's flight-control laws**: the server sends her motion, not her
+      laws' state, so a law that has wandered in the client is never put
+      right; through a server her predicted pitch can be 4 degrees off the
+      server's within a fifth of a second, though her position stays within
+      centimetres. *Verification: through a real server, held wing-borne two
+      minutes, the client's predicted pitch within half a degree of the
+      server's at every update.*
 - [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses

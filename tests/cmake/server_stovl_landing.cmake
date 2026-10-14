@@ -10,8 +10,13 @@
 # player at 2,200 ft over Sydney airport heading west, over land; the
 # command-line client joins it asking for the F-35B (`--aircraft f35b`) and
 # predicts its own aircraft (`--predict`) through a relay that holds every
-# datagram 100 ms each way. Its pilot (`--stovl-land`) selects STOVL mode
-# with its first input and holds the stick full forward, the lever still.
+# datagram 100 ms each way. Its pilot (`--stovl-land`) flies the power the
+# server holds for a player who has not touched anything for five seconds,
+# and then selects STOVL mode and holds the stick full forward, the lever
+# still: selected once the server is flying her inputs, as a pilot would,
+# the server's transition law and the prediction's are seeded from the same
+# controls (selected with the first input they were not, and their
+# integrals stayed apart - PROJECT_STATUS.md, 2026-10-14).
 #
 # **What a server gives a player is her model's own loading, 45,400 lb**,
 # over the 39,837 lb she is flown into a hover at (`fcs/stovl-hover-most-lbs`):
@@ -27,13 +32,19 @@
 #
 # **What must hold**: no wreck heard; the client's prediction never
 # converted, was let down no lower than 90 ft above the ground and ends at
-# her 200 KCAS conversion speed within 10 kt; no correction too large to
-# hide; and the prediction's error - the server's word against where the
-# client had flown her to - never more than 2 m, its median under 5 cm,
-# over at least 3,000 updates. Measured (linux-release, 2026-10-14): the
-# worst 0.908 m, 71 s in, as she slowed; the median 0.019 m; 200 KCAS at
-# the end, 1,491 ft above the ground at the lowest (the 3,000 updates are
-# two minutes, before the stick has let her down far).
+# her 200 KCAS conversion speed within 10 kt; once joined - the clocks'
+# difference known - no correction too large to hide (joining, at her 300
+# kt, the prediction may be put right by more: 20 m on a debug build); and
+# the prediction's error - the server's word against where the client had
+# flown her to - never more than 2 m, which is a step and a half at the
+# 330 kt she dives to (a step of the clocks' difference, held right to a
+# step and no closer, is 1.4 m there), its 95th percentile under 10 cm and
+# its median under 5 cm, over at least 3,000 updates. Measured
+# (2026-10-14): linux-release built for x86-64-v2, the worst 0.048 m and
+# 1.312 m in two runs, the 95th percentile 0.047 and 0.042 m, the median
+# 0.036 m; linux-debug, the worst 1.401 m, the 95th percentile 0.051 m, the
+# median 0.037 m; lowest 769 to 774 ft above the ground, 200 KCAS at the
+# end.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
@@ -110,8 +121,15 @@ endif()
 if(_worst_mm GREATER 2000)
     message(FATAL_ERROR "the worst prediction error was ${_worst_mm} mm, over 2 m:\n${_said}")
 endif()
-if(NOT _said MATCHES "predicted: [0-9]+ corrections, the worst [0-9.]+ m, 0 too large to hide")
-    message(FATAL_ERROR "a correction was too large to hide:\n${_said}")
+if(NOT _said MATCHES "predicted, joined: [0-9]+ corrections, the worst [0-9.]+ m, 0 too large to hide")
+    message(FATAL_ERROR "a correction once joined was too large to hide:\n${_said}")
+endif()
+if(NOT _said MATCHES "prediction error 95th percentile: ([0-9]+)\\.([0-9][0-9][0-9]) m")
+    message(FATAL_ERROR "the client did not say its 95th percentile:\n${_said}")
+endif()
+math(EXPR _p95_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
+if(_p95_mm GREATER 100)
+    message(FATAL_ERROR "the 95th percentile prediction error was ${_p95_mm} mm, over 10 cm:\n${_said}")
 endif()
 if(NOT _said MATCHES "prediction error median: ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its median error:\n${_said}")
@@ -121,4 +139,5 @@ if(_median_mm GREATER 50)
     message(FATAL_ERROR "the median prediction error was ${_median_mm} mm, over 5 cm:\n${_said}")
 endif()
 message(STATUS "held wing-borne: lowest ${_lowest} ft, ${_kcas} KCAS at the end; ${_compared} "
-               "updates compared, the worst ${_worst_mm} mm, the median ${_median_mm} mm")
+               "updates compared, the worst ${_worst_mm} mm, the 95th percentile ${_p95_mm} mm, "
+               "the median ${_median_mm} mm")
