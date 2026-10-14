@@ -1479,8 +1479,8 @@ The pipeline: its length, its caches and what it costs a pull request.
 - [ ] **A Windows test job on a newer runner image than its build fails
       every script check**: the Python the build found is not there.
       *Verification: a Windows test job on another image from its build
-      passes every script check.* Each Windows job now installs one pinned
-      Python. Owed: a run with its jobs on two images.
+      passes every script check.* Each Windows job now pins one Python, and the
+      build checks its configure took it. Owed: a run with jobs on two images.
 - [x] **A CI run takes 90-120 minutes where its jobs need about 40**.
       *Verification: pull requests' builds restore main's ccache with most
       compiles hits, and a run's time from push to result is measured and
