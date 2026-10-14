@@ -92,7 +92,7 @@ angle of attack is undefined, its rate swings, and multiplied by the whole
 dynamic pressure it pitched her by tens of degrees a second.
 
 **Her pitch terms keyed to the angle of attack on the same dynamic
-pressure** (alpha_rate.with_pitch_alpha_on_qbar_uw, 2026-10-15): Pitch_alpha
+pressure** (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15): Pitch_alpha,
 and Pitch_propwash. With the air from the side her angle of attack is
 anything at all - 22 to 60 degrees standing in 15 kt across - and on the
 whole dynamic pressure her Cm-alpha term pushed her nose down by up to 1,500
@@ -101,13 +101,22 @@ she went over standing on her brakes in 15 kt across, at every loading.
 JSBSim's guidance, from issue #89 and the FlightGear wiki's "JSBSim
 Aerodynamics": QBarUW "is more appropriate for Cm" than the whole QBar. In
 flight, at a few degrees of sideslip, the two differ by its cosine squared.
+Pitch_propwash did not cause it - with Pitch_alpha alone moved, the air's
+most nose-down moment standing in 15 kt across is the same, 37 to 239 ft-lb
+at her figures' loadings - and is moved as the same kind of term, a pitching
+moment keyed to the angle of attack: left on the whole dynamic pressure, she
+rolled 20.8 degrees and struck her airframe standing at the end of the 3 kt
+walking-pace test in 15 kt across, where with it moved she rolls 5.4 (and
+3.0 with neither moved). That her roll there turns on it is the open item
+below.
 **Not her lift**: her lift terms keyed to the angle of attack still count
 the crosswind (her air's upward force 358 lb, braking from 10 kt in 15 kt
 across at her gross weight, against 104 in calm air), which the same
 guidance would move too; moved, she rolled 21 degrees and struck her
 airframe at walking pace in 15 kt across (the walking-pace test), where with
 her pitch terms alone moved she rolls 5.4 - why is not yet traced. An open
-item in Phase 9.
+item in Phase 9, "The J-3 Cub is rolled onto her wing by a crosswind at
+walking pace".
 """
 
 import pathlib
@@ -261,8 +270,9 @@ def controls():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_pitch_alpha_on_qbar_uw(
-            alpha_rate.with_qbar_uw(airframe(), "make_j3cub"), "make_j3cub"),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+            alpha_rate.with_qbar_uw(airframe(), "make_j3cub"), "make_j3cub",
+            {"PITCH": ["aero/moment/Pitch_alpha", "aero/moment/Pitch_propwash"]}),
         OUT / "aircraft" / MODEL / "Systems" / f"{SYSTEM}.xml": controls(),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),
