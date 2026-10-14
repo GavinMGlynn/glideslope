@@ -265,15 +265,21 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
-### The Windows jobs install one Python: a test job on another runner image from its build, 2026-10-15 — item still open
+### The Windows jobs install one Python: a test job on another runner image from its build, 2026-10-15 — item done
 
-**What is still not true first.** **The fix is not yet seen across two
-images**: it is verified by a Windows test job that lands on another runner
-image from its build and passes every script check, and whether this pull
-request's run puts any job there is GitHub's choice - though every run's
-builds now check that their configure took the pinned Python. **Only Windows is
-changed**: the Linux and macOS test jobs also run a tree configured by
-another job, and have not been seen to fail this way.
+**What is still not true first.** **Only Windows is changed**: the Linux
+and macOS test jobs also run a tree configured by another job, and have not
+been seen to fail this way; their Python is not pinned or checked.
+
+**Verified on CI**, run 38637622313 on this branch: the jobs landed on both
+images, and each of the three builds' new check printed "the configure found
+the pinned Python: C:/hostedtoolcache/windows/Python/3.12.10/x64/python3.exe"
+- two builds on 20260925.250.1, windows-debug's on 20261007.264.1. Across
+images: windows-clang built on the old image and its tests 3 of 3 ran on the
+new one - the shard whose script checks failed in #203's run - and passed
+443 of 443, every committed-model and script check among them;
+windows-debug built on the new image and its shards 2, 3, 5 and 6 ran on the
+old one, and passed.
 
 **What happened.** #203's CI run 38624857649 failed five Windows test jobs,
 in debug, release and clang: in each, every check that runs a Python script
