@@ -576,15 +576,23 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       levels shows no pitch rate over a stated bound.*
 - [ ] **The J-3 Cub's nose is pushed down by a crosswind**: her
       angle-of-attack pitch term counts it; stick central she goes over
-      braked in 15 kt across. *Verification: that term, and every other
-      model's, uses the dynamic pressure without its sideways part; stick
-      central in 15 kt across her tail stays down; her figures stay in range.*
+      braked in 15 kt across, and held at 4.5 kt at taxi power in 15 kt
+      across she strikes at 21 degrees of roll. *Verification: that term,
+      and every other model's, uses the dynamic pressure without its
+      sideways part; stick central in 15 kt across her tail stays down; her
+      figures stay in range.*
+- [ ] **A C172P at full power on held brakes, stick back, sits on her
+      tail**: she rears to 11 degrees, where a real one tends to slide; no test
+      covers it now. *Verification: a C172P at full power on her brakes,
+      stick full back, keeps her nosewheel within a stated height of the
+      runway and her tail off it, from a cited figure.*
 - [x] **The walking-pace tests' throttle sits the C172P on her tail.**
       Holding her at 3 kt against the autobrake, the test's hand winds to full
       power with her stick back, and she rears to 11 degrees. *Verification:
       no landplane rolled at walking pace and stopped touches the runway with
-      anything but her wheels.* Done 2026-10-15: the hand holds no more than
-      her taxi power; all thirteen judged, none named.
+      anything but her wheels.* Done 2026-10-15 at 3 kt: the hand holds no
+      more than her taxi power, and every strike is judged on all thirteen.
+      Held at 4.5 kt in 15 kt across, the Cub still strikes (the item above).
 
 ---
 
@@ -822,16 +830,18 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       put on her nose. *Verification: a rollout held at low groundspeed with
       no deceleration keeps her brake bounded and her nose above -5 degrees.*
       Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
-      creep, wet or dry (2026-10-14). Since 2026-10-15 no landplane is
-      named in the walking-pace tests. **Still missing**: the 0.8 allowance
-      for an idle creep is barely exercised on the jets.
+      creep, wet or dry (2026-10-14). **Still missing**: the walking-pace
+      tests roll her at 2-5 kt for under 1.1 s, and the rolling bound is not
+      reached on the Cub and the Mosquito (nor the C172P dry), named there;
+      the 0.8 allowance for an idle creep is barely exercised on the jets.
 - [ ] **The Mosquito swings below walking pace.** She turns 36 to 155
       degrees before she stops. Without the steering-brake fade it is 81 to
       156 degrees, so the fade does not cause it. Measured under the test's
-      old full-power hand: at taxi power (2026-10-15) she turns at most 17.2,
-      judged; still to confirm here that nothing else swings her. *Verification: every
-      landplane rolling at walking pace stops within 30 degrees of her
-      heading, in calm air and 15 kt across.*
+      old full-power hand. At taxi power (2026-10-15) she turns at most 17.2
+      at 3 kt, over under half a second of rolling; held at 4.5 kt she turns
+      109 in 15 kt across. *Verification: every landplane rolling at walking
+      pace stops within 30 degrees of her heading, in calm air and 15 kt
+      across.*
 - [ ] **The flying boat lands in gusts without skipping.** Her flare is
       flown to her hull and she touches gently, but in gusts she touches
       flat - under one degree, below NACA TN 923's lower trim limit - and
@@ -1655,6 +1665,10 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
       test's gear is what it states - the helper starts it as the aircraft
       starts, an audit names the tests that mean it down - and every test is
       green.*
+- [ ] **The go-around beside rising ground takes 26.9 to 778.7 s on CI**
+      against a 900 s timeout, and timed out once on #202's Ubuntu debug.
+      Fix its step or its cost, not the timeout. *Verification: it takes
+      under a stated time on every CI platform, a month of runs.*
 
 ---
 

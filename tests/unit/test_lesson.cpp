@@ -3141,11 +3141,12 @@ GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_w
 // the flying boat, afloat, has no brakes - named) is settled on her brakes
 // on the runway's centreline, rolled up to 3 kt on the throttle alone (the
 // rollout steering her, her brakes off), and given to the rollout there.
-// For half a minute the test's hand holds her at 3 kt on the throttle, as a
-// pilot taxis: with no more than her taxi power, the throttle that rolled
-// her up. Her autobrake's deceleration is never met - it stops her in about
-// a second and she stands on it, taxi power on, for the rest - and then the
-// hand lets the throttle go and the rollout has her for a minute. Judged:
+// For half a minute the test's hand tries to hold her at 3 kt on the
+// throttle, as a pilot taxis: with no more than her taxi power, the
+// throttle that rolled her up. Her autobrake's deceleration is never met -
+// it stops her in about a second and she stands on it, taxi power on, for
+// the rest - and then the hand lets the throttle go and the rollout has her
+// for a minute. Judged:
 //   - no brake added while she rolls between 2 and 5 kt past
 //     `Lander::walking_pace_pedal` (0.3);
 //   - none added below walking pace past the ceiling at a stop,
@@ -3156,11 +3157,15 @@ GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_w
 //   - nothing but her wheels touches the runway, from the roll-up to the
 //     stop (`sim::GroundJudge`).
 // Coverage asserted: every landplane flown, and each rolled between 2 and 5
-// kt for at least `least_walking_s` under the autobrake. Seen red on the old
-// law, which added 0.1 of its shortfall a second whatever her speed: every
-// landplane's autobrake went to 1.0 at walking pace (seen again with the
-// taxi-power hand, 2026-10-15: all thirteen wound to 1.0 below walking pace,
-// ten past 0.3 rolling). The strike seen red with the old hand, which
+// kt for at least `least_walking_s` under the autobrake; and the rolling
+// ceiling reached while she rolls - where it could bite - on every one but
+// those named, whose brakes stop her first (ten of thirteen dry, eleven wet
+// and across, on linux-debug). Seen red on the old law, which added 0.1 of
+// its shortfall a second whatever her speed: every landplane's autobrake
+// went to 1.0 at walking pace. Seen again with the taxi-power hand,
+// 2026-10-15, with the ceiling lifted (`most = 1.0` in `Lander::fly`): all
+// thirteen wound to 1.0 below walking pace, ten past 0.3 rolling. And with
+// the rolling ceiling made the standing one (0.45): see PROJECT_STATUS. The strike seen red with the old hand, which
 // wound to full power against the brakes that had stopped her, her stick
 // full back: the C172P struck her tail in all three tests, at 11.2 degrees,
 // 1.9 to 2.3 s after the hand-over.
@@ -3177,7 +3182,8 @@ bool gone_over(double pitch_deg, double roll_deg) {
 }
 
 void walking_pace_then_stop(double crosswind_kts,
-                            const std::map<std::string, std::string>& named, bool wet = false) {
+                            const std::map<std::string, std::string>& cannot_reach,
+                            bool wet = false) {
     using glideslope::sim::Lander;
     constexpr double held_kts = 3.0;
     constexpr double rolling_pedal = Lander::walking_pace_pedal + 1e-9;
@@ -3186,7 +3192,7 @@ void walking_pace_then_stop(double crosswind_kts,
     constexpr double least_pitch_deg = -5.0;
     // No ground loop: her heading from the hand-over to the stop.
     constexpr double most_turn_deg = 30.0;
-    // A C172P, her brakes on in 0.6 s, is below 2 kt in 0.7 s (0.43 wet).
+    // A C172P, her brakes on in 0.6 s, is below 2 kt in 0.7 s (0.42 wet).
     constexpr double least_walking_s = 0.4;
     constexpr int settle_s = 5;
     constexpr int roll_up_s = 30;
@@ -3196,10 +3202,10 @@ void walking_pace_then_stop(double crosswind_kts,
     const glideslope::sim::Runway runway = a_runway();
     std::size_t flown = 0;
     std::size_t walked = 0;
-    std::size_t shown = 0;
+    std::size_t reached = 0;
+    std::size_t named_unreached = 0;
     std::vector<std::string> left_out;
     std::vector<std::string> wrong;
-    std::vector<std::string> shown_wrong;
     for (const std::string& id : taught) {
         const auto entry = glideslope::sim::find_aircraft(data(), id);
         if (entry.seaplane) {
@@ -3302,6 +3308,7 @@ void walking_pace_then_stop(double crosswind_kts,
         double most_turn = 0.0;
         double most_pedal_seen = 0.0;
         double wound_rolling = 0.0;
+        double most_rolling_pedal = 0.0;
         double wound_standing = 0.0;
         double least_pitch_seen = aircraft.state().pitch_deg;
         double worst_roll = 0.0;
@@ -3331,9 +3338,11 @@ void walking_pace_then_stop(double crosswind_kts,
             // Brake put on below walking pace past its bound is the windup;
             // what she brought down from above walking pace is not.
             const bool added = pedal > pedal_before;
-            if (added && vg_kts >= 2.0 && vg_kts < Lander::autobrake_off_kts &&
-                pedal > rolling_pedal) {
-                wound_rolling = std::max(wound_rolling, pedal);
+            if (vg_kts >= 2.0 && vg_kts < Lander::autobrake_off_kts) {
+                most_rolling_pedal = std::max(most_rolling_pedal, pedal);
+                if (added && pedal > rolling_pedal) {
+                    wound_rolling = std::max(wound_rolling, pedal);
+                }
             }
             // Let go, under 2 kt, a creep her idle thrust drives is one the
             // rollout must stop, and may brake past the ceiling to (lander.cpp).
@@ -3357,17 +3366,32 @@ void walking_pace_then_stop(double crosswind_kts,
             }
         }
         ++flown;
-        const bool all_judged = named.count(id) == 0;
-        if (!all_judged) {
-            ++shown;
-            std::printf("  named, her autobrake judged and the rest shown - %s: %s\n",
-                        id.c_str(), named.at(id).c_str());
+        // **Where the rolling ceiling could bite**: her autobrake reached it
+        // while she rolled between 2 and 5 kt. One her brakes stop first is
+        // named with the reason; a named one that reaches it on some
+        // platform is counted, and said.
+        const bool reaches = most_rolling_pedal >= Lander::walking_pace_pedal - 1e-6;
+        const auto named = cannot_reach.find(id);
+        if (reaches) {
+            ++reached;
+            if (named != cannot_reach.end()) {
+                std::printf("  named, and the rolling ceiling reached all the same - %s\n",
+                            id.c_str());
+            }
+        } else if (named != cannot_reach.end()) {
+            ++named_unreached;
+            std::printf("  named, the rolling ceiling not reached - %s: %s\n", id.c_str(),
+                        named->second.c_str());
+        } else {
+            wrong.push_back(id + "'s autobrake reached only " +
+                            std::to_string(most_rolling_pedal) +
+                            " rolling at walking pace: the rolling ceiling is not tested on her");
         }
         const double walking_s = walking_steps / static_cast<double>(steps_per_second);
-        std::printf("  %-13s %4.2f s at 2-5 kt, autobrake at most %.3f, %s, least pitch "
-                    "%.1f deg, most roll %.1f deg, turned %.1f deg\n",
-                    id.c_str(), walking_s, most_pedal_seen, stopped ? "stopped" : "NOT STOPPED",
-                    least_pitch_seen, worst_roll, most_turn);
+        std::printf("  %-13s %4.2f s at 2-5 kt, autobrake at most %.3f (%.3f rolling), %s, "
+                    "least pitch %.1f deg, most roll %.1f deg, turned %.1f deg\n",
+                    id.c_str(), walking_s, most_pedal_seen, most_rolling_pedal,
+                    stopped ? "stopped" : "NOT STOPPED", least_pitch_seen, worst_roll, most_turn);
         if (!over.empty()) {
             std::printf("  %-13s %s; her run ended there\n", id.c_str(), over.c_str());
         }
@@ -3383,7 +3407,7 @@ void walking_pace_then_stop(double crosswind_kts,
             wrong.push_back(id + "'s autobrake was wound to " + std::to_string(wound_standing) +
                             " below walking pace");
         }
-        std::vector<std::string>& to = all_judged ? wrong : shown_wrong;
+        std::vector<std::string>& to = wrong;
         if (!over.empty()) {
             // Her run ended there: what it did not get to is not a fault of
             // its own.
@@ -3397,9 +3421,8 @@ void walking_pace_then_stop(double crosswind_kts,
         if (!stopped && over.empty()) {
             to.push_back(id + " did not stop");
         }
-        // A strike is judged on every landplane, named or not.
         if (!strike.empty()) {
-            wrong.push_back(id + " " + strike);
+            to.push_back(id + " " + strike);
         }
         if (least_pitch_seen <= least_pitch_deg) {
             to.push_back(id + "'s nose went down to " + std::to_string(least_pitch_seen) +
@@ -3413,39 +3436,50 @@ void walking_pace_then_stop(double crosswind_kts,
                          " deg from her heading at the hand-over");
         }
     }
-    for (const std::string& w : shown_wrong) {
-        std::printf("      (named) %s\n", w.c_str());
-    }
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 14 && flown == 13 && left_out.size() == 1 &&
-              shown == named.size() && walked + named.size() >= flown,
-          "every landplane of fourteen flown, her autobrake judged, and rolled at walking "
-          "pace or named; the flying boat left out: " +
+    check(taught.size() == 14 && flown == 13 && left_out.size() == 1 && walked == flown,
+          "every landplane of fourteen flown and judged, each rolled at walking pace; the "
+          "flying boat left out: " +
               std::to_string(flown) + " flown, " + std::to_string(walked) + " walked, " +
-              std::to_string(shown) + " named, " + std::to_string(left_out.size()) +
-              " left out");
+              std::to_string(left_out.size()) + " left out");
+    check(reached + named_unreached == flown && reached + cannot_reach.size() >= flown,
+          "the rolling ceiling reached on every landplane but those named: " +
+              std::to_string(reached) + " reached, " + std::to_string(named_unreached) +
+              " named of " + std::to_string(cannot_reach.size()) + ", " +
+              std::to_string(flown) + " flown");
 }
 
 } // namespace
 
-// **None is named** (2026-10-15). The Mosquito was, for swinging 36 to 155
-// degrees below walking pace, and the J-3 Cub in 15 kt across for going
-// over: both while the test's old hand held full power against the brakes
-// that had stopped her. Held at her taxi power, the Mosquito turns at most
-// 17.2 degrees and the Cub stays on her wheels.
+// **Every landplane is judged in full** (2026-10-15). The Mosquito was named
+// for swinging 36 to 155 degrees below walking pace, and the J-3 Cub in 15 kt
+// across for going over: both while the test's old hand held full power
+// against the brakes that had stopped her. Held at her taxi power, the
+// Mosquito turns at most 17.2 degrees and the Cub stays on her wheels.
+// **Named only where the rolling ceiling cannot bite**: her brakes stop her
+// from 3 kt before her autobrake reaches 0.3 (measured on linux-debug).
+const std::map<std::string, std::string>& stopped_before_the_rolling_ceiling() {
+    static const std::map<std::string, std::string> named{
+        {"j3cub", "her brakes stop her first: 0.29 at most rolling, 0.21 in 15 kt across"},
+        {"mosquito-fb6", "her brakes stop her first: 0.16 to 0.17 at most rolling"}};
+    return named;
+}
+
 GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
-    walking_pace_then_stop(0.0, {});
+    auto named = stopped_before_the_rolling_ceiling();
+    named["c172p"] = "her brakes stop her first on a dry runway: 0.296 at most rolling";
+    walking_pace_then_stop(0.0, named);
 }
 
 // **And on a wet runway**, where the brakes go on at a hand's pace to all of
 // the pedals from the touch: below walking pace, no further than on a dry
 // one.
 GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_on_a_wet_runway_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
-    walking_pace_then_stop(0.0, {}, true);
+    walking_pace_then_stop(0.0, stopped_before_the_rolling_ceiling(), true);
 }
 
 // **A gust that pushes her from 1 kt to 2 kt, her throttle closed, does not
@@ -3590,7 +3624,7 @@ GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_
 // she struck her airframe at 21 degrees of roll in linux-debug and went on to
 // -45 degrees of pitch in linux-release. At her taxi power she does not.
 GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_in_a_15_kt_crosswind_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
-    walking_pace_then_stop(15.0, {});
+    walking_pace_then_stop(15.0, stopped_before_the_rolling_ceiling());
 }
 
 // **A walking-pace run counts her gone over past 45 degrees of pitch or roll,
