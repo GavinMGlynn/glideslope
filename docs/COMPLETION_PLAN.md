@@ -586,13 +586,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       covers it now. *Verification: a C172P at full power on her brakes,
       stick full back, keeps her nosewheel within a stated height of the
       runway and her tail off it, from a cited figure.*
-- [x] **The walking-pace tests' throttle sits the C172P on her tail.**
+- [ ] **The walking-pace tests' throttle sits the C172P on her tail.**
       Holding her at 3 kt against the autobrake, the test's hand winds to full
       power with her stick back, and she rears to 11 degrees. *Verification:
       no landplane rolled at walking pace and stopped touches the runway with
-      anything but her wheels.* Done 2026-10-15 at 3 kt: the hand holds no
-      more than her taxi power, and every strike is judged on all thirteen.
-      Held at 4.5 kt in 15 kt across, the Cub still strikes (the item above).
+      anything but her wheels.* At taxi power none strikes at 3 kt
+      (2026-10-15). **Missing**: only 3 kt of walking pace's 2-5 is flown,
+      and rolled at 4.5 kt in 15 kt across the Cub strikes (the item above).
 
 ---
 
