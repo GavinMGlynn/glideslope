@@ -579,11 +579,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       braked in 15 kt across. *Verification: that term, and every other
       model's, uses the dynamic pressure without its sideways part; stick
       central in 15 kt across her tail stays down; her figures stay in range.*
-- [ ] **The walking-pace tests' throttle sits the C172P on her tail.**
+- [x] **The walking-pace tests' throttle sits the C172P on her tail.**
       Holding her at 3 kt against the autobrake, the test's hand winds to full
       power with her stick back, and she rears to 11 degrees. *Verification:
       no landplane rolled at walking pace and stopped touches the runway with
-      anything but her wheels.*
+      anything but her wheels.* Done 2026-10-15: the hand holds no more than
+      her taxi power; all thirteen judged, none named.
 
 ---
 
@@ -821,13 +822,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       put on her nose. *Verification: a rollout held at low groundspeed with
       no deceleration keeps her brake bounded and her nose above -5 degrees.*
       Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
-      creep, wet or dry (2026-10-14). **Still missing**: the verification
-      rests on named cases. The Mosquito's swing (below) and the Cub in 15
-      kt across are named, and the 0.8 allowance for an idle creep is
-      barely exercised on the jets.
+      creep, wet or dry (2026-10-14). Since 2026-10-15 no landplane is
+      named in the walking-pace tests. **Still missing**: the 0.8 allowance
+      for an idle creep is barely exercised on the jets.
 - [ ] **The Mosquito swings below walking pace.** She turns 36 to 155
       degrees before she stops. Without the steering-brake fade it is 81 to
-      156 degrees, so the fade does not cause it. *Verification: every
+      156 degrees, so the fade does not cause it. Measured under the test's
+      old full-power hand: at taxi power (2026-10-15) she turns at most 17.2,
+      judged; still to confirm here that nothing else swings her. *Verification: every
       landplane rolling at walking pace stops within 30 degrees of her
       heading, in calm air and 15 kt across.*
 - [ ] **The flying boat lands in gusts without skipping.** Her flare is

@@ -3160,7 +3160,7 @@ GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_w
 // law, which added 0.1 of its shortfall a second whatever her speed: every
 // landplane's autobrake went to 1.0 at walking pace (seen again with the
 // taxi-power hand, 2026-10-15: all thirteen wound to 1.0 below walking pace,
-// eleven past 0.3 rolling). The strike seen red with the old hand, which
+// ten past 0.3 rolling). The strike seen red with the old hand, which
 // wound to full power against the brakes that had stopped her, her stick
 // full back: the C172P struck her tail in all three tests, at 11.2 degrees,
 // 1.9 to 2.3 s after the hand-over.
@@ -3364,7 +3364,7 @@ void walking_pace_then_stop(double crosswind_kts,
                         id.c_str(), named.at(id).c_str());
         }
         const double walking_s = walking_steps / static_cast<double>(steps_per_second);
-        std::printf("  %-13s %4.1f s at 2-5 kt, autobrake at most %.3f, %s, least pitch "
+        std::printf("  %-13s %4.2f s at 2-5 kt, autobrake at most %.3f, %s, least pitch "
                     "%.1f deg, most roll %.1f deg, turned %.1f deg\n",
                     id.c_str(), walking_s, most_pedal_seen, stopped ? "stopped" : "NOT STOPPED",
                     least_pitch_seen, worst_roll, most_turn);
@@ -3397,8 +3397,9 @@ void walking_pace_then_stop(double crosswind_kts,
         if (!stopped && over.empty()) {
             to.push_back(id + " did not stop");
         }
+        // A strike is judged on every landplane, named or not.
         if (!strike.empty()) {
-            to.push_back(id + " " + strike);
+            wrong.push_back(id + " " + strike);
         }
         if (least_pitch_seen <= least_pitch_deg) {
             to.push_back(id + "'s nose went down to " + std::to_string(least_pitch_seen) +
@@ -3431,26 +3432,20 @@ void walking_pace_then_stop(double crosswind_kts,
 
 } // namespace
 
-// The Mosquito is named for her heading: below walking pace she swings 36
-// to 155 degrees before she stops, and 81 to 156 with her steering brake not
-// faded - the fade does not cause it. The open Phase 10b item "The Mosquito
-// swings below walking pace".
-const std::map<std::string, std::string>& mosquito_swings() {
-    static const std::map<std::string, std::string> named{
-        {"mosquito-fb6", "swings 36 to 155 degrees below walking pace before she stops, "
-                         "and as far with her steering brake not faded"}};
-    return named;
-}
-
+// **None is named** (2026-10-15). The Mosquito was, for swinging 36 to 155
+// degrees below walking pace, and the J-3 Cub in 15 kt across for going
+// over: both while the test's old hand held full power against the brakes
+// that had stopped her. Held at her taxi power, the Mosquito turns at most
+// 17.2 degrees and the Cub stays on her wheels.
 GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
-    walking_pace_then_stop(0.0, mosquito_swings());
+    walking_pace_then_stop(0.0, {});
 }
 
 // **And on a wet runway**, where the brakes go on at a hand's pace to all of
 // the pedals from the touch: below walking pace, no further than on a dry
 // one.
 GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_on_a_wet_runway_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
-    walking_pace_then_stop(0.0, mosquito_swings(), true);
+    walking_pace_then_stop(0.0, {}, true);
 }
 
 // **A gust that pushes her from 1 kt to 2 kt, her throttle closed, does not
@@ -3590,22 +3585,21 @@ GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_
 
 // **And blown sideways by 15 kt straight across the runway** - the most the
 // learnt landing's gate takes, and the wind that put the C172P on her nose.
-// Every landplane's autobrake is judged; the J-3 Cub's walking pace, stop
-// and nose are named: rolled up to walking pace on the throttle in 15 kt
-// square across her, before the rollout's brakes have her, she goes over.
+// Every landplane judged in full. The J-3 Cub was named here for going
+// over (PR 201): held at full power against the brakes that had stopped her,
+// she struck her airframe at 21 degrees of roll in linux-debug and went on to
+// -45 degrees of pitch in linux-release. At her taxi power she does not.
 GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_in_a_15_kt_crosswind_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
-    auto named = mosquito_swings();
-    named["j3cub"] = "goes over in 15 kt across while the test's throttle rolls her up to "
-                     "walking pace, before the rollout has her; her autobrake is judged";
-    walking_pace_then_stop(15.0, named);
+    walking_pace_then_stop(15.0, {});
 }
 
 // **A walking-pace run counts her gone over past 45 degrees of pitch or roll,
 // or at an attitude that is no number**: the decision that ends a run before
 // her numbers reach a JSBSim table as NaN, asserted on constructed attitudes
-// - in the runs themselves it fires only where a platform's flight takes
-// her over (the Cub in 15 kt across on linux-release and macOS debug, not
-// linux-debug), so it is pinned here. Seen red with `>` in place of the
+// - in the runs themselves it fired only where a platform's flight took
+// her over (the Cub in 15 kt across on linux-release and macOS debug, under
+// the old full-power hand), and at taxi power it fires in none, so it is
+// pinned here. Seen red with `>` in place of the
 // NaN-proof comparison: the NaN cases passed as upright.
 GLIDESLOPE_TEST(a_walking_pace_run_counts_her_gone_over_past_45_degrees_or_at_an_attitude_that_is_no_number) {
     constexpr double nan = std::numeric_limits<double>::quiet_NaN();
