@@ -268,9 +268,10 @@ are the risks the phase order is built around:
 ### A tail-wheel aeroplane starts standing on her three wheels, 2026-10-14 — item done
 
 **What is still not true first.** This is the first of two causes found for
-the open gear item of #195, "a rolling aeroplane near a stop can be thrown
-on her nose by her gear in one step". The second, in a 15 kt crosswind near
-a stop, is the alpha-rate change of #198, landed before this one. **The full suite was not run**: only the 161 ground tests below.
+the open gear item of #195, "a rolling aeroplane near a stop can be thrown on
+her nose by her gear in one step". The second, in a 15 kt crosswind near a
+stop, is the alpha-rate change of #198, landed before this one. **The full
+suite was not run**: only the 161 ground tests below.
 
 **The cause.** `Aircraft::initialize` started every aeroplane at pitch 0. A
 tail-wheel aeroplane started level balances on her main wheels with her tail
@@ -317,14 +318,14 @@ checks pass in both builds, 9 skipped for want of a language model's key.
 **What is still not true first.** **The Mosquito is not changed**: her model
 is written by hand - no script makes it, an exception CLAUDE.md's
 "`assets/jsbsim/` is made, not written" does not list - so changing her
-`pitch-alpha-rate` term means editing an asset by hand, which is for the
-owner to decide. Until then it still counts the crosswind; an open item in
-Phase 9. **The B-2 has no alpha-rate term.** **Tail-wheel aeroplanes are not judged** by the new test:
-in #196's sweep the Cub goes over in a 15 kt crosswind run-up and the
-Mosquito noses over braked at 0.6 and above, which may be the real nose-over
-hard braking gives a tail-wheel aeroplane. **Whether a braked aeroplane's
-nose may go below -5 degrees is not judged**: the C182's goes to -5.7 at full
-brakes, calm or not. **The full suite was not run.**
+`pitch-alpha-rate` term means editing an asset by hand, which is for the owner
+to decide. Until then it still counts the crosswind; an open item in Phase 9.
+**The B-2 has no alpha-rate term.** **Tail-wheel aeroplanes are not judged**
+by the new test: in #196's sweep the Cub goes over in a 15 kt crosswind run-up
+and the Mosquito noses over braked at 0.6 and above, which may be the real
+nose-over hard braking gives a tail-wheel aeroplane. **Whether a braked
+aeroplane's nose may go below -5 degrees is not judged**: the C182's goes to
+-5.7 at full brakes, calm or not. **The full suite was not run.**
 
 **The cause.** JSBSim's angle of attack is atan2(w, u) and its rate is
 worked from u, w and their rates. As an aeroplane braked in a crosswind
@@ -350,10 +351,10 @@ and a rebound damping of twice the damping left both striking.
 names `aero/alphadot-rad_sec` has its `aero/qbar-psf` replaced by
 `aero/qbarUW-psf` (or `aero/qbar-area` by that times `metrics/Sw-sqft`), and a
 model with none fails the script. Fourteen make scripts call it (737-300,
-747-400, 787-8, A320, A380, C172P, C182, F-15C, F-22, F-35B, J-3 Cub,
-Learjet 35A, PA-28, and the S.23's `CLad` and `Cmadot` in her
-`Systems/datcom_aero.xml`, from the review of #198): 21 terms. The models are made again and
-the committed-model checks pass.
+747-400, 787-8, A320, A380, C172P, C182, F-15C, F-22, F-35B, J-3 Cub, Learjet
+35A, PA-28, and the S.23's `CLad` and `Cmadot` in her
+`Systems/datcom_aero.xml`, from the review of #198): 21 terms. The models are
+made again and the committed-model checks pass.
 
 **Verification.**
 `every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_pitch_rate_under_a_bound`:
