@@ -569,16 +569,16 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       NACA's porpoising work), her take-off figures in range, and in calm
       air she holds the step without porpoising.* Done 2026-10-14: she
       hops 0.32 ft on the step against 0.5.
-- [x] **A rolling aeroplane near a stop can be thrown on her nose by her
+- [ ] **A rolling aeroplane near a stop can be thrown on her nose by her
       gear in one step.** A C172P rolling at 1.16 kt, nose 1.6 degrees and
       brakes at 0.3, went to -376 deg/s of pitch in one step with no control
       moving. The causes found are fixed (the three items at the top of this
-      phase), and that learnt landing now stops. A tail-wheel aeroplane is
-      braked stick back, as one is, and not past the grip that would tip her
-      onto her nose standing still, as it would a real one.
-      *Verification: every landplane rolled to a stop in 15 kt across at
-      every tenth of brake keeps her pitch rate under 20 deg/s; the levels
-      past a tail-wheel aeroplane's tipping grip are named.* Done 2026-10-15.
+      phase), and that learnt landing now stops. The sweep now brakes every
+      landplane, a tail-wheel one stick back and loaded as she is flown.
+      **Still missing**: the Cub's crosswind pitch term (the item below);
+      flown stick central she goes over, as in her walking-pace run in 15 kt
+      across. *Verification: every landplane rolled to a stop at a sweep of
+      brake levels shows no pitch rate over a stated bound.*
 - [ ] **The J-3 Cub's nose is pushed down by a crosswind.** Her
       angle-of-attack pitch term uses the whole dynamic pressure, crosswind
       included, as her alpha-rate term did. Run up in 15 kt across with her
