@@ -575,12 +575,14 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       phase; the Mosquito's alpha-rate term, open there, apart), and that
       learnt landing now stops. **Still missing**: the sweep judges only
       nose-wheel aeroplanes; the Cub and the Mosquito are not judged, and the
-      Cub goes over in 15 kt across. *Verification: every landplane rolled to a stop at a sweep
-      of brake levels shows no pitch rate over a stated bound.*
+      Cub goes over in 15 kt across (#201 only ends her run there).
+      *Verification: every landplane rolled to a stop at a sweep of brake
+      levels shows no pitch rate over a stated bound.*
 - [ ] **The walking-pace tests' throttle sits the C172P on her tail.**
-      Holding her at 3 kt against the autobrake, the test's hand winds to
-      full power with her stick back, and she rears to 11 degrees. *Verification:
-      every landplane rolled at walking pace and stopped strikes nothing.*
+      Holding her at 3 kt against the autobrake, the test's hand winds to full
+      power with her stick back, and she rears to 11 degrees. *Verification:
+      no landplane rolled at walking pace and stopped touches the runway with
+      anything but her wheels.*
 
 ---
 
