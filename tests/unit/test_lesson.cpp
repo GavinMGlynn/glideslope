@@ -29,6 +29,7 @@
 #include <exception>
 #include <filesystem>
 #include <functional>
+#include <limits>
 #include <map>
 #include <memory>
 #include <optional>
@@ -3156,6 +3157,16 @@ GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_w
 // landplane's autobrake went to 1.0 at walking pace.
 namespace {
 
+// Gone over: past `over_deg` of pitch or roll she is on her nose, back or
+// side - or her attitude is no number at all. Either way her run ends at
+// once: flown on, her numbers go to NaN and a debug build of JSBSim aborts
+// on a table looked up at one (the J-3 Cub in 15 kt across, macOS debug, CI
+// run 38534931958).
+constexpr double over_deg = 45.0;
+bool gone_over(double pitch_deg, double roll_deg) {
+    return !(std::abs(pitch_deg) <= over_deg) || !(std::abs(roll_deg) <= over_deg);
+}
+
 void walking_pace_then_stop(double crosswind_kts,
                             const std::map<std::string, std::string>& named, bool wet = false) {
     using glideslope::sim::Lander;
@@ -3164,11 +3175,6 @@ void walking_pace_then_stop(double crosswind_kts,
     constexpr double standing_pedal = Lander::standing_pedal + 1e-9;
     constexpr double idle_pedal = Lander::idle_pedal + 1e-9;
     constexpr double least_pitch_deg = -5.0;
-    // Gone over: past this pitch or roll she is on her nose, back or side,
-    // and her run ends at once - flown on, her numbers go to NaN and a debug
-    // build of JSBSim aborts on a table looked up at one (the J-3 Cub in 15 kt
-    // across, macOS debug, CI run 38534931958).
-    constexpr double over_deg = 45.0;
     // No ground loop: her heading from the hand-over to the stop.
     constexpr double most_turn_deg = 30.0;
     // A C172P, her brakes on in 0.6 s, is below 2 kt in 0.7 s (0.43 wet).
@@ -3228,9 +3234,9 @@ void walking_pace_then_stop(double crosswind_kts,
         }
         const auto kts = [&] { return aircraft.property("velocities/vg-fps") / 1.68781; };
         std::string over;
-        const auto gone_over = [&] {
+        const auto went_over = [&] {
             const auto s = aircraft.state();
-            if (std::abs(s.pitch_deg) > over_deg || std::abs(s.roll_deg) > over_deg) {
+            if (gone_over(s.pitch_deg, s.roll_deg)) {
                 char at[96];
                 std::snprintf(at, sizeof at, "went over (pitch %.1f deg, roll %.1f deg)",
                               s.pitch_deg, s.roll_deg);
@@ -3251,7 +3257,7 @@ void walking_pace_then_stop(double crosswind_kts,
                 c.right_brake = 0.0;
                 aircraft.set_controls(c);
                 aircraft.step();
-                if (gone_over()) {
+                if (went_over()) {
                     break;
                 }
             }
@@ -3262,7 +3268,7 @@ void walking_pace_then_stop(double crosswind_kts,
         double most_pedal_seen = 0.0;
         double wound_rolling = 0.0;
         double wound_standing = 0.0;
-        double least_pitch_seen = 1e9;
+        double least_pitch_seen = aircraft.state().pitch_deg;
         double worst_roll = 0.0;
         int walking_steps = 0;
         bool stopped = false;
@@ -3281,7 +3287,7 @@ void walking_pace_then_stop(double crosswind_kts,
             }
             aircraft.set_controls(c);
             aircraft.step();
-            gone_over();
+            went_over();
             const auto s = aircraft.state();
             const double pedal = lander.autobrake();
             most_pedal_seen = std::max(most_pedal_seen, pedal);
@@ -3339,15 +3345,16 @@ void walking_pace_then_stop(double crosswind_kts,
         }
         std::vector<std::string>& to = all_judged ? wrong : shown_wrong;
         if (!over.empty()) {
+            // Her run ended there: what it did not get to is not a fault of
+            // its own.
             to.push_back(id + " " + over);
-        }
-        if (walking_s >= least_walking_s) {
+        } else if (walking_s >= least_walking_s) {
             ++walked;
         } else {
             to.push_back(id + " rolled at walking pace for only " + std::to_string(walking_s) +
                          " s");
         }
-        if (!stopped) {
+        if (!stopped && over.empty()) {
             to.push_back(id + " did not stop");
         }
         if (least_pitch_seen <= least_pitch_deg) {
@@ -3548,6 +3555,34 @@ GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_in_a_15_kt_crosswind_has
     named["j3cub"] = "goes over in 15 kt across while the test's throttle rolls her up to "
                      "walking pace, before the rollout has her; her autobrake is judged";
     walking_pace_then_stop(15.0, named);
+}
+
+// **A walking-pace run counts her gone over past 45 degrees of pitch or roll,
+// or at an attitude that is no number**: the decision that ends a run before
+// her numbers reach a JSBSim table as NaN, asserted on constructed attitudes
+// - in the runs themselves it fires only where a platform's flight takes
+// her over (the Cub in 15 kt across on linux-release and macOS debug, not
+// linux-debug), so it is pinned here. Seen red with `>` in place of the
+// NaN-proof comparison: the NaN cases passed as upright.
+GLIDESLOPE_TEST(a_walking_pace_run_counts_her_gone_over_past_45_degrees_or_at_an_attitude_that_is_no_number) {
+    constexpr double nan = std::numeric_limits<double>::quiet_NaN();
+    struct Case {
+        double pitch_deg, roll_deg;
+        bool over;
+    };
+    constexpr Case cases[] = {
+        {0.0, 0.0, false},    {12.3, 0.5, false},  {-45.0, 45.0, false}, {45.0, -45.0, false},
+        {-45.1, 26.1, true},  {45.1, 0.0, true},   {0.0, 45.1, true},    {0.0, -180.0, true},
+        {-87.8, 180.0, true}, {nan, 0.0, true},    {0.0, nan, true},     {nan, nan, true},
+    };
+    std::size_t judged = 0;
+    for (const Case& c : cases) {
+        ++judged;
+        check(gone_over(c.pitch_deg, c.roll_deg) == c.over,
+              "pitch " + std::to_string(c.pitch_deg) + ", roll " + std::to_string(c.roll_deg) +
+                  (c.over ? " is gone over" : " is not"));
+    }
+    check(judged == std::size(cases) && judged == 12, "twelve attitudes judged");
 }
 
 // **In a steady 15 kt crosswind every landplane stops on the runway, and
