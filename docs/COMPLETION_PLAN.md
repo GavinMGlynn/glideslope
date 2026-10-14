@@ -569,16 +569,25 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       NACA's porpoising work), her take-off figures in range, and in calm
       air she holds the step without porpoising.* Done 2026-10-14: she
       hops 0.32 ft on the step against 0.5.
-- [ ] **A rolling aeroplane near a stop can be thrown on her nose by her
+- [x] **A rolling aeroplane near a stop can be thrown on her nose by her
       gear in one step.** A C172P rolling at 1.16 kt, nose 1.6 degrees and
       brakes at 0.3, went to -376 deg/s of pitch in one step with no control
-      moving. Both causes found are fixed (the two items at the top of this
-      phase; the Mosquito's alpha-rate term, open there, apart), and that
-      learnt landing now stops. **Still missing**: the sweep judges only
-      nose-wheel aeroplanes; the Cub and the Mosquito are not judged, and the
-      Cub goes over in 15 kt across (#201 only ends her run there).
-      *Verification: every landplane rolled to a stop at a sweep of brake
-      levels shows no pitch rate over a stated bound.*
+      moving. The causes found are fixed (the three items at the top of this
+      phase), and that learnt landing now stops. A tail-wheel aeroplane is
+      braked stick back, as one is, and not past the grip that would tip her
+      onto her nose standing still, as it would a real one.
+      *Verification: every landplane rolled to a stop in 15 kt across at
+      every tenth of brake keeps her pitch rate under 20 deg/s; the levels
+      past a tail-wheel aeroplane's tipping grip are named.* Done 2026-10-15.
+- [ ] **The J-3 Cub's nose is pushed down by a crosswind.** Her
+      angle-of-attack pitch term uses the whole dynamic pressure, crosswind
+      included, as her alpha-rate term did. Run up in 15 kt across with her
+      stick central, her tail comes up by 10 kt, and braked from there she
+      goes over (her walking-pace run in 15 kt across). Other models' terms
+      have not been measured. *Verification: her term, and every other
+      model's, uses the dynamic pressure without its sideways part; she
+      keeps her tail down run up stick central in 15 kt across; her figures
+      stay in range.*
 - [ ] **The walking-pace tests' throttle sits the C172P on her tail.**
       Holding her at 3 kt against the autobrake, the test's hand winds to full
       power with her stick back, and she rears to 11 degrees. *Verification:
