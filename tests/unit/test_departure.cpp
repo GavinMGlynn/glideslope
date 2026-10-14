@@ -1560,14 +1560,24 @@ GLIDESLOPE_TEST(every_tail_wheel_aeroplane_started_at_rest_stands_on_all_three_w
 // the least of her two. A brake whose friction is past it, slowing her, can
 // tip her onto her nose, as it would a real one. **Named, not judged**, is
 // a run past it where her brakes did so: her tail wheel on the runway as
-// the brakes came on, lifting while she braked with her gear's pitching
-// moment nose down and the air's not, and her going wrong nose below level
-// with no wing down past 10 degrees, her numbers all numbers. Anything else
-// past her ratio - the air lifting her tail, a roll, a NaN - is judged. The
-// Cub's ratio is 0.46 and she is judged at every level; the Mosquito's is
-// 0.40, and her brakes tip her at 0.6 to 1.0 (pinned), with the same pitch
-// rates whether her pitch-alpha and pitch-stall terms count the crosswind
-// or not (tried). No run is excused for an open item.
+// the brakes came on, lifting while she braked and before she went wrong,
+// with her gear's pitching moment nose down and the air's not; at the step
+// she went wrong, her pitching nose down, with no wing down past 10 degrees
+// before then; her pitch rate never past `tipped_q_degps`, 60 deg/s, just
+// above the fastest tip seen (a gear impulse, as the -376 deg/s this item
+// began with, is judged); and her numbers all numbers. Anything else past
+// her ratio - the air lifting her tail, a roll, a NaN, a jolt - is judged.
+// The Cub's ratio is 0.46 and she is judged at every level; the Mosquito's
+// is 0.40, and her brakes tip her at 0.6 to 1.0, at 30 to 52 deg/s, with the
+// same pitch rates whether her pitch-alpha and pitch-stall terms count the
+// crosswind or not (tried). **Pinned**: her named levels, exactly 0.6, 0.7,
+// 0.8, 0.9 and 1.0, and the fastest of them under the 60 deg/s ceiling. No
+// run is excused for an open item. **Each clause seen to refuse**: without
+// the air's clause and the ceiling, the stick-central Cub's nose-overs at
+// 0.6 to 1.0 were named; the ceiling alone refuses them (76 to 83 deg/s); a
+// ceiling of 40 judged, and failed, the Mosquito at 0.8 to 1.0; and runs
+// made to go wrong before her tail lifted (a 0.5 deg/s onset) were judged
+// and failed at every one of her named levels.
 //
 // **The bound**: the dip of her nose as the brakes come on is the largest
 // honest pitch rate, the C182's 12.1 deg/s at full brakes; 20 is above it.
@@ -1594,6 +1604,11 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
     constexpr double crosswind_kts = 15.0;
     constexpr double from_kts = 10.0;
     constexpr double most_q_degps = 20.0;
+    // The most a run her brakes tipped may pitch at and still be named: just
+    // above the Mosquito's 30 to 52 deg/s. A tip goes no faster than her
+    // weight swings her; a gear impulse (the -376 deg/s this item began
+    // with) is judged, and fails.
+    constexpr double tipped_q_degps = 60.0;
     constexpr int stand_s = 5;
     constexpr int run_up_s = 60;
     constexpr int stop_s = 90;
@@ -1619,6 +1634,7 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
         std::size_t judged = 0;
         std::size_t past = 0;           // levels past her tip ratio, flown either way
         std::vector<double> tipped = {}; // named: past it, and tipped by her brakes' grip
+        double most_tipped_q = 0.0;      // the fastest of those, deg/s
     };
     std::map<std::string, Count> counts;
     std::map<std::string, std::string> loaded_as;
@@ -1777,6 +1793,7 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
             double lift_m_gear = 0.0;
             double lift_m_aero = 0.0;
             bool gone_wrong = false;
+            double wrong_q_radps = 0.0; // her pitch rate at the step she went wrong
             double most_roll = 0.0;
             for (int step = 0; rolling && step < stop_s * steps_per_second &&
                                stood_steps < stand_s * steps_per_second;
@@ -1806,7 +1823,8 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                         wrecked = *why;
                     }
                 }
-                if (tail_wheel && !tail_lifted && aircraft.property(tail_wow) < 0.5) {
+                if (tail_wheel && !gone_wrong && !tail_lifted &&
+                    aircraft.property(tail_wow) < 0.5) {
                     tail_lifted = true;
                     lift_m_gear = aircraft.property("moments/m-gear-lbsft");
                     lift_m_aero = aircraft.property("moments/m-aero-lbsft");
@@ -1817,6 +1835,9 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                 if (!gone_wrong) {
                     most_roll = std::max(most_roll, std::abs(roll_deg));
                     gone_wrong = q > most_q_degps || !wrecked.empty() || over;
+                    if (gone_wrong) {
+                        wrong_q_radps = q_radps;
+                    }
                 }
                 if (over) {
                     if (wrecked.empty()) {
@@ -1834,15 +1855,17 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
             // nose, as a real one would. Her tail wheel must have been on the
             // runway as the brakes came on (a tail the air lifted in the
             // run-up is not her brakes' doing), and come up while she braked
-            // with her gear's pitching moment nose down and the air's not:
-            // the brakes, not her aerodynamics. She must have gone wrong
-            // nose down - below level - with no wing down past 10 degrees
-            // before she did, and her numbers all numbers. Anything else
-            // past her ratio - a roll, a NaN, the air - is judged as at any
-            // other level.
+            // and before she went wrong, with her gear's pitching moment
+            // nose down and the air's not: the brakes, not her aerodynamics.
+            // At the step she went wrong she must be pitching nose down,
+            // with no wing down past 10 degrees before then; her pitch rate
+            // no more than `tipped_q_degps`; and her numbers all numbers.
+            // Anything else past her ratio - a roll, a NaN, the air, a
+            // faster jolt - is judged as at any other level.
             const bool excused = past_ratio && gone_wrong && !went_nan && tail_down_at_brakes &&
                                  tail_lifted && lift_m_gear < 0.0 && lift_m_aero >= 0.0 &&
-                                 least_pitch < 0.0 && most_roll < 10.0;
+                                 wrong_q_radps < 0.0 && most_roll < 10.0 &&
+                                 most_q <= tipped_q_degps;
             std::printf("  %s%-26s most pitch rate %5.1f deg/s (at %4.1f kt)%s%s%s\n",
                         excused ? "named - " : "", where, most_q, most_q_at_kts,
                         stopped ? "" : ", NOT STOPPED",
@@ -1850,10 +1873,11 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                         went_nan ? ", WENT NaN" : "");
             if (gone_wrong && tail_wheel) {
                 std::printf("    tail %s at the brakes (pitch %.2f, stood at %.2f); %s braking "
-                            "(gear %.0f ft-lb, air %.0f); most roll %.1f; least pitch %.1f\n",
+                            "(gear %.0f ft-lb, air %.0f) before she went wrong, pitching at "
+                            "%.1f deg/s then; most roll %.1f; least pitch %.1f\n",
                             tail_down_at_brakes ? "down" : "UP", braked_at_pitch, settled_pitch,
                             tail_lifted ? "lifted" : "not lifted", lift_m_gear, lift_m_aero,
-                            most_roll, least_pitch);
+                            wrong_q_radps * degrees, most_roll, least_pitch);
             }
             std::vector<std::string> faults;
             if (!rolling) {
@@ -1874,6 +1898,7 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
             }
             if (excused) {
                 count.tipped.push_back(brake);
+                count.most_tipped_q = std::max(count.most_tipped_q, most_q);
                 std::printf("    (braking friction %.2f over her tip ratio %.2f: slowing at that "
                             "grip tips her)\n",
                             friction, ratio);
@@ -1924,7 +1949,8 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
               " past, " + std::to_string(cub.judged) + " judged, " +
               std::to_string(cub.tipped.size()) + " tipped");
     check(mosquito.past == 6 && mosquito.judged == 5 &&
-              mosquito.tipped == std::vector<double>{0.6, 0.7, 0.8, 0.9, 1.0},
+              mosquito.tipped == std::vector<double>{0.6, 0.7, 0.8, 0.9, 1.0} &&
+              mosquito.most_tipped_q <= tipped_q_degps,
           "the Mosquito past her ratio at six, judged at 0.1 to 0.5, tipped at 0.6 to 1.0: " +
               std::to_string(mosquito.past) + " past, " + std::to_string(mosquito.judged) +
               " judged, " + std::to_string(mosquito.tipped.size()) + " tipped");

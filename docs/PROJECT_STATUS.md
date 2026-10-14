@@ -358,6 +358,32 @@ verification as it was. Changed:
   0.1 deg/s of them. The sign-error red was seen again on the new code: the
   Cub's ratio came out as 0.01, past it at all ten levels.
 
+**From the third review of #196.**
+- **Her tail must lift before she goes wrong.** That it lifted is latched
+  only while she has not yet gone wrong. A run that spikes or strikes with
+  her tail wheel down, and lifts after, is judged.
+- **"Nose down" is read at the step she goes wrong**: her pitch rate then
+  must be nose down. Her least pitch over the run is no longer used. The
+  Mosquito's named runs were pitching at -9.3 to -20.3 deg/s at that step.
+- **A ceiling on a named run's pitch rate: 60 deg/s**, just above the
+  Mosquito's 30 to 52. A tip goes no faster than her weight swings her; a
+  gear impulse (the -376 deg/s this item began with) at 0.6 to 1.0 is
+  judged, and fails. Asserted with her named levels.
+- **Seen red, each clause on its own**, each reverted to green:
+  - **The air's clause.** With it removed and the stick-central Cub, the
+    ceiling alone refused her nose-overs past her ratio (75.7 to 82.9 deg/s).
+    With the ceiling also lifted, she was named at 0.6, 0.7, 0.8, 0.9 and
+    1.0. So the air's clause by itself refuses them: at her tail's lift-off
+    her gear was nose down (-121, -300, -493, -698 and -895 ft-lb) but so
+    was the air (-477, -467, -432, -396 and -409).
+  - **The ceiling.** Lowered to 40 deg/s, the Mosquito at 0.8 to 1.0 (44.0
+    to 52.3 deg/s) was judged and failed.
+  - **The order.** Made to go wrong at 0.5 deg/s, before her tail lifts,
+    the Mosquito at 0.6 to 1.0 was judged and failed: "not lifted ...
+    before she went wrong".
+- **Re-verified** in linux-debug, `-march=x86-64-v2` debug and
+  linux-release (figures below, unchanged).
+
 **Why the Cub went over** in the first sweep, traced step by step in
 linux-debug with a probe printing her moments (not committed). These are
 her pilotless runs, at 752 lb, her centre of gravity 5.8 in behind her
