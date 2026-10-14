@@ -716,6 +716,47 @@ void Aircraft::initialize(const InitialConditions& ic) {
     if (!accepted) {
         throw std::runtime_error("JSBSim refused the initial conditions for " + model_);
     }
+    // **A tail-wheel aeroplane started on the ground stands on her tail
+    // wheel.** Started level, as JSBSim starts her, she balances on her main
+    // wheels with her tail in the air and her centre of gravity a few degrees
+    // behind them - the J-3 Cub's nine, against twenty-one at her standing
+    // attitude - and idle thrust from her running engine, or full brakes,
+    // tipped her on to her nose: on Rocky 9's and Ubuntu's builds (no fused
+    // multiply-adds) she went over in her first two seconds, on Rocky 10's
+    // she rocked back (CI run 38472468661). So a start at rest with no
+    // attitude asked sets her at the one she stands at (`stance`), worked out
+    // once JSBSim has placed her: before it, her centre of gravity reads 0.
+    // At rest means on the ground: a wheel of hers touches once JSBSim has
+    // placed her, so a tail-wheel aeroplane asked to hang still in the air
+    // is left level.
+    const auto on_a_wheel = [this] {
+        const auto ground = exec_->GetGroundReactions();
+        for (int i = 0; i < ground->GetNumGearUnits(); ++i) {
+            const auto gear = ground->GetGearUnit(i);
+            if (gear->IsBogey() && gear->GetWOW()) {
+                return true;
+            }
+        }
+        return false;
+    };
+    if (ic.airspeed_kts == 0.0 && ic.pitch_deg == 0.0 && !hydrodynamics_ && on_a_wheel()) {
+        if (const Stance s = stance(); s.found && s.tail_wheel) {
+            fgic->SetThetaDegIC(s.standing_pitch_deg);
+            // In trim, as the first run was, so that asked flap reaches its
+            // command here too.
+            if (flapped) {
+                exec_->SetTrimStatus(true);
+            }
+            const bool stood = exec_->RunIC();
+            if (flapped) {
+                exec_->SetTrimStatus(false);
+            }
+            if (!stood) {
+                throw std::runtime_error("JSBSim refused the initial conditions for " + model_ +
+                                         " at her standing attitude");
+            }
+        }
+    }
     // A start on the ground puts the wheels on it. The altitude is the centre
     // of gravity's, and set at the ground's own height it buries the wheels
     // as far as they hang below it - four feet for the Cessna 172P, which its
@@ -821,8 +862,9 @@ std::vector<Aircraft::ContactPoint> Aircraft::contact_points() const {
 }
 
 // **What she stands on, worked from her model's own contacts**, as they are
-// placed - not from which of them touch, since she is started level and
-// settles on to her tail or her nose after. Her main wheels are the lowest
+// placed - not from which of them touch, since a nose-wheel aeroplane is
+// started level and settles on to her nose after (and `initialize` uses this
+// to start a tail-wheel one standing). Her main wheels are the lowest
 // contacts off the centreline. Pivoting on them, she falls the way her
 // centre of gravity lies until the first centreline contact that way meets
 // the ground: that is her nose wheel, or her tail wheel, and the angle it

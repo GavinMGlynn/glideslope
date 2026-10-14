@@ -345,6 +345,15 @@ ends in a debrief, never a score.
 
 Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to what its handbook or manual publishes.
 
+- [x] **A tail-wheel aeroplane started on the ground balances on her main
+      wheels.** Started level, the J-3 Cub went over on her nose at idle on
+      her brakes in her first two seconds on the CI builds, and the
+      Mosquito tipped to -6 degrees; now each starts at the attitude she
+      stands at. This is the first cause of the gear item "a rolling
+      aeroplane near a stop can be thrown on her nose" (#195); the second,
+      in a crosswind near a stop, is the item below. *Verification: every
+      tail-wheel aeroplane started at rest stands on all three wheels at
+      her standing attitude.* Done 2026-10-14.
 - [x] **A nose-wheel aeroplane braked to a stop in a crosswind is pitched
       by her alpha-rate terms.** As she stops, the air meets her from the
       side, her angle of attack is undefined and its rate swings; multiplied
