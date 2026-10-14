@@ -1284,20 +1284,6 @@ GLIDESLOPE_TEST(every_tail_wheel_aeroplane_started_at_rest_stands_on_all_three_w
               std::to_string(left_out));
 }
 
-// **Every aircraft standing on her brakes at idle stays finite, and on the
-// ground**: every
-// landplane in the catalogue (the flying boat named: afloat she has no
-// brakes to stand on) stands on the runway for twenty seconds, throttle
-// closed and brakes fully on, as the reversers test stands her; and at every
-// step every floating-point number in her JSBSim property tree
-// (Aircraft::numbers, 549 to 775 a model) must be finite. On the first
-// that is not, she fails naming the step, the first properties to go and,
-// from the step before, those and her gear, propeller, engine, forces and
-// accelerations - so that wherever it happens (the J-3 Cub on macOS release,
-// CI run 38443070583) the run says what went first. And she must stand:
-// more than ten feet up or ten feet a second, she fails, printing her trace
-// every half second to there (on macOS the Cub's ratio of air to fuel went
-// infinite only once she was a million feet up, CI run 38447161811).
 // **Every nose-wheel landplane braked to a stop in a 15 kt crosswind keeps
 // her pitch rate under `most_q_degps`**: each landplane of the catalogue
 // that stands on a nose wheel (`Aircraft::stance`; the two tail-wheel
@@ -1469,6 +1455,20 @@ GLIDESLOPE_TEST(every_nose_wheel_landplane_braked_to_a_stop_in_a_15_kt_crosswind
               std::to_string(named) + " named");
 }
 
+// **Every aircraft standing on her brakes at idle stays finite, and on the
+// ground**: every
+// landplane in the catalogue (the flying boat named: afloat she has no
+// brakes to stand on) stands on the runway for twenty seconds, throttle
+// closed and brakes fully on, as the reversers test stands her; and at every
+// step every floating-point number in her JSBSim property tree
+// (Aircraft::numbers, 549 to 775 a model) must be finite. On the first
+// that is not, she fails naming the step, the first properties to go and,
+// from the step before, those and her gear, propeller, engine, forces and
+// accelerations - so that wherever it happens (the J-3 Cub on macOS release,
+// CI run 38443070583) the run says what went first. And she must stand:
+// more than ten feet up or ten feet a second, she fails, printing her trace
+// every half second to there (on macOS the Cub's ratio of air to fuel went
+// infinite only once she was a million feet up, CI run 38447161811).
 GLIDESLOPE_TEST(every_aircraft_standing_on_her_brakes_at_idle_stays_finite_and_on_the_ground) {
     const auto roster = glideslope::sim::read_catalogue(data());
     constexpr int seconds = 20;

@@ -138,12 +138,18 @@ The changes, and what each is for:
                         moments are faded out over the keel's first 0.25 ft
                         above the surface. The immersed table is its
                         author's.
+
+**The alpha-rate terms on the dynamic pressure without its sideways part**
+(tools/alpha_rate.py, JSBSim issue #89): CLad and Cmadot in datcom_aero.xml,
+so that the alpha rate, undefined with the air across her, does not pitch her.
 """
 
 import math
 import pathlib
 import re
 import sys
+
+import alpha_rate
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
@@ -710,7 +716,8 @@ def flaps():
 def outputs():
     out = {
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
-        OUT / "aircraft" / MODEL / "Systems" / "datcom_aero.xml": aerodynamics(),
+        OUT / "aircraft" / MODEL / "Systems" / "datcom_aero.xml":
+            alpha_rate.with_qbar_uw(aerodynamics(), "make_short_s23"),
         OUT / "aircraft" / MODEL / "Systems" / "engines.xml": engines(),
         OUT / "aircraft" / MODEL / "Systems" / "flaps.xml": flaps(),
         OUT / "aircraft" / MODEL / "Systems" / "Short_S23-hydrodynamics.xml": hydrodynamics(),

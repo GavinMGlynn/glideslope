@@ -315,15 +315,16 @@ checks pass in both builds, 9 skipped for want of a language model's key.
 ### The alpha-rate terms use the dynamic pressure without its sideways part, 2026-10-14 — item done
 
 **What is still not true first.** **The Mosquito is not changed**: her model
-is written by hand (no script makes it), and CLAUDE.md keeps
-`assets/jsbsim/` to what scripts make, so her `pitch-alpha-rate` term still
-counts the crosswind; a tail in Phase 9. **The B-2 and the S.23 have no
-alpha-rate term.** **Tail-wheel aeroplanes are not judged** by the new test:
+is written by hand - no script makes it, an exception CLAUDE.md's
+"`assets/jsbsim/` is made, not written" does not list - so changing her
+`pitch-alpha-rate` term means editing an asset by hand, which is for the
+owner to decide. Until then it still counts the crosswind; an open item in
+Phase 9. **The B-2 has no alpha-rate term.** **Tail-wheel aeroplanes are not judged** by the new test:
 in #196's sweep the Cub goes over in a 15 kt crosswind run-up and the
 Mosquito noses over braked at 0.6 and above, which may be the real nose-over
 hard braking gives a tail-wheel aeroplane. **Whether a braked aeroplane's
 nose may go below -5 degrees is not judged**: the C182's goes to -5.7 at full
-brakes, calm or not. **The full suite was not run**: the 412 tests below.
+brakes, calm or not. **The full suite was not run.**
 
 **The cause.** JSBSim's angle of attack is atan2(w, u) and its rate is
 worked from u, w and their rates. As an aeroplane braked in a crosswind
@@ -348,9 +349,10 @@ and a rebound damping of twice the damping left both striking.
 **The fix.** `tools/alpha_rate.py`: every function of a model whose product
 names `aero/alphadot-rad_sec` has its `aero/qbar-psf` replaced by
 `aero/qbarUW-psf` (or `aero/qbar-area` by that times `metrics/Sw-sqft`), and a
-model with none fails the script. All thirteen make scripts of the landplanes
-call it (737-300, 747-400, 787-8, A320, A380, C172P, C182, F-15C, F-22,
-F-35B, J-3 Cub, Learjet 35A, PA-28): 19 terms. The models are made again and
+model with none fails the script. Fourteen make scripts call it (737-300,
+747-400, 787-8, A320, A380, C172P, C182, F-15C, F-22, F-35B, J-3 Cub,
+Learjet 35A, PA-28, and the S.23's `CLad` and `Cmadot` in her
+`Systems/datcom_aero.xml`, from the review of #198): 21 terms. The models are made again and
 the committed-model checks pass.
 
 **Verification.**
@@ -369,13 +371,22 @@ failed there on CI pass in that build (that trial also changed the
 Mosquito's term), the learnt half-fuel test asking only
 for its named start's name to come off.
 
-**The flight figures barely move**: `glideslope_cli figures` for every
-aircraft before and after, in both builds - every figure is identical but the
-737-300's and 787-8's take-off field lengths, by 0.01 ft. They fly with no
-crosswind, where the two pressures differ by the cosine squared of a
-sideslip near zero. The figures, take-off, landing, stall, gust, crosswind,
-rollout and wet tests and the committed-model checks (412, by name) were run
-in both builds.
+**The landplanes' flight figures barely move**: `glideslope_cli figures`
+for every aircraft before and after, in both builds - every landplane figure
+is identical but the 737-300's and 787-8's take-off field lengths, by 0.01
+ft. They fly with no crosswind, where the two pressures differ by the cosine
+squared of a sideslip near zero. **The S.23's water take-offs do move**, all
+still in range (default build): the long-range take-off from 34.09 to 34.75
+s (range 25.93 to 35.08) and its run from 797.5 to 823.2 yd (675.8 to
+914.3); the standard take-off from 26.82 to 26.83 s, against a top of 27.00.
+The figures, take-off, landing, stall, gust, crosswind, rollout and wet tests
+and the committed-model checks (412, by name) were run in both builds before
+the S.23 was added; then her 51 (her figures, hull, alighting, water and the
+committed-model checks) in the default build, all passing. Rebased on #197
+after the host restarted, the 94 tests matching the S.23, seaplanes, hulls,
+water, alighting, crosswind, alpha rate and the committed-model checks pass
+in both builds, her figures all in range in both; the selftest hash does not
+move from #198's (`de9bf01f96427593`; `fefe2a7f5d0f52a5` without FMA).
 
 **The selftest hash moves**, from `182dd6c996e0ee4c` to `de9bf01f96427593` on
 linux-release (the `-march=x86-64-v2` build: `6e988ba216e5ee07` to
