@@ -3164,6 +3164,11 @@ void walking_pace_then_stop(double crosswind_kts,
     constexpr double standing_pedal = Lander::standing_pedal + 1e-9;
     constexpr double idle_pedal = Lander::idle_pedal + 1e-9;
     constexpr double least_pitch_deg = -5.0;
+    // Gone over: past this pitch or roll she is on her nose, back or side,
+    // and her run ends at once - flown on, her numbers go to NaN and a debug
+    // build of JSBSim aborts on a table looked up at one (the J-3 Cub in 15 kt
+    // across, macOS debug, CI run 38534931958).
+    constexpr double over_deg = 45.0;
     // No ground loop: her heading from the hand-over to the stop.
     constexpr double most_turn_deg = 30.0;
     // A C172P, her brakes on in 0.6 s, is below 2 kt in 0.7 s (0.43 wet).
@@ -3222,6 +3227,17 @@ void walking_pace_then_stop(double crosswind_kts,
             aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(c));
         }
         const auto kts = [&] { return aircraft.property("velocities/vg-fps") / 1.68781; };
+        std::string over;
+        const auto gone_over = [&] {
+            const auto s = aircraft.state();
+            if (std::abs(s.pitch_deg) > over_deg || std::abs(s.roll_deg) > over_deg) {
+                char at[96];
+                std::snprintf(at, sizeof at, "went over (pitch %.1f deg, roll %.1f deg)",
+                              s.pitch_deg, s.roll_deg);
+                over = at;
+            }
+            return !over.empty();
+        };
         // Rolled up to walking pace on the throttle, the rollout steering
         // her and her brakes off.
         double integral = 0.0;
@@ -3235,6 +3251,9 @@ void walking_pace_then_stop(double crosswind_kts,
                 c.right_brake = 0.0;
                 aircraft.set_controls(c);
                 aircraft.step();
+                if (gone_over()) {
+                    break;
+                }
             }
         }
         auto lander = Lander::on_its_roll(aircraft, speeds, runway);
@@ -3247,7 +3266,8 @@ void walking_pace_then_stop(double crosswind_kts,
         double worst_roll = 0.0;
         int walking_steps = 0;
         bool stopped = false;
-        for (int step = 0; step < (held_s + let_go_s) * steps_per_second; ++step) {
+        for (int step = 0; over.empty() && step < (held_s + let_go_s) * steps_per_second;
+             ++step) {
             const double vg_kts = kts();
             const double pedal_before = lander.autobrake();
             glideslope::sim::Controls c = lander.fly();
@@ -3261,6 +3281,7 @@ void walking_pace_then_stop(double crosswind_kts,
             }
             aircraft.set_controls(c);
             aircraft.step();
+            gone_over();
             const auto s = aircraft.state();
             const double pedal = lander.autobrake();
             most_pedal_seen = std::max(most_pedal_seen, pedal);
@@ -3304,6 +3325,9 @@ void walking_pace_then_stop(double crosswind_kts,
                     "%.1f deg, most roll %.1f deg, turned %.1f deg\n",
                     id.c_str(), walking_s, most_pedal_seen, stopped ? "stopped" : "NOT STOPPED",
                     least_pitch_seen, worst_roll, most_turn);
+        if (!over.empty()) {
+            std::printf("  %-13s %s; her run ended there\n", id.c_str(), over.c_str());
+        }
         std::fflush(stdout);
         if (wound_rolling > 0.0) {
             wrong.push_back(id + "'s autobrake was wound to " + std::to_string(wound_rolling) +
@@ -3314,6 +3338,9 @@ void walking_pace_then_stop(double crosswind_kts,
                             " below walking pace");
         }
         std::vector<std::string>& to = all_judged ? wrong : shown_wrong;
+        if (!over.empty()) {
+            to.push_back(id + " " + over);
+        }
         if (walking_s >= least_walking_s) {
             ++walked;
         } else {
