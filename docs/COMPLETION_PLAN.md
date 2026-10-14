@@ -430,6 +430,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       stick full over turns her at least 3 degrees a second, banked under
       30, and full pedal moves her heading at least 5 degrees in 10 s, her
       height within 15 ft.*
+- [ ] **A player who joins already selecting STOVL mode has her law seeded
+      apart from the server's**: the server seeds it from the power it holds
+      before her first input, her prediction from a model just loaded.
+      *Verification: a client selecting STOVL on its very first input,
+      through a real server, has its transition law seeded as the server's
+      is - the same throttle integral at the step both make it.*
 - [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
       server's flight-control laws**: the server sends her motion, not her
       laws' state, so a law that has wandered in the client is never put
