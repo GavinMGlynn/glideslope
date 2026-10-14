@@ -81,11 +81,19 @@ The text, as written
 
 The changes to the text as written, and what each is for:
 
-  (none yet)
+  The alpha-rate term on the dynamic pressure without its sideways part
+                        (tools/alpha_rate.py, JSBSim issue #89, 2026-10-14):
+                        braked to a stop in a crosswind, her angle of attack
+                        is undefined and its rate swings, and her
+                        pitch-alpha-rate term, on the whole dynamic pressure,
+                        pitched her by it; it is on aero/qbarUW-psf, as the
+                        other models' have been since #198.
 """
 
 import pathlib
 import sys
+
+import alpha_rate
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 AIRFRAME = ROOT / "assets" / "jsbsim" / "aircraft" / "mosquito-fb6" / "mosquito-fb6.xml"
@@ -1674,9 +1682,10 @@ MERLIN_25 = """\
 
 def airframe():
     """The airframe, assets/jsbsim/aircraft/mosquito-fb6/mosquito-fb6.xml."""
-    return "".join([HEADER, METRICS, MASS_BALANCE, GROUND_REACTIONS, PROPULSION,
+    text = "".join([HEADER, METRICS, MASS_BALANCE, GROUND_REACTIONS, PROPULSION,
                     FLIGHT_CONTROL, AERODYNAMICS_HEAD, LIFT, DRAG, SIDE, ROLL, PITCH,
                     YAW, TAIL])
+    return alpha_rate.with_qbar_uw(text, "make_mosquito_fb6")
 
 
 def outputs():

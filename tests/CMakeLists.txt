@@ -1395,6 +1395,16 @@ add_test(NAME the_committed_mosquito_airframe_and_engine_are_what_their_script_w
 set_tests_properties(the_committed_mosquito_airframe_and_engine_are_what_their_script_writes
     PROPERTIES SKIP_RETURN_CODE 77)
 
+# Every committed flight model's alpha-rate terms on aero/qbarUW-psf, not the
+# whole dynamic pressure that counts the crosswind (tools/alpha_rate.py).
+add_test(NAME every_flight_models_alpha_rate_terms_leave_out_the_crosswind
+    COMMAND ${CMAKE_COMMAND} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/tools/alpha_rate_terms.py
+        "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
+set_tests_properties(every_flight_models_alpha_rate_terms_leave_out_the_crosswind
+    PROPERTIES SKIP_RETURN_CODE 77)
+
 # The names go in a file: given on the command line they passed Windows'
 # 32,767-character limit, and the test was not even started there.
 string(REPLACE ";" "\n" _registered "${GLIDESLOPE_UNIT_TESTS}")
