@@ -1535,33 +1535,39 @@ GLIDESLOPE_TEST(every_tail_wheel_aeroplane_started_at_rest_stands_on_all_three_w
 }
 
 // **Every landplane braked to a stop in a 15 kt crosswind keeps her pitch
-// rate under `most_q_degps`**: each landplane of the catalogue (the S.23,
-// the flying boat, named) is started on the runway, stood five seconds on
-// full brakes in calm air, given 15 kt straight across from the left (the
-// C172P POH's demonstrated crosswind), run up to `from_kts` on the throttle
-// by the take-off autopilot's steering (Departure: its rudder; her brakes
-// off), and then braked on both wheels at every tenth of brake, throttle
-// closed, to a stop and five seconds standing. From the brakes on, her pitch
-// rate stays under the bound, nothing but her wheels touches the runway
-// (GroundJudge), she does not go over (45 degrees), and she stops.
+// rate under `most_q_degps`, unless her brakes' grip tips her**: each
+// landplane of the catalogue (the S.23, the flying boat, named) is started
+// on the runway, stood five seconds on full brakes in calm air, given 15 kt
+// straight across from the left (the C172P POH's demonstrated crosswind),
+// run up to `from_kts` on the throttle by the take-off autopilot's steering
+// (Departure: its rudder; her brakes off), and then braked on both wheels at
+// every tenth of brake, throttle closed, to a stop and five seconds
+// standing. From the brakes on, her pitch rate stays under the bound,
+// nothing but her wheels touches the runway (GroundJudge), she does not go
+// over (45 degrees), her attitude stays a number, and she stops.
 //
 // **A nose-wheel aeroplane** is flown stick central, on Departure's
-// ailerons. **A tail-wheel aeroplane** (the J-3 Cub and the Mosquito) is
-// flown as one is taxied and braked: stick held fully back and full aileron
-// into the wind, throughout (FAA-H-8083-3, tailwheel airplanes); and loaded
-// as she is braked: the Cub solo, a 170 lb pilot in the rear seat and her
-// tank full (her figures' `solo` loading), the Mosquito with the pilot and
-// navigator her model carries, 200 lb each. **Her tip ratio** is measured
-// as she has settled after the stand: her centre of gravity's distance
-// behind her main wheels' contacts over its height above them, at her pitch
-// then and with her struts' compression - the least of her two. A brake
-// whose friction is past it, slowing her, tips her onto her nose, as it
-// would a real one: a run past it that goes wrong with her nose below level
-// is named with both figures, and one that stays on her wheels is judged.
-// The Cub's is 0.46 and she is judged at every level; the Mosquito's is
-// 0.40, and she tips at 0.6 to 1.0 - the same pitch rates whether her
-// pitch-alpha and pitch-stall terms count the crosswind or not (tried), so
-// the geometry, not her aerodynamics. No run is excused for an open item.
+// ailerons. **A tail-wheel aeroplane** (the J-3 Cub and the Mosquito, by
+// her stance) is flown as one is taxied and braked: stick held fully back
+// and full aileron into the wind, throughout (FAA-H-8083-3, tailwheel
+// airplanes); and loaded as she is braked: the Cub solo, a 170 lb pilot in
+// the rear seat and her tank full (her figures' `solo` loading), the
+// Mosquito with the pilot and navigator her model carries, 200 lb each.
+//
+// **Her tip ratio** is measured as she has settled after the stand: her
+// centre of gravity's distance behind her main wheels' contacts over its
+// height above them, at her pitch then and with her struts' compression -
+// the least of her two. A brake whose friction is past it, slowing her, can
+// tip her onto her nose, as it would a real one. **Named, not judged**, is
+// a run past it where her brakes did so: her tail wheel on the runway as
+// the brakes came on, lifting while she braked with her gear's pitching
+// moment nose down and the air's not, and her going wrong nose below level
+// with no wing down past 10 degrees, her numbers all numbers. Anything else
+// past her ratio - the air lifting her tail, a roll, a NaN - is judged. The
+// Cub's ratio is 0.46 and she is judged at every level; the Mosquito's is
+// 0.40, and her brakes tip her at 0.6 to 1.0 (pinned), with the same pitch
+// rates whether her pitch-alpha and pitch-stall terms count the crosswind
+// or not (tried). No run is excused for an open item.
 //
 // **The bound**: the dip of her nose as the brakes come on is the largest
 // honest pitch rate, the C182's 12.1 deg/s at full brakes; 20 is above it.
@@ -1571,16 +1577,18 @@ GLIDESLOPE_TEST(every_tail_wheel_aeroplane_started_at_rest_stands_on_all_three_w
 // struck her tail at brakes 0.6 to 1.0, the F-15C at 24 and struck, the
 // 787-8 at 28 and struck, the F-22 at 18.5 and struck. **Seen red with the
 // tail-wheel aeroplanes flown stick central on Departure's ailerons**: the
-// solo Cub went over at 0.3 to 0.5, at 67 to 74 deg/s (her crosswind pitch
-// term, Phase 9's "The J-3 Cub's nose is pushed down by a crosswind").
-// **Seen red with a sign wrong in the tip ratio** (her height's term
-// subtracted): the Cub's 0.01, past it at all ten levels. Whether a braked
-// aeroplane's nose may go below -5 degrees (the C182's goes to -5.7 at full
-// brakes, calm or not) is not judged here. Coverage asserted: fifteen
-// landplanes at ten levels, 150 runs, each judged or named; each
-// aeroplane's split, the levels past each tail-wheel aeroplane's ratio, her
-// loading, and the flying boat by name.
-GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_pitch_rate_under_a_bound) {
+// solo Cub went over at 0.3 to 1.0, at 67 to 83 deg/s, judged at every one -
+// past her ratio, at 0.6 to 1.0, refused a name because the air pushed her
+// nose down as her tail came up (her crosswind pitch term, Phase 9's "The
+// J-3 Cub's nose is pushed down by a crosswind"). **Seen red with a sign
+// wrong in the tip ratio** (her height's term subtracted): the Cub's 0.01,
+// past it at all ten levels. Whether a braked aeroplane's nose may go below
+// -5 degrees (the C182's goes to -5.7 at full brakes, calm or not) is not
+// judged here. Coverage asserted: fifteen landplanes at ten levels, 150
+// runs, each judged or named; each aeroplane's split, the levels past each
+// tail-wheel aeroplane's ratio and those named, her loading, and the
+// tail-wheel aeroplanes and the flying boat by name.
+GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_pitch_rate_under_a_bound_unless_her_brakes_grip_tips_her) {
     const auto roster = glideslope::sim::read_catalogue(data());
     constexpr double brake_levels[] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     constexpr double crosswind_kts = 15.0;
@@ -1593,15 +1601,30 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
     const auto kts_of = [](const glideslope::sim::Aircraft& a) {
         return a.property("velocities/vg-fps") / 1.68781;
     };
+    const auto runway = a_runway();
+    const auto on_the_runway = [&runway](glideslope::sim::Aircraft& a) {
+        a.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        a.initialize(ic);
+    };
     struct Count {
-        std::size_t flown = 0;   // judged
-        std::size_t tipping = 0; // named: past her tip ratio, and on her nose
-        std::size_t past = 0;    // levels past her tip ratio, flown either way
+        std::size_t judged = 0;
+        std::size_t past = 0;           // levels past her tip ratio, flown either way
+        std::vector<double> tipped = {}; // named: past it, and tipped by her brakes' grip
     };
     std::map<std::string, Count> counts;
     std::map<std::string, std::string> loaded_as;
     std::vector<std::string> boats;
-    std::size_t tail_wheel_ids = 0;
+    std::vector<std::string> tail_wheels;
+    std::size_t nose_wheels = 0;
     double worst_q = 0.0;
     std::string worst_where;
     std::vector<std::string> wrong;
@@ -1614,46 +1637,35 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
         const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), e.model);
         const auto figures =
             glideslope::sim::read_published_figures(data() / "figures" / (e.model + ".xml"));
-        bool tail_wheel_counted = false;
+        // What she stands on, from her model as it loads. A tail-wheel
+        // aeroplane whose figures give a solo loading (the Cub: a 170 lb
+        // pilot in the rear seat, the tank full) is braked by that pilot;
+        // one whose model carries her crew already (the Mosquito: pilot and
+        // navigator, 200 lb each) as her model is.
+        bool tail_wheel = false;
+        {
+            glideslope::sim::Aircraft probe(data() / "jsbsim", e.model);
+            on_the_runway(probe);
+            const auto stance = probe.stance();
+            check(stance.found, e.id + ": her stance was found");
+            tail_wheel = stance.tail_wheel;
+        }
+        const bool solo = tail_wheel && figures.loadings.count("solo") != 0;
+        loaded_as[e.id] = solo ? "solo" : "her model's own";
+        if (tail_wheel) {
+            tail_wheels.push_back(e.id);
+        } else {
+            ++nose_wheels;
+        }
+        Count& count = counts[e.id];
         for (const double brake : brake_levels) {
             char where[96];
             std::snprintf(where, sizeof where, "%s at brake %.1f", e.id.c_str(), brake);
-            const Runway runway = a_runway();
             glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
-            aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
-                [](double, double) { return 0.0; }, [](double, double) { return false; }));
-            // A tail-wheel aeroplane whose figures give a solo loading (the
-            // Cub: a 170 lb pilot in the rear seat, the tank full) is braked
-            // by that pilot; one whose model carries her crew already (the
-            // Mosquito: pilot and navigator, 200 lb each) as her model is.
-            glideslope::sim::InitialConditions ic;
-            ic.latitude_deg = runway.threshold_lat_deg;
-            ic.longitude_deg = runway.threshold_lon_deg;
-            ic.altitude_ft = runway.elevation_ft;
-            ic.terrain_elevation_ft = runway.elevation_ft;
-            ic.heading_deg = runway.heading_deg;
-            ic.engine_running = true;
-            ic.gear = 1.0;
-            {
-                glideslope::sim::Aircraft probe(data() / "jsbsim", e.model);
-                probe.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
-                    [](double, double) { return 0.0; }, [](double, double) { return false; }));
-                probe.initialize(ic);
-                const auto s = probe.stance();
-                check(s.found, e.id + ": her stance was found");
-                if (s.tail_wheel && figures.loadings.count("solo") != 0) {
-                    aircraft.load(figures.loadings.at("solo").loading);
-                    loaded_as[e.id] = "solo";
-                } else {
-                    loaded_as[e.id] = "her model's own";
-                }
+            if (solo) {
+                aircraft.load(figures.loadings.at("solo").loading);
             }
-            aircraft.initialize(ic);
-            const bool tail_wheel = aircraft.stance().tail_wheel;
-            if (tail_wheel && !tail_wheel_counted) {
-                tail_wheel_counted = true;
-                ++tail_wheel_ids;
-            }
+            on_the_runway(aircraft);
             glideslope::sim::Controls parked;
             parked.left_brake = 1.0;
             parked.right_brake = 1.0;
@@ -1661,8 +1673,11 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                 aircraft.set_controls(parked);
                 aircraft.step();
             }
+            const double settled_pitch = aircraft.state().pitch_deg;
             bool past_ratio = false;
-            char tip_note[128] = "";
+            double ratio = 0.0;
+            double friction = 0.0;
+            std::string tail_wow; // her tail wheel's weight-on-wheels property
             if (tail_wheel) {
                 // Her tip ratio as she has settled on her wheels: the
                 // distance of her centre of gravity behind each main
@@ -1674,12 +1689,14 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                 // less rolling).
                 const double cg_x = aircraft.property("inertia/cg-x-in");
                 const double cg_z = aircraft.property("inertia/cg-z-in");
-                const double pitch = aircraft.state().pitch_deg / degrees;
+                const double pitch = settled_pitch / degrees;
                 const auto points = aircraft.contact_points();
                 std::size_t mains = 0;
-                double ratio = 1e9;
-                double friction = 0.0;
+                ratio = 1e9;
                 for (std::size_t i = 0; i < points.size(); ++i) {
+                    if (points[i].bogey && points[i].wheel && points[i].x_in > cg_x) {
+                        tail_wow = "gear/unit[" + std::to_string(i) + "]/WOW";
+                    }
                     if (!points[i].bogey || !points[i].wheel || points[i].x_in >= cg_x) {
                         continue;
                     }
@@ -1701,15 +1718,11 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                 }
                 past_ratio = !(friction <= ratio);
                 if (past_ratio) {
-                    ++counts[e.id].past;
-                    std::snprintf(tip_note, sizeof tip_note,
-                                  "braking friction %.2f over her tip ratio %.2f: slowing at "
-                                  "that grip would tip her",
-                                  friction, ratio);
+                    ++count.past;
                 }
                 if (brake == brake_levels[0]) {
                     std::printf("  %s: tip ratio %.2f, settled at pitch %.2f, %s loading\n",
-                                e.id.c_str(), ratio, pitch * degrees, loaded_as[e.id].c_str());
+                                e.id.c_str(), ratio, settled_pitch, loaded_as[e.id].c_str());
                 }
             }
             // Stick fully back and full aileron into the wind (from the
@@ -1745,13 +1758,26 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                 aircraft.set_controls(c);
                 aircraft.step();
             }
+            const double braked_at_pitch = aircraft.state().pitch_deg;
             glideslope::sim::GroundJudge judge(false);
             double most_q = 0.0;
             double most_q_at_kts = 0.0;
             double least_pitch = 90.0;
+            bool went_nan = false;
             std::string wrecked;
             bool stopped = false;
             int stood_steps = 0;
+            // **Her tail coming up**: whether her tail wheel was on the
+            // runway as the brakes came on, and the pitching moments of her
+            // gear and of the air at the step it first left it; and the
+            // most she rolled before she went wrong.
+            const bool tail_down_at_brakes =
+                !tail_wheel || aircraft.property(tail_wow) > 0.5;
+            bool tail_lifted = false;
+            double lift_m_gear = 0.0;
+            double lift_m_aero = 0.0;
+            bool gone_wrong = false;
+            double most_roll = 0.0;
             for (int step = 0; rolling && step < stop_s * steps_per_second &&
                                stood_steps < stand_s * steps_per_second;
                  ++step) {
@@ -1762,8 +1788,16 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                 hands(c);
                 aircraft.set_controls(c);
                 aircraft.step();
-                const double q = std::abs(aircraft.state().q_radps) * degrees;
-                if (!(q <= most_q)) {
+                const double q_radps = aircraft.state().q_radps;
+                const double pitch_deg = aircraft.state().pitch_deg;
+                const double roll_deg = aircraft.state().roll_deg;
+                if (std::isnan(q_radps) || std::isnan(pitch_deg) || std::isnan(roll_deg)) {
+                    went_nan = true;
+                    break;
+                }
+                least_pitch = std::min(least_pitch, pitch_deg);
+                const double q = std::abs(q_radps) * degrees;
+                if (q > most_q) {
                     most_q = q;
                     most_q_at_kts = kts_of(aircraft);
                 }
@@ -1772,12 +1806,19 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                         wrecked = *why;
                     }
                 }
-                // Gone over (past 45 degrees, or at no number): the run ends
-                // here, before her numbers reach a JSBSim table as NaN.
-                const double pitch_deg = aircraft.state().pitch_deg;
-                const double roll_deg = aircraft.state().roll_deg;
-                least_pitch = std::min(least_pitch, pitch_deg);
-                if (!(std::abs(pitch_deg) <= 45.0 && std::abs(roll_deg) <= 45.0)) {
+                if (tail_wheel && !tail_lifted && aircraft.property(tail_wow) < 0.5) {
+                    tail_lifted = true;
+                    lift_m_gear = aircraft.property("moments/m-gear-lbsft");
+                    lift_m_aero = aircraft.property("moments/m-aero-lbsft");
+                }
+                // Gone over: the run ends here, before her numbers reach a
+                // JSBSim table as NaN.
+                const bool over = !(std::abs(pitch_deg) <= 45.0 && std::abs(roll_deg) <= 45.0);
+                if (!gone_wrong) {
+                    most_roll = std::max(most_roll, std::abs(roll_deg));
+                    gone_wrong = q > most_q_degps || !wrecked.empty() || over;
+                }
+                if (over) {
                     if (wrecked.empty()) {
                         wrecked = "went over";
                     }
@@ -1788,19 +1829,38 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
                     ++stood_steps;
                 }
             }
-            // Past her tip ratio, a tail-wheel aeroplane that goes wrong
-            // with her nose down below level has tipped onto it, as a real
-            // one would: named, with both figures. One that stays on her
-            // wheels there is judged as at any other level.
-            const bool excused = past_ratio && least_pitch < 0.0 &&
-                                 (!wrecked.empty() || !(most_q <= most_q_degps));
-            std::printf("  %s%-26s most pitch rate %5.1f deg/s (at %4.1f kt)%s%s\n",
-                        excused ? "named - " : "", where, most_q,
-                        most_q_at_kts, stopped ? "" : ", NOT STOPPED",
-                        wrecked.empty() ? "" : (", " + wrecked).c_str());
+            // **Tipped by her brakes' grip**, and named: past her tip ratio,
+            // a tail-wheel aeroplane that goes wrong by pitching onto her
+            // nose, as a real one would. Her tail wheel must have been on the
+            // runway as the brakes came on (a tail the air lifted in the
+            // run-up is not her brakes' doing), and come up while she braked
+            // with her gear's pitching moment nose down and the air's not:
+            // the brakes, not her aerodynamics. She must have gone wrong
+            // nose down - below level - with no wing down past 10 degrees
+            // before she did, and her numbers all numbers. Anything else
+            // past her ratio - a roll, a NaN, the air - is judged as at any
+            // other level.
+            const bool excused = past_ratio && gone_wrong && !went_nan && tail_down_at_brakes &&
+                                 tail_lifted && lift_m_gear < 0.0 && lift_m_aero >= 0.0 &&
+                                 least_pitch < 0.0 && most_roll < 10.0;
+            std::printf("  %s%-26s most pitch rate %5.1f deg/s (at %4.1f kt)%s%s%s\n",
+                        excused ? "named - " : "", where, most_q, most_q_at_kts,
+                        stopped ? "" : ", NOT STOPPED",
+                        wrecked.empty() ? "" : (", " + wrecked).c_str(),
+                        went_nan ? ", WENT NaN" : "");
+            if (gone_wrong && tail_wheel) {
+                std::printf("    tail %s at the brakes (pitch %.2f, stood at %.2f); %s braking "
+                            "(gear %.0f ft-lb, air %.0f); most roll %.1f; least pitch %.1f\n",
+                            tail_down_at_brakes ? "down" : "UP", braked_at_pitch, settled_pitch,
+                            tail_lifted ? "lifted" : "not lifted", lift_m_gear, lift_m_aero,
+                            most_roll, least_pitch);
+            }
             std::vector<std::string> faults;
             if (!rolling) {
                 faults.push_back(std::string(where) + ": never rolled at 10 kt");
+            }
+            if (went_nan) {
+                faults.push_back(std::string(where) + ": her attitude went to no number");
             }
             if (!(most_q <= most_q_degps)) {
                 faults.push_back(std::string(where) + ": pitched at " + std::to_string(most_q) +
@@ -1809,15 +1869,17 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
             if (!wrecked.empty()) {
                 faults.push_back(std::string(where) + ": " + wrecked);
             }
-            if (rolling && !stopped) {
+            if (rolling && !stopped && !went_nan) {
                 faults.push_back(std::string(where) + ": did not stop");
             }
             if (excused) {
-                ++counts[e.id].tipping;
-                std::printf("    (%s)\n", tip_note);
+                count.tipped.push_back(brake);
+                std::printf("    (braking friction %.2f over her tip ratio %.2f: slowing at that "
+                            "grip tips her)\n",
+                            friction, ratio);
                 continue;
             }
-            ++counts[e.id].flown;
+            ++count.judged;
             if (most_q > worst_q) {
                 worst_q = most_q;
                 worst_where = where;
@@ -1832,40 +1894,40 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
     check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     // Every level of every landplane accounted for: judged, or named as
-    // tipped past her tip ratio.
+    // tipped by her brakes' grip; only a tail-wheel aeroplane named.
     const std::size_t levels = std::size(brake_levels);
-    std::size_t nose_wheels = 0;
     for (const auto& [id, n] : counts) {
-        check(n.flown + n.tipping == levels,
-              id + ": every level accounted for, " + std::to_string(n.flown) + " judged, " +
-                  std::to_string(n.tipping) + " tipped past her tip ratio");
-        if (id != "j3cub" && id != "mosquito-fb6") {
-            ++nose_wheels;
-            check(n.flown == levels, id + ": flown at every level");
+        check(n.judged + n.tipped.size() == levels,
+              id + ": every level accounted for, " + std::to_string(n.judged) + " judged, " +
+                  std::to_string(n.tipped.size()) + " tipped");
+        if (std::find(tail_wheels.begin(), tail_wheels.end(), id) == tail_wheels.end()) {
+            check(n.judged == levels && n.past == 0, id + ": judged at every level");
         }
     }
     check(roster.size() == 16 && counts.size() == 15 && nose_wheels == 13 &&
-              tail_wheel_ids == 2 && boats == std::vector<std::string>{"short_s23"},
-          "fifteen landplanes of sixteen, thirteen nose-wheel and two tail-wheel; the S.23 "
-          "the flying boat named: " +
+              tail_wheels == std::vector<std::string>{"j3cub", "mosquito-fb6"} &&
+              boats == std::vector<std::string>{"short_s23"},
+          "fifteen landplanes of sixteen, thirteen nose-wheel and the Cub and the Mosquito on "
+          "tail wheels; the S.23 the flying boat named: " +
               std::to_string(counts.size()) + " landplanes, " + std::to_string(nose_wheels) +
-              " nose-wheel, " + std::to_string(tail_wheel_ids) + " tail-wheel, " +
+              " nose-wheel, " + std::to_string(tail_wheels.size()) + " tail-wheel, " +
               std::to_string(boats.size()) + " boats");
     check(loaded_as["j3cub"] == "solo" && loaded_as["mosquito-fb6"] == "her model's own",
           "the Cub braked solo, the Mosquito with her model's crew");
-    const Count cub = counts["j3cub"];
-    const Count mosquito = counts["mosquito-fb6"];
     // The Cub, solo, past her ratio (0.46) at 0.6 to 1.0 and judged at all
     // ten; the Mosquito past hers (0.40) at 0.5 to 1.0, judged at 0.1 to 0.5
     // (at 0.5 she stays on her wheels) and tipped at 0.6 to 1.0.
-    check(cub.past == 5 && cub.flown == 10 && cub.tipping == 0,
+    const Count& cub = counts["j3cub"];
+    const Count& mosquito = counts["mosquito-fb6"];
+    check(cub.past == 5 && cub.judged == 10 && cub.tipped.empty(),
           "the Cub past her ratio at five, judged at all ten: " + std::to_string(cub.past) +
-              " past, " + std::to_string(cub.flown) + " judged, " +
-              std::to_string(cub.tipping) + " tipped");
-    check(mosquito.past == 6 && mosquito.flown == 5 && mosquito.tipping == 5,
-          "the Mosquito past her ratio at six, judged at five, tipped at five: " +
-              std::to_string(mosquito.past) + " past, " + std::to_string(mosquito.flown) +
-              " judged, " + std::to_string(mosquito.tipping) + " tipped");
+              " past, " + std::to_string(cub.judged) + " judged, " +
+              std::to_string(cub.tipped.size()) + " tipped");
+    check(mosquito.past == 6 && mosquito.judged == 5 &&
+              mosquito.tipped == std::vector<double>{0.6, 0.7, 0.8, 0.9, 1.0},
+          "the Mosquito past her ratio at six, judged at 0.1 to 0.5, tipped at 0.6 to 1.0: " +
+              std::to_string(mosquito.past) + " past, " + std::to_string(mosquito.judged) +
+              " judged, " + std::to_string(mosquito.tipped.size()) + " tipped");
 }
 
 // **Every aircraft standing on her brakes at idle stays finite, and on the

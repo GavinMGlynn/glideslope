@@ -570,24 +570,15 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       air she holds the step without porpoising.* Done 2026-10-14: she
       hops 0.32 ft on the step against 0.5.
 - [ ] **A rolling aeroplane near a stop can be thrown on her nose by her
-      gear in one step.** A C172P rolling at 1.16 kt, nose 1.6 degrees and
-      brakes at 0.3, went to -376 deg/s of pitch in one step with no control
-      moving. The causes found are fixed (the three items at the top of this
-      phase), and that learnt landing now stops. The sweep now brakes every
-      landplane, a tail-wheel one stick back and loaded as she is flown.
-      **Still missing**: the Cub's crosswind pitch term (the item below);
-      flown stick central she goes over, as in her walking-pace run in 15 kt
-      across. *Verification: every landplane rolled to a stop at a sweep of
-      brake levels shows no pitch rate over a stated bound.*
-- [ ] **The J-3 Cub's nose is pushed down by a crosswind.** Her
-      angle-of-attack pitch term uses the whole dynamic pressure, crosswind
-      included, as her alpha-rate term did. Run up in 15 kt across with her
-      stick central, her tail comes up by 10 kt, and braked from there she
-      goes over (her walking-pace run in 15 kt across). Other models' terms
-      have not been measured. *Verification: her term, and every other
-      model's, uses the dynamic pressure without its sideways part; she
-      keeps her tail down run up stick central in 15 kt across; her figures
-      stay in range.*
+      gear in one step.** **Missing**: the Cub's crosswind pitch term (below);
+      the Mosquito tips onto her nose braked past 0.5, real or not unmeasured.
+      *Verification: every landplane rolled to a stop at a sweep of brake
+      levels shows no pitch rate over a stated bound.*
+- [ ] **The J-3 Cub's nose is pushed down by a crosswind**: her
+      angle-of-attack pitch term counts it; stick central she goes over
+      braked in 15 kt across. *Verification: that term, and every other
+      model's, uses the dynamic pressure without its sideways part; stick
+      central in 15 kt across her tail stays down; her figures stay in range.*
 - [ ] **The walking-pace tests' throttle sits the C172P on her tail.**
       Holding her at 3 kt against the autobrake, the test's hand winds to full
       power with her stick back, and she rears to 11 degrees. *Verification:
