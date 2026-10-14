@@ -572,9 +572,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       gear in one step.** A C172P rolling at 1.16 kt, nose 1.6 degrees and
       brakes at 0.3, went to -376 deg/s of pitch in one step with no control
       moving. Both causes found are fixed (the two items at the top of this
-      phase), and that learnt landing now stops. **Still missing**: the
-      sweep judges only nose-wheel aeroplanes; the Cub and the Mosquito are
-      not judged. *Verification: every landplane rolled to a stop at a sweep
+      phase; the Mosquito's alpha-rate term, open there, apart), and that
+      learnt landing now stops. **Still missing**: the sweep judges only
+      nose-wheel aeroplanes; the Cub and the Mosquito are not judged, and the
+      Cub goes over in 15 kt across. *Verification: every landplane rolled to a stop at a sweep
       of brake levels shows no pitch rate over a stated bound.*
 
 ---

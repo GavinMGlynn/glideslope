@@ -288,7 +288,9 @@ else, went with it.
 gust, crosswind, learnt, rollout, stop and committed - the five that failed
 on CI among them - pass in the default linux-release build and in one built
 with `-march=x86-64-v2` (no fused multiply-adds, as CI builds), 3 skipped for
-want of a language model's key. In the `-march=x86-64-v2` run one
+want of a language model's key. They ran on the stack's top (#195) only:
+#192's head alone was not tested locally, and its CI run is the first test of
+it on this base. In the `-march=x86-64-v2` run one
 client-server test could not listen on its port while another agent's tests
 ran, and passed run alone. **The selftest hash does not move** from main's:
 `de9bf01f96427593` (linux-release), `fefe2a7f5d0f52a5` (`-march=x86-64-v2`).
