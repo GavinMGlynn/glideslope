@@ -201,11 +201,13 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
                                               std::uint32_t last_applied,
                                               std::size_t steps_into,
                                               std::uint64_t server_steps,
-                                              std::optional<int> engine_stopped) {
+                                              std::optional<int> engine_stopped,
+                                              bool wrecked) {
     if (!prediction_) {
         return {};
     }
     (void)prediction_->hear_engine_stopped(engine_stopped);
+    prediction_->hear_wrecked(wrecked);
     const sim::Prediction::Correction c =
         prediction_->reconcile(motion, last_applied, steps_into, server_steps);
     // Held against where this client had flown it by the step the word is

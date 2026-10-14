@@ -2826,6 +2826,105 @@ GLIDESLOPE_TEST(heavier_than_she_can_hover_the_f35bs_stovl_mode_holds_her_wing_b
           "at her conversion speed she strayed " + std::to_string(most_off_kt) + " kt");
 }
 
+// **Selected at any moment of a dive her untouched controls fly her into, a
+// heavy F-35B's STOVL mode pulls her out above her least conversion height.**
+// What a server gives a player - her model's own 45,400 lb, untrimmed at
+// 2,200 ft and 300 KCAS, fuel burning - flown as the server flies her until
+// her first input says otherwise: the throttle at the 0.6 it holds and the
+// stick centred, which in her dives her, 5,600 ft/min by five seconds and
+// 10,400 by ten. Then, at every 20th step from the first to ten seconds (61
+// moments, every one flown: coverage asserted), STOVL mode selected with the
+// stick full forward and the lever still, her controller made on that step
+// from those controls as the server makes it, and flown a minute on: never
+// lower than her least conversion height less 10 ft, her wheels never
+// touching, never slowed into jet-borne flight or a hover, and climbing
+// back toward the height the stick asks by the minute's end. Selected
+// through a server, this is when the player's input happens to arrive - a
+// slower machine or a longer join, later in the dive. **Seen red** before
+// the autopilot's vertical-speed integral was seeded within its pitch
+// envelope: taken over diving, it was seeded 45 degrees nose-down and held
+// the pull-out back - selected at 7.7 s she went down to 72 ft (and, flown
+// alone, at 8.3 s to 1 ft and at 10 s into the ground). **Not covered**: later than ten seconds - by 12.5 s she
+// is at 780 ft sinking 12,800 ft/min, past what a pull at the autopilot's
+// 3 degrees a second can save.
+GLIDESLOPE_TEST(a_heavy_f35b_selected_into_stovl_mode_at_any_moment_of_ten_seconds_untouched_is_pulled_out_above_her_least_conversion_height) {
+    using namespace glideslope::sim;
+    constexpr int every_steps = 20;
+    constexpr int last_step = 10 * 120;
+    constexpr int moments = last_step / every_steps + 1;
+    int flown = 0;
+    double lowest_of_all = 1e9;
+    int lowest_at = -1;
+    for (int at = 0; at <= last_step; at += every_steps) {
+        Aircraft a(data_dir, "f35b");
+        InitialConditions ic;
+        ic.latitude_deg = -33.9461;
+        ic.longitude_deg = 151.1772;
+        ic.heading_deg = 270.0;
+        ic.altitude_ft = 2200.0;
+        ic.terrain_elevation_ft = 20.0;
+        ic.airspeed_kts = 300.0;
+        ic.gear = 0.0;
+        ic.engine_running = true;
+        a.initialize(ic);
+        const double least = a.property("fcs/stovl-convert-least-ft");
+        check(a.property("inertia/weight-lbs") > a.property("fcs/stovl-hover-most-lbs"),
+              "she is not over her hover limit");
+        Controls untouched;
+        untouched.throttle = 0.6;
+        for (int i = 0; i < at; ++i) {
+            a.set_controls(untouched);
+            a.step();
+        }
+        const AircraftState selected = a.state();
+        Controls pilot;
+        pilot.stovl = 1.0;
+        pilot.throttle = 0.7;
+        pilot.elevator = -1.0;
+        Controller controller(a, pilot);
+        double lowest_ft = 1e9;
+        bool touched = false;
+        bool slowed = false;
+        for (int i = 0; i < 60 * 120; ++i) {
+            controller.set_pilot(pilot);
+            apply(a, controller);
+            a.step();
+            const AircraftState s = a.state();
+            lowest_ft = std::min(lowest_ft, s.height_above_ground_ft);
+            touched = touched || a.property("gear/wow") > 0.5;
+            const Transition* t = controller.transition();
+            slowed = slowed || (t && (t->stage() == Transition::Stage::jet_borne ||
+                                      t->stage() == Transition::Stage::hovering));
+        }
+        const AircraftState end = a.state();
+        const double asked_ft = controller.stovl_height_asked_ft();
+        const std::string when = "selected at step " + std::to_string(at) + " (" +
+                                 std::to_string(static_cast<int>(selected.height_above_ground_ft)) +
+                                 " ft, " + std::to_string(static_cast<int>(selected.climb_rate_fpm)) +
+                                 " ft/min)";
+        if (at % 240 == 0) {
+            std::printf("  %s: lowest %.0f ft; a minute on %.0f ft, asked %.0f, %.0f ft/min\n",
+                        when.c_str(), lowest_ft, end.height_above_ground_ft, asked_ft,
+                        end.climb_rate_fpm);
+        }
+        check(lowest_ft >= least - 10.0, when + ": she was down to " + std::to_string(lowest_ft) + " ft");
+        check(!touched, when + ": her wheels touched");
+        check(!slowed, when + ": she was slowed into jet-borne flight");
+        check(end.height_above_ground_ft >= asked_ft - 100.0 || end.climb_rate_fpm > 0.0,
+              when + ": a minute on she was at " + std::to_string(end.height_above_ground_ft) +
+                  " ft, asked " + std::to_string(asked_ft) + ", and not climbing back");
+        if (lowest_ft < lowest_of_all) {
+            lowest_of_all = lowest_ft;
+            lowest_at = at;
+        }
+        ++flown;
+    }
+    std::printf("  %d of %d moments flown; the lowest %.0f ft, selected at step %d\n", flown,
+                moments, lowest_of_all, lowest_at);
+    check(flown == moments && moments == 61,
+          std::to_string(flown) + " of " + std::to_string(moments) + " moments flown, not 61");
+}
+
 // **On the ground, heavier than she can hover, STOVL mode does nothing**:
 // standing at her model's own 45,400 lb, the brakes on and the throttle at
 // idle, the pilot selects STOVL mode and holds the stick full back for a

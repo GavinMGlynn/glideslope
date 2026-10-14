@@ -436,6 +436,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       *Verification: a client selecting STOVL on its very first input,
       through a real server, has its transition law seeded as the server's
       is - the same throttle integral at the step both make it.*
+- [ ] **A player's aircraft the server holds untouched is not trimmed**:
+      given at her start speed with the stick centred until her first
+      input, an F-35B at 300 kt dives 10,400 ft/min within ten seconds, so
+      a slow join leaves her in a dive (PROJECT_STATUS, 2026-10-14).
+      *Verification: through a real server, a player's F-35B and Cessna
+      172P untouched for thirty seconds hold their start height within 100
+      ft.*
 - [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
       server's flight-control laws**: the server sends her motion, not her
       laws' state, so a law that has wandered in the client is never put

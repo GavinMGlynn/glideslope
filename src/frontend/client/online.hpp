@@ -409,6 +409,8 @@ private:
         bool adopt = false;
         // The server's word that one of its engines has stopped, and which.
         std::optional<int> engine_stopped;
+        // And that it is a wreck (sim::Prediction::hear_wrecked).
+        bool wrecked = false;
     };
     std::optional<OwnWord> own_word_;
     // What `listen` read, for `hear`: when, and in which session - the
