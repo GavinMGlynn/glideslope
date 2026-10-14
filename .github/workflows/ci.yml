@@ -768,6 +768,12 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'vcpkg-install-${{ matrix.preset }}', path: 'build/${{ matrix.preset }}/vcpkg-install.log', if-no-files-found: warn, retention-days: 14 }
+      # The tests' Python is the pinned one (windows-setup), not whichever the
+      # runner image registered newest: the test jobs run this tree on any
+      # image (tools/ci_python_pinned.cmake).
+      - name: The configure found the pinned Python
+        shell: cmd
+        run: cmake -DBUILD=build/${{ matrix.preset }} "-DROOT=%Python3_ROOT_DIR%" -P tools/ci_python_pinned.cmake
 
       - name: ${{ matrix.preset }} - build
         shell: cmd

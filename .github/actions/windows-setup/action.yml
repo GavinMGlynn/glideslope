@@ -10,14 +10,19 @@ runs:
 
     # **One Python, at one path, on every runner image.** The build job's
     # configure writes the Python it found into the tests' command lines, and
-    # the test jobs run that tree. On 2026-10-14 the runners were part way
-    # through a new image (20261007.264.1 beside 20260925.250.1), and every
-    # test job that landed on the other image from its build failed each
-    # script check in a hundredth of a second: "exited no such file or
-    # directory" (#203's run 38624857649 - every failing job on the new image,
-    # every passing one on the old). Installed here, the same version sits at
-    # the same tool-cache path on both, and Python3_ROOT_DIR, which
-    # setup-python sets, has CMake find it.
+    # the test jobs run that tree on whatever image they get. Left to itself,
+    # FindPython3 took the newest Python the image registered,
+    # C:/hostedtoolcache/windows/Python/3.14.7 (the build tree's CMakeCache);
+    # on 2026-10-14 the runners were part way through a new image
+    # (20261007.264.1 beside 20260925.250.1) that has 3.14.8 instead, and
+    # every test job that landed there failed each script check in a
+    # hundredth of a second: "exited no such file or directory" (#203's run
+    # 38624857649 - every failing job on the new image, every passing one on
+    # the old). Pinned here, Python3_ROOT_DIR - which setup-python sets, and
+    # FindPython3 searches before the registry - names the one CMake takes;
+    # 3.12.10 is in both images' tool cache, and setup-python fetches it to
+    # the same path where it is not. The build checks that the configure
+    # found it (tools/ci_python_pinned.cmake).
     - uses: actions/setup-python@v6
       with: { python-version: '3.12.10' }
 

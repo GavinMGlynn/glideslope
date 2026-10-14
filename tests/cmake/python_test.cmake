@@ -14,5 +14,5 @@ execute_process(COMMAND "${PYTHON}" "${SCRIPT}" ${ARGS}
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 message(STATUS "${_out}${_err}")
 if(NOT _rc EQUAL 0)
-    message(FATAL_ERROR "${SCRIPT} exited ${_rc}")
+    message(FATAL_ERROR "${PYTHON} ${SCRIPT} exited ${_rc}")
 endif()
