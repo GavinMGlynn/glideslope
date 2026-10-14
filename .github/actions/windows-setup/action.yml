@@ -8,6 +8,19 @@ runs:
   steps:
     - uses: ./.github/actions/msvc-dev-env
 
+    # **One Python, at one path, on every runner image.** The build job's
+    # configure writes the Python it found into the tests' command lines, and
+    # the test jobs run that tree. On 2026-10-14 the runners were part way
+    # through a new image (20261007.264.1 beside 20260925.250.1), and every
+    # test job that landed on the other image from its build failed each
+    # script check in a hundredth of a second: "exited no such file or
+    # directory" (#203's run 38624857649 - every failing job on the new image,
+    # every passing one on the old). Installed here, the same version sits at
+    # the same tool-cache path on both, and Python3_ROOT_DIR, which
+    # setup-python sets, has CMake find it.
+    - uses: actions/setup-python@v6
+      with: { python-version: '3.12.10' }
+
     # Windows runners have no GPU, and no Vulkan loader or driver. Direct3D 12
     # draws on WARP, which Windows has; Vulkan gets what the Linux jobs draw
     # on: Mesa's lavapipe, from mesa-dist-win, and the Khronos loader from

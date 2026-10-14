@@ -22,5 +22,5 @@ execute_process(COMMAND "${PYTHON}" "${ROOT}/tools/make_runway_strips.py" --runw
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 message(STATUS "${_out}")
 if(NOT _rc EQUAL 0)
-    message(FATAL_ERROR "${_out}${_err}")
+    message(FATAL_ERROR "${PYTHON} tools/make_runway_strips.py exited ${_rc}\n${_out}${_err}")
 endif()

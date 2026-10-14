@@ -265,6 +265,40 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The Windows jobs install one Python: a test job on another runner image from its build, 2026-10-15 — item still open
+
+**What is still not true first.** **The fix is not yet seen across two
+images**: it is verified by a Windows test job that lands on another runner
+image from its build and passes every script check, and whether this pull
+request's run puts any job there is GitHub's choice. **Only Windows is
+changed**: the Linux and macOS test jobs also run a tree configured by
+another job, and have not been seen to fail this way.
+
+**What happened.** #203's CI run 38624857649 failed five Windows test jobs,
+in debug, release and clang: in each, every check that runs a Python script
+failed in a hundredth of a second with an empty message - the committed
+models, the DEM coverage, the runway strips, the visual models, all of them,
+and none of it #203's. The two that print their exit said it:
+`alpha_rate_terms.py exited no such file or directory`. GitHub was part way
+through a new Windows image, 20261007.264.1 beside 20260925.250.1, and the
+jobs split on it exactly: every failing job ran on the new image, every
+passing one on the old, the builds on the old. A rerun of the failed jobs
+passed the three that landed on the old image and failed the two that did
+not. The build's configure writes the Python it found
+(`find_package(Python3)` in tests/CMakeLists.txt) into the tests' command
+lines, and the test job runs that tree on whatever image it gets; on the new
+image that Python was not there.
+
+**The fix.** `.github/actions/windows-setup`, which every Windows build and
+test job runs "so that a test job finds exactly the machine its build was
+made on", now installs Python 3.12.10 with `actions/setup-python@v6`: the
+same version at the same tool-cache path on any image, and
+`Python3_ROOT_DIR`, which it sets, has CMake find that one. And the three
+script checks that failed with an empty message - committed_assets.cmake,
+dem_coverage.cmake, runway_strips.cmake - now say which Python ran which
+script and how it exited; seen with a Python that is not there:
+`/no/such/python3 tools/make_j3cub.py exited no such file or directory`.
+
 ### From the review of #202: where the rolling ceiling bites, counted; walking pace at 4.5 kt, found, 2026-10-15 — item still open
 
 **What is still not true first.**
