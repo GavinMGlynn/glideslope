@@ -1913,10 +1913,14 @@ four things:
   values the server's never had, and at one word its pitch integral put
   back to a value its line had left 25 steps before. **Now** each step
   held is kept as the newest replay flew it (Prediction::fly_held_again),
-  and the trace shows no line but one. What it does to the error is not
-  told apart from a run's own spread (through the server, x86-64-v2: 1.270
-  m at worst before it, 0.048 m in the run after, 0.945 m in a later one);
-  **no test has been seen to fail without it** (below).
+  and the trace shows no line but one. What it does to the error through
+  a server is not told apart from a run's own spread (x86-64-v2: 1.270 m
+  at worst before it, 0.048 m in the run after, 0.945 m in a later one).
+  `a_prediction_put_right_twice_flies_the_second_word_from_the_controller_its_first_replay_left`:
+  in STOVL mode at 60 s, a word from an F-35B flown from 2 ft higher puts
+  her right by 0.512 m; a second word, half a second on, saying where her
+  own replay had her, moves her 0.000005 m (bound 0.1 mm), in every build.
+  **Seen red** without it: 0.008 m.
 - **Selected with the first input, the two laws began apart.** The server
   made its controller when the selector arrived and seeded the transition
   law from what the aircraft had: the power it holds for a player before
@@ -1956,9 +1960,7 @@ rate-limited at the edge of its integrating, so a thousandth of a degree
 decides whether a step's integral winds, and two minutes on the client's
 elevator trim was at its stop where the server's was 0.09. Her predicted
 pitch was then up to 4 degrees off the server's between words, her
-position still within centimetres. A tail in COMPLETION_PLAN. **Nor is a
-test yet written that fails with each step held kept from its first pass**
-(the fix above, seen only in the trace).
+position still within centimetres. A tail in COMPLETION_PLAN.
 
 **Measured** (`a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees`,
 2026-10-14, one run each): x86-64-v2 the worst error 0.945 m, the 95th
@@ -1972,7 +1974,8 @@ moving by one is 1.4 m at the 330 kt she dives to - so the worst is held
 to 2 m, and the 95th percentile, new, to 10 cm. The in-process tests
 (`a_predicting_client_and_the_server_fed_the_same_stovl_inputs_...`, the
 hover one, the two put-backs) unchanged: worst correction 0.0166 m in
-every build.
+every build; the 30 prediction tests (in-process and multi-process) green
+on linux-release; **the selftest hash does not move**, `182dd6c996e0ee4c`.
 
 ### The F-35B's pilot flies her speed, her sideways movement and her heading in STOVL mode, and a plan given her hovering is flown; her rolling landing figure revisited, 2026-10-14 — one item done, one still open
 
