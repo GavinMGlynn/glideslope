@@ -132,10 +132,12 @@ python3 tools/make_b2.py
 trials and Pilot's Notes; each file says what its numbers are and where they
 come from.
 
-The airframe and the engine are edited by hand. **The propeller is not:** its
-tables are computed by `tools/make_mosquito_propeller.py`, and a test fails if
-what is committed here differs from what the script makes:
+**Do not edit these by hand** either: `tools/make_mosquito_fb6.py` writes the
+airframe and the engine - her text as written, with its changes since listed -
+and `tools/make_mosquito_propeller.py` computes the propeller's tables. A test
+fails if what is committed differs from what either makes:
 
 ```sh
+python3 tools/make_mosquito_fb6.py
 python3 tools/make_mosquito_propeller.py
 ```
