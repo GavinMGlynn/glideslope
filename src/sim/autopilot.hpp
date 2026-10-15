@@ -143,6 +143,18 @@ public:
     // a vertical speed.
     std::optional<double> height_flown_to_ft() const;
 
+    // **Its pitch loop's integral**, degrees: the one part of its state a
+    // prediction cannot work out for itself (sim::Transition::Carried).
+    // Engaged a step apart - a selector that reached the server a step later
+    // than the clocks' difference places it - two autopilots seeded it
+    // apart, and since both are put back to the server's motion at every
+    // word they integrate alike from then on, so the difference stayed:
+    // 21 mm at the median and 2.9 degrees of pitch at worst, flown in one
+    // process (PROJECT_STATUS.md, 2026-10-16). Of its 56 numbers that
+    // differed, this alone told puts it right.
+    double pitch_integral_deg() const { return pitch_integral_deg_; }
+    void put_pitch_integral_deg(double deg) { pitch_integral_deg_ = deg; }
+
     // The controls for the next step, from the aircraft's state now. Each call
     // advances the loops by one 120 Hz step, so call it once a step.
     Controls fly();

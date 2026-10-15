@@ -179,9 +179,9 @@ GLIDESLOPE_TEST(every_single_byte_change_to_a_state_packet_is_read_or_refused) {
 }
 
 // **A number that is not one is refused, in every field that holds one.** The
-// clock, the nine numbers of an aircraft, and the fourteen of the client's own
-// motion - twenty-four fields - against a NaN and both infinities: seventy-two
-// cases, counted.
+// clock, the nine numbers of an aircraft, and the fifteen of the client's own
+// motion - twenty-five fields - against a NaN and both infinities:
+// seventy-five cases, counted.
 GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
     const double nan = std::numeric_limits<double>::quiet_NaN();
     const double up = std::numeric_limits<double>::infinity();
@@ -199,17 +199,19 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
         m.uvw_mps = {55.0F, 1.5F, -2.0F};
         m.pqr_radps = {0.01F, -0.02F, 0.03F};
         m.stovl_height_asked_ft = 450.0F;
+        m.stovl_pitch_integral_deg = 2.5F;
         s.yours = m;
         return s;
     };
 
     // Setting one field of a packet, by number, so the walk can say how many
     // fields there are and check it covered them.
-    const std::size_t fields = 24; // the clock; an aircraft's three positions,
+    const std::size_t fields = 25; // the clock; an aircraft's three positions,
                                    // three velocities and three angles; and the
                                    // own motion's three positions, four
                                    // quaternion terms, three velocities, three
-                                   // rates and the height its STOVL law asks
+                                   // rates, the height its STOVL law asks and
+                                   // its autopilot's pitch integral
     std::size_t walked = 0;
     for (const double bad : wrong) {
         for (std::size_t field = 0; field < fields; ++field) {
@@ -235,7 +237,8 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
             case 17: case 18: case 19: m.uvw_mps[field - 17] = f; break;
             case 20: case 21: case 22: m.pqr_radps[field - 20] = f; break;
             case 23: m.stovl_height_asked_ft = f; break;
-            default: check(false, "a field that is not one of the twenty-four"); break;
+            case 24: m.stovl_pitch_integral_deg = f; break;
+            default: check(false, "a field that is not one of the twenty-five"); break;
             }
             check(!write_state(s).has_value(),
                   "field " + std::to_string(field) + " refuses being written");
@@ -268,6 +271,10 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
                     // Past the ten floats and the steps into the input.
                     at += 3 * 8 + 10 * 4 + 2;
                     is_float = true;
+                } else if (field == 24) {
+                    // Past the height asked and the pitch integral's flag.
+                    at += 3 * 8 + 10 * 4 + 2 + 4 + 1;
+                    is_float = true;
                 } else {
                     at += 3 * 8 + (field - 13) * 4;
                     is_float = true;
@@ -295,7 +302,7 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
     }
     check(walked == wrong.size() * fields,
           "all " + std::to_string(wrong.size() * fields) + " cases were walked");
-    check(walked == 72, "seventy-two cases, not " + std::to_string(walked));
+    check(walked == 75, "seventy-five cases, not " + std::to_string(walked));
 }
 
 // **A state packet carries this client's own motion, and nothing but a flag
@@ -318,14 +325,19 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_clients_own_motion) {
     check(with->size() == glideslope::net::state_bytes(3, true),
           "and is " + std::to_string(glideslope::net::state_bytes(3, true)) + " bytes, not " +
               std::to_string(with->size()));
-    // How far into its newest input the server had flown it, little-endian,
-    // and then the height its STOVL law asks, the motion's last field, just
-    // before the watched controls' flag (since version 13).
-    check((*with)[with->size() - 7] == 0x34 && (*with)[with->size() - 6] == 0x12,
+    // How far into its newest input the server had flown it, little-endian;
+    // then the height its STOVL law asks, an f32; and last the pitch
+    // integral's flag and value, nought with none - just before the watched
+    // controls' flag (since version 13).
+    check((*with)[with->size() - 12] == 0x34 && (*with)[with->size() - 11] == 0x12,
           "the steps into the input follow the rates, least first");
-    check((*with)[with->size() - 5] == 0x00 && (*with)[with->size() - 4] == 0x00 &&
-              (*with)[with->size() - 3] == 0xC0 && (*with)[with->size() - 2] == 0x3F,
-          "the height asked is the motion's last four bytes, an f32, least first");
+    check((*with)[with->size() - 10] == 0x00 && (*with)[with->size() - 9] == 0x00 &&
+              (*with)[with->size() - 8] == 0xC0 && (*with)[with->size() - 7] == 0x3F,
+          "the height asked follows them, an f32, least first");
+    check((*with)[with->size() - 6] == 0x00 && (*with)[with->size() - 5] == 0x00 &&
+              (*with)[with->size() - 4] == 0x00 && (*with)[with->size() - 3] == 0x00 &&
+              (*with)[with->size() - 2] == 0x00,
+          "and no pitch integral is its flag, 00, and four bytes of nought");
     const auto back = read_state(all_of(*with));
     check(back.has_value() && *back == s, "and is read back the same");
 
@@ -378,8 +390,8 @@ GLIDESLOPE_TEST(a_state_packets_stovl_height_asked_is_none_at_minus_one_and_refu
               "and -1 alone is no law: " + std::to_string(ft));
         ++walked;
     }
-    // The height asked is the motion's last four bytes, before the watched
-    // controls' flag.
+    // The height asked is the four bytes before the pitch integral's five,
+    // and those the watched controls' flag.
     const auto good = *write_state(with(450.25F));
     for (const float ft : refused) {
         check(!write_state(with(ft)).has_value(),
@@ -388,7 +400,7 @@ GLIDESLOPE_TEST(a_state_packets_stovl_height_asked_is_none_at_minus_one_and_refu
         std::uint32_t bits = 0;
         std::memcpy(&bits, &ft, sizeof(bits));
         for (std::size_t i = 0; i < 4; ++i) {
-            bytes[bytes.size() - 5 + i] = static_cast<std::uint8_t>((bits >> (8 * i)) & 0xFFu);
+            bytes[bytes.size() - 10 + i] = static_cast<std::uint8_t>((bits >> (8 * i)) & 0xFFu);
         }
         check(!read_state(all_of(bytes)).has_value(),
               "and being read: " + std::to_string(ft));
@@ -396,6 +408,72 @@ GLIDESLOPE_TEST(a_state_packets_stovl_height_asked_is_none_at_minus_one_and_refu
     }
     check(walked == kept.size() + refused.size() && walked == 13,
           "thirteen cases, not " + std::to_string(walked));
+}
+
+// **Her STOVL law's pitch integral rides with a flag, and is read exactly
+// or refused** (since version 13): present and absent each written and read
+// back the same, absent as `00` and four bytes of nought; every flag but 00
+// and 01 refused (254); anything but nought after a 00 refused (-0, 1 and a
+// NaN's bits: 3); and a pitch integral with no law - a height of -1 -
+// refused by the writer and the reader (1, counted twice). 261 refusals.
+GLIDESLOPE_TEST(a_state_packets_stovl_pitch_integral_rides_with_a_flag_and_is_read_exactly_or_refused) {
+    const auto with = [](float height_ft, std::optional<float> integral) {
+        StatePacket s = a_packet(1);
+        glideslope::net::OwnMotion m;
+        m.attitude = {1.0F, 0.0F, 0.0F, 0.0F};
+        m.stovl_height_asked_ft = height_ft;
+        m.stovl_pitch_integral_deg = integral;
+        s.yours = m;
+        return s;
+    };
+    std::size_t kept = 0;
+    for (const std::optional<float> integral :
+         {std::optional<float>{}, std::optional<float>{0.0F}, std::optional<float>{-10.0F},
+          std::optional<float>{13.13F}}) {
+        const auto bytes = write_state(with(450.0F, integral));
+        check(bytes.has_value(), "a pitch integral is written");
+        const auto back = read_state(all_of(*bytes));
+        check(back && *back == with(450.0F, integral), "and read back the same");
+        const std::optional<double> taken = glideslope::net::stovl_pitch_integral(*back->yours);
+        check(taken.has_value() == integral.has_value() &&
+                  (!taken || *taken == static_cast<double>(*integral)),
+              "and taken as it went");
+        ++kept;
+    }
+    std::size_t refused = 0;
+    const auto none = *write_state(with(450.0F, std::nullopt));
+    // The flag is the fifth byte from the watched controls' flag.
+    const std::size_t flag_at = none.size() - 6;
+    check(none[flag_at] == 0x00, "with none the flag is 00");
+    for (int flag = 2; flag < 256; ++flag) {
+        auto bytes = none;
+        bytes[flag_at] = static_cast<std::uint8_t>(flag);
+        if (!read_state(all_of(bytes))) {
+            ++refused;
+        }
+    }
+    check(refused == 254, "every flag but 00 and 01 is refused: " + std::to_string(refused));
+    for (const float v : {-0.0F, 1.0F, std::numeric_limits<float>::quiet_NaN()}) {
+        auto bytes = none;
+        std::uint32_t bits = 0;
+        std::memcpy(&bits, &v, sizeof bits);
+        for (std::size_t i = 0; i < 4; ++i) {
+            bytes[flag_at + 1 + i] = static_cast<std::uint8_t>((bits >> (8 * i)) & 0xFFu);
+        }
+        check(!read_state(all_of(bytes)), "anything but nought after 00 is refused");
+        ++refused;
+    }
+    check(!write_state(with(-1.0F, 2.5F)), "a pitch integral with no law is not written");
+    ++refused;
+    {
+        auto bytes = *write_state(with(-1.0F, std::nullopt));
+        bytes[flag_at] = 0x01;
+        check(!read_state(all_of(bytes)), "nor read");
+        ++refused;
+    }
+    check(kept == 4 && refused == 259,
+          "four kept and 259 refused, not " + std::to_string(kept) + " and " +
+              std::to_string(refused));
 }
 
 // **A state packet carries the controls of the aircraft its client watches**,
@@ -622,6 +700,8 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet
         "the height above the ground beneath her that her STOVL transition law is asked "
         "to hold, feet",
         "or exactly -1 when no such law flies her lift system (since `0D`)",
+        "`01` if her STOVL law's wing-borne autopilot's pitch integral follows",
+        "that pitch integral, degrees - or `00 00 00 00`, every bit nought",
     };
     for (const std::string& field : own) {
         check(says(field), "the document names '" + field + "'");

@@ -111,6 +111,20 @@ Transition::Transition(const Aircraft& aircraft, const Hover::Command& flying)
     }
 }
 
+Transition::Carried Transition::carried() const {
+    Carried out;
+    if (autopilot_) {
+        out.pitch_integral_deg = autopilot_->pitch_integral_deg();
+    }
+    return out;
+}
+
+void Transition::carry(const Carried& carried) {
+    if (autopilot_ && carried.pitch_integral_deg) {
+        autopilot_->put_pitch_integral_deg(*carried.pitch_integral_deg);
+    }
+}
+
 double Transition::wing_borne_pitch_deg() const {
     const double v_fps = convert_kcas_ * fps_per_kt;
     const double q_psf = 0.5 * sea_level_slug_ft3 * v_fps * v_fps;

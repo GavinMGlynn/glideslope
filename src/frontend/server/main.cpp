@@ -2989,10 +2989,24 @@ public:
             // saw her at the selector, and the stick moves both alike, so
             // what it was off by then it held - 108 mm at the median, metres
             // at worst - for as long as the law flew her (PROJECT_STATUS,
-            // 2026-10-15). None while no law flies her lift system.
+            // 2026-10-15). None while no law flies her lift system. **Never
+            // below nought**: seeded on her wheels from her height above the
+            // ground, a hair under it would be a height the wire refuses,
+            // and the client would be told nothing more.
+            //
+            // **And her wing-borne autopilot's pitch integral**
+            // (sim::Transition::Carried), seeded a step apart when her
+            // selector reached the server a step off and kept apart by the
+            // same motion: 21 mm at the median, nearly 3 degrees of pitch
+            // (PROJECT_STATUS, 2026-10-16).
             if (a.controller && a.controller->transition()) {
-                out.stovl_height_asked_ft =
-                    static_cast<float>(a.controller->stovl_height_asked_ft());
+                out.stovl_height_asked_ft = static_cast<float>(
+                    std::max(0.0, a.controller->stovl_height_asked_ft()));
+                const glideslope::sim::Transition::Carried carried =
+                    a.controller->transition()->carried();
+                if (carried.pitch_integral_deg) {
+                    out.stovl_pitch_integral_deg = static_cast<float>(*carried.pitch_integral_deg);
+                }
             }
             return out;
         }

@@ -5,6 +5,7 @@
 #include "net/protocol.hpp"
 
 #include <cmath>
+#include <cstring>
 
 namespace glideslope::net {
 namespace {
@@ -21,6 +22,12 @@ bool a_number(float v) {
 // `no_stovl_law`.
 bool a_height_asked(float v) {
     return a_number(v) && (v >= 0.0F || v == no_stovl_law);
+}
+
+// A pitch integral that is one: a number, and none without a law.
+bool a_pitch_integral(const OwnMotion& m) {
+    return !m.stovl_pitch_integral_deg ||
+           (a_number(*m.stovl_pitch_integral_deg) && m.stovl_height_asked_ft != no_stovl_law);
 }
 
 } // namespace
@@ -61,7 +68,8 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         for (const float v : m.attitude) numbers = numbers && a_number(v);
         for (const float v : m.uvw_mps) numbers = numbers && a_number(v);
         for (const float v : m.pqr_radps) numbers = numbers && a_number(v);
-        if (!numbers || !a_height_asked(m.stovl_height_asked_ft)) {
+        if (!numbers || !a_height_asked(m.stovl_height_asked_ft) ||
+            !a_pitch_integral(m)) {
             return std::nullopt;
         }
     }
@@ -104,6 +112,10 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         }
         w.u16(m.steps_into_input);
         w.f32(m.stovl_height_asked_ft);
+        // Its flag, and the value - nought when there is none, so that what
+        // is read writes back to the same bytes.
+        w.u8(m.stovl_pitch_integral_deg ? 1 : 0);
+        w.f32(m.stovl_pitch_integral_deg.value_or(0.0F));
     }
     w.u8(state.watched ? 1 : 0);
     if (state.watched) {
@@ -201,6 +213,24 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
         }
         m.steps_into_input = r.u16();
         m.stovl_height_asked_ft = r.f32();
+        const std::uint8_t has_integral = r.u8();
+        const float integral = r.f32();
+        if (!r.ok() || has_integral > 1) {
+            return std::nullopt;
+        }
+        if (has_integral == 1) {
+            m.stovl_pitch_integral_deg = integral;
+        } else {
+            // None is written as nought, every bit of it.
+            std::uint32_t bits = 0;
+            std::memcpy(&bits, &integral, sizeof bits);
+            if (bits != 0) {
+                return std::nullopt;
+            }
+        }
+        if (!a_pitch_integral(m)) {
+            return std::nullopt;
+        }
         if (!r.ok() || !a_height_asked(m.stovl_height_asked_ft) || !a_number(m.x_m) || !a_number(m.y_m) || !a_number(m.z_m)) {
             return std::nullopt;
         }

@@ -307,7 +307,8 @@ void Online::hear(Flight& flight) {
     const bool known = flight.clocks_known();
     const auto c =
         flight.reconcile(word.motion, word.last_applied, word.steps_into, word.server_steps,
-                         word.engine_stopped, word.wrecked, word.stovl_height_asked_ft);
+                         word.engine_stopped, word.wrecked, word.stovl_height_asked_ft,
+                         word.stovl_carried);
     // **At the server's pace** (sim::Pacing): what its ticks are flown at
     // from here on.
     flight.pace_by_clocks(arrived_s_, clock_.known() ? std::optional<double>(clock_.rate())
@@ -547,6 +548,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             word.steps_into = state.yours->steps_into_input;
             word.server_steps = server_steps;
             word.stovl_height_asked_ft = net::stovl_height_asked(*state.yours);
+            word.stovl_carried.pitch_integral_deg = net::stovl_pitch_integral(*state.yours);
             if (own != state.aircraft.end() &&
                 own->condition == net::Condition::engine_stopped) {
                 word.engine_stopped = static_cast<int>(own->stopped_engine);

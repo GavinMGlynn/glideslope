@@ -129,6 +129,14 @@ struct OwnMotion {
     // long as the law flew her: told this, it is put right with the motion
     // (sim::Prediction).
     float stovl_height_asked_ft = no_stovl_law;
+    // **And her wing-borne autopilot's pitch integral**, degrees, while that
+    // law flies her with an autopilot (sim::Transition::Carried); none
+    // otherwise, and always none with no law. Seeded on each side when the
+    // law is made, a step apart when her selector reached the server a step
+    // off, and kept apart by the same motion put back at every word: 21 mm
+    // at the median, nearly 3 degrees of pitch (PROJECT_STATUS.md,
+    // 2026-10-16). Since version 13.
+    std::optional<float> stovl_pitch_integral_deg;
 
     bool operator==(const OwnMotion&) const = default;
 };
@@ -142,9 +150,17 @@ inline std::optional<double> stovl_height_asked(const OwnMotion& m) {
     return static_cast<double>(m.stovl_height_asked_ft);
 }
 
-// The flag and the motion after it: three doubles, ten floats, the steps and
-// the height asked.
-inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4 + 2 + 4;
+// The pitch integral, as a prediction takes it.
+inline std::optional<double> stovl_pitch_integral(const OwnMotion& m) {
+    if (!m.stovl_pitch_integral_deg) {
+        return std::nullopt;
+    }
+    return static_cast<double>(*m.stovl_pitch_integral_deg);
+}
+
+// The flag and the motion after it: three doubles, ten floats, the steps,
+// the height asked, and the pitch integral's flag and value.
+inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4 + 2 + 4 + 1 + 4;
 
 // **The controls of the aircraft this client is watching** (`WATCH`), which
 // only its own state update carries: riding along in another aircraft shows

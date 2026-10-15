@@ -155,6 +155,23 @@ public:
     double speed_asked_kt() const {
         return speed_asked_kt_;
     }
+    // **What a prediction cannot work out for itself** of this law, from the
+    // server's (net::OwnMotion, sim::Prediction::reconcile): seeded on each
+    // side from her as that side sees her when the law is made, a step apart
+    // when the selector reached the server a step off, and kept apart by
+    // both being put back to the same motion. Measured, of the law's state
+    // only the wing-borne autopilot's pitch integral needed telling
+    // (PROJECT_STATUS.md, 2026-10-16); none while no autopilot flies her -
+    // converting, jet-borne or hovering, whose laws' integrals are not
+    // carried.
+    struct Carried {
+        std::optional<double> pitch_integral_deg;
+        bool operator==(const Carried&) const = default;
+    };
+    Carried carried() const;
+    // Each part carried put on this law where it has that part to take it.
+    void carry(const Carried& carried);
+
     // **The attitude she flies wing-borne at her conversion speed**, level,
     // for what she weighs now: her weight over her wing's area, her lift
     // slope and the dynamic pressure of her conversion speed, degrees.
