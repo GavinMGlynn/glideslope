@@ -282,13 +282,17 @@ jobs:
           enableCrossOsArchive: true
 
   # ---------------------------------------------------------------------------
-  # Rocky 9: one release build and its tests, in one job - it is short enough
-  # that splitting it would cost more in setting up runners than it saves, and
-  # every extra runner is another dnf install against mirrors that have taken
-  # half an hour to answer.
+  # Rocky 9: a release build, and its tests in shards, as Ubuntu's are. It was
+  # one job, build and tests, on the reasoning that every extra runner is
+  # another dnf install against mirrors that have taken half an hour to
+  # answer; by 2026-10-16 its tests alone took 42 minutes run four at a time
+  # (run 38777694219), the longest job of every run. A shard installs what the
+  # build did (.github/actions/rocky-setup), unpacks the build's tree, and
+  # runs its share; the dealing reads linux-release's cost table, measured on
+  # Ubuntu's runners, since it is the same preset's list.
   # ---------------------------------------------------------------------------
-  rocky:
-    name: Rocky 9 linux-release - build, tests
+  rocky-build:
+    name: Rocky 9 linux-release - build
     # actions: write, to prune main's older ccache once this one is saved.
     permissions: { contents: read, actions: write }
     runs-on: ubuntu-latest
@@ -298,46 +302,19 @@ jobs:
       CCACHE_DIR: /__w/glideslope/glideslope/.ccache
       CCACHE_MAXSIZE: 500M
     steps:
-      # Rocky 9's own compiler is GCC 11, so the build uses gcc-toolset-14, as
-      # REQUIREMENTS.md's RHEL note says. ninja-build is in CRB.
-      # `install_weak_deps=False` is dnf's --no-install-recommends.
-      - name: Install dependencies
+      # git before the checkout, which needs it for the submodules; then the
+      # rest of what a Rocky job needs, the same in the build and its shards.
+      - name: git, for the checkout
         run: |
-          dnf_opts="--setopt=install_weak_deps=False --setopt=tsflags=nodocs -y"
-          # Rocky's mirrors go away for minutes at a time, and gearstick's CI
-          # learned to tell that apart from a real failure by retrying.
-          dnf_run() {
-            for attempt in 1 2 3 4; do
-              if dnf $dnf_opts "$@"; then return 0; fi
-              echo "::warning::dnf attempt $attempt failed; clearing the cache and retrying"
-              dnf clean all || true
-              sleep $((attempt * 15))
-            done
-            echo "::error::dnf would not complete in four attempts"
-            return 1
-          }
-          # EPEL and CRB for SDL's X11 and Wayland development packages, and
-          # Mesa's lavapipe for the frame tests.
-          dnf_run install epel-release
-          # autoconf, autoconf-archive, automake and libtool: vcpkg's libsodium
-          # port builds with autotools. ccache: a push that changes one file
-          # recompiles one file.
-          dnf_run --enablerepo=crb install git cmake ninja-build gcc-c++ \
-            autoconf autoconf-archive automake libtool ccache \
-            gcc-toolset-14-gcc-c++ jq \
-            libX11-devel libXext-devel libXrandr-devel libXi-devel \
-            libXcursor-devel libXfixes-devel libXScrnSaver-devel libXtst-devel \
-            libxkbcommon-devel \
-            wayland-devel wayland-protocols-devel libdecor-devel \
-            mesa-libGL-devel mesa-libEGL-devel libdrm-devel mesa-libgbm-devel \
-            pulseaudio-libs-devel alsa-lib-devel dbus-devel systemd-devel \
-            libusb1-devel mesa-vulkan-drivers vulkan-loader \
-            xorg-x11-server-Xvfb \
-            nasm make perl-IPC-Cmd perl-FindBin perl-File-Compare perl-File-Copy \
-            perl-Time-Piece zip unzip tar zstd pkgconf-pkg-config kernel-headers
-
+          for attempt in 1 2 3 4; do
+            dnf --setopt=install_weak_deps=False -y install git && exit 0
+            echo "::warning::dnf attempt $attempt failed; retrying"
+            dnf clean all || true; sleep $((attempt * 15))
+          done
+          exit 1
       - uses: actions/checkout@v5
         with: { submodules: true }
+      - uses: ./.github/actions/rocky-setup
 
       - uses: actions/cache/restore@v6
         id: downloads
@@ -427,14 +404,6 @@ jobs:
           keep: ccache-rocky9-linux-release-${{ github.sha }}
           token: ${{ github.token }}
 
-      - name: linux-release - tests
-        run: |
-          source /opt/rh/gcc-toolset-14/enable
-          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset linux-release || rc=$?
-          kill $xvfb
-          exit $rc
-
       - name: Flights for the cross-platform check
         run: |
           mkdir -p flights
@@ -444,17 +413,77 @@ jobs:
           cat flights/*
       - uses: actions/upload-artifact@v7
         with: { name: flights-rocky-gcc, path: flights/, if-no-files-found: error }
+      - name: Pack what the tests need
+        run: |
+          tar -czf tree.tar.gz --exclude='*.o' --exclude='*.a' --exclude=CMakeFiles \
+              --exclude=.ninja_deps --exclude=.ninja_log --exclude='frames' \
+              build/linux-release
+          ls -la tree.tar.gz
+      - uses: actions/upload-artifact@v7
+        with: { name: tree-rocky-linux-release, path: tree.tar.gz, retention-days: 1, compression-level: 0 }
+
+  rocky-test:
+    name: Rocky 9 ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
+    needs: rocky-build
+    if: ${{ github.event_name != 'push' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    container: rockylinux/rockylinux:9
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: linux-release, shard: 1, of: 3 }
+          - { preset: linux-release, shard: 2, of: 3 }
+          - { preset: linux-release, shard: 3, of: 3 }
+    steps:
+      - name: git, for the checkout
+        run: |
+          for attempt in 1 2 3 4; do
+            dnf --setopt=install_weak_deps=False -y install git && exit 0
+            echo "::warning::dnf attempt $attempt failed; retrying"
+            dnf clean all || true; sleep $((attempt * 15))
+          done
+          exit 1
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/rocky-setup
+      - uses: actions/cache/restore@v6
+        id: downloads
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-rocky-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
+        run: |
+          source /opt/rh/gcc-toolset-14/enable
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" || rc=$?
+          kill $xvfb
+          exit $rc
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
-        with: { name: frames-rocky, path: build/linux-release/tests/frames/*.bmp, if-no-files-found: ignore }
-      # **3 GB saved once per pinned list on a merge, not on every merge.** On
-      # a push to main this saves only when what was restored was not of these
-      # lists: every merge saved another 3 GB beside the last though nothing
-      # it pins had changed (run 37569407795 beside 37560605889's), and the
-      # two stood together until the run's end. The nightly run still saves
-      # it, so a file the tests fetch beyond the lists is kept within a day.
+        with: { name: 'frames-rocky-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+      # **3 GB saved once a night, by one shard.** It was saved on a merge
+      # too, once per pinned list (every merge had saved another 3 GB beside
+      # the last: run 37569407795 beside 37560605889's), but since 2026-10-16
+      # no Rocky tests run on a push to main, so nothing there fetches. The
+      # downloads fixture is set up in every shard that needs it, so shard
+      # 1's tree has the lists' files; a pull request between a list's change
+      # and the night restores the older entry and fetches what it lacks.
       - uses: actions/cache/save@v6
-        if: ${{ !cancelled() && github.event_name != 'pull_request' && (github.event_name != 'push' || !startsWith(steps.downloads.outputs.cache-matched-key, format('downloads-{0}-', hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp')))) }}
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && matrix.shard == 1 }}
         with:
           path: |
             .downloads/*
@@ -942,7 +971,7 @@ jobs:
   # ---------------------------------------------------------------------------
   cross-platform:
     name: The same flights everywhere
-    needs: [ubuntu-build, rocky, macos-build, windows-build]
+    needs: [ubuntu-build, rocky-build, macos-build, windows-build]
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -1070,7 +1099,7 @@ jobs:
   prune-caches:
     name: Old caches pruned
     if: ${{ !cancelled() && github.event_name == 'push' }}
-    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, macos-debug-test,
+    needs: [ubuntu-build, ubuntu-test, rocky-build, rocky-test, macos-build, macos-test, macos-debug-test,
             windows-build, windows-test]
     runs-on: ubuntu-latest
     permissions:
@@ -1108,7 +1137,7 @@ jobs:
   all-green:
     name: CI passed
     if: ${{ always() }}
-    needs: [ubuntu-build, ubuntu-test, rocky, macos-build, macos-test, macos-debug-test,
+    needs: [ubuntu-build, ubuntu-test, rocky-build, rocky-test, macos-build, macos-test, macos-debug-test,
             windows-build, windows-test, cross-platform, server-image, changes, package]
     runs-on: ubuntu-latest
     steps:
@@ -1128,5 +1157,5 @@ jobs:
               .value.result == "success"
               or (.value.result == "skipped" and (.key == "package"
                   or ($event == "push"
-                      and (.key | IN("ubuntu-test", "macos-test", "windows-test", "server-image")))
+                      and (.key | IN("ubuntu-test", "rocky-test", "macos-test", "windows-test", "server-image")))
                   or ($event == "pull_request" and .key == "macos-debug-test"))))' > /dev/null

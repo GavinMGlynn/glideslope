@@ -1,0 +1,48 @@
+name: Rocky 9 setup
+description: >
+  What a Rocky 9 job needs to build glideslope or run its tests - the same for
+  both, so that a test shard finds exactly the machine its build was made on.
+  It runs after the checkout, so a job installs git first (actions/checkout
+  needs it for the submodules) and then this.
+
+runs:
+  using: composite
+  steps:
+    # Rocky 9's own compiler is GCC 11, so the build uses gcc-toolset-14, as
+    # REQUIREMENTS.md's RHEL note says. ninja-build is in CRB.
+    # `install_weak_deps=False` is dnf's --no-install-recommends.
+    - name: Install dependencies
+      shell: bash
+      run: |
+        dnf_opts="--setopt=install_weak_deps=False --setopt=tsflags=nodocs -y"
+        # Rocky's mirrors go away for minutes at a time, and gearstick's CI
+        # learned to tell that apart from a real failure by retrying.
+        dnf_run() {
+          for attempt in 1 2 3 4; do
+            if dnf $dnf_opts "$@"; then return 0; fi
+            echo "::warning::dnf attempt $attempt failed; clearing the cache and retrying"
+            dnf clean all || true
+            sleep $((attempt * 15))
+          done
+          echo "::error::dnf would not complete in four attempts"
+          return 1
+        }
+        # EPEL and CRB for SDL's X11 and Wayland development packages, and
+        # Mesa's lavapipe for the frame tests.
+        dnf_run install epel-release
+        # autoconf, autoconf-archive, automake and libtool: vcpkg's libsodium
+        # port builds with autotools. ccache: a push that changes one file
+        # recompiles one file.
+        dnf_run --enablerepo=crb install git cmake ninja-build gcc-c++ \
+          autoconf autoconf-archive automake libtool ccache \
+          gcc-toolset-14-gcc-c++ jq \
+          libX11-devel libXext-devel libXrandr-devel libXi-devel \
+          libXcursor-devel libXfixes-devel libXScrnSaver-devel libXtst-devel \
+          libxkbcommon-devel \
+          wayland-devel wayland-protocols-devel libdecor-devel \
+          mesa-libGL-devel mesa-libEGL-devel libdrm-devel mesa-libgbm-devel \
+          pulseaudio-libs-devel alsa-lib-devel dbus-devel systemd-devel \
+          libusb1-devel mesa-vulkan-drivers vulkan-loader \
+          xorg-x11-server-Xvfb \
+          nasm make perl-IPC-Cmd perl-FindBin perl-File-Compare perl-File-Copy \
+          perl-Time-Piece zip unzip tar zstd pkgconf-pkg-config kernel-headers

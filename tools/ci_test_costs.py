@@ -22,6 +22,8 @@ import sys
 
 REPO = 'GavinMGlynn/glideslope'
 TEST = re.compile(r'Test\s+#\d+: (\S+) \.+.*?\s([\d.]+) sec')
+# One word of platform, then the preset: Rocky 9's shards ("Rocky 9 linux-release -
+# tests 1/3") do not match, so linux-release's table is Ubuntu's runners alone.
 SHARD_JOB = re.compile(r'^\S+ (\S+) - tests \d+/\d+$')
 
 
