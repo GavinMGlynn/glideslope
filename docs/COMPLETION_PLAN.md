@@ -644,12 +644,28 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       area, and her main gear's springs are soft; whether a real Cub leans
       so is not measured. *Verification: a cited figure for a Cub's side
       area or lean, and her lean held to it.*
-- [ ] **Every model but the Cub has her lift keyed to the angle of attack
+- [x] **Every model but the Cub has her lift keyed to the angle of attack
       counting the crosswind**, as their pitch terms did: standing or slowing
       in one, her lift is the beam wind's whole pressure times an undefined
       angle (the Cub's is moved, 2026-10-15). *Verification: each model's lift
       terms on the dynamic pressure without its sideways part or named with a
-      reason, and every figure in range.*
+      reason, and every figure in range.* Done 2026-10-15: 16 terms moved in
+      15 models, 5 named; standing in 15 kt across they lifted by up to 7,260
+      lb, now nothing; every figure in range.
+- [ ] **Every model but the Cub has her wing's drag keyed to the angle of
+      attack counting the crosswind**, as her lift did. *Verification: each
+      model's drag terms keyed to the angle of attack on the dynamic pressure
+      without its sideways part or named with a reason, and every figure in
+      range.*
+- [ ] **Lift not keyed to the angle of attack counts the crosswind
+      standing**: flaps, elevators and the C182's lift at no angle give her
+      up to 46 lb in 15 kt across, the F-22A 280. *Verification: each such
+      term moved or named with a reason, and every figure in range.*
+- [ ] **The Mosquito's slipstream lift flips with an undefined angle of
+      attack**: on her brakes at +9 boost it is -2,570 or +2,050 lb as her
+      creep flips the angle from -93 to +87 degrees. *Verification: standing
+      at any power, calm or 15 kt across, her slipstream lift within a stated
+      bound, and every figure in range.*
 - [ ] **The J-3 Cub braked stick central from 10 kt noses over in calm
       air**, from half brake (solo, trainer) or 0.6 (gross); whether a real
       one would, at her tip ratio of 0.45 to 0.50, is not measured.
@@ -925,6 +941,11 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       trim. *Verification:
       the S.23 lands in calm air and in gusts within the landplanes'
       limits.*
+- [ ] **The learnt landing's policy flies a C172P it was not trained on.**
+      It flies her slipped, up to 18 degrees in the flare in calm air; with
+      her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min
+      harder than it did, within its limits. *Verification: the policy trained
+      again on the C172P as committed, its parity fixture from that training.*
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own
