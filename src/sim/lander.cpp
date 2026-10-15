@@ -679,6 +679,28 @@ void Lander::hand_mixture(double mixture) {
     }
 }
 
+// **The brakes steer when the rudder is not enough.** A castoring
+// tailwheel steers nothing, and a Mosquito's rudder at full travel could not
+// hold a swing that grew from four to eighteen degrees a second as she
+// slowed: she ground-looped. Her Pilot's Notes give the answer -
+// differential brakes worked from the rudder bar, the lever held and the
+// pedal releasing the other wheel - and any aeroplane with toe brakes is held
+// straight the same way. Past half its travel the rudder brings in the brake
+// on the side the nose is wanted, up to six tenths, and lets the other off.
+// (A positive rudder yaws the nose left.) **Not near a stop**: below walking
+// pace the steering brake fades with her speed to none at a stop, where it
+// turns her nothing and only stands her on one wheel - nine tenths of it, on
+// a Cub weathervaned in 15 kt across, held her while power was run up against
+// it, until she broke away and went over.
+void Lander::toe_brakes(Controls& c, double brake, double vg_kts) {
+    const double steer = std::clamp((std::abs(c.rudder) - 0.5) / 0.5, 0.0, 1.0) *
+                         std::clamp(vg_kts / autobrake_off_kts, 0.0, 1.0);
+    const double inside = std::clamp(brake + 0.6 * steer, 0.0, 1.0);
+    const double outside = brake * (1.0 - steer);
+    c.left_brake = c.rudder > 0.0 ? inside : outside;
+    c.right_brake = c.rudder > 0.0 ? outside : inside;
+}
+
 Controls Lander::fly() {
     Controls c = fly_laws();
     if (stage_ != Stage::rollout && stage_ != Stage::stopped) {
@@ -1013,28 +1035,8 @@ Controls Lander::fly_laws() {
             brake_ = 0.0;
         }
         const double brake = brake_;
-        // **And the brakes steer when the rudder is not enough.** A
-        // castoring tailwheel steers nothing, and a Mosquito's rudder at full
-        // travel could not hold a swing that grew from four to eighteen
-        // degrees a second as she slowed: she ground-looped. Her Pilot's
-        // Notes give the answer - differential brakes worked from the rudder
-        // bar, the lever held and the pedal releasing the other wheel - and
-        // any aeroplane with toe brakes is held straight the same way. Past
-        // half its travel the rudder brings in the brake on the side the
-        // nose is wanted, up to six tenths, and lets the other off.
-        // (A positive rudder yaws the nose left, as above.)
-        // **Not near a stop**: below walking pace the steering brake fades
-        // with her speed to none at a stop, where it turns her nothing and
-        // only stands her on one wheel - nine tenths of it, on a Cub
-        // weathervaned in 15 kt across, held her while power was run up
-        // against it, until she broke away and went over.
-        const double steer =
-            std::clamp((std::abs(c.rudder) - 0.5) / 0.5, 0.0, 1.0) *
-            std::clamp(vg_kts / autobrake_off_kts, 0.0, 1.0);
-        const double inside = std::clamp(brake + 0.6 * steer, 0.0, 1.0);
-        const double outside = brake * (1.0 - steer);
-        c.left_brake = c.rudder > 0.0 ? inside : outside;
-        c.right_brake = c.rudder > 0.0 ? outside : inside;
+        // **And the brakes steer when the rudder is not enough** (`toe_brakes`).
+        toe_brakes(c, brake, vg_kts);
         c.reverse = reverse_thrust(kcas, vg_kts, slippery);
         return c;
     }

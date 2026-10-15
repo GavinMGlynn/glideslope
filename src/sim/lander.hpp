@@ -296,6 +296,13 @@ public:
                                         (slow < 0.0 ? 0.0 : slow > 1.0 ? 1.0 : slow);
     }
 
+    // **Her brakes as the rollout works them from the rudder bar**
+    // (lander.cpp): `brake` on both, and past half the rudder's travel the
+    // brake on the side the nose is wanted, up to six tenths, fading below
+    // `autobrake_off_kts` with her speed `vg_kts` to none at a stop. Sets
+    // `c`'s brakes from its rudder.
+    static void toe_brakes(Controls& c, double brake, double vg_kts);
+
     // One 120 Hz step's controls. Call once a step, as the aircraft is now.
     Controls fly();
     // The mixture it is handed, where that is not what the aircraft last
