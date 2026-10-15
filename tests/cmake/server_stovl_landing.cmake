@@ -16,7 +16,14 @@
 # still: selected once the server is flying her inputs, as a pilot would,
 # the server's transition law and the prediction's are seeded from the same
 # controls (selected with the first input they were not, and their
-# integrals stayed apart - PROJECT_STATUS.md, 2026-10-14).
+# integrals stayed apart - PROJECT_STATUS.md, 2026-10-14). And selected
+# once the client's prediction has settled, the clocks' difference known,
+# which it says ("selected with input N, its prediction settled"). The law's
+# height asked is seeded on each side from her height as each sees her; since
+# protocol 13 the server tells it with her motion and the prediction takes it,
+# so selected early it no longer holds what it was off by then (108 mm at the
+# median under load before; 1 to 37 mm after, PROJECT_STATUS.md, 2026-10-16).
+# Settled selection is kept: the law's other state is still each side's own.
 #
 # **What a server gives a player is her model's own loading, 45,400 lb**,
 # over the 39,837 lb she is flown into a hover at (`fcs/stovl-hover-most-lbs`):
