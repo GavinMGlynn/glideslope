@@ -1176,6 +1176,12 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th
       percentile under a metre in ten runs.*
+- [ ] **On a busy machine the server's word is placed a step off now and
+      then**: a server held up unevenly moves the least of the clocks'
+      difference, so the multi-process tests bound their 95th percentile by
+      steps' travel, not centimetres. *Verification: with twice as many busy
+      loops as cores beside it, the STOVL selector test's 95th percentile
+      under 10 cm in ten runs.*
 - [ ] **On a server the air has no ground's lift**: the server and its
       clients fly the weather over no ground, because the lift is too costly
       for a predicting client. *Verification: a client predicting over hills
