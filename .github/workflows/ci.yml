@@ -286,7 +286,9 @@ jobs:
   # one job, build and tests, on the reasoning that every extra runner is
   # another dnf install against mirrors that have taken half an hour to
   # answer; by 2026-10-16 its tests alone took 42 minutes run four at a time
-  # (run 38777694219), the longest job of every run. A shard installs what the
+  # (run 38777694219), the longest job of every run. Three shards took 18.4,
+  # 14.6 and 10.0 minutes of tests (run 38805735233), the first too near 20
+  # with a six-minute test on its way, so there are four. A shard installs what the
   # build did (.github/actions/rocky-setup), unpacks the build's tree, and
   # runs its share; the dealing reads linux-release's cost table, measured on
   # Ubuntu's runners, since it is the same preset's list.
@@ -420,9 +422,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-release, shard: 1, of: 3 }
-          - { preset: linux-release, shard: 2, of: 3 }
-          - { preset: linux-release, shard: 3, of: 3 }
+          - { preset: linux-release, shard: 1, of: 4 }
+          - { preset: linux-release, shard: 2, of: 4 }
+          - { preset: linux-release, shard: 3, of: 4 }
+          - { preset: linux-release, shard: 4, of: 4 }
     steps:
       - name: git, for the checkout
         run: |
