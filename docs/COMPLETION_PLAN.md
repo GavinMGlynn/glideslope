@@ -441,11 +441,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       real server, a player's F-35B and 172P untouched for thirty seconds
       hold their start height within 100 ft.*
 - [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
-      server's flight-control laws**: the server sends her motion, not her
-      laws' state, so a law that has wandered in the client is never put
-      right; through a server her predicted pitch can be 4 degrees off the
-      server's within a fifth of a second, though her position stays within
-      centimetres. *Verification: through a real server, held wing-borne two
+      server's flight-control laws**: the server sends her motion and, since
+      2026-10-16, the height her law is asked to hold, but not the rest of
+      her laws' state, so a law seeded a step apart is never put right;
+      through a server her predicted pitch can be 4 degrees off the
+      server's within a fifth of a second, and the prediction error's
+      median is 14 to 37 mm in some runs, not 0 to 1. *Verification: through a real server, held wing-borne two
       minutes, the client's predicted pitch within half a degree of the
       server's at every update.*
 - [x] **The Mosquito's model is never level after a stall warning with full

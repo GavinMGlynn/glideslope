@@ -1516,12 +1516,16 @@ public:
     // difference known (sim::Prediction::settled) - not at an input's
     // number. The law's height asked is seeded on each side from her height
     // as each saw it at the selector (sim::Controller), and the stick moves
-    // both alike from there, so the prediction holds whatever it was off by
-    // then for as long as the law flies her: selected while a busy machine
-    // was still settling, metres off, the median error stayed 108 mm
-    // (2026-10-15). That a player who selects so early is predicted off so
-    // is its own item (COMPLETION_PLAN, Phase 9); this pins the law's
-    // agreement, not the join's.
+    // both alike from there: before the server told it (net::OwnMotion,
+    // since protocol 13) the prediction held whatever it was off by then,
+    // and selected while a busy machine was still settling the median error
+    // stayed 108 mm. Told it, selected at the 150th input under the same
+    // load, the median was 1 to 37 mm (PROJECT_STATUS.md, 2026-10-16): what
+    // is left is the law's other state, also seeded on each side, and a
+    // step apart when the selector reaches the server a step late
+    // (COMPLETION_PLAN, Phase 9, "drifts from the server's flight-control
+    // laws"). Selecting once settled pins the law's agreement, not the
+    // join's.
     static constexpr std::uint32_t stovl_selected_from = 150;
     //
     // **The ground built before joining**: the DEM's coverage, its tiles'
