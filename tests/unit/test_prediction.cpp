@@ -2532,3 +2532,167 @@ GLIDESLOPE_TEST(a_prediction_whose_stovl_law_was_seeded_off_is_put_right_to_the_
     }
     check(offsets_flown == 2, "both signs flown: " + std::to_string(offsets_flown));
 }
+
+// **A prediction whose STOVL law was made a step or two apart from the
+// server's is put right by the law's carried state, and then agrees.** Her
+// selector placed a step off by the clocks' difference - a step late on a
+// busy server, or two on Windows' 15.6 ms timers - and each side's law is
+// made on its own step, its wing-borne autopilot seeding its pitch integral
+// from her as it finds her then; put back to the same motion at every word,
+// both integrate alike from there, so the difference stays. Built: the
+// F-35B at her model's 45,400 lb, untrimmed at 2,200 ft and 300 KCAS, flown
+// untouched (0.6) and diving as a server holds a player's, then STOVL mode,
+// the stick full forward and the lever at 0.7, as the multi-process test's
+// pilot flies her; the server makes its law a step early, on the same step,
+// a step late and two late, from 5 s and from 9 s into the dive - eight
+// cases, counted. The server's word every fifth step 100 ms each way,
+// carrying the height asked and the pitch integral rounded as the wire
+// rounds them. Over a minute once the clocks' difference is known: the
+// prediction error - the server's word against where the prediction had
+// flown her by that step - under a millimetre at the median, and her pitch
+// within half a degree of the server's at every word (COMPLETION_PLAN's
+// bound). Measured: the median at most 0.2 mm, the worst 0.5 mm, and the
+// pitch 0.020 degrees. **Seen red** with the pitch integral not carried:
+// from 5 s a step early, the first case, the median 8.3 mm and the pitch
+// 1.14 degrees off (in the search that found it, a step late 21 mm and 2.9).
+GLIDESLOPE_TEST(a_prediction_whose_stovl_law_was_made_a_step_or_two_apart_from_the_servers_is_put_right_by_what_the_law_carries) {
+    using glideslope::sim::apply;
+    using glideslope::sim::Controller;
+    using glideslope::sim::Motion;
+    using glideslope::sim::Transition;
+    std::size_t cases = 0;
+    for (const int selected_s : {5, 9}) {
+        for (const int late : {-1, 0, 1, 2}) {
+            const auto start = [](Aircraft& a) {
+                a.set_terrain(flat_ground());
+                InitialConditions ic;
+                ic.latitude_deg = -33.9461;
+                ic.longitude_deg = 151.1772;
+                ic.heading_deg = 270.0;
+                ic.altitude_ft = 2200.0;
+                ic.terrain_elevation_ft = 0.0;
+                ic.airspeed_kts = 300.0;
+                ic.gear = 0.0;
+                ic.engine_running = true;
+                ic.trim = false;
+                a.initialize(ic);
+                a.freeze_fuel(true);
+            };
+            Aircraft server_aircraft(data() / "jsbsim", "f35b");
+            Aircraft client_aircraft(data() / "jsbsim", "f35b");
+            start(server_aircraft);
+            start(client_aircraft);
+            Controls untouched;
+            untouched.throttle = 0.6;
+            Controller server(server_aircraft, untouched);
+            Prediction client(client_aircraft);
+            const int one_way = 100 * steps_per_second / 2000;
+            const int every = 5;
+            const int selected = selected_s * steps_per_second;
+            const auto inputs = [&](int frame) {
+                Controls c = untouched;
+                if (frame >= selected) {
+                    c.stovl = 1.0;
+                    c.elevator = -1.0;
+                    c.throttle = 0.7;
+                }
+                return c;
+            };
+            // The input the server flies at its step `theirs`: the selector
+            // reaching it `late` steps after the client began it (early when
+            // negative).
+            const auto flown = [&](int theirs) {
+                if (late > 0 && theirs >= selected && theirs < selected + late) {
+                    return selected - 1;
+                }
+                if (late < 0 && theirs >= selected + late && theirs < selected) {
+                    return selected;
+                }
+                return theirs;
+            };
+            struct Posted {
+                int arrives_at = 0;
+                Motion motion;
+                std::uint32_t applied = 0;
+                std::uint64_t server_steps = 0;
+                std::optional<double> height_ft;
+                Transition::Carried carried;
+                double pitch_deg = 0.0;
+            };
+            std::deque<Posted> post;
+            std::uint64_t server_steps = 0;
+            struct Flown {
+                std::array<double, 3> where;
+                double pitch_deg;
+            };
+            std::vector<Flown> flown_here;
+            std::vector<double> errors_m;
+            double worst_pitch_deg = 0.0;
+            const int frames = selected + 61 * steps_per_second;
+            for (int frame = 0; frame < frames; ++frame) {
+                client.step(static_cast<std::uint32_t>(frame + 1), inputs(frame));
+                const Motion m = client_aircraft.motion();
+                flown_here.push_back({{m.location_ecef_m[0], m.location_ecef_m[1],
+                                       m.location_ecef_m[2]},
+                                      client_aircraft.state().pitch_deg});
+                const int theirs = frame - one_way;
+                if (theirs < 0) {
+                    continue;
+                }
+                const int k = flown(theirs);
+                server.set_pilot(inputs(k));
+                apply(server_aircraft, server);
+                server_aircraft.step();
+                ++server_steps;
+                if (theirs % every == 0) {
+                    Posted p;
+                    p.arrives_at = frame + one_way;
+                    p.motion = server_aircraft.motion();
+                    p.applied = static_cast<std::uint32_t>(k + 1);
+                    p.server_steps = server_steps;
+                    p.pitch_deg = server_aircraft.state().pitch_deg;
+                    if (server.transition()) {
+                        p.height_ft = static_cast<double>(
+                            static_cast<float>(server.stovl_height_asked_ft()));
+                        const Transition::Carried c = server.transition()->carried();
+                        if (c.pitch_integral_deg) {
+                            p.carried.pitch_integral_deg = static_cast<double>(
+                                static_cast<float>(*c.pitch_integral_deg));
+                        }
+                    }
+                    post.push_back(p);
+                }
+                while (!post.empty() && post.front().arrives_at <= frame) {
+                    const Posted& p = post.front();
+                    const bool settled = client.settled();
+                    const Prediction::Correction c = client.reconcile(
+                        p.motion, p.applied, 1, p.server_steps, p.height_ft, p.carried);
+                    if (settled && p.height_ft && c.at_step && *c.at_step > 0 &&
+                        *c.at_step <= flown_here.size()) {
+                        const Flown& f = flown_here[*c.at_step - 1];
+                        errors_m.push_back(std::hypot(f.where[0] - p.motion.location_ecef_m[0],
+                                                      f.where[1] - p.motion.location_ecef_m[1],
+                                                      f.where[2] - p.motion.location_ecef_m[2]));
+                        worst_pitch_deg = std::max(worst_pitch_deg, std::abs(f.pitch_deg - p.pitch_deg));
+                    }
+                    post.pop_front();
+                }
+            }
+            std::sort(errors_m.begin(), errors_m.end());
+            check(errors_m.size() > 1400, "words compared once known, law flying: " +
+                                              std::to_string(errors_m.size()));
+            const double median_m = errors_m[errors_m.size() / 2];
+            std::printf("  selected at %d s, the server's law made %+d steps late: the median "
+                        "%.4f m, the worst %.4f m, the pitch %.3f degrees off at worst, over %zu "
+                        "words\n",
+                        selected_s, late, median_m, errors_m.back(), worst_pitch_deg,
+                        errors_m.size());
+            check(median_m <= 0.001, "the median error was " + std::to_string(median_m) +
+                                         " m, over a millimetre");
+            check(worst_pitch_deg <= 0.5, "her pitch was " + std::to_string(worst_pitch_deg) +
+                                              " degrees off the server's, over half");
+            ++cases;
+        }
+    }
+    check(cases == 8, "two moments and four placings: " + std::to_string(cases));
+}

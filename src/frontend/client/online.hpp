@@ -407,6 +407,8 @@ private:
         // The height the server's STOVL law was asked to hold, where one
         // flies her (net::OwnMotion, sim::Prediction::reconcile).
         std::optional<double> stovl_height_asked_ft;
+        // And its autopilot's pitch integral (sim::Transition::Carried).
+        sim::Transition::Carried stovl_carried;
         // Where it is, not a correction: the first word since joining, or
         // since it was taken back from the AI.
         bool adopt = false;

@@ -140,9 +140,16 @@ public:
     // does not yet, or no longer, the two disagree about the selector or its
     // moment, there is no law here to tell, and the next word that finds
     // both flying one puts it right.
+    //
+    // **And what else of her law it cannot work out for itself**
+    // (Transition::Carried): the wing-borne autopilot's pitch integral, put
+    // on the law put back with the height, where that law has an autopilot
+    // to take it. Seeded a step apart - the selector placed a step off - it
+    // stayed apart, 21 mm at the median, as the height did.
     Correction reconcile(const Motion& server, std::uint32_t last_applied,
                          std::size_t steps_into, std::uint64_t server_steps,
-                         std::optional<double> stovl_height_asked_ft = std::nullopt);
+                         std::optional<double> stovl_height_asked_ft = std::nullopt,
+                         const Transition::Carried& stovl_carried = {});
     // **What a word says of the clocks' difference, and nothing else**: the
     // sample `reconcile` above takes from it, for a word that is not the
     // newest of those heard together. Put right from each of them in turn,

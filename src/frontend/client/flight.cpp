@@ -203,7 +203,8 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
                                               std::uint64_t server_steps,
                                               std::optional<int> engine_stopped,
                                               bool wrecked,
-                                              std::optional<double> stovl_height_asked_ft) {
+                                              std::optional<double> stovl_height_asked_ft,
+                                              const sim::Transition::Carried& stovl_carried) {
     if (!prediction_) {
         return {};
     }
@@ -211,7 +212,7 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
     prediction_->hear_wrecked(wrecked);
     const sim::Prediction::Correction c =
         prediction_->reconcile(motion, last_applied, steps_into, server_steps,
-                               stovl_height_asked_ft);
+                               stovl_height_asked_ft, stovl_carried);
     // Held against where this client had flown it by the step the word is
     // placed at (glideslope_cli's measure), then forgotten up to there.
     if (c.at_step && *c.at_step > 0) {

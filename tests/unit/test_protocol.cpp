@@ -237,8 +237,10 @@ GLIDESLOPE_TEST(an_envelope_that_is_wrong_is_refused_with_the_reason_it_is_wrong
     for (const std::uint8_t before : {std::uint8_t{0x0B}, std::uint8_t{0x0C}}) {
         std::vector<std::uint8_t> was = wire;
         was[4] = before;
+        char hex[4];
+        std::snprintf(hex, sizeof hex, "%02X", static_cast<unsigned>(before));
         check(refuse(was) == Refusal::wrong_version,
-              "a " + std::to_string(before) + " datagram is refused as WRONG_VERSION");
+              "a " + std::string(hex) + " datagram is refused as WRONG_VERSION");
     }
 
     std::vector<std::uint8_t> odd = wire;

@@ -113,7 +113,8 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
                                              std::uint32_t last_applied,
                                              std::size_t steps_into,
                                              std::uint64_t server_steps,
-                                             std::optional<double> stovl_height_asked_ft) {
+                                             std::optional<double> stovl_height_asked_ft,
+                                             const Transition::Carried& stovl_carried) {
     const AircraftState was = aircraft_.state();
     Correction out;
     hear_clock(last_applied, steps_into, server_steps);
@@ -139,6 +140,7 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     if (laws_ && laws_->transition() && stovl_height_asked_ft) {
         Controller::PilotsLaws told = laws_->pilots_laws();
         told.stovl_height_ft = *stovl_height_asked_ft;
+        told.stovl->carry(stovl_carried);
         laws_->restore(told);
     }
     out.replayed = fly_held_again();
