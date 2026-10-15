@@ -68,12 +68,26 @@ pitch and just under 6 of alpha; its main wheels lifted off one side at a
 time and it was airborne again for a second, and its left main gear then
 collapsed. It is weak evidence of how the aeroplane floats, and nothing here
 is set from it.
+
+**Her pitch terms keyed to the angle of attack on the dynamic pressure without
+its sideways part** (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15):
+Cmalpha. Standing or slowing in a crosswind her angle of attack, atan2(w, u),
+is any angle at all - 12 to 124 degrees standing on her brakes in 15 kt across
+- and on the whole dynamic pressure, which counts the crosswind, it pitched her
+nose down by up to 53,500 ft-lb; on aero/qbarUW-psf, nothing. Her wing is
+swept, 28 degrees at the quarter chord (SWEEP_QUARTER_CHORD), where issue #89
+did not look; simple sweep theory (NACA Report 863; alpha_rate.py's docstring)
+puts the part of a beam wind's moment that goes with the angle of attack near
+nothing standing, as qbarUW does, where on qbar it is as large as the undefined
+angle makes it. In flight, at a few degrees of sideslip, the two differ by its
+cosine squared.
 """
 
 import math
 import sys
 
 import airliner
+import alpha_rate
 import fighter
 import ground
 import make_f15c
@@ -349,7 +363,8 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+            airframe(), "make_b2", {"PITCH": ["aero/coefficient/Cmalpha"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

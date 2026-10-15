@@ -61,6 +61,18 @@ The changes, and what each is for:
 (tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
 angle of attack is undefined, its rate swings, and multiplied by the whole
 dynamic pressure it pitched her by tens of degrees a second.
+
+**Her pitch terms keyed to the angle of attack on the dynamic pressure without
+its sideways part** (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15):
+Cmalpha. Standing or slowing in a crosswind her angle of attack, atan2(w, u),
+is any angle at all - 89 to 91 degrees standing on her brakes in 15 kt across -
+and on the whole dynamic pressure, which counts the crosswind, it pitched her
+nose down by up to 129,000 ft-lb; on aero/qbarUW-psf, 2. Her wing is swept,
+about 37.5 degrees at the quarter chord, where issue #89 did not look; simple
+sweep theory (NACA Report 863; alpha_rate.py's docstring) puts the part of a
+beam wind's moment that goes with the angle of attack near nothing standing, as
+qbarUW does, where on qbar it is as large as the undefined angle makes it. In
+flight, at a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import re
@@ -163,7 +175,9 @@ def airframe():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(alpha_rate.with_qbar_uw(airframe(), "make_747_400"), REVERSERS, SCRIPT),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(alpha_rate.with_alpha_terms_on_qbar_uw(
+            alpha_rate.with_qbar_uw(airframe(), "make_747_400"), "make_747_400",
+            {"PITCH": ["aero/coefficient/Cmalpha"]}), REVERSERS, SCRIPT),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

@@ -1181,7 +1181,7 @@
       </function>
       <function name="aero/moment/pitch-alpha">
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <property>aero/alpha-rad</property>
@@ -1194,7 +1194,7 @@
           the stall the aircraft pitches, the A.S.I. fluctuates and the nose
           drops gently" (Pilot's Notes para. 43).</description>
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <table>

@@ -717,7 +717,7 @@
             <function name="aero/coefficient/Cmalpha">
                 <description>Pitch_moment_due_to_alpha</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/cbarw-ft</property>
                     <property>aero/alpha-rad</property>

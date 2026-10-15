@@ -962,7 +962,7 @@
     <function name="aero/moment/Pitch_alpha">
        <description>Pitch moment due to alpha</description>
        <product>
-           <property>aero/qbar-psf</property>
+           <property>aero/qbarUW-psf</property>
            <property>metrics/Sw-sqft</property>
            <property>metrics/cbarw-ft</property>
            <property>aero/alpha-rad</property>

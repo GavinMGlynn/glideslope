@@ -152,6 +152,20 @@ The changes, and what each is for:
 (tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
 angle of attack is undefined, its rate swings, and multiplied by the whole
 dynamic pressure it pitched her by tens of degrees a second.
+
+**Her pitch terms keyed to the angle of attack on the dynamic pressure without
+its sideways part** (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15):
+Cmalpha. Standing or slowing in a crosswind her angle of attack, atan2(w, u),
+is any angle at all - 6 to 118 degrees standing on her brakes in 15 kt across -
+and on the whole dynamic pressure, which counts the crosswind, it pitched her
+nose down by up to 945 ft-lb, pitching her at up to 5 deg/s; on
+aero/qbarUW-psf, the air's moment is at most 285 ft-lb nose down, under 1
+deg/s. Her wing and tailplane are not swept: the case JSBSim issue #89 tested
+(on the C172) and the FlightGear wiki's "JSBSim Aerodynamics" writes up, QBarUW
+"more appropriate for Cm" than the whole QBar. In flight, at a few degrees of
+sideslip, the two differ by its cosine squared. **Not moved**: CmDe, the
+elevator's term - the angle of attack only picks its coefficient (-0.62 to
+-0.87, held at the ends), and stick central it is nothing.
 """
 
 import pathlib
@@ -403,7 +417,9 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_qbar_uw(airframe(), "make_c182"),
+        OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+            alpha_rate.with_qbar_uw(airframe(), "make_c182"), "make_c182",
+            {"PITCH": ["aero/coefficient/Cmalpha"]}),
         OUT / "engine" / "engIO540AB1A5.xml": engine(),
         OUT / "engine" / "prop_81in2v.xml": propeller(),
     }
