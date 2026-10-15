@@ -3627,6 +3627,195 @@ GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_in_a_15_kt_crosswind_has
     walking_pace_then_stop(15.0, stopped_before_the_rolling_ceiling());
 }
 
+// **The J-3 Cub held at every walking pace in 15 kt straight across stays on
+// her wheels.** She was rolled onto her wing: handed to the rollout at 3.5 to
+// 5 kt in 15 kt from the left, she stopped and stood at taxi power, and 4 to
+// 8 s later struck her airframe at 21 degrees of roll. The cause, traced
+// step by step on linux-debug (PROJECT_STATUS, 2026-10-15): her wing's drag
+// keyed to the angle of attack (`Drag_basic`) on the whole dynamic pressure.
+// Standing with the air from the side, her angle of attack, atan2(w, u), is
+// anything at all, and each degree she leaned gave the beam wind a w and
+// took it towards 90 degrees, where the table is a flat plate's, 1.41 - so
+// the sideways force on her grew as she leaned, 171 lb to 274, and leaned
+// her more. With it, and her lift, on the dynamic pressure of u and w alone
+// (tools/make_j3cub.py) she leans 4.2 to 4.4 degrees and stays there.
+//
+// **Every scenario**: at her model's own loading and every loading her
+// figures give (solo, trainer, gross), with the wind from the left and from
+// the right, rolled up to every walking pace from 2 to 5 kt by half a knot
+// on the throttle alone, the rollout steering her, and handed to the
+// rollout there; the test's hand holds her at that pace at no more than her
+// taxi power for half a minute (as `walking_pace_then_stop`), and lets go
+// for a minute. Her ailerons are the rollout's, wings level - not held into
+// the wind, as her Owner's Manual has a pilot do when turning in winds over
+// 15 m.p.h.: it is the model that is judged. Judged: nothing but her wheels
+// touches the runway (`sim::GroundJudge`), her wings stay within 15 degrees,
+// she does not go over, and she stops. Coverage asserted: 4 loadings, 2
+// winds, 7 paces, 56 runs, every one rolled up to her pace and judged.
+// **Seen red** with her lift and wing drag back on the whole dynamic
+// pressure (the model as before, in the build's copy): see PROJECT_STATUS.
+GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays_on_her_wheels) {
+    using glideslope::sim::Lander;
+    constexpr double crosswind_kts = 15.0;
+    constexpr double paces_kts[] = {2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0};
+    constexpr double most_roll_deg = 15.0;
+    constexpr int settle_s = 5;
+    constexpr int roll_up_s = 30;
+    constexpr int held_s = 30;
+    constexpr int let_go_s = 60;
+    const glideslope::sim::Runway runway = a_runway();
+    const auto speeds = glideslope::sim::approach_speeds(data(), "j3cub");
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / "j3cub.xml");
+    // Her model's own, with no one aboard, as the walking-pace tests fly
+    // her (the rollout is her pilot), and her figures'.
+    std::vector<std::pair<std::string, std::optional<glideslope::sim::Loading>>> loadings{
+        {"her model's own", std::nullopt}};
+    for (const auto& [name, l] : figures.loadings) {
+        loadings.emplace_back(name, l.loading);
+    }
+    const std::pair<const char*, double> winds[] = {{"left", 1.0}, {"right", -1.0}};
+    std::size_t runs = 0;
+    std::size_t judged = 0;
+    double most_roll_seen = 0.0;
+    std::vector<std::string> wrong;
+    for (const auto& [loading_name, loading] : loadings) {
+        for (const auto& [wind_name, side] : winds) {
+            for (const double pace_kts : paces_kts) {
+                ++runs;
+                char where[96];
+                std::snprintf(where, sizeof where, "%s, from the %s, %.1f kt",
+                              loading_name.c_str(), wind_name, pace_kts);
+                glideslope::sim::Aircraft aircraft(data() / "jsbsim", "j3cub");
+                if (loading) {
+                    aircraft.load(*loading);
+                }
+                aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                    [](double, double) { return 0.0; }, [](double, double) { return false; }));
+                glideslope::sim::InitialConditions ic;
+                ic.latitude_deg = runway.threshold_lat_deg;
+                ic.longitude_deg = runway.threshold_lon_deg;
+                ic.altitude_ft = runway.elevation_ft;
+                ic.terrain_elevation_ft = runway.elevation_ft;
+                ic.heading_deg = runway.heading_deg;
+                ic.engine_running = true;
+                ic.gear = 1.0;
+                aircraft.initialize(ic);
+                glideslope::sim::Controls parked;
+                parked.left_brake = 1.0;
+                parked.right_brake = 1.0;
+                for (int step = 0; step < settle_s * steps_per_second; ++step) {
+                    aircraft.set_controls(parked);
+                    aircraft.step();
+                }
+                // Straight across the runway: from the left, towards her
+                // right (heading + 90), or from the right.
+                glideslope::sim::Conditions c;
+                const double towards = (runway.heading_deg + 90.0 * side) / degrees;
+                const double mps = crosswind_kts * 0.514444;
+                c.wind_north_mps = mps * std::cos(towards);
+                c.wind_east_mps = mps * std::sin(towards);
+                c.wind_at_20ft_mps = mps;
+                aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(c));
+                const auto kts = [&] { return aircraft.property("velocities/vg-fps") / 1.68781; };
+                glideslope::sim::GroundJudge judge(false);
+                judge.judge(aircraft);
+                std::string fault;
+                double most_roll = 0.0;
+                const char* phase = "in the roll-up";
+                // Judged at every step: false once her run is over.
+                const auto watch = [&] {
+                    const auto s = aircraft.state();
+                    most_roll = std::max(most_roll, std::abs(s.roll_deg));
+                    char at[160];
+                    if (gone_over(s.pitch_deg, s.roll_deg)) {
+                        std::snprintf(at, sizeof at, "went over %s (pitch %.1f, roll %.1f)",
+                                      phase, s.pitch_deg, s.roll_deg);
+                        fault = at;
+                        return false;
+                    }
+                    if (const auto why = judge.judge(aircraft); why && fault.empty()) {
+                        std::snprintf(at, sizeof at, "%s %s (pitch %.1f, roll %.1f, %.2f kt)",
+                                      why->c_str(), phase, s.pitch_deg, s.roll_deg, kts());
+                        fault = at;
+                    }
+                    return true;
+                };
+                bool going = true;
+                double integral = 0.0;
+                {
+                    auto steering = Lander::on_its_roll(aircraft, speeds, runway);
+                    for (int step = 0;
+                         going && step < roll_up_s * steps_per_second && kts() < pace_kts;
+                         ++step) {
+                        glideslope::sim::Controls u = steering.fly();
+                        integral = std::clamp(integral + 0.03 / steps_per_second, 0.0, 1.0);
+                        u.throttle = integral;
+                        u.left_brake = 0.0;
+                        u.right_brake = 0.0;
+                        aircraft.set_controls(u);
+                        aircraft.step();
+                        going = watch();
+                    }
+                }
+                const bool reached = kts() >= pace_kts;
+                const double taxi_throttle = integral;
+                phase = "after the hand-over";
+                auto lander = Lander::on_its_roll(aircraft, speeds, runway);
+                bool stopped = false;
+                for (int step = 0; going && step < (held_s + let_go_s) * steps_per_second;
+                     ++step) {
+                    glideslope::sim::Controls u = lander.fly();
+                    if (step < held_s * steps_per_second) {
+                        const double error = pace_kts - kts();
+                        const double rate = error > 0.0 ? 0.03 : 0.3;
+                        integral = std::clamp(integral + rate * error / steps_per_second, 0.0,
+                                              taxi_throttle);
+                        u.throttle = std::clamp(integral + 0.3 * error, 0.0, taxi_throttle);
+                    }
+                    aircraft.set_controls(u);
+                    aircraft.step();
+                    going = watch();
+                    if (step >= held_s * steps_per_second &&
+                        lander.stage() == Lander::Stage::stopped) {
+                        stopped = true;
+                        break;
+                    }
+                }
+                most_roll_seen = std::max(most_roll_seen, most_roll);
+                std::printf("  %-34s taxi power %.2f, most roll %4.1f deg%s%s\n", where,
+                            taxi_throttle, most_roll, fault.empty() ? "" : ", ",
+                            fault.c_str());
+                if (!reached) {
+                    wrong.push_back(std::string(where) + ": never rolled up to her pace");
+                    continue;
+                }
+                ++judged;
+                if (!fault.empty()) {
+                    wrong.push_back(std::string(where) + ": " + fault);
+                }
+                if (most_roll > most_roll_deg) {
+                    wrong.push_back(std::string(where) + ": rolled " + std::to_string(most_roll) +
+                                    " deg");
+                }
+                if (!stopped && fault.empty()) {
+                    wrong.push_back(std::string(where) + ": did not stop");
+                }
+            }
+        }
+    }
+    std::printf("  the most roll in any run: %.1f deg\n", most_roll_seen);
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    const std::size_t space = loadings.size() * std::size(winds) * std::size(paces_kts);
+    check(loadings.size() == 4 && runs == space && judged == space,
+          "4 loadings, 2 winds, 7 paces: " + std::to_string(runs) + " runs of " +
+              std::to_string(space) + ", " + std::to_string(judged) + " judged");
+}
+
 // **A walking-pace run counts her gone over past 45 degrees of pitch or roll,
 // or at an attitude that is no number**: the decision that ends a run before
 // her numbers reach a JSBSim table as NaN, asserted on constructed attitudes

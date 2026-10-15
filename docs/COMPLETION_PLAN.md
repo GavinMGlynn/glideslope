@@ -581,16 +581,20 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       part; stick central in 15 kt across her tail stays down; her figures
       stay in range.* **Missing**: the other fifteen models' terms, each
       chosen and justified (damping, elevator and swept-wing terms are not
-      in by default); and braked at 0.5 her tail still lifts or she goes over
-      in three runs (her lift, the next item). The Cub's is moved (2026-10-15).
-- [ ] **The J-3 Cub is rolled onto her wing by a crosswind at walking
-      pace**: held at 4.5 kt at taxi power in 15 kt across she rolls 21
-      degrees and strikes; at 3 kt her roll turns on terms that should not
-      matter (5.4 degrees, or 20.8 and a strike with her propwash pitch term
-      left alone). Her lift still counts the crosswind, but moved off it she
-      rolls so at 3 kt too. *Verification: her lift uses the dynamic pressure
-      without its sideways part, and held at every walking pace in 15 kt
-      across she stays on her wheels.*
+      in by default). The Cub's are moved, and braked in 15 kt across she now
+      does no worse than in calm air in every run (2026-10-15).
+- [x] **The J-3 Cub is rolled onto her wing by a crosswind at walking
+      pace**: held at 3.5 to 5 kt in 15 kt across she rolled 21 degrees and
+      struck. *Verification: her lift uses the dynamic pressure without its
+      sideways part, and held at every walking pace in 15 kt across she stays
+      on her wheels.* Done 2026-10-15: her wing's drag counted the crosswind
+      too and grew as she leaned; with both moved she leans at most 4.4
+      degrees, 2 to 5 kt, every loading, either side.
+- [ ] **The J-3 Cub leans 4.4 degrees standing in 15 kt across.** Her
+      sideways drag in a beam wind is the pinned model's, 1.23 on her wing's
+      area, and her main gear's springs are soft; whether a real Cub leans
+      so is not measured. *Verification: a cited figure for a Cub's side
+      area or lean, and her lean held to it.*
 - [ ] **The J-3 Cub braked stick central from 10 kt noses over in calm
       air**, from half brake (solo, trainer) or 0.6 (gross); whether a real
       one would, at her tip ratio of 0.45 to 0.50, is not measured.
@@ -606,9 +610,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       power with her stick back, and she rears to 11 degrees. *Verification:
       no landplane rolled at walking pace and stopped touches the runway with
       anything but her wheels.* At taxi power none strikes at 3 kt
-      (2026-10-15). **Missing**: only 3 kt of walking pace's 2-5 is flown,
-      and rolled at 4.5 kt in 15 kt across the Cub strikes, rolled onto her
-      wing (the Cub's walking-pace roll item above).
+      (2026-10-15). **Missing**: these tests fly only 3 kt of walking pace's
+      2-5; handed over at 2 kt the Cub rolled there for 0.03 s against
+      the 0.4 s they require, so they need reshaping to fly the range. The Cub, the one that struck at 4.5
+      kt, now stays on her wheels at 2-5 kt in her own test (2026-10-15).
 
 ---
 

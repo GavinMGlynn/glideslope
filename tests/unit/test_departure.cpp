@@ -1965,7 +1965,9 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
 // to 1,500 ft-lb against the ~1,080 her weight holds her tail down with, and
 // she went over standing on her brakes, at every loading. `Pitch_alpha`, and
 // `Pitch_propwash` with it, are now on the dynamic pressure of u and w alone,
-// `aero/qbarUW-psf` (tools/alpha_rate.py, JSBSim issue #89).
+// `aero/qbarUW-psf` (tools/alpha_rate.py, JSBSim issue #89) - and her lift
+// (`Lift_alpha`, `Lift_propwash`) and her wing's drag (`Drag_basic`) with
+// them (2026-10-15, the walking-pace roll; tools/make_j3cub.py).
 //
 // **Every scenario**: at every loading her figures give (solo, trainer,
 // gross; her model's own, with no one aboard, has no pilot to hold her stick
@@ -1996,21 +1998,15 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
 // those levels the crosswind run is held to calm air's outcome, not to her
 // tail staying down - and at every one of them so held (32 runs) calm air's
 // outcome is going over, so that holds them to nothing: they are counted,
-// not judged. **Pinned**: the calm outcomes, level by level. **Three
-// runs named for an open item**, at the edge of her tip, a tenth of brake
-// from where she goes over in calm air: braked at 0.5 in 15 kt across, at her
-// gross weight from the right her tail comes up for a moment where in calm
-// air it stays down, and solo from either side she goes over where in calm
-// air her tail only lifts. Her lift terms still count the crosswind (her
-// air's upward force 358 lb against 104 in calm air as the brakes come on, at
-// her gross weight); with them on `qbarUW` too (tried) all three keep her
-// tail down - Phase 9's "The J-3 Cub is rolled onto her wing by a crosswind
-// at walking pace" holds why that is not taken. The gross run is held to
-// stopping on her wheels; the solo runs' outcomes are printed, not held.
-// Standing and in the run-up all three are judged as any other. Coverage
-// asserted: three loadings, three winds, ten levels, 90 runs; the 60
-// crosswind runs: 25 held to her tail down, 32 to calm air's outcome, and
-// the three named.
+// not judged. **Pinned**: the calm outcomes, level by level. **None
+// named**: three runs were while her lift still counted the crosswind (her
+// air's upward force 358 lb against 104 in calm air as the brakes came on,
+// at her gross weight) - braked at 0.5, gross from the right her tail came
+// up for a moment and solo from either side she went over, where in calm air
+// it stayed down or only lifted. With her lift on `qbarUW` all three keep
+// her tail down, and are judged. Coverage asserted: three loadings, three
+// winds, ten levels, 90 runs; the 60 crosswind runs: 26 held to her tail
+// down and 34 to calm air's outcome.
 GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_tail_wheel_on_the_runway_wherever_she_does_in_calm_air) {
     constexpr double brake_levels[] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     constexpr double crosswind_kts = 15.0;
@@ -2035,12 +2031,6 @@ GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_ta
     }
     // The wind from the left (+1) or the right (-1) of her heading, or none.
     const std::pair<const char*, double> winds[] = {{"calm", 0.0}, {"left", 1.0}, {"right", -1.0}};
-    // Named for the open item on her lift (above), each with whether it is
-    // held to stopping on her wheels.
-    const std::map<std::string, bool> lift_items = {{"gross, right, brake 0.5", true},
-                                                    {"solo, left, brake 0.5", false},
-                                                    {"solo, right, brake 0.5", false}};
-    std::size_t lift_items_flown = 0;
     // A run's outcome, worst last.
     enum Outcome { down = 0, lifted_tail = 1, went_over = 2 };
     const char* const outcome_names[] = {"tail down", "tail lifted, stopped on her wheels",
@@ -2211,19 +2201,6 @@ GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_ta
                     }
                     continue;
                 }
-                if (lift_items.count(where) != 0) {
-                    ++lift_items_flown;
-                    std::printf("    named - her lift terms still count the crosswind (Phase 9's "
-                                "\"The J-3 Cub is rolled onto her wing by a crosswind at walking "
-                                "pace\"): %s\n",
-                                outcome_names[outcome]);
-                    if (lift_items.at(where) && (outcome == went_over || !stopped)) {
-                        wrong.push_back(std::string(where) + ": named for her lift, but " +
-                                        outcome_names[outcome] +
-                                        (stopped ? "" : ", not stopped"));
-                    }
-                    continue;
-                }
                 const int calm_outcome = calm.at(brake);
                 if (calm_outcome != down) {
                     ++compared;
@@ -2259,11 +2236,9 @@ GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_ta
     const std::size_t levels = std::size(brake_levels);
     check(loadings.size() == 3 && runs == loadings.size() * std::size(winds) * levels,
           "three loadings, three winds, ten levels: " + std::to_string(runs) + " runs");
-    check(lift_items_flown == lift_items.size() &&
-              judged + compared + lift_items.size() == loadings.size() * 2 * levels,
-          "every crosswind run judged: " + std::to_string(judged) + " to her tail down, " +
-              std::to_string(compared) + " to calm air's outcome, and the " +
-              std::to_string(lift_items_flown) + " named");
+    check(judged + compared == loadings.size() * 2 * levels && judged == 26 && compared == 34,
+          "every crosswind run judged: " + std::to_string(judged) + " to her tail down and " +
+              std::to_string(compared) + " to calm air's outcome, of 26 and 34");
     // Her calm-air outcomes, pinned: solo lifts her tail at 0.5 and goes
     // over from 0.6; trainer goes over from 0.5; gross from 0.6.
     const auto over_from = [](double first) {
