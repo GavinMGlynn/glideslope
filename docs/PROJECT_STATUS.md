@@ -268,22 +268,18 @@ are the risks the phase order is built around:
 ### The walking-pace tests fly every walking pace, 2 to 5 kt by half a knot, 2026-10-15 — item done
 
 **What is still not true first.**
-- **Verified locally in linux-debug only.** The `-march=x86-64-v2` debug
-  build and linux-release were not built: the disk was full (300 MB free of
-  1 TB, the other worktrees' builds), so CI's runs - none of them FMA - stand
-  for both; the pre-push hook's build was skipped for the same reason
-  (`GLIDESLOPE_PUSH_QUICK=0`).
 - **The Mosquito weathervanes rolling up from rest in 15 kt across**: at
   0.3 to 1.7 kt, her rudder full, she swings 46.6 degrees off the runway's
   heading before she is straightened, because the rudder bar's steering
   brake fades with her speed to nothing at a stop (lander.cpp). Not judged
   here - the heading is judged from the hand-over, as before - and added to
   the open Phase 10b item "The Mosquito swings below walking pace".
-- **The rolling ceiling cannot bite handed over at 3 kt or less** on a dry
-  runway or in 15 kt across (named), nor at 2 kt wet, nor below 3.5 kt wet
-  on the Cub and the Mosquito, whose brakes go on as on a dry runway: her
-  brakes stop her first. It bites in the 156 runs at 3.5 kt and more, and
-  in 2.5-3 kt wet on the nose-wheel aeroplanes.
+- **The rolling ceiling is not counted handed over at 3 kt or less** on a
+  dry runway or in 15 kt across (named: at 3 kt four never reach it and
+  the rest only just), nor at 2 kt wet, nor below 3.5 kt wet on the Cub and
+  the Mosquito, whose brakes go on as on a dry runway: her brakes stop her
+  first. It is counted in the 156 runs at 3.5 kt and more, and at 2.5-3 kt
+  wet on the eleven nose-wheel aeroplanes.
 - **These tests now cost about 13 times what they did**: 12 s each before,
   three tests; now six tests of 63 to 94 s here (linux-debug, four at once),
   estimated at 229 to 342 s on CI's linux-debug.
@@ -387,11 +383,15 @@ cost of `the_787_8_and_a380_handed_over_at_any_half_second_...` (146 s
 here): linux-debug 229 to 342 s, windows-debug 108 to 162, macos-debug 56
 to 83, and 13 to 65 in the release presets.
 
-**Verification.** linux-debug: the six new tests, the Cub held at every
-walking pace, the gone-over test, the tail-wheel stance test, the braked
-stop and stick-central Cub tests in 15 kt across, and the wet and steady
-crosswind roll-outs - 13 tests - pass. The `-march=x86-64-v2` debug build
-and linux-release: not built locally (disk full); CI's runs.
+**Verification.** In linux-debug, the `-march=x86-64-v2` debug build and
+linux-release: the six new tests, the Cub held at every walking pace, the
+gone-over test, the tail-wheel stance test, the braked stop and
+stick-central Cub tests in 15 kt across, and the wet and steady crosswind
+roll-outs - 13 tests - pass. The six tests' figures are the same in all
+three to the tenth (above), but the Cub's in 15 kt across in
+linux-release, held 23.6 to 24.7 s; and the same 19 named runs reach the
+rolling ceiling all the same in each. In linux-release the six take 6.9 to
+9.1 s.
 
 ### On main with #205: the Cub braked in 15 kt across does no worse than calm air, and the crosswind pitch item is done, 2026-10-15 — item done
 
