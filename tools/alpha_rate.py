@@ -89,6 +89,24 @@ def with_alpha_terms_on_qbar_uw(text, script, terms):
     investigated. In flight, at a few degrees of sideslip, the two differ by
     its cosine squared.
 
+    **A swept wing** (2026-10-15), where issue #89 did not look. Simple sweep
+    theory (R. T. Jones, "Wing Plan Forms for High-Speed Flight", NACA
+    Report 863, 1947): the pressures on a yawed wing are set by the air's
+    component normal to its leading edge alone. A beam wind V on a wing swept
+    by L meets each half at V sin L normal to its edge - not nothing, as on a
+    straight wing - but at an incidence set by w over V sin L, not by
+    atan2(w, u), and standing w is near nothing: the part of her moment that
+    goes with the angle of attack is near nothing too (of order rho V sin L w,
+    not rho V^2 times any angle). On aero/qbar-psf, Cm-alpha times atan2(w, u)
+    times the beam wind's whole pressure is a moment of any size the
+    undefined angle gives; on aero/qbarUW-psf it is of order rho (u^2 + w^2),
+    near nothing - neither exact, the second the nearer. In flight, at
+    sideslip b, the theory's mean over both halves is cos^2 b + tan^2 L
+    sin^2 b of the pressure, between qbarUW's cos^2 b and qbar's 1: at 5
+    degrees of sideslip and 35 of sweep, 0.996 against 0.992 and 1. So a
+    swept wing's terms keyed to the angle of attack may be moved too, each
+    script saying why; terms not keyed to it are left.
+
     **Chosen, not swept up.** Which terms move is the script's to name and
     justify: a pitch-damping or elevator term keyed to alpha, or a swept
     wing's, is not moved because it reads alpha. Each named function has its

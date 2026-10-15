@@ -124,6 +124,26 @@ The changes, and what each is for:
 (tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
 angle of attack is undefined, its rate swings, and multiplied by the whole
 dynamic pressure it pitched her by tens of degrees a second.
+
+**Her pitch terms keyed to the angle of attack on the dynamic pressure without
+its sideways part** (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15):
+Cma_M, the change in her Cm-alpha with Mach number, and CmDh_alpha, her
+Cm-alpha itself. She has no Cm-alpha term of her own: it is the column at no
+deflection of CmDh, her tailerons' table of the angle of attack and their
+deflection, and with_cm_alpha_split_out makes that column its own function and
+leaves CmDh the deflection's increment over it - the two adding to CmDh as it
+was, so that on the same pressure nothing would move. Her wing is swept, 30.9
+degrees at the quarter chord, where JSBSim issue #89 did not look; simple sweep
+theory (NACA Report 863; alpha_rate.py's docstring) puts the part of a beam
+wind's moment that goes with the angle of attack near nothing standing, as
+qbarUW does. Standing on her brakes in 15 kt across, at 89 to 90 degrees of
+the angle of attack, CmDh gave 9,600 ft-lb nose down on the whole dynamic
+pressure; Cma_M is nothing below Mach 0.6. In flight, at a few degrees of
+sideslip, the two pressures differ by its cosine squared. **Not moved**: CmDh,
+the tailerons' increment - an elevator term, its power; CmDtv, her thrust
+vectoring's moment, made by her engines, not her wing; and Cmq, her pitch
+damping, where the angle of attack only picks the coefficient of her pitch
+rate.
 """
 
 import re
@@ -417,9 +437,63 @@ def with_pitch_ground_mode(text):
         r"\1fcs/pitch-integrator-gain\2", "the pitch loop's integrator's gain")
 
 
+def with_cm_alpha_split_out(text):
+    """`text` with CmDh's column at no deflection - her Cm-alpha, for she has
+    no other - its own function, CmDh_alpha, and CmDh the deflection's
+    increment over it: the two add to CmDh as it was, term for term, so on
+    the same dynamic pressure nothing moves. The docstring says why."""
+    m = re.search(r"( *)<function name=\"aero/coefficient/CmDh\">.*?</function>\n", text, re.S)
+    if not m:
+        raise SystemExit(f"{SCRIPT}: no CmDh - has the pinned model changed?")
+    block, indent = m.group(0), m.group(1)
+    tables = re.findall(r"<table>.*?</table>", block, re.S)
+    if len(tables) != 2 or "lookup=\"column\">fcs/elevator-pos-rad" not in tables[1]:
+        raise SystemExit(f"{SCRIPT}: CmDh is not a Mach table and an alpha-by-deflection table - "
+                         f"has the pinned model changed?")
+    mach, table = tables
+    rows = [r.split() for r in re.search(r"<tableData>(.*?)</tableData>", table, re.S)
+            .group(1).strip().splitlines()]
+    if [float(x) for x in rows[0]] != [-0.5236, 0.0, 0.5236]:
+        raise SystemExit(f"{SCRIPT}: CmDh's deflections are not -0.5236, 0 and 0.5236 - "
+                         f"has the pinned model changed?")
+    column = "".join(f"                               {r[0]}  {r[2]}\n" for r in rows[1:])
+    alpha_table = ("<table>\n"
+                   "                           <independentVar>aero/alpha-rad</independentVar>\n"
+                   "                           <tableData>\n" + column +
+                   "                           </tableData>\n"
+                   "                         </table>")
+    common = (f"                       {mach}\n"
+              "                       <property>aero/qbar-psf</property>\n"
+              "                       <property>metrics/Sw-sqft</property>\n"
+              "                       <property>metrics/cbarw-ft</property>\n")
+    split = (
+        f'{indent}<function name="aero/coefficient/CmDh_alpha">\n'
+        "                   <description>Pitch_moment_due_to_alpha: CmDh's column at no "
+        "deflection (glideslope)</description>\n"
+        "                   <product>\n" + common +
+        f"                       {alpha_table}\n"
+        "            <value>1.5</value>\n"
+        "                   </product>\n"
+        "               </function>\n"
+        f'{indent}<function name="aero/coefficient/CmDh">\n'
+        "                   <description>Pitch_moment_due_to_horizontal_tail_deflection: "
+        "over CmDh_alpha (glideslope)</description>\n"
+        "                   <product>\n" + common +
+        "                       <difference>\n"
+        f"                         {table}\n"
+        f"                         {alpha_table}\n"
+        "                       </difference>\n"
+        "            <value>1.5</value>\n"
+        "                   </product>\n"
+        "               </function>\n")
+    return text[:m.start()] + split + text[m.end():]
+
+
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_qbar_uw(airframe(), "make_f22"),
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+            with_cm_alpha_split_out(alpha_rate.with_qbar_uw(airframe(), "make_f22")), "make_f22",
+            {"PITCH": ["aero/coefficient/Cma_M", "aero/coefficient/CmDh_alpha"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

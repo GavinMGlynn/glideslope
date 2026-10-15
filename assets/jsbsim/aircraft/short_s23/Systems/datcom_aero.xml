@@ -856,7 +856,7 @@
                Basic_Pitch_moment_coefficient
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <property>metrics/cbarw-ft</property>
                <table>

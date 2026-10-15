@@ -89,6 +89,19 @@ The changes to the text as written, and what each is for:
                         pitch-alpha-rate term, on the whole dynamic pressure,
                         pitched her by it; it is on aero/qbarUW-psf, as the
                         other models' have been since #198.
+
+**Her pitch terms keyed to the angle of attack on the dynamic pressure without
+its sideways part** (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15):
+pitch-alpha and pitch-stall (the moment past the stall is her Cm-alpha curve
+continued, keyed to the same angle). Standing or slowing in a crosswind her
+angle of attack, atan2(w, u), is any angle at all - 92 to 119 degrees standing
+on her brakes in 15 kt across - and on the whole dynamic pressure, which counts
+the crosswind, they pitched her nose down by up to 2,940 ft-lb between them; on
+aero/qbarUW-psf, the air's moment is at most 172 ft-lb nose down. Her wing and
+tailplane are not swept: the case JSBSim issue #89 tested (on the C172) and the
+FlightGear wiki's "JSBSim Aerodynamics" writes up, QBarUW "more appropriate for
+Cm" than the whole QBar. In flight, at a few degrees of sideslip, the two
+differ by its cosine squared.
 """
 
 import pathlib
@@ -1686,7 +1699,9 @@ def airframe():
     text = "".join([HEADER, METRICS, MASS_BALANCE, GROUND_REACTIONS, PROPULSION,
                     FLIGHT_CONTROL, AERODYNAMICS_HEAD, LIFT, DRAG, SIDE, ROLL, PITCH,
                     YAW, TAIL])
-    return alpha_rate.with_qbar_uw(text, "make_mosquito_fb6")
+    return alpha_rate.with_alpha_terms_on_qbar_uw(
+            alpha_rate.with_qbar_uw(text, "make_mosquito_fb6"), "make_mosquito_fb6",
+            {"PITCH": ["aero/moment/pitch-alpha", "aero/moment/pitch-stall"]})
 
 
 def outputs():
