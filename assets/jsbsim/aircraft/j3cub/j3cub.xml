@@ -357,7 +357,7 @@
       <description>Delta lift due to propeller induced velocity</description>
       <product>
          <property>propulsion/engine[0]/thrust-coefficient</property>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>aero/function/kCLge</property>
           <table>
@@ -375,7 +375,7 @@
     <function name="aero/force/Lift_alpha">
       <description>Lift due to alpha</description>
       <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>aero/function/kCLge</property>
           <table>
@@ -447,7 +447,7 @@
     <function name="aero/force/Drag_basic">
        <description>Drag at zero lift</description>
        <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <table>
             <independentVar lookup="row">aero/alpha-rad</independentVar>
