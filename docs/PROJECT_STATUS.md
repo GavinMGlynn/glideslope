@@ -938,7 +938,7 @@ prints the same 148 figures as linux-debug to the last digit; release
 differs in two, the Mosquito's take-off distance (2,521.9 ft) and swing
 (2.544, the term above). Selftest hashes: `07cc7d4a4d42a300` in linux-debug
 and v2, `b79bca7f3d8f6429` in release. **On CI**, run 38690110280 on
-a814c8db (the models and the fixture): on every job of every platform the
+652e7652 (the models, the fixture and the docs): on every job of every platform the
 one failure is that same walking-pace test; the Rocky 9 linux-release job
 ran all 1,303 and failed it alone.
 
