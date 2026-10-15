@@ -921,10 +921,26 @@ the F-22A's two commented-out `CLDh` terms uncommented (found, neither moved
 nor named); an aircraft not listed; a listed one missing. Each restored,
 green.
 
-**Verification.** linux-debug: the 148 figures and the 159 other flights
-above, the committed-model tests (every make script run again writes the
-committed models unchanged), the three term checks. The full suite, the
-`-march=x86-64-v2` debug build and linux-release: below, when run.
+**Verification.** **The full suite in linux-debug** (`ctest -j4`, with no
+display): of 1,303 tests, 1,278 pass, 24 are skipped (the live model calls,
+the Vulkan sky and server window, and the Windows file-sharing tests), and
+one fails - the walking-pace test above. (The run was stopped by its time
+limit with 111 tests to go, and the disk filled under it, so that the
+cockpit view's terrain tile could not be written and its six sibling views
+were not run; those 118 were run again on their own, and passed.) Among
+them every committed-model test - each make script writes the committed
+models unchanged - the three term checks, the selftest's, and the four
+measured landings. **In a `-march=x86-64-v2` debug build** (no fused
+multiply-adds, as CI builds) **and in linux-release**: the 148 figures and
+the 159 other flights, the same as linux-debug: all pass but the walking-
+pace test, the C172P at 0.294 and the PA-28 at 0.295 in both. The v2 build
+prints the same 148 figures as linux-debug to the last digit; release
+differs in two, the Mosquito's take-off distance (2,521.9 ft) and swing
+(2.544, the term above). Selftest hashes: `07cc7d4a4d42a300` in linux-debug
+and v2, `b79bca7f3d8f6429` in release. **On CI**, run 38690110280 on
+a814c8db (the models and the fixture): on every job of every platform the
+one failure is that same walking-pace test; the Rocky 9 linux-release job
+ran all 1,303 and failed it alone.
 
 ### On main with #205: the Cub braked in 15 kt across does no worse than calm air, and the crosswind pitch item is done, 2026-10-15 — item done
 
