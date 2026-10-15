@@ -138,7 +138,8 @@ theory (NACA Report 863; alpha_rate.py's docstring) puts the part of a beam
 wind's moment that goes with the angle of attack near nothing standing, as
 qbarUW does. Standing on her brakes in 15 kt across, at 89 to 90 degrees of
 the angle of attack, CmDh gave 9,600 ft-lb nose down on the whole dynamic
-pressure; Cma_M is nothing below Mach 0.6. In flight, at a few degrees of
+pressure; split and moved, CmDh_alpha gives nothing and the increment at most
+19 ft-lb. Cma_M is nothing below Mach 0.6. In flight, at a few degrees of
 sideslip, the two pressures differ by its cosine squared. **Not moved**: CmDh,
 the tailerons' increment - an elevator term, its power; CmDtv, her thrust
 vectoring's moment, made by her engines, not her wing; and Cmq, her pitch
