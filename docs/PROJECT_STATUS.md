@@ -373,6 +373,14 @@ All three keep her tail down. **Seen red** with main's Cub: exactly those
 three failed (gross from the right at 0.5 her tail up at 7.9 kt; solo from
 either side at 0.5 gone over, where in calm air her tail only lifts).
 Restored, green.
+`every_landplane_rolling_at_walking_pace_in_a_15_kt_crosswind_...`: the Cub
+is no longer named there for the rolling ceiling. On main her autobrake
+reaches 0.160 at most rolling in 15 kt across (named as 0.21, an older
+hand's); now it reaches the ceiling, 0.300 (her lean 4.2 degrees, her turn
+0.1, where on main she leans 5.4 and turns 1.0), and the ceiling is judged
+on her. **Seen red** with main's Cub: the test fails on her alone, "reached
+only 0.159588 rolling". Restored, green. Dry and wet she is still named
+(0.291 rolling, dry).
 
 **Her figures**: every Cub figure test (16 in the test binary: static rpm,
 rated power, climb, cruise, glide, stall, the ceiling, the orbits, the
@@ -384,7 +392,10 @@ new one; the measured landing stops 399 m past the threshold with both.
 wheels, the crosswind stops and brake sweep, the Cub's figures and both Cub
 crosswind tests, the light aeroplanes' heading holds and crosswind landings,
 the steady-wind rollouts, the committed models and the alpha-rate check
-pass. The selftest hash does not move: it flies the C172P.
+pass. The same 61 pass in a `-march=x86-64-v2` debug build (no fused
+multiply-adds, as CI builds) and in linux-release, the new test's most roll
+4.4 degrees in each (4.2 to 4.4 by run). The selftest hash does not move:
+it flies the C172P.
 
 ### The Windows jobs install one Python: a test job on another runner image from its build, 2026-10-15 — item done
 

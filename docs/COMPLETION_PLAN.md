@@ -853,7 +853,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
       creep, wet or dry (2026-10-14). **Still missing**: the walking-pace
       tests roll her at 2-5 kt for under 1.1 s, and the rolling bound is not
-      reached on the Cub and the Mosquito (nor the C172P dry), named there;
+      reached on the Cub (but in 15 kt across) and the Mosquito (nor the
+      C172P dry), named there;
       the 0.8 allowance for an idle creep is barely exercised on the jets.
 - [ ] **The Mosquito swings below walking pace.** She turns 36 to 155
       degrees before she stops. Without the steering-brake fade it is 81 to
