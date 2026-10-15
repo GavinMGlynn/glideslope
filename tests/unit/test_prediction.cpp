@@ -2378,3 +2378,157 @@ GLIDESLOPE_TEST(a_prediction_told_its_aircraft_is_a_wreck_holds_her_where_the_se
     check(furthest_last_m < 0.005, "flying again, in the last second she was " +
                                        std::to_string(furthest_last_m) + " m from the server");
 }
+
+// **A prediction whose STOVL law was seeded off is put right to the server's
+// height asked at its next word, and then agrees.** Each end seeds the law's
+// height from her height above the ground as it sees her at the selector,
+// and the stick moves both alike from there, so a prediction off at that
+// moment held the difference for as long as the law flew her - through a
+// server a steady 108 mm at the median (PROJECT_STATUS.md, 2026-10-15). Built
+// here, not hoped for: the F-35B at her model's own 45,400 lb, too heavy to
+// hover and so held wing-borne, trimmed level at 1,000 ft and 200 KCAS over
+// flat ground; the client's begun 2 m above the server's, and again 2 m
+// below - both signs, counted - and told nothing until both have selected
+// STOVL mode, at one second, so its law is seeded off by 6.6 ft; then the
+// stick half forward, as the multi-process test's pilot holds it, for a
+// minute. The server's motion comes back every fifth step 100 ms each way,
+// with the height asked rounded as the wire rounds it (an `f32`), as
+// stovl_agreement's does. Every word heard has a law flying her on both
+// sides - asserted, so none is passed for want of one - and from the first,
+// each correction once the clocks' difference is known must be within a
+// millimetre, and at the end her height asked in the prediction the
+// server's within a thousandth of a foot (the server's flown on to the same
+// step). Measured 0.0000 m and 0.0000 ft for both signs. Seen red without
+// the height told: the heights asked 6.56 ft apart at the end, and
+// corrections up to 5.2 mm, the law pulling her back to its own height
+// between every word.
+GLIDESLOPE_TEST(a_prediction_whose_stovl_law_was_seeded_off_is_put_right_to_the_servers_height_asked_and_then_agrees) {
+    using glideslope::sim::apply;
+    using glideslope::sim::Controller;
+    using glideslope::sim::Motion;
+    std::size_t offsets_flown = 0;
+    for (const double off_m : {2.0, -2.0}) {
+        const auto start = [&](Aircraft& a, double feet) {
+            a.set_terrain(flat_ground());
+            InitialConditions ic;
+            ic.latitude_deg = -33.9461;
+            ic.longitude_deg = 151.1772;
+            ic.heading_deg = 270.0;
+            ic.altitude_ft = feet;
+            ic.terrain_elevation_ft = 0.0;
+            ic.airspeed_kts = 200.0;
+            ic.gear = 0.0;
+            ic.engine_running = true;
+            ic.trim = true;
+            a.initialize(ic);
+            a.freeze_fuel(true);
+        };
+        Aircraft server_aircraft(data() / "jsbsim", "f35b");
+        Aircraft client_aircraft(data() / "jsbsim", "f35b");
+        start(server_aircraft, 1000.0);
+        start(client_aircraft, 1000.0 + off_m / 0.3048);
+        const Controls trimmed = glideslope::sim::trimmed_controls(server_aircraft);
+        Controller server(server_aircraft, trimmed);
+        Prediction client(client_aircraft);
+        check(client.laws() != nullptr, "her prediction flies her through a controller");
+        const int one_way = 100 * steps_per_second / 2000;
+        const int every = 5;
+        const int selected_from = steps_per_second;
+        const auto inputs = [&](int frame) {
+            Controls c = trimmed;
+            if (frame >= selected_from) {
+                c.stovl = 1.0;
+                c.elevator = -0.5;
+            }
+            return c;
+        };
+        struct Posted {
+            int arrives_at = 0;
+            Motion motion;
+            std::uint32_t applied = 0;
+            std::uint64_t server_steps = 0;
+            std::optional<double> height_asked_ft;
+        };
+        std::deque<Posted> post;
+        std::uint64_t server_steps = 0;
+        std::size_t heard = 0;
+        std::size_t both_flown = 0;
+        std::size_t judged = 0;
+        double worst_asked_ft = 0.0;
+        double worst_m = 0.0;
+        double seeded_off_ft = 0.0;
+        const int frames = 61 * steps_per_second;
+        for (int frame = 0; frame < frames; ++frame) {
+            client.step(static_cast<std::uint32_t>(frame + 1), inputs(frame));
+            if (frame == selected_from && client.laws()->transition()) {
+                seeded_off_ft = client.laws()->stovl_height_asked_ft();
+            }
+            const int theirs = frame - one_way;
+            if (theirs >= 0) {
+                server.set_pilot(inputs(theirs));
+                apply(server_aircraft, server);
+                server_aircraft.step();
+                ++server_steps;
+                if (theirs == selected_from && server.transition()) {
+                    seeded_off_ft -= server.stovl_height_asked_ft();
+                }
+                // **Told nothing until both have selected**, a word's worth
+                // after: the prediction's law is seeded from its own height.
+                if (theirs % every == 0 && theirs > selected_from + every) {
+                    std::optional<double> asked;
+                    if (server.transition()) {
+                        asked = static_cast<double>(
+                            static_cast<float>(server.stovl_height_asked_ft()));
+                    }
+                    post.push_back({frame + one_way, server_aircraft.motion(),
+                                    static_cast<std::uint32_t>(theirs + 1), server_steps, asked});
+                }
+            }
+            while (!post.empty() && post.front().arrives_at <= frame) {
+                const Posted& p = post.front();
+                const bool settled = client.settled();
+                const Prediction::Correction c =
+                    client.reconcile(p.motion, p.applied, 1, p.server_steps, p.height_asked_ft);
+                ++heard;
+                if (p.height_asked_ft && client.laws()->transition()) {
+                    ++both_flown;
+                }
+                if (settled) {
+                    worst_m = std::max(worst_m, c.moved_m);
+                    ++judged;
+                }
+                post.pop_front();
+            }
+        }
+        // The two laws' heights asked at the end, each at its own newest
+        // step: the server's is `one_way` steps behind, at the stick's 3
+        // ft/s.
+        const double sink_fps = 0.5 * Controller::stick_sink_fps;
+        const double behind_ft =
+            sink_fps * static_cast<double>(one_way) / static_cast<double>(steps_per_second);
+        const double apart_ft = client.laws()->stovl_height_asked_ft() -
+                                (server.stovl_height_asked_ft() - behind_ft);
+        worst_asked_ft = std::abs(apart_ft);
+        std::printf("  begun %+.0f m off: seeded %+.2f ft off; %zu words heard, %zu with a law "
+                    "on both sides; at the end the heights asked %.4f ft apart; worst "
+                    "correction once known %.4f m over %zu words; %.0f ft above the ground\n",
+                    off_m, seeded_off_ft, heard, both_flown, apart_ft, worst_m, judged,
+                    server_aircraft.state().height_above_ground_ft);
+        check(std::abs(seeded_off_ft - off_m / 0.3048) < 0.5,
+              "the prediction's law was seeded " + std::to_string(seeded_off_ft) +
+                  " ft off the server's, not the " + std::to_string(off_m / 0.3048) + " built");
+        check(heard > 1400 && both_flown == heard,
+              "every one of the " + std::to_string(heard) + " words heard had a law flying her "
+              "on both sides, not " + std::to_string(both_flown));
+        check(judged > 1400, "judged " + std::to_string(judged) + " words once known");
+        check(worst_m < 0.001, "a correction once known moved her " + std::to_string(worst_m) +
+                                   " m, over a millimetre");
+        check(worst_asked_ft < 0.001, "the heights asked ended " + std::to_string(apart_ft) +
+                                          " ft apart, not within a thousandth of a foot");
+        check(server_aircraft.state().height_above_ground_ft > 500.0,
+              "she was let down by the stick, not dived: " +
+                  std::to_string(server_aircraft.state().height_above_ground_ft) + " ft");
+        ++offsets_flown;
+    }
+    check(offsets_flown == 2, "both signs flown: " + std::to_string(offsets_flown));
+}

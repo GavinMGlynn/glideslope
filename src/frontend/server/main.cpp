@@ -2984,6 +2984,16 @@ public:
                 out.uvw_mps[i] = static_cast<float>(m.uvw_mps[i]);
                 out.pqr_radps[i] = static_cast<float>(m.pqr_radps[i]);
             }
+            // **And the height her STOVL law is asked to hold**, taken with
+            // the motion: the prediction seeds its own from her height as it
+            // saw her at the selector, and the stick moves both alike, so
+            // what it was off by then it held - 108 mm at the median, metres
+            // at worst - for as long as the law flew her (PROJECT_STATUS,
+            // 2026-10-15). None while no law flies her lift system.
+            if (a.controller && a.controller->transition()) {
+                out.stovl_height_asked_ft =
+                    static_cast<float>(a.controller->stovl_height_asked_ft());
+            }
             return out;
         }
         return std::nullopt;

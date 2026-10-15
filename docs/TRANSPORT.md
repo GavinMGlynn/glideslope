@@ -73,6 +73,9 @@ Said first, because a transport's limits matter more than its features.
   the runways near its station stay wet (`RUNWAY_CONDITIONS`, below).
   Version `0C` is on the same ground, and is the first whose input frame
   carries nineteen controls, the STOVL mode selector last (below, "Inputs").
+  Version `0D` is on the same ground, and is the first whose state update
+  carries, in a client's own motion, the height her STOVL law is asked to
+  hold (below, "State updates").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -83,7 +86,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `0C` |
+| 4 | 1 | version | `0D` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -129,7 +132,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `0C`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `0D`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -1158,9 +1161,19 @@ prediction can be put right (see "Predicting your own aircraft" below):
 | `f32` x3 | its velocity relative to the Earth along its own axes - forward, right, down - metres a second |
 | `f32` x3 | its rotation rates about those axes - roll, pitch, yaw - radians a second |
 | `u16` | how many steps of 1/120 s the server had flown it on the newest input it had applied, when it took this motion - from `0000`, the input applied and not yet flown, to `FFFF`, which is that many or more |
+| `f32` | the height above the ground beneath her that her STOVL transition law is asked to hold, feet, when it took this motion - or exactly -1 when no such law flies her lift system (since `0D`) |
 
-A flag other than `00` or `01`, or a NaN or infinity in any of the thirteen
-numbers, makes the packet unreadable.
+A flag other than `00` or `01`, or a NaN or infinity in any of the fourteen
+numbers, or a height asked below nought other than exactly -1, makes the
+packet unreadable.
+
+**The height asked is what a predicting client cannot work out for itself.**
+In STOVL mode the pilot's stick asks a height, not the surfaces; each end
+begins from her height above the ground as it sees her at the selector, and
+moves it alike from there. A prediction a little off at that moment would
+hold that difference for as long as the law flies her, so a client puts its
+own law's height to this one before it flies the steps since again, where a
+law flies her in its prediction too.
 
 **Last, the controls of the aircraft this client is watching** (`WATCH`),
 after a flag of their own. Each is a 16-bit fraction, as inputs are, of -1 to
@@ -1197,7 +1210,7 @@ the server's to hand out.
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
 full, with the client's own motion and a watched aircraft's controls, is
-1,138 bytes, and 1,168 with the
+1,142 bytes, and 1,172 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
@@ -1304,7 +1317,10 @@ gone.
 
 Nothing else about the aircraft is sent - its engines, its controls' positions,
 its fuel: the client, flying the same inputs, already has them, and sending
-them would make every update many times larger for nothing.
+them would make every update many times larger for nothing. The one exception
+is the height her STOVL law is asked to hold (since `0D`, above), which the
+client's own law began from her height as the client saw her, and so does not
+have.
 
 ## Sealing
 

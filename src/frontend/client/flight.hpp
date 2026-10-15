@@ -167,13 +167,16 @@ public:
     // `engine_stopped` is the server's word that one has, and which: it is
     // stopped here too before the inputs since are flown again
     // (sim::Prediction); `wrecked`, that the aircraft is a wreck, held
-    // where the server holds it and not flown (sim::Prediction::hear_wrecked).
+    // where the server holds it and not flown (sim::Prediction::hear_wrecked);
+    // `stovl_height_asked_ft`, the height the server's STOVL law was asked to
+    // hold, put on this client's where one flies her (sim::Prediction).
     sim::Prediction::Correction reconcile(const sim::Motion& motion,
                                           std::uint32_t last_applied,
                                           std::size_t steps_into,
                                           std::uint64_t server_steps,
                                           std::optional<int> engine_stopped = std::nullopt,
-                                          bool wrecked = false);
+                                          bool wrecked = false,
+                                          std::optional<double> stovl_height_asked_ft = std::nullopt);
     // **The prediction error**, as glideslope_cli measures it: where the
     // server says the aircraft was at a step against where this client had
     // flown it to by then, for each word heard once the clocks' difference

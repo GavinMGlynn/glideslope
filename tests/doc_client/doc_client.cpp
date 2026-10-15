@@ -68,9 +68,11 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // 0A, when a copilot's route could end in a landing, on 2026-10-13 to 0B,
 // when the server told every client its runways' conditions, and on
 // 2026-10-14 to 0C, when an input frame took a nineteenth control, the STOVL
-// mode selector: the document gives the envelope's version as `0C`. A test reads this line to keep the two together
+// mode selector, and on 2026-10-15 to 0D, when a client's own motion took the
+// height her STOVL law holds: the document gives the envelope's version as
+// `0D`. A test reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x0C;
+constexpr std::uint8_t kVersion = 0x0D;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;
@@ -592,6 +594,9 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
         // Added when TRANSPORT.md added it (2026-09-27): how many steps into
         // its newest input the server had flown it.
         static_cast<void>(r.u16());
+        // Added when TRANSPORT.md added it (2026-10-15, version 0D): the
+        // height her STOVL law holds. The client does not predict.
+        static_cast<void>(r.f32());
     }
     // Added when TRANSPORT.md added it (2026-09-25): the controls of the
     // aircraft this client watches, after a flag. It watches none.

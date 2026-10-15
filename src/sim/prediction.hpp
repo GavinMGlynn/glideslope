@@ -126,8 +126,23 @@ public:
     // those steps were flown on. Replayed from the input's end instead - or
     // from its arrival, with the jitter kept in - the client was off by the
     // steps between, metres at an aeroplane's speed.
+    //
+    // **And the height her STOVL law was asked to hold** at that moment, on
+    // the server, when a law flew her there (net::OwnMotion). Each end seeds
+    // the law's height from her height above the ground as it sees her at
+    // the selector, and the stick moves both alike from there, so the
+    // prediction held whatever it was off by at the selector for as long as
+    // the law flew her: the controller's state put back with the motion is
+    // this client's own, and the median error through a server stayed 108 mm
+    // (PROJECT_STATUS.md, 2026-10-15). So it is put to the server's before
+    // the steps are flown again - **only where a law flies her in the
+    // state put back**: where the server's law flies her and this client's
+    // does not yet, or no longer, the two disagree about the selector or its
+    // moment, there is no law here to tell, and the next word that finds
+    // both flying one puts it right.
     Correction reconcile(const Motion& server, std::uint32_t last_applied,
-                         std::size_t steps_into, std::uint64_t server_steps);
+                         std::size_t steps_into, std::uint64_t server_steps,
+                         std::optional<double> stovl_height_asked_ft = std::nullopt);
     // **What a word says of the clocks' difference, and nothing else**: the
     // sample `reconcile` above takes from it, for a word that is not the
     // newest of those heard together. Put right from each of them in turn,

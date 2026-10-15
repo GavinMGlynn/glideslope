@@ -107,6 +107,11 @@ struct AircraftState {
 // from the client's: what the client places this motion on its own clock by,
 // to fly forward again from there (sim::Prediction). Saturates at 65,535,
 // which is nine minutes of one input.
+//
+// What `OwnMotion::stovl_height_asked_ft` is when no law flies her lift
+// system; any other value below nought is refused.
+inline constexpr float no_stovl_law = -1.0F;
+
 struct OwnMotion {
     double x_m = 0.0; // Earth-centred, Earth-fixed
     double y_m = 0.0;
@@ -116,12 +121,30 @@ struct OwnMotion {
     std::array<float, 3> pqr_radps{};
     // Steps of 1/120 s flown on `last_input_applied` when this was taken.
     std::uint16_t steps_into_input = 0;
+    // **The height above the ground her STOVL transition law is asked to
+    // hold**, ft, when this was taken - or `no_stovl_law` when no law flies
+    // her lift system (since version 13). Each end seeds it from her height
+    // as it sees her at the selector and the stick moves both alike from
+    // there, so a prediction that was off then held the difference for as
+    // long as the law flew her: told this, it is put right with the motion
+    // (sim::Prediction).
+    float stovl_height_asked_ft = no_stovl_law;
 
     bool operator==(const OwnMotion&) const = default;
 };
 
-// The flag and the motion after it: three doubles, ten floats and the steps.
-inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4 + 2;
+// The height asked of her STOVL law, or none where no law flies her, as a
+// prediction takes it (sim::Prediction::reconcile).
+inline std::optional<double> stovl_height_asked(const OwnMotion& m) {
+    if (m.stovl_height_asked_ft == no_stovl_law) {
+        return std::nullopt;
+    }
+    return static_cast<double>(m.stovl_height_asked_ft);
+}
+
+// The flag and the motion after it: three doubles, ten floats, the steps and
+// the height asked.
+inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4 + 2 + 4;
 
 // **The controls of the aircraft this client is watching** (`WATCH`), which
 // only its own state update carries: riding along in another aircraft shows

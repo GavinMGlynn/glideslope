@@ -404,6 +404,9 @@ private:
         std::uint32_t last_applied = 0;
         std::size_t steps_into = 0;
         std::uint64_t server_steps = 0;
+        // The height the server's STOVL law was asked to hold, where one
+        // flies her (net::OwnMotion, sim::Prediction::reconcile).
+        std::optional<double> stovl_height_asked_ft;
         // Where it is, not a correction: the first word since joining, or
         // since it was taken back from the AI.
         bool adopt = false;
