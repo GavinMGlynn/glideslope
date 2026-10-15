@@ -3854,13 +3854,16 @@ GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_
 // she struck her airframe at 21 degrees of roll in linux-debug and went on to
 // -45 degrees of pitch in linux-release. At her taxi power she does not.
 // **Named for the rolling ceiling as dry**, but for the Mosquito, who
-// reaches it at 3 kt across, with their figures. **And the Mosquito's swing
+// reaches it at 3 kt across, with their figures. The C172P's lift no longer
+// counts the crosswind (PR 207): standing in the beam wind it had lifted her
+// by up to 240 lb off her brakes, so she now stops a little sooner, and at 3
+// kt across reaches 0.286, not 0.296 - no longer at the edge. **And the Mosquito's swing
 // rolled up**: from rest at full rudder she weathervanes 46.6 degrees off the
 // runway's heading below 2 kt, where the rudder bar's steering brake fades to
 // nothing - the open Phase 10b item "The Mosquito swings below walking pace".
 const std::map<std::string, CannotReach>& short_of_the_ceiling_at_3_kt_across() {
     static const std::map<std::string, CannotReach> named{
-        {"c172p", {3.5, "0.296 at most rolling, handed over at 3 kt"}},
+        {"c172p", {3.5, "0.286 at most rolling, handed over at 3 kt"}},
         {"f15c", {3.5, "0.272 at most rolling, handed over at 3 kt"}},
         {"j3cub", {3.5, "0.27 at most rolling, handed over at 3 kt"}}};
     return named;
@@ -3872,10 +3875,11 @@ const std::map<std::string, const char*>& swinging_across() {
     return named;
 }
 // **At the edge**, within 0.01 of the ceiling handed over too slow for it
-// (linux-debug and linux-release alike): the C172P at 3 kt, 0.296, 0.004
-// short; the C182 at 2.5 kt, 0.293, 0.007 short.
+// (linux-debug and linux-release alike): the C182 at 2.5 kt, 0.293, 0.007
+// short. (The C172P at 3 kt was, at 0.296, until her lift left out the
+// crosswind; now 0.286, 0.014 short, she is named above and not here.)
 const std::vector<AtTheEdge>& at_the_edge_across() {
-    static const std::vector<AtTheEdge> edge{{"c172p", 3.0, 0.296}, {"c182", 2.5, 0.293}};
+    static const std::vector<AtTheEdge> edge{{"c182", 2.5, 0.293}};
     return edge;
 }
 
