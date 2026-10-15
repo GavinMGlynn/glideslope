@@ -575,11 +575,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       other open part, is moved off the whole dynamic pressure, 2026-10-15.)
       *Verification: every landplane rolled to a stop at a sweep of brake
       levels shows no pitch rate over a stated bound.*
-- [ ] **The J-3 Cub's nose is pushed down by a crosswind**: her
+- [x] **The J-3 Cub's nose is pushed down by a crosswind**: her
       angle-of-attack pitch term counts it. *Verification: that term, and
       every other model's, uses the dynamic pressure without its sideways
       part; stick central in 15 kt across her tail stays down; her figures
-      stay in range.* **Missing**: its run on the tree with #205 (the Cub's lift).
+      stay in range.* Done 2026-10-15: all sixteen models' Cm-alpha terms
+      moved, each justified; braked in 15 kt across the Cub does no worse
+      than in calm air; every figure in range.
 - [x] **The J-3 Cub is rolled onto her wing by a crosswind at walking
       pace**: held at 3.5 to 5 kt in 15 kt across she rolled 21 degrees and
       struck. *Verification: her lift uses the dynamic pressure without its
