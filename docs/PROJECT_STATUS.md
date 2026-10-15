@@ -341,7 +341,17 @@ kt. Coverage asserted: four loadings, 600 steps each.
   (the table as on main) - every loading wrong, "drag coefficient 1.433 at
   -165.0 deg, the cited 0.230: off by 1.203", 194.8 lb. Restored, green.
 
-**Verification.** linux-debug: the new test, and 120 tests chosen by name
+**One test's coverage moved, found red on CI** (run 38789862490, every
+platform): `a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_closed_winds_her_brake_no_further_than_idle_needs`
+asserted the Cub was pushed past 1.3 kt by a 20 kt gust from behind. She
+was pushed to 2.99 kt only by the flat plate's drag; with the reversed
+wing's (0.21 of her dynamic pressure on her wing's area, against 1.43) her
+brakes hold her at 1.01 kt, autobrake at most 0.757, as they hold the jets
+and the Mosquito. She is named with them, flown and judged as before, and
+the pushed count asserted is the C172P, C182 and PA-28's three. Its comment
+said 25 kt where the test blows 20; corrected.
+
+**Verification.** linux-debug: the new test, the gust test above, and 120 tests chosen by name
 (every committed-model check, both alpha-term checks, every Cub test, the
 walking-pace, crosswind, headwind and 10 kt tailwind lessons and roll-outs,
 the tail-wheel stance and standing tests, and the selftest tests) pass.

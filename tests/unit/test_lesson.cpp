@@ -3715,14 +3715,19 @@ GLIDESLOPE_TEST(every_landplane_rolling_at_a_walking_pace_of_4_to_5_kt_on_a_wet_
 // **A gust that pushes her from 1 kt to 2 kt, her throttle closed, does not
 // wind her brakes up.** Every landplane taught the approach (13; the flying
 // boat named) is rolled up to 1 kt on the throttle and given to the
-// rollout, which closes it; a 25 kt gust from behind then blows for five
+// rollout, which closes it; a 20 kt gust from behind then blows for five
 // seconds. While her speed grows under 2 kt her idle thrust may be what
 // drives her, so the rollout adds brake - but no more than
 // `Lander::idle_pedal`. Judged: the autobrake never past that, her nose
-// above -5 degrees, and she stops. Coverage asserted: the four light (past 1.3 kt)
-// aeroplanes are pushed past 1.5 kt; the jets and the Mosquito, which their
-// brakes hold against the gust, are flown and judged. Seen red when the cap
-// was lifted to full.
+// above -5 degrees, and she stops. Coverage asserted: the C172P, C182 and
+// PA-28 are pushed past 1.3 kt; the jets, the Mosquito and the J-3 Cub,
+// which their brakes hold against the gust, are flown and judged. **The
+// Cub** was pushed to 2.99 kt while her wing's drag past 90 degrees of
+// angle of attack was a flat plate's 1.41 (the air's force along the wind
+// on her 1.43 of her dynamic pressure on her wing's area); with it a
+// reversed wing's, cited (2026-10-16, tools/make_j3cub.py), it is 0.21 and
+// her brakes hold her at 1.01 kt. Seen red when the cap was lifted to
+// full.
 GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_closed_winds_her_brake_no_further_than_idle_needs) {
     using glideslope::sim::Lander;
     // The bound, stated here and not read from the lander, so that a lander
@@ -3830,7 +3835,7 @@ GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_
             wrong.push_back(id + " did not stop");
         }
         if (!is_pushed && !entry.reverse_idle_kts && id != "b2" && id != "f15c" &&
-            id != "f35b" && id != "learjet35a" && id != "mosquito-fb6") {
+            id != "f35b" && id != "learjet35a" && id != "mosquito-fb6" && id != "j3cub") {
             wrong.push_back(id + " was not pushed past 1.3 kt: " + std::to_string(fastest));
         }
     }
@@ -3839,11 +3844,11 @@ GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    // The jets and the Mosquito are held at 1 kt by their brakes against
-    // 25 kt from behind: flown and judged, but not pushed. The C172P, C182,
-    // Cub and PA-28 are: four, asserted.
-    check(taught.size() == 14 && flown == 13 && left_out == 1 && pushed >= 4,
-          "every landplane flown, and the four light aeroplanes pushed past 1.3 kt: " +
+    // The jets, the Mosquito and the Cub are held at 1 kt by their brakes
+    // against 20 kt from behind: flown and judged, but not pushed. The
+    // C172P, C182 and PA-28 are: three, asserted.
+    check(taught.size() == 14 && flown == 13 && left_out == 1 && pushed >= 3,
+          "every landplane flown, and the C172P, C182 and PA-28 pushed past 1.3 kt: " +
               std::to_string(flown) + " flown, " + std::to_string(pushed) + " pushed");
 }
 
