@@ -316,19 +316,6 @@ jobs:
         with: { submodules: true }
       - uses: ./.github/actions/rocky-setup
 
-      - uses: actions/cache/restore@v6
-        id: downloads
-        with:
-          path: |
-            .downloads/*
-            !.downloads/cesium-*.sqlite
-            !.downloads/test-scratch
-          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
-          restore-keys: |
-            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
-            downloads-
-          enableCrossOsArchive: true
-
       # **The compiler gate against a real old compiler**, not a described one.
       # Rocky 9's own g++ is GCC 11; the configure must stop and say what it
       # found and what it needs.
@@ -449,7 +436,6 @@ jobs:
         with: { submodules: true }
       - uses: ./.github/actions/rocky-setup
       - uses: actions/cache/restore@v6
-        id: downloads
         with:
           path: |
             .downloads/*
@@ -479,9 +465,11 @@ jobs:
       # too, once per pinned list (every merge had saved another 3 GB beside
       # the last: run 37569407795 beside 37560605889's), but since 2026-10-16
       # no Rocky tests run on a push to main, so nothing there fetches. The
-      # downloads fixture is set up in every shard that needs it, so shard
-      # 1's tree has the lists' files; a pull request between a list's change
-      # and the night restores the older entry and fetches what it lacks.
+      # downloads fixture is set up in every shard that has a test needing
+      # it, which shard 1 is expected to have but nothing asserts; and every
+      # Ubuntu shard saves the same key, so the night's entry is whichever
+      # finished first. A pull request between a list's change and the night
+      # restores the older entry and fetches what it lacks.
       - uses: actions/cache/save@v6
         if: ${{ !cancelled() && github.event_name != 'pull_request' && matrix.shard == 1 }}
         with:
@@ -644,8 +632,7 @@ jobs:
         if: ${{ !cancelled() }}
         with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
       # Nightly and on a dispatch, not after a merge: a merge's 3 GB of
-      # downloads would be saved again unchanged (Rocky's job saves them
-      # after a merge only when their pinned lists changed).
+      # downloads would be saved again unchanged.
       - uses: actions/cache/save@v6
         if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'push' }}
         with:
@@ -703,8 +690,7 @@ jobs:
         if: ${{ !cancelled() }}
         with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
       # Nightly and on a dispatch, not after a merge: a merge's 3 GB of
-      # downloads would be saved again unchanged (Rocky's job saves them
-      # after a merge only when their pinned lists changed).
+      # downloads would be saved again unchanged.
       - uses: actions/cache/save@v6
         if: ${{ !cancelled() && github.event_name != 'pull_request' && github.event_name != 'push' }}
         with:
@@ -1095,10 +1081,12 @@ jobs:
   # from, so builds compiled everything from nothing (0% hits). Once this
   # run's entry of a kind is there, every older entry of that kind on main
   # goes; a kind whose save failed (a warning, not a red job) keeps what it
-  # had.
+  # had. It runs after a merge and every night: the downloads are saved only
+  # by the night's test jobs (since 2026-10-16 nothing saves them on a
+  # merge), so pruned only after a merge they piled up, 3 GB a night.
   prune-caches:
     name: Old caches pruned
-    if: ${{ !cancelled() && github.event_name == 'push' }}
+    if: ${{ !cancelled() && (github.event_name == 'push' || github.event_name == 'schedule') }}
     needs: [ubuntu-build, ubuntu-test, rocky-build, rocky-test, macos-build, macos-test, macos-debug-test,
             windows-build, windows-test]
     runs-on: ubuntu-latest
