@@ -282,7 +282,7 @@ are the risks the phase order is built around:
   wet on the eleven nose-wheel aeroplanes.
 - **These tests now cost about 13 times what they did**: 12 s each before,
   three tests; now six tests of 63 to 94 s here (linux-debug, four at once),
-  estimated at 229 to 342 s on CI's linux-debug.
+  139 to 216 s on CI's linux-debug (run 38690215083), against its 900.
 
 **The change.** `walking_pace_then_stop` (tests/unit/test_lesson.cpp) flies
 every landplane (13; the flying boat named) at every walking pace from 2 to
@@ -378,10 +378,13 @@ runway, as dry.
 
 **Cost.** Main's three tests took 12 s each here (linux-debug, three at
 once); the six take 62.8 to 93.9 s (four at once). `tests/ci_costs/`
-carries them in all seven presets, the local time scaled by each preset's
-cost of `the_787_8_and_a380_handed_over_at_any_half_second_...` (146 s
-here): linux-debug 229 to 342 s, windows-debug 108 to 162, macos-debug 56
-to 83, and 13 to 65 in the release presets.
+carries them in all seven presets: measured on CI run 38690215083 (the
+shards that finished before a later push cancelled it) in linux-debug, 139
+to 216 s, linux-release, 7 to 11, and macos-release, 6 to 12; in the other
+four, estimates - the local time scaled by each preset's cost of
+`the_787_8_and_a380_handed_over_at_any_half_second_...` (146 s here):
+windows-debug 108 to 162, macos-debug 56 to 83, windows-release 44 to 65,
+windows-clang 18 to 27. The estimate for linux-debug was 229 to 342 s.
 
 **Verification.** In linux-debug, the `-march=x86-64-v2` debug build and
 linux-release: the six new tests, the Cub held at every walking pace, the
