@@ -137,6 +137,36 @@ Roll_yaw, Roll_differential_propwash): in flight issue #89 offers no
 guidance for the rolling moment, and standing they did not cause it. Her
 figures in flight: see PROJECT_STATUS (2026-10-15).
 
+**Her wing's drag carried on past 90 degrees of angle of attack to 180**
+(2026-10-16): Drag_basic's table. The pinned table ends at plus and minus
+90 degrees with a flat plate's 1.41, and JSBSim holds a table's last value
+past its end, so with the air from behind - standing tail to the wind, her
+angle of attack near 180 degrees - she was pushed as if her wing were
+broadside. A wing in reversed flow meets the air edge-on, its sharp trailing
+edge first. The rows past 90 are the NACA 0012's drag coefficient from R. E.
+Sheldahl and P. C. Klimas, "Aerodynamic Characteristics of Seven Symmetrical
+Airfoil Sections Through 180-Degree Angle of Attack for Use in Aerodynamic
+Analysis of Vertical Axis Wind Turbines", SAND80-2114, Sandia National
+Laboratories, March 1981, Table 2: at 95 to 180 degrees by fives, the same
+at every Reynolds number it lists (hers at 15 kt, 0.7 to 1.0 million, pages
+20 to 22) - 0.14 at 170 degrees, 0.025 at 180. Their measurements beyond
+the stall were Re-independent and similar for every section tested (page
+11), so a symmetrical section's curve serves her cambered USA-35B's in
+reversed flow. Their figures are a section's, two-dimensional - 1.80
+broadside, near Hoerner's 1.98 for a two-dimensional flat plate (page 11) -
+and her table's own broadside figure is her finite wing's 1.41, so the
+section's curve is scaled by 1.41/1.80 (0.78) to meet it at 90 degrees: the
+drag is continuous there, and the shape past it is theirs. A symmetrical
+section's drag is even in its angle of attack, so the same rows go to -180.
+Stood on her brakes tail to 15 kt, her angle of attack is -164 degrees; the
+air's force along the wind on her was 195 lb, her wing's drag the flat
+plate's 1.41, and is 29 lb, her wing's 0.19 and her airframe's and gear's
+0.024 on top. Not
+changed: her lift past 90 degrees (the pinned table's nought beyond 90,
+where a reversed section lifts - Sheldahl and Klimas, -0.85 at 170 degrees)
+nor her pitching moment there (Pitch_alpha is linear in the angle of
+attack); see PROJECT_STATUS (2026-10-16).
+
 Her Owner's Manual (Taxiing, page 40) has a pilot hold the ailerons into a
 turn into wind "when ground winds are in excess of 15 M.P.H.", to prevent
 "the wind 'picking up' a wing", and the NTSB's NYC96LA043 records a J3
@@ -178,6 +208,15 @@ ELEVATOR_UP_RAD = "0.5934"
 ELEVATOR_DOWN_RAD = "0.5061"
 # The wing's leading edge, the type certificate's datum, in the model's frame.
 LEADING_EDGE_X = -15.75
+# A wing section's drag past 90 degrees of angle of attack, to 180: Sheldahl
+# and Klimas, SAND80-2114 (Sandia, 1981), Table 2, the NACA 0012's, the same
+# at every Reynolds number from 10,000 to 10,000,000 (at 0.7 and 1.0 million,
+# hers at 15 kt, pages 20 to 22). By degrees past 90 to 180; their 90's is 1.80.
+REVERSED_FLOW_CD = ((95, 1.780), (100, 1.750), (105, 1.700), (110, 1.635), (115, 1.555),
+                    (120, 1.465), (125, 1.350), (130, 1.225), (135, 1.085), (140, 0.925),
+                    (145, 0.755), (150, 0.575), (155, 0.420), (160, 0.320), (165, 0.230),
+                    (170, 0.140), (175, 0.055), (180, 0.025))
+SECTION_BROADSIDE_CD = 1.80
 
 
 def station(inches_aft_of_datum):
@@ -200,6 +239,33 @@ def pointmass(name, x, z):
             f"     <z>   {z:.2f} </z>\n"
             f"   </location>\n"
             f"  </pointmass>\n")
+
+
+def with_reversed_flow_drag(text):
+    """`text` with its wing's drag table carried on past 90 degrees of angle
+    of attack to 180, either way, by Sheldahl and Klimas's section's curve
+    scaled to meet the table's own broadside figure at 90."""
+    m = re.search(r'<function name="aero/force/Drag_basic">.*?</function>', text, re.S)
+    if not m:
+        raise SystemExit("make_j3cub: no Drag_basic - has the pinned model changed?")
+    block = m.group(0)
+    broadside = "1.4091"
+    scale = float(broadside) / SECTION_BROADSIDE_CD
+
+    def rows(sign):
+        out = []
+        for degrees, cd in REVERSED_FLOW_CD:
+            radians = sign * (3.1416 if degrees == 180 else round(degrees * 3.141592653589793 / 180, 4))
+            value = f"{cd * scale:.4f}"
+            out.append(f"             {radians:7.4f}   {value}   {value}\n")
+        return out if sign > 0 else out[::-1]
+
+    new = replace_once(block, r"(\n)(             -1\.5700   " + broadside + "   " + broadside + r"\n)",
+                       lambda mm: mm.group(1) + "".join(rows(-1)) + mm.group(2),
+                       "the wing's drag at -90 degrees")
+    new = replace_once(new, r"(              1\.5700   " + broadside + "   " + broadside + r"\n)",
+                       lambda mm: mm.group(1) + "".join(rows(+1)), "the wing's drag at 90 degrees")
+    return text[:m.start()] + new + text[m.end():]
 
 
 def airframe():
@@ -244,6 +310,7 @@ def airframe():
                         f"<system file=\"{SYSTEM}.xml\"/>", "the flight controls")
     text = replace_once(text, r"(<flight_control name=\"FCS: J3Cub\">\n)\n( </flight_control>)",
                         r"\1\2", "the empty flight controls")
+    text = with_reversed_flow_drag(text)
     return with_float_carburettor(text, "make_j3cub")
 
 

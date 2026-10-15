@@ -634,11 +634,23 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       too and grew as she leaned. With both moved, held at each pace from 2
       to 5 kt for 40 s (31.7 s or more at it), then stopped, she leans at most
       4.4 degrees, every loading, either side.
-- [ ] **A J-3 Cub standing tail to the wind meets a flat plate's drag.**
+- [x] **A J-3 Cub standing tail to the wind meets a flat plate's drag.**
       Her wing's drag table reads 1.41 past 90 degrees of angle of attack,
       so air from behind may push her as if her wing were broadside; not
       flown. *Verification: stood in 15 kt from behind, the air's force on
-      her is within a stated bound of a cited figure.*
+      her is within a stated bound of a cited figure.* Done 2026-10-16: her
+      wing's drag now runs on to 180 degrees by a wing section's measured
+      curve (Sandia, SAND80-2114); stood tail to 15 kt the air pushes her
+      with 29 lb, where it was 195, within 0.03 of the cited figure at every
+      loading.
+- [ ] **A J-3 Cub standing tail to the wind has no lift from her wing and
+      a pitching moment growing with the angle**: past 90 degrees of angle
+      of attack her lift is nought, where a wing in reversed flow lifts
+      (the same report: -0.85 at 170 degrees), and her angle-of-attack
+      pitching term, linear in the angle, presses her tail down with 4,100
+      ft-lb in 15 kt from behind. *Verification: cited figures for a
+      reversed wing's lift and an aeroplane's pitching moment tail to the
+      wind, and her lift and moment held to them.*
 - [ ] **The J-3 Cub leans 4.4 degrees standing in 15 kt across.** Her
       sideways drag in a beam wind is the pinned model's, 1.23 on her wing's
       area, and her main gear's springs are soft; whether a real Cub leans

@@ -265,6 +265,93 @@ are the risks the phase order is built around:
 
 ## Log, newest first
 
+### The J-3 Cub standing tail to the wind is pushed by a reversed wing's drag, not a flat plate's, 2026-10-16 — item done
+
+**What is still not true first.**
+- **Her lift past 90 degrees of angle of attack is nought**: the pinned
+  `Lift_alpha` table ends at plus and minus 90 with nothing, and a wing in
+  reversed flow lifts - Sheldahl and Klimas (below), -0.85 at 170 degrees,
+  -0.66 at 160. Stood tail to 15 kt (-164 degrees) her lift is 0.0 lb, where
+  the section's figure scaled as her drag is would give her of order 70 lb
+  pressing her down. Not this item; a new Phase 9 item.
+- **Her angle-of-attack pitching term grows on past 90 degrees**:
+  `Pitch_alpha` is linear in the angle (Cm-alpha -2.03 at her lowest
+  Reynolds number), so at -164 degrees it reads a Cm of +5.8 and the air
+  presses her tail down with 4,096 to 4,121 ft-lb. It holds her tail down,
+  the safe way, but its size is not measured against anything. The same new
+  item.
+- The air's force on her is held as one coefficient, her wing's drag and
+  her airframe's and gear's together (0.024 at any angle, as in forward
+  flight); the fuselage's own drag in reversed flow is not measured
+  separately.
+
+**The finding.** Stood tail to the wind, JSBSim's angle of attack,
+atan2(w, u), is near 180 degrees: on her brakes at her stance pitch in 15
+kt from behind, -164 to -165 degrees. Her wing's drag table (`Drag_basic`,
+the USA-35B's) ended at plus and minus 90 degrees with a flat plate's 1.41,
+and a JSBSim table holds its last value past its end: the air pushed her
+with 194.8 lb, a coefficient of 1.433 on her wing's area, at every loading.
+Her brakes held her.
+
+**The figure.** R. E. Sheldahl and P. C. Klimas, "Aerodynamic
+Characteristics of Seven Symmetrical Airfoil Sections Through 180-Degree
+Angle of Attack for Use in Aerodynamic Analysis of Vertical Axis Wind
+Turbines", SAND80-2114, Sandia National Laboratories, printed March 1981
+(the UNT Digital Library's scan,
+https://digital.library.unt.edu/ark:/67531/metadc1191254/, SHA-256
+af5cb8e9f564121155014b7c88d3b41ef75cd0655bcdc41690cd4f5b6b38bb97). Table 2,
+the NACA 0012's lift and drag to 180 degrees at Reynolds numbers from
+10,000 to 10,000,000: past the stall its rows are the same at every one
+(hers at 15 kt is 0.7 to 1.0 million, those tables on pages 20 to 22) -
+drag 1.80 at 90 degrees, 1.465 at 120, 0.575 at 150, 0.32 at 160, 0.23 at
+165, 0.14 at 170, 0.055 at 175, 0.025 at 180. Page 11: past 20 degrees the
+drag "similar for all" four sections tested, and 1.8 broadside "near
+Hoerner's value of 1.98 for a two-dimensional flat plate"; and that the
+post-stall measurements were "sufficiently independent of the Reynolds
+number" to use at every one.
+
+**The change.** tools/make_j3cub.py carries `Drag_basic`'s table on past
+90 degrees to 180, either way (a symmetrical section's drag is even in its
+angle), by those rows at every five degrees, 95 to 180. Theirs are a
+section's, two-dimensional, 1.80 broadside; her table's broadside is her
+finite wing's 1.41, so their curve is scaled by 1.41/1.80 (0.78) to meet
+it at 90 degrees: continuous there, and theirs in shape past it. At 180
+degrees that is 0.0196 against their 0.025. Her cambered USA-35B takes a
+symmetrical section's curve in reversed flow on the report's own word that
+past the stall the sections were alike. The docstring says it with the
+citation. Nothing else in the model moves.
+
+**The test.**
+`the_j3_cub_standing_tail_to_a_15_kt_wind_is_pushed_within_0_05_of_a_reversed_wings_cited_drag`
+(tests/unit/test_departure.cpp), new: at her model's own loading and her
+figures' three (solo, trainer, gross), started on the runway and stood on
+full brakes at idle five seconds in calm air, then 15 kt from straight
+behind for fifteen; over the last five, at every step, she has not moved
+(under 1 kt over the ground), the air meets her from behind (her angle of
+attack 150 degrees or more either way), and the air's force along the wind
+(`forces/fwx-aero-lbs`) over her dynamic pressure and wing area is within
+0.05 of the report's figure interpolated at her angle. The bound is her
+airframe's and gear's 0.024 on top of her wing's scaled rows, 6.8 lb at 15
+kt. Coverage asserted: four loadings, 600 steps each.
+- **Flown**, linux-debug: at -164.2 to -164.4 degrees, 15.0 kt of air, the
+  air's force 28.8 to 29.3 lb, a coefficient of 0.212 to 0.216 against the
+  report's 0.240 to 0.245 (off by -0.028 to -0.029); lift 0.0 lb; pitching
+  +4,096 to +4,121 ft-lb.
+- **Seen red**: the build's copy of the model with the new rows taken out
+  (the table as on main) - every loading wrong, "drag coefficient 1.433 at
+  -165.0 deg, the cited 0.230: off by 1.203", 194.8 lb. Restored, green.
+
+**Verification.** linux-debug: the new test, and 120 tests chosen by name
+(every committed-model check, both alpha-term checks, every Cub test, the
+walking-pace, crosswind, headwind and 10 kt tailwind lessons and roll-outs,
+the tail-wheel stance and standing tests, and the selftest tests) pass.
+`glideslope_cli selftest`: `ba8e97281095464f`, unmoved - it flies the
+C172P. In a `-march=x86-64-v2` debug build (no fused multiply-adds, as on
+CI): the new test's figures the same to the printed digit, the 23 Cub,
+walking-pace, tail-wheel, standing, headwind and tailwind, braked-stop and
+alpha tests and the Cub's committed-model check pass, and the selftest hash
+is `ba8e97281095464f` there too.
+
 ### Rebased onto the walking-pace range (#208, #209): the C172P named at 3 kt across with her figure, the tree green, 2026-10-16 — item done
 
 **What is still not true first.**

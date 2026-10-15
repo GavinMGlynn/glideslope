@@ -2259,6 +2259,166 @@ GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_ta
           "gross from 0.6");
 }
 
+// **The J-3 Cub standing tail to a 15 kt wind is pushed by the drag of a
+// wing in reversed flow, not of a flat plate.** Her wing's drag table, the
+// USA-35B's against her angle of attack, ended at 90 degrees with a flat
+// plate's 1.41, and JSBSim holds a table's last value past its end: with the
+// air from behind, her angle of attack near 180 degrees, she was pushed as if
+// her wing were broadside. The table now runs on to 180 degrees either way
+// by the section's curve of Sheldahl and Klimas (tools/make_j3cub.py).
+//
+// **The cited figure**: R. E. Sheldahl and P. C. Klimas, "Aerodynamic
+// Characteristics of Seven Symmetrical Airfoil Sections Through 180-Degree
+// Angle of Attack", SAND80-2114, Sandia National Laboratories, March 1981,
+// Table 2: the NACA 0012's drag coefficient to 180 degrees, the same at every
+// Reynolds number it lists past 30 degrees (hers at 15 kt, 0.7 to 1.0
+// million, pages 20 to 22). Below, its rows from 150 degrees.
+//
+// **Every scenario**: at her model's own loading and her figures' three,
+// she is started on the runway and stood on full brakes at idle in calm air
+// for five seconds; 15 kt then comes from straight behind her, and she stands
+// fifteen seconds more. Over the last five, at every step: she has not moved
+// (under 1 kt over the ground), the air meets her from behind (her angle of
+// attack 150 degrees or more either way), and the air's force along the wind
+// on her, over her dynamic pressure and her wing's area, is within 0.05 of
+// the cited section's at her angle of attack. **The bound**: her airframe's
+// and gear's own 0.024 at any angle, on top of her wing's rows, which are
+// the section's scaled by 1.41/1.80 (0.78) to meet her own broadside figure
+// at 90 degrees - at -164 degrees, where she stands, 0.214 in all against the
+// section's 0.243. 0.05 is 6.8 lb at 15 kt; the flat plate's 1.41 held her
+// 1.2 over it (195 lb, against 29). Coverage asserted: four loadings, 600
+// steps each judged.
+GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_is_pushed_within_0_05_of_a_reversed_wings_cited_drag) {
+    constexpr double tail_wind_kts = 15.0;
+    constexpr int calm_stand_s = 5;
+    constexpr int wind_stand_s = 15;
+    constexpr int judged_s = 5;
+    constexpr double bound = 0.05;
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    // SAND80-2114, Table 2, NACA 0012: the angle of attack in degrees and the
+    // section's drag coefficient.
+    constexpr std::pair<double, double> cited[] = {{150.0, 0.575}, {155.0, 0.420},
+                                                   {160.0, 0.320}, {165.0, 0.230},
+                                                   {170.0, 0.140}, {175.0, 0.055},
+                                                   {180.0, 0.025}};
+    const auto cited_cd = [&](double alpha_deg) {
+        for (std::size_t i = 1; i < std::size(cited); ++i) {
+            if (alpha_deg <= cited[i].first) {
+                const double f = (alpha_deg - cited[i - 1].first) /
+                                 (cited[i].first - cited[i - 1].first);
+                return cited[i - 1].second + f * (cited[i].second - cited[i - 1].second);
+            }
+        }
+        return cited[std::size(cited) - 1].second;
+    };
+    const auto runway = a_runway();
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / "j3cub.xml");
+    std::vector<std::pair<std::string, std::optional<glideslope::sim::Loading>>> loadings;
+    loadings.emplace_back("her model's own", std::nullopt);
+    for (const auto& [name, l] : figures.loadings) {
+        loadings.emplace_back(name, l.loading);
+    }
+    std::size_t judged_steps = 0;
+    std::vector<std::string> wrong;
+    for (const auto& [loading_name, loading] : loadings) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", "j3cub");
+        if (loading) {
+            aircraft.load(*loading);
+        }
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Controls parked;
+        parked.left_brake = 1.0;
+        parked.right_brake = 1.0;
+        for (int step = 0; step < calm_stand_s * steps_per_second; ++step) {
+            aircraft.set_controls(parked);
+            aircraft.step();
+        }
+        glideslope::sim::Conditions wind;
+        // From behind: the air moves the way she points.
+        const double towards = runway.heading_deg / degrees;
+        const double mps = tail_wind_kts * 0.514444;
+        wind.wind_north_mps = mps * std::cos(towards);
+        wind.wind_east_mps = mps * std::sin(towards);
+        wind.wind_at_20ft_mps = mps;
+        aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
+        double worst = 0.0;
+        double alpha_seen = 0.0;
+        double cd_seen = 0.0;
+        double drag_seen = 0.0;
+        double lift_seen = 0.0;
+        double pitching_seen = 0.0;
+        double air_kts = 0.0;
+        std::string first_wrong;
+        for (int step = 0; step < wind_stand_s * steps_per_second; ++step) {
+            aircraft.set_controls(parked);
+            aircraft.step();
+            if (step < (wind_stand_s - judged_s) * steps_per_second) {
+                continue;
+            }
+            ++judged_steps;
+            const double alpha_deg = aircraft.property("aero/alpha-deg");
+            const double qbar = aircraft.property("aero/qbar-psf");
+            const double area = aircraft.property("metrics/Sw-sqft");
+            const double drag = aircraft.property("forces/fwx-aero-lbs");
+            const double cd = drag / (qbar * area);
+            const double off = cd - cited_cd(std::abs(alpha_deg));
+            const double ground_kts = aircraft.property("velocities/vg-fps") / 1.68781;
+            if (std::abs(off) >= std::abs(worst)) {
+                worst = off;
+                alpha_seen = alpha_deg;
+                cd_seen = cd;
+                drag_seen = drag;
+                lift_seen = aircraft.property("forces/fwz-aero-lbs");
+                pitching_seen = aircraft.property("moments/m-aero-lbsft");
+                air_kts = aircraft.property("velocities/vt-fps") / 1.68781;
+            }
+            char what[200];
+            if (!(std::abs(alpha_deg) >= 150.0)) {
+                std::snprintf(what, sizeof what, "the air not from behind: alpha %.1f deg",
+                              alpha_deg);
+            } else if (!(ground_kts < 1.0)) {
+                std::snprintf(what, sizeof what, "moved: %.2f kt over the ground", ground_kts);
+            } else if (!(std::abs(off) <= bound)) {
+                std::snprintf(what, sizeof what,
+                              "drag coefficient %.3f at %.1f deg, the cited %.3f: off by %.3f",
+                              cd, alpha_deg, cited_cd(std::abs(alpha_deg)), off);
+            } else {
+                continue;
+            }
+            if (first_wrong.empty()) {
+                first_wrong = what;
+            }
+        }
+        std::printf("  %-16s alpha %6.1f deg, air %4.1f kt: drag %5.1f lb, coefficient %.3f "
+                    "(cited %.3f, off by at most %+.3f); lift %+6.1f lb, pitching %+5.0f "
+                    "ft-lb\n",
+                    loading_name.c_str(), alpha_seen, air_kts, drag_seen, cd_seen,
+                    cited_cd(std::abs(alpha_seen)), worst, lift_seen, pitching_seen);
+        if (!first_wrong.empty()) {
+            wrong.push_back(loading_name + ": " + first_wrong);
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(loadings.size() == 4 &&
+              judged_steps == loadings.size() * std::size_t(judged_s * steps_per_second),
+          "four loadings, 600 steps each: " + std::to_string(judged_steps) + " steps judged");
+}
+
 // **Every aircraft standing on her brakes at idle stays finite, and on the
 // ground**: every
 // landplane in the catalogue (the flying boat named: afloat she has no
