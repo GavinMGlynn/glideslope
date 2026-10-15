@@ -3226,11 +3226,24 @@ struct CannotReach {
     const char* why;
 };
 
+// **A named run at the edge**: one handed over too slow for the rolling
+// ceiling whose autobrake came within `edge_margin` of it - nearer than one
+// build's figure to another's (0.006 on the Cub, linux-debug against
+// linux-release) - so that it may reach it on another platform. Named with
+// her figure; counted either way, and never wrong for reaching it.
+struct AtTheEdge {
+    const char* id;
+    double pace_kts;
+    double figure;
+};
+constexpr double edge_margin = 0.01;
+
 template <std::size_t N>
 void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces_kts)[N],
                             double required_from_kts,
                             const std::map<std::string, CannotReach>& named,
-                            const std::map<std::string, const char*>& swing_named = {}) {
+                            const std::map<std::string, const char*>& swing_named = {},
+                            const std::vector<AtTheEdge>& at_the_edge = {}) {
     using glideslope::sim::Lander;
     constexpr double rolling_pedal = Lander::walking_pace_pedal + 1e-9;
     constexpr double standing_pedal = Lander::standing_pedal + 1e-9;
@@ -3265,6 +3278,9 @@ void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces
     std::size_t named_reached = 0;
     std::size_t swing_judged = 0;
     std::size_t swing_left_out = 0;
+    std::size_t edge_flown = 0;
+    std::size_t edge_reached = 0;
+    std::vector<std::string> landplanes_flown;
     std::vector<std::string> left_out;
     std::vector<std::string> wrong;
     for (const std::string& id : taught) {
@@ -3275,6 +3291,7 @@ void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces
             continue;
         }
         ++landplanes;
+        landplanes_flown.push_back(id);
         const auto speeds = glideslope::sim::approach_speeds(data(), entry.model);
         const auto own = named.find(id);
         const double required_from = own != named.end() ? own->second.from_kts : required_from_kts;
@@ -3476,14 +3493,35 @@ void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces
             }
             // **Where the rolling ceiling could bite**: her autobrake reached
             // it while she rolled between 2 and 5 kt. A run handed over too
-            // slow for it is named; a named one that reaches it on some
-            // platform is counted, and said.
+            // slow for it is named, and wrong if it reaches it after all -
+            // name her no longer - but for one at the edge, counted either
+            // way.
             const bool reaches = most_rolling_pedal >= Lander::walking_pace_pedal - 1e-6;
             const bool is_named = pace_kts < required_from;
+            const auto edge = std::find_if(at_the_edge.begin(), at_the_edge.end(),
+                                           [&](const AtTheEdge& e) {
+                                               return id == e.id && pace_kts == e.pace_kts;
+                                           });
+            const bool is_edge = edge != at_the_edge.end();
+            if (is_edge) {
+                ++edge_flown;
+                edge_reached += reaches ? 1U : 0U;
+                std::printf("  at the edge, %s - %s: %.3f here, %.3f measured, %.3f the most "
+                            "it may be from the ceiling\n",
+                            reaches ? "reached" : "not reached", where.c_str(),
+                            most_rolling_pedal, edge->figure, edge_margin);
+                if (!is_named) {
+                    wrong.push_back(where + ": at the edge but not named");
+                }
+                if (std::abs(edge->figure - Lander::walking_pace_pedal) > edge_margin) {
+                    wrong.push_back(where + ": at the edge with a figure further than " +
+                                    std::to_string(edge_margin) + " from the ceiling");
+                }
+            }
             named_cells += is_named ? 1U : 0U;
             if (reaches) {
                 ++reached;
-                if (is_named) {
+                if (is_named && !is_edge) {
                     ++named_reached;
                     wrong.push_back(where + ": named, and her autobrake reached the rolling "
                                             "ceiling all the same: name her no longer");
@@ -3550,6 +3588,10 @@ void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces
             }
             if (swing_name != swing_named.end()) {
                 ++swing_left_out;
+                if (taxi_swing <= most_turn_deg) {
+                    wrong.push_back(where + ": her swing named, and she swung only " +
+                                    std::to_string(taxi_swing) + " deg: name her no longer");
+                }
             } else {
                 ++swing_judged;
                 if (taxi_swing > most_turn_deg) {
@@ -3569,6 +3611,31 @@ void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces
         std::printf("  named, her swing rolled up and held not judged - %s: %s\n", id.c_str(),
                     why);
     }
+    // **Every name a landplane flown here**: a stale one names nothing.
+    const auto flown_here = [&](const std::string& name) {
+        return std::find(landplanes_flown.begin(), landplanes_flown.end(), name) !=
+               landplanes_flown.end();
+    };
+    std::size_t edge_cells = 0;
+    for (const AtTheEdge& e : at_the_edge) {
+        if (!flown_here(e.id)) {
+            wrong.push_back(std::string(e.id) + ": at the edge, and not a landplane flown");
+        }
+        const bool flies_her_pace =
+            std::find(std::begin(paces_kts), std::end(paces_kts), e.pace_kts) !=
+            std::end(paces_kts);
+        edge_cells += flies_her_pace ? 1U : 0U;
+    }
+    for (const auto& [name, n] : named) {
+        if (!flown_here(name)) {
+            wrong.push_back(name + ": named for the rolling ceiling, and not a landplane flown");
+        }
+    }
+    for (const auto& [name, why] : swing_named) {
+        if (!flown_here(name)) {
+            wrong.push_back(name + ": named for her swing, and not a landplane flown");
+        }
+    }
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
@@ -3582,7 +3649,11 @@ void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces
               ", " + std::to_string(held) + " held at her pace for at least " +
               std::to_string(least_held_s) + " s; the flying boat left out: " +
               std::to_string(left_out.size()));
-    check(reached + named_unreached == runs && named_unreached == named_cells &&
+    check(edge_flown == edge_cells,
+          "every run at the edge flown: " + std::to_string(edge_flown) + " of " +
+              std::to_string(edge_cells) + ", " + std::to_string(edge_reached) +
+              " reaching the ceiling");
+    check(reached + named_unreached == runs && named_unreached + edge_reached == named_cells &&
               named_reached == 0 && swing_judged + swing_left_out == runs &&
               swing_left_out == swing_named.size() * N,
           "the rolling ceiling reached in every run but those named, and none named reaching "
@@ -3800,15 +3871,24 @@ const std::map<std::string, const char*>& swinging_across() {
                          "Phase 10b item \"The Mosquito swings below walking pace\")"}};
     return named;
 }
+// **At the edge**, within 0.01 of the ceiling handed over too slow for it
+// (linux-debug and linux-release alike): the C172P at 3 kt, 0.296, 0.004
+// short; the C182 at 2.5 kt, 0.293, 0.007 short.
+const std::vector<AtTheEdge>& at_the_edge_across() {
+    static const std::vector<AtTheEdge> edge{{"c172p", 3.0, 0.296}, {"c182", 2.5, 0.293}};
+    return edge;
+}
 
 GLIDESLOPE_TEST(every_landplane_rolling_at_a_walking_pace_of_2_to_3_5_kt_in_a_15_kt_crosswind_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
     walking_pace_then_stop(15.0, false, slow_walking_paces_kts, 3.0,
-                           short_of_the_ceiling_at_3_kt_across(), swinging_across());
+                           short_of_the_ceiling_at_3_kt_across(), swinging_across(),
+                           at_the_edge_across());
 }
 
 GLIDESLOPE_TEST(every_landplane_rolling_at_a_walking_pace_of_4_to_5_kt_in_a_15_kt_crosswind_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
     walking_pace_then_stop(15.0, false, fast_walking_paces_kts, 3.0,
-                           short_of_the_ceiling_at_3_kt_across(), swinging_across());
+                           short_of_the_ceiling_at_3_kt_across(), swinging_across(),
+                           at_the_edge_across());
 }
 
 // **The J-3 Cub held at every walking pace in 15 kt straight across stays on
