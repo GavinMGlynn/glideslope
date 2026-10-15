@@ -3464,7 +3464,7 @@ void walking_pace_then_stop(double crosswind_kts,
 // from 3 kt before her autobrake reaches 0.3 (measured on linux-debug).
 const std::map<std::string, std::string>& stopped_before_the_rolling_ceiling() {
     static const std::map<std::string, std::string> named{
-        {"j3cub", "her brakes stop her first: 0.29 at most rolling, 0.21 in 15 kt across"},
+        {"j3cub", "her brakes stop her first: 0.29 at most rolling"},
         {"mosquito-fb6", "her brakes stop her first: 0.16 to 0.17 at most rolling"}};
     return named;
 }
@@ -3623,8 +3623,13 @@ GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_
 // over (PR 201): held at full power against the brakes that had stopped her,
 // she struck her airframe at 21 degrees of roll in linux-debug and went on to
 // -45 degrees of pitch in linux-release. At her taxi power she does not.
+// **The Cub is not named for the rolling ceiling here**: with her lift and
+// wing drag off the crosswind (2026-10-15) her autobrake reaches it rolling
+// in 15 kt across (0.21 at most before), so it is judged on her.
 GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_in_a_15_kt_crosswind_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
-    walking_pace_then_stop(15.0, stopped_before_the_rolling_ceiling());
+    auto named = stopped_before_the_rolling_ceiling();
+    named.erase("j3cub");
+    walking_pace_then_stop(15.0, named);
 }
 
 // **The J-3 Cub held at every walking pace in 15 kt straight across stays on
