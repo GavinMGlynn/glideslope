@@ -114,9 +114,10 @@ angle of attack (CLDf, CLDe and CLq) are not this change's, and stay on
 aero/qbar-psf. The selftest flies her, and its hash moves with this. The
 learnt landing flies her slipped - in calm air 8 to 10 degrees on the approach
 and up to 17.7 in the flare, where qbarUW is 0.91 of qbar - so it lands
-shorter and harder on her now (docs/PROJECT_STATUS.md, 2026-10-15): her lift
-there is the crossflow's, the policy is not trained again, and its parity
-fixture is flown again (tools/rl/export.py --parity-only).
+shorter on her now, and harder in a crosswind - in calm air it sinks 4 to 10
+ft/min less (docs/PROJECT_STATUS.md, 2026-10-15): her lift there is the
+crossflow's, the policy is not trained again, and its parity fixture is flown
+again (tools/rl/export.py --parity-only).
 """
 
 import pathlib

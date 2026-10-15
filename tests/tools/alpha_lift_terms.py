@@ -29,6 +29,11 @@ import pathlib
 import re
 import sys
 
+# Which functions read the angle of attack is the make scripts' own answer
+# (tools/alpha_rate.py), so that the check and what it checks agree on it.
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[2] / "tools"))
+from alpha_rate import functions_of_alpha  # noqa: E402
+
 C = "aero/coefficient/"
 F = "aero/force/"
 MOVED = {
@@ -59,29 +64,10 @@ NAMED = {
 TOTAL = 16
 assert len(MOVED) == TOTAL and set(NAMED) <= set(MOVED)
 ALLOWED = "aero/qbarUW-psf"
-ALPHA = re.compile(r"aero/alpha-(rad|deg)\s*<")
 AXIS = re.compile(r"<axis name=\"LIFT\"[^>]*>.*?</axis>", re.S)
 FUNCTION = re.compile(r"<function name=\"([^\"]+)\">.*?</function>", re.S)
 COMMENT = re.compile(r"<!--.*?-->", re.S)
 
-
-def reads(block, prop):
-    return re.search(r">\s*" + re.escape(prop) + r"\s*<", block) is not None
-
-
-def functions_of_alpha(texts):
-    """Every function in `texts` that reads the angle of attack, itself or
-    through another such function."""
-    funcs = {m.group(1): m.group(0) for t in texts for m in FUNCTION.finditer(t)}
-    found = {n for n, b in funcs.items() if ALPHA.search(b)}
-    grown = True
-    while grown:
-        grown = False
-        for n, b in funcs.items():
-            if n not in found and any(reads(b, a) for a in found if a != n):
-                found.add(n)
-                grown = True
-    return found
 
 
 root = pathlib.Path(sys.argv[1])
@@ -95,7 +81,7 @@ for name in sorted(set(MOVED) - present):
 moved_count = named_count = 0
 for name in sorted(present & set(MOVED)):
     texts = [COMMENT.sub("", f.read_text()) for f in sorted((root / name).rglob("*.xml"))]
-    of_alpha = functions_of_alpha(texts)
+    of_alpha = functions_of_alpha("\n".join(texts))
     found = {}
     for text in texts:
         for axis in AXIS.findall(text):

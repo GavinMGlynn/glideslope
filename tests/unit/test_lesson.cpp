@@ -3870,8 +3870,9 @@ const std::map<std::string, CannotReach>& short_of_the_ceiling_at_3_kt_across() 
 }
 const std::map<std::string, const char*>& swinging_across() {
     static const std::map<std::string, const char*> named{
-        {"mosquito-fb6", "she weathervanes 46.6 degrees rolling up from rest below 2 kt (the "
-                         "Phase 10b item \"The Mosquito swings below walking pace\")"}};
+        {"mosquito-fb6", "she weathervanes 46.6 degrees rolling up from rest below "
+                         "2 kt (the Phase 10b item \"The Mosquito swings below "
+                         "walking pace\")"}};
     return named;
 }
 // **At the edge**, within 0.01 of the ceiling handed over too slow for it

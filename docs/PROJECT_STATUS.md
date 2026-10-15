@@ -802,7 +802,7 @@ runs place a word a step off varies). **Seen red** with the prediction
 flown on 0.8 of the stick the client sent the server (a deliberate bug in
 glideslope_cli): the median 85 mm, over 5 cm; reverted, green.
 
-### Every model's lift keyed to the angle of attack leaves out the crosswind, 2026-10-15 — item done; the tree is red on one walking-pace test
+### Every model's lift keyed to the angle of attack leaves out the crosswind, 2026-10-15 — item done; the tree is red on one walking-pace test (resolved in the entry above, 2026-10-16)
 
 **What is still not true first.**
 - **One test fails with this change, and it is another item's file**:
