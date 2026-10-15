@@ -61,7 +61,7 @@ def with_qbar_uw(text, script):
     return text
 
 
-ALPHA = re.compile(r"aero/alpha-(rad|deg)<")
+ALPHA = re.compile(r"aero/alpha-(rad|deg)\s*<")
 FUNCTION = re.compile(r"<function name=\"([^\"]+)\">.*?</function>", re.S)
 
 
@@ -97,14 +97,23 @@ def with_alpha_terms_on_qbar_uw(text, script, terms):
     straight wing - but at an incidence set by w over V sin L, not by
     atan2(w, u), and standing w is near nothing: the part of her moment that
     goes with the angle of attack is near nothing too (of order rho V sin L w,
-    not rho V^2 times any angle). On aero/qbar-psf, Cm-alpha times atan2(w, u)
-    times the beam wind's whole pressure is a moment of any size the
-    undefined angle gives; on aero/qbarUW-psf it is of order rho (u^2 + w^2),
-    near nothing - neither exact, the second the nearer. In flight, at
-    sideslip b, the theory's mean over both halves is cos^2 b + tan^2 L
-    sin^2 b of the pressure, between qbarUW's cos^2 b and qbar's 1: at 5
-    degrees of sideslip and 35 of sweep, 0.996 against 0.992 and 1. So a
-    swept wing's terms keyed to the angle of attack may be moved too, each
+    not rho V^2 times any angle). One half meets that flow leading edge first
+    and the other trailing edge first; the theory says less of a section met
+    backwards, but its force too goes with w and is near nothing standing.
+    On aero/qbar-psf, Cm-alpha times atan2(w, u) times the beam wind's whole
+    pressure is a moment of any size the undefined angle gives; on
+    aero/qbarUW-psf it is of order rho (u^2 + w^2), near nothing. **Standing,
+    then, neither is exact and qbarUW is the nearer, at any sweep.** **In
+    flight it is not so plain**: at sideslip b the theory's mean over both
+    halves is cos^2 b + tan^2 L sin^2 b of the pressure, between qbarUW's
+    cos^2 b and qbar's 1 - nearer qbarUW below 35.3 degrees of sweep, midway
+    there, nearer qbar above it, and qbar's own at 45. At 5 degrees of
+    sideslip that is 0.994 at 25 degrees of sweep, 0.996 at 35, 0.999 at 42,
+    against 0.992 and 1: under 1% either way, which no figure shows. Whether
+    a wing's sweep is taken at its quarter chord or its leading edge changes
+    nothing standing, and in flight only which of two choices under 1% apart
+    is the nearer; every wing here is swept 45 degrees or less on either. So
+    a swept wing's terms keyed to the angle of attack may be moved too, each
     script saying why; terms not keyed to it are left.
 
     **Chosen, not swept up.** Which terms move is the script's to name and

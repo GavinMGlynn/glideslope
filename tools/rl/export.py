@@ -13,6 +13,18 @@ tests/data/rl/c172p-landing-parity.txt.
 from the observation, normalised as in training, through the policy's hidden
 layers to the action - with no sampling. The file is checked against the
 checkpoint's own network (PyTorch, in single precision) before it is written.
+
+**The parity fixture alone, from the committed policy**, with no checkpoint:
+
+    ~/.venvs/glideslope-rl/bin/python tools/rl/export.py --parity-only
+
+flies assets/rl/c172p-landing.txt as committed, in JSBSim's Python bindings
+on the C172P in assets/jsbsim as it is now, and writes the fixture alone.
+The fixture records the sha256 of the c172p.xml it was flown on, and the
+simulation's parity tests fail by name when the model they fly is not that
+one: a change to her model is followed by flying the fixture again, so that
+it holds the simulation to the bindings on the same model. The policy is not
+trained again by it; it was trained on the model its header names.
 """
 
 from __future__ import annotations
@@ -30,11 +42,12 @@ import torch
 
 import landing as L
 import policy_file
-from env import Flier, REPO
+from env import Flier, JSBSIM_ROOT, REPO
 from evaluate import fly
 
 POLICY = os.path.join(REPO, "assets", "rl", "c172p-landing.txt")
 PARITY = os.path.join(REPO, "tests", "data", "rl", "c172p-landing-parity.txt")
+MODEL = os.path.join(JSBSIM_ROOT, "aircraft", "c172p", "c172p.xml")
 
 
 def sha256(path: str) -> str:
@@ -133,6 +146,9 @@ def parity(policy: policy_file.Policy) -> list[str]:
         "# and the policy's action (4). Then each of the verification's flights:",
         "# touched (1 or 0), the sink ft/min, across m, along m, the most it rose,",
         "# banked and pitched down (ft, degrees) in the five seconds after.",
+        "# Flown on the c172p.xml whose sha256 follows; the simulation's tests",
+        "# refuse a fixture flown on another (export.py --parity-only flies it again).",
+        "model " + sha256(MODEL),
         "runway " + " ".join(number(v) for v in (rw.threshold_lat_deg, rw.threshold_lon_deg,
                                                   rw.elevation_ft, rw.heading_deg, rw.length_m)),
         f"cases {len(cases)}",
@@ -157,10 +173,10 @@ def parity(policy: policy_file.Policy) -> list[str]:
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("checkpoint")
-    ap.add_argument("--seed", type=int, required=True)
-    ap.add_argument("--steps", required=True, help="the training steps the checkpoint took")
-    ap.add_argument("--trained-at", required=True,
+    ap.add_argument("checkpoint", nargs="?")
+    ap.add_argument("--seed", type=int)
+    ap.add_argument("--steps", help="the training steps the checkpoint took")
+    ap.add_argument("--trained-at",
                     help="the tools/rl commit the checkpoint was trained with, in words if more than one")
     ap.add_argument("--note", action="append", default=[],
                     help="a line of the header saying how it was trained and chosen; repeatable")
@@ -168,7 +184,19 @@ def main() -> None:
     ap.add_argument("--parity", default=PARITY, help="where to write the parity cases")
     ap.add_argument("--policy-only", action="store_true",
                     help="write the policy alone: no parity cases, no flights of the verification's starts")
+    ap.add_argument("--parity-only", action="store_true",
+                    help="no checkpoint: fly the committed policy and write the parity cases alone")
     args = ap.parse_args()
+    if args.parity_only:
+        if args.checkpoint or args.policy_only:
+            ap.error("--parity-only takes no checkpoint and not --policy-only")
+        os.makedirs(os.path.dirname(os.path.abspath(args.parity)), exist_ok=True)
+        with open(args.parity, "w", newline="\n") as f:
+            f.write("\n".join(parity(policy_file.read(args.policy))) + "\n")
+        print("wrote", args.parity, "from", args.policy)
+        return
+    if not args.checkpoint or args.seed is None or not args.steps or not args.trained_at:
+        ap.error("a checkpoint needs --seed, --steps and --trained-at")
     versions = ", ".join(
         f"{p} {metadata.version(p)}"
         for p in ("jsbsim", "gymnasium", "stable_baselines3", "torch", "numpy")

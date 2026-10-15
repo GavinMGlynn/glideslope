@@ -149,12 +149,15 @@ Cm_basic, in Systems/datcom_aero.xml. Afloat or slowing on the water in a
 crosswind, her angle of attack, atan2(w, u), is set by the little u and w she
 has, not by the wind - 2 to 13 degrees afloat in 15 kt across - and on the
 whole dynamic pressure, which counts the crosswind, it pitched her nose down by
-up to 5,600 ft-lb; on aero/qbarUW-psf, at most 930. Her wing and tailplane are not swept: the case
-JSBSim issue #89 tested (on the C172) and the FlightGear wiki's "JSBSim
-Aerodynamics" writes up, QBarUW "more appropriate for Cm" than the whole QBar.
-In flight, at a few degrees of sideslip, the two differ by its cosine squared.
-**Not moved**: Cmq, her pitch damping - the angle of attack only picks the
-coefficient of her pitch rate.
+up to 5,600 ft-lb; on aero/qbarUW-psf, at most 930. Her wing and tailplane are
+not swept: the case JSBSim issue #89 tested (on the C172) and the FlightGear
+wiki's "JSBSim Aerodynamics" writes up, QBarUW "more appropriate for Cm" than
+the whole QBar. In flight, at a few degrees of sideslip, the two differ by its
+cosine squared: on her water take-off she runs at 1 to 3 degrees of it, qbarUW
+0.998 of qbar, and the nose-down Cm_basic 0.2% less let her come unstuck about
+half a second sooner, her long-range run 798 yd where it was 823 (range 676 to
+914). **Not moved**: Cmq, her pitch damping - the angle of attack only picks
+the coefficient of her pitch rate.
 """
 
 import math
@@ -731,8 +734,8 @@ def outputs():
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
         OUT / "aircraft" / MODEL / "Systems" / "datcom_aero.xml":
             alpha_rate.with_alpha_terms_on_qbar_uw(
-            alpha_rate.with_qbar_uw(aerodynamics(), "make_short_s23"), "make_short_s23",
-            {"PITCH": ["aero/coefficient/Cm_basic"]}),
+                alpha_rate.with_qbar_uw(aerodynamics(), "make_short_s23"), "make_short_s23",
+                {"PITCH": ["aero/coefficient/Cm_basic"]}),
         OUT / "aircraft" / MODEL / "Systems" / "engines.xml": engines(),
         OUT / "aircraft" / MODEL / "Systems" / "flaps.xml": flaps(),
         OUT / "aircraft" / MODEL / "Systems" / "Short_S23-hydrodynamics.xml": hydrodynamics(),

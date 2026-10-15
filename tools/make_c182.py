@@ -164,8 +164,9 @@ deg/s. Her wing and tailplane are not swept: the case JSBSim issue #89 tested
 (on the C172) and the FlightGear wiki's "JSBSim Aerodynamics" writes up, QBarUW
 "more appropriate for Cm" than the whole QBar. In flight, at a few degrees of
 sideslip, the two differ by its cosine squared. **Not moved**: CmDe, the
-elevator's term - the angle of attack only picks its coefficient (-0.62 to
--0.87, held at the ends), and stick central it is nothing.
+elevator's term - the angle of attack only picks its coefficient, bounded
+(-0.62 to -0.87, held at the ends), times the elevator's deflection: no
+undefined angle multiplies the pressure.
 """
 
 import pathlib

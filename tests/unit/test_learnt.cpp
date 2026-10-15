@@ -8,6 +8,7 @@
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 #include "sim/catalogue.hpp"
+#include "world/digest.hpp"
 #include "world/runway_ground.hpp"
 
 #include <algorithm>
@@ -15,9 +16,12 @@
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <cstdint>
 #include <fstream>
+#include <iterator>
 #include <memory>
 #include <optional>
+#include <span>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -53,6 +57,26 @@ std::filesystem::path policy_file() {
 std::filesystem::path parity_file() {
     return std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) / "data" / "rl" /
            "c172p-landing-parity.txt";
+}
+
+// The sha256 of the c172p.xml the simulation flies, and of the one the parity
+// fixture's flights were flown on (its `model` line, tools/rl/export.py).
+std::string flown_model_sha256() {
+    std::ifstream in(data() / "jsbsim" / "aircraft" / "c172p" / "c172p.xml", std::ios::binary);
+    check(static_cast<bool>(in), "the c172p.xml the simulation flies is there");
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    return glideslope::world::sha256_hex(std::span<const std::uint8_t>(
+        reinterpret_cast<const std::uint8_t*>(text.data()), text.size()));
+}
+
+std::string fixture_model_sha256() {
+    std::ifstream in(parity_file());
+    for (std::string line; std::getline(in, line);) {
+        if (line.rfind("model ", 0) == 0) {
+            return line.substr(6);
+        }
+    }
+    return "none";
 }
 
 std::shared_ptr<const LearntPolicy> the_policy() {
@@ -496,8 +520,19 @@ GLIDESLOPE_TEST(the_wind_the_learnt_landing_estimates_is_the_steady_wind_blowing
 // same version on the same model, but not the same ground or atmosphere code
 // around it - this simulation's terrain callback and weather, JSBSim's own
 // there - so they agree closely, not exactly: within 10 ft/min, 0.5 m across
-// and 5 m along.
+// and 5 m along. **"In training" means the bindings on the same model, not
+// the model the policy was trained on**: the fixture records the sha256 of
+// the c172p.xml it was flown on, and this fails by name when the model flown
+// here is another - fly it again with `tools/rl/export.py --parity-only`.
+// The C172P has changed since the policy was trained (its header names when);
+// the limits tests below hold the policy on her as she is.
 GLIDESLOPE_TEST(the_learnt_policy_touches_down_in_the_simulation_where_it_did_in_training) {
+    const std::string model_here = flown_model_sha256();
+    const std::string model_flown = fixture_model_sha256();
+    check(model_here == model_flown,
+          "the parity fixture was flown on the c172p.xml " + model_flown +
+              ", and the simulation flies " + model_here +
+              ": fly it again with tools/rl/export.py --parity-only");
     const auto policy = the_policy();
     const std::vector<Start> all = starts();
     std::vector<std::vector<double>> trained;
