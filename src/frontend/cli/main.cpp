@@ -1697,7 +1697,7 @@ public:
             predicted_at_.push_back({step, flown.location_ecef_m,
                                      std::hypot(flown.uvw_mps[0], flown.uvw_mps[1],
                                                 flown.uvw_mps[2]),
-                                     counted && sequence > 0});
+                                     counted && sequence > 0, pitch_of(flown)});
             if (predicted_at_.size() > glideslope::sim::most_unacknowledged) {
                 predicted_at_.pop_front();
             }
@@ -1845,6 +1845,10 @@ public:
                     }
                     last_compared_ = std::make_pair(*c.at_step, server_step);
                     errors_m_.push_back(error);
+                    // **Her pitch's error**, the same way: what a law that
+                    // has wandered in the prediction shows first.
+                    worst_pitch_error_deg_ =
+                        std::max(worst_pitch_error_deg_, std::abs(at->pitch_deg - pitch_of(m)));
                     // **The speed's error**: the server's word against what
                     // this client had flown it to, as the distance is.
                     const double speed_error = std::abs(
@@ -2317,6 +2321,11 @@ public:
                 std::snprintf(line, sizeof line, "stovl: never selected - its prediction never settled");
             }
             lines.emplace_back(line);
+            std::snprintf(line, sizeof line,
+                          "stovl: predicted pitch within %.3f degrees of the server's at every "
+                          "update compared",
+                          worst_pitch_error_deg_);
+            lines.emplace_back(line);
         }
         return lines;
     }
@@ -2511,7 +2520,20 @@ private:
         // step's misplacing hardly does.
         double speed_mps = 0.0;
         bool counted = false;
+        // And its pitch, degrees (`pitch_of`).
+        double pitch_deg = 0.0;
     };
+    // **A motion's pitch**, degrees, from its quaternion (north-east-down to
+    // the body, scalar first) - the same sum for the server's word and this
+    // client's, so that the two are held against each other alike.
+    static double pitch_of(const glideslope::sim::Motion& m) {
+        const auto& q = m.attitude_local;
+        const double s = std::clamp(2.0 * (q[0] * q[2] - q[3] * q[1]), -1.0, 1.0);
+        return std::asin(s) * 180.0 / 3.14159265358979323846;
+    }
+    // The worst of her pitch's error, the server's word against this
+    // client's, over the updates compared, degrees.
+    double worst_pitch_error_deg_ = 0.0;
     std::deque<Predicted> predicted_at_;
     std::size_t compared_ = 0;
     // Every error compared, for its median: a wrong wind is in every update,

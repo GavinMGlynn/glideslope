@@ -22,8 +22,12 @@
 # height asked is seeded on each side from her height as each sees her; since
 # protocol 13 the server tells it with her motion and the prediction takes it,
 # so selected early it no longer holds what it was off by then (108 mm at the
-# median under load before; 1 to 37 mm after, PROJECT_STATUS.md, 2026-10-16).
-# Settled selection is kept: the law's other state is still each side's own.
+# median under load before). And its wing-borne autopilot's pitch integral,
+# seeded a step apart when the selector reaches the server a step off: 14 to
+# 37 mm at the median here, 74 mm on CI (run 38692182329), before it was
+# told; 0 to 2 mm after, selected settled or at the 150th input, idle or
+# beside twice as many busy loops as cores (PROJECT_STATUS.md, 2026-10-16).
+# Settled selection is kept: a pilot selects once flying.
 #
 # **What a server gives a player is her model's own loading, 45,400 lb**,
 # over the 39,837 lb she is flown into a hover at (`fcs/stovl-hover-most-lbs`):
@@ -43,10 +47,13 @@
 # difference known - no correction too large to hide (joining, at her 300
 # kt, the prediction may be put right by more: 20 m on a debug build); and
 # the prediction's error - the server's word against where the client had
-# flown her to - under 5 cm at the median, within two steps' travel at her
-# conversion speed for 95 updates in a hundred (1.7 m: a step is 0.86 m at
-# 200 KCAS), and within four steps' travel at the 330 kt she dives to at
-# worst (5.6 m: a step is 1.4 m there), over at least 3,000 updates. Once
+# flown her to - under 1 cm at the median (5 cm until 2026-10-16; every
+# median since the law's state was told, 13 runs, 2 mm or less), within two
+# steps' travel at her conversion speed for 95 updates in a hundred (1.7 m:
+# a step is 0.86 m at 200 KCAS), and within four steps' travel at the 330 kt
+# she dives to at worst (5.6 m: a step is 1.4 m there), over at least 3,000
+# updates; and her predicted pitch within half a degree of the server's at
+# every update compared (0.154 at worst in those 13). Once
 # joined, the client must have been put right at least nine times in ten of
 # the updates compared, so that the 20 m is held over the prediction and
 # not over nothing.
@@ -142,6 +149,17 @@ endif()
 if(NOT _said MATCHES "stovl: selected with input ([0-9]+), its prediction settled")
     message(FATAL_ERROR "the client never selected STOVL mode, its prediction settled:\n${_said}")
 endif()
+# **Her predicted pitch within half a degree of the server's at every
+# update compared** (COMPLETION_PLAN, Phase 9): a law that has wandered in the
+# prediction shows in her pitch before her position.
+if(NOT _said MATCHES "stovl: predicted pitch within ([0-9]+)\\.([0-9][0-9][0-9]) degrees")
+    message(FATAL_ERROR "the client did not say its pitch error:\n${_said}")
+endif()
+if(CMAKE_MATCH_1 GREATER 0 OR CMAKE_MATCH_2 GREATER 500)
+    message(FATAL_ERROR "her predicted pitch was ${CMAKE_MATCH_1}.${CMAKE_MATCH_2} degrees off "
+                        "the server's, over half a degree:\n${_said}")
+endif()
+set(_pitch "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
 if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its prediction error:\n${_said}")
 endif()
@@ -182,10 +200,11 @@ if(NOT _said MATCHES "prediction error median: ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its median error:\n${_said}")
 endif()
 math(EXPR _median_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
-if(_median_mm GREATER 50)
-    message(FATAL_ERROR "the median prediction error was ${_median_mm} mm, over 5 cm:\n${_said}")
+if(_median_mm GREATER 10)
+    message(FATAL_ERROR "the median prediction error was ${_median_mm} mm, over 1 cm:\n${_said}")
 endif()
 message(STATUS "held wing-borne: lowest ${_lowest} ft, ${_kcas} KCAS at the end; ${_compared} "
                "updates compared, the worst ${_worst_mm} mm, the 95th percentile ${_p95_mm} mm, "
                "the median ${_median_mm} mm; ${_joined} corrections once joined (at least "
-               "${_joined_least}), the worst ${_joined_worst} m")
+               "${_joined_least}), the worst ${_joined_worst} m; her pitch within ${_pitch} "
+               "degrees of the server's")
