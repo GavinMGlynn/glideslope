@@ -861,10 +861,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       no deceleration keeps her brake bounded and her nose above -5 degrees.*
       Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
       creep, wet or dry (2026-10-14). **Still missing**: the walking-pace
-      tests roll her at 2-5 kt under the autobrake for about 2 s at most, and the
-      rolling bound is reached by every landplane handed over at 3.5 kt or
-      more but not below (named there); the 0.8 allowance for an idle creep
-      is barely exercised on the jets.
+      tests roll her at 2-5 kt under the autobrake for about 2 s at most;
+      reaching the rolling bound is required from 3 kt (3.5 for the aircraft
+      named, 2.5 wet on nose-wheel aeroplanes), and below that is named;
+      the 0.8 allowance for an idle creep is barely exercised on the jets.
 - [ ] **The Mosquito swings below walking pace.** Held at every walking
       pace with her brakes worked as the rollout's rudder bar works them, she
       turns at most 4.4 degrees after the hand-over (2026-10-15); but rolled
