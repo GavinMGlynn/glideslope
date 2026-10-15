@@ -3726,8 +3726,10 @@ GLIDESLOPE_TEST(every_landplane_rolling_at_a_walking_pace_of_4_to_5_kt_on_a_wet_
 // angle of attack was a flat plate's 1.41 (the air's force along the wind
 // on her 1.43 of her dynamic pressure on her wing's area); with it a
 // reversed wing's, cited (2026-10-16, tools/make_j3cub.py), it is 0.21 and
-// her brakes hold her at 1.01 kt. Seen red when the cap was lifted to
-// full.
+// her brakes hold her at 1.01 kt. **So no tail-wheel aeroplane now goes
+// through the 1 to 2 kt window here** (the Cub and the Mosquito are both
+// held): the cap is exercised on nose-wheel aeroplanes alone. Seen red when
+// the cap was lifted to full.
 GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_closed_winds_her_brake_no_further_than_idle_needs) {
     using glideslope::sim::Lander;
     // The bound, stated here and not read from the lander, so that a lander
