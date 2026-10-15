@@ -394,21 +394,22 @@ was not made again (removed to save the disk).
 
 ### #194's STOVL selector: her law's autopilot pitch integral told too; the median bound 1 cm, 2026-10-16 — a red PR's cause shown and fixed
 
-**What is still not true first.** **The head (`e67cd0cc` and the commit
-after it) has been through linux-release and linux-debug here, and no CI
-run**: not Windows - whose 15.6 ms timers put a selector two steps off - nor
-macOS nor Rocky 9; nothing here builds them. **CI run 38692182329 failed
-this test on Rocky 9 at the code before it (76b347ce)**: the median 74 mm,
-the 95th percentile 0.116 m, the worst 1.433 m, against the 5 cm median
-bound - twice the 37 mm this machine found, as a selector placed two steps
-off would give. **Only the wing-borne autopilot's integral is carried**:
-converting, jet-borne and hovering, the transition law's own integrals and
-the hover law's are each side's own; through a server her loading holds her
+**What is still not true first.** **Only the wing-borne autopilot's
+integral is carried**: the flag is `00` only when no wing-borne autopilot is
+flying her: no law, or a law flying her jet-borne, hovering, or converting
+back from jet-borne - and then the transition law's own integrals and the
+hover law's are each side's own; through a server her loading holds her
 wing-borne (the entry below), so none of them is flown there, and none is
-measured here. **Selection before the prediction has settled is not shown**:
-here it settles before the 150th input every time, so "at input 150
-whatever the settling" was settled too. COMPLETION_PLAN's item is narrowed
-to these, not ticked.
+measured here. **Selection before the prediction has settled is not
+shown**: here it settles before the 150th input every time, so "at input
+150 whatever the settling" was settled too. COMPLETION_PLAN's item is
+narrowed to these, not ticked. **CI run 38692182329 failed this test on
+Rocky 9 at the code before it (76b347ce)**: the median 74 mm, the 95th
+percentile 0.116 m, the worst 1.433 m, against the 5 cm median bound -
+twice the 37 mm this machine found, as a selector placed two steps off
+would give. **CI run 38768208229, on `c27ade6d`, passed every job on every
+platform** with the 1 cm bound - one run of the test on each, not a spread
+like the 14 here.
 
 **The cause, shown.** In one process - the F-35B at 45,400 lb untrimmed at
 2,200 ft and 300 KCAS, diving untouched as a server holds a player's, STOVL
@@ -435,9 +436,11 @@ which placing is harmful depends on the moment.
 
 **The change.** `Autopilot::pitch_integral_deg` and `put_pitch_integral_deg`;
 `Transition::Carried { std::optional<double> pitch_integral_deg; }`, which
-`Transition::carried()` exports - present while an autopilot flies her -
-and `carry()` takes, where it has one. Version 13's own motion (unreleased,
-changed in place) carries it after the height asked: a `u8` flag and an
+`Transition::carried()` exports - none only when no wing-borne autopilot
+is flying her: no law, or a law flying her jet-borne, hovering, or
+converting back from jet-borne - and `carry()` takes, where it has one.
+Version 13's own motion (unreleased, changed in place) carries it after the
+height asked: a `u8` flag and an
 `f32`, every bit nought when the flag is `00`; refused with a flag past
 `01`, a NaN or infinity, anything but nought after `00`, or a pitch integral
 with a height of -1. The full packet 1,147 bytes, 1,177 sealed. The server
@@ -468,9 +471,10 @@ multi-process test holds within half a degree.
   selected settled, idle 0, 2, 1, 0 and 2 mm, beside 40 busy loops (twice
   the cores, killed by their PIDs) 1, 0, 1 mm; selected at the 150th input
   whatever the settling (built for the measurement, reverted), idle 1, 1, 0
-  mm, beside the loops 1, 1, 0 mm. Her pitch within 0.154 degrees at worst
-  over all fourteen. Before: 0 to 37 mm here, 74 mm on CI. **The median bound
-  is tightened from 5 cm to 1 cm** - five times the worst of these - and
+  mm, beside the loops 1, 1, 0 mm: 14 runs. Her pitch within 0.154 degrees
+  at worst over all 14 (and linux-debug's one run: 0 mm, 0.006 degrees).
+  Before: 0 to 37 mm here, 74 mm on CI. **The median bound is tightened
+  from 5 cm to 1 cm** - five times the worst of these - and
   her pitch is now held within half a degree at every update. **Seen red**
   with a pitch integral 1 degree off the server's put on the prediction (a
   deliberate bug in glideslope_cli): her pitch 1.722 degrees off, the

@@ -2992,7 +2992,11 @@ public:
             // 2026-10-15). None while no law flies her lift system. **Never
             // below nought**: seeded on her wheels from her height above the
             // ground, a hair under it would be a height the wire refuses,
-            // and the client would be told nothing more.
+            // and the client would be told nothing more. What the clamp
+            // costs: a law seeded with her a hair below the ground (a
+            // negative height above it) is told as asking nought, so a
+            // prediction holding the negative is put to nought - and -1 is
+            // kept for "no law", never a height.
             //
             // **And her wing-borne autopilot's pitch integral**
             // (sim::Transition::Carried), seeded a step apart when her

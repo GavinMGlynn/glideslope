@@ -1163,7 +1163,7 @@ prediction can be put right (see "Predicting your own aircraft" below):
 | `f32` x3 | its rotation rates about those axes - roll, pitch, yaw - radians a second |
 | `u16` | how many steps of 1/120 s the server had flown it on the newest input it had applied, when it took this motion - from `0000`, the input applied and not yet flown, to `FFFF`, which is that many or more |
 | `f32` | the height above the ground beneath her that her STOVL transition law is asked to hold, feet, when it took this motion - or exactly -1 when no such law flies her lift system (since `0D`) |
-| `u8` | `01` if her STOVL law's wing-borne autopilot's pitch integral follows, `00` if not: no law, or a law flying her converting, jet-borne or hovering (since `0D`) |
+| `u8` | `01` if her STOVL law's wing-borne autopilot's pitch integral follows, `00` only when no wing-borne autopilot is flying her: no law, or a law flying her jet-borne, hovering, or converting back from jet-borne (since `0D`) |
 | `f32` | that pitch integral, degrees - or `00 00 00 00`, every bit nought, when the flag before it is `00` (since `0D`) |
 
 A flag other than `00` or `01`, or a NaN or infinity in any of the fifteen

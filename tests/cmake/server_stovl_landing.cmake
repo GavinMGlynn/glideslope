@@ -48,12 +48,12 @@
 # kt, the prediction may be put right by more: 20 m on a debug build); and
 # the prediction's error - the server's word against where the client had
 # flown her to - under 1 cm at the median (5 cm until 2026-10-16; every
-# median since the law's state was told, 13 runs, 2 mm or less), within two
+# median since the law's state was told, 14 runs, 2 mm or less), within two
 # steps' travel at her conversion speed for 95 updates in a hundred (1.7 m:
 # a step is 0.86 m at 200 KCAS), and within four steps' travel at the 330 kt
 # she dives to at worst (5.6 m: a step is 1.4 m there), over at least 3,000
 # updates; and her predicted pitch within half a degree of the server's at
-# every update compared (0.154 at worst in those 13). Once
+# every update compared (0.154 at worst in those 14). Once
 # joined, the client must have been put right at least nine times in ten of
 # the updates compared, so that the 20 m is held over the prediction and
 # not over nothing.
