@@ -102,6 +102,24 @@ tailplane are not swept: the case JSBSim issue #89 tested (on the C172) and the
 FlightGear wiki's "JSBSim Aerodynamics" writes up, QBarUW "more appropriate for
 Cm" than the whole QBar. In flight, at a few degrees of sideslip, the two
 differ by its cosine squared.
+
+**Her lift keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15): lift-alpha, which reads
+the angle of attack through aero/function/lift-coefficient-wing, her table of
+it and the flaps (with_alpha_terms_on_qbar_uw follows such a function).
+Standing on her brakes in 15 kt straight across, her angle of attack, atan2(w,
+u), was -179 to 179 degrees, and on the whole dynamic pressure, which counts
+the crosswind, the term lifted her by up to 410 lb either way; on
+aero/qbarUW-psf, nothing. JSBSim issue #89's guidance, written into the
+FlightGear wiki's "JSBSim Aerodynamics": QBarUW "is more appropriate for CL
+than the generic QBar" - a wing's lift is made by the air in the plane of u and
+w. Her wing is not swept: the case issue #89 tested. In flight, at a few
+degrees of sideslip, the two differ by its cosine squared. **Not moved**:
+lift-slipstream, the same coefficient on her slipstreams' own pressure, from u
+and the propellers' induced velocity, which leaves out the crosswind already;
+standing at idle it gives 230 to 265 lb. Her lift terms not keyed to the angle
+of attack (lift-elevator and lift-pitch-rate) are not this change's, and stay
+on aero/qbar-psf.
 """
 
 import pathlib
@@ -1701,7 +1719,8 @@ def airframe():
                     YAW, TAIL])
     return alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(text, "make_mosquito_fb6"), "make_mosquito_fb6",
-            {"PITCH": ["aero/moment/pitch-alpha", "aero/moment/pitch-stall"]})
+            {"PITCH": ["aero/moment/pitch-alpha", "aero/moment/pitch-stall"],
+             "LIFT": ["aero/force/lift-alpha"]})
 
 
 def outputs():

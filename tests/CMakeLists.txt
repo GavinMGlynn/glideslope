@@ -1441,6 +1441,16 @@ add_test(NAME every_flight_models_angle_of_attack_pitch_terms_leave_out_the_cros
 set_tests_properties(every_flight_models_angle_of_attack_pitch_terms_leave_out_the_crosswind_or_are_named_with_their_reason
     PROPERTIES SKIP_RETURN_CODE 77)
 
+# And their lift terms keyed to the angle of attack, the same way
+# (tests/tools/alpha_lift_terms.py).
+add_test(NAME every_flight_models_angle_of_attack_lift_terms_leave_out_the_crosswind_or_are_named_with_their_reason
+    COMMAND ${CMAKE_COMMAND} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/tools/alpha_lift_terms.py
+        "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
+set_tests_properties(every_flight_models_angle_of_attack_lift_terms_leave_out_the_crosswind_or_are_named_with_their_reason
+    PROPERTIES SKIP_RETURN_CODE 77)
+
 # The names go in a file: given on the command line they passed Windows'
 # 32,767-character limit, and the test was not even started there.
 string(REPLACE ";" "\n" _registered "${GLIDESLOPE_UNIT_TESTS}")

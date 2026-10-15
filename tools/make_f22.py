@@ -146,6 +146,25 @@ theory's pressure lies between them, under 1% from either (alpha_rate.py).
 CmDtv, her thrust vectoring's moment, made by her engines, not her wing; and
 Cmq, her pitch damping, where the angle of attack only picks the coefficient of
 her pitch rate.
+
+**Her lift keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15): CLalpha, and CLDlef, her
+leading-edge flaps' lift keyed to the angle of attack: the same wing's lift,
+its leading edge drooped. Standing on her brakes in 15 kt straight across, her
+angle of attack, atan2(w, u), was -175 to 120 degrees, and on the whole dynamic
+pressure, which counts the crosswind, the term lifted her by up to 660 lb
+either way; on aero/qbarUW-psf, nothing. JSBSim issue #89's guidance, written
+into the FlightGear wiki's "JSBSim Aerodynamics": QBarUW "is more appropriate
+for CL than the generic QBar" - a wing's lift is made by the air in the plane
+of u and w. Her wing is swept, 30.9 degrees at the quarter chord: the sweep
+argument above (simple sweep theory, NACA Report 863) holds for the lift of the
+same wing as for its moment - standing, qbarUW is the nearer; in flight, at a
+few degrees of sideslip, the two are under 1% apart. **Not moved**: CLq, lift
+with her pitch rate, where the angle of attack only picks its coefficient (as
+Cmq above). Her lift terms not keyed to the angle of attack (dCLflap, dCLsb and
+CLde) are not this change's, and stay on aero/qbar-psf. Standing, her lift left
+is 260 to 280 lb. Two CLDh terms of the pinned model are commented out, and not
+read.
 """
 
 import re
@@ -507,7 +526,8 @@ def outputs():
     return {
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             with_cm_alpha_split_out(alpha_rate.with_qbar_uw(airframe(), "make_f22")), "make_f22",
-            {"PITCH": ["aero/coefficient/Cma_M", "aero/coefficient/CmDh_alpha"]}),
+            {"PITCH": ["aero/coefficient/Cma_M", "aero/coefficient/CmDh_alpha"],
+             "LIFT": ["aero/coefficient/CLalpha", "aero/coefficient/CLDlef"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

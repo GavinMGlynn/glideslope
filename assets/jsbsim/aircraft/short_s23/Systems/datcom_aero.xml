@@ -168,7 +168,7 @@
             </description>
             <product>
                <property>aero/function/ground-effect-factor-lift</property>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <!-- The wing incidence is 3 deg. -->
                <!-- value>0.90</value --> <!-- Make CL at 17-3 deg. 1.65. -->

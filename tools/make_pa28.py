@@ -128,6 +128,19 @@ moving 0.2. Her wing and tailplane are not swept: the case JSBSim issue #89
 tested (on the C172) and the FlightGear wiki's "JSBSim Aerodynamics" writes up,
 QBarUW "more appropriate for Cm" than the whole QBar. In flight, at a few
 degrees of sideslip, the two differ by its cosine squared.
+
+**Her lift keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15): CLwbh. Standing on her
+brakes in 15 kt straight across, her angle of attack, atan2(w, u), was -17 to
+175 degrees, and on the whole dynamic pressure, which counts the crosswind, the
+term lifted her by up to 200 lb either way; on aero/qbarUW-psf, nothing. JSBSim
+issue #89's guidance, written into the FlightGear wiki's "JSBSim Aerodynamics":
+QBarUW "is more appropriate for CL than the generic QBar" - a wing's lift is
+made by the air in the plane of u and w. Her wing is not swept: the case issue
+#89 tested. In flight, at a few degrees of sideslip, the two differ by its
+cosine squared. **Not moved**: CLq, lift with her pitch rate, where the angle
+of attack only picks its coefficient. Her lift terms not keyed to the angle of
+attack (CLDf and CLDe) are not this change's, and stay on aero/qbar-psf.
 """
 
 import pathlib
@@ -357,7 +370,8 @@ def outputs():
     return {
         OUT / "aircraft" / "pa28" / "pa28.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_pa28"), "make_pa28",
-            {"PITCH": ["aero/coefficient/Cmalpha"]}),
+            {"PITCH": ["aero/coefficient/Cmalpha"],
+             "LIFT": ["aero/coefficient/CLwbh"]}),
         OUT / "engine" / "engIO360C.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),
     }

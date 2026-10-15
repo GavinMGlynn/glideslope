@@ -113,6 +113,21 @@ the angle of attack near nothing standing, as qbarUW does, where on qbar it is
 as large as the undefined angle makes it. Standing, qbarUW is the nearer; in
 flight, at a few degrees of sideslip, the two differ by its cosine squared, and
 the theory's pressure lies between them, under 1% from either (alpha_rate.py).
+
+**Her lift keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15): CLalpha, with her flaps'
+columns in it. Standing on her brakes in 15 kt straight across, her angle of
+attack, atan2(w, u), was -36 to 100 degrees, and on the whole dynamic pressure,
+which counts the crosswind, the term lifted her by up to 300 lb either way; on
+aero/qbarUW-psf, nothing. JSBSim issue #89's guidance, written into the
+FlightGear wiki's "JSBSim Aerodynamics": QBarUW "is more appropriate for CL
+than the generic QBar" - a wing's lift is made by the air in the plane of u and
+w. Her wing is swept, about 13 degrees at the quarter chord: the sweep argument
+above (simple sweep theory, NACA Report 863) holds for the lift of the same
+wing as for its moment - standing, qbarUW is the nearer; in flight, at a few
+degrees of sideslip, the two are under 1% apart. Her lift terms not keyed to
+the angle of attack (CLq, CLde, CLstab and CLspoilers) are not this change's,
+and stay on aero/qbar-psf.
 """
 
 import math
@@ -585,7 +600,8 @@ def outputs():
     return {
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_learjet35a"), "make_learjet35a",
-            {"PITCH": ["aero/coefficient/Cmalpha"]}),
+            {"PITCH": ["aero/coefficient/Cmalpha"],
+             "LIFT": ["aero/coefficient/CLalpha"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

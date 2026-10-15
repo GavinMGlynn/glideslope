@@ -856,7 +856,7 @@
       <function name="aero/force/lift-alpha">
         <description>Lift with angle of attack and flap</description>
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>aero/function/ground-effect-lift</property>
           <property>aero/function/lift-coefficient-wing</property>
