@@ -8,9 +8,11 @@
 # shards, from that preset's cost table, over this build's tests - which are
 # not that preset's list, but the dealing does not care whose list it is
 # dealt - and the shards' -I files read back: every test number of the build
-# must be in exactly one. The matrix rows are read from the workflow: each
-# preset's rows must be shards 1 to n, each once, all saying "of: n", and each
-# test job must call the dealing with its row's shard and of. How many tests a
+# must be in exactly one. The matrix rows are read from the workflow, job by
+# job - one preset may be sharded by two jobs (linux-release on Ubuntu and on
+# Rocky 9), each its own way: each job's rows of a preset must be shards 1 to
+# n, each once, all saying "of: n", and each test job must call the dealing
+# with its row's shard and of. How many tests a
 # shard runs at once is not in the workflow at all: the dealing reads it from
 # the test preset, so the two cannot disagree.
 
@@ -23,18 +25,27 @@ endforeach()
 
 file(READ ${ROOT}/.github/workflows/ci.yml _yml)
 string(REGEX MATCHALL "- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+ }" _rows "${_yml}")
+# Each sharded job's matrix: its "include:" and the rows under it. A dealing is
+# named by the job's place among them and the preset, "2:linux-release".
+string(REGEX MATCHALL "include:\n( *- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+ }\n)+" _blocks "${_yml}")
 set(_presets "")
-foreach(_row IN LISTS _rows)
-    string(REGEX MATCH "preset: ([a-z-]+), shard: ([0-9]+), of: ([0-9]+)" _ "${_row}")
-    set(_p ${CMAKE_MATCH_1})
-    if(NOT DEFINED _of_${_p})
-        list(APPEND _presets ${_p})
-        set(_of_${_p} ${CMAKE_MATCH_3})
-        set(_shards_${_p} "")
-    elseif(NOT _of_${_p} EQUAL CMAKE_MATCH_3)
-        message(FATAL_ERROR "${_p}: rows say of ${_of_${_p}} and of ${CMAKE_MATCH_3}")
-    endif()
-    list(APPEND _shards_${_p} ${CMAKE_MATCH_2})
+set(_job 0)
+foreach(_block IN LISTS _blocks)
+    math(EXPR _job "${_job} + 1")
+    string(REGEX MATCHALL "- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+ }" _block_rows "${_block}")
+    foreach(_row IN LISTS _block_rows)
+        string(REGEX MATCH "preset: ([a-z-]+), shard: ([0-9]+), of: ([0-9]+)" _ "${_row}")
+        set(_p ${_job}:${CMAKE_MATCH_1})
+        set(_preset_${_p} ${CMAKE_MATCH_1})
+        if(NOT DEFINED _of_${_p})
+            list(APPEND _presets ${_p})
+            set(_of_${_p} ${CMAKE_MATCH_3})
+            set(_shards_${_p} "")
+        elseif(NOT _of_${_p} EQUAL CMAKE_MATCH_3)
+            message(FATAL_ERROR "${_p}: rows say of ${_of_${_p}} and of ${CMAKE_MATCH_3}")
+        endif()
+        list(APPEND _shards_${_p} ${CMAKE_MATCH_2})
+    endforeach()
 endforeach()
 if(NOT _presets)
     message(FATAL_ERROR "no shard rows in ci.yml")
@@ -75,10 +86,10 @@ foreach(_p IN LISTS _presets)
         message(FATAL_ERROR "${_p}: the matrix has shards ${_have}, not 1 to ${_of_${_p}} once each")
     endif()
 
-    set(_dir ${WORK}/${_p})
+    string(REPLACE ":" "-" _dir ${WORK}/${_p})
     file(REMOVE_RECURSE ${_dir})
     file(MAKE_DIRECTORY ${_dir})
-    execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_p} -DBUILD=${BUILD} -DOF=${_of_${_p}}
+    execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_preset_${_p}} -DBUILD=${BUILD} -DOF=${_of_${_p}}
             -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
         OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
     if(NOT _rc EQUAL 0)
@@ -115,4 +126,4 @@ list(LENGTH _rows _nrows)
 if(NOT _dealings EQUAL _nrows)
     message(FATAL_ERROR "${_nrows} matrix rows, but ${_dealings} shards dealt")
 endif()
-message(STATUS "${_np} presets, ${_nrows} shards: every shard dealt, every test in exactly one")
+message(STATUS "${_np} sharded jobs and presets, ${_nrows} shards: every shard dealt, every test in exactly one")
