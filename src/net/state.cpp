@@ -17,6 +17,12 @@ bool a_number(float v) {
     return std::isfinite(v);
 }
 
+// A height asked that is one: a number, nought or more, or exactly
+// `no_stovl_law`.
+bool a_height_asked(float v) {
+    return a_number(v) && (v >= 0.0F || v == no_stovl_law);
+}
+
 } // namespace
 
 std::size_t state_bytes(std::size_t count, bool with_yours, bool with_watched) {
@@ -55,7 +61,7 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         for (const float v : m.attitude) numbers = numbers && a_number(v);
         for (const float v : m.uvw_mps) numbers = numbers && a_number(v);
         for (const float v : m.pqr_radps) numbers = numbers && a_number(v);
-        if (!numbers) {
+        if (!numbers || !a_height_asked(m.stovl_height_asked_ft)) {
             return std::nullopt;
         }
     }
@@ -97,6 +103,7 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
             w.f32(v);
         }
         w.u16(m.steps_into_input);
+        w.f32(m.stovl_height_asked_ft);
     }
     w.u8(state.watched ? 1 : 0);
     if (state.watched) {
@@ -193,7 +200,8 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
             v = r.f32();
         }
         m.steps_into_input = r.u16();
-        if (!r.ok() || !a_number(m.x_m) || !a_number(m.y_m) || !a_number(m.z_m)) {
+        m.stovl_height_asked_ft = r.f32();
+        if (!r.ok() || !a_height_asked(m.stovl_height_asked_ft) || !a_number(m.x_m) || !a_number(m.y_m) || !a_number(m.z_m)) {
             return std::nullopt;
         }
         for (const float v : m.attitude) {

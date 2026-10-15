@@ -14,6 +14,7 @@
 #include <fstream>
 #include <iterator>
 #include <limits>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -178,8 +179,8 @@ GLIDESLOPE_TEST(every_single_byte_change_to_a_state_packet_is_read_or_refused) {
 }
 
 // **A number that is not one is refused, in every field that holds one.** The
-// clock, the nine numbers of an aircraft, and the thirteen of the client's own
-// motion - twenty-three fields - against a NaN and both infinities: sixty-nine
+// clock, the nine numbers of an aircraft, and the fourteen of the client's own
+// motion - twenty-four fields - against a NaN and both infinities: seventy-two
 // cases, counted.
 GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
     const double nan = std::numeric_limits<double>::quiet_NaN();
@@ -197,17 +198,18 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
         m.attitude = {0.5F, 0.5F, 0.5F, 0.5F};
         m.uvw_mps = {55.0F, 1.5F, -2.0F};
         m.pqr_radps = {0.01F, -0.02F, 0.03F};
+        m.stovl_height_asked_ft = 450.0F;
         s.yours = m;
         return s;
     };
 
     // Setting one field of a packet, by number, so the walk can say how many
     // fields there are and check it covered them.
-    const std::size_t fields = 23; // the clock; an aircraft's three positions,
+    const std::size_t fields = 24; // the clock; an aircraft's three positions,
                                    // three velocities and three angles; and the
                                    // own motion's three positions, four
-                                   // quaternion terms, three velocities and
-                                   // three rates
+                                   // quaternion terms, three velocities, three
+                                   // rates and the height its STOVL law asks
     std::size_t walked = 0;
     for (const double bad : wrong) {
         for (std::size_t field = 0; field < fields; ++field) {
@@ -232,7 +234,8 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
             case 13: case 14: case 15: case 16: m.attitude[field - 13] = f; break;
             case 17: case 18: case 19: m.uvw_mps[field - 17] = f; break;
             case 20: case 21: case 22: m.pqr_radps[field - 20] = f; break;
-            default: check(false, "a field that is not one of the twenty-three"); break;
+            case 23: m.stovl_height_asked_ft = f; break;
+            default: check(false, "a field that is not one of the twenty-four"); break;
             }
             check(!write_state(s).has_value(),
                   "field " + std::to_string(field) + " refuses being written");
@@ -261,6 +264,10 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
                 at = header + 2 * per + 1;
                 if (field <= 12) {
                     at += (field - 10) * 8;
+                } else if (field == 23) {
+                    // Past the ten floats and the steps into the input.
+                    at += 3 * 8 + 10 * 4 + 2;
+                    is_float = true;
                 } else {
                     at += 3 * 8 + (field - 13) * 4;
                     is_float = true;
@@ -288,7 +295,7 @@ GLIDESLOPE_TEST(a_state_packet_refuses_a_nan_and_an_infinity_in_every_field) {
     }
     check(walked == wrong.size() * fields,
           "all " + std::to_string(wrong.size() * fields) + " cases were walked");
-    check(walked == 69, "sixty-nine cases, not " + std::to_string(walked));
+    check(walked == 72, "seventy-two cases, not " + std::to_string(walked));
 }
 
 // **A state packet carries this client's own motion, and nothing but a flag
@@ -304,16 +311,21 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_clients_own_motion) {
     m.uvw_mps = {55.0F, 1.5F, -2.0F};
     m.pqr_radps = {0.01F, -0.02F, 0.03F};
     m.steps_into_input = 0x1234;
+    m.stovl_height_asked_ft = 1.5F; // 3F C0 00 00
     s.yours = m;
     const auto with = write_state(s);
     check(with.has_value(), "a packet with the client's motion is written");
     check(with->size() == glideslope::net::state_bytes(3, true),
           "and is " + std::to_string(glideslope::net::state_bytes(3, true)) + " bytes, not " +
               std::to_string(with->size()));
-    // How far into its newest input the server had flown it is the motion's
-    // last field, little-endian, just before the watched controls' flag.
-    check((*with)[with->size() - 3] == 0x34 && (*with)[with->size() - 2] == 0x12,
-          "the steps into the input are the motion's last two bytes, least first");
+    // How far into its newest input the server had flown it, little-endian,
+    // and then the height its STOVL law asks, the motion's last field, just
+    // before the watched controls' flag (since version 13).
+    check((*with)[with->size() - 7] == 0x34 && (*with)[with->size() - 6] == 0x12,
+          "the steps into the input follow the rates, least first");
+    check((*with)[with->size() - 5] == 0x00 && (*with)[with->size() - 4] == 0x00 &&
+              (*with)[with->size() - 3] == 0xC0 && (*with)[with->size() - 2] == 0x3F,
+          "the height asked is the motion's last four bytes, an f32, least first");
     const auto back = read_state(all_of(*with));
     check(back.has_value() && *back == s, "and is read back the same");
 
@@ -334,6 +346,56 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_clients_own_motion) {
     check(glideslope::net::state_bytes(20, true) <= 1218,
           "a full packet with the client's motion fits a datagram: " +
               std::to_string(glideslope::net::state_bytes(20, true)) + " bytes");
+}
+
+// **The height a client's STOVL law is asked to hold is none at exactly -1,
+// and refused below nought otherwise** (since version 13): every value here,
+// written and read back, or refused by the writer and, put in the bytes
+// anyway, by the reader. Seven kept and six refused, thirteen cases, counted.
+GLIDESLOPE_TEST(a_state_packets_stovl_height_asked_is_none_at_minus_one_and_refused_below_nought) {
+    const auto with = [](float ft) {
+        StatePacket s = a_packet(1);
+        glideslope::net::OwnMotion m;
+        m.attitude = {1.0F, 0.0F, 0.0F, 0.0F};
+        m.stovl_height_asked_ft = ft;
+        s.yours = m;
+        return s;
+    };
+    const std::vector<float> kept = {-1.0F, 0.0F, -0.0F, 1.0e-30F, 100.0F, 450.25F,
+                                     std::numeric_limits<float>::max()};
+    const std::vector<float> refused = {
+        std::nextafter(-1.0F, 0.0F), std::nextafter(-1.0F, -2.0F), -0.5F, -2.0F,
+        -std::numeric_limits<float>::denorm_min(), -std::numeric_limits<float>::max()};
+    std::size_t walked = 0;
+    for (const float ft : kept) {
+        const auto bytes = write_state(with(ft));
+        check(bytes.has_value(), "a height asked of " + std::to_string(ft) + " is written");
+        const auto back = read_state(all_of(*bytes));
+        check(back && back->yours && *back == with(ft),
+              "and read back the same: " + std::to_string(ft));
+        const std::optional<double> asked = glideslope::net::stovl_height_asked(*back->yours);
+        check(ft == -1.0F ? !asked : (asked && *asked == static_cast<double>(ft)),
+              "and -1 alone is no law: " + std::to_string(ft));
+        ++walked;
+    }
+    // The height asked is the motion's last four bytes, before the watched
+    // controls' flag.
+    const auto good = *write_state(with(450.25F));
+    for (const float ft : refused) {
+        check(!write_state(with(ft)).has_value(),
+              "a height asked of " + std::to_string(ft) + " refuses being written");
+        auto bytes = good;
+        std::uint32_t bits = 0;
+        std::memcpy(&bits, &ft, sizeof(bits));
+        for (std::size_t i = 0; i < 4; ++i) {
+            bytes[bytes.size() - 5 + i] = static_cast<std::uint8_t>((bits >> (8 * i)) & 0xFFu);
+        }
+        check(!read_state(all_of(bytes)).has_value(),
+              "and being read: " + std::to_string(ft));
+        ++walked;
+    }
+    check(walked == kept.size() + refused.size() && walked == 13,
+          "thirteen cases, not " + std::to_string(walked));
 }
 
 // **A state packet carries the controls of the aircraft its client watches**,
@@ -557,6 +619,9 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet
         "its attitude, a unit quaternion from north-east-down to the body, scalar first",
         "its velocity relative to the Earth along its own axes",
         "its rotation rates about those axes",
+        "the height above the ground beneath her that her STOVL transition law is asked "
+        "to hold, feet",
+        "or exactly -1 when no such law flies her lift system (since `0D`)",
     };
     for (const std::string& field : own) {
         check(says(field), "the document names '" + field + "'");

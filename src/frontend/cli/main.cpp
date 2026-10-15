@@ -1795,11 +1795,14 @@ public:
                 // joining's (`predicted, joined:`).
                 const bool joined = answered_ && !resuming_ && local_s >= settled_at_s_ &&
                                     prediction_->settled();
+                // And the height her STOVL law was asked to hold there, put
+                // on this client's law where one flies her (sim::Prediction).
                 const auto c = prediction_->reconcile(
                     m, applied, state.yours->steps_into_input,
                     static_cast<std::uint64_t>(std::llround(
                         state.simulation_time_s *
-                        static_cast<double>(glideslope::sim::steps_per_second))));
+                        static_cast<double>(glideslope::sim::steps_per_second))),
+                    glideslope::net::stovl_height_asked(*state.yours));
                 // The pace steered by the clocks' difference, once it is
                 // known; from the session clock's fitted rate the first time.
                 if (paced_) {

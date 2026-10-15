@@ -228,13 +228,18 @@ GLIDESLOPE_TEST(an_envelope_that_is_wrong_is_refused_with_the_reason_it_is_wrong
     old[4] = static_cast<std::uint8_t>(glideslope::net::protocol_version + 1);
     check(refuse(old) == Refusal::wrong_version, "a version there is none of is refused");
 
-    // **The version before this one, `0B`, by name**: its input frame was
-    // eighteen controls, this one's nineteen (the STOVL mode selector), so a
-    // peer still on it is refused at the envelope rather than read wrong.
-    check(glideslope::net::protocol_version == 0x0C, "this is version 0C");
-    std::vector<std::uint8_t> was_0b = wire;
-    was_0b[4] = 0x0B;
-    check(refuse(was_0b) == Refusal::wrong_version, "a 0B datagram is refused as WRONG_VERSION");
+    // **The versions before this one, `0B` and `0C`, by name**: `0B`'s input
+    // frame was eighteen controls, `0C`'s nineteen (the STOVL mode selector),
+    // and `0C`'s own motion carried no height asked of her STOVL law, which
+    // this one's does - so a peer still on either is refused at the envelope
+    // rather than read wrong.
+    check(glideslope::net::protocol_version == 0x0D, "this is version 0D");
+    for (const std::uint8_t before : {std::uint8_t{0x0B}, std::uint8_t{0x0C}}) {
+        std::vector<std::uint8_t> was = wire;
+        was[4] = before;
+        check(refuse(was) == Refusal::wrong_version,
+              "a " + std::to_string(before) + " datagram is refused as WRONG_VERSION");
+    }
 
     std::vector<std::uint8_t> odd = wire;
     odd[5] = 200;

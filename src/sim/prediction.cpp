@@ -112,7 +112,8 @@ bool Prediction::hear_engine_stopped(std::optional<int> engine) {
 Prediction::Correction Prediction::reconcile(const Motion& server,
                                              std::uint32_t last_applied,
                                              std::size_t steps_into,
-                                             std::uint64_t server_steps) {
+                                             std::uint64_t server_steps,
+                                             std::optional<double> stovl_height_asked_ft) {
     const AircraftState was = aircraft_.state();
     Correction out;
     hear_clock(last_applied, steps_into, server_steps);
@@ -134,6 +135,12 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     began_.erase(began_.begin(), began_.lower_bound(last_applied));
     aircraft_.set_motion(server);
     as_at_first_held();
+    // The server's height asked, where a law flies her here too.
+    if (laws_ && laws_->transition() && stovl_height_asked_ft) {
+        Controller::PilotsLaws told = laws_->pilots_laws();
+        told.stovl_height_ft = *stovl_height_asked_ft;
+        laws_->restore(told);
+    }
     out.replayed = fly_held_again();
     out.moved_m = how_far_apart_m(was, aircraft_.state());
     out.snapped = out.moved_m > snap_beyond_m;
