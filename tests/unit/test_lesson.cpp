@@ -3234,7 +3234,7 @@ void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces
     constexpr int roll_up_s = 40;
     // Held at her pace for 25 s, at least 18 of them within half a knot of
     // it: she breaks away from rest on more throttle than she rolls on, and
-    // the hand takes up to 4.4 s to bring her back (36.9 s of 40 at the
+    // the hand takes up to 4.4 s to bring her back (20.6 s of 25 at the
     // least, the C182 in 15 kt across, linux-debug). Its integral moves at
     // 0.05 a second a knot either way, as holding the Cub's pace in her own
     // test.
@@ -3568,9 +3568,10 @@ void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces
 // **Named only where the rolling ceiling cannot bite**, handed over too slow
 // for it (linux-debug, 2026-10-15). Handed over at 2 kt she is at the foot
 // of walking pace, and below it in a moment, every landplane. Dry or in 15 kt
-// across, at 3 kt or less some never reach it - the C172P, the F-15C and the
-// Cub at 3 kt, 0.26 to 0.297 - and the rest only just, after 0.77 to 0.88 s
-// rolling, where 0.62 to 0.71 s did not: named below 3.5 kt, each. Wet, all
+// across, at 3 kt or less some never reach it - the C172P, the F-15C, the
+// Cub and, dry, the Mosquito at 3 kt, 0.27 to 0.296 after 0.63 to 0.71 s
+// rolling - and the rest only just, after 0.75 to 0.91 s: named below 3.5
+// kt, each. From 3.5 kt every one reaches it, after 0.78 s or more. Wet, all
 // of the pedals from the touch reach it from 2.5 kt on every nose-wheel
 // aeroplane; the tail-wheel ones, braked as on a dry runway, as dry.
 constexpr const char* dry_unreached =

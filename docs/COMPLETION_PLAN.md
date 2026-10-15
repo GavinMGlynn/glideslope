@@ -616,16 +616,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       covers it now. *Verification: a C172P at full power on her brakes,
       stick full back, keeps her nosewheel within a stated height of the
       runway and her tail off it, from a cited figure.*
-- [ ] **The walking-pace tests' throttle sits the C172P on her tail.**
+- [x] **The walking-pace tests' throttle sits the C172P on her tail.**
       Holding her at 3 kt against the autobrake, the test's hand winds to full
       power with her stick back, and she rears to 11 degrees. *Verification:
       no landplane rolled at walking pace and stopped touches the runway with
-      anything but her wheels.* At taxi power none strikes at 3 kt
-      (2026-10-15). **Missing**: these tests fly only 3 kt of walking pace's
-      2-5; handed over at 2 kt the Cub rolled there for 0.03 s against the
-      0.4 s they require, so they need reshaping to fly the range. The Cub,
-      the one that struck at 4.5 kt, is held at 2-5 kt in her own test and
-      stays on her wheels (2026-10-15).
+      anything but her wheels.* Done 2026-10-15: every landplane is held at
+      every pace from 2 to 5 kt by half a knot, dry, wet and in 15 kt across,
+      then stopped by the rollout - 273 runs, none touching but her wheels.
 
 ---
 
@@ -864,17 +861,17 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       no deceleration keeps her brake bounded and her nose above -5 degrees.*
       Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
       creep, wet or dry (2026-10-14). **Still missing**: the walking-pace
-      tests roll her at 2-5 kt for under 1.1 s, and the rolling bound is not
-      reached on the Mosquito, on the Cub only in 15 kt across, nor on the
-      C172P dry, named there; the 0.8 allowance for an idle creep is barely exercised on the jets.
-- [ ] **The Mosquito swings below walking pace.** She turns 36 to 155
-      degrees before she stops. Without the steering-brake fade it is 81 to
-      156 degrees, so the fade does not cause it. Measured under the test's
-      old full-power hand. At taxi power (2026-10-15) she turns at most 17.2
-      at 3 kt, over under half a second of rolling; held at 4.5 kt she turns
-      109 in 15 kt across. *Verification: every landplane rolling at walking
-      pace stops within 30 degrees of her heading, in calm air and 15 kt
-      across.*
+      tests roll her at 2-5 kt under the autobrake for about 2 s at most, and the
+      rolling bound is reached by every landplane handed over at 3.5 kt or
+      more but not below (named there); the 0.8 allowance for an idle creep
+      is barely exercised on the jets.
+- [ ] **The Mosquito swings below walking pace.** Held at every walking
+      pace with her brakes worked as the rollout's rudder bar works them, she
+      turns at most 4.4 degrees after the hand-over (2026-10-15); but rolled
+      up from rest in 15 kt across she swings 47 degrees off the runway below
+      2 kt, where that steering brake fades to nothing. *Verification: every
+      landplane rolling at walking pace stops within 30 degrees of her
+      heading, in calm air and 15 kt across.*
 - [ ] **The flying boat lands in gusts without skipping.** Her flare is
       flown to her hull and she touches gently, but in gusts she touches
       flat - under one degree, below NACA TN 923's lower trim limit - and
