@@ -650,8 +650,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       angle (the Cub's is moved, 2026-10-15). *Verification: each model's lift
       terms on the dynamic pressure without its sideways part or named with a
       reason, and every figure in range.* Done 2026-10-15: 16 terms moved in
-      15 models, 5 named; standing in 15 kt across they lifted by up to 7,260
-      lb, now nothing; every figure in range.
+      15 models and 3 named (CLq in the F-22A, PA-28 and S.23), as the test
+      asserts; the Mosquito's slipstream lift is named in her script, which
+      the test does not read. Standing in 15 kt across they lifted the
+      landplanes by up to 7,260 lb, now nothing; the S.23 afloat by up to
+      2,100 lb, now 20 to 410. Every figure in range.
 - [ ] **Every model but the Cub has her wing's drag keyed to the angle of
       attack counting the crosswind**, as her lift did. *Verification: each
       model's drag terms keyed to the angle of attack on the dynamic pressure
