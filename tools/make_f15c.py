@@ -243,8 +243,9 @@ degrees at the quarter chord (SWEEP_QUARTER_CHORD), where issue #89 did not
 look; simple sweep theory (NACA Report 863; alpha_rate.py's docstring) puts the
 part of a beam wind's moment that goes with the angle of attack near nothing
 standing, as qbarUW does, where on qbar it is as large as the undefined angle
-makes it. In flight, at a few degrees of sideslip, the two differ by its cosine
-squared.
+makes it. Standing, qbarUW is the nearer; in flight, at a few degrees of
+sideslip, the two differ by its cosine squared, and the theory's pressure lies
+between them, under 1% from either (alpha_rate.py).
 """
 
 import math

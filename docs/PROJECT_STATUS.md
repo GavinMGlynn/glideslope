@@ -286,10 +286,16 @@ are the risks the phase order is built around:
 - **The learnt landing flies a C172P a little different from the one it
   learnt on**: the policy is not trained again. Its parity fixture is flown
   again on her (below), and every learnt-landing test passes, its limits
-  held; in calm air she now touches +2.3 to +2.7 m across the centreline
-  (within 5), where on the fixture's old flights she touched +1.8 to +2.1.
-  Why a calm-air landing moves half a metre is not traced: the two pressures
-  differ only where she slips, so she flies her approach a little slipped.
+  held. Against the fixture's old flights, from the 27 verification starts
+  (the bindings, new fixture less old): **calm air**, sink -2 to +20 ft/min,
+  +0.56 to +0.60 m further across (now +2.32 to +2.70), 3 to 7 m further
+  along; **10 kt from one side** (+10 kt), 6 to 37 ft/min less sink (now 72
+  to 106), +0.61 to +0.94 m further across (now +1.76 to +2.44), 8 to 25 m
+  further along; **10 kt from the other** (-10 kt), 15 ft/min less sink (now
+  138 to 140), +0.35 to +0.37 m across (now +1.56 to +1.60), 8 m further
+  along. All within her limits (5 m, 300 ft/min). Why it moves so much is not
+  traced: the two pressures differ only where she slips, so she flies her
+  approach slipped; most where the crosswind is.
 - **Not moved, named with their reasons** (and pinned): the C182's `CmDe`
   and the F-22A's `CmDh` increment, elevator terms, where the angle of attack
   picks the coefficient of a deflection; the F-22A's `CmDtv`, her thrust
@@ -310,9 +316,12 @@ function, `CmDh_alpha` (moved), and leaves `CmDh` the deflection's increment
 over it (a `<difference>` of the table and the column, on `qbar`), so the
 two add to the old `CmDh` term for term. Every one of her figures prints the
 same as before. The B-2A's script imports `alpha_rate` for the first time.
-`tools/alpha_rate.py` changes in its docstring only: the swept-wing argument.
-(Another agent may be changing the Cub's script and the helper; this branch
-leaves the Cub alone.)
+`tools/alpha_rate.py` gains the swept-wing argument in its docstring, and its
+angle-of-attack match allows space before the tag's close (as the test's
+does). **The F-22A's split refuses a CmDh with anything more in it**: its
+properties must be qbar, Sw and cbarw, its value 1.5 and nothing else but
+its two tables, so a factor added to the pinned model is not dropped; seen
+refusing an added property and an added value.
 
 **Why the swept wings too.** JSBSim issue #89 (Coconnier's XFLR5 and
 vortex-lattice comparison, L = 0.5 rho (U^2 + W^2) S CL on an unswept wing)
@@ -329,11 +338,19 @@ wing's), but at an incidence of about w over V sin L, not atan2(w, u), and
 standing w is near nothing. So the part of her moment that goes with the
 angle of attack is small, of order rho V sin L w. On `qbar` the model's term
 is Cm-alpha times atan2(w, u), anything at all, times the beam wind's whole
-pressure; on `qbarUW` it is of order rho (u^2 + w^2), near nothing. Neither is
-exact; the second is the nearer. In flight at sideslip b the theory's mean
-pressure over both halves is cos^2 b + tan^2 L sin^2 b of the whole, between
-`qbarUW`'s cos^2 b and `qbar`'s 1: at 5 degrees and 35 of sweep, 0.996
-against 0.992 and 1.
+pressure; on `qbarUW` it is of order rho (u^2 + w^2), near nothing. One half
+meets that normal flow leading edge first and the other trailing edge first;
+the reversed half's force too goes with w, near nothing standing. **Standing,
+neither is exact and `qbarUW` is the nearer, at any sweep.** **In flight it is
+not so plain**: at sideslip b the theory's mean pressure over both halves is
+cos^2 b + tan^2 L sin^2 b of the whole, between `qbarUW`'s cos^2 b and
+`qbar`'s 1 - nearer `qbarUW` below 35.3 degrees of sweep, midway there, nearer
+`qbar` above it, and `qbar`'s exactly at 45. At 5 degrees of sideslip: 0.994
+at 25 degrees, 0.996 at 35, 0.999 at 42, against 0.992 and 1 - under 1%
+either way, and no figure shows it. Taking a wing's sweep at its quarter
+chord or its leading edge changes nothing standing, and in flight only which
+of two choices under 1% apart is nearer; every wing here is swept 45 degrees
+or less either way (the F-15C's leading edge is 45, her quarter chord 38.7).
 
 **Standing on full brakes in 15 kt straight across** (linux-debug, a probe
 not committed: each landplane settled ten seconds in calm air, the wind on
@@ -376,9 +393,16 @@ Learjet's 5,348 -> 5,341 ft; the 737's 7,793.8 -> 7,793.8 and the 747's
 port lead (0.2 to 3.0), her distance and single-engine ceiling in the third
 decimal; the PA-28's ground roll in the third; the F-35B's hover holds by a
 few hundredths of a foot (the most, 0.02 -> 0.18 ft in 10 kt across, against
-a 10 ft bound). Why the S.23's run is 3% shorter is not traced; the two
-pressures differ only where she slips, so she slips on the water at some
-point of her run - by how much is not measured.
+a 10 ft bound). **Why the S.23's run is 3% shorter, traced** (a per-half-
+second trace of the 45,000 lb run, both models, not committed): she runs at
+1 to 3 degrees of sideslip the whole way, from the throttles opening (2.3
+afloat) to the unstick, so `qbarUW` is 0.998 of `qbar` and her nose-down
+`Cm_basic` 0.2% less, some 70 ft-lb in 50,000. The two runs agree to the
+yard until 34.5 s (692.6 yd); at her rotation her pitch then runs 0.05
+degrees higher (9.96 against 9.91 at 37 s), and she comes unstuck half a
+second sooner: 798 yd against 823. Not the start, where the angle of attack
+is well defined afloat (4 degrees): a figure at the edge of her unstick,
+moved by a small steady moment.
 
 **The selftest hash moves**, deliberately: it flies a C172P, whose `Cmalpha`
 is now on `qbarUW`. `fefe2a7f5d0f52a5` -> `ba8e97281095464f` in linux-debug
@@ -388,17 +412,29 @@ KCAS, 20.2 ft/min, 2447 RPM) is the same to every printed digit.
 **The learnt landing's parity fixture, flown again.** CI's first run on
 this branch (38663200650) failed one test on every platform:
 `the_learnt_policy_touches_down_in_the_simulation_where_it_did_in_training`,
-27 of 27 landings up to 0.6 m further across than the fixture's flights
-(calm air from the centre: 2.50 m across against 1.93). Those flights were
+27 of 27 landings apart from the fixture's flights by up to 37.46 ft/min,
+0.937 m across and 24.70 m along (CI's own summary; per wind in the first
+section above). Those flights were
 flown by JSBSim's Python bindings on the C172P of the policy's last export,
 before this change - and before #198's alpha-rate change and the tail-strike
 change, which moved her too, inside the test's 0.5 m. The fixture is
 `tests/data/rl/c172p-landing-parity.txt`, written by `tools/rl/export.py`;
-it is written again with export.py's own `parity()` on the committed policy
-(`~/.venvs/glideslope-rl`, the pinned packages; the checkpoint is not
-needed for it). On her now, the bindings touch where the simulation does:
-the test passes apart by at most 0.23 ft/min, 0.002 m across and 0.18 m
-along. The same re-flight on main's C172P does not give the committed file
+it is written again by `tools/rl/export.py --parity-only` (new: it flies the
+committed policy file with export.py's own `parity()`, no checkpoint; its
+docstring says when), in `~/.venvs/glideslope-rl` on the pinned packages.
+On her now, the bindings touch where the simulation does: the test passes
+apart by at most 0.23 ft/min, 0.002 m across and 0.18 m along. **The fixture
+now records the model it was flown on**: a `model` line, the sha256 of the
+c172p.xml, and the test fails by name first when the simulation flies
+another ("the parity fixture was flown on the c172p.xml 8929...85a2, and the
+simulation flies 1ad0...: fly it again with tools/rl/export.py
+--parity-only") - seen, with main's c172p.xml put in the build's copy, and
+restored. **Its name is kept, with a note**: "where it did in training" now
+means the bindings on the same model, not the model the policy was trained
+on; the test's comment says so. (The observation test,
+`the_learnt_landing_sees_and_acts_in_the_simulation_as_it_did_in_training`,
+works on recorded readings and does not depend on the model; it is not
+gated.) The same re-flight on main's C172P does not give the committed file
 either (calm, from the left and low: 1.764 m against 1.761), which is the
 earlier changes.
 
@@ -412,10 +448,11 @@ every pressure in it `aero/qbarUW-psf`, or named, on `qbar`, with its
 reason. Coverage asserted: sixteen aircraft, 19 terms moved and 5 named, and
 it fails if the directory, a term or a count differs. **Seen red**: on main's
 models, 16 terms on `qbar` and the F-22A's `CmDh_alpha` not found, 2 of 19
-moved (the Cub's); a named
-term moved (the C182's `CmDe`); a term renamed (unlisted, and the listed one
-missing); the F-22A's `CmDh_alpha` put back on `qbar`; an aircraft not
-listed. Each restored, green.
+moved (the Cub's); a named term moved (the C182's `CmDe`); a term renamed
+(unlisted, and the listed one missing); the F-22A's `CmDh_alpha` put back on
+`qbar`; an aircraft not listed; and a renamed term on `qbar` written
+`aero/alpha-rad </...>`, unseen by the first match and found by the one that
+allows the space. Each restored, green.
 
 **Verification.**
 **The full suite in linux-debug** (`ctest -j4`, one run, with no display):
@@ -434,6 +471,17 @@ take-off distance (2,520.30 ft) and swing (2.565). Selftest hashes:
 `ba8e97281095464f` in linux-debug and v2, `9a85fba6d1ae67d0` in release.
 **On CI**, run on 24f5a9f8 (the models and the fixture): every job on every
 platform passed.
+
+**From the review of #206** (all above, in place): the learnt landing's
+whole movement, sink, across and along, per wind, where the first draft
+said only "up to 0.6 m across"; the fixture made by a committed command
+without the checkpoint, and pinned to the model it was flown on; the swept
+wing's in-flight case said as it is (`qbarUW` the nearer standing, not
+always in flight); the S.23's shorter run traced; the F-22A's split guarded;
+the angle-of-attack match allowing a space. The models are unchanged by it
+(every script run again; the committed-model tests pass). In linux-debug the
+53 tests of the committed models, both term checks and every learnt landing
+pass.
 
 ### From the review of #205: the Cub held at each walking pace, not handed over at it, 2026-10-15 — item done
 

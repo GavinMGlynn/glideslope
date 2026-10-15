@@ -136,15 +136,16 @@ was, so that on the same pressure nothing would move. Her wing is swept, 30.9
 degrees at the quarter chord, where JSBSim issue #89 did not look; simple sweep
 theory (NACA Report 863; alpha_rate.py's docstring) puts the part of a beam
 wind's moment that goes with the angle of attack near nothing standing, as
-qbarUW does. Standing on her brakes in 15 kt across, at 89 to 90 degrees of
-the angle of attack, CmDh gave 9,600 ft-lb nose down on the whole dynamic
-pressure; split and moved, CmDh_alpha gives nothing and the increment at most
-19 ft-lb. Cma_M is nothing below Mach 0.6. In flight, at a few degrees of
-sideslip, the two pressures differ by its cosine squared. **Not moved**: CmDh,
-the tailerons' increment - an elevator term, its power; CmDtv, her thrust
-vectoring's moment, made by her engines, not her wing; and Cmq, her pitch
-damping, where the angle of attack only picks the coefficient of her pitch
-rate.
+qbarUW does. Standing on her brakes in 15 kt across, at 89 to 90 degrees of the
+angle of attack, CmDh gave 9,600 ft-lb nose down on the whole dynamic pressure;
+split and moved, CmDh_alpha gives nothing and the increment at most 19 ft-lb.
+Cma_M is nothing below Mach 0.6. Standing, qbarUW is the nearer; in flight, at
+a few degrees of sideslip, the two differ by its cosine squared, and the
+theory's pressure lies between them, under 1% from either (alpha_rate.py).
+**Not moved**: CmDh, the tailerons' increment - an elevator term, its power;
+CmDtv, her thrust vectoring's moment, made by her engines, not her wing; and
+Cmq, her pitch damping, where the angle of attack only picks the coefficient of
+her pitch rate.
 """
 
 import re
@@ -451,6 +452,18 @@ def with_cm_alpha_split_out(text):
     if len(tables) != 2 or "lookup=\"column\">fcs/elevator-pos-rad" not in tables[1]:
         raise SystemExit(f"{SCRIPT}: CmDh is not a Mach table and an alpha-by-deflection table - "
                          f"has the pinned model changed?")
+    # Nothing else in it, so that a factor added to the pinned model is not
+    # dropped from the two functions this writes in its place.
+    properties = re.findall(r"<property>\s*([^<]*?)\s*</property>", block)
+    values = re.findall(r"<value>\s*([^<]*?)\s*</value>", block)
+    rest = re.sub(r"<table>.*?</table>|<property>.*?</property>|<value>.*?</value>|"
+                  r"<description>.*?</description>|</?product>|</?function[^>]*>", "", block,
+                  flags=re.S)
+    if (properties != ["aero/qbar-psf", "metrics/Sw-sqft", "metrics/cbarw-ft"]
+            or values != ["1.5"] or rest.strip()):
+        raise SystemExit(f"{SCRIPT}: CmDh is not qbar, Sw, cbarw, its two tables and 1.5 - "
+                         f"has the pinned model changed? (properties {properties}, values "
+                         f"{values}, else {rest.strip()[:80]!r})")
     mach, table = tables
     rows = [r.split() for r in re.search(r"<tableData>(.*?)</tableData>", table, re.S)
             .group(1).strip().splitlines()]

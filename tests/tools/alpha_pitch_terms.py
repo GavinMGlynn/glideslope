@@ -48,7 +48,7 @@ MOVED = {
 DAMPING = "pitch damping: the angle of attack only picks the coefficient of her pitch rate"
 NAMED = {
     "c182": {C + "CmDe": "the elevator's term: the angle of attack only picks its "
-                         "coefficient, and stick central it is nothing"},
+                         "coefficient, bounded (-0.62 to -0.87), times the deflection"},
     "f22": {
         C + "CmDh": "her tailerons' increment over CmDh_alpha, their power: an elevator "
                     "term",
@@ -60,7 +60,7 @@ NAMED = {
 TOTAL = 16
 assert len(MOVED) == TOTAL and set(NAMED) <= set(MOVED)
 ALLOWED = "aero/qbarUW-psf"
-ALPHA = re.compile(r"aero/alpha-(rad|deg)<")
+ALPHA = re.compile(r"aero/alpha-(rad|deg)\s*<")
 AXIS = re.compile(r"<axis name=\"PITCH\"[^>]*>.*?</axis>", re.S)
 FUNCTION = re.compile(r"<function name=\"([^\"]+)\">.*?</function>", re.S)
 

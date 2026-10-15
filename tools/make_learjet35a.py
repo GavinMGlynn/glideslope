@@ -110,8 +110,9 @@ on her is 85 ft-lb. Her wing is swept, about 13 degrees at the quarter chord,
 where issue #89 did not look; simple sweep theory (NACA Report 863;
 alpha_rate.py's docstring) puts the part of a beam wind's moment that goes with
 the angle of attack near nothing standing, as qbarUW does, where on qbar it is
-as large as the undefined angle makes it. In flight, at a few degrees of
-sideslip, the two differ by its cosine squared.
+as large as the undefined angle makes it. Standing, qbarUW is the nearer; in
+flight, at a few degrees of sideslip, the two differ by its cosine squared, and
+the theory's pressure lies between them, under 1% from either (alpha_rate.py).
 """
 
 import math
