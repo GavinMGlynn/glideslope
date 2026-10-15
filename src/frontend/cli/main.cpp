@@ -1511,6 +1511,17 @@ public:
     // had arrived (0.6), and in the prediction from a model just loaded (0):
     // the two laws' throttle integrals began 0.6 apart and were still 0.17
     // apart two minutes on (PROJECT_STATUS.md, 2026-10-14).
+    //
+    // **And once this client's prediction has settled** - the clocks'
+    // difference known (sim::Prediction::settled) - not at an input's
+    // number. The law's height asked is seeded on each side from her height
+    // as each saw it at the selector (sim::Controller), and the stick moves
+    // both alike from there, so the prediction holds whatever it was off by
+    // then for as long as the law flies her: selected while a busy machine
+    // was still settling, metres off, the median error stayed 108 mm
+    // (2026-10-15). That a player who selects so early is predicted off so
+    // is its own item (COMPLETION_PLAN, Phase 9); this pins the law's
+    // agreement, not the join's.
     static constexpr std::uint32_t stovl_selected_from = 150;
     //
     // **The ground built before joining**: the DEM's coverage, its tiles'
@@ -1539,10 +1550,14 @@ public:
                                                      dem_geoid_.get()),
             glideslope::world::runway_surfaces(data));
     }
-    static glideslope::sim::Controls stovl_pilot(std::uint32_t sequence) {
+    glideslope::sim::Controls stovl_pilot(std::uint32_t sequence) {
         glideslope::sim::Controls c;
         c.throttle = 0.6;
-        if (sequence >= stovl_selected_from) {
+        if (!stovl_selected_at_ && sequence >= stovl_selected_from && prediction_ &&
+            prediction_->settled()) {
+            stovl_selected_at_ = sequence;
+        }
+        if (stovl_selected_at_) {
             c.stovl = 1.0;
             c.throttle = 0.7;
             c.elevator = -1.0;
@@ -2284,6 +2299,14 @@ public:
                           stovl_down_at_s_.value_or(-1.0), server_hovered_ ? "yes" : "no",
                           server_at_rest_ ? "yes" : "no", stovl_lowest_ft_, stovl_kcas_);
             lines.emplace_back(line);
+            if (stovl_selected_at_) {
+                std::snprintf(line, sizeof line,
+                              "stovl: selected with input %u, its prediction settled",
+                              static_cast<unsigned>(*stovl_selected_at_));
+            } else {
+                std::snprintf(line, sizeof line, "stovl: never selected - its prediction never settled");
+            }
+            lines.emplace_back(line);
         }
         return lines;
     }
@@ -2412,6 +2435,8 @@ private:
         stovl_kcas_ = a.property("velocities/vc-kts");
     }
     bool stovl_land_ = false;
+    // The input the STOVL selector was first sent with (stovl_pilot).
+    std::optional<std::uint32_t> stovl_selected_at_;
     std::optional<double> stovl_converted_at_s_;
     std::optional<double> stovl_hovering_at_s_;
     std::optional<double> stovl_down_at_s_;
@@ -2881,7 +2906,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                     // What it sends is what it flies: rounded as the wire
                     // rounds it, as TRANSPORT.md asks, so that the two agree.
                     stick = glideslope::sim::Controls::from_list(glideslope::net::as_sent(
-                        (connect_stovl_land ? Predicting::stovl_pilot(sequence)
+                        (connect_stovl_land ? predicting->stovl_pilot(sequence)
                                             : Predicting::pilot(sequence))
                             .as_list()));
                 }
