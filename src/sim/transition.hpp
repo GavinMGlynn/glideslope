@@ -161,9 +161,10 @@ public:
     // when the selector reached the server a step off, and kept apart by
     // both being put back to the same motion. Measured, of the law's state
     // only the wing-borne autopilot's pitch integral needed telling
-    // (PROJECT_STATUS.md, 2026-10-16); none while no autopilot flies her -
-    // converting, jet-borne or hovering, whose laws' integrals are not
-    // carried.
+    // (PROJECT_STATUS.md, 2026-10-16). None only when no wing-borne
+    // autopilot is flying her: no law, or a law flying her jet-borne,
+    // hovering, or converting back from jet-borne - whose laws' own
+    // integrals are not carried.
     struct Carried {
         std::optional<double> pitch_integral_deg;
         bool operator==(const Carried&) const = default;

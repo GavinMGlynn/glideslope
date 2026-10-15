@@ -415,7 +415,7 @@ GLIDESLOPE_TEST(a_state_packets_stovl_height_asked_is_none_at_minus_one_and_refu
 // back the same, absent as `00` and four bytes of nought; every flag but 00
 // and 01 refused (254); anything but nought after a 00 refused (-0, 1 and a
 // NaN's bits: 3); and a pitch integral with no law - a height of -1 -
-// refused by the writer and the reader (1, counted twice). 261 refusals.
+// refused by the writer and the reader (1, counted twice). 259 refusals.
 GLIDESLOPE_TEST(a_state_packets_stovl_pitch_integral_rides_with_a_flag_and_is_read_exactly_or_refused) {
     const auto with = [](float height_ft, std::optional<float> integral) {
         StatePacket s = a_packet(1);
