@@ -12,9 +12,9 @@
 # job - one preset may be sharded by two jobs (linux-release on Ubuntu and on
 # Rocky 9), each its own way: each job's rows of a preset must be shards 1 to
 # n, each once, all saying "of: n", and each test job must call the dealing
-# with its row's shard and of. How many tests a
-# shard runs at once is not in the workflow at all: the dealing reads it from
-# the test preset, so the two cannot disagree.
+# with its row's shard and of. How many tests a shard runs at once is not in
+# the workflow at all: the dealing reads it from the test preset, so the two
+# cannot disagree.
 
 cmake_minimum_required(VERSION 3.28)
 foreach(_v ROOT BUILD WORK)
@@ -26,7 +26,8 @@ endforeach()
 file(READ ${ROOT}/.github/workflows/ci.yml _yml)
 string(REGEX MATCHALL "- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+ }" _rows "${_yml}")
 # Each sharded job's matrix: its "include:" and the rows under it. A dealing is
-# named by the job's place among them and the preset, "2:linux-release".
+# named by the job's place among them and the preset, "2_linux-release" (no
+# colon: it is part of variable names).
 string(REGEX MATCHALL "include:\n( *- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+ }\n)+" _blocks "${_yml}")
 set(_presets "")
 set(_job 0)
@@ -35,7 +36,7 @@ foreach(_block IN LISTS _blocks)
     string(REGEX MATCHALL "- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+ }" _block_rows "${_block}")
     foreach(_row IN LISTS _block_rows)
         string(REGEX MATCH "preset: ([a-z-]+), shard: ([0-9]+), of: ([0-9]+)" _ "${_row}")
-        set(_p ${_job}:${CMAKE_MATCH_1})
+        set(_p ${_job}_${CMAKE_MATCH_1})
         set(_preset_${_p} ${CMAKE_MATCH_1})
         if(NOT DEFINED _of_${_p})
             list(APPEND _presets ${_p})
@@ -86,7 +87,7 @@ foreach(_p IN LISTS _presets)
         message(FATAL_ERROR "${_p}: the matrix has shards ${_have}, not 1 to ${_of_${_p}} once each")
     endif()
 
-    string(REPLACE ":" "-" _dir ${WORK}/${_p})
+    set(_dir ${WORK}/${_p})
     file(REMOVE_RECURSE ${_dir})
     file(MAKE_DIRECTORY ${_dir})
     execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_preset_${_p}} -DBUILD=${BUILD} -DOF=${_of_${_p}}
