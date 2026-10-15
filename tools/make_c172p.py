@@ -97,6 +97,26 @@ the case JSBSim issue #89 tested (on the C172) and the FlightGear wiki's
 "JSBSim Aerodynamics" writes up, QBarUW "more appropriate for Cm" than the
 whole QBar. In flight, at a few degrees of sideslip, the two differ by its
 cosine squared. The selftest flies her, and its hash moves with this.
+
+**Her lift keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15): CLwbh, her wing, body and
+tail's lift against the angle of attack. Standing on her brakes in 15 kt
+straight across, her angle of attack, atan2(w, u), was -49 to 131 degrees, and
+on the whole dynamic pressure, which counts the crosswind, the term lifted her
+by up to 240 lb either way; on aero/qbarUW-psf, nothing. Her pitch moved 1.7
+degrees and at up to 1.8 deg/s over those fourteen seconds standing; now 0.1
+degrees and 0.3 deg/s. JSBSim issue #89's guidance, written into the FlightGear
+wiki's "JSBSim Aerodynamics": QBarUW "is more appropriate for CL than the
+generic QBar" - a wing's lift is made by the air in the plane of u and w. Her
+wing is not swept: the case issue #89 tested. In flight, at a few degrees of
+sideslip, the two differ by its cosine squared. Her lift terms not keyed to the
+angle of attack (CLDf, CLDe and CLq) are not this change's, and stay on
+aero/qbar-psf. The selftest flies her, and its hash moves with this. The
+learnt landing flies her slipped - in calm air 8 to 10 degrees on the approach
+and up to 17.7 in the flare, where qbarUW is 0.91 of qbar - so it lands
+shorter and harder on her now (docs/PROJECT_STATUS.md, 2026-10-15): her lift
+there is the crossflow's, the policy is not trained again, and its parity
+fixture is flown again (tools/rl/export.py --parity-only).
 """
 
 import pathlib
@@ -228,7 +248,8 @@ def outputs():
     return {
         OUT / "aircraft" / "c172p" / "c172p.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_c172p"), "make_c172p",
-            {"PITCH": ["aero/coefficient/Cmalpha"]}),
+            {"PITCH": ["aero/coefficient/Cmalpha"],
+             "LIFT": ["aero/coefficient/CLwbh"]}),
         OUT / "engine" / "prop_75in2f.xml": propeller(),
         OUT / "engine" / "eng_io320.xml": engine(),
     }

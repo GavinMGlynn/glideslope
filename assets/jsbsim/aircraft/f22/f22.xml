@@ -2364,7 +2364,7 @@
                <function name="aero/coefficient/CLalpha">
                    <description>Lift_due_to_alpha</description>
                    <product>
-                       <property>aero/qbar-psf</property>
+                       <property>aero/qbarUW-psf</property>
                        <property>metrics/Sw-sqft</property>
                          <table>
                              <independentVar lookup="row">aero/alpha-rad</independentVar>
@@ -2382,7 +2382,7 @@
         <function name="aero/coefficient/CLDlef">
                    <description>Lift_due_to_leading_edge_flap_deflection</description>
                    <product>
-                       <property>aero/qbar-psf</property>
+                       <property>aero/qbarUW-psf</property>
                        <property>metrics/Sw-sqft</property>
             <property>fcs/lef-pos-rad</property>
             <property>aero/function/kCLge</property>

@@ -63,6 +63,29 @@ def with_qbar_uw(text, script):
 
 ALPHA = re.compile(r"aero/alpha-(rad|deg)\s*<")
 FUNCTION = re.compile(r"<function name=\"([^\"]+)\">.*?</function>", re.S)
+COMMENT = re.compile(r"<!--.*?-->", re.S)
+
+
+def functions_of_alpha(text):
+    """The names of the functions in `text` that read the angle of attack,
+    directly or through another such function as a property (the Mosquito's
+    lift-alpha reads aero/function/lift-coefficient-wing, her table of the
+    angle of attack and flap); commented-out functions are not read."""
+    funcs = {m.group(1): m.group(0) for m in FUNCTION.finditer(COMMENT.sub("", text))}
+    found = {n for n, b in funcs.items() if ALPHA.search(b)}
+    grown = True
+    while grown:
+        grown = False
+        for n, b in funcs.items():
+            if n not in found and any(reads(b, a) for a in found if a != n):
+                found.add(n)
+                grown = True
+    return found
+
+
+def reads(block, prop):
+    """Whether `block` reads the property `prop`, as a factor or a table's input."""
+    return re.search(r">\s*" + re.escape(prop) + r"\s*<", block) is not None
 
 
 def axis_pattern(name):
@@ -123,8 +146,10 @@ def with_alpha_terms_on_qbar_uw(text, script, terms):
     `aero/qbarUW-psf` times `metrics/Sw-sqft`. It fails - so that a model
     changed under the script is noticed - if a named axis is missing, if a
     named function is not in its axis, does not read `aero/alpha-rad` or
-    `aero/alpha-deg`, or has no `aero/qbar-psf` or `aero/qbar-area`.
+    `aero/alpha-deg` - itself, or through a function of the model that does
+    (functions_of_alpha) - or has no `aero/qbar-psf` or `aero/qbar-area`.
     """
+    of_alpha = functions_of_alpha(text)
     for axis_name, names in terms.items():
         wanted = set(names)
         changed = set()
@@ -133,7 +158,7 @@ def with_alpha_terms_on_qbar_uw(text, script, terms):
             name, block = m.group(1), m.group(0)
             if name not in wanted:
                 return block
-            if not ALPHA.search(block):
+            if not ALPHA.search(block) and not any(reads(block, a) for a in of_alpha if a != name):
                 raise SystemExit(f"{script}: {name} does not read the angle of attack - "
                                  f"has the model changed?")
             new = block.replace("<property>aero/qbar-area</property>",

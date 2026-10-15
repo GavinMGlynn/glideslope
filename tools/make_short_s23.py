@@ -158,6 +158,20 @@ cosine squared: on her water take-off she runs at 1 to 3 degrees of it, qbarUW
 half a second sooner, her long-range run 798 yd where it was 823 (range 676 to
 914). **Not moved**: Cmq, her pitch damping - the angle of attack only picks
 the coefficient of her pitch rate.
+
+**Her lift keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-15): CLwbh. Afloat in 15 kt
+straight across her angle of attack is defined, -3 to 14 degrees, but the air
+meets her from the side as she swings: on the whole dynamic pressure CLwbh
+lifted her by 290 to 2,100 lb; on aero/qbarUW-psf, 20 to 410. JSBSim issue
+#89's guidance, written into the FlightGear wiki's "JSBSim Aerodynamics":
+QBarUW "is more appropriate for CL than the generic QBar" - a wing's lift is
+made by the air in the plane of u and w. Her wing is not swept: the case issue
+#89 tested. In flight, at a few degrees of sideslip, the two differ by its
+cosine squared. **Not moved**: CLq, lift with her pitch rate, where the angle
+of attack only picks its coefficient. Her lift terms not keyed to the angle of
+attack (CLdF3L, CLdF3R and CLDe) are not this change's, and stay on
+aero/qbar-psf.
 """
 
 import math
@@ -735,7 +749,8 @@ def outputs():
         OUT / "aircraft" / MODEL / "Systems" / "datcom_aero.xml":
             alpha_rate.with_alpha_terms_on_qbar_uw(
                 alpha_rate.with_qbar_uw(aerodynamics(), "make_short_s23"), "make_short_s23",
-                {"PITCH": ["aero/coefficient/Cm_basic"]}),
+                {"PITCH": ["aero/coefficient/Cm_basic"],
+                 "LIFT": ["aero/coefficient/CLwbh"]}),
         OUT / "aircraft" / MODEL / "Systems" / "engines.xml": engines(),
         OUT / "aircraft" / MODEL / "Systems" / "flaps.xml": flaps(),
         OUT / "aircraft" / MODEL / "Systems" / "Short_S23-hydrodynamics.xml": hydrodynamics(),
