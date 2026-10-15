@@ -3181,6 +3181,18 @@ bool gone_over(double pitch_deg, double roll_deg) {
     return !(std::abs(pitch_deg) <= over_deg) || !(std::abs(roll_deg) <= over_deg);
 }
 
+// The test's hand on the throttle, holding her at `pace_kts` from `vg_kts`:
+// power on at `on` a second for each knot short and off at 0.3 (ten times
+// the walking-pace tests' 0.03), a proportional term on top, never past
+// `most`. `integral` is the hand's, carried step to step.
+double walking_pace_hand(double& integral, double pace_kts, double vg_kts, double most,
+                         double on = 0.03, double off = 0.3) {
+    const double error = pace_kts - vg_kts;
+    const double rate = error > 0.0 ? on : off;
+    integral = std::clamp(integral + rate * error / steps_per_second, 0.0, most);
+    return std::clamp(integral + 0.3 * error, 0.0, most);
+}
+
 void walking_pace_then_stop(double crosswind_kts,
                             const std::map<std::string, std::string>& cannot_reach,
                             bool wet = false) {
@@ -3321,12 +3333,8 @@ void walking_pace_then_stop(double crosswind_kts,
             glideslope::sim::Controls c = lander.fly();
             if (step < held_s * steps_per_second) {
                 // The test's hand on the throttle, holding her at walking
-                // pace: power on slowly and off ten times as fast.
-                const double error = held_kts - vg_kts;
-                const double rate = error > 0.0 ? 0.03 : 0.3;
-                integral =
-                    std::clamp(integral + rate * error / steps_per_second, 0.0, taxi_throttle);
-                c.throttle = std::clamp(integral + 0.3 * error, 0.0, taxi_throttle);
+                // pace at no more than her taxi power.
+                c.throttle = walking_pace_hand(integral, held_kts, vg_kts, taxi_throttle);
             }
             aircraft.set_controls(c);
             aircraft.step();
@@ -3625,7 +3633,7 @@ GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_
 // -45 degrees of pitch in linux-release. At her taxi power she does not.
 // **The Cub is not named for the rolling ceiling here**: with her lift and
 // wing drag off the crosswind (2026-10-15) her autobrake reaches it rolling
-// in 15 kt across (0.21 at most before), so it is judged on her.
+// in 15 kt across (0.16 at most on main), so it is judged on her.
 GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_in_a_15_kt_crosswind_has_no_brake_added_past_its_ceiling_and_stops_with_her_nose_up) {
     auto named = stopped_before_the_rolling_ceiling();
     named.erase("j3cub");
@@ -3634,31 +3642,39 @@ GLIDESLOPE_TEST(every_landplane_rolling_at_walking_pace_in_a_15_kt_crosswind_has
 
 // **The J-3 Cub held at every walking pace in 15 kt straight across stays on
 // her wheels.** She was rolled onto her wing: handed to the rollout at 3.5 to
-// 5 kt in 15 kt from the left, she stopped and stood at taxi power, and 4 to
-// 8 s later struck her airframe at 21 degrees of roll. The cause, traced
-// step by step on linux-debug (PROJECT_STATUS, 2026-10-15): her wing's drag
-// keyed to the angle of attack (`Drag_basic`) on the whole dynamic pressure.
-// Standing with the air from the side, her angle of attack, atan2(w, u), is
-// anything at all, and each degree she leaned gave the beam wind a w and
-// took it towards 90 degrees, where the table is a flat plate's, 1.41 - so
-// the sideways force on her grew as she leaned, 171 lb to 274, and leaned
-// her more. With it, and her lift, on the dynamic pressure of u and w alone
-// (tools/make_j3cub.py) she leans 4.2 to 4.4 degrees and stays there.
+// 5 kt in 15 kt from the left, she was stopped by its autobrake and stood at
+// taxi power, and 4 to 8 s later struck her airframe at 21 degrees of roll.
+// The cause, traced step by step on linux-debug (PROJECT_STATUS,
+// 2026-10-15): her wing's drag keyed to the angle of attack (`Drag_basic`)
+// on the whole dynamic pressure. With the air from the side her angle of
+// attack, atan2(w, u), is anything at all, and each degree she leaned gave
+// the beam wind a w and took it towards 90 degrees, where the table is a
+// flat plate's, 1.41 - so the sideways force on her grew as she leaned, 171
+// lb to 274, and leaned her more. With it, and her lift, on the dynamic
+// pressure of u and w alone (tools/make_j3cub.py) she does not.
 //
 // **Every scenario**: at her model's own loading and every loading her
 // figures give (solo, trainer, gross), with the wind from the left and from
-// the right, rolled up to every walking pace from 2 to 5 kt by half a knot
-// on the throttle alone, the rollout steering her, and handed to the
-// rollout there; the test's hand holds her at that pace at no more than her
-// taxi power for half a minute (as `walking_pace_then_stop`), and lets go
-// for a minute. Her ailerons are the rollout's, wings level - not held into
-// the wind, as her Owner's Manual has a pilot do when turning in winds over
-// 15 m.p.h.: it is the model that is judged. Judged: nothing but her wheels
-// touches the runway (`sim::GroundJudge`), her wings stay within 15 degrees,
-// she does not go over, and she stops. Coverage asserted: 4 loadings, 2
-// winds, 7 paces, 56 runs, every one rolled up to her pace and judged.
-// **Seen red** with her lift and wing drag back on the whole dynamic
-// pressure (the model as before, in the build's copy): see PROJECT_STATUS.
+// the right, at every walking pace from 2 to 5 kt by half a knot, each run
+// flown in two parts, judged throughout:
+//   - **Held at her pace**, as a pilot taxis a Cub "at the speed of a fast
+//     walk" (her Owner's Manual, Taxiing): rolled up on the throttle and then
+//     held at the pace for `held_s` by the test's hand on it, her brakes off,
+//     the rollout's rudder steering her and its stick back, and her ailerons
+//     full into the wind, as a tail-wheel aeroplane is taxied in one
+//     (FAA-H-8083-3; her manual has them used so turning in winds over 15
+//     m.p.h.). Asserted: she spends at least `least_held_s` of it within
+//     `band_kts` of the pace.
+//   - **Then handed to the rollout**, the situation that rolled her: its
+//     autobrake stops her, the hand holds at no more than the throttle that
+//     held her pace for half a minute, her ailerons the rollout's (wings
+//     level, not into the wind), and lets go for a minute.
+// Judged: nothing but her wheels touches the runway (`sim::GroundJudge`), her
+// wings stay within 15 degrees, she does not go over, and she stops.
+// Coverage asserted: 4 loadings, 2 winds, 7 paces, 56 runs, each held at
+// her pace for its seconds and judged. **Seen red** with her lift and wing
+// drag back on the whole dynamic pressure (the model as before, in the
+// build's copy): see PROJECT_STATUS.
 GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays_on_her_wheels) {
     using glideslope::sim::Lander;
     constexpr double crosswind_kts = 15.0;
@@ -3666,7 +3682,18 @@ GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays
     constexpr double most_roll_deg = 15.0;
     constexpr int settle_s = 5;
     constexpr int roll_up_s = 30;
-    constexpr int held_s = 30;
+    // Held at her pace for 40 s, at least 25 of them within half a knot of
+    // it: she breaks away from rest on more throttle than she rolls on, and
+    // the hand takes 6 to 12 s to bring her back from the overshoot.
+    constexpr int held_s = 40;
+    constexpr double least_held_s = 25.0;
+    constexpr double band_kts = 0.5;
+    // The hand holding her pace moves its integral at 0.05 a second a knot
+    // either way, not the walking-pace tests' 0.03 on and 0.3 off: with
+    // those the power came off to nothing after the overshoot, came back
+    // slowly, and she spent only 7.3 to 16.2 s of 20 at her pace.
+    constexpr double held_on = 0.05;
+    constexpr int stand_s = 30;
     constexpr int let_go_s = 60;
     const glideslope::sim::Runway runway = a_runway();
     const auto speeds = glideslope::sim::approach_speeds(data(), "j3cub");
@@ -3683,6 +3710,7 @@ GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays
     std::size_t runs = 0;
     std::size_t judged = 0;
     double most_roll_seen = 0.0;
+    double least_at_pace_s = held_s;
     std::vector<std::string> wrong;
     for (const auto& [loading_name, loading] : loadings) {
         for (const auto& [wind_name, side] : winds) {
@@ -3746,56 +3774,88 @@ GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays
                     }
                     return true;
                 };
+                // Rolled up to her pace and held there: her brakes off, the
+                // rollout steering her with its stick back, ailerons full into
+                // the wind (from the left, stick left: -1).
                 bool going = true;
                 double integral = 0.0;
+                double throttle = 0.0;
+                bool reached = false;
+                int at_pace_steps = 0;
+                double held_roll = 0.0;
                 {
                     auto steering = Lander::on_its_roll(aircraft, speeds, runway);
-                    for (int step = 0;
-                         going && step < roll_up_s * steps_per_second && kts() < pace_kts;
+                    for (int step = 0; going && step < roll_up_s * steps_per_second && !reached;
                          ++step) {
                         glideslope::sim::Controls u = steering.fly();
                         integral = std::clamp(integral + 0.03 / steps_per_second, 0.0, 1.0);
-                        u.throttle = integral;
+                        throttle = integral;
+                        u.throttle = throttle;
+                        u.aileron = -side;
                         u.left_brake = 0.0;
                         u.right_brake = 0.0;
                         aircraft.set_controls(u);
                         aircraft.step();
                         going = watch();
+                        reached = kts() >= pace_kts;
+                    }
+                    phase = "held at her pace";
+                    for (int step = 0; going && reached && step < held_s * steps_per_second;
+                         ++step) {
+                        glideslope::sim::Controls u = steering.fly();
+                        throttle = walking_pace_hand(integral, pace_kts, kts(), 1.0, held_on, held_on);
+                        u.throttle = throttle;
+                        u.aileron = -side;
+                        u.left_brake = 0.0;
+                        u.right_brake = 0.0;
+                        aircraft.set_controls(u);
+                        aircraft.step();
+                        going = watch();
+                        held_roll = std::max(held_roll, std::abs(aircraft.state().roll_deg));
+                        if (std::abs(kts() - pace_kts) <= band_kts) {
+                            ++at_pace_steps;
+                        }
                     }
                 }
-                const bool reached = kts() >= pace_kts;
-                const double taxi_throttle = integral;
+                const double at_pace_s = at_pace_steps / static_cast<double>(steps_per_second);
+                // Then handed to the rollout, the hand at no more than the
+                // throttle that held her pace.
+                const double taxi_throttle = throttle;
+                integral = std::min(integral, taxi_throttle);
                 phase = "after the hand-over";
                 auto lander = Lander::on_its_roll(aircraft, speeds, runway);
                 bool stopped = false;
-                for (int step = 0; going && step < (held_s + let_go_s) * steps_per_second;
+                for (int step = 0; going && step < (stand_s + let_go_s) * steps_per_second;
                      ++step) {
                     glideslope::sim::Controls u = lander.fly();
-                    if (step < held_s * steps_per_second) {
-                        const double error = pace_kts - kts();
-                        const double rate = error > 0.0 ? 0.03 : 0.3;
-                        integral = std::clamp(integral + rate * error / steps_per_second, 0.0,
-                                              taxi_throttle);
-                        u.throttle = std::clamp(integral + 0.3 * error, 0.0, taxi_throttle);
+                    if (step < stand_s * steps_per_second) {
+                        u.throttle = walking_pace_hand(integral, pace_kts, kts(), taxi_throttle);
                     }
                     aircraft.set_controls(u);
                     aircraft.step();
                     going = watch();
-                    if (step >= held_s * steps_per_second &&
+                    if (step >= stand_s * steps_per_second &&
                         lander.stage() == Lander::Stage::stopped) {
                         stopped = true;
                         break;
                     }
                 }
                 most_roll_seen = std::max(most_roll_seen, most_roll);
-                std::printf("  %-34s taxi power %.2f, most roll %4.1f deg%s%s\n", where,
-                            taxi_throttle, most_roll, fault.empty() ? "" : ", ",
-                            fault.c_str());
+                least_at_pace_s = std::min(least_at_pace_s, at_pace_s);
+                std::printf("  %-34s %4.1f s of %d at her pace, throttle %.2f, most roll %4.1f "
+                            "deg held, %4.1f in all%s%s\n",
+                            where, at_pace_s, held_s, taxi_throttle, held_roll, most_roll,
+                            fault.empty() ? "" : ", ", fault.c_str());
                 if (!reached) {
                     wrong.push_back(std::string(where) + ": never rolled up to her pace");
                     continue;
                 }
-                ++judged;
+                if (at_pace_s < least_held_s) {
+                    wrong.push_back(std::string(where) + ": held at her pace for only " +
+                                    std::to_string(at_pace_s) + " s");
+                } else {
+                    ++judged;
+                }
                 if (!fault.empty()) {
                     wrong.push_back(std::string(where) + ": " + fault);
                 }
@@ -3809,7 +3869,8 @@ GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays
             }
         }
     }
-    std::printf("  the most roll in any run: %.1f deg\n", most_roll_seen);
+    std::printf("  the most roll in any run: %.1f deg; the least time at her pace: %.1f s of %d\n",
+                most_roll_seen, least_at_pace_s, held_s);
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
@@ -3818,7 +3879,8 @@ GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays
     const std::size_t space = loadings.size() * std::size(winds) * std::size(paces_kts);
     check(loadings.size() == 4 && runs == space && judged == space,
           "4 loadings, 2 winds, 7 paces: " + std::to_string(runs) + " runs of " +
-              std::to_string(space) + ", " + std::to_string(judged) + " judged");
+              std::to_string(space) + ", " + std::to_string(judged) +
+              " held at her pace for at least " + std::to_string(least_held_s) + " s");
 }
 
 // **A walking-pace run counts her gone over past 45 degrees of pitch or roll,

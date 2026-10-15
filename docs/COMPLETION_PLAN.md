@@ -588,8 +588,14 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       struck. *Verification: her lift uses the dynamic pressure without its
       sideways part, and held at every walking pace in 15 kt across she stays
       on her wheels.* Done 2026-10-15: her wing's drag counted the crosswind
-      too and grew as she leaned; with both moved she leans at most 4.4
-      degrees, 2 to 5 kt, every loading, either side.
+      too and grew as she leaned. With both moved, held at each pace from 2
+      to 5 kt for 40 s (31.7 s or more at it), then stopped, she leans at most
+      4.4 degrees, every loading, either side.
+- [ ] **A J-3 Cub standing tail to the wind meets a flat plate's drag.**
+      Her wing's drag table reads 1.41 past 90 degrees of angle of attack,
+      so air from behind may push her as if her wing were broadside; not
+      flown. *Verification: stood in 15 kt from behind, the air's force on
+      her is within a stated bound of a cited figure.*
 - [ ] **The J-3 Cub leans 4.4 degrees standing in 15 kt across.** Her
       sideways drag in a beam wind is the pinned model's, 1.23 on her wing's
       area, and her main gear's springs are soft; whether a real Cub leans
@@ -611,9 +617,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       no landplane rolled at walking pace and stopped touches the runway with
       anything but her wheels.* At taxi power none strikes at 3 kt
       (2026-10-15). **Missing**: these tests fly only 3 kt of walking pace's
-      2-5; handed over at 2 kt the Cub rolled there for 0.03 s against
-      the 0.4 s they require, so they need reshaping to fly the range. The Cub, the one that struck at 4.5
-      kt, now stays on her wheels at 2-5 kt in her own test (2026-10-15).
+      2-5; handed over at 2 kt the Cub rolled there for 0.03 s against the
+      0.4 s they require, so they need reshaping to fly the range. The Cub,
+      the one that struck at 4.5 kt, is held at 2-5 kt in her own test and
+      stays on her wheels (2026-10-15).
 
 ---
 
@@ -853,9 +860,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
       creep, wet or dry (2026-10-14). **Still missing**: the walking-pace
       tests roll her at 2-5 kt for under 1.1 s, and the rolling bound is not
-      reached on the Cub (but in 15 kt across) and the Mosquito (nor the
-      C172P dry), named there;
-      the 0.8 allowance for an idle creep is barely exercised on the jets.
+      reached on the Mosquito, on the Cub only in 15 kt across, nor on the
+      C172P dry, named there; the 0.8 allowance for an idle creep is barely exercised on the jets.
 - [ ] **The Mosquito swings below walking pace.** She turns 36 to 155
       degrees before she stops. Without the steering-brake fade it is 81 to
       156 degrees, so the fade does not cause it. Measured under the test's
