@@ -579,10 +579,7 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       angle-of-attack pitch term counts it. *Verification: that term, and
       every other model's, uses the dynamic pressure without its sideways
       part; stick central in 15 kt across her tail stays down; her figures
-      stay in range.* **Missing**: the other fifteen models' terms, each
-      chosen and justified (damping, elevator and swept-wing terms are not
-      in by default). The Cub's are moved, and braked in 15 kt across she now
-      does no worse than in calm air in every run (2026-10-15).
+      stay in range.* **Missing**: its run on the tree with #205 (the Cub's lift).
 - [x] **The J-3 Cub is rolled onto her wing by a crosswind at walking
       pace**: held at 3.5 to 5 kt in 15 kt across she rolled 21 degrees and
       struck. *Verification: her lift uses the dynamic pressure without its
@@ -601,6 +598,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       area, and her main gear's springs are soft; whether a real Cub leans
       so is not measured. *Verification: a cited figure for a Cub's side
       area or lean, and her lean held to it.*
+- [ ] **Every model but the Cub has her lift keyed to the angle of attack
+      counting the crosswind**, as their pitch terms did: standing or slowing
+      in one, her lift is the beam wind's whole pressure times an undefined
+      angle (the Cub's is moved, 2026-10-15). *Verification: each model's lift
+      terms on the dynamic pressure without its sideways part or named with a
+      reason, and every figure in range.*
 - [ ] **The J-3 Cub braked stick central from 10 kt noses over in calm
       air**, from half brake (solo, trainer) or 0.6 (gross); whether a real
       one would, at her tip ratio of 0.45 to 0.50, is not measured.
