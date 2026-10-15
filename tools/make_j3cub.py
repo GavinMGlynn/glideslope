@@ -149,23 +149,31 @@ Airfoil Sections Through 180-Degree Angle of Attack for Use in Aerodynamic
 Analysis of Vertical Axis Wind Turbines", SAND80-2114, Sandia National
 Laboratories, March 1981, Table 2: at 95 to 180 degrees by fives, the same
 at every Reynolds number it lists (hers at 15 kt, 0.7 to 1.0 million, pages
-20 to 22) - 0.14 at 170 degrees, 0.025 at 180. Their measurements beyond
-the stall were Re-independent and similar for every section tested (page
-11), so a symmetrical section's curve serves her cambered USA-35B's in
-reversed flow. Their figures are a section's, two-dimensional - 1.80
-broadside, near Hoerner's 1.98 for a two-dimensional flat plate (page 11) -
-and her table's own broadside figure is her finite wing's 1.41, so the
-section's curve is scaled by 1.41/1.80 (0.78) to meet it at 90 degrees: the
-drag is continuous there, and the shape past it is theirs. A symmetrical
-section's drag is even in its angle of attack, so the same rows go to -180.
+20 to 22) - 0.14 at 170 degrees, 0.025 at 180. A symmetrical section's
+drag is even in its angle of attack, so the same rows go to -180.
+
+Two judgements, not the report's:
+  - Her cambered USA-35B takes a symmetrical section's curve in reversed
+    flow. The report says the four sections it measured had similar drag
+    past 20 degrees and that past the stall the data hold at every
+    Reynolds number (page 11); that a cambered section's would be alike too
+    is an inference from that, not something it measured.
+  - The whole curve is scaled by 1.41/1.80 (0.78): their figures are a
+    section's, two-dimensional, 1.80 broadside (near Hoerner's 1.98 for a
+    two-dimensional flat plate, page 11), and her table's broadside is her
+    finite wing's 1.41, so the drag is continuous at 90 degrees. Near 180
+    degrees the drag is edge-on profile drag, which a finite wing does not
+    reduce, so there the scaling is probably low: 0.0196 at 180 against the
+    section's 0.025, and at 164 degrees, where she stands tail to the wind,
+    0.19 against 0.24 - about 7 lb at 15 kt.
+
 Stood on her brakes tail to 15 kt, her angle of attack is -164 degrees; the
 air's force along the wind on her was 195 lb, her wing's drag the flat
 plate's 1.41, and is 29 lb, her wing's 0.19 and her airframe's and gear's
-0.024 on top. Not
-changed: her lift past 90 degrees (the pinned table's nought beyond 90,
-where a reversed section lifts - Sheldahl and Klimas, -0.85 at 170 degrees)
-nor her pitching moment there (Pitch_alpha is linear in the angle of
-attack); see PROJECT_STATUS (2026-10-16).
+0.024 on top. Not changed: her lift past 90 degrees (the pinned table's
+nought beyond 90, where a reversed section lifts - Sheldahl and Klimas,
+-0.85 at 170 degrees) nor her pitching moment there (Pitch_alpha is linear
+in the angle of attack); see PROJECT_STATUS (2026-10-16).
 
 Her Owner's Manual (Taxiing, page 40) has a pilot hold the ailerons into a
 turn into wind "when ground winds are in excess of 15 M.P.H.", to prevent

@@ -2280,20 +2280,27 @@ GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_ta
 // fifteen seconds more. Over the last five, at every step: she has not moved
 // (under 1 kt over the ground), the air meets her from behind (her angle of
 // attack 150 degrees or more either way), and the air's force along the wind
-// on her, over her dynamic pressure and her wing's area, is within 0.05 of
-// the cited section's at her angle of attack. **The bound**: her airframe's
-// and gear's own 0.024 at any angle, on top of her wing's rows, which are
-// the section's scaled by 1.41/1.80 (0.78) to meet her own broadside figure
-// at 90 degrees - at -164 degrees, where she stands, 0.214 in all against the
-// section's 0.243. 0.05 is 6.8 lb at 15 kt; the flat plate's 1.41 held her
-// 1.2 over it (195 lb, against 29). Coverage asserted: four loadings, 600
-// steps each judged.
-GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_is_pushed_within_0_05_of_a_reversed_wings_cited_drag) {
+// on her, over her dynamic pressure and her wing's area, is within 0.01 of
+// what the figure makes of her: the cited section's at her angle of attack
+// scaled by 1.41/1.80 (her wing's own broadside figure over the section's,
+// as her model's rows are), plus her airframe's and gear's 0.024, which
+// hold at any angle. **The bound**, 0.01 (1.4 lb at 15 kt), is the small
+// terms left over (her induced drag and sideslip drag, near nothing
+// standing; measured, the share beyond her wing is printed) - and narrow
+// enough that the section's rows unscaled (0.054 over at -164 degrees,
+// where she stands) or the flat plate's 1.41 (1.2 over) are wrong. Coverage
+// asserted: four loadings, 600 steps each judged.
+GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_is_pushed_within_0_01_of_a_reversed_wings_cited_drag) {
     constexpr double tail_wind_kts = 15.0;
     constexpr int calm_stand_s = 5;
     constexpr int wind_stand_s = 15;
     constexpr int judged_s = 5;
-    constexpr double bound = 0.05;
+    constexpr double bound = 0.01;
+    // Her wing's broadside figure over the section's (tools/make_j3cub.py),
+    // and her airframe's and gear's drag at any angle (Drag_airframe,
+    // Drag_gear).
+    constexpr double scale = 1.4091 / 1.80;
+    constexpr double airframe_and_gear = 0.020 + 0.004;
     constexpr double degrees = 180.0 / 3.14159265358979323846;
     // SAND80-2114, Table 2, NACA 0012: the angle of attack in degrees and the
     // section's drag coefficient.
@@ -2310,6 +2317,9 @@ GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_is_pushed_within_0_05_o
             }
         }
         return cited[std::size(cited) - 1].second;
+    };
+    const auto expected_cd = [&](double alpha_deg) {
+        return scale * cited_cd(alpha_deg) + airframe_and_gear;
     };
     const auto runway = a_runway();
     const auto figures =
@@ -2355,6 +2365,7 @@ GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_is_pushed_within_0_05_o
         double worst = 0.0;
         double alpha_seen = 0.0;
         double cd_seen = 0.0;
+        double beyond_wing_seen = 0.0;
         double drag_seen = 0.0;
         double lift_seen = 0.0;
         double pitching_seen = 0.0;
@@ -2372,12 +2383,14 @@ GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_is_pushed_within_0_05_o
             const double area = aircraft.property("metrics/Sw-sqft");
             const double drag = aircraft.property("forces/fwx-aero-lbs");
             const double cd = drag / (qbar * area);
-            const double off = cd - cited_cd(std::abs(alpha_deg));
+            const double off = cd - expected_cd(std::abs(alpha_deg));
             const double ground_kts = aircraft.property("velocities/vg-fps") / 1.68781;
             if (std::abs(off) >= std::abs(worst)) {
                 worst = off;
                 alpha_seen = alpha_deg;
                 cd_seen = cd;
+                beyond_wing_seen =
+                    cd - aircraft.property("aero/force/Drag_basic") / (qbar * area);
                 drag_seen = drag;
                 lift_seen = aircraft.property("forces/fwz-aero-lbs");
                 pitching_seen = aircraft.property("moments/m-aero-lbsft");
@@ -2391,8 +2404,8 @@ GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_is_pushed_within_0_05_o
                 std::snprintf(what, sizeof what, "moved: %.2f kt over the ground", ground_kts);
             } else if (!(std::abs(off) <= bound)) {
                 std::snprintf(what, sizeof what,
-                              "drag coefficient %.3f at %.1f deg, the cited %.3f: off by %.3f",
-                              cd, alpha_deg, cited_cd(std::abs(alpha_deg)), off);
+                              "drag coefficient %.3f at %.1f deg, the figure's %.3f: off by %.3f",
+                              cd, alpha_deg, expected_cd(std::abs(alpha_deg)), off);
             } else {
                 continue;
             }
@@ -2400,11 +2413,12 @@ GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_is_pushed_within_0_05_o
                 first_wrong = what;
             }
         }
-        std::printf("  %-16s alpha %6.1f deg, air %4.1f kt: drag %5.1f lb, coefficient %.3f "
-                    "(cited %.3f, off by at most %+.3f); lift %+6.1f lb, pitching %+5.0f "
-                    "ft-lb\n",
+        std::printf("  %-16s alpha %6.1f deg, air %4.1f kt: drag %5.1f lb, coefficient %.4f "
+                    "(section %.4f, the figure's %.4f, off by at most %+.4f; beyond her wing "
+                    "%.4f); lift %+6.1f lb, pitching %+5.0f ft-lb\n",
                     loading_name.c_str(), alpha_seen, air_kts, drag_seen, cd_seen,
-                    cited_cd(std::abs(alpha_seen)), worst, lift_seen, pitching_seen);
+                    cited_cd(std::abs(alpha_seen)), expected_cd(std::abs(alpha_seen)), worst,
+                    beyond_wing_seen, lift_seen, pitching_seen);
         if (!first_wrong.empty()) {
             wrong.push_back(loading_name + ": " + first_wrong);
         }
