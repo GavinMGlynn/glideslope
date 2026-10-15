@@ -2352,7 +2352,7 @@ add_test(NAME a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing -DPORT=24990
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_landing.cmake)
 set_tests_properties(a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees
-    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500)
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing)
 # **And against a server behind real time, by centimetres**: its clock at a
 # set 0.6 of real time. Serial: a busy runner would slow it further.
