@@ -1631,12 +1631,11 @@ The pipeline: its length, its caches and what it costs a pull request.
       measured cost, a fixture with its tests, and a test checks every shard
       between them runs every test once; the worst shard on CI took 17.7 of
       30 minutes, macOS debug's 11.8.
-- [ ] **Rocky 9's release tests run in one job, 42 minutes** (run
-      38777694219), the longest job of every run. Since 2026-10-16 they are
-      dealt to four shards like Ubuntu's (three took up to 18.4 minutes);
-      four not yet seen on CI. *Verification:
+- [x] **Rocky 9's release tests run in one job, 42 minutes** (run
+      38777694219), the longest job of every run. *Verification:
       on CI every Rocky shard's tests take under 20 minutes, and every test
-      runs in exactly one shard.*
+      runs in exactly one shard.* Done 2026-10-16: four shards, 8.9 to 12.5
+      minutes each, and the shards test checks every job's dealing.
 
 ---
 
