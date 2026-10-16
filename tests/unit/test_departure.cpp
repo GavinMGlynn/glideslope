@@ -2582,3 +2582,206 @@ GLIDESLOPE_TEST(every_aircraft_standing_on_her_brakes_at_idle_stays_finite_and_o
           "all sixteen were asked: " + std::to_string(stood) + " stood, " +
               std::to_string(left_out.size()) + " left out");
 }
+
+// **A C172P at full power on held brakes**, at a stick position, flown at
+// each of four loadings across her handbook's centre-of-gravity range
+// (Section 2: 35.0 in aft of the datum forward, 47.3 aft, at 2400 lb at
+// most): her model's own (one 180 lb pilot, 200 lb of fuel); two up front
+// with 48 lb of fuel, her farthest forward; the figures' 2400 lb; and her
+// aft limit, a 170 lb pilot, two 170 lb in the back, 60 lb of baggage and 48
+// lb of fuel. She settles on full brakes for 5 s at idle, her throttle opens
+// over 3 s, and she is held there 30 s more, stick where asked from the
+// first step of the throttle.
+struct FullPowerOnBrakes {
+    std::string loading;
+    double weight_lbs = 0.0;
+    double cg_in = 0.0;
+    bool nose_wheel_always_down = true; // from full throttle on
+    bool mains_always_down = true;      // from the throttle's opening on
+    double least_nose_compression_ft = 1e9;
+    double most_tail_compression_ft = 0.0;     // her tail strike
+    double most_nose_skid_compression_ft = 0.0; // her cowling's contact
+    double least_pitch_deg = 1e9;
+    double most_pitch_deg = -1e9;
+    double most_ground_speed_fps = 0.0; // from full throttle on
+    double rpm_at_end = 0.0;
+};
+
+std::vector<FullPowerOnBrakes> c172p_at_full_power_on_her_brakes(double elevator) {
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / "c172p.xml");
+    glideslope::sim::Loading forward;
+    forward.pointmass_lbs = {{0, 180}, {1, 180}, {2, 0}, {3, 0}, {4, 0}};
+    forward.tank_lbs = {{0, 24}, {1, 24}};
+    glideslope::sim::Loading aft;
+    aft.pointmass_lbs = {{0, 170}, {1, 0}, {2, 170}, {3, 170}, {4, 60}};
+    aft.tank_lbs = {{0, 24}, {1, 24}};
+    const std::vector<std::pair<std::string, std::optional<glideslope::sim::Loading>>> loadings = {
+        {"her model's own", std::nullopt},
+        {"farthest forward", forward},
+        {"2400 lb", figures.loadings.at(figures.first_loading).loading},
+        {"aft limit", aft}};
+    const Runway runway = a_runway();
+    std::vector<FullPowerOnBrakes> out;
+    for (const auto& [name, loading] : loadings) {
+        glideslope::sim::Aircraft a(data() / "jsbsim", "c172p");
+        if (loading) {
+            a.load(*loading);
+        }
+        a.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        a.initialize(ic);
+        std::map<std::string, std::string> unit; // her contacts' properties, by name
+        const auto points = a.contact_points();
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            unit[points[i].name] =
+                (points[i].bogey ? "gear/unit[" : "contact/unit[") + std::to_string(i) + "]/";
+        }
+        for (const char* n : {"NOSE", "LEFT_MAIN", "RIGHT_MAIN", "NOSE_SKID", "TAIL_STRIKE"}) {
+            check(unit.count(n) == 1, std::string("the C172P has a contact named ") + n);
+        }
+        FullPowerOnBrakes r;
+        r.loading = name;
+        r.weight_lbs = a.property("inertia/weight-lbs");
+        r.cg_in = a.property("inertia/cg-x-in");
+        glideslope::sim::Controls c;
+        c.left_brake = 1.0;
+        c.right_brake = 1.0;
+        constexpr int settle = 5 * steps_per_second;
+        constexpr int open = 3 * steps_per_second;
+        constexpr int held = 30 * steps_per_second;
+        for (int step = 0; step < settle + open + held; ++step) {
+            if (step >= settle) {
+                c.elevator = elevator;
+                c.throttle = std::min(1.0, static_cast<double>(step - settle + 1) / open);
+            }
+            a.set_controls(c);
+            a.step();
+            if (step < settle) {
+                continue;
+            }
+            const double pitch = a.state().pitch_deg;
+            r.least_pitch_deg = std::min(r.least_pitch_deg, pitch);
+            r.most_pitch_deg = std::max(r.most_pitch_deg, pitch);
+            r.mains_always_down = r.mains_always_down &&
+                                  a.property(unit["LEFT_MAIN"] + "WOW") > 0.5 &&
+                                  a.property(unit["RIGHT_MAIN"] + "WOW") > 0.5;
+            r.most_tail_compression_ft = std::max(
+                r.most_tail_compression_ft, a.property(unit["TAIL_STRIKE"] + "compression-ft"));
+            r.most_nose_skid_compression_ft =
+                std::max(r.most_nose_skid_compression_ft,
+                         a.property(unit["NOSE_SKID"] + "compression-ft"));
+            if (step >= settle + open) {
+                r.nose_wheel_always_down =
+                    r.nose_wheel_always_down && a.property(unit["NOSE"] + "WOW") > 0.5;
+                r.least_nose_compression_ft = std::min(
+                    r.least_nose_compression_ft, a.property(unit["NOSE"] + "compression-ft"));
+                r.most_ground_speed_fps =
+                    std::max(r.most_ground_speed_fps, a.property("velocities/vg-fps"));
+            }
+        }
+        r.rpm_at_end = a.property("propulsion/engine/engine-rpm");
+        std::printf("  %-16s %4.0f lb, CG %5.2f in: nose wheel %s (least compression %.3f ft), "
+                    "mains %s, tail %.3f ft, cowling %.3f ft, pitch %.2f to %.2f deg, "
+                    "%.2f ft/s at most, %.0f RPM\n",
+                    r.loading.c_str(), r.weight_lbs, r.cg_in,
+                    r.nose_wheel_always_down ? "down" : "UP", r.least_nose_compression_ft,
+                    r.mains_always_down ? "down" : "UP", r.most_tail_compression_ft,
+                    r.most_nose_skid_compression_ft, r.least_pitch_deg, r.most_pitch_deg,
+                    r.most_ground_speed_fps, r.rpm_at_end);
+        out.push_back(r);
+    }
+    // **The four loadings are inside her envelope**, so what is judged is
+    // what her handbook allows: Section 2, normal category, 35.0 to 47.3 in
+    // aft of the datum, 2400 lb at most.
+    check(out.size() == 4, "four loadings flown: " + std::to_string(out.size()));
+    for (const FullPowerOnBrakes& r : out) {
+        check(r.cg_in >= 35.0 && r.cg_in <= 47.3 && r.weight_lbs <= 2400.5,
+              r.loading + ": inside her handbook's envelope, " + std::to_string(r.weight_lbs) +
+                  " lb at " + std::to_string(r.cg_in) + " in");
+    }
+    check(out.back().cg_in > 47.0 && out[1].cg_in < 41.0,
+          "the envelope's ends are reached: aft " + std::to_string(out.back().cg_in) +
+              " in, forward " + std::to_string(out[1].cg_in) + " in");
+    return out;
+}
+
+// **A C172P at full power on held brakes, stick central, stands on her
+// three wheels** at every loading, as her handbook's short-field take-off
+// has her (Pilot's Operating Handbook, Model 172P, Section 4, Short Field
+// Takeoff: "Brakes -- APPLY. Throttle -- FULL OPEN. ... Brakes -- RELEASE.
+// Elevator Control -- SLIGHTLY TAIL LOW": she is held at full throttle, no
+// elevator asked for, before her brakes come off). Held there 30 s her nose
+// wheel and both mains carry weight at every step, neither her tail strike
+// nor her cowling touches, her brakes hold her under half a foot a second,
+// and her engine turns her handbook's static 2300 to 2420 RPM (Section 2),
+// so it is full power she stands at.
+GLIDESLOPE_TEST(a_c172p_at_full_power_on_held_brakes_with_her_stick_central_stands_on_all_three_wheels_at_every_loading) {
+    for (const FullPowerOnBrakes& r : c172p_at_full_power_on_her_brakes(0.0)) {
+        check(r.nose_wheel_always_down && r.mains_always_down,
+              r.loading + ": on all three wheels throughout");
+        check(r.most_tail_compression_ft == 0.0 && r.most_nose_skid_compression_ft == 0.0,
+              r.loading + ": neither her tail nor her cowling touches, " +
+                  std::to_string(r.most_tail_compression_ft) + " and " +
+                  std::to_string(r.most_nose_skid_compression_ft) + " ft");
+        check(r.most_ground_speed_fps < 0.5,
+              r.loading + ": her brakes hold her, " + std::to_string(r.most_ground_speed_fps) +
+                  " ft/s at most");
+        check(r.rpm_at_end >= 2300.0 && r.rpm_at_end <= 2420.0,
+              r.loading + ": at her static RPM, " + std::to_string(r.rpm_at_end));
+    }
+}
+
+// **A C172P at full power on held brakes, stick full forward, never noses
+// over** at any loading: both main wheels carry weight at every step and her
+// cowling never touches. Her elevator works in the part of the slipstream
+// that reaches it (tools/make_c172p.py); on the whole of it, as the pinned
+// model had it, its 6,200 ft-lb lifted her mains and put her over her nose.
+// Not judged: at her model's own loading and farthest forward, her mains
+// lightened, her brakes no longer hold her and she creeps forward, at up to
+// 9 and 13 ft/s by the end of the 30 s.
+GLIDESLOPE_TEST(a_c172p_at_full_power_on_held_brakes_with_her_stick_full_forward_never_noses_over_at_any_loading) {
+    for (const FullPowerOnBrakes& r : c172p_at_full_power_on_her_brakes(-1.0)) {
+        check(r.mains_always_down, r.loading + ": both mains carry weight throughout");
+        check(r.most_nose_skid_compression_ft == 0.0 && r.least_pitch_deg > -10.0,
+              r.loading + ": her cowling never touches, " +
+                  std::to_string(r.most_nose_skid_compression_ft) + " ft, pitch down to " +
+                  std::to_string(r.least_pitch_deg));
+    }
+}
+
+// **A C172P at full power on held brakes, stick full back: what she does,
+// measured, which no source gives.** Her handbook has her elevator untouched
+// on her brakes; nothing found says where a real one's nose wheel is with
+// the stick held back. Measured (linux-release, 2026-10-16), pinned so a
+// change shows: at her model's own loading, farthest forward and at 2400 lb
+// her nose wheel stays down (0.04 to 0.09 ft of its strut still compressed);
+// at her aft limit, 47.1 in, she sits on her tail strike at 11.2 degrees.
+// Both mains carry weight throughout at every loading. On the whole
+// slipstream, before her elevator was moved into the part of it that
+// reaches it (tools/make_c172p.py), she sat on her tail at every loading.
+GLIDESLOPE_TEST(a_c172p_at_full_power_on_held_brakes_with_her_stick_full_back_does_what_is_measured_and_unsourced) {
+    for (const FullPowerOnBrakes& r : c172p_at_full_power_on_her_brakes(1.0)) {
+        check(r.mains_always_down, r.loading + ": both mains carry weight throughout");
+        check(r.most_nose_skid_compression_ft == 0.0, r.loading + ": her cowling never touches");
+        if (r.loading == "aft limit") {
+            check(!r.nose_wheel_always_down && r.most_tail_compression_ft > 0.0 &&
+                      r.most_pitch_deg > 10.0 && r.most_pitch_deg < 12.0,
+                  r.loading + ": sits on her tail strike, as measured: pitch " +
+                      std::to_string(r.most_pitch_deg));
+        } else {
+            check(r.nose_wheel_always_down && r.least_nose_compression_ft > 0.02 &&
+                      r.most_tail_compression_ft == 0.0,
+                  r.loading + ": her nose wheel stays down and her tail off, as measured: " +
+                      std::to_string(r.least_nose_compression_ft) + " ft of nose strut");
+        }
+    }
+}

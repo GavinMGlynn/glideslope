@@ -488,6 +488,21 @@
   </product>
  </function>
 
+ <function name="aero/function/qbar-tail-psf">
+  <description> q bar at the tailplane: the free stream's, and the part of the
+   slipstream's excess that reaches it (glideslope: tools/make_c172p.py) </description>
+  <sum>
+   <property>aero/qbar-psf</property>
+   <product>
+    <value>0.390</value>
+    <difference>
+     <property>aero/function/qbar-induced-psf</property>
+     <property>aero/qbar-psf</property>
+    </difference>
+   </product>
+  </sum>
+ </function>
+
         <axis name="DRAG">
             <function name="aero/coefficient/CDo">
                 <description>Drag_at_zero_lift</description>
@@ -844,7 +859,7 @@
             <function name="aero/coefficient/Cmde">
                 <description>Pitch_moment_due_to_elevator_deflection</description>
                 <product>
-                    <property>aero/function/qbar-induced-psf</property>
+                    <property>aero/function/qbar-tail-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/cbarw-ft</property>
                     <property>fcs/elevator-pos-rad</property>
