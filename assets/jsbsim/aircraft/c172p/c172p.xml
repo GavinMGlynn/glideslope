@@ -532,7 +532,7 @@
             <function name="aero/coefficient/CDwbh">
                 <description>Drag_due_to_alpha</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>aero/function/kCDge</property>
                       <table>

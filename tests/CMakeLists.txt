@@ -1452,9 +1452,19 @@ set_tests_properties(every_flight_models_angle_of_attack_pitch_terms_leave_out_t
 add_test(NAME every_flight_models_angle_of_attack_lift_terms_leave_out_the_crosswind_or_are_named_with_their_reason
     COMMAND ${CMAKE_COMMAND} "-DPYTHON=${Python3_EXECUTABLE}"
         -DSCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/tools/alpha_lift_terms.py
-        "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft"
+        "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft;LIFT"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
 set_tests_properties(every_flight_models_angle_of_attack_lift_terms_leave_out_the_crosswind_or_are_named_with_their_reason
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+# And their drag terms keyed to the angle of attack, by the same script
+# (tests/tools/alpha_lift_terms.py, its DRAG lists).
+add_test(NAME every_flight_models_angle_of_attack_drag_terms_leave_out_the_crosswind_or_are_named_with_their_reason
+    COMMAND ${CMAKE_COMMAND} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/tools/alpha_lift_terms.py
+        "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft;DRAG"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
+set_tests_properties(every_flight_models_angle_of_attack_drag_terms_leave_out_the_crosswind_or_are_named_with_their_reason
     PROPERTIES SKIP_RETURN_CODE 77)
 
 # The names go in a file: given on the command line they passed Windows'

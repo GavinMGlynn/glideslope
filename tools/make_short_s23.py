@@ -750,7 +750,10 @@ def outputs():
             alpha_rate.with_alpha_terms_on_qbar_uw(
                 alpha_rate.with_qbar_uw(aerodynamics(), "make_short_s23"), "make_short_s23",
                 {"PITCH": ["aero/coefficient/Cm_basic"],
-                 "LIFT": ["aero/coefficient/CLwbh"]}),
+                 "LIFT": ["aero/coefficient/CLwbh"],
+                 "DRAG": ["aero/coefficient/CD",
+                          "aero/coefficient/CdDf3L",
+                          "aero/coefficient/CdDf3R"]}),
         OUT / "aircraft" / MODEL / "Systems" / "engines.xml": engines(),
         OUT / "aircraft" / MODEL / "Systems" / "flaps.xml": flaps(),
         OUT / "aircraft" / MODEL / "Systems" / "Short_S23-hydrodynamics.xml": hydrodynamics(),

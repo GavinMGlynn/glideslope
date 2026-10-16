@@ -1,29 +1,30 @@
-"""alpha_lift_terms.py - every committed flight model's lift terms keyed to the
-angle of attack are on the dynamic pressure without its sideways part, or are
-named here with the reason they are not.
+"""alpha_lift_terms.py - every committed flight model's lift and drag terms
+keyed to the angle of attack are on the dynamic pressure without its sideways
+part, or are named here with the reason they are not.
 
 Every aircraft under assets/jsbsim/aircraft/ is read, every file of it, its
 XML comments left out (the F-22A's pinned model keeps two old CLDh terms in
-one). In its LIFT axis, a function that reads aero/alpha-rad or aero/alpha-deg
-- as a factor or a table's input, itself or through a function of the model
-that does (the Mosquito's lift-alpha reads her lift-coefficient-wing table) -
-and names a dynamic pressure (any property containing "qbar") is one of her
-angle-of-attack lift terms. Those that also multiply aero/alphadot-rad_sec are
-alpha_rate_terms.py's, and left to it. Each of the rest must be in MOVED,
-every dynamic pressure in it aero/qbarUW-psf (tools/alpha_rate.py's
-with_alpha_terms_on_qbar_uw), or in NAMED, on the whole aero/qbar-psf, with
-its reason. Standing or slowing in a crosswind her angle of attack,
-atan2(w, u), is any angle at all; on the whole dynamic pressure such a term
-counts the crosswind (alpha_rate.py says why). The sibling for the PITCH axis
-is alpha_pitch_terms.py.
+one). In its LIFT or DRAG axis, the one asked for, a function that reads
+aero/alpha-rad or aero/alpha-deg - as a factor or a table's input, itself or
+through a function of the model that does (the Mosquito's lift-alpha reads
+her lift-coefficient-wing table) - and names a dynamic pressure (any property
+containing "qbar") is one of her angle-of-attack terms on that axis. Those
+that also multiply aero/alphadot-rad_sec are alpha_rate_terms.py's, and left
+to it. Each of the rest must be in MOVED, every dynamic pressure in it
+aero/qbarUW-psf (tools/alpha_rate.py's with_alpha_terms_on_qbar_uw), or in
+NAMED, on the whole aero/qbar-psf, with its reason. Standing or slowing in a
+crosswind her angle of attack, atan2(w, u), is any angle at all; on the
+whole dynamic pressure such a term counts the crosswind (alpha_rate.py says
+why). The sibling for the PITCH axis is alpha_pitch_terms.py.
 
 The space is stated, not read from the directory: sixteen aircraft, the
-terms of each listed. An aircraft in the directory that is not listed, one
-listed and missing, a term found that is in neither list, a listed term not
-found, a moved term still on the whole dynamic pressure, or a named one
-moved, fails.
+terms of each listed for each axis - an empty list where she has none (the
+A320's and the PA-28's drag is not keyed to the angle of attack). An
+aircraft in the directory that is not listed, one listed and missing, a term
+found that is in neither list, a listed term not found, a moved term still
+on the whole dynamic pressure, or a named one moved, fails.
 
-    python3 alpha_lift_terms.py <assets/jsbsim/aircraft>
+    python3 alpha_lift_terms.py <assets/jsbsim/aircraft> LIFT|DRAG
 """
 import pathlib
 import re
@@ -37,34 +38,67 @@ from alpha_rate import functions_of_alpha  # noqa: E402
 C = "aero/coefficient/"
 F = "aero/force/"
 MOVED = {
-    "737-300": [C + "CLalpha"],
-    "747-400": [C + "CLalpha"],
-    "787-8": [C + "CLalpha"],
-    "a320": [C + "CLalpha"],
-    "a380": [C + "CLalpha"],
-    "b2": [C + "CLalpha"],
-    "c172p": [C + "CLwbh"],
-    "c182": [C + "CLalpha"],
-    "f15c": [C + "CLalpha"],
-    "f22": [C + "CLalpha", C + "CLDlef"],
-    "f35b": [C + "CLalpha"],
-    "j3cub": [F + "Lift_alpha", F + "Lift_propwash"],
-    "learjet35a": [C + "CLalpha"],
-    "mosquito-fb6": [F + "lift-alpha"],
-    "pa28": [C + "CLwbh"],
-    "short_s23": [C + "CLwbh"],
+    "LIFT": {
+        "737-300": [C + "CLalpha"],
+        "747-400": [C + "CLalpha"],
+        "787-8": [C + "CLalpha"],
+        "a320": [C + "CLalpha"],
+        "a380": [C + "CLalpha"],
+        "b2": [C + "CLalpha"],
+        "c172p": [C + "CLwbh"],
+        "c182": [C + "CLalpha"],
+        "f15c": [C + "CLalpha"],
+        "f22": [C + "CLalpha", C + "CLDlef"],
+        "f35b": [C + "CLalpha"],
+        "j3cub": [F + "Lift_alpha", F + "Lift_propwash"],
+        "learjet35a": [C + "CLalpha"],
+        "mosquito-fb6": [F + "lift-alpha"],
+        "pa28": [C + "CLwbh"],
+        "short_s23": [C + "CLwbh"],
+    },
+    "DRAG": {
+        "737-300": [C + "CD0"],
+        "747-400": [C + "CD0"],
+        "787-8": [F + "Drag_basic"],
+        "a320": [],
+        "a380": [C + "CD0"],
+        "b2": [C + "CD0"],
+        "c172p": [C + "CDwbh"],
+        "c182": [C + "CDalpha", C + "CDDf"],
+        "f15c": [C + "CDseparated"],
+        "f22": [C + "CDseparated", C + "CDDlef"],
+        "f35b": [C + "CDseparated"],
+        "j3cub": [F + "Drag_basic"],
+        "learjet35a": [C + "CD0"],
+        "mosquito-fb6": [F + "drag-stall"],
+        "pa28": [],
+        "short_s23": [C + "CD", C + "CdDf3L", C + "CdDf3R"],
+    },
 }
-DAMPING = "lift with pitch rate: the angle of attack only picks the coefficient of her pitch rate"
+DAMPING = "with pitch rate: the angle of attack only picks the coefficient of her pitch rate"
 NAMED = {
-    "f22": {C + "CLq": DAMPING},
-    "j3cub": {F + "Lift_pitch_rate": DAMPING},
-    "pa28": {C + "CLq": DAMPING},
-    "short_s23": {C + "CLq": DAMPING},
+    "LIFT": {
+        "f22": {C + "CLq": "lift " + DAMPING},
+        "j3cub": {F + "Lift_pitch_rate": "lift " + DAMPING},
+        "pa28": {C + "CLq": "lift " + DAMPING},
+        "short_s23": {C + "CLq": "lift " + DAMPING},
+    },
+    "DRAG": {
+        "f15c": {C + "CDbeta": "drag with sideslip: keyed to the sideways air by design; the "
+                               "angle of attack only picks its coefficient of it"},
+        "f22": {C + "CDq": "drag " + DAMPING, C + "CDq_Dlef": "drag " + DAMPING},
+        "short_s23": {C + "CdDe": "her elevator's drag, not her wing's: the angle of attack "
+                                  "only picks its coefficient of the deflection"},
+    },
 }
 TOTAL = 16
-assert len(MOVED) == TOTAL and set(NAMED) <= set(MOVED)
+assert all(len(MOVED[a]) == TOTAL and set(NAMED[a]) <= set(MOVED[a]) for a in MOVED)
+if len(sys.argv) != 3 or sys.argv[2] not in MOVED:
+    raise SystemExit("usage: alpha_lift_terms.py <assets/jsbsim/aircraft> LIFT|DRAG")
+WHICH = sys.argv[2]
+MOVED, NAMED = MOVED[WHICH], NAMED[WHICH]
 ALLOWED = "aero/qbarUW-psf"
-AXIS = re.compile(r"<axis name=\"LIFT\"[^>]*>.*?</axis>", re.S)
+AXIS = re.compile(r"<axis name=\"" + WHICH + r"\"[^>]*>.*?</axis>", re.S)
 FUNCTION = re.compile(r"<function name=\"([^\"]+)\">.*?</function>", re.S)
 COMMENT = re.compile(r"<!--.*?-->", re.S)
 
@@ -114,8 +148,8 @@ for name in sorted(present & set(MOVED)):
 
 want_moved = sum(len(v) for v in MOVED.values())
 want_named = sum(len(v) for v in NAMED.values())
-print(f"{len(present)} aircraft of {TOTAL}; {moved_count} of {want_moved} terms moved, "
-      f"{named_count} of {want_named} named")
+print(f"{WHICH}: {len(present)} aircraft of {TOTAL}; {moved_count} of {want_moved} terms "
+      f"moved, {named_count} of {want_named} named")
 for n, terms in NAMED.items():
     for fn, why in terms.items():
         print(f"not moved: {n} {fn}: {why}")
