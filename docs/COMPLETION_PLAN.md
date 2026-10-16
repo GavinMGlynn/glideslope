@@ -669,11 +669,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       the test does not read. Standing in 15 kt across they lifted the
       landplanes by up to 7,260 lb, now nothing; the S.23 afloat by up to
       2,100 lb, now 20 to 410. Every figure in range.
-- [ ] **Every model but the Cub has her wing's drag keyed to the angle of
-      attack counting the crosswind**, as her lift did. *Verification: each
-      model's drag terms keyed to the angle of attack on the dynamic pressure
-      without its sideways part or named with a reason, and every figure in
-      range.*
+- [x] **Every model but the Cub has her wing's drag keyed to the angle of
+      attack counting the crosswind**, as her lift did. Now every model's is
+      moved, 18 terms, or named, 4: standing in 15 kt across they drew the
+      airliners and the B-2A along the wind by up to 11,060 lb, now nothing.
+      *Verification: each model's drag terms keyed to the angle of attack on
+      the dynamic pressure without its sideways part or named with a reason,
+      and every figure in range.* Done 2026-10-16.
 - [ ] **Lift not keyed to the angle of attack counts the crosswind
       standing**: flaps, elevators and the C182's lift at no angle give her
       up to 46 lb in 15 kt across, the F-22A 280. *Verification: each such

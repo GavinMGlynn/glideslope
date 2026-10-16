@@ -110,7 +110,11 @@ def with_alpha_terms_on_qbar_uw(text, script, terms):
     Aerodynamics" (dany93, 2019): QBarUW "is more appropriate for Cm" and for
     CL than the generic QBar - guidance tested on the C172, swept wings not
     investigated. In flight, at a few degrees of sideslip, the two differ by
-    its cosine squared.
+    its cosine squared. **A wing's drag at its angle of attack** (2026-10-16)
+    is moved on the same reasoning: made by the same air in the plane of u
+    and w, while the sideways part runs along the span - on the whole
+    dynamic pressure the J-3 Cub's Drag_basic, a flat plate's 1.41 at 90
+    degrees, rolled her onto her wing standing in a beam wind.
 
     **A swept wing** (2026-10-15), where issue #89 did not look. Simple sweep
     theory (R. T. Jones, "Wing Plan Forms for High-Speed Flight", NACA
