@@ -58,7 +58,7 @@ entertainment purposes only."
 | Source | Cessna Model 172P Pilot's Operating Handbook, 12 May 1981 (the Island Enterprises reprint): section 1 specifications, section 2 powerplant limitations, figures 3-1, 5-1, 5-3, 5-5, 5-6 and 5-8 |
 | Source, the landing distance | The 1985 Model 172P Pilot's Operating Handbook, section 1, Landing Performance, total distance over a 50 ft obstacle 1280 ft, and figure 5-11, as copied at <https://tx435.cap.gov/media/cms/C172PPOHwoSupplements_0A69C5AA130B9.pdf>, SHA-256 `4d17d416aa9b8a3ec69ed07b988c88399a8ab1b0015148063248040ae5c06bb4` (the 1981 printing above was not to hand) |
 | In the repository | `assets/figures/c172p.xml`: individual numbers, each with its section or figure, not the handbook's text or charts |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The Cessna 182S flight model, derived from JSBSim's
 
@@ -76,7 +76,7 @@ entertainment purposes only."
 | Source | Cessna Model 182S Skylane Information Manual, P/N 182SIM, 1997 (the Pilot's Operating Handbook of 3 February 1997 with revision 4 of 1 November 2001), page ii and figures 3-1, 5-1, 5-4, 5-6, 5-7 and 5-9, as copied at <http://tssflyingclub.org/documents/C182S_POH.pdf>; FAA type certificate data sheet 3A13, revision 66, section XIII, for the static rpm and the flaps' travel |
 | Source, the landing distance | The same manual's section 1, Landing Performance, total distance over 50 ft obstacle 1350 ft, as copied at <http://tssflyingclub.org/documents/C182S_POH.pdf>, SHA-256 `6f8ecc3cda71ca2bc0f9a913872cae7c64789396c42c5683cee45dbce52d4897` |
 | In the repository | `assets/figures/c182.xml`: individual numbers, each with its page or figure, not the handbook's text or charts |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The Piper PA-28-180 Cherokee flight model, derived from JSBSim's
 
@@ -94,7 +94,7 @@ entertainment purposes only."
 | Source | Piper Cherokee 180 "E" Owner's Handbook, P/N 753 806, issued October 1969, revised January 1974, sections I, III and V, as copied at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>; the Airplane Flight Manual, Model PA-28-180, FAA approved 3 August 1962, revision 4, for the calibrated stalling speeds, as copied at <https://www.nehemiahaviation.com/files/pa28flightmanual.pdf>; FAA type certificate data sheet 2A13, revision 64, section III, for the static rpm; for the flap the stall recovery raises to, 25 degrees, the Cherokee handbooks' climb-out setting (no Cherokee handbook gives a balked-landing flap): the "E" handbook's section III, take-off, and the PA-28-140 Cherokee 140 Owner's Handbook, section III, take-off, "Lower the flaps to 25° (second notch)", as copied at <https://data.ntsb.gov/Docket/Document/docBLOB?ID=19048562&FileExtension=pdf&FileName=PA-28-140+Perf+and+charts-Rel.pdf>; and, as corroboration only, Middle Georgia State University's Warrior PA-28-161 Pilot's Checklist (2025), "Balked landing, go-around: maximum power, flaps 25°", at <https://www.mga.edu/aviation/knight-flight/aircraft-information-procedures/docs/Warrior_Checklist.pdf> |
 | Source, the landing distance | The same handbook's section I, Performance, landing roll over 50-ft barrier 1150 ft, as copied at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>, SHA-256 `ae20fb9a8a8d88ff0638313d9dd1051519f904de54f05e50be5ec89fd318b2e9` |
 | In the repository | `assets/figures/pa28.xml`: individual numbers, each with its section, not the handbook's text or charts |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The Piper J-3 Cub flight model, derived from JSBSim's
 
@@ -111,7 +111,7 @@ entertainment purposes only."
 | --- | --- |
 | Source | Piper's Owner's Manual for the J3C-65 (undated; a Wag-Aero reproduction), pages 11, 12, 41 and 47, as copied at <https://stpeteair.org/wp-content/uploads/cub_owners_manual.pdf>; Piper's booklet "How to Fly a Piper Cub" (1945), page 12, as copied at <https://home.adelphi.edu/~allendon/fly_a_cub.pdf>; FAA Aircraft Specification A-691, revision 34, section IV and propeller item 2, for the static rpm, the stations and the elevator's travel |
 | In the repository | `assets/figures/j3cub.xml`: individual numbers, each with its page, not the manual's text |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The Airbus A320 flight model, derived from JSBSim's
 
@@ -129,7 +129,7 @@ entertainment purposes only."
 | Source | Airbus, A320 Aircraft Characteristics - Airport and Maintenance Planning, June 2024 edition, figure 3-3-1-991-005-A01, as published at <https://www.aircraft.airbus.com/sites/g/files/jlcbta126/files/2025-01/AC_A320_0624.pdf>; Airbus, Getting to Grips with Aircraft Performance, January 2002, page 155, as copied at <https://skybrary.aero/sites/default/files/bookshelf/2263.pdf>; FAA type certificate data sheet A28NM, revision 42, as copied at <https://downloads.regulations.gov/FAA-2021-0799-0001/attachment_3.pdf>, for the Mmo and ceiling; FAA type certificate data sheet E37NE, for the CFM56-5B4's rating |
 | Source, the landing distance | Airbus, A320 Aircraft Characteristics, revision of 15 July 2025, figure 3-4-1-991-005-A01 (page 3-4-1 2), Landing Field Length - ISA Conditions, CFM56, read at 64,500 kg at sea level, as published at <https://www.aircraft.airbus.com/sites/g/files/jlcbta126/files/2025-07/AC_A320_20250715.pdf>, SHA-256 `e1abcf7d7819eba09477416d16a85f244aede1cbe8ff3bb7b5d87772da9f0473` |
 | In the repository | `assets/figures/a320.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The Boeing 737-300 flight model, derived from JSBSim's
 
@@ -147,7 +147,7 @@ entertainment purposes only."
 | Source | Boeing, 737 Airplane Characteristics for Airport Planning, D6-58325-6 revision E, November 2023, table 2.1.6 and figure 3.3.11, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/737CL_REV_E.pdf>; FAA type certificate data sheet A16WE, as copied at <http://www.b737.org.uk/a16we.pdf>; the cruise Mach from EUROCONTROL's Aircraft Performance Database, <https://learningzone.eurocontrol.int/ilp/customs/ATCPFDB/details.aspx?ICAO=B733>, a secondary source, Boeing publishing none |
 | Source, the landing distance | The same document's revision D, March 2023, figure 3.4.10, page 3-41, F.A.R. Landing Runway Length Requirements - Flaps 40: Model 737-300, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/737CL_REVD.pdf>, SHA-256 `087392d04c7e62aef8c5b0e37c42af697e58716612c92a34d662d6c2d28cb88e` |
 | In the repository | `assets/figures/737-300.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The Boeing 747-400 flight model, derived from JSBSim's
 
@@ -165,7 +165,7 @@ entertainment purposes only."
 | Source | Boeing, 747-400 Airplane Characteristics for Airport Planning, D6-58326-1 revision F, December 2024, table 2.1.1 and figures 3.2.1 and 3.3.1, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/747-400_Rev_F.pdf>; FAA type certificate data sheet A20WE, revision 58, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/7478-airport-comp/A20WE.pdf> |
 | Source, the landing distance | The same document's figure 3.4.2, page 3-36, F.A.R. Landing Runway Length Requirements - Flaps 30, as published at the address above, SHA-256 `9dd5baf00f3b9e5fdaa0bdf25425e1e65c9c6ee440d5b5c547956f95ccacef08` |
 | In the repository | `assets/figures/747-400.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The Boeing 787-8 flight model, derived from JSBSim's
 
@@ -183,7 +183,7 @@ entertainment purposes only."
 | Source | Boeing, 787 Airplane Characteristics for Airport Planning, D6-58333 revision O, February 2023, table 2.1.1 and figures 3.2.1 and 3.3.1, as published at <https://www.boeing.com/content/dam/boeing/v2/airports/acaps/787.pdf>; FAA type certificate data sheet T00021SE, revision 32, from the FAA's regulatory and guidance library as archived by the Internet Archive; Boeing's own 787-8 page, as archived, for the cruise Mach |
 | Source, the landing distance | The same document's figure 3.4.1, page 3-29, FAA/EASA Landing Runway Length Requirements - Flaps 30, as published at the address above, SHA-256 `e7d740457ffb81e1db8f83774ae08ac16607d1224c16544c6dca3bb0a1b16ef5` |
 | In the repository | `assets/figures/787-8.xml`: individual numbers, each with its table or figure, not the documents' text or charts |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The McDonnell Douglas F-15C Eagle flight model, derived from JSBSim's
 
@@ -203,7 +203,7 @@ entertainment purposes only."
 | Source, the take-off speed | The same manual's figure A3-6, Nosewheel Lift-off Speed/Takeoff Speed (sheet 1, change 4; without conformal tanks, full flaps, gear down): the normal take-off at military thrust, 128/141 KCAS at 35,000 lb and 129/142 at 40,000, so 141.4 at 36,946 lb; made flaps-up by figure A8-1's ratio of flaps-up to flaps-down approach speed at that weight, 160.5 to 147.0, to 154.4. Its maximum performance take-off's nosewheel lift-off speeds, 91.5, 100.1 and 110.7 at the three loadings, are what a test holds the model's to |
 | Source, the landing distance | The same manual's figure A8-3, page A8-6, Landing Distance, maximum anti-skid braking (change 4; 23 August 1985; data basis flight test): total distance over a 50 ft obstacle at 36,946 lb, sea level, standard day, zero wind, dry - about 4,200 ft. Read from the same item's text PDF, <https://archive.org/download/f-15-manual/F15%20Manual_text.pdf>, SHA-256 `9978c3220bef95b0b6bc091b1ede6423c6d67b9af8a66394068b158344646c7c`, its page A8-6 |
 | In the repository | `assets/figures/f15c.xml`: individual numbers, each with its page, not the document's text or charts. `tools/make_f15c.py` names the page 6 chart its thrust and drag are fitted to, not the numbers read from it |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The Lockheed Martin F-22A Raptor flight model, derived from JSBSim's
 
@@ -226,7 +226,7 @@ related to the manufacturer of the real aircraft."
 | Source | Department of Defense, Selected Acquisition Report (RCS: DD-A&T(Q&A)823-265), F-22, as of 31 December 2010, its performance characteristics' "Demonstrated Performance", from the Washington Headquarters Services' FOIA reading room (<https://www.esd.whs.mil/Portals/54/Documents/FOID/Reading%20Room/Selected_Acquisition_Reports/FY_2010_SARS/F-22-SAR-25_DEC_2010.pdf>), read through the Internet Archive; the United States Air Force's F-22 Raptor, AIM-120 AMRAAM and AIM-9 Sidewinder fact sheets (<https://www.af.mil/About-Us/Fact-Sheets/Display/Article/104506/f-22-raptor/>, `.../104576/aim-120-amraam/`, `.../104557/aim-9-sidewinder/`), read through the Internet Archive; Lockheed Martin's release of 18 November 2002 on the F/A-22's clearance to Mach 2, as reproduced at <https://www.f-16.net/f-22-news-article1660.html>. Works of the United States government, and one company release, from which only facts are taken |
 | In the repository | `assets/figures/f22.xml`: individual numbers, each with its source, not the documents' text |
 | Read for a landing distance, which it does not give | United States Air Force, AFMAN 11-2F-22A volume 1, F-22A Aircrew Training, 12 April 2019, as attached to solicitation FA5000-21-R-0002 (attachment J-3) at <https://imlive.s3.amazonaws.com/Federal%20Government/ID223416910344658250221549312076561244467/Attachment%20J-3%20F22%20AFM.pdf>, SHA-256 `c466ee14b49373648e02c25dd1814aec5b7cfe7f773f41f2226aa0bcbbbb7c37`, read on 2026-10-13; volume 3, her operations procedures, refused the download. Her flight manual, T.O. 1F-22A-1, is not published |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 ### The Short S.23 Empire flying boat, derived from JSBSim's
 
@@ -256,7 +256,7 @@ figures is in the repository.
 | --- | --- |
 | Source | Flight magazine, as scanned by the Internet Archive (`sim_flight-international_*`): 29 October 1936 (Vol 30 No 1453), "The Aircraft Engineer" supplement p. 440f, the standard boat's specification panel and general arrangement, SHA-256 `332d6bb839f885d5c7032bd690e2393732f92b97b98d8c784921be2ecb2afbfd`; 10 December 1936 (No 1459), p. 619, SHA-256 `f905a346ae576c1150b25043366f37c9cec9d8cfbbe41ae3659b99cefcfb8e6d`; 17 December 1936 (No 1460), pp. 647-649, Arthur Gouge's paper to the Royal Aeronautical Society, part 1, SHA-256 `20268f77f97549b38b59dca42d51e3ecd5d52f2d98bc5a413075e4a347f3a7f5`; 24 December 1936 (No 1461), p. 680, its conclusion and Table II, SHA-256 `611d34fc28e99a53311580a1adb30dd0d09c95280c6af75091e5f3093728578f`; and 9 July 1936 (No 1437), the height over the water line, SHA-256 `76d1b7564cfe5d2553ee6aba92735656e034736edfac980d34df396f446adefe`. Each at `https://archive.org/details/sim_flight-international_<date>_<volume>_<number>` |
 | In the repository | `assets/figures/short_s23.xml`: individual numbers, each with its page and column, and the draught scaled from the general arrangement - not the magazine's text, drawings or scans |
-| Use | The checks the flight model is held to; see `docs/PROJECT_STATUS.md` |
+| Use | The checks the flight model is held to; see `docs/status/` |
 
 Flight's pages are its publisher's. **Only facts are taken** - numbers, each
 cited where it is used, and a few words quoted with each figure to say where

@@ -112,19 +112,31 @@ git(add -A)
 git(commit -q -m "ticked with its status")
 expect(accepted "a tick with PROJECT_STATUS.md beside it")
 
+file(WRITE "${WORK}/docs/COMPLETION_PLAN.md" "- [x] **An item.** Done.\n- [x] **Another.** Done.\n")
+git(add docs/COMPLETION_PLAN.md)
+git(commit -q -m "ticked alone, again")
+expect(refused "a second tick in the plan with no status file")
+
+file(WRITE "${WORK}/docs/COMPLETION_PLAN.md" "- [x] **An item.** Done.\n- [x] **Another.** Done.\n")
+file(MAKE_DIRECTORY "${WORK}/docs/status")
+file(WRITE "${WORK}/docs/status/2026-10-16-another.md" "### Another, 2026-10-16\n")
+git(add -A)
+git(commit -q -m "ticked with its status file")
+expect(accepted "a tick with a file under docs/status beside it")
+
 file(APPEND "${WORK}/a.txt" "three\n")
 git(add a.txt)
 git(commit -q -m "plain")
 expect(accepted "a plain commit")
 
 # **Every commit that went through went into the scratch repository**: the
-# first, and the four let through.
+# first, and the five let through.
 execute_process(COMMAND git rev-list --count HEAD WORKING_DIRECTORY "${WORK}"
                 OUTPUT_VARIABLE _commits OUTPUT_STRIP_TRAILING_WHITESPACE)
-if(NOT _commits EQUAL 4)
-    message(FATAL_ERROR "the scratch repository holds ${_commits} commits, not the 4 let through")
+if(NOT _commits EQUAL 5)
+    message(FATAL_ERROR "the scratch repository holds ${_commits} commits, not the 5 let through")
 endif()
-if(NOT _cases EQUAL 8)
-    message(FATAL_ERROR "${_cases} cases were tried, and there are 8")
+if(NOT _cases EQUAL 10)
+    message(FATAL_ERROR "${_cases} cases were tried, and there are 10")
 endif()
-message(STATUS "the pre-commit hook: all 8 cases went the way they should")
+message(STATUS "the pre-commit hook: all 10 cases went the way they should")
