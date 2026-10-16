@@ -86,20 +86,24 @@ badly, its fault in the debrief either way: off at 82.5 kt after 80.5 s and
 79.2 kt after 38.6 s against 79.3 after 38.7.
 
 **The selftest hash moves**, deliberately: it flies a C172P, whose `CDwbh` is
-now on `qbarUW`. `07cc7d4a4d42a300` -> `ac2e6c3cf5e96481` in linux-debug; its
-printed flight (roll -0.77, pitch 0.92, heading 349.61, 106.41 KCAS, 20.2
-ft/min, 2447 RPM) is the same to every printed digit.
+now on `qbarUW`. Rebased onto #213 (the C172P's elevator in her
+slipstream): main's `91171736935cd5c7` -> `ef497a75d22b8798` in linux-debug
+(main's measured with this build and main's c172p.xml); its printed flight
+(roll -0.78, pitch 0.92, heading 348.76, 105.76 KCAS, 21.5 ft/min, 2444 RPM)
+is the same to every printed digit. (Before the rebase, on main without
+#213: `07cc7d4a4d42a300` -> `ac2e6c3cf5e96481`, the same in x86-64-v2.)
 
 **The learnt landing's parity fixture, flown again** with
-`tools/rl/export.py --parity-only` (its `model` line now 8a0a3cc6...9510).
-Against the fixture's old flights, from the 27 verification starts (new less
-old): **calm air**, 13 to 16 ft/min less sink (now 133 to 142), 0.02 to 0.06
-m more across (now +0.68 to +0.96), 7 to 10 m longer (now 147 to 165 m
-along); **10 kt from one side**, 9 to 15 ft/min less sink (now 144 to 169),
-0.10 to 0.13 m more across (now +0.37 to +0.98), 14 to 16 m longer; **10 kt
-from the other**, 8 to 9 ft/min less sink (now 202 to 204), 0.08 to 0.09 m
-more across (now +0.64 to +0.72), 6 to 7 m longer. All within her limits (5
-m, 300 ft/min), all touched down. She flies her approach slipped (2026-10-15's
+`tools/rl/export.py --parity-only`, after the rebase onto #213 (its `model`
+line now acfdbc9a...b0a). Against main's fixture (#213's), from the 27
+verification starts (new less old): **calm air**, 5 to 8 ft/min less sink
+(now 171 to 179), 0.01 to 0.03 m more across (now +0.11 to +0.36), 4 to 6 m
+longer (now 132 to 159 m along); **10 kt from one side**, 14 to 20 ft/min
+less sink (now 133 to 146), within 0.02 m across (now -0.50 to +0.01), 8 to
+12 m longer (now 257 to 276); **10 kt from the other**, 7 to 8 ft/min less
+sink (now 214 to 216), 0.06 to 0.07 m more across (now -0.01 to +0.10), 4 to
+5 m longer (now 64 to 84). All within her limits (5 m, 300 ft/min), all
+touched down. She flies her approach slipped (2026-10-15's
 entry), so her drag there is a few percent less and she floats a little
 further. The policy is not trained again.
 
@@ -122,4 +126,8 @@ test whose name has every_landplane, committed or figures (52, all pass).
 **In a `-march=x86-64-v2` debug build** (no fused multiply-adds, as CI
 builds): the same 384 tests, every one printing what linux-debug prints, to
 the last digit; the selftest hash `ac2e6c3cf5e96481` there too. The full
-suite is CI's.
+suite is CI's. **After the rebase onto #213** (2026-10-17): every make
+script's `--check` passes, the term checks report 18 moved and 4 named on
+either axis, every test in test_figures.cpp passes, and so does every test
+whose name has committed, figures, every_landplane, c172p or selftest (75).
+The figures and flights compared above were measured before that rebase.
