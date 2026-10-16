@@ -435,7 +435,7 @@
             <function name="aero/coefficient/CDalpha">
                 <description>Drag_due_to_alpha</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                       <table>
                           <independentVar>aero/alpha-rad</independentVar>
@@ -482,7 +482,7 @@
             <function name="aero/coefficient/CDDf">
                 <description>Drag_due_to_flap_deflection</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                       <table>
                           <independentVar lookup="row">aero/alpha-rad</independentVar>

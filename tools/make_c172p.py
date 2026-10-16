@@ -306,7 +306,8 @@ def outputs():
         OUT / "aircraft" / "c172p" / "c172p.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_c172p"), "make_c172p",
             {"PITCH": ["aero/coefficient/Cmalpha"],
-             "LIFT": ["aero/coefficient/CLwbh"]}),
+             "LIFT": ["aero/coefficient/CLwbh"],
+             "DRAG": ["aero/coefficient/CDwbh"]}),
         OUT / "engine" / "prop_75in2f.xml": propeller(),
         OUT / "engine" / "eng_io320.xml": engine(),
     }
