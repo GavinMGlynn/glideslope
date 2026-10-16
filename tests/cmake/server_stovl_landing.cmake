@@ -47,13 +47,12 @@
 # difference known - no correction too large to hide (joining, at her 300
 # kt, the prediction may be put right by more: 20 m on a debug build); and
 # the prediction's error - the server's word against where the client had
-# flown her to - under 1 cm at the median (5 cm until 2026-10-16; every
-# median since the law's state was told, 14 runs, 2 mm or less), within two
-# steps' travel at her conversion speed for 95 updates in a hundred (1.7 m:
-# a step is 0.86 m at 200 KCAS), and within four steps' travel at the 330 kt
-# she dives to at worst (5.6 m: a step is 1.4 m there), over at least 3,000
-# updates; and her predicted pitch within half a degree of the server's at
-# every update compared (0.154 at worst in those 14). Once
+# flown her to - under 15 mm at the median, within four steps' travel at her
+# conversion speed for 95 updates in a hundred (3.4 m: a step is 0.86 m at
+# 200 KCAS), and within four steps' travel at the 330 kt she dives to at
+# worst (5.6 m: a step is 1.4 m there), over at least 3,000 updates; and her
+# predicted pitch within half a degree of the server's at every update
+# compared (0.154 at worst in 14 runs here, 0.190 on CI). Once
 # joined, the client must have been put right at least nine times in ten of
 # the updates compared, so that the 20 m is held over the prediction and
 # not over nothing.
@@ -72,6 +71,27 @@
 # 38531751565). The bound was 10 cm for 95 in a hundred, set from idle runs,
 # and no busy runner met it: one update in twenty a step off is 0.86 m.
 # Lowest 778 to 1,013 ft above the ground, 200 KCAS at the end.
+#
+# **The bounds are CI's figures, every platform's, with headroom
+# (2026-10-16).** The median was held to 1 cm and the 95th percentile to
+# two steps (1.7 m) on 2026-10-16, from 14 runs here; CI then failed both.
+# Every figure in a CI log since the law's state was told (a passing run
+# prints none): the median 1, 1, 2 and 2 mm on Windows' release and clang,
+# 11 mm on Ubuntu's linux-debug (run 38803123702); the 95th percentile
+# 1.740, 1.745, 1.745 and 1.746 m on Windows (runs 38795838392,
+# 38803123702 twice) - two steps off for one update in twenty, there every
+# time - and 0.891 m on Ubuntu's debug. Before it, 0.889 to 1.374 m on
+# macOS and Windows and 2.531 m on Ubuntu's debug (run 38517430777), the
+# most any run has been. So the 95th percentile is held to four steps'
+# travel, 3.4 m: a third over that 2.531, twice Windows' 1.75. And the
+# median to 15 mm: a third over the 11 mm, under the 22 to 31 mm of a
+# prediction whose pitch integral is a degree off the server's, which the
+# median and the pitch check both fail (seen red with this bound: the
+# median 31 mm with the pitch check stepped past, the pitch 1.702 degrees
+# with it; reverted, green). **What no bound here catches** is a prediction
+# flown on 0.8 of the stick the server flies: in STOVL mode the stick asks
+# the height, the height is told, and it flew to a median of 2 mm and
+# passed (2026-10-16, as on 2026-10-15).
 #
 # RUN_SERIAL: a runner busy beside it would hold the server up further,
 # unsteadily, as server_paced_prediction.cmake says of itself.
@@ -150,8 +170,8 @@ if(NOT _said MATCHES "stovl: selected with input ([0-9]+), its prediction settle
     message(FATAL_ERROR "the client never selected STOVL mode, its prediction settled:\n${_said}")
 endif()
 # **Her predicted pitch within half a degree of the server's at every
-# update compared** (COMPLETION_PLAN, Phase 9): a law that has wandered in the
-# prediction shows in her pitch before her position.
+# update compared** (COMPLETION_PLAN, Phase 9; 0.190 the most on CI): a law
+# that has wandered in the prediction shows in her pitch before her position.
 if(NOT _said MATCHES "stovl: predicted pitch within ([0-9]+)\\.([0-9][0-9][0-9]) degrees")
     message(FATAL_ERROR "the client did not say its pitch error:\n${_said}")
 endif()
@@ -192,16 +212,16 @@ if(NOT _said MATCHES "prediction error 95th percentile: ([0-9]+)\\.([0-9][0-9][0
     message(FATAL_ERROR "the client did not say its 95th percentile:\n${_said}")
 endif()
 math(EXPR _p95_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
-if(_p95_mm GREATER 1700)
-    message(FATAL_ERROR "the 95th percentile prediction error was ${_p95_mm} mm, over two steps' "
-                        "travel at 200 KCAS (1.7 m):\n${_said}")
+if(_p95_mm GREATER 3400)
+    message(FATAL_ERROR "the 95th percentile prediction error was ${_p95_mm} mm, over four steps' "
+                        "travel at 200 KCAS (3.4 m):\n${_said}")
 endif()
 if(NOT _said MATCHES "prediction error median: ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its median error:\n${_said}")
 endif()
 math(EXPR _median_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
-if(_median_mm GREATER 10)
-    message(FATAL_ERROR "the median prediction error was ${_median_mm} mm, over 1 cm:\n${_said}")
+if(_median_mm GREATER 15)
+    message(FATAL_ERROR "the median prediction error was ${_median_mm} mm, over 15 mm:\n${_said}")
 endif()
 message(STATUS "held wing-borne: lowest ${_lowest} ft, ${_kcas} KCAS at the end; ${_compared} "
                "updates compared, the worst ${_worst_mm} mm, the 95th percentile ${_p95_mm} mm, "

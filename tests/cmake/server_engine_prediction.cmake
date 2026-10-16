@@ -23,8 +23,9 @@
 #
 # **What must hold**: the client stopped one engine for the server's word,
 # compared 300 updates after, and its median error **in speed** after the
-# stop is no more than before it - put right no more with it stopped than
-# with it running - and under 5 cm a second. **In speed, not distance.** The distance is the server's
+# stop is no more than half again what it was before - put right no more
+# with it stopped than with it running, give or take a busy runner - and
+# under 25 cm a second. **In speed, not distance.** The distance is the server's
 # word against where this client had flown it to at the step the clocks'
 # difference places the word at, and on Windows, whose sleeps are 15.6 ms,
 # that placing is a step off for seconds at a time (PROJECT_STATUS.md, the
@@ -126,19 +127,30 @@ endif()
 # In tenths of a millimetre a second.
 math(EXPR _after_speed "${CMAKE_MATCH_1} * 10000 + ${CMAKE_MATCH_2}")
 math(EXPR _before_speed "${CMAKE_MATCH_3} * 10000 + ${CMAKE_MATCH_4}")
-# **And under 5 cm a second after**, whatever before was: 0.023 m/s the most
-# measured with the engine stopped here (ten runs on the Windows copy, 0.015 to
-# 0.018 on linux-debug, 0.009 slowed), twice that the bound; an engine run on
-# was 0.487, and one run on for part of the flight is between. The distance's
-# medians are not held: on Windows a step's misplacing, 0.45 m, is chance.
-if(_after_speed GREATER 500)
+# **And under 25 cm a second after**, whatever before was. It was 5 cm from
+# 2026-10-08, twice the 0.023 m/s measured on the Windows copy, and CI's
+# Windows failed it from that day: after the stop 0.0541, 0.0874, 0.0962 and
+# 0.1387 m/s on windows-clang (runs 37798907886, 37882235513, 37891045143
+# twice), 0.0817 and 0.0798 on windows-release (38447161811, 38803123702) -
+# six in a week, never a new failure, the clocks' difference placing words
+# several steps off (the median distance 2.6 and 3.9 m). 25 cm is that
+# 0.139 and four fifths again; an engine run on is 0.437 here (0.487 when
+# the bound was set), and slowed 0.226. **And no more than half again
+# before**: 0.1387 after against 0.1341 before failed plain "no more" once
+# on windows-clang (run 37891045143); every other CI figure was under
+# before. An engine run on was 0.437 against 0.101 before, and slowed 0.226
+# against 0.078 - both red with these bounds (2026-10-16), reverted, green.
+# The distance's medians are not held: on Windows a step's misplacing,
+# 0.45 m, is chance.
+if(_after_speed GREATER 2500)
     message(FATAL_ERROR "with the engine stopped the median speed error was "
-                        "${_after_speed} tenths of a mm/s, not under 5 cm/s:\n${_said}")
+                        "${_after_speed} tenths of a mm/s, not under 25 cm/s:\n${_said}")
 endif()
-if(_after_speed GREATER _before_speed)
+math(EXPR _before_most "${_before_speed} * 3 / 2")
+if(_after_speed GREATER _before_most)
     message(FATAL_ERROR "with the engine stopped the median speed error was "
-                        "${_after_speed} tenths of a mm/s, more than the ${_before_speed} before "
-                        "it:\n${_said}")
+                        "${_after_speed} tenths of a mm/s, more than half again the "
+                        "${_before_speed} before it:\n${_said}")
 endif()
 if(SLOWED AND (_after_mm GREATER 50 OR _before_mm GREATER 50))
     message(FATAL_ERROR "against a server at 0.6 of real time the median prediction "

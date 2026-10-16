@@ -1216,7 +1216,8 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       difference, so the multi-process tests bound their 95th percentile by
       steps' travel, not centimetres. *Verification: with twice as many busy
       loops as cores beside it, the STOVL selector test's 95th percentile
-      under 10 cm in ten runs.*
+      under 10 cm in ten runs.* 2026-10-16: until then that test holds it
+      to four steps (3.4 m) and its median to 15 mm, from CI's figures.
 - [ ] **On a server the air has no ground's lift**: the server and its
       clients fly the weather over no ground, because the lift is too costly
       for a predicting client. *Verification: a client predicting over hills
@@ -1243,7 +1244,8 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       to catch up, is put right by metres and misses its speed bound - since
       before 2026-10-09, on branches and on main. *Verification: the test
       passes with the server held up for a second on purpose, on every
-      platform, and a month of CI runs.*
+      platform, and a month of CI runs.* 2026-10-16: its speed bound is
+      25 cm/s, from six Windows failures since 2026-10-08; the cause is open.
 - [ ] **A flight flies one station's weather wherever it goes**: nothing
       picks the nearest station. *Verification: a flight from one station to
       another flies the nearer's weather, changing between them with no step
