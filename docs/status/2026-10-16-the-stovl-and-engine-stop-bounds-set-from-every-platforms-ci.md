@@ -33,11 +33,14 @@ after against 0.1341 before, it failed "no more than before" too.
 - STOVL selector, **95th percentile 3.4 m** (was 1.7): four steps' travel at
   200 KCAS; the most any CI run has been is 2.531 m (Ubuntu debug, run
   38517430777), Windows' every failure 1.740 to 1.746, macOS 0.889 to 0.904.
-  A third over the most, twice Windows'. It catches no planted bug; the
-  median and the pitch do.
-- STOVL selector, **median 15 mm** (was 10): CI since the law's state was
-  told 1 to 2 mm on Windows and 11 mm on Ubuntu debug; here 0 to 2. A third
-  over 11, and under the 22 to 31 mm of the pitch-integral bug.
+  A third over the most, twice Windows'. It catches no planted bug.
+- STOVL selector, **median 60 mm** (was 10): CI since the law's state was
+  told 1 to 2 mm on Windows' release, 11 mm on Ubuntu debug, and 28 mm on
+  windows-clang (run 38842431267, on this branch, after a first try at 15
+  mm); here 0 to 2. About twice the 28. **It catches no planted bug now**:
+  the pitch-integral bug's 22 to 31 mm is inside what CI does unbroken.
+- STOVL selector, **pitch within half a degree** (unchanged): CI's worst
+  0.190 degrees; **the check that catches the pitch-integral bug**, 1.702.
 - Engine stop, **median speed error after the stop under 25 cm/s** (was 5):
   CI's most 0.1387, so four fifths of headroom; an engine run on 0.437
   (0.226 slowed).
@@ -53,8 +56,9 @@ after against 0.1341 before, it failed "no more than before" too.
   0.0035 against 0.0736).
 - **Seen red**, each a deliberate bug in glideslope_cli, reverted, green:
   the pitch integral put on the prediction a degree off the server's - her
-  pitch 1.702 degrees off (the pitch check), and with that check stepped
-  past the median 31 mm, over 15; the engine stop not heard - 0.4368 m/s
+  pitch 1.702 degrees off, over half a degree - the pitch check, the one
+  bound that catches it (its median, 31 mm with the check stepped past,
+  is under the 60 mm bound); the engine stop not heard - 0.4368 m/s
   after against 0.1012 before (over 25 cm/s), and slowed 0.2256 against
   0.0777 (over half again before). The 0.8-stick bug: passed, median 2 mm,
   as said first.

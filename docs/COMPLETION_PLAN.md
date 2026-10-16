@@ -1220,7 +1220,7 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       steps' travel, not centimetres. *Verification: with twice as many busy
       loops as cores beside it, the STOVL selector test's 95th percentile
       under 10 cm in ten runs.* 2026-10-16: until then that test holds it
-      to four steps (3.4 m) and its median to 15 mm, from CI's figures.
+      to four steps (3.4 m) and its median to 60 mm, from CI's figures.
 - [ ] **On a server the air has no ground's lift**: the server and its
       clients fly the weather over no ground, because the lift is too costly
       for a predicting client. *Verification: a client predicting over hills
