@@ -175,6 +175,38 @@ nought beyond 90, where a reversed section lifts - Sheldahl and Klimas,
 -0.85 at 170 degrees) nor her pitching moment there (Pitch_alpha is linear
 in the angle of attack); see PROJECT_STATUS (2026-10-16).
 
+**Her drag in a beam wind from her side area** (2026-10-17): Drag_beta's
+rows at plus and minus 90 degrees of sideslip. The pinned model's were 1.23
+on her wing's area, 220 sq ft of drag area broadside, and with her
+airframe's and gear's 0.024 on top she was pushed sideways by 171 lb standing
+in 15 kt straight across, and leaned 4.4 degrees on her soft main gear. A
+Cub seen from the side is not that big: her Owner's Manual's dimensions
+(J3C-65 Owner's Manual, pages 11 and 12) make her side area 48.7 sq ft -
+  - her fuselage 37.4 sq ft: the firewall's depth, 28 3/4 in (page 11),
+    from her nose to her wing's trailing edge, then tapering to nothing at
+    the tail post. Her nose is where the overall length, 22 ft 4 1/2 in
+    (page 11), less the rudder's mean chord aft of the post (its area, 6.55
+    sq ft, over its height, 4 ft 5 7/8 in: 17.5 in), puts it ahead of the
+    tail post; the post is 2 1/2 + 187 1/2 in aft of the wing's leading edge
+    (page 12, by the axle), the trailing edge 63 in (the chord, page 11);
+  - her fin and rudder, 4.7 and 6.55 sq ft (page 12).
+On it, a flat plate's drag broadside: S. F. Hoerner, Fluid-Dynamic Drag
+(1965), Chapter III, page 3-16, figure 28 and its text: "in 3 dimensions
+C_D = 1.17", which figure 28 shows holding for a rectangular plate from
+square to a span ten times its height (her fuselage's is 8.7). That is 57.0
+sq ft of drag area, 0.319 on her wing's, and Drag_beta at 90 degrees is
+that less her airframe's and gear's 0.024: 0.295. Its rows at 15 degrees,
+her flight's sideslip, are the pinned model's.
+
+Judgements, not the manual's or Hoerner's: her cabin is taken as the
+firewall's depth, though its windows stand above it up to the wing (the
+manual gives no cabin height); her wheels, gear legs, struts, engine
+cylinders and wing tip are not counted. Each would add; the area is the
+least the manual's figures make of her. Her fuselage is fabric over a
+truss with rounded decking, between a flat plate's 1.17 and a circular
+cylinder's 0.6 to 0.7 (figure 28, at her Reynolds number of about 4 x 10^5,
+subcritical); the flat plate is the bluffer.
+
 Her Owner's Manual (Taxiing, page 40) has a pilot hold the ailerons into a
 turn into wind "when ground winds are in excess of 15 M.P.H.", to prevent
 "the wind 'picking up' a wing", and the NTSB's NYC96LA043 records a J3
@@ -225,6 +257,54 @@ REVERSED_FLOW_CD = ((95, 1.780), (100, 1.750), (105, 1.700), (110, 1.635), (115,
                     (145, 0.755), (150, 0.575), (155, 0.420), (160, 0.320), (165, 0.230),
                     (170, 0.140), (175, 0.055), (180, 0.025))
 SECTION_BROADSIDE_CD = 1.80
+# Her side area, from her Owner's Manual's dimensions (pages 11 and 12), in
+# inches: the overall length, the firewall's depth, the wing's chord, the
+# wing's leading edge to the axle and the axle to the tail post; the rudder's
+# height; and her fin's and rudder's areas in sq ft.
+OVERALL_LENGTH_IN = 22 * 12 + 4.5
+FIREWALL_DEPTH_IN = 28.75
+CHORD_IN = 63.0
+LEADING_EDGE_TO_TAIL_POST_IN = 2.5 + 187.5
+RUDDER_HEIGHT_IN = 4 * 12 + 5.875
+FIN_AREA_SQFT = 4.7
+RUDDER_AREA_SQFT = 6.55
+# A flat plate broadside, in three dimensions: Hoerner, Fluid-Dynamic Drag
+# (1965), page 3-16, figure 28.
+BROADSIDE_PLATE_CD = 1.17
+WING_AREA_SQFT = 178.5
+AIRFRAME_AND_GEAR_CD = 0.0200 + 0.0040   # Drag_airframe and Drag_gear
+
+
+def side_area_sqft():
+    """Her side area from her Owner's Manual's dimensions: her fuselage the
+    firewall's depth from her nose to her wing's trailing edge, then tapering
+    to nothing at the tail post, and her fin and rudder."""
+    rudder_chord = RUDDER_AREA_SQFT * 144 / RUDDER_HEIGHT_IN
+    nose_ahead_of_leading_edge = OVERALL_LENGTH_IN - rudder_chord - LEADING_EDGE_TO_TAIL_POST_IN
+    full_depth = nose_ahead_of_leading_edge + CHORD_IN
+    tapering = LEADING_EDGE_TO_TAIL_POST_IN - CHORD_IN
+    fuselage = FIREWALL_DEPTH_IN * (full_depth + tapering / 2) / 144
+    return fuselage + FIN_AREA_SQFT + RUDDER_AREA_SQFT
+
+
+def beam_drag_cd():
+    """Drag_beta at 90 degrees of sideslip: her side area's drag broadside, on
+    her wing's area, less the drag her airframe and gear have at any angle."""
+    return BROADSIDE_PLATE_CD * side_area_sqft() / WING_AREA_SQFT - AIRFRAME_AND_GEAR_CD
+
+
+def with_beam_drag_from_side_area(text):
+    """`text` with its sideslip drag at 90 degrees either way from her side
+    area."""
+    m = re.search(r'<function name="aero/force/Drag_beta">.*?</function>', text, re.S)
+    if not m:
+        raise SystemExit("make_j3cub: no Drag_beta - has the pinned model changed?")
+    value = f"{beam_drag_cd():.4f}"
+    new = replace_once(m.group(0), r"(\n\s*-1\.57\s+)1\.2300", rf"\g<1>{value}",
+                       "the sideslip drag at -90 degrees")
+    new = replace_once(new, r"(\n\s+1\.57\s+)1\.2300", rf"\g<1>{value}",
+                       "the sideslip drag at 90 degrees")
+    return text[:m.start()] + new + text[m.end():]
 
 
 def station(inches_aft_of_datum):
@@ -319,6 +399,7 @@ def airframe():
     text = replace_once(text, r"(<flight_control name=\"FCS: J3Cub\">\n)\n( </flight_control>)",
                         r"\1\2", "the empty flight controls")
     text = with_reversed_flow_drag(text)
+    text = with_beam_drag_from_side_area(text)
     return with_float_carburettor(text, "make_j3cub")
 
 

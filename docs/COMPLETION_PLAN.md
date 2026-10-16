@@ -648,11 +648,17 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       an unchecked pitching moment.** *Verification: cited figures for a
       reversed wing's lift and an aeroplane's pitching moment tail to the
       wind, and hers held to them.*
-- [ ] **The J-3 Cub leans 4.4 degrees standing in 15 kt across.** Her
+- [x] **The J-3 Cub leans 4.4 degrees standing in 15 kt across.** Her
       sideways drag in a beam wind is the pinned model's, 1.23 on her wing's
       area, and her main gear's springs are soft; whether a real Cub leans
       so is not measured. *Verification: a cited figure for a Cub's side
-      area or lean, and her lean held to it.*
+      area or lean, and her lean held to it.* Done 2026-10-17: her side area
+      from her Owner's Manual (48.7 sq ft) with Hoerner's flat plate
+      broadside (1.17); standing in 15 kt across she is pushed 43 lb, not
+      162, within 0.005 of the figure, and leans 2.2 degrees at most.
+- [ ] **The J-3 Cub's main gear springs are the pinned model's**, 1,000 lb
+      a foot a wheel, from no source. *Verification: a cited figure for a
+      Cub's gear stiffness or her static deflection, and hers held to it.*
 - [x] **Every model but the Cub has her lift keyed to the angle of attack
       counting the crosswind**, as their pitch terms did: standing or slowing
       in one, her lift is the beam wind's whole pressure times an undefined
