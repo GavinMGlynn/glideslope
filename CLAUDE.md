@@ -44,7 +44,7 @@ frame is not allowed.
 - **The tripwire is a same-machine hash plus cross-platform tolerances.**
   `glideslope_cli selftest` flies a fixed input log and prints a state hash that
   must not move run to run on one build. A change that moves it is deliberate,
-  with a note in `docs/PROJECT_STATUS.md` saying why. Across platforms the hash
+  with a note in its `docs/status/` file saying why. Across platforms the hash
   is not expected to agree; the flight figures are, within stated tolerances.
 - **Content is data, not code.** Aircraft, sessions, regions and AI flight plans
   live in files. A hard-coded aircraft is a prototype and must be replaced
@@ -91,7 +91,7 @@ frame is not allowed.
   `gh pr ready && gh pr merge --rebase --delete-branch` when CI passed is green.
 - **The hooks are on in every working copy**: `git config core.hooksPath
   .githooks`. pre-commit refuses a debugging marker, a tracked change left
-  unstaged, a key, and a plan tick without PROJECT_STATUS.md; pre-push refuses
+  unstaged, a key, and a plan tick without a `docs/status/` file or PROJECT_STATUS.md; pre-push refuses
   `main`, builds, and runs the quick tests. `--no-verify` only with the reason
   in the commit message.
 - **Before pushing code that is not Linux's alone** - sockets, windows, file
@@ -104,7 +104,9 @@ frame is not allowed.
   sooner than a slow machine needs. The nightly workflow repeats the
   multi-process tests on real runners, and a failure there is a red tree.
 - **Every commit that lands an item updates both living docs in that same
-  commit**: `docs/PROJECT_STATUS.md` (what now works, with its verification) and
+  commit**: its own file in `docs/status/` (named by date: what now works, with
+  its verification; `ls -r docs/status` is the log, newest first), plus
+  `docs/PROJECT_STATUS.md`'s summary when what works changes, and
   `docs/COMPLETION_PLAN.md` (tick the item, add any tails found on the way).
   Re-read both in full at every phase boundary.
 - **`[x]` means 100% of the item.** An item with anything unimplemented stays
@@ -113,7 +115,7 @@ frame is not allowed.
   ticked.
 - **`COMPLETION_PLAN.md` is a user document. Keep it a summary.** One or two
   sentences per item and a verification in plain English. Implementation detail,
-  test-name inventories and design rationale go in `PROJECT_STATUS.md`.
+  test-name inventories and design rationale go in the item's `docs/status/` file.
 - **`FEATURES.md` has no implementation in it** — no data structures, formats or
   function names. It is the menu at the altitude of "what would the player
   notice".

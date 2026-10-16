@@ -25,15 +25,16 @@ GitHub, approve or merge: you read and you report.
    name instead of its value, a check that is always true), one that waits on
    the clock rather than on events, one that only sometimes exercises its rule,
    a count of what was walked that is not asserted. Is there evidence it was
-   seen to fail on a deliberate bug (the PROJECT_STATUS entry should say)?
+   seen to fail on a deliberate bug (its docs/status file should say)?
 3. **CLAUDE.md's rules.** The simulation includes no presentation; content is
    data, not code; flight models in assets/jsbsim are made by tools/ scripts,
    not hand-edited; warnings are errors (-Wconversion); no keys or tokens; tests
    named as sentences; both living docs updated in the commit that lands an
-   item - PROJECT_STATUS.md dated at the top of its log, COMPLETION_PLAN.md
+   item - its own dated file in docs/status/ (and PROJECT_STATUS.md's summary if what
+   works changed), COMPLETION_PLAN.md
    ticked only if 100% met (else naming what is missing) and kept short;
    FEATURES.md with no implementation in it.
-4. **Honesty of the write-up.** Does PROJECT_STATUS describe what the diff does,
+4. **Honesty of the write-up.** Does its docs/status file describe what the diff does,
    with the verification it actually ran? Anything partial described as working?
 5. **Leftovers.** Debug prints, TEMPDBG / DELIBERATE BUG / EXPERIMENT markers,
    commented-out code, stray files, an unused function.

@@ -13,7 +13,8 @@
 #   3. Something that looks like a key or a token (CLAUDE.md: none in the
 #      repository, ever).
 #   4. An item ticked in COMPLETION_PLAN.md with no change to
-#      PROJECT_STATUS.md in the same commit (CLAUDE.md: both living docs).
+#      PROJECT_STATUS.md or a file under docs/status/ in the same commit
+#      (CLAUDE.md: both living docs).
 
 set -uo pipefail
 problems=()
@@ -41,8 +42,8 @@ fi
 
 if git diff --cached -U0 -- docs/COMPLETION_PLAN.md | grep -q '^+- \[x\]' \
    && ! git diff --cached --quiet -- docs/COMPLETION_PLAN.md \
-   && git diff --cached --quiet -- docs/PROJECT_STATUS.md; then
-    problems+=("an item is ticked in COMPLETION_PLAN.md and PROJECT_STATUS.md is not in the commit")
+   && git diff --cached --quiet -- docs/PROJECT_STATUS.md docs/status; then
+    problems+=("an item is ticked in COMPLETION_PLAN.md and neither PROJECT_STATUS.md nor a file under docs/status/ is in the commit")
 fi
 
 if ((${#problems[@]})); then
