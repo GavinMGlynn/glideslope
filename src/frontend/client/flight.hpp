@@ -40,6 +40,9 @@ inline constexpr double weather_refresh_seconds = 15 * 60.0;
 struct FlightStart {
     // The aircraft, by its id in the catalogue (sim/catalogue.hpp).
     std::string aircraft = "c172p";
+    // **What she is loaded as**: a loading her figures file names, by its
+    // name - a server's, or `--loading` - or empty for her model's own.
+    std::string loading;
     double latitude_deg = -33.9461; // over Sydney airport
     double longitude_deg = 151.1772;
     double height_m = 1000.0; // above the WGS84 ellipsoid

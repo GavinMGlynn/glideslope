@@ -100,7 +100,12 @@ X25519 operations, for anybody a server with a free slot admits. The id is
 looked up in the catalogue read once when the fleet is made, never on the
 disk per initiation and never joined to a path, so the choice is only among
 the aeroplanes the server ships; an unreadable payload or an unknown id costs
-the plan's aeroplane. What bounds it is what bounds admissions: the slots.
+the plan's aeroplane. **Since `0E` it may ask for a loading too**, by name:
+looked up among the loadings her figures file names, read with the
+catalogue, never per initiation and never joined to a path - so the choice
+is only among the loadings the server ships, and costs no more than the
+aeroplane does; one not named costs her model's own. What bounds it is what
+bounds admissions: the slots.
 
 **The suite is `Noise_IK_25519_ChaChaPoly_BLAKE2b`, and not the `..._BLAKE2s`
 the brief named.** libsodium, which `REQUIREMENTS.md` 6.7 chooses for the

@@ -58,12 +58,15 @@ public:
     //
     // `aircraft` is the aeroplane asked for, by its catalogue id, in the
     // initiation (net::write_asked_aircraft) and every one joining again;
-    // empty, the server's plan's.
+    // empty, the server's plan's. And `loading`, the loading asked for with
+    // it, by its name in her figures file (net::AskedAircraft); empty, her
+    // model's own.
     static std::optional<ClientSession> connect(const std::string& where,
                                                 const std::string& key_hex,
                                                 double give_up_after_s = 5.0,
                                                 double resend_every_s = 0.25,
-                                                const std::string& aircraft = "");
+                                                const std::string& aircraft = "",
+                                                const std::string& loading = "");
 
     // Read whatever has arrived: answer the server's knocking, and take in
     // any state update. `now_s` is the client's own clock, in seconds.

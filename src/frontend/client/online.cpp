@@ -145,6 +145,7 @@ std::optional<Joined> Online::joined_by(const net::StatePacket& state) const {
     Joined joined;
     joined.number = state.your_aircraft;
     joined.aircraft_id = found->second.id;
+    joined.loading = found->second.loading;
     joined.motion = motion_of(*state.yours);
     joined.server_steps = static_cast<std::uint64_t>(std::llround(
         state.simulation_time_s * static_cast<double>(sim::steps_per_second)));

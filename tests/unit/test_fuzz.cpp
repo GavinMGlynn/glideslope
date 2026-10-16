@@ -160,6 +160,7 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
     aircraft.aircraft = 1;
     aircraft.id = "c172p";
     aircraft.model = "c172p";
+    aircraft.loading = "full";
     add("aircraft", glideslope::net::write(aircraft));
 
     glideslope::net::TerrainDataset dataset;
@@ -230,6 +231,7 @@ std::vector<std::pair<std::string, std::vector<std::uint8_t>>> seeds() {
     }());
     add("largest-datagram", std::vector<std::uint8_t>(1232, 0xA5));
     add("asked-aircraft", glideslope::net::write_asked_aircraft("mosquito-fb6"));
+    add("asked-aircraft-loaded", glideslope::net::write_asked_aircraft("f35b", "vertical_landing"));
     return out;
 }
 
@@ -251,7 +253,7 @@ GLIDESLOPE_TEST(the_seed_corpus_goes_through_every_network_parser_under_sanitize
     const auto corpus = seeds();
     check(parsers.size() == 16, "sixteen parsers are fuzzed, not " +
                                     std::to_string(parsers.size()));
-    check(corpus.size() == 21, "twenty-one seeds - four envelopes, eight messages, a reliable datagram, an input packet, a state packet, an initiation's payload and five things this project never writes - not " + std::to_string(corpus.size()));
+    check(corpus.size() == 22, "twenty-two seeds - four envelopes, eight messages, a reliable datagram, an input packet, a state packet, two initiations' payloads (one with a loading) and five things this project never writes - not " + std::to_string(corpus.size()));
 
     std::uint64_t calls = 0;
 
@@ -356,6 +358,6 @@ GLIDESLOPE_TEST(the_seed_corpus_is_written_where_a_fuzzer_can_take_it) {
                   static_cast<std::streamsize>(bytes.size()));
         ++written;
     }
-    check(written == 21, "every seed was written, not " + std::to_string(written));
+    check(written == 22, "every seed was written, not " + std::to_string(written));
     std::printf("  wrote %zu seeds to %s\n", written, where.string().c_str());
 }

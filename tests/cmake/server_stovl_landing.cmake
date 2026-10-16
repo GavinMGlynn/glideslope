@@ -29,16 +29,17 @@
 # beside twice as many busy loops as cores (PROJECT_STATUS.md, 2026-10-16).
 # Settled selection is kept: a pilot selects once flying.
 #
-# **What a server gives a player is her model's own loading, 45,400 lb**,
+# **What a server gives a player who asks for none is her model's own
+# loading, 45,400 lb**,
 # over the 39,837 lb she is flown into a hover at (`fcs/stovl-hover-most-lbs`):
 # so on the server and in the prediction alike her STOVL mode holds her
 # wing-borne at her conversion speed and the stick lets her down to her
 # least conversion height (100 ft), and no further. Before that limit she
 # was slowed to a hover she could not hold and was a wreck here, "hit the
 # ground sinking at 4368 ft/min" - and flown raw, the stick full forward
-# would have dived her in sooner. **Not built here**: a server that gives a
-# player an F-35B light enough to hover, so no player's vertical landing is
-# flown through a server (COMPLETION_PLAN, Phase 9). The client stays until
+# would have dived her in sooner. A player who asks for her `vertical_landing`
+# loading is light enough to hover, and is converted, hovered and landed
+# through a server in server_stovl_vertical_landing.cmake. The client stays until
 # 3,000 updates are compared (`--until-compared`): the event, not a time.
 #
 # **What must hold**: no wreck heard; the client's prediction never

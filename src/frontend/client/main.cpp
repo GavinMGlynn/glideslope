@@ -118,6 +118,10 @@ struct Options {
     // Given on the command line, rather than the default: on a server it is
     // the aeroplane asked for (net::write_asked_aircraft).
     bool aircraft_given = false;
+    // **Her loading** (`--loading NAME`), by its name in her figures file:
+    // flown so alone, and on a server asked for with the aeroplane
+    // (net::AskedAircraft). Empty, her model's own.
+    std::string loading;
     std::string view = "cockpit";
     // The phase whose checklist is on screen; empty shows none.
     std::string checklist;
@@ -253,6 +257,9 @@ void usage(std::FILE* out) {
         "  --aircraft    the aircraft flown, by its id in the data's catalogue\n"
         "                (glideslope_cli aircraft lists them); the Cessna 172P,\n"
         "                c172p, by default\n"
+        "  --loading     what she is loaded as, by its name in her figures file -\n"
+        "                the F-35B's vertical_landing is light enough to hover;\n"
+        "                on a server, asked for with --aircraft\n"
         "  --on-ground   start standing at --at's latitude and longitude, on the\n"
         "                ground, the engines idling and the brakes on until B is\n"
         "                pressed, rather than flying - or, a seaplane, afloat on\n"
@@ -494,6 +501,8 @@ static int run_program(int argc, char** argv) {
         } else if (a == "--aircraft" && has_value) {
             o.aircraft = std::string(args[++i]);
             o.aircraft_given = true;
+        } else if (a == "--loading" && has_value) {
+            o.loading = std::string(args[++i]);
         } else if (a == "--mismatch" && has_value) {
             o.mismatch = std::string(args[++i]);
         } else if (a == "--terrain" && has_value) {
@@ -785,6 +794,26 @@ static int run_program(int argc, char** argv) {
                          o.aircraft.c_str(), ids.c_str());
             return 2;
         }
+        if (!o.loading.empty() &&
+            !glideslope::sim::named_loading(
+                glideslope::platform::data_directory(),
+                glideslope::sim::find_aircraft(glideslope::platform::data_directory(), o.aircraft)
+                    .model,
+                o.loading)) {
+            std::fprintf(stderr, "glideslope: the %s's figures name no loading %s\n",
+                         o.aircraft.c_str(), o.loading.c_str());
+            return 2;
+        }
+    }
+    if (o.screen != "flight" && !o.loading.empty()) {
+        std::fputs("glideslope: only the flight has --loading\n", stderr);
+        return 2;
+    }
+    // A loading is her loading: asked of the aeroplane given, never of the
+    // default one unsaid, and never dropped from a server's ask.
+    if (!o.loading.empty() && !o.aircraft_given) {
+        std::fputs("glideslope: --loading is asked with --aircraft\n", stderr);
+        return 2;
     }
     if (o.station && o.metar.empty()) {
         std::fputs("glideslope: --station says where a --metar is observed\n", stderr);
@@ -883,7 +912,8 @@ static int run_program(int argc, char** argv) {
                 }
             }
             if (auto made = glideslope::net::ClientSession::connect(
-                    where, key, 5.0, 0.25, o.aircraft_given ? o.aircraft : std::string())) {
+                    where, key, 5.0, 0.25, o.aircraft_given ? o.aircraft : std::string(),
+                    o.aircraft_given ? o.loading : std::string())) {
                 session.emplace(std::move(*made));
             }
             if (!session) {
@@ -931,6 +961,7 @@ static int run_program(int argc, char** argv) {
                 start.height_m = o.at->height_m;
             }
             start.aircraft = o.aircraft;
+            start.loading = o.loading;
             start.on_ground = o.on_ground;
             if (o.attitude) {
                 start.pitch_deg = (*o.attitude)[0];
@@ -972,6 +1003,7 @@ static int run_program(int argc, char** argv) {
                     {joined->motion.location_ecef_m[0], joined->motion.location_ecef_m[1],
                      joined->motion.location_ecef_m[2]});
                 start.aircraft = joined->aircraft_id;
+                start.loading = joined->loading;
                 start.latitude_deg = g.latitude_deg;
                 start.longitude_deg = g.longitude_deg;
                 start.height_m = g.height_m;
@@ -2016,7 +2048,11 @@ static int run_program(int argc, char** argv) {
                     ride_next();
                 }
                 if (const auto taken = online->taken_over()) {
-                    if (taken->aircraft_id != flight->aircraft().id) {
+                    // Another aeroplane, or the same one loaded otherwise
+                    // (`AIRCRAFT`'s loading): her flight made again.
+                    if (taken->aircraft_id != flight->aircraft().id ||
+                        taken->loading != start.loading) {
+                        start.loading = taken->loading;
                         const glideslope::world::Geodetic g = glideslope::world::to_geodetic(
                             {taken->motion.location_ecef_m[0], taken->motion.location_ecef_m[1],
                              taken->motion.location_ecef_m[2]});
