@@ -457,6 +457,7 @@ std::vector<std::uint8_t> write(const AircraftDefinition& m) {
     w.u8(m.aircraft);
     w.text(m.id);
     w.text(m.model);
+    w.text(m.loading);
     return w.take();
 }
 
@@ -473,6 +474,7 @@ bool read(std::span<const std::uint8_t> body, AircraftDefinition& out) {
     }
     got.id = r.text(most_name_bytes);
     got.model = r.text(most_name_bytes);
+    got.loading = r.text(most_name_bytes);
     if (!r.done()) {
         return false;
     }
@@ -752,24 +754,60 @@ bool an_id_byte(std::uint8_t c) {
 
 } // namespace
 
-std::vector<std::uint8_t> write_asked_aircraft(const std::string& id) {
-    if (id.empty() || id.size() > most_asked_aircraft_bytes ||
-        !std::all_of(id.begin(), id.end(),
-                     [](char c) { return an_id_byte(static_cast<std::uint8_t>(c)); })) {
+namespace {
+
+bool a_name(const std::string& name) {
+    return !name.empty() && name.size() <= most_asked_aircraft_bytes &&
+           std::all_of(name.begin(), name.end(),
+                       [](char c) { return an_id_byte(static_cast<std::uint8_t>(c)); });
+}
+
+// A `u8` length and that many bytes of a name, from `at`; moves `at` past it.
+std::optional<std::string> a_name_at(std::span<const std::uint8_t> payload, std::size_t& at) {
+    if (at >= payload.size() || payload[at] == 0 || payload[at] > most_asked_aircraft_bytes ||
+        payload.size() - at - 1 < payload[at]) {
+        return std::nullopt;
+    }
+    const auto from = payload.begin() + static_cast<std::ptrdiff_t>(at + 1);
+    const auto to = from + payload[at];
+    if (!std::all_of(from, to, an_id_byte)) {
+        return std::nullopt;
+    }
+    at += 1u + payload[at];
+    return std::string(from, to);
+}
+
+} // namespace
+
+std::vector<std::uint8_t> write_asked_aircraft(const std::string& id, const std::string& loading) {
+    if (!a_name(id) || (!loading.empty() && !a_name(loading))) {
         return {};
     }
     std::vector<std::uint8_t> out{static_cast<std::uint8_t>(id.size())};
     out.insert(out.end(), id.begin(), id.end());
+    if (!loading.empty()) {
+        out.push_back(static_cast<std::uint8_t>(loading.size()));
+        out.insert(out.end(), loading.begin(), loading.end());
+    }
     return out;
 }
 
-std::optional<std::string> read_asked_aircraft(std::span<const std::uint8_t> payload) {
-    if (payload.empty() || payload[0] == 0 || payload[0] > most_asked_aircraft_bytes ||
-        payload.size() != 1u + payload[0] ||
-        !std::all_of(payload.begin() + 1, payload.end(), an_id_byte)) {
+std::optional<AskedAircraft> read_asked_aircraft(std::span<const std::uint8_t> payload) {
+    std::size_t at = 0;
+    AskedAircraft asked;
+    const auto id = a_name_at(payload, at);
+    if (!id) {
         return std::nullopt;
     }
-    return std::string(payload.begin() + 1, payload.end());
+    asked.id = *id;
+    if (at < payload.size()) {
+        const auto loading = a_name_at(payload, at);
+        if (!loading || at != payload.size()) {
+            return std::nullopt;
+        }
+        asked.loading = *loading;
+    }
+    return asked;
 }
 
 } // namespace glideslope::net

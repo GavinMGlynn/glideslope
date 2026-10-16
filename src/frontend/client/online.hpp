@@ -43,6 +43,9 @@ namespace glideslope::client {
 struct Joined {
     std::uint8_t number = net::no_aircraft;
     std::string aircraft_id;
+    // What the server loaded her as (`AIRCRAFT`, since protocol 14), by its
+    // name in her figures file; empty, her model's own.
+    std::string loading;
     sim::Motion motion;
     // The server's step the motion was true at: what a take-over flies it on
     // from (Flight::adopt).

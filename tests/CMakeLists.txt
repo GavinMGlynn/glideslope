@@ -622,6 +622,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_short_s23_climbs_at_its_published_rate_at_sea_level
     the_f35b_reaches_mach_1_6_at_its_best_altitude
     the_f35b_flies_more_than_its_published_range_on_internal_fuel
+    every_loading_a_figures_file_names_is_found_by_its_name_and_weighs_its_total
     the_f35bs_lift_system_makes_pratt_and_whitneys_hover_thrust
     the_f35b_hovers_at_150_ft_for_a_minute_within_10_ft
     the_f35b_lands_vertically_from_a_hover_under_6_ft_a_second
@@ -2372,6 +2373,18 @@ add_test(NAME a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_
 set_tests_properties(a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_landing)
+# **And a player's F-35B given a loading light enough to hover is converted,
+# hovered and landed vertically through a server**, the client's prediction
+# agreeing throughout. See cmake/server_stovl_vertical_landing.cmake.
+add_test(NAME a_players_f35b_at_her_vertical_landing_loading_converts_hovers_and_lands_vertically_through_a_server_and_the_client_agrees
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_vertical_landing -DPORT=24994
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_vertical_landing.cmake)
+set_tests_properties(a_players_f35b_at_her_vertical_landing_loading_converts_hovers_and_lands_vertically_through_a_server_and_the_client_agrees
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_vertical_landing)
 # **And against a server behind real time, by centimetres**: its clock at a
 # set 0.6 of real time. Serial: a busy runner would slow it further.
 add_test(NAME a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres

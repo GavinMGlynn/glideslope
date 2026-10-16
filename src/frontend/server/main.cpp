@@ -1290,6 +1290,12 @@ public:
         // **The catalogue, read once**: an aeroplane asked for at admission
         // is looked up here, not read from the disk for every initiation.
         for (glideslope::sim::CatalogueEntry& entry : glideslope::sim::read_catalogue(data)) {
+            // **And every loading her figures name**, read with it: a
+            // loading asked for at admission is looked up here too.
+            const std::filesystem::path figures = data / "figures" / (entry.model + ".xml");
+            if (std::filesystem::exists(figures)) {
+                loadings_[entry.model] = glideslope::sim::read_published_figures(figures).loadings;
+            }
             std::string id = entry.id;
             catalogue_.emplace(std::move(id), std::move(entry));
         }
@@ -1517,7 +1523,15 @@ public:
     // is the plan's either way, at the aeroplane's own starting speed.
     // A payload that asked for something unreadable (`unreadable`) gives the
     // plan's, said so.
-    std::uint8_t give(std::uint8_t slot, const std::optional<std::string>& asked = std::nullopt,
+    //
+    // **At the loading she asked for** (net::AskedAircraft, since protocol
+    // 14), where the aeroplane given is the one asked for and her figures
+    // file names it - an F-35B light enough to hover, `vertical_landing` -
+    // and otherwise at her model's own, said so. Loadings are content: the
+    // figures file's, never a weight made up here. Every client is told it
+    // with her `AIRCRAFT`, so that a prediction flies her as heavy as she is.
+    std::uint8_t give(std::uint8_t slot,
+                      const std::optional<glideslope::net::AskedAircraft>& asked = std::nullopt,
                       bool unreadable = false) {
         std::string model = player_model_;
         std::string id = player_id_;
@@ -1529,22 +1543,45 @@ public:
                         static_cast<int>(slot), id.c_str());
             std::fflush(stdout);
         }
+        std::optional<glideslope::sim::FigureLoading> loading;
+        std::string loading_name;
         if (asked) {
-            if (const auto entry = catalogue_.find(*asked); entry != catalogue_.end()) {
+            if (const auto entry = catalogue_.find(asked->id); entry != catalogue_.end()) {
                 model = entry->second.model;
                 id = entry->second.id;
                 airspeed_kts = entry->second.start_airspeed_kts;
                 seaplane = entry->second.seaplane;
                 std::printf("slot %d asked for %s, and flies it\n", static_cast<int>(slot),
                             id.c_str());
+                if (!asked->loading.empty()) {
+                    if (const auto hers = loadings_.find(model); hers != loadings_.end()) {
+                        if (const auto named = hers->second.find(asked->loading);
+                            named != hers->second.end()) {
+                            loading = named->second;
+                        }
+                    }
+                    if (loading) {
+                        loading_name = asked->loading;
+                        std::printf("slot %d asked for the %s loading, %.0f lb, and flies it\n",
+                                    static_cast<int>(slot), loading_name.c_str(),
+                                    loading->total_lbs);
+                    } else {
+                        std::printf("slot %d asked for a loading %s, which the %s's figures do "
+                                    "not name: she flies her model's own\n",
+                                    static_cast<int>(slot), asked->loading.c_str(), id.c_str());
+                    }
+                }
             } else {
                 std::printf("slot %d asked for %s, which this server does not have: it "
                             "flies %s\n",
-                            static_cast<int>(slot), asked->c_str(), id.c_str());
+                            static_cast<int>(slot), asked->id.c_str(), id.c_str());
             }
             std::fflush(stdout);
         }
         auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim", model);
+        if (loading) {
+            aircraft->load(loading->loading);
+        }
         aircraft->set_terrain(ground_);
         if (session_air_) {
             aircraft->set_weather(session_air_);
@@ -1610,6 +1647,10 @@ public:
         remember_start(flown_.back(), ic, seaplane);
         flown_.back().catalogue_id = id;
         flown_.back().model = model;
+        if (loading) {
+            flown_.back().loading_name = loading_name;
+            flown_.back().loading = loading->loading;
+        }
         learn_speeds(flown_.back());
         return index;
     }
@@ -2764,6 +2805,11 @@ public:
         // is told (`AIRCRAFT`) so that it can draw it, and fly its own.
         std::string catalogue_id{};
         std::string model{};
+        // **What she was loaded as**, by its name in her figures file, and
+        // what that put on board - loaded again when she flies again after
+        // a wreck. Empty: her model's own.
+        std::string loading_name{};
+        glideslope::sim::Loading loading{};
         // When it was wrecked, on the simulation's clock, or below nought
         // while it flies.
         double wrecked_at_s = -1.0;
@@ -2933,7 +2979,7 @@ public:
     std::vector<glideslope::net::AircraftDefinition> who() const {
         std::vector<glideslope::net::AircraftDefinition> out;
         for (const Aircraft& a : flown_) {
-            out.push_back({a.index, a.catalogue_id, a.model});
+            out.push_back({a.index, a.catalogue_id, a.model, a.loading_name});
         }
         return out;
     }
@@ -3648,6 +3694,12 @@ private:
     // its plan again from the beginning. A player's inputs go on arriving and
     // fly it as before.
     void fly_again(Aircraft& a) {
+        // At her loading again, her tanks as they were at her start - for
+        // a named loading only: one at her model's own flies again on the
+        // fuel she wrecked with, as every aircraft did before loadings.
+        if (!a.loading_name.empty()) {
+            a.aircraft->load(a.loading);
+        }
         a.aircraft->initialize(a.start);
         a.copilot_route.clear();
         a.judge.reset();
@@ -3745,6 +3797,9 @@ private:
     // Every aeroplane the catalogue holds, by id, read when the fleet is
     // made (`give`).
     std::map<std::string, glideslope::sim::CatalogueEntry> catalogue_;
+    // Every loading each model's figures name, by model and name, read with
+    // the catalogue.
+    std::map<std::string, std::map<std::string, glideslope::sim::FigureLoading>> loadings_;
     double player_airspeed_kts_ = 0.0;
     bool player_seaplane_ = false;
     std::int64_t steps_ = 0;

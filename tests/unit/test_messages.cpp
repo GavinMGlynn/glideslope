@@ -85,6 +85,7 @@ AircraftDefinition an_aircraft() {
     m.aircraft = 6;
     m.id = "f35b";
     m.model = "f35b";
+    m.loading = "vertical_landing";
     return m;
 }
 
@@ -272,7 +273,8 @@ std::vector<Kind> every_kind() {
                    [aircraft](std::span<const std::uint8_t> b) {
                        AircraftDefinition got;
                        return glideslope::net::read(b, got) && got.aircraft == aircraft.aircraft &&
-                              got.id == aircraft.id && got.model == aircraft.model;
+                              got.id == aircraft.id && got.model == aircraft.model &&
+                              got.loading == aircraft.loading;
                    },
                    [](std::span<const std::uint8_t> b) {
                        AircraftDefinition got;
@@ -816,6 +818,7 @@ GLIDESLOPE_TEST(every_message_filled_to_its_limits_fits_in_one_datagram) {
     AircraftDefinition aircraft;
     aircraft.id = longest_name;
     aircraft.model = longest_name;
+    aircraft.loading = longest_name;
     hold("aircraft", glideslope::net::write(aircraft));
 
     TerrainDataset dataset;
@@ -1385,30 +1388,81 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_copilot_route_is_refused)
 
 // **The aeroplane asked for, in the initiation's payload, reads back as
 // itself, and every malformed one as none**: empty, a length of 0 or past 32,
-// a length that is not the bytes', a byte outside the id's, a path. Every
-// rule of `read_asked_aircraft` is here.
+// a length that is not the bytes', a byte outside the id's, a path. And the
+// loading after it (since protocol 14), by the same rules: none, or a length
+// of 1 to 32 and that many bytes, nothing after. Every rule of
+// `read_asked_aircraft` is here, and the cases are counted.
 GLIDESLOPE_TEST(the_aeroplane_asked_for_reads_back_and_a_malformed_ask_reads_as_none) {
     using glideslope::net::read_asked_aircraft;
     using glideslope::net::write_asked_aircraft;
     const auto read = [](const std::vector<std::uint8_t>& v) {
         return read_asked_aircraft(std::span<const std::uint8_t>(v.data(), v.size()));
     };
+    std::size_t cases = 0;
     for (const std::string& id : std::vector<std::string>{"pa28", "737-300", "mosquito-fb6", "a_b",
                                  std::string(32, 'z')}) {
-        check(read(write_asked_aircraft(id)) == id, "asked for " + id + ", read as it");
+        const auto got = read(write_asked_aircraft(id));
+        check(got && got->id == id && got->loading.empty(), "asked for " + id + ", read as it");
+        ++cases;
+        for (const std::string& loading : std::vector<std::string>{
+                 "vertical_landing", "full", "a-b_9", "x", std::string(32, 'l')}) {
+            const auto with = read(write_asked_aircraft(id, loading));
+            check(with && with->id == id && with->loading == loading,
+                  "asked for " + id + " at " + loading + ", read as it");
+            ++cases;
+        }
     }
+    for (const std::string& loading :
+         std::vector<std::string>{"Full", "../full", "full load", std::string(33, 'l')}) {
+        check(write_asked_aircraft("f35b", loading).empty(),
+              "a loading '" + loading + "' is not written");
+        ++cases;
+    }
+    check(write_asked_aircraft("", "full").empty(), "a loading of no aeroplane is not written");
+    ++cases;
     for (const std::string& id :
          std::vector<std::string>{"", "PA28", "../c172p", "pa 28", std::string(33, 'z')}) {
         check(write_asked_aircraft(id).empty(), "'" + id + "' is not written");
+        ++cases;
     }
-    check(!read({}), "an empty payload asks for nothing");
-    check(!read({0}), "a length of 0 is none");
-    check(!read({3, 'p', 'a'}), "fewer bytes than the length is none");
-    check(!read({2, 'p', 'a', '2'}), "a byte trailing is none");
-    check(!read({4, 'p', 'a', '/', '8'}), "a byte outside an id's is none");
+    // **Every malformed payload, from a table**: each read as none - a
+    // loading's own fault makes the whole payload none, never the aeroplane
+    // without its loading.
+    const std::vector<std::uint8_t> f35b{4, 'f', '3', '5', 'b'};
+    const auto after = [&](std::vector<std::uint8_t> tail) {
+        std::vector<std::uint8_t> v = f35b;
+        v.insert(v.end(), tail.begin(), tail.end());
+        return v;
+    };
     std::vector<std::uint8_t> long_one{33};
     long_one.insert(long_one.end(), 33, 'z');
-    check(!read(long_one), "past 32 bytes is none");
+    std::vector<std::uint8_t> long_loading{33};
+    long_loading.insert(long_loading.end(), 33, 'l');
+    const std::vector<std::pair<std::string, std::vector<std::uint8_t>>> malformed = {
+        {"an empty payload", {}},
+        {"a length of 0", {0}},
+        {"fewer bytes than the length", {3, 'p', 'a'}},
+        {"a byte trailing", {2, 'p', 'a', '2'}},
+        {"a byte outside an id's", {4, 'p', 'a', '/', '8'}},
+        {"an id past 32 bytes", long_one},
+        {"a loading's length of 0", after({0})},
+        {"fewer loading bytes than its length", after({5, 'f', 'u', 'l', 'l'})},
+        {"a byte trailing the loading", after({4, 'f', 'u', 'l', 'l', 'x'})},
+        {"a loading byte outside an id's", after({4, 'F', 'u', 'l', 'l'})},
+        {"a path in the loading", after({4, 'f', '/', 'l', 'l'})},
+        {"a loading past 32 bytes", after(long_loading)},
+    };
+    std::size_t refused = 0;
+    for (const auto& [what, bytes] : malformed) {
+        check(!read(bytes), what + " is none");
+        ++refused;
+    }
+    check(refused == malformed.size() && refused == 12,
+          "every malformed payload of 12 was read, not " + std::to_string(refused));
+    check(read(after({4, 'f', 'u', 'l', 'l'})) == glideslope::net::AskedAircraft{"f35b", "full"},
+          "the loading read by hand");
+    cases += refused + 1;
+    check(cases == 53, "53 cases, not " + std::to_string(cases));
 }
 
 // **What the document says a reader of `LEARNT_LANDING_REFUSED` refuses**,
