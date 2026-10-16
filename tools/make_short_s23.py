@@ -172,6 +172,20 @@ cosine squared. **Not moved**: CLq, lift with her pitch rate, where the angle
 of attack only picks its coefficient. Her lift terms not keyed to the angle of
 attack (CLdF3L, CLdF3R and CLDe) are not this change's, and stay on
 aero/qbar-psf.
+
+**Her wing's drag keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CD, and CdDf3L and
+CdDf3R, her flaps' drag keyed to the angle of attack, in
+Systems/datcom_aero.xml. Afloat in 15 kt straight across her angle of attack is
+defined, -3 to 13 degrees, but the air meets her from the side as she swings:
+on the whole dynamic pressure they drew her along the wind by 21 to 170 lb; on
+aero/qbarUW-psf, 1.5 to 33. The same reasoning as her lift's, above: a wing's
+drag at its angle of attack is made by the air in the plane of u and w, and the
+sideways part runs along its span - the drag that rolled the J-3 Cub onto her
+wing standing in a beam wind (make_j3cub.py). In flight, at a few degrees of
+sideslip, the two differ by its cosine squared. Not moved: CdDe, her elevator's
+drag, not her wing's - the angle of attack only picks its coefficient of the
+deflection.
 """
 
 import math

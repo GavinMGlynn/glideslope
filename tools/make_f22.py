@@ -165,6 +165,22 @@ Cmq above). Her lift terms not keyed to the angle of attack (dCLflap, dCLsb and
 CLde) are not this change's, and stay on aero/qbar-psf. Standing, her lift left
 is 260 to 280 lb. Two CLDh terms of the pinned model are commented out, and not
 read.
+
+**Her wing's drag keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CDseparated, and CDDlef,
+her leading-edge flaps' drag keyed to the angle of attack. CDseparated, her
+drag past the flow separating, is a product of her lift coefficient and the
+angle of attack; standing in 15 kt across it was under 0.1 lb on either
+pressure, and it is moved as the same wing's drag keyed to the same angle, for
+slowing and flight. CDDlef was nothing standing, her flaps at rest. The same
+reasoning as her lift's, above: a wing's drag at its angle of attack is made by
+the air in the plane of u and w, and the sideways part runs along its span -
+the drag that rolled the J-3 Cub onto her wing standing in a beam wind
+(make_j3cub.py). In flight, at a few degrees of sideslip, the two differ by its
+cosine squared. Her wing is swept: moved on the same argument as her lift,
+simple sweep theory (alpha_rate.with_alpha_terms_on_qbar_uw). Not moved: CDq
+and CDq_Dlef, drag with pitch rate - the angle of attack only picks the
+coefficient of her pitch rate.
 """
 
 import re
