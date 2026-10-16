@@ -152,10 +152,12 @@ if(_after_speed GREATER _before_most)
                         "${_after_speed} tenths of a mm/s, more than half again the "
                         "${_before_speed} before it:\n${_said}")
 endif()
+# **Slowed, the median distances, not the speed**: both under 5 cm, the
+# bound the header names for a server at 0.6 of real time.
 if(SLOWED AND (_after_mm GREATER 50 OR _before_mm GREATER 50))
     message(FATAL_ERROR "against a server at 0.6 of real time the median prediction "
-                        "errors were ${_after_mm} mm after the stop and ${_before_mm} mm "
-                        "before, not both under 5 cm:\n${_said}")
+                        "distance errors were ${_after_mm} mm after the stop and "
+                        "${_before_mm} mm before, not both under 5 cm:\n${_said}")
 endif()
 if(NOT _stopped_here EQUAL 1)
     message(FATAL_ERROR "the client stopped ${_stopped_here} engines for the server's word, "

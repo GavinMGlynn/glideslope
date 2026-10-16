@@ -453,6 +453,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       two minutes, selected at any moment, including before the prediction
       has settled, the client's predicted pitch within half a degree of the
       server's at every update.*
+- [ ] **No test catches a STOVL prediction flown on 0.8 of the stick**: the
+      height the server tells puts it right, so it passes. *Verification: a
+      test red on that bug, comparing what the stick sets, not only the height.*
 - [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses
