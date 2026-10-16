@@ -528,11 +528,11 @@
           <table>
             <independentVar lookup="row">aero/beta-rad</independentVar>
             <tableData>
-              -1.57    1.2300
+              -1.57    0.2951
               -0.26    0.0500
                0.00    0.0000
                0.26    0.0500
-               1.57    1.2300
+               1.57    0.2951
             </tableData>
           </table>
        </product>

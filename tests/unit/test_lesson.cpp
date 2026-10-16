@@ -3931,8 +3931,11 @@ GLIDESLOPE_TEST(every_landplane_rolling_at_a_walking_pace_of_4_to_5_kt_in_a_15_k
 // flown in two parts, judged throughout:
 //   - **Held at her pace**, as a pilot taxis a Cub "at the speed of a fast
 //     walk" (her Owner's Manual, Taxiing): rolled up on the throttle and then
-//     held at the pace for `held_s` by the test's hand on it, her brakes off,
-//     the rollout's rudder steering her and its stick back, and her ailerons
+//     held at the pace for `held_s` by the test's hand on it, and on her
+//     brakes, both alike, where her idle thrust rolls her past it (the
+//     walking-pace tests' brake hand: once the beam wind's drag on her was
+//     her side area's, 43 lb and not 162, nothing else held her back at
+//     idle), the rollout's rudder steering her and its stick back, and her ailerons
 //     full into the wind, as a tail-wheel aeroplane is taxied in one
 //     (FAA-H-8083-3; her manual has them used so turning in winds over 15
 //     m.p.h.). Asserted: she spends at least `least_held_s` of it within
@@ -4046,11 +4049,13 @@ GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays
                     }
                     return true;
                 };
-                // Rolled up to her pace and held there: her brakes off, the
-                // rollout steering her with its stick back, ailerons full into
+                // Rolled up to her pace with her brakes off and held there,
+                // braked where idle rolls her past it, the rollout steering her with its stick back, ailerons full into
                 // the wind (from the left, stick left: -1).
                 bool going = true;
                 double integral = 0.0;
+                double brake_integral = 0.0;
+                double most_pace_brake = 0.0;
                 double throttle = 0.0;
                 bool reached = false;
                 int at_pace_steps = 0;
@@ -4076,10 +4081,13 @@ GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays
                          ++step) {
                         glideslope::sim::Controls u = steering.fly();
                         throttle = walking_pace_hand(integral, pace_kts, kts(), 1.0, held_on, held_on);
+                        const double pace_brake =
+                            walking_pace_brake(brake_integral, pace_kts, kts());
+                        most_pace_brake = std::max(most_pace_brake, pace_brake);
                         u.throttle = throttle;
                         u.aileron = -side;
-                        u.left_brake = 0.0;
-                        u.right_brake = 0.0;
+                        u.left_brake = pace_brake;
+                        u.right_brake = pace_brake;
                         aircraft.set_controls(u);
                         aircraft.step();
                         going = watch();
@@ -4114,9 +4122,10 @@ GLIDESLOPE_TEST(the_j3_cub_held_at_every_walking_pace_in_a_15_kt_crosswind_stays
                 }
                 most_roll_seen = std::max(most_roll_seen, most_roll);
                 least_at_pace_s = std::min(least_at_pace_s, at_pace_s);
-                std::printf("  %-34s %4.1f s of %d at her pace, throttle %.2f, most roll %4.1f "
-                            "deg held, %4.1f in all%s%s\n",
-                            where, at_pace_s, held_s, taxi_throttle, held_roll, most_roll,
+                std::printf("  %-34s %4.1f s of %d at her pace, throttle %.2f, brake %.2f, most "
+                            "roll %4.1f deg held, %4.1f in all%s%s\n",
+                            where, at_pace_s, held_s, taxi_throttle, most_pace_brake, held_roll,
+                            most_roll,
                             fault.empty() ? "" : ", ", fault.c_str());
                 if (!reached) {
                     wrong.push_back(std::string(where) + ": never rolled up to her pace");
