@@ -2393,6 +2393,20 @@ PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& mod
     return {f.plan_slowest_kcas, f.plan_fastest_kcas, f.plan_weight_lbs};
 }
 
+std::optional<FigureLoading> named_loading(const std::filesystem::path& data,
+                                           const std::string& model, const std::string& name) {
+    const std::filesystem::path file = data / "figures" / (model + ".xml");
+    if (name.empty() || !std::filesystem::exists(file)) {
+        return std::nullopt;
+    }
+    const PublishedFigures f = read_published_figures(file);
+    const auto found = f.loadings.find(name);
+    if (found == f.loadings.end()) {
+        return std::nullopt;
+    }
+    return found->second;
+}
+
 double glide_slowest_kts(const std::filesystem::path& data, const std::string& model) {
     return read_published_figures(data / "figures" / (model + ".xml")).glide_slowest_kcas;
 }

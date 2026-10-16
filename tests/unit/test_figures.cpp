@@ -3048,3 +3048,54 @@ GLIDESLOPE_TEST(burned_below_her_hover_limit_in_stovl_mode_the_f35b_converts_and
     check(most_sink_fpm <= 600.0, "she sank at " + std::to_string(most_sink_fpm) + " ft/min");
     check(most_pitch <= 15.0, "her pitch reached " + std::to_string(most_pitch));
 }
+
+// **Every loading a figures file names is found by its name**, as a server
+// gives a player one she asks for (net::AskedAircraft) and her prediction is
+// loaded as: the same pointmasses and tanks, and loaded so she weighs the
+// file's total within half a per cent. A name the file does not hold, an
+// empty one and a model with no figures file are none. Every model with
+// figures and every loading in each is walked, and the count is stated -
+// **less the loadings with no name**, a file's single unnamed loading that
+// its figures are flown at, which no player can ask for by name and which
+// `named_loading` holds as none.
+GLIDESLOPE_TEST(every_loading_a_figures_file_names_is_found_by_its_name_and_weighs_its_total) {
+    const std::filesystem::path data = std::filesystem::path(data_dir).parent_path();
+    std::size_t loadings = 0;
+    std::size_t walked = 0;
+    std::size_t unnamed = 0;
+    for (const std::string& model : figured_models()) {
+        const PublishedFigures figures = read_published_figures(figures_file(model));
+        loadings += figures.loadings.size();
+        for (const auto& [name, want] : figures.loadings) {
+            if (name.empty()) {
+                ++unnamed;
+                check(!glideslope::sim::named_loading(data, model, name),
+                      model + "'s unnamed loading is not found by an empty name");
+                continue;
+            }
+            const auto got = glideslope::sim::named_loading(data, model, name);
+            check(got.has_value(), model + "'s " + name + " is found by its name");
+            check(got->total_lbs == want.total_lbs &&
+                      got->loading.pointmass_lbs == want.loading.pointmass_lbs &&
+                      got->loading.tank_lbs == want.loading.tank_lbs,
+                  model + "'s " + name + " is the file's");
+            glideslope::sim::Aircraft aircraft(data / "jsbsim", model);
+            aircraft.load(got->loading);
+            const double lbs = aircraft.loaded_weight_lbs();
+            check(std::abs(lbs - want.total_lbs) <= 0.005 * want.total_lbs,
+                  model + "'s " + name + " weighs " + std::to_string(lbs) + " lb loaded, not " +
+                      std::to_string(want.total_lbs));
+            ++walked;
+        }
+        check(!glideslope::sim::named_loading(data, model, "no_such_loading"),
+              model + " has no loading no_such_loading");
+        check(!glideslope::sim::named_loading(data, model, ""), model + " has no loading ''");
+    }
+    check(!glideslope::sim::named_loading(data, "no-such-model", "full"),
+          "a model with no figures file has no loading");
+    check(figured_models().size() == 16 && walked + unnamed == loadings && walked > 0,
+          "every loading of 16 models was walked: " + std::to_string(walked) + " named and " +
+              std::to_string(unnamed) + " unnamed of " + std::to_string(loadings));
+    std::printf("%zu loadings of %zu models found by name; %zu unnamed, found by none\n", walked,
+                figured_models().size(), unnamed);
+}

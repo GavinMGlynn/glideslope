@@ -205,6 +205,14 @@ double wet_landing_need_m(const std::filesystem::path& data, const std::string& 
 void refuse_what_it_cannot_fly(const std::filesystem::path& data, const FlightPlan& plan,
                                const std::string& flown);
 
+// **A loading `model`'s figures file names, by `name`**: what is on board
+// and what it all weighs - what a server gives a player who asks for it, and
+// what her prediction is loaded as (net::AskedAircraft). None where she has
+// no figures file, or it names no such loading. Throws as
+// `read_published_figures` does for a file that is there and does not read.
+std::optional<FigureLoading> named_loading(const std::filesystem::path& data,
+                                           const std::string& model, const std::string& name);
+
 // Reads an aircraft's figures file. Throws std::runtime_error if it cannot be
 // read, names a flight that does not exist or a loading it does not have, or
 // leaves out a range.

@@ -871,6 +871,17 @@ The replacement:
 - **The Cherokee's stall recovery raises her flaps to her handbook's
   go-around setting.**
 
+**Closed 2026-10-16** (decided in building it):
+
+- **A player asks for a loading with the aeroplane**, by its name in her
+  figures file, in the handshake's payload after the catalogue id (protocol
+  `0E`). A loading is content: the server gives only one her figures file
+  names, and her model's own otherwise, said so; nothing on the wire is a
+  weight. The server tells every client each aircraft's loading with its
+  `AIRCRAFT`, and a predicting client loads her so. A session file that
+  loads players was the other way; it was not taken, because the player
+  picks the aeroplane (4.2) and her loading is part of that pick.
+
 **Open:**
 
 - **Buildings:** how OpenStreetMap buildings arrive without a Cesium ion
