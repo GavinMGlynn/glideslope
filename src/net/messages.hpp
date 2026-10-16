@@ -211,6 +211,10 @@ struct AircraftDefinition {
     std::uint8_t aircraft = 0;
     std::string id;    // the catalogue's, "c172p"
     std::string model; // the JSBSim model's directory
+    // **What she is loaded as** (since version 14): a loading her figures
+    // file names, "vertical_landing", or empty for her model's own. A
+    // client predicting her flies her at it, as the server does.
+    std::string loading;
 };
 
 // **The terrain dataset** both ends must agree on, because the collision
@@ -390,11 +394,22 @@ bool read(std::span<const std::uint8_t> body, CopilotRoute& out);
 // message of its own, because a server gives a player an aircraft as it
 // admits them. Empty: none asked, the server's plan's. Otherwise a `u8`
 // length, 1 to `most_asked_aircraft_bytes`, and that many bytes of a
-// catalogue id - lower-case letters, digits, `-` and `_` - and nothing after.
+// catalogue id - lower-case letters, digits, `-` and `_` - and then, since
+// version 14, either nothing or **the loading asked for**: a `u8` length, 1
+// to `most_asked_aircraft_bytes`, and that many bytes of a loading's name
+// in her figures file, in the same letters; nothing after.
 inline constexpr std::size_t most_asked_aircraft_bytes = 32;
-// Empty for an id that is not one.
-std::vector<std::uint8_t> write_asked_aircraft(const std::string& id);
-// The id asked for; nothing for an empty payload or one that does not read.
-std::optional<std::string> read_asked_aircraft(std::span<const std::uint8_t> payload);
+struct AskedAircraft {
+    std::string id;
+    // Empty: her model's own loading.
+    std::string loading;
+    bool operator==(const AskedAircraft&) const = default;
+};
+// Empty for an id that is not one, or a loading that is not one.
+std::vector<std::uint8_t> write_asked_aircraft(const std::string& id,
+                                               const std::string& loading = "");
+// The id asked for, and the loading; nothing for an empty payload or one
+// that does not read.
+std::optional<AskedAircraft> read_asked_aircraft(std::span<const std::uint8_t> payload);
 
 } // namespace glideslope::net

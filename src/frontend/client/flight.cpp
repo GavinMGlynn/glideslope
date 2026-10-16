@@ -1,6 +1,7 @@
 #include "flight.hpp"
 
 #include "gfx/terrain_colour.hpp"
+#include "sim/figures.hpp"
 #include "sim/terrain.hpp"
 #include "world/download.hpp"
 #include "world/geodesy.hpp"
@@ -72,6 +73,19 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
 
     aircraft_entry_ = sim::find_aircraft(data, start.aircraft);
     aircraft_ = std::make_unique<sim::Aircraft>(data / "jsbsim", aircraft_entry_.model);
+    // **At her loading**, before she is put anywhere - the server's, so that
+    // her prediction is as heavy as the server's aircraft. A name her figures
+    // here do not hold - a server's, since `--loading` is checked before -
+    // is flown at her model's own, and said so.
+    if (!start.loading.empty()) {
+        if (const auto loading = sim::named_loading(data, aircraft_entry_.model, start.loading)) {
+            aircraft_->load(loading->loading);
+        } else {
+            std::fprintf(stderr, "glideslope: the %s's figures here name no loading %s: she is "
+                                 "flown at her model's own\n",
+                         aircraft_entry_.id.c_str(), start.loading.c_str());
+        }
+    }
     // How she lands and takes off, as the server's controllers are told.
     figures_ = sim::her_figures(data, aircraft_entry_.model);
     for (const std::string& why : figures_.unread) {

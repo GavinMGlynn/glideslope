@@ -19,7 +19,8 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
                                                     const std::string& key_hex,
                                                     double give_up_after_s,
                                                     double resend_every_s,
-                                                    const std::string& aircraft) {
+                                                    const std::string& aircraft,
+                                                    const std::string& loading) {
     const auto address = platform::address_of(where);
     if (!address) {
         return std::nullopt;
@@ -37,9 +38,9 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
     Initiator initiator(mine, *theirs);
     Writer w = begin(Type::handshake_initiation);
     const std::vector<std::uint8_t> asked =
-        aircraft.empty() ? std::vector<std::uint8_t>{} : write_asked_aircraft(aircraft);
-    if (!aircraft.empty() && asked.empty()) {
-        return std::nullopt; // not an aircraft's id
+        aircraft.empty() ? std::vector<std::uint8_t>{} : write_asked_aircraft(aircraft, loading);
+    if ((!aircraft.empty() && asked.empty()) || (aircraft.empty() && !loading.empty())) {
+        return std::nullopt; // not an aircraft's id, or a loading's name, or a loading of nothing
     }
     w.bytes(initiator.begin(all_of(asked)));
     const std::vector<std::uint8_t> first = w.take();

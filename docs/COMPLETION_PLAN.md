@@ -394,19 +394,21 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       2026-10-13). *Verification: it hovers at its
       published thrust, lands vertically, and takes off in its published
       short distance.* Done 2026-10-13.
-- [ ] **No pilot or AI plan flies the F-35B between jet-borne and
-      wing-borne flight**: since 2026-10-14 a pilot's STOVL selector (H and
-      N) and stick, and a plan's `land_vertically`, fly her transition law
-      (PROJECT_STATUS, 2026-10-14), and a client's prediction agrees with
-      the server through a conversion, a hover and a landing. Her rolling
-      landing figure (9,200 ft) was revisited on 2026-10-14: it still holds
-      for a runway landing, and a vertical landing needs no runway. Still to
-      do: a player's vertical landing through a server - a player's selector
-      is flown through a server since 2026-10-14, but every server gives her
-      her model's 45,400 lb, too heavy to hover, so she is held wing-borne;
-      no server gives a player a loading. *Verification: she is flown
-      into a hover and out again, and a pilot and an AI plan each convert
-      her.*
+- [x] **A pilot and an AI plan fly the F-35B between jet-borne and
+      wing-borne flight**: a pilot's STOVL selector (H and N) and stick, and
+      a plan's `land_vertically`, fly her transition law; and since
+      2026-10-16 a player asks for a loading as she joins, so a player's
+      F-35B light enough to hover is converted, hovered and landed
+      vertically through a real server, her prediction agreeing
+      (PROJECT_STATUS, 2026-10-14 and 2026-10-16). *Verification: she is
+      flown into a hover and out again, and a pilot and an AI plan each
+      convert her.* Done 2026-10-16.
+- [ ] **The windowed client's `--loading` is compiled, not run**: it asks a
+      server for a loading and loads her prediction so, but no test flies
+      it. *Verification: through a real server, the windowed client asking
+      for the F-35B's vertical_landing loading is told it and flies her at
+      37,530 lb, and taking over an aircraft loaded otherwise makes her
+      flight again at that loading.*
 - [x] **The F-35B's pilot flies only her height in STOVL mode**: her
       throttle's speed, the stick's sideways translation and the pedals'
       heading in a hover are not the pilot's, and a plan given to the AI

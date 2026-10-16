@@ -69,10 +69,13 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // when the server told every client its runways' conditions, and on
 // 2026-10-14 to 0C, when an input frame took a nineteenth control, the STOVL
 // mode selector, and on 2026-10-15 to 0D, when a client's own motion took the
-// height her STOVL law holds and its autopilot's pitch integral: the document gives the envelope's version as
-// `0D`. A test reads this line to keep the two together
+// height her STOVL law holds and its autopilot's pitch integral, and on
+// 2026-10-16 to 0E, when the initiation's payload took a loading after the
+// aeroplane and `AIRCRAFT` her loading - neither of which this client sends
+// or reads: the document gives the envelope's version as
+// `0E`. A test reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x0D;
+constexpr std::uint8_t kVersion = 0x0E;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;

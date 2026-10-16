@@ -8,13 +8,17 @@
 # **What is pinned** (REQUIREMENTS 4.2, docs/TRANSPORT.md "Starting a
 # session"): the handshake initiation's payload is the aeroplane asked for, by
 # its catalogue id. The server's plan flies the Cessna 172P; one player asks
-# for the Piper PA-28 (`connect --aircraft pa28`), another asks for nothing,
-# a third asks for an aeroplane the catalogue does not hold, and a fourth
+# for the Piper PA-28 (`connect --aircraft pa28`) at a loading her figures do
+# not name (`--loading`, since protocol 14), another asks for nothing,
+# a third asks for an aeroplane the catalogue does not hold - at the F-35B's
+# vertical-landing loading, which is not the plan's Cessna's - and a fourth
 # sends a payload no client of this project would: a length of 33, past the
 # 32 an id may have (`--asked-payload`), through a real handshake.
 #
-# **What must hold**: the server says the first flies the PA-28, the third
-# the plan's Cessna for want of what it asked, and the fourth the Cessna for
+# **What must hold**: the server says the first flies the PA-28, at her
+# model's own loading for want of the one asked for, the third
+# the plan's Cessna for want of what it asked (and at no loading - none is
+# given anybody), and the fourth the Cessna for
 # a payload that does not read; the first flies it - full left
 # aileron, and the only player's aircraft banked past 90 degrees is the one
 # every client is told is the PA-28 - and each client is told of exactly one
@@ -60,6 +64,7 @@ execute_process(
             --after-ready "${_ready}" --until-exists "${_done}" --heard "${_other}"
             --key e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300 --aircraft no-such-plane
+            --loading vertical_landing
             --after-ready "${_ready}" --until-exists "${_done}" --heard "${_stranger}"
             --key 3b8e1f0c2d4a5968778695a4b3c2d1e0f0e1d2c3b4a5968778695a4b3c2d1e0f
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300
@@ -67,7 +72,7 @@ execute_process(
             --after-ready "${_ready}" --until-exists "${_done}" --heard "${_oversized}"
             --key 5c7d9e0f1a2b3c4d5e6f708192a3b4c5d6e7f8091a2b3c4d5e6f708192a3b4c5
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 15 --fly
-            --aircraft pa28 --after-ready "${_ready}" --done "${_done}" --heard "${_asker}"
+            --aircraft pa28 --loading no-such-loading --after-ready "${_ready}" --done "${_done}" --heard "${_asker}"
             --key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
@@ -77,6 +82,12 @@ if(NOT _rcs STREQUAL "0;0;0;0;0")
 endif()
 if(NOT _out MATCHES "asked for pa28, and flies it\n")
     message(FATAL_ERROR "the server did not give the PA-28 asked for:\n${_out}")
+endif()
+if(NOT _out MATCHES "asked for a loading no-such-loading, which the pa28's figures do not name: she flies her model's own\n")
+    message(FATAL_ERROR "the server did not say the PA-28's figures name no such loading:\n${_out}")
+endif()
+if(_out MATCHES "asked for the [a-z_]+ loading")
+    message(FATAL_ERROR "the server gave a loading nobody could have:\n${_out}")
 endif()
 if(NOT _out MATCHES "asked for no-such-plane, which this server does not have: it flies c172p\n")
     message(FATAL_ERROR "the server did not say it had no such aeroplane:\n${_out}")

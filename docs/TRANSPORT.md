@@ -77,6 +77,10 @@ Said first, because a transport's limits matter more than its features.
   carries, in a client's own motion, the height her STOVL law is asked to
   hold and its wing-borne autopilot's pitch integral (below, "State
   updates").
+  Version `0E` is on the same ground, and is the first whose initiation's
+  payload may ask for a loading after the aeroplane (below, "Starting a
+  session"), and whose `AIRCRAFT` says what each aircraft is loaded as
+  (below).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -87,7 +91,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `0D` |
+| 4 | 1 | version | `0E` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -133,7 +137,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `0D`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `0E`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -183,12 +187,23 @@ server gives a player an aircraft as it admits them:
 |---|---|---|
 | length | 1 | 1 to 32 |
 | id | length | a catalogue id: `a`-`z`, `0`-`9`, `-` and `_` |
+| loading's length | 1, or none | 1 to 32 (since `0E`) |
+| loading | loading's length | the name of a loading in her figures file, `vertical_landing`: `a`-`z`, `0`-`9`, `-` and `_` (since `0E`) |
 
-and nothing after. **An empty payload asks for nothing**: the player flies the
+and nothing after: the loading's two fields are both there or both not.
+**An empty payload asks for nothing**: the player flies the
 server's plan's aeroplane. A payload that does not read so - a length of 0 or
-over 32, a byte outside those, anything trailing - is read as none, and so is
+over 32, a byte outside those, anything trailing, in the id or the loading -
+is read as none, and so is
 an id the server's catalogue does not hold, which it says on its standard
-output; either way the player is admitted, flying the plan's. The id is
+output; either way the player is admitted, flying the plan's, at her model's
+own loading. **A loading is asked of the aeroplane asked for**: the server
+gives it where it gives that aeroplane and her figures file names it -
+`slot 0 asked for the vertical_landing loading, 37530 lb, and flies it` on
+its standard output - and otherwise her model's own, said so (`... which the
+pa28's figures do not name: she flies her model's own`). No payload asks
+for a weight: a loading is content, the figures file's, which both ends
+carry. The id is
 looked up among the catalogue's ids, never joined to a path. The aeroplane
 starts where the plan's starts, at its own starting speed; every client is
 told what it is by its `AIRCRAFT` message, as any aircraft is. A second
@@ -604,6 +619,15 @@ aircraft is introduced again.
 | `u8` | the aircraft's number, as a state update gives it |
 | text | the catalogue's id, `c172p`, at most 64 bytes |
 | text | the JSBSim model's directory, at most 64 bytes |
+| text | what she is loaded as: the name of a loading in her figures file, `vertical_landing`, or empty for her model's own, at most 64 bytes (since `0E`) |
+
+**The loading is what a predicting client loads her as**, before it puts
+her anywhere, looking it up by name in its own copy of her figures file -
+never joining it to a path. A client predicting her at another weight than
+the server's flies another aeroplane: an F-35B at her model's 45,400 lb
+cannot hover, at `vertical_landing`'s 37,530 she can. A name its figures do
+not hold is the server's data, not its own, and it predicts her at her
+model's own, said so.
 
 ### `TERRAIN_DATASET`
 

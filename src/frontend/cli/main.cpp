@@ -195,6 +195,11 @@ bool connect_stovl_land = false;
 // in the initiation's payload (net::write_asked_aircraft) - the first and any
 // joining again. Empty: none asked, the server's plan's.
 std::vector<std::uint8_t> connect_asked_aircraft;
+// **And the loading asked for with it** (`connect --loading NAME`, after
+// `--aircraft`), by its name in her figures file - `vertical_landing`, an
+// F-35B light enough to hover - in the same payload (protocol 14).
+std::string connect_asked_id;
+std::string connect_asked_loading;
 
 // **A test flag's work (`--until-told-ground`)**: stay until the server has
 // said its collision ground and this client has answered one of its knocks -
@@ -420,6 +425,8 @@ void print_usage(std::FILE* out) {
         "                            old one or a new one\n"
         "                            --aircraft ID asks the server for this aeroplane,\n"
         "                            by its catalogue id, as it joins\n"
+        "                            --loading NAME (after --aircraft) asks for her at\n"
+        "                            this loading, by its name in her figures file\n"
         "                            --until-engine-compared N (with --predict) stays\n"
         "                            until N updates are compared after the server\n"
         "                            says its engine has stopped\n"
@@ -1575,9 +1582,13 @@ public:
     }
 
     // What the server has said each aircraft is (`AIRCRAFT`): its own is
-    // flown as the model the server flies it as, and not before it is known.
-    void introduced(std::uint8_t aircraft, const std::string& model) {
+    // flown as the model the server flies it as, at the loading the server
+    // gives her (since protocol 14) - her figures' by that name, looked up
+    // there and never joined to a path - and not before it is known.
+    void introduced(std::uint8_t aircraft, const std::string& model,
+                    const std::string& loading = "") {
         models_[aircraft] = model;
+        loadings_[aircraft] = loading;
     }
 
     // **The pilot**: the controls keep changing, so that when an input
@@ -1761,8 +1772,8 @@ public:
             if (!prediction_) {
                 const auto model = models_.find(state.your_aircraft);
                 if (model != models_.end()) {
-                    start(m, model->second, state.last_input_applied,
-                          state.yours->steps_into_input);
+                    start(m, model->second, loadings_[state.your_aircraft],
+                          state.last_input_applied, state.yours->steps_into_input);
                 }
             } else {
                 // **The prediction error**: where the server says the
@@ -2375,6 +2386,9 @@ public:
                           stovl_down_at_s_.value_or(-1.0), server_hovered_ ? "yes" : "no",
                           server_at_rest_ ? "yes" : "no", stovl_lowest_ft_, stovl_kcas_);
             lines.emplace_back(line);
+            std::snprintf(line, sizeof line, "stovl: predicted at %.0f lb as it began",
+                          start_weight_lbs_);
+            lines.emplace_back(line);
             if (stovl_selected_at_) {
                 std::snprintf(line, sizeof line,
                               "stovl: selected with input %u, its prediction settled",
@@ -2394,9 +2408,24 @@ public:
 
 private:
     void start(const glideslope::sim::Motion& m, const std::string& model,
-               std::uint32_t last_applied, std::size_t steps_into) {
+               const std::string& loading, std::uint32_t last_applied, std::size_t steps_into) {
         aircraft_ = std::make_unique<glideslope::sim::Aircraft>(
             glideslope::platform::data_directory() / "jsbsim", model);
+        // **At the loading the server gave her**, before she is put
+        // anywhere: a prediction at her model's own weight would fly another
+        // aeroplane than the server's.
+        if (!loading.empty()) {
+            const auto named = glideslope::sim::named_loading(
+                glideslope::platform::data_directory(), model, loading);
+            if (named) {
+                aircraft_->load(named->loading);
+            } else {
+                std::fprintf(stderr, "glideslope_cli: the server gives her a loading %s, which "
+                                     "her figures here do not name: predicted at her model's "
+                                     "own\n",
+                             loading.c_str());
+            }
+        }
         aircraft_->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
             [](double, double) { return 0.0; }, [](double, double) { return false; }));
         // **Landing, it meets the ground the server does**: the DEM, with
@@ -2426,6 +2455,7 @@ private:
             aircraft_->set_weather(air_->air());
         }
         aircraft_->set_motion(m);
+        start_weight_lbs_ = aircraft_->property("inertia/weight-lbs");
         prediction_ = std::make_unique<glideslope::sim::Prediction>(*aircraft_);
         // From where the server said it was to where it is now: every step
         // flown since - from as far into the input it had applied as it had
@@ -2531,6 +2561,9 @@ private:
     std::shared_ptr<glideslope::world::CollisionGround> collision_;
 
     std::map<std::uint8_t, std::string> models_;
+    std::map<std::uint8_t, std::string> loadings_;
+    // What her prediction weighed as it began, pounds.
+    double start_weight_lbs_ = 0.0;
     // The server's air (`weather`), and the geoid its heights are over.
     std::unique_ptr<glideslope::world::Geoid> geoid_for_air_;
     std::optional<glideslope::frontend::HeardAir> air_;
@@ -3650,7 +3683,8 @@ int stay(glideslope::platform::UdpSocket& socket,
                 glideslope::net::AircraftDefinition d;
                 if (glideslope::net::read(
                         std::span<const std::uint8_t>(message.data(), message.size()), d)) {
-                    say_heard("aircraft " + std::to_string(d.aircraft) + " is " + d.id);
+                    say_heard("aircraft " + std::to_string(d.aircraft) + " is " + d.id +
+                              (d.loading.empty() ? "" : ", loaded " + d.loading));
                     ids_heard[d.aircraft] = d.id;
                     // **The model is the catalogue's for that id**, never the
                     // wire's: a directory a server named would be joined to a
@@ -3659,7 +3693,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                     if (predicting) {
                         if (const auto entry = glideslope::sim::known_aircraft(
                                 glideslope::platform::data_directory(), d.id)) {
-                            predicting->introduced(d.aircraft, entry->model);
+                            predicting->introduced(d.aircraft, entry->model, d.loading);
                         }
                     }
                 }
@@ -4601,12 +4635,26 @@ static int run_program(int argc, char** argv) {
                     continue;
                 }
                 if (args[i] == "--aircraft" && i + 1 < args.size()) {
-                    const std::string id(args[++i]);
-                    connect_asked_aircraft = glideslope::net::write_asked_aircraft(id);
+                    connect_asked_id = std::string(args[++i]);
+                    connect_asked_aircraft = glideslope::net::write_asked_aircraft(
+                        connect_asked_id, connect_asked_loading);
                     if (connect_asked_aircraft.empty()) {
                         std::fprintf(stderr, "glideslope_cli: --aircraft wants a catalogue id: "
                                              "lower-case letters, digits, - and _, at most "
                                              "%zu\n",
+                                     glideslope::net::most_asked_aircraft_bytes);
+                        return 2;
+                    }
+                    continue;
+                }
+                if (args[i] == "--loading" && i + 1 < args.size()) {
+                    connect_asked_loading = std::string(args[++i]);
+                    connect_asked_aircraft = glideslope::net::write_asked_aircraft(
+                        connect_asked_id, connect_asked_loading);
+                    if (connect_asked_id.empty() || connect_asked_aircraft.empty()) {
+                        std::fprintf(stderr, "glideslope_cli: --loading follows --aircraft, and "
+                                             "wants a loading's name: lower-case letters, "
+                                             "digits, - and _, at most %zu\n",
                                      glideslope::net::most_asked_aircraft_bytes);
                         return 2;
                     }
