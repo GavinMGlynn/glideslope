@@ -527,7 +527,8 @@ def outputs():
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             with_cm_alpha_split_out(alpha_rate.with_qbar_uw(airframe(), "make_f22")), "make_f22",
             {"PITCH": ["aero/coefficient/Cma_M", "aero/coefficient/CmDh_alpha"],
-             "LIFT": ["aero/coefficient/CLalpha", "aero/coefficient/CLDlef"]}),
+             "LIFT": ["aero/coefficient/CLalpha", "aero/coefficient/CLDlef"],
+             "DRAG": ["aero/coefficient/CDseparated", "aero/coefficient/CDDlef"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

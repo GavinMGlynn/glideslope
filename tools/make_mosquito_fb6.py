@@ -1720,7 +1720,8 @@ def airframe():
     return alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(text, "make_mosquito_fb6"), "make_mosquito_fb6",
             {"PITCH": ["aero/moment/pitch-alpha", "aero/moment/pitch-stall"],
-             "LIFT": ["aero/force/lift-alpha"]})
+             "LIFT": ["aero/force/lift-alpha"],
+             "DRAG": ["aero/force/drag-stall"]})
 
 
 def outputs():

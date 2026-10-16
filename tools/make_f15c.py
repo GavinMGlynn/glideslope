@@ -676,7 +676,8 @@ def outputs():
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_f15c"), "make_f15c",
             {"PITCH": ["aero/coefficient/Cmalpha"],
-             "LIFT": ["aero/coefficient/CLalpha"]}),
+             "LIFT": ["aero/coefficient/CLalpha"],
+             "DRAG": ["aero/coefficient/CDseparated"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

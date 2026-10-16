@@ -963,7 +963,7 @@
       <function name="aero/force/drag-stall">
         <description>The separated flow past the stall</description>
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <table>
             <independentVar>aero/alpha-deg</independentVar>

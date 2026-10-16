@@ -617,7 +617,7 @@
             <function name="aero/coefficient/CDseparated">
                 <description>Drag_past_the_flow_separating</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <table>
                         <independentVar>aero/alpha-rad</independentVar>

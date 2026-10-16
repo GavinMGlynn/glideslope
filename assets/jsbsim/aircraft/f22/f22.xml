@@ -2082,7 +2082,7 @@
             <function name="aero/coefficient/CDseparated">
                 <description>Drag_past_the_flow_separating</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <table>
                         <independentVar>aero/alpha-rad</independentVar>
@@ -2206,7 +2206,7 @@
          <function name="aero/coefficient/CDDlef">
                    <description>Drag_due_to_leading_edge_flap_deflection</description>
                    <product>
-                       <property>aero/qbar-psf</property>
+                       <property>aero/qbarUW-psf</property>
                        <property>metrics/Sw-sqft</property>
                        <property>aero/function/kCDge</property>
             <property>fcs/lef-pos-rad</property>

@@ -728,7 +728,7 @@
     <function name="aero/force/Drag_basic">
        <description>Drag at zero lift</description>
        <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <table>
             <independentVar lookup="row">aero/alpha-rad</independentVar>

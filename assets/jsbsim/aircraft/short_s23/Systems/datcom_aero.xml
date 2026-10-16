@@ -362,7 +362,7 @@
             </description>
             <product>
                <property>aero/function/ground-effect-factor-drag</property>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <value>1.9</value> <!-- glideslope: 1.23 in the pinned model; see tools/make_short_s23.py. -->
                <table>
@@ -400,7 +400,7 @@
                Ultimately, we will feed this left flap pos
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <table>
                   <independentVar lookup="row">aero/alpha-deg</independentVar>
@@ -439,7 +439,7 @@
                Ultimately, we will feed this right flap pos
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <table>
                   <independentVar lookup="row">aero/alpha-deg</independentVar>
