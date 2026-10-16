@@ -80,6 +80,28 @@ measurements with every change except that one, against all of them together
                          degrees. The source's skid sat 8 in below her drawn
                          tail and struck at 10.3.
 
+**Her elevator in the part of the slipstream that reaches it** (2026-10-16):
+Cmde. The pinned model puts her elevator's moment on aero/function/qbar-induced-
+psf, the dynamic pressure of the fully grown slipstream, u + 2v (v the
+propeller's induced velocity), as if the whole tailplane sat in it. Standing at
+full power that is the static thrust over the disc area, 16.8 psf, on all of her
+elevator: stick full back +7,860 ft-lb, which reared her onto her tail strike at
+11.2 degrees on held brakes at every loading, and stick full forward -6,200
+ft-lb, which lifted her main wheels and put her over her nose. Momentum theory
+(Glauert; McCormick, "Aerodynamics, Aeronautics, and Flight Mechanics", on the
+propeller's momentum theory) has the far slipstream at twice the induced
+velocity with half the disc's area, so its diameter is the propeller's over
+root two. The handbook's Figure 1-1 (Three View, page 1-2) gives the propeller,
+75 in, and the horizontal tail's span, 11 ft 4 in: the slipstream, 53.0 in
+across, covers 0.390 of that span. Her elevator now works on the free stream's
+dynamic pressure plus that fraction of the slipstream's excess over it,
+aero/function/qbar-tail-psf. Assumed, not measured: the slipstream meets the
+tailplane centred and uncontracted further, and the tailcone takes nothing out
+of it. In flight her induced velocity is small beside her airspeed and the two
+nearly agree; at a standstill her elevator has 0.39 of what it had. Her rudder
+(Cndr) stays on the whole slipstream, not this change's. The selftest flies her,
+and its hash moves with this.
+
 **The alpha-rate terms on the dynamic pressure without its sideways part**
 (tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
 angle of attack is undefined, its rate swings, and multiplied by the whole
@@ -146,6 +168,13 @@ LIFT_UNSTALLED = {
     0.28: 1.68, 0.30: 1.66, 0.32: 1.58, 0.34: 1.45, 0.36: 1.28,
 }
 FLAP_LIFT = ("0.2500", "0.3800", "0.4200")
+# Her handbook's Figure 1-1 (Three View): the propeller's diameter, and the
+# horizontal tail's span, 11 ft 4 in.
+PROPELLER_DIAMETER_IN = 75.0
+TAIL_SPAN_IN = 136.0
+# Momentum theory: the far slipstream has half the disc's area.
+SLIPSTREAM_DIAMETER_IN = PROPELLER_DIAMETER_IN / 2.0 ** 0.5
+TAIL_IN_SLIPSTREAM = round(SLIPSTREAM_DIAMETER_IN / TAIL_SPAN_IN, 3)
 
 
 def table_rows(text, description):
@@ -226,6 +255,33 @@ def airframe():
         r"\s*0\.0000\s+0\.0000\s*\n\s*10\.0000\s+)0\.2000(\s*\n\s*20\.0000\s+)0\.3000(\s*\n\s*30\.0000\s+)0\.3500",
         r"\g<1>" + FLAP_LIFT[0] + r"\g<2>" + FLAP_LIFT[1] + r"\g<3>" + FLAP_LIFT[2],
         "the flap lift table")
+    # Her elevator in the part of the slipstream that reaches it (docstring).
+    text = replace_once(
+        text,
+        r'(<function name="aero/function/qbar-induced-psf">.*?</function>\n)',
+        r"\1\n"
+        r' <function name="aero/function/qbar-tail-psf">' "\n"
+        r"  <description> q bar at the tailplane: the free stream's, and the part of the"
+        "\n"
+        r"   slipstream's excess that reaches it (glideslope: tools/make_c172p.py) </description>"
+        "\n"
+        r"  <sum>" "\n"
+        r"   <property>aero/qbar-psf</property>" "\n"
+        r"   <product>" "\n"
+        f"    <value>{TAIL_IN_SLIPSTREAM:.3f}</value>\n"
+        r"    <difference>" "\n"
+        r"     <property>aero/function/qbar-induced-psf</property>" "\n"
+        r"     <property>aero/qbar-psf</property>" "\n"
+        r"    </difference>" "\n"
+        r"   </product>" "\n"
+        r"  </sum>" "\n"
+        r" </function>" "\n",
+        "the induced dynamic pressure's function")
+    text = replace_once(
+        text,
+        r"(<description>Pitch_moment_due_to_elevator_deflection</description>\s*<product>\s*"
+        r"<property>)aero/function/qbar-induced-psf(</property>)",
+        r"\1aero/function/qbar-tail-psf\2", "the elevator's pitch term")
     text = replace_once(
         text, r"(<fileheader>)",
         r"\1\n        <!-- glideslope: this is JSBSim's c172p with the changes listed in\n"

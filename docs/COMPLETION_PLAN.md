@@ -683,11 +683,17 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       one would, at her tip ratio of 0.45 to 0.50, is not measured.
       *Verification: a cited figure for a Cub's braking with the stick
       central, and her nose-over held to it.*
-- [ ] **A C172P at full power on held brakes, stick back, sits on her
-      tail**: she rears to 11 degrees, where a real one tends to slide; no test
-      covers it now. *Verification: a C172P at full power on her brakes,
-      stick full back, keeps her nosewheel within a stated height of the
-      runway and her tail off it, from a cited figure.*
+- [x] **A C172P at full power on held brakes sat on her tail, or went over
+      her nose**: her elevator worked on the whole slipstream. Now only the
+      part of her tailplane the slipstream reaches is in it (her handbook's
+      Figure 1-1 and momentum theory). *Verification: stick central she
+      stands on three wheels at every loading, as her handbook's short-field
+      take-off has her; stick full forward she never noses over; stick full
+      back, measured and named unsourced.* Done 2026-10-16: stick back she
+      sits on her tail only at her aft limit; every figure in range.
+- [ ] **The C172P's rudder works on the whole slipstream**, as her elevator
+      did. *Verification: her rudder in the part of the slipstream that
+      reaches her fin, from a cited figure, and every figure in range.*
 - [x] **The walking-pace tests' throttle sits the C172P on her tail.**
       Holding her at 3 kt against the autobrake, the test's hand winds to full
       power with her stick back, and she rears to 11 degrees. *Verification:

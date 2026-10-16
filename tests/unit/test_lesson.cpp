@@ -615,6 +615,7 @@ Flown fly_the_take_off(const std::string& id, double early_from_kts,
     double out_climb_most = -1e9;
     bool pulled = false;
     bool let_go = false;
+    int clear_ticks = 0; // steps her main wheels have been clear while pulled
     double out_off_at_s = 0.0;
     int out_step_swings = 0;
     double swing_extreme_deg = 0.0;
@@ -658,10 +659,17 @@ Flown fly_the_take_off(const std::string& id, double early_from_kts,
             // forward stick flies.
             controls.elevator = -0.3;
         } else if (early_from_kts > 0.0 && !entry.seaplane && !let_go &&
-                   on_its_main_wheels(aircraft) &&
-                   aircraft.property("velocities/vc-kts") >= early_from_kts) {
+                   aircraft.property("velocities/vc-kts") >= early_from_kts &&
+                   (on_its_main_wheels(aircraft) || clear_ticks < steps_per_second / 2)) {
+            // **Off is off for half a second**: pulled fully back at 45
+            // knots a C172P is thrown onto her tail strike and her main
+            // wheels hop clear of the runway for a moment, which is not
+            // flying (2026-10-16, her elevator in the part of the slipstream
+            // that reaches it: let go there, she rolled on to 60 knots on
+            // the book's stick before she flew).
             controls.elevator = std::max(controls.elevator, 1.0);
             pulled = true;
+            clear_ticks = on_its_main_wheels(aircraft) ? 0 : clear_ticks + 1;
         } else if (pulled) {
             let_go = true;
         }
@@ -3673,10 +3681,11 @@ void walking_pace_then_stop(double crosswind_kts, bool wet, const double (&paces
 // foot of walking pace, and below it in a moment; at 2.5 kt none reaches it
 // dry or across (0.18 to 0.29). From 3 kt it is required, but of those
 // named here: at 3 kt their brakes stop them first, and from 3.5 kt every
-// one reaches it.
+// one reaches it. (The C172P, named here at 0.287, reaches it since her
+// elevator works in the part of the slipstream that reaches it, 2026-10-16:
+// 0.300 in linux-release and `-march=x86-64-v2`.)
 const std::map<std::string, CannotReach>& short_of_the_ceiling_at_3_kt_dry() {
     static const std::map<std::string, CannotReach> named{
-        {"c172p", {3.5, "0.287 at most rolling, handed over at 3 kt"}},
         {"f15c", {3.5, "0.288 at most rolling, handed over at 3 kt"}},
         {"j3cub", {3.5, "0.278 at most rolling, handed over at 3 kt"}},
         {"mosquito-fb6", {3.5, "0.287 at most rolling, handed over at 3 kt"}}};
