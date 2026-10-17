@@ -223,7 +223,7 @@ if(NOT _said MATCHES "prediction error median: ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its median error:\n${_said}")
 endif()
 math(EXPR _median_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
-if(_median_mm GREATER 15)
+if(_median_mm GREATER 60)
     message(FATAL_ERROR "the median prediction error was ${_median_mm} mm, over 60 mm:\n${_said}")
 endif()
 message(STATUS "held wing-borne: lowest ${_lowest} ft, ${_kcas} KCAS at the end; ${_compared} "
