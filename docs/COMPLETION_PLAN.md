@@ -616,12 +616,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       NACA's porpoising work), her take-off figures in range, and in calm
       air she holds the step without porpoising.* Done 2026-10-14: she
       hops 0.32 ft on the step against 0.5.
-- [ ] **A rolling aeroplane near a stop can be thrown on her nose by her
-      gear in one step.** **Missing**: the Mosquito tips onto her nose braked
-      past 0.5, real or not unmeasured. (The Cub's crosswind pitch term, its
-      other open part, is moved off the whole dynamic pressure, 2026-10-15.)
-      *Verification: every landplane rolled to a stop at a sweep of brake
-      levels shows no pitch rate over a stated bound.*
+- [x] **A rolling aeroplane near a stop can be thrown on her nose by her
+      gear in one step.** The Mosquito tips from brake 0.60 (0.65 at her two
+      heaviest loadings): her real behaviour, model unchanged (owner,
+      2026-10-17), unmeasured on a real aeroplane. *Verification: a sweep at
+      every loading and 0.05 of brake pins the level, both sides.* Done 2026-10-17.
 - [x] **The J-3 Cub's nose is pushed down by a crosswind**: her
       angle-of-attack pitch term counts it. *Verification: that term, and
       every other model's, uses the dynamic pressure without its sideways

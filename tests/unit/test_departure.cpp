@@ -2962,3 +2962,157 @@ GLIDESLOPE_TEST(a_c172p_at_full_power_on_held_brakes_with_her_stick_full_back_do
         }
     }
 }
+
+// **The Mosquito braked past a level tips onto her nose, and the level is
+// pinned.** The owner's decision (2026-10-17) for the Phase 9 item "A
+// rolling aeroplane near a stop can be thrown on her nose by her gear in one
+// step": her tipping is taken as her real behaviour, her model left
+// unchanged. A tail-wheel aeroplane with her main wheels 16 in ahead of her
+// centre of gravity and a high one, braked hard enough, pitches over them:
+// her friction at the main wheels, 0.8 static, past the ratio of her
+// centre's height to its distance aft of them. The Pilot's Notes (A.P.
+// 2019E) warn against harsh braking with the tail raised - NOT FOUND in the
+// edition checked (the 1944 FB 6 notes, zenoswarbirdvideos.com's scan), which
+// says only that brake pressure at each wheel is 80 to 100 lb/sq in (para.
+// 19); the citation is unconfirmed and not relied on. **The level is
+// unmeasured on a real aeroplane**: nothing found gives the brake lever's
+// travel against deceleration or a recorded nose-over, so 0.60 is this
+// model's, not a Mosquito's.
+//
+// **The scenario**: at each of her seven loadings (her model's own, and the
+// six her figures give), on the runway in calm air, stood five seconds on
+// full brakes, run up on a throttle opening at 0.2 a second to 10 kt by the
+// take-off steering with the stick held fully back (as a tail-wheel
+// aeroplane is braked: FAA-H-8083-3), then braked on both wheels at every
+// twentieth of brake from 0.05 to 1.00, throttle closed, until she stops
+// and stands five seconds: 140 runs. **Tipped** is her pitch going below the
+// horizontal (she stands at 11 to 12 degrees nose up) at some step of the
+// braking. **Pinned**, measured on linux-release 2026-10-17: she tips from
+// brake 0.60 at her own, HX809, and the three Pilot's Notes loadings, and
+// from 0.65 at HJ679's and the B.IV maximum's (the two heaviest, 21,020 and
+// 21,462 lb; at 0.60 they dip to 2.4 and 5.3 degrees). At 0.55 she dips to
+// 9.2 to 10.7 degrees at 6 to 13 deg/s, and stays on her wheels. Past the
+// level she pitches at 28 to 62 deg/s, her nose to -5.8 to -9.6 degrees, and
+// stops. The test asserts both sides at every level: below a loading's
+// pinned level she does not tip, at or above it she does, so a model change
+// that moves the level in either direction fails.
+GLIDESLOPE_TEST(the_mosquito_braked_to_a_stop_from_10_kt_in_calm_air_tips_onto_her_nose_from_one_brake_level_at_every_loading) {
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / "mosquito-fb6.xml");
+    const auto runway = a_runway();
+    const auto kts_of = [](const glideslope::sim::Aircraft& a) {
+        return a.property("velocities/vg-fps") / 1.68781;
+    };
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    // Her pinned tipping level at each loading ("" is her model's own).
+    const std::map<std::string, double> pinned = {
+        {"", 0.60},       {"hx809", 0.60},      {"hj679", 0.65},  {"b4-maximum", 0.65},
+        {"pn-full", 0.60}, {"pn-18000", 0.60}, {"pn-17000", 0.60}};
+    std::vector<std::string> names = {""};
+    for (const auto& [name, l] : figures.loadings) {
+        names.push_back(name);
+    }
+    constexpr int levels = 20;
+    std::size_t runs = 0;
+    std::size_t tipped_runs = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& name : names) {
+        check(pinned.count(name) == 1, "loading '" + name + "' has a pinned level");
+        for (int i = 1; i <= levels; ++i) {
+            const double brake = i * 0.05;
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", "mosquito-fb6");
+            if (!name.empty()) {
+                aircraft.load(figures.loadings.at(name).loading);
+            }
+            aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                [](double, double) { return 0.0; }, [](double, double) { return false; }));
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = runway.threshold_lat_deg;
+            ic.longitude_deg = runway.threshold_lon_deg;
+            ic.altitude_ft = runway.elevation_ft;
+            ic.terrain_elevation_ft = runway.elevation_ft;
+            ic.heading_deg = runway.heading_deg;
+            ic.engine_running = true;
+            ic.gear = 1.0;
+            aircraft.initialize(ic);
+            const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), "mosquito-fb6");
+            glideslope::sim::Controls parked;
+            parked.left_brake = 1.0;
+            parked.right_brake = 1.0;
+            for (int step = 0; step < 5 * steps_per_second; ++step) {
+                aircraft.set_controls(parked);
+                aircraft.step();
+            }
+            Departure steering(aircraft, runway, speeds);
+            double throttle = 0.0;
+            bool rolling = false;
+            for (int step = 0; step < 60 * steps_per_second; ++step) {
+                if (kts_of(aircraft) >= 10.0) {
+                    rolling = true;
+                    break;
+                }
+                glideslope::sim::Controls c = steering.fly();
+                throttle = std::min(1.0, throttle + 0.2 / steps_per_second);
+                c.throttle = throttle;
+                c.left_brake = 0.0;
+                c.right_brake = 0.0;
+                c.elevator = 1.0;
+                aircraft.set_controls(c);
+                aircraft.step();
+            }
+            double least_pitch = 90.0;
+            double most_q = 0.0;
+            bool stopped = false;
+            int stood = 0;
+            for (int step = 0; rolling && step < 90 * steps_per_second &&
+                               stood < 5 * steps_per_second;
+                 ++step) {
+                glideslope::sim::Controls c = steering.fly();
+                c.throttle = 0.0;
+                c.left_brake = brake;
+                c.right_brake = brake;
+                c.elevator = 1.0;
+                aircraft.set_controls(c);
+                aircraft.step();
+                least_pitch = std::min(least_pitch, aircraft.state().pitch_deg);
+                most_q = std::max(most_q, std::abs(aircraft.state().q_radps) * degrees);
+                if (std::abs(aircraft.state().pitch_deg) > 45.0) {
+                    break;
+                }
+                stopped = stopped || kts_of(aircraft) < 0.2;
+                if (stopped) {
+                    ++stood;
+                }
+            }
+            const bool tipped = least_pitch < 0.0;
+            char where[96];
+            std::snprintf(where, sizeof where, "%s at brake %.2f", name.empty() ? "own" : name.c_str(),
+                          brake);
+            std::printf("  %-26s least pitch %6.1f deg, most pitch rate %5.1f deg/s%s\n", where,
+                        least_pitch, most_q, tipped ? ", TIPPED" : "");
+            ++runs;
+            tipped_runs += tipped ? 1 : 0;
+            if (!rolling || !stopped) {
+                wrong.push_back(std::string(where) + (rolling ? ": did not stop" : ": never rolled"));
+            }
+            const bool should = brake >= pinned.at(name) - 1e-9;
+            if (tipped != should) {
+                wrong.push_back(std::string(where) + (tipped ? ": tipped below" : ": did not tip at") +
+                                " her pinned level " + std::to_string(pinned.at(name)));
+            }
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    // The space: her own loading and the six her figures give, at twenty
+    // levels; of the 140 runs 61 tip: 0.60 to 1.00 is nine levels at five
+    // loadings, 0.65 to 1.00 eight at two.
+    check(names.size() == 7 && pinned.size() == 7 && figures.loadings.size() == 6 &&
+              runs == 7 * levels,
+          "seven loadings at twenty levels, 140 runs: " + std::to_string(runs));
+    check(tipped_runs == 5 * 9 + 2 * 8,
+          "61 of the 140 runs tipped: " + std::to_string(tipped_runs));
+}
