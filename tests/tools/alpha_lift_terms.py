@@ -87,8 +87,9 @@ NAMED = {
         "f15c": {C + "CDbeta": "drag with sideslip: keyed to the sideways air by design; the "
                                "angle of attack only picks its coefficient of it"},
         "f22": {C + "CDq": "drag " + DAMPING, C + "CDq_Dlef": "drag " + DAMPING},
-        "short_s23": {C + "CdDe": "her elevator's drag, not her wing's: the angle of attack "
-                                  "only picks its coefficient of the deflection"},
+        "short_s23": {C + "CdDe": "her elevator's drag, not her wing's: a table of the angle "
+                                  "of attack and the deflection, under 0.00002 at no "
+                                  "deflection at every angle, 0.029 at most"},
     },
 }
 TOTAL = 16
