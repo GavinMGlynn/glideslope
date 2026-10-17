@@ -54,5 +54,7 @@ wheels. Past the level her pitch rate runs 28 to 62 deg/s, her nose goes to
 **Verification.** Seen red twice: the own loading pinned at 0.65 failed at
 "own at brake 0.60: tipped below her pinned level", and HX809 pinned at 0.55
 failed at "hx809 at brake 0.55: did not tip at her pinned level"; both
-reverted. Also run in a `-march=x86-64-v2` build (see the pull request),
-since tipping is edge-sensitive.
+reverted. Also run in a `-march=x86-64-v2` build (tipping is
+edge-sensitive; build directory deleted afterwards): the new test passed
+there, so the same 61 of 140 runs tip at the same levels. In linux-release
+the 51 tests named mosquito or every_landplane pass.
