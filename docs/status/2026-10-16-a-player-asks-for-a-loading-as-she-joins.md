@@ -63,7 +63,7 @@ for her. Protocol version 14 (`0E`):
   once joined; her pitch within 0.109 degrees. Held: told the loading, under
   37,530 lb and over 37,000, converted, hovered and down, the server's word
   hovering and at rest, no wreck, at least 3,000 compared, the median under
-  15 mm, the 95th percentile under 3.4 m, the worst under 5.6 m, nine in ten
+  60 mm, the 95th percentile under 3.4 m, the worst under 5.6 m, nine in ten
   joined, the pitch within half a degree - server_stovl_landing.cmake's
   bounds and reasons. 343 s. Again through ctest: converted at 69.1 s,
   hovering at 170.4 s, down at 332.2 s; 8,280 compared, the median 0 mm,
@@ -102,7 +102,9 @@ for her. Protocol version 14 (`0E`):
   minutes at -j4. On CI run 38803123702 the new test passed on all seven
   presets (290 to 344 s).
 - **Its bounds are server_stovl_landing.cmake's as #214 set them from
-  every platform's CI**: the median under 15 mm, the 95th percentile under
+  every platform's CI** (#214, the median's 60 mm by #219: CI's unbroken
+  medians reached 28 mm on windows-clang, and the pitch check catches a
+  wandered law): the median under 60 mm, the 95th percentile under
   3.4 m.
 - The STOVL selector held wing-borne at her model's own weight,
   `a_players_stovl_selector_through_a_server_holds_a_heavy_f35b_wing_borne_and_the_client_agrees`,
