@@ -62,8 +62,11 @@ the 747's 5,409-11,778 lb to 5,329-5,337, the A380's 2,916-13,852 to
 2,790-2,803. Their pitch standing moved as before (each under 0.2 degrees but
 the C182's 0.87 and the S.23's 0.44 afloat, as on main).
 
-**Their figures** (linux-debug, every test in test_figures.cpp, 167, before
-and after; all pass both ways). Moved: the Learjet's take-off field length
+**Their figures** (linux-debug, every test in test_figures.cpp, measured on
+the tree rebased onto main at df6fd198 - #213's C172P elevator and the Cub's
+beam-wind drag in - main's models against this branch's in the same build;
+all pass both ways). The same figures move, by the same amounts, as they did
+before the rebase. Moved: the Learjet's take-off field length
 5,378.9 -> 5,376.9 ft (range 4,770 to 5,830); the 747's 11,269.4 -> 11,269.7,
 the 737's and 787's in the second decimal; the Mosquito's take-off distance
 2,522.02 -> 2,522.07 ft; **the Mosquito's take-off swing 2.614 -> 2.573 lb/sq
@@ -73,16 +76,20 @@ S.23's long-range water take-off 798.9 -> 801.7 yd (+0.35%) and 34.13 ->
 34.19 s, her standard 26.83 -> 26.82 s; the F-35B's hover turn by 0.01 ft.
 Every other figure prints the same.
 
-**The other flights** (linux-debug, 217 tests: every crosswind heading hold,
-landing, take-off, wet runway, walking-pace, braked-stop and standing test,
-and every learnt landing): all pass (two need a DEM the binary run had not
-fetched, skipped both ways). 43 print something different, all small but
-one: the walking-pace autobrake's rolling most for the C172P at 3 kt 0.286
--> 0.289; braked to a stop in 15 kt across the C172P's most pitch rate 5.5
--> 5.4 deg/s; the steady-crosswind stops within a metre and a tenth of a
-second; the heading holds in 20 kt across by a hundredth of a degree; the
-learnt landing from its gate's corners in calm air worst 0.97 -> 0.99 m
-across and 158 -> 146 ft/min. The one not small is the take-off lesson's
+**The other flights** (linux-debug, the same rebased tree and comparison,
+217 tests: every crosswind heading hold, landing, take-off, wet runway,
+walking-pace, braked-stop and standing test, and every learnt landing): all
+pass on this branch's models. (On main's, the learnt parity test fails by
+name, as it must: the fixture is this branch's.) 44 print something
+different, all small but one: the walking-pace autobrake's rolling most for
+the C172P at 3 kt 0.296 -> 0.297; braked to a stop in 15 kt across the
+C172P's most pitch rate 5.5 -> 5.4 deg/s; the wet runway's worst across for
+the C172P 6.08 -> 6.12 m dry; the steady-crosswind stops within a metre and
+a tenth of a second; the heading holds in 20 kt across by a hundredth of a
+degree; the learnt landing from its gate's corners, worst across and sink,
+calm 0.37 m both ways and 186 -> 181 ft/min, from the left 2.45 -> 2.27 m and
+175 -> 163, from the right 0.17 -> 0.24 m and 252 -> 242, ahead 2.06 -> 1.46
+m, behind 1.43 m both ways. The one not small is the take-off lesson's
 fault run of the S.23 held nose low on the step - a run that is meant to go
 badly, its fault in the debrief either way: off at 82.5 kt after 80.5 s and
 71 swings, now 75.7 kt after 71.0 s and 55; flown by the book she is off at
@@ -121,16 +128,14 @@ the Cub's moved); the 737's `CD0` alone put back on `qbar` (17 of 18); a
 named term moved (the F-22A's `CDq`); a named term renamed (the S.23's
 `CdDe`: unlisted, and the listed one missing). Each restored, green.
 
-**Verification.** In linux-debug: the 167 figures and 217 flights above; the
-term checks, every committed-model test (each make script writes the
-committed models unchanged; `--check` on all sixteen) and the selftest's
-(`ctest -R "committed|every_flight_models|selftest"`, 32 tests); and every
-test whose name has every_landplane, committed or figures (52, all pass).
-**In a `-march=x86-64-v2` debug build** (no fused multiply-adds, as CI
-builds): the same 384 tests, every one printing what linux-debug prints, to
-the last digit; the selftest hash `ac2e6c3cf5e96481` there too. The full
-suite is CI's. **After the rebase onto #213** (2026-10-17): every make
-script's `--check` passes, the term checks report 18 moved and 4 named on
-either axis, every test in test_figures.cpp passes, and so does every test
-whose name has committed, figures, every_landplane, c172p or selftest (75).
-The figures and flights compared above were measured before that rebase.
+**Verification**, all on the tree rebased onto main at df6fd198
+(2026-10-17). In linux-debug: the figures and 217 flights above; every make
+script's `--check` (all sixteen write the committed models unchanged); the
+term checks, 18 moved and 4 named on either axis; and every test whose name
+has committed, figures, every_landplane, c172p or selftest (75, all pass,
+run after the rebase onto #213; main's later Cub change touches none of this
+branch's files). **In a `-march=x86-64-v2` debug build** (no fused
+multiply-adds, as CI builds), on the same rebased tree: the same figures and
+flights, every one printing what linux-debug prints to the last digit (two
+DEM tests skipped there, the build having fetched none); the selftest hash
+`ef497a75d22b8798` there too. The full suite is CI's.
