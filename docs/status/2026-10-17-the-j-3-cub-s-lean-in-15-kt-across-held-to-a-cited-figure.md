@@ -106,4 +106,8 @@ every run 38.0 to 40.0 s at her pace, brake at most 0.05, throttle 0.04 to
 
 **Verification**, linux-debug: the 64 tests whose names have cub, j3cub,
 every_landplane or committed pass, and the 128 more with crosswind, wind,
-gust, walking, standing, tail_wheel, light_aircraft or selftest.
+gust, walking, standing, tail_wheel, light_aircraft or selftest. In a
+`-march=x86-64-v2` debug build (no fused multiply-adds, as on CI), the 42
+tests with cub, j3cub or every_landplane in their names that its test
+program and `glideslope_cli` run pass, the new test's figures and the
+walking-pace test's the same to the printed digit.
