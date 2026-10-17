@@ -72,6 +72,7 @@
 #include <filesystem>
 #include <fstream>
 #include <iterator>
+#include <limits>
 #include <deque>
 #include <map>
 #include <span>
@@ -1851,9 +1852,42 @@ public:
                         std::max(worst_pitch_error_deg_, std::abs(at->pitch_deg - pitch_of(m)));
                     // **The speed's error**: the server's word against what
                     // this client had flown it to, as the distance is.
-                    const double speed_error = std::abs(
-                        at->speed_mps -
-                        std::hypot(m.uvw_mps[0], m.uvw_mps[1], m.uvw_mps[2]));
+                    const double server_speed =
+                        std::hypot(m.uvw_mps[0], m.uvw_mps[1], m.uvw_mps[2]);
+                    const double speed_error = std::abs(at->speed_mps - server_speed);
+                    // **And where it was, not when**: the speed this client
+                    // had flown at the step it had flown nearest the
+                    // server's word. Placed by the clocks' difference, a
+                    // word is held against the step that difference names,
+                    // and a server behind real time by fits and starts moves
+                    // it by tens of steps for seconds (PROJECT_STATUS.md,
+                    // 2026-10-17): every step off is the speed's change in
+                    // a 120th of a second, which a glide with its engine
+                    // stopped makes ten times a cruise's. Nearest in place,
+                    // the steps off are taken out; an engine run on is not,
+                    // as she got there faster. Not at either end of the
+                    // steps kept, where the nearest may lie beyond: those are
+                    // left out of it and counted, and a test holds how many
+                    // were placed.
+                    const Predicted* nearest = nullptr;
+                    double nearest_m = std::numeric_limits<double>::infinity();
+                    for (const Predicted& p : predicted_at_) {
+                        const double d = std::hypot(p.where[0] - m.location_ecef_m[0],
+                                                    p.where[1] - m.location_ecef_m[1],
+                                                    p.where[2] - m.location_ecef_m[2]);
+                        if (d < nearest_m) {
+                            nearest_m = d;
+                            nearest = &p;
+                        }
+                    }
+                    const bool at_an_end =
+                        nearest == &predicted_at_.front() || nearest == &predicted_at_.back();
+                    if (at_an_end) {
+                        ++nearest_at_an_end_;
+                    }
+                    const double placed_speed_error = std::abs(nearest->speed_mps - server_speed);
+                    const double steps_off = std::abs(static_cast<double>(nearest->step + 1) -
+                                                      static_cast<double>(*c.at_step));
                     // **Each comparison, for a test to read the series**:
                     // when, the error, the step it was placed at, the input
                     // and how far into it, the clocks' difference over all
@@ -1873,7 +1907,15 @@ public:
                         ++compared_engine_stopped_;
                         errors_engine_stopped_m_.push_back(error);
                         speed_errors_engine_stopped_mps_.push_back(speed_error);
+                        if (!at_an_end) {
+                            placed_speed_errors_engine_stopped_mps_.push_back(placed_speed_error);
+                            steps_off_engine_stopped_.push_back(steps_off);
+                        }
                     } else {
+                        if (!at_an_end) {
+                            placed_speed_errors_engine_running_mps_.push_back(placed_speed_error);
+                            steps_off_engine_running_.push_back(steps_off);
+                        }
                         worst_error_engine_running_m_ =
                             std::max(worst_error_engine_running_m_, error);
                         errors_engine_running_m_.push_back(error);
@@ -1887,9 +1929,14 @@ public:
                         ++compared_since_;
                     }
                 }
-                // Kept from that step on: a later word is about a later one.
+                // Kept from two seconds before that step on: a later word is
+                // about a later one, and is held against where this client
+                // had flown nearest it, which a misplacing puts up to a
+                // second either side (`placed_speed_error`).
                 while (c.at_step && !predicted_at_.empty() &&
-                       predicted_at_.front().step + 1 < *c.at_step) {
+                       predicted_at_.front().step + 1 +
+                               static_cast<std::uint64_t>(2 * glideslope::sim::steps_per_second) <
+                           *c.at_step) {
                     predicted_at_.pop_front();
                 }
                 // **A correction small enough to hide is hidden** - taken up
@@ -2273,6 +2320,21 @@ public:
                           median(speed_errors_engine_stopped_mps_),
                           median(speed_errors_engine_running_mps_));
             lines.emplace_back(line);
+            // **And in speed where it was, not when** (`heard`), with how
+            // far the clocks' difference had placed the word from there -
+            // what the speed above pays a step's change in speed for.
+            std::snprintf(line, sizeof line,
+                          "engine stopped: the median speed error where it was after %.4f m/s "
+                          "over %zu updates, before %.4f m/s over %zu; placed %.0f and %.0f "
+                          "steps from there at the median, %zu nearest at an end of the steps "
+                          "kept and left out",
+                          median(placed_speed_errors_engine_stopped_mps_),
+                          placed_speed_errors_engine_stopped_mps_.size(),
+                          median(placed_speed_errors_engine_running_mps_),
+                          placed_speed_errors_engine_running_mps_.size(),
+                          median(steps_off_engine_stopped_), median(steps_off_engine_running_),
+                          nearest_at_an_end_);
+            lines.emplace_back(line);
         }
         if (handed_over_ + taken_back_ + taken_over_ > 0) {
             std::snprintf(line, sizeof line,
@@ -2552,6 +2614,14 @@ private:
     // **And in speed**, apart (`report`).
     std::vector<double> speed_errors_engine_stopped_mps_;
     std::vector<double> speed_errors_engine_running_mps_;
+    // **And in speed where it was, not when** (`heard`): against the step
+    // this client had flown nearest the server's word, and how many steps
+    // that was from the one the clocks' difference placed it at.
+    std::vector<double> placed_speed_errors_engine_stopped_mps_;
+    std::vector<double> placed_speed_errors_engine_running_mps_;
+    std::vector<double> steps_off_engine_stopped_;
+    std::vector<double> steps_off_engine_running_;
+    std::size_t nearest_at_an_end_ = 0;
     double worst_error_engine_running_m_ = 0.0;
     double worst_correction_engine_stopped_m_ = 0.0;
     double worst_correction_engine_running_m_ = 0.0;
