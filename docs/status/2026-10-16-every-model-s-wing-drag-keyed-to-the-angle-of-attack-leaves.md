@@ -30,7 +30,10 @@ keyed to the angle of attack: nothing to move. **Named, not moved**: the
 F-15C's `CDbeta` (drag with sideslip: keyed to the sideways air by design,
 the angle of attack only picks its coefficient), the F-22A's `CDq` and
 `CDq_Dlef` (drag with pitch rate), and the S.23's `CdDe` (her elevator's
-drag, not her wing's). The reasoning is her lift's: a wing's drag at its
+drag, not her wing's: a table of the angle of attack and the deflection -
+the angle does not multiply the deflection - under 0.00002 at no deflection
+at every angle in it, -16 to 24 degrees, its ends held past them, and 0.029
+at most). The reasoning is her lift's: a wing's drag at its
 angle of attack is made by the air in the plane of u and w; the sideways part
 runs along the span. It is the term that rolled the Cub onto her wing
 standing in a beam wind (2026-10-15). alpha_rate.py's docstring says so.

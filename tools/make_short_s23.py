@@ -184,8 +184,9 @@ drag at its angle of attack is made by the air in the plane of u and w, and the
 sideways part runs along its span - the drag that rolled the J-3 Cub onto her
 wing standing in a beam wind (make_j3cub.py). In flight, at a few degrees of
 sideslip, the two differ by its cosine squared. Not moved: CdDe, her elevator's
-drag, not her wing's - the angle of attack only picks its coefficient of the
-deflection.
+drag, not her wing's - a table of the angle of attack and the deflection (the
+angle does not multiply the deflection), under 0.00002 at no deflection at
+every angle and 0.029 at most.
 """
 
 import math
