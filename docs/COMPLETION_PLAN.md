@@ -1260,7 +1260,16 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       before 2026-10-09, on branches and on main. *Verification: the test
       passes with the server held up for a second on purpose, on every
       platform, and a month of CI runs.* 2026-10-16: its speed bound is
-      25 cm/s, from six Windows failures since 2026-10-08; the cause is open.
+      25 cm/s, from six Windows failures since 2026-10-08. 2026-10-17: the
+      cause found and the test no longer depends on it (below); the month of
+      CI runs is still owed.
+- [x] **The engine-stop prediction test does not depend on the client's
+      pacing**: it held the server's word against the step the clocks'
+      difference named, which a server held up by fits and starts moves by
+      tens of steps; it now holds it against where the client had flown
+      nearest. *Verification: with the server stopped for up to 800 ms at a
+      time it passes, and an engine left running fails it plain, stopped
+      and slowed.* Done 2026-10-17.
 - [ ] **A flight flies one station's weather wherever it goes**: nothing
       picks the nearest station. *Verification: a flight from one station to
       another flies the nearer's weather, changing between them with no step

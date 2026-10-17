@@ -22,26 +22,35 @@
 # the event, not a time.
 #
 # **What must hold**: the client stopped one engine for the server's word,
-# compared 300 updates after, and its median error **in speed** after the
-# stop is no more than half again what it was before - put right no more
-# with it stopped than with it running, give or take a busy runner - and
-# under 25 cm a second. **In speed, not distance.** The distance is the server's
-# word against where this client had flown it to at the step the clocks'
-# difference places the word at, and on Windows, whose sleeps are 15.6 ms,
-# that placing is a step off for seconds at a time (PROJECT_STATUS.md, the
-# paced test's excursions): a step is 0.45 m at the Cessna's speed, and a
-# median of 0.43 m after the stop against 0.08 m before failed on CI's
-# Windows release (run 37759639784), 0.4 to 1.5 m on its debug and clang.
-# Which half of the run the steps off fall in is chance. A step moves the
-# speed by what the aeroplane gains in a 120th of a second - a centimetre a
-# second - where an engine run on moves it by its thrust over the round
-# trip. Measured on linux-debug: 0.018 m/s after against 0.135 before (the
-# throttle's changes, flown a step or two apart, are most of before's);
-# with the engine run on, 0.485 after - and the distance 0.183 m against
-# 0.042. On the Windows copy (release), 0.011, 0.012 and 0.013 after against
-# 0.127 to 0.135 before. The client keeps its track (`track.txt`): each
-# comparison's distance and speed error, and the clocks' difference it was
-# placed by.
+# compared 300 updates after, and its median error **in speed, where it
+# was** after the stop is under 10 cm a second and no more than half again
+# what it was before - put right no more with it stopped than with it
+# running.
+#
+# **Where it was, not when.** Each server's word is held against the speed
+# of the step this client had flown nearest to where the word puts her, not
+# the step the clocks' difference places the word at. The latter depends on
+# the pace: a server behind real time by fits and starts - a loaded
+# Windows runner - moves the difference by tens of steps for seconds, and
+# the word is held against a step that far from its own (PROJECT_STATUS.md,
+# 2026-10-17). Every step off costs the speed's change in a 120th of a
+# second, which a glide with its engine stopped makes far more than a
+# cruise: on CI's windows-clang (run 38980963376, paced at 0.873, 95 steps
+# off at worst) the median distance after the stop was 9.2 m against 0.04 m
+# before, and the speed placed by the clocks 0.33 m/s - the 0.33 to 0.49 an
+# engine run on gives. Nearest in place, a misplacing is taken out and an
+# engine run on is not: she got there faster. Here, with the server stopped
+# for 20 to 800 ms every 0.2 to 1.2 s (a test's SIGSTOP, on linux-debug):
+# 0.0088 m/s where it was after, 15 steps placed off at the median, against
+# 0.030 by the clocks and a median distance of 7.3 m; unstopped, 0.0054. An
+# engine run on: 0.332 and 0.358 where it was, 0.379 stopped as above, 0.228
+# slowed.
+# **And at least 270 of the 300 placed**: a word whose nearest is either end
+# of the two seconds and more kept is left out, as its nearest may lie
+# beyond - 2 to 4 in a run stopped as above. The speed placed by the
+# clocks' difference, and the distances, are reported, not held: they are
+# the pace's. The client keeps its track (`track.txt`): each comparison's
+# distance and speed error, and the clocks' difference it was placed by.
 #
 # **And against a server behind real time** (`-DSLOWED=ON`): its clock at a
 # set 0.6 of real time (`--test-pace 0.6`), as CI's Windows debug runners'
@@ -127,30 +136,38 @@ endif()
 # In tenths of a millimetre a second.
 math(EXPR _after_speed "${CMAKE_MATCH_1} * 10000 + ${CMAKE_MATCH_2}")
 math(EXPR _before_speed "${CMAKE_MATCH_3} * 10000 + ${CMAKE_MATCH_4}")
-# **And under 25 cm a second after**, whatever before was. It was 5 cm from
-# 2026-10-08, twice the 0.023 m/s measured on the Windows copy, and CI's
-# Windows failed it from that day: after the stop 0.0541, 0.0874, 0.0962 and
-# 0.1387 m/s on windows-clang (runs 37798907886, 37882235513, 37891045143
-# twice), 0.0817 and 0.0798 on windows-release (38447161811, 38803123702) -
-# six in a week, never a new failure, the clocks' difference placing words
-# several steps off (the median distance 2.6 and 3.9 m). 25 cm is that
-# 0.139 and four fifths again; an engine run on is 0.437 here (0.487 when
-# the bound was set), and slowed 0.226. **And no more than half again
-# before**: 0.1387 after against 0.1341 before failed plain "no more" once
-# on windows-clang (run 37891045143); every other CI figure was under
-# before. An engine run on was 0.437 against 0.101 before, and slowed 0.226
-# against 0.078 - both red with these bounds (2026-10-16), reverted, green.
-# The distance's medians are not held: on Windows a step's misplacing,
-# 0.45 m, is chance.
-if(_after_speed GREATER 2500)
-    message(FATAL_ERROR "with the engine stopped the median speed error was "
-                        "${_after_speed} tenths of a mm/s, not under 25 cm/s:\n${_said}")
+# **Where it was** (the header): the speed against the step flown nearest.
+if(NOT _said MATCHES "engine stopped: the median speed error where it was after ([0-9]+)\\.([0-9][0-9][0-9][0-9]) m/s over ([0-9]+) updates, before ([0-9]+)\\.([0-9][0-9][0-9][0-9]) m/s over ([0-9]+); placed ([0-9]+) and ([0-9]+) steps from there at the median, ([0-9]+) nearest at an end")
+    message(FATAL_ERROR "the client did not say its median speed errors where it was:\n${_said}")
 endif()
-math(EXPR _before_most "${_before_speed} * 3 / 2")
-if(_after_speed GREATER _before_most)
-    message(FATAL_ERROR "with the engine stopped the median speed error was "
-                        "${_after_speed} tenths of a mm/s, more than half again the "
-                        "${_before_speed} before it:\n${_said}")
+math(EXPR _after_placed "${CMAKE_MATCH_1} * 10000 + ${CMAKE_MATCH_2}")
+set(_placed_after "${CMAKE_MATCH_3}")
+math(EXPR _before_placed "${CMAKE_MATCH_4} * 10000 + ${CMAKE_MATCH_5}")
+set(_steps_off_after "${CMAKE_MATCH_7}")
+set(_steps_off_before "${CMAKE_MATCH_8}")
+set(_at_an_end "${CMAKE_MATCH_9}")
+# **At least nine in ten of the 300 placed**, so that the medians are of
+# the comparisons the run was kept for.
+if(_placed_after LESS 270)
+    message(FATAL_ERROR "only ${_placed_after} of ${_compared} updates after the engine stopped "
+                        "were placed where it was (${_at_an_end} nearest at an end), not 270:\n"
+                        "${_said}")
+endif()
+# **Under 10 cm a second after**: 0.0054 m/s here, 0.0088 with the server
+# stopped by fits and starts; an engine run on 0.332 to 0.358, 0.379 stopped, and
+# 0.228 slowed - the least of them two and a quarter times this.
+if(_after_placed GREATER 1000)
+    message(FATAL_ERROR "with the engine stopped the median speed error where it was was "
+                        "${_after_placed} tenths of a mm/s, not under 10 cm/s:\n${_said}")
+endif()
+# **And no more than half again before**: before is the throttle's changes,
+# flown a step or two apart, 0.06 to 0.10 m/s; an engine run on slowed was
+# 0.228 against 0.076.
+math(EXPR _before_most "${_before_placed} * 3 / 2")
+if(_after_placed GREATER _before_most)
+    message(FATAL_ERROR "with the engine stopped the median speed error where it was was "
+                        "${_after_placed} tenths of a mm/s, more than half again the "
+                        "${_before_placed} before it:\n${_said}")
 endif()
 # **Slowed, the median distances, not the speed**: both under 5 cm, the
 # bound the header names for a server at 0.6 of real time.
@@ -163,7 +180,10 @@ if(NOT _stopped_here EQUAL 1)
     message(FATAL_ERROR "the client stopped ${_stopped_here} engines for the server's word, "
                         "not one:\n${_said}")
 endif()
-message(STATUS "with its engine stopped, the median speed error was ${_after_speed} tenths "
-               "of a mm/s over ${_compared} updates, against ${_before_speed} before; the "
+message(STATUS "with its engine stopped, the median speed error where it was was "
+               "${_after_placed} tenths of a mm/s over ${_placed_after} updates, against "
+               "${_before_placed} before, placed ${_steps_off_after} and ${_steps_off_before} "
+               "steps off by the clocks' difference; by it, ${_after_speed} against "
+               "${_before_speed}; the "
                "median distance ${_after_mm} mm against ${_before_mm} mm (the worst ${_after} m "
                "and ${_before} m)")
