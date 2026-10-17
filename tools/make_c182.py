@@ -181,6 +181,18 @@ made by the air in the plane of u and w. Her wing is not swept: the case issue
 cosine squared. Her lift terms not keyed to the angle of attack (CLo, CLDf, CLq
 and CLDe) are not this change's, and stay on aero/qbar-psf. Standing, those
 give her 42 to 46 lb.
+
+**Her wing's drag keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CDalpha, and CDDf, her
+flaps' drag keyed to the angle of attack: the same wing's drag, its flaps down.
+Standing on her brakes in 15 kt straight across, her angle of attack, atan2(w,
+u), was -180 to 180 degrees, and on the whole dynamic pressure, which counts
+the crosswind, it drew her along the beam wind by up to 23 lb; on
+aero/qbarUW-psf, nothing. The same reasoning as her lift's, above: a wing's
+drag at its angle of attack is made by the air in the plane of u and w, and the
+sideways part runs along its span - the drag that rolled the J-3 Cub onto her
+wing standing in a beam wind (make_j3cub.py). In flight, at a few degrees of
+sideslip, the two differ by its cosine squared.
 """
 
 import pathlib
@@ -435,7 +447,8 @@ def outputs():
         OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_c182"), "make_c182",
             {"PITCH": ["aero/coefficient/Cmalpha"],
-             "LIFT": ["aero/coefficient/CLalpha"]}),
+             "LIFT": ["aero/coefficient/CLalpha"],
+             "DRAG": ["aero/coefficient/CDalpha", "aero/coefficient/CDDf"]}),
         OUT / "engine" / "engIO540AB1A5.xml": engine(),
         OUT / "engine" / "prop_81in2v.xml": propeller(),
     }

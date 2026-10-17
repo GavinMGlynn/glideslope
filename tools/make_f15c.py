@@ -260,6 +260,21 @@ holds for the lift of the same wing as for its moment - standing, qbarUW is the
 nearer; in flight, at a few degrees of sideslip, the two are under 1% apart.
 Her lift terms not keyed to the angle of attack (CLDe) are not this change's,
 and stay on aero/qbar-psf. CLq reads no angle of attack.
+
+**Her wing's drag keyed to the angle of attack on the same dynamic pressure**
+(alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CDseparated. CDseparated,
+her drag past the flow separating, is a product of her lift coefficient and the
+angle of attack; standing in 15 kt across it was under 0.1 lb on either
+pressure, and it is moved as the same wing's drag keyed to the same angle, for
+slowing and flight. The same reasoning as her lift's, above: a wing's drag at
+its angle of attack is made by the air in the plane of u and w, and the
+sideways part runs along its span - the drag that rolled the J-3 Cub onto her
+wing standing in a beam wind (make_j3cub.py). In flight, at a few degrees of
+sideslip, the two differ by its cosine squared. Her wing is swept: moved on the
+same argument as her lift, simple sweep theory
+(alpha_rate.with_alpha_terms_on_qbar_uw). Not moved: CDbeta, her drag with
+sideslip - keyed to the sideways air by design, the angle of attack only
+picking its coefficient of it.
 """
 
 import math
@@ -676,7 +691,8 @@ def outputs():
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_f15c"), "make_f15c",
             {"PITCH": ["aero/coefficient/Cmalpha"],
-             "LIFT": ["aero/coefficient/CLalpha"]}),
+             "LIFT": ["aero/coefficient/CLalpha"],
+             "DRAG": ["aero/coefficient/CDseparated"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }
