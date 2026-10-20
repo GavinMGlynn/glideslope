@@ -217,7 +217,9 @@ are the risks the phase order is built around:
   aircraft of its kind whose derivatives are published. A player's F-35B
   joins at a loading she asks for and converts, hovers and lands vertically
   through a server (2026-10-16); the windowed client's loading is compiled,
-  not run, and her jet-borne and hover laws' integrals are each side's own.
+  not run, and her jet-borne and hover laws' integrals are each side's own. She flies
+  30 kt backward in the hover (2026-10-20); her lift still steps at 180
+  degrees, which her height law takes up.
 - **Terrain is drawn around where the flight starts, and nowhere else.** The
   client draws the nine whole-degree cells around its start; fly out of them
   and there is sky below.

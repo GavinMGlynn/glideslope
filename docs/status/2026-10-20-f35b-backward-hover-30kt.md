@@ -35,3 +35,13 @@ on -20.0 kt. Every F-35B, STOVL and hover test, the committed-model-matches
 
 **Selftest hash** unmoved: the selftest flies the C172P, whose model is not
 touched (5cac1fa158d7e506 here).
+
+**Rebased onto main after #216 and #210** (2026-10-20; #216 moved the
+F-35B's wing drag onto the dynamic pressure without its sideways part). The
+figures above were measured before it; run again on the rebased tree in
+linux-debug, the hover test prints the same - 2.26 kt swing at most, pitch
+7.7, bank 7.7 - and the selftest hash is main's `ef497a75d22b8798`, unmoved
+by this change. Of the same 78 tests, all passed but #210's vertical landing
+through a server, which failed locally with three other builds running and
+passed in CI's linux-debug shards on the same tree; the two red runs were not
+repeated on the rebase.
