@@ -2038,7 +2038,9 @@ void near(double got, double wanted, double within, const std::string& what) {
 //
 //   forward   the lever half way from its detent to its forward stop, 40 s:
 //             15 kt ahead within 2, under 3 across;
-//   aft       the lever at its aft stop, 40 s: 20 kt back within 2;
+//   aft       the lever at its aft stop, 40 s: 30 kt back within 2, her
+//             published limit (tools/make_f35b.py), flown in air met from
+//             behind, her angle of attack either side of 180 degrees;
 //   right     the stick full right, 40 s: 20 kt right within 2, under 3
 //             ahead;
 //   left      the stick full left, 40 s: 20 kt left within 2;
@@ -2051,7 +2053,9 @@ void near(double got, double wanted, double within, const std::string& what) {
 // heading moves under 3 degrees; a pedal released, she holds the heading
 // she was left on within 3. Her height is held within 10 ft of what is
 // asked, her pitch within 15 degrees and her bank within 10 throughout,
-// her wheels never touching. Measured: pitch 9.3, bank 7.7.
+// her wheels never touching. Measured: pitch 7.7, bank 7.7, speeds swung
+// 2.3 kt; with her Cm-alpha jumping at 180 degrees (tools/make_f35b.py) she
+// swung 7.3 kt and 19 degrees in pitch flown back at 30.
 GLIDESLOPE_TEST(in_a_hover_the_f35bs_pilot_moves_her_forward_back_sideways_and_turns_her_with_the_lever_stick_and_pedals) {
     using namespace glideslope::sim;
     TransitionFlight f = f35b_level_at(300.0, 200.0);
@@ -2097,7 +2101,7 @@ GLIDESLOPE_TEST(in_a_hover_the_f35bs_pilot_moves_her_forward_back_sideways_and_t
     covered.insert("forward");
     stops("lever at its detent");
     std::tie(ahead, right) = hold(0.0, 0.0, 0.0, 40.0);
-    near(ahead, -20.0, 2.0, "lever full aft, kt ahead");
+    near(ahead, -30.0, 2.0, "lever full aft, kt ahead");
     near(right, 0.0, 3.0, "lever full aft, kt across");
     covered.insert("aft");
     stops("lever at its detent again");
@@ -2151,7 +2155,7 @@ GLIDESLOPE_TEST(in_a_hover_the_f35bs_pilot_moves_her_forward_back_sideways_and_t
 //               back 10 s on: not sent gathering speed, she hovers within
 //               ten minutes;
 //   at idle     selected with the lever at its aft stop, nudged 0.001
-//               forward 10 s on: not sent 20 kt back, she hovers within ten
+//               forward 10 s on: not sent 30 kt back, she hovers within ten
 //               minutes and, a minute on, has not moved faster than 1 kt;
 //   toggled     selected with the lever where it was, moved to its forward
 //               stop a second on (the pilot's from there), and the selector

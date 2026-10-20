@@ -169,6 +169,20 @@ wing standing in a beam wind (make_j3cub.py). In flight, at a few degrees of
 sideslip, the two differ by its cosine squared. Her wing is swept: moved on the
 same argument as her lift, simple sweep theory
 (alpha_rate.with_alpha_terms_on_qbar_uw).
+
+**Her Cm-alpha the same both ways round** (pitch_alpha_table, 2026-10-20): as
+the F-4C's slope times the angle of attack, it jumped where flying backward
+puts her angle - at 180 degrees, where atan2(w, u) goes from -180 to 180 -
+from 0.098 times pi of nose-up moment to as much nose-down: 5,700 ft-lb either
+way at 30 kt backward, past what the fan's share answers, and her hover law,
+the fan saturated at each crossing, swung her 19 degrees in pitch and her
+speed between 25 and 32 kt. An aeroplane met by the air from behind feels
+the same air whichever side of 180 the angle is reckoned: the moment is a
+function of where the air comes from, not of how its angle is written. So the
+slope holds to 90 degrees either way, as before, and past it falls straight to
+nothing at 180 - flown tail first, the slope reversed, as a weathercock blown
+from behind turns. Nothing published gives her moment past 90 degrees; the
+shape is this script's. Within 90 degrees it is the slope as it was.
 """
 
 import math
@@ -320,12 +334,11 @@ STOVL_LEVER_DETENT = 0.25
 # ft/min into the ground (PROJECT_STATUS, 2026-10-14).
 STOVL_HOVER_MOST_LBS = HOVER_THRUST_LBF * 0.98
 STOVL_TRC_KT = 30.0
-# **Backward, 20 kt: a limit of this model, not of the aeroplane.** Farley
-# and Kjelgaard (above) give 30 kt back; flown backward at 30 kt this model
-# swings 10 degrees in pitch and never settles (between 25 and 34 kt back
-# over 40 s, PROJECT_STATUS 2026-10-14), and at 20 kt its speed swings
-# under 4 kt. Put back to 30 when it holds 30 (COMPLETION_PLAN, Phase 9).
-STOVL_TRC_AFT_KT = 20.0
+# **Backward, 30 kt**, as Farley and Kjelgaard (above) give. Held at 20 from
+# 2026-10-14 while the model swung 10 degrees in pitch flown back at 30; the
+# swing was her Cm-alpha's jump at 180 degrees (pitch_alpha_table), and with
+# it gone she holds 30 back (docs/status/2026-10-20-f35b-backward-hover-30kt.md).
+STOVL_TRC_AFT_KT = 30.0
 STOVL_TRC_SIDE_KT = 20.0
 STOVL_TURN_DEG_S = 10.0
 # Her wing's lift slope at her conversion speed (about Mach 0.3 at sea
@@ -739,6 +752,18 @@ def lift_table(indent):
             f"{indent}    <tableData>\n{head}{rows}{indent}    </tableData>\n{indent}</table>\n")
 
 
+def pitch_alpha_table(indent):
+    """Cm-alpha by the angle of attack, all the way round: CM_ALPHA times it
+    to 90 degrees either way, then straight to nothing at 180, so that it is
+    the same at -180 and 180 (the docstring says why)."""
+    alphas = [-math.pi, -math.pi / 2.0, math.pi / 2.0, math.pi]
+    rows = "".join(f"{indent}        {a:.6f}\t{CM_ALPHA * math.copysign(min(abs(a), math.pi - abs(a)), a) + 0.0:.6f}\n"
+                   for a in alphas)
+    return (f"{indent}<table>\n"
+            f"{indent}    <independentVar>aero/alpha-rad</independentVar>\n"
+            f"{indent}    <tableData>\n{rows}{indent}    </tableData>\n{indent}</table>\n")
+
+
 def flap_lift_per_deg():
     """The flaperons' droop's lift a degree (FLAPERON_DROOP_DEG): DATCOM's
     plain flap, at low speed."""
@@ -776,7 +801,7 @@ def aerodynamics():
         w.coefficient("Cldr", "Roll_moment_due_to_rudders", [q, s, b, "fcs/rudder-pos-rad", CL_DR]),
     ]
     pitch = [
-        w.coefficient("Cmalpha", "Pitch_moment_due_to_alpha", [q, s, c, "aero/alpha-rad", CM_ALPHA]),
+        w.coefficient("Cmalpha", "Pitch_moment_due_to_alpha", [q, s, c, pitch_alpha_table(t)]),
         w.coefficient("Cmq", "Pitch_moment_due_to_pitch_rate", [q, s, c, "aero/ci2vel", "velocities/q-aero-rad_sec", CM_Q]),
         w.coefficient("Cmadot", "Pitch_moment_due_to_alpha_rate", [q, s, c, "aero/ci2vel", "aero/alphadot-rad_sec", CM_ADOT]),
         w.coefficient("Cmde", "Pitch_moment_due_to_stabilator", [q, s, c, "fcs/elevator-pos-rad", CM_DE]),
