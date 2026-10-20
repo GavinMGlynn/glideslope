@@ -1336,6 +1336,17 @@ add_test(NAME the_committed_piper_j3_cub_is_what_its_tuning_script_makes
 set_tests_properties(the_committed_piper_j3_cub_is_what_its_tuning_script_makes
     PROPERTIES SKIP_RETURN_CODE 77)
 
+# Her main wheels' springs against the rate her shock rings' rating and her
+# gear's drawings make, derived in the test from its sources
+# (tests/tools/cub_gear_springs.py).
+add_test(NAME the_j3_cubs_main_wheels_are_sprung_within_1_percent_of_the_rate_her_shock_rings_rating_makes
+    COMMAND ${CMAKE_COMMAND} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/tools/cub_gear_springs.py
+        "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft/j3cub/j3cub.xml"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
+set_tests_properties(the_j3_cubs_main_wheels_are_sprung_within_1_percent_of_the_rate_her_shock_rings_rating_makes
+    PROPERTIES SKIP_RETURN_CODE 77)
+
 add_test(NAME the_committed_boeing_737_300_is_what_its_tuning_script_makes
     COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} "-DPYTHON=${Python3_EXECUTABLE}"
         -DSCRIPT=tools/make_737_300.py
