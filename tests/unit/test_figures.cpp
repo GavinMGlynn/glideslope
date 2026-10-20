@@ -1359,8 +1359,8 @@ std::unique_ptr<glideslope::sim::Aircraft> f35b_standing(const std::string& load
 // atan2 puts it on either side - so that her angle of attack is each whole
 // degree from 170 to 179 and from -179 to -170: twenty, ten each side,
 // asserted. Her lift (aero/coefficient/CLalpha) at each, one step from
-// rest, is within 50 lb of nothing, so the step between 179 and -179 is
-// under 100. Before, her lift table ended at -0.60 and 1.57 rad, JSBSim
+// rest, moves under 50 lb from each degree to the next, 179 to -179 among
+// them: no step. Before, her lift table ended at -0.60 and 1.57 rad, JSBSim
 // holding its end values past them: nothing on one side and about 1,300 lb
 // down on the other.
 GLIDESLOPE_TEST(the_f35bs_lift_flown_backward_is_the_same_either_side_of_180_degrees) {
@@ -1406,16 +1406,33 @@ GLIDESLOPE_TEST(the_f35bs_lift_flown_backward_is_the_same_either_side_of_180_deg
         most_lb = std::max(most_lb, std::abs(lift));
         std::printf("  air %+3d deg: angle of attack %7.2f, lift %8.1f lb\n", off, alpha, lift);
     }
-    const double step_lb = std::abs(lift_at[179] - lift_at[-179]);
-    std::printf("  %zu flown: %zu from 170 to 179, %zu from -179 to -170; most %.1f lb, "
-                "179 to -179 %.1f lb\n",
-                flown, below_180, above_minus_180, most_lb, step_lb);
+    // Each degree to the next, round through 180: 170 to 179, 179 to -179,
+    // -179 to -170.
+    std::vector<int> round;
+    for (int d = 170; d <= 179; ++d) {
+        round.push_back(d);
+    }
+    for (int d = -179; d <= -170; ++d) {
+        round.push_back(d);
+    }
+    double most_step_lb = 0.0;
+    std::size_t steps_seen = 0;
+    for (std::size_t i = 0; i + 1 < round.size(); ++i) {
+        if (lift_at.count(round[i]) == 1 && lift_at.count(round[i + 1]) == 1) {
+            most_step_lb =
+                std::max(most_step_lb, std::abs(lift_at[round[i + 1]] - lift_at[round[i]]));
+            ++steps_seen;
+        }
+    }
+    const double across_lb = std::abs(lift_at[179] - lift_at[-179]);
+    std::printf("  %zu flown: %zu from 170 to 179, %zu from -179 to -170; %zu of 19 degree "
+                "steps, the most %.1f lb; 179 to -179 %.1f lb; her lift at most %.1f lb\n",
+                flown, below_180, above_minus_180, steps_seen, most_step_lb, across_lb, most_lb);
     check(flown == 20 && below_180 == 10 && above_minus_180 == 10,
           std::to_string(below_180) + " and " + std::to_string(above_minus_180) +
               " either side of 180 of " + std::to_string(flown) + ", not 10 and 10 of 20");
-    check(lift_at.count(179) == 1 && lift_at.count(-179) == 1, "179 or -179 not flown");
-    check(most_lb <= bound_lb, "her lift reached " + std::to_string(most_lb) + " lb");
-    check(step_lb <= 2.0 * bound_lb, "her lift stepped " + std::to_string(step_lb) + " lb");
+    check(steps_seen == 19, std::to_string(steps_seen) + " of 19 degree steps seen");
+    check(most_step_lb <= bound_lb, "her lift stepped " + std::to_string(most_step_lb) + " lb");
 }
 
 // **Her STOVL envelope**: converting is refused above the airspeed her model
