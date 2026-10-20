@@ -191,11 +191,15 @@ whole -0.30 rad of negative lift on the other: flown backward at 30 kt, where
 atan2(w, u) crosses from 180 to -180 with each small pitch swing, it stepped
 by about 1,300 lb and her height law took the step up. As her moment, above:
 the air from behind is the same whichever side of 180 its angle is written.
-So the table runs all the way round: as before from -0.60 to 1.57, straight
-from -0.60 to nothing at -90 degrees, as the positive side falls to nothing at
-90, and nothing from there to 180 either way. Nothing published gives her
-lift in reversed air; the shape past -0.60 is this script's. From -0.60 up it
-is the table as it was.
+So the table runs all the way round, the same from -90 to 90 degrees as JSBSim
+read it before (from -0.60 to -90 the -0.60 value held, as it was held past
+the end), straight from there to nothing at -180, and nothing from 90 to 180,
+as before: continuous through 180. Made symmetric instead - straight to
+nothing at -90, as the positive side falls at 90 - it moved her full-forward
+dive at 300 KCAS, which passes -0.60, and a prediction's distance from the
+server after a wreck from 4.2 to 9.7 cm; this way flight inside 90 degrees
+is untouched. Nothing published gives her lift in reversed air; the shape
+past -90 is this script's.
 """
 
 import math
@@ -740,14 +744,14 @@ def lift_system():
 def lift_table(indent):
     """The lift by angle of attack and Mach: at each Mach the slope of the
     wing's (fighter.lift_slope), straight to STRAIGHT_ALPHA, rounding to its
-    greatest at STALL_ALPHA and falling past it; past -0.60 straight to
-    nothing at -90 degrees, and nothing past 90 either way, to 180 (the
-    docstring says why)."""
+    greatest at STALL_ALPHA and falling past it; held from -0.60 to -90
+    degrees, as JSBSim held it before, then straight to nothing at -180;
+    nothing from 90 to 180 (the docstring says why)."""
     alphas = [-math.pi, -1.57, -0.60, -STRAIGHT_ALPHA, 0.0, STRAIGHT_ALPHA, (STRAIGHT_ALPHA + STALL_ALPHA) / 2.0,
               STALL_ALPHA, 0.80, 1.20, 1.57, math.pi]
 
     def at_low_mach(a, slope):
-        if abs(a) >= 1.57:
+        if a >= 1.57 or a <= -math.pi:
             return 0.0
         if a <= STRAIGHT_ALPHA:
             return slope * max(a, -STRAIGHT_ALPHA) if a >= -STRAIGHT_ALPHA else -slope * STRAIGHT_ALPHA
