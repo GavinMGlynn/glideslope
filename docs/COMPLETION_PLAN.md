@@ -1001,8 +1001,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min
       harder than it did, within its limits. *Verification: the policy trained
       again on the C172P as committed, its parity fixture from that training.*
-      Done 2026-10-20: trained on from its last checkpoint on her with her new
-      rudder, and every learnt-landing test passes.
+      Done 2026-10-20: trained on from part 7's checkpoint on her with her new
+      rudder (parts 8 to 10), chosen with every test's figure 5 per cent inside
+      its limit; parts 1 to 7 still cannot be made again from committed scripts.
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own

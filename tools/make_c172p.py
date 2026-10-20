@@ -115,8 +115,9 @@ fraction of the slipstream's excess over it, aero/function/qbar-fin-psf.
 Assumed, not measured: the slipstream runs back level with her thrust line,
 unswirled and uncontracted further, and the heights are read off the drawing to
 about half an inch, about 0.01 of the share. At a standstill her rudder has
-0.55 of what it had; in flight the two nearly agree. The selftest flies her,
-and its hash moves with this.
+0.55 of what it had; in flight the two nearly agree. The selftest flies her
+with her rudder central, where the term is nothing, and its hash does not move
+with this (b8ffab0bc34fc89b before and after, linux-release).
 
 **The alpha-rate terms on the dynamic pressure without its sideways part**
 (tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
