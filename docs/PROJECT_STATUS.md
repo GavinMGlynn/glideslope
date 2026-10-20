@@ -214,7 +214,10 @@ are the risks the phase order is built around:
   weight. The Mosquito's stability derivatives and inertias are estimates
   from its geometry - none were found measured - and its only take-off
   figure is the B Mk IV's. The A380's are the Boeing 747's, the nearest
-  aircraft of its kind whose derivatives are published.
+  aircraft of its kind whose derivatives are published. A player's F-35B
+  joins at a loading she asks for and converts, hovers and lands vertically
+  through a server (2026-10-16); the windowed client's loading is compiled,
+  not run, and her jet-borne and hover laws' integrals are each side's own.
 - **Terrain is drawn around where the flight starts, and nowhere else.** The
   client draws the nine whole-degree cells around its start; fly out of them
   and there is sky below.
