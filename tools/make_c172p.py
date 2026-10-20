@@ -98,8 +98,24 @@ dynamic pressure plus that fraction of the slipstream's excess over it,
 aero/function/qbar-tail-psf. Assumed, not measured: the slipstream meets the
 tailplane centred and uncontracted further, and the tailcone takes nothing out
 of it. In flight her induced velocity is small beside her airspeed and the two
-nearly agree; at a standstill her elevator has 0.39 of what it had. Her rudder
-(Cndr) stays on the whole slipstream, not this change's. The selftest flies her,
+nearly agree; at a standstill her elevator has 0.39 of what it had. The selftest
+flies her, and its hash moved with this.
+
+**Her rudder in the part of the slipstream that reaches her fin** (2026-10-20):
+Cndr. The pinned model puts her rudder's moment on the same fully grown
+slipstream, as if her whole fin sat in it. The slipstream is the elevator's,
+53.0 in across about her thrust line; her tailcone, not her fin, is below that
+line at her tail. The handbook's Figure 1-1 (Three View, page 1-2, the 1985
+printing in docs/ASSETS.md), its side view scaled by its own 8 ft 9 1/2 in
+height, has her thrust line (the spinner's centre) 52.9 in above the ground, her
+fin's root on the tailcone 50.7 in and its tip, below the beacon, 103.4 in: the
+slipstream's upper half reaches 79.4 in, and covers 0.545 of the fin's 52.7 in
+span. Her rudder now works on the free stream's dynamic pressure plus that
+fraction of the slipstream's excess over it, aero/function/qbar-fin-psf.
+Assumed, not measured: the slipstream runs back level with her thrust line,
+unswirled and uncontracted further, and the heights are read off the drawing to
+about half an inch, about 0.01 of the share. At a standstill her rudder has
+0.55 of what it had; in flight the two nearly agree. The selftest flies her,
 and its hash moves with this.
 
 **The alpha-rate terms on the dynamic pressure without its sideways part**
@@ -189,6 +205,15 @@ TAIL_SPAN_IN = 136.0
 # Momentum theory: the far slipstream has half the disc's area.
 SLIPSTREAM_DIAMETER_IN = PROPELLER_DIAMETER_IN / 2.0 ** 0.5
 TAIL_IN_SLIPSTREAM = round(SLIPSTREAM_DIAMETER_IN / TAIL_SPAN_IN, 3)
+# Her handbook's Figure 1-1, its side view scaled by its own 8 ft 9 1/2 in
+# height: inches above the ground of her thrust line (the spinner's centre), her
+# fin's root on the tailcone, and its tip below the beacon.
+THRUST_LINE_IN = 52.9
+FIN_ROOT_IN = 50.7
+FIN_TIP_IN = 103.4
+# The slipstream's upper half, above the thrust line, over the fin's span.
+FIN_IN_SLIPSTREAM = round(
+    (THRUST_LINE_IN + SLIPSTREAM_DIAMETER_IN / 2.0 - FIN_ROOT_IN) / (FIN_TIP_IN - FIN_ROOT_IN), 3)
 
 
 def table_rows(text, description):
@@ -296,6 +321,33 @@ def airframe():
         r"(<description>Pitch_moment_due_to_elevator_deflection</description>\s*<product>\s*"
         r"<property>)aero/function/qbar-induced-psf(</property>)",
         r"\1aero/function/qbar-tail-psf\2", "the elevator's pitch term")
+    # Her rudder in the part of the slipstream that reaches her fin (docstring).
+    text = replace_once(
+        text,
+        r'(<function name="aero/function/qbar-tail-psf">.*?</function>\n)',
+        r"\1\n"
+        r' <function name="aero/function/qbar-fin-psf">' "\n"
+        r"  <description> q bar at the fin: the free stream's, and the part of the"
+        "\n"
+        r"   slipstream's excess that reaches it (glideslope: tools/make_c172p.py) </description>"
+        "\n"
+        r"  <sum>" "\n"
+        r"   <property>aero/qbar-psf</property>" "\n"
+        r"   <product>" "\n"
+        f"    <value>{FIN_IN_SLIPSTREAM:.3f}</value>\n"
+        r"    <difference>" "\n"
+        r"     <property>aero/function/qbar-induced-psf</property>" "\n"
+        r"     <property>aero/qbar-psf</property>" "\n"
+        r"    </difference>" "\n"
+        r"   </product>" "\n"
+        r"  </sum>" "\n"
+        r" </function>" "\n",
+        "the tailplane's dynamic pressure's function")
+    text = replace_once(
+        text,
+        r"(<description>Yaw_moment_due_to_rudder</description>\s*<product>\s*"
+        r"<property>)aero/function/qbar-induced-psf(</property>)",
+        r"\1aero/function/qbar-fin-psf\2", "the rudder's yaw term")
     text = replace_once(
         text, r"(<fileheader>)",
         r"\1\n        <!-- glideslope: this is JSBSim's c172p with the changes listed in\n"

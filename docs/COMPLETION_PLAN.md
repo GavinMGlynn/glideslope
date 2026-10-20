@@ -726,9 +726,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       take-off has her; stick full forward she never noses over; stick full
       back, measured and named unsourced.* Done 2026-10-16: stick back she
       sits on her tail only at her aft limit; every figure in range.
-- [ ] **The C172P's rudder works on the whole slipstream**, as her elevator
+- [x] **The C172P's rudder works on the whole slipstream**, as her elevator
       did. *Verification: her rudder in the part of the slipstream that
-      reaches her fin, from a cited figure, and every figure in range.*
+      reaches her fin, from a cited figure, and every figure in range.* Done
+      2026-10-20: 0.545 of her fin is in it, by her handbook's Figure 1-1;
+      standing at full power her rudder has 0.55 of what it had.
 - [x] **The walking-pace tests' throttle sits the C172P on her tail.**
       Holding her at 3 kt against the autobrake, the test's hand winds to full
       power with her stick back, and she rears to 11 degrees. *Verification:
