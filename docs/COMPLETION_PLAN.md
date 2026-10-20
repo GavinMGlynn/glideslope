@@ -425,6 +425,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       her angle of attack, at 180 degrees, which had swung her past 20 kt.
       *Verification: she holds 30 kt backward within 2 kt, averaged over
       12 s, her speed swinging under 6 kt and her pitch within 15 degrees.*
+- [ ] **The F-35B's lift steps where flying backward puts her angle of
+      attack, at 180 degrees**: about 1,300 lb at 30 kt back, taken up by
+      her height law. *Verification: her lift either side of 180 degrees
+      within a stated bound, and every figure in range.*
 - [ ] **Jet-borne, the F-35B's stick sideways and pedals do nothing**: in
       STOVL mode between the hover and her conversion speed her law holds
       her heading and wings level. *Verification: jet-borne at 60 kt, the
