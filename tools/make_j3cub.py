@@ -50,6 +50,35 @@ The changes, and what each is for:
     Drag_induced 0.0485 -> 0.0573
                         The model's was a span efficiency of 0.95, a wing's
                         alone; 0.80 is a light aircraft's.
+    Main gear springs 1,000 -> 2,093 lb/ft a wheel
+                        Derived, not published: no J-3 spring rate or static
+                        deflection is in print. From her shock rings' rating
+                        and her gear's drawings (see gear_spring_lbs_per_ft):
+                        drawing 31423, "Strut assembly, shock" (the strut
+                        A-691 requires at 1,220 lb), shows two 31322 shock
+                        cords, each wound twice over two spools 6.77 in apart:
+                        four strands a ring. Its cord is drawn at 0.67 to 0.69
+                        in, the 11/16 in ring (Piper Service Memo 12 and
+                        Aircraft Spruce's catalogue p. 306: P/N 1174, 11/16 x
+                        7 1/2 in, 730 lb test, four to a J-3). MIL-C-5651D's
+                        Table III makes a ring's test load its pull at 100%
+                        elongation, twice a single cord's - two strands - so
+                        one strand pulls 365 lb at 100%. A spool spacing grown
+                        by d stretches a ring of 25.72 in (pi x (7.5 + 11/16))
+                        by 4d, and its four strands pull 4 x 365 x 4d / 25.72:
+                        454 lb/in for the strut's two rings. Drawing 31513,
+                        "Gear installation - landing", puts the vee's hinge,
+                        the strut's ends and the tyre where the tyre rises
+                        1.61 in for every inch the strut extends; the rate at
+                        the tyre is 454 / 1.61^2 = 174 lb/in. Judgements: the
+                        rings' preload (45% installed stretch, 31423's spool
+                        gap) is left out, as JSBSim's spring has none - real
+                        Cubs stand on the preload and barely sag, she sinks
+                        2.9 in; the cord's pull taken as linear to 100%, which
+                        Table III's 50/75/100% figures hold to within 10%;
+                        the strands' slant (cosine 0.99) is left out. The
+                        later J-3's 1280-HD (3/4 x 8 in, 950 lb) would make
+                        2,550 lb/ft; her own drawing draws the 11/16 cord.
 
   Engine (engine/engA65-8.xml)
     maxrpm 2800 -> 2300 The A-65-8's limit, "all operations, 2300 r.p.m.
@@ -216,6 +245,7 @@ wrong. A steady 15 kt across, with the rollout holding her wings level,
 is not that, and does not.
 """
 
+import math
 import pathlib
 import re
 import sys
@@ -246,6 +276,49 @@ INDUCED_DRAG = "0.0573"   # 1 / (pi x 6.94 x 0.80)
 # The elevator's travel, A-691's: 34 degrees up, 29 down.
 ELEVATOR_UP_RAD = "0.5934"
 ELEVATOR_DOWN_RAD = "0.5061"
+# Her main gear's springs, derived from her shock rings' rating (the docstring
+# says how). The ring: P/N 1174, 11/16 x 7 1/2 in, 730 lb at 100% elongation -
+# Aircraft Spruce catalogue p. 306, https://www.aircraftspruce.com/pdf/2025Individual/Cat25306.pdf,
+# and Piper Service Memo 12; MIL-C-5651D Table III for what "test" means.
+RING_TEST_LBS = 730
+RING_SECTION_IN = 11 / 16
+RING_INSIDE_DIAMETER_IN = 7.5
+RINGS_A_STRUT = 2           # drawing 31423: two 31322 shock cords
+STRANDS_A_RING = 4          # each wound twice over the two spools
+# Drawing 31513 (front view, 3 in to 1 ft), measured off the Internet
+# Archive's scan rendered at 100 dpi, in inches of the aeroplane, x outboard
+# and y down: the vee's hinge at the fuselage fitting, the shock strut's
+# outer eye at the axle and its inner eye at the cabane vee, and the tyre's
+# centre plane.
+GEAR_HINGE_IN = (383 * 0.04, 78 * 0.04)
+STRUT_OUTER_EYE_IN = (695 * 0.04, 602 * 0.04)
+STRUT_INNER_EYE_IN = (80 * 0.04, 300 * 0.04)
+TYRE_CENTRE_X_IN = 920 * 0.04
+
+
+def tyre_rise_per_strut_extension():
+    """The tyre's rise for an inch of the shock strut's extension, the vee
+    swinging about its hinge: the tyre rises by its arm from the hinge, the
+    strut's outer eye moves square to its own, and the strut extends by that
+    movement along itself."""
+    hx, hy = GEAR_HINGE_IN
+    sx, sy = STRUT_OUTER_EYE_IN
+    cx, cy = STRUT_INNER_EYE_IN
+    length = math.hypot(sx - cx, sy - cy)
+    eye_motion = (-(sy - hy), sx - hx)
+    extension = abs(eye_motion[0] * (sx - cx) + eye_motion[1] * (sy - cy)) / length
+    return (TYRE_CENTRE_X_IN - hx) / extension
+
+
+def gear_spring_lbs_per_ft():
+    """A main wheel's spring: the strut's rings' pull for an inch of its
+    extension, over the square of the tyre's rise for it, in lb/ft."""
+    ring_length = math.pi * (RING_INSIDE_DIAMETER_IN + RING_SECTION_IN)
+    strand_pull = RING_TEST_LBS / 2       # a ring is two strands in the test
+    strut = RINGS_A_STRUT * STRANDS_A_RING * strand_pull * STRANDS_A_RING / ring_length
+    return 12 * strut / tyre_rise_per_strut_extension() ** 2
+
+
 # The wing's leading edge, the type certificate's datum, in the model's frame.
 LEADING_EDGE_X = -15.75
 # A wing section's drag past 90 degrees of angle of attack, to 180: Sheldahl
@@ -398,6 +471,10 @@ def airframe():
                         f"<system file=\"{SYSTEM}.xml\"/>", "the flight controls")
     text = replace_once(text, r"(<flight_control name=\"FCS: J3Cub\">\n)\n( </flight_control>)",
                         r"\1\2", "the empty flight controls")
+    for side in ("LEFT_MAIN", "RIGHT_MAIN"):
+        text = replace_once(
+            text, r"(name=\"" + side + r"\">.*?<spring_coeff\s+unit=\"LBS/FT\">)\s*1000\.00\s*(</spring_coeff>)",
+            rf"\g<1> {gear_spring_lbs_per_ft():.0f} \2", f"the {side} spring")
     text = with_reversed_flow_drag(text)
     text = with_beam_drag_from_side_area(text)
     return with_float_carburettor(text, "make_j3cub")
