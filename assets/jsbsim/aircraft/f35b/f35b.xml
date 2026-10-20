@@ -370,7 +370,7 @@
         <property value="0.25">fcs/stovl-lever-detent</property>
         <property value="39837">fcs/stovl-hover-most-lbs</property>
         <property value="30.0">fcs/stovl-trc-kt</property>
-        <property value="20.0">fcs/stovl-trc-aft-kt</property>
+        <property value="30.0">fcs/stovl-trc-aft-kt</property>
         <property value="20.0">fcs/stovl-trc-side-kt</property>
         <property value="10.0">fcs/stovl-turn-degps</property>
         <property value="2.9954">fcs/transition-lift-slope-per-rad</property>
@@ -936,8 +936,15 @@
                     <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/cbarw-ft</property>
-                    <property>aero/alpha-rad</property>
-                    <value>-0.098</value>
+                    <table>
+                        <independentVar>aero/alpha-rad</independentVar>
+                        <tableData>
+                            -3.141593	0.000000
+                            -1.570796	0.153938
+                            1.570796	-0.153938
+                            3.141593	0.000000
+                        </tableData>
+                    </table>
                 </product>
             </function>
             <function name="aero/coefficient/Cmq">

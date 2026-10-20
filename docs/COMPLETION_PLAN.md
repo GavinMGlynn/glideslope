@@ -420,12 +420,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       turn, each within 2 kt or a degree a second of what is asked, every
       direction flown; a plan given her hovering is flown (PROJECT_STATUS,
       2026-10-14).
-- [ ] **The F-35B flies backward at only 20 kt in the hover**: published
-      accounts give her (and the VAAC Harrier her laws were first flown on)
-      30 kt back, but her model swings 10 degrees in pitch past 20.
-      *Verification: her limit put back to 30 kt, she holds 30 kt backward
-      within 2 kt, averaged over 12 s, her speed swinging under 6 kt and her
-      pitch within 15 degrees.*
+- [x] **The F-35B flies backward at 30 kt in the hover**, the published
+      figure: her pitching moment no longer jumps where flying backward puts
+      her angle of attack, at 180 degrees, which had swung her past 20 kt.
+      *Verification: she holds 30 kt backward within 2 kt, averaged over
+      12 s, her speed swinging under 6 kt and her pitch within 15 degrees.*
 - [ ] **Jet-borne, the F-35B's stick sideways and pedals do nothing**: in
       STOVL mode between the hover and her conversion speed her law holds
       her heading and wings level. *Verification: jet-borne at 60 kt, the
