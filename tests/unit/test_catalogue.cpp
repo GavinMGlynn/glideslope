@@ -3,6 +3,7 @@
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/learnt.hpp"
 #include "sim/orbit_trial.hpp"
 #include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
@@ -263,6 +264,83 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_a
                   " KCAS for a minute: " + std::to_string(h.altitude_ft) + " ft, " +
                   std::to_string(h.airspeed_kts) + " KCAS");
     }
+}
+
+// **Every aircraft the data holds, started as the server starts a player's
+// and left untouched, holds her height**: begun at 3,000 ft at her catalogue
+// airspeed, her gear up and trimmed level, wings and all, and held thirty
+// seconds on what the server holds until her player's first input
+// (sim::held_until_moved), she is within 100 ft of where she began. Held at
+// six tenths of her throttle with the stick neutral, as the server held her
+// until 2026-10-20, an F-35B was in a dive; trimmed in pitch alone, a C172P
+// rolled off on her engine's torque and lost 280 ft.
+//
+// **Three are left out, named, because JSBSim cannot trim them**: the
+// F-22A, whose trim does not converge, and the Mosquito and the S.23, whose
+// constant-speed propellers leave the throttle unable to trim her speed
+// ("udot doesn't appear to be trimmable"). They are held as before, on six
+// tenths of the throttle, and do not hold their height; that they are still
+// untrimmable is checked, so that one which becomes trimmable is moved in.
+// Every aircraft is flown and counted, and every one that fails is named
+// before the test fails.
+GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_start_height) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    const std::vector<std::string> untrimmable = {"f22", "mosquito-fb6", "short_s23"};
+    std::size_t held_height = 0;
+    std::size_t left_out = 0;
+    std::string failed;
+    for (const CatalogueEntry& e : catalogue) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 3000.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        ic.trim = true;
+        ic.trim_lateral = true;
+        aircraft.initialize(ic);
+        const glideslope::sim::Controls held = glideslope::sim::held_until_moved(aircraft);
+        double lowest_ft = 3000.0;
+        double highest_ft = 3000.0;
+        for (int i = 0; i < 30 * steps_per_second; ++i) {
+            aircraft.set_controls(held);
+            aircraft.step();
+            const double ft = aircraft.property("position/h-sl-ft");
+            lowest_ft = std::min(lowest_ft, ft);
+            highest_ft = std::max(highest_ft, ft);
+        }
+        const bool named = std::find(untrimmable.begin(), untrimmable.end(), e.id) !=
+                           untrimmable.end();
+        std::printf("  %-13s %s: %.0f to %.0f ft in 30 s%s\n", e.id.c_str(),
+                    aircraft.trimmed_laterally() ? "trimmed"
+                    : aircraft.trimmed()         ? "trimmed in pitch alone"
+                                                 : "not trimmed",
+                    lowest_ft, highest_ft, named ? ", left out: JSBSim cannot trim her" : "");
+        if (named) {
+            if (aircraft.trimmed()) {
+                failed += " " + e.id + " (trims now: move her in)";
+            } else {
+                ++left_out;
+            }
+            continue;
+        }
+        if (aircraft.trimmed_laterally() && std::isfinite(lowest_ft) &&
+            std::isfinite(highest_ft) && 3000.0 - lowest_ft <= 100.0 &&
+            highest_ft - 3000.0 <= 100.0) {
+            ++held_height;
+        } else {
+            failed += " " + e.id;
+        }
+    }
+    check(failed.empty(), "every aircraft not named, untouched for 30 s, was trimmed and held "
+                          "within 100 ft of 3,000; these did not:" + failed);
+    check(!catalogue.empty() && held_height + left_out == catalogue.size() &&
+              left_out == untrimmable.size(),
+          "every aircraft in the catalogue was flown: " + std::to_string(held_height) +
+              " held their height and " + std::to_string(left_out) + " were left out, of " +
+              std::to_string(catalogue.size()));
 }
 
 // **Every aircraft's flap lever is found where her flaps answer one**

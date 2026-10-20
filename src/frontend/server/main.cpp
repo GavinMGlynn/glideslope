@@ -1597,6 +1597,13 @@ public:
         ic.airspeed_kts = airspeed_kts;
         ic.engine_running = true;
         ic.gear = 0.0;
+        // **Trimmed level, wings and all**, for what she holds until her
+        // player's first input (held_until_moved): a slow join left an F-35B
+        // held at six tenths and the stick neutral, in a dive before she was
+        // touched, and a C172P trimmed in pitch alone rolled off on her
+        // engine's torque.
+        ic.trim = true;
+        ic.trim_lateral = true;
         // **Or on final** (`--players-on-final`), trimmed down the glidepath
         // at her approach speed with the landing flap and the gear down - an
         // aeroplane whose figures give no approach speed starts where the
@@ -1632,15 +1639,14 @@ public:
         })) {
             ++index;
         }
-        // Until their first input arrives they hold enough power to stay up:
-        // a player whose aircraft appeared with the throttle shut would be
-        // gliding before they had touched anything.
-        glideslope::sim::Controls idling;
-        idling.throttle = 0.6;
-        if (on_final_ && final_speeds) {
-            // On final, what the trim found, held until the player moves.
-            idling = trimmed_controls(*aircraft);
-        }
+        // **Until their first input arrives they hold what the trim found** -
+        // level, or on final down the glidepath - and her gear where she was
+        // started with it: a player whose aircraft appeared with the throttle
+        // shut would be gliding before they had touched anything, and one
+        // held at six tenths with the stick neutral, as these were until
+        // 2026-10-20, put an F-35B in a dive.
+        const glideslope::sim::Controls idling =
+            glideslope::sim::held_until_moved(*aircraft);
         flown_.push_back({id + " (slot " + std::to_string(slot) + ")",
                           std::move(aircraft), nullptr, index, static_cast<int>(slot),
                           idling});

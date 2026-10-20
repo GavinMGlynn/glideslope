@@ -21,6 +21,7 @@
 #include <math/FGQuaternion.h>
 #include <models/FGAircraft.h>
 #include <models/FGAuxiliary.h>
+#include <models/FGFCS.h>
 #include <models/FGGroundReactions.h>
 #include <models/FGInertial.h>
 #include <models/FGLGear.h>
@@ -825,25 +826,52 @@ void Aircraft::initialize(const InitialConditions& ic) {
     // at once, and a failed trim leaves the state wherever the search gave
     // up - so the start is set again, untrimmed, and `trimmed()` says so.
     trimmed_ = false;
-    if (ic.trim) {
+    trimmed_laterally_ = false;
+    // **Set again as it was before a trim that failed** - her flight
+    // controls' own state too. JSBSim's RunIC sets her motion again and
+    // leaves her flight-control system's filters and integrators where the
+    // search left them: an F-22A, whose trim fails, then fell 3,000 ft in
+    // thirty seconds where started untrimmed she fell 500.
+    const auto untrimmed = [&] {
+        exec_->GetFCS()->InitModel();
+        if (flapped) {
+            exec_->SetPropertyValue("fcs/flap-cmd-norm", ic.flaps);
+            if (braked) {
+                exec_->SetPropertyValue("fcs/speedbrake-cmd-norm", ic.speedbrake);
+            }
+        }
+        if (flapped) {
+            exec_->SetTrimStatus(true);
+        }
+        const bool again = exec_->RunIC();
+        if (flapped) {
+            exec_->SetTrimStatus(false);
+        }
+        if (!again) {
+            throw std::runtime_error("JSBSim refused the initial conditions for " + model_ +
+                                     " after a trim that failed");
+        }
+        if (ic.engine_running) {
+            start_engines();
+        }
+    };
+    // **Laterally too, where asked and JSBSim can**, and longitudinally
+    // alone where it cannot.
+    if (ic.trim && ic.trim_lateral) {
+        try {
+            exec_->DoTrim(JSBSim::tFull);
+            trimmed_ = true;
+            trimmed_laterally_ = true;
+        } catch (const std::exception&) {
+            untrimmed();
+        }
+    }
+    if (ic.trim && !trimmed_) {
         try {
             exec_->DoTrim(JSBSim::tLongitudinal);
             trimmed_ = true;
         } catch (const std::exception&) {
-            if (flapped) {
-                exec_->SetTrimStatus(true);
-            }
-            const bool again = exec_->RunIC();
-            if (flapped) {
-                exec_->SetTrimStatus(false);
-            }
-            if (!again) {
-                throw std::runtime_error("JSBSim refused the initial conditions for " +
-                                         model_ + " after a trim that failed");
-            }
-            if (ic.engine_running) {
-                start_engines();
-            }
+            untrimmed();
         }
     }
     initialized_ = true;

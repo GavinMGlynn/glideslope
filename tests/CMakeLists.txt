@@ -2205,6 +2205,19 @@ set_tests_properties(ai_aircraft_keep_flying_with_nobody_connected_and_a_late_cl
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_late)
 
+# **A player's aircraft the server holds untouched holds her height**: an
+# F-35B and a C172P whose players send nothing for thirty simulated seconds,
+# within 100 ft of where they began. See cmake/server_untouched.cmake.
+add_test(NAME a_players_f35b_and_c172p_left_untouched_for_thirty_seconds_hold_their_start_height_within_100_ft
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_untouched -DPORT=24953
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_untouched.cmake)
+set_tests_properties(a_players_f35b_and_c172p_left_untouched_for_thirty_seconds_hold_their_start_height_within_100_ft
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_untouched)
+
 # **What becomes of an aircraft when its player goes**, both settings walked, for
 # a player saying goodbye and one going quiet, and
 # counted. See cmake/server_leave.cmake.

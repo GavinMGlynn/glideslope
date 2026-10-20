@@ -536,6 +536,21 @@ Controls trimmed_controls(const Aircraft& aircraft) {
     return c;
 }
 
+Controls held_until_moved(const Aircraft& aircraft) {
+    Controls c;
+    if (aircraft.trimmed()) {
+        c = trimmed_controls(aircraft);
+        if (aircraft.trimmed_laterally()) {
+            c.aileron = aircraft.property("fcs/aileron-cmd-norm");
+            c.rudder = aircraft.property("fcs/rudder-cmd-norm");
+        }
+    } else {
+        c.throttle = 0.6;
+    }
+    c.gear = aircraft.property("gear/gear-cmd-norm");
+    return c;
+}
+
 std::shared_ptr<const LearntPolicy> learnt_landing(const std::filesystem::path& data,
                                                    const std::string& model) {
     const std::filesystem::path file = data / "rl" / (model + "-landing.txt");

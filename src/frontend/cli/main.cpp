@@ -190,6 +190,20 @@ bool connect_unpaced = false;
 // meets the DEM the server does; it leaves once its prediction is down and
 // the server's word has her at rest, or as `--until-compared` says.
 bool connect_stovl_land = false;
+// **(`--until-held S`)**: stay until its own aircraft has been heard for S
+// seconds of the session's clock, and say how high she was when first heard
+// and how low and how high she went since - what a test of an aircraft left
+// untouched holding her height reads, on simulated time.
+struct ConnectHeld {
+    double for_s = 0.0;
+    double from_s = -1.0; // the session's clock when she was first heard
+    double to_s = -1.0;
+    double first_m = 0.0;
+    double lowest_m = 0.0;
+    double highest_m = 0.0;
+    bool done = false;
+};
+ConnectHeld connect_held;
 
 // **The aeroplane asked for** (`connect --aircraft ID`), by its catalogue id,
 // in the initiation's payload (net::write_asked_aircraft) - the first and any
@@ -427,6 +441,10 @@ void print_usage(std::FILE* out) {
         "                            by its catalogue id, as it joins\n"
         "                            --loading NAME (after --aircraft) asks for her at\n"
         "                            this loading, by its name in her figures file\n"
+        "                            --until-held S stays until its own aircraft has\n"
+        "                            been heard for S seconds of the session's clock,\n"
+        "                            and says how high she was then and how low and\n"
+        "                            high she went (SECONDS the most it will wait)\n"
         "                            --until-engine-compared N (with --predict) stays\n"
         "                            until N updates are compared after the server\n"
         "                            says its engine has stopped\n"
@@ -2939,6 +2957,9 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (connect_stovl_land && predicting && predicting->stovl_done()) {
             break;
         }
+        if (connect_held.done) {
+            break;
+        }
         if (connect_until_engine_compared > 0 && predicting &&
             predicting->compared_engine_stopped() >= connect_until_engine_compared) {
             break;
@@ -3569,6 +3590,20 @@ int stay(glideslope::platform::UdpSocket& socket,
                         std::abs(roll_seen_deg)) {
                         roll_seen_deg = static_cast<double>(a.roll_deg);
                     }
+                    if (connect_held.for_s > 0.0 && newest_state) {
+                        const double m =
+                            glideslope::world::to_geodetic({a.x_m, a.y_m, a.z_m}).height_m;
+                        if (connect_held.from_s < 0.0) {
+                            connect_held.from_s = state->simulation_time_s;
+                            connect_held.first_m = connect_held.lowest_m =
+                                connect_held.highest_m = m;
+                        }
+                        connect_held.to_s = state->simulation_time_s;
+                        connect_held.lowest_m = std::min(connect_held.lowest_m, m);
+                        connect_held.highest_m = std::max(connect_held.highest_m, m);
+                        connect_held.done =
+                            connect_held.to_s - connect_held.from_s >= connect_held.for_s;
+                    }
                 }
             }
             if (heard == 1 || state->aircraft.size() != aircraft_last) {
@@ -3787,6 +3822,16 @@ int stay(glideslope::platform::UdpSocket& socket,
         // counts, in simulated steps, the gap between two of them.
         say_heard("state updates from step " + std::to_string(first_step) + " to step " +
                   std::to_string(last_step));
+    }
+    if (connect_held.from_s >= 0.0) {
+        // And to `--heard`: a test running clients in a pipeline reads that.
+        char line[160];
+        std::snprintf(line, sizeof line,
+                      "my aircraft heard from %.3f s to %.3f s: %.1f m at first, %.1f m to "
+                      "%.1f m",
+                      connect_held.from_s, connect_held.to_s, connect_held.first_m,
+                      connect_held.lowest_m, connect_held.highest_m);
+        say_heard(line);
     }
     if (fly) {
         std::printf("sent %u input frames, the server applied %u\n", sequence,
@@ -4671,6 +4716,15 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--stovl-land") {
                     connect_stovl_land = true;
+                    continue;
+                }
+                if (args[i] == "--until-held" && i + 1 < args.size()) {
+                    connect_held.for_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+                    if (!(connect_held.for_s > 0.0)) {
+                        std::fprintf(stderr, "glideslope_cli: --until-held wants seconds "
+                                             "more than nothing\n");
+                        return 2;
+                    }
                     continue;
                 }
                 if (args[i] == "--until-engine-compared" && i + 1 < args.size()) {
