@@ -218,8 +218,9 @@ are the risks the phase order is built around:
   joins at a loading she asks for and converts, hovers and lands vertically
   through a server (2026-10-16), and the windowed client flies her at it
   (2026-10-22); her jet-borne and hover laws' integrals are each side's own. She flies
-  30 kt backward in the hover (2026-10-20); her lift still steps at 180
-  degrees, which her height law takes up. Jet-borne her stick rolls her and,
+  30 kt backward in the hover (2026-10-20), her lift and pitching moment
+  the same either side of 180 degrees; past 90 degrees either way her lift
+  is nothing, a shape of this model's. Jet-borne her stick rolls her and,
   centred, holds her bank, as the VAAC Harrier's unified law does, and her
   pedals turn her heading (2026-10-21); the laws' figures are this model's -
   nothing published gives hers.

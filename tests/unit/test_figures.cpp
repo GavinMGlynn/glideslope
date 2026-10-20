@@ -1352,6 +1352,72 @@ std::unique_ptr<glideslope::sim::Aircraft> f35b_standing(const std::string& load
 
 } // namespace
 
+// **Her lift the same either side of 180 degrees** (tools/make_f35b.py,
+// lift_table): held level at 300 ft in air moving past her from behind at
+// 30 kt, her published backward limit, the air's slope swept from 10
+// degrees above to 10 below a degree at a time, 180 itself left out -
+// atan2 puts it on either side - so that her angle of attack is each whole
+// degree from 170 to 179 and from -179 to -170: twenty, ten each side,
+// asserted. Her lift (aero/coefficient/CLalpha) at each, one step from
+// rest, is within 50 lb of nothing, so the step between 179 and -179 is
+// under 100. Before, her lift table ended at -0.60 and 1.57 rad, JSBSim
+// holding its end values past them: nothing on one side and about 1,300 lb
+// down on the other.
+GLIDESLOPE_TEST(the_f35bs_lift_flown_backward_is_the_same_either_side_of_180_degrees) {
+    using namespace glideslope::sim;
+    const PublishedFigures figures = read_published_figures(figures_file("f35b"));
+    const double pi = 3.14159265358979323846;
+    const double air_fps = 30.0 * 6076.12 / 3600.0;
+    const double bound_lb = 50.0;
+    std::size_t below_180 = 0;
+    std::size_t above_minus_180 = 0;
+    std::size_t flown = 0;
+    double most_lb = 0.0;
+    std::map<int, double> lift_at;
+    for (int off = -10; off <= 10; ++off) {
+        if (off == 0) {
+            continue; // 180 itself: atan2 puts it either side
+        }
+        ++flown;
+        Aircraft a(data_dir, "f35b");
+        a.load(figures.loadings.at("vertical_landing").loading);
+        InitialConditions ic;
+        ic.latitude_deg = -33.9461;
+        ic.longitude_deg = 151.1772;
+        ic.heading_deg = 70.0;
+        ic.altitude_ft = 300.0;
+        ic.gear = 0.0;
+        a.initialize(ic);
+        // The air moving along her heading, past her from behind, and up or
+        // down at the slope swept.
+        const double psi = ic.heading_deg * pi / 180.0;
+        Conditions air;
+        air.wind_north_mps = air_fps * 0.3048 * std::cos(psi);
+        air.wind_east_mps = air_fps * 0.3048 * std::sin(psi);
+        air.wind_down_mps = air_fps * 0.3048 * std::tan(off * pi / 180.0);
+        a.set_weather(std::make_shared<SteadyWeather>(air));
+        a.step();
+        const double alpha = a.property("aero/alpha-deg");
+        const double lift = a.property("aero/coefficient/CLalpha");
+        const int whole = static_cast<int>(std::lround(alpha));
+        lift_at[whole] = lift;
+        below_180 += alpha >= 169.5 && alpha < 180.0 ? 1U : 0U;
+        above_minus_180 += alpha > -180.0 && alpha <= -169.5 ? 1U : 0U;
+        most_lb = std::max(most_lb, std::abs(lift));
+        std::printf("  air %+3d deg: angle of attack %7.2f, lift %8.1f lb\n", off, alpha, lift);
+    }
+    const double step_lb = std::abs(lift_at[179] - lift_at[-179]);
+    std::printf("  %zu flown: %zu from 170 to 179, %zu from -179 to -170; most %.1f lb, "
+                "179 to -179 %.1f lb\n",
+                flown, below_180, above_minus_180, most_lb, step_lb);
+    check(flown == 20 && below_180 == 10 && above_minus_180 == 10,
+          std::to_string(below_180) + " and " + std::to_string(above_minus_180) +
+              " either side of 180 of " + std::to_string(flown) + ", not 10 and 10 of 20");
+    check(lift_at.count(179) == 1 && lift_at.count(-179) == 1, "179 or -179 not flown");
+    check(most_lb <= bound_lb, "her lift reached " + std::to_string(most_lb) + " lb");
+    check(step_lb <= 2.0 * bound_lb, "her lift stepped " + std::to_string(step_lb) + " lb");
+}
+
 // **Her STOVL envelope**: converting is refused above the airspeed her model
 // clears her lift system to, 250 KCAS, and allowed below it; conventional
 // flight is never refused; an aircraft with no lift system refuses one.
