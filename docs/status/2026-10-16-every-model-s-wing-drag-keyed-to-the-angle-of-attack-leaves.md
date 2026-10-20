@@ -139,3 +139,12 @@ multiply-adds, as CI builds), on the same rebased tree: the same figures and
 flights, every one printing what linux-debug prints to the last digit (two
 DEM tests skipped there, the build having fetched none); the selftest hash
 `ef497a75d22b8798` there too. The full suite is CI's.
+
+**Rebased again onto main at f36b4b91** (2026-10-20), which added only the
+Mosquito nose-over test (#220) and documents - no model, script or source
+this branch touches. Main's selftest hash is still `91171736935cd5c7`, so the
+move stands as stated. Run again on this tree, in linux-debug: the selftest
+(`ef497a75d22b8798`, the same printed flight) and #220's
+`the_mosquito_braked_to_a_stop_..._at_every_loading` against this branch's
+Mosquito (passes). The figures, 217 flights and x86-64-v2 run above were not
+repeated on this rebase: they fly only files this rebase did not change.
