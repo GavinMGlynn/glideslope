@@ -75,9 +75,11 @@ for her. Protocol version 14 (`0E`):
   correction of 42 km; reverted, green. In the `-march=x86-64-v2` build
   (no fused multiply-adds, as CI): converted at 68.8 s, hovering at 170.1 s,
   down at 331.8 s; 8,269 compared, the median 1 mm, the 95th percentile 3
-  mm, the worst 1.415 m, her pitch within 0.115 degrees; 344 s. A client
-  that does not load her is caught by the weight it says (45,400 lb against
-  37,000 to 37,530); that half was not run red on its own.
+  mm, the worst 1.415 m, her pitch within 0.115 degrees; 344 s. **Seen red,
+  too, with the client not loading her** (a deliberate bug in
+  `glideslope_cli`'s start, the server still loading her; 2026-10-20,
+  linux-release, rebased onto #216): predicted at 45,400 lb, never
+  converted, her predicted pitch 1.620 degrees off; failed; reverted.
 - `the_aeroplane_asked_for_reads_back_and_a_malformed_ask_reads_as_none`:
   53 cases, counted - every id with five loadings and none read back,
   four loading names and a loading of no aeroplane not written, and a
