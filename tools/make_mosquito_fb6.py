@@ -131,9 +131,27 @@ lift's, above: a wing's drag at its angle of attack is made by the air in the
 plane of u and w, and the sideways part runs along its span - the drag that
 rolled the J-3 Cub onto her wing standing in a beam wind (make_j3cub.py). In
 flight, at a few degrees of sideslip, the two differ by its cosine squared.
+
+**Her slipstreams' lift at the angle the air in them meets the wing**
+(with_slipstream_lift_at_its_own_angle, 2026-10-20): lift-slipstream read her
+wing's lift coefficient at her angle of attack, atan2(w, u). Standing on her
+brakes that is any angle her creep gives, and the term was the table's -0.69
+to 0.99 on the slipstreams' pressure: -2,645 to +3,790 lb, flipping as she
+crept (at +9 boost from -2,570 to +2,054 lb, which moved her take-off swing
+figure). The air in a slipstream moves along her x axis at u plus 1.5 times
+the induced velocity - the speed the term already gives it - and across it
+at w, as outside it, so it meets the wing at atan2(w, u + 1.5 vi): each
+side's coefficient is now her wing's table read there, for its own
+propeller. Standing it is near nothing, 0.17 flaps up, 55 to 671 lb from
+closed to full throttle; in flight at low power it is her angle of attack,
+and at high power and low speed less than it, as a slipstream's is. Where
+one propeller gives nothing the angle may again be any, but that side's term
+is multiplied by its own extra pressure, then nothing too. The table is the
+wing's, copied from it, so the two cannot part.
 """
 
 import pathlib
+import re
 import sys
 
 import alpha_rate
@@ -1723,11 +1741,99 @@ MERLIN_25 = """\
 """
 
 
+SLIPSTREAM_SIDES = (("port", 0), ("starboard", 1))
+
+SLIPSTREAM_ANGLE = """\
+    <!-- The angle the air in the {side} propeller's slipstream meets the
+         wing at: its speed along her x axis is the aircraft's plus 1.5
+         times the induced velocity, as in lift-slipstream; across it, w.
+         Standing, it is near nothing whichever way she creeps. -->
+    <function name="aero/function/slipstream-alpha-deg-{side}">
+      <product>
+        <value>57.29577951308232</value>
+        <atan2>
+          <property>velocities/w-aero-fps</property>
+          <sum>
+            <property>velocities/u-aero-fps</property>
+            <product>
+              <value>1.5</value>
+              <property>propulsion/engine[{engine}]/prop-induced-velocity_fps</property>
+            </product>
+          </sum>
+        </atan2>
+      </product>
+    </function>
+    <function name="aero/function/lift-coefficient-slipstream-{side}">
+      <table>
+        <independentVar lookup="row">aero/function/slipstream-alpha-deg-{side}</independentVar>
+        <independentVar lookup="column">fcs/flap-pos-deg</independentVar>
+        <tableData>{table}</tableData>
+      </table>
+    </function>
+
+"""
+
+SLIPSTREAM_SIDE_LIFT = """\
+            <product>
+              <property>aero/function/lift-coefficient-slipstream-{side}</property>
+              <difference>
+                <pow>
+                  <sum>
+                    <property>velocities/u-aero-fps</property>
+                    <product>
+                      <value>1.5</value>
+                      <property>propulsion/engine[{engine}]/prop-induced-velocity_fps</property>
+                    </product>
+                  </sum>
+                  <value>2</value>
+                </pow>
+                <pow>
+                  <property>velocities/u-aero-fps</property>
+                  <value>2</value>
+                </pow>
+              </difference>
+            </product>
+"""
+
+
+def with_slipstream_lift_at_its_own_angle(text):
+    """`text` with lift-slipstream's lift coefficient read, for each
+    slipstream, at the angle the air in it meets the wing, atan2(w, u + 1.5
+    vi), on the same table as her wing's - not at her angle of attack,
+    atan2(w, u). The docstring's entry of 2026-10-20 says why. Fails if the
+    table or the term is not as written."""
+    wing = re.search(r'<function name="aero/function/lift-coefficient-wing">.*?'
+                     r'<tableData>(.*?)</tableData>', text, re.S)
+    if wing is None:
+        raise SystemExit("make_mosquito_fb6: no lift-coefficient-wing table - has the model changed?")
+    angles = "".join(SLIPSTREAM_ANGLE.format(side=s, engine=e, table=wing.group(1))
+                     for s, e in SLIPSTREAM_SIDES)
+    head = '    <axis name="LIFT">\n'
+    if text.count(head) != 1:
+        raise SystemExit("make_mosquito_fb6: not one LIFT axis - has the model changed?")
+    text = text.replace(head, angles + head)
+    term = re.compile(r'(<function name="aero/force/lift-slipstream">.*?</description>\n)'
+                      r'(.*?)(      </function>\n)', re.S)
+    found = term.findall(text)
+    if len(found) != 1 or "aero/function/lift-coefficient-wing" not in found[0][1]:
+        raise SystemExit("make_mosquito_fb6: lift-slipstream is not as written - has the model changed?")
+    body = ("        <product>\n"
+            "          <value>0.5</value>\n"
+            "          <property>atmosphere/rho-slugs_ft3</property>\n"
+            "          <value>90</value>\n"
+            "          <sum>\n"
+            + "".join(SLIPSTREAM_SIDE_LIFT.format(side=s, engine=e) for s, e in SLIPSTREAM_SIDES)
+            + "          </sum>\n"
+            "        </product>\n")
+    return term.sub(lambda m: m.group(1) + body + m.group(3), text)
+
+
 def airframe():
     """The airframe, assets/jsbsim/aircraft/mosquito-fb6/mosquito-fb6.xml."""
     text = "".join([HEADER, METRICS, MASS_BALANCE, GROUND_REACTIONS, PROPULSION,
                     FLIGHT_CONTROL, AERODYNAMICS_HEAD, LIFT, DRAG, SIDE, ROLL, PITCH,
                     YAW, TAIL])
+    text = with_slipstream_lift_at_its_own_angle(text)
     return alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(text, "make_mosquito_fb6"), "make_mosquito_fb6",
             {"PITCH": ["aero/moment/pitch-alpha", "aero/moment/pitch-stall"],

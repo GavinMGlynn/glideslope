@@ -852,6 +852,84 @@
       </table>
     </function>
 
+    <!-- The angle the air in the port propeller's slipstream meets the
+         wing at: its speed along her x axis is the aircraft's plus 1.5
+         times the induced velocity, as in lift-slipstream; across it, w.
+         Standing, it is near nothing whichever way she creeps. -->
+    <function name="aero/function/slipstream-alpha-deg-port">
+      <product>
+        <value>57.29577951308232</value>
+        <atan2>
+          <property>velocities/w-aero-fps</property>
+          <sum>
+            <property>velocities/u-aero-fps</property>
+            <product>
+              <value>1.5</value>
+              <property>propulsion/engine[0]/prop-induced-velocity_fps</property>
+            </product>
+          </sum>
+        </atan2>
+      </product>
+    </function>
+    <function name="aero/function/lift-coefficient-slipstream-port">
+      <table>
+        <independentVar lookup="row">aero/function/slipstream-alpha-deg-port</independentVar>
+        <independentVar lookup="column">fcs/flap-pos-deg</independentVar>
+        <tableData>
+                  0      15      25      45
+          -10  -0.69   -0.52   -0.40   -0.20
+           -2   0.00    0.15    0.25    0.40
+            0   0.17    0.32    0.42    0.57
+            8   0.85    0.99    1.08    1.19
+           10   0.97    1.11    1.18    1.28
+           12   0.99    1.17    1.23    1.30
+           14   0.95    1.10    1.14    1.18
+           16   0.88    0.98    1.02    1.05
+           20   0.85    0.88    0.90    0.92
+           25   0.80    0.82    0.84    0.86
+        </tableData>
+      </table>
+    </function>
+
+    <!-- The angle the air in the starboard propeller's slipstream meets the
+         wing at: its speed along her x axis is the aircraft's plus 1.5
+         times the induced velocity, as in lift-slipstream; across it, w.
+         Standing, it is near nothing whichever way she creeps. -->
+    <function name="aero/function/slipstream-alpha-deg-starboard">
+      <product>
+        <value>57.29577951308232</value>
+        <atan2>
+          <property>velocities/w-aero-fps</property>
+          <sum>
+            <property>velocities/u-aero-fps</property>
+            <product>
+              <value>1.5</value>
+              <property>propulsion/engine[1]/prop-induced-velocity_fps</property>
+            </product>
+          </sum>
+        </atan2>
+      </product>
+    </function>
+    <function name="aero/function/lift-coefficient-slipstream-starboard">
+      <table>
+        <independentVar lookup="row">aero/function/slipstream-alpha-deg-starboard</independentVar>
+        <independentVar lookup="column">fcs/flap-pos-deg</independentVar>
+        <tableData>
+                  0      15      25      45
+          -10  -0.69   -0.52   -0.40   -0.20
+           -2   0.00    0.15    0.25    0.40
+            0   0.17    0.32    0.42    0.57
+            8   0.85    0.99    1.08    1.19
+           10   0.97    1.11    1.18    1.28
+           12   0.99    1.17    1.23    1.30
+           14   0.95    1.10    1.14    1.18
+           16   0.88    0.98    1.02    1.05
+           20   0.85    0.88    0.90    0.92
+           25   0.80    0.82    0.84    0.86
+        </tableData>
+      </table>
+    </function>
+
     <axis name="LIFT">
       <function name="aero/force/lift-alpha">
         <description>Lift with angle of attack and flap</description>
@@ -878,40 +956,45 @@
           <value>0.5</value>
           <property>atmosphere/rho-slugs_ft3</property>
           <value>90</value>
-          <property>aero/function/lift-coefficient-wing</property>
           <sum>
-            <difference>
-              <pow>
-                <sum>
+            <product>
+              <property>aero/function/lift-coefficient-slipstream-port</property>
+              <difference>
+                <pow>
+                  <sum>
+                    <property>velocities/u-aero-fps</property>
+                    <product>
+                      <value>1.5</value>
+                      <property>propulsion/engine[0]/prop-induced-velocity_fps</property>
+                    </product>
+                  </sum>
+                  <value>2</value>
+                </pow>
+                <pow>
                   <property>velocities/u-aero-fps</property>
-                  <product>
-                    <value>1.5</value>
-                    <property>propulsion/engine[0]/prop-induced-velocity_fps</property>
-                  </product>
-                </sum>
-                <value>2</value>
-              </pow>
-              <pow>
-                <property>velocities/u-aero-fps</property>
-                <value>2</value>
-              </pow>
-            </difference>
-            <difference>
-              <pow>
-                <sum>
+                  <value>2</value>
+                </pow>
+              </difference>
+            </product>
+            <product>
+              <property>aero/function/lift-coefficient-slipstream-starboard</property>
+              <difference>
+                <pow>
+                  <sum>
+                    <property>velocities/u-aero-fps</property>
+                    <product>
+                      <value>1.5</value>
+                      <property>propulsion/engine[1]/prop-induced-velocity_fps</property>
+                    </product>
+                  </sum>
+                  <value>2</value>
+                </pow>
+                <pow>
                   <property>velocities/u-aero-fps</property>
-                  <product>
-                    <value>1.5</value>
-                    <property>propulsion/engine[1]/prop-induced-velocity_fps</property>
-                  </product>
-                </sum>
-                <value>2</value>
-              </pow>
-              <pow>
-                <property>velocities/u-aero-fps</property>
-                <value>2</value>
-              </pow>
-            </difference>
+                  <value>2</value>
+                </pow>
+              </difference>
+            </product>
           </sum>
         </product>
       </function>

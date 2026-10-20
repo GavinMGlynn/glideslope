@@ -637,8 +637,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       air she holds the step without porpoising.* Done 2026-10-14: she
       hops 0.32 ft on the step against 0.5.
 - [x] **A rolling aeroplane near a stop can be thrown on her nose by her
-      gear in one step.** The Mosquito tips from brake 0.60 (0.65 at her two
-      heaviest loadings): her real behaviour, model unchanged (owner,
+      gear in one step.** The Mosquito tips from brake 0.65 at every
+      loading (0.60 at five before her slipstream lift was defined,
+      2026-10-20): her real behaviour, not changed for it (owner,
       2026-10-17), unmeasured on a real aeroplane. *Verification: a sweep at
       every loading and 0.05 of brake pins the level, both sides.* Done 2026-10-17.
 - [x] **The J-3 Cub's nose is pushed down by a crosswind**: her
@@ -708,11 +709,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       standing**: flaps, elevators and the C182's lift at no angle give her
       up to 46 lb in 15 kt across, the F-22A 280. *Verification: each such
       term moved or named with a reason, and every figure in range.*
-- [ ] **The Mosquito's slipstream lift flips with an undefined angle of
+- [x] **The Mosquito's slipstream lift flips with an undefined angle of
       attack**: on her brakes at +9 boost it is -2,570 or +2,050 lb as her
       creep flips the angle from -93 to +87 degrees. *Verification: standing
       at any power, calm or 15 kt across, her slipstream lift within a stated
-      bound, and every figure in range.*
+      bound, and every figure in range.* Done 2026-10-20: read at the angle
+      the air in each slipstream meets her wing, standing it is 55 to 671 lb,
+      her coefficient within 0.006 of 0.17 against a bound of 0.02.
 - [ ] **The J-3 Cub braked stick central from 10 kt noses over in calm
       air**, from half brake (solo, trainer) or 0.6 (gross); whether a real
       one would, at her tip ratio of 0.45 to 0.50, is not measured.
