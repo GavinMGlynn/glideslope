@@ -2963,6 +2963,82 @@ GLIDESLOPE_TEST(a_c172p_at_full_power_on_held_brakes_with_her_stick_full_back_do
     }
 }
 
+// **A C172P standing at full power turns her rudder on the part of her
+// slipstream that reaches her fin**, not on the whole of it. Her handbook's
+// Figure 1-1 (Three View, page 1-2), its side view scaled by its own 8 ft 9
+// 1/2 in height, has her thrust line 52.9 in above the ground, her fin's root
+// on the tailcone 50.7 in and its tip 103.4 in; momentum theory has the far
+// slipstream at the 75 in propeller's diameter over root two, 53.0 in. Its
+// upper half covers 0.545 of the fin's span (tools/make_c172p.py). On held
+// brakes at her model's own loading, throttle opened over 3 s and held 5 s
+// more, with her rudder full left and then full right (both of its ends; at
+// its centre the term is nothing), her rudder's yaw moment is her model's
+// coefficient times the free stream's dynamic pressure plus 0.545 of the
+// slipstream's excess over it, to 0.1 per cent. The situation is built: she is
+// standing, the slipstream's excess is over 10 psf and the rudder over 0.2
+// rad. On the pinned model's whole slipstream the moment is 1.8 times this.
+GLIDESLOPE_TEST(a_c172p_standing_at_full_power_turns_her_rudder_on_the_part_of_her_slipstream_that_reaches_her_fin) {
+    constexpr double thrust_line_in = 52.9;
+    constexpr double fin_root_in = 50.7;
+    constexpr double fin_tip_in = 103.4;
+    const double slipstream_in = 75.0 / std::sqrt(2.0);
+    const double share = std::round((thrust_line_in + slipstream_in / 2.0 - fin_root_in) /
+                                    (fin_tip_in - fin_root_in) * 1000.0) /
+                         1000.0;
+    check(share == 0.545, "Figure 1-1's fin in the slipstream: " + std::to_string(share));
+    constexpr double cndr = -0.0430; // her model's, per radian
+    const Runway runway = a_runway();
+    int asked = 0;
+    for (const double rudder : {-1.0, 1.0}) {
+        glideslope::sim::Aircraft a(data() / "jsbsim", "c172p");
+        a.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.engine_running = true;
+        ic.gear = 1.0;
+        a.initialize(ic);
+        glideslope::sim::Controls c;
+        c.left_brake = 1.0;
+        c.right_brake = 1.0;
+        constexpr int settle = 5 * steps_per_second;
+        constexpr int open = 3 * steps_per_second;
+        constexpr int held = 5 * steps_per_second;
+        for (int step = 0; step < settle + open + held; ++step) {
+            if (step >= settle) {
+                c.rudder = rudder;
+                c.throttle = std::min(1.0, static_cast<double>(step - settle + 1) / open);
+            }
+            a.set_controls(c);
+            a.step();
+        }
+        const double q = a.property("aero/qbar-psf");
+        const double q_slipstream = a.property("aero/function/qbar-induced-psf");
+        const double rudder_rad = a.property("fcs/rudder-pos-rad");
+        const double expected = (q + share * (q_slipstream - q)) * a.property("metrics/Sw-sqft") *
+                                a.property("metrics/bw-ft") * rudder_rad * cndr;
+        const double moment = a.property("aero/coefficient/Cndr");
+        std::printf("  rudder %+.0f: %.3f rad, free stream %.2f psf, slipstream %.2f psf, "
+                    "%.1f ft/s: yaw moment %.1f ft-lb, the fin's share makes %.1f "
+                    "(the whole slipstream %.1f)\n",
+                    rudder, rudder_rad, q, q_slipstream, a.property("velocities/vg-fps"), moment,
+                    expected, expected / (q + share * (q_slipstream - q)) * q_slipstream);
+        check(a.property("velocities/vg-fps") < 0.5, "she is standing");
+        check(q_slipstream - q > 10.0,
+              "the slipstream's excess is over 10 psf: " + std::to_string(q_slipstream - q));
+        check(std::abs(rudder_rad) > 0.2, "the rudder is over: " + std::to_string(rudder_rad));
+        check(std::abs(moment - expected) <= 0.001 * std::abs(expected),
+              "her rudder's yaw moment " + std::to_string(moment) + " ft-lb is the fin's share's " +
+                  std::to_string(expected));
+        ++asked;
+    }
+    check(asked == 2, "both ends of her rudder asked: " + std::to_string(asked));
+}
+
 // **The Mosquito braked past a level tips onto her nose, and the level is
 // pinned.** The owner's decision (2026-10-17) for the Phase 9 item "A
 // rolling aeroplane near a stop can be thrown on her nose by her gear in one
