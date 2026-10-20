@@ -5,7 +5,10 @@ F-22A, whose trim does not converge, and the Mosquito and the S.23, whose
 constant-speed propellers leave the throttle unable to trim her speed
 ("udot doesn't appear to be trimmable") - and are held as before, on six
 tenths of the throttle: untouched for thirty seconds the F-22A falls 500 ft,
-the Mosquito 1,500 and the S.23 climbs 340. And a player's first input drops
+the Mosquito 1,500 and the S.23 climbs 340. The C182 is trimmed before her
+constant-speed propeller is governed - at 2,015 rpm, which her governor takes
+to 2,400 in the first seconds - and climbs about 2 ft a second, 95 ft in
+thirty seconds. And a player's first input drops
 the trim: her client keeps the server's throttle, flaps, gear and speedbrake
 lever (`WATCH`), but sends its own pitch trim, aileron and rudder. Both are
 tails in COMPLETION_PLAN.md, Phase 9.
@@ -36,11 +39,17 @@ send fell from 1,524 m to 26 m in thirty seconds.
   flap and speedbrake commands set again) before setting her up again, and
   she falls the 500 exactly. The on-final B-2 trim that fails takes this
   path too.
-- The client's prediction: a client adopts the server's motion and its
-  levers when it joins, and predicts only from its own first input; the
-  server's held controls before that are what the server flew, which it
-  puts the prediction right by. Its levers (`WATCH`) now tell the gear up
-  where it was down before. No message changed.
+- **The client's prediction is not tested against this change.** A
+  predicting client adopts the server's motion when it joins and predicts
+  from its own inputs, which it sends from the first frame; what the server
+  held before them reaches it only as the motion it is put right by. That
+  is not pinned by a test: a predicting client (`--predict --aircraft f35b
+  --until-compared 300`, 250 ms each way through `glideslope_impair`) agrees
+  with the server alike with this change (median 11 mm, worst 1.66 m) and
+  without it (14 mm, 1.65 m), so no check of it can be seen to fail with the
+  fix reverted. It is named in the plan's "first input drops the trim"
+  item. The levers a joining client is told (`WATCH`) now say the gear up
+  where they said it down before. No message changed.
 - `glideslope_cli connect --until-held S` stays until its own aircraft has
   been heard for S seconds of the session's clock and says (on `--heard`)
   how high she was first heard and how low and high she went.
@@ -57,10 +66,13 @@ send fell from 1,524 m to 26 m in thirty seconds.
 - `every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_start_height`
   (tests/unit/test_catalogue.cpp): every one of the catalogue's 16 aircraft,
   started at 3,000 ft at her catalogue airspeed as the server starts a
-  player's and held thirty seconds on `held_until_moved`; 13 trimmed and
-  within 100 ft (the C182 the most, 95 ft up; the rest within 7), the three
-  above left out by name and checked still untrimmable, and the count
-  asserted. Seen red with the aileron and rudder left out of what is held:
+  player's and held thirty seconds on `held_until_moved`; 12 trimmed and
+  within 7 ft, the three untrimmable left out by name and checked still
+  untrimmable, the C182 left out by name and checked still climbing more
+  than 50 ft (95 ft: 95 of a 100 ft bound would be a rule tested by luck),
+  and the count asserted. The same figures, to the foot, in linux-debug
+  (fused multiply-adds) and in a `-march=x86-64-v2` release build (none, as
+  CI). Seen red with the aileron and rudder left out of what is held:
   the C172P, C182 and PA-28 failed, named.
 - `glideslope_cli selftest`: hash ef497a75d22b8798 in linux-debug; the
   selftest trims nothing, and nothing it flies changed.

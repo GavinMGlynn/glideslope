@@ -281,13 +281,26 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_a
 // ("udot doesn't appear to be trimmable"). They are held as before, on six
 // tenths of the throttle, and do not hold their height; that they are still
 // untrimmable is checked, so that one which becomes trimmable is moved in.
+//
+// **And the C182 is left out, named, because she is trimmed before her
+// propeller is governed**: her constant-speed propeller is started at its
+// fine-pitch stop, the trim finds her power at 2,015 rpm, and her governor
+// takes it to 2,400 in the first seconds - the thrust over, she climbs about
+// 2 ft a second, 95 ft in thirty seconds and 210 in ninety, the same to the
+// foot with fused multiply-adds and without. 95 of a 100 ft bound is a rule
+// tested by luck, so she is not held to it; that she is trimmed and still
+// climbs more than 50 ft is checked, so that she is moved in once her trim
+// is found governed.
+//
 // Every aircraft is flown and counted, and every one that fails is named
 // before the test fails.
 GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_start_height) {
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
     const std::vector<std::string> untrimmable = {"f22", "mosquito-fb6", "short_s23"};
+    const std::string ungoverned = "c182";
     std::size_t held_height = 0;
     std::size_t left_out = 0;
+    std::size_t left_out_ungoverned = 0;
     std::string failed;
     for (const CatalogueEntry& e : catalogue) {
         glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
@@ -317,7 +330,18 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
                     aircraft.trimmed_laterally() ? "trimmed"
                     : aircraft.trimmed()         ? "trimmed in pitch alone"
                                                  : "not trimmed",
-                    lowest_ft, highest_ft, named ? ", left out: JSBSim cannot trim her" : "");
+                    lowest_ft, highest_ft,
+                    named                  ? ", left out: JSBSim cannot trim her"
+                    : e.id == ungoverned   ? ", left out: trimmed before her governor"
+                                           : "");
+        if (e.id == ungoverned) {
+            if (aircraft.trimmed_laterally() && highest_ft - 3000.0 > 50.0) {
+                ++left_out_ungoverned;
+            } else {
+                failed += " " + e.id + " (no longer climbs off: move her in)";
+            }
+            continue;
+        }
         if (named) {
             if (aircraft.trimmed()) {
                 failed += " " + e.id + " (trims now: move her in)";
@@ -336,10 +360,12 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
     }
     check(failed.empty(), "every aircraft not named, untouched for 30 s, was trimmed and held "
                           "within 100 ft of 3,000; these did not:" + failed);
-    check(!catalogue.empty() && held_height + left_out == catalogue.size() &&
-              left_out == untrimmable.size(),
+    check(!catalogue.empty() &&
+              held_height + left_out + left_out_ungoverned == catalogue.size() &&
+              left_out == untrimmable.size() && left_out_ungoverned == 1,
           "every aircraft in the catalogue was flown: " + std::to_string(held_height) +
-              " held their height and " + std::to_string(left_out) + " were left out, of " +
+              " held their height and " +
+              std::to_string(left_out + left_out_ungoverned) + " were left out, of " +
               std::to_string(catalogue.size()));
 }
 
