@@ -74,7 +74,7 @@ The changes, and what each is for:
                         rings' preload (45% installed stretch, 31423's spool
                         gap) is left out, as JSBSim's spring has none - real
                         Cubs stand on the preload and barely sag, she sinks
-                        2.9 in; the cord's pull taken as linear to 100%, which
+                        about 3 in; the cord's pull taken as linear to 100%, which
                         Table III's 50/75/100% figures hold to within 10%;
                         the strands' slant (cosine 0.99) is left out. The
                         later J-3's 1280-HD (3/4 x 8 in, 950 lb) would make
