@@ -183,6 +183,19 @@ slope holds to 90 degrees either way, as before, and past it falls straight to
 nothing at 180 - flown tail first, the slope reversed, as a weathercock blown
 from behind turns. Nothing published gives her moment past 90 degrees; the
 shape is this script's. Within 90 degrees it is the slope as it was.
+
+**Her lift the same both ways round** (lift_table, 2026-10-20): the table ran
+from -0.60 to 1.57 rad, and JSBSim holds a table's end value past its ends, so
+past 90 degrees her lift was nothing on one side and, from -0.60 down, the
+whole -0.30 rad of negative lift on the other: flown backward at 30 kt, where
+atan2(w, u) crosses from 180 to -180 with each small pitch swing, it stepped
+by about 1,300 lb and her height law took the step up. As her moment, above:
+the air from behind is the same whichever side of 180 its angle is written.
+So the table runs all the way round: as before from -0.60 to 1.57, straight
+from -0.60 to nothing at -90 degrees, as the positive side falls to nothing at
+90, and nothing from there to 180 either way. Nothing published gives her
+lift in reversed air; the shape past -0.60 is this script's. From -0.60 up it
+is the table as it was.
 """
 
 import math
@@ -727,11 +740,15 @@ def lift_system():
 def lift_table(indent):
     """The lift by angle of attack and Mach: at each Mach the slope of the
     wing's (fighter.lift_slope), straight to STRAIGHT_ALPHA, rounding to its
-    greatest at STALL_ALPHA and falling past it."""
-    alphas = [-0.60, -STRAIGHT_ALPHA, 0.0, STRAIGHT_ALPHA, (STRAIGHT_ALPHA + STALL_ALPHA) / 2.0, STALL_ALPHA,
-              0.80, 1.20, 1.57]
+    greatest at STALL_ALPHA and falling past it; past -0.60 straight to
+    nothing at -90 degrees, and nothing past 90 either way, to 180 (the
+    docstring says why)."""
+    alphas = [-math.pi, -1.57, -0.60, -STRAIGHT_ALPHA, 0.0, STRAIGHT_ALPHA, (STRAIGHT_ALPHA + STALL_ALPHA) / 2.0,
+              STALL_ALPHA, 0.80, 1.20, 1.57, math.pi]
 
     def at_low_mach(a, slope):
+        if abs(a) >= 1.57:
+            return 0.0
         if a <= STRAIGHT_ALPHA:
             return slope * max(a, -STRAIGHT_ALPHA) if a >= -STRAIGHT_ALPHA else -slope * STRAIGHT_ALPHA
         straight = slope * STRAIGHT_ALPHA
