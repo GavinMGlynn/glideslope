@@ -56,6 +56,12 @@ constexpr double yaw_gain = 2.0, yaw_rate_gain = 3.0;
 constexpr double rudder_gain = 0.1;
 constexpr double control_per_s = 2.0;
 
+// **The most bank her pilot's stick asks jet-borne**, at its stop: a choice of
+// this law, under the 30 degrees her verification allows (nothing published
+// gives the F-35B's); and gravity, feet a second a second.
+constexpr double jet_bank_most_deg = 20.0;
+constexpr double gravity_fps2 = 32.174;
+
 double toward(double from, double to, double most) {
     return from + std::clamp(to - from, -most, most);
 }
@@ -471,11 +477,33 @@ Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
     const double fan =
         fan_integral_ + pitch_gain * pitch_error - pitch_rate_gain * s.q_radps;
 
-    // Wings level, on the ailerons and the posts.
-    const double roll_error = -s.roll_deg * rad_per_deg;
-    c.controls.aileron = std::clamp(aileron_gain * -s.roll_deg -
-                                        aileron_rate_gain * s.p_radps * deg_per_rad,
-                                    -1.0, 1.0);
+    // **Her pilot's stick sideways and pedals** (Target::pilot), asked for
+    // a hover or to fly on jet-borne, never converting back: the stick a
+    // bank, in proportion, to `jet_bank_most_deg`, the heading she holds
+    // turning with the bank she has as a coordinated turn would - g tan
+    // bank over her speed, no slower than her translational rate command's,
+    // so that the turn stays bounded as she slows; the pedals a turn of the
+    // heading, in proportion, to her hover's turn (`fcs/stovl-turn-degps`)
+    // at her translational rate command's speed and less as the speed
+    // grows, the same sideways acceleration - wings level, a skid the
+    // speed law along her new heading takes up.
+    double bank_wanted_deg = 0.0;
+    double turn_radps = 0.0;
+    if (target.hover && target.pilot && !back) {
+        bank_wanted_deg = std::clamp(target.pilot->side, -1.0, 1.0) * jet_bank_most_deg;
+        const double v_fps = std::max(speed, trc_kt_) * fps_per_kt;
+        turn_radps = gravity_fps2 * std::tan(s.roll_deg * rad_per_deg) / v_fps +
+                     std::clamp(target.pilot->pedals, -1.0, 1.0) * turn_degps_ * rad_per_deg *
+                         std::pow(trc_kt_ / std::max(speed, trc_kt_), 2.0);
+        heading_deg_ = std::fmod(heading_deg_ + turn_radps * deg_per_rad * dt + 360.0, 360.0);
+    }
+
+    // Wings level, or the bank asked, on the ailerons and the posts.
+    const double roll_error = (bank_wanted_deg - s.roll_deg) * rad_per_deg;
+    c.controls.aileron =
+        std::clamp(aileron_gain * (bank_wanted_deg - s.roll_deg) -
+                       aileron_rate_gain * s.p_radps * deg_per_rad,
+                   -1.0, 1.0);
     post_integral_ =
         std::clamp(post_integral_ + roll_integral * roll_error * dt, -0.5, 0.5);
     const double post =
@@ -485,7 +513,7 @@ Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
     // over it allows.
     const double heading_error =
         std::remainder(heading_deg_ - s.heading_deg, 360.0) * rad_per_deg;
-    const double yaw = yaw_gain * heading_error - yaw_rate_gain * s.r_radps;
+    const double yaw = yaw_gain * heading_error - yaw_rate_gain * (s.r_radps - turn_radps);
     c.controls.rudder = std::clamp(-rudder_gain * a_.property("aero/beta-deg") *
                                        std::clamp(speed / 100.0, 0.0, 1.0),
                                    -1.0, 1.0);

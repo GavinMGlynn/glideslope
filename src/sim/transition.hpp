@@ -109,11 +109,16 @@ public:
     //            as without a pilot.
     //   side     the stick's sideways travel: in the hover a ground speed
     //            to the right, in proportion, to `fcs/stovl-trc-side-kt`;
+    //            jet-borne a bank to the right, in proportion, to 25
+    //            degrees, her heading turning with it as a coordinated
+    //            turn's would;
     //   pedals   the pedals: in the hover a turn to the right, in
-    //            proportion, to `fcs/stovl-turn-degps`.
+    //            proportion, to `fcs/stovl-turn-degps`; jet-borne a turn of
+    //            her heading, wings level, that figure at her translational
+    //            rate command's speed and less as she goes faster - the
+    //            same sideways acceleration.
     //
-    // Jet-borne the stick's sideways and the pedals are not flown yet: her
-    // law holds her heading and her wings level there.
+    // Converting back, neither: the law holds her heading and wings level.
     struct Inceptors {
         std::optional<double> lever;
         double side = 0.0;

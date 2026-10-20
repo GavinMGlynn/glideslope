@@ -429,12 +429,15 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       attack, at 180 degrees**: about 1,300 lb at 30 kt back, taken up by
       her height law. *Verification: her lift either side of 180 degrees
       within a stated bound, and every figure in range.*
-- [ ] **Jet-borne, the F-35B's stick sideways and pedals do nothing**: in
-      STOVL mode between the hover and her conversion speed her law holds
-      her heading and wings level. *Verification: jet-borne at 60 kt, the
-      stick full over turns her at least 3 degrees a second, banked under
-      30, and full pedal moves her heading at least 5 degrees in 10 s, her
-      height within 15 ft.*
+- [x] **Jet-borne, the F-35B's stick sideways and pedals turn her**: in
+      STOVL mode between the hover and her conversion speed the stick asks
+      a bank and a coordinated turn, the pedals a flat turn of her heading.
+      *Verification: jet-borne at 60 kt, the stick full over turns her at
+      least 3 degrees a second, banked under 30, and full pedal moves her
+      heading at least 5 degrees in 10 s, her height within 15 ft.* Done
+      2026-10-20: 6.6 degrees a second banked at most 23.6, 18 degrees in
+      10 s on the pedals, every direction flown.
+      The law's shape is this model's: nothing published gives hers.
 - [ ] **A player who joins already selecting STOVL mode has her law seeded
       apart from the server's**: the server seeds it from the power it holds
       before her first input, her prediction from a model just loaded.
