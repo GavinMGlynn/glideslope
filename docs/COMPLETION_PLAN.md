@@ -730,7 +730,7 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       did. *Verification: her rudder in the part of the slipstream that
       reaches her fin, from a cited figure, and every figure in range.* Done
       2026-10-20: 0.545 of her fin is in it, by her handbook's Figure 1-1;
-      standing at full power her rudder has 0.55 of what it had.
+      the learnt landing trained again on her.
 - [x] **The walking-pace tests' throttle sits the C172P on her tail.**
       Holding her at 3 kt against the autobrake, the test's hand winds to full
       power with her stick back, and she rears to 11 degrees. *Verification:
@@ -996,11 +996,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       trim. *Verification:
       the S.23 lands in calm air and in gusts within the landplanes'
       limits.*
-- [ ] **The learnt landing's policy flies a C172P it was not trained on.**
+- [x] **The learnt landing's policy flies a C172P it was not trained on.**
       It flies her slipped, up to 18 degrees in the flare in calm air; with
       her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min
       harder than it did, within its limits. *Verification: the policy trained
       again on the C172P as committed, its parity fixture from that training.*
+      Done 2026-10-20: trained on from its last checkpoint on her with her new
+      rudder, and every learnt-landing test passes.
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own

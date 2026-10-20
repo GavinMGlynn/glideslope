@@ -1,13 +1,11 @@
-### The C172P's rudder in the part of the slipstream that reaches her fin, 2026-10-20 — item done; one learnt-landing test red
+### The C172P's rudder in the part of the slipstream that reaches her fin, 2026-10-20 — item done
 
 **What is still not true first.**
-- **The learnt landing lands short in the most crosswind from the right**:
-  `the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_right`
-  is red. The policy was trained on her rudder on the whole slipstream; from
-  the gate's eight low corners (1.60 nm, 20 m low) it now touches 0.04 to
-  20.2 m before the threshold (0 of 32 short on main). Every other learnt
-  test passes. Training the policy again on this model, or not, is the
-  owner's decision; nothing here retrains it.
+- **The learnt landing was trained on her old rudder**: on this model it
+  touched before the threshold from 8 of its gate's 160 corners with the
+  wind across from the right (0.04 to 20.2 m short; 0 of 32 on main). By
+  the owner's decision it is trained again here:
+  2026-10-20-the-learnt-landing-trained-again-on-the-c172p-as-committed.md.
 - **The fin's share is read off a drawing**: Figure 1-1's side view, scaled
   by its own printed height, to about half an inch (about 0.01 of the share).
   Assumed, not measured: the slipstream runs back level with her thrust line,
@@ -45,14 +43,16 @@ copy, it fails at 1,252.3 ft-lb; restored, green.
 then this one), all eleven in range: climb 763.15 to 763.12 ft/min, ceiling
 12,313.47 to 12,313.49 ft; the other nine the same to the printed digit.
 **The selftest hash does not move** (`b8ffab0bc34fc89b` both, linux-release):
-its flight holds her rudder central, where the term is nothing. **The learnt
-landing's parity fixture is flown again** (`tools/rl/export.py
---parity-only`); the policy is not trained again.
+its flight holds her rudder central, where the term is nothing. The learnt
+landing's policy is trained again on her, its parity fixture from that
+training (the other status file).
 
 **Verification.** linux-release: the 118 tests named figure, committed,
 c172p, selftest, learnt, parity or cessna - all green but the parity fixture
 (then flown again, green) and the right-crosswind learnt landing above; the
-27 learnt and parity tests again after: 26 green, that one red. Then the
+27 learnt and parity tests again after: 26 green, that one red; with the
+policy trained again, the 99 named learnt, parity, landing, copilot or
+lesson: all green. Then the
 166 others named every_landplane, crosswind, walking, rollout,
 light_aircraft, gust, every_aircraft, rotat, take_off or landing: all green. linux-debug
 was not built here; CI runs it. `tools/make_c172p.py --check` passes.
