@@ -446,17 +446,20 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       until her first input. *Verification: through a real server, a
       player's F-35B and 172P untouched for thirty seconds hold their start
       height within 100 ft (2026-10-20: 7 ft and under 1 ft).*
-- [ ] **The F-22A, the Mosquito and the S.23 cannot be trimmed**, so a
-      player's left untouched still leaves her height: in thirty seconds the
-      F-22A falls 500 ft, the Mosquito 1,500 and the S.23 climbs 340.
+- [ ] **The F-22A, the Mosquito and the S.23 cannot be trimmed, and the
+      C182 is trimmed before her propeller is governed**, so a player's left
+      untouched still leaves her height: in thirty seconds the F-22A falls
+      500 ft, the Mosquito 1,500, and the S.23 and C182 climb 340 and 95.
       *Verification: every aircraft in the catalogue, started as a player's
       and untouched for thirty seconds, within 100 ft of her start height.*
 - [ ] **A player's first input drops the trim the server held**: her
       client keeps the server's throttle, flaps, gear and speedbrake, but
-      sends its own pitch trim, aileron and rudder. *Verification: through
-      a real server, a client that joins and touches nothing holds her start
-      height for thirty seconds within 100 ft, as one that sends nothing
-      does.*
+      sends its own pitch trim, aileron and rudder; and that a predicting
+      client agrees with the server through its first input after an
+      untouched start is measured, not tested. *Verification: through a real
+      server, a predicting client that joins and touches nothing holds her
+      start height for thirty seconds within 100 ft, as one that sends
+      nothing does, within the prediction bounds.*
 - [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
       server's flight-control laws**: each side seeds her law from her as it
       sees her when the selector reaches it, a step apart when the clocks'
