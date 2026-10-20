@@ -3063,15 +3063,20 @@ GLIDESLOPE_TEST(a_c172p_standing_at_full_power_turns_her_rudder_on_the_part_of_h
 // twentieth of brake from 0.05 to 1.00, throttle closed, until she stops
 // and stands five seconds: 140 runs. **Tipped** is her pitch going below the
 // horizontal (she stands at 11 to 12 degrees nose up) at some step of the
-// braking. **Pinned**, measured on linux-release 2026-10-17: she tips from
-// brake 0.60 at her own, HX809, and the three Pilot's Notes loadings, and
-// from 0.65 at HJ679's and the B.IV maximum's (the two heaviest, 21,020 and
-// 21,462 lb; at 0.60 they dip to 2.4 and 5.3 degrees). At 0.55 she dips to
-// 9.2 to 10.7 degrees at 6 to 13 deg/s, and stays on her wheels. Past the
-// level she pitches at 28 to 62 deg/s, her nose to -5.8 to -9.6 degrees, and
-// stops. The test asserts both sides at every level: below a loading's
-// pinned level she does not tip, at or above it she does, so a model change
-// that moves the level in either direction fails.
+// braking. **Pinned**, measured on linux-release 2026-10-20: she tips from
+// brake 0.65 at every loading. At 0.60 she dips to 0.9 to 6.9 degrees at 20
+// to 27 deg/s, and at 0.55 to 10.0 to 10.9 at 4 to 9 deg/s, and stays on her
+// wheels. Past the level she pitches at 30 to 60 deg/s, her nose to -5.6 to
+// -9.7 degrees, and stops. **Moved from 0.60** at five loadings (2026-10-17's
+// pin: 0.60 at her own, HX809's and the three Pilot's Notes', 0.65 at
+// HJ679's and the B.IV maximum's) when her slipstreams' lift was read at the
+// angle the air in them meets her wing (tools/make_mosquito_fb6.py): at her
+// own loading and brake 0.60 it was up to 3,936 lb at her 12 degrees as the
+// braking began, lightening her main wheels, and -341 lb as her nose came
+// down through -9.5 degrees of angle of attack, pressing it down; now 1,178
+// lb at most, and 78 lb as she stops. The test asserts both sides at every
+// level: below a loading's pinned level she does not tip, at or above it she
+// does, so a model change that moves the level in either direction fails.
 GLIDESLOPE_TEST(the_mosquito_braked_to_a_stop_from_10_kt_in_calm_air_tips_onto_her_nose_from_one_brake_level_at_every_loading) {
     const auto figures =
         glideslope::sim::read_published_figures(data() / "figures" / "mosquito-fb6.xml");
@@ -3082,8 +3087,8 @@ GLIDESLOPE_TEST(the_mosquito_braked_to_a_stop_from_10_kt_in_calm_air_tips_onto_h
     constexpr double degrees = 180.0 / 3.14159265358979323846;
     // Her pinned tipping level at each loading ("" is her model's own).
     const std::map<std::string, double> pinned = {
-        {"", 0.60},       {"hx809", 0.60},      {"hj679", 0.65},  {"b4-maximum", 0.65},
-        {"pn-full", 0.60}, {"pn-18000", 0.60}, {"pn-17000", 0.60}};
+        {"", 0.65},       {"hx809", 0.65},      {"hj679", 0.65},  {"b4-maximum", 0.65},
+        {"pn-full", 0.65}, {"pn-18000", 0.65}, {"pn-17000", 0.65}};
     std::vector<std::string> names = {""};
     for (const auto& [name, l] : figures.loadings) {
         names.push_back(name);
@@ -3184,11 +3189,163 @@ GLIDESLOPE_TEST(the_mosquito_braked_to_a_stop_from_10_kt_in_calm_air_tips_onto_h
     check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     // The space: her own loading and the six her figures give, at twenty
-    // levels; of the 140 runs 61 tip: 0.60 to 1.00 is nine levels at five
-    // loadings, 0.65 to 1.00 eight at two.
+    // levels; of the 140 runs 56 tip: 0.65 to 1.00, eight levels at seven
+    // loadings.
     check(names.size() == 7 && pinned.size() == 7 && figures.loadings.size() == 6 &&
               runs == 7 * levels,
           "seven loadings at twenty levels, 140 runs: " + std::to_string(runs));
-    check(tipped_runs == 5 * 9 + 2 * 8,
-          "61 of the 140 runs tipped: " + std::to_string(tipped_runs));
+    check(tipped_runs == 7 * 8,
+          "56 of the 140 runs tipped: " + std::to_string(tipped_runs));
+}
+
+// **The Mosquito standing on her brakes at any power has her slipstreams'
+// lift at the angle the air in them meets her wing.** Her lift-slipstream
+// is her wing's lift coefficient on the slipstreams' extra dynamic pressure
+// over 90 sq ft a side (tools/make_mosquito_fb6.py). It read the coefficient
+// at her angle of attack, atan2(w, u), which standing is any angle her creep
+// gives: on main's model -0.69 to 0.99 (the table's ends, -10 and 25
+// degrees, and its peak), -2,645 to +3,790 lb, flipping as she crept. Now each
+// side reads it at the angle the air in its slipstream meets the wing,
+// atan2(w, u + 1.5 vi): standing, the slipstream runs along her x axis and
+// that angle is near nothing, where her table, flaps up, gives 0.17.
+//
+// **Every scenario**: at her model's own loading and the six her figures
+// give, at every tenth of throttle from closed to full (-9 to +18 boost),
+// in calm air, in 15 kt straight across from her left and from her right:
+// started on the runway, stood five seconds on full brakes with the stick
+// fully back (as she is run up), the throttles opened at 0.2 a second and
+// held for ten seconds in all, then the wind (or none) and fifteen seconds
+// more. Over the last five, at every step, her slipstream lift over the
+// slipstreams' extra dynamic pressure on their 180 sq ft is within 0.02 of
+// 0.17. **The bound**, 0.02, is a quarter of a degree of her lift curve's
+// 0.085 a degree; measured (linux-release, 2026-10-20) she stands at 0.166
+// to 0.176 - in the beam wind she leans, and w is a little - 55 to 671 lb,
+// and moves 0.01 kt at most. Main's model is out by 0.63 at least at every
+// run. Coverage asserted: seven loadings, eleven throttles, three winds,
+// 231 runs of 600 steps judged.
+GLIDESLOPE_TEST(the_mosquito_standing_on_her_brakes_at_any_power_calm_or_in_15_kt_across_has_her_slipstream_lift_at_her_wings_coefficient_for_the_air_along_her) {
+    constexpr double crosswind_kts = 15.0;
+    constexpr int calm_stand_s = 5;
+    constexpr int run_up_s = 10;
+    constexpr int wind_stand_s = 15;
+    constexpr int judged_s = 5;
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    // Her wing's lift coefficient, flaps up, at 0 degrees, and the bound on
+    // it either side.
+    constexpr double expected_cl = 0.17;
+    constexpr double bound = 0.02;
+    const std::vector<double> throttles = {0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
+    const auto runway = a_runway();
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / "mosquito-fb6.xml");
+    std::vector<std::pair<std::string, std::optional<glideslope::sim::Loading>>> loadings;
+    loadings.emplace_back("her own", std::nullopt);
+    for (const auto& [name, l] : figures.loadings) {
+        loadings.emplace_back(name, l.loading);
+    }
+    std::size_t runs = 0;
+    std::size_t judged_steps = 0;
+    std::vector<std::string> wrong;
+    for (const auto& [loading_name, loading] : loadings) {
+        for (const double throttle : throttles) {
+            for (const int wind_case : {0, +1, -1}) {
+                ++runs;
+                char where[128];
+                std::snprintf(where, sizeof where, "%s, throttle %.1f, %s", loading_name.c_str(),
+                              throttle,
+                              wind_case == 0  ? "calm"
+                              : wind_case > 0 ? "15 kt from her left"
+                                              : "15 kt from her right");
+                glideslope::sim::Aircraft aircraft(data() / "jsbsim", "mosquito-fb6");
+                if (loading) {
+                    aircraft.load(*loading);
+                }
+                aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                    [](double, double) { return 0.0; }, [](double, double) { return false; }));
+                glideslope::sim::InitialConditions ic;
+                ic.latitude_deg = runway.threshold_lat_deg;
+                ic.longitude_deg = runway.threshold_lon_deg;
+                ic.altitude_ft = runway.elevation_ft;
+                ic.terrain_elevation_ft = runway.elevation_ft;
+                ic.heading_deg = runway.heading_deg;
+                ic.engine_running = true;
+                ic.gear = 1.0;
+                aircraft.initialize(ic);
+                glideslope::sim::Controls held;
+                held.left_brake = 1.0;
+                held.right_brake = 1.0;
+                held.elevator = 1.0;
+                for (int step = 0; step < calm_stand_s * steps_per_second; ++step) {
+                    aircraft.set_controls(held);
+                    aircraft.step();
+                }
+                // Opened at 0.2 a second, then held while the engines settle.
+                for (int step = 0; step < run_up_s * steps_per_second; ++step) {
+                    held.throttle = std::min(throttle, held.throttle + 0.2 / steps_per_second);
+                    aircraft.set_controls(held);
+                    aircraft.step();
+                }
+                if (wind_case != 0) {
+                    glideslope::sim::Conditions wind;
+                    const double towards = (runway.heading_deg + 90.0 * wind_case) / degrees;
+                    const double mps = crosswind_kts * 0.514444;
+                    wind.wind_north_mps = mps * std::cos(towards);
+                    wind.wind_east_mps = mps * std::sin(towards);
+                    wind.wind_at_20ft_mps = mps;
+                    aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
+                }
+                double least_cl = 1e9, most_cl = -1e9, least_lift = 1e9, most_lift = -1e9;
+                double most_alpha = 0.0, least_q = 1e9, most_kts = 0.0, boost = 0.0;
+                std::string first_wrong;
+                for (int step = 0; step < wind_stand_s * steps_per_second; ++step) {
+                    aircraft.set_controls(held);
+                    aircraft.step();
+                    if (step < (wind_stand_s - judged_s) * steps_per_second) {
+                        continue;
+                    }
+                    ++judged_steps;
+                    const double u = aircraft.property("velocities/u-aero-fps");
+                    double extra = 0.0;
+                    for (int e = 0; e < 2; ++e) {
+                        const double vi = aircraft.property(
+                            "propulsion/engine[" + std::to_string(e) + "]/prop-induced-velocity_fps");
+                        extra += (u + 1.5 * vi) * (u + 1.5 * vi) - u * u;
+                    }
+                    const double q = 0.5 * aircraft.property("atmosphere/rho-slugs_ft3") * 90.0 * extra;
+                    const double lift = aircraft.property("aero/force/lift-slipstream");
+                    const double cl = lift / q;
+                    least_q = std::min(least_q, q);
+                    least_cl = std::min(least_cl, cl);
+                    most_cl = std::max(most_cl, cl);
+                    least_lift = std::min(least_lift, lift);
+                    most_lift = std::max(most_lift, lift);
+                    most_alpha = std::max(most_alpha, std::abs(aircraft.property("aero/alpha-deg")));
+                    most_kts = std::max(most_kts, aircraft.property("velocities/vg-fps") / 1.68781);
+                    boost = aircraft.property("propulsion/engine[0]/map-inhg") * 0.4911541 - 14.6959;
+                    if (first_wrong.empty() && !(std::abs(cl - expected_cl) <= bound)) {
+                        char w[200];
+                        std::snprintf(w, sizeof w, "%s: coefficient %.3f (%.0f lb) at step %d", where,
+                                      cl, lift, step);
+                        first_wrong = w;
+                    }
+                }
+                std::printf("  %-44s boost %+5.1f, coefficient %.3f to %.3f, lift %6.0f to %6.0f lb,"
+                            " slipstreams' q.S %6.0f lb, |alpha| to %5.1f deg, %.2f kt\n",
+                            where, boost, least_cl, most_cl, least_lift, most_lift, least_q, most_alpha,
+                            most_kts);
+                if (!first_wrong.empty()) {
+                    wrong.push_back(first_wrong);
+                }
+            }
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(loadings.size() == 7 && throttles.size() == 11 && runs == 7 * 11 * 3 &&
+              judged_steps == runs * std::size_t(judged_s * steps_per_second),
+          "seven loadings, eleven throttles, three winds, 231 runs of 600 steps judged: " +
+              std::to_string(runs) + " runs, " + std::to_string(judged_steps) + " steps");
 }
