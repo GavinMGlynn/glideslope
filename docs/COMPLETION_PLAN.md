@@ -714,8 +714,7 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       creep flips the angle from -93 to +87 degrees. *Verification: standing
       at any power, calm or 15 kt across, her slipstream lift within a stated
       bound, and every figure in range.* Done 2026-10-20: read at the angle
-      the air in each slipstream meets her wing, standing it is 55 to 671 lb,
-      her coefficient within 0.006 of 0.17 against a bound of 0.02.
+      the air in each slipstream meets her wing, within its bound everywhere.
 - [ ] **The J-3 Cub braked stick central from 10 kt noses over in calm
       air**, from half brake (solo, trainer) or 0.6 (gross); whether a real
       one would, at her tip ratio of 0.45 to 0.50, is not measured.
