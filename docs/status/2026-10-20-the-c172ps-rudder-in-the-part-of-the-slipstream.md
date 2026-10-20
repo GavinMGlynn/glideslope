@@ -37,7 +37,9 @@ centred the term is nothing), her yaw moment is the free stream's plus 0.545
 of the excess, to 0.1 per cent: 682.5 ft-lb at 0.279 rad, on 16.75 psf of
 slipstream. The situation is asserted built: standing, excess over 10 psf,
 rudder over 0.2 rad. **Seen red**: main's c172p.xml put in the build's data
-copy, it fails at 1,252.3 ft-lb; restored, green.
+copy, it fails at 1,252.3 ft-lb; restored, green. The same figures, to the
+printed digit, in an `-march=x86-64-v2` release build (no fused
+multiply-adds, as CI; how in the other status file).
 
 **What moved.** `glideslope_cli figures c172p` (linux-release, main's model
 then this one), all eleven in range: climb 763.15 to 763.12 ft/min, ceiling
