@@ -660,9 +660,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       from her Owner's Manual (48.7 sq ft) with Hoerner's flat plate
       broadside (1.17); standing in 15 kt across she is pushed 43 lb, not
       162, within 0.005 of the figure, and leans 2.2 degrees at most.
-- [ ] **The J-3 Cub's main gear springs are the pinned model's**, 1,000 lb
+- [x] **The J-3 Cub's main gear springs are the pinned model's**, 1,000 lb
       a foot a wheel, from no source. *Verification: a cited figure for a
       Cub's gear stiffness or her static deflection, and hers held to it.*
+      Done 2026-10-20: no published figure exists, so her rate is derived
+      from her shock rings' rating (730 lb at 100% stretch) and Piper's gear
+      drawings, at 2,093 lb a foot a wheel; both main wheels are held to it
+      within 1%.
 - [x] **Every model but the Cub has her lift keyed to the angle of attack
       counting the crosswind**, as their pitch terms did: standing or slowing
       in one, her lift is the beam wind's whole pressure times an undefined
