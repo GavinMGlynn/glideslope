@@ -219,7 +219,9 @@ are the risks the phase order is built around:
   through a server (2026-10-16); the windowed client's loading is compiled,
   not run, and her jet-borne and hover laws' integrals are each side's own. She flies
   30 kt backward in the hover (2026-10-20); her lift still steps at 180
-  degrees, which her height law takes up.
+  degrees, which her height law takes up. Jet-borne her stick banks and
+  turns her and her pedals turn her heading (2026-10-20), by laws of this
+  model's shape - nothing published gives hers.
 - **Terrain is drawn around where the flight starts, and nowhere else.** The
   client draws the nine whole-degree cells around its start; fly out of them
   and there is sky below.

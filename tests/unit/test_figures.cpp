@@ -2303,6 +2303,85 @@ GLIDESLOPE_TEST(jet_borne_the_f35bs_pilots_lever_gathers_holds_and_sheds_her_spe
     check(!h.touched, "her wheels touched");
 }
 
+// **Jet-borne her pilot's stick sideways and pedals turn her**: hovering as
+// above, the lever forward to 60 kt and back to its detent, every direction
+// flown - four, asserted - each begun at 60 kt within 5 and wings level
+// within 2 degrees:
+//
+//   stick right, stick left   full over for 20 s: her heading turning at
+//                             least 3 degrees a second over its last 10 s,
+//                             the way asked, her bank under 30 throughout;
+//   pedal right, pedal left   full for 10 s: her heading moved at least 5
+//                             degrees, the way asked.
+//
+// Each let go, 20 s to settle. Her height within 15 ft of what is asked
+// throughout, her wheels never touching.
+GLIDESLOPE_TEST(jet_borne_the_f35bs_pilots_stick_banks_and_turns_her_and_her_pedals_turn_her_heading) {
+    using namespace glideslope::sim;
+    TransitionFlight f = f35b_level_at(300.0, 200.0);
+    PilotsHover h = pilots_hover(f);
+    const double detent = f.a->property("fcs/stovl-lever-detent");
+    const auto speed = [&] { return ahead_right_kt(*f.a, f.a->state().heading_deg).first; };
+    h.pilot.throttle = 1.0;
+    bool at_60 = false;
+    for (int i = 0; i < 120 * 120 && !at_60; ++i) {
+        h.fly(f, 1.0 / 120.0);
+        at_60 = speed() >= 60.0;
+    }
+    check(at_60, "not at 60 kt two minutes after the lever went forward");
+    h.pilot.throttle = detent;
+    h.fly(f, 20.0);
+    const auto turned = [](double from_deg, double to_deg) {
+        return std::remainder(to_deg - from_deg, 360.0);
+    };
+    const auto begun = [&](const std::string& which) {
+        const double kt = speed();
+        const double bank = f.a->state().roll_deg;
+        check(std::abs(kt - 60.0) <= 5.0 && std::abs(bank) <= 2.0,
+              which + " begun at " + std::to_string(kt) + " kt, bank " + std::to_string(bank));
+        return std::pair{kt, bank};
+    };
+    std::set<std::string> covered;
+    const std::size_t directions = 4;
+    for (const double sign : {1.0, -1.0}) {
+        const std::string which = sign > 0.0 ? "stick right" : "stick left";
+        const auto [kt, bank] = begun(which);
+        h.most_bank = 0.0;
+        h.pilot.aileron = sign;
+        h.fly(f, 10.0);
+        const double from = f.a->state().heading_deg;
+        h.fly(f, 10.0);
+        const double rate = turned(from, f.a->state().heading_deg) / 10.0;
+        std::printf("  %s from %.1f kt, bank %.1f: %.2f deg/s, bank at most %.1f\n",
+                    which.c_str(), kt, bank, rate, h.most_bank);
+        check(sign * rate >= 3.0, which + " turned her " + std::to_string(rate) + " deg/s");
+        check(h.most_bank < 30.0, which + " banked her " + std::to_string(h.most_bank));
+        h.pilot.aileron = 0.0;
+        h.fly(f, 20.0);
+        covered.insert(which);
+    }
+    for (const double sign : {1.0, -1.0}) {
+        const std::string which = sign > 0.0 ? "pedal right" : "pedal left";
+        const auto [kt, bank] = begun(which);
+        const double from = f.a->state().heading_deg;
+        h.pilot.rudder = sign;
+        h.fly(f, 10.0);
+        const double moved = turned(from, f.a->state().heading_deg);
+        std::printf("  %s from %.1f kt, bank %.1f: heading moved %.2f deg in 10 s\n",
+                    which.c_str(), kt, bank, moved);
+        check(sign * moved >= 5.0, which + " moved her heading " + std::to_string(moved));
+        h.pilot.rudder = 0.0;
+        h.fly(f, 20.0);
+        covered.insert(which);
+    }
+    std::printf("  %zu of %zu directions flown; height off what was asked by at most %.2f ft\n",
+                covered.size(), directions, h.most_off_ft);
+    check(covered.size() == directions, std::to_string(covered.size()) + " of " +
+                                            std::to_string(directions) + " directions flown");
+    check(h.most_off_ft <= 15.0, "her height strayed " + std::to_string(h.most_off_ft) + " ft");
+    check(!h.touched, "her wheels touched");
+}
+
 namespace {
 
 // The point `ahead_m` along her heading and `right_m` to its right.
