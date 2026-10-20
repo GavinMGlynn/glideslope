@@ -80,6 +80,13 @@ struct InitialConditions {
     // seconds, before the autopilot's elevator had caught it. False, the
     // default, leaves every other start exactly as it was.
     bool trim = false;
+    // **And laterally** (with `trim`): JSBSim's full trim, which finds the
+    // aileron and rudder that hold her wings level against her engine's
+    // torque as well - longitudinal alone where it cannot. Trimmed only
+    // longitudinally, a C172P left alone rolled off to 30 degrees of bank and
+    // lost 280 ft in thirty seconds. False, the default, leaves every other
+    // start exactly as it was.
+    bool trim_lateral = false;
     // **The attitude it starts at**, degrees: the nose above the horizon and
     // the right wing down. 0 and 0, the defaults, start it level, as every
     // start did before these were given (a test's, to shoot a frame at a
@@ -552,6 +559,10 @@ public:
     bool trimmed() const {
         return trimmed_;
     }
+    // And whether that trim was lateral too (InitialConditions::trim_lateral).
+    bool trimmed_laterally() const {
+        return trimmed_laterally_;
+    }
 
     // The controls take effect from the next step.
     void set_controls(const Controls& controls);
@@ -685,6 +696,7 @@ private:
     std::string model_;
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;
+    bool trimmed_laterally_ = false;
     bool initialized_ = false;
     std::shared_ptr<Terrain> terrain_;
     // Each contact point's height above the surface, by JSBSim's property:

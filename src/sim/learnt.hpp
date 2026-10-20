@@ -164,6 +164,14 @@ InitialConditions final_approach_start(const Runway& runway, double out_m, doubl
 // started trimmed holds until its player moves anything.
 Controls trimmed_controls(const Aircraft& aircraft);
 
+// **What a player's aircraft holds until she moves anything**: started
+// trimmed (InitialConditions::trim), what the trim found - her aileron and
+// rudder too where it was lateral; where JSBSim could not trim her, six
+// tenths of her throttle and nothing else. Her gear lever either way is where
+// she was started with it. Held at six tenths and the stick neutral, an F-35B
+// whose player was slow to join was in a dive before she had touched anything.
+Controls held_until_moved(const Aircraft& aircraft);
+
 // **The learnt landing for `model`**, `data`/rl/`model`-landing.txt: null
 // when there is none, which is how an aircraft is known not to have one.
 // Throws std::runtime_error for a file that cannot be read or was trained on
