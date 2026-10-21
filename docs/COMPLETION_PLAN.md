@@ -443,12 +443,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       prediction begun mid-turn starts level; likely fixed by the server
       telling it. *Verification: a client joining mid-bank predicts the
       server's held bank and agrees with it within a stated bound.*
-- [ ] **A player who joins already selecting STOVL mode has her law seeded
-      apart from the server's**: the server seeds it from the power it holds
-      before her first input, her prediction from a model just loaded.
-      *Verification: a client selecting STOVL on its very first input,
-      through a real server, has its transition law seeded as the server's
-      is - the same throttle integral at the step both make it.*
+- [x] **A player who joins already selecting STOVL mode has her law seeded
+      as the server's**: her prediction begins on the controls the server
+      says it holds her on, and a law made again in a replay is seeded as it
+      was first. *Verification: a client selecting STOVL on its very first
+      input, through a real server, has its transition law seeded as the
+      server's is - the same throttle integral at the step both make it
+      (2026-10-21: 0.4685201574755089 on both, to the 17th digit).*
 - [x] **A player's aircraft the server holds untouched is trimmed**: she
       starts trimmed level, wings and all, and holds what the trim found
       until her first input. *Verification: through a real server, a

@@ -998,11 +998,13 @@ bool put_lift_system(Aircraft& aircraft, const LiftSystem& lift) {
     return true;
 }
 
-void apply(Aircraft& aircraft, Controller& controller) {
-    aircraft.set_controls(controller.fly());
+Controls apply(Aircraft& aircraft, Controller& controller) {
+    const Controls flown = controller.fly();
+    aircraft.set_controls(flown);
     if (const LiftSystem* lift = controller.lift()) {
         put_lift_system(aircraft, *lift);
     }
+    return flown;
 }
 
 } // namespace glideslope::sim

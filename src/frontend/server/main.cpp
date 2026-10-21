@@ -1665,8 +1665,15 @@ public:
         // shut would be gliding before they had touched anything, and one
         // held at six tenths with the stick neutral, as these were until
         // 2026-10-20, put an F-35B in a dive.
-        const glideslope::sim::Controls idling =
-            glideslope::sim::held_until_moved(*aircraft);
+        //
+        // **And held as her levers tell them** (`WATCH`): each control a
+        // 16-bit fraction, as an input is, so that what a client is told
+        // she is held on is what she is held on to the bit. A client's
+        // prediction seeds a law made on her first input - STOVL mode
+        // selected - from what it is told (sim::Prediction::held_by_server),
+        // and the server's law from what it held her on.
+        const glideslope::sim::Controls idling = glideslope::sim::Controls::from_list(
+            glideslope::net::as_sent(glideslope::sim::held_until_moved(*aircraft).as_list()));
         flown_.push_back({id + " (slot " + std::to_string(slot) + ")",
                           std::move(aircraft), nullptr, index, static_cast<int>(slot),
                           idling});
@@ -2749,7 +2756,18 @@ public:
                 if (a.slot >= 0) {
                     a.controller->set_pilot(a.held);
                 }
+                const bool had_a_law = a.controller->transition() != nullptr;
                 glideslope::sim::apply(*a.aircraft, *a.controller);
+                // **Her STOVL law made**, and what it was seeded with, for a
+                // test to hold her client's prediction's against.
+                if (const glideslope::sim::Transition* law = a.controller->transition();
+                    law && !had_a_law && a.slot >= 0) {
+                    std::printf("aircraft %u's STOVL law made at step %lld: throttle "
+                                "integral %.17g\n",
+                                static_cast<unsigned>(a.index), static_cast<long long>(steps_),
+                                law->throttle_integral_made_with());
+                    std::fflush(stdout);
+                }
             } else {
                 a.aircraft->set_controls(a.held);
             }

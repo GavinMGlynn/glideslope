@@ -162,6 +162,14 @@ public:
     // since, by the prediction's clocks' difference, which is kept
     // (sim::Prediction::adopt). Not predicting, it is `adopt` above.
     void adopt(const sim::Motion& motion, std::uint64_t server_steps);
+    // **What the server holds her on until her first input**, as her levers
+    // say it, put on her before the prediction's first step
+    // (sim::Prediction::held_by_server). Nothing while not predicting.
+    void held_by_server(const sim::Controls& held) {
+        if (prediction_) {
+            prediction_->held_by_server(held);
+        }
+    }
     bool predicting() const { return prediction_ != nullptr; }
     // Whether the prediction knows the clocks' difference yet
     // (sim::Prediction::settled).

@@ -154,6 +154,8 @@ public:
     // differed, this alone told puts it right.
     double pitch_integral_deg() const { return pitch_integral_deg_; }
     void put_pitch_integral_deg(double deg) { pitch_integral_deg_ = deg; }
+    // Its throttle integral: seeded from the throttle it was engaged on.
+    double throttle_integral() const { return throttle_integral_; }
 
     // The controls for the next step, from the aircraft's state now. Each call
     // advances the loops by one 120 Hz step, so call it once a step.

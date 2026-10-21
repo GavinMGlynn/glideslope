@@ -176,6 +176,13 @@ public:
         bool operator==(const Carried&) const = default;
     };
     Carried carried() const;
+    // **The throttle integral it was made with**, before it has flown a
+    // step: its wing-borne autopilot's, or its jet-borne law's - seeded on
+    // each side from the throttle she had when it was made, and never told
+    // (sim::Prediction::held_by_server says how the two are made alike).
+    double throttle_integral_made_with() const {
+        return throttle_integral_made_with_;
+    }
     // Each part carried put on this law where it has that part to take it.
     void carry(const Carried& carried);
 
@@ -232,6 +239,7 @@ private:
     double speed_from_kt_ = 0.0;
     double back_pitch_from_deg_ = 0.0;
     double throttle_integral_ = 0.0;
+    double throttle_integral_made_with_ = 0.0;
     double angle_integral_deg_ = 0.0;
     double elevator_integral_ = 0.0;
     double fan_integral_ = 0.0;
