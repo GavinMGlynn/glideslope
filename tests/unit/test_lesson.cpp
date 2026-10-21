@@ -6540,7 +6540,7 @@ GLIDESLOPE_TEST(every_aeroplane_flies_the_turns_lesson_of_its_own_class) {
 namespace {
 
 // The largest a control moved in one step, over every control there is.
-// The nineteen controls, in the order `Controls::as_list()` gives them, so
+// The twenty-one controls, in the order `Controls::as_list()` gives them, so
 // a step can name the control it happened in rather than only its size.
 const char* control_name(std::size_t i) {
     static const char* names[] = {
@@ -6549,7 +6549,7 @@ const char* control_name(std::size_t i) {
         "pitch trim", "propeller",   "gear",          "supercharger",
         "speedbrake", "throttle offset 0",            "throttle offset 1",
         "cooling flap 0",            "cooling flap 1",            "reverse",
-        "STOVL mode"};
+        "STOVL mode", "roll trim", "yaw trim"};
     // As many as there are controls.
     static_assert(std::size(names) == glideslope::sim::Controls::control_count);
     return i < std::size(names) ? names[i] : "?";

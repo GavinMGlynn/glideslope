@@ -1048,6 +1048,8 @@ void Aircraft::set_controls(const Controls& c) {
     set("fcs/left-brake-cmd-norm", std::min(left_brake_, brake_share_));
     set("fcs/right-brake-cmd-norm", std::min(right_brake_, brake_share_));
     set("fcs/pitch-trim-cmd-norm", -c.pitch_trim);
+    set("fcs/roll-trim-cmd-norm", c.roll_trim);
+    set("fcs/yaw-trim-cmd-norm", c.yaw_trim);
 }
 
 bool Aircraft::has_reversers() const {

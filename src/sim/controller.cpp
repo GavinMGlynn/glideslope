@@ -41,7 +41,9 @@ bool towards(Controls& from, const Controls& to) {
           std::pair{&from.cooling_flaps[1], to.cooling_flaps[1]},
           std::pair{&from.speedbrake, to.speedbrake},
           std::pair{&from.reverse, to.reverse},
-          std::pair{&from.stovl, to.stovl}}) {
+          std::pair{&from.stovl, to.stovl},
+          std::pair{&from.roll_trim, to.roll_trim},
+          std::pair{&from.yaw_trim, to.yaw_trim}}) {
         met = towards(*control, wanted) && met;
     }
     return met;

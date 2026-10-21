@@ -259,9 +259,9 @@ GLIDESLOPE_TEST(every_control_the_flight_model_has_is_one_the_wire_carries) {
     check(glideslope::sim::Controls::control_count ==
               glideslope::net::controls_on_the_wire,
           "the flight model's list and the wire's are the same length");
-    // Fifteen doubles and two arrays of two: nineteen doubles in all.
-    check(sizeof(glideslope::sim::Controls) == 19 * sizeof(double),
-          "sim::Controls is nineteen doubles, not " +
+    // Seventeen doubles and two arrays of two: twenty-one doubles in all.
+    check(sizeof(glideslope::sim::Controls) == 21 * sizeof(double),
+          "sim::Controls is twenty-one doubles, not " +
               std::to_string(sizeof(glideslope::sim::Controls) / sizeof(double)) +
               "; a control was added without being put in as_list()");
 
@@ -284,10 +284,12 @@ GLIDESLOPE_TEST(every_control_the_flight_model_has_is_one_the_wire_carries) {
     c.cooling_flaps = {0.4, 0.45};
     c.reverse = 0.7;
     c.stovl = 1.0;
+    c.roll_trim = 0.03;
+    c.yaw_trim = -0.04;
     const glideslope::sim::Controls back =
         glideslope::sim::Controls::from_list(glideslope::net::as_sent(c.as_list()));
-    const std::array<double, 19> was = c.as_list();
-    const std::array<double, 19> now = back.as_list();
+    const std::array<double, 21> was = c.as_list();
+    const std::array<double, 21> now = back.as_list();
     const double step = 1.0 / 32767.0;
     for (std::size_t i = 0; i < was.size(); ++i) {
         check(std::abs(now[i] - was[i]) <= step,

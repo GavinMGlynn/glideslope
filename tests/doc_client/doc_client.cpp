@@ -73,7 +73,7 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // 2026-10-16 to 0E, when the initiation's payload took a loading after the
 // aeroplane and `AIRCRAFT` her loading - neither of which this client sends
 // or reads - and on 2026-10-21 to 0F, when the watched controls took the
-// pitch trim: the document gives the envelope's version as
+// pitch, roll and yaw trim and an input frame the roll and yaw trim: the document gives the envelope's version as
 // `0F`. A test reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
 constexpr std::uint8_t kVersion = 0x0F;
@@ -612,8 +612,8 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
     if (has_watched == 0x01) {
         static_cast<void>(r.u8());                                // which aircraft
         // Seven since version 06 (2026-10-07), the speedbrake lever last;
-        // eight since 0F (2026-10-21), the pitch trim last.
-        for (int j = 0; j < 8; ++j) static_cast<void>(r.u16());   // eight controls
+        // ten since 0F (2026-10-21), the pitch, roll and yaw trim last.
+        for (int j = 0; j < 10; ++j) static_cast<void>(r.u16());  // ten controls
     }
     if (!r.complete()) return std::nullopt;
     return u;
@@ -625,10 +625,10 @@ std::int16_t fraction(double v) {
     return static_cast<std::int16_t>(std::lround(c * 32767.0));
 }
 
-using Frame = std::array<std::int16_t, 19>;
+using Frame = std::array<std::int16_t, 21>;
 
 Frame full_left_aileron() {
-    std::array<double, 19> c{};
+    std::array<double, 21> c{};
     c[0] = 0.0;   // elevator
     c[1] = -1.0;  // aileron: +1 rolls right, so -1 is full left
     c[2] = 0.0;   // rudder
@@ -648,6 +648,8 @@ Frame full_left_aileron() {
     c[16] = 0.0;  // cooling flaps, starboard
     c[17] = 0.0;  // reverse, stowed
     c[18] = 0.0;  // STOVL mode: conventional flight
+    c[19] = 0.0;  // roll trim (since 0F)
+    c[20] = 0.0;  // yaw trim (since 0F)
     Frame f{};
     for (std::size_t i = 0; i < f.size(); ++i) f[i] = fraction(c[i]);
     return f;
