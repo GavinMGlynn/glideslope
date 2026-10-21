@@ -275,7 +275,13 @@ endif()
 # each frame's within half a hundredth of the truth at that moment - the HUD
 # shows them to the hundredth, so what it would show is what was true. Shown
 # as they were when the update came instead of 100 ms behind, they were out
-# by 0.023.
+# by 0.023. **Across a gap** in what the drawing client had - the relay's
+# fifth of a second, and its losses about it - no client knows what was true
+# between: such a frame is held to the line between the two updates it had,
+# to the half-hundredth, and to the truth by what that line can miss by at
+# the control's fastest rate (tests/tools/interpolation_check.cpp). Held to
+# the half-hundredth, they were 0.0051 to 0.0061 off on CI's macOS, each
+# across 0.29 to 0.33 s without an update, the throttle meeting its stop.
 execute_process(COMMAND "${CHECK}" "${_truth}" "${_shown}" 2 0.005
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _judged)
 message(STATUS "${_judged}")
@@ -293,6 +299,14 @@ endif()
 # itself holds the share judged to 95% of those drawn.
 if(CMAKE_MATCH_1 LESS 600)
     message(FATAL_ERROR "only ${CMAKE_MATCH_1} frames were judged:\n${_judged}")
+endif()
+# The gaps are made every four seconds, so frames are drawn across them in
+# every run: none is a run where the rule for them was never tested.
+if(NOT _judged MATCHES "; ([0-9]+) of them drawn across a gap")
+    message(FATAL_ERROR "the check did not say what it drew across a gap:\n${_judged}")
+endif()
+if(CMAKE_MATCH_1 EQUAL 0)
+    message(FATAL_ERROR "no frame of the controls was drawn across a gap:\n${_judged}")
 endif()
 
 # **The player limit**: the third was refused as full (TRANSPORT.md, 05).

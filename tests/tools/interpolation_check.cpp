@@ -33,7 +33,10 @@
 // way: each frame SHOWN drew of them against TRUTH's, both watching the same
 // aircraft, at that session time. It fails when any control is CONTROLS_WORST
 // or more out, or fewer than 95% of the frames could be judged, or none were
-// drawn.
+// drawn. A frame drawn across a gap in the updates SHOWN had - more than two
+// in a row lost to it - is held instead to the straight line between the two
+// it had, to CONTROLS_WORST, and to the truth by CONTROLS_WORST and what that
+// line can miss by at the control's fastest rate: no client knows more.
 
 #include <algorithm>
 #include <array>
@@ -223,31 +226,102 @@ int main(int argc, char** argv) {
     if (argc == 5) {
         const double controls_bound = std::strtod(argv[4], nullptr);
         const std::vector<Controls> heard = read_controls(argv[1], "watched");
+        const std::vector<Controls> had = read_controls(argv[2], "watched");
         const std::vector<Controls> shown_controls = read_controls(argv[2], "showncontrols");
-        std::size_t c_judged = 0, c_over = 0;
-        double c_worst = 0.0;
-        for (const Controls& f : shown_controls) {
-            for (std::size_t i = 1; i < heard.size(); ++i) {
-                if (heard[i - 1].t <= f.t && f.t <= heard[i].t) {
-                    const double span = heard[i].t - heard[i - 1].t;
-                    if (span > widest_s) break;
-                    const double k = span > 0.0 ? (f.t - heard[i - 1].t) / span : 0.0;
-                    double worst_here = 0.0;
-                    for (std::size_t j = 0; j < 6; ++j) {
-                        const double then =
-                            heard[i - 1].v[j] + k * (heard[i].v[j] - heard[i - 1].v[j]);
-                        worst_here = std::max(worst_here, std::abs(f.v[j] - then));
-                    }
-                    c_worst = std::max(c_worst, worst_here);
-                    if (worst_here >= controls_bound) ++c_over;
-                    ++c_judged;
-                    break;
+        // **What a straight line across a gap can miss by.** Drawn between
+        // the two updates SHOWN had either side, a frame is that chord; a
+        // control whose rate is at most R misses its chord over a span S by
+        // at most R S / 2 (its slope less the chord's is at most R - m one
+        // way and R + m the other, so the most it gets from the chord is
+        // (R - m)(R + m) S / 2R). Its rates, from sim/autopilot.cpp: no loop
+        // moves a stick or the pedals faster than a hand, full travel in a
+        // second; the throttle a quarter of that. The flaps and speedbrake
+        // the AI moves as levers, in steps (sim/lander.cpp), at no rate.
+        constexpr std::array<double, 6> rate_per_s{1.0, 1.0, 1.0, 0.25, -1.0, -1.0};
+        std::size_t c_judged = 0, c_over = 0, across = 0, levers_moved = 0;
+        double c_worst = 0.0, worst_across = 0.0, widest_across = 0.0;
+        const auto bracket = [](const std::vector<Controls>& v, double t, const Controls*& a,
+                                const Controls*& b) {
+            for (std::size_t i = 1; i < v.size(); ++i) {
+                if (v[i - 1].t <= t && t <= v[i].t) {
+                    a = &v[i - 1];
+                    b = &v[i];
+                    return true;
                 }
             }
+            return false;
+        };
+        const auto between = [](const Controls& a, const Controls& b, double t, std::size_t j) {
+            const double span = b.t - a.t;
+            const double k = span > 0.0 ? (t - a.t) / span : 0.0;
+            return a.v[j] + k * (b.v[j] - a.v[j]);
+        };
+        for (const Controls& f : shown_controls) {
+            const Controls* ta = nullptr;
+            const Controls* tb = nullptr;
+            if (!bracket(heard, f.t, ta, tb) || tb->t - ta->t > widest_s) {
+                continue;
+            }
+            const Controls* sa = nullptr;
+            const Controls* sb = nullptr;
+            const bool known = bracket(had, f.t, sa, sb);
+            const double span = known ? sb->t - sa->t : 0.0;
+            // Between two updates in a row - as TRUTH had them - it is held
+            // to the truth to CONTROLS_WORST, what the HUD's hundredths show.
+            // Across a gap SHOWN had, to the chord of what it had, the same,
+            // and to the truth by what a chord can miss by over that span.
+            const bool gap = known && span > widest_s;
+            double worst_here = 0.0;
+            bool out = false;
+            for (std::size_t j = 0; j < 6; ++j) {
+                const double truth_then = between(*ta, *tb, f.t, j);
+                const double off = std::abs(f.v[j] - truth_then);
+                if (!gap) {
+                    worst_here = std::max(worst_here, off);
+                    out = out || off >= controls_bound;
+                    continue;
+                }
+                const double chord_off = std::abs(f.v[j] - between(*sa, *sb, f.t, j));
+                out = out || chord_off >= controls_bound;
+                if (rate_per_s[j] >= 0.0) {
+                    out = out || off >= controls_bound + rate_per_s[j] * span / 2.0;
+                    worst_across = std::max(worst_across, off);
+                } else {
+                    // A lever: held to the truth only where the truth held
+                    // it still across the gap, and counted where it did not.
+                    bool still = true;
+                    for (const Controls& h : heard) {
+                        if (h.t >= sa->t && h.t <= sb->t && h.v[j] != sa->v[j]) {
+                            still = false;
+                        }
+                    }
+                    if (still) {
+                        out = out || off >= controls_bound;
+                    } else {
+                        ++levers_moved;
+                    }
+                }
+            }
+            if (gap) {
+                ++across;
+                widest_across = std::max(widest_across, span);
+            } else {
+                c_worst = std::max(c_worst, worst_here);
+            }
+            if (out) {
+                if (++c_over <= 10) {
+                    std::printf("controls: out at %.4f, drawn across %.3f s of updates\n", f.t,
+                                span);
+                }
+            }
+            ++c_judged;
         }
         std::printf("controls: %zu of %zu frames drawn were judged, the worst %.4f, %zu at "
-                    "%.3f or more\n",
-                    c_judged, shown_controls.size(), c_worst, c_over, controls_bound);
+                    "%.3f or more; %zu of them drawn across a gap in what it had (the widest "
+                    "%.3f s), the worst %.4f off the truth, held to their chord and to what "
+                    "their rates can miss it by, a lever moving in %zu\n",
+                    c_judged, shown_controls.size(), c_worst, c_over, controls_bound, across,
+                    widest_across, worst_across, levers_moved);
         if (shown_controls.empty() ||
             static_cast<double>(c_judged) < 0.95 * static_cast<double>(shown_controls.size())) {
             std::printf("controls: too few frames judged to say anything\n");
