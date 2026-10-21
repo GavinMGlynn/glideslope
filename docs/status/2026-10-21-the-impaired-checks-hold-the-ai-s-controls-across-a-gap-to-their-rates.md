@@ -42,4 +42,7 @@ frames among them, held to their rates; between updates in a row the
 worst is 0.0028. linux-debug: both impaired checks pass, 34 and 38 frames
 across gaps. Seen red: the client's controls drawn half again too far
 along between its updates fails it, frames out both across gaps and
-between updates in a row. The nightly on the branch: (below).
+between updates in a row. The nightly on the branch, twice (runs
+39542614480 and 39542618733): 40 of 40 macOS network checks each - 40
+runs of each check, not the 100 the plan asked for; a run of 100 of each
+on the final head is what ticks it.

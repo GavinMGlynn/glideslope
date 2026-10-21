@@ -769,8 +769,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       on CI's macOS (nightly, 2026-10-15 and 2026-10-21; 0.005 is the bound):
       the throttle drawn at 0.9949 where it was 1.0, past a step to full
       power, across a 0.29 s gap in the updates. Now held across a gap to
-      what the throttle's and a hand's rates allow. *Verification: the
-      nightly's macOS network checks green in two runs on the branch.*
+      what the throttle's and a hand's rates allow. *Verification: the cause
+      found, and the bound held, or a stated reason to change it, in 100
+      macOS runs of each impaired check.*
 
 ---
 
