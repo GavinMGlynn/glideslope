@@ -61,8 +61,15 @@ constexpr double out_of_reach_ft = -1.0e5;
 // JSBSim reports what it is doing on standard output unless told otherwise. The
 // simulation is a library; what reaches the user's terminal is the frontend's
 // call, so JSBSim is kept quiet unless JSBSIM_DEBUG asks for more.
+// JSBSim's debug level is one for the process: set once, so that aircraft
+// built on two threads at once - a client builds its next one while it flies
+// (frontend/cli/main.cpp) - do not both write it.
 std::unique_ptr<JSBSim::FGFDMExec> quiet_exec() {
-    JSBSim::FGJSBBase::debug_lvl = 0;
+    static const bool quiet = [] {
+        JSBSim::FGJSBBase::debug_lvl = 0;
+        return true;
+    }();
+    (void)quiet;
     return std::make_unique<JSBSim::FGFDMExec>();
 }
 
