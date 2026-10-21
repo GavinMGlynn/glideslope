@@ -1671,7 +1671,10 @@ public:
         // (docs/status, 2026-10-21). One of each model is kept ready, built
         // and never flown (`spare`).
         if (!built_.contains(model) && !building_.contains(model)) {
+            const double from = since_began();
             built_[model] = build(model);
+            builds_.push_back(model + " at its introduction from " + seconds(from) + " to " +
+                              seconds(since_began()) + " s");
         }
     }
 
@@ -2247,6 +2250,8 @@ public:
     }
 
     void track_to(std::ostream& out) { track_ = &out; }
+    // This client's clock's nought, which every time it says is from.
+    void began_at(std::chrono::steady_clock::time_point t) { began_ = t; }
     void long_frame_after_switch() { long_frame_after_switch_ = true; }
     // **Flown at this machine's pace, not the server's** (`--unpaced`): what
     // a test shows going wrong against a server behind real time.
@@ -2500,6 +2505,9 @@ public:
                       shown_, extrapolated_, longest_between_frames_s_ * 1000.0,
                       longest_machines_s_ * 1000.0, longest_own_between_frames_s_ * 1000.0);
         lines.emplace_back(line);
+        for (const std::string& b : builds_) {
+            lines.push_back("built: " + b);
+        }
         if (stovl_land_) {
             std::snprintf(line, sizeof line,
                           "stovl: converted at %.1f s, hovering at %.1f s, down at %.1f s; the "
@@ -2562,14 +2570,23 @@ private:
         } else if (const auto coming = building_.find(model); coming != building_.end()) {
             // Waited for, if it is not built yet: this client's own time.
             const auto began = std::chrono::steady_clock::now();
-            out = coming->second.get();
+            Built built = coming->second.get();
+            out = std::move(built.aircraft);
+            builds_.push_back(model + " on a thread of its own from " + seconds(built.from_s) +
+                              " to " + seconds(built.to_s) + " s");
             waited_s_ += std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
                              .count();
             building_.erase(coming);
         } else {
             out = build(model);
         }
-        building_.emplace(model, std::async(std::launch::async, [model] { return build(model); }));
+        building_.emplace(model, std::async(std::launch::async, [this, model] {
+                              Built b;
+                              b.from_s = since_began();
+                              b.aircraft = build(model);
+                              b.to_s = since_began();
+                              return b;
+                          }));
         return out;
     }
     void start(const glideslope::sim::Motion& m, const std::string& model,
@@ -2739,7 +2756,24 @@ private:
     // Of each model introduced, one built and never flown (`spare`), or one
     // being built.
     std::map<std::string, std::unique_ptr<glideslope::sim::Aircraft>> built_;
-    std::map<std::string, std::future<std::unique_ptr<glideslope::sim::Aircraft>>> building_;
+    struct Built {
+        std::unique_ptr<glideslope::sim::Aircraft> aircraft;
+        double from_s = 0.0;
+        double to_s = 0.0;
+    };
+    std::map<std::string, std::future<Built>> building_;
+    // **When each aircraft was built**, on this client's clock: said, so
+    // that a frame or an error can be laid beside them.
+    std::vector<std::string> builds_;
+    std::chrono::steady_clock::time_point began_ = std::chrono::steady_clock::now();
+    double since_began() const {
+        return std::chrono::duration<double>(std::chrono::steady_clock::now() - began_).count();
+    }
+    static std::string seconds(double s) {
+        char text[32];
+        std::snprintf(text, sizeof text, "%.3f", s);
+        return text;
+    }
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
     glideslope::sim::Pacing pacing_;
@@ -3058,6 +3092,9 @@ int stay(glideslope::platform::UdpSocket& socket,
     }
     std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
     const auto began = std::chrono::steady_clock::now();
+    if (predicting) {
+        predicting->began_at(began);
+    }
     int answered = 0;
     int heard = 0;
     // The simulation's step in the first and the last update heard: a test
