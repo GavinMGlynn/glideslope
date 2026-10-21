@@ -1607,6 +1607,16 @@ public:
                     const std::string& loading = "") {
         models_[aircraft] = model;
         loadings_[aircraft] = loading;
+        // **Each model built as it is introduced, not as it is first
+        // flown**: loading one is most of a tenth of a second in a debug
+        // build, and twice that on a macOS runner, and built as the
+        // prediction began it was a frame not drawn for all of it - 265 to
+        // 490 ms on CI's macOS, a client that could not keep time
+        // (docs/status, 2026-10-21). One of each model is kept, and
+        // the one flown is kept again when it stops being predicted.
+        if (!built_.contains(model) && aircraft_model_ != model) {
+            built_[model] = build(model);
+        }
     }
 
     // **The pilot**: the controls keep changing, so that when an input
@@ -1742,6 +1752,7 @@ public:
     }
 
     void heard(const glideslope::net::StatePacket& state, double local_s) {
+        yours_ = state.your_aircraft;
         // The session clock, at the rate it runs (net::SessionClock).
         clock_.heard(state.simulation_time_s, local_s);
         // When each update arrived, and what the clock made of it.
@@ -2040,7 +2051,7 @@ public:
         resuming_ = true;
         resumed_from_ = sequence + 1;
         prediction_.reset();
-        aircraft_.reset();
+        keep_built();
         before_.clear();
         predicted_at_.clear();
         pacing_.hold();
@@ -2066,7 +2077,7 @@ public:
             resuming_ = true;
             resumed_from_ = sequence + 1;
             prediction_.reset();
-            aircraft_.reset();
+            keep_built();
             before_.clear();
             predicted_at_.clear();
             pacing_.hold();
@@ -2075,8 +2086,15 @@ public:
     }
 
     // Shows every other aircraft at `local_s`, as a 60 Hz screen would.
+    //
+    // **Not before its own aircraft is built**, as a client shows nothing
+    // of the session while it loads her: the first frame waits for her to
+    // be introduced (`introduced`), so that loading her is not a frame
+    // held, and every frame after it is drawn on time.
     void render(double local_s) {
-        if (!clock_.known() || local_s - rendered_s_ < 1.0 / 60.0) {
+        if (!clock_.known() || local_s - rendered_s_ < 1.0 / 60.0 ||
+            (rendered_s_ < 0.0 && yours_ != glideslope::net::no_aircraft &&
+             !models_.contains(yours_))) {
             return;
         }
         if (rendered_s_ >= 0.0) {
@@ -2425,10 +2443,30 @@ public:
     }
 
 private:
+    static std::unique_ptr<glideslope::sim::Aircraft> build(const std::string& model) {
+        return std::make_unique<glideslope::sim::Aircraft>(
+            glideslope::platform::data_directory() / "jsbsim", model);
+    }
+    // The aircraft no longer predicted - handed to the AI, or left for
+    // another taken over - kept to be flown again: begun again at its
+    // loading, on its terrain, from where the server says it is (`start`),
+    // as one just built is, and not built again in a frame at a take-back.
+    void keep_built() {
+        if (aircraft_) {
+            built_[aircraft_model_] = std::move(aircraft_);
+        }
+        aircraft_model_.clear();
+    }
     void start(const glideslope::sim::Motion& m, const std::string& model,
                const std::string& loading, std::uint32_t last_applied, std::size_t steps_into) {
-        aircraft_ = std::make_unique<glideslope::sim::Aircraft>(
-            glideslope::platform::data_directory() / "jsbsim", model);
+        const auto ready = built_.find(model);
+        if (ready != built_.end()) {
+            aircraft_ = std::move(ready->second);
+            built_.erase(ready);
+        } else {
+            aircraft_ = build(model);
+        }
+        aircraft_model_ = model;
         // **At the loading the server gave her**, before she is put
         // anywhere: a prediction at her model's own weight would fly another
         // aeroplane than the server's.
@@ -2587,6 +2625,10 @@ private:
     std::optional<glideslope::frontend::HeardAir> air_;
     double session_now_s_ = 0.0;
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
+    std::string aircraft_model_;
+    std::uint8_t yours_ = glideslope::net::no_aircraft;
+    // One of each model introduced, built and not flown now (`introduced`).
+    std::map<std::string, std::unique_ptr<glideslope::sim::Aircraft>> built_;
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
     glideslope::sim::Pacing pacing_;
