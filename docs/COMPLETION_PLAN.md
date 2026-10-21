@@ -771,7 +771,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       power, across a 0.29 s gap in the updates. Now held across a gap to
       what the throttle's and a hand's rates allow. *Verification: the cause
       found, and the bound held, or a stated reason to change it, in 100
-      macOS runs of each impaired check.*
+      macOS runs of each impaired check.* 2026-10-21: 199 of 200, the
+      controls held in all; the one failure a prediction error of 10.9 m
+      against 10 just after the join, not explained.
 
 ---
 
