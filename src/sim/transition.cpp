@@ -56,9 +56,11 @@ constexpr double yaw_gain = 2.0, yaw_rate_gain = 3.0;
 constexpr double rudder_gain = 0.1;
 constexpr double control_per_s = 2.0;
 
-// **The most bank her pilot's stick asks jet-borne**, at its stop: a choice of
-// this law, under the 30 degrees her verification allows (nothing published
-// gives the F-35B's); and gravity, feet a second a second.
+// **Her pilot's stick jet-borne**: the roll rate it asks at its stop, and the
+// most bank it may hold - choices of this law, the bank under the 30 degrees
+// her verification allows (nothing published gives the F-35B's); and
+// gravity, feet a second a second.
+constexpr double jet_roll_most_degps = 10.0;
 constexpr double jet_bank_most_deg = 20.0;
 constexpr double gravity_fps2 = 32.174;
 
@@ -211,6 +213,7 @@ void Transition::become_jet_borne(const Hover::Command& flying) {
     const bool from_hover = hover_.has_value();
     hover_.reset();
     heading_deg_ = a_.state().heading_deg;
+    bank_held_deg_ = 0.0;
     seed_jet_borne(flying, from_hover);
 }
 
@@ -479,7 +482,9 @@ Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
 
     // **Her pilot's stick sideways and pedals** (Target::pilot), asked for
     // a hover or to fly on jet-borne, never converting back: the stick a
-    // bank, in proportion, to `jet_bank_most_deg`, the heading she holds
+    // roll rate, in proportion, to `jet_roll_most_degps`, and centred the
+    // bank it left held - the VAAC Harrier's unified law, which hers
+    // descend from - no further over than `jet_bank_most_deg`; the heading she holds
     // turning with the bank she has as a coordinated turn would - g tan
     // bank over her speed, no slower than her translational rate command's,
     // so that the turn stays bounded as she slows; the pedals a turn of the
@@ -490,7 +495,10 @@ Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
     double bank_wanted_deg = 0.0;
     double turn_radps = 0.0;
     if (target.hover && target.pilot && !back) {
-        bank_wanted_deg = std::clamp(target.pilot->side, -1.0, 1.0) * jet_bank_most_deg;
+        bank_held_deg_ = std::clamp(bank_held_deg_ + std::clamp(target.pilot->side, -1.0, 1.0) *
+                                                         jet_roll_most_degps * dt,
+                                    -jet_bank_most_deg, jet_bank_most_deg);
+        bank_wanted_deg = bank_held_deg_;
         const double v_fps = std::max(speed, trc_kt_) * fps_per_kt;
         turn_radps = gravity_fps2 * std::tan(s.roll_deg * rad_per_deg) / v_fps +
                      std::clamp(target.pilot->pedals, -1.0, 1.0) * turn_degps_ * rad_per_deg *

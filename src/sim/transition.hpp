@@ -109,9 +109,10 @@ public:
     //            as without a pilot.
     //   side     the stick's sideways travel: in the hover a ground speed
     //            to the right, in proportion, to `fcs/stovl-trc-side-kt`;
-    //            jet-borne a bank to the right, in proportion, to 25
-    //            degrees, her heading turning with it as a coordinated
-    //            turn's would;
+    //            jet-borne a roll rate to the right, in proportion, and
+    //            centred the bank it left held, to 20 degrees at most (the
+    //            VAAC Harrier's unified law), her heading turning with the
+    //            bank as a coordinated turn's would;
     //   pedals   the pedals: in the hover a turn to the right, in
     //            proportion, to `fcs/stovl-turn-degps`; jet-borne a turn of
     //            her heading, wings level, that figure at her translational
@@ -220,6 +221,8 @@ private:
     Stage stage_ = Stage::wing_borne;
     std::optional<bool> last_asked_hover_;
     double heading_deg_ = 0.0;
+    // The bank her pilot's stick has left her held at, jet-borne.
+    double bank_held_deg_ = 0.0;
     std::optional<Autopilot> autopilot_;
     std::optional<Hover> hover_;
     double hover_base_ft_ = 0.0;

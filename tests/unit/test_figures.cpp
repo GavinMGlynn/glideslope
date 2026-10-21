@@ -2310,12 +2310,18 @@ GLIDESLOPE_TEST(jet_borne_the_f35bs_pilots_lever_gathers_holds_and_sheds_her_spe
 //
 //   stick right, stick left   full over for 20 s: her heading turning at
 //                             least 3 degrees a second over its last 10 s,
-//                             the way asked, her bank under 30 throughout;
+//                             the way asked; then centred, 10 s: the bank
+//                             she was left at held within 3 degrees, as
+//                             the VAAC Harrier's unified law holds it; her
+//                             bank under 30 throughout. Then rolled level
+//                             by her pilot, the stick against the bank in
+//                             proportion, 20 s, and centred 10 s;
 //   pedal right, pedal left   full for 10 s: her heading moved at least 5
-//                             degrees, the way asked.
+//                             degrees, the way asked; let go, 20 s to
+//                             settle.
 //
-// Each let go, 20 s to settle. Her height within 15 ft of what is asked
-// throughout, her wheels never touching.
+// Her height within 15 ft of what is asked throughout, her wheels never
+// touching.
 GLIDESLOPE_TEST(jet_borne_the_f35bs_pilots_stick_banks_and_turns_her_and_her_pedals_turn_her_heading) {
     using namespace glideslope::sim;
     TransitionFlight f = f35b_level_at(300.0, 200.0);
@@ -2355,9 +2361,29 @@ GLIDESLOPE_TEST(jet_borne_the_f35bs_pilots_stick_banks_and_turns_her_and_her_ped
         std::printf("  %s from %.1f kt, bank %.1f: %.2f deg/s, bank at most %.1f\n",
                     which.c_str(), kt, bank, rate, h.most_bank);
         check(sign * rate >= 3.0, which + " turned her " + std::to_string(rate) + " deg/s");
-        check(h.most_bank < 30.0, which + " banked her " + std::to_string(h.most_bank));
+        // Centred: the bank she was left at, held.
         h.pilot.aileron = 0.0;
-        h.fly(f, 20.0);
+        const double left_at = f.a->state().roll_deg;
+        double most_off_deg = 0.0;
+        for (int i = 0; i < 10 * 120; ++i) {
+            h.fly(f, 1.0 / 120.0);
+            most_off_deg = std::max(most_off_deg, std::abs(f.a->state().roll_deg - left_at));
+        }
+        std::printf("  %s centred at bank %.1f: held within %.2f deg over 10 s, bank at most "
+                    "%.1f\n",
+                    which.c_str(), left_at, most_off_deg, h.most_bank);
+        check(sign * left_at >= 10.0, which + " centred at bank " + std::to_string(left_at));
+        check(most_off_deg <= 3.0, which + " centred, her bank moved " +
+                                       std::to_string(most_off_deg) + " deg");
+        check(h.most_bank < 30.0, which + " banked her " + std::to_string(h.most_bank));
+        // Rolled level by her pilot.
+        for (int i = 0; i < 20 * 120; ++i) {
+            const AircraftState st = f.a->state();
+            h.pilot.aileron = std::clamp(-0.1 * st.roll_deg, -1.0, 1.0);
+            h.fly(f, 1.0 / 120.0);
+        }
+        h.pilot.aileron = 0.0;
+        h.fly(f, 10.0);
         covered.insert(which);
     }
     for (const double sign : {1.0, -1.0}) {
