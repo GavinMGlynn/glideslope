@@ -720,11 +720,14 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       at any power, calm or 15 kt across, her slipstream lift within a stated
       bound, and every figure in range.* Done 2026-10-20: read at the angle
       the air in each slipstream meets her wing, within its bound everywhere.
-- [ ] **The J-3 Cub braked stick central from 10 kt noses over in calm
-      air**, from half brake (solo, trainer) or 0.6 (gross); whether a real
-      one would, at her tip ratio of 0.45 to 0.50, is not measured.
-      *Verification: a cited figure for a Cub's braking with the stick
-      central, and her nose-over held to it.*
+- [x] **The J-3 Cub braked stick central from 10 kt noses over in calm
+      air**, from 0.55 of brake solo, 0.50 trainer and 0.60 gross; owner's
+      decision 2026-10-20: that is her real behaviour (a Cub does go over on
+      her brakes, NTSB LAX07CA166), her model unchanged. The level itself is
+      unmeasured on a real Cub. *Verification: at each of her three
+      loadings, braked at every 0.05 from 10 kt, she does not go over below
+      the pinned level and does at or above it; seen red with the level
+      pinned wrong and her brakes' grip lowered.* Done 2026-10-21.
 - [x] **A C172P at full power on held brakes sat on her tail, or went over
       her nose**: her elevator worked on the whole slipstream. Now only the
       part of her tailplane the slipstream reaches is in it (her handbook's

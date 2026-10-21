@@ -3349,3 +3349,203 @@ GLIDESLOPE_TEST(the_mosquito_standing_on_her_brakes_at_any_power_calm_or_in_15_k
           "seven loadings, eleven throttles, three winds, 231 runs of 600 steps judged: " +
               std::to_string(runs) + " runs, " + std::to_string(judged_steps) + " steps");
 }
+
+// **The J-3 Cub braked stick central past a level noses over, and the level
+// is pinned.** The owner's decision (2026-10-20) for the Phase 9 item "The
+// J-3 Cub braked stick central from 10 kt noses over in calm air", as for the
+// Mosquito's above: her going over is taken as her real behaviour, her model
+// left unchanged. Stick central her tip ratio is 0.45 to 0.50 (her centre of
+// gravity's distance behind her main wheels over its height above them),
+// and her brakes' grip passes it near half brake. A Cub braked hard does go
+// over: NTSB LAX07CA166, J3C-65 N98041, Quincy, California, 12 May 2007 -
+// after a wheel landing on grass "he continued to apply brake pressure and
+// as the airplane slowed, the tail rose upward. The airplane nosed over to
+// inverted"; probable cause "the pilot's excessive use of the brakes, which
+// resulted in a nose over". That is qualitative support only: **the level
+// is unmeasured on a real Cub** (the report gives no brake force, and she
+// held her tail up with the elevator), so these levels are this model's.
+// Measured on her main gear springs of 2,093 lb/ft a wheel (2026-10-20).
+//
+// **The scenario**: at each of her figures' three loadings (solo, trainer,
+// gross), on the runway in calm air, stood five seconds on full brakes, run
+// up on a throttle opening at 0.2 a second to 10 kt by the take-off steering
+// with her stick central, then braked on both wheels at every twentieth of
+// brake from 0.05 to 1.00, throttle closed, stick central, until she stops
+// and stands five seconds: 60 runs. **Went over** is anything but her wheels
+// touching the runway (GroundJudge), past 45 degrees, or no number; **tail
+// lifted** is her tail wheel off the runway at some step. **Pinned**,
+// measured on linux-release 2026-10-21: solo she lifts her tail at 0.50 (to
+// 9.5 degrees) and goes over from 0.55; trainer goes over from 0.50; gross
+// lifts it at 0.55 (to 4.6 degrees) and goes over from 0.60. Below those
+// she stands at 11.4 to 12.6 degrees, her tail down. The test asserts both
+// sides of each level at every level and loading, so a model change that
+// moves one either way fails. Her model's own loading, no one aboard, is
+// left out: there is no pilot to hold her stick central or brake her.
+GLIDESLOPE_TEST(the_j3_cub_braked_stick_central_to_a_stop_from_10_kt_in_calm_air_noses_over_from_one_brake_level_at_every_loading) {
+    const auto figures = glideslope::sim::read_published_figures(data() / "figures" / "j3cub.xml");
+    const auto runway = a_runway();
+    const auto kts_of = [](const glideslope::sim::Aircraft& a) {
+        return a.property("velocities/vg-fps") / 1.68781;
+    };
+    // Her pinned levels at each of her figures' loadings: from which her
+    // tail first lifts, and from which she goes over. Her model's own, no
+    // one aboard, is left out: there is no pilot to hold her stick or brake.
+    struct Pinned {
+        double tail_lifts;
+        double goes_over;
+    };
+    const std::map<std::string, Pinned> pinned = {
+        {"solo", {0.50, 0.55}}, {"trainer", {0.50, 0.50}}, {"gross", {0.55, 0.60}}};
+    constexpr int levels = 20;
+    std::size_t runs = 0;
+    std::size_t over_runs = 0;
+    std::size_t lifted_runs = 0;
+    std::vector<std::string> wrong;
+    for (const auto& [name, l] : figures.loadings) {
+        check(pinned.count(name) == 1, "loading '" + name + "' has a pinned level");
+        for (int i = 1; i <= levels; ++i) {
+            const double brake = i * 0.05;
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", "j3cub");
+            aircraft.load(l.loading);
+            aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                [](double, double) { return 0.0; }, [](double, double) { return false; }));
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = runway.threshold_lat_deg;
+            ic.longitude_deg = runway.threshold_lon_deg;
+            ic.altitude_ft = runway.elevation_ft;
+            ic.terrain_elevation_ft = runway.elevation_ft;
+            ic.heading_deg = runway.heading_deg;
+            ic.engine_running = true;
+            ic.gear = 1.0;
+            aircraft.initialize(ic);
+            std::string tail_wow;
+            {
+                const double cg_x = aircraft.property("inertia/cg-x-in");
+                const auto points = aircraft.contact_points();
+                for (std::size_t p = 0; p < points.size(); ++p) {
+                    if (points[p].bogey && points[p].wheel && points[p].x_in > cg_x) {
+                        tail_wow = "gear/unit[" + std::to_string(p) + "]/WOW";
+                    }
+                }
+            }
+            check(!tail_wow.empty(), name + ": her tail wheel was found");
+            glideslope::sim::Controls parked;
+            parked.left_brake = 1.0;
+            parked.right_brake = 1.0;
+            for (int step = 0; step < 5 * steps_per_second; ++step) {
+                aircraft.set_controls(parked);
+                aircraft.step();
+            }
+            // From here (she is started a little above her wheels and has
+            // settled), anything but her wheels touching, past 45 degrees,
+            // or no number is her going over.
+            glideslope::sim::GroundJudge judge(false);
+            std::string gone;
+            bool lifted = false;
+            const auto watch = [&](const char* phase) {
+                const auto s = aircraft.state();
+                if (std::isnan(s.pitch_deg) || std::isnan(s.roll_deg) || std::isnan(s.q_radps)) {
+                    gone = std::string("no number, ") + phase;
+                    return false;
+                }
+                if (std::optional<std::string> why = judge.judge(aircraft)) {
+                    gone = *why + ", " + phase;
+                    return false;
+                }
+                if (!(std::abs(s.pitch_deg) <= 45.0 && std::abs(s.roll_deg) <= 45.0)) {
+                    gone = std::string("past 45 degrees, ") + phase;
+                    return false;
+                }
+                lifted = lifted || aircraft.property(tail_wow) < 0.5;
+                return true;
+            };
+            Departure steering(aircraft, runway, glideslope::sim::departure_speeds(data(), "j3cub"));
+            double throttle = 0.0;
+            bool rolling = false;
+            bool going = true;
+            for (int step = 0; going && step < 60 * steps_per_second; ++step) {
+                if (kts_of(aircraft) >= 10.0) {
+                    rolling = true;
+                    break;
+                }
+                glideslope::sim::Controls c = steering.fly();
+                throttle = std::min(1.0, throttle + 0.2 / steps_per_second);
+                c.throttle = throttle;
+                c.left_brake = 0.0;
+                c.right_brake = 0.0;
+                c.elevator = 0.0;
+                aircraft.set_controls(c);
+                aircraft.step();
+                going = watch("in the run-up");
+            }
+            const bool up_before_braking = lifted || !gone.empty();
+            double least_pitch = 90.0;
+            bool stopped = false;
+            int stood = 0;
+            for (int step = 0; going && rolling && step < 90 * steps_per_second &&
+                               stood < 5 * steps_per_second;
+                 ++step) {
+                glideslope::sim::Controls c = steering.fly();
+                c.throttle = 0.0;
+                c.left_brake = brake;
+                c.right_brake = brake;
+                c.elevator = 0.0;
+                aircraft.set_controls(c);
+                aircraft.step();
+                going = watch("braking");
+                least_pitch = std::min(least_pitch, aircraft.state().pitch_deg);
+                stopped = stopped || kts_of(aircraft) < 0.2;
+                if (stopped) {
+                    ++stood;
+                }
+            }
+            const bool went_over = !gone.empty();
+            char where[64];
+            std::snprintf(where, sizeof where, "%s at brake %.2f", name.c_str(), brake);
+            std::printf("  %-20s least pitch %6.1f deg; tail %s%s\n", where, least_pitch,
+                        lifted ? "lifted" : "down", went_over ? (", WENT OVER: " + gone).c_str() : "");
+            ++runs;
+            over_runs += went_over ? 1 : 0;
+            lifted_runs += lifted && !went_over ? 1 : 0;
+            if (up_before_braking) {
+                wrong.push_back(std::string(where) + ": her tail came up before her brakes");
+                continue;
+            }
+            if (!rolling) {
+                wrong.push_back(std::string(where) + ": never rolled at 10 kt");
+                continue;
+            }
+            if (!went_over && !stopped) {
+                wrong.push_back(std::string(where) + ": did not stop");
+            }
+            const Pinned& p = pinned.at(name);
+            const bool should_go_over = brake >= p.goes_over - 1e-9;
+            const bool should_lift = brake >= p.tail_lifts - 1e-9;
+            if (went_over != should_go_over) {
+                wrong.push_back(std::string(where) +
+                                (went_over ? ": went over below" : ": did not go over at") +
+                                " her pinned level " + std::to_string(p.goes_over));
+            } else if (!went_over && lifted != should_lift) {
+                wrong.push_back(std::string(where) +
+                                (lifted ? ": her tail lifted below" : ": her tail stayed down at") +
+                                " her pinned level " + std::to_string(p.tail_lifts));
+            }
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    std::printf("  %zu of %zu runs went over, %zu more lifted her tail\n", over_runs, runs,
+                lifted_runs);
+    // The space: her figures' three loadings at twenty levels, 60 runs; 30
+    // go over (solo 0.55 to 1.00, ten levels; trainer 0.50 to 1.00, eleven;
+    // gross 0.60 to 1.00, nine) and two more lift her tail (solo 0.50, gross
+    // 0.55).
+    check(figures.loadings.size() == 3 && pinned.size() == 3 && runs == 3 * levels,
+          "three loadings at twenty levels, 60 runs: " + std::to_string(runs));
+    check(over_runs == 10 + 11 + 9 && lifted_runs == 2,
+          "30 of the 60 runs went over and 2 more lifted her tail: " +
+              std::to_string(over_runs) + " and " + std::to_string(lifted_runs));
+}
