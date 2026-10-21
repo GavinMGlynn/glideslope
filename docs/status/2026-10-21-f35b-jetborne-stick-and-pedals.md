@@ -1,4 +1,4 @@
-### Jet-borne, the F-35B's stick and pedals turn her, 2026-10-20
+### Jet-borne, the F-35B's stick and pedals turn her, 2026-10-21
 
 **What is still not true first.** Only the stick law's kind is sourced, not
 its figures, and the pedal law is wholly this model's choice. Nothing public
@@ -23,8 +23,10 @@ while converting back:
 
 - the stick sideways asks a roll rate, in proportion, to 10 degrees a second.
   The bank it moves is held when the stick is centred, to 20 degrees at most,
-  on the ailerons and the roll posts. It starts level each time she becomes
-  jet-borne. The heading her law holds turns with the bank she has as in a
+  on the ailerons and the roll posts. Whenever her law levels her - no
+  pilot, converting back, or her selector out of STOVL mode - the bank held
+  is put back to level, so none is held over to when the stick is hers
+  again. The heading her law holds turns with the bank she has as in a
   coordinated turn: g tan(bank) over her speed along it, taking her speed as
   no slower than her translational rate command's 30 kt, so the turn stays
   bounded as she slows;
@@ -39,7 +41,9 @@ while converting back:
 Before, her law held her heading and wings level whatever the stick and
 pedals did. The hover's use of them is unchanged. The bank held is the law's
 own, like her heading. A prediction is not told it: like the jet-borne
-integrals, each side makes its own.
+integrals, each side makes its own, so a client joining mid-bank predicts
+her level. That is an open Phase 9 item in COMPLETION_PLAN.md, the server
+telling her held bank as the likely fix.
 
 **A first version, not kept.** The stick first asked a bank in proportion to
 its travel (attitude command), and she levelled when it was let go. The
@@ -54,22 +58,30 @@ level within 2 degrees:
 | case | begun at | result |
 |---|---|---|
 | stick full right, 20 s | 60.9 kt | 6.62 deg/s over the last 10 s, bank at most 22.7 |
-| then centred, 10 s | bank 20.0 | bank held within 0.01 deg (bound 3) |
+| then centred, 10 s | bank 20.0 | bank held within 0.01 deg (bound 0.5) |
 | stick full left, 20 s | 60.8 kt | -6.61 deg/s, bank at most 22.8 |
 | then centred, 10 s | bank -20.0 | bank held within 0.01 deg |
 | pedal full right, 10 s | 60.8 kt | heading moved 18.43 deg |
 | pedal full left, 10 s | 64.5 kt | heading moved -17.78 deg |
 
 After each stick case her pilot rolls her level with the stick against the
-bank. Her height stayed within 1.54 ft of what was asked throughout (15
+bank. Then **no bank is held over**: stick full right 3 s and centred (bank
+22.4), the selector out of STOVL mode for 10 s (her law levels her, -0.3),
+and back in it with the stick centred for 10 s: bank at most 0.33 (bound 2).
+Her height stayed within 1.58 ft of what was asked throughout (15
 allowed), and her wheels never touched.
 
-Seen red twice:
+Seen red three times:
 
 - with `transition.cpp` put back to before the item, the stick right turned
   her -0.0015 degrees a second;
 - with the first version's level-on-release law, centred from 20 degrees,
-  her bank moved 23.6 degrees.
+  her bank moved 23.6 degrees (bound 0.5);
+- without the held bank put back to level when her law levels her, back in
+  STOVL mode she rolled to 22.7 degrees, the bank she had been left at.
+  Reachable: out of STOVL mode below her conversion speed she stays
+  jet-borne, never passing the point the law begins again, and her selector
+  back in hands the stick the held bank.
 
 The F-35B's other STOVL, hover and prediction tests pass, and so does the
 selftest. Its hash does not move: the selftest flies the C172P, which has no
