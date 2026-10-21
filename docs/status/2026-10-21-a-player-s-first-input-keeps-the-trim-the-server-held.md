@@ -52,8 +52,9 @@ command-line client's, which begins from the same function.
   0.08; nudged 1,524.0 to 1,534.1 m (33 ft), pitch 6.03 to 6.58, bank 2.58
   (her flight controls hold the attitude a stick movement leaves her at).
   C172P untouched 1,524.0 m throughout; nudged 1,523.3 to 1,525.7 m, pitch
-  0.05 to 0.93, bank 0.82. Prediction median 0.000 m every run, worst up
-  to 1.378 m (bound 3 m; a correction while joining, moving run to run).
+  0.05 to 0.93, bank 0.82. Prediction median and 95th percentile 0.000 m
+  every run (bounds 0.05 m and 1 m); the worst, one update, up to 1.378 m
+  here and 4.1 and 5.5 m on CI's Windows runners, is said, not bounded.
   Seen red twice: with the client keeping its own pitch trim, aileron and
   rudder, as before, the F-35B untouched was a wreck; with the aileron and
   rudder held as the stick and pedals rather than as trims, the C172P nudged
@@ -71,6 +72,7 @@ command-line client's, which begins from the same function.
   controls the server's to the bit (fixed gear and absent speedbrakes
   excepted). Seen red with the client keeping its own trims: every trimmed
   aircraft named.
+- The test's ports are 24808 and 24809, in the tests' block.
 - Protocol, input, state packet, document and gearstick tests moved to
   `0F`; #222's untouched tests, the STOVL-at-once test and the on-final
   learnt landing tests pass.
