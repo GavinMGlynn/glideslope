@@ -219,12 +219,12 @@ are the risks the phase order is built around:
   through a server (2026-10-16), and the windowed client flies her at it
   (2026-10-22); her jet-borne and hover laws' integrals are each side's own. She flies
   30 kt backward in the hover (2026-10-20), her lift and pitching moment
-  30 kt backward in the hover (2026-10-20), her lift and pitching moment
   the same either side of 180 degrees; her lift past 90 degrees either way
-  is a shape of this model's, nothing published giving hers. Jet-borne her
-  stick rolls her and, centred, holds her bank, as the VAAC Harrier's
-  unified law does, and her pedals turn her heading (2026-10-21); the laws'
-  figures are this model's - nothing published gives hers.
+  is lopsided and unsourced, chosen so that flight inside 90 degrees is
+  untouched. Jet-borne her stick rolls her and, centred, holds her bank, as
+  the VAAC Harrier's unified law does, and her pedals turn her heading
+  (2026-10-21); the laws' figures are this model's - nothing published
+  gives hers.
 - **Terrain is drawn around where the flight starts, and nowhere else.** The
   client draws the nine whole-degree cells around its start; fly out of them
   and there is sky below.
