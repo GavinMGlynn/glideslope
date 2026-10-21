@@ -46,3 +46,13 @@ between updates in a row. The nightly on the branch, twice (runs
 39542614480 and 39542618733): 40 of 40 macOS network checks each - 40
 runs of each check, not the 100 the plan asked for; a run of 100 of each
 on the final head is what ticks it.
+
+**A hundred runs of each check** (run 39556446562, 74fbc8cd, with the
+stall item under it): 199 of 200 passed. Every frame of the AI's controls
+held - across gaps to their rates - and the longest between frames 46 ms.
+The one failure is neither item's rule: the 200 ms check's prediction
+error, 10.931 m against its 10 m bound, 4.1 s in, just after the join (95th
+percentile 8.3 m; earlier runs' worst seen 5.1 m). Not explained. One
+suspect, unproven: the next aircraft is now built on a thread of its own
+from the moment the join takes the first, on a three-core runner also
+running the server, the relay and another client. The item stays open.
