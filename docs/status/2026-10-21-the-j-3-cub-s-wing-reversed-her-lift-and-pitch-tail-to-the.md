@@ -67,3 +67,9 @@ committed, selftest, figures, tail_wheel, every_landplane or walking pass;
 `glideslope_cli selftest` hash `521cb12d3a1c5f0c`, unchanged (her flight is
 unchanged to the bit). In a `-march=x86-64-v2` release build the 36 tests
 named cub, j3, tail_wheel, every_landplane_braked or walking pass.
+CI's first run failed one test this set missed,
+`every_flight_models_angle_of_attack_pitch_terms_leave_out_the_crosswind_or_are_named_with_their_reason`:
+the new term reads the angle of attack and was not listed. It is now in
+tests/tools/alpha_pitch_terms.py's moved terms for the Cub (20 of 20 moved);
+locally the 28 tests named every_flight_model, terms, committed or
+every_model pass.
