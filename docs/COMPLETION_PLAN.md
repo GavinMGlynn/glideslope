@@ -669,10 +669,14 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       from behind, the air's force on her is within a stated bound of a
       cited figure.* Done 2026-10-16: 29 lb where it was 195, within 0.01 of
       the cited figure as her model scales it, at every loading.
-- [ ] **A J-3 Cub standing tail to the wind has no lift from her wing, and
+- [x] **A J-3 Cub standing tail to the wind has no lift from her wing, and
       an unchecked pitching moment.** *Verification: cited figures for a
       reversed wing's lift and an aeroplane's pitching moment tail to the
-      wind, and hers held to them.*
+      wind, and hers held to them.* Done 2026-10-21: her lift past 90
+      degrees is Sandia's reversed section's, her moment derived from it
+      (owner's decision); in 15 kt from behind her wing presses her down
+      86 lb where it gave nothing, and 200 ft-lb of nose-up moment where
+      there were 4,150, both within 0.01 of the figures.
 - [x] **The J-3 Cub leans 4.4 degrees standing in 15 kt across.** Her
       sideways drag in a beam wind is the pinned model's, 1.23 on her wing's
       area, and her main gear's springs are soft; whether a real Cub leans
