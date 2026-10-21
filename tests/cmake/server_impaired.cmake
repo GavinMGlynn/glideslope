@@ -240,7 +240,7 @@ if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them ca
 endif()
 # **A client that kept time**: drawing sixty frames a second, a quarter of a
 # second between two of its own - the CPU time its thread used, the sleeps
-# it asked for, its waits on its own building and on its own files' writes
+# it asked for and its waits on its own files' writes
 # - is a client that stalled, and anything it drew after is late for that
 # reason, not the network's. It built its aircraft in a frame, as it joined
 # and at every take-back, and on CI's macOS went 265 to 498 ms (2026-10-21).
