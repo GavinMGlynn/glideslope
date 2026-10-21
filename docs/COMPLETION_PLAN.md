@@ -726,6 +726,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       frame on CI's macOS: it built its aircraft in a frame as it joined and
       at every take-back. *Verification: the nightly's macOS network checks
       green in two runs on the branch, and its PR's CI.*
+- [ ] **A predicting client's aircraft begun again at a take-back is not
+      one just built**: the flaps' travel, unnamed tanks' fuel and the
+      brakes carry over from before the hand-over. *Verification: one begun
+      again flies as one just built, to the printed digit, or each carried
+      state named with a reason.*
 
 ---
 

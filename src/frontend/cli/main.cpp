@@ -2449,13 +2449,17 @@ private:
             glideslope::platform::data_directory() / "jsbsim", model);
     }
     // The aircraft no longer predicted - handed to the AI, or left for
-    // another taken over - kept to be flown again: begun again at its
-    // loading, on its terrain, from where the server says it is (`start`),
-    // as one just built is, and not built again in a frame at a take-back.
+    // another taken over - kept to be flown again, unless one of its model
+    // is built and not flown: not built again in a frame at a take-back.
+    // Begun again (`start`) at its loading, on its terrain and from where
+    // the server says it is; what `initialize` does not set again - the
+    // flaps' travel, fuel burnt from tanks no loading names, the brakes -
+    // it carries from before, as the server's, flown all along, does.
     void keep_built() {
-        if (aircraft_) {
+        if (aircraft_ && !built_.contains(aircraft_model_)) {
             built_[aircraft_model_] = std::move(aircraft_);
         }
+        aircraft_.reset();
         aircraft_model_.clear();
     }
     void start(const glideslope::sim::Motion& m, const std::string& model,
