@@ -1521,6 +1521,60 @@ constexpr double inputs_every_s = 1.0 / 30.0;
 // updates it heard itself it could only agree with itself, since what it lost
 // it never knew. A test judges it against a client that heard everything
 // (tests/tools/interpolation_check.cpp).
+// **The time this client's own writing kept it waiting**, seconds: what its
+// files' writes took less the CPU time they used, which is already its own.
+// A write the system holds up - a slow disk, a full pipe - is this client's
+// time between frames, not the machine's not running it (`Predicting::render`).
+double own_writes_waited_s = 0.0;
+
+// A file whose writes are timed into `own_writes_waited_s`: where its bytes
+// reach the system (overflow, a long write, a flush), the wall time less the
+// thread's CPU time.
+class TimedFileBuf : public std::filebuf {
+protected:
+    int_type overflow(int_type c) override {
+        const Timing t;
+        return std::filebuf::overflow(c);
+    }
+    std::streamsize xsputn(const char_type* s, std::streamsize n) override {
+        const Timing t;
+        return std::filebuf::xsputn(s, n);
+    }
+    int sync() override {
+        const Timing t;
+        return std::filebuf::sync();
+    }
+
+private:
+    struct Timing {
+        std::chrono::steady_clock::time_point began = std::chrono::steady_clock::now();
+        double cpu_s = glideslope::platform::thread_cpu_s();
+        Timing() = default;
+        Timing(const Timing&) = delete;
+        Timing& operator=(const Timing&) = delete;
+        ~Timing() {
+            const double wall =
+                std::chrono::duration<double>(std::chrono::steady_clock::now() - began).count();
+            const double cpu = glideslope::platform::thread_cpu_s() - cpu_s;
+            own_writes_waited_s += std::max(0.0, wall - std::max(0.0, cpu));
+        }
+    };
+};
+
+// An output file written through a TimedFileBuf.
+class TimedFile : public std::ostream {
+public:
+    TimedFile() : std::ostream(&buf_) {}
+    void open(const std::string& file, std::ios::openmode mode) {
+        if (!buf_.open(file, mode | std::ios::out)) {
+            setstate(std::ios::failbit);
+        }
+    }
+
+private:
+    TimedFileBuf buf_;
+};
+
 class Predicting {
 public:
     // **A STOVL landing flown through a server** (`--stovl-land`): the
@@ -2108,14 +2162,17 @@ public:
         // a runner that did not run it (GitHub's macOS, whose timed waits
         // come back 200 ms and more late, and which stops its guests) - and
         // is never this client's: a machine that stops it while it works
-        // is counted as its own, since it cannot be told from that.
+        // is counted as its own, since it cannot be told from that. A wait
+        // of its own that is none of these - a blocking call it has not
+        // timed - is counted the machine's; the test bounds that share.
         const double cpu_s = glideslope::platform::thread_cpu_s();
         if (rendered_s_ >= 0.0) {
             const double between = local_s - rendered_s_;
             const double own = (cpu_s >= 0.0 && cpu_at_frame_s_ >= 0.0
                                     ? cpu_s - cpu_at_frame_s_
                                     : between) +
-                               asked_s_ + waited_s_;
+                               asked_s_ + waited_s_ +
+                               (own_writes_waited_s - writes_waited_at_frame_s_);
             if (between > longest_between_frames_s_) {
                 longest_between_frames_s_ = between;
                 longest_machines_s_ = std::max(0.0, between - own);
@@ -2124,6 +2181,7 @@ public:
                 std::max(longest_own_between_frames_s_, std::min(between, own));
         }
         cpu_at_frame_s_ = cpu_s;
+        writes_waited_at_frame_s_ = own_writes_waited_s;
         asked_s_ = 0.0;
         waited_s_ = 0.0;
         rendered_s_ = local_s;
@@ -2725,6 +2783,7 @@ private:
     // Since the last frame: its thread's CPU time then, the sleep it asked
     // for, and what it waited on its own building.
     double cpu_at_frame_s_ = -1.0;
+    double writes_waited_at_frame_s_ = 0.0;
     double asked_s_ = 0.0;
     double waited_s_ = 0.0;
     std::optional<double> reconciled_s_;
@@ -2948,7 +3007,7 @@ int stay(glideslope::platform::UdpSocket& socket,
     // a test running several clients in one pipeline reads each one's file.
     // Standard error was meant to do it, and on Windows a pipeline's
     // standard error came back empty.
-    std::ofstream heard_out;
+    TimedFile heard_out;
     if (!heard_file.empty()) {
         heard_out.open(heard_file, std::ios::app);
     }
@@ -2957,7 +3016,7 @@ int stay(glideslope::platform::UdpSocket& socket,
     // a client that predicts, a line for every other aircraft on every frame
     // it drew. The network checks judge one client's frames against another's
     // updates - one that heard everything, straight from the server.
-    std::ofstream track_out;
+    TimedFile track_out;
     if (!track_file.empty()) {
         track_out.open(track_file, std::ios::trunc);
         track_out.precision(4);

@@ -240,17 +240,27 @@ if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them ca
 endif()
 # **A client that kept time**: drawing sixty frames a second, a quarter of a
 # second between two of its own - the CPU time its thread used, the sleeps
-# it asked for and its waits on its own building - is a client that
-# stalled, and anything it drew after is late for that reason, not the
-# network's. It built its aircraft in a frame, as it joined and at every
-# take-back, and on CI's macOS went 265 to 498 ms (2026-10-21). The
-# machine's own stalls - the same runners' timed waits come back 200 ms and
-# more late - are said, not failed: what was drawn after them is judged all
-# the same, below.
+# it asked for, its waits on its own building and on its own files' writes
+# - is a client that stalled, and anything it drew after is late for that
+# reason, not the network's. It built its aircraft in a frame, as it joined
+# and at every take-back, and on CI's macOS went 265 to 498 ms (2026-10-21).
+# **The machine's share is bounded too**, at a second: twice the longest a
+# macOS runner was seen to hold it in this check (498 ms, 2026-10-20). It
+# bounds what the client cannot time - a
+# blocking call of its own outside its files, which is counted the
+# machine's - as well as the machine. Under it, a stall is said, and what
+# was drawn after it is judged all the same, below.
 set(_longest "${CMAKE_MATCH_3}")
 set(_machines "${CMAKE_MATCH_4}")
-if(CMAKE_MATCH_5 GREATER 250)
-    message(FATAL_ERROR "the predicting client went ${CMAKE_MATCH_5} ms of its own without "
+set(_own "${CMAKE_MATCH_5}")
+if(_machines GREATER 1000)
+    message(FATAL_ERROR "the predicting client was not run ${_machines} ms of the ${_longest} "
+                        "between two frames: more than a second, twice the most a macOS "
+                        "runner was seen to take, and which may be a wait of its own it does "
+                        "not time\n${_said}")
+endif()
+if(_own GREATER 250)
+    message(FATAL_ERROR "the predicting client went ${_own} ms of its own without "
                         "drawing a frame: it could not keep time on this machine\n${_said}")
 endif()
 if(_longest GREATER 250)
