@@ -379,7 +379,7 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 // says them (frontend::levers_of, `WATCH`) and sent through a state update
 // and read back; her client's first input begun from the windowed client's
 // own airborne controls, put where those levers say (frontend::keep_held),
-// and rounded as the wire rounds an input. All nineteen controls must be the
+// and rounded as the wire rounds an input. All twenty-one controls must be the
 // server's to the bit - but the gear of an aircraft whose gear does not
 // retract and the speedbrake lever of one without speedbrakes, which her
 // model ignores and her levers do not say. Until 2026-10-21 the levers said
@@ -455,6 +455,136 @@ GLIDESLOPE_TEST(every_aircraft_a_players_first_input_sends_is_what_the_server_he
               std::to_string(catalogue.size()));
     // A trim of nought everywhere would make the rule trivially kept.
     check(with_trim > 0, "and some were held on a pitch trim: " + std::to_string(with_trim));
+}
+
+// **Every aircraft's roll and yaw trim is her aileron and rudder, or named.**
+// What the server holds a player's aircraft on carries the aileron and rudder
+// her trim found as her roll and yaw trim, the stick and pedals centred (the
+// project owner, 2026-10-22), so that her stick and pedals centred after her
+// first input keep her flying as trimmed. That holds only where her model
+// sums each trim with its control. Each of the catalogue's aircraft, started
+// as the server starts a player's, is flown two seconds with a tenth of
+// aileron and then a tenth of roll trim, and the same with the rudder and
+// yaw trim: a trim that turns her as its control does - her bank, or her
+// heading, within a twentieth of the control's change of it - is read. Then
+// she is held thirty seconds on what the server holds her on, and again on
+// the same with the trims put back on the stick and pedals: she must fly the
+// same, within a foot and a tenth of a degree of bank. A model that reads
+// neither trim, or one, is named with what it does, and must be held on
+// nought there (as the untrimmable are). Every aircraft counted.
+GLIDESLOPE_TEST(every_aircraft_held_on_her_roll_and_yaw_trim_flies_as_on_the_aileron_and_rudder_her_trim_found) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    const auto started = [&](const CatalogueEntry& e) {
+        auto a = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 3000.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        ic.trim = true;
+        ic.trim_lateral = true;
+        a->initialize(ic);
+        return a;
+    };
+    // How far she turns in two seconds on `c`: bank and heading, degrees.
+    const auto turned = [&](const CatalogueEntry& e, const glideslope::sim::Controls& c) {
+        auto a = started(e);
+        const auto was = a->state();
+        for (int i = 0; i < 2 * steps_per_second; ++i) {
+            a->set_controls(c);
+            a->step();
+        }
+        const auto now = a->state();
+        double heading = now.heading_deg - was.heading_deg;
+        heading -= 360.0 * std::round(heading / 360.0);
+        return std::pair{now.roll_deg - was.roll_deg, heading};
+    };
+    std::size_t walked = 0;
+    std::size_t reads_both = 0;
+    std::string named;
+    std::string failed;
+    for (const CatalogueEntry& e : catalogue) {
+        const glideslope::sim::Controls held =
+            glideslope::sim::held_until_moved(*started(e));
+        glideslope::sim::Controls base = held;
+        base.roll_trim = base.yaw_trim = 0.0;
+        glideslope::sim::Controls by_stick = base;
+        by_stick.aileron += 0.1;
+        glideslope::sim::Controls by_roll_trim = base;
+        by_roll_trim.roll_trim = 0.1;
+        glideslope::sim::Controls by_pedal = base;
+        by_pedal.rudder += 0.1;
+        glideslope::sim::Controls by_yaw_trim = base;
+        by_yaw_trim.yaw_trim = 0.1;
+        const auto none = turned(e, base);
+        const auto stick = turned(e, by_stick);
+        const auto roll_trim = turned(e, by_roll_trim);
+        const auto pedal = turned(e, by_pedal);
+        const auto yaw_trim = turned(e, by_yaw_trim);
+        const double stick_bank = stick.first - none.first;
+        const double pedal_heading = pedal.second - none.second;
+        const bool reads_roll =
+            std::abs(stick_bank) > 0.1 &&
+            std::abs((roll_trim.first - none.first) - stick_bank) <= 0.05 * std::abs(stick_bank);
+        const bool reads_yaw =
+            std::abs(pedal_heading) > 0.1 &&
+            std::abs((yaw_trim.second - none.second) - pedal_heading) <=
+                0.05 * std::abs(pedal_heading);
+
+        // Thirty seconds on what she is held on, and on the same with the
+        // trims put back on the stick and pedals.
+        glideslope::sim::Controls on_stick = held;
+        on_stick.aileron = held.roll_trim;
+        on_stick.rudder = held.yaw_trim;
+        on_stick.roll_trim = on_stick.yaw_trim = 0.0;
+        double apart_ft = 0.0;
+        double apart_bank = 0.0;
+        {
+            auto a = started(e);
+            auto b = started(e);
+            for (int i = 0; i < 30 * steps_per_second; ++i) {
+                a->set_controls(held);
+                a->step();
+                b->set_controls(on_stick);
+                b->step();
+            }
+            apart_ft = std::abs(a->state().altitude_ft - b->state().altitude_ft);
+            apart_bank = std::abs(a->state().roll_deg - b->state().roll_deg);
+        }
+        std::printf("  %-13s roll trim %+.4f (%s), yaw trim %+.4f (%s); 30 s apart %.3f ft, "
+                    "%.3f deg of bank\n",
+                    e.id.c_str(), held.roll_trim,
+                    reads_roll ? "read as the aileron" : "not read", held.yaw_trim,
+                    reads_yaw ? "read as the rudder" : "not read", apart_ft, apart_bank);
+        ++walked;
+        if (reads_roll && reads_yaw) {
+            ++reads_both;
+        } else {
+            named += " " + e.id + (reads_roll ? "" : " (no roll trim)") +
+                     (reads_yaw ? "" : " (no yaw trim)");
+        }
+        if ((!reads_roll && held.roll_trim != 0.0) || (!reads_yaw && held.yaw_trim != 0.0)) {
+            failed += " " + e.id + " (held on a trim her model does not read)";
+        }
+        if (apart_ft > 1.0 || apart_bank > 0.1) {
+            failed += " " + e.id + " (flew apart from the stick her trim found)";
+        }
+    }
+    std::printf("  named, reading not both trims:%s\n", named.empty() ? " none" : named.c_str());
+    // **Named, and why**: the F-22A's model reads no fcs/yaw-trim-cmd-norm
+    // and the Mosquito's neither it nor fcs/roll-trim-cmd-norm. Both are
+    // among the untrimmable, held on nought there: a trim sent them does
+    // nothing, and they fly on the stick and pedals alone.
+    check(named == " f22 (no yaw trim) mosquito-fb6 (no roll trim) (no yaw trim)",
+          "the aircraft not reading both trims are the two named:" + named);
+    check(failed.empty(), "every aircraft is held on trims her model reads, and flies as on "
+                          "the stick and pedals; these did not:" + failed);
+    check(!catalogue.empty() && walked == catalogue.size() && reads_both > 0,
+          "every aircraft in the catalogue was walked: " + std::to_string(walked) + " of " +
+              std::to_string(catalogue.size()) + ", " + std::to_string(reads_both) +
+              " reading both trims");
 }
 
 // **Every aircraft's flap lever is found where her flaps answer one**

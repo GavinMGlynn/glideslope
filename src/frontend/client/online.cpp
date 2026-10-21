@@ -706,6 +706,8 @@ std::optional<net::Watched> Online::watched_controls(double local_s) const {
     out.throttle = mix(before->second.throttle, after->second.throttle);
     out.flaps = mix(before->second.flaps, after->second.flaps);
     out.pitch_trim = mix(before->second.pitch_trim, after->second.pitch_trim);
+    out.roll_trim = mix(before->second.roll_trim, after->second.roll_trim);
+    out.yaw_trim = mix(before->second.yaw_trim, after->second.yaw_trim);
     if (before->second.speedbrake && after->second.speedbrake) {
         out.speedbrake = mix(*before->second.speedbrake, *after->second.speedbrake);
     }

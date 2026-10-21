@@ -290,7 +290,8 @@ std::shared_ptr<const StovlGround> connect_stovl_ground;
 // has them, its prediction begun on them - and every input it sends is what
 // the server held her on, every control kept (frontend::keep_held): a player
 // who touches nothing. **(`--nudge`)**: and her first inputs move the stick
-// back a fortieth for half a second, then let it go, centred.
+// back and right a fortieth for half a second, then centre the stick and
+// pedals.
 bool connect_from_held = false;
 bool connect_nudge = false;
 // **(`--until-held S`)**: stay until its own aircraft has been heard for S
@@ -535,8 +536,9 @@ void print_usage(std::FILE* out) {
         "                            --from-held (with --predict) sends what the\n"
         "                            server held her on, once it has said it, as a\n"
         "                            player who touches nothing; --nudge with it\n"
-        "                            moves the stick back a fortieth for the first\n"
-        "                            half second, then lets it go\n"
+        "                            moves the stick back and right a fortieth for\n"
+        "                            the first half second, then centres the stick\n"
+        "                            and pedals\n"
         "                            --unpaced (with --predict) flies at this\n"
         "                            machine's pace, not steered to the server's\n"
         "                            --stopped-once S MS (with --predict) runs\n"
@@ -1773,8 +1775,9 @@ public:
     // as the windowed client does, asking for her levers and sending
     // nothing until it has them, and its pilot's every input is those
     // controls, every one kept (frontend::keep_held) - a player who touches
-    // nothing. With `nudge`, her first inputs move the stick back a
-    // fortieth for half a second and let it go, centred, as a player's
+    // nothing. With `nudge`, her first inputs move the stick back and right
+    // a fortieth for half a second, and then the stick and pedals are
+    // centred, as a player's
     // first touch of a stick or an arrow key does.
     void from_held(bool nudge) {
         from_held_ = true;
@@ -1783,14 +1786,17 @@ public:
     // How many of its first inputs the nudge holds the stick back for: half
     // a second of them.
     static constexpr std::uint32_t nudge_inputs = 15;
-    static constexpr double nudge_elevator = 0.025;
+    static constexpr double nudge_stick = 0.025;
     glideslope::sim::Controls held_pilot(std::uint32_t sequence) const {
         glideslope::sim::Controls c;
         if (levers_) {
             glideslope::frontend::keep_held(*levers_, c);
         }
         if (nudge_) {
-            c.elevator = sequence <= nudge_inputs ? nudge_elevator : 0.0;
+            const double moved = sequence <= nudge_inputs ? nudge_stick : 0.0;
+            c.elevator = moved;
+            c.aileron = moved;
+            c.rudder = 0.0;
         }
         return c;
     }

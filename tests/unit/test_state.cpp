@@ -479,7 +479,7 @@ GLIDESLOPE_TEST(a_state_packets_stovl_pitch_integral_rides_with_a_flag_and_is_re
 // **A state packet carries the controls of the aircraft its client watches**,
 // and reads them back as they went, to the wire's 16-bit fraction: gear that
 // retracts and gear that does not, speedbrakes and none (since version 06),
-// the pitch trim (since 0F), the flag walked, and the value that means
+// the pitch, roll and yaw trim (since 0F), the flag walked, and the value that means
 // "fixed" refused in every control but the gear and the speedbrake lever.
 GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_watches) {
     StatePacket s = a_packet(3);
@@ -493,6 +493,8 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
     w.gear = 1.0;
     w.speedbrake = 0.5;
     w.pitch_trim = -0.125;
+    w.roll_trim = 0.0625;
+    w.yaw_trim = -0.03125;
     s.watched = w;
     const auto with = write_state(s);
     check(with.has_value() && with->size() == glideslope::net::state_bytes(3, false, true),
@@ -506,9 +508,10 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
     check(near(got.aileron, 0.25) && near(got.elevator, -0.5) && near(got.rudder, 1.0) &&
               near(got.throttle, 0.75) && near(got.flaps, 0.33) && got.gear &&
               near(*got.gear, 1.0) && got.speedbrake && near(*got.speedbrake, 0.5) &&
-              near(got.pitch_trim, -0.125),
-          "every control to the wire's fraction, the speedbrake lever and the pitch trim "
-          "with them");
+              near(got.pitch_trim, -0.125) && near(got.roll_trim, 0.0625) &&
+              near(got.yaw_trim, -0.03125),
+          "every control to the wire's fraction, the speedbrake lever and the pitch, roll "
+          "and yaw trim with them");
 
     // Gear that does not retract is said to, and read back as none.
     s.watched->gear.reset();
@@ -540,12 +543,12 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
     check(refused == 254, "every watched flag but nought and one is refused: " +
                               std::to_string(refused) + " of 254");
 
-    // "Fixed" in any of the six controls that are not the gear or the
-    // speedbrake lever: the five before them, and the pitch trim after.
-    const std::size_t first = glideslope::net::state_bytes(3, false, true) - 16;
+    // "Fixed" in any of the eight controls that are not the gear or the
+    // speedbrake lever: the five before them, and the three trims after.
+    const std::size_t first = glideslope::net::state_bytes(3, false, true) - 20;
     std::size_t controls = 0;
     for (const std::size_t i : {std::size_t{0}, std::size_t{1}, std::size_t{2}, std::size_t{3},
-                                std::size_t{4}, std::size_t{7}}) {
+                                std::size_t{4}, std::size_t{7}, std::size_t{8}, std::size_t{9}}) {
         auto bytes = *with;
         bytes[first + 2 * i] = 0x00;
         bytes[first + 2 * i + 1] = 0x80; // -32768, little-endian
@@ -553,7 +556,7 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
                                               " is refused");
         ++controls;
     }
-    check(controls == 6, "all six controls were tried");
+    check(controls == 8, "all eight controls were tried");
     check(glideslope::net::state_bytes(20, true, true) + glideslope::net::envelope_size +
                   glideslope::net::sealing_overhead <=
               glideslope::platform::largest_datagram,

@@ -463,12 +463,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       and untouched for thirty seconds, within 100 ft of her start height.*
 - [x] **A player's first input keeps the trim the server held**: her
       client begins its inputs from every control the server held her on,
-      her pitch trim, aileron and rudder among them, and her prediction
-      agrees with the server through that input. *Verification: through a
-      real server, a predicting F-35B and C172P, touched not at all or
-      nudged, hold their height within 100 ft and their attitude within 5
-      degrees for thirty seconds, the prediction within its bounds; and every
-      aircraft's first input is what she was held on.*
+      the aileron and rudder her trim found held as roll and yaw trim, so a
+      centred stick keeps her trimmed, and her prediction agrees. *Verification:
+      through a real server, a predicting F-35B and C172P, touched not at
+      all or nudged and centred, hold their height within 100 ft and their
+      attitude within 5 degrees for thirty seconds, the prediction within its
+      bounds; every aircraft's first input is what she was held on.*
 - [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
       server's flight-control laws**: each side seeds her law from her as it
       sees her when the selector reaches it, a step apart when the clocks'

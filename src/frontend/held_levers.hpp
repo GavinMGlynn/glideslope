@@ -13,8 +13,8 @@
 
 namespace glideslope::frontend {
 
-// **Her controls put where the levers say**: the stick and pedals, the pitch
-// trim, the throttle, the flaps, and the gear and speedbrake lever where she
+// **Her controls put where the levers say**: the stick and pedals, the
+// pitch, roll and yaw trim, the throttle, the flaps, and the gear and speedbrake lever where she
 // has them - every control the server holds her on until her first input
 // (glideslope_server's held_until_moved) - leaving the rest of `c` as it is.
 // A client's inputs begin from these and move from there, so that her first
@@ -26,6 +26,8 @@ inline void keep_held(const net::Watched& levers, sim::Controls& c) {
     c.elevator = levers.elevator;
     c.rudder = levers.rudder;
     c.pitch_trim = levers.pitch_trim;
+    c.roll_trim = levers.roll_trim;
+    c.yaw_trim = levers.yaw_trim;
     c.throttle = levers.throttle;
     c.flaps = levers.flaps;
     if (levers.gear) {
@@ -39,7 +41,7 @@ inline void keep_held(const net::Watched& levers, sim::Controls& c) {
 // **Where her controls are, as her levers say them** (`WATCH`): what the
 // server tells a client riding along in the aircraft numbered `index`, her
 // own client among them - each as her flight model has it, the pitch trim
-// among them (since protocol 15).
+// among them, and the roll and yaw trim (since protocol 15).
 inline net::Watched levers_of(const sim::Aircraft& m, std::uint8_t index) {
     net::Watched w;
     w.aircraft = index;
@@ -55,6 +57,8 @@ inline net::Watched levers_of(const sim::Aircraft& m, std::uint8_t index) {
         w.speedbrake = m.property("fcs/speedbrake-cmd-norm");
     }
     w.pitch_trim = -m.property("fcs/pitch-trim-cmd-norm");
+    w.roll_trim = m.property("fcs/roll-trim-cmd-norm");
+    w.yaw_trim = m.property("fcs/yaw-trim-cmd-norm");
     return w;
 }
 

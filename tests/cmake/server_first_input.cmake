@@ -11,7 +11,8 @@
 #
 # **Built, not hoped for.** Until her first input the server holds a player's
 # aircraft on what her trim found - her pitch trim, and the aileron and rudder
-# against her engine's torque (server_untouched.cmake). Her client sends
+# against her engine's torque as her roll and yaw trim, the stick and pedals
+# centred (server_untouched.cmake; the project owner, 2026-10-22). Her client sends
 # inputs from its first frame, so the first input is not a choice the player
 # makes: it is there as she joins. Until 2026-10-21 that input carried the
 # client's own pitch trim, aileron and rudder, at nought, and dropped the trim
@@ -19,8 +20,8 @@
 # (`--from-held`): it asks for its own aircraft's levers (`WATCH`), sends
 # nothing until it has them, begins its prediction on them, and sends them as
 # every input (frontend::keep_held) - a player who touches nothing - or, with
-# `--nudge`, with the stick moved back a fortieth for her first half second
-# and then let go, centred. It joins through a relay that holds every datagram
+# `--nudge`, with the stick moved back and right a fortieth for her first
+# half second and then the stick and pedals centred. It joins through a relay that holds every datagram
 # 100 ms each way, so that the prediction is flown ahead of the server's word.
 #
 # **Every case, not a sample**: the two aircraft the item names, each touched
@@ -29,15 +30,18 @@
 #   - height within 100 ft (30.48 m) of where she was first heard, as an
 #     aircraft sent nothing is held (server_untouched.cmake);
 #   - her pitch over no more than 5 degrees, and her bank within 5 degrees:
-#     rolled off on her engine's torque, as with no aileron and rudder held,
-#     a C172P is at 30 degrees in thirty seconds;
+#     rolled off on her engine's torque once her stick is centred, as where
+#     the aileron and rudder are held as the stick and pedals rather than as
+#     trims, a C172P is at 37 degrees in thirty seconds;
 #   - the prediction's median error under 0.05 m and its worst under 3 m,
 #     server_paced_prediction.cmake's bounds.
-# Nudged, the F-35B rose 13.5 m (44 ft): her flight controls hold the
-# attitude a stick movement leaves her at, half a degree up. A twentieth
+# Nudged, the F-35B rose 10.1 m (33 ft) and banked 2.6 degrees: her flight
+# controls hold the attitude a stick movement leaves her at. A twentieth
 # rose her 25 m, too near the 30.48 m bound for a rule tested by its margin.
 # Seen red with the client keeping its own pitch trim, aileron and rudder,
-# as before 2026-10-21: the F-35B untouched was a wreck.
+# as before 2026-10-21: the F-35B untouched was a wreck; and with the
+# aileron and rudder held as the stick and pedals, not as trims: the C172P
+# nudged then centred banked 36.8 degrees and fell 90 m.
 #
 # **On the session's clock and its events**: each client stays until it has
 # heard its own aircraft for thirty simulated seconds (`--until-held 30`),

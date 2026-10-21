@@ -344,6 +344,7 @@ bool towards(Controls& from, const Controls& to) {
           std::pair{&from.left_brake, to.left_brake},
           std::pair{&from.right_brake, to.right_brake},
           std::pair{&from.pitch_trim, to.pitch_trim},
+          std::pair{&from.roll_trim, to.roll_trim}, std::pair{&from.yaw_trim, to.yaw_trim},
           std::pair{&from.propeller, to.propeller}, std::pair{&from.gear, to.gear},
           std::pair{&from.speedbrake, to.speedbrake}}) {
         met = towards(*control, wanted) && met;
@@ -540,9 +541,15 @@ Controls held_until_moved(const Aircraft& aircraft) {
     Controls c;
     if (aircraft.trimmed()) {
         c = trimmed_controls(aircraft);
+        // **The aileron and rudder her trim found, as her roll and yaw
+        // trim** (the project owner, 2026-10-22), with the stick and pedals
+        // centred: her model sums each trim with its control, so she flies
+        // the same, and her stick and pedals centred after her first input
+        // keep her flying as trimmed. Held as the stick and pedals, they
+        // were gone with her first touch of either.
         if (aircraft.trimmed_laterally()) {
-            c.aileron = aircraft.property("fcs/aileron-cmd-norm");
-            c.rudder = aircraft.property("fcs/rudder-cmd-norm");
+            c.roll_trim = aircraft.property("fcs/aileron-cmd-norm");
+            c.yaw_trim = aircraft.property("fcs/rudder-cmd-norm");
         }
     } else {
         c.throttle = 0.6;

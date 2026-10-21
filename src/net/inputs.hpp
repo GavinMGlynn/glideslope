@@ -43,13 +43,13 @@ namespace glideslope::net {
 // packet stays well inside a datagram.
 inline constexpr std::size_t redundancy = 4;
 
-// The controls, as they go on the wire: nineteen 16-bit fractions of -1..1.
+// The controls, as they go on the wire: twenty-one 16-bit fractions of -1..1.
 // **The network does not know what they are.** `sim::Controls::as_list` hands
 // them over as a flat list and `from_list` takes them back, so the list of
 // controls lives with the flight model and `src/net/` keeps including
 // nothing but the standard library - which is what lets the whole transport
 // be tested without a flight model.
-inline constexpr std::size_t controls_on_the_wire = 19;
+inline constexpr std::size_t controls_on_the_wire = 21;
 using ControlList = std::array<double, controls_on_the_wire>;
 
 // One frame of a client's input: which frame it is, and what the controls

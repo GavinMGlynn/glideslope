@@ -127,7 +127,9 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         w.u16(static_cast<std::uint16_t>(c.gear ? quantise(*c.gear) : gear_fixed));
         w.u16(static_cast<std::uint16_t>(c.speedbrake ? quantise(*c.speedbrake)
                                                       : no_speedbrakes));
-        w.u16(static_cast<std::uint16_t>(quantise(c.pitch_trim)));
+        for (const double v : {c.pitch_trim, c.roll_trim, c.yaw_trim}) {
+            w.u16(static_cast<std::uint16_t>(quantise(v)));
+        }
     }
     return w.take();
 }
@@ -267,12 +269,15 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
         }
         const auto gear = static_cast<std::int16_t>(r.u16());
         const auto speedbrake = static_cast<std::int16_t>(r.u16());
-        // The pitch trim, last (since version 0F): a control, never "fixed".
-        const auto pitch_trim = static_cast<std::int16_t>(r.u16());
-        if (!r.ok() || pitch_trim == gear_fixed) {
-            return std::nullopt;
+        // The pitch, roll and yaw trim, last (since version 0F): controls,
+        // never "fixed".
+        for (double* v : {&c.pitch_trim, &c.roll_trim, &c.yaw_trim}) {
+            const auto wire = static_cast<std::int16_t>(r.u16());
+            if (!r.ok() || wire == gear_fixed) {
+                return std::nullopt;
+            }
+            *v = unquantise(wire);
         }
-        c.pitch_trim = unquantise(pitch_trim);
         if (gear != gear_fixed) {
             c.gear = unquantise(gear);
         }

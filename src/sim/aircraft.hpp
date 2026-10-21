@@ -161,6 +161,15 @@ struct Controls {
     // her flight-control laws command the lift system, and the stick asks
     // them for height.
     double stovl = 0.0;
+    // **The roll and yaw trim** (since protocol 15), -1..1, each added to the
+    // aileron and the rudder as her model sums them (JSBSim's
+    // fcs/roll-trim-cmd-norm and fcs/yaw-trim-cmd-norm): +1 as the aileron
+    // and rudder at +1. What the server holds a player's aircraft on until
+    // her first input carries her trim's aileron and rudder here (sim::
+    // held_until_moved), so that her stick and pedals centred after it keep
+    // her flying as trimmed. A model that sums neither ignores them.
+    double roll_trim = 0.0;
+    double yaw_trim = 0.0;
 
     // **Every control as a flat list, and back again.** The wire sends a
     // client's inputs to the server (net/inputs.hpp), and the network knows
@@ -169,14 +178,14 @@ struct Controls {
     // stops the two drifting apart when a control is added - and
     // `sizeof(Controls)` is held by a test, so a new field that is not put
     // in here is caught rather than quietly left out of every flight.
-    static constexpr std::size_t control_count = 19;
+    static constexpr std::size_t control_count = 21;
     std::array<double, control_count> as_list() const {
         return {elevator,      aileron,    rudder,         throttle,
                 mixture,       flaps,      left_brake,     right_brake,
                 pitch_trim,    propeller,  gear,           supercharger,
                 speedbrake,    throttle_offset[0],         throttle_offset[1],
                 cooling_flaps[0],          cooling_flaps[1],
-                reverse,       stovl};
+                reverse,       stovl,      roll_trim,      yaw_trim};
     }
     static Controls from_list(const std::array<double, control_count>& v) {
         Controls c;
@@ -197,6 +206,8 @@ struct Controls {
         c.cooling_flaps = {v[15], v[16]};
         c.reverse = v[17];
         c.stovl = v[18];
+        c.roll_trim = v[19];
+        c.yaw_trim = v[20];
         return c;
     }
     bool operator==(const Controls&) const = default;

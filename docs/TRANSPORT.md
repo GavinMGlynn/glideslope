@@ -82,8 +82,10 @@ Said first, because a transport's limits matter more than its features.
   session"), and whose `AIRCRAFT` says what each aircraft is loaded as
   (below).
   Version `0F` is on the same ground, and is the first whose state update
-  carries the watched aircraft's pitch trim (below, "State updates"), so
-  that a player's client keeps the trim the server held her on.
+  carries the watched aircraft's pitch, roll and yaw trim (below, "State
+  updates"), and whose input frame carries twenty-one controls, the roll
+  and yaw trim last (below, "Inputs"), so that a player's client keeps the
+  trim the server held her on.
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -962,7 +964,7 @@ have not been sent yet.
 | `u32` | the newest frame's sequence number, from 1 |
 | `u8` | how many frames follow, 1 to 4 |
 | | then, per frame, oldest first: |
-| `i16` x19 | the nineteen controls |
+| `i16` x21 | the twenty-one controls |
 
 The frames are consecutive, so only the newest sequence is sent: the oldest
 is the newest less one fewer than the count.
@@ -982,7 +984,7 @@ flew the stick's exact number while the server flew the rounded one, the two
 would diverge for a reason no measurement could explain. So the client rounds
 first and flies the rounded value.
 
-The nineteen controls, in order, **every one of them sent in every frame**:
+The twenty-one controls, in order, **every one of them sent in every frame**:
 a frame is the whole cockpit, and the server flies exactly what it says. A
 control a client does not move must be sent at the value that leaves the
 aeroplane alone - which for several is not nought.
@@ -1008,6 +1010,8 @@ aeroplane alone - which for several is not nought.
 | 16 | cooling flaps, starboard engine | 0 to 1 | the same | 0 |
 | 17 | reverse | 0 to 1 | 0 stowed; more deploys the thrust reversers on the ground, 0.1 idle reverse, 1 maximum | 0 |
 | 18 | STOVL mode | 0 or 1 | 1 asks a lift-system aeroplane's flight controls for STOVL mode, 0 for conventional flight; in STOVL mode her flight controls fly the lift system and the elevator asks for height | 0 |
+| 19 | roll trim | -1 to 1 | added to the aileron, as the aileron (since `0F`) | 0 |
+| 20 | yaw trim | -1 to 1 | added to the rudder, as the rudder (since `0F`) | 0 |
 
 An aeroplane without a control ignores it. **Nothing is clamped on the way in**
 but each engine's throttle-plus-offset, which is held to 0 to 1: a value outside
@@ -1016,7 +1020,7 @@ one. **Frames of all zeros are not "no input"**: they cut the mixture and raise
 the gear. The wire itself does not know what the controls are - the flight
 model hands them over as a flat list and takes them back the same way, which is
 what keeps the list above and the simulation from drifting apart when a control
-is added; a test holds the count to nineteen.
+is added; a test holds the count to twenty-one.
 
 ### What is inside a sealed body
 
@@ -1228,16 +1232,19 @@ client is told of the one it watches.
 | `i16` | the gear, down at 1 - or `-32768` where it does not retract |
 | `i16` | the speedbrake lever, out at 1 - or `-32768` where it has no speedbrakes (since `06`) |
 | `i16` | the pitch trim, nose up positive, -1 to 1 (since `0F`) |
+| `i16` | the roll trim, as the aileron, -1 to 1 (since `0F`) |
+| `i16` | the yaw trim, as the rudder, -1 to 1 (since `0F`) |
 
 A flag other than `00` or `01`, or `-32768` in any control but the gear and
 the speedbrake lever, makes the packet unreadable.
 
 **A player's own aircraft, watched as she joins, says what the server holds
-her on until her first input**: what her trim found, the pitch trim, the
-aileron and the rudder among it. Her client's inputs begin from those
-controls, every one of them, and move from there, so that her first input
-does not take away the trim she was held on; before version `0F` there was
-no pitch trim here, and her first input put it at nought.
+her on until her first input**: what her trim found - her pitch trim, and
+the aileron and rudder it found as her roll and yaw trim, the stick and
+pedals centred. Her client's inputs begin from those controls, every one of
+them, and move from there, so that her first input, and her stick and
+pedals centred after it, keep the trim she was held on; before version `0F`
+there were no trims here, and her first input put them at nought.
 
 **Two of the fields are meant for one client and not for the others**, which
 is why a state update is sealed to each connection separately rather than
@@ -1254,7 +1261,7 @@ the server's to hand out.
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
 full, with the client's own motion and a watched aircraft's controls, is
-1,149 bytes, and 1,179 with the
+1,153 bytes, and 1,183 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 
