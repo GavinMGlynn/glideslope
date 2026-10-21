@@ -2085,6 +2085,11 @@ public:
         display_.switching();
     }
 
+    // A sleep between passes: asked for `asked_s`, it took `took_s`.
+    void slept(double asked_s, double took_s) {
+        overslept_s_ += std::max(0.0, took_s - asked_s);
+    }
+
     // Shows every other aircraft at `local_s`, as a 60 Hz screen would.
     //
     // **Not before its own aircraft is built**, as a client shows nothing
@@ -2097,9 +2102,21 @@ public:
              !models_.contains(yours_))) {
             return;
         }
+        // **How long between frames, and how much of it this client's**:
+        // the time past the millisecond it asked to sleep is the machine's,
+        // not its own - a runner that stalls (GitHub's macOS, whose timed
+        // waits come back 200 ms and more late) held it there - and what is
+        // left is what this client spent itself, which is never taken off.
         if (rendered_s_ >= 0.0) {
-            longest_between_frames_s_ = std::max(longest_between_frames_s_, local_s - rendered_s_);
+            const double between = local_s - rendered_s_;
+            if (between > longest_between_frames_s_) {
+                longest_between_frames_s_ = between;
+                longest_overslept_s_ = overslept_s_;
+            }
+            longest_own_between_frames_s_ =
+                std::max(longest_own_between_frames_s_, between - overslept_s_);
         }
+        overslept_s_ = 0.0;
         rendered_s_ = local_s;
         const double now = clock_.now(local_s);
         own_frame(now, local_s);
@@ -2410,8 +2427,10 @@ public:
             lines.emplace_back(line);
         }
         std::snprintf(line, sizeof line, "interpolated: %zu aircraft drawn, %zu of them carried on "
-                      "past the newest update; the longest between frames %.0f ms",
-                      shown_, extrapolated_, longest_between_frames_s_ * 1000.0);
+                      "past the newest update; the longest between frames %.0f ms, %.0f ms of "
+                      "it the machine's, oversleeping; the longest of this client's own %.0f ms",
+                      shown_, extrapolated_, longest_between_frames_s_ * 1000.0,
+                      longest_overslept_s_ * 1000.0, longest_own_between_frames_s_ * 1000.0);
         lines.emplace_back(line);
         if (stovl_land_) {
             std::snprintf(line, sizeof line,
@@ -2665,6 +2684,12 @@ private:
     std::size_t taken_over_ = 0;
     std::size_t taken_back_ = 0;
     double longest_between_frames_s_ = 0.0;
+    // Of the longest between frames, the time slept past what was asked.
+    double longest_overslept_s_ = 0.0;
+    // The longest between two frames less what was slept past what was asked.
+    double longest_own_between_frames_s_ = 0.0;
+    // Slept past what was asked since the last frame (`slept`).
+    double overslept_s_ = 0.0;
     std::optional<double> reconciled_s_;
     // Where each step of its own flying took it, and whether that counts
     // towards the prediction error (not while joining or resuming).
@@ -3313,7 +3338,17 @@ int stay(glideslope::platform::UdpSocket& socket,
             drained = got == 0;
             if (got <= glideslope::net::envelope_size) {
                 if (drained) {
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    // What was asked is counted as this client's own; only
+                    // what the machine slept past it is not.
+                    constexpr std::chrono::duration<double> nap = std::chrono::milliseconds(1);
+                    const auto asleep = std::chrono::steady_clock::now();
+                    std::this_thread::sleep_for(nap);
+                    if (predicting) {
+                        predicting->slept(nap.count(),
+                                          std::chrono::duration<double>(
+                                              std::chrono::steady_clock::now() - asleep)
+                                              .count());
+                    }
                 }
                 continue;
             }
