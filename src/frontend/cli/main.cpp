@@ -285,6 +285,14 @@ std::shared_ptr<const StovlGround> prepare_stovl_ground() {
 }
 // Prepared by `connect` before it sends its initiation, for every stay.
 std::shared_ptr<const StovlGround> connect_stovl_ground;
+// **(`--from-held`)**: with `--predict`, it joins as the windowed client does
+// - asking for its own aircraft's levers (`WATCH`), sending nothing until it
+// has them, its prediction begun on them - and every input it sends is what
+// the server held her on, every control kept (frontend::keep_held): a player
+// who touches nothing. **(`--nudge`)**: and her first inputs move the stick
+// back a fortieth for half a second, then let it go, centred.
+bool connect_from_held = false;
+bool connect_nudge = false;
 // **(`--until-held S`)**: stay until its own aircraft has been heard for S
 // seconds of the session's clock, and say how high she was when first heard
 // and how low and how high she went since - what a test of an aircraft left
@@ -296,6 +304,11 @@ struct ConnectHeld {
     double first_m = 0.0;
     double lowest_m = 0.0;
     double highest_m = 0.0;
+    // Her attitude meanwhile: her pitch's least and most, and her bank's
+    // most either way, degrees.
+    double lowest_pitch_deg = 0.0;
+    double highest_pitch_deg = 0.0;
+    double most_bank_deg = 0.0;
     bool done = false;
 };
 ConnectHeld connect_held;
@@ -519,6 +532,11 @@ void print_usage(std::FILE* out) {
         "                            the ground it lands on MS ms slower to prepare\n"
         "                            --spend-requests-first (with --stovl-at-once)\n"
         "                            sends the server's second of requests first\n"
+        "                            --from-held (with --predict) sends what the\n"
+        "                            server held her on, once it has said it, as a\n"
+        "                            player who touches nothing; --nudge with it\n"
+        "                            moves the stick back a fortieth for the first\n"
+        "                            half second, then lets it go\n"
         "                            --unpaced (with --predict) flies at this\n"
         "                            machine's pace, not steered to the server's\n"
         "                            --stopped-once S MS (with --predict) runs\n"
@@ -1751,10 +1769,42 @@ public:
     void stovl_at_once() {
         stovl_at_once_ = true;
     }
+    // **Flown from what the server held her on** (`--from-held`): it joins
+    // as the windowed client does, asking for her levers and sending
+    // nothing until it has them, and its pilot's every input is those
+    // controls, every one kept (frontend::keep_held) - a player who touches
+    // nothing. With `nudge`, her first inputs move the stick back a
+    // fortieth for half a second and let it go, centred, as a player's
+    // first touch of a stick or an arrow key does.
+    void from_held(bool nudge) {
+        from_held_ = true;
+        nudge_ = nudge;
+    }
+    // How many of its first inputs the nudge holds the stick back for: half
+    // a second of them.
+    static constexpr std::uint32_t nudge_inputs = 15;
+    static constexpr double nudge_elevator = 0.025;
+    glideslope::sim::Controls held_pilot(std::uint32_t sequence) const {
+        glideslope::sim::Controls c;
+        if (levers_) {
+            glideslope::frontend::keep_held(*levers_, c);
+        }
+        if (nudge_) {
+            c.elevator = sequence <= nudge_inputs ? nudge_elevator : 0.0;
+        }
+        return c;
+    }
+    bool flies_from_held() const {
+        return from_held_;
+    }
+    // Whether it asks for her levers and waits for them.
+    bool wants_levers() const {
+        return stovl_at_once_ || from_held_;
+    }
     // The aircraft it asks the levers of, once it knows its own; none once
     // they are said, or when it does not ask.
     std::optional<std::uint8_t> levers_wanted(std::uint8_t mine) const {
-        if (!stovl_at_once_ || levers_ || mine == glideslope::net::no_aircraft) {
+        if (!wants_levers() || levers_ || mine == glideslope::net::no_aircraft) {
             return std::nullopt;
         }
         return mine;
@@ -1770,7 +1820,7 @@ public:
     // Whether it may send inputs: always, but selecting at once, not until
     // its prediction has begun on the server's levers.
     bool ready_to_send() const {
-        return !stovl_at_once_ || prediction_ != nullptr;
+        return !wants_levers() || prediction_ != nullptr;
     }
     // Its prediction down after a hover, and the server's word at rest.
     bool stovl_done() const {
@@ -1974,13 +2024,13 @@ public:
         }
         if (state.yours && newest && !ai_flying_) {
             reconciled_s_ = state.simulation_time_s;
-            if (stovl_at_once_ && !levers_ && state.watched &&
+            if (wants_levers() && !levers_ && state.watched &&
                 state.watched->aircraft == state.your_aircraft) {
                 levers_ = state.watched;
             }
             if (!prediction_) {
                 const auto model = models_.find(state.your_aircraft);
-                if (model != models_.end() && (!stovl_at_once_ || levers_)) {
+                if (model != models_.end() && (!wants_levers() || levers_)) {
                     start(motion_of(*state.yours), model->second, loadings_[state.your_aircraft],
                           state.last_input_applied, state.yours->steps_into_input);
                 }
@@ -2976,7 +3026,7 @@ private:
         start_weight_lbs_ = aircraft_->property("inertia/weight-lbs");
         prediction_ = std::make_unique<glideslope::sim::Prediction>(*aircraft_);
         // **On the levers the server holds her on**, where it has said them
-        // (`--stovl-at-once`), as the windowed client begins.
+        // (`--stovl-at-once`, `--from-held`), as the windowed client begins.
         if (levers_) {
             prediction_->held_by_server(glideslope::frontend::held_as_told(*levers_));
         }
@@ -3070,7 +3120,10 @@ private:
     }
     bool stovl_land_ = false;
     bool stovl_at_once_ = false;
-    // The levers the server said it holds her on (`--stovl-at-once`).
+    bool from_held_ = false;
+    bool nudge_ = false;
+    // The levers the server said it holds her on (`--stovl-at-once`,
+    // `--from-held`).
     std::optional<glideslope::net::Watched> levers_;
     // Her STOVL law, as the prediction made it: on which input, at which of
     // its steps, and the throttle integral it was made with.
@@ -3400,6 +3453,9 @@ int stay(glideslope::platform::UdpSocket& socket,
                 predicting->stovl_at_once();
             }
         }
+        if (connect_from_held) {
+            predicting->from_held(connect_nudge);
+        }
         fly = true;
     }
     // **What must arrive**: the server's reliable messages, acknowledged,
@@ -3699,8 +3755,9 @@ int stay(glideslope::platform::UdpSocket& socket,
                     // What it sends is what it flies: rounded as the wire
                     // rounds it, as TRANSPORT.md asks, so that the two agree.
                     stick = glideslope::sim::Controls::from_list(glideslope::net::as_sent(
-                        (connect_stovl_land ? predicting->stovl_pilot(sequence)
-                                            : Predicting::pilot(sequence))
+                        (connect_stovl_land     ? predicting->stovl_pilot(sequence)
+                         : connect_from_held    ? predicting->held_pilot(sequence)
+                                                : Predicting::pilot(sequence))
                             .as_list()));
                 }
                 sending.add(sequence, glideslope::net::as_sent(stick.as_list()));
@@ -4274,14 +4331,24 @@ int stay(glideslope::platform::UdpSocket& socket,
                     if (connect_held.for_s > 0.0 && newest_state) {
                         const double m =
                             glideslope::world::to_geodetic({a.x_m, a.y_m, a.z_m}).height_m;
+                        const auto pitch = static_cast<double>(a.pitch_deg);
                         if (connect_held.from_s < 0.0) {
                             connect_held.from_s = state->simulation_time_s;
                             connect_held.first_m = connect_held.lowest_m =
                                 connect_held.highest_m = m;
+                            connect_held.lowest_pitch_deg = connect_held.highest_pitch_deg =
+                                pitch;
                         }
                         connect_held.to_s = state->simulation_time_s;
                         connect_held.lowest_m = std::min(connect_held.lowest_m, m);
                         connect_held.highest_m = std::max(connect_held.highest_m, m);
+                        connect_held.lowest_pitch_deg =
+                            std::min(connect_held.lowest_pitch_deg, pitch);
+                        connect_held.highest_pitch_deg =
+                            std::max(connect_held.highest_pitch_deg, pitch);
+                        connect_held.most_bank_deg =
+                            std::max(connect_held.most_bank_deg,
+                                     std::abs(static_cast<double>(a.roll_deg)));
                         connect_held.done =
                             connect_held.to_s - connect_held.from_s >= connect_held.for_s;
                     }
@@ -4512,6 +4579,12 @@ int stay(glideslope::platform::UdpSocket& socket,
                       "%.1f m",
                       connect_held.from_s, connect_held.to_s, connect_held.first_m,
                       connect_held.lowest_m, connect_held.highest_m);
+        say_heard(line);
+        std::snprintf(line, sizeof line,
+                      "my aircraft's attitude meanwhile: pitch %.2f to %.2f degrees, bank "
+                      "%.2f degrees at most",
+                      connect_held.lowest_pitch_deg, connect_held.highest_pitch_deg,
+                      connect_held.most_bank_deg);
         say_heard(line);
     }
     if (fly) {
@@ -5438,6 +5511,14 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--slow-preparation" && i + 1 < args.size()) {
                     connect_slow_preparation_ms = std::strtod(std::string(args[++i]).c_str(), nullptr);
+                    continue;
+                }
+                if (args[i] == "--from-held") {
+                    connect_from_held = true;
+                    continue;
+                }
+                if (args[i] == "--nudge") {
+                    connect_nudge = true;
                     continue;
                 }
                 if (args[i] == "--until-held" && i + 1 < args.size()) {

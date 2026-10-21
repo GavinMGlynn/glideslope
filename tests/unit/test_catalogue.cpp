@@ -1,5 +1,8 @@
 #include "harness.hpp"
 
+#include "frontend/held_levers.hpp"
+#include "net/inputs.hpp"
+#include "net/state.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
@@ -367,6 +370,91 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
               " held their height and " +
               std::to_string(left_out + left_out_ungoverned) + " were left out, of " +
               std::to_string(catalogue.size()));
+}
+
+// **A player's first input is what the server held her on, every control,
+// every aircraft.** Each of the catalogue's aircraft started as the server
+// starts a player's (`Fleet::give`), trimmed level and held on
+// held_until_moved as a 16-bit fraction each, her levers read as the server
+// says them (frontend::levers_of, `WATCH`) and sent through a state update
+// and read back; her client's first input begun from the windowed client's
+// own airborne controls, put where those levers say (frontend::keep_held),
+// and rounded as the wire rounds an input. All nineteen controls must be the
+// server's to the bit - but the gear of an aircraft whose gear does not
+// retract and the speedbrake lever of one without speedbrakes, which her
+// model ignores and her levers do not say. Until 2026-10-21 the levers said
+// no pitch trim and the client kept its own nought: every trimmed aircraft's
+// first input took away her trim. Every aircraft counted, the untrimmable
+// three among them (held on six tenths of the throttle). The on-final start
+// (`--players-on-final`) is not walked here: it is held the same way, on the
+// same controls, with her flaps and gear as she was started, and the levers
+// say both.
+GLIDESLOPE_TEST(every_aircraft_a_players_first_input_sends_is_what_the_server_held_her_on) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    std::size_t alike = 0;
+    std::size_t with_trim = 0;
+    std::string failed;
+    for (const CatalogueEntry& e : catalogue) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 3000.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        ic.trim = true;
+        ic.trim_lateral = true;
+        aircraft.initialize(ic);
+        const auto held = glideslope::net::as_sent(
+            glideslope::sim::held_until_moved(aircraft).as_list());
+        aircraft.set_controls(glideslope::sim::Controls::from_list(held));
+        aircraft.step();
+        glideslope::net::StatePacket packet;
+        packet.watched = glideslope::frontend::levers_of(aircraft, 3);
+        const auto bytes = glideslope::net::write_state(packet);
+        const auto heard =
+            bytes ? glideslope::net::read_state(std::span<const std::uint8_t>(*bytes))
+                  : std::nullopt;
+        if (!heard || !heard->watched) {
+            failed += " " + e.id + " (her levers were not read back)";
+            continue;
+        }
+        // The windowed client's own, in the air, before the levers.
+        glideslope::sim::Controls first;
+        first.throttle = e.start_throttle;
+        first.gear = 0.0;
+        glideslope::frontend::keep_held(*heard->watched, first);
+        const auto sent = glideslope::net::as_sent(first.as_list());
+        std::string apart;
+        for (std::size_t i = 0; i < held.size(); ++i) {
+            const bool ignored = (i == 10 && !aircraft.gear_retracts()) ||
+                                 (i == 12 && !aircraft.speedbrakes());
+            if (!ignored && sent[i] != held[i]) {
+                apart += " control " + std::to_string(i) + " " + std::to_string(sent[i]) +
+                         " for " + std::to_string(held[i]);
+            }
+        }
+        const glideslope::sim::Controls h = glideslope::sim::Controls::from_list(held);
+        std::printf("  %-13s pitch trim %+.4f, aileron %+.4f, rudder %+.4f held: %s\n",
+                    e.id.c_str(), h.pitch_trim, h.aileron, h.rudder,
+                    apart.empty() ? "sent alike" : apart.c_str());
+        if (apart.empty()) {
+            ++alike;
+        } else {
+            failed += " " + e.id + ":" + apart;
+        }
+        if (h.pitch_trim != 0.0) {
+            ++with_trim;
+        }
+    }
+    check(failed.empty(), "every aircraft's first input is what she was held on; these were "
+                          "not:" + failed);
+    check(!catalogue.empty() && alike == catalogue.size(),
+          "every aircraft in the catalogue was walked: " + std::to_string(alike) + " of " +
+              std::to_string(catalogue.size()));
+    // A trim of nought everywhere would make the rule trivially kept.
+    check(with_trim > 0, "and some were held on a pitch trim: " + std::to_string(with_trim));
 }
 
 // **Every aircraft's flap lever is found where her flaps answer one**

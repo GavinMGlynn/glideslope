@@ -1143,6 +1143,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_pilot_flies_the_b2a_approach_lesson_by_hand_inside_its_band_only_with_her_speedbrakes_out
     every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_air
     every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_start_height
+    every_aircraft_a_players_first_input_sends_is_what_the_server_held_her_on
     every_aircraft_the_data_holds_takes_off_from_a_runway
     every_aircraft_the_data_holds_that_alights_on_water_does_not_roll_out_on_it
     an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong
@@ -2229,6 +2230,18 @@ add_test(NAME a_players_f35b_and_c172p_left_untouched_for_thirty_seconds_hold_th
 set_tests_properties(a_players_f35b_and_c172p_left_untouched_for_thirty_seconds_hold_their_start_height_within_100_ft
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_untouched)
+# **And a player's first input keeps the trim the server held her on**: a
+# predicting F-35B and C172P, touched not at all and nudged, hold their height
+# and attitude, and the prediction agrees. See cmake/server_first_input.cmake.
+add_test(NAME a_players_f35b_and_c172p_flown_from_their_held_trim_with_a_small_first_stick_movement_hold_height_and_attitude_and_predict_alike
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_first_input -DPORT=24398
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_first_input.cmake)
+set_tests_properties(a_players_f35b_and_c172p_flown_from_their_held_trim_with_a_small_first_stick_movement_hold_height_and_attitude_and_predict_alike
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_first_input)
 
 # **What becomes of an aircraft when its player goes**, both settings walked, for
 # a player saying goodbye and one going quiet, and

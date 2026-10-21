@@ -64,8 +64,11 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // STOVL mode selector last. Version 13 (`0D`): the same ground, and the
 // height her STOVL law holds in a client's own motion. Version 14 (`0E`): the
 // same ground, and the loading a player asks for after the aeroplane in the
-// initiation's payload, and an aircraft's loading in `AIRCRAFT`.
-inline constexpr std::uint8_t protocol_version = 14;
+// initiation's payload, and an aircraft's loading in `AIRCRAFT`. Version 15
+// (`0F`): the same ground, and the pitch trim among the watched aircraft's
+// controls in a state update, so that a player's client keeps the trim the
+// server held her on.
+inline constexpr std::uint8_t protocol_version = 15;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

@@ -11,6 +11,7 @@
 
 #include "copilot/copilot.hpp"
 #include "frontend/briefs.hpp"
+#include "frontend/held_levers.hpp"
 #include "frontend/players_copilot.hpp"
 #include "frontend/route_file.hpp"
 #include "frontend/same_air.hpp"
@@ -1648,6 +1649,12 @@ public:
             ic = glideslope::sim::final_approach_start(
                 *on_final_, out_m, final_start_kts(model, *final_speeds, *aircraft),
                 final_speeds->flap, final_speeds->aim_m, 3.0);
+            // **Trimmed wings and all, as level**: trimmed in pitch alone
+            // and her client keeping that trim (frontend::keep_held), a
+            // C172P on final banked 5.9 degrees in her first 1.3 s and was
+            // 5 degrees off the runway's heading by 2.8 s - outside the
+            // learnt landing's gate (client_learnt_landing.cmake).
+            ic.trim_lateral = true;
             ic.terrain_elevation_ft =
                 collision_->height_above_ellipsoid(ic.latitude_deg, ic.longitude_deg) *
                 feet_per_metre;
@@ -3036,21 +3043,7 @@ public:
             if (a.index != index) {
                 continue;
             }
-            const glideslope::sim::Aircraft& m = *a.aircraft;
-            glideslope::net::Watched w;
-            w.aircraft = index;
-            w.aileron = m.property("fcs/aileron-cmd-norm");
-            w.elevator = -m.property("fcs/elevator-cmd-norm");
-            w.rudder = m.property("fcs/rudder-cmd-norm");
-            w.throttle = m.property("fcs/throttle-cmd-norm[0]");
-            w.flaps = m.property("fcs/flap-cmd-norm");
-            if (m.gear_retracts()) {
-                w.gear = m.property("gear/gear-cmd-norm");
-            }
-            if (m.speedbrakes()) {
-                w.speedbrake = m.property("fcs/speedbrake-cmd-norm");
-            }
-            return w;
+            return glideslope::frontend::levers_of(*a.aircraft, index);
         }
         return std::nullopt;
     }

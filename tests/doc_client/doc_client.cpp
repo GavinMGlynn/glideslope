@@ -72,10 +72,11 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // height her STOVL law holds and its autopilot's pitch integral, and on
 // 2026-10-16 to 0E, when the initiation's payload took a loading after the
 // aeroplane and `AIRCRAFT` her loading - neither of which this client sends
-// or reads: the document gives the envelope's version as
-// `0E`. A test reads this line to keep the two together
+// or reads - and on 2026-10-21 to 0F, when the watched controls took the
+// pitch trim: the document gives the envelope's version as
+// `0F`. A test reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x0E;
+constexpr std::uint8_t kVersion = 0x0F;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;
@@ -610,8 +611,9 @@ std::optional<StateUpdate> read_state(std::span<const std::uint8_t> pt) {
     if (has_watched > 0x01) r.fail();
     if (has_watched == 0x01) {
         static_cast<void>(r.u8());                                // which aircraft
-        // Seven since version 06 (2026-10-07), the speedbrake lever last.
-        for (int j = 0; j < 7; ++j) static_cast<void>(r.u16());   // seven controls
+        // Seven since version 06 (2026-10-07), the speedbrake lever last;
+        // eight since 0F (2026-10-21), the pitch trim last.
+        for (int j = 0; j < 8; ++j) static_cast<void>(r.u16());   // eight controls
     }
     if (!r.complete()) return std::nullopt;
     return u;

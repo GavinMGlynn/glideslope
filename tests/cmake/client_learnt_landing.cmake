@@ -96,7 +96,7 @@ if(NOT _rc EQUAL 0)
 endif()
 
 # **Joined with the server's flaps**, full.
-if(NOT _out MATCHES "the server's levers kept: throttle [0-9.]+, flaps 1\\.00\n")
+if(NOT _out MATCHES "the server's levers kept: throttle [0-9.]+, flaps 1\\.00, pitch trim -?[0-9.]+\n")
     message(FATAL_ERROR "the client did not keep the server's landing flap on joining:\n${_out}")
 endif()
 

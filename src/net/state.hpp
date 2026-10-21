@@ -169,8 +169,11 @@ inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4 + 2 + 4 + 1 +
 // one it watches. Each control is a 16-bit fraction, as inputs are
 // (net/inputs.hpp): the aileron and rudder (right positive) and elevator (back
 // positive) from -1 to 1, the throttle and flaps from 0 to 1, the gear -
-// down at 1 - or none where it does not retract, and the speedbrake lever -
-// out at 1 - or none where it has no speedbrakes (since version 06).
+// down at 1 - or none where it does not retract, the speedbrake lever -
+// out at 1 - or none where it has no speedbrakes (since version 06), and the
+// pitch trim, nose up positive, from -1 to 1 (since version 0F): what a
+// player's client keeps of the trim the server held her on until her first
+// input (frontend::keep_held).
 struct Watched {
     std::uint8_t aircraft = 0;
     double aileron = 0.0;
@@ -180,12 +183,13 @@ struct Watched {
     double flaps = 0.0;
     std::optional<double> gear;
     std::optional<double> speedbrake;
+    double pitch_trim = 0.0;
 
     bool operator==(const Watched&) const = default;
 };
 
-// The flag, the aircraft's number and seven controls.
-inline constexpr std::size_t watched_bytes = 1 + 1 + 7 * 2;
+// The flag, the aircraft's number and eight controls.
+inline constexpr std::size_t watched_bytes = 1 + 1 + 8 * 2;
 // What the gear is written as where it does not retract, and the speedbrake
 // lever where there are no speedbrakes.
 inline constexpr std::int16_t gear_fixed = -32768;

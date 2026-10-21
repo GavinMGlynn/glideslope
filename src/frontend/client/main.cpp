@@ -1568,23 +1568,19 @@ static int run_program(int argc, char** argv) {
             controls.throttle = flight ? flight->aircraft().start_throttle : 0.65;
             controls.gear = 0.0;
         }
-        // **On a server, the levers are where the server's aircraft has
-        // them** - its throttle, flaps, gear and speedbrake lever - and move
-        // from there: begun at this client's own, the first input sent ran
-        // the landing flap of an aircraft started on final back in, and it
-        // could never be at the learnt landing's gate.
+        // **On a server, the controls are where the server's aircraft has
+        // them** - its stick and pedals, pitch trim, throttle, flaps, gear
+        // and speedbrake lever, what it held her on until her first input -
+        // and move from there: begun at this client's own, the first input
+        // sent ran the landing flap of an aircraft started on final back in,
+        // and it could never be at the learnt landing's gate; and until
+        // 2026-10-21 it put the pitch trim, aileron and rudder her trim had
+        // found at nought (frontend::keep_held).
         if (joined && joined->levers) {
-            const glideslope::net::Watched& l = *joined->levers;
-            controls.throttle = l.throttle;
-            controls.flaps = l.flaps;
-            if (l.gear) {
-                controls.gear = *l.gear;
-            }
-            if (l.speedbrake) {
-                controls.speedbrake = *l.speedbrake;
-            }
-            std::printf("glideslope: the server's levers kept: throttle %.2f, flaps %.2f\n",
-                        controls.throttle, controls.flaps);
+            glideslope::frontend::keep_held(*joined->levers, controls);
+            std::printf("glideslope: the server's levers kept: throttle %.2f, flaps %.2f, "
+                        "pitch trim %.3f\n",
+                        controls.throttle, controls.flaps, controls.pitch_trim);
             std::fflush(stdout);
         } else if (joined) {
             std::printf("glideslope: the server did not say its levers; this client's own\n");
