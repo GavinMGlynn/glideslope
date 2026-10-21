@@ -65,4 +65,16 @@ oversleep is, passes, saying "the machine held the predicting client 401
 ms of the 415 between two frames", and the interpolation check judged the
 frames after it within its 2 m. The client's old build in a frame is not
 red here - 220 ms on this machine, under the 250 - only on a macOS runner.
-The nightly, run on the branch: (see below). PR CI: (see below).
+
+**The nightly on the branch (964ddf3d), 20 runs of each check: red, so the
+item stays open.** Run 39532098811: 39 of 40 passed; the longest between
+frames in the failed run's client 54 ms (24 of it the machine's), and the
+one failure the AI's controls 0.0051 off against 0.005 - the other failure
+of 2026-10-15, a plan tail of its own. Run 39532102294: 38 of 40; once the
+controls again (0.0052), and once the predicting client 430 ms between two
+frames, 424 of them counted its own, at 18.2 s into the 100 ms check, long
+after the switches, among other frames 60 to 210 ms apart: no work of the
+client's is known there. Whether that is the machine stalling it while it
+ran - which the client counts as its own, since it cannot tell - or its
+own (a track file's write, say) is not known; the thread's CPU time across
+the gap would say.
