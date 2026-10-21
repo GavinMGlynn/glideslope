@@ -228,14 +228,15 @@ GLIDESLOPE_TEST(an_envelope_that_is_wrong_is_refused_with_the_reason_it_is_wrong
     old[4] = static_cast<std::uint8_t>(glideslope::net::protocol_version + 1);
     check(refuse(old) == Refusal::wrong_version, "a version there is none of is refused");
 
-    // **The versions before this one, `0B`, `0C` and `0D`, by name**: `0B`'s
+    // **The versions before this one, `0B` to `0E`, by name**: `0B`'s
     // input frame was eighteen controls, `0C`'s nineteen (the STOVL mode
     // selector), `0C`'s own motion carried no height asked of her STOVL law,
-    // and `0D`'s `AIRCRAFT` no loading, which this one's does - so a peer
-    // still on any of them is refused at the envelope rather than read wrong.
-    check(glideslope::net::protocol_version == 0x0E, "this is version 0E");
-    for (const std::uint8_t before :
-         {std::uint8_t{0x0B}, std::uint8_t{0x0C}, std::uint8_t{0x0D}}) {
+    // `0D`'s `AIRCRAFT` no loading, and `0E`'s watched controls no pitch
+    // trim, which this one's do - so a peer still on any of them is refused
+    // at the envelope rather than read wrong.
+    check(glideslope::net::protocol_version == 0x0F, "this is version 0F");
+    for (const std::uint8_t before : {std::uint8_t{0x0B}, std::uint8_t{0x0C}, std::uint8_t{0x0D},
+                                      std::uint8_t{0x0E}}) {
         std::vector<std::uint8_t> was = wire;
         was[4] = before;
         char hex[4];

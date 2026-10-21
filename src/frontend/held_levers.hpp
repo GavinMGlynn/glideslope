@@ -13,13 +13,19 @@
 
 namespace glideslope::frontend {
 
-// The controls the levers say: the stick and pedals, the throttle, the
-// flaps, and the gear and speedbrake lever where she has them.
-inline sim::Controls held_as_told(const net::Watched& levers) {
-    sim::Controls c;
+// **Her controls put where the levers say**: the stick and pedals, the pitch
+// trim, the throttle, the flaps, and the gear and speedbrake lever where she
+// has them - every control the server holds her on until her first input
+// (glideslope_server's held_until_moved) - leaving the rest of `c` as it is.
+// A client's inputs begin from these and move from there, so that her first
+// input keeps the trim she was held on: begun from its own pitch trim,
+// aileron and rudder, as both clients' were until 2026-10-21, a client's
+// first input put her trim at nought.
+inline void keep_held(const net::Watched& levers, sim::Controls& c) {
     c.aileron = levers.aileron;
     c.elevator = levers.elevator;
     c.rudder = levers.rudder;
+    c.pitch_trim = levers.pitch_trim;
     c.throttle = levers.throttle;
     c.flaps = levers.flaps;
     if (levers.gear) {
@@ -28,6 +34,34 @@ inline sim::Controls held_as_told(const net::Watched& levers) {
     if (levers.speedbrake) {
         c.speedbrake = *levers.speedbrake;
     }
+}
+
+// **Where her controls are, as her levers say them** (`WATCH`): what the
+// server tells a client riding along in the aircraft numbered `index`, her
+// own client among them - each as her flight model has it, the pitch trim
+// among them (since protocol 15).
+inline net::Watched levers_of(const sim::Aircraft& m, std::uint8_t index) {
+    net::Watched w;
+    w.aircraft = index;
+    w.aileron = m.property("fcs/aileron-cmd-norm");
+    w.elevator = -m.property("fcs/elevator-cmd-norm");
+    w.rudder = m.property("fcs/rudder-cmd-norm");
+    w.throttle = m.property("fcs/throttle-cmd-norm[0]");
+    w.flaps = m.property("fcs/flap-cmd-norm");
+    if (m.gear_retracts()) {
+        w.gear = m.property("gear/gear-cmd-norm");
+    }
+    if (m.speedbrakes()) {
+        w.speedbrake = m.property("fcs/speedbrake-cmd-norm");
+    }
+    w.pitch_trim = -m.property("fcs/pitch-trim-cmd-norm");
+    return w;
+}
+
+// The controls the levers say, on a model's own for the rest.
+inline sim::Controls held_as_told(const net::Watched& levers) {
+    sim::Controls c;
+    keep_held(levers, c);
     return c;
 }
 

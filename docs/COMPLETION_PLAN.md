@@ -461,14 +461,14 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       500 ft, the Mosquito 1,500, and the S.23 and C182 climb 340 and 95.
       *Verification: every aircraft in the catalogue, started as a player's
       and untouched for thirty seconds, within 100 ft of her start height.*
-- [ ] **A player's first input drops the trim the server held**: her
-      client keeps the server's throttle, flaps, gear and speedbrake, but
-      sends its own pitch trim, aileron and rudder; and that a predicting
-      client agrees with the server through its first input after an
-      untouched start is measured, not tested. *Verification: through a real
-      server, a predicting client that joins and touches nothing holds her
-      start height for thirty seconds within 100 ft, as one that sends
-      nothing does, within the prediction bounds.*
+- [x] **A player's first input keeps the trim the server held**: her
+      client begins its inputs from every control the server held her on,
+      her pitch trim, aileron and rudder among them, and her prediction
+      agrees with the server through that input. *Verification: through a
+      real server, a predicting F-35B and C172P, touched not at all or
+      nudged, hold their height within 100 ft and their attitude within 5
+      degrees for thirty seconds, the prediction within its bounds; and every
+      aircraft's first input is what she was held on.*
 - [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
       server's flight-control laws**: each side seeds her law from her as it
       sees her when the selector reaches it, a step apart when the clocks'

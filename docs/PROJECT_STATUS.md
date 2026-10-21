@@ -154,7 +154,9 @@ others 100 ms in the past, over a reliable layer whose every parser is fuzzed. A
 holds, within stated bounds, through 200 ms of latency with jitter and loss.
 The client with the window flies on a server and draws everyone. Four clients
 on Windows and Linux have flown together with an AI Cessna, and a fifth was
-refused. The server deploys as a systemd unit or a container image. Still
+refused. A player's aircraft is held trimmed until her first input, and
+that input keeps the trim, every control as the server held it, her
+prediction agreeing (2026-10-21). The server deploys as a systemd unit or a container image. Still
 missing from multiplayer:
 - choosing an aeroplane: a player flies what the server's plan flies;
 - the lobby, the session, the weather and the terrain dataset: they are
