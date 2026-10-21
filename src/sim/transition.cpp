@@ -504,6 +504,12 @@ Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
                      std::clamp(target.pilot->pedals, -1.0, 1.0) * turn_degps_ * rad_per_deg *
                          std::pow(trc_kt_ / std::max(speed, trc_kt_), 2.0);
         heading_deg_ = std::fmod(heading_deg_ + turn_radps * deg_per_rad * dt + 360.0, 360.0);
+    } else {
+        // Levelled, by no pilot or converting back or her selector out of
+        // STOVL mode: no bank is held over to when the stick is hers again.
+        // Kept, the selector out and back in at 60 kt rolled her to the 20
+        // degrees she had been left at.
+        bank_held_deg_ = 0.0;
     }
 
     // Wings level, or the bank asked, on the ailerons and the posts.

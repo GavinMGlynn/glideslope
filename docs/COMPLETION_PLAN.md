@@ -429,17 +429,17 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       attack, at 180 degrees**: about 1,300 lb at 30 kt back, taken up by
       her height law. *Verification: her lift either side of 180 degrees
       within a stated bound, and every figure in range.*
-- [x] **Jet-borne, the F-35B's stick sideways and pedals turn her**: in
-      STOVL mode between the hover and her conversion speed the stick asks
-      a roll rate and, centred, holds the bank (the VAAC Harrier's unified
-      law), turning her coordinated; the pedals a flat turn of her heading.
-      *Verification: jet-borne at 60 kt, the stick full over turns her at
-      least 3 degrees a second, banked under 30, and full pedal moves her
-      heading at least 5 degrees in 10 s, her height within 15 ft.* Done
-      2026-10-21: 6.6 degrees a second banked at most 22.8, the bank held
-      within 0.01 degrees centred, 18 degrees in 10 s on the pedals, every
-      direction flown.
-      The law's shape is this model's: nothing published gives hers.
+- [x] **Jet-borne, the F-35B's stick and pedals turn her**: the stick
+      rolls her and, centred, holds her bank, as the VAAC Harrier's unified
+      law does; the pedals turn her heading. *Verification: jet-borne at
+      60 kt, the stick full over turns her at least 3 degrees a second,
+      banked under 30, and held when centred; full pedal moves her heading
+      at least 5 degrees in 10 s; her height within 15 ft.*
+- [ ] **A client joining while an F-35B banks jet-borne predicts her with no
+      bank held**: the bank her pilot's stick left is her law's own, and a
+      prediction begun mid-turn starts level; likely fixed by the server
+      telling it. *Verification: a client joining mid-bank predicts the
+      server's held bank and agrees with it within a stated bound.*
 - [ ] **A player who joins already selecting STOVL mode has her law seeded
       apart from the server's**: the server seeds it from the power it holds
       before her first input, her prediction from a model just loaded.
