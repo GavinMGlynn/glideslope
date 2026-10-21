@@ -25,6 +25,7 @@
 
 #include "flight.hpp"
 #include "frontend/briefs.hpp"
+#include "frontend/held_levers.hpp"
 #include "frontend/players_copilot.hpp"
 #include "online.hpp"
 #include "pass.hpp"
@@ -1031,6 +1032,11 @@ static int run_program(int argc, char** argv) {
                 glideslope::platform::cache_directory(), start);
             if (joined) {
                 flight->adopt(joined->motion);
+                // **And on the levers the server holds her on**, which a
+                // law made on her first input is seeded from on both sides.
+                if (joined->levers) {
+                    flight->held_by_server(glideslope::frontend::held_as_told(*joined->levers));
+                }
             }
             if (!o.checklist.empty()) {
                 flight->show_checklist(checklist_phase);

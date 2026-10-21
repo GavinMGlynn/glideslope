@@ -539,6 +539,7 @@ double lever_travel(double lever, double detent);
 // its lift system's while its laws fly one (`put_lift_system`, so nothing
 // here throws for her envelope). What each caller does once a step, so that
 // the server's, the client's prediction and the tools' are the same.
-void apply(Aircraft& aircraft, Controller& controller);
+// Returns the controls put on her.
+Controls apply(Aircraft& aircraft, Controller& controller);
 
 } // namespace glideslope::sim

@@ -2696,3 +2696,89 @@ GLIDESLOPE_TEST(a_prediction_whose_stovl_law_was_made_a_step_or_two_apart_from_t
     }
     check(cases == 8, "two moments and four placings: " + std::to_string(cases));
 }
+
+// **A law made on a prediction's first step is seeded as the server seeds
+// its own** (Prediction::held_by_server), and made again in a replay as it
+// was made first. Two F-35Bs where a server starts a player's, 2,200 ft and
+// 300 KCAS: the server's trimmed and held a second on what the trim found
+// (held_until_moved), the client's a model just loaded, put there untrimmed.
+// Her first input selects STOVL mode. The server's controller, made on that
+// input as the server makes it, seeds her law from what she was held on;
+// the prediction, told those controls, seeds its own from them - and not
+// told, from the model just loaded, which is the situation this pins. Then
+// it flies a second on, and a word placed by nothing - no clocks' difference
+// yet, no input applied - puts her back to her first step and flies it
+// again: the law is made again, from the controls she had as that step
+// began, not from the newest step's.
+GLIDESLOPE_TEST(a_prediction_told_what_the_server_held_her_on_seeds_a_law_made_on_her_first_input_as_the_server_does) {
+    using glideslope::sim::Controller;
+    using glideslope::sim::held_until_moved;
+    const auto start = [](Aircraft& a, bool trim) {
+        a.set_terrain(flat_ground());
+        InitialConditions ic;
+        ic.latitude_deg = -33.9461;
+        ic.longitude_deg = 151.1772;
+        ic.terrain_elevation_ft = 0.0;
+        ic.altitude_ft = 2200.0;
+        ic.heading_deg = 270.0;
+        ic.airspeed_kts = 300.0;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        ic.trim = trim;
+        ic.trim_lateral = trim;
+        a.initialize(ic);
+    };
+    Aircraft server(data() / "jsbsim", "f35b");
+    start(server, true);
+    check(server.trimmed(), "the server's F-35B is trimmed, as a player's is started");
+    const Controls held = held_until_moved(server);
+    for (int i = 0; i < steps_per_second; ++i) {
+        server.set_controls(held);
+        server.step();
+    }
+    Controls first;
+    first.stovl = 1.0;
+    first.throttle = 0.7;
+    first.elevator = -1.0;
+    Controller servers_laws(server, first);
+    servers_laws.set_pilot(first);
+    (void)glideslope::sim::apply(server, servers_laws);
+    check(servers_laws.transition() != nullptr, "the server's law is made on her first input");
+    const double servers = servers_laws.transition()->throttle_integral_made_with();
+    std::printf("  held on throttle %.6f; the server's law made with %.17g\n", held.throttle,
+                servers);
+    check(servers == held.throttle && servers > 0.1,
+          "the server's law is made with the throttle she was held on");
+
+    std::size_t cases = 0;
+    for (const bool told : {false, true}) {
+        Aircraft client(data() / "jsbsim", "f35b");
+        start(client, false);
+        const glideslope::sim::Motion at_first = client.motion();
+        Prediction p(client);
+        if (told) {
+            p.held_by_server(held);
+        }
+        p.step(1, first);
+        check(p.laws() != nullptr && p.laws()->transition() != nullptr,
+              "the prediction's law is made on her first input");
+        const double made = p.laws()->transition()->throttle_integral_made_with();
+        for (int i = 0; i < steps_per_second; ++i) {
+            p.step(1, first);
+        }
+        (void)p.reconcile(at_first, 0, 0, 0);
+        const double again = p.laws()->transition()->throttle_integral_made_with();
+        std::printf("  %s: made with %.17g, made again with %.17g\n",
+                    told ? "told" : "not told", made, again);
+        if (told) {
+            check(made == servers, "told, the prediction's law is made with the server's "
+                                   "throttle integral");
+            check(again == servers, "and made again in a replay with the same");
+        } else {
+            check(made != servers, "not told, the prediction's law is made with another "
+                                   "throttle integral - the situation this pins");
+        }
+        ++cases;
+    }
+    check(cases == 2, "told and not told: " + std::to_string(cases));
+}

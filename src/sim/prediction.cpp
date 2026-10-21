@@ -23,12 +23,18 @@ Prediction::Prediction(Aircraft& aircraft) : aircraft_(aircraft) {
     }
 }
 
+void Prediction::held_by_server(const Controls& held) {
+    aircraft_.set_controls(held);
+    commanded_ = held;
+}
+
 void Prediction::put(const Controls& controls) {
     if (laws_) {
         laws_->set_pilot(controls);
-        apply(aircraft_, *laws_);
+        commanded_ = apply(aircraft_, *laws_);
     } else {
         aircraft_.set_controls(controls);
+        commanded_ = controls;
     }
 }
 
@@ -38,6 +44,7 @@ void Prediction::step(std::uint32_t sequence, const Controls& controls) {
     if (laws_) {
         laws_before.emplace(laws_->pilots_laws());
     }
+    const std::optional<Controls> commanded_before = commanded_;
     flying_step_ = steps_;
     if (!wrecked_) {
         put(controls);
@@ -53,7 +60,8 @@ void Prediction::step(std::uint32_t sequence, const Controls& controls) {
         began_.try_emplace(sequence, steps_);
     }
     flying_ = sequence;
-    held_.push_back({sequence, controls, steps_, std::move(before), std::move(laws_before)});
+    held_.push_back({sequence, controls, steps_, std::move(before), std::move(laws_before),
+                     commanded_before});
     ++steps_;
     // A client this far behind has a problem this layer cannot solve; the
     // oldest inputs are dropped rather than held for ever.
@@ -162,6 +170,7 @@ std::size_t Prediction::fly_held_again() {
         if (laws_) {
             a.laws_before.emplace(laws_->pilots_laws());
         }
+        a.commanded_before = commanded_;
         flying_step_ = a.step;
         // A wreck is held at the server's word (hear_wrecked).
         if (!wrecked_) {
@@ -184,9 +193,16 @@ void Prediction::as_at_first_held() {
     // way.
     if (!held_.empty()) {
         aircraft_.set_replay_state(held_.front().before);
-        // And the lift system's controller as it was then.
+        // And the lift system's controller as it was then, and the
+        // controls on her that a law made on the step is seeded from - put
+        // on after the replay state, which runs her flight-control system
+        // once on what she has.
         if (laws_ && held_.front().laws_before) {
             laws_->restore(*held_.front().laws_before);
+        }
+        if (laws_ && held_.front().commanded_before) {
+            aircraft_.set_controls(*held_.front().commanded_before);
+            commanded_ = held_.front().commanded_before;
         }
     }
 }

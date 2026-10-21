@@ -117,6 +117,7 @@ Transition::Transition(const Aircraft& aircraft, const Hover::Command& flying)
         stage_ = Stage::wing_borne;
         autopilot_.emplace(a_, flying.controls);
     }
+    throttle_integral_made_with_ = autopilot_ ? autopilot_->throttle_integral() : throttle_integral_;
 }
 
 Transition::Carried Transition::carried() const {

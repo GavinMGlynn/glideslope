@@ -216,6 +216,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_prediction_told_its_aircraft_is_a_wreck_holds_her_where_the_server_does_and_never_goes_to_a_nan
     a_prediction_whose_stovl_law_was_seeded_off_is_put_right_to_the_servers_height_asked_and_then_agrees
     a_prediction_whose_stovl_law_was_made_a_step_or_two_apart_from_the_servers_is_put_right_by_what_the_law_carries
+    a_prediction_told_what_the_server_held_her_on_seeds_a_law_made_on_her_first_input_as_the_server_does
     a_stovl_prediction_moved_by_her_pilot_in_the_hover_put_back_flies_again_to_exactly_where_it_was
     a_client_put_right_from_as_far_into_its_input_as_the_server_had_flown_is_off_by_centimetres
     a_prediction_stops_its_engine_on_the_servers_word_and_starts_it_again_on_its_word
@@ -2432,6 +2433,18 @@ add_test(NAME a_players_f35b_at_her_vertical_landing_loading_converts_hovers_and
 set_tests_properties(a_players_f35b_at_her_vertical_landing_loading_converts_hovers_and_lands_vertically_through_a_server_and_the_client_agrees
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_vertical_landing)
+# **A player who joins already selecting STOVL mode has her law seeded in
+# her prediction as the server seeds its own**: the same throttle integral,
+# on her first input. See cmake/server_stovl_at_once.cmake.
+add_test(NAME a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once -DPORT=24996
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_at_once.cmake)
+set_tests_properties(a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once)
 # **And against a server behind real time, by centimetres**: its clock at a
 # set 0.6 of real time. Serial: a busy runner would slow it further.
 add_test(NAME a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres

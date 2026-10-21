@@ -84,6 +84,20 @@ public:
     // without one.
     const Controller* laws() const { return laws_ ? &*laws_ : nullptr; }
 
+    // **What the server holds her on until her first input**
+    // (glideslope_server's held_until_moved, as her levers tell it -
+    // `WATCH`, net::Watched), put on her before this prediction's first
+    // step. A law made on a step - STOVL mode selected - is seeded from the
+    // controls she has as it begins (sim::Controller), and the server's,
+    // made on her first input, from what it held her on: a prediction whose
+    // first input selected STOVL mode seeded its law from a model just
+    // loaded, its throttle integral nought where the server's was her trim's
+    // (PROJECT_STATUS.md, 2026-10-14). Told this, both are seeded from the
+    // same controls. And each step held keeps the controls she had as it
+    // began, so that a law made in a step flown again is seeded as it was
+    // the first time, not from the newest step's.
+    void held_by_server(const Controls& held);
+
     // One step of the client's own flying: the input for this frame, kept
     // until the server says it has applied it.
     void step(std::uint32_t sequence, const Controls& controls);
@@ -256,6 +270,11 @@ private:
         ReplayState before;
         // And the lift system's controller as the step began, if she has one.
         std::optional<Controller::PilotsLaws> laws_before;
+        // **And the controls on her as the step began**, where they are
+        // known: what a law made on the step is seeded from (sim::
+        // Controller), which ReplayState does not carry - every step sets
+        // them again - so that flown again it is seeded as it was first.
+        std::optional<Controls> commanded_before;
     };
 
     // One step's controls put on the aircraft: through the controller, for
@@ -271,6 +290,9 @@ private:
 
     Aircraft& aircraft_;
     std::optional<Controller> laws_;
+    // The controls last put on her: the step's, or the server's held
+    // (held_by_server); none for a model just loaded.
+    std::optional<Controls> commanded_;
     std::deque<Applied> held_;
     // The step each input still held, or still to be put right from, began on.
     std::map<std::uint32_t, std::uint64_t> began_;
