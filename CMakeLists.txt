@@ -317,6 +317,7 @@ add_library(glideslope_platform STATIC
     src/platform/store.cpp
     src/platform/paths.cpp
     src/platform/memory.cpp
+    src/platform/cpu_time.cpp
     src/platform/socket.cpp
     src/platform/stop.cpp)
 target_include_directories(glideslope_platform PUBLIC src)

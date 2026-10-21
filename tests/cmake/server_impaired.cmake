@@ -235,17 +235,18 @@ endif()
 # which are made for it, so that the guessing and the blending back were
 # drawn and judged, not only the plain interpolating between two updates.
 # (Left to random loss, a run at 100 ms on CI had none.)
-if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them carried on[^;]*; the longest between frames ([0-9]+) ms, ([0-9]+) ms of it the machine's, oversleeping; the longest of this client's own ([0-9]+) ms")
+if(NOT _said MATCHES "interpolated: ([0-9]+) aircraft drawn, ([0-9]+) of them carried on[^;]*; the longest between frames ([0-9]+) ms, ([0-9]+) ms of it the machine's, not running it; the longest of this client's own ([0-9]+) ms")
     message(FATAL_ERROR "the predicting client did not say what it drew:\n${_said}")
 endif()
 # **A client that kept time**: drawing sixty frames a second, a quarter of a
-# second between two of its own - the time it spent, less what a sleep of a
-# millisecond came back late - is a client that stalled, and anything it
-# drew after is late for that reason, not the network's. It built its
-# aircraft in a frame, as it joined and at every take-back, and on CI's
-# macOS went 265 to 498 ms (2026-10-21). The machine's own stalls - the
-# same runners' timed waits come back 200 ms and more late - are said, not
-# failed: what was drawn after them is judged all the same, below.
+# second between two of its own - the CPU time its thread used, the sleeps
+# it asked for and its waits on its own building - is a client that
+# stalled, and anything it drew after is late for that reason, not the
+# network's. It built its aircraft in a frame, as it joined and at every
+# take-back, and on CI's macOS went 265 to 498 ms (2026-10-21). The
+# machine's own stalls - the same runners' timed waits come back 200 ms and
+# more late - are said, not failed: what was drawn after them is judged all
+# the same, below.
 set(_longest "${CMAKE_MATCH_3}")
 set(_machines "${CMAKE_MATCH_4}")
 if(CMAKE_MATCH_5 GREATER 250)
@@ -254,7 +255,7 @@ if(CMAKE_MATCH_5 GREATER 250)
 endif()
 if(_longest GREATER 250)
     message(STATUS "the machine held the predicting client ${_machines} ms of the ${_longest} "
-                   "between two frames, in a sleep of a millisecond")
+                   "between two frames, not running it")
 endif()
 if(CMAKE_MATCH_2 EQUAL 0)
     message(FATAL_ERROR "none of the ${CMAKE_MATCH_1} frames drawn was carried on past the "
