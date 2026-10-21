@@ -721,6 +721,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       anything but her wheels.* Done 2026-10-15: every landplane is held at
       every pace from 2 to 5 kt by half a knot, dry, wet and in 15 kt across,
       then stopped by the rollout - 273 runs, none touching but her wheels.
+- [ ] **The macOS network checks keep time on a stalling runner** (red
+      tree, worked now). The predicting client went 265 to 498 ms without a
+      frame on CI's macOS: it built its aircraft in a frame as it joined and
+      at every take-back. *Verification: the nightly's macOS network checks
+      green in two runs on the branch, and its PR's CI.*
 
 ---
 
