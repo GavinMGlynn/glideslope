@@ -225,12 +225,13 @@ wheel.
     chord, her aerodynamic reference, that is -(x_cp - 0.25) times the
     normal force: 0.28 nose up where she stands. The moving centre, rather
     than three quarters throughout, is this script's: NACA TN 3361
-    (Critzos, Heyson and Boswinkle, 1955), figure 1, measured the NACA
+    (Critzos, Heyson and Boswinkle, 1955,
+    https://ntrs.nasa.gov/citations/19930084501), figure 1, measured the NACA
     0012's quarter-chord moment through 180 degrees at 1,800,000 - about
     -0.5 at 90 to 120 degrees and -0.4 to -0.45 at 150 to 175, negative from
     the stall to 180 and antisymmetric about it - and the moving centre
     meets that within about 0.05 at every angle, where three quarters
-    throughout would give -0.85 at 110. Read off a graph, it is a check, not
+    throughout would give -0.85 at 110, off by 0.35. Read off a graph, it is a check, not
     the figure; tail to the wind the two differ by 0.02 (0.30 against 0.28).
   - It is her whole moment past 90: her tailplane in reversed flow, and her
     elevator's term (Pitch_elevator, unchanged, the same sign either way
