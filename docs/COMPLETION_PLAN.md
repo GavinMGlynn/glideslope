@@ -748,14 +748,20 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       anything but her wheels.* Done 2026-10-15: every landplane is held at
       every pace from 2 to 5 kt by half a knot, dry, wet and in 15 kt across,
       then stopped by the rollout - 273 runs, none touching but her wheels.
-- [x] **The macOS network checks keep time on a stalling runner** (red
+- [ ] **The macOS network checks keep time on a stalling runner** (red
       tree, worked now). The predicting client went 265 to 498 ms without a
       frame on CI's macOS: it built its aircraft in a frame as it joined and
-      at every take-back. Now built ahead, a fresh one for each take-back,
-      and time the machine did not run it is the machine's. *Verification:
-      the nightly's macOS network checks green in two runs on the branch,
-      and its PR's CI.* Done 2026-10-21: 80 of 80, with the controls item
-      stacked on it.
+      at every take-back. Now built ahead, a fresh one for each take-back;
+      time the machine did not run it is the machine's, up to a second.
+      Green twice (80 of 80) only with the controls item on top; its own
+      branch's two nightlies were 38 and 39 of 40, so the two land together.
+      *Verification: the nightly's macOS network checks green in two runs on
+      this branch's final head, and its PR's CI.*
+- [ ] **The paced prediction on CI's Windows release went 138 m off** once
+      (2026-10-21), the runner not running the client for 3,503 of the 3,583
+      ms between two frames: the test judges the machine. *Verification: the
+      test judged on the client's own time, or a stall built into it
+      explicitly and its bound held through it.*
 - [ ] **The impaired checks' AI controls are shown 0.0051 to 0.0061 off**
       on CI's macOS (nightly, 2026-10-15 and 2026-10-21; 0.005 is the bound):
       the throttle drawn at 0.9949 where it was 1.0, past a step to full
