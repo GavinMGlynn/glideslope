@@ -38,8 +38,13 @@ kevent and timed waits oversleep by 200 ms and more
   - as a client shows nothing of a session while it loads her;
 - the aircraft no longer predicted (handed to the AI, or left for one taken
   over) is kept and begun again at the next take-back - its loading, its
-  terrain and the server's motion put on it as on one just built - not
-  built again in a frame.
+  terrain and the server's motion put on it - not built again in a frame.
+  It is not the same as one just built: what `Aircraft::initialize` does
+  not set again (the flaps' travel, fuel burnt from tanks no loading names,
+  the brakes, its own trim and grip) carries over from before the hand-over,
+  as the server's aircraft, flown all along, carries its own. Nothing tests
+  that one begun again flies as one built would; the impaired, take-over
+  and hand-over checks' bounds at a switch hold either way. A plan tail.
 
 **And the check tells the machine from the client.** The client counts the
 time each millisecond's sleep comes back past the millisecond, and says,
