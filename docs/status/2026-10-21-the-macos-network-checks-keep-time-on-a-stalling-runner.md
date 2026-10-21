@@ -3,7 +3,13 @@
 **What is still not true first.** A machine that stops the client while it
 is working, not asleep, is counted as the client's own and fails the
 check: a thread's CPU time cannot tell its own work from a virtual machine
-not run while the guest thought it ran. A model introduced after the
+not run while the guest thought it ran. And a blocking call of the
+client's own that it does not time - anything but its sleeps, its wait on
+the aircraft being built and its files' writes - is counted the machine's,
+under the second the machine's share is bounded at: a 300 ms blocking read
+of a pipe in its loop passes, said as the machine's 299 ms. Nothing
+portable says how long a thread was blocked (macOS's thread_info gives a
+state, not a time). A model introduced after the
 client is drawing (another player joining with a model nobody flies yet)
 is still built in a frame. The AI's controls shown 0.0051 to 0.0061 off
 against 0.005 is another failure of the same check, worked as its own item.
@@ -54,6 +60,14 @@ pilot's accelerations, electrical currents, terrain elevation's last bit);
 ten seconds on, up to 240 (the a320 1, the j3cub 193, the learjet35a 240, the c172p none):
 JSBSim keeps state no initial condition puts back. Not landed.
 
+**Its files' writes timed.** The track and heard files are written through
+a file buffer that times where bytes reach the system - an overflow, a long
+write, a flush - and counts the wall time less the CPU time as the
+client's own wait. **The machine's share is bounded** at a second, twice
+the most a macOS runner was seen to hold the client in this check (498 ms):
+over it the test fails, as it may be a wait of the client's own it does
+not time.
+
 **And the check tells the machine from the client.** Between two frames,
 the client's own time is the CPU time its thread used
 (`platform::thread_cpu_s`: CLOCK_THREAD_CPUTIME_ID on Linux and macOS,
@@ -93,3 +107,16 @@ checks passed. The 430 ms gap's CPU time was not had again: no run went
 over 250 ms. On that branch's PR CI, once, Windows release's paced
 prediction failed with the client 3,583 ms between frames, 3,503 of them
 the machine's - a runner that did not run it, now said as such.
+
+**From the review, after those runs.** The files' writes timed and the
+machine's share bounded (above). Seen red: a 300 ms block inside a track
+write fails it, "went 319 ms of its own"; a 1.5 s blocking read in its loop
+fails it, "was not run 1488 ms of the 1519 between two frames: more than a
+second". A 300 ms one there passes, as above. **ThreadSanitizer**: a
+one-off clang -fsanitize=thread build (linux-release, in the scratchpad;
+no sanitizer preset has it) of the client, server, relay and check ran the
+impaired checks at 100 and 200 ms, the take-over checks at 100 and 200 ms,
+and the take-back checks, with halt_on_error: all passed, no report
+written. The two nightly runs above were on the stacked branch, not this
+one; this one's own were 39 and 38 of 40, so the item is open again until
+its final head's nightlies are green, and the two land together.
