@@ -120,3 +120,7 @@ and the take-back checks, with halt_on_error: all passed, no report
 written. The two nightly runs above were on the stacked branch, not this
 one; this one's own were 39 and 38 of 40, so the item is open again until
 its final head's nightlies are green, and the two land together.
+
+**This branch's final head, alone** (run 39556439189, 97bd913a): 39 of 40;
+the one failure the AI's controls 0.0063 off, the controls item's, with
+the longest between frames 39 ms. Its evidence is the stacked branch's.
