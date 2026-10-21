@@ -726,10 +726,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       frame on CI's macOS: it built its aircraft in a frame as it joined and
       at every take-back. Now built ahead, a fresh one for each take-back;
       time the machine did not run it is the machine's, up to a second.
-      Green twice (80 of 80) only with the controls item on top; its own
-      branch's two nightlies were 38 and 39 of 40, so the two land together.
-      *Verification: the nightly's macOS network checks green in two runs on
-      this branch's final head, and its PR's CI.*
+      Its own branch's nightlies fail on the controls item's bound (39, 38
+      and 39 of 40, the last on its final head, the frames 39 ms apart at
+      most), so its evidence is with that item on top, and the two land
+      together. *Verification: the nightly's macOS network checks green in
+      two runs with the controls item on top, and its PR's CI.*
 - [ ] **The paced prediction on CI's Windows release went 138 m off** once
       (2026-10-21), the runner not running the client for 3,503 of the 3,583
       ms between two frames: the test judges the machine. *Verification: the
