@@ -85,3 +85,11 @@ client's is known there. Whether that is the machine stalling it while it
 ran - which the client counts as its own, since it cannot tell - or its
 own (a track file's write, say) is not known; the thread's CPU time across
 the gap would say.
+
+**The nightly on the branch, green twice.** With the AI's controls'
+bound worked on the stacked branch (`macos-controls-bound`, its own status
+file), runs 39542614480 and 39542618733: each 40 of 40 macOS network
+checks passed. The 430 ms gap's CPU time was not had again: no run went
+over 250 ms. On that branch's PR CI, once, Windows release's paced
+prediction failed with the client 3,583 ms between frames, 3,503 of them
+the machine's - a runner that did not run it, now said as such.
