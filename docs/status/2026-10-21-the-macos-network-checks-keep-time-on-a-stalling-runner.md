@@ -124,3 +124,25 @@ its final head's nightlies are green, and the two land together.
 **This branch's final head, alone** (run 39556439189, 97bd913a): 39 of 40;
 the one failure the AI's controls 0.0063 off, the controls item's, with
 the longest between frames 39 ms. Its evidence is the stacked branch's.
+
+**The 10.9 m after the join, diagnosed** (run 39556446562, runner 4, run
+23, the 200 ms check). Its track: updates arrived at 0.50 to 0.72 s, then
+none until 1.27 s, when nine were read at once; the first frame at 1.30 s.
+The client's own thread was building the aircraft at her introduction -
+on a macOS runner about half a second - with the session's clock already
+begun on the first update, so the clock read nine updates late and put its
+rate at 0.5; it overshot to 1.17 by 2.8 s, the prediction's clocks'
+difference was found again 24 steps (0.2 s) away at 4.14 s, and the error
+was 10.9 m there, 55 m/s for 0.2 s. The background build is not in it:
+it began after 1.27 s and the error came at 3.6 to 4.6 s. **Reproduced
+here**: half a second added to the build at the introduction, on the
+client's thread, failed the 200 ms check twice in three, 13.1 and 12.3 m;
+the same half second on a thread of its own passed three in three, the
+worst 0.30 to 0.57 m. **Fixed**: every aircraft is built on a thread of
+its own, one at a time (a lock), the first included - nothing is
+predicted, so this thread flies no JSBSim instance, until it is built -
+and neither the first frame nor the prediction waits on the build:
+both begin at the first update after it. The client now says when each
+was built (`built: ...`). ThreadSanitizer, the one-off build again: the
+impaired, take-over and take-back checks pass, no report. QoS was not
+needed: the build did not overlap the error.

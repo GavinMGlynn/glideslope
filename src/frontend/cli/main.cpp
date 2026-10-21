@@ -73,6 +73,7 @@
 #include <filesystem>
 #include <fstream>
 #include <future>
+#include <mutex>
 #include <iterator>
 #include <limits>
 #include <deque>
@@ -1645,18 +1646,18 @@ public:
                     const std::string& loading = "") {
         models_[aircraft] = model;
         loadings_[aircraft] = loading;
-        // **Each model built as it is introduced, not as it is first
-        // flown**: loading one is most of a tenth of a second in a debug
-        // build, and twice that on a macOS runner, and built as the
-        // prediction began it was a frame not drawn for all of it - 265 to
-        // 490 ms on CI's macOS, a client that could not keep time
+        // **Each model built as it is introduced, on a thread of its own**:
+        // loading one is most of a tenth of a second in a debug build, and
+        // twice that on a macOS runner. Built as the prediction began it was
+        // a frame not drawn for all of it - 265 to 490 ms on CI's macOS -
+        // and built here, on this client's thread, it held the updates
+        // unread for half a second just after the session's clock began,
+        // which put the clock's rate at 0.5 and its prediction 10.9 m off
         // (docs/status, 2026-10-21). One of each model is kept ready, built
-        // and never flown (`spare`).
+        // and never flown (`spare`); the first frame and the prediction
+        // wait for this client's own.
         if (!built_.contains(model) && !building_.contains(model)) {
-            const double from = since_began();
-            built_[model] = build(model);
-            builds_.push_back(model + " at its introduction from " + seconds(from) + " to " +
-                              seconds(since_began()) + " s");
+            build_next(model);
         }
     }
 
@@ -2137,13 +2138,12 @@ public:
     // held, and every frame after it is drawn on time.
     void render(double local_s) {
         if (!clock_.known() || local_s - rendered_s_ < 1.0 / 60.0 ||
-            (rendered_s_ < 0.0 && yours_ != glideslope::net::no_aircraft &&
-             !models_.contains(yours_))) {
+            (rendered_s_ < 0.0 && yours_ != glideslope::net::no_aircraft && !own_built())) {
             return;
         }
         // **How long between frames, and how much of it this client's**:
-        // the CPU time its thread used, the sleeps it asked for and what it
-        // waited on its own building (`spare`). The rest is the machine's -
+        // the CPU time its thread used, the sleeps it asked for and what its
+        // files' writes waited. The rest is the machine's -
         // a runner that did not run it (GitHub's macOS, whose timed waits
         // come back 200 ms and more late, and which stops its guests) - and
         // is never this client's: a machine that stops it while it works
@@ -2156,7 +2156,7 @@ public:
             const double own = (cpu_s >= 0.0 && cpu_at_frame_s_ >= 0.0
                                     ? cpu_s - cpu_at_frame_s_
                                     : between) +
-                               asked_s_ + waited_s_ +
+                               asked_s_ +
                                (own_writes_waited_s - writes_waited_at_frame_s_);
             if (between > longest_between_frames_s_) {
                 longest_between_frames_s_ = between;
@@ -2168,7 +2168,6 @@ public:
         cpu_at_frame_s_ = cpu_s;
         writes_waited_at_frame_s_ = own_writes_waited_s;
         asked_s_ = 0.0;
-        waited_s_ = 0.0;
         rendered_s_ = local_s;
         const double now = clock_.now(local_s);
         own_frame(now, local_s);
@@ -2550,30 +2549,56 @@ private:
             out = std::move(ready->second);
             built_.erase(ready);
         } else if (const auto coming = building_.find(model); coming != building_.end()) {
-            // Waited for, if it is not built yet: this client's own time.
-            const auto began = std::chrono::steady_clock::now();
+            if (coming->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+                return nullptr; // not built yet: asked again at the next update
+            }
             Built built = coming->second.get();
             out = std::move(built.aircraft);
             builds_.push_back(model + " on a thread of its own from " + seconds(built.from_s) +
                               " to " + seconds(built.to_s) + " s");
-            waited_s_ += std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
-                             .count();
             building_.erase(coming);
         } else {
-            out = build(model);
+            build_next(model);
+            return nullptr;
         }
+        build_next(model);
+        return out;
+    }
+    // A model's next aircraft, begun on a thread of its own. **One aircraft
+    // is built at a time, and none on this client's own thread**: JSBSim's
+    // instances may be built on threads of their own once the first is
+    // built (JSBSim issue 666), and here the first is built alone, while
+    // this thread flies none - nothing is predicted before it is built.
+    void build_next(const std::string& model) {
         building_.emplace(model, std::async(std::launch::async, [this, model] {
+                              static std::mutex one_at_a_time;
+                              const std::lock_guard<std::mutex> alone(one_at_a_time);
                               Built b;
                               b.from_s = since_began();
                               b.aircraft = build(model);
                               b.to_s = since_began();
                               return b;
                           }));
-        return out;
+    }
+    // Whether this client's own aircraft is built and can be flown now.
+    bool own_built() {
+        const auto model = models_.find(yours_);
+        if (model == models_.end()) {
+            return false;
+        }
+        if (aircraft_ || built_.contains(model->second)) {
+            return true;
+        }
+        const auto coming = building_.find(model->second);
+        return coming != building_.end() &&
+               coming->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
     }
     void start(const glideslope::sim::Motion& m, const std::string& model,
                const std::string& loading, std::uint32_t last_applied, std::size_t steps_into) {
         aircraft_ = spare(model);
+        if (!aircraft_) {
+            return;
+        }
         aircraft_model_ = model;
         // **At the loading the server gave her**, before she is put
         // anywhere: a prediction at her model's own weight would fly another
@@ -2796,12 +2821,11 @@ private:
     double longest_machines_s_ = 0.0;
     // The longest of this client's own between two frames (`render`).
     double longest_own_between_frames_s_ = 0.0;
-    // Since the last frame: its thread's CPU time then, the sleep it asked
-    // for, and what it waited on its own building.
+    // Since the last frame: its thread's CPU time then, and what its files'
+    // writes had waited then; the sleep it asked for.
     double cpu_at_frame_s_ = -1.0;
     double writes_waited_at_frame_s_ = 0.0;
     double asked_s_ = 0.0;
-    double waited_s_ = 0.0;
     std::optional<double> reconciled_s_;
     // Where each step of its own flying took it, and whether that counts
     // towards the prediction error (not while joining or resuming).
