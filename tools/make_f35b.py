@@ -198,8 +198,12 @@ as before: continuous through 180. Made symmetric instead - straight to
 nothing at -90, as the positive side falls at 90 - it moved her full-forward
 dive at 300 KCAS, which passes -0.60, and a prediction's distance from the
 server after a wreck from 4.2 to 9.7 cm; this way flight inside 90 degrees
-is untouched. Nothing published gives her lift in reversed air; the shape
-past -90 is this script's.
+is untouched. **Lopsided, and unsourced**: nothing published gives her lift
+in reversed air, and this shape - nothing from 90 to 180, a straight fall from
+-90 to -180 - is this script's, chosen (the owner's decision, 2026-10-21) so
+that her flight inside 90 degrees either way, and her full-forward dive, are
+what they were; a wing met from its trailing edge makes some lift, and the
+same way either side.
 """
 
 import math
