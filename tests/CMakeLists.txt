@@ -2238,7 +2238,7 @@ add_test(NAME a_players_f35b_and_c172p_flown_from_their_held_trim_with_a_small_f
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_first_input -DPORT=24398
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_first_input -DPORT=24808
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_first_input.cmake)
 set_tests_properties(a_players_f35b_and_c172p_flown_from_their_held_trim_with_a_small_first_stick_movement_hold_height_and_attitude_and_predict_alike
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200)
