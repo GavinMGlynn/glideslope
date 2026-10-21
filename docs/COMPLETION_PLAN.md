@@ -751,13 +751,20 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 - [ ] **The macOS network checks keep time on a stalling runner** (red
       tree, worked now). The predicting client went 265 to 498 ms without a
       frame on CI's macOS: it built its aircraft in a frame as it joined and
-      at every take-back. *Verification: the nightly's macOS network checks
-      green in two runs on the branch, and its PR's CI.*
+      at every take-back; fixed, and a sleep the machine overslept is
+      counted as its. Still red once in 40: 424 ms counted the client's own,
+      with no known work in it. *Verification: the nightly's macOS network
+      checks green in two runs on the branch, and its PR's CI.*
 - [ ] **A predicting client's aircraft begun again at a take-back is not
       one just built**: the flaps' travel, unnamed tanks' fuel and the
       brakes carry over from before the hand-over. *Verification: one begun
       again flies as one just built, to the printed digit, or each carried
       state named with a reason.*
+- [ ] **The impaired checks' AI controls are shown 0.0051 to 0.0061 off**
+      on CI's macOS (nightly, 2026-10-15 and 2026-10-21; 0.005 is the bound):
+      the throttle drawn at 0.9949 where it was 1.0, past a step to full
+      power. *Verification: the cause found, and the bound held or a cited
+      reason to change it, in 100 macOS runs.*
 
 ---
 
