@@ -39,7 +39,7 @@ MOVED = {
     "f15c": [C + "Cmalpha"],
     "f22": [C + "Cma_M", C + "CmDh_alpha"],
     "f35b": [C + "Cmalpha"],
-    "j3cub": [M + "Pitch_alpha", M + "Pitch_propwash"],
+    "j3cub": [M + "Pitch_alpha", M + "Pitch_propwash", M + "Pitch_reversed_flow"],
     "learjet35a": [C + "Cmalpha"],
     "mosquito-fb6": [M + "pitch-alpha", M + "pitch-stall"],
     "pa28": [C + "Cmalpha"],
