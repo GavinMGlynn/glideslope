@@ -199,10 +199,50 @@ Two judgements, not the report's:
 Stood on her brakes tail to 15 kt, her angle of attack is -164 degrees; the
 air's force along the wind on her was 195 lb, her wing's drag the flat
 plate's 1.41, and is 29 lb, her wing's 0.19 and her airframe's and gear's
-0.024 on top. Not changed: her lift past 90 degrees (the pinned table's
-nought beyond 90, where a reversed section lifts - Sheldahl and Klimas,
--0.85 at 170 degrees) nor her pitching moment there (Pitch_alpha is linear
-in the angle of attack); see PROJECT_STATUS (2026-10-16).
+0.024 on top (23 to 24 lb since her lift and pitching moment below, which
+stand her at -167 degrees).
+
+**Her wing's lift and pitching moment past 90 degrees** (2026-10-21):
+Lift_alpha's table, Pitch_alpha, and a new term, Pitch_reversed_flow.
+Tail to the wind her lift was the pinned table's nought beyond 90 degrees,
+and her Cm-alpha term, linear in the angle of attack, made 5.8 of nose-up
+moment at -164 degrees - 4,150 ft-lb in 15 kt, sitting her on her tail
+wheel.
+  - Her lift past 90 degrees is the same section's, Sheldahl and Klimas's
+    Table 2 at a Reynolds number of 1,000,000 (page 22; at 700,000 the same
+    rows) - -0.66 at 160 degrees, -0.85 at 170, nought at 180 - odd in the
+    angle, scaled by 1.41/1.80 as the drag is. The owner's decision
+    (2026-10-20): the NACA 0012 is the nearest measured section to her
+    USA-35B through 180 degrees; that her cambered section's would be alike
+    reversed is an inference, as for the drag. Her model's ground effect
+    multiplies it as it does her lift in flight.
+  - Her pitching moment past 90 degrees is derived, not measured on her (the
+    owner's decision, 2026-10-20): the section's force normal to its chord,
+    Cl cos(alpha) + Cd sin(alpha), scaled as above, acting at its centre of
+    pressure - half the chord back at 90 degrees, broadside, moving straight
+    to three quarters at 180, where the reversed section's sharp edge leads
+    and its quarter chord is her three-quarter chord. About her quarter
+    chord, her aerodynamic reference, that is -(x_cp - 0.25) times the
+    normal force: 0.28 nose up where she stands. The moving centre, rather
+    than three quarters throughout, is this script's: NACA TN 3361
+    (Critzos, Heyson and Boswinkle, 1955), figure 1, measured the NACA
+    0012's quarter-chord moment through 180 degrees at 1,800,000 - about
+    -0.5 at 90 to 120 degrees and -0.4 to -0.45 at 150 to 175, negative from
+    the stall to 180 and antisymmetric about it - and the moving centre
+    meets that within about 0.05 at every angle, where three quarters
+    throughout would give -0.85 at 110. Read off a graph, it is a check, not
+    the figure; tail to the wind the two differ by 0.02 (0.30 against 0.28).
+  - It is her whole moment past 90: her tailplane in reversed flow, and her
+    elevator's term (Pitch_elevator, unchanged, the same sign either way
+    round), are not modelled apart.
+  - Pitch_alpha is multiplied by a table of the angle of attack that is
+    exactly one within 90 degrees either way and nought from 95, so in
+    flight it is unchanged to the bit; Pitch_reversed_flow is nought within
+    90 and the derived moment from 95. Between 90 and 95 the one fades into
+    the other.
+Standing tail to 15 kt she now stands at -167 degrees, her wing pressing
+her down 85 to 88 lb (the air from behind and above meets its upper
+surface) and its moment 200 ft-lb nose up.
 
 **Her drag in a beam wind from her side area** (2026-10-17): Drag_beta's
 rows at plus and minus 90 degrees of sideslip. The pinned model's were 1.23
@@ -330,6 +370,14 @@ REVERSED_FLOW_CD = ((95, 1.780), (100, 1.750), (105, 1.700), (110, 1.635), (115,
                     (145, 0.755), (150, 0.575), (155, 0.420), (160, 0.320), (165, 0.230),
                     (170, 0.140), (175, 0.055), (180, 0.025))
 SECTION_BROADSIDE_CD = 1.80
+# Her wing's broadside drag, the pinned table's at 90 degrees, over the section's.
+BROADSIDE_SCALE = 1.4091 / SECTION_BROADSIDE_CD
+# Its lift past 90 degrees, the same table at a Reynolds number of 1,000,000
+# (page 22; the 700,000 rows on page 21 are the same).
+REVERSED_FLOW_CL = ((95, -0.070), (100, -0.220), (105, -0.370), (110, -0.510), (115, -0.625),
+                    (120, -0.735), (125, -0.840), (130, -0.910), (135, -0.945), (140, -0.945),
+                    (145, -0.910), (150, -0.850), (155, -0.740), (160, -0.660), (165, -0.675),
+                    (170, -0.850), (175, -0.690), (180, 0.000))
 # Her side area, from her Owner's Manual's dimensions (pages 11 and 12), in
 # inches: the overall length, the firewall's depth, the wing's chord, the
 # wing's leading edge to the axle and the axle to the tail post; the rudder's
@@ -429,6 +477,99 @@ def with_reversed_flow_drag(text):
     return text[:m.start()] + new + text[m.end():]
 
 
+def reversed_flow_radians(degrees, sign):
+    """The angle of attack of a row past 90 degrees, as the drag table's."""
+    return sign * (3.1416 if degrees == 180 else round(degrees * math.pi / 180, 4))
+
+
+def reversed_flow_cm(degrees):
+    """Her pitching moment coefficient about her quarter chord at an angle of
+    attack past 90 degrees (positive), derived: the section's force normal to
+    its chord, scaled as her drag and lift are, acting at its centre of
+    pressure, half the chord back at 90 degrees moving straight to three
+    quarters at 180 (the docstring says why)."""
+    cl = dict(REVERSED_FLOW_CL)[degrees]
+    cd = dict(REVERSED_FLOW_CD)[degrees]
+    a = degrees * math.pi / 180
+    normal = BROADSIDE_SCALE * (cl * math.cos(a) + cd * math.sin(a))
+    centre = 0.5 + 0.25 * (degrees - 90) / 90
+    return -(centre - 0.25) * normal
+
+
+def with_reversed_flow_lift(text):
+    """`text` with its wing's lift table carried on past 90 degrees of angle
+    of attack to 180, either way, by Sheldahl and Klimas's section's curve,
+    odd in the angle, scaled as its drag is. Within 90 degrees it is as it
+    was."""
+    m = re.search(r'<function name="aero/force/Lift_alpha">.*?</function>', text, re.S)
+    if not m:
+        raise SystemExit("make_j3cub: no Lift_alpha - has the pinned model changed?")
+    block = m.group(0)
+
+    def rows(sign):
+        out = []
+        for degrees, cl in REVERSED_FLOW_CL:
+            value = f"{round(sign * cl * BROADSIDE_SCALE, 4) + 0.0:7.4f}"
+            out.append(f"             {reversed_flow_radians(degrees, sign):7.4f}  {value}  {value}\n")
+        return out if sign > 0 else out[::-1]
+
+    new = replace_once(block, r"(\n)(             -1\.5700   0\.0000   0\.0000\n)",
+                       lambda mm: mm.group(1) + "".join(rows(-1)) + mm.group(2),
+                       "the wing's lift at -90 degrees")
+    new = replace_once(new, r"(              1\.5700   0\.0000   0\.0000\n)",
+                       lambda mm: mm.group(1) + "".join(rows(+1)), "the wing's lift at 90 degrees")
+    return text[:m.start()] + new + text[m.end():]
+
+
+def with_reversed_flow_pitch(text):
+    """`text` with its Cm-alpha term held to 90 degrees of angle of attack
+    either way and gone by 95, and a term for the wing in reversed flow from
+    90 degrees to 180 either way (reversed_flow_cm), odd in the angle. Within
+    90 degrees Cm-alpha is multiplied by exactly one, so it is as it was."""
+    m = re.search(r'<function name="aero/moment/Pitch_alpha">.*?</function>\n', text, re.S)
+    if not m:
+        raise SystemExit("make_j3cub: no Pitch_alpha - has the pinned model changed?")
+    block = m.group(0)
+    edge = reversed_flow_radians(95, 1)
+    new = replace_once(
+        block, r"(\n)(           <property>aero/alpha-rad</property>\n)",
+        lambda mm: (mm.group(1) + mm.group(2)
+                    + "           <table>\n"
+                    + "            <independentVar>aero/alpha-rad</independentVar>\n"
+                    + "            <tableData>\n"
+                    + f"             {-edge:7.4f}   0.0\n"
+                    + "             -1.5700   1.0\n"
+                    + "              1.5700   1.0\n"
+                    + f"             {edge:7.4f}   0.0\n"
+                    + "            </tableData>\n"
+                    + "           </table>\n"),
+        "Cm-alpha's angle of attack")
+    rows = []
+    for sign in (-1, 1):
+        side = [f"             {reversed_flow_radians(d, sign):7.4f}  {round(sign * reversed_flow_cm(d), 4) + 0.0:7.4f}\n"
+                for d, _ in REVERSED_FLOW_CL]
+        rows += side[::-1] if sign < 0 else side
+        if sign < 0:
+            rows += ["             -1.5700   0.0000\n", "              1.5700   0.0000\n"]
+    reversed_term = (
+        "    <function name=\"aero/moment/Pitch_reversed_flow\">\n"
+        "       <description>Pitch moment of the wing in reversed flow, past 90 degrees of alpha"
+        " (glideslope: tools/make_j3cub.py)</description>\n"
+        "       <product>\n"
+        "           <property>aero/qbar-psf</property>\n"
+        "           <property>metrics/Sw-sqft</property>\n"
+        "           <property>metrics/cbarw-ft</property>\n"
+        "           <table>\n"
+        "            <independentVar>aero/alpha-rad</independentVar>\n"
+        "            <tableData>\n"
+        + "".join(rows) +
+        "            </tableData>\n"
+        "           </table>\n"
+        "       </product>\n"
+        "    </function>\n")
+    return text[:m.start()] + new + "\n" + reversed_term + text[m.end():]
+
+
 def airframe():
     text = (PINNED_CUB / "J3Cub.xml").read_text()
     text = replace_once(
@@ -476,6 +617,8 @@ def airframe():
             text, r"(name=\"" + side + r"\">.*?<spring_coeff\s+unit=\"LBS/FT\">)\s*1000\.00\s*(</spring_coeff>)",
             rf"\g<1> {gear_spring_lbs_per_ft():.0f} \2", f"the {side} spring")
     text = with_reversed_flow_drag(text)
+    text = with_reversed_flow_lift(text)
+    text = with_reversed_flow_pitch(text)
     text = with_beam_drag_from_side_area(text)
     return with_float_carburettor(text, "make_j3cub")
 
@@ -532,7 +675,8 @@ def outputs():
     return {
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_j3cub"), "make_j3cub",
-            {"PITCH": ["aero/moment/Pitch_alpha", "aero/moment/Pitch_propwash"],
+            {"PITCH": ["aero/moment/Pitch_alpha", "aero/moment/Pitch_propwash",
+                       "aero/moment/Pitch_reversed_flow"],
              "LIFT": ["aero/force/Lift_alpha", "aero/force/Lift_propwash"],
              "DRAG": ["aero/force/Drag_basic"]}),
         OUT / "aircraft" / MODEL / "Systems" / f"{SYSTEM}.xml": controls(),
