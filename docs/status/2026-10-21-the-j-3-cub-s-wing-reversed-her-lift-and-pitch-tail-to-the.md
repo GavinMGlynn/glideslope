@@ -7,11 +7,14 @@
   at 90 degrees to three quarters at 180, where the decision said "about
   three quarters": tail to the wind (164 to 180 degrees) that is 0.71 to
   0.75 of the chord, and 0.28 of moment against 0.30 at three quarters
-  throughout. The moving centre was chosen because NACA TN 3361's measured
-  moment for the same section (figure 1, read off the graph) is about -0.5
-  at 90 to 120 degrees, where three quarters throughout gives -0.85; the
-  moving centre meets it within about 0.05 at every angle. If the owner
-  wants three quarters throughout, it is one line in the script.
+  throughout. The moving centre is held to a measured moment: NACA TN 3361
+  (Critzos, Heyson and Boswinkle, 1955,
+  https://ntrs.nasa.gov/citations/19930084501), figure 1, the NACA 0012's
+  quarter-chord moment through 180 degrees at Re 1,800,000, read off the
+  graph - about -0.5 at 90 to 120 degrees and -0.4 to -0.45 at 150 to 175.
+  The moving centre meets it within about 0.05 at every angle; three
+  quarters throughout gives -0.85 at 110, off by 0.35. Kept on the
+  coordinator's word (2026-10-21).
 - **Her section is a NACA 0012's**, the nearest measured through 180 degrees
   to her cambered USA-35B (owner's decision); that hers is alike reversed is
   an inference.
