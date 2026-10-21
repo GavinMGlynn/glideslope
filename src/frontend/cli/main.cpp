@@ -16,6 +16,7 @@
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
 #include "platform/closed_pipes.hpp"
+#include "platform/cpu_time.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "net/inputs.hpp"
 #include "net/interpolation.hpp"
@@ -71,6 +72,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <future>
 #include <iterator>
 #include <limits>
 #include <deque>
@@ -1612,9 +1614,9 @@ public:
         // build, and twice that on a macOS runner, and built as the
         // prediction began it was a frame not drawn for all of it - 265 to
         // 490 ms on CI's macOS, a client that could not keep time
-        // (docs/status, 2026-10-21). One of each model is kept, and
-        // the one flown is kept again when it stops being predicted.
-        if (!built_.contains(model) && aircraft_model_ != model) {
+        // (docs/status, 2026-10-21). One of each model is kept ready, built
+        // and never flown (`spare`).
+        if (!built_.contains(model) && !building_.contains(model)) {
             built_[model] = build(model);
         }
     }
@@ -2085,10 +2087,8 @@ public:
         display_.switching();
     }
 
-    // A sleep between passes: asked for `asked_s`, it took `took_s`.
-    void slept(double asked_s, double took_s) {
-        overslept_s_ += std::max(0.0, took_s - asked_s);
-    }
+    // A sleep between passes, of `asked_s` asked for: this client's own.
+    void slept(double asked_s) { asked_s_ += asked_s; }
 
     // Shows every other aircraft at `local_s`, as a 60 Hz screen would.
     //
@@ -2103,20 +2103,29 @@ public:
             return;
         }
         // **How long between frames, and how much of it this client's**:
-        // the time past the millisecond it asked to sleep is the machine's,
-        // not its own - a runner that stalls (GitHub's macOS, whose timed
-        // waits come back 200 ms and more late) held it there - and what is
-        // left is what this client spent itself, which is never taken off.
+        // the CPU time its thread used, the sleeps it asked for and what it
+        // waited on its own building (`spare`). The rest is the machine's -
+        // a runner that did not run it (GitHub's macOS, whose timed waits
+        // come back 200 ms and more late, and which stops its guests) - and
+        // is never this client's: a machine that stops it while it works
+        // is counted as its own, since it cannot be told from that.
+        const double cpu_s = glideslope::platform::thread_cpu_s();
         if (rendered_s_ >= 0.0) {
             const double between = local_s - rendered_s_;
+            const double own = (cpu_s >= 0.0 && cpu_at_frame_s_ >= 0.0
+                                    ? cpu_s - cpu_at_frame_s_
+                                    : between) +
+                               asked_s_ + waited_s_;
             if (between > longest_between_frames_s_) {
                 longest_between_frames_s_ = between;
-                longest_overslept_s_ = overslept_s_;
+                longest_machines_s_ = std::max(0.0, between - own);
             }
             longest_own_between_frames_s_ =
-                std::max(longest_own_between_frames_s_, between - overslept_s_);
+                std::max(longest_own_between_frames_s_, std::min(between, own));
         }
-        overslept_s_ = 0.0;
+        cpu_at_frame_s_ = cpu_s;
+        asked_s_ = 0.0;
+        waited_s_ = 0.0;
         rendered_s_ = local_s;
         const double now = clock_.now(local_s);
         own_frame(now, local_s);
@@ -2428,9 +2437,10 @@ public:
         }
         std::snprintf(line, sizeof line, "interpolated: %zu aircraft drawn, %zu of them carried on "
                       "past the newest update; the longest between frames %.0f ms, %.0f ms of "
-                      "it the machine's, oversleeping; the longest of this client's own %.0f ms",
+                      "it the machine's, not running it; the longest of this client's own %.0f "
+                      "ms",
                       shown_, extrapolated_, longest_between_frames_s_ * 1000.0,
-                      longest_overslept_s_ * 1000.0, longest_own_between_frames_s_ * 1000.0);
+                      longest_machines_s_ * 1000.0, longest_own_between_frames_s_ * 1000.0);
         lines.emplace_back(line);
         if (stovl_land_) {
             std::snprintf(line, sizeof line,
@@ -2467,28 +2477,46 @@ private:
             glideslope::platform::data_directory() / "jsbsim", model);
     }
     // The aircraft no longer predicted - handed to the AI, or left for
-    // another taken over - kept to be flown again, unless one of its model
-    // is built and not flown: not built again in a frame at a take-back.
-    // Begun again (`start`) at its loading, on its terrain and from where
-    // the server says it is; what `initialize` does not set again - the
-    // flaps' travel, fuel burnt from tanks no loading names, the brakes -
-    // it carries from before, as the server's, flown all along, does.
+    // another taken over - let go: the next is one never flown (`spare`).
+    // One flown and begun again is not one just built: JSBSim keeps state
+    // no initial condition puts back - electrical systems, filters, engine
+    // internals - and ten seconds after being set up alike, one begun again
+    // differed from one just built in up to 240 numbers of her property tree,
+    // by aircraft (docs/status, 2026-10-21).
     void keep_built() {
-        if (aircraft_ && !built_.contains(aircraft_model_)) {
-            built_[aircraft_model_] = std::move(aircraft_);
-        }
         aircraft_.reset();
         aircraft_model_.clear();
     }
-    void start(const glideslope::sim::Motion& m, const std::string& model,
-               const std::string& loading, std::uint32_t last_applied, std::size_t steps_into) {
+    // **A model's next aircraft, built and never flown**: the one kept
+    // ready, or the one being built for it; and as it is taken, another
+    // begun on a thread of its own, so that a take-back flies a new one
+    // without building it in a frame. JSBSim's instances may be built on
+    // threads of their own once the first is built (JSBSim issue 666), as
+    // the first here is, at its introduction. Only a model never
+    // introduced, or one asked for again before its next is built, is
+    // built - or waited for - here.
+    std::unique_ptr<glideslope::sim::Aircraft> spare(const std::string& model) {
+        std::unique_ptr<glideslope::sim::Aircraft> out;
         const auto ready = built_.find(model);
         if (ready != built_.end()) {
-            aircraft_ = std::move(ready->second);
+            out = std::move(ready->second);
             built_.erase(ready);
+        } else if (const auto coming = building_.find(model); coming != building_.end()) {
+            // Waited for, if it is not built yet: this client's own time.
+            const auto began = std::chrono::steady_clock::now();
+            out = coming->second.get();
+            waited_s_ += std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
+                             .count();
+            building_.erase(coming);
         } else {
-            aircraft_ = build(model);
+            out = build(model);
         }
+        building_.emplace(model, std::async(std::launch::async, [model] { return build(model); }));
+        return out;
+    }
+    void start(const glideslope::sim::Motion& m, const std::string& model,
+               const std::string& loading, std::uint32_t last_applied, std::size_t steps_into) {
+        aircraft_ = spare(model);
         aircraft_model_ = model;
         // **At the loading the server gave her**, before she is put
         // anywhere: a prediction at her model's own weight would fly another
@@ -2650,8 +2678,10 @@ private:
     std::unique_ptr<glideslope::sim::Aircraft> aircraft_;
     std::string aircraft_model_;
     std::uint8_t yours_ = glideslope::net::no_aircraft;
-    // One of each model introduced, built and not flown now (`introduced`).
+    // Of each model introduced, one built and never flown (`spare`), or one
+    // being built.
     std::map<std::string, std::unique_ptr<glideslope::sim::Aircraft>> built_;
+    std::map<std::string, std::future<std::unique_ptr<glideslope::sim::Aircraft>>> building_;
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
     glideslope::sim::Pacing pacing_;
@@ -2688,12 +2718,15 @@ private:
     std::size_t taken_over_ = 0;
     std::size_t taken_back_ = 0;
     double longest_between_frames_s_ = 0.0;
-    // Of the longest between frames, the time slept past what was asked.
-    double longest_overslept_s_ = 0.0;
-    // The longest between two frames less what was slept past what was asked.
+    // Of the longest between frames, the time that was not this client's.
+    double longest_machines_s_ = 0.0;
+    // The longest of this client's own between two frames (`render`).
     double longest_own_between_frames_s_ = 0.0;
-    // Slept past what was asked since the last frame (`slept`).
-    double overslept_s_ = 0.0;
+    // Since the last frame: its thread's CPU time then, the sleep it asked
+    // for, and what it waited on its own building.
+    double cpu_at_frame_s_ = -1.0;
+    double asked_s_ = 0.0;
+    double waited_s_ = 0.0;
     std::optional<double> reconciled_s_;
     // Where each step of its own flying took it, and whether that counts
     // towards the prediction error (not while joining or resuming).
@@ -3345,13 +3378,9 @@ int stay(glideslope::platform::UdpSocket& socket,
                     // What was asked is counted as this client's own; only
                     // what the machine slept past it is not.
                     constexpr std::chrono::duration<double> nap = std::chrono::milliseconds(1);
-                    const auto asleep = std::chrono::steady_clock::now();
                     std::this_thread::sleep_for(nap);
                     if (predicting) {
-                        predicting->slept(nap.count(),
-                                          std::chrono::duration<double>(
-                                              std::chrono::steady_clock::now() - asleep)
-                                              .count());
+                        predicting->slept(nap.count());
                     }
                 }
                 continue;
