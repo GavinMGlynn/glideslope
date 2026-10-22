@@ -52,9 +52,12 @@ command-line client's, which begins from the same function.
   0.08; nudged 1,524.0 to 1,534.1 m (33 ft), pitch 6.03 to 6.58, bank 2.58
   (her flight controls hold the attitude a stick movement leaves her at).
   C172P untouched 1,524.0 m throughout; nudged 1,523.3 to 1,525.7 m, pitch
-  0.05 to 0.93, bank 0.82. Prediction median and 95th percentile 0.000 m
-  every run (bounds 0.05 m and 1 m); the worst, one update, up to 1.378 m
-  here and 4.1 and 5.5 m on CI's Windows runners, is said, not bounded.
+  0.05 to 0.93, bank 0.82. Prediction median 0.000 m every run, here and
+  on CI (bound 0.05 m); 95th percentile 0.000 m here, and on CI the
+  F-35B's 1.378 m - one step of her travel, a word held a step off - and
+  2.756 m, two steps, on Windows debug (bound 4.5 m, three steps). The
+  worst, one update, up to 33 m once on Ubuntu debug, is said, not
+  bounded.
   Seen red twice: with the client keeping its own pitch trim, aileron and
   rudder, as before, the F-35B untouched was a wreck; with the aileron and
   rudder held as the stick and pedals rather than as trims, the C172P nudged
