@@ -71,14 +71,50 @@ The changes, and what each is for:
                         the strut's ends and the tyre where the tyre rises
                         1.61 in for every inch the strut extends; the rate at
                         the tyre is 454 / 1.61^2 = 174 lb/in. Judgements: the
-                        rings' preload (45% installed stretch, 31423's spool
-                        gap) is left out, as JSBSim's spring has none - real
-                        Cubs stand on the preload and barely sag, she sinks
-                        about 3 in; the cord's pull taken as linear to 100%, which
+                        cord's pull taken as linear to 100%, which
                         Table III's 50/75/100% figures hold to within 10%;
                         the strands' slant (cosine 0.99) is left out. The
                         later J-3's 1280-HD (3/4 x 8 in, 950 lb) would make
                         2,550 lb/ft; her own drawing draws the 11/16 cord.
+    Main gear preloaded, in series with the tyre
+                        The rings are stretched when fitted, so a wheel's
+                        strut does not move until the wheel carries their
+                        pull, and a Cub stands on it. On drawing 31423 each
+                        ring goes four times between the spools (6.77 in) and
+                        four half turns round them: the spools are 3/4 in
+                        (measured 0.75), so round them the cord's centre runs
+                        on 3/4 + 11/16 = 1.4375 in. Fitted, a ring is
+                        4 x 6.77 + 2 x pi x 1.4375 = 36.11 in against its free
+                        25.72: 40.4% stretched. Its eight strands then pull
+                        8 x 365 x 0.404 = 1,180 lb along the strut, 731 lb at
+                        the tyre (the lever, 1.61) - more than a wheel
+                        carries standing at any of her loadings (at most 542
+                        lb, at her gross weight), so the strut stands closed and she stands on her
+                        tyres. JSBSim's spring has no preload, and a force
+                        that jumps from nothing to 731 lb as a wheel touches
+                        has nothing to settle on; the tyre in series is what
+                        makes it continuous. The tyre: Goodyear's 8.00-4, 4
+                        ply (Aviation Data Book 2022, Section 4C,
+                        https://www.goodyearaviation.com/resources/pdf/Data-Section-2022.pdf):
+                        rated 1,100 lb at 24 psi, 18.0 in across at most, a
+                        static loaded radius of 6.65 in at its rated load -
+                        2.35 in of deflection at 1,100 lb. Her manual's 15
+                        psi (assets/aircraft/j3cub.aircraft) scales it by
+                        (p + 0.08 p_rated): NACA TN 4110 (Smiley and Horne,
+                        1958), equation 22, a tyre's load at a deflection
+                        being in proportion to its pressure plus an
+                        effective carcass pressure of 0.08 of its rated one.
+                        So 468 lb/in at 24 psi, 306 at 15 - taken as linear
+                        through the rated point (equation 23's curve puts her
+                        standing deflection about 4% deeper). The wheel's force
+                        against its compression is then the tyre's alone up
+                        to 731 lb (2.39 in), and the tyre and the rings in
+                        series past it, 111 lb/in (gear_strut_force_table).
+                        The pinned damping is kept, 500 lb/ft/s and 850 on
+                        rebound. Judgements: the strands' slant left out, as
+                        in the rate (it would add about 1% to their length,
+                        some 3% to the preload); the stop disc's end of the
+                        stroke not modelled, as before.
 
   Engine (engine/engA65-8.xml)
     maxrpm 2800 -> 2300 The A-65-8's limit, "all operations, 2300 r.p.m.
@@ -360,6 +396,102 @@ def gear_spring_lbs_per_ft():
     return 12 * strut / tyre_rise_per_strut_extension() ** 2
 
 
+# Her rings as fitted, drawing 31423 (full size, the scan at 150 ppi): the
+# spools' centres 6.77 in apart, each spool 3/4 in across (112 px), the cord's
+# centre on 3/4 + 11/16 in round it; a ring goes four times between the spools
+# and four half turns round them.
+SPOOL_GAP_IN = 6.77
+SPOOL_DIAMETER_IN = 0.75
+# Her tyre: Goodyear 8.00-4, 4 ply, type III (Aviation Data Book 2022, Section
+# 4C): rated load and pressure, outside diameter (max), static loaded radius.
+TYRE_RATED_LBS = 1100
+TYRE_RATED_PSI = 24
+TYRE_OUTSIDE_DIAMETER_IN = 18.0
+TYRE_STATIC_LOADED_RADIUS_IN = 6.65
+# Her manual's pressure (J3C-65 manual, as assets/aircraft/j3cub.aircraft).
+TYRE_PSI = 15
+# NACA TN 4110, equation 22: a tyre's effective carcass pressure, 0.08 of its
+# rated pressure.
+CARCASS_PRESSURE_OF_RATED = 0.08
+# The pinned model's damping, kept.
+GEAR_DAMPING_LBS_PER_FPS = 500
+GEAR_REBOUND_DAMPING_LBS_PER_FPS = 850
+# The table's last compression: past it JSBSim's table holds its last force.
+GEAR_TABLE_LAST_FT = 2.0
+
+
+def ring_preload_stretch():
+    """A ring's stretch as fitted, over its free length."""
+    free = math.pi * (RING_INSIDE_DIAMETER_IN + RING_SECTION_IN)
+    fitted = 4 * SPOOL_GAP_IN + 2 * math.pi * (SPOOL_DIAMETER_IN + RING_SECTION_IN)
+    return fitted / free - 1
+
+
+def gear_preload_lbs():
+    """The rings' pull as fitted, at the tyre: what a wheel carries before its
+    strut extends."""
+    strut = RINGS_A_STRUT * STRANDS_A_RING * (RING_TEST_LBS / 2) * ring_preload_stretch()
+    return strut / tyre_rise_per_strut_extension()
+
+
+def tyre_lbs_per_in():
+    """Her tyre's rate at her pressure: its rated load over its rated
+    deflection, scaled by (p + 0.08 p_rated) (NACA TN 4110, equation 22)."""
+    rated = TYRE_RATED_LBS / (TYRE_OUTSIDE_DIAMETER_IN / 2 - TYRE_STATIC_LOADED_RADIUS_IN)
+    carcass = CARCASS_PRESSURE_OF_RATED * TYRE_RATED_PSI
+    return rated * (TYRE_PSI + carcass) / (TYRE_RATED_PSI + carcass)
+
+
+def gear_strut_force_table():
+    """A main wheel's force against its compression, (ft, lb): the tyre alone
+    up to the rings' preload, then the tyre and the rings in series."""
+    tyre = tyre_lbs_per_in() * 12
+    gear = gear_spring_lbs_per_ft()
+    preload = gear_preload_lbs()
+    knee = preload / tyre
+    series = 1 / (1 / tyre + 1 / gear)
+    return ((0.0, 0.0), (knee, preload),
+            (GEAR_TABLE_LAST_FT, preload + series * (GEAR_TABLE_LAST_FT - knee)))
+
+
+def with_preloaded_main_gear(text, side, unit):
+    """A main wheel's spring and dampers replaced by a strut force: the table,
+    and the pinned dampers on its compression's rate."""
+    names = re.findall(r"<contact type=\"\w+\" name=\"(\w+)\">", text)
+    if names.index(side) != unit:
+        raise SystemExit(f"make_j3cub: {side} is gear/unit[{names.index(side)}], not [{unit}]")
+    rows = "\n".join(f"                  {ft:.6f}  {lbs:.1f}" for ft, lbs in gear_strut_force_table())
+    rate = f"gear/unit[{unit}]/compression-velocity-fps"
+    force = (
+        "<strut_force>\n"
+        "      <!-- glideslope: preloaded by her shock rings, in series with her tyre\n"
+        "           (tools/make_j3cub.py says how). -->\n"
+        "      <function>\n"
+        "        <sum>\n"
+        "          <product>\n"
+        "            <value> -1 </value>\n"
+        "            <table>\n"
+        f"              <independentVar lookup=\"row\">gear/unit[{unit}]/compression-ft</independentVar>\n"
+        "              <tableData>\n"
+        f"{rows}\n"
+        "              </tableData>\n"
+        "            </table>\n"
+        "          </product>\n"
+        "          <ifthen>\n"
+        f"            <ge> <property>{rate}</property> <value> 0.0 </value> </ge>\n"
+        f"            <product> <value> -{GEAR_DAMPING_LBS_PER_FPS} </value> <property>{rate}</property> </product>\n"
+        f"            <product> <value> -{GEAR_REBOUND_DAMPING_LBS_PER_FPS} </value> <property>{rate}</property> </product>\n"
+        "          </ifthen>\n"
+        "        </sum>\n"
+        "      </function>\n"
+        "    </strut_force>")
+    return replace_once(
+        text, r"(name=\"" + side + r"\">.*?)<spring_coeff\s+unit=\"LBS/FT\">\s*1000\.00\s*</spring_coeff>\s*"
+        r"<damping_coeff\s+unit=\"LBS/FT/SEC\">\s*500\.00\s*</damping_coeff>\s*"
+        r"<damping_coeff_rebound\s+unit=\"LBS/FT/SEC\">850</damping_coeff_rebound>",
+        lambda m: m.group(1) + force, f"the {side} spring")
+
+
 # The wing's leading edge, the type certificate's datum, in the model's frame.
 LEADING_EDGE_X = -15.75
 # A wing section's drag past 90 degrees of angle of attack, to 180: Sheldahl
@@ -613,10 +745,8 @@ def airframe():
                         f"<system file=\"{SYSTEM}.xml\"/>", "the flight controls")
     text = replace_once(text, r"(<flight_control name=\"FCS: J3Cub\">\n)\n( </flight_control>)",
                         r"\1\2", "the empty flight controls")
-    for side in ("LEFT_MAIN", "RIGHT_MAIN"):
-        text = replace_once(
-            text, r"(name=\"" + side + r"\">.*?<spring_coeff\s+unit=\"LBS/FT\">)\s*1000\.00\s*(</spring_coeff>)",
-            rf"\g<1> {gear_spring_lbs_per_ft():.0f} \2", f"the {side} spring")
+    for side, unit in (("LEFT_MAIN", 1), ("RIGHT_MAIN", 2)):
+        text = with_preloaded_main_gear(text, side, unit)
     text = with_reversed_flow_drag(text)
     text = with_reversed_flow_lift(text)
     text = with_reversed_flow_pitch(text)

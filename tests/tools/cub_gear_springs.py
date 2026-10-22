@@ -12,6 +12,10 @@ tools/make_j3cub.py, whose docstring cites them:
   - Piper drawing 31513: the tyre rises 1.61 in an inch of the strut's
     extension (measured off the drawing; make_j3cub.py shows the geometry).
 
+Her main wheels are a strut force, preloaded and in series with her tyre
+(make_j3cub.py says how): its table's first slope is the tyre's, and the
+rings' rate is read from the slope past the preload, the two in series.
+
 The space is her ground contacts with a spring, five: both main wheels are
 checked; the tail wheel (a leaf spring, not the rings) and the two wing tips
 (structure, not gear) are named as left out. A contact in the model that is
@@ -40,9 +44,18 @@ TOTAL = 5
 assert len(CHECKED) + len(LEFT_OUT) == TOTAL
 
 text = open(sys.argv[1]).read()
-contacts = dict(re.findall(
-    r"<contact type=\"\w+\" name=\"(\w+)\">.*?<spring_coeff\s+unit=\"LBS/FT\">\s*([\d.]+)\s*</spring_coeff>",
-    text, flags=re.S))
+contacts = {}
+for name, body in re.findall(r"<contact type=\"\w+\" name=\"(\w+)\">(.*?)</contact>", text, flags=re.S):
+    spring = re.search(r"<spring_coeff\s+unit=\"LBS/FT\">\s*([\d.]+)\s*</spring_coeff>", body)
+    table = re.search(r"<tableData>(.*?)</tableData>", body, flags=re.S)
+    if spring:
+        contacts[name] = float(spring.group(1))
+    elif table:
+        rows = [tuple(map(float, line.split())) for line in table.group(1).strip().splitlines()]
+        if len(rows) == 3 and rows[0] == (0.0, 0.0):
+            tyre = rows[1][1] / rows[1][0]
+            series = (rows[2][1] - rows[1][1]) / (rows[2][0] - rows[1][0])
+            contacts[name] = 1 / (1 / series - 1 / tyre)
 bad = []
 for name in sorted(set(contacts) - CHECKED - set(LEFT_OUT)):
     bad.append(f"{name}: a sprung contact neither checked nor named as left out")
@@ -50,7 +63,7 @@ for name in sorted((CHECKED | set(LEFT_OUT)) - set(contacts)):
     bad.append(f"{name}: expected, but not in the model")
 covered = 0
 for name in sorted(CHECKED & set(contacts)):
-    spring = float(contacts[name])
+    spring = contacts[name]
     off = spring / DERIVED_LBS_PER_FT - 1
     print(f"{name}: {spring:.0f} lb/ft against the derived {DERIVED_LBS_PER_FT:.0f} ({off:+.1%})")
     if abs(off) > TOLERANCE:

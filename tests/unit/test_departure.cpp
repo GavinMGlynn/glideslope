@@ -3552,6 +3552,161 @@ GLIDESLOPE_TEST(the_j3_cub_braked_stick_central_to_a_stop_from_10_kt_in_calm_air
               std::to_string(over_runs) + " and " + std::to_string(lifted_runs));
 }
 
+// **The J-3 Cub standing at every loading sinks on her main wheels by her
+// tyres' deflection alone, within 1%.** Her shock rings are stretched when
+// fitted, so a strut does not extend until its wheel carries their pull; a
+// Cub stands on that preload, and her model, on a spring without one, sank
+// about 3 in a wheel. Now each main wheel's force is her tyre's alone up to
+// the preload and the tyre and the rings in series past it
+// (tools/make_j3cub.py).
+//
+// **The derived figure**, from its sources here and not from the script:
+// - The preload. Piper drawing 31423: a ring goes four times between spools
+//   6.77 in apart and four half turns round spools 3/4 in across, its 11/16
+//   in cord's centre on 1.4375 in; fitted it is 36.11 in against its free
+//   pi x (7.5 + 11/16), 40.4% stretched. Its rating (730 lb at 100%, two
+//   strands; MIL-C-5651D Table III) makes eight strands pull 1,180 lb; the
+//   tyre rises 1.61 in an inch of the strut (drawing 31513): 733 lb a wheel.
+// - The tyre. Goodyear's 8.00-4, 4 ply (Aviation Data Book 2022, Section
+//   4C): 1,100 lb at 24 psi, 18.0 in across, a static loaded radius of 6.65
+//   in - 2.35 in at its rated load; at her manual's 15 psi by
+//   (p + 0.08 p_rated) (NACA TN 4110, equation 22): 306 lb/in.
+// - Her wheels' load, from her weight and her centre of gravity between her
+//   main and tail wheels at the attitude she stands at, her weight on the
+//   two mains shared equally. JSBSim compresses a wheel along her body's
+//   vertical and turns its force normal to the ground, so the strut carries
+//   that load times the cosine of her pitch.
+// The figure is the strut's force over the tyre's rate where it is under
+// the preload, and that plus the series rings' share past it.
+//
+// **Every scenario**: at her model's own loading and her figures' three, she
+// is started on a level runway, engine stopped, brakes on, and stands twenty
+// seconds; she must be at rest on all three wheels, and her main wheels'
+// mean compression within 1% of the figure. **The bound**, 1%, is her
+// wheels' contact points moving with their compression and her gravity
+// against her nominal weight, both left out, and narrow enough that her
+// spring before (2,093 lb/ft, no preload) is wrong by 75%.
+// **Measured** (linux-release, 2026-10-22): 1.095 in (her model's own, 343
+// lb a wheel), 1.309 (solo), 1.559 (trainer), 1.728 (gross, 542 lb), each
+// within 0.2% of the figure, every wheel under the 733 lb preload; she
+// stands at 12.7 to 13.5 degrees. **Seen red** on her spring before the
+// change: 1.92 in against 1.10 at her model's own, +75%. Coverage asserted: four
+// loadings.
+GLIDESLOPE_TEST(the_j3_cub_standing_at_every_loading_sinks_on_her_main_wheels_by_her_tyres_deflection_alone_within_1_percent) {
+    constexpr double pi = 3.14159265358979323846;
+    constexpr double bound = 0.01;
+    constexpr int stand_s = 20;
+    // The preload at the tyre, lb.
+    const double ring_free_in = pi * (7.5 + 11.0 / 16.0);
+    const double ring_fitted_in = 4 * 6.77 + 2 * pi * (0.75 + 11.0 / 16.0);
+    const double stretch = ring_fitted_in / ring_free_in - 1;
+    const double preload_lbs = 2 * 4 * (730.0 / 2) * stretch / 1.61;
+    // The tyre's rate, lb/in, and the rings' at the tyre (2 x 4 strands x
+    // 365 lb x 4 in an inch of spool gap, over 1.61 squared).
+    const double tyre_lbs_per_in =
+        1100.0 / (18.0 / 2 - 6.65) * (15.0 + 0.08 * 24.0) / (24.0 + 0.08 * 24.0);
+    const double rings_lbs_per_in = 2 * 4 * (730.0 / 2) * 4 / ring_free_in / (1.61 * 1.61);
+    const double series_lbs_per_in = 1 / (1 / tyre_lbs_per_in + 1 / rings_lbs_per_in);
+    const auto deflection_in = [&](double wheel_lbs) {
+        return wheel_lbs <= preload_lbs
+                   ? wheel_lbs / tyre_lbs_per_in
+                   : preload_lbs / tyre_lbs_per_in + (wheel_lbs - preload_lbs) / series_lbs_per_in;
+    };
+    std::printf("  derived: preload %.0f lb a wheel (%.1f%% stretch), tyre %.0f lb/in, past "
+                "the preload %.0f lb/in\n",
+                preload_lbs, 100 * stretch, tyre_lbs_per_in, series_lbs_per_in);
+
+    const auto runway = a_runway();
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / "j3cub.xml");
+    std::vector<std::pair<std::string, std::optional<glideslope::sim::Loading>>> loadings;
+    loadings.emplace_back("her model's own", std::nullopt);
+    for (const auto& [name, l] : figures.loadings) {
+        loadings.emplace_back(name, l.loading);
+    }
+    std::size_t covered = 0;
+    for (const auto& [loading_name, loading] : loadings) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", "j3cub");
+        if (loading) {
+            aircraft.load(*loading);
+        }
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.engine_running = false;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+        glideslope::sim::Controls parked;
+        parked.left_brake = 1.0;
+        parked.right_brake = 1.0;
+        for (int step = 0; step < stand_s * steps_per_second; ++step) {
+            aircraft.set_controls(parked);
+            aircraft.step();
+        }
+        const auto points = aircraft.contact_points();
+        int tail = -1;
+        std::vector<int> mains;
+        for (std::size_t p = 0; p < points.size(); ++p) {
+            if (points[p].name == "TAIL") {
+                tail = static_cast<int>(p);
+            } else if (points[p].name == "LEFT_MAIN" || points[p].name == "RIGHT_MAIN") {
+                mains.push_back(static_cast<int>(p));
+            }
+        }
+        check(tail >= 0 && mains.size() == 2, loading_name + ": her tail and main wheels found");
+        if (tail < 0 || mains.size() != 2) {
+            continue;
+        }
+        const auto unit = [](int p) { return "gear/unit[" + std::to_string(p) + "]/"; };
+        const auto s = aircraft.state();
+        const bool at_rest = aircraft.property(unit(tail) + "WOW") > 0.5 &&
+                             aircraft.property(unit(mains[0]) + "WOW") > 0.5 &&
+                             aircraft.property(unit(mains[1]) + "WOW") > 0.5 &&
+                             aircraft.property("velocities/vg-fps") < 0.01 &&
+                             std::abs(s.climb_rate_fpm) < 0.01;
+        check(at_rest, loading_name + ": at rest on all three wheels");
+        // Ahead along the ground at her pitch, from her structural frame (x
+        // aft, z up): -x cos(theta) - z sin(theta).
+        const double theta = s.pitch_deg * pi / 180.0;
+        const auto ahead = [&](double x_in, double z_in) {
+            return -x_in * std::cos(theta) - z_in * std::sin(theta);
+        };
+        const double weight = aircraft.property("inertia/weight-lbs");
+        const double cg = ahead(aircraft.property("inertia/cg-x-in"),
+                                aircraft.property("inertia/cg-z-in"));
+        const double tail_at = ahead(points[static_cast<std::size_t>(tail)].x_in,
+                                     points[static_cast<std::size_t>(tail)].z_in);
+        const double mains_at = ahead(points[static_cast<std::size_t>(mains[0])].x_in,
+                                      points[static_cast<std::size_t>(mains[0])].z_in);
+        const double wheel_lbs = weight * (cg - tail_at) / (mains_at - tail_at) / 2;
+        // JSBSim compresses a wheel along her body's vertical and turns its
+        // force normal to the ground (FGLGear::ComputeVerticalStrutForce):
+        // standing pitched, her strut's force is her wheel's load times the
+        // cosine of her pitch.
+        const double figure_in = deflection_in(wheel_lbs * std::cos(theta));
+        const double left_in = 12 * aircraft.property(unit(mains[0]) + "compression-ft");
+        const double right_in = 12 * aircraft.property(unit(mains[1]) + "compression-ft");
+        const double mean_in = (left_in + right_in) / 2;
+        const double off = mean_in / figure_in - 1;
+        std::printf("  %-16s %6.1f lb, %5.1f lb a main wheel (%s the preload); sinks %.3f and "
+                    "%.3f in, mean %.3f against %.3f (%+.1f%%); pitch %.2f deg\n",
+                    loading_name.c_str(), weight, wheel_lbs,
+                    wheel_lbs <= preload_lbs ? "under" : "past", left_in, right_in, mean_in,
+                    figure_in, 100 * off, s.pitch_deg);
+        check(std::abs(off) <= bound,
+              loading_name + ": her main wheels sink " + std::to_string(mean_in) +
+                  " in, against the derived " + std::to_string(figure_in));
+        ++covered;
+    }
+    check(loadings.size() == 4 && covered == 4,
+          "four loadings, her model's own and her figures' three: " + std::to_string(covered));
+}
+
 // **The J-3 Cub standing tail to a 15 kt wind has a reversed wing's lift,
 // and the pitching moment it makes.** Her wing's lift table ended at 90
 // degrees of angle of attack with nought, and her Cm-alpha term was linear
