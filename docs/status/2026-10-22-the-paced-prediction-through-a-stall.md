@@ -64,7 +64,16 @@ shorter, the server flies the inputs where they came.
   0 stalls), and its client and server stopped 3 s by hand: one stall of
   2,728 ms named.
 - CI's Windows test jobs now print every stall from the test log, and whether
-  Defender scans in real time on the runner.
+  Defender scans in real time on the runner. It does not: on the
+  windows-2025-vs2026 image (20261007.264) `RealTimeProtectionEnabled` is
+  False, so Defender's scanning is not what stops them, and no exclusion was
+  added.
+- On CI's windows-clang (run 39733569271) the built stall was harder: 52.2 m
+  across it, one correction too large to hide, back within a metre from the
+  55th word of 60 - inside the 50 + 10 words the rule is derived from - and
+  0.536 m at worst after. Its steps were 41 apart across the stall (3,262 to
+  3,221), the pace steering by a clocks' difference the stall had moved; the
+  steps are now summed outside the machine's stalls (Linux: 2,326 to 2,328).
 - Before making an input the CLI flies what is owed on the input before, as
   the server does through its silence: 0.584 to 0.491 m worst through a stall
   of the client alone (one run each), a small effect, not what failed on CI.
