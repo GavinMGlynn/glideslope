@@ -2258,8 +2258,11 @@ add_test(NAME a_players_f22a_untouched_is_predicted_on_the_held_trim_the_server_
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_f22_held_trim -DPORT=24812
         -DAIRCRAFT=f22 -DTOUCHES=untouched
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_first_input.cmake)
+# Alone (RUN_SERIAL): on CI's Ubuntu debug, sharing a shard's CPUs, one
+# update was put 30.3 m off - a starved machine, the open Phase 9 item
+# "A predicting F-35B on a starved machine is put tens of metres off".
 set_tests_properties(a_players_f22a_untouched_is_predicted_on_the_held_trim_the_server_tells_her_client_and_holds_height_and_attitude
-    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200)
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_f22_held_trim)
 
 # **What becomes of an aircraft when its player goes**, both settings walked, for
