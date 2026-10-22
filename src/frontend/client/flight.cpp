@@ -153,6 +153,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     std::printf("glideslope: the %s's flight begins at %.0f lb, loaded %s\n",
                 aircraft_entry_.id.c_str(), aircraft_->property("inertia/weight-lbs"),
                 start.loading.empty() ? "as her model is" : start.loading.c_str());
+    std::fflush(stdout);
 
     if (!start.weather_station.empty()) {
         weather_station_ = start.weather_station;
