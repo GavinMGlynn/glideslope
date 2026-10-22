@@ -117,11 +117,8 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
                                              const Transition::Carried& stovl_carried) {
     const AircraftState was = aircraft_.state();
     Correction out;
-    hear_clock(last_applied, steps_into, server_steps);
-    if (!offsets_.empty()) {
-        const std::int64_t offset = *std::min_element(offsets_.begin(), offsets_.end());
-        const std::int64_t at = static_cast<std::int64_t>(server_steps) - offset;
-        out.at_step = static_cast<std::uint64_t>(std::max<std::int64_t>(at, 0));
+    out.at_step = hear_clock(last_applied, steps_into, server_steps);
+    if (out.at_step) {
         while (!held_.empty() && held_.front().step < *out.at_step) {
             held_.pop_front();
         }
@@ -194,8 +191,9 @@ void Prediction::as_at_first_held() {
     }
 }
 
-void Prediction::hear_clock(std::uint32_t last_applied, std::size_t steps_into,
-                            std::uint64_t server_steps) {
+std::optional<std::uint64_t> Prediction::hear_clock(std::uint32_t last_applied,
+                                                    std::size_t steps_into,
+                                                    std::uint64_t server_steps) {
     // **The clocks' difference this word implies**: where the server applied
     // `last_applied`, less where this client began it. An input never flown
     // here - sent before this prediction began - has no beginning, and says
@@ -208,6 +206,14 @@ void Prediction::hear_clock(std::uint32_t last_applied, std::size_t steps_into,
             offsets_.pop_front();
         }
     }
+    // **And the step of this client's it places the word at**: the server's
+    // step less the clocks' difference as now known.
+    if (offsets_.empty()) {
+        return std::nullopt;
+    }
+    const std::int64_t offset = *std::min_element(offsets_.begin(), offsets_.end());
+    const std::int64_t at = static_cast<std::int64_t>(server_steps) - offset;
+    return static_cast<std::uint64_t>(std::max<std::int64_t>(at, 0));
 }
 
 std::optional<double> Prediction::session_time_s() const {
