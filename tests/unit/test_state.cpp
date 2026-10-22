@@ -495,6 +495,7 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
     w.pitch_trim = -0.125;
     w.roll_trim = 0.0625;
     w.yaw_trim = -0.03125;
+    w.held_trim = 0.0692;
     s.watched = w;
     const auto with = write_state(s);
     check(with.has_value() && with->size() == glideslope::net::state_bytes(3, false, true),
@@ -509,9 +510,16 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
               near(got.throttle, 0.75) && near(got.flaps, 0.33) && got.gear &&
               near(*got.gear, 1.0) && got.speedbrake && near(*got.speedbrake, 0.5) &&
               near(got.pitch_trim, -0.125) && near(got.roll_trim, 0.0625) &&
-              near(got.yaw_trim, -0.03125),
-          "every control to the wire's fraction, the speedbrake lever and the pitch, roll "
-          "and yaw trim with them");
+              near(got.yaw_trim, -0.03125) && got.held_trim && near(*got.held_trim, 0.0692),
+          "every control to the wire's fraction, the speedbrake lever, the pitch, roll "
+          "and yaw trim and the held trim with them");
+
+    // An aircraft with no held trim is said to have none, and read back so.
+    s.watched->held_trim.reset();
+    const auto unheld = read_state(all_of(*write_state(s)));
+    check(unheld && unheld->watched && !unheld->watched->held_trim,
+          "no held trim is read back as none");
+    s.watched->held_trim = 0.0692;
 
     // Gear that does not retract is said to, and read back as none.
     s.watched->gear.reset();
@@ -544,8 +552,9 @@ GLIDESLOPE_TEST(a_state_packet_carries_the_controls_of_the_aircraft_its_client_w
                               std::to_string(refused) + " of 254");
 
     // "Fixed" in any of the eight controls that are not the gear or the
-    // speedbrake lever: the five before them, and the three trims after.
-    const std::size_t first = glideslope::net::state_bytes(3, false, true) - 20;
+    // speedbrake lever: the five before them, and the three trims after
+    // (the held trim, last, may be none).
+    const std::size_t first = glideslope::net::state_bytes(3, false, true) - 22;
     std::size_t controls = 0;
     for (const std::size_t i : {std::size_t{0}, std::size_t{1}, std::size_t{2}, std::size_t{3},
                                 std::size_t{4}, std::size_t{7}, std::size_t{8}, std::size_t{9}}) {

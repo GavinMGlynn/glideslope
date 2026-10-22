@@ -273,37 +273,33 @@ GLIDESLOPE_TEST(every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_a
 // and left untouched, holds her height**: begun at 3,000 ft at her catalogue
 // airspeed, her gear up and trimmed level, wings and all, and held thirty
 // seconds on what the server holds until her player's first input
-// (sim::held_until_moved), she is within 100 ft of where she began. Held at
+// (sim::held_until_moved), she is within 20 ft of where she began. Held at
 // six tenths of her throttle with the stick neutral, as the server held her
 // until 2026-10-20, an F-35B was in a dive; trimmed in pitch alone, a C172P
 // rolled off on her engine's torque and lost 280 ft.
 //
-// **Three are left out, named, because JSBSim cannot trim them**: the
-// F-22A, whose trim does not converge, and the Mosquito and the S.23, whose
-// constant-speed propellers leave the throttle unable to trim her speed
-// ("udot doesn't appear to be trimmable"). They are held as before, on six
-// tenths of the throttle, and do not hold their height; that they are still
-// untrimmable is checked, so that one which becomes trimmable is moved in.
+// **20 ft**: trimmed, the most any of the sixteen strays is 7 ft (the
+// F-15C's and F-35B's climb). The C182, trimmed before her governor took
+// her propeller from 2,015 rpm to 2,400, climbed 95 ft: inside 100 ft, a
+// bound that rule could not be seen failing by; 20 ft is three times the
+// worst trimmed and a fifth of hers.
 //
-// **And the C182 is left out, named, because she is trimmed before her
-// propeller is governed**: her constant-speed propeller is started at its
-// fine-pitch stop, the trim finds her power at 2,015 rpm, and her governor
-// takes it to 2,400 in the first seconds - the thrust over, she climbs about
-// 2 ft a second, 95 ft in thirty seconds and 210 in ninety, the same to the
-// foot with fused multiply-adds and without. 95 of a 100 ft bound is a rule
-// tested by luck, so she is not held to it; that she is trimmed and still
-// climbs more than 50 ft is checked, so that she is moved in once her trim
-// is found governed.
+// **The F-22A is trimmed in pitch alone, named**: her fly-by-wire's roll
+// and yaw are rate commands through integrators, which no aileron or rudder
+// moves while JSBSim trims with time stopped, so its lateral trim cannot
+// succeed on her. She has no propeller's torque to hold off; that she holds
+// her wings within 1 degree of level is checked with her height. Every
+// other aircraft is trimmed laterally too.
 //
 // Every aircraft is flown and counted, and every one that fails is named
 // before the test fails.
 GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_start_height) {
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
-    const std::vector<std::string> untrimmable = {"f22", "mosquito-fb6", "short_s23"};
-    const std::string ungoverned = "c182";
+    constexpr double bound_ft = 20.0;
+    constexpr double level_deg = 1.0;
+    const std::string pitch_alone = "f22";
     std::size_t held_height = 0;
-    std::size_t left_out = 0;
-    std::size_t left_out_ungoverned = 0;
+    bool pitch_alone_flown = false;
     std::string failed;
     for (const CatalogueEntry& e : catalogue) {
         glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
@@ -320,55 +316,40 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
         const glideslope::sim::Controls held = glideslope::sim::held_until_moved(aircraft);
         double lowest_ft = 3000.0;
         double highest_ft = 3000.0;
+        double most_bank_deg = 0.0;
         for (int i = 0; i < 30 * steps_per_second; ++i) {
             aircraft.set_controls(held);
             aircraft.step();
             const double ft = aircraft.property("position/h-sl-ft");
             lowest_ft = std::min(lowest_ft, ft);
             highest_ft = std::max(highest_ft, ft);
+            most_bank_deg = std::max(most_bank_deg, std::abs(aircraft.property("attitude/phi-deg")));
         }
-        const bool named = std::find(untrimmable.begin(), untrimmable.end(), e.id) !=
-                           untrimmable.end();
-        std::printf("  %-13s %s: %.0f to %.0f ft in 30 s%s\n", e.id.c_str(),
+        const bool alone = e.id == pitch_alone;
+        pitch_alone_flown = pitch_alone_flown || alone;
+        std::printf("  %-13s %s: %.0f to %.0f ft in 30 s, banked %.2f degrees at most%s\n",
+                    e.id.c_str(),
                     aircraft.trimmed_laterally() ? "trimmed"
                     : aircraft.trimmed()         ? "trimmed in pitch alone"
                                                  : "not trimmed",
-                    lowest_ft, highest_ft,
-                    named                  ? ", left out: JSBSim cannot trim her"
-                    : e.id == ungoverned   ? ", left out: trimmed before her governor"
-                                           : "");
-        if (e.id == ungoverned) {
-            if (aircraft.trimmed_laterally() && highest_ft - 3000.0 > 50.0) {
-                ++left_out_ungoverned;
-            } else {
-                failed += " " + e.id + " (no longer climbs off: move her in)";
-            }
-            continue;
-        }
-        if (named) {
-            if (aircraft.trimmed()) {
-                failed += " " + e.id + " (trims now: move her in)";
-            } else {
-                ++left_out;
-            }
-            continue;
-        }
-        if (aircraft.trimmed_laterally() && std::isfinite(lowest_ft) &&
-            std::isfinite(highest_ft) && 3000.0 - lowest_ft <= 100.0 &&
-            highest_ft - 3000.0 <= 100.0) {
+                    lowest_ft, highest_ft, most_bank_deg,
+                    alone ? ", named: her roll and yaw are rate commands" : "");
+        const bool trimmed = alone ? aircraft.trimmed() && !aircraft.trimmed_laterally() &&
+                                         most_bank_deg <= level_deg
+                                   : aircraft.trimmed_laterally();
+        if (trimmed && std::isfinite(lowest_ft) && std::isfinite(highest_ft) &&
+            3000.0 - lowest_ft <= bound_ft && highest_ft - 3000.0 <= bound_ft) {
             ++held_height;
         } else {
             failed += " " + e.id;
         }
     }
-    check(failed.empty(), "every aircraft not named, untouched for 30 s, was trimmed and held "
-                          "within 100 ft of 3,000; these did not:" + failed);
-    check(!catalogue.empty() &&
-              held_height + left_out + left_out_ungoverned == catalogue.size() &&
-              left_out == untrimmable.size() && left_out_ungoverned == 1,
-          "every aircraft in the catalogue was flown: " + std::to_string(held_height) +
-              " held their height and " +
-              std::to_string(left_out + left_out_ungoverned) + " were left out, of " +
+    check(failed.empty(), "every aircraft untouched for 30 s was trimmed and held within 20 ft "
+                          "of 3,000 (the F-22A in pitch alone, wings level); these did not:" +
+                              failed);
+    check(!catalogue.empty() && pitch_alone_flown && held_height == catalogue.size(),
+          "every aircraft in the catalogue was flown, the F-22A among them: " +
+              std::to_string(held_height) + " held their height, of " +
               std::to_string(catalogue.size()));
 }
 
@@ -384,8 +365,7 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 // retract and the speedbrake lever of one without speedbrakes, which her
 // model ignores and her levers do not say. Until 2026-10-21 the levers said
 // no pitch trim and the client kept its own nought: every trimmed aircraft's
-// first input took away her trim. Every aircraft counted, the untrimmable
-// three among them (held on six tenths of the throttle). The on-final start
+// first input took away her trim. Every aircraft counted. The on-final start
 // (`--players-on-final`) is not walked here: it is held the same way, on the
 // same controls, with her flaps and gear as she was started, and the levers
 // say both.
@@ -480,7 +460,7 @@ GLIDESLOPE_TEST(every_aircraft_a_players_first_input_sends_is_what_the_server_he
 // the same with the trims put back on the stick and pedals: she must fly the
 // same, within a foot and a tenth of a degree of bank. A model that reads
 // neither trim, or one, is named with what it does, and must be held on
-// nought there (as the untrimmable are). Every aircraft counted.
+// nought there (as the F-22A is). Every aircraft counted.
 GLIDESLOPE_TEST(every_aircraft_held_on_her_roll_and_yaw_trim_flies_as_on_the_aileron_and_rudder_her_trim_found) {
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
     const auto started = [&](const CatalogueEntry& e) {
@@ -582,18 +562,58 @@ GLIDESLOPE_TEST(every_aircraft_held_on_her_roll_and_yaw_trim_flies_as_on_the_ail
         }
     }
     std::printf("  named, reading not both trims:%s\n", named.empty() ? " none" : named.c_str());
-    // **Named, and why**: the F-22A's model reads no fcs/yaw-trim-cmd-norm
-    // and the Mosquito's neither it nor fcs/roll-trim-cmd-norm. Both are
-    // among the untrimmable, held on nought there: a trim sent them does
-    // nothing, and they fly on the stick and pedals alone.
-    check(named == " f22 (no yaw trim) mosquito-fb6 (no roll trim) (no yaw trim)",
-          "the aircraft not reading both trims are the two named:" + named);
+    // **Named, and why**: the F-22A's model reads no fcs/yaw-trim-cmd-norm,
+    // and her roll trim commands a roll rate, as her stick does. She is
+    // trimmed in pitch alone, held on nought there: she flies on the stick
+    // and pedals alone. (The Mosquito read neither trim until 2026-10-22;
+    // trimmed laterally since, her model sums each with its control.)
+    check(named == " f22 (no yaw trim)",
+          "the aircraft not reading both trims is the one named:" + named);
     check(failed.empty(), "every aircraft is held on trims her model reads, and flies as on "
                           "the stick and pedals; these did not:" + failed);
     check(!catalogue.empty() && walked == catalogue.size() && reads_both > 0,
           "every aircraft in the catalogue was walked: " + std::to_string(walked) + " of " +
               std::to_string(catalogue.size()) + ", " + std::to_string(reads_both) +
               " reading both trims");
+}
+
+// **The F-22A's two pitch trims** (tools/make_f22.py, "The held trim"): her
+// pilot's trim commands a pitch rate, as her fly-by-wire was written, and
+// the trim the server holds her at until her player's first input is a
+// deflection after the pitch loop. Trimmed level at 300 KCAS and held one
+// step with each, a pilot's trim of a fifth commands a pitch rate and does
+// not reach the held trim, and the held trim stays what the trim found.
+GLIDESLOPE_TEST(the_f22as_pilots_pitch_trim_commands_a_pitch_rate_and_the_server_holds_her_on_its_own_trim) {
+    const auto rate_cmd_after = [&](double pitch_trim, double& held_trim) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", "f22");
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 3000.0;
+        ic.airspeed_kts = 300.0;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        ic.trim = true;
+        aircraft.initialize(ic);
+        check(aircraft.trimmed(), "the F-22A trims level at 300 KCAS");
+        glideslope::sim::Controls c = glideslope::sim::held_until_moved(aircraft);
+        c.pitch_trim = pitch_trim;
+        aircraft.set_controls(c);
+        aircraft.step();
+        held_trim = aircraft.property("fcs/pitch-trim-held-norm");
+        return aircraft.property("fcs/pitch-rate-cmd");
+    };
+    double held_untouched = 0.0;
+    double held_trimmed = 0.0;
+    const double untouched = rate_cmd_after(0.0, held_untouched);
+    const double trimmed = rate_cmd_after(0.2, held_trimmed);
+    std::printf("  pitch rate commanded: %.4f rad/s untouched, %.4f with a trim of 0.2; "
+                "held trim %.4f and %.4f\n",
+                untouched, trimmed, held_untouched, held_trimmed);
+    check(std::abs(untouched) < 1e-6, "untouched, she is commanded no pitch rate");
+    check(trimmed > 0.01, "a pilot's nose-up trim commands her a nose-up pitch rate");
+    check(held_untouched != 0.0 && held_trimmed == held_untouched,
+          "the held trim is what the trim found, and the pilot's trim does not move it");
 }
 
 // **Every aircraft's flap lever is found where her flaps answer one**

@@ -95,6 +95,32 @@ The changes, and what each is for:
                         is shaped, as fly-by-wire sticks are: a quarter as
                         sensitive at the centre, and full travel the full rate
                         (ROLL_STICK_CENTRE_GAIN).
+    The held trim       Her pitch trim is added to the stick, and so
+                        commands a pitch rate, which her pitch loop's
+                        integrator turns into elevator over time; with
+                        JSBSim's time stopped while it trims, nothing moved
+                        and she could not be trimmed: started for a player
+                        and left alone she fell 500 ft in thirty seconds.
+                        The pilot's trim is left as it is. A second input,
+                        fcs/pitch-trim-held-norm, is added to the elevators'
+                        command after the loop: the deflection the server
+                        holds her at until her player's first input, found
+                        by glideslope's trim (sim/aircraft.cpp), about which
+                        the integrator works from nought.
+    The throttle lags   The throttles reached the engines through a lag
+                        filter of a second, which with time stopped does not
+                        move either, so the trim could not find her power.
+                        Each is an actuator with the same lag, which JSBSim
+                        passes straight through while it trims and lags the
+                        same as the filter in flight.
+    The leading edge flaps' filter
+                        The flaps follow her angle of attack through a lead
+                        filter, (2s + 7.25) / (s + 7.25), which with time
+                        stopped lagged each angle the trim tried, so that her
+                        lift depended on the angles tried before and the trim
+                        never settled. It is written as twice the angle less
+                        its lag, the lag an actuator: the same filter in
+                        flight, and the angle itself while JSBSim trims.
     Drag with Mach      The model's drag at zero lift, its lift-dependent drag
                         of 0.07 CL^2 - a span efficiency of 1.9, which no wing
                         has - and its drag rise are made the fighters' drag by
@@ -310,6 +336,7 @@ def airframe():
                       r"\g<1>1\2", text)
     if n != 2:
         raise SystemExit(f"{SCRIPT}: found {n} throttle gains, not 2 - has the pinned model changed?")
+    text = with_trimmable_pitch_and_power(text)
     text = replace_once(
         text,
         r"(            <!-- Stick filter -->\s*<lag_filter name=\"fcs/roll-cmd-filter\">\s*<input>)fcs/aileron-cmd-limiter(</input>)",
@@ -337,6 +364,57 @@ def airframe():
         "the drag at zero lift, induced drag and drag rise")
     # The tail strike, measured from her visual model by tools/ground.py.
     return ground.with_tail_strike(text, MODEL, MAXIMUM_WEIGHT_LBS, script=SCRIPT)
+
+
+HELD_TRIM = "fcs/pitch-trim-held-norm"  # glideslope's held trim, after the pitch loop
+LEF_LAG = 7.25  # the leading edge flaps' filter's pole, per second, the model's
+
+
+def with_trimmable_pitch_and_power(text):
+    """A held trim on the elevators' command after the pitch loop, and the
+    throttle lags and the flaps' filter actuators, so that a trim moves them:
+    see "The held trim", "The throttle lags" and "The leading edge flaps'
+    filter" above."""
+    text = replace_once(
+        text, r"(    <flight_control name=\"F-22 FC\">\n)",
+        lambda m: m.group(1) + "        <!-- glideslope: tools/make_f22.py - the held trim -->\n"
+        f'        <property value="0">{HELD_TRIM}</property>\n', "the flight controls")
+    text = replace_once(
+        text,
+        r"(            <actuator name=\"fcs/elevator-act\">\s*<input>)\s*fcs/el-reg-scale\s*(</input>)",
+        lambda m: '            <summer name="fcs/elevator-trimmed">\n'
+        "                <!-- glideslope: tools/make_f22.py - the held trim -->\n"
+        "                <input>fcs/el-reg-scale</input>\n"
+        f"                <input>{HELD_TRIM}</input>\n"
+        "            </summer>\n\n" + m.group(1) + "fcs/elevator-trimmed" + m.group(2),
+        "the elevators' actuator")
+    text, n = re.subn(
+        r"<lag_filter name=\"(fcs/throttle1?-filter)\">(\s*<input>fcs/throttle-cmd-norm(?:\[1\])?</input>\s*)"
+        r"<c1>1</c1>(\s*)</lag_filter>",
+        r'<actuator name="\1">\2<lag>1</lag>\3</actuator>', text)
+    if n != 2:
+        raise SystemExit(f"{SCRIPT}: found {n} throttle filters, not 2 - has the pinned model changed?")
+    # (2s + 7.25) / (s + 7.25) is 2 - 7.25 / (s + 7.25): twice the input less
+    # its lag, which the bilinear transform JSBSim uses for both keeps the same.
+    text = replace_once(
+        text,
+        r"            <lead_lag_filter name=\"fcs/lef-alpha-filter\">\s*<input>fcs/lef-alpha-gain</input>\s*"
+        r"<c1> 2 </c1>\s*<c2> 7\.25 </c2>\s*<c3> 1 </c3>\s*<c4> 7\.25 </c4>\s*</lead_lag_filter>",
+        lambda m: '            <actuator name="fcs/lef-alpha-lag">\n'
+        "                <!-- glideslope: tools/make_f22.py - the filter, trimmable -->\n"
+        "                <input>fcs/lef-alpha-gain</input>\n"
+        f"                <lag>{LEF_LAG}</lag>\n"
+        "            </actuator>\n"
+        '            <fcs_function name="fcs/lef-alpha-filter">\n'
+        "                <function>\n"
+        "                    <difference>\n"
+        "                        <product><value>2</value><property>fcs/lef-alpha-gain</property></product>\n"
+        "                        <property>fcs/lef-alpha-lag</property>\n"
+        "                    </difference>\n"
+        "                </function>\n"
+        "            </fcs_function>",
+        "the leading edge flaps' filter")
+    return text
 
 
 def with_mach_lift(text):

@@ -97,7 +97,10 @@ public:
     // same controls. And each step held keeps the controls she had as it
     // began, so that a law made in a step flown again is seeded as it was
     // the first time, not from the newest step's.
-    void held_by_server(const Controls& held);
+    // Her held trim too, where her model has one (Aircraft::held_trim): the
+    // F-22A's, which no control sets, and without which her prediction's
+    // elevators are not the server's.
+    void held_by_server(const Controls& held, std::optional<double> held_trim = std::nullopt);
 
     // One step of the client's own flying: the input for this frame, kept
     // until the server says it has applied it.

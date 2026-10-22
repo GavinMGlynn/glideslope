@@ -67,6 +67,10 @@ constexpr std::array<const char*, 7> lift_system_commands{
 constexpr const char* water_level = "hydro/environment/water-level-ft";
 constexpr double out_of_reach_ft = -1.0e5;
 
+// glideslope's held trim, where a model has one (tools/make_f22.py): a
+// deflection after a fly-by-wire pitch loop, found by the trim and held.
+constexpr const char* held_trim_property = "fcs/pitch-trim-held-norm";
+
 // JSBSim reports what it is doing on standard output unless told otherwise. The
 // simulation is a library; what reaches the user's terminal is the frontend's
 // call, so JSBSim is kept quiet unless JSBSIM_DEBUG asks for more.
@@ -836,6 +840,213 @@ void Aircraft::initialize(const InitialConditions& ic) {
     if (ic.engine_running) {
         start_engines();
     }
+    // **Trimmed with her propellers governed, and her power found with her
+    // engines run at the simulation's own step.** JSBSim's trim finds her
+    // power by running each engine to a steady state half a second at a
+    // time, which a constant-speed propeller's governor cannot follow
+    // (`start_engines`): the C182's drove her blades to full coarse and
+    // trimmed her at 2,015 rpm, which her governor took to 2,400 as she flew,
+    // and she climbed; the Mosquito's Merlins overran and stopped, and she
+    // could not be trimmed at all. So for an aircraft with a governed
+    // propeller the throttle is found here instead: at each throttle tried
+    // her engines are started again and run at the simulation's step, the
+    // aircraft held still, until their rpm and blades settle; JSBSim trims
+    // the rest - her angle of attack and pitch trim, and laterally her bank,
+    // aileron and rudder - with the engines as they settled, which a trim's
+    // runs with time stopped leave where they are; and the engines settle
+    // again at what it found, until the two agree. The throttle that leaves
+    // her neither gaining nor losing speed is found between closed and open.
+    // Her propeller lever is where every pilot's Controls leaves it
+    // (`Controls::propeller`), as she will be flown: JSBSim's own default is
+    // the lowest rpm.
+    const bool held_trim = exec_->GetPropertyManager()->HasNode(held_trim_property);
+    if (held_trim) {
+        exec_->SetPropertyValue(held_trim_property, 0.0);
+    }
+    struct Governed {
+        JSBSim::FGEngine* engine;
+        JSBSim::FGPropeller* propeller;
+    };
+    std::vector<Governed> governed;
+    if (ic.trim) {
+        const auto propulsion = exec_->GetPropulsion();
+        for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
+            const auto engine = propulsion->GetEngine(i);
+            exec_->GetFCS()->SetPropAdvanceCmd(static_cast<int>(i), Controls{}.propeller);
+            auto* propeller = dynamic_cast<JSBSim::FGPropeller*>(engine->GetThruster());
+            if (propeller != nullptr && propeller->IsVPitch() &&
+                propeller->GetConstantSpeed() != 0) {
+                governed.push_back({engine.get(), propeller});
+            }
+        }
+    }
+    // A run with time stopped, which carries her controls to her engines.
+    const auto stopped_run = [&] {
+        exec_->SetTrimStatus(true);
+        exec_->SuspendIntegration();
+        exec_->Run();
+        exec_->ResumeIntegration();
+        exec_->SetTrimStatus(false);
+    };
+    // Each engine run alone at the simulation's step, a second at a time,
+    // until a second moves its rpm by less than a tenth and its blades by
+    // less than a thousandth of a degree; a minute at most.
+    const auto settle_engines = [&] {
+        const auto propulsion = exec_->GetPropulsion();
+        const double step = propulsion->in.TotalDeltaT;
+        propulsion->in.TotalDeltaT = exec_->GetDeltaT();
+        for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
+            const auto engine = propulsion->GetEngine(i);
+            const auto* propeller =
+                dynamic_cast<const JSBSim::FGPropeller*>(engine->GetThruster());
+            for (int second = 0; second < 60; ++second) {
+                const double rpm = propeller != nullptr ? propeller->GetRPM() : 0.0;
+                const double blade_deg = propeller != nullptr ? propeller->GetPitch() : 0.0;
+                for (int k = 0; k < static_cast<int>(steps_per_second); ++k) {
+                    engine->Calculate();
+                }
+                if (propeller == nullptr ||
+                    (std::abs(propeller->GetRPM() - rpm) < 0.1 &&
+                     std::abs(propeller->GetPitch() - blade_deg) < 0.001)) {
+                    break;
+                }
+            }
+        }
+        propulsion->in.TotalDeltaT = step;
+        stopped_run();
+    };
+    // Her acceleration along her path, trimmed but for her power, at a
+    // throttle: her engines started again as `start_engines` starts them, so
+    // that what one throttle finds does not hang on the throttles tried
+    // before it.
+    const auto trimmed_at = [&](double throttle, bool lateral) {
+        const auto propulsion = exec_->GetPropulsion();
+        for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
+            exec_->GetFCS()->SetThrottleCmd(static_cast<int>(i), throttle);
+        }
+        stopped_run();
+        for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
+            const auto engine = propulsion->GetEngine(i);
+            engine->InitRunning();
+            const auto* propeller =
+                dynamic_cast<const JSBSim::FGPropeller*>(engine->GetThruster());
+            if (propeller != nullptr && propeller->IsVPitch()) {
+                exec_->SetPropertyValue(
+                    "propulsion/engine[" + std::to_string(i) + "]/blade-angle", 0.0);
+            }
+        }
+        settle_engines();
+        constexpr int passes = 10;
+        for (int pass = 0;; ++pass) {
+            std::vector<double> rpm;
+            std::vector<double> blade_deg;
+            for (const Governed& g : governed) {
+                rpm.push_back(g.propeller->GetRPM());
+                blade_deg.push_back(g.propeller->GetPitch());
+            }
+            JSBSim::FGTrim trim(exec_.get(), JSBSim::tCustom);
+            trim.ClearStates();
+            trim.AddState(JSBSim::tWdot, JSBSim::tAlpha);
+            trim.AddState(JSBSim::tQdot, JSBSim::tPitchTrim);
+            if (lateral) {
+                trim.AddState(JSBSim::tVdot, JSBSim::tPhi);
+                trim.AddState(JSBSim::tPdot, JSBSim::tAileron);
+                trim.AddState(JSBSim::tRdot, JSBSim::tRudder);
+            }
+            if (!trim.DoTrim()) {
+                throw std::runtime_error("her trim failed at a throttle of " +
+                                         std::to_string(throttle));
+            }
+            settle_engines();
+            bool settled = true;
+            for (std::size_t i = 0; i < governed.size(); ++i) {
+                settled = settled && std::abs(governed[i].propeller->GetRPM() - rpm[i]) < 0.1 &&
+                          std::abs(governed[i].propeller->GetPitch() - blade_deg[i]) < 0.001;
+            }
+            if (settled) {
+                return exec_->GetPropertyValue("accelerations/udot-ft_sec2");
+            }
+            if (pass + 1 == passes) {
+                throw std::runtime_error("her engines did not settle where she was trimmed");
+            }
+        }
+    };
+    // **A root between two ends, by the Illinois method**: the false
+    // position, with the end that stays put twice running given half its
+    // weight, so that it is not stuck. `f` at the two ends must differ in
+    // sign; it returns once |f| is within `tolerance`.
+    const auto find_root = [](const auto& f, double low, double high, double tolerance,
+                              const char* what) {
+        double at_low = f(low);
+        double at_high = f(high);
+        if ((at_low > 0.0) == (at_high > 0.0)) {
+            throw std::runtime_error(std::string("nothing between the ends ") + what);
+        }
+        int side = 0;
+        for (int i = 0; i < 40; ++i) {
+            const double x = (low * at_high - high * at_low) / (at_high - at_low);
+            const double at = f(x);
+            if (std::abs(at) < tolerance) {
+                return;
+            }
+            if ((at > 0.0) == (at_low > 0.0)) {
+                low = x;
+                at_low = at;
+                if (side == -1) {
+                    at_high *= 0.5;
+                }
+                side = -1;
+            } else {
+                high = x;
+                at_high = at;
+                if (side == 1) {
+                    at_low *= 0.5;
+                }
+                side = 1;
+            }
+        }
+        throw std::runtime_error(std::string("nothing found that ") + what);
+    };
+    // **A held trim, where her model has one** (tools/make_f22.py): a
+    // deflection after a fly-by-wire pitch loop, which JSBSim's own trim
+    // cannot move - its pitch trim is the pilot's, which commands a pitch
+    // rate. JSBSim trims her angle of attack and power (and laterally her
+    // bank, aileron and rudder) at each held trim tried, and the held trim
+    // is the one that leaves her no pitching acceleration, to JSBSim's own
+    // tolerance on it.
+    const auto trim_held = [&](bool lateral) {
+        find_root(
+            [&](double held) {
+                exec_->SetPropertyValue(held_trim_property, held);
+                JSBSim::FGTrim trim(exec_.get(), JSBSim::tCustom);
+                trim.ClearStates();
+                trim.AddState(JSBSim::tWdot, JSBSim::tAlpha);
+                trim.AddState(JSBSim::tUdot, JSBSim::tThrottle);
+                if (lateral) {
+                    trim.AddState(JSBSim::tVdot, JSBSim::tPhi);
+                    trim.AddState(JSBSim::tPdot, JSBSim::tAileron);
+                    trim.AddState(JSBSim::tRdot, JSBSim::tRudder);
+                }
+                if (!trim.DoTrim()) {
+                    throw std::runtime_error("her trim failed at a held trim of " +
+                                             std::to_string(held));
+                }
+                return exec_->GetPropertyValue("accelerations/qdot-rad_sec2");
+            },
+            -1.0, 1.0, 1e-4, "holds her pitch");
+    };
+    const auto trim = [&](JSBSim::TrimMode mode) {
+        const bool lateral = mode == JSBSim::tFull;
+        if (held_trim) {
+            trim_held(lateral);
+        } else if (governed.empty()) {
+            exec_->DoTrim(mode);
+        } else {
+            // JSBSim's own tolerance on the acceleration along her path.
+            find_root([&](double throttle) { return trimmed_at(throttle, lateral); }, 0.0, 1.0,
+                      1e-3, "holds her speed");
+        }
+    };
     // **Trimmed where JSBSim can trim her, as she was where it cannot.** Its
     // trim fails on the B-2, whose elevons are its elevator and its ailerons
     // at once, and a failed trim leaves the state wherever the search gave
@@ -849,6 +1060,9 @@ void Aircraft::initialize(const InitialConditions& ic) {
     // thirty seconds where started untrimmed she fell 500.
     const auto untrimmed = [&] {
         exec_->GetFCS()->InitModel();
+        if (held_trim) {
+            exec_->SetPropertyValue(held_trim_property, 0.0);
+        }
         if (flapped) {
             exec_->SetPropertyValue("fcs/flap-cmd-norm", ic.flaps);
             if (braked) {
@@ -874,7 +1088,7 @@ void Aircraft::initialize(const InitialConditions& ic) {
     // alone where it cannot.
     if (ic.trim && ic.trim_lateral) {
         try {
-            exec_->DoTrim(JSBSim::tFull);
+            trim(JSBSim::tFull);
             trimmed_ = true;
             trimmed_laterally_ = true;
         } catch (const std::exception&) {
@@ -883,13 +1097,26 @@ void Aircraft::initialize(const InitialConditions& ic) {
     }
     if (ic.trim && !trimmed_) {
         try {
-            exec_->DoTrim(JSBSim::tLongitudinal);
+            trim(JSBSim::tLongitudinal);
             trimmed_ = true;
         } catch (const std::exception&) {
             untrimmed();
         }
     }
     initialized_ = true;
+}
+
+std::optional<double> Aircraft::held_trim() const {
+    if (!exec_->GetPropertyManager()->HasNode(held_trim_property)) {
+        return std::nullopt;
+    }
+    return exec_->GetPropertyValue(held_trim_property);
+}
+
+void Aircraft::set_held_trim(double v) {
+    if (exec_->GetPropertyManager()->HasNode(held_trim_property)) {
+        exec_->SetPropertyValue(held_trim_property, v);
+    }
 }
 
 namespace {

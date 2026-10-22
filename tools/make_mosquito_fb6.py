@@ -623,9 +623,21 @@ FLIGHT_CONTROL = """\
     </channel>
 
     <channel name="Roll">
+      <!-- The aileron trim tab's, summed with the stick as the pitch trim is
+           with the elevator: what the server holds her on until her
+           player's first input carries the aileron her trim found as roll
+           trim (sim::held_until_moved). -->
+      <summer name="fcs/roll-trim-sum">
+        <input>fcs/aileron-cmd-norm</input>
+        <input>fcs/roll-trim-cmd-norm</input>
+        <clipto>
+          <min>-1</min>
+          <max>1</max>
+        </clipto>
+      </summer>
       <!-- estimated: 15 degrees each way -->
       <aerosurface_scale name="fcs/left-aileron-control">
-        <input>fcs/aileron-cmd-norm</input>
+        <input>fcs/roll-trim-sum</input>
         <range>
           <min>-0.2618</min>
           <max>0.2618</max>
@@ -633,7 +645,7 @@ FLIGHT_CONTROL = """\
         <output>fcs/left-aileron-pos-rad</output>
       </aerosurface_scale>
       <aerosurface_scale name="fcs/right-aileron-control">
-        <input>fcs/aileron-cmd-norm</input>
+        <input>fcs/roll-trim-sum</input>
         <range>
           <min>0.2618</min>
           <max>-0.2618</max>
@@ -645,8 +657,17 @@ FLIGHT_CONTROL = """\
     <channel name="Yaw">
       <!-- estimated: 25 degrees each way; the rudder's power, below, is what
            the safety speed sets -->
-      <aerosurface_scale name="fcs/rudder-control">
+      <!-- The rudder trim tab's, summed with the pedals likewise. -->
+      <summer name="fcs/yaw-trim-sum">
         <input>fcs/rudder-cmd-norm</input>
+        <input>fcs/yaw-trim-cmd-norm</input>
+        <clipto>
+          <min>-1</min>
+          <max>1</max>
+        </clipto>
+      </summer>
+      <aerosurface_scale name="fcs/rudder-control">
+        <input>fcs/yaw-trim-sum</input>
         <range>
           <min>-0.4363</min>
           <max>0.4363</max>

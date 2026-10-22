@@ -47,6 +47,17 @@ The changes, and what each is for:
                         point and their steps 4.72 ft aft of it - are skids
                         too, so that on land it heels onto a float as it
                         does afloat, not onto a wing tip.
+    The carburettors' float chambers, full
+                        Each engine is fed from a quarter-pound tank, its
+                        carburettor's float chamber, which the model started
+                        empty and its fuel system fills once she is flying.
+                        An engine started running was starved until then:
+                        it made no power, so JSBSim's trim, which runs her
+                        engines with time stopped, could find no throttle
+                        that held her speed, and she could not be trimmed.
+                        They start full, a pound in all, the pound taken
+                        from her two centre tanks so that she weighs what
+                        she did.
     Six declarations, removed
                         The co-pilot's and the Sperry autopilot's control
                         commands, declared again where the systems that
@@ -269,6 +280,17 @@ def airframe():
         text = replace_once(
             text, rf"\n(  <property value=\"0\.0\">{owner}/(aileron|elevator|rudder)-cmd-norm</property>\n){{3}}",
             "\n", f"the {owner} commands' declarations")
+    text, n = re.subn(
+        r"(<!-- Engine feeder tanks \(carburettor float chambers\)\. -->.*?</propulsion>)",
+        lambda m: re.sub(r"(<capacity unit=\"LBS\"> 0\.25 </capacity> <!-- Guess -->\n\s*<contents unit=\"LBS\">) 0\.00 ",
+                         r"\1 0.25 ", m.group(1)),
+        text, count=1, flags=re.S)
+    if n != 1 or text.count('<contents unit="LBS"> 0.25 </contents>') != 4:
+        raise SystemExit("make_short_s23: could not find the four float chambers - has the pinned model changed?")
+    text, n = re.subn(r"(<capacity unit=\"LBS\"> 2356\.9 </capacity>\n\s*<contents unit=\"LBS\">) 2352\.0 ",
+                      r"\1 2351.5 ", text)
+    if n != 2:
+        raise SystemExit("make_short_s23: could not find the two centre tanks - has the pinned model changed?")
     skids = ("  <!-- glideslope: the keel, which meets land and not water; see\n"
              "       tools/make_short_s23.py. -->\n"
              + "".join(keel_skid(name, x, y, z) for name, x, y, z in KEEL + FLOATS))

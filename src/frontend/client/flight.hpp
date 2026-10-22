@@ -166,9 +166,9 @@ public:
     // **What the server holds her on until her first input**, as her levers
     // say it, put on her before the prediction's first step
     // (sim::Prediction::held_by_server). Nothing while not predicting.
-    void held_by_server(const sim::Controls& held) {
+    void held_by_server(const sim::Controls& held, std::optional<double> held_trim) {
         if (prediction_) {
-            prediction_->held_by_server(held);
+            prediction_->held_by_server(held, held_trim);
         }
     }
     bool predicting() const { return prediction_ != nullptr; }

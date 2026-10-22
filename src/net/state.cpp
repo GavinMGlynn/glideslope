@@ -130,6 +130,7 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
         for (const double v : {c.pitch_trim, c.roll_trim, c.yaw_trim}) {
             w.u16(static_cast<std::uint16_t>(quantise(v)));
         }
+        w.u16(static_cast<std::uint16_t>(c.held_trim ? quantise(*c.held_trim) : no_held_trim));
     }
     return w.take();
 }
@@ -277,6 +278,11 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
                 return std::nullopt;
             }
             *v = unquantise(wire);
+        }
+        // The held trim, after them (since version 0F), or none.
+        const auto held_trim = static_cast<std::int16_t>(r.u16());
+        if (held_trim != no_held_trim) {
+            c.held_trim = unquantise(held_trim);
         }
         if (gear != gear_fixed) {
             c.gear = unquantise(gear);

@@ -456,12 +456,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       until her first input. *Verification: through a real server, a
       player's F-35B and 172P untouched for thirty seconds hold their start
       height within 100 ft (2026-10-20: 7 ft and under 1 ft).*
-- [ ] **The F-22A, the Mosquito and the S.23 cannot be trimmed, and the
-      C182 is trimmed before her propeller is governed**, so a player's left
-      untouched still leaves her height: in thirty seconds the F-22A falls
-      500 ft, the Mosquito 1,500, and the S.23 and C182 climb 340 and 95.
-      *Verification: every aircraft in the catalogue, started as a player's
-      and untouched for thirty seconds, within 100 ft of her start height.*
+- [x] **The F-22A, the Mosquito and the S.23 trimmed, and the C182 with her
+      propeller governed**, so a player's aircraft left untouched holds her
+      height; the F-22A in pitch alone, her pilot's trim still commanding a
+      pitch rate, the trim she is held on told her client's prediction.
+      *Verification: every one of the sixteen in the catalogue,
+      started as a player's and untouched for thirty seconds, within 20 ft
+      of her start height (2026-10-22: within 7 ft, none left out).*
 - [x] **A player's first input keeps the trim the server held**: her
       client begins its inputs from every control the server held her on,
       the aileron and rudder her trim found held as roll and yaw trim, so a

@@ -85,7 +85,8 @@ Said first, because a transport's limits matter more than its features.
   carries the watched aircraft's pitch, roll and yaw trim (below, "State
   updates"), and whose input frame carries twenty-one controls, the roll
   and yaw trim last (below, "Inputs"), so that a player's client keeps the
-  trim the server held her on.
+  trim the server held her on - and her held trim, which no control sets,
+  where her model has one (below, "State updates").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -1234,9 +1235,17 @@ client is told of the one it watches.
 | `i16` | the pitch trim, nose up positive, -1 to 1 (since `0F`) |
 | `i16` | the roll trim, as the aileron, -1 to 1 (since `0F`) |
 | `i16` | the yaw trim, as the rudder, -1 to 1 (since `0F`) |
+| `i16` | the held trim, -1 to 1 - or `-32768` where her model has none (since `0F`) |
 
-A flag other than `00` or `01`, or `-32768` in any control but the gear and
-the speedbrake lever, makes the packet unreadable.
+A flag other than `00` or `01`, or `-32768` in any control but the gear, the
+speedbrake lever and the held trim, makes the packet unreadable.
+
+**The held trim is not a control**: no input carries it, and a client never
+sends it. It is a deflection the server's trim finds after a fly-by-wire
+pitch loop - the F-22A's, whose pilot's pitch trim commands a pitch rate,
+which a trim made with time stopped cannot move - and holds her at for the
+flight. A predicting client puts its own model's at what it is told, as it
+joins, so that its prediction's elevators are the server's.
 
 **A player's own aircraft, watched as she joins, says what the server holds
 her on until her first input**: what her trim found - her pitch trim, and
@@ -1261,7 +1270,7 @@ the server's to hand out.
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
 full, with the client's own motion and a watched aircraft's controls, is
-1,153 bytes, and 1,183 with the
+1,155 bytes, and 1,185 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 

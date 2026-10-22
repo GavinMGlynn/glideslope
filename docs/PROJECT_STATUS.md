@@ -160,7 +160,8 @@ The client with the window flies on a server and draws everyone. Four clients
 on Windows and Linux have flown together with an AI Cessna, and a fifth was
 refused. A player's aircraft is held trimmed until her first input, and
 that input keeps the trim, every control as the server held it, her
-prediction agreeing (2026-10-21). The server deploys as a systemd unit or a container image. Still
+prediction agreeing (2026-10-21); every one of the sixteen so held keeps
+her height (2026-10-22). The server deploys as a systemd unit or a container image. Still
 missing from multiplayer:
 - choosing an aeroplane: a player flies what the server's plan flies;
 - the lobby, the session, the weather and the terrain dataset: they are
