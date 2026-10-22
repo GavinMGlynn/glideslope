@@ -81,6 +81,16 @@ server's alone, dropped if a client sends it, and refused when malformed.
   pitch within 0.017 and 0.024 degrees, the median 6 and 4 mm, the 95th
   percentile 8 and 6 mm, the worst 0.509 and 0.007 m. The bounds are server_stovl_vertical_landing.cmake's: half a
   degree, 60 mm, 3.4 m, 5.6 m.
+- **A leaves on an event, not at 95 s** (`--leave-once-bank-held`): once
+  her law holds the bank and the server has applied the input that
+  centred the stick. Left at 95 s, the Windows runners had not finished
+  the roll, and B was told 0 and 14 degrees, the server's then - timing,
+  not a stale message. B must now be told exactly the stage and bank the
+  server says it held at the step of the message, and the server's must
+  be A's 20.000. Seen red with the server saying one degree more than it
+  sent. Locally A leaves at 79.7 s; pitch within 0.032 degrees, median
+  16 mm. The script writes its addresses in its commands, where
+  test_ports.cmake reads them.
 - **Seen red without the message**: the server not sending it and the
   client not waiting for it, so the client predicts from a law made
   afresh. Joining mid-bank: her pitch 2.784 degrees off, the median 246 mm,
@@ -98,3 +108,13 @@ server's alone, dropped if a client sends it, and refused when malformed.
 message, state, protocol, transport, threats, doc-client, fuzz and gearstick
 tests green; the in-process join test green. The windowed client builds but
 is not run.
+
+## Rebased onto main, 2026-10-23
+
+Main's client prepares a STOVL landing's ground before joining, so B's first
+sealed datagram became an input of its own: the scripted pilot's selector
+off, which ended the law and the 20 degrees of bank the server held before it
+told B her law (seen: "stage 2, bank held 0.000", the join test red). A
+`--stovl-level` client now sends nothing until its prediction has begun
+(`ready_to_send`), as `--stovl-at-once` and `--from-held` already did; the
+join test is green again.
