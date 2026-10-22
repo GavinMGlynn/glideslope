@@ -446,9 +446,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       at least 5 degrees in 10 s; her height within 15 ft.*
 - [ ] **A client joining while an F-35B banks jet-borne predicts her with no
       bank held**: the bank her pilot's stick left is her law's own, and a
-      prediction begun mid-turn starts level; one begun on a model just
-      loaded has its fan's doors shut, so the join must tell the law's whole
-      state. *Verification: a client joining mid-bank predicts the
+      prediction begun mid-turn starts level. Since 2026-10-22 a prediction
+      told the server's law state and lift system's positions agrees from
+      the first word, in one process; the server does not tell it yet. *Verification: a client joining mid-bank predicts the
       server's held bank and agrees with it within a stated bound.*
 - [x] **A player who joins already selecting STOVL mode has her law seeded
       as the server's**: her prediction begins on the controls the server

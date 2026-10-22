@@ -468,6 +468,33 @@ void Controller::restore(const PilotsLaws& laws) {
     selector_was_ = laws.selector_was;
 }
 
+std::optional<Controller::LawState> Controller::law_state() const {
+    if (!stovl_) {
+        return std::nullopt;
+    }
+    LawState out;
+    out.law = stovl_->state();
+    out.height_asked_ft = stovl_height_ft_;
+    out.commands = held_lift_;
+    out.positions = a_.lift_positions();
+    out.lever_at_selection = lever_at_selection_;
+    return out;
+}
+
+void Controller::take_law(const LawState& told) {
+    stovl_.reset();
+    stovl_.emplace(a_, told.law);
+    stovl_height_ft_ = told.height_asked_ft;
+    held_lift_ = told.commands;
+    lift_ = told.commands;
+    applied_ = told.law.last.controls;
+    applied_.stovl = told.law.last_asked_hover.value_or(true) ? 1.0 : 0.0;
+    catching_up_ = false;
+    lever_at_selection_ = told.lever_at_selection;
+    selector_was_ = true;
+    hovering_since_s_.reset();
+}
+
 double lever_travel(double lever, double detent) {
     const double off = lever - detent;
     if (std::abs(off) < Controller::lever_detent_width) {
