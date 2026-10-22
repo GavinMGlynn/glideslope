@@ -223,6 +223,12 @@ struct Options {
     // machine fast enough to keep up with it, where one put behind by
     // sleeping (`test_step_ms`) is as far behind as the machine is slow.
     double test_pace = 1.0;
+    // For a test: at S seconds on the session's clock, run nothing for MS
+    // milliseconds, as a machine that stops it does (`--test-stopped-once S
+    // MS`), and a client told the same moment is stopped with it; negative
+    // is never.
+    double test_stopped_at_s = -1.0;
+    double test_stopped_ms = 0.0;
     // Whether a player may take over an aircraft the AI is flying.
     bool take_over = true;
     // **The weather the server flies, and sends every client** (REQUIREMENTS
@@ -358,6 +364,9 @@ void print_usage(std::FILE* out) {
         "                     that a test can put the server behind real time\n"
         "  --test-pace F      run the simulation's clock at F (0 to 1) of real\n"
         "                     time, a server behind by a set factor, for tests\n"
+        "  --test-stopped-once S MS  run nothing for MS milliseconds at S\n"
+        "                     seconds on the session's clock, as a machine\n"
+        "                     that stops it does, for tests\n"
         "  --dry-run          print the settings and exit without binding\n"
         "  --version          print the version\n"
         "  --help             print this\n"
@@ -577,6 +586,17 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
                 return std::nullopt;
             }
             o.test_pace = *n;
+        } else if (a == "--test-stopped-once") {
+            if (!next(value)) return std::nullopt;
+            const auto at = number(value);
+            if (!next(value)) return std::nullopt;
+            const auto ms = number(value);
+            if (!at || *at < 0.0 || !ms || *ms < 0.0) {
+                why = "--test-stopped-once wants seconds in and milliseconds stopped";
+                return std::nullopt;
+            }
+            o.test_stopped_at_s = *at;
+            o.test_stopped_ms = *ms;
         } else if (a == "--window-dump") {
             o.window_dump = true;
         } else if (a == "--window-shot") {
@@ -4946,6 +4966,8 @@ int run(const Options& o) {
     }
 
     const auto began = std::chrono::steady_clock::now();
+    // `--test-stopped-once`, until it has been.
+    bool test_stopped = o.test_stopped_at_s < 0.0;
     auto last = began;
     glideslope::sim::FixedStep clock;
     // Steps the clock says are due and the fleet has not yet taken, and the
@@ -4972,6 +4994,13 @@ int run(const Options& o) {
         std::size_t got = 0;
         auto now = std::chrono::steady_clock::now();
         double up_s = std::chrono::duration<double>(now - began).count();
+        if (!test_stopped && fleet && fleet->now_s() >= o.test_stopped_at_s) {
+            test_stopped = true;
+            std::this_thread::sleep_for(
+                std::chrono::duration<double, std::milli>(o.test_stopped_ms));
+            now = std::chrono::steady_clock::now();
+            up_s = std::chrono::duration<double>(now - began).count();
+        }
         for (std::size_t read = 0; read < most_datagrams_a_pass; ++read) {
             glideslope::platform::Address from;
             const std::size_t one = socket->receive(into, from);

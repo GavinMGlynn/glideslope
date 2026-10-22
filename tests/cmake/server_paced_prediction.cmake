@@ -26,16 +26,27 @@
 # hundred, under 3 m at worst, and its median under 5 cm. `-DUNPACED=ON` flies
 # the client at its own pace (`--unpaced`): that is what fails, by metres.
 #
-# **And through the client's stall alone** (`-DSTOPPED=ON`): the client runs
-# nothing for 3.5 s, 20 s in (`--stopped-once`), its server and relay
-# running, and the same bounds hold - 0.49 m at worst on Linux release. The
-# stall is built, and seen to have been: a frame of 3.5 s, all of it the
-# machine's as the client counts its time. **What is not pinned: the whole
-# machine stopped**, as CI's Windows runners stopped it for 3,503 of 3,583
-# ms between two frames on 2026-10-21 (138 m). Client, server and relay
-# stopped together 3 s by hand put the client 4.5 m off; the server stopped
-# alone, 55.6 m, since inputs read after a stall are flown at most a quarter
-# of a second late (net::HeldInputs). docs/status, 2026-10-22.
+# **A machine's stall is counted apart, and recovered from.** CI's Windows
+# runners have stopped the client - and the server beside it - for seconds
+# (3,503 of 3,583 ms between two frames, 2026-10-21: 138 m). The client
+# names each frame its machine mostly took, by its own thread's CPU time,
+# and counts the updates across it apart - the server's catching up and the
+# 60 words after, while the clocks' difference is found again - saying how
+# many, the worst, and from which word it was back within a metre
+# (glideslope_cli's `MachineStall`). Every update after them is judged with
+# the rest, and the median and percentiles are of all of them, so a
+# recovery that never comes still fails.
+#
+# **Built** (`-DSTOPPED=ON`): the client and server each run nothing for
+# 3.5 s at 12 s on the session's clock (`--stopped-once`,
+# `--test-stopped-once`), a whole machine stopped - the relay runs on, which
+# stopped alone 3 s by hand moved nothing past a metre. The test requires
+# exactly that one stall named, of 3.4 s or more, all 60 words after it
+# heard, and the error back within a metre by the last of them.
+# Linux release: 5.9 m at worst across it, back within a metre from the
+# 7th word after; 0.475 m at worst elsewhere. A stall of the client's own
+# (a busy wait in its place) is not counted apart, and fails.
+# (docs/status, 2026-10-22).
 #
 # **A named limit: on Windows about one update in a hundred is off by two
 # steps' travel.** A step's travel is 0.42 m at this aircraft's speed, and
@@ -88,8 +99,12 @@ set(_unpaced "")
 if(UNPACED)
     set(_unpaced --unpaced)
 endif()
+# The whole machine stopped 3.5 s, 20 s in: client, server and relay each
+# told to run nothing then, as a runner that stops them all does.
+set(_server_stopped "")
 if(STOPPED)
-    list(APPEND _unpaced --stopped-once 20 3500)
+    list(APPEND _unpaced --stopped-once 12 3500)
+    set(_server_stopped --test-stopped-once 12 3500)
 endif()
 math(EXPR _relay "${PORT} + 1")
 execute_process(
@@ -98,6 +113,7 @@ execute_process(
             --track "${WORK}/track.txt"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 5 --store "${_store}" --test-pace ${_pace}
+            ${_server_stopped}
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 290
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -143,15 +159,28 @@ string(CONCAT _line "${_compared} updates compared, the worst error ${_worst_mm}
           "${_steps_there})")
 # The stall, seen to have happened: a frame held through it, all of it the
 # machine's as the client counts its own time.
+if(NOT _said MATCHES "the machine's stalls: ([0-9]+) frames")
+    message(FATAL_ERROR "the client did not say its machine's stalls:\n${_said}")
+endif()
+set(_stalls "${CMAKE_MATCH_1}")
 if(STOPPED)
-    if(NOT _said MATCHES "the longest between frames ([0-9]+) ms, ([0-9]+) ms of it the machine's")
-        message(FATAL_ERROR "the client did not say its longest frame:\n${_said}")
+    if(NOT _stalls EQUAL 1 OR NOT _said MATCHES
+       "the machine's stall 1: ([0-9]+) ms, [0-9.]+ s in; ([0-9]+) words catching up and ([0-9]+) after, ([0-9]+) updates compared, the worst ([0-9.]+) m, back within 1 m from word ([0-9]+) after")
+        message(FATAL_ERROR "the client did not name the one stall built:\n${_said}")
     endif()
-    if(CMAKE_MATCH_1 LESS 3500 OR CMAKE_MATCH_2 LESS 3400)
-        message(FATAL_ERROR "the client was not stopped 3.5 s: its longest frame "
-                            "${CMAKE_MATCH_1} ms, ${CMAKE_MATCH_2} ms of it the machine's:\n${_said}")
+    string(APPEND _line ", and across the machine's stall of ${CMAKE_MATCH_1} ms "
+           "${CMAKE_MATCH_4} updates counted apart, the worst ${CMAKE_MATCH_5} m, back "
+           "within a metre from word ${CMAKE_MATCH_6} of the ${CMAKE_MATCH_3} after the "
+           "${CMAKE_MATCH_2} of its catching up")
+    if(CMAKE_MATCH_1 LESS 3400)
+        message(FATAL_ERROR "the machine was not stopped 3.5 s: ${_line}:\n${_said}")
     endif()
-    string(APPEND _line ", through a frame of ${CMAKE_MATCH_1} ms")
+    if(NOT CMAKE_MATCH_3 EQUAL 60 OR CMAKE_MATCH_6 GREATER 60)
+        message(FATAL_ERROR "the prediction did not come back within a metre in the 60 "
+                            "words after the stall: ${_line}:\n${_said}")
+    endif()
+else()
+    string(APPEND _line ", ${_stalls} machine's stalls counted apart")
 endif()
 if(_compared LESS 600)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
