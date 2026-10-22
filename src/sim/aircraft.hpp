@@ -161,7 +161,7 @@ struct Controls {
     // her flight-control laws command the lift system, and the stick asks
     // them for height.
     double stovl = 0.0;
-    // **The roll and yaw trim** (since protocol 15), -1..1, each added to the
+    // **The roll and yaw trim** (since protocol 0F), -1..1, each added to the
     // aileron and the rudder as her model sums them (JSBSim's
     // fcs/roll-trim-cmd-norm and fcs/yaw-trim-cmd-norm): +1 as the aileron
     // and rudder at +1. What the server holds a player's aircraft on until

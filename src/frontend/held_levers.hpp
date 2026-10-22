@@ -41,7 +41,7 @@ inline void keep_held(const net::Watched& levers, sim::Controls& c) {
 // **Where her controls are, as her levers say them** (`WATCH`): what the
 // server tells a client riding along in the aircraft numbered `index`, her
 // own client among them - each as her flight model has it, the pitch trim
-// among them, and the roll and yaw trim (since protocol 15).
+// among them, and the roll and yaw trim (since protocol 0F).
 inline net::Watched levers_of(const sim::Aircraft& m, std::uint8_t index) {
     net::Watched w;
     w.aircraft = index;
@@ -56,6 +56,17 @@ inline net::Watched levers_of(const sim::Aircraft& m, std::uint8_t index) {
     if (m.speedbrakes()) {
         w.speedbrake = m.property("fcs/speedbrake-cmd-norm");
     }
+    // **The pitch trim negated, the roll and yaw trim not**, as
+    // sim::Aircraft::set_controls puts them: a model sums its pitch trim
+    // with fcs/elevator-cmd-norm (the C172P's "Pitch Trim Sum"), positive
+    // stick forward, where sim::Controls' elevator and pitch trim are
+    // positive back - so both are put negated, and read back so; it sums
+    // its roll and yaw trim with fcs/aileron-cmd-norm and
+    // fcs/rudder-cmd-norm, which are put as they are, right positive. Each
+    // read back as it was put, every aircraft
+    // (every_aircraft_a_players_first_input_sends_is_what_the_server_held_her_on,
+    // which counts aircraft held on a pitch trim and on a roll trim, so that
+    // a sign wrong on either fails it).
     w.pitch_trim = -m.property("fcs/pitch-trim-cmd-norm");
     w.roll_trim = m.property("fcs/roll-trim-cmd-norm");
     w.yaw_trim = m.property("fcs/yaw-trim-cmd-norm");

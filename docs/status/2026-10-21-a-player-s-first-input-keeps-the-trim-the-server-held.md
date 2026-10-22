@@ -54,41 +54,56 @@ command-line client's, which begins from the same function.
   C172P untouched 1,524.0 m throughout; nudged 1,523.3 to 1,525.7 m, pitch
   0.05 to 0.93, bank 0.82.
 
-  **The prediction's bound and its derivation.** The bounds are
-  server_stovl_landing.cmake's family, for its reason: the median under
-  60 mm, the 95th percentile within four steps' travel at her start speed
-  - on a busy machine the clocks' difference places some words a step or
-  two off, and that update is off by that step's travel. A step is
-  1.378 m for the F-35B and 0.462 m for the C172P here, the quanta her
-  errors come in, so 5.512 m and 1.848 m. Measured:
+  **The prediction's bounds** (corrected 2026-10-23: the earlier claim
+  that CI passed within a worst of four steps' travel was not true - see
+  below). The median under 60 mm and the 95th percentile within four steps'
+  travel at her start speed (1.378 m a step for the F-35B, 0.462 m for the
+  C172P: 5.512 m and 1.848 m), server_stovl_landing.cmake's bounds for its
+  reason. And **every update within 60 mm of the path her prediction flew**,
+  in place of a bound on the worst update's distance from the step it was
+  placed at; at most two machine's stalls and a quarter of the updates
+  counted apart, each recovered (machine_stalls_check.cmake, #238).
 
-  | where | runs | median | 95th percentile | worst |
+  **Why the worst is held off the path, not at its step.** CI run
+  39707412486 failed the old bound of four steps' travel (5.6 m) on the
+  nudged F-35B: windows-clang 6.866 m, windows-debug 24.732 m, 95th
+  percentiles 2.746 and 4.120 m, medians 0.000. Neither client stalled:
+  their longest frames were 67 and 171 ms, under #238's 250 ms, so its rule
+  would have counted nothing apart. Both are whole steps of her travel
+  (5 and 18 at 1.373 m), and the untouched F-35B in the same runs was 2 and
+  3 steps off. Reproduced here with 40 busy loops on 20 CPUs: the nudged
+  F-35B 9.641 m off for six updates (inputs 55 to 60, seven steps), her
+  speed agreeing to 0.005 m/s; in another run 22.002 m at worst, 16 steps,
+  and **3 mm off the path flown**. These are inputs reaching a server or
+  relay held up - the server flies an input from when it arrives
+  (net::HeldInputs) - so the word is placed whole steps along a path both
+  flew alike: the plan's open "On a busy machine the server's word is
+  placed a step off now and then", which no client can see. A prediction
+  gone wrong is off the path; so the test holds every update to the path
+  flown (`prediction error off the path`, against the segments between the
+  steps kept, since a correction can skip one), at 60 mm, and the 95th
+  percentile still caps how many words a busy machine may misplace. The
+  roll and yaw trim and the pitch trim seeding were looked at for a
+  prediction bug and none found: the medians 0.000 m and the error off the
+  path 0.000 to 0.003 m in every run.
+
+  | where | median | 95th percentile | worst at its step | off the path |
   | --- | --- | --- | --- | --- |
-  | here, linux-debug | 3, of the 4 cases each | 0.000 m | 0.000 m | 0.000 to 1.379 m (F-35B), 0.001 to 0.463 m (C172P) |
-  | CI run 39692528726, F-35B untouched | 5 platforms | 0.000 m | 1.378 m (macOS, Ubuntu debug, Windows release, clang); 2.756 m (Windows debug) | 1.379, 33.090, 5.514, 1.379, 2.757 m |
-  | CI run 39553981105, F-35B nudged | 2 Windows | not read | not printed then | 4.113, 5.506 m |
+  | here, linux-debug, idle (2 runs, all four cases in one) | 0.000 m | 0.000 m | 0.000 to 1.379 m (F-35B), 0.001 to 0.462 m (C172P) | 0.000 m |
+  | here, 20 busy loops (2 runs) | 0.000 m | 0.000 to 1.373 m | 1.374 to 1.379 m | 0.000 m |
+  | here, 30 to 40 busy loops, nudged | 0.000 to 1.373 m | 1.373 to 6.875 m | 9.641, 22.002 m | 0.003 m (printed in the second) |
+  | CI 39707412486, nudged F-35B, Windows clang and debug | 0.000 m | 2.746, 4.120 m | 6.866, 24.732 m | not printed then |
 
-  The worst is bounded as there too: four steps' travel at 330 kt for the
-  F-35B (5.6 m; she flies 321 kt, and Windows release has put a word
-  exactly four of her steps off, 5.514 m) and four of the C172P's
-  (1.848 m). The first bound, a worst under 3 m, failed on the Windows
-  runners, and the second, a 95th percentile under 1 m, on five platforms:
-  both on one to four steps' travel, the clocks' difference the sibling
-  tests already bound for, not a gap of this item.
+  Under 40 busy loops some runs compared no update at all, and one untouched
+  run counted a stall apart and was 16.5 m at the 95th percentile: the test
+  fails those, as it should. The 33.090 m update on CI's Ubuntu debug (run
+  39692528726) was put down to a starved machine from a local reproduction
+  in which the client stalled 1.7 to 3 s; that run did not say its longest
+  frame, so it is not known which it was.
 
-  **The 33.090 m update (Ubuntu debug, 24 of her steps) is a starved
-  machine, and not this item's.** Reproduced here with five clients and
-  servers pinned to two CPUs: the F-35B's client stalled 1.7 to 3.0 s
-  between frames, its clocks' difference was learnt 5 to 15 steps wrong,
-  and her worst update was 12.4, 29.0, 29.0, 80.0 and 88.2 m - 9, 21, 21,
-  58 and 64 whole steps - all in her first 8 s; four at once, stalls under
-  0.8 s, kept her to one step. The same load with the C172P, held or
-  flown by the moving pilot, stalled no frame over 224 ms and kept her to
-  one step. On main's build of 2026-10-20 (before #222, #232 and this),
-  a predicting F-35B under the same load was 39 to 49 m off, clocks 37
-  steps out. A tail in COMPLETION_PLAN.md, Phase 9. The test's failure
-  message now prints her client's report, its longest frame among it, so
-  the next one on CI says whether it stalled.
+  Seen red: the prediction's own step given 5 m/s down once every 400 steps
+  (sim::Prediction), the medians unmoved: 0.123 m off the path, failed -
+  which the old bound on the worst, 5.6 m, passed.
   Seen red twice: with the client keeping its own pitch trim, aileron and
   rudder, as before, the F-35B untouched was a wreck; with the aileron and
   rudder held as the stick and pedals rather than as trims, the C172P nudged
@@ -105,7 +120,12 @@ command-line client's, which begins from the same function.
   windowed client's airborne controls put where they say: all twenty-one
   controls the server's to the bit (fixed gear and absent speedbrakes
   excepted). Seen red with the client keeping its own trims: every trimmed
-  aircraft named.
+  aircraft named. It pins why `levers_of` reads the pitch trim negated and
+  the roll and yaw trim as they are (the model sums the pitch trim with
+  fcs/elevator-cmd-norm, put as minus the elevator, and the roll and yaw
+  trim with the aileron and rudder commands, put as they are): it now also
+  requires some aircraft held on a roll trim, and was seen red with the
+  roll trim read negated (the 747-400, 787-8, C172P and others named).
 - The test's ports are 24808 and 24809, in the tests' block.
 - Protocol, input, state packet, document and gearstick tests moved to
   `0F`; #222's untouched tests, the STOVL-at-once test and the on-final

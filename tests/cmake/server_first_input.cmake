@@ -33,20 +33,21 @@
 #     rolled off on her engine's torque once her stick is centred, as where
 #     the aileron and rudder are held as the stick and pedals rather than as
 #     trims, a C172P is at 37 degrees in thirty seconds;
-#   - **the prediction, in server_stovl_landing.cmake's bounds and for its
-#     reason**: the median under 60 mm, and the 95th percentile within four
-#     steps' travel at her start speed. On a busy machine the clocks'
-#     difference places some words a step off, or two, and that update is
-#     off by that step's travel (server_stovl_landing.cmake says how): a
-#     step is 1.378 m for the F-35B here and 0.462 m for the C172P - the
-#     quanta her errors come in (the worst of an idle run here is exactly
-#     one). So 5.512 m and 1.848 m. Measured (status file): the median
-#     0.000 m in every run here and on CI; the 95th percentile 0.000 m here,
-#     1.378 m on CI's macOS, Ubuntu debug, Windows release and clang, and
-#     2.756 m on Windows debug - one step and two. And its worst, as there,
-#     within four steps' travel at 330 kt for the F-35B (5.6 m: she flies
-#     321 kt, and CI's Windows release has put a word exactly four of her
-#     steps off, 5.514 m), and four of the C172P's steps (1.848 m).
+#   - **the prediction**: the median under 60 mm and the 95th percentile
+#     within four steps' travel at her start speed, server_stovl_landing.
+#     cmake's bounds for its reason - on a busy machine some words are
+#     placed a step off, or more, and that update is off by those steps'
+#     travel: 1.378 m a step for the F-35B here, 0.462 m for the C172P, so
+#     5.512 m and 1.848 m. And **every update within 60 mm of the path her
+#     prediction flew**: a word whose input reached a server or relay held
+#     up is placed whole steps along a path flown alike - CI's Windows clang
+#     and debug, neither client stalling a frame over 171 ms, put words 5
+#     and 18 of her steps off (6.9 and 24.7 m), and 40 busy loops here 16
+#     steps (22.0 m) at 3 mm off the path - where a prediction gone wrong is
+#     off it. Seen red with her prediction given 5 m/s down once in 400
+#     steps: 0.123 m off the path, where the worst at its step stayed
+#     under four steps' travel. And a machine's stalls capped and each
+#     recovered from (machine_stalls_check.cmake), as every prediction test.
 # Nudged, the F-35B rose 10.1 m (33 ft) and banked 2.6 degrees: her flight
 # controls hold the attitude a stick movement leaves her at. A twentieth
 # rose her 25 m, too near the 30.48 m bound for a rule tested by its margin.
@@ -85,6 +86,8 @@ if(NOT _rc EQUAL 0)
     message(STATUS "the server could not get its terrain: ${_err}")
     cmake_language(EXIT 77)
 endif()
+
+include("${CMAKE_CURRENT_LIST_DIR}/machine_stalls_check.cmake")
 
 # A figure in metres or degrees, to two places, as hundredths: CMake has no
 # floating point.
@@ -201,16 +204,36 @@ foreach(_id IN ITEMS f35b c172p)
                                 "at the median and ${_p95} m at the 95th percentile, past "
                                 "60 mm and four steps' travel (${_four_steps_c} cm):\n${_said}")
         endif()
-        if(_id STREQUAL "f35b")
-            set(_worst_bound_c 560)
-        else()
-            set(_worst_bound_c 185)
+        # **Off where, apart from off when.** Every update outside the
+        # machine's stalls against the path this client flew: a word whose
+        # input reached the server late is on that path, whole steps along it
+        # from where its input placed it, and its error above is those steps'
+        # travel - a relay or server held up, which no client can see, the
+        # plan's "On a busy machine the server's word is placed a step off".
+        # A prediction gone wrong is off the path.
+        if(NOT _said MATCHES "prediction error off the path: the worst ([0-9.]+) m from the path flown over ([0-9]+) updates, ([0-9]+) nearest at an end of the steps kept; placed ([0-9]+) steps")
+            message(FATAL_ERROR "the ${_id}'s client did not say its error off the path:\n${_said}")
         endif()
-        if(_worst_c GREATER _worst_bound_c)
-            message(FATAL_ERROR "the ${_id}, ${_touch}: the prediction's worst update was "
-                                "${_worst} m off, past four steps' travel (${_worst_bound_c} "
-                                "cm):\n${_said}")
+        set(_off_path ${CMAKE_MATCH_1})
+        set(_on_path_compared ${CMAKE_MATCH_2})
+        set(_at_an_end ${CMAKE_MATCH_3})
+        set(_steps_off ${CMAKE_MATCH_4})
+        # In millimetres, for a bound of 60 mm.
+        string(REGEX REPLACE "^([0-9]+)\\.([0-9][0-9][0-9]).*" "\\1\\2" _off_path_mm "${_off_path}")
+        math(EXPR _off_path_mm "${_off_path_mm} + 0")
+        message(STATUS "the ${_id}, ${_touch}: off the path flown by ${_off_path} m at worst over "
+                       "${_on_path_compared} updates, placed up to ${_steps_off} steps along it, "
+                       "${_at_an_end} nearest at an end")
+        if(_on_path_compared LESS 100 OR NOT _at_an_end EQUAL 0)
+            message(FATAL_ERROR "the ${_id}, ${_touch}: ${_on_path_compared} updates held against "
+                                "the path flown, ${_at_an_end} of them past an end of it:\n${_said}")
         endif()
+        if(_off_path_mm GREATER 60)
+            message(FATAL_ERROR "the ${_id}, ${_touch}: an update was ${_off_path} m off the path "
+                                "her prediction flew, past 60 mm:\n${_said}")
+        endif()
+        check_machine_stalls("${_said}" updates "${_compared}" _stalls)
+        message(STATUS "the ${_id}, ${_touch}: ${_stalls}")
         math(EXPR _cases "${_cases} + 1")
     endforeach()
 endforeach()
