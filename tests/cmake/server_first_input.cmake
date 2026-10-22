@@ -33,15 +33,19 @@
 #     rolled off on her engine's torque once her stick is centred, as where
 #     the aileron and rudder are held as the stick and pedals rather than as
 #     trims, a C172P is at 37 degrees in thirty seconds;
-#   - the prediction's median error under 0.05 m, and its 95th percentile
-#     within three steps of the F-35B's travel, 4.5 m. Her prediction is
-#     where the server's word puts her, but a word is now and then held
-#     against a step either side of its own (the clocks' difference), and an
-#     F-35B at her 1,524 m start goes 1.378 m a step, a C172P 0.46 m: CI's
-#     runners put the F-35B's 95th percentile at 1.378 m, and Windows debug's
-#     at 2.756 m, two steps (2026-10-22), where a predicting machine as quick
-#     as the server's has it at nought. Its worst is said and not bounded:
-#     one update, 33 m once on Ubuntu debug.
+#   - **the prediction, in server_stovl_landing.cmake's bounds and for its
+#     reason**: the median under 60 mm, and the 95th percentile within four
+#     steps' travel at her start speed. On a busy machine the clocks'
+#     difference places some words a step off, or two, and that update is
+#     off by that step's travel (server_stovl_landing.cmake says how): a
+#     step is 1.378 m for the F-35B here and 0.462 m for the C172P - the
+#     quanta her errors come in (the worst of an idle run here is exactly
+#     one). So 5.512 m and 1.848 m. Measured (status file): the median
+#     0.000 m in every run here and on CI; the 95th percentile 0.000 m here,
+#     1.378 m on CI's macOS, Ubuntu debug, Windows release and clang, and
+#     2.756 m on Windows debug - one step and two. Its worst is said and not
+#     bounded: 33.090 m once in one update on Ubuntu debug, which is not a
+#     step's travel and is not explained (COMPLETION_PLAN.md, Phase 9).
 # Nudged, the F-35B rose 10.1 m (33 ft) and banked 2.6 degrees: her flight
 # controls hold the attitude a stick movement leaves her at. A twentieth
 # rose her 25 m, too near the 30.48 m bound for a rule tested by its margin.
@@ -185,10 +189,16 @@ foreach(_id IN ITEMS f35b c172p)
         if(_compared LESS 100)
             message(FATAL_ERROR "the ${_id}, ${_touch}: only ${_compared} updates were compared")
         endif()
-        if(_median_c GREATER 5 OR _p95_c GREATER 450)
+        # Four steps' travel at her start speed, in centimetres.
+        if(_id STREQUAL "f35b")
+            set(_four_steps_c 551)
+        else()
+            set(_four_steps_c 185)
+        endif()
+        if(_median_c GREATER 6 OR _p95_c GREATER _four_steps_c)
             message(FATAL_ERROR "the ${_id}, ${_touch}: the prediction was off by ${_median} m "
                                 "at the median and ${_p95} m at the 95th percentile, past "
-                                "0.05 m and 4.5 m")
+                                "60 mm and four steps' travel (${_four_steps_c} cm)")
         endif()
         math(EXPR _cases "${_cases} + 1")
     endforeach()

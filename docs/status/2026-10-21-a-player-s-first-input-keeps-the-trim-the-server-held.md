@@ -52,12 +52,28 @@ command-line client's, which begins from the same function.
   0.08; nudged 1,524.0 to 1,534.1 m (33 ft), pitch 6.03 to 6.58, bank 2.58
   (her flight controls hold the attitude a stick movement leaves her at).
   C172P untouched 1,524.0 m throughout; nudged 1,523.3 to 1,525.7 m, pitch
-  0.05 to 0.93, bank 0.82. Prediction median 0.000 m every run, here and
-  on CI (bound 0.05 m); 95th percentile 0.000 m here, and on CI the
-  F-35B's 1.378 m - one step of her travel, a word held a step off - and
-  2.756 m, two steps, on Windows debug (bound 4.5 m, three steps). The
-  worst, one update, up to 33 m once on Ubuntu debug, is said, not
-  bounded.
+  0.05 to 0.93, bank 0.82.
+
+  **The prediction's bound and its derivation.** The bounds are
+  server_stovl_landing.cmake's family, for its reason: the median under
+  60 mm, the 95th percentile within four steps' travel at her start speed
+  - on a busy machine the clocks' difference places some words a step or
+  two off, and that update is off by that step's travel. A step is
+  1.378 m for the F-35B and 0.462 m for the C172P here, the quanta her
+  errors come in, so 5.512 m and 1.848 m. Measured:
+
+  | where | runs | median | 95th percentile | worst |
+  | --- | --- | --- | --- | --- |
+  | here, linux-debug | 3, of the 4 cases each | 0.000 m | 0.000 m | 0.000 to 1.379 m (F-35B), 0.001 to 0.463 m (C172P) |
+  | CI run 39692528726, F-35B untouched | 5 platforms | 0.000 m | 1.378 m (macOS, Ubuntu debug, Windows release, clang); 2.756 m (Windows debug) | 1.379, 33.090, 5.514, 1.379, 2.757 m |
+  | CI run 39553981105, F-35B nudged | 2 Windows | not read | not printed then | 4.113, 5.506 m |
+
+  The first bound, a worst under 3 m, failed on the Windows runners, and
+  the second, a 95th percentile under 1 m, on five platforms: both on one
+  or two steps' travel, the clocks' difference the sibling tests already
+  bound for, not a gap of this item. **The 33.090 m worst is not a step's
+  travel** and is not explained; it is a tail in COMPLETION_PLAN.md, Phase
+  9, and the worst is said, not bounded, until it is.
   Seen red twice: with the client keeping its own pitch trim, aileron and
   rudder, as before, the F-35B untouched was a wreck; with the aileron and
   rudder held as the stick and pedals rather than as trims, the C172P nudged

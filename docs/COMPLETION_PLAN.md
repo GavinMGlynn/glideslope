@@ -469,6 +469,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       all or nudged and centred, hold their height within 100 ft and their
       attitude within 5 degrees for thirty seconds, the prediction within its
       bounds; every aircraft's first input is what she was held on.*
+- [ ] **One update of a predicting F-35B off by 33 m**: through a real
+      server on CI's Ubuntu debug runner (run 39692528726), one of 631
+      updates of an untouched F-35B was 33.090 m off, where every other
+      error is a step's travel or two (1.378 m). Not yet explained.
+      *Verification: its cause found and named, and the first-input test's
+      worst bounded at four steps' travel on every platform.*
 - [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
       server's flight-control laws**: each side seeds her law from her as it
       sees her when the selector reaches it, a step apart when the clocks'
