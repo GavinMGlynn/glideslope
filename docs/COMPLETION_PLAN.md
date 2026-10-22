@@ -469,12 +469,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       all or nudged and centred, hold their height within 100 ft and their
       attitude within 5 degrees for thirty seconds, the prediction within its
       bounds; every aircraft's first input is what she was held on.*
-- [ ] **One update of a predicting F-35B off by 33 m**: through a real
-      server on CI's Ubuntu debug runner (run 39692528726), one of 631
-      updates of an untouched F-35B was 33.090 m off, where every other
-      error is a step's travel or two (1.378 m). Not yet explained.
-      *Verification: its cause found and named, and the first-input test's
-      worst bounded at four steps' travel on every platform.*
+- [ ] **A predicting F-35B on a starved machine is put tens of metres off**:
+      her prediction is costly enough that five clients and servers on two
+      CPUs stall a client 1.7 to 3 s, its clocks' difference is learnt 5 to
+      15 steps wrong, and updates are off by 9 to 64 whole steps (12 to
+      88 m) - as on main before this phase's changes (39 to 49 m), and once
+      on CI's Ubuntu debug (33 m). *Verification: a predicting F-35B whose
+      client is stalled 3 s is off by no more than four steps' travel.*
 - [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
       server's flight-control laws**: each side seeds her law from her as it
       sees her when the selector reaches it, a step apart when the clocks'
