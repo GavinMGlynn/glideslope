@@ -489,14 +489,15 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       two minutes, selected at any moment, including before the prediction
       has settled, the client's predicted pitch within half a degree of the
       server's at every update.*
-- [ ] **No test catches a STOVL prediction flown on 0.8 of the stick**: the
-      height the server tells puts it right, so it passes. Done: what her
-      stick, pedals and lever set is compared with the server's at every step
-      wing-borne, jet-borne and in the hover. Missing: the converting
-      stage, because the prediction's law is jet-borne 7.5 s before the
-      server's and hovers 1.2 s sooner, so no step finds both converting.
-      *Verification: a test red on that bug, comparing what the stick sets,
-      not only the height, in every stage including converting.*
+- [x] **A STOVL prediction flown on 0.8 of the stick is caught**: what her
+      stick, pedals and lever set in her law is held against the server's at
+      every step, wing-borne, jet-borne and in the hover. *Verification: a
+      test red on that bug, comparing what the stick sets, not only the height.*
+- [x] **A STOVL prediction's law changes stage when the server's does**: a
+      replay from before the selector no longer flies with the fan's doors
+      commanded open. *Verification: both laws change stage on the same
+      step, and the converting stage's stick compared (2026-10-22: 48,228
+      steps, none apart; 780 converting, none apart).*
 - [x] **The Mosquito's model is never level after a stall warning with full
       flap and gear: her own pitching moment.** Recovered at her stall
       warning at 20,000 ft, 45 degrees of flap and the gear down, she loses

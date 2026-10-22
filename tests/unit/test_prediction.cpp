@@ -3049,6 +3049,16 @@ struct StickCell {
 };
 using StickCells = std::array<std::array<StickCell, stick_axes>, stick_stages>;
 
+// **Each side's law's stage, step by step**: the server's steps flown, those
+// on which the prediction's step on the same input left its law in another
+// stage - or with a law where the server's had none, or none where it had
+// one - and the server's law's changes of stage.
+struct StickStages {
+    std::size_t steps = 0;
+    std::size_t apart = 0;
+    std::size_t changes = 0;
+};
+
 // **A predicting client and the server fed the same STOVL inputs, what the
 // stick sets compared at every step**: the F-35B at `loading` (her model's
 // own, empty), level at `feet` and 200 KCAS over flat ground in calm air,
@@ -3067,7 +3077,7 @@ using StickCells = std::array<std::array<StickCell, stick_axes>, stick_stages>;
 // to 0.63% apart.
 void stick_agreement(const std::string& loading, double feet,
                      const std::function<Controls(int, const Controls&)>& inputs, int seconds,
-                     StickCells& cells) {
+                     StickCells& cells, StickStages& stages) {
     using glideslope::sim::apply;
     using glideslope::sim::Controller;
     using glideslope::sim::Motion;
@@ -3142,6 +3152,14 @@ void stick_agreement(const std::string& loading, double feet,
             const auto after = stick_sets(server);
             const Flew ours = client_flew.front();
             client_flew.pop_front();
+            ++stages.steps;
+            if (after.has_value() != ours.second.has_value() ||
+                (after && after->stage != ours.second->stage)) {
+                ++stages.apart;
+            }
+            if (before && after && before->stage != after->stage) {
+                ++stages.changes;
+            }
             if (before && after && ours.first && ours.second && before->stage == after->stage &&
                 ours.first->stage == before->stage && ours.second->stage == before->stage) {
                 const auto stage = static_cast<std::size_t>(before->stage);
@@ -3209,13 +3227,23 @@ void stick_agreement(const std::string& loading, double feet,
 //
 // **Coverage asserted**: of the sixteen stages and inceptors, ten are read -
 // the fore-and-aft in all four stages, and jet-borne and in the hover the
-// stick sideways, the pedals and the lever - and nine of them must each be
+// stick sideways, the pedals and the lever - and each of the ten must be
 // compared for at least a second with the server's law moved by it. The six
-// not read are named (what_it_set); the one left out, the fore-and-aft
-// converting, is named below with its reason. Every step compared must
-// agree.
+// not read are named (what_it_set). Every step compared must agree.
+//
+// **And both laws change stage on the same step**: on every step the server
+// flies, the prediction's law on the same input is in the server's law's
+// stage, and the server's changes stage the three times the second flight
+// asks - jet-borne, hovering and jet-borne again. Until 2026-10-22 the
+// prediction's was jet-borne from 1.5 s and the server's converting until 9
+// s, so the fore-and-aft converting was left out: a replay flown from before
+// the selector flew those steps with the fan's doors commanded open, as the
+// newest step had left them (Aircraft::replay_state keeps the lift system's
+// commands since). Seen red with them not kept: 1,104 steps in another
+// stage.
 GLIDESLOPE_TEST(a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_every_stage_on_every_inceptor) {
     StickCells cells{};
+    StickStages stages;
     stick_agreement(
         "", 1000.0,
         [](int frame, const Controls& trimmed) {
@@ -3225,7 +3253,7 @@ GLIDESLOPE_TEST(a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_e
             c.elevator = s >= 3.0 && s < 20.0 ? -0.5 : s >= 22.0 && s < 30.0 ? 0.5 : 0.0;
             return c;
         },
-        32, cells);
+        32, cells, stages);
     stick_agreement(
         "vertical_landing", 150.0,
         [](int frame, const Controls& trimmed) {
@@ -3267,7 +3295,14 @@ GLIDESLOPE_TEST(a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_e
                                               : 0.0;
             return c;
         },
-        370, cells);
+        370, cells, stages);
+    std::printf("  her law's stage: %zu of the server's steps, %zu in another stage on the "
+                "prediction, %zu changes of stage on the server\n",
+                stages.steps, stages.apart, stages.changes);
+    check(stages.changes == 3, "the server's law changed stage " +
+                                   std::to_string(stages.changes) + " times, not 3");
+    check(stages.apart == 0, "the prediction's law was in another stage on " +
+                                 std::to_string(stages.apart) + " steps");
     for (std::size_t stage = 0; stage < stick_stages; ++stage) {
         for (std::size_t axis = 0; axis < stick_axes; ++axis) {
             const StickCell& cell = cells[stage][axis];
@@ -3275,34 +3310,16 @@ GLIDESLOPE_TEST(a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_e
                         "%.2g of it)%s\n",
                         stage_names[stage], axis_names[axis], cell.compared, cell.moved,
                         cell.apart, cell.worst_share,
-                        axis != 0 && stage < 2 ? " - not read there"
-                        : stage == 1           ? " - left out, the stages disagree"
-                                               : "");
+                        axis != 0 && stage < 2 ? " - not read there" : "");
         }
     }
     std::size_t read = 0;
     std::size_t not_read = 0;
-    std::size_t left_out = 0;
     for (std::size_t stage = 0; stage < stick_stages; ++stage) {
         for (std::size_t axis = 0; axis < stick_axes; ++axis) {
             const StickCell& cell = cells[stage][axis];
             if (axis != 0 && stage < 2) {
                 ++not_read;
-                continue;
-            }
-            if (stage == 1) {
-                // **Left out: the fore-and-aft converting.** The prediction's
-                // law is jet-borne from 1.5 s, the server's converting until
-                // 9 s, so no step finds both converting (COMPLETION_PLAN.md,
-                // "No test catches a STOVL prediction flown on 0.8 of the
-                // stick", whose missing part this is). Nothing is compared, so
-                // nothing is claimed to agree: this asserts that none was.
-                // Once the staging is fixed it becomes "compared and moved
-                // >= 1 s", and must agree, like the others.
-                ++left_out;
-                check(cell.compared == 0, "the stick fore-and-aft converting was compared on " +
-                                              std::to_string(cell.compared) +
-                                              " steps: it is no longer left out");
                 continue;
             }
             ++read;
@@ -3316,10 +3333,9 @@ GLIDESLOPE_TEST(a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_e
                                        std::to_string(cell.compared) + " steps");
         }
     }
-    std::printf("  %zu of the 16 stages and inceptors compared, %zu left out, %zu not read\n",
-                read, left_out, not_read);
-    check(read == 9 && left_out == 1 && read + left_out + not_read == stick_stages * stick_axes,
-          "the nine compared, the one left out and the six not read are the sixteen");
+    std::printf("  %zu of the 16 stages and inceptors compared, %zu not read\n", read, not_read);
+    check(read == 10 && read + not_read == stick_stages * stick_axes,
+          "the ten compared and the six not read are the sixteen");
 }
 
 // **The guard of a prediction trips on every input not finite, and names
