@@ -68,6 +68,7 @@ FlightPlan parse_flight_plan(std::string_view text) {
         };
         // **Each of these once**: a second would quietly replace the first.
         if ((w[0] == "aircraft" && !plan.aircraft.empty()) || (w[0] == "start" && plan.start) ||
+            (w[0] == "loading" && !plan.loading.empty()) ||
             (w[0] == "runway" && runway) || (w[0] == "takeoff" && takeoff_to_ft) ||
             (w[0] == "land" && plan.landing) ||
             (w[0] == "land_vertically" && plan.vertical_landing)) {
@@ -86,6 +87,11 @@ FlightPlan parse_flight_plan(std::string_view text) {
                 throw wrong("aircraft NAME");
             }
             plan.aircraft = w[1];
+        } else if (w[0] == "loading") {
+            if (w.size() != 2) {
+                throw wrong("loading NAME");
+            }
+            plan.loading = w[1];
         } else if (w[0] == "start") {
             if (w.size() != 6) {
                 throw wrong(

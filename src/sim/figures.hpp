@@ -229,7 +229,9 @@ double wet_landing_need_m(const std::filesystem::path& data, const std::string& 
 // read**, as a model's plan is (copilot/planner.cpp): throws FlightPlanError
 // for a plan for another aircraft than `flown` (a catalogue id) - a flight
 // flies the aircraft it was given, not the plan's - and for a start or a
-// waypoint slower or faster than its aircraft's `<plan_speeds>`, naming it.
+// waypoint slower or faster than its aircraft's `<plan_speeds>`, naming it,
+// and for a `loading` her figures file does not name, naming it and those
+// it does.
 // Its aircraft is looked up in `data`'s catalogue, and CatalogueError is
 // thrown for one it does not hold. The server, the client and
 // `glideslope_cli fly-plan` each call it on the plan file they read.

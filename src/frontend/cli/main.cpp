@@ -189,6 +189,10 @@ std::size_t connect_until_engine_compared = 0;
 // once the clocks' difference is known - what a test of the prediction's
 // error waits for.
 std::size_t connect_until_compared = 0;
+// **(`--until-compared-on-law N`)**: the same, counted only once its
+// prediction has begun on a law the server told it (`LAW_STATE`) - given
+// her by a take-over or a take-back, not as it joined.
+std::size_t connect_until_compared_on_law = 0;
 // **(`--unpaced`)**: with `--predict`, fly at this machine's pace, not
 // steered to the server's (sim::Pacing) - what a test shows going wrong.
 bool connect_unpaced = false;
@@ -570,6 +574,9 @@ void print_usage(std::FILE* out) {
         "                            flies, to show what the server's is worth\n"
         "                            --until-compared N (with --predict) stays until\n"
         "                            N updates are compared\n"
+        "                            --until-compared-on-law N the same, counted once\n"
+        "                            its prediction begins on a law the server told\n"
+        "                            it, taking her over or back\n"
         "                            --stovl-land (with --predict) selects STOVL mode\n"
         "                            five seconds in, with the stick forward and the\n"
         "                            lever still, and\n"
@@ -1297,6 +1304,11 @@ int fly_plan(const std::filesystem::path& data, const std::vector<std::string_vi
     }
 
     glideslope::sim::Aircraft aircraft(data / "jsbsim", entry.model);
+    // At the plan's loading, before she is put anywhere: refused above
+    // where her figures do not name it.
+    if (!plan.loading.empty()) {
+        aircraft.load(glideslope::sim::named_loading(data, entry.model, plan.loading)->loading);
+    }
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
         [ground](double lat, double lon) { return ground->height_above_ellipsoid(lat, lon); },
         [ground](double lat, double lon) {
@@ -2679,7 +2691,10 @@ public:
         predicted_at_.clear();
         pacing_.hold();
         waiting_for_law_.reset();
-        law_heard_.reset();
+        // Her law, if it was told first, is hers.
+        if (law_heard_ && law_heard_->aircraft != number) {
+            law_heard_.reset();
+        }
     }
 
     // **Its own aircraft handed to the AI pilot, or taken back**, as the
@@ -2967,6 +2982,8 @@ public:
     std::size_t compared_engine_stopped() const { return compared_engine_stopped_; }
     // How many updates have been compared at all (`--until-compared`).
     std::size_t compared() const { return compared_; }
+    // Whether its prediction has begun on a law the server told it.
+    bool begun_on_law() const { return !law_begun_lines_.empty(); }
 
     std::vector<std::string> report() const {
         std::vector<std::string> lines;
@@ -3264,14 +3281,16 @@ public:
     }
 
     // **Her STOVL law told** (`LAW_STATE`): kept until a prediction begins,
-    // and begun from at once if one is waiting for it.
+    // and begun from at once if one is waiting for it. **Kept while another
+    // is predicted**: taking one over, the law comes reliably, ahead of the
+    // update that says she is this client's now, while the one left is still
+    // predicted - dropped then, the prediction waited for it for ever
+    // (2026-10-22). The server tells it only as it gives her, so one heard
+    // is always for her next prediction.
     void law_told(const glideslope::net::LawState& law) {
         ++laws_told_;
-        if (prediction_) {
-            return;
-        }
         law_heard_ = law;
-        if (waiting_for_law_ == law.aircraft && models_.count(law.aircraft) > 0) {
+        if (!prediction_ && waiting_for_law_ == law.aircraft && models_.count(law.aircraft) > 0) {
             start_on_law();
         }
     }
@@ -4111,6 +4130,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         // stopped** (`--until-engine-compared`).
         if (connect_until_compared > 0 && predicting &&
             predicting->compared() >= connect_until_compared) {
+            break;
+        }
+        if (connect_until_compared_on_law > 0 && predicting && predicting->begun_on_law() &&
+            predicting->compared() >= connect_until_compared_on_law) {
             break;
         }
         if (connect_stovl_land && predicting && predicting->stovl_done()) {
@@ -6024,6 +6047,11 @@ static int run_program(int argc, char** argv) {
                                      glideslope::net::most_asked_aircraft_bytes);
                         return 2;
                     }
+                    continue;
+                }
+                if (args[i] == "--until-compared-on-law" && i + 1 < args.size()) {
+                    connect_until_compared_on_law =
+                        static_cast<std::size_t>(std::stoul(std::string(args[++i])));
                     continue;
                 }
                 if (args[i] == "--until-compared" && i + 1 < args.size()) {
