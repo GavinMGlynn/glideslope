@@ -8,6 +8,7 @@
 #include "frontend/cli/fly_copilot.hpp"
 #include "frontend/briefs.hpp"
 #include "frontend/held_levers.hpp"
+#include "net/budget.hpp"
 #include "frontend/players_copilot.hpp"
 #include "frontend/route_file.hpp"
 #include "frontend/same_air.hpp"
@@ -234,6 +235,56 @@ bool connect_stovl_land = false;
 // and begins its prediction on them (sim::Prediction::held_by_server). It
 // says the throttle integral its law was made with, and at which input.
 bool connect_stovl_at_once = false;
+// **(`--slow-preparation MS`)**: with `--stovl-land`, the ground it lands on
+// takes MS milliseconds longer to prepare, as on a machine too busy to read
+// its files at speed - for a test that the preparation never leaves its
+// session silent long enough for the server to let it go.
+double connect_slow_preparation_ms = 0.0;
+// **(`--spend-requests-first`)**: with `--stovl-at-once`, eight requests of
+// nothing (`WATCH` of no aircraft) go just before the first asking for its
+// levers - the server's whole second of requests, so that the asking is
+// acknowledged and ignored (net/budget.hpp), as a player pressing keys while
+// joining could make it.
+bool connect_spend_requests_first = false;
+
+// **The ground a STOVL landing is flown onto** (`--stovl-land`): the DEM's
+// coverage, its tiles, the geoid and the runways, as the server collides on.
+struct StovlGround {
+    std::unique_ptr<glideslope::world::DemCoverage> coverage;
+    std::unique_ptr<glideslope::world::DownloadedTiles> tiles;
+    std::unique_ptr<glideslope::world::Geoid> geoid;
+    std::shared_ptr<glideslope::world::CollisionGround> collision;
+};
+
+// **Prepared before joining, not after.** Reading it takes 0.8 s in an idle
+// debug build and 5.6 to 7 s on a busy one; prepared after the handshake,
+// the client said nothing meanwhile and a server with a five-second timeout
+// let it go before its first word (2026-10-23, CI's Ubuntu debug and here).
+std::shared_ptr<const StovlGround> prepare_stovl_ground() {
+    if (connect_slow_preparation_ms > 0.0) {
+        std::this_thread::sleep_for(
+            std::chrono::duration<double, std::milli>(connect_slow_preparation_ms));
+    }
+    auto g = std::make_shared<StovlGround>();
+    const std::filesystem::path data = glideslope::platform::data_directory();
+    std::ifstream coverage_file(data / "dem" / "coverage.txt", std::ios::binary);
+    if (!coverage_file) {
+        throw std::runtime_error("cannot read " + (data / "dem" / "coverage.txt").string());
+    }
+    const std::filesystem::path cache = glideslope::platform::cache_directory();
+    const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
+    g->coverage = std::make_unique<glideslope::world::DemCoverage>(
+        std::string(std::istreambuf_iterator<char>(coverage_file), {}));
+    g->tiles = std::make_unique<glideslope::world::DownloadedTiles>(cache, fetch);
+    g->geoid = std::make_unique<glideslope::world::Geoid>(
+        glideslope::world::egm2008_geoid(cache, fetch));
+    g->collision = std::make_shared<glideslope::world::CollisionGround>(
+        std::make_shared<glideslope::world::Dem>(*g->coverage, *g->tiles, g->geoid.get()),
+        glideslope::world::runway_surfaces(data));
+    return g;
+}
+// Prepared by `connect` before it sends its initiation, for every stay.
+std::shared_ptr<const StovlGround> connect_stovl_ground;
 // **(`--until-held S`)**: stay until its own aircraft has been heard for S
 // seconds of the session's clock, and say how high she was when first heard
 // and how low and how high she went since - what a test of an aircraft left
@@ -464,6 +515,10 @@ void print_usage(std::FILE* out) {
         "                            --stovl-at-once (with --stovl-land) selects it\n"
         "                            with the first input, sent once the server has\n"
         "                            said the levers it holds her on\n"
+        "                            --slow-preparation MS (with --stovl-land) makes\n"
+        "                            the ground it lands on MS ms slower to prepare\n"
+        "                            --spend-requests-first (with --stovl-at-once)\n"
+        "                            sends the server's second of requests first\n"
         "                            --unpaced (with --predict) flies at this\n"
         "                            machine's pace, not steered to the server's\n"
         "                            --stopped-once S MS (with --predict) runs\n"
@@ -1669,24 +1724,10 @@ public:
     // the input sent after the hold, the clocks' difference was put 55
     // steps short, and once it came right the prediction was put right by
     // 85 m (PROJECT_STATUS.md, 2026-10-14).
-    void stovl_land() {
+    void stovl_land(std::shared_ptr<const StovlGround> ground) {
         stovl_land_ = true;
-        const std::filesystem::path data = glideslope::platform::data_directory();
-        std::ifstream coverage_file(data / "dem" / "coverage.txt", std::ios::binary);
-        if (!coverage_file) {
-            throw std::runtime_error("cannot read " + (data / "dem" / "coverage.txt").string());
-        }
-        const std::filesystem::path cache = glideslope::platform::cache_directory();
-        const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
-        dem_coverage_ = std::make_unique<glideslope::world::DemCoverage>(
-            std::string(std::istreambuf_iterator<char>(coverage_file), {}));
-        dem_tiles_ = std::make_unique<glideslope::world::DownloadedTiles>(cache, fetch);
-        dem_geoid_ = std::make_unique<glideslope::world::Geoid>(
-            glideslope::world::egm2008_geoid(cache, fetch));
-        collision_ = std::make_shared<glideslope::world::CollisionGround>(
-            std::make_shared<glideslope::world::Dem>(*dem_coverage_, *dem_tiles_,
-                                                     dem_geoid_.get()),
-            glideslope::world::runway_surfaces(data));
+        stovl_ground_ = std::move(ground);
+        collision_ = stovl_ground_->collision;
     }
     glideslope::sim::Controls stovl_pilot(std::uint32_t sequence) {
         glideslope::sim::Controls c;
@@ -3048,9 +3089,7 @@ private:
     bool server_at_rest_ = false;
     double stovl_lowest_ft_ = 1e9;
     double stovl_kcas_ = 0.0;
-    std::unique_ptr<glideslope::world::DemCoverage> dem_coverage_;
-    std::unique_ptr<glideslope::world::DownloadedTiles> dem_tiles_;
-    std::unique_ptr<glideslope::world::Geoid> dem_geoid_;
+    std::shared_ptr<const StovlGround> stovl_ground_;
     std::shared_ptr<glideslope::world::CollisionGround> collision_;
 
     std::map<std::uint8_t, std::string> models_;
@@ -3355,7 +3394,8 @@ int stay(glideslope::platform::UdpSocket& socket,
             predicting->unpaced();
         }
         if (connect_stovl_land) {
-            predicting->stovl_land();
+            predicting->stovl_land(connect_stovl_ground ? connect_stovl_ground
+                                                        : prepare_stovl_ground());
             if (connect_stovl_at_once) {
                 predicting->stovl_at_once();
             }
@@ -3374,6 +3414,7 @@ int stay(glideslope::platform::UdpSocket& socket,
     // Asked for its own levers (`--stovl-at-once`), and riding in nothing
     // again once they are said.
     bool asked_own_levers = false;
+    double asked_own_levers_at_s = 0.0;
     bool rides_in_nothing = false;
     bool asked_to_take_over = false;
     std::uint8_t ai_to_take = glideslope::net::no_aircraft;
@@ -3593,6 +3634,23 @@ int stay(glideslope::platform::UdpSocket& socket,
         // nothing for a whole stay of a few seconds was taken for one that
         // had never answered (2026-10-06).
         const bool been_in_it = answered > 0 || up_s >= seconds + wait_for_the_last_input_s;
+        // **Waiting for its levers, a server thirty seconds quiet is gone**
+        // (`--stovl-at-once`): it sends no input until they are said, and a
+        // server that let it go and then stopped says nothing more - not even
+        // the refusal its knocks would otherwise be answered with - so it
+        // waited out its whole stay (900 s on CI). Thirty seconds, not the
+        // five a finishing client allows: a server held up is not gone, and
+        // CI's longest machine stall has been 5.2 s.
+        constexpr double levers_server_gone_quiet_s = 30.0;
+        if (predicting && !predicting->ready_to_send() &&
+            up_s - last_heard_s >= levers_server_gone_quiet_s) {
+            say_heard("the server said nothing for 30 s while this client waited for its "
+                      "levers: gone");
+            std::fprintf(stderr, "glideslope_cli: the server went quiet while this client "
+                                 "waited for its levers\n");
+            ended = Ended::dropped;
+            return 1;
+        }
         if (finishing && been_in_it &&
             (!fly || applied >= sequence || up_s >= seconds + wait_for_the_last_input_s ||
              up_s - last_heard_s >= server_gone_quiet_s)) {
@@ -3982,10 +4040,25 @@ int stay(glideslope::platform::UdpSocket& socket,
             // nothing again once said - as the windowed client joins.
             if (predicting) {
                 std::optional<std::uint8_t> watch_for;
+                // Asked again once a second until they are said: a request
+                // past the server's rate is acknowledged and ignored
+                // (net/budget.hpp), so its arriving is not its answer.
                 if (const auto wanted = predicting->levers_wanted(state->your_aircraft);
-                    wanted && !asked_own_levers) {
+                    wanted && (!asked_own_levers || up_s - asked_own_levers_at_s >= 1.0)) {
+                    if (!asked_own_levers && connect_spend_requests_first) {
+                        for (int spent = 0;
+                             spent < static_cast<int>(glideslope::net::session_requests_per_second);
+                             ++spent) {
+                            glideslope::net::Watch nothing;
+                            nothing.aircraft = glideslope::net::no_aircraft;
+                            const std::vector<std::uint8_t> body = glideslope::net::write(nothing);
+                            (void)reliable.send(
+                                std::span<const std::uint8_t>(body.data(), body.size()));
+                        }
+                    }
                     watch_for = *wanted;
                     asked_own_levers = true;
+                    asked_own_levers_at_s = up_s;
                 } else if (asked_own_levers && !rides_in_nothing &&
                            predicting->levers_known()) {
                     watch_for = glideslope::net::no_aircraft;
@@ -4888,6 +4961,11 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
     w.bytes(initiator.begin(std::span<const std::uint8_t>(connect_asked_aircraft.data(),
                                                           connect_asked_aircraft.size())));
     const std::vector<std::uint8_t> first = w.take();
+    // What a STOVL landing needs, read before the server is asked for a
+    // session (prepare_stovl_ground).
+    if (connect_stovl_land && !connect_stovl_ground) {
+        connect_stovl_ground = prepare_stovl_ground();
+    }
 
     // **A test flag's work (`--first-from-elsewhere`)**: a copy of this
     // initiation from another address, answered, before this address sends
@@ -5352,6 +5430,14 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--stovl-at-once") {
                     connect_stovl_at_once = true;
+                    continue;
+                }
+                if (args[i] == "--spend-requests-first") {
+                    connect_spend_requests_first = true;
+                    continue;
+                }
+                if (args[i] == "--slow-preparation" && i + 1 < args.size()) {
+                    connect_slow_preparation_ms = std::strtod(std::string(args[++i]).c_str(), nullptr);
                     continue;
                 }
                 if (args[i] == "--until-held" && i + 1 < args.size()) {

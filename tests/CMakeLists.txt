@@ -2445,6 +2445,31 @@ add_test(NAME a_client_selecting_stovl_on_its_first_input_seeds_its_transition_l
 set_tests_properties(a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once)
+# **And with her client six seconds preparing her ground**, longer than the
+# server's five-second timeout: a busy debug runner took 5.6 to 7 s, and the
+# server let the client go before it had said a word. See
+# cmake/server_stovl_at_once.cmake.
+add_test(NAME a_client_slower_to_prepare_than_the_servers_timeout_is_not_let_go_and_seeds_its_law_as_the_server_does
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_slow -DPORT=24992
+        -DSLOW_MS=6000 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_at_once.cmake)
+set_tests_properties(a_client_slower_to_prepare_than_the_servers_timeout_is_not_let_go_and_seeds_its_law_as_the_server_does
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_slow)
+# **And with its first asking for her levers ignored**: the server's second
+# of requests spent just before it, so that it is acknowledged and ignored.
+# See cmake/server_stovl_at_once.cmake.
+add_test(NAME a_client_whose_first_asking_for_her_levers_is_ignored_asks_again_and_seeds_its_law_as_the_server_does
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_spent -DPORT=24986
+        -DSPEND=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_at_once.cmake)
+set_tests_properties(a_client_whose_first_asking_for_her_levers_is_ignored_asks_again_and_seeds_its_law_as_the_server_does
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_spent)
 # **And against a server behind real time, by centimetres**: its clock at a
 # set 0.6 of real time. Serial: a busy runner would slow it further.
 add_test(NAME a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres

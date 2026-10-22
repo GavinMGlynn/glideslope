@@ -91,3 +91,42 @@ made with a throttle integral of 1 against the server's 0.4685201574755089.
 Before the first input she is flown on the levers the server said it holds
 her on (`held_or`), as the server flies her: the test passes again, as do
 #238's stall test and the prediction tests beside it.
+
+**The test that hung on CI's Ubuntu debug (run 39799851447, 900 s), 2026-10-23.**
+Found, not guessed: on a busy machine (40 busy loops on 20 CPUs, linux-debug)
+the client read the ground a STOVL landing needs - the DEM's coverage, the
+geoid, the runways - *after* its handshake, taking 5.6 and 7.0 s (0.8 s
+idle), and said nothing meanwhile. The server, `--timeout 5`, let it go
+after its first sealed datagram: its log shows one datagram taken from the
+client, then none; strace showed the client making no network call for
+those seconds. The levers were never sent - there was no session left to
+send them to - and the client, which sends no input until it has them, then
+waited its whole stay: its server, everybody gone, had stopped, so nothing
+refused its knocks. Three fixes, each built and seen red:
+
+- **The ground is prepared before the initiation is sent**
+  (`prepare_stovl_ground`), so the session never waits on it.
+  `a_client_slower_to_prepare_than_the_servers_timeout_is_not_let_go_and_seeds_its_law_as_the_server_does`
+  makes the preparation 6 s slower (`--slow-preparation 6000`): before the
+  fix the server let it go after 5.0 s of silence and the client hung until
+  killed at 608 s; after, it passes in 23 s.
+- **Waiting for its levers, a server 30 s quiet is gone**: the client says
+  so and exits 1, rather than waiting out its stay. Seen with the
+  preparation put back after the handshake: the same test fails in 40 s,
+  "the server went quiet while this client waited for its levers", not at
+  ctest's 900 s. Thirty, not five: a server held up is not gone.
+- **The levers are asked for again once a second until said.** `WATCH` is
+  reliable, so it arrives; but a request past the server's eight a second is
+  acknowledged and ignored (net/budget.hpp), so its arriving is not its
+  answer.
+  `a_client_whose_first_asking_for_her_levers_is_ignored_asks_again_and_seeds_its_law_as_the_server_does`
+  spends the server's second of requests just before the first asking
+  (`--spend-requests-first`) and requires the server to say it ignored one:
+  asked once only, it sent no input in 60 s ("1 of 9 requests ignored");
+  asked again, it passes. No protocol change: TRANSPORT.md and THREATS.md
+  stand.
+
+One run here under the same load hung otherwise: the client flew, her
+F-35B descending in STOVL mode for minutes until she struck the ground,
+because fewer than 250 updates had been compared by then. Seen once and not
+explained; the three fixes above do not address it.
