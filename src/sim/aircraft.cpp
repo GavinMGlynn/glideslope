@@ -53,6 +53,14 @@ namespace glideslope::sim {
 
 namespace {
 
+// The lift system's commands (Aircraft::set_lift_system), in LiftSystem's
+// order: STOVL mode, the nozzle, the fan's vane box, the fan's share, the
+// roll posts, the nozzle's swivel and the thrust's split.
+constexpr std::array<const char*, 7> lift_system_commands{
+    "fcs/stovl-cmd-norm",      "fcs/nozzle-cmd-deg",       "fcs/fan-cmd-deg",
+    "fcs/lift-fan-cmd-norm",   "fcs/roll-post-cmd-norm",   "fcs/nozzle-yaw-cmd-norm",
+    "fcs/thrust-split-cmd-norm"};
+
 // JSBSim's hydrodynamics' water level, in feet above its sea level, and where
 // it is put to be out of a flying boat's reach: as far below it as a flying
 // boat 100,000 ft up.
@@ -1071,13 +1079,12 @@ void Aircraft::set_lift_system(const LiftSystem& lift) {
         throw std::invalid_argument("STOVL mode refused at " + std::to_string(value("velocities/vc-kts")) +
                                     " KCAS: her lift system is cleared to " + std::to_string(limit_kcas));
     }
-    set("fcs/stovl-cmd-norm", lift.stovl);
-    set("fcs/nozzle-cmd-deg", lift.nozzle_deg);
-    set("fcs/fan-cmd-deg", lift.fan_deg);
-    set("fcs/lift-fan-cmd-norm", lift.fan);
-    set("fcs/roll-post-cmd-norm", lift.roll_post);
-    set("fcs/nozzle-yaw-cmd-norm", lift.nozzle_yaw);
-    set("fcs/thrust-split-cmd-norm", lift.split);
+    const std::array<double, lift_system_commands.size()> values{
+        lift.stovl, lift.nozzle_deg, lift.fan_deg,    lift.fan,
+        lift.roll_post, lift.nozzle_yaw, lift.split};
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        set(lift_system_commands[i], values[i]);
+    }
 }
 
 void Aircraft::fail_engine(int engine, bool feather) {
@@ -1665,11 +1672,26 @@ void Aircraft::find_replay_nodes() {
     };
     if (SGPropertyNode* fcs = base->getNode("fcs")) {
         for_each_property(base, fcs, [&](const std::string& name, SGPropertyNode* node) {
-            // The commands are the controls', set before every step.
+            // The commands are the controls', set before every step - but
+            // for the lift system's, below.
             if (name.find("cmd") == std::string::npos) {
                 keep(name, node);
             }
         });
+    }
+    // **The lift system's commands are kept**: they are set only while
+    // her flight-control laws fly it, and left as they were given
+    // otherwise (Controller::lift), so a replay flown from before her
+    // STOVL selector was on flew those steps with the newest step's -
+    // the fan's doors commanded open - and the law made on the selector's
+    // step in the replay found them part-open and was made jet-borne: 3
+    // steps after the selector on the client, the server's converting
+    // until 9 s (COMPLETION_PLAN.md, "A STOVL prediction's law changes
+    // stage when the server's does not").
+    for (const char* name : lift_system_commands) {
+        if (SGPropertyNode* node = base->getNode(name)) {
+            keep(name, node);
+        }
     }
     if (SGPropertyNode* gear = base->getNode("gear/gear-pos-norm");
         gear != nullptr && gear->getAttribute(SGPropertyNode::WRITE)) {
