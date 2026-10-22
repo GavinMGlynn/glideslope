@@ -321,6 +321,11 @@ std::shared_ptr<const StovlGround> connect_stovl_ground;
 // client joining her mid-bank (server_stovl_join.cmake).
 bool connect_stovl_level = false;
 long connect_stovl_bank_at = -1;
+// **(`--leave-once-bank-held`)**: with `--stovl-bank-at`, it leaves once
+// her law holds the bank that left and the server has applied the input
+// that centred the stick - the event a client joining her mid-bank waits
+// for (server_stovl_join.cmake), not a time.
+bool connect_leave_once_bank_held = false;
 // **(`--from-held`)**: with `--predict`, it joins as the windowed client does
 // - asking for its own aircraft's levers (`WATCH`), sending nothing until it
 // has them, its prediction begun on them - and every input it sends is what
@@ -571,7 +576,9 @@ void print_usage(std::FILE* out) {
         "                            sends the server's second of requests first\n"
         "                            --stovl-level (with --stovl-land) centres the\n"
         "                            stick once selected; --stovl-bank-at N holds it\n"
-        "                            full right for 60 inputs from N after selecting\n"
+        "                            full right for 60 inputs from N after selecting;\n"
+        "                            --leave-once-bank-held then leaves once her law\n"
+        "                            holds the bank and the server has the input\n"
         "                            --from-held (with --predict) sends what the\n"
         "                            server held her on, once it has said it, as a\n"
         "                            player who touches nothing; --nudge with it\n"
@@ -1879,11 +1886,31 @@ public:
         return levers_ ? glideslope::frontend::held_as_told(*levers_) : otherwise;
     }
     // Whether it may send inputs: always, but selecting at once, not until
-    // its prediction has begun on the server's levers.
+    // its prediction has begun on the server's levers - and a client flying
+    // her STOVL level (`--stovl-level`), joining her, not until it has
+    // begun on the server's law: an input of its own sent first, selector
+    // off, would end the law and the bank it held before the server told it.
     bool ready_to_send() const {
-        return !wants_levers() || prediction_ != nullptr;
+        return (!wants_levers() && !stovl_level_) || prediction_ != nullptr;
     }
     // Its prediction down after a hover, and the server's word at rest.
+    // **Her bank held, and the server has it** (`--leave-once-bank-held`):
+    // the stick centred after `--stovl-bank-at`'s two seconds, the server
+    // has applied that input, and this client's law holds a bank. The
+    // bank held, or none.
+    std::optional<double> bank_held_and_applied() const {
+        if (stovl_bank_at_ < 0 || !stovl_selected_at_ || !prediction_ || !prediction_->laws() ||
+            !prediction_->laws()->transition()) {
+            return std::nullopt;
+        }
+        const long centred = static_cast<long>(*stovl_selected_at_) + stovl_bank_at_ + 60;
+        const double held = prediction_->laws()->transition()->bank_held_deg();
+        if (static_cast<long>(applied_seen_) < centred || held == 0.0) {
+            return std::nullopt;
+        }
+        return held;
+    }
+
     bool stovl_done() const {
         return stovl_down_at_s_.has_value() && server_at_rest_;
     }
@@ -2232,6 +2259,7 @@ public:
                                               glideslope::net::Condition::wrecked);
             }
             const std::uint32_t applied = state.last_input_applied;
+            applied_seen_ = std::max(applied_seen_, applied);
             // Joined, and the clocks' difference known, before this word:
             // a correction from here on is the prediction's, not the
             // joining's (`predicted, joined:`).
@@ -3407,6 +3435,8 @@ private:
     std::optional<LawMade> law_made_;
     // The input the STOVL selector was first sent with (stovl_pilot).
     std::optional<std::uint32_t> stovl_selected_at_;
+    // The newest input the server has said it applied.
+    std::uint32_t applied_seen_ = 0;
     std::optional<double> stovl_converted_at_s_;
     std::optional<double> stovl_hovering_at_s_;
     std::optional<double> stovl_down_at_s_;
@@ -3890,6 +3920,17 @@ int stay(glideslope::platform::UdpSocket& socket,
         }
         if (connect_stovl_land && predicting && predicting->stovl_done()) {
             break;
+        }
+        if (connect_leave_once_bank_held && predicting) {
+            if (const auto held = predicting->bank_held_and_applied()) {
+                char line[120];
+                std::snprintf(line, sizeof line,
+                              "stovl: left once her bank was held, %.3f degrees, and the server "
+                              "had the input that centred the stick",
+                              *held);
+                say_heard(line);
+                break;
+            }
         }
         if (connect_held.done) {
             break;
@@ -5832,6 +5873,10 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--stovl-bank-at" && i + 1 < args.size()) {
                     connect_stovl_bank_at = std::stol(std::string(args[++i]));
+                    continue;
+                }
+                if (args[i] == "--leave-once-bank-held") {
+                    connect_leave_once_bank_held = true;
                     continue;
                 }
                 if (args[i] == "--from-held") {
