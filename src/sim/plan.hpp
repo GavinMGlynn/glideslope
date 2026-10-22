@@ -10,6 +10,7 @@
 // **A plan is data**, a text file, one command a line (assets/plans):
 //
 //   aircraft NAME                                       what it is written for
+//   loading NAME              at a loading her figures file names (optional)
 //   start LATITUDE LONGITUDE ALTITUDE_FT HEADING_DEG AIRSPEED_KT   in the air
 //   runway NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M
 //   takeoff HEIGHT_FT                   or on that runway's threshold, to go
@@ -20,6 +21,13 @@
 //
 // with `#` beginning a comment. Degrees are WGS84's, altitudes above sea
 // level, airspeeds calibrated.
+//
+// **A plan may name her loading**, as a player's `--loading` does: one her
+// figures file names (assets/figures; an F-35B light enough to hover is
+// `vertical_landing`), refused by name where it is flown if they do not
+// (sim::refuse_what_it_cannot_fly). Without one she flies at her model's own.
+// The server's AI aircraft fly it, and a player given the plan's aircraft
+// who asks for no loading is given it too.
 //
 // **A plan starts in the air or on a runway**: `start`, or `runway` and
 // `takeoff` together - the runway's threshold, where it faces along it, and
@@ -160,6 +168,12 @@ struct Waypoint {
 
 struct FlightPlan {
     std::string aircraft;
+    // **The loading she flies at** (`loading NAME`): one her figures file
+    // names (sim::named_loading), as a player's `--loading` is - an F-35B
+    // light enough to hover, `vertical_landing`. Empty, her model's own.
+    // Held to her figures where the plan is flown
+    // (sim::refuse_what_it_cannot_fly), not as it is read.
+    std::string loading;
     struct Start {
         double latitude_deg = 0.0;
         double longitude_deg = 0.0;
@@ -192,6 +206,7 @@ struct FlightPlan {
 };
 
 // Throws FlightPlanError naming the line of anything it cannot read, for a
+// second `aircraft`, `start`, `loading` or the like, for a
 // line after `land` or `land_vertically`, for both of them, and for a plan
 // with no aircraft or no waypoints, with both a start and a take-off, or
 // with a runway and no take-off from it or the other way round.

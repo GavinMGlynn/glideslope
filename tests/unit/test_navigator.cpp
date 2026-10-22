@@ -3337,3 +3337,74 @@ GLIDESLOPE_TEST(a_vertical_landing_is_read_from_a_plan_and_refused_where_it_is_w
     }
     check(refusals == 11, "eleven ways wrong, and every one refused");
 }
+
+// **A plan names her loading** (`loading NAME`), as a player's `--loading`
+// does: read, and held to her figures by name where it is flown
+// (sim::refuse_what_it_cannot_fly). Every named loading of every aircraft in
+// the catalogue is accepted for her, the count stated; one her figures do
+// not name is refused, naming it and the ones they do; and its words, and a
+// second one, are refused as it is read.
+GLIDESLOPE_TEST(a_plans_loading_is_one_her_figures_name_or_the_plan_is_refused_by_it) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const FlightPlan plan = parse_flight_plan(
+        "aircraft f35b\nloading vertical_landing\nwaypoint A -33.9 151.2 1000 250\n");
+    check(plan.loading == "vertical_landing", "her loading is read: " + plan.loading);
+    check(parse_flight_plan("aircraft f35b\nwaypoint A -33.9 151.2 1000 250\n").loading.empty(),
+          "a plan naming none flies her model's own");
+
+    // The loading's refusal, or none: the speeds are another check's.
+    const auto loading_refusal = [&](const std::string& id, const std::string& name) {
+        try {
+            FlightPlan p = parse_flight_plan("aircraft " + id + "\nloading " + name +
+                                             "\nwaypoint A -33.9 151.2 3000 100\n");
+            glideslope::sim::refuse_what_it_cannot_fly(data, p, id);
+        } catch (const FlightPlanError& e) {
+            const std::string why = e.what();
+            return why.find("loading") != std::string::npos ? why : std::string();
+        }
+        return std::string();
+    };
+    std::size_t aircraft = 0;
+    std::size_t accepted = 0;
+    std::size_t named = 0;
+    for (const glideslope::sim::CatalogueEntry& e : glideslope::sim::read_catalogue(data)) {
+        ++aircraft;
+        const std::filesystem::path file = data / "figures" / (e.model + ".xml");
+        if (std::filesystem::exists(file)) {
+            for (const auto& [name, loading] :
+                 glideslope::sim::read_published_figures(file).loadings) {
+                if (name.empty()) {
+                    continue;
+                }
+                ++named;
+                const std::string why = loading_refusal(e.id, name);
+                check(why.empty(), e.id + "'s " + name + " is flown: " + why);
+                accepted += why.empty() ? 1U : 0U;
+            }
+        }
+        const std::string unknown = loading_refusal(e.id, "no_such_loading");
+        check(unknown.find("the plan's loading no_such_loading is not one the " + e.id +
+                           "'s figures name") != std::string::npos,
+              e.id + " refuses a loading her figures do not name, by name: " + unknown);
+    }
+    check(aircraft == 16 && accepted == named && named > 0,
+          "every named loading of the 16 aircraft is flown: " + std::to_string(accepted) +
+              " of " + std::to_string(named) + ", of " + std::to_string(aircraft) + " aircraft");
+    const std::string f35b = loading_refusal("f35b", "heavy");
+    check(f35b.find("they name") != std::string::npos &&
+              f35b.find("vertical_landing") != std::string::npos,
+          "and says the ones her figures do name: " + f35b);
+    std::printf("%zu named loadings of %zu aircraft flown from a plan; an unknown one refused "
+                "for each\n",
+                accepted, aircraft);
+
+    const std::string head = "aircraft f35b\nwaypoint A -33 151 3000 250\n";
+    check(refused("aircraft f35b\nloading\n" + head.substr(14), "loading NAME"),
+          "a loading with no name is refused");
+    check(refused("aircraft f35b\nloading a b\n" + head.substr(14), "loading NAME"),
+          "a loading of two words is refused");
+    check(refused("aircraft f35b\nloading full\nloading combat\n" + head.substr(14),
+                  "a second loading line"),
+          "a second loading is refused");
+}
