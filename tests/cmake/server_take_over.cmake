@@ -141,6 +141,16 @@ if(NOT _had EQUAL CMAKE_MATCH_2 OR CMAKE_MATCH_3 GREATER 1 OR CMAKE_MATCH_1 LESS
     message(FATAL_ERROR "a long frame was built after ${CMAKE_MATCH_1} of ${CMAKE_MATCH_2} "
                         "switches, ${CMAKE_MATCH_3} overtaken by another:\n${_said}")
 endif()
+# **A frame the machine mostly took is counted apart** (glideslope_cli's
+# `MachineStall`; server_paced_prediction.cmake pins it): CI's Windows
+# runners stopped this client 1,267 ms once and it was put right by 41 m
+# (run 39701548318). The corrections and errors across each such stall -
+# the server's catching up and the 60 words after - are named, not judged;
+# every one after is, so a prediction that does not come back still fails.
+if(NOT _said MATCHES "the machine's stalls: ([0-9]+) frames[^\n]*, ([0-9]+) updates compared")
+    message(FATAL_ERROR "the client did not say its machine's stalls:\n${_said}")
+endif()
+set(_stalls "${CMAKE_MATCH_1} machine's stalls, ${CMAKE_MATCH_2} updates across them counted apart")
 if(NOT _said MATCHES "predicted: [0-9]+ corrections, the worst ([0-9.]+) m, 0 too large to hide")
     message(FATAL_ERROR "a correction was too large to hide:\n${_said}")
 endif()
@@ -182,4 +192,4 @@ if(_refused MATCHES "took over")
 endif()
 message(STATUS "through ${DELAY} ms: took over aircraft ${_taken}, a step of ${_step} m, then "
                "${_since} updates within ${_since_m} m; a player's refused, flown by hand and "
-               "by the AI, and a server that forbids it refused")
+               "by the AI, and a server that forbids it refused; ${_stalls}")
