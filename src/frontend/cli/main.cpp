@@ -190,8 +190,13 @@ bool connect_unpaced = false;
 // and flies nothing - as a machine that stops it does (GitHub's Windows
 // runners did for 3.5 s, 2026-10-21); a server told the same moment
 // (`--test-stopped-once`) is stopped with it, a whole machine's stall. The
-// time is not counted as its own (`Predicting::render`): to it, it is the
+// time is not counted as its own (`Predicting::pass`): to it, it is the
 // machine's. A test's stall, built rather than waited for. Negative: none.
+// **Stopped with a word waiting unread**: on the first pass from S that comes
+// straight after a datagram was read, so that what came meanwhile is behind
+// one still in the socket - the order that named macOS's stall after its
+// words had been heard (Predicting::pass); a stall on an idle pass is the
+// easy one.
 double connect_stopped_once_at_s = -1.0;
 double connect_stopped_once_ms = 0.0;
 // **(`--stovl-land`)**: with `--predict`, its pilot selects STOVL mode five
@@ -434,7 +439,8 @@ void print_usage(std::FILE* out) {
         "                            machine's pace, not steered to the server's\n"
         "                            --stopped-once S MS (with --predict) runs\n"
         "                            nothing for MS milliseconds at S seconds on the\n"
-        "                            session's clock, as a machine that stops it does\n"
+        "                            session's clock, as a machine that stops it does,\n"
+        "                            on a pass with a word waiting unread\n"
         "                            --track FILE writes where every aircraft was\n"
         "                            heard to be, and, predicting, where each other\n"
         "                            one was drawn, to FILE\n"
@@ -2192,7 +2198,40 @@ public:
     }
 
     // A sleep between passes, of `asked_s` asked for: this client's own.
-    void slept(double asked_s) { asked_s_ += asked_s; }
+    void slept(double asked_s) {
+        asked_s_ += asked_s;
+        pass_asked_s_ += asked_s;
+    }
+
+    // **A pass begun at `local_s`: was the time since the last one the
+    // machine's?** Asked at the top of every pass, before anything waiting
+    // is read - not at a frame, which is drawn only once the socket is read
+    // dry. Named at a frame, a stall that came on a pass with words still
+    // waiting was named after the words that came through it had been
+    // heard: the session's clock, refitted on them, put the server's
+    // catching up after the stall, not before, and its 60 words were spent
+    // on it (macOS release, run 39796618052: 0 words catching up, 4.2 m
+    // off past the 60). Once frames are drawn (`render`), as there.
+    void pass(double local_s) {
+        const double cpu_s = glideslope::platform::thread_cpu_s();
+        if (rendered_s_ >= 0.0 && pass_at_s_ >= 0.0) {
+            const double between = local_s - pass_at_s_;
+            const double own = (cpu_s >= 0.0 && cpu_at_pass_s_ >= 0.0
+                                    ? cpu_s - cpu_at_pass_s_
+                                    : between) +
+                               pass_asked_s_ +
+                               (own_writes_waited_s - writes_waited_at_pass_s_);
+            // **A pass the machine mostly took**, and long enough to put the
+            // server's handling of inputs behind (frontend::MachineStalls).
+            stalls_.frame(local_s, between, own,
+                          clock_.known() ? std::optional<double>(clock_.now(local_s))
+                                         : std::nullopt);
+        }
+        pass_at_s_ = local_s;
+        cpu_at_pass_s_ = cpu_s;
+        writes_waited_at_pass_s_ = own_writes_waited_s;
+        pass_asked_s_ = 0.0;
+    }
 
     // Shows every other aircraft at `local_s`, as a 60 Hz screen would.
     //
@@ -2226,9 +2265,6 @@ public:
                 longest_between_frames_s_ = between;
                 longest_machines_s_ = std::max(0.0, between - own);
             }
-            // **A frame the machine mostly took**, and long enough to put
-            // the server's handling of inputs behind (frontend::MachineStalls).
-            stalls_.frame(local_s, between, own, clock_.now(local_s));
             longest_own_between_frames_s_ =
                 std::max(longest_own_between_frames_s_, std::min(between, own));
         }
@@ -2907,6 +2943,11 @@ private:
     double cpu_at_frame_s_ = -1.0;
     double writes_waited_at_frame_s_ = 0.0;
     double asked_s_ = 0.0;
+    // The same since the last pass (`pass`), and when it began.
+    double pass_at_s_ = -1.0;
+    double cpu_at_pass_s_ = -1.0;
+    double writes_waited_at_pass_s_ = 0.0;
+    double pass_asked_s_ = 0.0;
     std::optional<double> reconciled_s_;
     // Where each step of its own flying took it, and whether that counts
     // towards the prediction error (not while joining or resuming).
@@ -3219,6 +3260,9 @@ int stay(glideslope::platform::UdpSocket& socket,
         double up_s =
             std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
                 .count();
+        if (predicting) {
+            predicting->pass(up_s);
+        }
         if (until_flying_again > 0 && flown_again >= until_flying_again) {
             break;
         }
@@ -3335,8 +3379,9 @@ int stay(glideslope::platform::UdpSocket& socket,
             break;
         }
         // **A test's stall** (`--stopped-once`): nothing run, as when a
-        // machine stops it, and not counted as its own.
-        if (connect_stopped_once_at_s >= 0.0 && predicting &&
+        // machine stops it, and not counted as its own; on a pass with a
+        // word still waiting, the order that is hard to get right.
+        if (connect_stopped_once_at_s >= 0.0 && predicting && !drained &&
             predicting->session_now(up_s).value_or(-1.0) >= connect_stopped_once_at_s) {
             connect_stopped_once_at_s = -1.0;
             std::this_thread::sleep_for(
