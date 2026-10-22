@@ -3015,6 +3015,30 @@ foreach(_case 1:24729:claude_and_with_no_key_is_refused_and_its_aircraft_held
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/model_chosen_${_presses})
 endforeach()
 
+# **The client with the window flies the F-35B at the loading she is given**:
+# asked for alone, told by a server's AIRCRAFT, and on a take-over of the
+# same aeroplane loaded otherwise, her flight made again at that one. Her
+# weight as each flight begins against her figures file's vertical_landing.
+# See cmake/client_loading.cmake.
+foreach(_case ALONE:24971:alone_at_her_vertical_landing_loading_flies_her_at_its_weight
+              SERVER:24973:asking_a_server_for_her_vertical_landing_loading_is_told_it_and_flies_her_at_its_weight
+              TAKE_OVER:24975:at_a_loading_taking_over_an_f35b_loaded_otherwise_flies_her_again_at_that_loading)
+    string(REPLACE ":" ";" _case "${_case}")
+    list(GET _case 0 _which)
+    list(GET _case 1 _port)
+    list(GET _case 2 _what)
+    set(_name the_client_with_the_window_${_what})
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/client_loading_${_which} -DPORT=${_port}
+            -DDRIVER=vulkan -DCASE=${_which}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_loading.cmake)
+    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_loading_${_which})
+endforeach()
+
 # **A player's aircraft handed to the AI and back, then wrecked, flies again
 # as the player's.** See cmake/server_swap_wreck.cmake.
 add_test(NAME an_aircraft_taken_back_from_the_ai_and_wrecked_flies_again_as_its_players

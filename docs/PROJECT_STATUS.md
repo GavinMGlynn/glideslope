@@ -216,8 +216,8 @@ are the risks the phase order is built around:
   figure is the B Mk IV's. The A380's are the Boeing 747's, the nearest
   aircraft of its kind whose derivatives are published. A player's F-35B
   joins at a loading she asks for and converts, hovers and lands vertically
-  through a server (2026-10-16); the windowed client's loading is compiled,
-  not run, and her jet-borne and hover laws' integrals are each side's own. She flies
+  through a server (2026-10-16), and the windowed client flies her at it
+  (2026-10-22); her jet-borne and hover laws' integrals are each side's own. She flies
   30 kt backward in the hover (2026-10-20); her lift still steps at 180
   degrees, which her height law takes up. Jet-borne her stick rolls her and,
   centred, holds her bank, as the VAAC Harrier's unified law does, and her
