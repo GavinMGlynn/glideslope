@@ -65,10 +65,17 @@ if(NOT _rc EQUAL 0)
 endif()
 
 math(EXPR _relay "${PORT} + 1")
+set(_slow "")
+if(DEFINED SLOW_MS)
+    set(_slow --slow-preparation ${SLOW_MS})
+endif()
+if(SPEND)
+    list(APPEND _slow --spend-requests-first)
+endif()
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 900 --after 1
             --aircraft f35b --predict --stovl-land --stovl-at-once --until-compared 250
-            --heard "${_heard}"
+            --heard "${_heard}" ${_slow}
     COMMAND "${SERVER}" --port ${PORT} --seconds 1000 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 5 --store "${_store}" --plan "${_plan}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
@@ -81,6 +88,12 @@ if(_out MATCHES "is a wreck" OR _err MATCHES "is a wreck")
     message(FATAL_ERROR "an aircraft was a wreck:\n${_out}\n${_err}")
 endif()
 file(READ "${_heard}" _said)
+# Built, not hoped for (`SPEND`): the server says it ignored a request of
+# this client's past its rate - the first asking for her levers.
+if(SPEND AND NOT _err MATCHES "dropped past [0-9]+ a second, [1-9][0-9]* of [0-9]+ requests ignored")
+    message(FATAL_ERROR "the server ignored none of the client's requests, so its first asking "
+                        "for her levers was answered:\n${_err}")
+endif()
 if(NOT _said MATCHES "stovl: selected with input 1, at once, on the server's levers \\(said\\)")
     message(FATAL_ERROR "the client did not select STOVL mode with its first input, on the "
                         "server's levers:\n${_said}\n${_err}")
