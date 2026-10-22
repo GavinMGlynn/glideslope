@@ -774,6 +774,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       clients count the updates across a stall their machine took apart and
       name them, and every update after is judged as before; a built 3.5 s
       stall of client and server is back within a metre 4 to 8 updates on.
+- [x] **The paced prediction through a stall on CI's macOS went 4.2 m off
+      past the stall's 60 words** (run 39796618052): the client named the
+      stall at its next frame, after reading the words that came through it,
+      so the server's catching up spent the 60. *Verification: the built
+      stall begun with a word waiting and the client woken after the
+      server's catching up counts it as catching up and holds every bound,
+      red without the fix.* Done 2026-10-23: named at the top of each pass.
 - [x] **The impaired checks' AI controls are shown 0.0051 to 0.0061 off**
       on CI's macOS (nightly, 2026-10-15 and 2026-10-21; 0.005 is the bound):
       the throttle drawn at 0.9949 where it was 1.0, past a step to full

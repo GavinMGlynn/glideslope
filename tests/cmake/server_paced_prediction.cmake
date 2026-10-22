@@ -37,12 +37,19 @@
 # the rest, and the median and percentiles are of all of them, so a
 # recovery that never comes still fails.
 #
-# **Built** (`-DSTOPPED=ON`): the client and server each run nothing for
-# 3.5 s at 12 s on the session's clock (`--stopped-once`,
-# `--test-stopped-once`), a whole machine stopped - the relay runs on, which
-# stopped alone 3 s by hand moved nothing past a metre. The test requires
-# that stall named, of 3.4 s or more, all 60 words after it
-# heard, and the error back within a metre by the last of them.
+# **Built** (`-DSTOPPED=ON`): the server runs nothing for 3.5 s at 12 s on
+# the session's clock (`--test-stopped-once`) and the client for 4 s
+# (`--stopped-once`), on a pass with a word still waiting unread, a whole
+# machine stopped - the relay runs on, which stopped alone 3 s by hand moved
+# nothing past a metre. **The client wakes last, with the server's catching
+# up all waiting**: macOS's runner woke it 150 ms late (3,650 ms of 3,500),
+# and a stall named only at the frame drawn once all of that was read put
+# the catching up after it, 0 words of it, spent the 60 words on it and was
+# 4.2 m off past them (run 39796618052). The test requires that stall named,
+# of 3.4 s or more, the server's catching up counted as such, all 60 words
+# after it heard, and the error back within a metre by the last of them.
+# Seen red with the stall named at the frame again (2026-10-23): 0 words
+# catching up, 5.9 and 6.3 m off past the 60.
 # Linux release: 5.6 to 6.3 m at worst across it, back within a metre from the
 # 4th to 8th word after; 0.475 to 0.945 m at worst elsewhere. A stall of its own
 # (a busy wait in its place) is not counted apart, and fails.
@@ -99,11 +106,12 @@ set(_unpaced "")
 if(UNPACED)
     set(_unpaced --unpaced)
 endif()
-# The whole machine stopped 3.5 s, 20 s in: client, server and relay each
-# told to run nothing then, as a runner that stops them all does.
+# The whole machine stopped 3.5 s, 20 s in: client and server each told to
+# run nothing then, as a runner that stops them all does, the client woken
+# half a second after the server, as macOS's woke it late.
 set(_server_stopped "")
 if(STOPPED)
-    list(APPEND _unpaced --stopped-once 12 3500)
+    list(APPEND _unpaced --stopped-once 12 4000)
     set(_server_stopped --test-stopped-once 12 3500)
 endif()
 math(EXPR _relay "${PORT} + 1")
@@ -174,6 +182,10 @@ if(STOPPED)
            "${CMAKE_MATCH_2} of its catching up")
     if(CMAKE_MATCH_1 LESS 3400)
         message(FATAL_ERROR "the machine was not stopped 3.5 s: ${_line}:\n${_said}")
+    endif()
+    if(CMAKE_MATCH_2 EQUAL 0)
+        message(FATAL_ERROR "the server's catching up was not counted as such, so the "
+                            "60 words after the stall were spent on it: ${_line}:\n${_said}")
     endif()
     if(NOT CMAKE_MATCH_3 EQUAL 60 OR CMAKE_MATCH_6 GREATER 60)
         message(FATAL_ERROR "the prediction did not come back within a metre in the 60 "
