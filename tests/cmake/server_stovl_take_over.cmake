@@ -4,7 +4,8 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli>
 #         -DIMPAIR=<glideslope_impair> -DDATA=<data dir> -DCACHE=<downloads dir>
-#         -DWORK=<scratch> -DPORT=<a port> -DSCENE=take_over|take_back
+#         -DWORK=<scratch> -DPORT=<a port>
+#         -DSCENE=take_over|take_back|take_back_wing_borne
 #         -P server_stovl_take_over.cmake
 #
 # **Built, not hoped for.** The server runs one AI F-35B on a plan that
@@ -30,13 +31,25 @@
 #              in STOVL mode: the AI holds the hover she is slowing to at
 #              the height asked (sim::Controller), and her law is never
 #              let go.
+#   take_back_wing_borne
+#              The same hand-over, and 5 s later a route sent for the AI
+#              to fly (`--send-route`, a waypoint 21 km north at 2,500 ft
+#              and 250 kt): the AI converts her back and flies it
+#              wing-borne, and her law is let go. Taken back 300 s in,
+#              wing-borne at 250 kt, its selector still on: the server
+#              makes her a new law on the step it gives her back, and
+#              tells it (stage 0). Before the server told a law on a
+#              take-back, the client made its own from its own state, a
+#              step or more apart: 0.858 degrees of pitch off
+#              (PROJECT_STATUS.md, 2026-10-22).
 #
 # Either way it stays until 750 updates are compared since its prediction
 # began on the law told (`--until-compared-on-law`): the event, not a time.
 #
 # **What must hold**: no wreck; the AI flies the plan's loading; the
 # take-over or the take-back is done, and the server told her law to the
-# client once, hovering (stage 3); the client began its prediction on it,
+# client once, hovering (stage 3; wing-borne, stage 0, made afresh on the
+# take-back, for take_back_wing_borne); the client began its prediction on it,
 # hovering, and from its first update compared, its predicted pitch within
 # half a degree of the server's at every update, the median within 60 mm,
 # the 95th percentile within 3.4 m and the worst within 5.6 m:
@@ -54,7 +67,9 @@ endif()
 set(_store "${WORK}/stovl.sqlite")
 set(_heard "${WORK}/heard.txt")
 set(_plan "${WORK}/hover.plan")
+set(_route "${WORK}/north.route")
 file(REMOVE "${_store}" "${_heard}")
+file(WRITE "${_route}" "waypoint NORTH -33.7000 151.1772 2500 250\n")
 file(WRITE "${_plan}" "aircraft f35b\n"
                       "loading vertical_landing\n"
                       "start -33.9800 151.1772 1000 0 210\n"
@@ -81,8 +96,12 @@ if(SCENE STREQUAL "take_over")
     list(APPEND _flies --watch-ai --take-over-at 200)
 elseif(SCENE STREQUAL "take_back")
     list(APPEND _flies --hand-over-at 150 --take-back-at 200)
+elseif(SCENE STREQUAL "take_back_wing_borne")
+    list(APPEND _flies --hand-over-at 150 --send-route "${_route}" --copilot-at 155
+                       --copilot-stay 600 --take-back-at 300)
 else()
-    message(FATAL_ERROR "SCENE is take_over or take_back, not '${SCENE}'")
+    message(FATAL_ERROR "SCENE is take_over, take_back or take_back_wing_borne, not "
+                        "'${SCENE}'")
 endif()
 execute_process(
     COMMAND "${CLIENT}" ${_flies}
@@ -108,24 +127,42 @@ if(SCENE STREQUAL "take_over")
     if(NOT _err MATCHES "aircraft ([0-9]+) taken over; aircraft [0-9]+, left, now the AI's")
         message(FATAL_ERROR "the AI's F-35B was not taken over:\n${_err}")
     endif()
+    set(_hers "${CMAKE_MATCH_1}")
 else()
-    if(NOT _err MATCHES "aircraft ([0-9]+) handed to the AI\n" OR
-       NOT _err MATCHES "aircraft ${CMAKE_MATCH_1} handed to its pilot\n")
-        message(FATAL_ERROR "her F-35B was not handed to the AI and taken back:\n${_err}")
+    # Two tests, not one: `${CMAKE_MATCH_1}` in a single condition is
+    # expanded before its first MATCHES has run.
+    if(NOT _err MATCHES "aircraft ([0-9]+) handed to the AI\n")
+        message(FATAL_ERROR "her F-35B was not handed to the AI:\n${_err}")
+    endif()
+    set(_hers "${CMAKE_MATCH_1}")
+    if(NOT _err MATCHES "aircraft ${_hers} handed to its pilot\n")
+        message(FATAL_ERROR "her F-35B was not taken back:\n${_err}")
     endif()
 endif()
-set(_hers "${CMAKE_MATCH_1}")
+set(_stage 3)
+if(SCENE STREQUAL "take_back_wing_borne")
+    set(_stage 0)
+    # Her law made twice: as her pilot selected STOVL mode, and again as
+    # she was taken back with it still selected, the first let go.
+    string(REGEX MATCHALL "aircraft ${_hers}'s STOVL law made at step" _made "${_err}")
+    list(LENGTH _made _made)
+    if(NOT _err MATCHES "aircraft ${_hers} flies its copilot's route of 1" OR
+       NOT _made EQUAL 2)
+        message(FATAL_ERROR "the AI did not fly her route, or no law was made afresh as she "
+                            "was taken back:\n${_err}")
+    endif()
+endif()
 string(REGEX MATCHALL "aircraft [0-9]+'s STOVL law told to its client[^\n]*" _told "${_err}")
 list(LENGTH _told _times)
-if(NOT _times EQUAL 1 OR NOT _told MATCHES "^aircraft ${_hers}'s .*: stage 3,")
+if(NOT _times EQUAL 1 OR NOT _told MATCHES "^aircraft ${_hers}'s .*: stage ${_stage},")
     message(FATAL_ERROR "the server told her law ${_times} times, not once for aircraft "
-                        "${_hers} hovering:\n${_err}")
+                        "${_hers} in stage ${_stage}:\n${_err}")
 endif()
 if(NOT _said MATCHES "stovl: prediction begun on the server's LAW_STATE at [0-9.]+ s: stage ([0-9])")
     message(FATAL_ERROR "the client never began its prediction on the server's law:\n${_said}")
 endif()
-if(NOT CMAKE_MATCH_1 EQUAL 3)
-    message(FATAL_ERROR "the client was given her in stage ${CMAKE_MATCH_1}, not hovering:\n"
+if(NOT CMAKE_MATCH_1 EQUAL _stage)
+    message(FATAL_ERROR "the client was given her in stage ${CMAKE_MATCH_1}, not ${_stage}:\n"
                         "${_said}")
 endif()
 if(NOT _said MATCHES "stovl: predicted pitch within ([0-9]+)\\.([0-9][0-9][0-9]) degrees")
@@ -163,6 +200,6 @@ math(EXPR _p95_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
 if(_p95_mm GREATER 3400)
     message(FATAL_ERROR "the 95th percentile was ${_p95_mm} mm, over 3.4 m:\n${_said}")
 endif()
-message(STATUS "${SCENE}: aircraft ${_hers} told hovering; pitch within ${_pitch} degrees, "
+message(STATUS "${SCENE}: aircraft ${_hers} told in stage ${_stage}; pitch within ${_pitch} degrees, "
                "median ${_median_mm} mm, 95th percentile ${_p95_mm} mm, worst ${_worst} m "
                "over ${_compared} updates")
