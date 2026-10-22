@@ -393,6 +393,7 @@ GLIDESLOPE_TEST(every_aircraft_a_players_first_input_sends_is_what_the_server_he
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
     std::size_t alike = 0;
     std::size_t with_trim = 0;
+    std::size_t with_roll_trim = 0;
     std::string failed;
     for (const CatalogueEntry& e : catalogue) {
         glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
@@ -447,6 +448,9 @@ GLIDESLOPE_TEST(every_aircraft_a_players_first_input_sends_is_what_the_server_he
         if (h.pitch_trim != 0.0) {
             ++with_trim;
         }
+        if (h.roll_trim != 0.0) {
+            ++with_roll_trim;
+        }
     }
     check(failed.empty(), "every aircraft's first input is what she was held on; these were "
                           "not:" + failed);
@@ -455,6 +459,11 @@ GLIDESLOPE_TEST(every_aircraft_a_players_first_input_sends_is_what_the_server_he
               std::to_string(catalogue.size()));
     // A trim of nought everywhere would make the rule trivially kept.
     check(with_trim > 0, "and some were held on a pitch trim: " + std::to_string(with_trim));
+    // And on a roll trim: the levers read the pitch trim negated and the
+    // roll trim as it is (frontend::levers_of), and only a trim held off
+    // nought shows a sign put wrong.
+    check(with_roll_trim > 0,
+          "and some were held on a roll trim: " + std::to_string(with_roll_trim));
 }
 
 // **Every aircraft's roll and yaw trim is her aileron and rudder, or named.**

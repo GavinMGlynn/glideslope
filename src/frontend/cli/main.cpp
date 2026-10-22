@@ -2252,6 +2252,47 @@ public:
                 const double placed_speed_error = std::abs(nearest->speed_mps - server_speed);
                 const double steps_off = std::abs(static_cast<double>(nearest->step + 1) -
                                                   static_cast<double>(*c.at_step));
+                // **Off where, apart from off when**: the server's word
+                // against the nearest step this client flew, and how
+                // many steps from the one its input placed it at. A
+                // word whose input reached the server late - a relay or
+                // server held up on a busy machine, which this client
+                // cannot see (MachineStalls) - is placed whole steps
+                // off, and its error above is those steps' travel on a
+                // path flown alike; a prediction gone wrong is off the
+                // path. Outside the machine's stalls, as the worst is.
+                // Against the path between the steps, not the steps
+                // alone: where a correction moved the steps on, the
+                // steps kept skip one, and the word between them is a
+                // step's travel from each on the same path.
+                double off_path_m = nearest_m;
+                for (std::size_t i = 1; i < predicted_at_.size(); ++i) {
+                    const auto& a = predicted_at_[i - 1].where;
+                    const auto& b = predicted_at_[i].where;
+                    const double ab[3] = {b[0] - a[0], b[1] - a[1], b[2] - a[2]};
+                    const double am[3] = {m.location_ecef_m[0] - a[0],
+                                          m.location_ecef_m[1] - a[1],
+                                          m.location_ecef_m[2] - a[2]};
+                    const double length2 = ab[0] * ab[0] + ab[1] * ab[1] + ab[2] * ab[2];
+                    const double t =
+                        length2 > 0.0
+                            ? std::clamp((am[0] * ab[0] + am[1] * ab[1] + am[2] * ab[2]) /
+                                             length2,
+                                         0.0, 1.0)
+                            : 0.0;
+                    off_path_m = std::min(off_path_m, std::hypot(am[0] - t * ab[0],
+                                                                 am[1] - t * ab[1],
+                                                                 am[2] - t * ab[2]));
+                }
+                if (!across) {
+                    if (at_an_end) {
+                        ++placed_at_an_end_;
+                    } else {
+                        ++placed_compared_;
+                        worst_placed_error_m_ = std::max(worst_placed_error_m_, off_path_m);
+                        worst_steps_off_ = std::max(worst_steps_off_, steps_off);
+                    }
+                }
                 // **Each comparison, for a test to read the series**:
                 // when, the error, the step it was placed at, the input
                 // and how far into it, the clocks' difference over all
@@ -2262,7 +2303,7 @@ public:
                             << ' ' << prediction_->clocks_difference().value_or(0) << ' '
                             << prediction_->recent_clocks_difference().value_or(0) << ' '
                             << (paced_ ? pacing_.pace() : 1.0) << ' ' << speed_error
-                            << '\n';
+                            << ' ' << off_path_m << ' ' << steps_off << '\n';
                 }
                 // **Before and after an engine stopped**, apart.
                 if (engine_stopped_at_s_) {
@@ -2706,6 +2747,16 @@ public:
                       "not compared), "
                       "%.1f s in",
                       compared_, worst_error_m_, joining_.size(), worst_error_at_s_);
+        lines.emplace_back(line);
+        // **Off where, and off when** (`own_word`): the worst of every word
+        // against the path flown, and the most steps its input placed one
+        // from the nearest step on it.
+        std::snprintf(line, sizeof line,
+                      "prediction error off the path: the worst %.3f m from the path flown "
+                      "over %zu updates, %zu nearest at an end of the steps kept; placed "
+                      "%.0f steps from there at most",
+                      worst_placed_error_m_, placed_compared_, placed_at_an_end_,
+                      worst_steps_off_);
         lines.emplace_back(line);
         // **The machine's stalls, apart** (frontend::MachineStalls): the
         // worst and the corrections above are of every other word; the median
@@ -3288,6 +3339,13 @@ private:
     std::vector<double> steps_off_engine_stopped_;
     std::vector<double> steps_off_engine_running_;
     std::size_t nearest_at_an_end_ = 0;
+    // Every word outside the machine's stalls against the nearest step flown
+    // (`own_word`): how many, how many nearest at an end, the worst distance
+    // and the most steps placed off.
+    std::size_t placed_compared_ = 0;
+    std::size_t placed_at_an_end_ = 0;
+    double worst_placed_error_m_ = 0.0;
+    double worst_steps_off_ = 0.0;
     double worst_error_engine_running_m_ = 0.0;
     double worst_correction_engine_stopped_m_ = 0.0;
     double worst_correction_engine_running_m_ = 0.0;

@@ -1,6 +1,7 @@
 # machine_stalls_check.cmake - what a test that predicts holds a machine's
 # stalls to, included by each: server_paced_prediction, server_take_over,
-# server_stovl_landing, server_stovl_vertical_landing and client_on_server.
+# server_stovl_landing, server_stovl_vertical_landing, server_first_input and
+# client_on_server.
 #
 # A client counts apart the updates and corrections across a frame its machine
 # mostly took (frontend::MachineStalls). That is an excuse, and it is capped,
