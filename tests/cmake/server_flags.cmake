@@ -51,7 +51,9 @@ list(LENGTH _flags _count)
 # --no-take-over forbids a player taking over an AI's aircraft.
 # --test-step-ms makes every step take at least that long, to put a server
 # behind real time on any machine (server_behind.cmake), and --test-pace runs
-# its clock at a set fraction of real time (server_paced_prediction.cmake).
+# its clock at a set fraction of real time (server_paced_prediction.cmake), and
+# --test-stopped-once runs nothing for a while at a time on its clock, a
+# machine's stall built (the same script).
 # --drop-once-flown
 # drops the first player it has flown, as the drop button would, headless
 # (server_drop_keeps_out.cmake), and --lose-goodbyes sends it no goodbye, as
@@ -83,6 +85,7 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms --test-pace
+              --test-stopped-once
               --drop-once-flown --lose-goodbyes --stop-once-flown
               --ai-planner --ai-task --ai-playback --ai-spacing
               --steps --fail-engine-at --hand-over-planner --hand-over-playback

@@ -1960,10 +1960,26 @@ public:
                     const auto server_step = static_cast<std::uint64_t>(std::llround(
                         state.simulation_time_s *
                         static_cast<double>(glideslope::sim::steps_per_second)));
-                    if (!first_compared_) {
-                        first_compared_ = std::make_pair(*c.at_step, server_step);
+                    // **Not across a machine's stall**: the steps between
+                    // two updates either side of one are the server's late
+                    // flying of what came meanwhile, and the pace's steering
+                    // by the clocks' difference it moved (MachineStalls).
+                    // Run by run, outside them, the steps are summed.
+                    if (across != nullptr) {
+                        if (first_compared_ && last_compared_) {
+                            steps_outside_stalls_.first +=
+                                last_compared_->first - first_compared_->first;
+                            steps_outside_stalls_.second +=
+                                last_compared_->second - first_compared_->second;
+                        }
+                        first_compared_.reset();
+                        last_compared_.reset();
+                    } else {
+                        if (!first_compared_) {
+                            first_compared_ = std::make_pair(*c.at_step, server_step);
+                        }
+                        last_compared_ = std::make_pair(*c.at_step, server_step);
                     }
-                    last_compared_ = std::make_pair(*c.at_step, server_step);
                     errors_m_.push_back(error);
                     // **Her pitch's error**, the same way: what a law that
                     // has wandered in the prediction shows first.
@@ -2449,14 +2465,17 @@ public:
         lines.emplace_back(line);
         // **And in steps**, which no clock's granularity moves: as many as
         // the server's, flown at its pace.
-        if (first_compared_ && last_compared_) {
+        if (first_compared_ || steps_outside_stalls_.second > 0) {
+            std::pair<std::uint64_t, std::uint64_t> steps = steps_outside_stalls_;
+            if (first_compared_ && last_compared_) {
+                steps.first += last_compared_->first - first_compared_->first;
+                steps.second += last_compared_->second - first_compared_->second;
+            }
             std::snprintf(line, sizeof line,
                           "paced in steps: %llu flown here while the server flew %llu, from the "
-                          "first update compared to the last",
-                          static_cast<unsigned long long>(last_compared_->first -
-                                                          first_compared_->first),
-                          static_cast<unsigned long long>(last_compared_->second -
-                                                          first_compared_->second));
+                          "first update compared to the last, outside the machine's stalls",
+                          static_cast<unsigned long long>(steps.first),
+                          static_cast<unsigned long long>(steps.second));
             lines.emplace_back(line);
         }
         if (engine_stopped_at_s_) {
@@ -2846,6 +2865,8 @@ private:
     // the last.
     std::optional<std::pair<std::uint64_t, std::uint64_t>> first_compared_;
     std::optional<std::pair<std::uint64_t, std::uint64_t>> last_compared_;
+    // The steps of the runs between the machine's stalls before the latest.
+    std::pair<std::uint64_t, std::uint64_t> steps_outside_stalls_{0, 0};
     bool paced_ = true;
     std::deque<std::pair<std::uint32_t, glideslope::sim::Controls>> before_;
     glideslope::net::SessionClock clock_;
