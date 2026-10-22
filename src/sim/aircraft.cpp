@@ -1481,6 +1481,37 @@ void Aircraft::set_lift_system(const LiftSystem& lift) {
     }
 }
 
+Aircraft::LiftPositions Aircraft::lift_positions() const {
+    if (!has_lift_system()) {
+        throw std::logic_error("this aircraft has no lift system");
+    }
+    return {value("fcs/stovl-pos-norm"), value("fcs/nozzle-pos-deg"), value("fcs/fan-pos-deg")};
+}
+
+void Aircraft::seat_lift_system(const LiftPositions& at, const LiftSystem& lift) {
+    if (!has_lift_system()) {
+        throw std::logic_error("this aircraft has no lift system");
+    }
+    // The nozzle asks its command times the doors' travel (her model's
+    // "Nozzle Demand"), so with the doors part-open it is asked as much
+    // more; shut, the nozzle is held at nought.
+    set("fcs/stovl-cmd-norm", at.conversion);
+    set("fcs/nozzle-cmd-deg", at.conversion > 0.0 ? at.nozzle_deg / at.conversion : 0.0);
+    set("fcs/fan-cmd-deg", at.fan_deg);
+    exec_->SetTrimStatus(true);
+    exec_->SuspendIntegration();
+    exec_->Run();
+    exec_->ResumeIntegration();
+    exec_->SetTrimStatus(false);
+    exec_->GetPropagate()->InitializeDerivatives();
+    const std::array<double, lift_system_commands.size()> values{
+        lift.stovl, lift.nozzle_deg, lift.fan_deg,    lift.fan,
+        lift.roll_post, lift.nozzle_yaw, lift.split};
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        set(lift_system_commands[i], values[i]);
+    }
+}
+
 void Aircraft::fail_engine(int engine, bool feather) {
     const std::string n = "[" + std::to_string(engine) + "]";
     const auto e = exec_->GetPropulsion()->GetEngine(static_cast<unsigned>(engine));

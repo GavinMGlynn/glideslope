@@ -255,17 +255,19 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
                                              std::size_t steps_into,
                                              std::uint64_t server_steps,
                                              std::optional<double> stovl_height_asked_ft,
-                                             const Transition::Carried& stovl_carried) {
+                                             const Transition::Carried& stovl_carried,
+                                             const std::optional<Controller::LawState>& stovl_law) {
     return reconcile_placed(server, last_applied,
                             hear_clock(last_applied, steps_into, server_steps),
-                            stovl_height_asked_ft, stovl_carried);
+                            stovl_height_asked_ft, stovl_carried, stovl_law);
 }
 
 Prediction::Correction Prediction::reconcile_placed(const Motion& server,
                                                     std::uint32_t last_applied,
                                                     std::optional<std::uint64_t> placed_at,
                                                     std::optional<double> stovl_height_asked_ft,
-                                                    const Transition::Carried& stovl_carried) {
+                                                    const Transition::Carried& stovl_carried,
+                                                    const std::optional<Controller::LawState>& stovl_law) {
     const AircraftState was = aircraft_.state();
     Correction out;
     out.at_step = placed_at;
@@ -306,6 +308,12 @@ Prediction::Correction Prediction::reconcile_placed(const Motion& server,
         told.stovl_height_ft = *stovl_height_asked_ft;
         told.stovl->carry(stovl_carried);
         laws_->restore(told);
+    }
+    if (laws_ && stovl_law && aircraft_.has_lift_system()) {
+        laws_->take_law(*stovl_law);
+        aircraft_.seat_lift_system(stovl_law->positions, stovl_law->commands);
+        commanded_ = laws_->pilots_laws().applied;
+        aircraft_.set_controls(*commanded_);
     }
     out.replayed = fly_held_again();
     out.moved_m = how_far_apart_m(was, aircraft_.state());

@@ -174,10 +174,19 @@ public:
     // on the law put back with the height, where that law has an autopilot
     // to take it. Seeded a step apart - the selector placed a step off - it
     // stayed apart, 21 mm at the median, as the height did.
+    //
+    // **And, joining her while a law flies her, the whole of that law**
+    // (`stovl_law`, Controller::LawState, the server's at the same step):
+    // the law made again from it, her lift system put where the server's
+    // stands, and the steps since flown again from there. Begun on a model
+    // just loaded, the fan's doors shut, the prediction's own law was made
+    // wing-borne whatever the server's was, and level where the server's
+    // held her pilot's bank.
     Correction reconcile(const Motion& server, std::uint32_t last_applied,
                          std::size_t steps_into, std::uint64_t server_steps,
                          std::optional<double> stovl_height_asked_ft = std::nullopt,
-                         const Transition::Carried& stovl_carried = {});
+                         const Transition::Carried& stovl_carried = {},
+                         const std::optional<Controller::LawState>& stovl_law = std::nullopt);
     // **The same, from a word already placed** - by `hear_clock` as it was
     // read, `placed_at` being what that returned - so that its clocks'
     // difference is not taken twice. A client holds a word placed past the
@@ -188,7 +197,8 @@ public:
     Correction reconcile_placed(const Motion& server, std::uint32_t last_applied,
                                 std::optional<std::uint64_t> placed_at,
                                 std::optional<double> stovl_height_asked_ft = std::nullopt,
-                                const Transition::Carried& stovl_carried = {});
+                                const Transition::Carried& stovl_carried = {},
+                                const std::optional<Controller::LawState>& stovl_law = std::nullopt);
     // **What a word says of the clocks' difference, and nothing else**: the
     // sample `reconcile` above takes from it, for a word that is not the
     // newest of those heard together. Put right from each of them in turn,

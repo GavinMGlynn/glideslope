@@ -134,6 +134,63 @@ void Transition::carry(const Carried& carried) {
     }
 }
 
+Transition::State Transition::state() const {
+    State out;
+    out.stage = stage_;
+    out.autopilot = autopilot_.has_value();
+    out.last_asked_hover = last_asked_hover_;
+    out.heading_deg = heading_deg_;
+    out.bank_held_deg = bank_held_deg_;
+    out.hover_base_ft = hover_base_ft_;
+    out.speed_asked_kt = speed_asked_kt_;
+    out.pitch_from_deg = pitch_from_deg_;
+    out.speed_from_kt = speed_from_kt_;
+    out.back_pitch_from_deg = back_pitch_from_deg_;
+    out.throttle_integral = throttle_integral_;
+    out.angle_integral_deg = angle_integral_deg_;
+    out.elevator_integral = elevator_integral_;
+    out.fan_integral = fan_integral_;
+    out.post_integral = post_integral_;
+    out.pitch_integral_deg = autopilot_ ? autopilot_->pitch_integral_deg() : 0.0;
+    out.last = last_;
+    if (hover_) {
+        out.hover = hover_->state();
+    }
+    return out;
+}
+
+Transition::Transition(const Aircraft& aircraft, const State& state)
+    : Transition(aircraft, state.last) {
+    stage_ = state.stage;
+    autopilot_.reset();
+    hover_.reset();
+    hover_asked_.reset();
+    if (state.autopilot && (stage_ == Stage::wing_borne || stage_ == Stage::converting)) {
+        autopilot_.emplace(a_, state.last.controls);
+        autopilot_->put_pitch_integral_deg(state.pitch_integral_deg);
+    }
+    if (stage_ == Stage::hovering && state.hover) {
+        hover_.emplace(a_, *state.hover);
+    }
+    last_asked_hover_ = state.last_asked_hover;
+    heading_deg_ = state.heading_deg;
+    bank_held_deg_ = state.bank_held_deg;
+    pedals_turn_radps_ = 0.0;
+    hover_base_ft_ = state.hover_base_ft;
+    speed_asked_kt_ = state.speed_asked_kt;
+    pitch_from_deg_ = state.pitch_from_deg;
+    speed_from_kt_ = state.speed_from_kt;
+    back_pitch_from_deg_ = state.back_pitch_from_deg;
+    throttle_integral_ = state.throttle_integral;
+    angle_integral_deg_ = state.angle_integral_deg;
+    elevator_integral_ = state.elevator_integral;
+    fan_integral_ = state.fan_integral;
+    post_integral_ = state.post_integral;
+    last_ = state.last;
+    throttle_integral_made_with_ =
+        autopilot_ ? autopilot_->throttle_integral() : throttle_integral_;
+}
+
 double Transition::wing_borne_pitch_deg() const {
     const double v_fps = convert_kcas_ * fps_per_kt;
     const double q_psf = 0.5 * sea_level_slug_ft3 * v_fps * v_fps;
