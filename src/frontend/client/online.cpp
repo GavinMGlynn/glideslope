@@ -440,6 +440,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
                     own_ai_flying_ = a.controller == net::Controller::ai;
                 }
             }
+            take_in_everybody(state);
             return;
         }
     }
@@ -472,6 +473,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
                     own_ai_flying_ = a.controller == net::Controller::ai;
                 }
             }
+            take_in_everybody(state);
             return;
         }
     }
@@ -576,12 +578,22 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             ++own_words_;
         }
     }
-    // **Everybody else, to be drawn behind the clock**, and what the server
-    // says of this client's own - kept whoever flies it, so that handed to
-    // the AI it is drawn from the updates at once, not from two updates on.
     if (state.yours && state.your_aircraft == mine_) {
         applied_ = std::max(applied_, state.last_input_applied);
     }
+    take_in_everybody(state);
+}
+
+// **Everybody else, to be drawn behind the clock**, and what the server says
+// of this client's own - kept whoever flies it, so that handed to the AI it
+// is drawn from the updates at once, not from two updates on. Every update
+// heard is taken in here, the one that gives this client another aircraft
+// too: it is the first to have the aircraft left in it, under the AI's
+// number, and the first without the number it had. Skipped, the aircraft
+// left was missing and the old number kept until the next update, and W
+// pressed in between rode along in an aircraft the server no longer had
+// (CI, 2026-10-22).
+void Online::take_in_everybody(const net::StatePacket& state) {
     for (const net::AircraftState& a : state.aircraft) {
         if (!origin_) {
             origin_ = world::Ecef{a.x_m, a.y_m, a.z_m};

@@ -275,7 +275,8 @@ void usage(std::FILE* out) {
         "                every aircraft in the sky and back to your own; T takes\n"
         "                over the one ridden in, if the AI flies it\n"
         "  --take-over-after S  riding along, take it over S seconds after\n"
-        "                joining; given again, once more at each\n"
+        "                joining; given again, once more at each, once\n"
+        "                the take-over before it is answered\n"
         "  --late-update-after-take-over  for a test: hear the last update from\n"
         "                before a take-over again just after it, as a network\n"
         "                reordering them would\n"
@@ -317,7 +318,8 @@ void usage(std::FILE* out) {
         "                again and the server has flown its new aircraft by an\n"
         "                input sent since (for tests)\n"
         "  --next-aircraft-after S  on a server, ride along in the next aircraft\n"
-        "                S seconds after joining, as W does; may be given again\n"
+        "                S seconds after joining, as W does; may be given again.\n"
+        "                As W, held while a take-over is unanswered\n"
         "  --next-model-after S  on a server, choose the next model to plan a\n"
         "                hand-over S seconds after joining, as M does; may be\n"
         "                given again (for tests)\n"
@@ -1508,7 +1510,7 @@ static int run_program(int argc, char** argv) {
         // after the last, back in your own - which, while the AI flies it, is
         // ridden along in as it is drawn from the updates, since the flight
         // here is not flown then and would sit where it was handed over.
-        const auto ride_next = [&] {
+        const auto ride_next_now = [&] {
             const std::uint8_t own = online->own_ai_flying() ? online->mine()
                                                              : glideslope::net::no_aircraft;
             const std::uint8_t from =
@@ -1530,6 +1532,23 @@ static int run_program(int argc, char** argv) {
                 std::printf("glideslope: riding along in aircraft %u\n",
                             static_cast<unsigned>(next));
             }
+        };
+        // **W pressed while a take-over is unanswered waits for the answer**,
+        // as A does: taken, the aircraft left is the AI's under another
+        // number and the one taken is this client's own, so the next aircraft
+        // is chosen from the sky the answer gives, once the update that gave
+        // it is taken in - not from the one before it, whose numbers the
+        // server no longer has.
+        bool w_held = false;
+        const auto ride_next = [&] {
+            if (const auto asked = online->taking_over()) {
+                w_held = true;
+                std::printf("glideslope: W held until the server answers the take-over of "
+                            "aircraft %u\n",
+                            static_cast<unsigned>(*asked));
+                return;
+            }
+            ride_next_now();
         };
         glideslope::sim::Controls controls;
         if (o.on_ground) {
@@ -1918,12 +1937,16 @@ static int run_program(int argc, char** argv) {
             // **Taken over**: the flight is the aircraft taken over now, from
             // the motion the server gave it - the same aeroplane made to be
             // where that one is, or another built as it.
+            // **--take-over-after given again waits for the answer to the
+            // one before**, and for something ridden along in: the time is
+            // only the earliest it may be asked.
             if (online && joined && flight) {
                 if (take_overs_asked < o.take_over_after_s.size() &&
                     static_cast<double>(ticks) >=
                         o.take_over_after_s[take_overs_asked] *
                             glideslope::sim::steps_per_second &&
-                    online->watching() != glideslope::net::no_aircraft) {
+                    online->watching() != glideslope::net::no_aircraft &&
+                    !online->taking_over()) {
                     ++take_overs_asked;
                     for (int w = 0; w < o.watches_before_take_over; ++w) {
                         online->watch(online->watching());
@@ -2181,6 +2204,15 @@ static int run_program(int argc, char** argv) {
             // flies it.
             if (online && joined) {
                 others_now = online->others(seconds_since_start());
+                // **W held for the answer**, which has come - taken,
+                // refused or given up - and the sky it gives is in hand.
+                if (w_held && !online->taking_over()) {
+                    w_held = false;
+                    std::printf("glideslope: W, held, is pressed now, aircraft %u this "
+                                "client's own\n",
+                                static_cast<unsigned>(online->mine()));
+                    ride_next_now();
+                }
                 if (o.ride_along && !rode_along) {
                     for (const glideslope::client::Other& other : others_now) {
                         if (other.ai_flying) {
