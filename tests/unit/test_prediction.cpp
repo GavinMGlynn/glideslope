@@ -2782,3 +2782,370 @@ GLIDESLOPE_TEST(a_prediction_told_what_the_server_held_her_on_seeds_a_law_made_o
     }
     check(cases == 2, "told and not told: " + std::to_string(cases));
 }
+
+
+namespace {
+
+// **What her pilot's inceptors set in her STOVL law** (Controller,
+// Transition), read from a controller whose law flies her: the height the
+// stick's fore-and-aft asks, the speed the lever asks, the bank the stick's
+// sideways holds and the turn the pedals ask jet-borne, and what the hover
+// law is asked in the hover.
+struct StickSets {
+    glideslope::sim::Transition::Stage stage{};
+    double height_ft = 0.0;
+    double speed_kt = 0.0;
+    double bank_deg = 0.0;
+    double pedals_radps = 0.0;
+    double right_kt = 0.0;
+    double turn_degps = 0.0;
+};
+
+std::optional<StickSets> stick_sets(const glideslope::sim::Controller& c) {
+    const glideslope::sim::Transition* t = c.transition();
+    if (t == nullptr) {
+        return std::nullopt;
+    }
+    StickSets s;
+    s.stage = t->stage();
+    s.height_ft = c.stovl_height_asked_ft();
+    s.speed_kt = t->speed_asked_kt();
+    s.bank_deg = t->bank_held_deg();
+    s.pedals_radps = t->pedals_turn_radps();
+    if (t->hover_asked()) {
+        s.right_kt = t->hover_asked()->right_kt;
+        s.turn_degps = t->hover_asked()->turn_degps;
+    }
+    return s;
+}
+
+// The four stages of her law and the four things her pilot moves in STOVL
+// mode: the stick fore-and-aft and sideways, the pedals, and the lever.
+constexpr std::size_t stick_stages = 4;
+constexpr std::size_t stick_axes = 4;
+const std::array<const char*, stick_stages> stage_names{"wing-borne", "converting", "jet-borne",
+                                                         "hovering"};
+const std::array<const char*, stick_axes> axis_names{"the stick fore-and-aft",
+                                                      "the stick sideways", "the pedals",
+                                                      "the lever"};
+
+// **What one step of an axis set in a stage**: what the law reads from it
+// there - for the fore-and-aft the step's change of the height asked; for
+// the lever the step's change of the speed asked; sideways, jet-borne the
+// step's change of the bank held and in the hover the ground speed to the
+// side asked; the pedals, the turn of her heading asked - jet-borne, less
+// as she goes faster. None for an axis that stage does not
+// read: wing-borne and converting forward, her autopilot flies her heading
+// and speed, and only the height is the stick's.
+std::optional<double> what_it_set(std::size_t stage, std::size_t axis, const StickSets& before,
+                                  const StickSets& after) {
+    const bool jet = stage == 2;
+    const bool hover = stage == 3;
+    switch (axis) {
+    case 0: return after.height_ft - before.height_ft;
+    case 1:
+        if (jet) {
+            return after.bank_deg - before.bank_deg;
+        }
+        if (hover) {
+            return after.right_kt;
+        }
+        return std::nullopt;
+    case 2:
+        if (jet) {
+            return after.pedals_radps;
+        }
+        if (hover) {
+            return after.turn_degps;
+        }
+        return std::nullopt;
+    default:
+        if (jet || hover) {
+            return after.speed_kt - before.speed_kt;
+        }
+        return std::nullopt;
+    }
+}
+
+// **Each (stage, axis) held against the server's**: the steps compared -
+// the axis off centre and both sides in that stage through the step - and
+// of those, the steps the server's own law moved by it, and the steps the
+// two disagreed on.
+struct StickCell {
+    std::size_t compared = 0;
+    std::size_t moved = 0;
+    std::size_t apart = 0;
+    // The most the two were apart, as a share of what the server's set.
+    double worst_share = 0.0;
+};
+using StickCells = std::array<std::array<StickCell, stick_axes>, stick_stages>;
+
+// **A predicting client and the server fed the same STOVL inputs, what the
+// stick sets compared at every step**: the F-35B at `loading` (her model's
+// own, empty), level at `feet` and 200 KCAS over flat ground in calm air,
+// flown `seconds` on `inputs` as stovl_agreement's are - the server 100 ms
+// behind, its word back 100 ms after every fifth step - and put right, as
+// a real server's word puts her, with the height her law was asked and
+// what else the law carries (net::OwnMotion). Each side's law is read
+// before and after each step it flies on an input, and the client's step
+// on that input - flown forward, from where its last correction left her -
+// held against the server's. Two agree when they differ by no more than 2%
+// of what the server's set, or 1e-9: a tenth of what a prediction flown on
+// 0.8 of the stick is off by. Measured (linux-release, 2026-10-22), every
+// stage and inceptor compared agrees to the last bit, or the lever's speed
+// to 2.4e-12 of it, but the pedals' turn jet-borne, which falls off with her
+// speed along the heading her law holds - the heading not told - and was up
+// to 0.63% apart.
+void stick_agreement(const std::string& loading, double feet,
+                     const std::function<Controls(int, const Controls&)>& inputs, int seconds,
+                     StickCells& cells) {
+    using glideslope::sim::apply;
+    using glideslope::sim::Controller;
+    using glideslope::sim::Motion;
+    using glideslope::sim::Transition;
+    const glideslope::sim::PublishedFigures figures = glideslope::sim::read_published_figures(
+        std::string(GLIDESLOPE_TEST_FIGURES_DIR) + "/f35b.xml");
+    const auto start = [&](Aircraft& a) {
+        if (!loading.empty()) {
+            a.load(figures.loadings.at(loading).loading);
+        }
+        a.set_terrain(flat_ground());
+        InitialConditions ic;
+        ic.latitude_deg = -33.9461;
+        ic.longitude_deg = 151.1772;
+        ic.heading_deg = 70.0;
+        ic.altitude_ft = feet;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = 200.0;
+        ic.gear = 0.0;
+        ic.trim = true;
+        a.initialize(ic);
+        a.freeze_fuel(true);
+    };
+    Aircraft server_aircraft(data() / "jsbsim", "f35b");
+    Aircraft client_aircraft(data() / "jsbsim", "f35b");
+    start(server_aircraft);
+    start(client_aircraft);
+    const Controls trimmed = glideslope::sim::trimmed_controls(server_aircraft);
+    const double detent = server_aircraft.property("fcs/stovl-lever-detent");
+    Controller server(server_aircraft, trimmed);
+    Prediction client(client_aircraft);
+    const int one_way = 100 * steps_per_second / 2000;
+    const int every = 5;
+    struct Posted {
+        int arrives_at = 0;
+        Motion motion;
+        std::uint32_t applied = 0;
+        std::uint64_t server_steps = 0;
+        std::optional<double> height_asked_ft;
+        Transition::Carried carried;
+    };
+    std::deque<Posted> post;
+    std::uint64_t server_steps = 0;
+    // The client's step on each input, before and after, until the
+    // server's on the same input is flown.
+    using Flew = std::pair<std::optional<StickSets>, std::optional<StickSets>>;
+    std::deque<Flew> client_flew;
+    const int frames = seconds * steps_per_second;
+    const auto off_centre = [&](const Controls& c, std::size_t axis) {
+        switch (axis) {
+        case 0: return std::abs(c.elevator) > 1e-6;
+        case 1: return std::abs(c.aileron) > 1e-6;
+        case 2: return std::abs(c.rudder) > 1e-6;
+        default:
+            return std::abs(c.throttle - trimmed.throttle) > Controller::lever_release &&
+                   std::abs(c.throttle - detent) >= Controller::lever_detent_width;
+        }
+    };
+    for (int frame = 0; frame < frames; ++frame) {
+        const auto client_before = client.laws() ? stick_sets(*client.laws()) : std::nullopt;
+        client.step(static_cast<std::uint32_t>(frame + 1), inputs(frame, trimmed));
+        client_flew.emplace_back(client_before,
+                                 client.laws() ? stick_sets(*client.laws()) : std::nullopt);
+        const int theirs = frame - one_way;
+        if (theirs >= 0) {
+            const Controls input = inputs(theirs, trimmed);
+            const auto before = stick_sets(server);
+            server.set_pilot(input);
+            apply(server_aircraft, server);
+            server_aircraft.step();
+            ++server_steps;
+            const auto after = stick_sets(server);
+            const Flew ours = client_flew.front();
+            client_flew.pop_front();
+            if (before && after && ours.first && ours.second && before->stage == after->stage &&
+                ours.first->stage == before->stage && ours.second->stage == before->stage) {
+                const auto stage = static_cast<std::size_t>(before->stage);
+                for (std::size_t axis = 0; axis < stick_axes; ++axis) {
+                    const auto theirs_set = what_it_set(stage, axis, *before, *after);
+                    if (!off_centre(input, axis) || !theirs_set) {
+                        continue;
+                    }
+                    const double ours_set = *what_it_set(stage, axis, *ours.first, *ours.second);
+                    StickCell& cell = cells[stage][axis];
+                    ++cell.compared;
+                    if (std::abs(*theirs_set) > 1e-9) {
+                        ++cell.moved;
+                    }
+                    const double apart = std::abs(ours_set - *theirs_set);
+                    if (std::abs(*theirs_set) > 1e-9) {
+                        cell.worst_share =
+                            std::max(cell.worst_share, apart / std::abs(*theirs_set));
+                    }
+                    if (apart > 1e-9 + 0.02 * std::abs(*theirs_set)) {
+                        ++cell.apart;
+                    }
+                }
+            }
+            if (theirs % every == 0) {
+                Posted p{frame + one_way, server_aircraft.motion(),
+                         static_cast<std::uint32_t>(theirs + 1), server_steps, std::nullopt, {}};
+                if (server.transition()) {
+                    p.height_asked_ft = std::max(0.0, server.stovl_height_asked_ft());
+                    p.carried = server.transition()->carried();
+                }
+                post.push_back(p);
+            }
+        }
+        while (!post.empty() && post.front().arrives_at <= frame) {
+            (void)client.reconcile(post.front().motion, post.front().applied, 1,
+                                   post.front().server_steps, post.front().height_asked_ft,
+                                   post.front().carried);
+            post.pop_front();
+        }
+    }
+}
+
+} // namespace
+
+// **What her pilot's stick sets in a STOVL prediction is what it sets on the
+// server** (stick_agreement, above), at every step, in every stage of her
+// law and on every inceptor that stage reads. The height the server tells
+// puts a prediction's height asked right at every word, so a prediction
+// flown on 0.8 of the stick the client sent flew to a median of 2 mm through
+// a server and passed every test (PROJECT_STATUS.md, 2026-10-15 and
+// 2026-10-16): this holds what the stick sets, not where she went.
+//
+// Two flights. Heavier than she can hover (her model's own loading, at 1,000
+// ft), STOVL mode is flown wing-borne, the stick forward from 3 s to 20 s
+// and back from 22 s to 30 s. At her vertical-landing loading (at 150 ft)
+// she converts, slows jet-borne to a hover and is moved in it: the selector
+// at 1 s; the stick back from 1.5 s to 8 s through her conversion;
+// jet-borne, slowing, the stick sideways right and left, the pedals right
+// and left, and fore-and-aft back and forward; in the hover from 170 s the
+// lever forward, to its detent and aft, the stick fore-and-aft, right and
+// left and the pedals right and left; the lever at its forward stop from
+// 320 s, jet-borne again, the stick right and left, the pedals and the
+// stick fore-and-aft there, and the lever aft from 345 s.
+//
+// **Coverage asserted**: of the sixteen stages and inceptors, ten are read -
+// the fore-and-aft in all four stages, and jet-borne and in the hover the
+// stick sideways, the pedals and the lever - and nine of them must each be
+// compared for at least a second with the server's law moved by it. The six
+// not read are named (what_it_set); the one left out, the fore-and-aft
+// converting, is named below with its reason. Every step compared must
+// agree.
+GLIDESLOPE_TEST(a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_every_stage_on_every_inceptor) {
+    StickCells cells{};
+    stick_agreement(
+        "", 1000.0,
+        [](int frame, const Controls& trimmed) {
+            const double s = static_cast<double>(frame) / steps_per_second;
+            Controls c = trimmed;
+            c.stovl = s >= 1.0 ? 1.0 : 0.0;
+            c.elevator = s >= 3.0 && s < 20.0 ? -0.5 : s >= 22.0 && s < 30.0 ? 0.5 : 0.0;
+            return c;
+        },
+        32, cells);
+    stick_agreement(
+        "vertical_landing", 150.0,
+        [](int frame, const Controls& trimmed) {
+            const double s = static_cast<double>(frame) / steps_per_second;
+            const auto during = [&](double from, double to) { return s >= from && s < to; };
+            Controls c = trimmed;
+            c.stovl = s >= 1.0 ? 1.0 : 0.0;
+            const double detent = 0.25;
+            if (s >= 170.0) {
+                c.throttle = s < 180.0   ? detent + 0.5 * (1.0 - detent)
+                             : s < 190.0 ? detent
+                             : s < 200.0 ? 0.5 * detent
+                             : s < 320.0 ? detent
+                             : s < 345.0 ? 1.0
+                             : s < 360.0 ? 0.0
+                                         : detent;
+            }
+            c.elevator = during(1.5, 8.0)       ? 0.5
+                         : during(60.0, 64.0)   ? 0.5
+                         : during(64.0, 68.0)   ? -0.5
+                         : during(210.0, 214.0) ? 0.5
+                         : during(214.0, 218.0) ? -0.5
+                         : during(336.0, 339.0) ? 0.5
+                         : during(339.0, 342.0) ? -0.5
+                                                : 0.0;
+            c.aileron = during(40.0, 44.0)     ? 0.5
+                        : during(44.0, 48.0)   ? -0.5
+                        : during(230.0, 240.0) ? 0.6
+                        : during(245.0, 255.0) ? -0.6
+                        : during(326.0, 328.0) ? 0.5
+                        : during(328.0, 330.0) ? -0.5
+                                               : 0.0;
+            c.rudder = during(50.0, 53.0)     ? 0.5
+                       : during(53.0, 56.0)   ? -0.5
+                       : during(260.0, 265.0) ? 0.5
+                       : during(268.0, 273.0) ? -0.5
+                       : during(331.0, 333.0) ? 0.5
+                       : during(333.0, 335.0) ? -0.5
+                                              : 0.0;
+            return c;
+        },
+        370, cells);
+    for (std::size_t stage = 0; stage < stick_stages; ++stage) {
+        for (std::size_t axis = 0; axis < stick_axes; ++axis) {
+            const StickCell& cell = cells[stage][axis];
+            std::printf("  %-10s %-22s compared %5zu steps, moved %5zu, apart %5zu (at most "
+                        "%.2g of it)%s\n",
+                        stage_names[stage], axis_names[axis], cell.compared, cell.moved,
+                        cell.apart, cell.worst_share,
+                        axis != 0 && stage < 2 ? " - not read there"
+                        : stage == 1           ? " - left out, the stages disagree"
+                                               : "");
+        }
+    }
+    std::size_t read = 0;
+    std::size_t not_read = 0;
+    std::size_t left_out = 0;
+    for (std::size_t stage = 0; stage < stick_stages; ++stage) {
+        for (std::size_t axis = 0; axis < stick_axes; ++axis) {
+            const StickCell& cell = cells[stage][axis];
+            if (axis != 0 && stage < 2) {
+                ++not_read;
+                continue;
+            }
+            if (stage == 1) {
+                // **Left out: the fore-and-aft converting.** The prediction's
+                // law is jet-borne from 1.5 s, the server's converting until
+                // 9 s, so no step finds both converting (COMPLETION_PLAN.md,
+                // "A STOVL prediction's law changes stage when the server's
+                // does not"). Once they agree it is compared, and must agree.
+                ++left_out;
+                check(cell.apart == 0, "the stick fore-and-aft converting set something else "
+                                       "in the prediction on " +
+                                           std::to_string(cell.apart) + " steps");
+                continue;
+            }
+            ++read;
+            check(cell.moved >= static_cast<std::size_t>(steps_per_second),
+                  std::string(axis_names[axis]) + " " + stage_names[stage] +
+                      " moved the server's law on " + std::to_string(cell.moved) +
+                      " steps compared, under a second's");
+            check(cell.apart == 0, std::string(axis_names[axis]) + " " + stage_names[stage] +
+                                       " set something else in the prediction on " +
+                                       std::to_string(cell.apart) + " of " +
+                                       std::to_string(cell.compared) + " steps");
+        }
+    }
+    std::printf("  %zu of the 16 stages and inceptors compared, %zu left out, %zu not read\n",
+                read, left_out, not_read);
+    check(read == 9 && left_out == 1 && read + left_out + not_read == stick_stages * stick_axes,
+          "the nine compared, the one left out and the six not read are the sixteen");
+}

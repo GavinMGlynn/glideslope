@@ -95,7 +95,10 @@
 # **What no bound here catches** is a prediction
 # flown on 0.8 of the stick the server flies: in STOVL mode the stick asks
 # the height, the height is told, and it flew to a median of 2 mm and
-# passed (2026-10-16, as on 2026-10-15).
+# passed (2026-10-16, as on 2026-10-15). What the stick sets is held
+# against the server's at every step in test_prediction.cpp ("a STOVL
+# prediction sets with her stick what the server sets"), which that bug
+# turns red; with it in, this passed again (the median 0 mm, 2026-10-22).
 #
 # RUN_SERIAL: a runner busy beside it would hold the server up further,
 # unsteadily, as server_paced_prediction.cmake says of itself.

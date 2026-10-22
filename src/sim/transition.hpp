@@ -161,6 +161,21 @@ public:
     double speed_asked_kt() const {
         return speed_asked_kt_;
     }
+    // **What her pilot's inceptors have asked of the law**, for a test
+    // that holds a prediction's law against the server's on the same
+    // inputs: jet-borne, the bank the stick's sideways has left held and
+    // the turn of her heading the pedals asked last step, radians a second;
+    // and in the hover, what the hover law was asked last step (none before
+    // the first step there).
+    double bank_held_deg() const {
+        return bank_held_deg_;
+    }
+    double pedals_turn_radps() const {
+        return pedals_turn_radps_;
+    }
+    const std::optional<Hover::Target>& hover_asked() const {
+        return hover_asked_;
+    }
     // **What a prediction cannot work out for itself** of this law, from the
     // server's (net::OwnMotion, sim::Prediction::reconcile): seeded on each
     // side from her as that side sees her when the law is made, a step apart
@@ -230,8 +245,11 @@ private:
     double heading_deg_ = 0.0;
     // The bank her pilot's stick has left her held at, jet-borne.
     double bank_held_deg_ = 0.0;
+    // The turn of her heading her pilot's pedals asked last step, jet-borne.
+    double pedals_turn_radps_ = 0.0;
     std::optional<Autopilot> autopilot_;
     std::optional<Hover> hover_;
+    std::optional<Hover::Target> hover_asked_;
     double hover_base_ft_ = 0.0;
     // The jet-borne law's integrals and what it asks.
     double speed_asked_kt_ = 0.0;
