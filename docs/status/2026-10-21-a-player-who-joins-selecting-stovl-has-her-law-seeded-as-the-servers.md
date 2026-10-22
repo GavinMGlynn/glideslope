@@ -81,3 +81,13 @@ made the law again, from what the law itself had flown a round trip later
 - `glideslope_cli selftest`: hash 831a4e7954233b0a in linux-debug. It flies
   the C172P through no prediction, no server and no lift system, none of
   which this changes.
+
+**Rebased onto #238, 2026-10-23.** Two things broke, both seen on CI (run
+39790592126) and here. The test's port, 24996, was taken by #238's stall
+test meanwhile: it is 24998 now. And #238's command-line client flies what
+is owed on the input before each new one; before the first input there is
+none, and it flew those steps on its own default controls, so her law was
+made with a throttle integral of 1 against the server's 0.4685201574755089.
+Before the first input she is flown on the levers the server said it holds
+her on (`held_or`), as the server flies her: the test passes again, as do
+#238's stall test and the prediction tests beside it.
