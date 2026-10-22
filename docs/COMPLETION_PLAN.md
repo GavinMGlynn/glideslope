@@ -782,6 +782,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       the stall was named after the words that came through it were read.
       *Verification: a built stall with words waiting is counted right and
       holds every bound, red without the fix.* Done 2026-10-23.
+- [x] **The windowed client's take-over back to the F-35B it left was
+      refused on CI's Ubuntu** (2026-10-22): riding along on a timer, it
+      chose from the sky before the take-over, in the number the aircraft
+      left had given up. W now waits for an unanswered take-over's answer,
+      the update that answers is taken in for everybody, and the test waits
+      on events. *Verification: the test red with each fix removed, green
+      with both under load.* Done 2026-10-23.
 - [x] **The impaired checks' AI controls are shown 0.0051 to 0.0061 off**
       on CI's macOS (nightly, 2026-10-15 and 2026-10-21; 0.005 is the bound):
       the throttle drawn at 0.9949 where it was 1.0, past a step to full

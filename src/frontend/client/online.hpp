@@ -360,6 +360,7 @@ private:
     void keep_while_away();
     void send_watch(std::uint8_t number);
     void heard(const net::StatePacket& state, double local_s, Flight& flight);
+    void take_in_everybody(const net::StatePacket& state);
     std::optional<Joined> joined_by(const net::StatePacket& state) const;
     // **A session joined again is a new start**: nothing it said of this
     // client's own aircraft holds, and the next word of one is taken as a

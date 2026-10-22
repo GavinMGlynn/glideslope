@@ -23,10 +23,19 @@
 #   (`--ride-along`) and takes it over (`--take-over-after 6`). Her flight is
 #   made again - the same aeroplane, loaded otherwise - and begins at her
 #   model's own weight, loaded as her model is: not the figure kept. The
-#   F-35B it left is the AI's now, at the vertical_landing loading; the client
-#   rides along in it (`--next-aircraft-after 9`) and takes it over
-#   (`--take-over-after 12`): her flight made again, and begins at the figure
-#   - the loading the aircraft taken over carried, not her model's own.
+#   F-35B it left is the AI's now, under an AI's number, at the
+#   vertical_landing loading; the client rides along in it and takes it over:
+#   her flight made again, and begins at the figure - the loading the
+#   aircraft taken over carried, not her model's own.
+#
+#   **On events, not times.** The ride along to the one left is asked in the
+#   same pass as the first take-over (`--next-aircraft-after 6`), so it is
+#   always asked unanswered and held until the server's answer is taken in -
+#   the sky that answer gives, where the one left has its new number - and
+#   the second take-over (`--take-over-after 6` again) waits for the first's
+#   answer and for that ride along. Timed (9 s and 12 s), a machine slow to
+#   build the flight taken over rode along in the number the one left had
+#   given up, and was refused it (CI, 2026-10-22).
 #
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
@@ -143,8 +152,8 @@ if(CASE STREQUAL "TAKE_OVER")
                                "start -33.9461 151.1772 5000 0 300\n"
                                "waypoint NORTH -33.5000 151.1772 5000 300\n")
     set(_plan --plan "${_plan_file}")
-    set(_take_over --ride-along --take-over-after 6 --next-aircraft-after 9
-                   --take-over-after 12)
+    set(_take_over --ride-along --take-over-after 6 --next-aircraft-after 6
+                   --take-over-after 6)
     set(_shot_at 2400)
 endif()
 
@@ -196,6 +205,31 @@ if(NOT _pairs STREQUAL "${_want}")
                         "model's own and then the one she left at vertical_landing, her "
                         "flights began '${_pairs}', not '${_want}':\n${_out}")
 endif()
+# The ride along to the one left, asked with the take-over, held for its
+# answer and then ridden: never in the number the client gave up.
+string(CONCAT _held "asked to take over aircraft ${_taken}\nglideslope: W held until the "
+                    "server answers the take-over of aircraft ${_taken}\n")
+if(NOT _out MATCHES "${_held}")
+    message(FATAL_ERROR "the ride along was not asked while the take-over was unanswered, "
+                        "and held:\n${_out}")
+endif()
+string(CONCAT _ridden "W, held, is pressed now, aircraft ${_taken} this client's own\n"
+                      "glideslope: riding along in aircraft ([0-9]+)\n")
+if(NOT _out MATCHES "${_ridden}")
+    message(FATAL_ERROR "W, held, did not ride along in another aircraft once answered:\n${_out}")
+endif()
+set(_left "${CMAKE_MATCH_1}")
+if(NOT _out MATCHES "glideslope: the server gave this client aircraft ([0-9]+), the f35b\n")
+    message(FATAL_ERROR "no first aircraft:\n${_out}")
+endif()
+if(_left STREQUAL CMAKE_MATCH_1 OR _left STREQUAL _taken)
+    message(FATAL_ERROR "riding along after the take-over, the client chose aircraft ${_left}: "
+                        "the number it gave up, or its own:\n${_out}")
+endif()
+if(NOT _out MATCHES "glideslope: took over aircraft ${_left}, the f35b")
+    message(FATAL_ERROR "the client did not take over aircraft ${_left}, the one it left:\n${_out}")
+endif()
 message(STATUS "joined at ${_figure} lb, vertical_landing; aircraft ${_taken}, the AI's "
                "F-35B, taken over and her flight made again at her model's own ${_own_lbs} lb; then "
-               "the one she left, taken over, and made again at ${_figure} lb")
+               "the one she left, aircraft ${_left} now, ridden along in once the take-over "
+               "was answered, taken over, and made again at ${_figure} lb")
