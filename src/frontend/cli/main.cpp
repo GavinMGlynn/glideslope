@@ -10,6 +10,7 @@
 #include "frontend/players_copilot.hpp"
 #include "frontend/route_file.hpp"
 #include "frontend/same_air.hpp"
+#include "frontend/machine_stalls.hpp"
 #include "frontend/shown.hpp"
 #include "net/told.hpp"
 #include "copilot/provider.hpp"
@@ -18,7 +19,6 @@
 #include "platform/closed_pipes.hpp"
 #include "platform/cpu_time.hpp"
 #include "platform/no_crash_dialogs.hpp"
-#include "net/held_inputs.hpp"
 #include "net/inputs.hpp"
 #include "net/interpolation.hpp"
 #include "sim/terrain.hpp"
@@ -1914,18 +1914,9 @@ public:
                 const bool joined = answered_ && !resuming_ && local_s >= settled_at_s_ &&
                                     prediction_->settled();
                 // Within the words after a machine's stall, counted apart
-                // (`MachineStall`).
-                MachineStall* across = nullptr;
-                if (!stalls_.empty()) {
-                    MachineStall& s = stalls_.back();
-                    if (state.simulation_time_s < s.caught_up_s) {
-                        across = &s;
-                        ++s.catching_up;
-                    } else if (s.words < words_after_a_stall) {
-                        across = &s;
-                        ++s.words;
-                    }
-                }
+                // (frontend::MachineStalls).
+                glideslope::frontend::MachineStalls::Stall* across =
+                    stalls_.word(state.simulation_time_s);
                 // And the height her STOVL law was asked to hold there, and
                 // its autopilot's pitch integral, put on this client's law
                 // where one flies her (sim::Prediction).
@@ -1956,11 +1947,7 @@ public:
                                                     at->where[1] - m.location_ecef_m[1],
                                                     at->where[2] - m.location_ecef_m[2]);
                     if (across != nullptr) {
-                        ++across->compared;
-                        across->worst_error_m = std::max(across->worst_error_m, error);
-                        if (error > back_within_m) {
-                            across->over_until_word = across->words;
-                        }
+                        glideslope::frontend::MachineStalls::compared(*across, error);
                     } else if (error > worst_error_m_) {
                         worst_error_m_ = error;
                         worst_error_at_s_ = local_s;
@@ -2081,9 +2068,7 @@ public:
                     settled_at_s_ = local_s + 1.0;
                 }
                 if (across != nullptr) {
-                    ++across->corrections;
-                    across->worst_correction_m = std::max(across->worst_correction_m, c.moved_m);
-                    across->snapped += c.snapped ? 1 : 0;
+                    glideslope::frontend::MachineStalls::corrected(*across, c.moved_m, c.snapped);
                 } else {
                     ++corrections_;
                     worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
@@ -2227,11 +2212,8 @@ public:
                 longest_machines_s_ = std::max(0.0, between - own);
             }
             // **A frame the machine mostly took**, and long enough to put
-            // the server's handling of inputs behind (`MachineStall`).
-            const double machines = between - own;
-            if (machines >= stall_from_s && machines > 0.5 * between) {
-                stalls_.push_back({local_s, machines, clock_.now(local_s)});
-            }
+            // the server's handling of inputs behind (frontend::MachineStalls).
+            stalls_.frame(local_s, between, own, clock_.now(local_s));
             longest_own_between_frames_s_ =
                 std::max(longest_own_between_frames_s_, std::min(between, own));
         }
@@ -2423,30 +2405,11 @@ public:
                       "%.1f s in",
                       compared_, worst_error_m_, joining_.size(), worst_error_at_s_);
         lines.emplace_back(line);
-        // **The machine's stalls, apart** (`MachineStall`): the worst and
-        // the corrections above are of every other word; the median and
-        // percentiles below are of all of them.
-        std::size_t apart = 0;
-        for (const MachineStall& s : stalls_) {
-            apart += s.compared;
-        }
-        std::snprintf(line, sizeof line,
-                      "the machine's stalls: %zu frames of %.0f ms and more the machine's, "
-                      "%zu updates compared in the server's catching up and the %zu words "
-                      "after it, counted apart",
-                      stalls_.size(), stall_from_s * 1000.0, apart, words_after_a_stall);
-        lines.emplace_back(line);
-        for (std::size_t i = 0; i < stalls_.size(); ++i) {
-            const MachineStall& s = stalls_[i];
-            std::snprintf(line, sizeof line,
-                          "the machine's stall %zu: %.0f ms, %.1f s in; %zu words catching up "
-                          "and %zu after, %zu updates compared, the worst %.3f m, back within "
-                          "%.0f m from word %zu after; %zu corrections, the worst %.3f m, %zu "
-                          "too large to hide",
-                          i + 1, s.machines_s * 1000.0, s.at_s, s.catching_up, s.words,
-                          s.compared, s.worst_error_m, back_within_m, s.over_until_word + 1,
-                          s.corrections, s.worst_correction_m, s.snapped);
-            lines.emplace_back(line);
+        // **The machine's stalls, apart** (frontend::MachineStalls): the
+        // worst and the corrections above are of every other word; the median
+        // and percentiles below are of all of them.
+        for (const std::string& said : stalls_.said()) {
+            lines.push_back(said);
         }
         // **And the median**: what the error is in the run of updates, where
         // the worst is what one slow frame made it (server_weather.cmake).
@@ -2912,54 +2875,9 @@ private:
     std::size_t taken_over_ = 0;
     std::size_t taken_back_ = 0;
     double longest_between_frames_s_ = 0.0;
-    // **The machine's stalls, and what is counted apart after each.** A
-    // frame the machine mostly took - the time between it and the last not
-    // this client's thread's CPU time, its sleeps or its writes (`render`) -
-    // by `stall_from_s` or more is a machine that did not run it, and on a
-    // runner it does not run the server or the relay either: stopped by
-    // hand together 3 s, the client was put 7 m off and then 4.6 m
-    // (docs/status, 2026-10-22). The server then catches up the steps it
-    // owes, sending a word every 4.8 of them, and reads the inputs that came
-    // meanwhile all at once, flying them at most a quarter of a second late
-    // (net::most_steps_held): a word placed by them puts the clocks'
-    // difference - the least of `offset_window` words - steps low until it
-    // has left the window, and the pace's `pace_window` after it. So the
-    // words about a time before this client's reckoning of the session's
-    // clock at the frame after the stall - the server's catching up - and
-    // `words_after_a_stall` after them have their updates and corrections
-    // counted apart, each stall's own, and named; every word after them is
-    // judged with the rest, so a recovery that never comes still fails.
-    // A shorter stall than a quarter of a second the server flies where it
-    // came; one that is this client's own is not the machine's, and is not
-    // counted apart.
-    static constexpr double stall_from_s =
-        static_cast<double>(glideslope::net::most_steps_held) /
-        static_cast<double>(glideslope::sim::steps_per_second);
-    static constexpr std::size_t words_after_a_stall =
-        glideslope::sim::offset_window + glideslope::sim::pace_window;
-    // What an error is back within, said of each stall: the bound on all but
-    // five updates in a hundred (server_paced_prediction.cmake).
-    static constexpr double back_within_m = 1.0;
-    struct MachineStall {
-        double at_s = 0.0;
-        double machines_s = 0.0;
-        // The session's time as this client reckons it at the frame
-        // after the stall: words about an earlier time are the server's
-        // catching up on it, as many as the stall was long.
-        double caught_up_s = 0.0;
-        std::size_t catching_up = 0;
-        // Words after those, up to `words_after_a_stall`.
-        std::size_t words = 0;
-        std::size_t compared = 0;
-        double worst_error_m = 0.0;
-        // The last of its words whose update was off by more than
-        // `back_within_m`; 0 if none.
-        std::size_t over_until_word = 0;
-        std::size_t corrections = 0;
-        double worst_correction_m = 0.0;
-        std::size_t snapped = 0;
-    };
-    std::vector<MachineStall> stalls_;
+    // **The machine's stalls**, and what is counted apart after each
+    // (frontend::MachineStalls).
+    glideslope::frontend::MachineStalls stalls_;
     // Of the longest between frames, the time that was not this client's.
     double longest_machines_s_ = 0.0;
     // The longest of this client's own between two frames (`render`).

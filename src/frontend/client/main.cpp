@@ -29,6 +29,7 @@
 #include "online.hpp"
 #include "pass.hpp"
 #include "frontend/shown.hpp"
+#include "platform/cpu_time.hpp"
 #include "platform/end_process.hpp"
 #include "platform/stop.hpp"
 #include "platform/closed_pipes.hpp"
@@ -1625,9 +1626,27 @@ static int run_program(int argc, char** argv) {
                         "longest meanwhile, and kept in it\n",
                         longest_away_s);
         }
+        // **Each pass's time, and how much of it this client's**: its
+        // thread's CPU time and the sleeps it asked for; the rest is the
+        // machine's (frontend::MachineStalls, Online::frame_took).
+        double pass_at_s = seconds_since_start();
+        double pass_cpu_s = glideslope::platform::thread_cpu_s();
+        double asked_s = 0.0;
         while (running) {
             pass_times = PassTimes{};
             pass_began = seconds_since_start();
+            {
+                const double cpu = glideslope::platform::thread_cpu_s();
+                const double between = pass_began - pass_at_s;
+                const double own =
+                    (cpu >= 0.0 && pass_cpu_s >= 0.0 ? cpu - pass_cpu_s : between) + asked_s;
+                if (online && joined && flight) {
+                    online->frame_took(pass_began, between, own);
+                }
+                pass_at_s = pass_began;
+                pass_cpu_s = cpu;
+                asked_s = 0.0;
+            }
             pass_mark = pass_began;
             if (glideslope::platform::stop_requested()) {
                 break;
@@ -1758,6 +1777,7 @@ static int run_program(int argc, char** argv) {
                 std::chrono::steady_clock::now() - held_at >= std::chrono::milliseconds(100)) {
                 std::this_thread::sleep_for(
                     std::chrono::duration<double, std::milli>(o.slow_frames_ms));
+                asked_s += o.slow_frames_ms / 1000.0;
                 held_at = std::chrono::steady_clock::now();
             }
             std::int64_t due = 0;
@@ -2351,6 +2371,7 @@ static int run_program(int argc, char** argv) {
             if (shooting && joined && !shot_now && !switched_now && !said_the_view && !say_the_hud) {
                 pass_done();
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                asked_s += 0.001;
                 continue;
             }
             // The orbit goes round once a minute of the flight's own time, so
@@ -2708,6 +2729,9 @@ static int run_program(int argc, char** argv) {
                             "%zu too large to hide\n",
                             online->corrections(), online->worst_correction_m(),
                             online->snapped());
+                for (const std::string& said : online->stalls_said()) {
+                    std::printf("glideslope: %s\n", said.c_str());
+                }
                 std::printf("glideslope: the worst while its clocks' difference was learnt "
                             "%.3f m, and once it was known %.3f m\n",
                             online->worst_learning_m(), online->worst_known_m());

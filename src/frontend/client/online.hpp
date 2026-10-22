@@ -15,6 +15,7 @@
 // what they look like is the caller's.
 
 #include "flight.hpp"
+#include "frontend/machine_stalls.hpp"
 #include "net/inputs.hpp"
 #include "net/interpolation.hpp"
 #include "net/messages.hpp"
@@ -327,8 +328,15 @@ public:
         return own_words_ > 0 ? last_own_word_s_ - first_own_word_s_ : 0.0;
     }
     std::size_t frames_that_heard_own() const { return frames_heard_own_; }
+    // How many were too large to hide, and the worst - of those not across
+    // a machine's stall (`frame_took`), which are counted apart.
     std::size_t snapped() const { return snapped_; }
     double worst_correction_m() const { return worst_correction_m_; }
+    // **A frame, `between_s` since the last and `own_s` of it this
+    // client's**: one the machine mostly took has the corrections across it
+    // counted apart (frontend::MachineStalls).
+    void frame_took(double local_s, double between_s, double own_s);
+    std::vector<std::string> stalls_said() const { return stalls_.said(); }
     // The same, split by whether the clocks' difference was known yet
     // (sim::Prediction::settled): a correction while it is learnt is the
     // estimate coming down, and one after is the prediction.
@@ -466,6 +474,7 @@ private:
     bool corrected_ = false;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;
+    frontend::MachineStalls stalls_;
     double worst_learning_m_ = 0.0;
     double worst_known_m_ = 0.0;
     std::optional<std::pair<double, net::AircraftState>> own_heard_;
