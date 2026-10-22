@@ -76,7 +76,7 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // pitch, roll and yaw trim and an input frame the roll and yaw trim: the document gives the envelope's version as
 // `0F`. A test reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x0F;
+constexpr std::uint8_t kVersion = 0x10;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;

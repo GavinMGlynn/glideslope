@@ -149,7 +149,26 @@ std::optional<Joined> Online::joined_by(const net::StatePacket& state) const {
     joined.loading = found->second.loading;
     joined.motion = motion_of(*state.yours);
     joined.server_steps = frontend::server_steps_of(state.simulation_time_s);
+    // **A law flying her as she is given**: not given until the server has
+    // said the whole of it (`LAW_STATE`), and then from its step.
+    if (net::stovl_height_asked(*state.yours)) {
+        joined.law = fresh_law(state.your_aircraft);
+        if (!joined.law) {
+            return std::nullopt;
+        }
+        joined.motion = motion_of(joined.law->motion);
+        joined.server_steps = frontend::server_steps_of(joined.law->simulation_time_s);
+    }
     return joined;
+}
+
+std::optional<net::LawState> Online::fresh_law(std::uint8_t number) const {
+    const net::Told& told = session_.told();
+    if (told.law_states_heard() > laws_used_ && told.law_state() &&
+        told.law_state()->aircraft == number) {
+        return told.law_state();
+    }
+    return std::nullopt;
 }
 
 sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& flight,
@@ -304,7 +323,7 @@ void Online::hear(Flight& flight) {
     if (own_word_) {
         const OwnWord word = *own_word_;
         own_word_.reset();
-        flight.adopt(word.motion);
+        flight.adopt(word.motion, word.law);
         // Started again from it: no word held for the prediction before
         // has a step coming.
         words_.drop("started again");
@@ -448,6 +467,9 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             mine_ = state.your_aircraft;
             joined->again = true;
             taken_ = std::move(joined);
+            if (taken_->law) {
+                laws_used_ = session_.told().law_states_heard();
+            }
             taken_at_ = sequence_;
             taken_back_ = false;
             rejoined_ = true;
@@ -474,6 +496,9 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
         if (auto joined = joined_by(state)) {
             mine_ = state.your_aircraft;
             taken_ = std::move(joined);
+            if (taken_->law) {
+                laws_used_ = session_.told().law_states_heard();
+            }
             taken_at_ = sequence_;
             taken_back_ = false;
             rejoined_ = false;
@@ -508,6 +533,9 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
         if (auto newer = joined_by(state)) {
             newer->again = taken_->again;
             taken_ = std::move(newer);
+            if (taken_->law) {
+                laws_used_ = session_.told().law_states_heard();
+            }
             reconciled_s_ = state.simulation_time_s;
             let_go_own_word();
             // Who flies it, as the word that gave it was read; and what it
@@ -550,6 +578,13 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             // The AI's: drawn from the updates, below, and not predicted.
             reconciled_s_ = state.simulation_time_s;
             let_go_own_word();
+        } else if ((!reconciled_s_ || resuming_ || own_word_) &&
+                   net::stovl_height_asked(*state.yours) && !fresh_law(mine_)) {
+            // **Taken back with a law flying her**: not predicted until the
+            // server's `LAW_STATE` says the whole of it; the next word after
+            // it begins her there.
+            reconciled_s_ = state.simulation_time_s;
+            let_go_own_word();
         } else if (!reconciled_s_ || resuming_ || own_word_) {
             // Put there by `hear` from the newest word, when the words
             // heard together are those waiting since it joined.
@@ -558,6 +593,11 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             OwnWord word;
             word.motion = motion_of(*state.yours);
             let_go_own_word();
+            if (net::stovl_height_asked(*state.yours)) {
+                word.law = fresh_law(mine_);
+                word.motion = motion_of(word.law->motion);
+                laws_used_ = session_.told().law_states_heard();
+            }
             own_word_ = word;
         } else {
             // **Put right from the newest of the words heard together**, by

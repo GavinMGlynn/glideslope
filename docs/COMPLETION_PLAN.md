@@ -444,12 +444,20 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       60 kt, the stick full over turns her at least 3 degrees a second,
       banked under 30, and held when centred; full pedal moves her heading
       at least 5 degrees in 10 s; her height within 15 ft.*
-- [ ] **A client joining while an F-35B banks jet-borne predicts her with no
-      bank held**: the bank her pilot's stick left is her law's own, and a
-      prediction begun mid-turn starts level. Since 2026-10-22 a prediction
-      told the server's law state and lift system's positions agrees from
-      the first word, in one process; the server does not tell it yet. *Verification: a client joining mid-bank predicts the
-      server's held bank and agrees with it within a stated bound.*
+- [x] **A client joining while an F-35B banks jet-borne predicts her with
+      the bank held**: the server tells a client given her while her law
+      flies her the whole of it (`LAW_STATE`, protocol 10), and the client
+      begins on it. *Verification: a client joining mid-bank predicts the
+      server's held bank and agrees with it within a stated bound
+      (2026-10-22, through a server: 20 degrees held, her pitch within
+      0.017 degrees, the median 6 mm; without the message 2.784 degrees).*
+- [ ] **A player taking over or back an F-35B in STOVL mode cannot be
+      tested through a server**: the server takes over only an AI's own
+      aircraft, whose F-35B is too heavy to hover (a plan file names no
+      loading), and handed to the AI hers converts back and lets her law
+      go; taken back so, the two laws are seeded apart (0.858 degrees).
+      *Verification: through a server, a client taking over or back an
+      F-35B whose law flies her is told it, her pitch within half a degree.*
 - [x] **A player who joins already selecting STOVL mode has her law seeded
       as the server's**: her prediction begins on the controls the server
       says it holds her on, and a law made again in a replay is seeded as it

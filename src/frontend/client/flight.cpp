@@ -1,6 +1,7 @@
 #include "flight.hpp"
 
 #include "frontend/own_words.hpp"
+#include "frontend/law_told.hpp"
 #include "frontend/sent_stamp.hpp"
 
 #include "gfx/terrain_colour.hpp"
@@ -208,6 +209,19 @@ void Flight::adopt(const sim::Motion& motion) {
 void Flight::sent(std::uint32_t sequence, std::uint64_t steps_owed) {
     if (prediction_) {
         frontend::stamp_sent(*prediction_, sequence, steps_owed);
+    }
+}
+
+void Flight::adopt(const sim::Motion& motion, const std::optional<net::LawState>& law) {
+    adopt(motion);
+    if (law) {
+        (void)prediction_->reconcile(
+            motion, law->last_input_applied, law->motion.steps_into_input,
+            static_cast<std::uint64_t>(std::llround(
+                law->simulation_time_s * static_cast<double>(sim::steps_per_second))),
+            net::stovl_height_asked(law->motion),
+            sim::Transition::Carried{net::stovl_pitch_integral(law->motion)},
+            frontend::law_heard(*law));
     }
 }
 

@@ -478,6 +478,7 @@ std::optional<Controller::LawState> Controller::law_state() const {
     out.commands = held_lift_;
     out.positions = a_.lift_positions();
     out.lever_at_selection = lever_at_selection_;
+    out.selector_at_take_back = selector_at_take_back_;
     return out;
 }
 
@@ -491,6 +492,7 @@ void Controller::take_law(const LawState& told) {
     applied_.stovl = told.law.last_asked_hover.value_or(true) ? 1.0 : 0.0;
     catching_up_ = false;
     lever_at_selection_ = told.lever_at_selection;
+    selector_at_take_back_ = told.selector_at_take_back;
     selector_was_ = true;
     hovering_since_s_.reset();
 }

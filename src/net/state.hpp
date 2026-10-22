@@ -242,6 +242,88 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state);
 // number.
 std::optional<StatePacket> read_state(std::span<const std::uint8_t> body);
 
+// **Her STOVL law as it flies her, for a client given her while it does**
+// (`LAW_STATE`, protocol version 10): sent by the server, reliably, to the
+// client it gives an aircraft to - joining, joining again on its key, or
+// taking her over - when its first state update for her says a law flies
+// her lift system (`OwnMotion::stovl_height_asked_ft` not `no_stovl_law`),
+// and to no other. **Self-contained**: the server's step, the client's newest
+// input applied and her own motion as a state update carries them, and the
+// law's whole state at that step, so that a client puts its prediction there
+// and flies its own inputs since forward from it, as from a correction,
+// without pairing it with any state update. Until it arrives such a client
+// does not predict her. A client's prediction begun on a model just loaded
+// has the fan's doors shut, so its own law was made wing-borne whatever the
+// server's was, and level where the server's held her pilot's bank: through
+// a server, PROJECT_STATUS.md, 2026-10-22.
+//
+// The law's numbers are the simulation's (sim::Controller::LawState), as
+// `f64`: what she is commanded and holds is sent exactly, once.
+struct LawState {
+    std::uint8_t aircraft = 0;
+    double simulation_time_s = 0.0;
+    std::uint32_t last_input_applied = 0;
+    OwnMotion motion;
+    // The law's stage: 0 wing-borne, 1 converting, 2 jet-borne, 3 hovering.
+    std::uint8_t stage = 0;
+    // Whether a wing-borne autopilot flies her (wing-borne, or converting
+    // forward); and which way it was last asked, if it has been.
+    bool autopilot = false;
+    std::optional<bool> last_asked_hover;
+    double height_asked_ft = 0.0;
+    double heading_deg = 0.0;
+    double bank_held_deg = 0.0;
+    double hover_base_ft = 0.0;
+    double speed_asked_kt = 0.0;
+    double pitch_from_deg = 0.0;
+    double speed_from_kt = 0.0;
+    double back_pitch_from_deg = 0.0;
+    double throttle_integral = 0.0;
+    double angle_integral_deg = 0.0;
+    double elevator_integral = 0.0;
+    double fan_integral = 0.0;
+    double post_integral = 0.0;
+    double pitch_integral_deg = 0.0;
+    // The lever latched at the selection, until it moves; and taken back or
+    // over in STOVL mode, the selector then, held until it moves.
+    std::optional<double> lever_at_selection;
+    std::optional<double> selector_at_take_back;
+    // **The controls the law last gave her**: the elevator, aileron, rudder,
+    // throttle, flaps, gear, and pitch, roll and yaw trim.
+    std::array<double, 9> controls{};
+    // **And her lift system's commands**: STOVL mode, the nozzle, the fan's
+    // vanes, the fan's share, the roll posts, the nozzle's swivel, the
+    // thrust's split; and where it stands - the doors' travel, the nozzle,
+    // the vanes.
+    std::array<double, 7> lift{};
+    std::array<double, 3> positions{};
+    // **The hover law, hovering**: where it stood, its heading and point,
+    // its integrals, and whether it is flying a ground speed asked.
+    struct Hovering {
+        double standing_ft = 0.0;
+        double heading_deg = 0.0;
+        double latitude_deg = 0.0;
+        double longitude_deg = 0.0;
+        double throttle_integral = 0.0;
+        double fan_integral = 0.0;
+        double post_integral = 0.0;
+        bool translating = false;
+        bool operator==(const Hovering&) const = default;
+    };
+    std::optional<Hovering> hover;
+
+    bool operator==(const LawState&) const = default;
+};
+inline constexpr std::uint8_t law_stages = 4;
+inline constexpr std::uint8_t law_stage_hovering = 3;
+
+// Its bytes, `LAW_STATE` first; nothing for a number that is not one, a
+// stage past hovering, or a hover law where she is not hovering or none
+// where she is.
+std::optional<std::vector<std::uint8_t>> write_law_state(const LawState& m);
+// Read whole, as the reliable messages are: `out` untouched unless true.
+bool read(std::span<const std::uint8_t> body, LawState& out);
+
 // How many bytes a packet carrying `count` aircraft takes.
 std::size_t state_bytes(std::size_t count, bool with_yours = false,
                         bool with_watched = false);

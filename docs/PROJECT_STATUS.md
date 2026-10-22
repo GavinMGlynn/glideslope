@@ -256,7 +256,9 @@ are the risks the phase order is built around:
   server's is (2026-10-21), her pitch trim included, her predicted pitch
   within 0.001 degree of the server's on Linux (2026-10-28; CI's other
   platforms not yet measured). A client joining while her law already flies
-  her predicts her from a law made afresh, her fan's doors shut. She flies
+  her is told the whole of it and predicts her from it, mid-bank (2026-10-22);
+  a take-over or take-back of one in STOVL mode is not testable through a
+  server yet, and taken back the two laws are seeded apart. She flies
   30 kt backward in the hover (2026-10-20), her lift and pitching moment
   the same either side of 180 degrees; her lift past 90 degrees either way
   is lopsided and unsourced, chosen so that flight inside 90 degrees is
