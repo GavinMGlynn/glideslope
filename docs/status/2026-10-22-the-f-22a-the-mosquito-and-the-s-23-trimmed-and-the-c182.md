@@ -118,7 +118,10 @@ roll trim commands a roll rate, and she is trimmed in pitch alone).
   over 707 updates; her prediction's held trim 0.0693 as told, its pitch
   loop's integral 0.0011 at most (bound 0.004). Seen red with the held trim
   untold: her prediction's held trim 0.0000, told 0.0693, the integral
-  0.0095.
+  0.0095. It runs alone (RUN_SERIAL): on CI's Ubuntu debug, sharing its
+  shard's CPUs, one update was put 30.3 m off, the starved machine of the
+  open item "A predicting F-35B on a starved machine is put tens of metres
+  off".
 - `a_state_packet_carries_the_controls_of_the_aircraft_its_client_watches`:
   the held trim read back to the wire's fraction, and none as none.
 - `glideslope_cli selftest`: hash 831a4e7954233b0a in linux-debug, the same
