@@ -765,15 +765,15 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       ms between two frames: the test judges the machine. *Verification: the
       test judged on the client's own time, or a stall built into it
       explicitly and its bound held through it.*
-- [ ] **The impaired checks' AI controls are shown 0.0051 to 0.0061 off**
+- [x] **The impaired checks' AI controls are shown 0.0051 to 0.0061 off**
       on CI's macOS (nightly, 2026-10-15 and 2026-10-21; 0.005 is the bound):
       the throttle drawn at 0.9949 where it was 1.0, past a step to full
       power, across a 0.29 s gap in the updates. Now held across a gap to
       what the throttle's and a hand's rates allow. *Verification: the cause
       found, and the bound held, or a stated reason to change it, in 100
-      macOS runs of each impaired check.* 2026-10-21: 199 of 200, the
-      controls held in all; the one failure a prediction error of 10.9 m
-      against 10 just after the join, not explained.
+      macOS runs of each impaired check.* Done 2026-10-22: 200 of 200 on
+      the final head (an earlier 100's one failure, a prediction error after
+      the join, was the client's build and is fixed under it).
 
 ---
 
