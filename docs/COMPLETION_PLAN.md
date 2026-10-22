@@ -440,8 +440,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       at least 5 degrees in 10 s; her height within 15 ft.*
 - [ ] **A client joining while an F-35B banks jet-borne predicts her with no
       bank held**: the bank her pilot's stick left is her law's own, and a
-      prediction begun mid-turn starts level; likely fixed by the server
-      telling it. *Verification: a client joining mid-bank predicts the
+      prediction begun mid-turn starts level. Telling the bank is not
+      enough: a prediction begun on a model just loaded has its fan's doors
+      shut, so its law is made wing-borne (2026-10-22); the lift system's
+      positions and the law's stage and state must be told at the join. *Verification: a client joining mid-bank predicts the
       server's held bank and agrees with it within a stated bound.*
 - [x] **A player who joins already selecting STOVL mode has her law seeded
       as the server's**: her prediction begins on the controls the server
@@ -476,19 +478,15 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       88 m) - as on main before this phase's changes (39 to 49 m), and once
       on CI's Ubuntu debug (33 m). *Verification: a predicting F-35B whose
       client is stalled 3 s is off by no more than four steps' travel.*
-- [ ] **A client's prediction of an F-35B in STOVL mode drifts from the
-      server's flight-control laws**: each side seeds her law from her as it
-      sees her when the selector reaches it, a step apart when the clocks'
-      difference places it a step off, and being put back to the same motion
-      keeps them apart (2026-10-14: her pitch 4 degrees off within a fifth of
-      a second). Since 2026-10-16 the server tells the law's height asked and
-      its wing-borne autopilot's pitch integral, and wing-borne her pitch is
-      within 0.154 degrees; not yet shown selected before the prediction has
-      settled, and the converting, jet-borne and hover laws' own integrals
-      are not told. *Verification: through a real server, held wing-borne
-      two minutes, selected at any moment, including before the prediction
-      has settled, the client's predicted pitch within half a degree of the
-      server's at every update.*
+- [x] **A client's prediction of an F-35B in STOVL mode follows the
+      server's flight-control laws**: the server tells the height asked and
+      the wing-borne autopilot's pitch integral; the converting, jet-borne
+      and hover laws need no telling once both change stage on the same step
+      (measured within 0.012 degrees). *Verification: through a real server,
+      held wing-borne two minutes, selected at any moment, including before
+      the prediction has settled, the client's predicted pitch within half a
+      degree of the server's at every update (2026-10-22: selected on her
+      first input, 0.004 degrees over 3,000 updates).*
 - [x] **A STOVL prediction flown on 0.8 of the stick is caught**: what her
       stick, pedals and lever set in her law is held against the server's at
       every step, wing-borne, jet-borne and in the hover. *Verification: a

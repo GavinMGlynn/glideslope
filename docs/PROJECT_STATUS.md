@@ -224,9 +224,12 @@ are the risks the phase order is built around:
   aircraft of its kind whose derivatives are published. A player's F-35B
   joins at a loading she asks for and converts, hovers and lands vertically
   through a server (2026-10-16), and the windowed client flies her at it
-  (2026-10-22); her jet-borne and hover laws' integrals are each side's own;
-  joining already selecting STOVL, her law is seeded in her prediction as
-  the server's is (2026-10-21). She flies
+  (2026-10-22); her converting, jet-borne and hover laws are each side's own
+  and agree, both changing stage on the same step, her predicted pitch within
+  half a degree of the server's selected at any moment (2026-10-22); joining
+  already selecting STOVL, her law is seeded in her prediction as the
+  server's is (2026-10-21). A client joining while her law already flies
+  her predicts her from a law made afresh, her fan's doors shut. She flies
   30 kt backward in the hover (2026-10-20), her lift and pitching moment
   the same either side of 180 degrees; her lift past 90 degrees either way
   is lopsided and unsourced, chosen so that flight inside 90 degrees is
