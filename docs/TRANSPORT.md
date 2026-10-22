@@ -86,6 +86,9 @@ Said first, because a transport's limits matter more than its features.
   updates"), and whose input frame carries twenty-one controls, the roll
   and yaw trim last (below, "Inputs"), so that a player's client keeps the
   trim the server held her on.
+  Version `10` is on the same ground, and is the first whose server tells
+  a client given an aircraft while her STOVL law flies her the whole of
+  that law (`LAW_STATE`, below).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -96,7 +99,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `0F` |
+| 4 | 1 | version | `10` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -142,7 +145,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `0F`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `10`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -423,10 +426,11 @@ must not trust a length it has not checked.
 
 ## Reliable messages
 
-Nine things must each arrive, exactly once, in the order they were sent: the
+These things must each arrive, exactly once, in the order they were sent: the
 lobby, the session, the weather, an aircraft's definition, the terrain
 dataset, a controller swap, which aircraft a client is watching, a
-copilot's route and a take-over refused. They go as **ten kinds of message**,
+copilot's route, a take-over or a learnt landing refused, the runways'
+conditions and a STOVL law's state. They go as **thirteen kinds of message**,
 because the weather is two of them. They ride the reliable layer below,
 which numbers them and repeats them until they are acknowledged.
 
@@ -468,6 +472,7 @@ is that kind's fields in the order given here.
 | `0A` | `TAKE_OVER_REFUSED` |
 | `0B` | `LEARNT_LANDING_REFUSED` |
 | `0C` | `RUNWAY_CONDITIONS` |
+| `0D` | `LAW_STATE` |
 
 A kind this version does not know is not a message, and is refused rather
 than skipped.
@@ -931,6 +936,85 @@ A reader refuses a moment below nought, a flag that is neither `00` nor `01`,
 a time with the flag `00` that is not `0`, a count over 16, a runway past
 either pole or 180 degrees, a heading below nought or over 360, a length of
 nought or less or over 20 km, and a code that is not `01` to `05`.
+
+### `LAW_STATE`
+
+**Her STOVL law's whole state, for a client given her while it flies her**
+(since `10`). An aeroplane with a lift system - the F-35B - is flown in
+STOVL mode by a flight-control law whose state is not in her motion: which
+stage it is in, the bank her pilot's stick left held, the speed and height
+it asks, its integrals, and where her lift system's doors, nozzle and vanes
+stand. A client predicting her from a model just loaded has the fan's doors
+shut, so its own law is made wing-borne whatever the server's is, and level
+where the server's holds a bank. So the server tells it the whole law, once,
+when it gives a client an aircraft a law flies - joining, joining again on
+its key, taking her over, or taking her back from the AI - and to no other
+client.
+
+**When.** In the pass that sends the first state update in which that
+client flies her as a person (`CONTROLLER` `PERSON` in that update) and its
+own motion's height asked is not -1, before that update. Once each time she
+is given; never while she stays its own.
+
+**Self-contained.** It carries the server's clock, the client's newest input
+applied and her own motion exactly as that state update does, and the law at
+the same step. A client puts its prediction there and flies its own inputs
+since forward from it, as it does from a correction, so it never pairs this
+with a state update, which may be lost or already used. **A client given her
+with a height asked in its own motion does not predict her until this
+arrives**, and draws her from the updates meanwhile.
+
+| written as | field |
+| --- | --- |
+| `u8` | `0D`, the kind |
+| `u8` | her number, as the state update's |
+| `f64` | the simulation's clock at that step, seconds |
+| `u32` | the newest input sequence from this client the server has applied |
+| | her own motion, every field as "State updates" writes it after its `01` flag, from her position to the pitch integral: 75 bytes |
+| `u8` | the law's stage: `00` wing-borne, `01` converting, `02` jet-borne, `03` hovering |
+| `u8` | flags: `01` a wing-borne autopilot flies her; `02` the law has been asked which way to go; `04` it was last asked for a hover (only with `02`); `08` the lever is latched at the selection; `10` the hover law follows (exactly when the stage is `03`); `20` that hover law is flying a ground speed asked (only with `10`); `40` the selector is held as it was when she was taken back or over |
+| `f64` | the height above the ground the law is asked to hold, feet |
+| `f64` | the heading it holds, degrees |
+| `f64` | the bank her pilot's stick left held, degrees, right positive |
+| `f64` | the height of the ground it hovers over, as it stood, feet |
+| `f64` | the speed it asks along her heading, knots |
+| `f64` | the attitude it slows from, degrees |
+| `f64` | the speed it slows from, knots |
+| `f64` | the attitude it converts back from, degrees |
+| `f64` | its throttle integral |
+| `f64` | its thrust's angle integral, degrees |
+| `f64` | its stabilator integral |
+| `f64` | its fan's share integral |
+| `f64` | its roll posts' integral |
+| `f64` | its wing-borne autopilot's pitch integral, degrees (`0` with no autopilot) |
+| `f64` x9 | the controls it last gave her: elevator, aileron, rudder, throttle, flaps, gear, pitch trim, roll trim, yaw trim |
+| `f64` x7 | her lift system's commands: STOVL mode, the nozzle (degrees), the fan's vanes (degrees), the fan's share, the roll posts, the nozzle's swivel, the thrust's split |
+| `f64` x3 | where it stands: the fan's doors' travel (0 shut, 1 open), the nozzle, degrees, the fan's vanes, degrees |
+| `f64` | the lever where it was latched; `0` when the flag `08` is not set |
+| `f64` | the selector where it was held; `0` when the flag `40` is not set |
+| | and with the flag `10`, the hover law: |
+| `f64` | the height it stood at, feet |
+| `f64` | the heading it holds, degrees |
+| `f64` | the point it holds over: latitude, degrees |
+| `f64` | longitude, degrees |
+| `f64` | its throttle integral |
+| `f64` | its fan's share integral |
+| `f64` | its roll posts' integral |
+
+It is 371 bytes, and 427 hovering. **It does not say** a wing-borne
+autopilot's own state beyond its pitch integral - the client makes one
+afresh from the law's last controls, as a prediction measured needing only
+that (2026-10-16) - nor the controls the law does not move (the mixture, the
+brakes, the propeller), nor how far a moving actuator had to go: a client
+puts her lift system where it stands, and the actuators move on at their
+rates from there. Nor is it repeated: a client that has begun on one is put
+right from then on by the state updates, as any prediction is.
+
+A reader refuses a stage past `03`, a flag outside those seven, `04` without
+`02`, `20` without `10`, the hover law present when the stage is not `03`
+or missing when it is, a value after an unset `08` or `40` flag that is not
+`0`, every bit of it, an own motion the state update would refuse or whose
+height asked is -1, and a NaN or infinity anywhere.
 
 ### What a reader must refuse
 

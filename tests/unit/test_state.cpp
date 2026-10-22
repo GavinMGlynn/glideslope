@@ -10,6 +10,8 @@
 #include <cstdio>
 #include <cstring>
 #include <span>
+#include <tuple>
+#include <vector>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
@@ -714,4 +716,174 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_state_packet
     for (const std::string& field : own) {
         check(says(field), "the document names '" + field + "'");
     }
+}
+
+namespace {
+
+// A STOVL law's state with every field set, as test_messages.cpp's example.
+glideslope::net::LawState law_example(bool hovering) {
+    glideslope::net::LawState m;
+    m.aircraft = 2;
+    m.simulation_time_s = 125.25;
+    m.last_input_applied = 4000;
+    m.motion.x_m = -4646000.5;
+    m.motion.y_m = 2553000.25;
+    m.motion.z_m = -3534000.75;
+    m.motion.attitude = {0.5F, 0.5F, -0.5F, 0.5F};
+    m.motion.uvw_mps = {30.0F, 1.0F, -0.5F};
+    m.motion.pqr_radps = {0.01F, -0.02F, 0.03F};
+    m.motion.steps_into_input = 3;
+    m.motion.stovl_height_asked_ft = 150.0F;
+    m.stage = hovering ? 3 : 2;
+    m.last_asked_hover = true;
+    m.height_asked_ft = 150.5;
+    m.heading_deg = 71.25;
+    m.bank_held_deg = 20.0;
+    m.speed_asked_kt = 42.5;
+    m.throttle_integral = 0.75;
+    m.lever_at_selection = 0.25;
+    m.controls = {0.1, -0.2, 0.3, 0.8, 0.5, 1.0, 0.05, -0.01, 0.02};
+    m.lift = {1.0, 90.0, 92.5, 0.1, -0.2, 0.3, 0.0};
+    m.positions = {1.0, 89.5, 92.0};
+    if (hovering) {
+        glideslope::net::LawState::Hovering h;
+        h.latitude_deg = -33.95;
+        h.longitude_deg = 151.18;
+        h.translating = true;
+        m.hover = h;
+    }
+    return m;
+}
+
+} // namespace
+
+// **A `LAW_STATE` is read exactly as written, or refused** (docs/TRANSPORT.md,
+// `LAW_STATE`): jet-borne and hovering, each read back equal, at 371 and 427
+// bytes. Then every refusal the document names, each built: a stage past
+// `03`; each flag bit outside the seven; `04` without `02`; `20` without
+// `10`; a hover law where she is jet-borne and none where she hovers; a
+// value after an unset lever or selector flag that is not nought, and -0;
+// a height asked of -1; and a NaN and an infinity in every one of its 42
+// `f64` numbers past the clock (35 of the law, 7 of the hover law) and the
+// clock itself, and in each of the own motion's 12 floats - counted, every
+// one refused, and the space walked stated.
+GLIDESLOPE_TEST(a_law_states_every_number_is_read_exactly_or_refused) {
+    using glideslope::net::LawState;
+    const auto bytes = [](const LawState& m) { return *glideslope::net::write_law_state(m); };
+    const auto refused = [](std::vector<std::uint8_t> b) {
+        LawState got;
+        return !glideslope::net::read(b, got);
+    };
+    for (const bool hovering : {false, true}) {
+        const LawState m = law_example(hovering);
+        const std::vector<std::uint8_t> b = bytes(m);
+        LawState got;
+        check(glideslope::net::read(b, got) && got == m,
+              std::string(hovering ? "hovering" : "jet-borne") + " reads back as written");
+        check(b.size() == (hovering ? 427u : 371u),
+              "its size is " + std::to_string(b.size()));
+    }
+    const std::vector<std::uint8_t> jet = bytes(law_example(false));
+    const std::vector<std::uint8_t> hover = bytes(law_example(true));
+    constexpr std::size_t stage_at = 89;
+    constexpr std::size_t flags_at = 90;
+    constexpr std::size_t numbers_at = 91;
+    std::size_t cases = 0;
+    const auto refuse = [&](std::vector<std::uint8_t> b, const std::string& what) {
+        check(refused(std::move(b)), what + " is refused");
+        ++cases;
+    };
+    {
+        auto b = jet;
+        b[stage_at] = 4;
+        refuse(b, "a stage past 03");
+    }
+    for (const std::uint8_t bit : {std::uint8_t{0x80}}) {
+        auto b = jet;
+        b[flags_at] = static_cast<std::uint8_t>(b[flags_at] | bit);
+        refuse(b, "an unknown flag");
+    }
+    {
+        auto b = jet;
+        b[flags_at] = static_cast<std::uint8_t>((b[flags_at] & ~0x02) | 0x04);
+        refuse(b, "04 without 02");
+    }
+    {
+        auto b = jet;
+        b[flags_at] = static_cast<std::uint8_t>(b[flags_at] | 0x20);
+        refuse(b, "20 without 10");
+    }
+    {
+        auto b = hover;
+        b[stage_at] = 2;
+        refuse(b, "a hover law where she is jet-borne");
+    }
+    {
+        auto b = jet;
+        b[stage_at] = 3;
+        refuse(b, "no hover law where she hovers");
+    }
+    // The lever's and the selector's values, after their flags unset.
+    const std::size_t lever_at = numbers_at + 33 * 8;
+    const std::size_t selector_at = lever_at + 8;
+    for (const auto& [at, flag, name] :
+         {std::tuple{lever_at, std::uint8_t{0x08}, "lever"},
+          std::tuple{selector_at, std::uint8_t{0x40}, "selector"}}) {
+        LawState m = law_example(false);
+        m.lever_at_selection.reset();
+        m.selector_at_take_back.reset();
+        const std::vector<std::uint8_t> none = bytes(m);
+        LawState got;
+        check(glideslope::net::read(none, got) && got == m,
+              std::string("no ") + name + " reads back");
+        check((none[flags_at] & flag) == 0, std::string("its flag unset: ") + name);
+        auto b = none;
+        b[at + 7] = 0x3F; // 1.0 as written, little-endian, top byte
+        b[at + 6] = 0xF0;
+        refuse(b, std::string("a ") + name + " value without its flag");
+        auto z = none;
+        z[at + 7] = 0x80; // -0
+        refuse(z, std::string("a -0 ") + name + " without its flag");
+    }
+    {
+        LawState m = law_example(false);
+        m.motion.stovl_height_asked_ft = glideslope::net::no_stovl_law;
+        check(!glideslope::net::write_law_state(m).has_value(), "no law is not written");
+        auto b = jet;
+        const float minus_one = -1.0F;
+        std::memcpy(&b[80], &minus_one, 4);
+        refuse(b, "a height asked of -1");
+    }
+    // Every f64: the clock, and the law's and the hover law's numbers.
+    std::size_t numbers = 0;
+    std::vector<std::size_t> f64_at{2};
+    for (std::size_t i = 0; i < 42; ++i) f64_at.push_back(numbers_at + 8 * i);
+    for (const std::size_t at : f64_at) {
+        for (const std::uint64_t bits : {0x7FF8000000000000ull, 0x7FF0000000000000ull}) {
+            auto b = hover;
+            std::memcpy(&b[at], &bits, 8);
+            refuse(b, "a NaN or infinity at byte " + std::to_string(at));
+        }
+        ++numbers;
+    }
+    // Every float of the own motion: ten, the height asked and the pitch
+    // integral (written with its flag set, so that it is read).
+    LawState with_integral = law_example(true);
+    with_integral.motion.stovl_pitch_integral_deg = 2.0F;
+    const std::vector<std::uint8_t> withi = bytes(with_integral);
+    std::vector<std::size_t> f32_at;
+    for (std::size_t i = 0; i < 10; ++i) f32_at.push_back(38 + 4 * i);
+    f32_at.push_back(80);
+    f32_at.push_back(85);
+    for (const std::size_t at : f32_at) {
+        for (const std::uint32_t bits : {0x7FC00000u, 0x7F800000u}) {
+            auto b = withi;
+            std::memcpy(&b[at], &bits, 4);
+            refuse(b, "a NaN or infinity in the motion at byte " + std::to_string(at));
+        }
+        ++numbers;
+    }
+    std::printf("  %zu refusals built, over %zu numbers (43 f64, 12 f32)\n", cases, numbers);
+    check(numbers == 55, "every number walked: " + std::to_string(numbers));
+    check(cases == 6 + 4 + 1 + 55 * 2, "every refusal built: " + std::to_string(cases));
 }

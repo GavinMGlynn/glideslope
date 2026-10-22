@@ -68,8 +68,9 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // (`0F`): the same ground, the pitch, roll and yaw trim among the watched
 // aircraft's controls in a state update, and the roll and yaw trim in an
 // input frame, so that a player's client keeps the trim the server held her
-// on.
-inline constexpr std::uint8_t protocol_version = 15;
+// on. Version 16 (`10`): the same ground, and her STOVL law's whole state
+// told to a client given her while it flies her (`LAW_STATE`).
+inline constexpr std::uint8_t protocol_version = 16;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

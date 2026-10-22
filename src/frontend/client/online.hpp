@@ -60,6 +60,10 @@ struct Joined {
     // in the landing flap of an aircraft started on final. None if the server
     // said nothing of them in the time joining had left.
     std::optional<net::Watched> levers;
+    // **Her STOVL law's whole state**, given her while a law flies her
+    // (`LAW_STATE`): the motion above is its, and her prediction is begun on
+    // it (Flight::adopt). Until it has been told, she is not given.
+    std::optional<net::LawState> law;
 };
 
 // Another aircraft, where it is to be drawn now.
@@ -388,6 +392,11 @@ private:
     sim::Controls sent_;
     std::uint8_t mine_ = net::no_aircraft;
     std::optional<Joined> taken_;
+    // **How many `LAW_STATE`s were heard when one was last begun on**: a
+    // law told is begun on once, and a newer one waited for after that.
+    int laws_used_ = 0;
+    // A `LAW_STATE` heard since the last begun on, for aircraft `number`.
+    std::optional<net::LawState> fresh_law(std::uint8_t number) const;
     std::optional<std::uint8_t> taking_over_;
     std::vector<std::uint8_t> refused_;
     std::vector<std::string> learnt_refused_;
@@ -428,6 +437,8 @@ private:
         std::optional<int> engine_stopped;
         // And that it is a wreck (sim::Prediction::hear_wrecked).
         bool wrecked = false;
+        // Adopted with a law flying her: the law told (`LAW_STATE`).
+        std::optional<net::LawState> law;
     };
     std::optional<OwnWord> own_word_;
     // What `listen` read, for `hear`: when, and in which session - the
@@ -507,6 +518,7 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
             if (newest) {
                 if (auto joined = joined_by(*newest)) {
                     mine_ = joined->number;
+                    laws_used_ = session_.told().law_states_heard();
                     // Its levers, before any input of this client's has
                     // moved them: asked by riding along in its own, and
                     // riding in nothing again once said.
@@ -524,6 +536,7 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
                                 newer && newer->number == mine_) {
                                 joined->motion = newer->motion;
                                 joined->server_steps = newer->server_steps;
+                                joined->law = newer->law;
                             }
                         }
                         if (!joined->levers) {

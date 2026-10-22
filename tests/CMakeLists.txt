@@ -362,6 +362,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_state_packet_carries_the_clients_own_motion
     a_state_packets_stovl_height_asked_is_none_at_minus_one_and_refused_below_nought
     a_state_packets_stovl_pitch_integral_rides_with_a_flag_and_is_read_exactly_or_refused
+    a_law_states_every_number_is_read_exactly_or_refused
     a_state_packet_carries_the_controls_of_the_aircraft_its_client_watches
     a_state_packet_carries_a_wreck_and_refuses_a_condition_it_does_not_know
     a_state_packet_with_a_controller_that_is_not_one_is_refused
@@ -2491,6 +2492,18 @@ add_test(NAME a_client_whose_first_asking_for_her_levers_is_ignored_asks_again_a
 set_tests_properties(a_client_whose_first_asking_for_her_levers_is_ignored_asks_again_and_seeds_its_law_as_the_server_does
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_spent)
+# **A client given an F-35B while her STOVL law flies her predicts her from
+# the server's law state** (`LAW_STATE`): joining again on her player's key
+# mid-bank. See cmake/server_stovl_join.cmake.
+add_test(NAME a_client_joining_an_f35b_mid_bank_predicts_her_from_the_servers_law_state
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_join -DPORT=24980 -DSCENE=join
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_join.cmake)
+set_tests_properties(a_client_joining_an_f35b_mid_bank_predicts_her_from_the_servers_law_state
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_join)
 # **And against a server behind real time, by centimetres**: its clock at a
 # set 0.6 of real time. Serial: a busy runner would slow it further.
 add_test(NAME a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres

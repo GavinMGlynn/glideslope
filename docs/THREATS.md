@@ -436,6 +436,18 @@ that is handed one has been handed something with no meaning.
 | `TAKE_OVER_REFUSED` | server | no |
 | `LEARNT_LANDING_REFUSED` | server | no |
 | `RUNWAY_CONDITIONS` | server | no |
+| `LAW_STATE` | server | no |
+
+**`LAW_STATE` (protocol `10`) is the server's alone**, and the server drops
+one a client sends, as it drops the other server-only kinds. Its threat is
+the other way: a hostile or broken server could tell a client a law state
+that is nonsense - a stage past hovering, a NaN, a hover law where there is
+none - and the reader refuses every such one (`net::read`, its refusals in
+docs/TRANSPORT.md). A server telling a well-formed but wrong state only
+misleads that client's own prediction of its own aircraft, which the next
+state updates put right; it reaches no other client and no file. It is read
+in `src/net/state.cpp`, not `messages.cpp`, because it carries a client's
+own motion as a state update does.
 
 **So `CONTROLLER_SWAP`, `WATCH` and `COPILOT_ROUTE` are the three with a
 client-to-server threat surface**, and the readers for the other nine matter in the opposite
