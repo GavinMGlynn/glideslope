@@ -429,7 +429,8 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       12 s, her speed swinging under 6 kt and her pitch within 15 degrees.*
 - [x] **The F-35B's lift no longer steps where flying backward puts her
       angle of attack, at 180 degrees**, as it did by about 1,300 lb at
-      30 kt back. *Verification: her lift either side of 180 degrees within
+      30 kt back; reversed, her lift is lopsided and unsourced, as the owner
+      accepts. *Verification: her lift either side of 180 degrees within
       a stated bound, and every figure in range.*
 - [x] **Jet-borne, the F-35B's stick and pedals turn her**: the stick
       rolls her and, centred, holds her bank, as the VAAC Harrier's unified
