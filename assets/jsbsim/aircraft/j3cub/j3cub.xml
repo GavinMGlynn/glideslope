@@ -160,9 +160,30 @@
     <static_friction>  0.80 </static_friction>
     <dynamic_friction> 0.50 </dynamic_friction>
     <rolling_friction> 0.02 </rolling_friction>
-    <spring_coeff  unit="LBS/FT"> 2093 </spring_coeff>
-    <damping_coeff unit="LBS/FT/SEC">  500.00 </damping_coeff>
-    <damping_coeff_rebound unit="LBS/FT/SEC">850</damping_coeff_rebound>
+    <strut_force>
+      <!-- glideslope: preloaded by her shock rings, in series with her tyre
+           (tools/make_j3cub.py says how). -->
+      <function>
+        <sum>
+          <product>
+            <value> -1 </value>
+            <table>
+              <independentVar lookup="row">gear/unit[1]/compression-ft</independentVar>
+              <tableData>
+                  0.000000  0.0
+                  0.199380  731.1
+                  2.000000  3130.4
+              </tableData>
+            </table>
+          </product>
+          <ifthen>
+            <ge> <property>gear/unit[1]/compression-velocity-fps</property> <value> 0.0 </value> </ge>
+            <product> <value> -500 </value> <property>gear/unit[1]/compression-velocity-fps</property> </product>
+            <product> <value> -850 </value> <property>gear/unit[1]/compression-velocity-fps</property> </product>
+          </ifthen>
+        </sum>
+      </function>
+    </strut_force>
     <max_steer unit="DEG">0</max_steer>
     <brake_group> LEFT </brake_group>
     <retractable> 0 </retractable>
@@ -177,9 +198,30 @@
     <static_friction>  0.80 </static_friction>
     <dynamic_friction> 0.50 </dynamic_friction>
     <rolling_friction> 0.02 </rolling_friction>
-    <spring_coeff  unit="LBS/FT"> 2093 </spring_coeff>
-    <damping_coeff unit="LBS/FT/SEC">  500.00 </damping_coeff>
-    <damping_coeff_rebound unit="LBS/FT/SEC">850</damping_coeff_rebound>
+    <strut_force>
+      <!-- glideslope: preloaded by her shock rings, in series with her tyre
+           (tools/make_j3cub.py says how). -->
+      <function>
+        <sum>
+          <product>
+            <value> -1 </value>
+            <table>
+              <independentVar lookup="row">gear/unit[2]/compression-ft</independentVar>
+              <tableData>
+                  0.000000  0.0
+                  0.199380  731.1
+                  2.000000  3130.4
+              </tableData>
+            </table>
+          </product>
+          <ifthen>
+            <ge> <property>gear/unit[2]/compression-velocity-fps</property> <value> 0.0 </value> </ge>
+            <product> <value> -500 </value> <property>gear/unit[2]/compression-velocity-fps</property> </product>
+            <product> <value> -850 </value> <property>gear/unit[2]/compression-velocity-fps</property> </product>
+          </ifthen>
+        </sum>
+      </function>
+    </strut_force>
     <max_steer unit="DEG">0</max_steer>
     <brake_group> RIGHT </brake_group>
     <retractable> 0 </retractable>

@@ -694,10 +694,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       from her shock rings' rating (730 lb at 100% stretch) and Piper's gear
       drawings, at 2,093 lb a foot a wheel; both main wheels are held to it
       within 1% (owner's decision of 2026-10-20, a derived figure).
-- [ ] **The J-3 Cub sags about 3 in a wheel standing, where a real one
+- [x] **The J-3 Cub sags about 3 in a wheel standing, where a real one
       barely does**: her gear springs have no preload, her shock rings'
       pre-stretch. *Verification: her static deflection held to a cited or
-      derived figure.*
+      derived figure.* Done 2026-10-22: her rings' 40% pre-stretch holds
+      each strut closed up to 731 lb a wheel, so she stands on her tyres
+      (Goodyear's 8.00-4 at 15 psi) and sinks 1.1 to 1.7 in, within 0.2% of
+      the derived figure at every loading.
 - [x] **Every model but the Cub has her lift keyed to the angle of attack
       counting the crosswind**, as their pitch terms did: standing or slowing
       in one, her lift is the beam wind's whole pressure times an undefined
