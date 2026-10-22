@@ -2531,11 +2531,15 @@ set_tests_properties(the_client_with_the_window_given_an_f35b_mid_bank_joins_on_
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_stovl_join)
 # **And taking her over from the AI, or back from it, hovering**: an AI
 # F-35B planned at her vertical-landing loading, and a player's handed to
-# the AI and taken back. See cmake/server_stovl_take_over.cmake.
-foreach(_scene IN ITEMS take_over take_back)
+# the AI and taken back; and one the AI converted back, taken back with
+# STOVL mode still selected. See cmake/server_stovl_take_over.cmake.
+foreach(_scene IN ITEMS take_over take_back take_back_wing_borne)
     if(_scene STREQUAL "take_over")
         set(_name a_client_taking_over_an_ai_f35b_hovering_predicts_her_from_the_servers_law_state)
         set(_port 24984)
+    elseif(_scene STREQUAL "take_back_wing_borne")
+        set(_name a_client_taking_back_its_f35b_from_the_ai_wing_borne_in_stovl_mode_predicts_the_law_the_server_makes_her)
+        set(_port 24988)
     else()
         set(_name a_client_taking_back_its_f35b_hovering_from_the_ai_predicts_her_from_the_servers_law_state)
         set(_port 24960)
