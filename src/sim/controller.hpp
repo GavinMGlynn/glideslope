@@ -388,6 +388,9 @@ public:
         LiftSystem commands;
         Aircraft::LiftPositions positions;
         std::optional<double> lever_at_selection;
+        // Taken back or over in STOVL mode, the selector then, held until
+        // it moves.
+        std::optional<double> selector_at_take_back;
     };
     std::optional<LawState> law_state() const;
     // **Flown on from a law told**, as her pilot's: the law made again from

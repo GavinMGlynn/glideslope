@@ -1,6 +1,8 @@
 #include "flight.hpp"
 
 #include "frontend/own_words.hpp"
+#include "frontend/law_told.hpp"
+
 #include "gfx/terrain_colour.hpp"
 #include "sim/figures.hpp"
 #include "sim/terrain.hpp"
@@ -201,6 +203,19 @@ void Flight::adopt(const sim::Motion& motion) {
     // A prediction begun again numbers its steps from nought: its clocks'
     // difference is held anew, at the pace flown now.
     pacing_.hold();
+}
+
+void Flight::adopt(const sim::Motion& motion, const std::optional<net::LawState>& law) {
+    adopt(motion);
+    if (law) {
+        (void)prediction_->reconcile(
+            motion, law->last_input_applied, law->motion.steps_into_input,
+            static_cast<std::uint64_t>(std::llround(
+                law->simulation_time_s * static_cast<double>(sim::steps_per_second))),
+            net::stovl_height_asked(law->motion),
+            sim::Transition::Carried{net::stovl_pitch_integral(law->motion)},
+            frontend::law_heard(*law));
+    }
 }
 
 void Flight::pace_by_clocks(double local_s, std::optional<double> rate) {

@@ -8,6 +8,7 @@
 #include "frontend/cli/fly_copilot.hpp"
 #include "frontend/briefs.hpp"
 #include "frontend/held_levers.hpp"
+#include "frontend/law_told.hpp"
 #include "net/budget.hpp"
 #include "frontend/players_copilot.hpp"
 #include "frontend/route_file.hpp"
@@ -312,6 +313,15 @@ std::shared_ptr<const StovlGround> prepare_stovl_ground() {
 }
 // Prepared by `connect` before it sends its initiation, for every stay.
 std::shared_ptr<const StovlGround> connect_stovl_ground;
+// **(`--stovl-level`)**: with `--stovl-land`, the stick centred once STOVL
+// mode is selected, not full forward: she holds the height she was at,
+// converts and slows to a hover and holds it, and does not let down.
+// **(`--stovl-bank-at N`)**: and N inputs after the selection, the stick
+// full right for two seconds (60 inputs) and centred again - jet-borne her
+// law holds the 20 degrees of bank that leaves (sim::Transition). For a
+// client joining her mid-bank (server_stovl_join.cmake).
+bool connect_stovl_level = false;
+long connect_stovl_bank_at = -1;
 // **(`--from-held`)**: with `--predict`, it joins as the windowed client does
 // - asking for its own aircraft's levers (`WATCH`), sending nothing until it
 // has them, its prediction begun on them - and every input it sends is what
@@ -560,6 +570,9 @@ void print_usage(std::FILE* out) {
         "                            the ground it lands on MS ms slower to prepare\n"
         "                            --spend-requests-first (with --stovl-at-once)\n"
         "                            sends the server's second of requests first\n"
+        "                            --stovl-level (with --stovl-land) centres the\n"
+        "                            stick once selected; --stovl-bank-at N holds it\n"
+        "                            full right for 60 inputs from N after selecting\n"
         "                            --from-held (with --predict) sends what the\n"
         "                            server held her on, once it has said it, as a\n"
         "                            player who touches nothing; --nudge with it\n"
@@ -1799,9 +1812,18 @@ public:
         if (stovl_selected_at_) {
             c.stovl = 1.0;
             c.throttle = 0.7;
-            c.elevator = -1.0;
+            c.elevator = stovl_level_ ? 0.0 : -1.0;
+            const long after = static_cast<long>(sequence) - static_cast<long>(*stovl_selected_at_);
+            if (stovl_bank_at_ >= 0 && after >= stovl_bank_at_ && after < stovl_bank_at_ + 60) {
+                c.aileron = 1.0;
+            }
         }
         return c;
+    }
+    // `--stovl-level`, `--stovl-bank-at`.
+    void stovl_stick(bool level, long bank_at) {
+        stovl_level_ = level;
+        stovl_bank_at_ = bank_at;
     }
     // **Selected with its very first input** (`--stovl-at-once`): its
     // inputs wait for the server's word on the levers it holds her on.
@@ -2138,8 +2160,21 @@ public:
             if (!prediction_) {
                 const auto model = models_.find(state.your_aircraft);
                 if (model != models_.end() && (!wants_levers() || levers_)) {
-                    start(motion_of(*state.yours), model->second, loadings_[state.your_aircraft],
-                          state.last_input_applied, state.yours->steps_into_input);
+                    // **A law flying her already**: not predicted until the
+                    // server's `LAW_STATE` says the whole of it, and begun
+                    // from that (law_told); drawn from the updates meanwhile.
+                    if (glideslope::net::stovl_height_asked(*state.yours)) {
+                        if (!waiting_for_law_) {
+                            waiting_for_law_ = state.your_aircraft;
+                            ++waited_for_law_;
+                        }
+                        if (law_heard_ && law_heard_->aircraft == state.your_aircraft) {
+                            start_on_law();
+                        }
+                    } else {
+                        start(motion_of(*state.yours), model->second, loadings_[state.your_aircraft],
+                              state.last_input_applied, state.yours->steps_into_input);
+                    }
                 }
             } else {
                 // **Put right once the socket is read dry, from the newest
@@ -2566,6 +2601,8 @@ public:
         before_.clear();
         predicted_at_.clear();
         pacing_.hold();
+        waiting_for_law_.reset();
+        law_heard_.reset();
     }
 
     // **Its own aircraft handed to the AI pilot, or taken back**, as the
@@ -2593,6 +2630,8 @@ public:
             before_.clear();
             predicted_at_.clear();
             pacing_.hold();
+            waiting_for_law_.reset();
+            law_heard_.reset();
         }
         display_.switching();
     }
@@ -2874,6 +2913,15 @@ public:
                       "predicted: %zu corrections, the worst %.3f m, %zu too large to hide",
                       corrections_, worst_correction_m_, snapped_);
         lines.emplace_back(line);
+        // **Given her while a law flew her** (`LAW_STATE`): how often it
+        // waited for the law, how many were told, and each begun on.
+        if (waited_for_law_ > 0 || laws_told_ > 0) {
+            std::snprintf(line, sizeof line,
+                          "stovl: waited for the server's law %d times; %d LAW_STATE told",
+                          waited_for_law_, laws_told_);
+            lines.emplace_back(line);
+        }
+        lines.insert(lines.end(), law_begun_lines_.begin(), law_begun_lines_.end());
         // **And once joined**: from the first word heard with the clocks'
         // difference known, as the prediction error is compared. Joining,
         // the prediction is flown on from an update a trip old over steps
@@ -3127,7 +3175,50 @@ public:
         return lines;
     }
 
+    // **Her STOVL law told** (`LAW_STATE`): kept until a prediction begins,
+    // and begun from at once if one is waiting for it.
+    void law_told(const glideslope::net::LawState& law) {
+        ++laws_told_;
+        if (prediction_) {
+            return;
+        }
+        law_heard_ = law;
+        if (waiting_for_law_ == law.aircraft && models_.count(law.aircraft) > 0) {
+            start_on_law();
+        }
+    }
+
 private:
+    // **Begun from the law told**: her motion and law at the server's step,
+    // and this client's inputs since flown forward from there (start); the
+    // prediction's errors counted afresh from it.
+    void start_on_law() {
+        const glideslope::net::LawState law = *law_heard_;
+        start(motion_of(law.motion), models_[law.aircraft], loadings_[law.aircraft],
+              law.last_input_applied, law.motion.steps_into_input, &law);
+        if (!prediction_) {
+            return; // her aircraft is not built yet: asked again at the next update
+        }
+        law_heard_.reset();
+        waiting_for_law_.reset();
+        char line[200];
+        std::snprintf(line, sizeof line,
+                      "stovl: prediction begun on the server's LAW_STATE at %.3f s: stage %u, "
+                      "bank held %.3f degrees",
+                      law.simulation_time_s, static_cast<unsigned>(law.stage),
+                      law.bank_held_deg);
+        law_begun_lines_.emplace_back(line);
+        // **The errors counted from here**: what was compared before - the
+        // aircraft it flew before a take-over - is another aircraft's.
+        compared_ = 0;
+        errors_m_.clear();
+        worst_error_m_ = 0.0;
+        worst_error_at_s_ = 0.0;
+        worst_pitch_error_deg_ = 0.0;
+        first_compared_.reset();
+        last_compared_.reset();
+    }
+
     static std::unique_ptr<glideslope::sim::Aircraft> build(const std::string& model) {
         return std::make_unique<glideslope::sim::Aircraft>(
             glideslope::platform::data_directory() / "jsbsim", model);
@@ -3204,7 +3295,8 @@ private:
                coming->second.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
     }
     void start(const glideslope::sim::Motion& m, const std::string& model,
-               const std::string& loading, std::uint32_t last_applied, std::size_t steps_into) {
+               const std::string& loading, std::uint32_t last_applied, std::size_t steps_into,
+               const glideslope::net::LawState* law = nullptr) {
         // A server's word not finite is no start: the next is waited for.
         if (const auto bad = glideslope::sim::first_not_finite(m)) {
             if (said_lost_.insert("a start from the server's word's " + *bad).second) {
@@ -3272,6 +3364,19 @@ private:
         if (levers_) {
             prediction_->held_by_server(glideslope::frontend::held_as_told(*levers_),
                                         levers_->held_trim);
+        }
+        // **Her law as the server's flies her**, put on her at its step
+        // before the steps since are flown (sim::Prediction::reconcile).
+        if (law) {
+            (void)prediction_->reconcile(
+                m, last_applied, steps_into,
+                static_cast<std::uint64_t>(std::llround(
+                    law->simulation_time_s *
+                    static_cast<double>(glideslope::sim::steps_per_second))),
+                glideslope::net::stovl_height_asked(law->motion),
+                glideslope::sim::Transition::Carried{
+                    glideslope::net::stovl_pitch_integral(law->motion)},
+                glideslope::frontend::law_heard(*law));
         }
         // From where the server said it was to where it is now: every step
         // flown since - from as far into the input it had applied as it had
@@ -3388,6 +3493,8 @@ private:
     }
     bool stovl_land_ = false;
     bool stovl_at_once_ = false;
+    bool stovl_level_ = false;
+    long stovl_bank_at_ = -1;
     bool from_held_ = false;
     // **The nudge** (`--nudge`): whether asked for, the input and this
     // client's step it began and ended at, and the first of each heard
@@ -3408,6 +3515,14 @@ private:
     // The levers the server said it holds her on (`--stovl-at-once`,
     // `--from-held`).
     std::optional<glideslope::net::Watched> levers_;
+    // **A law flying her as she was given**: the aircraft waiting for the
+    // server's `LAW_STATE`, the one heard and not yet begun from, how many
+    // were told, and whether the prediction was begun on one.
+    std::optional<std::uint8_t> waiting_for_law_;
+    std::optional<glideslope::net::LawState> law_heard_;
+    int laws_told_ = 0;
+    int waited_for_law_ = 0;
+    std::vector<std::string> law_begun_lines_;
     // Her STOVL law, as the prediction made it: on which input, at which of
     // its steps, and the throttle integral it was made with.
     struct LawMade {
@@ -3747,6 +3862,7 @@ int stay(glideslope::platform::UdpSocket& socket,
             if (connect_stovl_at_once) {
                 predicting->stovl_at_once();
             }
+            predicting->stovl_stick(connect_stovl_level, connect_stovl_bank_at);
         }
         if (connect_from_held) {
             predicting->from_held(connect_nudge);
@@ -4752,6 +4868,20 @@ int stay(glideslope::platform::UdpSocket& socket,
                     say_heard(said);
                     if (predicting && !connect_air.own_air) {
                         predicting->runway_conditions(rc);
+                    }
+                    break;
+                }
+                case glideslope::net::Told::Heard::law_state: {
+                    const glideslope::net::LawState& law = *told.law_state();
+                    char said[200];
+                    std::snprintf(said, sizeof(said),
+                                  "told her STOVL law: aircraft %u at %.3f s, stage %u, bank "
+                                  "held %.3f degrees",
+                                  static_cast<unsigned>(law.aircraft), law.simulation_time_s,
+                                  static_cast<unsigned>(law.stage), law.bank_held_deg);
+                    say_heard(said);
+                    if (predicting) {
+                        predicting->law_told(law);
                     }
                     break;
                 }
@@ -5819,6 +5949,14 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--slow-preparation" && i + 1 < args.size()) {
                     connect_slow_preparation_ms = std::strtod(std::string(args[++i]).c_str(), nullptr);
+                    continue;
+                }
+                if (args[i] == "--stovl-level") {
+                    connect_stovl_level = true;
+                    continue;
+                }
+                if (args[i] == "--stovl-bank-at" && i + 1 < args.size()) {
+                    connect_stovl_bank_at = std::stol(std::string(args[++i]));
                     continue;
                 }
                 if (args[i] == "--from-held") {
