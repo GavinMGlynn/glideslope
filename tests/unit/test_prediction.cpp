@@ -3693,3 +3693,206 @@ GLIDESLOPE_TEST(a_prediction_whose_stovl_law_was_made_a_step_or_two_apart_agrees
     }
     check(cases == 8, "two moments and four placings: " + std::to_string(cases));
 }
+
+namespace {
+
+// **A client joining her while her STOVL law flies her**, from `join_s`
+// into a flight: the F-35B at her vertical-landing loading, trimmed level at
+// 150 ft and 200 KCAS heading 070 over flat ground, her pilot's selector at
+// 1 s; `banked`, the stick full right from 30 s to 32 s and centred - her
+// law holding the 20 degrees of bank it left, jet-borne, turning - or else
+// slowing level to a hover from about 109 s. The joining client's model is loaded and put where the
+// server's first word to it says, and predicts her from there on the same
+// inputs - the selector on, the stick centred - the server's word every
+// fifth step, 100 ms each way, telling the law's state with the first
+// (`told`) or not. From that first word on, each word against where the
+// prediction had flown her by that step, for `seconds`: the median and
+// worst error, and the worst of her pitch and her roll.
+struct Joined {
+    double median_m = 0.0;
+    double worst_m = 0.0;
+    double worst_pitch_deg = 0.0;
+    double worst_roll_deg = 0.0;
+    double bank_held_deg = 0.0;
+    std::size_t words = 0;
+    int stage = -1;
+};
+
+Joined join_her(double join_s, bool banked, bool told, int seconds) {
+    using glideslope::sim::apply;
+    using glideslope::sim::Controller;
+    using glideslope::sim::Motion;
+    using glideslope::sim::Transition;
+    const glideslope::sim::PublishedFigures figures = glideslope::sim::read_published_figures(
+        std::string(GLIDESLOPE_TEST_FIGURES_DIR) + "/f35b.xml");
+    const auto start = [&](Aircraft& a) {
+        a.load(figures.loadings.at("vertical_landing").loading);
+        a.set_terrain(flat_ground());
+        InitialConditions ic;
+        ic.latitude_deg = -33.9461;
+        ic.longitude_deg = 151.1772;
+        ic.heading_deg = 70.0;
+        ic.altitude_ft = 150.0;
+        ic.terrain_elevation_ft = 0.0;
+        ic.airspeed_kts = 200.0;
+        ic.gear = 0.0;
+        ic.trim = true;
+        a.initialize(ic);
+        a.freeze_fuel(true);
+    };
+    Aircraft server_aircraft(data() / "jsbsim", "f35b");
+    start(server_aircraft);
+    const Controls trimmed = glideslope::sim::trimmed_controls(server_aircraft);
+    Controller server(server_aircraft, trimmed);
+    const auto inputs = [&](int frame) {
+        const double s = static_cast<double>(frame) / steps_per_second;
+        Controls c = trimmed;
+        c.stovl = s >= 1.0 ? 1.0 : 0.0;
+        c.aileron = banked && s >= 30.0 && s < 32.0 ? 1.0 : 0.0;
+        return c;
+    };
+    const int join = static_cast<int>(join_s * steps_per_second);
+    for (int frame = 0; frame < join; ++frame) {
+        server.set_pilot(inputs(frame));
+        apply(server_aircraft, server);
+        server_aircraft.step();
+    }
+    // The joining client: its model loaded, put where the server says.
+    Aircraft client_aircraft(data() / "jsbsim", "f35b");
+    start(client_aircraft);
+    client_aircraft.set_motion(server_aircraft.motion());
+    Prediction client(client_aircraft);
+    client.held_by_server(server.pilots_laws().applied);
+    const int one_way = 100 * steps_per_second / 2000;
+    const int every = 5;
+    struct Posted {
+        int arrives_at = 0;
+        Motion motion;
+        std::uint32_t applied = 0;
+        std::uint64_t server_steps = 0;
+        std::optional<double> height_ft;
+        Transition::Carried carried;
+        std::optional<Controller::LawState> law;
+        double pitch_deg = 0.0;
+        double roll_deg = 0.0;
+    };
+    std::deque<Posted> post;
+    std::uint64_t server_steps = static_cast<std::uint64_t>(join);
+    struct Flown {
+        std::array<double, 3> where;
+        double pitch_deg;
+        double roll_deg;
+    };
+    std::vector<Flown> flown_here;
+    std::vector<double> errors_m;
+    Joined out;
+    out.bank_held_deg = server.transition() ? server.transition()->bank_held_deg() : 0.0;
+    out.stage = server.transition() ? static_cast<int>(server.transition()->stage()) : -1;
+    bool first = true;
+    const int frames = (seconds + 1) * steps_per_second;
+    for (int f = 0; f < frames; ++f) {
+        client.step(static_cast<std::uint32_t>(f + 1), inputs(join + f));
+        const Motion m = client_aircraft.motion();
+        flown_here.push_back(
+            {{m.location_ecef_m[0], m.location_ecef_m[1], m.location_ecef_m[2]},
+             client_aircraft.state().pitch_deg, client_aircraft.state().roll_deg});
+        const int theirs = f - one_way;
+        if (theirs >= 0) {
+            server.set_pilot(inputs(join + theirs));
+            apply(server_aircraft, server);
+            server_aircraft.step();
+            ++server_steps;
+            if (theirs % every == 0) {
+                Posted p;
+                p.arrives_at = f + one_way;
+                p.motion = server_aircraft.motion();
+                p.applied = static_cast<std::uint32_t>(theirs + 1);
+                p.server_steps = server_steps;
+                p.pitch_deg = server_aircraft.state().pitch_deg;
+                p.roll_deg = server_aircraft.state().roll_deg;
+                if (const Transition* t = server.transition()) {
+                    p.height_ft = static_cast<double>(
+                        static_cast<float>(server.stovl_height_asked_ft()));
+                    const Transition::Carried c = t->carried();
+                    if (c.pitch_integral_deg) {
+                        p.carried.pitch_integral_deg =
+                            static_cast<double>(static_cast<float>(*c.pitch_integral_deg));
+                    }
+                    if (first && told) {
+                        p.law = server.law_state();
+                    }
+                }
+                first = false;
+                post.push_back(p);
+            }
+        }
+        while (!post.empty() && post.front().arrives_at <= f) {
+            const Posted& p = post.front();
+            const Prediction::Correction c = client.reconcile(
+                p.motion, p.applied, 1, p.server_steps, p.height_ft, p.carried, p.law);
+            if (c.at_step && *c.at_step > 0 && *c.at_step <= flown_here.size()) {
+                const Flown& was = flown_here[*c.at_step - 1];
+                errors_m.push_back(std::hypot(was.where[0] - p.motion.location_ecef_m[0],
+                                              was.where[1] - p.motion.location_ecef_m[1],
+                                              was.where[2] - p.motion.location_ecef_m[2]));
+                out.worst_pitch_deg =
+                    std::max(out.worst_pitch_deg, std::abs(was.pitch_deg - p.pitch_deg));
+                out.worst_roll_deg =
+                    std::max(out.worst_roll_deg, std::abs(was.roll_deg - p.roll_deg));
+            }
+            post.pop_front();
+        }
+    }
+    std::sort(errors_m.begin(), errors_m.end());
+    out.words = errors_m.size();
+    out.median_m = errors_m.empty() ? 0.0 : errors_m[errors_m.size() / 2];
+    out.worst_m = errors_m.empty() ? 0.0 : errors_m.back();
+    return out;
+}
+
+} // namespace
+
+// **A client joining an F-35B while her STOVL law flies her predicts her
+// from the server's law state** (Controller::LawState, told with the first
+// word): mid-bank jet-borne, joined 40 s in, her law holding her pilot's 20
+// degrees; and hovering, joined 125 s in. From the first word on, for 20 s:
+// the median within a millimetre, and her pitch and roll within half a
+// degree of the server's at every word (the STOVL bounds of the tests
+// above). Measured (linux-release, 2026-10-22): mid-bank the median 0.0 mm,
+// the worst 41 mm on the first word, her pitch 0.008 and roll 0.014 degrees;
+// hovering the median 0.0 mm, the worst 51 mm, her pitch 0.005 degrees.
+// **Seen red** without the law told - a prediction begun on a model just
+// loaded, the fan's doors shut, its law made wing-borne and level: mid-bank
+// the median 74 mm and her pitch 0.88 and roll 0.96 degrees off; hovering
+// her pitch 0.97 degrees off. And red with each part left out: the law told
+// but her lift system not put where the server's stands, mid-bank the median
+// 2.7 mm; the bank held told as nought, her roll 0.89 degrees off.
+GLIDESLOPE_TEST(a_client_joining_an_f35b_mid_bank_or_hovering_predicts_her_from_the_servers_law_state) {
+    std::size_t cases = 0;
+    for (const bool banked : {true, false}) {
+        const double join_s = banked ? 40.0 : 125.0;
+        for (const bool told : {true, false}) {
+            const Joined j = join_her(join_s, banked, told, 20);
+            std::printf("  joined at %.0f s (her law's stage %d, bank held %.1f degrees), %s: the "
+                        "median %.4f m, the worst %.4f m, her pitch %.3f and roll %.3f degrees "
+                        "off at worst, over %zu words\n",
+                        join_s, j.stage, j.bank_held_deg, told ? "told" : "not told",
+                        j.median_m, j.worst_m, j.worst_pitch_deg, j.worst_roll_deg, j.words);
+            if (!told) {
+                continue;
+            }
+            check(j.stage == (banked ? 2 : 3),
+                  "her law was in stage " + std::to_string(j.stage) + " when she was joined");
+            check(!banked || j.bank_held_deg >= 19.9,
+                  "her law held " + std::to_string(j.bank_held_deg) + " degrees of bank");
+            check(j.words >= 450, "words compared: " + std::to_string(j.words));
+            check(j.median_m <= 0.001,
+                  "the median error was " + std::to_string(j.median_m) + " m, over a millimetre");
+            check(j.worst_pitch_deg <= 0.5 && j.worst_roll_deg <= 0.5,
+                  "her pitch was " + std::to_string(j.worst_pitch_deg) + " and roll " +
+                      std::to_string(j.worst_roll_deg) + " degrees off the server's");
+            ++cases;
+        }
+    }
+    check(cases == 2, "mid-bank and hovering, told: " + std::to_string(cases));
+}
