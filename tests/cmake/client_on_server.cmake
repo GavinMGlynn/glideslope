@@ -205,6 +205,22 @@ if(DEFINED SLOW_FRAMES)
                             "${SLOW_FRAMES} ms every hold was:\n${_out}")
     endif()
 endif()
+# **A frame the machine mostly took is counted apart**
+# (frontend::MachineStalls; server_paced_prediction.cmake pins it): CI's
+# Windows release once held this client's frame 3,613 ms against the 700 ms
+# asked, and it was put right by 52.6 m (run 39686519535). The corrections
+# across each such stall - the server's catching up and the 60 words after -
+# are named, not judged; every one after is, and the held frames are this
+# client's own sleeps, so they are never counted apart.
+if(NOT _out MATCHES "the machine's stalls: ([0-9]+) frames[^\n]* and ([0-9]+) corrections in")
+    message(FATAL_ERROR "the client did not say its machine's stalls:\n${_out}")
+endif()
+string(CONCAT _stalls "; ${CMAKE_MATCH_1} machine's stalls, ${CMAKE_MATCH_2} corrections "
+       "across them counted apart")
+string(REGEX MATCHALL "the machine's stall [0-9]+: [^\n]*" _each "${_out}")
+foreach(_one IN LISTS _each)
+    string(APPEND _stalls "; ${_one}")
+endforeach()
 if(NOT _snapped EQUAL 0 OR _worst GREATER_EQUAL 20)
     message(FATAL_ERROR "its own aircraft was put right too far to hide:\n${_out}")
 endif()
@@ -216,4 +232,4 @@ if(_out MATCHES "(the worst while its clocks' difference was learnt [0-9.]+ m, a
 endif()
 message(STATUS "the client flew aircraft ${_mine} on the server, and drew the AI "
                "${_away} m away; ${_corrections} corrections in ${_frames} frames from "
-               "${_words} words, the worst ${_worst} m${_which}")
+               "${_words} words, the worst ${_worst} m${_which}${_stalls}")

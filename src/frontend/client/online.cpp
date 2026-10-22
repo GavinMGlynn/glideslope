@@ -314,16 +314,28 @@ void Online::hear(Flight& flight) {
     // from here on.
     flight.pace_by_clocks(arrived_s_, clock_.known() ? std::optional<double>(clock_.rate())
                                                      : std::nullopt);
-    double& worst = known ? worst_known_m_ : worst_learning_m_;
-    worst = std::max(worst, c.moved_m);
     ++corrections_;
     ++frames_heard_own_;
-    worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
-    if (c.snapped) {
-        ++snapped_;
+    // **Across a machine's stall, apart** (frontend::MachineStalls).
+    frontend::MachineStalls::Stall* across = stalls_.word(
+        static_cast<double>(word.server_steps) / static_cast<double>(sim::steps_per_second));
+    if (across != nullptr) {
+        frontend::MachineStalls::corrected(*across, c.moved_m, c.snapped);
     } else {
+        double& worst = known ? worst_known_m_ : worst_learning_m_;
+        worst = std::max(worst, c.moved_m);
+        worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
+        snapped_ += c.snapped ? 1 : 0;
+    }
+    if (!c.snapped) {
         corrected_ = true;
     }
+}
+
+void Online::frame_took(double local_s, double between_s, double own_s) {
+    const auto lock = held();
+    stalls_.frame(local_s, between_s, own_s,
+                  clock_.known() ? std::optional<double>(clock_.now(local_s)) : std::nullopt);
 }
 
 void Online::noticed() {
