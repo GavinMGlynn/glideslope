@@ -445,13 +445,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       server's held bank and agrees with it within a stated bound
       (2026-10-22, through a server: 20 degrees held, her pitch within
       0.017 degrees, the median 6 mm; without the message 2.784 degrees).*
-- [ ] **A player taking over or back an F-35B in STOVL mode cannot be
-      tested through a server**: the server takes over only an AI's own
-      aircraft, whose F-35B is too heavy to hover (a plan file names no
-      loading), and handed to the AI hers converts back and lets her law
-      go; taken back so, the two laws are seeded apart (0.858 degrees).
-      *Verification: through a server, a client taking over or back an
-      F-35B whose law flies her is told it, her pitch within half a degree.*
+- [x] **A player taking over or back an F-35B in STOVL mode is predicted
+      from the server's law**: a plan file may name her loading, so an AI
+      F-35B hovers to be taken over. *Verification: through a server, a
+      client taking over or back an F-35B whose law flies her is told it,
+      her pitch within half a degree.* Done 2026-10-22: taken over
+      hovering 0.005 degrees, taken back hovering 0.004 and wing-borne
+      with STOVL still selected 0.009; untold, 3.6 degrees.
 - [x] **A player who joins already selecting STOVL mode has her law seeded
       as the server's**: her prediction begins on the controls the server
       says it holds her on, and a law made again in a replay is seeded as it
