@@ -721,7 +721,7 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       anything but her wheels.* Done 2026-10-15: every landplane is held at
       every pace from 2 to 5 kt by half a knot, dry, wet and in 15 kt across,
       then stopped by the rollout - 273 runs, none touching but her wheels.
-- [ ] **The macOS network checks keep time on a stalling runner** (red
+- [x] **The macOS network checks keep time on a stalling runner** (red
       tree, worked now). The predicting client went 265 to 498 ms without a
       frame on CI's macOS: it built its aircraft in a frame as it joined and
       at every take-back. Now built ahead, a fresh one for each take-back;
@@ -730,7 +730,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       and 39 of 40, the last on its final head, the frames 39 ms apart at
       most), so its evidence is with that item on top, and the two land
       together. *Verification: the nightly's macOS network checks green in
-      two runs with the controls item on top, and its PR's CI.*
+      two runs with the controls item on top, and its PR's CI.* Done
+      2026-10-22: 200 of 200 in each of two runs of 100 a check, the second
+      on the final head.
 - [ ] **The paced prediction on CI's Windows release went 138 m off** once
       (2026-10-21), the runner not running the client for 3,503 of the 3,583
       ms between two frames: the test judges the machine. *Verification: the
