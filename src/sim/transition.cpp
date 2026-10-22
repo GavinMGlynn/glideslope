@@ -345,6 +345,7 @@ Hover::Command Transition::step(const Target& target) {
             asked.right_kt = std::clamp(target.pilot->side, -1.0, 1.0) * trc_side_kt_;
             asked.turn_degps = std::clamp(target.pilot->pedals, -1.0, 1.0) * turn_degps_;
         }
+        hover_asked_ = asked;
         c = hover_->step(asked);
         break;
     }
@@ -501,9 +502,10 @@ Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
                                     -jet_bank_most_deg, jet_bank_most_deg);
         bank_wanted_deg = bank_held_deg_;
         const double v_fps = std::max(speed, trc_kt_) * fps_per_kt;
-        turn_radps = gravity_fps2 * std::tan(s.roll_deg * rad_per_deg) / v_fps +
-                     std::clamp(target.pilot->pedals, -1.0, 1.0) * turn_degps_ * rad_per_deg *
-                         std::pow(trc_kt_ / std::max(speed, trc_kt_), 2.0);
+        pedals_turn_radps_ = std::clamp(target.pilot->pedals, -1.0, 1.0) * turn_degps_ *
+                             rad_per_deg * std::pow(trc_kt_ / std::max(speed, trc_kt_), 2.0);
+        turn_radps =
+            gravity_fps2 * std::tan(s.roll_deg * rad_per_deg) / v_fps + pedals_turn_radps_;
         heading_deg_ = std::fmod(heading_deg_ + turn_radps * deg_per_rad * dt + 360.0, 360.0);
     } else {
         // Levelled, by no pilot or converting back or her selector out of
@@ -511,6 +513,7 @@ Hover::Command Transition::fly_jet_borne(const Target& target, bool back) {
         // Kept, the selector out and back in at 60 kt rolled her to the 20
         // degrees she had been left at.
         bank_held_deg_ = 0.0;
+        pedals_turn_radps_ = 0.0;
     }
 
     // Wings level, or the bank asked, on the ailerons and the posts.
