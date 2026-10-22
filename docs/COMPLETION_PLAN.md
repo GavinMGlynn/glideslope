@@ -403,12 +403,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       (PROJECT_STATUS, 2026-10-14 and 2026-10-16). *Verification: she is
       flown into a hover and out again, and a pilot and an AI plan each
       convert her.* Done 2026-10-16.
-- [ ] **The windowed client's `--loading` is compiled, not run**: it asks a
-      server for a loading and loads her prediction so, but no test flies
-      it. *Verification: through a real server, the windowed client asking
-      for the F-35B's vertical_landing loading is told it and flies her at
-      37,530 lb, and taking over an aircraft loaded otherwise makes her
-      flight again at that loading.*
+- [x] **The windowed client's `--loading` is flown by a test**: alone, through
+      a server's word, and on a take-over of an F-35B loaded otherwise, she
+      begins at the weight her loading gives. *Verification: three window
+      tests read her weight against her figures file's 37,530 lb
+      vertical_landing loading, red with the client's loading call removed.*
+      Done 2026-10-22.
 - [x] **The F-35B's pilot flies only her height in STOVL mode**: her
       throttle's speed, the stick's sideways translation and the pedals'
       heading in a hover are not the pilot's, and a plan given to the AI
