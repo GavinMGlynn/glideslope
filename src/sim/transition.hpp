@@ -166,7 +166,9 @@ public:
     // inputs: jet-borne, the bank the stick's sideways has left held and
     // the turn of her heading the pedals asked last step, radians a second;
     // and in the hover, what the hover law was asked last step (none before
-    // the first step there).
+    // the first step there). hover_asked() holds the last hover step's ask:
+    // it is not cleared when she leaves the hover, so read it only while
+    // she hovers.
     double bank_held_deg() const {
         return bank_held_deg_;
     }

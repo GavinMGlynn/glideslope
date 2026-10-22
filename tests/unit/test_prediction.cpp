@@ -3125,12 +3125,15 @@ GLIDESLOPE_TEST(a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_e
                 // **Left out: the fore-and-aft converting.** The prediction's
                 // law is jet-borne from 1.5 s, the server's converting until
                 // 9 s, so no step finds both converting (COMPLETION_PLAN.md,
-                // "A STOVL prediction's law changes stage when the server's
-                // does not"). Once they agree it is compared, and must agree.
+                // "No test catches a STOVL prediction flown on 0.8 of the
+                // stick", whose missing part this is). Nothing is compared, so
+                // nothing is claimed to agree: this asserts that none was.
+                // Once the staging is fixed it becomes "compared and moved
+                // >= 1 s", and must agree, like the others.
                 ++left_out;
-                check(cell.apart == 0, "the stick fore-and-aft converting set something else "
-                                       "in the prediction on " +
-                                           std::to_string(cell.apart) + " steps");
+                check(cell.compared == 0, "the stick fore-and-aft converting was compared on " +
+                                              std::to_string(cell.compared) +
+                                              " steps: it is no longer left out");
                 continue;
             }
             ++read;

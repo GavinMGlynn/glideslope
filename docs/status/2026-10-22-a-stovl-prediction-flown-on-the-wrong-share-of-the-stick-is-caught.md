@@ -3,9 +3,10 @@
 **What is still not true first.** What the stick sets while she converts is
 not compared. On the same inputs the prediction's law is jet-borne from
 1.5 s and the server's converting until 9 s, so no step finds both
-converting. Her hover begins 1.2 s sooner in the prediction too. That is a
-new open item, "A STOVL prediction's law changes stage when the server's
-does not". The test names the converting stage's fore-and-aft as left out,
+converting. Her hover begins 1.2 s sooner in the prediction too. **The plan item
+"No test catches a STOVL prediction flown on 0.8 of the stick" is therefore
+not done and stays open**, with the converting stage named as the missing
+part. The test names the converting stage's fore-and-aft as left out,
 with that reason, and checks it once the stages agree.
 
 **The bug.** A prediction flown on 0.8 of the stick the client sent the
