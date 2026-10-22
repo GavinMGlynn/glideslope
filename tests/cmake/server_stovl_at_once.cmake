@@ -20,8 +20,8 @@
 # (sim::Prediction::held_by_server). Before that the prediction's law was
 # seeded from a model just loaded, its throttle integral nought where the
 # server's was her trim's (PROJECT_STATUS.md, 2026-10-14). The client stays
-# until 250 updates are compared (`--until-compared`): the event, not a
-# time.
+# until 3,000 updates are compared (`--until-compared`), two minutes held
+# wing-borne: the event, not a time.
 #
 # **What must hold**: no wreck heard; the client selected with input 1, the
 # server's levers said; the server says the throttle integral its law was
@@ -32,7 +32,13 @@
 # law flying her prediction when it leaves was made with that integral too:
 # each word puts her back and flies her again, the law made again in the
 # replay, and a law made again from the newest step's controls rather than
-# from those she had as the step began would be seeded otherwise.
+# from those she had as the step began would be seeded otherwise. **And her
+# predicted pitch within half a degree of the server's at every update
+# compared**, as server_stovl_landing.cmake holds it - here with her
+# selector on before the prediction has settled, before any word of the
+# server's had placed it on the client's clock (COMPLETION_PLAN, "A
+# client's prediction of an F-35B in STOVL mode drifts from the server's
+# flight-control laws").
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
@@ -74,7 +80,7 @@ if(SPEND)
 endif()
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 900 --after 1
-            --aircraft f35b --predict --stovl-land --stovl-at-once --until-compared 250
+            --aircraft f35b --predict --stovl-land --stovl-at-once --until-compared 3000
             --heard "${_heard}" ${_slow}
     COMMAND "${SERVER}" --port ${PORT} --seconds 1000 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 5 --store "${_store}" --plan "${_plan}"
@@ -126,3 +132,19 @@ endif()
 message(STATUS "her STOVL law made on her first input with a throttle integral of ${_server} "
                "on the server (its step ${_server_step}) and in the prediction (its step "
                "${_client_step}), and the law flying her at the end made with the same")
+if(NOT _said MATCHES "stovl: predicted pitch within ([0-9]+)\\.([0-9][0-9][0-9]) degrees")
+    message(FATAL_ERROR "the client did not say its pitch error:\n${_said}")
+endif()
+if(CMAKE_MATCH_1 GREATER 0 OR CMAKE_MATCH_2 GREATER 500)
+    message(FATAL_ERROR "her predicted pitch was ${CMAKE_MATCH_1}.${CMAKE_MATCH_2} degrees off "
+                        "the server's, over half a degree:\n${_said}")
+endif()
+set(_pitch "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
+if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared")
+    message(FATAL_ERROR "the client did not say how many updates it compared:\n${_said}")
+endif()
+if(CMAKE_MATCH_1 LESS 3000)
+    message(FATAL_ERROR "only ${CMAKE_MATCH_1} updates compared, not 3,000:\n${_said}")
+endif()
+message(STATUS "selected before the prediction had settled, her predicted pitch within "
+               "${_pitch} degrees of the server's over ${CMAKE_MATCH_1} updates")

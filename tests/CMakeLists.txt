@@ -221,6 +221,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_prediction_told_what_the_server_held_her_on_seeds_a_law_made_on_her_first_input_as_the_server_does
     a_stovl_prediction_moved_by_her_pilot_in_the_hover_put_back_flies_again_to_exactly_where_it_was
     a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_every_stage_on_every_inceptor
+    a_prediction_whose_stovl_law_was_made_a_step_or_two_apart_agrees_with_the_server_converting_jet_borne_and_hovering
     a_client_put_right_from_as_far_into_its_input_as_the_server_had_flown_is_off_by_centimetres
     a_prediction_stops_its_engine_on_the_servers_word_and_starts_it_again_on_its_word
     an_engine_stopped_on_the_server_winds_down_in_a_prediction_put_right_as_it_does_flown_once_in_every_aircraft
@@ -2452,7 +2453,9 @@ set_tests_properties(a_players_f35b_at_her_vertical_landing_loading_converts_hov
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_vertical_landing)
 # **A player who joins already selecting STOVL mode has her law seeded in
 # her prediction as the server seeds its own**: the same throttle integral,
-# on her first input. See cmake/server_stovl_at_once.cmake.
+# on her first input; and selected so, before her prediction has settled,
+# her predicted pitch within half a degree of the server's for two minutes
+# wing-borne. See cmake/server_stovl_at_once.cmake.
 add_test(NAME a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
@@ -2460,7 +2463,7 @@ add_test(NAME a_client_selecting_stovl_on_its_first_input_seeds_its_transition_l
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once -DPORT=24812
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_at_once.cmake)
 set_tests_properties(a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral
-    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once)
 # **And with her client six seconds preparing her ground**, longer than the
 # server's five-second timeout: a busy debug runner took 5.6 to 7 s, and the
