@@ -2,6 +2,7 @@
 
 #include "net/messages.hpp"
 #include "net/reliable.hpp"
+#include "net/state.hpp"
 
 #include <algorithm>
 #include <cstdint>
@@ -173,6 +174,58 @@ struct Kind {
     // Reads `body` as this kind at all, whatever it holds.
     std::function<bool(std::span<const std::uint8_t>)> reads;
 };
+
+// **A STOVL law's state** (`LAW_STATE`), every field set to something that
+// is not its default; hovering with the hover law, or jet-borne without.
+glideslope::net::LawState a_law_state(bool hovering) {
+    glideslope::net::LawState m;
+    m.aircraft = 2;
+    m.simulation_time_s = 125.25;
+    m.last_input_applied = 4000;
+    m.motion.x_m = -4646000.5;
+    m.motion.y_m = 2553000.25;
+    m.motion.z_m = -3534000.75;
+    m.motion.attitude = {0.5F, 0.5F, -0.5F, 0.5F};
+    m.motion.uvw_mps = {30.0F, 1.0F, -0.5F};
+    m.motion.pqr_radps = {0.01F, -0.02F, 0.03F};
+    m.motion.steps_into_input = 3;
+    m.motion.stovl_height_asked_ft = 150.0F;
+    m.stage = hovering ? 3 : 2;
+    m.autopilot = false;
+    m.last_asked_hover = true;
+    m.height_asked_ft = 150.5;
+    m.heading_deg = 71.25;
+    m.bank_held_deg = 20.0;
+    m.hover_base_ft = 1.5;
+    m.speed_asked_kt = 42.5;
+    m.pitch_from_deg = 6.5;
+    m.speed_from_kt = 200.25;
+    m.back_pitch_from_deg = 4.5;
+    m.throttle_integral = 0.75;
+    m.angle_integral_deg = 81.0;
+    m.elevator_integral = -0.125;
+    m.fan_integral = 0.0625;
+    m.post_integral = -0.03125;
+    m.pitch_integral_deg = 2.5;
+    m.lever_at_selection = 0.25;
+    m.selector_at_take_back = 1.0;
+    m.controls = {0.1, -0.2, 0.3, 0.8, 0.5, 1.0, 0.05, -0.01, 0.02};
+    m.lift = {1.0, 90.0, 92.5, 0.1, -0.2, 0.3, 0.0};
+    m.positions = {1.0, 89.5, 92.0};
+    if (hovering) {
+        glideslope::net::LawState::Hovering h;
+        h.standing_ft = 0.5;
+        h.heading_deg = 72.0;
+        h.latitude_deg = -33.95;
+        h.longitude_deg = 151.18;
+        h.throttle_integral = 0.7;
+        h.fan_integral = 0.01;
+        h.post_integral = -0.02;
+        h.translating = true;
+        m.hover = h;
+    }
+    return m;
+}
 
 std::vector<Kind> every_kind() {
     std::vector<Kind> out;
@@ -388,6 +441,17 @@ std::vector<Kind> every_kind() {
                        glideslope::net::RunwayConditions got;
                        return glideslope::net::read(b, got);
                    }});
+
+    const glideslope::net::LawState law = a_law_state(true);
+    out.push_back({Message::law_state, "law_state", *glideslope::net::write_law_state(law),
+                   [law](std::span<const std::uint8_t> b) {
+                       glideslope::net::LawState got;
+                       return glideslope::net::read(b, got) && got == law;
+                   },
+                   [](std::span<const std::uint8_t> b) {
+                       glideslope::net::LawState got;
+                       return glideslope::net::read(b, got);
+                   }});
     return out;
 }
 
@@ -423,11 +487,12 @@ GLIDESLOPE_TEST(every_message_writes_and_reads_back_what_went_into_it) {
     }
     // **The space this walked, stated**: the six kinds the item names, the
     // forecast, which aircraft a client watches, a copilot's route, a
-    // take-over refused, a learnt landing refused and the runways' conditions.
-    check(walked == 12, "twelve kinds were walked, not " + std::to_string(walked));
+    // take-over refused, a learnt landing refused, the runways' conditions
+    // and a STOVL law's state.
+    check(walked == 13, "thirteen kinds were walked, not " + std::to_string(walked));
 }
 
-// **A body of one kind is never read as another.** All 144 pairs are
+// **A body of one kind is never read as another.** All 169 pairs are
 // tried, because a reader that accepted another kind's bytes would hand a
 // caller a message it never sent.
 GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
@@ -446,8 +511,8 @@ GLIDESLOPE_TEST(no_message_reads_as_a_kind_it_is_not) {
             ++pairs;
         }
     }
-    check(pairs == 144, "all hundred and forty-four pairs were tried, not " + std::to_string(pairs));
-    check(refused == 132, "a hundred and thirty-two of them are refused, not " + std::to_string(refused));
+    check(pairs == 169, "all hundred and sixty-nine pairs were tried, not " + std::to_string(pairs));
+    check(refused == 156, "a hundred and fifty-six of them are refused, not " + std::to_string(refused));
 }
 
 // **Every truncation of every message is refused.** A datagram can arrive
@@ -477,7 +542,7 @@ GLIDESLOPE_TEST(every_message_with_anything_trailing_is_refused) {
         check(!k.reads(longer), k.name + " with a byte after it must be refused");
         ++walked;
     }
-    check(walked == 12, "every kind was tried");
+    check(walked == 13, "every kind was tried");
 }
 
 // **Every single-byte change to every message either reads or is refused,
@@ -529,7 +594,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++kinds;
         }
     }
-    check(kinds == 12, "twelve kinds are known, not " + std::to_string(kinds));
+    check(kinds == 13, "thirteen kinds are known, not " + std::to_string(kinds));
 
     std::size_t controllers = 0;
     for (int v = 0; v < 256; ++v) {
@@ -562,7 +627,7 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
             ++not_a_kind;
         }
     }
-    check(not_a_kind == 244, "two hundred and forty-four first bytes are no kind, not " +
+    check(not_a_kind == 243, "two hundred and forty-three first bytes are no kind, not " +
                                  std::to_string(not_a_kind));
     check(!glideslope::net::kind_of({}).has_value(), "and an empty body is none");
 }
@@ -574,15 +639,15 @@ GLIDESLOPE_TEST(the_message_kinds_and_controllers_are_the_ones_the_document_name
 // that these six go through, not that something does.
 //
 // The channel loses what it is told to: `lose` is a bit per datagram in the
-// order they are put on the wire, counting both directions. Thirteen bits
-// is 8,192 patterns, and datagrams past the thirteenth all arrive, so every
+// order they are put on the wire, counting both directions. Fourteen bits
+// is 16,384 patterns, and datagrams past the fourteenth all arrive, so every
 // exchange finishes and the test can say what came out.
 GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_loss) {
     const std::vector<Kind> kinds = every_kind();
-    check(kinds.size() == 12, "the six the item names, the forecast, a watch, a route, two "
-                              "refusals and the runways' conditions");
+    check(kinds.size() == 13, "the six the item names, the forecast, a watch, a route, two "
+                              "refusals, the runways' conditions and a STOVL law's state");
 
-    constexpr int mask_width = 13;
+    constexpr int mask_width = 14;
     constexpr std::uint32_t patterns = 1u << mask_width;
     std::uint32_t walked = 0;
     std::uint32_t with_loss = 0;
@@ -636,7 +701,7 @@ GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_l
         if (!finished || arrived.size() != kinds.size()) {
             glideslope::test::fail(
                 "with loss pattern " + std::to_string(lose) + ", " +
-                std::to_string(arrived.size()) + " of twelve messages arrived" +
+                std::to_string(arrived.size()) + " of thirteen messages arrived" +
                 (finished ? "" : " and it never finished"));
         }
         // In order, once each, and each one still itself: the bytes are not
@@ -660,13 +725,13 @@ GLIDESLOPE_TEST(every_reliable_message_arrives_exactly_once_and_in_order_under_l
     check(walked == patterns, "every pattern of loss was walked: " +
                                   std::to_string(walked) + " of " +
                                   std::to_string(patterns));
-    check(patterns == 8192, "there are 8,192 patterns over thirteen datagrams");
-    // Twelve messages with nothing lost are over in thirteen datagrams -
-    // twelve out and one acknowledgement back - so every bit of a pattern
-    // touches one, and only the empty pattern loses nothing: 8,191 do.
-    check(with_loss == 8191, "8,191 of the patterns lost something, not " +
+    check(patterns == 16384, "there are 16,384 patterns over fourteen datagrams");
+    // Thirteen messages with nothing lost are over in fourteen datagrams -
+    // thirteen out and one acknowledgement back - so every bit of a pattern
+    // touches one, and only the empty pattern loses nothing: 16,383 do.
+    check(with_loss == 16383, "16,383 of the patterns lost something, not " +
                                  std::to_string(with_loss));
-    std::printf("  12 messages through 8,192 loss patterns; worst took %llu datagrams\n",
+    std::printf("  13 messages through 16,384 loss patterns; worst took %llu datagrams\n",
                 static_cast<unsigned long long>(worst_datagrams));
 }
 
@@ -699,7 +764,8 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
         {Message::copilot_route, "COPILOT_ROUTE"},
         {Message::take_over_refused, "TAKE_OVER_REFUSED"},
         {Message::learnt_landing_refused, "LEARNT_LANDING_REFUSED"},
-        {Message::runway_conditions, "RUNWAY_CONDITIONS"}};
+        {Message::runway_conditions, "RUNWAY_CONDITIONS"},
+        {Message::law_state, "LAW_STATE"}};
     std::size_t walked = 0;
     for (const auto& [kind, name] : kinds) {
         char buf[8];
@@ -710,7 +776,7 @@ GLIDESLOPE_TEST(the_transport_document_and_the_code_agree_about_the_messages) {
               name + " is a kind the code knows");
         ++walked;
     }
-    check(walked == 12, "every kind was walked");
+    check(walked == 13, "every kind was walked");
 
     // Every controller, by value and by name.
     const std::vector<std::pair<Controller, std::string>> controllers{
@@ -852,10 +918,13 @@ GLIDESLOPE_TEST(every_message_filled_to_its_limits_fits_in_one_datagram) {
     rc.before = rc.now;
     hold("runway_conditions", glideslope::net::write(rc));
 
+    // A STOVL law's state hovering, its hover law and every flag there.
+    hold("law_state", *glideslope::net::write_law_state(a_law_state(true)));
+
     // **The space this walked, stated**: every kind there is but `WATCH` and
     // `TAKE_OVER_REFUSED`, a byte each with nothing to fill, and each one
     // filled rather than sampled.
-    check(walked == 10, "every kind was filled to its limits, not " +
+    check(walked == 11, "every kind was filled to its limits, not " +
                            std::to_string(walked));
     // And the forecast this project really fetches fits, which is the case
     // that matters: nineteen pressure levels and four near-ground winds.
@@ -908,7 +977,8 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
         {Message::copilot_route, "COPILOT_ROUTE"},
         {Message::take_over_refused, "TAKE_OVER_REFUSED"},
         {Message::learnt_landing_refused, "LEARNT_LANDING_REFUSED"},
-        {Message::runway_conditions, "RUNWAY_CONDITIONS"}};
+        {Message::runway_conditions, "RUNWAY_CONDITIONS"},
+        {Message::law_state, "LAW_STATE"}};
     std::size_t named = 0;
     for (const auto& [kind, name] : kinds) {
         check(glideslope::net::known_message(static_cast<std::uint8_t>(kind)),
@@ -926,7 +996,7 @@ GLIDESLOPE_TEST(every_message_the_server_accepts_is_named_in_the_threats_documen
     }
     check(named == known, "every kind the code knows was looked for: " +
                               std::to_string(named) + " of " + std::to_string(known));
-    check(named == 12, "twelve kinds, not " + std::to_string(named));
+    check(named == 13, "thirteen kinds, not " + std::to_string(named));
 
     // **It says what it does not defend.** A threats document that only
     // listed defences would be the more dangerous for it.
@@ -1177,8 +1247,11 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
         {0x0000000000000001ull, "the smallest subnormal"}};
 
     const std::vector<WithNumbers> kinds = every_kind_that_carries_a_number();
+    // **Left out: `LAW_STATE`**, whose 47 numbers are walked by
+    // a_law_states_every_number_is_read_exactly_or_refused (test_state.cpp),
+    // with the own motion's floats, as the state update's are.
     check(kinds.size() == 6,
-          "six of the twelve kinds carry a floating-point field, not " +
+          "six of the twelve other kinds carry a floating-point field, not " +
               std::to_string(kinds.size()));
 
     std::size_t walked = 0;

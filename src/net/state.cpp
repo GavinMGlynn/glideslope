@@ -30,6 +30,71 @@ bool a_pitch_integral(const OwnMotion& m) {
            (a_number(*m.stovl_pitch_integral_deg) && m.stovl_height_asked_ft != no_stovl_law);
 }
 
+// **An own motion that is one**: every number a number, the height asked
+// one, and a pitch integral only with a law.
+bool own_motion_is_one(const OwnMotion& m) {
+    bool numbers = a_number(m.x_m) && a_number(m.y_m) && a_number(m.z_m);
+    for (const float v : m.attitude) numbers = numbers && a_number(v);
+    for (const float v : m.uvw_mps) numbers = numbers && a_number(v);
+    for (const float v : m.pqr_radps) numbers = numbers && a_number(v);
+    return numbers && a_height_asked(m.stovl_height_asked_ft) && a_pitch_integral(m);
+}
+
+// A client's own motion as a state update carries it (and `LAW_STATE`).
+void write_own_motion(Writer& w, const OwnMotion& m) {
+    w.f64(m.x_m);
+    w.f64(m.y_m);
+    w.f64(m.z_m);
+    for (const float v : m.attitude) {
+        w.f32(v);
+    }
+    for (const float v : m.uvw_mps) {
+        w.f32(v);
+    }
+    for (const float v : m.pqr_radps) {
+        w.f32(v);
+    }
+    w.u16(m.steps_into_input);
+    w.f32(m.stovl_height_asked_ft);
+    // Its flag, and the value - nought when there is none, so that what
+    // is read writes back to the same bytes.
+    w.u8(m.stovl_pitch_integral_deg ? 1 : 0);
+    w.f32(m.stovl_pitch_integral_deg.value_or(0.0F));
+}
+
+bool read_own_motion(Reader& r, OwnMotion& m) {
+    m.x_m = r.f64();
+    m.y_m = r.f64();
+    m.z_m = r.f64();
+    for (float& v : m.attitude) {
+        v = r.f32();
+    }
+    for (float& v : m.uvw_mps) {
+        v = r.f32();
+    }
+    for (float& v : m.pqr_radps) {
+        v = r.f32();
+    }
+    m.steps_into_input = r.u16();
+    m.stovl_height_asked_ft = r.f32();
+    const std::uint8_t has_integral = r.u8();
+    const float integral = r.f32();
+    if (!r.ok() || has_integral > 1) {
+        return false;
+    }
+    if (has_integral == 1) {
+        m.stovl_pitch_integral_deg = integral;
+    } else {
+        // None is written as nought, every bit of it.
+        std::uint32_t bits = 0;
+        std::memcpy(&bits, &integral, sizeof bits);
+        if (bits != 0) {
+            return false;
+        }
+    }
+    return own_motion_is_one(m);
+}
+
 } // namespace
 
 std::size_t state_bytes(std::size_t count, bool with_yours, bool with_watched) {
@@ -62,16 +127,8 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
             return std::nullopt;
         }
     }
-    if (state.yours) {
-        const OwnMotion& m = *state.yours;
-        bool numbers = a_number(m.x_m) && a_number(m.y_m) && a_number(m.z_m);
-        for (const float v : m.attitude) numbers = numbers && a_number(v);
-        for (const float v : m.uvw_mps) numbers = numbers && a_number(v);
-        for (const float v : m.pqr_radps) numbers = numbers && a_number(v);
-        if (!numbers || !a_height_asked(m.stovl_height_asked_ft) ||
-            !a_pitch_integral(m)) {
-            return std::nullopt;
-        }
+    if (state.yours && !own_motion_is_one(*state.yours)) {
+        return std::nullopt;
     }
 
     Writer w;
@@ -97,25 +154,7 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
     }
     w.u8(state.yours ? 1 : 0);
     if (state.yours) {
-        const OwnMotion& m = *state.yours;
-        w.f64(m.x_m);
-        w.f64(m.y_m);
-        w.f64(m.z_m);
-        for (const float v : m.attitude) {
-            w.f32(v);
-        }
-        for (const float v : m.uvw_mps) {
-            w.f32(v);
-        }
-        for (const float v : m.pqr_radps) {
-            w.f32(v);
-        }
-        w.u16(m.steps_into_input);
-        w.f32(m.stovl_height_asked_ft);
-        // Its flag, and the value - nought when there is none, so that what
-        // is read writes back to the same bytes.
-        w.u8(m.stovl_pitch_integral_deg ? 1 : 0);
-        w.f32(m.stovl_pitch_integral_deg.value_or(0.0F));
+        write_own_motion(w, *state.yours);
     }
     w.u8(state.watched ? 1 : 0);
     if (state.watched) {
@@ -142,6 +181,134 @@ bool known_condition(std::uint8_t value) {
     return value == static_cast<std::uint8_t>(Condition::flying) ||
            value == static_cast<std::uint8_t>(Condition::wrecked) ||
            value == static_cast<std::uint8_t>(Condition::engine_stopped);
+}
+
+namespace {
+
+// The flags byte: which of the optional parts follow, and the two flags.
+constexpr std::uint8_t flag_autopilot = 0x01;
+constexpr std::uint8_t flag_asked = 0x02;
+constexpr std::uint8_t flag_asked_hover = 0x04;
+constexpr std::uint8_t flag_lever = 0x08;
+constexpr std::uint8_t flag_hover = 0x10;
+constexpr std::uint8_t flag_translating = 0x20;
+constexpr std::uint8_t flag_selector = 0x40;
+constexpr std::uint8_t flags_known = 0x7F;
+
+// The law's numbers, in the document's order.
+std::vector<double*> law_numbers(LawState& m) {
+    std::vector<double*> out{&m.height_asked_ft,    &m.heading_deg,        &m.bank_held_deg,
+                             &m.hover_base_ft,      &m.speed_asked_kt,     &m.pitch_from_deg,
+                             &m.speed_from_kt,      &m.back_pitch_from_deg, &m.throttle_integral,
+                             &m.angle_integral_deg, &m.elevator_integral,  &m.fan_integral,
+                             &m.post_integral,      &m.pitch_integral_deg};
+    for (double& v : m.controls) out.push_back(&v);
+    for (double& v : m.lift) out.push_back(&v);
+    for (double& v : m.positions) out.push_back(&v);
+    return out;
+}
+
+std::vector<double*> hover_numbers(LawState::Hovering& h) {
+    return {&h.standing_ft,       &h.heading_deg,  &h.latitude_deg, &h.longitude_deg,
+            &h.throttle_integral, &h.fan_integral, &h.post_integral};
+}
+
+bool law_state_is_one(const LawState& m) {
+    LawState copy = m;
+    bool numbers = a_number(copy.simulation_time_s) && own_motion_is_one(copy.motion) &&
+                   copy.motion.stovl_height_asked_ft != no_stovl_law;
+    for (double* v : law_numbers(copy)) numbers = numbers && a_number(*v);
+    if (copy.lever_at_selection) numbers = numbers && a_number(*copy.lever_at_selection);
+    if (copy.selector_at_take_back) {
+        numbers = numbers && a_number(*copy.selector_at_take_back);
+    }
+    if (copy.hover) {
+        for (double* v : hover_numbers(*copy.hover)) numbers = numbers && a_number(*v);
+    }
+    return numbers && copy.stage < law_stages &&
+           copy.hover.has_value() == (copy.stage == law_stage_hovering);
+}
+
+} // namespace
+
+std::optional<std::vector<std::uint8_t>> write_law_state(const LawState& m) {
+    if (!law_state_is_one(m)) {
+        return std::nullopt;
+    }
+    LawState copy = m;
+    Writer w;
+    w.u8(static_cast<std::uint8_t>(Message::law_state));
+    w.u8(copy.aircraft);
+    w.f64(copy.simulation_time_s);
+    w.u32(copy.last_input_applied);
+    write_own_motion(w, copy.motion);
+    w.u8(copy.stage);
+    std::uint8_t flags = 0;
+    if (copy.autopilot) flags |= flag_autopilot;
+    if (copy.last_asked_hover) flags |= flag_asked;
+    if (copy.last_asked_hover.value_or(false)) flags |= flag_asked_hover;
+    if (copy.lever_at_selection) flags |= flag_lever;
+    if (copy.hover) flags |= flag_hover;
+    if (copy.hover && copy.hover->translating) flags |= flag_translating;
+    if (copy.selector_at_take_back) flags |= flag_selector;
+    w.u8(flags);
+    for (double* v : law_numbers(copy)) w.f64(*v);
+    w.f64(copy.lever_at_selection.value_or(0.0));
+    w.f64(copy.selector_at_take_back.value_or(0.0));
+    if (copy.hover) {
+        for (double* v : hover_numbers(*copy.hover)) w.f64(*v);
+    }
+    return w.take();
+}
+
+bool read(std::span<const std::uint8_t> body, LawState& out) {
+    Reader r(body);
+    if (r.u8() != static_cast<std::uint8_t>(Message::law_state)) {
+        return false;
+    }
+    LawState got;
+    got.aircraft = r.u8();
+    got.simulation_time_s = r.f64();
+    got.last_input_applied = r.u32();
+    if (!r.ok() || !read_own_motion(r, got.motion)) {
+        return false;
+    }
+    got.stage = r.u8();
+    const std::uint8_t flags = r.u8();
+    if (!r.ok() || (flags & ~flags_known) != 0 ||
+        ((flags & flag_asked) == 0 && (flags & flag_asked_hover) != 0) ||
+        ((flags & flag_hover) == 0 && (flags & flag_translating) != 0)) {
+        return false;
+    }
+    got.autopilot = (flags & flag_autopilot) != 0;
+    if ((flags & flag_asked) != 0) {
+        got.last_asked_hover = (flags & flag_asked_hover) != 0;
+    }
+    for (double* v : law_numbers(got)) *v = r.f64();
+    // None is written as nought, every bit of it.
+    const double lever = r.f64();
+    if ((flags & flag_lever) != 0) {
+        got.lever_at_selection = lever;
+    } else if (std::signbit(lever) || lever != 0.0) {
+        return false;
+    }
+    const double selector = r.f64();
+    if ((flags & flag_selector) != 0) {
+        got.selector_at_take_back = selector;
+    } else if (std::signbit(selector) || selector != 0.0) {
+        return false;
+    }
+    if ((flags & flag_hover) != 0) {
+        LawState::Hovering h;
+        h.translating = (flags & flag_translating) != 0;
+        for (double* v : hover_numbers(h)) *v = r.f64();
+        got.hover = h;
+    }
+    if (!r.done() || !law_state_is_one(got)) {
+        return false;
+    }
+    out = std::move(got);
+    return true;
 }
 
 std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
@@ -206,49 +373,8 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
     }
     if (has_yours == 1) {
         OwnMotion m;
-        m.x_m = r.f64();
-        m.y_m = r.f64();
-        m.z_m = r.f64();
-        for (float& v : m.attitude) {
-            v = r.f32();
-        }
-        for (float& v : m.uvw_mps) {
-            v = r.f32();
-        }
-        for (float& v : m.pqr_radps) {
-            v = r.f32();
-        }
-        m.steps_into_input = r.u16();
-        m.stovl_height_asked_ft = r.f32();
-        const std::uint8_t has_integral = r.u8();
-        const float integral = r.f32();
-        if (!r.ok() || has_integral > 1) {
+        if (!read_own_motion(r, m)) {
             return std::nullopt;
-        }
-        if (has_integral == 1) {
-            m.stovl_pitch_integral_deg = integral;
-        } else {
-            // None is written as nought, every bit of it.
-            std::uint32_t bits = 0;
-            std::memcpy(&bits, &integral, sizeof bits);
-            if (bits != 0) {
-                return std::nullopt;
-            }
-        }
-        if (!a_pitch_integral(m)) {
-            return std::nullopt;
-        }
-        if (!r.ok() || !a_height_asked(m.stovl_height_asked_ft) || !a_number(m.x_m) || !a_number(m.y_m) || !a_number(m.z_m)) {
-            return std::nullopt;
-        }
-        for (const float v : m.attitude) {
-            if (!a_number(v)) return std::nullopt;
-        }
-        for (const float v : m.uvw_mps) {
-            if (!a_number(v)) return std::nullopt;
-        }
-        for (const float v : m.pqr_radps) {
-            if (!a_number(v)) return std::nullopt;
         }
         out.yours = m;
     }

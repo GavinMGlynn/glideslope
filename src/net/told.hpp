@@ -16,6 +16,7 @@
 // dropped.
 
 #include "net/messages.hpp"
+#include "net/state.hpp"
 
 #include <cstdint>
 #include <optional>
@@ -26,7 +27,7 @@ namespace glideslope::net {
 class Told {
 public:
     // What a message changed, if anything a caller acts on.
-    enum class Heard { nothing, session, lobby, dataset, weather, runway_conditions };
+    enum class Heard { nothing, session, lobby, dataset, weather, runway_conditions, law_state };
 
     // **Takes one reliable message**, whatever its kind; a kind this does not
     // keep - an aircraft's definition, a swap - is `nothing` here.
@@ -48,6 +49,10 @@ public:
         return runway_conditions_;
     }
     int runway_conditions_heard() const { return runway_conditions_heard_; }
+    // **The newest STOVL law state** (`LAW_STATE`), and how many have been
+    // heard: for the aircraft it names, at the step it names.
+    const std::optional<LawState>& law_state() const { return law_state_; }
+    int law_states_heard() const { return law_states_heard_; }
     // **The whole weather heard before the newest**, and its forecast: what
     // the newest blends from, if it still blends. A server tells a client
     // joining mid-blend this first, so that one making its air from the
@@ -67,6 +72,8 @@ private:
     int weathers_ = 0;
     std::optional<RunwayConditions> runway_conditions_;
     int runway_conditions_heard_ = 0;
+    std::optional<LawState> law_state_;
+    int law_states_heard_ = 0;
 };
 
 } // namespace glideslope::net

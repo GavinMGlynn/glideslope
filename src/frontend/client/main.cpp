@@ -1113,7 +1113,7 @@ static int run_program(int argc, char** argv) {
                 flight->give_nan_words_at(o.nan_words_at);
             }
             if (joined) {
-                flight->adopt(joined->motion);
+                flight->adopt(joined->motion, joined->law);
                 // **And on the levers the server holds her on**, which a
                 // law made on her first input is seeded from on both sides.
                 if (joined->levers) {
@@ -2292,7 +2292,9 @@ static int run_program(int argc, char** argv) {
                     // predicted up to now (another aeroplane is a flight
                     // built afresh, with nothing predicted, and only put
                     // there).
-                    if (predicted_before && !taken->again) {
+                    if (taken->law) {
+                        flight->adopt(taken->motion, taken->law);
+                    } else if (predicted_before && !taken->again) {
                         flight->adopt(taken->motion, taken->server_steps);
                     } else {
                         flight->adopt(taken->motion);

@@ -62,6 +62,7 @@ enum class Message : std::uint8_t {
     take_over_refused = 10,
     learnt_landing_refused = 11,
     runway_conditions = 12,
+    law_state = 13,
 };
 
 // Whether `kind` is one this version knows.
