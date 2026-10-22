@@ -64,16 +64,37 @@ shorter, the server flies the inputs where they came.
   0 stalls), and its client and server stopped 3 s by hand: one stall of
   2,728 ms named.
 - CI's Windows test jobs now print every stall from the test log, and whether
-  Defender scans in real time on the runner. It does not: on the
-  windows-2025-vs2026 image (20261007.264) `RealTimeProtectionEnabled` is
-  False, so Defender's scanning is not what stops them, and no exclusion was
-  added.
-- On CI's windows-clang (run 39733569271) the built stall was harder: 52.2 m
-  across it, one correction too large to hide, back within a metre from the
-  55th word of 60 - inside the 50 + 10 words the rule is derived from - and
-  0.536 m at worst after. Its steps were 41 apart across the stall (3,262 to
-  3,221), the pace steering by a clocks' difference the stall had moved; the
-  steps are now summed outside the machine's stalls (Linux: 2,326 to 2,328).
+  Defender scans in real time on the runner. It does not:
+  `RealTimeProtectionEnabled : False` on every Windows job of runs 39733569271
+  (image windows-2025-vs2026 20261007.264) and 39743359407 (20261018.275.1) -
+  e.g. line 1358 of
+  https://github.com/GavinMGlynn/glideslope/actions/runs/39743359407/job/119719292592.
+  Defender's scanning is not what stops them, and no exclusion was added. In
+  run 39743359407's 13 Windows jobs the only stalls were the built one.
+- **The 60 words, and the margin seen.** A stall's word placed by inputs the
+  server flew late puts the clocks' difference - the least of 50 words
+  (sim::offset_window) - low until that word leaves the window, 50 words on,
+  and the pace, steered by the newest 10 (sim::pace_window), follows 10 words
+  after: 60. Linux release puts it back within a metre 4 to 8 words after;
+  the worst seen is CI's windows-clang (run 39733569271): 52.2 m across it,
+  one correction too large to hide, back from the 55th word of 60 - inside
+  the derivation, with 5 words to spare - and 0.536 m at worst after. Its
+  steps were 41 apart across the stall (3,262 to 3,221), the pace steering by
+  a clocks' difference the stall had moved; the steps are now summed outside
+  the machine's stalls (Linux: 2,326 to 2,328).
+- **The excuse is capped** (tests/cmake/machine_stalls_check.cmake), in the
+  paced, take-over, both STOVL and the window client's tests: at most two
+  stalls - CI shows one in a test when it shows any - and at most a quarter
+  of what was compared counted apart - one 3.5 s stall, the longest CI has
+  shown and the one built, takes 113 of the paced test's 600 (19%) - and
+  every stall back within a metre by the last of its words heard.
+  `a_machine_that_stalls_more_than_twice_or_for_over_a_quarter_of_a_prediction_test_fails_it`
+  runs every case (11: six allowed, five refused), seen red with the cap
+  loosened to three stalls.
+- **Overlapping stalls each keep their own window**: a word in two is
+  counted and judged by each and counted apart once
+  (`overlapping_machine_stalls_each_keep_their_own_window_and_a_word_in_both_is_counted_apart_once`,
+  seen red with only the newest stall's window kept, as it was).
 - Before making an input the CLI flies what is owed on the input before, as
   the server does through its silence: 0.584 to 0.491 m worst through a stall
   of the client alone (one run each), a small effect, not what failed on CI.

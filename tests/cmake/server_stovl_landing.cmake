@@ -184,21 +184,6 @@ if(CMAKE_MATCH_1 GREATER 0 OR CMAKE_MATCH_2 GREATER 500)
                         "the server's, over half a degree:\n${_said}")
 endif()
 set(_pitch "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
-# **A frame the machine mostly took is counted apart** (glideslope_cli's
-# frontend::MachineStalls; server_paced_prediction.cmake pins it): CI's
-# Windows clang once went 5,214 ms between two of this client's frames and
-# its worst went to 6.2 m (run 39701548318, 2026-10-22). The updates and
-# corrections across each such stall - the server's catching up and the 60
-# words after - are named, not judged; every one after is, and the median
-# and percentiles are of all of them.
-if(NOT _said MATCHES "the machine's stalls: ([0-9]+) frames[^\n]*, ([0-9]+) updates compared")
-    message(FATAL_ERROR "the client did not say its machine's stalls:\n${_said}")
-endif()
-set(_stalls "${CMAKE_MATCH_1} machine's stalls, ${CMAKE_MATCH_2} updates across them counted apart")
-string(REGEX MATCHALL "the machine's stall [0-9]+: [^\n]*" _each "${_said}")
-foreach(_one IN LISTS _each)
-    string(APPEND _stalls "; ${_one}")
-endforeach()
 if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "the client did not say its prediction error:\n${_said}")
 endif()
@@ -247,4 +232,9 @@ message(STATUS "held wing-borne: lowest ${_lowest} ft, ${_kcas} KCAS at the end;
                "the median ${_median_mm} mm; ${_joined} corrections once joined (at least "
                "${_joined_least}), the worst ${_joined_worst} m; her pitch within ${_pitch} "
                "degrees of the server's")
+# **The machine's stalls**, capped and each recovered from
+# (machine_stalls_check.cmake): CI's Windows clang once went 5,214 ms between
+# two of this client's frames and its worst went to 6.2 m (run 39701548318).
+include("${CMAKE_CURRENT_LIST_DIR}/machine_stalls_check.cmake")
+check_machine_stalls("${_said}" updates "${_compared}" _stalls)
 message(STATUS "${_stalls}")

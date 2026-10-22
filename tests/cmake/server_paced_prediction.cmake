@@ -41,7 +41,7 @@
 # 3.5 s at 12 s on the session's clock (`--stopped-once`,
 # `--test-stopped-once`), a whole machine stopped - the relay runs on, which
 # stopped alone 3 s by hand moved nothing past a metre. The test requires
-# exactly that one stall named, of 3.4 s or more, all 60 words after it
+# that stall named, of 3.4 s or more, all 60 words after it
 # heard, and the error back within a metre by the last of them.
 # Linux release: 5.6 to 6.3 m at worst across it, back within a metre from the
 # 4th to 8th word after; 0.475 to 0.945 m at worst elsewhere. A stall of its own
@@ -157,16 +157,16 @@ string(CONCAT _line "${_compared} updates compared, the worst error ${_worst_mm}
           "${_median_mm} mm, flown at ${_pace_thousandths} thousandths of real time against a "
           "server at ${_pace} (${_steps_here} steps flown here to the server's "
           "${_steps_there})")
-# The stall, seen to have happened: a frame held through it, all of it the
-# machine's as the client counts its own time.
-if(NOT _said MATCHES "the machine's stalls: ([0-9]+) frames")
-    message(FATAL_ERROR "the client did not say its machine's stalls:\n${_said}")
-endif()
-set(_stalls "${CMAKE_MATCH_1}")
+# **The machine's stalls**, capped and each recovered from
+# (machine_stalls_check.cmake).
+include("${CMAKE_CURRENT_LIST_DIR}/machine_stalls_check.cmake")
+check_machine_stalls("${_said}" updates "${_compared}" _stalls)
+# The stall built, seen to have happened: a frame held through it, all of it
+# the machine's as the client counts its own time.
 if(STOPPED)
-    if(NOT _stalls EQUAL 1 OR NOT _said MATCHES
-       "the machine's stall 1: ([0-9]+) ms, [0-9.]+ s in; ([0-9]+) words catching up and ([0-9]+) after, ([0-9]+) updates compared, the worst ([0-9.]+) m, back within 1 m from word ([0-9]+) after")
-        message(FATAL_ERROR "the client did not name the one stall built:\n${_said}")
+    if(NOT _said MATCHES
+       "the machine's stall [0-9]+: ([0-9]+) ms, [0-9.]+ s in; ([0-9]+) words catching up and ([0-9]+) after, ([0-9]+) updates compared, the worst ([0-9.]+) m, back within 1 m from word ([0-9]+) after")
+        message(FATAL_ERROR "the client did not name the stall built:\n${_said}")
     endif()
     string(APPEND _line ", and across the machine's stall of ${CMAKE_MATCH_1} ms "
            "${CMAKE_MATCH_4} updates counted apart, the worst ${CMAKE_MATCH_5} m, back "
@@ -179,13 +179,8 @@ if(STOPPED)
         message(FATAL_ERROR "the prediction did not come back within a metre in the 60 "
                             "words after the stall: ${_line}:\n${_said}")
     endif()
-else()
-    string(APPEND _line ", ${_stalls} machine's stalls counted apart")
 endif()
-string(REGEX MATCHALL "the machine's stall [0-9]+: [^\n]*" _each "${_said}")
-foreach(_one IN LISTS _each)
-    string(APPEND _line "; ${_one}")
-endforeach()
+string(APPEND _line "; ${_stalls}")
 if(_compared LESS 600)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()

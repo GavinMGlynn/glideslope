@@ -46,6 +46,7 @@ add_executable(glideslope_tests
     unit/test_departure.cpp
     unit/test_fuzz.cpp
     unit/test_held_inputs.cpp
+    unit/test_machine_stalls.cpp
     unit/test_inputs.cpp
     unit/test_inside.cpp
     unit/test_handshake.cpp
@@ -181,6 +182,8 @@ set(GLIDESLOPE_UNIT_TESTS
     every_step_a_client_flies_meets_the_air_at_the_moment_the_server_flies_it
     every_control_goes_on_the_wire_and_comes_back_within_one_step
     an_input_heard_while_the_server_owes_steps_is_flown_from_the_step_due_when_it_came
+    a_frame_is_a_machines_stall_only_when_the_machine_took_most_of_it_and_a_quarter_second_or_more
+    overlapping_machine_stalls_each_keep_their_own_window_and_a_word_in_both_is_counted_apart_once
     with_nothing_lost_every_input_frame_arrives_once_and_in_order
     an_input_frame_arrives_exactly_when_a_packet_carrying_it_arrives
     losing_a_whole_packets_worth_of_datagrams_in_a_row_does_lose_an_input
@@ -2463,6 +2466,11 @@ add_test(NAME a_client_predicting_against_a_server_behind_real_time_whose_machin
 set_tests_properties(a_client_predicting_against_a_server_behind_real_time_whose_machine_stops_for_seconds_is_back_within_a_metre_sixty_updates_after
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_stopped)
+# **A machine's stalls excuse a prediction test only so far**: at most two,
+# a quarter of what was compared, and each recovered from within its words.
+# Every case of the cap. See cmake/machine_stalls_check.cmake.
+add_test(NAME a_machine_that_stalls_more_than_twice_or_for_over_a_quarter_of_a_prediction_test_fails_it
+    COMMAND ${CMAKE_COMMAND} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/machine_stalls_cases.cmake)
 
 # **A player asks for an aeroplane as they join, and flies it.** See
 # cmake/server_aircraft_choice.cmake.

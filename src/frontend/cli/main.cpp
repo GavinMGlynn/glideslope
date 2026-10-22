@@ -1915,8 +1915,7 @@ public:
                                     prediction_->settled();
                 // Within the words after a machine's stall, counted apart
                 // (frontend::MachineStalls).
-                glideslope::frontend::MachineStalls::Stall* across =
-                    stalls_.word(state.simulation_time_s);
+                const bool across = stalls_.word(state.simulation_time_s);
                 // And the height her STOVL law was asked to hold there, and
                 // its autopilot's pitch integral, put on this client's law
                 // where one flies her (sim::Prediction).
@@ -1946,8 +1945,8 @@ public:
                     const double error = std::hypot(at->where[0] - m.location_ecef_m[0],
                                                     at->where[1] - m.location_ecef_m[1],
                                                     at->where[2] - m.location_ecef_m[2]);
-                    if (across != nullptr) {
-                        glideslope::frontend::MachineStalls::compared(*across, error);
+                    if (across) {
+                        stalls_.compared(error);
                     } else if (error > worst_error_m_) {
                         worst_error_m_ = error;
                         worst_error_at_s_ = local_s;
@@ -1965,7 +1964,7 @@ public:
                     // flying of what came meanwhile, and the pace's steering
                     // by the clocks' difference it moved (MachineStalls).
                     // Run by run, outside them, the steps are summed.
-                    if (across != nullptr) {
+                    if (across) {
                         if (first_compared_ && last_compared_) {
                             steps_outside_stalls_.first +=
                                 last_compared_->first - first_compared_->first;
@@ -2059,7 +2058,7 @@ public:
                     // **After a take-over, apart**: updates the server can
                     // only have sent if it is flying the aircraft taken over
                     // by this client's inputs.
-                    if (taken_over_ > 0 && !resuming_ && across == nullptr) {
+                    if (taken_over_ > 0 && !resuming_ && !across) {
                         worst_error_since_m_ = std::max(worst_error_since_m_, error);
                         ++compared_since_;
                     }
@@ -2083,8 +2082,8 @@ public:
                     resuming_ = false;
                     settled_at_s_ = local_s + 1.0;
                 }
-                if (across != nullptr) {
-                    glideslope::frontend::MachineStalls::corrected(*across, c.moved_m, c.snapped);
+                if (across) {
+                    stalls_.corrected(c.moved_m, c.snapped);
                 } else {
                     ++corrections_;
                     worst_correction_m_ = std::max(worst_correction_m_, c.moved_m);
@@ -2096,13 +2095,13 @@ public:
                     worst_correction_engine_running_m_ =
                         std::max(worst_correction_engine_running_m_, c.moved_m);
                 }
-                if (c.snapped && across == nullptr) {
+                if (c.snapped && !across) {
                     ++snapped_;
                     if (taken_over_ > 0) {
                         ++snapped_since_;
                     }
                 }
-                if (joined && across == nullptr) {
+                if (joined && !across) {
                     ++corrections_joined_;
                     worst_correction_joined_m_ = std::max(worst_correction_joined_m_, c.moved_m);
                     snapped_joined_ += c.snapped ? 1 : 0;
