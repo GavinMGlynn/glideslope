@@ -53,3 +53,11 @@ under-count would name a busy frame of the client's own as the machine's - one
 stall too many - not the miss seen here, where the one stall was named
 correctly. macOS timer coalescing lengthens sleeps (RTI community note on
 macOS sleep delay); here it woke the client 150 ms late.
+
+**From the review of #243.** The plan's item is cut to a summary; its detail
+is above. A stall never named - `--stopped-once` waits for a pass straight
+after a datagram read - now fails saying so; seen with the stop put at 1,000 s
+on the session's clock (never reached): "the client did not name the stall
+built - it stops only on a pass straight after a datagram was read". The
+test's comment gives the stop as 12 s on the session's clock (20 s of real
+time at 0.6), not "20 s in".

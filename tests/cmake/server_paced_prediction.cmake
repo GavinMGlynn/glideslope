@@ -106,7 +106,8 @@ set(_unpaced "")
 if(UNPACED)
     set(_unpaced --unpaced)
 endif()
-# The whole machine stopped 3.5 s, 20 s in: client and server each told to
+# The whole machine stopped 3.5 s at 12 s on the session's clock (20 s of
+# real time at 0.6): client and server each told to
 # run nothing then, as a runner that stops them all does, the client woken
 # half a second after the server, as macOS's woke it late.
 set(_server_stopped "")
@@ -174,7 +175,10 @@ check_machine_stalls("${_said}" updates "${_compared}" _stalls)
 if(STOPPED)
     if(NOT _said MATCHES
        "the machine's stall [0-9]+: ([0-9]+) ms, [0-9.]+ s in; ([0-9]+) words catching up and ([0-9]+) after, ([0-9]+) updates compared, the worst ([0-9.]+) m, back within 1 m from word ([0-9]+) after")
-        message(FATAL_ERROR "the client did not name the stall built:\n${_said}")
+        message(FATAL_ERROR "the client did not name the stall built - it stops only on "
+                            "a pass straight after a datagram was read, from 12 s on the "
+                            "session's clock, so none may have come after it, or it "
+                            "stopped and the stall was not counted the machine's:\n${_said}")
     endif()
     string(APPEND _line ", and across the machine's stall of ${CMAKE_MATCH_1} ms "
            "${CMAKE_MATCH_4} updates counted apart, the worst ${CMAKE_MATCH_5} m, back "
