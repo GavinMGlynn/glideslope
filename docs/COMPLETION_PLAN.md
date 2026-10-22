@@ -764,14 +764,14 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       two runs with the controls item on top, and its PR's CI.* Done
       2026-10-22: 200 of 200 in each of two runs of 100 a check, the second
       on the final head.
-- [ ] **The paced prediction on CI's Windows release went 138 m off** once
+- [x] **The paced prediction on CI's Windows release went 138 m off** once
       (2026-10-21), the runner not running the client for 3,503 of the 3,583
       ms between two frames: the test judges the machine. *Verification: the
       test judged on the client's own time, or a stall built into it
-      explicitly and its bound held through it.* Still open: the client
-      stopped alone is now built into a test and holds (0.49 m); the whole
-      machine stopped - the CI case - is still 4.5 m off here, and the
-      server stopped alone 55.6 m. Not bounded yet.
+      explicitly and its bound held through it.* Done 2026-10-22: both
+      clients count the updates across a stall their machine took apart and
+      name them, and every update after is judged as before; a built 3.5 s
+      stall of client and server is back within a metre 4 to 8 updates on.
 - [x] **The impaired checks' AI controls are shown 0.0051 to 0.0061 off**
       on CI's macOS (nightly, 2026-10-15 and 2026-10-21; 0.005 is the bound):
       the throttle drawn at 0.9949 where it was 1.0, past a step to full
@@ -1298,7 +1298,10 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       window client is still put right 6 to 9 m against a slowed server, and
       10 to 13 m against one keeping time, untested and unexplained; and on
       Windows one update in a hundred is off by two steps (1.1 m) - a named
-      limit, its cause found (2026-10-08), not fixed.
+      limit, its cause found (2026-10-08), not fixed. And a server stopped
+      alone 3 s puts its client 55.6 m off (2026-10-22): the inputs that came
+      meanwhile are flown at most a quarter of a second late. Reproduced with
+      `glideslope_server --test-stopped-once`.
 - [ ] **On Windows the server's word is placed two steps off now and then**:
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th

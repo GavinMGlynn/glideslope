@@ -914,6 +914,23 @@ jobs:
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
           ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
 
+      # **The machine's stalls, said whether the tests passed or not**: every
+      # frame a predicting client's machine mostly took (frontend::
+      # MachineStalls), from every test's output, so that how often a runner
+      # stops them is counted, not met only when one fails. And whether
+      # Defender scans in real time here, which is one reason a Windows
+      # runner can stop every process of a test at once.
+      - name: The machine's stalls
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          Get-MpComputerStatus -ErrorAction SilentlyContinue | Select-Object AMRunningMode, AntivirusEnabled, RealTimeProtectionEnabled, OnAccessProtectionEnabled | Format-List
+          $log = "build\${{ matrix.preset }}\Testing\Temporary\LastTest.log"
+          if (-not (Test-Path $log)) { Write-Output "no test log"; exit 0 }
+          $stalls = Select-String -Path $log -Pattern "the machine's stall [0-9]+: .*"
+          Write-Output "the machine's stalls in this shard: $($stalls.Count)"
+          $stalls | ForEach-Object { Write-Output $_.Line }
+
       - name: The stack of every crash
         if: ${{ failure() }}
         shell: pwsh
