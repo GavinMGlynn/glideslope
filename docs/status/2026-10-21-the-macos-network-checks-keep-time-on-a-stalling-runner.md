@@ -146,3 +146,8 @@ both begin at the first update after it. The client now says when each
 was built (`built: ...`). ThreadSanitizer, the one-off build again: the
 impaired, take-over and take-back checks pass, no report. QoS was not
 needed: the build did not overlap the error.
+
+**A hundred runs of each check, twice, with the controls item on top**:
+run 39687042105 (the build-time lines, before the fix) 200 of 200 - the
+failure did not come again in it - and run 39693946486 (the fix, the
+final head) 200 of 200. The item is done.
