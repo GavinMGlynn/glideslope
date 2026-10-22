@@ -317,10 +317,10 @@ void Online::hear(Flight& flight) {
     ++corrections_;
     ++frames_heard_own_;
     // **Across a machine's stall, apart** (frontend::MachineStalls).
-    frontend::MachineStalls::Stall* across = stalls_.word(
+    const bool across = stalls_.word(
         static_cast<double>(word.server_steps) / static_cast<double>(sim::steps_per_second));
-    if (across != nullptr) {
-        frontend::MachineStalls::corrected(*across, c.moved_m, c.snapped);
+    if (across) {
+        stalls_.corrected(c.moved_m, c.snapped);
     } else {
         double& worst = known ? worst_known_m_ : worst_learning_m_;
         worst = std::max(worst, c.moved_m);

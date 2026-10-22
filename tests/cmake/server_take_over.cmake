@@ -141,26 +141,19 @@ if(NOT _had EQUAL CMAKE_MATCH_2 OR CMAKE_MATCH_3 GREATER 1 OR CMAKE_MATCH_1 LESS
     message(FATAL_ERROR "a long frame was built after ${CMAKE_MATCH_1} of ${CMAKE_MATCH_2} "
                         "switches, ${CMAKE_MATCH_3} overtaken by another:\n${_said}")
 endif()
-# **A frame the machine mostly took is counted apart** (glideslope_cli's
-# `MachineStall`; server_paced_prediction.cmake pins it): CI's Windows
-# runners stopped this client 1,267 ms once and it was put right by 41 m
-# (run 39701548318). The corrections and errors across each such stall -
-# the server's catching up and the 60 words after - are named, not judged;
-# every one after is, so a prediction that does not come back still fails.
-if(NOT _said MATCHES "the machine's stalls: ([0-9]+) frames[^\n]*, ([0-9]+) updates compared")
-    message(FATAL_ERROR "the client did not say its machine's stalls:\n${_said}")
-endif()
-set(_stalls "${CMAKE_MATCH_1} machine's stalls, ${CMAKE_MATCH_2} updates across them counted apart")
-string(REGEX MATCHALL "the machine's stall [0-9]+: [^\n]*" _each "${_said}")
-foreach(_one IN LISTS _each)
-    string(APPEND _stalls "; ${_one}")
-endforeach()
 if(NOT _said MATCHES "predicted: [0-9]+ corrections, the worst ([0-9.]+) m, 0 too large to hide")
     message(FATAL_ERROR "a correction was too large to hide:\n${_said}")
 endif()
 if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared, the worst ([0-9.]+) m")
     message(FATAL_ERROR "the client did not say its prediction error:\n${_said}")
 endif()
+# **The machine's stalls**, capped and each recovered from
+# (machine_stalls_check.cmake): CI's Windows runners stopped this client
+# 1,267 ms once and it was put right by 41 m (run 39701548318).
+include("${CMAKE_CURRENT_LIST_DIR}/machine_stalls_check.cmake")
+set(_prediction_m "${CMAKE_MATCH_2}")
+check_machine_stalls("${_said}" updates "${CMAKE_MATCH_1}" _stalls)
+set(CMAKE_MATCH_2 "${_prediction_m}")
 if(CMAKE_MATCH_2 GREATER_EQUAL PREDICT_M)
     message(FATAL_ERROR "the prediction error was ${CMAKE_MATCH_2} m, the bound ${PREDICT_M}:\n${_said}")
 endif()

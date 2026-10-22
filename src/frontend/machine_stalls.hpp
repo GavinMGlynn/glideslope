@@ -81,35 +81,48 @@ public:
     }
 
     // **A word on its own aircraft**, about `about_s` on the session's
-    // clock: the stall it is across, counted, or null.
-    Stall* word(double about_s) {
-        if (stalls_.empty()) {
-            return nullptr;
+    // clock: whether it is across a stall, counted against every stall whose
+    // window it is in. **Each stall keeps its own window**: a second stall
+    // inside the first's 60 words opens its own, and a word in both is
+    // counted, and judged back within, by each; it is counted apart once.
+    bool word(double about_s) {
+        active_.clear();
+        for (std::size_t i = 0; i < stalls_.size(); ++i) {
+            Stall& s = stalls_[i];
+            if (about_s < s.caught_up_s) {
+                ++s.catching_up;
+                active_.push_back(i);
+            } else if (s.words < words_after) {
+                ++s.words;
+                active_.push_back(i);
+            }
         }
-        Stall& s = stalls_.back();
-        if (about_s < s.caught_up_s) {
-            ++s.catching_up;
-            return &s;
-        }
-        if (s.words < words_after) {
-            ++s.words;
-            return &s;
-        }
-        return nullptr;
+        return !active_.empty();
     }
 
-    static void compared(Stall& s, double error_m) {
-        ++s.compared;
-        s.worst_error_m = std::max(s.worst_error_m, error_m);
-        if (error_m > back_within_m) {
-            s.over_until_word = s.words;
+    // The word just heard's update, compared, against every stall it is
+    // across.
+    void compared(double error_m) {
+        apart_compared_ += active_.empty() ? 0u : 1u;
+        for (const std::size_t i : active_) {
+            Stall& s = stalls_[i];
+            ++s.compared;
+            s.worst_error_m = std::max(s.worst_error_m, error_m);
+            if (error_m > back_within_m) {
+                s.over_until_word = s.words;
+            }
         }
     }
 
-    static void corrected(Stall& s, double moved_m, bool snapped) {
-        ++s.corrections;
-        s.worst_correction_m = std::max(s.worst_correction_m, moved_m);
-        s.snapped += snapped ? 1 : 0;
+    // The word just heard's correction, against every stall it is across.
+    void corrected(double moved_m, bool snapped) {
+        apart_corrections_ += active_.empty() ? 0u : 1u;
+        for (const std::size_t i : active_) {
+            Stall& s = stalls_[i];
+            ++s.corrections;
+            s.worst_correction_m = std::max(s.worst_correction_m, moved_m);
+            s.snapped += snapped ? 1 : 0;
+        }
     }
 
     const std::vector<Stall>& stalls() const { return stalls_; }
@@ -117,17 +130,13 @@ public:
     // What it says: one line in all, and one for each stall.
     std::vector<std::string> said() const {
         std::vector<std::string> lines;
-        std::size_t apart = 0, corrections = 0;
-        for (const Stall& s : stalls_) {
-            apart += s.compared;
-            corrections += s.corrections;
-        }
         char line[384];
         std::snprintf(line, sizeof line,
                       "the machine's stalls: %zu frames of %.0f ms and more the machine's, "
                       "%zu updates compared and %zu corrections in the server's catching up "
                       "and the %zu words after it, counted apart",
-                      stalls_.size(), from_s * 1000.0, apart, corrections, words_after);
+                      stalls_.size(), from_s * 1000.0, apart_compared_, apart_corrections_,
+                      words_after);
         lines.emplace_back(line);
         for (std::size_t i = 0; i < stalls_.size(); ++i) {
             const Stall& s = stalls_[i];
@@ -144,8 +153,15 @@ public:
         return lines;
     }
 
+    std::size_t apart_compared() const { return apart_compared_; }
+    std::size_t apart_corrections() const { return apart_corrections_; }
+
 private:
     std::vector<Stall> stalls_;
+    // The stalls the word just heard is across.
+    std::vector<std::size_t> active_;
+    std::size_t apart_compared_ = 0;
+    std::size_t apart_corrections_ = 0;
 };
 
 } // namespace glideslope::frontend

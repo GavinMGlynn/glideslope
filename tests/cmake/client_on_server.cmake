@@ -212,15 +212,9 @@ endif()
 # across each such stall - the server's catching up and the 60 words after -
 # are named, not judged; every one after is, and the held frames are this
 # client's own sleeps, so they are never counted apart.
-if(NOT _out MATCHES "the machine's stalls: ([0-9]+) frames[^\n]* and ([0-9]+) corrections in")
-    message(FATAL_ERROR "the client did not say its machine's stalls:\n${_out}")
-endif()
-string(CONCAT _stalls "; ${CMAKE_MATCH_1} machine's stalls, ${CMAKE_MATCH_2} corrections "
-       "across them counted apart")
-string(REGEX MATCHALL "the machine's stall [0-9]+: [^\n]*" _each "${_out}")
-foreach(_one IN LISTS _each)
-    string(APPEND _stalls "; ${_one}")
-endforeach()
+include("${CMAKE_CURRENT_LIST_DIR}/machine_stalls_check.cmake")
+check_machine_stalls("${_out}" corrections "${_corrections}" _stall_summary)
+set(_stalls "; ${_stall_summary}")
 if(NOT _snapped EQUAL 0 OR _worst GREATER_EQUAL 20)
     message(FATAL_ERROR "its own aircraft was put right too far to hide:\n${_out}")
 endif()
