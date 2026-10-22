@@ -43,8 +43,8 @@
 # stopped alone 3 s by hand moved nothing past a metre. The test requires
 # exactly that one stall named, of 3.4 s or more, all 60 words after it
 # heard, and the error back within a metre by the last of them.
-# Linux release: 5.9 m at worst across it, back within a metre from the
-# 7th word after; 0.475 m at worst elsewhere. A stall of the client's own
+# Linux release: 5.6 to 6.3 m at worst across it, back within a metre from the
+# 4th to 8th word after; 0.475 to 0.945 m at worst elsewhere. A stall of its own
 # (a busy wait in its place) is not counted apart, and fails.
 # (docs/status, 2026-10-22).
 #
@@ -182,6 +182,10 @@ if(STOPPED)
 else()
     string(APPEND _line ", ${_stalls} machine's stalls counted apart")
 endif()
+string(REGEX MATCHALL "the machine's stall [0-9]+: [^\n]*" _each "${_said}")
+foreach(_one IN LISTS _each)
+    string(APPEND _line "; ${_one}")
+endforeach()
 if(_compared LESS 600)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()
