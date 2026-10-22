@@ -10,10 +10,11 @@
 - **The tyre's rate is taken as linear** through Goodyear's rated point and
   scaled to her pressure; NACA TN 4110's own curve (equation 23) would sink
   her about 4% deeper.
-- **JSBSim's convention is kept.** It compresses a wheel along her body's
-  vertical and turns its force normal to the ground, so standing at 13
-  degrees her wheels drop about 5% less than a tyre squashed straight down
-  would.
+- **JSBSim's convention is kept** (the coordinator's decision, 2026-10-22).
+  JSBSim compresses every gear along the body's vertical and turns its
+  force normal to the ground, so standing at 13 degrees her wheels drop
+  about 5% less than a tyre squashed straight down would: under 0.1 in of
+  her 1.1 to 1.7 in.
 - **Left out, as in #223**: the strands' slant (about 1% on their length,
   some 3% on the preload) and the stop disc's end of the stroke. The table
   holds its last force past 2 ft of compression (3,130 lb).
@@ -83,4 +84,7 @@ unchanged (the C172P's flight).
   0.78 to 0.91). The beam-wind drag is unchanged at 43.2 lb.
 - **Nose-over sweep (#228).** Its pinned levels and counts held: 30 of 60
   runs go over and 2 more lift her tail.
-- **Not done:** an x86-64-v2 build. The new test is 0.2% inside a 1% bound.
+- **In a `-march=x86-64-v2` release build** (no fused multiply-adds, as CI
+  builds), the new test gives the same figures to the printed digit
+  (1.095, 1.309, 1.559 and 1.728 in), and the nose-over sweep holds its
+  counts: 30 of 60 go over, 2 more lift her tail.
