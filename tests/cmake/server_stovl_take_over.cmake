@@ -90,7 +90,7 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 math(EXPR _relay "${PORT} + 1")
-set(_flies connect "127.0.0.1:${_relay}" "${_key}" 900 --after 1 --predict --stovl-land
+set(_flies 900 --after 1 --predict --stovl-land
            --stovl-level --until-compared-on-law 750 --heard "${_heard}")
 if(SCENE STREQUAL "take_over")
     list(APPEND _flies --watch-ai --take-over-at 200)
@@ -104,7 +104,8 @@ else()
                         "'${SCENE}'")
 endif()
 execute_process(
-    COMMAND "${CLIENT}" ${_flies}
+    # The address here, not in set(): test_ports.cmake reads the ports.
+    COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" ${_flies}
     COMMAND "${SERVER}" --port ${PORT} --seconds 1200 --until-empty --ai 1 --headless
             --players 1 --data "${DATA}" --timeout 5 --store "${_store}" --plan "${_plan}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
