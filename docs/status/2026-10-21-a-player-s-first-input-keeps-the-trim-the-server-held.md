@@ -101,6 +101,13 @@ command-line client's, which begins from the same function.
   in which the client stalled 1.7 to 3 s; that run did not say its longest
   frame, so it is not known which it was.
 
+  A word whose nearest step kept is the first or the newest cannot be held
+  against the path, and is judged by its step alone: at most a twentieth of
+  them, the share the 95th percentile leaves. CI run 39800603390's Ubuntu
+  debug placed one so, the untouched F-35B's words up to 13 steps off and
+  every other 0.000 m off the path; the first rule, none at an end, failed
+  it. Seen red with the share made negative.
+
   Seen red: the prediction's own step given 5 m/s down once every 400 steps
   (sim::Prediction), the medians unmoved: 0.123 m off the path, failed -
   which the old bound on the worst, 5.6 m, passed.
