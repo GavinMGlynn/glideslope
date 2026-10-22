@@ -56,3 +56,8 @@ percentile 8.3 m; earlier runs' worst seen 5.1 m). Not explained. One
 suspect, unproven: the next aircraft is now built on a thread of its own
 from the moment the join takes the first, on a three-core runner also
 running the server, the relay and another client. The item stays open.
+
+**A hundred runs of each check on the final head** (run 39693946486): 200
+of 200. The earlier run's one failure was the stall item's - the client's
+build at the introduction holding its clock - diagnosed and fixed there.
+The item is done.
