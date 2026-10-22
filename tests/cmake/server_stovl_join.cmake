@@ -16,8 +16,11 @@
 #              (70 s) after selecting (`--stovl-bank-at 2100`) - slowed from
 #              her start, converted and jet-borne by then - and centres it:
 #              her law holds the 20 degrees of bank that leaves. A leaves
-#              without a word at 95 s (`--no-goodbye`) and writes
-#              that it has; client B, on A's key (`--key`), joins then
+#              without a word (`--no-goodbye`) once her law holds that bank
+#              and the server has applied the input that centred the stick
+#              (`--leave-once-bank-held`) - the event, not a time: left at
+#              95 s, a slow Windows runner had not finished the roll, and B
+#              was told 0 and 14 degrees - and writes that it has; client B, on A's key (`--key`), joins then
 #              (`--after-ready`), before the server lets A's session go, and
 #              is given her as she is - mid-bank, turning, jet-borne.
 #
@@ -37,7 +40,8 @@
 # **What must hold**: no wreck; the server said her law to B once
 # (`aircraft N's STOVL law told to its client`), B heard it and began its
 # prediction on it - jet-borne with the 20 degrees of bank held - and from
-# its first update compared, its
+# its first update compared - told exactly the stage and bank the server
+# says it held at the step of the message - its
 # predicted pitch within half a degree of the server's at every update, the
 # median within 60 mm, the 95th percentile within 3.4 m and the worst within
 # 5.6 m: server_stovl_vertical_landing.cmake's bounds. Begun on a model just
@@ -77,20 +81,20 @@ math(EXPR _relay "${PORT} + 1")
 set(_player "e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26")
 set(_b_flies --predict --stovl-land --stovl-level --until-compared 750 --heard "${_heard_b}")
 if(SCENE STREQUAL "join")
-    set(_a connect "127.0.0.1:${PORT}" "${_key}" 95 --after 1 --key "${_player}"
+    set(_a 600 --after 1 --key "${_player}"
                --aircraft f35b --loading vertical_landing --predict --stovl-land --stovl-level
-               --stovl-bank-at 2100 --no-goodbye --done "${_gone}" --heard "${_heard_a}")
-    set(_b connect "127.0.0.1:${_relay}" "${_key}" 600 --after-ready "${_gone}"
+               --stovl-bank-at 2100 --leave-once-bank-held --no-goodbye --done "${_gone}"
+               --heard "${_heard_a}")
+    set(_b 600 --after-ready "${_gone}"
                --key "${_player}" --aircraft f35b --loading vertical_landing ${_b_flies})
 else()
     message(FATAL_ERROR "SCENE is join, not '${SCENE}'")
 endif()
-set(_commands COMMAND "${CLIENT}" ${_b})
-if(DEFINED _a)
-    list(APPEND _commands COMMAND "${CLIENT}" ${_a})
-endif()
+# The addresses are written in the commands, not in set(): test_ports.cmake
+# reads every port a script derives, and a set() naming one it cannot.
 execute_process(
-    ${_commands}
+    COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" ${_b}
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" ${_a}
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
             --players 2 --data "${DATA}" --timeout 5 --store "${_store}" --plan "${_plan}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
@@ -116,9 +120,24 @@ if(NOT _said MATCHES "stovl: prediction begun on the server's LAW_STATE at [0-9.
 endif()
 set(_stage "${CMAKE_MATCH_1}")
 set(_bank "${CMAKE_MATCH_2}")
-if(NOT _stage EQUAL 2 OR NOT _bank STREQUAL "20.000")
+# **What the server held at the step of the message, to the digit**: not
+# only some 20 degrees, but the server's own.
+if(NOT _err MATCHES "STOVL law told to its client at [0-9.]+ s: stage ([0-9]+), bank held ([-0-9.]+) degrees")
+    message(FATAL_ERROR "the server did not say what it told:\n${_err}")
+endif()
+if(NOT _stage STREQUAL CMAKE_MATCH_1 OR NOT _bank STREQUAL CMAKE_MATCH_2)
+    message(FATAL_ERROR "B was told stage ${_stage}, ${_bank} degrees of bank held; the server "
+                        "held stage ${CMAKE_MATCH_1}, ${CMAKE_MATCH_2} degrees:\n${_said}")
+endif()
+# **And the situation built**: A left once her law held its bank and the
+# server had the input that centred the stick, jet-borne, 20 degrees.
+file(READ "${_heard_a}" _a_said)
+if(NOT _a_said MATCHES "stovl: left once her bank was held, ([-0-9.]+) degrees")
+    message(FATAL_ERROR "A did not leave on her bank held:\n${_a_said}")
+endif()
+if(NOT _stage EQUAL 2 OR NOT _bank STREQUAL "20.000" OR NOT CMAKE_MATCH_1 STREQUAL "20.000")
     message(FATAL_ERROR "B was given her in stage ${_stage} with ${_bank} degrees of bank held, "
-                        "not jet-borne (with 20, joining):\n${_said}")
+                        "A having left at ${CMAKE_MATCH_1}: not jet-borne with 20:\n${_said}")
 endif()
 if(NOT _said MATCHES "stovl: predicted pitch within ([0-9]+)\\.([0-9][0-9][0-9]) degrees")
     message(FATAL_ERROR "B did not say its pitch error:\n${_said}")
