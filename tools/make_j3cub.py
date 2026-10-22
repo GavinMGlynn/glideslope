@@ -111,7 +111,12 @@ The changes, and what each is for:
                         to 731 lb (2.39 in), and the tyre and the rings in
                         series past it, 111 lb/in (gear_strut_force_table).
                         The pinned damping is kept, 500 lb/ft/s and 850 on
-                        rebound. Judgements: the strands' slant left out, as
+                        rebound. JSBSim compresses a wheel along her body's
+                        vertical and turns its force normal to the ground,
+                        as it does every gear: standing at 13 degrees her
+                        wheels drop about 5% less than a tyre squashed
+                        straight down, under 0.1 in of her 1.1 to 1.7 in,
+                        and that is kept. Judgements: the strands' slant left out, as
                         in the rate (it would add about 1% to their length,
                         some 3% to the preload); the stop disc's end of the
                         stroke not modelled, as before.
