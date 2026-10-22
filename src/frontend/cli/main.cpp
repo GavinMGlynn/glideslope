@@ -184,6 +184,13 @@ std::size_t connect_until_compared = 0;
 // **(`--unpaced`)**: with `--predict`, fly at this machine's pace, not
 // steered to the server's (sim::Pacing) - what a test shows going wrong.
 bool connect_unpaced = false;
+// **(`--stopped-once S MS`)**: S seconds in, it runs nothing for MS
+// milliseconds - reads, sends and flies nothing - as a machine that stops
+// it does (GitHub's Windows runners did for 3.5 s, 2026-10-21). The time is
+// not counted as its own (`Predicting::render`): to it, it is the machine's.
+// A test's stall, built rather than waited for. Negative: none.
+double connect_stopped_once_at_s = -1.0;
+double connect_stopped_once_ms = 0.0;
 // **(`--stovl-land`)**: with `--predict`, its pilot selects STOVL mode five
 // seconds in, with the stick full forward and the lever left where it is, so that
 // its F-35B is flown by her transition law - converted, slowed to a hover,
@@ -422,6 +429,9 @@ void print_usage(std::FILE* out) {
         "                            --until-compared says)\n"
         "                            --unpaced (with --predict) flies at this\n"
         "                            machine's pace, not steered to the server's\n"
+        "                            --stopped-once S MS (with --predict) runs\n"
+        "                            nothing for MS milliseconds, S seconds in, as\n"
+        "                            a machine that stops it does\n"
         "                            --track FILE writes where every aircraft was\n"
         "                            heard to be, and, predicting, where each other\n"
         "                            one was drawn, to FILE\n"
@@ -3271,9 +3281,30 @@ int stay(glideslope::platform::UdpSocket& socket,
              up_s - last_heard_s >= server_gone_quiet_s)) {
             break;
         }
+        // **A test's stall** (`--stopped-once`): nothing run, as when a
+        // machine stops it, and not counted as its own.
+        if (connect_stopped_once_at_s >= 0.0 && up_s >= connect_stopped_once_at_s) {
+            connect_stopped_once_at_s = -1.0;
+            std::this_thread::sleep_for(
+                std::chrono::duration<double, std::milli>(connect_stopped_once_ms));
+            continue;
+        }
         if (fly && up_s - sent_inputs_at_s >= inputs_every_s) {
             sent_inputs_at_s = up_s;
             if (!finishing) {
+                // **Flown on the input before up to now, before the next is
+                // made.** The server flies an input until the next arrives,
+                // so whatever time has passed since this client last flew -
+                // a pass, or seconds the machine did not run it - the server
+                // flies on the last input it was sent. Flown after it, on
+                // the new one (as `advance` below would), the steps of a
+                // 3.5 s stall were flown on the input made after it: 0.58 m
+                // at worst through one, 0.49 m flown this way (Linux
+                // release, the scripted pilot's inputs a thirtieth of a
+                // second apart, 2026-10-22).
+                if (predicting) {
+                    predicting->advance(up_s, sequence, stick);
+                }
                 ++sequence;
                 // **Into the sea** (`--dive-after`): full forward stick and
                 // full power, for a test that needs its own aircraft wrecked.
@@ -4942,6 +4973,14 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--unpaced") {
                     connect_unpaced = true;
+                    continue;
+                }
+                if (args[i] == "--stopped-once" && i + 2 < args.size()) {
+                    connect_stopped_once_at_s =
+                        std::strtod(std::string(args[i + 1]).c_str(), nullptr);
+                    connect_stopped_once_ms =
+                        std::strtod(std::string(args[i + 2]).c_str(), nullptr);
+                    i += 2;
                     continue;
                 }
                 if (args[i] == "--stovl-land") {

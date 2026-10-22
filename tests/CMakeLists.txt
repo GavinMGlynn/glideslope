@@ -2451,6 +2451,18 @@ add_test(NAME a_client_predicting_against_a_server_behind_real_time_flies_at_its
 set_tests_properties(a_client_predicting_against_a_server_behind_real_time_flies_at_its_pace_and_is_off_by_centimetres
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction)
+# **The same with the client stopped 3.5 s alone**, its server and relay
+# running: the same bounds held through it. (The whole machine stopped is
+# not pinned: 4.5 m here, docs/status 2026-10-22.)
+add_test(NAME a_client_predicting_against_a_server_behind_real_time_stopped_alone_for_seconds_is_still_off_by_centimetres
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_stopped -DPORT=24996
+        -DSTOPPED=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_paced_prediction.cmake)
+set_tests_properties(a_client_predicting_against_a_server_behind_real_time_stopped_alone_for_seconds_is_still_off_by_centimetres
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_stopped)
 
 # **A player asks for an aeroplane as they join, and flies it.** See
 # cmake/server_aircraft_choice.cmake.

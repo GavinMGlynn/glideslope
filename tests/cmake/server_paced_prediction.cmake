@@ -3,7 +3,7 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli>
 #         -DIMPAIR=<glideslope_impair> -DDATA=<data dir> -DCACHE=<downloads dir>
-#         -DWORK=<scratch> -DPORT=<a port> [-DUNPACED=ON]
+#         -DWORK=<scratch> -DPORT=<a port> [-DUNPACED=ON] [-DSTOPPED=ON]
 #         -P server_paced_prediction.cmake
 #
 # **What is pinned.** The server flies each input from when it arrives until
@@ -25,6 +25,17 @@
 # 1 percent, between the first update compared and the last, and its prediction error was under a metre for 95 updates in a
 # hundred, under 3 m at worst, and its median under 5 cm. `-DUNPACED=ON` flies
 # the client at its own pace (`--unpaced`): that is what fails, by metres.
+#
+# **And through the client's stall alone** (`-DSTOPPED=ON`): the client runs
+# nothing for 3.5 s, 20 s in (`--stopped-once`), its server and relay
+# running, and the same bounds hold - 0.49 m at worst on Linux release. The
+# stall is built, and seen to have been: a frame of 3.5 s, all of it the
+# machine's as the client counts its time. **What is not pinned: the whole
+# machine stopped**, as CI's Windows runners stopped it for 3,503 of 3,583
+# ms between two frames on 2026-10-21 (138 m). Client, server and relay
+# stopped together 3 s by hand put the client 4.5 m off; the server stopped
+# alone, 55.6 m, since inputs read after a stall are flown at most a quarter
+# of a second late (net::HeldInputs). docs/status, 2026-10-22.
 #
 # **A named limit: on Windows about one update in a hundred is off by two
 # steps' travel.** A step's travel is 0.42 m at this aircraft's speed, and
@@ -77,6 +88,9 @@ set(_unpaced "")
 if(UNPACED)
     set(_unpaced --unpaced)
 endif()
+if(STOPPED)
+    list(APPEND _unpaced --stopped-once 20 3500)
+endif()
 math(EXPR _relay "${PORT} + 1")
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 280 --after 1
@@ -127,6 +141,18 @@ string(CONCAT _line "${_compared} updates compared, the worst error ${_worst_mm}
           "${_median_mm} mm, flown at ${_pace_thousandths} thousandths of real time against a "
           "server at ${_pace} (${_steps_here} steps flown here to the server's "
           "${_steps_there})")
+# The stall, seen to have happened: a frame held through it, all of it the
+# machine's as the client counts its own time.
+if(STOPPED)
+    if(NOT _said MATCHES "the longest between frames ([0-9]+) ms, ([0-9]+) ms of it the machine's")
+        message(FATAL_ERROR "the client did not say its longest frame:\n${_said}")
+    endif()
+    if(CMAKE_MATCH_1 LESS 3500 OR CMAKE_MATCH_2 LESS 3400)
+        message(FATAL_ERROR "the client was not stopped 3.5 s: its longest frame "
+                            "${CMAKE_MATCH_1} ms, ${CMAKE_MATCH_2} ms of it the machine's:\n${_said}")
+    endif()
+    string(APPEND _line ", through a frame of ${CMAKE_MATCH_1} ms")
+endif()
 if(_compared LESS 600)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()

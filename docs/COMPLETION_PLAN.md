@@ -768,7 +768,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       (2026-10-21), the runner not running the client for 3,503 of the 3,583
       ms between two frames: the test judges the machine. *Verification: the
       test judged on the client's own time, or a stall built into it
-      explicitly and its bound held through it.*
+      explicitly and its bound held through it.* Still open: the client
+      stopped alone is now built into a test and holds (0.49 m); the whole
+      machine stopped - the CI case - is still 4.5 m off here, and the
+      server stopped alone 55.6 m. Not bounded yet.
 - [x] **The impaired checks' AI controls are shown 0.0051 to 0.0061 off**
       on CI's macOS (nightly, 2026-10-15 and 2026-10-21; 0.005 is the bound):
       the throttle drawn at 0.9949 where it was 1.0, past a step to full
