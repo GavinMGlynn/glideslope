@@ -203,6 +203,38 @@ public:
     // Each part carried put on this law where it has that part to take it.
     void carry(const Carried& carried);
 
+    // **Everything this law carries from step to step, but a wing-borne
+    // autopilot's own**: what a client joining her while the law flies her
+    // is told (net::LawState), its own law otherwise made afresh on a model
+    // just loaded - wing-borne with the fan's doors shut, and level where
+    // the server's holds her pilot's bank. A wing-borne autopilot is made
+    // again from the law's last controls with its pitch integral, the one
+    // number of its own a prediction was measured to need (2026-10-16).
+    struct State {
+        Stage stage = Stage::wing_borne;
+        // Whether a wing-borne autopilot flies her: wing-borne, or
+        // converting forward.
+        bool autopilot = true;
+        std::optional<bool> last_asked_hover;
+        double heading_deg = 0.0;
+        double bank_held_deg = 0.0;
+        double hover_base_ft = 0.0;
+        double speed_asked_kt = 0.0;
+        double pitch_from_deg = 0.0;
+        double speed_from_kt = 0.0;
+        double back_pitch_from_deg = 0.0;
+        double throttle_integral = 0.0;
+        double angle_integral_deg = 0.0;
+        double elevator_integral = 0.0;
+        double fan_integral = 0.0;
+        double post_integral = 0.0;
+        double pitch_integral_deg = 0.0;
+        Hover::Command last;
+        std::optional<Hover::State> hover;
+    };
+    State state() const;
+    Transition(const Aircraft& aircraft, const State& state);
+
     // **The attitude she flies wing-borne at her conversion speed**, level,
     // for what she weighs now: her weight over her wing's area, her lift
     // slope and the dynamic pressure of her conversion speed, degrees.
