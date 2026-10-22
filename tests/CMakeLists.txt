@@ -978,6 +978,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_orbit_and_a_take_off_are_read_from_a_plan_and_refused_where_they_are_wrong
     a_landing_is_read_from_a_plan_and_refused_where_it_is_wrong
     a_vertical_landing_is_read_from_a_plan_and_refused_where_it_is_wrong
+    a_plans_loading_is_one_her_figures_name_or_the_plan_is_refused_by_it
     the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_either_way_in_calm_air_and_in_wind_down_to_the_tightest_allowed
     an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_circle
     every_aircraft_has_its_own_tests_of_its_tightest_orbits_and_one_step_past_them
@@ -2528,6 +2529,26 @@ add_test(NAME the_client_with_the_window_given_an_f35b_mid_bank_joins_on_the_ser
 set_tests_properties(the_client_with_the_window_given_an_f35b_mid_bank_joins_on_the_servers_law_state
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_stovl_join)
+# **And taking her over from the AI, or back from it, hovering**: an AI
+# F-35B planned at her vertical-landing loading, and a player's handed to
+# the AI and taken back. See cmake/server_stovl_take_over.cmake.
+foreach(_scene IN ITEMS take_over take_back)
+    if(_scene STREQUAL "take_over")
+        set(_name a_client_taking_over_an_ai_f35b_hovering_predicts_her_from_the_servers_law_state)
+        set(_port 24984)
+    else()
+        set(_name a_client_taking_back_its_f35b_hovering_from_the_ai_predicts_her_from_the_servers_law_state)
+        set(_port 24960)
+    endif()
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_${_scene} -DPORT=${_port}
+            -DSCENE=${_scene} -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_take_over.cmake)
+    set_tests_properties(${_name} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800 RUN_SERIAL TRUE)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_${_scene})
+endforeach()
 # **And against a server behind real time, by centimetres**: its clock at a
 # set 0.6 of real time. Serial: a busy runner would slow it further.
 add_test(NAME a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres

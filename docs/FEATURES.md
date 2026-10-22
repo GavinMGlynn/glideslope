@@ -38,7 +38,7 @@ the controls to an AI pilot whenever you like, then take them back.
   *Not yet:* the Cessna 172, the Cessna 182 and the Cub do not climb to their
   handbooks' ceilings and the F-15 does not stall as her manual describes.
   The F-35 hovers, lands vertically and takes off short - a player's too,
-  loaded light enough to hover; jet-borne she cannot yet be turned, and she
+  and an AI pilot's, loaded light enough to hover; jet-borne she cannot yet be turned, and she
   backs up no faster than 20 knots in the hover.
 
 - **Wind and turbulence.** `DONE`

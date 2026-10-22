@@ -1482,6 +1482,14 @@ public:
                 }
                 auto aircraft = std::make_unique<glideslope::sim::Aircraft>(
                     data / "jsbsim", entry.model);
+                // **At the plan's loading** (`loading NAME`), before she is
+                // put anywhere: her figures name it, or the plan was refused
+                // above (refuse_what_it_cannot_fly).
+                std::optional<glideslope::sim::FigureLoading> loading;
+                if (!plan.loading.empty()) {
+                    loading = loadings_.at(entry.model).at(plan.loading);
+                    aircraft->load(loading->loading);
+                }
                 aircraft->set_terrain(ground);
                 if (session_air_) {
                     aircraft->set_weather(session_air_);
@@ -1514,6 +1522,13 @@ public:
                 flown_.back().on_plan = true;
                 flown_.back().stack_ft = stack_ft;
                 flown_.back().ai_number = i + 1;
+                if (loading) {
+                    flown_.back().loading_name = plan.loading;
+                    flown_.back().loading = loading->loading;
+                    std::printf("AI %d flies the plan's %s loading, %.0f lb\n", i + 1,
+                                plan.loading.c_str(), loading->total_lbs);
+                    std::fflush(stdout);
+                }
                 ++ai_;
             }
             // Kept so that a player joining later starts where the AI did,
@@ -1603,6 +1618,16 @@ public:
                             "flies %s\n",
                             static_cast<int>(slot), asked->id.c_str(), id.c_str());
             }
+            std::fflush(stdout);
+        }
+        // **The plan's aeroplane, with no loading asked, at the plan's**
+        // (`loading NAME`): a player flies what the plan flies.
+        if (!loading && model == player_model_ && !plan_.loading.empty() &&
+            (!asked || asked->loading.empty())) {
+            loading = loadings_.at(model).at(plan_.loading);
+            loading_name = plan_.loading;
+            std::printf("slot %d flies the plan's %s loading, %.0f lb\n", static_cast<int>(slot),
+                        loading_name.c_str(), loading->total_lbs);
             std::fflush(stdout);
         }
         auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data_ / "jsbsim", model);
