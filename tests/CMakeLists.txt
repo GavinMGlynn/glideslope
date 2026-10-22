@@ -2468,6 +2468,19 @@ add_test(NAME a_client_predicting_against_a_server_behind_real_time_whose_machin
 set_tests_properties(a_client_predicting_against_a_server_behind_real_time_whose_machine_stops_for_seconds_is_back_within_a_metre_sixty_updates_after
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_stopped)
+# **A client too slow for its own prediction puts it right once a pass, from
+# the newest word, and keeps up**: every step it flies spends 2 ms more,
+# busy. See cmake/starved_prediction.cmake. Serial: a busy runner beside it
+# would slow it further than the slowness built.
+add_test(NAME a_predicting_client_too_slow_to_replay_every_word_puts_itself_right_from_the_newest_and_keeps_up
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/starved_prediction -DPORT=24998 -DSLOW_US=2000
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/starved_prediction.cmake)
+set_tests_properties(a_predicting_client_too_slow_to_replay_every_word_puts_itself_right_from_the_newest_and_keeps_up
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/starved_prediction)
 # **A machine's stalls excuse a prediction test only so far**: at most two,
 # a quarter of what was compared, and each recovered from within its words.
 # Every case of the cap. See cmake/machine_stalls_check.cmake.

@@ -155,9 +155,20 @@ public:
     // newest of those heard together. Put right from each of them in turn,
     // the aircraft was flown through every input since, again and again -
     // twenty-five words to a slow second, each replaying up to two seconds
-    // of steps, which made the next frame slower still.
-    void hear_clock(std::uint32_t last_applied, std::size_t steps_into,
-                    std::uint64_t server_steps);
+    // of steps, which made the next frame slower still: a client too slow
+    // for that read the words ever later and never caught up (glideslope_cli
+    // on CI's Ubuntu debug, a frame of 450.9 s and corrections of 42 km;
+    // docs/status, 2026-10-23). The newest supersedes them, as it does in a
+    // client-side prediction's reconciliation anywhere: the client is put
+    // back to the newest authoritative state and flies the inputs since.
+    //
+    // **Returns the step of this client's the word is about**, as
+    // `Correction::at_step` would have had it, so that the word is still
+    // held against where this client had flown: superseded, a word is still
+    // a measurement of the prediction. Nothing before the clocks' difference
+    // is known.
+    std::optional<std::uint64_t> hear_clock(std::uint32_t last_applied, std::size_t steps_into,
+                                            std::uint64_t server_steps);
 
     // **Another aircraft, as the server's word had it at `server_steps`**, flown
     // on to now: put there, and flown through this client's inputs since the

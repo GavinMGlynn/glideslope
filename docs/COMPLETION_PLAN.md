@@ -798,6 +798,18 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       macOS runs of each impaired check.* Done 2026-10-22: 200 of 200 on
       the final head (an earlier 100's one failure, a prediction error after
       the join, was the client's build and is fixed under it).
+- [x] **A predicting client on a starved machine fell behind and never
+      caught up** (#232's CI, a frame of 450.9 s and 42 km corrections): it
+      replayed its inputs for every word it read. Now it is put right once a
+      pass, from the newest word, and still compares every word.
+      *Verification: a client made too slow to replay every word keeps up
+      and holds the prediction's bounds, red without the fix.* Done
+      2026-10-23.
+- [ ] **The window client compares only the newest word of a frame**: the
+      words it reads before it say the clocks' difference and nothing else,
+      so its prediction error is measured on fewer words than arrive.
+      *Verification: every word the window client reads is held against
+      where it had flown, counted in a test.*
 
 ---
 

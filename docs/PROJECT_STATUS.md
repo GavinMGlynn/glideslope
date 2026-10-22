@@ -148,8 +148,9 @@ circuit touching short, 2026-09-27; the fighters' rotation, 2026-09-26).
 **Phase 6, client and server, is complete — 17 of 17 items.** A server flies
 every aircraft, wherever on Earth, with AI aircraft of its own, and resolves
 collisions. Clients join, are told what every aircraft is, stream their
-inputs, predict their own aircraft and reconcile, and see the others 100 ms in
-the past, over a reliable layer whose every parser is fuzzed. All of that
+inputs, predict their own aircraft and reconcile - once a pass, from the
+newest word, so that a client too slow to replay every word still keeps up
+(2026-10-23) - and see the others 100 ms in the past, over a reliable layer whose every parser is fuzzed. All of that
 holds, within stated bounds, through 200 ms of latency with jitter and loss.
 The client with the window flies on a server and draws everyone. Four clients
 on Windows and Linux have flown together with an AI Cessna, and a fifth was
