@@ -113,15 +113,20 @@ Prediction::Prediction(Aircraft& aircraft) : aircraft_(aircraft) {
     }
 }
 
-void Prediction::held_by_server(const Controls& held) {
-    // The server's levers are an input too.
+void Prediction::held_by_server(const Controls& held, std::optional<double> held_trim) {
+    // The server's levers are an input too, and so is the trim it held her on.
     if (!lost_) {
         if (const auto bad = first_not_finite(held)) {
             lost_ = Lost{"the server's held " + *bad, flying_step_};
+        } else if (held_trim && !std::isfinite(*held_trim)) {
+            lost_ = Lost{"the server's held trim", flying_step_};
         }
     }
     if (lost_) {
         return;
+    }
+    if (held_trim) {
+        aircraft_.set_held_trim(*held_trim);
     }
     aircraft_.set_controls(held);
     commanded_ = held;

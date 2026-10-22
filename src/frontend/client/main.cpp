@@ -1062,7 +1062,8 @@ static int run_program(int argc, char** argv) {
                 // **And on the levers the server holds her on**, which a
                 // law made on her first input is seeded from on both sides.
                 if (joined->levers) {
-                    flight->held_by_server(glideslope::frontend::held_as_told(*joined->levers));
+                    flight->held_by_server(glideslope::frontend::held_as_told(*joined->levers),
+                                           joined->levers->held_trim);
                 }
             }
             if (!o.checklist.empty()) {

@@ -2027,6 +2027,7 @@ public:
         if (stovl_land_) {
             stovl_stages(local_s);
         }
+        held_trim_stages();
     }
 
     // Nothing to fly yet, but what would have been flown is kept: when the
@@ -2991,6 +2992,15 @@ public:
         for (const std::string& b : builds_) {
             lines.push_back("built: " + b);
         }
+        if (prediction_held_trim_) {
+            std::snprintf(line, sizeof line,
+                          "held trim: the prediction's %.4f, told %.4f; its pitch loop's "
+                          "integral %.4f at most",
+                          *prediction_held_trim_,
+                          levers_ && levers_->held_trim ? *levers_->held_trim : 0.0,
+                          most_pitch_integral_);
+            lines.emplace_back(line);
+        }
         if (stovl_land_) {
             std::snprintf(line, sizeof line,
                           "stovl: converted at %.1f s, hovering at %.1f s, down at %.1f s; the "
@@ -3185,7 +3195,8 @@ private:
         // **On the levers the server holds her on**, where it has said them
         // (`--stovl-at-once`, `--from-held`), as the windowed client begins.
         if (levers_) {
-            prediction_->held_by_server(glideslope::frontend::held_as_told(*levers_));
+            prediction_->held_by_server(glideslope::frontend::held_as_told(*levers_),
+                                        levers_->held_trim);
         }
         // From where the server said it was to where it is now: every step
         // flown since - from as far into the input it had applied as it had
@@ -3250,6 +3261,21 @@ private:
                 origin_ecef_[2] + std::cos(lat) * n - std::sin(lat) * d};
     }
 
+    // **Her held trim, where her model has one** (sim::Aircraft::held_trim,
+    // the F-22A's), and the most her pitch loop's integral reaches in her
+    // prediction: put at the held trim the server tells her, the integral
+    // stays near nought, as the server's does; left at nought, it winds up to
+    // take the held trim's place.
+    void held_trim_stages() {
+        if (!aircraft_ || !aircraft_->held_trim() ||
+            !aircraft_->has_property("fcs/pitch-rate-integrator")) {
+            return;
+        }
+        prediction_held_trim_ = *aircraft_->held_trim();
+        most_pitch_integral_ = std::max(
+            most_pitch_integral_, std::abs(aircraft_->property("fcs/pitch-rate-integrator")));
+    }
+
     // **The stages of a STOVL landing**, as its prediction reaches them:
     // converted, hovering, and down after it.
     void stovl_stages(double local_s) {
@@ -3298,6 +3324,8 @@ private:
     bool server_hovered_ = false;
     bool server_at_rest_ = false;
     double stovl_lowest_ft_ = 1e9;
+    std::optional<double> prediction_held_trim_;
+    double most_pitch_integral_ = 0.0;
     double stovl_kcas_ = 0.0;
     std::shared_ptr<const StovlGround> stovl_ground_;
     std::shared_ptr<glideslope::world::CollisionGround> collision_;

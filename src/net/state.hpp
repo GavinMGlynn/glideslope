@@ -174,7 +174,11 @@ inline constexpr std::size_t own_motion_bytes = 1 + 3 * 8 + 10 * 4 + 2 + 4 + 1 +
 // pitch trim, nose up positive, and the roll and yaw trim, as the aileron
 // and rudder, each from -1 to 1 (since version 0F): what a player's client
 // keeps of the trim the server held her on until her first input
-// (frontend::keep_held).
+// (frontend::keep_held); and last her held trim, -1 to 1, or none where her
+// model has none (since version 0F): the deflection after a fly-by-wire pitch
+// loop the server holds her at (tools/make_f22.py, "The held trim"), which no
+// control sets, and which her client's prediction is put at
+// (sim::Prediction::held_by_server).
 struct Watched {
     std::uint8_t aircraft = 0;
     double aileron = 0.0;
@@ -187,16 +191,18 @@ struct Watched {
     double pitch_trim = 0.0;
     double roll_trim = 0.0;
     double yaw_trim = 0.0;
+    std::optional<double> held_trim;
 
     bool operator==(const Watched&) const = default;
 };
 
-// The flag, the aircraft's number and ten controls.
-inline constexpr std::size_t watched_bytes = 1 + 1 + 10 * 2;
+// The flag, the aircraft's number, ten controls and the held trim.
+inline constexpr std::size_t watched_bytes = 1 + 1 + 11 * 2;
 // What the gear is written as where it does not retract, and the speedbrake
-// lever where there are no speedbrakes.
+// lever where there are no speedbrakes, and the held trim where there is none.
 inline constexpr std::int16_t gear_fixed = -32768;
 inline constexpr std::int16_t no_speedbrakes = gear_fixed;
+inline constexpr std::int16_t no_held_trim = gear_fixed;
 
 struct StatePacket {
     // The simulation's clock, seconds since the session began. What the

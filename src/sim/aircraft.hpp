@@ -574,6 +574,12 @@ public:
     bool trimmed_laterally() const {
         return trimmed_laterally_;
     }
+    // **Her held trim, where her model has one** (tools/make_f22.py, "The
+    // held trim"): a deflection after a fly-by-wire pitch loop, which the
+    // trim finds and no control sets, -1 to 1; none where her model has none.
+    std::optional<double> held_trim() const;
+    // Put her held trim at `v`, where her model has one; nothing where not.
+    void set_held_trim(double v);
 
     // The controls take effect from the next step.
     void set_controls(const Controls& controls);

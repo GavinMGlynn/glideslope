@@ -664,7 +664,7 @@
    </location>
    <radius unit="IN"> 32.0 </radius>
    <capacity unit="LBS"> 2356.9 </capacity>
-   <contents unit="LBS"> 2352.0 </contents>
+   <contents unit="LBS"> 2351.5 </contents>
    <density unit="LBS/GAL">6.02 </density>
   </tank>
 
@@ -676,7 +676,7 @@
    </location>
    <radius unit="IN"> 32.0 </radius>
    <capacity unit="LBS"> 2356.9 </capacity>
-   <contents unit="LBS"> 2352.0 </contents>
+   <contents unit="LBS"> 2351.5 </contents>
    <density unit="LBS/GAL">6.02 </density>
   </tank>
 
@@ -763,7 +763,7 @@
     <z>  2.90 </z>
    </location>
    <capacity unit="LBS"> 0.25 </capacity> <!-- Guess -->
-   <contents unit="LBS"> 0.00 </contents>
+   <contents unit="LBS"> 0.25 </contents>
    <density unit="LBS/GAL">6.02 </density>
   </tank>
   <tank type="FUEL" number="9">
@@ -773,7 +773,7 @@
     <z>  2.69 </z>
    </location>
    <capacity unit="LBS"> 0.25 </capacity> <!-- Guess -->
-   <contents unit="LBS"> 0.00 </contents>
+   <contents unit="LBS"> 0.25 </contents>
    <density unit="LBS/GAL">6.02 </density>
   </tank>
   <tank type="FUEL" number="10">
@@ -783,7 +783,7 @@
     <z>  2.69 </z>
    </location>
    <capacity unit="LBS"> 0.25 </capacity> <!-- Guess -->
-   <contents unit="LBS"> 0.00 </contents>
+   <contents unit="LBS"> 0.25 </contents>
    <density unit="LBS/GAL">6.02 </density>
   </tank>
   <tank type="FUEL" number="11">
@@ -793,7 +793,7 @@
     <z>  2.90 </z>
    </location>
    <capacity unit="LBS"> 0.25 </capacity> <!-- Guess -->
-   <contents unit="LBS"> 0.00 </contents>
+   <contents unit="LBS"> 0.25 </contents>
    <density unit="LBS/GAL">6.02 </density>
   </tank>
 

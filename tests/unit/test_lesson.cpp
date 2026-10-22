@@ -8714,8 +8714,7 @@ Arrival arrive(const glideslope::sim::CatalogueEntry& entry,
         ic.speedbrake = published.speedbrake;
         // Fast, she is trimmed level, under power: at idle down the
         // glidepath an A320 20 kt over her reference speed gathers speed, and
-        // JSBSim cannot trim her so. (Nor the Mosquito level: she is flown
-        // from as she is put, and goes around at once all the same.)
+        // JSBSim cannot trim her so.
         ic.flight_path_deg = fast ? 0.0 : -3.0;
         ic.trim = true;
         aircraft.initialize(ic);
@@ -8790,12 +8789,7 @@ void every_landplane_arriving(Arriving how) {
                     glideslope::sim::StabilizedApproach::touchdown_zone_m(runway) - a.touched_m);
         ++flown;
         const bool should = how != Arriving::as_flown;
-        // Named: the Mosquito cannot be trimmed 20 kt fast, even level, and
-        // flown from as she is put bleeds the speed within the gate's two
-        // seconds; she goes around for being slow instead.
-        const std::string want = how == Arriving::fast
-                                     ? (id == "mosquito-fb6" ? "kt slow" : "kt fast")
-                                     : "touchdown zone";
+        const std::string want = how == Arriving::fast ? "kt fast" : "touchdown zone";
         if (should && a.why.find(want) == std::string::npos) {
             wrong.push_back(id + " did not go around for '" + want + "': '" + a.why + "'");
         }

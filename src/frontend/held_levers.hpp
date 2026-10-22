@@ -70,6 +70,8 @@ inline net::Watched levers_of(const sim::Aircraft& m, std::uint8_t index) {
     w.pitch_trim = -m.property("fcs/pitch-trim-cmd-norm");
     w.roll_trim = m.property("fcs/roll-trim-cmd-norm");
     w.yaw_trim = m.property("fcs/yaw-trim-cmd-norm");
+    // And her held trim, where her model has one: no control sets it.
+    w.held_trim = m.held_trim();
     return w;
 }
 

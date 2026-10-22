@@ -1,0 +1,125 @@
+### The F-22A, the Mosquito and the S.23 trimmed, and the C182 with her propeller governed, 2026-10-22
+
+**What is still not true first.** The F-22A is trimmed in pitch alone
+(the owner's decision, 2026-10-22): her roll and yaw are rate commands
+through integrators, which no aileron or rudder moves while JSBSim trims
+with time stopped, so a lateral trim cannot succeed on her. She has no
+propeller's torque to hold off; untouched she banks 0.01 degrees at most.
+She is named in the catalogue test, which checks her wings within 1 degree
+of level with her height. Built on #233 (a player's first input keeps the trim the
+server held), whose `WATCH` now carries her held trim too.
+
+**Why each could not be trimmed, and what changed.**
+
+- **The F-22A** (tools/make_f22.py). Three things in her flight-control
+  system did not move while JSBSim trims, with time stopped:
+  - her pitch trim is added to the stick, and so commands a pitch rate,
+    which her pitch loop's integrator turns into elevator only over time.
+    The pilot's trim is left so (the owner's decision: she keeps her
+    rate-command feel). A second input, `fcs/pitch-trim-held-norm`, is
+    added to the elevators' command after the loop: the deflection the
+    server holds her at until her player's first input. JSBSim's trim
+    cannot move it - its pitch-trim axis is the pilot's - so glideslope
+    finds it (src/sim/aircraft.cpp): at each held trim tried JSBSim trims
+    her angle of attack and power (a custom trim), and the held trim that
+    leaves her no pitching acceleration, to JSBSim's tolerance of 1e-4
+    rad/s^2, is found by the Illinois method between -1 and 1. Trimmed
+    level at 300 KCAS it is 0.069, with the integrator at nought;
+  - her throttles went through one-second lag filters, so the trim's
+    throttle never reached her engines (thrust at 0, 0.5 and full throttle
+    alike: 338 lb). Each is now an actuator with the same lag, which JSBSim
+    passes straight through while trimming and which lags the same in
+    flight;
+  - her leading-edge flaps follow her angle of attack through a lead
+    filter, (2s + 7.25)/(s + 7.25), which lagged each angle the trim tried:
+    her lift hung on the angles tried before and the trim never settled
+    (wdot stuck at 2.8e-3 against a tolerance of 1e-3, 61 iterations). It
+    is written as twice the angle less its lag, the lag an actuator - the
+    same filter under the bilinear transform JSBSim uses for both.
+- **The S.23** (tools/make_short_s23.py). Each Pegasus is fed from a
+  quarter-pound float chamber, which the model started empty and its fuel
+  system fills once she flies; started running she was starved, and no
+  throttle made power in the trim ("udot doesn't appear to be trimmable").
+  The chambers start full, a pound in all, the pound taken from her two
+  centre tanks so that she weighs what she did (CI caught her 45,000 lb
+  take-off test at 45,001).
+- **The C182 and the Mosquito** (src/sim/aircraft.cpp). JSBSim's trim
+  finds the throttle by running each engine to a steady state half a second
+  at a time, which a constant-speed propeller's governor cannot follow, and
+  its default propeller lever is the lowest rpm. The C182's governor drove
+  her blades to full coarse, trimming her at 2,015 rpm, which her governor
+  took to 2,400 in flight; the Mosquito's Merlins overran and stopped. Now
+  a trimmed start sets the propeller lever where every pilot's `Controls`
+  leaves it (1, the highest rpm), and an aircraft with a governed
+  propeller has her throttle found by glideslope: at each throttle her
+  engines are started again and run alone at the simulation's step until
+  their rpm and blades settle, JSBSim trims the rest (a custom trim: angle
+  of attack and pitch trim, and laterally bank, aileron and rudder) with
+  the engines held as they settled, and the two repeat until the blades
+  stay put; the throttle is found by the Illinois method between closed and
+  open, to JSBSim's own tolerance on udot. The C182 trims at 2,400 rpm,
+  blades 23.08 degrees, throttle 0.789; the Mosquito at 1,260 propeller
+  rpm (3,000 engine), blades 31.68 degrees, throttle 0.715.
+
+**Her held trim told her client** (on #233, protocol `0F` still). The
+held trim is no control: no input carries it. Her `WATCH` carries it after
+the yaw trim, an `i16`, or `-32768` where her model has none
+(docs/TRANSPORT.md), and a predicting client puts its prediction's at what
+it is told as it joins (`sim::Prediction::held_by_server`, both clients).
+Untold, her prediction is still within the first-input test's bounds -
+her pitch loop's integral winds up to take the held trim's place (0.0095
+at most, against 0.0011 told) - so the client also says the held trim it
+put and that integral, and the test checks both.
+
+**The Mosquito's roll and yaw trim** (tools/make_mosquito_fb6.py). #233
+holds the aileron and rudder a trim found as roll and yaw trim, and her
+model read neither; untrimmable then, she was named and held on nought.
+Trimmed laterally now, her model sums each with its control, as her pitch
+trim always was, and #233's test names only the F-22A (no yaw trim; her
+roll trim commands a roll rate, and she is trimmed in pitch alone).
+
+**Verification.**
+
+- `every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_start_height`
+  (tests/unit/test_catalogue.cpp) leaves no aircraft out: all 16, started
+  at 3,000 ft at their catalogue speed as the server starts a player's and
+  held thirty seconds on `held_until_moved`, are trimmed - laterally, but
+  for the F-22A, named, in pitch alone with her wings within 1 degree of
+  level - and within 20 ft, the count asserted (16 of 16). The bound was
+  100 ft; the worst trimmed is 7 ft, and main's C182 climbed 95, inside the
+  old bound, so it is 20 ft: three times the worst, a fifth of hers. linux-debug: F-22A 3,000 to 3,006 ft (pitch
+  alone), Mosquito 3,000 to 3,003, S.23 3,000 to 3,004, C182 3,000 to 3,000;
+  every other as before, within 7 ft. Before: F-22A 2,496 to 3,000, Mosquito
+  1,476 to 4,794, S.23 climbing 340, C182 2,999 to 3,095.
+- Seen red per aircraft: with main's F-22A and S.23 models in the build's
+  data, the F-22A is not trimmed and falls to 2,496 ft and the S.23 is not
+  trimmed and climbs to 3,344, both named; with the governed-throttle search
+  switched off (JSBSim's own trim, the lever at 1), the C182 is not trimmed
+  (2,524 to 3,510 ft) and the Mosquito not (1,476 to 4,794), both named; and
+  with main's behaviour for the C182 - the lever at JSBSim's lowest-rpm
+  default, JSBSim's own trim - she climbs to 3,095 ft and fails the 20 ft
+  bound, named.
+- `the_f22as_pilots_pitch_trim_commands_a_pitch_rate_and_the_server_holds_her_on_its_own_trim`
+  (tests/unit/test_catalogue.cpp): trimmed level at 300 KCAS, untouched she
+  is commanded no pitch rate; a pilot's nose-up trim of 0.2 commands 0.169
+  rad/s; the held trim is 0.0692 either way. Seen red with the pilot's trim
+  routed to the held trim's place after the loop: no pitch rate commanded.
+- `an_approach_twenty_knots_fast_at_the_gate_goes_around_and_lands` named the
+  Mosquito as going around for being slow, because she could not be trimmed
+  20 kt fast; trimmed now, she goes around 15 kt fast at 499 ft like the
+  rest, and the exception is gone. The tests naming the Mosquito, the C182,
+  go-arounds, on-final starts and every aircraft (99) pass in linux-debug;
+  one window-client timing test that failed under that load passes alone.
+- `a_players_f22a_untouched_is_predicted_on_the_held_trim_the_server_tells_her_client_and_holds_height_and_attitude`
+  (tests/cmake/server_first_input.cmake, `-DAIRCRAFT=f22 -DTOUCHES=untouched`):
+  through a real server and a 100 ms relay, a predicting F-22A that touches
+  nothing: 1,524.0 m first heard, 1,524.0 to 1,526.1 m; pitch 3.33 to 3.38
+  degrees, bank 0.01; prediction median, 95th percentile and worst 0.000 m
+  over 707 updates; her prediction's held trim 0.0693 as told, its pitch
+  loop's integral 0.0011 at most (bound 0.004). Seen red with the held trim
+  untold: her prediction's held trim 0.0000, told 0.0693, the integral
+  0.0095.
+- `a_state_packet_carries_the_controls_of_the_aircraft_its_client_watches`:
+  the held trim read back to the wire's fraction, and none as none.
+- `glideslope_cli selftest`: hash 831a4e7954233b0a in linux-debug, the same
+  with and without this change (the selftest trims nothing).

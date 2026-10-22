@@ -285,6 +285,8 @@
     </propulsion>
 
     <flight_control name="F-22 FC">
+        <!-- glideslope: tools/make_f22.py - the held trim -->
+        <property value="0">fcs/pitch-trim-held-norm</property>
 
         <!-- Declare some interface properties -->
 <!--        <property>fcs/alpha-norm</property>
@@ -1205,8 +1207,14 @@
                 </range>
             </aerosurface_scale >
 
+            <summer name="fcs/elevator-trimmed">
+                <!-- glideslope: tools/make_f22.py - the held trim -->
+                <input>fcs/el-reg-scale</input>
+                <input>fcs/pitch-trim-held-norm</input>
+            </summer>
+
             <actuator name="fcs/elevator-act">
-                <input> fcs/el-reg-scale</input>
+                <input>fcs/elevator-trimmed</input>
                 <rate_limit> 2 </rate_limit>
                 <clipto>
                     <min> -1 </min>
@@ -1568,13 +1576,19 @@
                 <gain>1.38</gain>
             </pure_gain>
 
-            <lead_lag_filter name="fcs/lef-alpha-filter">
+            <actuator name="fcs/lef-alpha-lag">
+                <!-- glideslope: tools/make_f22.py - the filter, trimmable -->
                 <input>fcs/lef-alpha-gain</input>
-                <c1> 2 </c1>
-                <c2> 7.25 </c2>
-                <c3> 1 </c3>
-                <c4> 7.25 </c4>
-            </lead_lag_filter>
+                <lag>7.25</lag>
+            </actuator>
+            <fcs_function name="fcs/lef-alpha-filter">
+                <function>
+                    <difference>
+                        <product><value>2</value><property>fcs/lef-alpha-gain</property></product>
+                        <property>fcs/lef-alpha-lag</property>
+                    </difference>
+                </function>
+            </fcs_function>
 
             <fcs_function name="fcs/lef-transfer-function">
                 <function>
@@ -1697,10 +1711,10 @@
             </pure_gain>
 
             <!-- Throttle filter -->
-            <lag_filter name="fcs/throttle-filter">
+            <actuator name="fcs/throttle-filter">
                 <input>fcs/throttle-cmd-norm</input>
-                <c1>1</c1>
-            </lag_filter>
+                <lag>1</lag>
+            </actuator>
 
             <summer name="fcs/t1-summer">
                 <input>fcs/throttle-filter</input>
@@ -1718,10 +1732,10 @@
             </pure_gain>
 
             <!-- Throttle filter -->
-            <lag_filter name="fcs/throttle1-filter">
+            <actuator name="fcs/throttle1-filter">
                 <input>fcs/throttle-cmd-norm[1]</input>
-                <c1>1</c1>
-            </lag_filter>
+                <lag>1</lag>
+            </actuator>
 
             <summer name="fcs/t2-summer">
                 <input>fcs/throttle1-filter</input>

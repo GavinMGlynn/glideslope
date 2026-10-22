@@ -7,7 +7,22 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli>
 #         -DIMPAIR=<glideslope_impair> -DDATA=<data dir> -DCACHE=<downloads dir>
-#         -DWORK=<scratch> -DPORT=<a port> -P server_first_input.cmake
+#         -DWORK=<scratch> -DPORT=<a port> [-DAIRCRAFT=f22 -DTOUCHES=untouched]
+#         -P server_first_input.cmake
+#
+# **The F-22A untouched, alone** (`-DAIRCRAFT=f22 -DTOUCHES=untouched`): the
+# server holds her on her held trim, a deflection after her pitch loop that
+# no control sets (tools/make_f22.py, "The held trim"), and tells it in her
+# `WATCH`; her client puts its prediction's at what it is told
+# (sim::Prediction::held_by_server). The same bounds, four steps' travel at
+# her 300 kt start speed being 5.144 m. **Those bounds do not see the held
+# trim**: untold, her prediction's pitch loop winds its integral up to take
+# the held trim's place, and she is predicted alike all the same (linux-debug,
+# 2026-10-22: median and 95th percentile 0.000 m either way). So her client
+# also says the held trim its prediction was put at, and the most its pitch
+# loop's integral reached: the held trim must be the one told, and not
+# nought, and the integral within 0.004 - told, 0.0011; untold, the held
+# trim nought and the integral 0.0095. Seen red so.
 #
 # **Built, not hoped for.** Until her first input the server holds a player's
 # aircraft on what her trim found - her pitch trim, and the aileron and rudder
@@ -108,9 +123,18 @@ function(hundredths value out)
 endfunction()
 
 math(EXPR _relay "${PORT} + 1")
+if(NOT DEFINED AIRCRAFT)
+    set(AIRCRAFT f35b c172p)
+endif()
+if(NOT DEFINED TOUCHES)
+    set(TOUCHES untouched nudged)
+endif()
+list(LENGTH AIRCRAFT _aircraft_n)
+list(LENGTH TOUCHES _touches_n)
+math(EXPR _expected "${_aircraft_n} * ${_touches_n}")
 set(_cases 0)
-foreach(_id IN ITEMS f35b c172p)
-    foreach(_touch IN ITEMS untouched nudged)
+foreach(_id IN LISTS AIRCRAFT)
+    foreach(_touch IN LISTS TOUCHES)
         set(_heard "${WORK}/${_id}-${_touch}.txt")
         file(REMOVE "${_heard}")
         set(_nudge "")
@@ -196,6 +220,8 @@ foreach(_id IN ITEMS f35b c172p)
         # Four steps' travel at her start speed, in centimetres.
         if(_id STREQUAL "f35b")
             set(_four_steps_c 551)
+        elseif(_id STREQUAL "f22")
+            set(_four_steps_c 515)
         else()
             set(_four_steps_c 185)
         endif()
@@ -242,10 +268,29 @@ foreach(_id IN ITEMS f35b c172p)
         endif()
         check_machine_stalls("${_said}" updates "${_compared}" _stalls)
         message(STATUS "the ${_id}, ${_touch}: ${_stalls}")
+        if(_id STREQUAL "f22")
+            if(NOT _said MATCHES "held trim: the prediction's ([-0-9.]+), told ([-0-9.]+); its pitch loop's integral ([0-9.]+) at most")
+                message(FATAL_ERROR "the f22's client did not say her held trim:\n${_said}")
+            endif()
+            set(_put "${CMAKE_MATCH_1}")
+            set(_told "${CMAKE_MATCH_2}")
+            set(_integral "${CMAKE_MATCH_3}")
+            message(STATUS "the f22's held trim: her prediction's ${_put}, told ${_told}; her "
+                           "pitch loop's integral ${_integral} at most")
+            if(NOT _put STREQUAL _told OR _told STREQUAL "0.0000")
+                message(FATAL_ERROR "the f22's prediction was put at a held trim of ${_put}, "
+                                    "told ${_told}")
+            endif()
+            string(REGEX REPLACE "^0\\.([0-9][0-9][0-9][0-9])$" "\\1" _integral_e4 "${_integral}")
+            if(NOT _integral MATCHES "^0\\.[0-9][0-9][0-9][0-9]$" OR _integral_e4 GREATER 40)
+                message(FATAL_ERROR "the f22's prediction's pitch loop integral reached "
+                                    "${_integral}, past 0.004")
+            endif()
+        endif()
         math(EXPR _cases "${_cases} + 1")
     endforeach()
 endforeach()
-if(NOT _cases EQUAL 4)
-    message(FATAL_ERROR "${_cases} cases were flown, not the four: two aircraft, each "
-                        "untouched and nudged")
+if(NOT _cases EQUAL _expected)
+    message(FATAL_ERROR "${_cases} cases were flown, not the ${_expected}: ${AIRCRAFT}, each "
+                        "${TOUCHES}")
 endif()
