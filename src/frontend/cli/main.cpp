@@ -1721,6 +1721,11 @@ public:
     bool levers_known() const {
         return levers_.has_value();
     }
+    // What the server holds her on before her first input, where it has
+    // said its levers; `otherwise` where not.
+    glideslope::sim::Controls held_or(const glideslope::sim::Controls& otherwise) const {
+        return levers_ ? glideslope::frontend::held_as_told(*levers_) : otherwise;
+    }
     // Whether it may send inputs: always, but selecting at once, not until
     // its prediction has begun on the server's levers.
     bool ready_to_send() const {
@@ -3617,8 +3622,12 @@ int stay(glideslope::platform::UdpSocket& socket,
                 // at worst through one, 0.49 m flown this way (Linux
                 // release, the scripted pilot's inputs a thirtieth of a
                 // second apart, 2026-10-22).
+                // Before its first input, the input before is none: the
+                // server holds her on its own levers (`--stovl-at-once`,
+                // which has them), and so is she flown here.
                 if (predicting) {
-                    predicting->advance(up_s, sequence, stick);
+                    predicting->advance(up_s, sequence,
+                                        sequence == 0 ? predicting->held_or(stick) : stick);
                 }
                 ++sequence;
                 // **Into the sea** (`--dive-after`): full forward stick and
