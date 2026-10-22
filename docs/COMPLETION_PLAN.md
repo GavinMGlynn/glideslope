@@ -404,10 +404,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       flown into a hover and out again, and a pilot and an AI plan each
       convert her.* Done 2026-10-16.
 - [x] **The windowed client's `--loading` is flown by a test**: alone, through
-      a server's word, and on a take-over of an F-35B loaded otherwise, she
-      begins at the weight her loading gives. *Verification: three window
-      tests read her weight against her figures file's 37,530 lb
-      vertical_landing loading, red with the client's loading call removed.*
+      a server's word, and on a take-over either way (to an F-35B loaded
+      otherwise, and back to the one left at her loading), she begins at the
+      weight her loading gives. *Verification: three window tests read her
+      weight against her figures file's 37,530 lb vertical_landing loading,
+      red with the client's loading call, the take-over's loading or the
+      server's word removed.*
       Done 2026-10-22.
 - [x] **The F-35B's pilot flies only her height in STOVL mode**: her
       throttle's speed, the stick's sideways translation and the pedals'

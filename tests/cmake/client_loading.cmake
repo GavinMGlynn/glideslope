@@ -22,7 +22,11 @@
 #   the AI flies at her model's own loading: the client rides along in it
 #   (`--ride-along`) and takes it over (`--take-over-after 6`). Her flight is
 #   made again - the same aeroplane, loaded otherwise - and begins at her
-#   model's own weight, loaded as her model is: not the figure kept.
+#   model's own weight, loaded as her model is: not the figure kept. The
+#   F-35B it left is the AI's now, at the vertical_landing loading; the client
+#   rides along in it (`--next-aircraft-after 9`) and takes it over
+#   (`--take-over-after 12`): her flight made again, and begins at the figure
+#   - the loading the aircraft taken over carried, not her model's own.
 #
 # It needs a GPU driver, and the DEM's tiles for the server; without either
 # it reports itself skipped (exit 77), never passed.
@@ -131,6 +135,7 @@ endif()
 
 set(_plan)
 set(_take_over)
+set(_shot_at 1200)
 if(CASE STREQUAL "TAKE_OVER")
     # The AI's F-35B, wing-borne, north from Sydney at 5,000 ft.
     set(_plan_file "${WORK}/f35b.plan")
@@ -138,7 +143,9 @@ if(CASE STREQUAL "TAKE_OVER")
                                "start -33.9461 151.1772 5000 0 300\n"
                                "waypoint NORTH -33.5000 151.1772 5000 300\n")
     set(_plan --plan "${_plan_file}")
-    set(_take_over --ride-along --take-over-after 6)
+    set(_take_over --ride-along --take-over-after 6 --next-aircraft-after 9
+                   --take-over-after 12)
+    set(_shot_at 2400)
 endif()
 
 # **The client connects once the server is flying** (its --ready-file), as
@@ -147,7 +154,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}" ${_plan}
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
-            --shot "${_shot}" --shot-at 1200 --aircraft f35b --loading vertical_landing
+            --shot "${_shot}" --shot-at ${_shot_at} --aircraft f35b --loading vertical_landing
             ${_take_over} --after-ready "${_ready}" --server 127.0.0.1 ${PORT}
             --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -157,6 +164,17 @@ if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the client exited ${_rc}:\n${_out}\n${_err}")
 endif()
 begun("${_out}" _pairs)
+
+# **Joined**: a client that flew alone would print the same flight line, so
+# the server must have given it its aircraft, and - since on a server its word
+# wins over the command line - the loading in that flight line is the
+# server's AIRCRAFT's, not the command line's.
+if(NOT _out MATCHES "glideslope: the server gave this client aircraft [0-9]+, the f35b\n")
+    message(FATAL_ERROR "the client was not given its F-35B by the server:\n${_out}")
+endif()
+if(NOT _out MATCHES "glideslope: the server says she is loaded vertical_landing\n")
+    message(FATAL_ERROR "the server's AIRCRAFT did not carry her vertical_landing loading:\n${_out}")
+endif()
 
 if(CASE STREQUAL "SERVER")
     if(NOT _pairs STREQUAL "${_figure}:vertical_landing")
@@ -172,10 +190,12 @@ if(NOT _out MATCHES "glideslope: took over aircraft ([0-9]+), the f35b")
     message(FATAL_ERROR "the client did not take the AI's F-35B over:\n${_out}")
 endif()
 set(_taken "${CMAKE_MATCH_1}")
-if(NOT _pairs STREQUAL "${_figure}:vertical_landing;${_own_lbs}:as her model is")
-    message(FATAL_ERROR "joined at her vertical_landing loading and taking over an F-35B at "
-                        "her model's own, her flights began '${_pairs}', not "
-                        "'${_figure}:vertical_landing;${_own_lbs}:as her model is':\n${_out}")
+set(_want "${_figure}:vertical_landing;${_own_lbs}:as her model is;${_figure}:vertical_landing")
+if(NOT _pairs STREQUAL "${_want}")
+    message(FATAL_ERROR "joined at her vertical_landing loading, taking over an F-35B at her "
+                        "model's own and then the one she left at vertical_landing, her "
+                        "flights began '${_pairs}', not '${_want}':\n${_out}")
 endif()
 message(STATUS "joined at ${_figure} lb, vertical_landing; aircraft ${_taken}, the AI's "
-               "F-35B, taken over and her flight made again at her model's own ${_own_lbs} lb")
+               "F-35B, taken over and her flight made again at her model's own ${_own_lbs} lb; then "
+               "the one she left, taken over, and made again at ${_figure} lb")

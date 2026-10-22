@@ -150,7 +150,7 @@ struct Options {
     double weather_refresh_s = glideslope::client::weather_refresh_seconds;
     bool weather_refresh_given = false;
     // And take it over this many seconds of flight in; below nought, never.
-    double take_over_after_s = -1.0;
+    std::vector<double> take_over_after_s;
     // For a test: the last update from before a take-over heard again just
     // after it, as the network reorders them.
     bool late_update_after_take_over = false;
@@ -275,7 +275,7 @@ void usage(std::FILE* out) {
         "                every aircraft in the sky and back to your own; T takes\n"
         "                over the one ridden in, if the AI flies it\n"
         "  --take-over-after S  riding along, take it over S seconds after\n"
-        "                joining\n"
+        "                joining; given again, once more at each\n"
         "  --late-update-after-take-over  for a test: hear the last update from\n"
         "                before a take-over again just after it, as a network\n"
         "                reordering them would\n"
@@ -561,7 +561,8 @@ static int run_program(int argc, char** argv) {
             o.watches_before_take_over =
                 std::clamp(std::atoi(std::string(args[++i]).c_str()), 0, 100);
         } else if (a == "--take-over-after" && has_value) {
-            o.take_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+            o.take_over_after_s.push_back(
+                std::strtod(std::string(args[++i]).c_str(), nullptr));
         } else if (a == "--copilot" && has_value) {
             o.copilot_task = std::string(args[++i]);
         } else if (a == "--copilot-provider" && has_value) {
@@ -938,6 +939,13 @@ static int run_program(int argc, char** argv) {
                 std::printf("glideslope: the server gave this client aircraft %u, the %s\n",
                             static_cast<unsigned>(joined->number),
                             joined->aircraft_id.c_str());
+                // What the server's AIRCRAFT said she is loaded as: its word,
+                // which on a server wins over `--loading`.
+                if (!joined->loading.empty()) {
+                    std::printf("glideslope: the server says she is loaded %s\n",
+                                joined->loading.c_str());
+                }
+                std::fflush(stdout);
                 // **Kept in the session while it builds its flight**, which
                 // on a slow machine takes longer than a server waits for a
                 // client that says nothing: a Windows debug build was let go
@@ -1299,7 +1307,7 @@ static int run_program(int argc, char** argv) {
             (void)model_of(flight->aircraft().id);
         }
         bool rode_along = false;
-        bool asked_to_take_over = false;
+        std::size_t take_overs_asked = 0;
         bool asked_to_hand_over = false;
         bool asked_for_learnt = false;
         // Whether the learnt landing had its own aircraft at the last look:
@@ -1911,11 +1919,12 @@ static int run_program(int argc, char** argv) {
             // the motion the server gave it - the same aeroplane made to be
             // where that one is, or another built as it.
             if (online && joined && flight) {
-                if (o.take_over_after_s >= 0.0 && !asked_to_take_over &&
+                if (take_overs_asked < o.take_over_after_s.size() &&
                     static_cast<double>(ticks) >=
-                        o.take_over_after_s * glideslope::sim::steps_per_second &&
+                        o.take_over_after_s[take_overs_asked] *
+                            glideslope::sim::steps_per_second &&
                     online->watching() != glideslope::net::no_aircraft) {
-                    asked_to_take_over = true;
+                    ++take_overs_asked;
                     for (int w = 0; w < o.watches_before_take_over; ++w) {
                         online->watch(online->watching());
                     }
