@@ -43,9 +43,10 @@
 #     one). So 5.512 m and 1.848 m. Measured (status file): the median
 #     0.000 m in every run here and on CI; the 95th percentile 0.000 m here,
 #     1.378 m on CI's macOS, Ubuntu debug, Windows release and clang, and
-#     2.756 m on Windows debug - one step and two. Its worst is said and not
-#     bounded: 33.090 m once in one update on Ubuntu debug, which is not a
-#     step's travel and is not explained (COMPLETION_PLAN.md, Phase 9).
+#     2.756 m on Windows debug - one step and two. And its worst, as there,
+#     within four steps' travel at 330 kt for the F-35B (5.6 m: she flies
+#     321 kt, and CI's Windows release has put a word exactly four of her
+#     steps off, 5.514 m), and four of the C172P's steps (1.848 m).
 # Nudged, the F-35B rose 10.1 m (33 ft) and banked 2.6 degrees: her flight
 # controls hold the attitude a stick movement leaves her at. A twentieth
 # rose her 25 m, too near the 30.48 m bound for a rule tested by its margin.
@@ -198,7 +199,17 @@ foreach(_id IN ITEMS f35b c172p)
         if(_median_c GREATER 6 OR _p95_c GREATER _four_steps_c)
             message(FATAL_ERROR "the ${_id}, ${_touch}: the prediction was off by ${_median} m "
                                 "at the median and ${_p95} m at the 95th percentile, past "
-                                "60 mm and four steps' travel (${_four_steps_c} cm)")
+                                "60 mm and four steps' travel (${_four_steps_c} cm):\n${_said}")
+        endif()
+        if(_id STREQUAL "f35b")
+            set(_worst_bound_c 560)
+        else()
+            set(_worst_bound_c 185)
+        endif()
+        if(_worst_c GREATER _worst_bound_c)
+            message(FATAL_ERROR "the ${_id}, ${_touch}: the prediction's worst update was "
+                                "${_worst} m off, past four steps' travel (${_worst_bound_c} "
+                                "cm):\n${_said}")
         endif()
         math(EXPR _cases "${_cases} + 1")
     endforeach()

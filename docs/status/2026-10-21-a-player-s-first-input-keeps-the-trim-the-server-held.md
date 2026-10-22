@@ -68,12 +68,27 @@ command-line client's, which begins from the same function.
   | CI run 39692528726, F-35B untouched | 5 platforms | 0.000 m | 1.378 m (macOS, Ubuntu debug, Windows release, clang); 2.756 m (Windows debug) | 1.379, 33.090, 5.514, 1.379, 2.757 m |
   | CI run 39553981105, F-35B nudged | 2 Windows | not read | not printed then | 4.113, 5.506 m |
 
-  The first bound, a worst under 3 m, failed on the Windows runners, and
-  the second, a 95th percentile under 1 m, on five platforms: both on one
-  or two steps' travel, the clocks' difference the sibling tests already
-  bound for, not a gap of this item. **The 33.090 m worst is not a step's
-  travel** and is not explained; it is a tail in COMPLETION_PLAN.md, Phase
-  9, and the worst is said, not bounded, until it is.
+  The worst is bounded as there too: four steps' travel at 330 kt for the
+  F-35B (5.6 m; she flies 321 kt, and Windows release has put a word
+  exactly four of her steps off, 5.514 m) and four of the C172P's
+  (1.848 m). The first bound, a worst under 3 m, failed on the Windows
+  runners, and the second, a 95th percentile under 1 m, on five platforms:
+  both on one to four steps' travel, the clocks' difference the sibling
+  tests already bound for, not a gap of this item.
+
+  **The 33.090 m update (Ubuntu debug, 24 of her steps) is a starved
+  machine, and not this item's.** Reproduced here with five clients and
+  servers pinned to two CPUs: the F-35B's client stalled 1.7 to 3.0 s
+  between frames, its clocks' difference was learnt 5 to 15 steps wrong,
+  and her worst update was 12.4, 29.0, 29.0, 80.0 and 88.2 m - 9, 21, 21,
+  58 and 64 whole steps - all in her first 8 s; four at once, stalls under
+  0.8 s, kept her to one step. The same load with the C172P, held or
+  flown by the moving pilot, stalled no frame over 224 ms and kept her to
+  one step. On main's build of 2026-10-20 (before #222, #232 and this),
+  a predicting F-35B under the same load was 39 to 49 m off, clocks 37
+  steps out. A tail in COMPLETION_PLAN.md, Phase 9. The test's failure
+  message now prints her client's report, its longest frame among it, so
+  the next one on CI says whether it stalled.
   Seen red twice: with the client keeping its own pitch trim, aileron and
   rudder, as before, the F-35B untouched was a wreck; with the aileron and
   rudder held as the stick and pedals rather than as trims, the C172P nudged
