@@ -13,15 +13,43 @@ runs:
       run: |
         # apt on GitHub's hosted runners stalls intermittently
         # (actions/runner-images#11382). gearstick learned that a hang is only
-        # beaten from outside, so each attempt is bounded and retried.
+        # beaten from outside, so each attempt is watched and retried. It is
+        # judged by progress, not by elapsed time: in October 2026 the Azure
+        # mirror served 1 to 20 s a package, and a fixed 240 s ceiling killed
+        # three attempts in a row that were still downloading (job
+        # 119848128337). An attempt is stopped only after 120 s in which
+        # nothing it fetches or unpacks has grown; a retry keeps the packages
+        # already in apt's cache.
         sudo systemctl stop apt-daily.timer apt-daily-upgrade.timer \
                             unattended-upgrades.service 2>/dev/null || true
         APT_OPTS="-o Acquire::Retries=3 -o Acquire::http::Timeout=30 \
                   -o Acquire::https::Timeout=30 -o DPkg::Lock::Timeout=60"
+        apt_progress() {
+          sudo du -sb /var/lib/apt/lists /var/cache/apt/archives \
+                      /var/log/dpkg.log 2>/dev/null | awk '{n += $1} END {print n}'
+        }
+        apt_attempt() {
+          sudo apt-get $APT_OPTS "$@" &
+          local pid=$! last idle=0
+          last=$(apt_progress)
+          while kill -0 $pid 2>/dev/null; do
+            sleep 10
+            local now; now=$(apt_progress)
+            if [ "$now" != "$last" ]; then last=$now; idle=0
+            else idle=$((idle + 10)); fi
+            if [ $idle -ge 120 ]; then
+              echo "::warning::apt made no progress in 120 s"
+              sudo pkill -9 -f apt-get 2>/dev/null || true
+              wait $pid 2>/dev/null
+              return 1
+            fi
+          done
+          wait $pid
+        }
         apt_run() {
           for attempt in 1 2 3; do
-            if sudo timeout 240 apt-get $APT_OPTS "$@"; then return 0; fi
-            echo "::warning::apt attempt $attempt stalled; retrying"
+            if apt_attempt "$@"; then return 0; fi
+            echo "::warning::apt attempt $attempt failed; retrying"
             sudo pkill -9 -f apt-get 2>/dev/null || true
             sudo dpkg --configure -a 2>/dev/null || true
             sleep 10
