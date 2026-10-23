@@ -969,6 +969,13 @@ GLIDESLOPE_TEST(the_short_s23_stalls_where_its_own_model_said_it_would) {
     expect_figure("short_s23", "stall_speed_landing");
 }
 
+// Gouge's wind-tunnel lift coefficient with flap, 1.8: at 40,500 lb, 66.4
+// KCAS. Seen red with her lift past the stall joined to Viterna and
+// Corrigan's at her greatest lift, which mushed her down to 61.8.
+GLIDESLOPE_TEST(the_short_s23_at_40500_lb_with_full_flap_stalls_at_gouges_lift_coefficient) {
+    expect_figure("short_s23", "stall_speed_gouge");
+}
+
 // The same four airliners' stalls at their take-off flaps, which a take-off
 // lesson rotates from (sim::departure_speeds).
 

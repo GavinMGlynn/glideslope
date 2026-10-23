@@ -592,3 +592,48 @@ approaches that weigh her, the set-down at Courchevel, the first input, the
 fixed ports, the make-script checks). `glideslope_cli selftest` hash
 831a4e7954233b0a, unmoved. Both items ticked: every point trims or is left
 out with its source.
+
+### The S.23's lift and drag past the stall, 2026-10-24
+
+CI on e0b9f15b: held thirty seconds in the stall, the S.23 was handed over
+at 1,626 ft and 200.6 kt climbing 3,893 ft/min and pulled 6.69 g recovering.
+**Why:** the entry stalled her (alpha 14), and then nothing held her there.
+Past her greatest lift the pinned DATCOM rows gave her a drag coefficient of
+0.05 to 0.14 and a lift falling to -0.2 by 24 degrees, held beyond. The old
+drag, times 1.9 with an Oswald efficiency of 0.33, had kept her mushing at
+62.7 kt; with her wing's drag due to lift she broke, fell with no lift and
+almost no drag, and dived. With the drag alone fixed she tumbled (alpha
+-150, not recovered) - seen red so. **Fixed**, through make_short_s23.py:
+past 0.2443 rad, Viterna and Corrigan's separated lift and drag (NASA
+CP-2230, 1982), CDmax = 1.11 + 0.018 A = 1.27, each joined to her polar and
+her lift at the stall, out to 90 degrees. Joined at 20 degrees instead,
+after the DATCOM table's own steep break (to 0.52), she fell out of the
+stall held thirty seconds at 4.6 g and her lowest speed read 58.7: seen red
+so.
+
+**Her stall: Gouge's lift coefficient decides it.** Flight's 73 mph (63.4
+kt) gives no weight, flap or power and is not used. Gouge's wind tunnel
+(p. 680), 1.8 with 28 degrees of flap: at 40,500 lb, 66.4 KCAS. With lift
+past the stall she mushes, sinking, rather than gathering speed, and her
+lowest speed read 61.8 - a lift coefficient of 2.09, which no wing of hers
+makes. Both her stall figures are now read where her lift coefficient is
+first a maximum, as 14 CFR 25.103(b) defines a stall speed (`clmax`, as the
+F-15C's is): 67.03 KCAS.
+
+- `the_short_s23_at_40500_lb_with_full_flap_stalls_at_gouges_lift_coefficient`
+  (new, assets/figures/short_s23.xml `stall_speed_gouge`, 66.4 +-3): 67.03.
+  Seen red at the lowest speed: 61.82.
+- `the_short_s23_stalls_where_its_own_model_said_it_would`: 67.03 against
+  her 66.32, unchanged; so her approach speeds, which come from it, are, and
+  #819 (crosswind heading in her landing configuration, from 86 kt) and #199
+  (the 15 kt headwind landing) pass. Moved to 61.82, the figure brought her
+  approach to 80 kt and both failed - seen red so.
+- `every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered...`: passes
+  for her (stalled at alpha 14.0, recovered within 2 g and her height).
+- `every_aeroplane_recovered_at_the_first_sign_of_a_stall...`: her name for
+  her height (184 ft) is taken off: a proper entry (handed over at the
+  warning, 71.3 kt, alpha 9.1, sinking 209 ft/min) and 89 ft lost against
+  200.
+- Her other figures and the 10,000 ft points are as before: level speed
+  204.3 mph, climb 876 ft/min, take-offs 25.3 s, 31.2 s and 718 yd.
+- 271 related tests pass in linux-debug (ctest -j4); `glideslope_cli selftest` hash 831a4e7954233b0a, unmoved.
