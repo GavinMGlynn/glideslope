@@ -68,7 +68,10 @@
 # JSBSim's assertion of a table looked up at a NaN after two water wrecks
 # (CI run 39883628869), never reproduced; a recurrence prints where the NaN
 # was made and every number of the predicted aircraft gone with it, in the
-# exit codes' message below (platform/nan_trap.hpp).
+# exit codes' message below (platform/nan_trap.hpp). **Its risk**: the
+# unmasked invalid exception also fires on an ordered comparison (comisd) of
+# a quiet NaN, which third-party code may make on purpose and handle; a trap
+# there would be a false red - but it names its site in the backtrace.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.

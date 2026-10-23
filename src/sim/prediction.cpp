@@ -4,6 +4,7 @@
 
 #include <algorithm>
 #include <array>
+#include <initializer_list>
 #include <optional>
 #include <string>
 #include <cmath>
@@ -21,6 +22,49 @@ constexpr std::array<const char*, Controls::control_count> control_names = {
     "cooling flaps 1",   "reverse",           "stovl"};
 
 } // namespace
+
+// The first number of a snapshot not finite, by name.
+std::optional<std::string> first_not_finite(const AircraftSnapshot& s) {
+    const auto first = [](const auto& v, const char* name) -> std::optional<std::string> {
+        for (std::size_t i = 0; i < v.size(); ++i) {
+            if (!std::isfinite(v[i])) {
+                return std::string(name) + "[" + std::to_string(i) + "]";
+            }
+        }
+        return std::nullopt;
+    };
+    for (const auto& [name, value] : std::initializer_list<std::pair<const char*, double>>{
+             {"sim_time_s", s.sim_time_s},
+             {"latitude_deg", s.latitude_deg},
+             {"longitude_deg", s.longitude_deg},
+             {"altitude_ft", s.altitude_ft},
+             {"terrain_elevation_ft", s.terrain_elevation_ft}}) {
+        if (!std::isfinite(value)) {
+            return std::string(name);
+        }
+    }
+    if (auto b = first(s.location_ecef_ft, "location_ecef_ft")) {
+        return b;
+    }
+    if (auto b = first(s.attitude_local, "attitude_local")) {
+        return b;
+    }
+    if (auto b = first(s.uvw_fps, "uvw_fps")) {
+        return b;
+    }
+    if (auto b = first(s.pqr_radps, "pqr_radps")) {
+        return b;
+    }
+    if (auto b = first(s.thruster_rpm, "thruster_rpm")) {
+        return b;
+    }
+    for (const auto& [name, value] : s.properties) {
+        if (!std::isfinite(value)) {
+            return name;
+        }
+    }
+    return std::nullopt;
+}
 
 std::optional<std::string> first_not_finite(const Controls& c) {
     const auto v = c.as_list();
@@ -67,6 +111,15 @@ Prediction::Prediction(Aircraft& aircraft) : aircraft_(aircraft) {
 }
 
 void Prediction::held_by_server(const Controls& held) {
+    // The server's levers are an input too.
+    if (!lost_) {
+        if (const auto bad = first_not_finite(held)) {
+            lost_ = Lost{"the server's held " + *bad, flying_step_};
+        }
+    }
+    if (lost_) {
+        return;
+    }
     aircraft_.set_controls(held);
     commanded_ = held;
 }
@@ -122,6 +175,15 @@ Prediction::Correction Prediction::reconcile(const AircraftSnapshot& server,
         held_.pop_front();
     }
     began_.erase(began_.begin(), began_.upper_bound(last_applied));
+    // The server's snapshot is an input too.
+    if (!lost_) {
+        if (const auto bad = first_not_finite(server)) {
+            lost_ = Lost{"the server's snapshot's " + *bad, flying_step_};
+        }
+    }
+    if (lost_) {
+        return {};
+    }
 
     // **The snapshot is the whole of what the replay starts from**: every
     // writable property - the controls, the actuators, the tanks - and the
@@ -181,10 +243,16 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     }
     // Kept from `last_applied` on: a later word may say more of it.
     began_.erase(began_.begin(), began_.lower_bound(last_applied));
-    // The server's word is an input too.
+    // The server's word is an input too: its motion, and the STOVL law's
+    // height asked and pitch integral where it carries them.
     if (!lost_) {
         if (const auto bad = first_not_finite(server)) {
             lost_ = Lost{"the server's word's " + *bad, flying_step_};
+        } else if (stovl_height_asked_ft && !std::isfinite(*stovl_height_asked_ft)) {
+            lost_ = Lost{"the server's word's stovl_height_asked_ft", flying_step_};
+        } else if (stovl_carried.pitch_integral_deg &&
+                   !std::isfinite(*stovl_carried.pitch_integral_deg)) {
+            lost_ = Lost{"the server's word's stovl pitch_integral_deg", flying_step_};
         }
     }
     if (lost_) {
@@ -211,6 +279,13 @@ void Prediction::fly(const Controls& controls, std::uint64_t step) {
         return;
     }
     put(controls);
+    // What a lift system's laws made of them, which is what JSBSim is given.
+    if (laws_ && commanded_) {
+        if (const auto bad = first_not_finite(*commanded_)) {
+            lost_ = Lost{"the laws' commanded " + *bad, step};
+            return;
+        }
+    }
     aircraft_.step();
     if (const auto bad = first_not_finite(aircraft_.motion())) {
         // Named by the numbers in her property tree gone with it, the first

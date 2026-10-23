@@ -252,12 +252,15 @@ public:
     bool wrecked() const { return wrecked_; }
     // **A prediction gone to a number not finite is let go of, not flown
     // into JSBSim's tables.** Every input put on the aircraft - each
-    // step's controls and the server's motion - is looked at before it is
-    // put, and the motion each step leaves after it is flown; the first not
+    // step's controls, the server's motion or snapshot, and the STOVL law's
+    // height asked and pitch integral the server's word carries - is looked
+    // at before it is put, and the motion each step leaves after it is
+    // flown; the first not
     // finite stops this prediction where it is, flying nothing further,
     // forward or again, and says here what it was and at which of its steps.
-    // Its client takes the server's state back as on a fresh start (a new
-    // aircraft from the next word). Flown on, a NaN reached a table as its
+    // Its client takes the server's state back as on a fresh start
+    // (glideslope_cli: a new aircraft from the next word; the window client:
+    // the next word on the aircraft it has). Flown on, a NaN reached a table as its
     // key and a debug JSBSim asserted (FGTable.cpp:618) on CI's Ubuntu after
     // two water wrecks, run 39883628869, whose cause was never reproduced
     // (docs/status, 2026-10-23). A NaN made inside a step from finite inputs
@@ -335,6 +338,7 @@ private:
 // NaN or an infinity - or nothing (Prediction::lost).
 std::optional<std::string> first_not_finite(const Controls& c);
 std::optional<std::string> first_not_finite(const Motion& m);
+std::optional<std::string> first_not_finite(const AircraftSnapshot& s);
 
 // How far apart two states are, in metres: over the ground and in height.
 double how_far_apart_m(const AircraftState& a, const AircraftState& b);

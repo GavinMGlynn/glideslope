@@ -195,6 +195,7 @@ bool Flight::heard_runway_conditions(const net::RunwayConditions& conditions) {
 void Flight::adopt(const sim::Motion& motion) {
     aircraft_->set_motion(motion);
     prediction_ = std::make_unique<sim::Prediction>(*aircraft_);
+    loss_counted_ = false;
     predicted_at_.clear();
     // A prediction begun again numbers its steps from nought: its clocks'
     // difference is held anew, at the pace flown now.
@@ -224,8 +225,13 @@ bool Flight::let_go_if_lost(const sim::Motion& motion) {
         return false;
     }
     const sim::Prediction::Lost lost = *prediction_->lost();
-    ++let_go_;
-    compared_when_let_go_ = prediction_errors_m_.size();
+    // **Counted once for each prediction lost**, not for every word heard
+    // while the server's stays not finite and it is not yet started again.
+    if (!loss_counted_) {
+        loss_counted_ = true;
+        ++let_go_;
+        compared_when_let_go_ = prediction_errors_m_.size();
+    }
     if (said_lost_.insert(lost.what).second) {
         std::fprintf(stderr,
                      "glideslope: the prediction of the %s went to a number not finite at "
@@ -252,15 +258,22 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
     if (!prediction_) {
         return {};
     }
-    if (let_go_if_lost(motion)) {
+    // **A test's words not finite** (`--test-nan-words-at`): the server's
+    // motion as heard given a NaN for half a second of ticks.
+    sim::Motion heard = motion;
+    if (nan_words_at_ >= 0 && tick_ >= nan_words_at_ &&
+        tick_ < nan_words_at_ + static_cast<std::int64_t>(sim::steps_per_second / 2)) {
+        heard.uvw_mps[0] = std::numeric_limits<double>::quiet_NaN();
+    }
+    if (let_go_if_lost(heard)) {
         return {};
     }
     (void)prediction_->hear_engine_stopped(engine_stopped);
     prediction_->hear_wrecked(wrecked);
     const sim::Prediction::Correction c =
-        prediction_->reconcile(motion, last_applied, steps_into, server_steps,
+        prediction_->reconcile(heard, last_applied, steps_into, server_steps,
                                stovl_height_asked_ft, stovl_carried);
-    if (let_go_if_lost(motion)) {
+    if (let_go_if_lost(heard)) {
         return {};
     }
     // Held against where this client had flown it by the step the word is

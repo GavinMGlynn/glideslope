@@ -17,16 +17,21 @@
 #
 # **The situation is built**: the client gives its prediction, and only its
 # prediction, a NaN elevator at tick 960 (`--test-nan-at 960`, 8 s into its
-# flight), through a relay delaying 100 ms each way, headless, and flies to
-# its shot at tick 3600.
+# flight); and from tick 2400 hears the server's words on its own with a NaN
+# in their motion for half a second (`--test-nan-words-at 2400`), a dozen
+# words not finite in a row; through a relay delaying 100 ms each way,
+# headless, and flies to its shot at tick 4200.
 #
 # **What must hold**: every program exits 0 - nothing asserted; the client
-# said, once, that it let go of its prediction for the elevator's NaN and took
-# the server's word on the aircraft it has; it let go of one prediction; and
-# it compared at least 240 updates since - ten seconds of the server's words -
-# so it flew on, predicting.
+# said, once each, that it let go of its prediction for the elevator's NaN
+# and for the word's, taking the server's word on the aircraft it has; it let
+# go of two predictions - counted once for each loss, not once for each word
+# heard while the words were not finite; and it compared at least 240
+# updates since the last - ten seconds of the server's words - so it flew
+# on, predicting.
 #
-# Seen red with the guard taken out of sim::Prediction.
+# Seen red with the guard taken out of sim::Prediction, and with the count
+# taken for every word (client::Flight::let_go_if_lost).
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed; and a GPU to draw with, or it skips too.
@@ -68,8 +73,8 @@ execute_process(
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 290
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
-            --shot "${_shot}" --shot-at 3600 --view behind --after-ready "${_ready}"
-            --test-nan-at 960 --server 127.0.0.1 ${_relay} --server-key ${_key}
+            --shot "${_shot}" --shot-at 4200 --view behind --after-ready "${_ready}"
+            --test-nan-at 960 --test-nan-words-at 2400 --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 
 if(NOT EXISTS "${_shot}")
@@ -83,20 +88,22 @@ glideslope_judge_leaks("${_err}")
 if(NOT _rcs STREQUAL "0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
 endif()
-string(REGEX MATCHALL "the prediction of the c172p went to a number not finite at its step [0-9]+ - the input's elevator - and is let go of, and started again from the server's word on the aircraft it has" _lets "${_err}")
-list(LENGTH _lets _said)
-if(NOT _said EQUAL 1)
-    message(FATAL_ERROR "the client said ${_said} times, not once, that it let go of its "
-                        "prediction for the elevator's NaN:\n${_err}\n${_out}")
-endif()
+foreach(_what IN ITEMS "the input's elevator" "the server's word's uvw_mps\\[0\\]")
+    string(REGEX MATCHALL "the prediction of the c172p went to a number not finite at its step [0-9]+ - ${_what} - and is let go of, and started again from the server's word on the aircraft it has" _lets "${_err}")
+    list(LENGTH _lets _said)
+    if(NOT _said EQUAL 1)
+        message(FATAL_ERROR "the client said ${_said} times, not once, that it let go of "
+                            "its prediction for ${_what}:\n${_err}\n${_out}")
+    endif()
+endforeach()
 if(NOT _out MATCHES "let go of: ([0-9]+) predictions gone to a number not finite, ([0-9]+) updates compared since the last")
     message(FATAL_ERROR "the client did not say what it let go of:\n${_out}")
 endif()
 set(_let_go "${CMAKE_MATCH_1}")
 set(_since "${CMAKE_MATCH_2}")
 set(_line "${_let_go} let go of, ${_since} updates compared since")
-if(NOT _let_go EQUAL 1)
-    message(FATAL_ERROR "the prediction was let go of ${_let_go} times, not once: "
+if(NOT _let_go EQUAL 2)
+    message(FATAL_ERROR "the prediction was let go of ${_let_go} times, not twice: "
                         "${_line}:\n${_out}")
 endif()
 if(_since LESS 240)
