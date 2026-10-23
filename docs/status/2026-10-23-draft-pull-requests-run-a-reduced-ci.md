@@ -1,8 +1,7 @@
 ### Draft pull requests run a reduced CI, 2026-10-23
 
-**What is still not true first.** Not yet seen on real runs: the draft run
-and the ready run of this branch's pull request are recorded below when
-they finish.
+**What is still not true first.** The full run on a ready pull request is
+recorded below when it finishes.
 
 **Why.** Every push to a draft ran the full matrix: about 50 jobs and 980
 runner-minutes (run 39846357752). Agents push many times while iterating,
@@ -50,4 +49,17 @@ once per fix round.
 
 **Verification.** `ci_shards.cmake` run against the new workflow: "8 sharded
 jobs and presets, 37 shards: every shard dealt, every test in exactly one".
-The real runs: pending.
+
+**The draft run, 39877767229** (pull request #246, commit b8be1f82): 29
+jobs ran - the 8 builds, What changed, Ubuntu linux-debug's 11 shards,
+Windows windows-debug's 7, the flights compared, and the two aggregates.
+Rocky's, macOS's, Ubuntu linux-release's and Windows release's and
+clang-cl's tests, the server image and the packages were skipped. Every job
+ran green; **CI draft passed** green; **CI passed** red with
+"draft run: reduced matrix; mark ready for the full run". **549
+runner-minutes** (Windows 216, macOS 4), against 979 for the full run
+39846357752 (48 jobs; Windows 359, macOS 61): 44% fewer. Runner-minutes are
+each job's started-to-completed time, summed over the jobs that ran. The
+debug shards are most of what remains, and they are the draft's point.
+
+The ready run: pending.
