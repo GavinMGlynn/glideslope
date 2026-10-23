@@ -293,7 +293,7 @@
                Ultimately, we will feed this left flap pos
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <table>
                   <independentVar lookup="row">fcs/flap-pos-deg</independentVar>
@@ -314,7 +314,7 @@
                Ultimately, we will feed this right flap pos
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <table>
                   <independentVar lookup="row">fcs/flap-pos-deg</independentVar>
@@ -334,7 +334,7 @@
                Positive surface deflection is trailing edge down
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <table>
                   <independentVar lookup="row">fcs/elevator-pos-rad</independentVar>

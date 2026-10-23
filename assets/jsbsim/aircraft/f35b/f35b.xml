@@ -671,7 +671,7 @@
             <function name="aero/coefficient/CLde">
                 <description>Lift_due_to_stabilator</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/elevator-pos-rad</property>
                     <value>0.24</value>
@@ -680,7 +680,7 @@
             <function name="aero/coefficient/CLdroop">
                 <description>Lift_due_to_flaperon_droop</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/flaperon-droop-rad</property>
                     <value>0.46723</value>

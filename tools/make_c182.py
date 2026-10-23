@@ -444,11 +444,15 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+        OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
+            alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_c182"), "make_c182",
             {"PITCH": ["aero/coefficient/Cmalpha"],
              "LIFT": ["aero/coefficient/CLalpha"],
-             "DRAG": ["aero/coefficient/CDalpha", "aero/coefficient/CDDf"]}),
+             "DRAG": ["aero/coefficient/CDalpha", "aero/coefficient/CDDf"]}), "make_c182",
+            {"LIFT": ["aero/coefficient/CLo",
+             "aero/coefficient/CLDf",
+             "aero/coefficient/CLDe"]}),
         OUT / "engine" / "engIO540AB1A5.xml": engine(),
         OUT / "engine" / "prop_81in2v.xml": propeller(),
     }

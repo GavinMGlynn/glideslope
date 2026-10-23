@@ -438,6 +438,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_j3_cub_braked_stick_central_to_a_stop_from_10_kt_in_calm_air_noses_over_from_one_brake_level_at_every_loading
     the_j3_cub_standing_at_every_loading_sinks_on_her_main_wheels_by_her_tyres_deflection_alone_within_1_percent
     the_j3_cub_standing_tail_to_a_15_kt_wind_has_a_reversed_wings_cited_lift_and_the_pitching_moment_it_makes
+    every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_lifting_control_set_is_lifted_by_no_more_than_a_ten_thousandth_of_her_weight
     every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_and_stays_on_it
     on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_makes_every_jet_slide_faster_across_her_heading
     the_take_off_speeds_come_from_each_aircrafts_published_figures
@@ -1506,6 +1507,17 @@ add_test(NAME every_flight_models_angle_of_attack_drag_terms_leave_out_the_cross
         "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft;DRAG"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
 set_tests_properties(every_flight_models_angle_of_attack_drag_terms_leave_out_the_crosswind_or_are_named_with_their_reason
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+# And their lift terms not keyed to the angle of attack - flaps, elevators,
+# spoilers, lift at no angle - each moved onto aero/qbarUW-psf or named with
+# the reason it is not (tests/tools/unkeyed_lift_terms.py).
+add_test(NAME every_flight_models_lift_terms_not_keyed_to_the_angle_of_attack_leave_out_the_crosswind_or_are_named_with_their_reason
+    COMMAND ${CMAKE_COMMAND} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/tools/unkeyed_lift_terms.py
+        "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
+set_tests_properties(every_flight_models_lift_terms_not_keyed_to_the_angle_of_attack_leave_out_the_crosswind_or_are_named_with_their_reason
     PROPERTIES SKIP_RETURN_CODE 77)
 
 # The names go in a file: given on the command line they passed Windows'
