@@ -28,6 +28,11 @@
 // milliseconds once every S seconds as well: a hole in the updates a client
 // must draw across, made rather than hoped for from random loss.
 //
+// With `--drop-first-sealed N`, the first N sealed datagrams from the server
+// are dropped: the first updates, and whatever reliable message rides with
+// them, lost on the way in, made rather than hoped for. Reliable messages are
+// sent again (net::Reliable); updates are not.
+//
 // With `--forge-refusal-after N`, once N datagrams have come from the server,
 // a session is made quiet and a forger refuses it - built, not waited for.
 // **It is for one client**: the hold is of everything the server sends, to
@@ -108,7 +113,7 @@ int main(int argc, char** argv) {
     if (argc < 3) {
         std::fprintf(stderr, "usage: glideslope_impair LISTEN_PORT SERVER_HOST:PORT --delay MS "
                              "--jitter MS --loss PERCENT --seed N [--until-input-ends] "
-                             "[--seconds S] [--gap MS --every S] "
+                             "[--seconds S] [--gap MS --every S] [--drop-first-sealed N] "
                              "[--forge-refusal-after N | --hold-until-let-go-after N]\n");
         return 2;
     }
@@ -120,6 +125,9 @@ int main(int argc, char** argv) {
     }
     double delay_ms = 0.0, jitter_ms = 0.0, loss = 0.0, seconds = 600.0;
     double gap_ms = 0.0, gap_every_s = 0.0;
+    // `--drop-first-sealed N`: how many sealed datagrams from the server are
+    // dropped before any gets through, and how many have been.
+    std::uint64_t drop_sealed = 0, dropped_sealed = 0;
     // How many datagrams from the server before the hold and the forging
     // begin; 0 is never.
     std::uint64_t forge_after = 0;
@@ -143,6 +151,8 @@ int main(int argc, char** argv) {
         else if (flag == "--loss") loss = number(argv[i + 1]) / 100.0;
         else if (flag == "--seed") seed = static_cast<unsigned>(std::strtoul(argv[i + 1], nullptr, 10));
         else if (flag == "--seconds") seconds = number(argv[i + 1]);
+        else if (flag == "--drop-first-sealed")
+            drop_sealed = std::strtoull(argv[i + 1], nullptr, 10);
         else if (flag == "--gap") gap_ms = number(argv[i + 1]);
         else if (flag == "--every") gap_every_s = number(argv[i + 1]);
         else if (flag == "--forge-refusal-after")
@@ -246,6 +256,12 @@ int main(int argc, char** argv) {
     const auto gaps_from = std::chrono::steady_clock::now();
     const auto hold = [&](bool to_server, const glideslope::platform::Address& to,
                           const std::string& client, const std::uint8_t* data, std::size_t n) {
+        // The first sealed datagrams from the server, lost.
+        if (!to_server && dropped_sealed < drop_sealed &&
+            is_a(glideslope::net::Type::sealed, data, n)) {
+            ++dropped_sealed;
+            return;
+        }
         // In a gap, nothing from the server gets through.
         if (!to_server && gap_ms > 0.0 && gap_every_s > 0.0) {
             const double into_s = std::fmod(
@@ -439,6 +455,11 @@ int main(int argc, char** argv) {
                 static_cast<unsigned long long>(dropped_up),
                 static_cast<unsigned long long>(dropped_down));
     std::printf("impair: %llu dropped in gaps\n", static_cast<unsigned long long>(gapped));
+    if (drop_sealed > 0) {
+        std::printf("impair: %llu of the first %llu sealed datagrams from the server dropped\n",
+                    static_cast<unsigned long long>(dropped_sealed),
+                    static_cast<unsigned long long>(drop_sealed));
+    }
     // **What the forger did**, on standard error, where a test reads the
     // programs' words.
     if (forge_after > 0 && until_let_go) {

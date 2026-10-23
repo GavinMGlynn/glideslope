@@ -37,6 +37,11 @@
 # her law (`--until-compared`, counted afresh from there): the event, not a
 # time.
 #
+# **And joining with the first sealed datagrams from the server lost**
+# (`-DSCENE=lost`, impair's `--drop-first-sealed 6`): B's first updates and
+# the law told with them are gone, the law sent again, and B joins on it
+# all the same.
+#
 # **What must hold**: no wreck; the server said her law to B once
 # (`aircraft N's STOVL law told to its client`), B heard it and began its
 # prediction on it - jet-borne with the 20 degrees of bank held - and from
@@ -80,7 +85,14 @@ endif()
 math(EXPR _relay "${PORT} + 1")
 set(_player "e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26")
 set(_b_flies --predict --stovl-land --stovl-level --until-compared 750 --heard "${_heard_b}")
-if(SCENE STREQUAL "join")
+set(_lose)
+if(SCENE STREQUAL "lost")
+    # **The first sealed datagrams from the server lost on their way to B**:
+    # its first updates, and the law told with them, sent again by the
+    # reliable layer; B joins all the same.
+    set(_lose --drop-first-sealed 6)
+endif()
+if(SCENE STREQUAL "join" OR SCENE STREQUAL "lost")
     set(_a 600 --after 1 --key "${_player}"
                --aircraft f35b --loading vertical_landing --predict --stovl-land --stovl-level
                --stovl-bank-at 2100 --leave-once-bank-held --no-goodbye --done "${_gone}"
@@ -88,7 +100,7 @@ if(SCENE STREQUAL "join")
     set(_b 600 --after-ready "${_gone}"
                --key "${_player}" --aircraft f35b --loading vertical_landing ${_b_flies})
 else()
-    message(FATAL_ERROR "SCENE is join, not '${SCENE}'")
+    message(FATAL_ERROR "SCENE is join or lost, not '${SCENE}'")
 endif()
 # The addresses are written in the commands, not in set(): test_ports.cmake
 # reads every port a script derives, and a set() naming one it cannot.
@@ -98,7 +110,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
             --players 2 --data "${DATA}" --timeout 5 --store "${_store}" --plan "${_plan}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
-            --loss 0 --seed 1 --until-input-ends --seconds 900
+            --loss 0 --seed 1 --until-input-ends --seconds 900 ${_lose}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 list(REMOVE_ITEM _rcs 0)
 if(_rcs)
@@ -106,6 +118,9 @@ if(_rcs)
 endif()
 if(_out MATCHES "is a wreck" OR _err MATCHES "is a wreck")
     message(FATAL_ERROR "an aircraft was a wreck:\n${_out}\n${_err}")
+endif()
+if(SCENE STREQUAL "lost" AND NOT "${_out}${_err}" MATCHES "impair: 6 of the first 6 sealed datagrams from the server dropped")
+    message(FATAL_ERROR "the relay did not drop the first six sealed datagrams:\n${_out}\n${_err}")
 endif()
 file(READ "${_heard_b}" _said)
 # The server's stdout reaches standard error through the pipe, a line at a
@@ -120,6 +135,10 @@ if(NOT _said MATCHES "stovl: prediction begun on the server's LAW_STATE at [0-9.
 endif()
 set(_stage "${CMAKE_MATCH_1}")
 set(_bank "${CMAKE_MATCH_2}")
+# **Begun on the law told, not on giving up waiting for it.**
+if(NOT _said MATCHES "stovl: waited for the server's law [01] times; 1 LAW_STATE told; gave up waiting 0 times")
+    message(FATAL_ERROR "B was told the law once and never gave up waiting for it:\n${_said}")
+endif()
 # **What the server held at the step of the message, to the digit**: not
 # only some 20 degrees, but the server's own.
 if(NOT _err MATCHES "STOVL law told to its client at [0-9.]+ s: stage ([0-9]+), bank held ([-0-9.]+) degrees")

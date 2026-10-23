@@ -75,7 +75,8 @@ server's alone, dropped if a client sends it, and refused when malformed.
 - `a_client_joining_an_f35b_mid_bank_predicts_her_from_the_servers_law_state`
   (tests/cmake/server_stovl_join.cmake, `join`). Client A flies her at her
   vertical-landing loading in STOVL mode and banks her jet-borne 70 s after
-  selecting, leaving 20 degrees held. It leaves without a word at 95 s.
+  selecting, leaving 20 degrees held. It leaves without a word once its law
+  holds the bank and the server has the input that centred the stick.
   Client B joins on A's key through a 100 ms relay and is told her law:
   stage 2, bank held 20.000 degrees. Over 750 updates, in two runs: her
   pitch within 0.017 and 0.024 degrees, the median 6 and 4 mm, the 95th
@@ -118,3 +119,31 @@ told B her law (seen: "stage 2, bank held 0.000", the join test red). A
 `--stovl-level` client now sends nothing until its prediction has begun
 (`ready_to_send`), as `--stovl-at-once` and `--from-held` already did; the
 join test is green again.
+
+## From the review of #240, 2026-10-23
+
+- **The window's program joins on her law, with no display.**
+  `the_client_with_the_window_given_an_f35b_mid_bank_joins_on_the_servers_law_state`
+  (tests/cmake/client_stovl_join.cmake): client A, the command-line one, banks
+  her to 20 degrees and leaves; client B, `glideslope --headless` (DISPLAY and
+  WAYLAND_DISPLAY unset, drawing offscreen), joins on A's key
+  (`--player-key`, new, as the command-line client's `--key`) through a 100 ms
+  relay and says "joined aircraft 0 with her STOVL law told: stage 2, bank
+  held 20.000 degrees", the server's own. `Online::joined_by` does not return
+  nothing on every update: it gives her once the law is heard. **Seen red**
+  with `fresh_law` returning nothing: the client never joins. Reverted: green.
+  `--stdout FILE` (new) lets a test read what the window's program says.
+- **A lost datagram cannot leave the client waiting.**
+  `a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_still_begins_on_the_servers_law_state`:
+  the relay drops the first six sealed datagrams from the server
+  (`glideslope_impair --drop-first-sealed 6`, asserted dropped) - B's first
+  updates and the law told with them - and B still begins on the law, told
+  once, never giving up waiting. `LAW_STATE` rides the reliable layer, which
+  sends it again until acknowledged; **seen red** with `retry_after_s` at
+  1000 s (it never joins). Two more guards: the server owes the law until an
+  update carries her motion, not forgetting it on one that does not; and the
+  command-line client gives up waiting for the law after 10 s of the server's
+  clock and predicts her afresh as before (counted, asserted 0 in the join
+  scenes).
+- The 30 s watchdog's text names what it waits for: to send, for the levers
+  or her law. The "leaves at 95 s" lines are on the event.
