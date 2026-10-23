@@ -109,6 +109,10 @@ struct Options {
     // reads it from server.txt; `--server`/`--server-key` say it outright.
     std::string server;     // HOST:PORT
     std::string server_key; // 64 hexadecimal digits
+    // **A test's**: joins as this known player (64 hexadecimal digits), as
+    // the command-line client's `--key` does, so as to be given the aircraft
+    // another client left in the air; empty, a key minted afresh.
+    std::string player_key;
     bool online = false;
     std::vector<glideslope::world::Microburst> microbursts;
     std::string weather_station;
@@ -229,7 +233,7 @@ void usage(std::FILE* out) {
         "                  [--draw-aircraft on|off]\n"
         "                  [--shot FILE] [--shot-at TICK | --shot-frame N] [--trace]\n"
         "                  [--memory-every N]\n"
-        "                  [--online | --server HOST PORT --server-key HEX]\n"
+        "                  [--online | --server HOST PORT --server-key HEX [--player-key HEX]]\n"
         "       glideslope --version | --help\n"
         "\n"
         "  --screen      what to show: the flight (the default), the terrain alone,\n"
@@ -448,6 +452,16 @@ static int run_program(int argc, char** argv) {
             i += 2;
         } else if (a == "--server-key" && has_value) {
             o.server_key = std::string(args[++i]);
+        } else if (a == "--player-key" && has_value) {
+            o.player_key = std::string(args[++i]);
+        } else if (a == "--stdout" && has_value) {
+            // **A test's**: what this program says goes to a file, so that
+            // a test running it beside others (whose standard output feeds
+            // the next one's input) can read it.
+            if (std::freopen(std::string(args[++i]).c_str(), "w", stdout) == nullptr) {
+                std::fprintf(stderr, "glideslope: cannot open the file --stdout names\n");
+                return 2;
+            }
         } else if (a == "--trace") {
             o.trace = true;
         } else if (a == "--gpu-driver" && has_value) {
@@ -939,7 +953,7 @@ static int run_program(int argc, char** argv) {
             }
             if (auto made = glideslope::net::ClientSession::connect(
                     where, key, 5.0, 0.25, o.aircraft_given ? o.aircraft : std::string(),
-                    o.aircraft_given ? o.loading : std::string())) {
+                    o.aircraft_given ? o.loading : std::string(), o.player_key)) {
                 session.emplace(std::move(*made));
             }
             if (!session) {
@@ -1059,6 +1073,14 @@ static int run_program(int argc, char** argv) {
             }
             if (joined) {
                 flight->adopt(joined->motion, joined->law);
+                if (joined->law) {
+                    std::printf("glideslope: joined aircraft %u with her STOVL law told: stage %u, "
+                                "bank held %.3f degrees\n",
+                                static_cast<unsigned>(joined->number),
+                                static_cast<unsigned>(joined->law->stage),
+                                joined->law->bank_held_deg);
+                    std::fflush(stdout);
+                }
                 // **And on the levers the server holds her on**, which a
                 // law made on her first input is seeded from on both sides.
                 if (joined->levers) {

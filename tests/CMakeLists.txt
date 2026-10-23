@@ -2504,6 +2504,30 @@ add_test(NAME a_client_joining_an_f35b_mid_bank_predicts_her_from_the_servers_la
 set_tests_properties(a_client_joining_an_f35b_mid_bank_predicts_her_from_the_servers_law_state
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_join)
+# **And with the first sealed datagrams from the server to B lost**: her
+# first updates and the law told with them; sent again, B joins all the same.
+add_test(NAME a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_still_begins_on_the_servers_law_state
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_join_lost -DPORT=24964 -DSCENE=lost
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_join.cmake)
+set_tests_properties(a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_still_begins_on_the_servers_law_state
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_join_lost)
+# **And the client with the window, given her the same way**, drawing
+# offscreen with no display: it joins on the law the server told it. See
+# cmake/client_stovl_join.cmake.
+add_test(NAME the_client_with_the_window_given_an_f35b_mid_bank_joins_on_the_servers_law_state
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DAIRCLIENT=$<TARGET_FILE:glideslope_cli>
+        -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/client_stovl_join -DPORT=24962 -DDRIVER=vulkan
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_stovl_join.cmake)
+set_tests_properties(the_client_with_the_window_given_an_f35b_mid_bank_joins_on_the_servers_law_state
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_stovl_join)
 # **And against a server behind real time, by centimetres**: its clock at a
 # set 0.6 of real time. Serial: a busy runner would slow it further.
 add_test(NAME a_client_predicting_its_aircraft_against_a_server_behind_real_time_stops_its_engine_and_is_off_by_centimetres

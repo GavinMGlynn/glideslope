@@ -5302,10 +5302,13 @@ int run(const Options& o) {
                                          own->controller == glideslope::net::Controller::person;
                 if (!flying_hers) {
                     c.flying_as_given = glideslope::net::no_aircraft;
-                } else if (c.flying_as_given != c.aircraft) {
+                } else if (c.flying_as_given != c.aircraft && packet.yours) {
+                    // **Given when this update carries her motion**: one
+                    // without it - the client could not begin on it either -
+                    // leaves the law owed to the next, and not forgotten.
                     c.flying_as_given = c.aircraft;
                     const auto law = fleet->law_of(c.aircraft);
-                    if (law && packet.yours &&
+                    if (law &&
                         packet.yours->stovl_height_asked_ft != glideslope::net::no_stovl_law) {
                         if (const auto body = glideslope::net::write_law_state(
                                 glideslope::frontend::law_said(*law, c.aircraft,
