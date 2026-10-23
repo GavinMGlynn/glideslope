@@ -23,7 +23,8 @@ The changes, and what each is for:
                         are; the three of JSBSim's shared systems it uses -
                         hydrodynamics, hydrodynamic-planing-floats and
                         sperry-a2-autopilot - are in systems/, and its engine
-                        and airscrew in engine/, all unchanged.
+                        and airscrew in engine/, the engine unchanged and the
+                        airscrew as below.
 
   Airframe (aircraft/short_s23/short_s23.xml)
     Keel skids, added   The model meets the ground only at its bow, tail and
@@ -73,19 +74,41 @@ The changes, and what each is for:
                         failed even where she flies, clean at the plan's
                         slowest (86 kt). Nothing else in the model reads
                         them.
-    The drag, times 1.23 -> times 1.9
-                        The model's DATCOM drag, which it multiplied by 1.23
-                        "adjusted for climb time", flew it at 225 mph level at
-                        5,500 ft where its maximum is 200, and climbed it at
-                        1,418 ft/min at sea level at the Pegasus's normal
-                        boost where it climbs at 950 (Flight's specification,
-                        29 October 1936); and so fast that its airscrews,
-                        designed for 172 knots, turned the engines to 2,822
-                        rpm and 945 hp, where the Pegasus gives 830 hp at
-                        2,475. Times 1.9, it flies 203 mph and climbs at 977
-                        ft/min; its take-offs from water lengthen by 4 to 10%,
-                        to 32.6 s at 45,000 lb against Gouge's 30.5, and 26.4
-                        s at 40,500 against his 24.
+    The drag, a zero-lift drag and her wing's drag due to lift
+                        The model's DATCOM drag table, times 1.23 "adjusted
+                        for climb time", flew it at 225 mph at 5,500 ft where
+                        its maximum is 200; times 1.9, as it was until
+                        2026-10-23, the drag due to lift went up with the
+                        rest, an Oswald efficiency of 0.33, and heavy at
+                        10,000 ft she could not hold 130 kt. Up to her
+                        greatest lift (0.2443 rad) her drag is now 0.033
+                        plus CL^2 / (pi e A): A, 114 ft squared over 1,500 sq
+                        ft, 8.66, and e Raymer's estimate for a straight wing
+                        (Aircraft Design: A Conceptual Approach, eq. 12.48),
+                        1.78 (1 - 0.045 A^0.68) - 0.64 = 0.79, in the 0.7 to
+                        0.85 of a conventional monoplane flaps up. Past it,
+                        where the flow has separated, the DATCOM table times
+                        1.9 as before, the greater of the two. The zero-lift
+                        drag is fitted to Flight's 200 mph at 5,500 ft: 204
+                        mph, with the climb (below) at 876 ft/min against 950.
+
+    The airscrews' efficiency, NACA Report 640's (engine/prop_deHavilland5000.xml)
+                        The model's tables are JavaProp's for the coarse
+                        pitch, the fine guessed 8 degrees finer and its
+                        thrust times 1.25 and power times 1.1 "for higher
+                        thrust at 20 knots": that made the fine pitch 0.857
+                        efficient at its best, more than the coarse's 0.810.
+                        Hartman and Biermann's three-blade Clark Y propeller
+                        (NACA Report 640, 1938, figure 12) peaks at 0.81 at
+                        15 degrees, 0.845 at 20 and 0.855 at 25; placed
+                        among them by where its thrust falls to nothing, the
+                        fine pitch (J 0.88) lies between 15 and 20 and the
+                        coarse (J 1.25) between 20 and 25. The coarse
+                        column's thrust is times 1.055, best 0.855; the fine
+                        column's times 0.957 above J 0.65, faded in from
+                        0.45, best 0.820 - her take-off, which lifts off
+                        near J 0.45, keeps the thrust it was tuned to
+                        (Gouge's take-off times are still met).
 
     Ground effect's two factors
                         Each a <product> of one table, which JSBSim warns of
@@ -238,7 +261,19 @@ OUT = ROOT / "assets" / "jsbsim"
 PINNED_S23 = PINNED / "aircraft" / "Short_S23"
 MODEL = "short_s23"
 UNCHANGED_SYSTEMS = ["electrical", "fuel-system", "take-off-ap"]
-DRAG_FACTOR = 1.9
+DRAG_FACTOR = 1.9   # past her greatest lift alone, where the flow has separated
+ZERO_LIFT_DRAG = 0.0330
+# Her wing's span efficiency, Raymer's estimate for a straight wing (Aircraft
+# Design: A Conceptual Approach, eq. 12.48), 1.78 (1 - 0.045 A^0.68) - 0.64,
+# on her aspect ratio, 114 ft squared over 1,500 sq ft.
+ASPECT_RATIO = 114.0 ** 2 / 1500.0
+OSWALD = 1.78 * (1.0 - 0.045 * ASPECT_RATIO ** 0.68) - 0.64
+STALL_ALPHA = 0.2443
+# NACA Report 640 (Hartman and Biermann, 1938), figure 12: a three-blade
+# Clark Y propeller's efficiency against advance ratio by blade angle.
+FINE_EFFICIENCY_SCALE = 0.957    # fine pitch's thrust above take-off
+FINE_FADE = (0.45, 0.65)         # advance ratios over which it comes in
+COARSE_EFFICIENCY_SCALE = 1.055  # coarse pitch's thrust everywhere
 SHARED_SYSTEMS = ["hydrodynamics", "hydrodynamic-planing-floats", "sperry-a2-autopilot"]
 ENGINE_FILES = ["eng_PegasusXc", "prop_deHavilland5000"]
 
@@ -332,11 +367,71 @@ def aerodynamics():
             rf"(<function name=\"aero/function/ground-effect-factor-{what}\">\s*<description>[^<]*</description>\n)"
             r"\s*<product>\n(\s*<table>.*?</table>\n)\s*</product>\n",
             r"\1\2", f"ground effect's {what} factor")
-    return replace_once(
-        text, r"<value>1\.23</value> <!-- Adjusted for climb time\. -->",
-        f"<value>{DRAG_FACTOR}</value> <!-- glideslope: 1.23 in the pinned model; see "
-        "tools/make_short_s23.py. -->",
-        "the drag's factor")
+    return with_drag_polar(text)
+
+
+def with_drag_polar(text):
+    """`text` with its DATCOM drag table, times 1.23, made a zero-lift drag and
+    a drag due to lift from her wing's span efficiency - the table, times
+    DRAG_FACTOR, kept past her greatest lift."""
+    m = re.search(r"(<value>)1\.23(</value>) <!-- Adjusted for climb time\. -->\n(\s*<table>\s*"
+                  r"<independentVar lookup=\"row\">aero/alpha-rad</independentVar>\s*<tableData>\n)"
+                  r"(.*?)(\n\s*</tableData>)", text, re.S)
+    if not m:
+        raise SystemExit("make_short_s23: no drag table - has the pinned model changed?")
+    rows = [line.split() for line in m.group(4).strip().splitlines()]
+    separated = "\n".join(
+        f"                       {float(a):8.4f}  {(float(cd) if float(a) > STALL_ALPHA else 0.0):.5f}"
+        for a, cd in rows)
+    k = 1.0 / (math.pi * OSWALD * ASPECT_RATIO)
+    polar = (
+        f"<value>1.0</value> <!-- glideslope: a zero-lift drag and a drag due to lift, and the\n"
+        f"                    DATCOM table past her greatest lift; see tools/make_short_s23.py. -->\n"
+        f"               <max>\n"
+        f"                  <sum>\n"
+        f"                     <value>{ZERO_LIFT_DRAG:.4f}</value>\n"
+        f"                     <product>\n"
+        f"                        <value>{k:.5f}</value> <!-- 1 / (pi e A), e = {OSWALD:.3f}, A = {ASPECT_RATIO:.2f} -->\n"
+        f"                        <property>aero/cl-squared</property>\n"
+        f"                     </product>\n"
+        f"                  </sum>\n"
+        f"                  <product>\n"
+        f"                     <value>{DRAG_FACTOR}</value>\n"
+        f"                     <table>\n"
+        f"                        <independentVar lookup=\"row\">aero/alpha-rad</independentVar>\n"
+        f"                        <tableData>\n{separated}\n"
+        f"                        </tableData>\n"
+        f"                     </table>\n"
+        f"                  </product>\n"
+        f"               </max>")
+    end = text.index("</table>", m.end()) + len("</table>")
+    return text[:m.start()] + polar + text[end:]
+
+
+def propeller():
+    """The airscrew with its efficiency as NACA Report 640's, figure 12: the
+    coarse column's thrust times COARSE_EFFICIENCY_SCALE, the fine column's
+    times FINE_EFFICIENCY_SCALE from the end of the take-off, faded in over
+    FINE_FADE."""
+    text = (PINNED / "engine" / "prop_deHavilland5000.xml").read_text()
+    m = re.search(r"(<table name=\"C_THRUST\" type=\"internal\">\s*<tableData>\s*20\.0\s+28\.0\n)"
+                  r"(.*?)(\n\s*</tableData>)", text, re.S)
+    if not m:
+        raise SystemExit("make_short_s23: no thrust table - has the pinned airscrew changed?")
+    lo, hi = FINE_FADE
+
+    def fine_scale(j):
+        f = min(1.0, max(0.0, (j - lo) / (hi - lo)))
+        return 1.0 + f * (FINE_EFFICIENCY_SCALE - 1.0)
+
+    rows = []
+    for line in m.group(2).strip().splitlines():
+        j, fine, coarse = (float(v) for v in line.split())
+        rows.append(f"   {j:.5f}  {fine * fine_scale(j):8.5f}  {coarse * COARSE_EFFICIENCY_SCALE:8.5f}")
+    return (text[:m.start()] + m.group(1) + "\n".join(rows) + m.group(3) + text[m.end():]).replace(
+        "<propeller name=\"deHavilland5000\">",
+        "<propeller name=\"deHavilland5000\">\n <!-- glideslope: the thrust tables' efficiency as NACA\n"
+        "      Report 640's, figure 12; see tools/make_short_s23.py. -->", 1)
 
 
 # The planing hull (see "Hydrodynamics" above). Feet, from the keel skids and
@@ -838,6 +933,7 @@ def outputs():
         out[OUT / "systems" / f"{name}.xml"] = (PINNED / "systems" / f"{name}.xml").read_text()
     for name in ENGINE_FILES:
         out[OUT / "engine" / f"{name}.xml"] = (PINNED / "engine" / f"{name}.xml").read_text()
+    out[OUT / "engine" / "prop_deHavilland5000.xml"] = propeller()
     return out
 
 

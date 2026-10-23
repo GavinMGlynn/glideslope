@@ -24,6 +24,7 @@
 #include <memory>
 #include <numbers>
 #include <optional>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <utility>
@@ -401,11 +402,9 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 // 138.1 KTAS at 72%, her best power at full throttle there. (The 182T's
 // table, cited until 2026-10-23, is another airframe: 150 kt at sea level
 // against the 182S's 145.)
-// Open, named: the S.23 at 45,000 lb at 130 and 141 kt at 10,000 ft
-// (derived 164 to 167 KTAS). Her drag is the DATCOM table times 1.9, drag
-// due to lift and all - an Oswald efficiency of about 0.33 - which holds her
-// sea-level climb in fine pitch to the book and leaves her heavy at height
-// short (docs/status, 2026-10-23).
+// The S.23 at her figures' loadings at 10,000 ft above her slowest was left
+// out until her drag due to lift was her wing's and her airscrews' efficiency
+// NACA Report 640's (tools/make_short_s23.py): seen red without them.
 // Every start's mixture and propeller levers are as her book flies that
 // height and speed (Aircraft::initialize): leaned for the most power above
 // her handbook's height, two-pitch airscrews coarse in cruise. Started full
@@ -432,7 +431,6 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
                  (id == "c182" && speed == fastest))) ||
                (id == "j3cub" && height_ft == 10000.0 && speed != slowest) ||
                (id == "j3cub" && height_ft == 10000.0 && !own_loading) ||
-               (id == "short_s23" && height_ft == 10000.0 && !own_loading && speed != slowest) ||
                (id == "c182" && height_ft == 10000.0 && !own_loading && speed == start);
     };
     std::size_t space = 0;
@@ -542,8 +540,9 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
 // 5,000 ft heavy - eight points, seen red so; and her mixture leaned above
 // her engines' rated altitude, 4,500 ft, as the catalogue now says, without
 // which she could not be trimmed at 130 and 141 kt at 10,000 ft at
-// 40,500 lb - seen red so. Two named open: at 45,000 lb at 10,000 ft at 130
-// and 141 kt. Her boost control
+// 40,500 lb - seen red so; and at 45,000 lb at 10,000 ft at 130 and 141 kt
+// until her drag due to lift was her wing's and her airscrews' efficiency
+// NACA Report 640's (tools/make_short_s23.py) - seen red so. Her boost control
 // is an integrator in her flight controls (tools/make_short_s23.py, "The
 // boost control held still while time is"): run through JSBSim's trim it
 // cycled and failed at 24 of these; held still through the trim and not
@@ -616,15 +615,6 @@ GLIDESLOPE_TEST(the_s23_trimmed_at_every_loading_height_and_speed_flies_on_as_tr
                             name.c_str(), height_ft, speed_kts,
                             aircraft.trimmed_laterally() ? "trimmed" : "not trimmed", lowest_ft,
                             highest_ft, most_off_kts);
-                // Open, named: at 45,000 lb at 10,000 ft at 130 and 141 kt
-                // (151 and 164 KTAS), leaned and in coarse pitch, her
-                // model's engines make too little; derived from her book
-                // she makes 164 to 167 KTAS there (docs/status, 2026-10-23).
-                if (height_ft == 10000.0 && name == "long-range" &&
-                    speed_kts >= e->start_airspeed_kts) {
-                    ++named;
-                    continue;
-                }
                 if (aircraft.trimmed_laterally() && height_ft - lowest_ft <= 20.0 &&
                     highest_ft - height_ft <= 20.0 && most_off_kts <= 2.0) {
                     ++held;
@@ -640,7 +630,7 @@ GLIDESLOPE_TEST(the_s23_trimmed_at_every_loading_height_and_speed_flies_on_as_tr
     check(failed.empty(), "the S.23 was trimmed and held within 20 ft and 2 kt for thirty "
                           "seconds at every point; not at:" + failed);
     std::printf("  %zu of %zu held, %zu named open\n", held, space, named);
-    check(walked == space && held + named == space && space == 27 && named == 2,
+    check(walked == space && held + named == space && space == 27 && named == 0,
           "every one of her 27 points walked, held or named: " + std::to_string(held) +
               " held, " + std::to_string(named) + " named, " + std::to_string(walked) +
               " walked, of " + std::to_string(space));
@@ -974,6 +964,80 @@ GLIDESLOPE_TEST(the_cessna_182s_at_10000_ft_needs_her_books_power_for_her_books_
     check(aircraft->trimmed() && std::abs(ktas - 133.0) < 0.5,
           "she trims at her book's 133 KTAS at 10,000 ft");
     check(std::abs(hp / book_hp - 1.0) <= 0.05, "and needs her book's 66% there within 5%");
+}
+
+// **The S.23's airscrews are as efficient as NACA Report 640's at their blade
+// angles.** Hartman and Biermann's figure 12 (1938), a three-blade Clark Y
+// propeller of the period: the efficiency against advance ratio peaks at
+// about 0.81 at 15 degrees at 0.75R, 0.845 at 20, 0.855 at 25 and 0.86 at
+// 30; a blade angle is placed between them by the advance ratio its thrust
+// falls to nothing at (0.80, 1.03, 1.30 and 1.55). Her fine pitch's thrust
+// falls to nothing at 0.88, between 15 and 20 degrees, so its best is 0.81
+// to 0.845; her coarse's at 1.25, between 20 and 25, so 0.845 to 0.855 -
+// each within 0.01 for reading the chart. Read from her airscrew's tables,
+// efficiency J CT / CP at every row. The pinned tables made the fine pitch
+// 0.857 (its thrust times 1.25 and power times 1.1 for her take-off thrust)
+// and the coarse 0.810: seen red so.
+GLIDESLOPE_TEST(the_s23s_airscrews_are_as_efficient_as_naca_report_640s_at_their_blade_angles) {
+    std::ifstream in(data() / "jsbsim" / "engine" / "prop_deHavilland5000.xml");
+    const std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    const auto table = [&](const std::string& name) {
+        std::vector<std::vector<double>> rows;
+        const std::size_t at = text.find("<table name=\"" + name + "\"");
+        const std::size_t from = text.find("28.0", at) + 4;
+        const std::size_t to = text.find("</tableData>", from);
+        std::istringstream body(text.substr(from, to - from));
+        double j = 0.0, fine = 0.0, coarse = 0.0;
+        while (body >> j >> fine >> coarse) {
+            rows.push_back({j, fine, coarse});
+        }
+        return rows;
+    };
+    const auto ct = table("C_THRUST");
+    const auto cp = table("C_POWER");
+    check(ct.size() == 31 && cp.size() == 31, "her airscrew's tables have their 31 rows each");
+    double best[2] = {0.0, 0.0};
+    for (std::size_t i = 0; i < std::min(ct.size(), cp.size()); ++i) {
+        for (std::size_t p = 0; p < 2; ++p) {
+            if (cp[i][p + 1] > 0.0 && ct[i][p + 1] > 0.0) {
+                best[p] = std::max(best[p], ct[i][0] * ct[i][p + 1] / cp[i][p + 1]);
+            }
+        }
+    }
+    std::printf("  best efficiency: fine %.3f, coarse %.3f\n", best[0], best[1]);
+    check(best[0] >= 0.80 && best[0] <= 0.855,
+          "her fine pitch is at best as efficient as NACA's 15 to 20 degrees, 0.81 to 0.845");
+    check(best[1] >= 0.835 && best[1] <= 0.865,
+          "her coarse pitch is at best as efficient as NACA's 20 to 25 degrees, 0.845 to 0.855");
+}
+
+// **The S.23's drag due to lift is her wing's.** Trimmed level at 10,000 ft
+// at 40,500 lb at 110 and 141 KCAS, her basic drag coefficient's rise
+// between the two over the rise in her lift coefficient squared is 1 / (pi e
+// A) within 10%: A her aspect ratio, 114 ft squared over 1,500 sq ft, and e
+// Raymer's estimate for a straight wing of it (Aircraft Design: A Conceptual
+// Approach, eq. 12.48), 0.79. Her DATCOM drag times 1.9 made it an Oswald
+// efficiency of 0.33: seen red so.
+GLIDESLOPE_TEST(the_s23s_drag_due_to_lift_is_her_wings_span_efficiency) {
+    const double aspect = 114.0 * 114.0 / 1500.0;
+    const double oswald = 1.78 * (1.0 - 0.045 * std::pow(aspect, 0.68)) - 0.64;
+    const auto at = [&](double kcas, double& cd, double& cl2) {
+        const auto aircraft = trimmed_at_10000_ft("short_s23", "standard", kcas);
+        check(aircraft->trimmed(), "the S.23 trims at 10,000 ft at " + std::to_string(kcas));
+        cd = aircraft->property("aero/coefficient/CD") /
+             (aircraft->property("aero/qbarUW-psf") * aircraft->property("metrics/Sw-sqft"));
+        cl2 = aircraft->property("aero/cl-squared");
+    };
+    double cd_slow = 0.0, cl2_slow = 0.0, cd_fast = 0.0, cl2_fast = 0.0;
+    at(110.0, cd_slow, cl2_slow);
+    at(141.0, cd_fast, cl2_fast);
+    const double k = (cd_slow - cd_fast) / (cl2_slow - cl2_fast);
+    const double wing = 1.0 / (std::numbers::pi * oswald * aspect);
+    std::printf("  CD %.4f at CL^2 %.4f, %.4f at %.4f: k %.4f, an Oswald efficiency of %.2f; "
+                "her wing's %.4f (e %.2f)\n",
+                cd_slow, cl2_slow, cd_fast, cl2_fast, k, 1.0 / (std::numbers::pi * k * aspect),
+                wing, oswald);
+    check(std::abs(k / wing - 1.0) <= 0.10, "her drag due to lift is her wing's within 10%");
 }
 
 // **Every aircraft's flap lever is found where her flaps answer one**
