@@ -149,7 +149,8 @@ circuit touching short, 2026-09-27; the fighters' rotation, 2026-09-26).
 every aircraft, wherever on Earth, with AI aircraft of its own, and resolves
 collisions. Clients join, are told what every aircraft is, stream their
 inputs, predict their own aircraft and reconcile - once a pass, from the
-newest update, so that a slow client keeps up (2026-10-23); a prediction
+newest update, so that a slow client keeps up, while every update is still
+compared at its own step, by both clients (2026-10-24); a prediction
 given a NaN as an input, or left with one by a step, is let go of and
 started again from the server's word - but a NaN made inside one JSBSim
 step from finite inputs still asserts in a debug build, and only

@@ -1,5 +1,6 @@
 #include "online.hpp"
 
+#include "frontend/own_words.hpp"
 #include "frontend/same_air.hpp"
 #include "platform/paths.hpp"
 
@@ -147,8 +148,7 @@ std::optional<Joined> Online::joined_by(const net::StatePacket& state) const {
     joined.aircraft_id = found->second.id;
     joined.loading = found->second.loading;
     joined.motion = motion_of(*state.yours);
-    joined.server_steps = static_cast<std::uint64_t>(std::llround(
-        state.simulation_time_s * static_cast<double>(sim::steps_per_second)));
+    joined.server_steps = frontend::server_steps_of(state.simulation_time_s);
     return joined;
 }
 
@@ -211,6 +211,8 @@ void Online::hear(Flight& flight) {
             heard(state, arrived_s_, flight);
         }
         arrived_.clear();
+        most_own_in_frame_ = std::max(most_own_in_frame_, own_in_frame_);
+        own_in_frame_ = 0;
         // **For a test: the last update from before a take-over, heard again
         // just after it**, as the network reorders them - built, not waited
         // for (`--late-update-after-take-over`, as the command-line client's).
@@ -296,24 +298,37 @@ void Online::hear(Flight& flight) {
     // replay in a sanitized build is long by itself. Held across them, the
     // lock kept the keeper waiting on it, and the session silent - what the
     // keeper is for. What follows is the frame loop's alone.
-    if (!own_word_) {
-        return;
-    }
-    const OwnWord word = *own_word_;
-    own_word_.reset();
-    if (word.adopt) {
+    if (own_word_) {
+        const OwnWord word = *own_word_;
+        own_word_.reset();
         flight.adopt(word.motion);
+        // Started again from it: no word held for the prediction before
+        // has a step coming.
+        words_.drop("started again");
         return;
     }
+    // **Put right once, from the newest word compared** - or read before
+    // any could be placed - with every word held and now flown compared
+    // first (frontend::OwnWords). A frame whose words are all past the steps
+    // flown is put right by none: the next frame, once it has flown them.
+    const std::size_t let_go_before = flight.let_go();
+    const auto settled = words_.settle(flight.steps_flown(), arrived_s_,
+                                       [&](const Words::Placed& p) {
+                                           return flight.compare(p.word.motion, *p.at_step);
+                                       });
+    if (!settled) {
+        return;
+    }
+    const OwnWord& word = settled->word;
     const bool known = flight.clocks_known();
     const auto c =
-        flight.reconcile(word.motion, word.last_applied, word.steps_into, word.server_steps,
-                         word.engine_stopped, word.wrecked, word.stovl_height_asked_ft,
-                         word.stovl_carried);
-    // **At the server's pace** (sim::Pacing): what its ticks are flown at
-    // from here on.
-    flight.pace_by_clocks(arrived_s_, clock_.known() ? std::optional<double>(clock_.rate())
-                                                     : std::nullopt);
+        flight.reconcile(word.motion, word.last_applied, settled->at_step, word.engine_stopped,
+                         word.wrecked, word.stovl_height_asked_ft, word.stovl_carried);
+    if (flight.let_go() != let_go_before) {
+        // **Let go of, not finite** (Flight::let_go_if_lost), and started
+        // again from the server's word: what was held for it is dropped.
+        words_.drop("let go of, not finite");
+    }
     ++corrections_;
     ++frames_heard_own_;
     // **Across a machine's stall, apart** (frontend::MachineStalls).
@@ -383,7 +398,7 @@ void Online::noticed() {
     old_session_s_ = newest_heard_s_;
     newest_heard_s_.reset();
     reconciled_s_.reset();
-    own_word_.reset();
+    let_go_own_word();
     clock_ = net::SessionClock{};
     drawn_at_ = net::ShownClock{};
     origin_.reset();
@@ -434,7 +449,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             taken_back_ = false;
             rejoined_ = true;
             reconciled_s_ = state.simulation_time_s;
-            own_word_.reset();
+            let_go_own_word();
             for (const net::AircraftState& a : state.aircraft) {
                 if (a.index == mine_) {
                     own_ai_flying_ = a.controller == net::Controller::ai;
@@ -462,7 +477,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             taking_over_.reset();
             resuming_ = false;
             reconciled_s_ = state.simulation_time_s;
-            own_word_.reset();
+            let_go_own_word();
             send_watch(net::no_aircraft);
             if (late_after_take_over_ && before_take_over_) {
                 hear_again_ = std::move(before_take_over_);
@@ -491,7 +506,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             newer->again = taken_->again;
             taken_ = std::move(newer);
             reconciled_s_ = state.simulation_time_s;
-            own_word_.reset();
+            let_go_own_word();
             // Who flies it, as the word that gave it was read; and what it
             // says of the clocks' difference, which is the connection's and
             // not the aircraft's, as every older word of a frame's does.
@@ -501,9 +516,7 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
                 }
             }
             flight.hear_clock(state.last_input_applied, state.yours->steps_into_input,
-                              static_cast<std::uint64_t>(std::llround(
-                                  state.simulation_time_s *
-                                  static_cast<double>(sim::steps_per_second))));
+                              frontend::server_steps_of(state.simulation_time_s));
         }
     } else if (state.yours && state.your_aircraft == mine_ &&
         (!reconciled_s_ || state.simulation_time_s > *reconciled_s_)) {
@@ -533,27 +546,22 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
         if (own_ai_flying_) {
             // The AI's: drawn from the updates, below, and not predicted.
             reconciled_s_ = state.simulation_time_s;
-            own_word_.reset();
-        } else if (!reconciled_s_ || resuming_ || (own_word_ && own_word_->adopt)) {
+            let_go_own_word();
+        } else if (!reconciled_s_ || resuming_ || own_word_) {
             // Put there by `hear` from the newest word, when the words
             // heard together are those waiting since it joined.
             reconciled_s_ = state.simulation_time_s;
             resuming_ = false;
             OwnWord word;
             word.motion = motion_of(*state.yours);
-            word.adopt = true;
+            let_go_own_word();
             own_word_ = word;
         } else {
             // **Put right from the newest of the words heard together**, by
             // `hear`, once they are all heard; each older one says only the
             // clocks' difference.
             reconciled_s_ = state.simulation_time_s;
-            const std::uint64_t server_steps = static_cast<std::uint64_t>(std::llround(
-                state.simulation_time_s * static_cast<double>(sim::steps_per_second)));
-            if (own_word_) {
-                flight.hear_clock(own_word_->last_applied, own_word_->steps_into,
-                                  own_word_->server_steps);
-            }
+            const std::uint64_t server_steps = frontend::server_steps_of(state.simulation_time_s);
             const auto own = std::find_if(
                 state.aircraft.begin(), state.aircraft.end(),
                 [&](const net::AircraftState& a) { return a.index == state.your_aircraft; });
@@ -570,12 +578,25 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
             }
             word.wrecked =
                 own != state.aircraft.end() && own->condition == net::Condition::wrecked;
-            own_word_ = word;
+            // **Every word read is placed, steers the pace, and is held
+            // against where this client had flown by its own step** - at
+            // once, or once that step is flown (frontend::OwnWords) - as
+            // glideslope_cli's are; the newest compared puts it right, in
+            // `hear`.
+            const auto at = flight.place(word.last_applied, word.steps_into, word.server_steps);
+            flight.pace_by_clocks(arrived_s_, clock_.known()
+                                                  ? std::optional<double>(clock_.rate())
+                                                  : std::nullopt);
+            words_.read(word, at, flight.steps_flown(), arrived_s_,
+                        [&](const Words::Placed& p) {
+                            return flight.compare(p.word.motion, *p.at_step);
+                        });
             if (own_words_ == 0) {
                 first_own_word_s_ = state.simulation_time_s;
             }
             last_own_word_s_ = state.simulation_time_s;
             ++own_words_;
+            ++own_in_frame_;
         }
     }
     if (state.yours && state.your_aircraft == mine_) {

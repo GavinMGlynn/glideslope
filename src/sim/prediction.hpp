@@ -168,6 +168,17 @@ public:
                          std::size_t steps_into, std::uint64_t server_steps,
                          std::optional<double> stovl_height_asked_ft = std::nullopt,
                          const Transition::Carried& stovl_carried = {});
+    // **The same, from a word already placed** - by `hear_clock` as it was
+    // read, `placed_at` being what that returned - so that its clocks'
+    // difference is not taken twice. A client holds a word placed past the
+    // steps it has flown until it has flown them, and puts itself right from
+    // it then (frontend/own_words.hpp): put right as it was read, the
+    // aircraft was put at the server's word with nothing to fly again, a
+    // step or two ahead of the steps it had counted.
+    Correction reconcile_placed(const Motion& server, std::uint32_t last_applied,
+                                std::optional<std::uint64_t> placed_at,
+                                std::optional<double> stovl_height_asked_ft = std::nullopt,
+                                const Transition::Carried& stovl_carried = {});
     // **What a word says of the clocks' difference, and nothing else**: the
     // sample `reconcile` above takes from it, for a word that is not the
     // newest of those heard together. Put right from each of them in turn,

@@ -117,6 +117,11 @@ string(CONCAT _line "at ${SLOW_US} us a step: ${_compared} updates compared in $
 include("${CMAKE_CURRENT_LIST_DIR}/machine_stalls_check.cmake")
 check_machine_stalls("${_said}" updates "${_compared}" _stalls)
 string(APPEND _line "; ${_stalls}")
+# **Every word read compared, or named** (own_words_check.cmake), as the
+# client with the window's are: no switch here, so at most 2 dropped.
+include("${CMAKE_CURRENT_LIST_DIR}/own_words_check.cmake")
+check_own_words("${_said}" 2 FALSE _words)
+string(APPEND _line "; ${_words}")
 # **The situation was built**: words came faster than the client could
 # take them one at a time, so some were read together and superseded, and
 # the socket was read dry between passes. Without the slowness

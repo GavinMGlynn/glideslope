@@ -844,8 +844,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       replayed its inputs for every update. Now only the newest replays.
       *Verification: a client made too slow keeps up within bounds, red
       without the fix.* Done 2026-10-23.
-- [ ] **The window client compares only each frame's newest update.**
+- [x] **The window client compares only each frame's newest update.** Now
+      both clients compare every word they read at that word's own step. A
+      word about a step not yet flown waits until that step is flown. Every
+      word not compared is counted by its reason.
       *Verification: every update it reads is compared, counted in a test.*
+      Done 2026-10-24.
 - [x] **A client's prediction asserted in JSBSim on a NaN after two water
       wrecks** (CI's Ubuntu, run 39883628869). Closed on a guard and a trap
       by the owner's decision of 2026-10-23, the cause unknown: a prediction

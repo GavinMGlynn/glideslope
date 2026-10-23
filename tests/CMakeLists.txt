@@ -3394,6 +3394,22 @@ add_test(NAME a_client_whose_frames_are_held_most_of_a_second_is_never_put_right
 set_tests_properties(a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide
     PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_slow)
+# **And every word such a frame reads is compared**, each at its own step,
+# while only the newest puts the prediction right (frontend/own_words.hpp):
+# the words read, less those not yet placeable, against the words compared
+# (cmake/client_on_server.cmake, EVERY_WORD). Frames held 0.3 s read about
+# seven words each; the case judges counts, not distances, so it is not
+# labelled timing.
+add_test(NAME a_client_with_the_window_reading_several_updates_a_frame_compares_every_one_at_its_own_step
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server_every_word -DPORT=24816 -DDRIVER=vulkan
+        -DSLOW_FRAMES=300 -DEVERY_WORD=ON
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
+set_tests_properties(a_client_with_the_window_reading_several_updates_a_frame_compares_every_one_at_its_own_step
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_every_word)
 
 # **A flight plan that takes off and orbits is flown over the DEM** by
 # glideslope_cli fly-plan, from a plan written by hand; and **a command in

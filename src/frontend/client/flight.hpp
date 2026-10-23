@@ -14,6 +14,7 @@
 #include "sim/pacing.hpp"
 #include "sim/prediction.hpp"
 #include "gfx/sky.hpp"
+#include "frontend/own_words.hpp"
 #include "frontend/same_air.hpp"
 #include "net/messages.hpp"
 #include "world/dem.hpp"
@@ -200,10 +201,11 @@ public:
     // And the server's words, as heard, given a NaN for half a second of
     // ticks from `tick` (`--test-nan-words-at`): a word not finite.
     void give_nan_words_at(std::int64_t tick) { nan_words_at_ = tick; }
+    // **Put right from a word already placed** (`place`), once its step has
+    // been flown (frontend/own_words.hpp; sim::Prediction::reconcile_placed).
     sim::Prediction::Correction reconcile(const sim::Motion& motion,
                                           std::uint32_t last_applied,
-                                          std::size_t steps_into,
-                                          std::uint64_t server_steps,
+                                          std::optional<std::uint64_t> placed_at,
                                           std::optional<int> engine_stopped = std::nullopt,
                                           bool wrecked = false,
                                           std::optional<double> stovl_height_asked_ft = std::nullopt,
@@ -213,7 +215,20 @@ public:
     // flown it to by then, for each word heard once the clocks' difference
     // was known. One a word, oldest first.
     const std::vector<double>& prediction_errors_m() const { return prediction_errors_m_; }
-    // The clocks' difference alone, from a word not reconciled from
+    // **A word read, placed**: its clocks' difference taken, and the step of
+    // this client's it is about (sim::Prediction::hear_clock) - nothing
+    // before the difference is known, or while not predicting.
+    std::optional<std::uint64_t> place(std::uint32_t last_applied, std::size_t steps_into,
+                                       std::uint64_t server_steps);
+    // The steps its prediction has flown (sim::Prediction::steps).
+    std::uint64_t steps_flown() const { return prediction_ ? prediction_->steps() : 0; }
+    // **A word held against where this client had flown by its step**
+    // (glideslope_cli's measure, frontend/own_words.hpp), and the steps
+    // before it forgotten. A word not finite as heard - the server's, or a
+    // test's (`give_nan_words_at`) - measures nothing, and is said so.
+    frontend::Held compare(const sim::Motion& motion, std::uint64_t at_step);
+    // The clocks' difference alone, from a word not reconciled from and not
+    // compared - one about another aircraft, taken over but not yet flown
     // (sim::Prediction::hear_clock).
     void hear_clock(std::uint32_t last_applied, std::size_t steps_into,
                     std::uint64_t server_steps);
@@ -380,6 +395,9 @@ private:
     };
     std::deque<Predicted> predicted_at_;
     std::vector<double> prediction_errors_m_;
+    // The server's motion as heard: given a NaN for a test
+    // (`give_nan_words_at`), every word, put right from or not.
+    sim::Motion as_heard(const sim::Motion& motion) const;
     sim::Pacing pacing_;
     std::uint32_t sequence_ = 0;
     bool start_with_ai_ = false;
