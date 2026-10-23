@@ -390,16 +390,22 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 //     (18.1 to 24.6%) she trims at 300 kt.
 // Excluded by derivation (docs/status, 2026-10-23: the power required and
 // available at 10,000 ft from her published sea-level top speed, climb and
-// ceiling and the standard lapse of power with density): the J-3 Cub at
-// 1,220 lb at 60 and 62 kt and at 1,092 lb at 62 kt there - she holds 57.7
-// and 60.6 KCAS at most.
-// Open, named: the J-3 Cub at 1,092 lb at 60 kt (derived 59.6 to 60.6, within
-// the derivation's own spread) and at 922 lb at 62 kt (derived 63.2; her
-// model holds 60 to 62); the S.23 at 45,000 lb at 130 and 141 kt at 10,000
-// ft (derived 164 to 167 KTAS; her model makes too little leaned); the C182
-// at 3,100 lb at 120 kt at 10,000 ft (139.6 KTAS; her POH's cruise table,
-// 182T figure 5-9 sheet 8, gives 139 KTAS at 2,400 rpm and 20 in, 69%, so
-// about 141 at full throttle; her model makes about 137).
+// ceiling, the standard lapse of power with density, and what her float
+// carburettor loses there running 18% rich - FAA-H-8083-32, page 2-3): the
+// J-3 Cub at 1,220 lb at 60 and 62 kt, at 1,092 lb at 60 and 62 kt, and at
+// 922 lb at 62 kt there - she holds 54.3 to 55.6, 57.3 to 58.7 and 61.2 to
+// 61.5 KCAS at most (the_j3_cub_flown_solo_at_10000_ft_holds_her_derived_top_speed_within_a_knot).
+// Excluded by her own book: the C182 at 3,100 lb at 120 kt at 10,000 ft
+// (139.6 KTAS). The 182S Information Manual's figure 5-9 at 10,000 ft tops
+// out at 20 in and 2,400 rpm, 66%, 133 KTAS; its cruise tables, fitted, give
+// 138.1 KTAS at 72%, her best power at full throttle there. (The 182T's
+// table, cited until 2026-10-23, is another airframe: 150 kt at sea level
+// against the 182S's 145.)
+// Open, named: the S.23 at 45,000 lb at 130 and 141 kt at 10,000 ft
+// (derived 164 to 167 KTAS). Her drag is the DATCOM table times 1.9, drag
+// due to lift and all - an Oswald efficiency of about 0.33 - which holds her
+// sea-level climb in fine pitch to the book and leaves her heavy at height
+// short (docs/status, 2026-10-23).
 // Every start's mixture and propeller levers are as her book flies that
 // height and speed (Aircraft::initialize): leaned for the most power above
 // her handbook's height, two-pitch airscrews coarse in cruise. Started full
@@ -901,6 +907,73 @@ GLIDESLOPE_TEST(the_f22as_pilots_pitch_trim_commands_a_pitch_rate_and_the_server
     check(trimmed > 0.01, "a pilot's nose-up trim commands her a nose-up pitch rate");
     check(held_untouched != 0.0 && held_trimmed == held_untouched,
           "the held trim is what the trim found, and the pilot's trim does not move it");
+}
+
+// An aircraft at a named loading trimmed level at 10,000 ft and `kcas`, as a
+// player's is started there - her levers as her book flies that height.
+std::unique_ptr<glideslope::sim::Aircraft> trimmed_at_10000_ft(const std::string& model,
+                                                               const std::string& loading,
+                                                               double kcas) {
+    auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", model);
+    aircraft->load(glideslope::sim::read_published_figures(data() / "figures" / (model + ".xml"))
+                       .loadings.at(loading)
+                       .loading);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = -33.9;
+    ic.longitude_deg = 151.2;
+    ic.altitude_ft = 10000.0;
+    ic.airspeed_kts = kcas;
+    ic.engine_running = true;
+    ic.gear = 0.0;
+    ic.trim = true;
+    aircraft->initialize(ic);
+    return aircraft;
+}
+
+// **The J-3 Cub flown solo at 10,000 ft holds her derived top speed, within a
+// knot.** No Cub figure gives a speed at height; it is derived (docs/status,
+// 2026-10-23) from her published sea-level top speed, 87 mph, and climb, 450
+// ft/min at 1,220 lb, the ceiling coming out as the published 11,500 ft: at
+// 10,000 ft and 922 lb, 61.2 to 61.5 KCAS for Oswald efficiencies of 0.6 to
+// 0.8 - her power by Gagg and Ferrar's lapse, less what her float carburettor
+// loses there running 18% richer than at sea level (she has no mixture lever;
+// FAA-H-8083-32, page 2-3: carburettors "run richer at altitude"), 94% of her
+// power at the same throttle. Flat out, as JSBSim's trim finds her throttle,
+// she trims a knot below the derivation's lowest and not a knot above its
+// highest.
+GLIDESLOPE_TEST(the_j3_cub_flown_solo_at_10000_ft_holds_her_derived_top_speed_within_a_knot) {
+    const double derived_low_kcas = 61.2;
+    const double derived_high_kcas = 61.5;
+    const auto below = trimmed_at_10000_ft("j3cub", "solo", derived_low_kcas - 1.0);
+    const auto above = trimmed_at_10000_ft("j3cub", "solo", derived_high_kcas + 1.0);
+    std::printf("  at %.1f KCAS trimmed %d, throttle %.3f, %.1f hp; at %.1f KCAS trimmed %d\n",
+                derived_low_kcas - 1.0, below->trimmed(),
+                below->property("fcs/throttle-pos-norm"),
+                below->property("propulsion/engine[0]/power-hp"), derived_high_kcas + 1.0,
+                above->trimmed());
+    check(below->trimmed(), "solo at 10,000 ft she holds a knot below her derived top speed");
+    check(!above->trimmed(), "and not a knot above it");
+}
+
+// **The Cessna 182S at 10,000 ft needs her book's power for her book's cruise
+// speed, within 5%.** Her Information Manual's figure 5-9 at 10,000 ft,
+// 3,100 lb, standard temperature: 2,400 rpm and 20 in, 66% of 230 hp, 133
+// KTAS (114.4 KCAS). Trimmed level there at that speed she needs 66% within
+// 5% - a little over the book's rounding (66% to the percent, 133 KTAS to
+// the knot, about 1.5% of power together), as the 3 kt her other cruise
+// figures allow is about 6% of power. Measured: the model needs 3 to 5% more
+// than her book at every height from 4,000 to 10,000 ft (docs/status,
+// 2026-10-23); what is pinned is that it does not grow with height.
+GLIDESLOPE_TEST(the_cessna_182s_at_10000_ft_needs_her_books_power_for_her_books_cruise_speed) {
+    const double book_hp = 0.66 * 230.0;
+    const auto aircraft = trimmed_at_10000_ft("c182", "", 114.4);
+    const double hp = aircraft->property("propulsion/engine[0]/power-hp");
+    const double ktas = aircraft->property("velocities/vtrue-kts");
+    std::printf("  trimmed %d at %.1f KTAS: %.1f hp, the book's %.1f (%+.1f%%)\n",
+                aircraft->trimmed(), ktas, hp, book_hp, 100.0 * (hp / book_hp - 1.0));
+    check(aircraft->trimmed() && std::abs(ktas - 133.0) < 0.5,
+          "she trims at her book's 133 KTAS at 10,000 ft");
+    check(std::abs(hp / book_hp - 1.0) <= 0.05, "and needs her book's 66% there within 5%");
 }
 
 // **Every aircraft's flap lever is found where her flaps answer one**
