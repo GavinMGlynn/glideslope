@@ -151,9 +151,12 @@ within her limits (5 m, 300 ft/min). **The policy is not trained again**:
 it was trained on her as she was on 2026-10-20 (parts 8 to 10), and now
 flies a C172P a little different - a new Phase 9 item.
 
-**Verification.** Locally (linux-debug): the new standing test, red on
-main's models and green on these; the four term checks (lift keyed to the
-angle and not, drag, pitch, alpha rate) green; every make script writes the
-committed models unchanged; the selftest above. The 170 figures in
-test_figures.cpp and the crosswind, standing, braked, walking-pace and
-learnt-landing tests: see below, and CI.
+**Verification.** Locally (linux-debug, `ctest -j4`, no display): the new
+standing test, red on main's models and green on these; 350 tests - the
+170 figures in test_figures.cpp, every crosswind, wind, standing, braked,
+walking-pace and learnt-landing test, the four term checks (lift keyed to
+the angle and not, drag, pitch, alpha rate), every committed-model test
+(each make script writes the committed models unchanged) and the selftest's
+- all pass but three skipped (the Vulkan sky, the server's window, a live
+model call). Every figure in range. `every_fixed_test_port` passes. On CI:
+the draft run on e4173f65, run 39960599274, its builds green on every platform and its tests running at hand-over.
