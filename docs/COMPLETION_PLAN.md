@@ -943,11 +943,11 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       warning is the landing configuration's, so late clean or banked).
       The lesson's entry holds the height level to the warning, and every
       aeroplane left thirty seconds is recovered within 2 g. Closed
-      2026-10-10 by the owner's decision on the measured figures, three
-      short at the warning: the Learjet 35A loses 385 ft against 350, the
-      Short S.23 184 against 200 (named by the 10% margin only), and the
+      2026-10-10 by the owner's decision on the measured figures, two
+      short at the warning: the Learjet 35A loses 385 ft against 350 and the
       Mosquito is never level after her warning, from her own pitching
-      moment (an open item in Phase 9).
+      moment (an open item in Phase 9). The S.23, short then, loses 89 ft
+      against 200 since her lift past the stall was fixed (2026-10-24).
 - [x] **The AI notices a stall the J-3 Cub is not in, in moderate
       turbulence.** Done 2026-10-10: a plan's slowest is raised for the
       weight flown and keeps 10 kt over the stall warning; a light aeroplane
