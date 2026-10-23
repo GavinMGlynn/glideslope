@@ -336,6 +336,10 @@ bool connect_leave_once_bank_held = false;
 // of the session's clock, and the take-back until its own, handed to the AI,
 // has been. An event, not a time (server_stovl_take_over.cmake).
 bool connect_when_hovering = false;
+// **(`--hand-over-when-slowing`)**: `--hand-over-at` names the earliest time
+// only; the hand-over waits until its prediction is converted and slowing
+// through 120 knots to a hover (server_stovl_take_over.cmake).
+bool connect_hand_over_when_slowing = false;
 // **(`--from-held`)**: with `--predict`, it joins as the windowed client does
 // - asking for its own aircraft's levers (`WATCH`), sending nothing until it
 // has them, its prediction begun on them - and every input it sends is what
@@ -536,6 +540,8 @@ void print_usage(std::FILE* out) {
         "                            the server says it is) ahead of the server, puts\n"
         "                            it right by each update, shows the others 100 ms\n"
         "                            behind, and says how far its own was put right\n"
+        "                            --hand-over-when-slowing makes --hand-over-at wait\n"
+        "                            for a converted prediction slowing below 120 kt\n"
         "                            --when-hovering makes --take-over-at and\n"
         "                            --take-back-at wait until the aircraft is hovering\n"
         "                            --hand-over-at S asks, S seconds in, for its own\n"
@@ -1931,6 +1937,18 @@ public:
         return held;
     }
 
+    // **Converted and slowing** (`--hand-over-when-slowing`): her prediction's
+    // lift system fully converted, jet-borne, and her ground speed under
+    // `kt` and above a hover's: slowing to one.
+    bool stovl_slowing_below(double kt) const {
+        if (!aircraft_ || !aircraft_->has_lift_system() || stovl_hovering_at_s_) {
+            return false;
+        }
+        const double ground_kt = std::hypot(aircraft_->property("velocities/v-north-fps"),
+                                            aircraft_->property("velocities/v-east-fps")) *
+                                 3600.0 / 6076.12;
+        return aircraft_->property("fcs/stovl-pos-norm") >= 1.0 && ground_kt < kt;
+    }
     bool stovl_done() const {
         return stovl_down_at_s_.has_value() && server_at_rest_;
     }
@@ -4206,6 +4224,7 @@ int stay(glideslope::platform::UdpSocket& socket,
         }
         if (mine != glideslope::net::no_aircraft) {
             if (hand_over_at_s >= 0.0 && up_s >= hand_over_at_s && !asked_to_hand_over &&
+                (!connect_hand_over_when_slowing || (predicting && predicting->stovl_slowing_below(120.0))) &&
                 (!hand_over_model || hc.hand_over_tried)) {
                 asked_to_hand_over = true;
                 ask(glideslope::net::Controller::ai);
@@ -4231,6 +4250,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                        (from_s >= 0.0 && hover_clock_s - from_s >= 3.0);
             };
             const bool back_now = (take_back_at_s >= 0.0 && up_s >= take_back_at_s &&
+                                   (hand_over_at_s < 0.0 || asked_to_hand_over) &&
                                    hovered(own_hovering_from_s)) ||
                                   (hc.take_back_while_looking && hc.seat && hc.seat->looking());
             if (back_now && !asked_to_take_back) {
@@ -5959,6 +5979,10 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--stovl-bank-at" && i + 1 < args.size()) {
                     connect_stovl_bank_at = std::stol(std::string(args[++i]));
+                    continue;
+                }
+                if (args[i] == "--hand-over-when-slowing") {
+                    connect_hand_over_when_slowing = true;
                     continue;
                 }
                 if (args[i] == "--when-hovering") {
