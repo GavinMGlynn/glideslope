@@ -2193,10 +2193,22 @@ public:
                     if (glideslope::net::stovl_height_asked(*state.yours)) {
                         if (!waiting_for_law_) {
                             waiting_for_law_ = state.your_aircraft;
+                            waiting_for_law_since_s_ = state.simulation_time_s;
                             ++waited_for_law_;
                         }
                         if (law_heard_ && law_heard_->aircraft == state.your_aircraft) {
                             start_on_law();
+                        } else if (state.simulation_time_s - waiting_for_law_since_s_ >=
+                                   law_waited_most_s) {
+                            // **Not waited for for ever**: a server that has
+                            // not said it by now is not going to, and she is
+                            // predicted from this update as before, a law made
+                            // afresh, and put right by the server's words.
+                            waiting_for_law_.reset();
+                            ++gave_up_on_law_;
+                            start(motion_of(*state.yours), model->second,
+                                  loadings_[state.your_aircraft], state.last_input_applied,
+                                  state.yours->steps_into_input);
                         }
                     } else {
                         start(motion_of(*state.yours), model->second, loadings_[state.your_aircraft],
@@ -2945,8 +2957,9 @@ public:
         // waited for the law, how many were told, and each begun on.
         if (waited_for_law_ > 0 || laws_told_ > 0) {
             std::snprintf(line, sizeof line,
-                          "stovl: waited for the server's law %d times; %d LAW_STATE told",
-                          waited_for_law_, laws_told_);
+                          "stovl: waited for the server's law %d times; %d LAW_STATE told; "
+                          "gave up waiting %d times",
+                          waited_for_law_, laws_told_, gave_up_on_law_);
             lines.emplace_back(line);
         }
         lines.insert(lines.end(), law_begun_lines_.begin(), law_begun_lines_.end());
@@ -3547,6 +3560,10 @@ private:
     // server's `LAW_STATE`, the one heard and not yet begun from, how many
     // were told, and whether the prediction was begun on one.
     std::optional<std::uint8_t> waiting_for_law_;
+    // The server's clock when it began to wait, and the most it waits (s).
+    double waiting_for_law_since_s_ = 0.0;
+    static constexpr double law_waited_most_s = 10.0;
+    int gave_up_on_law_ = 0;
     std::optional<glideslope::net::LawState> law_heard_;
     int laws_told_ = 0;
     int waited_for_law_ = 0;
@@ -4142,8 +4159,9 @@ int stay(glideslope::platform::UdpSocket& socket,
         // nothing for a whole stay of a few seconds was taken for one that
         // had never answered (2026-10-06).
         const bool been_in_it = answered > 0 || up_s >= seconds + wait_for_the_last_input_s;
-        // **Waiting for its levers, a server thirty seconds quiet is gone**
-        // (`--stovl-at-once`): it sends no input until they are said, and a
+        // **Waiting to send, a server thirty seconds quiet is gone** - for
+        // its levers (`--stovl-at-once`) or her law (`--stovl-level`,
+        // joining): it sends no input until they are said, and a
         // server that let it go and then stopped says nothing more - not even
         // the refusal its knocks would otherwise be answered with - so it
         // waited out its whole stay (900 s on CI). Thirty seconds, not the
@@ -4152,10 +4170,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         constexpr double levers_server_gone_quiet_s = 30.0;
         if (predicting && !predicting->ready_to_send() &&
             up_s - last_heard_s >= levers_server_gone_quiet_s) {
-            say_heard("the server said nothing for 30 s while this client waited for its "
-                      "levers: gone");
+            say_heard("the server said nothing for 30 s while this client waited to send "
+                      "(for its levers or her law): gone");
             std::fprintf(stderr, "glideslope_cli: the server went quiet while this client "
-                                 "waited for its levers\n");
+                                 "waited to send\n");
             ended = Ended::dropped;
             return 1;
         }
