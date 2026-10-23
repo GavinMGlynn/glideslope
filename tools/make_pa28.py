@@ -368,10 +368,13 @@ def scaled(text, name, low_advance, full_at):
 
 def outputs():
     return {
-        OUT / "aircraft" / "pa28" / "pa28.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+        OUT / "aircraft" / "pa28" / "pa28.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
+            alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_pa28"), "make_pa28",
             {"PITCH": ["aero/coefficient/Cmalpha"],
-             "LIFT": ["aero/coefficient/CLwbh"]}),
+             "LIFT": ["aero/coefficient/CLwbh"]}), "make_pa28",
+            {"LIFT": ["aero/coefficient/CLDf",
+             "aero/coefficient/CLDe"]}),
         OUT / "engine" / "engIO360C.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),
     }

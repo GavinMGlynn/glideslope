@@ -1828,17 +1828,51 @@ def with_slipstream_lift_at_its_own_angle(text):
     return term.sub(lambda m: m.group(1) + body + m.group(3), text)
 
 
+def with_elevator_lift_on_qbar_uw(text):
+    """`text` with her elevator's lift on her tailplane's pressure made from
+    the dynamic pressure without its sideways part (2026-10-23).
+
+    Her lift-elevator is on aero/function/qbar-tail-psf: 0.6 of the whole
+    dynamic pressure, which counts the crosswind, and 0.4 of her
+    slipstreams', which reads u alone. Standing in 15 kt straight across with
+    her stick back the first part lifted her by the crosswind, as every
+    model's elevator lift did (alpha_rate.with_unkeyed_terms_on_qbar_uw says
+    why it should not: her tailplane is not swept, the case of JSBSim issue
+    #89). The same pressure is her elevator's pitching moment's, which is
+    not this change's, so her lift-elevator alone is put on a copy of it,
+    aero/function/qbarUW-tail-psf, its 0.6 on aero/qbarUW-psf.
+    """
+    m = re.search(r'    <function name="aero/function/qbar-tail-psf">.*?</function>\n', text, re.S)
+    if not m or text.count('<function name="aero/function/qbar-tail-psf">') != 1:
+        raise SystemExit("make_mosquito_fb6: her tailplane's pressure is not where it was")
+    whole = m.group(0)
+    uw = whole.replace("aero/function/qbar-tail-psf", "aero/function/qbarUW-tail-psf")
+    uw = uw.replace("<property>aero/qbar-psf</property>", "<property>aero/qbarUW-psf</property>")
+    if uw.count("aero/qbarUW-psf") != 1:
+        raise SystemExit("make_mosquito_fb6: her tailplane's pressure has changed")
+    note = ("\n    <!-- The same pressure with its whole-air part leaving out the sideways\n"
+            "         air, for her elevator's lift (tools/make_mosquito_fb6.py,\n"
+            "         with_elevator_lift_on_qbar_uw). -->\n")
+    text = text[:m.end()] + note + uw + text[m.end():]
+    f = re.search(r'<function name="aero/force/lift-elevator">.*?</function>', text, re.S)
+    if not f or f.group(0).count("<property>aero/function/qbar-tail-psf</property>") != 1:
+        raise SystemExit("make_mosquito_fb6: her elevator's lift is not where it was")
+    moved = f.group(0).replace("<property>aero/function/qbar-tail-psf</property>",
+                               "<property>aero/function/qbarUW-tail-psf</property>")
+    return text[:f.start()] + moved + text[f.end():]
+
+
 def airframe():
     """The airframe, assets/jsbsim/aircraft/mosquito-fb6/mosquito-fb6.xml."""
     text = "".join([HEADER, METRICS, MASS_BALANCE, GROUND_REACTIONS, PROPULSION,
                     FLIGHT_CONTROL, AERODYNAMICS_HEAD, LIFT, DRAG, SIDE, ROLL, PITCH,
                     YAW, TAIL])
     text = with_slipstream_lift_at_its_own_angle(text)
-    return alpha_rate.with_alpha_terms_on_qbar_uw(
+    return with_elevator_lift_on_qbar_uw(alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(text, "make_mosquito_fb6"), "make_mosquito_fb6",
             {"PITCH": ["aero/moment/pitch-alpha", "aero/moment/pitch-stall"],
              "LIFT": ["aero/force/lift-alpha"],
-             "DRAG": ["aero/force/drag-stall"]})
+             "DRAG": ["aero/force/drag-stall"]}))
 
 
 def outputs():

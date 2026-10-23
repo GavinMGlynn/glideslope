@@ -279,11 +279,15 @@ def airframe():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(alpha_rate.with_alpha_terms_on_qbar_uw(
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(alpha_rate.with_unkeyed_terms_on_qbar_uw(
+            alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_787_8"), "make_787_8",
             {"PITCH": ["aero/moment/Pitch_alpha"],
              "LIFT": ["aero/coefficient/CLalpha"],
-             "DRAG": ["aero/force/Drag_basic"]}), REVERSERS, SCRIPT),
+             "DRAG": ["aero/force/Drag_basic"]}), "make_787_8",
+            {"LIFT": ["aero/force/Lift_flap",
+             "aero/force/Lift_speedbrake",
+             "aero/force/Lift_elevator"]}), REVERSERS, SCRIPT),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }
