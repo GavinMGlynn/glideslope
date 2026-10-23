@@ -1058,7 +1058,7 @@
       <function name="aero/force/lift-pitch-rate">
         <description>Lift from pitch rate, the tailplane's</description>
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>aero/ci2vel</property>
           <property>velocities/q-aero-rad_sec</property>

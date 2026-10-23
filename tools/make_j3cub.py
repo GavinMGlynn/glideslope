@@ -333,6 +333,18 @@ taxiing in 320 at 15 gusting 20 kt whose right wing the wind lifted: a real
 Cub can be rolled by a strong gusty wind across, with her ailerons left
 wrong. A steady 15 kt across, with the rollout holding her wings level,
 is not that, and does not.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): Lift_elevator and Lift_pitch_rate. On the whole
+dynamic pressure they counted the crosswind standing. Standing on her brakes
+with her engines stopped in 15 kt straight across, a lifting control set one at
+a time, they lifted her by up to 28 lb (stick back, as she stands); now under
+0.1 lb at every setting (the standing test in tests/unit/test_departure.cpp).
+JSBSim issue #89's guidance puts the whole of CL on QBarUW; alpha_rate.py says
+why, for swept surfaces too. In flight, at a few degrees of sideslip, the two
+differ by its cosine squared.
 """
 
 import math
@@ -825,7 +837,7 @@ def outputs():
             alpha_rate.with_qbar_uw(airframe(), "make_j3cub"), "make_j3cub",
             {"PITCH": ["aero/moment/Pitch_alpha", "aero/moment/Pitch_propwash",
                        "aero/moment/Pitch_reversed_flow"],
-             "LIFT": ["aero/force/Lift_alpha", "aero/force/Lift_propwash"],
+             "LIFT": ["aero/force/Lift_alpha", "aero/force/Lift_propwash", "aero/force/Lift_pitch_rate"],
              "DRAG": ["aero/force/Drag_basic"]}), "make_j3cub",
             {"LIFT": ["aero/force/Lift_elevator"]}),
         OUT / "aircraft" / MODEL / "Systems" / f"{SYSTEM}.xml": controls(),

@@ -216,7 +216,7 @@
             </description>
             <product>
                <property>velocities/q-aero-rad_sec</property>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <property>aero/ci2vel</property>
                <table>

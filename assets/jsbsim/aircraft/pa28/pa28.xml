@@ -629,7 +629,7 @@
             <function name="aero/coefficient/CLq">
                 <description>Lift_due_to_pitch_rate</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>velocities/q-rad_sec</property>
                     <property>aero/ci2vel</property>
