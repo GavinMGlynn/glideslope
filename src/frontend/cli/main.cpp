@@ -339,6 +339,12 @@ long connect_stovl_bank_at = -1;
 // that centred the stick - the event a client joining her mid-bank waits
 // for (server_stovl_join.cmake), not a time.
 bool connect_leave_once_bank_held = false;
+// **(`--when-hovering`)**: `--take-over-at` and `--take-back-at` then name the
+// earliest time only: the take-over waits until the AI aircraft it would take
+// has been hovering - under half a metre a second, flying - for three seconds
+// of the session's clock, and the take-back until its own, handed to the AI,
+// has been. An event, not a time (server_stovl_take_over.cmake).
+bool connect_when_hovering = false;
 // **(`--from-held`)**: with `--predict`, it joins as the windowed client does
 // - asking for its own aircraft's levers (`WATCH`), sending nothing until it
 // has them, its prediction begun on them - and every input it sends is what
@@ -539,6 +545,8 @@ void print_usage(std::FILE* out) {
         "                            the server says it is) ahead of the server, puts\n"
         "                            it right by each update, shows the others 100 ms\n"
         "                            behind, and says how far its own was put right\n"
+        "                            --when-hovering makes --take-over-at and\n"
+        "                            --take-back-at wait until the aircraft is hovering\n"
         "                            --hand-over-at S asks, S seconds in, for its own\n"
         "                            aircraft to be handed to the AI pilot, and\n"
         "                            --take-back-at S for it back (or\n"
@@ -4007,6 +4015,11 @@ int stay(glideslope::platform::UdpSocket& socket,
     // Whether an update has shown the AI flying it (`--once-the-ai-flies-it`).
     bool ai_flies_it = false;
     bool asked_to_take_back = false;
+    // `--when-hovering`: since when, on the session's clock, the aircraft it
+    // would take over, and its own, have been hovering; none if not.
+    double ai_hovering_from_s = -1.0;
+    double own_hovering_from_s = -1.0;
+    double hover_clock_s = 0.0;
     // **Stay until what is waited for is heard** (`--until-flying-again N`):
     // a test waiting for a collision and the flying again after it waits for
     // that, with SECONDS only the most it will wait. Thirty seconds of the
@@ -4410,7 +4423,12 @@ int stay(glideslope::platform::UdpSocket& socket,
                 ask(glideslope::net::Controller::learnt_landing);
                 say_heard("asked for the learnt landing");
             }
-            const bool back_now = (take_back_at_s >= 0.0 && up_s >= take_back_at_s) ||
+            const auto hovered = [&](double from_s) {
+                return !connect_when_hovering ||
+                       (from_s >= 0.0 && hover_clock_s - from_s >= 3.0);
+            };
+            const bool back_now = (take_back_at_s >= 0.0 && up_s >= take_back_at_s &&
+                                   hovered(own_hovering_from_s)) ||
                                   (hc.take_back_while_looking && hc.seat && hc.seat->looking());
             if (back_now && !asked_to_take_back) {
                 asked_to_take_back = true;
@@ -4426,7 +4444,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                 hc.taken_back = true;
             }
             if (take_over_at_s >= 0.0 && up_s >= take_over_at_s && !asked_to_take_over &&
-                ai_to_take != glideslope::net::no_aircraft &&
+                hovered(ai_hovering_from_s) && ai_to_take != glideslope::net::no_aircraft &&
                 (!take_over_once_ai || ai_flies_it)) {
                 asked_to_take_over = true;
                 glideslope::net::ControllerSwap swap;
@@ -4856,6 +4874,28 @@ int stay(glideslope::platform::UdpSocket& socket,
                         break;
                     }
                 }
+            }
+            // `--when-hovering`: the aircraft it would take, and its own,
+            // flying under 0.5 m/s over the ground since when.
+            hover_clock_s = state->simulation_time_s;
+            const auto hovering_since = [&](std::uint8_t index, double& from_s) {
+                bool hovering = false;
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    hovering = hovering || (a.index == index &&
+                                            a.condition == glideslope::net::Condition::flying &&
+                                            std::hypot(a.vx_mps, a.vy_mps, a.vz_mps) < 0.5F);
+                }
+                if (!hovering) {
+                    from_s = -1.0;
+                } else if (from_s < 0.0) {
+                    from_s = state->simulation_time_s;
+                }
+            };
+            if (ai_to_take != glideslope::net::no_aircraft) {
+                hovering_since(ai_to_take, ai_hovering_from_s);
+            }
+            if (mine != glideslope::net::no_aircraft) {
+                hovering_since(mine, own_hovering_from_s);
             }
             last_step = std::llround(state->simulation_time_s *
                                      static_cast<double>(glideslope::sim::steps_per_second));
@@ -6124,6 +6164,10 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--stovl-bank-at" && i + 1 < args.size()) {
                     connect_stovl_bank_at = std::stol(std::string(args[++i]));
+                    continue;
+                }
+                if (args[i] == "--when-hovering") {
+                    connect_when_hovering = true;
                     continue;
                 }
                 if (args[i] == "--leave-once-bank-held") {
