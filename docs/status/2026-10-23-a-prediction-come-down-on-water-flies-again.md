@@ -46,8 +46,11 @@ step that meets the surface again holds it down again.
 
 **Not reproduced: the NaN.** Neither the unit test nor the full run, both
 unfixed, gave a NaN in this machine's debug build - which uses FMA
-(x86-64-v3), where CI's does not: an x86-64-v2 build of the full run is
-the next thing to try. Searched the web, JSBSim's discussions included
+(x86-64-v3), where CI's does not. Nor did an x86-64-v2 debug build
+(`build/v2`, `-march=x86-64-v2`), unfixed: the unit test (held at 593 of
+593 words, no NaN) and the full run four times to 280 s, both water wrecks
+in each - two side by side, two pinned together to one core with their
+server and relay, the frames up to 95 ms; CI's were up to 2.4 s. Searched the web, JSBSim's discussions included
 ("Crash Detection", #819), on FGTable's assertion, NaN after a hold-down
 and re-initialising after a crash: nothing that names this.
 
@@ -60,4 +63,6 @@ none compared in the 60 words after it, and the first water wreck comes
 about 107 s after the engine stops. The client frames were up to 2.4 s
 (1.4 s its own) and it was flying at 1.57 of its machine's clock at the
 end: a client that could not keep up on a loaded runner, which a release
-of the hold-down does not touch.
+of the hold-down does not touch. That is what #245 ("A starved predicting
+client reconciles against the newest update only, and catches up")
+answers; it is not yet on #236's base.
