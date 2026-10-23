@@ -86,7 +86,8 @@ Said first, because a transport's limits matter more than its features.
   updates"), and whose input frame carries twenty-one controls, the roll
   and yaw trim last (below, "Inputs"), so that a player's client keeps the
   trim the server held her on - and her held trim, which no control sets,
-  where her model has one (below, "State updates").
+  where her model has one, and the mixture and propeller levers she is
+  held on until her first input (below, "State updates").
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 

@@ -5,8 +5,11 @@
 // clients: the controls a prediction begins on (sim::Prediction::
 // held_by_server), so that a law made on her first input - STOVL mode
 // selected - is seeded in the prediction as the server seeds its own. The
-// server holds her on these to the bit: it holds each control as a 16-bit
-// fraction, as the levers are said (glideslope_server, `Fleet::give`).
+// server holds her on these controls to the bit: it holds each as a 16-bit
+// fraction, as the levers are said (glideslope_server, `Fleet::give`). Her
+// held trim, which no control sets, is not: the server holds it as her trim
+// found it, and tells it as the nearest 16-bit fraction, so her prediction's
+// is within half of 1/32767 of the server's.
 
 #include "net/state.hpp"
 #include "sim/aircraft.hpp"

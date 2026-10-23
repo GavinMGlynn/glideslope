@@ -698,6 +698,18 @@ bool Aircraft::meets_the_surface() const {
 }
 
 void Aircraft::initialize(const InitialConditions& ic) {
+    // **Her fuel frozen while she is started**: leaning her, settling her
+    // engines and flying her boost loops still run her engines, which burn
+    // fuel - the S.23 settled her throttle loops 1.5 lb lighter than she was
+    // loaded. JSBSim's own freeze (FGPropulsion::SetFuelFreeze, the
+    // `propulsion/fuel_freeze` property) stops every engine drawing on her
+    // tanks; it is given back as it was however the start ends.
+    struct FuelFrozen {
+        JSBSim::FGPropulsion* propulsion;
+        bool was;
+        ~FuelFrozen() { propulsion->SetFuelFreeze(was); }
+    } fuel_frozen{exec_->GetPropulsion().get(), exec_->GetPropulsion()->GetFuelFreeze()};
+    fuel_frozen.propulsion->SetFuelFreeze(true);
     const auto fgic = exec_->GetIC();
     // Geodetic, as every latitude here is. JSBSim's SetLatitudeDegIC is the
     // geocentric latitude: given 45 degrees it started the aircraft 0.19
@@ -1006,7 +1018,11 @@ void Aircraft::initialize(const InitialConditions& ic) {
         set_levers();
         stopped_run();
     };
-    if (ic.engine_running && mixture_lever_ &&
+    // Airborne starts alone (the owner, 2026-10-23: "an airborne start sets
+    // its levers as the book flies that height"): one on the ground, at a
+    // high airfield too, keeps her levers as her pilot leaves them - full
+    // rich, to be leaned by her pilot for the take-off.
+    if (ic.engine_running && ic.airspeed_kts > 0.0 && mixture_lever_ &&
         exec_->GetPropertyValue("atmosphere/pressure-altitude") >= full_rich_below_ft_) {
         lean_for_best_power();
     }
