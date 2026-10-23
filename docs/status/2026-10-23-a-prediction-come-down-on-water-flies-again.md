@@ -117,8 +117,10 @@ unknown; the item stays open.
 **Closed on a guard and a trap** (the owner's decision, 2026-10-23; the
 cause unknown).
 - **The guard** (`sim::Prediction::lost`): every input a prediction puts
-  on JSBSim - each step's controls, the server's motion it is put to - is
-  looked at before it is put, and the motion each step leaves after it is
+  on JSBSim - each step's controls, what a lift system's laws command of
+  them, the server's motion or snapshot it is put to, the STOVL law's
+  height asked and pitch integral the word carries, and the levers the
+  server holds her on - is looked at before it is put, and the motion each step leaves after it is
   flown, forward or again. The first NaN or infinity stops the prediction
   flying, and says what it was (the control by name, the motion's
   component, and the first JSBSim properties not finite, by name) and at
@@ -130,6 +132,8 @@ cause unknown).
   client (`client::Flight::let_go_if_lost`) takes the server's motion back
   on the aircraft it has, not a new one, and says so once; `--test-nan-at T`
   gives its prediction a NaN elevator at tick T.
+- **The trap is glideslope_cli's only**; the window client has the guard
+  alone.
 - **The trap** (`--trap-nan`, `platform/nan_trap.hpp`): with glibc the
   floating-point *invalid* exception is unmasked, so the first NaN made
   stops the client with a backtrace of where (its symbols exported on
@@ -138,7 +142,12 @@ cause unknown).
   aircraft not finite is printed by its property name. Set in
   `server_engine_prediction.cmake`, the run that failed, and in the new
   test; both print the programs' standard error when one fails, so it
-  lands in the test log, on CI and in the nightly's repeats.
+  lands in the test log, on CI and in the nightly's repeats. **Its risk**:
+  an unmasked *invalid* exception also fires on an ordered comparison
+  (`comisd`, `<` or `>`) of a quiet NaN, which third-party code - JSBSim,
+  SimGear, the C++ library - may do on purpose and handle; a trap there
+  would be a false red. It names its site in the backtrace, so such a red
+  says itself which it is. None came in the 520 s runs above.
 - **Verification**:
   `a_prediction_given_a_nan_is_let_go_of_and_its_client_flies_on_from_the_servers_state`
   (`tests/cmake/prediction_let_go_of_a_nan.cmake`): the client gives its
@@ -155,9 +164,26 @@ cause unknown).
   `the_client_with_the_window_lets_go_of_a_prediction_given_a_nan_and_flies_on_from_the_servers_state`
   (`tests/cmake/client_let_go_of_a_nan.cmake`), headless on Vulkan with
   `DISPLAY` and `WAYLAND_DISPLAY` unset: a NaN elevator at tick 960, the
-  shot at 3600, a 100 ms relay. Green: all three programs exit 0, the
-  let-go said once ("on the aircraft it has"), one prediction let go of,
-  512 updates compared since. **Seen red** with the guard taken out of
+  shot at 4200, a 100 ms relay, and half a second of the server's words
+  heard with a NaN from tick 2400. Green: all three programs exit 0, each
+  let-go said once ("on the aircraft it has"), two predictions let go of,
+  326 updates compared since the last (512 with the elevator's alone). **Seen red** with the guard taken out of
   `Prediction::fly`: the client aborted on JSBSim's own
   `FGTable::GetValue(double)` assertion, `Factor >= 0.0 && Factor <= 1.0` -
   CI's failure, made from a NaN input. Guard put back, green again.
+- **The guard itself**:
+  `every_input_a_prediction_is_given_not_finite_trips_its_guard_and_is_named`
+  (`tests/unit/test_prediction.cpp`): each of the 19 controls, NaN and
+  infinite, flown as a step; each of the 13 numbers of the server's motion,
+  NaN and infinite, in `reconcile` and in `adopt`; the STOVL height asked,
+  the pitch integral, a lever held by the server, and a number of a
+  snapshot's motion and properties - 100 cases, counted and asserted, each
+  tripping before JSBSim is given it, named, and no step flown after. Left
+  out, and named in the test: a NaN the step itself *leaves* - its check
+  is the same function, walked here, but no debug JSBSim step can be made
+  to leave one without asserting in a table first. **Seen red** with the
+  controls' check taken out ("elevator: the guard said 'nothing'").
+- **Counted once for each loss** in the window client, not for each word
+  heard while the server's stays not finite: the window test also hears
+  half a second of its words with a NaN (`--test-nan-words-at 2400`) and
+  must let go of two predictions. **Seen red** counting every word: 15.

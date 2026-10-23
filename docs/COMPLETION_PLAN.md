@@ -823,7 +823,8 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       given a NaN as an input, or left with one by a step, is let go of and
       started again from the server's word, in both clients. A NaN made
       inside one JSBSim step from finite inputs still asserts in a debug
-      build; only the trap names it. A prediction held on the water after
+      build; only glideslope_cli's trap names it - the window client has
+      the guard alone. A prediction held on the water after
       flying again was found and fixed on the way.
       *Verification: a prediction given a NaN is let go of and each client
       flies on, red without the guard; the held prediction pinned, red

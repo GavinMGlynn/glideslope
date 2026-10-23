@@ -197,6 +197,9 @@ public:
     // flies at or after tick `tick` is given a NaN elevator, in the
     // prediction's input path only.
     void give_nan_at(std::int64_t tick) { nan_at_ = tick; }
+    // And the server's words, as heard, given a NaN for half a second of
+    // ticks from `tick` (`--test-nan-words-at`): a word not finite.
+    void give_nan_words_at(std::int64_t tick) { nan_words_at_ = tick; }
     sim::Prediction::Correction reconcile(const sim::Motion& motion,
                                           std::uint32_t last_applied,
                                           std::size_t steps_into,
@@ -366,6 +369,8 @@ private:
     std::size_t let_go_ = 0;
     std::size_t compared_when_let_go_ = 0;
     std::int64_t nan_at_ = -1;
+    std::int64_t nan_words_at_ = -1;
+    bool loss_counted_ = false;
     // Where each step flown forward left the aircraft, and whether the
     // clocks' difference was known then (`prediction_errors_m`).
     struct Predicted {

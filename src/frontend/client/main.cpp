@@ -168,6 +168,9 @@ struct Options {
     // Test flag (`--test-nan-at T`): the prediction given a NaN elevator at
     // tick T (client::Flight::give_nan_at).
     std::int64_t nan_at = -1;
+    // And the server's words as heard, for half a second from tick T
+    // (`--test-nan-words-at T`).
+    std::int64_t nan_words_at = -1;
     double learnt_landing_after_s = -1.0;
     // **For a test: keys pressed**, each S seconds after joining, as a
     // player's finger would - the key's event, and the key held for one
@@ -304,6 +307,8 @@ void usage(std::FILE* out) {
         "  --test-nan-at T  on a server, give the prediction of your own\n"
         "                aircraft a NaN elevator at tick T, never sent: it is let\n"
         "                go of and taken back from the server's word (for tests)\n"
+        "  --test-nan-words-at T  on a server, hear the server's words on your\n"
+        "                own aircraft with a NaN for half a second from tick T\n"
         "  --learnt-landing-after S  on a server, ask for your own aircraft to be\n"
         "                handed to the learnt landing S seconds after joining, as L\n"
         "                does (for tests)\n"
@@ -606,6 +611,11 @@ static int run_program(int argc, char** argv) {
             char* end = nullptr;
             o.nan_at = std::strtoll(text.c_str(), &end, 10);
             ok = end != text.c_str() && *end == '\0' && o.nan_at >= 0;
+        } else if (a == "--test-nan-words-at" && has_value) {
+            const std::string text(args[++i]);
+            char* end = nullptr;
+            o.nan_words_at = std::strtoll(text.c_str(), &end, 10);
+            ok = end != text.c_str() && *end == '\0' && o.nan_words_at >= 0;
         } else if (a == "--hand-over-after" && has_value) {
             o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--stall-after" && has_value) {
@@ -1043,6 +1053,9 @@ static int run_program(int argc, char** argv) {
                 glideslope::platform::cache_directory(), start);
             if (o.nan_at >= 0) {
                 flight->give_nan_at(o.nan_at);
+            }
+            if (o.nan_words_at >= 0) {
+                flight->give_nan_words_at(o.nan_words_at);
             }
             if (joined) {
                 flight->adopt(joined->motion);
@@ -2133,6 +2146,9 @@ static int run_program(int argc, char** argv) {
                             glideslope::platform::cache_directory(), start);
                         if (o.nan_at >= 0) {
                             flight->give_nan_at(o.nan_at);
+                        }
+                        if (o.nan_words_at >= 0) {
+                            flight->give_nan_words_at(o.nan_words_at);
                         }
                         has_aircraft_mesh = false;
                         // What the flight it replaces had: the input it is on,

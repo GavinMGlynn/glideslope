@@ -3321,3 +3321,141 @@ GLIDESLOPE_TEST(a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_e
     check(read == 9 && left_out == 1 && read + left_out + not_read == stick_stages * stick_axes,
           "the nine compared, the one left out and the six not read are the sixteen");
 }
+
+// **The guard of a prediction trips on every input not finite, and names
+// it** (sim::Prediction::lost; docs/status, 2026-10-23). Each of the
+// controls set to a NaN and to an infinity in turn, flown as a step; each of
+// the server's motion's thirteen numbers, likewise, in the word it is put
+// right by and in the motion it adopts; the STOVL law's height asked and
+// pitch integral the word carries; the levers the server holds her on; and a
+// number of the server's snapshot. Each trips it before JSBSim is given the
+// number - the aircraft is not stepped - and is named, and a prediction lost
+// flies no step after. The space walked is counted and asserted.
+// **Left out**: the motion a step *leaves* not finite. Its check is the same
+// function as the server's motion's, walked here for every number, but no
+// step of a debug JSBSim can be made to leave a NaN without first looking a
+// table up at it and asserting (FGTable.cpp:618) - which is the limit the
+// guard is stated with.
+GLIDESLOPE_TEST(every_input_a_prediction_is_given_not_finite_trips_its_guard_and_is_named) {
+    Aircraft a(data() / "jsbsim", "c172p");
+    set_up(a);
+    const std::array<const char*, Controls::control_count> names = {
+        "elevator",        "aileron",         "rudder",           "throttle",
+        "mixture",         "flaps",           "left brake",       "right brake",
+        "pitch trim",      "propeller",       "gear",             "supercharger",
+        "speedbrake",      "throttle offset 0", "throttle offset 1", "cooling flaps 0",
+        "cooling flaps 1", "reverse",         "stovl"};
+    const std::array<double, 2> bad = {std::nan(""), HUGE_VAL};
+    std::size_t walked = 0;
+    std::size_t tripped = 0;
+    const auto tripped_on = [&](const Prediction& p, const std::string& what,
+                                const std::string& case_name) {
+        ++walked;
+        if (p.lost() && p.lost()->what == what) {
+            ++tripped;
+        } else {
+            check(false, case_name + ": the guard said '" +
+                             (p.lost() ? p.lost()->what : std::string("nothing")) +
+                             "', not '" + what + "'");
+        }
+    };
+    // Every control.
+    for (std::size_t i = 0; i < Controls::control_count; ++i) {
+        for (const double v : bad) {
+            Prediction p(a);
+            auto list = Controls{}.as_list();
+            list[i] = v;
+            const double was_s = a.state().sim_time_s;
+            p.step(1, Controls::from_list(list));
+            tripped_on(p, std::string("the input's ") + names[i], names[i]);
+            check(a.state().sim_time_s == was_s, std::string(names[i]) + ": not stepped");
+            p.step(1, Controls{});
+            check(a.state().sim_time_s == was_s,
+                  std::string(names[i]) + ": a prediction lost flies no step after");
+        }
+    }
+    const std::size_t controls_walked = walked;
+    check(controls_walked == 2 * Controls::control_count,
+          "every control, NaN and infinite: " + std::to_string(controls_walked));
+    // Every number of the server's motion, in reconcile and in adopt.
+    const glideslope::sim::Motion good = a.motion();
+    std::size_t motion_numbers = 0;
+    const auto each_number = [&](const std::function<void(glideslope::sim::Motion&,
+                                                          const std::string&)>& fn) {
+        motion_numbers = 0;
+        for (const double v : bad) {
+            for (std::size_t i = 0; i < 3; ++i) {
+                glideslope::sim::Motion m = good;
+                m.location_ecef_m[i] = v;
+                fn(m, "location_ecef_m[" + std::to_string(i) + "]");
+                m = good;
+                m.uvw_mps[i] = v;
+                fn(m, "uvw_mps[" + std::to_string(i) + "]");
+                m = good;
+                m.pqr_radps[i] = v;
+                fn(m, "pqr_radps[" + std::to_string(i) + "]");
+                motion_numbers += 3;
+            }
+            for (std::size_t i = 0; i < 4; ++i) {
+                glideslope::sim::Motion m = good;
+                m.attitude_local[i] = v;
+                fn(m, "attitude_local[" + std::to_string(i) + "]");
+                ++motion_numbers;
+            }
+        }
+    };
+    each_number([&](glideslope::sim::Motion& m, const std::string& n) {
+        Prediction p(a);
+        (void)p.reconcile(m, 0, 0, 0, std::nullopt, {});
+        tripped_on(p, "the server's word's " + n, "reconcile " + n);
+    });
+    check(motion_numbers == 2 * 13, "every number of a motion, NaN and infinite: " +
+                                        std::to_string(motion_numbers));
+    each_number([&](glideslope::sim::Motion& m, const std::string& n) {
+        Prediction p(a);
+        (void)p.adopt(m, 0);
+        tripped_on(p, "the server's word's " + n, "adopt " + n);
+    });
+    // The STOVL law's numbers the word carries.
+    for (const double v : bad) {
+        {
+            Prediction p(a);
+            (void)p.reconcile(good, 0, 0, 0, v, {});
+            tripped_on(p, "the server's word's stovl_height_asked_ft", "height asked");
+        }
+        {
+            Prediction p(a);
+            glideslope::sim::Transition::Carried carried;
+            carried.pitch_integral_deg = v;
+            (void)p.reconcile(good, 0, 0, 0, std::nullopt, carried);
+            tripped_on(p, "the server's word's stovl pitch_integral_deg", "pitch integral");
+        }
+        {
+            Prediction p(a);
+            Controls held;
+            held.throttle = v;
+            p.held_by_server(held);
+            tripped_on(p, "the server's held throttle", "held by the server");
+        }
+        {
+            Prediction p(a);
+            AircraftSnapshot s = a.capture();
+            s.uvw_fps[1] = v;
+            (void)p.reconcile(s, 0);
+            tripped_on(p, "the server's snapshot's uvw_fps[1]", "snapshot motion");
+        }
+        {
+            Prediction p(a);
+            AircraftSnapshot s = a.capture();
+            check(!s.properties.empty(), "a snapshot has properties");
+            s.properties.front().second = v;
+            (void)p.reconcile(s, 0);
+            tripped_on(p, "the server's snapshot's " + s.properties.front().first,
+                       "snapshot property");
+        }
+    }
+    const std::size_t space = 2 * Controls::control_count + 2 * 2 * 13 + 2 * 5;
+    check(walked == space && tripped == space,
+          "the space walked " + std::to_string(walked) + " of " + std::to_string(space) +
+              ", tripped and named " + std::to_string(tripped));
+}
