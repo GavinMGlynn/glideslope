@@ -66,3 +66,43 @@ end: a client that could not keep up on a loaded runner, which a release
 of the hold-down does not touch. That is what #245 ("A starved predicting
 client reconciles against the newest update only, and catches up")
 answers; it is not yet on #236's base.
+
+**Second round, on #245's main: the NaN still not reproduced.** Every
+run below had the client's floating-point *invalid* exception unmasked
+(a preloaded `feenableexcept(FE_INVALID)` with a SIGFPE backtrace), so
+the first NaN made anywhere in it - not only one that reached a table -
+would have stopped it where it was made. That trap was seen to fire: a
+NaN made by 0/0 in a thread of an ASan program aborted it with the
+trace; nothing in `src/`, JSBSim or SimGear resets the floating-point
+environment. The runs are the scenario as `server_engine_prediction.cmake`
+runs it (relay 250 ms each way), the client kept to 520 s so that the
+water wrecks come, each run's server and impair unpinned:
+- **This branch, debug (FMA)**, client `--slow-steps 2000`: 3 wrecks
+  heard and flown again, no trap; 280 s plain, 1 wreck, no trap.
+- **This branch, x86-64-v2 debug (no FMA)**, `--slow-steps 2000`:
+  3 wrecks, no trap.
+- **This branch with the hold-down release taken out** (the code CI
+  ran in that respect), debug, `--slow-steps 2000` and `3500`: 3 and 2
+  wrecks, no trap. The unit test, unfixed and trapped, fails only on its
+  held count: no trap.
+- **CI's own commit** (e365c623, run 39883628869's: before #245, before
+  this fix), debug, its client pinned to one core with 1, 2, 3, 6 and 10
+  spinning loops on it: 5, 5, 5, 5 and 4 wrecks on the server; the
+  client's longest frames 82 ms, 219 ms, 1.5 s, 0.85 s; no trap in any.
+  At 10 loops the client heard its engine stop and **none of the four
+  wrecks** - as CI's did, whose log has no wreck heard by the client -
+  and was flying at 2.0 of its machine's clock, its corrections stopped
+  at 41: no trap there either.
+- `--slow-steps 6000` on this branch is past what this client can fly
+  (its clock ran to 447 s while the server's was at 6 s, and it left at
+  its 520 s): no wreck reached, no trap; not a test of this.
+
+Searched again: JSBSim's #809 (the same assertion, an F-16 diverging in
+pitch and crashing; not found), #815 and #818 (NaNs after hard impacts:
+"compresses its gears and contact points to a ridiculous amount",
+bcoconni), #1495 (a SIGFPE on a propeller's first step, closed
+unreproduced). The assertion at FGTable.cpp:618 is the one-dimensional
+lookup, and a key that is NaN is the only one that fails it: every
+comparison is false, so the search stops at the first breakpoint and
+the factor is NaN. Which table, and which input made the NaN, remain
+unknown; the item stays open.
