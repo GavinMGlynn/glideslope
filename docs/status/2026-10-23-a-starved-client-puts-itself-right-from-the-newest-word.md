@@ -43,6 +43,14 @@ input). Gaffer On Games' *State Synchronization* uses the newest state and a
 jitter buffer for ordering. Older states only add replay that the newest
 supersedes.
 
+**The pace is still steered by every word** (`sim::Pacing::follow`), superseded
+or not: its loop integrates word by word. Steered only from the newest, the
+stalled paced test (`..._whose_machine_stops_for_seconds_...`, Linux debug)
+came back within a metre from the 22nd to 27th word after the stall, the worst
+across it 10.8 m and p95 0.995 m, against the 4th and 13th word and 6.1 m
+before this change; steered by every word, the 8th, 6.9 to 7.3 m, p95 0.40 to
+0.47 m.
+
 **The statistics stay honest.** Every word is still compared (the error, the
 percentiles, the stalls' words); only corrections are counted for the newest
 alone, since only it moves the aircraft. The report says how many words were

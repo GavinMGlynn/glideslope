@@ -2009,7 +2009,12 @@ public:
             }
             // The pace steered by the clocks' difference, once it is
             // known; from the session clock's fitted rate the first time.
-            if (paced_ && newest_read) {
+            // **By every word, superseded or not**: the pace's loop
+            // integrates word by word, and steered only once a pass it came
+            // back from a stall's catching up three times as slowly - within
+            // a metre from the 22nd to 27th word after, against the 4th to
+            // 13th (Linux debug).
+            if (paced_) {
                 pacing_.follow(*prediction_, local_s,
                                clock_.known() ? std::optional<double>(clock_.rate())
                                               : std::nullopt);
