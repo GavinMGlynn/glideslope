@@ -1760,7 +1760,7 @@ The pipeline: its length, its caches and what it costs a pull request.
       on CI every Rocky shard's tests take under 20 minutes, and every test
       runs in exactly one shard.* Done 2026-10-16: four shards, 8.9 to 12.5
       minutes each, and the shards test checks every job's dealing.
-- [ ] **Every push to a draft pull request runs the full matrix**, about 50
+- [x] **Every push to a draft pull request runs the full matrix**, about 50
       jobs and 980 runner-minutes (run 39846357752). *Verification: a draft's
       run builds everything and tests only Linux and Windows debug, with "CI
       passed" red and "CI draft passed" green; marked ready, the full run

@@ -38,9 +38,10 @@ concurrent jobs, 5 macOS) approved the change for throughput.
   `ci-refs/pull/N/merge-pull_request`, and `cancel-in-progress` cancels the
   running or pending run of the group when a new one is queued ([GitHub:
   control workflow concurrency](https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency)):
-  marking ready cancels the draft's run in progress, and nothing a draft
-  does afterwards can cancel the ready run, since `converted_to_draft` is
-  not a trigger ([GitHub: events that trigger workflows, pull_request](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)).
+  marking ready cancels the draft's run in progress. A ready run is
+  cancelled only by converting the pull request back to a draft and pushing
+  to it - harmless, since a draft cannot merge; `converted_to_draft` is
+  itself not a trigger ([GitHub: events that trigger workflows, pull_request](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request)).
 
 CLAUDE.md, `tools/start_item.sh` and `package.yml`'s header say the new flow:
 iterate on the draft until CI draft passed is green, mark it ready, wait for
@@ -62,4 +63,10 @@ runner-minutes** (Windows 216, macOS 4), against 979 for the full run
 each job's started-to-completed time, summed over the jobs that ran. The
 debug shards are most of what remains, and they are the draft's point.
 
-The ready run: pending.
+The ready run, 39884098655 on 14f3c2b6: green, 49 jobs and **919
+runner-minutes** (Windows 391, macOS 56). Its Windows release shard 1/3 was
+cancelled at its 45-minute limit on the first attempt, its log lost, and
+passed when re-run. The cancelled draft run left a failed CI passed on the
+same commit; with the ready run green the pull request's merge state was
+blocked only for being behind main, the ready run's newer check counting
+([GitHub: troubleshooting required status checks](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests/collaborating-on-repositories-with-code-quality-features/troubleshooting-required-status-checks)).
