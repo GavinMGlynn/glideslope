@@ -451,7 +451,8 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       client taking over or back an F-35B whose law flies her is told it,
       her pitch within half a degree.* Done 2026-10-22: taken over
       hovering 0.005 degrees, taken back hovering 0.004 and wing-borne
-      with STOVL still selected 0.009; untold, 3.6 degrees.
+      with STOVL still selected 0.009. Untold: taken back hovering 3.632
+      degrees, taken back wing-borne 0.306 (taken over untold not measured).
 - [x] **A player who joins already selecting STOVL mode has her law seeded
       as the server's**: her prediction begins on the controls the server
       says it holds her on, and a law made again in a replay is seeded as it

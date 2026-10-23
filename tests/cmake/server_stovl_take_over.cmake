@@ -22,12 +22,12 @@
 # converts at the height she was at, slows jet-borne and hovers.
 #
 #   take_over  It rides in the AI's F-35B (`--watch-ai`) and takes her
-#              over 200 s in (`--take-over-at 200`), hovering over the
-#              point since some 130 s; its own goes to the AI.
+#              over once she has hovered over the point for three
+#              seconds (`--take-over-at 0 --when-hovering`, an event); its own goes to the AI.
 #   take_back  It hands its own F-35B to the AI 150 s in, converted and
 #              jet-borne, slowing (`--hand-over-at 150`), and takes her
-#              back 200 s in, hovering since some 170 s (`--take-back-at
-#              200`). Handed to the AI with no plan given her, she is held
+#              back once she has hovered for three seconds (`--take-back-at
+#              0 --when-hovering`). Handed to the AI with no plan given her, she is held
 #              in STOVL mode: the AI holds the hover she is slowing to at
 #              the height asked (sim::Controller), and her law is never
 #              let go.
@@ -93,9 +93,9 @@ math(EXPR _relay "${PORT} + 1")
 set(_flies 900 --after 1 --predict --stovl-land
            --stovl-level --until-compared-on-law 750 --heard "${_heard}")
 if(SCENE STREQUAL "take_over")
-    list(APPEND _flies --watch-ai --take-over-at 200)
+    list(APPEND _flies --watch-ai --take-over-at 0 --when-hovering)
 elseif(SCENE STREQUAL "take_back")
-    list(APPEND _flies --hand-over-at 150 --take-back-at 200)
+    list(APPEND _flies --hand-over-at 150 --take-back-at 0 --when-hovering)
 elseif(SCENE STREQUAL "take_back_wing_borne")
     list(APPEND _flies --hand-over-at 150 --send-route "${_route}" --copilot-at 155
                        --copilot-stay 600 --take-back-at 300)
