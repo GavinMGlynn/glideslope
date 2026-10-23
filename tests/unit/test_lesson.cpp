@@ -5378,8 +5378,11 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
     every_stall_recovered_within(
         true, 0.0, "at the stall warning",
         [](const Result&, double lesson_ft) { return lesson_ft; },
-        {{"learjet35a", Fault::height, 385.0},
-         {"short_s23", Fault::height, 184.0}});
+        // The S.23, named until 2026-10-24 for 184 ft, meets 200 with 10% in
+        // hand (89 ft) since her drag due to lift is her wing's and her lift
+        // and drag past the stall Viterna and Corrigan's (make_short_s23.py):
+        // stalled at the warning from a proper entry, 71 kt, alpha 9.
+        {{"learjet35a", Fault::height, 385.0}});
 }
 
 GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_within_2_g_and_the_height_its_speed_and_sink_need) {

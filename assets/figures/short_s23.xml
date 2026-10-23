@@ -30,10 +30,11 @@
   below its hydrodynamic reference point, put the hull's keel 6.0 ft below the
   reference point; the main step is 1.82 m (5.97 ft) aft of it.
 
-  Not flown: the stalling speed, 73 mph, at no stated weight, flap or power:
-  at 40,500 lb it would take a lift coefficient of 1.98, more than the 1.8
-  Gouge's wind tunnel gave with 28 degrees of flap (p. 680), which the model's,
-  1.77 with its 25, matches. The cruising speed, 165 mph at 4 x 510 bhp, names
+  Not flown: Flight's stalling speed, 73 mph (63.4 kt), at no stated weight,
+  flap or power: at 40,500 lb it would take a lift coefficient of 1.98, more
+  than the 1.8 Gouge's wind tunnel gave with 28 degrees of flap (p. 680),
+  which the model's, 1.77 with its 25, matches. Gouge's 1.8 is flown instead
+  (stall_speed_gouge, below). The cruising speed, 165 mph at 4 x 510 bhp, names
   a power and no altitude.
 
   **elevator_full_cm** is not a published figure: her flight model's own
@@ -109,9 +110,24 @@
     2,775 rpm, past even the 2,600 all out.
   </figure>
 
+  <figure name="stall_speed_gouge" flight="stall_speed" loading="standard"
+          unit="KCAS" value="66.4" tolerance="3" flaps_deg="25" entry_kcas="120"
+          gear="1" clmax="1">
+    Gouge, p. 680: the wind tunnel's greatest lift coefficient with 28
+    degrees of flap, 1.8. At 40,500 lb on her 1,500 sq ft that is a stall of
+    66.4 KCAS, sea level, standard day. Her flaps travel to 25 degrees; the
+    tolerance is the measured figure's, 3 kt, about 9% of lift. Flown as the
+    measured stall below is, with her flaps full, and read where her lift
+    coefficient is first a maximum, as 14 CFR 25.103(b) defines a stall
+    speed: past her greatest lift she mushes, sinking, rather than gather
+    speed (Viterna and Corrigan's lift, tools/make_short_s23.py), and the
+    lowest speed of the mush read 61.8 - a lift coefficient of 2.09, which
+    no wing of hers makes.
+  </figure>
+
   <figure name="stall_speed_landing" flight="stall_speed" from="measured"
           loading="standard" unit="KCAS" value="66.32" tolerance="3"
-          flaps_deg="25" entry_kcas="120" gear="1">
+          flaps_deg="25" entry_kcas="120" gear="1" clmax="1">
     **Measured, not published.** No flight manual for this aeroplane is
     public, so there is no handbook stall speed to hold the model to. This is
     what the model itself does, flown by the same deceleration the published
@@ -121,7 +137,10 @@
     hundredth of a knot, so the number is the model's and not the entry's.
     From 80 knots - only a fifth above the stall - it reads 69.2, because
     there is not enough speed in hand to establish the deceleration before
-    the wing gives up; that is the entry being wrong, not the number.
+    the wing gives up; that is the entry being wrong, not the number. Since
+    2026-10-24 it is read where her lift coefficient peaks (14 CFR
+    25.103(b), `clmax`), 67.03, as Gouge's figure above is: with lift past
+    the stall she mushes and her lowest speed is not her stall.
   </figure>
   <!-- **The speeds a plan may fly her at**, measured by `glideslope_cli
        plan-speeds short_s23` on 2026-10-02 (linux-release), and again on

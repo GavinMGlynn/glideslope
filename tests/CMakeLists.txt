@@ -722,6 +722,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_airbus_a320_stalls_at_its_take_off_flap_where_its_own_model_said_it_would
     the_airbus_a380_stalls_at_its_take_off_flap_where_its_own_model_said_it_would
     the_short_s23_stalls_where_its_own_model_said_it_would
+    the_short_s23_at_40500_lb_with_full_flap_stalls_at_gouges_lift_coefficient
     the_boeing_737_300_climbs_at_the_rate_its_own_model_gave
     the_boeing_787_8_climbs_at_the_rate_its_own_model_gave
     the_airbus_a320_climbs_at_the_rate_its_own_model_gave

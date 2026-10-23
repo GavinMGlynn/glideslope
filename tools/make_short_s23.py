@@ -87,8 +87,28 @@ The changes, and what each is for:
                         (Aircraft Design: A Conceptual Approach, eq. 12.48),
                         1.78 (1 - 0.045 A^0.68) - 0.64 = 0.79, in the 0.7 to
                         0.85 of a conventional monoplane flaps up. Past it,
-                        where the flow has separated, the DATCOM table times
-                        1.9 as before, the greater of the two. The zero-lift
+                        where the flow has separated, Viterna and Corrigan's
+                        separated drag (NASA CP-2230, 1982), CDmax sin^2 a +
+                        B2 cos a, CDmax = 1.11 + 0.018 A = 1.27, B2 joining
+                        it to her polar at the stall; the greater of the
+                        two. The DATCOM rows past the stall fell to 0.05 by
+                        20 degrees: with them, held thirty seconds in the
+                        stall she dived to 200 kt and was pulled out at 6.7
+                        g (test_lesson.cpp's stall left thirty seconds).
+
+    Her lift past her greatest, Viterna and Corrigan's
+                        CLwbh's rows past 0.2443 rad fell to -0.2 by 24
+                        degrees and held it: past the stall she had no lift
+                        at all. They are now A1 sin 2a + A2 cos^2 a / sin a
+                        (the same report), A1 = CDmax / 2 and A2 joining it
+                        to her lift at the stall, 1.53, out to 90 degrees.
+                        Joined at 20 degrees instead, after the table's own
+                        steep break, she fell out of the stall held thirty
+                        seconds and was pulled out at 4.6 g: seen red so.
+                        With lift past the stall she mushes rather than
+                        gathering speed, so her stall is measured where her
+                        lift coefficient peaks, as 14 CFR 25.103(b) has it
+                        (assets/figures/short_s23.xml). The zero-lift
                         drag is fitted to Flight's 200 mph at 5,500 ft: 204
                         mph, with the climb (below) at 876 ft/min against 950.
 
@@ -278,6 +298,9 @@ ZERO_LIFT_DRAG = 0.0330
 ASPECT_RATIO = 114.0 ** 2 / 1500.0
 OSWALD = 1.78 * (1.0 - 0.045 * ASPECT_RATIO ** 0.68) - 0.64
 STALL_ALPHA = 0.2443
+CLWBH_FACTOR = 0.83       # the pinned model's factor on CLwbh's table
+LIFT_JOIN_ALPHA = STALL_ALPHA  # Viterna and Corrigan's from her greatest lift
+STALL_CL = CLWBH_FACTOR * 1.845   # CLwbh at STALL_ALPHA, clean
 # NACA Report 640 (Hartman and Biermann, 1938), figure 12: a three-blade
 # Clark Y propeller's efficiency against advance ratio by blade angle.
 FINE_EFFICIENCY_SCALE = 0.957    # fine pitch's thrust above take-off
@@ -376,7 +399,34 @@ def aerodynamics():
             rf"(<function name=\"aero/function/ground-effect-factor-{what}\">\s*<description>[^<]*</description>\n)"
             r"\s*<product>\n(\s*<table>.*?</table>\n)\s*</product>\n",
             r"\1\2", f"ground effect's {what} factor")
-    return with_drag_polar(text)
+    return with_drag_polar(with_separated_lift(text))
+
+
+def with_separated_lift(text):
+    """`text` with CLwbh's rows past her greatest lift (LIFT_JOIN_ALPHA)
+    Viterna and Corrigan's separated lift (NASA CP-2230, 1982): A1 sin 2a +
+    A2 cos^2 a / sin a, A1 = CDmax / 2, A2 making it the table's own lift
+    there, out to 90 degrees. The pinned rows fell to -0.2 by 24 degrees and
+    held it beyond."""
+    m = re.search(r"(<function name=\"aero/coefficient/CLwbh\">.*?<tableData>\n)(.*?)(\n\s*</tableData>)",
+                  text, re.S)
+    if not m:
+        raise SystemExit("make_short_s23: no CLwbh table - has the pinned model changed?")
+    rows = [line.split() for line in m.group(2).strip().splitlines()]
+    cd_max = 1.11 + 0.018 * ASPECT_RATIO
+    a1 = cd_max / 2.0
+    join_cl = CLWBH_FACTOR * next(float(r[1]) for r in rows
+                                  if abs(float(r[0]) - LIFT_JOIN_ALPHA) < 1e-4)
+    a2 = ((join_cl - cd_max * math.sin(LIFT_JOIN_ALPHA) * math.cos(LIFT_JOIN_ALPHA))
+          * math.sin(LIFT_JOIN_ALPHA) / math.cos(LIFT_JOIN_ALPHA) ** 2)
+    kept = [f"                       {r[0]:>10}     {r[1]}" for r in rows
+            if float(r[0]) <= LIFT_JOIN_ALPHA + 1e-4]
+    added = []
+    for i in range(1, 17):
+        a = LIFT_JOIN_ALPHA + i * (math.pi / 2 - LIFT_JOIN_ALPHA) / 16
+        cl = a1 * math.sin(2 * a) + a2 * math.cos(a) ** 2 / math.sin(a)
+        added.append(f"                       {a:10.4f}     {cl / CLWBH_FACTOR:.4f}")
+    return text[:m.start()] + m.group(1) + "\n".join(kept + added) + m.group(3) + text[m.end():]
 
 
 def with_drag_polar(text):
@@ -389,10 +439,19 @@ def with_drag_polar(text):
     if not m:
         raise SystemExit("make_short_s23: no drag table - has the pinned model changed?")
     rows = [line.split() for line in m.group(4).strip().splitlines()]
-    separated = "\n".join(
-        f"                       {float(a):8.4f}  {(float(cd) if float(a) > STALL_ALPHA else 0.0):.5f}"
-        for a, cd in rows)
     k = 1.0 / (math.pi * OSWALD * ASPECT_RATIO)
+    # Past her greatest lift, Viterna and Corrigan's separated drag (NASA
+    # CP-2230, 1982): CDmax sin^2 a + B2 cos a, CDmax = 1.11 + 0.018 A, B2
+    # making it her polar's drag at the stall.
+    stall_cd = ZERO_LIFT_DRAG + k * STALL_CL ** 2
+    cd_max = 1.11 + 0.018 * ASPECT_RATIO
+    b2 = (stall_cd - cd_max * math.sin(STALL_ALPHA) ** 2) / math.cos(STALL_ALPHA)
+    alphas = [float(a) for a, _ in rows if float(a) <= STALL_ALPHA]
+    alphas += [STALL_ALPHA + i * (math.pi / 2 - STALL_ALPHA) / 16 for i in range(1, 17)]
+    separated = "\n".join(
+        f"                       {a:8.4f}  "
+        f"{(cd_max * math.sin(a) ** 2 + b2 * math.cos(a)) if a >= STALL_ALPHA else 0.0:.5f}"
+        for a in alphas)
     polar = (
         f"<value>1.0</value> <!-- glideslope: a zero-lift drag and a drag due to lift, and the\n"
         f"                    DATCOM table past her greatest lift; see tools/make_short_s23.py. -->\n"
