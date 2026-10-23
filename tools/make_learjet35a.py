@@ -141,6 +141,14 @@ wing standing in a beam wind (make_j3cub.py). In flight, at a few degrees of
 sideslip, the two differ by its cosine squared. Her wing is swept: moved on the
 same argument as her lift, simple sweep theory
 (alpha_rate.with_alpha_terms_on_qbar_uw).
+
+**Her alpha limits** (2026-10-23): the angles of attack JSBSim's trim searches,
+which without them are -5 to 20 degrees - past every flap setting's stall,
+where her lift falls, so that the trim saw no lift enough at either end and
+failed even where she flies, clean at the plan's slowest (140 kt at 16,411 lb).
+They are -5 degrees to the greatest angle any setting of her flaps reaches
+before it stalls (lift_table's peaks, from the AFM's stall speeds); nothing
+else in the model reads them.
 """
 
 import math
@@ -572,7 +580,10 @@ def aerodynamics():
         w.coefficient("Cndr", "Yaw_moment_due_to_rudder", [q, s, b, "fcs/rudder-pos-rad", CN_DR]),
     ]
     windmill = airliner.windmill_function(2, FAN_IN, 0.4, "            ") + "\n"
-    return w.axes((("LIFT", lift), ("DRAG", drag + [windmill]), ("SIDE", side), ("ROLL", roll),
+    stalls = [(peak - (ZERO_ALPHA_LIFT + lift)) / LIFT_SLOPE for lift, peak in zip(FLAP_LIFT, MAX_LIFT)]
+    limits = ("        <alphalimits unit=\"RAD\">\n            <min>-0.0873</min>\n"
+              f"            <max>{max(stalls):.4f}</max>\n        </alphalimits>\n")
+    return limits, w.axes((("LIFT", lift), ("DRAG", drag + [windmill]), ("SIDE", side), ("ROLL", roll),
                    ("PITCH", pitch), ("YAW", yaw)))
 
 
@@ -587,7 +598,13 @@ def airframe():
             "        <description>Gates Learjet 35A, TFE731-2-2B</description>\n"
             "    </fileheader>\n"
             + metrics() + mass_balance() + ground_reactions() + propulsion() + flight_control()
-            + aerodynamics() + "</fdm_config>\n")
+            + with_limits() + "</fdm_config>\n")
+
+
+def with_limits():
+    """The aerodynamics, her alpha limits first."""
+    limits, axes = aerodynamics()
+    return axes.replace("    <aerodynamics>\n", "    <aerodynamics>\n" + limits, 1)
 
 
 def engine():

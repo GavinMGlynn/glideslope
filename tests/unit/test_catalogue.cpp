@@ -377,17 +377,31 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 // points left out below, which are open in the completion plan ("Trimmed at
 // every height, speed and loading a player may start at"). A point left out
 // may fail, and where it does it must say so; it is counted, never passed.
-// Left out (linux-debug, 2026-10-23: 68 of 540 not trimmed, every one
-// inside these and every one said):
-//   - the S.23, everywhere: trimmed at 3,000 ft and her start speed (the
-//     test above), she is not at 1,000, 5,000 or 10,000 ft at most loadings
-//     and speeds (24 of her 27 here);
-//   - the 737-300 and the Learjet 35A at the plan's slowest, clean, and the
-//     Learjet at the plan's fastest at her model's own loading;
-//   - the C172P, PA-28, J-3 Cub and C182 at 10,000 ft, and the C182 at
-//     5,000 ft at the plan's fastest: at 10,000 ft each speed asked is a
-//     true airspeed near or past what her engine makes there, not checked
-//     against her book.
+// Left out (linux-debug, 2026-10-23: 47 of 540 not trimmed, every one
+// inside these and every one said). Outside her book, a correct failure:
+//   - the C172P at 110 kt at 10,000 ft (127 KTAS): figure 5-8 gives 121 KTAS
+//     at 8,000 ft at 77% (assets/figures/c172p.xml);
+//   - the PA-28-180 at 110 and 112 kt at 10,000 ft (127 KTAS and more): 75%
+//     at its optimum height, 7,000 ft, is 124.3 KTAS (pa28.xml);
+//   - the C182 at 129 kt at 10,000 ft (150 KTAS): her greatest, 145 KTAS at
+//     sea level, 140 at 80% at 6,000 ft (c182.xml).
+// Defects found and open (COMPLETION_PLAN.md):
+//   - the S.23, everywhere: her boost control is an integrator in her flight
+//     controls, which runs on at every pass of JSBSim's trim, and the trim
+//     cycles without settling; at 3,000 ft and her start speed (the test
+//     above) it settles;
+//   - the Learjet 35A at 300 kt at her model's own loading, under her 350
+//     kt limit (A10CE): her stabilizer at either stop leaves her pitching;
+//   - the C172P at 100 kt at 2,400 lb and the C182 at 64, 71 and 120 kt at
+//     10,000 ft, and the C182 at 129 kt at 5,000 ft: trimmed with her
+//     mixture full rich, which at height JSBSim's piston burns ever worse
+//     (the C182's engine stops at 10,000 ft); her book's figures are leaned;
+//   - unsourced: the J-3 Cub at 60 and 62 kt at 10,000 ft, which no Cub
+//     figure gives a speed at (she has no mixture lever), and the C182 at
+//     120 kt there, between figures.
+// The 737-300 and the Learjet at the plan's slowest were left out until
+// their models gave JSBSim's trim their alpha limits (tools/make_737_300.py,
+// tools/make_learjet35a.py): seen red without them, 21 points.
 GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speeds_is_trimmed_as_a_players_is) {
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
     const std::string pitch_alone = "f22";
@@ -396,7 +410,6 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
     const auto left_out = [](const std::string& id, bool own_loading, double height_ft,
                              Speed speed) {
         return id == "short_s23" ||
-               ((id == "737-300" || id == "learjet35a") && speed == slowest) ||
                (id == "learjet35a" && own_loading && speed == fastest) ||
                ((id == "c172p" || id == "pa28" || id == "j3cub" || id == "c182") &&
                 height_ft == 10000.0) ||
