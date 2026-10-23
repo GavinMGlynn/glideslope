@@ -224,11 +224,13 @@ bool Flight::let_go_if_lost(const sim::Motion& motion) {
         return false;
     }
     const sim::Prediction::Lost lost = *prediction_->lost();
+    ++let_go_;
+    compared_when_let_go_ = prediction_errors_m_.size();
     if (said_lost_.insert(lost.what).second) {
         std::fprintf(stderr,
                      "glideslope: the prediction of the %s went to a number not finite at "
                      "its step %llu - %s - and is let go of, and started again from the "
-                     "server's word\n",
+                     "server's word on the aircraft it has\n",
                      aircraft_entry_.id.c_str(), static_cast<unsigned long long>(lost.step),
                      lost.what.c_str());
     }
@@ -293,7 +295,12 @@ void Flight::step(const sim::Controls& controls) {
     if (prediction_) {
         const std::uint64_t step = prediction_->steps();
         const bool counted = prediction_->settled() && sequence_ > 0;
-        prediction_->step(sequence_, controls);
+        sim::Controls fed = controls;
+        if (nan_at_ >= 0 && tick_ >= nan_at_) {
+            fed.elevator = std::numeric_limits<double>::quiet_NaN();
+            nan_at_ = -1;
+        }
+        prediction_->step(sequence_, fed);
         predicted_at_.push_back({step, aircraft_->motion().location_ecef_m, counted});
         if (predicted_at_.size() > sim::most_unacknowledged) {
             predicted_at_.pop_front();

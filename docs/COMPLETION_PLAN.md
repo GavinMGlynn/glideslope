@@ -820,10 +820,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 - [x] **A client's prediction asserted in JSBSim on a NaN after two water
       wrecks** (CI's Ubuntu, run 39883628869). Closed on a guard and a trap
       by the owner's decision of 2026-10-23, the cause unknown: a prediction
-      given a NaN is let go of and started again from the server's word, and
-      a recurrence names where its NaN was made. A prediction held on the
-      water after flying again was found and fixed on the way.
-      *Verification: a prediction given a NaN is let go of and its client
+      given a NaN as an input, or left with one by a step, is let go of and
+      started again from the server's word, in both clients. A NaN made
+      inside one JSBSim step from finite inputs still asserts in a debug
+      build; only the trap names it. A prediction held on the water after
+      flying again was found and fixed on the way.
+      *Verification: a prediction given a NaN is let go of and each client
       flies on, red without the guard; the held prediction pinned, red
       without its fix.* Done 2026-10-23.
 

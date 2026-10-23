@@ -3687,6 +3687,18 @@ if("vulkan" IN_LIST GLIDESLOPE_GPU_DRIVERS)
     set_tests_properties(the_client_with_the_window_flies_the_servers_weather_within_the_headless_clients_bound
         PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_weather)
+    # **The client with the window lets go of a prediction given a NaN**, takes
+    # the server's state back on the aircraft it has, and flies on. See
+    # cmake/client_let_go_of_a_nan.cmake.
+    add_test(NAME the_client_with_the_window_lets_go_of_a_prediction_given_a_nan_and_flies_on_from_the_servers_state
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/window_nan -DPORT=24902 -DDRIVER=vulkan
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_let_go_of_a_nan.cmake)
+    set_tests_properties(the_client_with_the_window_lets_go_of_a_prediction_given_a_nan_and_flies_on_from_the_servers_state
+        PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/window_nan)
 endif()
 
 # **A client started with --online reaches the server server.txt names.** See
