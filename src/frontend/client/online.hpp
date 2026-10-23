@@ -16,6 +16,7 @@
 
 #include "flight.hpp"
 #include "frontend/machine_stalls.hpp"
+#include "frontend/own_words.hpp"
 #include "net/inputs.hpp"
 #include "net/interpolation.hpp"
 #include "net/messages.hpp"
@@ -23,6 +24,7 @@
 #include "net/state.hpp"
 #include "sim/aircraft.hpp"
 
+#include <algorithm>
 #include <array>
 #include <atomic>
 #include <chrono>
@@ -328,6 +330,15 @@ public:
         return own_words_ > 0 ? last_own_word_s_ - first_own_word_s_ : 0.0;
     }
     std::size_t frames_that_heard_own() const { return frames_heard_own_; }
+    // **Every word read is compared** (frontend/own_words.hpp): held
+    // against where it had flown by its own step - at once, or once that
+    // step is flown - or named: before its clocks' difference could place
+    // it, not finite, or dropped with the prediction held for, by why. And
+    // the most read in one frame, which says whether a frame read several.
+    // (`own_words`, below.)
+    std::size_t most_own_words_in_a_frame() const {
+        return std::max(most_own_in_frame_, own_in_frame_);
+    }
     // How many were too large to hide, and the worst - of those not across
     // a machine's stall (`frame_took`), which are counted apart.
     std::size_t snapped() const { return snapped_; }
@@ -421,15 +432,23 @@ private:
         std::optional<double> stovl_height_asked_ft;
         // And its autopilot's pitch integral (sim::Transition::Carried).
         sim::Transition::Carried stovl_carried;
-        // Where it is, not a correction: the first word since joining, or
-        // since it was taken back from the AI.
-        bool adopt = false;
         // The server's word that one of its engines has stopped, and which.
         std::optional<int> engine_stopped;
         // And that it is a wreck (sim::Prediction::hear_wrecked).
         bool wrecked = false;
     };
+    // Now only a word to put it where the server says (`hear`): the first
+    // since joining, or since it was taken back.
     std::optional<OwnWord> own_word_;
+    // Every other word on its own aircraft, read, compared and put right
+    // from (frontend::OwnWords).
+    using Words = frontend::OwnWords<OwnWord>;
+    Words words_;
+
+public:
+    const Words& own_words() const { return words_; }
+
+private:
     // What `listen` read, for `hear`: when, and in which session - the
     // count of joinings again it was read under.
     std::vector<net::StatePacket> arrived_;
@@ -472,6 +491,15 @@ private:
     double first_own_word_s_ = 0.0;
     double last_own_word_s_ = 0.0;
     std::size_t frames_heard_own_ = 0;
+    std::size_t own_in_frame_ = 0;
+    std::size_t most_own_in_frame_ = 0;
+    // At a switch - a take-over, a take-back, the AI's, joining again - the
+    // word to be put where the server says is let go, and every word held
+    // for the prediction left behind is dropped, by why.
+    void let_go_own_word() {
+        own_word_.reset();
+        words_.drop("a switch");
+    }
     bool corrected_ = false;
     std::size_t snapped_ = 0;
     double worst_correction_m_ = 0.0;

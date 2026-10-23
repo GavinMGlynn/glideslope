@@ -235,9 +235,19 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
                                              std::uint64_t server_steps,
                                              std::optional<double> stovl_height_asked_ft,
                                              const Transition::Carried& stovl_carried) {
+    return reconcile_placed(server, last_applied,
+                            hear_clock(last_applied, steps_into, server_steps),
+                            stovl_height_asked_ft, stovl_carried);
+}
+
+Prediction::Correction Prediction::reconcile_placed(const Motion& server,
+                                                    std::uint32_t last_applied,
+                                                    std::optional<std::uint64_t> placed_at,
+                                                    std::optional<double> stovl_height_asked_ft,
+                                                    const Transition::Carried& stovl_carried) {
     const AircraftState was = aircraft_.state();
     Correction out;
-    out.at_step = hear_clock(last_applied, steps_into, server_steps);
+    out.at_step = placed_at;
     if (out.at_step) {
         while (!held_.empty() && held_.front().step < *out.at_step) {
             held_.pop_front();

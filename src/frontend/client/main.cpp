@@ -147,6 +147,10 @@ struct Options {
     // longer, as a slow machine's frames are - CI's sanitized software
     // Vulkan draws one in 250 ms and more.
     double slow_frames_ms = 0.0;
+    // For a test, with --slow-frames: each held pass flies this many of the
+    // ticks due fewer, owed to the next pass - so that the newest words it
+    // reads are about steps it has not flown yet (frontend::OwnWords).
+    int ticks_behind = 0;
     // Test flag: how often --weather is fetched again, in seconds of flight.
     double weather_refresh_s = glideslope::client::weather_refresh_seconds;
     bool weather_refresh_given = false;
@@ -348,6 +352,8 @@ void usage(std::FILE* out) {
         "                slow machine building its flight does (for tests)\n"
         "  --slow-frames MS  hold every pass of the frame loop MS milliseconds\n"
         "                longer, as a slow machine's frames are (for tests)\n"
+        "  --ticks-behind N  with --slow-frames, fly N of the ticks a held pass is\n"
+        "                due on the next pass instead (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
         "                or leave it out: a test shoots both to find the outline it\n"
         "                draws\n"
@@ -561,6 +567,20 @@ static int run_program(int argc, char** argv) {
                 std::fprintf(stderr,
                              "glideslope: --slow-frames wants milliseconds, above nought "
                              "and at most 60000, not '%s'\n",
+                             text.c_str());
+            }
+        } else if (a == "--ticks-behind" && has_value) {
+            // A whole number of ticks, 1 to 120 - or refused, as a word read
+            // as nought built nothing.
+            const std::string text(args[++i]);
+            char* end = nullptr;
+            const long n = std::strtol(text.c_str(), &end, 10);
+            ok = end != text.c_str() && *end == '\0' && n >= 1 && n <= 120;
+            o.ticks_behind = ok ? static_cast<int>(n) : 0;
+            if (!ok) {
+                std::fprintf(stderr,
+                             "glideslope: --ticks-behind wants a whole number of ticks, 1 to "
+                             "120, not '%s'\n",
                              text.c_str());
             }
         } else if (a == "--ride-along") {
@@ -1636,6 +1656,8 @@ static int run_program(int argc, char** argv) {
         long frames = 0;
         // When --slow-frames last held a pass of the loop.
         auto held_at = std::chrono::steady_clock::now();
+        // Ticks a held pass left to the next (--ticks-behind).
+        std::int64_t ticks_owed = 0;
         bool running = true;
         // **Where the time of a pass went**, milliseconds by part, for the
         // longest pass around a switch: the step bounds' 20 fps floor has
@@ -1830,8 +1852,10 @@ static int run_program(int argc, char** argv) {
             // Each followed by a tenth of a second at full speed, so that
             // the short frames between show what the long ones did, as a
             // slow machine's mixed frames do.
+            bool held_this_pass = false;
             if (o.slow_frames_ms > 0.0 &&
                 std::chrono::steady_clock::now() - held_at >= std::chrono::milliseconds(100)) {
+                held_this_pass = true;
                 std::this_thread::sleep_for(
                     std::chrono::duration<double, std::milli>(o.slow_frames_ms));
                 asked_s += o.slow_frames_ms / 1000.0;
@@ -1864,6 +1888,16 @@ static int run_program(int argc, char** argv) {
                         (now - last) * pace)),
                     online.has_value());
                 last = now;
+                // **A held pass a few ticks behind, for a test**
+                // (--ticks-behind): the words it reads about its last
+                // ticks' time are about steps not yet flown, and are held
+                // until they are (frontend::OwnWords). Owed, not lost.
+                due += ticks_owed;
+                ticks_owed = 0;
+                if (o.ticks_behind > 0 && held_this_pass && online && joined) {
+                    ticks_owed = std::min<std::int64_t>(due, o.ticks_behind);
+                    due -= ticks_owed;
+                }
                 // The keyboard - with a test's key held (--press-after), as a
                 // player's finger holds it.
                 int key_count = 0;
@@ -2829,6 +2863,13 @@ static int run_program(int argc, char** argv) {
                             "the server's time, in %zu frames\n",
                             online->own_words_heard(), online->own_words_span_s(),
                             online->frames_that_heard_own());
+                // **Every word it read compared**, at its own step, or
+                // named, and only the newest compared put it right
+                // (frontend/own_words.hpp), said as glideslope_cli says it.
+                std::printf("glideslope: %s\n",
+                            glideslope::frontend::said(online->own_words(),
+                                                       online->most_own_words_in_a_frame())
+                                .c_str());
                 // **How far what it showed of its own stepped**, measured as
                 // glideslope_cli measures it (frontend/shown.hpp).
                 std::printf("glideslope: own aircraft: %zu switches; the largest step at a "

@@ -13,6 +13,7 @@
 #include "frontend/route_file.hpp"
 #include "frontend/same_air.hpp"
 #include "frontend/machine_stalls.hpp"
+#include "frontend/own_words.hpp"
 #include "frontend/shown.hpp"
 #include "net/told.hpp"
 #include "copilot/provider.hpp"
@@ -2086,7 +2087,7 @@ public:
         resuming_ = true;
         resumed_from_ = sequence + 1;
         prediction_.reset();
-        unread_.reset();
+        words_.drop("let go of, not finite");
         keep_built();
         before_.clear();
         predicted_at_.clear();
@@ -2147,10 +2148,7 @@ public:
                 // had flown. Put right from each, a client too slow to fly
                 // the steps again as fast as the words came read them ever
                 // later and never caught up (sim::Prediction::hear_clock).
-                if (unread_) {
-                    own_word(unread_->state, unread_->local_s, false);
-                }
-                unread_ = Unread{state, local_s};
+                read_word(state, local_s);
             }
         }
         for (const glideslope::net::AircraftState& a : state.aircraft) {
@@ -2177,119 +2175,105 @@ public:
         }
     }
 
-    // **A word on its own aircraft, read**: held against where this client
-    // had flown it to, and - the newest of those read before the socket ran
-    // dry (`newest_read`) - what puts the prediction right.
-    void own_word(const glideslope::net::StatePacket& state, double local_s, bool newest_read) {
+private:
+    // A word on its own aircraft, as read (`read_word`).
+    struct Unread {
+        glideslope::net::StatePacket state;
+        double local_s = 0.0;
+        // Across a machine's stall (frontend::MachineStalls), and joined
+        // with the clocks' difference known, as it was read.
+        bool across = false;
+        bool joined = false;
+    };
+    using Words = glideslope::frontend::OwnWords<Unread>;
+
+public:
+    // **A word on its own aircraft, read**: placed on this client's clock
+    // (sim::Prediction::hear_clock), the pace steered by it, and held
+    // against where this client had flown by its own step - at once, or once
+    // that step is flown (frontend::OwnWords, which the client with the
+    // window shares). The newest compared puts the prediction right once the
+    // socket is read dry (`put_right`): put right from each, a client too
+    // slow to fly the steps again as fast as the words came read them ever
+    // later and never caught up.
+    void read_word(const glideslope::net::StatePacket& state, double local_s) {
         if (!prediction_ || !state.yours) {
             return;
         }
+        last_read_s_ = local_s;
+        // **An engine the server has stopped**, from when it was first said.
+        const auto own = std::find_if(
+            state.aircraft.begin(), state.aircraft.end(),
+            [&](const glideslope::net::AircraftState& a) { return a.index == state.your_aircraft; });
+        if (own != state.aircraft.end() &&
+            own->condition == glideslope::net::Condition::engine_stopped && !engine_stopped_at_s_) {
+            engine_stopped_at_s_ = local_s;
+        }
+        Unread word{state, local_s};
+        // Joined, and the clocks' difference known, before this word:
+        // a correction from here on is the prediction's, not the
+        // joining's (`predicted, joined:`).
+        word.joined =
+            answered_ && !resuming_ && local_s >= settled_at_s_ && prediction_->settled();
+        // Within the words after a machine's stall, counted apart
+        // (frontend::MachineStalls).
+        word.across = stalls_.word(state.simulation_time_s);
+        const std::uint64_t server_steps =
+            glideslope::frontend::server_steps_of(state.simulation_time_s);
+        const std::uint32_t applied = state.last_input_applied;
+        const auto at =
+            prediction_->hear_clock(applied, state.yours->steps_into_input, server_steps);
+        // **Where the server flew the nudge from, and the stick centred**:
+        // the first input of each heard, and the server's step it began at
+        // - as near as the words fall. By every word read.
+        if (nudge_.from && applied >= nudge_.from->input) {
+            const Nudge::At began{applied, server_steps - state.yours->steps_into_input};
+            auto& first = nudge_.to && applied >= nudge_.to->input ? nudge_.centred_heard
+                                                                    : nudge_.heard;
+            if (!first || applied < first->input) {
+                first = began;
+            }
+        }
+        ++read_in_pass_;
+        // The pace steered by the clocks' difference, once it is
+        // known; from the session clock's fitted rate the first time.
+        // **By every word, superseded or not**: the pace's loop
+        // integrates word by word, and steered only once a pass it came
+        // back from a stall's catching up three times as slowly - within
+        // a metre from the 22nd to 27th word after, against the 4th to
+        // 13th (Linux debug).
+        if (paced_) {
+            pacing_.follow(*prediction_, local_s,
+                           clock_.known() ? std::optional<double>(clock_.rate()) : std::nullopt);
+        }
+        words_.read(std::move(word), at, prediction_->steps(), local_s,
+                    [&](const Words::Placed& p) { return compare_word(p.word, *p.at_step); });
+        answered_ = answered_ || state.last_input_applied > 0;
+        if (resuming_ && state.last_input_applied >= resumed_from_) {
+            resuming_ = false;
+            settled_at_s_ = local_s + 1.0;
+        }
+    }
+
+    // **The prediction error**: where the server says the aircraft was
+    // when it had got to an input, against where this client had flown it
+    // to by the step the word is placed at. A client that lagged the server
+    // - put back to each update and never flown forward again - would be
+    // corrected by little at a time, and it is this, not the corrections,
+    // that shows it.
+    glideslope::frontend::Held compare_word(const Unread& word, std::uint64_t at_step) {
+        const glideslope::net::StatePacket& state = word.state;
+        const double local_s = word.local_s;
+        const bool across = word.across;
         const glideslope::sim::Motion m = motion_of(*state.yours);
-            // **The prediction error**: where the server says the
-            // aircraft was when it had got to an input, against where
-            // this client had flown it to on that input. A client that
-            // lagged the server - put back to each update and never
-            // flown forward again - would be corrected by little at a
-            // time, and it is this, not the corrections, that shows it.
-            // Put right first, which places the server's word on this
-            // client's clock (sim::Prediction), and then held against
-            // where this client had flown it to by that step.
-            // **An engine the server has stopped**, stopped here before
-            // the inputs since are flown again (sim::Prediction).
-            const auto own = std::find_if(
-                state.aircraft.begin(), state.aircraft.end(),
-                [&](const glideslope::net::AircraftState& a) {
-                    return a.index == state.your_aircraft;
-                });
-            std::optional<int> engine_stopped;
-            if (own != state.aircraft.end() &&
-                own->condition == glideslope::net::Condition::engine_stopped) {
-                engine_stopped = static_cast<int>(own->stopped_engine);
-            }
-            if (engine_stopped && !engine_stopped_at_s_) {
-                engine_stopped_at_s_ = local_s;
-            }
-            if (newest_read) {
-                (void)prediction_->hear_engine_stopped(engine_stopped);
-                // **A wreck is held where the server holds it**, not flown
-                // through the ground at every word (sim::Prediction).
-                prediction_->hear_wrecked(own != state.aircraft.end() &&
-                                          own->condition ==
-                                              glideslope::net::Condition::wrecked);
-            }
-            const std::uint32_t applied = state.last_input_applied;
-            // Joined, and the clocks' difference known, before this word:
-            // a correction from here on is the prediction's, not the
-            // joining's (`predicted, joined:`).
-            const bool joined = answered_ && !resuming_ && local_s >= settled_at_s_ &&
-                                prediction_->settled();
-            // Within the words after a machine's stall, counted apart
-            // (frontend::MachineStalls).
-            const bool across = stalls_.word(state.simulation_time_s);
-            // And the height her STOVL law was asked to hold there, and
-            // its autopilot's pitch integral, put on this client's law
-            // where one flies her (sim::Prediction).
-            // **Superseded, it tells the clocks' difference, and the step
-            // it is about**, and is held against where this client had
-            // flown by then as any other is; the newest puts it right.
-            const auto server_steps = static_cast<std::uint64_t>(std::llround(
-                state.simulation_time_s * static_cast<double>(glideslope::sim::steps_per_second)));
-            // **Where the server flew the nudge from, and the stick
-            // centred**: the first input of each heard, and the server's
-            // step it began at - as near as the words fall.
-            if (nudge_.from && applied >= nudge_.from->input) {
-                const Nudge::At began{applied, server_steps - state.yours->steps_into_input};
-                auto& first = nudge_.to && applied >= nudge_.to->input ? nudge_.centred_heard
-                                                                        : nudge_.heard;
-                if (!first || applied < first->input) {
-                    first = began;
-                }
-            }
-            glideslope::sim::Prediction::Correction c;
-            if (newest_read) {
-                c = prediction_->reconcile(
-                    m, applied, state.yours->steps_into_input, server_steps,
-                    glideslope::net::stovl_height_asked(*state.yours),
-                    glideslope::sim::Transition::Carried{
-                        glideslope::net::stovl_pitch_integral(*state.yours)});
-                if (prediction_->lost()) {
-                    let_go(prediction_->newest());
-                    return;
-                }
-                busy_for(static_cast<double>(c.replayed) * connect_slow_step_s);
-                ++reconciled_in_pass_;
-                ++read_in_pass_;
-                replayed_in_pass_ += c.replayed;
-                replayed_ += c.replayed;
-            } else {
-                c.at_step =
-                    prediction_->hear_clock(applied, state.yours->steps_into_input, server_steps);
-                ++superseded_;
-                ++read_in_pass_;
-            }
-            // The pace steered by the clocks' difference, once it is
-            // known; from the session clock's fitted rate the first time.
-            // **By every word, superseded or not**: the pace's loop
-            // integrates word by word, and steered only once a pass it came
-            // back from a stall's catching up three times as slowly - within
-            // a metre from the 22nd to 27th word after, against the 4th to
-            // 13th (Linux debug).
-            if (paced_) {
-                pacing_.follow(*prediction_, local_s,
-                               clock_.known() ? std::optional<double>(clock_.rate())
-                                              : std::nullopt);
-            }
-            const Predicted* at = nullptr;
-            if (c.at_step && *c.at_step > 0) {
-                const auto found = std::find_if(
-                    predicted_at_.begin(), predicted_at_.end(),
-                    [&](const Predicted& p) { return p.step + 1 == *c.at_step; });
-                at = found != predicted_at_.end() ? &*found : nullptr;
-            }
-            if (at != nullptr && at->counted) {
-                const double error = std::hypot(at->where[0] - m.location_ecef_m[0],
-                                                at->where[1] - m.location_ecef_m[1],
-                                                at->where[2] - m.location_ecef_m[2]);
+        const std::uint32_t applied = state.last_input_applied;
+        // A word not finite measures nothing (sim::first_not_finite).
+        const bool not_finite = glideslope::sim::first_not_finite(m).has_value();
+        glideslope::sim::Prediction::Correction c;
+        c.at_step = at_step;
+            const Predicted* at = glideslope::frontend::flown_at(predicted_at_, c.at_step);
+            if (at != nullptr && at->counted && !not_finite) {
+                const double error = glideslope::frontend::apart_m(at->where, m);
                 if (across) {
                     stalls_.compared(error);
                 } else if (error > worst_error_m_) {
@@ -2301,9 +2285,8 @@ public:
                 // compared and the last**, counted, not timed: this
                 // client's, from the step each was placed at, and the
                 // server's, from the update's own step.
-                const auto server_step = static_cast<std::uint64_t>(std::llround(
-                    state.simulation_time_s *
-                    static_cast<double>(glideslope::sim::steps_per_second)));
+                const std::uint64_t server_step =
+                    glideslope::frontend::server_steps_of(state.simulation_time_s);
                 // **Not across a machine's stall**: the steps between
                 // two updates either side of one are the server's late
                 // flying of what came meanwhile, and the pace's steering
@@ -2459,14 +2442,62 @@ public:
                        *c.at_step) {
                 predicted_at_.pop_front();
             }
-            answered_ = answered_ || state.last_input_applied > 0;
-            if (resuming_ && state.last_input_applied >= resumed_from_) {
-                resuming_ = false;
-                settled_at_s_ = local_s + 1.0;
+            if (not_finite) {
+                return glideslope::frontend::Held::not_finite;
             }
-            if (!newest_read) {
-                return;
-            }
+            return at != nullptr ? glideslope::frontend::Held::compared
+                                 : glideslope::frontend::Held::not_kept;
+    }
+
+    // **The newest word compared, put right from**, once the socket is read
+    // dry: one replay a pass, however many words came; nothing if every word
+    // read is past the steps flown - the next pass, once they are flown.
+    void put_right(std::optional<double> now_s = std::nullopt) {
+        if (!prediction_) {
+            return;
+        }
+        const auto settled = words_.settle(
+            prediction_->steps(), now_s ? *now_s : last_read_s_,
+            [&](const Words::Placed& p) { return compare_word(p.word, *p.at_step); });
+        if (!settled) {
+            return;
+        }
+        const Unread& word = settled->word;
+        const glideslope::net::StatePacket& state = word.state;
+        const bool across = word.across;
+        const bool joined = word.joined;
+        const glideslope::sim::Motion m = motion_of(*state.yours);
+        const auto own = std::find_if(
+            state.aircraft.begin(), state.aircraft.end(),
+            [&](const glideslope::net::AircraftState& a) { return a.index == state.your_aircraft; });
+        std::optional<int> engine_stopped;
+        if (own != state.aircraft.end() &&
+            own->condition == glideslope::net::Condition::engine_stopped) {
+            engine_stopped = static_cast<int>(own->stopped_engine);
+        }
+        // **An engine the server has stopped**, stopped here before the
+        // inputs since are flown again (sim::Prediction).
+        (void)prediction_->hear_engine_stopped(engine_stopped);
+        // **A wreck is held where the server holds it**, not flown
+        // through the ground at every word (sim::Prediction).
+        prediction_->hear_wrecked(own != state.aircraft.end() &&
+                                  own->condition == glideslope::net::Condition::wrecked);
+        // And the height her STOVL law was asked to hold there, and its
+        // autopilot's pitch integral, put on this client's law where one
+        // flies her (sim::Prediction) - from the word as it was placed.
+        const glideslope::sim::Prediction::Correction c = prediction_->reconcile_placed(
+            m, state.last_input_applied, settled->at_step,
+            glideslope::net::stovl_height_asked(*state.yours),
+            glideslope::sim::Transition::Carried{
+                glideslope::net::stovl_pitch_integral(*state.yours)});
+        if (prediction_->lost()) {
+            let_go(prediction_->newest());
+            return;
+        }
+        busy_for(static_cast<double>(c.replayed) * connect_slow_step_s);
+        ++reconciled_in_pass_;
+        replayed_in_pass_ += c.replayed;
+        replayed_ += c.replayed;
             // **A correction small enough to hide is hidden** - taken up
             // over the next frames, as sim/prediction.hpp says - and one
             // too large is shown as the jump it is.
@@ -2495,17 +2526,6 @@ public:
                 worst_correction_joined_m_ = std::max(worst_correction_joined_m_, c.moved_m);
                 snapped_joined_ += c.snapped ? 1 : 0;
             }
-    }
-
-    // **The newest word read, put right from** once the socket is read dry:
-    // one replay a pass, however many words came (`own_word`).
-    void put_right() {
-        if (!unread_) {
-            return;
-        }
-        const Unread word = std::move(*unread_);
-        unread_.reset();
-        own_word(word.state, word.local_s, true);
     }
 
     static glideslope::sim::Motion motion_of(const glideslope::net::OwnMotion& y) {
@@ -2538,7 +2558,7 @@ public:
         resuming_ = true;
         resumed_from_ = sequence + 1;
         prediction_.reset();
-        unread_.reset();
+        words_.drop("a take-over");
         keep_built();
         before_.clear();
         predicted_at_.clear();
@@ -2565,7 +2585,7 @@ public:
             resuming_ = true;
             resumed_from_ = sequence + 1;
             prediction_.reset();
-            unread_.reset();
+            words_.drop("a take-back");
             keep_built();
             before_.clear();
             predicted_at_.clear();
@@ -2874,8 +2894,12 @@ public:
                       read_dry_, std::max(most_read_in_pass_, read_in_pass_),
                       std::max(most_reconciled_in_pass_, reconciled_in_pass_),
                       std::max(most_replayed_in_pass_, replayed_in_pass_), replayed_,
-                      superseded_);
+                      words_.read() - words_.put_right_from());
         lines.emplace_back(line);
+        // **Every word read, compared or named** (frontend/own_words.hpp),
+        // as the client with the window says it.
+        lines.emplace_back(glideslope::frontend::said(
+            words_, std::max(most_read_in_pass_, read_in_pass_)));
         std::snprintf(line, sizeof line,
                       "prediction error: %zu updates compared, the worst %.3f m (%zu inputs "
                       "flown while joining or taking back, before the server had applied one, "
@@ -3256,7 +3280,17 @@ private:
         for (std::size_t i = 0; i < before_.size(); ++i) {
             const auto& [sequence, controls] = before_[i];
             if (began != before_.end() ? i >= from : sequence > last_applied) {
+                const std::uint64_t step = prediction_->steps();
                 prediction_->step(sequence, controls);
+                // **Kept, as every step flown is**: the first words after
+                // are about these steps, and are held against them
+                // (frontend::OwnWords) - not counted in the error, flown
+                // while joining.
+                const glideslope::sim::Motion flown = aircraft_->motion();
+                predicted_at_.push_back({step, flown.location_ecef_m,
+                                         std::hypot(flown.uvw_mps[0], flown.uvw_mps[1],
+                                                    flown.uvw_mps[2]),
+                                         false, pitch_of(flown)});
             }
         }
         before_.clear();
@@ -3567,14 +3601,10 @@ private:
     std::size_t replayed_ = 0;
     // Words superseded by a newer one read before the socket ran dry:
     // compared, not put right from.
-    std::size_t superseded_ = 0;
     // **The newest word on its own aircraft read since the socket was last
     // read dry**, and when it came (`put_right`).
-    struct Unread {
-        glideslope::net::StatePacket state;
-        double local_s = 0.0;
-    };
-    std::optional<Unread> unread_;
+    Words words_;
+    double last_read_s_ = 0.0;
 };
 
 // **How long a session may go without anything opening under it before a
@@ -4210,7 +4240,7 @@ int stay(glideslope::platform::UdpSocket& socket,
         // and measuring, there.
         if (predicting && drained && !finishing) {
             predicting->read_dry();
-            predicting->put_right();
+            predicting->put_right(up_s);
             predicting->advance(up_s, sequence, stick);
             predicting->render(up_s);
         }

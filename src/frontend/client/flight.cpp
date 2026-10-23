@@ -1,5 +1,6 @@
 #include "flight.hpp"
 
+#include "frontend/own_words.hpp"
 #include "gfx/terrain_colour.hpp"
 #include "sim/figures.hpp"
 #include "sim/terrain.hpp"
@@ -249,8 +250,7 @@ bool Flight::let_go_if_lost(const sim::Motion& motion) {
 
 sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
                                               std::uint32_t last_applied,
-                                              std::size_t steps_into,
-                                              std::uint64_t server_steps,
+                                              std::optional<std::uint64_t> placed_at,
                                               std::optional<int> engine_stopped,
                                               bool wrecked,
                                               std::optional<double> stovl_height_asked_ft,
@@ -258,6 +258,29 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
     if (!prediction_) {
         return {};
     }
+    const sim::Motion heard = as_heard(motion);
+    if (let_go_if_lost(heard)) {
+        return {};
+    }
+    (void)prediction_->hear_engine_stopped(engine_stopped);
+    prediction_->hear_wrecked(wrecked);
+    const sim::Prediction::Correction c = prediction_->reconcile_placed(
+        heard, last_applied, placed_at, stovl_height_asked_ft, stovl_carried);
+    if (let_go_if_lost(heard)) {
+        return {};
+    }
+    return c;
+}
+
+std::optional<std::uint64_t> Flight::place(std::uint32_t last_applied, std::size_t steps_into,
+                                           std::uint64_t server_steps) {
+    if (!prediction_) {
+        return std::nullopt;
+    }
+    return prediction_->hear_clock(last_applied, steps_into, server_steps);
+}
+
+sim::Motion Flight::as_heard(const sim::Motion& motion) const {
     // **A test's words not finite** (`--test-nan-words-at`): the server's
     // motion as heard given a NaN for half a second of ticks.
     sim::Motion heard = motion;
@@ -265,36 +288,27 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
         tick_ < nan_words_at_ + static_cast<std::int64_t>(sim::steps_per_second / 2)) {
         heard.uvw_mps[0] = std::numeric_limits<double>::quiet_NaN();
     }
-    if (let_go_if_lost(heard)) {
-        return {};
+    return heard;
+}
+
+frontend::Held Flight::compare(const sim::Motion& motion, std::uint64_t at_step) {
+    const Predicted* p = frontend::flown_at(predicted_at_, at_step);
+    while (!predicted_at_.empty() && predicted_at_.front().step + 1 < at_step) {
+        predicted_at_.pop_front();
     }
-    (void)prediction_->hear_engine_stopped(engine_stopped);
-    prediction_->hear_wrecked(wrecked);
-    const sim::Prediction::Correction c =
-        prediction_->reconcile(heard, last_applied, steps_into, server_steps,
-                               stovl_height_asked_ft, stovl_carried);
-    if (let_go_if_lost(heard)) {
-        return {};
+    // **A word not finite** - the server's, or a test's - is held against
+    // nothing: it measures no prediction (Flight::let_go_if_lost). Only its
+    // place is taken, as the one put right from has it.
+    if (sim::first_not_finite(as_heard(motion))) {
+        return frontend::Held::not_finite;
     }
-    // Held against where this client had flown it by the step the word is
-    // placed at (glideslope_cli's measure), then forgotten up to there.
-    if (c.at_step && *c.at_step > 0) {
-        for (const Predicted& p : predicted_at_) {
-            if (p.step + 1 == *c.at_step) {
-                if (p.counted) {
-                    prediction_errors_m_.push_back(
-                        std::hypot(p.where[0] - motion.location_ecef_m[0],
-                                   p.where[1] - motion.location_ecef_m[1],
-                                   p.where[2] - motion.location_ecef_m[2]));
-                }
-                break;
-            }
-        }
-        while (!predicted_at_.empty() && predicted_at_.front().step + 1 < *c.at_step) {
-            predicted_at_.pop_front();
-        }
+    if (p == nullptr) {
+        return frontend::Held::not_kept;
     }
-    return c;
+    if (p->counted) {
+        prediction_errors_m_.push_back(frontend::apart_m(p->where, motion));
+    }
+    return frontend::Held::compared;
 }
 
 void Flight::hear_clock(std::uint32_t last_applied, std::size_t steps_into,

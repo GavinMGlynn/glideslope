@@ -28,6 +28,11 @@
 # twelve times too far to hide, before its words were heard after its ticks
 # and once a frame (PROJECT_STATUS.md, 2026-09-30). The same bound holds.
 #
+# **Every word it reads compared**, with `-DEVERY_WORD=ON` beside
+# SLOW_FRAMES: frames that long each read several of the server's words on
+# its own aircraft, and every one is held against where it had flown by its
+# own step, not only each frame's newest, or named.
+#
 # **Another player's choice, drawn**, with `-DOTHER_PLAYER=ON -DCLI=<glideslope_cli>`:
 # a second player joins with the command-line client asking for the Piper
 # PA-28 (`connect --aircraft pa28`), and stays until the shot has been
@@ -72,6 +77,13 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 set(_slow)
 if(DEFINED SLOW_FRAMES)
     set(_slow --slow-frames ${SLOW_FRAMES})
+endif()
+# **Words placed past the steps flown, built** for EVERY_WORD: each held
+# frame flies five of its ticks due on the next instead (`--ticks-behind`),
+# more than a word's 4.8, so the newest words it reads are about steps not
+# yet flown - every held frame, not when a pace happens to fall behind.
+if(EVERY_WORD)
+    list(APPEND _slow --ticks-behind 5)
 endif()
 # The client connects once the server is flying (client.cmake says why).
 set(_ready "${WORK}/flying")
@@ -161,6 +173,24 @@ set(_away "${CMAKE_MATCH_2}")
 if(OTHER_PLAYER)
     message(STATUS "the client drew the other player's PA-28, aircraft ${_pa28}, and the "
                    "AI's Cessna ${_away} m away")
+    return()
+endif()
+
+# **Every word read is compared**, with `-DEVERY_WORD=ON` and frames held
+# long enough that each reads several (SLOW_FRAMES): each word read on its own
+# aircraft held against where it had flown by its own step - superseded by a
+# newer word in the same frame or not, and if placed past the steps flown,
+# once they are - or named (own_words_check.cmake), and only the newest
+# compared of a frame put it right (frontend/own_words.hpp). That is all this
+# case judges; how far it was put right is the plain slow case's. No switch is
+# made, so a word dropped is one held a second and never flown: at most 2.
+#
+# Seen red comparing only each frame's newest, and with the hold taken out
+# (docs/status, 2026-10-23).
+if(EVERY_WORD)
+    include("${CMAKE_CURRENT_LIST_DIR}/own_words_check.cmake")
+    check_own_words("${_out}" 2 TRUE _summary)
+    message(STATUS "with its frames held ${SLOW_FRAMES} ms: ${_summary}")
     return()
 endif()
 
