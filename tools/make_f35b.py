@@ -204,6 +204,17 @@ in reversed air, and this shape - nothing from 90 to 180, a straight fall from
 that her flight inside 90 degrees either way, and her full-forward dive, are
 what they were; a wing met from its trailing edge makes some lift, and the
 same way either side.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): CLde and CLdroop. On the whole dynamic pressure
+they counted the crosswind standing. Standing on her brakes with her engines
+stopped in 15 kt straight across, a lifting control set one at a time, they
+lifted her by up to 37 lb (stick back); now under 0.1 lb at every setting (the
+standing test in tests/unit/test_departure.cpp). JSBSim issue #89's guidance
+puts the whole of CL on QBarUW; alpha_rate.py says why, for swept surfaces too.
+In flight, at a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import math

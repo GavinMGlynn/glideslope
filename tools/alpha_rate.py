@@ -190,7 +190,7 @@ def with_unkeyed_terms_on_qbar_uw(text, script, terms):
     """`text`, a JSBSim model, with the terms *not* keyed to the angle of
     attack that `terms` names - {axis: [function name, ...]} - on
     aero/qbarUW-psf: a flap's, an elevator's, a stabiliser's or a spoiler's
-    lift, and a wing's lift at no angle (2026-10-23).
+    lift, a wing's lift at no angle, and lift with pitch rate (2026-10-23).
 
     **Why.** The same air as with_alpha_terms_on_qbar_uw's: on the whole
     dynamic pressure a term that is a coefficient times a deflection, or a
@@ -226,8 +226,18 @@ def with_unkeyed_terms_on_qbar_uw(text, script, terms):
     degrees or less), so aero/qbarUW-psf's nothing is the nearer, as it
     is for an unswept surface. A spoiler takes away lift the wing makes, and
     standing the wing makes none (its terms already on aero/qbarUW-psf), so
-    nothing is the nearer there too. In flight, at a few degrees of sideslip,
-    the two pressures differ by its cosine squared, the sweep theory's mean
+    nothing is the nearer there too. **Lift with pitch rate** (CLq, which
+    with_alpha_terms_on_qbar_uw moves too where the angle of attack picks its
+    coefficient) is the lift a pitching tail makes at the incidence its
+    motion adds, q l / V, in the same air: of order rho V_uw q l, where V_uw
+    is the speed in the plane of u and w, and so near nothing standing. On
+    the whole dynamic pressure, times c / 2V, it is of order rho V q c and
+    counts the crosswind - standing in 15 kt across an A380 rocking at a
+    tenth of a degree a second was lifted 26 lb by it, an F-22A 25, a PA-28
+    3 - and on aero/qbarUW-psf of order rho V_uw^2 q c / V, the nearer. In
+    flight the truth is cos b of the whole and aero/qbarUW-psf cos^2 b:
+    under 0.4% apart at 5 degrees of sideslip. For every other such term, in
+    flight, at a few degrees of sideslip, the two pressures differ by its cosine squared, the sweep theory's mean
     between them: under 1% either way.
 
     It fails - so that a model changed under the script is noticed - if a

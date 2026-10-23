@@ -3963,18 +3963,19 @@ GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_has_a_reversed_wings_ci
 // across her), with each of the seven settings that move a lift term - all
 // neutral, flaps fully down, the stick fully back, fully forward, the
 // speedbrake fully out, the pitch trim fully nose up, fully nose down - set
-// one at a time, on her brakes at idle (stand_on_her_brakes), throttle
-// closed. She stands in calm air until every control surface the setting
-// moves has stopped (none moving by more than a thousandth over a second; a
+// one at a time, on her brakes (stand_on_her_brakes) with her engines
+// stopped: no slipstream, so that her lift is the air's alone (at idle the
+// J-3 Cub on half brake with her stick full forward goes over on her nose).
+// She stands in calm air until every control surface the setting moves has
+// stopped (none moving by more than a thousandth over a second; a
 // three-minute ceiling, a failure), five seconds more, then 15 kt straight
 // across from her left for ten seconds and from her right for ten. At every
-// step of those twenty her lift (forces/fwz-aero-lbs, less the Mosquito's
-// slipstream lift: her propellers' air along her x axis, not the crosswind,
-// with its own test above) is within the bound either way. **The bound**,
-// a ten-thousandth of her weight, stated after measuring (below); the
-// remaining lift standing is her terms named in the check (lift with pitch
-// rate) and her moved terms on the creep of u and w. Coverage asserted:
-// fifteen landplanes, seven settings, 105 runs of 2,400 steps judged.
+// step of those twenty her lift (forces/fwz-aero-lbs) is within the bound
+// either way. **The bound**, a ten-thousandth of her weight, stated after
+// measuring (below); what lift remains standing is her terms named in the
+// check (lift with pitch rate) and her moved terms on the creep of u and w.
+// Coverage asserted: fifteen landplanes, seven settings, 105 runs of 2,400
+// steps judged.
 GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_lifting_control_set_is_lifted_by_no_more_than_a_ten_thousandth_of_her_weight) {
     constexpr double crosswind_kts = 15.0;
     constexpr int calm_after_settled_s = 5;
@@ -4029,7 +4030,7 @@ GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_
             ic.altitude_ft = runway.elevation_ft;
             ic.terrain_elevation_ft = runway.elevation_ft;
             ic.heading_deg = runway.heading_deg;
-            ic.engine_running = true;
+            ic.engine_running = false;
             ic.gear = 1.0;
             aircraft.initialize(ic);
             glideslope::sim::Controls c;
@@ -4083,10 +4084,7 @@ GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_
                     aircraft.set_controls(c);
                     aircraft.step();
                     ++judged_steps;
-                    double lift = -aircraft.property("forces/fwz-aero-lbs");
-                    if (aircraft.has_property("aero/force/lift-slipstream")) {
-                        lift -= aircraft.property("aero/force/lift-slipstream");
-                    }
+                    const double lift = -aircraft.property("forces/fwz-aero-lbs");
                     least = std::min(least, lift);
                     most = std::max(most, lift);
                     if (std::abs(lift) > std::abs(worst_lb)) {

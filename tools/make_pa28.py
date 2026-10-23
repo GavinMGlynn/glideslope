@@ -141,6 +141,17 @@ made by the air in the plane of u and w. Her wing is not swept: the case issue
 cosine squared. **Not moved**: CLq, lift with her pitch rate, where the angle
 of attack only picks its coefficient. Her lift terms not keyed to the angle of
 attack (CLDf and CLDe) are not this change's, and stay on aero/qbar-psf.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): CLDf, CLDe and CLq. On the whole dynamic pressure
+they counted the crosswind standing. Standing on her brakes with her engines
+stopped in 15 kt straight across, a lifting control set one at a time, they
+lifted her by up to 78 lb (flaps down); now under 0.1 lb at every setting (the
+standing test in tests/unit/test_departure.cpp). JSBSim issue #89's guidance
+puts the whole of CL on QBarUW; alpha_rate.py says why, for swept surfaces too.
+In flight, at a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import pathlib
@@ -372,7 +383,7 @@ def outputs():
             alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_pa28"), "make_pa28",
             {"PITCH": ["aero/coefficient/Cmalpha"],
-             "LIFT": ["aero/coefficient/CLwbh"]}), "make_pa28",
+             "LIFT": ["aero/coefficient/CLwbh", "aero/coefficient/CLq"]}), "make_pa28",
             {"LIFT": ["aero/coefficient/CLDf",
              "aero/coefficient/CLDe"]}),
         OUT / "engine" / "engIO360C.xml": engine(),

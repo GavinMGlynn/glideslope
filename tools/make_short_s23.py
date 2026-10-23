@@ -187,6 +187,16 @@ sideslip, the two differ by its cosine squared. Not moved: CdDe, her elevator's
 drag, not her wing's - a table of the angle of attack and the deflection (the
 angle does not multiply the deflection), under 0.00002 at no deflection at
 every angle and 0.029 at most.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): CLdF3L, CLdF3R, CLDe and CLq. On the whole
+dynamic pressure they counted the crosswind standing. Afloat she has no brakes
+and turns into the wind, so she is not measured standing across it; the
+reasoning is the landplanes'. JSBSim issue #89's guidance puts the whole of CL
+on QBarUW; alpha_rate.py says why, for swept surfaces too. In flight, at a few
+degrees of sideslip, the two differ by its cosine squared.
 """
 
 import math
@@ -765,7 +775,7 @@ def outputs():
             alpha_rate.with_unkeyed_terms_on_qbar_uw(alpha_rate.with_alpha_terms_on_qbar_uw(
                 alpha_rate.with_qbar_uw(aerodynamics(), "make_short_s23"), "make_short_s23",
                 {"PITCH": ["aero/coefficient/Cm_basic"],
-                 "LIFT": ["aero/coefficient/CLwbh"],
+                 "LIFT": ["aero/coefficient/CLwbh", "aero/coefficient/CLq"],
                  "DRAG": ["aero/coefficient/CD",
                           "aero/coefficient/CdDf3L",
                           "aero/coefficient/CdDf3R"]}), "make_short_s23",

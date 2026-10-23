@@ -148,6 +148,20 @@ and at high power and low speed less than it, as a slipstream's is. Where
 one propeller gives nothing the angle may again be any, but that side's term
 is multiplied by its own extra pressure, then nothing too. The table is the
 wing's, copied from it, so the two cannot part.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): lift-elevator and lift-pitch-rate. On the whole
+dynamic pressure they counted the crosswind standing. Standing on her brakes
+with her engines stopped in 15 kt straight across, a lifting control set one at
+a time, they lifted her by up to 25 lb (stick back, as she stands); now under
+0.1 lb at every setting (the standing test in tests/unit/test_departure.cpp).
+Her lift-elevator is on her tailplane's pressure, part of it her slipstreams';
+it moves onto a copy of that pressure (with_elevator_lift_on_qbar_uw, below),
+her elevator's pitching moment left on the first. JSBSim issue #89's guidance
+puts the whole of CL on QBarUW; alpha_rate.py says why, for swept surfaces too.
+In flight, at a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import pathlib
@@ -1868,11 +1882,13 @@ def airframe():
                     FLIGHT_CONTROL, AERODYNAMICS_HEAD, LIFT, DRAG, SIDE, ROLL, PITCH,
                     YAW, TAIL])
     text = with_slipstream_lift_at_its_own_angle(text)
-    return with_elevator_lift_on_qbar_uw(alpha_rate.with_alpha_terms_on_qbar_uw(
+    return with_elevator_lift_on_qbar_uw(alpha_rate.with_unkeyed_terms_on_qbar_uw(
+        alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(text, "make_mosquito_fb6"), "make_mosquito_fb6",
             {"PITCH": ["aero/moment/pitch-alpha", "aero/moment/pitch-stall"],
              "LIFT": ["aero/force/lift-alpha"],
-             "DRAG": ["aero/force/drag-stall"]}))
+             "DRAG": ["aero/force/drag-stall"]}), "make_mosquito_fb6",
+        {"LIFT": ["aero/force/lift-pitch-rate"]}))
 
 
 def outputs():

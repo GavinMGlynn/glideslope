@@ -39,30 +39,23 @@ MOVED = {
     "747-400": [C + "dCLflap", C + "dCLsb", C + "CLde"],
     "787-8": [F + "Lift_flap", F + "Lift_speedbrake", F + "Lift_elevator"],
     "a320": [C + "CLDe"],
-    "a380": [C + "CLde"],
+    "a380": [C + "CLq", C + "CLde"],
     "b2": [C + "CLde"],
-    "c172p": [C + "CLDf", C + "CLDe"],
-    "c182": [C + "CLo", C + "CLDf", C + "CLDe"],
-    "f15c": [C + "CLDe"],
+    "c172p": [C + "CLq", C + "CLDf", C + "CLDe"],
+    "c182": [C + "CLq", C + "CLo", C + "CLDf", C + "CLDe"],
+    "f15c": [C + "CLq", C + "CLDe"],
     "f22": [C + "dCLflap", C + "dCLsb", C + "CLde"],
     "f35b": [C + "CLde", C + "CLdroop"],
     "j3cub": [F + "Lift_elevator"],
-    "learjet35a": [C + "CLde", C + "CLstab", C + "CLspoilers"],
-    "mosquito-fb6": [F + "lift-elevator"],
+    "learjet35a": [C + "CLq", C + "CLde", C + "CLstab", C + "CLspoilers"],
+    "mosquito-fb6": [F + "lift-elevator", F + "lift-pitch-rate"],
     "pa28": [C + "CLDf", C + "CLDe"],
     "short_s23": [C + "CLdF3L", C + "CLdF3R", C + "CLDe"],
 }
-PITCH_RATE = ("lift with pitch rate: her pitch rate times c/2V on the whole pressure; "
-              "standing she does not pitch, and it is under a pound in 15 kt across "
-              "(the standing test); in flight the two pressures differ by under 1%")
-NAMED = {
-    "a380": {C + "CLq": PITCH_RATE},
-    "c172p": {C + "CLq": PITCH_RATE},
-    "c182": {C + "CLq": PITCH_RATE},
-    "f15c": {C + "CLq": PITCH_RATE},
-    "learjet35a": {C + "CLq": PITCH_RATE},
-    "mosquito-fb6": {F + "lift-pitch-rate": PITCH_RATE},
-}
+# Every such term is moved. Lift with pitch rate (CLq) too: the lift its
+# pitching adds at the tail, at an incidence of q l / V, is made by the same
+# air in the plane of u and w (alpha_rate.with_unkeyed_terms_on_qbar_uw).
+NAMED = {}
 TOTAL = 16
 assert len(MOVED) == TOTAL and set(NAMED) <= set(MOVED)
 if len(sys.argv) != 2:
