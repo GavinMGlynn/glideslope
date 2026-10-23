@@ -1236,9 +1236,12 @@ client is told of the one it watches.
 | `i16` | the roll trim, as the aileron, -1 to 1 (since `0F`) |
 | `i16` | the yaw trim, as the rudder, -1 to 1 (since `0F`) |
 | `i16` | the held trim, -1 to 1 - or `-32768` where her model has none (since `0F`) |
+| `i16` | the first engine's mixture lever, full rich at 1, 0 to 1 (since `0F`) |
+| `i16` | the first engine's propeller lever, highest rpm or fine pitch at 1, 0 to 1 (since `0F`) |
 
 A flag other than `00` or `01`, or `-32768` in any control but the gear, the
-speedbrake lever and the held trim, makes the packet unreadable.
+speedbrake lever and the held trim - the mixture and propeller levers
+included - makes the packet unreadable.
 
 **The held trim is not a control**: no input carries it, and a client never
 sends it. It is a deflection the server's trim finds after a fly-by-wire
@@ -1270,7 +1273,7 @@ the server's to hand out.
 **20 aircraft is the most one can hold**, which is the four players
 `--players` allows and the sixteen AI aircraft `--ai` allows. A packet that
 full, with the client's own motion and a watched aircraft's controls, is
-1,155 bytes, and 1,185 with the
+1,159 bytes, and 1,189 with the
 envelope and the sealing in front of it, inside the 1,232 a datagram holds; a test fills one to its limits and
 holds it to that.
 

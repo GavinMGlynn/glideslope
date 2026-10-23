@@ -555,6 +555,15 @@ Controls held_until_moved(const Aircraft& aircraft) {
         c.throttle = 0.6;
     }
     c.gear = aircraft.property("gear/gear-cmd-norm");
+    // **Her mixture and propeller levers where her start set them**, as her
+    // book flies that height and speed (Aircraft::initialize), whether or
+    // not she was trimmed.
+    if (aircraft.has_property("fcs/mixture-cmd-norm[0]")) {
+        c.mixture = aircraft.property("fcs/mixture-cmd-norm[0]");
+    }
+    if (aircraft.has_property("fcs/advance-cmd-norm[0]")) {
+        c.propeller = aircraft.property("fcs/advance-cmd-norm[0]");
+    }
     return c;
 }
 

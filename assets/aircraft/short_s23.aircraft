@@ -7,4 +7,10 @@ name Short S.23 Empire Flying Boat
 model short_s23
 class seaplane
 start 130 0.5
+# Her de Havilland two-pitch airscrews: fine for take-off and climb, coarse
+# for cruise, as Flight's figures fly her (assets/figures/short_s23.xml: the
+# climb at 100 kt in fine pitch, the 200 mph level speed in coarse). An
+# airborne start faster than her climbing speed, 100 kt, is in coarse; her
+# book gives no other speed between, so the climb's is the line.
+airscrew-coarse-above 100
 seaplane

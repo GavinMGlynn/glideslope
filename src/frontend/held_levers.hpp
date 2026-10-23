@@ -14,8 +14,8 @@
 namespace glideslope::frontend {
 
 // **Her controls put where the levers say**: the stick and pedals, the
-// pitch, roll and yaw trim, the throttle, the flaps, and the gear and speedbrake lever where she
-// has them - every control the server holds her on until her first input
+// pitch, roll and yaw trim, the throttle, the flaps, the mixture and propeller
+// levers, and the gear and speedbrake lever where she has them - every control the server holds her on until her first input
 // (glideslope_server's held_until_moved) - leaving the rest of `c` as it is.
 // A client's inputs begin from these and move from there, so that her first
 // input keeps the trim she was held on: begun from its own pitch trim,
@@ -30,6 +30,8 @@ inline void keep_held(const net::Watched& levers, sim::Controls& c) {
     c.yaw_trim = levers.yaw_trim;
     c.throttle = levers.throttle;
     c.flaps = levers.flaps;
+    c.mixture = levers.mixture;
+    c.propeller = levers.propeller;
     if (levers.gear) {
         c.gear = *levers.gear;
     }
@@ -72,6 +74,13 @@ inline net::Watched levers_of(const sim::Aircraft& m, std::uint8_t index) {
     w.yaw_trim = m.property("fcs/yaw-trim-cmd-norm");
     // And her held trim, where her model has one: no control sets it.
     w.held_trim = m.held_trim();
+    // Her mixture and propeller levers, as an airborne start set them.
+    if (m.has_property("fcs/mixture-cmd-norm[0]")) {
+        w.mixture = m.property("fcs/mixture-cmd-norm[0]");
+    }
+    if (m.has_property("fcs/advance-cmd-norm[0]")) {
+        w.propeller = m.property("fcs/advance-cmd-norm[0]");
+    }
     return w;
 }
 

@@ -130,6 +130,11 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
             }
             e.mixture_lever = true;
             e.full_rich_below_ft = number(w[1], "the height", 0.0, 20000.0);
+        } else if (w[0] == "airscrew-coarse-above") {
+            if (w.size() != 2) {
+                throw wrong("airscrew-coarse-above KCAS");
+            }
+            e.coarse_above_kcas = number(w[1], "the speed", 0.0, 1000.0);
         } else if (w[0] == "speedbrakes") {
             if (w.size() != 1) {
                 throw wrong("speedbrakes, alone");

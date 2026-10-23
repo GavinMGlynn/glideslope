@@ -18,6 +18,10 @@
 //                                leans, and the autopilot leans it for best
 //                                power (sim/leaner.hpp) - but full rich below
 //                                the pressure altitude, as its handbook says
+//   airscrew-coarse-above KCAS   its airscrews have two pitches, and an
+//                                airborne start faster than KCAS puts them
+//                                in coarse, as its book flies cruise, and
+//                                slower in fine (sim::Aircraft::initialize)
 //   speedbrakes                  its flight model has speedbrakes or spoilers
 //                                that the speedbrake lever works; a test flies
 //                                every aircraft to hold this to its model
@@ -87,6 +91,9 @@ struct CatalogueEntry {
     bool seaplane = false;
     bool mixture_lever = false;
     double full_rich_below_ft = 0.0; // with a mixture lever
+    // Two-pitch airscrews: coarse above this calibrated airspeed at an
+    // airborne start, fine at or below it; none for any other.
+    std::optional<double> coarse_above_kcas;
     bool speedbrakes = false;
     // Her thrust reversers, and the speed they are brought to idle at; none
     // where she has none.

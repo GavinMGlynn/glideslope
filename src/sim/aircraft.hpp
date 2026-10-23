@@ -330,6 +330,7 @@ struct CatalogueFacts {
     std::optional<double> climb_floor_kts;
     bool mixture_lever = false;
     double full_rich_below_ft = 0.0;
+    std::optional<double> coarse_above_kcas;
     bool speedbrakes = false;
     std::optional<double> reverse_idle_kts;
     double yaw_damper_per_degps = 0.05;
@@ -713,6 +714,7 @@ private:
     std::optional<double> climb_floor_kts_;
     bool mixture_lever_ = false;
     double full_rich_below_ft_ = 0.0;
+    std::optional<double> coarse_above_kcas_;
     bool speedbrakes_ = false;
     std::optional<double> reverse_idle_kts_;
     std::pair<double, double> alpha_range_rad_{-std::numeric_limits<double>::infinity(),
