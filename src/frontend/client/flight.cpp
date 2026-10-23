@@ -216,6 +216,27 @@ void Flight::adopt(const sim::Motion& motion, std::uint64_t server_steps) {
     (void)prediction_->adopt(motion, server_steps);
     // Where the aircraft left behind was flown is not this one's error.
     predicted_at_.clear();
+    (void)let_go_if_lost(motion);
+}
+
+bool Flight::let_go_if_lost(const sim::Motion& motion) {
+    if (!prediction_ || !prediction_->lost()) {
+        return false;
+    }
+    const sim::Prediction::Lost lost = *prediction_->lost();
+    if (said_lost_.insert(lost.what).second) {
+        std::fprintf(stderr,
+                     "glideslope: the prediction of the %s went to a number not finite at "
+                     "its step %llu - %s - and is let go of, and started again from the "
+                     "server's word\n",
+                     aircraft_entry_.id.c_str(), static_cast<unsigned long long>(lost.step),
+                     lost.what.c_str());
+    }
+    // A server's word not finite is no start: the next is waited for.
+    if (!sim::first_not_finite(motion)) {
+        adopt(motion);
+    }
+    return true;
 }
 
 sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
@@ -229,11 +250,17 @@ sim::Prediction::Correction Flight::reconcile(const sim::Motion& motion,
     if (!prediction_) {
         return {};
     }
+    if (let_go_if_lost(motion)) {
+        return {};
+    }
     (void)prediction_->hear_engine_stopped(engine_stopped);
     prediction_->hear_wrecked(wrecked);
     const sim::Prediction::Correction c =
         prediction_->reconcile(motion, last_applied, steps_into, server_steps,
                                stovl_height_asked_ft, stovl_carried);
+    if (let_go_if_lost(motion)) {
+        return {};
+    }
     // Held against where this client had flown it by the step the word is
     // placed at (glideslope_cli's measure), then forgotten up to there.
     if (c.at_step && *c.at_step > 0) {

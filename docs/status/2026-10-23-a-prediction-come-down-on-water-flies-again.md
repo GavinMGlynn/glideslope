@@ -1,7 +1,14 @@
 ### A prediction come down on water flies again when the server does, 2026-10-23
 
 **What is still not true first.** The NaN that aborted the run was not
-reproduced here, and its birth is not found. What was found, on the same
+reproduced here, and its cause is unknown. The item closes, by the
+owner's decision of 2026-10-23, on a guard and a trap instead (below):
+a prediction given a NaN or an infinity is let go of before JSBSim takes
+it, and a recurrence in CI or the nightly says where the NaN was made and
+which numbers went with it. A NaN made *inside* one JSBSim step, from
+finite inputs and a finite state, and looked up by a table in that same
+step, is before the guard can see it: that one still asserts in a debug
+build, and only the trap's account of it is new. What was found, on the same
 path, is a prediction held on the water's surface for good after its first
 water wreck; that is fixed. Whether it was the NaN's cause is not shown.
 
@@ -106,3 +113,40 @@ lookup, and a key that is NaN is the only one that fails it: every
 comparison is false, so the search stops at the first breakpoint and
 the factor is NaN. Which table, and which input made the NaN, remain
 unknown; the item stays open.
+
+**Closed on a guard and a trap** (the owner's decision, 2026-10-23; the
+cause unknown).
+- **The guard** (`sim::Prediction::lost`): every input a prediction puts
+  on JSBSim - each step's controls, the server's motion it is put to - is
+  looked at before it is put, and the motion each step leaves after it is
+  flown, forward or again. The first NaN or infinity stops the prediction
+  flying, and says what it was (the control by name, the motion's
+  component, and the first JSBSim properties not finite, by name) and at
+  which of its steps. `glideslope_cli` then lets it go as after a take-back:
+  a new aircraft, started from the server's next word; it says so once for
+  each thing a prediction went to, with the step and the aircraft, and
+  counts every one ("let go of: N predictions ..., M updates compared since
+  the last"). A server's word not finite is not started from. The window
+  client (`client::Flight::let_go_if_lost`) takes the server's motion back
+  on the aircraft it has, not a new one; that path is not under a test.
+- **The trap** (`--trap-nan`, `platform/nan_trap.hpp`): with glibc the
+  floating-point *invalid* exception is unmasked, so the first NaN made
+  stops the client with a backtrace of where (its symbols exported on
+  Linux, so JSBSim's functions are named); everywhere an abort - JSBSim's
+  assertion - prints the same. Either way every number of the predicted
+  aircraft not finite is printed by its property name. Set in
+  `server_engine_prediction.cmake`, the run that failed, and in the new
+  test; both print the programs' standard error when one fails, so it
+  lands in the test log, on CI and in the nightly's repeats.
+- **Verification**:
+  `a_prediction_given_a_nan_is_let_go_of_and_its_client_flies_on_from_the_servers_state`
+  (`tests/cmake/prediction_let_go_of_a_nan.cmake`): the client gives its
+  prediction alone a NaN elevator at 10 s (`--test-nan-at 10`), the trap
+  set, through a 100 ms relay. Green: all three programs exit 0, no trap,
+  the let-go said once for "the input's elevator", and 288 of 500 updates
+  compared since - it flew on from the server's state. **Seen red** with
+  the guard taken out of `Prediction::fly`: the client stopped on SIGFPE,
+  "nan trap: a NaN made here", the backtrace through
+  `JSBSim::FGFCSComponent::Clip`, and "nan trap: fcs/elevator-cmd-norm"
+  as the number gone - the account a recurrence will give. Guard put back,
+  green again.

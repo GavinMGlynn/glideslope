@@ -817,13 +817,15 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       without the fix.* Done 2026-10-23.
 - [ ] **The window client compares only each frame's newest update.**
       *Verification: every update it reads is compared, counted in a test.*
-- [ ] **A client's prediction asserted in JSBSim on a NaN after two water
-      wrecks** (CI's Ubuntu, run 39883628869). Found on the way and fixed: a
-      prediction that met the water stayed held on it after flying again.
-      The NaN itself is not yet reproduced or found: none in ten runs
-      trapped at the first NaN made, CI's own commit starved among them.
-      *Verification: the NaN's birth found and fixed, red without the fix;
-      the held prediction is pinned already, red without its fix.*
+- [x] **A client's prediction asserted in JSBSim on a NaN after two water
+      wrecks** (CI's Ubuntu, run 39883628869). Closed on a guard and a trap
+      by the owner's decision of 2026-10-23, the cause unknown: a prediction
+      given a NaN is let go of and started again from the server's word, and
+      a recurrence names where its NaN was made. A prediction held on the
+      water after flying again was found and fixed on the way.
+      *Verification: a prediction given a NaN is let go of and its client
+      flies on, red without the guard; the held prediction pinned, red
+      without its fix.* Done 2026-10-23.
 
 ---
 

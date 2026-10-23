@@ -2535,6 +2535,17 @@ add_test(NAME a_predicting_client_too_slow_to_replay_every_word_puts_itself_righ
 set_tests_properties(a_predicting_client_too_slow_to_replay_every_word_puts_itself_right_from_the_newest_and_keeps_up
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/starved_prediction)
+# **A prediction given a NaN is let go of, the server's state taken back, and
+# flown on**, nothing asserting. See cmake/prediction_let_go_of_a_nan.cmake.
+add_test(NAME a_prediction_given_a_nan_is_let_go_of_and_its_client_flies_on_from_the_servers_state
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/prediction_nan -DPORT=24961
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/prediction_let_go_of_a_nan.cmake)
+set_tests_properties(a_prediction_given_a_nan_is_let_go_of_and_its_client_flies_on_from_the_servers_state
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/prediction_nan)
 # **A machine's stalls excuse a prediction test only so far**: at most two,
 # a quarter of what was compared, and each recovered from within its words.
 # Every case of the cap. See cmake/machine_stalls_check.cmake.

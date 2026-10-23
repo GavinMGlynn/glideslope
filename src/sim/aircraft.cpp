@@ -1476,6 +1476,17 @@ std::vector<double> Aircraft::numbers() const {
     return out;
 }
 
+std::vector<std::string> Aircraft::not_finite_numbers(std::size_t most) const {
+    find_numbers();
+    std::vector<std::string> out;
+    for (std::size_t i = 0; i < number_nodes_.size() && out.size() < most; ++i) {
+        if (!std::isfinite(number_nodes_[i]->getDoubleValue())) {
+            out.push_back(number_names_[i]);
+        }
+    }
+    return out;
+}
+
 void Aircraft::restore(const AircraftSnapshot& s) {
     if (s.model != model_) {
         throw std::invalid_argument("a snapshot of " + s.model +

@@ -64,6 +64,12 @@
 # `-DSERVER_EXTRA=...` adds to the server's arguments - `--test-step-ms 15`
 # puts it behind real time, as a loaded runner does, to reproduce one.
 #
+# **With the NaN trap set** (`--trap-nan`): this is the run that ended on
+# JSBSim's assertion of a table looked up at a NaN after two water wrecks
+# (CI run 39883628869), never reproduced; a recurrence prints where the NaN
+# was made and every number of the predicted aircraft gone with it, in the
+# exit codes' message below (platform/nan_trap.hpp).
+#
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
 
@@ -102,7 +108,7 @@ math(EXPR _relay "${PORT} + 1")
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 280 --after 1
             --predict --until-engine-compared 300 --heard "${_heard}" ${_unpaced}
-            --track "${WORK}/track.txt"
+            --track "${WORK}/track.txt" --trap-nan
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 5 --store "${_store}" --fail-engine-at 20 ${_slowed}
             ${SERVER_EXTRA}
