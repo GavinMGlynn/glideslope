@@ -333,6 +333,10 @@
         </channel>
     </flight_control>
     <aerodynamics>
+        <alphalimits unit="RAD">
+            <min>-0.0873</min>
+            <max>0.2617</max>
+        </alphalimits>
         <function name="aero/function/kCLge">
             <description>Change_in_lift_due_to_ground_effect</description>
             <table>

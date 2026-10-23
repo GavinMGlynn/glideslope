@@ -169,3 +169,56 @@ in pitch alone.
   `every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one`
   passes, as do the catalogue, first-input, untouched and F-22A tests (36,
   linux-debug). `glideslope_cli selftest` hash 831a4e7954233b0a, unmoved.
+
+### Every point that does not trim, triaged, 2026-10-23
+
+**What is still not true first.** Four defects found and open: the S.23,
+the Learjet at her fastest, the light aircraft trimmed full rich at height,
+and the J-3 Cub at 10,000 ft unsourced. Fixed: the 737-300 and Learjet at
+the plan's slowest. Each point below is excluded with its source, fixed, or
+open; the walk now trims 478 of 540 and leaves out 62 by name (47 not
+trimmed, every one said).
+
+- **The 737-300 and Learjet 35A at the plan's slowest, clean - fixed.**
+  JSBSim's trim searches angles of attack between the model's
+  `<alphalimits>`, -5 to 20 degrees where it gives none (FGTrimAxis.cpp),
+  and checks for a change of sign at the ends alone (FGTrim::checkLimits).
+  Both wings stall below 20 degrees, so at 20 her lift is less again than
+  at the start and the trim said "wdot doesn't appear to be trimmable"
+  (737 at 172 kt, 5,000 ft: wdot +39.2 at -5 degrees, +3.06 at 20). Both
+  models now give alpha limits up to the greatest angle any of their flap
+  settings reaches before it stalls - the 737's leading-edge stall, 0.30
+  rad; the Learjet's flaps-8 peak, 0.2617 - through tools/make_737_300.py
+  and tools/make_learjet35a.py. Nothing else reads them (JSBSim's
+  `aero/alpha-max-rad` and its impending stall only). Seen red without them
+  (21 points), green with.
+- **The S.23 - open, a defect.** 130 kt at 1,000 ft is well inside her
+  envelope. Her variable-datum boost control
+  (aircraft/short_s23/Systems/engines.xml) is an `<integrator>` in her
+  flight controls; JSBSim runs the flight controls, integrators and all, at
+  every pass of its trim (FGPID::Run, the channel's own step), so the
+  throttle the trim tries moves on beneath it: udot cycles through -1.9e-3,
+  3.3e-2 and 1.1e-2 with throttle 0.55 and never settles (61 iterations).
+  The fix belongs in tools/make_short_s23.py or in glideslope's trim (settle
+  the boost loop as the governed propeller's is settled); not done.
+- **The Learjet at 300 kt at her model's own loading - open, a defect.**
+  Under her 350 kt limit (TCDS A10CE). At either stop her stabilizer leaves
+  her pitching nose up (qdot 7.28 and 0.034 rad/s^2); at the landing
+  loading she trims at 300 kt. Her centre of gravity at that loading or her
+  stabilizer's authority, not yet found.
+- **The light aircraft at height - mixed.** Excluded, past the book:
+  the C172P at 110 kt at 10,000 ft (127 KTAS; POH figure 5-8, 121 KTAS at
+  8,000 ft at 77%); the PA-28-180 at 110 and 112 kt there (127 KTAS and more;
+  75% at its optimum 7,000 ft is 124.3 KTAS); the C182 at 129 kt there (150
+  KTAS; her greatest 145 KTAS at sea level, 140 at 80% at 6,000 ft) - all
+  from assets/figures/. Open, a defect: the C172P at 100 kt at 2,400 lb and
+  the C182 at 64, 71 and 120 kt at 10,000 ft, and the C182 at 129 kt at
+  5,000 ft: the trim starts her mixture full rich, which at height JSBSim's
+  piston burns ever worse (its combustion efficiency falls as the
+  equivalence ratio climbs with height; the C182's engine stops at 10,000
+  ft, udot the same at closed and open throttle). Her book's figures are
+  leaned. Unsourced: the J-3 Cub at 60 and 62 kt at 10,000 ft (no mixture
+  lever; no Cub figure gives a speed at height) and the C182 at 120 kt there.
+- CI on f5443f30: one failure, on Ubuntu debug, the window client's
+  `pressing_m_3_times` test - its imagery server reset the connection
+  ("the client drew nothing"), nothing of this change's.

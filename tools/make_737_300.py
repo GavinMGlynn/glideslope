@@ -52,6 +52,15 @@ The changes, and what each is for:
                         LEADING_EDGE_STALL_ALPHA (17 degrees); at 135,000 lb
                         with flaps 5 it stalls at 131 knots, and its take-off
                         speeds are a 737-300's, where they were 20 knots fast.
+    Alpha limits, added The angles of attack JSBSim's trim searches, which
+                        without them are -5 to 20 degrees: past the clean
+                        wing's stall at 13, where her lift falls, the trim
+                        saw no lift enough at either end and failed even
+                        where she flies, clean at the plan's slowest (172 kt
+                        at 96,540 lb). They are -5 degrees to
+                        LEADING_EDGE_STALL_ALPHA, the greatest angle any
+                        setting of her flaps reaches before it stalls;
+                        nothing else in the model reads them.
     Drag_due_to_flaps   The model's flap drag rose in proportion to the
                         detent's step, so that flaps 5, the third of eight, had
                         more than a third of full flap's; it is now the leading
@@ -294,6 +303,11 @@ def airframe():
         "                          <tableData>\n" + lift_rows(LEADING_EDGE_STALL_ALPHA) + "\n"
         "                          </tableData>\n"
         "                      </table>", "the lift curve")
+    text = replace_once(text, r"(<aerodynamics>\n)",
+                        lambda mm: mm.group(1) + "\n        <alphalimits unit=\"RAD\">\n"
+                        "            <min>-0.0873</min>\n"
+                        f"            <max>{LEADING_EDGE_STALL_ALPHA:.4f}</max>\n"
+                        "        </alphalimits>\n", "the aerodynamics")
     rows = "\n".join(f"                              {deg}\t{flap_drag(deg):.4f}" for deg in FLAP_DETENTS_DEG)
     text = replace_once(
         text,
