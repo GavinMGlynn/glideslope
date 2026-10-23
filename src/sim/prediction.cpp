@@ -19,7 +19,10 @@ constexpr std::array<const char*, Controls::control_count> control_names = {
     "mixture",           "flaps",             "left brake",       "right brake",
     "pitch trim",        "propeller",         "gear",             "supercharger",
     "speedbrake",        "throttle offset 0", "throttle offset 1", "cooling flaps 0",
-    "cooling flaps 1",   "reverse",           "stovl"};
+    "cooling flaps 1",   "reverse",           "stovl",            "roll trim",
+    "yaw trim"};
+// A control added to Controls without a name here would leave a null name.
+static_assert(control_names.back() != nullptr, "every control needs its name");
 
 } // namespace
 
