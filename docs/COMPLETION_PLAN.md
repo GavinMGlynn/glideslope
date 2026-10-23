@@ -458,24 +458,29 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       height within 100 ft (2026-10-20: 7 ft and under 1 ft).*
 - [ ] **The F-22A, the Mosquito and the S.23 trimmed, and the C182 with her
       propeller governed**, so a player's aircraft left untouched holds her
-      height; the F-22A in pitch alone, her pilot's trim still commanding a
-      pitch rate, the trim she is held on told her client's prediction; a
-      trim that fails is said in the server's log; the S.23's boost control
-      settled through her trim. Missing: the S.23 at 10,000 ft at her start
-      speed, started with her airscrews in fine pitch.
-      *Verification: every one of the sixteen, started as a player's and
-      untouched for thirty seconds, within 20 ft of her start height
-      (2026-10-22: within 7 ft at 3,000 ft); and the S.23 trimmed and held at
-      every loading at 1,000, 5,000 and 10,000 ft at her start speed
-      (2026-10-23: 19 of her 27 points held, 8 named).*
+      height; the F-22A in pitch alone, the trim she is held on told her
+      client's prediction; a trim that fails is said in the server's log; the
+      S.23's boost control settled through her trim. Missing: the S.23 heavy
+      at 10,000 ft at 130 and 141 kt, unsourced. *Verification: every one of
+      the sixteen, started as a player's and untouched for thirty seconds,
+      within 20 ft of her start height (2026-10-22: within 7 ft at 3,000 ft);
+      and the S.23 trimmed and held at every loading at 1,000, 5,000 and
+      10,000 ft at her slowest, start and fastest speeds (2026-10-23: 23 of
+      27, 4 named).*
 - [ ] **Trimmed at every height, speed and loading a player or plan may start
-      at**: the 737-300, Learjet and S.23 at their slowest now trim. Open: the
-      S.23 in fine pitch fast and high; the C172P and C182 at height, trimmed
-      full rich where leaned they trim (the start must lean them, held as
-      the server holds her); the J-3 Cub at 10,000 ft unsourced; and the
-      Learjet's model's own loading, 36% of her chord, aft of her 30% limit.
-      *Verification: the catalogue's walk of loadings, three heights and
-      three speeds leaves out only points past each aircraft's book.*
+      at, her levers as her book flies there** (the owner, 2026-10-23): an
+      airborne start leans her mixture for the most power above her
+      handbook's height and puts two-pitch airscrews in coarse in cruise,
+      held so until her first input and told her client. Missing, unsourced:
+      the S.23 heavy and the C182 at 3,100 lb at 10,000 ft fast, and the J-3
+      Cub at 60-62 kt at 10,000 ft. *Verification: the
+      catalogue's walk of loadings, three heights and three speeds leaves out
+      only points past each aircraft's book, named with their source.*
+- [ ] **A Learjet 35A given no loading flies past her aft limit**: her
+      model's own loading puts her centre of gravity at 36.1% of her chord,
+      behind her flight manual's 30%, and at 300 kt her stabilizer cannot
+      trim her. *Verification: a player given no loading flies a Learjet
+      within her flight manual's centre-of-gravity limits.*
 - [x] **A player's first input keeps the trim the server held**: her
       client begins its inputs from every control the server held her on,
       the aileron and rudder her trim found held as roll and yaw trim, so a

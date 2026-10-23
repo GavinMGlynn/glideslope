@@ -131,6 +131,9 @@ std::optional<std::vector<std::uint8_t>> write_state(const StatePacket& state) {
             w.u16(static_cast<std::uint16_t>(quantise(v)));
         }
         w.u16(static_cast<std::uint16_t>(c.held_trim ? quantise(*c.held_trim) : no_held_trim));
+        for (const double v : {c.mixture, c.propeller}) {
+            w.u16(static_cast<std::uint16_t>(quantise(v)));
+        }
     }
     return w.take();
 }
@@ -283,6 +286,14 @@ std::optional<StatePacket> read_state(std::span<const std::uint8_t> body) {
         const auto held_trim = static_cast<std::int16_t>(r.u16());
         if (held_trim != no_held_trim) {
             c.held_trim = unquantise(held_trim);
+        }
+        // The mixture and propeller levers, last (since 0F): controls.
+        for (double* v : {&c.mixture, &c.propeller}) {
+            const auto wire = static_cast<std::int16_t>(r.u16());
+            if (!r.ok() || wire == gear_fixed) {
+                return std::nullopt;
+            }
+            *v = unquantise(wire);
         }
         if (gear != gear_fixed) {
             c.gear = unquantise(gear);

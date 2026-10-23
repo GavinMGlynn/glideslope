@@ -257,6 +257,7 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
             found.mixture_lever = true;
             found.full_rich_below_ft = e.full_rich_below_ft;
         }
+        found.coarse_above_kcas = e.coarse_above_kcas;
         found.speedbrakes = found.speedbrakes || e.speedbrakes;
         found.reverse_idle_kts = e.reverse_idle_kts;
         found.yaw_damper_per_degps = e.yaw_damper_per_degps;
@@ -528,7 +529,8 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
 Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& model,
                    const CatalogueFacts& catalogue)
     : climb_floor_kts_(catalogue.climb_floor_kts), mixture_lever_(catalogue.mixture_lever),
-      full_rich_below_ft_(catalogue.full_rich_below_ft), speedbrakes_(catalogue.speedbrakes),
+      full_rich_below_ft_(catalogue.full_rich_below_ft),
+      coarse_above_kcas_(catalogue.coarse_above_kcas), speedbrakes_(catalogue.speedbrakes),
       reverse_idle_kts_(catalogue.reverse_idle_kts),
       yaw_damper_per_degps_(catalogue.yaw_damper_per_degps),
       rudder_integral_rate_(catalogue.rudder_integral_rate),
@@ -869,11 +871,31 @@ void Aircraft::initialize(const InitialConditions& ic) {
         JSBSim::FGPropeller* propeller;
     };
     std::vector<Governed> governed;
+    // **Her levers as her book flies this height and speed** (the project
+    // owner, 2026-10-23), every start the same, server's, player's and AI's:
+    // her propeller lever where every pilot's Controls leaves it (1, the
+    // highest rpm) - but two-pitch airscrews in coarse above the speed her
+    // catalogue entry gives (`airscrew-coarse-above`), as her book flies
+    // cruise; and her mixture full rich, leaned for the most power below
+    // (`lean_for_best_power`) where she has a mixture lever and is above the
+    // height her handbook leans from (`mixture-lever`). She is held on them
+    // until her first input (sim::held_until_moved).
+    const double propeller_lever =
+        coarse_above_kcas_ && ic.engine_running && ic.airspeed_kts > *coarse_above_kcas_
+            ? 0.0
+            : Controls{}.propeller;
+    double mixture_lever = Controls{}.mixture;
+    const auto set_levers = [&] {
+        for (unsigned i = 0; i < exec_->GetPropulsion()->GetNumEngines(); ++i) {
+            exec_->GetFCS()->SetPropAdvanceCmd(static_cast<int>(i), propeller_lever);
+            exec_->GetFCS()->SetMixtureCmd(static_cast<int>(i), mixture_lever);
+        }
+    };
+    set_levers();
     if (ic.trim) {
         const auto propulsion = exec_->GetPropulsion();
         for (unsigned i = 0; i < propulsion->GetNumEngines(); ++i) {
             const auto engine = propulsion->GetEngine(i);
-            exec_->GetFCS()->SetPropAdvanceCmd(static_cast<int>(i), Controls{}.propeller);
             auto* propeller = dynamic_cast<JSBSim::FGPropeller*>(engine->GetThruster());
             if (propeller != nullptr && propeller->IsVPitch() &&
                 propeller->GetConstantSpeed() != 0) {
@@ -916,6 +938,78 @@ void Aircraft::initialize(const InitialConditions& ic) {
         propulsion->in.TotalDeltaT = step;
         stopped_run();
     };
+    // **Leaned for the most power**, as her handbook leans above the height
+    // it gives (sim/leaner.hpp, which leans her so in flight): at full
+    // throttle, her engines run at the simulation's step until they settle
+    // at each mixture tried, the lever that gives the most power - each
+    // fiftieth of its travel from 0.3 to full rich, then the best's
+    // neighbourhood by golden section to a thousandth. Her throttle is
+    // given back.
+    const auto lean_for_best_power = [&] {
+        const auto fcs = exec_->GetFCS();
+        const auto propulsion = exec_->GetPropulsion();
+        const std::size_t engines = propulsion->GetNumEngines();
+        std::vector<double> throttles;
+        for (std::size_t i = 0; i < engines; ++i) {
+            throttles.push_back(fcs->GetThrottleCmd(static_cast<int>(i)));
+            fcs->SetThrottleCmd(static_cast<int>(i), 1.0);
+        }
+        // Each started again first: an engine a mixture stopped (full rich
+        // at height stops some) would stay stopped for every lever after.
+        const auto power_at = [&](double lever) {
+            start_engines();
+            for (std::size_t i = 0; i < engines; ++i) {
+                fcs->SetMixtureCmd(static_cast<int>(i), lever);
+                fcs->SetThrottleCmd(static_cast<int>(i), 1.0);
+            }
+            stopped_run();
+            settle_engines();
+            double hp = 0.0;
+            for (std::size_t i = 0; i < engines; ++i) {
+                hp += exec_->GetPropertyValue("propulsion/engine[" + std::to_string(i) +
+                                              "]/power-hp");
+            }
+            return hp;
+        };
+        double best = 1.0;
+        double most = power_at(1.0);
+        for (double lever = 0.98; lever > 0.29; lever -= 0.02) {
+            const double hp = power_at(lever);
+            if (hp > most) {
+                most = hp;
+                best = lever;
+            }
+        }
+        double low = std::max(0.3, best - 0.02);
+        double high = std::min(1.0, best + 0.02);
+        constexpr double golden = 0.6180339887498949;
+        while (high - low > 0.001) {
+            const double a = high - golden * (high - low);
+            const double b = low + golden * (high - low);
+            if (power_at(a) >= power_at(b)) {
+                high = b;
+            } else {
+                low = a;
+            }
+        }
+        mixture_lever = 0.5 * (low + high);
+        for (std::size_t i = 0; i < engines; ++i) {
+            fcs->SetThrottleCmd(static_cast<int>(i), throttles[i]);
+        }
+        set_levers();
+        // Started again as `start_engines` starts them: a lean engine
+        // settled at her throttle before the trim found it - closed - could
+        // stop, and JSBSim's trim does not start one. Starting sets her
+        // mixture full rich (FGPropulsion::SetEngineRunning), so her levers
+        // are set again after.
+        start_engines();
+        set_levers();
+        stopped_run();
+    };
+    if (ic.engine_running && mixture_lever_ &&
+        exec_->GetPropertyValue("atmosphere/pressure-altitude") >= full_rich_below_ft_) {
+        lean_for_best_power();
+    }
     // Her acceleration along her path, trimmed but for her power, at a
     // throttle: her engines started again as `start_engines` starts them, so
     // that what one throttle finds does not hang on the throttles tried
@@ -1099,6 +1193,7 @@ void Aircraft::initialize(const InitialConditions& ic) {
     // thirty seconds where started untrimmed she fell 500.
     const auto untrimmed = [&] {
         exec_->GetFCS()->InitModel();
+        set_levers();
         if (held_trim) {
             exec_->SetPropertyValue(held_trim_property, 0.0);
         }
@@ -1121,6 +1216,7 @@ void Aircraft::initialize(const InitialConditions& ic) {
         }
         if (ic.engine_running) {
             start_engines();
+            set_levers();
         }
     };
     // **Laterally too, where asked and JSBSim can**, and longitudinally

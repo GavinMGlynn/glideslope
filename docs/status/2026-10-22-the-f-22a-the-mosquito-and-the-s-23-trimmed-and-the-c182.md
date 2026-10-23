@@ -280,3 +280,58 @@ trims 497 of 540, 43 left out by name (31 not trimmed, every one said).
   where she has about 0.70: too near to call.
 - The C182 at 120 kt at 10,000 ft, unsourced last round, is inside her
   model leaned (above).
+
+### Airborne starts' levers as the book flies there, 2026-10-23
+
+**The owner's decision (2026-10-23).** An airborne start sets its levers as
+the book flies that height and speed: the mixture leaned to the handbook's
+setting for the height, the propeller in the pitch the book flies that
+speed at (coarse in cruise, fine for slow flight), held so until the
+player's first input. Server, player and AI starts take the same path.
+
+**What is still not true first.** Unsourced and open: the S.23 at her
+figures' loadings (40,500 and 45,000 lb) at 130 and 141 kt at 10,000 ft;
+the C182 at 3,100 lb at 120 kt at 10,000 ft; the J-3 Cub at 60 and 62 kt
+at 10,000 ft. Both plan items stay open. The walk trims 513 of 540; 27
+left out by name (20 not trimmed, every one said).
+
+**What was built.**
+- Per aircraft, as data: the handbook's leaning rule is the catalogue's
+  `mixture-lever FULL_RICH_BELOW_FT`, already cited from each handbook
+  (C172P POH figure 5-6, "leaned above 3000 feet"; Cherokee 180 section III,
+  5,000 ft; C182S, 3,000 ft); the pitch rule is a new catalogue keyword,
+  `airscrew-coarse-above KCAS`, the S.23's 100 kt - Flight's figures fly her
+  climb at 100 kt in fine pitch and her 200 mph level speed in coarse
+  (assets/figures/short_s23.xml); her book gives no other speed between.
+- In `Aircraft::initialize`, the one start every server, player and AI
+  aircraft takes: the propeller lever 0 (coarse) above that speed, else 1;
+  the mixture full rich, or, with a mixture lever above the handbook's
+  height, leaned for the most power - at full throttle, each engine started
+  again and settled at each lever (a fiftieth from 0.3 to 1, then golden
+  section to a thousandth). JSBSim's `set-running` puts the mixture full
+  rich (FGPropulsion::SetEngineRunning), so the levers are set again after
+  every start, and after a failed trim's `InitModel`.
+- Held until her first input: `held_until_moved` reads both levers, and
+  `WATCH` carries them after the held trim (two `i16`, protocol `0F` still,
+  docs/TRANSPORT.md); `keep_held` begins a client's inputs from them, so a
+  prediction starts from the server's levers.
+
+**Measured.** C172P at 100 kt at 10,000 ft leaned to 0.74, 94.5 hp:
+trimmed laterally, both loadings. C182 leaned to 0.59 at 10,000 ft: trimmed
+at 64, 71 and 120 kt (162 hp, 70%) at her own loading; 0.72 at 5,000 ft at
+129 kt (181.5 hp). The S.23 in coarse pitch: her own loading at 130 and 141
+kt at 10,000 ft, and 141 kt at 5,000 ft heavy, trimmed. The J-3 Cub has no
+mixture lever (make_j3cub.py: her carburettor meters it) and still does not
+trim at 60-62 kt at 10,000 ft. Searched for her: the figures file (manual,
+14,000 ft solo; cruise 73 mph), AOPA and AeroCorner (11,500 ft, 76 kt at sea
+level), the 1946 J3C-65 owner's manual listings - none gives a level speed
+at height. A first build leaned before the trim and left the engine
+settled closed: it stopped (-1.5 hp) and the C172P lost her lateral trim at
+3,000 ft - seen red, fixed by starting her again.
+
+**Verification.** The walk and the S.23 test as above (S.23: 23 of 27 held
+to the foot and the knot, 4 named); `a_state_packet_carries_the_controls...`
+with both levers; the catalogue's first-input test (every control to the
+bit, now the mixture and propeller with them), the first-input, STOVL and
+untouched server tests: see the ctest run in this commit's message.
+`glideslope_cli selftest` hash 831a4e7954233b0a, unmoved.

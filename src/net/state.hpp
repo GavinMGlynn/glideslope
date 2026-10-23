@@ -192,12 +192,17 @@ struct Watched {
     double roll_trim = 0.0;
     double yaw_trim = 0.0;
     std::optional<double> held_trim;
+    // Her mixture and propeller levers (since 0F, after the held trim): an
+    // airborne start sets them as her book flies there.
+    double mixture = 1.0;
+    double propeller = 1.0;
 
     bool operator==(const Watched&) const = default;
 };
 
-// The flag, the aircraft's number, ten controls and the held trim.
-inline constexpr std::size_t watched_bytes = 1 + 1 + 11 * 2;
+// The flag, the aircraft's number, ten controls, the held trim, and the
+// mixture and propeller levers.
+inline constexpr std::size_t watched_bytes = 1 + 1 + 13 * 2;
 // What the gear is written as where it does not retract, and the speedbrake
 // lever where there are no speedbrakes, and the held trim where there is none.
 inline constexpr std::int16_t gear_fixed = -32768;

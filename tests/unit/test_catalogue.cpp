@@ -377,7 +377,7 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 // points left out below, which are open in the completion plan ("Trimmed at
 // every height, speed and loading a player may start at"). A point left out
 // may fail, and where it does it must say so; it is counted, never passed.
-// Left out (linux-debug, 2026-10-23). Outside her book, a correct failure:
+// Left out, each outside her book - a correct failure - and every one said:
 //   - the C172P at 110 kt at 10,000 ft (127 KTAS): figure 5-8 gives 121 KTAS
 //     at 8,000 ft at 77% (assets/figures/c172p.xml);
 //   - the PA-28-180 at 110 and 112 kt at 10,000 ft (127 KTAS and more): 75%
@@ -386,21 +386,24 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 //     sea level, 140 at 80% at 6,000 ft (c182.xml);
 //   - the Learjet 35A at 300 kt at her model's own loading: her centre of
 //     gravity there is 36.1% of her chord, aft of the flight manual's 30%
-//     limit (tools/make_learjet35a.py, EMPTY_CG); at 250 kt her stabilizer
-//     is already at 0.95 of its travel, and at the figures' loadings
+//     limit (tools/make_learjet35a.py, EMPTY_CG); at the figures' loadings
 //     (18.1 to 24.6%) she trims at 300 kt.
-// Defects found and open (COMPLETION_PLAN.md):
-//   - the S.23 at 10,000 ft at 130 and 141 kt, and at 5,000 ft at 141 kt at
-//     her figures' loadings: started with her airscrews in fine pitch (the
-//     test below); in coarse, as her book's speeds are flown, she trims;
-//   - the C172P at 100 kt at 2,400 lb and the C182 at 64, 71 and 120 kt at
-//     10,000 ft, and the C182 at 129 kt at 5,000 ft: trimmed with her
-//     mixture full rich, which at height JSBSim's piston burns ever worse
-//     (the C182's engine stops at 10,000 ft). Leaned to 0.65 the C182 trims
-//     at every one (162 hp at 120 kt at 10,000 ft, 70%); her book's figures
-//     are leaned;
-//   - unsourced: the J-3 Cub at 60 and 62 kt at 10,000 ft (no Cub figure
-//     gives a speed at height; she has no mixture lever).
+// Open, unsourced: the S.23 at her figures' loadings (40,500 and 45,000 lb)
+// at 130 and 141 kt at 10,000 ft (151 and 163 KTAS), in coarse pitch - her
+// book gives her level speed at 5,500 ft alone; the C182 at 3,100 lb at 120
+// kt at 10,000 ft (140 KTAS), leaned - her POH's cruise table at that height
+// was not found; and the J-3 Cub at 60 and 62 kt at 10,000 ft (her
+// figures' loadings, and her own at 62), which no Cub source found gives a
+// level speed at height for (the manual's ceiling, 14,000 ft solo; AOPA's
+// and AeroCorner's 11,500 ft and 76 kt at sea level); she has no mixture
+// lever to lean.
+// Every start's mixture and propeller levers are as her book flies that
+// height and speed (Aircraft::initialize): leaned for the most power above
+// her handbook's height, two-pitch airscrews coarse in cruise. Started full
+// rich and in fine pitch, as until 2026-10-23, the C172P at 100 kt at 2,400
+// lb and the C182 at 64, 71 and 120 kt at 10,000 ft, the C182 at 129 kt at
+// 5,000 ft, and the S.23 at 130 and 141 kt at 10,000 ft and 141 kt at 5,000
+// ft heavy could not be trimmed - seen red so.
 // The S.23 everywhere else was left out until her boost control held still
 // through the trim and was settled by flying, and her alpha limits stopped at
 // her greatest lift (tools/make_short_s23.py): seen red without them. The
@@ -414,12 +417,14 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
     enum Speed { slowest, start, fastest };
     const auto left_out = [](const std::string& id, bool own_loading, double height_ft,
                              Speed speed) {
-        return (id == "short_s23" && ((height_ft == 10000.0 && speed != slowest) ||
-                                      (height_ft == 5000.0 && !own_loading && speed == fastest))) ||
-               (id == "learjet35a" && own_loading && speed == fastest) ||
-               ((id == "c172p" || id == "pa28" || id == "j3cub" || id == "c182") &&
-                height_ft == 10000.0) ||
-               (id == "c182" && height_ft == 5000.0 && speed == fastest);
+        return (id == "learjet35a" && own_loading && speed == fastest) ||
+               (height_ft == 10000.0 &&
+                ((id == "c172p" && speed == fastest) || (id == "pa28" && speed != slowest) ||
+                 (id == "c182" && speed == fastest))) ||
+               (id == "j3cub" && height_ft == 10000.0 && speed != slowest) ||
+               (id == "j3cub" && height_ft == 10000.0 && !own_loading) ||
+               (id == "short_s23" && height_ft == 10000.0 && !own_loading && speed != slowest) ||
+               (id == "c182" && height_ft == 10000.0 && !own_loading && speed == start);
     };
     std::size_t space = 0;
     std::size_t walked = 0;
@@ -521,9 +526,12 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
 // 1,000, 5,000 and 10,000 ft, at the plan's slowest for her weight, her start
 // speed and the plan's fastest), trimmed as a player's and held thirty
 // seconds on what the server holds her on, is trimmed laterally and stays
-// within 20 ft of her start height and 2 kt of her speed - but eight named
-// open: at 10,000 ft at 130 and 141 kt, and at 5,000 ft at 141 kt at her
-// figures' two loadings, her airscrews in fine pitch. Her boost control
+// within 20 ft of her start height and 2 kt of her speed, her airscrews in
+// the pitch her book flies that speed in (coarse above 100 kt,
+// `airscrew-coarse-above`): in fine, as every start was until 2026-10-23, she
+// could not be trimmed at 130 and 141 kt at 10,000 ft or at 141 kt at
+// 5,000 ft heavy - eight points, seen red so; four named open, heavy at
+// 10,000 ft at 130 and 141 kt, unsourced. Her boost control
 // is an integrator in her flight controls (tools/make_short_s23.py, "The
 // boost control held still while time is"): run through JSBSim's trim it
 // cycled and failed at 24 of these; held still through the trim and not
@@ -596,15 +604,11 @@ GLIDESLOPE_TEST(the_s23_trimmed_at_every_loading_height_and_speed_flies_on_as_tr
                             name.c_str(), height_ft, speed_kts,
                             aircraft.trimmed_laterally() ? "trimmed" : "not trimmed", lowest_ft,
                             highest_ft, most_off_kts);
-                // Open, named: started with her airscrews in fine pitch, as
-                // every trimmed start sets the propeller lever (1, the
-                // highest rpm), she makes too little thrust at these; in
-                // coarse pitch, as her book's level speeds are flown, she
-                // trims at every one (linux-debug, 2026-10-23).
-                const bool fine_pitch_open =
-                    (height_ft == 10000.0 && speed_kts >= e->start_airspeed_kts) ||
-                    (height_ft == 5000.0 && loading && speed_kts == hers.fastest_kts);
-                if (fine_pitch_open) {
+                // Open, unsourced, named: heavy at 10,000 ft at 130 and 141
+                // kt (151 and 163 KTAS), in coarse pitch, past what her
+                // model's engines make there; her book gives her level
+                // speed at 5,500 ft alone (200 mph).
+                if (height_ft == 10000.0 && loading && speed_kts >= e->start_airspeed_kts) {
                     ++named;
                     continue;
                 }
@@ -622,8 +626,8 @@ GLIDESLOPE_TEST(the_s23_trimmed_at_every_loading_height_and_speed_flies_on_as_tr
     }
     check(failed.empty(), "the S.23 was trimmed and held within 20 ft and 2 kt for thirty "
                           "seconds at every point; not at:" + failed);
-    std::printf("  %zu of %zu held, %zu named open (fine pitch)\n", held, space, named);
-    check(walked == space && held + named == space && space == 27 && named == 8,
+    std::printf("  %zu of %zu held, %zu named open\n", held, space, named);
+    check(walked == space && held + named == space && space == 27 && named == 4,
           "every one of her 27 points walked, held or named: " + std::to_string(held) +
               " held, " + std::to_string(named) + " named, " + std::to_string(walked) +
               " walked, of " + std::to_string(space));
