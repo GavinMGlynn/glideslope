@@ -35,9 +35,18 @@
 # (`--from-held`): it asks for its own aircraft's levers (`WATCH`), sends
 # nothing until it has them, begins its prediction on them, and sends them as
 # every input (frontend::keep_held) - a player who touches nothing - or, with
-# `--nudge`, with the stick moved back and right a fortieth for her first
-# half second and then the stick and pedals centred. It joins through a relay that holds every datagram
-# 100 ms each way, so that the prediction is flown ahead of the server's word.
+# `--nudge`, with the stick moved back and right a fortieth for half a second
+# of its steps once the clocks' difference is settled, and then the stick and
+# pedals centred. It joins through a relay that holds every datagram 100 ms
+# each way, so that the prediction is flown ahead of the server's word.
+#
+# **The nudge is begun once settled, not with her first input**, and counted
+# in steps, not inputs: begun as she joined, a server busy joining her and
+# owing steps flew it early (net::HeldInputs), and a loaded machine's nudge
+# was flown 110 to 200 steps rather than 60 and banked her up to 8 degrees
+# (CI's Windows debug 5.15 and 5.27). Her first input is still the levers
+# she was held on. The client says how many steps the server flew it, and a
+# nudged run that says none - never nudged - fails.
 #
 # **Every case, not a sample**: the two aircraft the item names, each touched
 # not at all and nudged - four runs, counted. The figures (linux-debug,
@@ -176,6 +185,13 @@ foreach(_id IN LISTS AIRCRAFT)
         set(_pitch_low ${CMAKE_MATCH_1})
         set(_pitch_high ${CMAKE_MATCH_2})
         set(_bank ${CMAKE_MATCH_3})
+        if(_touch STREQUAL "nudged")
+            if(NOT _said MATCHES "nudged: inputs [0-9]+ to [0-9]+, ([0-9]+) steps here; the server flew [^\n]*, ([-0-9]+) steps")
+                message(FATAL_ERROR "the ${_id}, nudged, was never nudged:\n${_said}")
+            endif()
+            message(STATUS "the ${_id}, nudged: ${CMAKE_MATCH_1} steps here, about "
+                           "${CMAKE_MATCH_2} on the server")
+        endif()
         if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared, the worst ([0-9.]+) m")
             message(FATAL_ERROR "the ${_id}'s client did not say its prediction error:\n${_said}")
         endif()
