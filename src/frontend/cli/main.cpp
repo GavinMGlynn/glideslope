@@ -563,8 +563,8 @@ void print_usage(std::FILE* out) {
         "                            server held her on, once it has said it, as a\n"
         "                            player who touches nothing; --nudge with it\n"
         "                            moves the stick back and right a fortieth for\n"
-        "                            the first half second, then centres the stick\n"
-        "                            and pedals\n"
+        "                            half a second once settled, then centres the\n"
+        "                            stick and pedals\n"
         "                            --unpaced (with --predict) flies at this\n"
         "                            machine's pace, not steered to the server's\n"
         "                            --stopped-once S MS (with --predict) runs\n"
@@ -1811,28 +1811,45 @@ public:
     // as the windowed client does, asking for her levers and sending
     // nothing until it has them, and its pilot's every input is those
     // controls, every one kept (frontend::keep_held) - a player who touches
-    // nothing. With `nudge`, her first inputs move the stick back and right
-    // a fortieth for half a second, and then the stick and pedals are
-    // centred, as a player's
-    // first touch of a stick or an arrow key does.
+    // nothing. With `nudge`, once the clocks' difference is settled, the
+    // stick is moved back and right a fortieth for half a second of steps,
+    // and then the stick and pedals are centred, as a player's first touch
+    // of a stick or an arrow key does.
     void from_held(bool nudge) {
         from_held_ = true;
-        nudge_ = nudge;
+        nudge_.asked = nudge;
     }
-    // How many of its first inputs the nudge holds the stick back for: half
-    // a second of them.
-    static constexpr std::uint32_t nudge_inputs = 15;
+    // **How long the nudge holds the stick, in this client's steps**: half
+    // a second of them. Counted in inputs, as it was, it was as long as a
+    // loaded machine made fifteen of its passes, and the server's held it
+    // longer still (docs/status/2026-10-24-first-input-nudge-steady.md).
+    static constexpr std::uint64_t nudge_steps = 60;
     static constexpr double nudge_stick = 0.025;
-    glideslope::sim::Controls held_pilot(std::uint32_t sequence) const {
+    glideslope::sim::Controls held_pilot(std::uint32_t sequence) {
         glideslope::sim::Controls c;
         if (levers_) {
             glideslope::frontend::keep_held(*levers_, c);
         }
-        if (nudge_) {
-            const double moved = sequence <= nudge_inputs ? nudge_stick : 0.0;
-            c.elevator = moved;
-            c.aileron = moved;
-            c.rudder = 0.0;
+        // **The stick first moves once the clocks' difference is settled**,
+        // not with her first input: a server joining her is busy, owes
+        // steps, and flies what arrives meanwhile early (net::HeldInputs) -
+        // a nudge begun as she joined was flown 110 to 200 steps by a
+        // loaded server, not 60, and banked her up to 8 degrees. Her first
+        // input is still the levers she was held on (frontend::keep_held).
+        if (nudge_ && prediction_) {
+            const std::uint64_t step = prediction_->steps();
+            if (!nudge_.from && prediction_->settled()) {
+                nudge_.from = Nudge::At{sequence, step};
+            }
+            if (nudge_.from) {
+                const double moved = step < nudge_.from->step + nudge_steps ? nudge_stick : 0.0;
+                if (moved == 0.0 && !nudge_.to) {
+                    nudge_.to = Nudge::At{sequence, step};
+                }
+                c.elevator = moved;
+                c.aileron = moved;
+                c.rudder = 0.0;
+            }
         }
         return c;
     }
@@ -2217,6 +2234,17 @@ public:
             // flown by then as any other is; the newest puts it right.
             const auto server_steps = static_cast<std::uint64_t>(std::llround(
                 state.simulation_time_s * static_cast<double>(glideslope::sim::steps_per_second)));
+            // **Where the server flew the nudge from, and the stick
+            // centred**: the first input of each heard, and the server's
+            // step it began at - as near as the words fall.
+            if (nudge_.from && applied >= nudge_.from->input) {
+                const Nudge::At began{applied, server_steps - state.yours->steps_into_input};
+                auto& first = nudge_.to && applied >= nudge_.to->input ? nudge_.centred_heard
+                                                                        : nudge_.heard;
+                if (!first || applied < first->input) {
+                    first = began;
+                }
+            }
             glideslope::sim::Prediction::Correction c;
             if (newest_read) {
                 c = prediction_->reconcile(
@@ -2804,6 +2832,21 @@ public:
     std::vector<std::string> report() const {
         std::vector<std::string> lines;
         char line[384];
+        // **The nudge, here and on the server**, for a test to say.
+        if (nudge_.from && nudge_.to && nudge_.heard && nudge_.centred_heard) {
+            std::snprintf(
+                line, sizeof line,
+                "nudged: inputs %u to %u, %llu steps here; the server flew input %u from its "
+                "step %llu and input %u from %llu, %lld steps",
+                nudge_.from->input, nudge_.to->input - 1,
+                static_cast<unsigned long long>(nudge_.to->step - nudge_.from->step),
+                nudge_.heard->input, static_cast<unsigned long long>(nudge_.heard->step),
+                nudge_.centred_heard->input,
+                static_cast<unsigned long long>(nudge_.centred_heard->step),
+                static_cast<long long>(nudge_.centred_heard->step) -
+                    static_cast<long long>(nudge_.heard->step));
+            lines.emplace_back(line);
+        }
         std::snprintf(line, sizeof line,
                       "predicted: %zu corrections, the worst %.3f m, %zu too large to hide",
                       corrections_, worst_correction_m_, snapped_);
@@ -3307,7 +3350,22 @@ private:
     bool stovl_land_ = false;
     bool stovl_at_once_ = false;
     bool from_held_ = false;
-    bool nudge_ = false;
+    // **The nudge** (`--nudge`): whether asked for, the input and this
+    // client's step it began and ended at, and the first of each heard
+    // from the server with the server's step it began at.
+    struct Nudge {
+        struct At {
+            std::uint32_t input = 0;
+            std::uint64_t step = 0;
+        };
+        bool asked = false;
+        std::optional<At> from;
+        std::optional<At> to;
+        std::optional<At> heard;
+        std::optional<At> centred_heard;
+        explicit operator bool() const { return asked; }
+    };
+    Nudge nudge_;
     // The levers the server said it holds her on (`--stovl-at-once`,
     // `--from-held`).
     std::optional<glideslope::net::Watched> levers_;
