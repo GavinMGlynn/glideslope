@@ -335,3 +335,64 @@ with both levers; the catalogue's first-input test (every control to the
 bit, now the mixture and propeller with them), the first-input, STOVL and
 untouched server tests: see the ctest run in this commit's message.
 `glideslope_cli selftest` hash 831a4e7954233b0a, unmoved.
+
+### The last points at 10,000 ft: sourced, derived, or open, 2026-10-23
+
+**What is still not true first.** Open, each her model short of what her
+book gives or derives at 10,000 ft: the S.23 at 45,000 lb at 130 and 141
+kt; the C182 at 3,100 lb at 120 kt; the J-3 Cub at 922 lb at 62 kt (and at
+1,092 lb at 60 kt, within the derivation's spread). Neither item is ticked.
+
+**The C182 at 3,100 lb at 120 kt at 10,000 ft - inside her book, open.**
+The Civil Air Patrol's copy of the Cessna 182T Nav III POH
+(https://sanfernando35.cap.gov/media/documents/182poh_23224F1C15332.pdf,
+182TPHBUS-03), figure 5-9 sheet 8, cruise performance at 10,000 ft, 3,100
+lb, recommended lean, standard temperature: 2,400 rpm and 20 in, 69%, 139
+KTAS; 2,300 rpm and 21 in, 71%, 141 KTAS. The 182T has the 182S's engine
+(IO-540-AB1A5, 230 hp at 2,400 rpm) and weight. 120 KCAS there is 139.6
+KTAS; full throttle there (about 20.6 in) makes about 141. Her model, leaned
+for best power (0.59), holds 117 KCAS (135.9 KTAS) at 165 hp, 72% - where
+the book gives 139 KTAS at 69% - and not 120: about 4 kt slow at 10,000 ft,
+where at 6,000 ft she is 1.3 kt slow (cruise_speed_6000_ft, 138.7 against
+140). Her drag polar is a compromise between her climb and ceiling
+(make_c182.py); a fix is a figure at 10,000 ft and her power or propeller
+lapse fitted to it - not done in this time box.
+
+**The derivation** (scratchpad, deriv.py, standard atmosphere): power
+required P = (q S CD0 + W^2/(q S pi e A)) V; power available at height the
+sea-level thrust horsepower times Gagg and Ferrar's lapse, 1.132 sigma -
+0.132 (above a supercharged engine's rated altitude, on the density ratio
+to that altitude).
+- **J-3 Cub** (J3C-65): 87 mph (75.6 kt) top speed at sea level, 450 ft/min
+  climb and 11,500 ft service ceiling at 1,220 lb (AOPA's and AeroCorner's
+  J-3 pages; 178.5 sq ft, 35 ft 3 in span). Fitted to the top speed and the
+  climb at e = 0.8, her thrust horsepower is 31.2 (0.48 of 65) and CD0
+  0.032, and the ceiling comes out 11,300 ft - the published 11,500, which
+  checks it (e = 0.6 and 0.7 give 9,700 and 10,500). At 10,000 ft she holds
+  at most 57.7 KCAS at 1,220 lb, 60.6 at 1,092 and 63.2 at 922 (e = 0.6 to
+  0.8: 55.4-57.7, 59.6-60.6, 63.1-63.2). So 60 and 62 kt at 1,220 lb and 62
+  at 1,092 are past her: **excluded, by this derivation**. 60 at 1,092 lies
+  inside the derivation's spread (open, named); 62 at 922 she holds by 1 kt
+  and her model does not (it holds 60, not 62): open.
+- **S.23**: 815 hp an engine at her rated altitude (Flight, 12 November
+  1936, in eng_PegasusXc.xml: "Normal output at rated altitude 785/815
+  BHP"), 200 mph (173.8 kt) at 5,500 ft at 40,500 lb (Flight's
+  specification, figures file), 1,500 sq ft and 114 ft span. Fitted to the
+  top speed (e 0.7-0.8, propeller 0.75-0.85), at 10,000 ft she makes 168-
+  170 KTAS at 40,500 lb and 164-167 at 45,000: 130 kt (151 KTAS) is inside
+  both, 141 kt (164 KTAS) at the edge at 45,000. Her model: started with her
+  mixture lever full (rich, the take-off setting with its take-off boost) she
+  could not be trimmed at 130 and 141 kt at 10,000 ft at 40,500 lb; her
+  catalogue now says `mixture-lever 4500` (rich below her engines' rated
+  altitude, 4,500 ft, set for the most power above, as her crews set the
+  automatic mixture back from take-off - CAB 1943's take-off, rated and
+  cruising ratios in engines.xml) and at 40,500 lb she trims at both (lever
+  0.82). At 45,000 lb leaned she still makes too little (udot not
+  trimmable): open, named in both tests.
+
+**Verification.** The walk: 513 of 540 trimmed, 27 left out by name (18
+not trimmed, every one said). The S.23 test: 25 of 27 held to the foot and
+the knot, 2 named open at 45,000 lb. 93 related tests pass in linux-debug
+(the S.23's, every aircraft's, the catalogue's, first input, the state
+packet and the transport document, the fixed ports); `glideslope_cli
+selftest` hash 831a4e7954233b0a, unmoved.
