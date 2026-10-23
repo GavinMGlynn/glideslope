@@ -4330,6 +4330,12 @@ int stay(glideslope::platform::UdpSocket& socket,
         std::printf("my aircraft rolled to %.0f degrees\n", roll_seen_deg);
     }
     if (predicting) {
+        // **The word held for the socket to run dry, put right from and
+        // compared** before what was found is said: left, the last word
+        // read was never counted. A pass of its own: what came before it
+        // was put right in the last.
+        predicting->read_dry();
+        predicting->put_right();
         for (const std::string& line : predicting->report()) {
             say_heard(line);
         }
