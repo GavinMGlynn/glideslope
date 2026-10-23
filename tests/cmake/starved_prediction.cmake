@@ -24,6 +24,12 @@
 # everything 100 ms each way, it stays until 400 updates are compared
 # (`--until-compared 400`), the event, not a time.
 #
+# **The space covered**: one aircraft (the server's default player's C172P),
+# one slowness, one latency (100 ms each way, no jitter or loss); the other
+# prediction tests cover the aircraft, latencies and losses at a client's
+# own pace. That the client was behind is asserted, not assumed: words were
+# superseded, and more than one was read in a pass.
+#
 # **What must hold**: no pass put right from more than one word, so the
 # replay's work a pass is bounded by sim::most_unacknowledged; never more
 # than a second's words (25) read between two times the socket ran dry; the 400
@@ -111,6 +117,15 @@ string(CONCAT _line "at ${SLOW_US} us a step: ${_compared} updates compared in $
 include("${CMAKE_CURRENT_LIST_DIR}/machine_stalls_check.cmake")
 check_machine_stalls("${_said}" updates "${_compared}" _stalls)
 string(APPEND _line "; ${_stalls}")
+# **The situation was built**: words came faster than the client could
+# take them one at a time, so some were read together and superseded, and
+# the socket was read dry between passes. Without the slowness
+# (`-DSLOW_US=0`) none are, and this fails: the test would only have shown
+# a client that is never behind.
+if(NOT _dry GREATER 0 OR NOT _superseded GREATER 0 OR NOT _most_read GREATER 1)
+    message(FATAL_ERROR "the client was never behind its words - the starved "
+                        "situation was not built: ${_line}:\n${_said}")
+endif()
 if(_most_words GREATER 1)
     message(FATAL_ERROR "a pass put the prediction right from more than one word: "
                         "${_line}:\n${_said}")

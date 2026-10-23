@@ -43,6 +43,21 @@ input). Gaffer On Games' *State Synchronization* uses the newest state and a
 jitter buffer for ordering. Older states only add replay that the newest
 supersedes.
 
+**At the end, and at a switch.** The word held for the socket to run dry is
+put right from, and compared, before the client says what it found, so the
+last word read is counted. A take-over or a take-back drops the word held, if
+there is one: it is about the aircraft or the prediction left behind, and is
+neither put right from nor compared, nor counted anywhere.
+
+**The plan's items in full.** Done: a predicting client on a starved machine
+fell behind and never caught up (#232's CI, a frame of 450.9 s, 42 km
+corrections), because it replayed its inputs for every word it read; now it is
+put right once a pass, from the newest word, and still compares every word.
+Open: the window client compares only the newest word of a frame - the words
+before it tell the clocks' difference and nothing else - so its prediction
+error is measured on fewer words than arrive; to be verified by every word it
+reads held against where it had flown, counted in a test.
+
 **The pace is still steered by every word** (`sim::Pacing::follow`), superseded
 or not: its loop integrates word by word. Steered only from the newest, the
 stalled paced test (`..._whose_machine_stops_for_seconds_...`, Linux debug)
@@ -67,6 +82,11 @@ words read and 1 put right from, 28 steps replayed at most, 194 words
 superseded, the worst error 0.857 m, p95 5 mm, the worst correction 0.425 m.
 Seen red with each word putting it right again (the defect put back): 0
 compared in 123 s, 123 words in a pass, 93 snapped; the fix restored, green.
+The test asserts the starved situation was built - the socket read dry, words
+superseded, more than one read in a pass - and states the space it covers (one
+aircraft, one slowness, one latency). Seen red with no slowness
+(`--slow-steps 0`): 0 words superseded, at most 1 read in a pass, "the starved
+situation was not built"; restored to 2,000 us, green.
 
 **The selftest hash** does not move: the selftest flies `sim::selftest`, not
 the prediction, and nothing in the physics changed (831a4e7954233b0a on this
