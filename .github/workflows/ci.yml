@@ -3,7 +3,11 @@ name: ci
 on:
   push:
     branches: [main]
+  # The default types and ready_for_review: marking a draft ready is what
+  # starts its full run (the tiers below say what a draft runs).
+  # https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows#pull_request
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
   # The full run, every preset and every label, on main every night (16:00
   # UTC, two in the morning in Sydney); a failure there is a red tree.
@@ -21,6 +25,13 @@ on:
 # merge's, though, so with merges close together a commit on main can go
 # without a run of its own - its changes are in the newer commit's run - and
 # the nightly run, every build and test job on main's head, is the backstop.
+#
+# A pull request's runs share one group whether it is a draft or not (the ref
+# is refs/pull/N/merge for both), so marking it ready cancels its draft run in
+# progress, and the full run that replaces it is cancelled only by a newer
+# event of its own pull request - a push, which on a ready pull request is
+# another full run. Converting back to a draft is not a trigger.
+# https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-workflow-concurrency
 concurrency:
   # The event too: a merge's build-only run must not cancel the nightly full run.
   group: ci-${{ github.ref }}-${{ github.event_name }}
@@ -94,7 +105,14 @@ env:
 #
 # **Tiers** (decided 2026-09-30, after 17 of 29 runs failed on tests that bound
 # a step against the wall clock under a sanitizer):
-#   - A pull request: every preset builds and tests, except that the debug
+#   - A draft pull request (since 2026-10-23, for throughput: the full matrix
+#     is about 50 jobs and 980 runner-minutes a push): every build job, and
+#     the tests of linux-debug on Ubuntu and windows-debug on Windows only.
+#     Every other test job, the server's image and the packages are skipped.
+#     "CI passed" fails on a draft by design - a skipped job counts as a pass
+#     to the branch protection, so a draft's reduced run must not satisfy it -
+#     and "CI draft passed" is the draft's own green.
+#   - A ready pull request: every preset builds and tests, except that the debug
 #     presets leave out LABELS timing (tests/CMakeLists.txt says why); the
 #     release presets run it. The debug presets leave it out every night too:
 #     those tests assert the 20 fps their bounds are claimed at, and fail
@@ -241,6 +259,67 @@ jobs:
           - { preset: linux-debug, shard: 9, of: 11 }
           - { preset: linux-debug, shard: 10, of: 11 }
           - { preset: linux-debug, shard: 11, of: 11 }
+    env:
+      CXX: g++-14
+      CC: gcc-14
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/ubuntu-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-ubuntu-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
+        run: |
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }} || rc=$?
+          kill $xvfb
+          exit $rc
+      # Every frame the tests wrote, to look at.
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-ubuntu-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+      - uses: actions/cache/save@v6
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          enableCrossOsArchive: true
+
+  # linux-release's shards on Ubuntu: every run but a draft pull request's
+  # and a merge's. A draft tests linux-debug on Ubuntu and windows-debug on
+  # Windows only (see "CI draft passed" below). The steps are ubuntu-test's,
+  # repeated: tests/cmake/ci_shards.cmake reads each test job's matrix rows
+  # and its call of the dealing from this file.
+  ubuntu-release-test:
+    name: Ubuntu ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
+    needs: ubuntu-build
+    if: ${{ github.event_name != 'push' && !github.event.pull_request.draft }}
+    runs-on: ubuntu-latest
+    # 60, not 45: apt is now let finish on a slow mirror (ubuntu-setup), which
+    # took 10 minutes of a shard cancelled at 45 in run 39809958177 - its
+    # tests, 14 to 41 minutes a shard, had 33 of them.
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
           - { preset: linux-release, shard: 1, of: 2 }
           - { preset: linux-release, shard: 2, of: 2 }
     env:
@@ -419,7 +498,7 @@ jobs:
   rocky-test:
     name: Rocky 9 ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
     needs: rocky-build
-    if: ${{ github.event_name != 'push' }}
+    if: ${{ github.event_name != 'push' && !github.event.pull_request.draft }}
     runs-on: ubuntu-latest
     timeout-minutes: 45
     container: rockylinux/rockylinux:9
@@ -604,7 +683,7 @@ jobs:
   macos-test:
     name: macOS ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
     needs: macos-build
-    if: ${{ github.event_name != 'push' }}
+    if: ${{ github.event_name != 'push' && !github.event.pull_request.draft }}
     runs-on: macos-15
     timeout-minutes: 45
     strategy:
@@ -865,6 +944,117 @@ jobs:
           - { preset: windows-debug, shard: 5, of: 7 }
           - { preset: windows-debug, shard: 6, of: 7 }
           - { preset: windows-debug, shard: 7, of: 7 }
+    env:
+      SDL_LOGGING: gpu=debug
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/windows-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-windows-${{ matrix.preset }}' }
+      - shell: cmd
+        run: tar -xzf tree.tar.gz && del tree.tar.gz
+
+      # **A crash is written down by Windows, not only by the program.** Two
+      # tests crashed on the way out - after their work was done - and the
+      # program's own handlers (src/platform/no_crash_dialogs.hpp) printed
+      # nothing: a crash in the process's own shutdown comes where they
+      # cannot. Windows Error Reporting's local dumps catch it from outside,
+      # and the step after the tests reads each dump's stack with cdb. The
+      # programs write a dump of their own first crash too, into the same
+      # folder, from inside the fault (GLIDESLOPE_CRASH_DUMPS): WER's is of the
+      # process as it died, which can be long after the fault that began it.
+      - name: Keep a dump of any crash
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value "$env:RUNNER_TEMP\dumps" -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount -PropertyType DWord -Value 20 -Force | Out-Null
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\dumps" | Out-Null
+          "GLIDESLOPE_CRASH_DUMPS=$env:RUNNER_TEMP\dumps" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
+        shell: cmd
+        run: |
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
+          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
+
+      # **The machine's stalls, said whether the tests passed or not**: every
+      # frame a predicting client's machine mostly took (frontend::
+      # MachineStalls), from every test's output, so that how often a runner
+      # stops them is counted, not met only when one fails. And whether
+      # Defender scans in real time here, which is one reason a Windows
+      # runner can stop every process of a test at once.
+      - name: The machine's stalls
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          Get-MpComputerStatus -ErrorAction SilentlyContinue | Select-Object AMRunningMode, AntivirusEnabled, RealTimeProtectionEnabled, OnAccessProtectionEnabled | Format-List
+          $log = "build\${{ matrix.preset }}\Testing\Temporary\LastTest.log"
+          if (-not (Test-Path $log)) { Write-Output "no test log"; exit 0 }
+          $stalls = Select-String -Path $log -Pattern "the machine's stall [0-9]+: .*"
+          Write-Output "the machine's stalls in this shard: $($stalls.Count)"
+          $stalls | ForEach-Object { Write-Output $_.Line }
+
+      - name: The stack of every crash
+        if: ${{ failure() }}
+        shell: pwsh
+        run: |
+          $dumps = Get-ChildItem "$env:RUNNER_TEMP\dumps" -Filter *.dmp -ErrorAction SilentlyContinue
+          if (-not $dumps) { Write-Output "no crash dumps"; exit 0 }
+          $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue
+          if (-not $cdb) { Write-Output "no cdb on this runner; dumps: $($dumps.Name -join ', ')"; exit 0 }
+          $symbols = (Get-ChildItem build\${{ matrix.preset }} -Recurse -Filter *.pdb | ForEach-Object { $_.DirectoryName } | Sort-Object -Unique) -join ';'
+          # Windows' own symbols from Microsoft's server, so ntdll's frames are
+          # named rather than guessed from its exports.
+          $symbols = "$symbols;srv*$env:RUNNER_TEMP\symbols*https://msdl.microsoft.com/download/symbols"
+          # The exception, its thread's stack deep enough to reach the thread's
+          # start, every other thread's, and the debugger's own analysis.
+          foreach ($d in $dumps) {
+            Write-Output "===== $($d.Name)"
+            & $cdb.FullName -z $d.FullName -y "$symbols" -c ".exr -1; .ecxr; kn 200; ~*kn 60; !analyze -v; q"
+          }
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+      - uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with: { name: 'dumps-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: '${{ runner.temp }}/dumps/*.dmp', if-no-files-found: ignore, retention-days: 3 }
+      - uses: actions/cache/save@v6
+        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          enableCrossOsArchive: true
+
+  # windows-release's and windows-clang's shards: every run but a draft pull
+  # request's and a merge's. The steps are windows-test's, repeated.
+  windows-release-test:
+    name: Windows ${{ matrix.preset }} - tests ${{ matrix.shard }}/${{ matrix.of }}
+    needs: windows-build
+    if: ${{ github.event_name != 'push' && !github.event.pull_request.draft }}
+    runs-on: windows-latest
+    timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
           - { preset: windows-release, shard: 1, of: 3 }
           - { preset: windows-release, shard: 2, of: 3 }
           - { preset: windows-release, shard: 3, of: 3 }
@@ -1000,7 +1190,7 @@ jobs:
   # ---------------------------------------------------------------------------
   server-image:
     name: The server's container image
-    if: ${{ github.event_name != 'push' }}
+    if: ${{ github.event_name != 'push' && !github.event.pull_request.draft }}
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -1091,7 +1281,7 @@ jobs:
   package:
     name: Package
     needs: changes
-    if: ${{ needs.changes.outputs.build == 'true' && github.event_name != 'push' }}
+    if: ${{ needs.changes.outputs.build == 'true' && github.event_name != 'push' && !github.event.pull_request.draft }}
     uses: ./.github/workflows/package.yml
     # Its Windows job takes vcpkg's packages from GitHub Packages (VCPKG_PAT).
     secrets: inherit
@@ -1112,8 +1302,8 @@ jobs:
   prune-caches:
     name: Old caches pruned
     if: ${{ !cancelled() && (github.event_name == 'push' || github.event_name == 'schedule') }}
-    needs: [ubuntu-build, ubuntu-test, rocky-build, rocky-test, macos-build, macos-test, macos-debug-test,
-            windows-build, windows-test]
+    needs: [ubuntu-build, ubuntu-test, ubuntu-release-test, rocky-build, rocky-test, macos-build, macos-test,
+            macos-debug-test, windows-build, windows-test, windows-release-test]
     runs-on: ubuntu-latest
     permissions:
       actions: write
@@ -1146,19 +1336,31 @@ jobs:
   # **CI passed**: every job above, green. It is the one check main's
   # protection asks for, so that a job added, renamed or split into shards is
   # covered without the protection being edited to name it.
+  #
+  # **On a draft pull request it fails, by design.** A job skipped by its `if`
+  # reports success, and a skipped required check does not block a merge
+  # (https://docs.github.com/en/actions/how-tos/write-workflows/choose-when-workflows-run/control-jobs-with-conditions):
+  # were the draft's skipped jobs counted as passes here, a reduced run would
+  # satisfy the protection. A draft's own green is "CI draft passed", below.
   # ---------------------------------------------------------------------------
   all-green:
     name: CI passed
     if: ${{ always() }}
-    needs: [ubuntu-build, ubuntu-test, rocky-build, rocky-test, macos-build, macos-test, macos-debug-test,
-            windows-build, windows-test, cross-platform, server-image, changes, package]
+    needs: [ubuntu-build, ubuntu-test, ubuntu-release-test, rocky-build, rocky-test, macos-build, macos-test,
+            macos-debug-test, windows-build, windows-test, windows-release-test, cross-platform, server-image,
+            changes, package]
     runs-on: ubuntu-latest
     steps:
       - name: Every job passed
         env:
           NEEDS: ${{ toJSON(needs) }}
+          DRAFT: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
         run: |
           echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          if [ "$DRAFT" = true ]; then
+            echo "::error::draft run: reduced matrix; mark ready for the full run"
+            exit 1
+          fi
           # Packaging is skipped when nothing it depends on changed, which is
           # a pass; anything else skipped, failed or cancelled is not.
           # On main, after a merge, only the builds and macOS debug's tests
@@ -1170,5 +1372,24 @@ jobs:
               .value.result == "success"
               or (.value.result == "skipped" and (.key == "package"
                   or ($event == "push"
-                      and (.key | IN("ubuntu-test", "rocky-test", "macos-test", "windows-test", "server-image")))
+                      and (.key | IN("ubuntu-test", "ubuntu-release-test", "rocky-test", "macos-test",
+                                     "windows-test", "windows-release-test", "server-image")))
                   or ($event == "pull_request" and .key == "macos-debug-test"))))' > /dev/null
+
+  # **CI draft passed**: a draft pull request's reduced run, green - every
+  # build, linux-debug's and windows-debug's tests, and the flights compared.
+  # Not a check main's protection asks for: it is the signal to iterate on
+  # while the pull request is a draft. On a ready pull request it passes
+  # whenever CI passed does, since every job it names runs there too.
+  draft-green:
+    name: CI draft passed
+    if: ${{ always() && github.event_name == 'pull_request' }}
+    needs: [ubuntu-build, ubuntu-test, rocky-build, macos-build, windows-build, windows-test, cross-platform, changes]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Every job of a draft's run passed
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          echo "$NEEDS" | jq -e 'to_entries | all(.[]; .value.result == "success")' > /dev/null

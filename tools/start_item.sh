@@ -6,10 +6,14 @@
 # **Why**: CI runs on pull requests, not on pushes to a branch, so a branch
 # pushed without its pull request is tested by nothing. This makes the branch
 # from an up-to-date main, pushes it, and opens its pull request as a draft at
-# once - every push after this one is tested. When CI passed is green, mark it
-# ready and merge it:
+# once - every push after this one is tested. A draft's run is reduced
+# (every build; only linux-debug's and windows-debug's tests): iterate until
+# "CI draft passed" is green - "CI passed" is red on a draft by design. Then
+# mark it ready, which starts the full run, wait for that run's "CI passed"
+# to go green, and only then merge:
 #
-#   gh pr ready && gh pr merge --rebase --delete-branch
+#   gh pr ready
+#   gh pr merge --rebase --delete-branch     # once the full run's CI passed is green
 #
 # CLAUDE.md: each item on its own branch, into main by pull request when CI is
 # green everywhere.
