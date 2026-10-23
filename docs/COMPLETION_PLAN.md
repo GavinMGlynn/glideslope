@@ -762,11 +762,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       *Verification: each model's drag terms keyed to the angle of attack on
       the dynamic pressure without its sideways part or named with a reason,
       and every figure in range.* Done 2026-10-16.
-- [ ] **Lift not keyed to the angle of attack counts the crosswind
+- [x] **Lift not keyed to the angle of attack counts the crosswind
       standing**: flaps, elevators and the C182's lift at no angle give her
       up to 46 lb in 15 kt across, the F-22A 280. *Verification: each such
-      term moved or named with a reason, and every figure in range.* Moved
-      2026-10-23, its figures not yet all run: all 38 such terms in the 16 models moved, lift with pitch
+      term moved or named with a reason, and every figure in range.* Done
+      2026-10-23: all 38 such terms in the 16 models moved, lift with pitch
       rate among them, and the 4 lifts with pitch rate keyed to the angle,
       named until now, too; standing in 15 kt across with any lifting
       control set, from up to 6,450 lb to under 0.1 lb. Every figure in
