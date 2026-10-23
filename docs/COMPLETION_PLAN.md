@@ -472,10 +472,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       at, her levers as her book flies there** (the owner, 2026-10-23): an
       airborne start leans her mixture for the most power above her
       handbook's height and puts two-pitch airscrews in coarse in cruise,
-      held so until her first input and told her client. Missing, her models
-      short of her book at 10,000 ft: the S.23 at 45,000 lb, the C182 at 3,100
-      lb at 120 kt (POH 141 KTAS, model about 137), the J-3 Cub solo at 62 kt
-      (and at 1,092 lb at 60 kt, within the derivation's spread). *Verification: the
+      held so until her first input and told her client. The C182 and J-3
+      Cub points at 10,000 ft are past their books (2026-10-23). Missing: the
+      S.23 at 45,000 lb at 130 and 141 kt at 10,000 ft - her drag due to lift
+      is too high to hold them, and lowering it breaks her sea-level climb
+      figure. *Verification: the
       catalogue's walk of loadings, three heights and three speeds leaves out
       only points past each aircraft's book, named with their source.*
 - [ ] **A Learjet 35A given no loading flies past her aft limit**: her

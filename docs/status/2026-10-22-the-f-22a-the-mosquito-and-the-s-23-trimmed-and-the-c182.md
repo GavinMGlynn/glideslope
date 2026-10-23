@@ -396,3 +396,69 @@ the knot, 2 named open at 45,000 lb. 93 related tests pass in linux-debug
 (the S.23's, every aircraft's, the catalogue's, first input, the state
 packet and the transport document, the fixed ports); `glideslope_cli
 selftest` hash 831a4e7954233b0a, unmoved.
+
+### Why each is slow at 10,000 ft: measured against the books, 2026-10-23
+
+**What is still not true first.** The S.23 at 45,000 lb at 130 and 141 kt
+at 10,000 ft is still open, its cause found and not fixed; neither item is
+ticked. The C182 and the J-3 Cub were not slow: the figures they were held
+to were wrong, and are corrected below. No model changed.
+
+- **The C182 - past her own book.** The 139 KTAS at 69% cited last round
+  is the 182T's (figure 5-9, 182TPHBUS-03): another airframe, 150 kt at sea
+  level against the 182S's 145. Her own Information Manual (182S, 1997,
+  figure 5-9) at 10,000 ft, 3,100 lb, standard: 2,400 rpm and 20 in, 66%,
+  133 KTAS; 19 in, 62%, 128. Its cruise tables from sea level to 10,000 ft
+  fit one polar at a constant propeller efficiency (power = a sigma V^3 +
+  b / (sigma V), every row within 1.3 points), which gives 138.1 KTAS at
+  72%, her best power at full throttle there (165 hp, leaned). 120 KCAS is
+  139.6 KTAS: past her. Her engine is sound at height (72% leaned at full
+  throttle against the book's 66% at 20 in recommended lean); her model
+  needs 3 to 5% more power than her book at every height from 4,000 to
+  10,000 ft (trimmed at 100, 110 and 120 KCAS: 1.06, 1.03, 1.04 at 4,000
+  ft; 1.03 to 1.05 at 8,000 and 10,000), so nothing grows with height -
+  it is the 1.3 kt her 6,000 ft cruise figure already shows. Excluded.
+- **The J-3 Cub - the derivation left out her carburettor.** Measured: at
+  10,000 ft solo she trims to 61.2 KCAS. Redone (Gagg and Ferrar on her
+  power, fitted to 87 mph and 450 ft/min at 1,220 lb as before), the
+  derivation assumed best-power mixture at height; she has no mixture
+  lever, and her float carburettor runs 18% richer at 10,000 ft than at sea
+  level (tools/piston_mixture.py, FAA-H-8083-32 page 2-3), 0.103 fuel/air
+  against 0.090, 94% of the power. With it, she holds at most 61.2 to 61.5
+  KCAS at 922 lb (Oswald 0.6 to 0.8), 57.3 to 58.7 at 1,092 and 54.3 to
+  55.6 at 1,220: her model's 61.2 is the derivation's. Every Cub point at
+  10,000 ft left out of the walk is past her. Her power lapse is JSBSim's:
+  the brake power is the indicated, proportional to the charge's density,
+  less a friction that does not lapse (FMEP, 18,400 Pa per m/s of piston
+  speed plus 46,500), about 2% steeper than Gagg and Ferrar's.
+- **The S.23 - her drag due to lift, open.** Not her engines: at 10,000
+  ft she makes 715 hp an engine at 2,547 rpm at 141 KCAS, more than the
+  derivation's 672 (815 hp at 4,500 ft, Gagg and Ferrar above); at 5,500 ft
+  807 at 2,623 rpm where Flight gives 830 all out. (Her supercharger's
+  multiplier comes from the take-off boost at sea level, so she reaches
+  only +0.8 lb at 5,500 ft where the book flies +2 1/2; the power comes out
+  right through the engine's calibration, and is left.) Her drag is the
+  DATCOM table times 1.9 at every angle of attack (make_short_s23.py), the
+  drag due to lift with it: fitted to her trimmed drag from 110 to 160
+  KCAS it is a zero-lift drag of 0.027 and an Oswald efficiency of 0.33,
+  where Raymer's estimate for her straight wing (aspect ratio 8.66) is
+  0.79. Tried in the build's data, the table's part above its least times
+  1.4 and the rest times 2.1: 200 mph at 5,500 ft, 145 KCAS at 40,500 lb
+  at 10,000 ft (the derivation's 145 to 146.5), 130 kt at 45,000 lb trims -
+  and the sea-level climb in fine pitch is 1,115 ft/min against 950 +-10%.
+  Times 2.3 and 1.55 the climb is 991 and the top speed 185 mph. Her
+  climb is flown at 100 kt in fine pitch, where her airscrews are 0.86
+  efficient; what holds both figures is the next step, not done in this
+  time box.
+
+**Verification.**
+- `the_j3_cub_flown_solo_at_10000_ft_holds_her_derived_top_speed_within_a_knot`:
+  trimmed at 60.2 KCAS (throttle 0.943, 39.7 hp), not at 62.5. Seen red
+  with her carburettor's richening taken out of the build's data (trimmed
+  at 62.5) and doubled (not at 60.2).
+- `the_cessna_182s_at_10000_ft_needs_her_books_power_for_her_books_cruise_speed`:
+  trimmed at 132.9 KTAS she needs 157.1 hp, the book's 151.8 +3.5%, within
+  5%. Seen red with her zero-lift drag 0.030 -> 0.033 in the build's data
+  (not trimmed there).
+- The walk's left-out points are the same; their reasons now say which are
+  past the book and which is open (the S.23's two).
