@@ -2,9 +2,9 @@
 
 **What is still not true first.** The server still tells only the height
 asked and the wing-borne autopilot's pitch integral of her law; the
-jet-borne and hover laws' own state is each side's own (the item "A
-client's prediction of an F-35B in STOVL mode drifts from the server's
-flight-control laws", worked next on this branch).
+jet-borne and hover laws' own state is each side's own, and they agree
+once both change stage on the same step (the item "A client's prediction
+of an F-35B in STOVL mode follows the server's flight-control laws").
 
 **The cause.** On the same inputs the prediction's law went jet-borne 3
 steps after the selector, the server's at 9 s when the fan's doors were
@@ -38,3 +38,10 @@ stages and inceptors compared, 6 not read. The pedals' jet-borne turn,
   law in another stage on 1,104 steps. Reverted: green.
 - The STOVL, prediction, transition, F-35B, hover and replay tests pass
   (`ctest -R "stovl|prediction|transition|f35b|hover|replay"`).
+- **The 0.8-stick bug seen red in the converting stage itself**
+  (2026-10-23, linux-debug): the prediction flown on 0.8 of the elevator
+  sent. The stick fore-and-aft was apart on 3,000 of 3,000 steps wing-borne,
+  **780 of 780 converting**, 1,680 of 1,680 jet-borne and 960 of 960
+  hovering. Reverted: green. The six cells not read (the stick sideways, the
+  pedals and the lever, wing-borne and converting) are not read because her
+  law reads none of them in those stages.

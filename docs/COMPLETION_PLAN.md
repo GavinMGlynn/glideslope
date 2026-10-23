@@ -440,10 +440,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       at least 5 degrees in 10 s; her height within 15 ft.*
 - [ ] **A client joining while an F-35B banks jet-borne predicts her with no
       bank held**: the bank her pilot's stick left is her law's own, and a
-      prediction begun mid-turn starts level. Telling the bank is not
-      enough: a prediction begun on a model just loaded has its fan's doors
-      shut, so its law is made wing-borne (2026-10-22); the lift system's
-      positions and the law's stage and state must be told at the join. *Verification: a client joining mid-bank predicts the
+      prediction begun mid-turn starts level; one begun on a model just
+      loaded has its fan's doors shut, so the join must tell the law's whole
+      state. *Verification: a client joining mid-bank predicts the
       server's held bank and agrees with it within a stated bound.*
 - [x] **A player who joins already selecting STOVL mode has her law seeded
       as the server's**: her prediction begins on the controls the server
@@ -489,8 +488,13 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       first input, 0.004 degrees over 3,000 updates).*
 - [x] **A STOVL prediction flown on 0.8 of the stick is caught**: what her
       stick, pedals and lever set in her law is held against the server's at
-      every step, wing-borne, jet-borne and in the hover. *Verification: a
-      test red on that bug, comparing what the stick sets, not only the height.*
+      every step, in all four stages. Read: the stick fore-and-aft in each
+      stage, and the stick sideways, pedals and lever jet-borne and
+      hovering - ten cells of sixteen. **Not read: the stick sideways, the
+      pedals and the lever wing-borne and converting** (six), where her
+      autopilot flies her heading and speed. *Verification: a test red on that bug, comparing
+      what the stick sets, not only the height; seen red in the converting
+      stage too (780 of 780 steps apart).*
 - [x] **A STOVL prediction's law changes stage when the server's does**: a
       replay from before the selector no longer flies with the fan's doors
       commanded open. *Verification: both laws change stage on the same
