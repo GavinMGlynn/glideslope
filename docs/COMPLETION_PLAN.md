@@ -1352,7 +1352,11 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       platform, and a month of CI runs.* 2026-10-16: its speed bound is
       25 cm/s, from six Windows failures since 2026-10-08. 2026-10-17: the
       cause found and the test no longer depends on it (below); the month of
-      CI runs is still owed.
+      CI runs is still owed. 2026-10-23: inputs arriving during a server pass
+      over `net::most_steps_held` (250 ms) are flown early - stopped 600 ms
+      (`--test-stopped-once 6 600`), the 200 ms network check is 13.7 m off,
+      likely CI run 39868184840's 23.2 m; the server now says each such pass
+      and whose time it was.
 - [x] **The engine-stop prediction test does not depend on the client's
       pacing**: it held the server's word against the step the clocks'
       difference named, which a server held up by fits and starts moves by

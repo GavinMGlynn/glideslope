@@ -20,6 +20,7 @@
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
 #include "platform/closed_pipes.hpp"
+#include "platform/cpu_time.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "net/held_inputs.hpp"
 #include "net/inputs.hpp"
@@ -4969,6 +4970,14 @@ int run(const Options& o) {
     // `--test-stopped-once`, until it has been.
     bool test_stopped = o.test_stopped_at_s < 0.0;
     auto last = began;
+    // **A pass of a quarter of a second or more is said**, with how much of
+    // it was this server's own CPU time: inputs that arrive in one are flown
+    // early by what is over `net::most_steps_held`, and a client predicting
+    // through it is put right by metres (docs/status, 2026-10-23). Said, a
+    // test that fails for it can say whose time it was - the server's
+    // flying, or the machine's not running it.
+    auto pass_began = began;
+    double pass_cpu_s = glideslope::platform::thread_cpu_s();
     glideslope::sim::FixedStep clock;
     // Steps the clock says are due and the fleet has not yet taken, and the
     // steps it has; see most_steps_between_looks.
@@ -4994,6 +5003,30 @@ int run(const Options& o) {
         std::size_t got = 0;
         auto now = std::chrono::steady_clock::now();
         double up_s = std::chrono::duration<double>(now - began).count();
+        {
+            const double cpu_s = glideslope::platform::thread_cpu_s();
+            const double wall_ms =
+                1000.0 * std::chrono::duration<double>(now - pass_began).count();
+            if (wall_ms >= 1000.0 * static_cast<double>(glideslope::net::most_steps_held) /
+                               static_cast<double>(glideslope::sim::steps_per_second)) {
+                // The system may not say (thread_cpu_s): then not guessed.
+                const double clock_s = fleet ? fleet->now_s() : 0.0;
+                if (cpu_s >= 0.0 && pass_cpu_s >= 0.0) {
+                    std::fprintf(stderr,
+                                 "glideslope_server: a pass of %.0f ms, %.0f ms of it this "
+                                 "server's CPU, ending at %.3f s on its clock\n",
+                                 wall_ms, 1000.0 * std::max(0.0, cpu_s - pass_cpu_s), clock_s);
+                } else {
+                    std::fprintf(stderr,
+                                 "glideslope_server: a pass of %.0f ms, its CPU time not "
+                                 "known, ending at %.3f s on its clock\n",
+                                 wall_ms, clock_s);
+                }
+                std::fflush(stderr);
+            }
+            pass_began = now;
+            pass_cpu_s = cpu_s;
+        }
         if (!test_stopped && fleet && fleet->now_s() >= o.test_stopped_at_s) {
             test_stopped = true;
             std::this_thread::sleep_for(

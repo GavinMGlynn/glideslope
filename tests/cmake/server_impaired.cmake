@@ -190,7 +190,15 @@ if(_joining GREATER 90)
     message(FATAL_ERROR "${_joining} inputs were flown before the server applied one:\n${_said}")
 endif()
 if(_error GREATER_EQUAL PREDICT_M)
-    message(FATAL_ERROR "the worst prediction error was ${_error} m, the bound ${PREDICT_M} m:\n${_said}")
+    # **And whether the server was held up**, which flies inputs that came
+    # meanwhile early and puts the prediction off by metres (server_long_pass.cmake).
+    string(REGEX MATCHALL "glideslope_server: a pass of [^\n]*" _held "${_err}")
+    list(JOIN _held "\n" _held)
+    if(_held STREQUAL "")
+        set(_held "the server had no pass of a quarter of a second or more")
+    endif()
+    message(FATAL_ERROR "the worst prediction error was ${_error} m, the bound ${PREDICT_M} m:\n"
+                        "${_said}\n${_held}")
 endif()
 
 # **Handed to the AI and taken back** (Phase 7): 8 s in it asks for its
