@@ -2523,7 +2523,7 @@ add_test(NAME the_client_with_the_window_given_an_f35b_mid_bank_joins_on_the_ser
         -DCLIENT=$<TARGET_FILE:glideslope> -DAIRCLIENT=$<TARGET_FILE:glideslope_cli>
         -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/client_stovl_join -DPORT=24962 -DDRIVER=vulkan
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/client_stovl_join -DPORT=24966 -DDRIVER=vulkan
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_stovl_join.cmake)
 set_tests_properties(the_client_with_the_window_given_an_f35b_mid_bank_joins_on_the_servers_law_state
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
