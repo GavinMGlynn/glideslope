@@ -15,9 +15,12 @@
   a join. It keys the law by aircraft and by count (`Online::fresh_law`),
   so the drop fixed below in `glideslope_cli` does not arise there; no
   test shows it.
-- **The take-over is timed, not an event**: 200 s in, with the AI hovering
-  since some 130 s. The test asserts she was told hovering (stage 3), so a
-  slow AI fails it rather than passing it.
+- **The take-over and the take-back are events (2026-10-23, from the
+  review)**: `--when-hovering` makes `--take-over-at 0` and
+  `--take-back-at 0` wait until the aircraft concerned - the AI's, and the
+  client's own handed to it - has flown under half a metre a second over the ground for three
+  seconds of the session's clock. Only the hand-over (150 s, jet-borne and
+  slowing) is still a time. The test asserts she was told hovering (stage 3).
 
 **A plan names her loading** (owner's decision, 2026-10-22). `loading
 NAME` in a plan file, one her figures file names (`sim::named_loading`),
@@ -58,7 +61,7 @@ red before the fix: never begun on the law, her pitch 43.3 degrees off.
     the AI's F-35B, planned at `vertical_landing`, hovering over its pad,
     told stage 3: pitch within 0.005 degrees, median 4 mm, worst 6 mm.
   - `a_client_taking_back_its_f35b_hovering_from_the_ai_predicts_her_from_the_servers_law_state`:
-    handed over at 150 s jet-borne, taken back at 200 s hovering, told
+    handed over at 150 s jet-borne, taken back once hovering, told
     stage 3: pitch 0.004 degrees, median 3 mm, worst 4 mm. **Seen red**
     with the server not telling and the client not waiting: 3.632 degrees.
   - `a_client_taking_back_its_f35b_from_the_ai_wing_borne_in_stovl_mode_predicts_the_law_the_server_makes_her`:
