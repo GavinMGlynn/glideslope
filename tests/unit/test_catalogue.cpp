@@ -388,15 +388,18 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 //     gravity there is 36.1% of her chord, aft of the flight manual's 30%
 //     limit (tools/make_learjet35a.py, EMPTY_CG); at the figures' loadings
 //     (18.1 to 24.6%) she trims at 300 kt.
-// Open, unsourced: the S.23 at her figures' loadings (40,500 and 45,000 lb)
-// at 130 and 141 kt at 10,000 ft (151 and 163 KTAS), in coarse pitch - her
-// book gives her level speed at 5,500 ft alone; the C182 at 3,100 lb at 120
-// kt at 10,000 ft (140 KTAS), leaned - her POH's cruise table at that height
-// was not found; and the J-3 Cub at 60 and 62 kt at 10,000 ft (her
-// figures' loadings, and her own at 62), which no Cub source found gives a
-// level speed at height for (the manual's ceiling, 14,000 ft solo; AOPA's
-// and AeroCorner's 11,500 ft and 76 kt at sea level); she has no mixture
-// lever to lean.
+// Excluded by derivation (docs/status, 2026-10-23: the power required and
+// available at 10,000 ft from her published sea-level top speed, climb and
+// ceiling and the standard lapse of power with density): the J-3 Cub at
+// 1,220 lb at 60 and 62 kt and at 1,092 lb at 62 kt there - she holds 57.7
+// and 60.6 KCAS at most.
+// Open, named: the J-3 Cub at 1,092 lb at 60 kt (derived 59.6 to 60.6, within
+// the derivation's own spread) and at 922 lb at 62 kt (derived 63.2; her
+// model holds 60 to 62); the S.23 at 45,000 lb at 130 and 141 kt at 10,000
+// ft (derived 164 to 167 KTAS; her model makes too little leaned); the C182
+// at 3,100 lb at 120 kt at 10,000 ft (139.6 KTAS; her POH's cruise table,
+// 182T figure 5-9 sheet 8, gives 139 KTAS at 2,400 rpm and 20 in, 69%, so
+// about 141 at full throttle; her model makes about 137).
 // Every start's mixture and propeller levers are as her book flies that
 // height and speed (Aircraft::initialize): leaned for the most power above
 // her handbook's height, two-pitch airscrews coarse in cruise. Started full
@@ -530,8 +533,11 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
 // the pitch her book flies that speed in (coarse above 100 kt,
 // `airscrew-coarse-above`): in fine, as every start was until 2026-10-23, she
 // could not be trimmed at 130 and 141 kt at 10,000 ft or at 141 kt at
-// 5,000 ft heavy - eight points, seen red so; four named open, heavy at
-// 10,000 ft at 130 and 141 kt, unsourced. Her boost control
+// 5,000 ft heavy - eight points, seen red so; and her mixture leaned above
+// her engines' rated altitude, 4,500 ft, as the catalogue now says, without
+// which she could not be trimmed at 130 and 141 kt at 10,000 ft at
+// 40,500 lb - seen red so. Two named open: at 45,000 lb at 10,000 ft at 130
+// and 141 kt. Her boost control
 // is an integrator in her flight controls (tools/make_short_s23.py, "The
 // boost control held still while time is"): run through JSBSim's trim it
 // cycled and failed at 24 of these; held still through the trim and not
@@ -604,11 +610,12 @@ GLIDESLOPE_TEST(the_s23_trimmed_at_every_loading_height_and_speed_flies_on_as_tr
                             name.c_str(), height_ft, speed_kts,
                             aircraft.trimmed_laterally() ? "trimmed" : "not trimmed", lowest_ft,
                             highest_ft, most_off_kts);
-                // Open, unsourced, named: heavy at 10,000 ft at 130 and 141
-                // kt (151 and 163 KTAS), in coarse pitch, past what her
-                // model's engines make there; her book gives her level
-                // speed at 5,500 ft alone (200 mph).
-                if (height_ft == 10000.0 && loading && speed_kts >= e->start_airspeed_kts) {
+                // Open, named: at 45,000 lb at 10,000 ft at 130 and 141 kt
+                // (151 and 164 KTAS), leaned and in coarse pitch, her
+                // model's engines make too little; derived from her book
+                // she makes 164 to 167 KTAS there (docs/status, 2026-10-23).
+                if (height_ft == 10000.0 && name == "long-range" &&
+                    speed_kts >= e->start_airspeed_kts) {
                     ++named;
                     continue;
                 }
@@ -627,7 +634,7 @@ GLIDESLOPE_TEST(the_s23_trimmed_at_every_loading_height_and_speed_flies_on_as_tr
     check(failed.empty(), "the S.23 was trimmed and held within 20 ft and 2 kt for thirty "
                           "seconds at every point; not at:" + failed);
     std::printf("  %zu of %zu held, %zu named open\n", held, space, named);
-    check(walked == space && held + named == space && space == 27 && named == 4,
+    check(walked == space && held + named == space && space == 27 && named == 2,
           "every one of her 27 points walked, held or named: " + std::to_string(held) +
               " held, " + std::to_string(named) + " named, " + std::to_string(walked) +
               " walked, of " + std::to_string(space));
