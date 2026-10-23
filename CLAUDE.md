@@ -68,10 +68,14 @@ frame is not allowed.
   directly, by anybody. Work an item on a branch named for it, commit as it
   goes, and push every commit to that branch straight away - a commit only
   local has not landed: the Windows and Linux working copies meet on GitHub and
-  nowhere else. Open its pull request with the first push; CI runs on every
-  push to it. It merges (`gh pr merge --rebase`) only when the one required
-  check, **CI passed**, is green - every job on every platform - with the
-  branch up to date with `main`. A red run is fixed on the branch. Rewriting
+  nowhere else. Open its pull request with the first push, as a draft; CI
+  runs on every push to it. A draft runs a reduced CI - every build, and only
+  Linux debug's and Windows debug's tests - whose green is **CI draft
+  passed**; there **CI passed** is red by design. Marking it ready
+  (`gh pr ready`) starts the full run, every job on every platform, and so
+  does every push after. It merges (`gh pr merge --rebase`) only when the one
+  required check, **CI passed**, is green on that full run, with the branch
+  up to date with `main`. A red run is fixed on the branch. Rewriting
   history that is already pushed needs the project owner's say-so, which is
   given for feature branches (`--force-with-lease`, to rebase onto `main`) and
   never for `main`.
@@ -84,11 +88,14 @@ frame is not allowed.
   runners), building with `-j6` at most. An agent that has not committed
   within about an hour stops and reports rather than widening its scope. It
   opens its pull request and does not merge; it never uses `--no-verify`, and
-  never kills processes by a pattern another agent's could match.
+  never kills processes by a pattern another agent's could match. An agent
+  pushes once per fix round, not commit by commit: each push is a CI run.
 - **Start an item with `tools/start_item.sh BRANCH "title"`**: the branch from
   an up-to-date `main`, pushed, with its draft pull request open - CI runs on
-  pull requests, so a branch without one is tested by nothing. Merge with
-  `gh pr ready && gh pr merge --rebase --delete-branch` when CI passed is green.
+  pull requests, so a branch without one is tested by nothing. Iterate on the
+  draft's reduced run until CI draft passed is green; then mark it ready with
+  `gh pr ready`, wait for the full run's CI passed to go green, and only then
+  merge with `gh pr merge --rebase --delete-branch`.
 - **The hooks are on in every working copy**: `git config core.hooksPath
   .githooks`. pre-commit refuses a debugging marker, a tracked change left
   unstaged, a key, and a plan tick without a `docs/status/` file or PROJECT_STATUS.md; pre-push refuses

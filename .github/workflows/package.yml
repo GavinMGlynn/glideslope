@@ -17,7 +17,8 @@
 # seconds of the flight screen in Sydney's weather and writes its frame -
 # uploaded, one from every platform.
 #
-# **Part of every pull request's gate when the build could have changed it**:
+# **Part of every ready pull request's gate when the build could have changed
+# it** (a draft's reduced run skips it):
 # ci.yml calls this workflow when the build, the assets, the dependencies or
 # this file changed (its `changes` job decides), and "CI passed" counts it. On
 # demand too.
