@@ -820,12 +820,14 @@ def controls():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
+            alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_j3cub"), "make_j3cub",
             {"PITCH": ["aero/moment/Pitch_alpha", "aero/moment/Pitch_propwash",
                        "aero/moment/Pitch_reversed_flow"],
              "LIFT": ["aero/force/Lift_alpha", "aero/force/Lift_propwash"],
-             "DRAG": ["aero/force/Drag_basic"]}),
+             "DRAG": ["aero/force/Drag_basic"]}), "make_j3cub",
+            {"LIFT": ["aero/force/Lift_elevator"]}),
         OUT / "aircraft" / MODEL / "Systems" / f"{SYSTEM}.xml": controls(),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),

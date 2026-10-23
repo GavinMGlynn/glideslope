@@ -421,7 +421,7 @@
             <function name="aero/coefficient/CLde">
                 <description>Lift_due_to_elevator</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/elevator-pos-rad</property>
                     <value>0.342</value>
@@ -430,7 +430,7 @@
             <function name="aero/coefficient/CLstab">
                 <description>Lift_due_to_stabilizer</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/stabilizer-pos-rad</property>
                     <value>0.69654</value>
@@ -439,7 +439,7 @@
             <function name="aero/coefficient/CLspoilers">
                 <description>Lift_lost_to_spoilers</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/speedbrake-pos-norm</property>
                     <value>-0.15</value>
