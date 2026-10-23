@@ -765,7 +765,24 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
 - [ ] **Lift not keyed to the angle of attack counts the crosswind
       standing**: flaps, elevators and the C182's lift at no angle give her
       up to 46 lb in 15 kt across, the F-22A 280. *Verification: each such
-      term moved or named with a reason, and every figure in range.*
+      term moved or named with a reason, and every figure in range.* Moved
+      2026-10-23, its figures not yet all run: all 38 such terms in the 16 models moved, lift with pitch
+      rate among them, and the 4 lifts with pitch rate keyed to the angle,
+      named until now, too; standing in 15 kt across with any lifting
+      control set, from up to 6,450 lb to under 0.1 lb. Every figure in
+      range.
+- [ ] **Pitching moments not keyed to the angle of attack count the
+      crosswind standing**: the elevators', flaps' and pitch damping's
+      moments are on the whole dynamic pressure, as their lift was;
+      unmeasured. *Verification: each such term moved or named with a
+      reason, her pitch standing in 15 kt across measured before and after,
+      and every figure in range.*
+- [ ] **The learnt landing's policy flies a C172P it was not trained on,
+      again**: her flaps', elevator's and pitch-rate lift left out the
+      crosswind on 2026-10-23, after its training; it lands 39 to 69 m
+      shorter than it did, within its limits. *Verification: the policy
+      trained again on the C172P as committed, its parity fixture from that
+      training.*
 - [x] **The Mosquito's slipstream lift flips with an undefined angle of
       attack**: on her brakes at +9 boost it is -2,570 or +2,050 lb as her
       creep flips the angle from -93 to +87 degrees. *Verification: standing

@@ -171,6 +171,17 @@ the drag that rolled the J-3 Cub onto her wing standing in a beam wind
 cosine squared. The selftest flies her, and its hash moves with this; the
 learnt landing's parity fixture is flown again (tools/rl/export.py
 --parity-only).
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): CLDf, CLDe and CLq. On the whole dynamic pressure
+they counted the crosswind standing. Standing on her brakes with her engines
+stopped in 15 kt straight across, a lifting control set one at a time, they
+lifted her by up to 61 lb (flaps down); now under 0.1 lb at every setting (the
+standing test in tests/unit/test_departure.cpp). JSBSim issue #89's guidance
+puts the whole of CL on QBarUW; alpha_rate.py says why, for swept surfaces too.
+In flight, at a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import pathlib
@@ -376,7 +387,8 @@ def outputs():
             {"PITCH": ["aero/coefficient/Cmalpha"],
              "LIFT": ["aero/coefficient/CLwbh"],
              "DRAG": ["aero/coefficient/CDwbh"]}), "make_c172p",
-            {"LIFT": ["aero/coefficient/CLDf",
+            {"LIFT": ["aero/coefficient/CLq",
+             "aero/coefficient/CLDf",
              "aero/coefficient/CLDe"]}),
         OUT / "engine" / "prop_75in2f.xml": propeller(),
         OUT / "engine" / "eng_io320.xml": engine(),

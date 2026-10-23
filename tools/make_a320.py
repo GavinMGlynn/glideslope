@@ -145,6 +145,17 @@ above (simple sweep theory, NACA Report 863) holds for the lift of the same
 wing as for its moment - standing, qbarUW is the nearer; in flight, at a few
 degrees of sideslip, the two are under 1% apart. Her lift terms not keyed to
 the angle of attack (CLDe) are not this change's, and stay on aero/qbar-psf.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): CLDe. On the whole dynamic pressure they counted
+the crosswind standing. Standing on her brakes with her engines stopped in 15
+kt straight across, a lifting control set one at a time, they lifted her by up
+to 122 lb (stick forward); now under 0.1 lb at every setting (the standing test
+in tests/unit/test_departure.cpp). JSBSim issue #89's guidance puts the whole
+of CL on QBarUW; alpha_rate.py says why, for swept surfaces too. In flight, at
+a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import re

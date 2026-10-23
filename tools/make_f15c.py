@@ -275,6 +275,18 @@ same argument as her lift, simple sweep theory
 (alpha_rate.with_alpha_terms_on_qbar_uw). Not moved: CDbeta, her drag with
 sideslip - keyed to the sideways air by design, the angle of attack only
 picking its coefficient of it.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): CLDe, her stabilators', and CLq. On the whole
+dynamic pressure they counted the crosswind standing. Standing on her brakes
+with her engines stopped in 15 kt straight across, a lifting control set one at
+a time, they lifted her by up to 63 lb (stick back); now under 0.1 lb at every
+setting (the standing test in tests/unit/test_departure.cpp). JSBSim issue
+#89's guidance puts the whole of CL on QBarUW; alpha_rate.py says why, for
+swept surfaces too. In flight, at a few degrees of sideslip, the two differ by
+its cosine squared.
 """
 
 import math
@@ -694,7 +706,8 @@ def outputs():
             {"PITCH": ["aero/coefficient/Cmalpha"],
              "LIFT": ["aero/coefficient/CLalpha"],
              "DRAG": ["aero/coefficient/CDseparated"]}), "make_f15c",
-            {"LIFT": ["aero/coefficient/CLDe"]}),
+            {"LIFT": ["aero/coefficient/CLq",
+             "aero/coefficient/CLDe"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }
