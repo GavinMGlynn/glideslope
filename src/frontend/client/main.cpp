@@ -165,6 +165,9 @@ struct Options {
     // On a server, hand its own aircraft to the AI this many seconds of
     // flight in, and take it back this many in, as A does; below nought, never.
     double hand_over_after_s = -1.0;
+    // Test flag (`--test-nan-at T`): the prediction given a NaN elevator at
+    // tick T (client::Flight::give_nan_at).
+    std::int64_t nan_at = -1;
     double learnt_landing_after_s = -1.0;
     // **For a test: keys pressed**, each S seconds after joining, as a
     // player's finger would - the key's event, and the key held for one
@@ -298,6 +301,9 @@ void usage(std::FILE* out) {
         "  --hand-over-after S, --take-back-after S  on a server, hand your own\n"
         "                aircraft to the AI S seconds after joining, and take it\n"
         "                back, as A does (for tests)\n"
+        "  --test-nan-at T  on a server, give the prediction of your own\n"
+        "                aircraft a NaN elevator at tick T, never sent: it is let\n"
+        "                go of and taken back from the server's word (for tests)\n"
         "  --learnt-landing-after S  on a server, ask for your own aircraft to be\n"
         "                handed to the learnt landing S seconds after joining, as L\n"
         "                does (for tests)\n"
@@ -595,6 +601,11 @@ static int run_program(int argc, char** argv) {
                 return 2;
             }
             o.presses.emplace_back(at_s, static_cast<SDL_Scancode>(SDL_SCANCODE_A + (key[0] - 'A')));
+        } else if (a == "--test-nan-at" && has_value) {
+            const std::string text(args[++i]);
+            char* end = nullptr;
+            o.nan_at = std::strtoll(text.c_str(), &end, 10);
+            ok = end != text.c_str() && *end == '\0' && o.nan_at >= 0;
         } else if (a == "--hand-over-after" && has_value) {
             o.hand_over_after_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
         } else if (a == "--stall-after" && has_value) {
@@ -1030,6 +1041,9 @@ static int run_program(int argc, char** argv) {
             flight = std::make_unique<glideslope::client::Flight>(
                 glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), start);
+            if (o.nan_at >= 0) {
+                flight->give_nan_at(o.nan_at);
+            }
             if (joined) {
                 flight->adopt(joined->motion);
                 // **And on the levers the server holds her on**, which a
@@ -2117,6 +2131,9 @@ static int run_program(int argc, char** argv) {
                         flight = std::make_unique<glideslope::client::Flight>(
                             glideslope::platform::data_directory(),
                             glideslope::platform::cache_directory(), start);
+                        if (o.nan_at >= 0) {
+                            flight->give_nan_at(o.nan_at);
+                        }
                         has_aircraft_mesh = false;
                         // What the flight it replaces had: the input it is on,
                         // and the checklist on screen, where this one has it.
@@ -2788,6 +2805,9 @@ static int run_program(int argc, char** argv) {
                                 errors.size(), errors.empty() ? 0.0 : errors[errors.size() / 2],
                                 errors.empty() ? 0.0 : errors.back());
                 }
+                std::printf("glideslope: let go of: %zu predictions gone to a number not "
+                            "finite, %zu updates compared since the last\n",
+                            flight->let_go(), flight->compared_since_let_go());
                 std::printf("glideslope: heard %zu words on its own aircraft over %.2f s of "
                             "the server's time, in %zu frames\n",
                             online->own_words_heard(), online->own_words_span_s(),

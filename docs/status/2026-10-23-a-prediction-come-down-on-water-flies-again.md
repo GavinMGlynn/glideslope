@@ -128,7 +128,8 @@ cause unknown).
   counts every one ("let go of: N predictions ..., M updates compared since
   the last"). A server's word not finite is not started from. The window
   client (`client::Flight::let_go_if_lost`) takes the server's motion back
-  on the aircraft it has, not a new one; that path is not under a test.
+  on the aircraft it has, not a new one, and says so once; `--test-nan-at T`
+  gives its prediction a NaN elevator at tick T.
 - **The trap** (`--trap-nan`, `platform/nan_trap.hpp`): with glibc the
   floating-point *invalid* exception is unmasked, so the first NaN made
   stops the client with a backtrace of where (its symbols exported on
@@ -150,3 +151,13 @@ cause unknown).
   `JSBSim::FGFCSComponent::Clip`, and "nan trap: fcs/elevator-cmd-norm"
   as the number gone - the account a recurrence will give. Guard put back,
   green again.
+- **The window client's path**:
+  `the_client_with_the_window_lets_go_of_a_prediction_given_a_nan_and_flies_on_from_the_servers_state`
+  (`tests/cmake/client_let_go_of_a_nan.cmake`), headless on Vulkan with
+  `DISPLAY` and `WAYLAND_DISPLAY` unset: a NaN elevator at tick 960, the
+  shot at 3600, a 100 ms relay. Green: all three programs exit 0, the
+  let-go said once ("on the aircraft it has"), one prediction let go of,
+  512 updates compared since. **Seen red** with the guard taken out of
+  `Prediction::fly`: the client aborted on JSBSim's own
+  `FGTable::GetValue(double)` assertion, `Factor >= 0.0 && Factor <= 1.0` -
+  CI's failure, made from a NaN input. Guard put back, green again.

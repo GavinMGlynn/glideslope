@@ -150,8 +150,10 @@ every aircraft, wherever on Earth, with AI aircraft of its own, and resolves
 collisions. Clients join, are told what every aircraft is, stream their
 inputs, predict their own aircraft and reconcile - once a pass, from the
 newest update, so that a slow client keeps up (2026-10-23); a prediction
-gone to a NaN is let go of and started again from the server's word, though
-what made the one CI saw is unknown (2026-10-23) - and see the
+given a NaN as an input, or left with one by a step, is let go of and
+started again from the server's word - but a NaN made inside one JSBSim
+step from finite inputs still asserts in a debug build, and only the trap
+names it, and what made the one CI saw is unknown (2026-10-23) - and see the
 others 100 ms in the past, over a reliable layer whose every parser is fuzzed. All of that
 holds, within stated bounds, through 200 ms of latency with jitter and loss.
 The client with the window flies on a server and draws everyone. Four clients

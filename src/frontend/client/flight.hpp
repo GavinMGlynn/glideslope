@@ -187,6 +187,16 @@ public:
     // (sim::Prediction::lost): said once for each thing it went to, and the
     // server's motion taken back as on a fresh start (adopt). Whether it was.
     bool let_go_if_lost(const sim::Motion& motion);
+    // How many predictions were let go of, and the updates compared since
+    // the last (prediction_errors_m).
+    std::size_t let_go() const { return let_go_; }
+    std::size_t compared_since_let_go() const {
+        return prediction_errors_m_.size() - compared_when_let_go_;
+    }
+    // **A test's NaN** (`--test-nan-at`): the first step its prediction
+    // flies at or after tick `tick` is given a NaN elevator, in the
+    // prediction's input path only.
+    void give_nan_at(std::int64_t tick) { nan_at_ = tick; }
     sim::Prediction::Correction reconcile(const sim::Motion& motion,
                                           std::uint32_t last_applied,
                                           std::size_t steps_into,
@@ -353,6 +363,9 @@ private:
     std::unique_ptr<sim::Prediction> prediction_;
     // What each prediction let go of went to, said once (let_go_if_lost).
     std::set<std::string> said_lost_;
+    std::size_t let_go_ = 0;
+    std::size_t compared_when_let_go_ = 0;
+    std::int64_t nan_at_ = -1;
     // Where each step flown forward left the aircraft, and whether the
     // clocks' difference was known then (`prediction_errors_m`).
     struct Predicted {
