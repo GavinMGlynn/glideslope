@@ -41,6 +41,7 @@
 #include <array>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <cstring>
 #include <functional>
 #include <limits>
@@ -1086,12 +1087,15 @@ void Aircraft::initialize(const InitialConditions& ic) {
     };
     // **Laterally too, where asked and JSBSim can**, and longitudinally
     // alone where it cannot.
+    trim_fallback_.reset();
+    std::string failures;
     if (ic.trim && ic.trim_lateral) {
         try {
             trim(JSBSim::tFull);
             trimmed_ = true;
             trimmed_laterally_ = true;
-        } catch (const std::exception&) {
+        } catch (const std::exception& e) {
+            failures += std::string("; her full trim failed: ") + e.what();
             untrimmed();
         }
     }
@@ -1099,9 +1103,22 @@ void Aircraft::initialize(const InitialConditions& ic) {
         try {
             trim(JSBSim::tLongitudinal);
             trimmed_ = true;
-        } catch (const std::exception&) {
+        } catch (const std::exception& e) {
+            failures += std::string("; her trim in pitch failed: ") + e.what();
             untrimmed();
         }
+    }
+    // **Said, not silent**: where a trim failed, what she was started at
+    // and what she was left as.
+    if (!failures.empty()) {
+        char at[160];
+        std::snprintf(at, sizeof at, " at %.0f ft, %.0f kt, %.0f lb, flight path %.1f degrees, "
+                                     "flaps %.2f",
+                      ic.altitude_ft, ic.airspeed_kts, loaded_weight_lbs(), ic.flight_path_deg,
+                      ic.flaps);
+        trim_fallback_ = model_ + at + failures +
+                         (trimmed_ ? "; she is trimmed in pitch alone"
+                                   : "; she is not trimmed, started as she was set");
     }
     initialized_ = true;
 }

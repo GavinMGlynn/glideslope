@@ -986,6 +986,9 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
     ic.flight_path_deg = -3.0;
     ic.trim = true;
     aircraft.initialize(ic);
+    if (const auto why = aircraft.trim_fallback()) {
+        std::printf("not trimmed as asked: %s\n", why->c_str());
+    }
 
     // Flown by its pilot, hands still, and handed to the AI.
     glideslope::sim::Controls pilot;

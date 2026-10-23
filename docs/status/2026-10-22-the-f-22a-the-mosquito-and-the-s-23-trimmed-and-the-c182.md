@@ -126,3 +126,46 @@ roll trim commands a roll rate, and she is trimmed in pitch alone).
   the held trim read back to the wire's fraction, and none as none.
 - `glideslope_cli selftest`: hash 831a4e7954233b0a in linux-debug, the same
   with and without this change (the selftest trims nothing).
+
+### A failed trim said, and the trim walked over loadings, heights and speeds, 2026-10-23
+
+**What is still not true first.** The item is open again: the S.23 is
+trimmed at 3,000 ft at her start speed, and not at most other heights -
+at 130 kt she is trimmed at 5,000 ft at her model's own loading and at
+1,000 ft at the long-range, and nowhere else of the nine (at the standard
+loading at 1,000 ft in pitch alone). Not investigated yet. JSBSim's own
+note on a failed trim (FGTrim.h) is to check whether the model can fly
+steadily at those conditions - speed, altitude, configuration, weight.
+
+**Said, not silent** (the review of #234). A trim that failed fell back to
+`untrimmed()` and nothing said so. `Aircraft::trim_fallback()` now gives,
+where any trim asked for failed, her model, height, speed, weight, flight
+path and flaps, each trim that failed and JSBSim's or glideslope's reason,
+and what she was left as (pitch alone, or untrimmed); the server prints it
+when it gives a player her aircraft (`slot N's ID was not trimmed as
+asked: ...`), and `glideslope_cli` where it trims an approach. The F-22A's
+is said at every join: her full trim fails, by design, and she is trimmed
+in pitch alone.
+
+**Verification.**
+
+- `every_aircraft_at_every_loading_at_three_heights_and_three_speeds_is_trimmed_as_a_players_is`
+  (tests/unit/test_catalogue.cpp): every aircraft, her model's own loading
+  and every loading her figures name, at 1,000, 5,000 and 10,000 ft, at the
+  plan's slowest for her weight, her start speed and the plan's fastest:
+  540 points, walked and counted. 451 trimmed laterally saying no fallback
+  (the F-22A's 18 in pitch alone, said); 89 left out by name in the test,
+  68 of them not trimmed and every one said: the S.23 everywhere; the
+  737-300 and Learjet 35A at the plan's slowest; the Learjet at the plan's
+  fastest at her model's own loading; the C172P, PA-28, J-3 Cub and C182 at
+  10,000 ft, and the C182 at 5,000 ft at her fastest. Those are the new
+  open item "Trimmed at every height, speed and loading a player or plan
+  may start at" and this item's missing S.23. Before the exceptions were
+  named the walk was red on exactly those 68. Seen red with the fallback
+  never recorded: the F-22A's 18 and the 68 "not trimmed, and not said".
+  2 min 37 s in linux-debug.
+- Rebased onto #233's tip (fac4d3f0): the F-22A's first-input test moved
+  to port 24876 (24812 was taken by #233's STOVL test);
+  `every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one`
+  passes, as do the catalogue, first-input, untouched and F-22A tests (36,
+  linux-debug). `glideslope_cli selftest` hash 831a4e7954233b0a, unmoved.

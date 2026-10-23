@@ -1660,6 +1660,12 @@ public:
                 feet_per_metre;
         }
         aircraft->initialize(ic);
+        // **A trim that failed, said**: she is held on what it left her.
+        if (const auto why = aircraft->trim_fallback()) {
+            std::printf("slot %d's %s was not trimmed as asked: %s\n", static_cast<int>(slot),
+                        id.c_str(), why->c_str());
+            std::fflush(stdout);
+        }
         std::uint8_t index = 0;
         while (std::any_of(flown_.begin(), flown_.end(), [&](const Aircraft& a) {
             return a.index == index;
