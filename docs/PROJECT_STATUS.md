@@ -163,7 +163,8 @@ that input keeps the trim, every control as the server held it, her
 prediction agreeing (2026-10-21); every one of the sixteen so held keeps
 her height at 3,000 ft (2026-10-22); every aircraft is trimmed at every
 loading at 1,000, 5,000 and 10,000 ft but where her book says she cannot fly
-(2026-10-23), and a trim that fails is said in
+and the Learjet 35A at her model's own loading - a defect of her model, whose
+centre of gravity is aft of her limit (2026-10-23) - and a trim that fails is said in
 the server's log. The server deploys as a systemd unit or a container image. Still
 missing from multiplayer:
 - choosing an aeroplane: a player flies what the server's plan flies;

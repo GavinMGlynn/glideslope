@@ -473,7 +473,8 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       handbook's height and puts two-pitch airscrews in coarse in cruise,
       held so until her first input and told her client. *Verification: the
       catalogue's walk of loadings, three heights and three speeds leaves out
-      only points past each aircraft's book, named with their source.*
+      only points past each aircraft's book, named with their source
+      (2026-10-23: 524 of 540 trimmed, 16 listed, each failing).*
 - [ ] **A Learjet 35A given no loading flies past her aft limit**: her
       model's own loading puts her centre of gravity at 36.1% of her chord,
       behind her flight manual's 30%, and at 300 kt her stabilizer cannot

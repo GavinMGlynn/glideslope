@@ -108,7 +108,16 @@ The changes, and what each is for:
                         column's times 0.957 above J 0.65, faded in from
                         0.45, best 0.820 - her take-off, which lifts off
                         near J 0.45, keeps the thrust it was tuned to
-                        (Gouge's take-off times are still met).
+                        (Gouge's take-off times are still met). **The fade
+                        is a fit, not sourced - the owner's decision,
+                        2026-10-23, to keep it so named**: no source gives
+                        where the pinned take-off tweak should stop. Its
+                        ends: J 0.45, her model's own lift-off advance ratio
+                        (60 to 70 kt at 1,200 airscrew rpm on 12 ft 9 in),
+                        below which her take-off keeps the thrust Cassidy's
+                        13,280 lb at 20 kt was tuned for; and J 0.65, the
+                        advance ratio of fine pitch at 100 kt at full power,
+                        from which NACA's efficiency holds in full.
 
     Ground effect's two factors
                         Each a <product> of one table, which JSBSim warns of
@@ -272,7 +281,7 @@ STALL_ALPHA = 0.2443
 # NACA Report 640 (Hartman and Biermann, 1938), figure 12: a three-blade
 # Clark Y propeller's efficiency against advance ratio by blade angle.
 FINE_EFFICIENCY_SCALE = 0.957    # fine pitch's thrust above take-off
-FINE_FADE = (0.45, 0.65)         # advance ratios over which it comes in
+FINE_FADE = (0.45, 0.65)         # advance ratios over which it comes in: a fit, see above
 COARSE_EFFICIENCY_SCALE = 1.055  # coarse pitch's thrust everywhere
 SHARED_SYSTEMS = ["hydrodynamics", "hydrodynamic-planing-floats", "sperry-a2-autopilot"]
 ENGINE_FILES = ["eng_PegasusXc", "prop_deHavilland5000"]

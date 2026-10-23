@@ -27,6 +27,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -381,11 +382,14 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 // Left out, each outside her book - a correct failure - and every one said:
 //   - the C172P at 110 kt at 10,000 ft (127 KTAS): figure 5-8 gives 121 KTAS
 //     at 8,000 ft at 77% (assets/figures/c172p.xml);
-//   - the PA-28-180 at 110 and 112 kt at 10,000 ft (127 KTAS and more): 75%
-//     at its optimum height, 7,000 ft, is 124.3 KTAS (pa28.xml);
+//   - the PA-28-180 at 112 kt at 10,000 ft, and at 110 kt at her figures'
+//     loading (127 KTAS and more): 75% at its optimum height, 7,000 ft, is
+//     124.3 KTAS (pa28.xml). At her model's own loading, lighter, she trims
+//     at 110 kt there, and is not left out;
 //   - the C182 at 129 kt at 10,000 ft (150 KTAS): her greatest, 145 KTAS at
 //     sea level, 140 at 80% at 6,000 ft (c182.xml);
-//   - the Learjet 35A at 300 kt at her model's own loading: her centre of
+//   - the Learjet 35A at 300 kt at her model's own loading - not her book
+//     but a defect of her model, open in the plan: her centre of
 //     gravity there is 36.1% of her chord, aft of the flight manual's 30%
 //     limit (tools/make_learjet35a.py, EMPTY_CG); at the figures' loadings
 //     (18.1 to 24.6%) she trims at 300 kt.
@@ -396,6 +400,10 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 // J-3 Cub at 1,220 lb at 60 and 62 kt, at 1,092 lb at 60 and 62 kt, and at
 // 922 lb at 62 kt there - she holds 54.3 to 55.6, 57.3 to 58.7 and 61.2 to
 // 61.5 KCAS at most (the_j3_cub_flown_solo_at_10000_ft_holds_her_derived_top_speed_within_a_knot).
+// Every Cub point the derivation says she holds is walked and trims: at 752
+// lb, her model's own, 63.5 to 63.7 KCAS, so 43, 60 and 62 kt; at 922 lb 47.6
+// and 60; at 1,092 lb 51.8; at 1,220 lb 54.8, inside the derivation's 54.3 to
+// 55.6, and trimmed.
 // Excluded by her own book: the C182 at 3,100 lb at 120 kt at 10,000 ft
 // (139.6 KTAS). The 182S Information Manual's figure 5-9 at 10,000 ft tops
 // out at 20 in and 2,400 rpm, 66%, 133 KTAS; its cruise tables, fitted, give
@@ -423,15 +431,39 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
     const std::string pitch_alone = "f22";
     const std::vector<double> heights_ft = {1000.0, 5000.0, 10000.0};
     enum Speed { slowest, start, fastest };
-    const auto left_out = [](const std::string& id, bool own_loading, double height_ft,
-                             Speed speed) {
-        return (id == "learjet35a" && own_loading && speed == fastest) ||
-               (height_ft == 10000.0 &&
-                ((id == "c172p" && speed == fastest) || (id == "pa28" && speed != slowest) ||
-                 (id == "c182" && speed == fastest))) ||
-               (id == "j3cub" && height_ft == 10000.0 && speed != slowest) ||
-               (id == "j3cub" && height_ft == 10000.0 && !own_loading) ||
-               (id == "c182" && height_ft == 10000.0 && !own_loading && speed == start);
+    // Left out, each by aircraft, loading, height and speed: every one past
+    // her book or her derivation (above), and every one must fail - one that
+    // trims has moved in, and fails the walk until it is taken off the list.
+    struct LeftOut {
+        const char* id;
+        const char* loading;
+        double height_ft;
+        Speed speed;
+    };
+    const std::vector<LeftOut> left_out_list = {
+        {"c172p", "her model's own", 10000.0, fastest},
+        {"c172p", "", 10000.0, fastest},
+        {"pa28", "her model's own", 10000.0, fastest},
+        {"pa28", "", 10000.0, start},
+        {"pa28", "", 10000.0, fastest},
+        {"c182", "her model's own", 10000.0, fastest},
+        {"c182", "", 10000.0, start},
+        {"c182", "", 10000.0, fastest},
+        {"j3cub", "solo", 10000.0, fastest},
+        {"j3cub", "trainer", 10000.0, start},
+        {"j3cub", "trainer", 10000.0, fastest},
+        {"j3cub", "gross", 10000.0, start},
+        {"j3cub", "gross", 10000.0, fastest},
+        {"learjet35a", "her model's own", 1000.0, fastest},
+        {"learjet35a", "her model's own", 5000.0, fastest},
+        {"learjet35a", "her model's own", 10000.0, fastest},
+    };
+    const auto left_out = [&](const std::string& id, const std::string& loading,
+                              double height_ft, Speed speed) {
+        return std::any_of(left_out_list.begin(), left_out_list.end(), [&](const LeftOut& l) {
+            return id == l.id && loading == l.loading && height_ft == l.height_ft &&
+                   speed == l.speed;
+        });
     };
     std::size_t space = 0;
     std::size_t walked = 0;
@@ -495,10 +527,13 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
                     char at[120];
                     std::snprintf(at, sizeof at, " (%s, %.0f ft, %.0f kt", name.c_str(),
                                   height_ft, speed_kts);
-                    if (left_out(e.id, !loading, height_ft, kind)) {
+                    if (left_out(e.id, name, height_ft, kind)) {
                         ++left_out_n;
-                        // Not trimmed laterally: it must say so, and why.
-                        if (!lateral_said) {
+                        // Not trimmed laterally, and said, with why; one that
+                        // trims has moved in.
+                        if (lateral_said) {
+                            failed += " " + e.id + at + ": left out, and trimmed - moved in)";
+                        } else {
                             ++left_out_failed;
                             if (!why) {
                                 failed += " " + e.id + at + ": not trimmed, and not said)";
@@ -520,6 +555,10 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
     check(failed.empty(), "every aircraft was trimmed at every loading, height and speed (the "
                           "F-22A in pitch alone, said), or left out and said; these were not:" +
                               failed);
+    check(left_out_n == left_out_list.size() && left_out_failed == left_out_list.size(),
+          "every point on the list of " + std::to_string(left_out_list.size()) +
+              " left out was walked and failed: " + std::to_string(left_out_n) + " walked, " +
+              std::to_string(left_out_failed) + " failed");
     check(!catalogue.empty() && space > 0 && walked == space &&
               trimmed + left_out_n == space && pitch_alone_said > 0,
           "every point of the space was walked, trimmed or left out by name: " +
@@ -567,7 +606,6 @@ GLIDESLOPE_TEST(the_s23_trimmed_at_every_loading_height_and_speed_flies_on_as_tr
     const std::size_t space = loadings.size() * 3 * 3;
     std::size_t walked = 0;
     std::size_t held = 0;
-    std::size_t named = 0;
     std::string failed;
     for (const auto& [name, loading] : loadings) {
         double weight_lbs = 0.0;
@@ -629,11 +667,10 @@ GLIDESLOPE_TEST(the_s23_trimmed_at_every_loading_height_and_speed_flies_on_as_tr
     }
     check(failed.empty(), "the S.23 was trimmed and held within 20 ft and 2 kt for thirty "
                           "seconds at every point; not at:" + failed);
-    std::printf("  %zu of %zu held, %zu named open\n", held, space, named);
-    check(walked == space && held + named == space && space == 27 && named == 0,
-          "every one of her 27 points walked, held or named: " + std::to_string(held) +
-              " held, " + std::to_string(named) + " named, " + std::to_string(walked) +
-              " walked, of " + std::to_string(space));
+    std::printf("  %zu of %zu held\n", held, space);
+    check(walked == space && held == space && space == 27,
+          "every one of her 27 points walked and held: " + std::to_string(held) + " held, " +
+              std::to_string(walked) + " walked, of " + std::to_string(space));
 }
 
 // **A player's first input is what the server held her on, every control,
@@ -964,6 +1001,58 @@ GLIDESLOPE_TEST(the_cessna_182s_at_10000_ft_needs_her_books_power_for_her_books_
     check(aircraft->trimmed() && std::abs(ktas - 133.0) < 0.5,
           "she trims at her book's 133 KTAS at 10,000 ft");
     check(std::abs(hp / book_hp - 1.0) <= 0.05, "and needs her book's 66% there within 5%");
+}
+
+// **A ground start at a high airfield is not leaned; an airborne start there
+// is** (the owner, 2026-10-23: an airborne start sets its levers as the book
+// flies that height). The C182, whose handbook leans above 3,000 ft, started
+// standing with her engine running at Courchevel's 6,588 ft keeps her mixture
+// full rich, as her pilot leaves it; started in the air 3,000 ft above it at
+// 100 kt she is leaned. Seen red with the leaning on every start: leaned on
+// the ground too, which moved the test of a C182 set down at Courchevel.
+GLIDESLOPE_TEST(a_ground_start_at_a_high_airfield_is_not_leaned_and_an_airborne_start_there_is) {
+    const double airfield_ft = 6588.0;
+    const auto mixture_after = [&](double altitude_ft, double kcas) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", "c182");
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = 45.39772;
+        ic.longitude_deg = 6.63538;
+        ic.terrain_elevation_ft = airfield_ft;
+        ic.altitude_ft = altitude_ft;
+        ic.airspeed_kts = kcas;
+        ic.engine_running = true;
+        ic.trim = kcas > 0.0;
+        aircraft.initialize(ic);
+        return aircraft.property("fcs/mixture-cmd-norm[0]");
+    };
+    const double standing = mixture_after(airfield_ft, 0.0);
+    const double flying = mixture_after(airfield_ft + 3000.0, 100.0);
+    std::printf("  mixture lever standing %.3f, flying %.3f\n", standing, flying);
+    check(standing == 1.0, "standing at Courchevel her mixture is full rich");
+    check(flying < 0.95, "flying 3,000 ft above it she is leaned");
+}
+
+// **A start burns no fuel**, however long her engines take to settle: the
+// S.23 at 10,000 ft at 130 kt (leaned, her boost loops flown to rest) and the
+// C182 there at 110 kt (leaned, her governor settled) weigh what they were
+// loaded to, to a thousandth of a pound. Seen red with her fuel not frozen
+// through the start: the S.23 settled 1.5 lb light on CI's Windows, and the
+// approach test that weighs her (test_lesson.cpp) failed there.
+GLIDESLOPE_TEST(a_start_burns_no_fuel_however_long_her_engines_take_to_settle) {
+    for (const auto& [model, loading, kcas] :
+         {std::tuple<std::string, std::string, double>{"short_s23", "standard", 130.0},
+          std::tuple<std::string, std::string, double>{"c182", "", 110.0}}) {
+        glideslope::sim::Aircraft weighed(data() / "jsbsim", model);
+        weighed.load(glideslope::sim::read_published_figures(data() / "figures" / (model + ".xml"))
+                         .loadings.at(loading)
+                         .loading);
+        const double loaded = weighed.loaded_weight_lbs();
+        const auto started = trimmed_at_10000_ft(model, loading, kcas);
+        const double after = started->property("inertia/weight-lbs");
+        std::printf("  %s: loaded %.4f lb, started %.4f lb\n", model.c_str(), loaded, after);
+        check(started->trimmed() && std::abs(after - loaded) < 0.001,
+              model + " is started trimmed weighing what she was loaded to");
+    }
 }
 
 // **The S.23's airscrews are as efficient as NACA Report 640's at their blade

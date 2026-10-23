@@ -504,8 +504,8 @@ with its source.
   all in range. At 10,000 ft at 45,000 lb she trims at 130 kt (throttle
   0.910) and 141 kt (0.935), and holds 148 KCAS (171.7 KTAS) at most, 3%
   over the derivation's 164 to 167 KTAS; at 40,500 lb 146 kt (0.938). Her
-  plan speeds (`plan_speeds`, 86 and 141 kt) were measured on the old model
-  and are not re-measured: both still hold.
+  plan speeds were measured on the old model and not re-measured here;
+  measured again in the round below, her fastest falls from 141 to 136 kt.
 
 **Verification.**
 - `the_s23s_drag_due_to_lift_is_her_wings_span_efficiency`: k within 10% of
@@ -518,3 +518,77 @@ with its source.
   seen red on the old model (long-range at 10,000 ft at 130 and 141 kt not
   trimmed).
 - Related tests (77: every aircraft's, the S.23's, the walk, the make-script checks, the fixed ports) pass in linux-debug; `glideslope_cli selftest` hash 831a4e7954233b0a, unmoved (the selftest flies no S.23).
+
+### The review's must-fixes, 2026-10-23
+
+**What is still not true first.** Her airscrew's fine-pitch fade
+(`FINE_FADE`) is a fit, not sourced - kept so named by the owner's
+decision (2026-10-23).
+
+- **A start burns no fuel** (CI on 32580bf7: test_lesson.cpp:2535, the S.23
+  1.5 lb light on Windows). `Aircraft::initialize` now freezes her fuel
+  through the start (FGPropulsion::SetFuelFreeze, JSBSim's
+  `propulsion/fuel_freeze`) and gives the freeze back as it was.
+  `a_start_burns_no_fuel_however_long_her_engines_take_to_settle`: the
+  S.23 at 10,000 ft at 130 kt 40,500.0822 lb as loaded, the C182 3,100.0000;
+  seen red without the freeze, the S.23 started at 40,495.99.
+- **Ground starts are not leaned** (CI: test_ground.cpp:244, Courchevel).
+  The leaning runs on airborne starts alone, as the owner decided.
+  `a_ground_start_at_a_high_airfield_is_not_leaned_and_an_airborne_start_there_is`:
+  the C182 standing at Courchevel's 6,588 ft full rich (1.000), flying 3,000
+  ft above it leaned. Seen red with every start leaned: 0.678 standing, and
+  the Courchevel set-down test failed with it.
+- **The Cub's exclusions are the derivation's, exactly.** Derived at her
+  model's own 752 lb as well: 63.5 to 63.7 KCAS, so 60 and 62 kt she holds,
+  and trims. The walk's left-out points are now a stated list of 16 -
+  aircraft, loading, height and speed - each of which must be walked and
+  must fail: one that trims has moved in, and fails the walk. Measured with
+  the old predicate, four left-out points trimmed: the Cub at 752 lb at 60
+  and 62 kt and at 922 lb at 60 (all inside the derivation), and the PA-28 at
+  her model's own, lighter loading at 110 kt; all four are now walked as
+  points that trim. The 1,220 lb Cub's slowest, 54.8 KCAS, is inside the
+  derivation's 54.3 to 55.6, and trims.
+- **The S.23's climb: the owner's decision (2026-10-23).** Flight's
+  specification panel (p. 440f) gives 950 ft/min at sea level and Gouge's
+  Table II (p. 680) 933, neither with boost, pitch or speed. Cassidy
+  (Flying Empires, 1996, p. 167): "The maximum engine speed for the climb -
+  with the airscrews in COARSE pitch - was 2250 rev. per min. with +1 1/4
+  lb. sq. in."; the Pegasus's data plate, in Cassidy p. 71: "Climbing 2250
+  +2 1/2". Flown at 100 kt in coarse pitch she climbs at 673 ft/min at +1
+  1/4 (out of the figure's 855 to 1,045) and 876 at +2 1/2 (in). The owner:
+  the published 933 to 950 belongs to the data plate's +2 1/2 in coarse
+  pitch; Cassidy p. 167's +1 1/4 is the normal cruise-climb setting. The
+  figure says so (assets/figures/short_s23.xml).
+- **`FINE_FADE` is a fit, the owner's decision to keep it so.** No source
+  gives where the pinned take-off thrust tweak (thrust x1.25, power x1.1,
+  for Cassidy's 13,280 lb at 20 kt) should stop. Its ends: J 0.45, her
+  model's own lift-off advance ratio (60 to 70 kt at 1,200 airscrew rpm on
+  12 ft 9 in), below which her take-off keeps that thrust; J 0.65, fine pitch
+  at 100 kt at full power, from which NACA Report 640's efficiency holds in
+  full. Said so in tools/make_short_s23.py.
+- **Her plan and glide speeds measured again** on her new model
+  (`glideslope_cli plan-speeds short_s23`, `glide-speeds short_s23`,
+  linux-debug): the slowest, 86 kt, holds every orbit and heading; at full
+  throttle at 3,000 ft she levels at 150.0 kt, not 152, so 146 and 151 kt
+  leave her no 5 kt in hand and 141 is the fastest held: the command's rule
+  writes 136 (`<plan_speeds slowest_kcas="86" fastest_kcas="136">`), in
+  assets/figures/short_s23.xml. Glides: 86 kt still goes round unstalled
+  both ways (alpha 8.4 and 8.6, the lift peaking at the same).
+  `the_short_s23_holds_nothing_a_plan_asks_one_step_past_its_fastest`: at
+  151 kt (on 141) not held; re-run on 136, passes.
+- Minors: TRANSPORT.md's version `0F` paragraph names the mixture and
+  propeller levers; held_levers.hpp no longer says the held trim is held to
+  the bit (the server holds it as found and tells it to the nearest 16-bit
+  fraction); the S.23 test's dead `named` counter is gone, her 27 points
+  each held; PROJECT_STATUS says the Learjet's exclusion is a defect of her
+  model, not her book.
+
+**Verification.** Her plan's fastest is now 136 kt, so the walk's and her
+own test's S.23 points at the plan's fastest move from 141 to 136; the
+walk's space is the same 540 points, 524 trimmed and the 16 listed left out,
+every one failing as it must. 134 related tests pass in linux-debug with
+ctest -j4 (every aircraft's, the S.23's and her plan speeds', the walk, the
+approaches that weigh her, the set-down at Courchevel, the first input, the
+fixed ports, the make-script checks). `glideslope_cli selftest` hash
+831a4e7954233b0a, unmoved. Both items ticked: every point trims or is left
+out with its source.

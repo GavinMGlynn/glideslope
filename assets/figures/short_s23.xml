@@ -98,13 +98,15 @@
   <figure name="climb_rate" loading="standard" unit="ft/min" value="950"
           tolerance_percent="10" speed_kcas="100" boost_psi="2.5" propeller_lever="0">
     Specification panel, p. 440f: rate of climb at sea level 950 ft/min;
-    Table II, 933 ft/min. Flown at +2 1/2 lb, the climbing boost on the
-    Pegasus's data plate, at 100 knots, no climbing speed being given, the
-    airscrews in coarse pitch: "The maximum engine speed for the climb -
-    with the airscrews in COARSE pitch - was 2250 rev. per min." (Cassidy,
-    Flying Empires, 1996, p. 167, quoted in eng_PegasusXc.xml). In fine pitch
-    at 100 kt her Pegasuses overspeed to 2,775 rpm, past even the 2,600 all
-    out.
+    Table II (Gouge, p. 680), 933 ft/min. Flown at 100 knots, no climbing
+    speed being given, at +2 1/2 lb, the Pegasus's data plate's "Climbing
+    2250 +2 1/2" (Cassidy, Flying Empires, 1996, p. 71), in coarse pitch:
+    the owner's decision, 2026-10-23, that the published climb belongs to
+    that boost. Cassidy's +1 1/4 lb (p. 167: "The maximum engine speed for
+    the climb - with the airscrews in COARSE pitch - was 2250 rev. per min.
+    with +1 1/4 lb. sq. in.") is the normal cruise-climb setting; there she
+    climbs at 673 ft/min. In fine pitch at 100 kt her Pegasuses overspeed to
+    2,775 rpm, past even the 2,600 all out.
   </figure>
 
   <figure name="stall_speed_landing" flight="stall_speed" from="measured"
@@ -122,7 +124,8 @@
     the wing gives up; that is the entry being wrong, not the number.
   </figure>
   <!-- **The speeds a plan may fly her at**, measured by `glideslope_cli
-       plan-speeds short_s23` on 2026-10-02 (linux-release): the tightest orbit a
+       plan-speeds short_s23` on 2026-10-02 (linux-release), and again on
+       2026-10-23 (linux-debug) on her drag and airscrews as they now are: the tightest orbit a
        plan may ask at each speed (sim/orbit_trial.hpp), flown clean by the
        navigator and autopilot at 3,000 ft, both ways round, in calm air and
        in a 10 kt wind, each to hold its height within 50 ft and its speed
@@ -136,8 +139,8 @@
        `weight_lbs`, her model's own weight, which the trial flies and a
        server flies her at; heavier, the slowest is raised for her weight
        (sim::for_weight). -->
-  <plan_speeds slowest_kcas="86" fastest_kcas="141" weight_lbs="34717">
-    The slowest, 86 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 1,071 m circle. The fastest, 141 kt, is 5 kt under the fastest that held with 5 kt of power in hand: she flies level at 152 kt at full throttle at 3,000 ft, so 146 kt is the most a plan may ask that leaves her that (sim::holds_plan_speed, 2026-10-06; it was 156).
+  <plan_speeds slowest_kcas="86" fastest_kcas="136" weight_lbs="34717">
+    The slowest, 86 kt, is its approach speed, the slowest any plan was ever let fly it: flown clean, it held all four ways round its 1,071 m circle. The fastest, 136 kt, is 5 kt under the fastest that held with 5 kt of power in hand: she flies level at 150 kt at full throttle at 3,000 ft, so 141 kt is the most a plan may ask that leaves her that (sim::holds_plan_speed, 2026-10-23; it was 141, on 152 kt level, until her drag due to lift became her wing's and her airscrews' efficiency NACA Report 640's).
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
        glide-speeds short_s23` on 2026-10-06 (linux-release): from the slowest a
