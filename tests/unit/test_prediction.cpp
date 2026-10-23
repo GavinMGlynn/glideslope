@@ -2379,6 +2379,175 @@ GLIDESLOPE_TEST(a_prediction_told_its_aircraft_is_a_wreck_holds_her_where_the_se
                                        std::to_string(furthest_last_m) + " m from the server");
 }
 
+// **A prediction that came down on water ahead of the server's word flies
+// again when the server does, and never goes to a NaN.** The CI failure of
+// run 39883628869: a client predicting a Cessna whose engine the server had
+// stopped glided into Sydney Harbour, was a wreck on water, flew again - and
+// at the second wreck and flight its JSBSim asserted at FGTable.cpp:618 on a
+// NaN. Built here: a Cessna at her model's own weight, 300 ft and 90 KCAS over
+// water, her engine stopped on the server and heard stopped by the
+// prediction, the stick a third forward, flown on a server as the server
+// steps and judges her and in a prediction on the same inputs, four steps an
+// input, each word heard three inputs (100 ms) late. The prediction, ahead,
+// meets the water before it hears the wreck. Five seconds a wreck, then
+// started again at 2,200 ft as the server starts her, its word saying she is
+// no longer one and her engine runs; flown on, untouched, for ten seconds -
+// **twice**, as in the run. What holds: no number in her property tree a
+// NaN at any step (her engine's air-fuel ratio is JSBSim's infinity with no
+// fuel flowing, which is not one); through the ten seconds after each start,
+// at every word (290 or more each, counted), not held on the water's surface
+// (`ditched`); and at every step of the last second of each flight within
+// 5 cm of the server's at the same step (6.5 mm, measured). **Seen red**
+// without the hold-down released (Aircraft::set_motion): held on the water
+// at all 593 words of both flights, flying on her velocity alone, 3.7 cm
+// off in the last seconds. No NaN came of it here, nor in the run itself
+// flown locally (docs/status, 2026-10-23, a prediction come down on water).
+GLIDESLOPE_TEST(a_prediction_come_down_on_water_flies_again_when_the_server_does_and_never_goes_to_a_nan) {
+    using glideslope::sim::AircraftState;
+    using glideslope::sim::Motion;
+    using glideslope::sim::steps_per_second;
+    const auto water = std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return true; });
+    InitialConditions ic;
+    ic.latitude_deg = -33.85;
+    ic.longitude_deg = 151.24;
+    ic.heading_deg = 270.0;
+    ic.altitude_ft = 300.0;
+    ic.terrain_elevation_ft = 0.0;
+    ic.airspeed_kts = 90.0;
+    ic.engine_running = true;
+    InitialConditions again = ic;
+    again.altitude_ft = 2200.0;
+    Aircraft server(data() / "jsbsim", "c172p");
+    Aircraft client(data() / "jsbsim", "c172p");
+    server.set_terrain(water);
+    client.set_terrain(water);
+    server.initialize(ic);
+    client.initialize(ic);
+    server.fail_engine(0, false);
+    Prediction p(client);
+    glideslope::sim::GroundJudge judge(false);
+    struct Word {
+        Motion motion;
+        std::uint32_t applied = 0;
+        std::size_t into = 0;
+        std::uint64_t steps = 0;
+        bool wrecked = false;
+        bool engine_stopped = false;
+    };
+    constexpr std::size_t delay_inputs = 3;
+    constexpr int flights = 2;
+    std::deque<Word> on_the_way;
+    std::vector<AircraftState> server_at; // the server's state after each step
+    std::optional<std::uint64_t> wrecked_at;
+    std::optional<std::uint64_t> again_at;
+    int wrecks = 0;
+    int flown_again = 0;
+    std::uint64_t steps = 0;
+    std::uint32_t sequence = 0;
+    int not_finite = 0;
+    std::string first_not_finite;
+    int ditched_flying = 0;
+    int words_flying = 0;
+    double furthest_last_m = 0.0;
+    int last_second_steps = 0;
+    bool client_ditched_first = false;
+    const std::vector<std::string> names = client.number_names();
+    const std::uint64_t wreck_steps = 5 * steps_per_second;
+    const std::uint64_t flight_steps = 10 * steps_per_second;
+    while (flown_again < flights || steps < *again_at + flight_steps) {
+        ++sequence;
+        Controls k;
+        k.throttle = 0.6;
+        // Untouched for ten seconds after each start again, and otherwise
+        // into the water, until she has been flown again `flights` times.
+        const bool settling = again_at && steps < *again_at + flight_steps;
+        k.elevator = flown_again < flights && !settling && !wrecked_at ? -0.35 : 0.0;
+        for (int i = 0; i < 4; ++i) {
+            // The server's step: frozen while a wreck, flown again after.
+            if (wrecked_at && steps >= *wrecked_at + wreck_steps) {
+                server.initialize(again);
+                judge.reset();
+                again_at = steps;
+                wrecked_at.reset();
+                ++flown_again;
+            }
+            if (!wrecked_at) {
+                server.set_controls(k);
+                server.step();
+                if (judge.judge(server)) {
+                    wrecked_at = steps + 1;
+                    ++wrecks;
+                }
+            }
+            ++steps;
+            server_at.push_back(server.state());
+            p.step(sequence, k);
+            if (client.state().ditched && !p.wrecked() && flown_again == 0) {
+                client_ditched_first = true;
+            }
+            const std::vector<double> numbers = client.numbers();
+            for (std::size_t n = 0; n < numbers.size(); ++n) {
+                if (std::isnan(numbers[n])) {
+                    if (not_finite == 0) {
+                        first_not_finite = names[n] + " at step " + std::to_string(steps);
+                    }
+                    ++not_finite;
+                    break;
+                }
+            }
+            if (again_at && !wrecked_at && steps + steps_per_second >= *again_at + flight_steps &&
+                steps < *again_at + flight_steps) {
+                furthest_last_m = std::max(furthest_last_m, glideslope::sim::how_far_apart_m(
+                                                                server_at.back(), client.state()));
+                ++last_second_steps;
+            }
+        }
+        on_the_way.push_back({server.motion(), sequence, 4, steps, wrecked_at.has_value(),
+                              !server.engine_running(0)});
+        if (on_the_way.size() > delay_inputs) {
+            const Word w = on_the_way.front();
+            on_the_way.pop_front();
+            (void)p.hear_engine_stopped(w.engine_stopped ? std::optional<int>(0) : std::nullopt);
+            p.hear_wrecked(w.wrecked);
+            (void)p.reconcile(w.motion, w.applied, w.into, w.steps);
+            if (!w.wrecked && again_at && w.steps > *again_at + 8 &&
+                w.steps < *again_at + flight_steps) {
+                ++words_flying;
+                if (client.state().ditched) {
+                    ++ditched_flying;
+                }
+            }
+        }
+        check(steps < 120 * steps_per_second, "the flight never ended");
+        if (steps >= 120 * steps_per_second) {
+            break;
+        }
+    }
+    std::printf("  %d wrecks, flown again %d times, %llu steps in all; the prediction on the "
+                "water before the server's word: %s; %d steps with a number not finite%s; "
+                "%d of %d words flying again with her held on the water; in the last second of "
+                "each flight at most %.6f m from the server over %d steps\n",
+                wrecks, flown_again, static_cast<unsigned long long>(steps),
+                client_ditched_first ? "yes" : "no", not_finite,
+                not_finite > 0 ? (", first " + first_not_finite).c_str() : "", ditched_flying,
+                words_flying, furthest_last_m, last_second_steps);
+    check(wrecks == flights && flown_again == flights,
+          std::to_string(wrecks) + " wrecks and " + std::to_string(flown_again) +
+              " flights again, not " + std::to_string(flights) + " of each");
+    check(client_ditched_first, "the prediction never came down on the water before the "
+                                "server's word - the situation was not built");
+    check(not_finite == 0, std::to_string(not_finite) + " steps with a number not finite, the "
+                                                        "first " + first_not_finite);
+    check(words_flying >= flights * 290, std::to_string(words_flying) + " words heard flying again");
+    check(ditched_flying == 0, std::to_string(ditched_flying) +
+                                   " words flying again with the prediction held on the water");
+    check(last_second_steps == flights * steps_per_second,
+          std::to_string(last_second_steps) + " steps compared in the last seconds");
+    check(furthest_last_m < 0.05, "flying again, in the last second she was " +
+                                      std::to_string(furthest_last_m) + " m from the server");
+}
+
 // **A prediction whose STOVL law was seeded off is put right to the server's
 // height asked at its next word, and then agrees.** Each end seeds the law's
 // height from her height above the ground as it sees her at the selector,
