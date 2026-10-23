@@ -3339,12 +3339,14 @@ GLIDESLOPE_TEST(a_stovl_prediction_sets_with_her_stick_what_the_server_sets_in_e
 GLIDESLOPE_TEST(every_input_a_prediction_is_given_not_finite_trips_its_guard_and_is_named) {
     Aircraft a(data() / "jsbsim", "c172p");
     set_up(a);
-    const std::array<const char*, Controls::control_count> names = {
+    constexpr std::array<const char*, Controls::control_count> names = {
         "elevator",        "aileron",         "rudder",           "throttle",
         "mixture",         "flaps",           "left brake",       "right brake",
         "pitch trim",      "propeller",       "gear",             "supercharger",
         "speedbrake",      "throttle offset 0", "throttle offset 1", "cooling flaps 0",
-        "cooling flaps 1", "reverse",         "stovl"};
+        "cooling flaps 1", "reverse",         "stovl",            "roll trim",
+        "yaw trim"};
+    static_assert(names.back() != nullptr, "every control needs its name");
     const std::array<double, 2> bad = {std::nan(""), HUGE_VAL};
     std::size_t walked = 0;
     std::size_t tripped = 0;
