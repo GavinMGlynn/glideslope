@@ -20,6 +20,7 @@
 #include "platform/end_process.hpp"
 #include "platform/closed_pipes.hpp"
 #include "platform/cpu_time.hpp"
+#include "platform/nan_trap.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "net/inputs.hpp"
 #include "net/interpolation.hpp"
@@ -81,6 +82,7 @@
 #include <limits>
 #include <deque>
 #include <map>
+#include <set>
 #include <span>
 #include <stdexcept>
 #include <thread>
@@ -207,6 +209,30 @@ double connect_stopped_once_ms = 0.0;
 // prediction, built on any machine, as a debug build on a starved runner is
 // (docs/status, 2026-10-23). Its own time, so never a machine's stall.
 double connect_slow_step_s = 0.0;
+// **(`--test-nan-at S`)**: with `--predict`, the first step its prediction
+// flies at or after S seconds of this client's clock is given a NaN for its
+// elevator - put into the predicted aircraft's input path only, never sent -
+// so that a test sees the prediction let go of and started again from the
+// server's word (sim::Prediction::lost) rather than flown into JSBSim.
+double connect_nan_at_s = -1.0;
+// **(`--trap-nan`)**: a NaN made, or an abort, says where and what
+// (platform/nan_trap.hpp), with every number not finite of the aircraft
+// being predicted, named (`trap_aircraft`).
+bool connect_trap_nan = false;
+// The aircraft this client is predicting, for the trap to name its numbers.
+const glideslope::sim::Aircraft* trap_aircraft = nullptr;
+void say_trapped_aircraft() {
+    if (trap_aircraft == nullptr) {
+        std::fputs("nan trap: no aircraft being predicted\n", stderr);
+        return;
+    }
+    const auto names = trap_aircraft->not_finite_numbers(32);
+    std::fprintf(stderr, "nan trap: %zu of the predicted aircraft's numbers not finite%s\n",
+                 names.size(), names.size() == 32 ? " (the first 32)" : "");
+    for (const std::string& n : names) {
+        std::fprintf(stderr, "nan trap:   %s\n", n.c_str());
+    }
+}
 
 // **Spends `s` seconds of this thread's time busy** (`--slow-steps`).
 void busy_for(double s) {
@@ -548,6 +574,13 @@ void print_usage(std::FILE* out) {
         "                            --slow-steps US (with --predict) spends US\n"
         "                            microseconds busy on every step it flies, forward\n"
         "                            or again: a machine too slow for its prediction\n"
+        "                            --test-nan-at S (with --predict) gives its\n"
+        "                            prediction a NaN elevator on the first step at\n"
+        "                            or after S seconds, never sent: it is let go of\n"
+        "                            and started again from the server's word\n"
+        "                            --trap-nan stops at the first NaN made (glibc)\n"
+        "                            or an abort, saying where, and every number of\n"
+        "                            the predicted aircraft that is not finite\n"
         "                            --track FILE writes where every aircraft was\n"
         "                            heard to be, and, predicting, where each other\n"
         "                            one was drawn, to FILE\n"
@@ -1940,18 +1973,7 @@ public:
             return;
         }
         if (!prediction_) {
-            // Nothing to fly yet, but what would have been flown is kept:
-            // when the first update comes it is already a trip old, and
-            // these are what carry it forward to now (start).
-            for (; stepped_ < due; ++stepped_) {
-                before_.push_back({sequence, c});
-                if (before_.size() > glideslope::sim::most_unacknowledged) {
-                    before_.pop_front();
-                }
-            }
-            if (sequence > 0 && (joining_.empty() || joining_.back() != sequence)) {
-                joining_.push_back(sequence);
-            }
+            keep_unflown(due, sequence, c);
             return;
         }
         // Where it was flown to on this input, step by step, for the
@@ -1969,8 +1991,17 @@ public:
         const bool counted = answering && prediction_->settled();
         for (; stepped_ < due; ++stepped_) {
             const std::uint64_t step = prediction_->steps();
-            prediction_->step(sequence, c);
+            glideslope::sim::Controls fed = c;
+            if (connect_nan_at_s >= 0.0 && !nan_given_ && local_s >= connect_nan_at_s) {
+                fed.elevator = std::numeric_limits<double>::quiet_NaN();
+                nan_given_ = true;
+            }
+            prediction_->step(sequence, fed);
             busy_for(connect_slow_step_s);
+            if (prediction_->lost()) {
+                let_go(sequence);
+                break;
+            }
             if (!law_made_ && prediction_->laws() && prediction_->laws()->transition()) {
                 law_made_ = {sequence, step,
                              prediction_->laws()->transition()->throttle_integral_made_with()};
@@ -1984,6 +2015,11 @@ public:
                 predicted_at_.pop_front();
             }
         }
+        if (!prediction_) {
+            // Let go of on the way (let_go): the rest kept for the next.
+            keep_unflown(due, sequence, c);
+            return;
+        }
         if (stepped_ == due && sequence > 0 && !answering &&
             (joining_.empty() || joining_.back() != sequence)) {
             joining_.push_back(sequence);
@@ -1991,6 +2027,49 @@ public:
         if (stovl_land_) {
             stovl_stages(local_s);
         }
+    }
+
+    // Nothing to fly yet, but what would have been flown is kept: when the
+    // first update comes it is already a trip old, and these are what carry
+    // it forward to now (start).
+    void keep_unflown(long long due, std::uint32_t sequence, const glideslope::sim::Controls& c) {
+        for (; stepped_ < due; ++stepped_) {
+            before_.push_back({sequence, c});
+            if (before_.size() > glideslope::sim::most_unacknowledged) {
+                before_.pop_front();
+            }
+        }
+        if (sequence > 0 && (joining_.empty() || joining_.back() != sequence)) {
+            joining_.push_back(sequence);
+        }
+    }
+
+    // **A prediction gone to a number not finite is let go of**
+    // (sim::Prediction::lost) and its aircraft with it, and the server's
+    // state taken back as on a fresh start: a new aircraft, put where the
+    // next word says and flown on from there, as after a take-back. Said
+    // once for each thing it went to, with the step and the aircraft;
+    // counted every time.
+    void let_go(std::uint32_t sequence) {
+        const glideslope::sim::Prediction::Lost lost = *prediction_->lost();
+        ++let_go_;
+        compared_when_let_go_ = compared_;
+        if (said_lost_.insert(lost.what).second) {
+            std::fprintf(stderr,
+                         "glideslope_cli: its prediction of aircraft %u (%s) went to a number "
+                         "not finite at its step %llu - %s - and is let go of, and started "
+                         "again from the server's next word\n",
+                         static_cast<unsigned>(yours_), aircraft_model_.c_str(),
+                         static_cast<unsigned long long>(lost.step), lost.what.c_str());
+        }
+        resuming_ = true;
+        resumed_from_ = sequence + 1;
+        prediction_.reset();
+        unread_.reset();
+        keep_built();
+        before_.clear();
+        predicted_at_.clear();
+        pacing_.hold();
     }
 
     void heard(const glideslope::net::StatePacket& state, double local_s) {
@@ -2141,6 +2220,10 @@ public:
                     glideslope::net::stovl_height_asked(*state.yours),
                     glideslope::sim::Transition::Carried{
                         glideslope::net::stovl_pitch_integral(*state.yours)});
+                if (prediction_->lost()) {
+                    let_go(prediction_->newest());
+                    return;
+                }
                 busy_for(static_cast<double>(c.replayed) * connect_slow_step_s);
                 ++reconciled_in_pass_;
                 ++read_in_pass_;
@@ -2732,6 +2815,11 @@ public:
                       corrections_joined_, worst_correction_joined_m_, snapped_joined_);
         lines.emplace_back(line);
         std::snprintf(line, sizeof line,
+                      "let go of: %zu predictions gone to a number not finite, %zu updates "
+                      "compared since the last",
+                      let_go_, compared_ - compared_when_let_go_);
+        lines.emplace_back(line);
+        std::snprintf(line, sizeof line,
                       "reconciled: the socket read dry %zu times, at most %zu words read, %zu "
                       "put right from and %zu steps flown again between two, %zu steps flown "
                       "again in all; %zu words superseded by a newer read with them, compared "
@@ -2967,6 +3055,7 @@ private:
     // differed from one just built in up to 240 numbers of her property tree,
     // by aircraft (docs/status, 2026-10-21).
     void keep_built() {
+        trap_aircraft = nullptr;
         aircraft_.reset();
         aircraft_model_.clear();
     }
@@ -3031,10 +3120,21 @@ private:
     }
     void start(const glideslope::sim::Motion& m, const std::string& model,
                const std::string& loading, std::uint32_t last_applied, std::size_t steps_into) {
+        // A server's word not finite is no start: the next is waited for.
+        if (const auto bad = glideslope::sim::first_not_finite(m)) {
+            if (said_lost_.insert("a start from the server's word's " + *bad).second) {
+                std::fprintf(stderr,
+                             "glideslope_cli: the server's word on aircraft %u has %s not "
+                             "finite: not started from\n",
+                             static_cast<unsigned>(yours_), bad->c_str());
+            }
+            return;
+        }
         aircraft_ = spare(model);
         if (!aircraft_) {
             return;
         }
+        trap_aircraft = aircraft_.get();
         aircraft_model_ = model;
         // **At the loading the server gave her**, before she is put
         // anywhere: a prediction at her model's own weight would fly another
@@ -3259,6 +3359,12 @@ private:
     bool ai_flying_ = false;
     bool resuming_ = false;
     std::uint32_t resumed_from_ = 0;
+    // `--test-nan-at`'s NaN given; how many times a prediction was let go
+    // of (let_go), the updates compared by the last, and what each went to.
+    bool nan_given_ = false;
+    std::size_t let_go_ = 0;
+    std::size_t compared_when_let_go_ = 0;
+    std::set<std::string> said_lost_;
     double settled_at_s_ = 0.0;
     bool corrected_ = false;
     glideslope::net::Interpolated own_shown_;
@@ -5561,6 +5667,19 @@ static int run_program(int argc, char** argv) {
                     }
                     continue;
                 }
+                if (args[i] == "--test-nan-at" && i + 1 < args.size()) {
+                    connect_nan_at_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+                    if (!(connect_nan_at_s >= 0.0)) {
+                        std::fprintf(stderr, "glideslope_cli: --test-nan-at wants seconds, "
+                                             "none or more\n");
+                        return 2;
+                    }
+                    continue;
+                }
+                if (args[i] == "--trap-nan") {
+                    connect_trap_nan = true;
+                    continue;
+                }
                 if (args[i] == "--stovl-land") {
                     connect_stovl_land = true;
                     continue;
@@ -5920,6 +6039,18 @@ static int run_program(int argc, char** argv) {
                 std::fprintf(stderr, "glideslope_cli: --forge-leaving and --no-goodbye "
                                      "need seconds to stay for\n");
                 return 2;
+            }
+            if (connect_nan_at_s >= 0.0 && !predict) {
+                std::fprintf(stderr, "glideslope_cli: --test-nan-at needs --predict\n");
+                return 2;
+            }
+            // Before any thread is started, which takes its floating-point
+            // environment from this one (platform/nan_trap.hpp).
+            if (connect_trap_nan) {
+                const bool invalid = glideslope::platform::trap_nan(say_trapped_aircraft);
+                std::fprintf(stderr, "glideslope_cli: the NaN trap is set: %s\n",
+                             invalid ? "the first NaN made, and an abort"
+                                     : "an abort only (no invalid-operation trap here)");
             }
             const int connected = connect_to(std::string(args[1]), std::string(args[2]), stay_s,
                                              again, fly, after_s, secret_hex, heard_file,

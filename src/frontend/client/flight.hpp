@@ -30,6 +30,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -182,6 +183,10 @@ public:
     // `stovl_height_asked_ft`, the height the server's STOVL law was asked to
     // hold, and `stovl_carried`, its autopilot's pitch integral, put on this
     // client's where one flies her (sim::Prediction).
+    // **A prediction gone to a number not finite is let go of**
+    // (sim::Prediction::lost): said once for each thing it went to, and the
+    // server's motion taken back as on a fresh start (adopt). Whether it was.
+    bool let_go_if_lost(const sim::Motion& motion);
     sim::Prediction::Correction reconcile(const sim::Motion& motion,
                                           std::uint32_t last_applied,
                                           std::size_t steps_into,
@@ -346,6 +351,8 @@ private:
     sim::HerFigures figures_;
     // On a server: the prediction, and the sequence of the inputs being flown.
     std::unique_ptr<sim::Prediction> prediction_;
+    // What each prediction let go of went to, said once (let_go_if_lost).
+    std::set<std::string> said_lost_;
     // Where each step flown forward left the aircraft, and whether the
     // clocks' difference was known then (`prediction_errors_m`).
     struct Predicted {

@@ -639,6 +639,11 @@ public:
     // flight model for a value going NaN or infinite.
     std::vector<std::string> number_names() const;
     std::vector<double> numbers() const;
+    // **The names of those numbers not finite now**, the first `most` of
+    // them in that order: what a prediction that went to a NaN or an
+    // infinity says it went to (sim::Prediction::lost), and what the
+    // client's trap prints of the aircraft it was flying.
+    std::vector<std::string> not_finite_numbers(std::size_t most) const;
 
     // Any JSBSim property by name, for code that needs more than state()
     // reports - the published-figure checks read the gear, the flaps and the

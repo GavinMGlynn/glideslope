@@ -438,6 +438,12 @@ add_executable(glideslope_cli
 target_link_libraries(glideslope_cli PRIVATE glideslope_sim glideslope_net glideslope_world
                                              glideslope_platform glideslope_copilot)
 glideslope_configure(glideslope_cli)
+# Its symbols exported, so that the NaN trap's backtrace (`--trap-nan`,
+# src/platform/nan_trap.hpp) names the functions it passed through - JSBSim's
+# among them - rather than offsets into a binary CI does not keep.
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    set_target_properties(glideslope_cli PROPERTIES ENABLE_EXPORTS ON)
+endif()
 
 # ---------------------------------------------------------------------------
 # glideslope_server - the server, which owns every aircraft. Its dashboard is

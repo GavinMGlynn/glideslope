@@ -29,6 +29,7 @@
 #include <deque>
 #include <map>
 #include <optional>
+#include <string>
 
 namespace glideslope::sim {
 
@@ -249,6 +250,24 @@ public:
     // flown again - it flies on.
     void hear_wrecked(bool wrecked) { wrecked_ = wrecked; }
     bool wrecked() const { return wrecked_; }
+    // **A prediction gone to a number not finite is let go of, not flown
+    // into JSBSim's tables.** Every input put on the aircraft - each
+    // step's controls and the server's motion - is looked at before it is
+    // put, and the motion each step leaves after it is flown; the first not
+    // finite stops this prediction where it is, flying nothing further,
+    // forward or again, and says here what it was and at which of its steps.
+    // Its client takes the server's state back as on a fresh start (a new
+    // aircraft from the next word). Flown on, a NaN reached a table as its
+    // key and a debug JSBSim asserted (FGTable.cpp:618) on CI's Ubuntu after
+    // two water wrecks, run 39883628869, whose cause was never reproduced
+    // (docs/status, 2026-10-23). A NaN made inside a step from finite inputs
+    // and a finite state, and taken by a table in the same step, is before
+    // this can see it: the client's trap (`--trap-nan`) names that one.
+    struct Lost {
+        std::string what;      // the input or the number, by name
+        std::uint64_t step = 0; // this prediction's step it was found at
+    };
+    const std::optional<Lost>& lost() const { return lost_; }
     // **When the step being flown - forward or flown again - is flown on the
     // server**, on the session's clock: this client's step `s` is the
     // server's step `s + offset`, flown at `(s + offset + 1) / 120` seconds
@@ -299,6 +318,10 @@ private:
     std::uint64_t steps_ = 0;
     int engines_stopped_ = 0;
     bool wrecked_ = false;
+    std::optional<Lost> lost_;
+    // Flies `controls` on the aircraft as step `step`, or finds them, or
+    // what the step left, not finite and is lost instead.
+    void fly(const Controls& controls, std::uint64_t step);
     std::optional<int> stopped_for_the_server_;
     // The input the last step was flown on.
     std::uint32_t flying_ = 0;
@@ -307,6 +330,11 @@ private:
     // The clocks' difference each recent word implied, newest last.
     std::deque<std::int64_t> offsets_;
 };
+
+// **The first control, or number of a motion, not finite**, by name - a
+// NaN or an infinity - or nothing (Prediction::lost).
+std::optional<std::string> first_not_finite(const Controls& c);
+std::optional<std::string> first_not_finite(const Motion& m);
 
 // How far apart two states are, in metres: over the ground and in height.
 double how_far_apart_m(const AircraftState& a, const AircraftState& b);

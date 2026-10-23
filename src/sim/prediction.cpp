@@ -3,12 +3,55 @@
 #include "sim/navigator.hpp"
 
 #include <algorithm>
+#include <array>
+#include <optional>
+#include <string>
 #include <cmath>
 
 namespace glideslope::sim {
 namespace {
 constexpr double metres_per_foot = 0.3048;
+
+// The controls' names, in Controls::as_list's order.
+constexpr std::array<const char*, Controls::control_count> control_names = {
+    "elevator",          "aileron",           "rudder",           "throttle",
+    "mixture",           "flaps",             "left brake",       "right brake",
+    "pitch trim",        "propeller",         "gear",             "supercharger",
+    "speedbrake",        "throttle offset 0", "throttle offset 1", "cooling flaps 0",
+    "cooling flaps 1",   "reverse",           "stovl"};
+
 } // namespace
+
+std::optional<std::string> first_not_finite(const Controls& c) {
+    const auto v = c.as_list();
+    for (std::size_t i = 0; i < v.size(); ++i) {
+        if (!std::isfinite(v[i])) {
+            return std::string(control_names[i]);
+        }
+    }
+    return std::nullopt;
+}
+
+std::optional<std::string> first_not_finite(const Motion& m) {
+    const auto first = [](const auto& v, const char* name) -> std::optional<std::string> {
+        for (std::size_t i = 0; i < v.size(); ++i) {
+            if (!std::isfinite(v[i])) {
+                return std::string(name) + "[" + std::to_string(i) + "]";
+            }
+        }
+        return std::nullopt;
+    };
+    if (auto b = first(m.location_ecef_m, "location_ecef_m")) {
+        return b;
+    }
+    if (auto b = first(m.attitude_local, "attitude_local")) {
+        return b;
+    }
+    if (auto b = first(m.uvw_mps, "uvw_mps")) {
+        return b;
+    }
+    return first(m.pqr_radps, "pqr_radps");
+}
 
 double how_far_apart_m(const AircraftState& a, const AircraftState& b) {
     const double over_ground =
@@ -46,9 +89,8 @@ void Prediction::step(std::uint32_t sequence, const Controls& controls) {
     }
     const std::optional<Controls> commanded_before = commanded_;
     flying_step_ = steps_;
-    if (!wrecked_) {
-        put(controls);
-        aircraft_.step();
+    if (!wrecked_ && !lost_) {
+        fly(controls, steps_);
     }
     // **Where an input began here**, known only where the sequence changes
     // after a step of another: the first input a prediction flies may have
@@ -139,6 +181,15 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     }
     // Kept from `last_applied` on: a later word may say more of it.
     began_.erase(began_.begin(), began_.lower_bound(last_applied));
+    // The server's word is an input too.
+    if (!lost_) {
+        if (const auto bad = first_not_finite(server)) {
+            lost_ = Lost{"the server's word's " + *bad, flying_step_};
+        }
+    }
+    if (lost_) {
+        return out;
+    }
     aircraft_.set_motion(server);
     as_at_first_held();
     // The server's height asked, where a law flies her here too.
@@ -152,6 +203,25 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     out.moved_m = how_far_apart_m(was, aircraft_.state());
     out.snapped = out.moved_m > snap_beyond_m;
     return out;
+}
+
+void Prediction::fly(const Controls& controls, std::uint64_t step) {
+    if (const auto bad = first_not_finite(controls)) {
+        lost_ = Lost{"the input's " + *bad, step};
+        return;
+    }
+    put(controls);
+    aircraft_.step();
+    if (const auto bad = first_not_finite(aircraft_.motion())) {
+        // Named by the numbers in her property tree gone with it, the first
+        // few, which say where it went first better than the motion does.
+        std::string what = "the motion's " + *bad;
+        const auto numbers = aircraft_.not_finite_numbers(4);
+        for (std::size_t i = 0; i < numbers.size(); ++i) {
+            what += (i == 0 ? ", with " : ", ") + numbers[i];
+        }
+        lost_ = Lost{what, step};
+    }
 }
 
 std::size_t Prediction::fly_held_again() {
@@ -172,10 +242,10 @@ std::size_t Prediction::fly_held_again() {
         }
         a.commanded_before = commanded_;
         flying_step_ = a.step;
-        // A wreck is held at the server's word (hear_wrecked).
-        if (!wrecked_) {
-            put(a.controls);
-            aircraft_.step();
+        // A wreck is held at the server's word (hear_wrecked), and a
+        // prediction lost is flown no further (lost).
+        if (!wrecked_ && !lost_) {
+            fly(a.controls, a.step);
         }
     }
     return held_.size();
@@ -242,6 +312,14 @@ std::optional<double> Prediction::session_time_s() const {
 }
 
 std::size_t Prediction::adopt(const Motion& motion, std::uint64_t server_steps) {
+    if (!lost_) {
+        if (const auto bad = first_not_finite(motion)) {
+            lost_ = Lost{"the server's word's " + *bad, flying_step_};
+        }
+    }
+    if (lost_) {
+        return 0;
+    }
     if (offsets_.empty()) {
         held_.clear();
         aircraft_.set_motion(motion);
