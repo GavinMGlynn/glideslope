@@ -161,8 +161,9 @@ on Windows and Linux have flown together with an AI Cessna, and a fifth was
 refused. A player's aircraft is held trimmed until her first input, and
 that input keeps the trim, every control as the server held it, her
 prediction agreeing (2026-10-21); every one of the sixteen so held keeps
-her height at 3,000 ft (2026-10-22), but the S.23 is not trimmed at most
-other heights, and a trim that fails is said in the server's log. The server deploys as a systemd unit or a container image. Still
+her height at 3,000 ft (2026-10-22); the S.23 is not yet trimmed fast at
+10,000 ft, nor the light aircraft at height, and a trim that fails is said in
+the server's log. The server deploys as a systemd unit or a container image. Still
 missing from multiplayer:
 - choosing an aeroplane: a player flies what the server's plan flies;
 - the lobby, the session, the weather and the terrain dataset: they are

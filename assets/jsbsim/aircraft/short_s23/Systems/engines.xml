@@ -299,6 +299,9 @@
  </documentation>
  <property value="0.050">fcs/boost/control-rate-factor</property>
  <property value="0.500">fcs/boost/control-range-norm</property>
+ <!-- glideslope: the boost controls hold still while time is stopped;
+      a trim settles them by flying. See tools/make_short_s23.py. -->
+ <property value="1">glideslope/trim/settle-throttle-loops</property>
  <channel name="Variable datum boost control">
 
   <switch name="fcs/boost/override-norm[0]">
@@ -449,6 +452,10 @@
      <value>-1.0</value>
      <property>fcs/boost/control-rate-factor</property>
      <gt>
+      <property>simulation/dt</property>
+      <value>0.0</value>
+     </gt>
+     <gt>
       <property>propulsion/engine[0]/propeller-rpm</property>
       <value>200.0</value>
      </gt>
@@ -497,6 +504,10 @@
     <product>
      <value>-1.0</value>
      <property>fcs/boost/control-rate-factor</property>
+     <gt>
+      <property>simulation/dt</property>
+      <value>0.0</value>
+     </gt>
      <gt>
       <property>propulsion/engine[1]/propeller-rpm</property>
       <value>200.0</value>
@@ -547,6 +558,10 @@
      <value>-1.0</value>
      <property>fcs/boost/control-rate-factor</property>
      <gt>
+      <property>simulation/dt</property>
+      <value>0.0</value>
+     </gt>
+     <gt>
       <property>propulsion/engine[2]/propeller-rpm</property>
       <value>200.0</value>
      </gt>
@@ -595,6 +610,10 @@
     <product>
      <value>-1.0</value>
      <property>fcs/boost/control-rate-factor</property>
+     <gt>
+      <property>simulation/dt</property>
+      <value>0.0</value>
+     </gt>
      <gt>
       <property>propulsion/engine[3]/propeller-rpm</property>
       <value>200.0</value>

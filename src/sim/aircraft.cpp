@@ -1036,12 +1036,50 @@ void Aircraft::initialize(const InitialConditions& ic) {
             },
             -1.0, 1.0, 1e-4, "holds her pitch");
     };
+    // **Loops in her flight controls that move her throttle valves, settled
+    // by flying** (`glideslope/trim/settle-throttle-loops`, which her model
+    // sets; the S.23's variable datum boost controls, tools/
+    // make_short_s23.py). They hold still while time is stopped, as in a
+    // trim; so she is trimmed, flown a second as trimmed, which moves them
+    // toward where they settle, and trimmed again from her start, until a
+    // second's flight leaves every throttle valve within a ten-thousandth of
+    // where the trim put it: her trim with each loop at rest. Two minutes at
+    // most.
+    const bool settles_loops =
+        exec_->GetPropertyManager()->HasNode("glideslope/trim/settle-throttle-loops") &&
+        exec_->GetPropertyValue("glideslope/trim/settle-throttle-loops") > 0.0;
+    const auto settle_throttle_loops = [&](JSBSim::TrimMode mode) {
+        const auto fcs = exec_->GetFCS();
+        const std::size_t engines = exec_->GetPropulsion()->GetNumEngines();
+        for (int pass = 0; pass < 120; ++pass) {
+            std::vector<double> trimmed;
+            for (std::size_t i = 0; i < engines; ++i) {
+                trimmed.push_back(fcs->GetThrottlePos(static_cast<int>(i)));
+            }
+            for (int k = 0; k < static_cast<int>(steps_per_second); ++k) {
+                exec_->Run();
+            }
+            bool still = true;
+            for (std::size_t i = 0; i < engines; ++i) {
+                still = still &&
+                        std::abs(fcs->GetThrottlePos(static_cast<int>(i)) - trimmed[i]) < 1e-4;
+            }
+            exec_->DoTrim(mode);
+            if (still) {
+                return;
+            }
+        }
+        throw std::runtime_error("her throttle valves' loops did not settle");
+    };
     const auto trim = [&](JSBSim::TrimMode mode) {
         const bool lateral = mode == JSBSim::tFull;
         if (held_trim) {
             trim_held(lateral);
         } else if (governed.empty()) {
             exec_->DoTrim(mode);
+            if (settles_loops) {
+                settle_throttle_loops(mode);
+            }
         } else {
             // JSBSim's own tolerance on the acceleration along her path.
             find_root([&](double throttle) { return trimmed_at(throttle, lateral); }, 0.0, 1.0,
