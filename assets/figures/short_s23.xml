@@ -96,10 +96,15 @@
   </figure>
 
   <figure name="climb_rate" loading="standard" unit="ft/min" value="950"
-          tolerance_percent="10" speed_kcas="100" boost_psi="2.5" propeller_lever="1">
+          tolerance_percent="10" speed_kcas="100" boost_psi="2.5" propeller_lever="0">
     Specification panel, p. 440f: rate of climb at sea level 950 ft/min;
-    Table II, 933 ft/min. Flown at +2 1/2 lb, the airscrews in fine pitch, at
-    100 knots, no climbing speed being given.
+    Table II, 933 ft/min. Flown at +2 1/2 lb, the climbing boost on the
+    Pegasus's data plate, at 100 knots, no climbing speed being given, the
+    airscrews in coarse pitch: "The maximum engine speed for the climb -
+    with the airscrews in COARSE pitch - was 2250 rev. per min." (Cassidy,
+    Flying Empires, 1996, p. 167, quoted in eng_PegasusXc.xml). In fine pitch
+    at 100 kt her Pegasuses overspeed to 2,775 rpm, past even the 2,600 all
+    out.
   </figure>
 
   <figure name="stall_speed_landing" flight="stall_speed" from="measured"

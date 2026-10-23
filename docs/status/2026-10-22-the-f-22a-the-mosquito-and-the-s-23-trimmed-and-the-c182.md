@@ -462,3 +462,59 @@ to were wrong, and are corrected below. No model changed.
   (not trimmed there).
 - The walk's left-out points are the same; their reasons now say which are
   past the book and which is open (the S.23's two).
+
+### The S.23's drag due to lift her wing's, and her airscrews NACA's, 2026-10-23
+
+**The owner's decision (2026-10-23):** fix her model through
+tools/make_short_s23.py. Every point of the walk now trims or is excluded
+with its source.
+
+- **Her drag due to lift.** Her drag was the DATCOM table times 1.9 at every
+  angle of attack, the drag due to lift with it: measured, trimmed at 10,000
+  ft at 40,500 lb at 110 and 141 KCAS, k = 0.112, an Oswald efficiency of
+  0.33. Up to her greatest lift (0.2443 rad) it is now 0.033 + CL^2 / (pi e
+  A), A = 8.66 and e = 0.79, Raymer's estimate for a straight wing (Aircraft
+  Design: A Conceptual Approach, eq. 12.48), inside the 0.7 to 0.85 of a
+  conventional monoplane flaps up; past it, separated, the DATCOM table times
+  1.9 as before, the greater of the two. 0.033 fits Flight's 200 mph at
+  5,500 ft (204.3 mph).
+- **Her airscrews' efficiency.** Measured from the pinned tables: fine pitch
+  0.857 at best (J 0.70 to 0.75), coarse 0.810 - the fine above the coarse,
+  because the fine's thrust was times 1.25 and its power times 1.1 for her
+  take-off thrust. NACA Report 640 (Hartman and Biermann, 1938), figure 12, a
+  three-blade Clark Y propeller: 0.81 at 15 degrees, 0.845 at 20, 0.855 at
+  25. By the advance ratio each column's thrust falls to nothing (fine 0.88,
+  coarse 1.25), the fine lies between 15 and 20 degrees and the coarse
+  between 20 and 25. Coarse thrust times 1.055 (best 0.855); fine times 0.957
+  above J 0.65, faded in from 0.45 (best 0.820), so her take-off, lifting off
+  near J 0.45, keeps the thrust it was tuned to.
+- **Her climb in coarse pitch.** With those two, the sea-level climb figure,
+  flown at +2 1/2 lb at 100 kt in fine pitch, was 1,331 ft/min against 950:
+  measured in fine pitch at 100 kt her Pegasuses turn 2,775 rpm and make 900
+  hp each, past the 2,600 all out and the 2,250 of the climb. Cassidy
+  (Flying Empires, p. 167, in eng_PegasusXc.xml): "The maximum engine speed
+  for the climb - with the airscrews in COARSE pitch - was 2250 rev. per
+  min." The figure is flown in coarse (assets/figures/short_s23.xml), and
+  the catalogue's comment on `airscrew-coarse-above` says so; the line stays
+  at 100 kt. Coarse at +1 1/4 lb, Cassidy's same sentence, climbs at 688,
+  out of range; the data plate's climbing boost, +2 1/2, is kept.
+- **Figures together** (linux-debug): level speed at 5,500 ft 204.3 mph
+  (190-210), sea-level climb 876 ft/min (855-1,045), water take-off at
+  45,000 lb 31.2 s and 719 yd, at 40,500 lb 25.4 s, landing stall 66.2 KCAS:
+  all in range. At 10,000 ft at 45,000 lb she trims at 130 kt (throttle
+  0.910) and 141 kt (0.935), and holds 148 KCAS (171.7 KTAS) at most, 3%
+  over the derivation's 164 to 167 KTAS; at 40,500 lb 146 kt (0.938). Her
+  plan speeds (`plan_speeds`, 86 and 141 kt) were measured on the old model
+  and are not re-measured: both still hold.
+
+**Verification.**
+- `the_s23s_drag_due_to_lift_is_her_wings_span_efficiency`: k within 10% of
+  1 / (pi 0.79 8.66) = 0.0464. Seen red on the old model: k 0.1120, an Oswald
+  efficiency of 0.33.
+- `the_s23s_airscrews_are_as_efficient_as_naca_report_640s_at_their_blade_angles`:
+  fine 0.820, coarse 0.855, each inside NACA's two angles either side within
+  0.01. Seen red on the old tables: fine 0.857, coarse 0.809.
+- The S.23's test of her 27 points and the walk name nothing of hers open;
+  seen red on the old model (long-range at 10,000 ft at 130 and 141 kt not
+  trimmed).
+- Related tests (77: every aircraft's, the S.23's, the walk, the make-script checks, the fixed ports) pass in linux-debug; `glideslope_cli selftest` hash 831a4e7954233b0a, unmoved (the selftest flies no S.23).

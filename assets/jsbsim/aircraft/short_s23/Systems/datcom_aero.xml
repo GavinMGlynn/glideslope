@@ -364,32 +364,45 @@
                <property>aero/function/ground-effect-factor-drag</property>
                <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
-               <value>1.9</value> <!-- glideslope: 1.23 in the pinned model; see tools/make_short_s23.py. -->
-               <table>
-                  <independentVar lookup="row">aero/alpha-rad</independentVar>
-                  <tableData>
-                       -.2793         .7340E-01
-                       -.1745         .2602E-01
-                       -.1396         .1883E-01
-                       -.1047         .1537E-01
-                       -.6981E-01     .1568E-01
-                       -.3491E-01     .1983E-01
-                         .000         .2837E-01
-                        .3491E-01     .4131E-01
-                        .6981E-01     .5898E-01
-                        .1396         .1021    
-                        .1745         .1211    
-                        .2094         .1365    
-                        .2443         .1458    
-                        .2618         .1429    
-                        .2793         .1390    
-                        .2967         .1005    
-                        .3142         .7088E-01
-                        .3491         .4924E-01
-                        .3840         .4910E-01
-                        .4189         .5829E-01
-                  </tableData>
-               </table>
+               <value>1.0</value> <!-- glideslope: a zero-lift drag and a drag due to lift, and the
+                    DATCOM table past her greatest lift; see tools/make_short_s23.py. -->
+               <max>
+                  <sum>
+                     <value>0.0330</value>
+                     <product>
+                        <value>0.04637</value> <!-- 1 / (pi e A), e = 0.792, A = 8.66 -->
+                        <property>aero/cl-squared</property>
+                     </product>
+                  </sum>
+                  <product>
+                     <value>1.9</value>
+                     <table>
+                        <independentVar lookup="row">aero/alpha-rad</independentVar>
+                        <tableData>
+                        -0.2793  0.00000
+                        -0.1745  0.00000
+                        -0.1396  0.00000
+                        -0.1047  0.00000
+                        -0.0698  0.00000
+                        -0.0349  0.00000
+                         0.0000  0.00000
+                         0.0349  0.00000
+                         0.0698  0.00000
+                         0.1396  0.00000
+                         0.1745  0.00000
+                         0.2094  0.00000
+                         0.2443  0.00000
+                         0.2618  0.14290
+                         0.2793  0.13900
+                         0.2967  0.10050
+                         0.3142  0.07088
+                         0.3491  0.04924
+                         0.3840  0.04910
+                         0.4189  0.05829
+                        </tableData>
+                     </table>
+                  </product>
+               </max>
             </product>
          </function>
 

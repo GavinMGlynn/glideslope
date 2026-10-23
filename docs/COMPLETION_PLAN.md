@@ -456,27 +456,22 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       until her first input. *Verification: through a real server, a
       player's F-35B and 172P untouched for thirty seconds hold their start
       height within 100 ft (2026-10-20: 7 ft and under 1 ft).*
-- [ ] **The F-22A, the Mosquito and the S.23 trimmed, and the C182 with her
+- [x] **The F-22A, the Mosquito and the S.23 trimmed, and the C182 with her
       propeller governed**, so a player's aircraft left untouched holds her
       height; the F-22A in pitch alone, the trim she is held on told her
       client's prediction; a trim that fails is said in the server's log; the
-      S.23's boost control settled through her trim. Missing: the S.23 at
-      45,000 lb at 10,000 ft at 130 and 141 kt, which by derivation she
-      holds and her model does not. *Verification: every one of
+      S.23's boost control settled through her trim, her drag due to lift
+      her wing's and her airscrews' efficiency NACA's. *Verification: every one of
       the sixteen, started as a player's and untouched for thirty seconds,
       within 20 ft of her start height (2026-10-22: within 7 ft at 3,000 ft);
       and the S.23 trimmed and held at every loading at 1,000, 5,000 and
-      10,000 ft at her slowest, start and fastest speeds (2026-10-23: 25 of
-      27, 2 named).*
-- [ ] **Trimmed at every height, speed and loading a player or plan may start
+      10,000 ft at her slowest, start and fastest speeds (2026-10-23: 27 of
+      27).*
+- [x] **Trimmed at every height, speed and loading a player or plan may start
       at, her levers as her book flies there** (the owner, 2026-10-23): an
       airborne start leans her mixture for the most power above her
       handbook's height and puts two-pitch airscrews in coarse in cruise,
-      held so until her first input and told her client. The C182 and J-3
-      Cub points at 10,000 ft are past their books (2026-10-23). Missing: the
-      S.23 at 45,000 lb at 130 and 141 kt at 10,000 ft - her drag due to lift
-      is too high to hold them, and lowering it breaks her sea-level climb
-      figure. *Verification: the
+      held so until her first input and told her client. *Verification: the
       catalogue's walk of loadings, three heights and three speeds leaves out
       only points past each aircraft's book, named with their source.*
 - [ ] **A Learjet 35A given no loading flies past her aft limit**: her
