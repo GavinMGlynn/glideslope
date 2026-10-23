@@ -1602,6 +1602,14 @@ void Aircraft::set_motion(const Motion& m) {
     const JSBSim::FGColumnVector3& omega = exec_->GetInertial()->GetOmegaPlanet();
     propagate->SetInertialVelocity(propagate->GetTb2i() * vs.vUVW +
                                    omega * vs.vInertialPosition);
+    // **No longer held on the water's surface**: hold-down is what a step
+    // that met it left (step()), and the motion set is another moment's,
+    // the server's. Kept, a prediction that met the water ahead of the
+    // server's word was held there for good - flown again after the wreck
+    // at the server's word, it flew every step after on its velocity alone,
+    // no force or moment acting, until it met the water again. A step that
+    // meets the surface from here holds it down again.
+    exec_->SetHoldDown(false);
     // Recompute everything that follows from the state - the forces, the
     // ground under it - without advancing the clock, and forget the old
     // derivatives, which belong to where it was. **A turbine is kept in the

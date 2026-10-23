@@ -817,6 +817,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       without the fix.* Done 2026-10-23.
 - [ ] **The window client compares only each frame's newest update.**
       *Verification: every update it reads is compared, counted in a test.*
+- [ ] **A client's prediction asserted in JSBSim on a NaN after two water
+      wrecks** (CI's Ubuntu, run 39883628869). Found on the way and fixed: a
+      prediction that met the water stayed held on it after flying again.
+      The NaN itself is not yet reproduced or found. *Verification: the
+      NaN's birth found and fixed, red without the fix; the held prediction
+      is pinned already, red without its fix.*
 
 ---
 
