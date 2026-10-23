@@ -574,6 +574,16 @@ public:
     bool trimmed_laterally() const {
         return trimmed_laterally_;
     }
+    // **What became of a trim that failed**, where the last `initialize`
+    // asked to trim and a trim it tried failed: her model, where and how
+    // fast she was started, what she weighed, each trim that failed and
+    // why, and what she was left as - trimmed in pitch alone, or untrimmed
+    // as she was set. None where every trim asked for succeeded. A failed
+    // trim is otherwise silent - `initialize` sets her again and carries on
+    // - so whoever starts an aircraft says this (the server, glideslope_cli).
+    std::optional<std::string> trim_fallback() const {
+        return trim_fallback_;
+    }
     // **Her held trim, where her model has one** (tools/make_f22.py, "The
     // held trim"): a deflection after a fly-by-wire pitch loop, which the
     // trim finds and no control sets, -1 to 1; none where her model has none.
@@ -719,6 +729,7 @@ private:
     std::unique_ptr<JSBSim::FGFDMExec> exec_;
     bool trimmed_ = false;
     bool trimmed_laterally_ = false;
+    std::optional<std::string> trim_fallback_;
     bool initialized_ = false;
     std::shared_ptr<Terrain> terrain_;
     // Each contact point's height above the surface, by JSBSim's property:

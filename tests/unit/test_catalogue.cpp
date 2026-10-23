@@ -6,8 +6,10 @@
 #include "sim/aircraft.hpp"
 #include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/figures.hpp"
 #include "sim/learnt.hpp"
 #include "sim/orbit_trial.hpp"
+#include "sim/plan.hpp"
 #include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
 
@@ -351,6 +353,147 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
           "every aircraft in the catalogue was flown, the F-22A among them: " +
               std::to_string(held_height) + " held their height, of " +
               std::to_string(catalogue.size()));
+}
+
+// **Every aircraft is trimmed as a player's is, at every loading her figures
+// name, at three heights and three speeds, or says she was not** - not at
+// 3,000 ft and her catalogue speed alone. A trim that fails is otherwise
+// silent: `initialize` sets her again, untrimmed or in pitch alone, and the
+// server holds her on that; it now says so (Aircraft::trim_fallback, which
+// the server and glideslope_cli print). JSBSim's own advice on a failed trim
+// is to check the initial conditions - speed, altitude, configuration,
+// weight - against whether the model can fly steadily there (FGTrim.h).
+//
+// The space, every point walked and counted: every aircraft in the
+// catalogue; her model's own loading and every loading her figures file
+// names; 1,000, 5,000 and 10,000 ft; and the slowest a plan may fly her at
+// that weight (sim::for_weight), her catalogue start speed, and the fastest
+// a plan may fly her (`<plan_speeds>`, measured held clean). Each started
+// as the server starts a player's, gear up, trimmed level, wings and all.
+//
+// Every point is trimmed laterally and says no fallback - but the F-22A's,
+// trimmed in pitch alone (her roll and yaw are rate commands, which JSBSim's
+// lateral trim cannot move with time stopped) and saying so - and but the
+// points left out below, which are open in the completion plan ("Trimmed at
+// every height, speed and loading a player may start at"). A point left out
+// may fail, and where it does it must say so; it is counted, never passed.
+// Left out (linux-debug, 2026-10-23: 68 of 540 not trimmed, every one
+// inside these and every one said):
+//   - the S.23, everywhere: trimmed at 3,000 ft and her start speed (the
+//     test above), she is not at 1,000, 5,000 or 10,000 ft at most loadings
+//     and speeds (24 of her 27 here);
+//   - the 737-300 and the Learjet 35A at the plan's slowest, clean, and the
+//     Learjet at the plan's fastest at her model's own loading;
+//   - the C172P, PA-28, J-3 Cub and C182 at 10,000 ft, and the C182 at
+//     5,000 ft at the plan's fastest: at 10,000 ft each speed asked is a
+//     true airspeed near or past what her engine makes there, not checked
+//     against her book.
+GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speeds_is_trimmed_as_a_players_is) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    const std::string pitch_alone = "f22";
+    const std::vector<double> heights_ft = {1000.0, 5000.0, 10000.0};
+    enum Speed { slowest, start, fastest };
+    const auto left_out = [](const std::string& id, bool own_loading, double height_ft,
+                             Speed speed) {
+        return id == "short_s23" ||
+               ((id == "737-300" || id == "learjet35a") && speed == slowest) ||
+               (id == "learjet35a" && own_loading && speed == fastest) ||
+               ((id == "c172p" || id == "pa28" || id == "j3cub" || id == "c182") &&
+                height_ft == 10000.0) ||
+               (id == "c182" && height_ft == 5000.0 && speed == fastest);
+    };
+    std::size_t space = 0;
+    std::size_t walked = 0;
+    std::size_t trimmed = 0;
+    std::size_t left_out_n = 0;
+    std::size_t left_out_failed = 0;
+    std::size_t pitch_alone_said = 0;
+    std::string failed;
+    for (const CatalogueEntry& e : catalogue) {
+        const glideslope::sim::PublishedFigures figures = glideslope::sim::read_published_figures(
+            data() / "figures" / (e.model + ".xml"));
+        // Her model's own, unnamed, and then every loading by name.
+        std::vector<std::pair<std::string, std::optional<glideslope::sim::Loading>>> loadings;
+        loadings.emplace_back("her model's own", std::nullopt);
+        for (const auto& [name, loading] : figures.loadings) {
+            loadings.emplace_back(name, loading.loading);
+        }
+        const glideslope::sim::PlanSpeeds measured =
+            glideslope::sim::plan_speeds(data(), e.model);
+        space += loadings.size() * heights_ft.size() * 3;
+        for (const auto& [name, loading] : loadings) {
+            double weight_lbs = 0.0;
+            {
+                glideslope::sim::Aircraft weighed(data() / "jsbsim", e.model);
+                if (loading) {
+                    weighed.load(*loading);
+                }
+                weight_lbs = weighed.loaded_weight_lbs();
+            }
+            const glideslope::sim::PlanSpeeds hers =
+                glideslope::sim::for_weight(measured, weight_lbs);
+            const std::vector<std::pair<Speed, double>> speeds_kts = {
+                {slowest, hers.slowest_kts}, {start, e.start_airspeed_kts},
+                {fastest, hers.fastest_kts}};
+            for (const double height_ft : heights_ft) {
+                for (const auto& [kind, speed_kts] : speeds_kts) {
+                    glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+                    if (loading) {
+                        aircraft.load(*loading);
+                    }
+                    glideslope::sim::InitialConditions ic;
+                    ic.latitude_deg = -33.9;
+                    ic.longitude_deg = 151.2;
+                    ic.altitude_ft = height_ft;
+                    ic.airspeed_kts = speed_kts;
+                    ic.engine_running = true;
+                    ic.gear = 0.0;
+                    ic.trim = true;
+                    ic.trim_lateral = true;
+                    aircraft.initialize(ic);
+                    ++walked;
+                    const bool alone = e.id == pitch_alone;
+                    const auto why = aircraft.trim_fallback();
+                    const bool lateral_said = aircraft.trimmed_laterally() && !why;
+                    const bool as_hers =
+                        alone ? aircraft.trimmed() && !aircraft.trimmed_laterally() && why
+                              : lateral_said;
+                    if (alone && why) {
+                        ++pitch_alone_said;
+                    }
+                    char at[120];
+                    std::snprintf(at, sizeof at, " (%s, %.0f ft, %.0f kt", name.c_str(),
+                                  height_ft, speed_kts);
+                    if (left_out(e.id, !loading, height_ft, kind)) {
+                        ++left_out_n;
+                        // Not trimmed laterally: it must say so, and why.
+                        if (!lateral_said) {
+                            ++left_out_failed;
+                            if (!why) {
+                                failed += " " + e.id + at + ": not trimmed, and not said)";
+                            }
+                        }
+                    } else if (as_hers) {
+                        ++trimmed;
+                    } else {
+                        failed += " " + e.id + at + ": " + (why ? *why : "no fallback said") + ")";
+                    }
+                }
+            }
+        }
+    }
+    std::printf("  %zu points: %zu aircraft, at their loadings, three heights and three speeds; "
+                "%zu trimmed as a player's (the F-22A's %zu in pitch alone, said), %zu left out "
+                "and named, %zu of them not trimmed\n",
+                space, catalogue.size(), trimmed, pitch_alone_said, left_out_n, left_out_failed);
+    check(failed.empty(), "every aircraft was trimmed at every loading, height and speed (the "
+                          "F-22A in pitch alone, said), or left out and said; these were not:" +
+                              failed);
+    check(!catalogue.empty() && space > 0 && walked == space &&
+              trimmed + left_out_n == space && pitch_alone_said > 0,
+          "every point of the space was walked, trimmed or left out by name: " +
+              std::to_string(walked) + " walked, " + std::to_string(trimmed) + " trimmed and " +
+              std::to_string(left_out_n) + " left out, of " + std::to_string(space));
 }
 
 // **A player's first input is what the server held her on, every control,

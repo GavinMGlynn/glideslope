@@ -456,13 +456,24 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       until her first input. *Verification: through a real server, a
       player's F-35B and 172P untouched for thirty seconds hold their start
       height within 100 ft (2026-10-20: 7 ft and under 1 ft).*
-- [x] **The F-22A, the Mosquito and the S.23 trimmed, and the C182 with her
+- [ ] **The F-22A, the Mosquito and the S.23 trimmed, and the C182 with her
       propeller governed**, so a player's aircraft left untouched holds her
       height; the F-22A in pitch alone, her pilot's trim still commanding a
-      pitch rate, the trim she is held on told her client's prediction.
-      *Verification: every one of the sixteen in the catalogue,
-      started as a player's and untouched for thirty seconds, within 20 ft
-      of her start height (2026-10-22: within 7 ft, none left out).*
+      pitch rate, the trim she is held on told her client's prediction; a
+      trim that fails is said in the server's log. Missing: the S.23 trims
+      at 3,000 ft but not at most other heights at her start speed (1,000
+      and 10,000 ft, and 5,000 ft at two of her three loadings).
+      *Verification: every one of the sixteen, started as a player's and
+      untouched for thirty seconds, within 20 ft of her start height
+      (2026-10-22: within 7 ft at 3,000 ft); and the S.23 trimmed at every
+      loading at 1,000, 5,000 and 10,000 ft at her start speed.*
+- [ ] **Trimmed at every height, speed and loading a player or plan may start
+      at**: JSBSim's trim fails, said, for the 737-300 and Learjet 35A at
+      the plan's slowest clean, the Learjet at its fastest at her model's own
+      loading, and the C172P, PA-28, J-3 Cub and C182 at 10,000 ft (and the
+      C182 at 5,000 ft at her fastest), each started untrimmed.
+      *Verification: the catalogue's walk of loadings, three heights and
+      three speeds leaves none of these out.*
 - [x] **A player's first input keeps the trim the server held**: her
       client begins its inputs from every control the server held her on,
       the aileron and rudder her trim found held as roll and yaw trim, so a

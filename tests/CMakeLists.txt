@@ -1147,6 +1147,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_pilot_flies_the_b2a_approach_lesson_by_hand_inside_its_band_only_with_her_speedbrakes_out
     every_aircraft_the_data_holds_loads_and_holds_its_start_in_the_air
     every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_start_height
+    every_aircraft_at_every_loading_at_three_heights_and_three_speeds_is_trimmed_as_a_players_is
     every_aircraft_a_players_first_input_sends_is_what_the_server_held_her_on
     every_aircraft_held_on_her_roll_and_yaw_trim_flies_as_on_the_aileron_and_rudder_her_trim_found
     the_f22as_pilots_pitch_trim_commands_a_pitch_rate_and_the_server_holds_her_on_its_own_trim
@@ -2255,7 +2256,7 @@ add_test(NAME a_players_f22a_untouched_is_predicted_on_the_held_trim_the_server_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_f22_held_trim -DPORT=24812
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_f22_held_trim -DPORT=24876
         -DAIRCRAFT=f22 -DTOUCHES=untouched
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_first_input.cmake)
 # Alone (RUN_SERIAL): on CI's Ubuntu debug, sharing a shard's CPUs, one
