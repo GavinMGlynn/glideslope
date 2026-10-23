@@ -65,6 +65,14 @@ The changes, and what each is for:
                         every load.
 
   Aerodynamics (aircraft/short_s23/Systems/datcom_aero.xml)
+    Alpha limits, 0.4189 -> 0.2443 rad
+                        The angles of attack JSBSim's trim searches, which
+                        reached 24 degrees, past her wing's greatest lift at
+                        14 (CLwbh's peak, 0.2443 rad): there her lift is
+                        less again, the trim saw too little at both ends and
+                        failed even where she flies, clean at the plan's
+                        slowest (86 kt). Nothing else in the model reads
+                        them.
     The drag, times 1.23 -> times 1.9
                         The model's DATCOM drag, which it multiplied by 1.23
                         "adjusted for climb time", flew it at 225 mph level at
@@ -95,6 +103,22 @@ The changes, and what each is for:
                         airscrew is fine pitch. With the model's sense, every
                         take-off was made in coarse pitch at 620 hp an engine
                         where the Pegasus gives 910, and never left the water.
+
+    The boost control held still while time is
+                        Each engine's variable datum boost control moves
+                        the throttle valve by an integrator, which JSBSim
+                        runs at its own step at every pass of a trim, time
+                        stopped or not: the valve moved under the trim, which
+                        cycled and failed at almost every height and speed
+                        but 3,000 ft and 130 kt (udot -1.9e-3, 3.3e-2,
+                        1.1e-2 round and round at 1,000 ft). The piston's
+                        rate is now nought while simulation/dt is - while
+                        time is stopped, as in a trim - and the model says
+                        so to glideslope (glideslope/trim/settle-throttle-
+                        loops), whose trim lets her fly a second at a time
+                        and trims again until the valve stays put: her
+                        boost where its datum puts it, trimmed
+                        (sim::Aircraft::initialize).
 
   Flaps (aircraft/short_s23/Systems/flaps.xml)
     The flap selector, added
@@ -301,6 +325,7 @@ def airframe():
 
 def aerodynamics():
     text = (PINNED_S23 / "Systems" / "datcom_aero.xml").read_text()
+    text = replace_once(text, r"(<max>)   \.4189    (</max>)", r"\1   .2443    \2", "the alpha limits")
     for what in ("lift", "drag"):
         text = replace_once(
             text,
@@ -741,6 +766,17 @@ def engines():
             rf"<test value=\")28\.0(\">\s*fcs/advance-cmd-norm\[{i}\]) GT 0\.5",
             r"\g<1>28.0\g<2>20.0\g<3> GT 0.5",
             f"engine {i}'s pitch lever")
+    rate = "     <property>fcs/boost/control-rate-factor</property>\n"
+    if text.count(rate) != 4:
+        raise SystemExit("make_short_s23: could not find the four boost controls - has the pinned model changed?")
+    text = text.replace(rate, rate + "     <gt>\n      <property>simulation/dt</property>\n"
+                        "      <value>0.0</value>\n     </gt>\n")
+    text = replace_once(
+        text, r"( <property value=\"0\.500\">fcs/boost/control-range-norm</property>\n)",
+        r"\1 <!-- glideslope: the boost controls hold still while time is stopped;\n"
+        r"      a trim settles them by flying. See tools/make_short_s23.py. -->\n"
+        r' <property value="1">glideslope/trim/settle-throttle-loops</property>\n',
+        "the boost control's range")
     return replace_once(
         text, r"( <documentation>\n   The propeller pitch control only had the settings FINE and COARSE.\n)",
         r"\1   glideslope: the lever in FINE at 1, glideslope's highest rpm, and COARSE\n"

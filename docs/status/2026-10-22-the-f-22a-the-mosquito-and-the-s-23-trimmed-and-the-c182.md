@@ -222,3 +222,61 @@ trimmed, every one said).
 - CI on f5443f30: one failure, on Ubuntu debug, the window client's
   `pressing_m_3_times` test - its imagery server reset the connection
   ("the client drew nothing"), nothing of this change's.
+
+### The S.23's boost settled through her trim; the rest measured, 2026-10-23
+
+**What is still not true first.** Open: the S.23 at 10,000 ft at 130 and
+141 kt and at 5,000 ft at 141 kt heavy (fine pitch); the C172P and C182 at
+height (trimmed full rich); the J-3 Cub at 10,000 ft (unsourced). The
+Learjet at 300 kt at her model's own loading is past her book. The walk
+trims 497 of 540, 43 left out by name (31 not trimmed, every one said).
+
+- **The S.23 - 19 of her 27 points fixed.** Two causes, each at its cause
+  in tools/make_short_s23.py:
+  - her variable datum boost control's integrator ran at every pass of
+    JSBSim's trim (FGPID integrates at its own step whether or not time is
+    stopped; the trim suspends integration, so `simulation/dt` is nought).
+    Its rate is now gated on `simulation/dt` above nought, and the model
+    sets `glideslope/trim/settle-throttle-loops`: Aircraft::initialize then
+    trims, flies a second, and trims again from her start until a second's
+    flight moves no throttle valve by a ten-thousandth - her boost where its
+    datum puts it. The server's start and every other start are the one
+    path, `initialize`. Seen red with the settling switched off (her valves
+    move once she flies: 1,000 ft, 130 kt and every other point off);
+  - her `<alphalimits>` reached 24 degrees, past her greatest lift at 14
+    (CLwbh's peak, 0.2443 rad): the 737's failure at her slowest (86-98 kt).
+    Now 0.2443.
+  `the_s23_trimmed_at_every_loading_height_and_speed_flies_on_as_trimmed_her_boost_settled`:
+  each of the 27 trimmed and held thirty seconds on what the server holds
+  her on, within 20 ft and 2 kt - 19 held, to the foot and the knot; 8
+  named open. Those 8 trim in coarse pitch (measured with her lever at 0):
+  every trimmed start sets the propeller lever at 1, fine pitch for a
+  two-pitch airscrew, and her book's level speeds are flown in coarse (200
+  mph at 5,500 ft). Which pitch a start in the air should use is the
+  owner's to say.
+- **Mixture at height - cause measured, not fixed.** JSBSim's piston meters
+  fuel as the lever times sea-level over ambient pressure
+  (FGPiston::doFuelFlow), so full rich at height is ever richer and its
+  power falls (sim/leaner.hpp). Trimmed with the lever at 0.65 the C182
+  trims at 64, 71 and 120 kt at 10,000 ft (162 hp at 120 kt, 70%) and at
+  129 kt at 5,000 ft; at 1.0 her engine stops at 10,000 ft. So her engine
+  is sound; the start is not leaned. The fix: a start above the catalogue's
+  leaning height leans for best power before the trim and holds that lever
+  until her first input, through the same held controls as the rest - not
+  done in this time box.
+- **The Learjet at 300 kt at her model's own loading - excluded.** Her
+  centre of gravity there is station 392.0, 36.1% of her mean chord (LEMAC
+  362.17, MAC 82.75 in), aft of the flight manual's 30% limit
+  (tools/make_learjet35a.py: the NTSB empty weight's 32% with full fuel
+  aft). At 250 kt her pitch trim is already 0.95 of its travel; at the
+  figures' loadings (18.1% and 24.6%) she trims at 300 kt with 0.50 and
+  0.60. That a player given no loading flies her model's own, past her
+  limit, is a tail.
+- **The J-3 Cub at 60 and 62 kt at 10,000 ft - unsourced.** Searched: the
+  Cub's figures file (manual: ceiling 14,000 ft solo; cruise 73 mph at
+  2,150 rpm), AOPA's and AeroCorner's J-3 pages (ceiling 11,500 ft, 450
+  ft/min, 76 kt at sea level); no source gives a level speed at height.
+  By power alone, 72 KTAS there needs about 0.65 of her sea-level power
+  where she has about 0.70: too near to call.
+- The C182 at 120 kt at 10,000 ft, unsourced last round, is inside her
+  model leaned (above).

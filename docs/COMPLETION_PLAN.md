@@ -460,20 +460,20 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       propeller governed**, so a player's aircraft left untouched holds her
       height; the F-22A in pitch alone, her pilot's trim still commanding a
       pitch rate, the trim she is held on told her client's prediction; a
-      trim that fails is said in the server's log. Missing: the S.23 trims
-      at 3,000 ft but not at most other heights at her start speed (1,000
-      and 10,000 ft, and 5,000 ft at two of her three loadings): her boost
-      control's integrator runs on through JSBSim's trim.
+      trim that fails is said in the server's log; the S.23's boost control
+      settled through her trim. Missing: the S.23 at 10,000 ft at her start
+      speed, started with her airscrews in fine pitch.
       *Verification: every one of the sixteen, started as a player's and
       untouched for thirty seconds, within 20 ft of her start height
-      (2026-10-22: within 7 ft at 3,000 ft); and the S.23 trimmed at every
-      loading at 1,000, 5,000 and 10,000 ft at her start speed.*
+      (2026-10-22: within 7 ft at 3,000 ft); and the S.23 trimmed and held at
+      every loading at 1,000, 5,000 and 10,000 ft at her start speed
+      (2026-10-23: 19 of her 27 points held, 8 named).*
 - [ ] **Trimmed at every height, speed and loading a player or plan may start
-      at**: the 737-300 and Learjet at the plan's slowest now trim. Open:
-      the S.23 (her boost control's integrator runs on through the trim),
-      the Learjet at 300 kt at her model's own loading (her stabilizer runs
-      out), the C172P and C182 at height trimmed full rich, and the J-3 Cub
-      at 10,000 ft unsourced; points past the book are excluded by name.
+      at**: the 737-300, Learjet and S.23 at their slowest now trim. Open: the
+      S.23 in fine pitch fast and high; the C172P and C182 at height, trimmed
+      full rich where leaned they trim (the start must lean them, held as
+      the server holds her); the J-3 Cub at 10,000 ft unsourced; and the
+      Learjet's model's own loading, 36% of her chord, aft of her 30% limit.
       *Verification: the catalogue's walk of loadings, three heights and
       three speeds leaves out only points past each aircraft's book.*
 - [x] **A player's first input keeps the trim the server held**: her
