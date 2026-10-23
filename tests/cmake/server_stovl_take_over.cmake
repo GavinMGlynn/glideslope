@@ -24,8 +24,9 @@
 #   take_over  It rides in the AI's F-35B (`--watch-ai`) and takes her
 #              over once she has hovered over the point for three
 #              seconds (`--take-over-at 0 --when-hovering`, an event); its own goes to the AI.
-#   take_back  It hands its own F-35B to the AI 150 s in, converted and
-#              jet-borne, slowing (`--hand-over-at 150`), and takes her
+#   take_back  It hands its own F-35B to the AI once converted and
+#              slowing through 120 kt (`--hand-over-at 0
+#              --hand-over-when-slowing`, an event), and takes her
 #              back once she has hovered for three seconds (`--take-back-at
 #              0 --when-hovering`). Handed to the AI with no plan given her, she is held
 #              in STOVL mode: the AI holds the hover she is slowing to at
@@ -95,9 +96,10 @@ set(_flies 900 --after 1 --predict --stovl-land
 if(SCENE STREQUAL "take_over")
     list(APPEND _flies --watch-ai --take-over-at 0 --when-hovering)
 elseif(SCENE STREQUAL "take_back")
-    list(APPEND _flies --hand-over-at 150 --take-back-at 0 --when-hovering)
+    list(APPEND _flies --hand-over-at 0 --hand-over-when-slowing --take-back-at 0
+                       --when-hovering)
 elseif(SCENE STREQUAL "take_back_wing_borne")
-    list(APPEND _flies --hand-over-at 150 --send-route "${_route}" --copilot-at 155
+    list(APPEND _flies --hand-over-at 0 --hand-over-when-slowing --send-route "${_route}" --copilot-at 155
                        --copilot-stay 600 --take-back-at 300)
 else()
     message(FATAL_ERROR "SCENE is take_over, take_back or take_back_wing_borne, not "
