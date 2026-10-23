@@ -2440,7 +2440,7 @@ add_test(NAME a_client_selecting_stovl_on_its_first_input_seeds_its_transition_l
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once -DPORT=24998
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once -DPORT=24812
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_at_once.cmake)
 set_tests_properties(a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
