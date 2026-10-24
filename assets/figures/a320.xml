@@ -164,4 +164,14 @@
     landing field length is already the demonstrated distance over 0.6, the
     margin of 14 CFR 121.195(b), so it is the runway needed as it stands.
   </landing_distance>
+
+  <no_cg_limits>
+    Her weight and centre-of-gravity envelope is not published: EASA's type
+    certificate data sheet A.064 (issue 62) says of her range "see AFM",
+    which is not public. Airbus's airport planning document (AC A320, June
+    2024, figure 7-3-0-991-010) gives the centres of gravity its pavement
+    loads are worked at, 17% to 38.7-43% of her chord at four weights from
+    68.4 to 75.9 t - a loads case, not her flight envelope, and her model's
+    frame is not on its datum. Searched 2026-10-24.
+  </no_cg_limits>
 </published_figures>

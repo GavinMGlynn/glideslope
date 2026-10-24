@@ -163,4 +163,12 @@
     length is already the demonstrated distance over 0.6, the margin of 14 CFR
     121.195(b), so it is the runway needed as it stands.
   </landing_distance>
+
+  <no_cg_limits>
+    Her weight and centre-of-gravity envelope is not published: her type
+    certificate data sheet (A16WE, revision 57, page 17) gives her chord
+    (134.5 in, its leading edge at station 625.59) and says of her range
+    "see AFM", and her flight manual and weight and balance manual are not
+    public. Searched 2026-10-24; only forum posts give figures.
+  </no_cg_limits>
 </published_figures>

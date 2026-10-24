@@ -149,6 +149,17 @@ failed even where she flies, clean at the plan's slowest (140 kt at 16,411 lb).
 They are -5 degrees to the greatest angle any setting of her flaps reaches
 before it stalls (lift_table's peaks, from the AFM's stall speeds); nothing
 else in the model reads them.
+
+**Her own loading inside her flight manual's limits** (2026-10-24): what a
+player given no loading flies. Until then her model carried no one, and full
+tanks: 16,411 lb at FS 392.0, 36.1% of her chord, aft of the AFM's 30% limit
+(section 1, Weight and C.G. Limits; assets/figures/learjet35a.xml, cg_limits),
+because her empty centre of gravity is estimated at 32% (EMPTY_CG) and her
+fuselage tank sits at FS 440.2, 94% of her chord. Now a crew of two, 400 lb,
+as her figures' light loading carries (OWN_PAYLOAD_LBS), and her wing and tip
+tanks full with the fuselage tank empty (OWN_FUSELAGE_LBS): 15,471 lb at FS
+385.4, 28.1%, inside her forward limit there, 14.1%, and her aft. With the
+fuselage tank full as well she would lie at 33.6%, still aft of it.
 """
 
 import math
@@ -192,6 +203,11 @@ RADII_25_FT = (6.90, 7.39)
 TIP_LBS = 357.0 / 2.0 * 6.7
 WING_LBS = 374.0 / 2.0 * 6.7
 FUSELAGE_LBS = 200.0 * 6.7
+# Her own loading, what a player given no loading flies: a crew of two, as her
+# figures' light loading, and her wing and tip tanks full, the fuselage tank
+# empty - inside her flight manual's limits (docstring, "Her own loading").
+OWN_PAYLOAD_LBS = 400.0
+OWN_FUSELAGE_LBS = 0.0
 
 # The engines: TFE731-2, 3,500 lb; their thrust with speed and height
 # (fighter.thrust_lapse) - Mattingly's form, set to fly the cruise figure.
@@ -407,7 +423,7 @@ def mass_balance():
             f"        <emptywt unit=\"LBS\"> {EMPTY_LBS:.0f} </emptywt>\n"
             + written.location(mac(EMPTY_CG), 0.0, EMPTY_CG_WL, "        ", "CG") +
             "        <pointmass name=\"Payload\">\n"
-            "            <weight unit=\"LBS\"> 0 </weight>\n"
+            f"            <weight unit=\"LBS\"> {OWN_PAYLOAD_LBS:.0f} </weight>\n"
             + written.location(PAYLOAD_STATION, 0.0, PAYLOAD_WL, "            ") +
             "        </pointmass>\n"
             "    </mass_balance>\n")
@@ -449,10 +465,11 @@ def propulsion():
              (-90.0, 385.8, WING_TANK_WL, WING_LBS), (90.0, 385.8, WING_TANK_WL, WING_LBS),
              (0.0, 440.2, FUSELAGE_TANK_WL, FUSELAGE_LBS)]
     for y, x, z, lbs in tanks:
+        contents = OWN_FUSELAGE_LBS if lbs == FUSELAGE_LBS else lbs
         out += ("        <tank type=\"FUEL\">\n"
                 + written.location(x, y, z, "            ") +
                 f"            <capacity unit=\"LBS\"> {lbs:.0f} </capacity>\n"
-                f"            <contents unit=\"LBS\"> {lbs:.0f} </contents>\n"
+                f"            <contents unit=\"LBS\"> {contents:.0f} </contents>\n"
                 "        </tank>\n")
     return out + "    </propulsion>\n"
 

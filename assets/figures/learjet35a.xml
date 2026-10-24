@@ -155,9 +155,11 @@
        `weight_lbs`; sim::least_plan_slowest_kts, since 2026-10-10),
        the fastest down from a fifth over its start speed, and written by
        the command's one rule (src/frontend/cli/main.cpp, plan_speeds), at
-       `weight_lbs`, her model's own weight, which the trial flies and a
+       `weight_lbs`, her model's own weight then, which the trial flies and a
        server flies her at; heavier, the slowest is raised for her weight
-       (sim::for_weight). -->
+       (sim::for_weight). Since 2026-10-24 her model's own loading is 940 lb
+       lighter, 15,471 lb, inside her limits (tools/make_learjet35a.py); these
+       speeds were not measured again at it. -->
   <plan_speeds slowest_kcas="140" fastest_kcas="300" weight_lbs="16411">
     The slowest, 140 kt, is 5 kt over the slowest that held: its approach speed is a flaps-down figure, and flown clean below 135 kt it came down 500 ft before it reached its circle (at 130 kt, its 2,446 m circle); 135 kt held all four ways. The fastest, 300 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
@@ -181,4 +183,20 @@
     Landing Distance, page 5-70, is the same: the actual distance divided by
     0.60.
   </landing_distance>
+
+  <!-- **Her weight and centre-of-gravity limits**: her flight manual's
+       section 1, Weight and C.G. Limits (FM-108; the scan at
+       manualslib.com/manual/2944140, change 10) - forward, 5% of her mean
+       chord (FS 366.31) to 10,000 lb, then in a straight line to 18.83% at
+       18,300 lb, her greatest with AAK 80-2 (16.66% at 17,000 and 18.33% at
+       18,000 lie on it); aft, 30% (FS 387.00) at every weight. Her chord,
+       82.75 in, its leading edge at FS 362.17, her model's frame
+       (FlightSafety's Learjet 30 series pilot training manual, WB-10, and
+       A10CE). The lightest she is drawn to is her forward limit's corner,
+       10,000 lb, under her empty weight. -->
+  <cg_limits unit="percent_mac" lemac_in="362.17" mac_in="82.75">
+    Gates Learjet 35A/36A AFM FM-108, section 1, Weight and C.G. Limits.
+    <limit lbs="10000" forward="5.0" aft="30.0"/>
+    <limit lbs="18300" forward="18.83" aft="30.0"/>
+  </cg_limits>
 </published_figures>

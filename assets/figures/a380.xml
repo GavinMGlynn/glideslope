@@ -167,4 +167,15 @@
     landing field length is already the demonstrated distance over 0.6, the
     margin of 14 CFR 121.195(b), so it is the runway needed as it stands.
   </landing_distance>
+
+  <no_cg_limits>
+    Her weight and centre-of-gravity envelope is not published: EASA's type
+    certificate data sheet A.110 (issue 17) refers to her flight manual,
+    which is not public. Airbus's airport planning document (AC A380,
+    December 2025, figures 2-3-0-991-001 and 7-3-0-991-006) gives the
+    centres of gravity its pavement loads are worked at, three weights from
+    512 to 571 t and 29 to 44% at 300 t - a loads case, not her flight
+    envelope, and no source gives her chord on her model's datum. Searched
+    2026-10-24.
+  </no_cg_limits>
 </published_figures>

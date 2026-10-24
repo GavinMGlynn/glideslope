@@ -163,9 +163,11 @@ that input keeps the trim, every control as the server held it, her
 prediction agreeing (2026-10-21); every one of the sixteen so held keeps
 her height at 3,000 ft (2026-10-22); every aircraft is trimmed at every
 loading at 1,000, 5,000 and 10,000 ft but where her book says she cannot fly
-and the Learjet 35A at her model's own loading - a defect of her model, whose
-centre of gravity is aft of her limit (2026-10-23) - and a trim that fails is said in
-the server's log. The server deploys as a systemd unit or a container image. Still
+(2026-10-23; the Learjet 35A's own loading inside her limits since
+2026-10-24), and a trim that fails is said in the server's log. Every
+aircraft's own loading - what a player given none flies - is checked against
+the weight and centre-of-gravity envelope her books publish: five inside,
+the J-3 Cub forward of hers (a tail), ten with none public, each named. The server deploys as a systemd unit or a container image. Still
 missing from multiplayer:
 - choosing an aeroplane: a player flies what the server's plan flies;
 - the lobby, the session, the weather and the terrain dataset: they are

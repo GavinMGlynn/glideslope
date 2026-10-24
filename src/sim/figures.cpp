@@ -2375,7 +2375,81 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
     if (no_landing != nullptr && no_landing->GetNumDataLines() == 0) {
         throw std::runtime_error(file.string() + " gives <no_landing_distance> without its reason");
     }
+    // **Her weight and centre-of-gravity envelope, or why none is
+    // published**: one of `<cg_limits>` and `<no_cg_limits>`, once, so that no
+    // aircraft is left unchecked by forgetting.
+    if (root->GetNumElements("cg_limits") + root->GetNumElements("no_cg_limits") != 1) {
+        throw std::runtime_error(file.string() +
+                                 " must give one of <cg_limits unit=\"...\"> and "
+                                 "<no_cg_limits>, the reason");
+    }
+    if (JSBSim::Element* none = root->FindElement("no_cg_limits")) {
+        if (none->GetNumDataLines() == 0) {
+            throw std::runtime_error(file.string() + " gives <no_cg_limits> without its reason");
+        }
+        for (unsigned i = 0; i < none->GetNumDataLines(); ++i) {
+            out.cg_limits.unpublished += (i == 0 ? "" : " ") + none->GetDataLine(i);
+        }
+        out.cg_limits.unpublished = collapse_whitespace(out.cg_limits.unpublished);
+    }
+    if (JSBSim::Element* cg = root->FindElement("cg_limits")) {
+        const std::string unit = cg->GetAttributeValue("unit");
+        const bool inches = unit == "in" && cg->HasAttribute("offset_in");
+        const bool chord = unit == "percent_mac" && cg->HasAttribute("lemac_in") &&
+                           cg->HasAttribute("mac_in") && cg->GetAttributeValueAsNumber("mac_in") > 0.0;
+        if (!inches && !chord) {
+            throw std::runtime_error(file.string() +
+                                     " gives <cg_limits> neither unit=\"in\" with offset_in nor "
+                                     "unit=\"percent_mac\" with lemac_in and mac_in");
+        }
+        const auto on_model = [&](double published) {
+            return inches ? published + cg->GetAttributeValueAsNumber("offset_in")
+                          : cg->GetAttributeValueAsNumber("lemac_in") +
+                                published / 100.0 * cg->GetAttributeValueAsNumber("mac_in");
+        };
+        for (unsigned i = 0; i < cg->GetNumDataLines(); ++i) {
+            out.cg_limits.source += (i == 0 ? "" : " ") + cg->GetDataLine(i);
+        }
+        out.cg_limits.source = collapse_whitespace(out.cg_limits.source);
+        for (JSBSim::Element* e = cg->FindElement("limit"); e != nullptr;
+             e = cg->FindNextElement("limit")) {
+            if (!e->HasAttribute("lbs") || !e->HasAttribute("forward") || !e->HasAttribute("aft")) {
+                throw std::runtime_error(file.string() +
+                                         " gives a <cg_limits> <limit> without lbs, forward and aft");
+            }
+            const CgLimit limit{e->GetAttributeValueAsNumber("lbs"),
+                                on_model(e->GetAttributeValueAsNumber("forward")),
+                                on_model(e->GetAttributeValueAsNumber("aft"))};
+            if (!(limit.forward_in < limit.aft_in) ||
+                (!out.cg_limits.limits.empty() && !(limit.lbs > out.cg_limits.limits.back().lbs))) {
+                throw std::runtime_error(file.string() +
+                                         " gives <cg_limits> whose limits are not lightest first, "
+                                         "or a forward limit not ahead of its aft");
+            }
+            out.cg_limits.limits.push_back(limit);
+        }
+        if (out.cg_limits.limits.size() < 2 || out.cg_limits.source.empty()) {
+            throw std::runtime_error(file.string() +
+                                     " gives <cg_limits> without two limits or without its source");
+        }
+    }
     return out;
+}
+
+bool within_cg_limits(const CgLimits& limits, double lbs, double cg_in) {
+    const std::vector<CgLimit>& l = limits.limits;
+    if (l.size() < 2 || lbs < l.front().lbs || lbs > l.back().lbs) {
+        return false;
+    }
+    for (std::size_t i = 1; i < l.size(); ++i) {
+        if (lbs <= l[i].lbs) {
+            const double f = (lbs - l[i - 1].lbs) / (l[i].lbs - l[i - 1].lbs);
+            const double forward = l[i - 1].forward_in + f * (l[i].forward_in - l[i - 1].forward_in);
+            const double aft = l[i - 1].aft_in + f * (l[i].aft_in - l[i - 1].aft_in);
+            return cg_in >= forward && cg_in <= aft;
+        }
+    }
+    return false;
 }
 
 double landing_need_m(const std::filesystem::path& data, const std::string& model) {

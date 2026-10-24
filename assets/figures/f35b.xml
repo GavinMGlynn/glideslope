@@ -339,4 +339,11 @@
     `land_vertically` is flown to a hover over its point and needs no runway,
     and no runway length refuses it.
   </landing_distance>
+
+  <no_cg_limits>
+    Her weight and centre-of-gravity envelope is not published: her flight
+    manual is not public. The one figure found (2026-10-24), 34.8% of the
+    chord in Virginia Tech's course notes on the F-35A (Mason, 2011), is a
+    student's estimate of another variant's centre of gravity, not limits.
+  </no_cg_limits>
 </published_figures>

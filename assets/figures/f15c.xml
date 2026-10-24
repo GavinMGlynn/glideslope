@@ -227,4 +227,11 @@
     transport's 1.15 on the dry (14 CFR 121.195(d)), which at 2,459 m is shorter
     than her manual says she needs wet.
   </wet_landing_distance>
+
+  <no_cg_limits>
+    Her weight and centre-of-gravity envelope is not published where it can
+    be read: her flight manual's limits (T.O. 1F-15A-1, section V) are in
+    no public copy found (2026-10-24), and NASA's F-15 flight reports (among
+    them NTRS 19950005778) give none.
+  </no_cg_limits>
 </published_figures>

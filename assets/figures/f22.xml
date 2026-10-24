@@ -158,4 +158,10 @@
     for length; every landing is refused her first, for having no approach
     speed, so nothing plans her one.
   </no_landing_distance>
+
+  <no_cg_limits>
+    Her weight and centre-of-gravity envelope is not published: her flight
+    manual is not public, and no Air Force, NASA or academic source found
+    (2026-10-24) gives her limits.
+  </no_cg_limits>
 </published_figures>

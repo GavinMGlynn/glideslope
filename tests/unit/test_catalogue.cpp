@@ -357,6 +357,97 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
               std::to_string(catalogue.size()));
 }
 
+// **Every aircraft given no loading lies inside her published weight and
+// centre-of-gravity envelope**: what a player who asks for no loading is
+// given - her model's own pointmasses and tanks - weighed and balanced as
+// JSBSim balances her (`inertia/cg-x-in`, set in the air, untrimmed), against
+// her books' envelope (`<cg_limits>`, her figures file, each citing its
+// source). The space is every aircraft in the catalogue; each is either
+// checked against her envelope or named below as one whose envelope no
+// public document gives, which her figures file says (`<no_cg_limits>`) -
+// and every one is counted. Seen red on the Learjet 35A, empty but for full
+// tanks, at 36.1% of her chord, aft of her flight manual's limit
+// (tools/make_learjet35a.py).
+GLIDESLOPE_TEST(every_aircraft_given_no_loading_lies_inside_her_published_weight_and_centre_of_gravity_envelope) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    // Envelopes no public document gives - each figures file says why.
+    const std::vector<std::string> unpublished = {
+        "737-300", "747-400", "787-8", "a320", "a380",   // in flight manuals not public
+        "b2",      "f15c",    "f22",   "f35b",           // military, not public
+        "mosquito-fb6"};                                 // her load sheets in no public copy
+    // Left out, outside her envelope and open in the completion plan: each
+    // must lie outside, and one that lies inside has moved in, and fails
+    // the walk until it is taken off the list.
+    //   - the J-3 Cub, her model carrying no one, her tank full: 752 lb at
+    //     station 8.96, forward of A-691's 10.6.
+    const std::vector<std::string> outside = {"j3cub"};
+    std::size_t inside = 0;
+    std::size_t named = 0;
+    std::size_t outside_n = 0;
+    std::string failed;
+    for (const CatalogueEntry& e : catalogue) {
+        const glideslope::sim::PublishedFigures figures = glideslope::sim::read_published_figures(
+            data() / "figures" / (e.model + ".xml"));
+        const bool listed =
+            std::find(unpublished.begin(), unpublished.end(), e.id) != unpublished.end();
+        if (figures.cg_limits.limits.empty()) {
+            std::printf("  %-13s unpublished: %s\n", e.id.c_str(),
+                        figures.cg_limits.unpublished.c_str());
+            if (listed) {
+                ++named;
+            } else {
+                failed += " " + e.id + " (no envelope, and not named unpublished)";
+            }
+            continue;
+        }
+        if (listed) {
+            failed += " " + e.id + " (named unpublished, and has an envelope)";
+            continue;
+        }
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 5000.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        aircraft.initialize(ic);
+        const double lbs = aircraft.property("inertia/weight-lbs");
+        const double cg_in = aircraft.property("inertia/cg-x-in");
+        const auto& l = figures.cg_limits.limits;
+        std::printf("  %-13s %.0f lb at %.2f in; her envelope %.0f to %.0f lb, %.2f to %.2f in "
+                    "at the lightest, %.2f to %.2f at the heaviest\n",
+                    e.id.c_str(), lbs, cg_in, l.front().lbs, l.back().lbs, l.front().forward_in,
+                    l.front().aft_in, l.back().forward_in, l.back().aft_in);
+        const bool within = glideslope::sim::within_cg_limits(figures.cg_limits, lbs, cg_in);
+        if (std::find(outside.begin(), outside.end(), e.id) != outside.end()) {
+            if (within) {
+                failed += " " + e.id + " (left out, and inside - moved in)";
+            } else {
+                ++outside_n;
+            }
+        } else if (within) {
+            ++inside;
+        } else {
+            char at[96];
+            std::snprintf(at, sizeof at, " (%.0f lb at %.2f in)", lbs, cg_in);
+            failed += " " + e.id + at;
+        }
+    }
+    std::printf("  %zu aircraft: %zu inside their envelopes, %zu left out and outside, %zu "
+                "unpublished and named\n",
+                catalogue.size(), inside, outside_n, named);
+    check(failed.empty(), "every aircraft given no loading lies inside her published envelope, "
+                          "or is left out or named as having none; these do not:" + failed);
+    check(!catalogue.empty() && named == unpublished.size() && outside_n == outside.size() &&
+              inside + outside_n + named == catalogue.size(),
+          "every aircraft in the catalogue was checked or named: " + std::to_string(inside) +
+              " inside, " + std::to_string(outside_n) + " left out and " +
+              std::to_string(named) + " named unpublished, of " +
+              std::to_string(catalogue.size()));
+}
+
 // **Every aircraft is trimmed as a player's is, at every loading her figures
 // name, at three heights and three speeds, or says she was not** - not at
 // 3,000 ft and her catalogue speed alone. A trim that fails is otherwise
@@ -388,11 +479,6 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 //     at 110 kt there, and is not left out;
 //   - the C182 at 129 kt at 10,000 ft (150 KTAS): her greatest, 145 KTAS at
 //     sea level, 140 at 80% at 6,000 ft (c182.xml);
-//   - the Learjet 35A at 300 kt at her model's own loading - not her book
-//     but a defect of her model, open in the plan: her centre of
-//     gravity there is 36.1% of her chord, aft of the flight manual's 30%
-//     limit (tools/make_learjet35a.py, EMPTY_CG); at the figures' loadings
-//     (18.1 to 24.6%) she trims at 300 kt.
 // Excluded by derivation (docs/status, 2026-10-23: the power required and
 // available at 10,000 ft from her published sea-level top speed, climb and
 // ceiling, the standard lapse of power with density, and what her float
@@ -410,6 +496,11 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 // 138.1 KTAS at 72%, her best power at full throttle there. (The 182T's
 // table, cited until 2026-10-23, is another airframe: 150 kt at sea level
 // against the 182S's 145.)
+// The Learjet 35A at 300 kt at her model's own loading was left out until
+// that loading lay inside her flight manual's limits: carrying no one, her
+// tanks full, she lay at 36.1% of her chord, aft of its 30%; now a crew of
+// two, her fuselage tank empty, at 28.1% (tools/make_learjet35a.py, "Her own
+// loading") - three points, each left out and failing until then.
 // The S.23 at her figures' loadings at 10,000 ft above her slowest was left
 // out until her drag due to lift was her wing's and her airscrews' efficiency
 // NACA Report 640's (tools/make_short_s23.py): seen red without them.
@@ -454,9 +545,6 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
         {"j3cub", "trainer", 10000.0, fastest},
         {"j3cub", "gross", 10000.0, start},
         {"j3cub", "gross", 10000.0, fastest},
-        {"learjet35a", "her model's own", 1000.0, fastest},
-        {"learjet35a", "her model's own", 5000.0, fastest},
-        {"learjet35a", "her model's own", 10000.0, fastest},
     };
     const auto left_out = [&](const std::string& id, const std::string& loading,
                               double height_ft, Speed speed) {

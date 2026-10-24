@@ -169,4 +169,17 @@
     CAT.POL.A.330(a) for performance class B, which the UK CAA's Safety Sense
     leaflet 7, Aeroplane Performance, recommends to every pilot.
   </landing_distance>
+
+  <!-- **Her weight and centre-of-gravity limits**: FAA type certificate
+       data sheet 3A13, revision 72, section XIII (182S) - 33.0 to 46.0 in
+       aft of the datum, the lower front face of the firewall, at 2,250 lb or
+       less (taken here from her model's empty weight, 1,925 lb), to 40.9 to
+       46.0 at 3,100 lb, her greatest, in a straight line between. Her
+       model's frame is the datum's. -->
+  <cg_limits unit="in" offset_in="0">
+    FAA TCDS 3A13, revision 72, section XIII (182S).
+    <limit lbs="1925" forward="33.0" aft="46.0"/>
+    <limit lbs="2250" forward="33.0" aft="46.0"/>
+    <limit lbs="3100" forward="40.9" aft="46.0"/>
+  </cg_limits>
 </published_figures>

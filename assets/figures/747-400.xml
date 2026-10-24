@@ -142,4 +142,12 @@
     is the runway needed as it stands. It has no approach speed, so nothing
     plans it a landing yet.
   </landing_distance>
+
+  <no_cg_limits>
+    Her weight and centre-of-gravity envelope is not published: her type
+    certificate data sheets (A20WE; EASA IM.A.196) refer to her weight and
+    balance manual, which is not public. The one public figure found
+    (2026-10-24), 15.5 to 33.0% of her chord for a 747-400BCF's take-off at
+    one weight (NTSB AAR-15/01), is one weight's, not her envelope.
+  </no_cg_limits>
 </published_figures>

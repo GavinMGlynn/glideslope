@@ -176,4 +176,16 @@
     check does not apply to her at all; and nothing published (Flight, 1936, as
     read) gives her landing run. No runway is refused her for length.
   </no_landing_distance>
+
+  <!-- **Her centre-of-gravity limits**: Short Brothers' report RN-3-1-37,
+       as her model's own mass balance quotes it - "Permissible CG limits
+       55.5 in to 66.8 in aft of datum point measured parallel to hull
+       datum" - put on her model's frame there, 359.75 to 371.05 in. The
+       report gives one range at every weight; it is taken from her model's
+       empty weight, 27,528 lb, to the long-range boats' 45,000 lb above. -->
+  <cg_limits unit="in" offset_in="0">
+    Short Brothers, RN-3-1-37, as quoted in her model's mass balance.
+    <limit lbs="27528" forward="359.75" aft="371.05"/>
+    <limit lbs="45000" forward="359.75" aft="371.05"/>
+  </cg_limits>
 </published_figures>
