@@ -178,4 +178,11 @@
     field length is already the demonstrated distance over 0.6, the margin of 14
     CFR 121.195(b), so it is the runway needed as it stands.
   </landing_distance>
+
+  <no_cg_limits>
+    Her weight and centre-of-gravity envelope is not published: EASA's type
+    certificate data sheet IM.A.115 (issue 30, page 18) gives her chord,
+    246.9 in, and says of her range "see AFM", which is not public.
+    Searched 2026-10-24.
+  </no_cg_limits>
 </published_figures>

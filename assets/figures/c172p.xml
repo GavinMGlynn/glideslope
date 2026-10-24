@@ -167,4 +167,18 @@
     UK CAA's Safety Sense leaflet 7, Aeroplane Performance, recommends to every
     pilot.
   </landing_distance>
+
+  <!-- **Her weight and centre-of-gravity limits**, normal category: FAA
+       type certificate data sheet 3A12, revision 84, section IX - 35.0 to
+       47.3 in aft of the datum, the lower front face of the firewall, at
+       1,950 lb or less (taken here from her model's empty weight, 1,500 lb),
+       to 39.5 to 47.3 at 2,400 lb, her greatest, in a straight line between.
+       Her model's frame is the datum's (her baggage at 95 in, as the
+       sheet's). -->
+  <cg_limits unit="in" offset_in="0">
+    FAA TCDS 3A12, revision 84, section IX (172P), normal category.
+    <limit lbs="1500" forward="35.0" aft="47.3"/>
+    <limit lbs="1950" forward="35.0" aft="47.3"/>
+    <limit lbs="2400" forward="39.5" aft="47.3"/>
+  </cg_limits>
 </published_figures>

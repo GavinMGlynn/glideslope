@@ -47,6 +47,34 @@ struct FigureSpec {
     std::map<std::string, double> conditions; // speeds, flap settings, altitudes
 };
 
+// **One weight's centre-of-gravity limits**, inches along her model's own x
+// axis (JSBSim's structural frame, aft positive), forward and aft.
+struct CgLimit {
+    double lbs = 0.0;
+    double forward_in = 0.0;
+    double aft_in = 0.0;
+};
+
+// **Her weight and centre-of-gravity envelope, as her books publish it**
+// (`<cg_limits>`): its limits by weight, lightest first, the lightest the
+// envelope is drawn to and the heaviest her greatest take-off weight, read
+// in her source's units - inches from its datum, put on her model's frame by
+// `offset_in`, or per cent of her mean chord from its leading edge
+// (`lemac_in`, `mac_in`, on her model's frame) - and held here in her
+// model's inches. Or none, and `unpublished` says why: an envelope no public
+// document gives.
+struct CgLimits {
+    std::vector<CgLimit> limits;
+    std::string unpublished;
+    std::string source;
+};
+
+// **Whether `lbs` at `cg_in`, her model's inches, lies inside `limits`**:
+// at a weight from the lightest to the heaviest given, between the forward
+// and aft limits taken straight between the weights either side. False for
+// an envelope unpublished, and for any weight outside it.
+bool within_cg_limits(const CgLimits& limits, double lbs, double cg_in);
+
 // What was on board for a figure, and what it all weighed.
 struct FigureLoading {
     double total_lbs = 0.0;
@@ -162,6 +190,9 @@ struct PublishedFigures {
     // does not: then the wet need is the dry one times 14 CFR 121.195(d)'s
     // 1.15 (`wet_landing_need_m`, below).
     double own_wet_landing_need_m = 0.0;
+    // **Her weight and centre-of-gravity envelope** (`<cg_limits>`, above),
+    // or why none is published: every file says one or the other, once.
+    CgLimits cg_limits;
 };
 
 struct FigureResult {

@@ -160,4 +160,21 @@
     CAT.POL.A.330(a) for performance class B, which the UK CAA's Safety Sense
     leaflet 7, Aeroplane Performance, recommends to every pilot.
   </landing_distance>
+
+  <!-- **Her weight and centre-of-gravity limits**, normal category: FAA
+       type certificate data sheet 2A13, revision 48, item III (PA-28-180,
+       serial numbers 28-671 to 28-5859) - in inches aft of the datum, 78.4
+       in ahead of the wing's leading edge: 84.0 to 95.9 at 1,650 lb or less
+       (taken here from her model's empty weight, 1,310 lb), 85.9 to 95.9 at
+       1,975, 89.2 to 95.9 at 2,200, and 92.1 to 94.5 at 2,400, her greatest,
+       in straight lines between. Her model's frame is the datum's (her rear
+       seats at 118.1, as the sheet's). -->
+  <cg_limits unit="in" offset_in="0">
+    FAA TCDS 2A13, revision 48, item III (PA-28-180), normal category.
+    <limit lbs="1310" forward="84.0" aft="95.9"/>
+    <limit lbs="1650" forward="84.0" aft="95.9"/>
+    <limit lbs="1975" forward="85.9" aft="95.9"/>
+    <limit lbs="2200" forward="89.2" aft="95.9"/>
+    <limit lbs="2400" forward="92.1" aft="94.5"/>
+  </cg_limits>
 </published_figures>

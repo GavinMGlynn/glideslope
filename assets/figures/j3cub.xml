@@ -154,4 +154,17 @@
     ft over 50 ft quoted by AOPA's guide, risingup and pilotfriend has no
     primary source.
   </landing_distance>
+
+  <!-- **Her weight and centre-of-gravity limits**: FAA aircraft
+       specification A-691, item IV (J3C-65) - 10.6 to 22.7 in aft of the
+       datum, the wing's leading edge, at every weight to 1,220 lb, her
+       greatest (taken here from her model's empty weight, 680 lb). Her
+       model's frame puts that leading edge at -15.75 in
+       (tools/make_j3cub.py, LEADING_EDGE_X), so her model's x is the
+       sheet's less 15.75. -->
+  <cg_limits unit="in" offset_in="-15.75">
+    FAA aircraft specification A-691, item IV (J3C-65).
+    <limit lbs="680" forward="10.6" aft="22.7"/>
+    <limit lbs="1220" forward="10.6" aft="22.7"/>
+  </cg_limits>
 </published_figures>

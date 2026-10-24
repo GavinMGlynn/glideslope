@@ -39,7 +39,7 @@
             <z> 30.5 </z>
         </location>
         <pointmass name="Payload">
-            <weight unit="LBS"> 0 </weight>
+            <weight unit="LBS"> 400 </weight>
             <location unit="IN">
                 <x> 300.0 </x>
                 <y> 0.0 </y>
@@ -199,7 +199,7 @@
                 <z> 20.0 </z>
             </location>
             <capacity unit="LBS"> 1340 </capacity>
-            <contents unit="LBS"> 1340 </contents>
+            <contents unit="LBS"> 0 </contents>
         </tank>
     </propulsion>
     <flight_control name="Learjet 35A">

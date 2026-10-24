@@ -475,11 +475,18 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       catalogue's walk of loadings, three heights and three speeds leaves out
       only points past each aircraft's book, named with their source
       (2026-10-23: 524 of 540 trimmed, 16 listed, each failing).*
-- [ ] **A Learjet 35A given no loading flies past her aft limit**: her
-      model's own loading puts her centre of gravity at 36.1% of her chord,
-      behind her flight manual's 30%, and at 300 kt her stabilizer cannot
-      trim her. *Verification: a player given no loading flies a Learjet
-      within her flight manual's centre-of-gravity limits.*
+- [x] **A Learjet 35A given no loading flies inside her limits**: her
+      model's own loading is now a crew of two and her wing and tip tanks
+      full, at 28.1% of her chord, inside her flight manual's 14.1 to 30%,
+      and she trims at 300 kt. *Verification: a walk of every aircraft's
+      own loading against the envelope her books publish - six published,
+      ten named unpublished - finds the Learjet inside (seen red at 36.1%),
+      and the trim walk takes her 300 kt points off its left-out list.*
+- [ ] **A J-3 Cub given no loading flies forward of her limit**: her model
+      carries no one, so her own loading lies at station 8.96, forward of
+      her specification's 10.6 in (A-691); a pilot in her rear seat puts
+      her inside. *Verification: the walk of own loadings against published
+      envelopes takes her off its left-out list.*
 - [x] **A player's first input keeps the trim the server held**: her
       client begins its inputs from every control the server held her on,
       the aileron and rudder her trim found held as roll and yaw trim, so a
