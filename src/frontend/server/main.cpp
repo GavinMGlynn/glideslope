@@ -219,6 +219,10 @@ struct Options {
     // For a test: the least wall time each step takes, so that a server can
     // be put behind real time on any machine, as a loaded runner puts one.
     double test_step_ms = 0.0;
+    // For a test: say each step a player's controls change at
+    // (`--test-say-controls`), so that a test counts in the server's own
+    // steps how long an input it sent was flown.
+    bool test_say_controls = false;
     // For a test: how fast the simulation's clock runs against real time,
     // set - a server behind real time by a fixed factor, the same on every
     // machine fast enough to keep up with it, where one put behind by
@@ -361,6 +365,8 @@ void print_usage(std::FILE* out) {
         "  --stopped-file FILE  write FILE as the run ends, for tests\n"
         "  --steps N          take N steps as fast as they go, with nobody joining,\n"
         "                     then stop - simulated time, for a test\n"
+        "  --test-say-controls  say each step a player's controls change at,\n"
+        "                     for a test to count steps flown on an input\n"
         "  --test-step-ms MS  make every step take at least MS milliseconds, so\n"
         "                     that a test can put the server behind real time\n"
         "  --test-pace F      run the simulation's clock at F (0 to 1) of real\n"
@@ -569,6 +575,8 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
         } else if (a == "--changed-file") {
             if (!next(value)) return std::nullopt;
             o.changed_file = std::string(value);
+        } else if (a == "--test-say-controls") {
+            o.test_say_controls = true;
         } else if (a == "--test-step-ms") {
             if (!next(value)) return std::nullopt;
             const auto n = number(value);
@@ -1006,6 +1014,8 @@ struct Connection {
     // does, and the client places the server's word on its own clock by it
     // (sim::Prediction).
     std::int64_t steps_into_input = 0;
+    // The controls last flown from one of its inputs, for `--test-say-controls`.
+    std::optional<glideslope::net::ControlList> controls_flown;
     // **The inputs heard and not yet applied**, oldest first, each flown
     // from **the step that was due when it was read** (net::HeldInputs),
     // at most `net::most_steps_held` on. Applied as it was read, a server
@@ -4199,11 +4209,21 @@ void apply_input(Connection& c, Fleet& fleet) {
 
 // **The inputs due by step `stepped`**: the newest of them flown from it,
 // the older ones it overtook let go.
-void apply_due(Connection& c, Fleet& fleet, std::int64_t stepped) {
+// With `say`, a change of its controls from the input before is said, with
+// the step it is flown from (`--test-say-controls`).
+void apply_due(Connection& c, Fleet& fleet, std::int64_t stepped, bool say) {
     const auto due = c.inputs_heard.due_by(stepped);
     if (due && fleet.fly(c.aircraft, glideslope::sim::Controls::from_list(due->controls))) {
         c.last_input_applied = due->sequence;
         c.steps_into_input = 0;
+        if (say) {
+            if (c.controls_flown && *c.controls_flown != due->controls) {
+                std::printf("a player's controls changed with input %u, flown from step %lld\n",
+                            due->sequence, static_cast<long long>(stepped));
+                std::fflush(stdout);
+            }
+            c.controls_flown = due->controls;
+        }
     }
 }
 
@@ -5139,7 +5159,7 @@ int run(const Options& o) {
                     break;
                 }
                 for (auto& connection : connections) {
-                    apply_due(connection.second, *fleet, stepped + i);
+                    apply_due(connection.second, *fleet, stepped + i, o.test_say_controls);
                 }
                 weather_due();
                 fleet->lay_runways_when_had();
@@ -5160,7 +5180,7 @@ int run(const Options& o) {
             stepped += n;
             for (auto& connection : connections) {
                 // Due by the next step: flown from it.
-                apply_due(connection.second, *fleet, stepped);
+                apply_due(connection.second, *fleet, stepped, o.test_say_controls);
             }
         }
         last = now;
