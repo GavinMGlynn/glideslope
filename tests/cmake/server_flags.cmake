@@ -53,7 +53,9 @@ list(LENGTH _flags _count)
 # behind real time on any machine (server_behind.cmake), and --test-pace runs
 # its clock at a set fraction of real time (server_paced_prediction.cmake), and
 # --test-stopped-once runs nothing for a while at a time on its clock, a
-# machine's stall built (the same script).
+# machine's stall built (the same script), and --test-say-controls prints each
+# step a player's controls change, so the first-input test counts the steps
+# her nudge was flown (server_first_input.cmake).
 # --drop-once-flown
 # drops the first player it has flown, as the drop button would, headless
 # (server_drop_keeps_out.cmake), and --lose-goodbyes sends it no goodbye, as
@@ -85,7 +87,7 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms --test-pace
-              --test-stopped-once
+              --test-stopped-once --test-say-controls
               --drop-once-flown --lose-goodbyes --stop-once-flown
               --ai-planner --ai-task --ai-playback --ai-spacing
               --steps --fail-engine-at --hand-over-planner --hand-over-playback
