@@ -3457,6 +3457,11 @@ GLIDESLOPE_TEST(every_input_a_prediction_is_given_not_finite_trips_its_guard_and
         }
         {
             Prediction p(a);
+            p.held_by_server(Controls{}, v);
+            tripped_on(p, "the server's held trim", "held trim");
+        }
+        {
+            Prediction p(a);
             AircraftSnapshot s = a.capture();
             s.uvw_fps[1] = v;
             (void)p.reconcile(s, 0);
@@ -3472,7 +3477,7 @@ GLIDESLOPE_TEST(every_input_a_prediction_is_given_not_finite_trips_its_guard_and
                        "snapshot property");
         }
     }
-    const std::size_t space = 2 * Controls::control_count + 2 * 2 * 13 + 2 * 5;
+    const std::size_t space = 2 * Controls::control_count + 2 * 2 * 13 + 2 * 6;
     check(walked == space && tripped == space,
           "the space walked " + std::to_string(walked) + " of " + std::to_string(space) +
               ", tripped and named " + std::to_string(tripped));
