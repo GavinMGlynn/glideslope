@@ -139,7 +139,11 @@ public:
     // before, which the server flew over the same time - the ticks are the
     // frame gone by, before the stick was read. The first input, with none
     // before it, is flown at once.
-    sim::Controls fly(double local_s, const sim::Controls& stick, Flight& flight);
+    // **And stamps the input sent** (Flight::sent) with `steps_owed`, the
+    // ticks this frame owes and has not flown - those the frame loop is about
+    // to fly, and any its clock has moved on since it reckoned them.
+    sim::Controls fly(double local_s, const sim::Controls& stick, Flight& flight,
+                      std::uint64_t steps_owed = 0);
     // **The same frame, once its ticks are flown**: the input sent this
     // frame is flown from the next tick - here, as on the server, from where
     // it was sent. Flown on the ticks before it was sent, an input sent at

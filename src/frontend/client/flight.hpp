@@ -239,6 +239,14 @@ public:
     void pace_by_clocks(double local_s, std::optional<double> rate);
     // As a fraction of this machine's clock: what the frame loop flies by.
     double pace() const { return pacing_.pace(); }
+    // **The paced time flown in `dt` of this machine's** (sim::Pacing::
+    // flown_in): a gap without a word flown at the pace the loop learnt, not
+    // the one it steers by - what the frame loop flies by.
+    double flown_in(double dt) const { return pacing_.flown_in(dt); }
+    // **Input `sequence`, stamped as it leaves** (frontend::stamp_sent), with
+    // `steps_owed` of this frame's ticks not yet flown. Nothing without a
+    // prediction.
+    void sent(std::uint32_t sequence, std::uint64_t steps_owed);
 
     // Hands the aircraft to the AI - flying what is left of the plan, if any
     // is - or back to the pilot (sim/controller.hpp).

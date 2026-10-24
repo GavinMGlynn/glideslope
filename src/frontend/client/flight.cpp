@@ -1,6 +1,8 @@
 #include "flight.hpp"
 
 #include "frontend/own_words.hpp"
+#include "frontend/sent_stamp.hpp"
+
 #include "gfx/terrain_colour.hpp"
 #include "sim/figures.hpp"
 #include "sim/terrain.hpp"
@@ -201,6 +203,12 @@ void Flight::adopt(const sim::Motion& motion) {
     // A prediction begun again numbers its steps from nought: its clocks'
     // difference is held anew, at the pace flown now.
     pacing_.hold();
+}
+
+void Flight::sent(std::uint32_t sequence, std::uint64_t steps_owed) {
+    if (prediction_) {
+        frontend::stamp_sent(*prediction_, sequence, steps_owed);
+    }
 }
 
 void Flight::pace_by_clocks(double local_s, std::optional<double> rate) {

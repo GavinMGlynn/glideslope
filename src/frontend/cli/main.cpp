@@ -14,6 +14,7 @@
 #include "frontend/same_air.hpp"
 #include "frontend/machine_stalls.hpp"
 #include "frontend/own_words.hpp"
+#include "frontend/sent_stamp.hpp"
 #include "frontend/shown.hpp"
 #include "net/told.hpp"
 #include "copilot/provider.hpp"
@@ -2073,7 +2074,7 @@ public:
         const auto due = static_cast<long long>(
             flown_s * static_cast<double>(glideslope::sim::steps_per_second));
         const auto late = static_cast<std::uint64_t>(std::max(0LL, due - stepped_));
-        prediction_->sent(sequence, prediction_->steps() + late);
+        glideslope::frontend::stamp_sent(*prediction_, sequence, late);
         most_sent_late_ = std::max(most_sent_late_, late);
     }
 
