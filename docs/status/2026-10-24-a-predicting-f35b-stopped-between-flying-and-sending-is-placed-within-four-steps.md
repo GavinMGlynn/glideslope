@@ -10,13 +10,9 @@ nothing to fly again, and then flies the 360 on top. That is what #249
 (`frontend::OwnWords`, unmerged) fixes - a word placed past the steps flown is
 held until they are - so the window client's test
 (`scratchpad/starved-f35b-placed/client_starved_f35b.cmake`) waits for it.
-**And the reported 5 to 15 steps is a different fault again**: a debug build,
-five clients and servers on two CPUs, with this fix: the worst 1.4 to 27.6 m
-(up to 20 steps) in five runs, 4 s in, placed 11 to 14 steps along a path
-flown alike (0.000 m off it) - with no frame over 98 ms and no input sent
-more than two steps late. Not a client's stall: a word placed off by a server
-or relay held up, or the clocks' difference still coming down as it settles.
-Not chased (the coordinator's 30 minutes). The Phase 9 item stays open.
+**And the reported 5 to 15 steps is the server catching up, out of this
+item's reach** (round 4, below). The Phase 9 item stays open for the window
+client's test.
 
 **What a plain stop does, and does not do** (release, F-35B from her held
 trim, through a 100 ms relay; `scratchpad` runs): unstalled, the worst 0.000 m;
@@ -129,6 +125,32 @@ MS` builds the stop. Kept apart from #249's `OwnWords`: the change is in
 `Online::fly`, `Flight::sent`, `pass.hpp` and the frame loop's clock, none of
 which #249 moves. The window client's 28 tests (`the_client_with_the_window`,
 `a_client_whose_frames`, the pass's unit test) pass.
+
+**The debug build's 5 to 15 steps, explained** (round 4). Five clients and
+servers, debug, pinned to two CPUs, with this fix: the worst 9.7 to 67.5 m
+over fifteen runs, all 3.4 to 4.5 s in, each placed 5 to 14 steps along a path
+flown alike (0.000 m off it), with no client frame over 98 ms and no input
+sent more than 2 steps late - so neither the client's stall nor its sampling.
+Logged per word (the sample, the window's least, the newest ten's, the pace,
+the input's lateness) and per server pass (a probe, not committed: each pass
+of 30 ms or more, with the server's clock and the wall's):
+
+- **The server's first pass is its start, 1,656 to 2,202 ms under this load,
+  and then it catches the time up**: its clock went 0.033 s to 2.200 s while
+  the wall went 2.202 to 3.765 s - 1.4 times real time for 1.6 s. Its passes
+  meanwhile were 22 to 46 ms. The client joins in that catch-up; the session
+  clock's rate fit said 1.40 to 1.61.
+- **The samples rise with it and fall after**: 300 at 1.76 s, 363 at 2.38 s
+  (the server applying inputs at a clock running fast), then down to 334 by
+  4.1 s as the client, held at 1.0 and steered to 1.22, flies after it.
+- **The window's least lags the samples**: 318 while the newest ten said 340,
+  then 321, 329, 333, 336 as the early samples left; each jump placed the
+  next words 8 to 12 steps off (15.2 and 20.7 m in that run).
+
+That is the server catching up steps owed - what #247 found, inputs flown
+early through a pass over a quarter of a second - here the server's own start.
+It belongs to Phase 12a's "A server that falls behind real time puts its
+clients' prediction off by metres", which now names it.
 
 **The selftest hash** does not move: the selftest flies `sim::selftest`, not a
 prediction or a pace.
