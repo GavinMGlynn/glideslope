@@ -17,8 +17,9 @@
   of 2026-10-20 (Phase 9, "braked stick central ... noses over"); her flight
   going NaN once over is not new and not this item's.
 - **The learnt landing's policy flies a C172P it was not trained on, again**:
-  her flaps', elevator's and pitch-rate lift moved under it (below). A new
-  Phase 9 item.
+  her flaps', elevator's and pitch-rate lift moved under it (below); it
+  still passes every limit. By the owner's decision of 2026-10-24 a
+  fidelity item in Phase 10b, not Phase 9.
 
 **The change.** Every make script names its lift terms not keyed to the angle
 of attack to a new `alpha_rate.with_unkeyed_terms_on_qbar_uw` (axis LIFT),
@@ -149,14 +150,36 @@ from the other**, 7 to 9 ft/min less sink (now 75 to 85), 0.53 to 0.56 m
 more across (now -0.92 to -0.95), 54 to 57 m shorter (now 147 to 155). All
 within her limits (5 m, 300 ft/min). **The policy is not trained again**:
 it was trained on her as she was on 2026-10-20 (parts 8 to 10), and now
-flies a C172P a little different - a new Phase 9 item.
+flies a C172P a little different - a fidelity item in Phase 10b (owner,
+2026-10-24).
 
 **Verification.** Locally (linux-debug, `ctest -j4`, no display): the new
 standing test, red on main's models and green on these; 350 tests - the
-170 figures in test_figures.cpp, every crosswind, wind, standing, braked,
+160 figure tests in test_figures.cpp, every crosswind, wind, standing, braked,
 walking-pace and learnt-landing test, the four term checks (lift keyed to
 the angle and not, drag, pitch, alpha rate), every committed-model test
 (each make script writes the committed models unchanged) and the selftest's
 - all pass but three skipped (the Vulkan sky, the server's window, a live
 model call). Every figure in range. `every_fixed_test_port` passes. On CI:
-the draft run on e4173f65, run 39960599274, its builds green on every platform and its tests running at hand-over.
+the draft run on 6e3a6e27, run 39968048859: CI draft passed green (CI passed red, as
+on a draft by design). 
+
+**The figures, main's models against these** (linux-debug, the 160 figure
+tests run on each, 2026-10-24; all pass both ways). Of the 126 figures
+printed with their range, 11 move, none by more than a quarter of a percent
+of its range. The margin is the distance to the nearer end of the range, as
+a share of its width:
+
+| figure | main's | now | margin, main's -> now |
+|---|---|---|---|
+| 747-400 take-off field length | 11,269.7 ft | 11,275.0 ft (9,450 to 11,550) | 13.3% -> 13.1% |
+| Learjet 35A take-off field length | 5,376.9 ft | 5,374.8 ft (4,770 to 5,830) | 42.7% -> 42.9% |
+| S.23 water take-off time, standard | 26.817 s | 26.825 s (21 to 27) | 3.0% -> 2.9% |
+| F-35B hover, height held | 0.025 ft | 0.022 ft (0 to 10) | 0.2% -> 0.2% |
+| C182 stall, flaps up | 55.082 kt | 55.083 kt (52 to 58) | 48.6% -> 48.6% |
+| Mosquito take-off over 50 ft | 2,492.33 ft | 2,492.38 ft | 27.5% -> 27.5% |
+| 737-300 take-off field length | 7,793.45 ft | 7,793.28 ft | 13.9% -> 13.9% |
+
+The other four (the S.23's long-range run and time, the Mosquito's
+single-engine ceiling, the 787-8's field length, the F-22A's climb at
+50,000 ft) move in the third decimal or less.
