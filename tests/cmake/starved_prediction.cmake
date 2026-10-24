@@ -120,7 +120,10 @@ string(APPEND _line "; ${_stalls}")
 # **Every word read compared, or named** (own_words_check.cmake), as the
 # client with the window's are: no switch here, so at most 2 dropped.
 include("${CMAKE_CURRENT_LIST_DIR}/own_words_check.cmake")
-check_own_words("${_said}" 2 FALSE _words)
+if(NOT _said MATCHES "heard ([0-9]+) words on its own aircraft while predicting it")
+    message(FATAL_ERROR "the client did not say how many words it heard:\n${_said}")
+endif()
+check_own_words("${_said}" ${CMAKE_MATCH_1} "" 2 "" _words)
 string(APPEND _line "; ${_words}")
 # **The situation was built**: words came faster than the client could
 # take them one at a time, so some were read together and superseded, and

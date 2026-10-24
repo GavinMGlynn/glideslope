@@ -79,11 +79,12 @@ if(DEFINED SLOW_FRAMES)
     set(_slow --slow-frames ${SLOW_FRAMES})
 endif()
 # **Words placed past the steps flown, built** for EVERY_WORD: each held
-# frame flies five of its ticks due on the next instead (`--ticks-behind`),
-# more than a word's 4.8, so the newest words it reads are about steps not
-# yet flown - every held frame, not when a pace happens to fall behind.
+# frame flies twelve of its ticks due on the next instead (`--ticks-behind`),
+# more than two words' 4.8 steps, so the newest words it reads are about
+# steps not yet flown - every held frame, not when a pace happens to fall
+# behind. At five, a loaded machine's long frames held 1 word in 21 passes.
 if(EVERY_WORD)
-    list(APPEND _slow --ticks-behind 5)
+    list(APPEND _slow --ticks-behind 12)
 endif()
 # The client connects once the server is flying (client.cmake says why).
 set(_ready "${WORK}/flying")
@@ -189,7 +190,18 @@ endif()
 # (docs/status, 2026-10-23).
 if(EVERY_WORD)
     include("${CMAKE_CURRENT_LIST_DIR}/own_words_check.cmake")
-    check_own_words("${_out}" 2 TRUE _summary)
+    if(NOT _out MATCHES "heard ([0-9]+) words on its own aircraft over")
+        message(FATAL_ERROR "the client did not say how many words it heard:\n${_out}")
+    endif()
+    set(_heard "${CMAKE_MATCH_1}")
+    if(NOT _out MATCHES "predicted: ([0-9]+) corrections")
+        message(FATAL_ERROR "the client did not say its corrections:\n${_out}")
+    endif()
+    set(_replays "${CMAKE_MATCH_1}")
+    if(NOT _out MATCHES "([0-9]+) passes flown ticks behind")
+        message(FATAL_ERROR "the client did not say how many passes flew behind:\n${_out}")
+    endif()
+    check_own_words("${_out}" ${_heard} ${_replays} 2 ${CMAKE_MATCH_1} _summary)
     message(STATUS "with its frames held ${SLOW_FRAMES} ms: ${_summary}")
     return()
 endif()

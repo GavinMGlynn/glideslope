@@ -1658,6 +1658,9 @@ static int run_program(int argc, char** argv) {
         auto held_at = std::chrono::steady_clock::now();
         // Ticks a held pass left to the next (--ticks-behind).
         std::int64_t ticks_owed = 0;
+        // And how many passes did, said for a test to hold the words held
+        // to (frontend::OwnWords).
+        std::size_t passes_behind = 0;
         bool running = true;
         // **Where the time of a pass went**, milliseconds by part, for the
         // longest pass around a switch: the step bounds' 20 fps floor has
@@ -1897,6 +1900,7 @@ static int run_program(int argc, char** argv) {
                 if (o.ticks_behind > 0 && held_this_pass && online && joined) {
                     ticks_owed = std::min<std::int64_t>(due, o.ticks_behind);
                     due -= ticks_owed;
+                    passes_behind += ticks_owed > 0 ? 1 : 0;
                 }
                 // The keyboard - with a test's key held (--press-after), as a
                 // player's finger holds it.
@@ -2870,6 +2874,7 @@ static int run_program(int argc, char** argv) {
                             glideslope::frontend::said(online->own_words(),
                                                        online->most_own_words_in_a_frame())
                                 .c_str());
+                std::printf("glideslope: %zu passes flown ticks behind\n", passes_behind);
                 // **How far what it showed of its own stepped**, measured as
                 // glideslope_cli measures it (frontend/shown.hpp).
                 std::printf("glideslope: own aircraft: %zu switches; the largest step at a "
