@@ -53,8 +53,10 @@
 # 2026-10-21) are in the status file; the bounds:
 #   - height within 100 ft (30.48 m) of where she was first heard, as an
 #     aircraft sent nothing is held (server_untouched.cmake);
-#   - her pitch over no more than 5 degrees, and her bank within 5 degrees:
-#     rolled off on her engine's torque once her stick is centred, as where
+#   - untouched, her pitch over no more than 5 degrees and her bank within
+#     5; nudged, each within what it moved a step the server flew the nudge,
+#     measured, times those steps, and a quarter of a degree - and a nudge
+#     flown more than 120 steps fails, named: rolled off on her engine's torque once her stick is centred, as where
 #     the aileron and rudder are held as the stick and pedals rather than as
 #     trims, a C172P is at 37 degrees in thirty seconds;
 #   - **the prediction**: the median under 60 mm and the 95th percentile
@@ -189,8 +191,15 @@ foreach(_id IN LISTS AIRCRAFT)
             if(NOT _said MATCHES "nudged: inputs [0-9]+ to [0-9]+, ([0-9]+) steps here; the server flew [^\n]*, ([-0-9]+) steps")
                 message(FATAL_ERROR "the ${_id}, nudged, was never nudged:\n${_said}")
             endif()
+            set(_nudge_steps ${CMAKE_MATCH_2})
             message(STATUS "the ${_id}, nudged: ${CMAKE_MATCH_1} steps here, about "
-                           "${CMAKE_MATCH_2} on the server")
+                           "${_nudge_steps} on the server")
+            # **More than twice its 60 steps is not the nudge**: named, not
+            # passed.
+            if(_nudge_steps GREATER 120)
+                message(FATAL_ERROR "the ${_id}, nudged: the server flew the nudge "
+                                    "${_nudge_steps} steps, more than twice its 60")
+            endif()
         endif()
         if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared, the worst ([0-9.]+) m")
             message(FATAL_ERROR "the ${_id}'s client did not say its prediction error:\n${_said}")
@@ -226,9 +235,35 @@ foreach(_id IN LISTS AIRCRAFT)
                                 "and ${_high} m in thirty seconds: more than 100 ft (30.48 m) "
                                 "from where she began")
         endif()
-        if(_pitch_span_c GREATER 500 OR _bank_c GREATER 500)
+        # **Her attitude, for the steps the server flew the nudge**: the
+        # server flies an input from when it arrives, so a loaded machine
+        # flies a 60-step nudge longer, and her flight controls hold the
+        # attitude it leaves her at. So nudged, her bank and her pitch's
+        # range are held to the most each moved a step the server flew the
+        # nudge, measured, times those steps, and a quarter of a degree
+        # (docs/status/2026-10-24-first-input-nudge-steady.md): in
+        # thousandths of a degree a step, F-35B bank 43 and pitch 10, C172P
+        # bank 14 and pitch 15. Untouched, within 5 degrees.
+        if(_touch STREQUAL "nudged")
+            if(_id STREQUAL "f35b")
+                set(_bank_rate 43)
+                set(_pitch_rate 10)
+            else()
+                set(_bank_rate 14)
+                set(_pitch_rate 15)
+            endif()
+            math(EXPR _bank_most_c "(${_bank_rate} * ${_nudge_steps} + 9) / 10 + 25")
+            math(EXPR _pitch_most_c "(${_pitch_rate} * ${_nudge_steps} + 9) / 10 + 25")
+        else()
+            set(_bank_most_c 500)
+            set(_pitch_most_c 500)
+        endif()
+        message(STATUS "the ${_id}, ${_touch}: bank ${_bank_c} and pitch range ${_pitch_span_c} "
+                       "hundredths of a degree, of at most ${_bank_most_c} and ${_pitch_most_c}")
+        if(_pitch_span_c GREATER _pitch_most_c OR _bank_c GREATER _bank_most_c)
             message(FATAL_ERROR "the ${_id}, ${_touch}, pitched from ${_pitch_low} to "
-                                "${_pitch_high} degrees and banked ${_bank}: more than 5 degrees")
+                                "${_pitch_high} degrees and banked ${_bank}: past "
+                                "${_pitch_most_c} and ${_bank_most_c} hundredths of a degree")
         endif()
         if(_compared LESS 100)
             message(FATAL_ERROR "the ${_id}, ${_touch}: only ${_compared} updates were compared")
