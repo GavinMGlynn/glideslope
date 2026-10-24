@@ -25,7 +25,7 @@ her fuselage tank, at FS 440.2, sits at 94% of her chord. Her own loading is
 now a crew of two, 400 lb (as her figures' light loading carries), with her
 wing and tip tanks full and her fuselage tank empty: 15,471 lb at FS 385.46,
 28.1%. Her forward limit at that weight is 14.1%. With a crew of two and
-every tank full she would lie at 33.6%, still aft of her limit.
+every tank full she would lie at 33.4%, still aft of her limit.
 `make_learjet35a.py --check` is clean.
 
 **The J-3 Cub.** Her model carried no one: 752 lb at station 8.96, forward of
@@ -44,7 +44,14 @@ her tank full: 922 lb at station 13.94, through `tools/make_j3cub.py`.
 | J-3 Cub, 922 lb | 43 to 62 kt at 752 | 46 to 62 | 43 | 46 |
 
 The Learjet at 137 kt glided both ways stalled (alpha 27.1 degrees); 142 went
-round. The glide tests pinning each band were re-banded and renamed: the
+round. Her slowest glide rose though she is 940 lb lighter, and two things
+explain it. First, the search's steps: it now starts at 137 kt, her lighter
+plan's slowest, and goes up by 5 kt, so 140 kt, the speed that went round
+before, is not flown at all. Second, her centre of gravity moved forward,
+from 36.1% to 28.1% of her chord. That makes her tail carry more down-load,
+so her wing needs more lift (more trim drag and a higher stall speed). The
+second is reasoned, not measured: `glide-speeds` takes no starting speed, so
+140 kt at the new loading was not flown. The glide tests pinning each band were re-banded and renamed: the
 Learjet's from 142 to 167, 172 to 197, 202 to 227 and 232 to 240 kt each way;
 the Cub's 46 to 48. `the_controller_holds_a_plans_slowest_for_what_she_weighs`
 now asks the Cub's 46 kt at 922 lb, and 52.9 at her gross. Her measured
@@ -73,7 +80,7 @@ Six lie inside their envelopes:
 | C172P | 1,880 lb at 42.12 in | TCDS 3A12 rev 84 |
 | C182 | 2,505 lb at 43.04 in | 3A13 rev 72, the 182S |
 | PA-28-180 | 1,790 lb at 88.76 in | 2A13 rev 48 |
-| Learjet 35A | 15,471 lb at 385.46 in | — |
+| Learjet 35A | 15,471 lb at 385.46 in | AFM FM-108, section 1 |
 | S.23 | 34,717 lb at 360.02 in | 359.75 to 371.05 in |
 | J-3 Cub | 922 lb at -1.81 in (station 13.94) | A-691, 10.6 to 22.7 in |
 
@@ -111,6 +118,11 @@ fail if they still trimmed while listed. The Cub's own loading at 62 kt at
 10,000 ft is now on it: flown solo, she weighs what her solo loading does,
 already left out there by derivation (she holds 61.2 to 61.5 KCAS). 540
 points: 526 trimmed, 14 left out, each named and failing.
+
+**The selftest hash does not move.** It flies the C172P alone
+(assets/selftest/c172p.log). On linux-debug its hash was `831a4e7954233b0a`
+before this item (the base's src/sim/figures.*, built and run) and is
+`831a4e7954233b0a` after.
 
 **Flight figures.** The Learjet's flight-manual figures are flown at her
 figures' named loadings, which set every tank and the payload, so her new

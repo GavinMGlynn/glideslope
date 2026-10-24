@@ -40,7 +40,7 @@ The changes, and what each is for:
                         her ("solo from rear seat"): a 170 lb pilot at +36,
                         the standard occupant her figures' loadings use (14
                         CFR 23.25's 170 lb), and her tank full - 922 lb at
-                        station 13.95, inside A-691's 10.6 to 22.7 in. Until
+                        station 13.94, inside A-691's 10.6 to 22.7 in. Until
                         2026-10-24 she carried no one: 752 lb at 8.96,
                         forward of it (assets/figures/j3cub.xml, cg_limits).
 
