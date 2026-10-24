@@ -147,9 +147,10 @@ struct Options {
     // longer, as a slow machine's frames are - CI's sanitized software
     // Vulkan draws one in 250 ms and more.
     double slow_frames_ms = 0.0;
-    // For a test, with --slow-frames: each held pass flies this many of the
-    // ticks due fewer, owed to the next pass - so that the newest words it
-    // reads are about steps it has not flown yet (frontend::OwnWords).
+    // For a test, with --slow-frames: each held pass stops this many ticks
+    // short of the newest word placed, the rest owed to the next pass - so
+    // that the newest words it reads are about steps it has not flown yet
+    // (frontend::OwnWords).
     int ticks_behind = 0;
     // Test flag: how often --weather is fetched again, in seconds of flight.
     double weather_refresh_s = glideslope::client::weather_refresh_seconds;
@@ -352,8 +353,9 @@ void usage(std::FILE* out) {
         "                slow machine building its flight does (for tests)\n"
         "  --slow-frames MS  hold every pass of the frame loop MS milliseconds\n"
         "                longer, as a slow machine's frames are (for tests)\n"
-        "  --ticks-behind N  with --slow-frames, fly N of the ticks a held pass is\n"
-        "                due on the next pass instead (for tests)\n"
+        "  --ticks-behind N  with --slow-frames, a held pass stops N ticks short of\n"
+        "                the newest word it heard, flying the rest on the next (for\n"
+        "                tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
         "                or leave it out: a test shoots both to find the outline it\n"
         "                draws\n"
@@ -1897,8 +1899,19 @@ static int run_program(int argc, char** argv) {
                 // until they are (frontend::OwnWords). Owed, not lost.
                 due += ticks_owed;
                 ticks_owed = 0;
-                if (o.ticks_behind > 0 && held_this_pass && online && joined) {
-                    ticks_owed = std::min<std::int64_t>(due, o.ticks_behind);
+                if (o.ticks_behind > 0 && held_this_pass && online && joined && flight) {
+                    // Behind the newest word placed by N, not the clock: the
+                    // prediction leads the server's words by the clocks'
+                    // difference, which a loaded machine's slow server makes
+                    // longer - 12 behind the clock held 1 word in 20 passes
+                    // there (docs/status, 2026-10-24).
+                    const auto placed = online->own_words().last_placed();
+                    const auto flown = static_cast<std::int64_t>(flight->steps_flown());
+                    const std::int64_t lead =
+                        placed ? std::max<std::int64_t>(
+                                     0, flown - static_cast<std::int64_t>(*placed))
+                               : 0;
+                    ticks_owed = std::min<std::int64_t>(due, lead + o.ticks_behind);
                     due -= ticks_owed;
                     passes_behind += ticks_owed > 0 ? 1 : 0;
                 }

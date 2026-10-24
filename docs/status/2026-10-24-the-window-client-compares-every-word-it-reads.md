@@ -104,11 +104,39 @@ runs had none.
   that word, and a newer word's comparison forgot its step: 2 in 252 on the
   loaded machine.
 
-**Related tests after the review**: 82, `-j4` with no display, twice. The
-second run was green (one skipped: the live ChatGPT case). The first, on a
-machine at load 20 to 40, failed the every-word test once, and its output
-was not kept. Run alone and beside the other heavy tests since, it passed
-four times. This is named here, not explained.
+**The red under load, found.** The every-word test and the starved test
+were run 20 times each, every run beside 20 busy loops, one pinned to each
+core (`taskset`, load 21 to 24). Each run's output is kept. The first run
+failed: 4 of 268 words were at a step no longer kept, with words held up to
+39 steps past. The window client forgot steps in two ways:
+- held words were released in the order read, not in the order of their
+  steps;
+- each comparison forgot every step before its own.
+
+Under load the clocks' difference moves between words, so a word read later
+can be placed earlier than one read before it. That word then found its step
+already forgotten. Now held words are released in order of their steps, and
+the window client keeps steps from two seconds before a word's step, as
+glideslope_cli does.
+
+The next loaded run failed a check that assumed an unloaded machine: 20
+passes flown 12 ticks behind, and only 1 word held. The prediction leads the
+server's words by the clocks' difference, and a loaded server makes that
+lead longer, so 12 ticks behind the clock was not behind the words. Now
+`--ticks-behind N` stops a held pass N ticks short of the newest word placed,
+plus that lead.
+
+After both fixes, the every-word test ran 20 times under the same load (21
+to 34): 20 of 20 green. Across the runs: 20 to 25 passes flown behind, 28 to
+173 words held, 0 at a step no longer kept, at most 14 not yet placeable
+(within the 28 allowed), none dropped. Each run's output is in
+scratchpad/window-compares-every-update/. A check that fails now prints the
+client's whole output after its numbers.
+
+Under that load the starved glideslope_cli test failed twice in 4 runs. Both
+times it was its own machine-stalls cap from #245 (14 and 7 stalls, at most
+2 allowed), which says the machine, not the prediction, was being measured.
+The word checks passed in both. It was not run further here.
 
 **The selftest hash** does not move (831a4e7954233b0a): the selftest flies
 `sim::selftest`, not the prediction.
