@@ -1,14 +1,22 @@
 ### A predicting F-35B stopped 3 s between flying and sending is placed within four steps, 2026-10-24
 
-**What is still not true first.** The windowed client (`client::Online`,
-`client::Flight`) does not stamp its inputs: it is sampled from where each
-input began, as before, and a frame of its own stalled between flying and
-sending would still inflate its clocks' difference. The Phase 9 item stays
-open for it. The reported 5 to 15 steps (five clients and servers on two CPUs,
-debug build, 2026-10-21) is not reproduced here; what is reproduced, built,
-is the same fault larger. The windowed client also does not fly a gap at the
-pace its loop learnt - it shares `sim::Pacing`, so it does, from this change,
-without a test of its own.
+**What is still not true first.** The client with the window stamps its
+inputs and flies a gap at the learnt pace too (below), but no test holds it to
+the bound: stopped 3 s between reckoning a frame's ticks and sending, it is
+490 to 496 m off **with the stamp or without it** - a different fault. The
+newest word, read after the stop and before the 3 s of ticks are flown, is
+placed 360 steps past what it has flown; it is put at the server's word with
+nothing to fly again, and then flies the 360 on top. That is what #249
+(`frontend::OwnWords`, unmerged) fixes - a word placed past the steps flown is
+held until they are - so the window client's test
+(`scratchpad/starved-f35b-placed/client_starved_f35b.cmake`) waits for it.
+**And the reported 5 to 15 steps is a different fault again**: a debug build,
+five clients and servers on two CPUs, with this fix: the worst 1.4 to 27.6 m
+(up to 20 steps) in five runs, 4 s in, placed 11 to 14 steps along a path
+flown alike (0.000 m off it) - with no frame over 98 ms and no input sent
+more than two steps late. Not a client's stall: a word placed off by a server
+or relay held up, or the clocks' difference still coming down as it settles.
+Not chased (the coordinator's 30 minutes). The Phase 9 item stays open.
 
 **What a plain stop does, and does not do** (release, F-35B from her held
 trim, through a 100 ms relay; `scratchpad` runs): unstalled, the worst 0.000 m;
@@ -107,6 +115,20 @@ them - all passed; the F-35B's 95th percentile 0.000 m and worst 0.0 to
 1.377 m (one step), the C172P's worst 0.001 to 0.463 m. Whether the fix is
 what covers it is not shown: the failure was not reproduced on main here, and
 the debug build was not tried in the time.
+
+**The client with the window, the same** (round 3). It sends a frame's input
+before flying the frame's ticks, which its clock has already reckoned, so the
+step its flying stands at as the input leaves is its prediction's plus the
+ticks owed, plus whatever its clock moved on since they were reckoned:
+`frontend::stamp_sent` (src/frontend/sent_stamp.hpp), shared with
+glideslope_cli, through `Flight::sent` and `Online::fly`'s new steps owed
+(`client::fly_a_pass` hands the link the frame's ticks). The first input,
+flown at once, owes none. Its frame loop flies a frame's gap through
+`sim::Pacing::flown_in`, as glideslope_cli's clock does. `--stopped-sending S
+MS` builds the stop. Kept apart from #249's `OwnWords`: the change is in
+`Online::fly`, `Flight::sent`, `pass.hpp` and the frame loop's clock, none of
+which #249 moves. The window client's 28 tests (`the_client_with_the_window`,
+`a_client_whose_frames`, the pass's unit test) pass.
 
 **The selftest hash** does not move: the selftest flies `sim::selftest`, not a
 prediction or a pace.

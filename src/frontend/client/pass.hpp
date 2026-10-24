@@ -47,7 +47,7 @@ namespace glideslope::client {
 template <typename Link, typename Tick>
 void fly_a_pass(Link& link, double local_s, const sim::Controls& stick, std::int64_t due,
                 Tick tick) {
-    const sim::Controls flown = link.fly(local_s, stick);
+    const sim::Controls flown = link.fly(local_s, stick, due);
     link.listen(local_s);
     for (std::int64_t i = 0; i < due; ++i) {
         tick(flown);
