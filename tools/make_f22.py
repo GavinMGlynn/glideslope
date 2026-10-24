@@ -185,12 +185,12 @@ for CL than the generic QBar" - a wing's lift is made by the air in the plane
 of u and w. Her wing is swept, 30.9 degrees at the quarter chord: the sweep
 argument above (simple sweep theory, NACA Report 863) holds for the lift of the
 same wing as for its moment - standing, qbarUW is the nearer; in flight, at a
-few degrees of sideslip, the two are under 1% apart. **Not moved**: CLq, lift
-with her pitch rate, where the angle of attack only picks its coefficient (as
-Cmq above). Her lift terms not keyed to the angle of attack (dCLflap, dCLsb and
-CLde) are not this change's, and stay on aero/qbar-psf. Standing, her lift left
-is 260 to 280 lb. Two CLDh terms of the pinned model are commented out, and not
-read.
+few degrees of sideslip, the two are under 1% apart. **Not moved** then: CLq,
+lift with her pitch rate, where the angle of attack only picks its coefficient
+(as Cmq above) - moved below (2026-10-23). Her lift terms not keyed to the
+angle of attack (dCLflap, dCLsb and CLde) were not this change's: standing,
+they left her 260 to 280 lb, and they are moved below too. Two CLDh terms of
+the pinned model are commented out, and not read.
 
 **Her wing's drag keyed to the angle of attack on the same dynamic pressure**
 (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CDseparated, and CDDlef,

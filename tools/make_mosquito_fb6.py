@@ -118,8 +118,8 @@ degrees of sideslip, the two differ by its cosine squared. **Not moved**:
 lift-slipstream, the same coefficient on her slipstreams' own pressure, from u
 and the propellers' induced velocity, which leaves out the crosswind already;
 standing at idle it gives 230 to 265 lb. Her lift terms not keyed to the angle
-of attack (lift-elevator and lift-pitch-rate) are not this change's, and stay
-on aero/qbar-psf.
+of attack (lift-elevator and lift-pitch-rate) were not this change's: they are
+moved below (2026-10-23).
 
 **Her wing's drag keyed to the angle of attack on the same dynamic pressure**
 (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): drag-stall, her drag past
