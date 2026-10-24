@@ -152,7 +152,8 @@ std::optional<Joined> Online::joined_by(const net::StatePacket& state) const {
     return joined;
 }
 
-sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& flight) {
+sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& flight,
+                          std::uint64_t steps_owed) {
     const auto lock = held();
     // Anything the keeper heard of the session's standing - joined again -
     // is taken in before an input goes into it.
@@ -170,7 +171,9 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
         sending_.add(sequence_, sent);
         const std::vector<std::uint8_t> packet = sending_.packet();
         session_.send_inputs(std::span<const std::uint8_t>(packet.data(), packet.size()));
-        // The first, with nothing flown before it, is flown at once.
+        // The first, with nothing flown before it, is flown at once, from
+        // the step its prediction is at; any other from after the ticks owed.
+        flight.sent(sequence_, sequence_ == 1 ? 0 : steps_owed);
         if (sequence_ == 1) {
             flown(flight);
         }

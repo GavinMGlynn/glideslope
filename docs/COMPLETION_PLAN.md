@@ -493,8 +493,17 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       CPUs stall a client 1.7 to 3 s, its clocks' difference is learnt 5 to
       15 steps wrong, and updates are off by 9 to 64 whole steps (12 to
       88 m) - as on main before this phase's changes (39 to 49 m), and once
-      on CI's Ubuntu debug (33 m). *Verification: a predicting F-35B whose
-      client is stalled 3 s is off by no more than four steps' travel.*
+      on CI's Ubuntu debug (33 m). glideslope_cli now samples the clocks'
+      difference from when each input was sent and flies a gap at the pace
+      its loop learnt: stopped 3 s between flying and sending, 84 to 251 m
+      off before, two steps at most after; the windowed client does the
+      same, but **is not yet held to the bound**: stopped so, it is 490 m
+      off from a word placed past what it has flown, which #249 fixes. A debug
+      build on two CPUs still places words 5 to 14 steps off with no stall:
+      the server catching up its own 2 s start at 1.4 times real time as she
+      joins - Phase 12a's server falling behind real time, out of this
+      item's reach. *Verification: a predicting F-35B whose client is
+      stalled 3 s is off by no more than four steps' travel.*
 - [x] **A client's prediction of an F-35B in STOVL mode follows the
       server's flight-control laws**: the server tells the height asked and
       the wing-borne autopilot's pitch integral; the converting, jet-borne
@@ -1370,7 +1379,11 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       limit, its cause found (2026-10-08), not fixed. And a server stopped
       alone 3 s puts its client 55.6 m off (2026-10-22): the inputs that came
       meanwhile are flown at most a quarter of a second late. Reproduced with
-      `glideslope_server --test-stopped-once`.
+      `glideslope_server --test-stopped-once`. And a debug server's first
+      pass, its start, is 1.7 to 2.2 s on a loaded machine, and it then
+      catches that up at 1.4 times real time: a client joining meanwhile
+      learns its clocks' difference from samples that rise 60 steps and fall
+      back, and places words 5 to 14 steps off (2026-10-24).
 - [ ] **On Windows the server's word is placed two steps off now and then**:
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th

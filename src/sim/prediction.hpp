@@ -188,6 +188,42 @@ public:
     std::optional<std::uint64_t> hear_clock(std::uint32_t last_applied, std::size_t steps_into,
                                             std::uint64_t server_steps);
 
+    // **The step of this client's at which input `sequence` was sent**, for
+    // the clocks' difference to be taken from: the moment it left, not the
+    // step it was first flown on. A client sends an input once it has flown
+    // the steps owed on the one before, which on a machine too slow for her
+    // prediction - or stopped part-way through a pass - can be seconds
+    // later than the step it is flown from: the server applied it that much
+    // later, and its sample said the clocks were that much further apart.
+    // 3 s stopped between flying and sending, an F-35B's samples came 477,
+    // 237 and 153 steps against 117 before, and settled near 127 while the
+    // slow passes lasted; the least of the window rose with them, step by
+    // step, and each step it rose placed words a step further off - 5.5 m
+    // (docs/status, 2026-10-24). Stamped at sending, a sample is the time
+    // it was on the network and in the server's queue, as NTP's is
+    // (RFC 5905 section 8: the transmit timestamp is taken as the packet
+    // leaves, and section 10's clock filter keeps the least-delay sample).
+    //
+    // **Once a client stamps its inputs, an input it did not stamp gives no
+    // sample**: how late it was sent cannot be known - the input in force
+    // as this prediction began, or one sent before it existed - and a sample
+    // of unknown lateness is a spike that may be too low as well as too
+    // high, so it is not used, as RFC 5905 section 10's popcorn spike
+    // suppressor discards a sample it cannot trust. A client that never
+    // stamps (the windowed client, so far) is sampled from where each input
+    // began, as before.
+    void sent(std::uint32_t sequence, std::uint64_t step);
+    // **The newest sample a word gave**, for a test to read: the clocks'
+    // difference taken, how many steps after the step its input began on it
+    // was sent (nought where it was not stamped), and what it would have
+    // said from where its input began.
+    struct Sample {
+        std::int64_t difference = 0;
+        std::int64_t sent_late = 0;
+        std::int64_t from_began = 0;
+    };
+    std::optional<Sample> newest_sample() const { return newest_sample_; }
+
     // **Another aircraft, as the server's word had it at `server_steps`**, flown
     // on to now: put there, and flown through this client's inputs since the
     // step the clocks' difference places that word at - as a correction is,
@@ -321,6 +357,11 @@ private:
     std::deque<Applied> held_;
     // The step each input still held, or still to be put right from, began on.
     std::map<std::uint32_t, std::uint64_t> began_;
+    // The step each input still held was sent at, where its client said
+    // (`sent`); and whether it has ever said.
+    std::map<std::uint32_t, std::uint64_t> sent_;
+    bool stamps_ = false;
+    std::optional<Sample> newest_sample_;
     std::uint64_t steps_ = 0;
     int engines_stopped_ = 0;
     bool wrecked_ = false;

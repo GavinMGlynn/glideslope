@@ -147,6 +147,13 @@ struct Options {
     // longer, as a slow machine's frames are - CI's sanitized software
     // Vulkan draws one in 250 ms and more.
     double slow_frames_ms = 0.0;
+    // **(`--stopped-sending S MS`)**: at S seconds of this client's run,
+    // on a server, it stops MS milliseconds between reckoning a frame's
+    // ticks and sending its input - where a machine that takes the CPU away
+    // part-way through a pass stops it, the input leaving that much after
+    // the step it is flown from (sim::Prediction::sent). Negative: none.
+    double stopped_sending_at_s = -1.0;
+    double stopped_sending_ms = 0.0;
     // Test flag: how often --weather is fetched again, in seconds of flight.
     double weather_refresh_s = glideslope::client::weather_refresh_seconds;
     bool weather_refresh_given = false;
@@ -346,6 +353,9 @@ void usage(std::FILE* out) {
         "                test's other clients to wait on (for tests)\n"
         "  --slow-start S  on a server, stand still S seconds after joining, as a\n"
         "                slow machine building its flight does (for tests)\n"
+        "  --stopped-sending S MS  at S seconds in, on a server, stop MS\n"
+        "                milliseconds between reckoning a frame's ticks and sending\n"
+        "                its input\n"
         "  --slow-frames MS  hold every pass of the frame loop MS milliseconds\n"
         "                longer, as a slow machine's frames are (for tests)\n"
         "  --draw-aircraft  draw the aeroplane in the outside views (the default),\n"
@@ -548,6 +558,12 @@ static int run_program(int argc, char** argv) {
             o.after_ready = std::string(args[++i]);
         } else if (a == "--slow-start" && has_value) {
             o.slow_start_s = std::strtod(std::string(args[++i]).c_str(), nullptr);
+        } else if (a == "--stopped-sending" && i + 2 < args.size()) {
+            o.stopped_sending_at_s = std::strtod(std::string(args[i + 1]).c_str(), nullptr);
+            o.stopped_sending_ms = std::strtod(std::string(args[i + 2]).c_str(), nullptr);
+            ok = o.stopped_sending_at_s >= 0.0 && o.stopped_sending_ms > 0.0 &&
+                 o.stopped_sending_ms <= 60000.0;
+            i += 2;
         } else if (a == "--slow-frames" && has_value) {
             // A number of milliseconds above nought, or refused: a word
             // read as nought held nothing, and the test it was for passed
@@ -1632,6 +1648,8 @@ static int run_program(int argc, char** argv) {
         glideslope::platform::KeyboardControls keys;
         glideslope::sim::FixedStep clock;
         auto last = std::chrono::steady_clock::now();
+        // When the frame's ticks were last reckoned, for its input's stamp.
+        auto reckoned_at = last;
         std::int64_t ticks = 0;
         long frames = 0;
         // When --slow-frames last held a pass of the loop.
@@ -1858,12 +1876,16 @@ static int run_program(int argc, char** argv) {
                 // **At the server's pace** on a server (sim::Pacing): one
                 // behind real time flies each input for fewer ticks, and so,
                 // then, does this.
-                const double pace = online && flight ? flight->pace() : 1.0;
+                // **A gap without a word at the pace the loop learnt**
+                // (sim::Pacing::flown_in), not the one it steers by.
+                const double gap_s = std::chrono::duration<double>(now - last).count();
+                const double flown_s = online && flight ? flight->flown_in(gap_s) : gap_s;
                 due = glideslope::sim::steps_to_fly(
                     clock.advance(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                        (now - last) * pace)),
+                        std::chrono::duration<double>(flown_s))),
                     online.has_value());
                 last = now;
+                reckoned_at = now;
                 // The keyboard - with a test's key held (--press-after), as a
                 // player's finger holds it.
                 int key_count = 0;
@@ -1913,9 +1935,17 @@ static int run_program(int argc, char** argv) {
                     glideslope::client::Flight& flight;
                     const std::function<void()> ticks_began;
                     const std::function<void()> ticks_ended;
+                    const std::function<std::uint64_t()> owed_since_reckoned;
                     glideslope::sim::Controls fly(double local_s,
-                                                  const glideslope::sim::Controls& stick) {
-                        return online.fly(local_s, stick, flight);
+                                                  const glideslope::sim::Controls& stick,
+                                                  std::int64_t due) {
+                        // **Stamped as it leaves** (frontend::stamp_sent):
+                        // the ticks owed, and any the clock has moved on
+                        // since they were reckoned.
+                        return online.fly(local_s, stick, flight,
+                                          static_cast<std::uint64_t>(std::max<std::int64_t>(
+                                              due, 0)) +
+                                              owed_since_reckoned());
                     }
                     void listen(double local_s) {
                         online.listen(local_s);
@@ -1926,7 +1956,25 @@ static int run_program(int argc, char** argv) {
                     void hear() { online.hear(flight); }
                 };
                 Link link{*online, *flight, [&] { pass_mark = seconds_since_start(); },
-                          [&] { pass_part(pass_times.ticks); }};
+                          [&] { pass_part(pass_times.ticks); },
+                          [&]() -> std::uint64_t {
+                              // **A test's stall between reckoning the
+                              // ticks and sending** (`--stopped-sending`).
+                              if (o.stopped_sending_at_s >= 0.0 &&
+                                  seconds_since_start() >= o.stopped_sending_at_s) {
+                                  o.stopped_sending_at_s = -1.0;
+                                  std::this_thread::sleep_for(std::chrono::duration<double,
+                                                                                    std::milli>(
+                                      o.stopped_sending_ms));
+                              }
+                              const double since_s =
+                                  std::chrono::duration<double>(
+                                      std::chrono::steady_clock::now() - reckoned_at)
+                                      .count();
+                              return static_cast<std::uint64_t>(
+                                  flight->flown_in(since_s) *
+                                  static_cast<double>(glideslope::sim::steps_per_second));
+                          }};
                 glideslope::client::fly_a_pass(link, seconds_since_start(), controls, due, tick);
             } else {
                 pass_mark = seconds_since_start();

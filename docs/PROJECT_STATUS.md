@@ -149,7 +149,12 @@ circuit touching short, 2026-09-27; the fighters' rotation, 2026-09-26).
 every aircraft, wherever on Earth, with AI aircraft of its own, and resolves
 collisions. Clients join, are told what every aircraft is, stream their
 inputs, predict their own aircraft and reconcile - once a pass, from the
-newest update, so that a slow client keeps up (2026-10-23); a prediction
+newest update, so that a slow client keeps up (2026-10-23), the clocks'
+difference taken from when each input was sent, so that glideslope_cli
+stopped 3 s between flying and sending keeps its F-35B within four steps
+(2026-10-24; the windowed client stamps too, untested against the stop until
+#249) - though a debug server catching up its own slow start still puts a
+client joining it 5 to 14 steps off; a prediction
 given a NaN as an input, or left with one by a step, is let go of and
 started again from the server's word - but a NaN made inside one JSBSim
 step from finite inputs still asserts in a debug build, and only
