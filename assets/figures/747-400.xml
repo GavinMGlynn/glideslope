@@ -145,8 +145,10 @@
 
   <no_cg_limits>
     Her weight and centre-of-gravity envelope is not published: her type
-    certificate data sheets (A20WE; EASA IM.A.196) refer to her weight and
-    balance manual, which is not public. The one public figure found
+    certificate data sheets refer to her flight manual (FAA A20WE, revision
+    58: her C.G. range in "the appropriate FAA Approved Airplane Flight
+    Manual", D6-13703) and her weight and balance manual (EASA IM.A.196),
+    neither of them public. The one public figure found
     (2026-10-24), 15.5 to 33.0% of her chord for a 747-400BCF's take-off at
     one weight (NTSB AAR-15/01), is one weight's, not her envelope.
   </no_cg_limits>

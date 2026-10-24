@@ -169,9 +169,10 @@
   </landing_distance>
 
   <no_cg_limits>
-    Her weight and centre-of-gravity envelope is not published: EASA's type
-    certificate data sheet A.110 (issue 17) refers to her flight manual,
-    which is not public. Airbus's airport planning document (AC A380,
+    Her weight and centre-of-gravity envelope is not published: her type
+    certificate data sheets refer to her flight manual (EASA A.110, issue
+    17; the UK CAA's UK.TC.A.00158, 3 February 2026: "Refer to approved
+    Airplane Flight Manual"), which is not public. Airbus's airport planning document (AC A380,
     December 2025, figures 2-3-0-991-001 and 7-3-0-991-006) gives the
     centres of gravity its pavement loads are worked at, three weights from
     512 to 571 t and 29 to 44% at 300 t - a loads case, not her flight

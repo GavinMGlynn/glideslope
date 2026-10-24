@@ -366,8 +366,10 @@ GLIDESLOPE_TEST(every_aircraft_a_player_is_given_and_leaves_untouched_holds_her_
 // checked against her envelope or named below as one whose envelope no
 // public document gives, which her figures file says (`<no_cg_limits>`) -
 // and every one is counted. Seen red on the Learjet 35A, empty but for full
-// tanks, at 36.1% of her chord, aft of her flight manual's limit
-// (tools/make_learjet35a.py).
+// tanks, at 36.1% of her chord, aft of her flight manual's 30%
+// (tools/make_learjet35a.py, "Her own loading"), and on the J-3 Cub carrying
+// no one, 752 lb at station 8.96, forward of A-691's 10.6 (tools/make_j3cub.py,
+// now flown solo from the rear seat).
 GLIDESLOPE_TEST(every_aircraft_given_no_loading_lies_inside_her_published_weight_and_centre_of_gravity_envelope) {
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
     // Envelopes no public document gives - each figures file says why.
@@ -375,15 +377,8 @@ GLIDESLOPE_TEST(every_aircraft_given_no_loading_lies_inside_her_published_weight
         "737-300", "747-400", "787-8", "a320", "a380",   // in flight manuals not public
         "b2",      "f15c",    "f22",   "f35b",           // military, not public
         "mosquito-fb6"};                                 // her load sheets in no public copy
-    // Left out, outside her envelope and open in the completion plan: each
-    // must lie outside, and one that lies inside has moved in, and fails
-    // the walk until it is taken off the list.
-    //   - the J-3 Cub, her model carrying no one, her tank full: 752 lb at
-    //     station 8.96, forward of A-691's 10.6.
-    const std::vector<std::string> outside = {"j3cub"};
     std::size_t inside = 0;
     std::size_t named = 0;
-    std::size_t outside_n = 0;
     std::string failed;
     for (const CatalogueEntry& e : catalogue) {
         const glideslope::sim::PublishedFigures figures = glideslope::sim::read_published_figures(
@@ -420,14 +415,7 @@ GLIDESLOPE_TEST(every_aircraft_given_no_loading_lies_inside_her_published_weight
                     "at the lightest, %.2f to %.2f at the heaviest\n",
                     e.id.c_str(), lbs, cg_in, l.front().lbs, l.back().lbs, l.front().forward_in,
                     l.front().aft_in, l.back().forward_in, l.back().aft_in);
-        const bool within = glideslope::sim::within_cg_limits(figures.cg_limits, lbs, cg_in);
-        if (std::find(outside.begin(), outside.end(), e.id) != outside.end()) {
-            if (within) {
-                failed += " " + e.id + " (left out, and inside - moved in)";
-            } else {
-                ++outside_n;
-            }
-        } else if (within) {
+        if (glideslope::sim::within_cg_limits(figures.cg_limits, lbs, cg_in)) {
             ++inside;
         } else {
             char at[96];
@@ -435,16 +423,14 @@ GLIDESLOPE_TEST(every_aircraft_given_no_loading_lies_inside_her_published_weight
             failed += " " + e.id + at;
         }
     }
-    std::printf("  %zu aircraft: %zu inside their envelopes, %zu left out and outside, %zu "
-                "unpublished and named\n",
-                catalogue.size(), inside, outside_n, named);
+    std::printf("  %zu aircraft: %zu inside their envelopes, %zu unpublished and named\n",
+                catalogue.size(), inside, named);
     check(failed.empty(), "every aircraft given no loading lies inside her published envelope, "
-                          "or is left out or named as having none; these do not:" + failed);
-    check(!catalogue.empty() && named == unpublished.size() && outside_n == outside.size() &&
-              inside + outside_n + named == catalogue.size(),
+                          "or is named as having none; these do not:" + failed);
+    check(!catalogue.empty() && named == unpublished.size() &&
+              inside + named == catalogue.size(),
           "every aircraft in the catalogue was checked or named: " + std::to_string(inside) +
-              " inside, " + std::to_string(outside_n) + " left out and " +
-              std::to_string(named) + " named unpublished, of " +
+              " inside and " + std::to_string(named) + " named unpublished, of " +
               std::to_string(catalogue.size()));
 }
 
@@ -484,12 +470,14 @@ GLIDESLOPE_TEST(every_aircraft_given_no_loading_lies_inside_her_published_weight
 // ceiling, the standard lapse of power with density, and what her float
 // carburettor loses there running 18% rich - FAA-H-8083-32, page 2-3): the
 // J-3 Cub at 1,220 lb at 60 and 62 kt, at 1,092 lb at 60 and 62 kt, and at
-// 922 lb at 62 kt there - she holds 54.3 to 55.6, 57.3 to 58.7 and 61.2 to
+// 922 lb at 62 kt there, both her solo loading and her model's own (flown
+// solo since 2026-10-24) - she holds 54.3 to 55.6, 57.3 to 58.7 and 61.2 to
 // 61.5 KCAS at most (the_j3_cub_flown_solo_at_10000_ft_holds_her_derived_top_speed_within_a_knot).
-// Every Cub point the derivation says she holds is walked and trims: at 752
-// lb, her model's own, 63.5 to 63.7 KCAS, so 43, 60 and 62 kt; at 922 lb 47.6
-// and 60; at 1,092 lb 51.8; at 1,220 lb 54.8, inside the derivation's 54.3 to
-// 55.6, and trimmed.
+// Every Cub point the derivation says she holds is walked and trims: at 922
+// lb, solo and her model's own, 46 and 60 kt; at 1,092 lb 50.1; at 1,220 lb
+// 52.9, under the derivation's 54.3 to 55.6, and trimmed. (Until 2026-10-24
+// her model's own was 752 lb, carrying no one, forward of her limit, and
+// trimmed at 62 kt there: 63.5 to 63.7 KCAS.)
 // Excluded by her own book: the C182 at 3,100 lb at 120 kt at 10,000 ft
 // (139.6 KTAS). The 182S Information Manual's figure 5-9 at 10,000 ft tops
 // out at 20 in and 2,400 rpm, 66%, 133 KTAS; its cruise tables, fitted, give
@@ -540,6 +528,7 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
         {"c182", "her model's own", 10000.0, fastest},
         {"c182", "", 10000.0, start},
         {"c182", "", 10000.0, fastest},
+        {"j3cub", "her model's own", 10000.0, fastest},
         {"j3cub", "solo", 10000.0, fastest},
         {"j3cub", "trainer", 10000.0, start},
         {"j3cub", "trainer", 10000.0, fastest},

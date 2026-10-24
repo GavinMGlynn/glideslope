@@ -1504,7 +1504,7 @@ const std::vector<GlideBand> glide_bands = {
     {"c172p", Ways::both, 60, 75},
     {"c182", Ways::both, 64, 82},
     {"pa28", Ways::both, 64, 74},
-    {"j3cub", Ways::both, 43, 48},
+    {"j3cub", Ways::both, 46, 48},
     {"short_s23", Ways::left, 86, 100},
     {"short_s23", Ways::right, 86, 100},
     {"mosquito-fb6", Ways::both, 129, 148},
@@ -1551,14 +1551,14 @@ const std::vector<GlideBand> glide_bands = {
     {"a380", Ways::right, 221, 236},
     {"a380", Ways::right, 241, 256},
     {"a380", Ways::right, 261, 270},
-    {"learjet35a", Ways::left, 140, 165},
-    {"learjet35a", Ways::left, 170, 195},
-    {"learjet35a", Ways::left, 200, 225},
-    {"learjet35a", Ways::left, 230, 240},
-    {"learjet35a", Ways::right, 140, 165},
-    {"learjet35a", Ways::right, 170, 195},
-    {"learjet35a", Ways::right, 200, 225},
-    {"learjet35a", Ways::right, 230, 240},
+    {"learjet35a", Ways::left, 142, 167},
+    {"learjet35a", Ways::left, 172, 197},
+    {"learjet35a", Ways::left, 202, 227},
+    {"learjet35a", Ways::left, 232, 240},
+    {"learjet35a", Ways::right, 142, 167},
+    {"learjet35a", Ways::right, 172, 197},
+    {"learjet35a", Ways::right, 202, 227},
+    {"learjet35a", Ways::right, 232, 240},
     {"b2", Ways::left, 169, 179},
     {"b2", Ways::left, 184, 204},
     {"b2", Ways::left, 209, 230},
@@ -1787,8 +1787,8 @@ GLIDESLOPE_TEST(the_piper_pa28_glides_round_its_tightest_orbit_from_64_to_74_kt_
     glides_in_band("pa28", Ways::both, 64);
 }
 
-GLIDESLOPE_TEST(the_piper_j3_cub_glides_round_its_tightest_orbit_from_43_to_48_kt_without_stalling) {
-    glides_in_band("j3cub", Ways::both, 43);
+GLIDESLOPE_TEST(the_piper_j3_cub_glides_round_its_tightest_orbit_from_46_to_48_kt_without_stalling) {
+    glides_in_band("j3cub", Ways::both, 46);
 }
 
 GLIDESLOPE_TEST(the_short_s23_glides_round_its_tightest_orbit_turning_left_from_86_to_100_kt_without_stalling) {
@@ -1975,36 +1975,36 @@ GLIDESLOPE_TEST(the_airbus_a380_glides_round_its_tightest_orbit_turning_right_fr
     glides_in_band("a380", Ways::right, 261);
 }
 
-GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_left_from_140_to_165_kt_without_stalling) {
-    glides_in_band("learjet35a", Ways::left, 140);
+GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_left_from_142_to_167_kt_without_stalling) {
+    glides_in_band("learjet35a", Ways::left, 142);
 }
 
-GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_left_from_170_to_195_kt_without_stalling) {
-    glides_in_band("learjet35a", Ways::left, 170);
+GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_left_from_172_to_197_kt_without_stalling) {
+    glides_in_band("learjet35a", Ways::left, 172);
 }
 
-GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_left_from_200_to_225_kt_without_stalling) {
-    glides_in_band("learjet35a", Ways::left, 200);
+GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_left_from_202_to_227_kt_without_stalling) {
+    glides_in_band("learjet35a", Ways::left, 202);
 }
 
-GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_left_from_230_to_240_kt_without_stalling) {
-    glides_in_band("learjet35a", Ways::left, 230);
+GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_left_from_232_to_240_kt_without_stalling) {
+    glides_in_band("learjet35a", Ways::left, 232);
 }
 
-GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_from_140_to_165_kt_without_stalling) {
-    glides_in_band("learjet35a", Ways::right, 140);
+GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_from_142_to_167_kt_without_stalling) {
+    glides_in_band("learjet35a", Ways::right, 142);
 }
 
-GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_from_170_to_195_kt_without_stalling) {
-    glides_in_band("learjet35a", Ways::right, 170);
+GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_from_172_to_197_kt_without_stalling) {
+    glides_in_band("learjet35a", Ways::right, 172);
 }
 
-GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_from_200_to_225_kt_without_stalling) {
-    glides_in_band("learjet35a", Ways::right, 200);
+GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_from_202_to_227_kt_without_stalling) {
+    glides_in_band("learjet35a", Ways::right, 202);
 }
 
-GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_from_230_to_240_kt_without_stalling) {
-    glides_in_band("learjet35a", Ways::right, 230);
+GLIDESLOPE_TEST(the_learjet_35a_glides_round_its_tightest_orbit_turning_right_from_232_to_240_kt_without_stalling) {
+    glides_in_band("learjet35a", Ways::right, 232);
 }
 
 GLIDESLOPE_TEST(the_b2a_glides_round_its_tightest_orbit_turning_left_from_169_to_179_kt_without_stalling) {

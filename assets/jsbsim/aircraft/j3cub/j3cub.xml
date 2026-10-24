@@ -108,7 +108,7 @@
      <z>   -22.83 </z>
    </location>
    <pointmass name="Pilot">
-    <weight unit="LBS"> 0 </weight>
+    <weight unit="LBS"> 170 </weight>
     <location unit="IN">
      <x>    20.25 </x>
      <y>     0.00 </y>
