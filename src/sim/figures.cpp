@@ -2418,6 +2418,24 @@ void refuse_what_it_cannot_fly(const std::filesystem::path& data, const FlightPl
                               "flown is the " + flown);
     }
     const CatalogueEntry entry = find_aircraft(data, plan.aircraft);
+    // **Her loading, by name, one her figures name** - refused by name
+    // otherwise, with the ones they do, rather than flown at another
+    // weight than the plan says.
+    if (!plan.loading.empty() && !named_loading(data, entry.model, plan.loading)) {
+        std::string names;
+        const std::filesystem::path file = data / "figures" / (entry.model + ".xml");
+        if (std::filesystem::exists(file)) {
+            for (const auto& [name, loading] : read_published_figures(file).loadings) {
+                if (!name.empty()) {
+                    names += (names.empty() ? "" : ", ") + name;
+                }
+            }
+        }
+        throw FlightPlanError("the plan's loading " + plan.loading + " is not one the " +
+                              entry.id + "'s figures name" +
+                              (names.empty() ? std::string(": they name none")
+                                             : ": they name " + names));
+    }
     const PlanSpeeds speeds = plan_speeds(data, entry.model);
     const auto outside = [&](const std::string& what, double kts) {
         char said[128];

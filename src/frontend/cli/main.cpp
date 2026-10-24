@@ -187,6 +187,10 @@ std::size_t connect_until_engine_compared = 0;
 // once the clocks' difference is known - what a test of the prediction's
 // error waits for.
 std::size_t connect_until_compared = 0;
+// **(`--until-compared-on-law N`)**: the same, counted only once its
+// prediction has begun on a law the server told it (`LAW_STATE`) - given
+// her by a take-over or a take-back, not as it joined.
+std::size_t connect_until_compared_on_law = 0;
 // **(`--unpaced`)**: with `--predict`, fly at this machine's pace, not
 // steered to the server's (sim::Pacing) - what a test shows going wrong.
 bool connect_unpaced = false;
@@ -326,6 +330,16 @@ long connect_stovl_bank_at = -1;
 // that centred the stick - the event a client joining her mid-bank waits
 // for (server_stovl_join.cmake), not a time.
 bool connect_leave_once_bank_held = false;
+// **(`--when-hovering`)**: `--take-over-at` and `--take-back-at` then name the
+// earliest time only: the take-over waits until the AI aircraft it would take
+// has been hovering - under half a metre a second, flying - for three seconds
+// of the session's clock, and the take-back until its own, handed to the AI,
+// has been. An event, not a time (server_stovl_take_over.cmake).
+bool connect_when_hovering = false;
+// **(`--hand-over-when-slowing`)**: `--hand-over-at` names the earliest time
+// only; the hand-over waits until its prediction is converted and slowing
+// through 120 knots to a hover (server_stovl_take_over.cmake).
+bool connect_hand_over_when_slowing = false;
 // **(`--from-held`)**: with `--predict`, it joins as the windowed client does
 // - asking for its own aircraft's levers (`WATCH`), sending nothing until it
 // has them, its prediction begun on them - and every input it sends is what
@@ -526,6 +540,10 @@ void print_usage(std::FILE* out) {
         "                            the server says it is) ahead of the server, puts\n"
         "                            it right by each update, shows the others 100 ms\n"
         "                            behind, and says how far its own was put right\n"
+        "                            --hand-over-when-slowing makes --hand-over-at wait\n"
+        "                            for a converted prediction slowing below 120 kt\n"
+        "                            --when-hovering makes --take-over-at and\n"
+        "                            --take-back-at wait until the aircraft is hovering\n"
         "                            --hand-over-at S asks, S seconds in, for its own\n"
         "                            aircraft to be handed to the AI pilot, and\n"
         "                            --take-back-at S for it back (or\n"
@@ -561,6 +579,9 @@ void print_usage(std::FILE* out) {
         "                            flies, to show what the server's is worth\n"
         "                            --until-compared N (with --predict) stays until\n"
         "                            N updates are compared\n"
+        "                            --until-compared-on-law N the same, counted once\n"
+        "                            its prediction begins on a law the server told\n"
+        "                            it, taking her over or back\n"
         "                            --stovl-land (with --predict) selects STOVL mode\n"
         "                            five seconds in, with the stick forward and the\n"
         "                            lever still, and\n"
@@ -1282,6 +1303,11 @@ int fly_plan(const std::filesystem::path& data, const std::vector<std::string_vi
     }
 
     glideslope::sim::Aircraft aircraft(data / "jsbsim", entry.model);
+    // At the plan's loading, before she is put anywhere: refused above
+    // where her figures do not name it.
+    if (!plan.loading.empty()) {
+        aircraft.load(glideslope::sim::named_loading(data, entry.model, plan.loading)->loading);
+    }
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
         [ground](double lat, double lon) { return ground->height_above_ellipsoid(lat, lon); },
         [ground](double lat, double lon) {
@@ -1911,6 +1937,18 @@ public:
         return held;
     }
 
+    // **Converted and slowing** (`--hand-over-when-slowing`): her prediction's
+    // lift system fully converted, jet-borne, and her ground speed under
+    // `kt` and above a hover's: slowing to one.
+    bool stovl_slowing_below(double kt) const {
+        if (!aircraft_ || !aircraft_->has_lift_system() || stovl_hovering_at_s_) {
+            return false;
+        }
+        const double ground_kt = std::hypot(aircraft_->property("velocities/v-north-fps"),
+                                            aircraft_->property("velocities/v-east-fps")) *
+                                 3600.0 / 6076.12;
+        return aircraft_->property("fcs/stovl-pos-norm") >= 1.0 && ground_kt < kt;
+    }
     bool stovl_done() const {
         return stovl_down_at_s_.has_value() && server_at_rest_;
     }
@@ -2587,7 +2625,10 @@ public:
         predicted_at_.clear();
         pacing_.hold();
         waiting_for_law_.reset();
-        law_heard_.reset();
+        // Her law, if it was told first, is hers.
+        if (law_heard_ && law_heard_->aircraft != number) {
+            law_heard_.reset();
+        }
     }
 
     // **Its own aircraft handed to the AI pilot, or taken back**, as the
@@ -2875,6 +2916,8 @@ public:
     std::size_t compared_engine_stopped() const { return compared_engine_stopped_; }
     // How many updates have been compared at all (`--until-compared`).
     std::size_t compared() const { return compared_; }
+    // Whether its prediction has begun on a law the server told it.
+    bool begun_on_law() const { return !law_begun_lines_.empty(); }
 
     std::vector<std::string> report() const {
         std::vector<std::string> lines;
@@ -3132,14 +3175,16 @@ public:
     }
 
     // **Her STOVL law told** (`LAW_STATE`): kept until a prediction begins,
-    // and begun from at once if one is waiting for it.
+    // and begun from at once if one is waiting for it. **Kept while another
+    // is predicted**: taking one over, the law comes reliably, ahead of the
+    // update that says she is this client's now, while the one left is still
+    // predicted - dropped then, the prediction waited for it for ever
+    // (2026-10-22). The server tells it only as it gives her, so one heard
+    // is always for her next prediction.
     void law_told(const glideslope::net::LawState& law) {
         ++laws_told_;
-        if (prediction_) {
-            return;
-        }
         law_heard_ = law;
-        if (waiting_for_law_ == law.aircraft && models_.count(law.aircraft) > 0) {
+        if (!prediction_ && waiting_for_law_ == law.aircraft && models_.count(law.aircraft) > 0) {
             start_on_law();
         }
     }
@@ -3810,6 +3855,11 @@ int stay(glideslope::platform::UdpSocket& socket,
     // Whether an update has shown the AI flying it (`--once-the-ai-flies-it`).
     bool ai_flies_it = false;
     bool asked_to_take_back = false;
+    // `--when-hovering`: since when, on the session's clock, the aircraft it
+    // would take over, and its own, have been hovering; none if not.
+    double ai_hovering_from_s = -1.0;
+    double own_hovering_from_s = -1.0;
+    double hover_clock_s = 0.0;
     // **Stay until what is waited for is heard** (`--until-flying-again N`):
     // a test waiting for a collision and the flying again after it waits for
     // that, with SECONDS only the most it will wait. Thirty seconds of the
@@ -3933,6 +3983,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         // stopped** (`--until-engine-compared`).
         if (connect_until_compared > 0 && predicting &&
             predicting->compared() >= connect_until_compared) {
+            break;
+        }
+        if (connect_until_compared_on_law > 0 && predicting && predicting->begun_on_law() &&
+            predicting->compared() >= connect_until_compared_on_law) {
             break;
         }
         if (connect_stovl_land && predicting && predicting->stovl_done()) {
@@ -4170,6 +4224,7 @@ int stay(glideslope::platform::UdpSocket& socket,
         }
         if (mine != glideslope::net::no_aircraft) {
             if (hand_over_at_s >= 0.0 && up_s >= hand_over_at_s && !asked_to_hand_over &&
+                (!connect_hand_over_when_slowing || (predicting && predicting->stovl_slowing_below(120.0))) &&
                 (!hand_over_model || hc.hand_over_tried)) {
                 asked_to_hand_over = true;
                 ask(glideslope::net::Controller::ai);
@@ -4190,7 +4245,13 @@ int stay(glideslope::platform::UdpSocket& socket,
                 ask(glideslope::net::Controller::learnt_landing);
                 say_heard("asked for the learnt landing");
             }
-            const bool back_now = (take_back_at_s >= 0.0 && up_s >= take_back_at_s) ||
+            const auto hovered = [&](double from_s) {
+                return !connect_when_hovering ||
+                       (from_s >= 0.0 && hover_clock_s - from_s >= 3.0);
+            };
+            const bool back_now = (take_back_at_s >= 0.0 && up_s >= take_back_at_s &&
+                                   (hand_over_at_s < 0.0 || asked_to_hand_over) &&
+                                   hovered(own_hovering_from_s)) ||
                                   (hc.take_back_while_looking && hc.seat && hc.seat->looking());
             if (back_now && !asked_to_take_back) {
                 asked_to_take_back = true;
@@ -4206,7 +4267,7 @@ int stay(glideslope::platform::UdpSocket& socket,
                 hc.taken_back = true;
             }
             if (take_over_at_s >= 0.0 && up_s >= take_over_at_s && !asked_to_take_over &&
-                ai_to_take != glideslope::net::no_aircraft &&
+                hovered(ai_hovering_from_s) && ai_to_take != glideslope::net::no_aircraft &&
                 (!take_over_once_ai || ai_flies_it)) {
                 asked_to_take_over = true;
                 glideslope::net::ControllerSwap swap;
@@ -4636,6 +4697,28 @@ int stay(glideslope::platform::UdpSocket& socket,
                         break;
                     }
                 }
+            }
+            // `--when-hovering`: the aircraft it would take, and its own,
+            // flying under 0.5 m/s over the ground since when.
+            hover_clock_s = state->simulation_time_s;
+            const auto hovering_since = [&](std::uint8_t index, double& from_s) {
+                bool hovering = false;
+                for (const glideslope::net::AircraftState& a : state->aircraft) {
+                    hovering = hovering || (a.index == index &&
+                                            a.condition == glideslope::net::Condition::flying &&
+                                            std::hypot(a.vx_mps, a.vy_mps, a.vz_mps) < 0.5F);
+                }
+                if (!hovering) {
+                    from_s = -1.0;
+                } else if (from_s < 0.0) {
+                    from_s = state->simulation_time_s;
+                }
+            };
+            if (ai_to_take != glideslope::net::no_aircraft) {
+                hovering_since(ai_to_take, ai_hovering_from_s);
+            }
+            if (mine != glideslope::net::no_aircraft) {
+                hovering_since(mine, own_hovering_from_s);
             }
             last_step = std::llround(state->simulation_time_s *
                                      static_cast<double>(glideslope::sim::steps_per_second));
@@ -5829,6 +5912,11 @@ static int run_program(int argc, char** argv) {
                     }
                     continue;
                 }
+                if (args[i] == "--until-compared-on-law" && i + 1 < args.size()) {
+                    connect_until_compared_on_law =
+                        static_cast<std::size_t>(std::stoul(std::string(args[++i])));
+                    continue;
+                }
                 if (args[i] == "--until-compared" && i + 1 < args.size()) {
                     connect_until_compared =
                         static_cast<std::size_t>(std::stoul(std::string(args[++i])));
@@ -5891,6 +5979,14 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--stovl-bank-at" && i + 1 < args.size()) {
                     connect_stovl_bank_at = std::stol(std::string(args[++i]));
+                    continue;
+                }
+                if (args[i] == "--hand-over-when-slowing") {
+                    connect_hand_over_when_slowing = true;
+                    continue;
+                }
+                if (args[i] == "--when-hovering") {
+                    connect_when_hovering = true;
                     continue;
                 }
                 if (args[i] == "--leave-once-bank-held") {

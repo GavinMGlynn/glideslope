@@ -1039,6 +1039,10 @@ static int run_program(int argc, char** argv) {
                 // a model's plan is.
                 glideslope::sim::refuse_what_it_cannot_fly(
                     glideslope::platform::data_directory(), *start.plan, o.aircraft);
+                // **At the plan's loading**, where `--loading` names none.
+                if (start.loading.empty()) {
+                    start.loading = start.plan->loading;
+                }
                 std::printf("glideslope: flying the plan %s, %zu waypoints\n",
                             path.string().c_str(), start.plan->waypoints.size());
             }

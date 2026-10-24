@@ -230,8 +230,8 @@ are the risks the phase order is built around:
   already selecting STOVL, her law is seeded in her prediction as the
   server's is (2026-10-21). A client joining while her law already flies
   her is told the whole of it and predicts her from it, mid-bank (2026-10-22);
-  a take-over or take-back of one in STOVL mode is not testable through a
-  server yet, and taken back the two laws are seeded apart. She flies
+  so is one taking her over or back in STOVL mode, an AI's F-35B planned
+  at her vertical-landing loading (2026-10-22). She flies
   30 kt backward in the hover (2026-10-20), her lift and pitching moment
   the same either side of 180 degrees; her lift past 90 degrees either way
   is lopsided and unsourced, chosen so that flight inside 90 degrees is

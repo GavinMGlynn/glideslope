@@ -24,12 +24,8 @@
 #              (`--after-ready`), before the server lets A's session go, and
 #              is given her as she is - mid-bank, turning, jet-borne.
 #
-# **Not a take-over or a take-back**: through a real server neither can be
-# built yet. The server takes over only an AI's own aircraft, and an AI's
-# F-35B at her model's own loading is too heavy to hover, so never flies her
-# law (a plan file names no loading); and handed to the AI, a player's
-# F-35B is flown on the plan, converted back and her law let go before a
-# take-back (PROJECT_STATUS.md, 2026-10-22; COMPLETION_PLAN.md tails).
+# **Not a take-over or a take-back**: server_stovl_take_over.cmake builds
+# those.
 #
 # B predicts (`--predict --stovl-land --stovl-level`), its selector on, the
 # stick centred, as A left them, through a relay that holds every datagram
