@@ -1625,6 +1625,96 @@ void words_at(Prediction& p, std::uint32_t first, std::uint32_t inputs, std::int
 
 } // namespace
 
+// **A clocks' difference is sampled from where an input was sent**, once a
+// client stamps its inputs (sim::Prediction::sent): an input sent 360 steps
+// after the step it is flown from - a client stopped 3 s between flying and
+// sending - says the clocks are no further apart than one sent at once; an
+// input not stamped says nothing; and a client that never stamps is sampled
+// from where each input began, as before. Three cases, asserted.
+GLIDESLOPE_TEST(a_clocks_difference_is_sampled_from_where_each_input_was_sent_and_an_input_not_stamped_says_nothing) {
+    std::size_t cases = 0;
+    Aircraft a(data() / "jsbsim", "c172p");
+    set_up(a);
+    Controls c;
+    c.throttle = 0.7;
+    c.mixture = 1.0;
+    {
+        Prediction p(a);
+        // Inputs 1 to 3, four steps each; input 2 sent as it began, input 3
+        // sent 360 steps after: both reached the server 100 steps later.
+        for (std::uint32_t i = 1; i <= 3; ++i) {
+            if (i == 2) {
+                p.sent(2, p.steps());
+            }
+            if (i == 3) {
+                p.sent(3, p.steps() + 360);
+            }
+            for (int s = 0; s < 4; ++s) {
+                p.step(i, c);
+            }
+        }
+        p.hear_clock(2, 0, 4 + 100);
+        check(p.clocks_difference() == 100, "sent at once: 100, not " +
+                                                std::to_string(p.clocks_difference().value_or(-1)));
+        p.hear_clock(3, 0, 8 + 360 + 100);
+        check(p.newest_sample() && p.newest_sample()->sent_late == 360 &&
+                  p.newest_sample()->difference == 100 &&
+                  p.newest_sample()->from_began == 460,
+              "sent 360 steps late: the sample 100, its lateness 360, 460 from where it began");
+        ++cases;
+        // Input 4 never stamped: no sample.
+        for (int s = 0; s < 4; ++s) {
+            p.step(4, c);
+        }
+        p.hear_clock(4, 0, 12 + 50);
+        check(p.newest_sample()->difference == 100 && p.clocks_difference() == 100,
+              "not stamped: no sample, where from where it began it said 50");
+        ++cases;
+    }
+    {
+        Prediction p(a);
+        for (std::uint32_t i = 1; i <= 2; ++i) {
+            for (int s = 0; s < 4; ++s) {
+                p.step(i, c);
+            }
+        }
+        p.hear_clock(2, 0, 4 + 100);
+        check(p.clocks_difference() == 100 && p.newest_sample()->sent_late == 0,
+              "never stamped: sampled from where it began");
+        ++cases;
+    }
+    check(cases == 3, "three cases: " + std::to_string(cases));
+}
+
+// **Through a gap without a word the pace flown is the one the loop has
+// learnt** (sim::Pacing::steered_without_a_word_s): steered 2% fast by a
+// difference two steps off, a client stopped 3 s flies the quarter second
+// after its last word at that and the rest at its integral's pace - here
+// real time - not 2% fast throughout.
+GLIDESLOPE_TEST(through_a_gap_without_a_word_a_paced_client_flies_at_the_pace_its_loop_has_learnt) {
+    glideslope::sim::Pacing pacing;
+    (void)pacing.at(0.0);
+    pacing.heard(100, 0.0, 1.0);
+    pacing.heard(102, 0.04, 1.0);
+    const double pace = pacing.pace();
+    check(pace > 1.01, "two steps off steers it fast: " + std::to_string(pace));
+    const double was = pacing.at(0.04);
+    const double after = pacing.at(3.04);
+    const double steered = glideslope::sim::Pacing::steered_without_a_word_s;
+    const double learnt = 1.0 + glideslope::sim::Pacing::integral_per_s2 *
+                                    ((pace - 1.0 - glideslope::sim::Pacing::proportional_per_s *
+                                                       2.0 / 120.0) /
+                                     glideslope::sim::Pacing::integral_per_s2);
+    const double expected = steered * pace + (3.0 - steered) * learnt;
+    check(std::abs((after - was) - expected) < 1e-9,
+          "3 s flown as " + std::to_string(after - was) + ", not " + std::to_string(expected));
+    check((after - was) < 3.0 * pace - 0.04,
+          "not at the steered pace throughout: " + std::to_string(after - was));
+    check(std::abs((pacing.would_be_at(4.04) - after) -
+                   (steered * pace + (1.0 - steered) * learnt)) < 1e-9,
+          "and would_be_at says the same without advancing it");
+}
+
 // **What both clients do with a word, in every state the pacing can be in**
 // (sim::Pacing::follow - client::Flight::pace_by_clocks and the command
 // line's Predicting both call it and nothing else): before the clocks'

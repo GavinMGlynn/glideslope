@@ -166,6 +166,15 @@ void Prediction::step(std::uint32_t sequence, const Controls& controls) {
     while (held_.size() > most_unacknowledged) {
         held_.pop_front();
         began_.erase(began_.begin(), began_.lower_bound(held_.front().sequence));
+        sent_.erase(sent_.begin(), sent_.lower_bound(held_.front().sequence));
+    }
+}
+
+void Prediction::sent(std::uint32_t sequence, std::uint64_t step) {
+    stamps_ = true;
+    sent_.try_emplace(sequence, step);
+    while (sent_.size() > most_unacknowledged) {
+        sent_.erase(sent_.begin());
     }
 }
 
@@ -178,6 +187,7 @@ Prediction::Correction Prediction::reconcile(const AircraftSnapshot& server,
         held_.pop_front();
     }
     began_.erase(began_.begin(), began_.upper_bound(last_applied));
+    sent_.erase(sent_.begin(), sent_.upper_bound(last_applied));
     // The server's snapshot is an input too.
     if (!lost_) {
         if (const auto bad = first_not_finite(server)) {
@@ -246,6 +256,7 @@ Prediction::Correction Prediction::reconcile(const Motion& server,
     }
     // Kept from `last_applied` on: a later word may say more of it.
     began_.erase(began_.begin(), began_.lower_bound(last_applied));
+    sent_.erase(sent_.begin(), sent_.lower_bound(last_applied));
     // The server's word is an input too: its motion, and the STOVL law's
     // height asked and pitch integral where it carries them.
     if (!lost_) {
@@ -362,10 +373,21 @@ std::optional<std::uint64_t> Prediction::hear_clock(std::uint32_t last_applied,
     // `last_applied`, less where this client began it. An input never flown
     // here - sent before this prediction began - has no beginning, and says
     // nothing.
+    // **Stamped where its client sent it** (`sent`), once a client stamps:
+    // where it was flown from says nothing of when it left, and a sample not
+    // stamped is not taken.
     const auto began = began_.find(last_applied);
-    if (last_applied != 0 && began != began_.end() && steps_into <= server_steps) {
-        offsets_.push_back(static_cast<std::int64_t>(server_steps - steps_into) -
-                           static_cast<std::int64_t>(began->second));
+    const auto sent = sent_.find(last_applied);
+    if (last_applied != 0 && began != began_.end() && steps_into <= server_steps &&
+        (!stamps_ || sent != sent_.end())) {
+        const std::uint64_t from =
+            stamps_ ? std::max(sent->second, began->second) : began->second;
+        const std::int64_t difference = static_cast<std::int64_t>(server_steps - steps_into) -
+                                        static_cast<std::int64_t>(from);
+        newest_sample_ = Sample{difference, static_cast<std::int64_t>(from - began->second),
+                                static_cast<std::int64_t>(server_steps - steps_into) -
+                                    static_cast<std::int64_t>(began->second)};
+        offsets_.push_back(difference);
         while (offsets_.size() > offset_window) {
             offsets_.pop_front();
         }
