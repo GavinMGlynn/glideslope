@@ -488,14 +488,14 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       all or nudged and centred, hold their height within 100 ft and their
       attitude within 5 degrees for thirty seconds, the prediction within its
       bounds; every aircraft's first input is what she was held on.*
-- [ ] **The first-input test's nudge is the same nudge on every machine**:
-      begun once the clocks' difference is settled and counted in steps, not
-      at her first input in inputs, so a server busy joining her no longer
-      flies it early. Still missing: the server places an input where it
-      arrives, so a loaded machine still flies a 60-step nudge 58 to 99 steps
-      (2.45 to 4.11 degrees of bank). *Verification: with one and a half
-      times as many busy loops as cores, the nudged F-35B's server flies the
-      nudge 60 steps and banks her the same to 0.1 degree in ten runs.*
+- [x] **The first-input test's nudge is held to the steps the server flew
+      it**: begun once settled and counted in steps, and since the server
+      places an input where it arrives, a nudged aircraft's bank and pitch
+      are held to the rate each was measured to move per step the server
+      flew the nudge, plus a quarter of a degree (the project owner,
+      2026-10-24); a nudge over 120 steps fails. *Verification: the nudged
+      F-35B and C172P within it idle and under 20 to 40 busy loops, 44 to
+      104 steps; red when never nudged and on the trims held as the stick.*
 - [ ] **A predicting F-35B on a starved machine is put tens of metres off**:
       her prediction is costly enough that five clients and servers on two
       CPUs stall a client 1.7 to 3 s, its clocks' difference is learnt 5 to
