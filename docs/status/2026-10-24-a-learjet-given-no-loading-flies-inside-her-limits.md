@@ -86,5 +86,7 @@ named and failing.
 
 **Flight figures.** The Learjet's flight-manual figures are flown at her
 figures' named loadings, which set every tank and the payload, so her new
-own loading leaves them as they were. The related tests were run on
-linux-debug (below).
+own loading leaves them as they were. On linux-debug, 125 of 125 tests
+passed: every test naming the Learjet, a figure, a loading, every aircraft,
+or the selftest, among them her seven flight-manual figures and
+`the_selftest_prints_the_same_hash_every_run`.
