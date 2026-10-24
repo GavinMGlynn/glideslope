@@ -5988,21 +5988,22 @@ GLIDESLOPE_TEST(the_controller_holds_a_plans_speed_half_the_gust_factor_faster_i
 }
 
 // **A plan's slowest is flown for what she weighs** (Controller::plans_within,
-// sim::for_weight): the J-3 Cub asked 43 kt, her plan's slowest at her
-// model's 752 lb, is held at 43 there and, loaded to her gross 1,220 lb, at
-// 43 x sqrt(1,220 / 752) = 54.8; asked 60, above it, at 60 either way.
+// sim::for_weight): the J-3 Cub asked 46 kt, her plan's slowest at her
+// model's 922 lb (flown solo), is held at 46 there and, loaded to her gross
+// 1,220 lb, at 46 x sqrt(1,220 / 922) = 52.9; asked 60, above it, at 60
+// either way.
 GLIDESLOPE_TEST(the_controller_holds_a_plans_slowest_for_what_she_weighs) {
     const auto figures = glideslope::sim::read_published_figures(data() / "figures" / "j3cub.xml");
     check(figures.loadings.count("gross") == 1, "the Cub's figures name her gross loading");
     const glideslope::sim::Loading& gross = figures.loadings.at("gross").loading;
-    const double light = held_for_a_plan("j3cub", 43.0, nullptr);
-    const double heavy = held_for_a_plan("j3cub", 43.0, nullptr, &gross);
+    const double light = held_for_a_plan("j3cub", 46.0, nullptr);
+    const double heavy = held_for_a_plan("j3cub", 46.0, nullptr, &gross);
     const double above = held_for_a_plan("j3cub", 60.0, nullptr, &gross);
-    const double want = 43.0 * std::sqrt(1220.0 / 752.0);
-    std::printf("  j3cub held at 43 asked: %.2f at 752 lb, %.2f at 1,220 (want %.2f); 60 "
+    const double want = 46.0 * std::sqrt(1220.0 / 922.0);
+    std::printf("  j3cub held at 46 asked: %.2f at 922 lb, %.2f at 1,220 (want %.2f); 60 "
                 "asked at 1,220: %.2f\n",
                 light, heavy, want, above);
-    check(std::abs(light - 43.0) < 1e-9, "at her model's weight as asked: " + std::to_string(light));
+    check(std::abs(light - 46.0) < 1e-9, "at her model's weight as asked: " + std::to_string(light));
     check(std::abs(heavy - want) < 0.05, "at her gross weight her slowest for it: " +
                                              std::to_string(heavy));
     check(std::abs(above - 60.0) < 1e-9, "a faster speed as asked: " + std::to_string(above));

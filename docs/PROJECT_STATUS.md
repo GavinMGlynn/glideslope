@@ -166,8 +166,9 @@ loading at 1,000, 5,000 and 10,000 ft but where her book says she cannot fly
 (2026-10-23; the Learjet 35A's own loading inside her limits since
 2026-10-24), and a trim that fails is said in the server's log. Every
 aircraft's own loading - what a player given none flies - is checked against
-the weight and centre-of-gravity envelope her books publish: five inside,
-the J-3 Cub forward of hers (a tail), ten with none public, each named. The server deploys as a systemd unit or a container image. Still
+the weight and centre-of-gravity envelope her books publish: six inside
+(the Learjet's and the J-3 Cub's moved inside on 2026-10-24), ten with none
+public, each named. The server deploys as a systemd unit or a container image. Still
 missing from multiplayer:
 - choosing an aeroplane: a player flies what the server's plan flies;
 - the lobby, the session, the weather and the terrain dataset: they are

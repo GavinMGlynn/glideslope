@@ -35,6 +35,14 @@ The changes, and what each is for:
                         leading edge is 15.75 in ahead of it - which puts the
                         main axle, as the manual has it, 2 1/2 in (here 3.15)
                         from the leading edge.
+                        Her own loading, what a player given none flies, is
+                        flown solo from the rear seat, as A-691's placard has
+                        her ("solo from rear seat"): a 170 lb pilot at +36,
+                        the standard occupant her figures' loadings use (14
+                        CFR 23.25's 170 lb), and her tank full - 922 lb at
+                        station 13.95, inside A-691's 10.6 to 22.7 in. Until
+                        2026-10-24 she carried no one: 752 lb at 8.96,
+                        forward of it (assets/figures/j3cub.xml, cg_limits).
 
     The elevator's travel, 8 degrees each way -> 34 up and 29 down
                         A-691's (in Systems/conventional-controls.xml). With
@@ -346,6 +354,9 @@ PROPELLER = "prop_j3cub_74in"
 SYSTEM = "conventional-controls"
 
 EMPTY_WEIGHT_LBS = 680
+# Her own loading's pilot, solo from the rear seat (docstring, Weights and
+# loading): the standard occupant, 170 lb.
+OWN_PILOT_LBS = 170
 FUEL_LBS = 72           # 12 US gallons at 6 lb
 # The propeller's pitch over its diameter, 45 in over 74, against the pinned
 # table's, a 22-degree blade at three-quarters of its radius (pi x 0.75 x
@@ -577,9 +588,9 @@ def replace_once(text, pattern, replacement, what):
     return new
 
 
-def pointmass(name, x, z):
+def pointmass(name, x, z, lbs=0):
     return (f"   <pointmass name=\"{name}\">\n"
-            f"    <weight unit=\"LBS\"> 0 </weight>\n"
+            f"    <weight unit=\"LBS\"> {lbs} </weight>\n"
             f"    <location unit=\"IN\">\n"
             f"     <x>    {x:.2f} </x>\n"
             f"     <y>     0.00 </y>\n"
@@ -720,7 +731,7 @@ def airframe():
                         "the empty weight")
     text = replace_once(
         text, r"   <pointmass name=\"Pilot\">.*?</pointmass>\n",
-        pointmass("Pilot", station(36), -36.22)
+        pointmass("Pilot", station(36), -36.22, OWN_PILOT_LBS)
         + pointmass("Passenger", station(9), -36.22)
         + pointmass("Baggage", station(49), -30.00),
         "the pilot's seat")
