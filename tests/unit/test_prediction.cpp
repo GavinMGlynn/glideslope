@@ -919,7 +919,7 @@ Paced fly_paced(const std::vector<std::int64_t>& frames_us, std::int64_t one_way
             std::function<void()> listen_;
             std::function<void()> flown_;
             std::function<void()> hear_;
-            Controls fly(double, const Controls&) { return fly_(); }
+            Controls fly(double, const Controls&, std::int64_t) { return fly_(); }
             void listen(double) { listen_(); }
             void ticks_flown() {}
             void flown() { flown_(); }

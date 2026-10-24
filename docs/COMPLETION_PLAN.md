@@ -478,9 +478,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       on CI's Ubuntu debug (33 m). glideslope_cli now samples the clocks'
       difference from when each input was sent and flies a gap at the pace
       its loop learnt: stopped 3 s between flying and sending, 84 to 251 m
-      off before, two steps at most after. **Not yet: the windowed client
-      does not stamp its inputs; the debug build's 5 to 15 steps not
-      reproduced here.** *Verification: a predicting F-35B whose client is
+      off before, two steps at most after; the windowed client does the
+      same, but **is not yet held to the bound**: stopped so, it is 490 m
+      off from a word placed past what it has flown, which #249 fixes. **And
+      a debug build on two CPUs is still 8 to 20 steps off with no stall at
+      all** - a different cause, not yet found. *Verification: a predicting F-35B whose client is
       stalled 3 s is off by no more than four steps' travel.*
 - [x] **A client's prediction of an F-35B in STOVL mode follows the
       server's flight-control laws**: the server tells the height asked and

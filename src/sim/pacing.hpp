@@ -114,9 +114,12 @@ public:
     std::int64_t off() const { return off_; }
     bool holding() const { return held_.has_value(); }
 
-private:
-    // The paced time flown in `dt` of this machine's (`steered_without_a_word_s`).
+    // **The paced time flown in `dt` of this machine's**: at the pace for
+    // up to `steered_without_a_word_s` of it, and at the loop's integral
+    // after - what both clients fly a pass by.
     double flown_in(double dt) const;
+
+private:
     std::optional<std::int64_t> held_;
     std::int64_t last_difference_ = 0;
     bool ever_held_ = false;
