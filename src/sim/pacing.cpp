@@ -13,10 +13,19 @@ double Pacing::at(double local_s) {
     if (!last_local_s_) {
         paced_s_ = local_s;
     } else if (local_s > *last_local_s_) {
-        paced_s_ += (local_s - *last_local_s_) * pace_;
+        paced_s_ += flown_in(local_s - *last_local_s_);
     }
     last_local_s_ = std::max(local_s, last_local_s_.value_or(local_s));
     return paced_s_;
+}
+
+double Pacing::flown_in(double dt) const {
+    const double steered = std::min(dt, steered_without_a_word_s);
+    if (!held_) {
+        return dt * pace_;
+    }
+    const double learnt = std::clamp(1.0 + integral_per_s2 * integral_, slowest, fastest);
+    return steered * pace_ + (dt - steered) * learnt;
 }
 
 void Pacing::heard(std::int64_t difference, double local_s, std::optional<double> rate) {
