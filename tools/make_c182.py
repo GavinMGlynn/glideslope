@@ -179,8 +179,8 @@ QBarUW "is more appropriate for CL than the generic QBar" - a wing's lift is
 made by the air in the plane of u and w. Her wing is not swept: the case issue
 #89 tested. In flight, at a few degrees of sideslip, the two differ by its
 cosine squared. Her lift terms not keyed to the angle of attack (CLo, CLDf, CLq
-and CLDe) are not this change's, and stay on aero/qbar-psf. Standing, those
-give her 42 to 46 lb.
+and CLDe) were not this change's: they are moved below (2026-10-23). Standing,
+those give her 42 to 46 lb.
 
 **Her wing's drag keyed to the angle of attack on the same dynamic pressure**
 (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CDalpha, and CDDf, her

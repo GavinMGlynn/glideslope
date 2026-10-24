@@ -258,8 +258,8 @@ made by the air in the plane of u and w. Her wing is swept, 38.7 degrees at the
 quarter chord: the sweep argument above (simple sweep theory, NACA Report 863)
 holds for the lift of the same wing as for its moment - standing, qbarUW is the
 nearer; in flight, at a few degrees of sideslip, the two are under 1% apart.
-Her lift terms not keyed to the angle of attack (CLDe) are not this change's,
-and stay on aero/qbar-psf. CLq reads no angle of attack.
+Her lift terms not keyed to the angle of attack (CLDe) were not this change's:
+they are moved below (2026-10-23). CLq reads no angle of attack.
 
 **Her wing's drag keyed to the angle of attack on the same dynamic pressure**
 (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CDseparated. CDseparated,

@@ -149,8 +149,8 @@ wiki's "JSBSim Aerodynamics": QBarUW "is more appropriate for CL than the
 generic QBar" - a wing's lift is made by the air in the plane of u and w. Her
 wing is not swept: the case issue #89 tested. In flight, at a few degrees of
 sideslip, the two differ by its cosine squared. Her lift terms not keyed to the
-angle of attack (CLDf, CLDe and CLq) are not this change's, and stay on
-aero/qbar-psf. The selftest flies her, and its hash moves with this. The
+angle of attack (CLDf, CLDe and CLq) were not this change's: they are moved
+below (2026-10-23). The selftest flies her, and its hash moves with this. The
 learnt landing flies her slipped - in calm air 8 to 10 degrees on the approach
 and up to 17.7 in the flare, where qbarUW is 0.91 of qbar - so it lands
 shorter on her now, and harder in a crosswind - in calm air it sinks 4 to 10

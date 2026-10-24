@@ -237,8 +237,9 @@ def with_unkeyed_terms_on_qbar_uw(text, script, terms):
     3 - and on aero/qbarUW-psf of order rho V_uw^2 q c / V, the nearer. In
     flight the truth is cos b of the whole and aero/qbarUW-psf cos^2 b:
     under 0.4% apart at 5 degrees of sideslip. For every other such term, in
-    flight, at a few degrees of sideslip, the two pressures differ by its cosine squared, the sweep theory's mean
-    between them: under 1% either way.
+    flight, at a few degrees of sideslip, the two pressures differ by its
+    cosine squared, the sweep theory's mean between them: under 1% either
+    way.
 
     It fails - so that a model changed under the script is noticed - if a
     named axis is missing, if a named function is not in it, reads the angle

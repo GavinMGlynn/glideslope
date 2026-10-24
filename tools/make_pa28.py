@@ -138,9 +138,10 @@ issue #89's guidance, written into the FlightGear wiki's "JSBSim Aerodynamics":
 QBarUW "is more appropriate for CL than the generic QBar" - a wing's lift is
 made by the air in the plane of u and w. Her wing is not swept: the case issue
 #89 tested. In flight, at a few degrees of sideslip, the two differ by its
-cosine squared. **Not moved**: CLq, lift with her pitch rate, where the angle
-of attack only picks its coefficient. Her lift terms not keyed to the angle of
-attack (CLDf and CLDe) are not this change's, and stay on aero/qbar-psf.
+cosine squared. **Not moved** then: CLq, lift with her pitch rate, where the
+angle of attack only picks its coefficient - moved below (2026-10-23). Her
+lift terms not keyed to the angle of attack (CLDf and CLDe) were not this
+change's: they are moved below too.
 
 **Her lift terms not keyed to the angle of attack on the dynamic pressure
 without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
