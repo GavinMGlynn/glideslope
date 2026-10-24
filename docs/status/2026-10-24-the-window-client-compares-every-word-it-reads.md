@@ -138,5 +138,14 @@ times it was its own machine-stalls cap from #245 (14 and 7 stalls, at most
 2 allowed), which says the machine, not the prediction, was being measured.
 The word checks passed in both. It was not run further here.
 
+**Rebased on #234 and #251.** Main's first-input nudge record, taken from
+every word, is now taken in `read_word`, which every word passes through.
+After the rebase the related tests were run at `-j4` with no display: 49
+tests, 48 passed. The F-35B and C172P held-trim first-input test failed once:
+the F-35B, untouched, had a 95th percentile of 27.6 m against a bound of
+5.5 m. It then passed three times alone and in a second `-j4` run of the
+first-input and STOVL tests (22 of 22). Not explained; the output is kept in
+scratchpad/window-compares-every-update/first_input_red.log.
+
 **The selftest hash** does not move (831a4e7954233b0a): the selftest flies
 `sim::selftest`, not the prediction.
