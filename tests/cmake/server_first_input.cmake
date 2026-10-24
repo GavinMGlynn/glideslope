@@ -45,8 +45,11 @@
 # owing steps flew it early (net::HeldInputs), and a loaded machine's nudge
 # was flown 110 to 200 steps rather than 60 and banked her up to 8 degrees
 # (CI's Windows debug 5.15 and 5.27). Her first input is still the levers
-# she was held on. The client says how many steps the server flew it, and a
-# nudged run that says none - never nudged - fails.
+# she was held on. The server says each step her controls change at
+# (`--test-say-controls`): untouched, never; nudged, twice - the nudge and
+# the stick centred - and the steps between are the steps it flew the
+# nudge, in its own count. A nudged run the client says it never nudged
+# fails.
 #
 # **Every case, not a sample**: the two aircraft the item names, each touched
 # not at all and nudged - four runs, counted. The figures (linux-debug,
@@ -54,11 +57,14 @@
 #   - height within 100 ft (30.48 m) of where she was first heard, as an
 #     aircraft sent nothing is held (server_untouched.cmake);
 #   - untouched, her pitch over no more than 5 degrees and her bank within
-#     5; nudged, each within what it moved a step the server flew the nudge,
-#     measured, times those steps, and a quarter of a degree - and a nudge
-#     flown more than 120 steps fails, named: rolled off on her engine's torque once her stick is centred, as where
+#     5; nudged, each within the most it was measured to move a step the
+#     server flew the nudge, times those steps, and a margin from the
+#     measured spread (the status file) - her flight controls hold the
+#     attitude the nudge leaves her at, and a loaded server flies it longer.
+#     A nudge flown more than 120 steps, twice its 60, fails, named. Where
 #     the aileron and rudder are held as the stick and pedals rather than as
-#     trims, a C172P is at 37 degrees in thirty seconds;
+#     trims, a C172P rolls off on her engine's torque once her stick is
+#     centred, to 37 degrees in thirty seconds;
 #   - **the prediction**: the median under 60 mm and the 95th percentile
 #     within four steps' travel at her start speed, server_stovl_landing.
 #     cmake's bounds for its reason - on a busy machine some words are
@@ -157,6 +163,7 @@ foreach(_id IN LISTS AIRCRAFT)
                     --aircraft ${_id} --predict --from-held ${_nudge} --until-held 30
                     --heard "${_heard}"
             COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
+                    --test-say-controls
                     --data "${DATA}" --timeout 5 --store "${_store}"
             COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
                     --loss 0 --seed 1 --until-input-ends --seconds 900
@@ -188,12 +195,32 @@ foreach(_id IN LISTS AIRCRAFT)
         set(_pitch_high ${CMAKE_MATCH_2})
         set(_bank ${CMAKE_MATCH_3})
         if(_touch STREQUAL "nudged")
-            if(NOT _said MATCHES "nudged: inputs [0-9]+ to [0-9]+, ([0-9]+) steps here; the server flew [^\n]*, ([-0-9]+) steps")
+            if(NOT _said MATCHES "nudged: inputs [0-9]+ to [0-9]+, ([0-9]+) steps here")
                 message(FATAL_ERROR "the ${_id}, nudged, was never nudged:\n${_said}")
             endif()
-            set(_nudge_steps ${CMAKE_MATCH_2})
-            message(STATUS "the ${_id}, nudged: ${CMAKE_MATCH_1} steps here, about "
-                           "${_nudge_steps} on the server")
+            set(_steps_here ${CMAKE_MATCH_1})
+        endif()
+        # **The server's own count of the steps it flew the nudge**: the
+        # steps between the two changes of her controls it says.
+        string(REGEX MATCHALL "a player's controls changed with input [0-9]+, flown from step [0-9]+"
+               _changes "${_err}")
+        list(LENGTH _changes _changed)
+        if(_touch STREQUAL "untouched" AND NOT _changed EQUAL 0)
+            message(FATAL_ERROR "the ${_id}, untouched: the server says her controls changed "
+                                "${_changed} times:\n${_changes}")
+        endif()
+        if(_touch STREQUAL "nudged")
+            if(NOT _changed EQUAL 2)
+                message(FATAL_ERROR "the ${_id}, nudged: the server says her controls changed "
+                                    "${_changed} times, not the two of a nudge:\n${_changes}")
+            endif()
+            list(GET _changes 0 _began)
+            list(GET _changes 1 _ended)
+            string(REGEX REPLACE ".*step ([0-9]+)$" "\\1" _began "${_began}")
+            string(REGEX REPLACE ".*step ([0-9]+)$" "\\1" _ended "${_ended}")
+            math(EXPR _nudge_steps "${_ended} - ${_began}")
+            message(STATUS "the ${_id}, nudged: ${_steps_here} steps here, ${_nudge_steps} on "
+                           "the server (from its step ${_began})")
             # **More than twice its 60 steps is not the nudge**: named, not
             # passed.
             if(_nudge_steps GREATER 120)
@@ -238,22 +265,26 @@ foreach(_id IN LISTS AIRCRAFT)
         # **Her attitude, for the steps the server flew the nudge**: the
         # server flies an input from when it arrives, so a loaded machine
         # flies a 60-step nudge longer, and her flight controls hold the
-        # attitude it leaves her at. So nudged, her bank and her pitch's
-        # range are held to the most each moved a step the server flew the
-        # nudge, measured, times those steps, and a quarter of a degree
-        # (docs/status/2026-10-24-first-input-nudge-steady.md): in
-        # thousandths of a degree a step, F-35B bank 43 and pitch 10, C172P
-        # bank 14 and pitch 15. Untouched, within 5 degrees.
+        # attitude it leaves her at. Nudged, her bank and her pitch's range
+        # are each held to the line fitted to one set of runs - a rate a
+        # step, in thousandths of a degree, and where it begins, in
+        # hundredths - and a quarter of a degree over it; a second set of
+        # twelve, idle to 30 busy loops, came within 0.01 degree of the line
+        # (docs/status/2026-10-24-first-input-nudge-steady.md).
         if(_touch STREQUAL "nudged")
             if(_id STREQUAL "f35b")
-                set(_bank_rate 43)
-                set(_pitch_rate 10)
+                set(_bank_rate 41)
+                set(_bank_from_c 10)
+                set(_pitch_rate 11)
+                set(_pitch_from_c -12)
             else()
-                set(_bank_rate 14)
-                set(_pitch_rate 15)
+                set(_bank_rate 12)
+                set(_bank_from_c 14)
+                set(_pitch_rate 12)
+                set(_pitch_from_c 19)
             endif()
-            math(EXPR _bank_most_c "(${_bank_rate} * ${_nudge_steps} + 9) / 10 + 25")
-            math(EXPR _pitch_most_c "(${_pitch_rate} * ${_nudge_steps} + 9) / 10 + 25")
+            math(EXPR _bank_most_c "(${_bank_rate} * ${_nudge_steps} + 9) / 10 + ${_bank_from_c} + 25")
+            math(EXPR _pitch_most_c "(${_pitch_rate} * ${_nudge_steps} + 9) / 10 + ${_pitch_from_c} + 25")
         else()
             set(_bank_most_c 500)
             set(_pitch_most_c 500)
