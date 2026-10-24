@@ -2245,6 +2245,11 @@ public:
                     first = began;
                 }
             }
+            if (track_) {
+                *track_ << "word " << applied << ' ' << state.yours->steps_into_input << ' '
+                        << server_steps << ' ' << prediction_->steps() << ' '
+                        << (newest_read ? 1 : 0) << '\n';
+            }
             glideslope::sim::Prediction::Correction c;
             if (newest_read) {
                 c = prediction_->reconcile(
@@ -2418,7 +2423,9 @@ public:
                             << ' ' << prediction_->clocks_difference().value_or(0) << ' '
                             << prediction_->recent_clocks_difference().value_or(0) << ' '
                             << (paced_ ? pacing_.pace() : 1.0) << ' ' << speed_error
-                            << ' ' << off_path_m << ' ' << steps_off << '\n';
+                            << ' ' << off_path_m << ' ' << steps_off << ' '
+                            << std::abs(at->pitch_deg - pitch_of(m)) << ' ' << server_step
+                            << '\n';
                 }
                 // **Before and after an engine stopped**, apart.
                 if (engine_stopped_at_s_) {
