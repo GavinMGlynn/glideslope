@@ -159,7 +159,7 @@ fuselage tank sits at FS 440.2, 94% of her chord. Now a crew of two, 400 lb,
 as her figures' light loading carries (OWN_PAYLOAD_LBS), and her wing and tip
 tanks full with the fuselage tank empty (OWN_FUSELAGE_LBS): 15,471 lb at FS
 385.4, 28.1%, inside her forward limit there, 14.1%, and her aft. With the
-fuselage tank full as well she would lie at 33.6%, still aft of it.
+fuselage tank full as well she would lie at 33.4%, still aft of it.
 """
 
 import math
