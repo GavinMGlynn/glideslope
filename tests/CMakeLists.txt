@@ -232,6 +232,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_seconds_frame_heard_at_once_is_put_right_once_from_its_newest_word
     a_long_frame_puts_a_client_right_by_little_whether_or_not_its_clocks_difference_is_known_yet
     a_client_paced_by_its_clocks_difference_flies_at_the_servers_pace_and_holds_it
+    a_clocks_difference_is_sampled_from_where_each_input_was_sent_and_an_input_not_stamped_says_nothing
+    through_a_gap_without_a_word_a_paced_client_flies_at_the_pace_its_loop_has_learnt
     a_client_paces_itself_by_its_words_before_and_after_its_clocks_difference_is_known_and_after_starting_again
     three_seconds_of_unacknowledged_inputs_are_held
     no_more_than_four_seconds_of_unacknowledged_inputs_are_held
@@ -2292,6 +2294,20 @@ add_test(NAME a_players_f22a_untouched_is_predicted_on_the_held_trim_the_server_
 set_tests_properties(a_players_f22a_untouched_is_predicted_on_the_held_trim_the_server_tells_her_client_and_holds_height_and_attitude
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_f22_held_trim)
+
+# **A predicting F-35B whose client stops 3 s between flying and sending, on a
+# machine slow at her prediction, is placed within four steps' travel**: her
+# clocks' difference sampled from the step each input was sent at
+# (sim::Prediction::sent). See cmake/starved_f35b_placed.cmake.
+add_test(NAME a_predicting_f35b_whose_client_stops_three_seconds_between_flying_and_sending_is_placed_within_four_steps_travel
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/starved_f35b_placed -DPORT=24600
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/starved_f35b_placed.cmake)
+set_tests_properties(a_predicting_f35b_whose_client_stops_three_seconds_between_flying_and_sending_is_placed_within_four_steps_travel
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/starved_f35b_placed)
 
 # **What becomes of an aircraft when its player goes**, both settings walked, for
 # a player saying goodbye and one going quiet, and

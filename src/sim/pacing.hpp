@@ -61,6 +61,25 @@ public:
     // got to at `local_s`, advanced at the pace since the last call. The
     // first call starts it at `local_s`.
     double at(double local_s);
+    // **The same, without advancing it**: where `at(local_s)` would put the
+    // client's flying - what an input sent part-way through a pass is
+    // stamped with (sim::Prediction::sent). Before the first call, `local_s`.
+    double would_be_at(double local_s) const {
+        if (!last_local_s_) {
+            return local_s;
+        }
+        return local_s > *last_local_s_ ? paced_s_ + flown_in(local_s - *last_local_s_)
+                                        : paced_s_;
+    }
+    // **How long what the loop asks is flown for, without a word**: a
+    // quarter of a second, six words' time. Its proportional part is asked
+    // for the time until the next word, 40 ms; through a longer gap - a
+    // machine that stopped the client - it is flown at the loop's integral
+    // alone, the server's pace as the loop has learnt it. Flown at all of
+    // it, an F-35B's client steering 2% fast as it stopped for 3 s gained
+    // eight steps on the server, which no word asked for, and the next words
+    // were placed six steps off, 8.3 m (docs/status, 2026-10-24).
+    static constexpr double steered_without_a_word_s = 0.25;
 
     // **The clocks' difference the prediction measures**, in steps, at
     // `local_s`. The first heard after `hold` is the one held to; from it the
@@ -96,6 +115,8 @@ public:
     bool holding() const { return held_.has_value(); }
 
 private:
+    // The paced time flown in `dt` of this machine's (`steered_without_a_word_s`).
+    double flown_in(double dt) const;
     std::optional<std::int64_t> held_;
     std::int64_t last_difference_ = 0;
     bool ever_held_ = false;

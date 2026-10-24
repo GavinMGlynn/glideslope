@@ -204,6 +204,13 @@ bool connect_unpaced = false;
 // easy one.
 double connect_stopped_once_at_s = -1.0;
 double connect_stopped_once_ms = 0.0;
+// **(`--stopped-sending S MS`)**: the same stop, but made between flying the
+// steps owed on one input and sending the next - where a machine too slow
+// for its prediction, or one that takes its CPU away part-way through a
+// pass, stops it: the next input leaves MS later than the step it is flown
+// from. Its first pass from S on; counted the machine's, as above.
+double connect_stopped_sending_at_s = -1.0;
+double connect_stopped_sending_ms = 0.0;
 // **(`--slow-steps US`)**: with `--predict`, every step its prediction flies -
 // forward, or again in putting it right - takes US microseconds more of this
 // client's own CPU time, spent busy: a machine too slow for its own
@@ -572,6 +579,9 @@ void print_usage(std::FILE* out) {
         "                            nothing for MS milliseconds at S seconds on the\n"
         "                            session's clock, as a machine that stops it does,\n"
         "                            on a pass with a word waiting unread\n"
+        "                            --stopped-sending S MS (with --predict) the same,\n"
+        "                            between flying the steps owed and sending the\n"
+        "                            next input\n"
         "                            --slow-steps US (with --predict) spends US\n"
         "                            microseconds busy on every step it flies, forward\n"
         "                            or again: a machine too slow for its prediction\n"
@@ -2052,6 +2062,21 @@ public:
         held_trim_stages();
     }
 
+    // **The step input `sequence` leaves at** (sim::Prediction::sent): the
+    // step it will be flown from, plus the steps this machine's clock -
+    // paced, as `advance` flies - has moved on since that was reckoned.
+    void sending(std::uint32_t sequence, double local_s) {
+        if (!prediction_ || ai_flying_) {
+            return;
+        }
+        const double flown_s = paced_ ? pacing_.would_be_at(local_s) : local_s;
+        const auto due = static_cast<long long>(
+            flown_s * static_cast<double>(glideslope::sim::steps_per_second));
+        const auto late = static_cast<std::uint64_t>(std::max(0LL, due - stepped_));
+        prediction_->sent(sequence, prediction_->steps() + late);
+        most_sent_late_ = std::max(most_sent_late_, late);
+    }
+
     // Nothing to fly yet, but what would have been flown is kept: when the
     // first update comes it is already a trip old, and these are what carry
     // it forward to now (start).
@@ -2227,6 +2252,16 @@ public:
         const std::uint32_t applied = state.last_input_applied;
         const auto at =
             prediction_->hear_clock(applied, state.yours->steps_into_input, server_steps);
+        // **Each word's sample, for a test to read**: the input, the clocks'
+        // difference taken, how late its input was sent, and what it said
+        // from the step the input began on.
+        if (const auto sample = prediction_->newest_sample()) {
+            most_sampled_late_ = std::max(most_sampled_late_, sample->sent_late);
+            if (track_) {
+                *track_ << "sample " << local_s << ' ' << applied << ' ' << sample->difference
+                        << ' ' << sample->sent_late << ' ' << sample->from_began << '\n';
+            }
+        }
         // **Where the server flew the nudge from, and the stick centred**:
         // the first input of each heard, and the server's step it began at
         // - as near as the words fall. By every word read.
@@ -2886,6 +2921,12 @@ public:
                       corrections_joined_, worst_correction_joined_m_, snapped_joined_);
         lines.emplace_back(line);
         std::snprintf(line, sizeof line,
+                      "sent late: an input sent at most %llu steps after the step it is flown "
+                      "from, and a word's sample taken of one sent %lld after",
+                      static_cast<unsigned long long>(most_sent_late_),
+                      static_cast<long long>(most_sampled_late_));
+        lines.emplace_back(line);
+        std::snprintf(line, sizeof line,
                       "let go of: %zu predictions gone to a number not finite, %zu updates "
                       "compared since the last",
                       let_go_, compared_ - compared_when_let_go_);
@@ -3471,6 +3512,10 @@ private:
     }
     std::unique_ptr<glideslope::sim::Prediction> prediction_;
     long long stepped_ = 0;
+    // The most steps an input was sent after the step it is flown from
+    // (`sending`), and the most a word's sample was taken from.
+    std::uint64_t most_sent_late_ = 0;
+    std::int64_t most_sampled_late_ = 0;
     glideslope::sim::Pacing pacing_;
     // This client's step and the server's at the first update compared and
     // the last.
@@ -4045,6 +4090,15 @@ int stay(glideslope::platform::UdpSocket& socket,
                     predicting->advance(up_s, sequence,
                                         sequence == 0 ? predicting->held_or(stick) : stick);
                 }
+                // **A test's stall between flying and sending**
+                // (`--stopped-sending`).
+                if (connect_stopped_sending_at_s >= 0.0 && predicting &&
+                    predicting->session_now(up_s).value_or(-1.0) >=
+                        connect_stopped_sending_at_s) {
+                    connect_stopped_sending_at_s = -1.0;
+                    std::this_thread::sleep_for(
+                        std::chrono::duration<double, std::milli>(connect_stopped_sending_ms));
+                }
                 ++sequence;
                 // **Into the sea** (`--dive-after`): full forward stick and
                 // full power, for a test that needs its own aircraft wrecked.
@@ -4063,6 +4117,16 @@ int stay(glideslope::platform::UdpSocket& socket,
                             .as_list()));
                 }
                 sending.add(sequence, glideslope::net::as_sent(stick.as_list()));
+                // **Stamped as it leaves** (sim::Prediction::sent): the step
+                // this client's flying has got to now, not the step the
+                // input will be flown from, which a pass slow to get here
+                // left behind.
+                if (predicting) {
+                    predicting->sending(
+                        sequence,
+                        std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
+                            .count());
+                }
             }
             std::vector<std::uint8_t> body{
                 static_cast<std::uint8_t>(glideslope::net::Inside::inputs)};
@@ -5785,6 +5849,14 @@ static int run_program(int argc, char** argv) {
                     connect_stopped_once_at_s =
                         std::strtod(std::string(args[i + 1]).c_str(), nullptr);
                     connect_stopped_once_ms =
+                        std::strtod(std::string(args[i + 2]).c_str(), nullptr);
+                    i += 2;
+                    continue;
+                }
+                if (args[i] == "--stopped-sending" && i + 2 < args.size()) {
+                    connect_stopped_sending_at_s =
+                        std::strtod(std::string(args[i + 1]).c_str(), nullptr);
+                    connect_stopped_sending_ms =
                         std::strtod(std::string(args[i + 2]).c_str(), nullptr);
                     i += 2;
                     continue;
