@@ -136,12 +136,14 @@
     46 kt, the slowest a route may fly it, went round unstalled.
   </glide_speeds>
 
-  <landing_distance ft="1400" basis="measured" factor="1">
+  <landing_distance ft="1500" basis="measured" factor="1">
     Measured, not published: the line above is written by
-    tools/measured_landing.py from `glideslope_cli land j3cub` (2026-10-13,
-    linux-release). Landed by the approach autopilot from a final-approach gate
+    tools/measured_landing.py from `glideslope_cli land j3cub` (2026-10-24,
+    linux-debug, at her model's own loading flown solo, 922 lb; at 752 lb,
+    carrying no one, 2026-10-13, she stopped 399 m in and her figure was 1,400
+    ft). Landed by the approach autopilot from a final-approach gate
     2 nm out, on a level runway at sea level in calm air with every tank full,
-    she touched 292 m in and stopped 399 m past the threshold, which she crossed
+    she touched 301 m in and stopped 429 m past the threshold, which she crossed
     on the 3-degree glidepath aimed 300 m in, at about 50 ft. The figure is
     that, 2 per cent over and rounded up to 100 ft (7 per cent over in all), for
     the drift between machines: the AI's own landing in those conditions, not a

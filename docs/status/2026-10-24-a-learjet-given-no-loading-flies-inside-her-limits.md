@@ -47,7 +47,11 @@ The Learjet at 137 kt glided both ways stalled (alpha 27.1 degrees); 142 went
 round. The glide tests pinning each band were re-banded and renamed: the
 Learjet's from 142 to 167, 172 to 197, 202 to 227 and 232 to 240 kt each way;
 the Cub's 46 to 48. `the_controller_holds_a_plans_slowest_for_what_she_weighs`
-now asks the Cub's 46 kt at 922 lb, and 52.9 at her gross.
+now asks the Cub's 46 kt at 922 lb, and 52.9 at her gross. Her measured
+landing distance (`tools/measured_landing.py`) was measured again too: she
+stopped 429 m past the threshold, where at 752 lb she stopped at 399, so her
+figure is now 1,500 ft, not 1,400. `the_j3cub_lands_within_her_measured_landing_distance`
+failed until it was re-measured.
 
 **Every aircraft's own loading against her books.** Each figures file now
 gives one of two things, and the reader refuses a file with neither, or with
@@ -110,7 +114,13 @@ points: 526 trimmed, 14 left out, each named and failing.
 
 **Flight figures.** The Learjet's flight-manual figures are flown at her
 figures' named loadings, which set every tank and the payload, so her new
-own loading leaves them as they were. On linux-debug, 125 of 125 tests
+own loading leaves them as they were. After the Cub and the re-measured
+speeds, on linux-debug: 465 tests naming the Learjet, the Cub, a glide, a
+plan, a figure, a loading, an orbit, a route or every aircraft, the only
+failure the Cub's landing distance (fixed above), nine skipped as asking a
+live model with no key; then the 70 others in the files that fly the Cub
+(runway ground, lander, model, departure, autopilot, copilot), all passed.
+Before them, 125 of 125 tests
 passed: every test naming the Learjet, a figure, a loading, every aircraft,
 or the selftest, among them her seven flight-manual figures and
 `the_selftest_prints_the_same_hash_every_run`.

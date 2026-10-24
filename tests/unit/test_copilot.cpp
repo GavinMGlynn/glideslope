@@ -678,7 +678,7 @@ GLIDESLOPE_TEST(the_five_with_no_published_landing_distance_are_refused_a_runway
         double ft;
     };
     const std::vector<Measured> measured{
-        {"j3cub", 1400.0}, {"mosquito-fb6", 5500.0}, {"f35b", 9200.0}, {"b2", 9100.0}};
+        {"j3cub", 1500.0}, {"mosquito-fb6", 5500.0}, {"f35b", 9200.0}, {"b2", 9100.0}};
     // **The same set the re-fly tests find**: tests/CMakeLists.txt makes a
     // `the_<aircraft>_lands_within_her_measured_landing_distance` for each
     // figures file whose landing distance is measured, read from the files,
