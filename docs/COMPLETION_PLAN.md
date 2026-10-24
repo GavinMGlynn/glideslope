@@ -846,8 +846,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       without the fix.* Done 2026-10-23.
 - [x] **The window client compares only each frame's newest update.** Now
       both clients compare every word they read at that word's own step. A
-      word about a step not yet flown waits until that step is flown. Every
-      word not compared is counted by its reason.
+      word about a step not yet flown waits until that step is flown. The only
+      words not compared are counted, each with its reason: those read before
+      the first could be placed, as a prediction begins, and those dropped at
+      a take-back, a take-over or a let-go.
       *Verification: every update it reads is compared, counted in a test.*
       Done 2026-10-24.
 - [x] **A client's prediction asserted in JSBSim on a NaN after two water

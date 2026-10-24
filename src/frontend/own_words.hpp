@@ -100,6 +100,8 @@ public:
         Word word;
         std::optional<std::uint64_t> at_step;
         double read_s = 0.0;
+        // Its place among every word read, oldest first.
+        std::size_t index = 0;
     };
 
     // Held longer than this, a word's step is not coming: dropped.
@@ -113,15 +115,21 @@ public:
     void read(Word word, std::optional<std::uint64_t> at_step, std::uint64_t flown,
               double local_s, Compare&& compare) {
         release(flown, compare);
+        Placed placed{std::move(word), at_step, local_s, read_};
         ++read_;
-        Placed placed{std::move(word), at_step, local_s};
+        last_read_ = placed.index;
         if (!at_step) {
             ++unplaced_;
-            newest_ = std::move(placed);
+            // Before the first placed, always: the clocks' difference, once
+            // it has a sample, places every word after.
+            unplaced_after_placed_ += any_placed_ ? 1 : 0;
+            offer(std::move(placed));
         } else if (*at_step <= flown) {
+            any_placed_ = true;
             judge(placed, compare);
-            newest_ = std::move(placed);
+            offer(std::move(placed));
         } else {
+            any_placed_ = true;
             ++held_ever_;
             most_steps_past_ = std::max(most_steps_past_, *at_step - flown);
             held_.push_back(std::move(placed));
@@ -134,14 +142,28 @@ public:
     template <class Compare>
     std::optional<Placed> settle(std::uint64_t flown, double local_s, Compare&& compare) {
         release(flown, compare);
-        while (!held_.empty() && local_s - held_.front().read_s > most_held_s) {
-            held_.pop_front();
-            ++dropped_["never flown"];
+        for (auto it = held_.begin(); it != held_.end();) {
+            if (local_s - it->read_s > most_held_s) {
+                it = held_.erase(it);
+                ++dropped_["never flown"];
+            } else {
+                ++it;
+            }
         }
         std::optional<Placed> out = std::move(newest_);
         newest_.reset();
         if (out) {
             ++put_right_from_;
+            // **Which word it was**, counted, not assumed: the newest read
+            // whose step was flown (`ready_`), and the newest read of all
+            // unless newer ones are held for their steps.
+            if (!ready_ || out->index != *ready_) {
+                ++not_newest_;
+            } else if (out->index == last_read_) {
+                ++newest_read_;
+            } else {
+                ++newer_held_;
+            }
         }
         return out;
     }
@@ -150,6 +172,9 @@ public:
     // start again - and with it every word held for it, counted by `why`;
     // and the word read for it not yet put right from.
     void drop(const std::string& why) {
+        // A prediction begun again has no clocks' difference until a word
+        // gives it one (sim::Prediction::hear_clock).
+        any_placed_ = false;
         if (!held_.empty()) {
             dropped_[why] += held_.size();
             held_.clear();
@@ -163,6 +188,7 @@ public:
     std::size_t read() const { return read_; }
     std::size_t compared() const { return compared_; }
     std::size_t unplaced() const { return unplaced_; }
+    std::size_t unplaced_after_placed() const { return unplaced_after_placed_; }
     // Placed at a step flown and no longer kept: in nothing else, and a
     // test that counts the words read finds it missing.
     std::size_t not_kept() const { return not_kept_; }
@@ -182,14 +208,36 @@ public:
     // as compared, and this says how many puttings right were not made.
     std::size_t let_go() const { return let_go_; }
     std::size_t put_right_from() const { return put_right_from_; }
+    // Of those: the newest word read in its pass; the newest whose step was
+    // flown, newer ones held; and any other, which is a fault.
+    std::size_t put_right_from_newest_read() const { return newest_read_; }
+    std::size_t put_right_from_newer_held() const { return newer_held_; }
+    std::size_t put_right_from_not_newest() const { return not_newest_; }
 
 private:
     template <class Compare>
     void release(std::uint64_t flown, Compare& compare) {
-        while (!held_.empty() && *held_.front().at_step <= flown) {
-            Placed placed = std::move(held_.front());
-            held_.pop_front();
-            judge(placed, compare);
+        // **Every word held whose step is now flown**, in the order read -
+        // not only those in front: a word placed earlier than one read
+        // before it (the clocks' difference moved) is flown first, and left
+        // behind the other it found its step forgotten by a newer word's
+        // comparison (Linux debug, a loaded machine: 2 in 252).
+        for (auto it = held_.begin(); it != held_.end();) {
+            if (*it->at_step <= flown) {
+                Placed placed = std::move(*it);
+                it = held_.erase(it);
+                judge(placed, compare);
+                offer(std::move(placed));
+            } else {
+                ++it;
+            }
+        }
+    }
+    // A word ready to put right from - compared, or never placeable - is
+    // the one to put right from if it is the newest read of those ready.
+    void offer(Placed placed) {
+        ready_ = std::max(ready_.value_or(0), placed.index);
+        if (!newest_ || placed.index > newest_->index) {
             newest_ = std::move(placed);
         }
     }
@@ -219,6 +267,13 @@ private:
     std::uint64_t most_steps_past_ = 0;
     std::size_t let_go_ = 0;
     std::size_t put_right_from_ = 0;
+    std::size_t newest_read_ = 0;
+    std::size_t newer_held_ = 0;
+    std::size_t not_newest_ = 0;
+    std::size_t unplaced_after_placed_ = 0;
+    bool any_placed_ = false;
+    std::size_t last_read_ = 0;
+    std::optional<std::size_t> ready_;
     std::map<std::string, std::size_t> dropped_;
 };
 
@@ -236,13 +291,17 @@ std::string said(const OwnWords<Word>& words, std::size_t most_in_a_pass) {
            std::to_string(words.compared()) + " compared at their own step, " +
            std::to_string(words.held_ever()) + " held until it was flown (at most " +
            std::to_string(words.most_steps_past()) + " steps past); " +
-           std::to_string(words.unplaced()) + " before its clocks' difference could place them, " +
+           std::to_string(words.unplaced()) + " before its clocks' difference could place them (" +
+           std::to_string(words.unplaced_after_placed()) + " after one was placed), " +
            std::to_string(words.not_finite()) + " not finite, " +
            std::to_string(words.not_kept()) + " at a step no longer kept, " +
            std::to_string(words.dropped_all()) + " dropped (" +
            (dropped.empty() ? std::string("none") : dropped) + "), " +
            std::to_string(words.held_now()) + " still held; " +
-           std::to_string(words.put_right_from()) + " put right from, at most " +
+           std::to_string(words.put_right_from()) + " put right from (" +
+           std::to_string(words.put_right_from_newest_read()) + " the newest read, " +
+           std::to_string(words.put_right_from_newer_held()) + " the newest flown with newer held, " +
+           std::to_string(words.put_right_from_not_newest()) + " neither), at most " +
            std::to_string(most_in_a_pass) + " read in a pass";
 }
 

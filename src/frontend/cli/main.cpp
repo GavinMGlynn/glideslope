@@ -2148,6 +2148,9 @@ public:
                 // had flown. Put right from each, a client too slow to fly
                 // the steps again as fast as the words came read them ever
                 // later and never caught up (sim::Prediction::hear_clock).
+                // Counted here, apart from `read_word`'s own count, so that
+                // a word it misses is seen (own_words_check.cmake).
+                ++own_words_heard_;
                 read_word(state, local_s);
             }
         }
@@ -2900,6 +2903,8 @@ public:
         // as the client with the window says it.
         lines.emplace_back(glideslope::frontend::said(
             words_, std::max(most_read_in_pass_, read_in_pass_)));
+        lines.emplace_back("heard " + std::to_string(own_words_heard_) +
+                           " words on its own aircraft while predicting it");
         std::snprintf(line, sizeof line,
                       "prediction error: %zu updates compared, the worst %.3f m (%zu inputs "
                       "flown while joining or taking back, before the server had applied one, "
@@ -3605,6 +3610,7 @@ private:
     // read dry**, and when it came (`put_right`).
     Words words_;
     double last_read_s_ = 0.0;
+    std::size_t own_words_heard_ = 0;
 };
 
 // **How long a session may go without anything opening under it before a

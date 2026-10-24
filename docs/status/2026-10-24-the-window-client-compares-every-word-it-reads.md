@@ -54,16 +54,20 @@ runs had none.
 **Verification.**
 - `a_client_with_the_window_reading_several_updates_a_frame_compares_every_one_at_its_own_step`
   (client_on_server.cmake with `EVERY_WORD`: `--slow-frames 300
-  --ticks-behind 5`) and
+  --ticks-behind 12`) and
   `a_predicting_client_too_slow_to_replay_every_word_puts_itself_right_from_the_newest_and_keeps_up`
   (glideslope_cli) both check the words through `own_words_check.cmake`.
-  Words read must equal words compared plus words named. None may be at a
-  step no longer kept. At most 25 may come before they could be placed, and
-  at most 2 may be dropped (neither case has a switch). A pass must have read
-  several words, and in the window case some words must have been held.
-- Window client, Linux debug, three runs: 251 read, 250 compared, 51 of them
-  held (at most 6 steps past); 250 and 249, 43 held; 251 and 250, 41 held.
-  Each time 1 word came before it could be placed and none were dropped.
+  Words read must equal words compared plus words named, and must equal the
+  client's own count of words heard. None may be at a step no longer kept.
+  At most 28 may come before they could be placed, and none after a word was
+  placed. At most 2 may be dropped (neither case has a switch). Every replay
+  must be from the newest word. The window case must also meet the
+  ticks-behind counts above. glideslope_cli's case must have a pass that read
+  several words.
+- Window client, Linux debug, at `--ticks-behind 5` before the review: 251
+  read, 250 compared, 51 of them held; 250 and 249, 43 held; 251 and 250, 41
+  held. At 12, after it, on a loaded machine: 251 read (251 heard), 249
+  compared, 77 held, 2 not yet placeable; and 251, 249, 79 held, 2.
 - glideslope_cli, starved: 429 read, 429 compared.
 - Seen red with the hold taken out (a word past the steps flown compared at
   once): 208 of 251 compared, and 42 at a step no longer kept. The hold was
@@ -72,6 +76,39 @@ runs had none.
 - The related tests (`ctest -R` on the window client, prediction, take-over,
   STOVL, NaN and help tests, `-j4`, no display) pass. The ports check passes.
   Built on Windows (`tools/windows_build.sh`, windows-debug).
+
+**From the review: the checks tightened** (own_words_check.cmake).
+- **Counted twice, apart.** The words read must equal the client's own count
+  of the words it heard on its own aircraft, kept where it hears them, not by
+  `OwnWords`. The window client's corrections must equal the words put right
+  from.
+- **Only from the newest.** `OwnWords` counts which word each replay is from:
+  the newest read in its pass, or, with newer words held for their steps, the
+  newest whose step was flown. It also counts any other replay, which fails
+  the test. Window client: 98 put right from, 72 from the newest read and 26
+  from the newest flown with newer held.
+- **Why a word cannot be placed.** A word is placed by the input it says the
+  server last applied, as this client began that input. Until the server has
+  applied one this prediction flew, no word has a place. So unplaceable words
+  come only in the first frames after a prediction begins, never after a word
+  has been placed, and the test asserts that. The worst count seen was 14, in
+  a frame of 17 words on a loaded machine (load 20 to 40). The test allows
+  28, twice that.
+- **The situation built, by count.** `--ticks-behind` is now 12, more than
+  two words' steps. At 5, a loaded machine's long frames held only 1 word in
+  21 passes. The client says how many passes it flew behind. The test
+  requires at least ten such passes, and at least as many words held as
+  passes. Two runs: 25 passes, with 77 and 79 words held.
+- **A held word is released wherever it is in the queue**, not only from the
+  front. Before, a word placed earlier than one read before it waited behind
+  that word, and a newer word's comparison forgot its step: 2 in 252 on the
+  loaded machine.
+
+**Related tests after the review**: 82, `-j4` with no display, twice. The
+second run was green (one skipped: the live ChatGPT case). The first, on a
+machine at load 20 to 40, failed the every-word test once, and its output
+was not kept. Run alone and beside the other heavy tests since, it passed
+four times. This is named here, not explained.
 
 **The selftest hash** does not move (831a4e7954233b0a): the selftest flies
 `sim::selftest`, not the prediction.
