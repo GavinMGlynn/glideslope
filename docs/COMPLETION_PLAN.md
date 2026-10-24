@@ -736,10 +736,21 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       *Verification: each model's drag terms keyed to the angle of attack on
       the dynamic pressure without its sideways part or named with a reason,
       and every figure in range.* Done 2026-10-16.
-- [ ] **Lift not keyed to the angle of attack counts the crosswind
+- [x] **Lift not keyed to the angle of attack counts the crosswind
       standing**: flaps, elevators and the C182's lift at no angle give her
       up to 46 lb in 15 kt across, the F-22A 280. *Verification: each such
-      term moved or named with a reason, and every figure in range.*
+      term moved or named with a reason, and every figure in range.* Done
+      2026-10-23: all 38 such terms in the 16 models moved, lift with pitch
+      rate among them, and the 4 lifts with pitch rate keyed to the angle,
+      named until now, too; standing in 15 kt across with any lifting
+      control set, from up to 6,450 lb to under 0.1 lb. Every figure in
+      range.
+- [ ] **Pitching moments not keyed to the angle of attack count the
+      crosswind standing**: the elevators', flaps' and pitch damping's
+      moments are on the whole dynamic pressure, as their lift was;
+      unmeasured. *Verification: each such term moved or named with a
+      reason, her pitch standing in 15 kt across measured before and after,
+      and every figure in range.*
 - [x] **The Mosquito's slipstream lift flips with an undefined angle of
       attack**: on her brakes at +9 boost it is -2,570 or +2,050 lb as her
       creep flips the angle from -93 to +87 degrees. *Verification: standing
@@ -1098,6 +1109,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       Done 2026-10-20: trained on from part 7's checkpoint on her with her new
       rudder (parts 8 to 10), chosen with every test's figure 5 per cent inside
       its limit; parts 1 to 7 still cannot be made again from committed scripts.
+- [ ] **The learnt landing's fidelity to the C172P as she now flies**: it
+      still passes every limit, but was trained before her flaps', elevator's
+      and pitch-rate lift left out the crosswind (2026-10-23), and now lands
+      39 to 69 m shorter than it did. Owner's decision 2026-10-24: a fidelity
+      item, not a fault. *Verification: the policy trained again on the
+      C172P as committed, its parity fixture from that training.*
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own

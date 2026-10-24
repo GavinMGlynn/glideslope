@@ -822,6 +822,31 @@
       </sum>
     </function>
 
+    <!-- The same pressure with its whole-air part leaving out the sideways
+         air, for her elevator's lift (tools/make_mosquito_fb6.py,
+         with_elevator_lift_on_qbar_uw). -->
+    <function name="aero/function/qbarUW-tail-psf">
+      <sum>
+        <product>
+          <value>0.6</value>
+          <property>aero/qbarUW-psf</property>
+        </product>
+        <product>
+          <value>0.4</value>
+          <value>0.5</value>
+          <property>atmosphere/rho-slugs_ft3</property>
+          <pow>
+            <sum>
+              <property>velocities/u-aero-fps</property>
+              <property>propulsion/engine[0]/prop-induced-velocity_fps</property>
+              <property>propulsion/engine[1]/prop-induced-velocity_fps</property>
+            </sum>
+            <value>2</value>
+          </pow>
+        </product>
+      </sum>
+    </function>
+
     <!-- The whole aircraft's lift with angle of attack and flap. The
          slope, 4.9 a radian, is the wing's for an aspect ratio of 6.46
          with the tailplane's added; zero lift at -2 degrees for the wing's
@@ -1003,7 +1028,7 @@
           454 sq ft, with the elevator's effectiveness, in the tailplane's
           dynamic pressure</description>
         <product>
-          <property>aero/function/qbar-tail-psf</property>
+          <property>aero/function/qbarUW-tail-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>fcs/elevator-pos-rad</property>
           <value>0.31</value>
@@ -1012,7 +1037,7 @@
       <function name="aero/force/lift-pitch-rate">
         <description>Lift from pitch rate, the tailplane's</description>
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>aero/ci2vel</property>
           <property>velocities/q-aero-rad_sec</property>

@@ -574,7 +574,7 @@
             <function name="aero/coefficient/CLq">
                 <description>Lift_due_to_pitch_rate</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>aero/ci2vel</property>
                     <property>velocities/q-aero-rad_sec</property>
@@ -584,7 +584,7 @@
             <function name="aero/coefficient/CLde">
                 <description>Lift_due_to_elevator</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/elevator-pos-rad</property>
                     <value>0.338</value>

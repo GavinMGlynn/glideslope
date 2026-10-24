@@ -483,7 +483,7 @@
     <function name="aero/force/Lift_pitch_rate">
         <description>Lift_due_to_pitch_rate</description>
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>velocities/q-aero-rad_sec</property>
           <property>aero/ci2vel</property>
@@ -511,7 +511,7 @@
     <function name="aero/force/Lift_elevator">
        <description>Lift due to Elevator Deflection</description>
        <product>
-           <property>aero/qbar-psf</property>
+           <property>aero/qbarUW-psf</property>
            <property>metrics/Sw-sqft</property>
            <property>fcs/elevator-pos-rad</property>
            <value> 0.3274 </value>	<!-- Du Y -->

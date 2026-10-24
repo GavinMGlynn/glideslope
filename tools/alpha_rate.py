@@ -184,3 +184,93 @@ def with_alpha_terms_on_qbar_uw(text, script, terms):
             raise SystemExit(f"{script}: in {axis_name}, {sorted(wanted - changed)} not found - "
                              f"has the model changed?")
     return text
+
+
+def with_unkeyed_terms_on_qbar_uw(text, script, terms):
+    """`text`, a JSBSim model, with the terms *not* keyed to the angle of
+    attack that `terms` names - {axis: [function name, ...]} - on
+    aero/qbarUW-psf: a flap's, an elevator's, a stabiliser's or a spoiler's
+    lift, a wing's lift at no angle, and lift with pitch rate (2026-10-23).
+
+    **Why.** The same air as with_alpha_terms_on_qbar_uw's: on the whole
+    dynamic pressure a term that is a coefficient times a deflection, or a
+    constant, counts the crosswind standing. A C182 on her brakes with her
+    flaps down in 15 kt straight across was lifted by up to 46 lb by her
+    CLo, CLDf and CLDe, an F-22A by 280 by her dCLflap, dCLsb and CLde,
+    though no wing or tail makes lift from air running along its span. JSBSim
+    issue #89 (https://github.com/JSBSim-Team/jsbsim/issues/89) and the
+    FlightGear wiki's "JSBSim Aerodynamics" put the whole of CL on QBarUW
+    for an unswept wing - "more appropriate for CL than the generic QBar" -
+    not only its part at the angle of attack.
+
+    **A swept wing or tail**, where issue #89 did not look. Simple sweep
+    theory (NACA Report 863, as in with_alpha_terms_on_qbar_uw): a beam wind
+    meets each half at V sin L normal to its leading edge, one half leading
+    edge first and the other trailing edge first. A deflection's lift is not
+    of order w, as the angle of attack's is, so on the half met leading edge
+    first it is the deflection's section lift on that pressure: tan^2 L / 2
+    of what the whole dynamic pressure gives. On the half met backwards a
+    trailing-edge flap or elevator is a drooped nose, and thin aerofoil
+    theory of a hinged flap (H. Glauert, "Theoretical relationships for an
+    aerofoil with hinged flap", ARC R&M 1095, 1927; its integral of the
+    camber line's slope taken over the flap at the nose instead of the tail,
+    worked here) gives a surface met at its nose a small part of its effect
+    met at its hinge, of the opposite sign: a 30% chord surface moves the
+    zero-lift angle 0.077 radian a radian met at its nose against 0.661 met
+    at its hinge (25%, 0.058 against 0.609; 40%, 0.124 against 0.748). An
+    all-moving tail met backwards is the same plate at the opposite
+    incidence, the whole effect of the opposite sign. So standing in a beam
+    wind such a term is under tan^2 L / 2 of its figure on the whole
+    pressure for a hinged surface (0.44 tan^2 L for a 30% chord one), and
+    nothing for an all-moving one: under half of it at every sweep here (45
+    degrees or less), so aero/qbarUW-psf's nothing is the nearer, as it
+    is for an unswept surface. A spoiler takes away lift the wing makes, and
+    standing the wing makes none (its terms already on aero/qbarUW-psf), so
+    nothing is the nearer there too. **Lift with pitch rate** (CLq, which
+    with_alpha_terms_on_qbar_uw moves too where the angle of attack picks its
+    coefficient) is the lift a pitching tail makes at the incidence its
+    motion adds, q l / V, in the same air: of order rho V_uw q l, where V_uw
+    is the speed in the plane of u and w, and so near nothing standing. On
+    the whole dynamic pressure, times c / 2V, it is of order rho V q c and
+    counts the crosswind - standing in 15 kt across an A380 rocking at a
+    tenth of a degree a second was lifted 26 lb by it, an F-22A 25, a PA-28
+    3 - and on aero/qbarUW-psf of order rho V_uw^2 q c / V, the nearer. In
+    flight the truth is cos b of the whole and aero/qbarUW-psf cos^2 b:
+    under 0.4% apart at 5 degrees of sideslip. For every other such term, in
+    flight, at a few degrees of sideslip, the two pressures differ by its
+    cosine squared, the sweep theory's mean between them: under 1% either
+    way.
+
+    It fails - so that a model changed under the script is noticed - if a
+    named axis is missing, if a named function is not in it, reads the angle
+    of attack (with_alpha_terms_on_qbar_uw's), multiplies the alpha rate
+    (with_qbar_uw's) or has no aero/qbar-psf to replace.
+    """
+    of_alpha = functions_of_alpha(text)
+    for axis_name, names in terms.items():
+        wanted = set(names)
+        changed = set()
+
+        def fix(m):
+            name, block = m.group(1), m.group(0)
+            if name not in wanted:
+                return block
+            if name in of_alpha or ALPHA_RATE in block:
+                raise SystemExit(f"{script}: {name} is keyed to the angle of attack or its "
+                                 f"rate - has the model changed?")
+            new = block.replace("<property>aero/qbar-psf</property>",
+                                "<property>aero/qbarUW-psf</property>")
+            if new == block:
+                raise SystemExit(f"{script}: {name} has no aero/qbar-psf to replace - "
+                                 f"has the model changed?")
+            changed.add(name)
+            return new
+
+        pattern = axis_pattern(axis_name)
+        if not pattern.search(text):
+            raise SystemExit(f"{script}: no {axis_name} axis - has the model changed?")
+        text = pattern.sub(lambda m: FUNCTION.sub(fix, m.group(0)), text)
+        if changed != wanted:
+            raise SystemExit(f"{script}: in {axis_name}, {sorted(wanted - changed)} not found - "
+                             f"has the model changed?")
+    return text

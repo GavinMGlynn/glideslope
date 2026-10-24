@@ -715,7 +715,7 @@
             <function name="aero/coefficient/CLDf">
                 <description>Delta_lift_due_to_flap_deflection</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>aero/function/kCLge</property>
                       <table>
@@ -732,7 +732,7 @@
             <function name="aero/coefficient/CLDe">
                 <description>Lift_due_to_Elevator_Deflection</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>fcs/elevator-pos-rad</property>
                     <value>0.4300</value>
@@ -751,7 +751,7 @@
             <function name="aero/coefficient/CLq">
                 <description>Lift_due_to_pitch_rate</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>velocities/q-aero-rad_sec</property>
                     <property>aero/ci2vel</property>

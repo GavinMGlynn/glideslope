@@ -694,7 +694,7 @@
     <function name="aero/force/Lift_flap">
        <description>Delta Lift due to flaps</description>
        <product>
-           <property>aero/qbar-psf</property>
+           <property>aero/qbarUW-psf</property>
            <property>metrics/Sw-sqft</property>
            <property>fcs/flap-pos-deg</property>
            <value> 0.024 </value>
@@ -704,7 +704,7 @@
     <function name="aero/force/Lift_speedbrake">
        <description>Delta Lift due to speedbrake</description>
        <product>
-           <property>aero/qbar-psf</property>
+           <property>aero/qbarUW-psf</property>
            <property>metrics/Sw-sqft</property>
            <property>fcs/speedbrake-pos-norm</property>
            <value>-0.2</value>
@@ -714,7 +714,7 @@
     <function name="aero/force/Lift_elevator">
        <description>Lift due to Elevator Deflection</description>
        <product>
-           <property>aero/qbar-psf</property>
+           <property>aero/qbarUW-psf</property>
            <property>metrics/Sw-sqft</property>
            <property>fcs/elevator-pos-rad</property>
            <value>0.55</value>

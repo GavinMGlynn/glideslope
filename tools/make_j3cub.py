@@ -178,34 +178,33 @@ moment keyed to the angle of attack. (Left on the whole dynamic pressure, she
 rolled 20.8 degrees and struck her airframe at the end of the 3 kt
 walking-pace test in 15 kt across: her wing's drag, below, was why.)
 
-**Her lift and her wing's drag keyed to the angle of attack on the same
-dynamic pressure** (2026-10-15): Lift_alpha, Lift_propwash and Drag_basic.
-Handed to the rollout at 3.5 to 5 kt in 15 kt straight across, she stopped,
-stood at taxi power, and was rolled onto her wing: she struck her airframe
-at 21 degrees of roll. Traced step by step, the force that rolled her was
-Drag_basic: her wing section's drag against the angle of attack, which at
-90 degrees is a flat plate's, 1.41. Standing with the air from the side,
-atan2(w, u) is anything at all, and each degree she leaned away from the
-wind gave the beam wind a w and took her angle of attack on towards 90 (21
-to 81 degrees): on the whole dynamic pressure Drag_basic grew from 33 lb to
-155 as she leaned, and the sideways force on her from 171 lb to 274, at her
-wing six feet above her wheels - a lean that fed itself, over the edge her
-weight holds her on. Her dihedral (Roll_beta, 250 to 330 ft-lb) did not
-grow as she went. The wing meets the air face-on only in the plane of u
-and w; the sideways part runs along its span and meets its leading edge.
-On aero/qbarUW-psf - the guidance of issue #89 and the FlightGear wiki's
-"JSBSim Aerodynamics" for lift, and the same reasoning for the drag of the
-same wing at the same angle of attack - she leans 4.2 to 4.4 degrees at
-every walking pace, 2 to 5 kt, every loading and either side, and stays
-there. Her lift moves for the same reason: it counted the crosswind (358 lb
-up braking from 10 kt in 15 kt across at her gross weight, against 104 in
-calm air). Moved alone (an earlier try), it rolled her the more: without
-its ~100 lb she stood a degree more nose-up, her angle of attack 47 degrees
-against 42, Drag_basic the more, and she struck at every pace. Not moved: Lift_pitch_rate
-(a damping term) and her roll terms keyed to alpha (Roll_beta,
-Roll_yaw, Roll_differential_propwash): in flight issue #89 offers no
-guidance for the rolling moment, and standing they did not cause it. Her
-figures in flight: see PROJECT_STATUS (2026-10-15).
+**Her lift and her wing's drag keyed to the angle of attack on the same dynamic
+pressure** (2026-10-15): Lift_alpha, Lift_propwash and Drag_basic. Handed to
+the rollout at 3.5 to 5 kt in 15 kt straight across, she stopped, stood at taxi
+power, and was rolled onto her wing: she struck her airframe at 21 degrees of
+roll. Traced step by step, the force that rolled her was Drag_basic: her wing
+section's drag against the angle of attack, which at 90 degrees is a flat
+plate's, 1.41. Standing with the air from the side, atan2(w, u) is anything at
+all, and each degree she leaned away from the wind gave the beam wind a w and
+took her angle of attack on towards 90 (21 to 81 degrees): on the whole dynamic
+pressure Drag_basic grew from 33 lb to 155 as she leaned, and the sideways
+force on her from 171 lb to 274, at her wing six feet above her wheels - a lean
+that fed itself, over the edge her weight holds her on. Her dihedral
+(Roll_beta, 250 to 330 ft-lb) did not grow as she went. The wing meets the air
+face-on only in the plane of u and w; the sideways part runs along its span and
+meets its leading edge. On aero/qbarUW-psf - the guidance of issue #89 and the
+FlightGear wiki's "JSBSim Aerodynamics" for lift, and the same reasoning for
+the drag of the same wing at the same angle of attack - she leans 4.2 to 4.4
+degrees at every walking pace, 2 to 5 kt, every loading and either side, and
+stays there. Her lift moves for the same reason: it counted the crosswind (358
+lb up braking from 10 kt in 15 kt across at her gross weight, against 104 in
+calm air). Moved alone (an earlier try), it rolled her the more: without its
+~100 lb she stood a degree more nose-up, her angle of attack 47 degrees against
+42, Drag_basic the more, and she struck at every pace. Not moved:
+Lift_pitch_rate (a damping term; moved 2026-10-23, below) and her roll terms
+keyed to alpha (Roll_beta, Roll_yaw, Roll_differential_propwash): in flight
+issue #89 offers no guidance for the rolling moment, and standing they did not
+cause it. Her figures in flight: see PROJECT_STATUS (2026-10-15).
 
 **Her wing's drag carried on past 90 degrees of angle of attack to 180**
 (2026-10-16): Drag_basic's table. The pinned table ends at plus and minus
@@ -325,6 +324,18 @@ taxiing in 320 at 15 gusting 20 kt whose right wing the wind lifted: a real
 Cub can be rolled by a strong gusty wind across, with her ailerons left
 wrong. A steady 15 kt across, with the rollout holding her wings level,
 is not that, and does not.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): Lift_elevator and Lift_pitch_rate. On the whole
+dynamic pressure they counted the crosswind standing. Standing on her brakes
+with her engines stopped in 15 kt straight across, a lifting control set one at
+a time, they lifted her by up to 28 lb (stick back, as she stands); now under
+0.1 lb at every setting (the standing test in tests/unit/test_departure.cpp).
+JSBSim issue #89's guidance puts the whole of CL on QBarUW; alpha_rate.py says
+why, for swept surfaces too. In flight, at a few degrees of sideslip, the two
+differ by its cosine squared.
 """
 
 import math
@@ -809,12 +820,14 @@ def controls():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
+            alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_j3cub"), "make_j3cub",
             {"PITCH": ["aero/moment/Pitch_alpha", "aero/moment/Pitch_propwash",
                        "aero/moment/Pitch_reversed_flow"],
-             "LIFT": ["aero/force/Lift_alpha", "aero/force/Lift_propwash"],
-             "DRAG": ["aero/force/Drag_basic"]}),
+             "LIFT": ["aero/force/Lift_alpha", "aero/force/Lift_propwash", "aero/force/Lift_pitch_rate"],
+             "DRAG": ["aero/force/Drag_basic"]}), "make_j3cub",
+            {"LIFT": ["aero/force/Lift_elevator"]}),
         OUT / "aircraft" / MODEL / "Systems" / f"{SYSTEM}.xml": controls(),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),

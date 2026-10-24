@@ -95,7 +95,7 @@ degrees at the quarter chord: the sweep argument above (simple sweep theory,
 NACA Report 863) holds for the lift of the same wing as for its moment -
 standing, qbarUW is the nearer; in flight, at a few degrees of sideslip, the
 two are under 1% apart. Her lift terms not keyed to the angle of attack (CLde)
-are not this change's, and stay on aero/qbar-psf.
+were not this change's: they are moved below (2026-10-23).
 
 **Her wing's drag keyed to the angle of attack on the same dynamic pressure**
 (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CD0, her drag against the
@@ -109,6 +109,18 @@ wing standing in a beam wind (make_j3cub.py). In flight, at a few degrees of
 sideslip, the two differ by its cosine squared. Her wing is swept: moved on the
 same argument as her lift, simple sweep theory
 (alpha_rate.with_alpha_terms_on_qbar_uw).
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): CLde, her elevons'. On the whole dynamic pressure
+they counted the crosswind standing. Standing on her brakes with her engines
+stopped in 15 kt straight across, a lifting control set one at a time, they
+lifted her by up to 1,043 lb (stick back); now under 0.1 lb at every setting
+(the standing test in tests/unit/test_departure.cpp). JSBSim issue #89's
+guidance puts the whole of CL on QBarUW; alpha_rate.py says why, for swept
+surfaces too. In flight, at a few degrees of sideslip, the two differ by its
+cosine squared.
 """
 
 import math
@@ -391,10 +403,12 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
+            alpha_rate.with_alpha_terms_on_qbar_uw(
             airframe(), "make_b2", {"PITCH": ["aero/coefficient/Cmalpha"],
                                      "LIFT": ["aero/coefficient/CLalpha"],
-                                     "DRAG": ["aero/coefficient/CD0"]}),
+                                     "DRAG": ["aero/coefficient/CD0"]}), "make_b2",
+            {"LIFT": ["aero/coefficient/CLde"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

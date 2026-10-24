@@ -48,13 +48,13 @@ MOVED = {
         "c172p": [C + "CLwbh"],
         "c182": [C + "CLalpha"],
         "f15c": [C + "CLalpha"],
-        "f22": [C + "CLalpha", C + "CLDlef"],
+        "f22": [C + "CLalpha", C + "CLDlef", C + "CLq"],
         "f35b": [C + "CLalpha"],
-        "j3cub": [F + "Lift_alpha", F + "Lift_propwash"],
+        "j3cub": [F + "Lift_alpha", F + "Lift_propwash", F + "Lift_pitch_rate"],
         "learjet35a": [C + "CLalpha"],
         "mosquito-fb6": [F + "lift-alpha"],
-        "pa28": [C + "CLwbh"],
-        "short_s23": [C + "CLwbh"],
+        "pa28": [C + "CLwbh", C + "CLq"],
+        "short_s23": [C + "CLwbh", C + "CLq"],
     },
     "DRAG": {
         "737-300": [C + "CD0"],
@@ -77,12 +77,9 @@ MOVED = {
 }
 DAMPING = "with pitch rate: the angle of attack only picks the coefficient of her pitch rate"
 NAMED = {
-    "LIFT": {
-        "f22": {C + "CLq": "lift " + DAMPING},
-        "j3cub": {F + "Lift_pitch_rate": "lift " + DAMPING},
-        "pa28": {C + "CLq": "lift " + DAMPING},
-        "short_s23": {C + "CLq": "lift " + DAMPING},
-    },
+    # Their lift with pitch rate, named here until 2026-10-23, is moved with
+    # every other lift term on the whole dynamic pressure (unkeyed_lift_terms.py).
+    "LIFT": {},
     "DRAG": {
         "f15c": {C + "CDbeta": "drag with sideslip: keyed to the sideways air by design; the "
                                "angle of attack only picks its coefficient of it"},

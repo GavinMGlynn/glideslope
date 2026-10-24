@@ -159,12 +159,12 @@ for CL than the generic QBar" - a wing's lift is made by the air in the plane
 of u and w. Her wing is swept, 30.9 degrees at the quarter chord: the sweep
 argument above (simple sweep theory, NACA Report 863) holds for the lift of the
 same wing as for its moment - standing, qbarUW is the nearer; in flight, at a
-few degrees of sideslip, the two are under 1% apart. **Not moved**: CLq, lift
-with her pitch rate, where the angle of attack only picks its coefficient (as
-Cmq above). Her lift terms not keyed to the angle of attack (dCLflap, dCLsb and
-CLde) are not this change's, and stay on aero/qbar-psf. Standing, her lift left
-is 260 to 280 lb. Two CLDh terms of the pinned model are commented out, and not
-read.
+few degrees of sideslip, the two are under 1% apart. **Not moved** then: CLq,
+lift with her pitch rate, where the angle of attack only picks its coefficient
+(as Cmq above) - moved below (2026-10-23). Her lift terms not keyed to the
+angle of attack (dCLflap, dCLsb and CLde) were not this change's: standing,
+they left her 260 to 280 lb, and they are moved below too. Two CLDh terms of
+the pinned model are commented out, and not read.
 
 **Her wing's drag keyed to the angle of attack on the same dynamic pressure**
 (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CDseparated, and CDDlef,
@@ -181,6 +181,19 @@ cosine squared. Her wing is swept: moved on the same argument as her lift,
 simple sweep theory (alpha_rate.with_alpha_terms_on_qbar_uw). Not moved: CDq
 and CDq_Dlef, drag with pitch rate - the angle of attack only picks the
 coefficient of her pitch rate.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): dCLflap, dCLsb, CLde and CLq. On the whole
+dynamic pressure they counted the crosswind standing. Standing on her brakes
+with her engines stopped in 15 kt straight across, a lifting control set one at
+a time, they lifted her by up to 551 lb (speedbrake out; 260 to 282 with
+everything neutral, her flaperons scheduled down); now under 0.1 lb at every
+setting (the standing test in tests/unit/test_departure.cpp). JSBSim issue
+#89's guidance puts the whole of CL on QBarUW; alpha_rate.py says why, for
+swept surfaces too. In flight, at a few degrees of sideslip, the two differ by
+its cosine squared.
 """
 
 import re
@@ -540,11 +553,15 @@ def with_cm_alpha_split_out(text):
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
+            alpha_rate.with_alpha_terms_on_qbar_uw(
             with_cm_alpha_split_out(alpha_rate.with_qbar_uw(airframe(), "make_f22")), "make_f22",
             {"PITCH": ["aero/coefficient/Cma_M", "aero/coefficient/CmDh_alpha"],
-             "LIFT": ["aero/coefficient/CLalpha", "aero/coefficient/CLDlef"],
-             "DRAG": ["aero/coefficient/CDseparated", "aero/coefficient/CDDlef"]}),
+             "LIFT": ["aero/coefficient/CLalpha", "aero/coefficient/CLDlef", "aero/coefficient/CLq"],
+             "DRAG": ["aero/coefficient/CDseparated", "aero/coefficient/CDDlef"]}), "make_f22",
+            {"LIFT": ["aero/coefficient/dCLflap",
+             "aero/coefficient/dCLsb",
+             "aero/coefficient/CLde"]}),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

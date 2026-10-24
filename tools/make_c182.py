@@ -179,8 +179,8 @@ QBarUW "is more appropriate for CL than the generic QBar" - a wing's lift is
 made by the air in the plane of u and w. Her wing is not swept: the case issue
 #89 tested. In flight, at a few degrees of sideslip, the two differ by its
 cosine squared. Her lift terms not keyed to the angle of attack (CLo, CLDf, CLq
-and CLDe) are not this change's, and stay on aero/qbar-psf. Standing, those
-give her 42 to 46 lb.
+and CLDe) were not this change's: they are moved below (2026-10-23). Standing,
+those give her 42 to 46 lb.
 
 **Her wing's drag keyed to the angle of attack on the same dynamic pressure**
 (alpha_rate.with_alpha_terms_on_qbar_uw, 2026-10-16): CDalpha, and CDDf, her
@@ -193,6 +193,18 @@ drag at its angle of attack is made by the air in the plane of u and w, and the
 sideways part runs along its span - the drag that rolled the J-3 Cub onto her
 wing standing in a beam wind (make_j3cub.py). In flight, at a few degrees of
 sideslip, the two differ by its cosine squared.
+
+**Her lift terms not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-23, with_alpha_terms_on_qbar_uw for a lift with pitch rate whose
+coefficient the angle picks): CLo, CLDf, CLDe and CLq. On the whole dynamic
+pressure they counted the crosswind standing. Standing on her brakes with her
+engines stopped in 15 kt straight across, a lifting control set one at a time,
+they lifted her by up to 110 lb (flaps down; 42 to 46 with everything neutral);
+now under 0.1 lb at every setting (the standing test in
+tests/unit/test_departure.cpp). JSBSim issue #89's guidance puts the whole of
+CL on QBarUW; alpha_rate.py says why, for swept surfaces too. In flight, at a
+few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import pathlib
@@ -444,11 +456,16 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_alpha_terms_on_qbar_uw(
+        OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
+            alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_c182"), "make_c182",
             {"PITCH": ["aero/coefficient/Cmalpha"],
              "LIFT": ["aero/coefficient/CLalpha"],
-             "DRAG": ["aero/coefficient/CDalpha", "aero/coefficient/CDDf"]}),
+             "DRAG": ["aero/coefficient/CDalpha", "aero/coefficient/CDDf"]}), "make_c182",
+            {"LIFT": ["aero/coefficient/CLq",
+             "aero/coefficient/CLo",
+             "aero/coefficient/CLDf",
+             "aero/coefficient/CLDe"]}),
         OUT / "engine" / "engIO540AB1A5.xml": engine(),
         OUT / "engine" / "prop_81in2v.xml": propeller(),
     }

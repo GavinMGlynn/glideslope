@@ -3947,3 +3947,177 @@ GLIDESLOPE_TEST(the_j3_cub_standing_tail_to_a_15_kt_wind_has_a_reversed_wings_ci
               judged_steps == loadings.size() * std::size_t(judged_s * steps_per_second),
           "four loadings, 600 steps each: " + std::to_string(judged_steps) + " steps judged");
 }
+
+// **Every landplane standing on her brakes in 15 kt straight across, with any
+// control that moves her lift set, is lifted by the crosswind by no more than
+// a stated small figure.** Her lift terms not keyed to the angle of attack -
+// flaps, elevators, a stabiliser, spoilers, the C182's lift at no angle -
+// multiplied the whole dynamic pressure, which counts the crosswind, and
+// lifted her standing: the C182 by up to 46 lb, the F-22A by 280. Each make
+// script now puts them on the dynamic pressure without its sideways part
+// (tools/alpha_rate.py, with_unkeyed_terms_on_qbar_uw), or names them with
+// the reason they are not (tests/tools/unkeyed_lift_terms.py).
+//
+// **Every scenario**: every landplane in the catalogue (the flying boat
+// named: afloat she has no brakes, and turns into the wind, so it is not
+// across her), with each of the seven settings that move a lift term - all
+// neutral, flaps fully down, the stick fully back, fully forward, the
+// speedbrake fully out, the pitch trim fully nose up, fully nose down - set
+// one at a time, on her brakes (stand_on_her_brakes) with her engines
+// stopped: no slipstream, so that her lift is the air's alone (at idle the
+// J-3 Cub on half brake with her stick full forward goes over on her nose).
+// She stands in calm air until every control surface the setting moves has
+// stopped (none moving by more than a thousandth over a second; a
+// three-minute ceiling, a failure), five seconds more, then 15 kt straight
+// across from her left for ten seconds and from her right for ten. At every
+// step of those twenty her lift (forces/fwz-aero-lbs) is within the bound
+// either way. **The bound**, a ten-thousandth of her weight, stated after
+// measuring (below); what lift remains standing is her terms named in the
+// check (lift with pitch rate) and her moved terms on the creep of u and w.
+// Coverage asserted: fifteen landplanes, seven settings, 105 runs of 2,400
+// steps judged.
+GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_lifting_control_set_is_lifted_by_no_more_than_a_ten_thousandth_of_her_weight) {
+    constexpr double crosswind_kts = 15.0;
+    constexpr int calm_after_settled_s = 5;
+    constexpr int each_side_s = 10;
+    constexpr int ceiling_s = 180;
+    constexpr double bound_of_weight = 1e-4;
+    constexpr double degrees = 180.0 / 3.14159265358979323846;
+    struct Setting {
+        const char* name;
+        void (*set)(glideslope::sim::Controls&);
+    };
+    const std::vector<Setting> settings = {
+        {"neutral", [](glideslope::sim::Controls&) {}},
+        {"flaps down", [](glideslope::sim::Controls& c) { c.flaps = 1.0; }},
+        {"stick back", [](glideslope::sim::Controls& c) { c.elevator = 1.0; }},
+        {"stick forward", [](glideslope::sim::Controls& c) { c.elevator = -1.0; }},
+        {"speedbrake out", [](glideslope::sim::Controls& c) { c.speedbrake = 1.0; }},
+        {"trim nose up", [](glideslope::sim::Controls& c) { c.pitch_trim = 1.0; }},
+        {"trim nose down", [](glideslope::sim::Controls& c) { c.pitch_trim = -1.0; }},
+    };
+    const std::vector<std::string> surfaces = {
+        "fcs/flap-pos-norm",      "fcs/elevator-pos-rad",   "fcs/speedbrake-pos-norm",
+        "fcs/stabilizer-pos-rad", "fcs/flaperon-droop-rad", "fcs/pitch-trim-cmd-norm"};
+    const auto roster = glideslope::sim::read_catalogue(data());
+    const Runway runway = a_runway();
+    std::size_t planes = 0;
+    std::size_t runs = 0;
+    std::size_t judged_steps = 0;
+    std::vector<std::string> left_out;
+    std::vector<std::string> wrong;
+    for (const glideslope::sim::CatalogueEntry& e : roster) {
+        if (e.seaplane) {
+            left_out.push_back(e.id);
+            std::printf("  left out - %s: a flying boat, afloat, has no brakes and turns into "
+                        "the wind, so it is not across her\n",
+                        e.id.c_str());
+            continue;
+        }
+        ++planes;
+        double worst_lb = 0.0;
+        double weight_lb = 0.0;
+        std::string worst_where;
+        for (const Setting& setting : settings) {
+            ++runs;
+            const std::string where = e.id + ", " + setting.name;
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", e.model);
+            aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                [](double, double) { return 0.0; }, [](double, double) { return false; }));
+            glideslope::sim::InitialConditions ic;
+            ic.latitude_deg = runway.threshold_lat_deg;
+            ic.longitude_deg = runway.threshold_lon_deg;
+            ic.altitude_ft = runway.elevation_ft;
+            ic.terrain_elevation_ft = runway.elevation_ft;
+            ic.heading_deg = runway.heading_deg;
+            ic.engine_running = false;
+            ic.gear = 1.0;
+            aircraft.initialize(ic);
+            glideslope::sim::Controls c;
+            stand_on_her_brakes(aircraft, c);
+            setting.set(c);
+            std::vector<std::string> watched;
+            for (const std::string& s : surfaces) {
+                if (aircraft.has_property(s)) {
+                    watched.push_back(s);
+                }
+            }
+            // Calm, until every surface has stopped: each within a
+            // thousandth of where it was a second before.
+            std::vector<double> second_ago(watched.size(), 1e9);
+            bool settled = false;
+            int step = 0;
+            for (; step < ceiling_s * steps_per_second && !settled; ++step) {
+                aircraft.set_controls(c);
+                aircraft.step();
+                if ((step + 1) % steps_per_second == 0) {
+                    settled = true;
+                    for (std::size_t k = 0; k < watched.size(); ++k) {
+                        const double now = aircraft.property(watched[k]);
+                        settled = settled && std::abs(now - second_ago[k]) <= 1e-3;
+                        second_ago[k] = now;
+                    }
+                }
+            }
+            if (!settled) {
+                wrong.push_back(where + ": her controls still moving after " +
+                                std::to_string(ceiling_s) + " s");
+                continue;
+            }
+            for (int s = 0; s < calm_after_settled_s * steps_per_second; ++s) {
+                aircraft.set_controls(c);
+                aircraft.step();
+            }
+            weight_lb = aircraft.property("inertia/weight-lbs");
+            const double bound_lb = bound_of_weight * weight_lb;
+            double least = 1e18, most = -1e18;
+            std::string first_wrong;
+            for (const int side : {+1, -1}) {
+                glideslope::sim::Conditions wind;
+                const double towards = (runway.heading_deg + 90.0 * side) / degrees;
+                const double mps = crosswind_kts * 0.514444;
+                wind.wind_north_mps = mps * std::cos(towards);
+                wind.wind_east_mps = mps * std::sin(towards);
+                wind.wind_at_20ft_mps = mps;
+                aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
+                for (int s = 0; s < each_side_s * steps_per_second; ++s) {
+                    aircraft.set_controls(c);
+                    aircraft.step();
+                    ++judged_steps;
+                    const double lift = -aircraft.property("forces/fwz-aero-lbs");
+                    least = std::min(least, lift);
+                    most = std::max(most, lift);
+                    if (std::abs(lift) > std::abs(worst_lb)) {
+                        worst_lb = lift;
+                        worst_where = setting.name;
+                    }
+                    if (first_wrong.empty() && !(std::abs(lift) <= bound_lb)) {
+                        char w[200];
+                        std::snprintf(w, sizeof w, "%s: %.2f lb, from her %s, %.2f s into it, "
+                                      "against %.2f lb",
+                                      where.c_str(), lift, side > 0 ? "left" : "right",
+                                      (s + 1) / double(steps_per_second), bound_lb);
+                        first_wrong = w;
+                    }
+                }
+            }
+            std::printf("  %-30s settled in %5.1f s, lift %8.2f to %8.2f lb (bound %.2f)\n",
+                        where.c_str(), step / double(steps_per_second), least, most, bound_lb);
+            if (!first_wrong.empty()) {
+                wrong.push_back(first_wrong);
+            }
+        }
+        std::printf("  %-13s most %8.2f lb (%s), %.6f of her %.0f lb\n", e.id.c_str(), worst_lb,
+                    worst_where.c_str(), std::abs(worst_lb) / weight_lb, weight_lb);
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(roster.size() == 16 && planes == 15 && left_out.size() == 1 && settings.size() == 7 &&
+              runs == 15 * 7 && judged_steps == runs * std::size_t(2 * each_side_s * steps_per_second),
+          "fifteen landplanes, seven settings, 105 runs of 2,400 steps judged: " +
+              std::to_string(planes) + " planes, " + std::to_string(runs) + " runs, " +
+              std::to_string(judged_steps) + " steps");
+}
