@@ -66,7 +66,8 @@ public:
                                                 double give_up_after_s = 5.0,
                                                 double resend_every_s = 0.25,
                                                 const std::string& aircraft = "",
-                                                const std::string& loading = "");
+                                                const std::string& loading = "",
+                                                const std::string& secret_hex = "");
 
     // Read whatever has arrived: answer the server's knocking, and take in
     // any state update. `now_s` is the client's own clock, in seconds.

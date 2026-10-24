@@ -587,6 +587,23 @@ public:
     // mode selector and for a plan's vertical landing (sim::Controller).
     bool has_lift_system() const;
     void set_lift_system(const LiftSystem& lift);
+    // **Where her lift system stands**: the fan's doors' travel (0 shut, 1
+    // open), the nozzle's swivel and the fan's vanes, degrees - what a
+    // client joining her mid-flight is told, its own model just loaded with
+    // the doors shut (net::LawState).
+    struct LiftPositions {
+        double conversion = 0.0;
+        double nozzle_deg = 0.0;
+        double fan_deg = 90.0;
+        bool operator==(const LiftPositions&) const = default;
+    };
+    LiftPositions lift_positions() const;
+    // **Her lift system put where `at` says, commanded as `lift`**: the
+    // doors, nozzle and vanes moved there at once - the flight-control
+    // system run once as a trim runs it, the clock and the motion not moved,
+    // so that the actuators' rate limits start from there - and then the
+    // commands on. Throws std::logic_error on an aircraft without one.
+    void seat_lift_system(const LiftPositions& at, const LiftSystem& lift);
 
     // Stops engine `engine` - 0 the first, the port engine of a twin - as a
     // failure does, and feathers its propeller if `feather`.

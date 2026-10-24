@@ -66,6 +66,23 @@ public:
     // Converted, the nozzle down, or its first steps close the throttle.
     Hover(const Aircraft& aircraft, const Command& flying);
 
+    // **Everything it carries from step to step**: what a client joining
+    // her in the hover is told, to fly on as the server's flies
+    // (net::LawState), and made again from.
+    struct State {
+        double standing_ft = 0.0;
+        double heading_deg = 0.0;
+        double latitude_deg = 0.0;
+        double longitude_deg = 0.0;
+        bool translating = false;
+        double throttle_integral = 0.0;
+        double fan_integral = 0.0;
+        double post_integral = 0.0;
+        Command last;
+    };
+    State state() const;
+    Hover(const Aircraft& aircraft, const State& state);
+
     // One 120 Hz step's commands.
     Command step(const Target& target);
 

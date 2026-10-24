@@ -126,6 +126,7 @@ bool known_message(std::uint8_t kind) {
     case Message::take_over_refused:
     case Message::learnt_landing_refused:
     case Message::runway_conditions:
+    case Message::law_state:
         return true;
     }
     return false;

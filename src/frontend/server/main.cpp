@@ -12,6 +12,7 @@
 #include "copilot/copilot.hpp"
 #include "frontend/briefs.hpp"
 #include "frontend/held_levers.hpp"
+#include "frontend/law_told.hpp"
 #include "frontend/players_copilot.hpp"
 #include "frontend/route_file.hpp"
 #include "frontend/same_air.hpp"
@@ -1043,6 +1044,11 @@ struct Connection {
     std::vector<std::uint8_t> lobby_told;
     int weathers_told = -1;
     int runway_conditions_told = -1;
+    // **The aircraft this client was last seen flying as a person**, given
+    // her, taken over or taken back - `no_aircraft` while it flies none:
+    // when it changes, and a law flies her lift system, her law's whole
+    // state is said once (`LAW_STATE`).
+    std::uint8_t flying_as_given = glideslope::net::no_aircraft;
 };
 
 // **Every initiation that has made a session, remembered after the session
@@ -3044,6 +3050,17 @@ public:
                 continue;
             }
             return glideslope::frontend::levers_of(*a.aircraft, index);
+        }
+        return std::nullopt;
+    }
+
+    // **Her STOVL law's whole state**, while one flies the aircraft numbered
+    // `index` (sim::Controller::law_state); else nothing.
+    std::optional<glideslope::sim::Controller::LawState> law_of(std::uint8_t index) const {
+        for (const Aircraft& a : flown_) {
+            if (a.index == index && a.controller) {
+                return a.controller->law_state();
+            }
         }
         return std::nullopt;
     }
@@ -5268,6 +5285,47 @@ int run(const Options& o) {
                 if (packet.yours) {
                     packet.yours->steps_into_input = static_cast<std::uint16_t>(
                         std::min<std::int64_t>(c.steps_into_input, 65535));
+                }
+                // **Given her while a law flies her** - joining, joining again
+                // on its key, taking her over or taking her back - her law's
+                // whole state at this step, self-contained, before this
+                // update (`LAW_STATE`): a client begins its prediction from
+                // it, and not before. Begun on a model just loaded, the
+                // fan's doors shut, a prediction's own law was made
+                // wing-borne whatever the server's was, and level where the
+                // server's held her pilot's bank (PROJECT_STATUS.md,
+                // 2026-10-22). Said once each time she is given.
+                const auto own = std::find_if(
+                    packet.aircraft.begin(), packet.aircraft.end(),
+                    [&](const glideslope::net::AircraftState& a) { return a.index == c.aircraft; });
+                const bool flying_hers = own != packet.aircraft.end() &&
+                                         own->controller == glideslope::net::Controller::person;
+                if (!flying_hers) {
+                    c.flying_as_given = glideslope::net::no_aircraft;
+                } else if (c.flying_as_given != c.aircraft && packet.yours) {
+                    // **Given when this update carries her motion**: one
+                    // without it - the client could not begin on it either -
+                    // leaves the law owed to the next, and not forgotten.
+                    c.flying_as_given = c.aircraft;
+                    const auto law = fleet->law_of(c.aircraft);
+                    if (law &&
+                        packet.yours->stovl_height_asked_ft != glideslope::net::no_stovl_law) {
+                        if (const auto body = glideslope::net::write_law_state(
+                                glideslope::frontend::law_said(*law, c.aircraft,
+                                                               packet.simulation_time_s,
+                                                               packet.last_input_applied,
+                                                               *packet.yours))) {
+                            (void)c.reliable.send(
+                                std::span<const std::uint8_t>(body->data(), body->size()));
+                            std::printf("aircraft %u's STOVL law told to its client at %.3f s: "
+                                        "stage %u, bank held %.3f degrees\n",
+                                        static_cast<unsigned>(c.aircraft),
+                                        packet.simulation_time_s,
+                                        static_cast<unsigned>(law->law.stage),
+                                        law->law.bank_held_deg);
+                            std::fflush(stdout);
+                        }
+                    }
                 }
                 // And the watched aircraft's controls, if it watches one.
                 packet.watched = c.watching != glideslope::net::no_aircraft

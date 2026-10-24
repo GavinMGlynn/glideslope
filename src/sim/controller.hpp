@@ -377,6 +377,27 @@ public:
     };
     PilotsLaws pilots_laws() const;
     void restore(const PilotsLaws& laws);
+    // **Her STOVL law as it flies her now, for a client joining her**: the
+    // transition law's state, the height asked, the lift system's commands
+    // and where it stands, and the lever latched at the selection - what a
+    // prediction begun on a model just loaded cannot work out (net::LawState).
+    // None while no law flies her.
+    struct LawState {
+        Transition::State law;
+        double height_asked_ft = 0.0;
+        LiftSystem commands;
+        Aircraft::LiftPositions positions;
+        std::optional<double> lever_at_selection;
+        // Taken back or over in STOVL mode, the selector then, held until
+        // it moves.
+        std::optional<double> selector_at_take_back;
+    };
+    std::optional<LawState> law_state() const;
+    // **Flown on from a law told**, as her pilot's: the law made again from
+    // `told`, its height asked and lever latch, and the lift system's
+    // commands as the law last gave them. Where she stands is the caller's
+    // (Aircraft::seat_lift_system); sim::Prediction does both.
+    void take_law(const LawState& told);
     // The transition law, while it flies her lift system; else null.
     const Transition* transition() const {
         return stovl_ ? &*stovl_ : nullptr;

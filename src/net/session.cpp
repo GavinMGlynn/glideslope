@@ -20,7 +20,8 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
                                                     double give_up_after_s,
                                                     double resend_every_s,
                                                     const std::string& aircraft,
-                                                    const std::string& loading) {
+                                                    const std::string& loading,
+                                                    const std::string& secret_hex) {
     const auto address = platform::address_of(where);
     if (!address) {
         return std::nullopt;
@@ -34,7 +35,15 @@ std::optional<ClientSession> ClientSession::connect(const std::string& where,
         return std::nullopt;
     }
 
-    const KeyPair mine = mint_key_pair();
+    KeyPair mine = mint_key_pair();
+    if (!secret_hex.empty()) {
+        const auto secret = secret_from_text(secret_hex);
+        if (!secret) {
+            return std::nullopt;
+        }
+        mine.secret = *secret;
+        mine.publik = public_from_secret(*secret);
+    }
     Initiator initiator(mine, *theirs);
     Writer w = begin(Type::handshake_initiation);
     const std::vector<std::uint8_t> asked =

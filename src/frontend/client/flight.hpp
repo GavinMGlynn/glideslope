@@ -6,6 +6,7 @@
 #include "gfx/aircraft.hpp"
 #include "gfx/hud.hpp"
 #include "gfx/scene.hpp"
+#include "net/state.hpp"
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/checklist_run.hpp"
@@ -158,6 +159,9 @@ public:
     // server's word. The AI pilot is not flown on a server: taking it and
     // giving it back there is Phase 7's.
     void adopt(const sim::Motion& motion);
+    // **And with her STOVL law's whole state** (`LAW_STATE`), where a law
+    // flies her as she is given: the prediction begun on it, at its step.
+    void adopt(const sim::Motion& motion, const std::optional<net::LawState>& law);
     // **Another aircraft taken over while this one was predicted**, as the
     // server had it at `server_steps`: flown on to now through the inputs
     // since, by the prediction's clocks' difference, which is kept

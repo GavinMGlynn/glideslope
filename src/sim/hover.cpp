@@ -76,6 +76,23 @@ Hover::Hover(const Aircraft& aircraft, const Command& flying)
     post_integral_ = std::clamp(flying.lift.roll_post, -0.5, 0.5);
 }
 
+Hover::State Hover::state() const {
+    return {standing_ft_,       heading_deg_,  latitude_deg_, longitude_deg_, translating_,
+            throttle_integral_, fan_integral_, post_integral_, last_};
+}
+
+Hover::Hover(const Aircraft& aircraft, const State& state) : Hover(aircraft, Pace{}) {
+    standing_ft_ = state.standing_ft;
+    heading_deg_ = state.heading_deg;
+    latitude_deg_ = state.latitude_deg;
+    longitude_deg_ = state.longitude_deg;
+    translating_ = state.translating;
+    throttle_integral_ = state.throttle_integral;
+    fan_integral_ = state.fan_integral;
+    post_integral_ = state.post_integral;
+    last_ = state.last;
+}
+
 double Hover::height_ft() const {
     return a_.state().height_above_ground_ft - standing_ft_;
 }
