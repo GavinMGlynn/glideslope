@@ -2854,6 +2854,16 @@ foreach(_net IN ITEMS "100;30;5;11;24780;8" "200;60;10;12;24782;10")
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_impaired_${_delay})
 endforeach()
 
+# **A server held up a quarter of a second or more says so**, and how much of
+# it was its own CPU, so that a prediction check failing for it can be read
+# for it. See cmake/server_long_pass.cmake.
+add_test(NAME a_server_held_up_a_quarter_of_a_second_says_so_and_whose_time_it_was
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_long_pass.cmake)
+set_tests_properties(a_server_held_up_a_quarter_of_a_second_says_so_and_whose_time_it_was
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+
 # **A player's copilot is asked on the player's machine and its route flown
 # by the server**, from the recording committed in data/copilot, with no key;
 # asked now (labelled live) only with GLIDESLOPE_LIVE_MODEL=1. And **a route
