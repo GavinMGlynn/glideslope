@@ -1189,8 +1189,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // ft, the same day.
     // A hundred and thirty-three: her transitions to a hover and out of one,
     // each at two loadings, on 2026-10-13.
-    check(figures_in_files == 133,
-          "a hundred and thirty-three figures, one test each above; found " +
+    // A hundred and thirty-four: the Short S.23's stall at Gouge's lift
+    // coefficient, with full flap at 40,500 lb, on 2026-10-24.
+    check(figures_in_files == 134,
+          "a hundred and thirty-four figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 
