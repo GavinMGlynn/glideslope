@@ -115,6 +115,9 @@ public:
     void read(Word word, std::optional<std::uint64_t> at_step, std::uint64_t flown,
               double local_s, Compare&& compare) {
         release(flown, compare);
+        if (at_step) {
+            last_placed_ = at_step;
+        }
         Placed placed{std::move(word), at_step, local_s, read_};
         ++read_;
         last_read_ = placed.index;
@@ -188,6 +191,8 @@ public:
     std::size_t read() const { return read_; }
     std::size_t compared() const { return compared_; }
     std::size_t unplaced() const { return unplaced_; }
+    // The step the newest word placed was placed at, if any has been.
+    std::optional<std::uint64_t> last_placed() const { return last_placed_; }
     std::size_t unplaced_after_placed() const { return unplaced_after_placed_; }
     // Placed at a step flown and no longer kept: in nothing else, and a
     // test that counts the words read finds it missing.
@@ -217,20 +222,26 @@ public:
 private:
     template <class Compare>
     void release(std::uint64_t flown, Compare& compare) {
-        // **Every word held whose step is now flown**, in the order read -
-        // not only those in front: a word placed earlier than one read
-        // before it (the clocks' difference moved) is flown first, and left
-        // behind the other it found its step forgotten by a newer word's
-        // comparison (Linux debug, a loaded machine: 2 in 252).
-        for (auto it = held_.begin(); it != held_.end();) {
-            if (*it->at_step <= flown) {
-                Placed placed = std::move(*it);
-                it = held_.erase(it);
-                judge(placed, compare);
-                offer(std::move(placed));
-            } else {
-                ++it;
+        // **Every word held whose step is now flown**, in the order of their
+        // steps - not the order read, nor only those in front: a word placed
+        // earlier than one read before it (the clocks' difference moved) is
+        // flown first, and compared after the other it found its step
+        // forgotten by that one's comparison (Linux debug, under 20 busy
+        // cores: 4 in 268, held up to 39 steps).
+        for (;;) {
+            auto first = held_.end();
+            for (auto it = held_.begin(); it != held_.end(); ++it) {
+                if (*it->at_step <= flown && (first == held_.end() || *it->at_step < *first->at_step)) {
+                    first = it;
+                }
             }
+            if (first == held_.end()) {
+                break;
+            }
+            Placed placed = std::move(*first);
+            held_.erase(first);
+            judge(placed, compare);
+            offer(std::move(placed));
         }
     }
     // A word ready to put right from - compared, or never placeable - is
@@ -272,6 +283,7 @@ private:
     std::size_t not_newest_ = 0;
     std::size_t unplaced_after_placed_ = 0;
     bool any_placed_ = false;
+    std::optional<std::uint64_t> last_placed_;
     std::size_t last_read_ = 0;
     std::optional<std::size_t> ready_;
     std::map<std::string, std::size_t> dropped_;

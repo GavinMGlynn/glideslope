@@ -79,10 +79,12 @@ if(DEFINED SLOW_FRAMES)
     set(_slow --slow-frames ${SLOW_FRAMES})
 endif()
 # **Words placed past the steps flown, built** for EVERY_WORD: each held
-# frame flies twelve of its ticks due on the next instead (`--ticks-behind`),
-# more than two words' 4.8 steps, so the newest words it reads are about
-# steps not yet flown - every held frame, not when a pace happens to fall
-# behind. At five, a loaded machine's long frames held 1 word in 21 passes.
+# frame stops twelve ticks - more than two words' 4.8 steps - short of the
+# newest word it has placed, plus the lead its prediction has on the
+# server's words, and flies the rest on the next (`--ticks-behind`). So the
+# newest words it reads are about steps not yet flown, every held frame, on
+# a loaded machine too, whose slower server lengthens that lead: twelve
+# short of the clock alone held 1 word in 20 passes under 20 busy cores.
 if(EVERY_WORD)
     list(APPEND _slow --ticks-behind 12)
 endif()
