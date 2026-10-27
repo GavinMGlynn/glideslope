@@ -1,18 +1,15 @@
 ### A predicting F-35B stopped 3 s between flying and sending is placed within four steps, 2026-10-24
 
-**What is still not true first.** The client with the window stamps its
-inputs and flies a gap at the learnt pace too (below), but no test holds it to
-the bound: stopped 3 s between reckoning a frame's ticks and sending, it is
-490 to 496 m off **with the stamp or without it** - a different fault. The
-newest word, read after the stop and before the 3 s of ticks are flown, is
-placed 360 steps past what it has flown; it is put at the server's word with
-nothing to fly again, and then flies the 360 on top. That is what #249
-(`frontend::OwnWords`, unmerged) fixes - a word placed past the steps flown is
-held until they are - so the window client's test
-(`scratchpad/starved-f35b-placed/client_starved_f35b.cmake`) waits for it.
-**And the reported 5 to 15 steps is the server catching up, out of this
-item's reach** (round 4, below). The Phase 9 item stays open for the window
-client's test.
+**What is still not true first.** Nothing of this item (ticked 2026-10-28,
+round 5 at the end). What its evidence is not: round 4's reproduction - five
+clients and servers, debug, on two CPUs - was not run again with the start
+not owed; the evidence that a slow start no longer puts a client off is the
+slow start built in the test, on Linux and Windows. And the windowed client's
+test was seen red with its stamps wrong (962 m), not with the start owed:
+the start's fix is shown red in glideslope_cli's test alone. A server's
+session clock now stays behind the wall's by its start's length, for good;
+nothing compares the two but the weather's timer, which counts on the
+session's.
 
 **What a plain stop does, and does not do** (release, F-35B from her held
 trim, through a 100 ms relay; `scratchpad` runs): unstalled, the worst 0.000 m;
@@ -183,4 +180,8 @@ slow, for a test; `server_flags.cmake` knows it.
   It now sleeps while more than 20 ms is left and waits out the rest. Windows
   debug (`tools/windows_build.sh`): the starved test, the window's and
   `a_server_behind_real_time_hears_every_client_and_lets_none_go_that_is_joining`
-  (30 ms a step) pass.
+  (30 ms a step) pass. The last 20 ms of each step are waited out with the
+  CPU's yield, so a server given `--test-step-ms` keeps a core busy: the
+  starved test is run alone (`RUN_SERIAL`), as the window's is, and
+  server_behind.cmake's sleeps 10 of its 30 ms.
+- This round is in this file, the item's own, as rounds 1 to 4 are.

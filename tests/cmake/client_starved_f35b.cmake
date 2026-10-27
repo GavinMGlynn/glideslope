@@ -18,7 +18,7 @@
 #
 # **The bound is the item's**: every update compared within four steps'
 # travel at her speed (1.378 m a step, 5.51 m; starved_f35b_placed.cmake). Asserted built: one stall named of 2.9 s or
-# more, and 1,000 updates compared - thirty seconds of the session's. The
+# more, and 300 updates compared - twelve seconds of the session's. The
 # server's start is made slow, as starved_f35b_placed.cmake's is
 # (`--test-slow-start 2000`), and this client joins as it ends.
 #
