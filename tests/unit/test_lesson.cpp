@@ -5419,8 +5419,12 @@ GLIDESLOPE_TEST(a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within
     // Begun at 1,000 ft, the 737-300's entry - held level, slowing in her
     // landing configuration with the throttles shut - puts her in the
     // ground before the lesson calls her stall: not handed over, so not
-    // judged low.
-    const std::set<std::string> expected_in_the_ground = {"737-300"};
+    // judged low. The S.23's too, since 2026-10-28: with her pitching
+    // moments on the whole dynamic pressure she was handed over 50 ft above
+    // the water; with them leaving out its sideways part she reaches the
+    // water first (her elevator's moment alone does it - put back, her entry
+    // is flown otherwise; her flaps' and pitch damping's change nothing).
+    const std::set<std::string> expected_in_the_ground = {"737-300", "short_s23"};
     std::set<std::string> in_the_ground_first;
     std::vector<std::string> faults;
     for (const std::string& id : taught.able) {
@@ -5429,11 +5433,12 @@ GLIDESLOPE_TEST(a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within
         const Result low =
             fly_a_stall(id, 30.0, false, true, false, false, -1.0, low_agl_ft, true);
         std::printf("  %-13s held back where practised: power after %5.2f s (%s), "
-                    "let go early %ld; at %4.0f ft: power after %5.2f s (%s)\n",
+                    "let go early %ld; at %4.0f ft: power after %5.2f s (%s), handed over at "
+                    "%.0f ft\n",
                     id.c_str(), high.power_after_s,
                     high.stalled_at_power ? "still stalled" : "unstalled", high.unload_releases,
                     low_agl_ft, low.power_after_s,
-                    low.stalled_at_power ? "still stalled" : "unstalled");
+                    low.stalled_at_power ? "still stalled" : "unstalled", low.handed_over_ft);
         if (high.power_after_s < 0.0 || high.power_after_s > hold_bound_s) {
             faults.push_back(id + " held back where practised had no full power within " +
                              std::to_string(hold_bound_s) + " s: " +

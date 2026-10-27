@@ -39,11 +39,11 @@
 **The change.** Every make script names its pitching-moment terms not keyed
 to the angle of attack to `alpha_rate.with_unkeyed_terms_on_qbar_uw` (axis
 PITCH), which puts each on `aero/qbarUW-psf`; its docstring now says why for
-pitching moments. The five pitching terms keyed to the angle that the
-2026-10-15 check named - because the angle only picks their coefficient -
+pitching moments. Four of the five pitching terms keyed to the angle that
+the 2026-10-15 check named - because the angle only picks their coefficient -
 move by `with_alpha_terms_on_qbar_uw`: the C182's CmDe, the F-22A's CmDh,
-CmDtv and Cmq, the S.23's Cmq. **Nothing is named now** in either pitch
-check. 47 terms moved and 1 already off the crosswind:
+CmDtv and Cmq. **The S.23's Cmq stays named** (below, the CI run). Nothing is
+named in the check of terms not keyed to the angle. 47 terms moved and 1 already off the crosswind:
 
 | model | not keyed to the angle | keyed, named until now |
 |---|---|---|
@@ -62,7 +62,7 @@ check. 47 terms moved and 1 already off the crosswind:
 | Learjet 35A | Cm0, Cmq, Cmde, Cmstab, Cmflaps | |
 | Mosquito | pitch-zero, -damping, -flaps, -radiators, -gear, -elevator (her tailplane's pressure) | |
 | PA-28 | Cmo, Cmq, CmDf, Cmde | |
-| S.23 | CmDe, CmDf3L, CmDf3R | Cmq |
+| S.23 | CmDe, CmDf3L, CmDf3R | (Cmq named) |
 
 **Her tailplane's pressure.** The C172P's elevator moment was on
 `aero/function/qbar-tail-psf` (2026-10-16): the whole pressure plus 0.39 of
@@ -154,8 +154,8 @@ moved as every other's.
   put back on the whole pressure; the Cub's induced velocity made from vt;
   the PA-28 removed.
 - `every_flight_models_angle_of_attack_pitch_terms_..._named_with_their_reason`
-  (tests/tools/alpha_pitch_terms.py) now lists 25 moved, 0 named; red on
-  main's models (20 of 25).
+  (tests/tools/alpha_pitch_terms.py) now lists 24 moved, 1 named; red on
+  main's models (20 of 24).
 
 **The selftest hash moves**, deliberately: it flies a C172P, whose Cmo, Cmq,
 Cmdf and Cmde are now on the pressure without the crosswind.
@@ -187,7 +187,7 @@ window), the J-3 Cub's crosswind braking test once its two runs were named
 (above). Every figure in range. Every make script's `--check` passes
 (sixteen models).
 
-**The figures, main's models against these** (linux-debug, the figure tests
+**The figures, main's models against these** (the S.23's three taken again with her Cmq named: her two long-range figures unchanged, her standard time 25.350 -> 25.358 s) (linux-debug, the figure tests
 of test_figures.cpp run on each, 2026-10-28; all pass both ways).
 Of the 127 figures printed with their range, 11 move, none by more than 1.2%
 of its range. The margin is the distance to the nearer end of the range, as a
@@ -196,7 +196,7 @@ share of its width:
 | figure | main's | now | margin, main's -> now |
 |---|---|---|---|
 | S.23 water take-off run, 45,000 lb | 718.3 yd | 715.5 yd (676 to 914) | 17.8% -> 16.7% |
-| S.23 water take-off time, standard | 25.30 s | 25.35 s (21 to 27) | 28.3% -> 27.5% |
+| S.23 water take-off time, standard | 25.30 s | 25.36 s (21 to 27) | 28.3% -> 27.4% |
 | S.23 water take-off time, 45,000 lb | 31.23 s | 31.16 s (25.9 to 35.1) | 42.1% -> 42.8% |
 | Learjet 35A take-off field length | 5,374.8 ft | 5,385.2 ft (4,770 to 5,830) | 42.9% -> 42.0% |
 | 787-8 take-off field length | 10,902.1 ft | 10,907.2 ft (9,090 to 11,110) | 10.3% -> 10.0% |
@@ -208,3 +208,24 @@ The other three (the A320's and 737-300's field lengths, the Mosquito's
 single-engine ceiling) move in the third decimal or less. Why each moves
 is not measured term by term: in flight the two pressures differ by the
 cosine squared of her sideslip, and the S.23's run is the most moved.
+
+**The full CI run, Rocky 9 linux-release** (2026-10-28), and both locally
+(linux-debug and an x86-64-v2 release build alike), on the first push:
+- `every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_within_2_g_and_the_height_its_speed_and_sink_need`:
+  the S.23 handed over diving at 140 kt, pitch -23 degrees, -8,300 ft/min,
+  and pulled 4.19 g recovering, against 1.40 g on main's model (handed over
+  at 82 kt, pitch +25). Each of her four moved terms put back alone: her
+  Cmq alone gives main's flight back (1.4 g); her CmDe, CmDf3L, CmDf3R
+  change nothing of it. **Her Cmq is put back, and named** in
+  alpha_pitch_terms.py with that reason: she is a flying boat, afloat she
+  turns into the wind, so no crosswind stands across her, and what the move
+  is for does not happen to her. Why her stalled flight is so sensitive to
+  her pitch damping's pressure is not measured.
+- `a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within_five_seconds_and_near_the_ground_at_once`:
+  begun at 1,000 ft the S.23 reaches the water before her stall is called,
+  as the 737-300 does; on main's model she was handed over 50 ft above it.
+  Her CmDe alone does it (put back, her entry is flown otherwise; her Cmq
+  and flaps' change nothing). An edge she was already at - 50 ft of 1,000 -
+  and the honest consequence of the move: she is named in the test with the
+  737-300, the set exact, so seen red as it was. The test now prints each
+  aeroplane's hand-over height.
