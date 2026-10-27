@@ -773,12 +773,24 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       named until now, too; standing in 15 kt across with any lifting
       control set, from up to 6,450 lb to under 0.1 lb. Every figure in
       range.
-- [ ] **Pitching moments not keyed to the angle of attack count the
+- [x] **Pitching moments not keyed to the angle of attack count the
       crosswind standing**: the elevators', flaps' and pitch damping's
       moments are on the whole dynamic pressure, as their lift was;
       unmeasured. *Verification: each such term moved or named with a
       reason, her pitch standing in 15 kt across measured before and after,
-      and every figure in range.*
+      and every figure in range.* Done 2026-10-28: all 48 such terms in the
+      16 models off the crosswind, and the 5 keyed to the angle named until
+      now too; standing in 15 kt across with any control set, from up to
+      199,000 ft-lb to under 21. Every figure in range.
+- [ ] **Her side force standing in a beam wind is turned fore and aft**:
+      JSBSim's wind axes put it in her plane of symmetry at the angle of
+      attack, undefined standing - a 737-300 on her brakes in 15 kt across
+      has her 1,400 lb of side force along her length, and 6,800 ft-lb of
+      pitch from it; braked from 10 kt at half brake, the J-3 Cub solo goes
+      over where in calm air she does not (two runs named in her crosswind
+      test). Measured on three aircraft only. *Verification: every
+      landplane standing in 15 kt across, her side force across her and its
+      pitching moment within a stated bound, and every figure in range.*
 - [x] **The Mosquito's slipstream lift flips with an undefined angle of
       attack**: on her brakes at +9 boost it is -2,570 or +2,050 lb as her
       creep flips the angle from -93 to +87 degrees. *Verification: standing

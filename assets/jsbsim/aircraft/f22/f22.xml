@@ -2809,7 +2809,7 @@
                                2.60	0.5428
                            </tableData>
                          </table>
-                       <property>aero/qbar-psf</property>
+                       <property>aero/qbarUW-psf</property>
                        <property>metrics/Sw-sqft</property>
                        <property>metrics/cbarw-ft</property>
                        <difference>
@@ -2863,7 +2863,7 @@
                    <description>Pitch_moment_due_to_thrust_vectoring</description>
                    <product>
             <value>1.25</value>
-                       <property>aero/qbar-psf</property>
+                       <property>aero/qbarUW-psf</property>
                        <property>metrics/Sw-sqft</property>
                        <property>metrics/cbarw-ft</property>
                        <property>fcs/thrust-norm</property>
@@ -2914,7 +2914,7 @@
                <function name="aero/coefficient/Cmq">
                    <description>Pitch_moment_due_to_pitch_rate</description>
                    <product>
-                       <property>aero/qbar-psf</property>
+                       <property>aero/qbarUW-psf</property>
                        <property>metrics/Sw-sqft</property>
                        <property>metrics/cbarw-ft</property>
                        <property>aero/ci2vel</property>

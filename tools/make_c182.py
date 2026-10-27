@@ -205,6 +205,18 @@ now under 0.1 lb at every setting (the standing test in
 tests/unit/test_departure.cpp). JSBSim issue #89's guidance puts the whole of
 CL on QBarUW; alpha_rate.py says why, for swept surfaces too. In flight, at a
 few degrees of sideslip, the two differ by its cosine squared.
+
+**Her pitching moments not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-28): Cmo, Cmq and CmDf; and CmDe, whose coefficient the angle of attack
+picks (with_alpha_terms_on_qbar_uw), named until now. On the whole dynamic
+pressure they counted the crosswind standing, as her lift did. Standing on her
+brakes with her engines stopped in 15 kt straight across, a control set one at a
+time, they pitched her by up to 334 ft-lb (stick back); now by 0.09 ft-lb at
+most (the standing test in tests/unit/test_departure.cpp). The FlightGear wiki's
+guidance from JSBSim issue #89 puts Cm on QBarUW; alpha_rate.py says why, for
+swept surfaces too. In flight, at a few degrees of sideslip, the two differ by
+its cosine squared.
 """
 
 import pathlib
@@ -459,13 +471,16 @@ def outputs():
         OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
             alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_c182"), "make_c182",
-            {"PITCH": ["aero/coefficient/Cmalpha"],
+            {"PITCH": ["aero/coefficient/Cmalpha", "aero/coefficient/CmDe"],
              "LIFT": ["aero/coefficient/CLalpha"],
              "DRAG": ["aero/coefficient/CDalpha", "aero/coefficient/CDDf"]}), "make_c182",
             {"LIFT": ["aero/coefficient/CLq",
              "aero/coefficient/CLo",
              "aero/coefficient/CLDf",
-             "aero/coefficient/CLDe"]}),
+             "aero/coefficient/CLDe"],
+             "PITCH": ["aero/coefficient/Cmo",
+             "aero/coefficient/Cmq",
+             "aero/coefficient/CmDf"]}),
         OUT / "engine" / "engIO540AB1A5.xml": engine(),
         OUT / "engine" / "prop_81in2v.xml": propeller(),
     }

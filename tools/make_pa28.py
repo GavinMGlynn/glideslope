@@ -153,6 +153,16 @@ lifted her by up to 78 lb (flaps down); now under 0.1 lb at every setting (the
 standing test in tests/unit/test_departure.cpp). JSBSim issue #89's guidance
 puts the whole of CL on QBarUW; alpha_rate.py says why, for swept surfaces too.
 In flight, at a few degrees of sideslip, the two differ by its cosine squared.
+
+**Her pitching moments not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-28): Cmo, Cmq, CmDf and Cmde. On the whole dynamic pressure they counted
+the crosswind standing, as her lift did. Standing on her brakes with her engines
+stopped in 15 kt straight across, a control set one at a time, they pitched her
+by up to 517 ft-lb (stick back); now by 0.01 ft-lb at most (the standing test in
+tests/unit/test_departure.cpp). The FlightGear wiki's guidance from JSBSim issue
+#89 puts Cm on QBarUW; alpha_rate.py says why, for swept surfaces too. In
+flight, at a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import pathlib
@@ -386,7 +396,11 @@ def outputs():
             {"PITCH": ["aero/coefficient/Cmalpha"],
              "LIFT": ["aero/coefficient/CLwbh", "aero/coefficient/CLq"]}), "make_pa28",
             {"LIFT": ["aero/coefficient/CLDf",
-             "aero/coefficient/CLDe"]}),
+             "aero/coefficient/CLDe"],
+             "PITCH": ["aero/coefficient/Cmo",
+             "aero/coefficient/Cmq",
+             "aero/coefficient/CmDf",
+             "aero/coefficient/Cmde"]}),
         OUT / "engine" / "engIO360C.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),
     }

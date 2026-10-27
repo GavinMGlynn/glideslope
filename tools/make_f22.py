@@ -220,6 +220,21 @@ setting (the standing test in tests/unit/test_departure.cpp). JSBSim issue
 #89's guidance puts the whole of CL on QBarUW; alpha_rate.py says why, for
 swept surfaces too. In flight, at a few degrees of sideslip, the two differ by
 its cosine squared.
+
+**Her pitching moments not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-28): every one of her pitching terms is keyed to it, and three, named
+until now because the angle only picks their coefficient, move
+(with_alpha_terms_on_qbar_uw): CmDh, her tailerons', CmDtv and Cmq. CmDtv, her
+thrust vectoring's, is a coefficient on the dynamic pressure, not her engines'
+thrust: standing in calm air it is nothing on either pressure, and now in a
+crosswind too. On the whole dynamic pressure they counted the crosswind
+standing, as her lift did. Standing on her brakes with her engines stopped in 15
+kt straight across, a control set one at a time, they pitched her by up to
+13,785 ft-lb (stick back); now by 0.13 ft-lb at most (the standing test in
+tests/unit/test_departure.cpp). The FlightGear wiki's guidance from JSBSim issue
+#89 puts Cm on QBarUW; alpha_rate.py says why, for swept surfaces too. In
+flight, at a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import re
@@ -634,7 +649,9 @@ def outputs():
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
             alpha_rate.with_alpha_terms_on_qbar_uw(
             with_cm_alpha_split_out(alpha_rate.with_qbar_uw(airframe(), "make_f22")), "make_f22",
-            {"PITCH": ["aero/coefficient/Cma_M", "aero/coefficient/CmDh_alpha"],
+            {"PITCH": ["aero/coefficient/Cma_M", "aero/coefficient/CmDh_alpha",
+                       "aero/coefficient/CmDh", "aero/coefficient/CmDtv",
+                       "aero/coefficient/Cmq"],
              "LIFT": ["aero/coefficient/CLalpha", "aero/coefficient/CLDlef", "aero/coefficient/CLq"],
              "DRAG": ["aero/coefficient/CDseparated", "aero/coefficient/CDDlef"]}), "make_f22",
             {"LIFT": ["aero/coefficient/dCLflap",

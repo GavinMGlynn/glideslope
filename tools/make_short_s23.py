@@ -284,6 +284,16 @@ and turns into the wind, so she is not measured standing across it; the
 reasoning is the landplanes'. JSBSim issue #89's guidance puts the whole of CL
 on QBarUW; alpha_rate.py says why, for swept surfaces too. In flight, at a few
 degrees of sideslip, the two differ by its cosine squared.
+
+**Her pitching moments not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-28): CmDe, CmDf3L and CmDf3R; and Cmq, whose coefficient the angle picks
+(with_alpha_terms_on_qbar_uw), named until now. On the whole dynamic pressure
+they counted the crosswind standing, as her lift did. She is not stood: afloat
+she has no brakes and turns into the wind, so it is not across her; her terms
+are moved as every other's. The FlightGear wiki's guidance from JSBSim issue #89
+puts Cm on QBarUW; alpha_rate.py says why, for swept surfaces too. In flight, at
+a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import math
@@ -995,14 +1005,17 @@ def outputs():
         OUT / "aircraft" / MODEL / "Systems" / "datcom_aero.xml":
             alpha_rate.with_unkeyed_terms_on_qbar_uw(alpha_rate.with_alpha_terms_on_qbar_uw(
                 alpha_rate.with_qbar_uw(aerodynamics(), "make_short_s23"), "make_short_s23",
-                {"PITCH": ["aero/coefficient/Cm_basic"],
+                {"PITCH": ["aero/coefficient/Cm_basic", "aero/coefficient/Cmq"],
                  "LIFT": ["aero/coefficient/CLwbh", "aero/coefficient/CLq"],
                  "DRAG": ["aero/coefficient/CD",
                           "aero/coefficient/CdDf3L",
                           "aero/coefficient/CdDf3R"]}), "make_short_s23",
             {"LIFT": ["aero/coefficient/CLdF3L",
              "aero/coefficient/CLdF3R",
-             "aero/coefficient/CLDe"]}),
+             "aero/coefficient/CLDe"],
+             "PITCH": ["aero/coefficient/CmDe",
+             "aero/coefficient/CmDf3L",
+             "aero/coefficient/CmDf3R"]}),
         OUT / "aircraft" / MODEL / "Systems" / "engines.xml": engines(),
         OUT / "aircraft" / MODEL / "Systems" / "flaps.xml": flaps(),
         OUT / "aircraft" / MODEL / "Systems" / "Short_S23-hydrodynamics.xml": hydrodynamics(),
