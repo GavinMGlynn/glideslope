@@ -779,8 +779,8 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       unmeasured. *Verification: each such term moved or named with a
       reason, her pitch standing in 15 kt across measured before and after,
       and every figure in range.* Done 2026-10-28: all 48 such terms in the
-      16 models off the crosswind, and the 5 keyed to the angle named until
-      now too; standing in 15 kt across with any control set, from up to
+      16 models off the crosswind, and 4 of the 5 keyed to the angle named until
+      now too (the S.23's pitch damping stays named); standing in 15 kt across with any control set, from up to
       199,000 ft-lb to under 21. Every figure in range.
 - [ ] **Her side force standing in a beam wind is turned fore and aft**:
       JSBSim's wind axes put it in her plane of symmetry, pitching her and

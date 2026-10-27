@@ -925,7 +925,7 @@
                Very important to Short Period damping of oscillations
             </description>
             <product>
-               <property>aero/qbarUW-psf</property>
+               <property>aero/qbar-psf</property>
                <property>metrics/Sw-sqft</property>
                <property>metrics/cbarw-ft</property>
                <property>aero/ci2vel</property>
