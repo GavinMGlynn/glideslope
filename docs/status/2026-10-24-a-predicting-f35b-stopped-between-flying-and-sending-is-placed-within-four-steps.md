@@ -188,3 +188,10 @@ slow, for a test; `server_flags.cmake` knows it.
   starved test is run alone (`RUN_SERIAL`), as the window's is, and
   server_behind.cmake's sleeps 10 of its 30 ms.
 - This round is in this file, the item's own, as rounds 1 to 4 are.
+- **The first-input test runs alone** (`RUN_SERIAL`), as the F-22A's
+  already did: on CI's debug runners its server, held up mid-run by the
+  shard's other tests, put an untouched F-35B 41.4 m off on Ubuntu (run
+  40584574551, 3.0 s in, no stall of the client's) and a C172P 2.3 m at the
+  95th percentile on Windows (#254's run), with the start not owed. That is
+  Phase 12a's server falling behind real time, whose item now names it; both
+  tests' comments point there, not at this item.
