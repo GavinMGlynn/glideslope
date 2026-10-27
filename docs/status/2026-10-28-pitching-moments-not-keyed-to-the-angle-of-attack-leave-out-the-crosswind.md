@@ -1,6 +1,11 @@
 ### Pitching moments not keyed to the angle of attack leave out the crosswind, 2026-10-28 - item done
 
 **What is still not true first.**
+- **The J-3 Cub solo, braked stick central from 10 kt at half brake in 15 kt
+  across, now goes over, where on main she did not** (and where in calm air
+  she lifts her tail and stops on her wheels). Her pitch damping counting
+  the crosswind had held her; the cause is her side force (next point).
+  The two runs are named under that new Phase 9 item.
 - **Her side force standing in a beam wind is turned into her plane of
   symmetry**, a new Phase 9 item, found while measuring this one. Her side
   force (CYb) is on the whole dynamic pressure, as it should be, but JSBSim
@@ -10,7 +15,8 @@
   her 1,400 lb of side force along her body's x axis, fore or aft as the
   angle falls, and its moment about her centre of gravity (her reference
   point is 5.3 ft above it) is 6,800 ft-lb; a PA-28's swings between -63
-  and +44 ft-lb as her creep turns it. Unmeasured across the fleet. Not this
+  and +44 ft-lb as her creep turns it. Measured on the 737-300, C172P and PA-28 only, not across the fleet;
+  the plan item's figures are here. Not this
   item's: the test below judges the moment of her PITCH axis, not that.
   **It puts the J-3 Cub over**: braked stick central from 10 kt at half
   brake, solo, in 15 kt across from either side, she goes over where in
@@ -143,8 +149,8 @@ moved as every other's.
   sixteen aircraft, 48 terms, 0 named, asserted. A pressure the model makes
   (the tailplanes', the Cub's slipstream's) is checked not to read the
   whole pressure or any velocity but u and w. **Seen red**: on main's models
-  (47 of 48 fail; only the Cub's elevator was already off it); the C172P's Cmq put back on the whole
-  pressure; the Learjet's Cmstab renamed; the Mosquito's qbarUW-tail-psf
+  (47 of 48 fail; only the Cub's elevator was already off it); the C172P's
+  Cmq put back on the whole pressure; the Learjet's Cmstab renamed; the Mosquito's qbarUW-tail-psf
   put back on the whole pressure; the Cub's induced velocity made from vt;
   the PA-28 removed.
 - `every_flight_models_angle_of_attack_pitch_terms_..._named_with_their_reason`
