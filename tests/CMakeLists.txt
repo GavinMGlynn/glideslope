@@ -2303,7 +2303,7 @@ add_test(NAME a_predicting_f35b_whose_client_stops_three_seconds_between_flying_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/starved_f35b_placed -DPORT=24600
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/starved_f35b_placed -DPORT=24809
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/starved_f35b_placed.cmake)
 set_tests_properties(a_predicting_f35b_whose_client_stops_three_seconds_between_flying_and_sending_is_placed_within_four_steps_travel
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200)
@@ -3428,6 +3428,19 @@ add_test(NAME a_client_whose_frames_are_held_most_of_a_second_is_never_put_right
 set_tests_properties(a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide
     PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_slow)
+# **The client with the window, predicting an F-35B, stopped 3 s between
+# reckoning a frame's ticks and sending, is placed within four steps' travel**
+# (frontend::stamp_sent). Needs a GPU and the DEM; see
+# cmake/client_starved_f35b.cmake.
+add_test(NAME the_client_with_the_window_predicting_an_f35b_stopped_three_seconds_before_sending_is_placed_within_four_steps_travel
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/client_starved_f35b -DPORT=24814 -DDRIVER=vulkan
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_starved_f35b.cmake)
+set_tests_properties(the_client_with_the_window_predicting_an_f35b_stopped_three_seconds_before_sending_is_placed_within_four_steps_travel
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_starved_f35b)
 # **And every word such a frame reads is compared**, each at its own step,
 # while only the newest puts the prediction right (frontend/own_words.hpp):
 # the words read, less those not yet placeable, against the words compared

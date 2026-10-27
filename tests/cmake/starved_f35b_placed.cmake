@@ -20,6 +20,14 @@
 # and touched not at all (`--from-held`), through a relay holding every
 # datagram 100 ms each way.
 #
+# **And the server's start slow, as a loaded machine's is** (`--test-slow-start
+# 2000`): a debug server's first steps took 1.7 to 2.2 s on CI's Ubuntu, and
+# it caught that time up at 1.4 times real time while this client joined,
+# whose clocks' difference was then learnt 5 to 15 steps wrong and an update
+# put 23 m off (CI run 40087273404). Its start is not owed now
+# (glideslope_server's loop); built, so that it is tested on every run, not
+# on whichever machine happens to be slow.
+#
 # **The bound is the item's**: every update compared - across the stall's
 # words as well as outside them - within four steps' travel at her speed,
 # 1.378 m a step, 5.51 m (server_first_input.cmake's figure). And the
@@ -68,7 +76,7 @@ execute_process(
             --aircraft f35b --predict --from-held --until-held 30
             --slow-steps 2000 --stopped-sending 12 3000 --heard "${_heard}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}"
+            --data "${DATA}" --timeout 5 --store "${_store}" --test-slow-start 2000
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 900
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)

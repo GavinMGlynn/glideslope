@@ -234,6 +234,10 @@ struct Options {
     // is never.
     double test_stopped_at_s = -1.0;
     double test_stopped_ms = 0.0;
+    // For a test: the fleet's first steps take at least MS milliseconds more,
+    // as a debug server's start does on a loaded machine
+    // (`--test-slow-start MS`).
+    double test_slow_start_ms = 0.0;
     // Whether a player may take over an aircraft the AI is flying.
     bool take_over = true;
     // **The weather the server flies, and sends every client** (REQUIREMENTS
@@ -374,6 +378,9 @@ void print_usage(std::FILE* out) {
         "  --test-stopped-once S MS  run nothing for MS milliseconds at S\n"
         "                     seconds on the session's clock, as a machine\n"
         "                     that stops it does, for tests\n"
+        "  --test-slow-start MS  make the fleet's first steps take MS\n"
+        "                     milliseconds more, as a slow machine's start\n"
+        "                     does, for tests\n"
         "  --dry-run          print the settings and exit without binding\n"
         "  --version          print the version\n"
         "  --help             print this\n"
@@ -606,6 +613,14 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             }
             o.test_stopped_at_s = *at;
             o.test_stopped_ms = *ms;
+        } else if (a == "--test-slow-start") {
+            if (!next(value)) return std::nullopt;
+            const auto ms = number(value);
+            if (!ms || *ms < 0.0) {
+                why = "--test-slow-start wants milliseconds";
+                return std::nullopt;
+            }
+            o.test_slow_start_ms = *ms;
         } else if (a == "--window-dump") {
             o.window_dump = true;
         } else if (a == "--window-shot") {
@@ -5023,6 +5038,8 @@ int run(const Options& o) {
     // steps it has; see most_steps_between_looks.
     std::int64_t owed = 0;
     std::int64_t stepped = 0;
+    // Whether the fleet has taken its first steps, its start (below).
+    bool flown_first = false;
     // The twenty-fifth of a simulated second the last update was for.
     std::int64_t said_where_for = -1;
     std::uint64_t datagrams = 0;
@@ -5195,7 +5212,22 @@ int run(const Options& o) {
                 apply_due(connection.second, *fleet, stepped, o.test_say_controls);
             }
         }
-        last = now;
+        // **Its start is not owed**: the first steps a fleet takes make what
+        // it flies, 1.7 to 2.2 s of a debug server's on a loaded machine, and
+        // counted from the pass's beginning the server then caught that up at
+        // 1.4 times real time, while a client joining learnt its clocks'
+        // difference from samples that rose 60 steps and fell (docs/status,
+        // 2026-10-24). So the clock runs on from the end of that pass.
+        if (fleet && stepped > 0 && !flown_first) {
+            flown_first = true;
+            if (o.test_slow_start_ms > 0.0) {
+                std::this_thread::sleep_for(
+                    std::chrono::duration<double, std::milli>(o.test_slow_start_ms));
+            }
+            last = std::chrono::steady_clock::now();
+        } else {
+            last = now;
+        }
 
         // **Where everybody is, 25 times a simulated second, to everybody
         // connected.** Sent once and never repeated: a state update is worth
