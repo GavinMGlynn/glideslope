@@ -26,7 +26,12 @@
 # whose clocks' difference was then learnt 5 to 15 steps wrong and an update
 # put 23 m off (CI run 40087273404). Its start is not owed now
 # (glideslope_server's loop); built, so that it is tested on every run, not
-# on whichever machine happens to be slow.
+# on whichever machine happens to be slow. Its steps are made slow too
+# (`--test-step-ms 4`), so that catching a start up would take seconds, as on
+# CI, and not the tenth of one an idle machine takes: about twice real time
+# at most, room enough to keep time after. Seen red with the start owed again:
+# 136 to 167 m (2026-10-28); at 6 ms a step, 1.4 times real time, the server
+# is too near its limit and puts her 4 to 6 steps off with the start not owed.
 #
 # **The bound is the item's**: every update compared - across the stall's
 # words as well as outside them - within four steps' travel at her speed,
@@ -76,7 +81,7 @@ execute_process(
             --aircraft f35b --predict --from-held --until-held 30
             --slow-steps 2000 --stopped-sending 12 3000 --heard "${_heard}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" --test-slow-start 2000
+            --data "${DATA}" --timeout 5 --store "${_store}" --test-slow-start 2000 --test-step-ms 4
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 900
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
