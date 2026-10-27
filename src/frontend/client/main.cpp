@@ -33,6 +33,7 @@
 #include "platform/cpu_time.hpp"
 #include "platform/end_process.hpp"
 #include "platform/stop.hpp"
+#include "platform/stdout_to_file.hpp"
 #include "platform/closed_pipes.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "gfx/hud.hpp"
@@ -488,7 +489,7 @@ static int run_program(int argc, char** argv) {
             // **A test's**: what this program says goes to a file, so that
             // a test running it beside others (whose standard output feeds
             // the next one's input) can read it.
-            if (std::freopen(std::string(args[++i]).c_str(), "w", stdout) == nullptr) {
+            if (!glideslope::platform::stdout_to_file(std::string(args[++i]))) {
                 std::fprintf(stderr, "glideslope: cannot open the file --stdout names\n");
                 return 2;
             }
