@@ -153,9 +153,8 @@ newest update, so that a slow client keeps up, while every update is still
 compared at its own step, by both clients (2026-10-24), the clocks'
 difference taken from when each input was sent, so that glideslope_cli
 stopped 3 s between flying and sending keeps its F-35B within four steps
-(2026-10-24; the windowed client stamps too, untested against the stop until
-#249) - though a debug server catching up its own slow start still puts a
-client joining it 5 to 14 steps off; a prediction
+(2026-10-24), and the windowed client the same (2026-10-28), a server's
+slow start no longer owed and caught up after it; a prediction
 given a NaN as an input, or left with one by a step, is let go of and
 started again from the server's word - but a NaN made inside one JSBSim
 step from finite inputs still asserts in a debug build, and only

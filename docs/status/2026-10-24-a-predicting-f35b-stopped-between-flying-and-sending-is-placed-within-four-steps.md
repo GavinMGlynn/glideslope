@@ -154,3 +154,33 @@ clients' prediction off by metres", which now names it.
 
 **The selftest hash** does not move: the selftest flies `sim::selftest`, not a
 prediction or a pace.
+
+**A server's start is not owed** (round 5, 2026-10-28). The fleet's first
+steps make what it flies; counted from the beginning of that pass, a debug
+server on a loaded machine owed its 1.7 to 2.2 s start and caught it up at
+1.4 times real time, while a client joined (round 4; CI run 40087273404, 23 m
+off, and #240's first-input test on Windows debug, run 40541575889, 27.6 m
+for a client joined 0.47 s in). Now the clock runs on from the end of that
+pass (glideslope_server's loop). `--test-slow-start MS` makes the first steps
+slow, for a test; `server_flags.cmake` knows it.
+
+- `a_predicting_f35b_whose_client_stops_three_seconds_between_flying_and_sending_is_placed_within_four_steps_travel`
+  builds the slow start (`--test-slow-start 2000`) and steps slow enough that
+  catching it up would take seconds, as on CI (`--test-step-ms 4`, about twice
+  real time at most). Linux debug: worst 0.000 to 1.379 m over three runs.
+  **Seen red** with the start owed again: 136 to 167 m. At 6 ms a step, 1.4
+  times real time, the server is near its limit and puts her 4 to 6 steps off
+  with the start not owed - Phase 12a's server behind real time, not this.
+- `the_client_with_the_window_predicting_an_f35b_stopped_three_seconds_before_sending_is_placed_within_four_steps_travel`
+  (`client_starved_f35b.cmake`, a GPU's): the windowed client stopped 3 s
+  between reckoning a frame's ticks and sending, the server's start slow.
+  **Seen red** on Windows debug with twice the steps owed stamped: 962 m.
+- Their ports moved into the tests' block (24826, 24814): CI's port check had
+  failed on 24600.
+- **`--test-step-ms` waits out its time** (`take_at_least`): slept, Windows'
+  15.6 ms timer made 4 ms a step 62 ms a pass of four, half real time, and the
+  test failed there on a server always behind (29 m), not the one it built.
+  It now sleeps while more than 20 ms is left and waits out the rest. Windows
+  debug (`tools/windows_build.sh`): the starved test, the window's and
+  `a_server_behind_real_time_hears_every_client_and_lets_none_go_that_is_joining`
+  (30 ms a step) pass.
