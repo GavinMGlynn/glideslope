@@ -2025,7 +2025,8 @@ public:
             }
             if (!law_made_ && prediction_->laws() && prediction_->laws()->transition()) {
                 law_made_ = {sequence, step,
-                             prediction_->laws()->transition()->throttle_integral_made_with()};
+                             prediction_->laws()->transition()->throttle_integral_made_with(),
+                             prediction_->laws()->pilots_laws().applied.pitch_trim};
             }
             const glideslope::sim::Motion flown = aircraft_->motion();
             predicted_at_.push_back({step, flown.location_ecef_m,
@@ -3111,11 +3112,15 @@ public:
                                                        : nullptr;
                 std::snprintf(line, sizeof line,
                               "stovl: law made with input %u at step %llu: throttle integral "
-                              "%.17g; the law flying her made with %.17g",
+                              "%.17g; the law flying her made with %.17g; pitch trim %.17g, "
+                              "flying her %.17g",
                               static_cast<unsigned>(law_made_->input),
                               static_cast<unsigned long long>(law_made_->step),
                               law_made_->throttle_integral,
-                              now ? now->throttle_integral_made_with() : -1.0);
+                              now ? now->throttle_integral_made_with() : -1.0,
+                              law_made_->pitch_trim,
+                              now ? prediction_->laws()->pilots_laws().applied.pitch_trim
+                                  : -1.0);
                 lines.emplace_back(line);
             }
             std::snprintf(line, sizeof line,
@@ -3414,6 +3419,8 @@ private:
         std::uint32_t input = 0;
         std::uint64_t step = 0;
         double throttle_integral = 0.0;
+        // And the pitch trim it flew her on, the first step.
+        double pitch_trim = 0.0;
     };
     std::optional<LawMade> law_made_;
     // The input the STOVL selector was first sent with (stovl_pilot).
