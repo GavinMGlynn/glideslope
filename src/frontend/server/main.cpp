@@ -1184,6 +1184,26 @@ constexpr int most_unproven_per_key = 2;
 // dashboard is not stale.
 constexpr double ping_every_s = 1.0;
 
+// **At least `ms` milliseconds, and not many more**, for `--test-step-ms`. A
+// sleep alone is Windows' timer's 15.6 ms at the least, so that 4 ms a step
+// slept was 62 ms a pass of four - half real time, a server always behind and
+// not the one a test asked for (2026-10-28). It sleeps while more than a
+// timer's tick is left and waits out the rest.
+void take_at_least(double ms) {
+    const auto until = std::chrono::steady_clock::now() +
+                       std::chrono::duration_cast<std::chrono::steady_clock::duration>(
+                           std::chrono::duration<double, std::milli>(ms));
+    constexpr auto tick = std::chrono::milliseconds(20);
+    for (auto now = std::chrono::steady_clock::now(); now < until;
+         now = std::chrono::steady_clock::now()) {
+        if (until - now > tick) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        } else {
+            std::this_thread::yield();
+        }
+    }
+}
+
 // A sealed datagram to one connection, counting what it cost. The sealer's
 // sequence number moves whether or not the datagram arrives, which is what
 // the replay window on the other end expects.
@@ -5198,8 +5218,7 @@ int run(const Options& o) {
                     happened.add(up_s, line);
                 }
                 if (o.test_step_ms > 0.0) {
-                    std::this_thread::sleep_for(
-                        std::chrono::duration<double, std::milli>(o.test_step_ms));
+                    take_at_least(o.test_step_ms);
                 }
                 for (auto& connection : connections) {
                     ++connection.second.steps_into_input;
