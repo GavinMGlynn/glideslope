@@ -143,7 +143,7 @@ moved as every other's.
   sixteen aircraft, 48 terms, 0 named, asserted. A pressure the model makes
   (the tailplanes', the Cub's slipstream's) is checked not to read the
   whole pressure or any velocity but u and w. **Seen red**: on main's models
-  (1 of 48, the Cub's elevator); the C172P's Cmq put back on the whole
+  (47 of 48 fail; only the Cub's elevator was already off it); the C172P's Cmq put back on the whole
   pressure; the Learjet's Cmstab renamed; the Mosquito's qbarUW-tail-psf
   put back on the whole pressure; the Cub's induced velocity made from vt;
   the PA-28 removed.

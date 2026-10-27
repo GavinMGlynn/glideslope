@@ -4195,7 +4195,7 @@ GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_
 // attack - her elevator's, her flaps', her stabiliser's, her pitch damping,
 // her moment at no angle - multiplied the whole dynamic pressure, which
 // counts the crosswind, as her lift did: standing in 15 kt across the A380
-// with her stick back was pitched by 224,000 ft-lb, the C182 by 420. Each
+// with her stick back was pitched by 199,166 ft-lb, the C182 by 334. Each
 // make script now puts them on a dynamic pressure without its sideways part
 // (tools/alpha_rate.py, with_unkeyed_terms_on_qbar_uw), or names them with
 // the reason they are not (tests/tools/unkeyed_pitch_terms.py).
@@ -4216,7 +4216,7 @@ GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_
 // 2026-10-28-pitching-moments-not-keyed-to-the-angle-of-attack-leave-out-the-crosswind.md):
 // what remains is her terms on the creep of u and w, the most the J-3 Cub's
 // as the wind changes side, 0.32 of it; a hundred-thousandth, tried first,
-// she passed by three times.
+// she failed by three times.
 // Coverage asserted: fifteen landplanes, seven settings, 105 runs of 2,400
 // steps judged.
 GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_is_pitched_by_her_pitching_moment_terms_by_no_more_than_a_ten_thousandth_of_her_weight_times_her_chord) {
