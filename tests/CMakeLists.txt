@@ -2303,7 +2303,7 @@ add_test(NAME a_predicting_f35b_whose_client_stops_three_seconds_between_flying_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/starved_f35b_placed -DPORT=24809
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/starved_f35b_placed -DPORT=24826
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/starved_f35b_placed.cmake)
 set_tests_properties(a_predicting_f35b_whose_client_stops_three_seconds_between_flying_and_sending_is_placed_within_four_steps_travel
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200)
