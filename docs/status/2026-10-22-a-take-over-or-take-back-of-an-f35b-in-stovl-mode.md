@@ -74,3 +74,7 @@ red before the fix: never begun on the law, her pitch 43.3 degrees off.
 
 **Verification** (linux-release): the three multi-process tests and the
 plan test green; the reds above seen and reverted.
+
+**Rebased on #240 as it now stands** (2026-10-28), itself on main: no
+conflicts. Locally (linux-debug, `ctest -j4`, no display): 1391 tests, all
+pass but those skipped without a GPU, a live model call or Windows.
