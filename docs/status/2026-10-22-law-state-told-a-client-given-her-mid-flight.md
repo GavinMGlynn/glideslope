@@ -147,3 +147,10 @@ join test is green again.
   scenes).
 - The 30 s watchdog's text names what it waits for: to send, for the levers
   or her law. The "leaves at 95 s" lines are on the event.
+
+**Rebased on main and built on Windows** (2026-10-28): MSVC refused the
+window's `freopen` for `--stdout` (C4996, an error), which had failed CI's
+Windows builds; it now goes through `platform/stdout_to_file.hpp`, `freopen_s`
+on Windows. `tools/windows_build.sh windows-debug glideslope` builds clean.
+Locally (linux-debug, `ctest -j4`, no display): 1385 tests, all pass but
+those skipped without a GPU, a live model call or Windows.
