@@ -136,6 +136,8 @@ void Prediction::held_by_server(const Controls& held, std::optional<double> held
     // step keeps what the law does not fly, her pitch trim among them, from
     // what she was held on. Made from nothing, her law kept a pitch trim of
     // nought where the server's kept the trim it had held her on.
+    // Only before the first step (prediction.hpp): a controller flying her
+    // already is not thrown away mid-flight.
     if (laws_ && steps_ == 0) {
         laws_.emplace(aircraft_, held);
     }

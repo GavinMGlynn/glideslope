@@ -102,7 +102,11 @@ public:
     // law keeps from those controls what it does not fly - her pitch trim
     // among them - and, made from a model just loaded, her prediction's
     // law flew her on another pitch trim than the server's, and every
-    // replay pitched away from it (docs/status, 2026-10-28).
+    // replay pitched away from it (docs/status, 2026-10-28). **Called before
+    // this prediction's first step, by every caller** (glideslope_cli and
+    // the windowed client, as each makes the prediction): told after it,
+    // the controller already flying her is kept, not made again, and only
+    // the controls and the held trim are put on her.
     // Her held trim too, where her model has one (Aircraft::held_trim): the
     // F-22A's, which no control sets, and without which her prediction's
     // elevators are not the server's.

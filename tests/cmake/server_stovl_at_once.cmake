@@ -138,6 +138,12 @@ endif()
 # her prediction flew every replay on another trim than the server's, and
 # pitched away from it at 0.0055 degree a step - 0.58 and 0.96 degrees on
 # CI's Windows, whose replays are longer (docs/status, 2026-10-28).
+# Not nought: her trim found one, and a check of two noughts would pass
+# whichever controls the laws were made from.
+if(_server_trim STREQUAL "0" OR _server_trim MATCHES "^-?0(\\.0*)?(e[-+]?[0-9]+)?$")
+    message(FATAL_ERROR "the server's law flew her on a pitch trim of ${_server_trim}, nought: "
+                        "her trim found none, and the trims compared say nothing:\n${_err}")
+endif()
 if(NOT _client_trim STREQUAL _server_trim OR NOT _flying_trim STREQUAL _server_trim)
     message(FATAL_ERROR "the prediction's law flew her on a pitch trim of ${_client_trim} "
                         "(${_flying_trim} at the end), the server's on ${_server_trim}:\n${_said}")

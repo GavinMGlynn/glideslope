@@ -880,7 +880,8 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       0.20 on every Linux run here. Found and fixed 2026-10-28: the server's
       law flew her on her first input's pitch trim, the prediction's on the
       trim she was held on; now 0.001 here. Open: the figures from CI's full
-      run on every platform. *Verification: both laws fly her on the same
+      run on every platform; and a windowed client never told her levers
+      still makes its law from nothing, on another trim than the server's. *Verification: both laws fly her on the same
       pitch trim, red with the server's old seeding; each at-once test's
       pitch within a stated spread on every run and platform.*
 

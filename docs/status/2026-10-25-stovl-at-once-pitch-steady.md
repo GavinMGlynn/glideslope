@@ -41,10 +41,11 @@ Placing it properly once the clocks' difference was known (flying the gap
 on the levers held) changed nothing measured - 0.202 and 0.204 - and was
 not kept.
 
-**What changed**: glideslope_cli's `--track` says, of each comparison, her
-pitch error and the server's step, and of each word heard, its input, how
-far into it, the server's step and this client's (`word`), for the next
-round to read. Nothing else.
+**What changed**: nothing in the code. The figures above came from scratch
+instrumentation of glideslope_cli's `--track` (each comparison's pitch error
+and server step, and a `word` line for each word heard), which was not kept:
+rebased onto main's every-word comparison it no longer applied, and the
+cause was found without it (2026-10-28).
 
 **Next**: find which state of her law or flight-control system differs
 between the server and a replay - the autopilot's integrals other than the

@@ -35,11 +35,22 @@ prediction's controller from the levers it is told, as the server's is from
 what it held her on: a prediction whose very first step selected STOVL had
 otherwise made its law from a model just loaded.
 
+**Not answered: a client never told her levers.** The windowed client asks
+for them as it joins and gives up after its timeout; without them its
+prediction's controller is made from nothing (pitch trim nought), while the
+server's is now made from the trimmed hold (0.0746). Before this change the
+two agreed on the trim there by accident - both nought - and disagreed on
+the throttle the law was seeded with. The client has nothing to make hers
+from until it is told, so the case is named here and in the plan item, not
+fixed: such a client's law flies her on another trim than the server's, and
+its replays pitch away as the at-once tests' did.
+
 **Verification.**
 - `server_stovl_at_once.cmake` (the three at-once tests): the server says the
   pitch trim its law flew her on the step it was made, the client the trim
   its law was made with and the trim the law flying her at the end flies;
-  all three must be equal to the printed 17 digits. **Seen red** with the
+  all three must be equal to the printed 17 digits, and the server's not
+  nought, so that two noughts cannot pass it. **Seen red** with the
   server's controller made from `held` again: "the prediction's law flew her
   on a pitch trim of 0.074587237159337141", the server's 0, and the pitch
   0.201 degree. With the fix: 0.074587237159337141 on both, and her
