@@ -190,7 +190,8 @@ def with_unkeyed_terms_on_qbar_uw(text, script, terms):
     """`text`, a JSBSim model, with the terms *not* keyed to the angle of
     attack that `terms` names - {axis: [function name, ...]} - on
     aero/qbarUW-psf: a flap's, an elevator's, a stabiliser's or a spoiler's
-    lift, a wing's lift at no angle, and lift with pitch rate (2026-10-23).
+    lift, a wing's lift at no angle, and lift with pitch rate (2026-10-23);
+    and their pitching moments, pitch damping among them (2026-10-28).
 
     **Why.** The same air as with_alpha_terms_on_qbar_uw's: on the whole
     dynamic pressure a term that is a coefficient times a deflection, or a
@@ -240,6 +241,24 @@ def with_unkeyed_terms_on_qbar_uw(text, script, terms):
     flight, at a few degrees of sideslip, the two pressures differ by its
     cosine squared, the sweep theory's mean between them: under 1% either
     way.
+
+    **Pitching moments** (axis PITCH, 2026-10-28): the moments of the same
+    lifts - an elevator's, a flap's, a stabiliser's, a wing's at no angle
+    (Cm0, and the F-15C's with Mach), pitch damping (Cmq, the tail's lift
+    with pitch rate times its arm) - and of the Mosquito's radiator flaps and
+    gear, whose drag pitches her: the radiators' flow runs through ducts
+    along her chord, her gear legs' drag in a beam wind is sideways and rolls
+    rather than pitches her. JSBSim issue #89 tested Cmadot alone; the
+    FlightGear wiki's "JSBSim Aerodynamics" (dany93, 2019, from it) says
+    QBarUW "is more appropriate for Cm than the generic QBar" for an unswept
+    wing (a later revision of the wiki calls the same pressure QBarUV and
+    swaps the two names; JSBSim's aero/qbarUW-psf is of u and w, the plane of
+    lift, whatever the wiki calls it). The swept-surface argument above holds
+    as it does for the lift each moment comes from: standing, under half the
+    whole-pressure figure at every sweep here, so nothing is the nearer; in
+    flight cos^2 b of the whole, under 1% at 5 degrees. Pitch damping as lift
+    with pitch rate: of order rho V_uw q, near nothing standing, in flight cos
+    b against cos^2 b.
 
     It fails - so that a model changed under the script is noticed - if a
     named axis is missing, if a named function is not in it, reads the angle

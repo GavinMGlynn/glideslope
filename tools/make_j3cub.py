@@ -344,6 +344,18 @@ a time, they lifted her by up to 28 lb (stick back, as she stands); now under
 JSBSim issue #89's guidance puts the whole of CL on QBarUW; alpha_rate.py says
 why, for swept surfaces too. In flight, at a few degrees of sideslip, the two
 differ by its cosine squared.
+
+**Her pitching moments not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-28): Pitch_damp. Her Pitch_elevator is on her slipstream's pressure,
+aero/function/qbar-induced-psf, of u and her propeller's induced velocity alone,
+and leaves out the crosswind already. On the whole dynamic pressure they counted
+the crosswind standing, as her lift did. Standing on her brakes with her engines
+stopped in 15 kt straight across, a control set one at a time, they pitched her
+by up to 5 ft-lb (neutral); now by 0.16 ft-lb at most (the standing test in
+tests/unit/test_departure.cpp). The FlightGear wiki's guidance from JSBSim issue
+#89 puts Cm on QBarUW; alpha_rate.py says why, for swept surfaces too. In
+flight, at a few degrees of sideslip, the two differ by its cosine squared.
 """
 
 import math
@@ -838,7 +850,8 @@ def outputs():
                        "aero/moment/Pitch_reversed_flow"],
              "LIFT": ["aero/force/Lift_alpha", "aero/force/Lift_propwash", "aero/force/Lift_pitch_rate"],
              "DRAG": ["aero/force/Drag_basic"]}), "make_j3cub",
-            {"LIFT": ["aero/force/Lift_elevator"]}),
+            {"LIFT": ["aero/force/Lift_elevator"],
+             "PITCH": ["aero/moment/Pitch_damp"]}),
         OUT / "aircraft" / MODEL / "Systems" / f"{SYSTEM}.xml": controls(),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / f"{PROPELLER}.xml": propeller(),

@@ -35,28 +35,25 @@ MOVED = {
     "a380": [C + "Cmalpha"],
     "b2": [C + "Cmalpha"],
     "c172p": [C + "Cmalpha"],
-    "c182": [C + "Cmalpha"],
+    "c182": [C + "Cmalpha", C + "CmDe"],
     "f15c": [C + "Cmalpha"],
-    "f22": [C + "Cma_M", C + "CmDh_alpha"],
+    "f22": [C + "Cma_M", C + "CmDh_alpha", C + "CmDh", C + "CmDtv", C + "Cmq"],
     "f35b": [C + "Cmalpha"],
     "j3cub": [M + "Pitch_alpha", M + "Pitch_propwash", M + "Pitch_reversed_flow"],
     "learjet35a": [C + "Cmalpha"],
     "mosquito-fb6": [M + "pitch-alpha", M + "pitch-stall"],
     "pa28": [C + "Cmalpha"],
-    "short_s23": [C + "Cm_basic"],
+    "short_s23": [C + "Cm_basic", C + "Cmq"],
 }
-DAMPING = "pitch damping: the angle of attack only picks the coefficient of her pitch rate"
-NAMED = {
-    "c182": {C + "CmDe": "the elevator's term: the angle of attack only picks its "
-                         "coefficient, bounded (-0.62 to -0.87), times the deflection"},
-    "f22": {
-        C + "CmDh": "her tailerons' increment over CmDh_alpha, their power: an elevator "
-                    "term",
-        C + "CmDtv": "her thrust vectoring's moment, made by her engines, not her wing",
-        C + "Cmq": DAMPING,
-    },
-    "short_s23": {C + "Cmq": DAMPING},
-}
+# Every such term is moved. The elevators' (the C182's CmDe, the F-22A's
+# CmDh), her thrust vectoring's (the F-22A's CmDtv) and pitch damping (the
+# F-22A's and the S.23's Cmq), named until 2026-10-28 because the angle of
+# attack only picks their coefficient, are moved with every pitching term not
+# keyed to it (unkeyed_pitch_terms.py; alpha_rate.with_unkeyed_terms_on_qbar_uw
+# says why). The F-22A's CmDtv is a coefficient on the dynamic pressure, not
+# her engines' thrust: in calm air standing it is nothing on either pressure,
+# and on aero/qbarUW-psf it is nothing in a crosswind too.
+NAMED = {}
 TOTAL = 16
 assert len(MOVED) == TOTAL and set(NAMED) <= set(MOVED)
 ALLOWED = "aero/qbarUW-psf"

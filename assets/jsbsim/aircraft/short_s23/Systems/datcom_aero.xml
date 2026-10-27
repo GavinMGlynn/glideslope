@@ -925,7 +925,7 @@
                Very important to Short Period damping of oscillations
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <property>metrics/cbarw-ft</property>
                <property>aero/ci2vel</property>
@@ -1003,7 +1003,7 @@
                Positive surface deflection is trailing edge down
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <property>metrics/cbarw-ft</property>
                <table>
@@ -1030,7 +1030,7 @@
                Ultimately, we will feed this left flap pos
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <property>metrics/cbarw-ft</property>
                <table>
@@ -1052,7 +1052,7 @@
                Ultimately, we will feed this right flap pos
             </description>
             <product>
-               <property>aero/qbar-psf</property>
+               <property>aero/qbarUW-psf</property>
                <property>metrics/Sw-sqft</property>
                <property>metrics/cbarw-ft</property>
                <table>

@@ -821,31 +821,8 @@
          what raises the tail on the take-off run "by a light forward
          pressure" (Pilot's Notes, 1944, para. 49); in flight it adds little.
     -->
-    <function name="aero/function/qbar-tail-psf">
-      <sum>
-        <product>
-          <value>0.6</value>
-          <property>aero/qbar-psf</property>
-        </product>
-        <product>
-          <value>0.4</value>
-          <value>0.5</value>
-          <property>atmosphere/rho-slugs_ft3</property>
-          <pow>
-            <sum>
-              <property>velocities/u-aero-fps</property>
-              <property>propulsion/engine[0]/prop-induced-velocity_fps</property>
-              <property>propulsion/engine[1]/prop-induced-velocity_fps</property>
-            </sum>
-            <value>2</value>
-          </pow>
-        </product>
-      </sum>
-    </function>
-
-    <!-- The same pressure with its whole-air part leaving out the sideways
-         air, for her elevator's lift (tools/make_mosquito_fb6.py,
-         with_elevator_lift_on_qbar_uw). -->
+    <!-- Its whole-air part leaves out the sideways air
+         (tools/make_mosquito_fb6.py, with_elevator_on_qbar_uw). -->
     <function name="aero/function/qbarUW-tail-psf">
       <sum>
         <product>
@@ -1302,7 +1279,7 @@
            of gravity, 0.335 of the chord. -->
       <function name="aero/moment/pitch-zero">
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <value>0.02</value>
@@ -1343,7 +1320,7 @@
         <description>The tailplane's volume, 0.51, with the elevator's
           effectiveness, in the tailplane's dynamic pressure</description>
         <product>
-          <property>aero/function/qbar-tail-psf</property>
+          <property>aero/function/qbarUW-tail-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <property>fcs/elevator-pos-rad</property>
@@ -1352,7 +1329,7 @@
       </function>
       <function name="aero/moment/pitch-damping">
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <property>aero/ci2vel</property>
@@ -1373,7 +1350,7 @@
       <function name="aero/moment/pitch-flaps">
         <description>"Flaps down: nose up" (Pilot's Notes para. 42)</description>
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <property>fcs/flap-pos-deg</property>
@@ -1384,7 +1361,7 @@
         <description>"Radiator shutters open: nose up" (Pilot's Notes
           para. 42)</description>
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <sum>
@@ -1397,7 +1374,7 @@
       <function name="aero/moment/pitch-gear">
         <description>"Undercarriage down: nose down"</description>
         <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <property>gear/gear-pos-norm</property>

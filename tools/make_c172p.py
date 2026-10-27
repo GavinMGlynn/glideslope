@@ -182,6 +182,21 @@ lifted her by up to 61 lb (flaps down); now under 0.1 lb at every setting (the
 standing test in tests/unit/test_departure.cpp). JSBSim issue #89's guidance
 puts the whole of CL on QBarUW; alpha_rate.py says why, for swept surfaces too.
 In flight, at a few degrees of sideslip, the two differ by its cosine squared.
+
+**Her pitching moments not keyed to the angle of attack on the dynamic pressure
+without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
+2026-10-28): Cmo, Cmq and Cmdf; and Cmde, whose pressure at her tailplane,
+aero/function/qbarUW-tail-psf (above, 2026-10-16, then
+aero/function/qbar-tail-psf), is now made from aero/qbarUW-psf in both its
+places, the free stream's and the slipstream's excess over it. On the whole
+dynamic pressure they counted the crosswind standing, as her lift did. Standing
+on her brakes with her engines stopped in 15 kt straight across, a control set
+one at a time, they pitched her by up to 287 ft-lb (stick back); now by 0.05
+ft-lb at most (the standing test in tests/unit/test_departure.cpp). The
+FlightGear wiki's guidance from JSBSim issue #89 puts Cm on QBarUW;
+alpha_rate.py says why, for swept surfaces too. In flight, at a few degrees of
+sideslip, the two differ by its cosine squared. The selftest flies her, and its
+hash moved with this; its printed flight did not.
 """
 
 import pathlib
@@ -311,18 +326,20 @@ def airframe():
         text,
         r'(<function name="aero/function/qbar-induced-psf">.*?</function>\n)',
         r"\1\n"
-        r' <function name="aero/function/qbar-tail-psf">' "\n"
-        r"  <description> q bar at the tailplane: the free stream's, and the part of the"
+        r' <function name="aero/function/qbarUW-tail-psf">' "\n"
+        r"  <description> q bar at the tailplane: the free stream's without its sideways"
         "\n"
-        r"   slipstream's excess that reaches it (glideslope: tools/make_c172p.py) </description>"
+        r"   part, and the part of the slipstream's excess over it that reaches it"
+        "\n"
+        r"   (glideslope: tools/make_c172p.py) </description>"
         "\n"
         r"  <sum>" "\n"
-        r"   <property>aero/qbar-psf</property>" "\n"
+        r"   <property>aero/qbarUW-psf</property>" "\n"
         r"   <product>" "\n"
         f"    <value>{TAIL_IN_SLIPSTREAM:.3f}</value>\n"
         r"    <difference>" "\n"
         r"     <property>aero/function/qbar-induced-psf</property>" "\n"
-        r"     <property>aero/qbar-psf</property>" "\n"
+        r"     <property>aero/qbarUW-psf</property>" "\n"
         r"    </difference>" "\n"
         r"   </product>" "\n"
         r"  </sum>" "\n"
@@ -332,11 +349,11 @@ def airframe():
         text,
         r"(<description>Pitch_moment_due_to_elevator_deflection</description>\s*<product>\s*"
         r"<property>)aero/function/qbar-induced-psf(</property>)",
-        r"\1aero/function/qbar-tail-psf\2", "the elevator's pitch term")
+        r"\1aero/function/qbarUW-tail-psf\2", "the elevator's pitch term")
     # Her rudder in the part of the slipstream that reaches her fin (docstring).
     text = replace_once(
         text,
-        r'(<function name="aero/function/qbar-tail-psf">.*?</function>\n)',
+        r'(<function name="aero/function/qbarUW-tail-psf">.*?</function>\n)',
         r"\1\n"
         r' <function name="aero/function/qbar-fin-psf">' "\n"
         r"  <description> q bar at the fin: the free stream's, and the part of the"
@@ -389,7 +406,10 @@ def outputs():
              "DRAG": ["aero/coefficient/CDwbh"]}), "make_c172p",
             {"LIFT": ["aero/coefficient/CLq",
              "aero/coefficient/CLDf",
-             "aero/coefficient/CLDe"]}),
+             "aero/coefficient/CLDe"],
+             "PITCH": ["aero/coefficient/Cmo",
+             "aero/coefficient/Cmq",
+             "aero/coefficient/Cmdf"]}),
         OUT / "engine" / "prop_75in2f.xml": propeller(),
         OUT / "engine" / "eng_io320.xml": engine(),
     }

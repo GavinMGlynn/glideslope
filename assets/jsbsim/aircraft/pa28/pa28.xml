@@ -727,7 +727,7 @@
             <function name="aero/coefficient/CmDf">
                 <description>Delta_pitching_moment_due_to_flap_deflection</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/cbarw-ft</property>
                       <table>
@@ -744,7 +744,7 @@
             <function name="aero/coefficient/Cmq">
                 <description>Pitch_moment_due_to_pitch_rate</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/cbarw-ft</property>
                     <property>aero/ci2vel</property>
@@ -766,7 +766,7 @@
             <function name="aero/coefficient/Cmo">
                 <description>Pitching_moment_at_zero_alpha</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/cbarw-ft</property>
                     <value>0.0700</value>
@@ -775,7 +775,7 @@
             <function name="aero/coefficient/Cmde">
                 <description>Pitch_moment_due_to_elevator_deflection</description>
                 <product>
-                    <property>aero/qbar-psf</property>
+                    <property>aero/qbarUW-psf</property>
                     <property>metrics/Sw-sqft</property>
                     <property>metrics/cbarw-ft</property>
                     <property>fcs/elevator-pos-rad</property>

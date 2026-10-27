@@ -973,7 +973,7 @@
     <function name="aero/moment/Pitch_elevator">
        <description>Pitch moment due to elevator</description>
        <product>
-          <property>aero/qbar-psf</property>
+          <property>aero/qbarUW-psf</property>
           <property>metrics/Sw-sqft</property>
           <property>metrics/cbarw-ft</property>
           <property>fcs/elevator-pos-rad</property>
@@ -990,7 +990,7 @@
     <function name="aero/moment/Pitch_damp">
        <description>Pitch moment due to pitch rate</description>
        <product>
-           <property>aero/qbar-psf</property>
+           <property>aero/qbarUW-psf</property>
            <property>metrics/Sw-sqft</property>
            <property>metrics/cbarw-ft</property>
            <property>aero/ci2vel</property>
