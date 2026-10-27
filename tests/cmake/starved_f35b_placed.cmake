@@ -21,17 +21,16 @@
 # datagram 100 ms each way.
 #
 # **And the server's start slow, as a loaded machine's is** (`--test-slow-start
-# 2000`): a debug server's first steps took 1.7 to 2.2 s on CI's Ubuntu, and
+# 20000`): a debug server's first steps took 1.7 to 2.2 s on CI's Ubuntu, and
 # it caught that time up at 1.4 times real time while this client joined,
 # whose clocks' difference was then learnt 5 to 15 steps wrong and an update
 # put 23 m off (CI run 40087273404). Its start is not owed now
-# (glideslope_server's loop); built, so that it is tested on every run, not
-# on whichever machine happens to be slow. Its steps are made slow too
-# (`--test-step-ms 4`), so that catching a start up would take seconds, as on
-# CI, and not the tenth of one an idle machine takes: about twice real time
-# at most, room enough to keep time after. Seen red with the start owed again:
-# 136 to 167 m (2026-10-28); at 6 ms a step, 1.4 times real time, the server
-# is too near its limit and puts her 4 to 6 steps off with the start not owed.
+# (glideslope_server's loop). Built, so that it is tested on every run, and
+# long, 20 s, so that catching it up would take an idle machine seconds too.
+# Seen red with the start owed again: 1,662 and 1,677 m (2026-10-28). Not
+# built by slowing every step (`--test-step-ms`): a debug server so slowed on
+# a loaded runner falls behind real time - Phase 12a's - and was 10 steps off
+# on CI with the start not owed (run 40575068951).
 #
 # **The bound is the item's**: every update compared - across the stall's
 # words as well as outside them - within four steps' travel at her speed,
@@ -81,7 +80,7 @@ execute_process(
             --aircraft f35b --predict --from-held --until-held 30
             --slow-steps 2000 --stopped-sending 12 3000 --heard "${_heard}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" --test-slow-start 2000 --test-step-ms 4
+            --data "${DATA}" --timeout 5 --store "${_store}" --test-slow-start 20000
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 900
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)

@@ -162,12 +162,15 @@ pass (glideslope_server's loop). `--test-slow-start MS` makes the first steps
 slow, for a test; `server_flags.cmake` knows it.
 
 - `a_predicting_f35b_whose_client_stops_three_seconds_between_flying_and_sending_is_placed_within_four_steps_travel`
-  builds the slow start (`--test-slow-start 2000`) and steps slow enough that
-  catching it up would take seconds, as on CI (`--test-step-ms 4`, about twice
-  real time at most). Linux debug: worst 0.000 to 1.379 m over three runs.
-  **Seen red** with the start owed again: 136 to 167 m. At 6 ms a step, 1.4
-  times real time, the server is near its limit and puts her 4 to 6 steps off
-  with the start not owed - Phase 12a's server behind real time, not this.
+  builds the slow start, 20 s (`--test-slow-start 20000`), long enough that
+  catching it up would take seconds on an idle machine. Linux debug: worst
+  0.000 to 1.379 m over three runs, and 0.007 to 1.379 m over two pinned to
+  two CPUs with two busy loops on them. **Seen red** with the start owed
+  again: 1,662 and 1,677 m. A first version built the catch-up's slowness by
+  slowing every step instead (`--test-step-ms 4`): red 136 to 167 m, but on
+  CI's loaded Ubuntu debug the server so slowed fell behind real time and put
+  her 10 steps off with the start not owed (run 40575068951) - Phase 12a's
+  server behind real time, which the test must not build.
 - `the_client_with_the_window_predicting_an_f35b_stopped_three_seconds_before_sending_is_placed_within_four_steps_travel`
   (`client_starved_f35b.cmake`, a GPU's): the windowed client stopped 3 s
   between reckoning a frame's ticks and sending, the server's start slow.
