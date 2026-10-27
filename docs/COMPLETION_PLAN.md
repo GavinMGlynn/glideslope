@@ -1413,7 +1413,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       alone 3 s puts its client 55.6 m off (2026-10-22): the inputs that came
       meanwhile are flown at most a quarter of a second late. Reproduced with
       `glideslope_server --test-stopped-once`. (A server's slow start is
-      no longer owed and caught up after it, 2026-10-28.)
+      no longer owed and caught up after it, 2026-10-28.) Held up mid-run by
+      a shared CI runner, it puts the first-input test's clients 27 to 41 m
+      off, so that test and the F-22A's run alone until this is fixed.
 - [ ] **On Windows the server's word is placed two steps off now and then**:
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th
