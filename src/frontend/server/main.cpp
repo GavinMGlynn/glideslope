@@ -2768,7 +2768,7 @@ public:
             // one, as the client's prediction always has.
             if (!a.controller && a.slot >= 0 && a.held.stovl >= 0.5 &&
                 a.aircraft->has_lift_system()) {
-                a.controller = controller_for(*a.aircraft, a.model, a.held);
+                a.controller = controller_for(*a.aircraft, a.model, a.flown_on.value_or(a.held));
             }
             if (a.controller) {
                 // The AI pilot: its autopilot and navigator decide the
@@ -2780,19 +2780,20 @@ public:
                     a.controller->set_pilot(a.held);
                 }
                 const bool had_a_law = a.controller->transition() != nullptr;
-                glideslope::sim::apply(*a.aircraft, *a.controller);
+                a.flown_on = glideslope::sim::apply(*a.aircraft, *a.controller);
                 // **Her STOVL law made**, and what it was seeded with, for a
                 // test to hold her client's prediction's against.
                 if (const glideslope::sim::Transition* law = a.controller->transition();
                     law && !had_a_law && a.slot >= 0) {
                     std::printf("aircraft %u's STOVL law made at step %lld: throttle "
-                                "integral %.17g\n",
+                                "integral %.17g; pitch trim %.17g\n",
                                 static_cast<unsigned>(a.index), static_cast<long long>(steps_),
-                                law->throttle_integral_made_with());
+                                law->throttle_integral_made_with(), a.flown_on->pitch_trim);
                     std::fflush(stdout);
                 }
             } else {
                 a.aircraft->set_controls(a.held);
+                a.flown_on = a.held;
             }
             a.aircraft->step();
             a.most_roll_deg =
@@ -2859,6 +2860,16 @@ public:
         // inputs arrive 30 times a second. So the last thing said is held
         // and applied at every step.
         glideslope::sim::Controls held;
+        // **And what it was flown on last step** - `held`, or what its
+        // controller made of it - which a controller made on this step for
+        // her STOVL mode selector is made from: the controls she has, as the
+        // client's prediction's is (sim::Prediction::held_by_server). Made
+        // from `held`, already her first input's, the server's law kept the
+        // input's pitch trim, nought, where her prediction's kept the trim
+        // the server had held her on; flown wing-borne on trims 0.075 apart,
+        // every replay pitched away from the server at 0.0055 degree a step
+        // (docs/status, 2026-10-28).
+        std::optional<glideslope::sim::Controls> flown_on = std::nullopt;
         // The furthest it has banked, either way: what a test reads to know
         // that the inputs meant for it were the ones it flew by.
         double most_roll_deg = 0.0;
@@ -3773,6 +3784,7 @@ private:
             // aircraft given to the AI with nobody told.
             a.controller.reset();
         }
+        a.flown_on.reset();
     }
 
     // **The course it started on, held by its autopilot**: heading, height and

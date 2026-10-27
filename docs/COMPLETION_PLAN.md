@@ -877,11 +877,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       without its fix.* Done 2026-10-23.
 - [ ] **The STOVL at-once tests' predicted pitch varies from run to run**:
       0.58 and 0.96 degrees on CI's Windows against the half-degree bound,
-      0.20 on every Linux run here, loaded or not. Open: the cause is not
-      found - the pitch error grows with the steps flown again, so a
-      persistent difference between the replay and the server, not the
-      word's placing. *Verification: each at-once test's pitch the same,
-      within a stated spread, on every run and platform, red on #232's bug.*
+      0.20 on every Linux run here. Found and fixed 2026-10-28: the server's
+      law flew her on her first input's pitch trim, the prediction's on the
+      trim she was held on; now 0.001 here. Open: the figures from CI's full
+      run on every platform. *Verification: both laws fly her on the same
+      pitch trim, red with the server's old seeding; each at-once test's
+      pitch within a stated spread on every run and platform.*
 
 ---
 

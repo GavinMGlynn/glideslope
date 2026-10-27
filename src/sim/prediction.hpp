@@ -97,6 +97,12 @@ public:
     // same controls. And each step held keeps the controls she had as it
     // began, so that a law made in a step flown again is seeded as it was
     // the first time, not from the newest step's.
+    // **And her controller made from them** (sim::Controller), as the
+    // server makes one on her first input from what she was flown on: a
+    // law keeps from those controls what it does not fly - her pitch trim
+    // among them - and, made from a model just loaded, her prediction's
+    // law flew her on another pitch trim than the server's, and every
+    // replay pitched away from it (docs/status, 2026-10-28).
     // Her held trim too, where her model has one (Aircraft::held_trim): the
     // F-22A's, which no control sets, and without which her prediction's
     // elevators are not the server's.

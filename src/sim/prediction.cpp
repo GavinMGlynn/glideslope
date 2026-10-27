@@ -130,6 +130,15 @@ void Prediction::held_by_server(const Controls& held, std::optional<double> held
     }
     aircraft_.set_controls(held);
     commanded_ = held;
+    // **And her controller made from them**, as the server makes one for her
+    // STOVL mode selector - from what she was flown on the step before
+    // (glideslope_server's `flown_on`) - so that a law made on her first
+    // step keeps what the law does not fly, her pitch trim among them, from
+    // what she was held on. Made from nothing, her law kept a pitch trim of
+    // nought where the server's kept the trim it had held her on.
+    if (laws_ && steps_ == 0) {
+        laws_.emplace(aircraft_, held);
+    }
 }
 
 void Prediction::put(const Controls& controls) {

@@ -2872,7 +2872,8 @@ GLIDESLOPE_TEST(a_prediction_whose_stovl_law_was_made_a_step_or_two_apart_from_t
 // 300 KCAS: the server's trimmed and held a second on what the trim found
 // (held_until_moved), the client's a model just loaded, put there untrimmed.
 // Her first input selects STOVL mode. The server's controller, made on that
-// input as the server makes it, seeds her law from what she was held on;
+// input as the server makes it - from what she was flown on the step before,
+// what she was held on - seeds her law from it, her held pitch trim kept;
 // the prediction, told those controls, seeds its own from them - and not
 // told, from the model just loaded, which is the situation this pins. Then
 // it flies a second on, and a word placed by nothing - no clocks' difference
@@ -2909,11 +2910,18 @@ GLIDESLOPE_TEST(a_prediction_told_what_the_server_held_her_on_seeds_a_law_made_o
     first.stovl = 1.0;
     first.throttle = 0.7;
     first.elevator = -1.0;
-    Controller servers_laws(server, first);
+    // Made, as the server makes it, from what she was flown on the step
+    // before - what she was held on - and given her first input.
+    Controller servers_laws(server, held);
     servers_laws.set_pilot(first);
     (void)glideslope::sim::apply(server, servers_laws);
     check(servers_laws.transition() != nullptr, "the server's law is made on her first input");
     const double servers = servers_laws.transition()->throttle_integral_made_with();
+    // **And the pitch trim it flies her on**, which the law keeps from the
+    // controls it was made from: hers as held, not her first input's.
+    const double servers_trim = servers_laws.pilots_laws().applied.pitch_trim;
+    check(servers_trim == held.pitch_trim && held.pitch_trim != first.pitch_trim,
+          "the server's law flies her on the trim she was held on, not her first input's");
     std::printf("  held on throttle %.6f; the server's law made with %.17g\n", held.throttle,
                 servers);
     check(servers == held.throttle && servers > 0.1,
@@ -2932,6 +2940,7 @@ GLIDESLOPE_TEST(a_prediction_told_what_the_server_held_her_on_seeds_a_law_made_o
         check(p.laws() != nullptr && p.laws()->transition() != nullptr,
               "the prediction's law is made on her first input");
         const double made = p.laws()->transition()->throttle_integral_made_with();
+        const double trim = p.laws()->pilots_laws().applied.pitch_trim;
         for (int i = 0; i < steps_per_second; ++i) {
             p.step(1, first);
         }
@@ -2943,6 +2952,7 @@ GLIDESLOPE_TEST(a_prediction_told_what_the_server_held_her_on_seeds_a_law_made_o
             check(made == servers, "told, the prediction's law is made with the server's "
                                    "throttle integral");
             check(again == servers, "and made again in a replay with the same");
+            check(trim == servers_trim, "and flies her on the server's pitch trim");
         } else {
             check(made != servers, "not told, the prediction's law is made with another "
                                    "throttle integral - the situation this pins");

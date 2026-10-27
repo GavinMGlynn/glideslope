@@ -106,18 +106,21 @@ if(NOT _said MATCHES "stovl: selected with input 1, at once, on the server's lev
 endif()
 # The server's stdout reaches standard error through the relay, a line at a
 # time.
-if(NOT _err MATCHES "aircraft [0-9]+'s STOVL law made at step ([0-9]+): throttle integral ([-0-9.e+]+)\n")
+if(NOT _err MATCHES "aircraft [0-9]+'s STOVL law made at step ([0-9]+): throttle integral ([-0-9.e+]+); pitch trim ([-0-9.e+]+)\n")
     message(FATAL_ERROR "the server never said it made her STOVL law:\n${_err}")
 endif()
 set(_server_step "${CMAKE_MATCH_1}")
 set(_server "${CMAKE_MATCH_2}")
-if(NOT _said MATCHES "stovl: law made with input ([0-9]+) at step ([0-9]+): throttle integral ([-0-9.e+]+); the law flying her made with ([-0-9.e+]+)")
+set(_server_trim "${CMAKE_MATCH_3}")
+if(NOT _said MATCHES "stovl: law made with input ([0-9]+) at step ([0-9]+): throttle integral ([-0-9.e+]+); the law flying her made with ([-0-9.e+]+); pitch trim ([-0-9.e+]+), flying her ([-0-9.e+]+)")
     message(FATAL_ERROR "the client never said it made her STOVL law:\n${_said}")
 endif()
 set(_input "${CMAKE_MATCH_1}")
 set(_client_step "${CMAKE_MATCH_2}")
 set(_client "${CMAKE_MATCH_3}")
 set(_flying "${CMAKE_MATCH_4}")
+set(_client_trim "${CMAKE_MATCH_5}")
+set(_flying_trim "${CMAKE_MATCH_6}")
 if(NOT _input EQUAL 1)
     message(FATAL_ERROR "the prediction made her law on input ${_input}, not her first:\n${_said}")
 endif()
@@ -129,9 +132,20 @@ if(NOT _flying STREQUAL _server)
     message(FATAL_ERROR "the law flying her prediction at the end was made with a throttle "
                         "integral of ${_flying}, the server's with ${_server}:\n${_said}")
 endif()
+# **And the pitch trim each law flies her on**, which the law keeps from the
+# controls it was made from: the server's made from her first input's
+# (nought), the prediction's from the trim the server held her on (0.075),
+# her prediction flew every replay on another trim than the server's, and
+# pitched away from it at 0.0055 degree a step - 0.58 and 0.96 degrees on
+# CI's Windows, whose replays are longer (docs/status, 2026-10-28).
+if(NOT _client_trim STREQUAL _server_trim OR NOT _flying_trim STREQUAL _server_trim)
+    message(FATAL_ERROR "the prediction's law flew her on a pitch trim of ${_client_trim} "
+                        "(${_flying_trim} at the end), the server's on ${_server_trim}:\n${_said}")
+endif()
 message(STATUS "her STOVL law made on her first input with a throttle integral of ${_server} "
                "on the server (its step ${_server_step}) and in the prediction (its step "
-               "${_client_step}), and the law flying her at the end made with the same")
+               "${_client_step}), and the law flying her at the end made with the same; "
+               "both flying her on a pitch trim of ${_server_trim}")
 if(NOT _said MATCHES "stovl: predicted pitch within ([0-9]+)\\.([0-9][0-9][0-9]) degrees")
     message(FATAL_ERROR "the client did not say its pitch error:\n${_said}")
 endif()
