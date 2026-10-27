@@ -183,3 +183,9 @@ a share of its width:
 The other four (the S.23's long-range run and time, the Mosquito's
 single-engine ceiling, the 787-8's field length, the F-22A's climb at
 50,000 ft) move in the third decimal or less.
+
+**Rebased on main at a13d39d3** (2026-10-27): one conflict, the Learjet's
+make-script docstring, both paragraphs kept. Every make script's `--check`
+passes on the rebased models (sixteen). Locally (linux-debug, `ctest -j4`, no
+display): 1382 tests, all pass but those skipped without a GPU, a live model
+call or Windows; `glideslope_cli selftest` hash `bae579e2555aabce`, as above.
