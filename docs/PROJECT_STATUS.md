@@ -259,8 +259,9 @@ are the risks the phase order is built around:
   half a degree of the server's selected at any moment (2026-10-22); joining
   already selecting STOVL, her law is seeded in her prediction as the
   server's is (2026-10-21), her pitch trim included, her predicted pitch
-  within 0.001 degree of the server's on Linux (2026-10-28; CI's other
-  platforms not yet measured). A client joining while her law already flies
+  within 0.012 degree of the server's on every platform CI measured
+  (2026-10-29; Rocky's not yet said for two of the three tests), the windowed
+  client's law on the server's pitch trim too. A client joining while her law already flies
   her is told the whole of it and predicts her from it, mid-bank (2026-10-22);
   so is one taking her over or back in STOVL mode, an AI's F-35B planned
   at her vertical-landing loading (2026-10-22). She flies

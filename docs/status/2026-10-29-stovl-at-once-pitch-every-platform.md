@@ -1,6 +1,10 @@
 ### The STOVL at-once tests' pitch on every platform, and the windowed client's law on the server's trim, 2026-10-29
 
-**What is still not true first.** FIGURES_PENDING
+**What is still not true first.** Rocky 9's figures for the plain and slow
+at-once tests, and Ubuntu debug's for the slow one, were not said in CI's
+full run 40733120388 (below), so no bound rests on them yet; this change
+makes them said, and the next full run is the first to show them. Until they
+are seen the item stays open.
 
 **(b) The windowed client's law, on the server's trim: two causes, both
 fixed.**
@@ -53,4 +57,40 @@ have no figure to read - every job's log was searched. Each at-once test now
 says it as `figure (WORK): predicted pitch within X degrees` before judging
 it, and every test job of CI has a step, "The figures said", that prints
 every such line from LastTest.log whether the tests passed or not.
-SPREAD_PENDING
+
+**Why some were missing.** A test that runs ctest itself in the same build -
+the ports check, the shards check - writes LastTest.log afresh, and the
+figures of the tests before it in its shard went with it. Each at-once test
+now also writes its figure to `figures.txt` in its work directory, and the
+step prints those files.
+
+**The figures, CI's full run 40733120388 (0cb3f404), degrees:**
+
+| | plain | slow client | first asking ignored |
+|---|---|---|---|
+| Ubuntu linux-release | 0.006 | 0.002 | 0.001 |
+| Ubuntu linux-debug | 0.004 | not said | 0.005 |
+| Rocky 9 linux-release | not said | not said | 0.003 |
+| macOS release | 0.005 | 0.006 | 0.006 |
+| Windows debug | 0.009 | 0.004 | 0.005 |
+| Windows release | 0.012 | 0.007 | 0.005 |
+| Windows clang | 0.005 | 0.006 | 0.008 |
+| here, linux-release | 0.003 | | |
+
+Every one is under 0.012 - where before #254 Windows had 0.58 and 0.96 and
+Linux 0.20 against the half-degree bound. **The bounds, twice the most each
+test was seen off**: plain 0.024 (from Windows release's 0.012), slow 0.014
+(Windows release's 0.007), first asking ignored 0.016 (Windows clang's
+0.008), passed to the script as `PITCH_BOUND_MDEG`, the reason and the run in
+tests/CMakeLists.txt. Twice is room for a replay longer on a busier runner,
+not a guess at a distribution: one run per platform is what there is.
+
+**The run's one failure** was Rocky's
+`a_window_client_whose_imagery_is_refused_in_whatever_order_still_draws_its_frame_on_the_dems_colours`,
+2.6 s in, in a shard with none of this change's tests: not this item's.
+
+**After rebasing onto #241** (its law-state adoption in `Flight::adopt`, the
+take-over in main.cpp kept, the levers forgotten before it), run here on
+linux-release: the three at-once tests, the window test, #241's join,
+mid-bank, take-over and both take-back tests, the timeouts check (64 uses, 52
+long with #241's three) and the ports check - 14 passed.

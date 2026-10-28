@@ -33,8 +33,9 @@
 # each word puts her back and flies her again, the law made again in the
 # replay, and a law made again from the newest step's controls rather than
 # from those she had as the step began would be seeded otherwise. **And her
-# predicted pitch within half a degree of the server's at every update
-# compared**, as server_stovl_landing.cmake holds it - here with her
+# predicted pitch within PITCH_BOUND_MDEG thousandths of a degree of the
+# server's at every update compared** - twice the most each test was seen
+# off on any platform (tests/CMakeLists.txt says which, from which run), as server_stovl_landing.cmake holds it - here with her
 # selector on before the prediction has settled, before any word of the
 # server's had placed it on the client's clock (COMPLETION_PLAN, "A
 # client's prediction of an F-35B in STOVL mode drifts from the server's
@@ -51,7 +52,10 @@ endif()
 set(_store "${WORK}/stovl.sqlite")
 set(_heard "${WORK}/heard.txt")
 set(_plan "${WORK}/stovl.plan")
-file(REMOVE "${_store}" "${_heard}")
+file(REMOVE "${_store}" "${_heard}" "${WORK}/figures.txt")
+if(NOT DEFINED PITCH_BOUND_MDEG)
+    message(FATAL_ERROR "server_stovl_at_once.cmake needs -DPITCH_BOUND_MDEG")
+endif()
 file(WRITE "${_plan}" "aircraft c172p\n"
                       "start -33.9461 151.1772 200 270 100\n"
                       "waypoint NORTH -33.5000 151.1772 1500 100\n")
@@ -157,11 +161,18 @@ if(NOT _said MATCHES "stovl: predicted pitch within ([0-9]+)\\.([0-9][0-9][0-9])
 endif()
 # **Said as a figure before it is judged**, for CI's "The figures said" step:
 # the bound is set from every platform's runs, not from those that failed it.
+# Into a file of its own as well as the output: a test that runs ctest in the
+# same build (the ports check, the shards check) writes LastTest.log afresh,
+# and the figures of the tests before it in its shard went with it (run
+# 40733120388: Rocky's and one of Ubuntu debug's).
 get_filename_component(_which "${WORK}" NAME)
-message(STATUS "figure (${_which}): predicted pitch within ${CMAKE_MATCH_1}.${CMAKE_MATCH_2} degrees")
-if(CMAKE_MATCH_1 GREATER 0 OR CMAKE_MATCH_2 GREATER 500)
+set(_figure "figure (${_which}): predicted pitch within ${CMAKE_MATCH_1}.${CMAKE_MATCH_2} degrees")
+message(STATUS "${_figure}")
+file(WRITE "${WORK}/figures.txt" "${_figure}\n")
+math(EXPR _mdeg "${CMAKE_MATCH_1} * 1000 + 1${CMAKE_MATCH_2} - 1000")
+if(_mdeg GREATER PITCH_BOUND_MDEG)
     message(FATAL_ERROR "her predicted pitch was ${CMAKE_MATCH_1}.${CMAKE_MATCH_2} degrees off "
-                        "the server's, over half a degree:\n${_said}")
+                        "the server's, over ${PITCH_BOUND_MDEG} thousandths:\n${_said}")
 endif()
 set(_pitch "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
 if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared")
