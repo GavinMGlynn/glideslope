@@ -905,15 +905,12 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       *Verification: a prediction given a NaN is let go of and each client
       flies on, red without the guard; the held prediction pinned, red
       without its fix.* Done 2026-10-23.
-- [ ] **The STOVL at-once tests' predicted pitch varies from run to run**:
+- [x] **The STOVL at-once tests' predicted pitch varies from run to run**:
       0.58 and 0.96 degrees on CI's Windows against the half-degree bound,
-      0.20 on every Linux run here. Found and fixed 2026-10-28: the server's
-      law flew her on her first input's pitch trim, the prediction's on the
-      trim she was held on. The windowed client now asks for her levers until
-      told and keeps them, so its law flies the server's trim (2026-10-29);
-      CI's full run had every figure under 0.012 degree, and each test's bound
-      is twice its most. Open: Rocky's figures for two of the tests, not said
-      that run. *Verification: both laws fly her on the same
+      0.20 on Linux. Fixed 2026-10-28: both laws now fly her on the trim she
+      was held on, the windowed client's too (2026-10-29). In two full CI
+      runs every platform's figure is under 0.033 degree, and each test's
+      bound is twice its most. *Verification: both laws fly her on the same
       pitch trim, red with the server's old seeding; each at-once test's
       pitch within a stated spread on every run and platform.*
 
