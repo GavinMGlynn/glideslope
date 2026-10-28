@@ -2658,7 +2658,7 @@ foreach(_scene IN ITEMS take_over take_back take_back_wing_borne)
         set(_port 24988)
     else()
         set(_name a_client_taking_back_its_f35b_hovering_from_the_ai_predicts_her_from_the_servers_law_state)
-        set(_port 24944)
+        set(_port 24976)
     endif()
     add_test(NAME ${_name}
         COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
