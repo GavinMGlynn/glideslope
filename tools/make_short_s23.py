@@ -287,15 +287,14 @@ degrees of sideslip, the two differ by its cosine squared.
 
 **Her pitching moments not keyed to the angle of attack on the dynamic pressure
 without its sideways part** (alpha_rate.with_unkeyed_terms_on_qbar_uw,
-2026-10-28): CmDe, CmDf3L and CmDf3R. **Not moved**: Cmq, her pitch damping,
-whose coefficient the angle of attack picks, named as it was: moved too, she was
-left thirty seconds in the stall handed over diving at 140 kt, pitch -23
-degrees, and pulled 4.2 g recovering, against 1.4 g on the whole pressure
-(tests/unit/test_lesson.cpp); afloat she turns into the wind, so no crosswind
-stands across her. On the whole dynamic pressure they counted the crosswind
-standing, as her lift did. She is not stood: afloat she has no brakes and turns
-into the wind, so it is not across her; her terms are moved as every other's.
-The FlightGear wiki's guidance from JSBSim issue #89 puts Cm on QBarUW;
+2026-10-28): CmDe, CmDf3L and CmDf3R. On the whole dynamic pressure they
+counted the crosswind standing, as her lift did. **Not moved**: Cmq, her pitch
+damping, whose coefficient the angle of attack picks, named as it was: moved
+too, she was left thirty seconds in the stall handed over diving at 140 kt,
+pitch -23 degrees, and pulled 4.2 g recovering, against 1.4 g on the whole
+pressure (tests/unit/test_lesson.cpp); afloat she turns into the wind, so no
+crosswind stands across her. Why her stall is that sensitive to it is not
+measured. The FlightGear wiki's guidance from JSBSim issue #89 puts Cm on QBarUW;
 alpha_rate.py says why, for swept surfaces too. In flight, at a few degrees of
 sideslip, the two differ by its cosine squared.
 """
