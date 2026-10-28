@@ -3596,6 +3596,20 @@ add_test(NAME the_client_with_the_window_predicting_an_f35b_stopped_three_second
 set_tests_properties(the_client_with_the_window_predicting_an_f35b_stopped_three_seconds_before_sending_is_placed_within_four_steps_travel
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_starved_f35b)
+# **The client with the window, its first asking for her levers ignored,
+# asks again and flies her STOVL law on the server's pitch trim**: asked
+# once and given up on, it made her law from nothing, on a trim of nought
+# where the server's flew the trim it had held her on. Needs a GPU and the
+# DEM; see cmake/client_stovl_at_once.cmake.
+add_test(NAME the_client_with_the_window_whose_first_asking_for_her_levers_is_ignored_flies_her_stovl_law_on_the_servers_pitch_trim
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/client_stovl_at_once -DPORT=24880 -DDRIVER=vulkan
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_stovl_at_once.cmake)
+set_tests_properties(the_client_with_the_window_whose_first_asking_for_her_levers_is_ignored_flies_her_stovl_law_on_the_servers_pitch_trim
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_stovl_at_once)
 # **And every word such a frame reads is compared**, each at its own step,
 # while only the newest puts the prediction right (frontend/own_words.hpp):
 # the words read, less those not yet placeable, against the words compared

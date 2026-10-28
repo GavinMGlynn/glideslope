@@ -155,6 +155,10 @@ message(STATUS "her STOVL law made on her first input with a throttle integral o
 if(NOT _said MATCHES "stovl: predicted pitch within ([0-9]+)\\.([0-9][0-9][0-9]) degrees")
     message(FATAL_ERROR "the client did not say its pitch error:\n${_said}")
 endif()
+# **Said as a figure before it is judged**, for CI's "The figures said" step:
+# the bound is set from every platform's runs, not from those that failed it.
+get_filename_component(_which "${WORK}" NAME)
+message(STATUS "figure (${_which}): predicted pitch within ${CMAKE_MATCH_1}.${CMAKE_MATCH_2} degrees")
 if(CMAKE_MATCH_1 GREATER 0 OR CMAKE_MATCH_2 GREATER 500)
     message(FATAL_ERROR "her predicted pitch was ${CMAKE_MATCH_1}.${CMAKE_MATCH_2} degrees off "
                         "the server's, over half a degree:\n${_said}")

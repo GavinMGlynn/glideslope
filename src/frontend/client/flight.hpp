@@ -171,10 +171,26 @@ public:
     // **What the server holds her on until her first input**, as her levers
     // say it, put on her before the prediction's first step
     // (sim::Prediction::held_by_server). Nothing while not predicting.
+    // **Kept, and put on every prediction begun again** (`adopt`): the first
+    // word of her own after joining begins the prediction anew, and one
+    // begun from nothing made her STOVL law on a pitch trim of nought where
+    // the server's flew the trim it had held her on (docs/status,
+    // 2026-10-29). Forgotten at a take-over: they are this aircraft's.
     void held_by_server(const sim::Controls& held, std::optional<double> held_trim) {
+        held_ = Held{held, held_trim};
         if (prediction_) {
             prediction_->held_by_server(held, held_trim);
         }
+    }
+    void forget_held() { held_.reset(); }
+    // **The pitch trim her prediction's STOVL law flies her on**, which the
+    // law keeps from the controls it was made from; none while no law flies
+    // her. For a test to hold against the server's (docs/status, 2026-10-29).
+    std::optional<double> stovl_law_pitch_trim() const {
+        if (prediction_ && prediction_->laws() && prediction_->laws()->transition()) {
+            return prediction_->laws()->pilots_laws().applied.pitch_trim;
+        }
+        return std::nullopt;
     }
     bool predicting() const { return prediction_ != nullptr; }
     // Whether the prediction knows the clocks' difference yet
@@ -391,6 +407,12 @@ private:
     sim::HerFigures figures_;
     // On a server: the prediction, and the sequence of the inputs being flown.
     std::unique_ptr<sim::Prediction> prediction_;
+    // What the server held her on until her first input (held_by_server).
+    struct Held {
+        sim::Controls controls;
+        std::optional<double> trim;
+    };
+    std::optional<Held> held_;
     // What each prediction let go of went to, said once (let_go_if_lost).
     std::set<std::string> said_lost_;
     std::size_t let_go_ = 0;
