@@ -9,7 +9,7 @@
 #   KIND hat N up|down|left|right CONTROL step AMOUNT
 #
 # CONTROL: aileron elevator rudder pitch_trim (-1..1), throttle mixture
-# propeller flaps left_brake right_brake brakes speedbrake (0..1). A stick
+# propeller flaps left_brake right_brake brakes speedbrake reverse (0..1). A stick
 # pushed forward reads -1, so the elevator's scale is 1 (nose down) and a
 # lever's is -1 (forward is full). Flaps move in steps of a third: 10
 # degrees of the Cessna's 30.
@@ -27,6 +27,12 @@
 # rudders half out. Those buttons trimmed the pitch before, which each
 # device's other trim buttons and hat still do. An aeroplane without
 # speedbrakes ignores it.
+#
+# **The reverse levers are each device's last button, held**: maximum reverse
+# while it is held and stowed when it is let go, as X-Plane's "hold thrust
+# reverse at max" command has it. They deploy only with the weight on the
+# wheels, and an aeroplane without reversers ignores it. That button held the
+# brakes before, which each device's first button still does.
 #
 # Every axis, button and hat direction a device of up to eight axes, sixteen
 # buttons and one hat can have is bound; tests/unit/test_input.cpp walks them.
@@ -54,7 +60,7 @@ flight_stick button 11 propeller step -0.1
 flight_stick button 12 propeller step 0.1
 flight_stick button 13 speedbrake step -0.25
 flight_stick button 14 speedbrake step 0.25
-flight_stick button 15 brakes hold
+flight_stick button 15 reverse hold
 flight_stick hat 0 up pitch_trim step -0.05
 flight_stick hat 0 down pitch_trim step 0.05
 flight_stick hat 0 left throttle step -0.1
@@ -83,7 +89,7 @@ throttle button 11 propeller step -0.1
 throttle button 12 propeller step 0.1
 throttle button 13 speedbrake step -0.25
 throttle button 14 speedbrake step 0.25
-throttle button 15 brakes hold
+throttle button 15 reverse hold
 throttle hat 0 up flaps step -0.3333333
 throttle hat 0 down flaps step 0.3333333
 throttle hat 0 left mixture step -0.1
