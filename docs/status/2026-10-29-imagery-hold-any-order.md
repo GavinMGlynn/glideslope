@@ -67,8 +67,27 @@ first is not what breaks it; a coarse one is.
   `a_shot_of_mount_taranaki_drapes_the_open_imagery_where_it_belongs` tests
   failed, each after its shot was written: `glideslope_terrain_check` was
   still running at its 240 s step limit. Neither passes the wedge flag, so
-  neither has a hold, and nothing they run is changed here; not chased
-  further in this item.
+  neither has a hold. **The limit was too short, not the check hung**
+  (below).
+
+**Each step's limit is now 600 s, not 240** (`_step_limit_s` in
+`tests/cmake/frame_terrain.cmake`, from #262). It is there to name a hang,
+not to bound a slow machine: CI's Windows debug runs the whole
+imagery-drape test in 129 to 153 s, and the Windows development machine's
+terrain check alone went past 240 s. Each test's TIMEOUT is above its
+steps' limits together. The three refused-imagery tests run three steps, so
+900 s becomes 1900. The two Taranaki shots run two steps; they had the
+presets' 900 s, which two steps of 600 do not fit under, so they have 1300.
+Verified: Windows debug (`tools/windows_build.sh`, WINDOWS_TEST
+"taranaki|imagery") ran both Taranaki shots and the three refused-imagery
+tests on both drivers, and all passed. The drape tests took 259 and 265 s.
+The terrain check alone, run by hand on the shot left behind with the
+machine idle, took 198 s. Under the suite's load it had gone past 240 s. In
+the same run `a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound`
+printed its pass and then died at exit (0xc0000409; an access violation in
+a thread "after the program began to exit"). It had passed in the first
+run, and nothing here touches it. It is not chased here. linux-debug: the
+same seven tests all passed (94 s).
 
 **The crash on the Windows machine** - a window client's null read on a
 worker thread while every imagery fetch timed out, in a take-back test run
