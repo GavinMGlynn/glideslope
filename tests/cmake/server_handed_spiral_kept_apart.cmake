@@ -18,6 +18,13 @@
 # run: test_separation.cpp builds it exactly.
 # **Counted in steps the AI has the aircraft** (`--steps-after-hand-over`),
 # two simulated minutes, the client leaving by the server's `--stopped-file`.
+# **Stopped behind real time, built**: the server is held up 1 to 4 s every
+# 20 simulated seconds (`--test-held-up 20 4000`), and the 4 s hold-up lets
+# 60 steps slip - what a Windows debug runner did by chance (CI,
+# 2026-10-28). The run must have let some slip, and the handed aircraft is
+# still measured over exactly HANDED: a stop forgave what was owed and not
+# what slipped, the end of the run flew those, and it was measured over
+# 14,460 (seen red so, Linux debug).
 #
 # **What is checked, over the whole run**: three pairs, each with the handed
 # aircraft measured over exactly HANDED steps; the least height between
@@ -60,7 +67,7 @@ execute_process(
             --hand-over-at 2 --heard "${_heard}" --until-exists "${_stopped}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --ai 2 --headless
             --data "${DATA}" --store "${_store}" --steps-after-hand-over ${_handed}
-            --stopped-file "${_stopped}"
+            --stopped-file "${_stopped}" --test-held-up 20 4000
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT EXISTS "${_heard}")
     message(FATAL_ERROR "the client heard nothing:\n${_out}\n${_err}")
@@ -87,9 +94,14 @@ if(NOT _pairs EQUAL 3)
 endif()
 string(REGEX MATCHALL "\napart: [^\n]*" _lines "${_out}")
 list(TRANSFORM _lines STRIP)
-if(NOT _out MATCHES "stopped after ${_handed} steps of a player's aircraft with the AI")
+if(NOT _out MATCHES "stopped after ${_handed} steps of a player's aircraft with the AI, [0-9.]+ s in, ([0-9]+) owed and ([0-9]+) let slip")
     message(FATAL_ERROR "the server did not stop ${_handed} steps after the hand-over:\n${_out}")
 endif()
+if(NOT CMAKE_MATCH_2 GREATER 0)
+    message(FATAL_ERROR "the server held up let no step slip, so its stop behind real time "
+                        "was not tested:\n${_out}")
+endif()
+message(STATUS "stopped ${CMAKE_MATCH_1} steps owed and ${CMAKE_MATCH_2} let slip")
 set(_with_handed 0)
 foreach(_line IN LISTS _lines)
     message(STATUS "${_line}")

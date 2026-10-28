@@ -5193,11 +5193,15 @@ int run(const Options& o) {
         // to the AI as asked, whatever the machine's speed.
         if (o.steps_after_hand_over >= 0 && fleet &&
             fleet->handed_steps() >= o.steps_after_hand_over) {
+            // How far behind it was, said before it is forgiven.
             std::printf("stopped after %lld steps of a player's aircraft with the AI, "
-                        "%.1f s in\n",
-                        static_cast<long long>(fleet->handed_steps()), up_s);
+                        "%.1f s in, %lld owed and %lld let slip\n",
+                        static_cast<long long>(fleet->handed_steps()), up_s,
+                        static_cast<long long>(owed.owed()),
+                        static_cast<long long>(owed.slipped()));
             std::fflush(stdout);
-            // Not the steps a slow machine still owes: they are past the count.
+            // Not the steps a slow machine still owes, nor those it let slip:
+            // they are past the count.
             owed.forgive();
             break;
         }

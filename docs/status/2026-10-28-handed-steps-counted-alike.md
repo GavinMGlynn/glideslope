@@ -27,9 +27,18 @@ takes what it owes and what it let slip.
   hold-up's 60 slipped steps; after it green, both pairs with the handed
   aircraft over 14400, and the two AI aircraft's pair 60 steps shorter
   (14,649 against 14,709).
-- Unchanged: `an_aircraft_its_player_rolled_into_a_spiral_..._from_either`,
+- **Built into the committed test, not left to a runner's luck** (the
+  review of #263): `an_aircraft_its_player_rolled_into_a_spiral_..._from_either`
+  now runs its server with `--test-held-up 20 4000` and fails unless the
+  stop let some steps slip. With the old `forgive()`: red, "stopped 9 steps
+  owed and 60 let slip", the handed pair over 14,460. With the fix: green,
+  "8 owed and 60 let slip", both handed pairs over 14,400, separation never
+  lost.
+- The stop's line now says what was owed and let slip before they are
+  forgiven, so a log still shows how far behind the server was.
+- Unchanged and green:
   `an_aircraft_handed_to_the_ai_is_measured_against_every_other_ai_aircraft_and_kept_apart_from_them`,
-  the server's flag tests and the held-input unit tests, green.
+  the server's flag tests and the held-input unit tests.
 
 No plan item: this is a test operator's count, not anything a player sees;
 `docs/PROJECT_STATUS.md` is unchanged, since what works is.
