@@ -21,10 +21,13 @@ the root and settles on its own failure: no wedge. That was run 40649190581.
 **Built now.** A test flag, `--test-imagery-wedge`
 (`TerrainOptions::test_imagery_coarsest_first`), puts an accessor in front
 of the fetches (`CoarsestFirstAccessor` in `gfx/terrain_tiles.cpp`): the
-first imagery fetch is the root's, and every fetch deeper than its level is
+first imagery fetch is taken to be the root's (assumed, not checked: a run
+where it was not would not wedge, and the test, requiring the give-up, fails),
+and every fetch deeper than its level is
 held, unanswered, while the root's and its coarser fall-backs go at once.
 Each update looks at the root tile; once its imagery has settled on failure,
-the held fetches go (`let_held_imagery_go`, and the client says so), each
+the held fetches go (`let_held_imagery_go`, and the client says so; settled
+any other way they go too, said so, rather than hang the shot), each
 is refused, and each tile's failure lands beneath the settled root - wedged,
 every run. The offline wait does not end while fetches are held. The test
 passes the flag and requires the client to say both that the held fetches

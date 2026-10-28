@@ -270,8 +270,10 @@ private:
 // some it did not (run 40649190581). Held like this, every finer tile's
 // failure lands after the root's has settled, and the wedge is built every
 // run. A fetch is the imagery's when its URL begins with `prefix`, and its
-// level is the number that follows; the first such fetch is the root's
-// (nothing finer is asked for before it), and only fetches deeper than its
+// level is the number that follows; the first such fetch is taken to be the
+// root's - assumed, not checked: Cesium Native asks for nothing finer before
+// it, and a run where it did would not wedge, and the test, requiring the
+// give-up, fails - and only fetches deeper than its
 // level are held - its own fall-backs, coarser, go at once.
 struct HeldImagery {
     std::string prefix;
@@ -1796,20 +1798,27 @@ void TerrainTiles::let_held_imagery_go() {
     if (!impl_->held_imagery || !impl_->held_imagery->holding()) {
         return;
     }
-    // The root's imagery settled on its failure: no loading tile left, and
-    // the ready one failed. Every tile beneath it whose imagery fails from
-    // here is wedged (imagery_wedged).
+    // The root's imagery settled: no loading tile left, and a ready one.
+    // Settled on its failure, every tile beneath it whose imagery fails from
+    // here is wedged (imagery_wedged). **Settled any other way, the held
+    // fetches go too**, said so: held for ever, the shot's wait would never
+    // end. The test needs imagery that fails; given imagery that loads, it
+    // fails on the give-up it asks for, not on a hang.
     const Tile* root = impl_->tileset->getRootTile();
     if (root == nullptr) {
         return;
     }
     for (const auto& mapped : root->getMappedRasterTiles()) {
         const auto* ready = mapped.getReadyTile();
-        if (mapped.getLoadingTile() == nullptr && ready != nullptr &&
-            ready->getState() ==
-                CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed) {
-            std::fputs("glideslope: the imagery's finer fetches, held for a test, "
-                       "go now: the root tile's has failed\n",
+        if (mapped.getLoadingTile() == nullptr && ready != nullptr) {
+            const bool failed =
+                ready->getState() ==
+                CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed;
+            std::fputs(failed ? "glideslope: the imagery's finer fetches, held for a "
+                                "test, go now: the root tile's has failed\n"
+                              : "glideslope: the imagery's finer fetches, held for a "
+                                "test, go now: the root tile's did not fail, so no "
+                                "wedge is built\n",
                        stderr);
             impl_->held_imagery->let_go();
             return;
