@@ -32,3 +32,15 @@ dealings dealt once. With the label removed from the scratch build it fails
 initialised submodules, so the real build was not configured here: CI is the
 proof, and the PR's own logs show the test's absence. No actionlint was
 available; the workflow edit is read by eye, one expression text across 7 lines.
+
+**A red nightly result is expected, not a red tree.** A test named in
+`nightly_tests.cmake` may fail in the scheduled run until its item is fixed;
+that is reported in that item (here the open Phase 12a item on Windows' timers)
+and is not the stop-everything red tree of CLAUDE.md. This is the owner's
+2026-10-28 rule: a test failing twice for one cause is "named and moved to the
+nightly run".
+
+**Owed.** That the test runs every night is owed until the first scheduled run
+(cron 16:00 UTC, run of ci.yml on main after this lands): that run is the check.
+The pull-request half is shown below from the PR's own logs.
+The pull-request half (a shard log without the test) is also owed: the first full run (40756909695) had not finished in 90 minutes on a loaded runner queue, and is quoted on the PR when it has.

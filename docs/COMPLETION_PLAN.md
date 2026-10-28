@@ -1448,12 +1448,14 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       pull request's run and run by the nightly one, and each is named with its
       reason. *Verification: a test labelled nightly runs every night and on no
       pull request, named with its reason; the first is the held-up-unevenly
-      prediction test (1 of 1 named).*
+      prediction test (1 of 1 named). Owed until the first scheduled run
+      (16:00 UTC) shows it run.*
 - [ ] **On Windows the server's word is placed two steps off now and then**:
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th
       percentile under a metre in ten runs.* 2026-10-29: the held-up-unevenly
-      test runs nightly until this is fixed.
+      test runs nightly until this is fixed; its red there is reported here,
+      not a red tree.
 - [ ] **On a busy machine the server's word is placed a step off now and
       then**: a server held up unevenly moves the least of the clocks'
       difference, so the multi-process tests bound their 95th percentile by
