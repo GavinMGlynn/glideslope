@@ -1723,6 +1723,11 @@ What the client with the window does that the command-line client does, and what
       joining keeps the server's flaps and throttle. *Verification: a window
       client started on final keeps full flap, sets it from the keyboard, and
       is handed to the learnt landing.* Done 2026-10-08.
+- [ ] **A window client whose imagery cannot be fetched draws nothing**: on
+      CI's windows-clang every EOX tile was refused (WinHTTP 12030) and the
+      forged-refusal test's client wrote no frame (run 40603515425).
+      *Verification: with every imagery fetch failing, the window client
+      still draws its frame, on the DEM's colours, and says why.*
 
 ---
 

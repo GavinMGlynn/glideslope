@@ -195,3 +195,4 @@ slow, for a test; `server_flags.cmake` knows it.
   95th percentile on Windows (#254's run), with the start not owed. That is
   Phase 12a's server falling behind real time, whose item now names it; both
   tests' comments point there, not at this item.
+- A tail found on the way, added to Phase 12c: a window client whose imagery cannot be fetched drew nothing on CI's windows-clang (run 40603515425, every EOX tile refused).
