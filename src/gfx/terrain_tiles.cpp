@@ -804,7 +804,7 @@ struct DrawnTile {
     // The tile on the DEM's colours, for when its imagery could not be
     // fetched: kept here until it is first wanted, and only then put on the
     // GPU, so that imagery that arrives costs no second mesh there. Kept on
-    // the CPU even once imagery is attached - about 45 kB a tile - because
+    // the CPU even once imagery is attached - about 70 kB a tile - because
     // the imagery can still be given up whole (`give_up_wedged_imagery`),
     // taking it off tiles that had it.
     std::vector<std::pair<Mesh, Placement>> dem_meshes;
@@ -1936,6 +1936,11 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
     // shot never drawn: on CI's Windows and macOS, every imagery fetch
     // refused, the test timed out at 900 s (run 40627612271). Wedged imagery
     // is given up as it is found, and the wait ends as Cesium Native's does.
+    // **Copied from cesium-native v0.64.0** (Tileset.cpp,
+    // Tileset::updateViewGroupOffline, less its fading): on an upgrade, hold
+    // it to theirs again, and see whether RasterMappedTo3DTile::update still
+    // wedges (imagery_wedged_below) - this test pins it:
+    // a_window_client_whose_imagery_cannot_be_fetched_still_draws_its_frame_on_the_dems_colours_and_says_why.
     give_up_wedged_imagery();
     const Cesium3DTilesSelection::ViewUpdateResult* result = nullptr;
     if (complete && finite) {

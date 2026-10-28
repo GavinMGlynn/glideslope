@@ -30,6 +30,17 @@
 # line more fails it ("the credits, line 1, read ..."). A window client on CI whose
 # EOX tiles were reset refused its shot and wrote nothing (run 40618052854).
 #
+# **And the terrain is all there**: as many tiles, to the same level, as the
+# same shot without imagery draws (`--imagery off`, shot here too). Every
+# fetch refused, Cesium Native wedges tiles beneath an ancestor whose imagery
+# failed first - never renderable, their parents drawn instead - and on
+# Windows and macOS its wait for every tile never ended (CI run
+# 40627612271). The client gives the imagery up when it finds that
+# (gfx::TerrainTiles), and must say so: here it always does, on every
+# platform, so the test fails if the path it pins was not taken. Without the
+# give-up it drew 19 tiles to level 6 here, where without imagery it draws
+# 26 to level 7.
+#
 # The terrain
 # comes from the DEM's tiles and the geoid, fetched into CACHE: without the
 # network the test is skipped (exit 77) unless GLIDESLOPE_REQUIRE_NETWORK is
@@ -106,7 +117,31 @@ if(REFUSE_IMAGERY)
     if(_refused EQUAL -1)
         message(FATAL_ERROR "no fetch from ${REFUSED_AT} was seen to fail:\n${_err}")
     endif()
-    message(STATUS "${_on_dem} tiles of ${_drawn} drawn on the DEM's colours, their imagery refused")
+    if(NOT _err MATCHES "the imagery is given up")
+        message(FATAL_ERROR "the client did not give its wedged imagery up - the path "
+                            "this pins was not taken:\n${_err}")
+    endif()
+    if(NOT _out MATCHES "terrain of [0-9]+ tiles, [0-9]+ loaded, the deepest at level ([0-9]+)")
+        message(FATAL_ERROR "the client did not say how deep its terrain went:\n${_out}")
+    endif()
+    set(_deepest "${CMAKE_MATCH_1}")
+    set(_bare "${WORK}/terrain-imagery-refused-bare-${DRIVER}.bmp")
+    execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size ${_size}
+                            --screen terrain --at "${_eye}" --toward "${_summit}"
+                            --imagery off --shot "${_bare}"
+                    RESULT_VARIABLE _bare_rc OUTPUT_VARIABLE _bare_out ERROR_VARIABLE _bare_err)
+    if(NOT _bare_rc EQUAL 0 OR NOT _bare_out MATCHES
+       "terrain of ([0-9]+) tiles, [0-9]+ loaded, the deepest at level ([0-9]+)")
+        message(FATAL_ERROR "the shot without imagery failed (${_bare_rc}):\n${_bare_out}\n${_bare_err}")
+    endif()
+    if(NOT _drawn EQUAL CMAKE_MATCH_1 OR NOT _deepest EQUAL CMAKE_MATCH_2)
+        message(FATAL_ERROR "its imagery refused, the client drew ${_drawn} tiles to level "
+                            "${_deepest}; without imagery, ${CMAKE_MATCH_1} to level "
+                            "${CMAKE_MATCH_2}")
+    endif()
+    glideslope_judge_leaks("${_bare_err}")
+    message(STATUS "${_on_dem} tiles of ${_drawn} drawn on the DEM's colours to level "
+                   "${_deepest}, as without imagery, their imagery refused and given up")
 else()
     glideslope_skip_when_imagery_not_fetched("${_err}")
 endif()
