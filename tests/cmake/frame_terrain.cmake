@@ -23,8 +23,11 @@
 # client must exit 0, must say on its standard error that the tiles were
 # drawn on the DEM's colours because their imagery could not be fetched -
 # every tile it drew, counted against the tiles it says the frame holds -
-# and the frame is held to the DEM's colours as the shot without imagery is,
-# the imagery's credit along the bottom too. A window client on CI whose
+# and the frame is held to the DEM's colours as the shot without imagery is.
+# **The imagery's credit is not on it**: none of EOX's imagery is drawn, so
+# the client leaves its credit off, and glideslope_terrain_check, reading the
+# credits back off the frame, holds them to the DEM's notice alone - a credit
+# line more fails it ("the credits, line 1, read ..."). A window client on CI whose
 # EOX tiles were reset refused its shot and wrote nothing (run 40618052854).
 #
 # The terrain

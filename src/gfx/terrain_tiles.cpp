@@ -1073,16 +1073,23 @@ void meshes_from_model(CesiumGltf::Model& model, const glm::dmat4& tile_transfor
 // a raster tile that failed, with nothing still loading - what Cesium Native
 // does when the tile's own imagery fails and no ancestor's is there to stand
 // in for it.
+//
+// **Only once nothing of it is still loading**: a tile with any overlay still
+// on its way is not failed yet, whatever another overlay of it settled on.
 bool imagery_failed(const Tile& tile) {
+    bool failed = false;
     for (const auto& mapped : tile.getMappedRasterTiles()) {
+        if (mapped.getLoadingTile() != nullptr) {
+            return false;
+        }
         const auto* ready = mapped.getReadyTile();
-        if (mapped.getLoadingTile() == nullptr && ready != nullptr &&
+        if (ready != nullptr &&
             ready->getState() ==
                 CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed) {
-            return true;
+            failed = true;
         }
     }
-    return false;
+    return failed;
 }
 
 class RendererResources final
@@ -1210,6 +1217,14 @@ public:
                               static_cast<float>(1.0 - translation.y)};
         }
         drawn->imagery = true;
+        // **Its imagery here, what was kept for the DEM's colours goes.**
+        // Cesium Native only ever swaps imagery attached for other imagery
+        // loaded - its own for an ancestor's, as a fetch fails - and never
+        // takes a tile with imagery back to none, so it is not wanted again.
+        if (drawn->dem_draws.empty()) {
+            drawn->dem_meshes.clear();
+            drawn->dem_meshes.shrink_to_fit();
+        }
     }
     void
     detachRasterInMainThread(const Tile& tile, int32_t coordinates,

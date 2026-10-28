@@ -19,9 +19,11 @@ And such a tile was drawn grey: with imagery on, its vertex colours were the
 slope's light alone, for the imagery to be multiplied by.
 
 **The fix.** With imagery on, each open terrain tile's glTF carries the
-DEM's colours too (`_DEM_COLOUR`), kept on the CPU beside the tile. When
-Cesium Native settles a tile's imagery on a raster tile that failed, with
-nothing loading and no ancestor's to stand in (`imagery_failed` in
+DEM's colours too (`_DEM_COLOUR`), kept on the CPU beside the tile until
+its imagery attaches, and then freed: Cesium Native only swaps attached
+imagery for other imagery, never back to none. When it settles a tile's
+imagery on a raster tile that failed, with none of the tile's overlays still
+loading and no ancestor's to stand in (`imagery_failed` in
 `gfx/terrain_tiles.cpp`), the tile's DEM-coloured meshes are put on the GPU
 then, and drawn instead; `Counts::imagery_failed` counts them apart from
 `without_imagery`, which still refuses a shot. The client says on its
@@ -39,7 +41,14 @@ for. It must exit 0, write its frame, say "19 terrain tiles were drawn on the
 DEM's colours: their imagery could not be fetched" for every tile the frame
 holds (19 of 19), show a refused fetch, and pass `glideslope_terrain_check`
 against the DEM's colours. Seen red before the fix: exit 1, "19 terrain
-tiles were drawn without their imagery", no frame. Green after.
+tiles were drawn without their imagery", no frame. Green after, mean
+difference 5.02 of 255. **The DEM-colour path seen red on its own**: with the
+failed tiles counted but drawn from their grey, light-only meshes - a
+deliberate bug, reverted - the test failed on the terrain check, mean
+difference 127.24 of 255 (at most 5.5). **The credit**: the check reads the
+credits back off the frame and holds them to the DEM's notice alone; with
+EOX's credit still drawn, an earlier version of this change failed it
+("the credits, line 1, read ...").
 
 **Tests about the imagery itself** (`a_shot_of_mount_taranaki_drapes_the_open_imagery_where_it_belongs`,
 `a_headless_client_drawing_ten_thousand_frames_keeps_its_memory_level`) now
@@ -49,4 +58,5 @@ skipped on its exit code before - or fail, with GLIDESLOPE_REQUIRE_NETWORK.
 
 **Verified** (linux-debug, sanitized): the new test, both Taranaki shots,
 the ten-thousand-frame memory test, the three ride-along tests (the one CI
-failed among them) and the ports check, 9 of 9.
+failed among them) and the ports check, 9 of 9, after the review's round
+too (rebased on main; the item is main's own Phase 12c tail, ticked there).
