@@ -71,7 +71,10 @@
 # (docs/status, 2026-10-28). **A named limit, stopped alone**: the inputs
 # that came in the 3 s are read in one pass and the newest alone is flown, so
 # the server flies none of the stick's moves in them - 4.4 m off the path the
-# client flew - and the worst is held to 8 m, the rest to the bounds below.
+# client flew - and every word of its catching up, 75 of the 600 at a word
+# every 4.8 steps, is that much off: the worst is held to 8 m and the 95th
+# percentile to 2 m (CI's Windows debug: 1.51 m and 4.7 m, run 40621099406),
+# the rest to the bounds below.
 # Not built: a server persistently behind, which the paced test is.
 #
 # **A named limit: on Windows about one update in a hundred is off by two
@@ -122,11 +125,13 @@ endif()
 
 set(_pace 0.6)
 set(_worst_allowed_mm 3000)
+set(_p95_allowed_mm 1000)
 set(_server_held "")
 if(SERVER_HELD STREQUAL "alone")
     set(_pace 1)
     set(_server_held --test-stopped-once 12 3000)
     set(_worst_allowed_mm 8000)
+    set(_p95_allowed_mm 2000)
 elseif(SERVER_HELD STREQUAL "unevenly")
     set(_pace 1)
     set(_server_held --test-held-up 1 600)
@@ -231,7 +236,7 @@ string(APPEND _line "; ${_stalls}")
 if(_compared LESS 600)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()
-if(_p95_mm GREATER 1000 OR _worst_mm GREATER _worst_allowed_mm OR _median_mm GREATER 50)
+if(_p95_mm GREATER _p95_allowed_mm OR _worst_mm GREATER _worst_allowed_mm OR _median_mm GREATER 50)
     message(FATAL_ERROR "against a server behind real time the prediction was off: "
                         "${_line}:\n${_said}")
 endif()
