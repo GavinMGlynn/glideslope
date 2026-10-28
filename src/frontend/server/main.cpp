@@ -223,6 +223,15 @@ struct Options {
     // (`--test-say-controls`), so that a test counts in the server's own
     // steps how long an input it sent was flown.
     bool test_say_controls = false;
+    // For a test: say each time steps owed are let slip (`--test-say-slipped`,
+    // net::CatchingUp), and how many in all.
+    bool test_say_slipped = false;
+    // For a test: **held up unevenly** (`--test-held-up EVERY_S MS`) - every
+    // EVERY_S seconds on the session's clock it runs nothing for a quarter,
+    // a half, three quarters and then all of MS milliseconds in turn, as a
+    // busy machine holds a server up now and then; zero is never.
+    double test_held_up_every_s = 0.0;
+    double test_held_up_ms = 0.0;
     // For a test: how fast the simulation's clock runs against real time,
     // set - a server behind real time by a fixed factor, the same on every
     // machine fast enough to keep up with it, where one put behind by
@@ -381,6 +390,11 @@ void print_usage(std::FILE* out) {
         "  --test-slow-start MS  make the fleet's first steps take MS\n"
         "                     milliseconds more, as a slow machine's start\n"
         "                     does, for tests\n"
+        "  --test-held-up EVERY_S MS  every EVERY_S seconds on the session's\n"
+        "                     clock run nothing for a quarter, a half, three\n"
+        "                     quarters, then all of MS milliseconds in turn, as\n"
+        "                     a busy machine holds it up, for tests\n"
+        "  --test-say-slipped  say each time steps owed are let slip, for tests\n"
         "  --dry-run          print the settings and exit without binding\n"
         "  --version          print the version\n"
         "  --help             print this\n"
@@ -584,6 +598,19 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.changed_file = std::string(value);
         } else if (a == "--test-say-controls") {
             o.test_say_controls = true;
+        } else if (a == "--test-say-slipped") {
+            o.test_say_slipped = true;
+        } else if (a == "--test-held-up") {
+            if (!next(value)) return std::nullopt;
+            const auto every = number(value);
+            if (!next(value)) return std::nullopt;
+            const auto ms = number(value);
+            if (!every || *every <= 0.0 || !ms || *ms < 0.0) {
+                why = "--test-held-up wants seconds between and milliseconds held up";
+                return std::nullopt;
+            }
+            o.test_held_up_every_s = *every;
+            o.test_held_up_ms = *ms;
         } else if (a == "--test-step-ms") {
             if (!next(value)) return std::nullopt;
             const auto n = number(value);
@@ -5052,14 +5079,20 @@ int run(const Options& o) {
     const auto began = std::chrono::steady_clock::now();
     // `--test-stopped-once`, until it has been.
     bool test_stopped = o.test_stopped_at_s < 0.0;
+    // `--test-held-up`: when next, and how many times so far.
+    double held_up_next_s = o.test_held_up_every_s;
+    int held_up_times = 0;
     auto last = began;
     glideslope::sim::FixedStep clock;
-    // Steps the clock says are due and the fleet has not yet taken, and the
+    // Steps the clock says are due and the fleet has not yet taken - caught
+    // up, or let slip where the server cannot (net::CatchingUp) - and the
     // steps it has; see most_steps_between_looks.
-    std::int64_t owed = 0;
+    glideslope::net::CatchingUp owed;
     std::int64_t stepped = 0;
     // Whether the fleet has taken its first steps, its start (below).
     bool flown_first = false;
+    // The steps the pass before took, for how fast the server flies flat out.
+    std::int64_t steps_last_pass = 0;
     // The twenty-fifth of a simulated second the last update was for.
     std::int64_t said_where_for = -1;
     std::uint64_t datagrams = 0;
@@ -5084,6 +5117,15 @@ int run(const Options& o) {
             test_stopped = true;
             std::this_thread::sleep_for(
                 std::chrono::duration<double, std::milli>(o.test_stopped_ms));
+            now = std::chrono::steady_clock::now();
+            up_s = std::chrono::duration<double>(now - began).count();
+        }
+        if (o.test_held_up_every_s > 0.0 && fleet &&
+            fleet->now_s() >= held_up_next_s) {
+            held_up_next_s = fleet->now_s() + o.test_held_up_every_s;
+            ++held_up_times;
+            std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(
+                o.test_held_up_ms * static_cast<double>(held_up_times % 4 + 1) / 4.0));
             now = std::chrono::steady_clock::now();
             up_s = std::chrono::duration<double>(now - began).count();
         }
@@ -5150,7 +5192,7 @@ int run(const Options& o) {
                         static_cast<long long>(fleet->handed_steps()), up_s);
             std::fflush(stdout);
             // Not the steps a slow machine still owes: they are past the count.
-            owed = 0;
+            owed.forgive();
             break;
         }
 
@@ -5191,12 +5233,22 @@ int run(const Options& o) {
         // they share one clock.
         if (fleet) {
             // At a set fraction of real time, for a test (`--test-pace`).
-            owed += clock.advance(std::chrono::duration_cast<std::chrono::nanoseconds>(
-                (now - last) * o.test_pace));
-            std::int64_t n = std::min(owed, most_steps_between_looks);
+            const auto gap = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                (now - last) * o.test_pace);
+            const std::int64_t slipped = owed.came_due(
+                clock.advance(gap), std::chrono::duration<double>(gap).count(), steps_last_pass,
+                static_cast<double>(glideslope::sim::steps_per_second));
+            if (slipped > 0 && o.test_say_slipped) {
+                // On the error stream: a test runs the server in a pipeline,
+                // whose output goes to the next program and is not read.
+                std::fprintf(stderr, "let %lld step%s slip, %lld in all\n",
+                             static_cast<long long>(slipped), slipped == 1 ? "" : "s",
+                             static_cast<long long>(owed.slipped()));
+            }
+            std::int64_t n = std::min(owed.owed(), most_steps_between_looks);
             // The inputs read in this pass are due at the step due now.
             for (auto& connection : connections) {
-                connection.second.inputs_heard.stamp(stepped, owed);
+                connection.second.inputs_heard.stamp(stepped, owed.owed());
             }
             for (std::int64_t i = 0; i < n; ++i) {
                 // **Counted in steps the AI has a player's aircraft**, not
@@ -5224,7 +5276,8 @@ int run(const Options& o) {
                     ++connection.second.steps_into_input;
                 }
             }
-            owed -= n;
+            owed.took(n);
+            steps_last_pass = n;
             stepped += n;
             for (auto& connection : connections) {
                 // Due by the next step: flown from it.
@@ -5432,9 +5485,11 @@ int run(const Options& o) {
             std::printf("everybody who joined has gone, %.1f s in\n", up_s);
             break;
         }
-        if (got == 0) {
+        if (got == 0 && owed.owed() == 0) {
             // Nothing to do: the socket does not block, so without this the
-            // server would spin a core for no reason.
+            // server would spin a core for no reason. Not while it owes
+            // steps: it is catching up, and a sleep in every pass of four
+            // steps was a sleep it caught up the slower for.
             std::this_thread::sleep_for(std::chrono::milliseconds(2));
         }
     }
@@ -5479,16 +5534,18 @@ int run(const Options& o) {
 
     // **The steps still owed are taken**, with nobody left to answer, so that
     // what it says it flew below is the time it was given, however far behind
-    // a busy machine left it.
+    // a busy machine left it - those it let slip too, which were owed as
+    // much as the rest once nobody's inputs were waiting on them.
     if (fleet) {
+        std::int64_t behind = owed.owed() + owed.slipped();
         if (o.steps > 0) {
-            owed = o.steps;
-            std::printf("taking %lld steps as fast as they go\n", static_cast<long long>(owed));
+            behind = o.steps;
+            std::printf("taking %lld steps as fast as they go\n", static_cast<long long>(behind));
         } else {
-            std::printf("was %lld step%s behind at the end\n", static_cast<long long>(owed),
-                        owed == 1 ? "" : "s");
+            std::printf("was %lld step%s behind at the end\n", static_cast<long long>(behind),
+                        behind == 1 ? "" : "s");
         }
-        for (; owed > 0; --owed) {
+        for (; behind > 0; --behind) {
             for (const std::string& line : fleet->step()) {
                 std::printf("%s\n", line.c_str());
             }
