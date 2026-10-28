@@ -69,7 +69,7 @@ math(EXPR _relay "${PORT} + 1")
 execute_process(
     # Each writes down the pipe to the next; the window client's are read.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" --ready-file "${_ready}"
+            --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 290
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300

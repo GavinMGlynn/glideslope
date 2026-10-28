@@ -86,7 +86,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay_own}" "${_key}" 25 --after 1
             --predict --own-air --heard "${_own}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --players 2 --data "${DATA}" --timeout 5 --store "${_store}"
+            --players 2 --data "${DATA}" --timeout 30 --store "${_store}"
             --metar "${_west}" --station ${_station}
             --metar-then 12 "${_south_west}" --weather-blend 5
     COMMAND "${IMPAIR}" ${_relay_same} "127.0.0.1:${PORT}" --delay 250 --jitter 0

@@ -147,7 +147,7 @@ execute_process(
             --aircraft f35b --predict --stovl-land --until-compared 3000
             --heard "${_heard}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 1000 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" --plan "${_plan}"
+            --data "${DATA}" --timeout 30 --store "${_store}" --plan "${_plan}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 1000
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)

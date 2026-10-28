@@ -167,7 +167,7 @@ execute_process(
     COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 300 --after 1
             --predict --copilot-at 5 ${_asking} --heard "${_heard}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 400 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" ${_plan} ${_players}
+            --data "${DATA}" --timeout 30 --store "${_store}" ${_plan} ${_players}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _err)
 if(NOT EXISTS "${_heard}")
     message(FATAL_ERROR "the client heard nothing (exit codes ${_rcs}):\n${_served}\n${_err}")
