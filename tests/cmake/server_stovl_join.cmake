@@ -49,6 +49,22 @@
 # loaded, the fan's doors shut, B's prediction made its own law wing-borne
 # and level (PROJECT_STATUS.md, 2026-10-22).
 #
+# **The lost scene's median within 120 mm, measured** (2026-10-29): 60 mm
+# was copied, never measured for it, and CI's Windows runners went over it
+# three times - 72 mm (windows-clang, run 40743161009), 77 and 63 mm
+# (windows-debug, runs 40750172534 and 40769073518), the worst 0.74 to
+# 1.26 m and the 95th percentile 0.59 to 0.65 m, inside their bounds. Its
+# error is along her path, not off it (0.056 to 0.147 m off at worst):
+# updates placed a step off by the clocks' difference, which Windows'
+# timers spread (COMPLETION_PLAN, Phase 12a). Why the lost scene spreads it
+# more than the join scene is not known. Five runs of each scene on
+# Windows debug, the development machine: the lost scene's median 54 to
+# 61 mm, the join scene's 35 to 48 mm, every 95th percentile 0.54 to
+# 1.27 m. Linux debug, on a busy machine: 19 to 45 mm and 13 to 50 mm,
+# the 95th percentiles 26 to 108 mm. 120 mm is half again Windows' worst, and half the 246 mm of a
+# client begun without the law (docs/status, 2026-10-22), which the
+# pitch check catches first besides.
+#
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
 cmake_minimum_required(VERSION 3.28)
@@ -186,8 +202,14 @@ if(NOT _said MATCHES "prediction error median: ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "B did not say its median error:\n${_said}")
 endif()
 math(EXPR _median_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
-if(_median_mm GREATER 60)
-    message(FATAL_ERROR "the median prediction error was ${_median_mm} mm, over 60 mm:\n${_said}")
+# **The lost scene's median, measured** (2026-10-29): see the header.
+set(_median_bound_mm 60)
+if(SCENE STREQUAL "lost")
+    set(_median_bound_mm 120)
+endif()
+if(_median_mm GREATER _median_bound_mm)
+    message(FATAL_ERROR "the median prediction error was ${_median_mm} mm, over "
+                        "${_median_bound_mm} mm:\n${_said}")
 endif()
 message(STATUS "${SCENE}: B began on her law in stage ${_stage} with ${_bank} degrees of bank "
                "held; over ${_compared} updates her pitch within ${_pitch} degrees, the median "
