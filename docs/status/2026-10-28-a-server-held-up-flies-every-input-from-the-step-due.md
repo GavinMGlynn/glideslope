@@ -100,5 +100,11 @@ and what the remaining 4.4 m needs; put off, above.
 - The related tests, Linux debug (`-R` first_input, impaired, starved,
   server_behind, behind_real_time, rate_limit, take_over, take_back, stall,
   held_inputs, owes, slip): 187 of 187 passed.
+- **The full suite**, Linux debug at `-j4`, before rebasing on #252: 1,385
+  of 1,386 passed (the network-and-key tests skipped as ever).
+  `a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral`
+  failed once beside the rest and passed run alone (128 s); its log was
+  overwritten before it was read, so whether this change or the load moved
+  it is not known - a thing to watch on CI.
 - `--test-say-slipped` says each slip on the error stream (a test's server
   runs in a pipeline whose output is not read).
