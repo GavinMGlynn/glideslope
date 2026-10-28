@@ -122,7 +122,9 @@ env:
 #   - A push to main, after a merge: the builds only - the tree was tested
 #     before it merged, since main takes a branch only when it is up to date -
 #     which keeps main's caches warm for the pull requests that restore them.
-#   - Every night (schedule): everything, every preset, timing in release.
+#   - Every night (schedule): everything, every preset, timing in release,
+#     and the tests labelled nightly, which no pull request's run has (they
+#     fail on CI twice for one cause; tests/CMakeLists.txt names each).
 #
 # **Every preset runs somewhere.** The Linux presets on Ubuntu (both) and Rocky 9
 # (release), the macOS presets on macOS, the Windows presets on Windows. A
@@ -285,7 +287,7 @@ jobs:
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }} || rc=$?
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }} || rc=$?
           kill $xvfb
           exit $rc
       # **The figures the tests said, whether they passed or not** (each
@@ -355,7 +357,7 @@ jobs:
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }} || rc=$?
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }} || rc=$?
           kill $xvfb
           exit $rc
       # **The figures the tests said, whether they passed or not** (each
@@ -556,7 +558,7 @@ jobs:
           source /opt/rh/gcc-toolset-14/enable
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" || rc=$?
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && '-LE nightly' || '' }} || rc=$?
           kill $xvfb
           exit $rc
       # **The figures the tests said, whether they passed or not** (each
@@ -739,7 +741,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
-          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
       # afresh by a test that runs ctest itself), so that a bound is set from
@@ -804,7 +806,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
-          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
       # afresh by a test that runs ctest itself), so that a bound is set from
@@ -1029,7 +1031,7 @@ jobs:
         shell: cmd
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
-          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
+          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
 
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
@@ -1158,7 +1160,7 @@ jobs:
         shell: cmd
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
-          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
+          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
 
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written

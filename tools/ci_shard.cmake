@@ -135,12 +135,12 @@ foreach(_i RANGE ${_last})
                 set(_holds ${JOBS})
             elseif(_pn STREQUAL "PROCESSORS" AND _pv GREATER _holds)
                 set(_holds ${_pv})
-            elseif(_pn STREQUAL "LABELS" AND PRESET MATCHES "-debug$")
+            elseif(_pn STREQUAL "LABELS")
                 string(JSON _nv LENGTH "${_pv}")
                 math(EXPR _vlast "${_nv} - 1")
                 foreach(_v RANGE ${_vlast})
                     string(JSON _l GET "${_pv}" ${_v})
-                    if(_l STREQUAL "timing")
+                    if((_l STREQUAL "timing" AND PRESET MATCHES "-debug$") OR _l STREQUAL "nightly")
                         set(_unrun TRUE)
                     endif()
                 endforeach()
@@ -157,8 +157,10 @@ foreach(_i RANGE ${_last})
     if(_holds GREATER JOBS)
         set(_holds ${JOBS})
     endif()
-    # A debug preset's shards run `ctest -LE timing` (ci.yml says why): a
-    # timing test is dealt there, but never run, so it costs nothing.
+    # A debug preset's shards run `ctest -LE timing`, and a pull request's
+    # `-LE nightly` (ci.yml says why): such a test is dealt there, but never
+    # run, so it costs nothing. (The nightly run does run a nightly test, in
+    # whatever shard it was dealt to at no cost: a few minutes of slack.)
     if(_unrun)
         set(_c 0)
     elseif(DEFINED _cost_${_name})
