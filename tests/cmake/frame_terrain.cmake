@@ -144,6 +144,12 @@ if(REFUSE_IMAGERY)
                    "${_deepest}, as without imagery, their imagery refused and given up")
 else()
     glideslope_skip_when_imagery_not_fetched("${_err}")
+    # **Imagery that came is never given up**: a fetch failing here and
+    # there, under an ancestor whose imagery loaded, is not Cesium Native's
+    # wedge, and must not take the imagery off for the run.
+    if(_err MATCHES "the imagery is given up")
+        message(FATAL_ERROR "the imagery came and was given up:\n${_err}")
+    endif()
 endif()
 
 execute_process(COMMAND "${CHECK}" "${_shot}" "${WORK}/${_name}-reference.bmp"

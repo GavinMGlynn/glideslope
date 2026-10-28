@@ -131,3 +131,21 @@ at 4: about 70 kB a tile, on the CPU only until its imagery fails. A shot
 here holds 83 to 86 tiles (6 MB); a flight held 161 on CI (11 MB). Kept,
 not freed when imagery attaches, because giving the imagery up takes it off
 tiles that had it, and those must then be drawn on the DEM's colours.
+
+**From the review of f1456632.** *The wait ends only on a pass that gave
+nothing up*, and on none with a tile seen wedged and not yet seen again:
+giving the imagery up on the pass that reached 100% had left the frame from
+before it. Seen: with the give-up made to land only on a 100% pass, the
+loop as it was failed the test (19 tiles to level 6, against 26 to level
+7); the loop as it is passed it (26 to level 7); then the forcing was
+taken out. *The wedge test is Cesium Native's own walk*, copied
+(`imagery_wedged`): a tile with a failed, unsettled imagery tile, whose
+ancestor walk stops at the first ancestor with imagery loaded and is wedged
+only where it ends on the root-most ancestor's failed imagery - so a fetch
+failing under an ancestor whose imagery loaded is not one - and the imagery
+is given up only for a tile found wedged at two looks running, an update
+between them. That a healthy run gives nothing up is held by the
+imagery-draped Taranaki shot, which now fails if the client says it gave
+its imagery up (it needs the network; no stub serving real imagery with one
+tile failing was built). The comment that said the wedge was not seen on
+Linux is corrected: it is, every run here; only the endless wait is not.
