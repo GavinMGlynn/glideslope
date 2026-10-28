@@ -59,7 +59,7 @@ execute_process(
             --first-from-elsewhere --after-ready "${_ready}"
             --key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --players 4 --data "${DATA}" --timeout 3 --store "${_store}"
+            --players 4 --data "${DATA}" --timeout 30 --store "${_store}"
             --ready-file "${_ready}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 

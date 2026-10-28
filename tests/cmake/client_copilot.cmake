@@ -71,7 +71,7 @@ set(_ready "${WORK}/flying")
 file(REMOVE "${_ready}")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
+            --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 600 --view cockpit
             ${_asking} --copilot-playback "${PLAYBACK}"

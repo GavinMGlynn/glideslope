@@ -70,7 +70,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay_during}" "${_key}" 25
             --after-ready "${_changed}" --after 2 --predict --heard "${_during}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --players 2 --data "${DATA}" --timeout 5 --store "${_store}"
+            --players 2 --data "${DATA}" --timeout 30 --store "${_store}"
             --ready-file "${_ready}" --changed-file "${_changed}"
             --metar "${_west}" --station ${_station}
             --metar-then 6 "${_south_west}" --weather-blend 120

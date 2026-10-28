@@ -99,7 +99,7 @@ function(given case who)
     execute_process(
         COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" ${_client}
         COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 1 --headless
-                --data "${DATA}" --timeout 5 --store "${_store}" ${_server} ${_planner}
+                --data "${DATA}" --timeout 30 --store "${_store}" ${_server} ${_planner}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _err)
     if(NOT _rcs STREQUAL "0;0")
         if(DEFINED RECORD AND _err MATCHES "no (OpenAI|Anthropic) key|no credits|credit balance|insufficient_quota")

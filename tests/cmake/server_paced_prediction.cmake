@@ -161,7 +161,7 @@ execute_process(
             --predict --until-compared 600 --heard "${_heard}" ${_unpaced}
             --track "${WORK}/track.txt"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}" --test-pace ${_pace}
+            --data "${DATA}" --timeout 30 --store "${_store}" --test-pace ${_pace}
             ${_server_stopped} ${_server_held}
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 290

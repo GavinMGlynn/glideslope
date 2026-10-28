@@ -1515,6 +1515,12 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       *Verification: the window client on a server with a METAR says it flies
       it, and its prediction error is within the headless client's bound.*
       Done 2026-10-08: median 0.003 m, held to 0.1 m.
+- [x] **A test's server let a slow client go after a few seconds' silence.**
+      *Verification: a check walks all 61 server `--timeout` uses in the tests
+      and fails on any under 30 s that is not in a named list of the tests
+      about the silence (14 uses in 11 files); watched red with one put
+      back to 5 s, green after, and the tests of the 29 changed scripts pass, none slower by more than a few seconds.*
+      Done 2026-10-28.
 
 ---
 

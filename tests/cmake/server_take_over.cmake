@@ -78,7 +78,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 28 --after 1
             --take-over-at 7 --take-over-aircraft 2 --once-the-ai-flies-it --heard "${_other}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --players 3 --data "${DATA}" --timeout 3 --store "${_store}"
+            --players 3 --data "${DATA}" --timeout 30 --store "${_store}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay ${DELAY} --jitter ${JITTER}
             --loss ${LOSS} --seed ${SEED} --until-input-ends --seconds 290
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -175,7 +175,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 8 --after 1 --predict
             --take-over-at 3 --heard "${_forbidden}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --no-take-over --data "${DATA}" --timeout 3 --store "${_store}"
+            --no-take-over --data "${DATA}" --timeout 30 --store "${_store}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _err)
 if(NOT _rcs STREQUAL "0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_served}\n${_err}")

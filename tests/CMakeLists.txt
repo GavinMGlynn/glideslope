@@ -25,6 +25,17 @@ add_test(NAME every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two
         -DLAST=${GLIDESLOPE_TEST_PORTS_LAST}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_ports.cmake)
 
+# **A test's server is slow-client-proof**: the silence after which a server
+# lets a client go is 30 s or more in every test but those about the silence,
+# which cmake/test_server_timeouts.cmake names, each with its reason. A
+# debug client on a loaded runner goes quiet for five seconds and was let go
+# (run 40660270759).
+set(GLIDESLOPE_TEST_SERVER_TIMEOUT_MIN 30)
+add_test(NAME every_test_servers_silence_timeout_is_thirty_seconds_or_more_unless_the_test_is_about_the_silence
+    COMMAND ${CMAKE_COMMAND} -DTESTS=${CMAKE_CURRENT_SOURCE_DIR}
+        -DMIN=${GLIDESLOPE_TEST_SERVER_TIMEOUT_MIN}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_server_timeouts.cmake)
+
 # For the tests that check a committed asset is what its tool makes.
 find_package(Python3 COMPONENTS Interpreter QUIET)
 

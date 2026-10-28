@@ -75,7 +75,7 @@ list(GET _choices ${_last} _chosen)
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
+            --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 600 --view cockpit ${_presses} --hand-over-after 5
             --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
