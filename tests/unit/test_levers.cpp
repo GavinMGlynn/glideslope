@@ -94,7 +94,8 @@ GLIDESLOPE_TEST(the_keyboard_moves_every_lever_it_names_and_leaves_it_where_it_i
         {"propeller", &Controls::propeller, SDL_SCANCODE_LEFTBRACKET,
          SDL_SCANCODE_RIGHTBRACKET},
         {"speedbrake", &Controls::speedbrake, SDL_SCANCODE_SEMICOLON,
-         SDL_SCANCODE_APOSTROPHE}};
+         SDL_SCANCODE_APOSTROPHE},
+        {"reverse", &Controls::reverse, SDL_SCANCODE_BACKSLASH, SDL_SCANCODE_SLASH}};
 
     std::size_t walked = 0;
     for (const Lever& lever : levers) {
@@ -131,12 +132,21 @@ GLIDESLOPE_TEST(the_keyboard_moves_every_lever_it_names_and_leaves_it_where_it_i
         ++walked;
     }
     check(walked == levers.size(), "every lever the keyboard names was walked");
-    check(walked == 4, "there are four of them, not " + std::to_string(walked));
+    check(walked == 5, "there are five of them, not " + std::to_string(walked));
+    // And they are every lever pair the keyboard's own table has: one that
+    // gained a pair without being walked here is noticed.
+    std::size_t pairs = 0;
+    for (const auto& k : glideslope::platform::keyboard_bindings()) {
+        pairs += k.mode == glideslope::platform::Mode::lever ? 1u : 0u;
+    }
+    check(pairs == walked, "the keyboard has " + std::to_string(pairs) +
+                               " lever pairs, and " + std::to_string(walked) +
+                               " were walked");
 }
 
-// **And a binding moves each of them too.** The propeller and the speedbrake
-// lever are the ones that had none at all; this holds the whole set, so that
-// losing one is noticed.
+// **And a binding moves each of them too.** The propeller, the speedbrake
+// lever and the reverse lever are the ones that had none at all; this holds
+// the whole set, so that losing one is noticed.
 GLIDESLOPE_TEST(a_binding_moves_every_lever_the_controls_have) {
     std::ifstream in(data() / "input" / "bindings.txt", std::ios::binary);
     check(in.good(), "the bindings file is there");
@@ -148,7 +158,8 @@ GLIDESLOPE_TEST(a_binding_moves_every_lever_the_controls_have) {
         {Control::throttle, "throttle"},
         {Control::mixture, "mixture"},
         {Control::propeller, "propeller"},
-        {Control::speedbrake, "speedbrake"}};
+        {Control::speedbrake, "speedbrake"},
+        {Control::reverse, "reverse"}};
     std::size_t walked = 0;
     for (const auto& [control, name] : levers) {
         std::size_t bound = 0;
@@ -158,7 +169,7 @@ GLIDESLOPE_TEST(a_binding_moves_every_lever_the_controls_have) {
         check(bound > 0, name + " is bound to something");
         ++walked;
     }
-    check(walked == 4, "every lever was looked for");
+    check(walked == 5, "every lever was looked for: five, not " + std::to_string(walked));
 
     // And the binding actually reaches the control: the quadrant's second
     // lever is the propeller, as the file says.
@@ -231,6 +242,34 @@ GLIDESLOPE_TEST(a_binding_moves_every_lever_the_controls_have) {
     stick_mapper.apply({stick}, s);
     check(std::abs(s.speedbrake - 0.75) < 1e-9,
           "and its other button brings them in, to " + std::to_string(s.speedbrake));
+
+    // **The reverse lever, from each device's last button**: maximum reverse
+    // while it is held, stowed when it is let go, on both kinds of device.
+    std::size_t devices = 0;
+    for (const auto kind : {glideslope::platform::DeviceKind::flight_stick,
+                            glideslope::platform::DeviceKind::throttle}) {
+        ControlMapper reverse_mapper(bindings);
+        glideslope::platform::DeviceState device;
+        device.kind = kind;
+        device.axes.assign(8, 0.0);
+        device.buttons.assign(16, false);
+        device.hats.assign(1, 0);
+        Controls r;
+        reverse_mapper.apply({device}, r);
+        const double stowed = r.reverse;
+        device.buttons[15] = true;
+        reverse_mapper.apply({device}, r);
+        const double held = r.reverse;
+        device.buttons[15] = false;
+        reverse_mapper.apply({device}, r);
+        const std::string name = glideslope::platform::help_name(kind);
+        check(stowed == 0.0 && held == 1.0 && r.reverse == 0.0,
+              name + "'s last button: reverse " + std::to_string(stowed) + " before, " +
+                  std::to_string(held) + " held, " + std::to_string(r.reverse) +
+                  " let go - not 0, 1, 0");
+        ++devices;
+    }
+    check(devices == 2, "both kinds of device were looked at");
 }
 
 // **The Short S.23's airscrews in coarse pitch keep its engines inside their

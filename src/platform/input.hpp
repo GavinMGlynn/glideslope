@@ -49,6 +49,10 @@ enum class Control {
     // The STOVL mode selector (sim::Controls::stovl): 1 STOVL mode, 0
     // conventional flight. An aircraft without a lift system ignores it.
     stovl,
+    // The thrust reverse levers (sim::Controls::reverse): 0 stowed, 0.1 idle
+    // reverse, 1 maximum reverse; deployed only with the weight on the
+    // wheels. An aircraft without reversers ignores it.
+    reverse,
 };
 
 enum class Source { axis, button, hat };
@@ -112,7 +116,9 @@ private:
 // **The keyboard, beside any flight controller.** The arrows fly it, Z and X
 // work the rudder, Page Up and Page Down the throttle, the comma and full
 // stop the mixture, the square brackets the propeller, and the semicolon and
-// apostrophe the speedbrake lever, in and out; B holds the brakes; H selects
+// apostrophe the speedbrake lever, in and out; the slash raises the reverse
+// lever and the backslash stows it - X-Plane's thrust reverse key is the
+// slash, shifted; B holds the brakes; H selects
 // STOVL mode and N conventional flight, in a lift-system aeroplane (the
 // F-35B: sim/controller.hpp), where the up and down arrows then ask her for
 // height. **F lowers
@@ -125,7 +131,7 @@ private:
 // left alone is not overridden every frame. **The levers hold where they are
 // left**, as the throttle does: a mixture that sprang back to rich the moment
 // the key came up would be no use for leaning. An aeroplane with no propeller
-// lever, no mixture or no speedbrakes ignores them.
+// lever, no mixture, no speedbrakes or no reversers ignores them.
 //
 // It is given the key state rather than asking for it, so that it can be
 // worked without a window - which is how it is tested.

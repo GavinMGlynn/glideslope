@@ -43,7 +43,7 @@ std::vector<std::pair<const char*, double>> fields(const Controls& c) {
             {"mixture", c.mixture},       {"propeller", c.propeller},
             {"flaps", c.flaps},           {"left_brake", c.left_brake},
             {"right_brake", c.right_brake}, {"pitch_trim", c.pitch_trim},
-            {"speedbrake", c.speedbrake}};
+            {"speedbrake", c.speedbrake}, {"reverse", c.reverse}};
 }
 
 std::string differences(const Controls& a, const Controls& b) {
@@ -345,7 +345,7 @@ GLIDESLOPE_TEST(the_help_on_screen_names_every_binding_in_the_bindings_file_ever
                 commands, glideslope::platform::command_keys().size());
     check(bindings.size() == 2 * (8 + 16 + 4) && found == bindings.size(),
           "all 56 bindings of the file are in the help: " + std::to_string(found));
-    check(keys == glideslope::platform::keyboard_bindings().size() && keys == 10 &&
+    check(keys == glideslope::platform::keyboard_bindings().size() && keys == 11 &&
               commands == glideslope::platform::command_keys().size() && commands == 8,
-          "the keyboard's ten key bindings and the client's eight keys are in the help");
+          "the keyboard's eleven key bindings and the client's eight keys are in the help");
 }

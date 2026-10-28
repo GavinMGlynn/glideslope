@@ -5,8 +5,9 @@
 //       reads each column back off the frame (gfx::read_text) and holds every
 //       line to what the client said it drew there. SAID.txt is the client's
 //       "help column LEFT TOP LINES" lines, each followed by its LINES lines.
-//   glideslope_help_check layout
-//       lays out help of 43 lines (as many as the committed bindings give) on
+//   glideslope_help_check layout BINDINGS
+//       lays out help of as many lines as the committed bindings give
+//       (platform's controls_help, read from BINDINGS) on
 //       every frame size from 160x120 to 1920x1080 in steps, with and without
 //       credits, and holds each to the rules gfx/hud.hpp states: inside the
 //       frame and above the bottom, in order, every line drawn or the last
@@ -15,6 +16,7 @@
 
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
+#include "platform/input.hpp"
 
 #include <SDL3/SDL.h>
 
@@ -111,12 +113,29 @@ int check_frame(const char* frame_path, const char* said_path) {
     return 0;
 }
 
-int check_layout() {
-    // Lines as long as the committed bindings' longest and as many.
+int check_layout(const char* bindings_path) {
+    // As many lines as the committed bindings' help has, counted from it so
+    // that a binding added is laid out too: lines of varied length, up to 79
+    // characters, and the first at least as long as the help's longest.
+    std::ifstream in(bindings_path, std::ios::binary);
+    if (!in) {
+        fail(std::string("cannot read ") + bindings_path);
+    }
+    std::stringstream text;
+    text << in.rdbuf();
+    const std::vector<std::string> real =
+        glideslope::platform::controls_help(glideslope::platform::parse_bindings(text.str()));
+    std::size_t longest = 0;
+    for (const std::string& line : real) {
+        longest = std::max(longest, line.size());
+    }
+    std::printf("the committed bindings' help is %zu lines, the longest %zu characters\n",
+                real.size(), longest);
     std::vector<std::string> help;
-    for (int i = 0; i < 43; ++i) {
-        help.push_back(std::string(static_cast<std::size_t>(20 + (i * 7) % 60), 'X') +
-                       std::to_string(i));
+    for (int i = 0; i < static_cast<int>(real.size()); ++i) {
+        const auto length = std::max(static_cast<std::size_t>(20 + (i * 7) % 60),
+                                     i == 0 ? longest : std::size_t{0});
+        help.push_back(std::string(length, 'X') + std::to_string(i));
     }
     std::size_t sizes = 0;
     std::size_t whole = 0;
@@ -196,11 +215,11 @@ int check_layout() {
 } // namespace
 
 int main(int argc, char** argv) {
-    if (argc == 2 && std::string(argv[1]) == "layout") {
-        return check_layout();
+    if (argc == 3 && std::string(argv[1]) == "layout") {
+        return check_layout(argv[2]);
     }
     if (argc != 3) {
-        std::fputs("usage: glideslope_help_check FRAME.bmp SAID.txt | layout\n", stderr);
+        std::fputs("usage: glideslope_help_check FRAME.bmp SAID.txt | layout BINDINGS\n", stderr);
         return 2;
     }
     return check_frame(argv[1], argv[2]);
