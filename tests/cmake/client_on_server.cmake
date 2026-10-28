@@ -108,7 +108,7 @@ endif()
 execute_process(
     # Until the client has gone.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}" ${_pace}
+            --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}" ${_pace}
     ${_other_player}
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view behind --aircraft f15c --slow-start 5

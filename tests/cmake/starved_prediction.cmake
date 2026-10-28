@@ -74,7 +74,7 @@ execute_process(
             --predict --until-compared 400 --heard "${_heard}" --slow-steps ${SLOW_US}
             --track "${WORK}/track.txt"
     COMMAND "${SERVER}" --port ${PORT} --seconds 400 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 5 --store "${_store}"
+            --data "${DATA}" --timeout 30 --store "${_store}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 390
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)

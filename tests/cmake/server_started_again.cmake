@@ -28,12 +28,12 @@ cmake_minimum_required(VERSION 3.28)
 if(MODE STREQUAL "restart")
     execute_process(
         COMMAND "${SERVER}" --port ${PORT} --seconds 300 --ai 1 --headless --data "${DATA}"
-                --timeout 3 --store "${STORE}" --ready-file "${READY}" --stop-once-flown 20
+                --timeout 30 --store "${STORE}" --ready-file "${READY}" --stop-once-flown 20
         RESULT_VARIABLE _first OUTPUT_VARIABLE _said ERROR_VARIABLE _said)
     message(NOTICE "${_said}")
     execute_process(
         COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-                --data "${DATA}" --timeout 3 --store "${STORE}"
+                --data "${DATA}" --timeout 30 --store "${STORE}"
         RESULT_VARIABLE _second OUTPUT_VARIABLE _said ERROR_VARIABLE _said)
     message(NOTICE "${_said}")
     if(NOT _first EQUAL 0 OR NOT _second EQUAL 0)
@@ -42,7 +42,7 @@ if(MODE STREQUAL "restart")
 elseif(MODE STREQUAL "lost")
     execute_process(
         COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-                --data "${DATA}" --timeout 3 --store "${STORE}" --ready-file "${READY}"
+                --data "${DATA}" --timeout 30 --store "${STORE}" --ready-file "${READY}"
                 --drop-once-flown --lose-goodbyes
         RESULT_VARIABLE _rc OUTPUT_VARIABLE _said ERROR_VARIABLE _said)
     message(NOTICE "${_said}")

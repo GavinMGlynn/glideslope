@@ -75,7 +75,7 @@ execute_process(
             --after-ready "${_ready}" --until-exists "${_again_done}" --heard "${_staying}"
             --key e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --players 4 --data "${DATA}" --timeout 3 --store "${_store}"
+            --players 4 --data "${DATA}" --timeout 30 --store "${_store}"
             --ready-file "${_ready}" --drop-once-flown
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 

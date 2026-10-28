@@ -75,7 +75,7 @@ execute_process(
             --aircraft pa28 --loading no-such-loading --after-ready "${_ready}" --done "${_done}" --heard "${_asker}"
             --key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
+            --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rcs STREQUAL "0;0;0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")

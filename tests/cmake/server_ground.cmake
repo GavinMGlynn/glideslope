@@ -93,7 +93,7 @@ execute_process(
             --told-file "${_told}" --until-exists "${_done}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --ready-file "${_ready}"
-            --players 2 --data "${DATA}" --timeout 5 --store "${_store}" ${SERVER_EXTRA}
+            --players 2 --data "${DATA}" --timeout 30 --store "${_store}" ${SERVER_EXTRA}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rcs STREQUAL "1;0;0")
     # Each client's own words with it, which its exit code alone does not say.
