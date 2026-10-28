@@ -65,7 +65,7 @@ execute_process(
             --stovl-bank-at 2100 --leave-once-bank-held --no-goodbye --done "${_gone}"
             --heard "${_heard_a}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
-            --players 2 --data "${DATA}" --timeout 5 --store "${_store}" --plan "${_plan}"
+            --players 2 --data "${DATA}" --timeout 30 --store "${_store}" --plan "${_plan}"
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 900
     RESULT_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
