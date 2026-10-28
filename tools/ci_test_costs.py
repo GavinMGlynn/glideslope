@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """What each test costs on CI, measured from CI runs, for tools/ci_shard.cmake.
 
-    tools/ci_test_costs.py RUN_ID [RUN_ID ...]
+    tools/ci_test_costs.py [--finished] RUN_ID [RUN_ID ...]
 
 reads every test shard's log of each run of the ci workflow through `gh`, and
 writes tests/ci_costs/<preset>.txt: one "seconds name" a line, each test's
@@ -11,6 +11,12 @@ one run, the longest of them, since a runner's speed varies run to run. Run it
 on green runs when the tests have changed enough that the shards drift apart:
 a shard's log warns of each test the table does not know, and each name in it
 that is no longer a test.
+
+With --finished, a run whose shards did not all pass is measured too: the
+tests each of its shards finished, a shard cut off by its time limit
+included. That is how a test new on a branch whose run ran out of time is
+measured at all (#241's STOVL take-over tests, 2026-10-28); the header says
+which runs were not green.
 """
 import collections
 import json
@@ -31,14 +37,17 @@ def gh(*args):
     return subprocess.run(['gh', *args], check=True, capture_output=True).stdout
 
 
-def measure(run, costs):
+def measure(run, costs, finished, not_green):
     jobs = json.loads(gh('run', 'view', run, '--repo', REPO, '--json', 'jobs'))['jobs']
     for job in jobs:
         m = SHARD_JOB.match(job['name'])
         if not m:
             continue
         if job['conclusion'] != 'success':
-            sys.exit(f"run {run}: {job['name']} did not pass; measure green runs")
+            if not finished:
+                sys.exit(f"run {run}: {job['name']} did not pass; measure green runs,"
+                         " or pass --finished")
+            not_green.add(run)
         log = gh('api', '--allow-escape-sequences',
                  f"repos/{REPO}/actions/jobs/{job['databaseId']}/logs").decode(errors='replace')
         for line in log.splitlines():
@@ -51,18 +60,27 @@ def measure(run, costs):
 
 def main():
     runs = sys.argv[1:]
+    finished = '--finished' in runs
+    runs = [r for r in runs if r != '--finished']
     if not runs:
         sys.exit(__doc__)
     costs = collections.defaultdict(dict)
+    not_green = set()
     for run in runs:
-        measure(run, costs)
+        measure(run, costs, finished, not_green)
     if not costs:
         sys.exit('no test shards in runs ' + ' '.join(runs))
     here = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tests', 'ci_costs')
     os.makedirs(here, exist_ok=True)
     for preset, tests in sorted(costs.items()):
         with open(os.path.join(here, preset + '.txt'), 'w', newline='\n') as f:
-            f.write(f"# Seconds each test took on CI, the longest of runs {', '.join(runs)}:"
+            unfinished = ''
+            if not_green:
+                unfinished = (f" ({', '.join(sorted(not_green))} not green: the tests its"
+                              ' shards finished counted)')
+            f.write(f"# Seconds each test took on CI, the longest of runs {', '.join(runs)}"
+                    f'{unfinished}: tools/ci_test_costs.py --finished\n' if not_green else
+                    f"# Seconds each test took on CI, the longest of runs {', '.join(runs)}:"
                     ' tools/ci_test_costs.py\n')
             for name in sorted(tests):
                 f.write(f'{tests[name]} {name}\n')

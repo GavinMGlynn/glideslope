@@ -129,7 +129,9 @@ server owing at most 3.5 s holds about 105.
 **The held-up-unevenly test's worst bound, 2026-10-28 (after the merge).** It
 was left on the paced test's default of 3 m, which nothing set for it, and CI
 went past it twice on main's code: 3.3 m on Windows release (run 40673705998)
-and 4.1 m on macOS (run 40673840988), their 95th percentiles 0.49 m and under
-the metre that stays held. The worst is this item's named open part - inputs
-that came in a hold-up flown as one - measured at 4.9 m stopped alone; it is
-now bounded as the stopped-alone test is, at 10 m, twice that.
+and 4.1 m on macOS (run 40673840988), their 95th percentiles 0.49 and 0.66 m
+(their 99th 2.23 m both), under the metre that stays held. The worst is taken
+to be this item's named open part - inputs that came in a hold-up flown as
+one, measured at 4.9 m stopped alone - not shown from the runs' tracks; it is
+now bounded as the stopped-alone test is, at 10 m, twice that. No 99th
+percentile bound: one run per platform is not a spread to set it from.

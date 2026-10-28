@@ -1,4 +1,4 @@
-# Seconds each test took on CI, the longest of runs 40660270759, 40666921008 (not green: the tests its shards finished counted): tools/ci_test_costs.py; a_client_taking_back_its_f35b_from_the_ai_wing_borne_in_stovl_mode_... set by hand to 240 s, cut off at 3 min by run 40666921008's 45-minute limit, its siblings 207 and 215 s
+# Seconds each test took on CI, the longest of runs 40660270759, 40666921008 (40666921008 not green: the tests its shards finished counted): tools/ci_test_costs.py --finished; a_client_taking_back_its_f35b_from_the_ai_wing_borne_in_stovl_mode_... set by hand to 240 s, cut off at 3 min by run 40666921008's 45-minute limit, its siblings 207 and 215 s
 1 a_32_bit_toolchain_is_refused_on_every_platform
 1 a_429_is_waited_out_as_its_retry_after_asks_within_a_limit_then_returned
 1 a_bad_tile_in_a_directory_fails_its_query_and_is_left_as_it_is
