@@ -45,7 +45,12 @@
 # (run 40649190581). The client must say the held fetches went, and that it
 # gave the imagery up. Without the give-up it drew 19 tiles to level 6 here,
 # where without imagery it draws 26 to level 7. Without WEDGE nothing is
-# held, and the frame is held to the same as either way.
+# held, and the frame is held to the same as either way. With OUT_OF_ORDER too,
+# the imagery's first fetches are asked for out of order - a level-0 fetch,
+# coarser than the root tile's, first, then the rest deepest first - and the
+# wedge must be built and given up all the same: the hold that took the first
+# fetch to be the root's held the root's own behind it, let nothing go, and
+# the shot never ended (CI's macOS, run 40743161009).
 #
 # The terrain
 # comes from the DEM's tiles and the geoid, fetched into CACHE: without the
@@ -69,6 +74,9 @@ if(REFUSE_IMAGERY)
     set(_refuse --test-imagery-url "${REFUSED_AT}{TileMatrix}/{TileRow}/{TileCol}.jpg")
     if(WEDGE)
         list(APPEND _refuse --test-imagery-wedge)
+    endif()
+    if(OUT_OF_ORDER)
+        list(APPEND _refuse --test-imagery-out-of-order)
     endif()
     # A tile drawn without its imagery for any reason but its fetch failing
     # is still refused, and is not a download to skip for.
@@ -145,6 +153,10 @@ if(REFUSE_IMAGERY)
             message(FATAL_ERROR "the client did not hold its finer imagery fetches "
                                 "until the root's had failed - the wedge was not "
                                 "built:\n${_err}")
+        endif()
+        if(OUT_OF_ORDER AND NOT _err MATCHES "gathered for a test, are asked for out of order")
+            message(FATAL_ERROR "the client did not ask for its imagery out of order - "
+                                "the order this pins was not built:\n${_err}")
         endif()
         if(NOT _err MATCHES "the imagery is given up")
             message(FATAL_ERROR "the client did not give its wedged imagery up - the "

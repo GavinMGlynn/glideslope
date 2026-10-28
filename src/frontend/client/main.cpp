@@ -202,6 +202,10 @@ struct Options {
     // fetches held until the root tile's has failed, which builds Cesium
     // Native's wedge every run (gfx::TerrainOptions::test_imagery_coarsest_first).
     bool test_imagery_wedge = false;
+    // Test flag (`--test-imagery-out-of-order`): with --test-imagery-wedge,
+    // the imagery's first fetches asked for out of order, a coarse one first,
+    // which once hung the hold (gfx::TerrainOptions::test_imagery_out_of_order).
+    bool test_imagery_out_of_order = false;
     double learnt_landing_after_s = -1.0;
     // **For a test: keys pressed**, each S seconds after joining, as a
     // player's finger would - the key's event, and the key held for one
@@ -276,6 +280,8 @@ void usage(std::FILE* out) {
         "                as EOX's is, instead (for tests: one nothing answers)\n"
         "  --test-imagery-wedge  hold the imagery's finer fetches until the\n"
         "                coarsest has failed (for tests: the wedge built)\n"
+        "  --test-imagery-out-of-order  with --test-imagery-wedge, ask for the\n"
+        "                imagery's first fetches out of order (for tests)\n"
         "  --terrain     where the terrain drawn comes from: the open data, by\n"
         "                default, or Cesium ion or Google's Photorealistic 3D Tiles\n"
         "                with your own token or key. The ground the aircraft meets\n"
@@ -728,6 +734,8 @@ static int run_program(int argc, char** argv) {
             o.plan = std::string(args[++i]);
         } else if (a == "--test-imagery-wedge") {
             o.test_imagery_wedge = true;
+        } else if (a == "--test-imagery-out-of-order") {
+            o.test_imagery_out_of_order = true;
         } else if (a == "--test-imagery-url" && has_value) {
             o.test_imagery_url = std::string(args[++i]);
             ok = !o.test_imagery_url.empty();
@@ -1358,7 +1366,7 @@ static int run_program(int argc, char** argv) {
                 renderer, glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), region, o.imagery,
                 *glideslope::gfx::provider_named(o.terrain_provider),
-                o.test_imagery_url, o.test_imagery_wedge);
+                o.test_imagery_url, o.test_imagery_wedge, o.test_imagery_out_of_order);
         }
 
         // The weather to be seen: the flight's report's, made again when a new

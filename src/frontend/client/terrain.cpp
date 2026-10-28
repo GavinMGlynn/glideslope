@@ -83,7 +83,7 @@ std::unique_ptr<gfx::TerrainTiles>
 open_terrain(gfx::Renderer& renderer, const std::filesystem::path& data,
              const std::filesystem::path& cache, const world::GeoRectangle& region,
              bool imagery, gfx::Provider provider, const std::string& imagery_url,
-             bool imagery_coarsest_first) {
+             bool imagery_coarsest_first, bool imagery_out_of_order) {
     const std::shared_ptr<Ground> ground = open_ground(data, cache);
 
     gfx::TerrainOptions options;
@@ -98,6 +98,7 @@ open_terrain(gfx::Renderer& renderer, const std::filesystem::path& data,
             options.imagery->url = imagery_url;
         }
         options.test_imagery_coarsest_first = imagery_coarsest_first;
+        options.test_imagery_out_of_order = imagery_out_of_order;
     }
     // Named apart from the downloads, so that two programs sharing this
     // directory do not share one SQLite file. See platform/paths.hpp.

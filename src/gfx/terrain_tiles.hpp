@@ -106,11 +106,18 @@ struct TerrainOptions {
     // Cesium Native's worker threads.
     int worker_threads = 4;
     // **For a test: Cesium Native's wedge built every run.** The imagery's
-    // fetches deeper than the root tile's are held until the root's imagery
-    // has failed and been settled on, so that a finer tile's failing lands
-    // beneath it - which wedges it (see give_up_wedged_imagery) - rather than
-    // only when the refusals happen to land in that order.
+    // fetches deeper than the shallowest asked for are held until the root
+    // tile's imagery has failed and been settled on, so that a finer tile's
+    // failing lands beneath it - which wedges it (see give_up_wedged_imagery)
+    // - rather than only when the refusals happen to land in that order.
+    // Whatever order Cesium Native asks in, and never held for ever.
     bool test_imagery_coarsest_first = false;
+    // **For a test of that hold**: with it, the imagery's first fetches are
+    // gathered until no more come and then asked for out of order - a
+    // level-0 fetch first, coarser than the root tile's, and the rest deepest
+    // first. Taking the first to be the root's, the hold once let nothing go
+    // (CI's macOS, run 40743161009).
+    bool test_imagery_out_of_order = false;
 };
 
 inline constexpr int terrain_tile_cells = 32;

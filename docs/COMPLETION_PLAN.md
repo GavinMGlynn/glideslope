@@ -1775,6 +1775,12 @@ What the client with the window does that the command-line client does, and what
       (run 40618052854). *Verification: with every imagery fetch failing,
       the window client still draws its frame, on the DEM's colours, and
       says why.* Done 2026-10-28.
+- [x] **The wedged-imagery test hung when Cesium asked a coarse fetch
+      first** (CI's macOS, run 40743161009; Windows debug, run 40686462655):
+      its hold took the first fetch to be the root tile's and held the
+      root's own. *Verification: with the fetches asked for out of order,
+      the old hold hangs and the new one builds the wedge and gives it up;
+      nothing is held for ever.* Done 2026-10-29.
 - [ ] **A shot with its imagery refused drew coarser than one
       without**, twice on CI's Linux release, so its test runs nightly, not on
       pull requests. Cause not found. *Verification: the cause shown, the test
