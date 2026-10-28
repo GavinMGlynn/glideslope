@@ -36,8 +36,8 @@ foreach(_v TESTS MIN)
 endforeach()
 
 # **The totals**, changed only deliberately, with the list below.
-set(_expect_uses 60)
-set(_expect_long 48)
+set(_expect_uses 63)
+set(_expect_long 51)
 set(_expect_short 12)
 set(_expect_nonvalue 4)
 

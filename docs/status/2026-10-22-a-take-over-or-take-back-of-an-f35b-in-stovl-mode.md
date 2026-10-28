@@ -92,3 +92,11 @@ was cancelled at its 45-minute limit in its last steps: macOS release's tests
 now run in three shards (`.github/workflows/ci.yml`, macos-test), and
 `every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once`
 passes on them.
+
+**Rebased onto #262 (2026-10-29).** Its check that every test server waits
+30 s for a silent client, unless the test is about the silence, found the
+three STOVL scripts this branch adds at 5 s (`client_stovl_join`,
+`server_stovl_join`, `server_stovl_take_over`); none is about the silence, so
+each waits 30 s, and the check's totals are 63 timeouts, 51 at 30 s or more.
+The check, the three join tests and the three take-over and take-back tests
+pass on linux-debug.
