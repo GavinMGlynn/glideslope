@@ -40,6 +40,10 @@ world next, and networking late because it is built on everything before it.
       `glideslope_cli` links nothing presentational.*
 - [x] **CI on Ubuntu, Rocky 9, Windows and macOS.** *Verification: every job is
       green on `main`.*
+- [x] **A Windows job whose driver download hung waited out its whole 45
+      minutes**, cancelled with no test run (three times on 2026-10-28).
+      *Verification: a fetch that never answers is given up after its time
+      limit and tried again, then fails with its reason.* Done 2026-10-28.
 - [x] **Packaging** — a tarball for Linux and macOS, a zip for Windows.
       *Verification: CI unpacks each package on its own platform and runs
       `glideslope_cli` from it.*

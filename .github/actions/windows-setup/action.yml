@@ -37,8 +37,24 @@ runs:
         $ProgressPreference = 'SilentlyContinue'
         $dir = Join-Path $env:RUNNER_TEMP 'vulkan'
         New-Item -ItemType Directory -Force $dir | Out-Null
+        # **A download that hangs is given up and tried again**, never waited
+        # on: with no time limit, a fetch that stalled sat until the job's own
+        # 45 minutes cancelled it, three times on 2026-10-28 (runs
+        # 40640191712, 40649601697, 40664057362 - each job's last line this
+        # step's start). Each try may take two minutes, which these files
+        # (tens of megabytes) take seconds of; four tries, a pause between.
         function Fetch($url, $file, $sha256) {
-          Invoke-WebRequest -Uri $url -OutFile $file
+          $tries = 4
+          for ($try = 1; ; $try++) {
+            try {
+              Invoke-WebRequest -Uri $url -OutFile $file -TimeoutSec 120
+              break
+            } catch {
+              if ($try -ge $tries) { throw "$url failed $tries times: $_" }
+              Write-Host "$url, try $try of ${tries}: $_ - trying again"
+              Start-Sleep -Seconds (10 * $try)
+            }
+          }
           $actual = (Get-FileHash $file -Algorithm SHA256).Hash.ToLower()
           if ($actual -ne $sha256) { throw "$url is $actual, expected $sha256" }
         }
