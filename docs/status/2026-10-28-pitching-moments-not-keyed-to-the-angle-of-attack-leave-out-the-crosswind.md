@@ -1,6 +1,15 @@
 ### Pitching moments not keyed to the angle of attack leave out the crosswind, 2026-10-28 - item done
 
 **What is still not true first.**
+- **The S.23's pitch damping (Cmq) still counts the crosswind**: moved, her
+  stall handed over was flown thirty seconds diving at 140 kt and pulled 4.2 g
+  recovering, so it is named and left on the whole dynamic pressure. Afloat
+  she turns into the wind, so none stands across her; why her stall is so
+  sensitive to it is not measured.
+- **The S.23's 1,000 ft stall hand-over is no longer judged**: she now reaches
+  the water before her stall is called, and is named in
+  `a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within_five_seconds_and_near_the_ground_at_once`
+  with the 737-300 - a loss of that test's coverage of her, said here.
 - **The J-3 Cub solo, braked stick central from 10 kt at half brake in 15 kt
   across, now goes over, where on main she did not** (and where in calm air
   she lifts her tail and stops on her wheels). Her pitch damping counting
@@ -187,8 +196,10 @@ window), the J-3 Cub's crosswind braking test once its two runs were named
 (above). Every figure in range. Every make script's `--check` passes
 (sixteen models).
 
-**The figures, main's models against these** (the S.23's three taken again with her Cmq named: her two long-range figures unchanged, her standard time 25.350 -> 25.358 s) (linux-debug, the figure tests
-of test_figures.cpp run on each, 2026-10-28; all pass both ways).
+**The figures, main's models against these** (linux-debug, the figure tests
+of test_figures.cpp run on each, 2026-10-28; all pass both ways). The S.23's
+three were taken again once her Cmq was named: her two at 45,000 lb
+unchanged, her standard time 25.350 -> 25.358 s.
 Of the 127 figures printed with their range, 11 move, none by more than 1.2%
 of its range. The margin is the distance to the nearer end of the range, as a
 share of its width:
