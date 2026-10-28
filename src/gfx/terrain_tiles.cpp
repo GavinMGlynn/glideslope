@@ -73,6 +73,8 @@
 #include <deque>
 #include <functional>
 #include <mutex>
+#include <optional>
+#include <span>
 #include <stdexcept>
 #include <string>
 #include <thread>
@@ -257,6 +259,115 @@ private:
 
     std::shared_ptr<CesiumAsync::IAssetAccessor> inner_;
     std::shared_ptr<std::atomic<int>> in_flight_;
+};
+
+// **For a test: the imagery's coarsest fetches answered first, and its finer
+// ones held until the root tile's imagery has failed and been settled on**
+// (TerrainOptions::test_imagery_coarsest_first). Cesium Native wedges a
+// tile whose imagery fails beneath an ancestor already settled on failed
+// imagery (imagery_wedged); whether that happens, every fetch refused, was
+// the order the refusals happened to land in, and on CI's Linux one run in
+// some it did not (run 40649190581). Held like this, every finer tile's
+// failure lands after the root's has settled, and the wedge is built every
+// run. A fetch is the imagery's when its URL begins with `prefix`, and its
+// level is the number that follows; the first such fetch is the root's
+// (nothing finer is asked for before it), and only fetches deeper than its
+// level are held - its own fall-backs, coarser, go at once.
+struct HeldImagery {
+    std::string prefix;
+    std::mutex mutex;
+    std::optional<long> first;
+    bool open = false;
+    std::vector<std::function<void()>> held;
+
+    // The level of an imagery fetch, or -1 for anything else.
+    long level_of(const std::string& url) const {
+        if (url.compare(0, prefix.size(), prefix) != 0) {
+            return -1;
+        }
+        long level = 0;
+        std::size_t at = prefix.size();
+        if (at >= url.size() || std::isdigit(static_cast<unsigned char>(url[at])) == 0) {
+            return -1;
+        }
+        for (; at < url.size() && std::isdigit(static_cast<unsigned char>(url[at])) != 0;
+             ++at) {
+            level = level * 10 + (url[at] - '0');
+        }
+        return level;
+    }
+
+    bool holding() {
+        const std::lock_guard<std::mutex> lock(mutex);
+        return !open;
+    }
+
+    // Every fetch held goes now, and every one asked for from here on.
+    void let_go() {
+        std::vector<std::function<void()>> go;
+        {
+            const std::lock_guard<std::mutex> lock(mutex);
+            open = true;
+            go.swap(held);
+        }
+        for (auto& fetch : go) {
+            fetch();
+        }
+    }
+};
+
+class CoarsestFirstAccessor final : public CesiumAsync::IAssetAccessor {
+public:
+    CoarsestFirstAccessor(std::shared_ptr<CesiumAsync::IAssetAccessor> next,
+                          std::shared_ptr<HeldImagery> held)
+        : next_(std::move(next)), held_(std::move(held)) {}
+
+    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
+    get(const CesiumAsync::AsyncSystem& async, const std::string& url,
+        const std::vector<THeader>& headers) override {
+        const long level = held_->level_of(url);
+        if (level >= 0) {
+            const std::lock_guard<std::mutex> lock(held_->mutex);
+            if (!held_->open) {
+                if (!held_->first) {
+                    held_->first = level;
+                }
+                if (level > *held_->first) {
+                    auto promise =
+                        async.createPromise<std::shared_ptr<CesiumAsync::IAssetRequest>>();
+                    held_->held.emplace_back(
+                        [async, url, headers, promise, next = next_]() {
+                            next->get(async, url, headers)
+                                .thenImmediately(
+                                    [promise](std::shared_ptr<CesiumAsync::IAssetRequest>&&
+                                                  request) {
+                                        promise.resolve(std::move(request));
+                                    })
+                                .catchImmediately([promise](std::exception&& e) {
+                                    promise.reject(std::runtime_error(e.what()));
+                                });
+                        });
+                    return promise.getFuture();
+                }
+            }
+        }
+        return next_->get(async, url, headers);
+    }
+
+    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
+    request(const CesiumAsync::AsyncSystem& async, const std::string& verb,
+            const std::string& url, const std::vector<THeader>& headers,
+            const std::span<const std::byte>& body) override {
+        return next_->request(async, verb, url, headers, body);
+    }
+
+    void tick() noexcept override {
+        next_->tick();
+    }
+
+private:
+    std::shared_ptr<CesiumAsync::IAssetAccessor> next_;
+    std::shared_ptr<HeldImagery> held_;
 };
 
 // Cesium Native's requests, through the platform's HTTPS. Plain GETs only:
@@ -1330,6 +1441,9 @@ struct TerrainTiles::Impl {
     // The tiles found wedged at the last look, so that one is given up for
     // only when it is found again after an update has been through it.
     std::unordered_set<const Tile*> wedged;
+    // For a test, the imagery's finer fetches held until the root's has
+    // failed (CoarsestFirstAccessor); null otherwise.
+    std::shared_ptr<HeldImagery> held_imagery;
     std::shared_ptr<CesiumUtility::CreditSystem> credit_system;
     // What the provider itself said must be shown, before a tile has loaded.
     std::vector<std::string> from_provider;
@@ -1540,6 +1654,12 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
             spdlog::default_logger(), accessor, open_cesium_cache(options.cache_file));
     }
     accessor = std::make_shared<CountingAccessor>(accessor, impl_->requests);
+    if (options.test_imagery_coarsest_first && options.imagery) {
+        impl_->held_imagery = std::make_shared<HeldImagery>();
+        const std::string& url = options.imagery->url;
+        impl_->held_imagery->prefix = url.substr(0, url.find("{TileMatrix}"));
+        accessor = std::make_shared<CoarsestFirstAccessor>(accessor, impl_->held_imagery);
+    }
     // Cesium ion authorises every tile, not just the tileset that names them,
     // so the token goes on each request to where that asset is served from.
     // Cesium Native does this with an accessor of its own, which cannot be
@@ -1669,6 +1789,31 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
                 new CesiumRasterOverlays::WebMapTileServiceRasterOverlay(
                     "imagery", imagery.url, {}, wmts));
         impl_->tileset->getOverlays().add(impl_->imagery_overlay);
+    }
+}
+
+void TerrainTiles::let_held_imagery_go() {
+    if (!impl_->held_imagery || !impl_->held_imagery->holding()) {
+        return;
+    }
+    // The root's imagery settled on its failure: no loading tile left, and
+    // the ready one failed. Every tile beneath it whose imagery fails from
+    // here is wedged (imagery_wedged).
+    const Tile* root = impl_->tileset->getRootTile();
+    if (root == nullptr) {
+        return;
+    }
+    for (const auto& mapped : root->getMappedRasterTiles()) {
+        const auto* ready = mapped.getReadyTile();
+        if (mapped.getLoadingTile() == nullptr && ready != nullptr &&
+            ready->getState() ==
+                CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed) {
+            std::fputs("glideslope: the imagery's finer fetches, held for a test, "
+                       "go now: the root tile's has failed\n",
+                       stderr);
+            impl_->held_imagery->let_go();
+            return;
+        }
     }
 }
 
@@ -1869,6 +2014,10 @@ TerrainTiles::~TerrainTiles() {
     // (a tail, and tests/cmake/ion_stalled.cmake). Nothing is waiting for
     // what they would bring, so each ends at once as a failed request.
     impl_->closing->store(true);
+    // Imagery held for a test goes now, to fail at once with the rest.
+    if (impl_->held_imagery) {
+        impl_->held_imagery->let_go();
+    }
     // Cesium Native finishes destroying a tileset on the main thread, freeing
     // each tile's meshes as it goes.
     auto destroyed = impl_->tileset->getAsyncDestructionCompleteEvent();
@@ -1995,9 +2144,12 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
         impl_->async.dispatchMainThreadTasks();
         result = &tileset.updateViewGroup(group, {view}, 0.0f);
         for (;;) {
-            // Nor on one with a tile seen wedged and not yet seen again.
+            let_held_imagery_go();
+            // Nor on one with a tile seen wedged and not yet seen again, nor
+            // while a test's imagery is held.
             const bool gave_up = give_up_wedged_imagery();
-            if ((!gave_up && impl_->wedged.empty() &&
+            const bool holding = impl_->held_imagery && impl_->held_imagery->holding();
+            if ((!gave_up && !holding && impl_->wedged.empty() &&
                  group.getPreviousLoadProgressPercentage() >= 100.0f) ||
                 platform::stop_requested()) {
                 break;
@@ -2009,6 +2161,7 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
             result = &tileset.updateViewGroup(group, {view}, 0.0f);
         }
     } else {
+        let_held_imagery_go();
         give_up_wedged_imagery();
         result = &tileset.updateViewGroup(group, {view}, 0.0f);
         tileset.loadTiles();

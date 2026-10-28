@@ -187,6 +187,10 @@ struct Options {
     // template instead of EOX's - one that answers nothing, for a test that
     // every imagery fetch fails.
     std::string test_imagery_url;
+    // Test flag (`--test-imagery-wedge`): with it, the imagery's finer
+    // fetches held until the root tile's has failed, which builds Cesium
+    // Native's wedge every run (gfx::TerrainOptions::test_imagery_coarsest_first).
+    bool test_imagery_wedge = false;
     double learnt_landing_after_s = -1.0;
     // **For a test: keys pressed**, each S seconds after joining, as a
     // player's finger would - the key's event, and the key held for one
@@ -259,6 +263,8 @@ void usage(std::FILE* out) {
         "                tint it by height instead\n"
         "  --test-imagery-url URL  fetch the open imagery from URL, a template\n"
         "                as EOX's is, instead (for tests: one nothing answers)\n"
+        "  --test-imagery-wedge  hold the imagery's finer fetches until the\n"
+        "                coarsest has failed (for tests: the wedge built)\n"
         "  --terrain     where the terrain drawn comes from: the open data, by\n"
         "                default, or Cesium ion or Google's Photorealistic 3D Tiles\n"
         "                with your own token or key. The ground the aircraft meets\n"
@@ -691,6 +697,8 @@ static int run_program(int argc, char** argv) {
             o.autopilot = true;
         } else if (a == "--plan" && has_value) {
             o.plan = std::string(args[++i]);
+        } else if (a == "--test-imagery-wedge") {
+            o.test_imagery_wedge = true;
         } else if (a == "--test-imagery-url" && has_value) {
             o.test_imagery_url = std::string(args[++i]);
             ok = !o.test_imagery_url.empty();
@@ -1306,7 +1314,7 @@ static int run_program(int argc, char** argv) {
                 renderer, glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), region, o.imagery,
                 *glideslope::gfx::provider_named(o.terrain_provider),
-                o.test_imagery_url);
+                o.test_imagery_url, o.test_imagery_wedge);
         }
 
         // The weather to be seen: the flight's report's, made again when a new
