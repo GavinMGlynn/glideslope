@@ -41,13 +41,16 @@ runs:
         # on: with no time limit, a fetch that stalled sat until the job's own
         # 45 minutes cancelled it, three times on 2026-10-28 (runs
         # 40640191712, 40649601697, 40664057362 - each job's last line this
-        # step's start). Each try may take two minutes, which these files
-        # (tens of megabytes) take seconds of; four tries, a pause between.
+        # step's start). Each try may take two minutes to connect and be
+        # answered (-TimeoutSec, in PowerShell 7.4 only that), and its body
+        # may go a minute without a byte (-OperationTimeoutSeconds, which
+        # alone guards a download that stalls part-way); these files, tens of
+        # megabytes, take seconds. Four tries, a pause between.
         function Fetch($url, $file, $sha256) {
           $tries = 4
           for ($try = 1; ; $try++) {
             try {
-              Invoke-WebRequest -Uri $url -OutFile $file -TimeoutSec 120
+              Invoke-WebRequest -Uri $url -OutFile $file -TimeoutSec 120 -OperationTimeoutSeconds 60
               break
             } catch {
               if ($try -ge $tries) { throw "$url failed $tries times: $_" }
