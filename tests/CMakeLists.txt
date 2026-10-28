@@ -2746,7 +2746,7 @@ add_test(NAME a_client_predicting_against_a_server_held_up_unevenly_every_second
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_unevenly -DPORT=24948
         -DSERVER_HELD=unevenly -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_paced_prediction.cmake)
 set_tests_properties(a_client_predicting_against_a_server_held_up_unevenly_every_second_is_within_a_metre_for_ninety_five_updates_in_a_hundred
-    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+    PROPERTIES SKIP_RETURN_CODE 77 LABELS nightly RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_unevenly)
 # **A client too slow for its own prediction puts it right once a pass, from
 # the newest word, and keeps up**: every step it flies spends 2 ms more,
