@@ -2926,6 +2926,9 @@ static int run_program(int argc, char** argv) {
                     for (const std::string& line : glideslope::gfx::hud_lines(readings)) {
                         std::printf("glideslope: the HUD reads %s\n", line.c_str());
                     }
+                    std::printf("glideslope: her prediction was begun on the levers told at "
+                                "joining: %s\n",
+                                flight->begun_on_held() ? "yes" : "no");
                 }
                 readings.credits.insert(readings.credits.begin(), credits.begin(),
                                         credits.end());

@@ -563,6 +563,9 @@ void Online::heard(const net::StatePacket& state, double local_s, Flight& flight
                 own_ai_flying_ = ai;
                 switched_ = true;
                 if (!ai) {
+                    // Taken back from the AI: begun again from the server's
+                    // word, not on the levers she was held on at joining.
+                    flight.forget_held();
                     resuming_ = true;
                     taken_back_ = true;
                     rejoined_ = false;

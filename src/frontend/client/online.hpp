@@ -579,9 +579,19 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
                     // - a STOVL law made on her first input flew her on a
                     // pitch trim of nought where the server's flew the trim
                     // it had held her on (docs/status, 2026-10-29).
+                    // **And given up on after a minute all told**, heard or
+                    // not: a server answers a WATCH of its own aircraft
+                    // within a second of an asking within its rate, so a
+                    // minute of askings unanswered is a server that will not
+                    // say them, and she flies on this client's own levers,
+                    // said so (glideslope's "did not say its levers").
+                    constexpr double levers_given_up_after_s = 60.0;
+                    const double asked_first_s = local_s();
                     double asked_s = local_s();
                     double heard_s = local_s();
-                    while (local_s() - heard_s < give_up_after_s && !joined->levers) {
+                    while (local_s() - heard_s < give_up_after_s &&
+                           local_s() - asked_first_s < levers_given_up_after_s &&
+                           !joined->levers) {
                         poll_here(local_s());
                         for (net::StatePacket& state : session_.take_states()) {
                             heard_s = local_s();

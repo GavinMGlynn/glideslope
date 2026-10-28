@@ -3852,7 +3852,9 @@ endif()
 
 # **The client with the window hands its own aircraft to the AI on a
 # server, and takes it back**: the server says the AI has it, then the pilot,
-# and the HUD says so each time. See cmake/client_hands_over.cmake.
+# and the HUD says so each time; taken back, her prediction is begun from the
+# server's word, not on the levers she was held on at joining. See
+# cmake/client_hands_over.cmake.
 add_test(NAME the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}

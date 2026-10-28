@@ -155,6 +155,18 @@ if(NOT _out MATCHES "flying aircraft ([0-9]+), the c172p; the server says the pi
                         "the shot:\n${_out}")
 endif()
 set(_flown "${CMAKE_MATCH_1}")
+# **Taken back, her prediction begun from the server's word, not on the
+# levers she was held on at joining** (client::Flight::held_by_server): the
+# levers told at joining are put on a prediction begun again only until
+# she is first flown; begun on them at the take-back, a STOVL law made then
+# kept the trim of her joining, not the one the AI left her on (2026-10-29).
+if(NOT _out MATCHES "her prediction was begun on the levers told at joining: (yes|no)")
+    message(FATAL_ERROR "the client did not say what its prediction was begun on:\n${_out}")
+endif()
+if(NOT CMAKE_MATCH_1 STREQUAL "no")
+    message(FATAL_ERROR "taken back, her prediction was begun again on the levers told at "
+                        "joining:\n${_out}")
+endif()
 if(NOT _out MATCHES "own aircraft: ([0-9]+) switches; the largest step at a switch ([0-9.]+) m, and otherwise ([0-9.]+) m")
     message(FATAL_ERROR "the client did not say how far what it showed stepped:\n${_out}")
 endif()
