@@ -4611,8 +4611,13 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                 return;
             }
             // Each newer than the last kept, and flown from the step due
-            // when it was read (Connection::inputs_heard). More than a
-            // second of them waiting is a flood: the oldest are let go.
+            // when it was read (Connection::inputs_heard). **More than 120
+            // waiting is a flood**, and the oldest are let go: 4 s of inputs
+            // at a client's 30 a second, the 4 s it keeps to fly again
+            // (sim::most_unacknowledged). A server owes at most 3.5 s
+            // (net::most_steps_caught_up), so about 105 wait at most behind
+            // it and the round trip's jitter has the other 15, half a second.
+            // An older input than that could not be placed by its client.
             const auto frames = c.inputs.received(inside.subspan(1));
             for (const glideslope::net::InputFrame& frame : frames) {
                 const std::uint32_t newest =
@@ -5123,9 +5128,10 @@ int run(const Options& o) {
         if (o.test_held_up_every_s > 0.0 && fleet &&
             fleet->now_s() >= held_up_next_s) {
             held_up_next_s = fleet->now_s() + o.test_held_up_every_s;
-            ++held_up_times;
+            // A quarter, a half, three quarters, all - and round again.
             std::this_thread::sleep_for(std::chrono::duration<double, std::milli>(
                 o.test_held_up_ms * static_cast<double>(held_up_times % 4 + 1) / 4.0));
+            ++held_up_times;
             now = std::chrono::steady_clock::now();
             up_s = std::chrono::duration<double>(now - began).count();
         }

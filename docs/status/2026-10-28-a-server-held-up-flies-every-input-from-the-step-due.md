@@ -65,7 +65,7 @@ and what the remaining 4.4 m needs; put off, above.
 | held up 150-600 ms every second, pace 1 | 9.7 / 13.0 / 14.9 m | 0.35 / 1.2 / 1.9 m |
 | whole machine stopped 4 s (the stalled test) | across the stall 6.9 m | 1.07 m, back within a metre from word 4 |
 | persistently behind, `--test-step-ms 10` (0.76) | 0.47 / 2.1 / 2.6 m | three runs: 0.44 to 0.98 / 2.1 to 2.6 / 2.1 to 2.6 m; 766 slips in one |
-| paced (0.6) beside 40 busy loops on 20 cores, one run each | 0.43 / 2.0 / 2.0 m | 0.43 / 2.6 / 0.7 m outside a 303 ms stall of the client's |
+| paced (0.6) beside 40 busy loops on 20 cores, one run each | 0.43 / 2.0 / 2.0 m | 0.43 / 2.6 m of every update, and the worst 0.7 m of those outside a 303 ms stall of the client's own, counted apart (its worst 3.5 m) |
 
 - `a_client_predicting_against_a_server_stopped_alone_for_seconds_is_within_two_metres_for_ninety_five_updates_in_a_hundred`
   and `..._held_up_unevenly_every_second_...` (server_paced_prediction.cmake,

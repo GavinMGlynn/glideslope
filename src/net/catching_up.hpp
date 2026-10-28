@@ -72,11 +72,20 @@ public:
                           double steps_per_second) {
         // The pass before flew flat out if it left steps owed: its gap is
         // how long `taken` steps took, network and all.
+        // **Forgotten on every pass**, flat out or not, so that a pace long
+        // past says nothing: remembered over flat-out passes alone, 2.7 s
+        // behind and then five minutes keeping time still slipped a stall of
+        // 3 s, 330 steps (the unit test; the review of #256). A pace
+        // forgotten is taken as able to catch up.
         const bool long_pass = gap_s >= hold_up_s;
-        if (owed_ > 0 && gap_s > 0.0 && (!long_pass || long_pass_before_)) {
+        if (gap_s > 0.0) {
             const double keep = std::exp(-gap_s / remembered_s);
-            flat_s_ = flat_s_ * keep + gap_s;
-            flat_steps_ = flat_steps_ * keep + static_cast<double>(taken);
+            flat_s_ *= keep;
+            flat_steps_ *= keep;
+            if (owed_ > 0 && (!long_pass || long_pass_before_)) {
+                flat_s_ += gap_s;
+                flat_steps_ += static_cast<double>(taken);
+            }
         }
         long_pass_before_ = long_pass;
         owed_ += due;

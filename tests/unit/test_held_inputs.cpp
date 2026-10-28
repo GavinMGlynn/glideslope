@@ -180,6 +180,26 @@ GLIDESLOPE_TEST(a_server_held_up_once_and_fast_enough_after_catches_up_every_ste
         ++tried;
     }
     check(tried == 5, "five stalls: " + std::to_string(tried));
+    // **A pace long past is forgotten**: behind for 2.7 s at 0.74 of real
+    // time (4 steps in 45 ms), then keeping time five minutes, then stopped
+    // 3 s and flown at 1.67 after - caught up, nothing slipped. Remembered
+    // only over passes flown flat out, the old pace was never forgotten and
+    // the stall slipped 330 steps (the review of #256).
+    {
+        CatchingUp c;
+        double clock_s = 0.0;
+        std::int64_t due = 0;
+        std::int64_t taken = 0;
+        fly_passes(c, clock_s, due, 0.045, 60, taken);
+        const std::int64_t slipped_behind = c.slipped();
+        fly_passes(c, clock_s, due, 0.010, 30000, taken);
+        fly_passes(c, clock_s, due, 3.0, 1, taken);
+        const Flown after = fly_passes(c, clock_s, due, 0.020, 750, taken);
+        check(after.slipped == slipped_behind && after.owed <= 4,
+              "a stall five minutes after a slow spell: " +
+                  std::to_string(after.slipped - slipped_behind) +
+                  " slipped, not 0, and " + std::to_string(after.owed) + " owed at the end");
+    }
 }
 
 // **A server persistently behind lets what it owes past a quarter of a second
