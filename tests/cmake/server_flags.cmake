@@ -90,6 +90,7 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms --test-pace
               --test-stopped-once --test-say-controls --test-slow-start
+              --test-held-up --test-say-slipped
               --drop-once-flown --lose-goodbyes --stop-once-flown
               --ai-planner --ai-task --ai-playback --ai-spacing
               --steps --fail-engine-at --hand-over-planner --hand-over-playback

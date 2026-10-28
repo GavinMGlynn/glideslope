@@ -13,9 +13,15 @@
 // a server paused 200 ms by hand - 24 steps - put the client off by 4.2 m,
 // 0.43 m with the rule here (PROJECT_STATUS.md, 2026-10-08).
 //
-// **At most `most_steps_held` after the step being flown**, so that a server
-// that never catches up still flies what it is sent, that long after it came.
+// **What is owed is bounded by the server, not here** (net::CatchingUp): a
+// server that cannot catch up lets what it owes past a quarter of a second
+// slip, so that its inputs are flown at most that long after they came; one
+// that can catches up, and an input is flown from the step due, however much
+// is owed. Held at most a quarter of a second on whatever was owed, as it
+// was, an input read after a stall was flown early by the rest, and a server
+// stopped alone 3 s put its client 104 m off (docs/status, 2026-10-28).
 
+#include "net/catching_up.hpp"
 #include "net/inputs.hpp"
 
 #include <algorithm>
@@ -25,11 +31,6 @@
 #include <optional>
 
 namespace glideslope::net {
-
-// A quarter of a second of steps at 120 a second: above the 24 steps of the
-// 200 ms stall measured, and of the 23 the macOS run's clocks' difference
-// moved by; a longer stall is flown early by what is over.
-inline constexpr std::int64_t most_steps_held = 30;
 
 class HeldInputs {
 public:
@@ -60,11 +61,11 @@ public:
     }
 
     // **The inputs read in this pass, stamped** with the step due now: the
-    // server has flown `stepped` and owes `owed`.
+    // server has flown `stepped` and owes `owed` - never sooner.
     void stamp(std::int64_t stepped, std::int64_t owed) {
         for (Held& h : held_) {
             if (h.due < 0) {
-                h.due = stepped + std::min(owed, most_steps_held);
+                h.due = stepped + owed;
             }
         }
     }
