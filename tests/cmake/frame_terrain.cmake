@@ -153,7 +153,15 @@ if(REFUSE_IMAGERY)
         message(FATAL_ERROR "no fetch from ${REFUSED_AT} was seen to fail:\n${_err}")
     endif()
     if(WEDGE)
-        if(NOT _err MATCHES "the imagery's finer fetches, held for a test, go now")
+        # The hold's backstop let everything go: whatever followed, the
+        # wedge was not built as the test builds it, only perhaps by luck.
+        if(_err MATCHES "the root tile's had not settled [0-9]+ s after")
+            message(FATAL_ERROR "the client's hold reached its backstop - the root "
+                                "tile's imagery never settled while its finer fetches "
+                                "were held:\n${_err}")
+        endif()
+        # Released on the root's failure, and only so.
+        if(NOT _err MATCHES "the imagery's finer fetches, held for a test, go now: the root tile's has failed")
             message(FATAL_ERROR "the client did not hold its finer imagery fetches "
                                 "until the root's had failed - the wedge was not "
                                 "built:\n${_err}")

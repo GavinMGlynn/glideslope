@@ -280,14 +280,21 @@ private:
 // for when that one fails: a chain of fall-backs, once started, runs to its
 // end. What is held goes (TerrainTiles::let_held_imagery_go) all at once when
 // the root's imagery has settled; a level at a time, coarsest first, when
-// nothing let through is still in flight and the root's has not settled -
-// the root's may be among them; and all at once, said so, once the first was
-// asked for `longest` ago. Nothing waits on them for ever.
+// everything else has stood still - the root's may be among the held; and
+// all at once, said so, once the first imagery fetch was asked for `longest`
+// ago, a backstop the test fails on. Nothing waits on them for ever.
+//
+// **Stood still** is an event, not a time: no request in flight anywhere
+// (the held are not requests yet), Cesium Native's workers idle, and none
+// of the hold's own let through unanswered, at `still_for` looks running,
+// each after a whole pass of loading and updating. Nothing is then left to
+// move the root's imagery on but what is held. A wait for quiet on the
+// clock would release early on a slow machine, before a fall-back was asked.
 struct HeldImagery {
     using Clock = std::chrono::steady_clock;
-    // Nothing let through in flight for this long, the coarsest held goes.
-    static constexpr std::chrono::seconds quiet_for{2};
-    // The first imagery fetch this long ago, everything goes.
+    // Looks running at which everything else has stood still.
+    static constexpr int still_for = 2;
+    // The first imagery fetch this long ago, everything goes: the backstop.
     static constexpr std::chrono::seconds longest{120};
 
     struct Fetch {
@@ -303,7 +310,7 @@ struct HeldImagery {
     std::string prefix;
     // **For a test of this hold, its fetches asked for out of order**
     // (TerrainOptions::test_imagery_out_of_order): the imagery's first
-    // fetches gathered, unanswered, until none has come for `quiet_for`; then
+    // fetches gathered, unanswered, until everything else stands still; then
     // a level-0 fetch of the hold's own asked for before any of them - a
     // fetch coarser than the root's, first, which the hold that took the
     // first to be the root's held the root's own behind, and so never let
@@ -323,8 +330,10 @@ struct HeldImagery {
     std::unordered_set<std::string> let_through;
     // Of those, how many are not yet answered.
     int in_flight = 0;
+    // When the first imagery fetch was asked for, gathered or not.
     std::optional<Clock::time_point> first_asked;
-    Clock::time_point last_activity = Clock::now();
+    // Looks running at which everything else stood still.
+    int still = 0;
 
     // The level, row and column of an imagery fetch; level -1 for anything
     // else.
@@ -382,11 +391,6 @@ struct HeldImagery {
     // Under the lock, while holding: whether `fetch` is held. One let through
     // is in flight until answered().
     bool hold_locked(const Fetch& fetch) {
-        const auto now = Clock::now();
-        if (!first_asked) {
-            first_asked = now;
-        }
-        last_activity = now;
         if (!shallowest || fetch.level < *shallowest) {
             shallowest = fetch.level;
         }
@@ -401,7 +405,6 @@ struct HeldImagery {
     void answered() {
         const std::lock_guard<std::mutex> lock(mutex);
         --in_flight;
-        last_activity = Clock::now();
     }
 
     bool holding() {
@@ -409,18 +412,27 @@ struct HeldImagery {
         return !open;
     }
 
-    // With out_of_order, once none has come for `quiet_for`: the level-0
+    // One look: whether everything else has stood still for `still_for`
+    // looks running. `idle` is no request in flight and the workers idle.
+    bool stood_still(bool idle) {
+        const std::lock_guard<std::mutex> lock(mutex);
+        still = idle && in_flight == 0 ? still + 1 : 0;
+        return still >= still_for;
+    }
+
+    // With out_of_order, once everything else has stood still: the level-0
     // fetch, and then those gathered, deepest first, are asked for, to be
     // held or let through as any other.
-    void ask_gathered_when_quiet() {
+    void ask_gathered() {
         std::vector<Held> ask;
         std::function<void()> first;
         {
             const std::lock_guard<std::mutex> lock(mutex);
-            if (!gathering || gathered.empty() || Clock::now() - last_activity < quiet_for) {
+            if (!gathering || gathered.empty()) {
                 return;
             }
             gathering = false;
+            still = 0;
             ask.swap(gathered);
             first.swap(stranger);
         }
@@ -446,17 +458,17 @@ struct HeldImagery {
         return first_asked && Clock::now() - *first_asked >= longest;
     }
 
-    // When nothing let through has been in flight for `quiet_for`, the
-    // coarsest level held goes, and is returned; -1 when nothing goes.
-    long let_coarsest_go_when_quiet() {
+    // Once everything else has stood still, the coarsest level held goes,
+    // and is returned; -1 when nothing goes.
+    long let_coarsest_go() {
         std::vector<Held> go;
         long level = -1;
         {
             const std::lock_guard<std::mutex> lock(mutex);
-            if (open || held.empty() || in_flight > 0 || !gathered.empty() ||
-                Clock::now() - last_activity < quiet_for) {
+            if (open || held.empty() || !gathered.empty()) {
                 return -1;
             }
+            still = 0;
             level = held.front().fetch.level;
             for (const auto& h : held) {
                 level = std::min(level, h.fetch.level);
@@ -473,7 +485,6 @@ struct HeldImagery {
                 }
             }
             held.swap(keep);
-            last_activity = Clock::now();
         }
         for (auto& fetch : go) {
             fetch.go();
@@ -544,12 +555,16 @@ private:
         {
             const std::lock_guard<std::mutex> lock(held->mutex);
             open = held->open;
+            // The backstop counts from the first imagery fetch, gathered
+            // ones too.
+            if (!open && !held->first_asked) {
+                held->first_asked = HeldImagery::Clock::now();
+            }
             const bool gather = !open && held->out_of_order && held->gathering;
             if (gather || (!open && held->hold_locked(fetch))) {
                 auto promise = async.createPromise<Request>();
                 std::function<void()> go;
                 if (gather) {
-                    held->last_activity = HeldImagery::Clock::now();
                     if (held->gathered.empty() && fetch.row >= 0 && fetch.column >= 0) {
                         // The level-0 tile above the first, its answer
                         // waited on by nothing.
@@ -2039,7 +2054,13 @@ void TerrainTiles::let_held_imagery_go() {
         return;
     }
     HeldImagery& held = *impl_->held_imagery;
-    held.ask_gathered_when_quiet();
+    // Everything else stood still: what this pass's loading asked for has
+    // been answered, the workers have done with it, and so at the look
+    // before.
+    const bool still = held.stood_still(impl_->workers->idle() && *impl_->requests == 0);
+    if (still) {
+        held.ask_gathered();
+    }
     // The root's imagery settled: no loading tile left, and a ready one.
     // Settled on its failure, every tile beneath it whose imagery fails from
     // here is wedged (imagery_wedged). **Settled any other way, the held
@@ -2067,11 +2088,11 @@ void TerrainTiles::let_held_imagery_go() {
     }
     // **Never held for ever.** The root's own fetch may be held, behind a
     // coarser one asked for first, or wait for one of Cesium Native's
-    // loading slots, which the held fill: with nothing let through in
-    // flight, the coarsest level held goes, and so on until the root's
+    // loading slots, which the held fill: once everything else has stood
+    // still, the coarsest level held goes, and so on until the root's
     // settles; and everything goes once the first was asked for `longest`
-    // ago, said so - the test, which needs the give-up, then fails on that
-    // rather than hanging.
+    // ago, said so - the backstop, which the test fails on rather than
+    // hanging.
     if (held.held_too_long()) {
         const std::size_t went = held.let_go();
         std::fprintf(stderr,
@@ -2081,11 +2102,11 @@ void TerrainTiles::let_held_imagery_go() {
                      static_cast<long long>(HeldImagery::longest.count()), went);
         return;
     }
-    const long level = held.let_coarsest_go_when_quiet();
+    const long level = still ? held.let_coarsest_go() : -1;
     if (level >= 0) {
         std::fprintf(stderr,
                      "glideslope: the imagery's fetches at level %ld, held for a test, go "
-                     "first: nothing else was in flight and the root tile's had not "
+                     "first: everything else stood still and the root tile's had not "
                      "settled\n",
                      level);
     }
