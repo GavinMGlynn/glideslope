@@ -21,20 +21,31 @@ the held fetches went nor that the imagery was given up.
   runs to its end. The order Cesium Native asks in no longer matters to
   what is held.
 - What is held goes all at once when the root's imagery has settled, as
-  before; **a level at a time, coarsest first**, when nothing let through
-  has been in flight for 2 s and the root's has not settled - the root's
-  own may be among the held, or waiting for one of Cesium Native's 20
-  loading slots the held fill; and **all at once 120 s after the first
-  imagery fetch**, said so ("the root tile's had not settled 120 s after the
-  first was asked for, so no wedge is promised"). The test, which requires
-  the give-up, would then fail on that and not hang. Nothing is held for
-  ever.
+  before; **a level at a time, coarsest first**, when everything else has
+  stood still and the root's has not settled. The root's own fetches may be
+  among the held, or may be waiting for one of Cesium Native's 20 loading
+  slots, which the held fill. And everything goes **at once, 120 s after the
+  first imagery fetch** (gathered fetches count), and the client says so:
+  "the root tile's had not settled 120 s after the first was asked for, so
+  no wedge is promised". That is a backstop, and the test fails when it is
+  reached. Nothing is held for ever.
+- **"Stood still" is an event, not a time.** No request is in flight
+  anywhere, Cesium Native's workers are idle, and none of the hold's own let
+  through is unanswered, at two looks running, each after a whole pass of
+  loading and updating. Then nothing but the held is left to move the
+  root's imagery on. The first version of this waited for 2 s of quiet
+  instead; on a slow machine that could have released a level before a
+  fall-back was asked, and the wedge would then be built by luck or not at
+  all. The pr-reviewer suggested releasing when the level-0 fetch has been
+  answered and settled on. That alone does not work: here the root's
+  raster tile is at level 6, its fall-back chain reaches level 0 before
+  some of its own level-6 fetches are asked, and those were held.
 - The client says what went and why, each time: the level released early,
   or how many were held when the rest went.
 
 **Made to happen every run.** A second test flag, `--test-imagery-out-of-order`
 (`TerrainOptions::test_imagery_out_of_order`), gathers the imagery's first
-fetches unanswered until none has come for 2 s, then asks a level-0 fetch of
+fetches unanswered until everything else stands still, then asks a level-0 fetch of
 its own first - coarser than the root's - and the gathered deepest first. A
 new test, `a_window_client_whose_imagery_is_asked_for_out_of_order_still_builds_its_wedge_and_gives_it_up`
 (port 24958), runs the wedge test's shot with it and requires the same as
@@ -55,6 +66,21 @@ first is not what breaks it; a coarse one is.
   and drew 26 tiles to level 7 on the DEM's colours.
 - **The bound seen working**: with the level-by-level release taken out,
   the same run let everything go at 120 s, saying so, and finished. Reverted.
+- **The backstop fails the test** (review round): the wedge test used to
+  match only "held for a test, go now", which the backstop's message also
+  says. A run that reached the backstop and wedged by luck therefore passed.
+  The test now requires "go now: the root tile's has failed" and fails
+  outright on "had not settled". Seen red with the backstop forced (1 s,
+  and the level-by-level release taken out): both wedge tests failed with
+  "the client's hold reached its backstop", although the client went on to
+  wedge and give up. Reverted.
+- **After the review round**, with "stood still" an event: linux-release,
+  the wedge test and the out-of-order test 20 of 20 each (84 s for the 40,
+  where the 2 s waits took 262); linux-debug (sanitized) 5 of 5 each.
+  Windows debug (`tools/windows_build.sh`): both passed once, in 128 and
+  131 s.
+- **The new test's CI cost is left alone**: the next refresh of CI's test
+  costs measures it.
 - linux-release: the wedge test 20 runs of 20 green and the out-of-order
   test 20 of 20, each requiring the held fetches to have gone and the
   imagery to have been given up (262 s for the 40); the ports check passes
@@ -86,8 +112,16 @@ machine idle, took 198 s. Under the suite's load it had gone past 240 s. In
 the same run `a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound`
 printed its pass and then died at exit (0xc0000409; an access violation in
 a thread "after the program began to exit"). It had passed in the first
-run, and nothing here touches it. It is not chased here. linux-debug: the
-same seven tests all passed (94 s).
+run, and nothing here touches it. CI's Windows jobs in runs 40743161009,
+40746799276 and 40750172534 all pass it, in 0.02 s each; on the
+development machine it took 2 to 4 s. It is left as a tail in Phase 12c,
+with Webroot's log to be read first. linux-debug: the same seven tests all
+passed (94 s).
+
+**The 198 s terrain check is not counted as a fault.** It ray-casts a
+640x480 frame against the DEM and the imagery in an unoptimised MSVC
+build, and CI's Windows debug runs the whole drape test in 129 to 153 s.
+The fault was the 240 s limit, which is now 600 s, and no tail is added.
 
 **The crash on the Windows machine** - a window client's null read on a
 worker thread while every imagery fetch timed out, in a take-back test run
