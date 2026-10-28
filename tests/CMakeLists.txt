@@ -2022,7 +2022,7 @@ add_test(NAME a_window_client_whose_imagery_cannot_be_fetched_still_draws_its_fr
         -DWEDGE=ON
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain_imagery_refused.cmake)
 set_tests_properties(a_window_client_whose_imagery_cannot_be_fetched_still_draws_its_frame_on_the_dems_colours_and_says_why
-    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 300)
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 900)
 add_test(NAME a_window_client_whose_imagery_is_refused_in_whatever_order_still_draws_its_frame_on_the_dems_colours
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>
@@ -2030,7 +2030,7 @@ add_test(NAME a_window_client_whose_imagery_is_refused_in_whatever_order_still_d
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR} -DPORT=24950
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain_imagery_refused.cmake)
 set_tests_properties(a_window_client_whose_imagery_is_refused_in_whatever_order_still_draws_its_frame_on_the_dems_colours
-    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 300)
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 900)
 
 # ---------------------------------------------------------------------------
 # The shader compiler keeps SDL_GPU's resource layout: a shader that follows it

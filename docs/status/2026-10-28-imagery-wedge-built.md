@@ -59,3 +59,15 @@ way, so it is not a sometimes-test.
   tests and the ports check pass, the wedge test in 106 s, the unordered one
   in 109 s - Windows' slow refusals, as before.
 - The ports check passes with 24950 (24951 free too).
+
+**A hang on Windows debug, not yet explained (2026-10-28).** In #262's full
+run 40686462655, Windows debug, this test was killed at its 300 s limit with
+nothing said; the same run's release and clang jobs passed it in 29 s, and its
+unordered sibling in 71 s on debug. On the Windows development machine it hung
+once in its first two runs under ctest (windows-debug); the client run alone
+six times, with the test's arguments, never hung; and twelve runs under ctest
+after then all passed, 89 to 132 s. The cause is not found. **Each program the
+frame test runs now has a limit of its own**, 240 s, and one that reaches it
+fails the test naming it with what it had said, so the next hang says which
+of the shot, the shot without imagery or the terrain check it was and where;
+the test's own limit is 900 s, above the three.

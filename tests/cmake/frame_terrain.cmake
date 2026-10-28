@@ -84,6 +84,18 @@ else()
     set(_imagery off)
     set(_check_imagery "")
 endif()
+# **Each program it runs is given a limit of its own**, and one that reaches
+# it fails the test naming it, with what it had said: the whole test killed
+# by ctest's TIMEOUT says nothing of which of its three programs hung or
+# where (CI's Windows debug, run 40686462655, the wedged-imagery test at
+# 300 s and no word of it).
+set(_step_limit_s 240)
+function(glideslope_frame_step_ended what rc out err)
+    if(rc MATCHES "timeout")
+        message(FATAL_ERROR "${what} was still running after ${_step_limit_s} s, and was "
+                            "stopped:\n${out}\n${err}")
+    endif()
+endfunction()
 set(_shot "${WORK}/${_name}.bmp")
 file(REMOVE "${_shot}")
 set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
@@ -93,7 +105,9 @@ execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 
                         --screen terrain --at "${_eye}" --toward "${_summit}"
                         --imagery ${_imagery} ${_refuse}
                         --shot "${_shot}"
-                RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+                RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err
+                TIMEOUT ${_step_limit_s})
+glideslope_frame_step_ended("the shot" "${_rc}" "${_out}" "${_err}")
 message(STATUS "${_out}")
 if(_also)
     glideslope_skip_when_not_downloaded("${_rc}" "${_err}" "${_also}")
@@ -145,7 +159,10 @@ if(REFUSE_IMAGERY)
     execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size ${_size}
                             --screen terrain --at "${_eye}" --toward "${_summit}"
                             --imagery off --shot "${_bare}"
-                    RESULT_VARIABLE _bare_rc OUTPUT_VARIABLE _bare_out ERROR_VARIABLE _bare_err)
+                    RESULT_VARIABLE _bare_rc OUTPUT_VARIABLE _bare_out ERROR_VARIABLE _bare_err
+                    TIMEOUT ${_step_limit_s})
+    glideslope_frame_step_ended("the shot without imagery" "${_bare_rc}" "${_bare_out}"
+                                "${_bare_err}")
     if(NOT _bare_rc EQUAL 0 OR NOT _bare_out MATCHES
        "terrain of ([0-9]+) tiles, [0-9]+ loaded, the deepest at level ([0-9]+)")
         message(FATAL_ERROR "the shot without imagery failed (${_bare_rc}):\n${_bare_out}\n${_bare_err}")
@@ -176,7 +193,9 @@ endif()
 execute_process(COMMAND "${CHECK}" "${_shot}" "${WORK}/${_name}-reference.bmp"
                         "${WORK}/${_name}-difference.bmp" "${_eye}" "${_summit}"
                         "${CACHE}" "${DATA}" ${_check_imagery}
-                RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+                RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err
+                TIMEOUT ${_step_limit_s})
+glideslope_frame_step_ended("the terrain check" "${_rc}" "${_out}" "${_err}")
 message(STATUS "${_out}")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "${_out}${_err}")
