@@ -67,13 +67,15 @@ and what the remaining 4.4 m needs; put off, above.
 | persistently behind, `--test-step-ms 10` (0.76) | 0.47 / 2.1 / 2.6 m | three runs: 0.44 to 0.98 / 2.1 to 2.6 / 2.1 to 2.6 m; 766 slips in one |
 | paced (0.6) beside 40 busy loops on 20 cores, one run each | 0.43 / 2.0 / 2.0 m | 0.43 / 2.6 m of every update, and the worst 0.7 m of those outside a 303 ms stall of the client's own, counted apart (its worst 3.5 m) |
 
-- `a_client_predicting_against_a_server_stopped_alone_for_seconds_is_within_two_metres_for_ninety_five_updates_in_a_hundred`
+- `a_client_predicting_against_a_server_stopped_alone_for_seconds_is_within_three_metres_for_ninety_five_updates_in_a_hundred`
   and `..._held_up_unevenly_every_second_...` (server_paced_prediction.cmake,
   `-DSERVER_HELD=alone|unevenly`, the new `--test-held-up EVERY_S MS`): the
-  paced test's bounds; stopped alone, the 95th percentile held to 2 m and
-  the worst to 8 m (the named limit above: the 75 words of the server's
-  catching up are each off by the stick's moves it did not fly - CI's
-  Windows debug, run 40621099406, 1.51 m and 4.7 m on the first draft). Seen red with main's stamping (`stepped + min(owed, 30)`): 95th
+  paced test's bounds; stopped alone, the 95th percentile held to 3 m and
+  the worst to 10 m, twice the most measured (the named limit above: the 75
+  words of the server's catching up are each off by the stick's moves it did
+  not fly). Windows debug, nine runs - eight here one at a time, and CI's
+  run 40621099406 - 95th 0.49, 0.55, 0.57, 0.59, 0.59, 0.80, 0.83, 1.36 and
+  1.51 m; worst 2.1 to 4.7 m. Seen red with main's stamping (`stepped + min(owed, 30)`): 95th
   percentile 24.8 m and 9.3 m, worst 104 m and 16.0 m.
 - `a_server_held_up_once_and_fast_enough_after_catches_up_every_step_it_owes`:
   stalls of 0.3, 1, 2 and 3.5 s caught up with none slipped, and 5 s slips
@@ -104,7 +106,22 @@ and what the remaining 4.4 m needs; put off, above.
   of 1,386 passed (the network-and-key tests skipped as ever).
   `a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral`
   failed once beside the rest and passed run alone (128 s); its log was
-  overwritten before it was read, so whether this change or the load moved
-  it is not known - a thing to watch on CI.
+  overwritten before it was read. Run again on this branch with
+  `--test-say-slipped` (logs in scratchpad/server-behind-real-time/stovl/):
+  five of five alone, nothing slipped; beside 40 busy loops four of five.
+  The one that failed: the client, admitted, said nothing for 5 s while it
+  prepared its ground and was let go on the server's timeout (22 datagrams
+  through the relay) - wall-clock silence, which no step slipped or caught up
+  moves. The server had let 164 steps slip loading her before admitting the
+  client, with no input yet held. The slow-preparing client's own test
+  covers that hazard; not this change's.
 - `--test-say-slipped` says each slip on the error stream (a test's server
   runs in a pipeline whose output is not read).
+
+**From the review of #256.** The pace was remembered only over passes flown
+flat out, so one long past was never forgotten: 2.7 s behind, five minutes
+keeping time, then a 3 s stall slipped 330 steps (now a case of
+`a_server_held_up_once_...`, seen red); it is forgotten on every pass. The
+hold-ups of `--test-held-up` now come in their stated order (a quarter
+first). The flood of held inputs is 120, 4 s at a client's 30 a second; a
+server owing at most 3.5 s holds about 105.

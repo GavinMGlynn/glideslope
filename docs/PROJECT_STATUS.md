@@ -165,7 +165,7 @@ others 100 ms in the past, over a reliable layer whose every parser is fuzzed. A
 holds, within stated bounds, through 200 ms of latency with jitter and loss.
 A server held up flies every input from the step due when it came and
 catches up what it can, letting slip only what it cannot (2026-10-28): stopped
-alone 3 s its client is within two metres for 95 updates in 100 (was 15 m),
+alone 3 s its client is within 0.5 to 1.5 m for 95 updates in 100 (was 15 m),
 but the worst is still 4.9 m, the stick's moves in the stall flown as one.
 The client with the window flies on a server and draws everyone. Four clients
 on Windows and Linux have flown together with an AI Cessna, and a fifth was

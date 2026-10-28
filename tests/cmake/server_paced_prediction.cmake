@@ -72,9 +72,13 @@
 # that came in the 3 s are read in one pass and the newest alone is flown, so
 # the server flies none of the stick's moves in them - 4.4 m off the path the
 # client flew - and every word of its catching up, 75 of the 600 at a word
-# every 4.8 steps, is that much off: the worst is held to 8 m and the 95th
-# percentile to 2 m (CI's Windows debug: 1.51 m and 4.7 m, run 40621099406),
-# the rest to the bounds below.
+# every 4.8 steps, is that much off - by how much is the stick's moves', and
+# runs part three-fold. **The bounds are from what was measured**: nine runs
+# of Windows debug, the 95th percentile 0.49 to 1.51 m and the worst 2.1 to
+# 4.7 m (eight on this machine, 2026-10-28, and CI's run 40621099406), and
+# Linux debug's 0.62 and 4.9 m; the 95th held to 3 m and the worst to 10 m,
+# twice the most seen of each. Main's code put them at 24.8 and 104 m. The
+# rest is held to the bounds below.
 # Not built: a server persistently behind, which the paced test is.
 #
 # **A named limit: on Windows about one update in a hundred is off by two
@@ -130,8 +134,8 @@ set(_server_held "")
 if(SERVER_HELD STREQUAL "alone")
     set(_pace 1)
     set(_server_held --test-stopped-once 12 3000)
-    set(_worst_allowed_mm 8000)
-    set(_p95_allowed_mm 2000)
+    set(_worst_allowed_mm 10000)
+    set(_p95_allowed_mm 3000)
 elseif(SERVER_HELD STREQUAL "unevenly")
     set(_pace 1)
     set(_server_held --test-held-up 1 600)
