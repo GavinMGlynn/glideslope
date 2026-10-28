@@ -249,3 +249,24 @@ GLIDESLOPE_TEST(a_server_persistently_behind_lets_what_it_owes_past_a_quarter_of
                   " slipped");
     }
 }
+
+// **A run stopped where it is owes no step it let slip**: a server's end
+// takes what it owes and what it let slip, and one stopped on a count of
+// steps (`--steps-after-hand-over`) forgives both. Held up 4 s - 60 steps
+// past the most caught up - then forgiven: nothing owed, nothing slipped.
+// Seen to fail with only what was owed forgiven: 60 left, which a Windows
+// debug server flew past its count at its end (CI, 2026-10-28).
+GLIDESLOPE_TEST(a_run_stopped_where_it_is_owes_no_step_it_let_slip) {
+    CatchingUp c;
+    double clock_s = 0.0;
+    std::int64_t due = 0;
+    std::int64_t taken = 0;
+    fly_passes(c, clock_s, due, 0.010, 100, taken);
+    fly_passes(c, clock_s, due, 4.0, 1, taken);
+    check(c.slipped() == 60, "a stall of 4 s slips 60 steps: " + std::to_string(c.slipped()));
+    check(c.owed() > 0, "and owes the rest: " + std::to_string(c.owed()));
+    c.forgive();
+    check(c.owed() == 0 && c.slipped() == 0,
+          "forgiven, " + std::to_string(c.owed()) + " owed and " +
+              std::to_string(c.slipped()) + " slipped are left for the end to take");
+}
