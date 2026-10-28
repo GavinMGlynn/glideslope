@@ -797,12 +797,17 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       16 models off the crosswind, and 4 of the 5 keyed to the angle named until
       now too (the S.23's pitch damping stays named); standing in 15 kt across with any control set, from up to
       199,000 ft-lb to under 21. Every figure in range.
-- [ ] **Her side force standing in a beam wind is turned fore and aft**:
+- [x] **Her side force standing in a beam wind is turned fore and aft**:
       JSBSim's wind axes put it in her plane of symmetry, pitching her and
       putting the J-3 Cub over braking in a crosswind (figures in the
       2026-10-28 status file). *Verification: every landplane standing in
       15 kt across, her side force across her and its pitching moment
-      within a stated bound, and every figure in range.*
+      within a stated bound, and every figure in range.* Done 2026-10-29:
+      every model leaves the crossflow's share out of her side force, all
+      of it standing in a beam wind, where her drag with sideslip pushes her
+      across; the air's force in her plane of symmetry fell from up to
+      10,400 lb to under 19, and the Cub no longer goes over braking in a
+      crosswind. Every figure in range.
 - [x] **The Mosquito's slipstream lift flips with an undefined angle of
       attack**: on her brakes at +9 boost it is -2,570 or +2,050 lb as her
       creep flips the angle from -93 to +87 degrees. *Verification: standing

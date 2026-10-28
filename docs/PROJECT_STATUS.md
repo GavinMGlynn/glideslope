@@ -217,12 +217,16 @@ and CI flies it again with no key.
 Everything in `COMPLETION_PLAN.md`. The ones worth naming first, because they
 are the risks the phase order is built around:
 
-- **A J-3 Cub braked in a crosswind can go over where she did not before.**
-  Since 2026-10-28 her pitching moments leave out the crosswind. Solo,
-  braked stick central from 10 kt at half brake in 15 kt across, she now
-  goes over, where before she did not. The cause is her side force,
-  which JSBSim turns into her plane of symmetry in a beam wind. That is a
-  new Phase 9 item, and the two runs are named under it.
+- **A side force in a beam wind is shaped by an argument, not a
+  measurement** (2026-10-29). JSBSim made it in her plane of symmetry
+  standing in a beam wind, and that put a J-3 Cub braked in a crosswind
+  over. Now the crossflow's share of it, the sine squared of her sideslip,
+  is left out: all of it standing in a beam wind, where her drag with
+  sideslip pushes her across, and almost none in flight, where her figures
+  stay as they were. That shape comes from crossflow theory and is not
+  fitted to data; only the Cub's push in a beam wind is a cited figure. The
+  Cub no longer goes over braking in a crosswind where she does not in calm
+  air.
 - **Restore settles what it cannot read.** It holds the aircraft at the captured
   state for two simulated seconds so JSBSim's hidden engine and actuator states
   converge; a restore is therefore not free. Reconciliation does not use it:

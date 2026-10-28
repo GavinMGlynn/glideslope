@@ -2006,17 +2006,17 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
 // weight) - braked at 0.5, gross from the right her tail came up for a
 // moment and solo from either side she went over, where in calm air it
 // stayed down or only lifted; with her lift on `qbarUW` all three kept her
-// tail down. **Two named** (2026-10-28): solo at 0.5 from either side she
-// goes over again, where in calm air she lifts her tail and stops on her
-// wheels, since her pitch damping left the crosswind out - on the whole
-// dynamic pressure, which counted it, the damping held her. What puts her
-// over is her side force, which JSBSim's wind axes turn into her plane of
-// symmetry standing in a beam wind (Phase 9, "Her side force standing in a
-// beam wind is turned fore and aft"): with it zeroed she lifts her tail
-// only, as in calm air. Each named run must still be worse than calm air's,
-// so that the fault's fix is noticed. Coverage asserted: three loadings,
-// three winds, ten levels, 90 runs; the 60 crosswind runs: 26 held to her
-// tail down and 34 to calm air's outcome, 2 of those named.
+// tail down. **Two were named** (2026-10-28) and are named no longer
+// (2026-10-29): solo at 0.5 from either side she went over, where in calm
+// air she lifts her tail and stops on her wheels, once her pitch damping
+// left the crosswind out. What put her over was her side force, which
+// JSBSim's wind axes turned into her plane of symmetry standing in a beam
+// wind; its crossflow is now left out of it (tools/side_force.py), and
+// from the left she keeps her tail down, from the right she lifts it and
+// stops on her wheels, as in calm air - held to calm air's outcome like
+// every other. Coverage asserted: three loadings, three winds, ten levels, 90
+// runs; the 60 crosswind runs: 26 held to her tail down and 34 to calm
+// air's outcome, none named.
 GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_tail_wheel_on_the_runway_wherever_she_does_in_calm_air) {
     constexpr double brake_levels[] = {0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0};
     constexpr double crosswind_kts = 15.0;
@@ -2048,13 +2048,13 @@ GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_ta
     std::size_t runs = 0;
     std::size_t judged = 0;   // crosswind runs held to her tail down
     std::size_t compared = 0; // crosswind runs held to calm air's outcome
-    // Named (2026-10-28): worse than calm air, and why. Each must still be,
-    // so that the fault's fix is noticed.
-    const std::set<std::string> named_runs = {"solo, left, brake 0.5", "solo, right, brake 0.5"};
-    const char* const named_why =
-        "her side force, turned into her plane of symmetry by JSBSim's wind axes standing in a "
-        "beam wind (Phase 9, 'Her side force standing in a beam wind is turned fore and aft'), "
-        "puts her over; with it zeroed she lifts her tail only, as in calm air";
+    // Named: worse than calm air, and why. Each must still be, so that a
+    // fault's fix is noticed. None (2026-10-29): the two named on 2026-10-28,
+    // solo at 0.5 from either side, went over by her side force turned into
+    // her plane of symmetry, whose crossflow is now left out of it
+    // (tools/side_force.py).
+    const std::set<std::string> named_runs = {};
+    const char* const named_why = "";
     std::size_t named_seen = 0;
     // By loading, each level's outcome in calm air where it is not "down".
     std::map<std::string, std::map<double, int>> calm_not_down;
@@ -4207,10 +4207,10 @@ GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_
 // from that point to it (JSBSim's FGAerodynamics, M = r x F, r from her
 // centre of gravity to the point in body axes). Not the whole: standing in a
 // beam wind her side force, on the whole dynamic pressure as it should be,
-// is turned by JSBSim's wind axes into her plane of symmetry at the angle of
+// was turned by JSBSim's wind axes into her plane of symmetry at the angle of
 // attack, which is undefined there, and its moment about her centre of
-// gravity is another fault (a 737-300 1,400 lb fore and aft, 6,800 ft-lb;
-// the status file and docs/COMPLETION_PLAN.md). **The bound**, a
+// gravity was another fault (a 737-300 1,400 lb fore and aft, 6,800 ft-lb),
+// judged since 2026-10-29 by the test of her whole moment below. **The bound**, a
 // ten-thousandth of her weight times her mean chord, stated after measuring
 // (the status file,
 // 2026-10-28-pitching-moments-not-keyed-to-the-angle-of-attack-leave-out-the-crosswind.md):
@@ -4234,6 +4234,64 @@ GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_
                    (dz * a.property("forces/fbx-aero-lbs") -
                     dx * a.property("forces/fbz-aero-lbs"));
         },
+        [](const glideslope::sim::Aircraft& a) {
+            return bound_of_weight_chord * a.property("inertia/weight-lbs") *
+                   a.property("metrics/cbarw-ft");
+        }));
+}
+
+// **Every landplane standing on her brakes in 15 kt straight across, with any
+// control set, has her side force across her: the air's force in her plane
+// of symmetry is no more than a stated small figure.** JSBSim makes the side
+// force along its wind axes' y, which standing in a beam wind (sideslip 90
+// degrees) lies in her plane of symmetry at her angle of attack, undefined
+// there and turned by her creep: a 737-300 on her brakes had 1,400 lb of it
+// along her body's x axis. Each make script now leaves its crossflow's
+// share, sin^2 of her sideslip, out of it: along the wind that is her drag
+// with sideslip, and standing in a beam wind it is the whole of it
+// (tools/side_force.py).
+//
+// **Every scenario**: stand_each_landplane_across's. **What is judged**, at
+// every step: her aerodynamic force in her plane of symmetry, the length of
+// (forces/fbx-aero-lbs, forces/fbz-aero-lbs). **What remains** is her drag,
+// along the relative wind, which her creep turns a few degrees off her beam
+// (the most the F-15C's, her stick back, 0.55 of the bound), and her lift on
+// the pressure without the crosswind. **The bound**, a thousandth of her
+// weight, stated after measuring (the status file,
+// 2026-10-29-side-force-standing-in-a-beam-wind-is-across-her.md); at the
+// lift test's ten-thousandth the F-15C and J-3 Cub would fail, by her drag.
+// Coverage asserted: fifteen landplanes, seven settings, 105 runs of 2,400
+// steps.
+GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_has_her_side_force_across_her_and_no_more_than_a_thousandth_of_her_weight_fore_and_aft_or_up_and_down) {
+    constexpr double bound_of_weight = 1e-3;
+    check_standing_across(stand_each_landplane_across(
+        "force in her plane of symmetry", "lb",
+        [](const glideslope::sim::Aircraft& a) {
+            return std::hypot(a.property("forces/fbx-aero-lbs"),
+                              a.property("forces/fbz-aero-lbs"));
+        },
+        [](const glideslope::sim::Aircraft& a) {
+            return bound_of_weight * a.property("inertia/weight-lbs");
+        }));
+}
+
+// **Every landplane standing on her brakes in 15 kt straight across, with any
+// control set, is pitched by her air by no more than a stated small
+// figure** - her whole aerodynamic pitching moment about her centre of
+// gravity (moments/m-aero-lbsft), the moment of her forces carried there
+// from her reference point among it, which the test above this one left
+// out: with her side force turned into her plane of symmetry it was 6,800
+// ft-lb on a 737-300 (2026-10-28). **The bound**, a ten-thousandth of her
+// weight times her mean chord, her pitching terms' alone, stated after
+// measuring (the status file): what remains is her drag's moment as her
+// creep turns it and her pitching terms' on the creep of u and w, the most
+// the J-3 Cub's as the wind changes side, 0.82 of it. Coverage asserted:
+// fifteen landplanes, seven settings, 105 runs of 2,400 steps.
+GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_is_pitched_by_her_air_about_her_centre_of_gravity_by_no_more_than_a_ten_thousandth_of_her_weight_times_her_chord) {
+    constexpr double bound_of_weight_chord = 1e-4;
+    check_standing_across(stand_each_landplane_across(
+        "pitching about her centre of gravity", "ft-lb",
+        [](const glideslope::sim::Aircraft& a) { return a.property("moments/m-aero-lbsft"); },
         [](const glideslope::sim::Aircraft& a) {
             return bound_of_weight_chord * a.property("inertia/weight-lbs") *
                    a.property("metrics/cbarw-ft");

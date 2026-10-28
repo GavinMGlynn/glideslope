@@ -297,6 +297,18 @@ crosswind stands across her. Why her stall is that sensitive to it is not
 measured. The FlightGear wiki's guidance from JSBSim issue #89 puts Cm on QBarUW;
 alpha_rate.py says why, for swept surfaces too. In flight, at a few degrees of
 sideslip, the two differ by its cosine squared.
+
+**Her side force out of her plane of symmetry standing in a beam wind**
+(side_force.without_crossflow, 2026-10-29). JSBSim makes it along its wind
+axes' y, which at 90 degrees of sideslip lies in her plane of symmetry at an
+undefined angle of attack: standing in 15 kt across, it pushed her fore and
+aft or up and down and pitched her about her centre of gravity. Its
+crossflow's share, sin^2 beta, which along the wind is a landplane's drag
+with sideslip, is now left out of it as for every other model. She has no
+drag with sideslip, but afloat she turns into the wind, so she is not stood
+across it (the standing tests of tests/unit/test_departure.cpp). In flight she keeps
+all but sin^2 of her sideslip of it, 0.992 at 5 degrees. side_force.py says
+why.
 """
 
 import math
@@ -305,6 +317,7 @@ import re
 import sys
 
 import alpha_rate
+import side_force
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 PINNED = ROOT / "ext" / "jsbsim"
@@ -1006,7 +1019,7 @@ def outputs():
     out = {
         OUT / "aircraft" / MODEL / f"{MODEL}.xml": airframe(),
         OUT / "aircraft" / MODEL / "Systems" / "datcom_aero.xml":
-            alpha_rate.with_unkeyed_terms_on_qbar_uw(alpha_rate.with_alpha_terms_on_qbar_uw(
+            side_force.without_crossflow(alpha_rate.with_unkeyed_terms_on_qbar_uw(alpha_rate.with_alpha_terms_on_qbar_uw(
                 alpha_rate.with_qbar_uw(aerodynamics(), "make_short_s23"), "make_short_s23",
                 {"PITCH": ["aero/coefficient/Cm_basic"],
                  "LIFT": ["aero/coefficient/CLwbh", "aero/coefficient/CLq"],
@@ -1018,7 +1031,7 @@ def outputs():
              "aero/coefficient/CLDe"],
              "PITCH": ["aero/coefficient/CmDe",
              "aero/coefficient/CmDf3L",
-             "aero/coefficient/CmDf3R"]}),
+             "aero/coefficient/CmDf3R"]}), "make_short_s23"),
         OUT / "aircraft" / MODEL / "Systems" / "engines.xml": engines(),
         OUT / "aircraft" / MODEL / "Systems" / "flaps.xml": flaps(),
         OUT / "aircraft" / MODEL / "Systems" / "Short_S23-hydrodynamics.xml": hydrodynamics(),
