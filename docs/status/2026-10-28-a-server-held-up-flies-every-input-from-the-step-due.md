@@ -125,3 +125,11 @@ keeping time, then a 3 s stall slipped 330 steps (now a case of
 hold-ups of `--test-held-up` now come in their stated order (a quarter
 first). The flood of held inputs is 120, 4 s at a client's 30 a second; a
 server owing at most 3.5 s holds about 105.
+
+**The held-up-unevenly test's worst bound, 2026-10-28 (after the merge).** It
+was left on the paced test's default of 3 m, which nothing set for it, and CI
+went past it twice on main's code: 3.3 m on Windows release (run 40673705998)
+and 4.1 m on macOS (run 40673840988), their 95th percentiles 0.49 m and under
+the metre that stays held. The worst is this item's named open part - inputs
+that came in a hold-up flown as one - measured at 4.9 m stopped alone; it is
+now bounded as the stopped-alone test is, at 10 m, twice that.

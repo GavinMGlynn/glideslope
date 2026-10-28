@@ -139,6 +139,15 @@ if(SERVER_HELD STREQUAL "alone")
 elseif(SERVER_HELD STREQUAL "unevenly")
     set(_pace 1)
     set(_server_held --test-held-up 1 600)
+    # **Its worst update is the held-up item's open part**: a stick moved
+    # while the server is held up is flown as one move once it catches up,
+    # which needs inputs that name their step (COMPLETION_PLAN, Phase 12a),
+    # the worst 4.9 m stopped alone. Bounded as that case is, at 10 m, twice
+    # the most seen: the default 3 m was the paced test's, never this one's,
+    # and CI went past it - 3.3 m on Windows release (run 40673705998) and
+    # 4.1 m on macOS (run 40673840988), their 95th percentiles 0.49 m and
+    # under the metre held below.
+    set(_worst_allowed_mm 10000)
 elseif(DEFINED SERVER_HELD)
     message(FATAL_ERROR "SERVER_HELD is alone or unevenly, not '${SERVER_HELD}'")
 endif()
