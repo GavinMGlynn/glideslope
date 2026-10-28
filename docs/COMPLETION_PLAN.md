@@ -1666,12 +1666,6 @@ What the client with the window does that the command-line client does, and what
       and the Learjet 35A alike; the same run with `--imagery off` exits 0
       (PROJECT_STATUS, 2026-10-10, the Learjet drawn). *Verification: a shot
       run with imagery on, whose tile is refused, exits 0.*
-- [x] **A window client whose imagery cannot be fetched draws nothing**: its
-      shot refused tiles drawn without their imagery, so a host resetting its
-      connections cost a test its frame on CI. *Verification: with every
-      imagery fetch refused, the window client still draws its frame, on the
-      DEM's colours, held to the DEM's ray-cast as the shot without imagery
-      is, and says why.* Done 2026-10-28.
 - [ ] **No player can fly a lesson or watch the instructor.** Lessons and
       the instructor run in the simulation and its tests alone; no client,
       server or command line starts one (PROJECT_STATUS, 2026-10-13).
@@ -1729,11 +1723,13 @@ What the client with the window does that the command-line client does, and what
       joining keeps the server's flaps and throttle. *Verification: a window
       client started on final keeps full flap, sets it from the keyboard, and
       is handed to the learnt landing.* Done 2026-10-08.
-- [ ] **A window client whose imagery cannot be fetched draws nothing**: on
+- [x] **A window client whose imagery cannot be fetched draws nothing**: on
       CI's windows-clang every EOX tile was refused (WinHTTP 12030) and the
-      forged-refusal test's client wrote no frame (run 40603515425).
-      *Verification: with every imagery fetch failing, the window client
-      still draws its frame, on the DEM's colours, and says why.*
+      forged-refusal test's client wrote no frame (run 40603515425); on
+      Linux, EOX resetting its connections cost a ride-along test its frame
+      (run 40618052854). *Verification: with every imagery fetch failing,
+      the window client still draws its frame, on the DEM's colours, and
+      says why.* Done 2026-10-28.
 
 ---
 
