@@ -12,11 +12,15 @@
 // was put right by 26 to 138 m (2026-10-21). Stopped by hand together 3 s
 // here, client and server, it was put 7 m off and then 4.6 m (docs/status,
 // 2026-10-22). The server then catches up the steps it owes, sending a word
-// every 4.8 of them, and reads the inputs that came meanwhile all at once,
-// flying them at most a quarter of a second late (net::most_steps_held): a
-// word placed by them puts the clocks' difference - the least of
-// `sim::offset_window` words - steps low until it has left the window, and
-// the pace's `sim::pace_window` after it.
+// every 4.8 of them, and reads the inputs that came meanwhile all at once.
+// It flew them at most a quarter of a second late (net::most_steps_held), and
+// a word placed by them put the clocks' difference - the least of
+// `sim::offset_window` words - steps low until it had left the window, and
+// the pace's `sim::pace_window` after it. It now flies them from the step due
+// when they came (net::CatchingUp; across the built stall, 6.9 m at worst
+// before and 1.1 m after, docs/status 2026-10-28), but a stall of the whole
+// machine still leaves the client's own frames and the words it reads after
+// them uneven, so its words are still counted apart.
 //
 // So the words about a time before this client's reckoning of the session's
 // clock at the frame after the stall - the server's catching up - and
