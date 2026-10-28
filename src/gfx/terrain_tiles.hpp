@@ -105,6 +105,12 @@ struct TerrainOptions {
     double maximum_screen_space_error = 4.0;
     // Cesium Native's worker threads.
     int worker_threads = 4;
+    // **For a test: Cesium Native's wedge built every run.** The imagery's
+    // fetches deeper than the root tile's are held until the root's imagery
+    // has failed and been settled on, so that a finer tile's failing lands
+    // beneath it - which wedges it (see give_up_wedged_imagery) - rather than
+    // only when the refusals happen to land in that order.
+    bool test_imagery_coarsest_first = false;
 };
 
 inline constexpr int terrain_tile_cells = 32;
@@ -169,6 +175,10 @@ public:
         const std::vector<world::Geodetic>& places);
 
 private:
+    // With TerrainOptions::test_imagery_coarsest_first, lets the held
+    // imagery fetches go once the root tile's imagery has failed.
+    void let_held_imagery_go();
+
     // Takes the open imagery off the terrain, for good, if Cesium Native has
     // wedged it - a tile's imagery failed beneath an ancestor's that failed
     // first, so that it can never be drawn - and says so. Whether it did.

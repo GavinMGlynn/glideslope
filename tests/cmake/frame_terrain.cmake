@@ -36,10 +36,16 @@
 # failed first - never renderable, their parents drawn instead - and on
 # Windows and macOS its wait for every tile never ended (CI run
 # 40627612271). The client gives the imagery up when it finds that
-# (gfx::TerrainTiles), and must say so: here it always does, on every
-# platform, so the test fails if the path it pins was not taken. Without the
-# give-up it drew 19 tiles to level 6 here, where without imagery it draws
-# 26 to level 7.
+# (gfx::TerrainTiles), and must say so.
+#
+# **With WEDGE the wedge is built, not hoped for**: `--test-imagery-wedge`
+# holds the imagery's finer fetches until the root tile's has failed, so
+# every finer failure lands beneath it. Left to the order the refusals land
+# in, CI's Linux once did not wedge, and the give-up this pins was not taken
+# (run 40649190581). The client must say the held fetches went, and that it
+# gave the imagery up. Without the give-up it drew 19 tiles to level 6 here,
+# where without imagery it draws 26 to level 7. Without WEDGE nothing is
+# held, and the frame is held to the same as either way.
 #
 # The terrain
 # comes from the DEM's tiles and the geoid, fetched into CACHE: without the
@@ -61,6 +67,9 @@ if(REFUSE_IMAGERY)
     set(_imagery on)
     set(_check_imagery "")
     set(_refuse --test-imagery-url "${REFUSED_AT}{TileMatrix}/{TileRow}/{TileCol}.jpg")
+    if(WEDGE)
+        list(APPEND _refuse --test-imagery-wedge)
+    endif()
     # A tile drawn without its imagery for any reason but its fetch failing
     # is still refused, and is not a download to skip for.
     set(_also)
@@ -117,9 +126,16 @@ if(REFUSE_IMAGERY)
     if(_refused EQUAL -1)
         message(FATAL_ERROR "no fetch from ${REFUSED_AT} was seen to fail:\n${_err}")
     endif()
-    if(NOT _err MATCHES "the imagery is given up")
-        message(FATAL_ERROR "the client did not give its wedged imagery up - the path "
-                            "this pins was not taken:\n${_err}")
+    if(WEDGE)
+        if(NOT _err MATCHES "the imagery's finer fetches, held for a test, go now")
+            message(FATAL_ERROR "the client did not hold its finer imagery fetches "
+                                "until the root's had failed - the wedge was not "
+                                "built:\n${_err}")
+        endif()
+        if(NOT _err MATCHES "the imagery is given up")
+            message(FATAL_ERROR "the client did not give its wedged imagery up - the "
+                                "path this pins was not taken:\n${_err}")
+        endif()
     endif()
     if(NOT _out MATCHES "terrain of [0-9]+ tiles, [0-9]+ loaded, the deepest at level ([0-9]+)")
         message(FATAL_ERROR "the client did not say how deep its terrain went:\n${_out}")
@@ -140,8 +156,13 @@ if(REFUSE_IMAGERY)
                             "${CMAKE_MATCH_2}")
     endif()
     glideslope_judge_leaks("${_bare_err}")
+    if(_err MATCHES "the imagery is given up")
+        set(_given_up "and given up")
+    else()
+        set(_given_up "and not wedged")
+    endif()
     message(STATUS "${_on_dem} tiles of ${_drawn} drawn on the DEM's colours to level "
-                   "${_deepest}, as without imagery, their imagery refused and given up")
+                   "${_deepest}, as without imagery, their imagery refused ${_given_up}")
 else()
     glideslope_skip_when_imagery_not_fetched("${_err}")
     # **Imagery that came is never given up**: a fetch failing here and

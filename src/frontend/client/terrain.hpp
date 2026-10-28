@@ -25,11 +25,13 @@ world::GeoRectangle cells_around(double latitude_deg, double longitude_deg, int 
 // DEM below, and the others are streamed with the user's own key, read at run
 // time by platform/paths.hpp. Throws std::runtime_error, saying what is
 // missing, for a provider whose key the user has not given. A test may give
-// `imagery_url`, a template in place of the open imagery's own.
+// `imagery_url`, a template in place of the open imagery's own, and
+// `imagery_coarsest_first` (gfx::TerrainOptions::test_imagery_coarsest_first).
 std::unique_ptr<gfx::TerrainTiles>
 open_terrain(gfx::Renderer& renderer, const std::filesystem::path& data,
              const std::filesystem::path& cache, const world::GeoRectangle& region,
-             bool imagery, gfx::Provider provider, const std::string& imagery_url = {});
+             bool imagery, gfx::Provider provider, const std::string& imagery_url = {},
+             bool imagery_coarsest_first = false);
 
 // Terrain over `region` for `provider`, as above, but for measuring rather
 // than drawing: no imagery is draped on it, because what is being asked of it
