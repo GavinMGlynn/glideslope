@@ -96,8 +96,12 @@ endif()
 # it fails the test naming it, with what it had said: the whole test killed
 # by ctest's TIMEOUT says nothing of which of its three programs hung or
 # where (CI's Windows debug, run 40686462655, the wedged-imagery test at
-# 300 s and no word of it).
-set(_step_limit_s 240)
+# 300 s and no word of it). **The limit is for a hang, not for a slow
+# machine**: CI's Windows debug runs the whole imagery-drape test in 129 to
+# 153 s, and on the Windows development machine its terrain check alone ran
+# past 240 s, the limit this first had, and failed it. Each test that runs
+# this script has a TIMEOUT above its steps' limits together.
+set(_step_limit_s 600)
 function(glideslope_frame_step_ended what rc out err)
     if(rc MATCHES "timeout")
         message(FATAL_ERROR "${what} was still running after ${_step_limit_s} s, and was "
