@@ -142,11 +142,13 @@ elseif(SERVER_HELD STREQUAL "unevenly")
     # **Its worst update is the held-up item's open part**: a stick moved
     # while the server is held up is flown as one move once it catches up,
     # which needs inputs that name their step (COMPLETION_PLAN, Phase 12a),
-    # the worst 4.9 m stopped alone. Bounded as that case is, at 10 m, twice
-    # the most seen: the default 3 m was the paced test's, never this one's,
-    # and CI went past it - 3.3 m on Windows release (run 40673705998) and
-    # 4.1 m on macOS (run 40673840988), their 95th percentiles 0.49 m and
-    # under the metre held below.
+    # the worst 4.9 m stopped alone - taken to be what CI's worst updates
+    # were, not shown from their tracks. Bounded as that case is, at 10 m,
+    # twice the most seen: the default 3 m was the paced test's, never this
+    # one's, and CI went past it - 3.3 m on Windows release (run 40673705998)
+    # and 4.1 m on macOS (run 40673840988), their 95th percentiles 0.49 and
+    # 0.66 m, their 99th 2.23 m both. The 95th percentile's metre, held
+    # below, pins the rule: main's code before it was 9.7 m.
     set(_worst_allowed_mm 10000)
 elseif(DEFINED SERVER_HELD)
     message(FATAL_ERROR "SERVER_HELD is alone or unevenly, not '${SERVER_HELD}'")

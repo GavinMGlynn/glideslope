@@ -1,4 +1,4 @@
-# Seconds each test took on CI, the longest of runs 40660270759, 40666921008 (not green: the tests its shards finished counted): tools/ci_test_costs.py
+# Seconds each test took on CI, the longest of runs 40660270759, 40666921008 (40666921008 not green: the tests its shards finished counted): tools/ci_test_costs.py --finished
 1 a_32_bit_toolchain_is_refused_on_every_platform
 1 a_429_is_waited_out_as_its_retry_after_asks_within_a_limit_then_returned
 1 a_bad_tile_in_a_directory_fails_its_query_and_is_left_as_it_is
