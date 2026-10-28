@@ -64,3 +64,9 @@ its replays pitch away as the at-once tests' did.
 
 **Measured here**, linux-release, the plain at-once test: before, 0.201 to
 0.204 degree on every run; after, 0.001.
+
+**The first-input test run alone** (`RUN_SERIAL`, as the F-22A's): its
+server, held up on CI's shared Windows debug runner, put a nudged C172P 13.9 m
+off in this PR's full run, twice, as on #240 and #252 before - Phase 12a's
+server behind real time, not this item. Taken here from #252 (which says
+more), so that neither waits on the other: #252's run needs this PR's fix.

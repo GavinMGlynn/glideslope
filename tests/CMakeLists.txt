@@ -2267,8 +2267,14 @@ add_test(NAME a_players_f35b_and_c172p_flown_from_their_held_trim_with_a_small_f
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_first_input -DPORT=24808
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_first_input.cmake)
+# Alone (RUN_SERIAL), as the F-22A's below: on CI's debug runners, sharing a
+# shard's CPUs, its server is held up mid-run and catches up, and a client's
+# words are placed 5 to 30 steps off - 27.6 m on Windows (run 40541575889),
+# 41.4 m on Ubuntu (run 40584574551), 13.9 m on Windows (run 40603515425) -
+# Phase 12a's "A server that falls behind real time puts its clients'
+# prediction off by metres", not this test's rule.
 set_tests_properties(a_players_f35b_and_c172p_flown_from_their_held_trim_with_a_small_first_stick_movement_hold_height_and_attitude_and_predict_alike
-    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200)
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_first_input)
 # **And a predicting F-22A untouched agrees with the server**, her held trim
 # told her client (WATCH) and put on her prediction. See
