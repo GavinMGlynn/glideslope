@@ -2047,6 +2047,20 @@ add_test(NAME a_window_client_whose_imagery_cannot_be_fetched_still_draws_its_fr
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain_imagery_refused.cmake)
 set_tests_properties(a_window_client_whose_imagery_cannot_be_fetched_still_draws_its_frame_on_the_dems_colours_and_says_why
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 900)
+# And with the imagery's first fetches asked for out of order - a level-0
+# fetch first, coarser than the root tile's, then the rest deepest first: the
+# hold that builds the wedge, taking the first to be the root's, once held
+# the root's own behind it, let nothing go, and the shot never ended (CI's
+# macOS, run 40743161009).
+add_test(NAME a_window_client_whose_imagery_is_asked_for_out_of_order_still_builds_its_wedge_and_gives_it_up
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>
+        -DDRIVER=${_first_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames_out_of_order
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR} -DPORT=24958
+        -DWEDGE=ON -DOUT_OF_ORDER=ON
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain_imagery_refused.cmake)
+set_tests_properties(a_window_client_whose_imagery_is_asked_for_out_of_order_still_builds_its_wedge_and_gives_it_up
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 900)
 add_test(NAME a_window_client_whose_imagery_is_refused_in_whatever_order_still_draws_its_frame_on_the_dems_colours
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>

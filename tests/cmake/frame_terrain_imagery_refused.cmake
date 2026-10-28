@@ -3,7 +3,7 @@
 #
 #   cmake -DPROGRAM=<glideslope> -DCHECK=<glideslope_terrain_check> -DDRIVER=<driver>
 #         -DWORK=<dir> -DCACHE=<downloads dir> -DDATA=<data dir> -DPORT=<a port>
-#         [-DWEDGE=ON] -P frame_terrain_imagery_refused.cmake
+#         [-DWEDGE=ON [-DOUT_OF_ORDER=ON]] -P frame_terrain_imagery_refused.cmake
 #
 # frame_terrain.cmake with REFUSE_IMAGERY, its imagery asked of 127.0.0.1 at
 # PORT, a port from the tests' block that no test listens on: every fetch is

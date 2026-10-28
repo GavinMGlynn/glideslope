@@ -261,42 +261,147 @@ private:
     std::shared_ptr<std::atomic<int>> in_flight_;
 };
 
-// **For a test: the imagery's coarsest fetches answered first, and its finer
-// ones held until the root tile's imagery has failed and been settled on**
-// (TerrainOptions::test_imagery_coarsest_first). Cesium Native wedges a
-// tile whose imagery fails beneath an ancestor already settled on failed
-// imagery (imagery_wedged); whether that happens, every fetch refused, was
-// the order the refusals happened to land in, and on CI's Linux one run in
-// some it did not (run 40649190581). Held like this, every finer tile's
-// failure lands after the root's has settled, and the wedge is built every
-// run. A fetch is the imagery's when its URL begins with `prefix`, and its
-// level is the number that follows; the first such fetch is taken to be the
-// root's - assumed, not checked: Cesium Native asks for nothing finer before
-// it, and a run where it did would not wedge, and the test, requiring the
-// give-up, fails - and only fetches deeper than its
-// level are held - its own fall-backs, coarser, go at once.
+// **For a test: the imagery's finer fetches held until the root tile's
+// imagery has failed and been settled on**
+// (TerrainOptions::test_imagery_coarsest_first). Cesium Native wedges a tile
+// whose imagery fails beneath an ancestor already settled on failed imagery
+// (imagery_wedged); whether that happens, every fetch refused, was the order
+// the refusals happened to land in, and on CI's Linux one run in some it did
+// not (run 40649190581). Held like this, the finer tiles' failures land after
+// the root's has settled, and the wedge is built every run.
+//
+// **Whatever order Cesium Native asks in.** A fetch is the imagery's when its
+// URL begins with `prefix`, followed by its level, row and column. Taking the
+// first such fetch to be the root's, as this once did, held nothing coarser
+// than it: on CI's macOS (run 40743161009) the first was at level 9, the
+// root's never settled, nothing was let go and the shot never ended. Now a
+// fetch is held when it is deeper than the shallowest seen so far - unless it
+// is the parent of one let through, which is the fall-back Cesium Native asks
+// for when that one fails: a chain of fall-backs, once started, runs to its
+// end. What is held goes (TerrainTiles::let_held_imagery_go) all at once when
+// the root's imagery has settled; a level at a time, coarsest first, when
+// nothing let through is still in flight and the root's has not settled -
+// the root's may be among them; and all at once, said so, once the first was
+// asked for `longest` ago. Nothing waits on them for ever.
 struct HeldImagery {
-    std::string prefix;
-    std::mutex mutex;
-    std::optional<long> first;
-    bool open = false;
-    std::vector<std::function<void()>> held;
+    using Clock = std::chrono::steady_clock;
+    // Nothing let through in flight for this long, the coarsest held goes.
+    static constexpr std::chrono::seconds quiet_for{2};
+    // The first imagery fetch this long ago, everything goes.
+    static constexpr std::chrono::seconds longest{120};
 
-    // The level of an imagery fetch, or -1 for anything else.
-    long level_of(const std::string& url) const {
+    struct Fetch {
+        long level = -1;
+        long row = -1;
+        long column = -1;
+    };
+    struct Held {
+        Fetch fetch;
+        std::function<void()> go;
+    };
+
+    std::string prefix;
+    // **For a test of this hold, its fetches asked for out of order**
+    // (TerrainOptions::test_imagery_out_of_order): the imagery's first
+    // fetches gathered, unanswered, until none has come for `quiet_for`; then
+    // a level-0 fetch of the hold's own asked for before any of them - a
+    // fetch coarser than the root's, first, which the hold that took the
+    // first to be the root's held the root's own behind, and so never let
+    // anything go - and then the gathered, deepest first.
+    bool out_of_order = false;
+    // The level-0 fetch, made when the first is gathered.
+    std::function<void()> stranger;
+
+    std::mutex mutex;
+    bool open = false;
+    std::optional<long> shallowest;
+    std::vector<Held> held;
+    std::vector<Held> gathered;
+    bool gathering = true;
+    // The fetches let through while holding, as "level/row/column", so that
+    // their fall-backs are let through too.
+    std::unordered_set<std::string> let_through;
+    // Of those, how many are not yet answered.
+    int in_flight = 0;
+    std::optional<Clock::time_point> first_asked;
+    Clock::time_point last_activity = Clock::now();
+
+    // The level, row and column of an imagery fetch; level -1 for anything
+    // else.
+    Fetch fetch_of(const std::string& url) const {
+        Fetch fetch;
         if (url.compare(0, prefix.size(), prefix) != 0) {
-            return -1;
+            return fetch;
         }
-        long level = 0;
+        long numbers[3] = {-1, -1, -1};
         std::size_t at = prefix.size();
-        if (at >= url.size() || std::isdigit(static_cast<unsigned char>(url[at])) == 0) {
-            return -1;
+        for (std::size_t n = 0; n < 3; ++n) {
+            if (n > 0) {
+                if (at >= url.size() || url[at] != '/') {
+                    break;
+                }
+                ++at;
+            }
+            if (at >= url.size() || std::isdigit(static_cast<unsigned char>(url[at])) == 0) {
+                break;
+            }
+            long value = 0;
+            for (; at < url.size() && std::isdigit(static_cast<unsigned char>(url[at])) != 0;
+                 ++at) {
+                value = value * 10 + (url[at] - '0');
+            }
+            numbers[n] = value;
         }
-        for (; at < url.size() && std::isdigit(static_cast<unsigned char>(url[at])) != 0;
-             ++at) {
-            level = level * 10 + (url[at] - '0');
+        fetch.level = numbers[0];
+        fetch.row = numbers[1];
+        fetch.column = numbers[2];
+        return fetch;
+    }
+
+    static std::string key_of(const Fetch& fetch) {
+        return std::to_string(fetch.level) + "/" + std::to_string(fetch.row) + "/" +
+               std::to_string(fetch.column);
+    }
+
+    // Under the lock: whether `fetch` is the parent of one let through - its
+    // fall-back, asked for when that one failed.
+    bool falls_back_from_one_let_through(const Fetch& fetch) const {
+        if (fetch.row < 0 || fetch.column < 0) {
+            return false;
         }
-        return level;
+        for (long row = fetch.row * 2; row < fetch.row * 2 + 2; ++row) {
+            for (long column = fetch.column * 2; column < fetch.column * 2 + 2; ++column) {
+                if (let_through.contains(key_of({fetch.level + 1, row, column}))) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    // Under the lock, while holding: whether `fetch` is held. One let through
+    // is in flight until answered().
+    bool hold_locked(const Fetch& fetch) {
+        const auto now = Clock::now();
+        if (!first_asked) {
+            first_asked = now;
+        }
+        last_activity = now;
+        if (!shallowest || fetch.level < *shallowest) {
+            shallowest = fetch.level;
+        }
+        if (fetch.level > *shallowest && !falls_back_from_one_let_through(fetch)) {
+            return true;
+        }
+        let_through.insert(key_of(fetch));
+        ++in_flight;
+        return false;
+    }
+
+    void answered() {
+        const std::lock_guard<std::mutex> lock(mutex);
+        --in_flight;
+        last_activity = Clock::now();
     }
 
     bool holding() {
@@ -304,62 +409,119 @@ struct HeldImagery {
         return !open;
     }
 
-    // Every fetch held goes now, and every one asked for from here on.
-    void let_go() {
-        std::vector<std::function<void()>> go;
+    // With out_of_order, once none has come for `quiet_for`: the level-0
+    // fetch, and then those gathered, deepest first, are asked for, to be
+    // held or let through as any other.
+    void ask_gathered_when_quiet() {
+        std::vector<Held> ask;
+        std::function<void()> first;
+        {
+            const std::lock_guard<std::mutex> lock(mutex);
+            if (!gathering || gathered.empty() || Clock::now() - last_activity < quiet_for) {
+                return;
+            }
+            gathering = false;
+            ask.swap(gathered);
+            first.swap(stranger);
+        }
+        std::stable_sort(ask.begin(), ask.end(), [](const Held& a, const Held& b) {
+            return a.fetch.level > b.fetch.level;
+        });
+        std::fprintf(stderr,
+                     "glideslope: the imagery's first %zu fetches, gathered for a test, "
+                     "are asked for out of order: a level-0 fetch first, then deepest "
+                     "first, from level %ld\n",
+                     ask.size(), ask.front().fetch.level);
+        if (first) {
+            first();
+        }
+        for (auto& fetch : ask) {
+            fetch.go();
+        }
+    }
+
+    // Whether the first imagery fetch was asked for `longest` ago.
+    bool held_too_long() {
+        const std::lock_guard<std::mutex> lock(mutex);
+        return first_asked && Clock::now() - *first_asked >= longest;
+    }
+
+    // When nothing let through has been in flight for `quiet_for`, the
+    // coarsest level held goes, and is returned; -1 when nothing goes.
+    long let_coarsest_go_when_quiet() {
+        std::vector<Held> go;
+        long level = -1;
+        {
+            const std::lock_guard<std::mutex> lock(mutex);
+            if (open || held.empty() || in_flight > 0 || !gathered.empty() ||
+                Clock::now() - last_activity < quiet_for) {
+                return -1;
+            }
+            level = held.front().fetch.level;
+            for (const auto& h : held) {
+                level = std::min(level, h.fetch.level);
+            }
+            std::vector<Held> keep;
+            for (auto& h : held) {
+                if (h.fetch.level == level) {
+                    // Let through now, so that its fall-backs are too.
+                    let_through.insert(key_of(h.fetch));
+                    ++in_flight;
+                    go.push_back(std::move(h));
+                } else {
+                    keep.push_back(std::move(h));
+                }
+            }
+            held.swap(keep);
+            last_activity = Clock::now();
+        }
+        for (auto& fetch : go) {
+            fetch.go();
+        }
+        return level;
+    }
+
+    // Every fetch held or gathered goes now, and every one asked for from
+    // here on. Returns how many were held.
+    std::size_t let_go() {
+        std::vector<Held> go;
         {
             const std::lock_guard<std::mutex> lock(mutex);
             open = true;
-            go.swap(held);
+            stranger = nullptr;
+            go.swap(gathered);
+            // Each held is counted in flight until answered, as any let
+            // through; the gathered are counted when asked for.
+            in_flight += static_cast<int>(held.size());
+            for (auto& h : held) {
+                go.push_back(std::move(h));
+            }
+            held.clear();
         }
         for (auto& fetch : go) {
-            fetch();
+            fetch.go();
         }
+        return go.size();
     }
 };
 
 class CoarsestFirstAccessor final : public CesiumAsync::IAssetAccessor {
 public:
+    using Request = std::shared_ptr<CesiumAsync::IAssetRequest>;
+    using Answer = CesiumAsync::Future<Request>;
+
     CoarsestFirstAccessor(std::shared_ptr<CesiumAsync::IAssetAccessor> next,
                           std::shared_ptr<HeldImagery> held)
         : next_(std::move(next)), held_(std::move(held)) {}
 
-    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
-    get(const CesiumAsync::AsyncSystem& async, const std::string& url,
-        const std::vector<THeader>& headers) override {
-        const long level = held_->level_of(url);
-        if (level >= 0) {
-            const std::lock_guard<std::mutex> lock(held_->mutex);
-            if (!held_->open) {
-                if (!held_->first) {
-                    held_->first = level;
-                }
-                if (level > *held_->first) {
-                    auto promise =
-                        async.createPromise<std::shared_ptr<CesiumAsync::IAssetRequest>>();
-                    held_->held.emplace_back(
-                        [async, url, headers, promise, next = next_]() {
-                            next->get(async, url, headers)
-                                .thenImmediately(
-                                    [promise](std::shared_ptr<CesiumAsync::IAssetRequest>&&
-                                                  request) {
-                                        promise.resolve(std::move(request));
-                                    })
-                                .catchImmediately([promise](std::exception&& e) {
-                                    promise.reject(std::runtime_error(e.what()));
-                                });
-                        });
-                    return promise.getFuture();
-                }
-            }
-        }
-        return next_->get(async, url, headers);
+    Answer get(const CesiumAsync::AsyncSystem& async, const std::string& url,
+               const std::vector<THeader>& headers) override {
+        return ask(next_, held_, async, url, headers);
     }
 
-    CesiumAsync::Future<std::shared_ptr<CesiumAsync::IAssetRequest>>
-    request(const CesiumAsync::AsyncSystem& async, const std::string& verb,
-            const std::string& url, const std::vector<THeader>& headers,
-            const std::span<const std::byte>& body) override {
+    Answer request(const CesiumAsync::AsyncSystem& async, const std::string& verb,
+                   const std::string& url, const std::vector<THeader>& headers,
+                   const std::span<const std::byte>& body) override {
         return next_->request(async, verb, url, headers, body);
     }
 
@@ -368,6 +530,83 @@ public:
     }
 
 private:
+    // A fetch gathered, held, let through, or - not the imagery's, or asked
+    // for once everything has gone - passed on.
+    static Answer ask(const std::shared_ptr<CesiumAsync::IAssetAccessor>& next,
+                      const std::shared_ptr<HeldImagery>& held,
+                      const CesiumAsync::AsyncSystem& async, const std::string& url,
+                      const std::vector<THeader>& headers) {
+        const HeldImagery::Fetch fetch = held->fetch_of(url);
+        if (fetch.level < 0) {
+            return next->get(async, url, headers);
+        }
+        bool open = false;
+        {
+            const std::lock_guard<std::mutex> lock(held->mutex);
+            open = held->open;
+            const bool gather = !open && held->out_of_order && held->gathering;
+            if (gather || (!open && held->hold_locked(fetch))) {
+                auto promise = async.createPromise<Request>();
+                std::function<void()> go;
+                if (gather) {
+                    held->last_activity = HeldImagery::Clock::now();
+                    if (held->gathered.empty() && fetch.row >= 0 && fetch.column >= 0) {
+                        // The level-0 tile above the first, its answer
+                        // waited on by nothing.
+                        const std::string suffix =
+                            url.substr(held->prefix.size() + HeldImagery::key_of(fetch).size());
+                        const std::string coarsest =
+                            held->prefix +
+                            HeldImagery::key_of(
+                                {0, fetch.row >> fetch.level, fetch.column >> fetch.level}) +
+                            suffix;
+                        held->stranger = [next, held, async, coarsest, headers]() {
+                            static_cast<void>(ask(next, held, async, coarsest, headers));
+                        };
+                    }
+                    go = [next, held, async, url, headers, promise]() {
+                        pipe(ask(next, held, async, url, headers), promise);
+                    };
+                    held->gathered.push_back({fetch, std::move(go)});
+                } else {
+                    // Counted in flight from when it goes until answered.
+                    go = [next, held, async, url, headers, promise]() {
+                        pipe(counted(next->get(async, url, headers), held), promise);
+                    };
+                    held->held.push_back({fetch, std::move(go)});
+                }
+                return promise.getFuture();
+            }
+        }
+        if (open) {
+            return next->get(async, url, headers);
+        }
+        return counted(next->get(async, url, headers), held);
+    }
+
+    // A fetch let through, counted in flight until it is answered.
+    static Answer counted(Answer&& answer, const std::shared_ptr<HeldImagery>& held) {
+        return std::move(answer)
+            .thenImmediately([held](Request&& request) {
+                held->answered();
+                return std::move(request);
+            })
+            .catchImmediately([held](std::exception&& e) -> Request {
+                held->answered();
+                throw std::runtime_error(e.what());
+            });
+    }
+
+    static void pipe(Answer&& answer, const CesiumAsync::Promise<Request>& promise) {
+        std::move(answer)
+            .thenImmediately([promise](Request&& request) {
+                promise.resolve(std::move(request));
+            })
+            .catchImmediately([promise](std::exception&& e) {
+                promise.reject(std::runtime_error(e.what()));
+            });
+    }
+
     std::shared_ptr<CesiumAsync::IAssetAccessor> next_;
     std::shared_ptr<HeldImagery> held_;
 };
@@ -1660,6 +1899,7 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
         impl_->held_imagery = std::make_shared<HeldImagery>();
         const std::string& url = options.imagery->url;
         impl_->held_imagery->prefix = url.substr(0, url.find("{TileMatrix}"));
+        impl_->held_imagery->out_of_order = options.test_imagery_out_of_order;
         accessor = std::make_shared<CoarsestFirstAccessor>(accessor, impl_->held_imagery);
     }
     // Cesium ion authorises every tile, not just the tileset that names them,
@@ -1798,31 +2038,56 @@ void TerrainTiles::let_held_imagery_go() {
     if (!impl_->held_imagery || !impl_->held_imagery->holding()) {
         return;
     }
+    HeldImagery& held = *impl_->held_imagery;
+    held.ask_gathered_when_quiet();
     // The root's imagery settled: no loading tile left, and a ready one.
     // Settled on its failure, every tile beneath it whose imagery fails from
     // here is wedged (imagery_wedged). **Settled any other way, the held
     // fetches go too**, said so: held for ever, the shot's wait would never
     // end. The test needs imagery that fails; given imagery that loads, it
     // fails on the give-up it asks for, not on a hang.
-    const Tile* root = impl_->tileset->getRootTile();
-    if (root == nullptr) {
+    if (const Tile* root = impl_->tileset->getRootTile()) {
+        for (const auto& mapped : root->getMappedRasterTiles()) {
+            const auto* ready = mapped.getReadyTile();
+            if (mapped.getLoadingTile() == nullptr && ready != nullptr) {
+                const bool failed =
+                    ready->getState() ==
+                    CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed;
+                const std::size_t went = held.let_go();
+                std::fprintf(stderr,
+                             failed ? "glideslope: the imagery's finer fetches, held for a "
+                                      "test, go now: the root tile's has failed (%zu held)\n"
+                                    : "glideslope: the imagery's finer fetches, held for a "
+                                      "test, go now: the root tile's did not fail, so no "
+                                      "wedge is built (%zu held)\n",
+                             went);
+                return;
+            }
+        }
+    }
+    // **Never held for ever.** The root's own fetch may be held, behind a
+    // coarser one asked for first, or wait for one of Cesium Native's
+    // loading slots, which the held fill: with nothing let through in
+    // flight, the coarsest level held goes, and so on until the root's
+    // settles; and everything goes once the first was asked for `longest`
+    // ago, said so - the test, which needs the give-up, then fails on that
+    // rather than hanging.
+    if (held.held_too_long()) {
+        const std::size_t went = held.let_go();
+        std::fprintf(stderr,
+                     "glideslope: the imagery's finer fetches, held for a test, go now: "
+                     "the root tile's had not settled %lld s after the first was asked "
+                     "for, so no wedge is promised (%zu held)\n",
+                     static_cast<long long>(HeldImagery::longest.count()), went);
         return;
     }
-    for (const auto& mapped : root->getMappedRasterTiles()) {
-        const auto* ready = mapped.getReadyTile();
-        if (mapped.getLoadingTile() == nullptr && ready != nullptr) {
-            const bool failed =
-                ready->getState() ==
-                CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed;
-            std::fputs(failed ? "glideslope: the imagery's finer fetches, held for a "
-                                "test, go now: the root tile's has failed\n"
-                              : "glideslope: the imagery's finer fetches, held for a "
-                                "test, go now: the root tile's did not fail, so no "
-                                "wedge is built\n",
-                       stderr);
-            impl_->held_imagery->let_go();
-            return;
-        }
+    const long level = held.let_coarsest_go_when_quiet();
+    if (level >= 0) {
+        std::fprintf(stderr,
+                     "glideslope: the imagery's fetches at level %ld, held for a test, go "
+                     "first: nothing else was in flight and the root tile's had not "
+                     "settled\n",
+                     level);
     }
 }
 
