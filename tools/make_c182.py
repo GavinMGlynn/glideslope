@@ -217,6 +217,18 @@ most (the standing test in tests/unit/test_departure.cpp). The FlightGear wiki's
 guidance from JSBSim issue #89 puts Cm on QBarUW; alpha_rate.py says why, for
 swept surfaces too. In flight, at a few degrees of sideslip, the two differ by
 its cosine squared.
+
+**Her side force out of her plane of symmetry standing in a beam wind**
+(side_force.without_crossflow, 2026-10-29). JSBSim makes it along its wind
+axes' y, which at 90 degrees of sideslip lies in her plane of symmetry at an
+undefined angle of attack: standing in 15 kt across, it pushed her fore and
+aft or up and down and pitched her about her centre of gravity. Its
+crossflow's share, sin^2 beta, which along the wind is her drag with
+sideslip, is now left out of it; standing in 15 kt across, the
+air's force in her plane of symmetry is under a thousandth of her weight (the
+standing tests in tests/unit/test_departure.cpp). In flight she keeps
+all but sin^2 of her sideslip of it, 0.992 at 5 degrees. side_force.py says
+why.
 """
 
 import pathlib
@@ -224,6 +236,7 @@ import re
 import sys
 
 import alpha_rate
+import side_force
 import ground
 from piston_mixture import with_best_power_mixture
 
@@ -468,7 +481,7 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / "c182" / "c182.xml": alpha_rate.with_unkeyed_terms_on_qbar_uw(
+        OUT / "aircraft" / "c182" / "c182.xml": side_force.without_crossflow(alpha_rate.with_unkeyed_terms_on_qbar_uw(
             alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_c182"), "make_c182",
             {"PITCH": ["aero/coefficient/Cmalpha", "aero/coefficient/CmDe"],
@@ -480,7 +493,7 @@ def outputs():
              "aero/coefficient/CLDe"],
              "PITCH": ["aero/coefficient/Cmo",
              "aero/coefficient/Cmq",
-             "aero/coefficient/CmDf"]}),
+             "aero/coefficient/CmDf"]}), "make_c182"),
         OUT / "engine" / "engIO540AB1A5.xml": engine(),
         OUT / "engine" / "prop_81in2v.xml": propeller(),
     }

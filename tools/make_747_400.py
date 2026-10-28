@@ -125,12 +125,25 @@ by up to 53,063 ft-lb (stick back); now by 2.10 ft-lb at most (the standing test
 in tests/unit/test_departure.cpp). The FlightGear wiki's guidance from JSBSim
 issue #89 puts Cm on QBarUW; alpha_rate.py says why, for swept surfaces too. In
 flight, at a few degrees of sideslip, the two differ by its cosine squared.
+
+**Her side force out of her plane of symmetry standing in a beam wind**
+(side_force.without_crossflow, 2026-10-29). JSBSim makes it along its wind
+axes' y, which at 90 degrees of sideslip lies in her plane of symmetry at an
+undefined angle of attack: standing in 15 kt across, it pushed her fore and
+aft or up and down and pitched her about her centre of gravity. Its
+crossflow's share, sin^2 beta, which along the wind is her drag with
+sideslip, is now left out of it; standing in 15 kt across, the
+air's force in her plane of symmetry is under a thousandth of her weight (the
+standing tests in tests/unit/test_departure.cpp). In flight she keeps
+all but sin^2 of her sideslip of it, 0.992 at 5 degrees. side_force.py says
+why.
 """
 
 import re
 import sys
 
 import alpha_rate
+import side_force
 import airliner
 import ground
 from airliner import OUT, PINNED
@@ -227,7 +240,7 @@ def airframe():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": airliner.with_reversers(alpha_rate.with_unkeyed_terms_on_qbar_uw(
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": side_force.without_crossflow(airliner.with_reversers(alpha_rate.with_unkeyed_terms_on_qbar_uw(
             alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_747_400"), "make_747_400",
             {"PITCH": ["aero/coefficient/Cmalpha"],
@@ -237,7 +250,7 @@ def outputs():
              "aero/coefficient/dCLsb",
              "aero/coefficient/CLde"],
              "PITCH": ["aero/coefficient/Cmde",
-             "aero/coefficient/Cmq"]}), REVERSERS, SCRIPT),
+             "aero/coefficient/Cmq"]}), REVERSERS, SCRIPT), "make_747_400"),
         OUT / "engine" / f"{ENGINE}.xml": engine(),
         OUT / "engine" / "direct.xml": (PINNED / "engine" / "direct.xml").read_text(),
     }

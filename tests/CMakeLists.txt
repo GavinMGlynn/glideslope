@@ -458,6 +458,8 @@ set(GLIDESLOPE_UNIT_TESTS
     the_j3_cub_standing_tail_to_a_15_kt_wind_has_a_reversed_wings_cited_lift_and_the_pitching_moment_it_makes
     every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_lifting_control_set_is_lifted_by_no_more_than_a_ten_thousandth_of_her_weight
     every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_is_pitched_by_her_pitching_moment_terms_by_no_more_than_a_ten_thousandth_of_her_weight_times_her_chord
+    every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_has_her_side_force_across_her_and_no_more_than_a_thousandth_of_her_weight_fore_and_aft_or_up_and_down
+    every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_is_pitched_by_her_air_about_her_centre_of_gravity_by_no_more_than_a_ten_thousandth_of_her_weight_times_her_chord
     every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_and_stays_on_it
     on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_makes_every_jet_slide_faster_across_her_heading
     the_take_off_speeds_come_from_each_aircrafts_published_figures
@@ -1550,6 +1552,18 @@ add_test(NAME every_flight_models_pitch_terms_not_keyed_to_the_angle_of_attack_l
         "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft"
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
 set_tests_properties(every_flight_models_pitch_terms_not_keyed_to_the_angle_of_attack_leave_out_the_crosswind_or_are_named_with_their_reason
+    PROPERTIES SKIP_RETURN_CODE 77)
+
+# Every flight model's side force leaves out its crossflow, which standing in
+# a beam wind JSBSim's wind axes put in her plane of symmetry, and every
+# landplane has the drag with sideslip that is that crossflow along the wind
+# (tests/tools/side_force_across.py).
+add_test(NAME every_flight_models_side_force_leaves_out_its_crossflow_and_every_landplane_has_a_drag_with_sideslip
+    COMMAND ${CMAKE_COMMAND} "-DPYTHON=${Python3_EXECUTABLE}"
+        -DSCRIPT=${CMAKE_CURRENT_SOURCE_DIR}/tools/side_force_across.py
+        "-DARGS=${PROJECT_SOURCE_DIR}/assets/jsbsim/aircraft"
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/python_test.cmake)
+set_tests_properties(every_flight_models_side_force_leaves_out_its_crossflow_and_every_landplane_has_a_drag_with_sideslip
     PROPERTIES SKIP_RETURN_CODE 77)
 
 # The names go in a file: given on the command line they passed Windows'
