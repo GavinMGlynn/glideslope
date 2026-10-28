@@ -1618,12 +1618,12 @@ if(WIN32)
 endif()
 glideslope_configure(glideslope_ion_stall)
 add_executable(glideslope_help_check tools/help_check.cpp)
-target_link_libraries(glideslope_help_check PRIVATE glideslope_gfx)
+target_link_libraries(glideslope_help_check PRIVATE glideslope_gfx glideslope_input)
 glideslope_configure(glideslope_help_check)
 # **The controls' help is laid out inside every frame**, cut and saying so
 # where it does not fit.
 add_test(NAME the_controls_help_is_laid_out_inside_every_frame_size_and_says_so_where_it_is_cut
-    COMMAND glideslope_help_check layout)
+    COMMAND glideslope_help_check layout ${PROJECT_SOURCE_DIR}/assets/input/bindings.txt)
 add_executable(glideslope_hud_check tools/hud_check.cpp)
 target_link_libraries(glideslope_hud_check PRIVATE glideslope_gfx)
 add_executable(glideslope_hud_lines_check tools/hud_lines_check.cpp)

@@ -1242,8 +1242,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       she stops on it. The touches were never fast. *Verification: each
       stops on it.* Done 2026-10-14: her wet distance is read from a chart,
       to about 500 ft.
-- [ ] **A pilot has no key or lever for reverse thrust**: the reverse lever
-      is in the controls and on the wire, and only the AI moves it.
+- [x] **A pilot has a key and a lever for reverse thrust**: the slash
+      raises the reverse lever and the backslash stows it, and each
+      joystick's and quadrant's last button holds maximum reverse.
       *Verification: a binding moves it, as every other lever's does.*
 - [ ] **The F-35B lands on her power**: her model flies the glidepath at
       19.5 degrees of incidence and its flare runs out of nose; level at

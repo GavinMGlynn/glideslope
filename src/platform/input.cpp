@@ -28,7 +28,8 @@ const std::map<std::string, Control>& control_names() {
         {"right_brake", Control::right_brake},
         {"brakes", Control::brakes},
         {"speedbrake", Control::speedbrake},
-        {"stovl", Control::stovl}};
+        {"stovl", Control::stovl},
+        {"reverse", Control::reverse}};
     return names;
 }
 
@@ -59,6 +60,7 @@ std::vector<double*> fields(Control c, sim::Controls& controls) {
     case Control::brakes: return {&controls.left_brake, &controls.right_brake};
     case Control::speedbrake: return {&controls.speedbrake};
     case Control::stovl: return {&controls.stovl};
+    case Control::reverse: return {&controls.reverse};
     }
     return {};
 }
@@ -342,6 +344,8 @@ const std::vector<KeyboardBinding>& keyboard_bindings() {
          "LEFT BRACKET", "RIGHT BRACKET"},
         {Control::speedbrake, Mode::lever, SDL_SCANCODE_SEMICOLON, SDL_SCANCODE_APOSTROPHE, ";",
          "APOSTROPHE"},
+        {Control::reverse, Mode::lever, SDL_SCANCODE_BACKSLASH, SDL_SCANCODE_SLASH,
+         "BACKSLASH", "/"},
         {Control::flaps, Mode::step, SDL_SCANCODE_R, SDL_SCANCODE_F, "R", "F"},
         {Control::brakes, Mode::hold, SDL_SCANCODE_UNKNOWN, SDL_SCANCODE_B, "", "B"},
         {Control::stovl, Mode::select, SDL_SCANCODE_N, SDL_SCANCODE_H, "N", "H"},
