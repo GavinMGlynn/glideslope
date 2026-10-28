@@ -4,7 +4,7 @@
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli>
 #         -DIMPAIR=<glideslope_impair> -DDATA=<data dir> -DCACHE=<downloads dir>
 #         -DWORK=<scratch> -DPORT=<a port> [-DUNPACED=ON] [-DSTOPPED=ON]
-#         -P server_paced_prediction.cmake
+#         [-DSERVER_HELD=alone|unevenly] -P server_paced_prediction.cmake
 #
 # **What is pinned.** The server flies each input from when it arrives until
 # the next does. One behind real time flies fewer steps of each than a client
@@ -55,6 +55,25 @@
 # (a busy wait in its place) is not counted apart, and fails.
 # (docs/status, 2026-10-22).
 #
+# **Built** (`-DSERVER_HELD=...`): **the server held up, and not the
+# client**, at real time's pace (`--test-pace 1`) - a server whose runner
+# holds it up while its client's runs on, which the client cannot see and
+# does not count apart. `alone`: stopped 3 s at 12 s on its clock
+# (`--test-stopped-once 12 3000`). `unevenly`: every second on its clock,
+# run nothing for 150, 300, 450 and 600 ms in turn (`--test-held-up 1 600`).
+# Either way it catches up every step it owes, and flies each input from the
+# step due when it came, never sooner (net::CatchingUp): flown at most a
+# quarter of a second late, as it was, the inputs read after a hold-up were
+# flown early by the rest, the clocks' difference fell by it and stayed down
+# two seconds while the server caught up. Linux debug, main's code: stopped
+# alone, the 95th percentile 15.3 m and the worst 103.9 m; unevenly, 9.7 m
+# and 14.9 m. With the rule: 0.62 m and 4.9 m; 0.35 m and 1.9 m
+# (docs/status, 2026-10-28). **A named limit, stopped alone**: the inputs
+# that came in the 3 s are read in one pass and the newest alone is flown, so
+# the server flies none of the stick's moves in them - 4.4 m off the path the
+# client flew - and the worst is held to 8 m, the rest to the bounds below.
+# Not built: a server persistently behind, which the paced test is.
+#
 # **A named limit: on Windows about one update in a hundred is off by two
 # steps' travel.** A step's travel is 0.42 m at this aircraft's speed, and
 # the clocks' difference - the least of the last fifty words' - is known to a
@@ -102,6 +121,18 @@ if(NOT _rc EQUAL 0)
 endif()
 
 set(_pace 0.6)
+set(_worst_allowed_mm 3000)
+set(_server_held "")
+if(SERVER_HELD STREQUAL "alone")
+    set(_pace 1)
+    set(_server_held --test-stopped-once 12 3000)
+    set(_worst_allowed_mm 8000)
+elseif(SERVER_HELD STREQUAL "unevenly")
+    set(_pace 1)
+    set(_server_held --test-held-up 1 600)
+elseif(DEFINED SERVER_HELD)
+    message(FATAL_ERROR "SERVER_HELD is alone or unevenly, not '${SERVER_HELD}'")
+endif()
 set(_unpaced "")
 if(UNPACED)
     set(_unpaced --unpaced)
@@ -122,7 +153,7 @@ execute_process(
             --track "${WORK}/track.txt"
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 5 --store "${_store}" --test-pace ${_pace}
-            ${_server_stopped}
+            ${_server_stopped} ${_server_held}
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 290
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -200,7 +231,7 @@ string(APPEND _line "; ${_stalls}")
 if(_compared LESS 600)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()
-if(_p95_mm GREATER 1000 OR _worst_mm GREATER 3000 OR _median_mm GREATER 50)
+if(_p95_mm GREATER 1000 OR _worst_mm GREATER _worst_allowed_mm OR _median_mm GREATER 50)
     message(FATAL_ERROR "against a server behind real time the prediction was off: "
                         "${_line}:\n${_said}")
 endif()

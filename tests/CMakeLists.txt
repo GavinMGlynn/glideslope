@@ -2605,6 +2605,28 @@ add_test(NAME a_client_predicting_against_a_server_behind_real_time_whose_machin
 set_tests_properties(a_client_predicting_against_a_server_behind_real_time_whose_machine_stops_for_seconds_is_back_within_a_metre_sixty_updates_after
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_stopped)
+# **The same with the server alone held up** - stopped 3 s once, or held up
+# 150 to 600 ms every second - while its client runs on: it catches up every
+# step it owes and flies each input from the step due when it came, and the
+# client is within a metre for 95 updates in a hundred.
+add_test(NAME a_client_predicting_against_a_server_stopped_alone_for_seconds_is_within_a_metre_for_ninety_five_updates_in_a_hundred
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_alone -DPORT=24946
+        -DSERVER_HELD=alone -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_paced_prediction.cmake)
+set_tests_properties(a_client_predicting_against_a_server_stopped_alone_for_seconds_is_within_a_metre_for_ninety_five_updates_in_a_hundred
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_alone)
+add_test(NAME a_client_predicting_against_a_server_held_up_unevenly_every_second_is_within_a_metre_for_ninety_five_updates_in_a_hundred
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_unevenly -DPORT=24948
+        -DSERVER_HELD=unevenly -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_paced_prediction.cmake)
+set_tests_properties(a_client_predicting_against_a_server_held_up_unevenly_every_second_is_within_a_metre_for_ninety_five_updates_in_a_hundred
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_unevenly)
 # **A client too slow for its own prediction puts it right once a pass, from
 # the newest word, and keeps up**: every step it flies spends 2 ms more,
 # busy. See cmake/starved_prediction.cmake. Serial: a busy runner beside it
