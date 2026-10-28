@@ -76,6 +76,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <unordered_set>
 #include <utility>
 #include <variant>
 
@@ -1095,39 +1096,65 @@ bool imagery_failed(const Tile& tile) {
     return failed;
 }
 
-// **Whether Cesium Native has wedged a tile's imagery**: a tile whose own
-// imagery failed, with nothing standing in, below an ancestor already
-// settled on imagery that failed too. RasterMappedTo3DTile::update (v0.64.0,
-// and main as of 2026-10-28) then finds that ancestor's failed tile as its
-// "closest ready ancestor" - not loaded, so not used, and not nothing, so the
-// tile is never marked failed itself - and leaves it unready for ever: the
-// tile is never renderable, its parent is drawn in its place, and the load
-// never reaches 100%, which an offline update waits for. Seen when the
-// ancestors' imagery failed before the tile's own: on Windows and macOS,
-// where a refused connection takes seconds and the fetches' fallbacks up the
-// imagery's levels are slow, and not on Linux, where they fail at once.
-bool imagery_wedged_below(const Tile& tile, bool ancestor_failed) {
-    bool failed_here = false;
+// **Whether Cesium Native has wedged a tile's imagery.**
+// RasterMappedTo3DTile::update (cesium-native v0.64.0, and main as of
+// 2026-10-28), for a tile whose own imagery failed with nothing loaded to
+// stand in, walks its ancestors for the closest one whose imagery is loaded,
+// keeping whatever the last ancestor it asked gave; stopping at a loaded one,
+// it uses that. Reaching the root without one, it keeps the root-most
+// ancestor's answer - and if that is imagery which failed and was settled on,
+// it is neither loaded (so not used) nor nothing (so the tile's own failure
+// is never settled on either): the tile stays unready for ever, never
+// renderable, its parent drawn in its place, and the load can count it as
+// loading for ever, which an offline update waits on. It happens wherever
+// the coarse levels' failures settle before the fine ones': on Linux, every
+// imagery fetch refused at once, as on Windows and macOS, whose slow refusals
+// made the wait never end. This is that walk, copied, for a tile whose
+// imagery is failed and not settled: wedged only where it ends on an
+// ancestor's failed imagery - a failure under an ancestor whose imagery
+// loaded is that imagery drawn, and is not.
+const CesiumRasterOverlays::RasterOverlayTile*
+ready_imagery_of(const Tile& tile, const CesiumRasterOverlays::RasterOverlay& overlay) {
     for (const auto& mapped : tile.getMappedRasterTiles()) {
-        const auto* loading = mapped.getLoadingTile();
         const auto* ready = mapped.getReadyTile();
-        if (ancestor_failed && ready == nullptr && loading != nullptr &&
-            loading->getState() ==
-                CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed) {
-            return true;
-        }
-        if (ready != nullptr &&
-            ready->getState() ==
-                CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed) {
-            failed_here = true;
+        if (ready != nullptr && &ready->getTileProvider().getOwner() == &overlay) {
+            return mapped.getLoadingTile() != nullptr ? mapped.getLoadingTile() : ready;
         }
     }
-    for (const Tile& child : tile.getChildren()) {
-        if (imagery_wedged_below(child, ancestor_failed || failed_here)) {
+    return nullptr;
+}
+
+bool imagery_wedged(const Tile& tile) {
+    using LoadState = CesiumRasterOverlays::RasterOverlayTile::LoadState;
+    for (const auto& mapped : tile.getMappedRasterTiles()) {
+        const auto* loading = mapped.getLoadingTile();
+        if (loading == nullptr || mapped.getReadyTile() != nullptr ||
+            loading->getState() != LoadState::Failed) {
+            continue;
+        }
+        const auto& overlay = loading->getTileProvider().getOwner();
+        const CesiumRasterOverlays::RasterOverlayTile* candidate = nullptr;
+        for (const Tile* up = tile.getParent(); up != nullptr; up = up->getParent()) {
+            candidate = ready_imagery_of(*up, overlay);
+            if (candidate != nullptr && candidate->getState() >= LoadState::Loaded) {
+                break;
+            }
+        }
+        if (candidate != nullptr && candidate->getState() < LoadState::Loaded) {
             return true;
         }
     }
     return false;
+}
+
+// Every tile beneath `tile`, itself too, that is wedged now.
+void wedged_tiles(const Tile& tile, std::unordered_set<const Tile*>& out) {
+    if (imagery_wedged(tile)) {
+        out.insert(&tile);
+    }
+    for (const Tile& child : tile.getChildren()) {
+        wedged_tiles(child, out);
+    }
 }
 
 class RendererResources final
@@ -1295,11 +1322,14 @@ struct TerrainTiles::Impl {
     // put on the GPU when its imagery is found to have failed.
     Renderer* renderer = nullptr;
     // The open imagery's overlay, while it is draped; and whether it was given
-    // up, Cesium Native having wedged it (imagery_wedged_below), after which
+    // up, Cesium Native having wedged it (imagery_wedged), after which
     // every tile is drawn on the DEM's colours.
     CesiumUtility::IntrusivePointer<CesiumRasterOverlays::RasterOverlay>
         imagery_overlay;
     bool imagery_given_up = false;
+    // The tiles found wedged at the last look, so that one is given up for
+    // only when it is found again after an update has been through it.
+    std::unordered_set<const Tile*> wedged;
     std::shared_ptr<CesiumUtility::CreditSystem> credit_system;
     // What the provider itself said must be shown, before a tile has loaded.
     std::vector<std::string> from_provider;
@@ -1642,13 +1672,24 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
     }
 }
 
-void TerrainTiles::give_up_wedged_imagery() {
+bool TerrainTiles::give_up_wedged_imagery() {
     if (!impl_->imagery || impl_->imagery_given_up || !impl_->imagery_overlay) {
-        return;
+        return false;
     }
     const Tile* root = impl_->tileset->getRootTile();
-    if (root == nullptr || !imagery_wedged_below(*root, false)) {
-        return;
+    std::unordered_set<const Tile*> now;
+    if (root != nullptr) {
+        wedged_tiles(*root, now);
+    }
+    // **Wedged at two looks running**, an update between them: a tile seen
+    // once may not have been through Cesium Native's own walk since its
+    // imagery failed. One still wedged after it is wedged for good.
+    const bool again = std::any_of(now.begin(), now.end(), [this](const Tile* t) {
+        return impl_->wedged.count(t) > 0;
+    });
+    impl_->wedged = std::move(now);
+    if (!again) {
+        return false;
     }
     // **Given up whole, since a wedged tile cannot be freed alone**: taking
     // the overlay off detaches every tile's imagery, so that each is
@@ -1658,10 +1699,12 @@ void TerrainTiles::give_up_wedged_imagery() {
     impl_->tileset->getOverlays().remove(impl_->imagery_overlay);
     impl_->imagery_overlay = nullptr;
     impl_->imagery_given_up = true;
+    impl_->wedged.clear();
     std::fputs("glideslope: the imagery is given up: its fetches failed, and the "
                "tiles beneath them could not settle; the terrain is drawn on the "
                "DEM's colours\n",
                stderr);
+    return true;
 }
 
 namespace {
@@ -1932,30 +1975,41 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
     }
     // **The open provider's wait for every tile, done here** rather than by
     // Tileset::updateViewGroupOffline, whose loop it is - and which waited for
-    // ever on imagery Cesium Native had wedged (imagery_wedged_below), the
+    // ever on imagery Cesium Native had wedged (imagery_wedged), the
     // shot never drawn: on CI's Windows and macOS, every imagery fetch
     // refused, the test timed out at 900 s (run 40627612271). Wedged imagery
     // is given up as it is found, and the wait ends as Cesium Native's does.
     // **Copied from cesium-native v0.64.0** (Tileset.cpp,
     // Tileset::updateViewGroupOffline, less its fading): on an upgrade, hold
     // it to theirs again, and see whether RasterMappedTo3DTile::update still
-    // wedges (imagery_wedged_below) - this test pins it:
+    // wedges (imagery_wedged) - this test pins it:
     // a_window_client_whose_imagery_cannot_be_fetched_still_draws_its_frame_on_the_dems_colours_and_says_why.
-    give_up_wedged_imagery();
+    //
+    // **It ends only on a pass that gave nothing up**: taking the imagery off
+    // changes what is drawn, so a pass that reached 100% and gave it up is
+    // followed by another, or the frame is the one from before - wedged
+    // tiles' parents in their place (19 tiles to level 6 here, against 26 to
+    // level 7, seen with the give-up made to land on the last pass).
     const Cesium3DTilesSelection::ViewUpdateResult* result = nullptr;
     if (complete && finite) {
         impl_->async.dispatchMainThreadTasks();
         result = &tileset.updateViewGroup(group, {view}, 0.0f);
-        while (group.getPreviousLoadProgressPercentage() < 100.0f &&
-               !platform::stop_requested()) {
+        for (;;) {
+            // Nor on one with a tile seen wedged and not yet seen again.
+            const bool gave_up = give_up_wedged_imagery();
+            if ((!gave_up && impl_->wedged.empty() &&
+                 group.getPreviousLoadProgressPercentage() >= 100.0f) ||
+                platform::stop_requested()) {
+                break;
+            }
             tileset.getExternals().pAssetAccessor->tick();
             impl_->async.dispatchMainThreadTasks();
             tileset.loadTiles();
             impl_->async.dispatchMainThreadTasks();
             result = &tileset.updateViewGroup(group, {view}, 0.0f);
-            give_up_wedged_imagery();
         }
     } else {
+        give_up_wedged_imagery();
         result = &tileset.updateViewGroup(group, {view}, 0.0f);
         tileset.loadTiles();
     }

@@ -171,8 +171,8 @@ public:
 private:
     // Takes the open imagery off the terrain, for good, if Cesium Native has
     // wedged it - a tile's imagery failed beneath an ancestor's that failed
-    // first, so that it can never be drawn - and says so.
-    void give_up_wedged_imagery();
+    // first, so that it can never be drawn - and says so. Whether it did.
+    bool give_up_wedged_imagery();
 
     struct Impl;
     std::unique_ptr<Impl> impl_;
