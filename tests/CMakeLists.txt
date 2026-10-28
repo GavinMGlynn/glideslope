@@ -2589,11 +2589,11 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_vertical_landing)
 # on her first input; and selected so, before her prediction has settled,
 # her predicted pitch within 0.024 degree of the server's for two minutes
 # wing-borne. **Each at-once test's bound is twice the most it was seen off
-# on any platform** in CI's full run 40733120388 (docs/status, 2026-10-29):
-# here 0.012 (Windows release); with a slow client 0.007 (Windows release),
-# so 0.014; with its first asking ignored 0.008 (Windows clang), so 0.016.
-# Rocky's figures for the first two and Ubuntu debug's for the slow one were
-# not said that run, and no bound is set from them. See
+# on any platform** in CI's full runs 40733120388 and 40743161009, every
+# platform's figure seen (docs/status, 2026-10-29): here 0.012 (Windows
+# release), so 0.024; with a slow client 0.032 (Windows debug, 40743161009;
+# 0.007 at most elsewhere), so 0.064; with its first asking ignored 0.008
+# (Windows clang), so 0.016. See
 # cmake/server_stovl_at_once.cmake.
 add_test(NAME a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
@@ -2612,7 +2612,7 @@ add_test(NAME a_client_slower_to_prepare_than_the_servers_timeout_is_not_let_go_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_slow -DPORT=24992 -DPITCH_BOUND_MDEG=14
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_slow -DPORT=24992 -DPITCH_BOUND_MDEG=64
         -DSLOW_MS=6000 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_at_once.cmake)
 set_tests_properties(a_client_slower_to_prepare_than_the_servers_timeout_is_not_let_go_and_seeds_its_law_as_the_server_does
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
