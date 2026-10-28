@@ -36,8 +36,9 @@
 #
 # The terrain is the DEM's, so it needs the tiles and the geoid, fetched into
 # CACHE, and the imagery draped on it is EOX's, streamed: without the network,
-# or with the imagery's host down - the shot then refuses its tiles drawn
-# without imagery - the test is skipped (exit 77) unless
+# or with the imagery's host down - the shot is then drawn on the DEM's
+# colours, and says its imagery could not be fetched, which is not the memory
+# this measures - the test is skipped (exit 77) unless
 # GLIDESLOPE_REQUIRE_NETWORK is set, as frame_terrain.cmake is.
 
 cmake_minimum_required(VERSION 3.28)
@@ -66,6 +67,7 @@ glideslope_skip_when_not_downloaded("${_rc}" "${_err}" "without their imagery")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "glideslope exited ${_rc}\n${_out}${_err}")
 endif()
+glideslope_skip_when_imagery_not_fetched("${_err}")
 glideslope_judge_leaks("${_err}")
 
 if(NOT _out MATCHES "glideslope: wrote tick ([0-9]+), frame ([0-9]+),")

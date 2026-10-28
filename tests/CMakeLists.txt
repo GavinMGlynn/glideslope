@@ -1978,6 +1978,22 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
         PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
 
+# **With every imagery fetch failing, the window client still draws its
+# frame, on the DEM's colours, and says why**: its imagery asked of a port
+# nothing listens on, so every fetch is refused. A client on CI whose EOX
+# tiles were reset refused its shot and wrote nothing (run 40618052854).
+# See cmake/frame_terrain_imagery_refused.cmake. On the platform's first
+# driver: what is pinned is the client's, not the driver's.
+list(GET GLIDESLOPE_GPU_DRIVERS 0 _first_driver)
+add_test(NAME a_window_client_whose_imagery_cannot_be_fetched_still_draws_its_frame_on_the_dems_colours_and_says_why
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope> -DCHECK=$<TARGET_FILE:glideslope_terrain_check>
+        -DDRIVER=${_first_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR} -DPORT=24945
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain_imagery_refused.cmake)
+set_tests_properties(a_window_client_whose_imagery_cannot_be_fetched_still_draws_its_frame_on_the_dems_colours_and_says_why
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
+
 # ---------------------------------------------------------------------------
 # The shader compiler keeps SDL_GPU's resource layout: a shader that follows it
 # compiles, and one that breaks it fails with the resource named.
