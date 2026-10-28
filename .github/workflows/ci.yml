@@ -689,9 +689,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # Three shards: two held 42 minutes of work each once the STOVL
+        # take-over tests came, and shard 2 of run 40678447800 finished its
+        # tests at 43 minutes and was cancelled at 45 in its last steps.
         include:
-          - { preset: macos-release, shard: 1, of: 2 }
-          - { preset: macos-release, shard: 2, of: 2 }
+          - { preset: macos-release, shard: 1, of: 3 }
+          - { preset: macos-release, shard: 2, of: 3 }
+          - { preset: macos-release, shard: 3, of: 3 }
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }

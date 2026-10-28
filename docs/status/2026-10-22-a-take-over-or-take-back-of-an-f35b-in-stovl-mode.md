@@ -86,3 +86,9 @@ on macOS, and the shard split counted every test it had no figure for at
 60 s - 242 of them on linux-debug alone. `tests/ci_costs/` was measured again
 from run 40660270759 (#255, green) and this branch's 40666921008 (the tests
 its shards finished), the cut-off test set by hand at 240 s.
+Measured, the split still left macOS release's two shards 42.3 minutes of
+work each, and run 40678447800's shard 2 finished its tests at 43 minutes and
+was cancelled at its 45-minute limit in its last steps: macOS release's tests
+now run in three shards (`.github/workflows/ci.yml`, macos-test), and
+`every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once`
+passes on them.
