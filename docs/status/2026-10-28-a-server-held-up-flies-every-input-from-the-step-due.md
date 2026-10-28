@@ -64,7 +64,8 @@ and what the remaining 4.4 m needs; put off, above.
 | stopped alone 3 s, pace 1 | 15.3 / 55.8 / 103.9 m | 0.62 / 3.6 / 4.9 m |
 | held up 150-600 ms every second, pace 1 | 9.7 / 13.0 / 14.9 m | 0.35 / 1.2 / 1.9 m |
 | whole machine stopped 4 s (the stalled test) | across the stall 6.9 m | 1.07 m, back within a metre from word 4 |
-| persistently behind, `--test-step-ms 10` (0.76) | 0.47 / 2.1 / 2.6 m | 0.44-0.74 / 2.1-2.6 / 2.1-2.6 m, 766 slips |
+| persistently behind, `--test-step-ms 10` (0.76) | 0.47 / 2.1 / 2.6 m | three runs: 0.44 to 0.98 / 2.1 to 2.6 / 2.1 to 2.6 m; 766 slips in one |
+| paced (0.6) beside 40 busy loops on 20 cores, one run each | 0.43 / 2.0 / 2.0 m | 0.43 / 2.6 / 0.7 m outside a 303 ms stall of the client's |
 
 - `a_client_predicting_against_a_server_stopped_alone_for_seconds_is_within_a_metre_for_ninety_five_updates_in_a_hundred`
   and `..._held_up_unevenly_every_second_...` (server_paced_prediction.cmake,
@@ -85,5 +86,17 @@ and what the remaining 4.4 m needs; put off, above.
   pace.
 - `an_input_heard_while_the_server_owes_steps_...`: owing 200, flown from
   300 (was 130).
+- **Windows debug** (`tools/windows_build.sh`, this machine): the paced
+  test, the machine's stall, both new multi-process tests and both new unit
+  tests pass. `an_input_heard_while_...` printed `passed` and then the
+  executable was stopped by an access violation in a thread after the
+  program began to exit (0xc0000409) - the exit seen before on this machine
+  and not on CI (Webroot), the same executable whose other two tests passed.
+- **Not changed**: a busy machine. Beside twice as many busy loops as cores,
+  one run each, the paced test's figures are the same within a run's spread;
+  that item's step-level spread is a different mechanism, and stays open.
+- The related tests, Linux debug (`-R` first_input, impaired, starved,
+  server_behind, behind_real_time, rate_limit, take_over, take_back, stall,
+  held_inputs, owes, slip): 187 of 187 passed.
 - `--test-say-slipped` says each slip on the error stream (a test's server
   runs in a pipeline whose output is not read).
