@@ -78,3 +78,11 @@ plan test green; the reds above seen and reverted.
 **Rebased on #240 as it now stands** (2026-10-28), itself on main: no
 conflicts. Locally (linux-debug, `ctest -j4`, no display): 1391 tests, all
 pass but those skipped without a GPU, a live model call or Windows.
+
+**CI's shards measured again, 2026-10-28.** The full run 40666921008 lost
+macOS release's tests 2/2 to its 45-minute limit, three minutes into the
+wing-borne take-back: the three STOVL take-over tests take 207 to 240 s each
+on macOS, and the shard split counted every test it had no figure for at
+60 s - 242 of them on linux-debug alone. `tests/ci_costs/` was measured again
+from run 40660270759 (#255, green) and this branch's 40666921008 (the tests
+its shards finished), the cut-off test set by hand at 240 s.
