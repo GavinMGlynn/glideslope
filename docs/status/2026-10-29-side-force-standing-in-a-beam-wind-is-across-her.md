@@ -1,10 +1,19 @@
 ### Her side force standing in a beam wind is across her, 2026-10-29 - item done
 
 **What is still not true first.**
-- **The share left out of her side force is argued, not measured.** The
-  share is sin^2 of her sideslip. Its shape is the crossflow's (below). No
-  wind-tunnel side force between 10 and 80 degrees of sideslip is matched.
-  Only the J-3 Cub's push standing in a beam wind is a cited figure.
+- **The taper of her side force is chosen, not measured.** Her side force
+  is tapered by cos^2 of her sideslip. That shape is picked to end at
+  nothing at 90 degrees and leave small sideslip alone. It is not anyone's
+  crossflow share (below). No wind-tunnel side force between 10 and 80
+  degrees of sideslip is matched.
+- **Only the J-3 Cub's broadside push is checked against a cited figure.**
+  For the other 14 landplanes the check is only that a drag with sideslip
+  exists, not how big it is at 90 degrees.
+- **Crosswind slips get slightly easier.** At 15 to 20 degrees of sideslip
+  she keeps 0.933 to 0.883 of her side force, so less of it resists the
+  slip. That is within the uncertainty of a linear CYb carried that far,
+  where her fin stalls. **Spins and departures**, where sideslip is large in
+  flight, are not examined.
 - **What remains in her plane of symmetry standing is her drag.** Her drag
   acts along the relative wind, which her creep turns a few degrees off her
   beam. The most is the F-15C's, with her stick back: 18.4 lb, 0.55 of the
@@ -29,16 +38,23 @@ that is undefined there and turned by her creep. The FlightGear wiki's
 axis across the relative wind. No JSBSim issue was found on it.
 
 **What her side force is, there.** Each model's side force is a slope, CYb
-times b, carried on to 90 degrees. Of the force on a body at incidence b,
-the crossflow's part goes with sin^2 b and lies along the flow across it
-(Allen and Perkins, NACA Report 1048, 1951). Standing in a beam wind, her
-flank meets the air broadside, and the whole force is crossflow: along the
-wind, across her, which is her drag with sideslip. Every landplane has one,
-and the J-3 Cub's is a cited figure. Her side force there is that force
-counted a second time, in the wrong direction.
+times b, carried on to 90 degrees. Standing in a beam wind, her flank meets
+the air broadside, and the force on it is along the wind, which is across
+her: her drag with sideslip. Every landplane has one, and the J-3 Cub's is a
+cited figure. Her side force there counts that push a second time, in the
+wrong direction. (Allen and Perkins' crossflow, NACA Report 1048, 1951,
+adds a normal force going with sin^2 of the incidence to a body's
+potential-flow force; it does not take one out. It says only that
+broadside the force is the crossflow's, along the flow across her.)
 
-**Two fixes tried first, and why each was dropped.** Both put her side
-force along her body's y, which needs a term in DRAG as well.
+**Fixes rejected, and why.**
+- **STABILITY axes.** JSBSim's Ts2b rotates drag and lift by the angle of
+  attack alone. Drag with sideslip would then act along her stability x.
+  At 90 degrees of sideslip that is fore and aft, at the same undefined
+  angle: the same fault, moved from her side force to her drag.
+
+Two more were tried and dropped. Both put her side force along her body's
+y, which needs a term in DRAG as well.
 - **All of it across her body.** In flight this adds a drag of F sin b along
   the wind: |CYb| b sin b of the dynamic pressure. For the 747-400 at 5
   degrees of sideslip that is 0.0076, nearly half her drag at no lift
@@ -52,13 +68,15 @@ force along her body's y, which needs a term in DRAG as well.
   because her flank force was counted twice: once as her drag with sideslip
   and once as her side force carried across her.
 
-**The fix** (tools/side_force.py, `without_crossflow`, applied by every make
+**The fix** (tools/side_force.py, `with_side_force_tapered`, applied by every make
 script as its last step). One term is added at the end of her SIDE axis,
-`aero/force/side-crossflow`: -sin^2 b times F, where F is the sum of her
+`aero/force/side-taper`: -sin^2 b times F, where F is the sum of her
 other side terms, read from their properties after they are worked that
-step. The side terms themselves are left as they are. What is left of her
-side force is cos^2 b of it:
+step. The side terms themselves are left as they are. Every side term is
+tapered alike: CYb, and CYdr, CYda, CYp and CYr. At small sideslip that does
+no harm. What is left of her side force is cos^2 b of it:
 - at 5 degrees of sideslip, 0.992 of it;
+- at 15 to 20 degrees, a crosswind slip, 0.933 to 0.883;
 - at 85 degrees, her creep in a beam wind, 0.008, and that much of the old
   leak reaches her plane of symmetry;
 - at 90 degrees, none. What pushes her across is her drag with sideslip,
@@ -96,11 +114,14 @@ The S.23 is not stood: afloat she turns into the wind. Her model is changed
 as every other's.
 
 **The tests.**
-- `every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_has_her_side_force_across_her_and_no_more_than_a_thousandth_of_her_weight_fore_and_aft_or_up_and_down`
+- `every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_is_pushed_by_her_air_no_more_than_a_thousandth_of_her_weight_fore_and_aft_or_up_and_down`
   (tests/unit/test_departure.cpp).
   - It uses the standing scenario of 2026-10-28
     (`stand_each_landplane_across`), and judges at every step the length of
-    (forces/fbx-aero-lbs, forces/fbz-aero-lbs).
+    (forces/fbx-aero-lbs, forces/fbz-aero-lbs). It is named for what it
+    checks: what pushes her across is not judged by it, but by the model
+    check below (that a drag with sideslip exists) and the Cub's cited
+    figure.
   - The bound, a thousandth of her weight, was stated after measuring. At
     the lift test's ten-thousandth, the F-15C and the J-3 Cub would fail by
     their drag.
@@ -118,7 +139,7 @@ as every other's.
   - **Seen red** on main's models: 13 of the 15 fail. The B-2A (0.87) and
     the F-35B pass both ways; the F-35B's reference point is her centre of
     gravity.
-- `every_flight_models_side_force_leaves_out_its_crossflow_and_every_landplane_has_a_drag_with_sideslip`
+- `every_flight_models_side_force_is_tapered_to_nothing_in_a_beam_wind_and_every_landplane_has_a_drag_with_sideslip`
   (tests/tools/side_force_across.py).
   - Each model must be in wind axes, and must end her SIDE axis with the
     added term exactly as above, over exactly her listed side terms.
@@ -136,14 +157,14 @@ as every other's.
   (above).
 
 **The selftest hash moves**, deliberately: it flies a C172P, whose side
-force now leaves out its crossflow. In linux-debug the hash goes from
+force is now tapered. In linux-debug the hash goes from
 `7bb59e64053c4b4f` to `27e94c795b47141c`. Its printed flight is the same to
 every printed digit (roll -0.78, pitch 0.92, heading 347.03, 105.76 KCAS,
 21.5 ft/min, 2444 RPM) except the longitude of its end, 151.2304406 ->
 151.2304404.
 
 **The learnt landing's parity fixture, flown again** with
-`tools/rl/export.py --parity-only` (model line now d66f0f74...414b). Against
+`tools/rl/export.py --parity-only` (model line now 9806731d...4d11). Against
 main's model, over the 27 verification starts (new less old):
 - **Calm air:** +0.1 to +0.6 ft/min of sink, +0.25 to +0.29 m across, -1.5
   to -1.0 m along.
@@ -192,3 +213,13 @@ move by under 0.002.
   - every learnt-landing test that runs without a window or server;
   - the stall recoveries.
 - Every make script's `--check` passes (sixteen models).
+- **Without FMA** (an x86-64-v2 release build; the local gcc contracts to
+  FMA and CI does not), the two standing tests and the Cub's crosswind
+  braking test pass with the same figures as linux-debug:
+  - the Cub's pitching moment, 0.40 ft-lb, is 0.82 of its bound;
+  - the F-15C's force, 18.4 lb, is 0.55 of its bound;
+  - solo at half brake, from the left the Cub keeps her tail down, and
+    from the right she lifts it and stops on her wheels.
+- After the review the term was renamed (`aero/force/side-taper`) and
+  nothing else changed. The selftest hash and the parity fixture's flights
+  are the same, and only its model line moved.

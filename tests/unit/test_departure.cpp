@@ -2011,7 +2011,7 @@ GLIDESLOPE_TEST(every_landplane_braked_to_a_stop_in_a_15_kt_crosswind_keeps_her_
 // air she lifts her tail and stops on her wheels, once her pitch damping
 // left the crosswind out. What put her over was her side force, which
 // JSBSim's wind axes turned into her plane of symmetry standing in a beam
-// wind; its crossflow is now left out of it (tools/side_force.py), and
+// wind; it is now tapered to nothing there (tools/side_force.py), and
 // from the left she keeps her tail down, from the right she lifts it and
 // stops on her wheels, as in calm air - held to calm air's outcome like
 // every other. Coverage asserted: three loadings, three winds, ten levels, 90
@@ -2051,7 +2051,7 @@ GLIDESLOPE_TEST(the_j3_cub_flown_stick_central_in_a_15_kt_crosswind_keeps_her_ta
     // Named: worse than calm air, and why. Each must still be, so that a
     // fault's fix is noticed. None (2026-10-29): the two named on 2026-10-28,
     // solo at 0.5 from either side, went over by her side force turned into
-    // her plane of symmetry, whose crossflow is now left out of it
+    // her plane of symmetry, now tapered to nothing there
     // (tools/side_force.py).
     const std::set<std::string> named_runs = {};
     const char* const named_why = "";
@@ -4241,15 +4241,17 @@ GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_
 }
 
 // **Every landplane standing on her brakes in 15 kt straight across, with any
-// control set, has her side force across her: the air's force in her plane
-// of symmetry is no more than a stated small figure.** JSBSim makes the side
+// control set, is pushed by her air fore and aft or up and down - in her
+// plane of symmetry - by no more than a stated small figure.** What pushes
+// her across is not judged here: that every landplane has a drag with
+// sideslip to do it is tests/tools/side_force_across.py's, and the J-3
+// Cub's is held to a cited figure. JSBSim makes the side
 // force along its wind axes' y, which standing in a beam wind (sideslip 90
 // degrees) lies in her plane of symmetry at her angle of attack, undefined
 // there and turned by her creep: a 737-300 on her brakes had 1,400 lb of it
-// along her body's x axis. Each make script now leaves its crossflow's
-// share, sin^2 of her sideslip, out of it: along the wind that is her drag
-// with sideslip, and standing in a beam wind it is the whole of it
-// (tools/side_force.py).
+// along her body's x axis. Each make script now tapers it by cos^2 of her
+// sideslip, to nothing broadside, where her drag with sideslip pushes her
+// along the wind (tools/side_force.py).
 //
 // **Every scenario**: stand_each_landplane_across's. **What is judged**, at
 // every step: her aerodynamic force in her plane of symmetry, the length of
@@ -4262,7 +4264,7 @@ GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_
 // lift test's ten-thousandth the F-15C and J-3 Cub would fail, by her drag.
 // Coverage asserted: fifteen landplanes, seven settings, 105 runs of 2,400
 // steps.
-GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_has_her_side_force_across_her_and_no_more_than_a_thousandth_of_her_weight_fore_and_aft_or_up_and_down) {
+GLIDESLOPE_TEST(every_landplane_standing_on_her_brakes_in_15_kt_across_with_any_control_set_is_pushed_by_her_air_no_more_than_a_thousandth_of_her_weight_fore_and_aft_or_up_and_down) {
     constexpr double bound_of_weight = 1e-3;
     check_standing_across(stand_each_landplane_across(
         "force in her plane of symmetry", "lb",

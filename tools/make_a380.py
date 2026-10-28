@@ -139,16 +139,16 @@ surfaces too. In flight, at a few degrees of sideslip, the two differ by its
 cosine squared.
 
 **Her side force out of her plane of symmetry standing in a beam wind**
-(side_force.without_crossflow, 2026-10-29). JSBSim makes it along its wind
-axes' y, which at 90 degrees of sideslip lies in her plane of symmetry at an
-undefined angle of attack: standing in 15 kt across, it pushed her fore and
-aft or up and down and pitched her about her centre of gravity. Its
-crossflow's share, sin^2 beta, which along the wind is her drag with
-sideslip, is now left out of it; standing in 15 kt across, the
-air's force in her plane of symmetry is under a thousandth of her weight (the
-standing tests in tests/unit/test_departure.cpp). In flight she keeps
-all but sin^2 of her sideslip of it, 0.992 at 5 degrees. side_force.py says
-why.
+(side_force.with_side_force_tapered, 2026-10-29). JSBSim makes it along its
+wind axes' y, which at 90 degrees of sideslip lies in her plane of symmetry at
+an undefined angle of attack: standing in 15 kt across, it pushed her fore and
+aft or up and down and pitched her about her centre of gravity. Every side
+term (CYb and her rudder's, ailerons', roll and yaw rates') is now tapered by
+cos^2 beta: kept whole at small sideslip, 0.992 at 5 degrees and 0.933 to
+0.883 at a crosswind slip's 15 to 20 (a little easier to hold, within what a
+linear slope knows there, her fin stalling), none broadside, where her drag
+with sideslip pushes her. The taper is chosen, not a crossflow's share.
+Spins and departures are not examined. side_force.py says why.
 """
 
 import math
@@ -530,7 +530,7 @@ def engine():
 
 def outputs():
     return {
-        OUT / "aircraft" / MODEL / f"{MODEL}.xml": side_force.without_crossflow(airliner.with_reversers(alpha_rate.with_unkeyed_terms_on_qbar_uw(
+        OUT / "aircraft" / MODEL / f"{MODEL}.xml": side_force.with_side_force_tapered(airliner.with_reversers(alpha_rate.with_unkeyed_terms_on_qbar_uw(
             alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_a380"), "make_a380",
             {"PITCH": ["aero/coefficient/Cmalpha"],
