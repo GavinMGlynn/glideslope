@@ -803,7 +803,10 @@ struct DrawnTile {
     bool imagery = false;            // an imagery tile is attached
     // The tile on the DEM's colours, for when its imagery could not be
     // fetched: kept here until it is first wanted, and only then put on the
-    // GPU, so that imagery that arrives costs no second mesh there.
+    // GPU, so that imagery that arrives costs no second mesh there. Kept on
+    // the CPU even once imagery is attached - about 45 kB a tile - because
+    // the imagery can still be given up whole (`give_up_wedged_imagery`),
+    // taking it off tiles that had it.
     std::vector<std::pair<Mesh, Placement>> dem_meshes;
     std::vector<Draw> dem_draws;
 };
@@ -1092,6 +1095,41 @@ bool imagery_failed(const Tile& tile) {
     return failed;
 }
 
+// **Whether Cesium Native has wedged a tile's imagery**: a tile whose own
+// imagery failed, with nothing standing in, below an ancestor already
+// settled on imagery that failed too. RasterMappedTo3DTile::update (v0.64.0,
+// and main as of 2026-10-28) then finds that ancestor's failed tile as its
+// "closest ready ancestor" - not loaded, so not used, and not nothing, so the
+// tile is never marked failed itself - and leaves it unready for ever: the
+// tile is never renderable, its parent is drawn in its place, and the load
+// never reaches 100%, which an offline update waits for. Seen when the
+// ancestors' imagery failed before the tile's own: on Windows and macOS,
+// where a refused connection takes seconds and the fetches' fallbacks up the
+// imagery's levels are slow, and not on Linux, where they fail at once.
+bool imagery_wedged_below(const Tile& tile, bool ancestor_failed) {
+    bool failed_here = false;
+    for (const auto& mapped : tile.getMappedRasterTiles()) {
+        const auto* loading = mapped.getLoadingTile();
+        const auto* ready = mapped.getReadyTile();
+        if (ancestor_failed && ready == nullptr && loading != nullptr &&
+            loading->getState() ==
+                CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed) {
+            return true;
+        }
+        if (ready != nullptr &&
+            ready->getState() ==
+                CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed) {
+            failed_here = true;
+        }
+    }
+    for (const Tile& child : tile.getChildren()) {
+        if (imagery_wedged_below(child, ancestor_failed || failed_here)) {
+            return true;
+        }
+    }
+    return false;
+}
+
 class RendererResources final
     : public Cesium3DTilesSelection::IPrepareRendererResources {
 public:
@@ -1217,14 +1255,6 @@ public:
                               static_cast<float>(1.0 - translation.y)};
         }
         drawn->imagery = true;
-        // **Its imagery here, what was kept for the DEM's colours goes.**
-        // Cesium Native only ever swaps imagery attached for other imagery
-        // loaded - its own for an ancestor's, as a fetch fails - and never
-        // takes a tile with imagery back to none, so it is not wanted again.
-        if (drawn->dem_draws.empty()) {
-            drawn->dem_meshes.clear();
-            drawn->dem_meshes.shrink_to_fit();
-        }
     }
     void
     detachRasterInMainThread(const Tile& tile, int32_t coordinates,
@@ -1264,6 +1294,12 @@ struct TerrainTiles::Impl {
     // The renderer the tiles are drawn by, for a tile's DEM-coloured meshes,
     // put on the GPU when its imagery is found to have failed.
     Renderer* renderer = nullptr;
+    // The open imagery's overlay, while it is draped; and whether it was given
+    // up, Cesium Native having wedged it (imagery_wedged_below), after which
+    // every tile is drawn on the DEM's colours.
+    CesiumUtility::IntrusivePointer<CesiumRasterOverlays::RasterOverlay>
+        imagery_overlay;
+    bool imagery_given_up = false;
     std::shared_ptr<CesiumUtility::CreditSystem> credit_system;
     // What the provider itself said must be shown, before a tile has loaded.
     std::vector<std::string> from_provider;
@@ -1598,11 +1634,34 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
         wmts.maximumLevel = imagery.maximum_level;
         wmts.credit = imagery.credit;
         wmts.projection = CesiumGeospatial::GeographicProjection(Ellipsoid::WGS84);
-        impl_->tileset->getOverlays().add(
+        impl_->imagery_overlay =
             CesiumUtility::IntrusivePointer<CesiumRasterOverlays::RasterOverlay>(
                 new CesiumRasterOverlays::WebMapTileServiceRasterOverlay(
-                    "imagery", imagery.url, {}, wmts)));
+                    "imagery", imagery.url, {}, wmts));
+        impl_->tileset->getOverlays().add(impl_->imagery_overlay);
     }
+}
+
+void TerrainTiles::give_up_wedged_imagery() {
+    if (!impl_->imagery || impl_->imagery_given_up || !impl_->imagery_overlay) {
+        return;
+    }
+    const Tile* root = impl_->tileset->getRootTile();
+    if (root == nullptr || !imagery_wedged_below(*root, false)) {
+        return;
+    }
+    // **Given up whole, since a wedged tile cannot be freed alone**: taking
+    // the overlay off detaches every tile's imagery, so that each is
+    // renderable again, and every tile is drawn on the DEM's colours from
+    // here. Its fetches had failed down to the coarsest level the imagery
+    // has, which is not a host having a bad moment.
+    impl_->tileset->getOverlays().remove(impl_->imagery_overlay);
+    impl_->imagery_overlay = nullptr;
+    impl_->imagery_given_up = true;
+    std::fputs("glideslope: the imagery is given up: its fetches failed, and the "
+               "tiles beneath them could not settle; the terrain is drawn on the "
+               "DEM's colours\n",
+               stderr);
 }
 
 namespace {
@@ -1871,10 +1930,28 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     }
-    const Cesium3DTilesSelection::ViewUpdateResult& result =
-        complete && finite ? tileset.updateViewGroupOffline(group, {view})
-                           : tileset.updateViewGroup(group, {view}, 0.0f);
-    if (!(complete && finite)) {
+    // **The open provider's wait for every tile, done here** rather than by
+    // Tileset::updateViewGroupOffline, whose loop it is - and which waited for
+    // ever on imagery Cesium Native had wedged (imagery_wedged_below), the
+    // shot never drawn: on CI's Windows and macOS, every imagery fetch
+    // refused, the test timed out at 900 s (run 40627612271). Wedged imagery
+    // is given up as it is found, and the wait ends as Cesium Native's does.
+    give_up_wedged_imagery();
+    const Cesium3DTilesSelection::ViewUpdateResult* result = nullptr;
+    if (complete && finite) {
+        impl_->async.dispatchMainThreadTasks();
+        result = &tileset.updateViewGroup(group, {view}, 0.0f);
+        while (group.getPreviousLoadProgressPercentage() < 100.0f &&
+               !platform::stop_requested()) {
+            tileset.getExternals().pAssetAccessor->tick();
+            impl_->async.dispatchMainThreadTasks();
+            tileset.loadTiles();
+            impl_->async.dispatchMainThreadTasks();
+            result = &tileset.updateViewGroup(group, {view}, 0.0f);
+            give_up_wedged_imagery();
+        }
+    } else {
+        result = &tileset.updateViewGroup(group, {view}, 0.0f);
         tileset.loadTiles();
     }
 
@@ -1883,7 +1960,7 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
     impl_->counts.deepest = 0;
     impl_->counts.without_imagery = 0;
     impl_->counts.imagery_failed = 0;
-    for (const auto& tile : result.tilesToRenderThisFrame) {
+    for (const auto& tile : result->tilesToRenderThisFrame) {
         const auto* content = tile->getContent().getRenderContent();
         if (content == nullptr) {
             continue;
@@ -1898,7 +1975,8 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
         // failed when no ancestor's could stand in for it either, and
         // attaches nothing. Any other tile without its imagery is drawn as
         // it is, on the light alone, and counted as without it.
-        if (impl_->imagery && !drawn->imagery && imagery_failed(*tile) &&
+        if (impl_->imagery && !drawn->imagery &&
+            (impl_->imagery_given_up || imagery_failed(*tile)) &&
             (!drawn->dem_meshes.empty() || !drawn->dem_draws.empty())) {
             if (drawn->dem_draws.empty()) {
                 for (const auto& [mesh, placement] : drawn->dem_meshes) {
