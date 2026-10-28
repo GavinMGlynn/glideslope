@@ -803,9 +803,8 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       2026-10-28 status file). *Verification: every landplane standing in
       15 kt across, her side force across her and its pitching moment
       within a stated bound, and every figure in range.* Done 2026-10-29:
-      every model leaves the crossflow's share out of her side force, all
-      of it standing in a beam wind, where her drag with sideslip pushes her
-      across; the air's force in her plane of symmetry fell from up to
+      every model tapers her side force to nothing standing in a beam
+      wind, where her drag with sideslip pushes her across; the air's force in her plane of symmetry fell from up to
       10,400 lb to under 19, and the Cub no longer goes over braking in a
       crosswind. Every figure in range.
 - [x] **The Mosquito's slipstream lift flips with an undefined angle of

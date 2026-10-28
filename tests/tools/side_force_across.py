@@ -1,15 +1,16 @@
-"""side_force_across.py - every committed flight model's side force leaves
-out its crossflow, and every landplane has a drag with sideslip to push her
-across.
+"""side_force_across.py - every committed flight model's side force is
+tapered to nothing in a beam wind, and every landplane has a drag with
+sideslip to push her across.
 
 Every aircraft under assets/jsbsim/aircraft/ is read, every file of it, its
 XML comments left out. Its forces are in wind axes (DRAG, SIDE, LIFT; no X,
 Y, Z, AXIAL or NORMAL axis). Its SIDE axis ends with tools/side_force.py's
-`aero/force/side-crossflow`: -1 times the sum of the properties of every
+`aero/force/side-taper`: -1 times the sum of the properties of every
 other term of that axis, each read once (a sum of one is the term alone),
-times sin^2 beta. Standing in a beam wind JSBSim's wind axes put her side
-force in her plane of symmetry, and the crossflow's share of it is along the
-wind her drag with sideslip (side_force.py says why). So every landplane
+times sin^2 beta, so that cos^2 beta of her side force is kept. Standing in
+a beam wind JSBSim's wind axes put her side force in her plane of symmetry,
+and broadside what pushes her is her drag with sideslip, along the wind
+(side_force.py says why). So every landplane
 must have that drag: a term of her DRAG axis that reads aero/beta-rad,
 aero/beta-deg or their magnitudes. The flying boat has none and is named: afloat she turns into
 the wind, so no beam wind stands across her.
@@ -69,7 +70,7 @@ TOTAL = 16
 assert len(SIDE) == TOTAL and set(SIDESLIP_DRAG) == set(SIDE)
 if len(sys.argv) != 2:
     raise SystemExit("usage: side_force_across.py <assets/jsbsim/aircraft>")
-CROSSFLOW = "aero/force/side-crossflow"
+TAPER = "aero/force/side-taper"
 BETA = "<property>aero/beta-rad</property>"
 FUNCTION = re.compile(r"<function name=\"([^\"]+)\">(.*?)</function>", re.S)
 COMMENT = re.compile(r"<!--.*?-->", re.S)
@@ -109,13 +110,13 @@ for name in sorted(present & set(SIDE)):
     else:
         drags_seen += len(drags)
     funcs = FUNCTION.findall(side)
-    names = [n for n, _ in funcs if n != CROSSFLOW]
+    names = [n for n, _ in funcs if n != TAPER]
     if names != SIDE[name]:
         bad.append(f"{name}: side terms {names}, listed {SIDE[name]}")
         continue
     terms_seen += len(names)
-    if [n for n, _ in funcs].count(CROSSFLOW) != 1 or funcs[-1][0] != CROSSFLOW:
-        bad.append(f"{name}: SIDE does not end with one {CROSSFLOW}")
+    if [n for n, _ in funcs].count(TAPER) != 1 or funcs[-1][0] != TAPER:
+        bad.append(f"{name}: SIDE does not end with one {TAPER}")
         continue
     reads = "".join(f"<property>{n}</property>" for n in names)
     if len(names) > 1:
@@ -123,14 +124,13 @@ for name in sorted(present & set(SIDE)):
     want = squeezed(f"<product><value>-1</value>{reads}<pow><sin>{BETA}</sin><value>2</value>"
                     "</pow></product>")
     if squeezed(DESCRIPTION.sub("", funcs[-1][1])) != want:
-        bad.append(f"{name}: {CROSSFLOW} is not -sin^2 beta times her side terms")
+        bad.append(f"{name}: {TAPER} is not -sin^2 beta times her side terms")
         continue
     left_out += 1
 
 want_terms = sum(len(v) for v in SIDE.values())
 want_drags = sum(len(v) for v in SIDESLIP_DRAG.values())
-print(f"side force without its crossflow: {len(present)} aircraft of {TOTAL}; {left_out} leave it "
-      f"out, {terms_seen} of {want_terms} side terms; {drags_seen} of {want_drags} drags with "
+print(f"side force tapered: {len(present)} aircraft of {TOTAL}; {left_out} tapered, {terms_seen} of {want_terms} side terms; {drags_seen} of {want_drags} drags with "
       f"sideslip")
 print("named: short_s23 has no drag with sideslip: a flying boat, afloat she turns into the wind")
 if (len(present) != TOTAL or left_out != TOTAL or terms_seen != want_terms

@@ -734,8 +734,8 @@
                     <value>-1.0000</value>
                 </product>
             </function>
-    <function name="aero/force/side-crossflow">
-      <description>The crossflow's share of her side force, sin^2 beta of it, left out: along the wind it is her drag with sideslip, and standing in a beam wind JSBSim's wind axes would put it in her plane of symmetry (glideslope: tools/side_force.py)</description>
+    <function name="aero/force/side-taper">
+      <description>Her side force tapered by cos^2 beta, sin^2 beta of it left out: standing in a beam wind JSBSim's wind axes would put it in her plane of symmetry, and broadside her drag with sideslip pushes her (glideslope: tools/side_force.py)</description>
       <product>
         <value>-1</value>
         <property>aero/coefficient/CYb</property>

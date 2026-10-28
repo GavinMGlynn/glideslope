@@ -220,11 +220,12 @@ are the risks the phase order is built around:
 - **A side force in a beam wind is shaped by an argument, not a
   measurement** (2026-10-29). JSBSim made it in her plane of symmetry
   standing in a beam wind, and that put a J-3 Cub braked in a crosswind
-  over. Now the crossflow's share of it, the sine squared of her sideslip,
-  is left out: all of it standing in a beam wind, where her drag with
-  sideslip pushes her across, and almost none in flight, where her figures
-  stay as they were. That shape comes from crossflow theory and is not
-  fitted to data; only the Cub's push in a beam wind is a cited figure. The
+  over. Now it is tapered by the cosine squared of her sideslip: to
+  nothing standing in a beam wind, where her drag with sideslip pushes her
+  across, and hardly at all in flight, where her figures stay as they were.
+  The taper is chosen, not fitted to data. Only the Cub's broadside push is
+  a cited figure. Crosswind slips get slightly easier, and spins and
+  departures are not examined. The
   Cub no longer goes over braking in a crosswind where she does not in calm
   air.
 - **Restore settles what it cannot read.** It holds the aircraft at the captured
