@@ -172,6 +172,12 @@ struct Options {
     // For a test: the last update from before a take-over heard again just
     // after it, as the network reorders them.
     bool late_update_after_take_over = false;
+    // For a test (`--test-stovl-at-once`): STOVL mode selected with the very
+    // first input, as by a player who joins holding the selector; and
+    // (`--test-spend-requests-first`) the first asking for her levers
+    // ignored, the server's second of requests spent just before it.
+    bool stovl_at_once = false;
+    bool spend_requests_first = false;
     // For a test: A pressed in the frame the take-over is asked, while the
     // server has yet to answer it.
     bool press_a_with_take_over = false;
@@ -316,6 +322,10 @@ void usage(std::FILE* out) {
         "  --late-update-after-take-over  for a test: hear the last update from\n"
         "                before a take-over again just after it, as a network\n"
         "                reordering them would\n"
+        "  --test-stovl-at-once  for a test: select STOVL mode with the first\n"
+        "                input, and say the pitch trim her law flies her on\n"
+        "  --test-spend-requests-first  for a test: spend the server's second\n"
+        "                of requests just before asking for her levers\n"
         "  --press-a-with-take-over  for a test: press A in the frame\n"
         "                --take-over-after asks, before the server has answered\n"
         "  --take-over-own  for a test: --take-over-after asks for its own aircraft\n"
@@ -632,6 +642,10 @@ static int run_program(int argc, char** argv) {
             o.ride_along = true;
         } else if (a == "--late-update-after-take-over") {
             o.late_update_after_take_over = true;
+        } else if (a == "--test-stovl-at-once") {
+            o.stovl_at_once = true;
+        } else if (a == "--test-spend-requests-first") {
+            o.spend_requests_first = true;
         } else if (a == "--press-a-with-take-over") {
             o.press_a_with_take_over = true;
         } else if (a == "--take-over-own") {
@@ -1027,6 +1041,9 @@ static int run_program(int argc, char** argv) {
             online.emplace(std::move(*session), [&] { return seconds_since_start(); });
             if (o.late_update_after_take_over) {
                 online->hear_late_update_after_take_over();
+            }
+            if (o.spend_requests_first) {
+                online->spend_requests_first();
             }
             joined = online->join(10.0, [&] { return seconds_since_start(); });
             if (joined) {
@@ -1697,6 +1714,9 @@ static int run_program(int argc, char** argv) {
             std::printf("glideslope: the server did not say its levers; this client's own\n");
             std::fflush(stdout);
         }
+        if (o.stovl_at_once) {
+            controls.stovl = 1.0;
+        }
         const std::filesystem::path bindings_path =
             glideslope::platform::data_directory() / "input" / "bindings.txt";
         std::ifstream bindings_file(bindings_path, std::ios::binary);
@@ -2094,6 +2114,11 @@ static int run_program(int argc, char** argv) {
             // test reading through a pipe to time the way out from here
             // (glideslope_exit_timer, tests/cmake/client_quits_mid_refresh.cmake).
             if (o.quit_at > 0 && ticks >= o.quit_at) {
+                if (o.stovl_at_once && flight) {
+                    const std::optional<double> trim = flight->stovl_law_pitch_trim();
+                    std::printf("glideslope: her STOVL law flies her on a pitch trim of %.17g\n",
+                                trim.value_or(-1.0));
+                }
                 if (flight && !o.weather_station.empty()) {
                     std::printf("glideslope: a weather refresh is %s\n",
                                 flight->refreshing_weather() ? "under way"
@@ -2319,6 +2344,7 @@ static int run_program(int argc, char** argv) {
                     // predicted up to now (another aeroplane is a flight
                     // built afresh, with nothing predicted, and only put
                     // there).
+                    flight->forget_held();
                     if (taken->law) {
                         flight->adopt(taken->motion, taken->law);
                     } else if (predicted_before && !taken->again) {

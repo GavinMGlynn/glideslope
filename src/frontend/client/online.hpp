@@ -17,6 +17,7 @@
 #include "flight.hpp"
 #include "frontend/machine_stalls.hpp"
 #include "frontend/own_words.hpp"
+#include "net/budget.hpp"
 #include "net/inputs.hpp"
 #include "net/interpolation.hpp"
 #include "net/messages.hpp"
@@ -199,6 +200,11 @@ public:
     // (`--late-update-after-take-over`): the last update naming the aircraft
     // given up at a take-over is heard again just after it.
     void hear_late_update_after_take_over() { late_after_take_over_ = true; }
+    // **For a test, the first asking for her levers ignored**
+    // (`--test-spend-requests-first`): the server's whole second of requests
+    // spent on nothing just before it, as glideslope_cli's
+    // `--spend-requests-first` does.
+    void spend_requests_first() { spend_requests_first_ = true; }
     // **Joined again, the newest word the old session had**, on its clock:
     // a server started again counts from nought, under it.
     std::optional<double> old_session_s() const { return old_session_s_; }
@@ -523,6 +529,7 @@ private:
     double worst_known_m_ = 0.0;
     std::optional<std::pair<double, net::AircraftState>> own_heard_;
     bool late_after_take_over_ = false;
+    bool spend_requests_first_ = false;
     // The newest update's time on the session's clock, and the old
     // session's newest when it joined again.
     std::optional<double> newest_heard_s_;
@@ -554,11 +561,30 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
                     // Its levers, before any input of this client's has
                     // moved them: asked by riding along in its own, and
                     // riding in nothing again once said.
+                    if (spend_requests_first_) {
+                        for (int spent = 0;
+                             spent < static_cast<int>(net::session_requests_per_second);
+                             ++spent) {
+                            send_watch(net::no_aircraft);
+                        }
+                    }
                     send_watch(mine_);
                     newest.reset();
-                    while (local_s() - began < give_up_after_s && !joined->levers) {
+                    // **Asked again once a second until they are said, for
+                    // as long as the server is heard**, as glideslope_cli
+                    // asks: a request past the server's rate is
+                    // acknowledged and ignored (net/budget.hpp). Asked once,
+                    // and given up on with the time joining had left, this
+                    // client made her prediction's controller from nothing
+                    // - a STOVL law made on her first input flew her on a
+                    // pitch trim of nought where the server's flew the trim
+                    // it had held her on (docs/status, 2026-10-29).
+                    double asked_s = local_s();
+                    double heard_s = local_s();
+                    while (local_s() - heard_s < give_up_after_s && !joined->levers) {
                         poll_here(local_s());
                         for (net::StatePacket& state : session_.take_states()) {
+                            heard_s = local_s();
                             if (state.watched && state.watched->aircraft == mine_) {
                                 joined->levers = state.watched;
                             }
@@ -570,6 +596,10 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
                                 joined->server_steps = newer->server_steps;
                                 joined->law = newer->law;
                             }
+                        }
+                        if (!joined->levers && local_s() - asked_s >= 1.0) {
+                            send_watch(mine_);
+                            asked_s = local_s();
                         }
                         if (!joined->levers) {
                             std::this_thread::sleep_for(std::chrono::milliseconds(5));

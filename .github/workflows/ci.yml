@@ -288,6 +288,12 @@ jobs:
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }} || rc=$?
           kill $xvfb
           exit $rc
+      # **The figures the tests said, whether they passed or not** (a line
+      # "figure (WHAT): ..." in a test's output), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: grep -h "figure (" "build/${{ matrix.preset }}/Testing/Temporary/LastTest.log" || echo "no figures said"
       # Every frame the tests wrote, to look at.
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
@@ -351,6 +357,12 @@ jobs:
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }} || rc=$?
           kill $xvfb
           exit $rc
+      # **The figures the tests said, whether they passed or not** (a line
+      # "figure (WHAT): ..." in a test's output), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: grep -h "figure (" "build/${{ matrix.preset }}/Testing/Temporary/LastTest.log" || echo "no figures said"
       # Every frame the tests wrote, to look at.
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
@@ -545,6 +557,12 @@ jobs:
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" || rc=$?
           kill $xvfb
           exit $rc
+      # **The figures the tests said, whether they passed or not** (a line
+      # "figure (WHAT): ..." in a test's output), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: grep -h "figure (" "build/${{ matrix.preset }}/Testing/Temporary/LastTest.log" || echo "no figures said"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-rocky-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
@@ -719,6 +737,12 @@ jobs:
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
           ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
+      # **The figures the tests said, whether they passed or not** (a line
+      # "figure (WHAT): ..." in a test's output), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: grep -h "figure (" "build/${{ matrix.preset }}/Testing/Temporary/LastTest.log" || echo "no figures said"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
@@ -777,6 +801,12 @@ jobs:
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
           ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
+      # **The figures the tests said, whether they passed or not** (a line
+      # "figure (WHAT): ..." in a test's output), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: grep -h "figure (" "build/${{ matrix.preset }}/Testing/Temporary/LastTest.log" || echo "no figures said"
       - uses: actions/upload-artifact@v7
         if: ${{ !cancelled() }}
         with: { name: 'frames-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
@@ -996,6 +1026,17 @@ jobs:
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
           ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
 
+      # **The figures the tests said, whether they passed or not** (a line
+      # "figure (WHAT): ..." in a test's output), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $log = "build\${{ matrix.preset }}\Testing\Temporary\LastTest.log"
+          if (-not (Test-Path $log)) { Write-Output "no test log"; exit 0 }
+          Select-String -Path $log -Pattern "figure \(" | ForEach-Object { Write-Output $_.Line }
+
       # **The machine's stalls, said whether the tests passed or not**: every
       # frame a predicting client's machine mostly took (frontend::
       # MachineStalls), from every test's output, so that how often a runner
@@ -1112,6 +1153,17 @@ jobs:
         run: |
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
           ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ endsWith(matrix.preset, '-debug') && '-LE timing' || '' }}
+
+      # **The figures the tests said, whether they passed or not** (a line
+      # "figure (WHAT): ..." in a test's output), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $log = "build\${{ matrix.preset }}\Testing\Temporary\LastTest.log"
+          if (-not (Test-Path $log)) { Write-Output "no test log"; exit 0 }
+          Select-String -Path $log -Pattern "figure \(" | ForEach-Object { Write-Output $_.Line }
 
       # **The machine's stalls, said whether the tests passed or not**: every
       # frame a predicting client's machine mostly took (frontend::

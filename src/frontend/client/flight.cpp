@@ -199,6 +199,9 @@ bool Flight::heard_runway_conditions(const net::RunwayConditions& conditions) {
 void Flight::adopt(const sim::Motion& motion) {
     aircraft_->set_motion(motion);
     prediction_ = std::make_unique<sim::Prediction>(*aircraft_);
+    if (held_) {
+        prediction_->held_by_server(held_->controls, held_->trim);
+    }
     loss_counted_ = false;
     predicted_at_.clear();
     // A prediction begun again numbers its steps from nought: its clocks'

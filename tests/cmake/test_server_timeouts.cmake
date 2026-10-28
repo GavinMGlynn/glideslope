@@ -35,9 +35,10 @@ foreach(_v TESTS MIN)
     endif()
 endforeach()
 
-# **The totals**, changed only deliberately, with the list below.
-set(_expect_uses 63)
-set(_expect_long 51)
+# **The totals**, changed only deliberately, with the list below (64 and 52
+# since 2026-10-29: client_stovl_at_once.cmake, a long one).
+set(_expect_uses 64)
+set(_expect_long 52)
 set(_expect_short 12)
 set(_expect_nonvalue 4)
 
