@@ -1,13 +1,10 @@
 ### A window client whose imagery cannot be fetched still draws its frame, 2026-10-28
 
-**What is still not true first.** With its imagery refused the open terrain
-settles a level coarser in a shot (19 tiles, level 6, against 26 at level 7
-with imagery off or fetched). Cesium Native walks a tile's failed imagery up
-to an ancestor's, and an ancestor whose own imagery was never asked for
-holds the finer tile unready, so its parent is drawn. The frame still agrees
-with the DEM's ray-cast within the tolerances the shot without imagery is
-held to (mean difference 5.02 of 255 against 4.76, at most 5.5). Not chased
-further: a degraded mode, and Cesium's.
+**What is still not true first.** The imagery is given up whole, for the
+rest of the run, once Cesium Native wedges a tile (below): a host refusing
+the coarsest level costs every tile its imagery, though finer levels might
+have come. Nothing tries it again. And Cesium Native's bug is worked around
+here, not fixed there, nor reported yet.
 
 **The cause.** At a shot the client threw "N terrain tiles were drawn
 without their imagery" before writing the frame, and exited 1. A tile whose
@@ -19,8 +16,8 @@ And such a tile was drawn grey: with imagery on, its vertex colours were the
 slope's light alone, for the imagery to be multiplied by.
 
 **The fix.** With imagery on, each open terrain tile's glTF carries the
-DEM's colours too (`_DEM_COLOUR`), kept on the CPU beside the tile - about
-45 kB a tile, kept even once imagery attaches, because the imagery can be
+DEM's colours too (`_DEM_COLOUR`), kept on the CPU beside the tile, even once
+imagery attaches (figures below), because the imagery can be
 given up whole (below) and taken off tiles that had it; freeing it on attach,
 as the review asked, was done and undone for that reason. When it settles a tile's
 imagery on a raster tile that failed, with none of the tile's overlays still
@@ -78,8 +75,14 @@ refused by a closed loopback port (12029), and each imagery fetch falls back
 up the levels one refusal at a time, so the coarse levels' failures settled
 first; on Linux curl is refused at once and every tile settles in the same
 pass. Same fetches both ways (50, and 150 failures of 0/0/1 logged by
-Cesium). Not reproduced on Linux by delaying every refusal 2 s in a stub, nor
-by failing level 0 first.
+Cesium). **It wedges on Linux too**, every run: with the give-up taken out,
+the instant refusals drew 19 tiles to level 6 where the shot without
+imagery draws 26 to level 7 - the wedged tiles' parents in their place -
+which is the coarser frame first put down here to Cesium's fallbacks. Only
+the never-ending wait is Windows' and macOS's: on Linux the load still
+reached 100% (the wedged tiles were not counted as loading), and a stub
+holding each connection 0.5, 2 or 5 s before closing it wedged the same
+way, gave up the same way, and did not hang either.
 
 **The fix**: the wait for every tile is now this code's own loop, the same
 as `updateViewGroupOffline`'s, and every update looks for a wedged tile
@@ -93,7 +96,38 @@ with WINDOWS_TEST): the new test passes in 89 s; run by hand it says the
 imagery is given up and draws 26 tiles to level 7 on the DEM's colours.
 **What covers macOS** is the same code: the wedge is Cesium's and timing,
 not the HTTP layer's, and the loop and the give-up are platform-free; only
-CI shows it there. **Not covered**: on Linux the new test never wedges, so
-it pins the per-tile path there and the give-up only on Windows and macOS.
+CI shows it there. 
+**The give-up is pinned on every platform**: the test now requires the
+client to say the imagery is given up - the path it pins taken, or it fails
+- and the terrain drawn as fully as the same shot without imagery, shot in
+the test too (26 tiles, level 7). Seen red on Linux with the give-up taken
+out: first on the words, then, with that check taken out as well, on the
+depth ("drew 19 tiles to level 6; without imagery, 26 to level 7"); both
+reverted, green. Its TIMEOUT is 300 s, so a wait that never ends fails long
+before CI's 900. A stub listener for the slow refusals was tried and not
+added: the instant refusals take the same path on Linux, and the slow ones
+hang only the platforms whose own refusals are slow, which run this test.
 Linux after the change: the 9 related tests pass, the imagery-draped
 Taranaki shot among them (nothing given up where the imagery comes).
+
+**The Cesium Native bug, for an upgrade.** cesium-native v0.64.0 (our
+`ext/cesium-native`, 80a22ff4), and the same on its main as of 2026-10-28:
+`Cesium3DTilesSelection/src/RasterMappedTo3DTile.cpp`,
+`RasterMappedTo3DTile::update`, "Find the closest ready ancestor tile". The
+search keeps the last ancestor's overlay tile `findTileOverlay` returns,
+loaded or not; when the root-most such tile is one that failed and was
+marked ready, `pCandidate` is neither loaded (so not used) nor null (so the
+branch that marks this tile's own failure ready is not taken), and the tile
+keeps a failed loading tile and no ready one for good. `Tile::isRenderable`
+then stays false and `TilesetViewGroup::finishFrame` can count it loading
+for ever. Searched for upstream (cesium-native's and cesium-unreal's
+issues: "RasterMappedTo3DTile", "raster overlay never finishes loading",
+"failed tiles never load"): no issue found. The copied wait in
+`gfx/terrain_tiles.cpp` names the version it came from.
+
+**What the DEM meshes kept cost.** A tile's DEM-coloured mesh is 33 x 33
+vertices plus its skirt, about 1,220 at 36 bytes, and about 6,900 indices
+at 4: about 70 kB a tile, on the CPU only until its imagery fails. A shot
+here holds 83 to 86 tiles (6 MB); a flight held 161 on CI (11 MB). Kept,
+not freed when imagery attaches, because giving the imagery up takes it off
+tiles that had it, and those must then be drawn on the DEM's colours.
