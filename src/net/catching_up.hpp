@@ -115,9 +115,17 @@ public:
 
     std::int64_t owed() const { return owed_; }
     std::int64_t slipped() const { return slipped_; }
-    // Let go of everything owed, without counting it slipped: a run that
-    // stops where it is.
-    void forgive() { owed_ = 0; }
+    // **Let go of everything owed and everything slipped**: a run that stops
+    // where it is. A server's end takes what it owes and what it let slip, so
+    // that it flies the time it was given; one stopped on a count of steps
+    // (`--steps-after-hand-over`) is past its count at either. Slipped kept,
+    // a Windows debug server stopped at 14,400 steps with the AI flew 7 more
+    // at its end, and its handed aircraft was measured over 14,407 (CI,
+    // 2026-10-28).
+    void forgive() {
+        owed_ = 0;
+        slipped_ = 0;
+    }
 
 private:
     std::int64_t owed_ = 0;
