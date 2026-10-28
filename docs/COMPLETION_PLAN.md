@@ -1409,13 +1409,13 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       window client is still put right 6 to 9 m against a slowed server, and
       10 to 13 m against one keeping time, untested and unexplained; and on
       Windows one update in a hundred is off by two steps (1.1 m) - a named
-      limit, its cause found (2026-10-08), not fixed. And a server stopped
-      alone 3 s puts its client 55.6 m off (2026-10-22): the inputs that came
-      meanwhile are flown at most a quarter of a second late. Reproduced with
-      `glideslope_server --test-stopped-once`. (A server's slow start is
-      no longer owed and caught up after it, 2026-10-28.) Held up mid-run by
-      a shared CI runner, it puts the first-input test's clients 27 to 41 m
-      off, so that test and the F-22A's run alone until this is fixed.
+      limit, its cause found (2026-10-08), not fixed. A server held up now
+      flies every input from the step due when it came and catches up what it
+      can (2026-10-28): stopped alone 3 s, the 95th percentile 0.6 to 1.5 m
+      (was 15 m), but the worst still 4.9 m - the inputs that came in the
+      stall are flown as one, which needs inputs that name their step. (A
+      server's slow start is no longer owed, 2026-10-28.) The first-input
+      test and the F-22A's still run alone: not yet seen on CI held up.
 - [ ] **On Windows the server's word is placed two steps off now and then**:
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th

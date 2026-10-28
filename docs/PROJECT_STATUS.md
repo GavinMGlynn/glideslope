@@ -163,6 +163,10 @@ step from finite inputs still asserts in a debug build, and only
 glideslope_cli's trap names it (the window client has the guard alone), and what made the one CI saw is unknown (2026-10-23) - and see the
 others 100 ms in the past, over a reliable layer whose every parser is fuzzed. All of that
 holds, within stated bounds, through 200 ms of latency with jitter and loss.
+A server held up flies every input from the step due when it came and
+catches up what it can, letting slip only what it cannot (2026-10-28): stopped
+alone 3 s its client is within a metre for 95 updates in 100 - but the worst
+is still 4.9 m, the stick's moves in the stall flown as one.
 The client with the window flies on a server and draws everyone. Four clients
 on Windows and Linux have flown together with an AI Cessna, and a fifth was
 refused. A player's aircraft is held trimmed until her first input, and
