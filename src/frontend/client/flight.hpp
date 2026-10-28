@@ -175,14 +175,20 @@ public:
     // word of her own after joining begins the prediction anew, and one
     // begun from nothing made her STOVL law on a pitch trim of nought where
     // the server's flew the trim it had held her on (docs/status,
-    // 2026-10-29). Forgotten at a take-over: they are this aircraft's.
+    // 2026-10-29). Forgotten at a take-over, a take-back from the AI and a
+    // prediction let go of: what she was held on at joining is not what she
+    // flies after any of them.
     void held_by_server(const sim::Controls& held, std::optional<double> held_trim) {
         held_ = Held{held, held_trim};
         if (prediction_) {
             prediction_->held_by_server(held, held_trim);
+            begun_on_held_ = true;
         }
     }
     void forget_held() { held_.reset(); }
+    // Whether the prediction now flying was begun on those levers: said for
+    // a test that a take-back or a restart does not put them back.
+    bool begun_on_held() const { return begun_on_held_; }
     // **The pitch trim her prediction's STOVL law flies her on**, which the
     // law keeps from the controls it was made from; none while no law flies
     // her. For a test to hold against the server's (docs/status, 2026-10-29).
@@ -413,6 +419,7 @@ private:
         std::optional<double> trim;
     };
     std::optional<Held> held_;
+    bool begun_on_held_ = false;
     // What each prediction let go of went to, said once (let_go_if_lost).
     std::set<std::string> said_lost_;
     std::size_t let_go_ = 0;

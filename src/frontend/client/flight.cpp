@@ -199,6 +199,7 @@ bool Flight::heard_runway_conditions(const net::RunwayConditions& conditions) {
 void Flight::adopt(const sim::Motion& motion) {
     aircraft_->set_motion(motion);
     prediction_ = std::make_unique<sim::Prediction>(*aircraft_);
+    begun_on_held_ = held_.has_value();
     if (held_) {
         prediction_->held_by_server(held_->controls, held_->trim);
     }
@@ -266,6 +267,8 @@ bool Flight::let_go_if_lost(const sim::Motion& motion) {
                      aircraft_entry_.id.c_str(), static_cast<unsigned long long>(lost.step),
                      lost.what.c_str());
     }
+    // Begun again mid-flight: not on what she was held on at joining.
+    held_.reset();
     // A server's word not finite is no start: the next is waited for.
     if (!sim::first_not_finite(motion)) {
         adopt(motion);

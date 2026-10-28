@@ -106,6 +106,12 @@ if(NOT _let_go EQUAL 2)
     message(FATAL_ERROR "the prediction was let go of ${_let_go} times, not twice: "
                         "${_line}:\n${_out}")
 endif()
+# **Begun again from the server's word, not on the levers she was held on at
+# joining** (client::Flight::held_by_server, 2026-10-29).
+if(NOT _out MATCHES "her prediction was begun on the levers told at joining: no")
+    message(FATAL_ERROR "let go of, her prediction was begun again on the levers told at "
+                        "joining, or the client did not say:\n${_out}")
+endif()
 if(_since LESS 240)
     message(FATAL_ERROR "the client did not fly on from the server's state: ${_line}:\n${_out}")
 endif()

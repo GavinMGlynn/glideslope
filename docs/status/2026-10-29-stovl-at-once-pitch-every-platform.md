@@ -29,6 +29,15 @@ fixed.**
    begins (`Flight::held_by_server`, `Flight::adopt`), and forgets them at a
    take-over, since they are the aircraft's it joined with.
 
+3. *Kept too long* (from the review): kept for every prediction begun, the
+   levers of her joining were put back on the prediction begun again when
+   she is taken back from the AI and when a prediction gone to a number not
+   finite is let go of - mid-flight, on what she was held on minutes before.
+   Both now forget them (`Online::heard` at the take-back,
+   `Flight::let_go_if_lost`), as a take-over did. And the joining's wait for
+   them ends after a minute of askings all told, heard or not: past that the
+   server will not say them, and she flies on the client's own, said so.
+
 **Verification (b).**
 `the_client_with_the_window_whose_first_asking_for_her_levers_is_ignored_flies_her_stovl_law_on_the_servers_pitch_trim`
 (tests/cmake/client_stovl_at_once.cmake, ports 24880-24881): the server and
@@ -47,22 +56,28 @@ client must have been told her levers. Green here (linux-release): both
 - **Seen red, the levers not kept across the prediction begun again**: run
   by hand with the test's programs and arguments, told her levers (pitch trim
   0.075), her law flew her on 0 against the server's 0.074587237159337141.
+- **The take-back and the restart**: the window client says at its shot
+  whether the prediction flying her was begun on the levers told at
+  joining. `the_client_with_the_window_hands_its_aircraft_to_the_ai_on_a_server_and_takes_it_back`
+  and `the_client_with_the_window_lets_go_of_a_prediction_given_a_nan_and_flies_on_from_the_servers_state`
+  each require "no". **Seen red** with neither forgetting: both said "yes".
 - `every_test_servers_silence_timeout_is_thirty_seconds_or_more_unless_the_test_is_about_the_silence`:
-  its totals 61 and 49 for the new test's `--timeout 30`.
+  its totals 64 and 52 - #241's three 30 s uses and the new test's `--timeout 30`.
 
 **(a) The figures, every platform.** The at-once tests said their pitch only
 when they failed: a passed test's output is in ctest's LastTest.log and in no
-job's log, so CI's runs after #254 (40703093232, #262; 40660270759, #255)
-have no figure to read - every job's log was searched. Each at-once test now
+job's log, so CI's run 40703093232 (#262), after #254, has no figure to
+read - every job's log was searched. Each at-once test now
 says it as `figure (WORK): predicted pitch within X degrees` before judging
-it, and every test job of CI has a step, "The figures said", that prints
-every such line from LastTest.log whether the tests passed or not.
+it, and writes the same line to `figures.txt` in its work directory; every
+test job of CI has a step, "The figures said", that prints those files -
+not LastTest.log - whether the tests passed or not.
 
 **Why some were missing.** A test that runs ctest itself in the same build -
 the ports check, the shards check - writes LastTest.log afresh, and the
 figures of the tests before it in its shard went with it. Each at-once test
-now also writes its figure to `figures.txt` in its work directory, and the
-step prints those files.
+writes its figure to `figures.txt` for that reason (first run 40733120388
+read LastTest.log, and lost them).
 
 **The figures, CI's full run 40733120388 (0cb3f404), degrees:**
 
