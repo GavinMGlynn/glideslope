@@ -15,8 +15,9 @@
 #
 # **A slow machine is not let go.** The client stands still five seconds
 # after joining (`--slow-start 5`), as a slow machine building its flight
-# does, against a server that lets a silent client go after three: it must
-# stay in the session, and so be told the controls at all. A Windows debug
+# does: it must stay in the session, and so be told the controls at all. (The
+# server's timeout is 30 s, as a slow machine needs; that a client quiet past
+# a short timeout is kept is client_kept_while_away.cmake's.) A Windows debug
 # build was let go, heard one update, and drew its HUD without them.
 #
 # With TAKE_OVER, the client takes the AI's Cessna over four seconds in, with
@@ -114,7 +115,7 @@ set(_ready "${WORK}/flying")
 file(REMOVE "${_ready}")
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
-            --data "${DATA}" --timeout 3 --store "${_store}" --ready-file "${_ready}"
+            --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
             ${_server_take_over}
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 480x300
             --shot "${_shot}" --shot-at 1200 --view cockpit --ride-along --slow-start 5

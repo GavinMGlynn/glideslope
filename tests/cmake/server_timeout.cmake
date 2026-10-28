@@ -94,4 +94,4 @@ if(NOT _times EQUAL 1)
 endif()
 
 message(STATUS "the server admitted ${_who} to slot ${_slot} and let it go "
-               "after ${_after} s of silence, with --timeout 0.5")
+               "after ${_after} s of silence, with a timeout of 0.5 s")
