@@ -183,6 +183,10 @@ struct Options {
     // And the server's words as heard, for half a second from tick T
     // (`--test-nan-words-at T`).
     std::int64_t nan_words_at = -1;
+    // Test flag (`--test-imagery-url URL`): the open imagery fetched from this
+    // template instead of EOX's - one that answers nothing, for a test that
+    // every imagery fetch fails.
+    std::string test_imagery_url;
     double learnt_landing_after_s = -1.0;
     // **For a test: keys pressed**, each S seconds after joining, as a
     // player's finger would - the key's event, and the key held for one
@@ -253,6 +257,8 @@ void usage(std::FILE* out) {
         "  --toward      where the terrain screen looks, as --at is given\n"
         "  --imagery     drape the open imagery on the terrain (the default), or\n"
         "                tint it by height instead\n"
+        "  --test-imagery-url URL  fetch the open imagery from URL, a template\n"
+        "                as EOX's is, instead (for tests: one nothing answers)\n"
         "  --terrain     where the terrain drawn comes from: the open data, by\n"
         "                default, or Cesium ion or Google's Photorealistic 3D Tiles\n"
         "                with your own token or key. The ground the aircraft meets\n"
@@ -685,6 +691,9 @@ static int run_program(int argc, char** argv) {
             o.autopilot = true;
         } else if (a == "--plan" && has_value) {
             o.plan = std::string(args[++i]);
+        } else if (a == "--test-imagery-url" && has_value) {
+            o.test_imagery_url = std::string(args[++i]);
+            ok = !o.test_imagery_url.empty();
         } else if (a == "--imagery" && has_value) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
@@ -1296,7 +1305,8 @@ static int run_program(int argc, char** argv) {
             terrain = glideslope::client::open_terrain(
                 renderer, glideslope::platform::data_directory(),
                 glideslope::platform::cache_directory(), region, o.imagery,
-                *glideslope::gfx::provider_named(o.terrain_provider));
+                *glideslope::gfx::provider_named(o.terrain_provider),
+                o.test_imagery_url);
         }
 
         // The weather to be seen: the flight's report's, made again when a new
@@ -1722,6 +1732,8 @@ static int run_program(int argc, char** argv) {
         // flying, said at the shot; and the longest of all, said at the end.
         double longest_away_s = 0.0;
         bool said_away_at_shot = false;
+        // Whether it has said, once, that imagery could not be fetched.
+        bool said_imagery_failed = false;
         if (online && joined) {
             longest_away_s = online->longest_kept_since_asked_s();
             std::printf("glideslope: built its flight; away from its session %.1f s at the "
@@ -2604,6 +2616,12 @@ static int run_program(int argc, char** argv) {
                 if (glideslope::platform::stop_requested()) {
                     break; // told to stop while it waited: no frame, and no shot
                 }
+                if (!said_imagery_failed && terrain->counts().imagery_failed > 0) {
+                    said_imagery_failed = true;
+                    std::fputs("glideslope: imagery could not be fetched; the terrain "
+                               "without it is drawn on the DEM's colours\n",
+                               stderr);
+                }
             }
             pass_part(pass_times.terrain);
             if (flight && flight->weather_report() != nullptr &&
@@ -2721,13 +2739,25 @@ static int run_program(int argc, char** argv) {
             // Where the help's columns end: above the credits drawn.
             int help_ends_at = o.height;
             if (terrain) {
+                // The imagery's credit wherever any of it is drawn: not when
+                // every tile drawn is on the DEM's colours, its imagery not to
+                // be had - neither ours nor the one Cesium Native collects.
+                const auto drawn_tiles = terrain->counts();
+                const bool none_of_the_imagery =
+                    drawn_tiles.drawn > 0 &&
+                    drawn_tiles.imagery_failed == drawn_tiles.drawn;
+                const std::string imagery_credit =
+                    glideslope::gfx::open_imagery().credit;
                 if (terrain->provider() == glideslope::gfx::Provider::open) {
                     credits.emplace_back(glideslope::world::copernicus_dem_notice);
-                    if (o.imagery) {
-                        credits.emplace_back(glideslope::gfx::open_imagery().credit);
+                    if (o.imagery && !none_of_the_imagery) {
+                        credits.push_back(imagery_credit);
                     }
                 }
                 for (std::string& credit : terrain->credits()) {
+                    if (none_of_the_imagery && credit == imagery_credit) {
+                        continue;
+                    }
                     if (std::find(credits.begin(), credits.end(), credit) ==
                         credits.end()) {
                         credits.push_back(std::move(credit));
@@ -2978,6 +3008,17 @@ static int run_program(int argc, char** argv) {
                     std::printf("glideslope: terrain of %zu tiles, %zu loaded, the "
                                 "deepest at level %zu\n",
                                 counts.drawn, counts.loaded, counts.deepest);
+                    // **Imagery that could not be fetched does not cost the
+                    // frame**: those tiles are drawn on the DEM's colours, and
+                    // this says so. A host resetting its connections took a
+                    // shot with it on CI (run 40618052854).
+                    if (counts.imagery_failed > 0) {
+                        std::fprintf(
+                            stderr,
+                            "glideslope: %zu terrain tiles were drawn on the "
+                            "DEM's colours: their imagery could not be fetched\n",
+                            counts.imagery_failed);
+                    }
                     if (counts.without_imagery > 0) {
                         throw std::runtime_error(
                             std::to_string(counts.without_imagery) +

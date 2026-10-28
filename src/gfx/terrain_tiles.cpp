@@ -549,8 +549,17 @@ int32_t add_accessor(CesiumGltf::Model& model, const std::vector<T>& values,
     return static_cast<int32_t>(model.accessors.size() - 1);
 }
 
+// The glTF attribute a tile's DEM colours are kept in beside its imagery's
+// light: an application's own, so beginning with an underscore.
+constexpr const char* dem_colour_attribute = "_DEM_COLOUR";
+
 // A terrain mesh as a glTF model, its positions relative to the mesh's origin
 // - the tile's transform - and each vertex coloured.
+//
+// **With imagery, the DEM's colours go too**, as `_DEM_COLOUR`: COLOR_0 is
+// then the slope's light alone, for the imagery to be multiplied by, and a
+// tile whose imagery cannot be fetched is drawn on these instead of the
+// light's bare grey.
 CesiumGltf::Model terrain_model(const world::TerrainMesh& mesh, bool imagery) {
     CesiumGltf::Model model;
     model.asset.version = "2.0";
@@ -561,6 +570,7 @@ CesiumGltf::Model terrain_model(const world::TerrainMesh& mesh, bool imagery) {
 
     std::vector<glm::vec4> colours;
     colours.reserve(mesh.positions.size());
+    std::vector<glm::vec4> dem_colours;
     for (std::size_t v = 0; v < mesh.positions.size(); ++v) {
         const auto& p = mesh.positions[v];
         const world::Geodetic g =
@@ -571,12 +581,13 @@ CesiumGltf::Model terrain_model(const world::TerrainMesh& mesh, bool imagery) {
         const world::Ecef normal{static_cast<double>(n[0]), static_cast<double>(n[1]),
                                  static_cast<double>(n[2])};
         const world::Ecef up = up_at(g.latitude_deg, g.longitude_deg);
+        const auto c = terrain_colour(
+            static_cast<double>(mesh.heights_above_sea_level[v]), normal, up);
         if (imagery) {
             const auto light = static_cast<float>(terrain_light(normal, up));
             colours.emplace_back(light, light, light, 1.0f);
+            dem_colours.emplace_back(c[0], c[1], c[2], c[3]);
         } else {
-            const auto c = terrain_colour(
-                static_cast<double>(mesh.heights_above_sea_level[v]), normal, up);
             colours.emplace_back(c[0], c[1], c[2], c[3]);
         }
     }
@@ -607,6 +618,12 @@ CesiumGltf::Model terrain_model(const world::TerrainMesh& mesh, bool imagery) {
         add_accessor(model, colours, CesiumGltf::Accessor::ComponentType::FLOAT,
                      CesiumGltf::Accessor::Type::VEC4, vertices,
                      CesiumGltf::BufferView::Target::ARRAY_BUFFER);
+    if (imagery) {
+        primitive.attributes[dem_colour_attribute] =
+            add_accessor(model, dem_colours, CesiumGltf::Accessor::ComponentType::FLOAT,
+                         CesiumGltf::Accessor::Type::VEC4, vertices,
+                         CesiumGltf::BufferView::Target::ARRAY_BUFFER);
+    }
     primitive.indices = add_accessor(
         model, mesh.indices, CesiumGltf::Accessor::ComponentType::UNSIGNED_INT,
         CesiumGltf::Accessor::Type::SCALAR, static_cast<int64_t>(mesh.indices.size()),
@@ -775,12 +792,20 @@ struct LoadedTile {
     // entry per mesh above: which of `images` it uses, or -1 for none.
     std::vector<int> mesh_image;
     std::vector<RasterPixels> images;
+    // **The open terrain's meshes again on the DEM's colours**, where it is
+    // draped with imagery: drawn instead if the imagery cannot be fetched.
+    std::vector<std::pair<Mesh, Placement>> dem_meshes;
 };
 
 struct DrawnTile {
     std::vector<Draw> draws;
     std::vector<TextureId> textures; // the tile's own, to free with it
     bool imagery = false;            // an imagery tile is attached
+    // The tile on the DEM's colours, for when its imagery could not be
+    // fetched: kept here until it is first wanted, and only then put on the
+    // GPU, so that imagery that arrives costs no second mesh there.
+    std::vector<std::pair<Mesh, Placement>> dem_meshes;
+    std::vector<Draw> dem_draws;
 };
 
 struct RasterTexture {
@@ -1011,6 +1036,13 @@ void meshes_from_model(CesiumGltf::Model& model, const glm::dmat4& tile_transfor
         placement.world_from_local =
             Mat3::columns({m[0][0], m[0][1], m[0][2]}, {m[1][0], m[1][1], m[1][2]},
                           {m[2][0], m[2][1], m[2][2]});
+        const auto dem = primitive.attributes.find(dem_colour_attribute);
+        if (dem != primitive.attributes.end()) {
+            Mesh on_dem = mesh;
+            if (read_colours(gltf, dem->second, on_dem.vertices)) {
+                out.dem_meshes.emplace_back(std::move(on_dem), placement);
+            }
+        }
         out.meshes.emplace_back(std::move(mesh), placement);
         out.mesh_image.push_back(uses_image);
     });
@@ -1035,6 +1067,22 @@ void meshes_from_model(CesiumGltf::Model& model, const glm::dmat4& tile_transfor
         }
         which = where[at];
     }
+}
+
+// Whether a tile's imagery could not be fetched: an overlay of it settled on
+// a raster tile that failed, with nothing still loading - what Cesium Native
+// does when the tile's own imagery fails and no ancestor's is there to stand
+// in for it.
+bool imagery_failed(const Tile& tile) {
+    for (const auto& mapped : tile.getMappedRasterTiles()) {
+        const auto* ready = mapped.getReadyTile();
+        if (mapped.getLoadingTile() == nullptr && ready != nullptr &&
+            ready->getState() ==
+                CesiumRasterOverlays::RasterOverlayTile::LoadState::Failed) {
+            return true;
+        }
+    }
+    return false;
 }
 
 class RendererResources final
@@ -1081,6 +1129,7 @@ public:
             }
             drawn->draws.push_back(draw);
         }
+        drawn->dem_meshes = std::move(loaded->dem_meshes);
         return drawn.release();
     }
 
@@ -1089,6 +1138,9 @@ public:
         const std::unique_ptr<DrawnTile> drawn(static_cast<DrawnTile*>(main_result));
         if (drawn) {
             for (const Draw& d : drawn->draws) {
+                renderer_.remove_mesh(d.mesh);
+            }
+            for (const Draw& d : drawn->dem_draws) {
                 renderer_.remove_mesh(d.mesh);
             }
             for (const TextureId id : drawn->textures) {
@@ -1194,6 +1246,9 @@ struct TerrainTiles::Impl {
     std::atomic<std::size_t> skipped{0};
     bool imagery = false;
     Provider provider = Provider::open;
+    // The renderer the tiles are drawn by, for a tile's DEM-coloured meshes,
+    // put on the GPU when its imagery is found to have failed.
+    Renderer* renderer = nullptr;
     std::shared_ptr<CesiumUtility::CreditSystem> credit_system;
     // What the provider itself said must be shown, before a tile has loaded.
     std::vector<std::string> from_provider;
@@ -1440,6 +1495,7 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
     impl_->credit_system = externals.pCreditSystem;
     impl_->provider = options.provider;
     impl_->imagery = options.provider == Provider::open && options.imagery.has_value();
+    impl_->renderer = &renderer;
 
     Cesium3DTilesSelection::TilesetOptions tileset_options;
     tileset_options.maximumScreenSpaceError = options.maximum_screen_space_error;
@@ -1811,20 +1867,40 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
     impl_->counts.drawn = 0;
     impl_->counts.deepest = 0;
     impl_->counts.without_imagery = 0;
+    impl_->counts.imagery_failed = 0;
     for (const auto& tile : result.tilesToRenderThisFrame) {
         const auto* content = tile->getContent().getRenderContent();
         if (content == nullptr) {
             continue;
         }
-        const auto* drawn =
-            static_cast<const DrawnTile*>(content->getRenderResources());
+        auto* drawn = static_cast<DrawnTile*>(content->getRenderResources());
         if (drawn == nullptr) {
             continue;
         }
-        draws.insert(draws.end(), drawn->draws.begin(), drawn->draws.end());
         ++impl_->counts.drawn;
-        if (impl_->imagery && !drawn->imagery) {
-            ++impl_->counts.without_imagery;
+        // **A tile whose imagery could not be fetched is drawn on the DEM's
+        // colours**, and counted apart: Cesium Native marks its imagery
+        // failed when no ancestor's could stand in for it either, and
+        // attaches nothing. Any other tile without its imagery is drawn as
+        // it is, on the light alone, and counted as without it.
+        if (impl_->imagery && !drawn->imagery && imagery_failed(*tile) &&
+            (!drawn->dem_meshes.empty() || !drawn->dem_draws.empty())) {
+            if (drawn->dem_draws.empty()) {
+                for (const auto& [mesh, placement] : drawn->dem_meshes) {
+                    if (!mesh.indices.empty()) {
+                        drawn->dem_draws.push_back(
+                            Draw{impl_->renderer->add_mesh(mesh), placement});
+                    }
+                }
+                drawn->dem_meshes.clear();
+            }
+            draws.insert(draws.end(), drawn->dem_draws.begin(), drawn->dem_draws.end());
+            ++impl_->counts.imagery_failed;
+        } else {
+            draws.insert(draws.end(), drawn->draws.begin(), drawn->draws.end());
+            if (impl_->imagery && !drawn->imagery) {
+                ++impl_->counts.without_imagery;
+            }
         }
         if (const auto* id = std::get_if<QuadtreeTileID>(&tile->getTileID())) {
             impl_->counts.deepest =

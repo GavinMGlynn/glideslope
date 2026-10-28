@@ -79,12 +79,10 @@ std::unique_ptr<gfx::TerrainTiles> open_terrain_to_measure(
     return open_terrain(renderer, data, cache, region, false, provider);
 }
 
-std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
-                                                const std::filesystem::path& data,
-                                                const std::filesystem::path& cache,
-                                                const world::GeoRectangle& region,
-                                                bool imagery,
-                                                gfx::Provider provider) {
+std::unique_ptr<gfx::TerrainTiles>
+open_terrain(gfx::Renderer& renderer, const std::filesystem::path& data,
+             const std::filesystem::path& cache, const world::GeoRectangle& region,
+             bool imagery, gfx::Provider provider, const std::string& imagery_url) {
     const std::shared_ptr<Ground> ground = open_ground(data, cache);
 
     gfx::TerrainOptions options;
@@ -95,6 +93,9 @@ std::unique_ptr<gfx::TerrainTiles> open_terrain(gfx::Renderer& renderer,
     options.google_key = platform::google_maps_key();
     if (imagery) {
         options.imagery = gfx::open_imagery();
+        if (!imagery_url.empty()) {
+            options.imagery->url = imagery_url;
+        }
     }
     // Named apart from the downloads, so that two programs sharing this
     // directory do not share one SQLite file. See platform/paths.hpp.

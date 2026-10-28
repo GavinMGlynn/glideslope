@@ -1666,6 +1666,12 @@ What the client with the window does that the command-line client does, and what
       and the Learjet 35A alike; the same run with `--imagery off` exits 0
       (PROJECT_STATUS, 2026-10-10, the Learjet drawn). *Verification: a shot
       run with imagery on, whose tile is refused, exits 0.*
+- [x] **A window client whose imagery cannot be fetched draws nothing**: its
+      shot refused tiles drawn without their imagery, so a host resetting its
+      connections cost a test its frame on CI. *Verification: with every
+      imagery fetch refused, the window client still draws its frame, on the
+      DEM's colours, held to the DEM's ray-cast as the shot without imagery
+      is, and says why.* Done 2026-10-28.
 - [ ] **No player can fly a lesson or watch the instructor.** Lessons and
       the instructor run in the simulation and its tests alone; no client,
       server or command line starts one (PROJECT_STATUS, 2026-10-13).

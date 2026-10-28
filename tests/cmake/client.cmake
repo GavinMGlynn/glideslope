@@ -155,6 +155,10 @@ endfunction()
 #   kept, so CI requires it and a failure there is a failure.
 #
 # Anything else, or a run that exited 0, it leaves to the caller.
+#
+# **A run whose imagery could not be fetched draws its frame anyway**, on
+# the DEM's colours, exits 0 and says so; a test that is about the imagery
+# itself asks glideslope_skip_when_imagery_not_fetched, below, as well.
 function(glideslope_skip_when_not_downloaded rc err)
     if(rc EQUAL 0)
         return()
@@ -171,6 +175,21 @@ function(glideslope_skip_when_not_downloaded rc err)
         message(STATUS "what this needs could not be downloaded, so it is skipped: ${err}")
         cmake_language(EXIT 77)
     endif()
+endfunction()
+
+# **A test of the imagery itself, whose imagery could not be fetched**, is
+# skipped (exit 77) as a download that failed is: unless
+# GLIDESLOPE_REQUIRE_NETWORK is set, when it fails. The client says so when
+# a tile it drew had its imagery fail, and draws it on the DEM's colours.
+function(glideslope_skip_when_imagery_not_fetched err)
+    if(NOT err MATCHES "their imagery could not be fetched")
+        return()
+    endif()
+    if("$ENV{GLIDESLOPE_REQUIRE_NETWORK}" STREQUAL "")
+        message(STATUS "the imagery could not be fetched, so this is skipped: ${err}")
+        cmake_language(EXIT 77)
+    endif()
+    message(FATAL_ERROR "the imagery could not be fetched:\n${err}")
 endfunction()
 
 function(glideslope_client out)

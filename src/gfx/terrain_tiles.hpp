@@ -137,8 +137,12 @@ public:
         std::size_t deepest = 0; // the deepest level drawn
         std::size_t failed = 0;  // tiles that could not be made, ever
         std::size_t skipped = 0; // glTF primitives that could not be drawn, ever
-        // With imagery, tiles drawn in the last update with none on them yet.
+        // With imagery, tiles drawn in the last update with none on them yet,
+        // for no reason known.
         std::size_t without_imagery = 0;
+        // With imagery, tiles drawn in the last update whose imagery could
+        // not be fetched: on the DEM's colours, as without imagery.
+        std::size_t imagery_failed = 0;
     };
     Counts counts() const;
 
