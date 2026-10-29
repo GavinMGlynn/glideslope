@@ -1044,9 +1044,21 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_as_15_kt_of_crosswind_arrives_sta
     std::size_t left_out = 0;
     std::vector<std::string> wrong;
     for (const auto& entry : catalogue) {
-        if (entry.seaplane || entry.id == "j3cub" ||
-            !glideslope::sim::her_figures(data(), entry.model).lands) {
-            std::printf("  left out - %s: as in the wet roll-out test, named there\n",
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat has no wheels\n", entry.id.c_str());
+            ++left_out;
+            continue;
+        }
+        if (entry.id == "j3cub") {
+            std::printf("  left out - j3cub: the roll-out never brings her below half a knot "
+                        "in 400 s, and she ground-loops landing in 15 kt across (an open "
+                        "item)\n");
+            ++left_out;
+            continue;
+        }
+        if (!glideslope::sim::her_figures(data(), entry.model).lands) {
+            std::printf("  left out - %s: she publishes no stall speed, so the AI lands her "
+                        "nowhere\n",
                         entry.id.c_str());
             ++left_out;
             continue;
