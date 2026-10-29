@@ -45,7 +45,9 @@ kept outside the repository, in an untracked scratch directory
 **What happens next.** Its second failure for this cause moved it to the
 nightly run, named in `tests/cmake/nightly_tests.cmake` with both runs, as
 CLAUDE.md asks of a test that failed on CI twice for one cause: a nightly
-failure of it is reported here, not a red tree. It comes back to pull
+failure of it is reported in its plan item, not a red tree. The shard
+check (every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once)
+passed on a linux-release build of this commit. It comes back to pull
 requests when the cause is fixed. The hold #268 lands - a fetch let go when
 nothing else is in flight, and everything after 120 s - may be the base the
 deterministic late-imagery hook lacked.
