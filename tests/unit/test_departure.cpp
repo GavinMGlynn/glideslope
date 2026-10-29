@@ -975,8 +975,7 @@ GLIDESLOPE_TEST(every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_a
         }
         if (entry.id == "j3cub") {
             std::printf("  left out - j3cub: the roll-out never brings her below half a knot "
-                        "in 400 s, and she ground-loops landing in 15 kt across (an open "
-                        "item)\n");
+                        "in 400 s\n");
             ++left_out;
             continue;
         }

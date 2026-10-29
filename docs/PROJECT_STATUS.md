@@ -141,7 +141,9 @@ instructor, the AI pilot, demonstrating each and handing the controls over
 and back with no step. The AI pilot takes off, flies the pattern, lands and
 stops - on water, too, in the flying boat - every one of the fourteen
 upright on its wheels from the touch to the stop, the jets as the FAA lands
-a jet. The 747-400 and F-22A are taught turns alone, having no stall or
+a jet. The J-3 Cub is landed in every crosswind up to her published 12 kt,
+from either side, dry and wet - a figure the EAA gives, not Piper, who
+published none (2026-10-29). The 747-400 and F-22A are taught turns alone, having no stall or
 climbing speed; the Learjet cannot be rotated early since her stabilizer
 was tied to her maintenance manual (a tail). See the log for 2026-09-22 to
 2026-09-24, and later entries for what was fixed since (the F-35B's
