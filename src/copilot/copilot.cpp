@@ -366,26 +366,30 @@ std::string landing_refusal(double approach_kts, double dry_need_m, double wet_n
                     : std::nullopt;
     const bool wet_by_weather =
         wet_runways && wet_runways->radius_m > 0.0 &&
-        sim::distance_m(field->latitude_deg, field->longitude_deg, wet_runways->latitude_deg,
+        sim::distance_m(field->latitude_deg, field->longitude_deg,
+                        wet_runways->latitude_deg,
                         wet_runways->longitude_deg) <= wet_runways->radius_m;
     const int code = std::min(reported.value_or(6), wet_by_weather ? 5 : 6);
     // **Nil braking closes a runway** (AC 91-79B 4.8.1.4): refused at any
     // length, to every aircraft.
-    const std::optional<double> factor = world::landing_distance_factor(code, reverse_thrust);
+    const std::optional<double> factor =
+        world::landing_distance_factor(code, reverse_thrust);
     if (!factor) {
-        return runway + " is reported at runway condition code " + std::to_string(code) +
-               ", nil braking, and is closed: choose another";
+        return runway + " is reported at runway condition code " +
+               std::to_string(code) + ", nil braking, and is closed: choose another";
     }
     double need_m = code == 6 ? dry_need_m : wet_need_m;
     if (code <= 4) {
         need_m = std::max(need_m, landing_distance_m * *factor);
     }
     if (need_m > 0.0 && length_m < need_m) {
-        const std::string on = code == 6   ? std::string()
-                               : code == 5 ? std::string(" on a wet runway")
-                                           : " on a runway reported at runway condition code " +
-                                                 std::to_string(code);
-        return runway + " has " + std::to_string(static_cast<long>(std::floor(length_m))) +
+        const std::string on = code == 6 ? std::string()
+                               : code == 5
+                                   ? std::string(" on a wet runway")
+                                   : " on a runway reported at runway condition code " +
+                                         std::to_string(code);
+        return runway + " has " +
+               std::to_string(static_cast<long>(std::floor(length_m))) +
                " m to land on, and the aircraft needs " +
                std::to_string(static_cast<long>(std::ceil(need_m))) + " m" + on +
                ": choose a longer one";

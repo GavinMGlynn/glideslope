@@ -167,10 +167,12 @@ std::optional<int> reported_condition(const std::vector<ContaminatedRunway>& rep
     // either end.
     const double half_m = end.length_m / 2.0;
     const double heading = end.heading_deg * radians;
-    const double latitude = end.latitude_deg + half_m * std::cos(heading) / metres_per_degree;
+    const double latitude =
+        end.latitude_deg + half_m * std::cos(heading) / metres_per_degree;
     const double longitude =
         end.longitude_deg +
-        half_m * std::sin(heading) / (metres_per_degree * std::cos(end.latitude_deg * radians));
+        half_m * std::sin(heading) /
+            (metres_per_degree * std::cos(end.latitude_deg * radians));
     std::optional<int> code;
     for (const ContaminatedRunway& c : reported) {
         if (on_runway(c.end, latitude, longitude) && (!code || c.code < *code)) {

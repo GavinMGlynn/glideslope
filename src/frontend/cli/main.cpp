@@ -5058,7 +5058,8 @@ int stay(glideslope::platform::UdpSocket& socket,
                     try {
                         glideslope::world::WeatherReport heard_air;
                         if (!w.metar.empty()) {
-                            heard_air.surface.metar = glideslope::world::parse_metar(w.metar);
+                            heard_air.surface.metar =
+                                glideslope::world::parse_metar(w.metar);
                         }
                         heard_air.surface.latitude_deg = w.latitude_deg;
                         heard_air.surface.longitude_deg = w.longitude_deg;
@@ -5098,7 +5099,8 @@ int stay(glideslope::platform::UdpSocket& socket,
                             told_air.contaminated.push_back(
                                 glideslope::frontend::condition_heard(c));
                         }
-                        wet_runways_heard = glideslope::frontend::wet_runways(&told_air);
+                        wet_runways_heard =
+                            glideslope::frontend::wet_runways(&told_air);
                     }
                     break;
                 }

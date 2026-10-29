@@ -2467,7 +2467,8 @@ double wet_landing_need_m(const std::filesystem::path& data, const std::string& 
 }
 
 double landing_distance_m(const std::filesystem::path& data, const std::string& model) {
-    return read_published_figures(data / "figures" / (model + ".xml")).landing_distance_m;
+    return read_published_figures(data / "figures" / (model + ".xml"))
+        .landing_distance_m;
 }
 
 PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model) {

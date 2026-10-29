@@ -1,16 +1,29 @@
-### A copilot's or planner's landing on a runway reported contaminated is sized by AC 91-79B's factors for its code, and refused at nil braking, 2026-10-29 — item done
+### A copilot's or planner's landing on a runway reported contaminated is sized by AC 91-79B's factors for its code, and refused at nil braking, 2026-10-29 — item still open
 
 **What is still missing, first.** **The model is not told the runway's
-condition**: what it is shown is unchanged, so that none of the copilot's
-and planner's recordings has to be made again with a key. It learns of a
-contaminated runway only when its landing on one is refused and the
-refusal, naming the code, is told back to it. **The factors are the FAA's
+condition, so the item stays open.** What it is shown is unchanged,
+because a change there changes every copilot and planner prompt, and all
+13 recordings would have to be made again with the owner's keys - as the
+runway-length item's prompt change waits too. It learns of a contaminated
+runway only when its landing on one is refused and the refusal, naming the
+code, is told back to it. **The factors are the FAA's
 generic ones**, not any maker's: AC 91-79B uses them where the maker gives
 no advisory data, and no aircraft here publishes landing distances on snow,
 slush or ice. **No turboprop row is used**, since there is no turboprop
-here, and **code 5 is not sized from the table**: a runway reported wet or
-damp is judged as rain makes it, by the wet need (1.15 times the dry, or
-her own wet figure), as before. **Code 0 never arrives from a report**:
+here, and **codes 6 and 5 are not sized from the table**: they keep the
+existing dry and wet rule (her factored dry need, and 1.15 times it or her
+own wet figure). That rule asks less than table 3-1 does. A C172P needs
+1.43 times her unfactored 390 m dry (the AC gives 1.67) and 1.64 times it
+wet (the AC gives 2.6 for a smooth runway), then 2.8 times at code 4. So
+the need jumps between codes 5 and 4. It is left because moving codes 6
+and 5 onto the table would change every dry and wet refusal in the
+recorded conversations, and so the 13 recordings, for a rule this item
+did not ask about. **The four measured landing distances count an air
+distance twice**: the B-2A's, F-35B's, J-3 Cub's and Mosquito's are the
+simulation's own landings, threshold to stop, flown at a glidepath aimed
+300 m in, not flight-manual figures. Table 3-1's factors allow for an
+operational air distance on top, so for those four the contaminated need
+is larger than the AC intends, which errs safe. **Code 0 never arrives from a report**:
 WMO's braking-action table stops at 91 (poor), and SNOCLO is laid as code 1
 (2026-10-14), so nil is refused only when something reports it, which
 nothing yet does. **The server's AI planners are told what the METAR says
@@ -78,7 +91,15 @@ from its other end.
 lays `R29C/7901//` (ice) from a dry METAR on a 1,000 m YSBK 29C and
 refuses the C172P there, through `frontend::wet_runways`, the copilot's
 Situation and the planner's request. Without the group it is taken.
-Neither test uses a model or a key.
+Neither test uses a model or a key. **Two paths are not tested**: the
+CLI client laying the runways it is told on its last weather
+(`frontend/cli/main.cpp`, `Heard::runway_conditions`), and the server
+laying a METAR's states before its AI planners plan
+(`frontend/server/main.cpp`, before the fleet is built). Both need a model
+answer that lands on the icy runway. Making one needs a new recording with
+a key, and a server test also needs the station's runways, so no cheap
+test reaches them. Both feed `frontend::wet_runways` and
+`landing_refusal`, which the tests above cover.
 
 **Seen red.** With the new refusal taken out of `landing_refusal` (code 0
 not refused, and codes 4 to 1 judged as wet), both tests failed: the walk
