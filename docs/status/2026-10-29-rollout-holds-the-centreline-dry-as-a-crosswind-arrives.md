@@ -34,8 +34,8 @@ branch) had two faults in a crosswind that arrives:
   and 0.5.
 - **Nothing learnt the steady push.** The rudder a crosswind needs, and the
   crab that cancels her tyres slipping downwind, are now learnt by an
-  integral of her **track** error over the ground (her heading below 5 kt,
-  where a track is not worth reading), at 0.1 of rudder a degree-second,
+  integral of her **track** error over the ground, at 0.1 of rudder a
+  degree-second, learnt only above 5 kt (below),
   not learnt past the rudder's stop; it starts from nothing at each hand-over
   (`ground_rudder_trim_`, reset in `resume`).
 - **Not at a walking pace.** From 10 kt down to 5 kt the gains ease back to
@@ -75,3 +75,7 @@ across arriving at once, Linux release, before and after:
 - The wet roll-out test (30 m), the wet side grip's slide test (every jet
   still slides at least 1.2 times as fast wet; least now the B-2A at 1.60)
   and the full suite pass on Linux release.
+- **Its CI cost** is entered as the wet roll-out test's in each preset's
+  table (the same twelve aeroplanes rolled out dry and wet): 69 s in
+  linux-debug, where the draft run measured it at 49.1 s beside the wet
+  test's 49.0 s. macos-debug's table has neither.
