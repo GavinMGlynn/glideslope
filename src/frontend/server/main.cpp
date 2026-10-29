@@ -4987,9 +4987,10 @@ int run(const Options& o) {
             given.surface.latitude_deg = (*o.station)[0];
             given.surface.longitude_deg = (*o.station)[1];
         }
-        glideslope::world::WeatherReport* planned_in = station_weather ? &*station_weather
-                                                       : !o.metar.empty() && o.station ? &given
-                                                                                       : nullptr;
+        glideslope::world::WeatherReport* planned_in =
+            station_weather                 ? &*station_weather
+            : !o.metar.empty() && o.station ? &given
+                                            : nullptr;
         // **And told the runways its runway-state groups lie on**: laid here,
         // before they plan, on the station's runways from the same file their
         // plans' runways come from (plan_by_model) - not waited for on a
@@ -5001,17 +5002,20 @@ int run(const Options& o) {
                         [](const auto& p) { return !p.second.provider.empty(); })) {
             try {
                 const std::vector<glideslope::world::RunwayEnd> all =
-                    glideslope::world::world_runways(glideslope::platform::cache_directory(),
-                                                     glideslope::world::http_fetch());
+                    glideslope::world::world_runways(
+                        glideslope::platform::cache_directory(),
+                        glideslope::world::http_fetch());
                 planned_in->contaminated = glideslope::world::contaminated_runways(
                     planned_in->surface.metar,
-                    glideslope::world::runways_at(all, planned_in->surface.metar.station));
+                    glideslope::world::runways_at(all,
+                                                  planned_in->surface.metar.station));
                 std::printf("planners told %zu runway%s reported contaminated\n",
                             planned_in->contaminated.size(),
                             planned_in->contaminated.size() == 1 ? "" : "s");
             } catch (const std::exception& e) {
                 std::fprintf(stderr,
-                             "glideslope_server: the runways cannot be had, and the planners are "
+                             "glideslope_server: the runways cannot be had, and the "
+                             "planners are "
                              "told of no runway reported contaminated: %s\n",
                              e.what());
             }

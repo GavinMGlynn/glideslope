@@ -43,11 +43,13 @@ std::optional<world::WetRunways> wet_runways(const world::WeatherReport* report)
     if (report == nullptr) {
         return std::nullopt;
     }
-    const bool wet = world::runway_condition_of(report->surface.metar) != sim::dry_runway;
+    const bool wet =
+        world::runway_condition_of(report->surface.metar) != sim::dry_runway;
     if (!wet && report->contaminated.empty()) {
         return std::nullopt;
     }
-    return world::WetRunways{report->surface.latitude_deg, report->surface.longitude_deg,
+    return world::WetRunways{report->surface.latitude_deg,
+                             report->surface.longitude_deg,
                              wet ? world::metar_radius_m : 0.0, report->contaminated};
 }
 
