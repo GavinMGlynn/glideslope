@@ -833,8 +833,15 @@ Controls Lander::fly_laws() {
         // ground, not her heading, so that what is learnt is the rudder that
         // keeps her rolling along the line: the track is where she goes. Not
         // learnt past the stop of the rudder (it would only have to be
-        // unlearnt), and below five knots, where a track is not yet worth
-        // reading, from her heading.
+        // unlearnt). **Not at walking pace**: from ten knots down to
+        // `autobrake_off_kts` the gains ease back to the old 0.10 and 0.30
+        // and nothing more is learnt, so that at a walking pace - where the
+        // rudder past half its travel brings in the steering brake
+        // (`toe_brakes`) and the walking-pace brakes are pinned - she is
+        // steered as before; held to the new gains there, five landplanes'
+        // brakes reached their rolling ceiling handed over at 2.5 kt across.
+        const double rolling = std::clamp(
+            (rolling_kts - autobrake_off_kts) / autobrake_off_kts, 0.0, 1.0);
         const double track_known = std::clamp((rolling_kts - 2.0) / 3.0, 0.0, 1.0);
         const double track_deg = std::atan2(a_.property("velocities/v-east-fps"),
                                             a_.property("velocities/v-north-fps")) *
@@ -842,9 +849,10 @@ Controls Lander::fly_laws() {
         const double track_error =
             std::remainder(runway_.heading_deg + want - track_deg, 360.0);
         const double held_error = track_known * track_error + (1.0 - track_known) * error;
-        const double pointed = 0.4 * error - 0.5 * r_degps;
+        const double pointed =
+            (0.10 + 0.30 * rolling) * error - (0.30 + 0.20 * rolling) * r_degps;
         const double asked = pointed + ground_rudder_trim_;
-        if (std::abs(asked) < 1.0 || asked * held_error < 0.0) {
+        if (rolling > 0.0 && (std::abs(asked) < 1.0 || asked * held_error < 0.0)) {
             ground_rudder_trim_ = std::clamp(
                 ground_rudder_trim_ + 0.1 * held_error / steps_per_second, -1.0, 1.0);
         }
