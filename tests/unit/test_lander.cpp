@@ -355,7 +355,8 @@ namespace {
 constexpr int cub_published_crosswind_kts = 12;
 
 // From a mile out on the glidepath: the item is the touch and the roll-out,
-// and a mile is a minute of her final, settled on the line before the flare.
+// and a mile is a minute of her final, still settling on the line (1.7 to 2.1 m
+// off it at 12 kt inside the mile) but touching as from 5 nm out.
 constexpr double cub_start_nm = 1.0;
 
 void the_cub_lands_in_every_crosswind_within_her_limit(double side, bool wet) {
@@ -372,15 +373,15 @@ void the_cub_lands_in_every_crosswind_within_her_limit(double side, bool wet) {
         if (!l.touched) {
             this_one.push_back("the Cub never touched down" + where);
         }
-        if (std::abs(l.across_m) > 5.0) {
+        if (!(std::abs(l.across_m) <= 5.0)) {
             this_one.push_back("the Cub touched down " + std::to_string(l.across_m) +
                                " m from the centreline" + where);
         }
-        if (!l.stopped || l.stopped_along_m > a_runway().length_m) {
+        if (!l.stopped || !(l.stopped_along_m <= a_runway().length_m)) {
             this_one.push_back("the Cub did not stop on the runway" + where + ": " +
                                std::to_string(l.stopped_along_m) + " m along");
         }
-        if (l.worst_across_after_touch_m > glideslope::sim::Lander::runway_half_width_m) {
+        if (!(l.worst_across_after_touch_m <= glideslope::sim::Lander::runway_half_width_m)) {
             this_one.push_back("the Cub went " + std::to_string(l.worst_across_after_touch_m) +
                                " m from the centreline after the touch" + where);
         }
