@@ -1145,16 +1145,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       S.23 rises 0.20 ft (0.23 in a 10 kt tailwind), and all fourteen are
       judged.
 - [ ] **The rollout's autobrake winds up when there is nothing to slow.**
-      It keeps adding brake while her deceleration falls short. Blown
-      sideways at a walking pace, a C172P had her brakes wound up and was
-      put on her nose. *Verification: a rollout held at low groundspeed with
-      no deceleration keeps her brake bounded and her nose above -5 degrees.*
-      Below 5 kt the autobrake now adds no brake past 0.3, or 0.45 at a
-      creep, wet or dry (2026-10-14). **Still missing**: the walking-pace
-      tests roll her at 2-5 kt under the autobrake for about 2 s at most;
-      reaching the rolling bound is required from 3 kt (3.5 for the aircraft
-      named, 2.5 wet on nose-wheel aeroplanes), and below that is named;
-      the 0.8 allowance for an idle creep is barely exercised on the jets.
+      *Verification: held at low groundspeed with no deceleration, her brake
+      stays bounded and her nose above -5 degrees.* All 13 at 0.5-4.5 kt do,
+      30 s at idle. **Missing**: none rolls past 2.2 s; no jet reaches 0.8.
 - [ ] **The Mosquito swings below walking pace.** Held at every walking
       pace with her brakes worked as the rollout's rudder bar works them, she
       turns at most 4.4 degrees after the hand-over (2026-10-15); but rolled

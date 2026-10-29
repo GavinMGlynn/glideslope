@@ -393,6 +393,11 @@ public:
     // The autobrake's pedal on the roll, 0 to 1, both wheels alike: what the
     // rudder's differential braking is added to and taken from.
     double autobrake() const { return brake_; }
+    // **Whether a throttle advanced on the roll has disarmed it** (lander.cpp),
+    // and by how much over the least it has been since armed: a hand's
+    // nudge, not a step's noise.
+    bool autobrake_disarmed() const { return disarmed_; }
+    static constexpr double disarm_throttle = 0.02;
 
 private:
     // The controls, but for the mixture.
@@ -433,6 +438,10 @@ private:
     double aileron_trim_ = 0.0;
     double autobrake_fps2_ = 0.0; // set at the touch, for the runway left
     double brake_ = 0.0;         // held to the autobrake's deceleration
+    // Disarmed by a throttle advanced on the roll (lander.cpp), and the least
+    // each engine's throttle has been since the autobrake was armed.
+    bool disarmed_ = false;
+    std::vector<double> least_throttle_;
     // The reverse lever on the roll (Controls::reverse): the steps she has
     // rolled for, its position, and whether it has been stowed for good.
     int rolled_steps_ = 0;
