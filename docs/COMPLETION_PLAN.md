@@ -1443,19 +1443,20 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       stall are flown as one, which needs inputs that name their step. (A
       server's slow start is no longer owed, 2026-10-28.) The first-input
       test and the F-22A's still run alone: not yet seen on CI held up.
-- [x] **A test that fails twice on CI for the same cause has nowhere to go but
+- [ ] **A test that fails twice on CI for the same cause has nowhere to go but
       the pull request's run**: a test labelled `nightly` is left out of every
       pull request's run and run by the nightly one, and each is named with its
       reason. *Verification: a test labelled nightly runs every night and on no
       pull request, named with its reason; the first is the held-up-unevenly
-      prediction test (1 of 1 named). Owed until the first scheduled run
-      (16:00 UTC) shows it run.*
+      prediction test (1 of 1 named).* Done but for the nightly half: pull
+      requests leave it out (run 40770584919); owed, the first scheduled run
+      after the merge showing it run.
 - [ ] **On Windows the server's word is placed two steps off now and then**:
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th
       percentile under a metre in ten runs.* 2026-10-29: the held-up-unevenly
-      test runs nightly until this is fixed; its red there is reported here,
-      not a red tree.
+      test runs nightly until this is fixed; its red there is reported here
+      (CLAUDE.md: a named nightly test's red is not a red tree).
 - [ ] **On a busy machine the server's word is placed a step off now and
       then**: a server held up unevenly moves the least of the clocks'
       difference, so the multi-process tests bound their 95th percentile by

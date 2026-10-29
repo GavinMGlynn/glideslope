@@ -109,7 +109,10 @@ frame is not allowed.
   steps, not seconds; a server under test runs until its clients have gone
   (`--until-empty`), not for a fixed time; nothing gives up on a slow machine
   sooner than a slow machine needs. The nightly workflow repeats the
-  multi-process tests on real runners, and a failure there is a red tree.
+  multi-process tests on real runners, and a failure there is a red tree -
+  but for a test named in `tests/cmake/nightly_tests.cmake`: one that failed
+  on CI twice for one cause, moved out of pull requests' runs until that cause
+  is fixed, whose nightly failure is reported in its plan item instead.
 - **Every commit that lands an item updates both living docs in that same
   commit**: its own file in `docs/status/` (named by date: what now works, with
   its verification; `ls -r docs/status` is the log, newest first), plus
