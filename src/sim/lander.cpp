@@ -666,6 +666,10 @@ void Lander::resume(double throttle) {
     rudder_trim_ = 0.0;
     aileron_trim_ = 0.0;
     brake_ = 0.0;
+    // And the autobrake armed again: what the pilot's throttle was is not an
+    // advance of it.
+    disarmed_ = false;
+    least_throttle_.clear();
     // A flare flown again begins again, from how she is - all but its
     // incidence's limit, which is the approach's (`most_flare_alpha_deg`).
     flare_begun_ = false;
@@ -744,6 +748,12 @@ Controls Lander::fly_laws() {
         // Gone around is gone around: the landing is not taken up again.
     } else if (bounced) {
         stage_ = Stage::flare;
+        // **Her throttle in a bounce is the flare's own**: the cushion it
+        // puts on is no advance of the autobrake's, which takes its least
+        // again from the next touch. Kept from the first, a C172P whose
+        // bounce was cushioned with power was disarmed at the next touch
+        // and rolled out unbraked (review of #271). A disarm stays.
+        least_throttle_.clear();
     } else if (touched_) {
         // **Stopped is over the ground, not through the air.** An aeroplane
         // standing still in a ten-knot wind still reads ten knots of
@@ -985,7 +995,11 @@ Controls Lander::fly_laws() {
         // **What may be added at walking pace** (below): on a wet runway as
         // on a dry one.
         bool idle_drives_her = false;
-        if (vg_kts < creeping_kts && decel_fps2_ < 0.0) {
+        // **Creeping, not standing**: at least the foot a second that is
+        // stopped (`Stage::stopped`). Standing on her brakes at idle, the
+        // noise in her speed read as growing, and a 737 stood with her
+        // autobrake wound to the full 0.8 with nothing to slow (2026-10-29).
+        if (vg_kts < creeping_kts && vg_kts >= 1.0 / 1.68781 && decel_fps2_ < 0.0) {
             idle_drives_her = true;
             for (int e = 0; e < a_.engine_count(); ++e) {
                 idle_drives_her =
@@ -1032,6 +1046,31 @@ Controls Lander::fly_laws() {
                                 0.0, most);
         }
         if (s.pitch_deg < -4.0) {
+            brake_ = 0.0;
+        }
+        // **A throttle advanced on the roll disarms the autobrake**, as an
+        // airliner's is: the 737's disarms when "the thrust levers are
+        // advanced from idle to forward thrust (except during the first 3
+        // seconds of landing)", and the A320's ground spoilers - which its
+        // autobrake needs - are inhibited "if one or more thrust levers
+        // remain above the IDLE detent" (EASA SIB 2008-10). Held at walking
+        // pace by power run up against it, a Mosquito's autobrake wound to
+        // 0.9 just above walking pace, and she came back under it on her
+        // nose. Advanced is above the least any engine's throttle has been
+        // since it was armed - the rollout's own closing is not advancing -
+        // by `disarm_throttle`. Disarmed, it adds and holds no brake until
+        // it is armed again (`resume`, or a new rollout); the rudder bar's
+        // steering brake (`toe_brakes`) is not the autobrake's.
+        for (int e = 0; e < a_.engine_count(); ++e) {
+            const double t = a_.property("fcs/throttle-cmd-norm[" + std::to_string(e) + "]");
+            const auto i = static_cast<std::size_t>(e);
+            if (least_throttle_.size() <= i) {
+                least_throttle_.push_back(t);
+            }
+            least_throttle_[i] = std::min(least_throttle_[i], t);
+            disarmed_ = disarmed_ || t > least_throttle_[i] + disarm_throttle;
+        }
+        if (disarmed_) {
             brake_ = 0.0;
         }
         const double brake = brake_;
