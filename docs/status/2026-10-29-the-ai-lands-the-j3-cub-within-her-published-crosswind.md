@@ -83,5 +83,9 @@ right, dry).
   a793ee39 swapped into the build: "j3cub stopped on the wet runway in the
   crosswind, 0.000000 m along" and "j3cub banked 15.303546 degrees after
   touching down on a wet runway". Green with 3fe583a8's and today's.
+- **CI cost, estimated** in `tests/ci_costs/` from the 15 kt test's six
+  landings (100 s on Linux debug): 200 s for each Cub test there and 134 s
+  for the 15 kt test with her in it, about 830 s more in all, spread over
+  the shards. Measure them again from a green run.
 - `lander.cpp` is unchanged; its bug was only made for the red run.
 - The selftest hash does not move: no simulation code or asset changes.
