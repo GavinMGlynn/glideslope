@@ -1208,11 +1208,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       METARs in November 2021 few States send it - Russia's still do, every
       report; none of 20 other European and Central Asian stations sampled
       did - and the US never has.
-- [ ] **A copilot or planner is not told a runway is reported
+- [x] **A copilot or planner is not told a runway is reported
       contaminated.** It judges each runway dry or wet, and no landing
       distance on snow, slush or ice is known for any aircraft.
       *Verification: a landing on a runway reported icy is refused, or
-      sized from a published contaminated-runway figure.*
+      sized from a published contaminated-runway figure.* Done 2026-10-29:
+      a landing on a runway reported at codes 4 to 1 is sized by AC
+      91-79B's landing distance factors, one at nil braking refused; the
+      model is not shown the condition, only told it in the refusal.
 - [x] **A wet runway does not change a rolling tyre's grip sideways.**
       Wet wheels now keep the share of their dry side grip NASA measured
       (TN D-7743, checked against TN D-7351). Rolled out wet in 15 kt

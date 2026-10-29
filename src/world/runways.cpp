@@ -1,5 +1,7 @@
 #include "world/runways.hpp"
 
+#include <array>
+#include <cmath>
 #include <cstdlib>
 #include <map>
 
@@ -142,6 +144,52 @@ sim::Runway as_runway(const RunwayEnd& end, double elevation_ft) {
     r.heading_deg = end.heading_deg;
     r.length_m = end.length_m;
     return r;
+}
+
+bool on_runway(const RunwayEnd& end, double latitude_deg, double longitude_deg) {
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    constexpr double metres_per_degree = 111319.49; // on the equatorial sphere
+    constexpr double half_width_m = 30.0;
+    const double east = std::remainder(longitude_deg - end.longitude_deg, 360.0) *
+                        metres_per_degree * std::cos(end.latitude_deg * radians);
+    const double north = (latitude_deg - end.latitude_deg) * metres_per_degree;
+    const double heading = end.heading_deg * radians;
+    const double along = east * std::sin(heading) + north * std::cos(heading);
+    const double across = east * std::cos(heading) - north * std::sin(heading);
+    return along >= 0.0 && along <= end.length_m && std::abs(across) <= half_width_m;
+}
+
+std::optional<int> reported_condition(const std::vector<ContaminatedRunway>& reported,
+                                      const RunwayEnd& end) {
+    constexpr double radians = 3.14159265358979323846 / 180.0;
+    constexpr double metres_per_degree = 111319.49; // as on_runway's
+    // Its middle: halfway along from its threshold, on its runway from
+    // either end.
+    const double half_m = end.length_m / 2.0;
+    const double heading = end.heading_deg * radians;
+    const double latitude = end.latitude_deg + half_m * std::cos(heading) / metres_per_degree;
+    const double longitude =
+        end.longitude_deg +
+        half_m * std::sin(heading) / (metres_per_degree * std::cos(end.latitude_deg * radians));
+    std::optional<int> code;
+    for (const ContaminatedRunway& c : reported) {
+        if (on_runway(c.end, latitude, longitude) && (!code || c.code < *code)) {
+            code = c.code;
+        }
+    }
+    return code;
+}
+
+std::optional<double> landing_distance_factor(int code, bool reverse_thrust) {
+    // AC 91-79B table 3-1, from code 6 down to 1 (code 5's the smooth
+    // runway's).
+    constexpr std::array<double, 6> no_reverse{1.67, 2.6, 2.8, 3.2, 4.0, 5.1};
+    constexpr std::array<double, 6> with_reverse{1.67, 2.2, 2.3, 2.5, 2.9, 3.4};
+    if (code < 1 || code > 6) {
+        return std::nullopt;
+    }
+    const auto at = static_cast<std::size_t>(6 - code);
+    return reverse_thrust ? with_reverse[at] : no_reverse[at];
 }
 
 } // namespace glideslope::world

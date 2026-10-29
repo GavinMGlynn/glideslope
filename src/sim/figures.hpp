@@ -184,6 +184,12 @@ struct PublishedFigures {
     // is refused it for length. Every file says one or the other, once.
     double landing_need_m = 0.0;
     std::string landing_basis; // "over_50_ft_obstacle", "field_length", "measured"; empty: none
+    // **The landing distance itself, unfactored**, metres: `<landing_distance>`'s
+    // figure with no margin - over a 50 ft obstacle, or measured, as given;
+    // a landing field length times 0.6, the demonstrated distance it was
+    // made from (14 CFR 121.195(b)). What AC 91-79B's landing distance
+    // factors multiply (world::landing_distance_factor). 0 where none.
+    double landing_distance_m = 0.0;
     // **The runway it needs to land on a wet runway, from its own figure**,
     // metres: `<wet_landing_distance ft="..." basis="..." factor="...">`, read
     // as `<landing_distance>` is, where its manual publishes one. 0 where it
@@ -218,6 +224,11 @@ double glide_slowest_kts(const std::filesystem::path& data, const std::string& m
 // or 0 where nothing published gives it. Throws as `read_published_figures`
 // does.
 double landing_need_m(const std::filesystem::path& data, const std::string& model);
+
+// `model`'s unfactored dry landing distance, metres
+// (`PublishedFigures::landing_distance_m`), or 0 where nothing published gives
+// it. Throws as `read_published_figures` does.
+double landing_distance_m(const std::filesystem::path& data, const std::string& model);
 
 // The runway `model` needs to land on a wet runway, metres: her figures'
 // own wet landing distance where they give one, and otherwise her dry need
