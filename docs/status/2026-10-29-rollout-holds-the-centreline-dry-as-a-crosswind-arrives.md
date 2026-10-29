@@ -38,6 +38,13 @@ branch) had two faults in a crosswind that arrives:
   where a track is not worth reading), at 0.1 of rudder a degree-second,
   not learnt past the rudder's stop; it starts from nothing at each hand-over
   (`ground_rudder_trim_`, reset in `resume`).
+- **Not at a walking pace.** From 10 kt down to 5 kt the gains ease back to
+  the old 0.10 and 0.30 and nothing more is learnt. Held at the new gains
+  all the way down, the rudder brought in the steering brake more at a
+  walking pace, and five landplanes handed over at 2.5 kt across (and the
+  Mosquito at 3 kt dry and wet) reached the brakes' rolling ceiling, which
+  the three walking-pace tests pin as not reached: they went red, and are
+  green again with the easing, the roll-out figures unchanged.
 
 Worst distance from the centreline from the hand-over to the stop, 15 kt
 across arriving at once, Linux release, before and after:
