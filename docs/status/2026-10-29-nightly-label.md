@@ -33,14 +33,29 @@ initialised submodules, so the real build was not configured here: CI is the
 proof, and the PR's own logs show the test's absence. No actionlint was
 available; the workflow edit is read by eye, one expression text across 7 lines.
 
-**A red nightly result is expected, not a red tree.** A test named in
-`nightly_tests.cmake` may fail in the scheduled run until its item is fixed;
-that is reported in that item (here the open Phase 12a item on Windows' timers)
-and is not the stop-everything red tree of CLAUDE.md. This is the owner's
-2026-10-28 rule: a test failing twice for one cause is "named and moved to the
-nightly run".
+**A named test's red nightly result is reported, not a red tree.** A test
+named in `nightly_tests.cmake` may fail in the scheduled run until its item is
+fixed; that is reported in that item (here the open Phase 12a item on
+Windows' timers). The owner decided it on 2026-10-29, and CLAUDE.md says so:
+a nightly failure is a red tree but for a test named there. Any other test
+failing at night is still a red tree.
+
+**From the review.** The workflow check now reads each test job's ctest line
+whole: it must end in one of the two gate expressions exactly, so a gate
+inverted or one leaving `timing` in a debug pull request's run fails it, and
+the label is listed as `-L "^nightly$"`, so `nightly_x` is not counted. Seen
+red against a scratch build of 41 tests, each then put back: a labelled test
+not named ("1 named, 2 labelled"); the named test unlabelled ("1 named, 0
+labelled"); `timing` dropped from windows-debug's line, and the gate inverted
+on a Windows job ("does not end in a gate that leaves the nightly label out").
+With `nightly_x` on the extra test instead, it passes.
+
+**The pull request's half, seen.** Full run 40770584919 (green) ran, on
+Windows debug, `ctest --preset windows-debug -I %CD%\shard.txt -LE
+"timing|nightly"`; on Linux release `ctest --preset linux-release -I
+"$PWD/shard.txt" -LE nightly`; on macOS release `ctest --preset macos-release
+-I "$PWD/shard.txt" -LE nightly`.
 
 **Owed.** That the test runs every night is owed until the first scheduled run
-(cron 16:00 UTC, run of ci.yml on main after this lands): that run is the check.
-The pull-request half is shown below from the PR's own logs.
-The pull-request half (a shard log without the test) is also owed: the first full run (40756909695) had not finished in 90 minutes on a loaded runner queue, and is quoted on the PR when it has.
+of ci.yml on main after this lands (cron 16:00 UTC); its item stays open until
+that run's log shows it run.

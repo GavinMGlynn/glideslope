@@ -72,7 +72,7 @@ endforeach()
 # its reason and runs, in nightly_tests.cmake, and nothing named there is
 # unlabelled; and every test job of a pull request leaves the label out.
 include(${CMAKE_CURRENT_LIST_DIR}/nightly_tests.cmake)
-execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N -L nightly
+execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N -L "^nightly$"
     OUTPUT_VARIABLE _nl RESULT_VARIABLE _rc)
 if(NOT _rc EQUAL 0 OR NOT _nl MATCHES "Total Tests: ([0-9]+)")
     message(FATAL_ERROR "ctest could not list the nightly tests of ${BUILD}")
@@ -101,10 +101,37 @@ list(SORT _labelled)
 if(NOT _nnamed EQUAL NIGHTLY_COUNT OR NOT _nnight EQUAL NIGHTLY_COUNT OR NOT _named STREQUAL _labelled)
     message(FATAL_ERROR "${NIGHTLY_COUNT} nightly tests expected; ${_nnamed} named, ${_nnight} labelled.\nnamed: ${_named}\nlabelled: ${_labelled}")
 endif()
-string(REGEX MATCHALL "ctest --preset [^\n]*shard.txt[^\n]*github.event_name == 'pull_request' && [^\n]*-LE [^\n]*nightly" _nightly_runs "${_yml}")
-list(LENGTH _nightly_runs _nnr)
+# Every test job's ctest line ends in one of two expressions, read whole: on a
+# pull request a debug preset leaves out timing and nightly and a release
+# preset nightly, on every other event a debug preset leaves out timing alone
+# and a release preset nothing; or, for a job of release presets alone (Rocky
+# 9), nightly on a pull request and nothing otherwise.
+set(_gate_any [=[${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}]=])
+set(_gate_release [=[${{ github.event_name == 'pull_request' && '-LE nightly' || '' }}]=])
+string(REGEX MATCHALL "ctest --preset [^\n]*shard.txt[^\n]*" _test_runs "${_yml}")
+set(_nnr 0)
+foreach(_run IN LISTS _test_runs)
+    # The Linux jobs keep ctest's code for a step after it.
+    string(REGEX REPLACE " \\|\\| rc=\\$\\?$" "" _run "${_run}")
+    set(_gated FALSE)
+    foreach(_gate IN ITEMS "${_gate_any}" "${_gate_release}")
+        string(LENGTH "${_run}" _len)
+        string(LENGTH "${_gate}" _glen)
+        if(_len GREATER_EQUAL _glen)
+            math(EXPR _from "${_len} - ${_glen}")
+            string(SUBSTRING "${_run}" ${_from} ${_glen} _tail)
+            if(_tail STREQUAL _gate)
+                set(_gated TRUE)
+            endif()
+        endif()
+    endforeach()
+    if(NOT _gated)
+        message(FATAL_ERROR "a test job's ctest line does not end in a gate that leaves the nightly label out of a pull request's run (and timing out of a debug preset's):\n${_run}")
+    endif()
+    math(EXPR _nnr "${_nnr} + 1")
+endforeach()
 if(NOT _nnr EQUAL _njobs)
-    message(FATAL_ERROR "${_njobs} test jobs, but ${_nnr} leave the nightly label out of a pull request's run, gated on github.event_name == 'pull_request'")
+    message(FATAL_ERROR "${_njobs} test jobs, but ${_nnr} ctest runs of a shard")
 endif()
 message(STATUS "${_nnight} nightly test, named with its reason; ${_nnr} of ${_njobs} test jobs leave it out of pull requests")
 

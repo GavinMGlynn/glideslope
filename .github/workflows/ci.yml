@@ -10,7 +10,8 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
   # The full run, every preset and every label, on main every night (16:00
-  # UTC, two in the morning in Sydney); a failure there is a red tree.
+  # UTC, two in the morning in Sydney); a failure there is a red tree, but for
+  # a test named in tests/cmake/nightly_tests.cmake (CLAUDE.md).
   schedule:
     - cron: '0 16 * * *'
 
