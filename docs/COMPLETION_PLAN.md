@@ -1227,10 +1227,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       kt crosswind arrives**, dry as wet. *Verification: every landplane
       rolled out as 15 kt arrives stays within 5 m of the centreline.*
 - [x] **The AI lands the J-3 Cub within her published crosswind limit**,
-      12 kt, the EAA's figure (Piper published none). *Verification: a
-      published limit, and the Cub landed within it.* Done 2026-10-29: every
-      whole knot to 12, both sides, dry and wet - 48 landings; she lands in
-      15 kt too, the ground loop gone since her lift left out the crosswind.
+      12 kt: one instructor's "about 12 knots" in an EAA Inspire article
+      (Piper published none), accepted by the owner on 2026-10-30.
+      *Verification: a published limit, and the Cub landed within it.* Done
+      2026-10-29: every whole knot to 12, both sides, dry and wet - 48
+      landings; she lands in 15 kt too, the ground loop gone since her lift
+      left out the crosswind.
 - [x] **Wet runways judged with each aircraft's own tyres and brakes.** The
       wet grip is read for each landplane's own tyre pressure and anti-skid,
       softer tyres gripping more and a light aeroplane's brakes without
