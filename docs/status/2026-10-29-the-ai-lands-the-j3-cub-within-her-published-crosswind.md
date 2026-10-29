@@ -5,7 +5,9 @@
   J-3. She was certificated (A-691) long before a demonstrated crosswind was
   asked of an aeroplane: the placard is required of those certificated after
   3 May 1962, and 14 CFR 23.233's 0.2 Vso dates from 1964. The figure used is
-  the EAA's, 12 kt, "about" in its own words. A Swiss operator's checklist
+  one instructor's, Steve Krog's "about 12 knots" in an EAA Inspire article,
+  not the EAA's own; the owner accepted it as her limit on 2026-10-30
+  (2026-10-30's review file). A Swiss operator's checklist
   gives 10 kt, which the 12 kt sweep covers.
 - **No fix was needed, and none is made.** The ground loop the item named
   was gone before this item began (below). This item cites the limit, lands
@@ -23,7 +25,7 @@
 
 **The limit, and where it was looked for.**
 - **Used:** Steve Krog (EAA 173799), "Crosswind Takeoffs 2.0 - Understanding
-  the Factors", EAA, 10 December 2019:
+  the Factors", EAA Inspire, 10 December 2019:
   <https://inspire.eaa.org/2019/12/10/crosswind-takeoffs-2-0-understanding-the-factors/>.
   He writes that the demonstrated crosswind component for the Piper J-3 Cub
   is about 12 knots at 90 degrees. Krog writes EAA Sport Aviation's "The

@@ -84,10 +84,11 @@ struct Landing {
     std::vector<std::string> gear_took_it;
 };
 
-// **From five miles out, on the glidepath, down to a stop.** `crosswind_kts`
-// blows from the left across the runway, or from the right where it is
-// negative; zero is calm air.
-Landing land(const std::string& id, double crosswind_kts, bool wet = false) {
+// **From five miles out, on the glidepath, down to a stop**, or from
+// `out_nm`. `crosswind_kts` blows from the left across the runway, or from
+// the right where it is negative; zero is calm air.
+Landing land(const std::string& id, double crosswind_kts, bool wet = false,
+             double out_nm = 5.0) {
     std::printf("landing the %s in %.0f knots of crosswind from the %s%s\n", id.c_str(),
                 std::abs(crosswind_kts), crosswind_kts < 0.0 ? "right" : "left",
                 wet ? ", wet" : "");
@@ -117,7 +118,7 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false) {
             std::make_shared<glideslope::sim::SteadyWeather>(conditions));
     }
 
-    const double out_m = 5.0 * metres_per_nm;
+    const double out_m = out_nm * metres_per_nm;
     const double heading = runway.heading_deg / degrees;
     const double north_m = -out_m * std::cos(heading);
     const double east_m = -out_m * std::sin(heading);
@@ -202,20 +203,34 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false) {
 // Fifteen degrees of bank puts a light aeroplane's wingtip near the runway;
 // a nose ten degrees down is a nosewheel aeroplane on its nose or a
 // tailwheel one over it; and three feet up is a bounce, not a rollout.
-void stayed_down_and_upright(const std::string& id, const Landing& l, const std::string& where) {
-    check(l.worst_roll_after_touch_deg < 15.0,
-          id + " banked " + std::to_string(l.worst_roll_after_touch_deg) +
-              " degrees after touching down" + where);
-    check(l.least_pitch_after_touch_deg > -10.0,
-          id + "'s nose went " + std::to_string(l.least_pitch_after_touch_deg) +
-              " degrees down after touching down" + where);
-    check(l.highest_after_touch_ft < 3.0,
-          id + " went " + std::to_string(l.highest_after_touch_ft) +
-              " ft back into the air after touching down" + where);
+// What was wrong with her from the touch to the stop, one line each; none
+// for a landing that stayed down and upright.
+std::vector<std::string> wrong_after_the_touch(const std::string& id, const Landing& l,
+                                               const std::string& where) {
+    std::vector<std::string> wrong;
+    if (!(l.worst_roll_after_touch_deg < 15.0)) {
+        wrong.push_back(id + " banked " + std::to_string(l.worst_roll_after_touch_deg) +
+                        " degrees after touching down" + where);
+    }
+    if (!(l.least_pitch_after_touch_deg > -10.0)) {
+        wrong.push_back(id + "'s nose went " + std::to_string(l.least_pitch_after_touch_deg) +
+                        " degrees down after touching down" + where);
+    }
+    if (!(l.highest_after_touch_ft < 3.0)) {
+        wrong.push_back(id + " went " + std::to_string(l.highest_after_touch_ft) +
+                        " ft back into the air after touching down" + where);
+    }
     // **Within what her gear takes, and settled**: unwrecked by the server's
     // rule, and risen no more than half a foot after the touch.
-    for (const std::string& wrong : l.gear_took_it) {
-        check(false, wrong + where);
+    for (const std::string& gear : l.gear_took_it) {
+        wrong.push_back(gear + where);
+    }
+    return wrong;
+}
+
+void stayed_down_and_upright(const std::string& id, const Landing& l, const std::string& where) {
+    for (const std::string& wrong : wrong_after_the_touch(id, l, where)) {
+        check(false, wrong);
     }
 }
 
@@ -319,45 +334,68 @@ GLIDESLOPE_TEST(every_light_aircraft_landed_on_a_wet_runway_in_a_15_kt_crosswind
 // **The J-3 Cub is landed by the AI in every crosswind within her published
 // limit, from either side, dry and wet.** Piper published none - she was
 // certificated before a demonstrated crosswind was asked of any aeroplane -
-// and the figure is the EAA's: "the demonstrated crosswind component for the
-// Piper J-3 Cub is about 12 knots at 90 degrees" (Steve Krog, "Crosswind
-// Takeoffs 2.0", EAA, 2019; the status file of 2026-10-29 lists what else
-// was searched). From five miles out, every whole knot from 1 to 12 straight
-// across, she touches within 5 m of the centreline, stops on the runway the
-// right way up, never past its half-width, as the server judges her gear.
-// Both sides, as a wind from the left adds to her propeller's swing to the
-// left and one from the right takes from it; dry and on runway condition
-// code 5: four tests, one a side and runway, as twelve landings are about
-// three minutes on a Linux debug build. Coverage: 12 winds in each, counted.
-// **Seen red** with the roll-out's rudder held central (lander.cpp): "the
-// Cub went 34.368009 m from the centreline after the touch in 4 kt from the
-// left, dry"; reverted.
+// and the figure is one instructor's, in an EAA Inspire article: "the
+// demonstrated crosswind component for the Piper J-3 Cub is about 12 knots
+// at 90 degrees" (Steve Krog, "Crosswind Takeoffs 2.0", 2019). The owner
+// accepted it as her limit on 2026-10-30; the status file of 2026-10-29
+// lists what else was searched. From a mile out, every whole knot from 1 to
+// 12 straight across, she touches within 5 m of the centreline, stops on the
+// runway the right way up, never past its half-width, as the server judges
+// her gear. Both sides, as a wind from the left adds to her propeller's
+// swing to the left and one from the right takes from it; dry and on runway
+// condition code 5: four tests, one a side and runway. Coverage: 12 winds in
+// each, counting only the landings that passed every check (seen to fail,
+// 1 of 12, with the half-width cut to a metre; reverted). **Seen red, all
+// four**, with the roll-out's rudder held central (lander.cpp): 3 of 12 dry
+// and 6 of 12 wet from the left, 3 and 4 of 12 from the right, the first
+// "the Cub went 34.255694 m from the centreline after the touch in 4 kt from
+// the left, dry"; reverted.
 namespace {
 
 constexpr int cub_published_crosswind_kts = 12;
 
+// From a mile out on the glidepath: the item is the touch and the roll-out,
+// and a mile is a minute of her final, settled on the line before the flare.
+constexpr double cub_start_nm = 1.0;
+
 void the_cub_lands_in_every_crosswind_within_her_limit(double side, bool wet) {
     int landed = 0;
+    std::vector<std::string> wrong;
     for (int kts = 1; kts <= cub_published_crosswind_kts; ++kts) {
-        const Landing l = land("j3cub", side * kts, wet);
+        const Landing l = land("j3cub", side * kts, wet, cub_start_nm);
         const std::string where = " in " + std::to_string(kts) + " kt from the " +
                                   (side > 0.0 ? "left" : "right") + (wet ? ", wet" : ", dry");
         std::printf("  farthest across after the touch %.2f m\n", l.worst_across_after_touch_m);
-        check(l.touched, "the Cub never touched down" + where);
-        check(std::abs(l.across_m) <= 5.0, "the Cub touched down " + std::to_string(l.across_m) +
-                                               " m from the centreline" + where);
-        check(l.stopped && l.stopped_along_m <= a_runway().length_m,
-              "the Cub stopped on the runway" + where + ": " +
-                  std::to_string(l.stopped_along_m) + " m along");
-        check(l.worst_across_after_touch_m <= glideslope::sim::Lander::runway_half_width_m,
-              "the Cub went " + std::to_string(l.worst_across_after_touch_m) +
-                  " m from the centreline after the touch" + where);
-        stayed_down_and_upright("j3cub", l, where);
-        ++landed;
+        // Every check is gathered, not thrown at the first, so that the count
+        // below counts only the landings that passed them all.
+        std::vector<std::string> this_one = wrong_after_the_touch("j3cub", l, where);
+        if (!l.touched) {
+            this_one.push_back("the Cub never touched down" + where);
+        }
+        if (std::abs(l.across_m) > 5.0) {
+            this_one.push_back("the Cub touched down " + std::to_string(l.across_m) +
+                               " m from the centreline" + where);
+        }
+        if (!l.stopped || l.stopped_along_m > a_runway().length_m) {
+            this_one.push_back("the Cub did not stop on the runway" + where + ": " +
+                               std::to_string(l.stopped_along_m) + " m along");
+        }
+        if (l.worst_across_after_touch_m > glideslope::sim::Lander::runway_half_width_m) {
+            this_one.push_back("the Cub went " + std::to_string(l.worst_across_after_touch_m) +
+                               " m from the centreline after the touch" + where);
+        }
+        if (this_one.empty()) {
+            ++landed;
+        }
+        wrong.insert(wrong.end(), this_one.begin(), this_one.end());
+    }
+    std::string why;
+    for (const std::string& w : wrong) {
+        why += "\n    " + w;
     }
     check(landed == cub_published_crosswind_kts,
           "the Cub landed in every whole knot to her limit: " + std::to_string(landed) + " of " +
-              std::to_string(cub_published_crosswind_kts));
+              std::to_string(cub_published_crosswind_kts) + why);
 }
 
 } // namespace
