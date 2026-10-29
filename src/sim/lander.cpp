@@ -842,19 +842,17 @@ Controls Lander::fly_laws() {
         // brakes reached their rolling ceiling handed over at 2.5 kt across.
         const double rolling = std::clamp(
             (rolling_kts - autobrake_off_kts) / autobrake_off_kts, 0.0, 1.0);
-        const double track_known = std::clamp((rolling_kts - 2.0) / 3.0, 0.0, 1.0);
         const double track_deg = std::atan2(a_.property("velocities/v-east-fps"),
                                             a_.property("velocities/v-north-fps")) *
                                  degrees;
         const double track_error =
             std::remainder(runway_.heading_deg + want - track_deg, 360.0);
-        const double held_error = track_known * track_error + (1.0 - track_known) * error;
         const double pointed =
             (0.10 + 0.30 * rolling) * error - (0.30 + 0.20 * rolling) * r_degps;
         const double asked = pointed + ground_rudder_trim_;
-        if (rolling > 0.0 && (std::abs(asked) < 1.0 || asked * held_error < 0.0)) {
+        if (rolling > 0.0 && (std::abs(asked) < 1.0 || asked * track_error < 0.0)) {
             ground_rudder_trim_ = std::clamp(
-                ground_rudder_trim_ + 0.1 * held_error / steps_per_second, -1.0, 1.0);
+                ground_rudder_trim_ + 0.1 * track_error / steps_per_second, -1.0, 1.0);
         }
         c.rudder = -std::clamp(asked, -1.0, 1.0);
         // **The wings are held level as they are in the air**: the FAA's
