@@ -913,6 +913,9 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       bound is twice its most. *Verification: both laws fly her on the same
       pitch trim, red with the server's old seeding; each at-once test's
       pitch within a stated spread on every run and platform.*
+      2026-10-29: the 0.032 that failed was the step words were placed at,
+      not the law; the tests now judge her pitch where she was, 0.003 at
+      most measured, bound 0.010 (`docs/status`).
 
 ---
 
