@@ -71,8 +71,9 @@ endforeach()
 # **The nightly label is asserted.** Every test labelled nightly is named, with
 # its reason and runs, in nightly_tests.cmake, and nothing named there is
 # unlabelled; and every test job of a pull request leaves the label out.
+# -FA: a nightly test's fixture setup (the downloads) is not itself nightly.
 include(${CMAKE_CURRENT_LIST_DIR}/nightly_tests.cmake)
-execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N -L "^nightly$"
+execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N -L "^nightly$" -FA ".*"
     OUTPUT_VARIABLE _nl RESULT_VARIABLE _rc)
 if(NOT _rc EQUAL 0 OR NOT _nl MATCHES "Total Tests: ([0-9]+)")
     message(FATAL_ERROR "ctest could not list the nightly tests of ${BUILD}")

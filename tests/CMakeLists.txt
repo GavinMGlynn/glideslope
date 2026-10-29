@@ -2050,7 +2050,7 @@ add_test(NAME a_window_client_whose_imagery_is_refused_in_whatever_order_still_d
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DDATA=${GLIDESLOPE_DATA_DIR} -DPORT=24950
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain_imagery_refused.cmake)
 set_tests_properties(a_window_client_whose_imagery_is_refused_in_whatever_order_still_draws_its_frame_on_the_dems_colours
-    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 900)
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 900 LABELS nightly)
 
 # ---------------------------------------------------------------------------
 # The shader compiler keeps SDL_GPU's resource layout: a shader that follows it

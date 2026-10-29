@@ -8,5 +8,6 @@
 # Each entry: "test name|reason|runs" (no semicolon in the text: it is a list).
 set(NIGHTLY_TESTS
     "a_client_predicting_against_a_server_held_up_unevenly_every_second_is_within_a_metre_for_ninety_five_updates_in_a_hundred|On Windows its 95th percentile went past its 1 m bound, from the server's word placed two steps off now and then (Windows' 15.6 ms timers, the open Phase 12a item)|windows-release 40743161009 (1,143 mm), 40673705998 (3.3 m worst)"
+    "a_window_client_whose_imagery_is_refused_in_whatever_order_still_draws_its_frame_on_the_dems_colours|Its imagery refused, the client drew coarser than without imagery, cause not found (the open Phase 10b item)|Rocky 9 linux-release 40733120388 (24 tiles to level 7 against 26), Ubuntu linux-release 40811196271 (21 to level 6 against 26 to 7)"
 )
-set(NIGHTLY_COUNT 1)
+set(NIGHTLY_COUNT 2)
