@@ -1,7 +1,8 @@
 ### The STOVL at-once tests' pitch judged where she was, and bounded from what was measured, 2026-10-29
 
 **What is still not true first.** The new figure has been seen on two
-platforms here (linux-release, Windows debug), not yet on CI's others; the
+platforms here (linux-release, Windows debug) and on CI's Ubuntu debug and
+Windows debug, not yet on CI's others; the
 full run of this pull request is its first sight of them. linux-debug was
 not built here: CI's Ubuntu linux-debug figures below are of the old
 measure.
@@ -58,8 +59,25 @@ seen, ten printed thousandths, and fifty times below the law gone astray
 that the test was written for (0.2 on Linux, 0.58 and 0.96 on CI's
 Windows, 2026-10-28).
 
-**Seen red**: the spent test run here with `-DPITCH_BOUND_MDEG=0` failed,
-"her predicted pitch where she was was 0.001 degrees off the server's, over
-0 thousandths"; and on Windows debug here the old measure failed at 0.020
+**Matched near, not anywhere** (from the review): the place her pitch is
+compared at is found by position alone, so the client says, for the worst
+of it, how many steps from the placed step and how far from the path it
+was matched, and the test holds them within 24 steps (11 placed at most on
+CI, 4 here) and 0.05 m (0.003 m at worst on CI). Here: 0 steps and 0.000 m
+in each of the three tests.
+
+**Seen red, a law gone astray** (from the review): the prediction's law
+given her pitch trim 0.02 above what she was flown on
+(`sim::Prediction::put`, reverted), run with a copy of the test without
+its trim checks (which would stop it first): "predicted pitch where she
+was within 0.054 degrees", red against 0.010. **Seen red, the match**: a
+copy of the test with its step limit at -1 failed on its message, matched
+0 steps off. And on Windows debug here the old measure failed at 0.020
 against 16, the failure reproduced, with 0.003 where she was in the same
 run.
+
+**Later counts** (after the commit above was written): linux-release 4 at
+once, 12 rounds: 36 runs, 0.001 in 35 and 0.002 in one. Windows debug
+here, 6 rounds more: 18 runs, 0.003 at most - 30 Windows debug runs in
+all with the new figure. CI draft run 40842184007: Ubuntu debug 0.001 in
+all three, Windows debug 0.002, 0.002, 0.001.

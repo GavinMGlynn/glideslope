@@ -2562,6 +2562,8 @@ public:
                         if (pitch_on_path_error > worst_pitch_on_path_deg_) {
                             worst_pitch_on_path_deg_ = pitch_on_path_error;
                             worst_pitch_on_path_at_s_ = local_s;
+                            worst_pitch_on_path_steps_off_ = steps_off;
+                            worst_pitch_on_path_off_m_ = off_path_m;
                         }
                         if (pitch_error > worst_pitch_placed_deg_) {
                             worst_pitch_placed_deg_ = pitch_error;
@@ -3330,11 +3332,13 @@ public:
             std::snprintf(line, sizeof line,
                           "stovl: predicted pitch where she was within %.3f degrees of the "
                           "server's over %zu updates outside the machine's stalls, the worst "
-                          "%.1f s in; at the step each was placed at, within %.3f there, %.0f "
-                          "steps off",
+                          "%.1f s in, matched %.0f steps from the step placed at and %.3f m "
+                          "from the path; at the step each was placed at, within %.3f there, "
+                          "%.0f steps off",
                           worst_pitch_on_path_deg_, pitch_on_path_compared_,
-                          worst_pitch_on_path_at_s_,
-                          worst_pitch_placed_deg_, worst_pitch_steps_off_);
+                          worst_pitch_on_path_at_s_, worst_pitch_on_path_steps_off_,
+                          worst_pitch_on_path_off_m_, worst_pitch_placed_deg_,
+                          worst_pitch_steps_off_);
             lines.emplace_back(line);
         }
         return lines;
@@ -3385,6 +3389,8 @@ private:
         worst_pitch_placed_deg_ = 0.0;
         worst_pitch_steps_off_ = 0.0;
         pitch_on_path_compared_ = 0;
+        worst_pitch_on_path_steps_off_ = 0.0;
+        worst_pitch_on_path_off_m_ = 0.0;
         worst_pitch_on_path_deg_ = 0.0;
         worst_pitch_on_path_at_s_ = 0.0;
         first_compared_.reset();
@@ -3855,6 +3861,10 @@ private:
     double worst_pitch_placed_deg_ = 0.0;
     double worst_pitch_steps_off_ = 0.0;
     std::size_t pitch_on_path_compared_ = 0;
+    // Where the worst of it was matched: steps from the step placed at, and
+    // metres from the path flown.
+    double worst_pitch_on_path_steps_off_ = 0.0;
+    double worst_pitch_on_path_off_m_ = 0.0;
     std::deque<Predicted> predicted_at_;
     std::size_t compared_ = 0;
     // Every error compared, for its median: a wrong wind is in every update,
