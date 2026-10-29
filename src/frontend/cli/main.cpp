@@ -2574,14 +2574,20 @@ public:
                 // **Each comparison, for a test to read the series**:
                 // when, the error, the step it was placed at, the input
                 // and how far into it, the clocks' difference over all
-                // the words and the newest, and the pace.
+                // the words and the newest, the pace, the speed's error,
+                // how far off the path and how many steps off, and her
+                // pitch's error at the step placed and at the nearest in
+                // place - which told a law's drift from a word placed a
+                // step off (2026-10-29).
                 if (track_) {
                     *track_ << "compared " << local_s << ' ' << error << ' ' << *c.at_step
                             << ' ' << applied << ' ' << state.yours->steps_into_input
                             << ' ' << prediction_->clocks_difference().value_or(0) << ' '
                             << prediction_->recent_clocks_difference().value_or(0) << ' '
                             << (paced_ ? pacing_.pace() : 1.0) << ' ' << speed_error
-                            << ' ' << off_path_m << ' ' << steps_off << '\n';
+                            << ' ' << off_path_m << ' ' << steps_off << ' '
+                            << at->pitch_deg - pitch_of(m) << ' '
+                            << nearest->pitch_deg - pitch_of(m) << '\n';
                 }
                 // **Before and after an engine stopped**, apart.
                 if (engine_stopped_at_s_) {
