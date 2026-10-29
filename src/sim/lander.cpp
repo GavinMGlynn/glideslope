@@ -664,6 +664,7 @@ void Lander::resume(double throttle) {
     // hand's pace taking any the pilot had there.
     pitch_trim_ = 0.0;
     rudder_trim_ = 0.0;
+    ground_rudder_trim_ = 0.0;
     aileron_trim_ = 0.0;
     brake_ = 0.0;
     // A flare flown again begins again, from how she is - all but its
@@ -818,7 +819,36 @@ Controls Lander::fly_laws() {
         // **The model's rudder command yaws the nose left for a positive
         // value** (sim/test_pilot.cpp), so holding the centreline takes the
         // opposite sign from the correction wanted.
-        c.rudder = -std::clamp(0.10 * error - 0.30 * r_degps, -1.0, 1.0);
+        //
+        // **Held against the wind, not only pointed.** At 0.10 a degree and
+        // 0.30 a degree a second, a heading held against a crosswind's
+        // weathervaning was a heading missed: as 15 kt arrived across, the
+        // rudder that held an A320 back took four degrees of error to ask
+        // for, and at four degrees off at a hundred knots she rolled 21 m
+        // from the centreline before the line's own correction caught her
+        // (every jet 12 to 21 m, dry as wet). So the gains are 0.4 and 0.5,
+        // and **the rudder a steady push needs is learnt and held** - a
+        // weathervaning wind, and her tyres slipping downwind, which turn
+        // her track from her heading - from the error of her track over the
+        // ground, not her heading, so that what is learnt is the rudder that
+        // keeps her rolling along the line: the track is where she goes. Not
+        // learnt past the stop of the rudder (it would only have to be
+        // unlearnt), and below five knots, where a track is not yet worth
+        // reading, from her heading.
+        const double track_known = std::clamp((rolling_kts - 2.0) / 3.0, 0.0, 1.0);
+        const double track_deg = std::atan2(a_.property("velocities/v-east-fps"),
+                                            a_.property("velocities/v-north-fps")) *
+                                 degrees;
+        const double track_error =
+            std::remainder(runway_.heading_deg + want - track_deg, 360.0);
+        const double held_error = track_known * track_error + (1.0 - track_known) * error;
+        const double pointed = 0.4 * error - 0.5 * r_degps;
+        const double asked = pointed + ground_rudder_trim_;
+        if (std::abs(asked) < 1.0 || asked * held_error < 0.0) {
+            ground_rudder_trim_ = std::clamp(
+                ground_rudder_trim_ + 0.1 * held_error / steps_per_second, -1.0, 1.0);
+        }
+        c.rudder = -std::clamp(asked, -1.0, 1.0);
         // **The wings are held level as they are in the air**: the FAA's
         // Airplane Flying Handbook (FAA-H-8083-3C, chapter 9, "After-Landing
         // Roll") has the ailerons keep the wings level on the ground "in
