@@ -166,11 +166,27 @@ message(STATUS "her STOVL law made on her first input with a throttle integral o
 # debug two steps off, where her pitch where she was was within 0.001
 # (docs/status, 2026-10-29). A law gone astray pitches her otherwise
 # where she is, and is seen here as before.
-if(NOT _said MATCHES "stovl: predicted pitch where she was within ([0-9]+)\\.([0-9][0-9][0-9]) degrees of the server's over ([0-9]+) updates outside the machine's stalls[^;]*; at the step each was placed at, within ([0-9.]+) there, ([0-9]+) steps off")
+if(NOT _said MATCHES "stovl: predicted pitch where she was within ([0-9]+)\\.([0-9][0-9][0-9]) degrees of the server's over ([0-9]+) updates outside the machine's stalls, the worst [0-9.]+ s in, matched ([0-9]+) steps from the step placed at and ([0-9.]+) m from the path; at the step each was placed at, within ([0-9.]+) there, ([0-9]+) steps off")
     message(FATAL_ERROR "the client did not say its pitch error where she was:\n${_said}")
 endif()
+set(_whole "${CMAKE_MATCH_1}")
+set(_thousandths "${CMAKE_MATCH_2}")
 set(_on_path "${CMAKE_MATCH_3}")
-set(_placed "${CMAKE_MATCH_4} degrees at the step placed at, ${CMAKE_MATCH_5} steps off")
+set(_matched_steps "${CMAKE_MATCH_4}")
+set(_matched_m "${CMAKE_MATCH_5}")
+set(_placed "${CMAKE_MATCH_6} degrees at the step placed at, ${CMAKE_MATCH_7} steps off")
+# **Matched near, not anywhere along the path**: the worst of her pitch
+# where she was is held against the place nearest the server's word, by
+# position alone, so the test holds that place to within 0.05 m of the path
+# (0.003 m at worst on CI's Windows debug, run 40829041494) and within 24
+# steps, a fifth of a second, of the step the word was placed at (11 at most
+# there, 4 at most here). A match further along would compare her pitch at
+# another moment of the flight, and pass for no reason.
+if(_matched_steps GREATER 24 OR _matched_m GREATER 0.05)
+    message(FATAL_ERROR "the worst of her pitch where she was was matched ${_matched_steps} steps "
+                        "from the step placed at and ${_matched_m} m from the path, past 24 "
+                        "steps or 0.05 m:\n${_said}")
+endif()
 # Over nine in ten of the 3,000 compared at least: the rest are the
 # machine's stalls' and those nearest an end of the steps kept, counted
 # apart (2,924 of 3,000 on CI's Windows debug).
@@ -185,15 +201,15 @@ endif()
 # and the figures of the tests before it in its shard went with it (run
 # 40733120388: Rocky's and one of Ubuntu debug's).
 get_filename_component(_which "${WORK}" NAME)
-set(_figure "figure (${_which}): predicted pitch where she was within ${CMAKE_MATCH_1}.${CMAKE_MATCH_2} degrees over ${_on_path} updates; ${_placed}")
+set(_figure "figure (${_which}): predicted pitch where she was within ${_whole}.${_thousandths} degrees over ${_on_path} updates, matched ${_matched_steps} steps and ${_matched_m} m off; ${_placed}")
 message(STATUS "${_figure}")
 file(WRITE "${WORK}/figures.txt" "${_figure}\n")
-math(EXPR _mdeg "${CMAKE_MATCH_1} * 1000 + 1${CMAKE_MATCH_2} - 1000")
+math(EXPR _mdeg "${_whole} * 1000 + 1${_thousandths} - 1000")
 if(_mdeg GREATER PITCH_BOUND_MDEG)
-    message(FATAL_ERROR "her predicted pitch where she was was ${CMAKE_MATCH_1}.${CMAKE_MATCH_2} "
+    message(FATAL_ERROR "her predicted pitch where she was was ${_whole}.${_thousandths} "
                         "degrees off the server's, over ${PITCH_BOUND_MDEG} thousandths:\n${_said}")
 endif()
-set(_pitch "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
+set(_pitch "${_whole}.${_thousandths}")
 if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared")
     message(FATAL_ERROR "the client did not say how many updates it compared:\n${_said}")
 endif()
