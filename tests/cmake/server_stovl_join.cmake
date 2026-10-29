@@ -20,9 +20,10 @@
 #              and the server has applied the input that centred the stick
 #              (`--leave-once-bank-held`) - the event, not a time: left at
 #              95 s, a slow Windows runner had not finished the roll, and B
-#              was told 0 and 14 degrees - and writes that it has; client B, on A's key (`--key`), joins then
-#              (`--after-ready`), before the server lets A's session go, and
-#              is given her as she is - mid-bank, turning, jet-borne.
+#              was told 0 and 14 degrees - and writes that it has; client
+#              B, on A's key (`--key`), joins then (`--after-ready`),
+#              before the server lets A's session go, and is given her as
+#              she is - mid-bank, turning, jet-borne.
 #
 # **Not a take-over or a take-back**: server_stovl_take_over.cmake builds
 # those.
@@ -53,17 +54,26 @@
 # was copied, never measured for it, and CI's Windows runners went over it
 # three times - 72 mm (windows-clang, run 40743161009), 77 and 63 mm
 # (windows-debug, runs 40750172534 and 40769073518), the worst 0.74 to
-# 1.26 m and the 95th percentile 0.59 to 0.65 m, inside their bounds. Its
-# error is along her path, not off it (0.056 to 0.147 m off at worst):
-# updates placed a step off by the clocks' difference, which Windows'
-# timers spread (COMPLETION_PLAN, Phase 12a). Why the lost scene spreads it
-# more than the join scene is not known. Five runs of each scene on
-# Windows debug, the development machine: the lost scene's median 54 to
-# 61 mm, the join scene's 35 to 48 mm, every 95th percentile 0.54 to
-# 1.27 m. Linux debug, on a busy machine: 19 to 45 mm and 13 to 50 mm,
-# the 95th percentiles 26 to 108 mm. 120 mm is half again Windows' worst, and half the 246 mm of a
-# client begun without the law (docs/status, 2026-10-22), which the
-# pitch check catches first besides.
+# 1.26 m and the 95th percentile 0.59 to 0.65 m, inside their bounds. Five
+# runs of each scene on Windows debug, the development machine: the lost
+# scene's median 54 to 61 mm, the join scene's 35 to 48 mm, every 95th
+# percentile 0.54 to 1.27 m. Linux debug, on a busy machine: 19 to 45 mm
+# and 13 to 50 mm, the 95th percentiles 26 to 108 mm.
+#
+# **The median's cause is not known.** The error lies along her path, not
+# off it (0.056 to 0.147 m off at worst). Updates placed a step off by the
+# clocks' difference, which Windows' timers spread (COMPLETION_PLAN, Phase
+# 12a), explain the tail - a step at her 107 KCAS is about 0.46 m - but not
+# a median of 63 to 77 mm: were half the updates a step off, the median
+# would be near 0.46 m. The lead the reports give: the lost scene's clocks'
+# difference is learned from later datagrams, its first gone, and on CI's
+# Windows was 2 steps off at worst, against 1 here on Linux.
+#
+# 120 mm is half again the worst median seen, and half the 246 mm of a
+# client begun without the law (docs/status, 2026-10-22) - the failure that
+# matters, which this median and the pitch check both catch. The join
+# scene keeps 60 mm: it has not failed CI, and its figures are written to
+# figures.txt, which CI prints, for its bound to be checked against.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
@@ -76,7 +86,7 @@ set(_heard_a "${WORK}/a.txt")
 set(_heard_b "${WORK}/b.txt")
 set(_gone "${WORK}/a-gone.txt")
 set(_plan "${WORK}/stovl.plan")
-file(REMOVE "${_store}" "${_heard_a}" "${_heard_b}" "${_gone}")
+file(REMOVE "${_store}" "${_heard_a}" "${_heard_b}" "${_gone}" "${WORK}/figures.txt")
 file(WRITE "${_plan}" "aircraft c172p\n"
                       "start -33.9461 151.1772 200 270 100\n"
                       "waypoint NORTH -33.5000 151.1772 1500 100\n")
@@ -175,33 +185,40 @@ if(NOT _said MATCHES "stovl: predicted pitch within ([0-9]+)\\.([0-9][0-9][0-9])
 endif()
 set(_pitch "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
 math(EXPR _pitch_mdeg "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
-if(_pitch_mdeg GREATER 500)
-    message(FATAL_ERROR "her predicted pitch was ${_pitch} degrees off the server's, over half "
-                        "a degree:\n${_said}")
-endif()
 if(NOT _said MATCHES "prediction error: ([0-9]+) updates compared, the worst ([0-9]+)\\.([0-9][0-9][0-9]) m")
     message(FATAL_ERROR "B did not say its prediction error:\n${_said}")
 endif()
 set(_compared "${CMAKE_MATCH_1}")
 set(_worst "${CMAKE_MATCH_2}.${CMAKE_MATCH_3}")
 math(EXPR _worst_mm "${CMAKE_MATCH_2} * 1000 + ${CMAKE_MATCH_3}")
+if(NOT _said MATCHES "prediction error 95th percentile: ([0-9]+)\\.([0-9][0-9][0-9]) m")
+    message(FATAL_ERROR "B did not say its 95th percentile:\n${_said}")
+endif()
+math(EXPR _p95_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
+if(NOT _said MATCHES "prediction error median: ([0-9]+)\\.([0-9][0-9][0-9]) m")
+    message(FATAL_ERROR "B did not say its median error:\n${_said}")
+endif()
+math(EXPR _median_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
+# **Every figure said, passed or not**: CI's "The figures said" step prints
+# figures.txt, so that the bounds are set from every platform's runs, not
+# only from those that failed them.
+get_filename_component(_which "${WORK}" NAME)
+file(WRITE "${WORK}/figures.txt"
+     "figure (${_which}): pitch within ${_pitch} degrees, the median ${_median_mm} mm, the "
+     "95th percentile ${_p95_mm} mm, the worst ${_worst} m over ${_compared} updates\n")
+if(_pitch_mdeg GREATER 500)
+    message(FATAL_ERROR "her predicted pitch was ${_pitch} degrees off the server's, over half "
+                        "a degree:\n${_said}")
+endif()
 if(_compared LESS 750)
     message(FATAL_ERROR "only ${_compared} updates were compared:\n${_said}")
 endif()
 if(_worst_mm GREATER 5600)
     message(FATAL_ERROR "the worst prediction error was ${_worst} m, over 5.6 m:\n${_said}")
 endif()
-if(NOT _said MATCHES "prediction error 95th percentile: ([0-9]+)\\.([0-9][0-9][0-9]) m")
-    message(FATAL_ERROR "B did not say its 95th percentile:\n${_said}")
-endif()
-math(EXPR _p95_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
 if(_p95_mm GREATER 3400)
     message(FATAL_ERROR "the 95th percentile was ${_p95_mm} mm, over 3.4 m:\n${_said}")
 endif()
-if(NOT _said MATCHES "prediction error median: ([0-9]+)\\.([0-9][0-9][0-9]) m")
-    message(FATAL_ERROR "B did not say its median error:\n${_said}")
-endif()
-math(EXPR _median_mm "${CMAKE_MATCH_1} * 1000 + ${CMAKE_MATCH_2}")
 # **The lost scene's median, measured** (2026-10-29): see the header.
 set(_median_bound_mm 60)
 if(SCENE STREQUAL "lost")

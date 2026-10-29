@@ -1468,7 +1468,7 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       steps off (24.7 m), no client frame over 171 ms; that test holds its
       updates to the path flown instead. 2026-10-29: the STOVL join with its
       first datagrams lost reached a 77 mm median on Windows, along her
-      path; its median is held to 120 mm.
+      path, its cause unknown; it is held to 120 mm.
 - [ ] **On a server the air has no ground's lift**: the server and its
       clients fly the weather over no ground, because the lift is too costly
       for a predicting client. *Verification: a client predicting over hills
