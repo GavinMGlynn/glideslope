@@ -1775,13 +1775,10 @@ What the client with the window does that the command-line client does, and what
       the window client still draws its frame, on the DEM's colours, and
       says why.* Done 2026-10-28.
 - [ ] **A shot with its imagery refused drew two tiles coarser than one
-      without**, once: 24 tiles to level 7 against 26, on CI's Rocky 9
-      release (run 40733120388), in the test whose failures come in
-      whatever order. Cause not found: imagery can still be in flight when
-      the shot's wait ends (once in 32 runs here, 13 tiles), but that run
-      drew all 26. Named, not fixed: a second failure moves the test to the
-      nightly run. *Verification: the cause shown, and a shot with its
-      imagery refused drawing as deep as one without in every run.*
+      without**, once (24 tiles to level 7 against 26, CI's Rocky 9 release).
+      Cause not found. *Verification: the cause shown, and a shot with its
+      imagery refused drawing as deep as one without in 20 of 20 runs here and
+      every CI run for a week.*
 
 ---
 
