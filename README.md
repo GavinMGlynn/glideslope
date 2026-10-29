@@ -307,14 +307,15 @@ learnt by reinforcement learning, and if it is not there the HUD says why;
 **The flying controls.** On the keyboard the arrow keys are the stick, **Z**
 and **X** the rudder, **Page Up** and **Page Down** the throttle, **,** and
 **.** the mixture, **[** and **]** the propeller, **;** and **'** the
-speedbrakes (in and out), **F** and **R** the flaps (down and up a notch, a
-third at a press), and **B** holds the brakes. A joystick or HOTAS works as
+speedbrakes (in and out), **/** and **\\** the reverse thrust (raised and
+stowed), **F** and **R** the flaps (down and up a notch, a third at a press),
+and **B** holds the brakes. A joystick or HOTAS works as
 `data/input/bindings.txt` says - the flaps are a stick's sixth axis and
 buttons 1 and 2, or a quadrant's fourth lever, buttons 1 and 2 and its hat;
 on a throttle quadrant the speedbrake is the last lever, pulled back to open
 them, and buttons 13 and 14 of a stick or a quadrant close and open them a
-quarter at a press. The HUD shows the speedbrakes on aircraft that have
-them.
+quarter at a press; button 15 of either holds full reverse thrust. The HUD
+shows the speedbrakes on aircraft that have them.
 
 ![F1 in the client: every key, and every stick and throttle-quadrant axis and button, with what it does](docs/images/controls-help-f1.jpg)
 

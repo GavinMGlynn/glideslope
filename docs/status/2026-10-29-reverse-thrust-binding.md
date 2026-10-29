@@ -17,6 +17,10 @@
   Ctrl-B for Concorde). Glideslope's keys are modifier-free pairs, so the
   slash raises the reverse lever and the backslash, beside it on the
   keyboard's other edge, stows it. Neither key was bound.
+- **Keys are bound by position, not by what is printed on them** (SDL
+  scancodes). On a UK or other ISO keyboard the backslash's scancode is the
+  `#` key beside Enter, as the brackets, semicolon and apostrophe are
+  already wherever a US keyboard has them.
 
 **What works.** `platform::Control` has `reverse`, the bindings file reads
 `reverse`, and the keyboard's table has a lever pair for it: `/` raises the
@@ -50,7 +54,8 @@ comes back when it is stowed.
   laid out a fixed 43 lines, said to be as many and as long as the
   committed bindings' help; it now reads that help and lays out as many
   lines - 45 - with the first as long as its longest, 86 characters (the
-  fixed lines stopped at 79).
+  fixed lines stopped at 79), and fails unless what it lays out is that
+  many lines and that long.
 
 **Seen red.** With the keyboard's reverse pair taken out of its table and
 both devices' button 15 put back to the brakes, rebuilt and reconfigured
@@ -62,3 +67,14 @@ something", and
 test whose name touches a lever, a binding, the keyboard, the help or the
 wire (33 of them, the help drawn and read back off a Vulkan frame among
 them); the whole suite is CI's to run.
+
+From the review, each new check was then seen red on its own:
+- **The button's hold**: with button 15 bound to `reverse step 0.25` on both
+  devices instead of `hold`, reconfigured, the reverse is still bound, and
+  only the 0, 1, 0 check failed: "STICK's last button: reverse 0.000000
+  before, 0.250000 held, 0.250000 let go - not 0, 1, 0".
+- **The help's count**: with the layout put back to a fixed 43 lines,
+  `glideslope_help_check layout` failed: "laying out 43 lines, the longest
+  87, for help of 45, the longest 86".
+Both were reverted, and the 24 tests on levers, bindings, the keyboard and
+the help pass again. README's list of keys and buttons has the reverse.
