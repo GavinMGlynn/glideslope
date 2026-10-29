@@ -1220,6 +1220,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 - [ ] **The AI's roll-out drifts 10 to 21 m from the centreline when a 15
       kt crosswind arrives**, dry as wet. *Verification: every landplane
       rolled out as 15 kt arrives stays within 5 m of the centreline.*
+      2026-10-29: dry, every landplane but the Mosquito (who noses over)
+      now stays within 4.8 m. **Wet is not done**: the jets reach 5.0 to
+      6.6 m, the C172P 5.3, the PA-28 14.8 and the Mosquito 18.4.
 - [x] **The AI lands the J-3 Cub within her published crosswind limit**,
       12 kt: one instructor's "about 12 knots" in an EAA Inspire article
       (Piper published none), accepted by the owner on 2026-10-30.
