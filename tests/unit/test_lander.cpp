@@ -85,10 +85,12 @@ struct Landing {
 };
 
 // **From five miles out, on the glidepath, down to a stop.** `crosswind_kts`
-// blows from the left across the runway; zero is calm air.
+// blows from the left across the runway, or from the right where it is
+// negative; zero is calm air.
 Landing land(const std::string& id, double crosswind_kts, bool wet = false) {
-    std::printf("landing the %s in %.0f knots of crosswind\n", id.c_str(),
-                crosswind_kts);
+    std::printf("landing the %s in %.0f knots of crosswind from the %s%s\n", id.c_str(),
+                std::abs(crosswind_kts), crosswind_kts < 0.0 ? "right" : "left",
+                wet ? ", wet" : "");
     std::fflush(stdout);
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const Runway runway = a_runway();
@@ -102,7 +104,8 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false) {
 
     if (crosswind_kts != 0.0 || wet) {
         // Straight across the runway from the left: the runway points 070,
-        // so the wind is from 340 and blows towards 160.
+        // so the wind is from 340 and blows towards 160 (from 160 towards
+        // 340 where it is negative).
         glideslope::sim::Conditions conditions;
         conditions.runway_condition =
             wet ? glideslope::sim::wet_runway : glideslope::sim::dry_runway;
@@ -278,18 +281,17 @@ GLIDESLOPE_TEST(every_light_aircraft_lands_on_the_centreline_in_a_ten_knot_cross
 // she went dry. Since 2026-10-14 her wheels keep, sideways, only the share
 // of their dry grip a wet tyre keeps (sim/runway_condition.hpp).
 //
-// **The J-3 Cub is named and left out**: in 15 kt across she ground-loops
-// after the touch dry - 726 m from the centreline, on her back - and wet,
-// which is no wet runway's doing (an open item in Phase 10b).
+// **The J-3 Cub is in it since 2026-10-29.** She was left out from
+// 2026-10-10, ground-looping after the touch in 15 kt across; with her lift
+// and wing drag off the crosswind (2026-10-15, tools/make_j3cub.py) she no
+// longer does. Seen red with her model from just before that (a793ee39):
+// "j3cub banked 15.303546 degrees after touching down on a wet runway" (16.0
+// dry); and with 2026-10-14's (40045241) on her back, dry and wet.
 GLIDESLOPE_TEST(every_light_aircraft_landed_on_a_wet_runway_in_a_15_kt_crosswind_stays_on_it_as_on_a_dry_one) {
     std::size_t walked = 0;
     std::size_t compared = 0;
     for (const std::string& id : light_aircraft()) {
         ++walked;
-        if (id == "j3cub") {
-            std::printf("  left out - j3cub: she ground-loops in 15 kt across, dry or wet\n");
-            continue;
-        }
         const Landing dry = land(id, 15.0);
         const Landing wet = land(id, 15.0, true);
         std::printf("  %s: farthest across after the touch %.2f m dry, %.2f m wet\n", id.c_str(),
@@ -298,6 +300,8 @@ GLIDESLOPE_TEST(every_light_aircraft_landed_on_a_wet_runway_in_a_15_kt_crosswind
               id + " stopped on the wet runway in the crosswind, " +
                   std::to_string(wet.stopped_along_m) + " m along");
         stayed_down_and_upright(id, wet, " on a wet runway in a 15 kt crosswind");
+        // The dry landing it is compared with is a landing too.
+        stayed_down_and_upright(id, dry, " on a dry runway in a 15 kt crosswind");
         check(wet.worst_across_after_touch_m <= glideslope::sim::Lander::runway_half_width_m,
               id + " went " + std::to_string(wet.worst_across_after_touch_m) +
                   " m from the centreline wet in the crosswind");
@@ -307,9 +311,71 @@ GLIDESLOPE_TEST(every_light_aircraft_landed_on_a_wet_runway_in_a_15_kt_crosswind
                   std::to_string(dry.worst_across_after_touch_m) + " dry");
         ++compared;
     }
-    check(walked == 4 && compared == 3,
-          "every light aircraft but the Cub, named, landed dry and wet in the crosswind: " +
+    check(walked == 4 && compared == 4,
+          "every light aircraft landed dry and wet in the crosswind: " +
               std::to_string(walked) + " and " + std::to_string(compared));
+}
+
+// **The J-3 Cub is landed by the AI in every crosswind within her published
+// limit, from either side, dry and wet.** Piper published none - she was
+// certificated before a demonstrated crosswind was asked of any aeroplane -
+// and the figure is the EAA's: "the demonstrated crosswind component for the
+// Piper J-3 Cub is about 12 knots at 90 degrees" (Steve Krog, "Crosswind
+// Takeoffs 2.0", EAA, 2019; the status file of 2026-10-29 lists what else
+// was searched). From five miles out, every whole knot from 1 to 12 straight
+// across, she touches within 5 m of the centreline, stops on the runway the
+// right way up, never past its half-width, as the server judges her gear.
+// Both sides, as a wind from the left adds to her propeller's swing to the
+// left and one from the right takes from it; dry and on runway condition
+// code 5: four tests, one a side and runway, as twelve landings are about
+// three minutes on a Linux debug build. Coverage: 12 winds in each, counted.
+// **Seen red** with the roll-out's rudder held central (lander.cpp): "the
+// Cub went 34.368009 m from the centreline after the touch in 4 kt from the
+// left, dry"; reverted.
+namespace {
+
+constexpr int cub_published_crosswind_kts = 12;
+
+void the_cub_lands_in_every_crosswind_within_her_limit(double side, bool wet) {
+    int landed = 0;
+    for (int kts = 1; kts <= cub_published_crosswind_kts; ++kts) {
+        const Landing l = land("j3cub", side * kts, wet);
+        const std::string where = " in " + std::to_string(kts) + " kt from the " +
+                                  (side > 0.0 ? "left" : "right") + (wet ? ", wet" : ", dry");
+        std::printf("  farthest across after the touch %.2f m\n", l.worst_across_after_touch_m);
+        check(l.touched, "the Cub never touched down" + where);
+        check(std::abs(l.across_m) <= 5.0, "the Cub touched down " + std::to_string(l.across_m) +
+                                               " m from the centreline" + where);
+        check(l.stopped && l.stopped_along_m <= a_runway().length_m,
+              "the Cub stopped on the runway" + where + ": " +
+                  std::to_string(l.stopped_along_m) + " m along");
+        check(l.worst_across_after_touch_m <= glideslope::sim::Lander::runway_half_width_m,
+              "the Cub went " + std::to_string(l.worst_across_after_touch_m) +
+                  " m from the centreline after the touch" + where);
+        stayed_down_and_upright("j3cub", l, where);
+        ++landed;
+    }
+    check(landed == cub_published_crosswind_kts,
+          "the Cub landed in every whole knot to her limit: " + std::to_string(landed) + " of " +
+              std::to_string(cub_published_crosswind_kts));
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(the_j3_cub_is_landed_by_the_ai_on_a_dry_runway_in_every_crosswind_from_the_left_within_her_published_12_kt) {
+    the_cub_lands_in_every_crosswind_within_her_limit(1.0, false);
+}
+
+GLIDESLOPE_TEST(the_j3_cub_is_landed_by_the_ai_on_a_wet_runway_in_every_crosswind_from_the_left_within_her_published_12_kt) {
+    the_cub_lands_in_every_crosswind_within_her_limit(1.0, true);
+}
+
+GLIDESLOPE_TEST(the_j3_cub_is_landed_by_the_ai_on_a_dry_runway_in_every_crosswind_from_the_right_within_her_published_12_kt) {
+    the_cub_lands_in_every_crosswind_within_her_limit(-1.0, false);
+}
+
+GLIDESLOPE_TEST(the_j3_cub_is_landed_by_the_ai_on_a_wet_runway_in_every_crosswind_from_the_right_within_her_published_12_kt) {
+    the_cub_lands_in_every_crosswind_within_her_limit(-1.0, true);
 }
 
 // **The reference speed comes from the aeroplane's own published figures**,
