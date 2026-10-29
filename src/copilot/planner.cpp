@@ -198,7 +198,7 @@ std::string refusal(const PlanRequest& r, const sim::FlightPlan& plan) {
         std::copy_if(r.fields.begin(), r.fields.end(), std::back_inserter(told), plannable);
     }
     return landing_refusal(r.approach_kts, r.landing_need_m, r.wet_landing_need_m,
-                           r.wet_runways, plan, told);
+                           r.landing_distance_m, r.reverse_thrust, r.wet_runways, plan, told);
 }
 
 Task parse_task(const std::string& text) {

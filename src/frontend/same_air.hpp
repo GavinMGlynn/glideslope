@@ -79,6 +79,10 @@ private:
     std::optional<std::chrono::steady_clock::time_point> failed_at_;
 };
 
+// **A runway a server said its air lays a condition on**, as a client has
+// it: the end and the code, nothing else of the runway being said.
+world::ContaminatedRunway condition_heard(const net::RunwayCondition& c);
+
 // **What a server says of the runways its air lays a condition on**
 // (net::RunwayConditions), for the weather that took over at `changed_at_s`,
 // at `now_s` on the session's clock.

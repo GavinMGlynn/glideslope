@@ -4069,6 +4069,10 @@ int stay(glideslope::platform::UdpSocket& socket,
     // from the last METAR it told: its copilot is told so. A METAR that cannot
     // be read leaves it as it was, as the air before it is kept.
     std::optional<glideslope::world::WetRunways> wet_runways_heard;
+    // The weather last told, and when it took over: the runways told after
+    // it are laid on it, for its copilot, when they are for it.
+    glideslope::world::WeatherReport told_air;
+    double told_air_changed_at_s = 0.0;
     const auto say_heard = [&](const std::string& line) {
         std::fprintf(stderr, "client %s: %s\n", me.c_str(), line.c_str());
         if (heard_out) {
@@ -5052,12 +5056,14 @@ int stay(glideslope::platform::UdpSocket& socket,
                     say_heard("told the weather: " + (w.metar.empty() ? "still air" : w.metar) +
                               when);
                     try {
-                        glideslope::world::WeatherReport told_air;
+                        glideslope::world::WeatherReport heard_air;
                         if (!w.metar.empty()) {
-                            told_air.surface.metar = glideslope::world::parse_metar(w.metar);
+                            heard_air.surface.metar = glideslope::world::parse_metar(w.metar);
                         }
-                        told_air.surface.latitude_deg = w.latitude_deg;
-                        told_air.surface.longitude_deg = w.longitude_deg;
+                        heard_air.surface.latitude_deg = w.latitude_deg;
+                        heard_air.surface.longitude_deg = w.longitude_deg;
+                        told_air = heard_air;
+                        told_air_changed_at_s = w.changed_at_s;
                         wet_runways_heard = glideslope::frontend::wet_runways(
                             w.metar.empty() ? nullptr : &told_air);
                     } catch (const glideslope::world::MetarError&) {
@@ -5082,6 +5088,17 @@ int stay(glideslope::platform::UdpSocket& socket,
                     say_heard(said);
                     if (predicting && !connect_air.own_air) {
                         predicting->runway_conditions(rc);
+                    }
+                    // **Its copilot told them too**: the runways reported
+                    // contaminated, for the weather it was last told.
+                    if (rc.weather_changed_at_s == told_air_changed_at_s &&
+                        !told_air.surface.metar.raw.empty()) {
+                        told_air.contaminated.clear();
+                        for (const glideslope::net::RunwayCondition& c : rc.now) {
+                            told_air.contaminated.push_back(
+                                glideslope::frontend::condition_heard(c));
+                        }
+                        wet_runways_heard = glideslope::frontend::wet_runways(&told_air);
                     }
                     break;
                 }

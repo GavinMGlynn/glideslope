@@ -13,6 +13,7 @@
 #include "sim/plan.hpp"
 
 #include <limits>
+#include <optional>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -22,15 +23,6 @@ namespace glideslope::world {
 
 struct RunwayError : std::runtime_error {
     using std::runtime_error::runtime_error;
-};
-
-// **Where the runways are wet**: within `radius_m` of a place - a METAR's
-// station, whose present weather is what is at the aerodrome (frontend::
-// wet_runways). Runways beyond it are dry.
-struct WetRunways {
-    double latitude_deg = 0.0;
-    double longitude_deg = 0.0;
-    double radius_m = 0.0;
 };
 
 struct RunwayEnd {
@@ -47,6 +39,59 @@ struct RunwayEnd {
     double displaced_m = 0.0;
     std::string surface; // as the file has it: "ASP", "GRVL", ...
 };
+
+// **Whether a place is on a runway**: along it from `end`'s threshold no
+// farther than its length, and within 30 m of its centreline - half the
+// widest runway ICAO Annex 14 asks for (60 m, code letter F), so that all of
+// any runway is on it, and no parallel 120 m or more away is.
+bool on_runway(const RunwayEnd& end, double latitude_deg, double longitude_deg);
+
+// **A runway a reported state has laid a condition on**: the end it is
+// measured from (its threshold, heading and length) and the code, the FAA's
+// runway condition code (sim/runway_condition.hpp). What a server sends its
+// clients (net::RunwayConditions), so that a client flies the server's
+// runways without fetching any.
+struct ContaminatedRunway {
+    RunwayEnd end;
+    int code = 6;
+};
+
+// **Where the runways are wet, and which are reported contaminated**: wet
+// within `radius_m` of a place - a METAR's station, whose present weather is
+// what is at the aerodrome - and nowhere where the radius is 0; and the
+// runways a METAR's runway-state groups lay a condition on, wherever they
+// are (frontend::wet_runways). Every other runway is dry.
+struct WetRunways {
+    double latitude_deg = 0.0;
+    double longitude_deg = 0.0;
+    double radius_m = 0.0;
+    std::vector<ContaminatedRunway> contaminated;
+};
+
+// **The condition reported on the runway `end` is**: the most slippery code
+// of `reported` whose runway the middle of `end`'s lies on (on_runway) -
+// from either of its ends - or none where none is reported.
+std::optional<int> reported_condition(const std::vector<ContaminatedRunway>& reported,
+                                      const RunwayEnd& end);
+
+// **AC 91-79B's landing distance factors** (FAA, 28 August 2023, table
+// 3-1): what an aeroplane's unfactored dry landing distance from its flight
+// manual is multiplied by for the runway condition code at the time of
+// arrival, where its maker publishes nothing for that runway. Each includes
+// a 15 per cent margin, an operational air distance and the runway's effect
+// on the wheels. Two rows are taken: "Turbojet, No Reverse" - the same as
+// the "Reciprocating" row, figure for figure - for every aeroplane that
+// lands without reverse thrust, and "Turbojet, With Reverse" for one that
+// reverses on a runway that is not dry (sim::Lander, the catalogue's
+// `reversers`). No aircraft here takes the turboprop row.
+//   code            6     5 grooved  5 smooth  4     3     2     1
+//   no reverse      1.67  2.3        2.6       2.8   3.2   4.0   5.1
+//   with reverse    1.67  1.92       2.2       2.3   2.5   2.9   3.4
+// Code 5's is the smooth runway's, since nothing here says a runway is
+// grooved. **Code 0, nil braking, has none**: "a report of nil braking
+// action on a runway requires the closure of that runway" (4.8.1.4), so no
+// landing is sized for it - none, as for any code not 0 to 6.
+std::optional<double> landing_distance_factor(int code, bool reverse_thrust);
 
 // The runway ends in `csv`, a `runways.csv`. Throws RunwayError for a file
 // that is not one: no header, or a header without the columns read.

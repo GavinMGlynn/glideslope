@@ -34,16 +34,21 @@ copilot::Brief brief_for(const std::filesystem::path& data, const std::string& c
     b.glide_slowest_kts = sim::glide_slowest_kts(data, entry.model);
     b.landing_need_m = sim::landing_need_m(data, entry.model);
     b.wet_landing_need_m = sim::wet_landing_need_m(data, entry.model);
+    b.landing_distance_m = sim::landing_distance_m(data, entry.model);
+    b.reverse_thrust = entry.reverse_idle_kts.has_value();
     return b;
 }
 
 std::optional<world::WetRunways> wet_runways(const world::WeatherReport* report) {
-    if (report == nullptr ||
-        world::runway_condition_of(report->surface.metar) == sim::dry_runway) {
+    if (report == nullptr) {
+        return std::nullopt;
+    }
+    const bool wet = world::runway_condition_of(report->surface.metar) != sim::dry_runway;
+    if (!wet && report->contaminated.empty()) {
         return std::nullopt;
     }
     return world::WetRunways{report->surface.latitude_deg, report->surface.longitude_deg,
-                             world::metar_radius_m};
+                             wet ? world::metar_radius_m : 0.0, report->contaminated};
 }
 
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
@@ -60,6 +65,8 @@ copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
     r.cruise_kts = b.cruise_kts;
     r.landing_need_m = b.landing_need_m;
     r.wet_landing_need_m = b.wet_landing_need_m;
+    r.landing_distance_m = b.landing_distance_m;
+    r.reverse_thrust = b.reverse_thrust;
     r.wet_runways = wet;
     return r;
 }

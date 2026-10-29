@@ -2348,6 +2348,10 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "below 1");
         }
         out.landing_need_m = ft * 0.3048 * factor;
+        // A landing field length is the demonstrated distance over 0.6
+        // (14 CFR 121.195(b)); the others are the distance itself.
+        out.landing_distance_m =
+            ft * 0.3048 * (out.landing_basis == "field_length" ? 0.6 : 1.0);
     }
     // **And a wet one, where her manual gives its own**: at most once, read as
     // the dry one is, and only beside a dry one.
@@ -2460,6 +2464,10 @@ double wet_landing_need_m(const std::filesystem::path& data, const std::string& 
     const PublishedFigures f = read_published_figures(data / "figures" / (model + ".xml"));
     return f.own_wet_landing_need_m > 0.0 ? f.own_wet_landing_need_m
                                           : f.landing_need_m * wet_landing_factor;
+}
+
+double landing_distance_m(const std::filesystem::path& data, const std::string& model) {
+    return read_published_figures(data / "figures" / (model + ".xml")).landing_distance_m;
 }
 
 PlanSpeeds plan_speeds(const std::filesystem::path& data, const std::string& model) {

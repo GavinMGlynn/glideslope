@@ -107,20 +107,8 @@ std::optional<int> runway_condition_of(const Metar::RunwayState& state,
 // runways - 88, 99, SNOCLO - name every one.
 bool names(const Metar::RunwayState& state, const RunwayEnd& end);
 
-// **Whether a place is on a runway**: along it from `end`'s threshold no
-// farther than its length, and within 30 m of its centreline - half the
-// widest runway ICAO Annex 14 asks for (60 m, code letter F), so that all of
-// any runway is on it, and no parallel 120 m or more away is.
-bool on_runway(const RunwayEnd& end, double latitude_deg, double longitude_deg);
-
-// **A runway a reported state has laid a condition on**: the end it is
-// measured from (its threshold, heading and length) and the code. What a
-// server sends its clients (net::RunwayConditions), so that a client flies
-// the server's runways without fetching any.
-struct ContaminatedRunway {
-    RunwayEnd end;
-    int code = 6;
-};
+// world::on_runway and world::ContaminatedRunway are world/runways.hpp's,
+// where the copilot sees them.
 // The most a report lays: two ends of eight runways.
 inline constexpr std::size_t most_contaminated_runways = 16;
 // **The longest runway an end may be**, metres: what a client's reader of

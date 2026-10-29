@@ -24,7 +24,9 @@ namespace glideslope::frontend {
 // (sim::departure_speeds - published, or measured where nothing published
 // gives one), the speeds a plan may fly it at (sim::plan_speeds) and its
 // cruise, and the runway it needs to land, dry and wet - 1.15 times the dry
-// (sim::wet_landing_factor, 14 CFR 121.195(d)). The task is left for the
+// (sim::wet_landing_factor, 14 CFR 121.195(d)) - and its unfactored landing
+// distance and reverse thrust, which size a landing on a runway reported
+// contaminated (copilot::landing_refusal). The task is left for the
 // caller. Throws as they do.
 copilot::Brief brief_for(const std::filesystem::path& data, const std::string& catalogue_id);
 
@@ -37,8 +39,10 @@ copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
 // **Where the weather flown wets the runways**: within world::metar_radius_m
 // of its METAR's station, when the METAR wets a runway
 // (world::runway_condition_of); nowhere for one that does not, or for none,
-// still air. The server's and every client's copilot and planner are told
-// it from the weather they fly.
+// still air. **And the runways its runway-state groups lie on**, once laid
+// (WeatherReport::contaminated), each with its condition code. The server's
+// and every client's copilot and planner are told it from the weather they
+// fly; none where nothing is wet or reported.
 std::optional<world::WetRunways> wet_runways(const world::WeatherReport* report);
 
 // **Where a plan from an airport may land** (copilot::PlanRequest::fields):

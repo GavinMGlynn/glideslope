@@ -83,6 +83,13 @@ struct Brief {
     // **And on a wet runway**: 1.15 times as much (frontend::brief_for), 0
     // where `landing_need_m` is. Which applies is the Situation's.
     double wet_landing_need_m = 0.0;
+    // **And on a runway reported contaminated**: her unfactored dry landing
+    // distance (sim::landing_distance_m), 0 where she has none, and whether
+    // she lands with reverse thrust on a slippery runway (the catalogue's
+    // `reversers`) - what AC 91-79B's factors are chosen by and multiply
+    // (world::landing_distance_factor). Not told the model: its checks.
+    double landing_distance_m = 0.0;
+    bool reverse_thrust = false;
     std::string task; // what the pilot said, "follow the coast north to Palm Beach"
 };
 
@@ -136,9 +143,9 @@ struct Situation {
     std::vector<sim::Waypoint> route;
     // Runways nearby, nearest first: where it may land.
     std::vector<world::RunwayEnd> fields;
-    // **Where the runways are wet**, as the weather flown says
-    // (frontend::wet_runways), or nowhere: a landing on one needs the
-    // Brief's wet need.
+    // **Where the runways are wet, and which are reported contaminated**, as
+    // the weather flown says (frontend::wet_runways), or nowhere: a landing
+    // on one needs the Brief's wet need, or more (landing_refusal).
     std::optional<world::WetRunways> wet_runways;
     // Why it is asked now: "the pilot has asked", "the engine has stopped",
     // "a routine look".
@@ -186,8 +193,15 @@ const world::RunwayEnd* landing_field(const std::vector<world::RunwayEnd>& field
 // the aircraft needs; a `need_m` of 0, none published, refuses none for
 // length. A copilot's glide is refused a landing before this is asked. A
 // runway within `wet`'s radius needs `wet_need_m` (frontend::brief_for), and
-// a refusal says the runway is wet.
+// a refusal says the runway is wet. **A runway `wet` says is reported
+// contaminated** (world::reported_condition) is judged by its code: 6 as
+// dry; 5 as wet; 4 to 1 needing `landing_distance_m`, the unfactored dry
+// distance, times AC 91-79B's factor for the code (world::
+// landing_distance_factor, the reverse-thrust row where `reverse_thrust`),
+// or the wet need where that is more, and a refusal names the code; and 0,
+// nil braking, a closed runway, refused every aircraft at any length.
 std::string landing_refusal(double approach_kts, double need_m, double wet_need_m,
+                            double landing_distance_m, bool reverse_thrust,
                             const std::optional<world::WetRunways>& wet,
                             const sim::FlightPlan& plan,
                             const std::vector<world::RunwayEnd>& fields);

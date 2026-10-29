@@ -261,19 +261,6 @@ std::vector<ContaminatedRunway> contaminated_runways(const Metar& metar,
     return out;
 }
 
-bool on_runway(const RunwayEnd& end, double latitude_deg, double longitude_deg) {
-    constexpr double radians = 3.14159265358979323846 / 180.0;
-    constexpr double metres_per_degree = 111319.49; // on the equatorial sphere
-    constexpr double half_width_m = 30.0;
-    const double east = std::remainder(longitude_deg - end.longitude_deg, 360.0) *
-                        metres_per_degree * std::cos(end.latitude_deg * radians);
-    const double north = (latitude_deg - end.latitude_deg) * metres_per_degree;
-    const double heading = end.heading_deg * radians;
-    const double along = east * std::sin(heading) + north * std::cos(heading);
-    const double across = east * std::cos(heading) - north * std::sin(heading);
-    return along >= 0.0 && along <= end.length_m && std::abs(across) <= half_width_m;
-}
-
 sim::Conditions surface_conditions(const SurfaceReport& report) {
     constexpr double mps_per_knot = 1852.0 / 3600.0;
     constexpr double radians = 3.14159265358979323846 / 180.0;

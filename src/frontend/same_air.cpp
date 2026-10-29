@@ -71,6 +71,8 @@ net::RunwayCondition condition_said(const world::ContaminatedRunway& c) {
             static_cast<std::uint8_t>(c.code)};
 }
 
+} // namespace
+
 world::ContaminatedRunway condition_heard(const net::RunwayCondition& c) {
     world::ContaminatedRunway out;
     out.end.latitude_deg = c.latitude_deg;
@@ -80,8 +82,6 @@ world::ContaminatedRunway condition_heard(const net::RunwayCondition& c) {
     out.code = c.code;
     return out;
 }
-
-} // namespace
 
 net::RunwayConditions runway_conditions_said(const world::ReportedWeather& air,
                                              double changed_at_s, double now_s) {

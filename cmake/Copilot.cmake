@@ -50,7 +50,8 @@ set(GLIDESLOPE_COPILOT_NAMES
     sim::most_bank_deg sim::PlanSpeeds sim::within_plan_speeds
     world::Json world::JsonError world::parse_json world::write_json
     world::RunwayEnd world::WetRunways world::RunwayError world::read_runways world::runways_at world::as_runway
-    world::landing_length_m
+    world::landing_length_m world::on_runway world::ContaminatedRunway world::reported_condition
+    world::landing_distance_factor
     platform::HttpRequest platform::HttpResponse platform::HttpError platform::http_get
     platform::http_post platform::refuse_unsafe_headers)
 

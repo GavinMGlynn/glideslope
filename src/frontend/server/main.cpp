@@ -4987,10 +4987,36 @@ int run(const Options& o) {
             given.surface.latitude_deg = (*o.station)[0];
             given.surface.longitude_deg = (*o.station)[1];
         }
-        const auto wet_runways = glideslope::frontend::wet_runways(
-            station_weather                  ? &*station_weather
-            : !o.metar.empty() && o.station ? &given
-                                            : nullptr);
+        glideslope::world::WeatherReport* planned_in = station_weather ? &*station_weather
+                                                       : !o.metar.empty() && o.station ? &given
+                                                                                       : nullptr;
+        // **And told the runways its runway-state groups lie on**: laid here,
+        // before they plan, on the station's runways from the same file their
+        // plans' runways come from (plan_by_model) - not waited for on a
+        // thread, as the air's are, since the planners are asked before the
+        // clock starts. Runways that cannot be had are said, and the planners
+        // told none reported.
+        if (planned_in != nullptr && !planned_in->surface.metar.runway_states.empty() &&
+            std::any_of(o.planners.begin(), o.planners.end(),
+                        [](const auto& p) { return !p.second.provider.empty(); })) {
+            try {
+                const std::vector<glideslope::world::RunwayEnd> all =
+                    glideslope::world::world_runways(glideslope::platform::cache_directory(),
+                                                     glideslope::world::http_fetch());
+                planned_in->contaminated = glideslope::world::contaminated_runways(
+                    planned_in->surface.metar,
+                    glideslope::world::runways_at(all, planned_in->surface.metar.station));
+                std::printf("planners told %zu runway%s reported contaminated\n",
+                            planned_in->contaminated.size(),
+                            planned_in->contaminated.size() == 1 ? "" : "s");
+            } catch (const std::exception& e) {
+                std::fprintf(stderr,
+                             "glideslope_server: the runways cannot be had, and the planners are "
+                             "told of no runway reported contaminated: %s\n",
+                             e.what());
+            }
+        }
+        const auto wet_runways = glideslope::frontend::wet_runways(planned_in);
         fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s,
                       wet_runways, o.hand_over_planner);
         fleet->fail_engines_at(o.fail_engine_at_s);

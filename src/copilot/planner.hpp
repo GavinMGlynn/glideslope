@@ -57,6 +57,8 @@ struct PlanRequest {
     // where nothing published gives one.
     double landing_need_m = 0.0;
     double wet_landing_need_m = 0.0; // as the Brief's
+    double landing_distance_m = 0.0; // as the Brief's
+    bool reverse_thrust = false;     // as the Brief's
     std::optional<world::WetRunways> wet_runways; // as the Situation's
     std::string airport;       // where it stands, "YSSY"
     std::vector<world::RunwayEnd> runways; // that airport's

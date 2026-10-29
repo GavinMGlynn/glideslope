@@ -326,12 +326,14 @@ std::string change_refusal(const Brief& b, const Situation& now, const Change& c
             return "a glide does not land: it ends over its field";
         }
         return landing_refusal(b.approach_kts, b.landing_need_m, b.wet_landing_need_m,
-                               now.wet_runways, change.plan, now.fields);
+                               b.landing_distance_m, b.reverse_thrust, now.wet_runways,
+                               change.plan, now.fields);
     }
     return {};
 }
 
 std::string landing_refusal(double approach_kts, double dry_need_m, double wet_need_m,
+                            double landing_distance_m, bool reverse_thrust,
                             const std::optional<world::WetRunways>& wet_runways,
                             const sim::FlightPlan& plan,
                             const std::vector<world::RunwayEnd>& fields) {
@@ -356,17 +358,37 @@ std::string landing_refusal(double approach_kts, double dry_need_m, double wet_n
     // **Long enough for it**, as the runway data has it, not as the line was
     // written: its length less any displaced threshold.
     const double length_m = world::landing_length_m(*field);
-    const bool wet = wet_runways && sim::distance_m(field->latitude_deg, field->longitude_deg,
-                                                    wet_runways->latitude_deg,
-                                                    wet_runways->longitude_deg) <=
-                                        wet_runways->radius_m;
-    const double need_m = wet ? wet_need_m : dry_need_m;
+    const std::string runway = "the runway " + field->airport + " " + field->ident;
+    // **Its condition as reported**, where a runway-state group names it,
+    // and wet within the weather's radius: the more slippery of the two.
+    const std::optional<int> reported =
+        wet_runways ? world::reported_condition(wet_runways->contaminated, *field)
+                    : std::nullopt;
+    const bool wet_by_weather =
+        wet_runways && wet_runways->radius_m > 0.0 &&
+        sim::distance_m(field->latitude_deg, field->longitude_deg, wet_runways->latitude_deg,
+                        wet_runways->longitude_deg) <= wet_runways->radius_m;
+    const int code = std::min(reported.value_or(6), wet_by_weather ? 5 : 6);
+    // **Nil braking closes a runway** (AC 91-79B 4.8.1.4): refused at any
+    // length, to every aircraft.
+    const std::optional<double> factor = world::landing_distance_factor(code, reverse_thrust);
+    if (!factor) {
+        return runway + " is reported at runway condition code " + std::to_string(code) +
+               ", nil braking, and is closed: choose another";
+    }
+    double need_m = code == 6 ? dry_need_m : wet_need_m;
+    if (code <= 4) {
+        need_m = std::max(need_m, landing_distance_m * *factor);
+    }
     if (need_m > 0.0 && length_m < need_m) {
-        return "the runway " + field->airport + " " + field->ident + " has " +
-               std::to_string(static_cast<long>(std::floor(length_m))) +
+        const std::string on = code == 6   ? std::string()
+                               : code == 5 ? std::string(" on a wet runway")
+                                           : " on a runway reported at runway condition code " +
+                                                 std::to_string(code);
+        return runway + " has " + std::to_string(static_cast<long>(std::floor(length_m))) +
                " m to land on, and the aircraft needs " +
-               std::to_string(static_cast<long>(std::ceil(need_m))) +
-               (wet ? " m on a wet runway: choose a longer one" : " m: choose a longer one");
+               std::to_string(static_cast<long>(std::ceil(need_m))) + " m" + on +
+               ": choose a longer one";
     }
     return {};
 }
