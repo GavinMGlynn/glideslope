@@ -237,6 +237,12 @@ are the risks the phase order is built around:
   departures are not examined. The
   Cub no longer goes over braking in a crosswind where she does not in calm
   air.
+- **The AI's roll-out holds the centreline in a crosswind that arrives dry,
+  not wet** (2026-10-29). As 15 kt arrives across, every landplane the AI
+  lands but the Mosquito, who noses over braked dry, stays within 4.8 m of
+  the centreline dry (it was 12 to 21 m for the jets). Wet, the jets reach
+  5.0 to 6.6 m, the C172P 5.3, and the PA-28 and the Mosquito 15 and 18:
+  the PA-28's steering is at its stops, and the Mosquito is still flying.
 - **Restore settles what it cannot read.** It holds the aircraft at the captured
   state for two simulated seconds so JSBSim's hidden engine and actuator states
   converge; a restore is therefore not free. Reconciliation does not use it:
