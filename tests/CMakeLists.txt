@@ -2609,19 +2609,22 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_vertical_landing)
 # **A player who joins already selecting STOVL mode has her law seeded in
 # her prediction as the server seeds its own**: the same throttle integral,
 # on her first input; and selected so, before her prediction has settled,
-# her predicted pitch within 0.024 degree of the server's for two minutes
-# wing-borne. **Each at-once test's bound is twice the most it was seen off
-# on any platform** in CI's full runs 40733120388 and 40743161009, every
-# platform's figure seen (docs/status, 2026-10-29): here 0.012 (Windows
-# release), so 0.024; with a slow client 0.032 (Windows debug, 40743161009;
-# 0.007 at most elsewhere), so 0.064; with its first asking ignored 0.008
-# (Windows clang), so 0.016. See
+# her predicted pitch where she was within 0.010 degree of the server's for
+# two minutes wing-borne. **Where she was, not at the step each word was
+# placed at**: placed whole steps off on a busy machine, the pitch at the
+# placed step was off by those steps' pitching - 0.032 on CI's Windows debug
+# (runs 40743161009, 40829041494), 0.020 and 0.024 on Windows debug here -
+# where her pitch on the path flown was within 0.003. **The bound, 0.010 for
+# all three tests**, from the figure where she was: within 0.001 in every
+# run on linux-release here and 0.003 at most on Windows debug here
+# (docs/status, 2026-10-29, the counts there); a law gone astray was off by
+# 0.2 to 0.96 degree. See
 # cmake/server_stovl_at_once.cmake.
 add_test(NAME a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once -DPORT=24812 -DPITCH_BOUND_MDEG=24
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once -DPORT=24812 -DPITCH_BOUND_MDEG=10
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_at_once.cmake)
 set_tests_properties(a_client_selecting_stovl_on_its_first_input_seeds_its_transition_law_with_the_servers_throttle_integral
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900 RUN_SERIAL TRUE)
@@ -2634,7 +2637,7 @@ add_test(NAME a_client_slower_to_prepare_than_the_servers_timeout_is_not_let_go_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_slow -DPORT=24992 -DPITCH_BOUND_MDEG=64
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_slow -DPORT=24992 -DPITCH_BOUND_MDEG=10
         -DSLOW_MS=6000 -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_at_once.cmake)
 set_tests_properties(a_client_slower_to_prepare_than_the_servers_timeout_is_not_let_go_and_seeds_its_law_as_the_server_does
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)
@@ -2646,7 +2649,7 @@ add_test(NAME a_client_whose_first_asking_for_her_levers_is_ignored_asks_again_a
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_spent -DPORT=24986 -DPITCH_BOUND_MDEG=16
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_spent -DPORT=24986 -DPITCH_BOUND_MDEG=10
         -DSPEND=ON -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_at_once.cmake)
 set_tests_properties(a_client_whose_first_asking_for_her_levers_is_ignored_asks_again_and_seeds_its_law_as_the_server_does
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 900)

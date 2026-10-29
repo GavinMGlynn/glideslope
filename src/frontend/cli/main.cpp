@@ -2463,8 +2463,8 @@ public:
                 errors_m_.push_back(error);
                 // **Her pitch's error**, the same way: what a law that
                 // has wandered in the prediction shows first.
-                worst_pitch_error_deg_ =
-                    std::max(worst_pitch_error_deg_, std::abs(at->pitch_deg - pitch_of(m)));
+                const double pitch_error = std::abs(at->pitch_deg - pitch_of(m));
+                worst_pitch_error_deg_ = std::max(worst_pitch_error_deg_, pitch_error);
                 // **The speed's error**: the server's word against what
                 // this client had flown it to, as the distance is.
                 const double server_speed =
@@ -2517,6 +2517,7 @@ public:
                 // steps kept skip one, and the word between them is a
                 // step's travel from each on the same path.
                 double off_path_m = nearest_m;
+                double pitch_on_path_deg = nearest->pitch_deg;
                 for (std::size_t i = 1; i < predicted_at_.size(); ++i) {
                     const auto& a = predicted_at_[i - 1].where;
                     const auto& b = predicted_at_[i].where;
@@ -2531,9 +2532,14 @@ public:
                                              length2,
                                          0.0, 1.0)
                             : 0.0;
-                    off_path_m = std::min(off_path_m, std::hypot(am[0] - t * ab[0],
-                                                                 am[1] - t * ab[1],
-                                                                 am[2] - t * ab[2]));
+                    const double off_m =
+                        std::hypot(am[0] - t * ab[0], am[1] - t * ab[1], am[2] - t * ab[2]);
+                    if (off_m < off_path_m) {
+                        off_path_m = off_m;
+                        pitch_on_path_deg = predicted_at_[i - 1].pitch_deg +
+                                            t * (predicted_at_[i].pitch_deg -
+                                                 predicted_at_[i - 1].pitch_deg);
+                    }
                 }
                 if (!across) {
                     if (at_an_end) {
@@ -2542,6 +2548,25 @@ public:
                         ++placed_compared_;
                         worst_placed_error_m_ = std::max(worst_placed_error_m_, off_path_m);
                         worst_steps_off_ = std::max(worst_steps_off_, steps_off);
+                        // **Her pitch where she was, not when**: the
+                        // server's word against her pitch on the path
+                        // flown, between the steps either side of where
+                        // the word is. Placed whole steps off, the
+                        // pitch at the step placed at is off by those
+                        // steps' pitching (0.024 degree, 2 steps off, on
+                        // Windows debug, where it was 0.001; docs/status,
+                        // 2026-10-29); a law gone astray is off here too.
+                        const double pitch_on_path_error =
+                            std::abs(pitch_on_path_deg - pitch_of(m));
+                        ++pitch_on_path_compared_;
+                        if (pitch_on_path_error > worst_pitch_on_path_deg_) {
+                            worst_pitch_on_path_deg_ = pitch_on_path_error;
+                            worst_pitch_on_path_at_s_ = local_s;
+                        }
+                        if (pitch_error > worst_pitch_placed_deg_) {
+                            worst_pitch_placed_deg_ = pitch_error;
+                            worst_pitch_steps_off_ = steps_off;
+                        }
                     }
                 }
                 // **Each comparison, for a test to read the series**:
@@ -3302,6 +3327,15 @@ public:
                           "update compared",
                           worst_pitch_error_deg_);
             lines.emplace_back(line);
+            std::snprintf(line, sizeof line,
+                          "stovl: predicted pitch where she was within %.3f degrees of the "
+                          "server's over %zu updates outside the machine's stalls, the worst "
+                          "%.1f s in; at the step each was placed at, within %.3f there, %.0f "
+                          "steps off",
+                          worst_pitch_on_path_deg_, pitch_on_path_compared_,
+                          worst_pitch_on_path_at_s_,
+                          worst_pitch_placed_deg_, worst_pitch_steps_off_);
+            lines.emplace_back(line);
         }
         return lines;
     }
@@ -3348,6 +3382,11 @@ private:
         worst_error_m_ = 0.0;
         worst_error_at_s_ = 0.0;
         worst_pitch_error_deg_ = 0.0;
+        worst_pitch_placed_deg_ = 0.0;
+        worst_pitch_steps_off_ = 0.0;
+        pitch_on_path_compared_ = 0;
+        worst_pitch_on_path_deg_ = 0.0;
+        worst_pitch_on_path_at_s_ = 0.0;
         first_compared_.reset();
         last_compared_.reset();
     }
@@ -3807,6 +3846,15 @@ private:
     // The worst of her pitch's error, the server's word against this
     // client's, over the updates compared, degrees.
     double worst_pitch_error_deg_ = 0.0;
+    // **And where she was**, against her pitch on the path flown, outside
+    // the machine's stalls and not at an end of the steps kept, as the
+    // error off the path is; with the worst at the placed step over those
+    // same updates, and how many steps it was placed off.
+    double worst_pitch_on_path_deg_ = 0.0;
+    double worst_pitch_on_path_at_s_ = 0.0;
+    double worst_pitch_placed_deg_ = 0.0;
+    double worst_pitch_steps_off_ = 0.0;
+    std::size_t pitch_on_path_compared_ = 0;
     std::deque<Predicted> predicted_at_;
     std::size_t compared_ = 0;
     // Every error compared, for its median: a wrong wind is in every update,
