@@ -28,8 +28,10 @@
 # **Not a take-over or a take-back**: server_stovl_take_over.cmake builds
 # those.
 #
-# B predicts (`--predict --stovl-land --stovl-level`), its selector on, the
-# stick centred, as A left them, through a relay that holds every datagram
+# B predicts (`--predict --stovl-land --stovl-level`): for its first 150
+# inputs it sends what a fresh aircraft does - the selector off, the stick
+# centred and the lever at 0.6 - and from then on the selector on and the
+# lever at 0.7, as A left them; through a relay that holds every datagram
 # 100 ms each way; it stays until 750 updates are compared since it began on
 # her law (`--until-compared`, counted afresh from there): the event, not a
 # time.
@@ -74,6 +76,15 @@
 # matters, which this median and the pitch check both catch. The join
 # scene keeps 60 mm: it has not failed CI, and its figures are written to
 # figures.txt, which CI prints, for its bound to be checked against.
+#
+# **Her pitch under load** (2026-10-29): on a busy machine it went over
+# half a degree - CI's Ubuntu linux-debug 0.592 in the lost scene (run
+# 40800355368), here 0.502 to 0.892 - at the step the word was placed and
+# at the nearest in place alike, so not the comparison: her law's jet-borne
+# state, which no word carries, drifts from the server's, mostly while B's
+# 150 unselected inputs turn her law back towards the wing and again. Both
+# tests stay on pull requests: neither has failed twice on CI.
+# docs/status/2026-10-29-stovl-join-pitch-under-load.md has the figures.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
