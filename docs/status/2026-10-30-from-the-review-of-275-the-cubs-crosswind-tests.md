@@ -39,10 +39,10 @@
 - **CI costs.** Measured serially on the local linux-debug build:
   the four Cub tests 15.3 to 15.9 s each, the 15 kt test 37.6 s, and the
   ten-knot test 21.8 s. Each table's figure is that time multiplied by the
-  table's ten-knot cost over 21.8. On Linux debug that gives 37 s for each
-  Cub test and 90 s for the 15 kt test: 238 s in all, against #275's
-  estimate of 934 s. The Cub tests were added to macos-debug's table too,
-  which lists the ten-knot test.
+  table's ten-knot cost over 21.8. On Linux debug that gives 37 to 38 s for
+  each Cub test and 90 s for the 15 kt test: 241 s in all, against #275's
+  estimate of 934 s. The Cub tests and the 15 kt test (25 s) were added to
+  macos-debug's table too, which lists the ten-knot test.
 
 **Verification.** The four Cub tests and the 15 kt test are green on
 linux-release and on linux-debug locally. Each red run above was watched
