@@ -137,6 +137,17 @@ int check_layout(const char* bindings_path) {
                                      i == 0 ? longest : std::size_t{0});
         help.push_back(std::string(length, 'X') + std::to_string(i));
     }
+    // What is laid out is as big as the real help: as many lines, and a line
+    // as long as its longest.
+    std::size_t laid_longest = 0;
+    for (const std::string& line : help) {
+        laid_longest = std::max(laid_longest, line.size());
+    }
+    if (help.size() != real.size() || laid_longest < longest) {
+        fail("laying out " + std::to_string(help.size()) + " lines, the longest " +
+             std::to_string(laid_longest) + ", for help of " + std::to_string(real.size()) +
+             ", the longest " + std::to_string(longest));
+    }
     std::size_t sizes = 0;
     std::size_t whole = 0;
     std::size_t cut = 0;
