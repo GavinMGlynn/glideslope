@@ -2089,7 +2089,7 @@ add_test(NAME a_window_client_whose_stale_cached_imagery_is_refused_when_asked_a
     COMMAND ${CMAKE_COMMAND}
         -DPROGRAM=$<TARGET_FILE:glideslope> -DTOOL=$<TARGET_FILE:glideslope_cache_revalidation>
         -DDRIVER=${_first_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames_stale
-        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DPORT=24947
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DPORT=24955
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/imagery_stale_refused.cmake)
 set_tests_properties(a_window_client_whose_stale_cached_imagery_is_refused_when_asked_again_draws_its_frame_and_exits_0
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1300)
