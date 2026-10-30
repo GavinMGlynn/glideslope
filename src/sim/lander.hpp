@@ -287,7 +287,9 @@ public:
     // 0.8: an F-15C's idle thrust beat 0.55 and she never stopped in 15 kt
     // across; at 0.8 she stops as on main. (A C172P was put on her nose at
     // 0.6 only with power run up against her brakes; here the throttle is
-    // closed on every engine.) **These are global defaults**: every
+    // closed on every engine.) **A nose-wheel aeroplane's only**: a
+    // tail-wheel one braked so goes over on her nose (lander.cpp), and
+    // stands at `standing_pedal`. **These are global defaults**: every
     // aircraft's rollout uses them; none has her own.
     static constexpr double idle_pedal = 0.8;
     static constexpr double walking_pace_ceiling(double vg_kts) {

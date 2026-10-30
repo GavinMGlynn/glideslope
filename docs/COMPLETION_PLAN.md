@@ -1153,10 +1153,11 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       out without lifting off.* Done 2026-10-14: on her planing hull the
       S.23 rises 0.20 ft (0.23 in a 10 kt tailwind), and all fourteen are
       judged.
-- [ ] **The rollout's autobrake winds up when there is nothing to slow.**
+- [x] **The rollout's autobrake winds up when there is nothing to slow.**
       *Verification: held at low groundspeed with no deceleration, her brake
-      stays bounded and her nose above -5 degrees.* All 13 at 0.5-4.5 kt do,
-      30 s at idle. **Missing**: none rolls past 2.2 s; no jet reaches 0.8.
+      stays bounded and her nose above -5 degrees.* Done 2026-10-30: all 13,
+      pushed along at 0.5-4.5 kt for 30 s at idle, dry, wet and across; jets
+      reach 0.8; a tail-wheel aeroplane, put on her nose by it, has none.
 - [ ] **The Mosquito swings below walking pace.** Held at every walking
       pace with her brakes worked as the rollout's rudder bar works them, she
       turns at most 4.4 degrees after the hand-over (2026-10-15); but rolled
