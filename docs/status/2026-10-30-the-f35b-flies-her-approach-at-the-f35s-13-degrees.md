@@ -55,8 +55,13 @@ tests; the third round looked at both.**
   - this branch: 0.206, 0.227, 0.205, **0.575**, 0.335, 0.211, 0.217, 0.213,
     0.204, 0.166. One failed; median 0.212, most 0.575.
   - The typical run is the same, but the branch's tail is longer. Ten runs
-    each cannot say whether her lift causes it. The same law-state drift
-    fails on main. Not fixed here; the coordinator is to judge it.
+    each cannot say whether her lift causes it, but it may widen the
+    spread. The same law-state drift fails on main.
+  - Round 3's draft CI (run 41006534168) failed it again, at 0.572. That
+    makes three CI failures for the one cause #273 traced: 0.592 on main
+    (40800355368), then 0.624 (40992479828) and 0.572 (41006534168) here.
+    It failed again on main's model in #283, which moved it to nightly;
+    this pull request leaves it there.
 
 **Four tests her new lift turned red, fixed in the second round.** In the
 first commit's full linux-release suite, 7 of 1,417 tests failed: these
