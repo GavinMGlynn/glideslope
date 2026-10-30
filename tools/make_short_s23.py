@@ -216,8 +216,21 @@ The changes, and what each is for:
     Heave and pitch damping
                         The water's added mass, rho (pi/8) b^2 V (strip
                         theory, as in Zarnick, DTNSRDC-78/032), damps her
-                        heave, wetted in over the step's first half foot,
-                        and her pitch at the step's lever.
+                        heave, and her pitch at the step's lever. **Whole
+                        from the step's first touch**: her planing lift is a
+                        flat plate's (no deadrise, above), and a flat
+                        section's wetted width is its whole beam the moment
+                        it meets the water (Wagner's and von Karman's impact
+                        theory; Zarnick's sectional added mass rho (pi/2)
+                        c^2, c the wetted half-beam, b/2). It is brought in
+                        over 0.083 ft, the travel of one 120 Hz step at the
+                        hardest sink her hull is judged to take, 600 ft/min
+                        (sim/crash.hpp), only so as not to be a step. It was
+                        wetted in over the first half foot, an estimate
+                        (docs/status, 2026-10-13); so, a touch at 80 kt left
+                        her nearly undamped as the step met the water and
+                        her lift threw her back off it, a foot in gusts
+                        (docs/status, 2026-10-31).
     The buoyancy, faded out above the water
                         The model's buoyancy table gave about 1,000 lb with
                         her keel nearly 3 ft clear of the water; buoyancy is
@@ -548,9 +561,11 @@ STEP_AFT_OF_HRP_FT = (10.5 - 341.73 * 0.0254) / 0.3048
 # Savitsky's dynamic lift coefficient, C_L0 = 0.012 lambda^0.5 tau^1.1.
 SAVITSKY_DYNAMIC = 0.012
 # The added mass's heave damping, rho (pi / 8) b^2 V, full once the step is
-# this deep; and its lever in pitch, the step's distance aft of the centre of
-# gravity (9.12 m), squared.
-FULLY_WETTED_FT = 0.5
+# this deep - one 120 Hz step's travel at 600 ft/min, a flat section being
+# wholly wetted at its first touch (see "Heave and pitch damping" above); and
+# its lever in pitch, the step's distance aft of the centre of gravity
+# (9.12 m), squared.
+FULLY_WETTED_FT = round(600.0 / 60.0 / 120.0, 4)
 STEP_LEVER_FT = (10.5 - 9.12) / 0.3048
 
 PLANING_LIFT = f"""  <fcs_function name="hydro/hull-lift-lbs">

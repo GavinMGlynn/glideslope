@@ -4,9 +4,9 @@
 on two or three of the eight seeds - she rises 0.82 to 1.02 ft off the
 water against the gust test's 0.75 (a foot, less its quarter-foot margin)
 in the best variant - and stays named in the gust tests. Nothing in the
-code on `main` changed: docs only. The variants are on the branch
-`flying-boat-lands-in-gusts-wip`, behind environment knobs (its commit
-message lists them), for the next round.
+code on `main` changed: docs only. (Later the same day the item landed: her hull damped
+from its first touch, the last row's variant passes every seed -
+docs/status/2026-10-31-the-flying-boat-lands-in-gusts-her-hull-damped-from-its-first-touch.md.)
 
 **The owner's decisions, 2026-10-31**:
 1. A gust's climb in a level hold-off is not a balloon if she holds level:
@@ -95,6 +95,5 @@ foot is.
 
 **Verification**: none landed. The figures above are from the gust tests'
 own output (`in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_1`
-to `_8`, linux-release, the S.23 alone), with each variant built in, on
-the WIP branch; and a per-step trace of her keel's height, attitude,
+to `_8`, linux-release, the S.23 alone), with each variant built in; and a per-step trace of her keel's height, attitude,
 airspeed, sink, elevator, throttle and flap for seeds 3, 4 and 6.

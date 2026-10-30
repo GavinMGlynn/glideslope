@@ -1621,6 +1621,21 @@ struct FlareWatch {
     double flare_throttle = 0.0;
     double most_flare_throttle = -1.0;
     double touch_throttle = 0.0;
+    double touch_kts = 0.0;
+    // **A hull's hold-off over rough water, watched** (Lander::holding_off):
+    // whether she held off; her keel's height over the water as her flare
+    // began; the highest it was from when it first came down to the hold
+    // height to the touch; and how far her nose rose while she climbed in
+    // it. Her climbs while she held off are not her flare's
+    // (`most_climb_fpm`): a gust's climb in a level hold-off is no balloon
+    // if she holds level (the owner, 2026-10-31).
+    bool held_off = false;
+    bool hold_reached = false;
+    double flare_keel_ft = 0.0;
+    double hold_most_ft = 0.0;
+    double hold_climb_nose_up_deg = 0.0;
+    double hold_climb_from_deg = 0.0;
+    bool hold_climbing = false;
 
     void watch(const glideslope::sim::Lander* lander, const glideslope::sim::Aircraft& a) {
         if (lander == nullptr || touched) {
@@ -1633,6 +1648,27 @@ struct FlareWatch {
             began = true;
             path_pitch_deg = last_pitch_deg;
             flare_throttle = throttle;
+            flare_keel_ft = lander->lands_on_high_ft();
+        }
+        const bool holding = began && lander->holding_off();
+        if (holding) {
+            const double keel_ft = lander->lands_on_high_ft();
+            const double climb_fpm = a.property("velocities/h-dot-fps") * 60.0;
+            held_off = true;
+            if (keel_ft <= glideslope::sim::Lander::rough_water_hold_ft + 0.5) {
+                hold_reached = true;
+            }
+            if (hold_reached) {
+                hold_most_ft = std::max(hold_most_ft, keel_ft);
+            }
+            if (climb_fpm > 0.0) {
+                if (!hold_climbing) {
+                    hold_climb_from_deg = pitch;
+                }
+                hold_climb_nose_up_deg =
+                    std::max(hold_climb_nose_up_deg, pitch - hold_climb_from_deg);
+            }
+            hold_climbing = climb_fpm > 0.0;
         }
         was_flaring = flaring;
         last_pitch_deg = pitch;
@@ -1640,7 +1676,7 @@ struct FlareWatch {
             least_pitch_deg = std::min(least_pitch_deg, pitch);
             most_flare_throttle = std::max(most_flare_throttle, throttle);
             const double climb_fpm = a.property("velocities/h-dot-fps") * 60.0;
-            if (climb_fpm > most_climb_fpm) {
+            if (!holding && climb_fpm > most_climb_fpm) {
                 most_climb_fpm = climb_fpm;
                 most_climb_agl_ft = a.property("position/h-agl-ft");
             }
@@ -1648,6 +1684,7 @@ struct FlareWatch {
         if (a.property("gear/wow") > 0.5 || a.in_water()) {
             touched = true;
             touch_pitch_deg = pitch;
+            touch_kts = a.property("velocities/vc-kts");
             touch_throttle = throttle;
         }
     }
@@ -2863,6 +2900,48 @@ constexpr double gusty_margin_fpm = 25.0;
 constexpr double gusty_margin_ft = 0.25;
 constexpr double gusty_margin_m = 25.0;
 
+// **What a hull held off over rough water is held to instead of the
+// flare's climb** (the owner, 2026-10-31: a gust's climb in a level
+// hold-off is no balloon if she holds level, and is judged by her height
+// and her touch). Holding level: her nose raised no more than a degree
+// while she climbed - the flare's own allowance under the path is a degree
+// and a half (`flare_dip_margin_deg`); measured, the S.23 raises it 0.35 at
+// most. Her height: once down to the hold, her keel never back up to half
+// the height her flare began at - the lander goes around from a climb past
+// all of it (sim::Lander, "a balloon above the flare"). And her touch: her
+// hull no flatter than NACA TN 923's "abnormally low trims (possibly 3
+// degrees or less) should be avoided ... on landing" - the flatter
+// rough-water touch the owner allows (FAA-H-8083-23, ch. 6, "Rough Water
+// Landing"), not below its floor. Each with the gust tests' margin: a
+// quarter of a degree, a quarter of a foot.
+constexpr double hull_most_nose_up_climbing_deg = 1.0;
+constexpr double hull_least_touch_deg = 3.0;
+constexpr double hull_margin_deg = 0.25;
+std::vector<std::string> how_the_hull_held_off(const std::string& where,
+                                               const FlareWatch& f) {
+    std::vector<std::string> wrong;
+    if (!f.held_off || !f.hold_reached) {
+        wrong.push_back(where + " did not hold off over the water");
+        return wrong;
+    }
+    if (f.hold_climb_nose_up_deg > hull_most_nose_up_climbing_deg - hull_margin_deg) {
+        wrong.push_back(where + " raised her nose " + std::to_string(f.hold_climb_nose_up_deg) +
+                        " degrees while she climbed in her hold-off, not a quarter inside " +
+                        std::to_string(hull_most_nose_up_climbing_deg) + ": a balloon");
+    }
+    if (f.hold_most_ft > 0.5 * f.flare_keel_ft - gusty_margin_ft) {
+        wrong.push_back(where + " climbed back to " + std::to_string(f.hold_most_ft) +
+                        " ft in her hold-off, not a quarter-foot under half her flare's " +
+                        std::to_string(f.flare_keel_ft));
+    }
+    if (f.touch_pitch_deg < hull_least_touch_deg + hull_margin_deg) {
+        wrong.push_back(where + " touched at " + std::to_string(f.touch_pitch_deg) +
+                        " degrees, not a quarter above TN 923's " +
+                        std::to_string(hull_least_touch_deg));
+    }
+    return wrong;
+}
+
 // **Named and not judged, with why** - flown and shown all the same, each on
 // every seed: an aeroplane that fails one seed would fail another platform's
 // gusts on a seed she passes here, so she is named whole. What is wrong is
@@ -2889,10 +2968,6 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
         {"f35b", "she touches at 348 ft/min (seed 6), inside the limit by only 12"},
         {"mosquito-fb6", "her main wheels' touch pitches her nose up from 3.6 to 6.8 degrees "
                          "against her elevator, and she bounces 2.9 ft (seed 2), 2.4 (seed 3)"},
-        {"short_s23", "on her planing hull she touches flat in gusts, 0.75 degrees and 88 kt "
-                      "on seed 1, below a hull's lower trim limit (NACA TN 923), and skips: "
-                      "she rises 1.73 (seed 8) to 8.09 ft (seed 1), and on seed 1 comes back "
-                      "down at 726 ft/min"},
     };
     return named;
 }
@@ -2958,6 +3033,17 @@ void every_aeroplane_lands_in_gusts(int seed, const std::vector<std::string>& id
         if (r.after.touch_sink_fpm > gusty_most_sink_fpm - gusty_margin_fpm) {
             wrong.push_back(where + " touched at " + std::to_string(r.after.touch_sink_fpm) +
                             " ft/min, not 25 inside " + std::to_string(gusty_most_sink_fpm));
+        }
+        const bool seaplane = glideslope::sim::find_aircraft(data(), id).seaplane;
+        if (seaplane) {
+            std::printf("      held off: keel from %.2f ft, back up to %.2f once down to the "
+                        "hold, nose up %.2f deg while climbing; touched at %.2f deg, %.1f kt\n",
+                        r.flare.flare_keel_ft, r.flare.hold_most_ft,
+                        r.flare.hold_climb_nose_up_deg, r.flare.touch_pitch_deg,
+                        r.flare.touch_kts);
+            for (const std::string& w : how_the_hull_held_off(where, r.flare)) {
+                wrong.push_back(w);
+            }
         }
         if (r.flare.most_climb_fpm > gusty_most_flare_climb_fpm - gusty_margin_fpm) {
             wrong.push_back(where + " climbed at " + std::to_string(r.flare.most_climb_fpm) +
@@ -3046,7 +3132,7 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 }
 
 // **In moderate turbulence the AI lands every aeroplane not named within
-// its limits** - two of fourteen; the twelve named (`not_yet_landed_in_gusts`)
+// its limits** - three of fourteen; the eleven named (`not_yet_landed_in_gusts`)
 // are flown and shown. Fifteen knots down the runway with severity-3
 // turbulence, its gust factor 15 kt (world::gust_spread_of_severity), flown
 // as the Airplane Flying Handbook (FAA-H-8083-3C, ch. 9, "Turbulent Air
@@ -3056,6 +3142,57 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 // gusts at the flare (`gusty_margin_fpm`): each judged aeroplane passes all
 // eight with a margin, printed. Seen red on the lander before (seed 1): the
 // C172P and PA-28 struck their airframes after bouncing.
+// **A hull's hold-off is judged by her nose, her height and her touch, and
+// each judgement is seen red** (`how_the_hull_held_off`). The S.23 passes
+// all three on every seed, so the landings alone never show them failing:
+// they are fed a hold-off as she flies it (none named) and four with one
+// thing wrong each - never down to the hold, the nose raised 0.8 degrees in
+// a climb, back up to half her flare's height, touched at 3.2 degrees -
+// each of which must be named, and only for its own fault. Coverage
+// asserted: five cases, four named.
+GLIDESLOPE_TEST(a_hulls_hold_off_is_judged_by_her_nose_her_height_and_her_touch_each_seen_red) {
+    FlareWatch good;
+    good.began = good.touched = good.held_off = good.hold_reached = true;
+    good.flare_keel_ft = 21.5;
+    good.hold_most_ft = 3.4;
+    good.hold_climb_nose_up_deg = 0.35;
+    good.touch_pitch_deg = 3.5;
+    std::vector<std::pair<std::string, FlareWatch>> cases;
+    FlareWatch never = good;
+    never.hold_reached = false;
+    cases.emplace_back("did not hold off", never);
+    FlareWatch nose = good;
+    nose.hold_climb_nose_up_deg = 0.8;
+    cases.emplace_back("raised her nose", nose);
+    FlareWatch high = good;
+    high.hold_most_ft = 0.5 * good.flare_keel_ft;
+    cases.emplace_back("climbed back", high);
+    FlareWatch flat = good;
+    flat.touch_pitch_deg = 3.2;
+    cases.emplace_back("touched at", flat);
+    std::vector<std::string> wrong;
+    const auto passed = how_the_hull_held_off("she", good);
+    if (!passed.empty()) {
+        wrong.push_back("a hold-off as she flies it was named: " + passed.front());
+    }
+    std::size_t named = 0;
+    for (const auto& [fault, f] : cases) {
+        const auto found = how_the_hull_held_off("she", f);
+        std::printf("  %-24s %s\n", fault.c_str(),
+                    found.empty() ? "NOT NAMED" : found.front().c_str());
+        if (found.size() == 1 && found.front().find(fault) != std::string::npos) {
+            ++named;
+        } else {
+            wrong.push_back("a hold-off that " + fault + " was not named for it alone");
+        }
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(cases.size() == 4 && named == cases.size(),
+          "four faults, each named: " + std::to_string(named) + " of " +
+              std::to_string(cases.size()));
+}
+
 GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_1) {
     every_aeroplane_lands_in_gusts(1, gusty_all());
 }

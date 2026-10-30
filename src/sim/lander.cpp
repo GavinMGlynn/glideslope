@@ -553,6 +553,10 @@ bool Lander::gone_around() const {
     return stage_ == Stage::go_around && above_m_ * feet_per_metre >= go_around_ft;
 }
 
+double Lander::lands_on_high_ft() const {
+    return above_m_ * feet_per_metre - wheels_hang_ft(a_.state());
+}
+
 bool Lander::down(const AircraftState& s) const {
     if (a_.property("gear/wow") > 0.5) {
         return true;
@@ -574,6 +578,7 @@ bool Lander::notice_the_touch(const AircraftState& s) {
     const bool on_ground = down(s);
     if (on_ground && !touched_) {
         touched_ = true;
+        holding_off_ = false;
         touchdown_pitch_deg_ = s.pitch_deg;
         lowering_pitch_deg_ = s.pitch_deg;
         touchdown_above_m_ = above_m_;
@@ -675,6 +680,7 @@ void Lander::resume(double throttle) {
     // A flare flown again begins again, from how she is - all but its
     // incidence's limit, which is the approach's (`most_flare_alpha_deg`).
     flare_begun_ = false;
+    holding_off_ = false;
     flare_gain_ = 1.0;
     resumed_ = true;
 }
@@ -983,7 +989,20 @@ Controls Lander::fly_laws() {
         // acceleration a full stick gives her, q S c Cm_full / Iyy, from her
         // figures' `elevator_full_cm` and her model's dynamic pressure, wing
         // and inertia. With none given, undamped.
-        if (a_.in_water() && a_.property("gear/wow") <= 0.5 && afterbody_deg_ > 0.0) {
+        //
+        // **In gusts, held so between skips too, and flatter.** The seaplane
+        // handbook (FAA-H-8083-23, ch. 6, "Rough Water Landing") touches
+        // her "at a somewhat flatter pitch attitude than usual. This prevents
+        // the seaplane from being tossed back into the air"; NACA TN 923's
+        // floor, "abnormally low trims (possibly 3 degrees or less) should be
+        // avoided ... on landing", with half a degree in hand:
+        // `rough_water_step_deg`. And skipped clear of the water she is a
+        // hull still, not a landplane: given the landplane's gust stick, four
+        // degrees under her touch, between skips, the S.23's nose went down
+        // to 0.8 degrees and she porpoised (docs/status, 2026-10-31).
+        const bool rough_water = in_gusts() && lands_on_hull();
+        if ((a_.in_water() || rough_water) && a_.property("gear/wow") <= 0.5 &&
+            afterbody_deg_ > 0.0) {
             const double per_deg = 1.0 / std::max(1.0, afterbody_deg_ - touchdown_pitch_deg_);
             const double full_stick_degps2 =
                 a_.property("aero/qbar-psf") * a_.property("metrics/Sw-sqft") *
@@ -995,7 +1014,10 @@ Controls Lander::fly_laws() {
                     ? 2.0 * damping_ratio * std::sqrt(per_deg * full_stick_degps2) /
                           full_stick_degps2
                     : 0.0;
-            const double attitude_error = touchdown_pitch_deg_ - s.pitch_deg;
+            const double step_deg = rough_water
+                                        ? std::min(touchdown_pitch_deg_, rough_water_step_deg)
+                                        : touchdown_pitch_deg_;
+            const double attitude_error = step_deg - s.pitch_deg;
             const double on_the_step =
                 std::clamp(per_deg * attitude_error - per_degps * s.q_radps * degrees + pitch_trim_,
                            -1.0, 1.0);
@@ -1308,7 +1330,30 @@ Controls Lander::fly_laws() {
         // until her wheels are down (the rollout closes it). Held where the
         // flare found it, all of it, an F-35B ballooned above her flare's
         // height and a Mosquito floated past the touchdown zone.
-        const bool gusty = in_gusts();
+        //
+        // **A hull in gusts is landed as the seaplane handbook lands her on
+        // rough water, not as the AFH lands a landplane in turbulence**
+        // (FAA-H-8083-23, ch. 6, "Rough Water Landing", p. 6-7: "level off
+        // just above the water surface and increase the power sufficiently
+        // to maintain a rather flat attitude ... and then reduce the power to
+        // touch down"). Flown on with the landplane's power held and its
+        // gusty sink, the S.23 met the water 12 kt fast at under a degree
+        // and skipped off it up to 9 ft (docs/status, 2026-10-30). So her
+        // flare holds no power, but cushions a sink with it, and is flown
+        // to `rough_water_hold_ft` over the water and level there, her nose
+        // capped at `rough_water_most_pitch_deg`, inside TN 923's stable
+        // range (its lower limit 4.5 degrees, its best trim about 6), so that
+        // as she slows her wing gives her up to the water there. A gust's climb in that level hold-off is not met
+        // by letting the nose down (the owner, 2026-10-31: it is no balloon
+        // if she holds level): let down, she met the water fast and flat
+        // again. Measured on the gust tests' eight seeds (docs/status,
+        // 2026-10-31): capped at 4.5 degrees, a gust flew her off the water
+        // again, 2.7 ft; at 5.5, a lull put her on at 401 ft/min.
+        const bool rough_water = in_gusts() && lands_on_hull();
+        if (rough_water && !flare_begun_) {
+            holding_off_ = true;
+        }
+        const bool gusty = in_gusts() && !rough_water;
         if (gusty) {
             c.throttle = std::max(c.throttle, std::min(throttle_before, 0.5 * flare_throttle_));
         }
@@ -1336,7 +1381,9 @@ Controls Lander::fly_laws() {
         const double touchdown_fpm =
             gusty ? gusty_touchdown_fpm : speeds_.touchdown_fpm;
         const double want_fpm =
-            -(touchdown_fpm + 150.0 * high_ft / std::max(1.0, flare_height_ft()));
+            holding_off_ ? -150.0 * (high_ft - rough_water_hold_ft) /
+                               std::max(1.0, flare_height_ft() - rough_water_hold_ft)
+                         : -(touchdown_fpm + 150.0 * high_ft / std::max(1.0, flare_height_ft()));
         const double fpm_error = want_fpm - s.climb_rate_fpm;
         // **Where the sink is going, not only where it is.** The path follows
         // the nose a second or so behind it, so a nose raised until the sink
@@ -1439,6 +1486,9 @@ Controls Lander::fly_laws() {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg - (alpha_deg - most_alpha_deg));
         }
         flare_pitch_ = std::min(flare_pitch_, most_flare_pitch_deg_);
+        if (rough_water) {
+            flare_pitch_ = std::min(flare_pitch_, rough_water_most_pitch_deg);
+        }
         // **And held, not raised, in the last feet**: a nose still coming up
         // as the wheels meet the runway carries its rotation on to it, and an
         // F-15C touching at 158 knots rotating at two degrees a second lifted
@@ -1485,7 +1535,9 @@ Controls Lander::fly_laws() {
         // "by applying sufficient power to cushion the subsequent
         // touchdown", and a lull or a down-gust in the round out is the same
         // sink. From 150 ft/min past what the flare wants, not 300.
-        const double cushion_from_fpm = gusty ? 150.0 : 300.0;
+        // A hull's on rough water too, from no power held.
+        const bool cushioned = gusty || rough_water;
+        const double cushion_from_fpm = cushioned ? 150.0 : 300.0;
         //
         // **Worked on the sink when the power will arrive**, in gusts: her
         // engines answer `spool_s` after the lever (measured on her model -
@@ -1501,21 +1553,22 @@ Controls Lander::fly_laws() {
         const double time_left_s = 60.0 * high_ft / sink_now_fpm;
         const double power_lead_s = std::max(lead_s, std::min(speeds_.spool_s, time_left_s));
         const double power_error =
-            gusty ? want_fpm - (s.climb_rate_fpm + power_lead_s * climb_trend_fpm_s_) : fpm_error;
-        const bool power_in_time = !gusty || 0.5 * speeds_.spool_s < time_left_s;
+            cushioned ? want_fpm - (s.climb_rate_fpm + power_lead_s * climb_trend_fpm_s_)
+                      : fpm_error;
+        const bool power_in_time = !cushioned || 0.5 * speeds_.spool_s < time_left_s;
         if (power_error > cushion_from_fpm && power_in_time) {
             const double want_throttle =
-                nose_out || gusty
+                nose_out || cushioned
                     ? std::clamp(flare_throttle_ + 0.004 * (power_error - cushion_from_fpm), 0.0,
                                  1.0)
                     : throttle_before;
             c.throttle = std::clamp(want_throttle, throttle_before - 0.5 / steps_per_second,
                                     throttle_before + 0.5 / steps_per_second);
             last_throttle_ = c.throttle;
-        } else if (gusty && power_error < 0.0) {
+        } else if (cushioned && power_error < 0.0) {
             // **And taken off again as soon as the sink is arrested**, judged
             // as far ahead, at twice a hand's pace.
-            const double floor = std::min(throttle_before, 0.5 * flare_throttle_);
+            const double floor = gusty ? std::min(throttle_before, 0.5 * flare_throttle_) : 0.0;
             c.throttle = std::max(floor, throttle_before - 1.0 / steps_per_second);
             last_throttle_ = c.throttle;
         }

@@ -140,7 +140,8 @@ an empty debrief by every aeroplane whose figures give the speeds it names,
 and each flown with a stated fault naming that fault and no other; and the
 instructor, the AI pilot, demonstrating each and handing the controls over
 and back with no step. The AI pilot takes off, flies the pattern, lands and
-stops - on water, too, in the flying boat - every one of the fourteen
+stops - on water, too, in the flying boat, in moderate turbulence as the
+seaplane handbook lands on rough water (2026-10-31) - every one of the fourteen
 upright on its wheels from the touch to the stop, the jets as the FAA lands
 a jet. The J-3 Cub is landed in every crosswind up to her published 12 kt,
 from either side, dry and wet - one instructor's "about 12 knots" in an

@@ -248,6 +248,18 @@ public:
     // hull's contacts; 0 for a landplane, or a hull with no keel aft of her
     // step.
     double afterbody_deg() const { return afterbody_deg_; }
+    // **A hull in gusts held off as on rough water** (lander.cpp): from her
+    // flare's first step to her touch, her keel flown down to
+    // `rough_water_hold_ft` over the water and held level there, her nose no
+    // higher than `rough_water_most_pitch_deg`, until her wing settles her;
+    // and on the water held at no more than `rough_water_step_deg`.
+    bool holding_off() const { return holding_off_; }
+    static constexpr double rough_water_hold_ft = 1.5;
+    static constexpr double rough_water_most_pitch_deg = 5.0;
+    static constexpr double rough_water_step_deg = 3.5;
+    // **How high what she lands on is**, feet over the runway or the water
+    // at her attitude now: her wheels, or her hull's keel.
+    double lands_on_high_ft() const;
 
     Lander(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
            double glidepath_deg = 3.0);
@@ -477,6 +489,7 @@ private:
     bool flare_begun_ = false;
     double flare_begun_pitch_ = 0.0;
     double flare_throttle_ = 0.0;
+    bool holding_off_ = false; // `holding_off`
     // The flare's attitude loop's gain over the path's, brought in over a
     // second as it begins.
     double flare_gain_ = 1.0;

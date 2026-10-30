@@ -1137,12 +1137,11 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 
 - [ ] **The AI cannot land every aeroplane in gusts**: she now flies half
       the gust factor faster with the power on to the touch, and in moderate
-      turbulence lands only two of fourteen within limits with a margin on
+      turbulence lands only three of fourteen within limits with a margin on
       eight seeds and every platform; gusts magnify each platform's floating
       point, and the 787-8, A320, C172P, C182 and Cub that pass on Linux
       fail on macOS or Windows, the 737-300 and A380 balloon, the F-15C and F-35B come down
-      hard or nearly, the B-2A puts a wingtip down, the Mosquito bounces, and
-      the flying boat comes down hard; at her light loading the 737-300 balloons, and the
+      hard or nearly, the B-2A puts a wingtip down, the Mosquito bounces; at her light loading the 737-300 balloons, and the
       Mosquito at her heaviest. *Verification: every aeroplane lands light,
       heavy and in gusts with none named, and a gust on an approach flown
       well makes no go-around.*
@@ -1165,15 +1164,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       2 kt, where that steering brake fades to nothing. *Verification: every
       landplane rolling at walking pace stops within 30 degrees of her
       heading, in calm air and 15 kt across.*
-- [ ] **The flying boat lands in gusts without skipping.** In gusts she
-      touches flat and skips because she arrives 12 kt fast. Owner,
+- [x] **The flying boat lands in gusts without skipping.** Owner,
       2026-10-31: a gust's climb in a level hold-off is no balloon if she
       holds level, and her hull may touch at the rough-water book's flatter
-      attitude (no lower than NACA TN 923's 3 degrees). Held off so, she no
-      longer wrecks, but still rises 0.8 to 1.0 ft off the water on three
-      seeds of eight: fast she flies off it, slow a lull drops her on to it.
-      *Verification: the S.23 lands in calm air and in gusts within the
-      landplanes' limits.*
+      attitude (no lower than NACA TN 923's 3 degrees). *Verification: the
+      S.23 lands in calm air and in gusts within the landplanes' limits.*
+      Done 2026-10-31: held off as the seaplane handbook lands on rough water,
+      her hull damped from its first touch, she rises at most 0.61 ft and
+      touches at most 313 ft/min on all eight seeds.
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
       It flies her slipped, up to 18 degrees in the flare in calm air; with
       her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min
