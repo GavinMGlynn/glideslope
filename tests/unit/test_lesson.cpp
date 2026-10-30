@@ -3535,6 +3535,7 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
             double most_turn = 0.0;
             double most_held_pedal = 0.0;
             double most_idle_pedal = 0.0;
+            double least_creep_pitch = 1e9;
             double wound = 0.0;
             double wound_at_kts = 0.0;
             double most_held_kts = 0.0;
@@ -3588,6 +3589,7 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
                 }
                 if (idle_creep) {
                     most_idle_pedal = std::max(most_idle_pedal, pedal);
+                    least_creep_pitch = std::min(least_creep_pitch, s.pitch_deg);
                 }
                 if (holding) {
                     ++held_steps;
@@ -3617,9 +3619,10 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
             if (creep_pace && !tail_wheel) {
                 ++creep_runs;
                 // At `idle_pedal`, or let off short of it by the rollout's
-                // guard on her nose going down past -4 degrees.
+                // guard on her nose going down past -4 degrees while she
+                // crept, not in the minute after.
                 const bool at_idle_pedal = most_idle_pedal >= idle_pedal - 1e-6;
-                const bool let_off = least_pitch < -4.0 && most_idle_pedal > standing_pedal;
+                const bool let_off = least_creep_pitch < -4.0 && most_idle_pedal > standing_pedal;
                 creep_at_idle_pedal += at_idle_pedal || let_off ? 1U : 0U;
                 creep_let_off += !at_idle_pedal && let_off ? 1U : 0U;
             }
