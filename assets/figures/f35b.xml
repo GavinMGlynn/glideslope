@@ -101,6 +101,28 @@
     <tank index="1" lbs="6550"/>
   </loading>
 
+  <!-- **Her approach, the F-35A's** (2026-10-30). No F-35B approach speed or
+       angle of attack is published; the A's are, and Lockheed Martin's test
+       pilot Dan Levin says the B lands like her: "Landings in the A and B
+       are similar to the F-16 in terms of speed and angle of attack" (Code
+       One, "F-35 Lightning II Flight Testing At NAS Patuxent River", 1
+       December 2012). The Air Force's Accident Investigation Board on F-35A
+       12-5053, lost landing at Eglin on 19 May 2020 (its report, released
+       30 September 2020), gives "the recommended landing attitude of 13
+       AOA" (page 21) and puts her 202 KCAS touchdown "approximately 50
+       KCAS faster and 8 degrees AOA shallower than the on speed parameters
+       for the MA gross weight at the time of landing" (page 6): about 152
+       KCAS at 13 degrees. Eurocontrol's Aircraft Performance Database gives
+       an F-35's landing speed as 150 kt IAS, no variant named. That gross
+       weight is not given, so the weight here is this project's: her combat
+       loading. Her lift (tools/make_f35b.py, LIFT_FACTOR) is set to fly 13
+       degrees there. -->
+  <approach kcas="152" loading="combat">
+    The F-35A's on-speed approach, about 152 KCAS at 13 degrees of angle of
+    attack (USAF AIB, F-35A 12-5053, 2020), which Code One's Levin says the
+    B's is like; at her combat loading, this project's.
+  </approach>
+
   <figure name="hover_thrust" flight="hover_thrust" loading="full" fuel_frozen="1"
           unit="lbf" value="40650" tolerance_percent="1">
     Pratt &amp; Whitney's F135 Fast Facts (Q4 2021): the F135-PW-600's
@@ -195,7 +217,7 @@
   </figure>
 
   <figure name="short_takeoff" flight="short_takeoff" from="measured" loading="short_takeoff"
-          fuel_frozen="1" unit="ft" value="592.5" tolerance_percent="5" temperature_offset_c="17.1"
+          fuel_frozen="1" unit="ft" value="475.6" tolerance_percent="5" temperature_offset_c="17.1"
           headwind_kt="10" roll_deg="42" lift_deg="58" rotate_kcas="70" strike_margin_deg="2"
           rotate_pitch_gain="0.14" rotate_rate_gain="8">
     **Measured: inside the requirement's 600 ft (its estimate 569)**, which
@@ -224,6 +246,9 @@
     592.3, 70 at 70 touched again; 58 at 70 is kept, as before. The
     rotation's gains move it most: 0.14 and 4, 490.8; 0.28 and 4, 430.7 -
     so the gains are the ones it was flown on, not the shortest found.
+    475.6 ft since 2026-10-30, when her lift was raised to fly the F-35A's
+    approach (tools/make_f35b.py, LIFT_FACTOR); 592.5 before. It was not
+    swept again.
   </figure>
 
   <figure name="maximum_mach" fuel_frozen="1" flight="best_level_mach" loading="combat"
@@ -244,7 +269,7 @@
   </figure>
 
   <figure name="stall_speed_landing" flight="stall_speed" from="measured"
-          loading="combat" unit="KCAS" value="122.24" tolerance="3"
+          loading="combat" unit="KCAS" value="97.44" tolerance="3"
           flaps_deg="0" entry_kcas="200" gear="1">
     **Measured, not published.** No flight manual for this aeroplane is
     public, so there is no handbook stall speed to hold the model to. This is
@@ -252,11 +277,13 @@
     stall speeds are measured by, on 2026-09-23. What it asserts is that the
     model still does what it did, not that the aeroplane does it. Measured
     from entry speeds of 160, 200 and 240 knots it varies by 1.13 of a
-    knot, so the number is the model's and not the entry's.
+    knot, so the number is the model's and not the entry's. 97.44 since
+    2026-10-30, when her lift was raised to fly the F-35A's approach
+    (tools/make_f35b.py, LIFT_FACTOR); 122.24 before.
   </figure>
 
   <figure name="takeoff_ground_roll" flight="takeoff_ground_roll" from="measured"
-          loading="combat" unit="ft" value="2008" tolerance_percent="10"
+          loading="combat" unit="ft" value="1880" tolerance_percent="10"
           flaps_deg="0" lift_off_kcas="189">
     **Measured, not published**, and the speed it leaves the runway at is this
     figure's reason for being here. No F-35 take-off speed is public. The
@@ -269,11 +296,15 @@
     attitude - and the speed it lifts off at here is 1.1 times that, as
     FAR 25.107 has a lift-off speed at least 110 per cent of the minimum
     unstick speed. The ground roll is what this figure's own flight measures
-    to it, and is held so that the model still does what it did.
+    to it, and is held so that the model still does what it did. 1,880 ft
+    since 2026-10-30, when her lift was raised (tools/make_f35b.py,
+    LIFT_FACTOR); 2,008 before. **The lift-off speed is still the one
+    measured before**: with more lift she would leave the runway slower at
+    ten degrees, and that was not measured again.
   </figure>
 
   <figure name="climb_rate" from="measured" loading="combat" unit="ft/min"
-          value="20390" tolerance_percent="5" speed_kcas="200">
+          value="20646" tolerance_percent="5" speed_kcas="200">
     **Measured, not published.** No flight manual for this aeroplane is
     public, so there is no handbook rate of climb and no handbook climbing
     speed. Both are the model's own, taken on 2026-09-23.
@@ -285,7 +316,10 @@
     thousand feet a minute, which is the back of the drag curve. 180 knots
     still pins the nose and manages 112 ft/min; 190 climbs. 200 is taken
     because it leaves room - the nose sits at 13.6 degrees of the fifteen it
-    is allowed, and the alpha at 12.
+    is allowed, and the alpha at 12. Those were taken before her lift was
+    raised on 2026-10-30 (tools/make_f35b.py, LIFT_FACTOR); the rate is
+    measured again at the same speed, 20,646 ft/min against 20,390, and the
+    speed was not sought again.
   </figure>
   <!-- **The speeds a plan may fly her at**, measured by `glideslope_cli
        plan-speeds f35b` on 2026-10-02 (linux-release): the tightest orbit a
@@ -302,8 +336,8 @@
        `weight_lbs`, her model's own weight, which the trial flies and a
        server flies her at; heavier, the slowest is raised for her weight
        (sim::for_weight). -->
-  <plan_speeds slowest_kcas="204" fastest_kcas="360" weight_lbs="45400">
-    The slowest, 204 kt, is 5 kt over the slowest that held: its approach speed is a flaps-down figure, and flown clean at 194 kt it lost 108 ft round its 5,446 m circle, and below that more; 199 kt held all four ways. The fastest, 360 kt, a fifth over its start speed, held all four ways.
+  <plan_speeds slowest_kcas="163" fastest_kcas="360" weight_lbs="45400">
+    The slowest, 163 kt, is her approach speed for her weight, the first tried, and held all four ways (measured again on 2026-10-30, when her lift was raised to fly the F-35A's approach; 204 before). The fastest, 360 kt, a fifth over its start speed, held all four ways.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
        glide-speeds f35b` on 2026-10-06 (linux-release): from the slowest a
@@ -311,17 +345,18 @@
        orbit allowed from 30,000 ft, every engine stopped, clean, both ways
        round (sim::glide_tightest_orbit), until one went round without its
        wing passing the angle its lift peaked at, nor 25 degrees. -->
-  <glide_speeds slowest_kcas="204">
-    204 kt, the slowest a route may fly it, went round unstalled.
+  <glide_speeds slowest_kcas="188">
+    188 kt went round unstalled (measured again on 2026-10-30, when her lift was raised; 204 before). From 163 kt, the slowest a route may now fly her, to 183 her wing passed the angle its lift peaked at, 31.5 degrees, both ways round.
   </glide_speeds>
 
-  <landing_distance ft="9200" basis="measured" factor="1">
+  <landing_distance ft="8500" basis="measured" factor="1">
     Measured, not published: the line above is written by
     tools/measured_landing.py from `glideslope_cli land f35b` (2026-10-13,
-    linux-release). Landed by the approach autopilot from a final-approach gate
-    2 nm out, on a level runway at sea level in calm air with every tank full,
-    she touched 302 m in at 437 ft a minute and stopped 2720 m past the
-    threshold, which she crossed on the 3-degree glidepath aimed 300 m in, at
+    linux-release; again on 2026-10-30, when her lift was raised to fly the
+    F-35A's approach - 9,200 ft before). Landed by the approach autopilot from
+    a final-approach gate 2 nm out, on a level runway at sea level in calm air
+    with every tank full, she touched 350 m in at 177 ft a minute and stopped
+    2523 m past the threshold, which she crossed on the 3-degree glidepath aimed 300 m in, at
     about 50 ft. The figure is that, 2 per cent over and rounded up to 100 ft (3
     per cent over in all), for the drift between machines: the AI's own landing
     in those conditions, not a regulatory distance and not a minimum; heavier,

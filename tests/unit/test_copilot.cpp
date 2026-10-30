@@ -680,7 +680,7 @@ GLIDESLOPE_TEST(the_five_with_no_published_landing_distance_are_refused_a_runway
         double ft;
     };
     const std::vector<Measured> measured{
-        {"j3cub", 1500.0}, {"mosquito-fb6", 5500.0}, {"f35b", 9200.0}, {"b2", 9100.0}};
+        {"j3cub", 1500.0}, {"mosquito-fb6", 5500.0}, {"f35b", 8500.0}, {"b2", 9100.0}};
     // **The same set the re-fly tests find**: tests/CMakeLists.txt makes a
     // `the_<aircraft>_lands_within_her_measured_landing_distance` for each
     // figures file whose landing distance is measured, read from the files,
@@ -769,7 +769,7 @@ GLIDESLOPE_TEST(the_five_with_no_published_landing_distance_are_refused_a_runway
 
 // **The F-35B's two landings, each judged as it is flown**: a plan's `land`
 // on a runway is flown by the approach autopilot as a rolling landing, so it
-// is held to her measured rolling figure (9,200 ft) - refused a runway a
+// is held to her measured rolling figure (8,500 ft) - refused a runway a
 // metre short of it by the copilot's check and the planner's alike, given
 // one a metre over; and a plan's `land_vertically` needs no runway - it is
 // flown to a hover over its point and let down (sim::Controller) - so no
@@ -780,8 +780,8 @@ GLIDESLOPE_TEST(the_f35b_is_held_to_her_rolling_figure_on_a_runway_and_refused_n
     const glideslope::copilot::Brief brief = glideslope::frontend::brief_for(data, "f35b");
     const glideslope::copilot::PlanRequest request =
         glideslope::frontend::plan_request_for(data, "f35b", std::nullopt);
-    check(std::abs(brief.landing_need_m - 9200.0 * 0.3048) < 1e-6,
-          "her need is her rolling 9,200 ft: " + std::to_string(brief.landing_need_m) + " m");
+    check(std::abs(brief.landing_need_m - 8500.0 * 0.3048) < 1e-6,
+          "her need is her rolling 8,500 ft: " + std::to_string(brief.landing_need_m) + " m");
     const auto runway = [](double length_m) {
         glideslope::world::RunwayEnd end;
         end.airport = "SYNTH";

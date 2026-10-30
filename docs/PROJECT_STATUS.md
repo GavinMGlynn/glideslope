@@ -227,6 +227,14 @@ and CI flies it again with no key.
 Everything in `COMPLETION_PLAN.md`. The ones worth naming first, because they
 are the risks the phase order is built around:
 
+- **The F-35B's approach is the F-35A's, and her lift is set to fly it**
+  (2026-10-30). She comes down at the A's published 13 degrees and about
+  152 KCAS, from the Air Force's 2020 Eglin accident report. A Lockheed test
+  pilot says the B lands like the A. Her flare now only closes her throttle.
+  That took 1.6 times the lift of her wing's DATCOM slope, a number chosen
+  to fly the figure, not measured, so her stall (97 kt), take-offs, plan
+  speeds and landing distance were measured again
+  (docs/status/2026-10-30-the-f35b-flies-her-approach-at-the-f35s-13-degrees.md).
 - **A side force in a beam wind is shaped by an argument, not a
   measurement** (2026-10-29). JSBSim made it in her plane of symmetry
   standing in a beam wind, and that put a J-3 Cub braked in a crosswind

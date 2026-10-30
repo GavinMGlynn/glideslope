@@ -1570,7 +1570,7 @@ const std::vector<GlideBand> glide_bands = {
     {"f15c", Ways::right, 170, 185},
     {"f15c", Ways::right, 190, 200},
     {"f22", Ways::both, 225, 225},
-    {"f35b", Ways::both, 204, 204},
+    {"f35b", Ways::both, 188, 204},
 };
 
 std::vector<bool> ways_of(Ways w) {
@@ -2054,8 +2054,8 @@ GLIDESLOPE_TEST(the_f22a_glides_round_its_tightest_orbit_at_225_kt_without_stall
     glides_in_band("f22", Ways::both, 225);
 }
 
-GLIDESLOPE_TEST(the_f35b_glides_round_its_tightest_orbit_at_204_kt_without_stalling) {
-    glides_in_band("f35b", Ways::both, 204);
+GLIDESLOPE_TEST(the_f35b_glides_round_its_tightest_orbit_from_188_to_204_kt_without_stalling) {
+    glides_in_band("f35b", Ways::both, 188);
 }
 
 namespace {

@@ -1610,6 +1610,12 @@ struct FlareWatch {
     // step to the touch: a flare that goes up rather than level is a balloon.
     double most_climb_fpm = -1e9;
     double most_climb_agl_ft = 0.0;
+    // **Her throttle through the flare**, 0 to 1: as it was at the flare's
+    // first step, the most it was opened to from there to the touch, and
+    // at the touch - a flare flown on her power opens it.
+    double flare_throttle = 0.0;
+    double most_flare_throttle = -1.0;
+    double touch_throttle = 0.0;
 
     void watch(const glideslope::sim::Lander* lander, const glideslope::sim::Aircraft& a) {
         if (lander == nullptr || touched) {
@@ -1617,14 +1623,17 @@ struct FlareWatch {
         }
         const double pitch = a.property("attitude/theta-deg");
         const bool flaring = lander->stage() == glideslope::sim::Lander::Stage::flare;
+        const double throttle = a.property("fcs/throttle-cmd-norm[0]");
         if (flaring && !was_flaring && !began) {
             began = true;
             path_pitch_deg = last_pitch_deg;
+            flare_throttle = throttle;
         }
         was_flaring = flaring;
         last_pitch_deg = pitch;
         if (began) {
             least_pitch_deg = std::min(least_pitch_deg, pitch);
+            most_flare_throttle = std::max(most_flare_throttle, throttle);
             const double climb_fpm = a.property("velocities/h-dot-fps") * 60.0;
             if (climb_fpm > most_climb_fpm) {
                 most_climb_fpm = climb_fpm;
@@ -1634,6 +1643,7 @@ struct FlareWatch {
         if (a.property("gear/wow") > 0.5 || a.in_water()) {
             touched = true;
             touch_pitch_deg = pitch;
+            touch_throttle = throttle;
         }
     }
 };
@@ -4283,6 +4293,47 @@ GLIDESLOPE_TEST(the_f15c_flies_its_approach_near_nasas_angle_of_attack_with_stab
     check(flown.most_nose_up <= 0.33,
           "and used " + std::to_string(flown.most_nose_up) +
               " of the stabilator's nose-up travel, not under a third");
+}
+
+// **The F-35B lands on her wing, not her power.** No F-35B approach angle of
+// attack is published, but the F-35A's is, and the B is said to land as the A
+// does: the Air Force's board on the F-35A lost at Eglin on 19 May 2020 gives
+// "the recommended landing attitude of 13 AOA" and an on-speed approach
+// about 50 KCAS under the 202 she was flown at, about 152 (its report, pages
+// 21 and 6); and Lockheed Martin's test pilot Dan Levin, in Code One (1
+// December 2012): "Landings in the A and B are similar to the F-16 in terms
+// of speed and angle of attack". Her model flew the glidepath at 19.5
+// degrees and 159 knots: its flare had no nose left to raise before her
+// tail, and opened her throttle to stop the sink. Flown at the 152 KCAS of
+// her figures (assets/figures/f35b.xml), from two miles out to fifty feet
+// she holds 13 degrees within two; and the flare closes her throttle - from
+// its first step to the touch it is never opened past where the flare
+// found it, and she touches with less.
+GLIDESLOPE_TEST(the_f35b_flies_her_approach_at_the_f35s_landing_incidence_and_flares_with_her_throttle_closing) {
+    const auto figures =
+        glideslope::sim::read_published_figures(data() / "figures" / "f35b.xml");
+    check(figures.approach_kcas == 152.0,
+          "the F-35B's figures give the F-35A's on-speed 152 KCAS, not " +
+              std::to_string(figures.approach_kcas));
+    const Approached flown = fly_the_approach("f35b", 0.0);
+    std::printf("  f35b vref %.1f: approach %.1f to %.1f kt, alpha %.1f to %.1f; flare's "
+                "throttle %.3f at its start, at most %.3f, %.3f at the touch; %zu of %zu "
+                "stages\n",
+                flown.vref_kts, flown.stage_least[0], flown.stage_most[0], flown.alpha_least_deg,
+                flown.alpha_most_deg, flown.flare.flare_throttle, flown.flare.most_flare_throttle,
+                flown.flare.touch_throttle, flown.completed, flown.stages);
+    check(flown.alpha_least_deg >= 11.0 && flown.alpha_most_deg <= 15.0,
+          "the F-35B flew the approach at " + std::to_string(flown.alpha_least_deg) + " to " +
+              std::to_string(flown.alpha_most_deg) + " degrees of alpha, not 13 within 2");
+    check(flown.flare.began && flown.flare.touched, "she flared and touched");
+    check(flown.flare.most_flare_throttle <= flown.flare.flare_throttle + 1e-6,
+          "her flare opened her throttle to " + std::to_string(flown.flare.most_flare_throttle) +
+              " from " + std::to_string(flown.flare.flare_throttle));
+    check(flown.flare.touch_throttle < flown.flare.flare_throttle,
+          "she touched with her throttle at " + std::to_string(flown.flare.touch_throttle) +
+              ", not closed from the flare's " + std::to_string(flown.flare.flare_throttle));
+    check(flown.completed == flown.stages && flown.debrief.empty() && flown.stopped,
+          "and landed by the book, to a stop");
 }
 
 // **An approach flown fast is named in the debrief**, and a correct one is

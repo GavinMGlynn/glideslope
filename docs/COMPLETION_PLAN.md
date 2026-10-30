@@ -1252,13 +1252,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       raises the reverse lever and the backslash stows it, and each
       joystick's and quadrant's last button holds maximum reverse.
       *Verification: a binding moves it, as every other lever's does.*
-- [ ] **The F-35B lands on her power**: her model flies the glidepath at
-      19.5 degrees of incidence and its flare runs out of nose; level at
-      3,000 ft below 181 kt the same incidence is past the autopilot's 15
-      degrees of nose and she sinks (PROJECT_STATUS, 2026-10-10). *Verification:
+- [x] **The F-35B lands on her power**: her model flew the glidepath at
+      19.5 degrees of incidence and its flare ran out of nose. *Verification:
       the F-35B flies her approach at her published incidence and flares
-      with her throttle closing.* Owner 2026-10-09: no public approach angle
-      of attack.
+      with her throttle closing.* Done 2026-10-30: no B figure is public,
+      so she flies the F-35A's published 13 degrees and about 152 KCAS (Air
+      Force accident report, 2020). A Lockheed test pilot says the B lands
+      like the A. She holds 11.6 to 14.4 degrees, and her flare's throttle
+      only closes. Her extra lift is set to fly that figure, not measured.
 - [ ] **A runway too short refused for the five with no public landing
       figure, and the runways a model is shown say their length.** Since
       2026-10-13 the J-3 Cub, Mosquito, F-35B and B-2A, none published, are
