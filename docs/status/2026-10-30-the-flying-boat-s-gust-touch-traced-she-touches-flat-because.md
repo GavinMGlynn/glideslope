@@ -63,7 +63,9 @@ maintain a rather flat attitude until conditions appear more acceptable,
 and then reduce the power to touch down", and "make the touchdown at a
 somewhat flatter pitch attitude than usual. This prevents the seaplane from
 being tossed back into the air". (Its part 3, chapters 4 to 6, from faa.gov,
-`faa-h-8083-23-3.pdf`, SHA-256 `91208b29...44c4`; not yet in docs/ASSETS.md.)
+`faa-h-8083-23-3.pdf`, SHA-256
+`91208b292d3af79136aaf3e632c20a623e8c8033c480492c653a9699ff1e44c4`, its row in
+docs/ASSETS.md.)
 
 Built for a hull in gusts only (`sim::Lander`'s flare): the flare's sink law
 flown to a hold height over the water instead of to it, the power closed
