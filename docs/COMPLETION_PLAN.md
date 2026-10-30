@@ -1482,7 +1482,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       once; the tests stay on pull requests until a second CI failure.
       2026-10-30: CI's Windows debug placed the STOVL at-once test's words 11
       steps off (run 40829041494), 0.032 degree of pitch; it judges pitch
-      where she was.
+      where she was. 2026-10-30: the lost-datagram STOVL join test (four CI
+      failures) and the starved F-35B's placement (twice) run nightly, named
+      in tests/cmake/nightly_tests.cmake, until this item is done.
 - [ ] **On a server the air has no ground's lift**: the server and its
       clients fly the weather over no ground, because the lift is too costly
       for a predicting client. *Verification: a client predicting over hills
