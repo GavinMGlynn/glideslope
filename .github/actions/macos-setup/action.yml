@@ -12,6 +12,17 @@ runs:
       shell: bash
       run: brew install ninja nasm autoconf autoconf-archive automake libtool ccache
 
+    # The tests' Python, pinned. The configure writes the Python it found into
+    # the tests' command lines, and the test jobs run that tree on another
+    # runner: a build that found Homebrew's newest (/opt/homebrew/bin/python3.15)
+    # sent its tree to test runners without it, and every script check failed
+    # in a hundredth of a second, "exited no such file or directory" (#273's
+    # run 40986292025), as Windows' did on 2026-10-14. setup-python sets
+    # Python3_ROOT_DIR, which FindPython3 searches first; the build checks the
+    # configure found it (tools/ci_python_pinned.cmake).
+    - uses: actions/setup-python@v6
+      with: { python-version: '3.12.10' }
+
     # The newest Xcode the image carries, rather than whichever it selected.
     - name: Use the newest Xcode on the image
       shell: bash

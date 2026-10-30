@@ -1865,6 +1865,11 @@ The language model that plans: its routes, its recordings and what it is told.
 
 The pipeline: its length, its caches and what it costs a pull request.
 
+- [x] **macOS's tests ran on a Python their runner did not have**: the build
+      found Homebrew's newest and its test runners lacked it, so every script
+      check failed at once (run 40986292025). It is pinned, as Windows' is.
+      *Verification: the macOS build checks its configure found the pinned
+      Python, and its test shards pass on the full run.* Done 2026-10-30.
 - [ ] **vcpkg rebuilds every package when GitHub updates a runner's compiler**
       (26-28 minutes a Windows configure). *Verification: a new runner image
       costs one rebuild, saved, not one per run.* Windows restores from
