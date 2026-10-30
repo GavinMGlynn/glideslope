@@ -665,6 +665,7 @@ void Lander::resume(double throttle) {
     pitch_trim_ = 0.0;
     rudder_trim_ = 0.0;
     ground_rudder_trim_ = 0.0;
+    flaps_up_ = false;
     aileron_trim_ = 0.0;
     brake_ = 0.0;
     // And the autobrake armed again: what the pilot's throttle was is not an
@@ -850,6 +851,17 @@ Controls Lander::fly_laws() {
         // (`toe_brakes`) and the walking-pace brakes are pinned - she is
         // steered as before; held to the new gains there, five landplanes'
         // brakes reached their rolling ceiling handed over at 2.5 kt across.
+        //
+        // **And steered by her track at once, not only when it is learnt.**
+        // On a wet runway her tyres grip sideways at a third to three
+        // quarters of their dry (sim/runway_condition.hpp): the crab that
+        // holds her against the wind is three times the dry one, and the
+        // learnt push alone came too slowly - as 15 kt arrived across an
+        // A320 rolled 6.6 m from the line wet and 3.2 dry, every jet 5.0 to
+        // 6.6 wet. So 0.5 of rudder a degree of track error is added beside
+        // the heading's, eased in with the gains: every jet within 4.1 m
+        // wet. Twice that is where it fails - at 1.0 a Mosquito swerved 27 m
+        // wet and at 1.5 an A380 43 m - so it is held at half of it.
         const double rolling = std::clamp(
             (rolling_kts - autobrake_off_kts) / autobrake_off_kts, 0.0, 1.0);
         const double track_deg = std::atan2(a_.property("velocities/v-east-fps"),
@@ -859,7 +871,7 @@ Controls Lander::fly_laws() {
             std::remainder(runway_.heading_deg + want - track_deg, 360.0);
         const double pointed =
             (0.10 + 0.30 * rolling) * error - (0.30 + 0.20 * rolling) * r_degps;
-        const double asked = pointed + ground_rudder_trim_;
+        const double asked = pointed + ground_rudder_trim_ + 0.5 * rolling * track_error;
         if (rolling > 0.0 && (std::abs(asked) < 1.0 || asked * track_error < 0.0)) {
             ground_rudder_trim_ = std::clamp(
                 ground_rudder_trim_ + 0.1 * track_error / steps_per_second, -1.0, 1.0);
@@ -873,6 +885,27 @@ Controls Lander::fly_laws() {
         // an F-15C with her nose-wheel down at 190 knots rock to 18 degrees
         // of bank as she weaved and put a wingtip on the runway.
         c.aileron = std::clamp(-0.035 * s.roll_deg - 0.02 * s.p_radps * degrees, -1.0, 1.0);
+        // **Her flaps come up once she is rolling**, but a jet's: the FAA's
+        // Airplane Flying Handbook (FAA-H-8083-3C, chapter 9, "After-Landing
+        // Roll") puts the most weight on her wheels after the touch for her
+        // braking - and, its nosewheel, for her steering - and has the
+        // greatest stopping effort, after a short-field touchdown, with the
+        // flaps retracted. With them down, a PA-28 handed over at 43 kt on a
+        // wet runway as 15 kt arrived across carried three quarters of her
+        // weight on her wing, swung 16 degrees into the wind against full
+        // rudder and a full brake, and went 14.8 m from the centreline; a
+        // C172P 5.3 and a Mosquito 18.4. A jet's spoilers do this (below),
+        // and her flaps stay where an airliner's do until she is off the
+        // runway. A bounce is flown with them down again (`c.flaps` above).
+        // **Once she has rolled faster than walking pace**: handed over
+        // standing or at a walking pace she is not landing, and her flaps
+        // are left as the rollout has always set them (`flaps_up_`).
+        if (!jet_ && std::abs(a_.property("velocities/vg-fps")) / 1.68781 > autobrake_off_kts) {
+            flaps_up_ = true;
+        }
+        if (flaps_up_) {
+            c.flaps = 0.0;
+        }
         // **Closed at a hand's pace, not in a step**: the flare may have
         // added power to fly the path on, and it comes off over at most a
         // second.

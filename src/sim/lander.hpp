@@ -440,6 +440,8 @@ private:
     // The roll-out's rudder held against a steady push - a crosswind's
     // weathervaning, her tyres' slip - learnt from her track (lander.cpp).
     double ground_rudder_trim_ = 0.0;
+    // Her flaps brought up on the roll, but a jet's (lander.cpp).
+    bool flaps_up_ = false;
     double aileron_trim_ = 0.0;
     double autobrake_fps2_ = 0.0; // set at the touch, for the runway left
     double brake_ = 0.0;         // held to the autobrake's deceleration
