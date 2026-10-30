@@ -58,3 +58,10 @@ DEM's colours, as before.
   refusals land in (locally 45 of 45, then 44 of 48). 8 s. **Seen red** with
   the 504 layer taken out: "the second shot exited 1", UBSan's report at
   `CachingAssetAccessor.cpp:267`. Reverted.
+
+**CI costs are estimates, not CI measurements.** The chain's test is priced
+at 1 s in every table (0.1 s locally). The shot test is priced at
+`a_window_client_whose_imagery_cannot_be_fetched_...`'s cost in each table
+that lists it - locally it took 7.5 to 20.7 s against that test's 11.9 - and
+is absent from macos-debug's, which lists no shot test of that kind. They
+should be measured again from a green run.
