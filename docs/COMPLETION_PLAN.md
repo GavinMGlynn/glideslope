@@ -1228,9 +1228,15 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       kt crosswind arrives**, dry as wet. *Verification: every landplane
       rolled out as 15 kt arrives stays within 5 m of the centreline.*
       Done 2026-10-30: dry and wet, every landplane within 4.1 m - the
-      Mosquito 2.1 dry and 3.4 wet, her brakes waiting for her tail and her
-      tail held up to 0.7 of her reference speed. The J-3 Cub is left out,
-      for her own open items.
+      Mosquito 2.1 dry and 3.4 wet, the J-3 Cub 1.6 - and both tail-wheel
+      aeroplanes within 4.1 m on runways sloping a degree up and down, a
+      tail-wheel aeroplane's brakes waiting for her tail wheel's weight.
+- [ ] **The AI wheel-lands the J-3 Cub**: she touches at 3.1 degrees and
+      stands at 12.1, and rolls unbraked until her tail comes down, stopping
+      498 m in; landed three-point, as the FAA's handbook (FAA-H-8083-3C, ch.
+      14) lands a Cub, she would stop near 429. *Verification: the Cub
+      touches within a stated margin of her three-point attitude, and her
+      landing distance is measured again.*
 - [x] **The AI lands the J-3 Cub within her published crosswind limit**,
       12 kt: one instructor's "about 12 knots" in an EAA Inspire article
       (Piper published none), accepted by the owner on 2026-10-30.

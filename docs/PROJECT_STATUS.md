@@ -250,18 +250,21 @@ are the risks the phase order is built around:
   Cub no longer goes over braking in a crosswind where she does not in calm
   air.
 - **The AI's roll-out holds the centreline in a crosswind that arrives, dry
-  and wet; the J-3 Cub is not judged** (2026-10-30). As 15 kt arrives
+  and wet; the AI wheel-lands the J-3 Cub** (2026-10-30). As 15 kt arrives
   across, every landplane the AI lands stays within 4.1 m of the centreline
-  dry and wet (it was 12 to 21 m for the jets; the PA-28 15 m wet): the
-  rudder steers by her track as well as her heading, and a propeller
-  aeroplane's flaps come up on the roll. A tail-wheel aeroplane's brakes
-  wait for her tail, which is held up to 0.7 of her reference speed, and
-  her steering brake does not fade at a crawl: the Mosquito, who went over
-  braked dry and 9.9 m wet, rolls out within 3.4 m, and rolled up from rest
-  in 15 kt across turns 5.8 degrees, not 59. Her real braking is not
-  sourced; the rules are the FAA handbook's for tailwheel aeroplanes. It
-  costs the J-3 Cub: the AI's landing now stops her 549 m past the
-  threshold, not 429, and her measured landing distance is 1,900 ft.
+  dry and wet (it was 12 to 21 m for the jets; the PA-28 15 m wet), and the
+  two tail-wheel aeroplanes on runways sloping a degree up and down: the
+  rudder steers by her track as well as her heading, a propeller
+  aeroplane's flaps come up on the roll, a tail-wheel aeroplane's brakes
+  wait for her tail wheel's weight and her steering brake does not fade at
+  a crawl, and the Mosquito's tail is held up to 0.7 of her reference speed
+  (her figures' data). The Mosquito, who went over braked dry and 9.9 m
+  wet, rolls out within 3.4 m, and rolled up from rest in 15 kt across
+  turns 5.8 degrees, not 59. Her real braking is not sourced. The Cub,
+  wheel-landed by the AI at 3 degrees where she stands at 12, rolls
+  unbraked until her tail comes down and stops 498 m in, not 429; her
+  measured landing distance is 1,700 ft, and landing her three-point is an
+  open item. The Mosquito's is 5,700 ft (1,696 m, was 1,633).
 - **Restore settles what it cannot read.** It holds the aircraft at the captured
   state for two simulated seconds so JSBSim's hidden engine and actuator states
   converge; a restore is therefore not free. Reconciliation does not use it:

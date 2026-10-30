@@ -136,18 +136,21 @@
     46 kt, the slowest a route may fly it, went round unstalled.
   </glide_speeds>
 
-  <landing_distance ft="1900" basis="measured" factor="1">
+  <landing_distance ft="1700" basis="measured" factor="1">
     Measured, not published: the line above is written by
     tools/measured_landing.py from `glideslope_cli land j3cub` (2026-10-30,
     linux-release, at her model's own loading flown solo, 922 lb). Landed by
     the approach autopilot from a final-approach gate 2 nm out, on a level
     runway at sea level in calm air with every tank full, she touched 301 m in
-    and stopped 549 m past the threshold - 429 m and 1,500 ft until a
-    tail-wheel aeroplane's brakes waited for her tail (sim/lander.cpp,
-    2026-10-30); at 752 lb, carrying no one, 2026-10-13, she stopped 399 m in
-    and her figure was 1,400 ft - having crossed the threshold
+    and stopped 498 m past the threshold. **It was 429 m and 1,500 ft** until
+    a tail-wheel aeroplane's brakes waited for her tail wheel to bear weight
+    (sim/lander.cpp, 2026-10-30): the AI wheel-lands her, at 3 degrees where
+    she stands at 12, and she rolls on her main wheels unbraked until her tail
+    comes down - an open item, "The AI wheel-lands the J-3 Cub". (At 752 lb,
+    carrying no one, 2026-10-13, she stopped 399 m in and her figure was
+    1,400 ft.) She crossed the threshold
     on the 3-degree glidepath aimed 300 m in, at about 50 ft. The figure is
-    that, 2 per cent over and rounded up to 100 ft (5 per cent over in all), for
+    that, 2 per cent over and rounded up to 100 ft (4 per cent over in all), for
     the drift between machines: the AI's own landing in those conditions, not a
     regulatory distance and not a minimum; heavier, hotter, higher or downwind
     she needs more, and nothing here allows for it. Factor 1, as it is the

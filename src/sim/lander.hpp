@@ -82,6 +82,9 @@ struct ApproachSpeeds {
     // her figures (`elevator_full_cm`); 0 where they give none. What damps
     // a hull's trim held on the step (`Lander::fly_laws`).
     double elevator_full_cm = 0.0;
+    // **Where the roll-out's stick starts back**, a fraction of her reference
+    // speed: fully back by half of it. Her figures' `stick_back_from_vref`.
+    double stick_back_from_vref = 0.9;
     // **The glidepath aims past the threshold, not at it.** An approach flown
     // at the threshold puts the flare before it and the wheels on the grass;
     // aiming three hundred metres down the runway puts the aeroplane about
@@ -282,9 +285,6 @@ public:
     static constexpr double walking_pace_pedal = 0.3;
     static constexpr double standing_pedal = 0.45;
     static constexpr double creeping_kts = 2.0;
-    // A tail-wheel aeroplane's brakes wait for her tail: none while she is
-    // more than this under the attitude she stands at (lander.cpp).
-    static constexpr double tail_down_deg = 2.0;
     // **And what stops a creep her idle thrust drives** (lander.cpp): every
     // engine's throttle closed and her speed growing under `creeping_kts`.
     // 0.8: an F-15C's idle thrust beat 0.55 and she never stopped in 15 kt
@@ -502,7 +502,7 @@ private:
     // which falls from the attitude it touched at, and its spoilers out.
     bool jet_ = false;
     bool tail_wheel_ = false; // Aircraft::stance's
-    double standing_pitch_deg_ = 0.0; // and the attitude she stands at, where on a tail wheel
+    std::string tail_gear_;   // her tail wheel's weight-on-wheels property, where she has one
     double lowering_pitch_deg_ = 0.0;
 
     // What she lands on, where her model puts it: her main wheels, or where
