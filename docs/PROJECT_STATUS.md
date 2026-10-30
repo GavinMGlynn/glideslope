@@ -216,9 +216,9 @@ landing goes around from a runway not clear (since 2026-10-08) - but a
 copilot's route cannot end in one (a tail). A landing a model plans is
 refused on a runway too short for the aircraft dry, wet, or as reported
 contaminated - sized by the FAA's landing distance factors for its
-condition code - and on one reported at nil braking (since 2026-10-29),
-though the model is not shown a runway's condition until it is refused
-(the item stays open for that).
+condition code - and on one reported at nil braking (since 2026-10-29);
+since 2026-10-31 every runway a model is shown says its condition, the
+metres it has to land on and what the aircraft needs there.
 Everything a model answered is recorded,
 and CI flies it again with no key.
 

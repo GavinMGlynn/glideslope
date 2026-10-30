@@ -1932,3 +1932,219 @@ GLIDESLOPE_TEST(
           "with no runway reported, it is taken: '" + copilot_says(clear) + "' and '" +
               planner_says(clear) + "'");
 }
+
+// **A copilot and a planner are told a runway is reported icy before they
+// choose it**, with the metres it has to land on and what the aircraft
+// needs there: the same session as above, the runway's line followed, in
+// the copilot's situation and the planner's request, by "reported at runway
+// condition code 1, braking action poor, 1000 m to land on, the aircraft
+// needs 1990 m: too short" - and, with no group, by "dry" and her dry need.
+GLIDESLOPE_TEST(a_copilot_and_a_planner_are_told_a_runway_is_reported_icy_and_what_the_aircraft_needs_on_it) {
+    const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const glideslope::copilot::Brief brief =
+        glideslope::frontend::brief_for(data, "c172p");
+    glideslope::world::RunwayEnd end;
+    end.airport = "YSBK";
+    end.ident = "29C";
+    end.latitude_deg = -33.9268;
+    end.longitude_deg = 150.996002;
+    end.elevation_ft = 26;
+    end.heading_deg = 285;
+    end.length_m = 1000;
+    const auto session = [&](const std::string& metar) {
+        glideslope::world::WeatherReport r;
+        r.surface.metar = glideslope::world::parse_metar(metar);
+        r.surface.latitude_deg = end.latitude_deg;
+        r.surface.longitude_deg = end.longitude_deg;
+        r.contaminated =
+            glideslope::world::contaminated_runways(r.surface.metar, {end});
+        return r;
+    };
+    const glideslope::world::WeatherReport icy =
+        session("METAR YSBK 100600Z 29012KT 9999 FEW030 M02/M04 Q1012 R29C/7901//");
+    const glideslope::world::WeatherReport clear =
+        session("METAR YSBK 100600Z 29012KT 9999 FEW030 M02/M04 Q1012");
+    const auto copilot_told = [&](const glideslope::world::WeatherReport& weather) {
+        glideslope::copilot::Situation now;
+        now.latitude_deg = -33.92;
+        now.longitude_deg = 151.02;
+        now.altitude_ft = 1500;
+        now.ground_ft = 20;
+        now.heading_deg = 285;
+        now.airspeed_kts = 90;
+        now.event = "it was engaged";
+        now.fields = {end};
+        now.wet_runways = glideslope::frontend::wet_runways(&weather);
+        return glideslope::copilot::situation_text(brief, now);
+    };
+    const auto planner_told = [&](const glideslope::world::WeatherReport& weather) {
+        glideslope::copilot::PlanRequest request = glideslope::frontend::plan_request_for(
+            data, "c172p", glideslope::frontend::wet_runways(&weather));
+        request.airport = "YSBK";
+        request.runways = {end};
+        request.fields = {end};
+        request.command = "fly a circuit and land";
+        return glideslope::copilot::planning_request(request);
+    };
+    const std::string on_ice = "; reported at runway condition code 1, braking action poor, "
+                               "1000 m to land on, the aircraft needs 1990 m: too short\n";
+    const std::string dry =
+        "; dry, 1000 m to land on, the aircraft needs " +
+        std::to_string(static_cast<long>(std::ceil(brief.landing_need_m))) + " m\n";
+    const std::string line = "YSBK " + glideslope::copilot::runway_line(end);
+    // The runway's line, and on the same line, ending it, `after`.
+    const auto said = [&](const std::string& text, const std::string& after) {
+        const auto at = text.find(line);
+        const auto ends = text.find('\n', at);
+        return at != std::string::npos && ends != std::string::npos &&
+               text.compare(ends + 1 - after.size(), after.size(), after) == 0;
+    };
+    const std::string copilot_icy = copilot_told(icy);
+    const std::string planner_icy = planner_told(icy);
+    check(said(copilot_icy, on_ice) && said(planner_icy, on_ice),
+          "on ice both are told '" + on_ice + "':\n" + copilot_icy + "\n" + planner_icy);
+    const std::string copilot_clear = copilot_told(clear);
+    const std::string planner_clear = planner_told(clear);
+    check(said(copilot_clear, dry) && said(planner_clear, dry),
+          "with no group both are told '" + dry + "':\n" + copilot_clear + "\n" +
+              planner_clear);
+}
+
+// **What every aircraft is told of a runway, on every condition, is what its
+// landing there is judged by** (copilot::runway_told against
+// copilot::landing_refusal): on a runway reported - from its other end - at
+// each code 0 to 6, and unreported, dry and wet by the weather, a metre
+// short of the need landing_refusal sizes and a metre over, "too short" is
+// said exactly where the landing is refused for length, the need said is
+// the one refused by, the condition is the code's braking action (the FAA's
+// Runway Condition Assessment Matrix, AC 91-79B), code 0 is said closed,
+// and the metres to land on are the runway's less its displaced threshold
+// (200 m here). The aircraft with no approach speed (the 747-400 and the
+// F-22A, sim::publishes_approach_speed) are told they do not land, and the
+// one with no need (the flying boat) is told none.
+// The space: 16 aircraft times 9 conditions times 2 lengths, 288, each
+// counted.
+GLIDESLOPE_TEST(every_aircraft_is_told_each_runways_condition_landing_length_and_need_as_its_landing_is_judged) {
+    const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto catalogue = glideslope::sim::read_catalogue(data);
+    constexpr std::size_t aircraft = 16;
+    constexpr std::size_t conditions = 9; // codes 0 to 6, and dry and wet unreported
+    constexpr std::size_t lengths = 2;
+    check(catalogue.size() == aircraft,
+          "the catalogue holds " + std::to_string(catalogue.size()) + " aircraft");
+    const std::vector<std::string> braking{"nil",    "poor",           "medium to poor",
+                                           "medium", "good to medium", "good"};
+    constexpr double displaced_m = 200.0;
+    const auto runway = [](double landing_m) {
+        glideslope::world::RunwayEnd end;
+        end.airport = "SYNTH";
+        end.ident = "09";
+        end.elevation_ft = 0.0;
+        end.heading_deg = 90.0;
+        end.length_m = landing_m + displaced_m;
+        end.displaced_m = displaced_m;
+        return end;
+    };
+    const auto landing_on = [](const glideslope::world::RunwayEnd& end) {
+        glideslope::sim::FlightPlan plan;
+        glideslope::sim::Runway r = glideslope::world::as_runway(end, end.elevation_ft);
+        r.name = "SYNTH_09";
+        plan.landing = r;
+        return plan;
+    };
+    // Conditions 0 to 6 are codes reported from the other end; 7 is
+    // unreported and dry; 8 unreported and wet by the weather, the station
+    // on the runway.
+    const auto weather = [](const glideslope::world::RunwayEnd& end, int condition) {
+        glideslope::world::WetRunways w;
+        if (condition <= 6) {
+            glideslope::world::ContaminatedRunway c;
+            c.end = end;
+            c.end.ident = "27";
+            c.end.longitude_deg = end.length_m / 111319.49;
+            c.end.heading_deg = 270.0;
+            c.code = condition;
+            w.contaminated = {c};
+        } else if (condition == 8) {
+            w.radius_m = 10000.0;
+        }
+        return w;
+    };
+    const std::string needs = "and the aircraft needs ";
+    std::size_t walked = 0;
+    std::vector<std::string> not_landing;
+    std::vector<std::string> needless;
+    for (const auto& entry : catalogue) {
+        const glideslope::copilot::Brief brief =
+            glideslope::frontend::brief_for(data, entry.id);
+        if (brief.approach_kts <= 0.0) {
+            not_landing.push_back(entry.id);
+        } else if (brief.landing_need_m <= 0.0) {
+            needless.push_back(entry.id);
+        }
+        for (int condition = 0; condition <= 8; ++condition) {
+            const int code = condition <= 6 ? condition : condition == 7 ? 6 : 5;
+            const auto judged = [&](const glideslope::world::RunwayEnd& end) {
+                return glideslope::copilot::landing_refusal(
+                    100.0, brief.landing_need_m, brief.wet_landing_need_m,
+                    brief.landing_distance_m, brief.reverse_thrust, weather(end, condition),
+                    landing_on(end), {end});
+            };
+            // The need, from the refusal of a 10 m runway: none where it is
+            // taken (no need) or closed.
+            const std::string ten = judged(runway(10.0));
+            const auto from = ten.find(needs);
+            const long need_m =
+                from == std::string::npos ? 0 : std::stol(ten.substr(from + needs.size()));
+            for (const long over : {-1L, 1L}) {
+                const long landing_m = std::max(need_m + over, 1L);
+                const glideslope::world::RunwayEnd end =
+                    runway(static_cast<double>(landing_m));
+                const std::string why = judged(end);
+                const std::string told = glideslope::copilot::runway_told(
+                    brief.approach_kts, brief.landing_need_m, brief.wet_landing_need_m,
+                    brief.landing_distance_m, brief.reverse_thrust, weather(end, condition),
+                    end);
+                std::string meant = "; ";
+                if (condition <= 5) {
+                    meant += "reported at runway condition code " + std::to_string(code) +
+                             ", braking action " + braking[static_cast<std::size_t>(code)];
+                } else {
+                    meant += code == 5 ? "wet" : "dry";
+                }
+                if (code == 0) {
+                    meant += ": closed";
+                } else {
+                    meant += ", " + std::to_string(landing_m) + " m to land on";
+                    if (brief.approach_kts <= 0.0) {
+                        meant += ", and the aircraft does not land";
+                    } else if (need_m > 0) {
+                        meant += ", the aircraft needs " + std::to_string(need_m) + " m";
+                        if (over < 0) {
+                            meant += ": too short";
+                        }
+                    }
+                }
+                const bool refused_for_length = why.find(needs) != std::string::npos;
+                // One that does not land is never told "too short".
+                const bool lands = brief.approach_kts > 0.0;
+                const bool ok =
+                    told == meant &&
+                    (told.find("too short") != std::string::npos) ==
+                        (lands && refused_for_length) &&
+                    refused_for_length == (code != 0 && need_m > 0 && over < 0);
+                check(ok, entry.id + " at condition " + std::to_string(condition) + ", " +
+                              std::to_string(landing_m) + " m: told \"" + told +
+                              "\", meant \"" + meant + "\", judged \"" + why + "\"");
+                walked += ok ? 1U : 0U;
+            }
+        }
+    }
+    check(not_landing == std::vector<std::string>{"747-400", "f22"},
+          "the aircraft with no approach speed are the 747-400 and the F-22A");
+    check(needless == std::vector<std::string>{"short_s23"},
+          "the landing aircraft with no need is the flying boat");
+    const std::size_t space = aircraft * conditions * lengths;
+    check(walked == space, std::to_string(walked) + " of " + std::to_string(space) +
+                               " runways told as their landings are judged");
+}
