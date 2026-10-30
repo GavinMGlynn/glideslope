@@ -2422,7 +2422,7 @@ add_test(NAME a_predicting_f35b_whose_client_stops_three_seconds_between_flying_
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/starved_f35b_placed -DPORT=24826
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/starved_f35b_placed.cmake)
 set_tests_properties(a_predicting_f35b_whose_client_stops_three_seconds_between_flying_and_sending_is_placed_within_four_steps_travel
-    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE)
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1200 RUN_SERIAL TRUE LABELS nightly)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/starved_f35b_placed)
 
 # **What becomes of an aircraft when its player goes**, both settings walked, for
@@ -2712,7 +2712,7 @@ add_test(NAME a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_st
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_join_lost -DPORT=24964 -DSCENE=lost
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_join.cmake)
 set_tests_properties(a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_still_begins_on_the_servers_law_state
-    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE LABELS nightly)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_join_lost)
 # **And the client with the window, given her the same way**, drawing
 # offscreen with no display: it joins on the law the server told it. See
