@@ -1166,10 +1166,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       landplane rolling at walking pace stops within 30 degrees of her
       heading, in calm air and 15 kt across.*
 - [ ] **The flying boat lands in gusts without skipping.** In gusts she
-      touches flat and skips because she arrives 12 kt fast; held off as the
-      seaplane handbook holds her, gusts climb her past the flare's limit. Open
-      for the owner: whether a gust's climb in a level hold-off is a balloon,
-      and whether a hull may touch at the book's flatter rough-water attitude.
+      touches flat and skips because she arrives 12 kt fast. Owner,
+      2026-10-31: a gust's climb in a level hold-off is no balloon if she
+      holds level, and her hull may touch at the rough-water book's flatter
+      attitude (no lower than NACA TN 923's 3 degrees). Held off so, she no
+      longer wrecks, but still rises 0.8 to 1.0 ft off the water on three
+      seeds of eight: fast she flies off it, slow a lull drops her on to it.
       *Verification: the S.23 lands in calm air and in gusts within the
       landplanes' limits.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
