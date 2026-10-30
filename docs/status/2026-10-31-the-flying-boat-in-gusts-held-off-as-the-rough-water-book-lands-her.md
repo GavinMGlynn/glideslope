@@ -5,8 +5,8 @@ on two or three of the eight seeds - she rises 0.82 to 1.02 ft off the
 water against the gust test's 0.75 (a foot, less its quarter-foot margin)
 in the best variant - and stays named in the gust tests. Nothing in the
 code on `main` changed: docs only. A second round, on her model's damping (below), passed
-every seed on Linux and failed one on Windows; its code is on the branch
-`flying-boat-lands-in-gusts-damped-wip` (commit 4802c398), not for merge.
+every seed on Linux and failed one on Windows; it landed as progress on 2026-11-01, the owner's
+decision (docs/status/2026-11-01-the-flying-boat-in-gusts-damped-from-its-first-touch-lands-on-every-seed-but-one.md).
 
 **The owner's decisions, 2026-10-31**:
 1. A gust's climb in a level hold-off is not a balloon if she holds level:
@@ -118,8 +118,7 @@ table but its nose cap at 5.0 degrees and hold height 1.5 ft:
   full linux-release suite passed, 1,420 of 1,420.
 - **Windows debug, seed 5 fails**: she rose 0.87 ft (0.18 on Linux), CI run
   41100266299. Gusts magnify a platform's floating point, and an aeroplane
-  that fails any platform's seed stays named; so she does, and none of it
-  is on `main`.
+  that fails any platform's seed stays named; so she is, there.
 
 So the model's damping, consistent with its own flat-bottomed lift, takes
 most of the skip away, but the margin is not there on every platform: one

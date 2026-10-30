@@ -930,7 +930,7 @@
 
   <fcs_function name="hydro/glideslope/added-mass-damping-lbs_fps">
    <description>The heave damping of the water's added mass, rho (pi/8) b^2 V,
-    wetted in over the step's first 0.5 ft.</description>
+    wetted in over the step's first 0.0833 ft.</description>
    <function>
     <product>
      <value>0.392699</value>
@@ -941,7 +941,7 @@
       <value>1.0</value>
       <quotient>
        <property>hydro/glideslope/step-immersion-ft</property>
-       <value>0.5</value>
+       <value>0.0833</value>
       </quotient>
      </min>
     </product>
