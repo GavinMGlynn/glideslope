@@ -1035,7 +1035,19 @@ Controls Lander::fly_laws() {
         // stopped (`Stage::stopped`). Standing on her brakes at idle, the
         // noise in her speed read as growing, and a 737 stood with her
         // autobrake wound to the full 0.8 with nothing to slow (2026-10-29).
-        if (vg_kts < creeping_kts && vg_kts >= 1.0 / 1.68781 && decel_fps2_ < 0.0) {
+        // **Not a tail-wheel aeroplane**: braked hard she goes over on her
+        // nose - the FAA's Airplane Flying Handbook (FAA-H-8083-3C, chapter
+        // 14, tailwheel airplanes) has her brakes applied smoothly, her tail
+        // kept down, and a creep at power stopped by sudden braking is how
+        // one is tipped over (Aviation Safety, "Braking Tactics"). Pushed
+        // along at 1 to 2 kt for half a minute with nothing to slow, the
+        // allowance wound the J-3 Cub's to 0.8 and put her on her nose
+        // (-44 degrees), and the Mosquito's struck her airframe (-6.5); at
+        // the standing ceiling both stand with their tails down, and no
+        // tail-wheel aeroplane's idle thrust has been seen to roll her
+        // against it (2026-10-30).
+        if (!tail_wheel_ && vg_kts < creeping_kts && vg_kts >= 1.0 / 1.68781 &&
+            decel_fps2_ < 0.0) {
             idle_drives_her = true;
             for (int e = 0; e < a_.engine_count(); ++e) {
                 idle_drives_her =
