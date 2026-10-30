@@ -388,6 +388,7 @@ if(NOT GLIDESLOPE_SERVER_ONLY)
     # ---------------------------------------------------------------------------
     add_library(glideslope_gfx STATIC
         src/gfx/cesium_cache.cpp
+        src/gfx/fetches.cpp
         src/gfx/hud.cpp
         src/gfx/renderer.cpp
         src/gfx/sky.cpp

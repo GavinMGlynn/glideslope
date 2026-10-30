@@ -1,4 +1,4 @@
-# Two issues to post at https://github.com/CesiumGS/cesium-native/issues
+# Issues to post at https://github.com/CesiumGS/cesium-native/issues
 
 Both were found building glideslope against Cesium Native v0.64.0 with
 `-fsanitize=address,undefined -fno-sanitize-recover=all` on GCC 14.3.1
@@ -225,3 +225,46 @@ glideslope works round both from outside, in `src/gfx/cesium_cache.cpp`: an
 `sqlite3_auto_extension` sets a busy handler on the connection as
 `SqliteCache` opens it, and a wrapping `ICacheDatabase` runs each call in a
 `BEGIN IMMEDIATE` transaction and resets any statement left open after it.
+
+---
+
+## Issue 4 — `CachingAssetAccessor` calls through a null response when a stale entry's revalidation fails
+
+**Title:** `CachingAssetAccessor` dereferences a null `IAssetResponse` when revalidating a stale cache entry fails
+
+**Body:**
+
+When a cached entry is stale, `CachingAssetAccessor::get` asks for it again
+and, on the answer, checks only that the request is there:
+
+```cpp
+// CesiumAsync/src/CachingAssetAccessor.cpp:262, 267 (v0.64.0 and main, 2026-10-30)
+if (!pCompletedRequest) {
+  return std::move(pCompletedRequest);
+}
+...
+if (pCompletedRequest->response()->statusCode() == 304) { // status Not-Modified
+```
+
+A request whose `response()` is null is how an `IAssetAccessor` reports a
+failed transfer - refused, timed out, cancelled - and the cache-miss path a
+few lines above handles it (`if (!pResponse) return ...`). The revalidation
+path does not, so any stale entry whose refetch fails crashes the process:
+a segfault in a release build, and with `-fsanitize=undefined`
+"member access within null pointer of type 'const struct IAssetResponse'".
+
+**To reproduce**
+
+Cache anything with a short `max-age` through `CachingAssetAccessor`, let it
+go stale, and ask for it again through an accessor whose request fails
+(returns a request with a null response).
+
+**Suggested fix**
+
+Treat a null response as the miss path does: return the completed request
+unchanged (or serve the stale entry) when `pCompletedRequest->response()` is
+null.
+
+**What glideslope does meanwhile** (`src/gfx/fetches.cpp`): every GET that
+comes back with no response is answered, below the cache, with a 504 and an
+empty body.
