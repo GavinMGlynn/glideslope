@@ -1029,22 +1029,20 @@ GLIDESLOPE_TEST(every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_a
 // within 3.3 m dry but 5.0 to 6.6 wet, the PA-28 14.8 and the Mosquito 18.4
 // wet. Since 2026-10-30 (sim/lander.cpp) the rudder steers by her track at
 // once as well, and her flaps come up on the roll but a jet's: the most,
-// on Linux, is the A320's 4.0 m wet. **The Mosquito is named, not
-// asserted, either way**: braked dry she goes over on her nose and strikes
-// the ground with her airframe (as the 2026-10-14 status says), which the
-// test checks is still so; wet she goes 9.9 m from the centreline - her
-// tail comes down as she slows from 109 kt and her wing carries five
-// sixths of her weight at 100 kt, so her tyres hold little - which the
-// test checks stays on the runway (30 m). Left out, named, as above: the
+// on Linux, is the A320's 4.0 m wet. **The Mosquito was named until
+// 2026-10-30**: braked dry she went over on her nose, and wet she went
+// 9.9 m from the centreline, her tail down as she slowed from 109 kt and
+// her wing carrying five sixths of her weight. Now a tail-wheel aeroplane's
+// brakes wait for her tail, and her tail is held up to 0.7 of her reference
+// speed (sim/lander.cpp): 2.1 m dry, 3.4 wet. Left out, named, as above: the
 // flying boat, the 747-400 and F-22A, and the J-3 Cub. Coverage is
-// asserted: twelve landplanes rolled out both ways, twenty-two roll-outs
-// asserted, the Mosquito's two named, four left out.
+// asserted: twelve landplanes rolled out both ways, twenty-four roll-outs
+// asserted, four left out.
 GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arrives_stays_within_5_m_of_the_centreline) {
     const auto catalogue = glideslope::sim::read_catalogue(data());
     constexpr double most_across_m = 5.0;
     std::size_t rolled = 0;
     std::size_t asserted = 0;
-    std::size_t named = 0;
     std::size_t left_out = 0;
     std::vector<std::string> wrong;
     const auto judge = [&](const std::string& id, const RolledOut& out, const char* runway) {
@@ -1084,31 +1082,6 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arri
         const RolledOut wet = rolled_out(entry, glideslope::sim::wet_runway,
                                          rollout_crosswind_kts, rollout_from_kts(entry));
         ++rolled;
-        if (entry.id == "mosquito-fb6") {
-            // Named both ways, and checked to be what is named: dry she
-            // goes over on her nose, braked, before the steering can
-            // matter; wet she stops on the runway, unwrecked, farther than
-            // 5 m from its centreline but inside its half-width.
-            std::printf("  named - mosquito-fb6 from %5.1f kt: braked dry she strikes the "
-                        "ground with her airframe at %.2f m across; wet %.2f m, her wing "
-                        "carrying her as her tail comes down\n",
-                        wet.handed_kts, dry.worst_across_m, wet.worst_across_m);
-            if (dry.wrecked.empty()) {
-                wrong.push_back("mosquito-fb6 no longer noses over dry: assert her");
-            }
-            if (!(wet.stopped && wet.wrecked.empty()) ||
-                wet.worst_across_m > glideslope::sim::Lander::runway_half_width_m) {
-                wrong.push_back("mosquito-fb6 wet did not stop on the runway, unwrecked: " +
-                                (!wet.stopped ? std::string("not stopped") :
-                                 !wet.wrecked.empty() ? wet.wrecked :
-                                 std::to_string(wet.worst_across_m) + " m across"));
-            }
-            if (wet.worst_across_m <= most_across_m) {
-                wrong.push_back("mosquito-fb6 wet is now within 5 m: assert her");
-            }
-            named += 2;
-            continue;
-        }
         std::printf("  %-13s from %5.1f kt: worst %.2f m across dry, %.2f wet\n",
                     entry.id.c_str(), dry.handed_kts, dry.worst_across_m, wet.worst_across_m);
         judge(entry.id, dry, "dry");
@@ -1120,11 +1093,10 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arri
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     check(rolled + left_out == catalogue.size() && left_out == 4 && rolled == 12 &&
-              named == 2 && asserted == 2 * rolled - named,
-          "twelve rolled out both ways, twenty-two asserted, two named, four left out: " +
+              asserted == 2 * rolled,
+          "twelve rolled out both ways, twenty-four asserted, four left out: " +
               std::to_string(rolled) + ", " + std::to_string(asserted) + ", " +
-              std::to_string(named) + ", " + std::to_string(left_out) + " of " +
-              std::to_string(catalogue.size()));
+              std::to_string(left_out) + " of " + std::to_string(catalogue.size()));
 }
 
 namespace {
