@@ -1,12 +1,15 @@
 # Issues to post at https://github.com/CesiumGS/cesium-native/issues
 
-Both were found building glideslope against Cesium Native v0.64.0 with
-`-fsanitize=address,undefined -fno-sanitize-recover=all` on GCC 14.3.1
-(Rocky Linux 10). Neither is glideslope-specific: any sanitized build that
-streams a Cesium ion asset hits both.
+Four, all against Cesium Native v0.64.0 on GCC 14.3.1 (Rocky Linux 10), and
+none glideslope-specific. Issues 1 and 2 were found under
+`-fsanitize=address,undefined -fno-sanitize-recover=all`, and any sanitized
+build that streams a Cesium ion asset hits both. Issue 3 was found as lost
+cache entries with two programs sharing one cache. Issue 4 was found as a
+segfault in a release build, and its line then named by the sanitized one.
 
-**Both checked against `main` on 2026-09-21**, by reading the files on
-GitHub rather than the pinned copy in `ext/`:
+**Issues 1 and 2 checked against `main` on 2026-09-21**, by reading the
+files on GitHub rather than the pinned copy in `ext/` (Issue 4 on
+2026-10-30, in its own text):
 
 - `TileLoadInput::pAssetAccessor` is still declared
   `const std::shared_ptr<CesiumAsync::IAssetAccessor>& pAssetAccessor;`, and
@@ -19,7 +22,7 @@ GitHub rather than the pinned copy in `ext/`:
   way, and `decodeIndices` casts spans to typed pointers likewise. A fix
   wants the whole file, not the one function.
 
-No issue matching either was found open on the tracker.
+No issue matching Issue 1 or 2 was found open on the tracker.
 
 ---
 

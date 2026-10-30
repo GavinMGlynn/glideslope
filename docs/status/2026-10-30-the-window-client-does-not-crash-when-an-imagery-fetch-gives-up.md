@@ -62,6 +62,13 @@ DEM's colours, as before.
 **CI costs are estimates, not CI measurements.** The chain's test is priced
 at 1 s in every table (0.1 s locally). The shot test is priced at
 `a_window_client_whose_imagery_cannot_be_fetched_...`'s cost in each table
-that lists it - locally it took 7.5 to 20.7 s against that test's 11.9 - and
+that lists it (windows-debug at the 66 s measured on the development machine) - locally it took 7.5 to 20.7 s against that test's 11.9 - and
 is absent from macos-debug's, which lists no shot test of that kind. They
 should be measured again from a green run.
+
+**Built on Windows** (windows-debug, MSVC, `tools/windows_build.sh`, the
+WinHTTP path of the moved accessor): both new tests pass there - the chain's
+in 19.8 s, the shot in 65.3 s.
+
+**The plan.** The 2026-10-10 item is left open as it was, its link to this
+cause not shown; this crash is a ticked item of its own.
