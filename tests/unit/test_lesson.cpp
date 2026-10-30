@@ -2070,9 +2070,15 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
 // (the_airframe_contacts_measured_from_the_meshes_agree_with_what_is_published),
 // the Learjet's from her maintenance manual's drawing.
 //
-// **Two are held back from brake release instead**: the F-35B, which held
-// back from her rotation flies off before her tail reaches the runway, and
-// the 747-400 and the F-22A, which have no take-off to fly - neither has a
+// **Three are held back from brake release instead**. **The F-35B in STOVL
+// mode, over-rotating her short take-off**: since her lift was set to fly the
+// F-35A's approach (2026-10-30, tools/make_f35b.py) her stabilator cannot
+// raise her nose on the runway until about 150 knots, and by then she flies
+// at 16 degrees - held fully back from the roll at any throttle from 0.3 to
+// full she never struck. So she is converted on the brakes and run with her
+// short take-off's nozzle and fan, her stick and her thrust split fully nose
+// up from the brakes' release, which sits her on her tail at a walk (21.8
+// degrees on her wheels, 15 knots). And the 747-400 and the F-22A, which have no take-off to fly - neither has a
 // climbing speed in its figures, so `sim::departure_speeds` refuses them -
 // and are run up on full power, the stick held fully back, steered by
 // nothing. **The F-22A on part power, 0.6**: her stick commands a pitch
@@ -2085,6 +2091,9 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
 // strike are the approach test's (above).
 GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_so) {
     constexpr double f22_run_up_throttle = 0.6;
+    // The F-35B's short take-off's own settings (assets/figures/f35b.xml,
+    // `short_takeoff`): the nozzle and the fan 42 degrees from straight aft.
+    constexpr double f35b_roll_deg = 42.0;
     const std::set<std::string> held_back_from_the_roll = {"f35b", "747-400", "f22"};
     const std::set<std::string> no_take_off = {"747-400", "f22"};
     std::size_t catalogue = 0;
@@ -2156,6 +2165,21 @@ GLIDESLOPE_TEST(an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_s
             if (from_the_roll ||
                 departure->stage() != glideslope::sim::Departure::Stage::roll) {
                 controls.elevator = 1.0;
+            }
+            if (entry.id == "f35b") {
+                // Converted on the brakes for ten seconds at idle, as her
+                // short take-off is; then the brakes off, her STOVL power,
+                // and her nose held fully up on the stabilator and the
+                // thrust split from the brakes' release.
+                glideslope::sim::LiftSystem lift;
+                lift.stovl = 1.0;
+                lift.fan_deg = lift.nozzle_deg = f35b_roll_deg;
+                const bool converting = tick < 10 * steps_per_second;
+                lift.split = converting ? 0.0 : 1.0;
+                aircraft.set_lift_system(lift);
+                controls.throttle = converting ? 0.0 : 1.0;
+                controls.left_brake = controls.right_brake = converting ? 1.0 : 0.0;
+                controls.elevator = converting ? 0.0 : 1.0;
             }
             controls.flaps = 0.0;
             aircraft.set_controls(controls);
@@ -8990,7 +9014,12 @@ GLIDESLOPE_TEST(an_approach_unstabilized_every_time_goes_around_twice_and_then_l
 GLIDESLOPE_TEST(the_speed_the_autopilot_raises_for_a_climb_never_passes_the_fastest_she_may_hold) {
     const auto entry = glideslope::sim::find_aircraft(data(), "f35b");
     const glideslope::sim::Runway runway = a_runway();
-    const auto published = glideslope::sim::approach_speeds(data(), entry.model);
+    auto published = glideslope::sim::approach_speeds(data(), entry.model);
+    // **Told an approach speed of 1.3 times her stall**, slower than her
+    // figures' 152 KCAS: since her lift was raised to fly the F-35A's
+    // approach (2026-10-30, tools/make_f35b.py) her circuit at her figures'
+    // speed climbs with her nose short of its stop, and nothing was raised.
+    published.vref_kts = 1.3 * published.stall_kts;
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
     put_on_final(aircraft, entry, runway, published);
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(

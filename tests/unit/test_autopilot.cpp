@@ -2321,11 +2321,16 @@ GLIDESLOPE_TEST(the_trim_is_never_held_for_a_stall_on_approaches_and_climbs_in_m
 // **Handed over in a climb steeper than its envelope, the autopilot brings
 // her back to her height.** An F-15C trimmed at 5,000 ft and 300 KCAS, full
 // power, pulled into a 20-degree climb (4,700 ft/min), and an F-35B into a
-// 25-degree one (5,100), each handed to the autopilot with the controls she
+// 20-degree one (4,700), each handed to the autopilot with the controls she
 // is pulled by, asked to hold the height she had there and her speed: the
 // nose asked down no faster than the envelope's 3 degrees a second, she
 // overshoots by no more than 1,200 ft, and 90 s on is within 250 ft of it
-// (1,039 and 197 ft; 998 and 159). The vertical-speed loop's integral is
+// (1,039 and 197 ft; 845 and 79). **The F-35B was pulled to 25 degrees**
+// until 2026-10-30, climbing 5,100 ft/min; with her lift raised to fly the
+// F-35A's approach (tools/make_f35b.py) the same 25 degrees climbs 7,300,
+// she overshot by 1,186 ft, and came down at the autopilot's 700 ft/min - 341
+// ft off 90 s on, a minute and a half too few to come down 1,186 at that
+// rate, whatever the seeding. Pulled to 20, she climbs as she did. The vertical-speed loop's integral is
 // seeded within its envelope (Autopilot::fly). **Seen red** seeded outside
 // it - at her pitch plus the proportional part of the climb she had over
 // the one asked, 41 degrees for the F-15C - it held her nose at the top
@@ -2338,7 +2343,7 @@ GLIDESLOPE_TEST(an_autopilot_handed_a_fighter_climbing_past_its_pitch_envelope_b
         double pitch_deg;
     };
     int flown = 0;
-    for (const Case c : {Case{"f15c", 20.0}, Case{"f35b", 25.0}}) {
+    for (const Case c : {Case{"f15c", 20.0}, Case{"f35b", 20.0}}) {
         Aircraft aircraft(GLIDESLOPE_TEST_DATA_DIR, c.id);
         glideslope::sim::InitialConditions ic;
         ic.latitude_deg = -33.9;

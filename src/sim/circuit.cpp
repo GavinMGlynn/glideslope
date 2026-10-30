@@ -86,6 +86,16 @@ double GoAroundCircuit::along_nm() const {
     return along_runway_nm(runway_, s.latitude_deg, s.longitude_deg);
 }
 
+double GoAroundCircuit::base_kts() const {
+    if (speeds_.stall_kts <= 0.0) {
+        return speeds_.vref_kts * 1.08;
+    }
+    if (speeds_.vref_kts > 1.3 * speeds_.stall_kts) {
+        return speeds_.vref_kts * 1.4 / 1.3;
+    }
+    return speeds_.stall_kts * 1.4;
+}
+
 double GoAroundCircuit::across_m() const {
     const AircraftState s = a_.state();
     return across_runway_m(runway_, s.latitude_deg, s.longitude_deg);
@@ -136,14 +146,12 @@ AutopilotModes GoAroundCircuit::modes() {
     case Leg::base:
         m.heading_deg = runway_.heading_deg + 90.0;
         // Slowing, as a pilot does on base: 1.4 times the landing stall.
-        m.airspeed_kts =
-            speeds_.stall_kts > 0.0 ? speeds_.stall_kts * 1.4 : speeds_.vref_kts * 1.08;
+        m.airspeed_kts = base_kts();
         break;
     case Leg::intercept:
     case Leg::final:
         m.heading_deg = runway_.heading_deg + 30.0;
-        m.airspeed_kts =
-            speeds_.stall_kts > 0.0 ? speeds_.stall_kts * 1.4 : speeds_.vref_kts * 1.08;
+        m.airspeed_kts = base_kts();
         break;
     }
     m.heading_deg = std::fmod(*m.heading_deg + 360.0, 360.0);

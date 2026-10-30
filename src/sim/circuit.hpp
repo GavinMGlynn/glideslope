@@ -86,6 +86,12 @@ public:
 private:
     double along_nm() const;  // past the threshold, negative before it
     double across_m() const;  // right of the centreline
+    // **The speed base and the turn on to final are flown at**: 1.4 times
+    // the landing stall, which is the approach speed's 1.3 and a little -
+    // or, where the approach is a manual's and faster than 1.3 times the
+    // stall (the F-35B's, 2026-10-30), the same margin over it, so that
+    // final is never joined slower than the approach is flown.
+    double base_kts() const;
 
     const Aircraft& a_;
     Runway runway_;
