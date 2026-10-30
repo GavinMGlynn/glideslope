@@ -1099,7 +1099,9 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arri
             if (!(wet.stopped && wet.wrecked.empty()) ||
                 wet.worst_across_m > glideslope::sim::Lander::runway_half_width_m) {
                 wrong.push_back("mosquito-fb6 wet did not stop on the runway, unwrecked: " +
-                                wet.wrecked);
+                                (!wet.stopped ? std::string("not stopped") :
+                                 !wet.wrecked.empty() ? wet.wrecked :
+                                 std::to_string(wet.worst_across_m) + " m across"));
             }
             if (wet.worst_across_m <= most_across_m) {
                 wrong.push_back("mosquito-fb6 wet is now within 5 m: assert her");
