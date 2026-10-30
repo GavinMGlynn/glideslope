@@ -20,13 +20,19 @@ exactly as before):
   it. Frozen while the sink grew, an A320 settling after a gust's lift met
   the runway at 418 ft/min with her nose held at 3.3 degrees from nine feet
   (asked for five), an F-15C at 451 with hers at ten (asked for twelve).
-- **The flare's pitch damping leaves the commanded rotation alone**: the
-  rate damped is the difference from the attitude asked's own rate,
-  nose-up, up to a degree a second - as `lower_the_nose` already damps its
-  lowering. Damped whole, an F-15C asked for 1.5 degrees more nose turned
+- **The flare's pitch damping lets a nose-up rate through while the
+  attitude asked rises**: up to a degree a second is not damped. Damped
+  whole, an F-15C asked for 1.5 degrees more nose turned
   at a degree a second against it and stayed a second and a half behind
-  the flare to the touch. A cap of 0.5, 2 and 3 deg/s were tried: 3 and 2
-  made the F-15C, A380 and B-2A worse; 1 was best overall.
+  the flare to the touch. **It is a tuned bias, not a measured rate**:
+  the attitude asked moves with every gust, and any rise of more than
+  1/120 degree in a 120 Hz step reaches the cap, so it lets through a
+  degree a second of nose-up rate or none. The cap is tuned from a sweep:
+  0.5, 1, 2 and 3 deg/s, 1 the fewest failures. The true rate (the
+  attitude asked low-passed over 0.25 s before differencing) did worse
+  over the same forty seeds: 103 failures capped at 1 deg/s, 168 at 6
+  (balloons), against 80; at 0.5 s and 6 deg/s, 165. The comparison with
+  `lower_the_nose`, which damps a planned rate, does not hold.
 - Tried and rejected: holding the power while she sinks faster than wanted
   (balloons on every jet, failures 100 to 170 of 520); no nose lowering
   when a balloon is predicted (no better).
@@ -53,7 +59,8 @@ worse and stay named. Mean touch, before to after: C172P 198 to 146 ft/min
 same two. The C172P was named for 419 ft/min on Windows (CI run
 38006839738, under the lander of 2026-10-10); on forty seeds here her
 worst is 335, and CI run 41077933204 passed her on Linux and Windows
-debug. **The Learjet 35A is named**: clean on forty seeds here (worst
+debug - her "every platform" waits on the full run. **The Learjet 35A is
+named, since this change**: clean on forty seeds here (worst
 flare climb 62 ft/min), she climbed at 85 in her flare on Windows debug,
 seed 7, in that same run - judged before, she now fails a platform, and
 the rule names her. That is the scatter above: forty seeds on one

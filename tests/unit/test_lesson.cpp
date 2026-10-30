@@ -2885,9 +2885,9 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                  "limit, CI run 38028434284; on forty seeds here at 378 and 382 (seeds 23, "
                  "33)"},
         {"f15c", "she meets the runway at 397 ft/min (seed 2)"},
-        {"learjet35a", "a gust's lift in her flare climbs her at 85 ft/min on Windows debug "
-                       "(seed 7), not 25 inside the limit, CI run 41077933204; here her worst "
-                       "of forty seeds is 62"},
+        {"learjet35a", "since the 2026-10-31 flare change, a gust's lift in her flare "
+                       "climbs her at 85 ft/min on Windows debug (seed 7), not 25 inside the "
+                       "limit, CI run 41077933204; here her worst of forty seeds is 62"},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 134 "
                   "ft/min in her flare (seed 20)"},
