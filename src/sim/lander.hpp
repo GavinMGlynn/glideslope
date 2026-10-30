@@ -82,6 +82,9 @@ struct ApproachSpeeds {
     // her figures (`elevator_full_cm`); 0 where they give none. What damps
     // a hull's trim held on the step (`Lander::fly_laws`).
     double elevator_full_cm = 0.0;
+    // **Where the roll-out's stick starts back**, a fraction of her reference
+    // speed: fully back by half of it. Her figures' `stick_back_from_vref`.
+    double stick_back_from_vref = 0.9;
     // **The glidepath aims past the threshold, not at it.** An approach flown
     // at the threshold puts the flare before it and the wheels on the grass;
     // aiming three hundred metres down the runway puts the aeroplane about
@@ -300,10 +303,10 @@ public:
 
     // **Her brakes as the rollout works them from the rudder bar**
     // (lander.cpp): `brake` on both, and past half the rudder's travel the
-    // brake on the side the nose is wanted, up to six tenths, fading below
-    // `autobrake_off_kts` with her speed `vg_kts` to none at a stop. Sets
-    // `c`'s brakes from its rudder.
-    static void toe_brakes(Controls& c, double brake, double vg_kts);
+    // brake on the side the nose is wanted, up to six tenths - on a nose
+    // wheel fading below `autobrake_off_kts` with her speed `vg_kts` to none
+    // at a stop, on a `tail_wheel` not. Sets `c`'s brakes from its rudder.
+    static void toe_brakes(Controls& c, double brake, double vg_kts, bool tail_wheel);
 
     // One 120 Hz step's controls. Call once a step, as the aircraft is now.
     Controls fly();
@@ -499,6 +502,7 @@ private:
     // which falls from the attitude it touched at, and its spoilers out.
     bool jet_ = false;
     bool tail_wheel_ = false; // Aircraft::stance's
+    std::string tail_gear_;   // her tail wheel's weight-on-wheels property, where she has one
     double lowering_pitch_deg_ = 0.0;
 
     // What she lands on, where her model puts it: her main wheels, or where

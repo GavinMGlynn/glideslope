@@ -3879,6 +3879,189 @@ GLIDESLOPE_TEST(every_landplane_held_at_every_pace_to_walking_pace_at_idle_in_a_
     held_at_walking_pace(15.0, false);
 }
 
+// **Rolled up from rest to every walking pace and stopped, every landplane
+// keeps within 30 degrees of her heading.** Every landplane taught the
+// approach (13; the flying boat, afloat, has no brakes - named), at every
+// pace from 0.5 to 4.5 kt by half a knot (5 kt named, as above), settled on
+// her brakes at rest on the runway's heading, is rolled up from rest on the
+// throttle's slow ramp (0.03 a second) to her pace, held there for
+// `held_s` by the test's hand on the throttle and its brake, and handed to
+// the rollout with her throttle closing, to the stop. **The rollout steers
+// her all the way** - its rudder, and its rudder bar's steering brake
+// (`Lander::toe_brakes`), the hand's brake on both wheels beneath it.
+// Judged every step from rest to the stop: her heading within 30 degrees of
+// the runway's, nothing but her wheels on the runway (`sim::GroundJudge`),
+// not gone over; and she reaches her pace and stops. **Until 2026-10-30 the
+// Mosquito swung 47 degrees off the runway in 15 kt across**, rolled up
+// below 2 kt, where the steering brake faded with her speed to none at a
+// stop: see lander.cpp. Coverage asserted: 13 landplanes by 9 paces, every
+// run rolled up and stopped; the paces and the one named are the whole
+// range. One test calm, one in 15 kt straight across.
+namespace {
+
+void rolled_up_from_rest_and_stopped(double crosswind_kts) {
+    using glideslope::sim::Lander;
+    constexpr double most_turn_deg = 30.0;
+    constexpr int roll_up_s = 60;
+    constexpr int held_s = 10;
+    constexpr int stop_s = 60;
+    check(walking_paces_cover_the_range(),
+          "the paces flown and the one named are 0.5 to 5 kt by half a knot");
+    std::printf("  named - %.1f kt: the autobrake's own, above it there is something to slow\n",
+                walking_pace_named_kts);
+    const auto taught = everyone_taught("approach-and-landing");
+    const glideslope::sim::Runway runway = a_runway();
+    std::size_t landplanes = 0;
+    std::size_t runs = 0;
+    std::size_t rolled_up_runs = 0;
+    std::size_t stopped_runs = 0;
+    std::size_t left_out = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        if (entry.seaplane) {
+            ++left_out;
+            std::printf("  left out - %s: a flying boat, afloat, has no brakes\n", id.c_str());
+            continue;
+        }
+        ++landplanes;
+        const auto speeds = glideslope::sim::approach_speeds(data(), entry.model);
+        double worst_turn = 0.0;
+        double worst_at_kts = 0.0;
+        for (const double pace_kts : walking_paces_kts) {
+            ++runs;
+            char where_c[64];
+            std::snprintf(where_c, sizeof where_c, "%s at %.1f kt", id.c_str(), pace_kts);
+            const std::string where = where_c;
+            glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+            on_the_runway_at_rest(aircraft, runway, crosswind_kts, false);
+            const auto kts = [&] { return aircraft.property("velocities/vg-fps") / 1.68781; };
+            const bool tail_wheel = aircraft.stance().tail_wheel;
+            glideslope::sim::GroundJudge judge(false);
+            judge.judge(aircraft);
+            std::string bad;
+            double most_turn = 0.0;
+            double turned_at_kts = 0.0;
+            const char* phase = "rolling up";
+            const auto watch = [&] {
+                const auto s = aircraft.state();
+                char at[192];
+                if (gone_over(s.pitch_deg, s.roll_deg)) {
+                    std::snprintf(at, sizeof at, " went over %s (pitch %.1f deg, roll %.1f deg)",
+                                  phase, s.pitch_deg, s.roll_deg);
+                    bad = at;
+                    return false;
+                }
+                const double turn =
+                    std::abs(std::remainder(s.heading_deg - runway.heading_deg, 360.0));
+                if (turn > most_turn) {
+                    most_turn = turn;
+                    turned_at_kts = kts();
+                }
+                if (const auto why = judge.judge(aircraft)) {
+                    std::snprintf(at, sizeof at, " %s %s (pitch %.1f deg, roll %.1f deg, %.2f kt)",
+                                  why->c_str(), phase, s.pitch_deg, s.roll_deg, kts());
+                    bad = at;
+                    return false;
+                }
+                return true;
+            };
+            bool going = true;
+            bool rolled_up = false;
+            double integral = 0.0;
+            double brake_integral = 0.0;
+            {
+                auto steering = Lander::on_its_roll(aircraft, speeds, runway);
+                for (int step = 0; going && !rolled_up && step < roll_up_s * steps_per_second;
+                     ++step) {
+                    glideslope::sim::Controls c = steering.fly();
+                    integral = std::clamp(integral + 0.03 / steps_per_second, 0.0, 1.0);
+                    c.throttle = integral;
+                    Lander::toe_brakes(c, 0.0, kts(), tail_wheel);
+                    aircraft.set_controls(c);
+                    aircraft.step();
+                    going = watch();
+                    rolled_up = kts() >= pace_kts;
+                }
+                phase = "held at her pace";
+                for (int step = 0; going && rolled_up && step < held_s * steps_per_second;
+                     ++step) {
+                    glideslope::sim::Controls c = steering.fly();
+                    const double vg_kts = kts();
+                    c.throttle = walking_pace_hand(integral, pace_kts, vg_kts, 1.0, 0.05, 0.05);
+                    Lander::toe_brakes(c, walking_pace_brake(brake_integral, pace_kts, vg_kts),
+                                       vg_kts, tail_wheel);
+                    aircraft.set_controls(c);
+                    aircraft.step();
+                    going = watch();
+                }
+            }
+            phase = "stopping";
+            bool stopped = false;
+            if (going && rolled_up) {
+                auto lander = Lander::on_its_roll(aircraft, speeds, runway);
+                for (int step = 0; going && step < stop_s * steps_per_second; ++step) {
+                    aircraft.set_controls(lander.fly());
+                    aircraft.step();
+                    going = watch();
+                    if (lander.stage() == Lander::Stage::stopped) {
+                        stopped = true;
+                        break;
+                    }
+                }
+            }
+            rolled_up_runs += rolled_up ? 1U : 0U;
+            stopped_runs += stopped ? 1U : 0U;
+            if (most_turn > worst_turn) {
+                worst_turn = most_turn;
+                worst_at_kts = turned_at_kts;
+            }
+            if (!bad.empty()) {
+                wrong.push_back(where + bad);
+            }
+            if (!rolled_up) {
+                wrong.push_back(where + " never reached her pace");
+            } else if (bad.empty() && !stopped) {
+                wrong.push_back(where + " did not stop");
+            }
+            if (most_turn > most_turn_deg) {
+                char w[128];
+                std::snprintf(w, sizeof w, " turned %.1f deg off the runway's heading, at %.2f kt",
+                              most_turn, turned_at_kts);
+                wrong.push_back(where + w);
+            }
+        }
+        std::printf("  %-14s turned at most %5.1f deg off the runway's heading (at %.2f kt)\n",
+                    id.c_str(), worst_turn, worst_at_kts);
+        std::fflush(stdout);
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    const std::size_t space = landplanes * std::size(walking_paces_kts);
+    check(taught.size() == 14 && landplanes == 13 && left_out == 1 && runs == space &&
+              rolled_up_runs == space && stopped_runs == space,
+          "every landplane of fourteen at each of " +
+              std::to_string(std::size(walking_paces_kts)) + " paces: " + std::to_string(runs) +
+              " runs of " + std::to_string(space) + ", " + std::to_string(rolled_up_runs) +
+              " rolled up, " + std::to_string(stopped_runs) +
+              " stopped; the flying boat left out: " + std::to_string(left_out));
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(every_landplane_rolled_up_from_rest_to_every_walking_pace_and_stopped_keeps_within_30_degrees_of_her_heading) {
+    rolled_up_from_rest_and_stopped(0.0);
+}
+
+// **And in 15 kt straight across**, from the left: the wind that
+// weathervaned the Mosquito 47 degrees off the runway below 2 kt.
+GLIDESLOPE_TEST(every_landplane_rolled_up_from_rest_to_every_walking_pace_in_a_15_kt_crosswind_and_stopped_keeps_within_30_degrees_of_her_heading) {
+    rolled_up_from_rest_and_stopped(15.0);
+}
+
 // **A throttle advanced on the roll disarms the autobrake, and it stays
 // disarmed.** Every landplane taught the approach (13; the flying boat, with
 // no brakes, named) is held at 3 kt under the rollout for 10 s at idle, her

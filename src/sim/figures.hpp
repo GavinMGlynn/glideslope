@@ -121,6 +121,11 @@ struct PublishedFigures {
     // stick gives her, which the lander's hold of a hull's trim on the step
     // is damped by (sim::Lander). 0 where the file gives none.
     double elevator_full_cm = 0.0;
+    // **Where the roll-out's stick starts back**, a fraction of her reference
+    // speed (`stick_back_from_vref`): her tail held up, or her nose wheel
+    // light, from there down to half of it, where the stick is fully back
+    // (sim::Lander). 0.9 where the file gives none.
+    double stick_back_from_vref = 0.9;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;

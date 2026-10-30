@@ -692,6 +692,59 @@ GLIDESLOPE_TEST(an_elevators_full_travel_pitching_moment_is_read_and_refused_out
                                            std::to_string(refused));
 }
 
+// **Where the roll-out's stick starts back is read, and a fraction at or
+// under half her reference speed, or over all of it, is refused**
+// (`stick_back_from_vref`, sim::Lander): the Mosquito's 0.7 read as written,
+// the A320's - which gives none - as the 0.9 every aeroplane flew before,
+// and the A320's file given one: 1, the most allowed, read back; 0.5, less
+// and more than 1 refused, each naming it.
+GLIDESLOPE_TEST(where_the_rollouts_stick_starts_back_is_read_and_refused_outside_half_to_all_of_her_reference_speed) {
+    check(read_published_figures(figures_file("mosquito-fb6")).stick_back_from_vref == 0.7,
+          "the Mosquito's stick starts back at 0.7 of her reference speed");
+    check(read_published_figures(figures_file("a320")).stick_back_from_vref == 0.9,
+          "the A320 gives none, and has 0.9");
+
+    std::ifstream in(figures_file("a320"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const std::string attribute = "rotation_degps=\"3\"";
+    const auto at = text.find(attribute);
+    if (at == std::string::npos) {
+        fail("assets/figures/a320.xml does not give rotation_degps=\"3\"");
+    }
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_stick_back_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& value) {
+        std::string changed = text;
+        changed.replace(at, attribute.size(),
+                        attribute + " stick_back_from_vref=\"" + value + "\"");
+        std::ofstream out(file);
+        out << changed;
+    };
+
+    write("1");
+    check(read_published_figures(file).stick_back_from_vref == 1.0,
+          "a fraction of 1, the most allowed, is read back as written");
+    const char* const wrong[] = {"0.5", "0.2", "1.1"};
+    std::size_t refused = 0;
+    for (const char* value : wrong) {
+        write(value);
+        try {
+            read_published_figures(file);
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            check(said.find("stick_back_from_vref") != std::string::npos,
+                  std::string("the refusal of ") + value + " names stick_back_from_vref: " + said);
+            ++refused;
+        }
+    }
+    std::filesystem::remove(file);
+    check(refused == std::size(wrong), "all three fractions outside 0.5 to 1 were refused, not " +
+                                           std::to_string(refused));
+}
+
 // **Every aircraft's flare touches down within NASA's criterion.** Zaal et
 // al., "Go-Around Criteria Refinement for Transport Category Aircraft"
 // (AIAA Journal of Air Transportation, NTRS 20205010611), take a touchdown
