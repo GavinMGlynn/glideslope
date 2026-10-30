@@ -1209,12 +1209,15 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       METARs in November 2021 few States send it - Russia's still do, every
       report; none of 20 other European and Central Asian stations sampled
       did - and the US never has.
-- [ ] **A copilot or planner is not told a runway is reported
-      contaminated.** Its landing there is now refused or sized by the FAA's
-      factors for the code (2026-10-29), but the model is not shown the
-      condition until refused: that changes every prompt, so it waits on the
-      13 recordings made again. *Verification: a landing on a runway reported
-      icy is refused, or sized from a published contaminated-runway figure.*
+- [x] **A copilot or planner is not told a runway is reported
+      contaminated.** Its landing there is refused or sized by the FAA's
+      factors for the code (2026-10-29), and since 2026-10-31 every runway
+      line a model is shown says its condition, as reported or wet, before
+      it chooses. *Verification: a landing on a runway reported icy is
+      refused, or sized from a published contaminated-runway figure.* Done
+      2026-10-31: told "braking action poor ... needs 1990 m: too short" on
+      ice, and refused by the same figure. Owner 2026-10-31: recordings made
+      again.
 - [x] **A wet runway does not change a rolling tyre's grip sideways.**
       Wet wheels now keep the share of their dry side grip NASA measured
       (TN D-7743, checked against TN D-7351). Rolled out wet in 15 kt
@@ -1268,13 +1271,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       2026-10-13 the J-3 Cub, Mosquito, F-35B and B-2A, none published, are
       refused a runway shorter than the one their model lands in (measured,
       PROJECT_STATUS); the F-22A has no approach speed, so every landing is
-      refused her, and no figure is measured for her. Still missing: the
-      runway lines a model is shown do not say their landing length or what
-      the aircraft needs - saying so changes every model's prompt, so all 13
-      copilot recordings must be recorded again, which waits on the owner.
-      *Verification: each of the five refused a runway shorter than a cited
-      figure, and the model shown each runway's landing length.* Owner
-      2026-10-09.
+      refused her, and no figure is measured for her. Since 2026-10-31 the
+      runway lines a model is shown say their landing length and what the
+      aircraft needs (the F-22A and 747-400, with no approach speed, are told
+      they do not land). **Still missing**: a landing figure for the F-22A,
+      which waits on her approach speed. *Verification: each of the five
+      refused a runway shorter than a cited figure, and the model shown each
+      runway's landing length.* Owner 2026-10-09. Owner 2026-10-31:
+      recordings made again.
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
       *Verification: each light aircraft's policy lands within the
       autopilot's limits from the same starts, in calm air and a 10-knot

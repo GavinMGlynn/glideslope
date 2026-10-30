@@ -132,10 +132,15 @@ std::string planning_request(const PlanRequest& r) {
         out += "\nIt has no approach speed, so a plan for it does not land.\n";
     } else if (!r.fields.empty()) {
         out += "\nRunways it may land on, nearest first: the airport, and a runway line - the "
-               "landing threshold, its elevation in feet, heading and length in metres:\n\n";
+               "landing threshold, its elevation in feet, heading and length in metres - then "
+               "after a semicolon its condition, the metres it has to land on and what the "
+               "aircraft needs there:\n\n";
         for (const world::RunwayEnd& end : r.fields) {
             if (plannable(end)) {
-                out += end.airport + " " + runway_line(end) + "\n";
+                out += end.airport + " " + runway_line(end) +
+                       runway_told(r.approach_kts, r.landing_need_m, r.wet_landing_need_m,
+                                   r.landing_distance_m, r.reverse_thrust, r.wet_runways, end) +
+                       "\n";
             }
         }
     }

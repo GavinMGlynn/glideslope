@@ -206,6 +206,22 @@ std::string landing_refusal(double approach_kts, double need_m, double wet_need_
                             const sim::FlightPlan& plan,
                             const std::vector<world::RunwayEnd>& fields);
 
+// **What a runway is told to be, after its line**, so that a model sees
+// what landing_refusal judges before it is refused: the runway's condition
+// - "reported at runway condition code N, braking action ..." where `wet`
+// reports it (the braking action the FAA's Runway Condition Assessment
+// Matrix gives the code, AC 91-79B), "wet" within `wet`'s radius, "dry"
+// otherwise - then the length it has to land on (world::landing_length_m)
+// and what the aircraft needs there, as
+// landing_refusal sizes it, with "too short" where it is. A runway at code
+// 0 is said to be closed; an aircraft with no approach speed is said not to
+// land, and one with no need (0) is told only the length. The text begins
+// "; ", to follow the line and anything said after it.
+std::string runway_told(double approach_kts, double need_m, double wet_need_m,
+                        double landing_distance_m, bool reverse_thrust,
+                        const std::optional<world::WetRunways>& wet,
+                        const world::RunwayEnd& field);
+
 // Asks `provider` what to do now, and checks what it says: waits for the
 // model, so it is for a thread of its own. Throws ProviderError when the
 // provider fails, or when every answer is refused, saying why each was.
