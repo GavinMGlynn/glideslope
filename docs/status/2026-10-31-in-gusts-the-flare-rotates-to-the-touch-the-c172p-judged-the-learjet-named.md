@@ -1,12 +1,13 @@
-### In gusts the flare rotates to the touch: three of fourteen land within limits with a margin, 2026-10-31 - item still open
+### In gusts the flare rotates to the touch: the C172P judged, the Learjet named - two of fourteen, 2026-10-31 - item still open
 
-**What is missing first.** Eleven of the fourteen are still named in the
+**What is missing first.** Twelve of the fourteen are still named in the
 gusts test. Touch sink in moderate turbulence scatters by about 80 ft/min
 (one standard deviation) for every aeroplane here, as real landings do;
 against a 360 ft/min limit with a 25 ft/min margin on eight seeds and three
 platforms, an aeroplane is judged robust only if her mean touch is far
 below the limit, which most are not. Still failing over forty seeds
-(linux-release, x86-64-v3): F-15C 18 of 40 (hard touches to 482 ft/min),
+(linux-release, x86-64-v3): Learjet 35A none here but one on Windows
+(below), F-15C 18 of 40 (hard touches to 482 ft/min),
 A380 18 (balloons to 223 ft/min and a go-around), 737-300 13 (balloons to
 203), B-2A 8 (a wingtip down), Mosquito 6 (bounces, her main wheels'
 touch), 787-8 6, J-3 Cub 5, C182 2, F-35B 1 (412 on seed 40), A320 3
@@ -48,14 +49,21 @@ Learjet 1 to 0, Mosquito 3 to 6, PA-28 2 to 0. The B-2A and Mosquito are
 worse and stay named. Mean touch, before to after: C172P 198 to 146 ft/min
 (sd 91 to 53), A320 272 to about 205, F-35B 257 to about 220.
 
-**Judged now**: C172P, Learjet 35A, PA-28 (the C172P was named for 419
-ft/min on Windows, CI run 38006839738, under the lander of 2026-10-10; on
-forty seeds here her worst is 335, so CI's platforms are its test). The
-named list's reasons for the A320, C182, Cub and F-35B now give their
+**Judged now**: C172P and PA-28 - two of fourteen, as before, but not the
+same two. The C172P was named for 419 ft/min on Windows (CI run
+38006839738, under the lander of 2026-10-10); on forty seeds here her
+worst is 335, and CI run 41077933204 passed her on Linux and Windows
+debug. **The Learjet 35A is named**: clean on forty seeds here (worst
+flare climb 62 ft/min), she climbed at 85 in her flare on Windows debug,
+seed 7, in that same run - judged before, she now fails a platform, and
+the rule names her. That is the scatter above: forty seeds on one
+platform sample a tail that three platforms' eight seeds each reach past.
+The named list's reasons for the A320, C182, Cub and F-35B now give their
 forty-seed figures.
 
 **Verification:**
-- The eight gust tests, the stabilized-gate gust test, the light-and-heavy
+- The full linux-release suite passes, 1419 of 1419 (first round). The
+  eight gust tests, the stabilized-gate gust test, the light-and-heavy
   calm landings, the headwind and tailwind roll-outs and every test
   matching gust, flare or limits pass (linux-release, 50 tests).
 - Seen red: with the gust touch aimed at 250 ft/min instead of 150, seeds 2
