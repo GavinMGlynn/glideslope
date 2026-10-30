@@ -98,6 +98,16 @@ Where each number comes from:
     surfaces and nozzles for takeoff": her flaperons drooped in STOVL mode.
   Raymer, Aircraft Design: A Conceptual Approach, DATCOM's plain flap
     The flaperons' droop's lift, at estimated effectiveness and span.
+  United States Air Force, Aircraft Accident Investigation Board Report,
+  F-35A T/N 12-005053, Eglin AFB, 19 May 2020 (released 30 September 2020)
+    "the recommended landing attitude of 13 AOA" (page 21); her 202 KCAS
+    touchdown "approximately 50 KCAS faster and 8 degrees AOA shallower than
+    the on speed parameters for the MA gross weight" (page 6): the approach
+    her lift is set to fly (LIFT_FACTOR).
+  Lockheed Martin, Code One, "F-35 Lightning II Flight Testing At NAS
+  Patuxent River" (1 December 2012), the test pilot Dan Levin
+    "Landings in the A and B are similar to the F-16 in terms of speed and
+    angle of attack": the A's approach taken for the B's.
   JSBSim's F100-PW-229, made the F135 as tools/make_f15c.py makes the F100-
   PW-220 (tools/fighter.py's thrust with speed and height, the F100's shape),
   its throttle ratios set to fly the maximum Mach.
@@ -297,6 +307,22 @@ TSFC = 0.90
 # independently.
 STRAIGHT_ALPHA = 0.30
 STALL_ALPHA = 0.55
+# **Her lift over her wing's** (2026-10-30, "The F-35B lands on her power"):
+# DATCOM's slope is the trapezoidal wing's alone, and the F-35's wide lifting
+# body, chines and leading-edge root, which it leaves out, are not published.
+# On the wing's alone her model flew the glidepath at 19.5 degrees and 159
+# knots, past the 13 the F-35A is landed at (the Air Force's board on the
+# F-35A lost at Eglin on 19 May 2020: "the recommended landing attitude of 13
+# AOA", on speed about 50 KCAS under the 202 she touched at, so about 152;
+# its report, pages 21 and 6), which Lockheed's test pilot Dan Levin says the
+# B lands like ("Landings in the A and B are similar to the F-16 in terms of
+# speed and angle of attack", Code One, 1 December 2012). The factor is the
+# number set to fly that figure, as the drag's are: 13 degrees at 152 KCAS
+# at her combat loading (assets/figures/f35b.xml's approach). It scales the
+# whole table, every Mach, so her stall, take-offs and climb move with it
+# and are measured again; her drag is on the lift's square, so at a given
+# lift - her cruise, her top speed - it moves nothing.
+LIFT_FACTOR = 1.6
 SUBSONIC_ZERO_LIFT_DRAG = 0.020
 WAVE_DRAG = 0.054
 SPAN_EFFICIENCY = 0.70
@@ -636,7 +662,8 @@ def lift_system():
     out += f"        <property value=\"{STOVL_CONVERT_KCAS:.0f}\">fcs/stovl-convert-kcas</property>\n"
     # And the rest of what it reads of her: the nozzle's and the fan's vane
     # box's travel, its estimated rates, attitude and least height, and her
-    # wing's lift slope at her conversion speed.
+    # lift slope at her conversion speed, her body's with her wing's
+    # (LIFT_FACTOR).
     for name, value in (("nozzle-max-deg", f"{NOZZLE_MAX_DEG:.1f}"), ("fan-min-deg", f"{FAN_MIN_DEG:.2f}"),
                         ("fan-max-deg", f"{FAN_MAX_DEG:.1f}"),
                         ("transition-slow-kt-per-s", f"{TRANSITION_SLOW_KT_S:.1f}"),
@@ -650,7 +677,7 @@ def lift_system():
                         ("stovl-trc-side-kt", f"{STOVL_TRC_SIDE_KT:.1f}"),
                         ("stovl-turn-degps", f"{STOVL_TURN_DEG_S:.1f}"),
                         ("transition-lift-slope-per-rad",
-                         f"{fighter.lift_slope(TRANSITION_MACH, ASPECT, SWEEP_QUARTER_CHORD):.4f}")):
+                         f"{LIFT_FACTOR * fighter.lift_slope(TRANSITION_MACH, ASPECT, SWEEP_QUARTER_CHORD):.4f}")):
         out += f"        <property value=\"{value}\">fcs/{name}</property>\n"
     out += "        <channel name=\"LiftSystem\">\n"
     out += written.kinematic("Conversion", "fcs/stovl-cmd-norm", [0, 1], [0, CONVERSION_S], "fcs/stovl-pos-norm")
@@ -804,7 +831,8 @@ def lift_table(indent):
     rows = ""
     for a in alphas:
         rows += f"{indent}        {a:.4f}\t" + "\t".join(
-            f"{at_low_mach(a, fighter.lift_slope(m, ASPECT, SWEEP_QUARTER_CHORD)):.4f}" for m in fighter.MACHS) + "\n"
+            f"{at_low_mach(a, LIFT_FACTOR * fighter.lift_slope(m, ASPECT, SWEEP_QUARTER_CHORD)):.4f}"
+            for m in fighter.MACHS) + "\n"
     return (f"{indent}<table>\n"
             f"{indent}    <independentVar lookup=\"row\">aero/alpha-rad</independentVar>\n"
             f"{indent}    <independentVar lookup=\"column\">velocities/mach</independentVar>\n"
