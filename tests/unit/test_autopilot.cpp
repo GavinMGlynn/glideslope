@@ -1525,15 +1525,12 @@ constexpr double landing_flap_above_vref_kts = 40.0;
 constexpr double heading_settled_by_s = 40.0;
 constexpr double most_height_lost_ft = 300.0;
 
-// **Named, not judged: the F-35B to 179 kt.** Her model needs 15 to 20
-// degrees of incidence to fly level there - the approach incidence of the
-// open tail "The F-35B lands on her power" - and the autopilot's nose stops
-// at 15 degrees, so she sinks at up to 1,300 ft/min: 2,836 ft lost at 159
-// kt, 301 at 179, 270 at 184. Her sideslip stays within 0.01.
-const std::map<std::string, std::pair<double, std::string>> approach_named = {
-    {"f35b", {181.0, "to 179 kt her model's approach incidence, 18 to 20 degrees, is past the "
-                     "autopilot's 15 degrees of nose, and she cannot hold her height"}},
-};
+// **Named, not judged: none.** The F-35B was, to 179 kt, until 2026-10-30:
+// her model needed 15 to 20 degrees of incidence to fly level there, past the
+// autopilot's 15 degrees of nose, and she sank. Since her lift was set to fly
+// the F-35A's 13-degree approach (tools/make_f35b.py, LIFT_FACTOR) she holds
+// her height from her approach speed up.
+const std::map<std::string, std::pair<double, std::string>> approach_named = {};
 
 const std::vector<std::string> approach_swept = {
     "c172p", "c182", "pa28",       "j3cub", "short_s23", "mosquito-fb6", "737-300",

@@ -235,6 +235,10 @@ are the risks the phase order is built around:
   to fly the figure, not measured, so her stall (97 kt), take-offs, plan
   speeds and landing distance were measured again
   (docs/status/2026-10-30-the-f35b-flies-her-approach-at-the-f35s-13-degrees.md).
+  Four tests are red with it and not yet fixed: her circuit's final runs
+  slow, an over-rotated take-off no longer strikes her tail, the
+  climb-speed raise test has nothing to raise, and the pitch-envelope
+  recovery ends 341 ft off her height.
 - **A side force in a beam wind is shaped by an argument, not a
   measurement** (2026-10-29). JSBSim made it in her plane of symmetry
   standing in a beam wind, and that put a J-3 Cub braked in a crosswind

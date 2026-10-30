@@ -998,8 +998,9 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       and Claude's two plans within 7 m.
 - [x] **The B-2 and the F-22 yaw from side to side in a crosswind when
       slow.** Done 2026-10-10: flown below each plan floor as an approach is,
-      every aircraft holds its sideslip within a degree (the F-35B under 181
-      kt is named under "The F-35B lands on her power"). *Verification: every
+      every aircraft holds its sideslip within a degree (the F-35B from her
+      approach speed too since 2026-10-30, when she was no longer named).
+      *Verification: every
       aircraft holds a heading in a 20 kt crosswind from its approach speed
       up, its sideslip within a stated bound.*
 - [x] **The autopilot's stall recovery, held to what a stall lesson can
@@ -1252,14 +1253,17 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       raises the reverse lever and the backslash stows it, and each
       joystick's and quadrant's last button holds maximum reverse.
       *Verification: a binding moves it, as every other lever's does.*
-- [x] **The F-35B lands on her power**: her model flew the glidepath at
-      19.5 degrees of incidence and its flare ran out of nose. *Verification:
-      the F-35B flies her approach at her published incidence and flares
-      with her throttle closing.* Done 2026-10-30: no B figure is public,
-      so she flies the F-35A's published 13 degrees and about 152 KCAS (Air
-      Force accident report, 2020). A Lockheed test pilot says the B lands
-      like the A. She holds 11.6 to 14.4 degrees, and her flare's throttle
+- [ ] **The F-35B lands on her power** - **In progress**: her model flew
+      the glidepath at 19.5 degrees of incidence and its flare ran out of
+      nose. *Verification: the F-35B flies her approach at her published
+      incidence and flares with her throttle closing.* Since 2026-10-30
+      she flies the F-35A's published 13 degrees at about 152 KCAS (Air
+      Force accident report, 2020); a Lockheed test pilot says the B lands
+      like the A. She holds 11.6 to 14.4 degrees and her flare's throttle
       only closes. Her extra lift is set to fly that figure, not measured.
+      Still missing: four tests the new lift turned red - her circuit's
+      final, the over-rotated take-off, the climb-speed raise and the
+      pitch-envelope recovery.
 - [ ] **A runway too short refused for the five with no public landing
       figure, and the runways a model is shown say their length.** Since
       2026-10-13 the J-3 Cub, Mosquito, F-35B and B-2A, none published, are
