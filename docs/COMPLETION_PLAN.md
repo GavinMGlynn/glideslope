@@ -1170,8 +1170,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       flat - under one degree, below NACA TN 923's lower trim limit - and
       skips 1.7 to 8 ft off the water, worse than on main (0.8 to 1.6 ft):
       the planing hull's centre of pressure and the flat touch both add to
-      it. Her gust flare should put her on the water at her calm touchdown
-      trim. *Verification:
+      it. Traced 2026-10-30: she touches flat because she is 15 kt fast (the
+      gust additive), and raised to her calm trim at that speed she balloons;
+      the owner to choose how a hull's gust approach sheds it. *Verification:
       the S.23 lands in calm air and in gusts within the landplanes'
       limits.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
