@@ -1172,7 +1172,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       the planing hull's centre of pressure and the flat touch both add to
       it. Traced 2026-10-30: she touches flat because she is 15 kt fast (the
       gust additive), and raised to her calm trim at that speed she balloons;
-      the owner to choose how a hull's gust approach sheds it. *Verification:
+      held off level as the seaplane handbook holds her, she touches near her
+      trim but gusts climb her 80-260 ft/min, past the flare's limit.
+      *Verification:
       the S.23 lands in calm air and in gusts within the landplanes'
       limits.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
