@@ -34,8 +34,18 @@
   slowing at nearly 3 knots a second with her throttles shut, she was
   half a knot under her stall before the power and the lowered nose brought
   the speed (docs/PROJECT_STATUS.md, 2026-10-13).
+
+  stick_back_from_vref is not a published figure: where the roll-out's stick
+  starts back, her tail held up to 0.7 of her reference speed and the stick
+  fully back by 0.5 (every other aeroplane from 0.9). The FAA's Airplane
+  Flying Handbook (FAA-H-8083-3C, chapter 14) has a tailwheel aeroplane
+  wheel-landed in a crosswind, where her controls keep their bite. Brought
+  down from 0.9, her wing at 12 degrees carried five sixths of her weight at
+  100 kt, her tyres held little, and on a wet runway she rolled 9.9 m from the
+  centreline as 15 kt arrived across; held to 0.7, 3.4 m (2026-10-30). The
+  Pilot's Notes found say nothing of her landing roll.
 -->
-<published_figures aircraft="mosquito-fb6" flaps_full_deg="45" stall_warning_kts="10">
+<published_figures aircraft="mosquito-fb6" flaps_full_deg="45" stall_warning_kts="10" stick_back_from_vref="0.7">
   <source>A&amp;AEE reports 767,e (HX809, HJ679) and A.P. 2019E Pilot's Notes</source>
 
   <!-- HX809's level speeds were "corrected to 95% of the take-off weight",
@@ -308,14 +318,16 @@
     it, and the figure is measured again from there.
   </glide_speeds>
 
-  <landing_distance ft="5500" basis="measured" factor="1">
+  <landing_distance ft="5700" basis="measured" factor="1">
     Measured, not published: the line above is written by
     tools/measured_landing.py from `glideslope_cli land mosquito-fb6`
-    (2026-10-13, linux-release). Landed by the approach autopilot from a
+    (2026-10-30, linux-release). Landed by the approach autopilot from a
     final-approach gate 2 nm out, on a level runway at sea level in calm air
-    with every tank full, she touched 777 m in and stopped 1633 m past the
-    threshold, which she crossed on the 3-degree glidepath aimed 300 m in, at
-    about 50 ft. The figure is that, 2 per cent over and rounded up to 100 ft (3
+    with every tank full, she touched 777 m in and stopped 1696 m past the
+    threshold (1633 m and 5,500 ft until 2026-10-30, when her brakes came to
+    wait for her tail wheel to bear weight and her tail to be held up to 0.7
+    of her reference speed: sim/lander.cpp), having crossed it on the 3-degree glidepath aimed 300 m in, at
+    about 50 ft. The figure is that, 2 per cent over and rounded up to 100 ft (2
     per cent over in all), for the drift between machines: the AI's own landing
     in those conditions, not a regulatory distance and not a minimum; heavier,
     hotter, higher or downwind she needs more, and nothing here allows for it.
