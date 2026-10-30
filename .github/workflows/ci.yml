@@ -97,7 +97,9 @@ env:
 #     Later that day every table was measured again from three green runs
 #     and the counts set so that each shard holds about 15 minutes of
 #     measured work: Linux debug 11, Windows debug 7, Windows release and
-#     clang-cl 3, macOS debug 5.
+#     clang-cl 3, macOS debug 5. Windows debug went to 8 on 2026-10-30:
+#     its shards ran 23 to 38 of their 45 minutes, and one on a runner a
+#     quarter slower than its table was cut off (run 41029951964).
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may
@@ -984,13 +986,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-debug, shard: 1, of: 7 }
-          - { preset: windows-debug, shard: 2, of: 7 }
-          - { preset: windows-debug, shard: 3, of: 7 }
-          - { preset: windows-debug, shard: 4, of: 7 }
-          - { preset: windows-debug, shard: 5, of: 7 }
-          - { preset: windows-debug, shard: 6, of: 7 }
-          - { preset: windows-debug, shard: 7, of: 7 }
+          - { preset: windows-debug, shard: 1, of: 8 }
+          - { preset: windows-debug, shard: 2, of: 8 }
+          - { preset: windows-debug, shard: 3, of: 8 }
+          - { preset: windows-debug, shard: 4, of: 8 }
+          - { preset: windows-debug, shard: 5, of: 8 }
+          - { preset: windows-debug, shard: 6, of: 8 }
+          - { preset: windows-debug, shard: 7, of: 8 }
+          - { preset: windows-debug, shard: 8, of: 8 }
     env:
       SDL_LOGGING: gpu=debug
     steps:
