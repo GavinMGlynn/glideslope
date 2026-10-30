@@ -220,6 +220,7 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
     tail_wheel_ = stance.found && stance.tail_wheel;
     if (stance.found && stance.tail_wheel) {
         most_flare_pitch_deg_ = stance.standing_pitch_deg;
+        standing_pitch_deg_ = stance.standing_pitch_deg;
     } else if (stance.found && stance.strike_pitch_deg > 0.0 &&
                stance.strike_pitch_deg < 90.0) {
         most_flare_pitch_deg_ = stance.strike_pitch_deg - 2.0;
@@ -693,14 +694,25 @@ void Lander::hand_mixture(double mixture) {
 // pedal releasing the other wheel - and any aeroplane with toe brakes is held
 // straight the same way. Past half its travel the rudder brings in the brake
 // on the side the nose is wanted, up to six tenths, and lets the other off.
-// (A positive rudder yaws the nose left.) **Not near a stop**: below walking
-// pace the steering brake fades with her speed to none at a stop, where it
-// turns her nothing and only stands her on one wheel - nine tenths of it, on
-// a Cub weathervaned in 15 kt across, held her while power was run up against
-// it, until she broke away and went over.
-void Lander::toe_brakes(Controls& c, double brake, double vg_kts) {
+// (A positive rudder yaws the nose left.) **Not near a stop on a nose
+// wheel**: below walking pace a nose-wheel aeroplane's steering brake fades
+// with her speed to none at a stop, where her nose wheel steers her and the
+// brake only stands her on one wheel. **But a tail-wheel aeroplane's does
+// not fade**: her tail wheel castors - the Mosquito's Pilot's Notes have her
+// "taxy forward a few yards to straighten the tailwheel" (A.P. 2019E, para.
+// 40) - and her rudder does nothing at a crawl, so at walking pace her
+// brakes are all that steer her. The FAA's Airplane Flying Handbook
+// (FAA-H-8083-3C, chapter 14) has a tailwheel aeroplane taxied across the
+// wind "sometimes requiring use of the brakes when tailwheel steering alone
+// proves inadequate to counteract the weathervane effect", and pivoted on a
+// wheel "within its own length". Faded, rolled up from rest in 15 kt across,
+// the Mosquito weathervaned 45 to 59 degrees off the runway below 1.5 kt
+// (2026-10-30); held, 5.8. (Nine tenths of a brake, on a Cub weathervaned in
+// 15 kt across, once held her while power was run up against it until she
+// broke away and went over; the steering brake is six tenths at most.)
+void Lander::toe_brakes(Controls& c, double brake, double vg_kts, bool tail_wheel) {
     const double steer = std::clamp((std::abs(c.rudder) - 0.5) / 0.5, 0.0, 1.0) *
-                         std::clamp(vg_kts / autobrake_off_kts, 0.0, 1.0);
+                         (tail_wheel ? 1.0 : std::clamp(vg_kts / autobrake_off_kts, 0.0, 1.0));
     const double inside = std::clamp(brake + 0.6 * steer, 0.0, 1.0);
     const double outside = brake * (1.0 - steer);
     c.left_brake = c.rudder > 0.0 ? inside : outside;
@@ -946,9 +958,19 @@ Controls Lander::fly_laws() {
         const double vg_kts = a_.property("velocities/vg-fps") / 1.68781;
         const double flying_kts =
             std::max(vg_kts, kcas * std::cos(a_.property("aero/beta-deg") / degrees));
+        // **A tail-wheel aeroplane's tail held up to 0.7 of her reference
+        // speed**, not 0.9: the AFH (chapter 14) has a tailwheel aeroplane
+        // wheel-landed in a crosswind, where her controls keep their bite,
+        // and her tail let down only as she slows. Brought down from 0.9,
+        // the Mosquito's wing carried five sixths of her weight at 100 kt at
+        // 12 degrees, her tyres held little, and wet she rolled 9.9 m from
+        // the centreline as 15 kt arrived across; held to 0.7, 3.4 m. (Her
+        // brakes wait for her tail, below, or she was braked tail up and
+        // went over on a short runway.)
         const double flying = std::clamp(
-            (flying_kts - 0.5 * speeds_.vref_kts) / std::max(1.0, 0.4 * speeds_.vref_kts), 0.0,
-            1.0);
+            (flying_kts - 0.5 * speeds_.vref_kts) /
+                std::max(1.0, (tail_wheel_ ? 0.2 : 0.4) * speeds_.vref_kts),
+            0.0, 1.0);
         // **With a little forward pressure while she is fast**, as the FAA's
         // Airplane Flying Handbook (FAA-H-8083-3C, chapter 14) lands a
         // tailwheel aeroplane on its main wheels: holding the attitude she
@@ -1129,6 +1151,27 @@ Controls Lander::fly_laws() {
         if (s.pitch_deg < -4.0) {
             brake_ = 0.0;
         }
+        // **A tail-wheel aeroplane's brakes wait for her tail**: none while
+        // her pitch is more than `tail_down_deg` under the attitude she
+        // stands at, and let off again if braking lifts it. The FAA's
+        // Airplane Flying Handbook (FAA-H-8083-3C, chapter 14) lets her tail
+        // "drop on its own accord" after a wheel landing before the
+        // deceleration is "allowed to proceed as in a three-point landing",
+        // with the elevator full back. Braked from the touch with her
+        // tail up, the Mosquito went over on her nose rolling out dry as 15
+        // kt arrived across (2026-10-14 to 2026-10-30); now 2.1 m from the
+        // centreline. Braked tail down at 0.55 her pitch dips 1 to 2.5
+        // degrees (the 2026-10-17 status); a dip past two lets her brakes
+        // off until her tail is down again. **It costs the J-3 Cub**, who
+        // rolls on her main wheels to 0.5 of her reference speed: landed
+        // by the approach autopilot she stops 549 m past the threshold, not
+        // 429, and her measured landing distance is measured again
+        // (assets/figures/j3cub.xml). Judged by her tail wheel's weight
+        // instead she stopped at 554; with the stick eased fully back once
+        // it touched (the AFH's three-point roll), no shorter.
+        if (tail_wheel_ && s.pitch_deg < standing_pitch_deg_ - tail_down_deg) {
+            brake_ = 0.0;
+        }
         // **A throttle advanced on the roll disarms the autobrake**, as an
         // airliner's is: the 737's disarms when "the thrust levers are
         // advanced from idle to forward thrust (except during the first 3
@@ -1156,7 +1199,7 @@ Controls Lander::fly_laws() {
         }
         const double brake = brake_;
         // **And the brakes steer when the rudder is not enough** (`toe_brakes`).
-        toe_brakes(c, brake, vg_kts);
+        toe_brakes(c, brake, vg_kts, tail_wheel_);
         c.reverse = reverse_thrust(kcas, vg_kts, slippery);
         return c;
     }

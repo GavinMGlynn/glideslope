@@ -282,6 +282,9 @@ public:
     static constexpr double walking_pace_pedal = 0.3;
     static constexpr double standing_pedal = 0.45;
     static constexpr double creeping_kts = 2.0;
+    // A tail-wheel aeroplane's brakes wait for her tail: none while she is
+    // more than this under the attitude she stands at (lander.cpp).
+    static constexpr double tail_down_deg = 2.0;
     // **And what stops a creep her idle thrust drives** (lander.cpp): every
     // engine's throttle closed and her speed growing under `creeping_kts`.
     // 0.8: an F-15C's idle thrust beat 0.55 and she never stopped in 15 kt
@@ -300,10 +303,10 @@ public:
 
     // **Her brakes as the rollout works them from the rudder bar**
     // (lander.cpp): `brake` on both, and past half the rudder's travel the
-    // brake on the side the nose is wanted, up to six tenths, fading below
-    // `autobrake_off_kts` with her speed `vg_kts` to none at a stop. Sets
-    // `c`'s brakes from its rudder.
-    static void toe_brakes(Controls& c, double brake, double vg_kts);
+    // brake on the side the nose is wanted, up to six tenths - on a nose
+    // wheel fading below `autobrake_off_kts` with her speed `vg_kts` to none
+    // at a stop, on a `tail_wheel` not. Sets `c`'s brakes from its rudder.
+    static void toe_brakes(Controls& c, double brake, double vg_kts, bool tail_wheel);
 
     // One 120 Hz step's controls. Call once a step, as the aircraft is now.
     Controls fly();
@@ -499,6 +502,7 @@ private:
     // which falls from the attitude it touched at, and its spoilers out.
     bool jet_ = false;
     bool tail_wheel_ = false; // Aircraft::stance's
+    double standing_pitch_deg_ = 0.0; // and the attitude she stands at, where on a tail wheel
     double lowering_pitch_deg_ = 0.0;
 
     // What she lands on, where her model puts it: her main wheels, or where

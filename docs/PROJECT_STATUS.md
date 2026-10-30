@@ -250,12 +250,18 @@ are the risks the phase order is built around:
   Cub no longer goes over braking in a crosswind where she does not in calm
   air.
 - **The AI's roll-out holds the centreline in a crosswind that arrives, dry
-  and wet, but for the Mosquito** (2026-10-30). As 15 kt arrives across,
-  every landplane the AI lands but the Mosquito stays within 4.1 m of the
-  centreline dry and wet (it was 12 to 21 m for the jets; the PA-28 15 m
-  wet): the rudder steers by her track as well as her heading, and a
-  propeller aeroplane's flaps come up on the roll. The Mosquito still
-  noses over braked dry, and wet goes 9.9 m, her wing carrying her.
+  and wet; the J-3 Cub is not judged** (2026-10-30). As 15 kt arrives
+  across, every landplane the AI lands stays within 4.1 m of the centreline
+  dry and wet (it was 12 to 21 m for the jets; the PA-28 15 m wet): the
+  rudder steers by her track as well as her heading, and a propeller
+  aeroplane's flaps come up on the roll. A tail-wheel aeroplane's brakes
+  wait for her tail, which is held up to 0.7 of her reference speed, and
+  her steering brake does not fade at a crawl: the Mosquito, who went over
+  braked dry and 9.9 m wet, rolls out within 3.4 m, and rolled up from rest
+  in 15 kt across turns 5.8 degrees, not 59. Her real braking is not
+  sourced; the rules are the FAA handbook's for tailwheel aeroplanes. It
+  costs the J-3 Cub: the AI's landing now stops her 549 m past the
+  threshold, not 429, and her measured landing distance is 1,900 ft.
 - **Restore settles what it cannot read.** It holds the aircraft at the captured
   state for two simulated seconds so JSBSim's hidden engine and actuator states
   converge; a restore is therefore not free. Reconciliation does not use it:

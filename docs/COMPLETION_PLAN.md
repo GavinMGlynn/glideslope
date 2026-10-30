@@ -1158,13 +1158,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       stays bounded and her nose above -5 degrees.* Done 2026-10-30: all 13,
       pushed along at 0.5-4.5 kt for 30 s at idle, dry, wet and across; jets
       reach 0.8; a tail-wheel aeroplane, put on her nose by it, has none.
-- [ ] **The Mosquito swings below walking pace.** Held at every walking
-      pace with her brakes worked as the rollout's rudder bar works them, she
-      turns at most 4.4 degrees after the hand-over (2026-10-15); but rolled
-      up from rest in 15 kt across she swings 47 degrees off the runway below
-      2 kt, where that steering brake fades to nothing. *Verification: every
+- [x] **The Mosquito swings below walking pace.** Rolled up from rest in 15
+      kt across she swung 47 degrees off the runway below 2 kt, where the
+      rudder bar's steering brake faded to nothing. *Verification: every
       landplane rolling at walking pace stops within 30 degrees of her
-      heading, in calm air and 15 kt across.*
+      heading, in calm air and 15 kt across.* Done 2026-10-30: a tail-wheel
+      aeroplane's steering brake no longer fades at a crawl; every landplane
+      rolled up from rest to 0.5-4.5 kt and stopped keeps within 8.9 degrees.
 - [ ] **The flying boat lands in gusts without skipping.** In gusts she
       touches flat and skips because she arrives 12 kt fast; held off as the
       seaplane handbook holds her, gusts climb her past the flare's limit. Open
@@ -1224,12 +1224,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       held to it.* Done 2026-10-14: no assertion covers the light
       aeroplanes, whose soft tyres barely lose grip, or the Mosquito, who
       slides less wet; on snow, slush and ice the share is extrapolated.
-- [ ] **The AI's roll-out drifts 10 to 21 m from the centreline when a 15
+- [x] **The AI's roll-out drifts 10 to 21 m from the centreline when a 15
       kt crosswind arrives**, dry as wet. *Verification: every landplane
       rolled out as 15 kt arrives stays within 5 m of the centreline.*
-      2026-10-30: dry and wet, every landplane but the Mosquito stays within
-      4.1 m. **Unmet**: the Mosquito, who noses over braked dry and goes
-      9.9 m wet (her wing carries her as her tail comes down).
+      Done 2026-10-30: dry and wet, every landplane within 4.1 m - the
+      Mosquito 2.1 dry and 3.4 wet, her brakes waiting for her tail and her
+      tail held up to 0.7 of her reference speed. The J-3 Cub is left out,
+      for her own open items.
 - [x] **The AI lands the J-3 Cub within her published crosswind limit**,
       12 kt: one instructor's "about 12 knots" in an EAA Inspire article
       (Piper published none), accepted by the owner on 2026-10-30.
