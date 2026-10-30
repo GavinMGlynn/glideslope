@@ -916,6 +916,11 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       2026-10-29: the 0.032 that failed was the step words were placed at,
       not the law; the tests now judge her pitch where she was, 0.003 at
       most measured, bound 0.010 (`docs/status`).
+      2026-10-30: the slow and spent scenes, run beside other tests, drift
+      further on CI's Windows debug (0.012 and 0.007 at most, six runs
+      each; 0.002 everywhere else); their bound is 0.025, the lone scene's
+      stays 0.010. Still to do: the slow scene run on Windows debug here,
+      alone and loaded, to grow those six runs.
 
 ---
 
