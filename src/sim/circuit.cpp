@@ -145,7 +145,8 @@ AutopilotModes GoAroundCircuit::modes() {
         break;
     case Leg::base:
         m.heading_deg = runway_.heading_deg + 90.0;
-        // Slowing, as a pilot does on base: 1.4 times the landing stall.
+        // Slowing, as a pilot does on base: 1.4 times the stall, or the same
+        // margin over the approach speed where it is flown faster (base_kts).
         m.airspeed_kts = base_kts();
         break;
     case Leg::intercept:
