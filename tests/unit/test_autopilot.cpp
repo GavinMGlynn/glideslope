@@ -2330,7 +2330,7 @@ GLIDESLOPE_TEST(the_trim_is_never_held_for_a_stall_on_approaches_and_climbs_in_m
 // F-35A's approach (tools/make_f35b.py) the same 25 degrees climbs 7,300,
 // she overshot by 1,186 ft, and came down at the autopilot's 700 ft/min - 341
 // ft off 90 s on, a minute and a half too few to come down 1,186 at that
-// rate, whatever the seeding. Pulled to 20, she climbs as she did. The vertical-speed loop's integral is
+// rate, whatever the seeding. Pulled to 20, she climbs 4,736 ft/min. The vertical-speed loop's integral is
 // seeded within its envelope (Autopilot::fly). **Seen red** seeded outside
 // it - at her pitch plus the proportional part of the climb she had over
 // the one asked, 41 degrees for the F-15C - it held her nose at the top
