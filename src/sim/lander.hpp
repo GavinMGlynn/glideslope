@@ -480,6 +480,9 @@ private:
     // The flare's attitude loop's gain over the path's, brought in over a
     // second as it begins.
     double flare_gain_ = 1.0;
+    // The attitude asked on the step before, whose rate the flare's damping
+    // in gusts leaves alone (`fly_laws`).
+    double last_want_pitch_ = 0.0;
     // Given back by a pilot (`resume`).
     bool resumed_ = false;
     // The incidence she flew the glidepath at, on its last step before the

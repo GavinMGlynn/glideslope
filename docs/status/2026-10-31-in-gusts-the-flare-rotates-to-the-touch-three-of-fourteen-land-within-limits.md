@@ -1,0 +1,68 @@
+### In gusts the flare rotates to the touch: three of fourteen land within limits with a margin, 2026-10-31 - item still open
+
+**What is missing first.** Eleven of the fourteen are still named in the
+gusts test. Touch sink in moderate turbulence scatters by about 80 ft/min
+(one standard deviation) for every aeroplane here, as real landings do;
+against a 360 ft/min limit with a 25 ft/min margin on eight seeds and three
+platforms, an aeroplane is judged robust only if her mean touch is far
+below the limit, which most are not. Still failing over forty seeds
+(linux-release, x86-64-v3): F-15C 18 of 40 (hard touches to 482 ft/min),
+A380 18 (balloons to 223 ft/min and a go-around), 737-300 13 (balloons to
+203), B-2A 8 (a wingtip down), Mosquito 6 (bounces, her main wheels'
+touch), 787-8 6, J-3 Cub 5, C182 2, F-35B 1 (412 on seed 40), A320 3
+(flare climbs to 101), S.23 33 (not touched here; it awaits the owner).
+
+**What changed** (`sim::Lander::fly_laws`, in gusts only - calm air flies
+exactly as before):
+- **A jet's attitude hold in the last fifth of the flare lets go whenever
+  she sinks faster than the flare wants**, not only from 150 ft/min past
+  it. Frozen while the sink grew, an A320 settling after a gust's lift met
+  the runway at 418 ft/min with her nose held at 3.3 degrees from nine feet
+  (asked for five), an F-15C at 451 with hers at ten (asked for twelve).
+- **The flare's pitch damping leaves the commanded rotation alone**: the
+  rate damped is the difference from the attitude asked's own rate,
+  nose-up, up to a degree a second - as `lower_the_nose` already damps its
+  lowering. Damped whole, an F-15C asked for 1.5 degrees more nose turned
+  at a degree a second against it and stayed a second and a half behind
+  the flare to the touch. A cap of 0.5, 2 and 3 deg/s were tried: 3 and 2
+  made the F-15C, A380 and B-2A worse; 1 was best overall.
+- Tried and rejected: holding the power while she sinks faster than wanted
+  (balloons on every jet, failures 100 to 170 of 520); no nose lowering
+  when a balloon is predicted (no better).
+
+**Research.** FAA-H-8083-3C ch. 9, "Turbulent Air Approach and Landing"
+(power on to the touch, half the gust factor) and "Ballooning" (hold the
+landing attitude and let her settle, a little power to cushion, never a
+push near the ground); Boeing's FCTM gust correction (half the steady
+headwind plus the full gust, the gust held to the touch) as reported by
+line pilots; Boldmethod's balloon recovery (keep a nose-high attitude,
+relax back pressure, a slight power cushion). None of them asks for a
+frozen attitude while the sink grows.
+
+**Figures, forty seeds each, failures by the test's margins (13
+landplanes, 520 landings)**: 100 before, 80 after. Clean on all forty:
+none before; C172P, Learjet 35A and PA-28 after. By aircraft, before to
+after: 737-300 14 to 13, 787-8 4 to 6, A320 12 to 3, A380 19 to 18, B-2A 4
+to 8, C172P 3 to 0, C182 4 to 2, F-15C 22 to 18, F-35B 7 to 1, Cub 5 to 5,
+Learjet 1 to 0, Mosquito 3 to 6, PA-28 2 to 0. The B-2A and Mosquito are
+worse and stay named. Mean touch, before to after: C172P 198 to 146 ft/min
+(sd 91 to 53), A320 272 to about 205, F-35B 257 to about 220.
+
+**Judged now**: C172P, Learjet 35A, PA-28 (the C172P was named for 419
+ft/min on Windows, CI run 38006839738, under the lander of 2026-10-10; on
+forty seeds here her worst is 335, so CI's platforms are its test). The
+named list's reasons for the A320, C182, Cub and F-35B now give their
+forty-seed figures.
+
+**Verification:**
+- The eight gust tests, the stabilized-gate gust test, the light-and-heavy
+  calm landings, the headwind and tailwind roll-outs and every test
+  matching gust, flare or limits pass (linux-release, 50 tests).
+- Seen red: with the gust touch aimed at 250 ft/min instead of 150, seeds 2
+  and 7 fail the C172P (361, 356 ft/min) and seed 7 the PA-28 (342);
+  reverted.
+- The forty-seed sweep was a local test reading its seeds from the
+  environment, not committed: forty seeds of fourteen aeroplanes is about
+  five minutes of linux-debug, too slow for the suite.
+- The selftest flies the C172P from a fixed input log without the lander,
+  so its hash cannot move: 197366fd3fe6a7dc.
