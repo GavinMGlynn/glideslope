@@ -1162,18 +1162,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       2 kt, where that steering brake fades to nothing. *Verification: every
       landplane rolling at walking pace stops within 30 degrees of her
       heading, in calm air and 15 kt across.*
-- [ ] **The flying boat lands in gusts without skipping.** Her flare is
-      flown to her hull and she touches gently, but in gusts she touches
-      flat - under one degree, below NACA TN 923's lower trim limit - and
-      skips 1.7 to 8 ft off the water, worse than on main (0.8 to 1.6 ft):
-      the planing hull's centre of pressure and the flat touch both add to
-      it. Traced 2026-10-30: she touches flat because she is 15 kt fast (the
-      gust additive), and raised to her calm trim at that speed she balloons;
-      held off level as the seaplane handbook holds her, she touches near her
-      trim but gusts climb her 80-260 ft/min, past the flare's limit.
-      *Verification:
-      the S.23 lands in calm air and in gusts within the landplanes'
-      limits.*
+- [ ] **The flying boat lands in gusts without skipping.** In gusts she
+      touches flat and skips because she arrives 12 kt fast; held off as the
+      seaplane handbook holds her, gusts climb her past the flare's limit. Open
+      for the owner: whether a gust's climb in a level hold-off is a balloon,
+      and whether a hull may touch at the book's flatter rough-water attitude.
+      *Verification: the S.23 lands in calm air and in gusts within the
+      landplanes' limits.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
       It flies her slipped, up to 18 degrees in the flare in calm air; with
       her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min
