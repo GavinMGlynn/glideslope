@@ -1675,12 +1675,16 @@ Controls Lander::fly_laws() {
     // damping took back what the error put on: an F-15C asked for 1.5
     // degrees more nose turned at one degree a second against it, the
     // attitude a second and a half behind the flare to the touch, which
-    // she met at 451 ft/min. The rate damped is the difference from the
-    // attitude's own, nose-up, as `lower_the_nose` damps its lowering -
-    // up to a degree a second, so that a gust's step in the attitude asked
-    // is not fed through as a pitch rate. Over forty seeds each it took
-    // the touches of the C172P, Learjet 35A and PA-28 to none past the
-    // margin, and the A320's to three.
+    // she met at 451 ft/min. So while the attitude asked is rising, a
+    // nose-up pitch rate of up to a degree a second is not damped.
+    // **This is a bias, tuned, not a measured rate.** The attitude asked
+    // moves with every gust, and any rise of more than 1/120 degree in a
+    // step reaches the cap, so in practice it is a degree a second of
+    // nose-up rate let through, or none. The cap is from a sweep of forty
+    // seeds of the thirteen landplanes: 0.5, 1, 2 and 3 deg/s, 1 the
+    // fewest failures (80 of 520, from 100). The true rate, the attitude
+    // asked low-passed over a quarter of a second before differencing,
+    // did worse: 103 capped at 1 deg/s, 168 at 6 (balloons).
     const double want_q_degps =
         stage_ == Stage::flare && in_gusts() && flare_gain_ > 1.0
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 1.0)
