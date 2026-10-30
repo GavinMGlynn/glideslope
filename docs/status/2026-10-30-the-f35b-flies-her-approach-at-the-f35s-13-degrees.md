@@ -1,45 +1,87 @@
 ### The F-35B flies her approach at the F-35's published 13 degrees and flares with her throttle closing, 2026-10-30
 
 **What is still not true first.**
-- **The tree is red: four tests fail with her new lift**, in the full
-  linux-release suite (1,417 tests, 7 failed). They are not fixed, so the
-  item stays open:
-  - `an_instructor_demonstrates_a_circuit_and_hands_it_over` and
-    `the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief`. Her
-    circuit's final runs from 136 to 153 kt against her vref of 152, and
-    the lesson allows 142 at the least ("Hold the approach speed on final").
-    She touches 341 m in at 145 kt and 190 ft/min, and stops.
-  - `an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_so`.
-    Held fully back, she now flies off before her nose reaches her tail
-    strike.
-  - `the_speed_the_autopilot_raises_for_a_climb_never_passes_the_fastest_she_may_hold`.
-    The test was built on her old model needing a raised climb speed in her
-    circuit. She no longer needs one, so the raise is 0 and the clamp is
-    never tested. The situation has to be built another way.
-  - `an_autopilot_handed_a_fighter_climbing_past_its_pitch_envelope_brings_her_back_to_her_height`.
-    Handed over at 25 degrees climbing 7,303 ft/min, she is 341 ft off her
-    height 90 s on.
-  The other three failures are not hers. `the_client_with_the_window_joins_the_server_server_txt_names`
-  segfaulted in its second run while an imagery tile fetch was given up.
-  That test flies no aircraft. The F-35B crosswind test is fixed here: she
-  is no longer named below 181 kt (below).
+- **Her extra lift is fitted to the accident report's figure, not
+  derived.** `LIFT_FACTOR` 1.6 (tools/make_f35b.py) is the number that
+  makes her fly 13 degrees at 152 KCAS at her combat loading. The 13
+  degrees is its input, not a check of it.
+  - Raymer's wing-body method can't produce it: the exposed-area share
+    times the fuselage factor 1.07 (1 + d/b)^2 is held under 1.
+  - No figure for the vortex lift of her chines and wing root, or of any
+    chined forebody like hers, was found.
+  - Lockheed's flight-test lift curve (AIAA 2018-3679, figure 11) has no
+    numbers on its lift axis.
+  - No F-35 stall or minimum speed is published, so her new measured 97
+    KCAS stall (was 122) has nothing to check it against.
 - **The 13 degrees and the 152 knots are the F-35A's.** No F-35B approach
   angle of attack or speed is published (the owner, 2026-10-09; searched
   again today). The A's are, and a Lockheed test pilot says the B lands
   like her. The weight that goes with 152 knots is not published either.
   Her combat loading, 39,750 lb, is this project's choice.
-- **Her extra lift is a number set to fly that figure.** It is not measured
-  aerodynamics. Her lift over the wing's DATCOM slope is 1.6 times
-  (`LIFT_FACTOR`, tools/make_f35b.py), for the body, chines and wing root
-  that DATCOM leaves out and nothing publishes.
 - **Her take-off lift-off speed was not measured again.** `lift_off_kcas`
-  189 rests on the 172 kt unstick speed measured before her lift was raised.
-  She would now unstick slower. Her ground roll to 189 is measured again,
-  but the speed itself is not.
+  189 rests on the 172 kt unstick speed measured before her lift was
+  raised. She would now unstick slower. Her ground roll to 189 is measured
+  again, but the speed itself is not.
 - **The short take-off was not swept again.** It is 475.6 ft at the old
   angles and gains, against 592.5 before.
 - **A route may plan her glides from 163 kt, but 163 to 183 kt depart.**
   Her figures' slowest glide is 188 kt.
+- **The multi-process tests were last run on the first commit**, in the full
+  linux-release suite. Every F-35B server and client test passed then. The
+  second round's run left them out.
+
+**Four tests her new lift turned red, fixed in the second round.** In the
+first commit's full linux-release suite, 7 of 1,417 tests failed: these
+four, the crosswind sweep's naming of her (below), and one windowed-client
+test (last item). None of the four was loosened; each was red before it was
+fixed.
+- **Her circuit's final** (`an_instructor_demonstrates_a_circuit_and_hands_it_over`,
+  `the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief`). She
+  joined final at 136 kt with her nose at its stop, against her 152 vref
+  and the lesson's floor of 142.
+  - The go-around circuit (`sim::GoAroundCircuit`, src/sim/circuit.cpp)
+    flew base and the turn on to final at 1.4 times her landing stall. That
+    is the approach speed's 1.3 and a little only while the approach speed
+    is 1.3 times the stall.
+  - `base_kts` now keeps the same margin over a manual's faster approach
+    speed: her vref times 1.4/1.3. Only the F-35B is changed by it. The
+    F-15C's manual speed is below 1.3 times her stall, and no other model
+    gives a manual approach speed.
+  - Her final is now 148 to 164 kt.
+- **The over-rotated take-off**
+  (`an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_so`).
+  - With her lift, her stabilator cannot raise her nose on the runway until
+    about 150 kt, and by then she flies off at 16 degrees. Held fully back
+    from the roll at any throttle from 0.3 to full, she never struck.
+  - The situation is now built in STOVL mode. She converts on the brakes
+    with her short take-off's nozzle and fan at 42 degrees. From brake
+    release her stick and her thrust split are fully nose up.
+  - She strikes at 21.8 degrees on her wheels at 15 kt (her contacts say
+    21.6), and her debrief names it.
+- **The climb-speed raise**
+  (`the_speed_the_autopilot_raises_for_a_climb_never_passes_the_fastest_she_may_hold`).
+  - At her figures' speed she climbs round her circuit with her nose short
+    of its stop, so nothing was raised (0 kt) and the clamp went untested.
+  - She is now told an approach speed of 1.3 times her stall. Her circuit
+    is flown at 146 kt, and the raise reaches the clamp's 11.00 kt and no
+    further.
+- **The pitch-envelope recovery**
+  (`an_autopilot_handed_a_fighter_climbing_past_its_pitch_envelope_brings_her_back_to_her_height`).
+  - Pulled to 25 degrees she now climbs 7,303 ft/min, not 5,100. She
+    overshot by 1,186 ft, then came down at the autopilot's 700 ft/min
+    descent. That is 341 ft off 90 s on whatever the seeding, because the
+    time is too short to lose 1,186 ft at that rate.
+  - She is now pulled to 20 degrees, as the F-15C is. She climbs 4,736
+    ft/min, overshoots by 845 ft and is 79 ft off 90 s on. The bounds are
+    unchanged.
+- **The windowed client's segfault is not hers.**
+  `the_client_with_the_window_joins_the_server_server_txt_names`:
+  - The client of its second run exited with a segmentation fault, after
+    "tiles.maps.eox.at/.../7/88/234.jpg: given up, unfinished".
+  - The test serves no aircraft (`--ai 0`, "the server gave this client no
+    aircraft").
+  - Run again on this branch it passed, in 45.4 s. It was not tried on
+    main.
 
 **Sources** (assets/figures/f35b.xml `<approach>`, tools/make_f35b.py):
 - United States Air Force, Aircraft Accident Investigation Board Report,
@@ -57,6 +99,14 @@
   the A and B are similar to the F-16 in terms of speed and angle of attack."
 - Cross-check: Eurocontrol's Aircraft Performance Database gives an F-35's
   Vat as 150 kt IAS, with no variant named. Marked "only indicative".
+- Searched for her lift, not usable: D. G. Parsons, A. G. Eckstein and J. J.
+  Azevedo (Lockheed Martin), "F-35 Aerodynamic Performance Verification",
+  AIAA 2018-3679 (SHA-256 of the copy read
+  d861779794dbe84707f867a06e2449c5e49b763735eb944c454ec1024bc1e137): its
+  flight-test lift curve has no lift scale. Raymer's wing-body lift-slope
+  method (via a course page's reproduction of section 12.4.1). WRDC-TR-89-3079
+  on forebody chines (chines add lift; no number for hers). The 2012 F-35A
+  high-AoA reports (50 degrees, no minimum speed).
 - Searched and not usable: F-35B NATOPS (not public); DOT&E reports;
   Aviation Week's 2010 F-35C first-flight story, quoted on forums as "155 kt
   for the F-35A and B" (paywalled, so not read); the F-35C's on-speed AoA
@@ -116,6 +166,6 @@ degrees of droop is worth 0.16.
   height. Now, in her landing configuration from 152 to 163 kt, all 4
   speeds are judged, with height within 193 ft, and 29 of 29 plan speeds
   are flown.
-- **src/sim/lander.cpp is unchanged.**
+- **src/sim/lander.cpp is unchanged**; src/sim/circuit.cpp (`base_kts`) is the one simulation change, above.
 
 **The selftest hash** does not move: the selftest flies the C172P.

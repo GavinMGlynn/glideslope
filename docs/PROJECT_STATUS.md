@@ -231,14 +231,13 @@ are the risks the phase order is built around:
   (2026-10-30). She comes down at the A's published 13 degrees and about
   152 KCAS, from the Air Force's 2020 Eglin accident report. A Lockheed test
   pilot says the B lands like the A. Her flare now only closes her throttle.
-  That took 1.6 times the lift of her wing's DATCOM slope, a number chosen
-  to fly the figure, not measured, so her stall (97 kt), take-offs, plan
-  speeds and landing distance were measured again
+  That took 1.6 times the lift of her wing's DATCOM slope. The factor is
+  fitted to the accident report's figure, not derived: no number for her
+  body's or chines' lift was found, and no F-35 stall speed is published to
+  check her new 97 kt against. Her take-offs, plan speeds and landing
+  distance were measured again, and four tests her new lift turned red
+  were rebuilt or fixed, none loosened
   (docs/status/2026-10-30-the-f35b-flies-her-approach-at-the-f35s-13-degrees.md).
-  Four tests are red with it and not yet fixed: her circuit's final runs
-  slow, an over-rotated take-off no longer strikes her tail, the
-  climb-speed raise test has nothing to raise, and the pitch-envelope
-  recovery ends 341 ft off her height.
 - **A side force in a beam wind is shaped by an argument, not a
   measurement** (2026-10-29). JSBSim made it in her plane of symmetry
   standing in a beam wind, and that put a J-3 Cub braked in a crosswind

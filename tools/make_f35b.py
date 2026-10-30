@@ -316,9 +316,22 @@ STALL_ALPHA = 0.55
 # AOA", on speed about 50 KCAS under the 202 she touched at, so about 152;
 # its report, pages 21 and 6), which Lockheed's test pilot Dan Levin says the
 # B lands like ("Landings in the A and B are similar to the F-16 in terms of
-# speed and angle of attack", Code One, 1 December 2012). The factor is the
-# number set to fly that figure, as the drag's are: 13 degrees at 152 KCAS
-# at her combat loading (assets/figures/f35b.xml's approach). It scales the
+# speed and angle of attack", Code One, 1 December 2012). **The factor is
+# fitted to the accident report's figure**, as the drag's numbers are fitted
+# to the published Mach: 13 degrees at 152 KCAS at her combat loading
+# (assets/figures/f35b.xml's approach). It is not derived, and the 13 degrees
+# is its input, not a check of it. **What was looked for, to derive it
+# instead**: Raymer's wing-body method (Aircraft Design, 12.4.1) multiplies
+# DATCOM's slope by the exposed wing's share of the reference area and a
+# fuselage lift factor, 1.07 (1 + d/b)^2, and holds their product under 1 -
+# so on its own it cannot raise her lift at all, and the rest would be the
+# chines' and the wing root's vortex lift, for which no number for the F-35,
+# or a chined forebody like hers, was found. Lockheed's own lift curve
+# (Parsons, Eckstein and Azevedo, "F-35 Aerodynamic Performance
+# Verification", AIAA 2018-3679, figure 11) is drawn without numbers on its
+# lift axis; and no F-35 stall or minimum speed is published - she is flown
+# to 50 degrees of angle of attack and has no stall in the usual sense - so
+# her measured 97 KCAS stall has nothing to be checked against. It scales the
 # whole table, every Mach, so her stall, take-offs and climb move with it
 # and are measured again; her drag is on the lift's square, so at a given
 # lift - her cruise, her top speed - it moves nothing.
