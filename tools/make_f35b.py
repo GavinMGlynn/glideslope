@@ -331,7 +331,10 @@ STALL_ALPHA = 0.55
 # Verification", AIAA 2018-3679, figure 11) is drawn without numbers on its
 # lift axis; and no F-35 stall or minimum speed is published - she is flown
 # to 50 degrees of angle of attack and has no stall in the usual sense - so
-# her measured 97 KCAS stall has nothing to be checked against. It scales the
+# her measured 97 KCAS stall has nothing to be checked against. **The project
+# owner accepted the factor on 2026-10-30, asked directly**, as stated here:
+# fitted to the accident report's 13 degrees of angle of attack at about 152
+# KCAS. It scales the
 # whole table, every Mach, so her stall, take-offs and climb move with it
 # and are measured again; her drag is on the lift's square, so at a given
 # lift - her cruise, her top speed - it moves nothing.

@@ -13,6 +13,9 @@
     numbers on its lift axis.
   - No F-35 stall or minimum speed is published, so her new measured 97
     KCAS stall (was 122) has nothing to check it against.
+  - **The owner accepted the factor on 2026-10-30, asked directly**, as it
+    is stated here: fitted to the accident report's 13 degrees of angle of
+    attack at about 152 KCAS.
 - **The 13 degrees and the 152 knots are the F-35A's.** No F-35B approach
   angle of attack or speed is published (the owner, 2026-10-09; searched
   again today). The A's are, and a Lockheed test pilot says the B lands
@@ -29,6 +32,31 @@
 - **The multi-process tests were last run on the first commit**, in the full
   linux-release suite. Every F-35B server and client test passed then. The
   second round's run left them out.
+
+**The second round's draft CI (run 40992479828) was red on two linux-debug
+tests; the third round looked at both.**
+- `every_aircraft_at_every_loading_at_three_heights_and_three_speeds_is_trimmed_as_a_players_is`
+  timed out at 900 s, where it usually takes 374. **The F-35B is not why.**
+  - Timed point by point on this branch (linux-release), the test passes in
+    about 54 s, its usual cost. All 36 of her points together take 0.09 s.
+    The S.23 takes 46 s.
+  - That shard ran slow throughout, on tests that fly no F-35B: the 737-300's
+    orbit took 373 s (usual 145), the F-22A's fastest orbit 284 (180), and
+    the approach lesson 274 (159). That is 1.6 to 2.6 times usual, and 374
+    times 2.4 is 900. Nothing was changed for it, and the timeout was not
+    raised.
+- `a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_still_begins_on_the_servers_law_state`:
+  her predicted pitch was 0.624 degrees off, against its 0.5. The test failed
+  on main once too (0.592, run 40800355368). Run ten times each, linux-debug,
+  the machine otherwise idle, on main's model and circuit and on this branch's
+  (pitch within, degrees, in run order):
+  - main: 0.138, 0.202, 0.200, 0.216, 0.285, 0.190, 0.204, 0.299, 0.205,
+    0.175. All passed; median 0.203, most 0.299.
+  - this branch: 0.206, 0.227, 0.205, **0.575**, 0.335, 0.211, 0.217, 0.213,
+    0.204, 0.166. One failed; median 0.212, most 0.575.
+  - The typical run is the same, but the branch's tail is longer. Ten runs
+    each cannot say whether her lift causes it. The same law-state drift
+    fails on main. Not fixed here; the coordinator is to judge it.
 
 **Four tests her new lift turned red, fixed in the second round.** In the
 first commit's full linux-release suite, 7 of 1,417 tests failed: these
