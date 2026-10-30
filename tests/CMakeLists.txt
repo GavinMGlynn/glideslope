@@ -2637,7 +2637,8 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once)
 # on CI's Windows debug, run beside the shard's heaviest tests, her pitch
 # where she was drifts further between corrections than alone - 0.004 to
 # 0.012 here (n 6, run 40992438234 the 0.012, matched 0 steps and 0.001 m
-# off the path), 0.001 to 0.007 in the spent scene (n 6); every other
+# off the path), 0.001 to 0.011 in the spent scene (n 7, #281's draft run
+# on 0049630a the 0.011); every other
 # platform 0.002 at most, and the serial scene above 0.002 at most on
 # Windows debug too (docs/status, 2026-10-30). 0.025 from the slow
 # scene's six there: their mean, 0.0065, and six standard deviations
@@ -2655,7 +2656,9 @@ set_tests_properties(a_client_slower_to_prepare_than_the_servers_timeout_is_not_
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_at_once_slow)
 # **And with its first asking for her levers ignored**: the server's second
 # of requests spent just before it, so that it is acknowledged and ignored.
-# Its bound 0.025 degree, as the slow scene's above, for the same reason.
+# Its bound 0.025 degree, as the slow scene's above, for the same reason:
+# its seven there have mean 0.0041 and standard deviation 0.0037, six of
+# them above the mean 0.026.
 # See cmake/server_stovl_at_once.cmake.
 add_test(NAME a_client_whose_first_asking_for_her_levers_is_ignored_asks_again_and_seeds_its_law_as_the_server_does
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
