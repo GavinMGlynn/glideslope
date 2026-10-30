@@ -917,10 +917,10 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       not the law; the tests now judge her pitch where she was, 0.003 at
       most measured, bound 0.010 (`docs/status`).
       2026-10-30: the slow and spent scenes, run beside other tests, drift
-      further on CI's Windows debug (0.012 and 0.007 at most, six runs
-      each; 0.002 everywhere else); their bound is 0.025, the lone scene's
-      stays 0.010. Still to do: the slow scene run on Windows debug here,
-      alone and loaded, to grow those six runs.
+      further on CI's Windows debug (0.012 and 0.011 at most, six and seven
+      runs; 0.002 everywhere else); their bound is 0.025, the lone scene's
+      stays 0.010. Still to do: the three run 20 times on Windows debug here,
+      alone and loaded.
 
 ---
 
