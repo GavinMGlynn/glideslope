@@ -788,6 +788,7 @@ struct RolledOut {
     // velocity across her own heading (velocities/v-fps, body axes, over
     // the ground), from the hand-over to the stop.
     double worst_slide_fps = 0.0;
+    bool tail_wheel = false; // she stands on one (Aircraft::stance)
 };
 
 // **A roll-out in a crosswind**: `entry` run up the runway's centreline by
@@ -798,15 +799,27 @@ struct RolledOut {
 // - steered to the centreline by the take-off autopilot's own law, to a
 // stop. On a runway of condition `code`.
 RolledOut rolled_out(const glideslope::sim::CatalogueEntry& entry, int code, double crosswind_kts,
-                     double from_kts, std::optional<double> held_side_grip = std::nullopt) {
+                     double from_kts, std::optional<double> held_side_grip = std::nullopt,
+                     double slope_deg = 0.0) {
     using glideslope::sim::Aircraft;
     constexpr double degrees = 180.0 / 3.14159265358979323846;
     constexpr double fps_per_kt = 1.68781;
     const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), entry.model);
     const Runway runway = a_runway();
     Aircraft aircraft(data() / "jsbsim", entry.model);
+    // The ground rising `slope_deg` along the runway's heading from its
+    // threshold (negative, falling), level across it.
+    const double rise = std::tan(slope_deg / degrees);
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
-        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        [runway, rise](double lat, double lon) {
+            constexpr double metres_per_deg = 111195.0;
+            const double north_m = (lat - runway.threshold_lat_deg) * metres_per_deg;
+            const double east_m = (lon - runway.threshold_lon_deg) * metres_per_deg *
+                                  std::cos(runway.threshold_lat_deg / degrees);
+            const double h = runway.heading_deg / degrees;
+            return rise * (north_m * std::cos(h) + east_m * std::sin(h));
+        },
+        [](double, double) { return false; }));
     glideslope::sim::Conditions conditions;
     conditions.runway_condition = code;
     aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(conditions));
@@ -831,6 +844,7 @@ RolledOut rolled_out(const glideslope::sim::CatalogueEntry& entry, int code, dou
     std::optional<glideslope::sim::Lander> lander;
     glideslope::sim::GroundJudge judge(false);
     RolledOut out;
+    out.tail_wheel = aircraft.stance().tail_wheel;
     for (int step = 0; step < 400 * steps_per_second; ++step) {
         const double kts = aircraft.property("velocities/vg-fps") / fps_per_kt;
         if (!out.handed && kts >= from_kts) {
@@ -1033,17 +1047,26 @@ GLIDESLOPE_TEST(every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_a
 // 2026-10-30**: braked dry she went over on her nose, and wet she went
 // 9.9 m from the centreline, her tail down as she slowed from 109 kt and
 // her wing carrying five sixths of her weight. Now a tail-wheel aeroplane's
-// brakes wait for her tail, and her tail is held up to 0.7 of her reference
-// speed (sim/lander.cpp): 2.1 m dry, 3.4 wet. Left out, named, as above: the
-// flying boat, the 747-400 and F-22A, and the J-3 Cub. Coverage is
-// asserted: twelve landplanes rolled out both ways, twenty-four roll-outs
-// asserted, four left out.
+// brakes wait for her tail wheel to bear weight, and her tail is held up to
+// 0.7 of her reference speed (sim/lander.cpp; her figures'
+// `stick_back_from_vref`): 2.1 m dry, 3.4 wet. **The J-3 Cub is asserted
+// since 2026-10-30** (left out until then for a ground loop in 15 kt
+// across, closed 2026-10-29): 1.4 m dry, 1.6 wet. Left out, named,
+// as above: the flying boat, the 747-400 and F-22A. **And the two
+// tail-wheel aeroplanes on a runway sloping 1 degree up and 1 down**, dry
+// and wet, held to the same 5 m: her brakes must not depend on the slope.
+// Coverage is asserted: thirteen landplanes rolled out both ways, the two
+// tail-wheel ones on both slopes both ways, thirty-four roll-outs asserted,
+// three left out.
 GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arrives_stays_within_5_m_of_the_centreline) {
     const auto catalogue = glideslope::sim::read_catalogue(data());
     constexpr double most_across_m = 5.0;
     std::size_t rolled = 0;
     std::size_t asserted = 0;
     std::size_t left_out = 0;
+    std::size_t tail_wheels = 0;
+    std::size_t sloped_runs = 0;
+    constexpr double runway_slopes_deg[] = {1.0, -1.0};
     std::vector<std::string> wrong;
     const auto judge = [&](const std::string& id, const RolledOut& out, const char* runway) {
         if (!(out.handed && out.stopped && out.wrecked.empty())) {
@@ -1063,13 +1086,6 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arri
             ++left_out;
             continue;
         }
-        if (entry.id == "j3cub") {
-            std::printf("  left out - j3cub: the roll-out never brings her below half a knot "
-                        "in 400 s, and she ground-loops landing in 15 kt across (an open "
-                        "item)\n");
-            ++left_out;
-            continue;
-        }
         if (!glideslope::sim::her_figures(data(), entry.model).lands) {
             std::printf("  left out - %s: she publishes no stall speed, so the AI lands her "
                         "nowhere\n",
@@ -1086,17 +1102,46 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arri
                     entry.id.c_str(), dry.handed_kts, dry.worst_across_m, wet.worst_across_m);
         judge(entry.id, dry, "dry");
         judge(entry.id, wet, "wet");
+        // **And a tail-wheel aeroplane on a sloping runway**, 1 degree up
+        // and 1 down, dry and wet: her brakes wait for her tail wheel's
+        // weight, which a slope does not move, not for her attitude, which
+        // it does. Let off by her nose's pitch rate instead, the Mosquito
+        // struck the runway rising a degree (2026-10-30).
+        if (dry.tail_wheel) {
+            ++tail_wheels;
+            for (const double slope_deg : runway_slopes_deg) {
+                for (const int code : {glideslope::sim::dry_runway, glideslope::sim::wet_runway}) {
+                    const RolledOut sloped =
+                        rolled_out(entry, code, rollout_crosswind_kts, rollout_from_kts(entry),
+                                   std::nullopt, slope_deg);
+                    char runway_c[64];
+                    std::snprintf(runway_c, sizeof runway_c, "%s on a %+.0f degree slope",
+                                  code == glideslope::sim::dry_runway ? "dry" : "wet",
+                                  slope_deg);
+                    std::printf("  %-13s %s from %5.1f kt: worst %.2f m across%s%s\n",
+                                entry.id.c_str(), runway_c, sloped.handed_kts,
+                                sloped.worst_across_m, sloped.handed ? "" : ", NOT HANDED OVER",
+                                sloped.wrecked.empty() ? "" : (", " + sloped.wrecked).c_str());
+                    judge(entry.id, sloped, runway_c);
+                    ++sloped_runs;
+                }
+            }
+        }
     }
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(rolled + left_out == catalogue.size() && left_out == 4 && rolled == 12 &&
-              asserted == 2 * rolled,
-          "twelve rolled out both ways, twenty-four asserted, four left out: " +
-              std::to_string(rolled) + ", " + std::to_string(asserted) + ", " +
-              std::to_string(left_out) + " of " + std::to_string(catalogue.size()));
+    const std::size_t sloped_space = tail_wheels * std::size(runway_slopes_deg) * 2;
+    check(rolled + left_out == catalogue.size() && left_out == 3 && rolled == 13 &&
+              tail_wheels == 2 && sloped_runs == sloped_space &&
+              asserted == 2 * rolled + sloped_space,
+          "thirteen rolled out both ways, the two tail-wheel ones sloped too, three left out: " +
+              std::to_string(rolled) + ", " + std::to_string(tail_wheels) + " tail-wheel, " +
+              std::to_string(sloped_runs) + " sloped of " + std::to_string(sloped_space) + ", " +
+              std::to_string(asserted) + " asserted, " + std::to_string(left_out) + " of " +
+              std::to_string(catalogue.size()));
 }
 
 namespace {

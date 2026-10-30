@@ -2096,6 +2096,16 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "most 2");
         }
     }
+    // **A stick that comes back at or below half her reference speed, where
+    // it is already fully back, or above it, is refused.**
+    if (root->HasAttribute("stick_back_from_vref")) {
+        out.stick_back_from_vref = root->GetAttributeValueAsNumber("stick_back_from_vref");
+        if (!(out.stick_back_from_vref > 0.5 && out.stick_back_from_vref <= 1.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a stick_back_from_vref that is not above 0.5 and "
+                                     "at most 1");
+        }
+    }
     if (JSBSim::Element* source = root->FindElement("source")) {
         out.source = collapse_whitespace(source->GetDataLine());
     }

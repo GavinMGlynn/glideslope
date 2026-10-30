@@ -108,6 +108,7 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
         speeds.touchdown_fpm = figures.touchdown_fpm;
     }
     speeds.elevator_full_cm = figures.elevator_full_cm;
+    speeds.stick_back_from_vref = figures.stick_back_from_vref;
     speeds.spool_s = spool_up_s(data / "jsbsim", model);
     return speeds;
 }
@@ -220,7 +221,6 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
     tail_wheel_ = stance.found && stance.tail_wheel;
     if (stance.found && stance.tail_wheel) {
         most_flare_pitch_deg_ = stance.standing_pitch_deg;
-        standing_pitch_deg_ = stance.standing_pitch_deg;
     } else if (stance.found && stance.strike_pitch_deg > 0.0 &&
                stance.strike_pitch_deg < 90.0) {
         most_flare_pitch_deg_ = stance.strike_pitch_deg - 2.0;
@@ -247,6 +247,17 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
         }
     }
     lands_on_wheels_ = !lands_on_.empty();
+    // **Her tail wheel**, where she stands on one: the undercarriage contact
+    // on her centreline behind her main wheels, whose weight on the runway
+    // says her tail is down (her brakes wait for it).
+    if (tail_wheel_ && !lands_on_.empty()) {
+        for (std::size_t i = 0; i < points.size(); ++i) {
+            if (points[i].bogey && std::abs(points[i].y_in) <= 1.0 &&
+                points[i].x_in > lands_on_.front().x_in) {
+                tail_gear_ = "gear/unit[" + std::to_string(i) + "]/WOW";
+            }
+        }
+    }
     // **Only a model that can be in the water**: a landplane whose model
     // names no main wheel is a fault in the model, not a hull, and a fixed
     // skid written as a BOGEY would hang her flare from it unnoticed.
@@ -958,18 +969,15 @@ Controls Lander::fly_laws() {
         const double vg_kts = a_.property("velocities/vg-fps") / 1.68781;
         const double flying_kts =
             std::max(vg_kts, kcas * std::cos(a_.property("aero/beta-deg") / degrees));
-        // **A tail-wheel aeroplane's tail held up to 0.7 of her reference
-        // speed**, not 0.9: the AFH (chapter 14) has a tailwheel aeroplane
-        // wheel-landed in a crosswind, where her controls keep their bite,
-        // and her tail let down only as she slows. Brought down from 0.9,
-        // the Mosquito's wing carried five sixths of her weight at 100 kt at
-        // 12 degrees, her tyres held little, and wet she rolled 9.9 m from
-        // the centreline as 15 kt arrived across; held to 0.7, 3.4 m. (Her
-        // brakes wait for her tail, below, or she was braked tail up and
-        // went over on a short runway.)
+        // **From where her figures say** (`stick_back_from_vref`, 0.9 unless
+        // they give another): the Mosquito's tail is held up to 0.7 of her
+        // reference speed. Brought down from 0.9, her wing carried five
+        // sixths of her weight at 100 kt at 12 degrees, her tyres held
+        // little, and wet she rolled 9.9 m from the centreline as 15 kt
+        // arrived across; held to 0.7, 3.4 m.
         const double flying = std::clamp(
             (flying_kts - 0.5 * speeds_.vref_kts) /
-                std::max(1.0, (tail_wheel_ ? 0.2 : 0.4) * speeds_.vref_kts),
+                std::max(1.0, (speeds_.stick_back_from_vref - 0.5) * speeds_.vref_kts),
             0.0, 1.0);
         // **With a little forward pressure while she is fast**, as the FAA's
         // Airplane Flying Handbook (FAA-H-8083-3C, chapter 14) lands a
@@ -1152,24 +1160,20 @@ Controls Lander::fly_laws() {
             brake_ = 0.0;
         }
         // **A tail-wheel aeroplane's brakes wait for her tail**: none while
-        // her pitch is more than `tail_down_deg` under the attitude she
-        // stands at, and let off again if braking lifts it. The FAA's
-        // Airplane Flying Handbook (FAA-H-8083-3C, chapter 14) lets her tail
-        // "drop on its own accord" after a wheel landing before the
-        // deceleration is "allowed to proceed as in a three-point landing",
-        // with the elevator full back. Braked from the touch with her
-        // tail up, the Mosquito went over on her nose rolling out dry as 15
-        // kt arrived across (2026-10-14 to 2026-10-30); now 2.1 m from the
-        // centreline. Braked tail down at 0.55 her pitch dips 1 to 2.5
-        // degrees (the 2026-10-17 status); a dip past two lets her brakes
-        // off until her tail is down again. **It costs the J-3 Cub**, who
-        // rolls on her main wheels to 0.5 of her reference speed: landed
-        // by the approach autopilot she stops 549 m past the threshold, not
-        // 429, and her measured landing distance is measured again
-        // (assets/figures/j3cub.xml). Judged by her tail wheel's weight
-        // instead she stopped at 554; with the stick eased fully back once
-        // it touched (the AFH's three-point roll), no shorter.
-        if (tail_wheel_ && s.pitch_deg < standing_pitch_deg_ - tail_down_deg) {
+        // her tail wheel bears no weight, and let off again if braking lifts
+        // it. The FAA's Airplane Flying Handbook (FAA-H-8083-3C, chapter 14)
+        // lets her tail "drop on its own accord" after a wheel landing, and
+        // only then is the deceleration "allowed to proceed as in a
+        // three-point landing". Braked from the hand-over with her tail up,
+        // the Mosquito went over on her nose rolling out dry as 15 kt
+        // arrived across (2026-10-14 to 2026-10-30), and on a runway rising
+        // a degree, braked lightly while her nose sank under 2 deg/s, struck
+        // it. **Her tail wheel's weight, not her attitude**, which a
+        // runway's slope moves. **It lengthens a wheel landing**: the AI
+        // wheel-lands the J-3 Cub at 3 degrees (she stands at 12), and she
+        // now stops about 498 m past the threshold, not 429 - an open item
+        // (COMPLETION_PLAN, "The AI wheel-lands the J-3 Cub").
+        if (tail_wheel_ && (tail_gear_.empty() || a_.property(tail_gear_) < 0.5)) {
             brake_ = 0.0;
         }
         // **A throttle advanced on the roll disarms the autobrake**, as an
