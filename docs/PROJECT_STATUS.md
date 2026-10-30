@@ -41,7 +41,8 @@ platform's package draws a frame of it on Vulkan, Direct3D 12 or Metal: sky,
 HUD and the terrain, drawn by Cesium Native from the DEM over the cells around
 where the flight starts, with EOX's Sentinel-2 cloudless imagery on it - and
 where that imagery cannot be fetched, on the DEM's own colours, the client
-saying so (2026-10-28). There
+saying so (2026-10-28) - cached imagery gone stale and refused included,
+which crashed it as it closed until 2026-10-30. There
 are sixteen aircraft, fifteen of them drawn from FlightGear models, and a
 server that flies them for up to four clients, each predicting its own and
 drawing the rest (Phase 6, below). The weather is real: METARs and winds aloft, fetched live,

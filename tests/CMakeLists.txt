@@ -1697,6 +1697,16 @@ add_test(NAME a_cesium_cache_held_by_a_hung_program_costs_one_wait_and_is_used_a
         ${CMAKE_CURRENT_BINARY_DIR}/cesium-cache-pause.sqlite 3000)
 set_tests_properties(a_cesium_cache_held_by_a_hung_program_costs_one_wait_and_is_used_again_after_its_pause
     PROPERTIES TIMEOUT 300)
+# **A stale cached tile asked for again, when the network gives no answer, is
+# answered as a failure** - refused or given up, with every kind of stale
+# entry and none - where Cesium Native's cache read the missing answer's status
+# and the client with the window segfaulted as it closed (gfx/fetches.hpp).
+add_executable(glideslope_cache_revalidation tools/cache_revalidation.cpp)
+target_link_libraries(glideslope_cache_revalidation PRIVATE glideslope_gfx CesiumAsync)
+glideslope_configure(glideslope_cache_revalidation)
+add_test(NAME a_stale_cached_tile_whose_fetch_gets_no_answer_is_answered_as_a_failure_and_ends_nothing
+    COMMAND $<TARGET_FILE:glideslope_cache_revalidation>
+        ${CMAKE_CURRENT_BINARY_DIR}/cache_revalidation)
 
 foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
     add_test(NAME the_hud_shows_the_flights_state_at_the_tick_it_was_shot_on_${_driver}
@@ -2071,6 +2081,18 @@ add_test(NAME a_window_client_whose_imagery_is_refused_in_whatever_order_still_d
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/frame_terrain_imagery_refused.cmake)
 set_tests_properties(a_window_client_whose_imagery_is_refused_in_whatever_order_still_draws_its_frame_on_the_dems_colours
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1900 LABELS nightly)
+# **And with that imagery cached and gone stale**, so that each tile is asked
+# for again and refused: where the client segfaulted, Cesium Native's cache
+# reading the status of an answer that had none (gfx/fetches.hpp). See
+# cmake/imagery_stale_refused.cmake.
+add_test(NAME a_window_client_whose_stale_cached_imagery_is_refused_when_asked_again_draws_its_frame_and_exits_0
+    COMMAND ${CMAKE_COMMAND}
+        -DPROGRAM=$<TARGET_FILE:glideslope> -DTOOL=$<TARGET_FILE:glideslope_cache_revalidation>
+        -DDRIVER=${_first_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames_stale
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR} -DPORT=24947
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/imagery_stale_refused.cmake)
+set_tests_properties(a_window_client_whose_stale_cached_imagery_is_refused_when_asked_again_draws_its_frame_and_exits_0
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 1300)
 
 # ---------------------------------------------------------------------------
 # The shader compiler keeps SDL_GPU's resource layout: a shader that follows it
