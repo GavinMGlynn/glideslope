@@ -4,9 +4,9 @@
 on two or three of the eight seeds - she rises 0.82 to 1.02 ft off the
 water against the gust test's 0.75 (a foot, less its quarter-foot margin)
 in the best variant - and stays named in the gust tests. Nothing in the
-code on `main` changed: docs only. The variants are on the branch
-`flying-boat-lands-in-gusts-wip`, behind environment knobs (its commit
-message lists them), for the next round.
+code on `main` changed: docs only. A second round, on her model's damping (below), passed
+every seed on Linux and failed one on Windows; its code is on the branch
+`flying-boat-lands-in-gusts-damped-wip` (commit 4802c398), not for merge.
 
 **The owner's decisions, 2026-10-31**:
 1. A gust's climb in a level hold-off is not a balloon if she holds level:
@@ -95,6 +95,33 @@ foot is.
 
 **Verification**: none landed. The figures above are from the gust tests'
 own output (`in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_1`
-to `_8`, linux-release, the S.23 alone), with each variant built in, on
-the WIP branch; and a per-step trace of her keel's height, attitude,
+to `_8`, linux-release, the S.23 alone), with each variant built in; and a per-step trace of her keel's height, attitude,
 airspeed, sink, elevator, throttle and flap for seeds 3, 4 and 6.
+
+**Second round: her hull's damping** (the same day). Her model damps her
+heave and pitch on the step by the water's added mass, rho (pi/8) b^2 V
+(Zarnick, DTNSRDC-78/032), but wetted in over the step's first half foot -
+an estimate (docs/status, 2026-10-13). Her planing lift is Savitsky's with
+no deadrise correction, a flat plate's, and a flat section's wetted width is
+its whole beam the moment it meets the water (Wagner's and von Karman's
+impact theory; Zarnick's sectional added mass with c = b/2): so the damping
+should be whole from the first touch. No measured heave damping of a hull
+like hers was found to set beside it (NACA's porpoising and tank landing
+reports, Perring and Glauert's R&M 1493 searched). Brought in over 0.083 ft
+- one 120 Hz step's travel at 600 ft/min - with the last variant of the
+table but its nose cap at 5.0 degrees and hold height 1.5 ft:
+- **Linux, every seed passes**: rises 0.00 to 0.61 ft, sinks 25 to 313
+  ft/min, touched at 3.51 to 5.12 degrees and 64 to 81 kt; with the
+  half-foot fade put back, seeds 2, 3 and 6 rise 1.02, 0.82 and 0.87 (seen
+  red). In calm air she hops 0.34 ft (0.35 before). Capped at 4.5 she
+  rose 2.70 ft on seed 6; at 5.5 she touched at 401 ft/min on seed 3. The
+  full linux-release suite passed, 1,420 of 1,420.
+- **Windows debug, seed 5 fails**: she rose 0.87 ft (0.18 on Linux), CI run
+  41100266299. Gusts magnify a platform's floating point, and an aeroplane
+  that fails any platform's seed stays named; so she does, and none of it
+  is on `main`.
+
+So the model's damping, consistent with its own flat-bottomed lift, takes
+most of the skip away, but the margin is not there on every platform: one
+lull or gust at the touch, seven knots either side, still decides it.
+

@@ -1171,7 +1171,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       holds level, and her hull may touch at the rough-water book's flatter
       attitude (no lower than NACA TN 923's 3 degrees). Held off so, she no
       longer wrecks, but still rises 0.8 to 1.0 ft off the water on three
-      seeds of eight: fast she flies off it, slow a lull drops her on to it.
+      seeds of eight; with her hull damped from its first touch she passes
+      every seed on Linux, but rises 0.87 ft on one on Windows.
       *Verification: the S.23 lands in calm air and in gusts within the
       landplanes' limits.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
