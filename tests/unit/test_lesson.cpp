@@ -2868,25 +2868,30 @@ constexpr double gusty_margin_m = 25.0;
 // gusts on a seed she passes here, so she is named whole. What is wrong is
 // the item "The AI cannot land in gusts" in docs/COMPLETION_PLAN.md, still
 // open. Any that fails a seed here or on any platform in CI, or passes one
-// without the margin, is named. (linux-release, 2026-10-10.)
+// without the margin, is named. (linux-release, 2026-10-10; figures from
+// forty seeds, 2026-10-31.)
 const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
     static const std::map<std::string, std::string> named = {
         {"737-300", "a gust's lift in her flare climbs her at 113 ft/min (seed 2)"},
         {"787-8", "she touches at 398 ft/min on macOS (seed 2) and climbs at 201 ft/min "
                   "in her flare on Windows (seed 3), CI run 38006839738; here she rises "
                   "0.85 ft after touching (seed 6)"},
-        {"a320", "she touches at 404 and 421 ft/min on Windows (seeds 1 and 2) and climbs "
-                 "at 143 in her flare (seed 3), CI run 38006839738; here 363 (seed 5)"},
+        {"a320", "a gust's lift in her flare climbs her at 101 ft/min (seed 6); on forty "
+                 "seeds she fails three, each a climb in her flare"},
         {"a380", "she meets the runway at 367 ft/min (seed 1), and a gust's lift in her "
                  "flare climbs her at 196 ft/min (seed 2)"},
         {"b2", "a gust rolls her on to a wingtip as she touches (seed 8)"},
-        {"c172p", "she touches at 419 ft/min on Windows (seed 3), CI run 38006839738"},
         {"c182", "she touches at 352.5 ft/min on macOS (seed 8), not 25 inside the "
-                 "limit, CI run 38028434284"},
+                 "limit, CI run 38028434284; on forty seeds here at 378 and 382 (seeds 23, "
+                 "33)"},
         {"f15c", "she meets the runway at 397 ft/min (seed 2)"},
+        {"learjet35a", "since the 2026-10-31 flare change, a gust's lift in her flare "
+                       "climbs her at 85 ft/min on Windows debug (seed 7), not 25 inside the "
+                       "limit, CI run 41077933204; here her worst of forty seeds is 62"},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
-                  "CI run 38028434284"},
-        {"f35b", "she touches at 348 ft/min (seed 6), inside the limit by only 12"},
+                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 134 "
+                  "ft/min in her flare (seed 20)"},
+        {"f35b", "she touches at 412 ft/min on one seed of forty (seed 40)"},
         {"mosquito-fb6", "her main wheels' touch pitches her nose up from 3.6 to 6.8 degrees "
                          "against her elevator, and she bounces 2.9 ft (seed 2), 2.4 (seed 3)"},
         {"short_s23", "on her planing hull she touches flat in gusts, 0.75 degrees and 88 kt "

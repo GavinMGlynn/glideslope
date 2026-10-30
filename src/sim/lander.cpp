@@ -1454,7 +1454,18 @@ Controls Lander::fly_laws() {
         // at a degree above level by it, and met the runway at 634. (Alone
         // this moved her by 5 ft/min; with the longer round out of
         // `flare_height_ft` she is not so low and fast when it applies.)
-        const bool still_sinking = gusty && fpm_error > 150.0;
+        // **And in gusts, never while she sinks faster than the flare
+        // wants.** From 150 ft/min past it the attitude was frozen while the
+        // sink grew: an A320 settling after a gust's lift met the runway
+        // at 418 ft/min with her nose held at 3.3 degrees from nine feet,
+        // the flare asking for five, and an F-15C at 451 with hers at ten,
+        // asking for twelve. The AFH (ch. 9, "Turbulent Air Approach and
+        // Landing") has the round out flown to the touch, and the hold is
+        // for a nose still rising with nothing to arrest; in gusts it holds
+        // only while the sink is no more than the flare wants. Over forty
+        // seeds this took the F-15C's hard touches from 22 to 17 and the
+        // A320's from 12 to 7.
+        const bool still_sinking = gusty && fpm_error > 0.0;
         if (jet_ && high_ft < 0.2 * flare_height_ft() && !still_sinking) {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg);
         }
@@ -1659,6 +1670,26 @@ Controls Lander::fly_laws() {
 
     const double pitch_error = want_pitch - s.pitch_deg;
     const double q_degps = s.q_radps * degrees;
+    // **In gusts, the flare's rotation is not damped against itself.** The
+    // pitch rate was damped whole, and with the attitude asked rising the
+    // damping took back what the error put on: an F-15C asked for 1.5
+    // degrees more nose turned at one degree a second against it, the
+    // attitude a second and a half behind the flare to the touch, which
+    // she met at 451 ft/min. So while the attitude asked is rising, a
+    // nose-up pitch rate of up to a degree a second is not damped.
+    // **This is a bias, tuned, not a measured rate.** The attitude asked
+    // moves with every gust, and any rise of more than 1/120 degree in a
+    // step reaches the cap, so in practice it is a degree a second of
+    // nose-up rate let through, or none. The cap is from a sweep of forty
+    // seeds of the thirteen landplanes: 0.5, 1, 2 and 3 deg/s, 1 the
+    // fewest failures (80 of 520, from 100). The true rate, the attitude
+    // asked low-passed over a quarter of a second before differencing,
+    // did worse: 103 capped at 1 deg/s, 168 at 6 (balloons).
+    const double want_q_degps =
+        stage_ == Stage::flare && in_gusts() && flare_gain_ > 1.0
+            ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 1.0)
+            : 0.0;
+    last_want_pitch_ = want_pitch;
     pitch_trim_ = std::clamp(pitch_trim_ + 0.02 * pitch_error / steps_per_second, -0.8, 0.8);
     // **Three times as firmly in the flare.** At the flying law's gain a
     // jet's nose lagged the flare's attitude by two to three degrees all the
@@ -1672,7 +1703,9 @@ Controls Lander::fly_laws() {
                       ? std::min(3.0, flare_gain_ + (in_gusts() ? 8.0 : 2.0) / steps_per_second)
                       : 1.0;
     c.elevator =
-        std::clamp(flare_gain_ * (0.05 * pitch_error - 0.05 * q_degps) + pitch_trim_, -1.0, 1.0);
+        std::clamp(flare_gain_ * (0.05 * pitch_error - 0.05 * (q_degps - want_q_degps)) +
+                       pitch_trim_,
+                   -1.0, 1.0);
     return c;
 }
 

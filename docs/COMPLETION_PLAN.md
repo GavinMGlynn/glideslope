@@ -1135,17 +1135,22 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 
 The AI's approach, flare, touchdown, roll-out and go-around, and the learnt landing.
 
-- [ ] **The AI cannot land every aeroplane in gusts**: she now flies half
-      the gust factor faster with the power on to the touch, and in moderate
-      turbulence lands only two of fourteen within limits with a margin on
-      eight seeds and every platform; gusts magnify each platform's floating
-      point, and the 787-8, A320, C172P, C182 and Cub that pass on Linux
-      fail on macOS or Windows, the 737-300 and A380 balloon, the F-15C and F-35B come down
-      hard or nearly, the B-2A puts a wingtip down, the Mosquito bounces, and
-      the flying boat comes down hard; at her light loading the 737-300 balloons, and the
-      Mosquito at her heaviest. *Verification: every aeroplane lands light,
-      heavy and in gusts with none named, and a gust on an approach flown
-      well makes no go-around.*
+- [ ] **The AI cannot land every aeroplane in gusts**: she flies half
+      the gust factor faster with the power on to the touch and rotates
+      her flare to the touch, and in moderate turbulence lands two of
+      fourteen within limits with a margin on eight seeds: the PA-28 on
+      every platform, the C172P so far on Linux and Windows debug only.
+      Touch sink scatters about 80 ft/min a landing, so one platform's
+      pass is no other's: since the 2026-10-31 flare change the Learjet
+      35A, clean on forty seeds here, balloons on Windows. Over forty seeds the F-15C
+      still comes down hard, the 737-300 and A380 balloon, the B-2A puts
+      a wingtip down, the Mosquito bounces, the 787-8, A320, C182, Cub
+      and F-35B fail a few, and the flying boat comes down hard; at her
+      light loading the 737-300 balloons, and the Mosquito at her
+      heaviest.
+      *Verification: every aeroplane lands light, heavy and in gusts with
+      none named, and a gust on an approach flown well makes no
+      go-around.*
 - [x] **In a steady headwind the S.23 skips off the water after
       alighting.** The rollout now judges her lift by her airspeed in all
       air, and the thirteen landplanes roll out into 15 kt without lifting
