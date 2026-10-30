@@ -660,6 +660,11 @@ jobs:
 
       - name: ${{ matrix.preset }} - configure
         run: cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_OBJCXX_COMPILER_LAUNCHER=ccache
+      # The tests' Python is the pinned one (macos-setup), not Homebrew's
+      # newest: the test jobs run this tree on another image
+      # (tools/ci_python_pinned.cmake).
+      - name: The configure found the pinned Python
+        run: cmake -DBUILD=build/${{ matrix.preset }} "-DROOT=$Python3_ROOT_DIR" -P tools/ci_python_pinned.cmake
       - uses: actions/cache/save@v6
         if: ${{ github.event_name != 'pull_request' && !cancelled() && steps.vcpkg-cache.outputs.cache-hit != 'true' }}
         with:
