@@ -2315,18 +2315,32 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
     }
-    // **A shot of a tileset that was refused is not drawn.** Nothing will
-    // ever arrive, and a frame of empty sky said nothing of why: the reason
-    // is the provider's, and "could not download" is what a test reads to
-    // report itself skipped, neither passed nor failed.
-    if (complete && impl_->refused) {
+    // **A shot of a streamed tileset that failed is not drawn.** Nothing will
+    // ever arrive, and a frame of empty sky said nothing of why.
+    //
+    // **Only a refusal for now is the provider's to answer for**: a 429, its
+    // quota spent, and a 503, unavailable - the two Google's Map Tiles API
+    // error handling page says to try again later. Their text, "could not
+    // download the ... terrain's tileset: the provider answered 429", is what
+    // a test reads to report itself skipped. Any other failure - a 401 or 403
+    // for a key it does not take, a 404, a root it could not read, or a
+    // message whose status could not be read from it - is ours to fix, and
+    // is said in words no test skips on.
+    if (complete && !finite && impl_->refused) {
         const std::uint16_t status = impl_->refused_status;
+        const std::string name(name_of(impl_->provider));
+        if (status == 429 || status == 503) {
+            throw std::runtime_error(
+                "could not download the " + name +
+                " terrain's tileset: the provider answered " + std::to_string(status) +
+                (status == 429 ? ", its quota of requests spent for now"
+                               : ", unavailable for now"));
+        }
         throw std::runtime_error(
-            "could not download the " + std::string(name_of(impl_->provider)) +
-            " terrain's tileset: " +
-            (status == 0 || status == 200 ? std::string("it could not be had")
-                                          : "the provider answered " + std::to_string(status)) +
-            (status == 429 ? ", its quota of requests spent for now" : ""));
+            "the " + name + " terrain's tileset failed to load: " +
+            (status == 0 || status == 200
+                 ? std::string("no status was given for it")
+                 : "the provider answered " + std::to_string(status)));
     }
     // **The open provider's wait for every tile, done here** rather than by
     // Tileset::updateViewGroupOffline, whose loop it is - and which waited for
