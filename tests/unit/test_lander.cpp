@@ -291,7 +291,9 @@ GLIDESLOPE_TEST(every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm
 // runway - from `glideslope_cli land`'s gate 2 nm out 196 m across in calm
 // air and 380 in 15 kt across, and here 117 m in 15 kt across. Her yaw
 // loop now has a ground mode (tools/make_f22.py, `with_yaw_ground_mode`).
-// **Seen to fail** on her model before it. Coverage: two winds, both landed.
+// **Seen to fail** on her model before it, and again on 2026-11-02 with her
+// lander's yaw damper at her figures' 0.3 and only the ground mode taken
+// out: 212 m across in 15 kt across. Coverage: two winds, both landed.
 GLIDESLOPE_TEST(the_f22a_landed_at_150_kt_rolls_out_on_the_centreline_in_calm_air_and_15_kt_across) {
     ApproachSpeeds speeds;
     speeds.vref_kts = 150.0;

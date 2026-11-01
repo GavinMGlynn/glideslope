@@ -79,8 +79,10 @@ The changes, and what each is for:
                         **It engages on every touch of a wheel, not only at
                         the take-off**: at once on a landing, a bounce or a
                         touch-and-go, and it fades out again over the same
-                        five seconds after each. That is unmeasured: she has
-                        no approach speed, so nothing lands her. Clear of the
+                        five seconds after each: in the landings the tests
+                        fly her down at speeds made by hand, as she has no
+                        approach speed yet (tests/unit/test_lander.cpp), she
+                        rolls out with it on. Clear of the
                         ground and five seconds after her wheels have left
                         it, the loop is the pinned model's, so her figures in
                         the air are unchanged by it; within those five
@@ -88,6 +90,18 @@ The changes, and what each is for:
                         Held instead of washed out, the integrator would
                         leave her nothing on her wheels to lift the nose
                         with.
+    The yaw loop's ground mode
+                        Her pedals command a yaw rate through an integrator
+                        clipped at 0.436, and on her wheels it wound against
+                        her tyres inside the lander's own heading law and
+                        gave her rudders 0.15 radian of their 0.52: her
+                        roll-out's yaw swing grew until she left the runway.
+                        As her pitch loop's: on any wheel the integrator is
+                        washed out (YAW_GROUND_WASHOUT_PER_S) and her pedals
+                        drive her rudders in proportion, full pedal full
+                        travel (YAW_CMD_FULL) - the A320's ground mode, stick
+                        to surface, above - blended back into the flight law
+                        over YAW_GROUND_BLEND_S after her wheels leave.
     The roll stick      The stick commanded a roll rate in proportion to its
                         travel - its first tenth 22 degrees a second - and any
                         pilot's small corrections, a person's or glideslope's
@@ -299,6 +313,12 @@ PITCH_GAIN_PRESSURE = 1000.0
 PITCH_GROUND_WASHOUT_PER_S = 10.0
 PITCH_GROUND_BLEND_S = 5.0
 YAW_GROUND_WASHOUT_PER_S = 10.0
+# Off her wheels the yaw ground mode fades out over the pitch loop's time,
+# the A320's five seconds.
+YAW_GROUND_BLEND_S = PITCH_GROUND_BLEND_S
+# Her yaw regulator's full command: fcs/yaw-reg-scale maps -5 to 5 on to the
+# rudders' full travel, so a full pedal on her wheels is 5.
+YAW_CMD_FULL = 5
 # The roll stick's shaping: the roll rate it commands, as a fraction of the
 # model's, is the stick's travel times this plus the rest times its square.
 ROLL_STICK_CENTRE_GAIN = 0.25
@@ -562,9 +582,11 @@ def with_pitch_gain_schedule(text):
 def with_yaw_ground_mode(text):
     """The yaw loop's ground mode, as the pitch loop's: its yaw rate
     integrator washed out on her wheels at YAW_GROUND_WASHOUT_PER_S and its
-    gain raised by as much, so that her pedals command a yaw rate through a
-    proportional loop there, and the washout faded out over
-    PITCH_GROUND_BLEND_S once she is off them."""
+    gain raised by as much; on them, too, her pedals drive her rudders
+    directly, full pedal full travel (YAW_CMD_FULL), her flight law's
+    command blended out as the ground mode comes in. Off her wheels both
+    fade back to the flight law over YAW_GROUND_BLEND_S, the A320's five
+    seconds."""
     mode = (
         '            <!-- glideslope: tools/make_f22.py - the yaw ground mode -->\n'
         '            <switch name="fcs/yaw-ground-wow">\n'
@@ -576,7 +598,7 @@ def with_yaw_ground_mode(text):
         '\n'
         '            <actuator name="fcs/yaw-ground-mode">\n'
         '                <input>fcs/yaw-ground-wow</input>\n'
-        f'                <rate_limit sense="decr"> {1.0 / PITCH_GROUND_BLEND_S:g} </rate_limit>\n'
+        f'                <rate_limit sense="decr"> {1.0 / YAW_GROUND_BLEND_S:g} </rate_limit>\n'
         '            </actuator>\n'
         '\n'
         '            <fcs_function name="fcs/yaw-ground-washout">\n'
@@ -623,7 +645,7 @@ def with_yaw_ground_mode(text):
         '                        </product>\n'
         '                        <product>\n'
         '                            <property>fcs/yaw-ground-mode</property>\n'
-        '                            <value>5</value>\n'
+        f'                            <value>{YAW_CMD_FULL}</value>\n'
         '                            <property>fcs/rudder-cmd-filter</property>\n'
         '                        </product>\n'
         '                    </sum>\n'
