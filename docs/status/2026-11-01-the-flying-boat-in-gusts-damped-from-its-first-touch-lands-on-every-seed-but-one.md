@@ -57,6 +57,17 @@ and the 0.083 ft is a numerical ramp, not a measurement.
   landplane's gust stick off the water, four degrees under her touch, her
   nose went to 0.8 degrees and she porpoised.
 
+**Rebased on #286's flare (2026-11-01).** #286 lets a degree a second of
+nose-up pitch rate through the flare's damping in gusts while the attitude
+asked rises - a bias tuned on forty seeds of the thirteen landplanes. It
+reached her too: rotated on in her level hold-off, she met the water at
+340.5 ft/min on seed 5 (judged 335; she rose 0.07 ft), the one seed that
+moved past its margin. The bias is now a landplane's alone (`fly_laws`, `!lands_on_hull()`):
+a hull in gusts is held level over the water, not flared to the touch, and
+her nose is already capped. With it gated her eight seeds are exactly the
+figures below, as on #289's own base; no other aeroplane's flare is
+changed. **Seen red**: without the gate, seed 5 fails at 340.5 ft/min.
+
 **The judge** (tests/unit/test_lesson.cpp, `how_the_hull_held_off`): for a
 hull held off, her climbs in the hold-off are not her flare's; instead her
 nose is raised no more than a degree while she climbs (0.35 at most,
