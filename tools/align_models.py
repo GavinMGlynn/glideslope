@@ -84,6 +84,16 @@ NEAR_LEAST_M = 0.30
 # A contact is on the ground plane if it is within this of it.
 ON_GROUND_M = 0.02
 
+# **Fitted on the nose gear alone**, where the flight model's main legs do not
+# stand where the drawing's do and so cannot place it. JSBSim's 747-400 has
+# one main leg a side for the aeroplane's wing and body gear (above), at the
+# middle of the group, D6-58326-1's 84 ft from the nose gear
+# (tools/make_747_400.py): the walk's lowest point near it is one gear or the
+# other, and with the main legs counted the fit moved her drawing 1.75 m
+# forward or, from another start, 4.5 m - her nose ahead of station 0. Her
+# nose gear is a single leg on her centreline in both.
+FITTED_ON_NOSE = {"747-400"}
+
 
 def read_mesh(path: pathlib.Path):
     """(positions, low, high) in the model's own frame, metres."""
@@ -179,8 +189,9 @@ def _beneath(points, target, radius):
                                          for k in range(3)))
 
 
-def _walk(points, targets, start, radius):
-    """(offset, what each target is left from the model) from one start."""
+def _walk(points, targets, start, radius, held_z=None):
+    """(offset, what each target is left from the model) from one start,
+    its height held at `held_z` where one is given."""
     offset = [start[0], 0.0, start[2]]
     matched = []
     for _ in range(40):
@@ -190,6 +201,8 @@ def _walk(points, targets, start, radius):
         moved = [sum(targets[i][k] - matched[i][k] for i in range(len(targets)))
                  / len(targets) for k in range(3)]
         moved[1] = 0.0
+        if held_z is not None:
+            moved[2] = held_z
         if max(abs(moved[k] - offset[k]) for k in range(3)) < 1e-5:
             offset = moved
             break
@@ -232,6 +245,7 @@ def measure(model_id: str):
     contacts, cg, _span = read_flight_model(model_id)
     on = resting_on(contacts, cg[0])
     targets = [contacts[i][1] for i in on]
+    every_target = targets
     radius = max(NEAR_SHARE * (high[0] - low[0]), NEAR_LEAST_M)
 
     lowest = [p for p in points if p[2] >= high[2] - 0.10 * (high[2] - low[2])]
@@ -244,9 +258,16 @@ def measure(model_id: str):
         _swept(lowest, targets, low, high, radius),
     ]
 
+    # Fitted on the nose gear alone (FITTED_ON_NOSE), from the same starts,
+    # with the height held where she rests: one leg alone, free in height,
+    # is matched as well by any low point of the drawing.
+    held_z = None
+    if model_id in FITTED_ON_NOSE:
+        targets = [max(targets, key=lambda t: t[0])]
+        held_z = max(t[2] for t in every_target) - high[2]
     best = None
     for start in starts:
-        offset, left = _walk(points, targets, start, radius)
+        offset, left = _walk(points, targets, start, radius, held_z)
         score = sum(left) / len(left)
         if best is None or score < best[0]:
             best = (score, offset, max(left))
@@ -265,6 +286,7 @@ def measure(model_id: str):
     # legs, so no fit of three to four can be right, and the walk bought a
     # smaller average by burying it. Only x is fitted now; y is nought by
     # symmetry, and z is this.
+    targets = every_target
     offset = [offset[0], 0.0, max(t[2] for t in targets) - high[2]]
     matched = [_beneath(points, [targets[i][k] - offset[k] for k in range(3)],
                         radius)

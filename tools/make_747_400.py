@@ -146,6 +146,7 @@ import alpha_rate
 import side_force
 import airliner
 import ground
+from make_a320 import GROUND_EFFECT
 from airliner import OUT, PINNED
 
 SCRIPT = "make_747_400"
@@ -169,6 +170,78 @@ NOSE_SPRING = "120000"
 # points are measured from this aeroplane's own visual mesh by
 # tools/ground.py, which says how and why the mesh is the source.
 MAXIMUM_WEIGHT_LBS = 875000  # the -400's published maximum take-off weight
+
+
+# **Her flaps' lift, from NASA CR-2144** (R. K. Heffley and W. F. Jewell,
+# "Aircraft Handling Qualities Data", 1972, section IX, the B-747; its data
+# from Boeing's 747 simulator description D6-30643). Two of its trim points,
+# at sea level and 564,000 lb on its 5,500 sq ft wing, each with its lift
+# and lift-curve slope: table IX-1, landing, flaps 30 and the gear down, 131
+# KTAS at 8.5 degrees, CL 1.76 and CLalpha 5.67 a radian; table IX-2, power
+# approach, flaps 20, 165 KTAS at 5.7 degrees, CL 1.11 and CLalpha 5.70.
+HEFFLEY_WING_SQFT = 5500.0
+WING_SQFT = 5648.0            # the model's (metrics/Sw-sqft)
+HEFFLEY_FLAPS = (             # flap degrees, Mach, alpha degrees, CL, CLalpha per radian
+    (20, 0.249, 5.7, 1.11, 5.70),
+    (30, 0.198, 8.5, 1.76, 5.67),
+)
+CLEAN_CL0 = 0.2               # the model's CLalpha table: 0.2 at no angle,
+CLEAN_CL_STALL = 1.2          # 1.2 at its stall,
+STALL_ALPHA_RAD = 0.23        # 0.23 radian,
+CLEAN_CL_DEEP = 0.6           # and 0.6 at 0.6 radian
+CM_ALPHA = -0.7               # the model's Cmalpha,
+CL_DE = 0.2                   # CLde,
+CM_DE_AT_0, CM_DE_AT_2 = -1.3, -0.325   # and Cmde at Mach 0 and 2
+
+
+def flap_lift_rows():
+    """dCLflap's table: rows of angle of attack (radians), columns of flap
+    degrees - what each flap adds to the model's clean lift so that, trimmed
+    by its elevator at Heffley and Jewell's angle and Mach, she has their
+    lift and lift-curve slope on her own wing."""
+    import math
+    clean_slope = (CLEAN_CL_STALL - CLEAN_CL0) / STALL_ALPHA_RAD
+    columns = [(0, 0.0, 0.0)]  # flap, increment at no angle, its slope
+    for flap, mach, alpha_deg, cl, cl_alpha in HEFFLEY_FLAPS:
+        alpha = math.radians(alpha_deg)
+        scale = HEFFLEY_WING_SQFT / WING_SQFT
+        cm_de = CM_DE_AT_0 + (CM_DE_AT_2 - CM_DE_AT_0) * mach / 2.0
+        elevator = -CM_ALPHA * alpha / cm_de       # her trim, in radians
+        clean = CLEAN_CL0 + clean_slope * alpha + CL_DE * elevator
+        slope = cl_alpha * scale - clean_slope
+        columns.append((flap, cl * scale - clean - slope * alpha, slope))
+    rows = ["                              " + "\t".join(f"{c[0]}" for c in columns)]
+    for alpha in (-0.2, 0.0, STALL_ALPHA_RAD):
+        rows.append(f"                              {alpha:.4f}\t" +
+                    "\t".join(f"{c[1] + c[2] * alpha:.4f}" for c in columns))
+    # Past her stall the flaps' lift falls as her clean wing's does.
+    deep = CLEAN_CL_DEEP / CLEAN_CL_STALL
+    rows.append("                              0.6000\t" +
+                "\t".join(f"{deep * (c[1] + c[2] * STALL_ALPHA_RAD):.4f}" for c in columns))
+    return "\n".join(rows)
+
+
+# **Her main gear where Boeing puts it**: 84 ft 0 in behind her nose gear,
+# the wheelbase of D6-58326-1's general dimensions (December 2002, figure
+# 2.2.1, page 21), to the middle of her wing and body gear, which the model's
+# one main leg a side stands for. The model had them 96.5 ft back, at station
+# 1554, and 19.6% of her weight on her nose wheel at her centre of gravity
+# (1327, 21% of her chord): D6-58326-1's section 7.3 has 64,000 to 93,300 lb
+# on it at the most forward centre of gravity at 803,000 to 877,000 lb, 7.3
+# to 11.6%, and here, aft of the most forward, it is 7.6%. Held back so far,
+# her elevator could not lift her nose from the runway below 182 kt.
+NOSE_GEAR_X_IN = 396
+MAIN_GEAR_X_IN = NOSE_GEAR_X_IN + 84 * 12
+
+
+# **Her elevator's power at an approach's Mach, from the same report**:
+# Cmdelta_e -1.40 a radian in table IX-1 (Mach 0.198) and -1.34 in table
+# IX-2 (Mach 0.249), on its 27.31 ft chord, the model's. The model's falls in
+# a line from -1.3 at Mach 0 to -0.325 at Mach 2 - -1.20 at 0.198; its Mach 0
+# figure is moved to the one the line through Heffley and Jewell's first
+# point and the model's Mach 2 figure has there, so that her elevator has
+# -1.40 at 0.198 and -1.37 at 0.249.
+CM_DE_AT_0_HEFFLEY = round(-1.40 + (CM_DE_AT_2 - -1.40) * -0.198 / (2.0 - 0.198), 4)
 
 
 def replace_once(text, pattern, replacement, what):
@@ -219,6 +292,13 @@ def airframe():
         text, r"(name=\"NOSE_LG\">.*?<spring_coeff unit=\"LBS/FT\">)\s*22000\s*(</spring_coeff>)",
         rf"\g<1> {NOSE_SPRING} \2", "the nose gear's spring")
 
+    for side in ("LEFT", "RIGHT"):
+        text = replace_once(
+            text, r"(name=\"" + side + r"_MLG\">\s*<location unit=\"IN\">\s*<x>)\s*1554\s*(</x>)",
+            rf"\g<1> {MAIN_GEAR_X_IN} \2", f"the {side.lower()} main gear's station")
+    text = replace_once(
+        text, r"(name=\"NOSE_LG\">\s*<location unit=\"IN\">\s*<x>)\s*" + str(NOSE_GEAR_X_IN) + r"\s*(</x>)",
+        r"\g<1> " + str(NOSE_GEAR_X_IN) + r" \2", "the nose gear's station")
     # The airframe's own contacts, so that the aeroplane has something to
     # land on with its wheels up. See MAXIMUM_WEIGHT_LBS above.
     points = ground.contacts(MODEL, MAXIMUM_WEIGHT_LBS)
@@ -233,6 +313,31 @@ def airframe():
     text = replace_once(text, r"(\n\s*<function name=\"aero/coefficient/CDgear\">)",
                         lambda mm: "\n" + airliner.windmill_function(4, FAN_DIAMETER_IN, WINDMILL_DRAG) + "\n"
                         + mm.group(1), "the gear drag function")
+    text = replace_once(
+        text,
+        r"(<description>Delta_Lift_due_to_flaps</description>\s*<product>\s*<property>aero/qbar-psf</property>\s*"
+        r"<property>metrics/Sw-sqft</property>\s*)<property>fcs/flap-pos-deg</property>\s*<value>0\.05</value>",
+        lambda mm: mm.group(1) + "<table>\n"
+        "                          <independentVar lookup=\"row\">aero/alpha-rad</independentVar>\n"
+        "                          <independentVar lookup=\"column\">fcs/flap-pos-deg</independentVar>\n"
+        "                          <tableData>\n" + flap_lift_rows() + "\n"
+        "                          </tableData>\n"
+        "                      </table>", "the flaps' lift")
+    text = replace_once(
+        text,
+        r"(<description>Pitch_moment_due_to_elevator</description>.*?<tableData>\s*0\.0000\s*)-1\.3000",
+        lambda mm: mm.group(1) + f"{CM_DE_AT_0_HEFFLEY:.4f}", "the elevator's pitch")
+    # Her wing's lift in ground effect, JSBSim's own, as its 737 has it and
+    # the A320's script adds it (GROUND_EFFECT, tools/make_a320.py): the
+    # model had none.
+    text = replace_once(text, r"(<aerodynamics>\n)",
+                        lambda mm: mm.group(1) + "\n" + GROUND_EFFECT, "the aerodynamics")
+    for name in ("CLalpha", "dCLflap"):
+        text = replace_once(
+            text,
+            r"(<function name=\"aero/coefficient/" + name + r"\">.*?<property>metrics/Sw-sqft</property>\n)",
+            lambda mm: mm.group(1) + "                    <property>aero/function/kCLge</property>\n",
+            f"{name}'s ground effect")
     # The tail strike, measured from her visual model by tools/ground.py.
     return ground.with_tail_strike(
         text, MODEL, MAXIMUM_WEIGHT_LBS, script=SCRIPT)
@@ -244,10 +349,9 @@ def outputs():
             alpha_rate.with_alpha_terms_on_qbar_uw(
             alpha_rate.with_qbar_uw(airframe(), "make_747_400"), "make_747_400",
             {"PITCH": ["aero/coefficient/Cmalpha"],
-             "LIFT": ["aero/coefficient/CLalpha"],
+             "LIFT": ["aero/coefficient/CLalpha", "aero/coefficient/dCLflap"],
              "DRAG": ["aero/coefficient/CD0"]}), "make_747_400",
-            {"LIFT": ["aero/coefficient/dCLflap",
-             "aero/coefficient/dCLsb",
+            {"LIFT": ["aero/coefficient/dCLsb",
              "aero/coefficient/CLde"],
              "PITCH": ["aero/coefficient/Cmde",
              "aero/coefficient/Cmq"]}), REVERSERS, SCRIPT), "make_747_400"),

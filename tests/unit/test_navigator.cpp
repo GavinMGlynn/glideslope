@@ -588,14 +588,14 @@ GLIDESLOPE_TEST(every_aircraft_gives_the_speeds_a_plan_may_fly_it_at_none_beyond
             check(speeds.slowest_kts >= std::round(vref),
                   e.id + "'s slowest is not below its approach speed, " + std::to_string(vref));
         } catch (const std::runtime_error&) {
-            // The 747-400 and the F-22 publish no stall speed, so have none.
+            // The F-22 publishes no stall speed nor approach speed, so has none.
             ++without_approach;
         }
         ++covered;
     }
     check(covered == catalogue.size() && covered == 16,
           "every one of the sixteen aircraft: " + std::to_string(covered));
-    check(without_approach == 2, "two without an approach speed, the 747-400 and the F-22: " +
+    check(without_approach == 1, "one without an approach speed, the F-22: " +
                                      std::to_string(without_approach));
 }
 

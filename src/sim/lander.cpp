@@ -39,7 +39,8 @@ bool publishes_approach_speed(const std::filesystem::path& data, const std::stri
     const PublishedFigures figures =
         read_published_figures(data / "figures" / (model + ".xml"));
     return std::any_of(figures.figures.begin(), figures.figures.end(),
-                       [](const FigureSpec& spec) { return spec.flight == "stall_speed"; });
+                       [](const FigureSpec& spec) { return spec.flight == "stall_speed"; }) ||
+           (figures.approach_kcas > 0.0 && figures.approach_flaps_deg >= 0.0);
 }
 
 std::optional<ApproachSpeeds> landing_speeds(const std::filesystem::path& data,
@@ -71,15 +72,27 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
             landing = &spec;
         }
     }
-    if (landing == nullptr) {
+    // **An approach speed published with no stall speed** - the 747-400's,
+    // Boeing's at her maximum landing weight, where her model's measured
+    // stalls would not hold still - is flown at the flap it names, and her
+    // stall is the one it stands for: a third under it. Her Vref is 1.23
+    // times her reference stall speed (14 CFR 25.125), which is 1.3 times the
+    // older one-g-less stall 14 CFR 97.3 falls back on where no Vref is
+    // given, and 1.3 is the margin every other aircraft here is flown at.
+    const bool approach_alone = landing == nullptr && figures.approach_kcas > 0.0 &&
+                                figures.approach_flaps_deg >= 0.0;
+    if (landing == nullptr && !approach_alone) {
         throw std::runtime_error(model +
                                  " publishes no stall speed, so there is no "
                                  "reference speed to fly an approach at");
     }
+    if (approach_alone) {
+        most_flap_deg = figures.approach_flaps_deg;
+    }
     ApproachSpeeds speeds;
     // Vref, by the usual convention: a third above the stall in the landing
     // configuration - or the manual's own approach speed, where it gives one.
-    speeds.stall_kts = landing->published;
+    speeds.stall_kts = approach_alone ? figures.approach_kcas / 1.3 : landing->published;
     speeds.vref_kts =
         figures.approach_kcas > 0.0 ? figures.approach_kcas : 1.3 * landing->published;
     // **And the weight they are for**: the manual's approach speed's

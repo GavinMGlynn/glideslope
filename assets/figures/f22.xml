@@ -156,7 +156,15 @@
     measured: she publishes no stall speed, so has no approach speed, and
     `glideslope_cli land f22` has none to fly her at. No runway is refused it
     for length; every landing is refused her first, for having no approach
-    speed, so nothing plans her one.
+    speed, so nothing plans her one. Searched again 2026-11-01 for an approach
+    or stall speed to give her one: the fact sheet, the Selected Acquisition
+    Report, the Accident Investigation Board reports found (Fallon 2018,
+    Tyndall 2012, both take-offs; Edwards 2009, a test manoeuvre) and
+    Eurocontrol's Aircraft Performance Database (no F-22 entry) give none;
+    AFMAN 11-2F-22A volume 3 holds an instrument final approach to 165 KCAS
+    or less, the top of approach category D (under 166 kt), the same in the
+    F-15E's volume 3, not her speed. Her approach speed is in T.O. 1F-22A-1,
+    not published.
   </no_landing_distance>
 
   <no_cg_limits>

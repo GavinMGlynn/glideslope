@@ -146,8 +146,9 @@ ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs);
 // allowance over.
 double stall_warning_kts(double stall_kts, double own_margin_kts = 0.0);
 
-// Whether `approach_speeds` has a stall speed to work from: false for the
-// 747-400 and the F-22A, whose measured stalls would not hold still.
+// Whether `approach_speeds` has a stall speed to work from, or a published
+// approach speed and the flap it is for: false for the F-22A, whose measured
+// stalls would not hold still and whose approach speed is not published.
 bool publishes_approach_speed(const std::filesystem::path& data, const std::string& model);
 
 // **How she is landed, for a controller to be told** (`Controller::lands_with`):
