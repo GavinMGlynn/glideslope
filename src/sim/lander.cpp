@@ -257,6 +257,12 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
                 tail_gear_ = "gear/unit[" + std::to_string(i) + "]/WOW";
             }
         }
+        // Without one her brakes would wait for it for ever, unbraked and
+        // unreported: a fault in her model.
+        if (tail_gear_.empty()) {
+            throw std::runtime_error("a tail-wheel aeroplane with no tail-wheel contact on "
+                                     "her centreline behind her main wheels");
+        }
     }
     // **Only a model that can be in the water**: a landplane whose model
     // names no main wheel is a fault in the model, not a hull, and a fixed
@@ -1173,7 +1179,7 @@ Controls Lander::fly_laws() {
         // wheel-lands the J-3 Cub at 3 degrees (she stands at 12), and she
         // now stops about 498 m past the threshold, not 429 - an open item
         // (COMPLETION_PLAN, "The AI wheel-lands the J-3 Cub").
-        if (tail_wheel_ && (tail_gear_.empty() || a_.property(tail_gear_) < 0.5)) {
+        if (tail_wheel_ && a_.property(tail_gear_) < 0.5) {
             brake_ = 0.0;
         }
         // **A throttle advanced on the roll disarms the autobrake**, as an

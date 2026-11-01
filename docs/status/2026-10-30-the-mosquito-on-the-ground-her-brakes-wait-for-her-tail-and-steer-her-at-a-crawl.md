@@ -16,7 +16,8 @@ Mosquito swings below walking pace". Both are now ticked. Built on #284
   published) is measured again with `tools/measured_landing.py`: 1,500 ft to
   1,700, and the copilot test's pin with it.
 - **The Mosquito's landing is longer too**: 1,696 m past the threshold,
-  not 1,633 (she is wheel-landed and waits for her tail as well); her
+  not 1,633 (she is wheel-landed and waits for her tail as well, and her
+  tail is held up to 0.7 Vref, not 0.9); her
   measured landing distance is measured again, 5,500 ft to 5,700, and the
   copilot test's pin with it.
 - **The Mosquito's real braking is not sourced.** Her Pilot's Notes (A.P.
