@@ -3,13 +3,22 @@
 **What is still not true first.** The item stays open:
 
 - **Held fully back from the roll, she strikes her tail on her wheels at
-  11.5 degrees**, where her contacts say 12.7 and Boeing's AERO tailstrike
-  article gives the 747-400 12.5 (lift-off near 10):
+  11.5 degrees**, where her contacts make 12.7:
   `an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_so` holds
-  a strike on the wheels within a degree of her contacts. With her main gear
-  at Boeing's station she now rotates on her wheels; her model's two main
-  legs, 150,000 lb/ft each where she has four main gears, sink 2.3 ft
-  standing, which lowers her tail. Not fixed here.
+  a strike on the wheels within a degree of her contacts. **Her contacts are
+  not what is wrong.** Moving her mains from station 1554 to 1404 brought
+  her contacts' strike from 14.5 degrees (TAIL_STRIKE, 281 in above her
+  mains over 1,087 in) to 12.7 (TAIL, 199 in over 881) - Boeing's AERO
+  tailstrike article gives the 747-400 12.5, lift-off near 10. Before the
+  move she struck with her wheels off; now she rotates on them, and at the
+  strike (clean, stick fully back, 151 kt, 874,766 lb) her main legs are
+  compressed 1.68 ft, which lowers her tail 20 in: 11.5. Her model's two
+  main legs, 150,000 lb/ft each where she has four main gears, sink about
+  2.5 ft standing at 875,000 lb. Raising her tail contact to strike at 12.5
+  on those legs would put her contacts at 13.8, a degree and more from both
+  Boeing's figure and the test. The likely fix is her main legs' stiffness from a
+  747 load-stroke curve (DTIC ADA250134 has them; it could not be fetched
+  here). Not fixed.
 - **Her gust landings are named** (`not_yet_landed_in_gusts`): on seed 8 she
   touches at 388 ft/min and climbs 99.7 ft/min in her flare.
 
@@ -49,9 +58,14 @@ and stops on a wet runway in 15 kt across.
    at each flap; a flap comes up to a setting only at its speed, and the
    climb out accelerates her to it (sim::Departure::manoeuvre_kts,
    climb_out_kts). The 747-400's: Vref30 + 80 up, + 60 flaps 1, + 40 flaps
-   5, + 20 flaps 10, + 10 flaps 20, as her crews quote her FCOM (PPRuNe Tech
-   Log, "747-400 flap retraction speeds"; her FCOM is not public); her
-   model's lever stops at 15, flown at flaps 10's speed. No other aircraft
+   5, + 20 flaps 10, + 10 flaps 20: Boeing's 747 Flight Crew Operations
+   Manual, D6-30151-400 (October 1, 2009), Flap Maneuver Speeds, PI.20.3
+   for the 747-400F/CF6-80C2B1F and PI.10.3 for the PW4056, identical, with
+   its rule: retract "when at and accelerating above the recommended flap
+   speed for the new position". Read from a third-party copy
+   (pdfcoffee.com), marked "do not use for flight"; Boeing does not publish
+   it. Her crews quote the same on PPRuNe. Her model's lever stops at 15,
+   flown at flaps 10's speed. No other aircraft
    gives one, so every other's flaps come up as before. Seen red: the
    lift-off hand-over and the 747-400's lift-off sweep failed without it
    (she touched the runway again at every one of 21 hand-overs) and pass
@@ -84,3 +98,14 @@ changed, and plays back; no key is in it.
 
 **Verification.** linux-release, `ctest -LE nightly -j4`: see the PR; the
 tail-strike test above is the known red.
+
+**The Google terrain on Vulkan failed in the full suite** ("google via
+ion-token drew no terrain at all"), and again run alone on this branch's
+build; run alone on the main checkout's build it failed once and passed the
+next time. It touches nothing this item changed (sim/ and the 747's data):
+intermittent, and not this item's.
+
+**Her lesson tests fly her at her approach speed's loading** where she has
+no climb figure (load_as_its_figures_were_measured): her speeds are Boeing's
+at 630,000 lb, and at her model's 754,313 lb she stalled 11 kt above the
+speed her stall lesson warns at, so the stall-lesson tests never warned her.
