@@ -85,6 +85,10 @@ struct ApproachSpeeds {
     // **Where the roll-out's stick starts back**, a fraction of her reference
     // speed: fully back by half of it. Her figures' `stick_back_from_vref`.
     double stick_back_from_vref = 0.9;
+    // **The approach yaw damper's pedal for each degree a second**: 0.05,
+    // unless her figures say her pedals command a yaw rate
+    // (`yaw_rate_pedal_per_degps`).
+    double yaw_damper_per_degps = 0.05;
     // **Whether a tail-wheel aeroplane is landed three-point**, her figures'
     // `lands="three_point"`: held off in the flare until her nose is at the
     // attitude she stands at, and her stick fully back from the touch. Not
