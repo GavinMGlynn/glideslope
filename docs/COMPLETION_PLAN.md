@@ -1510,6 +1510,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       where she was. 2026-10-30: the lost-datagram STOVL join test (four CI
       failures) and the starved F-35B's placement (twice) run nightly, named
       in tests/cmake/nightly_tests.cmake, until this item is done.
+      2026-11-01: the mid-bank STOVL join (no datagrams lost) reached a
+      64 mm median on CI's Windows debug, run 41284303752, its first
+      failure; a second moves it to nightly.
 - [ ] **On a server the air has no ground's lift**: the server and its
       clients fly the weather over no ground, because the lift is too costly
       for a predicting client. *Verification: a client predicting over hills
