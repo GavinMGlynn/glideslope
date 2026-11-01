@@ -1311,9 +1311,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       not land). **Still missing**: a landing figure for the F-22A,
       which waits on her approach speed. Since 2026-11-02 her slowest
       steady flight is measured from her model, 90 KCAS at 54,960 lb; at
-      1.3 times it she touches at 461 ft/min in calm air and strikes the
-      ground short in 15 kt across (her roll-out, which left the runway,
-      now holds the line). *Verification: each of the five
+      1.3 times it the lander's rudder sets her rate-command yaw loop
+      swinging: 461 ft/min in calm air, and she departs short in 15 kt
+      across (her roll-out now holds the line). *Verification: each of the five
       refused a runway shorter than a cited figure, and the model shown each
       runway's landing length.* Owner 2026-10-09. Owner 2026-10-31:
       recordings made again.

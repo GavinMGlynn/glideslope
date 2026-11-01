@@ -94,6 +94,40 @@ tests, 34 passed and the live recording one skipped for want of
 GLIDESLOPE_LIVE_MODEL, 64 s. The full suite was not run: the item is not
 done, and the time box ran out.
 
-**Left for the next round**: her approach at 1.3 times 90 (about 17 degrees
-of alpha), then her landing in wind and crosswind, then her landing distance
-by `tools/measured_landing.py`.
+**Her approach at 1.3 times VS0 (third round, 2026-11-02): not flown
+within her limits by the approach laws as they are.** With her roll-out
+fixed and VS0 = 90.0 put in a scratch copy of her figures, `land f22` from
+the 2 nm gate at full tanks (63,960 lb) flies 123.8 kt at 17.3 degrees of
+alpha and 14.3 of pitch, holding the glidepath at 660 ft/min on 56 per cent
+throttle. What fails:
+- **A lateral oscillation that grows down final**, about 9 s a cycle: in
+  calm air from 0.3 degrees of bank at 400 ft to 9.8 at 60 ft, sideslip to
+  6.3, and she touches 8.9 m off the line at 461 ft/min, her nose 12.2 up.
+  In 15 kt across it grows from the first seconds - sideslip to 30 degrees
+  by 490 ft - and she departs, 65 degrees of alpha, and strikes the ground
+  2,219 m short at 2,508 ft/min.
+- **Its cause is the lander's rudder law on her rate-command yaw loop.**
+  The lander's approach rudder (src/sim/lander.cpp: sideslip, its integral
+  and a body-axis yaw damper) commands her pedals, which in the air command
+  a yaw rate through her flight controls' own integrator and washout - a
+  yaw damper already. With the lander's rudder held at nothing (a
+  diagnostic, not committed), she flies down level in calm air and touches
+  0.9 m off the line; in 15 kt across she no longer departs, but touches
+  83 m off it, crabbed and never decrabbed. The yaw damper on the
+  stability axis instead (r cos alpha - p sin alpha) made it worse: 1,233
+  ft/min in calm air. Her catalogue's `yaw-damper` is the autopilot's and
+  the lander does not use it: 0.05 to 0.6 changed nothing.
+- **The flare does not bring her inside 360 ft/min**: with the rudder held
+  out she still touches at 383 ft/min, her nose 14.6 up. On final her nose
+  is already 14.3 up, so the flare's pitch adds little; her figures' 200
+  ft/min is not reached.
+- At about 150 kt (VS0 of 115 put in) she flies the same laws well and
+  touches at 130 ft/min, 1 m off the line.
+
+So 1.3 times her measured VS0 cannot be flown within limits by the lander
+as it is: it needs a rudder law that leaves a fly-by-wire yaw loop to damp
+itself (and decrabs her), and a flare that works from 14 degrees of nose.
+No other multiple is chosen: none is sourced.
+
+**Left for the next round**: those two, then her landing in wind and
+crosswind, then her landing distance by `tools/measured_landing.py`.
