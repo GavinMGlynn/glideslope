@@ -204,6 +204,12 @@ it is offered; the five JSBSim lacks are written here.
 - [x] **A measured visual-to-collision terrain mismatch.** *Verification: each
       provider's bound at reference airfields is stated and held by a test.*
       Done 2026-09-21.
+- [x] **A tileset the provider refuses is said to be refused**, and a shot
+      of it is not drawn: Google through ion is refused for a quota every ion
+      user shares, and the terrain test then failed with "drew no terrain".
+      *Verification: a stand-in refusing with Google's 429 makes the shot
+      fail saying so, in half a second; and the terrain test then reports
+      itself skipped, never passed.* Done 2026-11-02.
 
 ## Phase 5c — Learning to fly
 
@@ -2159,6 +2165,11 @@ Flaky and fragile tests, downloads that fail once, the build scripts, and the mo
       against a 900 s timeout, and timed out once on #202's Ubuntu debug.
       Fix its step or its cost, not the timeout. *Verification: it takes
       under a stated time on every CI platform, a month of runs.*
+- [ ] **Cesium Native's log names URLs that carry a key.** A refused or
+      failed Google tile is logged to standard error with its URL, and a
+      Google URL carries the key it was asked with - the user's own, on that
+      way in. *Verification: a refused request through the stand-in logs no
+      key, and a test reading every client's standard error finds none.*
 
 ---
 

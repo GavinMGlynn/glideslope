@@ -127,10 +127,12 @@ holds for heading, altitude, airspeed and vertical speed; flight plans flown
 past their waypoints; the user/AI controller swap; and `--autopilot`, with
 which the client's AI flies a plan. It was begun before Phase 3b was
 finished, which it should not have been; its work stopped until 3b was
-proved. **Phase 5b, terrain providers, is complete — 4 of 4 items**: Cesium ion
+proved. **Phase 5b, terrain providers, is complete — 5 of 5 items**: Cesium ion
 and Google Photorealistic 3D Tiles with the user's own token or key, each
 with its attribution on screen, and the gap between visual and collision
-terrain measured at reference airfields.
+terrain measured at reference airfields. A tileset its provider refuses -
+Google's root through ion, when ion's shared quota is spent - is said to be
+refused, and a shot of it is not drawn (2026-11-02).
 
 **Phase 5c, learning to fly, is complete — 4 of 4 items** (2026-09-24):
 checklists in every aircraft's data, ticking themselves on screen; lessons -

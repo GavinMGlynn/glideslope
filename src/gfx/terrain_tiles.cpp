@@ -1547,6 +1547,14 @@ struct TerrainTiles::Impl {
     std::shared_ptr<std::atomic<bool>> closing = std::make_shared<std::atomic<bool>>(false);
     std::atomic<std::size_t> failures{0};
     std::atomic<std::size_t> skipped{0};
+    // **The tileset itself refused**, and the HTTP status it was refused
+    // with. Cesium Native says so through TilesetOptions::loadErrorCallback
+    // and then loads nothing, ever, so a shot waiting for its tiles waits on
+    // this too. Google's root through Cesium ion is refused with a 429
+    // whenever ion's own Google project has spent its 150 root requests a
+    // minute, which every ion user in the world shares.
+    std::atomic<bool> refused{false};
+    std::atomic<std::uint16_t> refused_status{0};
     bool imagery = false;
     Provider provider = Provider::open;
     // The renderer the tiles are drawn by, for a tile's DEM-coloured meshes,
@@ -1824,6 +1832,31 @@ TerrainTiles::TerrainTiles(Renderer& renderer, const TerrainOptions& options,
     tileset_options.ellipsoid = Ellipsoid::WGS84;
     // Fog culls what is hazy far away; the renderer draws no haze.
     tileset_options.enableFogCulling = false;
+    // Only the status is kept: Cesium Native's message names the URL, and a
+    // URL to Google carries a key. Its statusCode is left at 200 when the
+    // root tileset is refused (cesium-native v0.64.0,
+    // TilesetContentManager.cpp), so the status is read from its message,
+    // "Received status code 429 for tileset ...".
+    tileset_options.loadErrorCallback =
+        [impl = impl_.get()](const Cesium3DTilesSelection::TilesetLoadFailureDetails& failed) {
+            std::uint16_t status = failed.statusCode;
+            constexpr std::string_view said = "Received status code ";
+            if (const std::size_t at = failed.message.find(said);
+                at != std::string::npos) {
+                unsigned long n = 0;
+                for (std::size_t i = at + said.size();
+                     i < failed.message.size() && failed.message[i] >= '0' &&
+                     failed.message[i] <= '9' && n < 1000;
+                     ++i) {
+                    n = n * 10 + static_cast<unsigned long>(failed.message[i] - '0');
+                }
+                if (n > 0 && n < 1000) {
+                    status = static_cast<std::uint16_t>(n);
+                }
+            }
+            impl->refused_status = status;
+            impl->refused = true;
+        };
 
     if (options.provider != Provider::open) {
         const std::string reason =
@@ -2245,7 +2278,8 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
         std::size_t was_held = 0;
         int steady = 0;
         // A program told to stop does not wait for its terrain to settle.
-        for (int round = 0; round < rounds && !platform::stop_requested(); ++round) {
+        for (int round = 0; round < rounds && !platform::stop_requested() && !impl_->refused;
+             ++round) {
             const auto& loading = tileset.updateViewGroup(group, {view}, 0.0f);
             tileset.loadTiles();
             // What the workers finished has to be taken up here: the offline
@@ -2280,6 +2314,19 @@ std::vector<Draw> TerrainTiles::update(const Camera& camera, int width, int heig
             }
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
         }
+    }
+    // **A shot of a tileset that was refused is not drawn.** Nothing will
+    // ever arrive, and a frame of empty sky said nothing of why: the reason
+    // is the provider's, and "could not download" is what a test reads to
+    // report itself skipped, neither passed nor failed.
+    if (complete && impl_->refused) {
+        const std::uint16_t status = impl_->refused_status;
+        throw std::runtime_error(
+            "could not download the " + std::string(name_of(impl_->provider)) +
+            " terrain's tileset: " +
+            (status == 0 || status == 200 ? std::string("it could not be had")
+                                          : "the provider answered " + std::to_string(status)) +
+            (status == 429 ? ", its quota of requests spent for now" : ""));
     }
     // **The open provider's wait for every tile, done here** rather than by
     // Tileset::updateViewGroupOffline, whose loop it is - and which waited for
