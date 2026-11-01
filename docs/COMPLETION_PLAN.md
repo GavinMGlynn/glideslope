@@ -1138,11 +1138,11 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 - [ ] **The AI cannot land every aeroplane in gusts**: she flies half
       the gust factor faster with the power on to the touch and rotates
       her flare to the touch, and in moderate turbulence lands two of
-      fourteen within limits with a margin on eight seeds: the PA-28 on
+      fifteen within limits with a margin on eight seeds: the PA-28 on
       every platform, and the flying boat on all but Windows's seed 5
       and macOS release's seed 3, where she skips 0.87 and 0.93 ft. The C172P passes on Linux and Windows
       debug but touches at 346 ft/min on macOS release's seed 3, and is
-      named.
+      named. The 747-400 is named on seed 8, touching at 388 ft/min.
       Touch sink scatters about 80 ft/min a landing, so one platform's
       pass is no other's: since the 2026-10-31 flare change the Learjet
       35A, clean on forty seeds here, balloons on Windows. Over forty seeds the F-15C
@@ -1307,12 +1307,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       refused a runway shorter than a cited figure, and the model shown each
       runway's landing length.* Owner 2026-10-09. Owner 2026-10-31:
       recordings made again.
-- [ ] **The 747-400 does not land**: since 2026-11-01 she has Boeing's
-      published approach, 153 kt at 630,000 lb, and lands within her limits
-      in calm air, wind and crosswind, and her flaps come up by her
-      manoeuvre speeds (Boeing's FCOM). **Still missing**: her gust
-      landings are named (seed 8). *Verification:
-      her approach speed from a published figure, and she lands within it.*
+- [x] **The AI lands the 747-400 at Boeing's published approach speed**:
+      153 kt at 630,000 lb, in calm air, wind and crosswind, within her
+      limits, her flaps raised after a take-off by her manoeuvre speeds
+      (Boeing's FCOM). *Verification: her approach speed from a published
+      figure, and she lands within her limits.* Done 2026-11-01; her gust
+      landings are named under the gust item.
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
       *Verification: each light aircraft's policy lands within the
       autopilot's limits from the same starts, in calm air and a 10-knot

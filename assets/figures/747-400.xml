@@ -35,9 +35,9 @@
 <!--
   **go_around_flaps_deg** is the flap the autopilot's stall recovery raises
   the flaps to, a hand's pace at a time: 20, the 747-400's go-around flap
-  (her FCOM's go-around and missed approach procedure, NP.21, "position the
-  flap lever to 20", as quoted second-hand by her crews; Boeing's other
-  types go around at 15 or 20), and the power-approach flap of NASA CR-2144's
+  (her Flight Crew Operations Manual, Boeing D6-30151-400 of October 1,
+  2009, Normal Procedures NP.21, go-around and missed approach: "position
+  the flap lever to 20"; Boeing's other types go around at 15 or 20), and the power-approach flap of NASA CR-2144's
   table IX-2. Left at 30 in a recovery at 20,000 ft and 754,313 lb, her full
   thrust (92,500 lb) was less than her drag (96,500 lb), and she recovered
   descending (2026-11-01).

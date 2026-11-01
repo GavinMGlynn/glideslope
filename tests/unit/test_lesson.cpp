@@ -787,8 +787,9 @@ GLIDESLOPE_TEST(the_take_off_lesson_flown_by_the_book_leaves_an_empty_debrief) {
           "every aeroplane whose class teaches a take-off was flown");
     // Fourteen of the sixteen: the four light aircraft, the Mosquito, the
     // Learjet, four airliners, two fighters, the B-2A and the Short S.23, off
-    // the water. The 747-400 and the F-22A have no stall to rotate from and
-    // are named above.
+    // the water. The 747-400 and the F-22A are left out, and named above: 
+    // their rotation and climb speeds are measured from the model at one
+    // weight, for a plan, not a book's, which `book_departure_speeds` refuses.
     check(walked == 14, "fourteen aeroplanes took off, not " + std::to_string(walked));
 }
 
@@ -893,7 +894,7 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
         try {
             speeds = book_departure_speeds(data(), entry.model);
         } catch (const std::runtime_error& e) {
-            // No climbing speed, and so no take-off to fly.
+            // Measured, not a book's, speeds: no take-off to teach.
             left_out.push_back(entry.id + ": " + e.what());
             continue;
         }
@@ -959,7 +960,7 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
           "the Learjet 35A alone is left out of rotating early, not " +
               std::to_string(early_left_out.size()) + " aeroplanes");
     // Sixteen aircraft: thirteen landplanes with a take-off to fly, two with
-    // no climbing speed and one flying boat.
+    // measured, not book, take-off speeds and one flying boat.
     check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
     check(walked + left_out.size() == catalogue, "every aircraft flown or named");
     check(walked == 13, "thirteen landplanes flown, not " + std::to_string(walked));
@@ -978,7 +979,9 @@ GLIDESLOPE_TEST(every_landplane_leaves_the_runway_within_ten_knots_of_its_rotati
 //
 // **Off the ground is the last time the wheels leave it** before she is 35
 // ft above where she stood, as in the test above. The flying boat is left
-// out, as there; the 747-400 and the F-22A have no take-off to fly.
+// out, as there; the 747-400 and the F-22A are left out because their take-off speeds
+// are measured from the model at one weight, for a plan, and a lesson
+// teaches a book's at every loading (`book_departure_speeds` refuses them).
 GLIDESLOPE_TEST(every_landplane_takes_off_at_every_loading_within_ten_knots_of_its_speed_for_its_weight_and_unhurt) {
     std::size_t catalogue = 0;
     std::size_t walked = 0;
@@ -2130,9 +2133,9 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
 // full she never struck. So she is converted on the brakes and run with her
 // short take-off's nozzle and fan, her stick and her thrust split fully nose
 // up from the brakes' release, which sits her on her tail at a walk (21.8
-// degrees on her wheels, 15 knots). And the 747-400 and the F-22A, which have no take-off to fly - neither has a
-// climbing speed in its figures, so `sim::departure_speeds` refuses them -
-// and are run up on full power, the stick held fully back, steered by
+// degrees on her wheels, 15 knots). And the 747-400 and the F-22A, which are taught no take-off - their
+// take-off speeds are measured from the model at one weight, for a plan, not a
+// book's, so `book_departure_speeds` refuses them - are run up on full power, the stick held fully back, steered by
 // nothing. **The F-22A on part power, 0.6**: her stick commands a pitch
 // rate on her wheels (her ground mode, tools/make_f22.py), full back about
 // nine degrees a second, and on full power she gained speed so fast that
@@ -3149,8 +3152,8 @@ void every_aeroplane_lands_in_gusts(int seed, const std::vector<std::string>& id
                                            std::to_string(ids.size()));
 }
 
-// The fourteen taught the approach, every one in each seed's test (under
-// 50 s in a local linux-debug). Coverage asserted: fourteen taught.
+// The fifteen taught the approach, every one in each seed's test (under
+// 50 s in a local linux-debug). Coverage asserted: fifteen taught.
 std::vector<std::string> gusty_all() {
     const auto taught = everyone_taught("approach-and-landing");
     check(taught.size() == 15, "fifteen aeroplanes taught the approach, not " +
@@ -3163,9 +3166,9 @@ std::vector<std::string> gusty_all() {
 // **Every jet's spool-up is measured from her model, and a propeller has
 // none.** The flare's power in gusts is worked on the sink as far ahead as
 // her engines take to answer (`ApproachSpeeds::spool_s`): every aeroplane
-// taught the approach (14) has it from `approach_speeds` - a jet's above
+// taught the approach (15) has it from `approach_speeds` - a jet's above
 // zero and under ten seconds, from her own engine's N1 (`sim::spool_up_s`),
-// and a propeller aeroplane's zero. Coverage asserted: fourteen, each a jet
+// and a propeller aeroplane's zero. Coverage asserted: fifteen, each a jet
 // or not by her figures.
 GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_has_none) {
     const auto taught = everyone_taught("approach-and-landing");
@@ -3301,7 +3304,7 @@ GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_
 // approach (15), down final in fifteen knots straight down the runway with
 // no turbulence and no gust factor, must not go around, must stay on her
 // wheels the right way up, rise no more than `settled_within_ft` after her
-// wheels met the runway, and stop. Coverage asserted: fourteen flown and
+// wheels met the runway, and stop. Coverage asserted: fifteen flown and
 // judged, none named - the S.23 with the landplanes since her hull planes
 // (2026-10-14). Seen red on the rollout judged by groundspeed in steady
 // air: the C172P, C182, Cub and PA-28 flew off the runway again, 2.7 to 6.6
@@ -3374,7 +3377,7 @@ void rolls_out_in_a_steady_wind(double head_kts,
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     check(taught.size() == 15 && flown + left_out == taught.size() && left_out == named.size(),
-          "every one of fourteen flown and judged or named: " + std::to_string(flown) +
+          "every one of fifteen flown and judged or named: " + std::to_string(flown) +
               " judged and " + std::to_string(left_out) + " named of " +
               std::to_string(taught.size()));
 }
@@ -4844,7 +4847,7 @@ GLIDESLOPE_TEST(an_approach_flown_well_in_gusts_is_not_sent_round_by_the_stabili
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     check(taught.size() == 15 && flown == taught.size(),
-          "every one of the fourteen aeroplanes taught the approach flown in gusts: " +
+          "every one of the fifteen aeroplanes taught the approach flown in gusts: " +
               std::to_string(flown));
 }
 
@@ -5281,8 +5284,9 @@ GLIDESLOPE_TEST(the_climb_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     check(walked == taught.size(), "every aeroplane taught a climb flew one");
     // Fourteen of the sixteen: the four light aircraft, the Mosquito, the
     // Learjet, four airliners, two fighters, the B-2A and the Short S.23.
-    // The 747-400 and the F-22A are the two left out, having no climbing
-    // speed - `everyone_taught` names them above, with the reason.
+    // The 747-400 and the F-22A are the two left out: their speeds are
+    // measured from the model at one weight, for a plan, not a book's
+    // (`book_departure_speeds`); `everyone_taught` names them above.
     check(walked == 14, "fourteen aeroplanes climbed, not " + std::to_string(walked));
 }
 
@@ -8426,7 +8430,7 @@ void every_landplane_taking_off(
     }
     check(flown + left_out == taught.size() && left_out == 1 && flown == 14,
           "every landplane taught the approach taken off: " + std::to_string(flown) + " of " +
-              std::to_string(taught.size() - left_out) + ", 13 expected");
+              std::to_string(taught.size() - left_out) + ", 14 expected");
 }
 
 void say_wrong(const std::vector<std::string>& wrong) {
@@ -10987,8 +10991,9 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
     check(walked == taught.size(),
           "every aeroplane taught the circuit flew it: " + std::to_string(walked) +
               " of " + std::to_string(taught.size()));
-    // Fourteen of the sixteen: the 747-400 and the F-22A have no rotation or
-    // climbing speed to fly one with - `everyone_taught` names them above.
+    // Fourteen of the sixteen: the 747-400 and the F-22A have only rotation and
+    // climbing speeds measured from the model at one weight, for a plan, not
+    // a book's - `everyone_taught` names them above.
     check(walked == 14, "fourteen aeroplanes flew the circuit, not " + std::to_string(walked));
 }
 
