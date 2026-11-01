@@ -31,6 +31,13 @@ out the crosswind after; on her as committed (d56a7ca6, c172p.xml sha256
 and - in the choosing rule's held-out starts, which no test flies - before
 the threshold from 1 of 40 at 75 lb a tank and 4 of 40 at 100 lb, all in
 headwinds of 9.6 to 13.1 kt (training draws up to 8): 32 to 65 m short.
+**No test flies those five, and none is added**: they are outside the
+learnt landing's gate, which admits no more than 8 kt ahead
+(`LearntGate::most_headwind_kts`; she bounced at 10 and 15 kt), so the
+simulation never hands her to the policy there. A test of them would hold
+the policy where it is not offered; the plan's new Phase 10b item, "The
+learnt landing in headwinds over its gate's 8 kt", is the gate widened or
+the held-out starts drawn inside it.
 
 **How** (tools/rl/train.py as committed; the header of
 assets/rl/c172p-landing.txt is the record, its lineage parts 11 and 12):
@@ -38,7 +45,7 @@ assets/rl/c172p-landing.txt is the record, its lineage parts 11 and 12):
   125000 --lr 1e-5 --log-std -2.5257`; its checkpoint at 32500004.
 - Part 12: from part 11's 32500004, `--seed 169 --envs 6 --steps 750000
   --every 62500 --lr 3e-6 --log-std -2.5257`; its first checkpoint,
-  32562500, is committed. 3e-6 is a smaller step than parts 9 and 10's 1e-5:
+  32562500 (62,496 decisions on), is committed. 3e-6 is a smaller step than parts 9 and 10's 1e-5:
   every run at 1e-5 or more went on, past about 750,000 decisions, to touch
   short of the threshold.
 - Tried and not chosen from: seed 165 at 3e-5 from step31750004 (as part 8;
@@ -76,7 +83,7 @@ bindings, which agree with the simulation to 4e-15:
 | gate's corners, across from the left | 138, 2.83, 86 | 136, 0.77, 241 |
 | gate's corners, across from the right | 215, 1.30, 147 | 225, 1.18, 207 |
 | gate's corners, ahead | 178, 3.14, 20 | 159, 0.62, 162 |
-| gate's corners, behind | 157, 2.62, 105 | 281, 2.32, 208 |
+| gate's corners, behind | 157, 2.62, 105 | 281, 2.32 (2.31 in the bindings, as the policy's header gives it), 208 |
 | (choosing only) held-out, worst of four loads | 221, 4.68, -65 (5 short) | 236, 2.34, 54 |
 
 **From the verification's 27 starts at full tanks** (the parity fixture's
@@ -101,4 +108,8 @@ build/linux-release-v2 -DCMAKE_CXX_FLAGS=-march=x86-64-v2
 built, the 27 of them those fly are green with the same printed figures,
 and the parity test agrees to 0; the three that need the server or the
 window client were not built there. The full linux-release suite (`-LE
-nightly`) green.
+nightly`, `ctest -j4`, no display), with the policy as committed here:
+1423 of 1424 passed (24 of them skipped: no key, device or service), 1
+failed - `the_google_terrain_draws_with_its_attribution_or_says_why_not_on_vulkan`
+("google via ion-token drew no terrain at all", again when run alone), the
+Google tile service's 429 refusal that #294 handles, not this change.
