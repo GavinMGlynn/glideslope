@@ -1309,7 +1309,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       runway lines a model is shown say their landing length and what the
       aircraft needs (the F-22A, with no approach speed, is told she does
       not land). **Still missing**: a landing figure for the F-22A,
-      which waits on her approach speed. *Verification: each of the five
+      which waits on her approach speed. Since 2026-11-02 her slowest
+      steady flight is measured from her model, 90 KCAS at 54,960 lb; at
+      1.3 times it she does not land, and at any speed her roll-out swings
+      her off the runway. *Verification: each of the five
       refused a runway shorter than a cited figure, and the model shown each
       runway's landing length.* Owner 2026-10-09. Owner 2026-10-31:
       recordings made again.

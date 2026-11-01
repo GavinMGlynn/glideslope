@@ -164,7 +164,11 @@
     AFMAN 11-2F-22A volume 3 holds an instrument final approach to 165 KCAS
     or less, the top of approach category D (under 166 kt), the same in the
     F-15E's volume 3, not her speed. Her approach speed is in T.O. 1F-22A-1,
-    not published.
+    not published. Searched again 2026-11-02, nothing found. Her slowest
+    steady flight landing configured (14 CFR 1.2's VS0) is measured from her
+    model, 90.0 KCAS at the combat loading (tests/unit/test_figures.cpp), but
+    is not given here as her stall: at 1.3 times it she does not land
+    (docs/status/2026-11-02-the-f22a-s-slowest-steady-flight-measured.md).
   </no_landing_distance>
 
   <no_cg_limits>
