@@ -49,6 +49,23 @@ The changes, and what each is for:
     Main wheels' braking friction 0.8 -> 0.5
                         As the 737-300's: a dry runway's, where 0.8 stopped a
                         rejected take-off at two-thirds of a g.
+    Main gear station 1554 -> 1404 (2026-11-01)
+                        Boeing's 84 ft wheelbase (D6-58326-1, figure 2.2.1),
+                        where the model had 96.5 ft, 19.6% of her weight on
+                        her nose wheel, and an elevator that could not lift
+                        it below 182 kt; see MAIN_GEAR_X_IN.
+    Delta_Lift_due_to_flaps, a table (2026-11-01)
+                        Her flaps' lift and lift-curve slope at flaps 20 and
+                        30 from NASA CR-2144's tables IX-1 and IX-2, up to the
+                        lift of Boeing's certification stall speeds (NASA
+                        CR-1756, page 2.0-37), where 0.05 a degree of flap
+                        had no source; see flap_lift_rows.
+    Pitch_moment_due_to_elevator at Mach 0 (2026-11-01)
+                        Moved so that her elevator has CR-2144's -1.40 a
+                        radian at Mach 0.198; see CM_DE_AT_0_HEFFLEY.
+    Ground effect, added (2026-11-01)
+                        JSBSim's own kCLge on her wing's and flaps' lift, as
+                        the A320's script adds it: the model had none.
 
   Engine (engine/CF6-80C2B1F.xml, from JSBSim's GE-CF6-80C2-B1F.xml)
     Thrust with height and speed
