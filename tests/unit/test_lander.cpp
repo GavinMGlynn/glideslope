@@ -510,24 +510,70 @@ GLIDESLOPE_TEST(the_approach_speed_is_a_third_above_the_published_landing_stall)
     check(refused, "an aircraft with no stall speed at all is refused");
 }
 
-// **Figures that land a nose-wheel aeroplane three-point are refused**, by
-// the lander that would fly them (sim::Lander): the Cessna 172P given
-// `lands="three_point"`'s flag is refused, naming it; the J-3 Cub, standing
-// on her tail wheel, is not.
-GLIDESLOPE_TEST(a_three_point_landing_is_refused_an_aeroplane_without_a_tail_wheel) {
-    const auto lander_for = [](const std::string& id) {
-        const auto entry = glideslope::sim::find_aircraft(data(), id);
-        ApproachSpeeds speeds = glideslope::sim::approach_speeds(data(), entry.model);
+// **Figures that land three-point an aeroplane that does not stand on a tail
+// wheel are refused**, by the lander that would fly them (sim::Lander), for
+// every aircraft in the catalogue: each given `lands="three_point"`'s flag,
+// every nose-wheel aeroplane and hull refused, naming it, and the two that
+// stand on a tail wheel - the J-3 Cub and the Mosquito - accepted. Coverage:
+// the catalogue's size, all of it walked, and the two accepted named.
+GLIDESLOPE_TEST(a_three_point_landing_is_refused_every_aircraft_in_the_catalogue_without_a_tail_wheel) {
+    const auto catalogue = glideslope::sim::read_catalogue(data());
+    std::size_t walked = 0;
+    std::size_t refused = 0;
+    std::vector<std::string> accepted;
+    std::string why;
+    for (const auto& entry : catalogue) {
+        // The 747-400 and the F-22A publish no stall speed and have no
+        // approach speeds worked out; theirs are the defaults, which the
+        // refusal does not read.
+        ApproachSpeeds speeds;
+        try {
+            speeds = glideslope::sim::approach_speeds(data(), entry.model);
+        } catch (const std::runtime_error&) {
+        }
         speeds.three_point = true;
         glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
-        Lander lander(aircraft, a_runway(), speeds);
-    };
-    bool refused = false;
-    try {
-        lander_for("c172p");
-    } catch (const std::runtime_error& e) {
-        refused = std::string(e.what()).find("three-point") != std::string::npos;
+        // On final, her gear down, as the lander is given her: a retracting
+        // gear's contacts stand where they are only once it is down.
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = a_runway().threshold_lat_deg;
+        ic.longitude_deg = a_runway().threshold_lon_deg;
+        ic.altitude_ft = 1000.0;
+        ic.heading_deg = a_runway().heading_deg;
+        ic.airspeed_kts = speeds.vref_kts > 0.0 ? speeds.vref_kts : 140.0;
+        ic.gear = 1.0;
+        aircraft.initialize(ic);
+        const bool tail_wheel = aircraft.stance().found && aircraft.stance().tail_wheel;
+        bool was_refused = false;
+        try {
+            Lander lander(aircraft, a_runway(), speeds);
+        } catch (const std::runtime_error& e) {
+            was_refused = std::string(e.what()).find("three-point") != std::string::npos;
+            if (!was_refused) {
+                why += "\n    " + entry.id + " refused for another reason: " + e.what();
+            }
+        }
+        ++walked;
+        if (was_refused) {
+            ++refused;
+        } else {
+            accepted.push_back(entry.id);
+        }
+        if (was_refused == tail_wheel) {
+            why += "\n    " + entry.id + (tail_wheel ? " stands on a tail wheel and was refused"
+                                                   : " has no tail wheel and was accepted");
+        }
     }
-    check(refused, "the 172P, on a nose wheel, is refused a three-point landing, naming it");
-    lander_for("j3cub");
+    std::string named;
+    for (const std::string& id : accepted) {
+        named += " " + id;
+    }
+    check(walked == catalogue.size() && catalogue.size() >= 16,
+          "every aircraft in the catalogue was walked: " + std::to_string(walked) + " of " +
+              std::to_string(catalogue.size()));
+    check(why.empty(), "a three-point landing refused each aircraft without a tail wheel:" + why);
+    check(refused == catalogue.size() - 2 &&
+              accepted == std::vector<std::string>{"j3cub", "mosquito-fb6"},
+          "all but the two tail-wheel aeroplanes refused: " + std::to_string(refused) + " of " +
+              std::to_string(catalogue.size()) + ", accepted:" + named);
 }

@@ -263,18 +263,19 @@ are the risks the phase order is built around:
   wet, rolls out within 3.4 m, and rolled up from rest in 15 kt across
   turns 5.8 degrees, not 59. Her real braking is not sourced. The
   Mosquito's measured landing distance is 5,700 ft (1,696 m, was 1,633).
-- **The AI lands the J-3 Cub three-point** (2026-11-01), as the FAA's
-  Airplane Flying Handbook (ch. 14) does: held off half a foot over the
-  runway as she slows, she touches with her nose at 10.2 degrees where she
-  stands at 12.1 (it was 2.8, wheel-landed), main wheels a moment before her
-  tail, and her stick is held fully back from the touch. In calm air and in
+- **The AI holds the J-3 Cub off, but she does not yet touch three-point**
+  (2026-11-01): she touches main wheels first, her nose at 10.2 degrees
+  where she stands at 12.1 (it was 2.8, wheel-landed). Held off half a foot
+  over the runway as she slows, her stick is held fully back from the
+  touch, as the FAA's Airplane Flying Handbook (ch. 14) has it. In calm air and in
   every crosswind to her 12 kt, dry and wet, she touches within 2.5 degrees
   of it. In gusts she is still flown on to her main wheels. She stops 441 m
   past the threshold, not 498, and her measured landing distance - the
   shortest runway she is allowed - is 1,500 ft, not 1,700. The last two
   degrees are her model's: its lift hardly grows above seven and a half
   degrees of incidence, so her wing gives out a moment before her nose
-  reaches her standing attitude.
+  reaches her standing attitude; no sourced lift curve for her wing was
+  found, and the 2.5-degree margin is unsourced (an open item).
 - **Restore settles what it cannot read.** It holds the aircraft at the captured
   state for two simulated seconds so JSBSim's hidden engine and actuator states
   converge; a restore is therefore not free. Reconciliation does not use it:

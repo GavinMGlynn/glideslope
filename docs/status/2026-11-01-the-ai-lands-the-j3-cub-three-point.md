@@ -1,6 +1,10 @@
-### The AI lands the J-3 Cub three-point, 2026-11-01 - one item done
+### The AI holds the J-3 Cub off for a three-point landing, 2026-11-01 - one item still open
 
-Phase 10b's "The AI wheel-lands the J-3 Cub" is ticked.
+Phase 10b's "The AI wheel-lands the J-3 Cub", renamed "The AI lands the J-3
+Cub three-point", stays open: she is held off and touches at 10.2 degrees,
+not 2.8, but main wheels first, two degrees short. It was ticked in the
+first round on a stated margin; the review of #291 found the margin fitted,
+not justified, and it is unticked.
 
 **What is still not true first.**
 - **She touches two degrees short of her standing attitude, not on it**:
@@ -10,9 +14,22 @@ Phase 10b's "The AI wheel-lands the J-3 Cub" is ticked.
   at about the stall. Her model's lift (assets/jsbsim/aircraft/j3cub,
   `Lift_alpha`) is 1.47 at 7.5 degrees of incidence, 1.50 at 10 and 1.62 at
   12.5, its peak: the last four degrees of nose come in the last knot, about
-  a second, and her wing gives out first. The margin stated is 2.5 degrees.
-  Whether the Cub's real lift curve is that flat was not looked into; the
-  model is FlightGear's, unchanged in lift by tools/make_j3cub.py.
+  a second, and her wing gives out first. The margin the tests hold, 2.5
+  degrees, is fitted to that, not sourced.
+- **No sourced lift curve for her wing was found.** Her model's table is
+  marked USA-35B and is from the Cranfield thesis her model's aerodynamics
+  come from (Du, 2011), unchanged in lift by tools/make_j3cub.py. Its
+  columns are Reynolds numbers, 1.67 and 3.71 million (at her touch, about
+  30 kt on her 63 in chord, about 1.7 million). Its slope from 0 to 5
+  degrees is 0.137 a degree, above the 0.08 or so a wing of her aspect
+  ratio, about 7, has, and from 7.5 to 10 degrees 0.010: steep low, flat high,
+  as no wing measured is - but with nothing measured to put in its place it
+  is not changed. Searched: NACA's reports and technical notes on NTRS for
+  the U.S.A. 35-B section (none found that test it), NACA full-scale tunnel
+  tests of a Cub (none found), and a forum's 1.85 for her CLmax worked from
+  her book stall speed (a derivation, not a measurement; her model already
+  stalls at her published speeds, assets/figures/j3cub.xml). Her drawings
+  on archive.org (piperj3_Bin_*) give her wing's geometry, not its lift.
 - **In gusts she is still flown on to her main wheels**, as every aeroplane
   is in gusts (the AFH, ch. 9, "Turbulent Air Approach and Landing", and
   ch. 14 prefers a wheel landing in gusty wind). The gust tests are not
@@ -55,9 +72,13 @@ degrees.
   off in the lander: 2.84 degrees in calm air dry and wet, and every
   crosswind landing from the left, dry; the measured landing distance test
   red too (498 m against 1,500 ft). Reverted, green.
-- New: `how_a_tail_wheel_aeroplane_lands_is_read_and_anything_but_three_point_or_wheels_is_refused`
-  and `a_three_point_landing_is_refused_an_aeroplane_without_a_tail_wheel`;
-  **seen red** with each refusal taken out, reverted, green.
+- New: `how_a_tail_wheel_aeroplane_lands_is_read_and_anything_but_three_point_or_wheels_is_refused`;
+  **seen red** with the refusal taken out, reverted, green.
+- New: `a_three_point_landing_is_refused_every_aircraft_in_the_catalogue_without_a_tail_wheel`
+  walks the whole catalogue, 16 of 16, each started on final with her gear
+  down: 13 nose-wheel aeroplanes and the hull refused, naming it, the J-3
+  Cub and the Mosquito accepted. **Seen red** with the refusal taken out:
+  the Learjet, the PA-28, the S.23 and the rest "accepted"; reverted, green.
 - `the_j3cub_lands_within_her_measured_landing_distance` at 1,500 ft (441 m,
   411 to 457 allowed).
 - Every other aircraft's landing is untouched: the change is behind her
