@@ -1959,6 +1959,8 @@
     </flight_control>
 
     <aerodynamics>
+        <!-- glideslope: tools/make_f22.py, the trim's alpha range -->
+        <alphalimits unit="DEG"> <min> -10 </min> <max> 45 </max> </alphalimits>
 
         <!-- Shift the aero ref point aft. F-22 is 10% unstable at subsonic, stable at around Mach 1.2+ -->
         <function name="aero_ref_pt_shift_x">

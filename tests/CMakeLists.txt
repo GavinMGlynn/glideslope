@@ -719,6 +719,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_f22_sustains_its_published_turn_at_mach_0_9_and_30000_ft
     the_f22_flies_at_mach_2_at_40000_ft
     the_f22_still_climbs_at_50000_ft
+    the_f22a_s_slowest_steady_flight_landing_configured_does_not_hang_on_its_entry_speed
     the_mosquito_fb6_flies_level_at_sea_level_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_ms_gear_full_throttle_height_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_fs_gear_full_throttle_height_at_hx809s_speed

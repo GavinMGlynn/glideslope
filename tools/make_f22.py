@@ -121,6 +121,11 @@ The changes, and what each is for:
                         never settled. It is written as twice the angle less
                         its lag, the lag an actuator: the same filter in
                         flight, and the angle itself while JSBSim trims.
+    The trim's alpha range
+                        The model gave no angle of attack limits, so JSBSim's
+                        trim tried -5 to 20 degrees alone, and could not find
+                        her slowest steady flight: they are her lift table's
+                        range, -10 to 45 degrees (TRIM_ALPHA_MAX_DEG).
     Drag with Mach      The model's drag at zero lift, its lift-dependent drag
                         of 0.07 CL^2 - a span efficiency of 1.9, which no wing
                         has - and its drag rise are made the fighters' drag by
@@ -403,9 +408,24 @@ def airframe():
         lambda m: fighter.drag_functions(SUBSONIC_ZERO_LIFT_DRAG, WAVE_DRAG, make_f15c.WAVE_DECAY, ASPECT,
                                          SPAN_EFFICIENCY, make_f15c.SUPERSONIC_LIFT_DRAG, SEPARATION_ALPHA),
         "the drag at zero lift, induced drag and drag rise")
+    text = replace_once(
+        text, r"(\n    <aerodynamics>\n)",
+        r"\1        <!-- glideslope: tools/make_f22.py, the trim's alpha range -->\n"
+        f'        <alphalimits unit="DEG"> <min> {TRIM_ALPHA_MIN_DEG} </min> <max> {TRIM_ALPHA_MAX_DEG} </max> </alphalimits>\n',
+        "the trim's angle of attack range")
     # The tail strike, measured from her visual model by tools/ground.py.
     return ground.with_tail_strike(text, MODEL, MAXIMUM_WEIGHT_LBS, script=SCRIPT)
 
+
+# **The angles of attack her trim may try**, degrees: her lift table's own
+# range, from its first row, -10 degrees, to its peak, 45. The model gave no
+# <alphalimits>, and JSBSim's trim then searches -5 to 20 degrees alone
+# (FGTrimAxis), so that her trim failed below 114.75 KCAS at 54,960 lb, 17.8
+# degrees, with her stabilators a third of the way to their stop and her lift
+# still rising. JSBSim reads the limits for its trim and for a stall
+# hysteresis, which the model has none of, so nothing else moves.
+TRIM_ALPHA_MIN_DEG = -10
+TRIM_ALPHA_MAX_DEG = 45
 
 HELD_TRIM = "fcs/pitch-trim-held-norm"  # glideslope's held trim, after the pitch loop
 LEF_LAG = 7.25  # the leading edge flaps' filter's pole, per second, the model's

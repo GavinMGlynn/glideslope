@@ -781,12 +781,61 @@ double glide_ratio(const std::filesystem::path& root, const PublishedFigures& fi
 // is first a maximum in the same deceleration - the lift itself, which is
 // what the regulation's load-factor-corrected n W / q S stands for. The F-15C at full aft stick goes on raising its nose and
 // sinking, as its manual says, and never gathers speed to mark a lowest.
+//
+// **An aeroplane whose test pilot cannot fly that deceleration** -
+// `steady="1"` - is measured as 14 CFR 1.2 defines VS0, "the stalling speed
+// or the minimum steady flight speed in the landing configuration": the
+// slowest calibrated airspeed, to a tenth of a knot, at which her trim holds
+// her level at 1 g at 5,000 ft, gear and flaps set, at the power that needs.
+// From the entry speed down in whole knots, each trimmed afresh, so what one
+// speed finds does not hang on the speed before it; then halved to the
+// tenth between the last that trimmed and the first that did not. The
+// F-22A's: at idle her test pilot's speed loop, against her rate-command
+// stick, dives her and swings her speed three knots before her wing is near
+// its limit, and the deceleration ends wherever the swing does - 128 to 149
+// knots by its entry speed alone (assets/figures/f22.xml).
+double steady_flight_speed(const std::filesystem::path& root, const PublishedFigures& figures,
+                           const FigureSpec& spec, double entry) {
+    const auto trims_at = [&](double kcas) {
+        InitialConditions ic = airborne(5000.0, kcas, true);
+        ic.gear = condition_or(spec, "gear", 0.0);
+        ic.flaps = flaps_command(figures, condition(spec, "flaps_deg"));
+        ic.trim = true;
+        Flight f(root, figures, spec, ic);
+        return f.aircraft.trimmed();
+    };
+    if (!trims_at(entry)) {
+        throw std::runtime_error("she cannot be trimmed level at her entry speed, " +
+                                 std::to_string(entry) + " KCAS");
+    }
+    double held = entry;
+    double fails = 0.0;
+    for (double kcas = entry - 1.0; kcas > 0.0; kcas -= 1.0) {
+        if (!trims_at(kcas)) {
+            fails = kcas;
+            break;
+        }
+        held = kcas;
+    }
+    if (!(fails > 0.0)) {
+        throw std::runtime_error("she was trimmed level at every speed down to nothing");
+    }
+    while (held - fails > 0.1 + 1e-9) {
+        const double mid = 0.5 * (held + fails);
+        (trims_at(mid) ? held : fails) = mid;
+    }
+    return held;
+}
+
 double stall_speed(const std::filesystem::path& root, const PublishedFigures& figures,
                    const FigureSpec& spec) {
     const bool clmax = condition_or(spec, "clmax", 0.0) != 0.0;
     double most_cl = 0.0;
     double at_most_cl = 0.0;
     const double entry = condition_or(spec, "entry_kcas", 70.0);
+    if (condition_or(spec, "steady", 0.0) != 0.0) {
+        return steady_flight_speed(root, figures, spec, entry);
+    }
     InitialConditions ic = airborne(5000.0, entry, true);
     ic.gear = condition_or(spec, "gear", 0.0);
     Flight f(root, figures, spec, ic);
@@ -2223,6 +2272,7 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                 "keel_aft_ft",
                                 "keel_below_ft",
                                 "clmax",
+                                "steady",
                                 "speed_falls_kt_per_1000_ft",
                                 "seconds",
                                 "most_drift_ft",

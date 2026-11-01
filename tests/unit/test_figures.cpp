@@ -428,6 +428,42 @@ GLIDESLOPE_TEST(the_f22_still_climbs_at_50000_ft) {
     expect_figure("f22", "climb_rate_50000_ft");
 }
 
+// **The F-22A's slowest steady flight in her landing configuration does not
+// hang on the speed it is sought from**: 14 CFR 1.2's VS0, "the minimum
+// steady flight speed in the landing configuration" (sim/figures.cpp,
+// `steady="1"`), at her combat loading, gear down, no flap, sought down from
+// 160, 200 and 240 KCAS, all three within a tenth of a knot of 90 - where her
+// stabilators reach their stop, at 27.5 degrees of alpha. Not yet her stall
+// figure: at 1.3 times it her approach autopilot does not land her
+// (docs/status/2026-11-02-the-f22a-s-slowest-steady-flight-measured.md).
+// **Seen to fail**: without her trim's alpha range (tools/make_f22.py,
+// TRIM_ALPHA_MAX_DEG) it came out 114.75, JSBSim's trim stopped at 20 degrees.
+// Her deceleration by the handbook's stall, by contrast, came out 131 to 149
+// knots by its entry speed alone. Coverage: three entries, three measured.
+GLIDESLOPE_TEST(the_f22a_s_slowest_steady_flight_landing_configured_does_not_hang_on_its_entry_speed) {
+    const PublishedFigures figures = read_published_figures(figures_file("f22"));
+    std::size_t measured = 0;
+    for (const double entry : {160.0, 200.0, 240.0}) {
+        glideslope::sim::FigureSpec spec;
+        spec.name = "steady_from_" + std::to_string(static_cast<int>(entry));
+        spec.flight = "stall_speed";
+        spec.loading = "combat";
+        spec.unit = "KCAS";
+        spec.measured = true;
+        spec.published = 90.0;
+        spec.low = 89.9;
+        spec.high = 90.1;
+        spec.conditions = {{"flaps_deg", 0.0}, {"gear", 1.0}, {"steady", 1.0},
+                           {"entry_kcas", entry}};
+        const auto result = fly_figure(data_dir, figures, spec);
+        std::printf("from %.0f KCAS: %.2f KCAS\n", entry, result.measured);
+        check(result.passed(), "from " + std::to_string(entry) + " KCAS her slowest steady flight was " +
+                                   std::to_string(result.measured) + " KCAS, not 90 within a tenth");
+        ++measured;
+    }
+    check(measured == 3, std::to_string(measured) + " of 3 entries measured");
+}
+
 // **The speedbrake an aeroplane is flown down an approach with is read from
 // its figures**, is none where they give none, and is refused outside the
 // lever's travel rather than flown: every speed and setting is data. Each
