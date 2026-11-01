@@ -268,6 +268,46 @@ double Departure::climb_kts() const {
     return in_gusts(speeds_, a_.gust_factor_kt(), fastest_kts_).initial_climb_kts;
 }
 
+std::optional<double> Departure::manoeuvre_kts(double flap) const {
+    // The schedule's setting at or next below `flap`: a lever between two
+    // of its settings is held to the speed of the one with more flap below
+    // it - the 747-400's lever at 15 to her flaps 10's.
+    std::optional<double> over;
+    for (const auto& [setting, kts] : speeds_.flap_manoeuvre_over_kts) {
+        if (setting <= flap + 1e-9) {
+            over = kts;
+        }
+    }
+    if (!over) {
+        return std::nullopt;
+    }
+    const double weight = a_.property("inertia/weight-lbs");
+    const double scale = speeds_.manoeuvre_reference_lbs > 0.0 && weight > 0.0
+                             ? std::sqrt(weight / speeds_.manoeuvre_reference_lbs)
+                             : 1.0;
+    return speeds_.manoeuvre_vref_kts * scale + *over;
+}
+
+// **The speed the climb out asks of her**: her climb speed, or, with a
+// flap manoeuvre schedule and above the height her flaps come up from, the
+// next flap's manoeuvre speed and the margin her flaps come up within, so
+// that she is accelerated to it - and, flaps up, to her flaps-up speed.
+double Departure::climb_out_kts() const {
+    const double kts = climb_kts();
+    if (speeds_.flap_manoeuvre_over_kts.empty() ||
+        above_m_ * feet_per_metre < speeds_.flaps_up_ft) {
+        return kts;
+    }
+    double next = 0.0;
+    for (const double notch : a_.flap_notches()) {
+        if (notch < flap_lever_ - 1e-9) {
+            next = notch;
+        }
+    }
+    const std::optional<double> needed = manoeuvre_kts(flap_lever_ > 0.0 ? next : 0.0);
+    return needed ? std::max(kts, *needed + flaps_up_within_kts) : kts;
+}
+
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
                                  const std::string& model) {
     DepartureSpeeds speeds = speeds_from_figures(data, model);
@@ -279,6 +319,15 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
     }
     if (figures.rotation_stick_per_degps > 0.0) {
         speeds.rotation_stick_per_degps = figures.rotation_stick_per_degps;
+    }
+    if (!figures.flap_manoeuvre_over_approach_kts.empty() && figures.flaps_full_deg > 0.0) {
+        const ApproachSpeeds lands = approach_speeds(data, model);
+        speeds.manoeuvre_vref_kts = lands.vref_kts;
+        speeds.manoeuvre_reference_lbs = lands.reference_lbs;
+        for (const auto& [deg, over] : figures.flap_manoeuvre_over_approach_kts) {
+            speeds.flap_manoeuvre_over_kts.emplace_back(
+                std::clamp(deg / figures.flaps_full_deg, 0.0, 1.0), over);
+        }
     }
     speeds.flaps_up_ft = transport_flaps_up_ft;
     for (const CatalogueEntry& e : read_catalogue(data)) {
@@ -403,6 +452,10 @@ void Departure::retract_flaps(double kcas) {
         if (notch < flap_lever_ - 1e-9) {
             next = notch;
         }
+    }
+    // **Not below the next setting's manoeuvre speed**, where she has them.
+    if (const std::optional<double> needed = manoeuvre_kts(next); needed && kcas < *needed) {
+        return;
     }
     flap_aim_ = next;
     move_lever();
@@ -832,7 +885,7 @@ Controls Departure::fly_laws() {
                 std::max({accel_ktps_, 1.0, (climb_kts() - climb_target_kts_) / 20.0});
         }
         climb_target_kts_ = std::min(climb_target_kts_ + climb_gain_ktps_ / steps_per_second,
-                                     climb_kts());
+                                     climb_out_kts());
         const double fast_by = kcas - climb_target_kts_;
         const double ki = fast_by < 0.0 ? 0.05 : 0.2;
         rotate_pitch_ = std::clamp(rotate_pitch_ + ki * fast_by / steps_per_second,

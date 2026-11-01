@@ -6126,20 +6126,13 @@ GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_f
 // at the rule's 5 kt; noticed at her own buffet, 10 kt over, she is slowest
 // at 98.5.
 //
-// **And the 747-400, not yet, since 2026-11-01** (her first approach speed):
-// at her model's 754,313 lb, 124,000 lb over her 630,000 lb maximum landing
-// weight, at the lesson's 20,000 ft, flaps 30 and the gear down, her four
-// CF6-80C2s at full throttle give 92,500 lb (Mattingly's lapse, 0.40 of
-// sea-level thrust at Mach 0.36) against 96,500 lb of drag - a CD of 0.18 at
-// her CL of 1.41, under NASA CR-2144's table IX-1 (0.263 at 1.76, less 1.13 a
-// radian), so not too much. She is never slower than her stall and recovers
-// to 167 kt, her approach speed for her weight, descending at 150 ft/min:
-// level is more than she has there. Named, not loosened, until the lesson or
-// the weight it is flown at is settled (COMPLETION_PLAN.md).
+// **The 747-400 recovers as her book does, flaps to 20** (her
+// go_around_flaps_deg, 2026-11-01): left at her landing flap 30 at 754,313 lb
+// and 20,000 ft, her full thrust, 92,500 lb, was less than her drag, 96,500
+// lb, and she recovered to 167 kt still descending at 150 ft/min.
 GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
     const std::map<std::string, std::string> not_yet = {
-        {"a380", "slowed under her stall"},
-        {"747-400", "not back at her approach speed and level"}};
+        {"a380", "slowed under her stall"}};
     std::set<std::string> named_seen;
     const Taught taught = taught_for("stalls");
     const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
