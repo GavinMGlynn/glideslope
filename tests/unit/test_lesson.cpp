@@ -279,7 +279,9 @@ glideslope::sim::LessonSpeeds figures_of(const glideslope::sim::CatalogueEntry& 
 // belongs to a class and the figures belong to the aeroplane, so a class's
 // lesson can name a figure one of its aeroplanes has not got - the 747-400
 // and the F-22A publish no stall speed and no measurement of one holds still
-// (docs/ASSETS.md), so they are taught only what needs neither.
+// (docs/ASSETS.md). The 747-400 does publish her approach speed, but her
+// take-off speeds are measured from her model, so book_departure_speeds
+// refuses her; each is taught only what its figures can answer.
 struct Taught {
     std::vector<std::string> able;
     std::vector<std::string> left_out; // each one named, with its reason
@@ -1292,7 +1294,7 @@ GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_e
     check(walked == 13, "thirteen aeroplanes given a rate flown, not " + std::to_string(walked));
     // **The size of the space, stated apart from the loop**: the thirteen
     // models' own loadings and those their figures name - three each for
-    // the six held at three; the C172P's, the C182's and the PA-28's one,
+    // the five held at three, the 747-400's four; the C172P's, the C182's and the PA-28's one,
     // the F-15C's three, the F-22A's one, the F-35B's four and the
     // Learjet's four.
     check(loadings_flown == 47, "forty-seven loadings flown, not " +
@@ -3393,7 +3395,7 @@ GLIDESLOPE_TEST(in_a_steady_15_kt_headwind_every_aeroplane_lands_and_rolls_out_w
 
 // **In a steady 10 kt tailwind every aeroplane lands and rolls out without
 // lifting off again, and stops**: the rollout judged by her groundspeed,
-// there the more of the two. All fourteen are judged, the flying boat with
+// there the more of the two. All fifteen are judged, the flying boat with
 // the landplanes since her hull planes (2026-10-14).
 GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again) {
     rolls_out_in_a_steady_wind(-10.0, {});
@@ -8410,7 +8412,7 @@ HandedOverTakingOff take_off_handed_over(const glideslope::sim::CatalogueEntry& 
     return r;
 }
 
-// Every landplane taught the approach - the 13 a pilot may be handed back
+// Every landplane taught the approach - the 14 a pilot may be handed back
 // on a runway - `each` given each, and their count asserted; the flying
 // boat, which takes off from water, named.
 void every_landplane_taking_off(

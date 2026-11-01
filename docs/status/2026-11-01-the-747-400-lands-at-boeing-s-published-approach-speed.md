@@ -1,6 +1,6 @@
 ### The 747-400 lands at Boeing's published approach speed, her flaps raised by her FCOM's manoeuvre speeds, her main legs sprung from her ground clearances - 2026-11-01
 
-**What is still not true first.** The item stays open:
+**What is still not true first.** The item is ticked, because her gust landings are carried by the gust item; what is still not true of her:
 
 - **Her gust landings are named** (`not_yet_landed_in_gusts`): on seed 8 she
   touches at 388 ft/min and climbs 99.7 ft/min in her flare.
@@ -31,7 +31,7 @@ and stops on a wet runway in 15 kt across.
    angle, a CL of 1.82 at flaps 20 and 2.18 at 30. Boeing's certification
    stall speeds (NASA CR-1756 vol. II page 2.0-37, from D6-30643; read from
    the chart: flaps 20 134 KEAS at 700,000 lb, flaps 30 112 KEAS at 600,000
-   lb) make 2.08 and 2.57 on the 5,500 sq ft wing. Her flapped lift now keeps
+   lb) make 2.09 and 2.57 on the 5,500 sq ft wing. Her flapped lift now keeps
    CR-2144's slope up to that lift (at 15.6 and 16.7 degrees), then falls as
    her clean wing's does. She stalls at 150 kt at 875,000 lb with flaps 20,
    so V2 is about 181 kt, as 747-400 crews fly it; the field length is
@@ -112,3 +112,12 @@ and passed the next time. It touches nothing this item changed (sim/ and the
 no climb figure (load_as_its_figures_were_measured): her speeds are Boeing's
 at 630,000 lb, and at her model's 754,313 lb she stalled 11 kt above the
 speed her stall lesson warns at, so the stall-lesson tests never warned her.
+
+**Full suite on the final tree, 2026-11-02** (`ctest --preset linux-release -LE
+nightly -j4`, no display, run while another agent's full suite shared the
+machine): 1426 tests, 1423 passed or skipped as unkeyed, 3 failed, 4223 s. The
+Google terrain Vulkan test failed on Google's 429 (fixed in #294). The other
+two, `a_client_stalled_past_the_timeout_joins_again_by_itself` and
+`a_predicting_client_too_slow_to_replay_every_word_puts_itself_right_from_the_newest_and_keeps_up`,
+timed out under that load and passed alone (10 s and 20 s). The model script
+was rerun: its output is unchanged.
