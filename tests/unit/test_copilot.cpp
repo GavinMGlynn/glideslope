@@ -1503,8 +1503,9 @@ GLIDESLOPE_TEST(a_plan_or_route_outside_the_speeds_its_aircraft_holds_clean_is_r
 // **Every aircraft can be planned by a model and routed by a copilot**: each
 // the catalogue holds is briefed from the data as the client, the server and
 // glideslope_cli brief it (frontend::brief_for, plan_request_for) - the
-// 747-400 and the F-22A, which publish no stall speed, with no approach speed
-// and their climb-away speeds measured from their models (2026-10-06) - and
+// F-22A, which publishes no stall speed, with no approach speed, and she and
+// the 747-400 with their climb-away speeds measured from their models
+// (2026-10-06) - and
 // for each a plan taking off from Sydney's 34L at its slowest planned speed,
 // to a waypoint and round its tightest orbit, is taken first time; a route at
 // that speed is taken by its copilot; and with the engine stopped, a glide
@@ -1576,8 +1577,8 @@ GLIDESLOPE_TEST(every_aircraft_is_planned_and_routed_from_its_own_speeds_with_or
               entry.id + "'s glide at " + std::to_string(glide_kts) + " kt refused: " + glide_why);
         glided += glide_why.empty() ? 1U : 0U;
     }
-    check(without_approach == std::vector<std::string>{"747-400", "f22"},
-          "the 747-400 and the F-22A are the two with no approach speed");
+    check(without_approach == std::vector<std::string>{"f22"},
+          "the F-22A is the one with no approach speed");
     check(planned == catalogue.size() && routed == catalogue.size() &&
               glided == catalogue.size() && catalogue.size() == 16,
           "every aircraft of the 16 planned, routed and glided: " + std::to_string(planned) +
@@ -2019,8 +2020,8 @@ GLIDESLOPE_TEST(a_copilot_and_a_planner_are_told_a_runway_is_reported_icy_and_wh
 // the one refused by, the condition is the code's braking action (the FAA's
 // Runway Condition Assessment Matrix, AC 91-79B), code 0 is said closed,
 // and the metres to land on are the runway's less its displaced threshold
-// (200 m here). The aircraft with no approach speed (the 747-400 and the
-// F-22A, sim::publishes_approach_speed) are told they do not land, and the
+// (200 m here). The aircraft with no approach speed (the F-22A,
+// sim::publishes_approach_speed) is told she does not land, and the
 // one with no need (the flying boat) is told none.
 // The space: 16 aircraft times 9 conditions times 2 lengths, 288, each
 // counted.
@@ -2140,8 +2141,8 @@ GLIDESLOPE_TEST(every_aircraft_is_told_each_runways_condition_landing_length_and
             }
         }
     }
-    check(not_landing == std::vector<std::string>{"747-400", "f22"},
-          "the aircraft with no approach speed are the 747-400 and the F-22A");
+    check(not_landing == std::vector<std::string>{"f22"},
+          "the aircraft with no approach speed is the F-22A");
     check(needless == std::vector<std::string>{"short_s23"},
           "the landing aircraft with no need is the flying boat");
     const std::size_t space = aircraft * conditions * lengths;

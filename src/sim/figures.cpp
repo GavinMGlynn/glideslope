@@ -2272,6 +2272,14 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         }
     };
     speed_at("approach", out.approach_kcas, out.approach_loading);
+    if (JSBSim::Element* e = root->FindElement("approach");
+        e != nullptr && e->HasAttribute("flaps_deg")) {
+        out.approach_flaps_deg = e->GetAttributeValueAsNumber("flaps_deg");
+        if (!(out.approach_flaps_deg >= 0.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives an <approach> flap below 0 degrees");
+        }
+    }
     speed_at("takeoff", out.takeoff_kcas, out.takeoff_loading);
     // **Every file gives the speeds a plan may fly it at**, once: an
     // aircraft without them could be planned at a speed it cannot hold.

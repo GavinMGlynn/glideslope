@@ -1502,8 +1502,8 @@ GLIDESLOPE_TEST(the_f35b_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_p
 // also our choice. Above the floor she is flown clean by the tests before
 // these. Each speed must hold her sideslip within a degree after 30 s, her
 // heading within two from 40 s, and her height within 300 ft throughout.
-// The 747-400 and F-22A publish no approach speed
-// (sim::publishes_approach_speed) and are named; every other aircraft has its
+// The F-22A publishes no approach speed (sim::publishes_approach_speed) and
+// is named; every other aircraft has its
 // own test, asserted below. **Seen to fail** flown clean at her model's own
 // weight, as the plan-speed sweep flies, from her approach speed: the 737-300,
 // 787-8, A380, B-2A and F-35B red - the B-2A leaving her tables at 124 to 139
@@ -1512,7 +1512,6 @@ GLIDESLOPE_TEST(the_f35b_holds_a_heading_in_a_20_kt_crosswind_at_every_speed_a_p
 namespace {
 
 const std::map<std::string, std::string> no_approach_speed = {
-    {"747-400", "its measured stalls would not hold still, so it publishes no approach speed"},
     {"f22", "its measured stalls would not hold still, so it publishes no approach speed"},
 };
 
@@ -1535,6 +1534,7 @@ const std::map<std::string, std::pair<double, std::string>> approach_named = {};
 const std::vector<std::string> approach_swept = {
     "c172p", "c182", "pa28",       "j3cub", "short_s23", "mosquito-fb6", "737-300",
     "787-8", "a320", "a380",       "learjet35a", "b2",   "f15c",         "f35b",
+    "747-400",
 };
 
 void holds_a_heading_from_its_approach_speed(const std::string& id) {
@@ -1654,6 +1654,10 @@ GLIDESLOPE_TEST(the_mosquito_fb6_holds_a_heading_in_a_20_kt_crosswind_in_its_lan
 
 GLIDESLOPE_TEST(the_boeing_737_300_holds_a_heading_in_a_20_kt_crosswind_in_its_landing_configuration_from_its_approach_speed) {
     holds_a_heading_from_its_approach_speed("737-300");
+}
+
+GLIDESLOPE_TEST(the_boeing_747_400_holds_a_heading_in_a_20_kt_crosswind_in_its_landing_configuration_from_its_approach_speed) {
+    holds_a_heading_from_its_approach_speed("747-400");
 }
 
 GLIDESLOPE_TEST(the_boeing_787_8_holds_a_heading_in_a_20_kt_crosswind_in_its_landing_configuration_from_its_approach_speed) {
