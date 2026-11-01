@@ -1263,10 +1263,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       aeroplanes within 4.1 m on runways sloping a degree up and down, a
       tail-wheel aeroplane's brakes waiting for her tail wheel's weight.
 - [ ] **The AI lands the J-3 Cub three-point**: held off, she touches at
-      10.2 degrees, but main wheels first, 2 short of her 12.1, because her
-      model's lift hardly grows above 7.5 degrees; the tests' 2.5-degree
-      margin is unsourced. *Verification: she touches within a justified
-      margin of her three-point attitude, her tail wheel with her mains.*
+      10.2 degrees, main wheels first, 2 short of her 12.1; the tests'
+      2.5-degree margin is unsourced (about 0.4 is derivable). Her section's
+      measured lift (NACA Report 233) moved the touch by only 0.2 degrees
+      and put her stall outside her manual's range, so her model is
+      unchanged: the owner's decision is pending. *Verification: she touches
+      within a justified margin of her three-point attitude, her tail wheel
+      with her mains.*
 - [x] **The AI lands the J-3 Cub within her published crosswind limit**,
       12 kt: one instructor's "about 12 knots" in an EAA Inspire article
       (Piper published none), accepted by the owner on 2026-10-30.
