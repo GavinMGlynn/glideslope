@@ -298,6 +298,7 @@ PITCH_GAIN_PRESSURE = 1000.0
 # PITCH_GROUND_BLEND_S.
 PITCH_GROUND_WASHOUT_PER_S = 10.0
 PITCH_GROUND_BLEND_S = 5.0
+YAW_GROUND_WASHOUT_PER_S = 10.0
 # The roll stick's shaping: the roll rate it commands, as a fraction of the
 # model's, is the stick's travel times this plus the rest times its square.
 ROLL_STICK_CENTRE_GAIN = 0.25
@@ -378,6 +379,7 @@ def airframe():
     text = with_mach_tail(text)
     text = with_pitch_gain_schedule(text)
     text = with_pitch_ground_mode(text)
+    text = with_yaw_ground_mode(text)
     text, n = re.subn(r"(<pure_gain name=\"fcs/throttle[12]\">\s*<input>fcs/t[12]-summer</input>\s*<gain>)1\.001(</gain>)",
                       r"\g<1>1\2", text)
     if n != 2:
@@ -555,6 +557,86 @@ def with_pitch_gain_schedule(text):
         lambda m: schedule + m.group(1) + "<product>\n                    <property>fcs/pitch-gain-schedule</property>\n"
         "                    <sum>" + m.group(2) + "</sum>\n                    </product>" + m.group(3),
         "the pitch loop's gains")
+
+
+def with_yaw_ground_mode(text):
+    """The yaw loop's ground mode, as the pitch loop's: its yaw rate
+    integrator washed out on her wheels at YAW_GROUND_WASHOUT_PER_S and its
+    gain raised by as much, so that her pedals command a yaw rate through a
+    proportional loop there, and the washout faded out over
+    PITCH_GROUND_BLEND_S once she is off them."""
+    mode = (
+        '            <!-- glideslope: tools/make_f22.py - the yaw ground mode -->\n'
+        '            <switch name="fcs/yaw-ground-wow">\n'
+        '                <default value="0"/>\n'
+        '                <test value="1">\n'
+        '                    gear/wow eq 1\n'
+        '                </test>\n'
+        '            </switch>\n'
+        '\n'
+        '            <actuator name="fcs/yaw-ground-mode">\n'
+        '                <input>fcs/yaw-ground-wow</input>\n'
+        f'                <rate_limit sense="decr"> {1.0 / PITCH_GROUND_BLEND_S:g} </rate_limit>\n'
+        '            </actuator>\n'
+        '\n'
+        '            <fcs_function name="fcs/yaw-ground-washout">\n'
+        '                <function>\n'
+        '                    <product>\n'
+        '                        <property>fcs/yaw-ground-mode</property>\n'
+        '                        <property>fcs/yaw-rate-integrator</property>\n'
+        '                    </product>\n'
+        '                </function>\n'
+        '            </fcs_function>\n'
+        '\n'
+        '            <fcs_function name="fcs/yaw-integrator-gain">\n'
+        '                <function>\n'
+        '                    <sum>\n'
+        '                        <value>1</value>\n'
+        '                        <product>\n'
+        f'                            <value>{YAW_GROUND_WASHOUT_PER_S - 1.0:g}</value>\n'
+        '                            <property>fcs/yaw-ground-mode</property>\n'
+        '                        </product>\n'
+        '                    </sum>\n'
+        '                </function>\n'
+        '            </fcs_function>\n'
+        '\n')
+    text = replace_once(text, r"(            <deadband name=\"fcs/yaw-windup-trigger\">)",
+                        lambda m: mode + m.group(1), "the yaw loop's windup trigger")
+    text = replace_once(
+        text,
+        r"(<summer name=\"fcs/yaw-rate-error\">\s*<input> -fcs/yaw-rate-filter    </input>\s*"
+        r"<input> -fcs/yaw-windup-trigger </input>\s*<input>  fcs/yaw-rate-cmd       </input>\n)",
+        lambda m: m.group(1) + "                <input>-fcs/yaw-ground-washout</input>\n",
+        "the yaw loop's rate error")
+    text = replace_once(
+        text,
+        r"(<aerosurface_scale name=\"fcs/yaw-reg-scale\">\s*<input>) fcs/yaw-cmd (</input>)",
+        r"\1 fcs/yaw-cmd-ground-blended \2", "the rudders' command")
+    blended = (
+        '            <!-- glideslope: tools/make_f22.py - on her wheels, pedal to rudder -->\n'
+        '            <fcs_function name="fcs/yaw-cmd-ground-blended">\n'
+        '                <function>\n'
+        '                    <sum>\n'
+        '                        <product>\n'
+        '                            <difference><value>1</value><property>fcs/yaw-ground-mode</property></difference>\n'
+        '                            <property>fcs/yaw-cmd</property>\n'
+        '                        </product>\n'
+        '                        <product>\n'
+        '                            <property>fcs/yaw-ground-mode</property>\n'
+        '                            <value>5</value>\n'
+        '                            <property>fcs/rudder-cmd-filter</property>\n'
+        '                        </product>\n'
+        '                    </sum>\n'
+        '                </function>\n'
+        '            </fcs_function>\n'
+        '\n')
+    text = replace_once(text, r"(            <aerosurface_scale name=\"fcs/yaw-reg-scale\">)",
+                        lambda m: blended + m.group(1), "the rudders' regulator")
+    return replace_once(
+        text,
+        r"(<integrator name=\"fcs/yaw-rate-integrator\">\s*<!--trigger>fcs/rudder-int-trigger</trigger-->\s*"
+        r"<input>fcs/yaw-rate-error</input>\s*<c1>) 1 (</c1>)",
+        r"\1fcs/yaw-integrator-gain\2", "the yaw loop's integrator's gain")
 
 
 def with_pitch_ground_mode(text):

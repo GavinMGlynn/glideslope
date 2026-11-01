@@ -492,6 +492,40 @@
                 <c1> 1.2 </c1>
             </washout_filter>
 
+            <!-- glideslope: tools/make_f22.py - the yaw ground mode -->
+            <switch name="fcs/yaw-ground-wow">
+                <default value="0"/>
+                <test value="1">
+                    gear/wow eq 1
+                </test>
+            </switch>
+
+            <actuator name="fcs/yaw-ground-mode">
+                <input>fcs/yaw-ground-wow</input>
+                <rate_limit sense="decr"> 0.2 </rate_limit>
+            </actuator>
+
+            <fcs_function name="fcs/yaw-ground-washout">
+                <function>
+                    <product>
+                        <property>fcs/yaw-ground-mode</property>
+                        <property>fcs/yaw-rate-integrator</property>
+                    </product>
+                </function>
+            </fcs_function>
+
+            <fcs_function name="fcs/yaw-integrator-gain">
+                <function>
+                    <sum>
+                        <value>1</value>
+                        <product>
+                            <value>9</value>
+                            <property>fcs/yaw-ground-mode</property>
+                        </product>
+                    </sum>
+                </function>
+            </fcs_function>
+
             <deadband name="fcs/yaw-windup-trigger">
                 <input>fcs/yaw-rate-integrator</input>
                 <width>0.872</width>
@@ -505,12 +539,13 @@
                 <input> -fcs/yaw-rate-filter    </input>
                 <input> -fcs/yaw-windup-trigger </input>
                 <input>  fcs/yaw-rate-cmd       </input>
+                <input>-fcs/yaw-ground-washout</input>
             </summer>
 
             <integrator name="fcs/yaw-rate-integrator">
                 <!--trigger>fcs/rudder-int-trigger</trigger-->
                 <input>fcs/yaw-rate-error</input>
-                <c1> 1 </c1>
+                <c1>fcs/yaw-integrator-gain</c1>
                 <clipto>
                     <min>-0.436</min>
                     <max>0.436</max>
@@ -793,8 +828,25 @@
                 </clipto>
             </fcs_function>
 
+            <!-- glideslope: tools/make_f22.py - on her wheels, pedal to rudder -->
+            <fcs_function name="fcs/yaw-cmd-ground-blended">
+                <function>
+                    <sum>
+                        <product>
+                            <difference><value>1</value><property>fcs/yaw-ground-mode</property></difference>
+                            <property>fcs/yaw-cmd</property>
+                        </product>
+                        <product>
+                            <property>fcs/yaw-ground-mode</property>
+                            <value>5</value>
+                            <property>fcs/rudder-cmd-filter</property>
+                        </product>
+                    </sum>
+                </function>
+            </fcs_function>
+
             <aerosurface_scale name="fcs/yaw-reg-scale">
-                <input> fcs/yaw-cmd </input>
+                <input> fcs/yaw-cmd-ground-blended </input>
                 <domain>
                     <min> -5 </min>
                     <max> 5 </max>

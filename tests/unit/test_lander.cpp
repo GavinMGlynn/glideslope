@@ -3,11 +3,13 @@
 
 #include "sim/aircraft.hpp"
 #include "sim/catalogue.hpp"
+#include "sim/figures.hpp"
 #include "sim/lander.hpp"
 #include "sim/runway_condition.hpp"
 #include "sim/terrain.hpp"
 #include "sim/weather.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
@@ -91,14 +93,15 @@ struct Landing {
 // `out_nm`. `crosswind_kts` blows from the left across the runway, or from
 // the right where it is negative; zero is calm air.
 Landing land(const std::string& id, double crosswind_kts, bool wet = false,
-             double out_nm = 5.0) {
+             double out_nm = 5.0, const ApproachSpeeds* given = nullptr) {
     std::printf("landing the %s in %.0f knots of crosswind from the %s%s\n", id.c_str(),
                 std::abs(crosswind_kts), crosswind_kts < 0.0 ? "right" : "left",
                 wet ? ", wet" : "");
     std::fflush(stdout);
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const Runway runway = a_runway();
-    const ApproachSpeeds speeds = glideslope::sim::approach_speeds(data(), entry.model);
+    const ApproachSpeeds speeds =
+        given != nullptr ? *given : glideslope::sim::approach_speeds(data(), entry.model);
 
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
     // The ground is the runway's own elevation, everywhere: this is about the
@@ -270,6 +273,56 @@ GLIDESLOPE_TEST(every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm
           "every light aircraft was landed: " + std::to_string(walked) + " of " +
               std::to_string(light_aircraft().size()));
     check(walked == 4, "there are four light aircraft, not " + std::to_string(walked));
+}
+
+// **The F-22A rolls out on the centreline, in calm air and 15 kt across**:
+// landed by the AI from five miles out and stopped, she is never farther
+// from the centreline after her first touch than the runway's half-width
+// (0.85 m in calm air, 5.66 in 15 kt across), and stops on the
+// runway the right way up. Her approach speed is not this test's: she has
+// none yet, so she is flown down at 150 kt made by hand - inside the 165
+// KCAS AFMAN 11-2F-22A volume 3 holds an instrument final approach to (its
+// figures file) - at which she flies the approach well, flared to her
+// figures' 200 ft/min; it is her roll-out that is pinned, and she is held
+// upright (10 degrees of bank at most) but not to staying down. Until 2026-11-02
+// her pedals reached her rudders on her wheels only through her flight
+// controls' yaw rate integrator and its limits, a third of their travel at
+// most: her roll-out's yaw swung wider every second and she left the
+// runway - from `glideslope_cli land`'s gate 2 nm out 196 m across in calm
+// air and 380 in 15 kt across, and here 117 m in 15 kt across. Her yaw
+// loop now has a ground mode (tools/make_f22.py, `with_yaw_ground_mode`).
+// **Seen to fail** on her model before it. Coverage: two winds, both landed.
+GLIDESLOPE_TEST(the_f22a_landed_at_150_kt_rolls_out_on_the_centreline_in_calm_air_and_15_kt_across) {
+    ApproachSpeeds speeds;
+    speeds.vref_kts = 150.0;
+    speeds.stall_kts = 150.0 / 1.3;
+    speeds.flap = 0.0;
+    speeds.flare_ft = std::clamp(0.25 * speeds.vref_kts, 8.0, 30.0);
+    speeds.touchdown_fpm = glideslope::sim::read_published_figures(
+                               data() / "figures" / "f22.xml").touchdown_fpm;
+    speeds.spool_s = glideslope::sim::spool_up_s(data() / "jsbsim", "f22");
+    std::size_t landed = 0;
+    for (const double crosswind : {0.0, 15.0}) {
+        const Landing l = land("f22", crosswind, false, 5.0, &speeds);
+        std::printf("  %.0f kt across: touched %.0f ft/min %.2f m across, farthest after %.2f m, "
+                    "stopped %.0f m along\n",
+                    crosswind, l.sink_fpm, l.across_m, l.worst_across_after_touch_m,
+                    l.stopped_along_m);
+        const std::string where = " in " + std::to_string(crosswind) + " kt across";
+        check(l.touched && l.stopped && l.stopped_along_m <= a_runway().length_m,
+              "the F-22A stopped on the runway" + where);
+        check(l.worst_across_after_touch_m <= Lander::runway_half_width_m,
+              "the F-22A went " + std::to_string(l.worst_across_after_touch_m) +
+                  " m from the centreline on her roll" + where + ", off the runway");
+        // Upright, but not held to staying down: at this speed, not hers,
+        // she rises 3.7 ft after her first touch, which her approach at her
+        // own speed is to answer (docs/status, 2026-11-02).
+        check(l.worst_roll_after_touch_deg <= 10.0,
+              "the F-22A banked " + std::to_string(l.worst_roll_after_touch_deg) +
+                  " degrees on her roll" + where);
+        ++landed;
+    }
+    check(landed == 2, std::to_string(landed) + " of 2 winds landed");
 }
 
 // **And in a 10-knot crosswind**, which is the other half of the item's
