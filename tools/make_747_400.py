@@ -221,7 +221,7 @@ CM_DE_AT_0, CM_DE_AT_2 = -1.3, -0.325   # and Cmde at Mach 0 and 2
 # speeds (D6-30643; engines idle, load factor less than one, forward centre of
 # gravity, the gear up but at flaps 25 and 30), read from the chart: flaps 20,
 # 134 KEAS at 700,000 lb; flaps 30, 112 KEAS at 600,000 lb. On the 5,500 sq
-# ft wing those are a CL of 2.08 and 2.57. Her flapped lift keeps Heffley and
+# ft wing those are a CL of 2.09 and 2.57. Her flapped lift keeps Heffley and
 # Jewell's slope past their trim point up to that CL, its angle her flapped
 # stall's, and then falls as her clean wing's does past its stall. Without it
 # her flapped wing stalled at the clean wing's 0.23 radian, at a CL of 1.82
@@ -380,8 +380,6 @@ def airframe():
         text = replace_once(
             text, r"(name=\"" + side + r"_MLG\">.*?<static_friction>)\s*0\.8\s*(</static_friction>)",
             rf"\g<1> {BRAKING_FRICTION} \2", f"the {side.lower()} main gear's friction")
-    # An assertion, not a change: the file's nose gear already stands at
-    # NOSE_GEAR_X_IN, and this fails if it ever stops.
     text = replace_once(
         text, r"(name=\"NOSE_LG\">.*?<spring_coeff unit=\"LBS/FT\">)\s*22000\s*(</spring_coeff>)",
         rf"\g<1> {NOSE_SPRING} \2", "the nose gear's spring")
@@ -393,6 +391,8 @@ def airframe():
         text = replace_once(
             text, r"(name=\"" + side + r"_MLG\">.*?<spring_coeff unit=\"LBS/FT\">)\s*150000\s*(</spring_coeff>)",
             rf"\g<1> {MAIN_SPRING_PER_LEG:.0f} \2", f"the {side.lower()} main gear's spring")
+    # An assertion, not a change: the file's nose gear already stands at
+    # NOSE_GEAR_X_IN, and this fails if it ever stops.
     text = replace_once(
         text, r"(name=\"NOSE_LG\">\s*<location unit=\"IN\">\s*<x>)\s*" + str(NOSE_GEAR_X_IN) + r"\s*(</x>)",
         r"\g<1> " + str(NOSE_GEAR_X_IN) + r" \2", "the nose gear's station")
