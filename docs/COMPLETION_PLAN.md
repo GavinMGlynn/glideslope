@@ -1262,15 +1262,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       Mosquito 2.1 dry and 3.4 wet, the J-3 Cub 1.6 - and both tail-wheel
       aeroplanes within 4.1 m on runways sloping a degree up and down, a
       tail-wheel aeroplane's brakes waiting for her tail wheel's weight.
-- [ ] **The AI lands the J-3 Cub three-point**: held off, she touches at
-      10.2 degrees, main wheels first, 2 short of her 12.1; the tests'
-      2.5-degree margin is unsourced (about 0.4 is derivable). Her section's
-      measured lift (NACA Report 233) moved the touch by only 0.2 degrees
-      and put her stall outside her manual's range, so her lift is kept.
-      Her elevator has authority in hand at the touch. What is left is the
-      lander's hold-off: her nose comes up too late. *Verification: she touches
-      within a justified margin of her three-point attitude, her tail wheel
-      with her mains.*
+- [x] **The AI lands the J-3 Cub three-point**: held off a foot as the
+      FAA's handbook has it, she touches at 11.8 to 11.9 degrees where she
+      stands at 12.1, in calm air and every crosswind to her 12 kt, dry and
+      wet. *Verification: she touches within a justified margin of her
+      three-point attitude (0.43 degrees, derived from her gear), her tail
+      wheel with her mains.* Done 2026-11-02.
 - [x] **The AI lands the J-3 Cub within her published crosswind limit**,
       12 kt: one instructor's "about 12 knots" in an EAA Inspire article
       (Piper published none), accepted by the owner on 2026-10-30.

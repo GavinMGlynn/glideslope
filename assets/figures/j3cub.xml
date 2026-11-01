@@ -146,9 +146,11 @@
     tools/measured_landing.py from `glideslope_cli land j3cub` (2026-11-01,
     linux-release, at her model's own loading flown solo, 922 lb). Landed by
     the approach autopilot from a final-approach gate 2 nm out, on a level
-    runway at sea level in calm air with every tank full, she touched 358 m in,
-    three-point - her nose at 10.2 degrees, where she stands at 12.1 - and
-    stopped 441 m past the threshold. **It was 498 m and 1,700 ft** while the
+    runway at sea level in calm air with every tank full, she touched 358 m in
+    with her nose at 10.2 degrees, where she stands at 12.1, and stopped 441 m
+    past the threshold; held off a foot, as the AFH's three-point landing is
+    (2026-11-02), she touches 363 m in at 11.8 degrees and stops 440 m in,
+    the same figure. **It was 498 m and 1,700 ft** while the
     AI wheel-landed her (2026-10-30 to 2026-11-01), at 2.8 degrees, and she
     rolled on her main wheels unbraked until her tail came down; and 429 m
     and 1,500 ft before her brakes waited for her tail wheel. (At 752 lb,

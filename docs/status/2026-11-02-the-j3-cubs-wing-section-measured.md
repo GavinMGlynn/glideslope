@@ -152,3 +152,90 @@ first. What would close it lies in the lander's hold-off law, which is not
 a sourced aerodynamic figure: a hold-off higher than half a foot, or the
 nose raised earlier as she slows. Tried before (2026-11-01) at one to two
 feet without the faster nose, she dropped on at 100 to 150 ft/min.
+
+### The AI lands the J-3 Cub three-point, 2026-11-02 - done
+
+**What is still not true first.**
+- **In gusts she is still flown on to her main wheels.** This is unchanged,
+  as the FAA's Airplane Flying Handbook (FAA-H-8083-3C) prefers in gusty
+  wind: ch. 9, "Turbulent Air Approach and Landing", and ch. 14.
+- She touches at 114 to 125 ft/min, where she touched at 68. The AFH has a
+  three-point touch from about a foot up. The sink limit is 300 ft/min, and
+  the server's gear judgement passes every landing.
+- The trim's rate in the hold-off (below) is chosen from a sweep, not
+  sourced.
+- Her stall question is still open: whether her manual's 38 mph is
+  indicated.
+
+**The source.** The AFH, ch. 14, "Three-Point Landing", page 14-4: "Round out
+(level-off) should be made with the main wheels about one foot off the
+surface. From that point forward, the technique is essentially the same
+that is used in nose-wheels: a gentle increase in AOA to maintain flight
+while slowing. In a tailwheel aircraft, however, the goal is to attain a
+much steeper fuselage angle than that commonly used in nose-wheel models;
+one that touches the tailwheels at the same time as the main wheels."
+
+On the same page, under "Touchdown": "the airplane is held off the surface
+of the runway until the attitude needed to remain aloft matches the
+geometry of the landing gear". Held off a bit too long, "the tail makes
+contact first. Provided this happens from no more than a foot off the
+surface, the result is undramatic".
+
+Under "Crosswinds", pages 14-5 to 14-6: "only one main wheel makes initial
+contact, either in concert with the tailwheel in three-point landings".
+
+**What changed** (src/sim/lander.cpp). Each change is gated on her figures'
+`lands="three_point"` and not in gusts, so no other aeroplane's landing
+changes:
+- **Held off a foot**, the AFH's "about one foot", where she was held at
+  half a foot.
+- **Her incidence is not limited short of the stall** in a three-point
+  flare. Her nose is still bounded by her standing attitude. The lander's
+  limit is 12 degrees of incidence for a light aeroplane, and with it her
+  nose stopped at 11.5 degrees with the limit at 12.5, 11.7 at 13, and 11.8
+  from 13.5 up.
+- **The back pressure goes on increasing until her nose is there.** The
+  trim takes up the attitude's error at 3 a degree a second, not 0.02. The
+  flare's law is proportional, and it settled 1.9 degrees short with the
+  elevator at 64% of its travel. Swept at 0.1, 0.3, 1 and 3, the touch was
+  at 10.6, 11.6, 11.7 and 11.8 degrees.
+- The tests' margin (tests/unit/test_lander.cpp) is now the 0.43 degrees
+  derived above, not 2.5.
+
+**Figures** (linux-release):
+- **In the tests**, from a mile out: in calm air and in every crosswind from
+  1 to 12 kt, both sides, dry and wet (50 landings), she touches at 11.82 to
+  11.90 degrees and 114 to 125 ft/min, 360 to 363 m in, and stops 434 to
+  439 m in.
+- **Her tail wheel**, traced by `land j3cub` from 2 nm out: it first carries
+  weight 4 steps (0.03 s) after her mains in calm air. In a crosswind it
+  touches between her upwind main and her downwind one: 6 to 7 steps after
+  the upwind main in 6 and 12 kt.
+- **`land j3cub`**: she touches 363 m in at 11.8 degrees and 116 ft/min, and
+  stops 440 m in. Her measured landing distance, 1,500 ft, is unchanged, and
+  so is its test.
+
+**Verification.**
+- The five Cub landing tests (calm dry and wet, and the four crosswind
+  tests) hold the 0.43-degree margin. **Seen red** with the lander as it
+  was: all five failed, the first "the Cub touched with her nose at
+  10.225225 degrees, where she stands at 12.103087 in calm air, dry".
+  Restored, green.
+- **The hard-flare lesson's bound for a three-point aeroplane**
+  (tests/unit/test_lesson.cpp,
+  `a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed_without_a_stall`):
+  the Cub's wing now goes to 13.8 degrees, past the 13 that test allows a
+  light aeroplane, as the AFH's hold-off to about the stall asks. For an
+  aeroplane landed three-point, the test now holds her nose to a degree
+  over her standing attitude, the lander's own bound. Her nose reached
+  11.8. **Seen red** with that bound set a degree under her attitude;
+  reverted.
+- **The full linux-release suite (-LE nightly)**: 1,424 tests, two red.
+  - The hard-flare lesson, above, is fixed. Rerun after the fix, with every
+    flare, landing, gust, lesson, selftest and Cub test, it is green.
+  - `the_google_terrain_draws_with_its_attribution_or_says_why_not_on_vulkan`
+    fails here, twice alone: "google via ion-token drew no terrain at all".
+    That is the Cesium ion token's Google tiles; it touches no code this
+    item changed, and on CI, with no key, it skips.
+- Every other aircraft's landing is unchanged: each change is behind
+  `three_point_`, and only the Cub's figures say it.
