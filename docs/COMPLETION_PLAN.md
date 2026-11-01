@@ -1241,8 +1241,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       tail-wheel aeroplane's brakes waiting for her tail wheel's weight.
 - [ ] **The AI wheel-lands the J-3 Cub**: she touches at 3.1 degrees and
       stands at 12.1, and rolls unbraked until her tail comes down, stopping
-      498 m in; landed three-point, as the FAA's handbook (FAA-H-8083-3C, ch.
-      14) lands a Cub, she would stop near 429. *Verification: the Cub
+      498 m in (429 before her brakes waited for it); the FAA's handbook
+      (FAA-H-8083-3C, ch. 14) lands a Cub three-point. *Verification: the Cub
       touches within a stated margin of her three-point attitude, and her
       landing distance is measured again.*
 - [x] **The AI lands the J-3 Cub within her published crosswind limit**,
@@ -1285,12 +1285,16 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       PROJECT_STATUS); the F-22A has no approach speed, so every landing is
       refused her, and no figure is measured for her. Since 2026-10-31 the
       runway lines a model is shown say their landing length and what the
-      aircraft needs (the F-22A and 747-400, with no approach speed, are told
-      they do not land). **Still missing**: a landing figure for the F-22A,
+      aircraft needs (the F-22A, with no approach speed, is told she does
+      not land). **Still missing**: a landing figure for the F-22A,
       which waits on her approach speed. *Verification: each of the five
       refused a runway shorter than a cited figure, and the model shown each
       runway's landing length.* Owner 2026-10-09. Owner 2026-10-31:
       recordings made again.
+- [ ] **The 747-400 does not land**: her figures cite Boeing's landing
+      distance (D6-58326-1) but no stall speed, so no approach speed is
+      worked out for her; a copilot is told she does not land. *Verification:
+      her approach speed from a published figure, and she lands within it.*
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
       *Verification: each light aircraft's policy lands within the
       autopilot's limits from the same starts, in calm air and a 10-knot
