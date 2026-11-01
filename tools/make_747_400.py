@@ -49,6 +49,10 @@ The changes, and what each is for:
     Main wheels' braking friction 0.8 -> 0.5
                         As the 737-300's: a dry runway's, where 0.8 stopped a
                         rejected take-off at two-thirds of a g.
+    Main gears' springs 150,000 -> 222,000 lb/ft (2026-11-02)
+                        Her ground clearances' 12 in between her empty and
+                        her maximum weight (D6-58326-1, figure 2.3.1); see
+                        MAIN_SPRING_PER_LEG.
     Main gear station 1554 -> 1404 (2026-11-01)
                         Boeing's 84 ft wheelbase (D6-58326-1, figure 2.2.1),
                         where the model had 96.5 ft, 19.6% of her weight on
@@ -298,6 +302,30 @@ NOSE_GEAR_X_IN = 396
 MAIN_GEAR_X_IN = NOSE_GEAR_X_IN + 84 * 12
 
 
+# **Her main legs' spring, from her ground clearances.** D6-58326-1, figure
+# 2.3.1 (747-400, -400 Combi, ground clearances, July 2003), gives each
+# point's height at the least and the most the loadings put it at; point T,
+# the fuselage just behind her body gear, the nearest to her main wheels and
+# so the least moved by her attitude, is 17 ft 0 in at its most and 16 ft 0
+# in at its least: 12 in between her operating empty weight, 394,088 lb, and
+# her 875,000 lb maximum. The table does not name its weights; they are
+# taken as the lightest and the heaviest it can mean. Her main wheels carry
+# MAIN_SHARE of her weight (her centre of gravity, station 1327, 77 in ahead
+# of them and 931 behind her nose wheel), so her mains, tyres and legs
+# together, sink 12 in under 0.924 times 480,912 lb: 444,000 lb/ft, 222,000
+# a leg for the model's two. JSBSim's B747 had 150,000 a leg, which sank her
+# 20 in more at the tail strike: over-rotated on her wheels she struck at
+# 11.5 degrees against her contacts' 12.7 and Boeing's 12.5 (AERO tailstrike
+# article). The spring is linear from no load, where hers is an oleo
+# pumped up to carry her empty weight, so it is her rate between the two
+# weights, not her height standing.
+OPERATING_EMPTY_LBS = 394088
+MAIN_SHARE = round(931 / (MAIN_GEAR_X_IN - NOSE_GEAR_X_IN), 3)
+CLEARANCE_T_FT = (17.0, 16.0)        # at her lightest and heaviest
+MAIN_SPRING_PER_LEG = round(MAIN_SHARE * (MAXIMUM_WEIGHT_LBS - OPERATING_EMPTY_LBS)
+                            / (CLEARANCE_T_FT[0] - CLEARANCE_T_FT[1]) / 2.0, -3)
+
+
 # **Her elevator's power at an approach's Mach, from the same report**:
 # Cmdelta_e -1.40 a radian in table IX-1 (Mach 0.198) and -1.34 in table
 # IX-2 (Mach 0.249), on its 27.31 ft chord, the model's. The model's falls in
@@ -360,6 +388,9 @@ def airframe():
         text = replace_once(
             text, r"(name=\"" + side + r"_MLG\">\s*<location unit=\"IN\">\s*<x>)\s*1554\s*(</x>)",
             rf"\g<1> {MAIN_GEAR_X_IN} \2", f"the {side.lower()} main gear's station")
+        text = replace_once(
+            text, r"(name=\"" + side + r"_MLG\">.*?<spring_coeff unit=\"LBS/FT\">)\s*150000\s*(</spring_coeff>)",
+            rf"\g<1> {MAIN_SPRING_PER_LEG:.0f} \2", f"the {side.lower()} main gear's spring")
     text = replace_once(
         text, r"(name=\"NOSE_LG\">\s*<location unit=\"IN\">\s*<x>)\s*" + str(NOSE_GEAR_X_IN) + r"\s*(</x>)",
         r"\g<1> " + str(NOSE_GEAR_X_IN) + r" \2", "the nose gear's station")
