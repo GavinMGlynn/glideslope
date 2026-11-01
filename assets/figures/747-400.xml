@@ -124,8 +124,8 @@
        `weight_lbs`, her model's own weight, which the trial flies and a
        server flies her at; heavier, the slowest is raised for her weight
        (sim::for_weight). -->
-  <plan_speeds slowest_kcas="220" fastest_kcas="300" weight_lbs="754313">
-    The slowest, 220 kt, is 5 kt over the slowest that held: it publishes no stall speed, so has no approach speed, and the sweep began at 160 kt (`plan-speeds 747-400 160`); below 215 kt it came down 500 ft before it reached its circle (at 210 kt, its 6,381 m circle); 215 kt held all four ways. The fastest, 300 kt, a fifth over its start speed, held all four ways.
+  <plan_speeds slowest_kcas="213" fastest_kcas="300" weight_lbs="754313">
+    The slowest, 220 kt, is 5 kt over the slowest that held: it publishes no stall speed, so has no approach speed, and the sweep began at 160 kt (`plan-speeds 747-400 160`); below 215 kt it came down 500 ft before it reached its circle (at 210 kt, its 6,381 m circle); 215 kt held all four ways. The fastest, 300 kt, a fifth over its start speed, held all four ways. Measured again on 2026-11-01 (linux-release, `plan-speeds 747-400`), once she had an approach speed - Boeing's 153 kt at 630,000 lb, 167.4 kt at this weight - and her flapped lift and elevator came from NASA CR-2144: swept up from 168 kt, below 208 kt she came down 500 ft before she reached her circle; 208 kt held all four ways, so the slowest is 213 (it was 220). The fastest is unchanged.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
        glide-speeds 747-400` on 2026-10-06 (linux-release): from the slowest a
@@ -133,8 +133,11 @@
        orbit allowed from 30,000 ft, every engine stopped, clean, both ways
        round (sim::glide_tightest_orbit), until one went round without its
        wing passing the angle its lift peaked at, nor 25 degrees. -->
-  <glide_speeds slowest_kcas="235">
-    235 kt; from 220, the slowest a route may fly it, to 230 it stalled.
+  <glide_speeds slowest_kcas="230">
+    230 kt; from 213, the slowest a route may fly it, to 225 it stalled.
+    Measured again on 2026-11-01 (linux-release), once her elevator's power
+    came from NASA CR-2144 (tools/make_747_400.py): it was 235, 230 having
+    stalled.
   </glide_speeds>
   <!-- **Her take-off speeds, measured from her model, not published**: she
        publishes neither a rotation nor a climb speed. Measured by
@@ -142,8 +145,8 @@
        project owner's decision of that day (REQUIREMENTS.md section 9):
        taken off a level 3,500 m runway at sea level in calm air by the
        take-off autopilot (sim/takeoff_trial.hpp). -->
-  <takeoff_speeds rotate_kcas="160" climb_kcas="170" flaps_deg="20" weight_lbs="754313">
-    Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 155 kt; 160 is written, 5 kt to spare. Rotated at 100 to 150 kt she ran on, and left the ground more than 15 kt past it - at 168 kt from 115 to 150. The climb away: asked 170 to 260 kt, at 500 ft she was never slower than 163.8 kt, 6 kt under the slowest asked - the slowest she climbs away at with her nose held no higher than the take-off autopilot holds it - which is written rounded up. At flaps 20, the take-off field length's, held to 500 ft, and 754,313 lb, the weight her model flies a plan at. Measured again on 2026-10-09 (linux-release): until then the take-off raised its flaps at once from 200 ft, so the climb away was read with them running up, at 187.1 kt. And again on 2026-10-13 (linux-release), once her rotation was held to her three degrees a second on her wheels: the rotation is unchanged, and she leaves a little lower and slower, so the slowest climb away fell from 165.2 kt to 163.8, which rounds up to 165; the measurement now writes no climb away within ten knots of her rotation speed (sim/takeoff_trial.cpp, 14 CFR 25.107(c)(2)), so it stays 170.
+  <takeoff_speeds rotate_kcas="150" climb_kcas="170" flaps_deg="20" weight_lbs="754313">
+    Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 155 kt; 160 is written, 5 kt to spare. Rotated at 100 to 150 kt she ran on, and left the ground more than 15 kt past it - at 168 kt from 115 to 150. The climb away: asked 170 to 260 kt, at 500 ft she was never slower than 163.8 kt, 6 kt under the slowest asked - the slowest she climbs away at with her nose held no higher than the take-off autopilot holds it - which is written rounded up. At flaps 20, the take-off field length's, held to 500 ft, and 754,313 lb, the weight her model flies a plan at. Measured again on 2026-10-09 (linux-release): until then the take-off raised its flaps at once from 200 ft, so the climb away was read with them running up, at 187.1 kt. And again on 2026-10-13 (linux-release), once her rotation was held to her three degrees a second on her wheels: the rotation is unchanged, and she leaves a little lower and slower, so the slowest climb away fell from 165.2 kt to 163.8, which rounds up to 165; the measurement now writes no climb away within ten knots of her rotation speed (sim/takeoff_trial.cpp, 14 CFR 25.107(c)(2)), so it stays 170. And again on 2026-11-01 (linux-release), once her main gear stood at Boeing's station 1404 and her flapped lift came from NASA CR-2144 and CR-1756 (tools/make_747_400.py): rotated from 100 to 140 kt she ran on and left the ground at 156 to 157 kt; from 145 she lifted off within 15 kt, so the rotation, with 5 kt to spare, is 150 (it was 160); she unsticks at 158 kt, 1,694 m along, and the slowest she climbed away at was 169.3 kt, written as 170.
   </takeoff_speeds>
 
   <!-- **Her approach speed, published.** Boeing, Aerodrome Reference Code
