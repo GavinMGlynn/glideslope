@@ -32,6 +32,12 @@ set(_toward "-39.296,174.064,2518")
 # tile the view needs is waited for, so the frame's size is most of what the
 # test costs.
 set(_size 320x240)
+# **A refusal for now, and only that, skips**: the provider's 429 or 503 for
+# its tileset, as TerrainTiles::update words it. Any other failure of the
+# tileset is said otherwise, and fails.
+set(_refusal "could not download the [a-z]+ terrain's tileset: the provider answered (429|503)[^\n]*")
+# The DEM's own download failing - copernicus-dem-*, or no answer at all.
+set(_dem_failed "could not download(: | https://copernicus-dem-)")
 
 # --- with no key at all -----------------------------------------------------
 #
@@ -122,8 +128,12 @@ if(NOT _rc EQUAL 0)
                        "nothing to draw: ${_err}")
         cmake_language(EXIT 77)
     endif()
-    if(_err MATCHES "could not download")
-        message(STATUS "the terrain could not be had: ${_err}")
+    if(_err MATCHES "${_refusal}")
+        message(STATUS "skipped: the provider refused for now: ${CMAKE_MATCH_0}")
+        cmake_language(EXIT 77)
+    endif()
+    if(_err MATCHES "${_dem_failed}")
+        message(STATUS "the DEM could not be had: ${_err}")
         cmake_language(EXIT 77)
     endif()
     message(FATAL_ERROR "${PROVIDER} exited ${_rc}\n${_err}")
@@ -257,8 +267,8 @@ if(PROVIDER STREQUAL "google")
             # has spent its root requests for the minute: it drew an empty
             # sky, "drew no terrain at all", in local full suites until the
             # program said so.
-            if(_err MATCHES "could not download")
-                string(REGEX MATCH "could not download[^\n]*" _why "${_err}")
+            if(_err MATCHES "${_refusal}")
+                set(_why "${CMAKE_MATCH_0}")
                 message(STATUS "google via ${_way}: ${_why}")
                 list(APPEND _refused "google via ${_way}: ${_why}")
                 math(EXPR _skipped "${_skipped} + 1")
