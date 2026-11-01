@@ -1309,10 +1309,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       recordings made again.
 - [ ] **The 747-400 does not land**: since 2026-11-01 she has Boeing's
       published approach, 153 kt at 630,000 lb, and lands within her limits
-      in calm air, wind and crosswind. **Still missing**: handed over at
-      lift-off, her climb-out raises her flaps at 170 kt, below her clean
-      stall, and she sinks back to the runway; her stall recovery at
-      20,000 ft and her gusts (seed 8) are named, not fixed. *Verification:
+      in calm air, wind and crosswind, and her flaps come up by her
+      manoeuvre speeds. **Still missing**: held back from the roll she
+      strikes her tail on her wheels at 11.5 degrees, not her 12.5; her
+      gust landings are named (seed 8). *Verification:
       her approach speed from a published figure, and she lands within it.*
 - [ ] **Learnt landings for other aircraft.** Only the Cessna 172P has one.
       *Verification: each light aircraft's policy lands within the
