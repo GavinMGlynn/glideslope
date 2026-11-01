@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <limits>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -1484,7 +1485,7 @@ Controls Lander::fly_laws() {
         // airplane", then held off just above the runway, the back pressure
         // increased as she slows, so that she touches on her main wheels and
         // tail wheel together at about the stall. Her wheels are flown down
-        // to half a foot over the runway - at the flare's own sink to there,
+        // to a foot over the runway - at the flare's own sink to there,
         // then held, a little climb asked for below it - and as she slows,
         // holding her there takes more nose, until it is within a degree of
         // her standing attitude and the flare's own sink lets her settle.
@@ -1503,8 +1504,17 @@ Controls Lander::fly_laws() {
         const bool holding_three_point =
             three_point_ && !gusty && s.pitch_deg < most_flare_pitch_deg_ - 1.0;
         holding_three_point_ = holding_three_point;
+        // **Held off a foot over the runway**, as the AFH's three-point
+        // landing has it (FAA-H-8083-3C, ch. 14, "Three-Point Landing", page
+        // 14-4): "Round out (level-off) should be made with the main wheels
+        // about one foot off the surface. From that point forward, the
+        // technique is essentially the same that is used in nose-wheels: a
+        // gentle increase in AOA to maintain flight while slowing", to "a
+        // much steeper fuselage angle ... one that touches the tailwheels at
+        // the same time as the main wheels". Held half a foot over it, she
+        // touched at 10.2 degrees (2026-11-01).
         if (holding_three_point) {
-            constexpr double held_off_ft = 0.5;
+            constexpr double held_off_ft = 1.0;
             const double over_ft = std::max(0.0, high_ft - held_off_ft);
             want_fpm = -(std::min(touchdown_fpm, 60.0 * over_ft) +
                          150.0 * over_ft / std::max(1.0, flare_height_ft())) +
@@ -1585,7 +1595,17 @@ Controls Lander::fly_laws() {
         // back pressure or hold it, never to push: the nose is held where it
         // is and she is let settle.
         // (How high is `most_flare_alpha_deg`'s.)
-        const double most_alpha_deg = most_flare_alpha_deg();
+        // **Not for a three-point landing**, out of gusts: there the AFH
+        // (ch. 14, page 14-4) holds her off "until the attitude needed to
+        // remain aloft matches the geometry of the landing gear" - at about
+        // the stall - and her nose is bounded by that attitude, the one she
+        // stands at (`most_flare_pitch_deg_`), not by an incidence short of
+        // the stall. Held to twelve degrees of incidence, sinking a little
+        // with her nose at 11.5, she could never reach her 12.1 (2026-11-02:
+        // 11.5 at 12.5, 11.7 at 13, 11.8 from 13.5 up).
+        const bool three_point_flare = three_point_ && !gusty;
+        const double most_alpha_deg =
+            three_point_flare ? std::numeric_limits<double>::infinity() : most_flare_alpha_deg();
         const double alpha_deg = a_.property("aero/alpha-deg");
         //
         // **In gusts, judged a moment ahead, and let down a little**: a
@@ -1877,7 +1897,16 @@ Controls Lander::fly_laws() {
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 4.5)
             : 0.0;
     last_want_pitch_ = want_pitch;
-    pitch_trim_ = std::clamp(pitch_trim_ + 0.02 * pitch_error / steps_per_second, -0.8, 0.8);
+    // **Held off three-point, the back pressure goes on increasing until her
+    // nose is there** (the AFH, ch. 14: the AOA increased "to maintain flight
+    // while slowing"). The flare's law is proportional to the attitude's
+    // error, and with the wing near its stall it settled two degrees short
+    // with the elevator at two thirds of its travel - 10.2 degrees where she
+    // stands at 12.1, its rate nought (2026-11-02). Here the trim takes up
+    // the error at 3 a degree a second, not 0.02; chosen from 0.1, 0.3, 1
+    // and 3 (10.6, 11.6, 11.7, 11.8 degrees in calm air), not sourced.
+    const double trim_rate = stage_ == Stage::flare && holding_three_point_ ? 3.0 : 0.02;
+    pitch_trim_ = std::clamp(pitch_trim_ + trim_rate * pitch_error / steps_per_second, -0.8, 0.8);
     // **Three times as firmly in the flare.** At the flying law's gain a
     // jet's nose lagged the flare's attitude by two to three degrees all the
     // way down - an F-35B's rose half a degree a second - and the round

@@ -473,13 +473,19 @@ constexpr int cub_published_crosswind_kts = 12;
 
 // **She is landed three-point** (assets/figures/j3cub.xml, `lands`): her
 // nose as her wheels first touch within this of the attitude she stands at
-// on all three. The FAA's Airplane Flying Handbook (FAA-H-8083-3C, ch. 14)
-// has her touch on main wheels and tail wheel together at about the stall;
-// her model's lift hardly grows above seven and a half degrees of incidence,
-// and she touches on her main wheels a moment before her tail - in calm air
-// at 10.2 degrees, where she stands at 12.1. Wheel-landed, as she was until
-// 2026-11-01, she touched at 2.8.
-constexpr double cub_three_point_margin_deg = 2.5;
+// on all three. The FAA's Airplane Flying Handbook (FAA-H-8083-3C, ch. 14,
+// page 14-4) has her touch "the tailwheels at the same time as the main
+// wheels". The margin is derived from her model's wheels, not published:
+// unloaded, all three meet a level runway at atan(43.31 / 201.97) = 12.10
+// degrees, her standing attitude; touching on her mains a little flatter,
+// her tail wheel is 202 in x tan(the shortfall) up, and her main tyres'
+// standing deflection, about 1.5 in, brings it down by 1.5 / 202 of a
+// radian, 0.43 degrees, as they take her weight - so within it her tail
+// wheel meets the runway with her mains. Tail first, steeper, the AFH
+// allows "from no more than a foot off the surface"; the same margin holds
+// that side. Until 2026-11-02 it was 2.5, fitted to the 10.2 degrees she
+// touched at; she now touches at 11.82 to 11.90.
+constexpr double cub_three_point_margin_deg = 0.43;
 
 std::vector<std::string> not_three_point(const Landing& l, const std::string& where) {
     if (l.touched && !(std::abs(l.touch_pitch_deg - l.standing_pitch_deg) <=

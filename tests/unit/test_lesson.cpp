@@ -10022,6 +10022,9 @@ struct HardFlare {
     double back_alpha_deg = 0.0;  // as the AI had her back
     double back_agl_ft = 0.0;
     double most_alpha_deg = -1e9; // from the take-back to the touch
+    double most_pitch_deg = -1e9; // likewise
+    bool three_point = false;     // her figures land her three-point
+    double standing_pitch_deg = 0.0;
     double stopped_past_m = 0.0;
     double stopped_across_m = 0.0;
     // **Or gone around**: climbed away from the balloon, never touching, to
@@ -10056,6 +10059,8 @@ HardFlare hard_flare_handed_back(const std::string& id) {
 
     HardFlare out;
     out.stall_kts = published.stall_kts;
+    out.three_point = published.three_point;
+    out.standing_pitch_deg = aircraft.stance().standing_pitch_deg;
     out.ai.judged_as(entry.seaplane);
     int handed = -1;
     int back = -1;
@@ -10095,6 +10100,7 @@ HardFlare hard_flare_handed_back(const std::string& id) {
             if (!out.ai.touched) {
                 out.most_alpha_deg =
                     std::max(out.most_alpha_deg, aircraft.property("aero/alpha-deg"));
+                out.most_pitch_deg = std::max(out.most_pitch_deg, aircraft.state().pitch_deg);
                 out.lowest_after_ft =
                     std::min(out.lowest_after_ft, aircraft.property("position/h-agl-ft"));
                 out.highest_after_ft =
@@ -10205,7 +10211,22 @@ GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed
         if (!r.lander_given) {
             wrong.push_back(where + " was not given her landing back");
         }
-        if (r.most_alpha_deg > most_allowed_deg) {
+        // **But an aeroplane landed three-point is held off to about the
+        // stall** - the FAA's Airplane Flying Handbook (FAA-H-8083-3C, ch.
+        // 14, page 14-4) holds her off "until the attitude needed to remain
+        // aloft matches the geometry of the landing gear" - and the lander
+        // bounds her nose by the attitude she stands at, not her wing by an
+        // incidence short of the stall (sim/lander.cpp). Hers is held to
+        // that, with the same degree for the nose's overshoot: the J-3 Cub's
+        // wing goes to 13.8 degrees, past 13, and her nose to 11.8, under
+        // her 12.1 (seen red with the bound a degree under it; reverted).
+        if (r.three_point) {
+            if (r.most_pitch_deg > r.standing_pitch_deg + 1.0) {
+                wrong.push_back(where + " had her nose raised to " +
+                                std::to_string(r.most_pitch_deg) + " degrees, past " +
+                                std::to_string(r.standing_pitch_deg + 1.0));
+            }
+        } else if (r.most_alpha_deg > most_allowed_deg) {
             wrong.push_back(where + " had her wing raised to " +
                             std::to_string(r.most_alpha_deg) + " degrees, past " +
                             std::to_string(most_allowed_deg));
