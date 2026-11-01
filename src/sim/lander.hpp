@@ -85,6 +85,11 @@ struct ApproachSpeeds {
     // **Where the roll-out's stick starts back**, a fraction of her reference
     // speed: fully back by half of it. Her figures' `stick_back_from_vref`.
     double stick_back_from_vref = 0.9;
+    // **Whether a tail-wheel aeroplane is landed three-point**, her figures'
+    // `lands="three_point"`: held off in the flare until her nose is at the
+    // attitude she stands at, and her stick fully back from the touch. Not
+    // in gusts, where she is flown on to her main wheels.
+    bool three_point = false;
     // **The glidepath aims past the threshold, not at it.** An approach flown
     // at the threshold puts the flare before it and the wheels on the grass;
     // aiming three hundred metres down the runway puts the aeroplane about
@@ -407,6 +412,8 @@ public:
     // threshold. Meaningless before touchdown.
     double touchdown_across_m() const { return touchdown_across_m_; }
     double touchdown_along_m() const { return touchdown_along_m_; }
+    // Her pitch, degrees, as her wheels first touched; 0 before that.
+    double touchdown_pitch_deg() const { return touchdown_pitch_deg_; }
     // The autobrake's pedal on the roll, 0 to 1, both wheels alike: what the
     // rudder's differential braking is added to and taken from.
     double autobrake() const { return brake_; }
@@ -518,6 +525,9 @@ private:
     // which falls from the attitude it touched at, and its spoilers out.
     bool jet_ = false;
     bool tail_wheel_ = false; // Aircraft::stance's
+    bool three_point_ = false; // a tail-wheel aeroplane her figures land three-point
+    bool three_point_touch_ = false; // and she touched so, held off, not in gusts
+    bool holding_three_point_ = false; // held off in the flare, three-point, this step
     std::string tail_gear_;   // her tail wheel's weight-on-wheels property, where she has one
     double lowering_pitch_deg_ = 0.0;
 

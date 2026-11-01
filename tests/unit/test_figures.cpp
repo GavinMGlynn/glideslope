@@ -745,6 +745,56 @@ GLIDESLOPE_TEST(where_the_rollouts_stick_starts_back_is_read_and_refused_outside
                                            std::to_string(refused));
 }
 
+// **How a tail-wheel aeroplane is landed is read, and anything but
+// three_point or wheels is refused** (`lands`, sim::Lander): the J-3 Cub's
+// three_point read as written, the A320's - which gives none - as no
+// three-point landing, and the A320's file given one: wheels read back,
+// and three-point, a misspelling and an empty value refused, each naming it.
+GLIDESLOPE_TEST(how_a_tail_wheel_aeroplane_lands_is_read_and_anything_but_three_point_or_wheels_is_refused) {
+    check(read_published_figures(figures_file("j3cub")).three_point,
+          "the J-3 Cub is landed three-point");
+    check(!read_published_figures(figures_file("a320")).three_point,
+          "the A320 gives none, and is not");
+
+    std::ifstream in(figures_file("a320"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const std::string attribute = "rotation_degps=\"3\"";
+    const auto at = text.find(attribute);
+    if (at == std::string::npos) {
+        fail("assets/figures/a320.xml does not give rotation_degps=\"3\"");
+    }
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_lands_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& value) {
+        std::string changed = text;
+        changed.replace(at, attribute.size(), attribute + " lands=\"" + value + "\"");
+        std::ofstream out(file);
+        out << changed;
+    };
+
+    write("wheels");
+    check(!read_published_figures(file).three_point, "lands=\"wheels\" is read as no three-point");
+    const char* const wrong[] = {"three-point", "threepoint", ""};
+    std::size_t refused = 0;
+    for (const char* value : wrong) {
+        write(value);
+        try {
+            read_published_figures(file);
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            check(said.find("lands") != std::string::npos,
+                  std::string("the refusal of \"") + value + "\" names lands: " + said);
+            ++refused;
+        }
+    }
+    std::filesystem::remove(file);
+    check(refused == std::size(wrong), "all three wrong values were refused, not " +
+                                           std::to_string(refused));
+}
+
 // **Every aircraft's flare touches down within NASA's criterion.** Zaal et
 // al., "Go-Around Criteria Refinement for Transport Category Aircraft"
 // (AIAA Journal of Air Transportation, NTRS 20205010611), take a touchdown
