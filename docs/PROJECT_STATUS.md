@@ -148,7 +148,10 @@ from either side, dry and wet - one instructor's "about 12 knots" in an
 EAA Inspire article, accepted by the owner on 2026-10-30; Piper published
 none (2026-10-29). The 747-400 is taught the approach since 2026-11-01, at
 Boeing's published 153 kt, and lands within her limits, her flaps raised
-after a take-off by her manoeuvre speeds; her gust landings are named. The F-22A is taught turns alone, having no stall or climbing speed;
+after a take-off by her manoeuvre speeds; her gust landings are named. She is
+taught the approach but not yet the take-off, climb or circuit (her speeds
+are measured, not a book's). The F-22A is taught turns alone, having no stall
+or climbing speed;
 the Learjet cannot be rotated early since her stabilizer
 was tied to her maintenance manual (a tail). See the log for 2026-09-22 to
 2026-09-24, and later entries for what was fixed since (the F-35B's

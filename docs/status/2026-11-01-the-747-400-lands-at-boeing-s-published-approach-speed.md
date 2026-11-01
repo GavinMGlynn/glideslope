@@ -92,14 +92,21 @@ Her CBD orbit recording (`cbd-orbit-747-400-anthropic.jsonl`) was made
 again live of Claude Haiku 4.5 with the owner's key, as her brief's speeds
 changed, and plays back; no key is in it.
 
-**Verification.** linux-release, `ctest -LE nightly -j4`: see the PR; the
-tail-strike test above is the known red.
+**Verification.** linux-release, rebased on main (2026-11-02),
+`ctest -LE nightly -j4`: 1,425 of 1,426 passed, the rest skipped for want of
+a key or a display. The one failure is
+`the_google_terrain_draws_with_its_attribution_or_says_why_not_on_vulkan`.
+The tail-strike test passes: over-rotated on her wheels she strikes at 12.0
+degrees. Her model's flap lift rows were re-trimmed with the elevator's
+pitch Heffley gives (`CM_DE_AT_0_HEFFLEY`), and the 747's tests (`ctest -R
+747`, 22) pass.
 
-**The Google terrain on Vulkan failed in the full suite** ("google via
-ion-token drew no terrain at all"), and again run alone on this branch's
-build; run alone on the main checkout's build it failed once and passed the
-next time. It touches nothing this item changed (sim/ and the 747's data):
-intermittent, and not this item's.
+**The Google terrain on Vulkan test is intermittent on main**: it needs a
+Google key, which CI does not have, so CI skips it. It failed in the full
+suite ("google via ion-token drew no terrain at all"), and again run alone on
+this branch's build; run alone on the main checkout's build it failed once
+and passed the next time. It touches nothing this item changed (sim/ and the
+747's data): intermittent, and not this item's.
 
 **Her lesson tests fly her at her approach speed's loading** where she has
 no climb figure (load_as_its_figures_were_measured): her speeds are Boeing's
