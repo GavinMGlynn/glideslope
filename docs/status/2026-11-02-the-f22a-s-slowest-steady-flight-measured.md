@@ -6,19 +6,47 @@ still refused her:
 
 - **At 1.3 times her measured slowest steady flight she does not land.**
   Given it as her landing stall in a scratch copy of her figures (90.0 KCAS
-  at 54,960 lb, so 117 kt there and 124 kt at her model's 61,570 lb), `land
-  f22` in calm air touched at 461 ft/min, 8.9 m off the centreline (her
-  limit is 360) and ran off the side of the runway, 135 m across. In 15 kt
-  across she struck the ground 2,219 m short of the threshold at 2,508
-  ft/min.
-- **Her roll-out leaves the runway at any approach speed.** At about 150 kt
-  (a stall figure of 115 put in to try it) she flies the approach well and
-  touches at 130 ft/min 1 m off the line, then the roll-out's rudder drives
-  a yaw swing that grows from under 1 to 18 degrees a second with the
-  rudder at its stops, and she leaves the runway 196 m across in calm air
-  and 395 m across in 15 kt across. Her nose wheel's steering read 0 degrees
-  through the roll (`fcs/steer-pos-deg[0]`); setting her nose wheel's
-  `max_steer` from 80 to the other fighters' 5 did not change it. Not found.
+  at 54,960 lb, so 117 kt there and about 126 kt at `land`'s full tanks,
+  63,960 lb), `land f22` in calm air touched at 461 ft/min, 8.9 m off the
+  centreline (her limit is 360), her nose 12.2 degrees up; she now rolls out
+  on the line. In 15 kt across she struck the ground 2,219 m short of the
+  threshold at 2,508 ft/min.
+
+**Her roll-out, fixed (second round, 2026-11-02): her yaw loop's ground
+mode.** At about 150 kt (a stall figure of 115 put in to try it) she flew
+the approach well, touched at 130 ft/min 1 m off the line, and then a yaw
+swing grew from under 1 to 18 degrees a second, the lander's rudder at its
+stops, and she left the runway, 196 m across in calm air and 380 m in 15 kt
+across. The cause: her pedals reach her rudders only through her flight
+controls' yaw rate loop - a yaw rate commanded, an integrator on the rate
+she is short of (clipped at 0.436), the rate washed out - so on her wheels
+the integrator wound against her tyres' side force, a second integrator in
+the lander's own heading law, and its clip and gains gave her rudders 0.15
+radian of their 0.52 at full pedal. Ruled out on the way:
+- **Nose-wheel steering**: no aircraft here has any. JSBSim steers a nose
+  wheel only from `fcs/steer-cmd-norm`, which glideslope never sets, so the
+  F-15C, F-35B and every airliner roll out on their rudders and the
+  lander's steering brake alone (src/sim/lander.cpp, `toe_brakes`), as she
+  does. Her own FCS schedules `fcs/steer-pos-deg` from that same zero; her
+  80-degree `max_steer` is never reached. Set to 5, nothing changed.
+- **Brakes**: none were on (the trace's brakes 0.00 to 0.00) through the
+  swing; her main gear's spacing, damping and friction are the pinned
+  model's and the F-15C's alike rest on the same law.
+The fix, as her pitch loop's (tools/make_f22.py, `with_yaw_ground_mode`):
+on any wheel the yaw integrator is washed out at YAW_GROUND_WASHOUT_PER_S
+and her pedals drive her rudders in proportion, full pedal full travel -
+the A320's ground mode, stick to surface, the source her pitch ground mode
+already cites - fading back to the flight law over five seconds after her
+wheels leave. She now stops 0.0 m across in calm air and 0.2 m in 15 kt
+across from `land`'s gate. `the_f22a_landed_at_150_kt_rolls_out_on_the_centreline_in_calm_air_and_15_kt_across`
+pins it (0.85 m and 5.66 m at most after the touch from 5 nm), seen red on
+her model before the change: 117 m across in 15 kt.
+Verified, linux-release, `ctest -R "f22|selftest|takeoff_speeds|plan_speeds|lands|landed|lander|roll" -LE nightly -j4`,
+no display: 129 tests, 127 passed and 2 live ones skipped, 665 s; the
+script's committed output checked.
+- **Not yet held**: in that test she rises 3.7 ft after her first touch at
+  150 kt, so it holds her upright, not down.
+
 - So no stall figure is written to `assets/figures/f22.xml`: written, it
   would give her an approach speed, and every landing test would fly her.
 
@@ -66,6 +94,6 @@ tests, 34 passed and the live recording one skipped for want of
 GLIDESLOPE_LIVE_MODEL, 64 s. The full suite was not run: the item is not
 done, and the time box ran out.
 
-**Left for the next round**: her roll-out's yaw swing on her wheels, then her
-approach at 1.3 times 90 (about 17 degrees of alpha), then her landing in
-wind and crosswind, then her landing distance by `tools/measured_landing.py`.
+**Left for the next round**: her approach at 1.3 times 90 (about 17 degrees
+of alpha), then her landing in wind and crosswind, then her landing distance
+by `tools/measured_landing.py`.
