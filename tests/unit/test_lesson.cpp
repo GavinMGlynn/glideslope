@@ -2983,16 +2983,23 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
 // **Named on one seed on one platform alone, with why**: judged on every
 // other seed and platform. The owner, 2026-11-01: the S.23 is held to the
 // gust tests' 0.75 ft wherever she passes it, and named only where she does
-// not. Windows debug is MSVC without NDEBUG (CMakePresets.json's
-// windows-debug; windows-release and windows-clang define it).
+// not. On Windows every build fails the one seed alike (debug, release and
+// clang); macOS release is Apple's with NDEBUG (macos-release).
 struct NamedOnASeed {
     std::string id;
     int seed;
     bool here;
     std::string why;
 };
-constexpr bool windows_debug() {
-#if defined(_WIN32) && !defined(NDEBUG)
+constexpr bool windows() {
+#if defined(_WIN32)
+    return true;
+#else
+    return false;
+#endif
+}
+constexpr bool macos_release() {
+#if defined(__APPLE__) && defined(NDEBUG)
     return true;
 #else
     return false;
@@ -3000,9 +3007,12 @@ constexpr bool windows_debug() {
 }
 const std::vector<NamedOnASeed>& named_on_a_seed() {
     static const std::vector<NamedOnASeed> named = {
-        {"short_s23", 5, windows_debug(),
-         "on Windows debug she rises 0.87 ft off the water after touching (seed 5), CI run "
-         "41100266299; 0.18 on Linux"},
+        {"short_s23", 5, windows(),
+         "on Windows she rises 0.87 ft off the water after touching (seed 5): debug in CI run "
+         "41100266299, release and clang in 41303118662; 0.18 on Linux"},
+        {"short_s23", 3, macos_release(),
+         "on macOS release she rises 0.93 ft off the water after touching (seed 3), CI run "
+         "41303118662; 0.31 on Linux"},
     };
     return named;
 }
@@ -3182,8 +3192,9 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 
 // **In moderate turbulence the AI lands every aeroplane not named within
 // its limits** - two of fourteen; the twelve named (`not_yet_landed_in_gusts`)
-// are flown and shown, and so is one named on one seed on one platform alone
-// (`named_on_a_seed`: the S.23, Windows debug's seed 5). Fifteen knots down the runway with severity-3
+// are flown and shown, and so is one named on two seeds, each on one platform
+// alone (`named_on_a_seed`: the S.23, Windows's seed 5, in every build, and
+// macOS release's seed 3). Fifteen knots down the runway with severity-3
 // turbulence, its gust factor 15 kt (world::gust_spread_of_severity), flown
 // as the Airplane Flying Handbook (FAA-H-8083-3C, ch. 9, "Turbulent Air
 // Approach and Landing") flies it: half the gust factor on the approach
@@ -3199,7 +3210,8 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 // thing wrong each - never down to the hold, the nose raised 0.8 degrees in
 // a climb, back up to half her flare's height, touched at 3.2 degrees -
 // each of which must be named, and only for its own fault. Coverage
-// asserted: five cases, four named.
+// asserted: four faults, each named alone, and one good hold-off named for
+// none.
 GLIDESLOPE_TEST(a_hulls_hold_off_is_judged_by_her_nose_her_height_and_her_touch_each_seen_red) {
     FlareWatch good;
     good.began = good.touched = good.held_off = good.hold_reached = true;

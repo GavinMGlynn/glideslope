@@ -1,4 +1,4 @@
-### The flying boat in gusts, her hull damped from its first touch and held off as the rough-water book lands her: every seed passes but one on Windows debug, 2026-11-01 - item still open
+### The flying boat in gusts, her hull damped from its first touch and held off as the rough-water book lands her: every seed passes but one on Windows and one on macOS release, 2026-11-01 - item still open
 
 **What is still missing, first**: the item. On Windows debug, gust seed 5,
 the S.23 rises 0.87 ft off the water after touching (0.18 on Linux; CI run
@@ -101,3 +101,13 @@ degrees (3.51 at least), each with a quarter's margin.
 - The full linux-release suite: 1,419 of 1,420 passed. An F-35B STOVL
   client test failed after 2.8 s under load, cause unknown; it passed alone
   and in the round before, with the simulation code unchanged between them.
+
+**macOS release, seed 3, fails too** (full run 41303118662): she rose
+0.93 ft after touching, against 0.31 on Linux. She is named on that seed
+and platform as well, as the owner's 2026-11-01 decision says, and judged
+everywhere else.
+
+**And Windows release and clang, seed 5** (the same run): 0.872 ft, as on
+Windows debug in 41100266299, while Windows debug passed this time. She is
+named on seed 5 on every Windows build.
+
