@@ -269,7 +269,7 @@ are the risks the phase order is built around:
   over the runway as she slows, her stick is held fully back from the
   touch, as the FAA's Airplane Flying Handbook (ch. 14) has it. In calm air and in
   every crosswind to her 12 kt, dry and wet, she touches within 2.5 degrees
-  of it. In gusts she is still flown on to her main wheels. She stops 441 m
+  of her standing attitude (a margin not sourced), main wheels first. In gusts she is still flown on to her main wheels. She stops 441 m
   past the threshold, not 498, and her measured landing distance - the
   shortest runway she is allowed - is 1,500 ft, not 1,700. The last two
   degrees are her model's: its lift hardly grows above seven and a half
