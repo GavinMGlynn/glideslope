@@ -1266,8 +1266,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       10.2 degrees, main wheels first, 2 short of her 12.1; the tests'
       2.5-degree margin is unsourced (about 0.4 is derivable). Her section's
       measured lift (NACA Report 233) moved the touch by only 0.2 degrees
-      and put her stall outside her manual's range, so her model is
-      unchanged: the owner's decision is pending. *Verification: she touches
+      and put her stall outside her manual's range, so her lift is kept.
+      Her elevator has authority in hand at the touch. What is left is the
+      lander's hold-off: her nose comes up too late. *Verification: she touches
       within a justified margin of her three-point attitude, her tail wheel
       with her mains.*
 - [x] **The AI lands the J-3 Cub within her published crosswind limit**,
