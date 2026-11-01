@@ -3,6 +3,7 @@
 // written at once.
 //
 //   glideslope_ion_stall serve PORTFILE
+//   glideslope_ion_stall quota PORTFILE
 //   glideslope_ion_stall write CACHEFILE
 //
 // **serve** listens on 127.0.0.1, on a port the system picks, and writes that
@@ -16,6 +17,12 @@
 // for the moment a client is stuck in one. A request for /stop ends it, saying
 // on standard error how many endpoints it answered and how many transfers it
 // held.
+//
+// **quota** is the same, but stands in for Google's Photorealistic 3D Tiles
+// reached through ion (asset 2275207) the way they are refused when ion's
+// Google project has spent its root requests for the minute: the endpoint is
+// answered, naming itself, and every other request with Google's own 429 and
+// its RESOURCE_EXHAUSTED body. /stop says how many it refused.
 //
 // **write** opens CACHEFILE, which must exist, with SQLite and no busy
 // timeout, and takes and commits a write transaction. A process still holding
@@ -112,10 +119,37 @@ std::string json_answer(const std::string& body) {
 std::atomic<int> endpoints{0};
 std::atomic<int> held{0};
 std::atomic<bool> first_held{false};
+std::atomic<int> refused{0};
+
+// Google's answer when a project's root requests for the minute are spent,
+// less its project number.
+constexpr const char* google_quota_body =
+    R"({"error":{"code":429,"message":"Quota exceeded for quota metric '3D Tiles )"
+    R"(root requests' and limit '3D Tiles root requests per minute' of service )"
+    R"('tile.googleapis.com'.","status":"RESOURCE_EXHAUSTED"}})";
 
 void answer(Socket client, std::string head, unsigned short port,
-            std::filesystem::path stalled_file) {
+            std::filesystem::path stalled_file, bool quota) {
     const std::string here = "http://127.0.0.1:" + std::to_string(port);
+    if (quota) {
+        if (head.rfind("GET /v1/assets/2275207/endpoint", 0) == 0) {
+            ++endpoints;
+            send_all(client, json_answer(
+                                 R"({"type":"3DTILES","externalType":"3DTILES",)"
+                                 R"("options":{"url":")" +
+                                 here + R"(/v1/3dtiles/root.json?key=stand-in"},)"
+                                 R"("attributions":[]})"));
+        } else {
+            ++refused;
+            const std::string body = google_quota_body;
+            send_all(client, "HTTP/1.1 429 Too Many Requests\r\nContent-Type: "
+                             "application/json\r\nContent-Length: " +
+                                 std::to_string(body.size()) +
+                                 "\r\nConnection: close\r\n\r\n" + body);
+        }
+        close_socket(client);
+        return;
+    }
     if (head.rfind("GET /v1/assets/1/endpoint", 0) == 0) {
         ++endpoints;
         send_all(client, json_answer(
@@ -146,7 +180,7 @@ void answer(Socket client, std::string head, unsigned short port,
     close_socket(client);
 }
 
-int serve(const std::filesystem::path& port_file) {
+int serve(const std::filesystem::path& port_file, bool quota) {
 #ifdef _WIN32
     WSADATA data;
     if (::WSAStartup(MAKEWORD(2, 2), &data) != 0) {
@@ -185,10 +219,12 @@ int serve(const std::filesystem::path& port_file) {
             close_socket(client);
             break;
         }
-        std::thread(answer, client, std::move(head), port, stalled_file).detach();
+        std::thread(answer, client, std::move(head), port, stalled_file, quota).detach();
     }
-    std::fprintf(stderr, "glideslope_ion_stall: answered %d endpoints and held %d transfers\n",
-                 endpoints.load(), held.load());
+    std::fprintf(stderr,
+                 "glideslope_ion_stall: answered %d endpoints and held %d transfers, "
+                 "and refused %d requests\n",
+                 endpoints.load(), held.load(), refused.load());
     std::fflush(stderr);
     // The transfers still being fed are on threads of their own, which are
     // simply ended with the process.
@@ -235,14 +271,15 @@ int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
 #endif
     if (argc != 3) {
-        return refuse("usage: glideslope_ion_stall serve PORTFILE | write CACHEFILE");
+        return refuse("usage: glideslope_ion_stall serve PORTFILE | quota PORTFILE | "
+                      "write CACHEFILE");
     }
     const std::string mode = argv[1];
-    if (mode == "serve") {
-        return serve(argv[2]);
+    if (mode == "serve" || mode == "quota") {
+        return serve(argv[2], mode == "quota");
     }
     if (mode == "write") {
         return write_to(argv[2]);
     }
-    return refuse("the first argument is serve or write");
+    return refuse("the first argument is serve, quota or write");
 }

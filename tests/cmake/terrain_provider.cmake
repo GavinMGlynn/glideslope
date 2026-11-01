@@ -190,6 +190,7 @@ message(STATUS "${PROVIDER}: ${_lit} pixels of attribution on screen")
 if(PROVIDER STREQUAL "google")
     set(_ways 0)
     set(_skipped 0)
+    set(_refused "")
     # **Where this machine really keeps its secrets, read once.** Each way in
     # below points XDG_CONFIG_HOME at a directory of its own, so asking the
     # environment again inside the loop would find the previous way's
@@ -249,8 +250,17 @@ if(PROVIDER STREQUAL "google")
                     --shot-at 2 --shot "${_one}"
             RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
         if(NOT EXISTS "${_one}")
+            # **Refused by the provider, the way in is not proved, so the test
+            # is skipped, not passed** - the other way in is still run, and
+            # held to everything. Through ion, Google's root is refused with a
+            # 429 whenever ion's own Google project, shared by every ion user,
+            # has spent its root requests for the minute: it drew an empty
+            # sky, "drew no terrain at all", in local full suites until the
+            # program said so.
             if(_err MATCHES "could not download")
-                message(STATUS "google via ${_way}: the tiles could not be had")
+                string(REGEX MATCH "could not download[^\n]*" _why "${_err}")
+                message(STATUS "google via ${_way}: ${_why}")
+                list(APPEND _refused "google via ${_way}: ${_why}")
                 math(EXPR _skipped "${_skipped} + 1")
                 continue()
             endif()
@@ -272,6 +282,12 @@ if(PROVIDER STREQUAL "google")
     math(EXPR _tried "${_ways} + ${_skipped}")
     if(NOT _tried EQUAL 2)
         message(FATAL_ERROR "${_tried} ways in were considered, and there are two")
+    endif()
+    if(_refused)
+        string(REPLACE ";" "\n  " _refused "${_refused}")
+        message(STATUS "skipped: the provider refused, so not every way in is "
+                       "proved here:\n  ${_refused}")
+        cmake_language(EXIT 77)
     endif()
     if(_ways EQUAL 0)
         message(STATUS "neither way in could be tested on its own here")
