@@ -102,3 +102,53 @@ make-script change applied, which is kept outside the tree. Searched and
 read: NTRS for NACA Reports 233 and 352. Report 669 was not needed, because
 Report 352 gives the method. The archive.org piperj3_Bin_* list was searched
 for rigging, wing and fuselage drawings, and 12322 was read.
+
+### Her elevator in the hold-off, checked, 2026-11-02 - not what stops her
+
+The coordinator decided to keep her lift as it is (Du's table). Whether her
+manual's 38 mph stall is indicated stays an open point.
+
+The question was whether her elevator lacks the authority to raise her nose
+to 12.1 degrees. On her model as on main, it does not. The figures are from
+`land j3cub`, linux-release, calm air, 922 lb, traced every tenth of a second
+on a scratch build:
+- **At the touch her elevator is at 64% of its travel, not full.** Its moment
+  is 1,463 ft-lb. Full travel gives about 2,290, and her Cm-alpha term
+  resists about 100 ft-lb a degree there, so roughly 6 to 8 degrees of
+  incidence are in hand.
+- **The lander asks for 12.1 degrees.** Its flare attitude reaches her
+  standing attitude 0.3 ft over the runway. Her nose stays at 10.1 to 10.2,
+  with her incidence at 11.1 to 11.5, under the lander's 12-degree limit.
+  Her sink grows from 39 to 59 ft/min in her last 0.3 ft.
+- **Raising the three-point flare gain** from 6 to 9, 12 and 18 drives the
+  elevator to full travel, and it chatters. She touches at 10.5, 10.5 and
+  10.4 degrees.
+- **Raising the lander's incidence limit** from 12 to 12.5, 13 and 14 changes
+  nothing: 10.2 degrees, because she never reaches it.
+- **With the measured lift** (above) and gains of 6, 9 and 12, she touches at
+  10.0 to 10.1 degrees.
+
+The other points checked:
+- Her elevator's travel is A-691's, 34 degrees up and 29 down, already in
+  the make script. Its power is Du's -1.2 a radian.
+- Her elevator works on her slipstream's dynamic pressure, which at idle is
+  1.11 times the free stream (3.43 against 3.09 psf at the touch).
+- Her CG solo is 13.94 in, mid-range of A-691's 10.6 to 22.7 in.
+- Her model leaves out ground effect on the tail's downwash. Less downwash
+  near the ground raises the tail's angle of attack and adds nose-down
+  moment, so modelling it would lower her nose further, not raise it.
+- A nose-up stabiliser trim adds authority beyond the elevator's travel, but
+  authority is not what she lacks. The lander's trim is an offset inside the
+  same travel.
+
+Her figures and make script are unchanged.
+
+**The remaining shortfall, in figures.** She is 1.9 degrees short of her
+12.1, against the 0.43-degree margin derived above. The last 4 to 5 degrees
+of nose come in her last 0.5 ft and about 1.3 s, while she slows from 31 to
+30 kt. Her wing gives 1.47 at 7.5 degrees of incidence and 1.62 at its peak
+at 12.5. Her nose rises at 2 to 5 degrees a second, so the ground arrives
+first. What would close it lies in the lander's hold-off law, which is not
+a sourced aerodynamic figure: a hold-off higher than half a foot, or the
+nose raised earlier as she slows. Tried before (2026-11-01) at one to two
+feet without the faster nose, she dropped on at 100 to 150 ft/min.
