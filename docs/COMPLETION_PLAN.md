@@ -1137,9 +1137,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 
 - [ ] **The AI cannot land every aeroplane in gusts**: she flies half
       the gust factor faster with the power on to the touch and rotates
-      her flare to the touch, and in moderate turbulence lands two of
-      fourteen within limits with a margin on eight seeds: the PA-28 on
-      every platform, the C172P so far on Linux and Windows debug only.
+      her flare to the touch, and in moderate turbulence lands one of
+      fourteen within limits with a margin on eight seeds and every
+      platform, the PA-28; the C172P passes on Linux and Windows debug but
+      touches at 346 ft/min on macOS release's seed 3, and is named.
       Touch sink scatters about 80 ft/min a landing, so one platform's
       pass is no other's: since the 2026-10-31 flare change the Learjet
       35A, clean on forty seeds here, balloons on Windows. Over forty seeds the F-15C

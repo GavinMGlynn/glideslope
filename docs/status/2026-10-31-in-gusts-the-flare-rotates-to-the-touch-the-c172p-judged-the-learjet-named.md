@@ -81,3 +81,10 @@ forty-seed figures.
   five minutes of linux-debug, too slow for the suite.
 - The selftest flies the C172P from a fixed input log without the lander,
   so its hash cannot move: 197366fd3fe6a7dc.
+
+**Named again on macOS, 2026-11-01**: on macOS release, seed 3, the C172P
+touched at 346.3 ft/min against the judged 335 (360 less the 25 margin).
+The figure was the same in #286's full run (41117802406) and in the train's
+(41281712534): twice, for one cause. She is named whole, as the list's rule
+says, and only the PA-28 is judged.
+
