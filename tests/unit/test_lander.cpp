@@ -301,28 +301,84 @@ GLIDESLOPE_TEST(the_f22a_landed_at_150_kt_rolls_out_on_the_centreline_in_calm_ai
     speeds.touchdown_fpm = glideslope::sim::read_published_figures(
                                data() / "figures" / "f22.xml").touchdown_fpm;
     speeds.spool_s = glideslope::sim::spool_up_s(data() / "jsbsim", "f22");
+    speeds.yaw_damper_per_degps =
+        glideslope::sim::read_published_figures(data() / "figures" / "f22.xml")
+            .yaw_rate_pedal_per_degps;
     std::size_t landed = 0;
     for (const double crosswind : {0.0, 15.0}) {
         const Landing l = land("f22", crosswind, false, 5.0, &speeds);
         std::printf("  %.0f kt across: touched %.0f ft/min %.2f m across, farthest after %.2f m, "
-                    "stopped %.0f m along\n",
+                    "stopped %.0f m along, rose %.2f ft\n",
                     crosswind, l.sink_fpm, l.across_m, l.worst_across_after_touch_m,
-                    l.stopped_along_m);
+                    l.stopped_along_m, l.highest_after_touch_ft);
         const std::string where = " in " + std::to_string(crosswind) + " kt across";
         check(l.touched && l.stopped && l.stopped_along_m <= a_runway().length_m,
               "the F-22A stopped on the runway" + where);
         check(l.worst_across_after_touch_m <= Lander::runway_half_width_m,
               "the F-22A went " + std::to_string(l.worst_across_after_touch_m) +
                   " m from the centreline on her roll" + where + ", off the runway");
-        // Upright, but not held to staying down: at this speed, not hers,
-        // she rises 3.7 ft after her first touch, which her approach at her
-        // own speed is to answer (docs/status, 2026-11-02).
+        // Upright, but not held to staying down: at 150 kt, 21 per cent over
+        // 1.3 times her VS0, her wing still lifts her at the touch and she
+        // rises 3.3 to 3.7 ft; at her own 123.8 she rises under half a foot,
+        // which the test below pins.
         check(l.worst_roll_after_touch_deg <= 10.0,
               "the F-22A banked " + std::to_string(l.worst_roll_after_touch_deg) +
                   " degrees on her roll" + where);
         ++landed;
     }
     check(landed == 2, std::to_string(landed) + " of 2 winds landed");
+}
+
+// **The F-22A flies her final at 1.3 times her measured VS0 on the
+// centreline, in calm air and 15 kt across either way**: her slowest
+// steady flight landing configured, 90.0 KCAS at 54,960 lb
+// (assets/figures/f22.xml), is 123.8 kt at her model's weight times 1.3,
+// 17 degrees of incidence. Down the last mile from five out she is never
+// farther than 5 m from the centreline, and rolls out on the runway the
+// right way up, and never rises 0.75 ft after her touch (0.08 to 0.47).
+// Her pedals command a yaw rate through her flight controls,
+// and with the lander's yaw damper at every other aircraft's 0.05 a slow
+// Dutch roll grew down her final: in calm air to 9.8 degrees of bank and
+// 8.9 m off by 60 ft, and in 15 kt across she departed and struck the
+// ground short. Her figures' `yaw_rate_pedal_per_degps` sets it. **Seen to
+// fail** at 0.05. Her touch is not judged here: she meets the runway at
+// about 380 ft/min, over 360, her nose at the flare's limit two degrees
+// short of her tail strike from the flare's first foot (docs/status,
+// 2026-11-02). Coverage: three winds, all landed.
+GLIDESLOPE_TEST(the_f22a_flies_her_final_at_1_3_times_her_measured_vs0_on_the_centreline_in_calm_air_and_15_kt_across) {
+    const auto figures = glideslope::sim::read_published_figures(data() / "figures" / "f22.xml");
+    // Her model's own weight, at which `land` flies her and her plan speeds
+    // were measured (assets/figures/f22.xml, `plan_speeds`).
+    constexpr double weight_lbs = 61570.0;
+    ApproachSpeeds speeds;
+    speeds.stall_kts = 90.0 * std::sqrt(weight_lbs / 54960.0);
+    speeds.vref_kts = 1.3 * speeds.stall_kts;
+    speeds.flap = 0.0;
+    speeds.flare_ft = std::clamp(0.25 * speeds.vref_kts, 8.0, 30.0);
+    speeds.touchdown_fpm = figures.touchdown_fpm;
+    speeds.spool_s = glideslope::sim::spool_up_s(data() / "jsbsim", "f22");
+    speeds.yaw_damper_per_degps = figures.yaw_rate_pedal_per_degps;
+    std::size_t landed = 0;
+    for (const double crosswind : {0.0, 15.0, -15.0}) {
+        const Landing l = land("f22", crosswind, false, 5.0, &speeds);
+        std::printf("  %.0f kt across at %.1f kt: final within %.2f m, touched %.0f ft/min %.2f m "
+                    "across, farthest after %.2f m, rose %.2f ft\n",
+                    crosswind, speeds.vref_kts, l.worst_across_on_final_m, l.sink_fpm, l.across_m,
+                    l.worst_across_after_touch_m, l.highest_after_touch_ft);
+        const std::string where = " in " + std::to_string(crosswind) + " kt across";
+        check(l.touched && l.worst_across_on_final_m <= 5.0,
+              "the F-22A flew her final " + std::to_string(l.worst_across_on_final_m) +
+                  " m from the centreline" + where + ", not within 5");
+        check(l.stopped && l.stopped_along_m <= a_runway().length_m &&
+                  l.worst_across_after_touch_m <= Lander::runway_half_width_m &&
+                  l.worst_roll_after_touch_deg <= 10.0,
+              "the F-22A rolled out on the runway, upright" + where);
+        check(l.highest_after_touch_ft < 0.75,
+              "the F-22A rose " + std::to_string(l.highest_after_touch_ft) +
+                  " ft after her touch" + where + ", not under 0.75");
+        ++landed;
+    }
+    check(landed == 3, std::to_string(landed) + " of 3 winds landed");
 }
 
 // **And in a 10-knot crosswind**, which is the other half of the item's

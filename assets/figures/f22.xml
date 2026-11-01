@@ -44,7 +44,17 @@
   seven and eight at 0.2, and eight at 0.25, against the test's eight
   (docs/PROJECT_STATUS.md, 2026-10-14).
 -->
-<published_figures aircraft="f22" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="0" touchdown_fpm="200">
+<!--
+  **yaw_rate_pedal_per_degps** is the pedal the lander's approach yaw damper
+  asks for each degree a second of yaw her bank does not account for
+  (sim::Lander), a tuning value: her pedals command a yaw rate through her
+  flight controls' own loop (tools/make_f22.py), not her rudders. At every
+  other aircraft's 0.05, flown at 1.3 times her measured VS0 (17 degrees of
+  incidence), a slow Dutch roll grew down her final until she departed in 15
+  kt across; at 0.15 she touched 4.0 m off the line, at 0.3 within 0.5 m
+  (glideslope_cli land, 2026-11-02).
+-->
+<published_figures aircraft="f22" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="0" touchdown_fpm="200" yaw_rate_pedal_per_degps="0.3">
   <source>DoD Selected Acquisition Report, F-22, December 2010; USAF F-22 fact sheet</source>
 
   <!-- 54,960 lb: the fact sheet's empty weight, 43,340 lb; the pilot, 230

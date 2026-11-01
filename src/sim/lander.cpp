@@ -122,6 +122,9 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     }
     speeds.elevator_full_cm = figures.elevator_full_cm;
     speeds.stick_back_from_vref = figures.stick_back_from_vref;
+    if (figures.yaw_rate_pedal_per_degps > 0.0) {
+        speeds.yaw_damper_per_degps = figures.yaw_rate_pedal_per_degps;
+    }
     speeds.three_point = figures.three_point;
     speeds.spool_s = spool_up_s(data / "jsbsim", model);
     return speeds;
@@ -1346,7 +1349,13 @@ Controls Lander::fly_laws() {
     const double turning_degps = 32.174 * std::sin(s.roll_deg / degrees) /
                                  std::max(1.0, a_.property("velocities/vt-fps")) * degrees;
     const double r_degps = s.r_radps * degrees;
-    c.rudder = std::clamp(-0.05 * beta_deg + rudder_trim_ + 0.05 * (r_degps - turning_degps),
+    // **Harder where her pedals command a yaw rate** (her figures'
+    // `yaw_rate_pedal_per_degps`): an F-22A's pass through her flight
+    // controls' own yaw rate loop to her rudders, and at 0.05 a slow Dutch
+    // roll grew down her final at 17 degrees of incidence until she departed
+    // in 15 kt across (assets/figures/f22.xml).
+    c.rudder = std::clamp(-0.05 * beta_deg + rudder_trim_ +
+                              speeds_.yaw_damper_per_degps * (r_degps - turning_degps),
                           -1.0, 1.0);
     (void)heading_error_to_runway;
 

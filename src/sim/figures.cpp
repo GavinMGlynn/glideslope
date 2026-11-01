@@ -2155,6 +2155,16 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "at most 1");
         }
     }
+    // **A yaw rate pedal gain that is not above 0, or past a full pedal for
+    // a degree a second, is refused.**
+    if (root->HasAttribute("yaw_rate_pedal_per_degps")) {
+        out.yaw_rate_pedal_per_degps = root->GetAttributeValueAsNumber("yaw_rate_pedal_per_degps");
+        if (!(out.yaw_rate_pedal_per_degps > 0.0 && out.yaw_rate_pedal_per_degps <= 1.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a yaw_rate_pedal_per_degps that is not above 0 and "
+                                     "at most 1");
+        }
+    }
     // **A landing that is neither three-point nor on her wheels is refused.**
     if (root->HasAttribute("lands")) {
         const std::string lands = root->GetAttributeValue("lands");

@@ -129,5 +129,45 @@ as it is: it needs a rudder law that leaves a fly-by-wire yaw loop to damp
 itself (and decrabs her), and a flare that works from 14 degrees of nose.
 No other multiple is chosen: none is sourced.
 
-**Left for the next round**: those two, then her landing in wind and
-crosswind, then her landing distance by `tools/measured_landing.py`.
+**Her final at 1.3 times VS0, fixed; her flare, not (fourth round,
+2026-11-02).**
+- **The lander's yaw damper for pedals that command a yaw rate.** Neither
+  the A320's figures nor the F-35B's say anything of fly-by-wire yaw - their
+  models' pedals move their rudders - so a figures attribute is added:
+  `yaw_rate_pedal_per_degps`, the pedal the approach yaw damper asks for each
+  degree a second, 0.05 for every aircraft that does not give it, as before
+  (src/sim/lander.cpp; read and refused outside 0 to 1, sim/figures.cpp).
+  Hers is 0.3, a tuning value: with the yaw damper taken out entirely she
+  sideslipped 4 degrees and drifted 107 m off in 15 kt across, and with the
+  rate term on the stability axis she was worse; at 0.15 she touched 4.0 m
+  off, at 0.3 within 0.5 m. Other aircraft fly the same arithmetic as before.
+  `the_f22a_flies_her_final_at_1_3_times_her_measured_vs0_on_the_centreline_in_calm_air_and_15_kt_across`
+  flies her at 123.8 kt from 5 nm in calm air and 15 kt either way: final
+  within 0.49, 2.47 and 2.80 m, rolled out within 2.4 m, rising 0.08 to
+  0.47 ft after the touch (under 0.75); seen red at 0.05 (she departed in
+  calm air from 5 nm).
+- **Not de-crabbed in the flare**: no aircraft here is; she touches crabbed
+  and her roll-out (now held) straightens her. Not done.
+- **Her flare does not bring her under 360 ft/min: 392 to 417 ft/min** at
+  123.8 kt (374 to 383 from `land`'s 2 nm gate). The flare's nose limit is
+  her tail strike less two degrees, 14.54, and her final is flown at 14.3:
+  a quarter of a degree to flare with. The flare's power cushion, from 300
+  ft/min past the flare's sink, comes in and goes off within her 1.8 s
+  spool: tried from 150 (390 ft/min) and 50 (648, floated then dropped), and
+  a flare begun higher, 45 ft (549) and 60 (320 calm, 512 across). None is
+  kept. No F-22 or delta-wing source for a power-on, attitude-held
+  touchdown figure was found in this round. So 1.3 times her measured VS0
+  is not landed within 360 ft/min, by 30 to 60 ft/min.
+- **The 3.7 ft rise at 150 kt** is that speed's: 21 per cent over 1.3 times
+  VS0, her wing still lifts her at the touch (3.3 to 3.7 ft). At her own
+  speed she rises under half a foot; the 150 kt test is held upright, not
+  down, and the 1.3 times test pins the rise.
+
+**Full suite, 2026-11-02** (`ctest --preset linux-release -LE nightly -j4`,
+no display): 1,430 tests, all passed or skipped (25, for want of a key, a
+display or a live model), 4,639 s. Every other aircraft's landing tests
+pass unchanged, and the selftest's hash tests with them.
+
+**Left for the next round**: a flare for her at 14 degrees of nose (a sourced
+figure), then her landing distance by `tools/measured_landing.py` and her
+stall figure, which would give every landing test her.

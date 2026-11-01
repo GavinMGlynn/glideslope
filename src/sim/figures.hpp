@@ -127,6 +127,12 @@ struct PublishedFigures {
     // light, from there down to half of it, where the stick is fully back
     // (sim::Lander). 0.9 where the file gives none.
     double stick_back_from_vref = 0.9;
+    // **Her pedals command a yaw rate**, through her own flight controls
+    // (`yaw_rate_pedal_per_degps`): the pedal the lander's approach yaw
+    // damper asks for each degree a second of yaw her bank does not account
+    // for (sim::Lander). 0 where the file gives none: her pedals move her
+    // rudder, and the lander's own 0.05 is flown.
+    double yaw_rate_pedal_per_degps = 0.0;
     // **How a tail-wheel aeroplane is landed** (`lands`): "three_point", held
     // off until she touches at the attitude she stands at (sim::Lander), or
     // "wheels", the default, flown on to her main wheels.
