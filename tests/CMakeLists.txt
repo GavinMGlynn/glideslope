@@ -1952,6 +1952,18 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
         set_tests_properties(${_name}
             PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
     endforeach()
+    # **A Google terrain shot refused for quota says so and draws no frame**,
+    # against a stand-in for ion and Google that answers the root with
+    # Google's 429: so the provider test above can report itself skipped,
+    # not fail "drew no terrain at all", when ion's shared quota is spent.
+    add_test(NAME a_google_terrain_shot_refused_for_quota_draws_no_frame_and_says_so_on_${_driver}
+        COMMAND ${CMAKE_COMMAND}
+            -DPROGRAM=$<TARGET_FILE:glideslope> -DSTALL=$<TARGET_FILE:glideslope_ion_stall>
+            -DDRIVER=${_driver} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/frames
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/google_quota_refused.cmake)
+    set_tests_properties(a_google_terrain_shot_refused_for_quota_draws_no_frame_and_says_so_on_${_driver}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
     # How far each provider's drawn terrain is from the ground the aircraft
     # meets, at the twelve surveyed runway ends, and the open provider's from
     # the DEM it draws, runways unflattened. The bound each is held to is the
