@@ -1,8 +1,8 @@
 # The C172P's final approach and landing, learnt by reinforcement learning.
 # Made by tools/rl/train.py (PPO) and written by tools/rl/export.py;
 # do not edit - train again and export.
-# Seed 169. Training steps (decisions, ten a second): 32562500 in all: 10000004 by its 21-input parent, then 22562496 with the 25 inputs, the last 812500 of them on the C172P with her flaps', elevator's and pitch-rate lift leaving out the crosswind.
-# tools/rl as trained: d85808cb for its last 5562496 decisions (tools/rl unchanged since; the C172P at d56a7ca6 for the last 812500); 9d789a0b for the four million before them; before them 4f6fc88, ff5d66c, and for its 21-input parent dc7a155 and uncommitted work before it.
+# Seed 169. Training steps (decisions, ten a second): 32562500 in all: 10000004 by its 21-input parent, then 22562496 with the 25 inputs, the last 812496 of them on the C172P with her flaps', elevator's and pitch-rate lift leaving out the crosswind.
+# tools/rl as trained: d85808cb for its last 5562496 decisions (tools/rl unchanged since; the C172P at d56a7ca6 for the last 812496); 9d789a0b for the four million before them; before them 4f6fc88, ff5d66c, and for its 21-input parent dc7a155 and uncommitted work before it.
 # Source checkpoint, kept outside the repository: step32562500.zip (sha256 2b35b1cd941b6465f39bb54cb6f11190972401a55b2637f8143847fe3b1a5a78) and step32562500.vecnorm (sha256 80fb1a7cf0d72f18901430af62b8caf976b024b8f3041be45c52dca898c837a0).
 # Exporting that checkpoint with export.py is deterministic and gives this file;
 # training it again with the command below, on the same packages and machine, gives that checkpoint.
@@ -35,7 +35,7 @@
 #       dynamic pressure without its sideways part (2026-10-23), from part 10's checkpoint, learning rate 1e-5, six environments:
 #       nice -n 10 python tools/rl/train.py --seed 167 --envs 6 --steps 1500000 --every 125000 --resume step31750004.zip --lr 1e-5 --log-std -2.5257
 #       its checkpoint at 32500004 (step32500004.zip, sha256 f5e76239cb9f585dccdbc751232b2747ee743d30185a0f180d0a707e0b00600e);
-#   12. 62,500 of a 750,000 run from part 11's checkpoint at 32500004, learning rate 3e-6:
+#   12. 62,496 of a 750,000 run from part 11's checkpoint at 32500004, learning rate 3e-6:
 #       nice -n 10 python tools/rl/train.py --seed 169 --envs 6 --steps 750000 --every 62500 --resume step32500004.zip --lr 3e-6 --log-std -2.5257
 #       this is its checkpoint at 32562500. Parts 11 and 12, run again, trained the same weights (the zips' bytes differ).
 # Parts 1 to 4 were trained with the fuel never refilled (JSBSim's RunIC does not), mostly on part-full tanks and
@@ -53,7 +53,7 @@
 # least 15 m past the threshold. None of part 11's twelve checkpoints met it (32500004, the nearest, sank just under 300
 # ft/min at a corner with the wind behind); nor did two runs at 3e-5 and 1e-5 not taken (seeds 165, 166) or one on from 32500004 at 1e-5 (seed
 # 168), which went on to touch short. Worst here: 236 ft/min, 2.34 m across, 54 m past the threshold (all held out);
-# of the verification's starts and the corners 281 ft/min, 2.31 m, 162 m. The verification's starts and the corners
+# of the verification's starts and the corners 281 ft/min, 2.31 m (2.32 in the simulation's tests), 162 m. The verification's starts and the corners
 # were flown in choosing it; the tests fly them again.
 glideslope-policy 1
 aircraft c172p
