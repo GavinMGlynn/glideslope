@@ -27,6 +27,8 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 namespace glideslope::sim {
 
@@ -88,6 +90,18 @@ struct DepartureSpeeds {
     // will hold. False for every other class, whose initial climb is V2 and
     // ten, or a speed measured at one weight, and goes with her weight.
     bool climb_for_any_weight = false;
+    // **Her flaps' manoeuvre speeds, where her figures give them**
+    // (`<flap_manoeuvre_speeds>`): each flap, 0 to 1, with the knots over
+    // `manoeuvre_vref_kts` - her approach speed at `manoeuvre_reference_lbs`,
+    // scaled by the square root of what she weighs - that she may fly at
+    // it. A flap comes up to a setting only at that setting's speed, and
+    // she is accelerated to it: the 747-400's flight crews select the next
+    // flap "upon reaching the minimum speed for the new setting". Empty for
+    // every aeroplane whose figures give none: her flaps come up from
+    // `initial_climb_kts`, as before.
+    std::vector<std::pair<double, double>> flap_manoeuvre_over_kts;
+    double manoeuvre_vref_kts = 0.0;
+    double manoeuvre_reference_lbs = 0.0;
     // **The rate she is rotated at on her wheels**, degrees of pitch a
     // second: her figures' `rotation_degps`, and `rotation_held` true. Every
     // nose-wheel aeroplane's figures give one - three for the airliners and
@@ -179,6 +193,11 @@ public:
     // fastest - read as she flies, so weather flown in after the take-off
     // was given, or changing during it, is the air she climbs out in.
     double climb_kts() const;
+    // **The least speed she may fly with her flap lever at `flap`**, 0 to 1,
+    // from her flaps' manoeuvre speeds (DepartureSpeeds::
+    // flap_manoeuvre_over_kts) for what she weighs now; nothing where she
+    // has none, or none for a setting that low.
+    std::optional<double> manoeuvre_kts(double flap) const;
     // The mixture it is handed, where that is not what the aircraft last
     // had - the controls a controller hands over - to lean from.
     void hand_mixture(double mixture);
@@ -204,6 +223,7 @@ public:
 
 private:
     // The controls, but for the mixture.
+    double climb_out_kts() const;
     Controls fly_laws();
 
     const Aircraft& a_;

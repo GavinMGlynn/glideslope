@@ -20,6 +20,7 @@
 #include <map>
 #include <optional>
 #include <string>
+#include <utility>
 #include <vector>
 
 #include "sim/aircraft.hpp"
@@ -149,6 +150,12 @@ struct PublishedFigures {
     // aeroplane that publishes an approach speed and no stall speed - the
     // 747-400 - is landed with it.
     double approach_flaps_deg = -1.0;
+    // **The least speed each flap may be flown at as it comes up after a
+    // take-off**, knots over her `<approach>` speed for her weight, by flap
+    // degrees: `<flap_manoeuvre_speeds>`, where the file gives them (the
+    // 747-400's, over her Vref30). Empty where it gives none: her flaps then
+    // come up as every aeroplane's do (sim::Departure).
+    std::vector<std::pair<double, double>> flap_manoeuvre_over_approach_kts;
     // **The lift-off speed worked from its flight manual's**, KCAS, where the file
     // has a `<takeoff kcas="..." loading="...">`: what `departure_speeds`
     // takes off at, in place of 1.15 times a stall that, at the F-15C's 40

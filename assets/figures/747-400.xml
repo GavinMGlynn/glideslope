@@ -32,7 +32,17 @@
   Boeing's: its flight crew training manuals (737, 747) have the nose
   raised "at 2 to 3 degrees per second" toward the take-off attitude.
 -->
-<published_figures aircraft="747-400" rotation_degps="3" flaps_full_deg="30" touchdown_fpm="200">
+<!--
+  **go_around_flaps_deg** is the flap the autopilot's stall recovery raises
+  the flaps to, a hand's pace at a time: 20, the 747-400's go-around flap
+  (her FCOM's go-around and missed approach procedure, NP.21, "position the
+  flap lever to 20", as quoted second-hand by her crews; Boeing's other
+  types go around at 15 or 20), and the power-approach flap of NASA CR-2144's
+  table IX-2. Left at 30 in a recovery at 20,000 ft and 754,313 lb, her full
+  thrust (92,500 lb) was less than her drag (96,500 lb), and she recovered
+  descending (2026-11-01).
+-->
+<published_figures aircraft="747-400" rotation_degps="3" flaps_full_deg="30" go_around_flaps_deg="20" touchdown_fpm="200">
   <source>Boeing D6-58326-1 rev F, 2024; FAA TCDS A20WE</source>
 
   <!-- 875,000 lb, the heaviest maximum take-off weight with GE engines (table
@@ -169,6 +179,30 @@
     Boeing, Aerodrome Reference Code and Approach Speeds, rev A, August 2026:
     153 kt at the 630,000 lb maximum landing weight; flaps 30.
   </approach>
+
+  <!-- **Her flaps' manoeuvre speeds**, over her Vref30 for her weight - her
+       approach speed above, at flaps 30, scaled by the square root of the
+       weight (sim::Departure::manoeuvre_kts): flaps up Vref30 + 80, flaps 1
+       + 60, flaps 5 + 40, flaps 10 + 20, flaps 20 + 10. Boeing's 747-400
+       flight crew operations manual's flap manoeuvre speed schedule, which
+       is not public; its figures as 747-400 crews quote it (PPRuNe Tech Log,
+       "747-400 flap retraction speeds", 2008-2011: "flaps 5 minimum speed
+       will be 200 (VREF + 40), flaps 1 will be 220 (REF + 60) and flaps up
+       will be 240 kts (REF + 80)" at a 160 kt Vref30; "Vref30 + 60 for Flaps
+       1, 40 for flaps 5, 20 for flaps 10, 10 for flaps 20"), with the rule
+       they fly it by: "only ... selection of the next lesser flap setting
+       upon reaching the minimum speed for the new setting". Her model's
+       lever has 15 degrees between 30 and up, flown at flaps 10's speed.
+       Without them her climb out raised her flaps at her 170 kt climb speed,
+       under her clean wing's 181 kt stall at 754,313 lb, and handed over at
+       lift-off she sank back on to the runway (2026-11-01). -->
+  <flap_manoeuvre_speeds>
+    <flap deg="0" over_approach_kts="80"/>
+    <flap deg="1" over_approach_kts="60"/>
+    <flap deg="5" over_approach_kts="40"/>
+    <flap deg="10" over_approach_kts="20"/>
+    <flap deg="20" over_approach_kts="10"/>
+  </flap_manoeuvre_speeds>
 
   <landing_distance ft="6200" basis="field_length" factor="1">
     Figure 3.4.2, page 3-36: F.A.R. landing runway length, flaps 30, dry runway,

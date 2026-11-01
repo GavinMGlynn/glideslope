@@ -2280,6 +2280,24 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      " gives an <approach> flap below 0 degrees");
         }
     }
+    if (JSBSim::Element* schedule = root->FindElement("flap_manoeuvre_speeds")) {
+        if (out.approach_kcas <= 0.0) {
+            throw std::runtime_error(file.string() + " gives flap manoeuvre speeds over an "
+                                     "<approach> speed it does not give");
+        }
+        for (JSBSim::Element* flap = schedule->FindElement("flap"); flap != nullptr;
+             flap = schedule->FindNextElement("flap")) {
+            const double deg = flap->GetAttributeValueAsNumber("deg");
+            const double over = flap->GetAttributeValueAsNumber("over_approach_kts");
+            if (!(deg >= 0.0) || !(over >= 0.0)) {
+                throw std::runtime_error(file.string() + " gives a flap manoeuvre speed "
+                                         "without a flap or a margin at or above 0");
+            }
+            out.flap_manoeuvre_over_approach_kts.emplace_back(deg, over);
+        }
+        std::sort(out.flap_manoeuvre_over_approach_kts.begin(),
+                  out.flap_manoeuvre_over_approach_kts.end());
+    }
     speed_at("takeoff", out.takeoff_kcas, out.takeoff_loading);
     // **Every file gives the speeds a plan may fly it at**, once: an
     // aircraft without them could be planned at a speed it cannot hold.
