@@ -3388,7 +3388,7 @@ GLIDESLOPE_TEST(a_plans_loading_is_one_her_figures_name_or_the_plan_is_refused_b
                            "'s figures name") != std::string::npos,
               e.id + " refuses a loading her figures do not name, by name: " + unknown);
     }
-    check(named == 41, "the catalogue's aircraft name 41 loadings, not " + std::to_string(named) +
+    check(named == 42, "the catalogue's aircraft name 42 loadings, not " + std::to_string(named) +
                            ": a loading added or removed is counted here");
     check(aircraft == 16 && accepted == named && named > 0,
           "every named loading of the 16 aircraft is flown: " + std::to_string(accepted) +

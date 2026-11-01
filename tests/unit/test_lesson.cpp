@@ -142,6 +142,16 @@ void load_as_its_figures_were_measured(glideslope::sim::Aircraft& aircraft,
         }
         if (climb != nullptr) {
             load_as_measured(aircraft, figures, climb);
+        } else if (!figures.approach_loading.empty()) {
+            // **With no climb figure, at her approach speed's loading**: the
+            // 747-400's speeds - her stall, her warning, her reference - are
+            // Boeing's at her 630,000 lb maximum landing weight, and flown at
+            // her model's 754,313 lb she stalled 11 kt above the speed her
+            // lesson warns at, and was never warned (2026-11-01).
+            const auto it = figures.loadings.find(figures.approach_loading);
+            if (it != figures.loadings.end()) {
+                aircraft.load(it->second.loading);
+            }
         }
     } catch (const std::exception&) {
     }
@@ -1282,7 +1292,7 @@ GLIDESLOPE_TEST(every_aeroplane_given_a_rotation_rate_rotates_on_her_wheels_at_e
     // the six held at three; the C172P's, the C182's and the PA-28's one,
     // the F-15C's three, the F-22A's one, the F-35B's four and the
     // Learjet's four.
-    check(loadings_flown == 46, "forty-six loadings flown, not " +
+    check(loadings_flown == 47, "forty-seven loadings flown, not " +
                                     std::to_string(loadings_flown));
 }
 
