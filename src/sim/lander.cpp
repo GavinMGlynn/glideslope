@@ -1791,8 +1791,14 @@ Controls Lander::fly_laws() {
     // fewest failures (80 of 520, from 100). The true rate, the attitude
     // asked low-passed over a quarter of a second before differencing,
     // did worse: 103 capped at 1 deg/s, 168 at 6 (balloons).
+    // **A landplane's, not a hull's**: the sweep was of the landplanes, and
+    // a hull in gusts is not flared to the touch but held level over the
+    // water (rough water, above), her nose already capped. Let through
+    // there, the degree a second rotated the S.23 on in her hold-off and she
+    // met the water at 340 ft/min on gust seed 5, against 313 without it
+    // and a judged 335 (docs/status, 2026-11-01).
     const double want_q_degps =
-        stage_ == Stage::flare && in_gusts() && flare_gain_ > 1.0
+        stage_ == Stage::flare && in_gusts() && !lands_on_hull() && flare_gain_ > 1.0
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 1.0)
             : 0.0;
     last_want_pitch_ = want_pitch;
