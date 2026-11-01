@@ -182,16 +182,15 @@
 
   <!-- **Her flaps' manoeuvre speeds**, over her Vref30 for her weight - her
        approach speed above, at flaps 30, scaled by the square root of the
-       weight (sim::Departure::manoeuvre_kts): flaps up Vref30 + 80, flaps 1
-       + 60, flaps 5 + 40, flaps 10 + 20, flaps 20 + 10. Boeing's 747-400
-       flight crew operations manual's flap manoeuvre speed schedule, which
-       is not public; its figures as 747-400 crews quote it (PPRuNe Tech Log,
-       "747-400 flap retraction speeds", 2008-2011: "flaps 5 minimum speed
-       will be 200 (VREF + 40), flaps 1 will be 220 (REF + 60) and flaps up
-       will be 240 kts (REF + 80)" at a 160 kt Vref30; "Vref30 + 60 for Flaps
-       1, 40 for flaps 5, 20 for flaps 10, 10 for flaps 20"), with the rule
-       they fly it by: "only ... selection of the next lesser flap setting
-       upon reaching the minimum speed for the new setting". Her model's
+       weight (sim::Departure::manoeuvre_kts): Boeing's 747 Flight Crew
+       Operations Manual (D6-30151-400, October 1, 2009, "do not use for
+       flight"), Performance Inflight, Flap Maneuver Speeds, page PI.20.3 for
+       the 747-400F with CF6-80C2B1Fs (PI.10.3 for the PW4056 the same): UP
+       Vref30 + 80, 1 + 60, 5 + 40, 10 + 20, 20 + 10, 25 Vref25, 30 Vref30.
+       "During flap retraction, selection to the next position should be
+       initiated when at and accelerating above the recommended flap speed
+       for the new position." Read from a copy of the manual hosted by a
+       third party (pdfcoffee.com); Boeing does not publish it. Her model's
        lever has 15 degrees between 30 and up, flown at flaps 10's speed.
        Without them her climb out raised her flaps at her 170 kt climb speed,
        under her clean wing's 181 kt stall at 754,313 lb, and handed over at

@@ -6966,10 +6966,14 @@ GLIDESLOPE_TEST(the_stall_recovery_raises_the_flaps_to_the_go_around_setting_at_
 }
 
 // **The stall recovery never lowers the flaps.** Every aeroplane whose
-// figures give a go-around setting, stalled and handed to the recovery at its
-// warning with its flap lever at half that setting: the lever stays where it
-// was handed over, every step. The recovery takes the flaps up to a
-// go-around's; flaps already raised past it are not put down to it.
+// figures give a go-around setting, stalled with its flap lever at half that
+// setting and handed to the recovery as the lesson calls the stall: the lever
+// stays where it was handed over, every step. The recovery takes the flaps up
+// to a go-around's; flaps already raised past it are not put down to it.
+// **At the lesson's call, not its warning**: the warning is worked from the
+// stall in the landing configuration, and the 747-400 with her flaps at 10,
+// half her go-around 20, stalls above it - she was never warned, and never
+// handed over (2026-11-01).
 GLIDESLOPE_TEST(the_stall_recovery_never_lowers_flaps_raised_past_the_go_around_setting) {
     const Taught taught = taught_for("stalls");
     std::size_t with_a_setting = 0;
@@ -6983,7 +6987,7 @@ GLIDESLOPE_TEST(the_stall_recovery_never_lowers_flaps_raised_past_the_go_around_
         }
         ++with_a_setting;
         const double half = 0.5 * *figures.go_around_flaps_deg / figures.flaps_full_deg;
-        const Result r = fly_a_stall(id, 0.0, false, false, true, false, half);
+        const Result r = fly_a_stall(id, 0.0, false, false, false, false, half);
         std::printf("  %-13s handed over with the lever at %.4f (half its go-around's): ended "
                     "at %.4f, lowest %.4f, most in a step %.5f\n",
                     id.c_str(), r.flaps_handed, r.flaps_end, r.flaps_lowest,
