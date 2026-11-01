@@ -896,7 +896,7 @@ double rollout_from_kts(const glideslope::sim::CatalogueEntry& entry) {
 // crosswind arrives, twice - her side grip as the wet runway gives it, and
 // held at her dry (Aircraft::hold_side_grip), her brakes braking as the wet
 // runway's code says both times, so that only the grip sideways differs.
-// Each of the eight jets slides across her own heading, at the worst, at
+// Each of the nine jets slides across her own heading, at the worst, at
 // least 1.2 times as fast with the wet side grip - a ratio, not a margin in
 // ft/s, so that a platform's own floating point moves both runs alike.
 // Measured 2026-10-14 on Linux: from 1.29 (A320, 14.2 ft/s against 11.0) to
@@ -955,9 +955,9 @@ GLIDESLOPE_TEST(on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_ma
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(asserted == 8 && printed == named.size() && left_out == 4 &&
+    check(asserted == 9 && printed == named.size() && left_out == 3 &&
               asserted + printed + left_out == catalogue.size(),
-          "eight jets asserted, four named, four left out: " + std::to_string(asserted) + ", " +
+          "nine jets asserted, four named, three left out: " + std::to_string(asserted) + ", " +
               std::to_string(printed) + ", " + std::to_string(left_out) + " of " +
               std::to_string(catalogue.size()));
 }
@@ -971,10 +971,10 @@ GLIDESLOPE_TEST(on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_ma
 // centreline than its half-width (30 m; the most, 26.8 m, the Mosquito, on
 // 2026-10-14), her side grip at its least below 0.8 of her dry - the wet
 // runway's loss was laid on her. Dry is flown and printed beside it. Left
-// out, named: the flying boat, which has no wheels; the 747-400 and the
-// F-22A, which publish no stall speed, so the AI lands neither; and the
-// J-3 Cub, whose roll-out never brings her below half a knot. Coverage is
-// asserted: twelve rolled, four left out.
+// out, named: the flying boat, which has no wheels; the F-22A, which
+// publishes no approach speed, so the AI lands her nowhere; and the J-3 Cub,
+// whose roll-out never brings her below half a knot. Coverage is asserted:
+// thirteen rolled, three left out.
 GLIDESLOPE_TEST(every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_and_stays_on_it) {
     const auto catalogue = glideslope::sim::read_catalogue(data());
     constexpr double most_across_m = glideslope::sim::Lander::runway_half_width_m;
@@ -1029,7 +1029,7 @@ GLIDESLOPE_TEST(every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_a
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(rolled + left_out == catalogue.size() && left_out == 4 && rolled == 12,
+    check(rolled + left_out == catalogue.size() && left_out == 3 && rolled == 13,
           "every landplane the AI lands rolled out: " + std::to_string(rolled) + " of " +
               std::to_string(catalogue.size() - 1));
 }
@@ -1052,12 +1052,12 @@ GLIDESLOPE_TEST(every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_a
 // `stick_back_from_vref`): 2.1 m dry, 3.4 wet. **The J-3 Cub is asserted
 // since 2026-10-30** (left out until then for a ground loop in 15 kt
 // across, closed 2026-10-29): 1.4 m dry, 1.6 wet. Left out, named,
-// as above: the flying boat, the 747-400 and F-22A. **And the two
+// as above: the flying boat and the F-22A. **And the two
 // tail-wheel aeroplanes on a runway sloping 1 degree up and 1 down**, dry
 // and wet, held to the same 5 m: her brakes must not depend on the slope.
-// Coverage is asserted: thirteen landplanes rolled out both ways, the two
-// tail-wheel ones on both slopes both ways, thirty-four roll-outs asserted,
-// three left out.
+// Coverage is asserted: fourteen landplanes rolled out both ways, the two
+// tail-wheel ones on both slopes both ways, thirty-six roll-outs asserted,
+// two left out.
 GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arrives_stays_within_5_m_of_the_centreline) {
     const auto catalogue = glideslope::sim::read_catalogue(data());
     constexpr double most_across_m = 5.0;
@@ -1134,10 +1134,10 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arri
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     const std::size_t sloped_space = tail_wheels * std::size(runway_slopes_deg) * 2;
-    check(rolled + left_out == catalogue.size() && left_out == 3 && rolled == 13 &&
+    check(rolled + left_out == catalogue.size() && left_out == 2 && rolled == 14 &&
               tail_wheels == 2 && sloped_runs == sloped_space &&
               asserted == 2 * rolled + sloped_space,
-          "thirteen rolled out both ways, the two tail-wheel ones sloped too, three left out: " +
+          "fourteen rolled out both ways, the two tail-wheel ones sloped too, two left out: " +
               std::to_string(rolled) + ", " + std::to_string(tail_wheels) + " tail-wheel, " +
               std::to_string(sloped_runs) + " sloped of " + std::to_string(sloped_space) + ", " +
               std::to_string(asserted) + " asserted, " + std::to_string(left_out) + " of " +

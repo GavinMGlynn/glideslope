@@ -194,30 +194,77 @@ CL_DE = 0.2                   # CLde,
 CM_DE_AT_0, CM_DE_AT_2 = -1.3, -0.325   # and Cmde at Mach 0 and 2
 
 
+# **Her flapped wing's stall, from the same report's source**: NASA CR-1756
+# (Hanke and Nordwall, "The Simulation of a Jumbo Jet Transport Aircraft,
+# Volume II: Modeling Data", 1970), page 2.0-37, Boeing's certification stall
+# speeds (D6-30643; engines idle, load factor less than one, forward centre of
+# gravity, the gear up but at flaps 25 and 30), read from the chart: flaps 20,
+# 134 KEAS at 700,000 lb; flaps 30, 112 KEAS at 600,000 lb. On the 5,500 sq
+# ft wing those are a CL of 2.08 and 2.57. Her flapped lift keeps Heffley and
+# Jewell's slope past their trim point up to that CL, its angle her flapped
+# stall's, and then falls as her clean wing's does past its stall. Without it
+# her flapped wing stalled at the clean wing's 0.23 radian, at a CL of 1.82
+# and 2.18: 157 kt at 875,000 lb with flaps 20, where Boeing's stall speeds
+# make 150, and a 747-400 flies her V2 at 181 kt (1.2 times it), and her 153
+# kt approach only 1.19 times her stall at flaps 30 where the rules ask 1.3.
+SEA_LEVEL_SLUGFT3 = 0.0023769
+FPS_PER_KT = 1.6878099
+CERTIFICATION_STALLS = {      # flap degrees: (lb, KEAS)
+    20: (700000.0, 134.0),
+    30: (600000.0, 112.0),
+}
+
+
+def flapped_stall_cl(flap):
+    weight, keas = CERTIFICATION_STALLS[flap]
+    v = keas * FPS_PER_KT
+    return weight / (0.5 * SEA_LEVEL_SLUGFT3 * v * v * HEFFLEY_WING_SQFT)
+
+
 def flap_lift_rows():
     """dCLflap's table: rows of angle of attack (radians), columns of flap
     degrees - what each flap adds to the model's clean lift so that, trimmed
     by its elevator at Heffley and Jewell's angle and Mach, she has their
-    lift and lift-curve slope on her own wing."""
+    lift and lift-curve slope on her own wing, up to the certification stall
+    speeds' lift, and past it falls as her clean wing does past its stall."""
     import math
     clean_slope = (CLEAN_CL_STALL - CLEAN_CL0) / STALL_ALPHA_RAD
-    columns = [(0, 0.0, 0.0)]  # flap, increment at no angle, its slope
-    for flap, mach, alpha_deg, cl, cl_alpha in HEFFLEY_FLAPS:
-        alpha = math.radians(alpha_deg)
-        scale = HEFFLEY_WING_SQFT / WING_SQFT
-        cm_de = CM_DE_AT_0 + (CM_DE_AT_2 - CM_DE_AT_0) * mach / 2.0
-        elevator = -CM_ALPHA * alpha / cm_de       # her trim, in radians
-        clean = CLEAN_CL0 + clean_slope * alpha + CL_DE * elevator
-        slope = cl_alpha * scale - clean_slope
-        columns.append((flap, cl * scale - clean - slope * alpha, slope))
-    rows = ["                              " + "\t".join(f"{c[0]}" for c in columns)]
-    for alpha in (-0.2, 0.0, STALL_ALPHA_RAD):
-        rows.append(f"                              {alpha:.4f}\t" +
-                    "\t".join(f"{c[1] + c[2] * alpha:.4f}" for c in columns))
-    # Past her stall the flaps' lift falls as her clean wing's does.
+    scale = HEFFLEY_WING_SQFT / WING_SQFT
     deep = CLEAN_CL_DEEP / CLEAN_CL_STALL
-    rows.append("                              0.6000\t" +
-                "\t".join(f"{deep * (c[1] + c[2] * STALL_ALPHA_RAD):.4f}" for c in columns))
+
+    def clean(alpha):
+        if alpha <= STALL_ALPHA_RAD:
+            return CLEAN_CL0 + clean_slope * alpha
+        return CLEAN_CL_STALL + (CLEAN_CL_DEEP - CLEAN_CL_STALL) * (
+            (alpha - STALL_ALPHA_RAD) / (0.6 - STALL_ALPHA_RAD))
+
+    columns = [(0, None)]
+    stalls = []
+    for flap, mach, alpha_deg, cl, cl_alpha in HEFFLEY_FLAPS:
+        cm_de = CM_DE_AT_0 + (CM_DE_AT_2 - CM_DE_AT_0) * mach / 2.0
+        trim_alpha = math.radians(alpha_deg)
+        slope = cl_alpha * scale
+        cl_max = flapped_stall_cl(flap) * scale
+        stall = trim_alpha + (cl_max - cl * scale) / slope
+
+        def total(alpha, trim_alpha=trim_alpha, cl=cl, slope=slope,
+                  cl_max=cl_max, stall=stall):
+            if alpha <= stall:
+                return cl * scale + slope * (alpha - trim_alpha)
+            return cl_max * (1.0 - (1.0 - deep) * (alpha - stall) / (0.6 - stall))
+
+        def increment(alpha, total=total, cm_de=cm_de):
+            elevator = -CM_ALPHA * alpha / cm_de       # her trim, in radians
+            return total(alpha) - clean(alpha) - CL_DE * elevator
+
+        columns.append((flap, increment))
+        stalls.append(stall)
+    alphas = sorted({-0.2, 0.0, STALL_ALPHA_RAD, 0.6, *(round(a, 4) for a in stalls)})
+    rows = ["                              " + "\t".join(f"{c[0]}" for c in columns)]
+    for alpha in alphas:
+        rows.append(f"                              {alpha:.4f}\t" +
+                    "\t".join("0.0000" if f is None else f"{f(alpha):.4f}"
+                              for _, f in columns))
     return "\n".join(rows)
 
 

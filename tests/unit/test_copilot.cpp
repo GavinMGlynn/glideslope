@@ -544,7 +544,7 @@ GLIDESLOPE_TEST(every_aircrafts_brief_tells_the_approach_speed_the_ai_flies_her_
                   " kt and flown at " + std::to_string(flown));
         ++told;
     }
-    check(told == 14 && none == 2 && told + none == catalogue.size(),
+    check(told == 15 && none == 1 && told + none == catalogue.size(),
           "every aircraft: " + std::to_string(told) + " briefed a speed and " +
               std::to_string(none) + " none, of " + std::to_string(catalogue.size()));
 }

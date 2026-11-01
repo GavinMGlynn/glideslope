@@ -1516,7 +1516,7 @@ const std::vector<GlideBand> glide_bands = {
     {"737-300", Ways::right, 197, 217},
     {"737-300", Ways::right, 222, 242},
     {"737-300", Ways::right, 247, 260},
-    {"747-400", Ways::both, 235, 235},
+    {"747-400", Ways::both, 230, 235},
     {"787-8", Ways::left, 203, 218},
     {"787-8", Ways::left, 223, 238},
     {"787-8", Ways::left, 243, 258},
@@ -1835,8 +1835,8 @@ GLIDESLOPE_TEST(the_boeing_737_300_glides_round_its_tightest_orbit_turning_right
     glides_in_band("737-300", Ways::right, 247);
 }
 
-GLIDESLOPE_TEST(the_boeing_747_400_glides_round_its_tightest_orbit_at_235_kt_without_stalling) {
-    glides_in_band("747-400", Ways::both, 235);
+GLIDESLOPE_TEST(the_boeing_747_400_glides_round_its_tightest_orbit_from_230_to_235_kt_without_stalling) {
+    glides_in_band("747-400", Ways::both, 230);
 }
 
 GLIDESLOPE_TEST(the_boeing_787_8_glides_round_its_tightest_orbit_turning_left_from_203_to_218_kt_without_stalling) {
