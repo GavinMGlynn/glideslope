@@ -93,6 +93,12 @@ agreeing to 3.66e-15 in an observation and 1.44e-15 in an action in
 linux-release.
 
 **Verification.** With part 12's policy: the 28 tests named learnt and the
-two rudder tests green in linux-release (the figures above) and in an
-`-march=x86-64-v2` release build (no fused multiply-adds, as CI builds),
-and the full linux-release suite (`-LE nightly`) green.
+two rudder tests green in linux-release (the figures above). In an
+`-march=x86-64-v2` release build (no fused multiply-adds, as CI builds; no
+`vfmadd` in its test program: `cmake --preset linux-release -B
+build/linux-release-v2 -DCMAKE_CXX_FLAGS=-march=x86-64-v2
+-DCMAKE_C_FLAGS=-march=x86-64-v2`), with only the test program and the CLI
+built, the 27 of them those fly are green with the same printed figures,
+and the parity test agrees to 0; the three that need the server or the
+window client were not built there. The full linux-release suite (`-LE
+nightly`) green.
