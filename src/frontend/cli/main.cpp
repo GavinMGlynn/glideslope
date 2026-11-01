@@ -1058,6 +1058,7 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
     double sink_fpm = 0.0;
     double touch_across_m = 0.0;
     double touch_along_m = 0.0;
+    double touch_pitch_deg = 0.0;
     double stop_across_m = 0.0;
     double stop_along_m = 0.0;
     for (long tick = 0; tick < 600L * glideslope::sim::steps_per_second && !stopped; ++tick) {
@@ -1080,6 +1081,7 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
                 sink_fpm = a->touchdown_sink_fpm();
                 touch_across_m = a->touchdown_across_m();
                 touch_along_m = a->touchdown_along_m();
+                touch_pitch_deg = a->touchdown_pitch_deg();
             }
             rolling = a;
             stopped = a->stage() == glideslope::sim::Lander::Stage::stopped;
@@ -1100,6 +1102,9 @@ int land(const std::filesystem::path& data, const std::vector<std::string_view>&
     std::printf("  touched down at %.0f ft/min, %+.2f m across the centreline, %.0f m past "
                 "the threshold\n",
                 sink_fpm, touch_across_m, touch_along_m);
+    if (policy == nullptr) {
+        std::printf("  her nose %.1f degrees up as she touched\n", touch_pitch_deg);
+    }
     if (!stopped) {
         std::printf("  did not stop\n");
         return 1;

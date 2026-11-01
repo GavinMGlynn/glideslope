@@ -109,6 +109,7 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     }
     speeds.elevator_full_cm = figures.elevator_full_cm;
     speeds.stick_back_from_vref = figures.stick_back_from_vref;
+    speeds.three_point = figures.three_point;
     speeds.spool_s = spool_up_s(data / "jsbsim", model);
     return speeds;
 }
@@ -219,6 +220,13 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
     // floats read as one - and is not used.
     const Aircraft::Stance stance = aircraft.stance();
     tail_wheel_ = stance.found && stance.tail_wheel;
+    // **Three-point only on three points**: figures that land a nose-wheel
+    // aeroplane or a hull three-point are a fault in them.
+    if (speeds_.three_point && !tail_wheel_) {
+        throw std::runtime_error("figures that land three-point an aeroplane that does not "
+                                 "stand on a tail wheel");
+    }
+    three_point_ = speeds_.three_point;
     if (stance.found && stance.tail_wheel) {
         most_flare_pitch_deg_ = stance.standing_pitch_deg;
     } else if (stance.found && stance.strike_pitch_deg > 0.0 &&
@@ -598,6 +606,7 @@ bool Lander::notice_the_touch(const AircraftState& s) {
         touched_ = true;
         holding_off_ = false;
         touchdown_pitch_deg_ = s.pitch_deg;
+        three_point_touch_ = three_point_ && !in_gusts();
         lowering_pitch_deg_ = s.pitch_deg;
         touchdown_above_m_ = above_m_;
         touchdown_agl_ft_ = a_.property("position/h-agl-ft");
@@ -1006,6 +1015,14 @@ Controls Lander::fly_laws() {
         const double hold = std::clamp(
             0.05 * hold_error - 0.05 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
         c.elevator = flying * hold + (1.0 - flying) * 1.0;
+        // **Landed three-point, her stick is held fully back from the
+        // touch** (the AFH, ch. 14, "After touchdown, the control stick should
+        // be held back as far as possible"): her tail is on the runway and
+        // her wing at the stall, and eased forward as a wheel landing's is,
+        // her tail would come up again.
+        if (three_point_touch_) {
+            c.elevator = 1.0;
+        }
         // **A hull on the water is held at the attitude she touched at, until
         // she comes off the step**, and only then is the stick brought fully
         // back: the FAA's Seaplane Handbook (FAA-H-8083-23, ch. 6, "Normal
@@ -1433,10 +1450,44 @@ Controls Lander::fly_laws() {
         // to 520.
         const double touchdown_fpm =
             gusty ? gusty_touchdown_fpm : speeds_.touchdown_fpm;
-        const double want_fpm =
+        double want_fpm =
             holding_off_ ? -150.0 * (high_ft - rough_water_hold_ft) /
                                std::max(1.0, flare_height_ft() - rough_water_hold_ft)
                          : -(touchdown_fpm + 150.0 * high_ft / std::max(1.0, flare_height_ft()));
+        // **Held off, three-point, until her nose is at the attitude she
+        // stands at** - where her figures land her so (`lands`), and not in
+        // gusts. The FAA's Airplane Flying Handbook (FAA-H-8083-3C, ch. 14,
+        // "Normal Landing") lands a tailwheel aeroplane three-point: the
+        // round out "started at about the same height as in a tricycle gear
+        // airplane", then held off just above the runway, the back pressure
+        // increased as she slows, so that she touches on her main wheels and
+        // tail wheel together at about the stall. Her wheels are flown down
+        // to half a foot over the runway - at the flare's own sink to there,
+        // then held, a little climb asked for below it - and as she slows,
+        // holding her there takes more nose, until it is within a degree of
+        // her standing attitude and the flare's own sink lets her settle.
+        // Flown to the flare's sink alone she touched at 2.8 degrees, where
+        // she stands at 12.1, and rolled on her main wheels unbraked. Held off
+        // a foot or two, the wing gave out with her nose at nine and she
+        // dropped on to her main wheels at 100 to 150 ft/min: the Cub's lift
+        // hardly grows above seven and a half degrees of incidence, so the
+        // last four degrees of nose come in the last knot or so, a second.
+        // **So the nose is raised four times as hard** for the sink it is
+        // asked to arrest (`want_flare`), **its rise is not damped** up to
+        // 4.5 degrees a second, and **the elevator's gain is doubled**
+        // (`flare_gain_`, both below): at the flare's own she touched with
+        // her nose at 9.4 degrees, held behind what was asked by the damping
+        // of its own rate.
+        const bool holding_three_point =
+            three_point_ && !gusty && s.pitch_deg < most_flare_pitch_deg_ - 1.0;
+        holding_three_point_ = holding_three_point;
+        if (holding_three_point) {
+            constexpr double held_off_ft = 0.5;
+            const double over_ft = std::max(0.0, high_ft - held_off_ft);
+            want_fpm = -(std::min(touchdown_fpm, 60.0 * over_ft) +
+                         150.0 * over_ft / std::max(1.0, flare_height_ft())) +
+                       std::min(40.0, 60.0 * std::max(0.0, held_off_ft - high_ft));
+        }
         const double fpm_error = want_fpm - s.climb_rate_fpm;
         // **Where the sink is going, not only where it is.** The path follows
         // the nose a second or so behind it, so a nose raised until the sink
@@ -1477,7 +1528,7 @@ Controls Lander::fly_laws() {
         // proportional to the rate of closure with the ground.
         const double path_fpm = std::max(1.0, kcas) * 101.269;
         const double want_flare =
-            s.pitch_deg + 1.5 * std::atan(ahead_error / path_fpm) * degrees;
+            s.pitch_deg + (holding_three_point ? 6.0 : 1.5) * std::atan(ahead_error / path_fpm) * degrees;
         // **From the attitude she flew the glidepath at**, never pushed
         // down from it: the bound stops the nose rising past it, and does
         // not lower one already there.
@@ -1800,6 +1851,8 @@ Controls Lander::fly_laws() {
     const double want_q_degps =
         stage_ == Stage::flare && in_gusts() && !lands_on_hull() && flare_gain_ > 1.0
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 1.0)
+        : stage_ == Stage::flare && holding_three_point_
+            ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 4.5)
             : 0.0;
     last_want_pitch_ = want_pitch;
     pitch_trim_ = std::clamp(pitch_trim_ + 0.02 * pitch_error / steps_per_second, -0.8, 0.8);
@@ -1812,7 +1865,8 @@ Controls Lander::fly_laws() {
     // trimmed nose-down for her raised speed, did not move in her flare's
     // first second while the gain came in.
     flare_gain_ = stage_ == Stage::flare
-                      ? std::min(3.0, flare_gain_ + (in_gusts() ? 8.0 : 2.0) / steps_per_second)
+                      ? std::min(holding_three_point_ ? 6.0 : 3.0,
+                                 flare_gain_ + (in_gusts() ? 8.0 : 2.0) / steps_per_second)
                       : 1.0;
     c.elevator =
         std::clamp(flare_gain_ * (0.05 * pitch_error - 0.05 * (q_degps - want_q_degps)) +

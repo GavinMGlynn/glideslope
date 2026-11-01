@@ -23,8 +23,13 @@
   "will become airborne at approximately 39 M.P.H.", no distance; the top
   speed - the booklet's "design level flight speed", 90 mph, is the type
   certificate's limit, not a speed measured.
+
+  lands="three_point": the AI lands her three-point, held off until her nose
+  is near the attitude she stands at (sim/lander.cpp), as the FAA's Airplane
+  Flying Handbook (FAA-H-8083-3C, chapter 14, "Normal Landing") lands a
+  tailwheel aeroplane; in gusts she is flown on to her main wheels.
 -->
-<published_figures aircraft="j3cub" flaps_full_deg="0">
+<published_figures aircraft="j3cub" flaps_full_deg="0" lands="three_point">
   <source>Piper J3C-65 Owner's Manual; Piper, How to Fly a Piper Cub, 1945</source>
 
   <!-- 1,220 lb, the gross weight: the booklet's empty weight, 680 lb, and its
@@ -136,17 +141,17 @@
     46 kt, the slowest a route may fly it, went round unstalled.
   </glide_speeds>
 
-  <landing_distance ft="1700" basis="measured" factor="1">
+  <landing_distance ft="1500" basis="measured" factor="1">
     Measured, not published: the line above is written by
-    tools/measured_landing.py from `glideslope_cli land j3cub` (2026-10-30,
+    tools/measured_landing.py from `glideslope_cli land j3cub` (2026-11-01,
     linux-release, at her model's own loading flown solo, 922 lb). Landed by
     the approach autopilot from a final-approach gate 2 nm out, on a level
-    runway at sea level in calm air with every tank full, she touched 301 m in
-    and stopped 498 m past the threshold. **It was 429 m and 1,500 ft** until
-    a tail-wheel aeroplane's brakes waited for her tail wheel to bear weight
-    (sim/lander.cpp, 2026-10-30): the AI wheel-lands her, at 3 degrees where
-    she stands at 12, and she rolls on her main wheels unbraked until her tail
-    comes down - an open item, "The AI wheel-lands the J-3 Cub". (At 752 lb,
+    runway at sea level in calm air with every tank full, she touched 358 m in,
+    three-point - her nose at 10.2 degrees, where she stands at 12.1 - and
+    stopped 441 m past the threshold. **It was 498 m and 1,700 ft** while the
+    AI wheel-landed her (2026-10-30 to 2026-11-01), at 2.8 degrees, and she
+    rolled on her main wheels unbraked until her tail came down; and 429 m
+    and 1,500 ft before her brakes waited for her tail wheel. (At 752 lb,
     carrying no one, 2026-10-13, she stopped 399 m in and her figure was
     1,400 ft.) She crossed the threshold
     on the 3-degree glidepath aimed 300 m in, at about 50 ft. The figure is

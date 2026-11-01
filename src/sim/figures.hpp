@@ -126,6 +126,10 @@ struct PublishedFigures {
     // light, from there down to half of it, where the stick is fully back
     // (sim::Lander). 0.9 where the file gives none.
     double stick_back_from_vref = 0.9;
+    // **How a tail-wheel aeroplane is landed** (`lands`): "three_point", held
+    // off until she touches at the attitude she stands at (sim::Lander), or
+    // "wheels", the default, flown on to her main wheels.
+    bool three_point = false;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;

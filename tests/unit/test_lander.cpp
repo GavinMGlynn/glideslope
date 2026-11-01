@@ -12,6 +12,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -68,6 +69,8 @@ struct Landing {
     double sink_fpm = 0.0;
     double across_m = 0.0;
     double along_m = 0.0; // from the threshold, positive down the runway
+    double touch_pitch_deg = 0.0; // her nose as her wheels first touched
+    double standing_pitch_deg = 0.0; // her nose standing on her wheels (Aircraft::stance)
     double stopped_along_m = 0.0;
     double worst_across_on_final_m = 0.0; // inside a mile
     double seconds = 0.0;
@@ -183,16 +186,19 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false,
     out.sink_fpm = lander.touchdown_sink_fpm();
     out.across_m = lander.touchdown_across_m();
     out.along_m = lander.touchdown_along_m();
+    out.touch_pitch_deg = lander.touchdown_pitch_deg();
+    out.standing_pitch_deg = aircraft.stance().standing_pitch_deg;
     if (!out.stopped) {
         out.seconds = 900.0;
     }
     std::printf("  %s: touched at %.0f ft/min, %.2f m across, %.0f m along; "
                 "stopped %.0f m along after %.0f s; worst %.2f m across on final; "
-                "after touching, rolled %.1f, pitched down to %.1f, rose %.1f ft\n",
+                "after touching, rolled %.1f, pitched down to %.1f, rose %.1f ft; "
+                "touched at %.2f degrees, stands at %.2f\n",
                 id.c_str(), out.sink_fpm, out.across_m, out.along_m,
                 out.stopped_along_m, out.seconds, out.worst_across_on_final_m,
                 out.worst_roll_after_touch_deg, out.least_pitch_after_touch_deg,
-                out.highest_after_touch_ft);
+                out.highest_after_touch_ft, out.touch_pitch_deg, out.standing_pitch_deg);
     std::fflush(stdout);
     return out;
 }
@@ -341,7 +347,7 @@ GLIDESLOPE_TEST(every_light_aircraft_landed_on_a_wet_runway_in_a_15_kt_crosswind
 // lists what else was searched. From a mile out, every whole knot from 1 to
 // 12 straight across, she touches within 5 m of the centreline, stops on the
 // runway the right way up, never past its half-width, as the server judges
-// her gear. Both sides, as a wind from the left adds to her propeller's
+// her gear, and touches three-point (`not_three_point`). Both sides, as a wind from the left adds to her propeller's
 // swing to the left and one from the right takes from it; dry and on runway
 // condition code 5: four tests, one a side and runway. Coverage: 12 winds in
 // each, counting only the landings that passed every check (seen to fail,
@@ -353,6 +359,26 @@ GLIDESLOPE_TEST(every_light_aircraft_landed_on_a_wet_runway_in_a_15_kt_crosswind
 namespace {
 
 constexpr int cub_published_crosswind_kts = 12;
+
+// **She is landed three-point** (assets/figures/j3cub.xml, `lands`): her
+// nose as her wheels first touch within this of the attitude she stands at
+// on all three. The FAA's Airplane Flying Handbook (FAA-H-8083-3C, ch. 14)
+// has her touch on main wheels and tail wheel together at about the stall;
+// her model's lift hardly grows above seven and a half degrees of incidence,
+// and she touches on her main wheels a moment before her tail - in calm air
+// at 10.2 degrees, where she stands at 12.1. Wheel-landed, as she was until
+// 2026-11-01, she touched at 2.8.
+constexpr double cub_three_point_margin_deg = 2.5;
+
+std::vector<std::string> not_three_point(const Landing& l, const std::string& where) {
+    if (l.touched && !(std::abs(l.touch_pitch_deg - l.standing_pitch_deg) <=
+                       cub_three_point_margin_deg)) {
+        return {"the Cub touched with her nose at " + std::to_string(l.touch_pitch_deg) +
+                " degrees, where she stands at " + std::to_string(l.standing_pitch_deg) +
+                where};
+    }
+    return {};
+}
 
 // From a mile out on the glidepath: the item is the touch and the roll-out,
 // and a mile is a minute of her final, still settling on the line (1.7 to 2.1 m
@@ -372,6 +398,9 @@ void the_cub_lands_in_every_crosswind_within_her_limit(double side, bool wet) {
         std::vector<std::string> this_one = wrong_after_the_touch("j3cub", l, where);
         if (!l.touched) {
             this_one.push_back("the Cub never touched down" + where);
+        }
+        for (std::string& w : not_three_point(l, where)) {
+            this_one.push_back(std::move(w));
         }
         if (!(std::abs(l.across_m) <= 5.0)) {
             this_one.push_back("the Cub touched down " + std::to_string(l.across_m) +
@@ -400,6 +429,38 @@ void the_cub_lands_in_every_crosswind_within_her_limit(double side, bool wet) {
 }
 
 } // namespace
+
+// **The AI lands the J-3 Cub three-point in calm air**, dry and wet: her nose
+// within `cub_three_point_margin_deg` of the attitude she stands at as her
+// wheels first touch, stopped on the runway the right way up. Every
+// crosswind to her limit is held to the same, in the four tests below.
+// Coverage: both runway conditions, counted.
+GLIDESLOPE_TEST(the_j3_cub_is_landed_by_the_ai_three_point_in_calm_air_dry_and_wet) {
+    int landed = 0;
+    std::string why;
+    for (const bool wet : {false, true}) {
+        const Landing l = land("j3cub", 0.0, wet, cub_start_nm);
+        const std::string where = wet ? " in calm air, wet" : " in calm air, dry";
+        std::vector<std::string> wrong = wrong_after_the_touch("j3cub", l, where);
+        if (!l.touched) {
+            wrong.push_back("the Cub never touched down" + where);
+        }
+        for (std::string& w : not_three_point(l, where)) {
+            wrong.push_back(std::move(w));
+        }
+        if (!l.stopped || !(l.stopped_along_m <= a_runway().length_m)) {
+            wrong.push_back("the Cub did not stop on the runway" + where);
+        }
+        if (wrong.empty()) {
+            ++landed;
+        }
+        for (const std::string& w : wrong) {
+            why += "\n    " + w;
+        }
+    }
+    check(landed == 2, "the Cub landed three-point dry and wet: " + std::to_string(landed) +
+                           " of 2" + why);
+}
 
 GLIDESLOPE_TEST(the_j3_cub_is_landed_by_the_ai_on_a_dry_runway_in_every_crosswind_from_the_left_within_her_published_12_kt) {
     the_cub_lands_in_every_crosswind_within_her_limit(1.0, false);
@@ -447,4 +508,26 @@ GLIDESLOPE_TEST(the_approach_speed_is_a_third_above_the_published_landing_stall)
         refused = true;
     }
     check(refused, "an aircraft with no stall speed at all is refused");
+}
+
+// **Figures that land a nose-wheel aeroplane three-point are refused**, by
+// the lander that would fly them (sim::Lander): the Cessna 172P given
+// `lands="three_point"`'s flag is refused, naming it; the J-3 Cub, standing
+// on her tail wheel, is not.
+GLIDESLOPE_TEST(a_three_point_landing_is_refused_an_aeroplane_without_a_tail_wheel) {
+    const auto lander_for = [](const std::string& id) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        ApproachSpeeds speeds = glideslope::sim::approach_speeds(data(), entry.model);
+        speeds.three_point = true;
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        Lander lander(aircraft, a_runway(), speeds);
+    };
+    bool refused = false;
+    try {
+        lander_for("c172p");
+    } catch (const std::runtime_error& e) {
+        refused = std::string(e.what()).find("three-point") != std::string::npos;
+    }
+    check(refused, "the 172P, on a nose wheel, is refused a three-point landing, naming it");
+    lander_for("j3cub");
 }

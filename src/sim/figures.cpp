@@ -2106,6 +2106,15 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "at most 1");
         }
     }
+    // **A landing that is neither three-point nor on her wheels is refused.**
+    if (root->HasAttribute("lands")) {
+        const std::string lands = root->GetAttributeValue("lands");
+        if (lands != "three_point" && lands != "wheels") {
+            throw std::runtime_error(file.string() + " gives lands=\"" + lands +
+                                     "\", which is neither three_point nor wheels");
+        }
+        out.three_point = lands == "three_point";
+    }
     if (JSBSim::Element* source = root->FindElement("source")) {
         out.source = collapse_whitespace(source->GetDataLine());
     }
