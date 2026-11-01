@@ -87,4 +87,6 @@ degrees (3.51 at least), each with a quarter's margin.
   half the flare's height, a touch at 3.2 degrees - are each named for their
   own fault alone. Coverage asserted: four of four.
 - `the_committed_short_s23_is_what_its_script_writes`: the regenerated model.
-- The full linux-release suite: 1,420 of 1,420 passed.
+- The full linux-release suite: 1,419 of 1,420 passed. An F-35B STOVL
+  client test failed after 2.8 s under load, cause unknown; it passed alone
+  and in the round before, with the simulation code unchanged between them.

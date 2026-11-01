@@ -4,7 +4,7 @@
 on two or three of the eight seeds - she rises 0.82 to 1.02 ft off the
 water against the gust test's 0.75 (a foot, less its quarter-foot margin)
 in the best variant - and stays named in the gust tests. Nothing in the
-code on `main` changed: docs only. A second round, on her model's damping (below), passed
+code on `main` changed in this round. A second round, on her model's damping (below), passed
 every seed on Linux and failed one on Windows; it landed as progress on 2026-11-01, the owner's
 decision (docs/status/2026-11-01-the-flying-boat-in-gusts-damped-from-its-first-touch-lands-on-every-seed-but-one.md).
 
