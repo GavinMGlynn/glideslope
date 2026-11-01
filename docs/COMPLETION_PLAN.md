@@ -1192,12 +1192,15 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       Done 2026-10-20: trained on from part 7's checkpoint on her with her new
       rudder (parts 8 to 10), chosen with every test's figure 5 per cent inside
       its limit; parts 1 to 7 still cannot be made again from committed scripts.
-- [ ] **The learnt landing's fidelity to the C172P as she now flies**: it
-      still passes every limit, but was trained before her flaps', elevator's
-      and pitch-rate lift left out the crosswind (2026-10-23), and now lands
-      39 to 69 m shorter than it did. Owner's decision 2026-10-24: a fidelity
-      item, not a fault. *Verification: the policy trained again on the
-      C172P as committed, its parity fixture from that training.*
+- [x] **The learnt landing's fidelity to the C172P as she now flies**: it
+      was trained before her flaps', elevator's and pitch-rate lift left out
+      the crosswind (2026-10-23), landed 39 to 69 m shorter, and touched
+      before the threshold from 5 of its held-out starts. Owner's decision
+      2026-10-24: a fidelity item, not a fault. *Verification: the policy
+      trained again on the C172P as committed, its parity fixture from that
+      training.* Done 2026-11-02: trained on from the committed policy
+      (parts 11 and 12) and chosen with every landing 5 per cent inside its
+      limits; it now touches 232 to 280 m in from the verification's starts.
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own
