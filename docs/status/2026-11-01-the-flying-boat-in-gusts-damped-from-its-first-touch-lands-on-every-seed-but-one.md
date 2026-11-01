@@ -1,16 +1,16 @@
 ### The flying boat in gusts, her hull damped from its first touch and held off as the rough-water book lands her: every seed passes but one on Windows and one on macOS release, 2026-11-01 - item still open
 
-**What is still missing, first**: the item. On Windows debug, gust seed 5,
-the S.23 rises 0.87 ft off the water after touching (0.18 on Linux; CI run
-41100266299), past the gust tests' 0.75 ft, and is named there - on that
-seed on that platform alone. **The owner, 2026-11-01**: the 0.75 ft limit is
+**What is still missing, first**: the item. On gust seed 5 on every Windows
+build the S.23 rises 0.87 ft off the water after touching (0.18 on Linux;
+debug in CI run 41100266299, release and clang in 41303118662), and on macOS
+release's seed 3 0.93 ft (0.31 on Linux; 41303118662), past the gust tests'
+0.75 ft; she is named on those two seeds on those platforms alone. **The owner, 2026-11-01**: the 0.75 ft limit is
 kept; the damping and the hold-off land as progress; the item stays open;
 and she is named only where she fails, with that reason.
 
 **What now works**: everywhere else she is judged. On Linux the AI lands
 her on all eight gust seeds within the landplanes' limits and their margins
-(figures below). Whether macOS, Windows release and clang agree is what
-CI's full run says, as for every aeroplane judged there. In calm air she
+(figures below). In calm air she
 lands as before: touching at 97 ft/min, she hops 0.34 ft on the step (0.35
 before; limit 0.5).
 
