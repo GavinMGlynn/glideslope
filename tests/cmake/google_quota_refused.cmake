@@ -52,7 +52,11 @@ if(DEFINED STALL_PORT_FILE)
                 --toward -39.296,174.064,2518 --shot-at 2 --shot "${_stem}.bmp"
         RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
     set(_refusal "could not download the google terrain's tileset: the provider answered 429")
-    if(NOT _err MATCHES "${_refusal}" AND _err MATCHES "could not download")
+    # Skipped only for the DEM's own download failing - copernicus-dem-*, or
+    # no answer at all - and never for anything the tileset said: a refusal
+    # worded otherwise, say by a Cesium Native that no longer says "Received
+    # status code", fails below.
+    if(_err MATCHES "could not download(: | https://copernicus-dem-)")
         set(_verdict "SKIP: the DEM could not be had: ${_err}")
     elseif(_rc EQUAL 0)
         string(CONCAT _verdict "FAIL: refused for quota, the run still exited 0 "
