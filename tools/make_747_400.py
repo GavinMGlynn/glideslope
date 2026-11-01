@@ -262,7 +262,7 @@ def flap_lift_rows():
     columns = [(0, None)]
     stalls = []
     for flap, mach, alpha_deg, cl, cl_alpha in HEFFLEY_FLAPS:
-        cm_de = CM_DE_AT_0 + (CM_DE_AT_2 - CM_DE_AT_0) * mach / 2.0
+        cm_de = CM_DE_AT_0_HEFFLEY + (CM_DE_AT_2 - CM_DE_AT_0_HEFFLEY) * mach / 2.0
         trim_alpha = math.radians(alpha_deg)
         slope = cl_alpha * scale
         cl_max = flapped_stall_cl(flap) * scale
@@ -380,6 +380,8 @@ def airframe():
         text = replace_once(
             text, r"(name=\"" + side + r"_MLG\">.*?<static_friction>)\s*0\.8\s*(</static_friction>)",
             rf"\g<1> {BRAKING_FRICTION} \2", f"the {side.lower()} main gear's friction")
+    # An assertion, not a change: the file's nose gear already stands at
+    # NOSE_GEAR_X_IN, and this fails if it ever stops.
     text = replace_once(
         text, r"(name=\"NOSE_LG\">.*?<spring_coeff unit=\"LBS/FT\">)\s*22000\s*(</spring_coeff>)",
         rf"\g<1> {NOSE_SPRING} \2", "the nose gear's spring")
