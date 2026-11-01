@@ -113,10 +113,11 @@ double metres_per_degree_longitude(double latitude_deg) {
 // centreline and 50 m either side of it; on the glidepath and 15 m - about
 // fifty feet - above and below it; in calm air and a ten-knot crosswind from
 // either side. At the reference speed, pointing down the runway, trimmed.
-// **The committed checkpoint was chosen on other starts** (landing.py's
-// `held_out_starts`), never these. Its lineage was not blind of them: a
-// 21-input ancestor, thirteen million decisions before it, was chosen among
-// checkpoints by flying these starts (the policy file's header).
+// **The committed checkpoint was chosen on these starts as well as others**
+// (landing.py's `held_out_starts`, and the gate's corners): since
+// 2026-10-20 each landing from all of them is held 5 per cent inside its
+// limits in choosing one (the policy file's header), so the figures here are
+// not an independent sample.
 struct Start {
     double across_m;
     double high_m;
