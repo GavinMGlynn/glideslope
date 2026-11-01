@@ -40,7 +40,7 @@ F = "aero/force/"
 MOVED = {
     "LIFT": {
         "737-300": [C + "CLalpha"],
-        "747-400": [C + "CLalpha"],
+        "747-400": [C + "CLalpha", C + "dCLflap"],
         "787-8": [C + "CLalpha"],
         "a320": [C + "CLalpha"],
         "a380": [C + "CLalpha"],

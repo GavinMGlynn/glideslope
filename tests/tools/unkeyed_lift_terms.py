@@ -36,7 +36,7 @@ C = "aero/coefficient/"
 F = "aero/force/"
 MOVED = {
     "737-300": [C + "dCLflap", C + "CLde"],
-    "747-400": [C + "dCLflap", C + "dCLsb", C + "CLde"],
+    "747-400": [C + "dCLsb", C + "CLde"],
     "787-8": [F + "Lift_flap", F + "Lift_speedbrake", F + "Lift_elevator"],
     "a320": [C + "CLDe"],
     "a380": [C + "CLq", C + "CLde"],

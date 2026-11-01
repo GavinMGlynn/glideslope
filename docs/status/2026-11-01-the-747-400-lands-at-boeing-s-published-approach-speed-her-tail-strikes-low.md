@@ -1,23 +1,15 @@
-### The 747-400 lands at Boeing's published approach speed; handed over at lift-off, her climb-out still sinks back to the runway - 2026-11-01
+### The 747-400 lands at Boeing's published approach speed, her flaps raised by her manoeuvre speeds; over-rotated on her wheels her tail strikes a degree low - 2026-11-01
 
 **What is still not true first.** The item stays open:
 
-- **Handed over at lift-off, she touches the runway again.** The departure
-  raises a transport's flaps from 400 ft once she is within 2 kt of her climb
-  speed, 170 kt; at her 754,313 lb her clean wing stalls at about 181 kt (CL
-  1.2), so with her flaps up she stalls level at 650 ft and sinks back. Red:
-  `every_landplane_handed_over_at_lift_off_climbs_away_through_500_ft_and_never_touches_the_runway`
-  and the new `the_747_400_handed_over_at_any_half_second_...` sweep part.
-  The fix is a flap-retraction schedule by speed (Boeing's flaps-up
-  manoeuvre speed), not done here.
-- **Her stall recovery is named, not fixed**
-  (`the_ai_pilot_notices_a_stall_coming_and_recovers_from_it`): at 754,313
-  lb, 124,000 lb over her maximum landing weight, at the lesson's 20,000 ft
-  with flaps 30 and the gear down, full thrust is 92,500 lb (Mattingly's
-  lapse, 0.40 of sea level) against 96,500 lb of drag - a CD of 0.18 at CL
-  1.41, under CR-2144 table IX-1's 0.263 at 1.76 - so she recovers to 167 kt
-  but descends at 150 ft/min. The model is not wrong there; the lesson's
-  height or weight for her is unsettled.
+- **Held fully back from the roll, she strikes her tail on her wheels at
+  11.5 degrees**, where her contacts say 12.7 and Boeing's AERO tailstrike
+  article gives the 747-400 12.5 (lift-off near 10):
+  `an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_so` holds
+  a strike on the wheels within a degree of her contacts. With her main gear
+  at Boeing's station she now rotates on her wheels; her model's two main
+  legs, 150,000 lb/ft each where she has four main gears, sink 2.3 ft
+  standing, which lowers her tail. Not fixed here.
 - **Her gust landings are named** (`not_yet_landed_in_gusts`): on seed 8 she
   touches at 388 ft/min and climbs 99.7 ft/min in her flare.
 
@@ -39,8 +31,31 @@ and stops on a wet runway in 15 kt across.
    her clean wing's does. She stalls at 150 kt at 875,000 lb with flaps 20,
    so V2 is about 181 kt, as 747-400 crews fly it; the field length is
    10,781 ft. Her 153 kt approach is now 1.33 times her stall at 630,000 lb.
-2. **Stall recovery: named, see above.**
-3. **Lift-off hand-over: still red, see above.**
+2. **Stall recovery: a data fix.** Her recovery left her landing flap, 30,
+   out at the lesson's 20,000 ft: at 754,313 lb her full thrust, 92,500 lb
+   (Mattingly's lapse, 0.40 of sea level at Mach 0.36), was less than her
+   drag, 96,500 lb (a CD of 0.18 at CL 1.41; CR-2144 table IX-1 has 0.263
+   at 1.76), and she recovered to 167 kt descending at 150 ft/min. Her
+   figures now give `go_around_flaps_deg="20"`, her go-around flap (her
+   FCOM's go-around procedure, as her crews quote it; CR-2144's power
+   approach flap), which the recovery raises her flaps to: she recovers
+   level, losing 1,114 ft. Seen red: named, the test failed "recovered:
+   take its name off"; the name is gone.
+3. **Lift-off hand-over: a flap manoeuvre schedule, as data.** The climb out
+   raised a transport's flaps from 400 ft at her climb speed, 170 kt - under
+   her clean wing's 181 kt stall at 754,313 lb - and she stalled level at
+   650 ft and sank back to the runway. Figures files may now give
+   `<flap_manoeuvre_speeds>`, knots over the approach speed for her weight
+   at each flap; a flap comes up to a setting only at its speed, and the
+   climb out accelerates her to it (sim::Departure::manoeuvre_kts,
+   climb_out_kts). The 747-400's: Vref30 + 80 up, + 60 flaps 1, + 40 flaps
+   5, + 20 flaps 10, + 10 flaps 20, as her crews quote her FCOM (PPRuNe Tech
+   Log, "747-400 flap retraction speeds"; her FCOM is not public); her
+   model's lever stops at 15, flown at flaps 10's speed. No other aircraft
+   gives one, so every other's flaps come up as before. Seen red: the
+   lift-off hand-over and the 747-400's lift-off sweep failed without it
+   (she touched the runway again at every one of 21 hand-overs) and pass
+   with it.
 4. **Glide at 230/235 kt: the test's figure was measured from the old
    model.** `glide-speeds 747-400` now writes 230 (225 stalls), so her file
    says 230 and the band test is
@@ -63,5 +78,9 @@ other failures were counts going from 14 to 15 aeroplanes taught the
 approach (and 13 to 14 landplanes, 8 to 9 jets on a wet runway, two to one
 not watched for a stall), updated where asserted and in the comments.
 
-**Verification.** linux-release, `ctest -LE nightly -j4`: see the PR's
-result; the two lift-off tests above are the known red.
+Her CBD orbit recording (`cbd-orbit-747-400-anthropic.jsonl`) was made
+again live of Claude Haiku 4.5 with the owner's key, as her brief's speeds
+changed, and plays back; no key is in it.
+
+**Verification.** linux-release, `ctest -LE nightly -j4`: see the PR; the
+tail-strike test above is the known red.
