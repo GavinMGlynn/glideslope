@@ -1,26 +1,22 @@
-### The 747-400 lands at Boeing's published approach speed, her flaps raised by her manoeuvre speeds; over-rotated on her wheels her tail strikes a degree low - 2026-11-01
+### The 747-400 lands at Boeing's published approach speed, her flaps raised by her FCOM's manoeuvre speeds, her main legs sprung from her ground clearances - 2026-11-01
 
 **What is still not true first.** The item stays open:
 
-- **Held fully back from the roll, she strikes her tail on her wheels at
-  11.5 degrees**, where her contacts make 12.7:
-  `an_over_rotated_take_off_strikes_the_tail_and_its_debrief_says_so` holds
-  a strike on the wheels within a degree of her contacts. **Her contacts are
-  not what is wrong.** Moving her mains from station 1554 to 1404 brought
-  her contacts' strike from 14.5 degrees (TAIL_STRIKE, 281 in above her
-  mains over 1,087 in) to 12.7 (TAIL, 199 in over 881) - Boeing's AERO
-  tailstrike article gives the 747-400 12.5, lift-off near 10. Before the
-  move she struck with her wheels off; now she rotates on them, and at the
-  strike (clean, stick fully back, 151 kt, 874,766 lb) her main legs are
-  compressed 1.68 ft, which lowers her tail 20 in: 11.5. Her model's two
-  main legs, 150,000 lb/ft each where she has four main gears, sink about
-  2.5 ft standing at 875,000 lb. Raising her tail contact to strike at 12.5
-  on those legs would put her contacts at 13.8, a degree and more from both
-  Boeing's figure and the test. The likely fix is her main legs' stiffness from a
-  747 load-stroke curve (DTIC ADA250134 has them; it could not be fetched
-  here). Not fixed.
 - **Her gust landings are named** (`not_yet_landed_in_gusts`): on seed 8 she
   touches at 388 ft/min and climbs 99.7 ft/min in her flare.
+
+**Her tail strike, 2026-11-02: her main legs' spring from her ground
+clearances.** Over-rotated on her wheels she struck at 11.5 degrees against
+her contacts' 12.7 and Boeing's 12.5 (AERO tailstrike article): moving her
+mains from station 1554 to 1404 had brought her contacts from 14.5 to 12.7,
+and she now rotated on her wheels, her main legs compressed 20 in at the
+strike. D6-58326-1 figure 2.3.1 gives point T, just behind her body gear,
+17 ft 0 in at most and 16 ft 0 in at least; taken as her operating empty
+weight and her 875,000 lb maximum (the table does not name them), her mains
+(0.924 of her weight) sink 12 in under 444,000 lb: 222,000 lb/ft a leg,
+where JSBSim's B747 had 150,000 (tools/make_747_400.py,
+MAIN_SPRING_PER_LEG). She now strikes at 12.0 on her wheels. Seen red at
+150,000.
 
 **What now works.** She has Boeing's approach speed, 153 kt at 630,000 lb,
 flaps 30 (Aerodrome Reference Code and Approach Speeds, rev A, August 2026),
