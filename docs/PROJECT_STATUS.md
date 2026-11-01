@@ -146,8 +146,12 @@ upright on its wheels from the touch to the stop, the jets as the FAA lands
 a jet. The J-3 Cub is landed in every crosswind up to her published 12 kt,
 from either side, dry and wet - one instructor's "about 12 knots" in an
 EAA Inspire article, accepted by the owner on 2026-10-30; Piper published
-none (2026-10-29). The 747-400 and F-22A are taught turns alone, having no stall or
-climbing speed; the Learjet cannot be rotated early since her stabilizer
+none (2026-10-29). The 747-400 is taught the approach since 2026-11-01, at
+Boeing's published 153 kt, and lands within her limits; handed over at
+lift-off her climb-out still raises her flaps below her clean stall and sinks
+back to the runway, and her stall recovery at 20,000 ft and her gusts are
+named. The F-22A is taught turns alone, having no stall or climbing speed;
+the Learjet cannot be rotated early since her stabilizer
 was tied to her maintenance manual (a tail). See the log for 2026-09-22 to
 2026-09-24, and later entries for what was fixed since (the F-35B's
 circuit touching short, 2026-09-27; the fighters' rotation, 2026-09-26).
