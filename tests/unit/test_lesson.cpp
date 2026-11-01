@@ -6436,8 +6436,8 @@ GLIDESLOPE_TEST(a_light_aeroplane_slowed_level_below_her_climb_speed_settles_on_
 // her figures' `<plan_speeds weight_lbs>` is her model's own weight (what
 // the plan-speeds trial flies and a server flies her at), and her slowest is
 // at least `sim::least_plan_slowest_kts` there: her approach speed for that
-// weight, and her stall warning plus 10 kt. The 747-400 and F-22A publish
-// no stall and have nothing to keep above; they are counted, and named.
+// weight, and her stall warning plus 10 kt. The F-22A publishes no stall
+// and has nothing to keep above; she is counted, and named.
 GLIDESLOPE_TEST(every_plan_floor_keeps_its_gust_allowance_over_the_stall_warning_at_the_weight_a_plan_flies_her_at) {
     const auto roster = glideslope::sim::read_catalogue(data());
     std::size_t held = 0;
@@ -6455,7 +6455,7 @@ GLIDESLOPE_TEST(every_plan_floor_keeps_its_gust_allowance_over_the_stall_warning
         }
         if (least == 0.0) {
             ++no_stall;
-            if (entry.id != "747-400" && entry.id != "f22") {
+            if (entry.id != "f22") {
                 faults.push_back(entry.id + " publishes no stall, and is not named as such");
             }
             continue;
@@ -6472,7 +6472,7 @@ GLIDESLOPE_TEST(every_plan_floor_keeps_its_gust_allowance_over_the_stall_warning
     }
     check(faults.empty(), std::to_string(faults.size()) + " faults; the first: " +
                               (faults.empty() ? "" : faults.front()));
-    check(held + no_stall == roster.size() && no_stall == 2,
+    check(held + no_stall == roster.size() && no_stall == 1,
           "every aircraft held or named: " + std::to_string(held) + " and " +
               std::to_string(no_stall) + " of " + std::to_string(roster.size()));
 }
@@ -6690,8 +6690,8 @@ GLIDESLOPE_TEST(the_ai_climbs_half_the_gust_factor_faster_in_gusts_or_turbulence
 }
 
 // **The AI pilot notices no stall in ordinary flight, with 3 kt to spare**:
-// every aeroplane that publishes how she lands (the 747-400 and F-22A do
-// not, and are not watched), given to the AI at the weight her figures fly
+// every aeroplane that publishes how she lands (the F-22A does
+// not, and is not watched), given to the AI at the weight her figures fly
 // her at, in moderate turbulence, for three minutes each: cruising at her
 // catalogue's start speed, climbing at 500 ft/min at her climb speed in this
 // air - her best-climb speed and half its gust factor, 7.5 kt for moderate
@@ -9944,7 +9944,7 @@ GLIDESLOPE_TEST(an_aeroplane_landing_on_a_runway_another_is_on_goes_around_and_l
 // **The server and the client tell a controller how she lands from the same
 // figures** (`sim::landing_speeds`, which both call): for every aircraft in
 // the catalogue, the approach speeds its approach is flown at, or none for an
-// aircraft that publishes no stall speed - the 747-400 and the F-22A - and a
+// aircraft that publishes neither a stall nor an approach speed - the F-22A - and a
 // model with no figures refused.
 GLIDESLOPE_TEST(how_she_lands_is_what_her_approach_is_flown_at_or_none_without_a_stall_speed) {
     std::size_t catalogue = 0;
@@ -9962,8 +9962,8 @@ GLIDESLOPE_TEST(how_she_lands_is_what_her_approach_is_flown_at_or_none_without_a
               entry.id + " is told the reference speed its approach is flown at");
     }
     check(catalogue == 16, "sixteen aircraft in the catalogue, not " + std::to_string(catalogue));
-    check(none == std::vector<std::string>{"747-400", "f22"},
-          "only the 747-400 and the F-22A have none to tell");
+    check(none == std::vector<std::string>{"f22"},
+          "only the F-22A has none to tell");
     check(told + none.size() == catalogue, "every aircraft told or named");
     bool refused = false;
     try {

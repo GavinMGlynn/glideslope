@@ -144,6 +144,11 @@ struct PublishedFigures {
     // file gives none; `approach_loading` names the weight it is for.
     double approach_kcas = 0.0;
     std::string approach_loading;
+    // **The flap that approach speed is for**, degrees, where the
+    // `<approach>` gives one (`flaps_deg`); -1 where it does not. An
+    // aeroplane that publishes an approach speed and no stall speed - the
+    // 747-400 - is landed with it.
+    double approach_flaps_deg = -1.0;
     // **The lift-off speed worked from its flight manual's**, KCAS, where the file
     // has a `<takeoff kcas="..." loading="...">`: what `departure_speeds`
     // takes off at, in place of 1.15 times a stall that, at the F-15C's 40
