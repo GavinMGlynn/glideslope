@@ -1,16 +1,23 @@
-### The F-22A's slowest steady flight measured from her model; at 1.3 times it she does not land - 2026-11-02
+### The F-22A's slowest steady flight measured from her model; at 1.3 times it she flies her final on the centreline but touches over 360 ft/min - 2026-11-02
 
 **What is still not true first.** The "runway too short" item stays open. The
 F-22A still has no approach speed, no landing figure, and every landing is
 still refused her:
 
-- **At 1.3 times her measured slowest steady flight she does not land.**
-  Given it as her landing stall in a scratch copy of her figures (90.0 KCAS
-  at 54,960 lb, so 117 kt there and about 126 kt at `land`'s full tanks,
-  63,960 lb), `land f22` in calm air touched at 461 ft/min, 8.9 m off the
-  centreline (her limit is 360), her nose 12.2 degrees up; she now rolls out
-  on the line. In 15 kt across she struck the ground 2,219 m short of the
-  threshold at 2,508 ft/min.
+- **At 1.3 times her measured slowest steady flight she touches too
+  hard.** Her VS0, 90.0 KCAS at her combat loading, 54,960 lb, is 95.2 at
+  her model's own 61,570 lb, at which the tests fly her: 1.3 times it is
+  123.8 kt. From 5 nm she flies her final on the centreline (within 0.49 m
+  in calm air, 2.47 and 2.80 m in 15 kt across either way) and rolls out on
+  it, but touches at 392 to 417 ft/min, over 360. (`glideslope_cli land`
+  flies her at its own full tanks, 63,960 lb, at about 126 kt, and from its
+  2 nm gate she touches at 374 to 383 ft/min.) Her flare is the shortfall:
+  below.
+- So no stall figure is written to `assets/figures/f22.xml`: written, it
+  would give her an approach speed, and every landing test would fly her.
+
+The rounds below are in the order they were worked; figures in the earlier
+ones are as they were then.
 
 **Her roll-out, fixed (second round, 2026-11-02): her yaw loop's ground
 mode.** At about 150 kt (a stall figure of 115 put in to try it) she flew
@@ -40,7 +47,9 @@ already cites - fading back to the flight law over five seconds after her
 wheels leave. She now stops 0.0 m across in calm air and 0.2 m in 15 kt
 across from `land`'s gate. `the_f22a_landed_at_150_kt_rolls_out_on_the_centreline_in_calm_air_and_15_kt_across`
 pins it (0.85 m and 5.66 m at most after the touch from 5 nm), seen red on
-her model before the change: 117 m across in 15 kt.
+her model before the change: 117 m across in 15 kt. Seen red again
+after the fourth round, with her yaw damper's 0.3 in place and only the
+yaw ground mode taken out of her model: 212 m across in 15 kt across.
 Verified, linux-release, `ctest -R "f22|selftest|takeoff_speeds|plan_speeds|lands|landed|lander|roll" -LE nightly -j4`,
 no display: 129 tests, 127 passed and 2 live ones skipped, 665 s; the
 script's committed output checked.
@@ -73,7 +82,8 @@ measured by: from 5,000 ft at idle her test pilot's speed loop, against her
 rate-command stick, dives her 12 to 16 degrees nose down, her speed swings
 three knots and the measurement ends there, at 9 to 12 degrees of alpha,
 nowhere near her wing's limit: 131, 143 and 149 KCAS by its entry speed
-alone, and the same from 25,000 ft (136 to 149). Her lift table rises to its
+alone, and the same from 25,000 ft (136 to 149) - 131 to 149 in all from 160 to 280 KCAS, where the 2026-09-23 attempt
+(tests/unit/test_lander.cpp) found 128 to 149. Her lift table rises to its
 peak at 45 degrees.
 
 **Her trim's alpha range (tools/make_f22.py, `TRIM_ALPHA_MAX_DEG`).** The
@@ -167,6 +177,12 @@ No other multiple is chosen: none is sourced.
 no display): 1,430 tests, all passed or skipped (25, for want of a key, a
 display or a live model), 4,639 s. Every other aircraft's landing tests
 pass unchanged, and the selftest's hash tests with them.
+
+**From the review of #296**: comments and names only - the make script's
+docstring gives the yaw ground mode, its blend is YAW_GROUND_BLEND_S and its
+full pedal YAW_CMD_FULL; the script rerun writes her model byte for byte as
+before. `ctest -R "f22|selftest" -LE nightly -j4`: 34 tests, 33 passed and
+one live one skipped.
 
 **Left for the next round**: a flare for her at 14 degrees of nose (a sourced
 figure), then her landing distance by `tools/measured_landing.py` and her

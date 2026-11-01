@@ -792,8 +792,10 @@ double glide_ratio(const std::filesystem::path& root, const PublishedFigures& fi
 // tenth between the last that trimmed and the first that did not. The
 // F-22A's: at idle her test pilot's speed loop, against her rate-command
 // stick, dives her and swings her speed three knots before her wing is near
-// its limit, and the deceleration ends wherever the swing does - 128 to 149
-// knots by its entry speed alone (assets/figures/f22.xml).
+// its limit, and the deceleration ends wherever the swing does - by its
+// entry speed alone, 128 to 149 knots when first tried (2026-09-23,
+// tests/unit/test_lander.cpp) and 131 to 149 from 160 to 280 KCAS on
+// 2026-11-02 (docs/status/2026-11-02-the-f22a-s-slowest-steady-flight-measured.md).
 double steady_flight_speed(const std::filesystem::path& root, const PublishedFigures& figures,
                            const FigureSpec& spec, double entry) {
     const auto trims_at = [&](double kcas) {
