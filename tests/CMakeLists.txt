@@ -1015,6 +1015,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_b2_holds_a_heading_in_a_20_kt_crosswind_in_its_landing_configuration_from_its_approach_speed
     the_f15c_holds_a_heading_in_a_20_kt_crosswind_in_its_landing_configuration_from_its_approach_speed
     the_f35b_holds_a_heading_in_a_20_kt_crosswind_in_its_landing_configuration_from_its_approach_speed
+    the_f22_holds_a_heading_in_a_20_kt_crosswind_in_its_landing_configuration_from_its_approach_speed
     every_aircraft_the_data_holds_has_a_speed_floor_or_is_named_without_one
     a_light_aeroplane_whose_flaps_go_out_while_the_floor_holds_it_flies_on_its_throttle
     a_flight_plan_is_read_from_its_file_and_refused_where_it_is_wrong
@@ -4412,7 +4413,7 @@ endforeach()
 # "measured" - the J-3 Cub, Mosquito, F-35B and B-2A), is landed again by
 # `land` and must stop within it, and no more than a tenth short. Found by
 # reading the files, so none is left out; the C++ test
-# the_five_with_no_published_landing_distance_... checks its pinned four are
+# the_five_with_no_published_landing_distance_... checks its pinned five are
 # the same set. The figure is written by tools/measured_landing.py. See
 # cmake/measured_landing.cmake.
 file(GLOB _figures_files "${PROJECT_SOURCE_DIR}/assets/figures/*.xml")
@@ -4430,9 +4431,9 @@ foreach(_file IN LISTS _figures_files)
         math(EXPR _measured_landings "${_measured_landings} + 1")
     endif()
 endforeach()
-if(NOT _measured_landings EQUAL 4)
+if(NOT _measured_landings EQUAL 5)
     message(FATAL_ERROR "${_measured_landings} figures files give a measured landing distance, "
-                        "not the four the tests and docs name")
+                        "not the five the tests and docs name")
 endif()
 add_test(NAME the_cli_refuses_a_learnt_landing_for_an_aircraft_that_has_none
     COMMAND ${CMAKE_COMMAND}
