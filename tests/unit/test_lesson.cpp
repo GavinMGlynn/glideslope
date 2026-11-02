@@ -3005,38 +3005,33 @@ std::vector<std::string> how_the_hull_held_off(const std::string& where,
 // the item "The AI cannot land in gusts" in docs/COMPLETION_PLAN.md, still
 // open. Any that fails a seed here or on any platform in CI, or passes one
 // without the margin, is named. (linux-release, 2026-10-10; figures from
-// forty seeds, 2026-11-02, with the gusty round out judged as far ahead as
-// her path lags her nose.)
+// forty seeds, 2026-11-03, with the gusty flare begun for the sink she has
+// and her speed kept on the power.)
 const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
     static const std::map<std::string, std::string> named = {
-        {"737-300", "her balloon gone (2026-11-02), she passes all eight seeds, but on forty "
-                    "she meets the runway at 490, 406 and 522 ft/min (seeds 36, 38, 40)"},
-        {"787-8", "she touches at 398 ft/min on macOS (seed 2), CI run 38006839738; her "
-                  "balloon gone (2026-11-02), on forty seeds here she touches at 344 to 379 "
-                  "ft/min on four (seeds 15, 21, 25, 40)"},
-        {"a380", "she meets the runway at 393 ft/min (seed 1) and goes around from a touch "
-                 "past the touchdown zone (seeds 6, 7); on forty seeds here she is also "
-                 "wrecked (seeds 14, 34), meets the runway at 710 ft/min (seed 18) and goes "
-                 "around (seed 25)"},
+        {"737-300", "she passes all eight seeds, but on forty she meets the runway at 462 "
+                    "ft/min (seed 40)"},
+        {"787-8", "she touches at 398 ft/min on macOS (seed 2), CI run 38006839738; on "
+                  "forty seeds here at 352, 358 and 377 ft/min (seeds 21, 25, 40)"},
+        {"a380", "she touches 907 m along, not 25 m inside the touchdown zone (seed 7); on "
+                 "forty seeds here she also meets the runway at 338 and 397 ft/min (seeds "
+                 "13, 18) and strikes her airframe (seed 34)"},
         {"b2", "a gust rolls her on to a wingtip as she touches (seed 8); on forty seeds "
-               "here, on eight (seeds 8, 10, 23, 31, 33, 38, 39, 40)"},
+               "here, on ten (seeds 8, 10, 17, 23, 25, 31, 33, 38, 39, 40)"},
         {"c172p", "she touches at 346.3 ft/min on macOS release (seed 3), not 25 inside "
                   "the limit, CI runs 41117802406 and 41281712534; she passes here and on "
                   "Windows debug"},
         {"c182", "she touches at 352.5 ft/min on macOS (seed 8), not 25 inside the "
-                 "limit, CI run 38028434284; on forty seeds here at 380 and 378 (seeds 23, "
-                 "33)"},
-        {"f15c", "she meets the runway at 336 and 352 ft/min (seeds 6, 7)"},
+                 "limit, CI run 38028434284; on forty seeds here at 377 (seeds 23, 33)"},
         {"f22", "since her stall was measured from her model (2026-11-02), she goes round "
                 "for a balloon above the flare (seeds 1, 3, 8), and on the other five touches "
                 "at 430 to 977 ft/min and rises 3.1 to 12.3 ft after; her worst, seed 2, "
                 "strikes her airframe on the runway; item \"The F-22A flies her stall-figure "
                 "tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
-                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 135 "
-                  "ft/min in her flare (seed 20), and she rises 0.81 ft after touching "
-                  "(seed 39)"},
-        {"f35b", "she touches at 421 ft/min on one seed of forty (seed 40)"},
+                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137 "
+                  "and 132 ft/min in her flare (seeds 20, 37), she touches at 356 (seed 33) "
+                  "and rises 0.82 ft after touching (seed 39)"},
     };
     return named;
 }

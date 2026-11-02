@@ -510,6 +510,7 @@ private:
     bool flare_begun_ = false;
     double flare_begun_pitch_ = 0.0;
     double flare_throttle_ = 0.0;
+    double flare_began_ft_ = 0.0; // her wheels' height as the flare began
     bool holding_off_ = false; // `holding_off`
     // Whether this flare is flown on her power, her nose having less than
     // `least_flare_pitch_deg` left to it as it began (`fly_laws`).
@@ -530,6 +531,8 @@ private:
 
     // The height of her wheels the flare begins at, feet.
     double flare_height_ft() const;
+    // The height it begins at, given her sink now: in gusts it may be more.
+    double begin_flare_ft(const AircraftState& s) const;
     bool touched_ = false;
     double touchdown_pitch_deg_ = 0.0; // held through the rollout while she can fly
     double touchdown_above_m_ = 0.0;   // above the runway as the wheels met it
