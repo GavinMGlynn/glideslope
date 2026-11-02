@@ -13,6 +13,7 @@
 // SIGPIPE; a write to a pipe with no reader simply fails there.
 
 #include "platform/closed_pipes.hpp"
+#include "platform/whole_lines.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -20,6 +21,8 @@
 
 int main() {
     glideslope::platform::outlive_closed_pipes();
+    // And its lines go out whole, each in one write (platform/whole_lines.hpp).
+    glideslope::platform::whole_lines_to_stderr();
     while (std::fputc('\n', stdout) != EOF && std::fflush(stdout) == 0) {
         std::this_thread::sleep_for(std::chrono::milliseconds(100));
     }
