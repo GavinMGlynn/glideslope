@@ -1437,7 +1437,13 @@ Controls Lander::fly_laws() {
         // the A320 6.6; docs/status, 2026-11-02) and flies it as before.
         // **Never in a flare given back** (`resume`): there the nose is the
         // pilot's, and a jet he flared near her bound is not one whose
-        // final leaves her no flare.
+        // final leaves her no flare. **Kept through a bounce**, by intent:
+        // the flare is begun once, so a bounced F-22A's throttle is still
+        // held and still flies the sink from the first foot a minute past
+        // what the flare wants - the AFH's bounce recovery (ch. 9,
+        // "Bouncing During Touchdown"), "applying sufficient power to
+        // cushion the subsequent touchdown" - and her nose stays where her
+        // flare began.
         if (!flare_begun_) {
             flare_throttle_ = last_throttle_;
             power_flare_ = jet_ && !resumed_ &&
