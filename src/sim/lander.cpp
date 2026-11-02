@@ -1425,17 +1425,23 @@ Controls Lander::fly_laws() {
         // 1.3 times her measured VS0 comes down her final at 14.3 degrees of
         // nose, a quarter of a degree short of the flare's limit (her tail
         // strike less two); her throttle closed from the flare's first step
-        // as every other aeroplane's is, she met the runway at 383 to 417
-        // ft/min. So a jet with less than `least_flare_pitch_deg` of nose
+        // as every other aeroplane's is, she met the runway at 392 to 417
+        // ft/min from 5 nm at 61,570 lb (383 from `land`'s 2 nm gate, full
+        // tanks). So a jet with less than `least_flare_pitch_deg` of nose
         // left as the flare begins holds her power, flies the sink on it
         // from the first foot a minute past the flare's, worked her spool
         // ahead as in gusts, and takes it off as the sink is arrested: she
-        // touches at 151 to 157 from 2 nm. Every other aeroplane here begins her flare
-        // more than five degrees short of her limit (the F-15C 5.4, the A320
-        // 6.6; docs/status, 2026-11-02) and flies it as before.
+        // touches at 176 to 202 from 5 nm (151 to 157 from `land`'s gate).
+        // Every other aeroplane here begins her flare more than five degrees
+        // short of her limit in calm air and 15 kt across (the F-15C 5.4,
+        // the A320 6.6; docs/status, 2026-11-02) and flies it as before.
+        // **Never in a flare given back** (`resume`): there the nose is the
+        // pilot's, and a jet he flared near her bound is not one whose
+        // final leaves her no flare.
         if (!flare_begun_) {
             flare_throttle_ = last_throttle_;
-            power_flare_ =jet_ && most_flare_pitch_deg_ - s.pitch_deg < least_flare_pitch_deg;
+            power_flare_ = jet_ && !resumed_ &&
+                           most_flare_pitch_deg_ - s.pitch_deg < least_flare_pitch_deg;
         }
         c.throttle = power_flare_ ? last_throttle_
                                   : std::max(0.0, last_throttle_ - 0.5 / steps_per_second);
