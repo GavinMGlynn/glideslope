@@ -419,6 +419,12 @@ public:
     double touchdown_along_m() const { return touchdown_along_m_; }
     // Her pitch, degrees, as her wheels first touched; 0 before that.
     double touchdown_pitch_deg() const { return touchdown_pitch_deg_; }
+    // **Whether her flare is flown on her power** (`fly_laws`): decided on
+    // the flare's first step, kept through a bounce, cleared by `resume`.
+    bool power_flare() const { return power_flare_; }
+    // The most nose her flare may have (her tail strike less two, or her
+    // standing attitude on a tail wheel), degrees.
+    double most_flare_pitch_deg() const { return most_flare_pitch_deg_; }
     // The autobrake's pedal on the roll, 0 to 1, both wheels alike: what the
     // rudder's differential braking is added to and taken from.
     double autobrake() const { return brake_; }

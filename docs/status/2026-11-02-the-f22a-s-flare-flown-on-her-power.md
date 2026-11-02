@@ -57,7 +57,29 @@ The margins were not measured on the gust tests' seeds; the full suite's
 gust landings are the check there. **Never in a flare given back**
 (`Lander::resume`): from the review, a jet a pilot flared to within a degree
 of her bound and handed back would have taken it, her throttle held at the
-pilot's; a resumed flare closes the throttle as before.
+pilot's; a resumed flare closes the throttle as before. **Kept through a
+bounce, by intent**: the flare is begun once, so a bounced F-22A's throttle
+stays held and flies the sink on it - the AFH's bounce recovery (ch. 9,
+"applying sufficient power to cushion the subsequent touchdown"). Not seen:
+none of her landings here bounces (she rises 0.00 ft after her touch).
+
+**Second round, from the review (2026-11-02).**
+- `the_f22a_given_back_in_her_flare_near_her_bound_closes_her_throttle_and_takes_no_power_flare`:
+  flown from 2 nm to her flare's first step (0.30 degrees short of her
+  bound, on her power - asserted), held by a pilot for half a second and
+  given back 0.34 short at throttle 0.534: no step on her power, throttle 0
+  at the touch, 359 ft/min. **Seen to fail** with `!resumed_` out of the
+  gate: the power flare taken, her throttle 0.629 at the touch.
+- `every_jet_but_the_f22a_begins_her_flare_more_than_a_degree_short_of_her_bound_and_takes_no_power_flare`:
+  the catalogue's jets counted, ten with her, the other nine flown as
+  `glideslope_cli land` flies them (2 nm, calm air): 737-300 8.79, 747-400
+  8.83, 787-8 9.78, A320 6.58, A380 9.15, B-2A 7.47, F-15C 5.44, F-35B
+  9.68, Learjet 35A 9.48; none on her power. (Flown by the test file's
+  `land` from 5 nm untrimmed, the A380 struck 7.9 km short and the 787-8
+  never touched - that helper's start, not the flare - so the test flies
+  as the CLI does.)
+- `Lander::power_flare()` and `most_flare_pitch_deg()` exposed for them;
+  the 1.3-times test now also asserts she took the power flare.
 
 **Her figures now** (scratch stall figure, `land f22`, 2 nm, full tanks,
 63,960 lb): 157 ft/min calm, 153 and 151 in 15 kt across, nose 14.2 to
