@@ -1145,7 +1145,7 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       the gust factor faster with the power on to the touch, rotates her
       flare to the touch, and since 2026-11-02 judges a gusty round out as
       far ahead as her path lags her nose, as the Airplane Flying Handbook
-      cures a balloon. In moderate turbulence she lands six of fifteen
+      cures a balloon. In moderate turbulence she lands six of sixteen
       within limits with a margin on eight seeds: the PA-28, 747-400, A320,
       Learjet 35A and Mosquito, and the flying boat on all but Windows's
       seed 5 and macOS release's seed 3, where she skips 0.87 and 0.93 ft.
@@ -1156,7 +1156,11 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       the F-15C and A380 come down hard, the A380 also floats past the
       zone, the B-2A puts a wingtip down, the Cub balloons, and the C182
       and F-35B fail a few; at her light loading the 737-300 balloons,
-      and the Mosquito at her heaviest.
+      and the Mosquito at her heaviest. The F-22A, taught the approach
+      since her stall was measured (2026-11-02), fails all eight seeds:
+      a balloon sends her round on three, and on five she touches at 430
+      to 977 ft/min and rises 3.1 to 12.3 ft, striking her airframe on
+      seed 2.
       *Verification: every aeroplane lands light, heavy and in gusts with
       none named, and a gust on an approach flown well makes no
       go-around.*
@@ -1311,26 +1315,29 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       Lockheed test pilot says the B lands like the A. She holds 11.6 to
       14.4 degrees, and her flare's throttle only closes. Her extra lift
       is fitted to that figure, not derived.
-- [ ] **A runway too short refused for the five with no public landing
-      figure, and the runways a model is shown say their length.** Since
-      2026-10-13 the J-3 Cub, Mosquito, F-35B and B-2A, none published, are
-      refused a runway shorter than the one their model lands in (measured,
-      PROJECT_STATUS); the F-22A has no approach speed, so every landing is
-      refused her, and no figure is measured for her. Since 2026-10-31 the
-      runway lines a model is shown say their landing length and what the
-      aircraft needs (the F-22A, with no approach speed, is told she does
-      not land). Since 2026-11-02 her stall figure is her slowest steady
-      flight, measured from her model (90 KCAS at 54,960 lb), and her
-      landing figure 6,300 ft, measured at 1.3 times it; all five are
-      refused a runway a metre short of theirs. **Still missing**: ten
-      tests red for her with it - her stall lessons and stall watch, her
-      landings in gusts, the approach lesson's tail-strike margin, and
-      three on her wheels - each fixed or named with its figure
-      (docs/status/2026-11-02-the-f22a-s-stall-figure-and-landing-measured.md).
-      *Verification: each of the five
-      refused a runway shorter than a cited figure, and the model shown each
-      runway's landing length.* Owner 2026-10-09. Owner 2026-10-31:
-      recordings made again.
+- [x] **A runway too short refused for the five with no public landing
+      figure, and the runways a model is shown say their length.** The
+      J-3 Cub, Mosquito, F-35B, B-2A and F-22A each carry the runway her
+      model lands in, measured (the F-22A's 6,300 ft at 1.3 times her
+      slowest steady flight, measured from her model, 2026-11-02), and are
+      refused a runway a metre shorter; every runway line a model is shown
+      says its landing length and what the aircraft needs (since
+      2026-10-31). *Verification: each of the five refused a runway shorter
+      than a cited figure, and the model shown each runway's landing
+      length.* Owner 2026-10-09. Owner 2026-10-31: recordings made again.
+      Done 2026-11-02; what the F-22A's stall figure brought her into is the
+      next item.
+- [ ] **The F-22A flies her stall-figure tests.** With a stall figure
+      (2026-11-02) she is taught stalls and the approach, and is named in
+      these. Her stall recovery loses 2,964 ft at the warning against 500
+      (4.72 g against 2), and 16,296 ft left thirty seconds against 7,938
+      (20.64 g). The AI's stall watch lets her slow to 59 kt against her
+      90, and the instructor's stall demonstration says so. She touches at
+      14.3 degrees, inside the 2.5-degree tail-strike margin. On the
+      wheels, held at 0.5 kt on a wet runway she rolls 29.93 s of 30. Her
+      gust landings are named under the gust item. *Verification: she is
+      unnamed from each of those tests, and from the autopilot's heading
+      test from her approach speed, where she sinks under 127 kt.*
 - [x] **The AI lands the 747-400 at Boeing's published approach speed**:
       153 kt at 630,000 lb, in calm air, wind and crosswind, within her
       limits, her flaps raised after a take-off by her manoeuvre speeds
