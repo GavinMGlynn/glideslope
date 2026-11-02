@@ -53,6 +53,11 @@ bound (measured from `glideslope_cli land`, calm and 15 kt across: 737-300
 8.8, 747-400 8.8, 787-8 9.6, A320 6.6, A380 9.0, B-2A 7.5, F-15C 5.4,
 F-35B 9.7, Learjet 9.5; the F-22A 0.30 and 0.36), and no other aircraft
 took the power flare in any of those 30 landings, so theirs fly as before.
+The margins were not measured on the gust tests' seeds; the full suite's
+gust landings are the check there. **Never in a flare given back**
+(`Lander::resume`): from the review, a jet a pilot flared to within a degree
+of her bound and handed back would have taken it, her throttle held at the
+pilot's; a resumed flare closes the throttle as before.
 
 **Her figures now** (scratch stall figure, `land f22`, 2 nm, full tanks,
 63,960 lb): 157 ft/min calm, 153 and 151 in 15 kt across, nose 14.2 to
