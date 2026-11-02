@@ -58,4 +58,9 @@ m before the threshold. The build's copy was put back and compared equal.
 learnt or rudder green, among them the headwind corners at 15 kt (32
 landings, worst 2.38 m, 160 ft/min) and the gate's refusals (17 kt
 refused). The full linux-release suite (`-LE nightly`, `ctest -j4`, no
-display): see the pull request.
+display): 1431 of 1431 passed, 25 of them skipped (no key, device or
+service). On the draft's CI run, linux-debug's shard 6 timed out one test
+unrelated to the learnt landing,
+an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands
+(900 s, against a measured 762 s there; it flies no policy, and passed in 27
+s here).
