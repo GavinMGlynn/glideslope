@@ -123,8 +123,14 @@ double remember_drift(double integral, double across_m, const LearntPolicy& poli
 // glidepath and 5 degrees off the runway's heading; from 3 kt under the
 // policy's reference speed to 8 kt over it; the landing flap out and not
 // moving; and the wind as the instruments estimate it no more than 15 kt
-// across, 8 kt ahead and 5 kt behind. A 15-knot headwind is not admitted:
-// from every corner at that speed she bounced 7 ft, and at 10 kt once 3 ft.
+// across, 15 kt ahead and 5 kt behind. **15 kt ahead since 2026-11-02**
+// (8 before): training's wind blows up to 15 kt from anywhere, and the
+// policy of that day lands from every corner with 15 kt ahead at least 29 m
+// past the threshold, under 165 ft/min and within 2.4 m - inside the 5 per
+// cent margin it was chosen by - where its 2026-10-20 predecessor, which
+// bounced at 10 and 15 kt, touched before the threshold from held-out starts
+// 9.6 to 13.1 kt ahead (the_learnt_policy_lands_past_the_threshold_from_the_
+// held_out_starts_it_once_touched_short_from_in_headwinds).
 // The CLI's start (`glideslope_cli land --learnt`: two miles out on the
 // centreline and the glidepath, at the reference speed) is its middle.
 // Outside it she is not offered: nothing says the policy lands from there.
@@ -139,7 +145,7 @@ struct LearntGate {
     static constexpr double most_off_flap = 0.01; // of the flaps' travel: out, not moving
     // The wind, as the instruments estimate it (landing_observation's).
     static constexpr double most_crosswind_kts = 15.0;
-    static constexpr double most_headwind_kts = 8.0;
+    static constexpr double most_headwind_kts = 15.0;
     static constexpr double most_tailwind_kts = 5.0;
 };
 

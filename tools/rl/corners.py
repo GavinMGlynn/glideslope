@@ -26,7 +26,7 @@ from evaluate import within_limits  # noqa: E402
 VREF = 59.8
 NEAREST, FURTHEST = 1.6 * 1852.0, 2.4 * 1852.0
 WINDS = {"calm": (0.0, 0.0), "left": (15.0, 0.0), "right": (-15.0, 0.0),
-         "ahead": (0.0, 8.0), "behind": (0.0, -5.0)}
+         "ahead": (0.0, 15.0), "behind": (0.0, -5.0)}
 
 
 def corners():

@@ -1039,7 +1039,8 @@ std::unique_ptr<glideslope::sim::Aircraft> placed(const std::string& model, cons
                                                   double across_m, double high_m,
                                                   double heading_off_deg, double kts,
                                                   double flaps,
-                                                  std::shared_ptr<glideslope::sim::Weather> weather = nullptr) {
+                                                  std::shared_ptr<glideslope::sim::Weather> weather = nullptr,
+                                                  double fuel_lbs = -1.0) {
     auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", model);
     const double ground_m = runway.elevation_ft / feet_per_metre;
     aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
@@ -1055,6 +1056,14 @@ std::unique_ptr<glideslope::sim::Aircraft> placed(const std::string& model, cons
     ic.heading_deg = runway.heading_deg + heading_off_deg;
     if (weather) {
         aircraft->set_weather(std::move(weather));
+    }
+    // `fuel_lbs` in each tank; below nothing, as the model has them - full.
+    if (fuel_lbs >= 0.0) {
+        glideslope::sim::Loading loading;
+        for (std::size_t t = 0; t < aircraft->tank_capacities_lbs().size(); ++t) {
+            loading.tank_lbs[static_cast<int>(t)] = fuel_lbs;
+        }
+        aircraft->load(loading);
     }
     aircraft->initialize(ic);
     return aircraft;
@@ -1146,7 +1155,7 @@ GLIDESLOPE_TEST(an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_i
         {"another aeroplane", "c182", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "this is the c182"},
         {"the flaps a little short", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f - 0.03, "flaps at 97%"},
         {"too much crosswind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "17 kt of crosswind", 17.0, 0.0},
-        {"too much headwind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "10 kt of headwind", 0.0, 10.0},
+        {"too much headwind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "17 kt of headwind", 0.0, 17.0},
         {"too much tailwind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "7 kt of tailwind", 0.0, -7.0},
     };
     // Every refusal outside_learnt_gate gives, each way it gives it: two in
@@ -1507,6 +1516,107 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_i
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_tailwind) {
     lands_from_every_corner_in("behind");
+}
+
+// **From the held-out starts it once touched short from, in headwinds, it
+// lands past the threshold.** The policy of 2026-10-20, flown on the C172P
+// as she has flown since 2026-10-23, touched down before the threshold from
+// five of the starts checkpoints are chosen on (tools/rl/landing.py's
+// `held_out_starts`, drawn with seed 20260930): number 27 with 75 lb a tank,
+// and numbers 10, 24, 27 and 31 with 100 - every one 9.6 to 13.1 kt ahead,
+// outside the gate's 8 kt of then. The gate now admits 15 kt ahead
+// (sim::LearntGate). Each is placed as landing.py places it - its distance
+// out, across, off the glidepath and off the heading, at the reference speed,
+// in its steady wind - found at the gate by the simulation's own check, and
+// flown by the simulation's learnt lander: each touches down past the
+// threshold within the verification's limits, and is stopped on the runway.
+// The values are landing.py's to the last digit, printed by repr.
+GLIDESLOPE_TEST(the_learnt_policy_lands_past_the_threshold_from_the_held_out_starts_it_once_touched_short_from_in_headwinds) {
+    const auto policy = the_policy();
+    const Runway runway = a_runway();
+    struct HeldOut {
+        int number;
+        double fuel_lbs; // in each tank
+        double out_m, across_m, high_m, heading_deg, cross_kts, head_kts;
+    };
+    const std::vector<HeldOut> all{
+        {27, 75.0, 3284.9421335702687, 15.936903562790135, -18.30007880704857,
+         -1.5295960066939873, -5.284382556014081, 13.08760188181218},
+        {10, 100.0, 3784.776822933149, -43.62727059295788, -4.711701866498995,
+         0.7680880169915145, 1.5120277570998955, 9.573169437895107},
+        {24, 100.0, 4417.250759737752, -6.235542566529716, -12.781757434921865,
+         0.12082166140353845, 5.053568642184058, 12.019828868130277},
+        {27, 100.0, 3284.9421335702687, 15.936903562790135, -18.30007880704857,
+         -1.5295960066939873, -5.284382556014081, 13.08760188181218},
+        {31, 100.0, 3063.1176084387725, -23.459628920321933, -12.164981831852293,
+         2.29133429650636, 0.9357280741583122, 11.24447552869963},
+    };
+    std::size_t flown = 0;
+    std::size_t over_old_gate = 0;
+    double least_along = 1e9;
+    std::vector<std::string> failures;
+    for (const HeldOut& c : all) {
+        const double h = runway.heading_deg / degrees;
+        glideslope::sim::Conditions conditions;
+        conditions.wind_north_mps = (c.cross_kts * std::cos(h + 3.14159265358979323846 / 2.0) -
+                                     c.head_kts * std::cos(h)) * 0.514444;
+        conditions.wind_east_mps = (c.cross_kts * std::sin(h + 3.14159265358979323846 / 2.0) -
+                                    c.head_kts * std::sin(h)) * 0.514444;
+        auto aircraft = placed("c172p", runway, *policy, c.out_m, c.across_m, c.high_m,
+                               c.heading_deg, policy->vref_kts, policy->flaps,
+                               std::make_shared<glideslope::sim::SteadyWeather>(conditions),
+                               c.fuel_lbs);
+        char name[160];
+        std::snprintf(name, sizeof name, "held out %d, %.0f lb a tank, %.1f kt ahead, %+.1f across",
+                      c.number, c.fuel_lbs, c.head_kts, c.cross_kts);
+        const std::string why = glideslope::sim::outside_learnt_gate(*aircraft, runway, *policy);
+        check(why.empty(), std::string(name) + " is at the gate: " + why);
+        over_old_gate += c.head_kts > 8.05 ? 1U : 0U;
+        LearntLander lander(*aircraft, runway, policy, speeds());
+        Landing l;
+        AfterTouch after;
+        for (long tick = 0; tick < 420L * steps_per_second; ++tick) {
+            aircraft->set_controls(lander.fly());
+            aircraft->step();
+            if (lander.touched()) {
+                after.see(*aircraft, tick, l);
+            } else if (tick >= 300L * steps_per_second) {
+                break;
+            }
+            if (lander.stage() == LearntLander::Stage::stopped) {
+                l.stopped = true;
+                l.stopped_along_m = -lander.rollout().along_m();
+                l.stopped_across_m = lander.rollout().across_m();
+                break;
+            }
+        }
+        l.touched = lander.touched();
+        l.sink_fpm = lander.touchdown_sink_fpm();
+        l.across_m = lander.touchdown_across_m();
+        l.along_m = lander.touchdown_along_m();
+        l.decisions = lander.decisions();
+        ++flown;
+        print(name, l);
+        least_along = std::min(least_along, l.along_m);
+        std::vector<std::string> wrong = short_of_the_limits(l);
+        for (const std::string& w : not_stopped_on_the_runway(l)) {
+            wrong.push_back(w);
+        }
+        if (!wrong.empty()) {
+            std::string text = name;
+            for (const std::string& w : wrong) {
+                text += "; " + w;
+            }
+            failures.push_back(text);
+        }
+    }
+    std::printf("%zu of %zu held-out starts in headwinds within the limits; the least %.0f m "
+                "past the threshold\n",
+                flown - failures.size(), flown, least_along);
+    check(all.size() == 5 && flown == 5, "the five starts flown: " + std::to_string(flown));
+    check(over_old_gate == 5, "every one over the old gate's 8 kt ahead: " +
+                                  std::to_string(over_old_gate) + " of 5");
+    none_wrong(failures, flown, "held-out landings in headwinds fell short");
 }
 
 // **An AI's approach is handed to the learnt landing at its gate, and only
