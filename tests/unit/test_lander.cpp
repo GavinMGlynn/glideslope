@@ -77,6 +77,7 @@ struct Landing {
     // The step each of her first three gear units first carried weight, or
     // -1: for the J-3 Cub, her tail wheel and her two mains.
     std::array<long, 3> first_weight_step{-1, -1, -1};
+    double strike_pitch_deg = 90.0;  // her nose where her tail strikes (Aircraft::stance)
     double stopped_along_m = 0.0;
     double worst_across_on_final_m = 0.0; // inside a mile
     double seconds = 0.0;
@@ -202,6 +203,7 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false,
     out.along_m = lander.touchdown_along_m();
     out.touch_pitch_deg = lander.touchdown_pitch_deg();
     out.standing_pitch_deg = aircraft.stance().standing_pitch_deg;
+    out.strike_pitch_deg = aircraft.stance().strike_pitch_deg;
     if (!out.stopped) {
         out.seconds = 900.0;
     }
@@ -348,17 +350,21 @@ GLIDESLOPE_TEST(the_f22a_landed_at_150_kt_rolls_out_on_the_centreline_in_calm_ai
 // (assets/figures/f22.xml), is 123.8 kt at her model's weight times 1.3,
 // 17 degrees of incidence. Down the last mile from five out she is never
 // farther than 5 m from the centreline, and rolls out on the runway the
-// right way up, and never rises 0.75 ft after her touch (0.08 to 0.47).
+// right way up, and never rises 0.75 ft after her touch (0.00 now).
 // Her pedals command a yaw rate through her flight controls,
 // and with the lander's yaw damper at every other aircraft's 0.05 a slow
 // Dutch roll grew down her final: in calm air to 9.8 degrees of bank and
 // 8.9 m off by 60 ft, and in 15 kt across she departed and struck the
 // ground short. Her figures' `yaw_rate_pedal_per_degps` sets it. **Seen to
-// fail** at 0.05. Her touch is not judged here: she meets the runway at
-// about 380 ft/min, over 360, her nose at the flare's limit two degrees
-// short of her tail strike from the flare's first foot (docs/status,
-// 2026-11-02). Coverage: three winds, all landed.
-GLIDESLOPE_TEST(the_f22a_flies_her_final_at_1_3_times_her_measured_vs0_on_the_centreline_in_calm_air_and_15_kt_across) {
+// fail** at 0.05. **And she touches within NASA's 360 ft/min** (Zaal et
+// al., NTRS 20205010611), short of the lander's bound on her nose, two
+// degrees under her tail strike: her nose has a quarter of a degree left to
+// that bound as her flare begins, so it is flown on her power
+// (sim/lander.cpp, least_flare_pitch_deg) - 176 to 202 ft/min. **Seen to
+// fail** with the power flare taken out (least_flare_pitch_deg 0): 392 ft/min
+// in calm air. Coverage: three
+// winds, all landed.
+GLIDESLOPE_TEST(the_f22a_lands_at_1_3_times_her_measured_vs0_on_the_centreline_within_360_ft_min_in_calm_air_and_15_kt_across) {
     const auto figures = glideslope::sim::read_published_figures(data() / "figures" / "f22.xml");
     // Her model's own weight, at which `land` flies her and her plan speeds
     // were measured (assets/figures/f22.xml, `plan_speeds`).
@@ -389,6 +395,13 @@ GLIDESLOPE_TEST(the_f22a_flies_her_final_at_1_3_times_her_measured_vs0_on_the_ce
         check(l.highest_after_touch_ft < 0.75,
               "the F-22A rose " + std::to_string(l.highest_after_touch_ft) +
                   " ft after her touch" + where + ", not under 0.75");
+        check(l.sink_fpm > 0.0 && l.sink_fpm <= 360.0,
+              "the F-22A touched at " + std::to_string(l.sink_fpm) + " ft/min" + where +
+                  ", not within 360");
+        check(l.touch_pitch_deg < l.strike_pitch_deg - 2.0,
+              "the F-22A touched with her nose at " + std::to_string(l.touch_pitch_deg) +
+                  " degrees" + where + ", not short of the lander's bound, " +
+                  std::to_string(l.strike_pitch_deg - 2.0));
         ++landed;
     }
     check(landed == 3, std::to_string(landed) + " of 3 winds landed");
