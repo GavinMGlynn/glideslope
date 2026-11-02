@@ -58,6 +58,7 @@
 #include "gfx/cesium_cache.hpp"
 #include "gfx/terrain_tiles.hpp"
 #include "platform/closed_pipes.hpp"
+#include "platform/whole_lines.hpp"
 
 #include <CesiumAsync/CacheItem.h>
 #include <CesiumAsync/HttpHeaders.h>
@@ -356,6 +357,8 @@ int main(int argc, char** argv) {
     // Three of it run in one pipeline, each writing to the next, which may
     // have finished first (platform/closed_pipes.hpp).
     glideslope::platform::outlive_closed_pipes();
+    // And its lines go out whole, each in one write (platform/whole_lines.hpp).
+    glideslope::platform::whole_lines_to_stderr();
     const std::vector<std::string> args(argv + 1, argv + argc);
     // Cesium Native's log - a refused write among it - where the test reads.
     glideslope::gfx::log_to_standard_error();

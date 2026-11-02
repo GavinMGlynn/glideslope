@@ -72,6 +72,7 @@
 #include "net/protocol.hpp"
 #include "platform/closed_pipes.hpp"
 #include "platform/socket.hpp"
+#include "platform/whole_lines.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -110,6 +111,8 @@ int main(int argc, char** argv) {
     // Last in a pipeline or not, what it says to a reader that has gone must
     // not end it (platform/closed_pipes.hpp).
     glideslope::platform::outlive_closed_pipes();
+    // And its lines go out whole, each in one write (platform/whole_lines.hpp).
+    glideslope::platform::whole_lines_to_stderr();
     if (argc < 3) {
         std::fprintf(stderr, "usage: glideslope_impair LISTEN_PORT SERVER_HOST:PORT --delay MS "
                              "--jitter MS --loss PERCENT --seed N [--until-input-ends] "

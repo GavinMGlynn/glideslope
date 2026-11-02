@@ -35,6 +35,7 @@
 #include "platform/stop.hpp"
 #include "platform/stdout_to_file.hpp"
 #include "platform/closed_pipes.hpp"
+#include "platform/whole_lines.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "gfx/hud.hpp"
 #include "gfx/renderer.hpp"
@@ -473,6 +474,8 @@ static int run_program(int argc, char** argv) {
     // And a write to a pipe whose reader has gone fails, rather than ending
     // the program (platform/closed_pipes.hpp).
     glideslope::platform::outlive_closed_pipes();
+    // And its lines go out whole, each in one write (platform/whole_lines.hpp).
+    glideslope::platform::whole_lines_to_stderr();
     // Before anything that can log: Cesium Native's log belongs on standard
     // error, not in the middle of a --trace line. See gfx/terrain_tiles.hpp.
     glideslope::gfx::log_to_standard_error();
