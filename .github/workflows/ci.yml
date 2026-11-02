@@ -100,6 +100,14 @@ env:
 #     clang-cl 3, macOS debug 5. Windows debug went to 8 on 2026-10-30:
 #     its shards ran 23 to 38 of their 45 minutes, and one on a runner a
 #     quarter slower than its table was cut off (run 41029951964).
+#     Windows release and clang-cl went to 4 on 2026-11-02, about 27 and 26
+#     minutes of measured work a shard (at 3, 36 and 35): two of their shards
+#     were cut off at 45 (runs 41378993491, 41415219089). Their imbalance
+#     then - 20 to 43 minutes within one preset - was the dealing undone:
+#     ctest numbers -I's tests among those its -LE leaves, so each dealing
+#     lists its tests with the run's -LE (EXCLUDE, tools/ci_shard.cmake).
+#     A full run's jobs peaked at 37 at once (run 41415219089); two more
+#     shards make 39, inside the plan's 40.
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may
@@ -288,7 +296,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly' || 'nightly') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }} || rc=$?
           kill $xvfb
@@ -358,7 +366,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly' || 'nightly') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }} || rc=$?
           kill $xvfb
@@ -559,7 +567,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           source /opt/rh/gcc-toolset-14/enable
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly' || '' }}" -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && '-LE nightly' || '' }} || rc=$?
           kill $xvfb
@@ -748,7 +756,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly' || 'nightly') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake
           ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
@@ -813,7 +821,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly' || 'nightly') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake
           ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
@@ -1039,7 +1047,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly' || 'nightly') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake || exit /b 1
           ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
 
       # **The figures the tests said, whether they passed or not** (each
@@ -1117,12 +1125,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-release, shard: 1, of: 3 }
-          - { preset: windows-release, shard: 2, of: 3 }
-          - { preset: windows-release, shard: 3, of: 3 }
-          - { preset: windows-clang, shard: 1, of: 3 }
-          - { preset: windows-clang, shard: 2, of: 3 }
-          - { preset: windows-clang, shard: 3, of: 3 }
+          - { preset: windows-release, shard: 1, of: 4 }
+          - { preset: windows-release, shard: 2, of: 4 }
+          - { preset: windows-release, shard: 3, of: 4 }
+          - { preset: windows-release, shard: 4, of: 4 }
+          - { preset: windows-clang, shard: 1, of: 4 }
+          - { preset: windows-clang, shard: 2, of: 4 }
+          - { preset: windows-clang, shard: 3, of: 4 }
+          - { preset: windows-clang, shard: 4, of: 4 }
     env:
       SDL_LOGGING: gpu=debug
     steps:
@@ -1168,7 +1178,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -P tools/ci_shard.cmake || exit /b 1
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly' || 'nightly') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake || exit /b 1
           ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
 
       # **The figures the tests said, whether they passed or not** (each

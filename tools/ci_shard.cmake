@@ -1,7 +1,11 @@
 # Which tests one CI shard runs, chosen by what each test costs.
 #
-#   cmake -DPRESET=linux-debug -DSHARD=2 -DOF=7 -DOUT=shard.txt -P tools/ci_shard.cmake
-#   ctest --preset linux-debug -I "$PWD/shard.txt"
+#   cmake -DPRESET=linux-debug -DSHARD=2 -DOF=7 -DOUT=shard.txt "-DEXCLUDE=timing|nightly" -P tools/ci_shard.cmake
+#   ctest --preset linux-debug -I "$PWD/shard.txt" -LE "timing|nightly"
+#
+# EXCLUDE is the run's -LE, the same regex, or nothing when the run has none:
+# ctest numbers -I's tests among those -LE leaves, so the dealing must list
+# the same (below).
 #
 # Every test of build/PRESET is dealt to one of OF shards, longest first, each
 # to the shard with the least work so far (longest-processing-time first).
@@ -31,7 +35,8 @@
 # every test was dealt exactly once and that no shard is empty, and fails if
 # not. OUT is ctest's -I file: the test numbers of shard SHARD. With OUT_ALL, a
 # directory, every shard's file is written there instead (shard_1.txt ...),
-# for tests/cmake/ci_shards_cover_every_test.cmake. BUILD overrides the build
+# with the names of its tests beside it (shard_1.names, one a line), for
+# tests/cmake/ci_shards.cmake. BUILD overrides the build
 # tree. With OUT, the costs are also written where ctest reads them
 # (Testing/Temporary/CTestCostData.txt), so inside a shard the longest tests
 # start first.
@@ -89,7 +94,19 @@ if(JOBS STREQUAL "")
     message(FATAL_ERROR "ci_shard: test preset ${PRESET} says no jobs")
 endif()
 
-execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} --show-only=json-v1
+# **The tests listed as the shard's ctest will number them.** ctest's -I
+# numbers count the tests left once -LE has left some out, not the build's
+# whole list: dealt from the whole list, a shard whose run left out the five
+# nightly tests ran, from the first of them on, the test after the one it was
+# dealt - by the end, five after - so the dealing was undone, and one
+# windows-clang shard was given four F-35B tests, 18 minutes that hold the
+# runner alone, and cut off at its 45 (run 41415219089). So the list here
+# leaves out what the run leaves out: EXCLUDE is the run's -LE.
+set(_exclude "")
+if(DEFINED EXCLUDE AND NOT EXCLUDE STREQUAL "")
+    set(_exclude -LE "${EXCLUDE}")
+endif()
+execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} --show-only=json-v1 ${_exclude}
     OUTPUT_VARIABLE _json RESULT_VARIABLE _rc)
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "ci_shard: ctest could not list the tests of ${BUILD}")
@@ -122,7 +139,6 @@ foreach(_i RANGE ${_last})
     string(JSON _name GET "${_t}" name)
     list(APPEND _names ${_name})
     set(_holds 1)
-    set(_unrun FALSE)
     set(_fix_${_n} "")
     string(JSON _props ERROR_VARIABLE _e GET "${_t}" properties)
     if(NOT _e)
@@ -135,15 +151,6 @@ foreach(_i RANGE ${_last})
                 set(_holds ${JOBS})
             elseif(_pn STREQUAL "PROCESSORS" AND _pv GREATER _holds)
                 set(_holds ${_pv})
-            elseif(_pn STREQUAL "LABELS")
-                string(JSON _nv LENGTH "${_pv}")
-                math(EXPR _vlast "${_nv} - 1")
-                foreach(_v RANGE ${_vlast})
-                    string(JSON _l GET "${_pv}" ${_v})
-                    if((_l STREQUAL "timing" AND PRESET MATCHES "-debug$") OR _l STREQUAL "nightly")
-                        set(_unrun TRUE)
-                    endif()
-                endforeach()
             elseif(_pn MATCHES "^FIXTURES_(SETUP|REQUIRED|CLEANUP)$")
                 string(JSON _nv LENGTH "${_pv}")
                 math(EXPR _vlast "${_nv} - 1")
@@ -157,13 +164,9 @@ foreach(_i RANGE ${_last})
     if(_holds GREATER JOBS)
         set(_holds ${JOBS})
     endif()
-    # A debug preset's shards run `ctest -LE timing`, and a pull request's
-    # `-LE nightly` (ci.yml says why): such a test is dealt there, but never
-    # run, so it costs nothing. (The nightly run does run a nightly test, in
-    # whatever shard it was dealt to at no cost: a few minutes of slack.)
-    if(_unrun)
-        set(_c 0)
-    elseif(DEFINED _cost_${_name})
+    # What the run leaves out (EXCLUDE) is not listed, so every test here is
+    # run, and costs what the table says.
+    if(DEFINED _cost_${_name})
         set(_c ${_cost_${_name}})
     else()
         set(_c ${DEFAULT})
@@ -290,6 +293,17 @@ if(_unmeasured)
 endif()
 set(_gone ${_tabled})
 list(REMOVE_ITEM _gone ${_names})
+# A test the run leaves out is still a test of the preset.
+if(_gone AND _exclude)
+    execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N -L "${EXCLUDE}"
+        OUTPUT_VARIABLE _left_out)
+    string(REGEX MATCHALL "Test +#[0-9]+: [^\n]+" _left_out "${_left_out}")
+    foreach(_l IN LISTS _left_out)
+        string(REGEX REPLACE "^Test +#[0-9]+: +" "" _l "${_l}")
+        string(STRIP "${_l}" _l)
+        list(REMOVE_ITEM _gone ${_l})
+    endforeach()
+endif()
 if(_gone)
     list(LENGTH _gone _gn)
     list(JOIN _gone ", " _list)
@@ -303,6 +317,13 @@ if(DEFINED OUT_ALL)
         list(SORT _tests_${_s} COMPARE NATURAL)
         list(JOIN _tests_${_s} "," _numbers)
         file(WRITE ${OUT_ALL}/shard_${_k}.txt "0,0,0,${_numbers}\n")
+        set(_shard_names "")
+        foreach(_n IN LISTS _tests_${_s})
+            math(EXPR _i "${_n} - 1")
+            list(GET _names ${_i} _nm)
+            string(APPEND _shard_names "${_nm}\n")
+        endforeach()
+        file(WRITE ${OUT_ALL}/shard_${_k}.names "${_shard_names}")
     endforeach()
 else()
     math(EXPR _mine "${SHARD} - 1")
