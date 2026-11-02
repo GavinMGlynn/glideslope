@@ -2963,36 +2963,29 @@ std::vector<std::string> how_the_hull_held_off(const std::string& where,
 // the item "The AI cannot land in gusts" in docs/COMPLETION_PLAN.md, still
 // open. Any that fails a seed here or on any platform in CI, or passes one
 // without the margin, is named. (linux-release, 2026-10-10; figures from
-// forty seeds, 2026-10-31.)
+// forty seeds, 2026-11-02, with the gusty round out judged as far ahead as
+// her path lags her nose.)
 const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
     static const std::map<std::string, std::string> named = {
-        {"737-300", "a gust's lift in her flare climbs her at 113 ft/min (seed 2)"},
-        {"747-400", "since her first approach speed (2026-11-01), she touches at 388 ft/min "
-                    "and a gust's lift in her flare climbs her at 99.7 ft/min (seed 8)"},
-        {"787-8", "she touches at 398 ft/min on macOS (seed 2) and climbs at 201 ft/min "
-                  "in her flare on Windows (seed 3), CI run 38006839738; here she rises "
-                  "0.85 ft after touching (seed 6)"},
-        {"a320", "a gust's lift in her flare climbs her at 101 ft/min (seed 6); on forty "
-                 "seeds she fails three, each a climb in her flare"},
-        {"a380", "she meets the runway at 367 ft/min (seed 1), and a gust's lift in her "
-                 "flare climbs her at 196 ft/min (seed 2)"},
+        {"737-300", "her balloon gone (2026-11-02), she passes all eight seeds, but on forty "
+                    "she meets the runway at 490, 406 and 522 ft/min (seeds 36, 38, 40)"},
+        {"787-8", "she touches at 398 ft/min on macOS (seed 2), CI run 38006839738; her "
+                  "balloon gone (2026-11-02), on forty seeds here she touches at 344 to 379 "
+                  "ft/min on four (seeds 15, 21, 25, 40)"},
+        {"a380", "she meets the runway at 393 ft/min (seed 1) and goes around from a touch "
+                 "past the touchdown zone (seeds 6, 7)"},
         {"b2", "a gust rolls her on to a wingtip as she touches (seed 8)"},
         {"c172p", "she touches at 346.3 ft/min on macOS release (seed 3), not 25 inside "
                   "the limit, CI runs 41117802406 and 41281712534; she passes here and on "
                   "Windows debug"},
         {"c182", "she touches at 352.5 ft/min on macOS (seed 8), not 25 inside the "
-                 "limit, CI run 38028434284; on forty seeds here at 378 and 382 (seeds 23, "
+                 "limit, CI run 38028434284; on forty seeds here at 380 and 378 (seeds 23, "
                  "33)"},
-        {"f15c", "she meets the runway at 397 ft/min (seed 2)"},
-        {"learjet35a", "since the 2026-10-31 flare change, a gust's lift in her flare "
-                       "climbs her at 85 ft/min on Windows debug (seed 7), not 25 inside the "
-                       "limit, CI run 41077933204; here her worst of forty seeds is 62"},
+        {"f15c", "she meets the runway at 336 and 352 ft/min (seeds 6, 7)"},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
-                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 134 "
+                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 135 "
                   "ft/min in her flare (seed 20)"},
-        {"f35b", "she touches at 412 ft/min on one seed of forty (seed 40)"},
-        {"mosquito-fb6", "her main wheels' touch pitches her nose up from 3.6 to 6.8 degrees "
-                         "against her elevator, and she bounces 2.9 ft (seed 2), 2.4 (seed 3)"},
+        {"f35b", "she touches at 421 ft/min on one seed of forty (seed 40)"},
     };
     return named;
 }
@@ -3208,7 +3201,7 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 }
 
 // **In moderate turbulence the AI lands every aeroplane not named within
-// its limits** - two of fifteen; the thirteen named (`not_yet_landed_in_gusts`)
+// its limits** - six of fifteen; the nine named (`not_yet_landed_in_gusts`)
 // are flown and shown, and so is one named on two seeds, each on one platform
 // alone (`named_on_a_seed`: the S.23, Windows's seed 5, in every build, and
 // macOS release's seed 3). Fifteen knots down the runway with severity-3

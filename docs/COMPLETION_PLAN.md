@@ -1142,21 +1142,21 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 The AI's approach, flare, touchdown, roll-out and go-around, and the learnt landing.
 
 - [ ] **The AI cannot land every aeroplane in gusts**: she flies half
-      the gust factor faster with the power on to the touch and rotates
-      her flare to the touch, and in moderate turbulence lands two of
-      fifteen within limits with a margin on eight seeds: the PA-28 on
-      every platform, and the flying boat on all but Windows's seed 5
-      and macOS release's seed 3, where she skips 0.87 and 0.93 ft. The C172P passes on Linux and Windows
-      debug but touches at 346 ft/min on macOS release's seed 3, and is
-      named. The 747-400 is named on seed 8, touching at 388 ft/min.
-      Touch sink scatters about 80 ft/min a landing, so one platform's
-      pass is no other's: since the 2026-10-31 flare change the Learjet
-      35A, clean on forty seeds here, balloons on Windows. Over forty seeds the F-15C
-      still comes down hard, the 737-300 and A380 balloon, the B-2A puts
-      a wingtip down, the Mosquito bounces, and the 787-8, A320, C182, Cub
-      and F-35B fail a few; at her
-      light loading the 737-300 balloons, and the Mosquito at her
-      heaviest.
+      the gust factor faster with the power on to the touch, rotates her
+      flare to the touch, and since 2026-11-02 judges a gusty round out as
+      far ahead as her path lags her nose, as the Airplane Flying Handbook
+      cures a balloon. In moderate turbulence she lands six of fifteen
+      within limits with a margin on eight seeds: the PA-28, 747-400, A320,
+      Learjet 35A and Mosquito, and the flying boat on all but Windows's
+      seed 5 and macOS release's seed 3, where she skips 0.87 and 0.93 ft.
+      The C172P passes here but touches at 346 ft/min on macOS release's
+      seed 3, and is named. Touch sink scatters about 80 ft/min a landing,
+      so one platform's pass is no other's. Over forty seeds the 737-300
+      and 787-8 no longer balloon but come down hard on three and four,
+      the F-15C and A380 come down hard, the A380 also floats past the
+      zone, the B-2A puts a wingtip down, the Cub balloons, and the C182
+      and F-35B fail a few; at her light loading the 737-300 balloons,
+      and the Mosquito at her heaviest.
       *Verification: every aeroplane lands light, heavy and in gusts with
       none named, and a gust on an approach flown well makes no
       go-around.*
