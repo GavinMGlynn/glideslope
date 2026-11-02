@@ -27,6 +27,28 @@ constexpr double steps_per_second = 120.0;
 constexpr double jet_approach_idle = 0.25;
 // **The touch flown in gusts**, feet a minute (fly_laws).
 constexpr double gusty_touchdown_fpm = 150.0;
+// **How far ahead the sink is judged in a gusty round out**, seconds for
+// each knot. The FAA's Airplane Flying Handbook (FAA-H-8083-3C, ch. 9,
+// "Ballooning During Round Out", p. 9-32) names the balloon's cause: a pilot
+// who "misjudges the rate of sink ... and thinks the airplane is descending
+// faster than it should" increases the pitch "too rapidly. This not only
+// stops the descent, but actually starts the airplane climbing"; its round
+// out (p. 9-8) "should still be executed at a rate that takes the airplane's
+// downward motion into account". Her path follows her nose a moment behind
+// it - the wing's lift answers the incidence at once, but turning her path
+// takes her mass a time her speed over g times her wing's incidence from no
+// lift, about eight degrees: a second at an airliner's 135 kt, half that at
+// a Cherokee's 70. Judged three tenths of a second ahead, a gust's sink had
+// a 737-300's nose raised to 5.2 degrees, two more than the sink wanted, and
+// she climbed at 139 ft/min from six feet with her nose already coming down.
+// Judged as far ahead as her path lags, on forty seeds the 737-300 climbs at
+// 19 ft/min at most, where eleven of forty climbed past 75, and the 747-400,
+// 787-8 and A320's balloons go too (docs/status, 2026-11-02). A second for
+// every aeroplane did as well for those, but put a Cherokee on at 359 ft/min
+// (seed 21); at 0.7 s the 737 still climbed at 59, at 1.5 s the 747-400 and
+// 787-8 met the runway at 357 and 342, the nose raised too little. Never less
+// than the 0.3 s of calm air.
+constexpr double gusty_lead_s_per_kt = 0.0075;
 // **The least nose a jet's flare raises**, degrees: the FAA's Airplane
 // Flying Handbook (FAA-H-8083-3C, ch. 16, "The Flare"): "In most jet
 // airplanes, this requires a pitch attitude increase of only 1 to 3 degrees".
@@ -1571,12 +1593,18 @@ Controls Lander::fly_laws() {
         // nothing bounces; from six tenths the nose came up too little, and
         // the Mosquito met the runway flat and fast and bounced three to six
         // feet.
+        //
+        // **In gusts, as far ahead as her path lags her nose**
+        // (`gusty_lead_s_per_kt`, a second at an airliner's approach speed):
+        // the round out is judged on the sink she will have once her path
+        // has caught up with her nose, so that a nose raised against a
+        // gust's sink is not raised on past what arrests it.
         if (last_climb_fpm_ > -1e8) {
             const double rate = (s.climb_rate_fpm - last_climb_fpm_) * steps_per_second;
             climb_trend_fpm_s_ += (rate - climb_trend_fpm_s_) / (0.25 * steps_per_second);
         }
         last_climb_fpm_ = s.climb_rate_fpm;
-        constexpr double lead_s = 0.3;
+        const double lead_s = gusty ? std::max(0.3, gusty_lead_s_per_kt * kcas) : 0.3;
         const double ahead_error =
             want_fpm - (s.climb_rate_fpm + lead_s * climb_trend_fpm_s_);
         // **The nose comes up through the flare, and no faster than a pilot
