@@ -279,7 +279,8 @@ are the risks the phase order is built around:
   at 12.1, against a margin of 0.43 derived from her gear. Her tail wheel
   meets the runway 0.033 to 0.067 s after her first main wheel (the tests
   allow 0.1). Her wing passes its lift's peak, 12.5 degrees, only in her
-  last foot, as she touches at about the stall. She touches
+  last foot: she touches stalled, from under a foot, at 14.0–14.3 degrees
+  past her 12.5 peak. She touches
   at 114 to 125 ft/min (was 68), 363 m in, and stops 440 m in; her measured
   landing distance stays 1,500 ft. Her wing's measured section (NACA Report
   233) was tried and not kept: it put her stall at 37.6 kt against her
