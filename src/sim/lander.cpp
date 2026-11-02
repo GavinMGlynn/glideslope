@@ -37,8 +37,10 @@ constexpr double gusty_touchdown_fpm = 150.0;
 // downward motion into account". Her path follows her nose a moment behind
 // it - the wing's lift answers the incidence at once, but turning her path
 // takes her mass a time her speed over g times her wing's incidence from no
-// lift, about eight degrees: a second at an airliner's 135 kt, half that at
-// a Cherokee's 70. Judged three tenths of a second ahead, a gust's sink had
+// lift. That incidence is not measured: eight degrees is assumed for every
+// aeroplane, giving a second at an airliner's 135 kt, half that at a
+// Cherokee's 70; and the 0.0075 s a knot it gives was chosen from a sweep of
+// leads on the gust tests (below), not derived. Judged three tenths of a second ahead, a gust's sink had
 // a 737-300's nose raised to 5.2 degrees, two more than the sink wanted, and
 // she climbed at 139 ft/min from six feet with her nose already coming down.
 // Judged as far ahead as her path lags, on forty seeds the 737-300 climbs at

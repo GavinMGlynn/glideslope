@@ -6,7 +6,8 @@ in `not_yet_landed_in_gusts()` (tests/unit/test_lesson.cpp): the 737-300 and
 A380 comes down hard and floats past the touchdown zone; the F-15C comes
 down hard; the B-2A puts a wingtip down; the Cub still balloons; the C172P,
 C182 and F-35B for touches named before on other platforms or seeds. The
-change is not yet seen on Windows or macOS (CI).
+change is seen on Linux and Windows debug, not yet on macOS release or
+Windows release and clang.
 
 **What now works**: in moderate turbulence the AI lands six of fifteen
 within limits, each with its margin, on all eight gust seeds: the PA-28 and
@@ -127,5 +128,12 @@ ft/min, inside its margin.
 to `_8` pass in linux-release and in an `-march=x86-64-v2` build (no FMA,
 as CI), whose outputs are identical line for line; least margins of those
 judged over the eight seeds: sink 47 ft/min (seed 5), zone 176 m, rise 0.39
-ft, flare climb 105 ft/min. The full linux-release suite (`-LE nightly`) is
-recorded in the pull request.
+ft, flare climb 105 ft/min. The full linux-release suite (`ctest -LE
+nightly -j4`): 100% of 1,438 passed, 0 failed, 24 skipped for want of a
+key or a display, in 4,647 s.
+
+**Platforms**: the draft's CI (run 41441214419) passed Windows debug's
+tests, among them the Learjet's seed 7, where she climbed 85 ft/min in her
+flare before (CI run 41077933204). macOS release and Windows release and
+clang are not yet seen with the change; the four unnamed are judged there
+on the full run.
