@@ -17,7 +17,6 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <utility>
 #include <vector>
 
 using glideslope::sim::ApproachSpeeds;
@@ -78,10 +77,6 @@ struct Landing {
     // The step each of her first three gear units first carried weight, or
     // -1: for the J-3 Cub, her tail wheel and her two mains.
     std::array<long, 3> first_weight_step{-1, -1, -1};
-    // Her wing's most incidence in the flare before the touch, and where it
-    // was: her centre of gravity's height then over its height as she touched.
-    double most_alpha_deg = -1e9;
-    double most_alpha_over_touch_ft = 0.0;
     double stopped_along_m = 0.0;
     double worst_across_on_final_m = 0.0; // inside a mile
     double seconds = 0.0;
@@ -158,7 +153,6 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false,
     glideslope::test::AfterTouch after;
     after.judged_as(entry.seaplane);
     double on_the_ground_agl_ft = -1.0;
-    std::vector<std::pair<double, double>> flare_alphas; // (agl, alpha) before the touch
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
         aircraft.set_controls(lander.fly());
         aircraft.step();
@@ -169,11 +163,6 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false,
                 aircraft.property(wow) > 0.5) {
                 out.first_weight_step[g] = tick;
             }
-        }
-        if (lander.touchdown_sink_fpm() == 0.0 && lander.touchdown_along_m() == 0.0 &&
-            lander.stage() == Lander::Stage::flare) {
-            flare_alphas.emplace_back(aircraft.property("position/h-agl-ft"),
-                                      aircraft.property("aero/alpha-deg"));
         }
         if (lander.touchdown_sink_fpm() != 0.0 || lander.touchdown_along_m() != 0.0) {
             const auto s = aircraft.state();
@@ -212,12 +201,6 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false,
     out.across_m = lander.touchdown_across_m();
     out.along_m = lander.touchdown_along_m();
     out.touch_pitch_deg = lander.touchdown_pitch_deg();
-    for (const auto& [agl_ft, alpha_deg] : flare_alphas) {
-        if (alpha_deg > out.most_alpha_deg) {
-            out.most_alpha_deg = alpha_deg;
-            out.most_alpha_over_touch_ft = agl_ft - on_the_ground_agl_ft;
-        }
-    }
     out.standing_pitch_deg = aircraft.stance().standing_pitch_deg;
     if (!out.stopped) {
         out.seconds = 900.0;
@@ -541,9 +524,7 @@ std::vector<std::string> not_three_point(const Landing& l, const std::string& wh
     const long first_main = left < 0 ? right : right < 0 ? left : std::min(left, right);
     const double tail_after_s =
         static_cast<double>(tail - first_main) / static_cast<double>(steps_per_second);
-    std::printf("  tail wheel %.3f s after her first main; most incidence %.2f degrees, "
-                "%.2f ft over her touch\n",
-                tail_after_s, l.most_alpha_deg, l.most_alpha_over_touch_ft);
+    std::printf("  tail wheel %.3f s after her first main\n", tail_after_s);
     if (l.touched &&
         (tail < 0 || first_main < 0 || std::abs(tail_after_s) > cub_tail_wheel_within_s)) {
         wrong.push_back("the Cub's tail wheel met the runway " + std::to_string(tail_after_s) +

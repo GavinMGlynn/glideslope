@@ -1265,7 +1265,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 - [x] **The AI lands the J-3 Cub three-point**: held off a foot as the
       FAA's handbook has it, she touches at 11.8 to 11.9 degrees where she
       stands at 12.1, in calm air and every crosswind to her 12 kt, dry and
-      wet. *Verification: she touches within a justified margin of her
+      wet. She touches stalled from her last foot, as the handbook's touch
+      at about the stall has it. *Verification: she touches within a justified margin of her
       three-point attitude (0.43 degrees, derived from her gear), her tail
       wheel with her mains.* Done 2026-11-02.
 - [x] **The AI lands the J-3 Cub within her published crosswind limit**,
