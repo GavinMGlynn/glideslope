@@ -18,6 +18,7 @@
 
 #include "platform/closed_pipes.hpp"
 #include "platform/socket.hpp"
+#include "platform/whole_lines.hpp"
 
 #include <chrono>
 #include <cstdio>
@@ -73,6 +74,8 @@ int answer(const char* port_text, const char* path, double seconds) {
 int main(int argc, char** argv) {
     // Its reader in a pipeline may be gone first (platform/closed_pipes.hpp).
     glideslope::platform::outlive_closed_pipes();
+    // And its lines go out whole, each in one write (platform/whole_lines.hpp).
+    glideslope::platform::whole_lines_to_stderr();
     if (argc == 5 && std::string(argv[1]) == "--answer") {
         return answer(argv[2], argv[3], std::stod(argv[4]));
     }

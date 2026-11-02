@@ -1541,7 +1541,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       in tests/cmake/nightly_tests.cmake, until this item is done.
       2026-11-01: the mid-bank STOVL join (no datagrams lost) reached a
       64 mm median on CI's Windows debug, run 41284303752, its first
-      failure; a second moves it to nightly.
+      failure; 2026-11-02: 61 mm on #298's run 41397416052, its second, and
+      it moved to nightly (tests/cmake/nightly_tests.cmake), the 60 mm bound
+      kept; its nightly result is reported here.
 - [ ] **On a server the air has no ground's lift**: the server and its
       clients fly the weather over no ground, because the lift is too costly
       for a predicting client. *Verification: a client predicting over hills

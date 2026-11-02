@@ -22,6 +22,7 @@
 #include "net/handshake.hpp"
 #include "platform/end_process.hpp"
 #include "platform/closed_pipes.hpp"
+#include "platform/whole_lines.hpp"
 #include "platform/no_crash_dialogs.hpp"
 #include "net/held_inputs.hpp"
 #include "net/inputs.hpp"
@@ -5731,6 +5732,8 @@ static int run_program(int argc, char** argv) {
     // And a write to a pipe whose reader has gone fails, rather than ending
     // the program (platform/closed_pipes.hpp).
     glideslope::platform::outlive_closed_pipes();
+    // And its lines go out whole, each in one write (platform/whole_lines.hpp).
+    glideslope::platform::whole_lines_to_stderr();
     const std::vector<std::string_view> args(argv + 1, argv + argc);
     try {
         if (args.size() == 1 && args[0] == "--version") {

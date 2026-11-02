@@ -113,6 +113,7 @@ add_executable(glideslope_tests
     unit/test_model.cpp
     unit/test_imagery.cpp
     unit/test_process_end.cpp
+    unit/test_whole_lines.cpp
     ${PROJECT_SOURCE_DIR}/src/frontend/briefs.cpp)
 target_link_libraries(glideslope_tests PRIVATE glideslope_sim glideslope_net glideslope_world glideslope_platform
                                                glideslope_copilot
@@ -198,6 +199,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_run_stopped_where_it_is_owes_no_step_it_let_slip
     a_frame_is_a_machines_stall_only_when_the_machine_took_most_of_it_and_a_quarter_second_or_more
     overlapping_machine_stalls_each_keep_their_own_window_and_a_word_in_both_is_counted_apart_once
+    a_line_written_to_a_stream_made_whole_lined_goes_out_in_one_write
     with_nothing_lost_every_input_frame_arrives_once_and_in_order
     an_input_frame_arrives_exactly_when_a_packet_carrying_it_arrives
     losing_a_whole_packets_worth_of_datagrams_in_a_row_does_lose_an_input
@@ -2728,7 +2730,7 @@ add_test(NAME a_client_joining_an_f35b_mid_bank_predicts_her_from_the_servers_la
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stovl_join -DPORT=24980 -DSCENE=join
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stovl_join.cmake)
 set_tests_properties(a_client_joining_an_f35b_mid_bank_predicts_her_from_the_servers_law_state
-    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE)
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500 RUN_SERIAL TRUE LABELS nightly)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stovl_join)
 # **And with the first sealed datagrams from the server to B lost**: her
 # first updates and the law told with them; sent again, B joins all the same.
