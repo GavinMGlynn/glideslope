@@ -87,13 +87,18 @@ m before the threshold. The build's copy was put back and compared equal.
 
 **The corners in nine winds**: the five edge winds as before, and four
 new tests, one a wind - 15 kt in all from 45 degrees ahead from either
-side, and 2.75 kt across with 5 behind from either side - with the test of
+side, and 2.80 kt across with 5 behind from either side (the gate's 2.75
+and the 0.05 kt it lets in past every wind limit, so the edge it admits:
+worst 2.45 m, 243 ft/min) - with the test of
 the winds now asserting nine, each at an edge of the gate and within its 15
 in all: 288 landings, in linux-release worst 2.67 m and 281 ft/min, none
 short. **Seen red**: with the total-wind check removed from
 `outside_learnt_gate`, the gate test fails (17 kt in all not refused: "heading
 8 degrees left of the runway's" instead); with the crosswind-behind check
 removed, it fails (5 across with 3 behind admitted). Both restored.
+`the_corners_the_training_tools_fly_with_the_wind_behind_are_the_gates`
+reads corners.py's BEHIND_ACROSS and ALLOWANCE from its source and holds
+them to the gate's; seen red with BEHIND_ACROSS set to 3.0, then restored.
 
 **Verification.** linux-release: the new test green; the 35 tests named
 learnt or rudder green, among them the nine winds' corners and the gate's

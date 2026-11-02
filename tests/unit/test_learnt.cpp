@@ -24,6 +24,7 @@
 #include <span>
 #include <sstream>
 #include <string>
+#include <utility>
 #include <vector>
 
 using glideslope::sim::ApproachSpeeds;
@@ -1373,8 +1374,14 @@ GLIDESLOPE_TEST(an_aeroplane_taken_back_from_the_learnt_landing_moves_no_control
 // **One test a wind**, 32 landings each: the 160 in one test took over 900 s
 // on CI's Ubuntu debug runners, and were stopped there (run 37759639784).
 // `the_corner_landings_are_flown_in_the_nine_winds_at_the_gates_edges_and_no_other`
-// pins that the five winds are the gate's edges, each with its test.
+// pins that the nine winds are the gate's edges, each with its test.
 namespace {
+
+// **What the gate lets in past its crosswind with the wind behind**:
+// outside_learnt_gate refuses only beyond each wind limit and 0.05 kt more,
+// so the corners with wind behind and across are flown there - at the edge
+// the gate admits, not the constant's.
+constexpr double wind_allowance_kts = 0.05;
 
 struct CornerWind {
     const char* name;
@@ -1393,10 +1400,10 @@ std::vector<CornerWind> corner_winds() {
              Gate::most_wind_kts / std::sqrt(2.0)},
             {"quartering ahead from the right", -Gate::most_wind_kts / std::sqrt(2.0),
              Gate::most_wind_kts / std::sqrt(2.0)},
-            {"behind and across from the left", Gate::most_crosswind_behind_kts,
-             -Gate::most_tailwind_kts},
-            {"behind and across from the right", -Gate::most_crosswind_behind_kts,
-             -Gate::most_tailwind_kts}};
+            {"behind and across from the left",
+             Gate::most_crosswind_behind_kts + wind_allowance_kts, -Gate::most_tailwind_kts},
+            {"behind and across from the right",
+             -(Gate::most_crosswind_behind_kts + wind_allowance_kts), -Gate::most_tailwind_kts}};
 }
 
 void lands_from_every_corner_in(const std::string& wind) {
@@ -1508,7 +1515,8 @@ GLIDESLOPE_TEST(the_corner_landings_are_flown_in_the_nine_winds_at_the_gates_edg
                                 std::abs(std::abs(w.across_kts) - w.head_kts) < 1e-12 &&
                                 std::abs(in_all - Gate::most_wind_kts) < 1e-12;
         const bool behind_across = w.head_kts == -Gate::most_tailwind_kts &&
-                                   std::abs(w.across_kts) == Gate::most_crosswind_behind_kts;
+                                   std::abs(w.across_kts) ==
+                                       Gate::most_crosswind_behind_kts + wind_allowance_kts;
         const bool one = calm || across || ahead || behind || quartering || behind_across;
         check(one, std::string(w.name) + " is at an edge");
         check(in_all <= Gate::most_wind_kts + 1e-12,
@@ -1522,6 +1530,36 @@ GLIDESLOPE_TEST(the_corner_landings_are_flown_in_the_nine_winds_at_the_gates_edg
     check(winds[7].across_kts == -winds[8].across_kts && winds[7].across_kts > 0.0,
           "across with the wind behind from both sides");
     check(edges == 9, "every wind at an edge: " + std::to_string(edges) + " of 9");
+}
+
+// **tools/rl/corners.py flies the gate's crosswind with the wind behind as
+// the simulation's gate has it**: its BEHIND_ACROSS is
+// LearntGate::most_crosswind_behind_kts and its ALLOWANCE the gate's 0.05
+// kt, read from its source, so that the corners a checkpoint is chosen on
+// are the ones the tests fly.
+GLIDESLOPE_TEST(the_corners_the_training_tools_fly_with_the_wind_behind_are_the_gates) {
+    using Gate = glideslope::sim::LearntGate;
+    const std::filesystem::path script =
+        std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR).parent_path() / "tools" / "rl" /
+        "corners.py";
+    std::ifstream in(script);
+    check(in.good(), "corners.py is read: " + script.string());
+    std::string line;
+    int found = 0;
+    while (std::getline(in, line)) {
+        for (const auto& [name, want] :
+             {std::pair<std::string, double>{"BEHIND_ACROSS = ", Gate::most_crosswind_behind_kts},
+              std::pair<std::string, double>{"ALLOWANCE = ", wind_allowance_kts}}) {
+            if (line.rfind(name, 0) == 0) {
+                const double got = std::stod(line.substr(name.size()));
+                std::printf("  %s%g (the gate's %g)\n", name.c_str(), got, want);
+                check(got == want, "corners.py's " + line + " is the gate's " +
+                                       std::to_string(want));
+                ++found;
+            }
+        }
+    }
+    check(found == 2, "both of corners.py's figures found: " + std::to_string(found) + " of 2");
 }
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air) {

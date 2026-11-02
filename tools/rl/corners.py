@@ -26,11 +26,13 @@ from evaluate import within_limits  # noqa: E402
 VREF = 59.8
 NEAREST, FURTHEST = 1.6 * 1852.0, 2.4 * 1852.0
 QUARTER = 15.0 / math.sqrt(2.0)  # LearntGate::most_wind_kts from 45 degrees ahead
-BEHIND_ACROSS = 2.75  # LearntGate::most_crosswind_behind_kts
+BEHIND_ACROSS = 2.75  # LearntGate::most_crosswind_behind_kts (a test holds the two equal)
+ALLOWANCE = 0.05  # what outside_learnt_gate lets in past a wind limit
 WINDS = {"calm": (0.0, 0.0), "left": (15.0, 0.0), "right": (-15.0, 0.0),
          "ahead": (0.0, 15.0), "behind": (0.0, -5.0),
          "quarter-left": (QUARTER, QUARTER), "quarter-right": (-QUARTER, QUARTER),
-         "behind-left": (BEHIND_ACROSS, -5.0), "behind-right": (-BEHIND_ACROSS, -5.0)}
+         "behind-left": (BEHIND_ACROSS + ALLOWANCE, -5.0),
+         "behind-right": (-(BEHIND_ACROSS + ALLOWANCE), -5.0)}
 
 
 def corners():
