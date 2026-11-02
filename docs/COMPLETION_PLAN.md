@@ -1314,8 +1314,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       which waits on her approach speed. Since 2026-11-02 her slowest
       steady flight is measured from her model, 90 KCAS at 54,960 lb; at
       1.3 times it she flies her final on the centreline in calm air and
-      15 kt across, but touches at 392 to 417 ft/min, over 360: her nose is
-      at the flare's limit before it begins. *Verification: each of the five
+      15 kt across, and since her flare is flown on her power she touches
+      within 360 ft/min (176 to 202); her stall figure is not yet written,
+      as 16 tests (her stall lessons, gusts, the copilot recording) go red
+      for her with it. *Verification: each of the five
       refused a runway shorter than a cited figure, and the model shown each
       runway's landing length.* Owner 2026-10-09. Owner 2026-10-31:
       recordings made again.

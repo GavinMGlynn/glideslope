@@ -505,6 +505,9 @@ private:
     double flare_begun_pitch_ = 0.0;
     double flare_throttle_ = 0.0;
     bool holding_off_ = false; // `holding_off`
+    // Whether this flare is flown on her power, her nose having less than
+    // `least_flare_pitch_deg` left to it as it began (`fly_laws`).
+    bool power_flare_ = false;
     // The flare's attitude loop's gain over the path's, brought in over a
     // second as it begins.
     double flare_gain_ = 1.0;
