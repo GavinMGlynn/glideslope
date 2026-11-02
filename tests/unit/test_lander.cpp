@@ -10,12 +10,14 @@
 #include "sim/weather.hpp"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
 #include <memory>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 using glideslope::sim::ApproachSpeeds;
@@ -73,6 +75,13 @@ struct Landing {
     double along_m = 0.0; // from the threshold, positive down the runway
     double touch_pitch_deg = 0.0; // her nose as her wheels first touched
     double standing_pitch_deg = 0.0; // her nose standing on her wheels (Aircraft::stance)
+    // The step each of her first three gear units first carried weight, or
+    // -1: for the J-3 Cub, her tail wheel and her two mains.
+    std::array<long, 3> first_weight_step{-1, -1, -1};
+    // Her wing's most incidence in the flare before the touch, and where it
+    // was: her centre of gravity's height then over its height as she touched.
+    double most_alpha_deg = -1e9;
+    double most_alpha_over_touch_ft = 0.0;
     double stopped_along_m = 0.0;
     double worst_across_on_final_m = 0.0; // inside a mile
     double seconds = 0.0;
@@ -149,10 +158,23 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false,
     glideslope::test::AfterTouch after;
     after.judged_as(entry.seaplane);
     double on_the_ground_agl_ft = -1.0;
+    std::vector<std::pair<double, double>> flare_alphas; // (agl, alpha) before the touch
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
         aircraft.set_controls(lander.fly());
         aircraft.step();
         after.watch(aircraft);
+        for (std::size_t g = 0; g < out.first_weight_step.size(); ++g) {
+            const std::string wow = "gear/unit[" + std::to_string(g) + "]/WOW";
+            if (out.first_weight_step[g] < 0 && aircraft.has_property(wow) &&
+                aircraft.property(wow) > 0.5) {
+                out.first_weight_step[g] = tick;
+            }
+        }
+        if (lander.touchdown_sink_fpm() == 0.0 && lander.touchdown_along_m() == 0.0 &&
+            lander.stage() == Lander::Stage::flare) {
+            flare_alphas.emplace_back(aircraft.property("position/h-agl-ft"),
+                                      aircraft.property("aero/alpha-deg"));
+        }
         if (lander.touchdown_sink_fpm() != 0.0 || lander.touchdown_along_m() != 0.0) {
             const auto s = aircraft.state();
             // The height of her centre of gravity as the wheels first met
@@ -190,6 +212,12 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false,
     out.across_m = lander.touchdown_across_m();
     out.along_m = lander.touchdown_along_m();
     out.touch_pitch_deg = lander.touchdown_pitch_deg();
+    for (const auto& [agl_ft, alpha_deg] : flare_alphas) {
+        if (alpha_deg > out.most_alpha_deg) {
+            out.most_alpha_deg = alpha_deg;
+            out.most_alpha_over_touch_ft = agl_ft - on_the_ground_agl_ft;
+        }
+    }
     out.standing_pitch_deg = aircraft.stance().standing_pitch_deg;
     if (!out.stopped) {
         out.seconds = 900.0;
@@ -487,14 +515,42 @@ constexpr int cub_published_crosswind_kts = 12;
 // touched at; she now touches at 11.82 to 11.90.
 constexpr double cub_three_point_margin_deg = 0.43;
 
+// **Her tail wheel with her mains**: on the runway within this of her first
+// main wheel - with her mains in calm air, with her upwind main in a
+// crosswind, as the AFH has it (ch. 14, "Crosswinds", page 14-5: "only one
+// main wheel makes initial contact, either in concert with the tailwheel in
+// three-point landings"). A tenth of a second is this project's judgement,
+// not a published figure: her main tyres take 0.065 to 0.073 s to squash
+// by their standing deflection, 1.5 to 1.7 in, at the 116 ft/min she
+// touches at, and she touches within it (0.033 to 0.067 s, 4 to 8 steps).
+// Held off half a foot, as she was until 2026-11-02, her tail came down
+// well after (seen red: see the status file).
+constexpr double cub_tail_wheel_within_s = 0.1;
+
 std::vector<std::string> not_three_point(const Landing& l, const std::string& where) {
+    std::vector<std::string> wrong;
     if (l.touched && !(std::abs(l.touch_pitch_deg - l.standing_pitch_deg) <=
                        cub_three_point_margin_deg)) {
-        return {"the Cub touched with her nose at " + std::to_string(l.touch_pitch_deg) +
-                " degrees, where she stands at " + std::to_string(l.standing_pitch_deg) +
-                where};
+        wrong.push_back("the Cub touched with her nose at " + std::to_string(l.touch_pitch_deg) +
+                        " degrees, where she stands at " + std::to_string(l.standing_pitch_deg) +
+                        where);
     }
-    return {};
+    const long tail = l.first_weight_step[0];
+    const long left = l.first_weight_step[1];
+    const long right = l.first_weight_step[2];
+    const long first_main = left < 0 ? right : right < 0 ? left : std::min(left, right);
+    const double tail_after_s =
+        static_cast<double>(tail - first_main) / static_cast<double>(steps_per_second);
+    std::printf("  tail wheel %.3f s after her first main; most incidence %.2f degrees, "
+                "%.2f ft over her touch\n",
+                tail_after_s, l.most_alpha_deg, l.most_alpha_over_touch_ft);
+    if (l.touched &&
+        (tail < 0 || first_main < 0 || std::abs(tail_after_s) > cub_tail_wheel_within_s)) {
+        wrong.push_back("the Cub's tail wheel met the runway " + std::to_string(tail_after_s) +
+                        " s after her first main wheel, not within " +
+                        std::to_string(cub_tail_wheel_within_s) + " s" + where);
+    }
+    return wrong;
 }
 
 // From a mile out on the glidepath: the item is the touch and the roll-out,

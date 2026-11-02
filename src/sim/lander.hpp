@@ -530,6 +530,9 @@ private:
     // which falls from the attitude it touched at, and its spoilers out.
     bool jet_ = false;
     bool tail_wheel_ = false; // Aircraft::stance's
+    // How high her main wheels are held off in a three-point landing: "about
+    // one foot off the surface" (FAA-H-8083-3C, ch. 14, page 14-4).
+    static constexpr double three_point_hold_ft = 1.0;
     bool three_point_ = false; // a tail-wheel aeroplane her figures land three-point
     bool three_point_touch_ = false; // and she touched so, held off, not in gusts
     bool holding_three_point_ = false; // held off in the flare, three-point, this step
