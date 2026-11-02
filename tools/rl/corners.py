@@ -1,5 +1,5 @@
-"""Flies the learnt landing's gate's 160 corners - the 32 corners of
-sim::LearntGate in its five edge winds, as tests/unit/test_learnt.cpp flies
+"""Flies the learnt landing's gate's 288 corners - the 32 corners of
+sim::LearntGate in its nine edge winds, as tests/unit/test_learnt.cpp flies
 them - in JSBSim's Python bindings, and reports each one the stabilized
 gate would send round (outside +10/-5 kt of the approach speed between 500
 and 50 ft, or bound past the touchdown zone, two seconds running, as
@@ -25,8 +25,12 @@ from evaluate import within_limits  # noqa: E402
 
 VREF = 59.8
 NEAREST, FURTHEST = 1.6 * 1852.0, 2.4 * 1852.0
+QUARTER = 15.0 / math.sqrt(2.0)  # LearntGate::most_wind_kts from 45 degrees ahead
+BEHIND_ACROSS = 2.75  # LearntGate::most_crosswind_behind_kts
 WINDS = {"calm": (0.0, 0.0), "left": (15.0, 0.0), "right": (-15.0, 0.0),
-         "ahead": (0.0, 15.0), "behind": (0.0, -5.0)}
+         "ahead": (0.0, 15.0), "behind": (0.0, -5.0),
+         "quarter-left": (QUARTER, QUARTER), "quarter-right": (-QUARTER, QUARTER),
+         "behind-left": (BEHIND_ACROSS, -5.0), "behind-right": (-BEHIND_ACROSS, -5.0)}
 
 
 def corners():

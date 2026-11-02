@@ -217,7 +217,8 @@ AI aircraft, and each aircraft handed to the AI, is planned by the model
 chosen for it, or none; a build check keeps the model from any control
 surface; and a landing learnt by reinforcement learning lands the Cessna
 172P on the centreline in a crosswind (since 2026-11-02 its gate admits up
-to 15 kt ahead, not 8). The learnt landing is offered for one
+to 15 kt ahead, not 8, and 15 in all - but with any wind behind no more than
+2.75 kt across, where it failed from the left). The learnt landing is offered for one
 aircraft, by the CLI, to a player at its gate on a server (L in the window
 client, told why when refused), and to an AI aircraft the server is told to
 flying a plan that ends in a landing, which then taxis off the runway; a

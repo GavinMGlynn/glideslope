@@ -46,7 +46,7 @@
 # of its gate's 160 corners and at 3 of the 40 held-out starts at each load.
 # Parts 11 and 12 because her flaps', elevator's and pitch-rate lift left out the crosswind (2026-10-23), on which part 10's
 # policy touched 39 to 69 m shorter from the verification's starts and before the threshold at 1 and 4 of the 40
-# held-out starts at 75 and 100 lb a tank (headwinds of 9.6 to 13.1 kt, more than training's 8).
+# held-out starts at 75 and 100 lb a tank (headwinds of 9.6 to 13.1 kt, more than the gate's 8 of then; training's wind blows up to 15).
 # Chosen with margin: the first checkpoint of parts 11 and 12 whose every landing - the forty held-out starts at 25, 50,
 # 75 and 100 lb a tank (evaluate.py --held-out), the verification's 27 at each (evaluate.py) and the gate's 160 corners
 # (corners.py) - is at least 5 per cent inside each limit: under 285 ft/min, within 4.75 m of the centreline, and at
