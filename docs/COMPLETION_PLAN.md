@@ -1144,24 +1144,23 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 
 - [ ] **The AI cannot land every aeroplane in gusts**: she flies half
       the gust factor faster with the power on to the touch, rotates her
-      flare to the touch, and since 2026-11-02 judges a gusty round out as
-      far ahead as her path lags her nose, as the Airplane Flying Handbook
-      cures a balloon. In moderate turbulence she lands six of sixteen
-      within limits with a margin on eight seeds: the PA-28, 747-400, A320,
-      Learjet 35A and Mosquito, and the flying boat on all but Windows's
-      seed 5 and macOS release's seed 3, where she skips 0.87 and 0.93 ft.
-      The C172P passes here but touches at 346 ft/min on macOS release's
-      seed 3, and is named. Touch sink scatters about 80 ft/min a landing,
-      so one platform's pass is no other's. Over forty seeds the 737-300
-      and 787-8 no longer balloon but come down hard on three and four,
-      the F-15C and A380 come down hard, the A380 also floats past the
-      zone, the B-2A puts a wingtip down, the Cub balloons, and the C182
-      and F-35B fail a few; at her light loading the 737-300 balloons,
-      and the Mosquito at her heaviest. The F-22A, taught the approach
-      since her stall was measured (2026-11-02), fails all eight seeds:
-      a balloon sends her round on three, and on five she touches at 430
-      to 977 ft/min and rises 3.1 to 12.3 ft, striking her airframe on
-      seed 2.
+      flare to the touch, judges a gusty round out as far ahead as her path
+      lags her nose (2026-11-02), and since 2026-11-03 keeps her speed on
+      the power to the touch and begins the flare for the sink she has, as
+      the Airplane Flying Handbook lands in turbulence. In moderate
+      turbulence she lands eight of sixteen within limits with a margin on
+      eight seeds: the PA-28, 747-400, A320, Learjet 35A, Mosquito, F-15C
+      and F-35B, and the flying boat on all but Windows's seed 5 and macOS
+      release's seed 3, where she skips 0.87 and 0.93 ft. The C172P passes
+      here but touches at 346 ft/min on macOS release's seed 3, and is
+      named. Touch sink scatters about 80 ft/min a landing, so one
+      platform's pass is no other's. Over forty seeds the 737-300, 787-8 and
+      A380 still come down hard on one to three, the A380 also floats past
+      the zone, the F-15C floats into a go-around on one, the B-2A puts a
+      wingtip down, the Cub balloons, and the C182 touches hard on two; at
+      her light loading the 737-300 balloons, and the Mosquito at her
+      heaviest. The F-22A, taught the approach since her stall was
+      measured (2026-11-02), fails all eight seeds: F22FIGURES
       *Verification: every aeroplane lands light, heavy and in gusts with
       none named, and a gust on an approach flown well makes no
       go-around.*
