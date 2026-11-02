@@ -116,14 +116,15 @@ double remember_drift(double integral, double across_m, const LearntPolicy& poli
 // **The gate the learnt landing is offered at**: a box the policy has been
 // flown from, at every one of its corners, and landed within its own limits
 // - 5 m of the centreline, under 300 ft/min, stopped on the runway - in every
-// wind the box admits (the_learnt_policy_lands_within_its_limits_from_every_
-// corner_of_its_gate_in_every_wind_it_admits: 160 landings, worst 3.90 m and
-// 277 ft/min). Between 1.6 and 2.4 miles before the threshold, no more than
+// wind at the edges of what it admits (the_learnt_policy_lands_within_its_
+// limits_from_every_corner_of_its_gate_* in nine winds: 288 landings, worst
+// 2.67 m and 281 ft/min). Between 1.6 and 2.4 miles before the threshold, no more than
 // 60 m either side of the extended centreline, 20 m above or below the
 // glidepath and 5 degrees off the runway's heading; from 3 kt under the
 // policy's reference speed to 8 kt over it; the landing flap out and not
 // moving; and the wind as the instruments estimate it no more than 15 kt
-// across, 15 kt ahead and 5 kt behind. **15 kt ahead since 2026-11-02**
+// across, 15 kt ahead and 5 kt behind, 15 kt in all, and no more than
+// 2.75 kt across with any of it behind. **15 kt ahead since 2026-11-02**
 // (8 before): training's wind blows up to 15 kt from anywhere, and the
 // policy of that day lands from every corner with 15 kt ahead at least 29 m
 // past the threshold, under 165 ft/min and within 2.4 m - inside the 5 per
@@ -147,6 +148,18 @@ struct LearntGate {
     static constexpr double most_crosswind_kts = 15.0;
     static constexpr double most_headwind_kts = 15.0;
     static constexpr double most_tailwind_kts = 5.0;
+    // **And in all no more than 15 kt**, as training's wind blew
+    // (tools/rl/env.py's `wind`): 15 across with 15 ahead is not admitted.
+    static constexpr double most_wind_kts = 15.0;
+    // **With any of the wind behind, no more than 2.75 kt across**, from
+    // either side: measured from the corners on 2026-11-02, bisected at 5 kt
+    // behind. From the left the policy lands from every corner with 5% to
+    // spare up to 2.875 kt (20 m past the threshold at the least) and not at
+    // 3 (7 m short); at 14.1 kt it touched 49 and 311 m short. 2.75 leaves
+    // the gate's 0.05 kt of rounding a step below the cliff (2.80: 39 m in).
+    // From the right it lands up to 14.1. The lesser side is the gate's.
+    // Until 2026-11-02 the gate admitted 15 across with 5 behind.
+    static constexpr double most_crosswind_behind_kts = 2.75;
 };
 
 // **Why `aircraft` is not at `runway`'s gate for `policy`**, in words a pilot

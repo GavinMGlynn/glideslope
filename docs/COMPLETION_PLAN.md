@@ -1214,8 +1214,15 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       are drawn inside it. *Verification: a test flies those five starts
       through the simulation's gate and each lands past the threshold
       within the limits, red on the policy of 2026-10-20.* Done 2026-11-02:
-      the gate admits 15 kt ahead, as much as training blew; the committed
-      policy lands all five 54 m or more in, and every corner at 15 kt.
+      the gate admits 15 kt ahead and 15 in all, as training blew; the
+      committed policy lands all five 54 m or more in, and every corner at
+      15 kt.
+- [ ] **The learnt landing with wind behind and across from the left**: the
+      policy fails the 5% rule at 5 kt behind with 14.1 across (two gate
+      corners touch 49 and 311 m short); the gate stops at 2.75 kt across
+      with any wind behind. Training it there would let the gate open to
+      training's 15. *Verification: from every corner of the gate with 5 kt
+      behind and 14.1 across from either side it lands within the 5% rule.*
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own
