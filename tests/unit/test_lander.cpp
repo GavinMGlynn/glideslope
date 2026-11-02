@@ -78,6 +78,12 @@ struct Landing {
     // -1: for the J-3 Cub, her tail wheel and her two mains.
     std::array<long, 3> first_weight_step{-1, -1, -1};
     double strike_pitch_deg = 90.0;  // her nose where her tail strikes (Aircraft::stance)
+    // On the flare's first step: how far her nose was short of the flare's
+    // bound, degrees (`flared` says she did); and whether any step of her
+    // flare was flown on her power (Lander::power_flare).
+    bool flared = false;
+    double flare_margin_deg = 0.0;
+    bool power_flare = false;
     double stopped_along_m = 0.0;
     double worst_across_on_final_m = 0.0; // inside a mile
     double seconds = 0.0;
@@ -155,7 +161,13 @@ Landing land(const std::string& id, double crosswind_kts, bool wet = false,
     after.judged_as(entry.seaplane);
     double on_the_ground_agl_ft = -1.0;
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
+        const double pitch_deg = aircraft.state().pitch_deg;
         aircraft.set_controls(lander.fly());
+        if (lander.stage() == Lander::Stage::flare && !out.flared) {
+            out.flared = true;
+            out.flare_margin_deg = lander.most_flare_pitch_deg() - pitch_deg;
+        }
+        out.power_flare = out.power_flare || lander.power_flare();
         aircraft.step();
         after.watch(aircraft);
         for (std::size_t g = 0; g < out.first_weight_step.size(); ++g) {
@@ -364,10 +376,14 @@ GLIDESLOPE_TEST(the_f22a_landed_at_150_kt_rolls_out_on_the_centreline_in_calm_ai
 // fail** with the power flare taken out (least_flare_pitch_deg 0): 392 ft/min
 // in calm air. Coverage: three
 // winds, all landed.
-GLIDESLOPE_TEST(the_f22a_lands_at_1_3_times_her_measured_vs0_on_the_centreline_within_360_ft_min_in_calm_air_and_15_kt_across) {
+namespace {
+
+// **The F-22A's speeds at 1.3 times her measured VS0**, 90.0 KCAS at 54,960
+// lb, at her model's own weight, at which `land` flies her and her plan
+// speeds were measured (assets/figures/f22.xml, `plan_speeds`): her figures
+// give no stall yet, so they are made here.
+ApproachSpeeds f22_at_1_3_times_vs0() {
     const auto figures = glideslope::sim::read_published_figures(data() / "figures" / "f22.xml");
-    // Her model's own weight, at which `land` flies her and her plan speeds
-    // were measured (assets/figures/f22.xml, `plan_speeds`).
     constexpr double weight_lbs = 61570.0;
     ApproachSpeeds speeds;
     speeds.stall_kts = 90.0 * std::sqrt(weight_lbs / 54960.0);
@@ -377,6 +393,13 @@ GLIDESLOPE_TEST(the_f22a_lands_at_1_3_times_her_measured_vs0_on_the_centreline_w
     speeds.touchdown_fpm = figures.touchdown_fpm;
     speeds.spool_s = glideslope::sim::spool_up_s(data() / "jsbsim", "f22");
     speeds.yaw_damper_per_degps = figures.yaw_rate_pedal_per_degps;
+    return speeds;
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(the_f22a_lands_at_1_3_times_her_measured_vs0_on_the_centreline_within_360_ft_min_in_calm_air_and_15_kt_across) {
+    const ApproachSpeeds speeds = f22_at_1_3_times_vs0();
     std::size_t landed = 0;
     for (const double crosswind : {0.0, 15.0, -15.0}) {
         const Landing l = land("f22", crosswind, false, 5.0, &speeds);
@@ -402,9 +425,187 @@ GLIDESLOPE_TEST(the_f22a_lands_at_1_3_times_her_measured_vs0_on_the_centreline_w
               "the F-22A touched with her nose at " + std::to_string(l.touch_pitch_deg) +
                   " degrees" + where + ", not short of the lander's bound, " +
                   std::to_string(l.strike_pitch_deg - 2.0));
+        check(l.flared && l.flare_margin_deg < 1.0 && l.power_flare,
+              "the F-22A began her flare " + std::to_string(l.flare_margin_deg) +
+                  " degrees short of her bound" + where + ", and flew it on her power");
         ++landed;
     }
     check(landed == 3, std::to_string(landed) + " of 3 winds landed");
+}
+
+// **A flare given back is never flown on her power**: the nose is the
+// pilot's then (sim/lander.cpp, `resume`). The F-22A is flown by the AI at
+// 1.3 times her measured VS0 from 2 nm to her flare's first step, which she
+// begins within a degree of her bound - the situation, asserted - and takes
+// on her power; a pilot then holds her controls as they were for half a
+// second, the lander only watching, and gives her back. From there to her
+// touch no step of her flare is flown on her power, and her throttle at the
+// touch is under where the pilot gave it back. (The flare's own law, as
+// before, opens it a little on the first step - 0.534 to 0.538 - her nose
+// being out and her sink 300 ft/min past what it wants.) **Seen to fail**
+// with `!resumed_` taken out of the gate: her power flare taken, and her
+// throttle at the touch 0.629, over the 0.534 she was given back at.
+GLIDESLOPE_TEST(the_f22a_given_back_in_her_flare_near_her_bound_closes_her_throttle_and_takes_no_power_flare) {
+    const ApproachSpeeds speeds = f22_at_1_3_times_vs0();
+    const auto entry = glideslope::sim::find_aircraft(data(), "f22");
+    const Runway runway = a_runway();
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    const double out_m = 2.0 * metres_per_nm;
+    const double heading = runway.heading_deg / degrees;
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg - out_m * std::cos(heading) /
+                                                     metres_per_degree_latitude(runway.threshold_lat_deg);
+    ic.longitude_deg = runway.threshold_lon_deg -
+                       out_m * std::sin(heading) /
+                           metres_per_degree_longitude(runway.threshold_lat_deg);
+    ic.altitude_ft = runway.elevation_ft +
+                     (out_m + speeds.aim_m) * std::tan(3.0 / degrees) * feet_per_metre;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = speeds.vref_kts;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    aircraft.initialize(ic);
+    Lander lander(aircraft, runway, speeds);
+    glideslope::sim::Controls last;
+    double margin_deg = 1e9;
+    for (int tick = 0; tick < 300 * steps_per_second && lander.stage() != Lander::Stage::flare;
+         ++tick) {
+        const double pitch_deg = aircraft.state().pitch_deg;
+        last = lander.fly();
+        margin_deg = lander.most_flare_pitch_deg() - pitch_deg;
+        aircraft.set_controls(last);
+        aircraft.step();
+    }
+    check(lander.stage() == Lander::Stage::flare && margin_deg < 1.0 && lander.power_flare(),
+          "she reached her flare " + std::to_string(margin_deg) +
+              " degrees short of her bound, and took it on her power");
+    const glideslope::sim::Controls pilot = last;
+    for (int i = 0; i < steps_per_second / 2; ++i) {
+        aircraft.set_controls(pilot);
+        aircraft.step();
+        lander.watch();
+    }
+    const double given_back_deg = lander.most_flare_pitch_deg() - aircraft.state().pitch_deg;
+    lander.resume(pilot.throttle);
+    bool on_power = false;
+    double throttle = pilot.throttle;
+    double first_throttle = -1.0;
+    for (int tick = 0; tick < 60 * steps_per_second && lander.touchdown_sink_fpm() == 0.0;
+         ++tick) {
+        const glideslope::sim::Controls c = lander.fly();
+        on_power = on_power || lander.power_flare();
+        if (first_throttle < 0.0) {
+            first_throttle = c.throttle;
+        }
+        throttle = c.throttle;
+        aircraft.set_controls(c);
+        aircraft.step();
+    }
+    std::printf("  given back %.2f degrees short of her bound at throttle %.3f: power flare %s, "
+                "throttle %.3f on the first step; touched at %.0f ft/min, throttle %.3f\n",
+                given_back_deg, pilot.throttle, on_power ? "TAKEN" : "not taken", first_throttle,
+                lander.touchdown_sink_fpm(), throttle);
+    check(given_back_deg < 1.0,
+          "she was given back " + std::to_string(given_back_deg) + " degrees short of her bound");
+    check(lander.touchdown_sink_fpm() != 0.0, "she touched after she was given back");
+    check(!on_power, "her flare given back was not flown on her power");
+    check(throttle < pilot.throttle,
+          "her throttle came off from the " + std::to_string(pilot.throttle) +
+              " she was given back at: " + std::to_string(first_throttle) +
+              " on the first step, " + std::to_string(throttle) + " at the touch");
+}
+
+namespace {
+
+struct FlareBegun {
+    bool flared = false;
+    double margin_deg = 0.0; // her bound less her nose, on the flare's first step
+    bool power = false;      // any step of the flare flown on her power
+};
+
+// **Flown as `glideslope_cli land` flies her** (src/frontend/cli/main.cpp):
+// 2 nm out on the glidepath, in calm air, at her approach speed for what she
+// weighs, her landing flap out, trimmed on a 3-degree path, handed to the
+// lander, to her touch.
+FlareBegun flare_begun(const std::string& id) {
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const Runway runway = a_runway();
+    const ApproachSpeeds speeds = glideslope::sim::approach_speeds(data(), entry.model);
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    const double out_m = 2.0 * metres_per_nm;
+    const double heading = runway.heading_deg / degrees;
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg - out_m * std::cos(heading) /
+                                                     metres_per_degree_latitude(runway.threshold_lat_deg);
+    ic.longitude_deg = runway.threshold_lon_deg -
+                       out_m * std::sin(heading) /
+                           metres_per_degree_longitude(runway.threshold_lat_deg);
+    ic.altitude_ft = runway.elevation_ft +
+                     (out_m + speeds.aim_m) * std::tan(3.0 / degrees) * feet_per_metre;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts =
+        glideslope::sim::for_weight(speeds, aircraft.loaded_weight_lbs()).vref_kts;
+    ic.engine_running = true;
+    ic.flaps = speeds.flap;
+    ic.flight_path_deg = -3.0;
+    ic.trim = true;
+    aircraft.initialize(ic);
+    Lander lander(aircraft, runway, speeds);
+    FlareBegun out;
+    for (int tick = 0; tick < 300 * steps_per_second && lander.touchdown_sink_fpm() == 0.0;
+         ++tick) {
+        const double pitch_deg = aircraft.state().pitch_deg;
+        aircraft.set_controls(lander.fly());
+        if (lander.stage() == Lander::Stage::flare && !out.flared) {
+            out.flared = true;
+            out.margin_deg = lander.most_flare_pitch_deg() - pitch_deg;
+        }
+        out.power = out.power || lander.power_flare();
+        aircraft.step();
+    }
+    return out;
+}
+
+} // namespace
+
+// **No other jet takes the power flare**: every jet in the catalogue
+// (sim::AircraftFigures::jet) but the F-22A is flown as `glideslope_cli
+// land` flies her, from 2 nm in calm air at her approach speed, and begins
+// her flare more than `least_flare_pitch_deg`, a degree, short of her bound,
+// and flies none of it on her power. The F-22A is the one that does, and is
+// held to it above; she has no approach speed of her own yet. Coverage: the
+// jets are counted from the catalogue, ten with the F-22A, and every one but
+// her flared.
+GLIDESLOPE_TEST(every_jet_but_the_f22a_begins_her_flare_more_than_a_degree_short_of_her_bound_and_takes_no_power_flare) {
+    std::size_t jets = 0;
+    std::size_t flared = 0;
+    for (const auto& e : glideslope::sim::read_catalogue(data())) {
+        const glideslope::sim::Aircraft probe(data() / "jsbsim", e.model);
+        if (!probe.figures().jet) {
+            continue;
+        }
+        ++jets;
+        if (e.id == "f22") {
+            continue;
+        }
+        const FlareBegun f = flare_begun(e.id);
+        std::printf("  %-11s flare %s %.2f degrees short of her bound, %s\n", e.id.c_str(),
+                    f.flared ? "begun" : "NEVER BEGUN", f.margin_deg,
+                    f.power ? "ON HER POWER" : "not on her power");
+        check(f.flared && f.margin_deg > 1.0 && !f.power,
+              e.id + " began her flare " + std::to_string(f.margin_deg) +
+                  " degrees short of her bound" + (f.power ? ", on her power" : ""));
+        flared += f.flared ? 1U : 0U;
+    }
+    check(jets == 10 && flared == jets - 1,
+          std::to_string(jets) + " jets, not 10, and " + std::to_string(flared) +
+              " but the F-22A flared");
 }
 
 // **And in a 10-knot crosswind**, which is the other half of the item's
