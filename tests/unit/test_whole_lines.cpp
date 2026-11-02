@@ -1,10 +1,11 @@
 #include "harness.hpp"
 
 // **A line written to a stream made whole-lined goes out in one write**
-// (src/platform/whole_lines.hpp). Impair's summary, 146 bytes, went out as a
-// write of 128 and one of 18 - glibc's printf to an unbuffered stream - and the
-// client's line about a tile fetch came between them, on CI's linux-release
-// (run 41397416052): the test that read the summary did not find it.
+// (src/platform/whole_lines.hpp). glibc's printf to an unbuffered stream
+// writes a long line in pieces - strace shows impair's 193-byte "not an
+// address" line as a write of 128 and one of 65 - and the client's line
+// about a tile fetch came between the pieces of impair's summary, on CI's
+// linux-release (run 41397416052): the test that read it did not find it.
 //
 // Waiting for two programs' writes to meet would only sometimes test the rule.
 // This counts the writes instead: the stream is one whose every write the C
@@ -39,6 +40,25 @@ namespace {
 struct Writes {
     std::mutex lock;
     std::vector<std::string> each;
+};
+
+// Closes its stream on every way out, a failure's throw included: left open,
+// the C library would flush it at exit into a Writes already gone. Declared
+// after its Writes, so it is closed first.
+struct Closing {
+    std::FILE* stream;
+    explicit Closing(std::FILE* opened) : stream(opened) {}
+    Closing(const Closing&) = delete;
+    Closing& operator=(const Closing&) = delete;
+    ~Closing() {
+        close();
+    }
+    void close() {
+        if (stream != nullptr) {
+            std::fclose(stream);
+            stream = nullptr;
+        }
+    }
 };
 
 #if defined(__APPLE__) || defined(__FreeBSD__)
@@ -101,6 +121,7 @@ GLIDESLOPE_TEST(a_line_written_to_a_stream_made_whole_lined_goes_out_in_one_writ
     {
         Writes writes;
         std::FILE* stream = counted_stream(writes);
+        Closing closing{stream};
         check(stream != nullptr, "a stream whose writes are counted");
         static char buffer[buffer_size];
         check(glideslope::platform::whole_lines(stream, buffer, buffer_size),
@@ -117,7 +138,7 @@ GLIDESLOPE_TEST(a_line_written_to_a_stream_made_whole_lined_goes_out_in_one_writ
                      " writes, or not as itself");
             }
         }
-        std::fclose(stream);
+        closing.close();
         // **Coverage**: every length from 1 to the buffer's size.
         check(written == buffer_size, "every length written");
     }
@@ -126,6 +147,7 @@ GLIDESLOPE_TEST(a_line_written_to_a_stream_made_whole_lined_goes_out_in_one_writ
     {
         Writes writes;
         std::FILE* stream = counted_stream(writes);
+        Closing closing{stream};
         check(stream != nullptr, "a stream whose writes are counted");
         static char buffer[buffer_size];
         check(glideslope::platform::whole_lines(stream, buffer, buffer_size),
@@ -137,7 +159,7 @@ GLIDESLOPE_TEST(a_line_written_to_a_stream_made_whole_lined_goes_out_in_one_writ
             writers.emplace_back([stream, t] {
                 const char who = static_cast<char>('a' + t);
                 for (std::size_t i = 0; i < lines_each; ++i) {
-                    // 129 to 1129 bytes: past glibc's 128-byte stage, each one.
+                    // 129 to 1128 bytes: past glibc's 128-byte stage, each one.
                     const std::string line = line_of(
                         129 + (i * 7 + static_cast<std::size_t>(t)) % 1000, who);
                     write_formatted(stream, line);
@@ -147,7 +169,7 @@ GLIDESLOPE_TEST(a_line_written_to_a_stream_made_whole_lined_goes_out_in_one_writ
         for (auto& w : writers) {
             w.join();
         }
-        std::fclose(stream);
+        closing.close();
         const std::size_t expected = static_cast<std::size_t>(threads) * lines_each;
         if (writes.each.size() != expected) {
             fail(std::to_string(expected) + " lines went out as " +

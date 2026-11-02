@@ -33,9 +33,8 @@ before it began", the rest of the summary after it.
 2.37 formats a printf to an unbuffered stream through a 128-byte stage
 (`PRINTF_BUFFER_SIZE_TO_FILE_STAGE`), writing each 128 bytes as it fills. Any
 formatted line longer than that is two writes or more, and another process's
-write can land between them. Both lines were: impair's summary (about 146
-bytes, one fprintf) and the client's `glideslope: <url>: <url>: given up
-before it began` (gfx/fetches.cpp, one fprintf, a tile-fetch thread). Neither
+write can land between them. Both lines were longer: impair's summary (one
+fprintf) and the client's `glideslope: <url>: <url>: given up before it began` (gfx/fetches.cpp, one fprintf, a tile-fetch thread). Neither
 program writes a line in pieces of its own making; the C library did.
 A literal format with no conversions goes out in one write, which is why
 impair's usage line never showed it.
