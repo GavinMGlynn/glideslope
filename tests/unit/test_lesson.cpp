@@ -2973,8 +2973,11 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                   "balloon gone (2026-11-02), on forty seeds here she touches at 344 to 379 "
                   "ft/min on four (seeds 15, 21, 25, 40)"},
         {"a380", "she meets the runway at 393 ft/min (seed 1) and goes around from a touch "
-                 "past the touchdown zone (seeds 6, 7)"},
-        {"b2", "a gust rolls her on to a wingtip as she touches (seed 8)"},
+                 "past the touchdown zone (seeds 6, 7); on forty seeds here she is also "
+                 "wrecked (seeds 14, 34), meets the runway at 710 ft/min (seed 18) and goes "
+                 "around (seed 25)"},
+        {"b2", "a gust rolls her on to a wingtip as she touches (seed 8); on forty seeds "
+               "here, on eight (seeds 8, 10, 23, 31, 33, 38, 39, 40)"},
         {"c172p", "she touches at 346.3 ft/min on macOS release (seed 3), not 25 inside "
                   "the limit, CI runs 41117802406 and 41281712534; she passes here and on "
                   "Windows debug"},
@@ -2984,7 +2987,8 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
         {"f15c", "she meets the runway at 336 and 352 ft/min (seeds 6, 7)"},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 135 "
-                  "ft/min in her flare (seed 20)"},
+                  "ft/min in her flare (seed 20), and she rises 0.81 ft after touching "
+                  "(seed 39)"},
         {"f35b", "she touches at 421 ft/min on one seed of forty (seed 40)"},
     };
     return named;
