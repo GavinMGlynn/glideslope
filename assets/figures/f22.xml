@@ -107,6 +107,27 @@
     power, it still climbs at 100 ft/min, the rate that makes a service
     ceiling.
   </figure>
+
+  <figure name="stall_speed_landing" flight="stall_speed" from="measured" steady="1"
+          loading="combat" unit="KCAS" value="90.0" tolerance="0.5"
+          flaps_deg="0" entry_kcas="200" gear="1">
+    **Measured, not published** (the owner's decision of 2026-10-09): her
+    flight manual, T.O. 1F-22A-1, is not public, and no stall or approach
+    speed for her was found (searched 2026-10-09, 2026-11-01 and 2026-11-02).
+    This is 14 CFR 1.2's VS0, "the stalling speed or the minimum steady flight
+    speed in the landing configuration", measured from her model: trimmed
+    level at 1 g, gear down and no flap, at 5,000 ft, from the entry speed
+    down until no trim holds, where her stabilators reach their stop at 27.5
+    degrees of alpha (src/sim/figures.cpp, `steady_flight_speed`). The
+    deceleration the other stalls here are measured by does not hold still on
+    her rate-command stick (131 to 149 KCAS by its entry speed alone). From
+    160, 200 and 240 KCAS it is 90.0 within a tenth. What it asserts is that
+    the model still does what it did, not that the aeroplane does it. Her
+    approach speed is 1.3 times it, as every aircraft's here: 123.8 kt at her
+    model's own 61,570 lb, flown on the centreline in calm air and 15 kt
+    across and touched within 360 ft/min on her power
+    (docs/status/2026-11-02-the-f22a-s-flare-flown-on-her-power.md).
+  </figure>
   <!-- **The speeds a plan may fly her at**, measured by `glideslope_cli
        plan-speeds f22 120` on 2026-10-07 (linux-release): the tightest orbit a
        plan may ask at each speed (sim/orbit_trial.hpp), flown clean by the
@@ -122,8 +143,9 @@
        (sim::for_weight). -->
   <plan_speeds slowest_kcas="140" fastest_kcas="360" weight_lbs="61570">
     The slowest, 140 kt, is 5 kt over the first that held, 135: she
-    publishes no stall speed, so has no approach speed, and the sweep began
-    at 120 kt; below 135 she came down 500 ft before reaching her circle. At
+    then published no stall speed, so had no approach speed, and the sweep
+    began at 120 kt - under her approach speed now, 123.8 kt at this weight
+    (1.3 times her measured slowest steady flight, 2026-11-02); below 135 she came down 500 ft before reaching her circle. At
     135 she held the orbit all four ways and, on her own yaw damper and
     rudder integral (her catalogue's `yaw-damper`), her sideslip in the
     crosswind within 0.23 degree. On 2026-10-02, before them, she held her
@@ -156,30 +178,30 @@
     Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 145 kt, unstuck (5 ft up) at 156 kt; 150 is written, 5 kt to spare, and she is unstuck at about 158 - against the Fallon report's 143 and 164. Rotated sooner, her nose comes up at four degrees a second and she floats in ground effect: rotated at 110 she was unstuck only at 143, and at 140 at 155, just over 15 kt on. Until 2026-10-14 110 was written: her pitch loop's integrator, wound up against her nose wheel, snatched her nose up at ten to thirteen degrees a second and threw her off at about 119. The climb away: asked 120 to 205 kt, at military power she was at 500 ft never slower than 222.7 kt, and faster the faster asked - she cannot be held slower - which is written rounded up. With no flap, at 61,570 lb, the weight her model flies a plan at.
   </takeoff_speeds>
 
-  <no_landing_distance>
-    Searched 2026-10-09: the USAF fact sheet and the Selected Acquisition Report
-    give no landing distance; the 3,000 ft quoted elsewhere is the Advanced
-    Tactical Fighter's design requirement as retold by secondary sources, not a
-    flight manual figure. Searched again 2026-10-13: AFMAN 11-2F-22A volume 1
-    (12 April 2019, as attached to solicitation FA5000-21-R-0002) gives none,
-    and her flight manual, T.O. 1F-22A-1, is not published. Nor can it be
-    measured: she publishes no stall speed, so has no approach speed, and
-    `glideslope_cli land f22` has none to fly her at. No runway is refused it
-    for length; every landing is refused her first, for having no approach
-    speed, so nothing plans her one. Searched again 2026-11-01 for an approach
-    or stall speed to give her one: the fact sheet, the Selected Acquisition
-    Report, the Accident Investigation Board reports found (Fallon 2018,
-    Tyndall 2012, both take-offs; Edwards 2009, a test manoeuvre) and
-    Eurocontrol's Aircraft Performance Database (no F-22 entry) give none;
-    AFMAN 11-2F-22A volume 3 holds an instrument final approach to 165 KCAS
-    or less, the top of approach category D (under 166 kt), the same in the
-    F-15E's volume 3, not her speed. Her approach speed is in T.O. 1F-22A-1,
-    not published. Searched again 2026-11-02, nothing found. Her slowest
-    steady flight landing configured (14 CFR 1.2's VS0) is measured from her
-    model, 90.0 KCAS at the combat loading (tests/unit/test_figures.cpp), but
-    is not given here as her stall: at 1.3 times it she does not land
-    (docs/status/2026-11-02-the-f22a-s-slowest-steady-flight-measured.md).
-  </no_landing_distance>
+  <landing_distance ft="6300" basis="measured" factor="1">
+    Measured, not published: the line above is written by
+    tools/measured_landing.py from `glideslope_cli land f22` (2026-11-02,
+    linux-release). Landed by the approach autopilot from a final-approach gate
+    2 nm out, on a level runway at sea level in calm air with every tank full
+    (63,960 lb), at 1.3 times her measured slowest steady flight for that
+    weight, she touched 416 m in at 157 ft/min, her nose 14.3 degrees up, and
+    stopped 1,861 m past the threshold, which she crossed on the 3-degree
+    glidepath. The figure is that, 2 per cent over and rounded up to 100 ft (3
+    per cent over in all), for the drift between machines: the AI's own landing
+    in those conditions, not a regulatory distance and not a minimum; heavier,
+    hotter, higher or downwind she needs more, and nothing here allows for it.
+    Factor 1, as it is the landing a plan flies, not a demonstrated minimum to
+    be given a margin. **No landing
+    distance is published for her**: searched 2026-10-09, the USAF fact sheet
+    and the Selected Acquisition Report give none, and the 3,000 ft quoted
+    elsewhere is the Advanced Tactical Fighter's design requirement as retold
+    by secondary sources, not a flight manual figure; searched again 2026-10-13,
+    AFMAN 11-2F-22A volume 1 (12 April 2019, as attached to solicitation
+    FA5000-21-R-0002) gives none, and her flight manual, T.O. 1F-22A-1, is not
+    published; again 2026-11-01 and 2026-11-02, nothing found. Until
+    2026-11-02 she had no approach speed, so this could not be measured and
+    every landing was refused her.
+  </landing_distance>
 
   <no_cg_limits>
     Her weight and centre-of-gravity envelope is not published: her flight

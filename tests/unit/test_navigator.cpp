@@ -588,14 +588,16 @@ GLIDESLOPE_TEST(every_aircraft_gives_the_speeds_a_plan_may_fly_it_at_none_beyond
             check(speeds.slowest_kts >= std::round(vref),
                   e.id + "'s slowest is not below its approach speed, " + std::to_string(vref));
         } catch (const std::runtime_error&) {
-            // The F-22 publishes no stall speed nor approach speed, so has none.
+            // None has no approach speed since the F-22A's stall figure was
+            // measured from her model (2026-11-02); one that came to have
+            // none would be counted here, and fail.
             ++without_approach;
         }
         ++covered;
     }
     check(covered == catalogue.size() && covered == 16,
           "every one of the sixteen aircraft: " + std::to_string(covered));
-    check(without_approach == 1, "one without an approach speed, the F-22: " +
+    check(without_approach == 0, "none without an approach speed: " +
                                      std::to_string(without_approach));
 }
 
@@ -3057,8 +3059,9 @@ GLIDESLOPE_TEST(every_light_aeroplane_is_handed_to_its_plan_at_its_climb_speed_a
 // there; from the moment they are up to the waypoint they never come out
 // again, and she is never slower than her flaps-up stall: the stall at the
 // least flap her figures publish (for the airliners that is their take-off
-// flap's, a little below the clean stall; the 747-400 and the F-22A publish
-// none, and are named below). The lever moves no faster than a
+// flap's, a little below the clean stall; the F-22A's is her slowest steady
+// flight gear down, measured from her model; the 747-400 publishes none, and
+// is named below). The lever moves no faster than a
 // hand, a 120th of its travel a step, and it stops at every notch between
 // the take-off flap and up for at least a second.
 GLIDESLOPE_TEST(every_aircraft_raises_its_take_off_flap_before_the_plan_has_it_and_keeps_above_its_flaps_up_stall) {
@@ -3224,11 +3227,12 @@ GLIDESLOPE_TEST(every_aircraft_raises_its_take_off_flap_before_the_plan_has_it_a
                    " and its flaps at " + std::to_string(handed_deg) + " deg (up asked)");
         expect(flaps_were_up && !out_again,
                id + "'s flaps came up and stayed up to OUT");
-        // **Two publish no stall**, and their speeds were measured from their
-        // models (`<takeoff_speeds>`): the 747-400 and the F-22A. They are
-        // left out of the stall bound and nothing else, and the test says
-        // so if either comes to publish one.
-        const bool no_stall_published = id == "747-400" || id == "f22";
+        // **One publishes no stall**, and her speeds were measured from her
+        // model (`<takeoff_speeds>`): the 747-400. She is left out of the
+        // stall bound and nothing else, and the test says so if she comes
+        // to publish one. (The F-22A was too, until her slowest steady
+        // flight was measured from her model, 2026-11-02.)
+        const bool no_stall_published = id == "747-400";
         expect(no_stall_published == (stall_kcas <= 0.0),
                id + (no_stall_published ? " is named as publishing no stall, and publishes one"
                                         : " publishes no stall, and is not named"));

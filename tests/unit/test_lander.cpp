@@ -11,10 +11,14 @@
 
 #include <algorithm>
 #include <array>
+#include <chrono>
 #include <cmath>
 #include <cstdio>
 #include <filesystem>
+#include <fstream>
+#include <iterator>
 #include <memory>
+#include <random>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -33,6 +37,28 @@ constexpr double feet_per_metre = 3.280839895013123;
 
 std::filesystem::path data() {
     return std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+}
+
+// **A data directory whose F-22A has no stall figure**: her figures file,
+// as committed, with its `stall_speed_landing` figure cut out, so the path
+// an aircraft with no stall and no approach speed takes is still walked
+// though no aircraft in the catalogue takes it. A name no other run shares;
+// the caller removes it.
+std::filesystem::path data_without_the_f22a_s_stall() {
+    const auto dir = std::filesystem::temp_directory_path() /
+                     ("glideslope_no_stall_" + std::to_string(std::random_device{}()) + "_" +
+                      std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()));
+    std::filesystem::create_directories(dir / "figures");
+    std::ifstream in(data() / "figures" / "f22.xml");
+    std::string text((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    const auto begin = text.find("<figure name=\"stall_speed_landing\"");
+    const auto end = text.find("</figure>", begin);
+    if (begin == std::string::npos || end == std::string::npos) {
+        throw std::runtime_error("the F-22A's figures give no stall_speed_landing to take out");
+    }
+    text.erase(begin, end + std::string("</figure>").size() - begin);
+    std::ofstream(dir / "figures" / "f22.xml") << text;
+    return dir;
 }
 
 // The light aircraft, which is what this item's verification names.
@@ -866,17 +892,23 @@ GLIDESLOPE_TEST(the_approach_speed_is_a_third_above_the_published_landing_stall)
     // An aircraft with no stall speed has no reference speed, and saying so
     // is better than guessing one. **This was the B-2A until 2026-09-23**,
     // when it got a stall speed measured from its own model
-    // (docs/ASSETS.md). The F-22A is the example now: measured the same
-    // way it came out anywhere between 128 and 149 knots depending only on
-    // the speed the deceleration started from, so it has none, and no
-    // approach speed is published for her. (The 747-400 was, until
-    // 2026-11-01, when she was given Boeing's approach speed.)
+    // (docs/ASSETS.md), the 747-400 until 2026-11-01 (Boeing's approach
+    // speed), and the F-22A until 2026-11-02 (her slowest steady flight,
+    // measured). No aircraft in the catalogue is without one now, so the
+    // example is built: the F-22A's own figures with her stall taken out.
+    const std::filesystem::path without = data_without_the_f22a_s_stall();
     bool refused = false;
     try {
-        (void)glideslope::sim::approach_speeds(data(), "f22");
+        (void)glideslope::sim::approach_speeds(without, "f22");
     } catch (const std::runtime_error&) {
         refused = true;
     }
+    check(!glideslope::sim::publishes_approach_speed(without, "f22") &&
+              !glideslope::sim::landing_speeds(without, "f22").has_value() &&
+              glideslope::sim::publishes_approach_speed(data(), "f22"),
+          "her figures without her stall publish no approach speed and tell no landing; "
+          "with it, they do");
+    std::filesystem::remove_all(without);
     check(refused, "an aircraft with no stall speed at all is refused");
 }
 
@@ -893,9 +925,9 @@ GLIDESLOPE_TEST(a_three_point_landing_is_refused_every_aircraft_in_the_catalogue
     std::vector<std::string> accepted;
     std::string why;
     for (const auto& entry : catalogue) {
-        // The 747-400 and the F-22A publish no stall speed and have no
-        // approach speeds worked out; theirs are the defaults, which the
-        // refusal does not read.
+        // Every aircraft has approach speeds worked out now; were one to
+        // have none, hers would be the defaults, which the refusal does not
+        // read.
         ApproachSpeeds speeds;
         try {
             speeds = glideslope::sim::approach_speeds(data(), entry.model);
