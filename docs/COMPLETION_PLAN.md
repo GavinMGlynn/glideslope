@@ -1319,14 +1319,15 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       refused her, and no figure is measured for her. Since 2026-10-31 the
       runway lines a model is shown say their landing length and what the
       aircraft needs (the F-22A, with no approach speed, is told she does
-      not land). **Still missing**: a landing figure for the F-22A,
-      which waits on her approach speed. Since 2026-11-02 her slowest
-      steady flight is measured from her model, 90 KCAS at 54,960 lb; at
-      1.3 times it she flies her final on the centreline in calm air and
-      15 kt across, and since her flare is flown on her power she touches
-      within 360 ft/min (176 to 202); her stall figure is not yet written,
-      as 16 tests (her stall lessons, gusts, the copilot recording) go red
-      for her with it. *Verification: each of the five
+      not land). Since 2026-11-02 her stall figure is her slowest steady
+      flight, measured from her model (90 KCAS at 54,960 lb), and her
+      landing figure 6,300 ft, measured at 1.3 times it; all five are
+      refused a runway a metre short of theirs. **Still missing**: ten
+      tests red for her with it - her stall lessons and stall watch, her
+      landings in gusts, the approach lesson's tail-strike margin, and
+      three on her wheels - each fixed or named with its figure
+      (docs/status/2026-11-02-the-f22a-s-stall-figure-and-landing-measured.md).
+      *Verification: each of the five
       refused a runway shorter than a cited figure, and the model shown each
       runway's landing length.* Owner 2026-10-09. Owner 2026-10-31:
       recordings made again.

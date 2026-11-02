@@ -1523,12 +1523,22 @@ constexpr double landing_flap_above_vref_kts = 40.0;
 constexpr double heading_settled_by_s = 40.0;
 constexpr double most_height_lost_ft = 300.0;
 
-// **Named, not judged: none.** The F-35B was, to 179 kt, until 2026-10-30:
-// her model needed 15 to 20 degrees of incidence to fly level there, past the
+// **Named, not judged: the F-22A under 127 kt.** Her approach speed at her
+// combat loading is 117 kt, 1.3 times her measured slowest steady flight
+// (2026-11-02). Held level there by the autopilot, gear down, she needs more
+// nose than its 15 degrees and sinks: at 117 kt she left her tables, 1,321 ft
+// down, and at 122 she lost 349 ft against 300; from 127 she holds within 208
+// ft. The lander flies her final on its own laws, not this one, and lands her
+// (test_lander.cpp). The F-35B was named, to 179 kt, until 2026-10-30: her
+// model needed 15 to 20 degrees of incidence to fly level there, past the
 // autopilot's 15 degrees of nose, and she sank. Since her lift was set to fly
 // the F-35A's 13-degree approach (tools/make_f35b.py, LIFT_FACTOR) she holds
 // her height from her approach speed up.
-const std::map<std::string, std::pair<double, std::string>> approach_named = {};
+const std::map<std::string, std::pair<double, std::string>> approach_named = {
+    {"f22",
+     {127.0, "under 127 kt held level by the autopilot she needs more than its 15 degrees of "
+             "nose and sinks: 1,321 ft at 117 kt, leaving her tables, and 349 at 122"}},
+};
 
 const std::vector<std::string> approach_swept = {
     "c172p", "c182", "pa28",       "j3cub", "short_s23", "mosquito-fb6", "737-300",
