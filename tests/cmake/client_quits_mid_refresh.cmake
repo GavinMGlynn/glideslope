@@ -15,7 +15,8 @@
 #   - **The control**, quit at tick 400, before the refresh is due: what
 #     quitting costs on this machine, with nothing to give up.
 #   - **The quit**, at tick 610, the refresh having begun at tick 600, five
-#     frames of two ticks before.
+#     frames of two ticks before - and held there, flying on, until the stub
+#     has turned the refresh away (below).
 #
 # Both are told `--weather-refresh 5`: the weather is fetched again after 5 s
 # of flight, not the 15 minutes a flight waits (weather_refresh_seconds),
@@ -33,6 +34,14 @@
 # seconds' wait, the most that is waited, so that a refresh not given up sits
 # through 40 s of waits; with CASE stalled its answer begins and never ends,
 # which only the 60 s stall timeout would end, and then again for each retry.
+#
+# **The refresh is turned away before the quit, by an event.** Five frames
+# were 37 ms on a Rocky 9 runner (job 125180276633), and the refresh's first
+# request had not reached the stub when the client quit: the test failed as
+# not having built its situation. So the stub writes a file once it has
+# answered its first request with the status (`--answered`), or begun the
+# stalled transfer, and the quit's client holds its quit until the file is
+# there (`--quit-once`), flying on. The 2 s are timed from the quit, as before.
 #
 # **The situation is built, not hoped for.** As it quits the client says
 # whether a weather refresh is under way; the quit must say it is, and the
@@ -74,6 +83,9 @@ if(DEFINED STUB_PORT_FILE)
         execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.05)
     endwhile()
     file(STRINGS "${STUB_PORT_FILE}" _port LIMIT_COUNT 1)
+    if(NOT DEFINED ANSWERED_FILE)
+        message(FATAL_ERROR "the inner half needs ANSWERED_FILE")
+    endif()
     set(ENV{GLIDESLOPE_WEATHER_SERVICE} "http://127.0.0.1:${_port}")
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
     set(ENV{LSAN_OPTIONS} "exitcode=0")
@@ -81,13 +93,15 @@ if(DEFINED STUB_PORT_FILE)
     foreach(_run IN ITEMS control quit)
         if(_run STREQUAL "control")
             set(_quit_at 400)
+            set(_held "")
         else()
             set(_quit_at 610)
+            set(_held --quit-once "${ANSWERED_FILE}")
         endif()
         execute_process(COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}"
                                 --size 320x240 --screen flight --weather YSSY --weather-refresh 5
                                 --autopilot --imagery off
-                                --shot-at 700 --quit-at ${_quit_at}
+                                --shot-at 700 --quit-at ${_quit_at} ${_held}
                                 --shot "${WORK}/quit-${DRIVER}-${CASE}-${_run}.bmp"
                         COMMAND "${TIMER}" "${_said}" "${_began}"
                         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -118,8 +132,9 @@ set(_dir "${WORK}/quit-mid-refresh")
 file(MAKE_DIRECTORY "${_dir}")
 set(_port_file "${_dir}/stub-${DRIVER}-${CASE}.port")
 set(_result_file "${_dir}/stub-${DRIVER}-${CASE}.result")
+set(_answered_file "${_dir}/stub-${DRIVER}-${CASE}.answered")
 set(_forecast "${_dir}/forecast-${DRIVER}-${CASE}.json")
-file(REMOVE "${_port_file}" "${_result_file}")
+file(REMOVE "${_port_file}" "${_result_file}" "${_answered_file}")
 
 # **The forecast's hours, three days of them.** Each series is given three
 # times over, and the times yesterday's, today's and tomorrow's: string
@@ -159,12 +174,14 @@ string(REPLACE "@TIMES@" "[${_times}]" _text "${_text}")
 file(WRITE "${_forecast}" "${_text}")
 
 # Both at once: the stub, and this script's inner half beside it.
-execute_process(COMMAND "${STUB}" --files-for 4 ${_stub_case} "${_port_file}"
+execute_process(COMMAND "${STUB}" --files-for 4 --answered "${_answered_file}"
+                        ${_stub_case} "${_port_file}"
                         /api/data/metar "${METAR_FILE}" /v1/forecast "${_forecast}"
                 COMMAND "${CMAKE_COMMAND}"
                         "-DPROGRAM=${PROGRAM}" "-DTIMER=${TIMER}" "-DDRIVER=${DRIVER}"
                         "-DWORK=${_dir}" "-DCACHE=${CACHE}" "-DCASE=${CASE}"
                         "-DSTUB_PORT_FILE=${_port_file}" "-DRESULT_FILE=${_result_file}"
+                        "-DANSWERED_FILE=${_answered_file}"
                         -P "${CMAKE_CURRENT_LIST_FILE}"
                 RESULTS_VARIABLE _stub_rcs ERROR_VARIABLE _stub_said)
 if(NOT EXISTS "${_result_file}")

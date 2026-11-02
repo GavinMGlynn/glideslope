@@ -2,7 +2,7 @@
 // request with one status, for a test to point a service at.
 //
 //   glideslope_http_stub [--retry-after SECONDS] [--files-for N] [--stall]
-//                        STATUS PORTFILE [PREFIX FILE]...
+//                        [--answered FILE] STATUS PORTFILE [PREFIX FILE]...
 //
 // Listens on 127.0.0.1, on a port the system picks, and writes that port to
 // PORTFILE - whole, by renaming it into place - once it is listening. Every
@@ -22,6 +22,10 @@
 // it go is not said: by the time /stop is asked, the program that was sent it
 // has usually ended, and the system has closed its end whether it gave the
 // transfer up or not - how soon it ended is the test's to measure.
+//
+// **--answered FILE** is written, empty, once the first request answered with
+// STATUS has had its answer (or, with --stall, its transfer begun): an event
+// for a test to wait on - the program it was sent to has been turned away.
 //
 // Says on standard error how many requests it answered with STATUS, and how
 // many with FILE. Exits 0, or 2 on bad arguments or a socket it could not
@@ -107,15 +111,19 @@ int main(int argc, char** argv) {
     std::signal(SIGPIPE, SIG_IGN);
 #endif
     const char* usage = "usage: glideslope_http_stub [--retry-after SECONDS] "
-                        "[--files-for N] [--stall] STATUS PORTFILE [PREFIX FILE]...";
+                        "[--files-for N] [--stall] [--answered FILE] STATUS PORTFILE "
+                        "[PREFIX FILE]...";
     int retry_after = 1;
     long files_for = -1;
     bool stall = false;
+    std::filesystem::path answered_file_path;
     int arg = 1;
     for (; arg < argc && std::string(argv[arg]).rfind("--", 0) == 0; ++arg) {
         const std::string option = argv[arg];
         if (option == "--stall") {
             stall = true;
+        } else if (option == "--answered" && arg + 1 < argc) {
+            answered_file_path = argv[++arg];
         } else if (option == "--retry-after" && arg + 1 < argc) {
             retry_after = std::atoi(argv[++arg]);
             if (retry_after < 0) {
@@ -191,6 +199,11 @@ int main(int argc, char** argv) {
     std::vector<Socket> held;
     long answered = 0;
     long answered_file = 0;
+    const auto say_answered = [&] {
+        if (answered == 1 && !answered_file_path.empty()) {
+            std::ofstream(answered_file_path, std::ios::binary).flush();
+        }
+    };
     for (;;) {
         const Socket client = ::accept(listening, nullptr, nullptr);
         if (client == no_socket) {
@@ -215,12 +228,14 @@ int main(int argc, char** argv) {
         } else if (stall) {
             send_all(client, stalled_answer);
             ++answered;
+            say_answered();
             held.push_back(client);
             std::fprintf(stderr, "glideslope_http_stub: holding a transfer under way\n");
             continue;
         } else {
             send_all(client, answer);
             ++answered;
+            say_answered();
         }
         close_socket(client);
         if (stop) {

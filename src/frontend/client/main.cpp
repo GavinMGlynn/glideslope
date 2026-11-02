@@ -80,6 +80,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
+#include <system_error>
 #include <vector>
 
 namespace {
@@ -92,6 +93,10 @@ struct Options {
     // Test flag: quit at this tick of a --shot flight, before its shot, at
     // once - no frame drawn, no tile waited for - as a person quitting does.
     std::int64_t quit_at = -1;
+    // Test flag: the quit at quit_at held, flying on and drawing no shot,
+    // until this file exists - an event the test makes, such as a stub having
+    // answered the weather refresh - for up to two minutes.
+    std::string quit_once;
     // Test flags: the shot of a frame counted rather than a tick - every
     // frame two ticks, however many there are - and the memory the process
     // holds, printed every so many frames. Zero is neither.
@@ -383,6 +388,8 @@ void usage(std::FILE* out) {
         "                given again (for tests)\n"
         "  --quit-at T   end a --shot flight at tick T, before its shot, drawing\n"
         "                nothing more and waiting for nothing (for tests)\n"
+        "  --quit-once FILE  hold --quit-at's quit, flying on, until FILE\n"
+        "                exists, up to two minutes (for tests)\n"
         "  --weather-refresh S  fetch --weather again every S seconds of the flight\n"
         "                (at least 1; 900 unless given) (for tests)\n"
         "  --after-ready FILE  on a server, connect only once FILE exists - the\n"
@@ -596,6 +603,8 @@ static int run_program(int argc, char** argv) {
             const std::string_view value = args[++i];
             ok = value == "on" || value == "off";
             o.draw_aircraft = value == "on";
+        } else if (a == "--quit-once" && has_value) {
+            o.quit_once = std::string(args[++i]);
         } else if (a == "--quit-at" && has_value) {
             const auto tick = parse_integer(args[++i]);
             ok = tick && *tick >= 1;
@@ -831,6 +840,10 @@ static int run_program(int argc, char** argv) {
     }
     if (!o.microbursts.empty() && o.weather_station.empty()) {
         std::fputs("glideslope: a --microburst is put into --weather\n", stderr);
+        return 2;
+    }
+    if (!o.quit_once.empty() && o.quit_at <= 0) {
+        std::fputs("glideslope: --quit-once holds a --quit-at\n", stderr);
         return 2;
     }
     if (o.quit_at > 0 && (o.shot.empty() || o.quit_at >= o.shot_at)) {
@@ -1798,6 +1811,8 @@ static int run_program(int argc, char** argv) {
         // flying, said at the shot; and the longest of all, said at the end.
         double longest_away_s = 0.0;
         bool said_away_at_shot = false;
+        // When --quit-once began holding the quit.
+        std::optional<std::chrono::steady_clock::time_point> quit_held_since;
         // Whether it has said, once, that imagery could not be fetched.
         bool said_imagery_failed = false;
         if (online && joined) {
@@ -2124,7 +2139,19 @@ static int run_program(int argc, char** argv) {
             // a weather refresh - is under way still. Said, flushed, for a
             // test reading through a pipe to time the way out from here
             // (glideslope_exit_timer, tests/cmake/client_quits_mid_refresh.cmake).
-            if (o.quit_at > 0 && ticks >= o.quit_at) {
+            // --quit-once: the quit held, by the wall clock's two minutes at
+            // most, until the test's event has happened.
+            bool quit_held = false;
+            if (o.quit_at > 0 && ticks >= o.quit_at && !o.quit_once.empty()) {
+                if (!quit_held_since) {
+                    quit_held_since = std::chrono::steady_clock::now();
+                }
+                std::error_code exists_error;
+                quit_held = !std::filesystem::exists(o.quit_once, exists_error) &&
+                            std::chrono::steady_clock::now() - *quit_held_since <
+                                std::chrono::minutes(2);
+            }
+            if (o.quit_at > 0 && ticks >= o.quit_at && !quit_held) {
                 if (o.stovl_at_once && flight) {
                     const std::optional<double> trim = flight->stovl_law_pitch_trim();
                     std::printf("glideslope: her STOVL law flies her on a pitch trim of %.17g\n",
@@ -2142,7 +2169,7 @@ static int run_program(int argc, char** argv) {
             }
             // The frame shot waits for every terrain tile its view needs, so
             // the same command draws the same terrain everywhere.
-            bool shot_now = shooting && ticks >= o.shot_at;
+            bool shot_now = shooting && ticks >= o.shot_at && !quit_held;
             if (shot_now && online && joined && !said_away_at_shot) {
                 said_away_at_shot = true;
                 const double away_s = online->longest_kept_since_asked_s();
