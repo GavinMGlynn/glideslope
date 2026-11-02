@@ -27,6 +27,12 @@ constexpr double steps_per_second = 120.0;
 constexpr double jet_approach_idle = 0.25;
 // **The touch flown in gusts**, feet a minute (fly_laws).
 constexpr double gusty_touchdown_fpm = 150.0;
+// **The least nose a jet's flare raises**, degrees: the FAA's Airplane
+// Flying Handbook (FAA-H-8083-3C, ch. 16, "The Flare"): "In most jet
+// airplanes, this requires a pitch attitude increase of only 1 to 3 degrees".
+// A jet whose nose has less than this left to her flare's limit as it
+// begins flies it on her power (fly_laws).
+constexpr double least_flare_pitch_deg = 1.0;
 
 // **The approach is a local problem.** Five miles of runway centreline does
 // not need great-circle geometry: the metres in a degree of latitude and of
@@ -725,6 +731,7 @@ void Lander::resume(double throttle) {
     // incidence's limit, which is the approach's (`most_flare_alpha_deg`).
     flare_begun_ = false;
     holding_off_ = false;
+    power_flare_ = false;
     flare_gain_ = 1.0;
     resumed_ = true;
 }
@@ -1409,10 +1416,29 @@ Controls Lander::fly_laws() {
         // rolled her three degrees; closed over two seconds from where they
         // were, they do not.
         const double throttle_before = last_throttle_;
+        //
+        // **Unless her nose has no flare left in it.** The handbook's jet
+        // flare (FAA-H-8083-3C, ch. 16, "The Flare") raises the nose one to
+        // three degrees and reduces the thrust "smoothly ... to idle as the
+        // flare progresses", and warns that "reducing the thrust too early
+        // may result in ... a high sink rate touchdown". The F-22A flown at
+        // 1.3 times her measured VS0 comes down her final at 14.3 degrees of
+        // nose, a quarter of a degree short of the flare's limit (her tail
+        // strike less two); her throttle closed from the flare's first step
+        // as every other aeroplane's is, she met the runway at 383 to 417
+        // ft/min. So a jet with less than `least_flare_pitch_deg` of nose
+        // left as the flare begins holds her power, flies the sink on it
+        // from the first foot a minute past the flare's, worked her spool
+        // ahead as in gusts, and takes it off as the sink is arrested: she
+        // touches at 151 to 157 from 2 nm. Every other aeroplane here begins her flare
+        // more than five degrees short of her limit (the F-15C 5.4, the A320
+        // 6.6; docs/status, 2026-11-02) and flies it as before.
         if (!flare_begun_) {
             flare_throttle_ = last_throttle_;
+            power_flare_ =jet_ && most_flare_pitch_deg_ - s.pitch_deg < least_flare_pitch_deg;
         }
-        c.throttle = std::max(0.0, last_throttle_ - 0.5 / steps_per_second);
+        c.throttle = power_flare_ ? last_throttle_
+                                  : std::max(0.0, last_throttle_ - 0.5 / steps_per_second);
         // **In gusts the power stays on to the touch.** The FAA's Airplane
         // Flying Handbook (FAA-H-8083-3C, ch. 9, "Turbulent Air Approach and
         // Landing"): power-on approaches, "the throttle retarded to idling
@@ -1638,6 +1664,13 @@ Controls Lander::fly_laws() {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg - (alpha_deg - most_alpha_deg));
         }
         flare_pitch_ = std::min(flare_pitch_, most_flare_pitch_deg_);
+        // **A flare flown on her power holds the nose it began with**: the
+        // little left to the bound is not flown into, so the bound does not
+        // do her landing. Raised to it, the F-22A touched at 14.6 degrees,
+        // past the bound, 1.96 short of her tail strike.
+        if (power_flare_) {
+            flare_pitch_ = std::min(flare_pitch_, flare_begun_pitch_);
+        }
         if (rough_water) {
             flare_pitch_ = std::min(flare_pitch_, rough_water_most_pitch_deg);
         }
@@ -1698,9 +1731,12 @@ Controls Lander::fly_laws() {
         // "by applying sufficient power to cushion the subsequent
         // touchdown", and a lull or a down-gust in the round out is the same
         // sink. From 150 ft/min past what the flare wants, not 300.
-        // A hull's on rough water too, from no power held.
-        const bool cushioned = gusty || rough_water;
-        const double cushion_from_fpm = cushioned ? 150.0 : 300.0;
+        // A hull's on rough water too, from no power held. **And a flare
+        // flown on her power (`power_flare_`, above) from the first foot a
+        // minute past what it wants**: her power is her only flare.
+        const bool cushioned = gusty || rough_water || power_flare_;
+        const double cushion_from_fpm =
+            gusty || rough_water ? 150.0 : power_flare_ ? 0.0 : 300.0;
         //
         // **Worked on the sink when the power will arrive**, in gusts: her
         // engines answer `spool_s` after the lever (measured on her model -
