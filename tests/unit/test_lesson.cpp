@@ -279,8 +279,9 @@ glideslope::sim::LessonSpeeds figures_of(const glideslope::sim::CatalogueEntry& 
 // **Who is taught an exercise, and who is left out of it and why.** A lesson
 // belongs to a class and the figures belong to the aeroplane, so a class's
 // lesson can name a figure one of its aeroplanes has not got - the 747-400
-// and the F-22A publish no stall speed and no measurement of one holds still
-// (docs/ASSETS.md). The 747-400 does publish her approach speed, but her
+// publishes no stall speed and no measurement of one holds still
+// (docs/ASSETS.md); the F-22A's is her slowest steady flight, measured
+// since 2026-11-02. The 747-400 does publish her approach speed, but her
 // take-off speeds are measured from her model, so book_departure_speeds
 // refuses her; each is taught only what its figures can answer.
 struct Taught {
@@ -1743,6 +1744,20 @@ constexpr double most_flare_climb_fpm = 10.0;
 // doing the landing, not the flare's own law - is caught too.
 constexpr double strike_margin_deg = 2.5;
 
+// **Named, not yet: an aeroplane that touches inside the strike margin**,
+// held to her own measured touch instead (plus a twentieth of a degree for
+// the drift between machines), so it gets no worse unseen - and still
+// short of the lander's bound, two degrees short of her strike, so the
+// bound doing the landing is caught for her too. The F-22A (2026-11-02):
+// at 1.3 times her measured VS0 she flies her glidepath at 14.3 degrees of
+// nose and her power flare holds it (sim/lander.cpp, `power_flare_`); she
+// touches at 14.29, 2.24 short of her 16.54 strike against the 2.5 asked.
+// Item "The F-22A flies her stall-figure tests".
+const std::map<std::string, double>& touches_inside_the_strike_margin() {
+    static const std::map<std::string, double> named = {{"f22", 14.30}};
+    return named;
+}
+
 // **Aeroplanes with nothing behind their main wheels to strike**, named, and
 // why: a tail-wheel aeroplane's tail is down already, and a model with no
 // contact aft of its main wheels says nothing a tail could strike.
@@ -1789,7 +1804,25 @@ std::vector<std::string> flared_from_the_path(const std::string& id, const std::
                         " ft/min in its flare, at " + std::to_string(f.most_climb_agl_ft) +
                         " ft: a balloon");
     }
-    if (strikes && f.touch_pitch_deg >= stance.strike_pitch_deg - strike_margin_deg) {
+    const auto inside = touches_inside_the_strike_margin().find(id);
+    if (strikes && inside != touches_inside_the_strike_margin().end()) {
+        const double lander_bound_deg = stance.strike_pitch_deg - 2.0;
+        if (f.touch_pitch_deg < stance.strike_pitch_deg - strike_margin_deg) {
+            wrong.push_back(id + " (" + where + ") is named for touching inside the strike "
+                            "margin and now touches at " + std::to_string(f.touch_pitch_deg) +
+                            ", outside it: take its name off");
+        } else if (f.touch_pitch_deg > inside->second + 0.05 ||
+                   f.touch_pitch_deg >= lander_bound_deg) {
+            wrong.push_back(id + " (" + where + ") is named at " +
+                            std::to_string(inside->second) + " degrees and touched at " +
+                            std::to_string(f.touch_pitch_deg) + ", against its tail strike at " +
+                            std::to_string(stance.strike_pitch_deg));
+        } else {
+            std::printf("      named, not yet: touched at %.2f, within %.1f of her strike at "
+                        "%.2f\n",
+                        f.touch_pitch_deg, strike_margin_deg, stance.strike_pitch_deg);
+        }
+    } else if (strikes && f.touch_pitch_deg >= stance.strike_pitch_deg - strike_margin_deg) {
         wrong.push_back(id + " (" + where + ") touched at " + std::to_string(f.touch_pitch_deg) +
                         " degrees, within " + std::to_string(strike_margin_deg) +
                         " of its tail strike at " + std::to_string(stance.strike_pitch_deg));
@@ -1823,7 +1856,16 @@ std::size_t the_strike_check_is_seen_red(std::vector<std::string>& wrong) {
         if (flared_from_the_path(entry.id, "at the lander's bound", at_bound).empty()) {
             wrong.push_back(entry.id + ": a touch at the lander's bound was not named");
         }
-        if (!flared_from_the_path(entry.id, "three degrees short", short_of_it).empty()) {
+        const std::vector<std::string> short_wrong =
+            flared_from_the_path(entry.id, "three degrees short", short_of_it);
+        if (touches_inside_the_strike_margin().count(entry.id) != 0) {
+            // Named, so a touch outside the margin says its name is stale.
+            if (short_wrong.size() != 1 ||
+                short_wrong.front().find("take its name off") == std::string::npos) {
+                wrong.push_back(entry.id + ": a touch three degrees short of the strike did "
+                                           "not say her name is stale");
+            }
+        } else if (!short_wrong.empty()) {
             wrong.push_back(entry.id + ": a touch three degrees short of the strike was named");
         }
         ++put;
@@ -2404,11 +2446,11 @@ GLIDESLOPE_TEST(the_approach_lesson_flown_by_the_book_leaves_an_empty_debrief) {
               " things went wrong after touching down at the end of the approach lesson, "
               "the first: " + (came_down_badly.empty() ? "" : came_down_badly.front()));
     check(walked == taught.size(), "every aeroplane taught an approach was landed");
-    // Fifteen of the sixteen: the four light aircraft, the Mosquito, the
-    // Learjet, five airliners, two fighters, the B-2A and the Short S.23 -
-    // which alights on water. The F-22A is left out, having no approach
-    // speed - `everyone_taught` names her above.
-    check(walked == 15, "fifteen aeroplanes landed, not " + std::to_string(walked));
+    // All sixteen: the four light aircraft, the Mosquito, the Learjet, five
+    // airliners, three fighters, the B-2A and the Short S.23 - which alights
+    // on water. The F-22A since her stall was measured from her model
+    // (2026-11-02), named for her touch inside the strike margin.
+    check(walked == 16, "sixteen aeroplanes landed, not " + std::to_string(walked));
 }
 
 namespace {
@@ -2985,6 +3027,11 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                  "limit, CI run 38028434284; on forty seeds here at 380 and 378 (seeds 23, "
                  "33)"},
         {"f15c", "she meets the runway at 336 and 352 ft/min (seeds 6, 7)"},
+        {"f22", "since her stall was measured from her model (2026-11-02), she goes round "
+                "for a balloon above the flare (seeds 1, 3, 8), and on the other five touches "
+                "at 430 to 977 ft/min and rises 3.1 to 12.3 ft after; her worst, seed 2, "
+                "strikes her airframe on the runway; item \"The F-22A flies her stall-figure "
+                "tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 135 "
                   "ft/min in her flare (seed 20), and she rises 0.81 ft after touching "
@@ -3152,8 +3199,8 @@ void every_aeroplane_lands_in_gusts(int seed, const std::vector<std::string>& id
                                            std::to_string(ids.size()));
 }
 
-// The fifteen taught the approach, every one in each seed's test (under
-// 50 s in a local linux-debug). Coverage asserted: fifteen taught.
+// The sixteen taught the approach, every one in each seed's test (under
+// 50 s in a local linux-debug). Coverage asserted: sixteen taught.
 std::vector<std::string> gusty_all() {
     const auto taught = everyone_taught("approach-and-landing");
     check(taught.size() == 16, "sixteen aeroplanes taught the approach, not " +
@@ -3205,7 +3252,7 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 }
 
 // **In moderate turbulence the AI lands every aeroplane not named within
-// its limits** - six of fifteen; the nine named (`not_yet_landed_in_gusts`)
+// its limits** - six of sixteen; the ten named (`not_yet_landed_in_gusts`)
 // are flown and shown, and so is one named on two seeds, each on one platform
 // alone (`named_on_a_seed`: the S.23, Windows's seed 5, in every build, and
 // macOS release's seed 3). Fifteen knots down the runway with severity-3
@@ -3704,6 +3751,19 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
     // How near her pace the push holds her, from `settle_s` on: less than the
     // half knot between paces.
     constexpr double most_off_pace_kts = 0.4;
+    // **Named, not yet**: a run that does not roll all of its 30 s, held to
+    // its own measured figure instead, so it gets no worse unseen. The
+    // F-22A at 0.5 kt wet rolled 29.93 s of 30 (2026-11-02): eight steps
+    // under a quarter of a knot. Item "The F-22A flies her stall-figure
+    // tests", docs/COMPLETION_PLAN.md.
+    struct NamedRoll {
+        const char* id;
+        double pace_kts;
+        bool wet;
+        double rolled_s;
+    };
+    constexpr NamedRoll named_rolls[] = {{"f22", 0.5, true, 29.93}};
+    std::size_t named_runs = 0;
     std::vector<std::string> left_out;
     std::vector<std::string> wrong;
     for (const std::string& id : taught) {
@@ -3839,7 +3899,26 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
                 creep_at_idle_pedal += at_idle_pedal || let_off ? 1U : 0U;
                 creep_let_off += !at_idle_pedal && let_off ? 1U : 0U;
             }
-            if (!rolled_all) {
+            const NamedRoll* named_roll = nullptr;
+            for (const NamedRoll& n : named_rolls) {
+                if (id == n.id && pace_kts == n.pace_kts && wet == n.wet) {
+                    named_roll = &n;
+                }
+            }
+            if (named_roll != nullptr) {
+                ++named_runs;
+                if (rolled_all) {
+                    wrong.push_back(where + " is named for rolling only " +
+                                    std::to_string(named_roll->rolled_s) +
+                                    " s and now rolls all of it: take its name off");
+                } else if (rolled_s < named_roll->rolled_s - 0.01) {
+                    wrong.push_back(where + " is named at " + std::to_string(named_roll->rolled_s) +
+                                    " s rolled, and is worse: " + std::to_string(rolled_s));
+                } else {
+                    std::printf("      named, not yet: %s rolled %.2f s of %d\n", where.c_str(),
+                                rolled_s, held_s);
+                }
+            } else if (!rolled_all) {
                 wrong.push_back(where + " rolled only " + std::to_string(rolled_s) + " s of " +
                                 std::to_string(held_s));
             } else if (most_off_pace > most_off_pace_kts) {
@@ -3902,12 +3981,16 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
     const std::size_t space = landplanes * paces;
     check(taught.size() == 16 && landplanes == 15 && left_out.size() == 1 && runs == space &&
               held == space && reached == space && stopped_runs == space &&
-              rolled_through == space && held_to_pace == space,
+              rolled_through + named_runs == space && held_to_pace + named_runs == space &&
+              named_runs == static_cast<std::size_t>(std::count_if(
+                                std::begin(named_rolls), std::end(named_rolls),
+                                [&](const NamedRoll& n) { return n.wet == wet; })),
           "every landplane of fifteen at each of " + std::to_string(paces) + " paces: " +
               std::to_string(runs) + " runs of " + std::to_string(space) + ", " +
               std::to_string(held) + " held " + std::to_string(held_s) + " s, " +
               std::to_string(rolled_through) + " rolling all of it, " +
-              std::to_string(held_to_pace) + " at her pace, " + std::to_string(reached) +
+              std::to_string(held_to_pace) + " at her pace, " + std::to_string(named_runs) +
+              " named, " + std::to_string(reached) +
               " with her autobrake at its ceiling, " + std::to_string(stopped_runs) +
               " stopped; the flying boat left out: " + std::to_string(left_out.size()));
     // **The idle allowance is reached, not believed**: every nose-wheel
@@ -4069,7 +4152,8 @@ GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_
             wrong.push_back(id + " did not stop");
         }
         if (!is_pushed && !entry.reverse_idle_kts && id != "b2" && id != "f15c" &&
-            id != "f35b" && id != "learjet35a" && id != "mosquito-fb6" && id != "j3cub") {
+            id != "f22" && id != "f35b" && id != "learjet35a" && id != "mosquito-fb6" &&
+            id != "j3cub") {
             wrong.push_back(id + " was not pushed past 1.3 kt: " + std::to_string(fastest));
         }
     }
@@ -4744,7 +4828,8 @@ GLIDESLOPE_TEST(a_walking_pace_run_counts_her_gone_over_past_45_degrees_or_at_an
 // thirty knots within `margin_s` of the time main's lander took (a73844b2's
 // law, measured 2026-10-14 on linux-release: `mains`; the 747-400, who had
 // no approach speed on main and so no landing there, measured on 2026-11-01
-// under the same law, which main's lander still flies). With the autobrake held
+// under the same law, which main's lander still flies; the F-22A likewise on
+// 2026-11-02, when her stall was measured: 8.6 s). With the autobrake held
 // to 0.3 below
 // walking pace (2026-10-14, a first try), a C172P at idle crept at 1.0 kt -
 // her idle thrust, 44 lbf, more than 0.3 of brake holds - and took 273 s
@@ -4755,7 +4840,7 @@ GLIDESLOPE_TEST(in_a_steady_15_kt_crosswind_every_landplane_stops_on_the_runway_
         {"737-300", 9.0}, {"787-8", 9.0},  {"a320", 9.4},       {"a380", 8.8},
         {"b2", 8.9},      {"c172p", 4.8},  {"c182", 4.3},       {"f15c", 10.5},
         {"f35b", 8.8},    {"j3cub", 2.9},  {"learjet35a", 8.9}, {"mosquito-fb6", 9.0},
-        {"pa28", 5.0},    {"747-400", 8.8}};
+        {"pa28", 5.0},    {"747-400", 8.8}, {"f22", 8.6}};
     const auto taught = everyone_taught("approach-and-landing");
     const double heading = a_runway().heading_deg / degrees;
     const double mps = 15.0 * 0.514444;
@@ -5969,7 +6054,13 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
         // hand (89 ft) since her drag due to lift is her wing's and her lift
         // and drag past the stall Viterna and Corrigan's (make_short_s23.py):
         // stalled at the warning from a proper entry, 71 kt, alpha 9.
-        {{"learjet35a", Fault::height, 385.0}});
+        // **The F-22A, named 2026-11-02** when her stall was measured from her
+        // model: handed over at 44.7 degrees of alpha, nose 45.9 up, she
+        // loses 2,964 ft against her lesson's 500 and peaks at 4.72 g against
+        // 2. Item "The F-22A flies her stall-figure tests".
+        {{"learjet35a", Fault::height, 385.0},
+         {"f22", Fault::height, 2964.0},
+         {"f22", Fault::load, 4.72}});
 }
 
 GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_within_2_g_and_the_height_its_speed_and_sink_need) {
@@ -5980,7 +6071,11 @@ GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_with
         // full power as her nose went down, her propellers' slipstream lifted
         // her wing as it came back through its peak at 123 knots. Power once
         // the wing is unstalled (Autopilot::unloading), 1.69.
-        {});
+        // **The F-22A, named 2026-11-02** when her stall was measured from her
+        // model: handed over at 91.6 degrees of alpha, sinking 10,870 ft/min,
+        // she loses 16,296 ft against the 7,938 worked out for her and peaks
+        // at 20.64 g against 2. Item "The F-22A flies her stall-figure tests".
+        {{"f22", Fault::height, 16296.0}, {"f22", Fault::load, 20.64}});
 }
 
 // **The stall recovery holds the power off while it unloads the wing, but
@@ -6145,8 +6240,11 @@ GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_f
 // and 20,000 ft, her full thrust, 92,500 lb, was less than her drag, 96,500
 // lb, and she recovered to 167 kt still descending at 150 ft/min.
 GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
+    // The F-22A, named 2026-11-02 when her stall was measured from her
+    // model: noticed at 100.3 kt, she slows to 59.4 against her 90.0 stall
+    // and loses 2,728 ft. Item "The F-22A flies her stall-figure tests".
     const std::map<std::string, std::string> not_yet = {
-        {"a380", "slowed under her stall"}};
+        {"a380", "slowed under her stall"}, {"f22", "slowed under her stall"}};
     std::set<std::string> named_seen;
     const Taught taught = taught_for("stalls");
     const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
@@ -10586,7 +10684,8 @@ Demonstrated demonstrate_a_stall(const std::string& id, double start_ft, double 
 }
 
 void report_and_check(const std::string& id, const std::string& what,
-                      const Demonstrated& shown) {
+                      const Demonstrated& shown,
+                      const std::vector<std::string>& named_debrief = {}) {
     // A control moving at a pilot's hand pace, with a little room for the
     // step the swap itself lands on.
     const double a_hands_pace = 2.0 / steps_per_second + 0.004;
@@ -10600,9 +10699,19 @@ void report_and_check(const std::string& id, const std::string& what,
     check(shown.completed == shown.stages,
           id + " flew every stage of the " + what + ": " +
               std::to_string(shown.completed) + " of " + std::to_string(shown.stages));
-    check(shown.debrief.empty(),
-          id + " flew the " + what + " inside the lesson's limits, and said " +
-              std::to_string(shown.debrief.size()) + " things");
+    if (!named_debrief.empty()) {
+        // Named, not yet: what it says must be what it is named for, and
+        // something - a name that now says nothing is stale.
+        check(shown.debrief == named_debrief,
+              id + " is named for saying \"" + named_debrief.front() + "\" in the " + what +
+                  ", and said " + std::to_string(shown.debrief.size()) +
+                  " things: take its name off, or see what is new");
+        std::printf("      named, not yet: %s\n", named_debrief.front().c_str());
+    } else {
+        check(shown.debrief.empty(),
+              id + " flew the " + what + " inside the lesson's limits, and said " +
+                  std::to_string(shown.debrief.size()) + " things");
+    }
     check(shown.worst_to_pilot <= a_hands_pace,
           id + " stepped " + std::to_string(shown.worst_to_pilot) +
               " handing over, and a hand moves " + std::to_string(a_hands_pace));
@@ -10638,15 +10747,26 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_stall_and_hands_it_over) {
     const auto taught = everyone_taught("stalls");
     check(!taught.empty(), "some aeroplane is taught stalls");
     std::size_t walked = 0;
+    // **Named, not yet: the F-22A** (2026-11-02, when her stall was measured
+    // from her model), whose recovery loses 2,964 ft against her lesson's 500
+    // (every_aeroplane_recovered_at_the_first_sign_of_a_stall_...): the
+    // debrief says so. Item "The F-22A flies her stall-figure tests".
+    const std::map<std::string, std::vector<std::string>> named = {
+        {"f22", {"Recover with the least height you can"}}};
+    std::size_t named_seen = 0;
     for (const std::string& id : taught) {
         // A stall is practised where its aeroplane practises it: a clean jet
         // at idle descends a long way while it slows.
+        const auto n = named.find(id);
+        named_seen += n != named.end() ? 1U : 0U;
         report_and_check(id, "stall",
                          demonstrate_a_stall(
                              id, stalls_are_practised_at(
-                                     glideslope::sim::find_aircraft(data(), id))));
+                                     glideslope::sim::find_aircraft(data(), id))),
+                         n != named.end() ? n->second : std::vector<std::string>{});
         ++walked;
     }
+    check(named_seen == named.size(), "every name was flown");
     check(walked == taught.size(),
           "every aeroplane taught the exercise demonstrated it: " +
               std::to_string(walked) + " of " + std::to_string(taught.size()));

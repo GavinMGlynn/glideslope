@@ -155,8 +155,12 @@ on all eight seeds here, on Linux, as do the A320, Learjet 35A and Mosquito,
 with the PA-28, and the flying boat but for Windows's seed 5 and macOS
 release's seed 3: six of fifteen; nine are still named. She is
 taught the approach but not yet the take-off, climb or circuit (her speeds
-are measured, not a book's). The F-22A is taught turns alone, having no stall
-or climbing speed;
+are measured, not a book's). The F-22A is taught stalls and the approach
+since 2026-11-02, with a stall figure measured from her model (her slowest
+steady flight, 90 KCAS). She lands at 1.3 times it within her limits in
+calm air and 15 kt across, but she is named, with her figures, in her stall
+recoveries, the AI's stall watch, the approach lesson's tail-strike margin
+and her gust landings (an open item);
 the Learjet cannot be rotated early since her stabilizer
 was tied to her maintenance manual (a tail). See the log for 2026-09-22 to
 2026-09-24, and later entries for what was fixed since (the F-35B's
@@ -231,7 +235,9 @@ refused on a runway too short for the aircraft dry, wet, or as reported
 contaminated - sized by the FAA's landing distance factors for its
 condition code - and on one reported at nil braking (since 2026-10-29);
 since 2026-10-31 every runway a model is shown says its condition, the
-metres it has to land on and what the aircraft needs there.
+metres it has to land on and what the aircraft needs there. The five that
+publish no landing distance are refused a runway shorter than their
+measured landing (since 2026-11-02, the F-22A's included: 6,300 ft).
 Everything a model answered is recorded,
 and CI flies it again with no key.
 
