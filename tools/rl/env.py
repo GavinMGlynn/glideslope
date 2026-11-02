@@ -3,8 +3,10 @@ policy from a stated start.
 
 Each episode begins somewhere on a final approach - between a sixth of a mile
 and two and a half miles out, off the centreline, off the glidepath, off the
-runway heading and off the speed, in a steady wind of up to thirteen knots
-across the runway and up to eight down it - and ends five seconds after the
+runway heading and off the speed, in a steady wind of up to fifteen knots
+from anywhere but no more than five of it behind (`wind`; so since
+2026-09-30, though this said thirteen across and eight down it until
+2026-11-02) - and ends five seconds after the
 wheels first touch, or when the flight goes wrong.
 
 **The reward** is mostly at the touch: for touching at all, for sinking
