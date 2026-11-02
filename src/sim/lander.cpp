@@ -1514,7 +1514,7 @@ Controls Lander::fly_laws() {
         // the same time as the main wheels". Held half a foot over it, she
         // touched at 10.2 degrees (2026-11-01).
         if (holding_three_point) {
-            constexpr double held_off_ft = 1.0;
+            constexpr double held_off_ft = three_point_hold_ft;
             const double over_ft = std::max(0.0, high_ft - held_off_ft);
             want_fpm = -(std::min(touchdown_fpm, 60.0 * over_ft) +
                          150.0 * over_ft / std::max(1.0, flare_height_ft())) +
@@ -1595,17 +1595,23 @@ Controls Lander::fly_laws() {
         // back pressure or hold it, never to push: the nose is held where it
         // is and she is let settle.
         // (How high is `most_flare_alpha_deg`'s.)
-        // **Not for a three-point landing**, out of gusts: there the AFH
-        // (ch. 14, page 14-4) holds her off "until the attitude needed to
-        // remain aloft matches the geometry of the landing gear" - at about
-        // the stall - and her nose is bounded by that attitude, the one she
-        // stands at (`most_flare_pitch_deg_`), not by an incidence short of
-        // the stall. Held to twelve degrees of incidence, sinking a little
-        // with her nose at 11.5, she could never reach her 12.1 (2026-11-02:
-        // 11.5 at 12.5, 11.7 at 13, 11.8 from 13.5 up).
-        const bool three_point_flare = three_point_ && !gusty;
-        const double most_alpha_deg =
-            three_point_flare ? std::numeric_limits<double>::infinity() : most_flare_alpha_deg();
+        // **Not in a three-point landing's last foot**, out of gusts. There
+        // the AFH (ch. 14, page 14-4) holds her off "until the attitude
+        // needed to remain aloft matches the geometry of the landing gear",
+        // and ch. 9 ("Touchdown", page 9-8) has an aeroplane touch "at or
+        // just above the approximate stalling speed". Within the foot she is
+        // held off at, her nose is bounded by her standing attitude
+        // (`most_flare_pitch_deg_`), not her wing by an incidence short of
+        // the stall; ch. 14 calls a touch from "no more than a foot off the
+        // surface" undramatic, even tail first. Above that foot the limit
+        // stands, where a stall would drop her from higher. With a limit all
+        // the way down she could not reach her 12.1 (2026-11-02: 11.2 with
+        // it at 12 degrees, 11.5 at 12.5, 11.7 at 13, 11.8 from 13.5 up).
+        const bool three_point_last_foot =
+            three_point_ && !gusty && high_ft < three_point_hold_ft;
+        const double most_alpha_deg = three_point_last_foot
+                                          ? std::numeric_limits<double>::infinity()
+                                          : most_flare_alpha_deg();
         const double alpha_deg = a_.property("aero/alpha-deg");
         //
         // **In gusts, judged a moment ahead, and let down a little**: a

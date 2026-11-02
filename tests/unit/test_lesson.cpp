@@ -40,6 +40,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <utility>
 #include <vector>
 
 using glideslope::sim::Lesson;
@@ -10023,6 +10024,9 @@ struct HardFlare {
     double back_agl_ft = 0.0;
     double most_alpha_deg = -1e9; // from the take-back to the touch
     double most_pitch_deg = -1e9; // likewise
+    // **Above her last foot**: her centre of gravity more than a foot over
+    // where it was as she touched.
+    double most_alpha_above_last_foot_deg = -1e9;
     bool three_point = false;     // her figures land her three-point
     double standing_pitch_deg = 0.0;
     double stopped_past_m = 0.0;
@@ -10065,6 +10069,8 @@ HardFlare hard_flare_handed_back(const std::string& id) {
     int handed = -1;
     int back = -1;
     double last_alpha_deg = 0.0;
+    std::vector<std::pair<double, double>> after_back; // (agl, alpha), to the touch
+    double touch_agl_ft = -1.0;
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
         const double alpha_deg = aircraft.property("aero/alpha-deg");
         const bool down = aircraft.property("gear/wow") > 0.5;
@@ -10101,12 +10107,16 @@ HardFlare hard_flare_handed_back(const std::string& id) {
                 out.most_alpha_deg =
                     std::max(out.most_alpha_deg, aircraft.property("aero/alpha-deg"));
                 out.most_pitch_deg = std::max(out.most_pitch_deg, aircraft.state().pitch_deg);
+                after_back.emplace_back(aircraft.property("position/h-agl-ft"),
+                                        aircraft.property("aero/alpha-deg"));
                 out.lowest_after_ft =
                     std::min(out.lowest_after_ft, aircraft.property("position/h-agl-ft"));
                 out.highest_after_ft =
                     std::max(out.highest_after_ft, aircraft.property("position/h-agl-ft"));
                 out.slowest_after_kts =
                     std::min(out.slowest_after_kts, aircraft.property("velocities/vc-kts"));
+            } else if (touch_agl_ft < 0.0) {
+                touch_agl_ft = aircraft.property("position/h-agl-ft");
             }
             if (!out.ai.touched && out.lander_given && controller.lander() == nullptr) {
                 out.went_around = true;
@@ -10119,6 +10129,12 @@ HardFlare hard_flare_handed_back(const std::string& id) {
                     controller.lander() == nullptr || !controller.lander()->autobrake_disarmed();
                 break;
             }
+        }
+    }
+    for (const auto& [agl_ft, alpha] : after_back) {
+        if (touch_agl_ft < 0.0 || agl_ft - touch_agl_ft > 1.0) {
+            out.most_alpha_above_last_foot_deg =
+                std::max(out.most_alpha_above_last_foot_deg, alpha);
         }
     }
     const glideslope::sim::AircraftState s = aircraft.state();
@@ -10135,7 +10151,8 @@ HardFlare hard_flare_handed_back(const std::string& id) {
 } // namespace
 
 // **Handed back in the air after the pilot's hard flare, she is landed, and
-// her wing is not stalled.** The flare's incidence limit is the approach's,
+// her wing is not stalled** - but for an aeroplane landed three-point, in her
+// last foot, where the handbook has her touch at about the stall (below). The flare's incidence limit is the approach's,
 // not the pilot's: taken from where the flare began, a pilot's flare to
 // fourteen degrees handed back would have let the AI's flare raise a C172's
 // wing to eighteen, past her stall. From the take-back to the touch the
@@ -10144,7 +10161,7 @@ HardFlare hard_flare_handed_back(const std::string& id) {
 // for the nose's own overshoot; she touches unwrecked by the server's rule,
 // stays upright on her wheels and stops on the runway. Every landplane taught
 // the approach; the flying boat is named and left out, as on the roll.
-GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed_without_a_stall) {
+GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed_with_no_stall_above_her_last_foot) {
     const auto taught = everyone_taught("approach-and-landing");
     // **Landed, or gone around.** Given back still climbing on the pilot's
     // stick above where her flare began - a balloon - she is gone around
@@ -10173,6 +10190,12 @@ GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed
                     r.ai.wreck.empty() ? "" : (", WRECKED: " + r.ai.wreck).c_str(),
                     r.stopped ? "stopped" : "NOT STOPPED", r.stopped_past_m,
                     r.stopped_across_m);
+        if (r.three_point) {
+            std::printf("      three-point: most incidence above her last foot %.1f, her nose "
+                        "at most %.1f, where she stands at %.1f\n",
+                        r.most_alpha_above_last_foot_deg, r.most_pitch_deg,
+                        r.standing_pitch_deg);
+        }
         const std::string where = id + " handed back from a hard flare";
         if (!r.handed_back) {
             wrong.push_back(where + " was on the ground before it was handed back");
@@ -10212,15 +10235,27 @@ GLIDESLOPE_TEST(a_flare_the_pilot_pulls_hard_and_hands_back_in_the_air_is_landed
             wrong.push_back(where + " was not given her landing back");
         }
         // **But an aeroplane landed three-point is held off to about the
-        // stall** - the FAA's Airplane Flying Handbook (FAA-H-8083-3C, ch.
-        // 14, page 14-4) holds her off "until the attitude needed to remain
-        // aloft matches the geometry of the landing gear" - and the lander
-        // bounds her nose by the attitude she stands at, not her wing by an
-        // incidence short of the stall (sim/lander.cpp). Hers is held to
-        // that, with the same degree for the nose's overshoot: the J-3 Cub's
-        // wing goes to 13.8 degrees, past 13, and her nose to 11.8, under
-        // her 12.1 (seen red with the bound a degree under it; reverted).
+        // stall in her last foot**, and only there. The FAA's Airplane
+        // Flying Handbook (FAA-H-8083-3C) has her round out "with the main
+        // wheels about one foot off the surface" and held off "until the
+        // attitude needed to remain aloft matches the geometry of the landing
+        // gear" (ch. 14, page 14-4), and an aeroplane touch "at or just above
+        // the approximate stalling speed" (ch. 9, "Touchdown", page 9-8); a
+        // touch from "no more than a foot off the surface" is undramatic
+        // even tail first (ch. 14). So above her last foot - her centre of
+        // gravity more than a foot over where it was as she touched - her
+        // wing is held to the same bound as every other aeroplane's; within
+        // it, her nose to a degree over the attitude she stands at, the
+        // lander's bound (sim/lander.cpp). The J-3 Cub's wing goes to 13.8
+        // degrees in that foot, past her lift's peak at 12.5 (her model's
+        // table, at 1.62): she touches stalled, from under a foot.
         if (r.three_point) {
+            if (r.most_alpha_above_last_foot_deg > most_allowed_deg) {
+                wrong.push_back(where + " had her wing raised to " +
+                                std::to_string(r.most_alpha_above_last_foot_deg) +
+                                " degrees above her last foot, past " +
+                                std::to_string(most_allowed_deg));
+            }
             if (r.most_pitch_deg > r.standing_pitch_deg + 1.0) {
                 wrong.push_back(where + " had her nose raised to " +
                                 std::to_string(r.most_pitch_deg) + " degrees, past " +
