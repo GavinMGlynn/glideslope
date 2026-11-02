@@ -2549,7 +2549,7 @@ GLIDESLOPE_TEST(every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 15, "fifteen aeroplanes taught the approach, not " +
+    check(taught.size() == 16, "sixteen aeroplanes taught the approach, not " +
                                    std::to_string(taught.size()));
     check(flown + left_out == 2 * taught.size() && left_out == named.size(),
           "every aeroplane flown in every case or named: " + std::to_string(flown) +
@@ -2737,7 +2737,7 @@ void every_ai_approach_at_a_weight(bool figures_loading) {
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong at " + weight +
                              ", the first: " + (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 15, "fifteen aeroplanes with an approach speed, not " +
+    check(taught.size() == 16, "sixteen aeroplanes with an approach speed, not " +
                                    std::to_string(taught.size()));
     check(flown == taught.size(), "every one flown: " + std::to_string(flown) + " of " +
                                       std::to_string(taught.size()));
@@ -2801,8 +2801,8 @@ GLIDESLOPE_TEST(every_landplane_flares_to_her_main_wheels_and_a_flying_boat_to_h
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 15 && landplanes == 14 && boats == 1,
-          "fifteen taught the approach, fourteen landplanes and one flying boat: " +
+    check(taught.size() == 16 && landplanes == 15 && boats == 1,
+          "sixteen taught the approach, fifteen landplanes and one flying boat: " +
               std::to_string(landplanes) + " and " + std::to_string(boats));
 }
 
@@ -2842,8 +2842,8 @@ GLIDESLOPE_TEST(no_landplane_has_an_afterbody_and_the_flying_boats_meets_the_wat
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 15 && landplanes == 14 && boats == 1,
-          "fifteen taught the approach, fourteen landplanes and one flying boat: " +
+    check(taught.size() == 16 && landplanes == 15 && boats == 1,
+          "sixteen taught the approach, fifteen landplanes and one flying boat: " +
               std::to_string(landplanes) + " and " + std::to_string(boats));
 }
 
@@ -3156,7 +3156,7 @@ void every_aeroplane_lands_in_gusts(int seed, const std::vector<std::string>& id
 // 50 s in a local linux-debug). Coverage asserted: fifteen taught.
 std::vector<std::string> gusty_all() {
     const auto taught = everyone_taught("approach-and-landing");
-    check(taught.size() == 15, "fifteen aeroplanes taught the approach, not " +
+    check(taught.size() == 16, "sixteen aeroplanes taught the approach, not " +
                                    std::to_string(taught.size()));
     return taught;
 }
@@ -3199,7 +3199,7 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 15 && jets + propellers == taught.size(),
+    check(taught.size() == 16 && jets + propellers == taught.size(),
           "fifteen, each a jet or a propeller: " + std::to_string(jets) + " jets and " +
               std::to_string(propellers) + " propellers");
 }
@@ -3376,8 +3376,8 @@ void rolls_out_in_a_steady_wind(double head_kts,
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 15 && flown + left_out == taught.size() && left_out == named.size(),
-          "every one of fifteen flown and judged or named: " + std::to_string(flown) +
+    check(taught.size() == 16 && flown + left_out == taught.size() && left_out == named.size(),
+          "every one of sixteen flown and judged or named: " + std::to_string(flown) +
               " judged and " + std::to_string(left_out) + " named of " +
               std::to_string(taught.size()));
 }
@@ -3900,10 +3900,10 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
                              (wrong.empty() ? "" : wrong.front()));
     constexpr std::size_t paces = std::size(walking_paces_kts);
     const std::size_t space = landplanes * paces;
-    check(taught.size() == 15 && landplanes == 14 && left_out.size() == 1 && runs == space &&
+    check(taught.size() == 16 && landplanes == 15 && left_out.size() == 1 && runs == space &&
               held == space && reached == space && stopped_runs == space &&
               rolled_through == space && held_to_pace == space,
-          "every landplane of fourteen at each of " + std::to_string(paces) + " paces: " +
+          "every landplane of fifteen at each of " + std::to_string(paces) + " paces: " +
               std::to_string(runs) + " runs of " + std::to_string(space) + ", " +
               std::to_string(held) + " held " + std::to_string(held_s) + " s, " +
               std::to_string(rolled_through) + " rolling all of it, " +
@@ -4081,7 +4081,7 @@ GLIDESLOPE_TEST(a_gust_pushing_every_landplane_from_1_to_2_kt_with_her_throttle_
     // The jets, the Mosquito and the Cub are held at 1 kt by their brakes
     // against 20 kt from behind: flown and judged, but not pushed. The
     // C172P, C182 and PA-28 are: three, asserted.
-    check(taught.size() == 15 && flown == 14 && left_out == 1 && pushed >= 3,
+    check(taught.size() == 16 && flown == 15 && left_out == 1 && pushed >= 3,
           "every landplane flown, and the C172P, C182 and PA-28 pushed past 1.3 kt: " +
               std::to_string(flown) + " flown, " + std::to_string(pushed) + " pushed");
 }
@@ -4254,9 +4254,9 @@ void rolled_up_from_rest_and_stopped(double crosswind_kts) {
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     const std::size_t space = landplanes * std::size(walking_paces_kts);
-    check(taught.size() == 15 && landplanes == 14 && left_out == 1 && runs == space &&
+    check(taught.size() == 16 && landplanes == 15 && left_out == 1 && runs == space &&
               rolled_up_runs == space && stopped_runs == space,
-          "every landplane of fourteen at each of " +
+          "every landplane of fifteen at each of " +
               std::to_string(std::size(walking_paces_kts)) + " paces: " + std::to_string(runs) +
               " runs of " + std::to_string(space) + ", " + std::to_string(rolled_up_runs) +
               " rolled up, " + std::to_string(stopped_runs) +
@@ -4375,8 +4375,8 @@ GLIDESLOPE_TEST(a_throttle_advanced_on_the_roll_disarms_every_landplanes_autobra
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 15 && flown == 14 && left_out == 1 && disarmed == 14,
-          "every landplane of fourteen flown and disarmed: " + std::to_string(flown) +
+    check(taught.size() == 16 && flown == 15 && left_out == 1 && disarmed == 15,
+          "every landplane of fifteen flown and disarmed: " + std::to_string(flown) +
               " flown, " + std::to_string(disarmed) + " disarmed, " +
               std::to_string(left_out) + " left out");
 }
@@ -4808,8 +4808,8 @@ GLIDESLOPE_TEST(in_a_steady_15_kt_crosswind_every_landplane_stops_on_the_runway_
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 15 && flown == 14 && left_out == 1 && mains.size() == flown,
-          "every landplane of fourteen flown, the flying boat left out: " +
+    check(taught.size() == 16 && flown == 15 && left_out == 1 && mains.size() == flown,
+          "every landplane of fifteen flown, the flying boat left out: " +
               std::to_string(flown) + " and " + std::to_string(left_out));
 }
 
@@ -4846,8 +4846,8 @@ GLIDESLOPE_TEST(an_approach_flown_well_in_gusts_is_not_sent_round_by_the_stabili
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(taught.size() == 15 && flown == taught.size(),
-          "every one of the fifteen aeroplanes taught the approach flown in gusts: " +
+    check(taught.size() == 16 && flown == taught.size(),
+          "every one of the sixteen aeroplanes taught the approach flown in gusts: " +
               std::to_string(flown));
 }
 
@@ -6848,7 +6848,7 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
     }
     check(faults.empty(), std::to_string(faults.size()) + " faults; the first: " +
                               (faults.empty() ? "" : faults.front()));
-    check(flown + not_watched == roster.size() && not_watched == 1,
+    check(flown + not_watched == roster.size() && not_watched == 0,
           "every aeroplane flown, or named as unwatched: " + std::to_string(flown) + " and " +
               std::to_string(not_watched));
     check(phases_with_margin == 3 * flown,
@@ -7705,7 +7705,7 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_an_approach_and_hands_it_over) {
     check(walked == flown.size(),
           "every aeroplane taught the exercise demonstrated it: " +
               std::to_string(walked) + " of " + std::to_string(flown.size()));
-    check(walked == 15, "fifteen aeroplanes demonstrated an approach, not " +
+    check(walked == 16, "sixteen aeroplanes demonstrated an approach, not " +
                             std::to_string(walked));
 }
 
@@ -8427,9 +8427,9 @@ void every_landplane_taking_off(
         each(id, entry);
         ++flown;
     }
-    check(flown + left_out == taught.size() && left_out == 1 && flown == 14,
+    check(flown + left_out == taught.size() && left_out == 1 && flown == 15,
           "every landplane taught the approach taken off: " + std::to_string(flown) + " of " +
-              std::to_string(taught.size() - left_out) + ", 14 expected");
+              std::to_string(taught.size() - left_out) + ", 15 expected");
 }
 
 void say_wrong(const std::vector<std::string>& wrong) {
@@ -8726,6 +8726,7 @@ const std::vector<std::pair<std::string, std::vector<std::string>>>& lift_off_sw
         {"the Cub and the PA-28", {"j3cub", "pa28"}},
         {"the Mosquito", {"mosquito-fb6"}},
         {"the 747-400", {"747-400"}},
+        {"the F-22A", {"f22"}},
     };
     return parts;
 }
@@ -8816,7 +8817,7 @@ void sweep_after_lift_off(const std::string& part) {
 // **The lift-off sweep's parts hand every landplane over at every half
 // second, once**: every landplane taught the approach (14; the flying boat,
 // which takes off from water, named) is in exactly one part and every name
-// in a part is one of them - 14 times 21, 294 hand-overs in all.
+// in a part is one of them - 15 times 21, 315 hand-overs in all.
 GLIDESLOPE_TEST(the_lift_off_sweeps_parts_hand_every_landplane_over_at_every_half_second_exactly_once) {
     std::map<std::string, int> in_parts;
     for (const auto& part : lift_off_sweep_parts()) {
@@ -8839,8 +8840,8 @@ GLIDESLOPE_TEST(the_lift_off_sweeps_parts_hand_every_landplane_over_at_every_hal
     }
     const std::size_t hand_overs = once * lift_off_sweep_delays;
     std::printf("  %zu landplanes, each in one part: %zu hand-overs\n", once, hand_overs);
-    check(hand_overs == 294, "the lift-off sweep's parts hand over " + std::to_string(hand_overs) +
-                                 " times, 294 expected");
+    check(hand_overs == 315, "the lift-off sweep's parts hand over " + std::to_string(hand_overs) +
+                                 " times, 315 expected");
 }
 
 GLIDESLOPE_TEST(the_737_300_and_a320_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway) {
@@ -8873,6 +8874,10 @@ GLIDESLOPE_TEST(the_mosquito_handed_over_at_any_half_second_of_the_ten_after_lif
 
 GLIDESLOPE_TEST(the_747_400_handed_over_at_any_half_second_of_the_ten_after_lift_off_climbs_away_and_never_touches_the_runway) {
     sweep_after_lift_off("the 747-400");
+}
+
+GLIDESLOPE_TEST(the_f22a_handed_over_at_any_half_second_of_the_ten_after_lift_off_climbs_away_and_never_touches_the_runway) {
+    sweep_after_lift_off("the F-22A");
 }
 
 // **A touch-and-go handed over as she leaves the runway again is climbed
@@ -10376,7 +10381,7 @@ GLIDESLOPE_TEST(the_flares_incidence_limit_is_the_approachs_and_a_pilots_flare_d
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(tried == taught.size() && tried == 15,
+    check(tried == taught.size() && tried == 16,
           "every aeroplane taught the approach was tried: " + std::to_string(tried) + " of " +
               std::to_string(taught.size()));
 }

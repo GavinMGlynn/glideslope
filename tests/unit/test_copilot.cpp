@@ -491,11 +491,12 @@ GLIDESLOPE_TEST(a_plan_from_the_ground_may_end_in_a_landing_on_a_runway_it_was_t
 
 // **The brief tells the approach speed the AI will fly**, at the loading
 // she will have - her model's own, which a server flies - not her figures'
-// speed for theirs. Every aircraft: each one with an approach speed (14) is
+// speed for theirs. Every aircraft: each one with an approach speed (16) is
 // put on final at her model's weight and handed to the AI as a server hands
 // her (with her learnt landing, where she has one); her brief's approach
 // speed must be what her approach autopilot is given, to the knot it is
-// told in. The two with none (the 747-400, the F-22A) are briefed none.
+// told in. Every aircraft has one since the F-22A's stall was measured from
+// her model (2026-11-02); one with none would be briefed none.
 GLIDESLOPE_TEST(every_aircrafts_brief_tells_the_approach_speed_the_ai_flies_her_at_for_her_models_weight) {
     const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     const auto catalogue = glideslope::sim::read_catalogue(data);
@@ -544,7 +545,7 @@ GLIDESLOPE_TEST(every_aircrafts_brief_tells_the_approach_speed_the_ai_flies_her_
                   " kt and flown at " + std::to_string(flown));
         ++told;
     }
-    check(told == 15 && none == 1 && told + none == catalogue.size(),
+    check(told == 16 && none == 0 && told + none == catalogue.size(),
           "every aircraft: " + std::to_string(told) + " briefed a speed and " +
               std::to_string(none) + " none, of " + std::to_string(catalogue.size()));
 }
@@ -1743,7 +1744,7 @@ GLIDESLOPE_TEST(
     const double with_reverse[] = {1.67, 2.2, 2.3, 2.5, 2.9, 3.4};
     const std::vector<std::string> reversing{"737-300", "747-400", "787-8", "a320",
                                              "a380"};
-    const std::vector<std::string> unpublished{"f22", "short_s23"};
+    const std::vector<std::string> unpublished{"short_s23"};
     for (int code = 1; code <= 6; ++code) {
         const auto at = static_cast<std::size_t>(6 - code);
         check(glideslope::world::landing_distance_factor(code, false) ==
@@ -1871,7 +1872,7 @@ GLIDESLOPE_TEST(
         }
     }
     check(without == unpublished,
-          "the aircraft with no landing distance are the two named");
+          "the aircraft with no landing distance is the one named");
     std::sort(reversed.begin(), reversed.end());
     check(reversed == reversing,
           "the aircraft briefed to reverse are the five airliners");

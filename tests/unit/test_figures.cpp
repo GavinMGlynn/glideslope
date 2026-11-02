@@ -1104,6 +1104,12 @@ GLIDESLOPE_TEST(the_f35b_stalls_where_its_own_model_said_it_would) {
     expect_figure("f35b", "stall_speed_landing");
 }
 
+// Her slowest steady flight landing configured, 14 CFR 1.2's VS0, measured
+// from her model on 2026-11-02 (`steady="1"`): her stall figure since then.
+GLIDESLOPE_TEST(the_f22_stalls_where_its_own_model_said_it_would) {
+    expect_figure("f22", "stall_speed_landing");
+}
+
 GLIDESLOPE_TEST(the_short_s23_stalls_where_its_own_model_said_it_would) {
     expect_figure("short_s23", "stall_speed_landing");
 }
@@ -1330,8 +1336,10 @@ GLIDESLOPE_TEST(every_published_figure_has_a_flight_and_every_flight_a_figure) {
     // each at two loadings, on 2026-10-13.
     // A hundred and thirty-four: the Short S.23's stall at Gouge's lift
     // coefficient, with full flap at 40,500 lb, on 2026-10-24.
-    check(figures_in_files == 134,
-          "a hundred and thirty-four figures, one test each above; found " +
+    // A hundred and thirty-five: the F-22A's slowest steady flight landing
+    // configured, measured from her model, as her stall, on 2026-11-02.
+    check(figures_in_files == 135,
+          "a hundred and thirty-five figures, one test each above; found " +
               std::to_string(figures_in_files));
 }
 

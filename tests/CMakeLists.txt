@@ -322,6 +322,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_cub_and_pa28_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway
     the_mosquito_handed_over_at_any_half_second_of_the_ten_after_lift_off_climbs_away_and_never_touches_the_runway
     the_747_400_handed_over_at_any_half_second_of_the_ten_after_lift_off_climbs_away_and_never_touches_the_runway
+    the_f22a_handed_over_at_any_half_second_of_the_ten_after_lift_off_climbs_away_and_never_touches_the_runway
     a_touch_and_go_handed_over_as_she_leaves_the_runway_again_is_climbed_away
     a_take_off_levelled_low_down_and_handed_over_is_not_given_the_climb_out
     every_airliner_at_her_take_off_flap_and_gear_holds_a_low_height_settled_inside_a_minute
@@ -765,6 +766,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_b2_stalls_where_its_own_model_said_it_would
     the_f15c_stalls_where_its_own_model_said_it_would
     the_f35b_stalls_where_its_own_model_said_it_would
+    the_f22_stalls_where_its_own_model_said_it_would
     the_boeing_737_300_stalls_at_its_take_off_flap_where_its_own_model_said_it_would
     the_boeing_787_8_stalls_at_its_take_off_flap_where_its_own_model_said_it_would
     the_airbus_a320_stalls_at_its_take_off_flap_where_its_own_model_said_it_would
@@ -3776,8 +3778,10 @@ foreach(_pair openai:gpt-5.4-mini-2026-03-17 anthropic:claude-haiku-4-5-20251001
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/plans_flown/${_provider}-recorded)
 endforeach()
-# **And the two with no approach speed and measured take-off speeds**, the
-# 747-400 and the F-22A (2026-10-06): planned by Claude as the Cessna is, the
+# **And the two with measured take-off speeds**, the 747-400 and the F-22A
+# (2026-10-06; each with an approach speed since, the 747-400's Boeing's on
+# 2026-11-01 and the F-22A's from her measured stall on 2026-11-02, recorded
+# again then): planned by Claude as the Cessna is, the
 # plan taken off Sydney and flown round its orbit by glideslope_cli fly-plan -
 # held within 60 m of its circle, as the Cessna is. Held within 500 m until
 # 2026-10-09: on the 2026-10-06 recordings each swung about 460 m off it.
