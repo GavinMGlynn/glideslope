@@ -13,7 +13,8 @@
 // unbuffered stream stages what it formats in 128 bytes and writes each 128
 // as it fills (include/printf_buffer.h, PRINTF_BUFFER_SIZE_TO_FILE_STAGE): a
 // line longer than that is two writes or more, whoever wrote it - strace
-// shows impair's summary, 146 bytes, as a write of 128 and one of 18.
+// shows impair's 193-byte "not an address" line as a write of 128 and one
+// of 65, and as one write of 193 once this is called.
 // Line buffering puts the whole line in the stream's buffer and writes it
 // once at its newline; the stream's lock is held for the whole call, so a
 // line from one thread is not mixed with another's in the buffer either. One
