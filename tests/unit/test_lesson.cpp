@@ -3014,8 +3014,8 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
         {"787-8", "she touches at 398 ft/min on macOS (seed 2), CI run 38006839738; on "
                   "forty seeds here at 352, 358 and 377 ft/min (seeds 21, 25, 40)"},
         {"a380", "she touches 907 m along, not 25 m inside the touchdown zone (seed 7); on "
-                 "forty seeds here she also meets the runway at 338 and 397 ft/min (seeds "
-                 "13, 18) and strikes her airframe (seed 34)"},
+                 "forty seeds here she also meets the runway at 350 ft/min (seed 18) and "
+                 "strikes her airframe (seed 34)"},
         {"b2", "a gust rolls her on to a wingtip as she touches (seed 8); on forty seeds "
                "here, on ten (seeds 8, 10, 17, 23, 25, 31, 33, 38, 39, 40)"},
         {"c172p", "she touches at 346.3 ft/min on macOS release (seed 3), not 25 inside "
