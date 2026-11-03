@@ -1159,13 +1159,20 @@ GLIDESLOPE_TEST(an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_i
         {"too much headwind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "17 kt of headwind", 0.0, 17.0},
         {"too much tailwind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "7 kt of tailwind", 0.0, -7.0},
         {"too much wind in all", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f, "17 kt of wind", 12.0, 12.0},
-        {"too much crosswind with the wind behind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f,
-         "kt of crosswind with the wind behind; the gate is within 2.75", -5.0, -3.0},
+        {"across with the wind behind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref + 2.0, f, "",
+         6.0, -4.9},
+        {"too much wind in all with it behind", "c172p", 2.0 * nm, 0.0, 0.0, 0.0, vref, f,
+         "kt of wind; the gate is within 15", -14.9, -5.0},
     };
     // Every refusal outside_learnt_gate gives, each way it gives it: two in
     // distance, two across, two in height, two in heading, two in speed, the
     // flaps short and up, the aeroplane, and the wind across, ahead and
-    // behind, in all, and across with it behind - eighteen - and three inside.
+    // behind, and in all both ahead and behind - eighteen - and four inside.
+    // **Left out: across with the wind behind**, its own refusal: its limit
+    // (LearntGate::most_crosswind_behind_kts) is the crosswind's 15 kt since
+    // 2026-11-03, so the crosswind's refusal is given first and it is not
+    // reached. Inside: 6 kt across with 4.9 behind, from the left, which
+    // until then it refused.
     std::size_t inside = 0;
     std::size_t outside = 0;
     for (const Case& c : cases) {
@@ -1193,7 +1200,7 @@ GLIDESLOPE_TEST(an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_i
             ++outside;
         }
     }
-    check(inside == 3 && outside == 18, "three inside and eighteen refusals walked: " +
+    check(inside == 4 && outside == 18, "four inside and eighteen refusals walked: " +
                                             std::to_string(inside) + " and " +
                                             std::to_string(outside));
 }
@@ -1379,9 +1386,18 @@ namespace {
 
 // **What the gate lets in past its crosswind with the wind behind**:
 // outside_learnt_gate refuses only beyond each wind limit and 0.05 kt more,
-// so the corners with wind behind and across are flown there - at the edge
-// the gate admits, not the constant's.
+// so the corners with wind behind and across are flown at the edge the gate
+// admits, not the constant's: that limit and 0.05 kt, or - since 2026-11-03,
+// its limit the crosswind's 15 kt - as much across as keeps the wind in all
+// within 15 kt with 5 behind, 14.1 kt.
 constexpr double wind_allowance_kts = 0.05;
+
+double most_across_behind_kts() {
+    using Gate = glideslope::sim::LearntGate;
+    return std::min(Gate::most_crosswind_behind_kts + wind_allowance_kts,
+                    std::sqrt(Gate::most_wind_kts * Gate::most_wind_kts -
+                              Gate::most_tailwind_kts * Gate::most_tailwind_kts));
+}
 
 struct CornerWind {
     const char* name;
@@ -1400,10 +1416,10 @@ std::vector<CornerWind> corner_winds() {
              Gate::most_wind_kts / std::sqrt(2.0)},
             {"quartering ahead from the right", -Gate::most_wind_kts / std::sqrt(2.0),
              Gate::most_wind_kts / std::sqrt(2.0)},
-            {"behind and across from the left",
-             Gate::most_crosswind_behind_kts + wind_allowance_kts, -Gate::most_tailwind_kts},
-            {"behind and across from the right",
-             -(Gate::most_crosswind_behind_kts + wind_allowance_kts), -Gate::most_tailwind_kts}};
+            {"behind and across from the left", most_across_behind_kts(),
+             -Gate::most_tailwind_kts},
+            {"behind and across from the right", -most_across_behind_kts(),
+             -Gate::most_tailwind_kts}};
 }
 
 void lands_from_every_corner_in(const std::string& wind) {
@@ -1514,9 +1530,11 @@ GLIDESLOPE_TEST(the_corner_landings_are_flown_in_the_nine_winds_at_the_gates_edg
         const bool quartering = w.head_kts > 0.0 &&
                                 std::abs(std::abs(w.across_kts) - w.head_kts) < 1e-12 &&
                                 std::abs(in_all - Gate::most_wind_kts) < 1e-12;
-        const bool behind_across = w.head_kts == -Gate::most_tailwind_kts &&
-                                   std::abs(w.across_kts) ==
-                                       Gate::most_crosswind_behind_kts + wind_allowance_kts;
+        // At its crosswind limit with the allowance, or at the wind in all.
+        const bool behind_across =
+            w.head_kts == -Gate::most_tailwind_kts && w.across_kts != 0.0 &&
+            (std::abs(w.across_kts) == Gate::most_crosswind_behind_kts + wind_allowance_kts ||
+             std::abs(in_all - Gate::most_wind_kts) < 1e-12);
         const bool one = calm || across || ahead || behind || quartering || behind_across;
         check(one, std::string(w.name) + " is at an edge");
         check(in_all <= Gate::most_wind_kts + 1e-12,
