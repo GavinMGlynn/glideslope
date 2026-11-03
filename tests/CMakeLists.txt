@@ -1225,16 +1225,19 @@ set(GLIDESLOPE_UNIT_TESTS
     a_download_cannot_be_killed_by_a_server_hanging_up
     a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound
     a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone)
-# **The gust landings' nightly seeds**, 9 to 40 (tests/unit/test_lesson.cpp):
-# the eight above run on every pull request, and these every night, named in
-# tests/cmake/nightly_tests.cmake - forty seeds' flights are too long for a
-# pull request's run.
-set(GLIDESLOPE_GUST_NIGHTLY_SEEDS "")
+# **The gust landings' seeds 9 to 40** (tests/unit/test_lesson.cpp),
+# labelled gust_sweep: the eight above run on every pull request, and these
+# in every other run - every night - but no pull request's (ci.yml leaves the
+# label out there, as it does nightly's; tests/cmake/ci_shards.cmake asserts
+# it). Forty seeds' flights are too long for a pull request's run. Not the
+# nightly label: that is for tests moved out of pull requests' runs after
+# failing on CI (tests/cmake/nightly_tests.cmake), and these have not.
+set(GLIDESLOPE_GUST_SWEEP_SEEDS "")
 foreach(_seed RANGE 9 40)
-    list(APPEND GLIDESLOPE_GUST_NIGHTLY_SEEDS
+    list(APPEND GLIDESLOPE_GUST_SWEEP_SEEDS
         in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_${_seed})
 endforeach()
-list(APPEND GLIDESLOPE_UNIT_TESTS ${GLIDESLOPE_GUST_NIGHTLY_SEEDS})
+list(APPEND GLIDESLOPE_UNIT_TESTS ${GLIDESLOPE_GUST_SWEEP_SEEDS})
 foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     # Registered below: its result is what the program says after main.
     if(WIN32 AND _t STREQUAL "a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone")
@@ -1243,7 +1246,7 @@ foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     add_test(NAME ${_t} COMMAND glideslope_tests ${_t})
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
-set_tests_properties(${GLIDESLOPE_GUST_NIGHTLY_SEEDS} PROPERTIES LABELS nightly)
+set_tests_properties(${GLIDESLOPE_GUST_SWEEP_SEEDS} PROPERTIES LABELS gust_sweep)
 
 # **A program that has ended can still allocate until its last thread is gone**
 # (tests/unit/test_process_end.cpp, src/platform/end_process.hpp). What it

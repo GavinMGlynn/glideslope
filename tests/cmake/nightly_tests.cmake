@@ -13,12 +13,4 @@ set(NIGHTLY_TESTS
     "a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_still_begins_on_the_servers_law_state|Her jet-borne law's state, which no word carries, drifts from the server's while the joining client's first inputs have the selector off: pitch past its 0.5 degree bound (the open Phase 12a busy-machine item)|ubuntu linux-debug 40800355368 (0.592), #279's 40992479828 (0.624) and 41006534168 (0.572), train 41009739851 (main's model)"
     "a_predicting_f35b_whose_client_stops_three_seconds_between_flying_and_sending_is_placed_within_four_steps_travel|On a loaded runner the server's words are placed steps off: past four steps' travel (the open Phase 12a busy-machine item)|ubuntu linux-debug 40575068951 (10 steps off), windows-clang 41009739851 (6.893 m across the stall against 5.51)"
 )
-# **And the gust landings' seeds 9 to 40**, not for a failure: forty seeds'
-# flights are too long for a pull request's run, so the eight-seed test runs
-# there and these every night (#308's review, 2026-11-03:
-# the forty-seed sweep asserted, not believed). A failure here is a red tree.
-foreach(_seed RANGE 9 40)
-    list(APPEND NIGHTLY_TESTS
-        "in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_${_seed}|Seed ${_seed} of the forty the gust item is judged on: too long for a pull request's run|none: nightly by design (#308)")
-endforeach()
-set(NIGHTLY_COUNT 37)
+set(NIGHTLY_COUNT 5)

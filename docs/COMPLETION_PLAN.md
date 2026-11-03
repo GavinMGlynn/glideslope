@@ -1190,7 +1190,7 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       rolled up from rest to 0.5-4.5 kt and stopped keeps within 8.9 degrees.
 - [ ] **The flying boat lands in gusts without skipping.** She skips
       off the water on macOS release's seed 3 (0.93 ft), where she is
-      named, and fails six of 48 seeds on Linux: she touches where her wing
+      named, and fails seven of forty seeds on Linux: she touches where her wing
       still carries her (owner's rulings and figures in docs/status).
       *Verification: the S.23 lands in calm air and in gusts within the
       landplanes' limits.*
