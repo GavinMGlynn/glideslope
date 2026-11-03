@@ -71,6 +71,24 @@ stall-figure tests" (Phase 10b) holds what is left:
   recorded again (her prompt now gives her approach speed), and its
   playback passes.
 
+**The new namings, each seen to fail** (from the review of #302). With a
+deliberate bug in each, built and run, then reverted and run green:
+- `NamedRoll` held to 29.99 s: "f22 at 0.5 kt is named at 29.990000 s
+  rolled, and is worse: 29.933333".
+- `named_debrief` expecting "Recover with the least height you can!": "f22
+  is named for saying ... and said 1 things: take its name off, or see
+  what is new".
+- The stall watch's `held_to` at 70 kt: "f22 is named at 70.000000 kt and
+  2728.000000 ft lost, and is worse: 59.367543 kt and 2728.490780 ft". The
+  stall watch now holds her to her figures, 59.4 kt and 2,728 ft lost,
+  with the 10 per cent in hand. Until the review it held only the fault's
+  name.
+
+**Two margins are tight and were seen only on Linux.** Her wet roll at 0.5
+kt is held to 29.93 s of 30 with 0.01 s in hand. Her touch is held to
+14.30 degrees with 0.05 in hand. CI's full run is the first look at the
+other platforms.
+
 **Verification.** linux-release, `ctest -LE nightly -j4`, no display. Before
 the count fixes: 1,440 tests, 46 failed, 4,750 s. After them and the names,
 every test that had failed was run again from the test binary, and all

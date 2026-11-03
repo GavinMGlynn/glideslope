@@ -153,14 +153,16 @@ Boeing's published 153 kt, and lands within her limits, her flaps raised
 after a take-off by her manoeuvre speeds; since 2026-11-02 she lands in gusts
 on all eight seeds here, on Linux, as do the A320, Learjet 35A and Mosquito,
 with the PA-28, and the flying boat but for Windows's seed 5 and macOS
-release's seed 3: six of fifteen; nine are still named. She is
+release's seed 3: six of sixteen; ten are still named. She is
 taught the approach but not yet the take-off, climb or circuit (her speeds
 are measured, not a book's). The F-22A is taught stalls and the approach
 since 2026-11-02, with a stall figure measured from her model (her slowest
-steady flight, 90 KCAS). She lands at 1.3 times it within her limits in
-calm air and 15 kt across, but she is named, with her figures, in her stall
-recoveries, the AI's stall watch, the approach lesson's tail-strike margin
-and her gust landings (an open item);
+steady flight, 90 KCAS). At 1.3 times it she lands on the centreline in
+calm air and 15 kt across within 360 ft/min, but touches at 14.3 degrees of
+nose, inside the 2.5-degree tail-strike margin, and is named for it: her
+measured 6,300 ft landing is that touch's. She is named too, with her
+figures, in her stall recoveries, the AI's stall watch and her gust
+landings (an open item);
 the Learjet cannot be rotated early since her stabilizer
 was tied to her maintenance manual (a tail). See the log for 2026-09-22 to
 2026-09-24, and later entries for what was fixed since (the F-35B's

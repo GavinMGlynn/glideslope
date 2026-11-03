@@ -2813,7 +2813,7 @@ GLIDESLOPE_TEST(the_ai_flies_every_approach_at_the_speed_for_its_figures_loading
 // hydrodynamics, the catalogue's `seaplane` - her hull's and floats' contacts
 // instead; none is flown to her bare centre of gravity, and no landplane's
 // flare hangs from a contact that is not a wheel. Coverage asserted: the
-// fifteen taught the approach, fourteen landplanes and one flying boat.
+// sixteen taught the approach, fifteen landplanes and one flying boat.
 GLIDESLOPE_TEST(every_landplane_flares_to_her_main_wheels_and_a_flying_boat_to_her_hull) {
     const auto taught = everyone_taught("approach-and-landing");
     std::size_t landplanes = 0;
@@ -2851,10 +2851,10 @@ GLIDESLOPE_TEST(every_landplane_flares_to_her_main_wheels_and_a_flying_boat_to_h
 // **No landplane has an afterbody, and the flying boat's meets the water at
 // her keel's angle**: the lander finds the trim her afterbody keel meets the
 // water at (`Lander::afterbody_deg`), which bounds her hold on the step,
-// only on a hull - 0 for each of the fourteen landplanes taught the
+// only on a hull - 0 for each of the fifteen landplanes taught the
 // approach - and for the S.23 it is the 10.81 degrees her keel skids rise at
 // from her step to her stern (1.26 m over 6.6 m, tools/make_short_s23.py).
-// Coverage asserted: the fifteen taught the approach, fourteen landplanes
+// Coverage asserted: the sixteen taught the approach, fifteen landplanes
 // and one flying boat.
 GLIDESLOPE_TEST(no_landplane_has_an_afterbody_and_the_flying_boats_meets_the_water_at_her_keels_angle) {
     const auto taught = everyone_taught("approach-and-landing");
@@ -3213,9 +3213,9 @@ std::vector<std::string> gusty_all() {
 // **Every jet's spool-up is measured from her model, and a propeller has
 // none.** The flare's power in gusts is worked on the sink as far ahead as
 // her engines take to answer (`ApproachSpeeds::spool_s`): every aeroplane
-// taught the approach (15) has it from `approach_speeds` - a jet's above
+// taught the approach (16) has it from `approach_speeds` - a jet's above
 // zero and under ten seconds, from her own engine's N1 (`sim::spool_up_s`),
-// and a propeller aeroplane's zero. Coverage asserted: fifteen, each a jet
+// and a propeller aeroplane's zero. Coverage asserted: sixteen, each a jet
 // or not by her figures.
 GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_has_none) {
     const auto taught = everyone_taught("approach-and-landing");
@@ -3247,7 +3247,7 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
     check(wrong.empty(), std::to_string(wrong.size()) + " wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     check(taught.size() == 16 && jets + propellers == taught.size(),
-          "fifteen, each a jet or a propeller: " + std::to_string(jets) + " jets and " +
+          "sixteen, each a jet or a propeller: " + std::to_string(jets) + " jets and " +
               std::to_string(propellers) + " propellers");
 }
 
@@ -3348,10 +3348,10 @@ GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_
 // by her groundspeed, a C172P touching at 55 kt into this wind is rolling at
 // 40 - "slow" - with her wing still carrying her: her stick comes back, her
 // nose rises and she flies off the runway again. Every aeroplane taught the
-// approach (15), down final in fifteen knots straight down the runway with
+// approach (16), down final in fifteen knots straight down the runway with
 // no turbulence and no gust factor, must not go around, must stay on her
 // wheels the right way up, rise no more than `settled_within_ft` after her
-// wheels met the runway, and stop. Coverage asserted: fifteen flown and
+// wheels met the runway, and stop. Coverage asserted: sixteen flown and
 // judged, none named - the S.23 with the landplanes since her hull planes
 // (2026-10-14). Seen red on the rollout judged by groundspeed in steady
 // air: the C172P, C182, Cub and PA-28 flew off the runway again, 2.7 to 6.6
@@ -3440,7 +3440,7 @@ GLIDESLOPE_TEST(in_a_steady_15_kt_headwind_every_aeroplane_lands_and_rolls_out_w
 
 // **In a steady 10 kt tailwind every aeroplane lands and rolls out without
 // lifting off again, and stops**: the rollout judged by her groundspeed,
-// there the more of the two. All fifteen are judged, the flying boat with
+// there the more of the two. All sixteen are judged, the flying boat with
 // the landplanes since her hull planes (2026-10-14).
 GLIDESLOPE_TEST(in_a_steady_10_kt_tailwind_every_aeroplane_lands_and_rolls_out_without_lifting_off_again) {
     rolls_out_in_a_steady_wind(-10.0, {});
@@ -3676,7 +3676,7 @@ private:
 
 // **The autobrake with nothing to slow, at idle, stays bounded and her nose
 // up - for half a minute, at every pace to walking pace.** Every landplane
-// taught the approach (14; the flying boat, afloat, has no brakes - named),
+// taught the approach (15; the flying boat, afloat, has no brakes - named),
 // at every pace from 0.5 to 4.5 kt by half a knot (5 kt named, above), is
 // set rolling at her pace along the runway (`held_at`), handed to the
 // rollout, her throttle closed, and **pushed along at her pace** for
@@ -3694,7 +3694,7 @@ private:
 //     does not go over, her nose stays above -5 degrees and her wings within
 //     15, and she turns no more than 30 degrees from her heading at the
 //     hand-over; and she stops.
-// Coverage asserted: 14 landplanes by 9 paces, every run its `held_s` under
+// Coverage asserted: 15 landplanes by 9 paces, every run its `held_s` under
 // the autobrake, rolling all of it and within `most_off_pace_kts` of her
 // pace from `settle_s`, and her autobrake at its ceiling in each; every
 // nose-wheel landplane at each creep pace braked to the idle allowance (or
@@ -4028,7 +4028,7 @@ GLIDESLOPE_TEST(every_landplane_held_at_every_pace_to_walking_pace_at_idle_on_a_
 }
 
 // **A gust that pushes her from 1 kt to 2 kt, her throttle closed, does not
-// wind her brakes up.** Every landplane taught the approach (14; the flying
+// wind her brakes up.** Every landplane taught the approach (15; the flying
 // boat named) is rolled up to 1 kt on the throttle and given to the
 // rollout, which closes it; a 20 kt gust from behind then blows for five
 // seconds. While her speed grows under 2 kt her idle thrust may be what
@@ -4178,7 +4178,7 @@ GLIDESLOPE_TEST(every_landplane_held_at_every_pace_to_walking_pace_at_idle_in_a_
 
 // **Rolled up from rest to every walking pace and stopped, every landplane
 // keeps within 30 degrees of her heading.** Every landplane taught the
-// approach (14; the flying boat, afloat, has no brakes - named), at every
+// approach (15; the flying boat, afloat, has no brakes - named), at every
 // pace from 0.5 to 4.5 kt by half a knot (5 kt named, as above), settled on
 // her brakes at rest on the runway's heading, is rolled up from rest on the
 // throttle's slow ramp (0.03 a second) to her pace, held there for
@@ -4191,7 +4191,7 @@ GLIDESLOPE_TEST(every_landplane_held_at_every_pace_to_walking_pace_at_idle_in_a_
 // not gone over; and she reaches her pace and stops. **Until 2026-10-30 the
 // Mosquito swung 47 degrees off the runway in 15 kt across**, rolled up
 // below 2 kt, where the steering brake faded with her speed to none at a
-// stop: see lander.cpp. Coverage asserted: 14 landplanes by 9 paces, every
+// stop: see lander.cpp. Coverage asserted: 15 landplanes by 9 paces, every
 // run rolled up and stopped; the paces and the one named are the whole
 // range. One test calm, one in 15 kt straight across.
 namespace {
@@ -4360,7 +4360,7 @@ GLIDESLOPE_TEST(every_landplane_rolled_up_from_rest_to_every_walking_pace_in_a_1
 }
 
 // **A throttle advanced on the roll disarms the autobrake, and it stays
-// disarmed.** Every landplane taught the approach (14; the flying boat, with
+// disarmed.** Every landplane taught the approach (15; the flying boat, with
 // no brakes, named) is held at 3 kt under the rollout for 10 s at idle, her
 // autobrake coming up to its rolling ceiling; then the test's hand opens her
 // throttle to 0.1 over the rollout's for 2 s and closes it again, and she is
@@ -4369,7 +4369,7 @@ GLIDESLOPE_TEST(every_landplane_rolled_up_from_rest_to_every_walking_pace_in_a_1
 // `disarm_throttle` over the least it has been, and none of its brake from
 // the next step to the end, the throttle closed again; then armed again
 // (`resume`, as the controller arms it), armed and braking her to her
-// ceiling within 5 s. Coverage asserted: 14 of 14 landplanes. Seen red with the disarm taken out: see the status
+// ceiling within 5 s. Coverage asserted: 15 of 15 landplanes. Seen red with the disarm taken out: see the status
 // file, 2026-10-29.
 GLIDESLOPE_TEST(a_throttle_advanced_on_the_roll_disarms_every_landplanes_autobrake_until_it_is_armed_again) {
     using glideslope::sim::Lander;
@@ -6245,6 +6245,13 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
     // and loses 2,728 ft. Item "The F-22A flies her stall-figure tests".
     const std::map<std::string, std::string> not_yet = {
         {"a380", "slowed under her stall"}, {"f22", "slowed under her stall"}};
+    // Her figures, held with the tolerance in hand so she gets no worse
+    // unseen: the slowest she reached, and the height she lost after.
+    struct HeldTo {
+        double slowest_kts;
+        double lost_ft;
+    };
+    const std::map<std::string, HeldTo> held_to = {{"f22", {59.4, 2728.0}}};
     std::set<std::string> named_seen;
     const Taught taught = taught_for("stalls");
     const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
@@ -6325,7 +6332,16 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
             fault = "not back at her approach speed and level";
         }
         const auto name = not_yet.find(id);
-        if (name != not_yet.end() && name->second == fault) {
+        const auto figure = held_to.find(id);
+        if (name != not_yet.end() && name->second == fault && figure != held_to.end() &&
+            (slowest < figure->second.slowest_kts / (1.0 + between_machines) ||
+             highest - lowest > figure->second.lost_ft * (1.0 + between_machines))) {
+            named_seen.insert(id);
+            faults.push_back(id + " is named at " + std::to_string(figure->second.slowest_kts) +
+                             " kt and " + std::to_string(figure->second.lost_ft) +
+                             " ft lost, and is worse: " + std::to_string(slowest) + " kt and " +
+                             std::to_string(highest - lowest) + " ft");
+        } else if (name != not_yet.end() && name->second == fault) {
             named_seen.insert(id);
             std::printf("      named, not yet: %s %s\n", id.c_str(), fault.c_str());
         } else if (name != not_yet.end()) {
@@ -8748,7 +8764,7 @@ GLIDESLOPE_TEST(the_figures_the_server_and_client_tell_their_controllers_give_ev
 }
 
 // **And a take-off handed over at lift-off is not a skip**: every landplane
-// taught the approach (14; the flying boat named), taken off by the pilot at
+// taught the approach (15; the flying boat named), taken off by the pilot at
 // full power - the take-off autopilot's controls as the pilot's - and handed
 // to the AI on the step her wheels leave the runway, inside the skip's
 // second and three feet, is not given a landing to stop her.
@@ -8769,7 +8785,7 @@ GLIDESLOPE_TEST(a_take_off_handed_over_at_lift_off_is_not_given_a_landing) {
 }
 
 // **A take-off handed over at lift-off is climbed away**: every landplane
-// taught the approach (14; the flying boat named), handed to the AI on the
+// taught the approach (15; the flying boat named), handed to the AI on the
 // step her wheels leave the runway, is given the take-off's own climb-out
 // (Controller::takes_off_with), never touches the runway again, and is
 // climbed through 500 ft above it (Controller::lift_off_climb_to_ft) and
@@ -8913,7 +8929,7 @@ void sweep_after_lift_off(const std::string& part) {
 } // namespace
 
 // **The lift-off sweep's parts hand every landplane over at every half
-// second, once**: every landplane taught the approach (14; the flying boat,
+// second, once**: every landplane taught the approach (15; the flying boat,
 // which takes off from water, named) is in exactly one part and every name
 // in a part is one of them - 15 times 21, 315 hand-overs in all.
 GLIDESLOPE_TEST(the_lift_off_sweeps_parts_hand_every_landplane_over_at_every_half_second_exactly_once) {
@@ -8979,7 +8995,7 @@ GLIDESLOPE_TEST(the_f22a_handed_over_at_any_half_second_of_the_ten_after_lift_of
 }
 
 // **A touch-and-go handed over as she leaves the runway again is climbed
-// away too**: every landplane taught the approach (14; the flying boat
+// away too**: every landplane taught the approach (15; the flying boat
 // named), flown down final by the pilot - the approach autopilot's controls
 // as the pilot's - from two miles out, high above the 400 ft the rule
 // looks under; once she has rolled a second on the runway, given full power
@@ -9081,7 +9097,7 @@ GLIDESLOPE_TEST(a_touch_and_go_handed_over_as_she_leaves_the_runway_again_is_cli
 }
 
 // **But levelled low down she is not taken for a take-off**: every landplane
-// taught the approach (14; the flying boat named), taken off by the pilot
+// taught the approach (15; the flying boat named), taken off by the pilot
 // and levelled at 200 ft by an autopilot of the pilot's own - never higher
 // than 400 ft, inside five minutes of her wheels but past the 40 s a
 // take-off takes to settle into its climb - and handed over level, with the
@@ -9126,7 +9142,7 @@ GLIDESLOPE_TEST(a_take_off_levelled_low_down_and_handed_over_is_not_given_the_cl
 // open, so a pilot taxiing that slowly who hands her to the AI has her
 // stopped where she is, and one with more throttle than that - a take-off
 // roll - is given the plain autopilot. Every landplane taught the approach
-// (14; the flying boat named), run up on the runway to ten knots and handed
+// (15; the flying boat named), run up on the runway to ten knots and handed
 // over with the throttle at a half, and again at six tenths.
 GLIDESLOPE_TEST(a_pilot_taxiing_at_no_more_than_half_throttle_who_hands_over_is_stopped_and_above_it_is_not) {
     const auto taught = everyone_taught("approach-and-landing");
