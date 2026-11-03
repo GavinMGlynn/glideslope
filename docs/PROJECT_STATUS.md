@@ -163,14 +163,16 @@ Windows release, so stay named; the A380, F-22A and J-3 Cub are unchanged. The 7
 taught the approach but not yet the take-off, climb or circuit (her speeds
 are measured, not a book's). The F-22A is taught stalls and the approach
 since 2026-11-02, with a stall figure measured from her model. Since
-2026-11-03 it is her stall at idle, 105.8 KCAS, where she pitches up past
-her stabilators with her gear down; it was her slowest level flight with
-power, 90. At 1.3 times it she lands on the centreline in calm air and 15
-kt across within 360 ft/min and outside the tail-strike margin, and her
-measured landing is 7,300 ft. She is still named, with her figures, in her
-stall recoveries, the AI's stall watch, her rise after the touch at her
-model's own weight, a wet crosswind roll-out, one wet walking pace and her
-gust landings (an open item). A stall begun at 1,000 ft is handed to the
+2026-11-04 her alpha is limited with her gear down (tuned, not sourced),
+and her stall is measured at that limit as 14 CFR 25.103(a) has it:
+114.1 KCAS. Before, it was 105.8, where she pitched up past her
+stabilators; before that 90. At 1.3 times it she lands on the centreline
+in calm air within 360 ft/min, and her measured landing is 8,400 ft. Her
+stall recoveries pass without her name. She is still named, with her
+figures, in the AI's stall watch, her rise after the touch at her model's
+own weight, the crosswind roll-out dry and wet (she lifts off from 133.6
+kt and strikes her airframe), one wet walking pace and her gust landings
+(an open item). Not yet run with the limit: Windows and the full suite. A stall begun at 1,000 ft is handed to the
 recovery at the break, and every aeroplane taught a stall is handed over
 above the ground there with full power at once (2026-11-04); left thirty
 seconds stalled at idle there, eight reach the ground first, sinking at

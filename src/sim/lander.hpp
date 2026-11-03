@@ -104,6 +104,9 @@ struct ApproachSpeeds {
     // unless her figures say her pedals command a yaw rate
     // (`yaw_rate_pedal_per_degps`).
     double yaw_damper_per_degps = 0.05;
+    // **The least rate her nose is lowered at after the touch**, degrees a
+    // second: 1.5, unless her figures give their own (`nose_lowered_degps`).
+    double nose_lowered_degps = 1.5;
     // **Whether a tail-wheel aeroplane is landed three-point**, her figures'
     // `lands="three_point"`: held off in the flare until her nose is at the
     // attitude she stands at, and her stick fully back from the touch. Not

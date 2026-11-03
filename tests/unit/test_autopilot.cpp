@@ -1526,7 +1526,8 @@ constexpr double most_height_lost_ft = 300.0;
 // **None named.** The F-22A was, under 127 kt, from 2026-11-02 to
 // 2026-11-03: her approach speed at her combat loading was 117 kt, 1.3 times
 // her slowest level flight trimmed with power; since her stall was measured
-// at idle it is 137.5, and she holds her heading and height from it. Held
+// at idle it was 137.5, and since it is measured at her gear-down alpha limit
+// (2026-11-04) 148.3; she holds her heading and height from it. Held
 // level then by the autopilot, gear down, she needed more nose than its 15
 // degrees and sank: at 117 kt she left her tables, 1,321 ft
 // down, and at 122 she lost 349 ft against 300; from 127 she held within

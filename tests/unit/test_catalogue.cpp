@@ -1885,7 +1885,7 @@ GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables
     check(!f.held(), "and it is not held");
 }
 
-// **The F-22A held at 130 kt on the autopilot departs**, 10 kt under her
+// **The F-22A held at 130 kt on the autopilot**, 10 kt under her
 // slowest, **with her gear down**: a stated flight figure, so that a change
 // to the autopilot that moves it shows. Measured with the gear down, the
 // trial's default until 2026-10-10; flown with it up - the trials' clean
@@ -1904,12 +1904,18 @@ GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables
 // Unbounded, that term held her at 130 kt, giving up 240 ft. **The edge**:
 // she departs at 125, 127, 129 and 130 kt and holds at 131, 133 and 135 -
 // within a knot of it here (PROJECT_STATUS, 2026-10-13).
-GLIDESLOPE_TEST(the_f22a_held_at_130_kt_on_the_autopilot_departs) {
+// **She departed there until 2026-11-04**, and this test said so (named
+// `..._departs`). Since her alpha is limited with her gear down
+// (tools/make_f22.py) she holds 130 kt inside her tables, sideslip 0.0.
+// **Seen to turn**: without the limit, as main flew her before 2026-11-04,
+// she left them and the old check passed; with the limit the old check
+// failed, "she left her tables at 130 kt".
+GLIDESLOPE_TEST(the_f22a_held_at_130_kt_on_the_autopilot_with_her_gear_down_keeps_inside_her_tables) {
     const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "f22");
     const glideslope::sim::CrosswindFlown f =
         glideslope::sim::fly_heading_in_crosswind(data(), e, 130.0, false, 30.0,
                                                   glideslope::sim::TrialConfiguration::gear_down());
     std::printf("  f22 at 130 kt in calm air, gear down: left its tables %s, sideslip at most %.1f\n",
                 f.left_tables ? "yes" : "no", f.most_sideslip_ever_deg);
-    check(f.left_tables, "she left her tables at 130 kt");
+    check(!f.left_tables, "she kept inside her tables at 130 kt");
 }

@@ -892,12 +892,86 @@ double departure_speed(const std::filesystem::path& root, const PublishedFigures
     throw std::runtime_error("she never pitched up of her own accord");
 }
 
+// **An aeroplane whose flight controls limit her alpha** - `alpha_limited="1"`
+// - is measured as 14 CFR 25.103(a) has a stall speed: VCLmax over the root
+// of the load factor normal to the flight path there. Flown as
+// `departure_speed` flies her - throttles closed, gear and flaps set, her
+// autopilot holding her height and asking for no speed - until she is
+// slowest and gathering speed again 3 knots above it, her stick at its aft
+// stop and her limit holding her nose: 14 CFR 25.201(d)(3)'s stall, the
+// pitch control at its stop and the nose rising no further. The figure is
+// the calibrated airspeed at her greatest lift coefficient in that flight
+// (the lift, normal to the flight path, over the dynamic pressure and the
+// wing), divided by the root of her lift over her weight there: at her
+// limit she sinks, at 0.72 to 0.89 g (the F-22A, 2026-11-04). **Should she
+// pitch up of her own accord past her limit** (as `departure_speed` finds
+// it), the measurement throws: her limit did not hold her.
+// The F-22A's limit is her flight controls' with her gear down
+// (tools/make_f22.py, ALPHA_LIMIT_ONSET_DEG).
+double limited_stall_speed(const std::filesystem::path& root, const PublishedFigures& figures,
+                           const FigureSpec& spec, double entry) {
+    InitialConditions ic = airborne(condition_or(spec, "altitude_ft", 5000.0), entry, true);
+    ic.gear = condition_or(spec, "gear", 0.0);
+    ic.flaps = flaps_command(figures, condition(spec, "flaps_deg"));
+    Flight f(root, figures, spec, ic);
+    Controls c;
+    c.throttle = 0.0;
+    c.flaps = ic.flaps;
+    c.gear = f.gear;
+    Autopilot autopilot(f.aircraft, c);
+    AutopilotModes modes = autopilot.modes();
+    modes.heading_deg = on_the_runway().heading_deg;
+    modes.altitude_ft = f.aircraft.property("position/h-sl-ft");
+    modes.airspeed_kts = 0.0;
+    modes.hold_height_to_the_stall = true;
+    autopilot.set(modes);
+    constexpr double settle_s = 10.0;
+    constexpr double autopilot_pitch_degps = 3.0;
+    constexpr double degrees_per_radian = 57.29577951308232;
+    constexpr double gathering_kts = 3.0;
+    int pitching_up = 0;
+    double slowest = 1e9;
+    double most_cl = 0.0;
+    double at_most_cl = 0.0;
+    for (int i = 0; i < steps(600.0); ++i) {
+        Controls flown = autopilot.fly();
+        flown.throttle = 0.0;
+        f.fly(flown);
+        if (i * dt < settle_s) {
+            continue;
+        }
+        const double q_degps =
+            f.aircraft.property("velocities/q-aero-rad_sec") * degrees_per_radian;
+        const double kcas = f.aircraft.property("velocities/vc-kts");
+        pitching_up = flown.elevator < 0.0 && q_degps > autopilot_pitch_degps ? pitching_up + 1 : 0;
+        if (pitching_up >= steps(0.25)) {
+            throw std::runtime_error("she pitched up past her alpha limit, at " +
+                                     std::to_string(kcas) + " KCAS");
+        }
+        const double lift = f.aircraft.property("forces/fwz-aero-lbs");
+        const double cl = lift / (f.aircraft.property("aero/qbar-psf") *
+                                  f.aircraft.property("metrics/Sw-sqft"));
+        if (cl > most_cl && lift > 0.0) {
+            most_cl = cl;
+            at_most_cl = kcas / std::sqrt(lift / f.aircraft.property("inertia/weight-lbs"));
+        }
+        slowest = std::min(slowest, kcas);
+        if (kcas > slowest + gathering_kts) {
+            return at_most_cl;
+        }
+    }
+    throw std::runtime_error("she never gathered speed again from her slowest");
+}
+
 double stall_speed(const std::filesystem::path& root, const PublishedFigures& figures,
                    const FigureSpec& spec) {
     const bool clmax = condition_or(spec, "clmax", 0.0) != 0.0;
     double most_cl = 0.0;
     double at_most_cl = 0.0;
     const double entry = condition_or(spec, "entry_kcas", 70.0);
+    if (condition_or(spec, "alpha_limited", 0.0) != 0.0) {
+        return limited_stall_speed(root, figures, spec, entry);
+    }
     if (condition_or(spec, "departure", 0.0) != 0.0) {
         return departure_speed(root, figures, spec, entry);
     }
@@ -2270,6 +2344,16 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "at most 1");
         }
     }
+    // **A nose lowered after the touch at no more than nothing, or faster
+    // than ten degrees a second, is refused.**
+    if (root->HasAttribute("nose_lowered_degps")) {
+        out.nose_lowered_degps = root->GetAttributeValueAsNumber("nose_lowered_degps");
+        if (!(out.nose_lowered_degps > 0.0 && out.nose_lowered_degps <= 10.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a nose_lowered_degps that is not above 0 and "
+                                     "at most 10");
+        }
+    }
     // **A landing that is neither three-point nor on her wheels is refused.**
     if (root->HasAttribute("lands")) {
         const std::string lands = root->GetAttributeValue("lands");
@@ -2389,6 +2473,7 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                 "clmax",
                                 "steady",
                                 "departure",
+                                "alpha_limited",
                                 "speed_falls_kt_per_1000_ft",
                                 "seconds",
                                 "most_drift_ft",

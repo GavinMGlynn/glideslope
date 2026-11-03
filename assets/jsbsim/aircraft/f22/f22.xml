@@ -287,6 +287,8 @@
     <flight_control name="F-22 FC">
         <!-- glideslope: tools/make_f22.py - the held trim -->
         <property value="0">fcs/pitch-trim-held-norm</property>
+        <!-- glideslope: tools/make_f22.py - the gear-down alpha limit, disarmed while glideslope trims her (sim/aircraft.cpp) -->
+        <property value="1">fcs/alpha-limit-armed</property>
 
         <!-- Declare some interface properties -->
 <!--        <property>fcs/alpha-norm</property>
@@ -1031,6 +1033,40 @@
                 </clipto>
             </pure_gain>
 
+            <!-- glideslope: tools/make_f22.py - the gear-down alpha limit -->
+            <switch name="fcs/alpha-limit-gear-down">
+                <default value="0"/>
+                <test logic="AND" value="1">
+                    gear/gear-pos-norm gt 0
+                    fcs/alpha-limit-armed eq 1
+                </test>
+            </switch>
+
+            <fcs_function name="fcs/alpha-limit-excess-deg">
+                <function>
+                    <product>
+                        <property>fcs/alpha-limit-gear-down</property>
+                        <max>
+                            <value>0</value>
+                            <difference>
+                                <property>aero/alpha-deg</property>
+                                <value>17</value>
+                            </difference>
+                        </max>
+                    </product>
+                </function>
+            </fcs_function>
+
+            <pure_gain name="fcs/alpha-limit-q">
+                <input>fcs/alpha-limit-excess-deg</input>
+                <gain>0.06</gain>
+            </pure_gain>
+
+            <pure_gain name="fcs/alpha-limit-stab">
+                <input>fcs/alpha-limit-excess-deg</input>
+                <gain>0.1</gain>
+            </pure_gain>
+
             <!-- glideslope: tools/make_f22.py - the ground mode -->
             <switch name="fcs/pitch-ground-wow">
                 <default value="0"/>
@@ -1076,6 +1112,7 @@
 
             <summer name="fcs/pitch-rate-error">
                 <input>fcs/q-gear-down-limiter</input>
+                <input>-fcs/alpha-limit-q</input>
                 <input>-velocities/q-aero-rad_sec</input>
                 <input>-fcs/pitch-windup-trigger</input>
                 <input>-fcs/pitch-ground-washout</input>
@@ -1262,6 +1299,7 @@
             <summer name="fcs/elevator-trimmed">
                 <!-- glideslope: tools/make_f22.py - the held trim -->
                 <input>fcs/el-reg-scale</input>
+                <input>fcs/alpha-limit-stab</input>
                 <input>fcs/pitch-trim-held-norm</input>
             </summer>
 
