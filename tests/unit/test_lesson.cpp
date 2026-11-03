@@ -3114,6 +3114,11 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
     // Windows's seed 5 no longer, since 2026-11-03: held on rough water
     // within the band between her touch and TN 923's floor, she rises 0.52
     // ft there (0.87 before).
+    // Linux's seeds 11, 13, 25, 28, 30, 32 and 40 and Windows's 24 and 38
+    // no longer, since 2026-11-04: her nose held to her capped attitude in
+    // the hold-off with her own gains (`Lander::hull_elevator`), and a
+    // gust's climb in that level hold-off no longer gone around from as a
+    // balloon. macOS's are not yet measured with it.
     static const std::vector<NamedOnASeed> named = {
         // The 737-300 and 787-8 since 2026-11-04, flown at Boeing's full gust
         // with their noses let rise faster: forty seeds of forty here and on
@@ -3139,18 +3144,6 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // below with it.
         {"f15c", 34, linux_(),
          "on Linux she floats into a go-around from a touch 1,039 m along (seed 34)"},
-        {"short_s23", 11, linux_(), "on Linux she touches at 347 ft/min (seed 11)"},
-        {"short_s23", 13, linux_(),
-         "on Linux she rises 1.80 ft off the water after touching (seed 13)"},
-        {"short_s23", 25, linux_(),
-         "on Linux she skips 3.34 ft off the water, touched at 1.49 degrees (seed 25)"},
-        {"short_s23", 28, linux_(),
-         "on Linux she rises 2.21 ft off the water after touching (seed 28)"},
-        {"short_s23", 30, linux_(),
-         "on Linux she goes round for a balloon above the flare (seed 30)"},
-        {"short_s23", 32, linux_(),
-         "on Linux she rises 1.21 ft off the water, touched at 3.22 degrees (seed 32)"},
-        {"short_s23", 40, linux_(), "on Linux she touches at 345 ft/min (seed 40)"},
         {"747-400", 29, windows(), "on Windows she touches at 385 ft/min (seed 29)"},
         {"747-400", 31, windows(),
          "on Windows she floats into a go-around from a touch 1,036 m along (seed 31)"},
@@ -3158,10 +3151,6 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
          "on Windows she floats into a go-around from a touch 1,044 m along (seed 33)"},
         {"747-400", 40, windows(),
          "on Windows she floats into a go-around from a touch 1,040 m along (seed 40)"},
-        {"short_s23", 24, windows(),
-         "on Windows she climbs back to 11.5 ft in her hold-off, over half her flare's 21.5 "
-         "(seed 24)"},
-        {"short_s23", 38, windows(), "on Windows she rises 2.58 ft off the water (seed 38)"},
         // macOS, debug and release alike, CI run 41640422104 (dispatched on #308).
         {"short_s23", 10, macos(),
          "on macOS she rises 1.13 ft off the water (seed 10), CI run 41640422104"},

@@ -302,6 +302,13 @@ public:
     // NACA TN 923's floor: "abnormally low trims (possibly 3 degrees or
     // less) should be avoided ... on landing".
     static constexpr double rough_water_least_trim_deg = 3.0;
+    // **The error that asks for her whole stick in the hold-off**, degrees
+    // (lander.cpp, `hull_elevator`). Tuned, not sourced: chosen from 1, 1.5,
+    // 2 and 3 on gust seeds 1 to 120 (docs/status, 2026-11-04). It is the
+    // span from her cap over the water to her attitude on it
+    // (`rough_water_most_pitch_deg` less `rough_water_step_deg`), but no
+    // source names it.
+    static constexpr double rough_water_hold_off_band_deg = 1.5;
     // **How high what she lands on is**, feet over the runway or the water
     // at her attitude now: her wheels, or her hull's keel.
     double lands_on_high_ft() const;
@@ -612,6 +619,11 @@ private:
     bool notice_the_touch(const AircraftState& s);
     // A jet's elevator from the touch on: the nose lowered to the runway.
     double lower_the_nose(const AircraftState& s);
+    // **A hull's elevator on her attitude, with her own gains** (lander.cpp):
+    // the whole stick for an error of `band_deg` (a degree at least), damped
+    // at 0.7 of critical on the pitch acceleration a full stick gives her
+    // now; undamped where her figures give no elevator authority.
+    double hull_elevator(const AircraftState& s, double want_deg, double band_deg) const;
 };
 
 } // namespace glideslope::sim

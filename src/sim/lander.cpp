@@ -955,7 +955,14 @@ Controls Lander::fly_laws() {
     // - is that: a Mosquito given back so zoomed on to fifty feet with her
     // throttles shut and came down at 958 ft/min.
     // Above the height it began at, if a gust's sink began it higher.
-    if (stage_ == Stage::flare && !on_ground && s.climb_rate_fpm > 0.0 &&
+    // **But not a hull held off over rough water**: a gust's climb in her
+    // level hold-off is no balloon while she holds level (the owner,
+    // 2026-10-31), and her nose is not raised to it (below, `rough_water`);
+    // the hold-off flies her back down to `rough_water_hold_ft`. Gone
+    // around from it, the S.23 left gust seed 30, climbing 70 ft/min with
+    // her nose held at 1.6 degrees, a foot over where her flare began.
+    const bool held_off_level = holding_off_ && in_gusts() && lands_on_hull();
+    if (stage_ == Stage::flare && !on_ground && s.climb_rate_fpm > 0.0 && !held_off_level &&
         above_m_ * feet_per_metre - wheels_hang_ft(s) >
             std::max(flare_height_ft(), flare_began_ft_)) {
         stage_ = Stage::go_around;
@@ -1210,24 +1217,10 @@ Controls Lander::fly_laws() {
             const double margin_deg = rough_water
                                           ? touchdown_pitch_deg_ - rough_water_least_trim_deg
                                           : afterbody_deg_ - touchdown_pitch_deg_;
-            const double per_deg = 1.0 / std::max(1.0, margin_deg);
-            const double full_stick_degps2 =
-                a_.property("aero/qbar-psf") * a_.property("metrics/Sw-sqft") *
-                a_.property("metrics/cbarw-ft") * speeds_.elevator_full_cm /
-                std::max(1.0, a_.property("inertia/iyy-slugs_ft2")) * degrees;
-            constexpr double damping_ratio = 0.7;
-            const double per_degps =
-                full_stick_degps2 > 0.0
-                    ? 2.0 * damping_ratio * std::sqrt(per_deg * full_stick_degps2) /
-                          full_stick_degps2
-                    : 0.0;
             const double step_deg = rough_water
                                         ? std::min(touchdown_pitch_deg_, rough_water_step_deg)
                                         : touchdown_pitch_deg_;
-            const double attitude_error = step_deg - s.pitch_deg;
-            const double on_the_step =
-                std::clamp(per_deg * attitude_error - per_degps * s.q_radps * degrees + pitch_trim_,
-                           -1.0, 1.0);
+            const double on_the_step = hull_elevator(s, step_deg, margin_deg);
             c.elevator = flying > 0.0 ? on_the_step : 1.0;
         }
         // **A jet is landed as the handbook lands a jet**, not as it lands a
@@ -2175,6 +2168,19 @@ Controls Lander::fly_laws() {
         std::clamp(flare_gain_ * (0.05 * pitch_error - 0.05 * (q_degps - want_q_degps)) +
                        pitch_trim_,
                    -1.0, 1.0);
+    // **A hull held off over rough water is held to her attitude with her
+    // own gains, not the landplane's** (`hull_elevator`, as on the water):
+    // the whole stick for `rough_water_hold_off_band_deg` of error, damped
+    // at 0.7 of critical on her elevator's authority. At the flare's
+    // 0.15 a degree, the S.23's nose lagged her capped five degrees by one
+    // to one and a half with a tenth of her stick - a 40,000 lb boat's
+    // inertia - and her sink grew in a lull, 60 to 340 ft/min, while the
+    // cushion's power came on: she met the water at 345 and 347 ft/min (gust
+    // seeds 40 and 11), and at 80 to 93 kt, still flying, she rose off it
+    // again on 13, 25, 28 and 32 (docs/status, 2026-11-04).
+    if (stage_ == Stage::flare && in_gusts() && lands_on_hull()) {
+        c.elevator = hull_elevator(s, want_pitch, rough_water_hold_off_band_deg);
+    }
     return c;
 }
 
@@ -2226,6 +2232,26 @@ double Lander::lower_the_nose(const AircraftState& s) {
                           -1.0, 1.0);
     }
     return std::clamp(0.15 * error - 0.15 * (s.q_radps * degrees - want_q_degps) + pitch_trim_,
+                      -1.0, 1.0);
+}
+
+// **Her gains are hers, not fitted** (on the step, in `fly_laws`): the
+// pitch acceleration a full stick gives her, q S c Cm_full / Iyy, from her
+// figures' `elevator_full_cm` and her model's dynamic pressure, wing and
+// inertia, and the stick for a degree of error one part in `band_deg`.
+double Lander::hull_elevator(const AircraftState& s, double want_deg, double band_deg) const {
+    const double per_deg = 1.0 / std::max(1.0, band_deg);
+    const double full_stick_degps2 =
+        a_.property("aero/qbar-psf") * a_.property("metrics/Sw-sqft") *
+        a_.property("metrics/cbarw-ft") * speeds_.elevator_full_cm /
+        std::max(1.0, a_.property("inertia/iyy-slugs_ft2")) * degrees;
+    constexpr double damping_ratio = 0.7;
+    const double per_degps =
+        full_stick_degps2 > 0.0
+            ? 2.0 * damping_ratio * std::sqrt(per_deg * full_stick_degps2) / full_stick_degps2
+            : 0.0;
+    return std::clamp(per_deg * (want_deg - s.pitch_deg) - per_degps * s.q_radps * degrees +
+                          pitch_trim_,
                       -1.0, 1.0);
 }
 
