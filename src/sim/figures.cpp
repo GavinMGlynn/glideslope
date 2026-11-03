@@ -841,7 +841,14 @@ double steady_flight_speed(const std::filesystem::path& root, const PublishedFig
 // V / sqrt(n): the load there is her pitch-up's own, 1.10 to 1.13 g, and
 // so corrected her figure came out 6 knots under the speed she departs at in
 // a stall lesson - inside the lesson's 8-knot warning, so that she departed
-// before it (2026-11-03). The F-22A's: with her gear down her thrust vectoring is off, and past
+// before it (2026-11-03). **That rule is the project's own, not the
+// regulation's.** 14 CFR 25.201(d) identifies a stall by a nose-down pitch
+// that cannot readily be arrested, by deterrent buffeting, or by the pitch
+// control at its aft stop with the nose rising no further. An uncommanded
+// pitch-up is none of them, and 25.203 forbids one. Her model shows none of
+// the three before it, and after it she is no longer flown under control.
+// So the speed where it begins is the slowest she can be flown at idle, and
+// any lesson must recover her above it. The F-22A's: with her gear down her thrust vectoring is off, and past
 // about 22 degrees of alpha her stabilators cannot hold her nose
 // (docs/status/2026-11-03-the-f22a-s-stall-figure-tests-investigated.md).
 // Her slowing is drag's, 5 to 6 knots a second, not 25.103(c)'s 1: asked to

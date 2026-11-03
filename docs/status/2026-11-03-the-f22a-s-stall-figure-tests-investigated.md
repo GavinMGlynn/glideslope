@@ -61,7 +61,10 @@ figures (linux-release, FMA):
   above the ground later. The test's named set is the eight. It still
   requires low flights whose wing is stalled at full power (the B-2A, Cub
   and PA-28). It passes in the FMA and x86-64-v2 builds, as does the
-  engaging test. The wide set run after the rebase: 671 tests, 670 passed
+  engaging test. **Those five did not pass on their own**: the A320, A380,
+  F-15C, F-35B and Mosquito were already hitting the ground in that
+  1,000 ft entry, and passed only because they were flown on after it. A
+  tail for them is in the plan (Phase 10b). The wide set run after the rebase: 671 tests, 670 passed
   before this change, and that one passes with it.
 - **The stall watch**: noticed at 117.6 kt, she slows to 105.1 against her
   112.0 at her weight, and loses 317 ft. She is held to those figures.
@@ -96,7 +99,14 @@ figures (linux-release, FMA):
   kt her sideslip stays within 0.07 degree and her height within 159 ft.
 
 **Is a stall at idle reachable? No.** She departs first, so her departure
-is taken as her stall (src/sim/figures.cpp, `departure_speed`, figure
+is taken as her stall. **That is the project's own rule, not 14 CFR
+25.201(d)'s.** Its indications of a stall are a nose-down pitch that cannot
+readily be arrested, deterrent buffeting, and the pitch control at its aft
+stop with the nose rising no further. An uncommanded pitch-up is none of
+them, and 25.203 forbids one. She shows none of the three before her
+pitch-up, and after it she is not flown under control. So the speed where
+it begins is the slowest she can be flown at idle, and the one any lesson
+must recover her above. It is taken (src/sim/figures.cpp, `departure_speed`, figure
 `departure="1"`). Throttles closed, gear down, at 5,000 ft at her combat
 loading, her autopilot holds her height and asks for no speed, as a stall
 lesson's entry does. The stall is where her nose rises faster than 3
@@ -141,7 +151,7 @@ The re-run passed. That re-run had no change behind it, against the owner's
 rule against bare re-runs. If it happens a second time, the test moves to
 nightly or its fetch is fixed.
 
-**Verification (second round).** linux-release, no display:
+**Verification (second and third rounds).** linux-release, no display:
 - every test matching
   f22|copilot|plan|brief|approach|figure|land|stall|gust|lesson|heading|take_off|takeoff|runway|instructor|walking|recover|lands|lander|selftest|committed,
   `ctest -LE nightly -j4`: 671 tests, 669 passed. The two that failed (her
@@ -156,8 +166,17 @@ nightly or its fetch is fixed.
 - the full suite, `ctest -LE nightly -j4`, after the first push: 1,442 of
   1,442 passed, 4,402 s. The full CI run 41602502265 failed on three jobs.
   Two were the already-stalled test (named since). The third is the Windows
-  debug assertion above. The stall figures above are from
-  the FMA build only; no x86-64-v2 build was made this round;
+  debug assertion above. In the second round the stall figures came
+  from the FMA build only. The x86-64-v2 build was made in the third round
+  (above);
+- the full suite again in the third round, after the wreck fix in
+  `fly_a_stall` and this review's changes, waiting first with `until !
+  pgrep -x ctest`: when the time box ran out, 1,432 of 1,443 tests had
+  finished, every one passed or skipped, and eleven client-and-server tests
+  were still running. CI is the check for those;
+- **The selftest's hash does not move.** Nothing the selftest flies is
+  changed: only her figures file, the stall figure's measurement and the
+  tests. The selftest's tests pass in both full runs;
 - the eight gust seeds, each passing with her named;
 - `python3 tools/make_f22.py --check` passes. Her model is unchanged; only
   her figures file and the measurement changed.

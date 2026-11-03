@@ -1325,6 +1325,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       length.* Owner 2026-10-09. Owner 2026-10-31: recordings made again.
       Done 2026-11-02; what the F-22A's stall figure brought her into is the
       next item.
+- [ ] **Five stalls entered at 1,000 ft wreck before the hand-over.** The
+      A320, A380, F-15C, F-35B and Mosquito hit the ground in the low
+      stall entry; their passes came from being flown on after the wreck
+      (2026-11-03-the-f22a-s-stall-figure-tests-investigated). *Verification:
+      each is handed over above the ground at 1,000 ft, unwrecked, or is
+      named with the reason the entry cannot be flown there.*
 - [ ] **The F-22A flies her stall-figure tests.** Her stall is measured at
       idle since 2026-11-03 (105.8 KCAS, where she pitches up past her
       stabilators), and her tail-strike margin, stall demonstration and
