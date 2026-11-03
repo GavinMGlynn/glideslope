@@ -54,10 +54,21 @@ constexpr double gusty_lead_s_per_kt = 0.0075;
 // **The round out's pull in gusts**, in g over her weight (`flare_height_ft`,
 // `begin_flare_ft`).
 constexpr double gusty_round_out_g = 0.07;
+// **The most sink a gusty flare is begun higher for**, feet a minute
+// (`begin_flare_ft`): FSF ALAR Briefing Note 7.1's stabilized approach has
+// a sink rate no greater than 1,000 fpm. A sink past it is an approach
+// that has gone wrong, not a round out to be begun higher still; it begins
+// the flare no higher than 1,000 ft/min would, 62 ft at 0.07 g.
+constexpr double gusty_most_begun_sink_fpm = 1000.0;
 // **In gusts the flare's power keeps her speed**, throttle for each knot she
-// is slower than `gusty_held_kts` under her approach speed (`fly_laws`).
+// is slower than `gusty_held_kts` under her approach speed, opened at no
+// more than `gusty_throttle_opened_per_s` (`fly_laws`). All three are tuned
+// on a sweep of the gust tests' forty seeds (docs/status, 2026-11-03), not
+// sourced: the rate is the half a second a lever takes elsewhere here (the
+// flare's own closing, `fly_laws`), not a measured pilot's.
 constexpr double gusty_speed_throttle_per_kt = 0.05;
 constexpr double gusty_held_kts = 5.0;
+constexpr double gusty_throttle_opened_per_s = 0.5;
 // **The least nose a jet's flare raises**, degrees: the FAA's Airplane
 // Flying Handbook (FAA-H-8083-3C, ch. 16, "The Flare"): "In most jet
 // airplanes, this requires a pitch attitude increase of only 1 to 3 degrees".
@@ -394,20 +405,24 @@ double Lander::begin_flare_ft(const AircraftState& s) const {
     // down-gust in the last hundred feet puts her past it, and the round out
     // then begins too low for her. The AFH (FAA-H-8083-3C, ch. 9, "Round
     // Out", p. 9-8): "the round out should still be executed at a rate that
-    // takes the airplane's downward motion into account", and "the rate at
-    // which the round out is executed depends on the airplane's height
-    // above the ground, the rate of descent, and the pitch attitude". So in
-    // gusts it begins at the height that arrests the sink she has, if that
-    // is higher. A 737-300 (seed 40) meeting her flare at 790 ft/min began
-    // it at the path's 40 ft and was still sinking at 790 at 14; an A380
-    // (seed 1) entered hers at 1,214 against her path's 785 (docs/status,
-    // 2026-11-03). **A landplane's**: a hull in gusts is held off level over
-    // the water (rough water, `fly_laws`), and its hold-off height is not
-    // this.
+    // takes the airplane's downward motion into account". So in gusts it
+    // begins at the height that arrests the sink she has, if that is higher -
+    // but for no more sink than `gusty_most_begun_sink_fpm`, so that a
+    // down-gust past a stabilized approach's does not begin it from ninety
+    // feet (the A380's seed 25, 1,216 ft/min, uncapped). A 737-300 (seed 40)
+    // meeting her flare at 790 ft/min began it at the path's 40 ft and was
+    // still sinking at 790 at 14; an A380 (seed 1) entered hers at 1,214
+    // against her path's 785 (docs/status, 2026-11-03). **A landplane's**: a
+    // hull in gusts is held off level over the water (rough water,
+    // `fly_laws`), and its hold-off height is not this.
     if (!in_gusts() || lands_on_hull()) {
         return flare_height_ft();
     }
-    const double sink_fps = -s.climb_rate_fpm / 60.0;
+    // **Its sign tested, not clamped with `std::max(0.0, ...)`**: GCC 14.3
+    // at -O2 folds the square of `std::max(0.0, -x) / 60.0` to nought
+    // (docs/status, 2026-11-03), and the flare began at the path's height
+    // whatever her sink.
+    const double sink_fps = std::min(-s.climb_rate_fpm, gusty_most_begun_sink_fpm) / 60.0;
     if (sink_fps <= 0.0) {
         return flare_height_ft();
     }
@@ -1549,7 +1564,9 @@ Controls Lander::fly_laws() {
             holding_off_ = true;
         }
         const bool gusty = in_gusts() && !rough_water;
-        // **And her speed is kept with it.** The AFH, the same page: "Use an
+        // **And her speed is kept with it.** The FAA's Airplane Flying
+        // Handbook (FAA-H-8083-3C, ch. 9, "Turbulent Air Approach and
+        // Landing", p. 9-20): "Use an
         // adequate amount of power to maintain the proper airspeed and
         // descent path throughout the approach, and retard the throttle to
         // idling position only after the main wheels contact the landing
@@ -1557,18 +1574,20 @@ Controls Lander::fly_laws() {
         // bled her from 167 to 138 kt, her wing at its incidence limit from
         // 15 ft, and she met the runway at 429 ft/min. So the half is the
         // least, and below `gusty_held_kts` under her approach speed - her
-        // gust additive kept, as the airliners' manuals keep it to the touch
+        // gust additive kept, as the 737 FCTM is quoted keeping it to the touch
         // - the throttle is opened `gusty_speed_throttle_per_kt` a knot, at
-        // a hand's pace. Both figures from a sweep of the gust tests' forty
-        // seeds (docs/status, 2026-11-03), not sourced.
+        // no more than `gusty_throttle_opened_per_s`. All three figures tuned
+        // on a sweep of the gust tests' forty seeds (docs/status,
+        // 2026-11-03), not sourced.
         const double gust_speed_floor =
             gusty ? std::min(1.0, 0.5 * flare_throttle_ +
                                       gusty_speed_throttle_per_kt *
                                           std::max(0.0, approach_kts() - gusty_held_kts - kcas))
                   : 0.0;
+        const double gust_opened =
+            throttle_before + gusty_throttle_opened_per_s / steps_per_second;
         if (gusty) {
-            c.throttle = std::max(c.throttle, std::min(throttle_before + 0.5 / steps_per_second,
-                                                       gust_speed_floor));
+            c.throttle = std::max(c.throttle, std::min(gust_opened, gust_speed_floor));
         }
         last_throttle_ = c.throttle;
         // **To her wheels, not her centre of gravity.** The flare was flown
@@ -1873,8 +1892,7 @@ Controls Lander::fly_laws() {
         }
         // Never under the gusty flare's floor, whatever the cushion did.
         if (gusty) {
-            c.throttle = std::max(c.throttle, std::min(throttle_before + 0.5 / steps_per_second,
-                                                       gust_speed_floor));
+            c.throttle = std::max(c.throttle, std::min(gust_opened, gust_speed_floor));
             last_throttle_ = c.throttle;
         }
         want_pitch = flare_pitch_;
