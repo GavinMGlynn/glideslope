@@ -1,17 +1,26 @@
-### The flying boat in gusts, held on the water within the band between her touch and TN 923's floor: named on no seed, but over forty-eight seeds still failing six, 2026-11-03 - item still open
+### The flying boat in gusts, held on the water within the band between her touch and TN 923's floor: Windows's seed 5 passes, macOS release's seed 3 still named, and over forty-eight seeds six still fail, 2026-11-03 - item still open
 
 **What is still missing, first**: the item. Over 48 gust seeds on Linux she
 still fails six landings: she rises 1.80, 3.34 and 1.21 ft off the water
 after touching (seeds 13, 25, 32), touches at 347 and 345 ft/min (seeds 11,
 40; judged 335 with the margin), and goes round for a balloon above the
 flare (seed 30). The cause is that she touches at speeds where her wing
-still carries her (below). macOS release's seed 3, on which she was named,
-has not been flown on this change; CI's full run is its check.
+still carries her (below). And on macOS release's seed 3 she still rises
+0.93 ft, touching at 79 ft/min 705 m along, unchanged by this (full run
+41597667557, as in 41303118662): she is named there again.
 
-**What now works**: she is named on no seed on any platform
-(`named_on_a_seed` is empty). On Windows release seed 5 she rises 0.52 ft,
-where she rose 0.87 before. On Linux all eight seeds now rise less than
-before (figures below).
+**What now works**: she is judged on every seed and platform but macOS
+release's seed 3. On Windows release seed 5 she rises 0.52 ft, where she
+rose 0.87 before and was named on every Windows build; on Linux all eight
+seeds now rise less than before (figures below).
+
+**The owner's rulings this item is held to**: the 0.75 ft rise limit stays
+(2026-11-01); a gust's climb in a level hold-off is no balloon if she holds
+level, and her hull may touch at the rough-water book's flatter attitude, no
+lower than NACA TN 923's 3 degrees (2026-10-31). Before this change she
+passed every seed on Linux with her hull damped from its first touch, and
+rose 0.87 ft on Windows's seed 5 and 0.93 on macOS release's seed 3, named
+on each (docs/status, 2026-11-01).
 
 **Why she rose**: she touches where her wing still carries her. Held off
 with her nose capped at 5 degrees, she is let down at 64 to 92 kt, about 1.0
@@ -32,8 +41,13 @@ attitude on the water is held within the band the seaplane handbook's
 flatter touch leaves her. That band runs from her touch down to NACA TN
 923's floor (3 degrees, "abnormally low trims (possibly 3 degrees or less)
 should be avoided ... on landing": `rough_water_least_trim_deg`), so an
-error the size of that band asks for the whole stick. It still asks for no
-more than 3.5 degrees, and is damped at 0.7 of critical as before. Before
+error the size of that band asks for the whole stick. Where she touched
+less than a degree above the floor, or below it (seed 25, at 1.6 degrees),
+the band is floored at one degree, as the afterbody's margin always was. It
+still asks for no more than 3.5 degrees, and is damped at 0.7 of critical as
+before. **It acts while she is clear of the water between skips too**: the
+law holds a hull in gusts so from her touch onward, in the water or not (as
+it did before, with the wider band). Before
 this, the band was her whole margin to the afterbody's 10.8 degrees: six
 degrees from a touch at 4.5, so a degree of error asked for a sixth of her
 stick. Calm water and every landplane are unchanged, because the band is a
@@ -82,7 +96,8 @@ and in the item, with their figures, until the hold-off itself is changed.
 
 **Verification**:
 - `in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_1` to
-  `_8`: the S.23 is judged on every seed and platform. All eight pass on
+  `_8`: the S.23 is judged on every seed and platform but macOS release's
+  seed 3, where she is named (CI run 41597667557). All eight pass on
   linux x86-64-v2 and on Windows release (`tools/windows_build.sh
   windows-release`). **Seen red**: before this change, Windows seed 5 rose
   0.87 ft (CI runs 41100266299 and 41303118662).
