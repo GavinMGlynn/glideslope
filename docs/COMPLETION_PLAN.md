@@ -1331,14 +1331,16 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 - [ ] **The F-22A flies her stall-figure tests.** With a stall figure
       (2026-11-02) she is taught stalls and the approach, and is named in
       these. Her stall recovery loses 2,964 ft at the warning against 500
-      (4.72 g against 2), and 16,296 ft left thirty seconds against 7,938
-      (20.64 g). The AI's stall watch lets her slow to 59 kt against her
+      (4.72 g against 2). Left thirty seconds in a stall she is named as
+      not recovering, unjudged: her figures scatter by platform (20.6 g
+      here, 31.2 g on CI, never recovered on Windows). The AI's stall watch lets her slow to 59 kt against her
       90, and the instructor's stall demonstration says so. She touches at
       14.3 degrees, inside the 2.5-degree tail-strike margin. On the
       wheels, held at 0.5 kt on a wet runway she rolls 29.93 s of 30. Her
       gust landings are named under the gust item. *Verification: she is
       unnamed from each of those tests, and from the autopilot's heading
-      test from her approach speed, where she sinks under 127 kt.*
+      test from her approach speed, where she sinks under 127 kt; her
+      thirty-second stall recovered within its bounds on every platform.*
 - [x] **The AI lands the 747-400 at Boeing's published approach speed**:
       153 kt at 630,000 lb, in calm air, wind and crosswind, within her
       limits, her flaps raised after a take-off by her manoeuvre speeds

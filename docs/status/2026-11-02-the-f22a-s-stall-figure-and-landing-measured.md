@@ -6,9 +6,17 @@ most of them, but not all. Where she fails, she is named in that test,
 with her figure and the limit, and the new item "The F-22A flies her
 stall-figure tests" (Phase 10b) holds what is left:
 - **Stall recovery**: handed over at the warning she loses 2,964 ft against
-  her lesson's 500, peaking at 4.72 g against 2. Left thirty seconds in the
-  stall she loses 16,296 ft against the 7,938 worked out for her, peaking
-  at 20.64 g.
+  her lesson's 500, peaking at 4.72 g against 2 (the same in an x86-64-v2
+  build: 2,965 ft, 4.71 g). **Left thirty seconds in the stall she is named
+  as not recovering from it, and not judged**, in that test and in the
+  hand-pace test: her deep stall's figures scatter by platform. Handed over
+  at 90 degrees of alpha and 10,800 ft/min down, she lost 16,295 ft and
+  peaked at 20.64 g on linux-release with FMA. In CI run 41571068597 she
+  peaked at 31.21 g (Rocky 9: 16,294 ft against 7,817), on macOS, Rocky,
+  Ubuntu and Windows. On Windows she was never recovered at all. An
+  x86-64-v2 build here reproduces CI's 31.21 g and 16,294 ft to the
+  digit. A figure held to 1.1 times could not hold her on every platform,
+  so none is held.
 - **The AI's stall watch** notices her at 100.3 kt but lets her slow to 59.4
   kt against her 90.0 stall, losing 2,728 ft. The instructor's stall
   demonstration says "Recover with the least height you can".
@@ -84,10 +92,13 @@ deliberate bug in each, built and run, then reverted and run green:
   with the 10 per cent in hand. Until the review it held only the fault's
   name.
 
-**Two margins are tight and were seen only on Linux.** Her wet roll at 0.5
-kt is held to 29.93 s of 30 with 0.01 s in hand. Her touch is held to
-14.30 degrees with 0.05 in hand. CI's full run is the first look at the
-other platforms.
+**Two margins are tight.** Her wet roll at 0.5 kt is held to 29.93 s of
+30 with 0.01 s in hand. Her touch is held to 14.30 degrees with 0.05 in
+hand. Both hold in CI run 41571068597 on every platform, and in an
+x86-64-v2 build here (29.93 s, 14.29 degrees). So does every other F-22A
+naming in that build: her stall watch (59.4 kt, 2,741 ft against 2,728
+plus a tenth), the instructor's stall, her heading test, her eight gust
+seeds, the ground-handling tests and her lift-off sweep.
 
 **Verification.** linux-release, `ctest -LE nightly -j4`, no display. Before
 the count fixes: 1,440 tests, 46 failed, 4,750 s. After them and the names,
