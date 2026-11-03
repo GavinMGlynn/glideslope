@@ -135,15 +135,30 @@ put the 747-400 and A320, judged, down on seeds they passed: not taken.
 | PA-28 | 40 | 40 | sink 320 |
 
 **The F-22A** (taught the approach by #302, merged under this change, and
-named): on the eight seeds with this change she still goes round for a
-balloon above the flare on seeds 1, 3 and 8; on the other five she rises
-1.6 to 4.4 ft after touching (12.3 at most before, as #302 named her), meets
-the runway at 677 to 976 ft/min on seeds 4, 6 and 7 (430 to 977 before),
-and strikes her airframe on seed 2 as before, and on seed 6, banked 18
-degrees, puts more than her wheels on the runway. Her
-forty seeds are not swept here; her own item is "The F-22A flies her
-stall-figure tests". The counts above are of the fifteen before her: with
-her, eight of sixteen land.
+named; her own item is "The F-22A flies her stall-figure tests"): on seed 3
+her flare raised her nose from 12 to 35 degrees, she went round for a
+balloon above the flare, and the go-around put her nose down to -41 degrees
+and into the runway at 4,997 ft/min. On main, without this change, the same
+seed does the same at 8,563 ft/min. On seeds 1, 2 and 8 she strikes her
+airframe, on 4, 6, 7 and 8 meets the runway at 677 to 976 ft/min, and on 5
+rises 2.4 ft. Her forty seeds are not swept here. The counts above are of
+the fifteen before her: with her, eight of sixteen land.
+
+**A wreck flown on, stopped** (tests/unit/test_lesson.cpp,
+`fly_the_approach`): CI's linux-debug (run 41588553991, shard 6) aborted
+the gust test's seed 3 at JSBSim's FGTable.cpp:618 assertion, a table looked
+up outside its range. The test went on stepping the F-22A after she dived
+into the runway. On main, linux-release, her height after that impact read
+1.5e16 ft; on this branch, 472 ft. Neither the FMA nor the x86-64-v2 debug
+build here hits the assertion, so the exact lookup on CI's machine was not
+caught. The server stops a wreck where it hit (sim/crash.hpp), so the
+approach harness now does the same: at the first wreck she is shown to the
+lander once, so her touch is measured, and flown no further. Of the eight
+seeds' 128 landings this changes only the wrecked ones' figures after the
+wreck (the F-22A's seven, the B-2A's seed 8); no judged landing moves. The
+cause of the F-22A's dive - likely her pitch-rate-command flight controls flown by
+an attitude law built for surfaces, is her own item's and predates this
+change.
 
 **Made worse, named with figures**: no judged aeroplane fails a seed it
 passed. The B-2A, named, puts a wingtip down on seeds 17 and 25 now (ten of
