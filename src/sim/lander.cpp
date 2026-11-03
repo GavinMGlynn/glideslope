@@ -1158,10 +1158,23 @@ Controls Lander::fly_laws() {
         // hull still, not a landplane: given the landplane's gust stick, four
         // degrees under her touch, between skips, the S.23's nose went down
         // to 0.8 degrees and she porpoised (docs/status, 2026-10-31).
+        //
+        // **On rough water, held within the band she is let lie in, not her
+        // whole margin to the afterbody.** Between her touch and TN 923's
+        // floor (`rough_water_least_trim_deg`) is all the attitude the
+        // seaplane handbook's flatter touch leaves her, so an error of that
+        // band asks for the whole stick, damped as before. With her margin
+        // to the afterbody's 10.8 degrees - six degrees from a touch at 4.5 -
+        // the water's first touch pitched her nose up three degrees a second
+        // against a third of her stick, her wing took the rest of her weight
+        // back and she rose 3.3 ft off the water (docs/status, 2026-11-03).
         const bool rough_water = in_gusts() && lands_on_hull();
         if ((a_.in_water() || rough_water) && a_.property("gear/wow") <= 0.5 &&
             afterbody_deg_ > 0.0) {
-            const double per_deg = 1.0 / std::max(1.0, afterbody_deg_ - touchdown_pitch_deg_);
+            const double margin_deg = rough_water
+                                          ? touchdown_pitch_deg_ - rough_water_least_trim_deg
+                                          : afterbody_deg_ - touchdown_pitch_deg_;
+            const double per_deg = 1.0 / std::max(1.0, margin_deg);
             const double full_stick_degps2 =
                 a_.property("aero/qbar-psf") * a_.property("metrics/Sw-sqft") *
                 a_.property("metrics/cbarw-ft") * speeds_.elevator_full_cm /
