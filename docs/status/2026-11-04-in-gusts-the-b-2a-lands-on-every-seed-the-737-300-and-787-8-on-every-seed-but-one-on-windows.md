@@ -132,9 +132,13 @@ restored. The full suite is left to CI.
 **From the review of #310.** The 737-300 and 787-8 were named whole, so
 no seed tested them, though each fails only one, on Windows. Each is now
 named on that seed alone (`named_on_a_seed`: the 737-300's Windows seed 8,
-the 787-8's Windows seed 4), and so is the 787-8's macOS seed 2, measured
-at 398 ft/min before the full gust (CI run 38006839738). On every other
+the 787-8's Windows seed 4). The 787-8's old macOS name, 398 ft/min on
+seed 2 (CI run 38006839738), is taken off: the full workflow dispatched on
+this branch (run 41703342974, every preset, seeds 1 to 40) has her land
+it. That run names the 737-300 on macOS, debug and release alike, on seed 3
+(a go-around from a touch 1,017 m along) and seed 17 (554 ft/min). Every
+other seed on every preset passed for both. On every other
 seed and platform both are judged, and a named seed that passes fails
-"take her name off". Their remaining seeds on macOS and on the Windows
-presets other than release are measured by the full workflow dispatched on
-this branch, and named from it.
+"take her name off". The same run timed out
+`an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands`
+on Linux debug at 900 s (762 s in tests/ci_costs): it is given 1,800.

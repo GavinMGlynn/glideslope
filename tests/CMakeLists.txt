@@ -1254,6 +1254,11 @@ foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
     set_tests_properties(${_t} PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
 set_tests_properties(${GLIDESLOPE_GUST_SWEEP_SEEDS} PROPERTIES LABELS gust_sweep)
+# Flies a circuit after its go-around, in simulated time: 762 s on Linux
+# debug's runners (tests/ci_costs), and past the presets' 900 there in run
+# 41703342974. Nothing gives up on a slow machine sooner than it needs.
+set_tests_properties(an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands
+    PROPERTIES TIMEOUT 1800)
 
 # **A program that has ended can still allocate until its last thread is gone**
 # (tests/unit/test_process_end.cpp, src/platform/end_process.hpp). What it

@@ -1158,7 +1158,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       80 ft/min a landing, so one platform's pass is no other's. Flown at
       Boeing's full gust with a faster nose while closing, the 737-300 and
       787-8 land on all forty seeds on Linux but touch at 347 and 338 ft/min
-      on one each on Windows, and are judged on every other. Over forty seeds the
+      on one each on Windows, and the 737-300 fails two on macOS; both are
+      judged on every other. Over forty seeds the
       A380 still comes down hard on one, floats past
       the zone on one and strikes her airframe on one, the F-15C floats into
       a go-around on one, and the Cub balloons on three, touches hard on one and
