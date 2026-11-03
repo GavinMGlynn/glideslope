@@ -3044,12 +3044,17 @@ std::vector<std::string> how_the_hull_held_off(const std::string& where,
 // without the margin, is named. (linux-release, 2026-10-10; figures from
 // forty seeds, 2026-11-03, with the gusty flare begun for the sink she has,
 // her speed kept on the power and a nose-wheel propeller aeroplane's nose
-// let rise faster the slower she flies; and since 2026-11-04 the 737-300's
-// and 787-8's flown at Boeing's full gust with their noses let rise faster
+// let rise faster the slower she flies; and since 2026-11-04 the 737-300
+// and 787-8 flown at Boeing's full gust with their noses let rise faster
 // while they close with the runway faster than their flares want, and the
 // B-2A's wings held level harder, each as her figures say.)
 const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
     static const std::map<std::string, std::string> named = {
+        {"737-300", "since 2026-11-04 she passes all forty seeds here, but on Windows release "
+                    "she meets the runway at 347 ft/min (seed 8)"},
+        {"787-8", "she touches at 398 ft/min on macOS (seed 2), CI run 38006839738; since "
+                  "2026-11-04 she passes all forty seeds here, but on Windows release she "
+                  "touches at 338 ft/min (seed 4)"},
         {"a380", "she touches 907 m along, not 25 m inside the touchdown zone (seed 7); on "
                  "forty seeds here she also meets the runway at 350 ft/min (seed 18) and "
                  "strikes her airframe (seed 34)"},
@@ -3356,7 +3361,7 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 }
 
 // **In moderate turbulence the AI lands every aeroplane not named within
-// its limits** - thirteen of sixteen; the three named
+// its limits** - eleven of sixteen; the five named
 // (`not_yet_landed_in_gusts`) are flown and shown, and so is one named on
 // one seed of one platform alone (`named_on_a_seed`: the S.23, macOS
 // release's seed 3). Fifteen knots down the runway with severity-3

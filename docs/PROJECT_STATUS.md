@@ -155,8 +155,11 @@ on all eight seeds here, on Linux, as do the A320, Learjet 35A and Mosquito,
 and since 2026-11-03 the F-15C, F-35B, C172P and C182, with the PA-28, and
 the flying boat but for macOS release's seed 3 (over forty seeds here she
 still rises off the water on four - seeds 13, 25, 28 and 32 - touches hard
-on two and goes round on one, seven in all, each named on its seed): ten
-of sixteen; six are still named. The 747-400 is
+on two and goes round on one, seven in all, each named on its seed), and
+since 2026-11-04 the B-2A, on all forty seeds on Linux, an x86-64-v2 build
+and Windows release: eleven of sixteen; five are still named. The 737-300
+and 787-8 now land on all forty here but touch hard on one seed each on
+Windows release, so stay named; the A380, F-22A and J-3 Cub are unchanged. The 747-400 is
 taught the approach but not yet the take-off, climb or circuit (her speeds
 are measured, not a book's). The F-22A is taught stalls and the approach
 since 2026-11-02, with a stall figure measured from her model. Since
