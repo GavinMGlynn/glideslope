@@ -955,16 +955,17 @@ Controls Lander::fly_laws() {
     // - is that: a Mosquito given back so zoomed on to fifty feet with her
     // throttles shut and came down at 958 ft/min.
     // Above the height it began at, if a gust's sink began it higher.
-    // **But not a hull held off over rough water**: a gust's climb in her
-    // level hold-off is no balloon while she holds level (the owner,
-    // 2026-10-31), and her nose is not raised to it (below, `rough_water`);
-    // the hold-off flies her back down to `rough_water_hold_ft`. Gone
-    // around from it, the S.23 left gust seed 30, climbing 70 ft/min with
-    // her nose held at 1.6 degrees, a foot over where her flare began.
-    const bool held_off_level = holding_off_ && in_gusts() && lands_on_hull();
-    if (stage_ == Stage::flare && !on_ground && s.climb_rate_fpm > 0.0 && !held_off_level &&
-        above_m_ * feet_per_metre - wheels_hang_ft(s) >
-            std::max(flare_height_ft(), flare_began_ft_)) {
+    // **But not a hull held off over rough water, while she holds level**
+    // (`balloons`): a gust's climb in her level hold-off is no balloon if she
+    // holds level (the owner, 2026-10-31), and her nose is not raised to it
+    // (below, `rough_water`); the hold-off flies her back down to
+    // `rough_water_hold_ft`. Gone around from it, the S.23 left gust seed
+    // 30, climbing 70 ft/min with her nose held at 1.6 degrees, a foot over
+    // where her flare began.
+    if (stage_ == Stage::flare && !on_ground &&
+        balloons(s.climb_rate_fpm > 0.0, above_m_ * feet_per_metre - wheels_hang_ft(s),
+                 std::max(flare_height_ft(), flare_began_ft_), flare_height_ft(),
+                 holding_off_ && in_gusts() && lands_on_hull(), s.pitch_deg)) {
         stage_ = Stage::go_around;
         why_gone_around_ = "a balloon above the flare";
     }
@@ -2233,6 +2234,25 @@ double Lander::lower_the_nose(const AircraftState& s) {
     }
     return std::clamp(0.15 * error - 0.15 * (s.q_radps * degrees - want_q_degps) + pitch_trim_,
                       -1.0, 1.0);
+}
+
+// **Holding level is her nose not raised and her climb a gust's, not a
+// zoom's.** Her nose: no higher than the cap her hold-off asks for at most
+// (`rough_water_most_pitch_deg`) - above it something other than the
+// hold-off has raised it. Her climb: no more than half her flare's height
+// over where a balloon is otherwise judged from - the same half the gust
+// test judges her hold-off by once she is down to its hold (keel never back
+// up to half her flare's height; tests/unit/test_lesson.cpp,
+// `how_the_hull_held_off`). Past either she has ballooned, and goes round
+// as a landplane does.
+bool Lander::balloons(bool climbing, double high_ft, double over_ft, double flare_ft,
+                      bool held_off, double pitch_deg) {
+    if (!climbing || high_ft <= over_ft) {
+        return false;
+    }
+    const bool level = held_off && pitch_deg <= rough_water_most_pitch_deg &&
+                       high_ft <= over_ft + 0.5 * flare_ft;
+    return !level;
 }
 
 // **Her gains are hers, not fitted** (on the step, in `fly_laws`): the
