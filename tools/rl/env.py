@@ -289,7 +289,28 @@ class Flier:
         return r
 
 
-def random_start(rng: np.random.Generator) -> L.Start:
+def random_start(rng: np.random.Generator, behind_left: float = 0.0) -> L.Start:
+    # **Behind and across from the left** (train.py's `--behind-left`): this
+    # fraction of the flights from near the two corners of the learnt
+    # landing's gate (sim::LearntGate) the policy of 2026-11-02 touched short
+    # from with the wind behind and across from the left: nearest, furthest
+    # left, lowest and slowest, turned either way. Drawn from anywhere in
+    # the gate (tried 2026-11-03), so few of the flights were near them that
+    # training moved them no nearer the runway. Without it no random number
+    # is drawn for it, so that the committed parts train again as they did.
+    if behind_left > 0.0 and rng.random() < behind_left:
+        def low_end(lo: float, hi: float) -> float:
+            # Up to a twentieth of the way in from its low end.
+            return lo + rng.uniform(0.0, 0.05) * (hi - lo)
+        return L.Start(
+            out_m=low_end(1.6, 2.4) * L.METRES_PER_NM,
+            across_m=low_end(-60.0, 60.0),
+            high_m=low_end(-20.0, 20.0),
+            heading_offset_deg=float(rng.choice([-1.0, 1.0])) * (5.0 - rng.uniform(0.0, 0.5)),
+            airspeed_kts=59.8 + low_end(-3.0, 8.0),
+            fuel_lbs=float(rng.uniform(*L.TRAINING_FUEL_LBS)),
+            **behind_and_across_from_the_left(rng),
+        )
     # Three in four from a final-approach gate, where the whole approach is
     # flown; the rest from nearer in, where the flare is learnt sooner.
     if rng.random() < 0.75:
@@ -321,11 +342,22 @@ def wind(rng: np.random.Generator) -> dict[str, float]:
             return {"crosswind_kts": float(cross), "headwind_kts": float(head)}
 
 
+def behind_and_across_from_the_left(rng: np.random.Generator) -> dict[str, float]:
+    """**A wind behind and across from the left**, within `wind`'s: up to five
+    knots behind, and across from the left as much as keeps it within fifteen
+    in all - the quarter the policy of 2026-11-02 touched short in (two of its
+    gate's corners at 5 behind and 14.1 across)."""
+    head = rng.uniform(-5.0, -4.5)
+    cross = rng.uniform(0.0, np.sqrt(15.0**2 - head**2))
+    return {"crosswind_kts": float(cross), "headwind_kts": float(head)}
+
+
 class LandingEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, seed: int = 0, speed_costs: bool = False):
+    def __init__(self, seed: int = 0, speed_costs: bool = False, behind_left: float = 0.0):
         super().__init__()
+        self.behind_left = behind_left
         self.flier = Flier(L.Runway(), L.Approach(), speed_costs)
         self.observation_space = gym.spaces.Box(-np.inf, np.inf, (L.OBSERVATIONS,), np.float64)
         self.action_space = gym.spaces.Box(-1.0, 1.0, (L.ACTIONS,), np.float32)
@@ -334,7 +366,7 @@ class LandingEnv(gym.Env):
     def reset(self, *, seed=None, options=None):
         if seed is not None:
             self.rng = np.random.default_rng(seed)
-        start = random_start(self.rng)
+        start = random_start(self.rng, self.behind_left)
         obs = self.flier.begin(start)
         return np.asarray(obs, dtype=np.float64), {}
 

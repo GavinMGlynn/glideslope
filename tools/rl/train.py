@@ -39,10 +39,12 @@ class Landings(BaseCallback):
     """Prints how the landings are going, once a rollout, and saves a
     checkpoint every `every` steps."""
 
-    def __init__(self, out: str, every: int):
+    def __init__(self, out: str, every: int, critic_first: int = 0):
         super().__init__()
         self.out = out
         self.every = every
+        self.critic_first = critic_first
+        self.actor_held_until = 0
         self.next_save = every
         self.recent: list[dict] = []
         self.started = time.time()
@@ -50,6 +52,26 @@ class Landings(BaseCallback):
     def _on_training_start(self) -> None:
         # Resumed, the next checkpoint is the next whole `every` from here.
         self.next_save = (self.num_timesteps // self.every + 1) * self.every
+        if self.critic_first > 0:
+            # **The critic first**: the actor held still while the value
+            # function learns the starts' new mix, so that the first steps of
+            # the policy are not taken on a critic's guesses about flights it
+            # was never trained on (2026-11-03: without it every run from the
+            # committed policy flew its own training's starts worse).
+            self.actor_held_until = self.num_timesteps + self.critic_first
+            self.hold_actor(True)
+
+    def hold_actor(self, held: bool) -> None:
+        policy = self.model.policy
+        for p in list(policy.mlp_extractor.policy_net.parameters()) + \
+                list(policy.action_net.parameters()):
+            p.requires_grad_(not held)
+        print(f"{self.num_timesteps:>10} steps: the actor {'held' if held else 'free'}", flush=True)
+
+    def _on_rollout_start(self) -> None:
+        if self.actor_held_until and self.num_timesteps >= self.actor_held_until:
+            self.actor_held_until = 0
+            self.hold_actor(False)
 
     def _on_step(self) -> bool:
         for info in self.locals["infos"]:
@@ -104,17 +126,31 @@ def main() -> None:
     ap.add_argument("--speed-costs", action="store_true",
                     help="the stabilized approach's speed costs (env.py's STABILIZED); "
                          "without it, the reward the committed policy was trained with")
+    ap.add_argument("--behind-left", type=float, default=0.0,
+                    help="this fraction of the flights from inside the learnt landing's gate, "
+                         "the wind behind and across from the left (env.py's random_start); "
+                         "none without it")
+    ap.add_argument("--hold-norm", action="store_true",
+                    help="resuming: hold the checkpoint's observation and reward normalisation")
+    ap.add_argument("--critic-first", type=int, default=0,
+                    help="resuming: train only the value function for this many decisions first")
     args = ap.parse_args()
     os.makedirs(args.out, exist_ok=True)
     torch.set_num_threads(1)
 
     def make(i: int):
-        return lambda: LandingEnv(seed=args.seed * 1000 + i, speed_costs=args.speed_costs)
+        return lambda: LandingEnv(seed=args.seed * 1000 + i, speed_costs=args.speed_costs,
+                                  behind_left=args.behind_left)
 
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])
     if args.resume:
         venv = VecNormalize.load(args.resume.removesuffix(".zip") + ".vecnorm", venv)
         venv.gamma = GAMMA
+        if args.hold_norm:
+            # **The normalisation held as the checkpoint has it**, so that a
+            # change of the starts' mix does not move what every input means
+            # to the policy before a step of training has.
+            venv.training = False
         # A fine-tune steps more gently than a start from nothing.
         custom = {"gamma": GAMMA}
         if args.lr is not None:
@@ -146,7 +182,7 @@ def main() -> None:
             device="cpu",
             verbose=0,
         )
-    cb = Landings(args.out, every=args.every)
+    cb = Landings(args.out, every=args.every, critic_first=args.critic_first)
     model.learn(total_timesteps=args.steps, callback=cb, reset_num_timesteps=not args.resume)
     cb.save("final")
 
