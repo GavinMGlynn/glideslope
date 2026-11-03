@@ -2113,6 +2113,19 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
             out.least_kts = std::min(out.least_kts, kts);
             out.most_kts = std::max(out.most_kts, kts);
         }
+        // **A wreck is stopped where it hit**, as the server stops it
+        // (sim/crash.hpp), and flown no further. Flown on, an F-22A that
+        // dived into the runway at 5,000 ft/min from a go-around in gusts
+        // (seed 3) was stepped with her airframe through it; on main her
+        // height after reached 1.5e16 ft in linux-release, and in CI's
+        // linux-debug a JSBSim table was looked up out of its range
+        // (FGTable.cpp:618's assertion, CI run 41588553991).
+        // The lander is shown where she came to rest, so that her touch is
+        // measured, and nothing is flown.
+        if (!out.after.wreck.empty()) {
+            (void)lander.fly();
+            break;
+        }
     }
     // **On to the stop**, which the lesson does not wait for, watching her
     // all the way. A flying boat is done below twenty knots on the water, as
@@ -2122,7 +2135,9 @@ Approached fly_the_approach(const std::string& id, double fast_by_kts,
         return seaplane ? aircraft.in_water() && aircraft.property("velocities/vc-kts") <= 20.0
                         : lander.stage() == glideslope::sim::Lander::Stage::stopped;
     };
-    for (int tick = 0; tick < 300 * steps_per_second && run.finished() && !done(); ++tick) {
+    for (int tick = 0; tick < 300 * steps_per_second && run.finished() && !done() &&
+                       out.after.wreck.empty();
+         ++tick) {
         if (lander.gone_around()) {
             break;
         }
@@ -3024,11 +3039,10 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
         {"c182", "she touches at 352.5 ft/min on macOS (seed 8), not 25 inside the "
                  "limit, CI run 38028434284; on forty seeds here at 377 (seeds 23, 33)"},
         {"f22", "since her stall was measured from her model (2026-11-02), she goes round "
-                "for a balloon above the flare (seeds 1, 3, 8), and on the other five rises "
-                "1.6 to 4.4 ft after touching; she meets the runway at 677 to 976 ft/min on "
-                "three (seeds 4, 6, 7), and strikes her airframe (seed 2) or, banked 18 "
-                "degrees, more than her wheels (seed 6); item \"The F-22A flies her "
-                "stall-figure tests\""},
+                "for a balloon above the flare and dives into the runway at 4,997 ft/min "
+                "(seed 3); she strikes her airframe on it (seeds 1, 2, 8), meets it at 677 "
+                "to 976 ft/min (seeds 4, 6, 7, 8) and rises 2.4 ft after touching (seed 5); "
+                "item \"The F-22A flies her stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137 "
                   "and 132 ft/min in her flare (seeds 20, 37), she touches at 356 (seed 33) "

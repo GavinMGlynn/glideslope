@@ -1161,9 +1161,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       her light loading the 737-300 balloons, and the Mosquito at her
       heaviest. The F-22A, taught the approach since her stall was
       measured (2026-11-02), fails all eight seeds:
-      a balloon sends her round on three, and on five she rises 1.6 to
-      4.4 ft after touching, meets the runway at 677 to 976 ft/min on
-      three, and strikes her airframe on seed 2.
+      a balloon sends her round and she dives into the runway from the
+      go-around on one, she strikes her airframe on three, meets the
+      runway at 677 to 976 ft/min on four, and rises 2.4 ft on one.
       *Verification: every aeroplane lands light, heavy and in gusts with
       none named, and a gust on an approach flown well makes no
       go-around.*
