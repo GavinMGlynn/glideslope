@@ -3042,8 +3042,9 @@ std::vector<std::string> how_the_hull_held_off(const std::string& where,
 // the item "The AI cannot land in gusts" in docs/COMPLETION_PLAN.md, still
 // open. Any that fails a seed here or on any platform in CI, or passes one
 // without the margin, is named. (linux-release, 2026-10-10; figures from
-// forty seeds, 2026-11-03, with the gusty flare begun for the sink she has
-// and her speed kept on the power.)
+// forty seeds, 2026-11-03, with the gusty flare begun for the sink she has,
+// her speed kept on the power and her nose let rise faster the slower she
+// flies.)
 const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
     static const std::map<std::string, std::string> named = {
         {"737-300", "she passes all eight seeds, but on forty she meets the runway at 462 "
@@ -3055,19 +3056,15 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                  "strikes her airframe (seed 34)"},
         {"b2", "a gust rolls her on to a wingtip as she touches (seed 8); on forty seeds "
                "here, on ten (seeds 8, 10, 17, 23, 25, 31, 33, 38, 39, 40)"},
-        {"c172p", "she touches at 346.3 ft/min on macOS release (seed 3), not 25 inside "
-                  "the limit, CI runs 41117802406 and 41281712534; she passes here and on "
-                  "Windows debug"},
-        {"c182", "she touches at 352.5 ft/min on macOS (seed 8), not 25 inside the "
-                 "limit, CI run 38028434284; on forty seeds here at 377 (seeds 23, 33)"},
         {"f22", "since her stall was measured at idle (2026-11-03), she goes round for "
                 "touching past the zone (seeds 3 to 6), and on the other four touches at 276 "
                 "to 433 ft/min and rises 3.6 to 23.0 ft after, coming down again at 1,051 and "
                 "818 ft/min (seeds 7, 8); item \"The F-22A flies her stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
-                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137 "
-                  "and 132 ft/min in her flare (seeds 20, 37), she touches at 356 (seed 33) "
-                  "and rises 0.82 ft after touching (seed 39)"},
+                  "CI run 38028434284, before her flare's nose rate went as one over her "
+                  "speed; on forty seeds here a gust's lift climbs her at 76 to 158 ft/min in "
+                  "her flare on eight (seeds 9, 19, 20, 24, 37, 38, 39, 40), floating level a "
+                  "few feet up on half her approach power"},
     };
     return named;
 }
@@ -3283,7 +3280,7 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 }
 
 // **In moderate turbulence the AI lands every aeroplane not named within
-// its limits** - eight of sixteen; the eight named
+// its limits** - ten of sixteen; the six named
 // (`not_yet_landed_in_gusts`) are flown and shown, and so is one named on
 // one seed of one platform alone (`named_on_a_seed`: the S.23, macOS
 // release's seed 3). Fifteen knots down the runway with severity-3
