@@ -17,6 +17,16 @@ figures (linux-release, FMA):
   FMA. In the full CI run 41602502265 she was not recovered on macOS release
   or Rocky 9 linux-release (25.48 g), and that test was red on both. It is
   red there without the name.
+- **Not fixed: Windows debug aborts in her thirty-second stall.** In the
+  full CI run 41602502265,
+  `engaging_the_stall_recovery_and_letting_it_go_moves_no_control_faster_than_a_hand`
+  failed on windows-debug (job 125815053374) when JSBSim's debug assertion
+  fired: "Assertion failed: Factor >= 0.0 && Factor <= 1.0,
+  ext\jsbsim\src\math\FGTable.cpp, line 618". That is a table lookup
+  given a value it cannot place, likely a NaN, in her tumbling deep stall,
+  where she is "never recovered on Windows". The cause was not found inside
+  the time box. The test stays red there until it is: her deep stall must
+  be kept off a NaN, or guarded as the #248 NaN was.
 - **The stall watch**: noticed at 117.6 kt, she slows to 105.1 against her
   112.0 at her weight, and loses 317 ft. She is held to those figures.
   Before, they were 59.4 kt and 2,728 ft.
@@ -101,8 +111,10 @@ nightly or its fetch is fixed.
   `ctest -LE nightly -j4`: 671 tests, 669 passed. The two that failed (her
   rise at her figures' loading, and her wet roll-out) were then fixed and
   named as above, and run again green with the recording's playback;
-- the full suite was not run locally before the push (time box). The full
-  CI run is the check across platforms. The stall figures above are from
+- the full suite, `ctest -LE nightly -j4`, after the first push: 1,442 of
+  1,442 passed, 4,402 s. The full CI run 41602502265 failed on three jobs.
+  Two were the already-stalled test (named since). The third is the Windows
+  debug assertion above. The stall figures above are from
   the FMA build only; no x86-64-v2 build was made this round;
 - the eight gust seeds, each passing with her named;
 - `python3 tools/make_f22.py --check` passes. Her model is unchanged; only
