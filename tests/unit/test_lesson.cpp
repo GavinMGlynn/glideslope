@@ -3050,11 +3050,6 @@ std::vector<std::string> how_the_hull_held_off(const std::string& where,
 // B-2A's wings held level harder, each as her figures say.)
 const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
     static const std::map<std::string, std::string> named = {
-        {"737-300", "since 2026-11-04 she passes all forty seeds here, but on Windows release "
-                    "she meets the runway at 347 ft/min (seed 8)"},
-        {"787-8", "she touches at 398 ft/min on macOS (seed 2), CI run 38006839738; since "
-                  "2026-11-04 she passes all forty seeds here, but on Windows release she "
-                  "touches at 338 ft/min (seed 4)"},
         {"a380", "she touches 907 m along, not 25 m inside the touchdown zone (seed 7); on "
                  "forty seeds here she also meets the runway at 350 ft/min (seed 18) and "
                  "strikes her airframe (seed 34)"},
@@ -3119,6 +3114,14 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
     // within the band between her touch and TN 923's floor, she rises 0.52
     // ft there (0.87 before).
     static const std::vector<NamedOnASeed> named = {
+        // The 737-300 and 787-8 since 2026-11-04, flown at Boeing's full gust
+        // with their noses let rise faster: forty seeds of forty here and on
+        // an x86-64-v2 build, and on Windows release all but these.
+        {"737-300", 8, windows(), "on Windows she meets the runway at 347 ft/min (seed 8)"},
+        {"787-8", 4, windows(), "on Windows she touches at 338 ft/min (seed 4)"},
+        {"787-8", 2, macos(),
+         "on macOS she touched at 398 ft/min (seed 2), CI run 38006839738, before "
+         "2026-11-04's full gust"},
         {"short_s23", 3, macos(),
          "on macOS she rises 0.93 ft off the water after touching (seed 3), CI runs "
          "41303118662 and 41597667557 (after her stick's band, 2026-11-03), and on macOS "
