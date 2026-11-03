@@ -309,6 +309,47 @@ GLIDESLOPE_TEST(a_round_out_from_1200_fpm_at_seven_hundredths_of_a_g_takes_89_ft
     check(climbing == 0.0, "a climb takes none, not " + std::to_string(climbing));
 }
 
+// **A hull's gust climb in her hold-off is no balloon only while she holds
+// level** (`Lander::balloons`; the owner, 2026-10-31): her nose no higher
+// than her cap and her keel no more than half her flare's height over
+// where a balloon is judged from. Built, not flown, so that each bound is
+// met every run: a flare of 21.5 ft, judged from 21.5. Six cases, each with
+// the answer it must get: a landplane's climb over the flare, the hull's
+// level climb a foot over it (gust seed 30's), the hull's climb past the
+// half (11 ft over), the hull's with her nose over the cap (5.5 degrees), a
+// hull not climbing, and one climbing under the flare's height. Seen red:
+// with the height bound taken out, the climb past the half is not gone
+// round from; with the nose's, the climb at 5.5 degrees is not.
+GLIDESLOPE_TEST(a_hulls_gust_climb_in_her_hold_off_is_gone_round_from_once_she_no_longer_holds_level) {
+    constexpr double flare_ft = 21.5;
+    struct Case {
+        const char* what;
+        bool climbing;
+        double high_ft;
+        bool held_off;
+        double pitch_deg;
+        bool balloons;
+    };
+    const std::array<Case, 6> cases{{
+        {"a landplane climbing a foot over her flare", true, 22.5, false, 1.6, true},
+        {"the hull held level climbing a foot over it", true, 22.5, true, 1.6, false},
+        {"the hull climbing 11 ft over it, past the half", true, 32.5, true, 1.6, true},
+        {"the hull a foot over it with her nose at 5.5 degrees", true, 22.5, true, 5.5, true},
+        {"the hull sinking a foot over it", false, 22.5, true, 1.6, false},
+        {"the hull climbing under her flare's height", true, 20.0, true, 1.6, false},
+    }};
+    std::size_t right = 0;
+    for (const Case& c : cases) {
+        const bool b =
+            Lander::balloons(c.climbing, c.high_ft, flare_ft, flare_ft, c.held_off, c.pitch_deg);
+        std::printf("  %-55s %s\n", c.what, b ? "a balloon" : "not a balloon");
+        check(b == c.balloons, std::string(c.what) + (c.balloons ? " must" : " must not") +
+                                   " be gone round from");
+        right += b == c.balloons ? 1 : 0;
+    }
+    check(right == cases.size(), "six cases, each answered: " + std::to_string(right));
+}
+
 // **The item's own verification**, in calm air: from 5 nm out, down a
 // 3-degree glidepath, landing within 5 m of the centreline, sinking under
 // 300 ft/min, and stopping on the runway.

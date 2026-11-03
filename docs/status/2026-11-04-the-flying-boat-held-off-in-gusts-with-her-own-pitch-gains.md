@@ -4,7 +4,9 @@
 on macOS's seeds 3, 10 and 11 (risen 0.93, 1.13 and 2.03 ft before this
 change, CI runs 41597667557 and 41640422104), and this change has not been
 flown there: no macOS machine here, and a pull request's runs leave seeds 9
-to 40 out. If she now passes any of the three, its test fails "take her
+to 40 out. A full run dispatched on the first head of this branch, CI run
+41729931639, will measure them; its macOS jobs were still queued when this
+was pushed. If she now passes any of the three, its test fails "take her
 name off" on macOS until the name comes off. Over gust seeds 41 to 120,
 which no test flies, she still fails four on Linux (below).
 
@@ -47,8 +49,23 @@ hull alone.
   attitude on it (5.0 - 3.5), but no source names it. The damping is the
   on-the-water law's, derived as before.
 - **A gust's climb in her level hold-off is not gone around from as a
-  balloon** (the owner's ruling, 2026-10-31); the hold-off flies her back
-  down to its 1.5 ft. The landplanes' balloon go-around is unchanged.
+  balloon, while she holds level** (the owner's ruling, 2026-10-31: "not a
+  balloon if she holds level"; `Lander::balloons`); the hold-off flies her
+  back down to its 1.5 ft. Holding level is bounded twice, and past either
+  she goes round as a landplane does:
+  - her nose no higher than her cap, `rough_water_most_pitch_deg` (5.0):
+    the hold-off never asks for more, and does not raise her nose to a
+    climb, so a nose above it was raised by something else - the ruling's
+    "holds level", read as the judge reads it (nose raised no more than a
+    degree while climbing);
+  - her keel no more than half her flare's height over where a balloon is
+    otherwise judged from (her flare's height, or where it began if
+    higher). Half the flare's height is the owner-agreed bound the gust
+    test already holds her hold-off to (keel never back up to half the
+    flare's height, `how_the_hull_held_off`, 2026-11-01). Bounded at the
+    flare's height itself the exemption would do nothing: that is where the
+    balloon go-around already begins, and seed 30 climbed a foot past it.
+  The landplanes' balloon go-around is unchanged.
 
 Tried and not taken: a higher nose cap (5.5, 6.0 degrees: hard touches on
 seeds 3 and 5, 382 to 401 ft/min), a flatter attitude on the water (3.0,
@@ -94,8 +111,23 @@ the margin), her highest rise 0.34 ft (seeds 4 and 21), her flattest touch
   seeds 24 and 38, each "take her name off" - she landed on both (137 and
   206 ft/min, risen 0.00 ft), where before she climbed back to 11.5 ft in
   her hold-off and rose 2.58 ft. Their Windows names are taken off.
-- The whole suite, linux-release (`ctest -j4`, no display): 1,485 of
-  1,486 passed, 48 of them skipped for want of a key or a display. The one
-  failure, `an_aircraft_its_player_rolled_into_a_spiral_over_two_ai_layers_...`,
-  failed in 2.5 s alongside other agents' runs and passed alone (125 s); it
-  flies no flying boat and no gusts.
+- `a_hulls_gust_climb_in_her_hold_off_is_gone_round_from_once_she_no_longer_holds_level`
+  (tests/unit/test_lander.cpp): six built cases, each bound met every run.
+  **Seen red**: with the height bound taken out, the climb 11 ft over her
+  flare was not gone round from; with the nose bound taken out, the climb
+  at 5.5 degrees was not.
+- After the bound, and rebased on #310: seeds 1 to 40 on linux-release and
+  on x86-64-v2 all pass, the S.23's figures the same as without the bound
+  (seed 30's climb is a foot, the bound 10.75 ft); and with both changes
+  switched off in a scratch build she fails exactly the seven seeds named
+  before. Every other aeroplane's 600 flights are identical with and
+  without the change, on both builds. Windows release, after the bound: all
+  forty seeds and the bound's test pass (41 of 41).
+- The whole suite, linux-release (`ctest -j4`, no display), before the
+  bound: 1,485 of 1,486 passed, 48 of them skipped for want of a key or a
+  display. The one failure,
+  `an_aircraft_its_player_rolled_into_a_spiral_over_two_ai_layers_handed_to_the_ai_is_rolled_level_and_never_loses_separation_from_either`,
+  failed after 2.5 s of a run that takes 125 s alone, where it passed. Two
+  and a half seconds is a fault in starting up - its server or clients -
+  not a flight run slow under load; it flies no flying boat and no gusts.
+  Its cause is not found here.

@@ -309,6 +309,15 @@ public:
     // (`rough_water_most_pitch_deg` less `rough_water_step_deg`), but no
     // source names it.
     static constexpr double rough_water_hold_off_band_deg = 1.5;
+    // **Whether a climb in her flare is a balloon, to be gone around from**
+    // (lander.cpp): climbing, her wheels or keel at `high_ft` over the
+    // runway or water, above `over_ft` - her flare's height, or where it
+    // began if higher. A hull held off over rough water (`held_off`) is let
+    // climb while she holds level: her nose `pitch_deg` no higher than her
+    // cap, `rough_water_most_pitch_deg`, and her keel no more than half her
+    // flare's height `flare_ft` over `over_ft`.
+    static bool balloons(bool climbing, double high_ft, double over_ft, double flare_ft,
+                         bool held_off, double pitch_deg);
     // **How high what she lands on is**, feet over the runway or the water
     // at her attitude now: her wheels, or her hull's keel.
     double lands_on_high_ft() const;
