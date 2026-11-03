@@ -278,6 +278,9 @@ public:
     static constexpr double rough_water_hold_ft = 1.5;
     static constexpr double rough_water_most_pitch_deg = 5.0;
     static constexpr double rough_water_step_deg = 3.5;
+    // NACA TN 923's floor: "abnormally low trims (possibly 3 degrees or
+    // less) should be avoided ... on landing".
+    static constexpr double rough_water_least_trim_deg = 3.0;
     // **How high what she lands on is**, feet over the runway or the water
     // at her attitude now: her wheels, or her hull's keel.
     double lands_on_high_ft() const;
