@@ -5957,6 +5957,17 @@ const std::map<std::string, std::string>& not_recovered_from_thirty_seconds() {
     return named;
 }
 
+// **Whether a flight named as not recovering now recovers within the
+// bounds** a thirty-second stall is held to - recovered, the height her speed
+// and sink need and 2 g, each with the tolerance in hand - so that a stale
+// name fails the test: "take her name off".
+bool recovers_within_the_thirty_second_bounds(const Result& r) {
+    const double lost_ft = r.handed_over_ft - r.recovery_lowest_ft;
+    return r.handed_over_ft > 0.0 && r.recovered &&
+           lost_ft * (1.0 + between_machines) <= height_bound_ft(r) &&
+           r.peak_load_g * (1.0 + between_machines) <= flaps_down_most_g;
+}
+
 void every_stall_recovered_within(
     bool at_the_warning, double left_s, const char* when,
     const std::function<double(const Result&, double)>& height_bound,
@@ -6028,6 +6039,9 @@ void every_stall_recovered_within(
             std::printf("      named, not judged - %s: %s\n", id.c_str(),
                         not_judged->second.c_str());
             ++unjudged_flown;
+            if (recovers_within_the_thirty_second_bounds(r)) {
+                faults.push_back(id + " recovered: take her name off");
+            }
         } else if (r.handed_over_ft <= 0.0) {
             faults.push_back(id + " was not handed to its recovery in the air");
         } else {
@@ -6210,6 +6224,9 @@ GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_f
                 std::printf("      named, not judged - %s: %s\n", id.c_str(),
                             not_judged->second.c_str());
                 ++unjudged_flown;
+                if (r.let_go_step >= 0.0 && recovers_within_the_thirty_second_bounds(r)) {
+                    faults.push_back(id + " recovered: take her name off");
+                }
             } else if (r.let_go_step < 0.0) {
                 faults.push_back(id + " " + when + " was never let go: not recovered");
             } else if (std::max(r.engaged_step, r.let_go_step) > a_hands_pace + 1e-12) {
