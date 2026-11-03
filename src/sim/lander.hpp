@@ -85,6 +85,12 @@ struct ApproachSpeeds {
     // **Where the roll-out's stick starts back**, a fraction of her reference
     // speed: fully back by half of it. Her figures' `stick_back_from_vref`.
     double stick_back_from_vref = 0.9;
+    // **The share of the gust factor added to her approach speed in gusts,
+    // and the most it adds**, knots (`Lander::approach_kts`): the FAA's half,
+    // up to 15 kt, unless her figures give her manufacturer's
+    // (`PublishedFigures::gust_additive_share`).
+    double gust_additive_share = 0.5;
+    double most_gust_additive_kts = 15.0;
     // **The approach yaw damper's pedal for each degree a second**: 0.05,
     // unless her figures say her pedals command a yaw rate
     // (`yaw_rate_pedal_per_degps`).
@@ -355,18 +361,18 @@ public:
     double glidepath_deg() const;
     // **The speed she is flown down the approach at, in the air she is in
     // now**: her reference speed for her weight, plus half the air's gust
-    // factor (Aircraft::gust_factor_kt) up to `most_gust_additive_kts` -
-    // the FAA's "normal approach speed plus one-half of the wind gust
-    // factor" (Airplane Flying Handbook, FAA-H-8083-3C, chapter 9,
-    // "Turbulent Air Approach and Landing"). The stabilized gate judges
+    // factor (Aircraft::gust_factor_kt) up to 15 kt - the FAA's "normal
+    // approach speed plus one-half of the wind gust factors" (Airplane Flying
+    // Handbook, FAA-H-8083-3C, chapter 9, "Turbulent Air Approach and
+    // Landing"); Airbus limits its increment to 15 kt, and Boeing's study cut
+    // its additive from 20 to 15 (both as code7700.com's "Approach Speed
+    // Additives" quotes them). Or her manufacturer's share and most, where
+    // her figures give them (`ApproachSpeeds::gust_additive_share`): the
+    // 737-300's and 787-8's are Boeing's full gust, up to 20 kt (their
+    // figures files say from where). The stabilized gate judges
     // her +10/-5 kt round this, not round the bare reference. The
     // reference itself in calm air.
     double approach_kts() const;
-    // **The most the gusts add**, knots: Airbus limits the increment over
-    // its approach speed to 15 kt, and Boeing's study cut its wind additive
-    // from 20 to 15 (both as code7700.com's "Approach Speed Additives"
-    // quotes them). Reached at a gust factor of 30, severe turbulence.
-    static constexpr double most_gust_additive_kts = 15.0;
     // **Whether she is landed as in gusts** (`approach_kts` raised): a
     // power-on flare to a firm touch, the throttle closed only once her
     // wheels are down, a sink cushioned with power and the power off again
@@ -532,6 +538,9 @@ private:
     // The attitude asked on the step before, whose rate the flare's damping
     // in gusts leaves alone (`fly_laws`).
     double last_want_pitch_ = 0.0;
+    // Whether her sink, on the flare's last step, was faster than it wanted:
+    // a gusty jet's nose may rise faster then (`fly_laws`).
+    bool closing_past_flare_ = false;
     // Given back by a pilot (`resume`).
     bool resumed_ = false;
     // The incidence she flew the glidepath at, on its last step before the

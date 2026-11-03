@@ -781,6 +781,69 @@ GLIDESLOPE_TEST(where_the_rollouts_stick_starts_back_is_read_and_refused_outside
                                            std::to_string(refused));
 }
 
+// **What her manufacturer adds to her approach speed in gusts is read, and a
+// share of none or past the whole gust, or a most of none or past Boeing's
+// 20 kt, is refused** (`gust_additive_share`, `most_gust_additive_kts`,
+// sim::Lander::approach_kts): the 787-8's full gust up to 20 kt read as
+// written, the A320's - which gives none - as 0 (the FAA's half up to 15 is
+// then flown), and the A320's file given each: a share of 1 and a most of 20,
+// the most allowed, read back; shares of 0 and 1.5 and mosts of 0 and 25
+// refused, each naming its attribute. Coverage asserted: four refused.
+GLIDESLOPE_TEST(a_gust_additive_is_read_and_refused_outside_the_whole_gust_and_boeings_twenty_knots) {
+    const auto b787 = read_published_figures(figures_file("787-8"));
+    check(b787.gust_additive_share == 1.0 && b787.most_gust_additive_kts == 20.0,
+          "the 787-8 adds the full gust, up to 20 kt: " + std::to_string(b787.gust_additive_share) +
+              ", " + std::to_string(b787.most_gust_additive_kts));
+    const auto a320 = read_published_figures(figures_file("a320"));
+    check(a320.gust_additive_share == 0.0 && a320.most_gust_additive_kts == 0.0,
+          "the A320 gives none, and has 0");
+
+    std::ifstream in(figures_file("a320"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const std::string attribute = "rotation_degps=\"3\"";
+    const auto at = text.find(attribute);
+    if (at == std::string::npos) {
+        fail("assets/figures/a320.xml does not give rotation_degps=\"3\"");
+    }
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_gust_additive_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& name, const std::string& value) {
+        std::string changed = text;
+        changed.replace(at, attribute.size(), attribute + " " + name + "=\"" + value + "\"");
+        std::ofstream out(file);
+        out << changed;
+    };
+
+    write("gust_additive_share", "1");
+    check(read_published_figures(file).gust_additive_share == 1.0,
+          "a share of 1, the whole gust, is read back as written");
+    write("most_gust_additive_kts", "20");
+    check(read_published_figures(file).most_gust_additive_kts == 20.0,
+          "a most of 20 kt, Boeing's, is read back as written");
+    const std::pair<const char*, const char*> wrong[] = {{"gust_additive_share", "0"},
+                                                         {"gust_additive_share", "1.5"},
+                                                         {"most_gust_additive_kts", "0"},
+                                                         {"most_gust_additive_kts", "25"}};
+    std::size_t refused = 0;
+    for (const auto& [name, value] : wrong) {
+        write(name, value);
+        try {
+            read_published_figures(file);
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            check(said.find(name) != std::string::npos,
+                  std::string("the refusal of ") + name + " " + value + " names it: " + said);
+            ++refused;
+        }
+    }
+    std::filesystem::remove(file);
+    check(refused == std::size(wrong), "all four outside their bounds were refused, not " +
+                                           std::to_string(refused));
+}
+
 // **How a tail-wheel aeroplane is landed is read, and anything but
 // three_point or wheels is refused** (`lands`, sim::Lander): the J-3 Cub's
 // three_point read as written, the A320's - which gives none - as no

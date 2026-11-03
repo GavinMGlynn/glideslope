@@ -133,6 +133,13 @@ struct PublishedFigures {
     // for (sim::Lander). 0 where the file gives none: her pedals move her
     // rudder, and the lander's own 0.05 is flown.
     double yaw_rate_pedal_per_degps = 0.0;
+    // **What her manufacturer adds to her approach speed in gusts**: the
+    // share of the gust factor (`gust_additive_share`) and the most it
+    // comes to (`most_gust_additive_kts`), which her file cites. 0 where the
+    // file gives none, and the FAA's half of it, up to 15 kt, is flown
+    // (sim::Lander::approach_kts).
+    double gust_additive_share = 0.0;
+    double most_gust_additive_kts = 0.0;
     // **How a tail-wheel aeroplane is landed** (`lands`): "three_point", held
     // off until she touches at the attitude she stands at (sim::Lander), or
     // "wheels", the default, flown on to her main wheels.

@@ -2223,6 +2223,24 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "at most 1");
         }
     }
+    // **A gust additive that adds nothing, or more than the whole gust, is
+    // refused**, and so is a most that is none or past Boeing's 20 kt.
+    if (root->HasAttribute("gust_additive_share")) {
+        out.gust_additive_share = root->GetAttributeValueAsNumber("gust_additive_share");
+        if (!(out.gust_additive_share > 0.0 && out.gust_additive_share <= 1.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a gust_additive_share that is not above 0 and "
+                                     "at most 1");
+        }
+    }
+    if (root->HasAttribute("most_gust_additive_kts")) {
+        out.most_gust_additive_kts = root->GetAttributeValueAsNumber("most_gust_additive_kts");
+        if (!(out.most_gust_additive_kts > 0.0 && out.most_gust_additive_kts <= 20.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a most_gust_additive_kts that is not above 0 "
+                                     "and at most 20");
+        }
+    }
     // **A yaw rate pedal gain that is not above 0, or past a full pedal for
     // a degree a second, is refused.**
     if (root->HasAttribute("yaw_rate_pedal_per_degps")) {

@@ -34,7 +34,23 @@
   Boeing's: its flight crew training manuals (737, 747) have the nose
   raised "at 2 to 3 degrees per second" toward the take-off attitude.
 -->
-<published_figures aircraft="787-8" rotation_degps="3" flaps_full_deg="35" touchdown_fpm="200">
+<!--
+  **gust_additive_share** and **most_gust_additive_kts** are what Boeing adds
+  to her approach speed in gusts: the full gust, up to 20 kt, where the FAA's
+  Airplane Flying Handbook adds half the gust factor, up to 15 (sim::Lander,
+  approach_kts). Boeing's flight crew training manual's wind correction is
+  "one half of the reported steady headwind component plus the full gust
+  increment", at most 20 kt, the steady half bled off approaching the touch
+  and the gust correction kept to it - as PPRuNe, code7700.com and
+  flaps2approach.com quote the 737 FCTM; the manual itself was not found to
+  quote. The steady half is not added here: the lander knows the gust factor
+  of the air, not its reported headwind, and the steady half is gone by the
+  touch. Flown with the FAA's half, in moderate turbulence (15 kt down the
+  runway, gust factor 15) she met the runway hard on a few of forty seeds
+  (docs/status, 2026-11-04). The 747-400, flown with it, touched hard on two
+  seeds she passes at the FAA's half, so hers is not given.
+-->
+<published_figures aircraft="787-8" rotation_degps="3" flaps_full_deg="35" touchdown_fpm="200" gust_additive_share="1" most_gust_additive_kts="20">
   <source>Boeing D6-58333 rev O, 2023; FAA TCDS T00021SE</source>
 
   <!-- 502,500 lb, the maximum take-off weight: the model's empty weight,
