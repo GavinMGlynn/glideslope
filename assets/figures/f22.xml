@@ -119,7 +119,13 @@
     held level by her autopilot as a stall lesson enters it, until she
     pitches up of her own accord at about 22 degrees of alpha - with her gear
     down her thrust vectoring is off, and her stabilators cannot hold her
-    nose there. Her wing does not stall first. The figure is the
+    nose there. Her wing does not stall first. **Taking that pitch-up as her
+    stall is this project's rule, not the regulation's**: 14 CFR 25.201(d)
+    identifies a stall by a nose-down pitch that cannot readily be arrested,
+    by deterrent buffeting, or by the pitch control at its aft stop with the
+    nose rising no further. An uncommanded pitch-up is none of them, and
+    25.203 forbids one. Her model shows none of the three before it, so the
+    speed where it begins is the slowest she is flown under control at idle. The figure is the
     calibrated airspeed there (src/sim/figures.cpp, `departure_speed`):
     106.38, 105.84, 106.57 and 106.30 from 160, 200, 240 and 280 KCAS,
     whence the tolerance. Until 2026-11-03 it was 90.0, her slowest level flight

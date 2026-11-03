@@ -165,6 +165,17 @@ The changes, and what each is for:
                         power and its acceleration in afterburner. The military
                         table allows for the idle thrust JSBSim adds to it.
 
+**Her stall, which this script does not change**: with her gear down her
+thrust vectoring is off (the pinned model's fcs/tvc-inhibit), and at idle,
+past about 22 degrees of alpha, her stabilators cannot hold her nose. She
+pitches up before her wing stalls. Her figures file
+(assets/figures/f22.xml, stall_speed_landing) takes the speed where that
+pitch-up begins as her stall. That is this project's rule, not 14 CFR
+25.201(d)'s: none of its three stall indications, a nose-down pitch that
+cannot readily be arrested, deterrent buffeting or the pitch control at its
+aft stop with the nose rising no further, comes before it. 25.203 forbids
+the pitch-up itself (docs/status/2026-11-03-the-f22a-s-stall-figure-tests-investigated.md).
+
 **The alpha-rate terms on the dynamic pressure without its sideways part**
 (tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
 angle of attack is undefined, its rate swings, and multiplied by the whole

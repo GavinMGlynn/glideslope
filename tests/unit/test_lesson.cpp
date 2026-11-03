@@ -5169,8 +5169,6 @@ InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0,
 }
 
 struct Result {
-    // What wrecked her, if the flight ended in a wreck (sim::GroundJudge).
-    std::string wreck;
     // How far the height strayed from where the entry stage began, which is
     // what the entry's band is set from.
     double entry_low_ft = 0.0;
@@ -5723,9 +5721,6 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
             run.update(*f.aircraft, tick);
             const double agl = f.aircraft->property("position/h-agl-ft");
             const std::optional<std::string> wrecked = ground.judge(*f.aircraft);
-            if (wrecked && out.wreck.empty()) {
-                out.wreck = *wrecked;
-            }
             // **Into the ground is the end of the flight**, and the lesson is
             // judged there: a recovery that ends in the ground did not
             // recover with the least height. Before the recovery flew the
@@ -10883,10 +10878,9 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_stall_and_hands_it_over) {
     const auto taught = everyone_taught("stalls");
     check(!taught.empty(), "some aeroplane is taught stalls");
     std::size_t walked = 0;
-    // **Named, not yet: the F-22A** (2026-11-02, when her stall was measured
-    // from her model), whose recovery loses 2,964 ft against her lesson's 500
-    // (every_aeroplane_recovered_at_the_first_sign_of_a_stall_...): the
-    // debrief says so. Item "The F-22A flies her stall-figure tests".
+    // **None named.** The F-22A was from 2026-11-02, her debrief saying
+    // "Recover with the least height you can"; since her stall was measured
+    // at idle (2026-11-03) her demonstration's debrief is empty.
     const std::map<std::string, std::vector<std::string>> named = {};
     std::size_t named_seen = 0;
     for (const std::string& id : taught) {
