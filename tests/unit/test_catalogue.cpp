@@ -505,11 +505,18 @@ GLIDESLOPE_TEST(every_aircraft_given_no_loading_lies_inside_her_published_weight
 // 737-300 and the Learjet at the plan's slowest were left out until
 // their models gave JSBSim's trim their alpha limits (tools/make_737_300.py,
 // tools/make_learjet35a.py): seen red without them, 21 points.
-GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speeds_is_trimmed_as_a_players_is) {
+//
+// Walked a height at a time, a test each: walked whole on Linux debug it took
+// 435 to 771 s on CI's runners, and twice ran past its 900 (#307 and #311,
+// runs 41683267179 and 41685289441).
+namespace {
+
+enum Speed { slowest, start, fastest };
+
+void every_aircraft_is_trimmed_as_a_players_is_at(const double at_ft) {
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
     const std::string pitch_alone = "f22";
-    const std::vector<double> heights_ft = {1000.0, 5000.0, 10000.0};
-    enum Speed { slowest, start, fastest };
+    const std::vector<double> heights_ft = {at_ft};
     // Left out, each by aircraft, loading, height and speed: every one past
     // her book or her derivation (above), and every one must fail - one that
     // trims has moved in, and fails the walk until it is taken off the list.
@@ -535,6 +542,9 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
         {"j3cub", "gross", 10000.0, start},
         {"j3cub", "gross", 10000.0, fastest},
     };
+    const auto left_out_here = static_cast<std::size_t>(
+        std::count_if(left_out_list.begin(), left_out_list.end(),
+                      [&](const LeftOut& l) { return l.height_ft == at_ft; }));
     const auto left_out = [&](const std::string& id, const std::string& loading,
                               double height_ft, Speed speed) {
         return std::any_of(left_out_list.begin(), left_out_list.end(), [&](const LeftOut& l) {
@@ -625,15 +635,16 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
             }
         }
     }
-    std::printf("  %zu points: %zu aircraft, at their loadings, three heights and three speeds; "
+    std::printf("  %zu points: %zu aircraft, at their loadings, at %.0f ft and three speeds; "
                 "%zu trimmed as a player's (the F-22A's %zu in pitch alone, said), %zu left out "
                 "and named, %zu of them not trimmed\n",
-                space, catalogue.size(), trimmed, pitch_alone_said, left_out_n, left_out_failed);
+                space, catalogue.size(), at_ft, trimmed, pitch_alone_said, left_out_n,
+                left_out_failed);
     check(failed.empty(), "every aircraft was trimmed at every loading, height and speed (the "
                           "F-22A in pitch alone, said), or left out and said; these were not:" +
                               failed);
-    check(left_out_n == left_out_list.size() && left_out_failed == left_out_list.size(),
-          "every point on the list of " + std::to_string(left_out_list.size()) +
+    check(left_out_n == left_out_here && left_out_failed == left_out_here,
+          "every point at this height on the list of " + std::to_string(left_out_here) +
               " left out was walked and failed: " + std::to_string(left_out_n) + " walked, " +
               std::to_string(left_out_failed) + " failed");
     check(!catalogue.empty() && space > 0 && walked == space &&
@@ -641,6 +652,20 @@ GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_heights_and_three_speed
           "every point of the space was walked, trimmed or left out by name: " +
               std::to_string(walked) + " walked, " + std::to_string(trimmed) + " trimmed and " +
               std::to_string(left_out_n) + " left out, of " + std::to_string(space));
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_speeds_at_1000_ft_is_trimmed_as_a_players_is) {
+    every_aircraft_is_trimmed_as_a_players_is_at(1000.0);
+}
+
+GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_speeds_at_5000_ft_is_trimmed_as_a_players_is) {
+    every_aircraft_is_trimmed_as_a_players_is_at(5000.0);
+}
+
+GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_speeds_at_10000_ft_is_trimmed_as_a_players_is) {
+    every_aircraft_is_trimmed_as_a_players_is_at(10000.0);
 }
 
 // **The S.23 trimmed at every loading, height and speed of the walk above
