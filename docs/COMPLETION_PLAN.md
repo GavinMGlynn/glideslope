@@ -1332,8 +1332,7 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       figures: her stall recoveries (at her warning she has already begun
       to pitch up), the stall watch, one wet walking pace, a 0.72 ft rise
       after her touch at her model's own weight, and a 7.37 m wet crosswind
-      roll-out. On Windows debug her thirty-second stall trips a JSBSim table
-      assertion (CI run 41602502265), which is not fixed. Her gusts are under
+      roll-out. Her gusts are under
       the gust item (2026-11-03-the-f22a-s-stall-figure-tests-investigated).
       *Verification: every one of those tests passes with her name taken
       off, on every platform.*

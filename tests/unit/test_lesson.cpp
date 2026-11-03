@@ -3060,11 +3060,10 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                   "Windows debug"},
         {"c182", "she touches at 352.5 ft/min on macOS (seed 8), not 25 inside the "
                  "limit, CI run 38028434284; on forty seeds here at 377 (seeds 23, 33)"},
-        {"f22", "since her stall was measured at idle (2026-11-03), she goes round for a "
-                "balloon above the flare (seeds 1, 8) and for touching past the zone (seed 4), "
-                "and on the other five touches at 238 to 1,006 ft/min and rises 1.7 to 32.2 "
-                "ft after; on seeds 2, 3, 5 and 7 she strikes her airframe or hits the ground "
-                "too hard; item \"The F-22A flies her stall-figure tests\""},
+        {"f22", "since her stall was measured at idle (2026-11-03), she goes round for "
+                "touching past the zone (seeds 3 to 6), and on the other four touches at 276 "
+                "to 433 ft/min and rises 3.6 to 23.0 ft after, coming down again at 1,051 and "
+                "818 ft/min (seeds 7, 8); item \"The F-22A flies her stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137 "
                   "and 132 ft/min in her flare (seeds 20, 37), she touches at 356 (seed 33) "
@@ -6193,7 +6192,13 @@ GLIDESLOPE_TEST(a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within
     // the water; with them leaving out its sideways part she reaches the
     // water first (her elevator's moment alone does it - put back, her entry
     // is flown otherwise; her flaps' and pitch damping's change nothing).
-    const std::set<std::string> expected_in_the_ground = {"737-300", "short_s23"};
+    // **And six more since 2026-11-03**, when a stall's flight began ending
+    // at its first wreck (`fly_a_stall`, as the server ends one): the A320,
+    // A380, F-15C, F-22A, F-35B and Mosquito are judged wrecked on the
+    // ground in that entry before the lesson calls the stall. Until then they
+    // were flown on after it, and handed over above the ground later.
+    const std::set<std::string> expected_in_the_ground = {
+        "737-300", "a320", "a380", "f15c", "f22", "f35b", "mosquito-fb6", "short_s23"};
     std::set<std::string> in_the_ground_first;
     std::vector<std::string> faults;
     for (const std::string& id : taught.able) {

@@ -17,16 +17,52 @@ figures (linux-release, FMA):
   FMA. In the full CI run 41602502265 she was not recovered on macOS release
   or Rocky 9 linux-release (25.48 g), and that test was red on both. It is
   red there without the name.
-- **Not fixed: Windows debug aborts in her thirty-second stall.** In the
-  full CI run 41602502265,
+- **Fixed (third round): Windows debug aborted in her thirty-second
+  stall. It was a wreck being flown on, as in #304.** In the full CI run
+  41602502265,
   `engaging_the_stall_recovery_and_letting_it_go_moves_no_control_faster_than_a_hand`
-  failed on windows-debug (job 125815053374) when JSBSim's debug assertion
-  fired: "Assertion failed: Factor >= 0.0 && Factor <= 1.0,
-  ext\jsbsim\src\math\FGTable.cpp, line 618". That is a table lookup
-  given a value it cannot place, likely a NaN, in her tumbling deep stall,
-  where she is "never recovered on Windows". The cause was not found inside
-  the time box. The test stays red there until it is: her deep stall must
-  be kept off a NaN, or guarded as the #248 NaN was.
+  failed on windows-debug (job 125815053374): "Assertion failed: Factor >=
+  0.0 && Factor <= 1.0, ext\jsbsim\src\math\FGTable.cpp, line 618". It
+  was reproduced with `tools/windows_build.sh windows-debug
+  glideslope_tests` and the same assertion. Traced in an x86-64-v2 build,
+  step by step from 200 ft:
+  - left thirty seconds in her deep stall, she struck the ground with her
+    airframe at 19,600 ft/min, her centre of gravity still 35 ft above it;
+  - `fly_a_stall` ended a flight only at a height of 0, so she was stepped
+    on. She was thrown up at 51 g, bounced over 200 ft and came to rest at
+    5.7 ft;
+  - she was then flown at rest to the flight's ten minutes, at airspeeds
+    down to 2e-9 ft/s.
+
+  The v2 build never went non-finite, but a value fed to a table did on
+  Windows debug, where asserts are on. JSBSim clamps every finite input to
+  its tables, so only a NaN or an infinity trips that assertion. Which
+  table and which input were not found: a commit with a trace in it is
+  refused by the pre-commit hook, and `windows_build.sh` builds only what
+  is committed.
+
+  **The fix** (tests/unit/test_lesson.cpp, `fly_a_stall`), the same kind as
+  #304's: a `sim::GroundJudge` judges every step, and the first wreck ends
+  the flight as the ground does, stopped where she hit, as the server stops
+  it. With it the test passes on Windows debug (`windows_build.sh`, 94 s).
+  **#248's NaN guard did not catch it**, for two reasons. The guard
+  (`Aircraft::not_finite_numbers`) is called by the client's prediction
+  and by the CLI's trap, not by the test harness's own flights, which step
+  `Aircraft` directly. And JSBSim asserts inside the step that makes the
+  NaN, before any check after the step could see it. Not changed:
+  stopping at the wreck is the right end for the flight, and the server
+  already stops there.
+
+  **What else it moved**: in
+  `a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within_five_seconds_and_near_the_ground_at_once`,
+  begun at 1,000 ft, eight aeroplanes now end in the ground before their
+  hand-over, not two. The A320, A380, F-15C, F-22A, F-35B and Mosquito are
+  judged wrecked in that entry, and until now were flown on and handed over
+  above the ground later. The test's named set is the eight. It still
+  requires low flights whose wing is stalled at full power (the B-2A, Cub
+  and PA-28). It passes in the FMA and x86-64-v2 builds, as does the
+  engaging test. The wide set run after the rebase: 671 tests, 670 passed
+  before this change, and that one passes with it.
 - **The stall watch**: noticed at 117.6 kt, she slows to 105.1 against her
   112.0 at her weight, and loses 317 ft. She is held to those figures.
   Before, they were 59.4 kt and 2,728 ft.
@@ -46,10 +82,10 @@ figures (linux-release, FMA):
   "f22 is named at 6.000000 m wet, and is worse: 7.369597". Each was
   restored and run green. Each also fails "take her name off" once she is
   back within the bound.
-- **Gusts** (the gust item): she goes round on seeds 1 and 8 for a balloon
-  and on seed 4 for touching past the zone. On the other five she touches
-  at 238 to 1,006 ft/min and rises 1.7 to 32.2 ft. On seeds 2, 3, 5 and 7
-  she strikes her airframe or hits the ground too hard.
+- **Gusts** (the gust item), measured again on main's gusty flare after
+  #304: she goes round on seeds 3 to 6 for touching past the zone. On the
+  other four she touches at 276 to 433 ft/min and rises 3.6 to 23.0 ft
+  after. On seeds 7 and 8 she then comes down at 1,051 and 818 ft/min.
 
 **Taken off, each passing with her name gone**:
 - the approach lesson's tail-strike margin: she touches at 11.06 degrees,
@@ -111,6 +147,12 @@ nightly or its fetch is fixed.
   `ctest -LE nightly -j4`: 671 tests, 669 passed. The two that failed (her
   rise at her figures' loading, and her wet roll-out) were then fixed and
   named as above, and run again green with the recording's playback;
+- **x86-64-v2 build (no FMA, as CI)**, third round, for every test that
+  names her: each passes. Her figures there are within the FMA build's: at
+  her warning 3,267 ft and 3.74 g; the stall watch 105.1 kt and 317 ft; her
+  rise 0.72 ft; wet 7.37 m; walking pace 29.93 s.
+- rebased onto main after #304 (its gusty flare), conflicting only in her
+  gust naming, which was measured again;
 - the full suite, `ctest -LE nightly -j4`, after the first push: 1,442 of
   1,442 passed, 4,402 s. The full CI run 41602502265 failed on three jobs.
   Two were the already-stalled test (named since). The third is the Windows
