@@ -1325,15 +1325,15 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       length.* Owner 2026-10-09. Owner 2026-10-31: recordings made again.
       Done 2026-11-02; what the F-22A's stall figure brought her into is the
       next item.
-- [ ] **The F-22A flies her stall-figure tests.** Since her stall was
-      measured (2026-11-02) she is named, with her figures, in her stall
-      recoveries, the stall watch and demonstration, the tail-strike
-      margin, one wet walking pace and the autopilot's heading from her
-      approach speed; her gusts are under the gust item
-      (status file 2026-11-02-the-f22a-s-stall-figure-and-landing-measured).
-      Still open: at idle, gear down, she pitches up past her stabilators at
-      23 to 24 degrees of alpha, before her stall warning, because her stall
-      figure was trimmed with power (2026-11-03-the-f22a-s-stall-figure-tests-investigated).
+- [ ] **The F-22A flies her stall-figure tests.** Her stall is measured at
+      idle since 2026-11-03 (105.8 KCAS, where she pitches up past her
+      stabilators), and her tail-strike margin, stall demonstration and
+      heading from her approach speed now pass. Still named, with their
+      figures: her stall recoveries (at her warning she has already begun
+      to pitch up), the stall watch, one wet walking pace, a 0.72 ft rise
+      after her touch at her model's own weight, and a 7.37 m wet crosswind
+      roll-out; her gusts are under
+      the gust item (2026-11-03-the-f22a-s-stall-figure-tests-investigated).
       *Verification: every one of those tests passes with her name taken
       off, on every platform.*
 - [x] **The AI lands the 747-400 at Boeing's published approach speed**:
