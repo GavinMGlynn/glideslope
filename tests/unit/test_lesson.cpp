@@ -3094,6 +3094,13 @@ struct NamedOnASeed {
     return false;
 #endif
 }
+[[maybe_unused]] constexpr bool macos() {
+#if defined(__APPLE__)
+    return true;
+#else
+    return false;
+#endif
+}
 [[maybe_unused]] constexpr bool linux_() {
 #if defined(__linux__)
     return true;
@@ -3106,22 +3113,29 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
     // within the band between her touch and TN 923's floor, she rises 0.52
     // ft there (0.87 before).
     static const std::vector<NamedOnASeed> named = {
-        {"short_s23", 3, macos_release(),
-         "on macOS release she rises 0.93 ft off the water after touching (seed 3), CI runs "
-         "41303118662 and 41597667557 (after her stick's band, 2026-11-03); 0.19 on Linux"},
-        // **The nightly seeds, 9 to 40** (`..._seed_9` to `_40`, nightly):
+        {"short_s23", 3, macos(),
+         "on macOS she rises 0.93 ft off the water after touching (seed 3), CI runs "
+         "41303118662 and 41597667557 (after her stick's band, 2026-11-03), and on macOS "
+         "debug too, 41640422104; 0.19 on Linux"},
+        // **The sweep's seeds, 9 to 40** (`..._seed_9` to `_40`, gust_sweep):
         // measured on linux-release and an x86-64-v2 build here (the same
         // figures) and on Windows release, 2026-11-03, with the light
-        // aircraft's gusty nose rate. Not yet seen on macOS, Linux debug or
-        // clang: a failure there names its seed here.
+        // aircraft's gusty nose rate; and on every CI preset in run
+        // 41640422104, dispatched on #308's branch, whose failures are named
+        // below with it.
         {"f15c", 34, linux_(),
          "on Linux she floats into a go-around from a touch 1,039 m along (seed 34)"},
         {"short_s23", 11, linux_(), "on Linux she touches at 347 ft/min (seed 11)"},
-        {"short_s23", 13, linux_(), "on Linux she rises 1.80 ft off the water after touching (seed 13)"},
-        {"short_s23", 25, linux_(), "on Linux she skips 3.34 ft off the water, touched at 1.49 degrees (seed 25)"},
-        {"short_s23", 28, linux_(), "on Linux she rises 2.21 ft off the water after touching (seed 28)"},
-        {"short_s23", 30, linux_(), "on Linux she goes round for a balloon above the flare (seed 30)"},
-        {"short_s23", 32, linux_(), "on Linux she rises 1.21 ft off the water, touched at 3.22 degrees (seed 32)"},
+        {"short_s23", 13, linux_(),
+         "on Linux she rises 1.80 ft off the water after touching (seed 13)"},
+        {"short_s23", 25, linux_(),
+         "on Linux she skips 3.34 ft off the water, touched at 1.49 degrees (seed 25)"},
+        {"short_s23", 28, linux_(),
+         "on Linux she rises 2.21 ft off the water after touching (seed 28)"},
+        {"short_s23", 30, linux_(),
+         "on Linux she goes round for a balloon above the flare (seed 30)"},
+        {"short_s23", 32, linux_(),
+         "on Linux she rises 1.21 ft off the water, touched at 3.22 degrees (seed 32)"},
         {"short_s23", 40, linux_(), "on Linux she touches at 345 ft/min (seed 40)"},
         {"747-400", 29, windows(), "on Windows she touches at 385 ft/min (seed 29)"},
         {"747-400", 31, windows(),
@@ -3134,6 +3148,27 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
          "on Windows she climbs back to 11.5 ft in her hold-off, over half her flare's 21.5 "
          "(seed 24)"},
         {"short_s23", 38, windows(), "on Windows she rises 2.58 ft off the water (seed 38)"},
+        // macOS, debug and release alike, CI run 41640422104 (dispatched on #308).
+        {"short_s23", 10, macos(),
+         "on macOS she rises 1.13 ft off the water (seed 10), CI run 41640422104"},
+        {"short_s23", 11, macos(),
+         "on macOS she rises 2.03 ft off the water (seed 11), CI run 41640422104"},
+        {"c172p", 16, macos(),
+         "on macOS she touches at 396 ft/min (seed 16), CI run 41640422104"},
+        {"c182", 16, macos(),
+         "on macOS a gust climbs her at 96 ft/min in her flare (seed 16), CI run "
+         "41640422104"},
+        {"747-400", 24, macos(),
+         "on macOS she touches at 410 ft/min (seed 24), CI run 41640422104"},
+        {"f15c", 28, macos(),
+         "on macOS she touches 981 m along, past the touchdown zone (seed 28), CI run "
+         "41640422104"},
+        {"c182", 34, macos(),
+         "on macOS a gust climbs her at 92 ft/min in her flare (seed 34), CI run "
+         "41640422104"},
+        {"pa28", 34, macos(),
+         "on macOS a gust climbs her at 76 ft/min in her flare (seed 34), CI run "
+         "41640422104"},
     };
     return named;
 }
@@ -3179,6 +3214,7 @@ void every_aeroplane_lands_in_gusts(int seed, const std::vector<std::string>& id
                         on_this_seed != nullptr ? on_this_seed->c_str() : excuse->second.c_str());
         }
         std::vector<std::string>& wrong = judged ? judged_wrong : shown_wrong;
+        const std::size_t shown_before = shown_wrong.size();
         // A hull held off all her flare has no climb of her flare's to show
         // (`FlareWatch::held_off`): shown as 0.
         const double flare_climb_fpm =
@@ -3239,6 +3275,13 @@ void every_aeroplane_lands_in_gusts(int seed, const std::vector<std::string>& id
         }
         if (!r.stopped) {
             wrong.push_back(where + " did not stop");
+        }
+        // **A name on a seed she now passes is stale** (`named_on_a_seed`):
+        // she passed every limit with every margin, so the name says
+        // something no longer true.
+        if (on_this_seed != nullptr && shown_wrong.size() == shown_before) {
+            judged_wrong.push_back(where + " is named on this seed and passed it with every "
+                                           "margin: take her name off");
         }
     }
     std::printf("  seed %d, least margins of those judged: sink %.0f ft/min, zone %.0f m, "
@@ -3401,9 +3444,9 @@ GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_
     every_aeroplane_lands_in_gusts(8, gusty_all());
 }
 
-// **And on seeds 9 to 40, every night** (labelled nightly in
-// tests/CMakeLists.txt and named in tests/cmake/nightly_tests.cmake: forty
-// seeds' flights are too long for a pull request's run). The same judgement
+// **And on seeds 9 to 40, every night** (labelled gust_sweep in
+// tests/CMakeLists.txt, which no pull request's run has: forty seeds'
+// flights are too long for one). The same judgement
 // as the eight above, each aeroplane judged or named on each seed, so that
 // the forty-seed sweep the gust item's figures come from is asserted, not
 // believed. Seen red: with the light aircraft's gusty nose rate taken out
