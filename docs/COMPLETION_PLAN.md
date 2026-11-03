@@ -1016,8 +1016,9 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       and left thirty seconds in it, within a height worked out for it from
       its speed and sink.* Both checks exist, the instructor flies the
       recovery, engaging or letting it go steps no control, and the AI pilot
-      notices a stall warning and recovers (the A380 and Mosquito named;
-      the 747-400 and F-22A, with no published stall, not watched; the
+      notices a stall warning and recovers (the A380 and Mosquito named,
+      and the F-22A since her stall was measured, 2026-11-02; the 747-400,
+      with no published stall, not watched; the
       warning is the landing configuration's, so late clean or banked).
       The lesson's entry holds the height level to the warning, and every
       aeroplane left thirty seconds is recovered within 2 g. Closed
