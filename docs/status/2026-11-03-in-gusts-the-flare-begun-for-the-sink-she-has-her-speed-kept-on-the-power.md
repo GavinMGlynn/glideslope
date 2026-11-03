@@ -76,11 +76,14 @@ flare (the first).
 2. **The flare begun for the sink she has** (`begin_flare_ft`): in gusts the
    flare begins at the higher of the path's height and the height that
    arrests the sink she has at the same 0.07 g, for no more sink than
-   1,000 ft/min: the Flight Safety Foundation's ALAR Briefing Note 7.1 has
-   a stabilized approach sink no more than 1,000 ft/min, so a sink past
-   that is an approach gone wrong, not a reason to begin higher still. So
-   the flare never begins higher than about 62 ft, or the path's own height
-   where that is higher (the F-15C's 49 ft is the highest). The balloon
+   1,000 ft/min. That figure is borrowed: the Flight Safety Foundation's
+   ALAR Briefing Note 7.1 gives 1,000 ft/min as a stabilized-approach
+   criterion, past which an approach below the gate is to be gone around
+   from; it is used here as the ceiling of the sink the round out is begun
+   for, not as anything a flare's source gives. The 62 ft is derived from
+   it - 1,000 ft/min arrested at 0.07 g - so the flare never begins higher
+   than that, or the path's own height where that is higher (the F-15C's
+   49 ft is the highest). The balloon
    go-around above the flare is judged against the height it began at.
    **The cap, measured**: uncapped, the highest flare of the 600 began at
    90.6 ft (the A380, seed 25, sinking 1,216 ft/min against her path's
@@ -150,8 +153,15 @@ k * k / 4.5; }` returns 0 for `s.v = -1200` under GCC 14.3.1 (Red Hat
 `-fno-tree-vrp`, under clang at -O2, and under -fsanitize=address,undefined
 (which reports nothing). Written as a ternary it is right. It looks like a
 GCC fault in its range analysis of floating point, not found reported. It is
-written here as a negation with its sign tested, its disassembly reads the
-sink, and a comment says why. No other `std::max(0.0, -...)` is in src/.
+written here as a negation with its sign tested (`round_out_height_ft`,
+src/sim/lander.cpp), its disassembly reads the sink, and a comment says why.
+No other `std::max(0.0, -...)` is in src/. **Pinned**:
+`a_round_out_from_1200_fpm_at_seven_hundredths_of_a_g_takes_89_ft` asks it
+for 1,200 ft/min at 0.07 g and wants 88.80 ft. Seen red in linux-release
+with the old form put back (`std::max(0.0, -climb_fpm) / 60.0`, squared,
+no sign test): "88.80 ft, not 0.000000"; restored, it passes. With the
+sign test kept after the `std::max`, GCC computes it right: the test alone
+removes the fault.
 
 **Verification**: `in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_1`
 to `_8` pass in linux-release and in an `-march=x86-64-v2` build (no FMA, as

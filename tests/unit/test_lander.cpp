@@ -299,6 +299,19 @@ void stayed_down_and_upright(const std::string& id, const Landing& l, const std:
 // **The item's own verification**, in calm air: from 5 nm out, down a
 // 3-degree glidepath, landing within 5 m of the centreline, sinking under
 // 300 ft/min, and stopping on the runway.
+// **A round out from 1,200 ft/min at seven hundredths of a g takes 89 ft**:
+// (20 ft/s)^2 / (2 x 0.07 x 32.174) = 88.80 - and a climb takes none. Written
+// with `std::max(0.0, -climb_fpm) / 60.0` and squared, GCC 14.3.1 at -O2
+// returned nought for every sink (docs/status, 2026-11-03), and the gusty
+// flare began at the path's height whatever her sink: seen red so.
+GLIDESLOPE_TEST(a_round_out_from_1200_fpm_at_seven_hundredths_of_a_g_takes_89_ft) {
+    const double ft = glideslope::sim::round_out_height_ft(-1200.0, 0.07);
+    std::printf("  1,200 ft/min at 0.07 g: %.3f ft\n", ft);
+    check(std::abs(ft - 88.803) < 0.01, "88.80 ft, not " + std::to_string(ft));
+    const double climbing = glideslope::sim::round_out_height_ft(300.0, 0.07);
+    check(climbing == 0.0, "a climb takes none, not " + std::to_string(climbing));
+}
+
 GLIDESLOPE_TEST(every_light_aircraft_is_flown_down_a_glidepath_and_lands_in_calm_air) {
     std::size_t walked = 0;
     for (const std::string& id : light_aircraft()) {
