@@ -1150,8 +1150,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       the Airplane Flying Handbook lands in turbulence. In moderate
       turbulence she lands eight of sixteen within limits with a margin on
       eight seeds: the PA-28, 747-400, A320, Learjet 35A, Mosquito, F-15C
-      and F-35B, and the flying boat on all but Windows's seed 5 and macOS
-      release's seed 3, where she skips 0.87 and 0.93 ft. The C172P passes
+      and F-35B, and the flying boat on all but macOS release's seed 3,
+      where she skips 0.93 ft. The C172P passes
       here but touches at 346 ft/min on macOS release's seed 3, and is
       named. Touch sink scatters about 80 ft/min a landing, so one
       platform's pass is no other's. Over forty seeds the 737-300, 787-8 and

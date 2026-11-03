@@ -3262,9 +3262,10 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 }
 
 // **In moderate turbulence the AI lands every aeroplane not named within
-// its limits** - six of sixteen; the ten named (`not_yet_landed_in_gusts`)
-// are flown and shown, and so is one named on one seed of one platform
-// alone (`named_on_a_seed`: the S.23, macOS release's seed 3). Fifteen knots down the runway with severity-3
+// its limits** - eight of sixteen; the eight named
+// (`not_yet_landed_in_gusts`) are flown and shown, and so is one named on
+// one seed of one platform alone (`named_on_a_seed`: the S.23, macOS
+// release's seed 3). Fifteen knots down the runway with severity-3
 // turbulence, its gust factor 15 kt (world::gust_spread_of_severity), flown
 // as the Airplane Flying Handbook (FAA-H-8083-3C, ch. 9, "Turbulent Air
 // Approach and Landing") flies it: half the gust factor on the approach
