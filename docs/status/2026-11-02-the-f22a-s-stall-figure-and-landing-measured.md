@@ -92,6 +92,20 @@ deliberate bug in each, built and run, then reverted and run green:
   with the 10 per cent in hand. Until the review it held only the fault's
   name.
 
+**A stale name fails.** In both thirty-second tests her unjudged flight
+fails the test if she recovers within the thirty-second bounds (recovered,
+the height her speed and sink need, and 2 g, each with the tenth in
+hand): "f22 recovered: take her name off". Seen red: with the C172P put in
+that list, both tests failed with "c172p recovered: take her name off";
+restored, both pass in the FMA and x86-64-v2 builds.
+
+**The plan item closes** when every test that names her passes with her
+name taken off, on every platform. Those are the stall recoveries at the
+warning and at thirty seconds, the hand-pace test's thirty seconds, the
+stall watch and demonstration, the approach lesson's strike margin, the
+wet walking pace, and the autopilot heading test under 127 kt (1,321 ft at
+117 kt and 349 at 122, against 300). Her gusts close under the gust item.
+
 **Two margins are tight.** Her wet roll at 0.5 kt is held to 29.93 s of
 30 with 0.01 s in hand. Her touch is held to 14.30 degrees with 0.05 in
 hand. Both hold in CI run 41571068597 on every platform, and in an
