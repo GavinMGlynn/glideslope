@@ -40,7 +40,16 @@
   (Boeing's flight crew training manuals, "2 to 3 degrees per second";
   Airbus about three): no document found gives hers.
 -->
-<published_figures aircraft="b2" rotation_degps="3" flaps_full_deg="0" approach_speedbrake="0.5" touchdown_fpm="200">
+<!--
+  **gusty_aileron_per_deg** is the aileron the lander asks in gusts for each
+  degree of bank off what it wants: twice the 0.035 every other aeroplane
+  flies. At 0.035, in moderate turbulence, rolling gusts rocked her six
+  degrees either way with her aileron at a fifth of its travel, and her
+  172 ft wing put a tip on the runway on ten of forty seeds. Tuned on the
+  gust tests' forty seeds, not sourced (docs/status, 2026-11-04): at 0.05
+  one seed still struck, at 0.06 and 0.07 none.
+-->
+<published_figures aircraft="b2" rotation_degps="3" flaps_full_deg="0" approach_speedbrake="0.5" touchdown_fpm="200" gusty_aileron_per_deg="0.07">
   <source>USAF B-2 Spirit fact sheet</source>
 
   <!-- 336,500 lb, the maximum take-off weight: 160,000 lb, taken as the empty

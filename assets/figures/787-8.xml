@@ -50,7 +50,17 @@
   (docs/status, 2026-11-04). The 747-400, flown with it, touched hard on two
   seeds she passes at the FAA's half, so hers is not given.
 -->
-<published_figures aircraft="787-8" rotation_degps="3" flaps_full_deg="35" touchdown_fpm="200" gust_additive_share="1" most_gust_additive_kts="20">
+<!--
+  **gusty_closing_nose_degps** is the nose-up rate her gusty flare lets
+  through while she closes with the runway faster than it wants: 3 degrees
+  a second, where every other jet keeps one. The FAA's Airplane Flying
+  Handbook (FAA-H-8083-3C, ch. 9, "Round Out", p. 9-8): "The round out rate
+  should also be proportional to the rate of closure with the ground". Held to a degree a second, with Boeing's additive alone she touched
+  at 385 ft/min (seed 40); at two, at 335 (seed 20).
+  The figure is tuned on the gust tests' forty seeds, not sourced
+  (docs/status, 2026-11-04).
+-->
+<published_figures aircraft="787-8" rotation_degps="3" flaps_full_deg="35" touchdown_fpm="200" gust_additive_share="1" most_gust_additive_kts="20" gusty_closing_nose_degps="3">
   <source>Boeing D6-58333 rev O, 2023; FAA TCDS T00021SE</source>
 
   <!-- 502,500 lb, the maximum take-off weight: the model's empty weight,

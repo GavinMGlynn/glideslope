@@ -3042,29 +3042,30 @@ std::vector<std::string> how_the_hull_held_off(const std::string& where,
 // the item "The AI cannot land in gusts" in docs/COMPLETION_PLAN.md, still
 // open. Any that fails a seed here or on any platform in CI, or passes one
 // without the margin, is named. (linux-release, 2026-10-10; figures from
-// forty seeds, 2026-11-04, with the gusty flare begun for the sink she has,
+// forty seeds, 2026-11-03, with the gusty flare begun for the sink she has,
 // her speed kept on the power and a nose-wheel propeller aeroplane's nose
-// let rise faster the slower she flies; and since 2026-11-04 a jet's nose
-// let rise faster while she closes with the runway faster than her flare
-// wants, the wings held level harder, and Boeing's full gust added to the
-// 737-300's and 787-8's approach speed.)
+// let rise faster the slower she flies; and since 2026-11-04 the 737-300's
+// and 787-8's flown at Boeing's full gust with their noses let rise faster
+// while they close with the runway faster than their flares want, and the
+// B-2A's wings held level harder, each as her figures say.)
 const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
     static const std::map<std::string, std::string> named = {
-        {"a380", "on forty seeds here she floats into a go-around from a touch 1,023 m along, "
-                 "past the touchdown zone (seed 6), her nose let down no lower than her flare "
-                 "began at and her power held to keep her speed"},
+        {"a380", "she touches 907 m along, not 25 m inside the touchdown zone (seed 7); on "
+                 "forty seeds here she also meets the runway at 350 ft/min (seed 18) and "
+                 "strikes her airframe (seed 34)"},
         {"f22", "since her stall was measured at idle (2026-11-03), she goes round for "
                 "touching past the zone (seeds 3 to 6), and on the other four touches at 276 "
                 "to 433 ft/min and rises 3.6 to 23.0 ft after, coming down again at 1,051 and "
-                "818 ft/min (seeds 7, 8); on forty seeds here she fails all forty (2026-11-04): "
-                "round for touching past the zone or for a balloon on nine, into the runway "
-                "from a go-around on four, and on the rest touching at 75 to 1,018 ft/min or "
-                "rising off her wheels; item \"The F-22A flies her stall-figure tests\""},
+                "818 ft/min (seeds 7, 8); on forty seeds here (with #308) she fails all forty: "
+                "round for touching past the zone on thirteen and for a balloon on three "
+                "(seeds 11, 15, 35), into the runway at 9,510 and 7,644 ft/min from the "
+                "go-around on 4 and 35, and on the rest touching at 183 to 1,293 ft/min or "
+                "rising up to 25 ft; item \"The F-22A flies her stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
-                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 125 "
-                  "and 131 ft/min in her flare (seeds 20, 37) and she touches at 345 (seed "
-                  "33); on Windows release she climbs at 118 and 136 (seeds 32, 37) and "
-                  "touches at 357 (seed 8)"},
+                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137, "
+                  "132 and 78 ft/min in her flare (seeds 20, 37, 40), she touches at 356 "
+                  "(seed 33) and rises 0.82 ft after touching (seed 39); on Windows release "
+                  "she climbs at 118 and 136 (seeds 32, 37) and touches at 357 (seed 8)"},
     };
     return named;
 }
@@ -3125,11 +3126,18 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // below with it.
         {"f15c", 34, linux_(),
          "on Linux she floats into a go-around from a touch 1,039 m along (seed 34)"},
+        {"short_s23", 11, linux_(), "on Linux she touches at 347 ft/min (seed 11)"},
         {"short_s23", 13, linux_(),
-         "on Linux she rises 1.92 ft off the water after touching (seed 13)"},
+         "on Linux she rises 1.80 ft off the water after touching (seed 13)"},
+        {"short_s23", 25, linux_(),
+         "on Linux she skips 3.34 ft off the water, touched at 1.49 degrees (seed 25)"},
+        {"short_s23", 28, linux_(),
+         "on Linux she rises 2.21 ft off the water after touching (seed 28)"},
         {"short_s23", 30, linux_(),
          "on Linux she goes round for a balloon above the flare (seed 30)"},
-        {"short_s23", 32, linux_(), "on Linux she rises 0.87 ft off the water (seed 32)"},
+        {"short_s23", 32, linux_(),
+         "on Linux she rises 1.21 ft off the water, touched at 3.22 degrees (seed 32)"},
+        {"short_s23", 40, linux_(), "on Linux she touches at 345 ft/min (seed 40)"},
         {"747-400", 29, windows(), "on Windows she touches at 385 ft/min (seed 29)"},
         {"747-400", 31, windows(),
          "on Windows she floats into a go-around from a touch 1,036 m along (seed 31)"},
@@ -3348,7 +3356,7 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 }
 
 // **In moderate turbulence the AI lands every aeroplane not named within
-// its limits** - ten of sixteen; the six named
+// its limits** - thirteen of sixteen; the three named
 // (`not_yet_landed_in_gusts`) are flown and shown, and so is one named on
 // one seed of one platform alone (`named_on_a_seed`: the S.23, macOS
 // release's seed 3). Fifteen knots down the runway with severity-3

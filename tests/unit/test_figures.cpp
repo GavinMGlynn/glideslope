@@ -788,15 +788,23 @@ GLIDESLOPE_TEST(where_the_rollouts_stick_starts_back_is_read_and_refused_outside
 // written, the A320's - which gives none - as 0 (the FAA's half up to 15 is
 // then flown), and the A320's file given each: a share of 1 and a most of 20,
 // the most allowed, read back; shares of 0 and 1.5 and mosts of 0 and 25
-// refused, each naming its attribute. Coverage asserted: four refused.
-GLIDESLOPE_TEST(a_gust_additive_is_read_and_refused_outside_the_whole_gust_and_boeings_twenty_knots) {
+// refused, each naming its attribute. **And so are her gusty aileron and
+// closing nose rate** (`gusty_aileron_per_deg`, `gusty_closing_nose_degps`):
+// the B-2A's 0.07 and the 787-8's 3 read as written, the A320's as 0; an
+// aileron of 1 and a rate of 6 read back; an aileron of 0 and 1.5 and a rate
+// of 0 and 7 refused. Coverage asserted: eight refused.
+GLIDESLOPE_TEST(a_gust_additive_and_a_gusty_aileron_and_nose_rate_are_read_and_refused_outside_their_bounds) {
     const auto b787 = read_published_figures(figures_file("787-8"));
     check(b787.gust_additive_share == 1.0 && b787.most_gust_additive_kts == 20.0,
           "the 787-8 adds the full gust, up to 20 kt: " + std::to_string(b787.gust_additive_share) +
               ", " + std::to_string(b787.most_gust_additive_kts));
     const auto a320 = read_published_figures(figures_file("a320"));
-    check(a320.gust_additive_share == 0.0 && a320.most_gust_additive_kts == 0.0,
+    check(a320.gust_additive_share == 0.0 && a320.most_gust_additive_kts == 0.0 &&
+              a320.gusty_aileron_per_deg == 0.0 && a320.gusty_closing_nose_degps == 0.0,
           "the A320 gives none, and has 0");
+    check(read_published_figures(figures_file("b2")).gusty_aileron_per_deg == 0.07,
+          "the B-2A's gusty aileron is 0.07 a degree");
+    check(b787.gusty_closing_nose_degps == 3.0, "the 787-8's closing nose rate is 3 deg/s");
 
     std::ifstream in(figures_file("a320"));
     const std::string text((std::istreambuf_iterator<char>(in)),
@@ -823,10 +831,20 @@ GLIDESLOPE_TEST(a_gust_additive_is_read_and_refused_outside_the_whole_gust_and_b
     write("most_gust_additive_kts", "20");
     check(read_published_figures(file).most_gust_additive_kts == 20.0,
           "a most of 20 kt, Boeing's, is read back as written");
+    write("gusty_aileron_per_deg", "1");
+    check(read_published_figures(file).gusty_aileron_per_deg == 1.0,
+          "an aileron of 1 a degree, the most allowed, is read back as written");
+    write("gusty_closing_nose_degps", "6");
+    check(read_published_figures(file).gusty_closing_nose_degps == 6.0,
+          "a closing nose rate of 6 deg/s, the most allowed, is read back as written");
     const std::pair<const char*, const char*> wrong[] = {{"gust_additive_share", "0"},
                                                          {"gust_additive_share", "1.5"},
                                                          {"most_gust_additive_kts", "0"},
-                                                         {"most_gust_additive_kts", "25"}};
+                                                         {"most_gust_additive_kts", "25"},
+                                                         {"gusty_aileron_per_deg", "0"},
+                                                         {"gusty_aileron_per_deg", "1.5"},
+                                                         {"gusty_closing_nose_degps", "0"},
+                                                         {"gusty_closing_nose_degps", "7"}};
     std::size_t refused = 0;
     for (const auto& [name, value] : wrong) {
         write(name, value);
@@ -840,7 +858,7 @@ GLIDESLOPE_TEST(a_gust_additive_is_read_and_refused_outside_the_whole_gust_and_b
         }
     }
     std::filesystem::remove(file);
-    check(refused == std::size(wrong), "all four outside their bounds were refused, not " +
+    check(refused == std::size(wrong), "all eight outside their bounds were refused, not " +
                                            std::to_string(refused));
 }
 
