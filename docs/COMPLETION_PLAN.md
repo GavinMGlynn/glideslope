@@ -1331,6 +1331,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       margin, one wet walking pace and the autopilot's heading from her
       approach speed; her gusts are under the gust item
       (status file 2026-11-02-the-f22a-s-stall-figure-and-landing-measured).
+      Still open: at idle, gear down, she pitches up past her stabilators at
+      23 to 24 degrees of alpha, before her stall warning, because her stall
+      figure was trimmed with power (2026-11-03-the-f22a-s-stall-figure-tests-investigated).
       *Verification: every one of those tests passes with her name taken
       off, on every platform.*
 - [x] **The AI lands the 747-400 at Boeing's published approach speed**:
