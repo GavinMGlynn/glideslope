@@ -123,9 +123,10 @@ double remember_drift(double integral, double across_m, const LearntPolicy& poli
 // extended centreline, 20 m above or below the glidepath and 5 degrees off
 // the runway's heading; from 3 kt under the policy's reference speed to 8 kt
 // over it; the landing flap out and not moving; and the wind as the
-// instruments estimate it no more than 15 kt across, 15 kt ahead and 5 kt behind, and 15 kt in all - training's wind
-// (tools/rl/env.py's `wind`). **15 kt across with the wind behind since
-// 2026-11-03** (2.75 for a day before it). **15 kt ahead since 2026-11-02**
+// instruments estimate it no more than 15 kt across, 15 kt ahead and 5 kt
+// behind, and 15 kt in all - training's wind (tools/rl/env.py's `wind`).
+// **15 kt across with the wind behind since 2026-11-03** (2.75 for a day
+// before it). **15 kt ahead since 2026-11-02**
 // (8 before): training's wind blows up to 15 kt from anywhere, and the
 // policy of that day lands from every corner with 15 kt ahead at least 29 m
 // past the threshold, under 165 ft/min and within 2.4 m - inside the 5 per
