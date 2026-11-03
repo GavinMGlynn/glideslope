@@ -190,6 +190,20 @@ controls at every angle it tries, up to 45 degrees, and the limit asked there
 wound her pitch loop's integrator to its stop. Her up-and-away figures are
 unchanged: the limit is off with her gear up.
 
+**Her speedbrake lifts her no more** (SPEEDBRAKE_LIFT; the value is not
+sourced): the pinned model's speedbrake channel is "borrowed from F-16",
+whose speedbrakes are petals on its fuselage, and its dCLsb added 0.35 to her
+lift coefficient at full deflection, the same 0.35 as her flaps' dCLflap. Her
+speedbrake is her control surfaces set against each other - her flaperons
+down, ailerons up and rudders flared, as enthusiasts' accounts on f-16.net
+describe it - for drag, not lift; it is
+the spoilers' job in a landing roll that glideslope's roll-out gives it
+(sim::Lander, `speedbrake = 1` on a jet's roll), and the FAA's handbook has
+a jet's spoilers spoil her lift there. With it she lifted off the runway:
+handed to the roll-out at 133.6 kt in a 15 kt crosswind she rose off her
+wheels and struck her airframe, and touching at 146 kt she rose 2 to 3 ft
+after her wheels met the runway (2026-11-04). Its drag, CDsb, is kept.
+
 **The alpha-rate terms on the dynamic pressure without its sideways part**
 (tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
 angle of attack is undefined, its rate swings, and multiplied by the whole
@@ -350,6 +364,9 @@ YAW_CMD_FULL = 5
 # her stabilators ALPHA_LIMIT_STAB_PER_DEG of their full travel nose down
 # after the loop. The docstring says how they were chosen.
 ALPHA_LIMIT_ONSET_DEG = 17
+# Her speedbrake's lift coefficient at full deflection (dCLsb): none, where
+# the pinned model gave it its flaps' 0.35. See the docstring.
+SPEEDBRAKE_LIFT = 0
 ALPHA_LIMIT_Q_PER_DEG = 0.06
 ALPHA_LIMIT_STAB_PER_DEG = 0.1
 # The roll stick's shaping: the roll rate it commands, as a fraction of the
@@ -531,6 +548,12 @@ def with_trimmable_pitch_and_power(text):
         "                </function>\n"
         "            </fcs_function>",
         "the leading edge flaps' filter")
+    # Her speedbrake's lift: none (see "Her speedbrake lifts her no more").
+    text = replace_once(
+        text,
+        r"(<function name=\"aero/coefficient/dCLsb\">\s*<description>Delta_Lift_due_to_speedbrake</description>"
+        r"(?:(?!</function>).)*?<value>)0\.3500(</value>)",
+        lambda m: m.group(1) + f"{SPEEDBRAKE_LIFT:g}" + m.group(2), "the speedbrake's lift")
     return text
 
 

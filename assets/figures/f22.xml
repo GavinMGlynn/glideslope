@@ -55,17 +55,19 @@
   (glideslope_cli land, 2026-11-02).
 -->
 <!--
-  **nose_lowered_degps** is the least rate the lander lowers her nose at
-  after her wheels meet the runway (sim::Lander, `lower_the_nose`), a tuning
-  value: six degrees a second, where every other aircraft's is the lander's
-  1.5, or her touch attitude to a degree nose down in three seconds. Since
-  her stall was measured at her gear-down alpha limit (2026-11-04) she
-  touches at about 146 kt; her nose lowered at 3 degrees a second, she was
-  lifted 2.3 to 3.4 ft off her main wheels as her stabilators brought it
-  down, and 1.1 ft at 4. At 5 and 6 she stays on them (the approach lesson,
-  linux-release). Nothing published gives hers.
+  **roll_out_stick_per_degps** is the stick the lander's roll-out asks of
+  her for each degree a second her nose is off the rate it wants
+  (sim::Lander, `lower_the_nose`), a tuning value: her stick commands a pitch
+  rate through her flight controls' own loop, on her wheels as in the air
+  (tools/make_f22.py), so she is asked a rate, not an attitude. Under the
+  attitude law, handed to her roll-out at 133.6 kt in the crosswind tests,
+  her nose 4 degrees up from her take-off's rotation, her stick beat from
+  stop to stop and her nose swung up to 10 degrees, and wet she lifted off
+  (2026-11-04). At 0.05 to 0.1 she stayed on her wheels, 6.3 to 5.9 m from
+  the centreline wet; at 0.12 to 0.2 she lifted off again wet. 0.07 is
+  written, inside that band. Nothing published gives hers.
 -->
-<published_figures aircraft="f22" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="0" touchdown_fpm="200" yaw_rate_pedal_per_degps="0.3" nose_lowered_degps="6">
+<published_figures aircraft="f22" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="0" touchdown_fpm="200" yaw_rate_pedal_per_degps="0.3" roll_out_stick_per_degps="0.07">
   <source>DoD Selected Acquisition Report, F-22, December 2010; USAF F-22 fact sheet</source>
 
   <!-- 54,960 lb: the fact sheet's empty weight, 43,340 lb; the pilot, 230
@@ -203,7 +205,7 @@
     2 nm out, on a level runway at sea level in calm air with every tank full
     (63,960 lb), at 1.3 times her measured stall for that weight, she
     touched 348 m in at 154 ft/min, her nose 8.4 degrees up, and stopped
-    2,492 m past the threshold, which she crossed on the 3-degree
+    2,490 m past the threshold, which she crossed on the 3-degree
     glidepath. The figure is that, 2 per cent over and rounded up to 100 ft (3
     per cent over in all), for the drift between machines: the AI's own landing
     in those conditions, not a regulatory distance and not a minimum; heavier,

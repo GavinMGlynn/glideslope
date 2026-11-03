@@ -2781,14 +2781,13 @@ void every_ai_approach_at_a_weight(bool figures_loading) {
         // **Named, not yet: an aeroplane that rises after her touch**, held to
         // her own measured rise instead (plus a tenth for the drift between
         // machines), so it gets no worse unseen; a rise back within the bound
-        // says her name is stale. The F-22A (2026-11-03): at her model's own
-        // weight her approach is 145.6 kt, 1.3 times her stall at idle, and
-        // she rose 0.72 ft after her wheels met the runway. Since her stall is
-        // measured at her gear-down alpha limit (2026-11-04) her approach
-        // there is 157.0 kt, her nose lowered at her figures' 6 degrees a
-        // second after the touch, and she rises 0.59 ft. Item "The F-22A
-        // flies her stall-figure tests".
-        static const std::map<std::string, double> rises_after_the_touch = {{"f22", 0.59}};
+        // says her name is stale. None is named. The F-22A was, from
+        // 2026-11-03 to 2026-11-04: at her model's own weight her approach
+        // was 145.6 kt and she rose 0.72 ft after her wheels met the runway,
+        // her speedbrake, opened on the roll, adding the 0.35 of lift her
+        // pinned model gave it. With that lift taken out (tools/make_f22.py)
+        // she rises 0.00 ft at 157.0 kt.
+        static const std::map<std::string, double> rises_after_the_touch = {};
         const auto rises = figures_loading ? rises_after_the_touch.end()
                                            : rises_after_the_touch.find(id);
         if (rises != rises_after_the_touch.end() && r.after.touched) {
@@ -3057,12 +3056,11 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                  "forty seeds here she also meets the runway at 350 ft/min (seed 18) and "
                  "strikes her airframe (seed 34)"},
         {"f22", "since her stall was measured at her gear-down alpha limit (2026-11-04) "
-                "she fails all forty seeds here: round for touching past the zone on nine "
-                "(seeds 5, 8, 10, 12, 14, 26, 30, 38, 40) and for a balloon on six (seeds 2, "
-                "16, 19, 22, 23, 27); wrecked on eighteen of the twenty-five she lands, "
-                "touching at up to 980 ft/min or rising up to 36 ft; and on the other seven "
-                "(seeds 4, 9, 15, 20, 28, 37, 39) touching at 183 to 419 ft/min, 961 m along "
-                "on seed 20, and rising 1.2 to 3.9 ft; item \"The F-22A flies her "
+                "and her speedbrake's lift taken out, on forty seeds here: round for "
+                "touching past the zone on nine (seeds 5, 8, 10, 12, 14, 26, 30, 38, 40); "
+                "wrecked on seventeen of the thirty-one she lands, touching at up to 980 "
+                "ft/min; on the other fourteen touching at 183 to 543 ft/min, 961 m along "
+                "on seed 20, and rising up to 3.03 ft; item \"The F-22A flies her "
                 "stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137, "

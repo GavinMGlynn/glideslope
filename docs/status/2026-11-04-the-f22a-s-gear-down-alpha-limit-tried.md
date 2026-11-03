@@ -1,6 +1,83 @@
-### The F-22A's alpha limited with her gear down, and her stall measured there: both stall recoveries come off; the stall watch, a rise, a wet walking pace and a crosswind roll-out still named - 2026-11-04
+### The F-22A's alpha limited with her gear down, and her stall measured there: both stall recoveries and her rise after the touch come off; the stall watch, a wet walking pace, a wet crosswind roll-out and her gusts still named - 2026-11-04
 
-**Second round first** (the first round's note follows it).
+**Third round first.** It supersedes the second round's list of names,
+which follows. The first round's note comes last.
+
+**What is still not true.** The item stays open. Still named, with their
+figures (linux-release with FMA, and the same in an x86-64-v2 build):
+- **the stall watch**: noticed at 126.8 kt, she slows to 118.2 against her
+  120.8 at her weight, and loses 303 ft. At her limit she sinks at about
+  0.8 g, so she flies under her 1-g stall there;
+- **the wet walking pace** at 0.5 kt: 29.93 s of 30, unchanged from main;
+- **the wet crosswind roll-out**: 6.13 m from the centreline (2.35 dry).
+  It is named as it was on main, where it was 7.37 m;
+- **her gusts**, on forty seeds:
+  - she goes round for touching past the zone on nine;
+  - she is wrecked on seventeen of the thirty-one she lands;
+  - she touches at up to 980 ft/min.
+
+  No balloon now.
+
+**Taken off this round**: the rise after her touch at her model's own
+weight. It was 0.59 ft and is now 0.00.
+
+**The roll-out regression of the second round is fixed.** That round
+named three roll-out tests: the crosswind roll-out, the wet side grip and
+the wet stays-on-runway. In each she lifted off and struck her airframe.
+The cause is in two parts:
+
+1. **Her speedbrake lifted her.**
+   - The pinned model's speedbrake channel is "borrowed from F-16". Its
+     dCLsb added 0.35 to her lift coefficient at full deflection, the same
+     0.35 as her flaps' dCLflap.
+   - Glideslope's roll-out opens a jet's speedbrake on the roll as her
+     spoilers (sim::Lander).
+   - Handed over at 133.6 kt (0.9 times her new 148.3 kt approach, the
+     test's rule), that extra lift took her off the runway. At main's 123.8
+     kt it had not.
+   - It is also what lifted her 0.6 to 3.4 ft after her touch at her new
+     approach speed. The second round blamed her stabilators for that and
+     tuned `nose_lowered_degps` against it. That attribute is gone.
+   - **Fixed in tools/make_f22.py**: dCLsb is 0, and CDsb, the
+     speedbrake's drag, is kept.
+   - Sources: f-16.net forum accounts describe her speedbrake as flaperons
+     down, ailerons up and rudders flared. They are not citable as figures,
+     so the value is labelled not sourced. No Lockheed or Air Force
+     description was found. Searched 2026-11-04 for F-22 landing technique,
+     aerobraking, nose lowering and her speedbrake.
+2. **Her nose swung under the roll-out's attitude law.**
+   - She is handed over with her nose 4 degrees up, because her take-off
+     run begins lifting it from 111 kt.
+   - The roll-out's attitude law, through her rate-command stick, beat
+     her stick from stop to stop and swung her nose from 0 to 10 degrees.
+     Even without the speedbrake's lift, she lifted off wet and hit the
+     ground at 638 ft/min.
+   - **Fixed in sim::Lander, `lower_the_nose`**: where her figures give
+     `roll_out_stick_per_degps`, her stick is asked a pitch rate. That rate
+     is the one wanted, plus a degree a second per degree off the attitude
+     wanted.
+   - **Tuned, not sourced**: 0.07. At 0.05 to 0.1 she stays on her wheels,
+     6.3 to 5.9 m wet. At 0.12 to 0.2 she lifts off wet again.
+   - Every other aircraft gives none, and flies the attitude law as
+     before.
+
+**What else moved**: her landing figure stays 8,400 ft. She now stops at
+2,490 m, against 2,492 before. The recorded copilot exchange plays back
+unchanged.
+
+**Verification (third round)**:
+- 234 tests, in the linux-release build and in an x86-64-v2 build: the
+  stall, landing, roll-out, speedbrake, heading, plan floor, recording,
+  selftest and committed-file tests. All pass, and the live recording
+  test is skipped.
+- Her forty gust seeds, flown for her alone (a local test, not committed).
+- `python3 tools/make_f22.py --check` passes.
+- **The full linux-release suite was not run**: another agent's ctest held the machine for the whole round.
+- Windows (`tools/windows_build.sh windows-debug`, this commit): the 50 tests matching her stall, landing and roll-out tests all pass, and the live recording test is skipped.
+
+---
+
+### Second round: the limit taken through; its list of names is superseded above
 
 **What is still not true.** The item stays open.
 - **Still named, with figures** (linux-release, FMA):
