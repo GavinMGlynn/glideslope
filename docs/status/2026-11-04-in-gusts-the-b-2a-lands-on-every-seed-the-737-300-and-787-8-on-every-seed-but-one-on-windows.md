@@ -119,7 +119,8 @@ Under ctest, Windows release's seed 4 exited 0xc0000409 twice. Run
 directly, the same executable failed normally, naming only the 787-8's
 338 ft/min. Its cause is not looked for here. It is no longer a failure
 with the 787-8 named. `a_gust_additive_and_a_gusty_aileron_and_nose_rate_are_read_and_refused_outside_their_bounds`
-passes.
+passes, registered with ctest (CI run 41692869047 failed
+`every_compiled_unit_test_is_registered_with_ctest` until it was).
 **Seen red**: with the B-2A's aileron at 0.035 the gust test's seed 8
 failed ("b2 (gusts, seed 8) ... wrecked as it landed: struck the ground with
 its airframe"). With the 737-300's closing nose rate at 1 deg/s, seed 40
