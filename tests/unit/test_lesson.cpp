@@ -3059,7 +3059,11 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
         {"f22", "since her stall was measured at idle (2026-11-03), she goes round for "
                 "touching past the zone (seeds 3 to 6), and on the other four touches at 276 "
                 "to 433 ft/min and rises 3.6 to 23.0 ft after, coming down again at 1,051 and "
-                "818 ft/min (seeds 7, 8); item \"The F-22A flies her stall-figure tests\""},
+                "818 ft/min (seeds 7, 8); on forty seeds here (with #308) she fails all forty: "
+                "round for touching past the zone on thirteen and for a balloon on three "
+                "(seeds 11, 15, 35), into the runway at 9,510 and 7,644 ft/min from the "
+                "go-around on 4 and 35, and on the rest touching at 183 to 1,293 ft/min or "
+                "rising up to 25 ft; item \"The F-22A flies her stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137, "
                   "132 and 78 ft/min in her flare (seeds 20, 37, 40), she touches at 356 "
