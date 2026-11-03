@@ -55,10 +55,11 @@ constexpr double gusty_lead_s_per_kt = 0.0075;
 // `begin_flare_ft`).
 constexpr double gusty_round_out_g = 0.07;
 // **The most sink a gusty flare is begun higher for**, feet a minute
-// (`begin_flare_ft`): FSF ALAR Briefing Note 7.1's stabilized approach has
-// a sink rate no greater than 1,000 fpm. A sink past it is an approach
-// that has gone wrong, not a round out to be begun higher still; it begins
-// the flare no higher than 1,000 ft/min would, 62 ft at 0.07 g.
+// (`begin_flare_ft`). Borrowed, not a flare's own figure: FSF ALAR Briefing
+// Note 7.1's 1,000 fpm is a stabilized-approach criterion - an approach
+// sinking faster below the gate is to be gone around from - used here as
+// the ceiling of the sink the round out is begun for. The 62 ft it gives is
+// derived from it, 1,000 ft/min arrested at `gusty_round_out_g`.
 constexpr double gusty_most_begun_sink_fpm = 1000.0;
 // **In gusts the flare's power keeps her speed**, throttle for each knot she
 // is slower than `gusty_held_kts` under her approach speed, opened at no
@@ -418,16 +419,17 @@ double Lander::begin_flare_ft(const AircraftState& s) const {
     if (!in_gusts() || lands_on_hull()) {
         return flare_height_ft();
     }
-    // **Its sign tested, not clamped with `std::max(0.0, ...)`**: GCC 14.3
-    // at -O2 folds the square of `std::max(0.0, -x) / 60.0` to nought
-    // (docs/status, 2026-11-03), and the flare began at the path's height
-    // whatever her sink.
-    const double sink_fps = std::min(-s.climb_rate_fpm, gusty_most_begun_sink_fpm) / 60.0;
-    if (sink_fps <= 0.0) {
-        return flare_height_ft();
-    }
     return std::max(flare_height_ft(),
-                    sink_fps * sink_fps / (2.0 * gusty_round_out_g * 32.174));
+                    round_out_height_ft(std::max(s.climb_rate_fpm, -gusty_most_begun_sink_fpm),
+                                        gusty_round_out_g));
+}
+
+double round_out_height_ft(double climb_fpm, double g) {
+    const double sink_fps = -climb_fpm / 60.0;
+    if (sink_fps <= 0.0) {
+        return 0.0;
+    }
+    return sink_fps * sink_fps / (2.0 * g * 32.174);
 }
 
 double Lander::wheels_hang_ft(const AircraftState& s) const {

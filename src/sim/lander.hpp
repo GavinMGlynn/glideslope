@@ -150,6 +150,14 @@ ApproachSpeeds for_weight(const ApproachSpeeds& speeds, double weight_lbs);
 // allowance over.
 double stall_warning_kts(double stall_kts, double own_margin_kts = 0.0);
 
+// **The height a round out arrests a sink in**, feet: a climb rate of
+// `climb_fpm` (a sink is negative; a climb takes none) brought to nought at
+// `g` over her weight, v^2 / 2g. Its sign is tested, not clamped with
+// `std::max(0.0, -climb_fpm)`: GCC 14.3.1 at -O2 folded that form's square
+// to nought (docs/status, 2026-11-03), and
+// `a_round_out_from_1200_fpm_at_seven_hundredths_of_a_g_takes_89_ft` pins it.
+double round_out_height_ft(double climb_fpm, double g);
+
 // Whether `approach_speeds` has a stall speed to work from, or a published
 // approach speed and the flap it is for: false for the F-22A, whose measured
 // stalls would not hold still and whose approach speed is not published.
