@@ -67,6 +67,19 @@ flight): "8 recoveries held the power off too long or were never handed
 over; the first: 737-300 begun at 1,000 ft was in the ground before the
 hand-over", the eight above listed. Restored, it passes.
 
+**The rule seen red under the new flight** (from the review of #311). With
+the hold's floor in sim/autopilot.cpp, `least_unload_agl_ft`, set from 1,500
+to 0 ft (so the power is held off low too), the test fails: "7 recoveries
+held the power off too long or were never handed over; the first: 737-300
+held back at 897.602808 ft had no full power at the hand-over: 4.991667".
+The seven are the ones whose wing is still stalled at the hand-over: the
+737-300, A320, A380, B-2A, F-15C and Mosquito, at 4.99 s, and the S.23 at
+0.63 s. Reverted, it passes.
+
+**The hand-over comes at the break**, later than the first indication AC
+120-109A's scenario recovers at. That is so the wing can still be stalled
+when the power comes, which is what the rule needs to be tested.
+
 **Verification.**
 - linux-release (FMA): the test passes, figures above.
 - x86-64-v2 build (`-march=x86-64-v2`, no FMA, as CI): passes, every

@@ -6380,8 +6380,10 @@ GLIDESLOPE_TEST(a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within
     // 2026-11-04). That is the held stall, not the recovery, which had not
     // begun: AF447's crew, holding hers, descended at about 10,000 ft/min
     // (BEA final report, 2012). The FAA trains a landing-configuration stall
-    // at 1,000 ft AGL recovered at its first indication (AC 120-109A,
-    // appendix 3, scenario 3), and none leaves one held at that height. So
+    // at 1,000 ft AGL, recovered on recognising the impending stall
+    // (AC 120-109A, appendix 3, scenario 3), and none leaves one held at that
+    // height. The hand-over here comes at the break, later than that first
+    // indication, so the wing can still be stalled when the power comes. So
     // every aeroplane is handed over above the ground here, the F-15C lowest
     // (511 ft: her lift is still rising past 39 degrees of alpha), and the rule -
     // full power at once - is judged on each.
