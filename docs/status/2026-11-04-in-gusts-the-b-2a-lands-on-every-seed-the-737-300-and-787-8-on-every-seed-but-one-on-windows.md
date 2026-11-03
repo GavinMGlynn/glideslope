@@ -128,3 +128,13 @@ failed ("737-300 (gusts, seed 40) touched at 351.89 ft/min, not 25 inside
 360"). With a nose rate of up to 60 accepted, the figures test failed ("all
 eight outside their bounds were refused, not 7"). Each passed again once
 restored. The full suite is left to CI.
+
+**From the review of #310.** The 737-300 and 787-8 were named whole, so
+no seed tested them, though each fails only one, on Windows. Each is now
+named on that seed alone (`named_on_a_seed`: the 737-300's Windows seed 8,
+the 787-8's Windows seed 4), and so is the 787-8's macOS seed 2, measured
+at 398 ft/min before the full gust (CI run 38006839738). On every other
+seed and platform both are judged, and a named seed that passes fails
+"take her name off". Their remaining seeds on macOS and on the Windows
+presets other than release are measured by the full workflow dispatched on
+this branch, and named from it.
