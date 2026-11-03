@@ -3043,8 +3043,8 @@ std::vector<std::string> how_the_hull_held_off(const std::string& where,
 // open. Any that fails a seed here or on any platform in CI, or passes one
 // without the margin, is named. (linux-release, 2026-10-10; figures from
 // forty seeds, 2026-11-03, with the gusty flare begun for the sink she has,
-// her speed kept on the power and her nose let rise faster the slower she
-// flies.)
+// her speed kept on the power and a nose-wheel propeller aeroplane's nose
+// let rise faster the slower she flies.)
 const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
     static const std::map<std::string, std::string> named = {
         {"737-300", "she passes all eight seeds, but on forty she meets the runway at 462 "
@@ -3061,10 +3061,10 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                 "to 433 ft/min and rises 3.6 to 23.0 ft after, coming down again at 1,051 and "
                 "818 ft/min (seeds 7, 8); item \"The F-22A flies her stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
-                  "CI run 38028434284, before her flare's nose rate went as one over her "
-                  "speed; on forty seeds here a gust's lift climbs her at 76 to 158 ft/min in "
-                  "her flare on eight (seeds 9, 19, 20, 24, 37, 38, 39, 40), floating level a "
-                  "few feet up on half her approach power"},
+                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137, "
+                  "132 and 78 ft/min in her flare (seeds 20, 37, 40), she touches at 356 "
+                  "(seed 33) and rises 0.82 ft after touching (seed 39); on Windows release "
+                  "she climbs at 118 and 136 (seeds 32, 37) and touches at 357 (seed 8)"},
     };
     return named;
 }
@@ -3094,6 +3094,13 @@ struct NamedOnASeed {
     return false;
 #endif
 }
+[[maybe_unused]] constexpr bool linux_() {
+#if defined(__linux__)
+    return true;
+#else
+    return false;
+#endif
+}
 const std::vector<NamedOnASeed>& named_on_a_seed() {
     // Windows's seed 5 no longer, since 2026-11-03: held on rough water
     // within the band between her touch and TN 923's floor, she rises 0.52
@@ -3102,6 +3109,31 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"short_s23", 3, macos_release(),
          "on macOS release she rises 0.93 ft off the water after touching (seed 3), CI runs "
          "41303118662 and 41597667557 (after her stick's band, 2026-11-03); 0.19 on Linux"},
+        // **The nightly seeds, 9 to 40** (`..._seed_9` to `_40`, nightly):
+        // measured on linux-release and an x86-64-v2 build here (the same
+        // figures) and on Windows release, 2026-11-03, with the light
+        // aircraft's gusty nose rate. Not yet seen on macOS, Linux debug or
+        // clang: a failure there names its seed here.
+        {"f15c", 34, linux_(),
+         "on Linux she floats into a go-around from a touch 1,039 m along (seed 34)"},
+        {"short_s23", 11, linux_(), "on Linux she touches at 347 ft/min (seed 11)"},
+        {"short_s23", 13, linux_(), "on Linux she rises 1.80 ft off the water after touching (seed 13)"},
+        {"short_s23", 25, linux_(), "on Linux she skips 3.34 ft off the water, touched at 1.49 degrees (seed 25)"},
+        {"short_s23", 28, linux_(), "on Linux she rises 2.21 ft off the water after touching (seed 28)"},
+        {"short_s23", 30, linux_(), "on Linux she goes round for a balloon above the flare (seed 30)"},
+        {"short_s23", 32, linux_(), "on Linux she rises 1.21 ft off the water, touched at 3.22 degrees (seed 32)"},
+        {"short_s23", 40, linux_(), "on Linux she touches at 345 ft/min (seed 40)"},
+        {"747-400", 29, windows(), "on Windows she touches at 385 ft/min (seed 29)"},
+        {"747-400", 31, windows(),
+         "on Windows she floats into a go-around from a touch 1,036 m along (seed 31)"},
+        {"747-400", 33, windows(),
+         "on Windows she floats into a go-around from a touch 1,044 m along (seed 33)"},
+        {"747-400", 40, windows(),
+         "on Windows she floats into a go-around from a touch 1,040 m along (seed 40)"},
+        {"short_s23", 24, windows(),
+         "on Windows she climbs back to 11.5 ft in her hold-off, over half her flare's 21.5 "
+         "(seed 24)"},
+        {"short_s23", 38, windows(), "on Windows she rises 2.58 ft off the water (seed 38)"},
     };
     return named;
 }
@@ -3367,6 +3399,110 @@ GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_
 }
 GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_8) {
     every_aeroplane_lands_in_gusts(8, gusty_all());
+}
+
+// **And on seeds 9 to 40, every night** (labelled nightly in
+// tests/CMakeLists.txt and named in tests/cmake/nightly_tests.cmake: forty
+// seeds' flights are too long for a pull request's run). The same judgement
+// as the eight above, each aeroplane judged or named on each seed, so that
+// the forty-seed sweep the gust item's figures come from is asserted, not
+// believed. Seen red: with the light aircraft's gusty nose rate taken out
+// of sim::Lander, the C182 touches at 377 ft/min on seeds 23 and 33.
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_9) {
+    every_aeroplane_lands_in_gusts(9, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_10) {
+    every_aeroplane_lands_in_gusts(10, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_11) {
+    every_aeroplane_lands_in_gusts(11, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_12) {
+    every_aeroplane_lands_in_gusts(12, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_13) {
+    every_aeroplane_lands_in_gusts(13, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_14) {
+    every_aeroplane_lands_in_gusts(14, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_15) {
+    every_aeroplane_lands_in_gusts(15, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_16) {
+    every_aeroplane_lands_in_gusts(16, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_17) {
+    every_aeroplane_lands_in_gusts(17, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_18) {
+    every_aeroplane_lands_in_gusts(18, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_19) {
+    every_aeroplane_lands_in_gusts(19, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_20) {
+    every_aeroplane_lands_in_gusts(20, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_21) {
+    every_aeroplane_lands_in_gusts(21, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_22) {
+    every_aeroplane_lands_in_gusts(22, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_23) {
+    every_aeroplane_lands_in_gusts(23, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_24) {
+    every_aeroplane_lands_in_gusts(24, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_25) {
+    every_aeroplane_lands_in_gusts(25, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_26) {
+    every_aeroplane_lands_in_gusts(26, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_27) {
+    every_aeroplane_lands_in_gusts(27, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_28) {
+    every_aeroplane_lands_in_gusts(28, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_29) {
+    every_aeroplane_lands_in_gusts(29, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_30) {
+    every_aeroplane_lands_in_gusts(30, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_31) {
+    every_aeroplane_lands_in_gusts(31, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_32) {
+    every_aeroplane_lands_in_gusts(32, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_33) {
+    every_aeroplane_lands_in_gusts(33, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_34) {
+    every_aeroplane_lands_in_gusts(34, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_35) {
+    every_aeroplane_lands_in_gusts(35, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_36) {
+    every_aeroplane_lands_in_gusts(36, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_37) {
+    every_aeroplane_lands_in_gusts(37, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_38) {
+    every_aeroplane_lands_in_gusts(38, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_39) {
+    every_aeroplane_lands_in_gusts(39, gusty_all());
+}
+GLIDESLOPE_TEST(in_gusts_every_aeroplane_not_named_lands_within_its_limits_seed_40) {
+    every_aeroplane_lands_in_gusts(40, gusty_all());
 }
 
 // **In a steady 15 kt headwind every aeroplane lands and rolls out without

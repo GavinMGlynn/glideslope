@@ -1147,10 +1147,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       flare to the touch, judges a gusty round out as far ahead as her path
       lags her nose (2026-11-02), and since 2026-11-03 keeps her speed on
       the power to the touch and begins the flare for the sink she has, as
-      the Airplane Flying Handbook lands in turbulence, and a propeller
-      aeroplane's flare raises her nose faster the slower she flies. On
-      Windows that strikes the Mosquito's airframe on one of forty seeds she
-      passed (40). In moderate
+      the Airplane Flying Handbook lands in turbulence, and a nose-wheel
+      propeller aeroplane's flare raises her nose faster the slower she
+      flies. Seeds 9 to 40 are flown every night. In moderate
       turbulence she lands ten of sixteen within limits with a margin on
       eight seeds: the PA-28, C172P, C182, 747-400, A320, Learjet 35A,
       Mosquito, F-15C and F-35B, and the flying boat on all but macOS
@@ -1159,7 +1158,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       seeds the 737-300, 787-8 and
       A380 still come down hard on one to three, the A380 also floats past
       the zone, the F-15C floats into a go-around on one, the B-2A puts a
-      wingtip down, and a gust lifts the Cub in her flare on eight; at
+      wingtip down, and the Cub balloons on three, touches hard on one and
+      rises off her wheels on one; at
       her light loading the 737-300 balloons, and the Mosquito at her
       heaviest. The F-22A, taught the approach since her stall was
       measured (2026-11-02), fails all eight seeds:
