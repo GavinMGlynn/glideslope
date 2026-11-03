@@ -1355,6 +1355,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       after her touch at her model's own weight, and a 7.37 m wet crosswind
       roll-out. Her gusts are under
       the gust item (2026-11-03-the-f22a-s-stall-figure-tests-investigated).
+      A gear-down alpha limit near 17 degrees, tuned, brought both stall
+      recoveries within bounds. It would raise her stall to about 114 KCAS
+      and her approach with it, so it is not committed yet
+      (2026-11-04-the-f22a-s-gear-down-alpha-limit-tried).
       *Verification: every one of those tests passes with her name taken
       off, on every platform.*
 - [x] **The AI lands the 747-400 at Boeing's published approach speed**:
