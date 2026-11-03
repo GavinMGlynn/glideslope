@@ -140,6 +140,17 @@ struct PublishedFigures {
     // (sim::Lander::approach_kts).
     double gust_additive_share = 0.0;
     double most_gust_additive_kts = 0.0;
+    // **Her aileron for each degree of bank off what is wanted, in gusts**
+    // (`gusty_aileron_per_deg`), where her file gives one: a wide wing rocked
+    // by turbulence's rolling gusts. 0 where the file gives none, and the
+    // lander's own 0.035 is flown (sim::Lander).
+    double gusty_aileron_per_deg = 0.0;
+    // **The nose-up rate her gusty flare lets through while she closes with
+    // the runway faster than it wants**, degrees a second
+    // (`gusty_closing_nose_degps`), where her file gives one. 0 where it gives
+    // none: a jet keeps the degree a second, a propeller aeroplane her own
+    // (sim::Lander).
+    double gusty_closing_nose_degps = 0.0;
     // **How a tail-wheel aeroplane is landed** (`lands`): "three_point", held
     // off until she touches at the attitude she stands at (sim::Lander), or
     // "wheels", the default, flown on to her main wheels.

@@ -2241,6 +2241,25 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "and at most 20");
         }
     }
+    // **An aileron gain that is none, or past the whole aileron for a degree
+    // of bank, is refused**; and a nose rate that is none, or past the six
+    // degrees a second the flare's attitude itself is let move at.
+    if (root->HasAttribute("gusty_aileron_per_deg")) {
+        out.gusty_aileron_per_deg = root->GetAttributeValueAsNumber("gusty_aileron_per_deg");
+        if (!(out.gusty_aileron_per_deg > 0.0 && out.gusty_aileron_per_deg <= 1.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a gusty_aileron_per_deg that is not above 0 and "
+                                     "at most 1");
+        }
+    }
+    if (root->HasAttribute("gusty_closing_nose_degps")) {
+        out.gusty_closing_nose_degps = root->GetAttributeValueAsNumber("gusty_closing_nose_degps");
+        if (!(out.gusty_closing_nose_degps > 0.0 && out.gusty_closing_nose_degps <= 6.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a gusty_closing_nose_degps that is not above 0 "
+                                     "and at most 6");
+        }
+    }
     // **A yaw rate pedal gain that is not above 0, or past a full pedal for
     // a degree a second, is refused.**
     if (root->HasAttribute("yaw_rate_pedal_per_degps")) {

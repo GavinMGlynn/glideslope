@@ -91,6 +91,15 @@ struct ApproachSpeeds {
     // (`PublishedFigures::gust_additive_share`).
     double gust_additive_share = 0.5;
     double most_gust_additive_kts = 15.0;
+    // **Her aileron for each degree of bank off what is wanted, in gusts**:
+    // 0.035, as in calm air, unless her figures give her own
+    // (`PublishedFigures::gusty_aileron_per_deg`).
+    double gusty_aileron_per_deg = 0.035;
+    // **A jet's nose-up rate in a gusty flare while she closes faster than it
+    // wants**, degrees a second: 1, as at any other moment of her gusty flare,
+    // unless her figures give her own
+    // (`PublishedFigures::gusty_closing_nose_degps`).
+    double gusty_closing_nose_degps = 1.0;
     // **The approach yaw damper's pedal for each degree a second**: 0.05,
     // unless her figures say her pedals command a yaw rate
     // (`yaw_rate_pedal_per_degps`).
