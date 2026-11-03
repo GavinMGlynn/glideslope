@@ -5724,7 +5724,8 @@ struct RecoveryWatch {
 Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = false,
                    bool until_recovered = true, bool at_the_warning = false,
                    bool let_go = false, double handed_flaps = -1.0,
-                   double begun_agl_ft = -1.0, bool elevator_held_back = false) {
+                   double begun_agl_ft = -1.0, bool elevator_held_back = false,
+                   bool at_the_break = false) {
     const auto stall_entry = glideslope::sim::find_aircraft(data(), id);
     // **A stall is practised where its aeroplane practises it.** A light
     // aeroplane decelerates to the stall in a few hundred feet; a clean jet
@@ -5832,7 +5833,14 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
                 if (stalled_at < 0) {
                     stalled_at = tick;
                 }
-                now = tick - stalled_at >= dawdle;
+                // `at_the_break`: or sooner, at the break - the wing past the
+                // angle its lift peaked at by the three tenths of a degree
+                // the autopilot's entry counts as past it (sim/autopilot.cpp,
+                // `past_the_peak_deg`). Past the peak the lift is less than
+                // the peak's, or that angle would be the peak.
+                now = tick - stalled_at >= dawdle ||
+                      (at_the_break &&
+                       a.property("aero/alpha-deg") > out.stall_alpha_deg + 0.3);
             }
             if (now) {
                 recovering = true;
@@ -6347,8 +6355,10 @@ GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_with
 // across the roster is the F-35B's 3.6 s), and sooner where the nose is at
 // its floor and the wing not unloading. And begun at 1,000 ft above the
 // ground, under the 1,500 ft the hold is let go below, with the elevator
-// held so too: full power at once. Coverage is asserted: every aeroplane in
-// the roster flown both ways or left out with its reason, and the flights
+// held so too, handed over at the break if that comes first: above the
+// ground, every one, with full power at once. Coverage is asserted: every
+// aeroplane in the roster flown both ways or left out with its reason, and
+// the flights
 // whose wing was still stalled when the power came - the ones that tested
 // the rule - counted and required.
 GLIDESLOPE_TEST(a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within_five_seconds_and_near_the_ground_at_once) {
@@ -6359,28 +6369,28 @@ GLIDESLOPE_TEST(a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within
     std::size_t walked = 0;
     std::size_t stalled_high = 0;
     std::size_t stalled_low = 0;
-    // Begun at 1,000 ft, the 737-300's entry - held level, slowing in her
-    // landing configuration with the throttles shut - puts her in the
-    // ground before the lesson calls her stall: not handed over, so not
-    // judged low. The S.23's too, since 2026-10-28: with her pitching
-    // moments on the whole dynamic pressure she was handed over 50 ft above
-    // the water; with them leaving out its sideways part she reaches the
-    // water first (her elevator's moment alone does it - put back, her entry
-    // is flown otherwise; her flaps' and pitch damping's change nothing).
-    // **And six more since 2026-11-03**, when a stall's flight began ending
-    // at its first wreck (`fly_a_stall`, as the server ends one): the A320,
-    // A380, F-15C, F-22A, F-35B and Mosquito are judged wrecked on the
-    // ground in that entry before the lesson calls the stall. Until then they
-    // were flown on after it, and handed over above the ground later.
-    const std::set<std::string> expected_in_the_ground = {
-        "737-300", "a320", "a380", "f15c", "f22", "f35b", "mosquito-fb6", "short_s23"};
-    std::set<std::string> in_the_ground_first;
+    // **Low, the stall is recovered at the break, not thirty seconds after
+    // it.** Begun at 1,000 ft, the hand-over comes thirty seconds after the
+    // lesson's entry ends or at the break, whichever is first: the wing past
+    // the angle its lift peaked at (`fly_a_stall`, `at_the_break`). Left the
+    // whole thirty seconds at idle in the stall, eight of them reached the
+    // ground first, 16 to 28 s after the entry ended, sinking at 4,800
+    // (737-300) to 9,100 ft/min (S.23): the A320 at 8,200, A380 5,900,
+    // F-15C 6,400, F-22A 6,200, F-35B 7,500, Mosquito 6,200 (linux-release,
+    // 2026-11-04). That is the held stall, not the recovery, which had not
+    // begun: AF447's crew, holding hers, descended at about 10,000 ft/min
+    // (BEA final report, 2012). The FAA trains a landing-configuration stall
+    // at 1,000 ft AGL recovered at its first indication (AC 120-109A,
+    // appendix 3, scenario 3), and none leaves one held at that height. So
+    // every aeroplane is handed over above the ground here, the F-15C lowest
+    // (511 ft: her lift is still rising past 39 degrees of alpha), and the rule -
+    // full power at once - is judged on each.
     std::vector<std::string> faults;
     for (const std::string& id : taught.able) {
         const Result high =
             fly_a_stall(id, 30.0, false, true, false, false, -1.0, -1.0, true);
         const Result low =
-            fly_a_stall(id, 30.0, false, true, false, false, -1.0, low_agl_ft, true);
+            fly_a_stall(id, 30.0, false, true, false, false, -1.0, low_agl_ft, true, true);
         std::printf("  %-13s held back where practised: power after %5.2f s (%s), "
                     "let go early %ld; at %4.0f ft: power after %5.2f s (%s), handed over at "
                     "%.0f ft\n",
@@ -6400,7 +6410,7 @@ GLIDESLOPE_TEST(a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within
                              std::to_string(low.power_after_s));
         }
         if (low.handed_over_ft <= 0.0) {
-            in_the_ground_first.insert(id);
+            faults.push_back(id + " begun at 1,000 ft was in the ground before the hand-over");
         }
         stalled_high += high.stalled_at_power ? 1U : 0U;
         stalled_low += low.handed_over_ft > 0.0 && low.stalled_at_power ? 1U : 0U;
@@ -6415,11 +6425,10 @@ GLIDESLOPE_TEST(a_stall_recovery_whose_wing_stays_stalled_gets_full_power_within
     for (const std::string& fault : faults) {
         std::printf("  %s\n", fault.c_str());
     }
-    check(faults.empty(), std::to_string(faults.size()) + " recoveries held the power off too "
-                          "long; the first: " + (faults.empty() ? "" : faults.front()));
-    check(in_the_ground_first == expected_in_the_ground,
-          "the aeroplanes in the ground before the hand-over at 1,000 ft are the ones named, " +
-              std::to_string(in_the_ground_first.size()) + " of them");
+    check(faults.empty(), std::to_string(faults.size()) +
+                              " recoveries held the power off too long or were never handed "
+                              "over; the first: " +
+                              (faults.empty() ? "" : faults.front()));
     check(stalled_high > 0 && stalled_low > 0,
           "some flights had the wing still stalled when the power came, both ways");
     check(walked + taught.left_out.size() == roster,
