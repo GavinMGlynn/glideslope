@@ -5170,6 +5170,8 @@ InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0,
 }
 
 struct Result {
+    // What wrecked her, if the flight ended in a wreck (sim::GroundJudge).
+    std::string wreck;
     // How far the height strayed from where the entry stage began, which is
     // what the entry's band is set from.
     double entry_low_ft = 0.0;
@@ -5612,6 +5614,17 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
                          std::abs(a.rudder - b.rudder)});
     };
     glideslope::sim::Controls last_controls = controls;
+    // **A wreck is the end of the flight too**, stopped where it hit as the
+    // server stops it (sim/crash.hpp), and stepped no further. An F-22A left
+    // thirty seconds in her deep stall struck the ground with her airframe at
+    // 19,600 ft/min, her centre of gravity still 35 ft above it, so the height
+    // alone did not end the flight. Stepped on, she was thrown back up at
+    // 51 g, came to rest, and was flown at rest to the flight's ten minutes
+    // (an x86-64-v2 build); her load read 2.4e17 g on macOS, and Windows
+    // debug aborted on a JSBSim table lookup given a value outside every
+    // range (FGTable.cpp:618, CI run 41602502265), as #304's gust harness did.
+    glideslope::sim::GroundJudge ground(stall_entry.seaplane);
+    (void)ground.judge(*f.aircraft);
     for (int tick = 0; tick < 600 * steps_per_second && flying(); ++tick) {
         // **What the autopilot is asked for is settled before it flies**, and
         // it flies once a step: called twice, its loops ran at 240 Hz.
@@ -5710,12 +5723,16 @@ Result fly_a_stall(const std::string& id, double left_s, bool fresh_autopilot = 
             const bool was_entering = run.stage() == 0;
             run.update(*f.aircraft, tick);
             const double agl = f.aircraft->property("position/h-agl-ft");
+            const std::optional<std::string> wrecked = ground.judge(*f.aircraft);
+            if (wrecked && out.wreck.empty()) {
+                out.wreck = *wrecked;
+            }
             // **Into the ground is the end of the flight**, and the lesson is
             // judged there: a recovery that ends in the ground did not
             // recover with the least height. Before the recovery flew the
             // speed, a B-2A left mushing half a minute did exactly that, on
             // macOS, with the recovery stage never over and nothing said.
-            if (agl <= 0.0) {
+            if (agl <= 0.0 || wrecked) {
                 out.lowest_agl_ft = std::min(out.lowest_agl_ft, agl);
                 run.ended(*f.aircraft, tick);
                 break;
