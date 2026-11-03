@@ -142,3 +142,7 @@ seed and platform both are judged, and a named seed that passes fails
 "take her name off". The same run timed out
 `an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands`
 on Linux debug at 900 s (762 s in tests/ci_costs): it is given 1,800.
+The same run's macOS debug failure of
+`ai_aircraft_keep_flying_with_nobody_connected_and_a_late_client_finds_them_mid_flight`
+is the test named in tests/cmake/nightly_tests.cmake, run there because a
+dispatched run is a nightly's; it is no pull request's, and its item holds it.
