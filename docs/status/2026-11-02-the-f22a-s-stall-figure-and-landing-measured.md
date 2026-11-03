@@ -74,4 +74,7 @@ stall-figure tests" (Phase 10b) holds what is left:
 **Verification.** linux-release, `ctest -LE nightly -j4`, no display. Before
 the count fixes: 1,440 tests, 46 failed, 4,750 s. After them and the names,
 every test that had failed was run again from the test binary, and all
-passed. The full suite is in the pull request.
+passed. The full suite after them: 1,442 tests, all passed or skipped (no
+key, display or live model), 4,046 s. Rebased onto main after #303, her
+gust seeds measured again on its flare lead (the figures above), and the
+full suite again: 1,442 of 1,442, 4,235 s.
