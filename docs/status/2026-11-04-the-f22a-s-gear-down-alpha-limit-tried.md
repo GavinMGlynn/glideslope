@@ -1,5 +1,21 @@
 ### The F-22A's alpha limited with her gear down, and her stall measured there: both stall recoveries and her rise after the touch come off; the stall watch, a wet walking pace, a wet crosswind roll-out and her gusts still named - 2026-11-04
 
+**From the review of #314 (fourth round).** Changes:
+- `limited_stall_speed` now checks that her stick is at its aft stop at
+  her greatest lift, and throws if not. She is at 1.000 in all four
+  entries. It was seen red with the stop asked at 1.01.
+- Her entry's slowing is said against 25.103(c)'s 1 kt/s, measured from
+  160 KCAS: about 5 kt/s as the entry ends, 2.5 to 4 near her stall,
+  none at her slowest.
+- `departure_speed` is removed, and with it the `departure="1"`
+  attribute: nothing flies it since her limit.
+- The roll-out's rate-per-degree is labelled tuned, not sourced, and so is
+  her `roll_out_stick_per_degps`.
+- The 130 kt test's header now says that her limit decides it, so it no
+  longer catches an autopilot regression at slow speed.
+- SPEEDBRAKE_LIFT is moved out of the alpha-limit constants. Her model
+  comes out the same (`make_f22.py --check`).
+
 **Third round first.** It supersedes the second round's list of names,
 which follows. The first round's note comes last.
 
