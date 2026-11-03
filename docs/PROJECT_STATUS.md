@@ -143,7 +143,7 @@ and each flown with a stated fault naming that fault and no other; and the
 instructor, the AI pilot, demonstrating each and handing the controls over
 and back with no step. The AI pilot takes off, flies the pattern, lands and
 stops - on water, too, in the flying boat, and in moderate turbulence on
-every gust seed but one on Windows and one on macOS release (2026-11-01) - every one of the fourteen
+every gust seed but one on macOS release (2026-11-03) - every one of the fourteen
 upright on its wheels from the touch to the stop, the jets as the FAA lands
 a jet. The J-3 Cub is landed in every crosswind up to her published 12 kt,
 from either side, dry and wet - one instructor's "about 12 knots" in an
@@ -153,8 +153,9 @@ Boeing's published 153 kt, and lands within her limits, her flaps raised
 after a take-off by her manoeuvre speeds; since 2026-11-02 she lands in gusts
 on all eight seeds here, on Linux, as do the A320, Learjet 35A and Mosquito,
 and since 2026-11-03 the F-15C and F-35B, with the PA-28, and the flying
-boat but for Windows's seed 5 and macOS release's seed 3: eight of sixteen;
-eight are still named. She is
+boat but for macOS release's seed 3 (over 48 seeds here she still rises off
+the water on three, touches hard on two and goes round on one): eight of
+sixteen; eight are still named. The 747-400 is
 taught the approach but not yet the take-off, climb or circuit (her speeds
 are measured, not a book's). The F-22A is taught stalls and the approach
 since 2026-11-02, with a stall figure measured from her model (her slowest
