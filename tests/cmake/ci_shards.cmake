@@ -103,12 +103,14 @@ if(NOT _nnamed EQUAL NIGHTLY_COUNT OR NOT _nnight EQUAL NIGHTLY_COUNT OR NOT _na
     message(FATAL_ERROR "${NIGHTLY_COUNT} nightly tests expected; ${_nnamed} named, ${_nnight} labelled.\nnamed: ${_named}\nlabelled: ${_labelled}")
 endif()
 # Every test job's ctest line ends in one of two expressions, read whole: on a
-# pull request a debug preset leaves out timing and nightly and a release
-# preset nightly, on every other event a debug preset leaves out timing alone
-# and a release preset nothing; or, for a job of release presets alone (Rocky
-# 9), nightly on a pull request and nothing otherwise.
-set(_gate_any [=[${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly"' || '-LE nightly') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}]=])
-set(_gate_release [=[${{ github.event_name == 'pull_request' && '-LE nightly' || '' }}]=])
+# pull request a debug preset leaves out timing, nightly and gust_sweep and a
+# release preset nightly and gust_sweep, on every other event a debug preset
+# leaves out timing alone and a release preset nothing; or, for a job of
+# release presets alone (Rocky 9), nightly and gust_sweep on a pull request
+# and nothing otherwise. (gust_sweep: the gust test's seeds 9 to 40,
+# tests/CMakeLists.txt.)
+set(_gate_any [=[${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}]=])
+set(_gate_release [=[${{ github.event_name == 'pull_request' && '-LE "nightly|gust_sweep"' || '' }}]=])
 string(REGEX MATCHALL "ctest --preset [^\n]*shard.txt[^\n]*" _test_runs "${_yml}")
 set(_nnr 0)
 set(_run_kinds "")
@@ -144,8 +146,8 @@ message(STATUS "${_nnight} nightly test, named with its reason; ${_nnr} of ${_nj
 # each shard run, from the first test left out on, a test after the one it
 # was dealt (run 41415219089). Each job's call of the dealing passes, as
 # EXCLUDE, the same regex its ctest line gives -LE.
-set(_exclude_any [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly' || 'nightly') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake]=])
-set(_exclude_release [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly' || '' }}" -P tools/ci_shard.cmake]=])
+set(_exclude_any [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake]=])
+set(_exclude_release [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly|gust_sweep' || '' }}" -P tools/ci_shard.cmake]=])
 set(_i 0)
 foreach(_call IN LISTS _calls)
     list(GET _run_kinds ${_i} _kind)
@@ -196,13 +198,13 @@ foreach(_p IN LISTS _presets)
         message(FATAL_ERROR "${_p}: the matrix has shards ${_have}, not 1 to ${_of_${_p}} once each")
     endif()
     if(_preset_${_p} MATCHES "-debug$")
-        set(_ways "timing|nightly")
+        set(_ways "timing|nightly|gust_sweep")
         if(_other_debug STREQUAL "")
             set(_other_debug ${_p})
             list(APPEND _ways "timing")
         endif()
     else()
-        set(_ways "nightly")
+        set(_ways "nightly|gust_sweep")
         if(_other_release STREQUAL "")
             set(_other_release ${_p})
             list(APPEND _ways "none")
@@ -282,7 +284,7 @@ foreach(_p IN LISTS _presets)
     endforeach()
 endforeach()
 # Every way a run leaves tests out, dealt and read back: four.
-foreach(_wayname IN ITEMS timing_nightly nightly timing none)
+foreach(_wayname IN ITEMS timing_nightly_gust_sweep nightly_gust_sweep timing none)
     if(NOT _did_${_wayname})
         message(FATAL_ERROR "no dealing left tests out as a run does by '${_wayname}'")
     endif()

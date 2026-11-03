@@ -6,11 +6,12 @@ among them, unchanged by this: on forty seeds a gust lifts her at 137, 132
 and 78 ft/min in her flare (seeds 20, 37, 40), she touches at 356 (seed 33)
 and rises 0.82 ft (seed 39); on Windows release she climbs on seeds 32 and
 37 and touches at 357 on seed 8. Seeds 9 to 40 are seen on linux-release,
-an x86-64-v2 build and Windows release, not yet on macOS, Linux debug or
-clang: the nightly run is their first look, and a failure there is named
-on its seed.
+an x86-64-v2 build and Windows release here, and on every CI preset in a
+run dispatched on this branch (below): every failure there is named on its
+seed and platform.
 
-**What now works**: the C172P and C182 are judged, unnamed: ten of sixteen
+**What now works**: the C172P and C182 are judged, unnamed but for macOS's
+seed 16 (both) and 34 (the C182): ten of sixteen
 land in moderate turbulence within limits with every margin on the eight
 gust seeds of every pull request, and on the forty of every night. No
 aeroplane judged before is worse on any of the forty seeds on any platform
@@ -20,14 +21,49 @@ flying boat and calm air are untouched.
 
 **The forty seeds, asserted** (#308's review): the gust test's seeds 9 to
 40 are tests of their own (`..._seed_9` to `_40`), each aeroplane judged or
-named on each seed as on the eight, labelled nightly (tests/CMakeLists.txt)
-and named in tests/cmake/nightly_tests.cmake: forty seeds' flights are too
-long for a pull request's run. A judged aeroplane that fails a seed on a
+named on each seed as on the eight, labelled `gust_sweep`
+(tests/CMakeLists.txt): forty seeds' flights are too long for a pull
+request's run. ci.yml leaves the label out of a pull request's runs, as it
+does `nightly`'s, and every other run - the nightly schedule's, where a
+failure is a red tree - has it; tests/cmake/ci_shards.cmake asserts both,
+and that each dealing leaves out what its run does. Not the `nightly`
+label: tests/cmake/nightly_tests.cmake is for tests moved out of pull
+requests after failing on CI, which these have not. **A stale name fails**:
+a judged aeroplane named on a seed she passes with every margin fails that
+seed's test, "take her name off" (seen red with a name put on the PA-28's
+seed 9, which she passes: "pa28 (gusts, seed 9) is named on this seed and
+passed it with every margin: take her name off"). A judged aeroplane that fails a seed on a
 platform is named on that seed and platform (`named_on_a_seed`): on Linux
 the F-15C's seed 34 (a float into a go-around) and the flying boat's seeds
 11, 13, 25, 28, 30, 32 and 40; on Windows the 747-400's seeds 29, 31, 33
 and 40 (a hard touch and three floats into a go-around) and the flying
 boat's 24 and 38. All were so before this change.
+
+**Every CI preset, measured** (#308's review): ci.yml run 41640422104,
+dispatched on this branch, every preset with the label. Ubuntu linux-debug
+and linux-release, Rocky 9 linux-release and Windows debug, release and
+clang passed all forty seeds with the names above: none stale. macOS, debug
+and release alike (the same figures on both), failed these, now named for
+macOS on its seed: the flying boat's 3 (0.93 ft; before this named for
+macOS release alone, and main's nightly run 41544342155 failed it on macOS
+debug), 10 (1.13 ft) and 11 (2.03 ft); the C172P's 16 (396 ft/min) and the
+C182's 16 (a gust climbing her at 96 ft/min in her flare); the 747-400's 24
+(410 ft/min); the F-15C's 28 (981 m along, past the zone); and the C182's
+and PA-28's 34 (climbing at 92 and 76 ft/min in the flare). How macOS flew
+those seeds before this change is not measured: no run had the forty there.
+The run's one other failure, `an_autopilot_engaged_on_an_aeroplane_already_stalled_recovers_it`
+on macOS debug (JSBSim's FGTable.cpp:618 assertion, a table looked up out
+of its range), is not a gust test and was not in main's last nightly run;
+its cause is not looked for here.
+
+**What the label costs a night**, its tests' summed time in that run
+(ctest's label summary, test-seconds; jobs run tests in parallel, so a
+runner's wall time is less): Ubuntu linux-debug 4,584 s, Windows debug
+2,173, macOS debug 1,186, Windows release 494 and clang 481, Ubuntu
+linux-release 410, Rocky 9 linux-release 322, macOS release 189: about
+9,840 test-seconds, 2.7 hours, of which the debug presets are 7,943. Kept
+on every preset: macOS debug named the flying boat's seed 3 that macOS
+release alone had been named on.
 
 **What the AI was doing** (linux-release, traced): the C182 on seed 23 lost
 her headwind five feet up, 70 kt to 55; her flare asked for 9.1 degrees of
@@ -115,5 +151,5 @@ aeroplane (`jet_ || tail_wheel_` replaced by `true`), seeds 23 and 33
 failed - "c182 (gusts, seed 23) touched at 377.212605 ft/min, not 25
 inside 360" and 376.7 on seed 33 - and pass again restored.
 `every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once`
-and `every_compiled_unit_test_is_registered_with_ctest` pass with the 37
-nightly tests. The full suite is left to CI.
+and `every_compiled_unit_test_is_registered_with_ctest` pass with the 32
+gust_sweep tests. The full suite is left to CI.
