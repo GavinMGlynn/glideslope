@@ -167,10 +167,11 @@ kt across within 360 ft/min and outside the tail-strike margin, and her
 measured landing is 7,300 ft. She is still named, with her figures, in her
 stall recoveries, the AI's stall watch, her rise after the touch at her
 model's own weight, a wet crosswind roll-out, one wet walking pace and her
-gust landings (an open item). Since a stall's flight ends at its first
-wreck (2026-11-03), the A320, A380, F-15C, F-35B and Mosquito are seen to
-hit the ground in the stall entry begun at 1,000 ft; they passed before
-only by being flown on (an open tail);
+gust landings (an open item). A stall begun at 1,000 ft is handed to the
+recovery at the break, and every aeroplane taught a stall is handed over
+above the ground there with full power at once (2026-11-04); left thirty
+seconds stalled at idle there, eight reach the ground first, sinking at
+4,800 to 9,100 ft/min, and that is no longer asked of them;
 the Learjet cannot be rotated early since her stabilizer
 was tied to her maintenance manual (a tail). See the log for 2026-09-22 to
 2026-09-24, and later entries for what was fixed since (the F-35B's
