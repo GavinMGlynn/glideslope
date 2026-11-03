@@ -83,8 +83,9 @@ constexpr double gusty_throttle_opened_per_s = 0.5;
 // used". 265 is tuned on a sweep of the gust tests' forty seeds
 // (docs/status, 2026-11-03), not sourced: about a quarter of a g of change
 // in her climb (265 kt is 447 ft/s; at a degree a second that is 7.8
-// ft/s^2). It gives a C182 at her 72 kt 3.7 degrees a second, a Cub at her
-// 51 kt 5.2. A propeller aeroplane's: a jet keeps a degree a second.
+// ft/s^2). It gives a C182 at her 72 kt 3.7 degrees a second. A
+// nose-wheel propeller aeroplane's: a jet and a tailwheel aeroplane keep a
+// degree a second (`fly_laws` says why).
 constexpr double gusty_nose_rate_kt_degps = 265.0;
 // **The least nose a jet's flare raises**, degrees: the FAA's Airplane
 // Flying Handbook (FAA-H-8083-3C, ch. 16, "The Flare"): "In most jet
@@ -2093,7 +2094,16 @@ Controls Lander::fly_laws() {
     // 2026-11-03). **A propeller aeroplane's alone**: given it, on Windows
     // the F-15C and F-35B floated to within 25 m of the touchdown zone's end
     // on three of forty seeds they had passed, so a jet keeps her degree a
-    // second.
+    // second. **And not a tailwheel aeroplane's.** The AFH (ch. 14, "Wheel
+    // Landing", p. 14-5): "In some wind conditions ... landing in a flatter
+    // pitch attitude on the main wheels only, with the tailwheel still off
+    // the surface", "a soft touchdown and a slight relaxation of back
+    // elevator just after the wheels touch"; and ("Three-Point Landing",
+    // p. 14-5) "application of full back elevator during the flare lowers
+    // the tail, increases the AOA, and quite naturally puts the plane in
+    // climbing flight". Given it, the Cub at 5.2 degrees a second was lifted
+    // in her flare on three more of forty seeds (9, 19, 38), and on Windows
+    // the Mosquito struck her airframe on seed 40, which she had passed.
     // **A landplane's, not a hull's**: the sweep was of the landplanes, and
     // a hull in gusts is not flared to the touch but held level over the
     // water (rough water, above), her nose already capped. Let through
@@ -2103,7 +2113,8 @@ Controls Lander::fly_laws() {
     const double want_q_degps =
         stage_ == Stage::flare && in_gusts() && !lands_on_hull() && flare_gain_ > 1.0
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0,
-                         jet_ ? 1.0 : std::max(1.0, gusty_nose_rate_kt_degps / approach_kts()))
+                         jet_ || tail_wheel_ ? 1.0
+                                      : std::max(1.0, gusty_nose_rate_kt_degps / approach_kts()))
         : stage_ == Stage::flare && holding_three_point_
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 4.5)
             : 0.0;
