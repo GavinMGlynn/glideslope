@@ -6,7 +6,7 @@ and 50 ft, or bound past the touchdown zone, two seconds running, as
 sim::unstabilized judges) and each landing outside evaluate.py's limits.
 For choosing a checkpoint on the gate; the C++ tests are the verification.
 
-    ~/.venvs/glideslope-rl/bin/python tools/rl/corners.py CHECKPOINT.zip|POLICY.txt [--jobs N] [-v]
+    ~/.venvs/glideslope-rl/bin/python tools/rl/corners.py CHECKPOINT.zip|POLICY.txt [--jobs N] [--wind NAME,...] [-v]
 
 The corners' numbers are LearntGate's, copied: a change there is a change
 here.
@@ -26,18 +26,23 @@ from evaluate import within_limits  # noqa: E402
 VREF = 59.8
 NEAREST, FURTHEST = 1.6 * 1852.0, 2.4 * 1852.0
 QUARTER = 15.0 / math.sqrt(2.0)  # LearntGate::most_wind_kts from 45 degrees ahead
-BEHIND_ACROSS = 2.75  # LearntGate::most_crosswind_behind_kts (a test holds the two equal)
+BEHIND_ACROSS = 15.0  # LearntGate::most_crosswind_behind_kts (a test holds the two equal)
 ALLOWANCE = 0.05  # what outside_learnt_gate lets in past a wind limit
+# With 5 kt behind, the most across the gate admits: its crosswind limit with
+# the allowance, or as much as keeps the wind in all within 15 kt.
+BEHIND_EDGE = min(BEHIND_ACROSS + ALLOWANCE, math.sqrt(15.0**2 - 5.0**2))
 WINDS = {"calm": (0.0, 0.0), "left": (15.0, 0.0), "right": (-15.0, 0.0),
          "ahead": (0.0, 15.0), "behind": (0.0, -5.0),
          "quarter-left": (QUARTER, QUARTER), "quarter-right": (-QUARTER, QUARTER),
-         "behind-left": (BEHIND_ACROSS + ALLOWANCE, -5.0),
-         "behind-right": (-(BEHIND_ACROSS + ALLOWANCE), -5.0)}
+         "behind-left": (BEHIND_EDGE, -5.0),
+         "behind-right": (-BEHIND_EDGE, -5.0)}
 
 
-def corners():
+def corners(only=None):
     out = []
     for wname, (cross, head) in WINDS.items():
+        if only and wname not in only:
+            continue
         for c in range(32):
             e = lambda bit, lo, hi: hi if c & (1 << bit) else lo  # noqa: E731
             s = L.Start(out_m=e(0, NEAREST + 5, FURTHEST - 5), across_m=e(1, -59.5, 59.5),
@@ -102,7 +107,9 @@ def one(arg):
 def main():
     path = sys.argv[1]
     jobs = int(sys.argv[sys.argv.index("--jobs") + 1]) if "--jobs" in sys.argv else 4
-    args = [(path, n, s) for n, s in corners()]
+    # --wind NAME[,NAME...] flies only those of the nine winds.
+    only = sys.argv[sys.argv.index("--wind") + 1].split(",") if "--wind" in sys.argv else None
+    args = [(path, n, s) for n, s in corners(only)]
     with ProcessPoolExecutor(jobs) as ex:
         res = list(ex.map(one, args))
     unstab = short = 0
