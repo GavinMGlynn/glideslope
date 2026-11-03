@@ -11,7 +11,12 @@ figures (linux-release, FMA):
   same measurement scattered from 85.7 to 114.0 KCAS by entry speed, so it
   was not used there.
 - **Left thirty seconds**: still in her deep stall, not judged (16,888 ft
-  and 31.36 g).
+  and 31.36 g). The same name now covers
+  `an_autopilot_engaged_on_an_aeroplane_already_stalled_recovers_it`. Handed
+  over at 78 to 80 degrees of alpha, she was recovered on linux-release with
+  FMA. In the full CI run 41602502265 she was not recovered on macOS release
+  or Rocky 9 linux-release (25.48 g), and that test was red on both. It is
+  red there without the name.
 - **The stall watch**: noticed at 117.6 kt, she slows to 105.1 against her
   112.0 at her weight, and loses 317 ft. She is held to those figures.
   Before, they were 59.4 kt and 2,728 ft.
