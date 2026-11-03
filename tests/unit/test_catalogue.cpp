@@ -513,6 +513,9 @@ namespace {
 
 enum Speed { slowest, start, fastest };
 
+// The walk's heights, a test each (below).
+const std::vector<double> trim_walk_heights_ft = {1000.0, 5000.0, 10000.0};
+
 void every_aircraft_is_trimmed_as_a_players_is_at(const double at_ft) {
     const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
     const std::string pitch_alone = "f22";
@@ -542,6 +545,15 @@ void every_aircraft_is_trimmed_as_a_players_is_at(const double at_ft) {
         {"j3cub", "gross", 10000.0, start},
         {"j3cub", "gross", 10000.0, fastest},
     };
+    // A point left out at a height no test walks would be left out by none.
+    const auto left_out_walked = static_cast<std::size_t>(
+        std::count_if(left_out_list.begin(), left_out_list.end(), [](const LeftOut& l) {
+            return std::find(trim_walk_heights_ft.begin(), trim_walk_heights_ft.end(),
+                             l.height_ft) != trim_walk_heights_ft.end();
+        }));
+    check(left_out_walked == left_out_list.size(),
+          "every point on the list of " + std::to_string(left_out_list.size()) +
+              " left out is at a height the walk flies: " + std::to_string(left_out_walked));
     const auto left_out_here = static_cast<std::size_t>(
         std::count_if(left_out_list.begin(), left_out_list.end(),
                       [&](const LeftOut& l) { return l.height_ft == at_ft; }));
@@ -657,15 +669,15 @@ void every_aircraft_is_trimmed_as_a_players_is_at(const double at_ft) {
 } // namespace
 
 GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_speeds_at_1000_ft_is_trimmed_as_a_players_is) {
-    every_aircraft_is_trimmed_as_a_players_is_at(1000.0);
+    every_aircraft_is_trimmed_as_a_players_is_at(trim_walk_heights_ft[0]);
 }
 
 GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_speeds_at_5000_ft_is_trimmed_as_a_players_is) {
-    every_aircraft_is_trimmed_as_a_players_is_at(5000.0);
+    every_aircraft_is_trimmed_as_a_players_is_at(trim_walk_heights_ft[1]);
 }
 
 GLIDESLOPE_TEST(every_aircraft_at_every_loading_at_three_speeds_at_10000_ft_is_trimmed_as_a_players_is) {
-    every_aircraft_is_trimmed_as_a_players_is_at(10000.0);
+    every_aircraft_is_trimmed_as_a_players_is_at(trim_walk_heights_ft[2]);
 }
 
 // **The S.23 trimmed at every loading, height and speed of the walk above

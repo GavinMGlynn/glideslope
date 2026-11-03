@@ -21,4 +21,7 @@ whole, 10,000 ft 169 trimmed and the 14 left out walked and failing, the
 F-22A's 6 a height in pitch alone, said. Seen red: the left-out count taken
 from the points at other heights failed the 1,000 ft test ("every point at
 this height on the list of 14 left out was walked and failed: 0 walked"),
-then reverted. Linux debug's time is the train's full CI run.
+then reverted. From the review: each test also checks that every point on the
+left-out list is at one of the walk's heights, since a point at any other
+height would otherwise be left out by none of them. Seen red with a point at
+3,000 ft added ("15 left out ... 14"), then removed. Linux debug's time is the train's full CI run.
