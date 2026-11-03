@@ -171,9 +171,20 @@ nightly or its fetch is fixed.
   (above);
 - the full suite again in the third round, after the wreck fix in
   `fly_a_stall` and this review's changes, waiting first with `until !
-  pgrep -x ctest`: when the time box ran out, 1,432 of 1,443 tests had
-  finished, every one passed or skipped, and eleven client-and-server tests
-  were still running. CI is the check for those;
+  pgrep -x ctest`: 1,443 of 1,443 passed or skipped, 4,844 s;
+- **The already-stalled test aborted on macOS debug** in run 41640422104,
+  on #308's branch (999c2a33), with the same FGTable.cpp:618 assertion. The
+  F-22A was flying: the test prints each aeroplane after its flight, and the
+  abort came after the F-15C's line, with the F-22A next in its order. That
+  branch has neither her stall at idle nor `fly_a_stall`'s wreck stop. The
+  test flies her through `fly_a_stall(id, 30.0, true)`, so here it already
+  ends her at her first wreck; no change to the test was needed. In a
+  linux-debug build (asserts on) it passes with the stop: she is handed over
+  at 16,904 ft and is not recovered, peak 10.77 g, not judged. With the stop
+  taken out (a local trial, not committed) she is flown on, peak 25.48 g,
+  but no value goes non-finite there: linux-debug does not reproduce
+  macOS's abort, any more than linux-release reproduced Windows debug's;
+- rebased onto main after #306;
 - **The selftest's hash does not move.** Nothing the selftest flies is
   changed: only her figures file, the stall figure's measurement and the
   tests. The selftest's tests pass in both full runs;
