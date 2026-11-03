@@ -2217,6 +2217,9 @@ double Lander::lower_the_nose(const AircraftState& s) {
     // stop to stop, her nose swinging between 0 and 10 degrees, and lifted
     // her off the runway (2026-11-04).
     if (speeds_.roll_out_stick_per_degps > 0.0) {
+        // A degree a second for each degree off: the attitude taken out with
+        // a one-second time constant, inside the three seconds the nose is
+        // lowered in. Tuned, not sourced.
         constexpr double rate_per_deg = 1.0;
         return std::clamp(speeds_.roll_out_stick_per_degps *
                               (want_q_degps + rate_per_deg * error - s.q_radps * degrees),

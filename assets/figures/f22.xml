@@ -57,7 +57,7 @@
 <!--
   **roll_out_stick_per_degps** is the stick the lander's roll-out asks of
   her for each degree a second her nose is off the rate it wants
-  (sim::Lander, `lower_the_nose`), a tuning value: her stick commands a pitch
+  (sim::Lander, `lower_the_nose`), tuned, not sourced: her stick commands a pitch
   rate through her flight controls' own loop, on her wheels as in the air
   (tools/make_f22.py), so she is asked a rate, not an attitude. Under the
   attitude law, handed to her roll-out at 133.6 kt in the crosswind tests,

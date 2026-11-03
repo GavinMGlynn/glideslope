@@ -1885,31 +1885,18 @@ GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables
     check(!f.held(), "and it is not held");
 }
 
-// **The F-22A held at 130 kt on the autopilot**, 10 kt under her
-// slowest, **with her gear down**: a stated flight figure, so that a change
-// to the autopilot that moves it shows. Measured with the gear down, the
-// trial's default until 2026-10-10; flown with it up - the trials' clean
-// since - she holds 130 without departing, her flight controls giving her
-// their thrust vectoring and full pitch rate only with the gear up, so the
-// gear is put down here to keep the situation it pins. Measured (2026-10-10): she leaves her tables, her
-// sideslip 10.4 by then. Reading the speed's trend on the throttle, tried
-// and taken out (PROJECT_STATUS, 2026-10-10), held her there: the throttle
-// opened as her speed began to fall rather than once it had, and she never
-// slowed into the departure.
-// **Her sideslip as she goes is no longer pinned** (2026-10-13): since the
-// throttle stopped chasing the speed a climb trades for height, up to 3 kt
-// of it (sim/autopilot.cpp, `climb_as_speed_s`), she still departs at 130
-// but her sideslip by then is 0.0, and from 125 to 129 kt it was 4.0 to
-// 15.8 - not a figure to hold her to, where the departure itself is.
-// Unbounded, that term held her at 130 kt, giving up 240 ft. **The edge**:
-// she departs at 125, 127, 129 and 130 kt and holds at 131, 133 and 135 -
-// within a knot of it here (PROJECT_STATUS, 2026-10-13).
-// **She departed there until 2026-11-04**, and this test said so (named
-// `..._departs`). Since her alpha is limited with her gear down
-// (tools/make_f22.py) she holds 130 kt inside her tables, sideslip 0.0.
-// **Seen to turn**: without the limit, as main flew her before 2026-11-04,
-// she left them and the old check passed; with the limit the old check
-// failed, "she left her tables at 130 kt".
+// **The F-22A held at 130 kt on the autopilot, her gear down, keeps inside
+// her tables**, sideslip 0.0 (2026-11-04). **Her alpha limit decides this
+// now, not the autopilot**: past 17 degrees with her gear down her flight
+// controls push her nose down (tools/make_f22.py), and at 130 kt that holds
+// her whatever the autopilot asks. So this test no longer catches an
+// autopilot regression at slow speed, which it was written for; it pins the
+// limit holding her there. **Until 2026-11-04 it pinned the autopilot's
+// edge** (named `..._departs`): without the limit, gear down, she left her
+// tables at 125, 127, 129 and 130 kt and held at 131, 133 and 135 (2026-10-10
+// and 2026-10-13, PROJECT_STATUS). **Seen to turn**: without the limit, as
+// main flew her before 2026-11-04, she left them and the old check passed;
+// with the limit the old check failed, "she left her tables at 130 kt".
 GLIDESLOPE_TEST(the_f22a_held_at_130_kt_on_the_autopilot_with_her_gear_down_keeps_inside_her_tables) {
     const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "f22");
     const glideslope::sim::CrosswindFlown f =

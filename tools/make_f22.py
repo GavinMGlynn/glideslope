@@ -364,11 +364,11 @@ YAW_CMD_FULL = 5
 # her stabilators ALPHA_LIMIT_STAB_PER_DEG of their full travel nose down
 # after the loop. The docstring says how they were chosen.
 ALPHA_LIMIT_ONSET_DEG = 17
+ALPHA_LIMIT_Q_PER_DEG = 0.06
+ALPHA_LIMIT_STAB_PER_DEG = 0.1
 # Her speedbrake's lift coefficient at full deflection (dCLsb): none, where
 # the pinned model gave it its flaps' 0.35. See the docstring.
 SPEEDBRAKE_LIFT = 0
-ALPHA_LIMIT_Q_PER_DEG = 0.06
-ALPHA_LIMIT_STAB_PER_DEG = 0.1
 # The roll stick's shaping: the roll rate it commands, as a fraction of the
 # model's, is the stick's travel times this plus the rest times its square.
 ROLL_STICK_CENTRE_GAIN = 0.25

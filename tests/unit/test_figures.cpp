@@ -435,9 +435,10 @@ GLIDESLOPE_TEST(the_f22_still_climbs_at_50000_ft) {
 // from 160, 200, 240 and 280 KCAS, all four within her figure's 114.1 and a
 // knot: 113.78, 114.13, 114.41 and 114.54 (2026-11-04). **Seen to fail**:
 // measured instead where she pitches up of her own accord (`departure="1"`,
-// her figure until 2026-11-04), her limit holds her and the measurement
-// throws, "she never pitched up of her own accord". Coverage: four entries,
-// four measured.
+// her figure until 2026-11-04, and removed since), her limit held her and
+// the measurement threw, "she never pitched up of her own accord"; and with
+// the stick check's aft stop asked at 1.01, past any stick, it throws "not at
+// its aft stop". Coverage: four entries, four measured.
 GLIDESLOPE_TEST(the_f22a_s_stall_at_idle_landing_configured_does_not_hang_on_its_entry_speed) {
     const PublishedFigures figures = read_published_figures(figures_file("f22"));
     std::size_t measured = 0;
