@@ -3024,10 +3024,11 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
         {"c182", "she touches at 352.5 ft/min on macOS (seed 8), not 25 inside the "
                  "limit, CI run 38028434284; on forty seeds here at 377 (seeds 23, 33)"},
         {"f22", "since her stall was measured from her model (2026-11-02), she goes round "
-                "for a balloon above the flare (seeds 1, 3, 8), and on the other five touches "
-                "at 430 to 977 ft/min and rises 3.1 to 12.3 ft after; her worst, seed 2, "
-                "strikes her airframe on the runway; item \"The F-22A flies her stall-figure "
-                "tests\""},
+                "for a balloon above the flare (seeds 1, 3, 8), and on the other five rises "
+                "1.6 to 4.4 ft after touching; she meets the runway at 677 to 976 ft/min on "
+                "three (seeds 4, 6, 7), and strikes her airframe (seed 2) or, banked 18 "
+                "degrees, more than her wheels (seed 6); item \"The F-22A flies her "
+                "stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137 "
                   "and 132 ft/min in her flare (seeds 20, 37), she touches at 356 (seed 33) "
