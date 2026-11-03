@@ -2344,14 +2344,14 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "at most 1");
         }
     }
-    // **A nose lowered after the touch at no more than nothing, or faster
-    // than ten degrees a second, is refused.**
-    if (root->HasAttribute("nose_lowered_degps")) {
-        out.nose_lowered_degps = root->GetAttributeValueAsNumber("nose_lowered_degps");
-        if (!(out.nose_lowered_degps > 0.0 && out.nose_lowered_degps <= 10.0)) {
+    // **A roll-out stick gain that is not above 0, or past a full stick for a
+    // degree a second, is refused.**
+    if (root->HasAttribute("roll_out_stick_per_degps")) {
+        out.roll_out_stick_per_degps = root->GetAttributeValueAsNumber("roll_out_stick_per_degps");
+        if (!(out.roll_out_stick_per_degps > 0.0 && out.roll_out_stick_per_degps <= 1.0)) {
             throw std::runtime_error(file.string() +
-                                     " gives a nose_lowered_degps that is not above 0 and "
-                                     "at most 10");
+                                     " gives a roll_out_stick_per_degps that is not above 0 and "
+                                     "at most 1");
         }
     }
     // **A landing that is neither three-point nor on her wheels is refused.**

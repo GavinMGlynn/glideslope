@@ -1349,16 +1349,13 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 - [ ] **The F-22A flies her stall-figure tests.** Since 2026-11-04 her
       alpha is limited with her gear down (tuned, not sourced), and her
       stall is measured at that limit: 114.1 KCAS. Both stall recoveries
-      now pass without her name. Still named, with their figures:
+      and her rise after the touch now pass without her name. Still named,
+      with their figures:
       - the stall watch (118.2 kt against 120.8);
-      - a 0.59 ft rise after her touch;
       - one wet walking pace (29.93 s of 30);
-      - three wet and crosswind roll-out tests: she lifts off from 133.6 kt
-        and strikes her airframe.
-
-      Her gusts fail all forty seeds. Not yet run with the limit: Windows
-      and the full suite
-      (2026-11-04-the-f22a-s-gear-down-alpha-limit-tried).
+      - a 6.13 m wet crosswind roll-out (7.37 on main);
+      - her gusts, on forty seeds
+        (2026-11-04-the-f22a-s-gear-down-alpha-limit-tried).
       *Verification: every one of those tests passes with her name taken
       off, on every platform.*
 - [x] **The AI lands the 747-400 at Boeing's published approach speed**:

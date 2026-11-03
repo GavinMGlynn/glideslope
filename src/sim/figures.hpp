@@ -151,10 +151,11 @@ struct PublishedFigures {
     // none: a jet keeps the degree a second, a propeller aeroplane her own
     // (sim::Lander).
     double gusty_closing_nose_degps = 0.0;
-    // **The least rate the lander lowers her nose at after the touch**
-    // (`nose_lowered_degps`), degrees a second (sim::Lander,
-    // `lower_the_nose`). 0 where the file gives none: the lander's own 1.5.
-    double nose_lowered_degps = 0.0;
+    // **Her stick on the ground commands a pitch rate**
+    // (`roll_out_stick_per_degps`): the stick the roll-out's nose law asks
+    // for each degree a second she is off the rate it wants (sim::Lander,
+    // `lower_the_nose`). 0 where the file gives none: the attitude law.
+    double roll_out_stick_per_degps = 0.0;
     // **How a tail-wheel aeroplane is landed** (`lands`): "three_point", held
     // off until she touches at the attitude she stands at (sim::Lander), or
     // "wheels", the default, flown on to her main wheels.

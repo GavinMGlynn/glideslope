@@ -204,8 +204,8 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     if (figures.yaw_rate_pedal_per_degps > 0.0) {
         speeds.yaw_damper_per_degps = figures.yaw_rate_pedal_per_degps;
     }
-    if (figures.nose_lowered_degps > 0.0) {
-        speeds.nose_lowered_degps = figures.nose_lowered_degps;
+    if (figures.roll_out_stick_per_degps > 0.0) {
+        speeds.roll_out_stick_per_degps = figures.roll_out_stick_per_degps;
     }
     speeds.three_point = figures.three_point;
     speeds.spool_s = spool_up_s(data / "jsbsim", model);
@@ -2185,13 +2185,8 @@ double Lander::lower_the_nose(const AircraftState& s) {
     // half a second. At a degree and a half a second a B-2A touching at
     // seven and a half degrees, fourteen knots fast, still carried her
     // weight on her wing for three seconds and floated off the runway.
-    // **Or her figures' own least** (`nose_lowered_degps`): an F-22A
-    // touching at 146 knots, her nose lowered at 3 degrees a second, was
-    // lifted off her main wheels by 2 to 3 ft as her stabilators brought it
-    // down (2026-11-04).
     constexpr double level_deg = -1.0;
-    const double rate_degps =
-        std::max(speeds_.nose_lowered_degps, (touchdown_pitch_deg_ - level_deg) / 3.0);
+    const double rate_degps = std::max(1.5, (touchdown_pitch_deg_ - level_deg) / 3.0);
     lowering_pitch_deg_ =
         std::max(level_deg, lowering_pitch_deg_ - rate_degps / steps_per_second);
     // **Firmly: three times the flying law's gain, on the attitude and on its
@@ -2213,6 +2208,20 @@ double Lander::lower_the_nose(const AircraftState& s) {
     // its travel, came down at 3.5 degrees a second against 4.4 and was
     // off her rebounding gear by 0.7 ft.
     const double want_q_degps = lowering_pitch_deg_ > level_deg ? -rate_degps : 0.0;
+    // **Where her stick commands a pitch rate** (her figures'
+    // `roll_out_stick_per_degps`), it is asked for a rate: the one wanted,
+    // and a degree a second for each degree she is off the attitude wanted,
+    // her own flight controls holding it. The attitude law above, through
+    // her rate-command stick, lagged her nose: an F-22A handed over on her
+    // roll at 133.6 knots with her nose 4 degrees up beat her stick from
+    // stop to stop, her nose swinging between 0 and 10 degrees, and lifted
+    // her off the runway (2026-11-04).
+    if (speeds_.roll_out_stick_per_degps > 0.0) {
+        constexpr double rate_per_deg = 1.0;
+        return std::clamp(speeds_.roll_out_stick_per_degps *
+                              (want_q_degps + rate_per_deg * error - s.q_radps * degrees),
+                          -1.0, 1.0);
+    }
     return std::clamp(0.15 * error - 0.15 * (s.q_radps * degrees - want_q_degps) + pitch_trim_,
                       -1.0, 1.0);
 }
