@@ -165,16 +165,30 @@ The changes, and what each is for:
                         power and its acceleration in afterburner. The military
                         table allows for the idle thrust JSBSim adds to it.
 
-**Her stall, which this script does not change**: with her gear down her
-thrust vectoring is off (the pinned model's fcs/tvc-inhibit), and at idle,
-past about 22 degrees of alpha, her stabilators cannot hold her nose. She
-pitches up before her wing stalls. Her figures file
-(assets/figures/f22.xml, stall_speed_landing) takes the speed where that
-pitch-up begins as her stall. That is this project's rule, not 14 CFR
-25.201(d)'s: none of its three stall indications, a nose-down pitch that
-cannot readily be arrested, deterrent buffeting or the pitch control at its
-aft stop with the nose rising no further, comes before it. 25.203 forbids
-the pitch-up itself (docs/status/2026-11-03-the-f22a-s-stall-figure-tests-investigated.md).
+**Her alpha limited with her gear down** (with_gear_down_alpha_limit; tuned,
+not sourced): with her gear down her thrust vectoring is off (the pinned
+model's fcs/tvc-inhibit), and at idle, past about 22 degrees of alpha, her
+stabilators could not hold her nose: she pitched up before her wing stalled,
+and departed (docs/status/2026-11-03-the-f22a-s-stall-figure-tests-investigated.md).
+Fly-by-wire fighters limit their alpha; the Air Force's April 2005 mishap
+release found her flight controls "allowed the aircraft to exceed set angles
+of attack", and the YF-22 mishap report (as relayed on PPRuNe) has her gear
+handle select a power-approach law of its own. No value for her limit was
+found (searched 2026-11-03 and 2026-11-04). So past ALPHA_LIMIT_ONSET_DEG,
+with her gear down, her pitch loop is asked
+ALPHA_LIMIT_Q_PER_DEG radians a second nose down for each degree, in its
+rate error, and her stabilators ALPHA_LIMIT_STAB_PER_DEG of their full
+travel nose down for each degree after the loop. Without the stabilator term
+she departed as before; with a stiffer rate term the two beat in a limit
+cycle and she departed; onset 18 let her reach 22.6 degrees in a stall
+lesson. At 17, 0.06 and 0.1 she reaches 20.8 at most, and at idle she sinks
+at her limit with her stick at its aft stop: 14 CFR 25.201(d)(3)'s stall,
+which her figures file measures (assets/figures/f22.xml,
+stall_speed_landing). **Disarmed while glideslope trims her**
+(fcs/alpha-limit-armed, sim/aircraft.cpp): JSBSim's trim runs her flight
+controls at every angle it tries, up to 45 degrees, and the limit asked there
+wound her pitch loop's integrator to its stop. Her up-and-away figures are
+unchanged: the limit is off with her gear up.
 
 **The alpha-rate terms on the dynamic pressure without its sideways part**
 (tools/alpha_rate.py, JSBSim issue #89): braked to a stop in a crosswind, her
@@ -330,6 +344,14 @@ YAW_GROUND_BLEND_S = PITCH_GROUND_BLEND_S
 # Her yaw regulator's full command: fcs/yaw-reg-scale maps -5 to 5 on to the
 # rudders' full travel, so a full pedal on her wheels is 5.
 YAW_CMD_FULL = 5
+# **The gear-down alpha limit** (with_gear_down_alpha_limit; tuned, not
+# sourced): past ALPHA_LIMIT_ONSET_DEG, with her gear down, her pitch loop is
+# asked ALPHA_LIMIT_Q_PER_DEG radians a second nose down for each degree, and
+# her stabilators ALPHA_LIMIT_STAB_PER_DEG of their full travel nose down
+# after the loop. The docstring says how they were chosen.
+ALPHA_LIMIT_ONSET_DEG = 17
+ALPHA_LIMIT_Q_PER_DEG = 0.06
+ALPHA_LIMIT_STAB_PER_DEG = 0.1
 # The roll stick's shaping: the roll rate it commands, as a fraction of the
 # model's, is the stick's travel times this plus the rest times its square.
 ROLL_STICK_CENTRE_GAIN = 0.25
@@ -416,6 +438,7 @@ def airframe():
     if n != 2:
         raise SystemExit(f"{SCRIPT}: found {n} throttle gains, not 2 - has the pinned model changed?")
     text = with_trimmable_pitch_and_power(text)
+    text = with_gear_down_alpha_limit(text)
     text = replace_once(
         text,
         r"(            <!-- Stick filter -->\s*<lag_filter name=\"fcs/roll-cmd-filter\">\s*<input>)fcs/aileron-cmd-limiter(</input>)",
@@ -726,6 +749,66 @@ def with_pitch_ground_mode(text):
         r"(<integrator name=\"fcs/pitch-rate-integrator\">\s*<!--trigger>fcs/pitch-int-trigger</trigger-->\s*"
         r"<input>fcs/pitch-rate-error</input>\s*<c1>) 1 (</c1>)",
         r"\1fcs/pitch-integrator-gain\2", "the pitch loop's integrator's gain")
+
+
+def with_gear_down_alpha_limit(text):
+    """Her alpha limited with her gear down and armed (see the docstring):
+    past ALPHA_LIMIT_ONSET_DEG, a nose-down pitch rate per degree in the
+    loop's rate error, and a nose-down stabilator per degree after the
+    loop."""
+    limit = (
+        '            <!-- glideslope: tools/make_f22.py - the gear-down alpha limit -->\n'
+        '            <switch name="fcs/alpha-limit-gear-down">\n'
+        '                <default value="0"/>\n'
+        '                <test logic="AND" value="1">\n'
+        '                    gear/gear-pos-norm gt 0\n'
+        '                    fcs/alpha-limit-armed eq 1\n'
+        '                </test>\n'
+        '            </switch>\n'
+        '\n'
+        '            <fcs_function name="fcs/alpha-limit-excess-deg">\n'
+        '                <function>\n'
+        '                    <product>\n'
+        '                        <property>fcs/alpha-limit-gear-down</property>\n'
+        '                        <max>\n'
+        '                            <value>0</value>\n'
+        '                            <difference>\n'
+        '                                <property>aero/alpha-deg</property>\n'
+        f'                                <value>{ALPHA_LIMIT_ONSET_DEG:g}</value>\n'
+        '                            </difference>\n'
+        '                        </max>\n'
+        '                    </product>\n'
+        '                </function>\n'
+        '            </fcs_function>\n'
+        '\n'
+        '            <pure_gain name="fcs/alpha-limit-q">\n'
+        '                <input>fcs/alpha-limit-excess-deg</input>\n'
+        f'                <gain>{ALPHA_LIMIT_Q_PER_DEG:g}</gain>\n'
+        '            </pure_gain>\n'
+        '\n'
+        '            <pure_gain name="fcs/alpha-limit-stab">\n'
+        '                <input>fcs/alpha-limit-excess-deg</input>\n'
+        f'                <gain>{ALPHA_LIMIT_STAB_PER_DEG:g}</gain>\n'
+        '            </pure_gain>\n'
+        '\n')
+    text = replace_once(
+        text, r"(        <property value=\"0\">fcs/pitch-trim-held-norm</property>\n)",
+        lambda m: m.group(1) + "        <!-- glideslope: tools/make_f22.py - the gear-down alpha limit, "
+        "disarmed while glideslope trims her (sim/aircraft.cpp) -->\n"
+        '        <property value="1">fcs/alpha-limit-armed</property>\n', "the held trim's property")
+    text = replace_once(text, r"(            <!-- glideslope: tools/make_f22.py - the ground mode -->\n)",
+                        lambda m: limit + m.group(1), "the pitch loop's ground mode")
+    text = replace_once(
+        text,
+        r"(<summer name=\"fcs/pitch-rate-error\">\s*<input>fcs/q-gear-down-limiter</input>\n)",
+        lambda m: m.group(1) + "                <input>-fcs/alpha-limit-q</input>\n",
+        "the pitch loop's rate error, for the alpha limit")
+    return replace_once(
+        text,
+        r"(<summer name=\"fcs/elevator-trimmed\">\s*<!-- glideslope: tools/make_f22.py - the held trim -->\s*"
+        r"<input>fcs/el-reg-scale</input>\n)",
+        lambda m: m.group(1) + "                <input>fcs/alpha-limit-stab</input>\n",
+        "the elevators' command, for the alpha limit")
 
 
 def with_cm_alpha_split_out(text):

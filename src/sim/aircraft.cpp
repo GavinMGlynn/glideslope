@@ -72,6 +72,15 @@ constexpr double out_of_reach_ft = -1.0e5;
 // deflection after a fly-by-wire pitch loop, found by the trim and held.
 constexpr const char* held_trim_property = "fcs/pitch-trim-held-norm";
 
+// **An alpha limit kept out of the trim**, where a model has one
+// (tools/make_f22.py, the F-22A's with her gear down): JSBSim's trim runs her
+// flight controls at every angle of attack it tries, up to 45 degrees, and
+// her limit, asked there, wound her pitch loop's integrator to its stop and
+// left her held trim a full stabilator out (her approach, 2026-11-04: she
+// touched at 814 ft/min, her stick held fully back). It is disarmed while
+// she is trimmed and armed again once she is.
+constexpr const char* alpha_limit_armed_property = "fcs/alpha-limit-armed";
+
 // JSBSim reports what it is doing on standard output unless told otherwise. The
 // simulation is a library; what reaches the user's terminal is the frontend's
 // call, so JSBSim is kept quiet unless JSBSIM_DEBUG asks for more.
@@ -878,6 +887,10 @@ void Aircraft::initialize(const InitialConditions& ic) {
     if (held_trim) {
         exec_->SetPropertyValue(held_trim_property, 0.0);
     }
+    const bool alpha_limited = exec_->GetPropertyManager()->HasNode(alpha_limit_armed_property);
+    if (alpha_limited) {
+        exec_->SetPropertyValue(alpha_limit_armed_property, 0.0);
+    }
     struct Governed {
         JSBSim::FGEngine* engine;
         JSBSim::FGPropeller* propeller;
@@ -1269,6 +1282,9 @@ void Aircraft::initialize(const InitialConditions& ic) {
         trim_fallback_ = model_ + at + failures +
                          (trimmed_ ? "; she is trimmed in pitch alone"
                                    : "; she is not trimmed, started as she was set");
+    }
+    if (alpha_limited) {
+        exec_->SetPropertyValue(alpha_limit_armed_property, 1.0);
     }
     initialized_ = true;
 }

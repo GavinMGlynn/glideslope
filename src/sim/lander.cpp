@@ -204,6 +204,9 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     if (figures.yaw_rate_pedal_per_degps > 0.0) {
         speeds.yaw_damper_per_degps = figures.yaw_rate_pedal_per_degps;
     }
+    if (figures.nose_lowered_degps > 0.0) {
+        speeds.nose_lowered_degps = figures.nose_lowered_degps;
+    }
     speeds.three_point = figures.three_point;
     speeds.spool_s = spool_up_s(data / "jsbsim", model);
     return speeds;
@@ -2182,8 +2185,13 @@ double Lander::lower_the_nose(const AircraftState& s) {
     // half a second. At a degree and a half a second a B-2A touching at
     // seven and a half degrees, fourteen knots fast, still carried her
     // weight on her wing for three seconds and floated off the runway.
+    // **Or her figures' own least** (`nose_lowered_degps`): an F-22A
+    // touching at 146 knots, her nose lowered at 3 degrees a second, was
+    // lifted off her main wheels by 2 to 3 ft as her stabilators brought it
+    // down (2026-11-04).
     constexpr double level_deg = -1.0;
-    const double rate_degps = std::max(1.5, (touchdown_pitch_deg_ - level_deg) / 3.0);
+    const double rate_degps =
+        std::max(speeds_.nose_lowered_degps, (touchdown_pitch_deg_ - level_deg) / 3.0);
     lowering_pitch_deg_ =
         std::max(level_deg, lowering_pitch_deg_ - rate_degps / steps_per_second);
     // **Firmly: three times the flying law's gain, on the attitude and on its

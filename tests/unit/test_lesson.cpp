@@ -2783,9 +2783,12 @@ void every_ai_approach_at_a_weight(bool figures_loading) {
         // machines), so it gets no worse unseen; a rise back within the bound
         // says her name is stale. The F-22A (2026-11-03): at her model's own
         // weight her approach is 145.6 kt, 1.3 times her stall at idle, and
-        // she rose 0.72 ft after her wheels met the runway. Item "The F-22A
+        // she rose 0.72 ft after her wheels met the runway. Since her stall is
+        // measured at her gear-down alpha limit (2026-11-04) her approach
+        // there is 157.0 kt, her nose lowered at her figures' 6 degrees a
+        // second after the touch, and she rises 0.59 ft. Item "The F-22A
         // flies her stall-figure tests".
-        static const std::map<std::string, double> rises_after_the_touch = {{"f22", 0.72}};
+        static const std::map<std::string, double> rises_after_the_touch = {{"f22", 0.59}};
         const auto rises = figures_loading ? rises_after_the_touch.end()
                                            : rises_after_the_touch.find(id);
         if (rises != rises_after_the_touch.end() && r.after.touched) {
@@ -3053,14 +3056,14 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
         {"a380", "she touches 907 m along, not 25 m inside the touchdown zone (seed 7); on "
                  "forty seeds here she also meets the runway at 350 ft/min (seed 18) and "
                  "strikes her airframe (seed 34)"},
-        {"f22", "since her stall was measured at idle (2026-11-03), she goes round for "
-                "touching past the zone (seeds 3 to 6), and on the other four touches at 276 "
-                "to 433 ft/min and rises 3.6 to 23.0 ft after, coming down again at 1,051 and "
-                "818 ft/min (seeds 7, 8); on forty seeds here (with #308) she fails all forty: "
-                "round for touching past the zone on thirteen and for a balloon on three "
-                "(seeds 11, 15, 35), into the runway at 9,510 and 7,644 ft/min from the "
-                "go-around on 4 and 35, and on the rest touching at 183 to 1,293 ft/min or "
-                "rising up to 25 ft; item \"The F-22A flies her stall-figure tests\""},
+        {"f22", "since her stall was measured at her gear-down alpha limit (2026-11-04) "
+                "she fails all forty seeds here: round for touching past the zone on nine "
+                "(seeds 5, 8, 10, 12, 14, 26, 30, 38, 40) and for a balloon on six (seeds 2, "
+                "16, 19, 22, 23, 27); wrecked on eighteen of the twenty-five she lands, "
+                "touching at up to 980 ft/min or rising up to 36 ft; and on the other seven "
+                "(seeds 4, 9, 15, 20, 28, 37, 39) touching at 183 to 419 ft/min, 961 m along "
+                "on seed 20, and rising 1.2 to 3.9 ft; item \"The F-22A flies her "
+                "stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137, "
                   "132 and 78 ft/min in her flare (seeds 20, 37, 40), she touches at 356 "
@@ -6184,16 +6187,14 @@ const char* name_of(Fault f) {
 // **Named as not recovering from a thirty-second stall, and not judged**: an
 // aeroplane whose deep stall's figures scatter by platform, so no figure can
 // hold her on every one. She is flown and printed, and counted; nothing she
-// does there is judged. The F-22A (2026-11-02), handed over at about 90
-// degrees of alpha and 10,900 ft/min down: on linux-release with FMA she
-// lost 16,295 ft and peaked at 20.64 g, and in CI run 41571068597 at 31.21 g
-// (Rocky 9: 16,294 ft against 7,817), and on Windows was never recovered at
-// all. Item "The F-22A flies her stall-figure tests".
+// does there is judged. None is named. The F-22A was until 2026-11-04,
+// handed over at about 90 degrees of alpha and 10,900 ft/min down: on
+// linux-release with FMA she lost 16,295 ft and peaked at 20.64 g, in CI run
+// 41571068597 at 31.21 g, and on Windows was never recovered at all. Since
+// her alpha is limited with her gear down (tools/make_f22.py) she is handed
+// over at about 20 degrees and judged as every aeroplane is.
 const std::map<std::string, std::string>& not_recovered_from_thirty_seconds() {
-    static const std::map<std::string, std::string> named = {
-        {"f22", "her deep stall's figures scatter by platform: 16,888 ft and 31.36 g on "
-                "linux-release with FMA (2026-11-03), 31.21 g in CI run 41571068597, never "
-                "recovered on Windows"}};
+    static const std::map<std::string, std::string> named = {};
     return named;
 }
 
@@ -6332,15 +6333,12 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
         // hand (89 ft) since her drag due to lift is her wing's and her lift
         // and drag past the stall Viterna and Corrigan's (make_short_s23.py):
         // stalled at the warning from a proper entry, 71 kt, alpha 9.
-        // **The F-22A, named 2026-11-02** when her stall was measured from her
-        // model, and since 2026-11-03 at idle: practised at 20,000 ft she
-        // pitches up of her own accord before her warning, and is handed over
-        // at 113.8 kt and 25.7 degrees of alpha, already pitching up; she
-        // loses 3,275 ft against her lesson's 500 and peaks at 3.74 g against
-        // 2. Item "The F-22A flies her stall-figure tests".
-        {{"learjet35a", Fault::height, 385.0},
-         {"f22", Fault::height, 3275.0},
-         {"f22", Fault::load, 3.74}});
+        // **The F-22A, named 2026-11-02 to 2026-11-04**: practised at 20,000
+        // ft she pitched up of her own accord before her warning, and lost
+        // 3,275 ft against her lesson's 500, at 3.74 g. With her alpha limited
+        // with her gear down (tools/make_f22.py) she is handed over at 122.1
+        // kt and 17.8 degrees, and loses 187 ft at 1.25 g.
+        {{"learjet35a", Fault::height, 385.0}});
 }
 
 GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_within_2_g_and_the_height_its_speed_and_sink_need) {
@@ -6351,8 +6349,9 @@ GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_with
         // full power as her nose went down, her propellers' slipstream lifted
         // her wing as it came back through its peak at 123 knots. Power once
         // the wing is unstalled (Autopilot::unloading), 1.69.
-        // The F-22A is named as not recovering from it, and not judged
-        // (not_recovered_from_thirty_seconds): her figures scatter by platform.
+        // The F-22A was named as not recovering from it, and not judged, until
+        // 2026-11-04 (not_recovered_from_thirty_seconds): she loses 639 ft
+        // against 2,144, at 1.62 g, since her alpha is limited.
         {}, not_recovered_from_thirty_seconds());
 }
 
@@ -6542,17 +6541,22 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
     // model: noticed at 100.3 kt, she slowed to 59.4 against her 90.0 stall
     // and lost 2,728 ft. Since her stall was measured at idle (2026-11-03):
     // noticed at 117.6 kt, she slows to 105.1 against her 112.0 at her
-    // weight, and loses 317 ft. Item "The F-22A flies her stall-figure
-    // tests".
+    // weight, and loses 317 ft. Since her alpha is limited with her gear
+    // down and her stall is measured there as 14 CFR 25.103(a) has it, at 1
+    // g (2026-11-04): noticed at 126.8 kt, she slows to 118.2 against her
+    // 120.8 at her weight, and loses 303 ft. At her limit she sinks at about
+    // 0.8 g, so she flies slower than her 1-g stall there; the warning, at
+    // the rule's 5%, does not come early enough to keep her above it. Item
+    // "The F-22A flies her stall-figure tests".
     const std::map<std::string, std::string> not_yet = {
-        {"a380", "slowed under her stall"}, {"f22", "slowed under her stall"}};
+        {"a380", "slowed under her stall"}, {"f22", "slowed under her stall for her weight"}};
     // Her figures, held with the tolerance in hand so she gets no worse
     // unseen: the slowest she reached, and the height she lost after.
     struct HeldTo {
         double slowest_kts;
         double lost_ft;
     };
-    const std::map<std::string, HeldTo> held_to = {{"f22", {105.1, 317.0}}};
+    const std::map<std::string, HeldTo> held_to = {{"f22", {118.2, 303.0}}};
     std::set<std::string> named_seen;
     const Taught taught = taught_for("stalls");
     const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
@@ -6626,9 +6630,11 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
                        (warning_kts - weighed.stall_kts) * between_machines /
                            (1.0 + between_machines);
                    slowest < floor_kts) {
-            fault = "slowed to " + std::to_string(slowest) + " kt, under " +
-                    std::to_string(floor_kts) + ": her stall for her weight and an eleventh of "
-                    "her warning's margin, the 10% in hand";
+            // The kind alone, which a name matches; the figures said with it.
+            fault = "slowed under her stall for her weight";
+            std::printf("      %s slowed to %.2f kt, under %.2f: her stall for her weight and "
+                        "an eleventh of her warning's margin, the 10%% in hand\n",
+                        id.c_str(), slowest, floor_kts);
         } else if (!recovered) {
             fault = "not back at her approach speed and level";
         }
@@ -7438,11 +7444,11 @@ GLIDESLOPE_TEST(the_stall_recovery_never_lowers_flaps_raised_past_the_go_around_
 // handed to an autopilot new to it, is recovered - in any height, and at any
 // load: the height and load are the other test's. **But for one named as not
 // recovering from a thirty-second stall, and not judged**
-// (`not_recovered_from_thirty_seconds`): the F-22A, since her stall was
-// measured at idle (2026-11-03). Her deep stall's figures scatter by
-// platform: handed over at 78 degrees of alpha, she was recovered on
-// linux-release with FMA, and not on macOS release or Rocky 9 linux-release
-// (CI run 41602502265, peak 25.48 g on Rocky).
+// (`not_recovered_from_thirty_seconds`): none since 2026-11-04. The F-22A
+// was, from 2026-11-03: handed over at 78 degrees of alpha, she was
+// recovered on linux-release with FMA, and not on macOS release or Rocky 9
+// linux-release (CI run 41602502265, peak 25.48 g on Rocky). Her alpha is
+// limited with her gear down since (tools/make_f22.py).
 GLIDESLOPE_TEST(an_autopilot_engaged_on_an_aeroplane_already_stalled_recovers_it) {
     const Taught taught = taught_for("stalls");
     std::size_t walked = 0;

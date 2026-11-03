@@ -905,7 +905,8 @@ double rollout_from_kts(const glideslope::sim::CatalogueEntry& entry) {
 // and PA-28, whose 30 to 35 psi tyres keep three quarters or more of their
 // dry grip at their slow roll-outs (1.00, 1.03 and 1.14), and the Mosquito,
 // who slides less wet (25.8 against 28.8, 0.90) - a tailwheel aeroplane,
-// whose sign is not explained: not investigated here. **How far from the
+// whose sign is not explained: not investigated here; and the F-22A, since
+// 2026-11-04, for her wreck (below). **How far from the
 // centreline she goes is not what differs**: the roll-out's steering holds
 // her, and most jets end nearer it wet (the 787-8 13.5 m against 19.1).
 GLIDESLOPE_TEST(on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_makes_every_jet_slide_faster_across_her_heading) {
@@ -914,7 +915,13 @@ GLIDESLOPE_TEST(on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_ma
         {"c172p", "her tyres keep three quarters or more of their dry grip"},
         {"c182", "her tyres keep three quarters or more of their dry grip"},
         {"pa28", "her tyres keep three quarters or more of their dry grip"},
-        {"mosquito-fb6", "a tailwheel aeroplane, she slides less wet, not explained"}};
+        {"mosquito-fb6", "a tailwheel aeroplane, she slides less wet, not explained"},
+        // Since 2026-11-04, her stall measured at her gear-down alpha limit:
+        // handed over at 133.6 kt she lifts off and strikes her airframe, as
+        // in the roll-out test above, where she is named. Item "The F-22A
+        // flies her stall-figure tests".
+        {"f22", "she lifts off from 133.6 kt and strikes her airframe (2026-11-04): 25.32 "
+                "ft/s wet, 25.40 held dry"}};
     constexpr double at_least_times = 1.2;
     std::size_t asserted = 0;
     std::size_t printed = 0;
@@ -935,6 +942,15 @@ GLIDESLOPE_TEST(on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_ma
                     entry.id.c_str(), wet.worst_slide_fps, held.worst_slide_fps,
                     wet.worst_across_m, held.worst_across_m,
                     named.count(entry.id) ? (" - named: " + named.at(entry.id)).c_str() : "");
+        // Named for her wreck alone: one rolled out whole both ways is stale.
+        if (entry.id == "f22" && named.count(entry.id)) {
+            if (wet.stopped && held.stopped && wet.wrecked.empty() && held.wrecked.empty()) {
+                wrong.push_back(entry.id + " is named for her wreck and rolled out to a stop "
+                                           "both ways: take her name off");
+            }
+            ++printed;
+            continue;
+        }
         if (!(wet.stopped && held.stopped && wet.wrecked.empty() && held.wrecked.empty())) {
             wrong.push_back(entry.id + " did not roll out to a stop both ways, unwrecked: " +
                             wet.wrecked + held.wrecked);
@@ -955,9 +971,9 @@ GLIDESLOPE_TEST(on_a_wet_runway_with_its_braking_held_the_wet_side_grip_alone_ma
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(asserted == 10 && printed == named.size() && left_out == 2 &&
+    check(asserted == 9 && printed == named.size() && left_out == 2 &&
               asserted + printed + left_out == catalogue.size(),
-          "ten jets asserted, four named, two left out: " + std::to_string(asserted) + ", " +
+          "nine jets asserted, five named, two left out: " + std::to_string(asserted) + ", " +
               std::to_string(printed) + ", " + std::to_string(left_out) + " of " +
               std::to_string(catalogue.size()));
 }
@@ -1010,6 +1026,21 @@ GLIDESLOPE_TEST(every_landplane_rolls_out_on_a_wet_runway_in_a_15_kt_crosswind_a
                     wet.worst_across_m, wet.least_side_grip,
                     wet.stopped ? "" : ", NOT STOPPED",
                     wet.wrecked.empty() ? "" : (", wrecked: " + wet.wrecked).c_str());
+        // **Named, not judged: the F-22A since 2026-11-04**, her stall
+        // measured at her gear-down alpha limit. Handed over at 133.6 kt she
+        // lifts off and strikes her airframe, 30.50 m across wet (the
+        // roll-out test below names her too). One that stops on the runway,
+        // unwrecked, is stale. Item "The F-22A flies her stall-figure tests".
+        if (entry.id == "f22") {
+            std::printf("      named, not judged - f22: she lifts off from 133.6 kt and strikes "
+                        "her airframe\n");
+            if (wet.handed && wet.stopped && wet.wrecked.empty() &&
+                wet.worst_across_m <= most_across_m) {
+                wrong.push_back("f22 is named and rolled out on the runway: take her name off");
+            }
+            ++rolled;
+            continue;
+        }
         if (!(wet.handed && wet.stopped && wet.wrecked.empty())) {
             wrong.push_back(entry.id + " did not roll out to a stop on the wet runway, "
                                        "unwrecked: " + wet.wrecked);
@@ -1068,34 +1099,40 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arri
     std::size_t sloped_runs = 0;
     constexpr double runway_slopes_deg[] = {1.0, -1.0};
     std::vector<std::string> wrong;
-    // **Named, not yet: a roll-out held to her own measured figure** (plus a
-    // tenth for the drift between machines), so it gets no worse unseen; one
-    // back within 5 m says her name is stale. The F-22A wet (2026-11-03):
-    // since her stall was measured at idle her approach is faster, and wet
-    // she went 7.37 m from the centreline (3.27 dry). Item "The F-22A flies
-    // her stall-figure tests".
-    const std::map<std::string, double> named_wet = {{"f22", 7.37}};
+    // **Named, not yet, and not judged, with why**: flown dry and wet and
+    // shown; one that rolls out both ways within 5 m, unwrecked, says her name
+    // is stale. The F-22A: wet, 7.37 m from the centreline from 2026-11-03,
+    // her approach faster since her stall was measured at idle. Since it is
+    // measured at her gear-down alpha limit (2026-11-04) her approach is
+    // 148.3 kt and she is handed over at 133.6 kt, nine tenths of it: her
+    // nose swings on her wheels under the roll-out's pitch law, she lifts
+    // off, pitches up past 80 degrees and strikes the ground with her
+    // airframe, 29.06 m from the centreline dry and 30.50 wet. Item "The
+    // F-22A flies her stall-figure tests".
+    const std::map<std::string, std::string> named = {
+        {"f22", "she lifts off as her nose swings on her wheels from 133.6 kt, and strikes "
+                "her airframe, 29.06 m across dry and 30.50 wet (2026-11-04)"}};
     std::size_t named_seen = 0;
+    std::set<std::string> named_within;
     const auto judge = [&](const std::string& id, const RolledOut& out, const char* runway) {
-        if (!(out.handed && out.stopped && out.wrecked.empty())) {
+        const bool rolled_out_whole = out.handed && out.stopped && out.wrecked.empty();
+        const auto name = named.find(id);
+        if (name != named.end()) {
+            ++named_seen;
+            std::printf("      named, not judged - %s %s: %s; went %.2f m%s\n", id.c_str(),
+                        runway, name->second.c_str(), out.worst_across_m,
+                        out.wrecked.empty() ? "" : (", " + out.wrecked).c_str());
+            if (rolled_out_whole && out.worst_across_m <= most_across_m) {
+                named_within.insert(id + " " + runway);
+            }
+            ++asserted;
+            return;
+        }
+        if (!rolled_out_whole) {
             wrong.push_back(id + " did not roll out to a stop " + runway + ", unwrecked: " +
                             out.wrecked);
         }
-        const auto named = named_wet.find(id);
-        if (named != named_wet.end() && std::string(runway) == "wet") {
-            ++named_seen;
-            if (out.worst_across_m <= most_across_m) {
-                wrong.push_back(id + " is named for going " + std::to_string(named->second) +
-                                " m from the centreline wet and went " +
-                                std::to_string(out.worst_across_m) + ": take her name off");
-            } else if (out.worst_across_m > named->second * 1.1) {
-                wrong.push_back(id + " is named at " + std::to_string(named->second) +
-                                " m wet, and is worse: " + std::to_string(out.worst_across_m));
-            } else {
-                std::printf("      named, not yet: %s went %.2f m wet\n", id.c_str(),
-                            out.worst_across_m);
-            }
-        } else if (out.worst_across_m > most_across_m) {
+        if (out.worst_across_m > most_across_m) {
             wrong.push_back(id + " went " + std::to_string(out.worst_across_m) +
                             " m from the centreline rolling out " + runway +
                             " as the crosswind arrived");
@@ -1150,13 +1187,19 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arri
             }
         }
     }
+    for (const auto& [id, why] : named) {
+        if (named_within.count(id + " dry") != 0 && named_within.count(id + " wet") != 0) {
+            wrong.push_back(id + " is named, and rolled out within " +
+                            std::to_string(most_across_m) + " m dry and wet: take her name off");
+        }
+    }
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
     const std::size_t sloped_space = tail_wheels * std::size(runway_slopes_deg) * 2;
-    check(named_seen == named_wet.size(), "every name was flown wet");
+    check(named_seen == 2 * named.size(), "every name was flown dry and wet");
     check(rolled + left_out == catalogue.size() && left_out == 1 && rolled == 15 &&
               tail_wheels == 2 && sloped_runs == sloped_space &&
               asserted == 2 * rolled + sloped_space,

@@ -429,14 +429,15 @@ GLIDESLOPE_TEST(the_f22_still_climbs_at_50000_ft) {
 }
 
 // **The F-22A's stall at idle in her landing configuration does not hang on
-// the speed it is entered from**: 14 CFR 25.103(b)(1)'s stall, her throttles
-// closed, measured where she pitches up of her own accord (sim/figures.cpp,
-// `departure="1"`), at her combat loading, gear down, no flap, entered from
-// 160, 200, 240 and 280 KCAS, all four within her figure's 105.8 and a
-// knot: 106.38, 105.84, 106.57 and 106.30 (2026-11-03). **Seen to fail**:
-// measured instead as her slowest level flight trimmed with power
-// (`steady="1"`, her figure until 2026-11-03), each entry gave 90.0. Coverage:
-// four entries, four measured.
+// the speed it is entered from**: 14 CFR 25.103(a)'s stall, her throttles
+// closed, measured at her gear-down alpha limit (sim/figures.cpp,
+// `alpha_limited="1"`), at her combat loading, gear down, no flap, entered
+// from 160, 200, 240 and 280 KCAS, all four within her figure's 114.1 and a
+// knot: 113.78, 114.13, 114.41 and 114.54 (2026-11-04). **Seen to fail**:
+// measured instead where she pitches up of her own accord (`departure="1"`,
+// her figure until 2026-11-04), her limit holds her and the measurement
+// throws, "she never pitched up of her own accord". Coverage: four entries,
+// four measured.
 GLIDESLOPE_TEST(the_f22a_s_stall_at_idle_landing_configured_does_not_hang_on_its_entry_speed) {
     const PublishedFigures figures = read_published_figures(figures_file("f22"));
     std::size_t measured = 0;
@@ -448,16 +449,16 @@ GLIDESLOPE_TEST(the_f22a_s_stall_at_idle_landing_configured_does_not_hang_on_its
         spec.loading = "combat";
         spec.unit = "KCAS";
         spec.measured = true;
-        spec.published = 105.8;
-        spec.low = 104.8;
-        spec.high = 106.8;
-        spec.conditions = {{"flaps_deg", 0.0}, {"gear", 1.0}, {"departure", 1.0},
+        spec.published = 114.1;
+        spec.low = 113.1;
+        spec.high = 115.1;
+        spec.conditions = {{"flaps_deg", 0.0}, {"gear", 1.0}, {"alpha_limited", 1.0},
                            {"entry_kcas", entry}};
         const auto result = fly_figure(data_dir, figures, spec);
         std::printf("from %.0f KCAS: %.2f KCAS\n", entry, result.measured);
         check(result.passed(), "from " + std::to_string(entry) + " KCAS her stall at idle was " +
                                    std::to_string(result.measured) +
-                                   " KCAS, not 105.8 within a knot");
+                                   " KCAS, not 114.1 within a knot");
         ++measured;
     }
     check(measured == entries.size(),

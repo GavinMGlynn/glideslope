@@ -1346,18 +1346,18 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       before any recovery; low, it now recovers at the break, as the FAA
       trains a stall at 1,000 ft, and all sixteen are handed over above the
       ground.
-- [ ] **The F-22A flies her stall-figure tests.** Her stall is measured at
-      idle since 2026-11-03 (105.8 KCAS, where she pitches up past her
-      stabilators), and her tail-strike margin, stall demonstration and
-      heading from her approach speed now pass. Still named, with their
-      figures: her stall recoveries (at her warning she has already begun
-      to pitch up), the stall watch, one wet walking pace, a 0.72 ft rise
-      after her touch at her model's own weight, and a 7.37 m wet crosswind
-      roll-out. Her gusts are under
-      the gust item (2026-11-03-the-f22a-s-stall-figure-tests-investigated).
-      A gear-down alpha limit near 17 degrees, tuned, brought both stall
-      recoveries within bounds. It would raise her stall to about 114 KCAS
-      and her approach with it, so it is not committed yet
+- [ ] **The F-22A flies her stall-figure tests.** Since 2026-11-04 her
+      alpha is limited with her gear down (tuned, not sourced), and her
+      stall is measured at that limit: 114.1 KCAS. Both stall recoveries
+      now pass without her name. Still named, with their figures:
+      - the stall watch (118.2 kt against 120.8);
+      - a 0.59 ft rise after her touch;
+      - one wet walking pace (29.93 s of 30);
+      - three wet and crosswind roll-out tests: she lifts off from 133.6 kt
+        and strikes her airframe.
+
+      Her gusts fail all forty seeds. Not yet run with the limit: Windows
+      and the full suite
       (2026-11-04-the-f22a-s-gear-down-alpha-limit-tried).
       *Verification: every one of those tests passes with her name taken
       off, on every platform.*

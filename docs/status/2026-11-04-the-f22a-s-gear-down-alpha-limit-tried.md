@@ -1,4 +1,126 @@
-### The F-22A's stall-figure tests: a gear-down alpha limit tried, nothing committed but this note - 2026-11-04
+### The F-22A's alpha limited with her gear down, and her stall measured there: both stall recoveries come off; the stall watch, a rise, a wet walking pace and a crosswind roll-out still named - 2026-11-04
+
+**Second round first** (the first round's note follows it).
+
+**What is still not true.** The item stays open.
+- **Still named, with figures** (linux-release, FMA):
+  - the stall watch: noticed at 126.8 kt, she slows to 118.2 against her
+    120.8 at her weight, and loses 303 ft;
+  - the rise after her touch at her model's own weight: 0.59 ft against
+    0.5;
+  - the wet walking pace at 0.5 kt: 29.93 s of 30, unchanged, as the
+    first round found (the test's push and her brakes, not her stall);
+  - the crosswind roll-out, now **named whole, dry and wet, and not
+    judged**. Handed over at 133.6 kt, nine tenths of her new approach
+    speed, her nose swings on her wheels under the roll-out's pitch law.
+    She lifts off, pitches up past 80 degrees and strikes her airframe:
+    29.06 m across dry, 30.50 wet. Before, she was 7.37 m wet. The same
+    roll-out names her, for the wreck, in two more tests: the wet side grip
+    (25.32 ft/s wet against 25.40 held dry) and the wet runway's
+    stays-on-it (30.50 m). Each fails "take her name off" once she rolls
+    out whole.
+  - her gusts, measured again on forty seeds: she fails all forty, as
+    she did before.
+- **Not done in this round**: Windows (`tools/windows_build.sh`) and the
+  full suite (see Verification).
+
+**Taken off, each passing with her name gone**:
+- the recovery at her warning: handed over at 122.1 kt and 17.8 degrees
+  of alpha, she loses 187 ft against 500, at 1.25 g (it was 3,275 ft and
+  3.74 g);
+- left thirty seconds: judged as every aeroplane is, 639 ft against
+  2,144, at 1.62 g. It was named and not judged, its figures scattering by
+  platform. `an_autopilot_engaged_on_an_aeroplane_already_stalled_recovers_it`
+  and `engaging_the_stall_recovery_and_letting_it_go...` judge her again
+  too (the latter said "f22 recovered: take her name off" until the name
+  went).
+
+**The limit** (tools/make_f22.py, `with_gear_down_alpha_limit`). **Tuned,
+not sourced.** Searched again 2026-11-04, for flight test papers, AIAA
+and her flight controls' power-approach law. Found: NASA's HARV high-alpha
+work, an Eidetics two-stage alpha limiter concept (NTRS), and a Korean T-50
+power-approach study. Nothing gives the F-22's limit or her approach speed.
+How it works:
+- past 17 degrees of alpha, with her gear down, her pitch loop is asked
+  0.06 rad/s nose down per degree in its rate error;
+- her stabilators are given 0.1 of their travel nose down per degree after
+  the loop.
+
+The first round's table says how those values were chosen. At those values
+she reaches 20.8 degrees at most in the stall lesson, against the 22
+degrees where she departed.
+
+**Disarmed while glideslope trims her** (`fcs/alpha-limit-armed`,
+sim/aircraft.cpp). JSBSim's trim runs her flight controls at every angle
+it tries, up to 45 degrees. Armed through the trim, the limit wound her
+pitch loop's integrator to its stop and set her held trim a full stabilator
+out (-0.854 against 0.146). Started on her final, she held her stick fully
+back and touched at 814 ft/min. With the limit disarmed for the trim she
+touches at 154.
+
+**Her stall, measured at the limit as 14 CFR 25.103(a) has one**
+(src/sim/figures.cpp, `limited_stall_speed`, figure `alpha_limited="1"`).
+The calibrated airspeed at her greatest lift coefficient is divided by the
+root of her load factor there. At her limit she sinks at about 0.8 g, her
+stick at its aft stop and her nose rising no further: 25.201(d)(3)'s stall.
+- **114.1 KCAS**, the figure: 113.78, 114.13, 114.41 and 114.54 from 160,
+  200, 240 and 280 KCAS.
+- **Seen to fail**: measured by the old `departure="1"` instead, it throws
+  "she never pitched up of her own accord".
+
+**What moved, measured again**:
+- her approach speed: 148.3 kt at her combat loading, 157.0 at her model's
+  61,570 lb;
+- her landing figure: **8,400 ft** (`tools/measured_landing.py`; it was
+  7,300). She touched 348 m in at 154 ft/min, nose 8.4 degrees up, and
+  stopped 2,492 m past the threshold. The copilot test's table is changed
+  to match;
+- her plan speeds' slowest: **157 kt**, her approach speed at that weight
+  (`glideslope_cli plan-speeds f22`; it was 146). The fastest is unchanged,
+  360;
+- **her nose lowered faster after the touch**: her figures'
+  `nose_lowered_degps="6"`, read by sim::Lander. Tuned, not sourced. At
+  146 kt, lowered at 3 degrees a second, her stabilators lifted her 2.3 to
+  3.4 ft off her main wheels. That broke the approach lesson, the
+  instructor's demonstration and five hand-landing tests. At 4 degrees a
+  second the rise was 1.1 ft; at 5 and 6 there was none. Every other
+  aircraft keeps the lander's 1.5.
+
+**The thirty-second dive** that the first round found did not appear at
+these values: she recovers in 639 ft. It hangs on the autopilot's learnt
+stall alpha, and it was not fixed.
+
+**Verification (second round).** linux-release, no display:
+- each test above was run from the test binary, with its f22 line read;
+- 89 tests matching her stall, landing, roll-out, recording, plan floor,
+  selftest and committed-file tests (`ctest -LE nightly -j4 -R ...`): all
+  pass, and the live recording test skipped. Run in the linux-release
+  build and in an **x86-64-v2 build (no FMA, as CI)**. Her figures in the
+  v2 build are the FMA build's:
+  - her stall: 113.78 to 114.54 KCAS;
+  - at her warning: 188 ft and 1.26 g;
+  - left thirty seconds: 639 ft and 1.62 g;
+- her forty gust seeds, flown for her alone (a local test, not
+  committed): the figures in her gust naming;
+- the recording `cbd-orbit-f22-anthropic.jsonl`, made again with
+  `GLIDESLOPE_LIVE_MODEL=1` because its prompt carries her plan speeds and
+  landing figure. Claude Haiku 4.5 planned a take-off, the CBD
+  waypoint at 225 kt and an orbit at 300 kt, 18,752 m round. The
+  playback passes, and the recording holds no key;
+- `the_f22a_held_at_130_kt_on_the_autopilot_departs` turned red with the
+  limit: she keeps inside her tables at 130 kt with her gear down. The
+  test is renamed, `..._with_her_gear_down_keeps_inside_her_tables`, and
+  holds that. Its CI cost lines are renamed with it;
+- **Not run**: the full suite, and Windows (`tools/windows_build.sh`).
+  Both are left for the next round, inside its time box. A wide ctest run
+  was begun and stopped at 68 tests, because it would not finish in time.
+  Its failures are each fixed or named above.
+- `python3 tools/make_f22.py --check` passes.
+- The selftest flies the C172P alone, and nothing it flies changed.
+
+---
+
+### First round: a gear-down alpha limit tried, nothing committed but this note
 
 **What is still not true.** The item stays open, and every name it lists is
 still on, at the figures of
