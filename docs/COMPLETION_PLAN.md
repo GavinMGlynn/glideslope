@@ -1191,10 +1191,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       heading, in calm air and 15 kt across.* Done 2026-10-30: a tail-wheel
       aeroplane's steering brake no longer fades at a crawl; every landplane
       rolled up from rest to 0.5-4.5 kt and stopped keeps within 8.9 degrees.
-- [ ] **The flying boat lands in gusts without skipping.** She skips
-      off the water on macOS release's seed 3 (0.93 ft), where she is
-      named, and fails seven of forty seeds on Linux: she touches where her wing
-      still carries her (owner's rulings and figures in docs/status).
+- [ ] **The flying boat lands in gusts without skipping.** She lands on
+      every gust seed on Linux and Windows (2026-11-04); still named on
+      macOS's seeds 3, 10 and 11, not yet flown there with the change
+      (owner's rulings and figures in docs/status).
       *Verification: the S.23 lands in calm air and in gusts within the
       landplanes' limits.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**

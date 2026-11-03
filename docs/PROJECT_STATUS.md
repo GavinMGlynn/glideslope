@@ -143,7 +143,7 @@ and each flown with a stated fault naming that fault and no other; and the
 instructor, the AI pilot, demonstrating each and handing the controls over
 and back with no step. The AI pilot takes off, flies the pattern, lands and
 stops - on water, too, in the flying boat, and in moderate turbulence on
-every gust seed but one on macOS release (2026-11-03) - every one of the fourteen
+every gust seed on Linux and Windows (2026-11-04) - every one of the fourteen
 upright on its wheels from the touch to the stop, the jets as the FAA lands
 a jet. The J-3 Cub is landed in every crosswind up to her published 12 kt,
 from either side, dry and wet - one instructor's "about 12 knots" in an
@@ -153,9 +153,8 @@ Boeing's published 153 kt, and lands within her limits, her flaps raised
 after a take-off by her manoeuvre speeds; since 2026-11-02 she lands in gusts
 on all eight seeds here, on Linux, as do the A320, Learjet 35A and Mosquito,
 and since 2026-11-03 the F-15C, F-35B, C172P and C182, with the PA-28, and
-the flying boat but for macOS release's seed 3 (over forty seeds here she
-still rises off the water on four - seeds 13, 25, 28 and 32 - touches hard
-on two and goes round on one, seven in all, each named on its seed), and
+the flying boat, since 2026-11-04 on all forty seeds on Linux and Windows
+(still named on macOS's seeds 3, 10 and 11, not yet flown there since), and
 since 2026-11-04 the B-2A, on all forty seeds on Linux, an x86-64-v2 build
 and Windows release: eleven of sixteen; five are still named. The 737-300
 and 787-8 now land on all forty here but touch hard on one seed each on
