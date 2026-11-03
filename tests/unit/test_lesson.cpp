@@ -1748,13 +1748,12 @@ constexpr double strike_margin_deg = 2.5;
 // held to her own measured touch instead (plus a twentieth of a degree for
 // the drift between machines), so it gets no worse unseen - and still
 // short of the lander's bound, two degrees short of her strike, so the
-// bound doing the landing is caught for her too. The F-22A (2026-11-02):
-// at 1.3 times her measured VS0 she flies her glidepath at 14.3 degrees of
-// nose and her power flare holds it (sim/lander.cpp, `power_flare_`); she
-// touches at 14.29, 2.24 short of her 16.54 strike against the 2.5 asked.
-// Item "The F-22A flies her stall-figure tests".
+// bound doing the landing is caught for her too. None now. The F-22A was,
+// from 2026-11-02, at 14.29 degrees against her 16.54 strike; since her
+// stall was measured at idle (2026-11-03) her approach is faster and she
+// touches at 11.06, outside the margin.
 const std::map<std::string, double>& touches_inside_the_strike_margin() {
-    static const std::map<std::string, double> named = {{"f22", 14.30}};
+    static const std::map<std::string, double> named = {};
     return named;
 }
 
@@ -2779,7 +2778,30 @@ void every_ai_approach_at_a_weight(bool figures_loading) {
         for (const std::string& w : r.after.what_went_wrong(id)) {
             wrong.push_back(w);
         }
-        for (const std::string& w : r.after.how_the_gear_took_it(id, settled_within_ft)) {
+        // **Named, not yet: an aeroplane that rises after her touch**, held to
+        // her own measured rise instead (plus a tenth for the drift between
+        // machines), so it gets no worse unseen; a rise back within the bound
+        // says her name is stale. The F-22A (2026-11-03): at her model's own
+        // weight her approach is 145.6 kt, 1.3 times her stall at idle, and
+        // she rose 0.72 ft after her wheels met the runway. Item "The F-22A
+        // flies her stall-figure tests".
+        static const std::map<std::string, double> rises_after_the_touch = {{"f22", 0.72}};
+        const auto rises = figures_loading ? rises_after_the_touch.end()
+                                           : rises_after_the_touch.find(id);
+        if (rises != rises_after_the_touch.end() && r.after.touched) {
+            if (r.after.highest_ft <= settled_within_ft) {
+                wrong.push_back(id + " is named for rising " + std::to_string(rises->second) +
+                                " ft after her touch and rose " +
+                                std::to_string(r.after.highest_ft) + ": take her name off");
+            } else {
+                std::printf("      named, not yet: %s rose %.2f ft after her touch\n", id.c_str(),
+                            r.after.highest_ft);
+            }
+        }
+        const double settle_ft = rises != rises_after_the_touch.end()
+                                     ? rises->second * (1.0 + 0.1)
+                                     : settled_within_ft;
+        for (const std::string& w : r.after.how_the_gear_took_it(id, settle_ft)) {
             wrong.push_back(w);
         }
         for (const std::string& w : inside_the_touchdown_zone(id, weight, r.touch_along_m)) {
@@ -3038,11 +3060,11 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                   "Windows debug"},
         {"c182", "she touches at 352.5 ft/min on macOS (seed 8), not 25 inside the "
                  "limit, CI run 38028434284; on forty seeds here at 377 (seeds 23, 33)"},
-        {"f22", "since her stall was measured from her model (2026-11-02), she goes round "
-                "for a balloon above the flare and dives into the runway at 4,997 ft/min "
-                "(seed 3); she strikes her airframe on it (seeds 1, 2, 8), meets it at 677 "
-                "to 976 ft/min (seeds 4, 6, 7, 8) and rises 2.4 ft after touching (seed 5); "
-                "item \"The F-22A flies her stall-figure tests\""},
+        {"f22", "since her stall was measured at idle (2026-11-03), she goes round for a "
+                "balloon above the flare (seeds 1, 8) and for touching past the zone (seed 4), "
+                "and on the other five touches at 238 to 1,006 ft/min and rises 1.7 to 32.2 "
+                "ft after; on seeds 2, 3, 5 and 7 she strikes her airframe or hits the ground "
+                "too hard; item \"The F-22A flies her stall-figure tests\""},
         {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
                   "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137 "
                   "and 132 ft/min in her flare (seeds 20, 37), she touches at 356 (seed 33) "
@@ -5961,9 +5983,9 @@ const char* name_of(Fault f) {
 // all. Item "The F-22A flies her stall-figure tests".
 const std::map<std::string, std::string>& not_recovered_from_thirty_seconds() {
     static const std::map<std::string, std::string> named = {
-        {"f22", "her deep stall's figures scatter by platform: 16,295 ft and 20.64 g on "
-                "linux-release with FMA, 31.21 g in CI run 41571068597, never recovered on "
-                "Windows"}};
+        {"f22", "her deep stall's figures scatter by platform: 16,888 ft and 31.36 g on "
+                "linux-release with FMA (2026-11-03), 31.21 g in CI run 41571068597, never "
+                "recovered on Windows"}};
     return named;
 }
 
@@ -6103,12 +6125,14 @@ GLIDESLOPE_TEST(every_aeroplane_recovered_at_the_first_sign_of_a_stall_loses_no_
         // and drag past the stall Viterna and Corrigan's (make_short_s23.py):
         // stalled at the warning from a proper entry, 71 kt, alpha 9.
         // **The F-22A, named 2026-11-02** when her stall was measured from her
-        // model: handed over at 44.7 degrees of alpha, nose 45.9 up, she
-        // loses 2,964 ft against her lesson's 500 and peaks at 4.72 g against
+        // model, and since 2026-11-03 at idle: practised at 20,000 ft she
+        // pitches up of her own accord before her warning, and is handed over
+        // at 113.8 kt and 25.7 degrees of alpha, already pitching up; she
+        // loses 3,275 ft against her lesson's 500 and peaks at 3.74 g against
         // 2. Item "The F-22A flies her stall-figure tests".
         {{"learjet35a", Fault::height, 385.0},
-         {"f22", Fault::height, 2964.0},
-         {"f22", Fault::load, 4.72}});
+         {"f22", Fault::height, 3275.0},
+         {"f22", Fault::load, 3.74}});
 }
 
 GLIDESLOPE_TEST(every_aeroplane_left_thirty_seconds_in_a_stall_is_recovered_within_2_g_and_the_height_its_speed_and_sink_need) {
@@ -6298,8 +6322,11 @@ GLIDESLOPE_TEST(engaging_the_stall_recovery_and_letting_it_go_moves_no_control_f
 // lb, and she recovered to 167 kt still descending at 150 ft/min.
 GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
     // The F-22A, named 2026-11-02 when her stall was measured from her
-    // model: noticed at 100.3 kt, she slows to 59.4 against her 90.0 stall
-    // and loses 2,728 ft. Item "The F-22A flies her stall-figure tests".
+    // model: noticed at 100.3 kt, she slowed to 59.4 against her 90.0 stall
+    // and lost 2,728 ft. Since her stall was measured at idle (2026-11-03):
+    // noticed at 117.6 kt, she slows to 105.1 against her 112.0 at her
+    // weight, and loses 317 ft. Item "The F-22A flies her stall-figure
+    // tests".
     const std::map<std::string, std::string> not_yet = {
         {"a380", "slowed under her stall"}, {"f22", "slowed under her stall"}};
     // Her figures, held with the tolerance in hand so she gets no worse
@@ -6308,7 +6335,7 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
         double slowest_kts;
         double lost_ft;
     };
-    const std::map<std::string, HeldTo> held_to = {{"f22", {59.4, 2728.0}}};
+    const std::map<std::string, HeldTo> held_to = {{"f22", {105.1, 317.0}}};
     std::set<std::string> named_seen;
     const Taught taught = taught_for("stalls");
     const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
@@ -10824,8 +10851,7 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_stall_and_hands_it_over) {
     // from her model), whose recovery loses 2,964 ft against her lesson's 500
     // (every_aeroplane_recovered_at_the_first_sign_of_a_stall_...): the
     // debrief says so. Item "The F-22A flies her stall-figure tests".
-    const std::map<std::string, std::vector<std::string>> named = {
-        {"f22", {"Recover with the least height you can"}}};
+    const std::map<std::string, std::vector<std::string>> named = {};
     std::size_t named_seen = 0;
     for (const std::string& id : taught) {
         // A stall is practised where its aeroplane practises it: a clean jet

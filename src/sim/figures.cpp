@@ -829,12 +829,71 @@ double steady_flight_speed(const std::filesystem::path& root, const PublishedFig
     return held;
 }
 
+// **An aeroplane that departs before her wing stalls at idle** -
+// `departure="1"` - is measured as 14 CFR 25.103(b)(1) has a stall speed:
+// her throttles closed, gear and flaps set, at the figure's `altitude_ft`
+// (5,000 unless given). From the entry speed her autopilot holds her height
+// and asks for no speed, as a stall lesson enters it (fly_the_stall_entry),
+// and she slows until she pitches up of her own accord: her nose rising
+// faster than the autopilot ever raises it (3 degrees a second) while it
+// pushes, for a quarter of a second. That is the stall; the figure is its
+// calibrated airspeed there. **Not corrected to 1 g** by 25.103(a)'s
+// V / sqrt(n): the load there is her pitch-up's own, 1.10 to 1.13 g, and
+// so corrected her figure came out 6 knots under the speed she departs at in
+// a stall lesson - inside the lesson's 8-knot warning, so that she departed
+// before it (2026-11-03). The F-22A's: with her gear down her thrust vectoring is off, and past
+// about 22 degrees of alpha her stabilators cannot hold her nose
+// (docs/status/2026-11-03-the-f22a-s-stall-figure-tests-investigated.md).
+// Her slowing is drag's, 5 to 6 knots a second, not 25.103(c)'s 1: asked to
+// trade height for a slower rate, her autopilot's height loop on her
+// rate-command stick swung her pitch 4 to 5 degrees a second, and the
+// pitch-up was found in the swings, at 133 knots.
+double departure_speed(const std::filesystem::path& root, const PublishedFigures& figures,
+                       const FigureSpec& spec, double entry) {
+    InitialConditions ic = airborne(condition_or(spec, "altitude_ft", 5000.0), entry, true);
+    ic.gear = condition_or(spec, "gear", 0.0);
+    ic.flaps = flaps_command(figures, condition(spec, "flaps_deg"));
+    Flight f(root, figures, spec, ic);
+    Controls c;
+    c.throttle = 0.0;
+    c.flaps = ic.flaps;
+    c.gear = f.gear;
+    Autopilot autopilot(f.aircraft, c);
+    AutopilotModes modes = autopilot.modes();
+    modes.heading_deg = on_the_runway().heading_deg;
+    modes.altitude_ft = f.aircraft.property("position/h-sl-ft");
+    modes.airspeed_kts = 0.0;
+    modes.hold_height_to_the_stall = true;
+    autopilot.set(modes);
+    constexpr double settle_s = 10.0;
+    constexpr double autopilot_pitch_degps = 3.0;
+    constexpr double degrees_per_radian = 57.29577951308232;
+    int pitching_up = 0;
+    for (int i = 0; i < steps(600.0); ++i) {
+        Controls flown = autopilot.fly();
+        flown.throttle = 0.0;
+        f.fly(flown);
+        const double q_degps =
+            f.aircraft.property("velocities/q-aero-rad_sec") * degrees_per_radian;
+        pitching_up = i * dt >= settle_s && flown.elevator < 0.0 && q_degps > autopilot_pitch_degps
+                          ? pitching_up + 1
+                          : 0;
+        if (pitching_up >= steps(0.25)) {
+            return f.aircraft.property("velocities/vc-kts");
+        }
+    }
+    throw std::runtime_error("she never pitched up of her own accord");
+}
+
 double stall_speed(const std::filesystem::path& root, const PublishedFigures& figures,
                    const FigureSpec& spec) {
     const bool clmax = condition_or(spec, "clmax", 0.0) != 0.0;
     double most_cl = 0.0;
     double at_most_cl = 0.0;
     const double entry = condition_or(spec, "entry_kcas", 70.0);
+    if (condition_or(spec, "departure", 0.0) != 0.0) {
+        return departure_speed(root, figures, spec, entry);
+    }
     if (condition_or(spec, "steady", 0.0) != 0.0) {
         return steady_flight_speed(root, figures, spec, entry);
     }
@@ -2285,6 +2344,7 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                 "keel_below_ft",
                                 "clmax",
                                 "steady",
+                                "departure",
                                 "speed_falls_kt_per_1000_ft",
                                 "seconds",
                                 "most_drift_ft",

@@ -733,7 +733,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_f22_sustains_its_published_turn_at_mach_0_9_and_30000_ft
     the_f22_flies_at_mach_2_at_40000_ft
     the_f22_still_climbs_at_50000_ft
-    the_f22a_s_slowest_steady_flight_landing_configured_does_not_hang_on_its_entry_speed
+    the_f22a_s_stall_at_idle_landing_configured_does_not_hang_on_its_entry_speed
     the_mosquito_fb6_flies_level_at_sea_level_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_ms_gear_full_throttle_height_at_hx809s_speed
     the_mosquito_fb6_flies_level_at_its_fs_gear_full_throttle_height_at_hx809s_speed
@@ -3781,7 +3781,8 @@ foreach(_pair openai:gpt-5.4-mini-2026-03-17 anthropic:claude-haiku-4-5-20251001
 endforeach()
 # **And the two with measured take-off speeds**, the 747-400 and the F-22A
 # (2026-10-06; each with an approach speed since, the 747-400's Boeing's on
-# 2026-11-01 and the F-22A's from her measured stall on 2026-11-02, recorded
+# 2026-11-01 and the F-22A's from her measured stall on 2026-11-02 and again
+# at idle on 2026-11-03, recorded
 # again then): planned by Claude as the Cessna is, the
 # plan taken off Sydney and flown round its orbit by glideslope_cli fly-plan -
 # held within 60 m of its circle, as the Cessna is. Held within 500 m until

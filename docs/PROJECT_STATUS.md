@@ -158,13 +158,15 @@ the water on three, touches hard on two and goes round on one): eight of
 sixteen; eight are still named. The 747-400 is
 taught the approach but not yet the take-off, climb or circuit (her speeds
 are measured, not a book's). The F-22A is taught stalls and the approach
-since 2026-11-02, with a stall figure measured from her model (her slowest
-steady flight, 90 KCAS). At 1.3 times it she lands on the centreline in
-calm air and 15 kt across within 360 ft/min, but touches at 14.3 degrees of
-nose, inside the 2.5-degree tail-strike margin, and is named for it: her
-measured 6,300 ft landing is that touch's. She is named too, with her
-figures, in her stall recoveries, the AI's stall watch and her gust
-landings (an open item);
+since 2026-11-02, with a stall figure measured from her model. Since
+2026-11-03 it is her stall at idle, 105.8 KCAS, where she pitches up past
+her stabilators with her gear down; it was her slowest level flight with
+power, 90. At 1.3 times it she lands on the centreline in calm air and 15
+kt across within 360 ft/min and outside the tail-strike margin, and her
+measured landing is 7,300 ft. She is still named, with her figures, in her
+stall recoveries, the AI's stall watch, her rise after the touch at her
+model's own weight, a wet crosswind roll-out, one wet walking pace and her
+gust landings (an open item);
 the Learjet cannot be rotated early since her stabilizer
 was tied to her maintenance manual (a tail). See the log for 2026-09-22 to
 2026-09-24, and later entries for what was fixed since (the F-35B's
@@ -241,7 +243,7 @@ condition code - and on one reported at nil braking (since 2026-10-29);
 since 2026-10-31 every runway a model is shown says its condition, the
 metres it has to land on and what the aircraft needs there. The five that
 publish no landing distance are refused a runway shorter than their
-measured landing (since 2026-11-02, the F-22A's included: 6,300 ft).
+measured landing (since 2026-11-02, the F-22A's included: 7,300 ft since 2026-11-03).
 Everything a model answered is recorded,
 and CI flies it again with no key.
 

@@ -108,28 +108,30 @@
     ceiling.
   </figure>
 
-  <figure name="stall_speed_landing" flight="stall_speed" from="measured" steady="1"
-          loading="combat" unit="KCAS" value="90.0" tolerance="0.5"
+  <figure name="stall_speed_landing" flight="stall_speed" from="measured" departure="1"
+          loading="combat" unit="KCAS" value="105.8" tolerance="1.0"
           flaps_deg="0" entry_kcas="200" gear="1">
     **Measured, not published** (the owner's decision of 2026-10-09): her
     flight manual, T.O. 1F-22A-1, is not public, and no stall or approach
-    speed for her was found (searched 2026-10-09, 2026-11-01 and 2026-11-02).
-    This is 14 CFR 1.2's VS0, "the stalling speed or the minimum steady flight
-    speed in the landing configuration", measured from her model: trimmed
-    level at 1 g, gear down and no flap, at 5,000 ft, from the entry speed
-    down until no trim holds, where her stabilators reach their stop at 27.5
-    degrees of alpha (src/sim/figures.cpp, `steady_flight_speed`). The
-    deceleration the other stalls here are measured by does not hold still on
-    her rate-command stick (131 to 149 KCAS by its entry speed alone). From
-    160, 200 and 240 KCAS it is 90.0 within a tenth. What it asserts is that
-    the model still does what it did, not that the aeroplane does it. Her
-    approach speed is 1.3 times it, as every aircraft's here: 123.8 kt at her
-    model's own 61,570 lb, flown on the centreline in calm air and 15 kt
-    across and touched within 360 ft/min on her power
-    (docs/status/2026-11-02-the-f22a-s-flare-flown-on-her-power.md).
+    speed for her was found (searched 2026-10-09, 2026-11-01, 2026-11-02 and
+    2026-11-03). Measured from her model as 14 CFR 25.103(b)(1) has a stall
+    speed, with her throttles closed: gear down and no flap, at 5,000 ft,
+    held level by her autopilot as a stall lesson enters it, until she
+    pitches up of her own accord at about 22 degrees of alpha - with her gear
+    down her thrust vectoring is off, and her stabilators cannot hold her
+    nose there. Her wing does not stall first. The figure is the
+    calibrated airspeed there (src/sim/figures.cpp, `departure_speed`):
+    106.38, 105.84, 106.57 and 106.30 from 160, 200, 240 and 280 KCAS,
+    whence the tolerance. Until 2026-11-03 it was 90.0, her slowest level flight
+    trimmed with whatever thrust held her at 27.5 degrees of alpha, which at
+    idle she departs long before
+    (docs/status/2026-11-03-the-f22a-s-stall-figure-tests-investigated.md).
+    What it asserts is that the model still does what it did, not that the
+    aeroplane does it. Her approach speed is 1.3 times it, as every
+    aircraft's here.
   </figure>
   <!-- **The speeds a plan may fly her at**, measured by `glideslope_cli
-       plan-speeds f22 120` on 2026-10-07 (linux-release): the tightest orbit a
+       plan-speeds f22` on 2026-11-03 (linux-release): the tightest orbit a
        plan may ask at each speed (sim/orbit_trial.hpp), flown clean by the
        navigator and autopilot at 3,000 ft, both ways round, in calm air and
        in a 10 kt wind, each to hold its height within 50 ft and its speed
@@ -141,16 +143,15 @@
        `weight_lbs`, her model's own weight, which the trial flies and a
        server flies her at; heavier, the slowest is raised for her weight
        (sim::for_weight). -->
-  <plan_speeds slowest_kcas="140" fastest_kcas="360" weight_lbs="61570">
-    The slowest, 140 kt, is 5 kt over the first that held, 135: she
-    then published no stall speed, so had no approach speed, and the sweep
-    began at 120 kt - under her approach speed now, 123.8 kt at this weight
-    (1.3 times her measured slowest steady flight, 2026-11-02); below 135 she came down 500 ft before reaching her circle. At
-    135 she held the orbit all four ways and, on her own yaw damper and
-    rudder integral (her catalogue's `yaw-damper`), her sideslip in the
-    crosswind within 0.23 degree. On 2026-10-02, before them, she held her
-    orbit only from 220 kt and swung her sideslip 6.0 degrees either way at
-    230 in the crosswind, and her slowest was 255. The fastest, 360 kt, a
+  <plan_speeds slowest_kcas="146" fastest_kcas="360" weight_lbs="61570">
+    The slowest, 146 kt, measured again on 2026-11-03 when her stall was
+    measured at idle: sought up from her approach speed, 145.6 kt at this
+    weight (1.3 times her stall), it is the first that held all four ways.
+    Before then it was 140, 5 kt over 135, the first that held when the
+    sweep began at 120 kt, as she then published no stall speed; below 135
+    she came down 500 ft before reaching her circle. On 2026-10-02 she held
+    her orbit only from 220 kt and swung her sideslip 6.0 degrees either way
+    at 230 in the crosswind, and her slowest was 255. The fastest, 360 kt, a
     fifth over its start speed, held all four ways.
   </plan_speeds>
   <!-- **The slowest a glide may fly it at**, measured by `glideslope_cli
@@ -178,14 +179,14 @@
     Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 145 kt, unstuck (5 ft up) at 156 kt; 150 is written, 5 kt to spare, and she is unstuck at about 158 - against the Fallon report's 143 and 164. Rotated sooner, her nose comes up at four degrees a second and she floats in ground effect: rotated at 110 she was unstuck only at 143, and at 140 at 155, just over 15 kt on. Until 2026-10-14 110 was written: her pitch loop's integrator, wound up against her nose wheel, snatched her nose up at ten to thirteen degrees a second and threw her off at about 119. The climb away: asked 120 to 205 kt, at military power she was at 500 ft never slower than 222.7 kt, and faster the faster asked - she cannot be held slower - which is written rounded up. With no flap, at 61,570 lb, the weight her model flies a plan at.
   </takeoff_speeds>
 
-  <landing_distance ft="6300" basis="measured" factor="1">
+  <landing_distance ft="7300" basis="measured" factor="1">
     Measured, not published: the line above is written by
-    tools/measured_landing.py from `glideslope_cli land f22` (2026-11-02,
+    tools/measured_landing.py from `glideslope_cli land f22` (2026-11-03,
     linux-release). Landed by the approach autopilot from a final-approach gate
     2 nm out, on a level runway at sea level in calm air with every tank full
-    (63,960 lb), at 1.3 times her measured slowest steady flight for that
-    weight, she touched 416 m in at 157 ft/min, her nose 14.3 degrees up, and
-    stopped 1,861 m past the threshold, which she crossed on the 3-degree
+    (63,960 lb), at 1.3 times her measured stall for that weight, she
+    touched 366 m in at 138 ft/min, her nose 11.1 degrees up, and stopped
+    2,158 m past the threshold, which she crossed on the 3-degree
     glidepath. The figure is that, 2 per cent over and rounded up to 100 ft (3
     per cent over in all), for the drift between machines: the AI's own landing
     in those conditions, not a regulatory distance and not a minimum; heavier,
@@ -200,7 +201,8 @@
     FA5000-21-R-0002) gives none, and her flight manual, T.O. 1F-22A-1, is not
     published; again 2026-11-01 and 2026-11-02, nothing found. Until
     2026-11-02 she had no approach speed, so this could not be measured and
-    every landing was refused her.
+    every landing was refused her. It was 6,300 ft from 2026-11-02 to
+    2026-11-03, measured at 1.3 times her slowest level flight with power.
   </landing_distance>
 
   <no_cg_limits>
