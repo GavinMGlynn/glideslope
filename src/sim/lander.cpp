@@ -87,6 +87,24 @@ constexpr double gusty_throttle_opened_per_s = 0.5;
 // nose-wheel propeller aeroplane's: a jet and a tailwheel aeroplane keep a
 // degree a second (`fly_laws` says why).
 constexpr double gusty_nose_rate_kt_degps = 265.0;
+// **A jet's nose-up rate in a gusty flare while she sinks faster than it
+// wants**, degrees a second: the AFH's "round out rate should also be
+// proportional to the rate of closure with the ground" (FAA-H-8083-3C, ch.
+// 9, "Round Out", p. 9-8). Held to a degree a second, a 737-300 meeting her
+// flare at 790 ft/min after a down-gust raised her nose too slowly to arrest
+// it and met the runway at 462 ft/min (seed 40). Faster only while the
+// closure is faster than wanted, so that a float is not flown on up: at two
+// degrees a second whatever the sink, an A380 and a B-2A were lifted in
+// their flares (docs/status, 2026-11-04). 2 is tuned on a sweep of the gust
+// tests' forty seeds, not sourced: at 1.25 the 737-300 and 787-8 touched
+// within 3 ft/min of their margin, at 3 the 747-400 and F-15C touched hard.
+constexpr double gusty_closing_jet_nose_rate_degps = 2.0;
+// **The aileron for each degree of bank off what is wanted, in gusts**
+// (`fly_laws`): twice calm air's 0.035. At calm air's, turbulence's rolling
+// gusts rocked a B-2A six degrees either way with her aileron at a fifth of
+// its travel, and she put a wingtip down on ten seeds of forty. 0.07 is tuned
+// on a sweep of the gust tests' forty seeds, not sourced (0.05 left one).
+constexpr double gusty_aileron_per_deg = 0.07;
 // **The least nose a jet's flare raises**, degrees: the FAA's Airplane
 // Flying Handbook (FAA-H-8083-3C, ch. 16, "The Flare"): "In most jet
 // airplanes, this requires a pitch attitude increase of only 1 to 3 degrees".
@@ -189,6 +207,12 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     }
     speeds.elevator_full_cm = figures.elevator_full_cm;
     speeds.stick_back_from_vref = figures.stick_back_from_vref;
+    if (figures.gust_additive_share > 0.0) {
+        speeds.gust_additive_share = figures.gust_additive_share;
+    }
+    if (figures.most_gust_additive_kts > 0.0) {
+        speeds.most_gust_additive_kts = figures.most_gust_additive_kts;
+    }
     if (figures.yaw_rate_pedal_per_degps > 0.0) {
         speeds.yaw_damper_per_degps = figures.yaw_rate_pedal_per_degps;
     }
@@ -389,7 +413,8 @@ Lander::Lander(const Aircraft& aircraft, const Runway& runway,
 
 double Lander::approach_kts() const {
     return speeds_.vref_kts +
-           std::min(most_gust_additive_kts, 0.5 * std::max(0.0, a_.gust_factor_kt()));
+           std::min(speeds_.most_gust_additive_kts,
+                    speeds_.gust_additive_share * std::max(0.0, a_.gust_factor_kt()));
 }
 
 bool Lander::in_gusts() const {
@@ -1454,7 +1479,13 @@ Controls Lander::fly_laws() {
     // drifted twenty metres in the float.
     aileron_trim_ = std::clamp(aileron_trim_ + 0.03 * (want_bank - s.roll_deg) / steps_per_second,
                                -0.3, 0.3);
-    c.aileron = std::clamp(0.035 * (want_bank - s.roll_deg) - 0.02 * p_degps + aileron_trim_,
+    // **Held harder in gusts** (`gusty_aileron_per_deg`): the AFH's
+    // turbulent-air approach (FAA-H-8083-3C, ch. 9, p. 9-20) is flown with
+    // the wings level against the gusts, and a wide wing - a B-2A's 172 ft -
+    // put down at a few degrees of bank strikes a tip.
+    const double aileron_per_deg = in_gusts() ? gusty_aileron_per_deg : 0.035;
+    c.aileron = std::clamp(aileron_per_deg * (want_bank - s.roll_deg) - 0.02 * p_degps +
+                               aileron_trim_,
                            -1.0, 1.0);
 
     const double beta_deg = a_.property("aero/beta-deg");
@@ -1855,6 +1886,7 @@ Controls Lander::fly_laws() {
         // seeds this took the F-15C's hard touches from 22 to 17 and the
         // A320's from 12 to 7.
         const bool still_sinking = gusty && fpm_error > 0.0;
+        closing_past_flare_ = fpm_error > 0.0;
         if (jet_ && high_ft < 0.2 * flare_height_ft() && !still_sinking) {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg);
         }
@@ -2094,7 +2126,9 @@ Controls Lander::fly_laws() {
     // 2026-11-03). **A propeller aeroplane's alone**: given it, on Windows
     // the F-15C and F-35B floated to within 25 m of the touchdown zone's end
     // on three of forty seeds they had passed, so a jet keeps her degree a
-    // second. **And not a tailwheel aeroplane's.** The AFH (ch. 14, "Wheel
+    // second - **but for while she closes with the runway faster than the
+    // flare wants** (`gusty_closing_jet_nose_rate_degps`, 2026-11-04), when
+    // there is no float to fly on up. **And not a tailwheel aeroplane's.** The AFH (ch. 14, "Wheel
     // Landing", p. 14-5): "In some wind conditions ... landing in a flatter
     // pitch attitude on the main wheels only, with the tailwheel still off
     // the surface", "a soft touchdown and a slight relaxation of back
@@ -2113,7 +2147,8 @@ Controls Lander::fly_laws() {
     const double want_q_degps =
         stage_ == Stage::flare && in_gusts() && !lands_on_hull() && flare_gain_ > 1.0
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0,
-                         jet_ || tail_wheel_ ? 1.0
+                         jet_ ? (closing_past_flare_ ? gusty_closing_jet_nose_rate_degps : 1.0)
+                         : tail_wheel_ ? 1.0
                                       : std::max(1.0, gusty_nose_rate_kt_degps / approach_kts()))
         : stage_ == Stage::flare && holding_three_point_
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 4.5)
