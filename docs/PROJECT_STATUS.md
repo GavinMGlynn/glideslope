@@ -152,10 +152,10 @@ none (2026-10-29). The 747-400 is taught the approach since 2026-11-01, at
 Boeing's published 153 kt, and lands within her limits, her flaps raised
 after a take-off by her manoeuvre speeds; since 2026-11-02 she lands in gusts
 on all eight seeds here, on Linux, as do the A320, Learjet 35A and Mosquito,
-and since 2026-11-03 the F-15C and F-35B, with the PA-28, and the flying
-boat but for macOS release's seed 3 (over 48 seeds here she still rises off
-the water on three, touches hard on two and goes round on one): eight of
-sixteen; eight are still named. The 747-400 is
+and since 2026-11-03 the F-15C, F-35B, C172P and C182, with the PA-28, and
+the flying boat but for macOS release's seed 3 (over 48 seeds here she still
+rises off the water on three, touches hard on two and goes round on one): ten
+of sixteen; six are still named. The 747-400 is
 taught the approach but not yet the take-off, climb or circuit (her speeds
 are measured, not a book's). The F-22A is taught stalls and the approach
 since 2026-11-02, with a stall figure measured from her model (her slowest

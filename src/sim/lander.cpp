@@ -70,6 +70,22 @@ constexpr double gusty_most_begun_sink_fpm = 1000.0;
 constexpr double gusty_speed_throttle_per_kt = 0.05;
 constexpr double gusty_held_kts = 5.0;
 constexpr double gusty_throttle_opened_per_s = 0.5;
+// **The nose-up rate a gusty flare lets through undamped**, knot-degrees a
+// second: divided by her approach speed it is the rate (`fly_laws`), never
+// less than a degree a second. A gust's sink is the same feet a minute
+// whatever she flies at, and the change of path that arrests it is that
+// sink over her speed - the flare's own law raises the nose by the path's
+// change (`want_flare`) - so the nose rate that arrests it in a given time
+// goes as one over her speed. The FAA's Airplane Flying Handbook
+// (FAA-H-8083-3C, ch. 9, "Round Out", p. 9-8): "The round out rate should
+// also be proportional to the rate of closure with the ground", and "the
+// pitch attitude should be increased at a faster rate when full flaps are
+// used". 265 is tuned on a sweep of the gust tests' forty seeds
+// (docs/status, 2026-11-03), not sourced: about a quarter of a g of change
+// in her climb (265 kt is 447 ft/s; at a degree a second that is 7.8
+// ft/s^2). It gives a C182 at her 72 kt 3.7 degrees a second, a Cub at her
+// 51 kt 5.2. A propeller aeroplane's: a jet keeps a degree a second.
+constexpr double gusty_nose_rate_kt_degps = 265.0;
 // **The least nose a jet's flare raises**, degrees: the FAA's Airplane
 // Flying Handbook (FAA-H-8083-3C, ch. 16, "The Flare"): "In most jet
 // airplanes, this requires a pitch attitude increase of only 1 to 3 degrees".
@@ -2068,6 +2084,16 @@ Controls Lander::fly_laws() {
     // fewest failures (80 of 520, from 100). The true rate, the attitude
     // asked low-passed over a quarter of a second before differencing,
     // did worse: 103 capped at 1 deg/s, 168 at 6 (balloons).
+    // **And faster the slower she flies** (`gusty_nose_rate_kt_degps`):
+    // held to a degree a second, a C182 at 58 kt after a lull five feet up
+    // (seed 23) had her nose asked for 9.1 degrees and at 5.7, her sink
+    // grown from 210 to 390 ft/min, and she met the runway at 377; a flat
+    // 3 or 6 degrees a second for every aeroplane landed her, but put the
+    // Mosquito, A380 and F-15C down hard or ballooning (docs/status,
+    // 2026-11-03). **A propeller aeroplane's alone**: given it, on Windows
+    // the F-15C and F-35B floated to within 25 m of the touchdown zone's end
+    // on three of forty seeds they had passed, so a jet keeps her degree a
+    // second.
     // **A landplane's, not a hull's**: the sweep was of the landplanes, and
     // a hull in gusts is not flared to the touch but held level over the
     // water (rough water, above), her nose already capped. Let through
@@ -2076,7 +2102,8 @@ Controls Lander::fly_laws() {
     // and a judged 335 (docs/status, 2026-11-01).
     const double want_q_degps =
         stage_ == Stage::flare && in_gusts() && !lands_on_hull() && flare_gain_ > 1.0
-            ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 1.0)
+            ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0,
+                         jet_ ? 1.0 : std::max(1.0, gusty_nose_rate_kt_degps / approach_kts()))
         : stage_ == Stage::flare && holding_three_point_
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0, 4.5)
             : 0.0;
