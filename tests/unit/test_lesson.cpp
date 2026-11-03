@@ -3119,9 +3119,13 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // an x86-64-v2 build, and on Windows release all but these.
         {"737-300", 8, windows(), "on Windows she meets the runway at 347 ft/min (seed 8)"},
         {"787-8", 4, windows(), "on Windows she touches at 338 ft/min (seed 4)"},
-        {"787-8", 2, macos(),
-         "on macOS she touched at 398 ft/min (seed 2), CI run 38006839738, before "
-         "2026-11-04's full gust"},
+        // macOS, debug and release alike, CI run 41703342974 (dispatched on
+        // #310): the 787-8 lands seed 2 there now, at Boeing's full gust.
+        {"737-300", 3, macos(),
+         "on macOS she floats into a go-around from a touch 1,017 m along (seed 3), CI run "
+         "41703342974"},
+        {"737-300", 17, macos(),
+         "on macOS she touches at 554 ft/min (seed 17), CI run 41703342974"},
         {"short_s23", 3, macos(),
          "on macOS she rises 0.93 ft off the water after touching (seed 3), CI runs "
          "41303118662 and 41597667557 (after her stick's band, 2026-11-03), and on macOS "
