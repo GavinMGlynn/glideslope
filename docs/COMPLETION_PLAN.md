@@ -1195,9 +1195,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       every seed on Linux, but rises 0.87 ft on Windows's seed 5 and
       0.93 on macOS release's seed 3. Owner, 2026-11-01: the 0.75 ft limit
       kept, this landed as progress, and she is named where she fails.
-      2026-11-03: over 48 seeds on Linux she fails 9, rising up to 6.4 ft,
-      because she touches where her wing still carries her; the platforms'
-      two are that scatter, and a fix is to how she is held off.
+      2026-11-03: held on the water within the band between her touch and
+      TN 923's floor, she passes every seed on Linux and Windows and is
+      named on none; but over 48 seeds on Linux she still rises 1.2 to 3.3
+      ft on seeds 13, 25 and 32, touches at 345 to 347 ft/min on 11 and 40,
+      and goes round on 30, because she touches where her wing still
+      carries her.
       *Verification: the S.23 lands in calm air and in gusts within the
       landplanes' limits.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
