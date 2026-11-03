@@ -1163,7 +1163,10 @@ Controls Lander::fly_laws() {
         // whole margin to the afterbody.** Between her touch and TN 923's
         // floor (`rough_water_least_trim_deg`) is all the attitude the
         // seaplane handbook's flatter touch leaves her, so an error of that
-        // band asks for the whole stick, damped as before. With her margin
+        // band asks for the whole stick - of a degree, where she touched
+        // less than a degree above the floor or below it, the band floored
+        // at a degree as the afterbody's margin is - damped as before; and so
+        // between skips too, clear of the water. With her margin
         // to the afterbody's 10.8 degrees - six degrees from a touch at 4.5 -
         // the water's first touch pitched her nose up three degrees a second
         // against a third of her stick, her wing took the rest of her weight

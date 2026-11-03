@@ -1186,21 +1186,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       heading, in calm air and 15 kt across.* Done 2026-10-30: a tail-wheel
       aeroplane's steering brake no longer fades at a crawl; every landplane
       rolled up from rest to 0.5-4.5 kt and stopped keeps within 8.9 degrees.
-- [ ] **The flying boat lands in gusts without skipping.** In gusts she
-      touches flat and skips because she arrives 12 kt fast. Owner,
-      2026-10-31: a gust's climb in a level hold-off is no balloon if she
-      holds level, and her hull may touch at the rough-water book's flatter
-      attitude (no lower than NACA TN 923's 3 degrees). Held off so, she no
-      longer wrecks; with her hull damped from its first touch she passes
-      every seed on Linux, but rises 0.87 ft on Windows's seed 5 and
-      0.93 on macOS release's seed 3. Owner, 2026-11-01: the 0.75 ft limit
-      kept, this landed as progress, and she is named where she fails.
-      2026-11-03: held on the water within the band between her touch and
-      TN 923's floor, she passes every seed on Linux and Windows and is
-      named on none; but over 48 seeds on Linux she still rises 1.2 to 3.3
-      ft on seeds 13, 25 and 32, touches at 345 to 347 ft/min on 11 and 40,
-      and goes round on 30, because she touches where her wing still
-      carries her.
+- [ ] **The flying boat lands in gusts without skipping.** She skips
+      off the water on macOS release's seed 3 (0.93 ft), where she is
+      named, and fails six of 48 seeds on Linux: she touches where her wing
+      still carries her (owner's rulings and figures in docs/status).
       *Verification: the S.23 lands in calm air and in gusts within the
       landplanes' limits.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**

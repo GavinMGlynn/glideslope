@@ -3077,10 +3077,14 @@ struct NamedOnASeed {
 #endif
 }
 const std::vector<NamedOnASeed>& named_on_a_seed() {
-    // None since 2026-11-03: held on rough water within the band between her
-    // touch and TN 923's floor, the S.23 rises 0.52 ft on Windows's seed 5
-    // (0.87 before) and 0.19 on Linux's seed 3 (0.31 before).
-    static const std::vector<NamedOnASeed> named = {};
+    // Windows's seed 5 no longer, since 2026-11-03: held on rough water
+    // within the band between her touch and TN 923's floor, she rises 0.52
+    // ft there (0.87 before).
+    static const std::vector<NamedOnASeed> named = {
+        {"short_s23", 3, macos_release(),
+         "on macOS release she rises 0.93 ft off the water after touching (seed 3), CI runs "
+         "41303118662 and 41597667557 (after her stick's band, 2026-11-03); 0.19 on Linux"},
+    };
     return named;
 }
 const std::string* named_on_this_seed_here(const std::string& id, int seed) {
@@ -3259,8 +3263,8 @@ GLIDESLOPE_TEST(every_jets_spool_up_is_measured_from_its_model_and_a_propeller_h
 
 // **In moderate turbulence the AI lands every aeroplane not named within
 // its limits** - six of sixteen; the ten named (`not_yet_landed_in_gusts`)
-// are flown and shown, and any named on one seed of one platform alone
-// (`named_on_a_seed`, none since 2026-11-03). Fifteen knots down the runway with severity-3
+// are flown and shown, and so is one named on one seed of one platform
+// alone (`named_on_a_seed`: the S.23, macOS release's seed 3). Fifteen knots down the runway with severity-3
 // turbulence, its gust factor 15 kt (world::gust_spread_of_severity), flown
 // as the Airplane Flying Handbook (FAA-H-8083-3C, ch. 9, "Turbulent Air
 // Approach and Landing") flies it: half the gust factor on the approach
