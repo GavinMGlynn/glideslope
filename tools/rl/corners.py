@@ -25,17 +25,17 @@ from evaluate import within_limits  # noqa: E402
 
 VREF = 59.8
 NEAREST, FURTHEST = 1.6 * 1852.0, 2.4 * 1852.0
-QUARTER = 15.0 / math.sqrt(2.0)  # LearntGate::most_wind_kts from 45 degrees ahead
-BEHIND_ACROSS = 15.0  # LearntGate::most_crosswind_behind_kts (a test holds the two equal)
-ALLOWANCE = 0.05  # what outside_learnt_gate lets in past a wind limit
-# With 5 kt behind, the most across the gate admits: its crosswind limit with
-# the allowance, or as much as keeps the wind in all within 15 kt.
-BEHIND_EDGE = min(BEHIND_ACROSS + ALLOWANCE, math.sqrt(15.0**2 - 5.0**2))
+MOST_WIND = 15.0  # LearntGate::most_wind_kts (a test holds the two equal)
+MOST_TAILWIND = 5.0  # LearntGate::most_tailwind_kts (and this)
+QUARTER = MOST_WIND / math.sqrt(2.0)  # the most wind in all from 45 degrees ahead
+# With the most behind, the most across the gate admits: as much as keeps the
+# wind in all within its most (until 2026-11-03 a limit of its own, 2.75 kt).
+BEHIND_EDGE = math.sqrt(MOST_WIND**2 - MOST_TAILWIND**2)
 WINDS = {"calm": (0.0, 0.0), "left": (15.0, 0.0), "right": (-15.0, 0.0),
-         "ahead": (0.0, 15.0), "behind": (0.0, -5.0),
+         "ahead": (0.0, 15.0), "behind": (0.0, -MOST_TAILWIND),
          "quarter-left": (QUARTER, QUARTER), "quarter-right": (-QUARTER, QUARTER),
-         "behind-left": (BEHIND_EDGE, -5.0),
-         "behind-right": (-BEHIND_EDGE, -5.0)}
+         "behind-left": (BEHIND_EDGE, -MOST_TAILWIND),
+         "behind-right": (-BEHIND_EDGE, -MOST_TAILWIND)}
 
 
 def corners(only=None):

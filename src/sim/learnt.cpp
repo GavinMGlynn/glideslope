@@ -462,13 +462,6 @@ std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
                           LearntGate::most_wind_kts);
             return text;
         }
-        if (behind_kts > 0.05 &&
-            std::abs(across_kts) > LearntGate::most_crosswind_behind_kts + 0.05) {
-            std::snprintf(text, sizeof text,
-                          "%.1f kt of crosswind with the wind behind; the gate is within %.2f",
-                          std::abs(across_kts), LearntGate::most_crosswind_behind_kts);
-            return text;
-        }
     }
     if (w.along_m < LearntGate::nearest_m || w.along_m > LearntGate::furthest_m) {
         std::snprintf(text, sizeof text, "%.1f miles %s; the gate is %.1f to %.1f miles out",

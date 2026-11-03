@@ -1168,11 +1168,9 @@ GLIDESLOPE_TEST(an_aeroplane_is_at_the_learnt_landings_gate_only_inside_it_and_i
     // distance, two across, two in height, two in heading, two in speed, the
     // flaps short and up, the aeroplane, and the wind across, ahead and
     // behind, and in all both ahead and behind - eighteen - and four inside.
-    // **Left out: across with the wind behind**, its own refusal: its limit
-    // (LearntGate::most_crosswind_behind_kts) is the crosswind's 15 kt since
-    // 2026-11-03, so the crosswind's refusal is given first and it is not
-    // reached. Inside: 6 kt across with 4.9 behind, from the left, which
-    // until then it refused.
+    // Since 2026-11-03 the gate has no refusal of its own for crosswind
+    // with the wind behind (it held it to 2.75 kt); inside: 6 kt across with
+    // 4.9 behind, from the left, which until then it refused.
     std::size_t inside = 0;
     std::size_t outside = 0;
     for (const Case& c : cases) {
@@ -1384,19 +1382,13 @@ GLIDESLOPE_TEST(an_aeroplane_taken_back_from_the_learnt_landing_moves_no_control
 // pins that the nine winds are the gate's edges, each with its test.
 namespace {
 
-// **What the gate lets in past its crosswind with the wind behind**:
-// outside_learnt_gate refuses only beyond each wind limit and 0.05 kt more,
-// so the corners with wind behind and across are flown at the edge the gate
-// admits, not the constant's: that limit and 0.05 kt, or - since 2026-11-03,
-// its limit the crosswind's 15 kt - as much across as keeps the wind in all
-// within 15 kt with 5 behind, 14.1 kt.
-constexpr double wind_allowance_kts = 0.05;
-
+// **The most across the gate admits with the most behind**: as much as
+// keeps the wind in all within its 15 kt with 5 behind, 14.1 kt (until
+// 2026-11-03 a limit of its own, 2.75 kt).
 double most_across_behind_kts() {
     using Gate = glideslope::sim::LearntGate;
-    return std::min(Gate::most_crosswind_behind_kts + wind_allowance_kts,
-                    std::sqrt(Gate::most_wind_kts * Gate::most_wind_kts -
-                              Gate::most_tailwind_kts * Gate::most_tailwind_kts));
+    return std::sqrt(Gate::most_wind_kts * Gate::most_wind_kts -
+                     Gate::most_tailwind_kts * Gate::most_tailwind_kts);
 }
 
 struct CornerWind {
@@ -1422,15 +1414,45 @@ std::vector<CornerWind> corner_winds() {
              -Gate::most_tailwind_kts}};
 }
 
+// **The 5 per cent rule** checkpoints are chosen by: under 285 ft/min,
+// within 4.75 m of the centreline, at least 15 m past the threshold.
+std::vector<std::string> outside_the_margin(const Landing& l) {
+    std::vector<std::string> out;
+    if (!(l.sink_fpm < 285.0)) {
+        out.push_back("sank " + std::to_string(l.sink_fpm) + " ft/min, not under 285");
+    }
+    if (!(std::abs(l.across_m) <= 4.75)) {
+        out.push_back(std::to_string(l.across_m) + " m across, not within 4.75");
+    }
+    if (!(l.along_m >= 15.0)) {
+        out.push_back("touched " + std::to_string(l.along_m) + " m along, not 15 past");
+    }
+    return out;
+}
+
+// Flies the gate's 32 corners in `winds` (one), each held to the limits and
+// stopped on the runway; and with `margin`, each corner not in
+// `margin_named` to the 5 per cent rule too. Returns how many were held to it.
+std::size_t lands_from_every_corner_in(const std::vector<CornerWind>& winds,
+                                       const std::string& wind, bool margin,
+                                       const std::vector<int>& margin_named);
+
 void lands_from_every_corner_in(const std::string& wind) {
-    using Gate = glideslope::sim::LearntGate;
-    const auto policy = the_policy();
-    const Runway runway = a_runway();
     const std::vector<CornerWind> all = corner_winds();
     std::vector<CornerWind> winds;
     std::copy_if(all.begin(), all.end(), std::back_inserter(winds),
                  [&](const CornerWind& w) { return w.name == wind; });
     check(winds.size() == 1, "the wind " + wind + " is one of the gate's");
+    lands_from_every_corner_in(winds, wind, false, {});
+}
+
+std::size_t lands_from_every_corner_in(const std::vector<CornerWind>& winds,
+                                       const std::string& wind, bool margin,
+                                       const std::vector<int>& margin_named) {
+    using Gate = glideslope::sim::LearntGate;
+    const auto policy = the_policy();
+    const Runway runway = a_runway();
+    std::size_t held_to_margin = 0;
     std::size_t flown = 0;
     std::vector<std::string> failures;
     double worst_across = 0.0;
@@ -1496,6 +1518,18 @@ void lands_from_every_corner_in(const std::string& wind) {
             for (const std::string& s : not_stopped_on_the_runway(l)) {
                 wrong.push_back(s);
             }
+            const bool named = std::find(margin_named.begin(), margin_named.end(), corner) !=
+                               margin_named.end();
+            if (margin && !named) {
+                ++held_to_margin;
+                for (const std::string& s : outside_the_margin(l)) {
+                    wrong.push_back(s);
+                }
+            }
+            if (margin && named) {
+                std::printf("  c%02d, named, not held to the margin: %.0f ft/min, %+.2f m, %.0f m\n",
+                            corner, l.sink_fpm, l.across_m, l.along_m);
+            }
             if (!wrong.empty()) {
                 std::string text = name;
                 for (const std::string& s : wrong) {
@@ -1511,6 +1545,28 @@ void lands_from_every_corner_in(const std::string& wind) {
                 flown, wind.c_str(), worst_across, worst_sink, failures.size());
     check(flown == 32, "every corner flown: " + std::to_string(flown) + " of 32");
     none_wrong(failures, flown, "landings from the gate's corners fell short");
+    return held_to_margin;
+}
+
+// **Inside the quarter it was trained at the edge of**: part 13 of the
+// policy was trained from near two of the gate's corners with 4.5 to 5 kt
+// behind and up to 14.1 across from the left, and chosen on the corners at
+// 5 behind and 14.1 across - so those are not a held-out check. These are:
+// each corner at 5 kt behind and 5, 7.5, 10 and 12.5 kt across from the
+// left, held to the limits and stopped on the runway, and to the 5 per cent
+// rule - but for c08 (nearest, furthest left, lowest, turned right,
+// slowest) at 10 and 12.5 kt, named: in the bindings it sinks 293 and 292
+// ft/min there, inside the limit's 300 and not the margin's 285
+// (docs/status/2026-11-03-the-learnt-landing-with-wind-behind-and-across-
+// from-the-left.md).
+void lands_inside_the_quarter(double across_kts, const std::vector<int>& margin_named) {
+    char name[80];
+    std::snprintf(name, sizeof name, "5 kt behind and %.1f across from the left", across_kts);
+    const std::vector<CornerWind> winds{{name, across_kts, -5.0}};
+    const std::size_t held = lands_from_every_corner_in(winds, name, true, margin_named);
+    check(held + margin_named.size() == 32,
+          "every corner held to the margin or named: " + std::to_string(held) + " and " +
+              std::to_string(margin_named.size()) + " of 32");
 }
 
 } // namespace
@@ -1530,11 +1586,9 @@ GLIDESLOPE_TEST(the_corner_landings_are_flown_in_the_nine_winds_at_the_gates_edg
         const bool quartering = w.head_kts > 0.0 &&
                                 std::abs(std::abs(w.across_kts) - w.head_kts) < 1e-12 &&
                                 std::abs(in_all - Gate::most_wind_kts) < 1e-12;
-        // At its crosswind limit with the allowance, or at the wind in all.
-        const bool behind_across =
-            w.head_kts == -Gate::most_tailwind_kts && w.across_kts != 0.0 &&
-            (std::abs(w.across_kts) == Gate::most_crosswind_behind_kts + wind_allowance_kts ||
-             std::abs(in_all - Gate::most_wind_kts) < 1e-12);
+        const bool behind_across = w.head_kts == -Gate::most_tailwind_kts &&
+                                   w.across_kts != 0.0 &&
+                                   std::abs(in_all - Gate::most_wind_kts) < 1e-12;
         const bool one = calm || across || ahead || behind || quartering || behind_across;
         check(one, std::string(w.name) + " is at an edge");
         check(in_all <= Gate::most_wind_kts + 1e-12,
@@ -1551,10 +1605,10 @@ GLIDESLOPE_TEST(the_corner_landings_are_flown_in_the_nine_winds_at_the_gates_edg
 }
 
 // **tools/rl/corners.py flies the gate's crosswind with the wind behind as
-// the simulation's gate has it**: its BEHIND_ACROSS is
-// LearntGate::most_crosswind_behind_kts and its ALLOWANCE the gate's 0.05
-// kt, read from its source, so that the corners a checkpoint is chosen on
-// are the ones the tests fly.
+// the simulation's gate has it**: its MOST_WIND and MOST_TAILWIND, from
+// which it finds that edge, are LearntGate::most_wind_kts and
+// most_tailwind_kts, read from its source, so that the corners a checkpoint
+// is chosen on are the ones the tests fly.
 GLIDESLOPE_TEST(the_corners_the_training_tools_fly_with_the_wind_behind_are_the_gates) {
     using Gate = glideslope::sim::LearntGate;
     const std::filesystem::path script =
@@ -1566,8 +1620,8 @@ GLIDESLOPE_TEST(the_corners_the_training_tools_fly_with_the_wind_behind_are_the_
     int found = 0;
     while (std::getline(in, line)) {
         for (const auto& [name, want] :
-             {std::pair<std::string, double>{"BEHIND_ACROSS = ", Gate::most_crosswind_behind_kts},
-              std::pair<std::string, double>{"ALLOWANCE = ", wind_allowance_kts}}) {
+             {std::pair<std::string, double>{"MOST_WIND = ", Gate::most_wind_kts},
+              std::pair<std::string, double>{"MOST_TAILWIND = ", Gate::most_tailwind_kts}}) {
             if (line.rfind(name, 0) == 0) {
                 const double got = std::stod(line.substr(name.size()));
                 std::printf("  %s%g (the gate's %g)\n", name.c_str(), got, want);
@@ -1614,6 +1668,22 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_i
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_right) {
     lands_from_every_corner_in("behind and across from the right");
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_margin_from_every_corner_of_its_gate_with_5_kt_behind_and_5_across_from_the_left) {
+    lands_inside_the_quarter(5.0, {});
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_margin_from_every_corner_of_its_gate_with_5_kt_behind_and_7_5_across_from_the_left) {
+    lands_inside_the_quarter(7.5, {});
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_margin_from_every_corner_but_one_named_with_5_kt_behind_and_10_across_from_the_left) {
+    lands_inside_the_quarter(10.0, {8});
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_margin_from_every_corner_but_one_named_with_5_kt_behind_and_12_5_across_from_the_left) {
+    lands_inside_the_quarter(12.5, {8});
 }
 
 // **From the held-out starts it once touched short from, in headwinds, it

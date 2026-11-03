@@ -1228,7 +1228,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       behind and 14.1 across from either side it lands within the 5% rule.*
       Done 2026-11-03: trained there (part 13), it lands from every corner of
       both sides 264 m or more in, and the gate admits 14.1 across with 5
-      behind.
+      behind. Those corners were trained on; the held-out check is every
+      corner at 5 behind with 5 to 12.5 across from the left, all within
+      the limits and all but one corner (292-294 ft/min) within the 5%
+      rule.
 - [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own
