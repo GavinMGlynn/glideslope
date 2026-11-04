@@ -239,6 +239,12 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     if (figures.roll_out_stick_per_degps > 0.0) {
         speeds.roll_out_stick_per_degps = figures.roll_out_stick_per_degps;
     }
+    if (figures.roll_out_track_rudder_per_deg > 0.0) {
+        speeds.roll_out_track_rudder_per_deg = figures.roll_out_track_rudder_per_deg;
+    }
+    if (figures.roll_out_yaw_damping_share > 0.0) {
+        speeds.roll_out_yaw_damping_share = figures.roll_out_yaw_damping_share;
+    }
     speeds.three_point = figures.three_point;
     speeds.spool_s = spool_up_s(data / "jsbsim", model);
     return speeds;
@@ -1088,6 +1094,21 @@ Controls Lander::fly_laws() {
         // the heading's, eased in with the gains: every jet within 4.1 m
         // wet. Twice that is where it fails - at 1.0 a Mosquito swerved 27 m
         // wet and at 1.5 an A380 43 m - so it is held at half of it.
+        //
+        // **Unless her figures give her own** (`roll_out_track_rudder_per_deg`
+        // and `roll_out_yaw_damping_share`). The F-22A's side force for a
+        // degree of sideslip is her model's -1.79 a radian: as 15 kt arrived
+        // across at 133.6 kt it pushed her with 11,000 lb while her wheels
+        // bore 15,000, and at 0.5 her track turned into the wind too slowly -
+        // 6.13 m from the centreline wet. A stronger track rudder alone set
+        // her weaving: on her wheels her pedals drive her rudders directly,
+        // through an actuator limited to 2.67 of its travel a second
+        // (tools/make_f22.py), and the yaw rate's damping, all of it, beat
+        // her rudder from stop to stop at about two cycles a second. Taken
+        // back at the touch in calm air at 145 kt she rocked to 16 degrees
+        // of bank and struck her airframe (2026-11-04). With half of the
+        // damping, and 0.8 a degree of track, she neither weaves nor slides
+        // (docs/status/2026-11-04-the-f22a-s-wet-crosswind-roll-out.md).
         const double rolling = std::clamp(
             (rolling_kts - autobrake_off_kts) / autobrake_off_kts, 0.0, 1.0);
         const double track_deg = std::atan2(a_.property("velocities/v-east-fps"),
@@ -1096,8 +1117,10 @@ Controls Lander::fly_laws() {
         const double track_error =
             std::remainder(runway_.heading_deg + want - track_deg, 360.0);
         const double pointed =
-            (0.10 + 0.30 * rolling) * error - (0.30 + 0.20 * rolling) * r_degps;
-        const double asked = pointed + ground_rudder_trim_ + 0.5 * rolling * track_error;
+            (0.10 + 0.30 * rolling) * error -
+            speeds_.roll_out_yaw_damping_share * (0.30 + 0.20 * rolling) * r_degps;
+        const double asked = pointed + ground_rudder_trim_ +
+                             speeds_.roll_out_track_rudder_per_deg * rolling * track_error;
         if (rolling > 0.0 && (std::abs(asked) < 1.0 || asked * track_error < 0.0)) {
             ground_rudder_trim_ = std::clamp(
                 ground_rudder_trim_ + 0.1 * track_error / steps_per_second, -1.0, 1.0);

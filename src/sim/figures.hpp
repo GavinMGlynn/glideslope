@@ -156,6 +156,15 @@ struct PublishedFigures {
     // for each degree a second she is off the rate it wants (sim::Lander,
     // `lower_the_nose`). 0 where the file gives none: the attitude law.
     double roll_out_stick_per_degps = 0.0;
+    // **Her rudder on the roll for each degree her track is off the one
+    // wanted** (`roll_out_track_rudder_per_deg`), where her file gives one:
+    // the roll-out's steering by her track (sim::Lander). 0 where it gives
+    // none, and the lander's own 0.5 is flown.
+    double roll_out_track_rudder_per_deg = 0.0;
+    // **The share of the roll-out's yaw-rate damping she is given**
+    // (`roll_out_yaw_damping_share`), where her file gives one (sim::Lander).
+    // 0 where it gives none, and all of it is flown.
+    double roll_out_yaw_damping_share = 0.0;
     // **How a tail-wheel aeroplane is landed** (`lands`): "three_point", held
     // off until she touches at the attitude she stands at (sim::Lander), or
     // "wheels", the default, flown on to her main wheels.

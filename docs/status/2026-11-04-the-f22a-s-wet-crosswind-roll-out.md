@@ -1,4 +1,88 @@
-### The F-22A's wet crosswind roll-out traced: her side force outruns the roll-out's track rudder, not her nose wheel; still named at 6.13 m - 2026-11-04
+### The F-22A's wet crosswind roll-out comes off her names: her own roll-out rudder gains, 3.85 m wet against 6.13 - 2026-11-04
+
+**Second round.** It supersedes the first round's "still named" below.
+
+**What is still not true.** The item ("The F-22A flies her stall-figure
+tests") stays open: her gust landings are still named, on forty seeds, as in
+2026-11-04-the-f22a-s-gear-down-alpha-limit-tried.
+
+**Why a stronger track rudder banked her.** Traced every eighth of a second
+in `an_approach_taken_back_at_the_touch_is_landed_to_a_stop` (calm air,
+taken back at 144.5 kt):
+- It is not her roll-out stick, and it begins in yaw, not in roll. Her
+  aileron stays within 0.15 until her heading swings past 10 degrees, and
+  her bank follows her yaw.
+- Even on main's gains, while her nose is still up after the touch, her
+  rudder chatters from -0.4 to +0.3 and back each quarter second, her yaw
+  rate changing sign each time. It dies out once her nose wheel is down.
+- On her wheels her pedals drive her rudders directly, through an actuator
+  limited to 2.67 of its travel a second (tools/make_f22.py's yaw ground
+  mode). The roll-out's yaw-rate damping, 0.5 of rudder a degree a second,
+  drives that rudder from stop to stop at about two cycles a second, and
+  the actuator lags it.
+- At 0.8 a degree of track, the oscillation grows: the rudder at its stops
+  each half second, her yaw rate 16 to 27 degrees a second. Her heading
+  swings 20 degrees either way, she is 25 m off the line, and she banks 16
+  degrees.
+
+**The fix: half the damping, and her own track rudder.** Her figures'
+`roll_out_yaw_damping_share` is 0.5, and `roll_out_track_rudder_per_deg`
+is 0.8 (both read by sim::Lander). Both are **tuned, not sourced**. Every
+other aircraft flies all of the damping and 0.5, as before.
+
+Measured on linux-release, her lines only:
+
+| track | damping | wet, m | dry, m | bank at the touch | landed by hand |
+|---|---|---|---|---|---|
+| 0.5 | all (main) | 6.13 | 2.35 | 0.0 | 0.0 |
+| 0.8 | all | 4.75 | 1.85 | 15.6, fails | 0.0 |
+| 0.5 | half | 5.09 | 1.94 | 0.0 | 0.0 |
+| 0.7 | half | 4.20 | 1.61 | 0.1 | 0.0 |
+| **0.8** | **half (written)** | **3.85** | **1.48** | **0.1** | **0.0** |
+| 1.0 | half | 3.29 | 1.28 | 0.1 | 0.0 |
+| 1.2 | half | 2.85 | 1.11 | 0.0 | 0.0 |
+| 1.3 | half | 2.67 | 1.05 | 16.8, wrecked | 0.0 |
+| 1.5 | half | 2.36 | 0.93 | 12.0 | 0.0 |
+| 0.8 | 0.3 | 3.55 | 1.34 | 0.0 | 0.0 |
+| 0.8 | 0.4 | 3.69 | 1.41 | 0.1 | 0.0 |
+| 0.8 | 0.6 | 4.03 | 1.56 | 0.1 | 0.0 |
+| 0.8 | 0.75 | 4.30 | 1.67 | 0.1 | 0.0 |
+| 1.0 | 0.3 to 0.6 | 3.03 to 3.44 | | 0.1 at most | 0.0 |
+| 1.2 | 0.3 to 0.4 | 2.64 to 2.73 | | 0.2 at most | 0.1 at most |
+| 1.5 | 0.4 | 2.26 | | 17.0 | 13.9 |
+
+So with half the damping, the track rudder works from 0.5 to 1.2 and
+weaves from 1.3. 0.8 is written: inside that band, and 1.15 m inside the
+5 m. Half is written for the damping: 0.3 to 0.75 all work at 0.8.
+
+**Every other aircraft is unchanged.** In the crosswind roll-out test,
+linux-release, before and after, every line but hers is the same to the
+hundredth: 737-300 3.08 m wet, 747-400 2.92, 787-8 2.47, A320 4.04, A380
+2.03, B-2A 0.84, C172P 0.77, C182 0.48, F-15C 3.04, F-35B 0.98, J-3 Cub 1.63,
+Learjet 35A 1.10, Mosquito 3.36, PA-28 2.02, and the tail-wheel slopes.
+Their code multiplies by the same 0.5 and 1 as before.
+
+**Verification (second round).**
+- The test passes with her name off: 3.85 m wet, 1.48 dry.
+- Seen red: with both attributes taken out of the build's copy of her
+  figures, she went 6.13 m and the test failed, "f22 went 6.128057 m from
+  the centreline rolling out wet". The copy was restored.
+- 479 tests on linux-release (with FMA), no display: every test matching
+  the roll-out, landing, wet runway, crosswind, braking, gust, approach,
+  touch, take-back, copilot, recording, selftest and committed-file tests.
+  All pass, her gust names among them, and the live recording tests are
+  skipped. Her measured landing still passes.
+- In an x86-64-v2 build (no FMA, as CI builds) her lines are the same:
+  3.85 m wet, 1.48 dry, bank 0.1 at the touch, 0.0 landed by hand. The 373
+  roll-out, landing, wet, crosswind, braking, take-back and touch tests of
+  its test program pass. The 28 that need the other programs were not
+  built in it, and failed at once for that.
+- Windows was not built: the change is C++ with no platform code.
+- `python3 tools/make_f22.py --check` passes. Her model is not changed.
+
+---
+
+### First round: traced, and still named at 6.13 m
 
 **What is still not true.** The item ("The F-22A flies her stall-figure
 tests") stays open. Her wet crosswind roll-out is still named, at 6.13 m

@@ -172,10 +172,11 @@ and her stall is measured at that limit as 14 CFR 25.103(a) has it:
 stabilators; before that 90. At 1.3 times it she lands on the centreline
 in calm air within 360 ft/min, and her measured landing is 8,400 ft. Her
 stall recoveries and her rise after the touch pass without her name; her
-speedbrake no longer lifts her (its lift was her flaps', copied). She is
-still named, with her figures, in the AI's stall watch, a 6.13 m wet
-crosswind roll-out (7.37 before), one wet walking pace and her gust
-landings (an open item). A stall begun at 1,000 ft is handed to the
+speedbrake no longer lifts her (its lift was her flaps', copied). Her
+stall watch, wet walking pace and wet crosswind roll-out (3.85 m from the
+centreline, against 6.13 before, with her own roll-out rudder gains,
+tuned) pass without her name. She is still named in her gust landings
+(an open item). A stall begun at 1,000 ft is handed to the
 recovery at the break, and every aeroplane taught a stall is handed over
 above the ground there with full power at once (2026-11-04); left thirty
 seconds stalled at idle there, eight reach the ground first, sinking at
