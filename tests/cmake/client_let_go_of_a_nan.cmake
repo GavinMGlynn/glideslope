@@ -70,6 +70,7 @@ endif()
 
 set(ENV{LSAN_OPTIONS} "exitcode=0")
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 execute_process(
     # Each writes down the pipe to the next; the window client's are read.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
@@ -80,6 +81,7 @@ execute_process(
             --shot "${_shot}" --shot-at 4200 --view behind --after-ready "${_ready}"
             --test-nan-at 960 --test-nan-words-at 2400 --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 if(NOT EXISTS "${_shot}")
     if(_err MATCHES "no GPU|could not|device")

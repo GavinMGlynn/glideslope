@@ -72,6 +72,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --players 4 --data "${DATA}" --store "${_store}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 string(REGEX MATCHALL "number [0-9]+, a player's, banked as far as [0-9]+ degrees"
        _players "${_out}")

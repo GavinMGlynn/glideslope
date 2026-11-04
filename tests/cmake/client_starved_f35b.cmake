@@ -63,6 +63,7 @@ execute_process(
             --stopped-sending 14 3000 --after-ready "${_ready}"
             --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 list(GET _rcs -1 _rc)
 if(NOT EXISTS "${_shot}")
     if(_err MATCHES "no GPU|could not|device")

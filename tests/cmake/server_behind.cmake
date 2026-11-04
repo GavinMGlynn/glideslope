@@ -66,6 +66,7 @@ execute_process(
             --players 4 --data "${DATA}" --timeout 3 --test-step-ms 30
             --store "${_store}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 string(REGEX MATCHALL "number [0-9]+, a player's, banked as far as [0-9]+ degrees"
        _players "${_out}")

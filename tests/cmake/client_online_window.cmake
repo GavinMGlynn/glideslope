@@ -45,6 +45,7 @@ execute_process(
     COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 320x240
             --shot "${_shot}" --shot-at 2 --online
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 if(NOT EXISTS "${_shot}")
     if(_err MATCHES "no GPU|could not|device")
@@ -85,6 +86,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 0 --headless
             --timeout 120 --store "${_store}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 # The server must finish well. The client must too, but for the leak
 # sanitizer's exit, which a sanitized build gives for leaks in libraries
 # loaded at run time; those are judged as the first run's are, and any of

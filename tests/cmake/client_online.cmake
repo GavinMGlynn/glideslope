@@ -48,6 +48,7 @@ execute_process(
             --timeout 30 --store "${_store}"
     COMMAND "${CLIENT}" connect --online 2
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the client did not finish well:\n${_err}\n${_out}")
 endif()

@@ -34,11 +34,13 @@ if(MODE STREQUAL "restart")
         COMMAND "${SERVER}" --port ${PORT} --seconds 300 --ai 1 --headless --data "${DATA}"
                 --timeout 30 --store "${STORE}" --ready-file "${READY}" --stop-once-flown 20
         RESULT_VARIABLE _first OUTPUT_VARIABLE _said ERROR_VARIABLE _said)
+    port_listened("${_said}")
     message(NOTICE "${_said}")
     execute_process(
         COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
                 --data "${DATA}" --timeout 30 --store "${STORE}"
         RESULT_VARIABLE _second OUTPUT_VARIABLE _said ERROR_VARIABLE _said)
+    port_listened("${_said}")
     message(NOTICE "${_said}")
     if(NOT _first EQUAL 0 OR NOT _second EQUAL 0)
         message(FATAL_ERROR "the servers exited ${_first} and ${_second}")
@@ -49,6 +51,7 @@ elseif(MODE STREQUAL "lost")
                 --data "${DATA}" --timeout 30 --store "${STORE}" --ready-file "${READY}"
                 --drop-once-flown --lose-goodbyes
         RESULT_VARIABLE _rc OUTPUT_VARIABLE _said ERROR_VARIABLE _said)
+    port_listened("${_said}")
     message(NOTICE "${_said}")
     if(NOT _rc EQUAL 0)
         message(FATAL_ERROR "the server exited ${_rc}")

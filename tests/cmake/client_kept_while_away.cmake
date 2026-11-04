@@ -71,6 +71,7 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 # server's standard output on to standard error, so that both programs are
 # heard - the server's in _err, the client's in _out.
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 set(_timeout 2)
 # **Both cases, one after the other**, on the same two ports: the block of
 # fixed ports has no two more side by side to give a second test.
@@ -99,6 +100,7 @@ foreach(AWAY IN LISTS _cases)
                 --shot "${_shot}" --view cockpit --shot-at 1200 ${_away} --after-ready "${_ready}"
                 --server 127.0.0.1 ${_relay} --server-key ${_key}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    port_listened("${_out}" "${_err}")
     list(GET _rcs -1 _rc)
 
     # **A machine that cannot draw skips, before anything is judged**: the

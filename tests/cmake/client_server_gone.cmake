@@ -81,6 +81,7 @@ if(MODE STREQUAL "lost")
                 --shot "${_shot}" --view cockpit --shot-at 7200 --done "${_gone}"
                 --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    port_listened("${_out}" "${_err}")
 elseif(MODE STREQUAL "restart")
     execute_process(
         COMMAND "${CMAKE_COMMAND}" -DSERVER=${SERVER} -DPORT=${PORT} -DDATA=${DATA}
@@ -90,6 +91,7 @@ elseif(MODE STREQUAL "restart")
                 --shot "${_shot}" --view cockpit --shot-at 600 --shot-once-joined-again
                 --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    port_listened("${_out}" "${_err}")
 else()
     message(FATAL_ERROR "client_server_gone.cmake: MODE is lost or restart, not '${MODE}'")
 endif()

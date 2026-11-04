@@ -71,6 +71,7 @@ execute_process(
             --data "${DATA}" --store "${_store}" --steps-after-hand-over ${_handed}
             --stopped-file "${_stopped}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT EXISTS "${_heard}")
     message(FATAL_ERROR "the client heard nothing:\n${_out}\n${_err}")
 endif()

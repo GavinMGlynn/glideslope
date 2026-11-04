@@ -173,6 +173,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 400 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 30 --store "${_store}" ${_plan} ${_players}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _err)
+port_listened("${_served}" "${_err}")
 if(NOT EXISTS "${_heard}")
     message(FATAL_ERROR "the client heard nothing (exit codes ${_rcs}):\n${_served}\n${_err}")
 endif()

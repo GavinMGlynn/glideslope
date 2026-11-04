@@ -67,7 +67,9 @@ set(_before "${WORK}/before.txt")
 set(_during "${WORK}/during.txt")
 file(REMOVE "${_before}" "${_during}")
 math(EXPR _relay_before "${PORT} + 4")
+port_lock_hold(${_relay_before})
 math(EXPR _relay_during "${PORT} + 6")
+port_lock_hold(${_relay_during})
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay_before}" "${_key}" 25
             --after-ready "${_ready}" --predict --heard "${_before}"
@@ -83,6 +85,7 @@ execute_process(
     COMMAND "${IMPAIR}" ${_relay_during} "127.0.0.1:${PORT}" --delay 250 --jitter 0
             --loss 0 --seed 2 --until-input-ends --seconds 290
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rcs STREQUAL "0;0;0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
 endif()

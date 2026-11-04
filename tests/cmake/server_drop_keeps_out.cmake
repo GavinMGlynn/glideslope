@@ -82,6 +82,7 @@ execute_process(
             --players 4 --data "${DATA}" --timeout 30 --store "${_store}"
             --ready-file "${_ready}" --drop-once-flown
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 foreach(_file IN ITEMS "${_first}" "${_again}")
     if(NOT EXISTS "${_file}")

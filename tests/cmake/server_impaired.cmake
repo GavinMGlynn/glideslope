@@ -78,6 +78,7 @@ if(NOT _rc EQUAL 0)
 endif()
 
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 set(_truth "${WORK}/truth.txt")
 set(_shown "${WORK}/shown.txt")
 set(_predicting "${WORK}/predicting.txt")
@@ -115,6 +116,7 @@ execute_process(
             # must carry them past the newest update, every run.
             --gap 200 --every 4
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 message(STATUS "exit codes: ${_rcs}\n${_out}")
 # The one too many is refused (1); every other program finished as it should.
 if(NOT _rcs STREQUAL "1;0;0;0;0")

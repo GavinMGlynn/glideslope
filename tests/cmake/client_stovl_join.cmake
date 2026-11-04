@@ -57,6 +57,7 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 set(_player "e94098d673c95d5361083f2de65d653ab59f17b3141ebca6ee8e6fa488291f26")
 # The addresses are written in the commands, where test_ports.cmake reads them.
 execute_process(
@@ -73,6 +74,7 @@ execute_process(
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 900
     RESULT_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT EXISTS "${_shot}")
     if(_err MATCHES "no GPU|could not|device")
         message(STATUS "the client cannot draw here: ${_err}")

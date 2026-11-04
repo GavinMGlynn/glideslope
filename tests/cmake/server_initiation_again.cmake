@@ -79,6 +79,7 @@ execute_process(
             --players 4 --data "${DATA}" --timeout 3 --store "${_store}"
             --ready-file "${_ready}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 if(NOT EXISTS "${_heard}")
     message(FATAL_ERROR "the silent client said nothing of its initiation:\n${_out}\n${_err}")

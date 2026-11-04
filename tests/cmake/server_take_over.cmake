@@ -67,6 +67,7 @@ if(NOT _rc EQUAL 0)
 endif()
 
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 set(_taker "${WORK}/taker.txt")
 set(_other "${WORK}/other.txt")
 set(_third "${WORK}/third.txt")
@@ -86,6 +87,7 @@ execute_process(
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay ${DELAY} --jitter ${JITTER}
             --loss ${LOSS} --seed ${SEED} --until-input-ends --seconds 290
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rcs STREQUAL "0;0;0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
 endif()
@@ -181,6 +183,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --no-take-over --data "${DATA}" --timeout 30 --store "${_store}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _err)
+port_listened("${_served}" "${_err}")
 if(NOT _rcs STREQUAL "0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_served}\n${_err}")
 endif()

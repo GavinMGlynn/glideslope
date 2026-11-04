@@ -79,6 +79,7 @@ execute_process(
             --players 4 --data "${DATA}" --timeout 6 --store "${_store}"
             --ready-file "${_ready}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 if(NOT EXISTS "${_gone}")
     message(FATAL_ERROR "the copy's session was never let go while its initiation was "

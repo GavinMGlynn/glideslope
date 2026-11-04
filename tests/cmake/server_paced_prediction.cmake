@@ -171,6 +171,7 @@ if(STOPPED)
     set(_server_stopped --test-stopped-once 12 3500)
 endif()
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 280 --after 1
             --predict --until-compared 600 --heard "${_heard}" ${_unpaced}
@@ -181,6 +182,7 @@ execute_process(
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 290
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rcs STREQUAL "0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
 endif()

@@ -32,10 +32,24 @@
 #   - a test whose script uses `${PORT}` holds it machine-wide, through
 #     `include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)`, before its first
 #     execute_process: two builds on one machine are the same tests on the
-#     same ports (port_lock.cmake says what that did on 2026-11-04).
+#     same ports (port_lock.cmake says what that did on 2026-11-04);
+#   - every port it derives from PORT (a relay at PORT + K) it holds too, by
+#     `port_lock_hold(${V})` after the math() that makes it and before the
+#     next execute_process;
+#   - every call in such a script that listens on a held port - a program
+#     run with `--port ${V}`, a relay (`"${IMPAIR}" ${V}`), or a script handed
+#     a server and the port (-DSERVER= with -DPORT=${PORT}) - is followed by
+#     `port_listened(...)`, handed that call's standard error, before any
+#     message(FATAL_ERROR) and before the next call that listens: a server
+#     that could not listen fails its test as that, not as what its client
+#     heard from whatever holds the port. Each script is read once, however
+#     many tests run it; a script that uses a port and listens on nothing is
+#     named below, with its reason, and one that is not named fails.
 #
 # A test that asks for port 0 is given one by the system and needs no block;
 # none of those is counted here.
+
+cmake_minimum_required(VERSION 3.28)
 
 foreach(_v CTEST BUILD FIRST LAST)
     if(NOT DEFINED ${_v})
@@ -70,7 +84,157 @@ set(_given 0)          # tests given -DPORT
 set(_needing 0)        # tests whose script uses ${PORT}
 set(_locking 0)        # ... and holds it, through port_lock.cmake, before running anything
 set(_left_out "")      # tests that name a port and listen on nothing
+set(_read_scripts "")      # scripts whose listening calls have been read, each once
+set(_listening_scripts 0)  # ... those with a call that listens on a held port
+set(_checked_scripts 0)    # ... and every such call of theirs checked by port_listened
+set(_listening_calls 0)
+set(_checked_calls 0)
+set(_relays 0)             # ports a script derives from PORT, script by script
+set(_relays_held 0)        # ... and holds before it runs anything on them
+# **Scripts that use a port and listen on nothing**, with the reason. Any
+# other script that uses a port and has no call listening on it fails.
+set(_listen_on_nothing
+    "frame_terrain_imagery_refused.cmake=its PORT is one nobody listens on, so every fetch is refused"
+    "imagery_stale_refused.cmake=its PORT is one nobody listens on, so every fetch is refused")
 set(_problems "")
+# **Every call that listens on a held port, checked first**: reads one
+# script's calls, and queues in _rl_queue each script it runs on its port
+# (a script handed a server), to be read in turn. A call is the text from
+# its execute_process( to the first line it closes; what follows it, up to
+# the next call that listens, must call port_listened before it judges
+# anything. A macro, so that its counts and problems are the caller's.
+macro(_read_listeners _rl_script)
+    get_filename_component(_script_name "${_rl_script}" NAME)
+    file(READ "${_rl_script}" _rl_text)
+    # The ports it holds: PORT, and each name it gives one derived from it.
+    string(REGEX MATCHALL "(set|math)\\(([A-Za-z0-9_]+|EXPR +[A-Za-z0-9_]+) +\"?\\\${PORT}[^)]*\\)"
+           _rl_derivations "${_rl_text}")
+    set(_held_vars PORT)
+    foreach(_rl_d IN LISTS _rl_derivations)
+        if(_rl_d MATCHES "^(set\\(|math\\(EXPR +)([A-Za-z0-9_]+)")
+            list(APPEND _held_vars "${CMAKE_MATCH_2}")
+        endif()
+    endforeach()
+    list(JOIN _held_vars "|" _held_alt)
+    set(_listens "")       # where each call that listens starts
+    set(_listens_end "")   # ... and ends
+    set(_listens_err "")   # ... and the variable it catches stderr in, or -
+    set(_offset 0)
+    set(_rest "${_rl_text}")
+    while(TRUE)
+        string(FIND "${_rest}" "execute_process(" _at)
+        if(_at EQUAL -1)
+            break()
+        endif()
+        math(EXPR _offset "${_offset} + ${_at}")
+        string(SUBSTRING "${_rest}" ${_at} -1 _rest)
+        string(FIND "${_rest}" ")\n" _end)
+        if(_end EQUAL -1)
+            string(LENGTH "${_rest}" _end)
+        endif()
+        string(SUBSTRING "${_rest}" 0 ${_end} _run)
+        set(_listening FALSE)
+        if(_run MATCHES "--port +\\\${(${_held_alt})}")
+            set(_listening TRUE)
+        elseif(_run MATCHES "\\\${IMPAIR}\" +\\\${(${_held_alt})}")
+            set(_listening TRUE)
+        elseif(_run MATCHES "-DSERVER=" AND _run MATCHES "-DPORT=\\\${PORT}")
+            set(_listening TRUE)
+            # The script it runs is read too: its own calls are its server's.
+            if(_run MATCHES "-P +\"?\\\${CMAKE_CURRENT_LIST_DIR}/([A-Za-z0-9_]+\\.cmake)")
+                get_filename_component(_rl_dir "${_rl_script}" DIRECTORY)
+                list(APPEND _rl_queue "${_rl_dir}/${CMAKE_MATCH_1}")
+            else()
+                list(APPEND _problems "${_script_name}: it runs a script on its port that "
+                                      "this cannot name, to read its calls")
+            endif()
+        endif()
+        if(_listening)
+            math(EXPR _ends_at "${_offset} + ${_end}")
+            list(APPEND _listens ${_offset})
+            list(APPEND _listens_end ${_ends_at})
+            if(_run MATCHES "ERROR_VARIABLE +([A-Za-z0-9_]+)")
+                list(APPEND _listens_err "${CMAKE_MATCH_1}")
+            else()
+                list(APPEND _listens_err "-")
+            endif()
+        endif()
+        string(SUBSTRING "${_rest}" 16 -1 _rest)
+        math(EXPR _offset "${_offset} + 16")
+    endwhile()
+    list(LENGTH _listens _calls_here)
+    set(_named_reason "")
+    foreach(_named_script IN LISTS _listen_on_nothing)
+        if(_named_script MATCHES "^([^=]+)=(.*)$" AND CMAKE_MATCH_1 STREQUAL _script_name)
+            set(_named_reason "${CMAKE_MATCH_2}")
+        endif()
+    endforeach()
+    if(_calls_here EQUAL 0)
+        if(_named_reason STREQUAL "")
+            list(APPEND _problems
+                 "${_script_name}: it uses \${PORT} and this finds no call listening on "
+                 "it - name it as listening on nothing, with its reason, or teach "
+                 "this check its listener")
+        else()
+            list(APPEND _left_out "${_script_name} (${_named_reason})")
+        endif()
+    else()
+        if(NOT _named_reason STREQUAL "")
+            list(APPEND _problems "${_script_name}: named as listening on nothing, "
+                                  "and ${_calls_here} of its calls listen")
+        endif()
+        math(EXPR _listening_scripts "${_listening_scripts} + 1")
+        math(EXPR _listening_calls "${_listening_calls} + ${_calls_here}")
+        set(_all_checked TRUE)
+        math(EXPR _last_call "${_calls_here} - 1")
+        foreach(_c RANGE ${_last_call})
+            list(GET _listens_end ${_c} _from)
+            list(GET _listens_err ${_c} _err_var)
+            math(EXPR _n "${_c} + 1")
+            if(_n LESS _calls_here)
+                list(GET _listens ${_n} _to)
+                math(EXPR _span "${_to} - ${_from}")
+                string(SUBSTRING "${_rl_text}" ${_from} ${_span} _after)
+            else()
+                string(SUBSTRING "${_rl_text}" ${_from} -1 _after)
+            endif()
+            string(FIND "${_after}" "port_listened(" _check)
+            string(FIND "${_after}" "message(FATAL_ERROR" _fatal)
+            string(SUBSTRING "${_rl_text}" 0 ${_from} _before)
+            string(REGEX MATCHALL "\n" _lines "${_before}")
+            list(LENGTH _lines _line)
+            math(EXPR _line "${_line} + 1")
+            if(_check EQUAL -1 OR (NOT _fatal EQUAL -1 AND _fatal LESS _check))
+                list(APPEND _problems
+                     "${_script_name}:${_line}: a call that listens on a held port is "
+                     "not checked by port_listened(...) before anything is judged")
+                set(_all_checked FALSE)
+                continue()
+            endif()
+            string(SUBSTRING "${_after}" ${_check} -1 _check_text)
+            string(FIND "${_check_text}" ")" _close)
+            string(SUBSTRING "${_check_text}" 0 ${_close} _check_text)
+            string(FIND "${_check_text}" "\${${_err_var}}" _hands)
+            if(_err_var STREQUAL "-")
+                list(APPEND _problems
+                     "${_script_name}:${_line}: a call that listens on a held port "
+                     "catches no standard error for port_listened to read")
+                set(_all_checked FALSE)
+            elseif(_hands EQUAL -1)
+                list(APPEND _problems
+                     "${_script_name}:${_line}: port_listened is not handed "
+                     "\${${_err_var}}, that call's standard error")
+                set(_all_checked FALSE)
+            else()
+                math(EXPR _checked_calls "${_checked_calls} + 1")
+            endif()
+        endforeach()
+        if(_all_checked)
+            math(EXPR _checked_scripts "${_checked_scripts} + 1")
+        endif()
+    endif()
+endmacro()
+
 math(EXPR _last_index "${_count} - 1")
 foreach(_i RANGE ${_last_index})
     # Each test's own entry once: string(JSON) parses all it is given.
@@ -209,6 +373,23 @@ foreach(_i RANGE ${_last_index})
                 if(NOT _k EQUAL 0)
                     math(EXPR _p "${_port} + ${_k}")
                     list(APPEND _claims "${_p}=${_name} (\${PORT} + ${_k})")
+                    # **Held too**, after this math() and before the next
+                    # execute_process: another version's test may use it.
+                    list(GET _derived_vars -1 _v)
+                    string(FIND "${_script_text}" "${_call}" _at)
+                    string(SUBSTRING "${_script_text}" ${_at} -1 _after)
+                    string(FIND "${_after}" "port_lock_hold(\${${_v}})" _held)
+                    string(FIND "${_after}" "execute_process(" _next_run)
+                    if(NOT _script IN_LIST _read_scripts)
+                        math(EXPR _relays "${_relays} + 1")
+                    endif()
+                    if(_held EQUAL -1 OR (NOT _next_run EQUAL -1 AND _next_run LESS _held))
+                        list(APPEND _problems "${_name}: its script derives port ${_p} "
+                                              "(\${PORT} + ${_k}) and does not hold it, "
+                                              "port_lock_hold(\${${_v}}), before it runs anything")
+                    elseif(NOT _script IN_LIST _read_scripts)
+                        math(EXPR _relays_held "${_relays_held} + 1")
+                    endif()
                 endif()
             else()
                 list(APPEND _unread "${_call}")
@@ -226,12 +407,32 @@ foreach(_i RANGE ${_last_index})
             string(REPLACE "\n" " " _call "${_call}")
             list(APPEND _problems "${_name}: its script derives a port this cannot read: ${_call}")
         endforeach()
+
+        # **Every call that listens on a held port, checked first**, read
+        # once per script, and the scripts it runs on its port with it.
+        set(_rl_queue "${_script}")
+        while(_rl_queue)
+            list(POP_FRONT _rl_queue _rl_next)
+            if(NOT _rl_next IN_LIST _read_scripts)
+                list(APPEND _read_scripts "${_rl_next}")
+                _read_listeners("${_rl_next}")
+            endif()
+        endwhile()
     endif()
 endforeach()
 
 if(NOT _locking EQUAL _needing)
     list(APPEND _problems
          "${_needing} tests' scripts use a port and ${_locking} of them hold it first")
+endif()
+if(NOT _checked_calls EQUAL _listening_calls OR NOT _checked_scripts EQUAL _listening_scripts)
+    list(APPEND _problems
+         "${_listening_scripts} scripts make ${_listening_calls} calls that listen on a held "
+         "port, and ${_checked_scripts} scripts' ${_checked_calls} calls are checked by "
+         "port_listened first")
+endif()
+if(NOT _relays_held EQUAL _relays)
+    list(APPEND _problems "scripts derive ${_relays} ports from PORT and hold ${_relays_held} of them")
 endif()
 if(NOT _given EQUAL _needing)
     list(APPEND _problems
@@ -267,5 +468,8 @@ if(_problems)
 endif()
 message(STATUS "walked ${_count} tests: ${_needing} run a script that needs a port and "
                "${_given} are given one, ${_locking} holding it machine-wide before they run "
-               "anything; ${_ports} ports claimed, all in ${FIRST}-${LAST} and no two "
-               "the same; ${_left} left out as listening on nothing")
+               "anything; ${_relays_held} of ${_relays} ports derived from one held too; "
+               "${_listening_scripts} scripts make ${_listening_calls} calls that listen on a "
+               "held port, ${_checked_calls} of them, in ${_checked_scripts} scripts, checked "
+               "by port_listened before anything is judged; ${_ports} ports claimed, all in "
+               "${FIRST}-${LAST} and no two the same; ${_left} left out as listening on nothing")

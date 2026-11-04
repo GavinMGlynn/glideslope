@@ -95,6 +95,7 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 set(_flies 900 --after 1 --predict --stovl-land
            --stovl-level --until-compared-on-law 750 --heard "${_heard}")
 if(SCENE STREQUAL "take_over")
@@ -117,6 +118,7 @@ execute_process(
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 1200
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 list(REMOVE_ITEM _rcs 0)
 if(_rcs)
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")

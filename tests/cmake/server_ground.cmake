@@ -99,6 +99,7 @@ execute_process(
             --ready-file "${_ready}"
             --players 2 --data "${DATA}" --timeout 30 --store "${_store}" ${SERVER_EXTRA}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rcs STREQUAL "1;0;0")
     # Each client's own words with it, which its exit code alone does not say.
     # A client that never got as far as its file has said nothing into it.

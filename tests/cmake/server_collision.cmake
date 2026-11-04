@@ -72,6 +72,7 @@ execute_process(
             --data "${DATA}" --store "${_store}"
             --fly 737-300@-33.90,151.40,0 --fly 737-300@-33.87,151.40,180
     RESULT_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 # **The server resolved it**: both wrecks, each having hit the other, then
 # both flying again.

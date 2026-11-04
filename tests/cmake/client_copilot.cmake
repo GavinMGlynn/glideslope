@@ -81,6 +81,7 @@ execute_process(
             ${_asking} --copilot-playback "${PLAYBACK}"
             --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 if(NOT EXISTS "${_shot}")
     if(_err MATCHES "no GPU|could not|device")
