@@ -291,8 +291,35 @@ class Flier:
         return r
 
 
+# **Where the approach autopilot hands her to the policy**: 35 ft over the
+# runway (sim::LearntLander::policy_takes_her_ft), on the glidepath - a copy:
+# a change there is a change here.
+HANDOVER_FT = 35.0
+
+
 def random_start(rng: np.random.Generator, plane: L.Aeroplane,
-                 behind_left: float = 0.0) -> L.Start:
+                 behind_left: float = 0.0, handover: float = 0.0) -> L.Start:
+    # **From the approach autopilot's hand-over** (train.py's `--handover`,
+    # 2026-11-04): this fraction of the flights from near where a session's
+    # approach autopilot hands her to the policy - 25 to 45 ft over the
+    # runway, within 2 m of the glidepath and 5 m of the centreline, up to
+    # 8 degrees off the heading (her crab), at her speed to 3 kt either side,
+    # trimmed down the glidepath, in training's wind - so that the round out
+    # and the touch from there are learnt, not only reached. Without it no
+    # random number is drawn for it, as for `behind_left`.
+    if handover > 0.0 and rng.random() < handover:
+        ap = plane.approach
+        tan = math.tan(ap.glidepath_deg / L.DEGREES)
+        above_m = rng.uniform(HANDOVER_FT - 10.0, HANDOVER_FT + 10.0) / L.FEET_PER_METRE
+        return L.Start(
+            out_m=above_m / tan - ap.aim_m,
+            across_m=rng.uniform(-5.0, 5.0),
+            high_m=rng.uniform(-2.0, 2.0),
+            heading_offset_deg=rng.uniform(-8.0, 8.0),
+            airspeed_kts=ap.vref_kts + rng.uniform(-3.0, 3.0),
+            fuel_lbs=float(rng.uniform(*plane.training_fuel_lbs)),
+            **wind(rng),
+        )
     # **Behind and across from the left** (train.py's `--behind-left`): this
     # fraction of the flights from near the two corners of the learnt
     # landing's gate (sim::LearntGate) the policy of 2026-11-02 touched short
@@ -359,9 +386,10 @@ class LandingEnv(gym.Env):
     metadata = {"render_modes": []}
 
     def __init__(self, model: str, seed: int = 0, speed_costs: bool = False,
-                 behind_left: float = 0.0):
+                 behind_left: float = 0.0, handover: float = 0.0):
         super().__init__()
         self.behind_left = behind_left
+        self.handover = handover
         plane = L.aeroplane(model)
         self.flier = Flier(L.Runway(), plane.approach, plane, speed_costs)
         self.observation_space = gym.spaces.Box(-np.inf, np.inf, (L.OBSERVATIONS,), np.float64)
@@ -371,7 +399,7 @@ class LandingEnv(gym.Env):
     def reset(self, *, seed=None, options=None):
         if seed is not None:
             self.rng = np.random.default_rng(seed)
-        start = random_start(self.rng, self.flier.plane, self.behind_left)
+        start = random_start(self.rng, self.flier.plane, self.behind_left, self.handover)
         obs = self.flier.begin(start)
         return np.asarray(obs, dtype=np.float64), {}
 
