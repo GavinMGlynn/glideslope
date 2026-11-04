@@ -137,3 +137,9 @@ was not inspected. CI's builds are not FMA.
   copilot-routed landings, and the gusty climb-out.
 
 The selftest hash is unaffected: no aircraft's own flight model changed.
+
+**After the review's fix round** (the factor capped at 2, the law computed
+once): in the x86-64-v2 build, which has no FMA as on CI, every gust,
+light/heavy and approach-weight line is unchanged from the push before it,
+the 737-300 light's included. The Cub's FMA-build figure was not measured
+again.
