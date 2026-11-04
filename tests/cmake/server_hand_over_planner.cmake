@@ -105,6 +105,7 @@ function(given case who)
         COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 1 --headless
                 --data "${DATA}" --timeout 30 --store "${_store}" ${_server} ${_planner}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _err)
+    port_listened("${_served}" "${_err}")
     if(NOT _rcs STREQUAL "0;0")
         if(DEFINED RECORD AND _err MATCHES "no (OpenAI|Anthropic) key|no credits|credit balance|insufficient_quota")
             message(STATUS "${who} cannot be asked here: ${_err}")

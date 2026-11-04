@@ -74,6 +74,7 @@ endif()
 # are on standard output. The client's key's public half begins 11fc7622
 # (see server_slots.cmake).
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 # **The server's --timeout is long, 30 s**: the session must be merely quiet,
 # never let go, and the client's own three seconds are what is tested. At 5 s
 # the window client, building its flight under load in a debug build, was
@@ -89,6 +90,7 @@ execute_process(
             --after-ready "${_ready}" --done "${_done}"
             --key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 # **The forger did its work, and the client answered it by trying to join
 # again**: without both, nothing below tests anything.

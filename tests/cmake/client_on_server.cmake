@@ -118,6 +118,7 @@ execute_process(
             --shot "${_shot}" --shot-at 1200 --view behind --aircraft f15c --slow-start 5
             ${_slow} --after-ready "${_ready}" --server 127.0.0.1 ${PORT} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 # The window client's is the last.
 list(GET _rcs -1 _rc)
 

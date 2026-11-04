@@ -33,6 +33,7 @@ cmake_minimum_required(VERSION 3.28)
 include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
 
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 file(MAKE_DIRECTORY "${WORK}")
 set(_ask "${WORK}/ask.hex")
 set(_last "${WORK}/last.hex")
@@ -47,6 +48,7 @@ foreach(_delay IN ITEMS 1000 0)
                 --loss 0 --seed 1 --until-input-ends --seconds 600
         COMMAND "${CHECK}" "127.0.0.1:${_relay}" "${_ask}" 60
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    port_listened("${_out}" "${_err}")
     if(NOT _err MATCHES "answered\n")
         message(FATAL_ERROR "with --delay ${_delay}, the server was never asked "
                             "(${_rcs}):\n${_out}${_err}")
@@ -83,6 +85,7 @@ execute_process(
             --loss 0 --seed 1 --until-input-ends --seconds 8
     COMMAND "${CHECK}" "127.0.0.1:${_relay}" "${_ask}" 12
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rcs MATCHES "^0;1;"
    OR NOT _err MATCHES "impair: after its input ended, took [01] from the server and delivered 0 to the clients; 1 still held when it stopped\n"
    OR NOT _err MATCHES "answered\n")

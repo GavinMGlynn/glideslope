@@ -69,6 +69,7 @@ execute_process(
             --players 4 --data "${DATA}" --timeout 30 --store "${_store}"
             --ready-file "${_ready}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 string(REGEX MATCHALL "admitted 11fc7622" _admitted "${_out}")
 list(LENGTH _admitted _admissions)

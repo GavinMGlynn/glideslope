@@ -58,6 +58,7 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 set(_station -33.9461,151.1772,6)
 set(_west "YSSY 020600Z 27035KT 9999 FEW030 20/10 Q1012")
 math(EXPR _relay "${PORT} + 4")
+port_lock_hold(${_relay})
 execute_process(
     # Each writes down the pipe to the next; the window client's are read.
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
@@ -69,6 +70,7 @@ execute_process(
             --shot "${_shot}" --shot-at 2400 --view behind --after-ready "${_ready}"
             --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 list(GET _rcs -1 _rc)
 
 if(NOT EXISTS "${_shot}")

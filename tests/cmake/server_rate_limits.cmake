@@ -80,6 +80,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --store "${_store}" --ready-file "${_ready}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 if(NOT _err MATCHES "flood: ([0-9]+) sealed pings over ([0-9]+)\\.([0-9][0-9][0-9]) s, ([0-9]+) answered; ([0-9]+) requests, all acknowledged")
     message(FATAL_ERROR "the client did not flood the server:\n${_out}\n${_err}")

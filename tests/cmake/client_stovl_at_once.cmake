@@ -62,6 +62,7 @@ file(REMOVE "${_ready}")
 # standard error through a relay after it (glideslope_impair, delivering at
 # once); the client last, its own on standard output.
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 30 --store "${_store}" --plan "${_plan}"
@@ -74,6 +75,7 @@ execute_process(
             --after-ready "${_ready}"
             --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 list(GET _rcs -1 _rc)
 list(GET _rcs 0 _server_rc)
 if(NOT _out MATCHES "quitting at tick")

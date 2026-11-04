@@ -79,6 +79,7 @@ endif()
 # apart, and nothing blended stepped 4.2 m: under the bound, so the test
 # would not have seen the blend gone.
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 # SLOW_FRAMES holds every pass of the client's frame loop that many
 # milliseconds longer (--slow-frames): what shows the frame-rate guard firing.
 set(_slow)
@@ -102,6 +103,7 @@ execute_process(
             --next-aircraft-after 6 --next-aircraft-after 7 ${_slow}
             --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 if(NOT EXISTS "${_shot}")
     if(_err MATCHES "no GPU|could not|device")

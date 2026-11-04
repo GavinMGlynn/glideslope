@@ -171,6 +171,7 @@ execute_process(
             ${_take_over} --after-ready "${_ready}" --server 127.0.0.1 ${PORT}
             --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 skip_when_no_gpu("${_shot}" "${_err}" "${_out}")
 glideslope_judge_leaks("${_err}")
 if(NOT _rc EQUAL 0)

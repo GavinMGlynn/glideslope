@@ -66,6 +66,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 0 --headless
             --timeout 120 --store "${_store}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the server stopped badly:\n${_err}\n${_out}")
 endif()

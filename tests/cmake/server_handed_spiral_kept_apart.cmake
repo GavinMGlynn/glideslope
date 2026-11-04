@@ -75,10 +75,8 @@ execute_process(
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 # **Its own server first**: a server that could not listen leaves its client
 # talking to whatever holds the port, and the client's refusal would name the
-# wrong fault (2026-11-04).
-if(_err MATCHES "cannot listen on port")
-    message(FATAL_ERROR "the server could not listen on port ${PORT}:\n${_err}")
-endif()
+# wrong fault (2026-11-04; port_lock.cmake).
+port_listened("${_out}" "${_err}")
 list(GET _rcs 1 _server_rc)
 if(NOT _server_rc EQUAL 0)
     message(FATAL_ERROR "the server ended ${_server_rc}:\n${_out}\n${_err}")

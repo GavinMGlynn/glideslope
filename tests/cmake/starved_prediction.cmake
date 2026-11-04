@@ -72,6 +72,7 @@ if(NOT _rc EQUAL 0)
 endif()
 
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 string(TIMESTAMP _began "%s")
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${_relay}" "${_key}" 120 --after 1
@@ -82,6 +83,7 @@ execute_process(
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 390
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 string(TIMESTAMP _ended "%s")
 math(EXPR _took "${_ended} - ${_began}")
 if(NOT _rcs STREQUAL "0;0;0")

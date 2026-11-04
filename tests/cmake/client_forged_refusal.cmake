@@ -61,6 +61,7 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 # The server's words reach standard error through the relay; the client's are
 # on standard output.
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 # **The server's --timeout is long, 30 s**: the session must be merely quiet,
 # never let go, and the client's own three seconds are what is tested. At 5 s
 # the window client, building its flight under load in a debug build, was
@@ -79,6 +80,7 @@ execute_process(
             --shot "${_shot}" --view cockpit --shot-at 1200 --shot-once-back
             --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 list(GET _rcs -1 _rc)
 
 # **A machine that cannot draw skips, before anything is judged** (as in

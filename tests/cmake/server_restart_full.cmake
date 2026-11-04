@@ -83,6 +83,7 @@ execute_process(
             --players 1 --data "${DATA}" --timeout ${_timeout_s} --store "${_store}"
             --ready-file "${_ready}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 if(_out MATCHES "of silence")
     message(FATAL_ERROR "the server let a session go for silence, so the player waited "

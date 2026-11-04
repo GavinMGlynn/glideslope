@@ -77,6 +77,7 @@ function(centimetres value out)
 endfunction()
 
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 set(_heard "${WORK}/f35b-stopped-sending.txt")
 file(REMOVE "${_heard}")
 execute_process(
@@ -88,6 +89,7 @@ execute_process(
     COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 100 --jitter 0
             --loss 0 --seed 1 --until-input-ends --seconds 900
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rcs STREQUAL "0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
 endif()

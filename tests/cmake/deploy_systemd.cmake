@@ -84,6 +84,13 @@ if(NOT EXISTS "${_log}")
     cmake_language(EXIT 77)
 endif()
 file(READ "${_log}" _said)
+# Its own server first - under systemd its standard error is a file; a
+# server that cannot listen has ended, and there is nothing to stop.
+set(_said_err "")
+if(EXISTS "${WORK}/deploy.err")
+    file(READ "${WORK}/deploy.err" _said_err)
+endif()
+port_listened("${_err}" "${_said}" "${_said_err}")
 if(NOT _said MATCHES "server key ([0-9a-f][0-9a-f]+)\n")
     execute_process(COMMAND "${SYSTEMCTL}" --user stop glideslope-check.service)
     message(FATAL_ERROR "the server under systemd printed no key:\n${_said}")

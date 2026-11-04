@@ -76,6 +76,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
             --data "${DATA}" --timeout 120 --store "${_store}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _served ERROR_VARIABLE _out)
+port_listened("${_served}" "${_out}")
 if(NOT _rcs STREQUAL "0;0")
     message(FATAL_ERROR "the exit codes were ${_rcs}, the document's client's first:\n"
                         "${_out}\n${_served}")

@@ -67,6 +67,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
             --data "${DATA}" --store "${_store}" --ready-file "${_ready}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rcs STREQUAL "0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
 endif()

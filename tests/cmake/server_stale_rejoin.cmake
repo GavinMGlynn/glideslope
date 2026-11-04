@@ -78,6 +78,7 @@ endif()
 # server stops when everybody who joined has gone (--until-empty), and
 # without it the server stopped as it let the first client go.
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300
             --after-ready "${_ready}" --until-exists "${_done}"
@@ -90,6 +91,7 @@ execute_process(
             --after-ready "${_ready}" --done "${_done}"
             --key 9a47cf83f2e50ebb1bb176f4072fa4ad962b89d8cf09527d1ce6abd308f89ba2
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 # **The relay built the situation**: without it, nothing below tests anything.
 set(_relay_said "impair: held the server's datagrams; the server let the session go after [0-9]+ replays; [0-9]+ dropped from the client meanwhile; the hold ended on a client's initiation; ([0-9]+) held delivered after it, 0 dropped past its cap")

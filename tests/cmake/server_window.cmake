@@ -70,6 +70,7 @@ execute_process(
             --store "${_store}" --window --window-dump
             --window-press "drop 0" --window-shot "${_shot}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _rc EQUAL 0)
     message(FATAL_ERROR "the server with a window did not run well (exit ${_rc}):\n${_err}\n${_out}")
 endif()

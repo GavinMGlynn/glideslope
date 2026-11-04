@@ -72,6 +72,7 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 # which passes the server's standard output on to standard error: so the
 # client's is read from the one and the server's from the other.
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 set(_ready "${WORK}/flying")
 file(REMOVE "${_ready}")
 execute_process(
@@ -86,6 +87,7 @@ execute_process(
             --press-after 2.8 L
             --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 if(NOT EXISTS "${_shot}")
     if(_err MATCHES "no GPU|could not|device")

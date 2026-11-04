@@ -22,6 +22,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 6 --ai 0 --headless
     COMMAND "${CHECK}" "127.0.0.1:${PORT}" "${HELLO}" 5
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 if(NOT _out MATCHES "answer ([0-9a-f]+)")
     message(FATAL_ERROR "the server said nothing to a gearstick client:\n${_out}\n${_err}")
 endif()

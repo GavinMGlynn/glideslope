@@ -59,6 +59,7 @@ execute_process(
     COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 0 --headless
             --players 1 --timeout 120 --store "${_store}" --ready-file "${_ready}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
 
 file(READ "${_stranger}" _heard)
 if(NOT _heard MATCHES "refused, reason 5")

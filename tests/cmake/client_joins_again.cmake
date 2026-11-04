@@ -80,6 +80,7 @@ set(ENV{LSAN_OPTIONS} "exitcode=0")
 # server's standard output on to standard error, so that both programs are
 # heard - the server's in _err, the client's in _out.
 math(EXPR _relay "${PORT} + 1")
+port_lock_hold(${_relay})
 if(DROP)
     # The shot is a bound, not a wait: dropped, it stops long before; not
     # dropped, it draws its shot a minute of flight in and the test fails
@@ -94,6 +95,7 @@ if(DROP)
                 --shot "${_shot}" --view cockpit --shot-at 7200
                 --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    port_listened("${_out}" "${_err}")
 else()
     # The keeper's key's public half begins f661fe1f (see server_slots.cmake).
     execute_process(
@@ -108,6 +110,7 @@ else()
                 --shot "${_shot}" --view cockpit --shot-at 1200 --stall-after 2
                 --after-ready "${_ready}" --server 127.0.0.1 ${_relay} --server-key ${_key}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    port_listened("${_out}" "${_err}")
 endif()
 list(LENGTH _rcs _programs)
 math(EXPR _last "${_programs} - 1")
