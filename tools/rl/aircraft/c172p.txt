@@ -1,0 +1,20 @@
+# The Cessna 172P as the learnt landing is trained on her (tools/rl/landing.py's
+# `aeroplane`). Data, as her catalogue entry is: another aircraft is another
+# file, and train.py --aircraft names it.
+#
+#   model NAME              her JSBSim model, in assets/jsbsim/aircraft
+#   vref_kts KT             the speed the policy is trained at: sim::approach_speeds'
+#                           Vref, 1.3 times her published landing stall (46 KCAS,
+#                           assets/figures/c172p.xml), not scaled for her weight
+#                           (a test holds every policy's to approach_speeds')
+#   flaps FRACTION          the landing flap, of its travel (approach_speeds' too)
+#   tanks N                 her fuel tanks
+#   full_tank_lbs LB        what each holds as the simulation's aircraft starts
+#   training_fuel_lbs LB LB what training draws for each tank, per flight:
+#                           from a quarter of that to all of it
+model c172p
+vref_kts 59.8
+flaps 1.0
+tanks 2
+full_tank_lbs 100.0
+training_fuel_lbs 25.0 100.0

@@ -54,7 +54,7 @@ class Layer:
 
 @dataclass
 class Policy:
-    aircraft: str = "c172p"
+    aircraft: str = ""  # the model it was trained on: tools/rl/aircraft/MODEL.txt
     approach: Approach = field(default_factory=Approach)
     obs_mean: list[float] = field(default_factory=lambda: [0.0] * OBSERVATIONS)
     obs_scale: list[float] = field(default_factory=lambda: [1.0] * OBSERVATIONS)
