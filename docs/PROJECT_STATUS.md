@@ -241,7 +241,10 @@ surface; and a landing learnt by reinforcement learning lands the Cessna
 172P on the centreline in a crosswind (its gate admits training's wind: 15
 kt across, 15 ahead, 5 behind and 15 in all - since 2026-11-03 also 14.1
 across with 5 behind, where it had touched short from the left, trained
-there). The learnt landing is offered for one
+there). Since 2026-11-04 the approach autopilot flies its approach, at the
+policy's speed and judged by the stabilized gate, and the policy lands her
+from 35 ft: the policy flown from the gate passed 500 ft up to 41 kt fast.
+The learnt landing is offered for one
 aircraft, by the CLI, to a player at its gate on a server (L in the window
 client, told why when refused), and to an AI aircraft the server is told to
 flying a plan that ends in a landing, which then taxis off the runway; a

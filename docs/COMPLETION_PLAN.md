@@ -1241,12 +1241,18 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       corner at 5 behind with 5 to 12.5 across from the left, all within
       the limits and all but one corner (292-294 ft/min) within the 5%
       rule.
-- [ ] **The learnt landing flies its approach up to 35 kt fast**, so the
+- [x] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own
       stage, or started from the approach autopilot's flare. The gate's
       judging waits on branch `learnt-landing-gate-wip`. *Verification:
       from every corner of its gate it is stabilized by 500 ft and lands.*
+      Done 2026-11-04, without training: the approach autopilot flies the
+      approach at the policy's speed, judged by the gate, and the policy
+      lands her from 35 ft (a tuned height). From all 288 corners in the
+      gate's nine winds it is stabilized and lands within the limits; the
+      gate's nearest edge moved from 1.6 to 1.7 miles, where its lowest
+      corner had been under 500 ft.
 - [x] **A contaminated runway is flown when reported, and nothing reports
       one.** The simulation brakes on every FAA runway condition code, but a
       METAR's weather says only that rain or snow is falling, not how deep it
