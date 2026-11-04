@@ -1394,12 +1394,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       (Boeing's FCOM). *Verification: her approach speed from a published
       figure, and she lands within her limits.* Done 2026-11-01; her gust
       landings are named under the gust item.
-- [ ] **Learnt landings for other aircraft.** The Cessna 172P and, since
-      2026-11-04, the C182 have one; **the PA-28 and the J-3 Cub have none
-      yet**. The PA-28's best sinks 335 ft/min after the hand-over in 10 kt
-      from the left, banks 21 degrees after the touch with full tanks, and
-      sinks too hard from her gate's corners in wind from ahead and
-      quartering ahead from the left. The C182's drifts up to 6.8 m off the
+- [ ] **Learnt landings for other aircraft.** The Cessna 172P, the C182
+      (since 2026-11-04) and the PA-28 (since 2026-11-05) have one; **the
+      J-3 Cub has none yet**. The C182's drifts up to 6.8 m off the
       centreline from her gate in 15 kt from ahead or quartering ahead from
       the left, which her gate still admits. *Verification: each light
       aircraft's policy lands within the autopilot's limits from the same

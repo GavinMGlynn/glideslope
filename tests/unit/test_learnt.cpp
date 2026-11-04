@@ -149,7 +149,7 @@ std::string named(const Start& s) {
 // The C172P at `start`, trimmed on the glidepath, in its wind.
 // `fuel_lbs` in each of her two tanks; below nothing, as the model has them - full.
 std::unique_ptr<glideslope::sim::Aircraft> at(const LearntPolicy& policy, const Start& start,
-                                              double fuel_lbs = -1.0) {
+                                              double fuel_lbs = -1.0, double aboard_lbs = 0.0) {
     const Runway runway = a_runway();
     auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", policy.aircraft);
     aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
@@ -190,6 +190,14 @@ std::unique_ptr<glideslope::sim::Aircraft> at(const LearntPolicy& policy, const 
         for (std::size_t t = 0; t < tanks; ++t) {
             loading.tank_lbs[static_cast<int>(t)] = fuel_lbs;
         }
+        aircraft->load(loading);
+    }
+    if (aboard_lbs != 0.0) {
+        // More on board than her model carries, in the first seat: a weight
+        // her fuel cannot reach when her tanks are full at the top of it.
+        glideslope::sim::Loading loading;
+        loading.pointmass_lbs[0] =
+            aircraft->property("inertia/pointmass-weight-lbs[0]") + aboard_lbs;
         aircraft->load(loading);
     }
     aircraft->initialize(ic);
@@ -772,6 +780,33 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c182_within_the_limits_from_every_st
     lands_her_from_every_start("c182", 150.0, LearntLander::Approach::policy);
 }
 
+// **The Piper PA-28-180's own learnt landing** (2026-11-04), trained on from
+// the C182's (tools/rl/aircraft/pa28.txt; its file's header says how): the
+// same verification - the 27 starts, calm air and ten knots across from
+// either side, within the autopilot's limits and stopped on the runway - at
+// her own reference speed, with her own fuel. With her tanks as she starts
+// (150 lb each, full), the policy flying the whole approach, as trained; and
+// the approach flown by the approach autopilot to 35 ft, as in a session.
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_pa28_within_5_m_of_the_centreline_under_300_ft_a_minute_in_calm_air_and_a_ten_knot_crosswind) {
+    lands_her_from_every_start("pa28", -1.0, LearntLander::Approach::policy);
+}
+
+GLIDESLOPE_TEST(the_learnt_landing_lands_the_pa28_within_its_limits_from_every_start_with_its_approach_flown_by_the_approach_autopilot) {
+    lands_her_from_every_start("pa28", -1.0, LearntLander::Approach::autopilot);
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_pa28_within_the_limits_from_every_start_with_a_quarter_of_her_fuel) {
+    lands_her_from_every_start("pa28", 37.5, LearntLander::Approach::policy);
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_pa28_within_the_limits_from_every_start_with_half_her_fuel) {
+    lands_her_from_every_start("pa28", 75.0, LearntLander::Approach::policy);
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_pa28_within_the_limits_from_every_start_with_three_quarters_of_her_fuel) {
+    lands_her_from_every_start("pa28", 112.5, LearntLander::Approach::policy);
+}
+
 // **Every learnt landing flies its aircraft's own approach**: the reference
 // speed and landing flap its policy was trained at are the ones
 // sim::approach_speeds finds in her published figures, unscaled for weight
@@ -798,7 +833,7 @@ GLIDESLOPE_TEST(every_learnt_landing_is_trained_at_its_aircrafts_published_refer
         check(std::abs(policy->flaps - published.flap) < 1e-9,
               model + "'s policy flies her published landing flap");
     }
-    check(files == 2, "the C172P's and the C182's learnt landings, and no other: " +
+    check(files == 3, "the C172P's, the C182's and the PA-28's learnt landings, and no other: " +
                           std::to_string(files));
 }
 
@@ -1026,19 +1061,27 @@ namespace {
 
 // Her gate at `least` and `most` lb a tank, inside it, and a pound a tank
 // under and over, refused: `trained` is the range the refusal names.
+// **`heavier_aboard_lbs`**: for an aircraft trained up to full tanks, which
+// fuel cannot make heavier, the heavier side is her tanks full and that much
+// more on board; 0 makes it a pound a tank more fuel.
 void refused_outside_the_weights_trained_at(const std::string& model, double least,
-                                            double most, const std::string& trained) {
+                                            double most, const std::string& trained,
+                                            double heavier_aboard_lbs = 0.0) {
     const auto policy = the_policy(model);
     const Runway runway = a_runway();
     struct Case {
         double fuel_lbs;
         bool inside;
+        double aboard_lbs = 0.0;
     };
     const std::vector<Case> cases = {
-        {least, true}, {most, true}, {least - 1.0, false}, {most + 1.0, false}};
+        {least, true},
+        {most, true},
+        {least - 1.0, false},
+        heavier_aboard_lbs > 0.0 ? Case{most, false, heavier_aboard_lbs} : Case{most + 1.0, false}};
     std::size_t walked = 0;
     for (const Case& c : cases) {
-        auto aircraft = at(*policy, Start{0.0, 0.0, 0.0}, c.fuel_lbs);
+        auto aircraft = at(*policy, Start{0.0, 0.0, 0.0}, c.fuel_lbs, c.aboard_lbs);
         const double lbs = aircraft->property("inertia/weight-lbs");
         const std::string why = glideslope::sim::outside_learnt_gate(*aircraft, runway, *policy);
         std::printf("  %.0f lb a tank, %.0f lb: %s\n", c.fuel_lbs, lbs,
@@ -1080,6 +1123,14 @@ GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_c172p_heavier_or_lighter_than_it
 // the very top of it.
 GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_c182_heavier_or_lighter_than_it_was_trained_at) {
     refused_outside_the_weights_trained_at("c182", 50.0, 200.0, "2205 to 2505");
+}
+
+// **And the PA-28's**: 1,565 to 1,790 lb, her model with 37.5 to 150 lb a
+// tank (tools/rl/aircraft/pa28.txt). A session starts her with full tanks,
+// 150 lb each, at the very top of it - and her tanks hold no more, so the
+// heavier side is full tanks and 2 lb more on board.
+GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_pa28_heavier_or_lighter_than_it_was_trained_at) {
+    refused_outside_the_weights_trained_at("pa28", 37.5, 150.0, "1565 to 1790", 2.0);
 }
 
 // **A copilot's route arriving during a learnt landing replaces it**, as it
@@ -1212,8 +1263,8 @@ GLIDESLOPE_TEST(the_learnt_landing_is_offered_for_every_aircraft_that_has_one_an
                 catalogue.size(), offered.size());
     check(walked == catalogue.size() && walked == 16,
           "every one of the catalogue's sixteen aircraft was walked: " + std::to_string(walked));
-    check(offered == std::vector<std::string>({"c172p", "c182"}),
-          "the Cessna 172P and 182S are offered it, and no other aircraft");
+    check(offered == std::vector<std::string>({"c172p", "c182", "pa28"}),
+          "the Cessna 172P and 182S and the Piper PA-28 are offered it, and no other aircraft");
     std::size_t files = 0;
     for (const auto& file : std::filesystem::directory_iterator(data() / "rl")) {
         const std::string name = file.path().filename().string();
@@ -1878,6 +1929,69 @@ GLIDESLOPE_TEST(the_c182s_learnt_landing_is_stabilized_by_500_ft_and_lands_withi
 
 GLIDESLOPE_TEST(the_c182s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_right) {
     lands_from_every_corner_in("behind and across from the right", "c182");
+}
+
+// **And the PA-28's, from the same gate, in every one of its nine winds**:
+// her policy is offered at it as the others' are (sim::LearntGate, around
+// her own reference speed). **Her corners' coverage, asserted**: every one
+// of the gate's winds is flown for her, and none is left out.
+GLIDESLOPE_TEST(the_pa28s_corner_landings_are_flown_in_every_one_of_the_nine_winds) {
+    const std::vector<std::string> flown{"calm",
+                                         "across from the left",
+                                         "across from the right",
+                                         "ahead",
+                                         "behind",
+                                         "quartering ahead from the left",
+                                         "quartering ahead from the right",
+                                         "behind and across from the left",
+                                         "behind and across from the right"};
+    const std::vector<CornerWind> all = corner_winds();
+    std::size_t covered = 0;
+    for (const CornerWind& w : all) {
+        const bool is_flown = std::find(flown.begin(), flown.end(), w.name) != flown.end();
+        check(is_flown, std::string(w.name) + " is flown for her");
+        covered += is_flown ? 1U : 0U;
+    }
+    std::printf("  %zu winds: %zu flown for the PA-28, none left out\n", all.size(), covered);
+    check(all.size() == 9 && covered == 9 && flown.size() == 9,
+          "nine winds, nine flown: " + std::to_string(all.size()) + ", " +
+              std::to_string(covered));
+}
+
+GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air) {
+    lands_from_every_corner_in("calm", "pa28");
+}
+
+GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_left) {
+    lands_from_every_corner_in("across from the left", "pa28");
+}
+
+GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_right) {
+    lands_from_every_corner_in("across from the right", "pa28");
+}
+
+GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_headwind) {
+    lands_from_every_corner_in("ahead", "pa28");
+}
+
+GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_tailwind) {
+    lands_from_every_corner_in("behind", "pa28");
+}
+
+GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_left) {
+    lands_from_every_corner_in("quartering ahead from the left", "pa28");
+}
+
+GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_right) {
+    lands_from_every_corner_in("quartering ahead from the right", "pa28");
+}
+
+GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_left) {
+    lands_from_every_corner_in("behind and across from the left", "pa28");
+}
+
+GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_right) {
+    lands_from_every_corner_in("behind and across from the right", "pa28");
 }
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_margin_from_every_corner_of_its_gate_with_5_kt_behind_and_5_across_from_the_left) {
