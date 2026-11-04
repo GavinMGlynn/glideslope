@@ -190,7 +190,7 @@ controls at every angle it tries, up to 45 degrees, and the limit asked there
 wound her pitch loop's integrator to its stop. Her up-and-away figures are
 unchanged: the limit is off with her gear up.
 
-**Her rate gyros sense her body's rotation** (with_inertial_rate_gyros;
+**Her rate gyros sense her body's rotation** (with_body_rate_gyros;
 sourced as physics, not as her flight manual): the pinned model's flight
 controls read velocities/[pqr]-aero-rad_sec, her rotation against the air.
 JSBSim takes those as her body rates less its turbulence's rotation
@@ -475,7 +475,7 @@ def airframe():
         raise SystemExit(f"{SCRIPT}: found {n} throttle gains, not 2 - has the pinned model changed?")
     text = with_trimmable_pitch_and_power(text)
     text = with_gear_down_alpha_limit(text)
-    text = with_inertial_rate_gyros(text)
+    text = with_body_rate_gyros(text)
     text = replace_once(
         text,
         r"(            <!-- Stick filter -->\s*<lag_filter name=\"fcs/roll-cmd-filter\">\s*<input>)fcs/aileron-cmd-limiter(</input>)",
@@ -795,12 +795,12 @@ def with_pitch_ground_mode(text):
 
 
 # **Her flight controls' rate gyros, and how many of the pinned model's rates
-# they feed** (with_inertial_rate_gyros): p, q and r, read nine times in her
+# they feed** (with_body_rate_gyros): p, q and r, read nine times in her
 # flight control system.
 GYRO_READS = 9
 
 
-def with_inertial_rate_gyros(text):
+def with_body_rate_gyros(text):
     """Her flight controls fed the rates her gyros sense: her body's rotation,
     velocities/[pqr]-rad_sec, not its rotation against the air,
     velocities/[pqr]-aero-rad_sec (see "Her rate gyros" in the docstring).

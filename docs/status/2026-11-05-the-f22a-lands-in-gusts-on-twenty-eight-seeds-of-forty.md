@@ -5,8 +5,9 @@
 `not_yet_landed_in_gusts()` (tests/unit/test_lesson.cpp), but she does not
 land twelve of forty seeds on Linux. Each is named on its seed alone
 (`named_on_a_seed`), with its figure (below). On Windows release she does
-not land fourteen, each named there. macOS is not yet seen with this change.
-The A380 is still named whole.
+not land fourteen, and on macOS twelve, each named there. Whether her
+per-seed names close her part of the item is the owner's call. The A380 is
+still named whole.
 
 **What now works**: on linux-release and on an `-march=x86-64-v2` build
 (no fused multiply-adds, as CI's), the F-22A lands within every limit with
@@ -30,7 +31,7 @@ body's:
   796 ft/min. On seed 2, her stick 0.3 nose-up for a second, her nose fell
   from 5.5 to 3.8 degrees.
 
-**The fix** (tools/make_f22.py, `with_inertial_rate_gyros`; **sourced as
+**The fix** (tools/make_f22.py, `with_body_rate_gyros`; **sourced as
 physics**, not from her flight manual, which is not public): a rate gyro
 senses the rotation of what it is fixed to, not the air's. The F-16's pitch
 loop takes its rate from four pitch-rate gyros (the RSAF's 2024
@@ -68,6 +69,7 @@ from noise. None is taken. The lander is unchanged.
 | linux-release (FMA) | 2 | 28 |
 | x86-64-v2 release | 2 | 28, the same figures line for line |
 | Windows release | not seen: named whole, not shown | 26 |
+| macOS, debug and release (CI run 41867348299) | not seen | 28 |
 
 **Named, per seed, on Linux** (linux-release and x86-64-v2 alike):
 
@@ -106,7 +108,25 @@ a Windows name covers every Windows build):
 | 31 | a gust climbs her at 121 ft/min in her flare |
 | 37 | touches at 362 ft/min |
 
-Only seed 9 fails on both. Touch sink scatters between platforms, so one
+**Named, per seed, on macOS** (CI run 41867348299, macOS release; macOS
+debug failed the same seeds wherever its shard ran):
+
+| Seed | What she does |
+|---|---|
+| 4 | touches at 448 ft/min |
+| 6 | a gust climbs her at 146 ft/min in her flare |
+| 7 | rises 0.80 ft off her wheels after her touch |
+| 9 | goes round from a float: she would touch 1,066 m along |
+| 10 | a gust climbs her at 124 ft/min in her flare; touches 994 m along |
+| 11 | touches at 399 ft/min |
+| 23 | touches at 376 ft/min |
+| 27 | goes round from a float: she would touch 1,064 m along |
+| 31 | goes round from a float: she would touch 1,074 m along |
+| 33 | touches at 417 ft/min |
+| 35 | a gust climbs her at 91 ft/min in her flare |
+| 37 | goes round from a float: she would touch 1,081 m along |
+
+Only seed 9 fails on all three. Touch sink scatters between platforms, so one
 platform's pass is no other's (as the gust item says of every aeroplane).
 On Windows release, every one of the forty seeds' failures before these
 names was the F-22A's: every other aeroplane passed or was already named.
@@ -142,5 +162,10 @@ F-16's pitch-rate gyros, which gave the fix.
   tests ran, every one passed or was skipped (the live recordings, with no
   key). The 15 not reached are multi-process client-and-server tests
   (prediction, take-over, weather); they are left to CI.
+- **From the coordinator's review of #327**: the function is
+  `with_body_rate_gyros`, not "inertial": it feeds her rates against the
+  earth. Windows debug and clang in CI run 41867348299 showed no "take her
+  name off", so the Windows names hold. The reflow of other aeroplanes'
+  name strings is reverted.
 - `python3 tools/make_f22.py --check` passes; the committed model is what
   the script makes.

@@ -3168,11 +3168,43 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"f22", 31, windows(),
          "on Windows a gust climbs her at 121 ft/min in her flare (seed 31)"},
         {"f22", 37, windows(), "on Windows she touches at 362 ft/min (seed 37)"},
+        // macOS, debug and release alike, CI run 41867348299: twenty-eight of forty.
+        {"f22", 4, macos(),
+         "on macOS she touches at 448 ft/min (seed 4), CI run 41867348299"},
+        {"f22", 6, macos(),
+         "on macOS a gust climbs her at 146 ft/min in her flare (seed 6), CI run "
+         "41867348299"},
+        {"f22", 7, macos(),
+         "on macOS she rises 0.80 ft off her wheels after her touch (seed 7), CI run "
+         "41867348299"},
+        {"f22", 9, macos(),
+         "on macOS she floats into a go-around from a touch 1,066 m along (seed 9), CI "
+         "run 41867348299"},
+        {"f22", 10, macos(),
+         "on macOS a gust climbs her at 124 ft/min in her flare, and she touches 994 m "
+         "along (seed 10), CI run 41867348299"},
+        {"f22", 11, macos(),
+         "on macOS she touches at 399 ft/min (seed 11), CI run 41867348299"},
+        {"f22", 23, macos(),
+         "on macOS she touches at 376 ft/min (seed 23), CI run 41867348299"},
+        {"f22", 27, macos(),
+         "on macOS she floats into a go-around from a touch 1,064 m along (seed 27), "
+         "CI run 41867348299"},
+        {"f22", 31, macos(),
+         "on macOS she floats into a go-around from a touch 1,074 m along (seed 31), "
+         "CI run 41867348299"},
+        {"f22", 33, macos(),
+         "on macOS she touches at 417 ft/min (seed 33), CI run 41867348299"},
+        {"f22", 35, macos(),
+         "on macOS a gust climbs her at 91 ft/min in her flare (seed 35), CI run "
+         "41867348299"},
+        {"f22", 37, macos(),
+         "on macOS she floats into a go-around from a touch 1,081 m along (seed 37), "
+         "CI run 41867348299"},
         // The 737-300 and 787-8 since 2026-11-04, flown at Boeing's full gust
         // with their noses let rise faster: forty seeds of forty here and on
         // an x86-64-v2 build, and on Windows release all but these.
-        {"737-300", 8, windows(),
-         "on Windows she meets the runway at 347 ft/min (seed 8)"},
+        {"737-300", 8, windows(), "on Windows she meets the runway at 347 ft/min (seed 8)"},
         {"787-8", 4, windows(), "on Windows she touches at 338 ft/min (seed 4)"},
         // The A380 since 2026-11-04, her power retarded at 20 ft, her wings
         // held harder and her nose kept up near the ground (her figures):
@@ -3197,8 +3229,7 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // macOS, debug and release alike, CI run 41703342974 (dispatched on
         // #310): the 787-8 lands seed 2 there now, at Boeing's full gust.
         {"737-300", 3, macos(),
-         "on macOS she floats into a go-around from a touch 1,017 m along (seed 3), CI "
-         "run "
+         "on macOS she floats into a go-around from a touch 1,017 m along (seed 3), CI run "
          "41703342974"},
         {"737-300", 17, macos(),
          "on macOS she touches at 554 ft/min (seed 17), CI run 41703342974"},
@@ -3206,12 +3237,10 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // #313): held off on her own pitch law, the S.23 lands seeds 3, 10 and
         // 11 there now, and touches inside her limit but not her margin on two.
         {"short_s23", 18, macos(),
-         "on macOS she touches at 342 ft/min, inside 360 but not by 25 (seed 18), CI "
-         "run "
+         "on macOS she touches at 342 ft/min, inside 360 but not by 25 (seed 18), CI run "
          "41732333742"},
         {"short_s23", 32, macos(),
-         "on macOS she touches at 340 ft/min, inside 360 but not by 25 (seed 32), CI "
-         "run "
+         "on macOS she touches at 340 ft/min, inside 360 but not by 25 (seed 32), CI run "
          "41732333742"},
         // **The sweep's seeds, 9 to 40** (`..._seed_9` to `_40`, gust_sweep):
         // measured on linux-release and an x86-64-v2 build here (the same
@@ -3226,8 +3255,7 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // same figures on an x86-64-v2 build; thirty-seven of forty on
         // Windows release, where she passes seed 33.
         {"j3cub", 33, linux_(),
-         "on Linux she loses 14 kt of headwind and meets a 6 ft/s down-gust in her "
-         "last "
+         "on Linux she loses 14 kt of headwind and meets a 6 ft/s down-gust in her last "
          "four feet, and touches at 387 ft/min (seed 33)"},
         {"j3cub", 8, windows(), "on Windows she touches at 364 ft/min (seed 8)"},
         {"j3cub", 32, windows(),
@@ -3266,12 +3294,10 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"j3cub", 10, macos(),
          "on macOS she touches at 448 ft/min (seed 10), CI run 41773183933"},
         {"j3cub", 30, macos(),
-         "on macOS she touches at 343 ft/min, inside her limit but not her margin "
-         "(seed "
+         "on macOS she touches at 343 ft/min, inside her limit but not her margin (seed "
          "30), CI run 41773183933"},
         {"j3cub", 40, macos(),
-         "on macOS she touches at 352 ft/min, inside her limit but not her margin "
-         "(seed "
+         "on macOS she touches at 352 ft/min, inside her limit but not her margin (seed "
          "40), CI run 41773183933"},
     };
     return named;
