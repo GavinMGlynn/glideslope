@@ -135,6 +135,15 @@ macro(_read_listeners _rl_script)
     set(_listens "")       # where each call that listens starts
     set(_listens_end "")   # ... and ends
     set(_listens_err "")   # ... and the variable it catches stderr in, or -
+    # **Every listening flag, counted twice**: once in the whole script, its
+    # comment lines aside, and once in the calls read below. A call whose end
+    # is found too soon - a line of it ending in ")" - drops the flags after
+    # that line, and the two counts differ.
+    set(_rl_flag "(--port +\\\${(${_held_alt})}|\\\${IMPAIR}\" +\\\${(${_held_alt})})")
+    string(REGEX REPLACE "(^|\n)[ \t]*#[^\n]*" "\\1" _rl_code "${_rl_text}")
+    string(REGEX MATCHALL "${_rl_flag}" _rl_flags "${_rl_code}")
+    list(LENGTH _rl_flags _rl_flags_in_script)
+    set(_rl_flags_in_calls 0)
     set(_offset 0)
     set(_rest "${_rl_text}")
     while(TRUE)
@@ -149,6 +158,9 @@ macro(_read_listeners _rl_script)
             string(LENGTH "${_rest}" _end)
         endif()
         string(SUBSTRING "${_rest}" 0 ${_end} _run)
+        string(REGEX MATCHALL "${_rl_flag}" _rl_run_flags "${_run}")
+        list(LENGTH _rl_run_flags _rl_n)
+        math(EXPR _rl_flags_in_calls "${_rl_flags_in_calls} + ${_rl_n}")
         set(_listening FALSE)
         if(_run MATCHES "--port +\\\${(${_held_alt})}")
             set(_listening TRUE)
@@ -179,6 +191,11 @@ macro(_read_listeners _rl_script)
         math(EXPR _offset "${_offset} + 16")
     endwhile()
     list(LENGTH _listens _calls_here)
+    if(NOT _rl_flags_in_calls EQUAL _rl_flags_in_script)
+        list(APPEND _problems "${_script_name}: ${_rl_flags_in_script} flags listen on a held "
+                              "port and ${_rl_flags_in_calls} of them were read in its calls - "
+                              "a call's end was found too soon, or a flag is outside a call")
+    endif()
     set(_named_reason "")
     foreach(_named_script IN LISTS _listen_on_nothing)
         if(_named_script MATCHES "^([^=]+)=(.*)$" AND CMAKE_MATCH_1 STREQUAL _script_name)
