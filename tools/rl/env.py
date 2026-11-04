@@ -155,9 +155,13 @@ class Flier:
         self.fdm = L.new_fdm(JSBSIM_ROOT, plane.model)
         self.started_in_the_wind = False
         # What she weighs with no fuel: the empty aeroplane and what is on
-        # board, as the model has them.
-        self.dry_lbs = self.fdm["inertia/empty-weight-lbs"] + sum(
-            self.fdm[f"inertia/pointmass-weight-lbs[{i}]"] for i in range(5))
+        # board, as the model has them: every point mass she has (the
+        # Cessnas and the PA-28 five, the J-3 Cub three).
+        self.dry_lbs = self.fdm["inertia/empty-weight-lbs"]
+        i = 0
+        while self.fdm.get_property_manager().hasNode(f"inertia/pointmass-weight-lbs[{i}]"):
+            self.dry_lbs += self.fdm[f"inertia/pointmass-weight-lbs[{i}]"]
+            i += 1
 
     def begin(self, start: L.Start) -> list[float]:
         # **A hand-over start in the wind gets an aeroplane of its own**, and so
