@@ -261,8 +261,10 @@ from 35 ft: the policy flown from the gate passed 500 ft up to 41 kt fast.
 Since 2026-11-04 the C182 has one too, trained on from the 172P's, but
 it drifts off the centreline in 15 kt from ahead; since 2026-11-05 the
 PA-28 has one, trained on from the C182's, and the J-3 Cub, trained on
-from the PA-28's, landing her near her three-point attitude with the
-throttle closed. The learnt landing is offered for those four aircraft, by the CLI, to a player at its gate on a server (L in the window
+from the PA-28's - nose up, 8.7 to 13.9 degrees, but under power, not
+three-point with the throttle closed as the AI's lander touches her. Each
+gate admits no more crosswind than her figures' demonstrated crosswind
+(the Cub's 12 kt), and no more than training's 15. The learnt landing is offered for those four aircraft, by the CLI, to a player at its gate on a server (L in the window
 client, told why when refused), and to an AI aircraft the server is told to
 flying a plan that ends in a landing, which then taxis off the runway; a
 landing goes around from a runway not clear (since 2026-10-08) - but a

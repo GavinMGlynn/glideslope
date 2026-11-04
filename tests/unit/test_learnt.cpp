@@ -82,8 +82,12 @@ std::string fixture_model_sha256() {
     return "none";
 }
 
+// As a session finds it (sim::learnt_landing): with her demonstrated
+// crosswind from her figures, which her gate admits no more than.
 std::shared_ptr<const LearntPolicy> the_policy(const std::string& model = "c172p") {
-    return std::make_shared<const LearntPolicy>(LearntPolicy::read(policy_file(model)));
+    auto policy = glideslope::sim::learnt_landing(data(), model);
+    check(policy != nullptr, model + " has a learnt landing: " + policy_file(model).string());
+    return policy;
 }
 
 // The runway sim::Lander's tests land on, and the training flew to
@@ -144,6 +148,26 @@ std::string named(const Start& s) {
     std::snprintf(text, sizeof text, "across %+.0f m, high %+.0f m, crosswind %+.0f kt",
                   s.across_m, s.high_m, s.crosswind_kts);
     return text;
+}
+
+// **The tanks `model` was trained with**: her training file's `tanks`
+// (tools/rl/aircraft/MODEL.txt, which training reads for its fuel).
+std::size_t trained_tanks(const std::string& model) {
+    const std::filesystem::path file = std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR)
+                                           .parent_path() /
+                                       "tools" / "rl" / "aircraft" / (model + ".txt");
+    std::ifstream in(file);
+    check(in.good(), "her training file is read: " + file.string());
+    for (std::string line; std::getline(in, line);) {
+        std::istringstream words(line.substr(0, line.find('#')));
+        std::string key;
+        std::size_t n = 0;
+        if (words >> key && key == "tanks" && words >> n) {
+            return n;
+        }
+    }
+    check(false, file.string() + " names her tanks");
+    return 0;
 }
 
 // The C172P at `start`, trimmed on the glidepath, in its wind.
@@ -213,8 +237,8 @@ std::unique_ptr<glideslope::sim::Aircraft> at(const LearntPolicy& policy, const 
             want += aircraft->property("inertia/pointmass-weight-lbs[" + std::to_string(i) + "]");
         }
         const double weight = aircraft->property("inertia/weight-lbs");
-        // Two tanks, or the J-3 Cub's one.
-        const std::size_t has = policy.aircraft == "j3cub" ? 1U : 2U;
+        // As many tanks as she was trained with (tools/rl/aircraft/MODEL.txt).
+        const std::size_t has = trained_tanks(policy.aircraft);
         check(tanks == has && std::abs(weight - want) < 0.01,
               "with " + std::to_string(fuel_lbs) + " lb in each of " + std::to_string(tanks) +
                   " tanks she weighs " + std::to_string(weight) + " lb, not " +
@@ -239,6 +263,9 @@ struct Landing {
     double stopped_across_m = 0.0;
     double stopped_along_m = 0.0;
     long decisions = 0;
+    // Her nose and her throttle in the step her wheels first touched.
+    double touch_pitch_deg = 0.0;
+    double touch_throttle = 0.0;
 };
 
 // What a flight did after the touch, step by step.
@@ -267,11 +294,11 @@ struct AfterTouch {
 void print(const std::string& name, const Landing& l) {
     std::printf("  %s: %.0f ft/min, %+.2f m across, %.0f m along; after the touch rose "
                 "%.1f ft, banked %.1f, nose down to %.1f; %s %.0f m along, %+.2f m across; "
-                "%ld decisions\n",
+                "%ld decisions; touched nose up %.2f, throttle %.3f\n",
                 name.c_str(), l.sink_fpm, l.across_m, l.along_m, l.highest_after_touch_ft,
                 l.worst_roll_after_touch_deg, l.least_pitch_after_touch_deg,
                 l.stopped ? "stopped" : "not stopped by", l.stopped_along_m, l.stopped_across_m,
-                l.decisions);
+                l.decisions, l.touch_pitch_deg, l.touch_throttle);
     std::fflush(stdout);
 }
 
@@ -288,9 +315,14 @@ Landing land(const std::shared_ptr<const LearntPolicy>& policy, const Start& sta
     Landing out;
     AfterTouch after;
     for (long tick = 0; tick < 420L * steps_per_second; ++tick) {
-        aircraft->set_controls(lander.fly());
+        const glideslope::sim::Controls flown = lander.fly();
+        aircraft->set_controls(flown);
         aircraft->step();
         if (lander.touched()) {
+            if (after.touch_tick < 0) {
+                out.touch_pitch_deg = aircraft->state().pitch_deg;
+                out.touch_throttle = flown.throttle;
+            }
             after.see(*aircraft, tick, out);
             if (!to_stop && tick - after.touch_tick >= 5L * steps_per_second) {
                 break;
@@ -677,6 +709,39 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_u
 // so that each fits well inside ctest's time on the slowest build.
 namespace {
 
+// **How a three-point aeroplane's learnt landing touches** (her figures'
+// `lands="three_point"`: the J-3 Cub), held to what it was measured to do
+// on 2026-11-05, not to her three-point attitude. She stands at 12.10
+// degrees (atan(43.31 / 201.97), her model's wheels), and the AI's lander
+// touches her within 0.43 of it (tests/unit/test_lander.cpp's
+// `cub_three_point_margin_deg`); her learnt
+// landing does not: over the 135 landings of her five start tests she
+// touched with her nose 8.70 to 13.90 degrees up and her throttle 0.281 to
+// 0.551 open - a power-on touch, her mains first on some starts and her
+// tail wheel first on others. Pinned at what was measured, half a degree
+// and 0.05 of throttle wider, so that a policy touching flatter, steeper or
+// with more power than this one fails here.
+constexpr double three_point_learnt_least_pitch_deg = 8.2;
+constexpr double three_point_learnt_most_pitch_deg = 14.4;
+constexpr double three_point_learnt_most_throttle = 0.6;
+
+std::vector<std::string> not_touched_as_measured(const Landing& l, const std::string& model) {
+    std::vector<std::string> wrong;
+    if (!l.touched || !speeds(model).three_point) {
+        return wrong;
+    }
+    if (!(l.touch_pitch_deg >= three_point_learnt_least_pitch_deg &&
+          l.touch_pitch_deg <= three_point_learnt_most_pitch_deg)) {
+        wrong.push_back("touched with her nose " + std::to_string(l.touch_pitch_deg) +
+                        " degrees up, outside the measured 8.2 to 14.4");
+    }
+    if (!(l.touch_throttle <= three_point_learnt_most_throttle)) {
+        wrong.push_back("touched with her throttle " + std::to_string(l.touch_throttle) +
+                        " open, more than the measured 0.6");
+    }
+    return wrong;
+}
+
 void lands_every_start_with(double lbs, const std::string& model = "c172p",
                             LearntLander::Approach approach = LearntLander::Approach::policy) {
     const auto policy = the_policy(model);
@@ -692,6 +757,9 @@ void lands_every_start_with(double lbs, const std::string& model = "c172p",
         worst_sink = std::max(worst_sink, l.sink_fpm);
         worst_across = std::max(worst_across, std::abs(l.across_m));
         std::vector<std::string> wrong = short_of_the_limits(l);
+        for (const std::string& w : not_touched_as_measured(l, model)) {
+            wrong.push_back(w);
+        }
         for (const std::string& w : not_stopped_on_the_runway(l)) {
             wrong.push_back(w);
         }
@@ -1608,21 +1676,25 @@ struct CornerWind {
     double head_kts;   // down the runway towards her, positive
 };
 
-std::vector<CornerWind> corner_winds() {
+// The gate's nine edge winds, with `most_across_kts` the most across it
+// admits: the gate's own 15, or less for an aircraft whose demonstrated
+// crosswind is less (sim::learnt_gate_most_crosswind_kts) - the J-3 Cub's
+// 12, across and with the wind behind.
+std::vector<CornerWind> corner_winds(
+    double most_across_kts = glideslope::sim::LearntGate::most_crosswind_kts) {
     using Gate = glideslope::sim::LearntGate;
+    const double behind_across = std::min(most_across_kts, most_across_behind_kts());
     return {{"calm", 0.0, 0.0},
-            {"across from the left", Gate::most_crosswind_kts, 0.0},
-            {"across from the right", -Gate::most_crosswind_kts, 0.0},
+            {"across from the left", most_across_kts, 0.0},
+            {"across from the right", -most_across_kts, 0.0},
             {"ahead", 0.0, Gate::most_headwind_kts},
             {"behind", 0.0, -Gate::most_tailwind_kts},
             {"quartering ahead from the left", Gate::most_wind_kts / std::sqrt(2.0),
              Gate::most_wind_kts / std::sqrt(2.0)},
             {"quartering ahead from the right", -Gate::most_wind_kts / std::sqrt(2.0),
              Gate::most_wind_kts / std::sqrt(2.0)},
-            {"behind and across from the left", most_across_behind_kts(),
-             -Gate::most_tailwind_kts},
-            {"behind and across from the right", -most_across_behind_kts(),
-             -Gate::most_tailwind_kts}};
+            {"behind and across from the left", behind_across, -Gate::most_tailwind_kts},
+            {"behind and across from the right", -behind_across, -Gate::most_tailwind_kts}};
 }
 
 // **The 5 per cent rule** checkpoints are chosen by: under 285 ft/min,
@@ -1650,7 +1722,8 @@ std::size_t lands_from_every_corner_in(const std::vector<CornerWind>& winds,
                                        const std::string& model = "c172p");
 
 void lands_from_every_corner_in(const std::string& wind, const std::string& model = "c172p") {
-    const std::vector<CornerWind> all = corner_winds();
+    const std::vector<CornerWind> all =
+        corner_winds(glideslope::sim::learnt_gate_most_crosswind_kts(*the_policy(model)));
     std::vector<CornerWind> winds;
     std::copy_if(all.begin(), all.end(), std::back_inserter(winds),
                  [&](const CornerWind& w) { return w.name == wind; });
@@ -2046,17 +2119,75 @@ GLIDESLOPE_TEST(the_j3cubs_corner_landings_are_flown_in_every_one_of_the_nine_wi
                                          "quartering ahead from the right",
                                          "behind and across from the left",
                                          "behind and across from the right"};
-    const std::vector<CornerWind> all = corner_winds();
+    const double most_across =
+        glideslope::sim::learnt_gate_most_crosswind_kts(*the_policy("j3cub"));
+    check(most_across == 12.0, "her gate's crosswind is her demonstrated 12 kt: " +
+                                   std::to_string(most_across));
+    const std::vector<CornerWind> all = corner_winds(most_across);
     std::size_t covered = 0;
     for (const CornerWind& w : all) {
         const bool is_flown = std::find(flown.begin(), flown.end(), w.name) != flown.end();
         check(is_flown, std::string(w.name) + " is flown for her");
+        check(std::abs(w.across_kts) <= most_across,
+              std::string(w.name) + " is within her 12 kt across");
         covered += is_flown ? 1U : 0U;
     }
-    std::printf("  %zu winds: %zu flown for the J-3 Cub, none left out\n", all.size(), covered);
+    std::printf("  %zu winds: %zu flown for the J-3 Cub, none left out; at most %.1f kt across\n",
+                all.size(), covered, most_across);
     check(all.size() == 9 && covered == 9 && flown.size() == 9,
           "nine winds, nine flown: " + std::to_string(all.size()) + ", " +
               std::to_string(covered));
+}
+
+// **Her gate admits no more crosswind than she was demonstrated in**: the
+// J-3 Cub's 12 kt (assets/figures/j3cub.xml), not the gate's 15. At the
+// gate's middle in 13 kt across from either side she is refused for the
+// wind, and in 11.5 admitted; a PA-28, demonstrated in 17, is admitted in
+// 13 - her gate is training's 15.
+GLIDESLOPE_TEST(a_j3cub_in_13_kt_across_is_refused_by_her_learnt_landings_gate_and_a_pa28_is_not) {
+    const Runway runway = a_runway();
+    struct Case {
+        const char* model;
+        double across_kts;
+        bool admitted;
+    };
+    const std::vector<Case> cases{{"j3cub", 13.0, false}, {"j3cub", -13.0, false},
+                                  {"j3cub", 11.5, true},  {"j3cub", -11.5, true},
+                                  {"pa28", 13.0, true},   {"pa28", -13.0, true}};
+    std::size_t walked = 0;
+    for (const Case& c : cases) {
+        const auto policy = the_policy(c.model);
+        const double h = runway.heading_deg / degrees;
+        const double cross = c.across_kts * 0.514444;
+        glideslope::sim::Conditions conditions;
+        conditions.wind_north_mps = cross * std::cos(h + 3.14159265358979323846 / 2.0);
+        conditions.wind_east_mps = cross * std::sin(h + 3.14159265358979323846 / 2.0);
+        const double out_m = (glideslope::sim::LearntGate::nearest_m +
+                              glideslope::sim::LearntGate::furthest_m) /
+                             2.0;
+        auto aircraft =
+            placed(c.model, runway, *policy, out_m, 0.0, 0.0, 0.0, policy->vref_kts,
+                   policy->flaps, std::make_shared<glideslope::sim::SteadyWeather>(conditions));
+        // A tenth of a second flown as trimmed, so that the wind has blown
+        // on her: it is applied in her steps, and the gate judges it as her
+        // instruments estimate it.
+        const Controls trimmed = glideslope::sim::trimmed_controls(*aircraft);
+        for (int step = 0; step < steps_per_second / 10; ++step) {
+            aircraft->set_controls(trimmed);
+            aircraft->step();
+        }
+        const std::string why = glideslope::sim::outside_learnt_gate(*aircraft, runway, *policy);
+        std::printf("  %s in %+.1f kt across: %s\n", c.model, c.across_kts,
+                    why.empty() ? "at the gate" : why.c_str());
+        if (c.admitted) {
+            check(why.empty(), std::string(c.model) + " is at the gate: " + why);
+        } else {
+            check(why.find("kt of crosswind; the gate is within 12") != std::string::npos,
+                  std::string(c.model) + " is refused for the crosswind: " + why);
+        }
+        ++walked;
+    }
+    check(walked == cases.size() && walked == 6, "every case: " + std::to_string(walked));
 }
 
 GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air) {

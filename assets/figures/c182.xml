@@ -29,8 +29,13 @@
   "three to four degrees per second" for most aircraft ("Rotation Rate",
   code7700.com); four is its top, and holds her within a degree a second
   of it at every loading (docs/PROJECT_STATUS.md, 2026-10-13).
+
+  demonstrated_crosswind_kts: 15 knots, her flight manual's demonstrated
+  direct crosswind as the AAIB quotes it for a 2000-built 182S (Bulletin
+  4/2003, G-ZBLT): the most across her learnt landing's gate admits
+  (sim::learnt_gate_most_crosswind_kts).
 -->
-<published_figures aircraft="c182" rotation_degps="4" flaps_full_deg="38">
+<published_figures aircraft="c182" rotation_degps="4" flaps_full_deg="38" demonstrated_crosswind_kts="15">
   <source>Cessna Model 182S Skylane Information Manual, 1997</source>
 
   <!-- 3,100 lb, the maximum take-off weight the handbook's figures are for:

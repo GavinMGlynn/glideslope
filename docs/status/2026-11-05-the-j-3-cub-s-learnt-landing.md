@@ -8,11 +8,17 @@ C182's two named corners alone.
 - **The C182's two corners**: she still drifts up to 6.8 m off the
   centreline from her gate in 15 kt from ahead and quartering ahead from
   the left (her own file). Nothing here touches her.
-- **Her gate admits more crosswind than her limit.** The learnt landing's
-  gate (sim::LearntGate) is the same for every aircraft, 15 kt across; the
-  Cub's limit is 12 kt (Steve Krog's figure, the owner's of 2026-10-30).
-  She lands from every corner in 15 kt across, but that is past what she is
-  flown in.
+- **She does not touch three-point, and not with the throttle closed.**
+  She stands at 12.10 degrees, and the AI's lander touches her within 0.43
+  of it. Over the 135 landings of her five start tests her learnt landing
+  touched with her nose 8.70 to 13.90 degrees up and her throttle 0.281 to
+  0.551 open: a power-on touch, her mains first from some starts and her
+  tail wheel first from others. Her tests pin that measured envelope
+  (8.2 to 14.4 degrees, throttle at most 0.6), not a three-point touch. A
+  fifth part trained from the chosen checkpoint with `--idle-touch 80` and
+  the touch costed below 11 degrees (750,000 decisions, review of #330) still
+  touched at 11.6 to 13.1 degrees with 0.46 to 0.58 of throttle, and was not
+  kept: at 31 to 32 kt, under her 33 kt stall, she is held up by power.
 - **She is flown at 42.9 kt, her reference speed at the 1,092 lb of her
   stall figure**, where the approach autopilot flies her at 39.4 kt for her
   model's 922 lb: 3.5 kt (9%) fast, by design, as the other three. The
@@ -41,7 +47,30 @@ C182's two named corners alone.
   gate's 32 corners in each of its nine winds, **with their coverage
   asserted** (nine winds, nine flown, none left out); refused heavier and
   lighter than she was trained at (her one tank full and 2 lb more aboard).
-  `at` now knows she has one tank, not two.
+  `at` checks her tanks against her training file's `tanks`
+  (tools/rl/aircraft/MODEL.txt), not a count written in the test. **Seen
+  red** (review of #330): with the gate's upper weight bound planted out,
+  the refusal test failed on her 924 lb ("at the gate"); put back, green.
+- **Her gate's crosswind is her own** (review of #330): the most across a
+  learnt landing's gate admits is now each aircraft's demonstrated
+  crosswind from her figures (`demonstrated_crosswind_kts`, read by
+  sim::learnt_landing into the policy; sim::learnt_gate_most_crosswind_kts),
+  never more than training's 15. Used: the J-3 Cub **12** (Steve Krog,
+  EAA Inspire 2019, the owner's figure of 2026-10-30; Piper published
+  none); the C172P **15** (her POH section 4, "maximum demonstrated
+  crosswind velocity ... 15 knots", as quoted on Pilots of America - not
+  seen in a scan); the C182S **15** (her manual as AAIB Bulletin 4/2003,
+  G-ZBLT, quotes it); the PA-28 **17** (the Cherokee manual as AAIB
+  Bulletin 2/2009, G-BOSR, quotes it; 17 for the PA-28-181 too), so 15
+  for her gate. Her corners now fly 12 across and 12 across with 5 behind;
+  every other aircraft's are unchanged, to the printed digit.
+  `a_j3cub_in_13_kt_across_is_refused_by_her_learnt_landings_gate_and_a_pa28_is_not`:
+  refused at 13 from either side, admitted at 11.5, a PA-28 admitted at 13.
+  **Seen red** with her figure ignored (she was "at the gate" in 13); put
+  back, green.
+- **The SHAs in her policy file's header** (e06ade65, 5c45334a, 2e993a81)
+  are commits on this branch before its rebase into main; on main the same
+  changes have other SHAs, found by their subjects. The header says so.
 - **tools/rl**: `tools/rl/aircraft/j3cub.txt`; her weight with no fuel from
   the point masses her model has (three, where the dry weight and export's
   `trained_lbs` summed five and failed on her) - `landing.py`'s `dry_lbs`;
@@ -79,12 +108,13 @@ and ground loops (nothing found; the nearest, Liu et al. 2021, Sensors 21
 1386, RL crosswind take-off of a civil aircraft; Olivares et al. 2024,
 arXiv 2409.17896, RL fixed-wing attitude control on JSBSim with wind), and
 for light, low-wing-loading aeroplanes in gusts (nothing beyond forum
-remarks that a gust lifts a three-pointed Cub). **Chosen**: her reference
-speed from the published stall; the touch near her three-point attitude
-(12 degrees on her gear's geometry; costed below 9) with the throttle
-closed, as the Handbook's normal tailwheel landing - not the wheel landing,
-which the gust work keeps for gusts and which AOPA advises against in a
-crosswind.
+remarks that a gust lifts a three-pointed Cub). **Aimed at**: her
+reference speed from the published stall; a touch toward her three-point
+attitude (12.1 degrees on her gear's geometry; costed below 9) with the
+throttle closed, as the Handbook's normal tailwheel landing - not the
+wheel landing, which the gust work keeps for gusts and which AOPA advises
+against in a crosswind. **Not reached**: she touches nose up but under
+power (above).
 
 **What training found** (each part's checkpoint flown on the simulation's
 tests):
@@ -118,15 +148,18 @@ printed digit in a `-march=x86-64-v2` build):
 | 54 lb | 27 of 27 | 129 | 1.21 |
 
 Gate corners, 32 each, all stabilized (at most 1.7 kt fast and 3.0 slow from
-500 to 50 ft): calm 120 ft/min, 0.38 m; across from the left 93, 1.32; from
-the right 194, 1.80; ahead 73, 3.40; behind 175, 0.28; quartering ahead from
-the left 113, 1.29, from the right 79, 3.36; behind and across from the left
-97, 2.12, from the right 209, 1.59.
+500 to 50 ft): calm 120 ft/min, 0.38 m; across from the left (12 kt) 148,
+1.24; from the right 167, 1.74; ahead 73, 3.40; behind 175, 0.28;
+quartering ahead from the left 113, 1.29, from the right 79, 3.36; behind
+(5 kt) and 12 across from the left 136, 2.02, from the right 197, 1.42.
+(At the gate's 15 across, before her gate took her 12: 93, 1.32 and 194,
+1.80; with 14.1 across and 5 behind 97, 2.12 and 209, 1.59.)
 
 **Tuned and sourced.** Sourced: her reference speed (1.3 x her published
 33.0 kt stall, 38 mph: 42.9 kt), no flap (she has none), her fuel (one 72
-lb tank), the limits (the autopilot's, unchanged), the touch near her
-three-point attitude with the throttle closed (FAA-H-8083-3C ch. 9 and 14).
+lb tank), the limits (the autopilot's, unchanged), her gate's 12 kt across
+(Krog), the other three's demonstrated crosswinds (above). Measured, not
+sourced: her touch's attitude and throttle, pinned as measured.
 Tuned: every reward weight and fraction (`--nose-up 2` then `4`,
 `--nose-up-from 6` then `9`, `--sink-over 0.3`, `--nose-falling 1.0`,
 `--idle-touch 20`, `--full-fuel 0.35`, `--handover 0.4` to `0.5`,
@@ -145,3 +178,11 @@ skipped as on any Linux machine without a display or Windows). **Not run
 here**: 22 multi-process client tests (prediction against a server behind
 real time, the windowed client, take-overs at 100 and 200 ms), none of
 which flies the Cub; CI runs them.
+
+**After the review of #330** (no display): ctest linux-release
+`-R "learnt|lander|j3cub|figures|published"`, 164 tests, 349 s, all
+passed; every other aircraft's learnt-landing figures the same as before.
+In the x86-64-v2 build her tests, the gate's crosswind test and the two
+that count the policies: every figure the same to the printed digit (the
+v2 build's `the_j3cub_lands_within_her_measured_landing_distance` could
+not run there, its CLI not built; it passed in linux-release).

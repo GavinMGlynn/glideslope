@@ -2358,6 +2358,15 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         }
         out.three_point = lands == "three_point";
     }
+    if (root->HasAttribute("demonstrated_crosswind_kts")) {
+        out.demonstrated_crosswind_kts =
+            root->GetAttributeValueAsNumber("demonstrated_crosswind_kts");
+        if (!(out.demonstrated_crosswind_kts > 0.0 && out.demonstrated_crosswind_kts <= 60.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a demonstrated_crosswind_kts that is not above 0 "
+                                     "and at most 60");
+        }
+    }
     if (JSBSim::Element* source = root->FindElement("source")) {
         out.source = collapse_whitespace(source->GetDataLine());
     }

@@ -44,8 +44,15 @@
   degree a second she is off it, a tuning value: 0.15. At the 0.3 an
   airliner takes, her stick turned back seven times on her wheels at her
   figures' loading; at 0.15, three (docs/PROJECT_STATUS.md, 2026-10-13).
+
+  demonstrated_crosswind_kts: 17 knots, "the maximum crosswind component in
+  which the aeroplane has been demonstrated to be safe for take-off and
+  landing ... at a tower height of 33 feet", the Cherokee manual as the AAIB
+  quotes it (PA-28-140 G-BOSR, Bulletin 2/2009; the same 17 for the PA-28-181,
+  G-BSIM, 1/2020). Her learnt landing's gate admits no more than training's
+  15 across (sim::learnt_gate_most_crosswind_kts).
 -->
-<published_figures aircraft="pa28" rotation_degps="4" rotation_stick_per_degps="0.15" flaps_full_deg="40" go_around_flaps_deg="25">
+<published_figures aircraft="pa28" rotation_degps="4" rotation_stick_per_degps="0.15" flaps_full_deg="40" go_around_flaps_deg="25" demonstrated_crosswind_kts="17">
   <source>Piper Cherokee 180 "E" Owner's Handbook, 1969-1974</source>
 
   <!-- 2,400 lb, the gross weight the handbook's figures are for: its
