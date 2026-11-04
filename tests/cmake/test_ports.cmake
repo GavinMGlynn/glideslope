@@ -28,7 +28,11 @@
 #     word `--port` followed by N listens on N, unless a word of it is also
 #     `--dry-run`, which reads its arguments and listens on nothing: those are
 #     named as left out, with that reason. A pattern to match (a
-#     -D..._MATCHES) is not a command line and is not read.
+#     -D..._MATCHES) is not a command line and is not read;
+#   - a test whose script uses `${PORT}` holds it machine-wide, through
+#     `include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)`, before its first
+#     execute_process: two builds on one machine are the same tests on the
+#     same ports (port_lock.cmake says what that did on 2026-11-04).
 #
 # A test that asks for port 0 is given one by the system and needs no block;
 # none of those is counted here.
@@ -64,6 +68,7 @@ endif()
 set(_claims "")        # "port;test" pairs, flattened as port=test
 set(_given 0)          # tests given -DPORT
 set(_needing 0)        # tests whose script uses ${PORT}
+set(_locking 0)        # ... and holds it, through port_lock.cmake, before running anything
 set(_left_out "")      # tests that name a port and listen on nothing
 set(_problems "")
 math(EXPR _last_index "${_count} - 1")
@@ -150,6 +155,19 @@ foreach(_i RANGE ${_last_index})
         if(_port STREQUAL "")
             list(APPEND _problems "${_name}: its script uses \${PORT} and it is given none")
         endif()
+        # **And holds it machine-wide** (port_lock.cmake) before it runs
+        # anything: another build's run of the same test is on the same port.
+        string(FIND "${_script_text}" "\ninclude(\${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)\n"
+               _locks)
+        string(FIND "${_script_text}" "execute_process(" _runs)
+        if(_locks EQUAL -1)
+            list(APPEND _problems "${_name}: its script uses \${PORT} and does not hold it "
+                                  "(include port_lock.cmake)")
+        elseif(NOT _runs EQUAL -1 AND _runs LESS _locks)
+            list(APPEND _problems "${_name}: its script runs a program before it holds its port")
+        else()
+            math(EXPR _locking "${_locking} + 1")
+        endif()
     endif()
     if(NOT _port STREQUAL "")
         math(EXPR _given "${_given} + 1")
@@ -211,6 +229,10 @@ foreach(_i RANGE ${_last_index})
     endif()
 endforeach()
 
+if(NOT _locking EQUAL _needing)
+    list(APPEND _problems
+         "${_needing} tests' scripts use a port and ${_locking} of them hold it first")
+endif()
 if(NOT _given EQUAL _needing)
     list(APPEND _problems
          "${_given} tests are given a port and ${_needing} tests' scripts use one")
@@ -244,5 +266,6 @@ if(_problems)
     message(FATAL_ERROR "the tests' ports:\n  ${_all}")
 endif()
 message(STATUS "walked ${_count} tests: ${_needing} run a script that needs a port and "
-               "${_given} are given one; ${_ports} ports claimed, all in ${FIRST}-${LAST} and no two "
+               "${_given} are given one, ${_locking} holding it machine-wide before they run "
+               "anything; ${_ports} ports claimed, all in ${FIRST}-${LAST} and no two "
                "the same; ${_left} left out as listening on nothing")

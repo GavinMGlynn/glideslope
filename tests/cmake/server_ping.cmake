@@ -17,6 +17,10 @@
 
 cmake_minimum_required(VERSION 3.28)
 
+# **Its port held machine-wide** while it runs (port_lock.cmake): another
+# build's run of this test on the same port waits for it.
+include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
+
 set(_store "${WORK}/ping.sqlite")
 file(REMOVE "${_store}")
 
