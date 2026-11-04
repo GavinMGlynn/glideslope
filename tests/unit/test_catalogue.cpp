@@ -1873,15 +1873,19 @@ GLIDESLOPE_TEST(every_aircraft_knows_the_alpha_and_sideslip_its_tables_hold) {
 // down, only the S.23 at 65 and the A320 at 125 left their tables; the
 // S.23's is a stall, the A320's an edge. Flown on, MSVC's debug JSBSim
 // asserted in a table lookup (CI run 37609045925); stopped there, nothing is
-// looked up past them.
+// looked up past them, and the test sees the flight end short of its two
+// minutes. (Until 2026-11-04 it checked her sideslip at most 90 degrees,
+// which JSBSim's sideslip never passes.)
 GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables_and_judges_it_not_held) {
     const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "short_s23");
     const glideslope::sim::CrosswindFlown f =
         glideslope::sim::fly_heading_in_crosswind(data(), e, 65.0, false, 30.0);
-    std::printf("  short_s23 at 65 kt in calm air: left its tables %s, sideslip at most %.1f\n",
-                f.left_tables ? "yes" : "no", f.most_sideslip_ever_deg);
-    check(f.left_tables, "she left her tables, and the flight was stopped");
-    check(f.most_sideslip_ever_deg <= 90.0, "no step was looked up past them");
+    std::printf("  short_s23 at 65 kt in calm air: left its tables %s after %.2f s of 120, "
+                "sideslip at most %.1f\n",
+                f.left_tables ? "yes" : "no", f.flown_s, f.most_sideslip_ever_deg);
+    check(f.left_tables, "she left her tables");
+    check(f.flown_s > 0.0 && f.flown_s < 120.0,
+          "and the flight was stopped there, no step flown past them");
     check(!f.held(), "and it is not held");
 }
 

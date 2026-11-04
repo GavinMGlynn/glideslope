@@ -69,6 +69,7 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
     for (int i = 0; i < 120 * steps_per_second; ++i) {
         aircraft.set_controls(autopilot.fly());
         aircraft.step();
+        out.flown_s = static_cast<double>(i + 1) / steps_per_second;
         if (aircraft.outside_its_tables()) {
             out.left_tables = true;
             break;
