@@ -4,8 +4,9 @@
 "The F-22A flies her stall-figure tests". The F-22A is off
 `not_yet_landed_in_gusts()` (tests/unit/test_lesson.cpp), but she does not
 land twelve of forty seeds on Linux. Each is named on its seed alone
-(`named_on_a_seed`), with its figure (below). macOS is not yet seen with
-this change. The A380 is still named whole.
+(`named_on_a_seed`), with its figure (below). On Windows release she does
+not land fourteen, each named there. macOS is not yet seen with this change.
+The A380 is still named whole.
 
 **What now works**: on linux-release and on an `-march=x86-64-v2` build
 (no fused multiply-adds, as CI's), the F-22A lands within every limit with
@@ -66,7 +67,7 @@ from noise. None is taken. The lander is unchanged.
 |---|---|---|
 | linux-release (FMA) | 2 | 28 |
 | x86-64-v2 release | 2 | 28, the same figures line for line |
-| Windows release | not seen | not yet seen |
+| Windows release | not seen: named whole, not shown | 26 |
 
 **Named, per seed, on Linux** (linux-release and x86-64-v2 alike):
 
@@ -84,6 +85,31 @@ from noise. None is taken. The lander is unchanged.
 | 34 | a gust climbs her at 88 ft/min in her flare |
 | 39 | a gust climbs her at 79 ft/min in her flare |
 | 40 | touches at 460 ft/min |
+
+**Named, per seed, on Windows** (tools/windows_build.sh windows-release;
+a Windows name covers every Windows build):
+
+| Seed | What she does |
+|---|---|
+| 1 | a gust climbs her at 100 ft/min in her flare |
+| 3 | touches at 351 ft/min |
+| 5 | a gust climbs her at 80 ft/min in her flare |
+| 9 | goes round from a float: she would touch 1,052 m along |
+| 11 | a gust climbs her at 75 ft/min in her flare |
+| 15 | a gust climbs her at 77 ft/min in her flare |
+| 16 | a gust climbs her at 77 ft/min in her flare |
+| 17 | rises 1.04 ft off her wheels after her touch |
+| 19 | a gust climbs her at 113 ft/min in her flare; touches 916 m along |
+| 22 | a gust climbs her at 144 ft/min in her flare |
+| 23 | a gust climbs her at 136 ft/min in her flare |
+| 28 | touches at 335 ft/min, rises 0.80 ft, climbs at 80 ft/min |
+| 31 | a gust climbs her at 121 ft/min in her flare |
+| 37 | touches at 362 ft/min |
+
+Only seed 9 fails on both. Touch sink scatters between platforms, so one
+platform's pass is no other's (as the gust item says of every aeroplane).
+On Windows release, every one of the forty seeds' failures before these
+names was the F-22A's: every other aeroplane passed or was already named.
 
 **Searched first** (2026-11-05): F-22 landing technique, approach angle of
 attack and gusty winds; AFMAN 11-2F-22A's gust and crosswind approach
@@ -108,5 +134,8 @@ F-16's pitch-rate gyros, which gave the fix.
 - **Seen red**: with seed 13's name taken off, seed 13 fails ("f22 (gusts,
   seed 13) touched at 461.848071 ft/min, not 25 inside 360"); restored, it
   passes. A name on a seed she passes fails "take her name off".
+- Windows release (tools/windows_build.sh, this branch's first commit):
+  seeds 1 to 40 fail on the fourteen seeds above and on no others, each for
+  the F-22A alone; with the fourteen named, seeds 1 to 40 pass.
 - `python3 tools/make_f22.py --check` passes; the committed model is what
   the script makes.

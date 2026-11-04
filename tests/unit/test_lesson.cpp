@@ -3139,6 +3139,35 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"f22", 39, linux_(),
          "on Linux a gust climbs her at 79 ft/min in her flare (seed 39)"},
         {"f22", 40, linux_(), "on Linux she touches at 460 ft/min (seed 40)"},
+        // Windows release, tools/windows_build.sh on 2026-11-05: twenty-six of forty.
+        {"f22", 1, windows(),
+         "on Windows a gust climbs her at 100 ft/min in her flare (seed 1)"},
+        {"f22", 3, windows(), "on Windows she touches at 351 ft/min (seed 3)"},
+        {"f22", 5, windows(),
+         "on Windows a gust climbs her at 80 ft/min in her flare (seed 5)"},
+        {"f22", 9, windows(),
+         "on Windows she floats into a go-around from a touch 1,052 m along (seed 9)"},
+        {"f22", 11, windows(),
+         "on Windows a gust climbs her at 75 ft/min in her flare (seed 11)"},
+        {"f22", 15, windows(),
+         "on Windows a gust climbs her at 77 ft/min in her flare (seed 15)"},
+        {"f22", 16, windows(),
+         "on Windows a gust climbs her at 77 ft/min in her flare (seed 16)"},
+        {"f22", 17, windows(),
+         "on Windows she rises 1.04 ft off her wheels after her touch (seed 17)"},
+        {"f22", 19, windows(),
+         "on Windows a gust climbs her at 113 ft/min in her flare, and she touches 916 "
+         "m along (seed 19)"},
+        {"f22", 22, windows(),
+         "on Windows a gust climbs her at 144 ft/min in her flare (seed 22)"},
+        {"f22", 23, windows(),
+         "on Windows a gust climbs her at 136 ft/min in her flare (seed 23)"},
+        {"f22", 28, windows(),
+         "on Windows she touches at 335 ft/min, rises 0.80 ft and climbs at 80 ft/min "
+         "in her flare (seed 28)"},
+        {"f22", 31, windows(),
+         "on Windows a gust climbs her at 121 ft/min in her flare (seed 31)"},
+        {"f22", 37, windows(), "on Windows she touches at 362 ft/min (seed 37)"},
         // The 737-300 and 787-8 since 2026-11-04, flown at Boeing's full gust
         // with their noses let rise faster: forty seeds of forty here and on
         // an x86-64-v2 build, and on Windows release all but these.

@@ -1173,7 +1173,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       twenty-eight of forty seeds on Linux, where she landed two; she is
       named on the twelve others (goes round from a float on two, climbs
       in her flare on five, touches at up to 462 ft/min or rises 1.23 ft
-      off her wheels on five). Windows and macOS are not yet seen.
+      off her wheels on five), and twenty-six on Windows release, named
+      on the fourteen others; macOS is not yet seen.
       *Verification: every aeroplane lands light, heavy and in gusts with
       no aircraft and no loading named, and a gust on an approach flown well
       makes no go-around; a name on a single seed on a single platform,
@@ -1385,8 +1386,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       over, tuned), the wet walking pace and the wet crosswind roll-out
       (3.85 m, with her own roll-out rudder gains, tuned) now pass without
       her name. Since 2026-11-05 her gusts are named seed by seed, not
-      whole: twelve of forty on Linux, under the gust item; Windows and
-      macOS are not yet seen
+      whole: twelve of forty on Linux and fourteen on Windows, under the
+      gust item; macOS is not yet seen
       (2026-11-05-the-f22a-lands-in-gusts-on-twenty-eight-seeds-of-forty).
       *Verification: every one of those tests passes with her name taken
       off, on every platform.*
