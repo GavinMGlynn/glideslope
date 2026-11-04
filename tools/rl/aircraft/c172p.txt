@@ -12,6 +12,8 @@
 #   full_tank_lbs LB        what each holds as the simulation's aircraft starts
 #   training_fuel_lbs LB LB what training draws for each tank, per flight:
 #                           from a quarter of that to all of it
+#   trim flown              (optional) trimmed by flying her (landing.py's
+#                           trim_by_flying), where JSBSim's trim cannot
 model c172p
 vref_kts 59.8
 flaps 1.0
