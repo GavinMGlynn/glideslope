@@ -1166,9 +1166,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       787-8 land on all forty seeds on Linux but touch at 347 and 338 ft/min
       on one each on Windows, and the 737-300 fails two on macOS; both are
       judged on every other. Over forty seeds the F-15C floats into
-      a go-around on one; at
-      her light loading the 737-300 balloons, and the Mosquito at her
-      heaviest. The F-22A, her flight controls fed her body's rotation
+      a go-around on one. Since 2026-11-05 no loading is named: the
+      737-300 light, her pitch gains raised for the airspeed she has lost,
+      and the Mosquito at her heaviest, her flare judging her sink further
+      ahead, land without climbing in their flares. The F-22A, her flight controls fed her body's rotation
       since 2026-11-05, as rate gyros sense it, not the air's, lands
       twenty-eight of forty seeds on Linux, where she landed two; she is
       named on the twelve others (goes round from a float on two, climbs

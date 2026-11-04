@@ -62,7 +62,24 @@
   The figure is tuned on the gust tests' forty seeds, not sourced
   (docs/status, 2026-11-04).
 -->
-<published_figures aircraft="737-300" rotation_degps="3" flaps_full_deg="40" touchdown_fpm="200" gust_additive_share="1" most_gust_additive_kts="20" gusty_closing_nose_degps="2">
+<!--
+  **pitch_gains_kcas** is the speed the lander's pitch gains are right for
+  her at: 137 kt, her reference speed at her 114,000 lb landing weight (1.3
+  times the 105.72 kt landing stall below, 137.4, rounded down so that it is
+  never over it). Flown slower - lighter, at her reference speed for the
+  weight - her elevator law is scaled up by the dynamic pressure she has
+  lost, (137 over her approach speed) squared: 1.5 at her light loading's
+  112 kt. Unscaled, her nose swung four degrees either side of her path
+  every eleven seconds down the whole final there, and she climbed at 140
+  ft/min in her flare (docs/status, 2026-11-05). That a pitch gain goes as
+  dynamic pressure is the schedule of any autopilot's; the speed is hers,
+  measured, and that it is the gains' is tuned: at her landing weight they
+  were set and she lands. Boeing's 737 flight crew training manual (as
+  PPRuNe quotes it; the manual itself was not found) begins the flare at
+  about 20 ft with two or three degrees of pitch and gives nothing for a
+  light weight but its float.
+-->
+<published_figures aircraft="737-300" rotation_degps="3" flaps_full_deg="40" touchdown_fpm="200" gust_additive_share="1" most_gust_additive_kts="20" gusty_closing_nose_degps="2" pitch_gains_kcas="137">
   <source>Boeing D6-58325-6 rev E, 2023; FAA TCDS A16WE</source>
 
   <!-- 135,000 lb, the maximum take-off weight with the CFM56-3B1 (table

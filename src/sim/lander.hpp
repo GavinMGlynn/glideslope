@@ -109,6 +109,14 @@ struct ApproachSpeeds {
     // near the ground in gusts**, degrees: 0, as far as the path asks,
     // unless her figures give it (`PublishedFigures::gusty_most_nose_down_deg`).
     double gusty_most_nose_down_deg = 0.0;
+    // **The speed her pitch gains are right at**, knots: 0, the gains flown
+    // as they are at every speed, unless her figures give one
+    // (`PublishedFigures::pitch_gains_kcas`); flown slower, her elevator law
+    // is scaled up by the dynamic pressure she has lost.
+    double pitch_gains_kcas = 0.0;
+    // **How far ahead her calm flare judges her sink**, seconds: 0.3, unless
+    // her figures give her own (`PublishedFigures::flare_lead_s`).
+    double flare_lead_s = 0.3;
     // **The approach yaw damper's pedal for each degree a second**: 0.05,
     // unless her figures say her pedals command a yaw rate
     // (`yaw_rate_pedal_per_degps`).

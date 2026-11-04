@@ -44,8 +44,21 @@
   100 kt, her tyres held little, and on a wet runway she rolled 9.9 m from the
   centreline as 15 kt arrived across; held to 0.7, 3.4 m (2026-10-30). The
   Pilot's Notes found say nothing of her landing roll.
+
+  flare_lead_s is not a published figure: how far ahead her flare judges
+  her sink in calm air, half a second where every other aeroplane's is
+  three tenths. At 21,462 lb, flown down at 134 kt, her sink was arrested
+  17 ft up with her nose still coming up and she climbed at 22 ft/min in
+  her flare; at 0.4 s she climbs at none, at 0.5 and 0.6 she sinks at 32
+  and 45 to the end of it, light and heavy, and 0.5 is taken (2026-11-05).
+  Tuned, not sourced. [PN50] para. 47 approaches her "engine assisted" at
+  100-105 knots from 17,000 to 18,000 lb, "at full load ... increased by
+  about 5 knots"; the AI flies her at 1.3 times her landing stall, 123 kt
+  at 18,000 lb, faster than the book by twenty, and that is not changed
+  here: her stall warning, 10 kt over a stall of 95 to 100, leaves the
+  book's speed none to fly in.
 -->
-<published_figures aircraft="mosquito-fb6" flaps_full_deg="45" stall_warning_kts="10" stick_back_from_vref="0.7">
+<published_figures aircraft="mosquito-fb6" flaps_full_deg="45" stall_warning_kts="10" stick_back_from_vref="0.7" flare_lead_s="0.5">
   <source>A&amp;AEE reports 767,e (HX809, HJ679) and A.P. 2019E Pilot's Notes</source>
 
   <!-- HX809's level speeds were "corrected to 95% of the take-off weight",

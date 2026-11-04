@@ -2530,20 +2530,17 @@ std::shared_ptr<glideslope::sim::Weather> gusty_down_the_runway() {
 // must touch inside the touchdown zone, unwrecked by the server's rule, climb
 // nowhere in its flare, rise no more than half a foot after its wheels meet
 // the runway, stay upright on its wheels, stop - and never go around.
-// Coverage: 14 aeroplanes, two cases each, 28; the two that fail are named
-// with their reasons (below), 26 judged. Gusty air is the next test's.
+// Coverage: every aeroplane taught the approach (16), two cases each, 32,
+// all judged: none named since 2026-11-05, when the 737-300 light (her pitch
+// gains scheduled on her dynamic pressure, `pitch_gains_kcas`) and the
+// Mosquito heavy (her calm flare judged half a second ahead, `flare_lead_s`)
+// stopped climbing in their flares. Gusty air is the next test's.
 GLIDESLOPE_TEST(every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce_or_a_go_around) {
     const auto taught = everyone_taught("approach-and-landing");
-    // **Named and not judged, with why** - flown and shown all the same. The
-    // flare before the look-ahead (2026-10-06) failed every one of these
-    // too, and five more; what is wrong is a tail in docs/COMPLETION_PLAN.md.
-    const std::string light_overshoot =
-        "her nose overshoots the flare's attitude by two degrees and more after the sink "
-        "is arrested, and she climbs in it";
-    const std::map<std::string, std::string> named = {
-        {"737-300 (light)", light_overshoot},
-        {"mosquito-fb6 (heavy)", light_overshoot},
-    };
+    // **Named and not judged, with why** - flown and shown all the same.
+    // None: the last two, the 737-300 light and the Mosquito heavy, came off
+    // on 2026-11-05 (docs/status). A case named here must say why.
+    const std::map<std::string, std::string> named = {};
     std::size_t flown = 0;
     std::size_t left_out = 0;
     std::vector<std::string> wrong;
