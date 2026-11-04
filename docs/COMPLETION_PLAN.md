@@ -1402,7 +1402,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       J-3 Cub (since 2026-11-05). **Still open: the C182's two named
       corners** - she drifts up to 6.8 m off the centreline from her gate
       in 15 kt from ahead or quartering ahead from the left, which her gate
-      still admits. *Verification: each light
+      still admits. The PA-28's flies her 8.7 kt over the autopilot's speed
+      for her weight; the Cub's touches at 8.7 to 13.9 degrees nose up with
+      some power on, not three-point at idle. *Verification: each light
       aircraft's policy lands within the autopilot's limits from the same
       starts, in calm air and a 10-knot crosswind.* Owner 2026-10-09: needs RL training per aircraft; the
       172P's is retrained first.
