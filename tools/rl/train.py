@@ -138,6 +138,9 @@ def main() -> None:
     ap.add_argument("--ahead", type=float, default=0.0,
                     help="this fraction of the flights in 10 to 15 kt from within 50 degrees of ahead "
                          "(env.py's random_start); none without it")
+    ap.add_argument("--nose-up", type=float, default=0.0,
+                    help="at the touch, this much reward lost for each degree her nose is below "
+                         "level, to 15 (env.py's Flier); none without it")
     ap.add_argument("--hold-norm", action="store_true",
                     help="resuming: hold the checkpoint's observation and reward normalisation")
     ap.add_argument("--critic-first", type=int, default=0,
@@ -149,7 +152,7 @@ def main() -> None:
     def make(i: int):
         return lambda: LandingEnv(args.aircraft, seed=args.seed * 1000 + i, speed_costs=args.speed_costs,
                                   behind_left=args.behind_left, handover=args.handover,
-                                  ahead=args.ahead)
+                                  ahead=args.ahead, nose_up=args.nose_up)
 
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])
     if args.resume:
