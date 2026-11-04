@@ -1096,18 +1096,9 @@ Controls Lander::fly_laws() {
         // wet and at 1.5 an A380 43 m - so it is held at half of it.
         //
         // **Unless her figures give her own** (`roll_out_track_rudder_per_deg`
-        // and `roll_out_yaw_damping_share`). The F-22A's side force for a
-        // degree of sideslip is her model's -1.79 a radian: as 15 kt arrived
-        // across at 133.6 kt it pushed her with 11,000 lb while her wheels
-        // bore 15,000, and at 0.5 her track turned into the wind too slowly -
-        // 6.13 m from the centreline wet. A stronger track rudder alone set
-        // her weaving: on her wheels her pedals drive her rudders directly,
-        // through an actuator limited to 2.67 of its travel a second
-        // (tools/make_f22.py), and the yaw rate's damping, all of it, beat
-        // her rudder from stop to stop at about two cycles a second. Taken
-        // back at the touch in calm air at 145 kt she rocked to 16 degrees
-        // of bank and struck her airframe (2026-11-04). With half of the
-        // damping, and 0.8 a degree of track, she neither weaves nor slides
+        // and `roll_out_yaw_damping_share`): the F-22A's, tuned. At 0.8 of
+        // track with all the damping she banked 15.6 degrees taken back at
+        // the touch and failed; at 1.5 and 2 she struck her airframe
         // (docs/status/2026-11-04-the-f22a-s-wet-crosswind-roll-out.md).
         const double rolling = std::clamp(
             (rolling_kts - autobrake_off_kts) / autobrake_off_kts, 0.0, 1.0);
