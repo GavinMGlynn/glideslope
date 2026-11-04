@@ -1019,14 +1019,20 @@ GLIDESLOPE_TEST(a_policy_file_that_does_not_fit_the_simulation_is_refused) {
 // the weight said - and handed to the AI with the policy, the approach
 // autopilot flies her at the speed for her weight (sim::for_weight), not the
 // policy's, and the learnt landing never has her.
-GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_c172p_heavier_or_lighter_than_it_was_trained_at) {
-    const auto policy = the_policy();
+namespace {
+
+// Her gate at `least` and `most` lb a tank, inside it, and a pound a tank
+// under and over, refused: `trained` is the range the refusal names.
+void refused_outside_the_weights_trained_at(const std::string& model, double least,
+                                            double most, const std::string& trained) {
+    const auto policy = the_policy(model);
     const Runway runway = a_runway();
     struct Case {
         double fuel_lbs;
         bool inside;
     };
-    const std::vector<Case> cases = {{25.0, true}, {100.0, true}, {24.0, false}, {101.0, false}};
+    const std::vector<Case> cases = {
+        {least, true}, {most, true}, {least - 1.0, false}, {most + 1.0, false}};
     std::size_t walked = 0;
     for (const Case& c : cases) {
         auto aircraft = at(*policy, Start{0.0, 0.0, 0.0}, c.fuel_lbs);
@@ -1037,13 +1043,13 @@ GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_c172p_heavier_or_lighter_than_it
         if (c.inside) {
             check(why.empty(), "at " + std::to_string(lbs) + " lb she is at the gate: " + why);
         } else {
-            check(why.find("lb; the learnt landing was trained at 1730 to 1880") !=
+            check(why.find("lb; the learnt landing was trained at " + trained) !=
                       std::string::npos,
                   "at " + std::to_string(lbs) + " lb she is refused for her weight: " + why);
             glideslope::sim::Controller controller(*aircraft,
                                                    glideslope::sim::trimmed_controls(*aircraft));
-            controller.to_ai_approach(runway, speeds(), policy);
-            const double want = glideslope::sim::for_weight(speeds(), lbs).vref_kts;
+            controller.to_ai_approach(runway, speeds(model), policy);
+            const double want = glideslope::sim::for_weight(speeds(model), lbs).vref_kts;
             check(controller.lander() != nullptr &&
                       std::abs(controller.lander()->speeds().vref_kts - want) < 0.01,
                   "the approach autopilot flies her at the " + std::to_string(want) +
@@ -1058,6 +1064,19 @@ GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_c172p_heavier_or_lighter_than_it
         ++walked;
     }
     check(walked == 4, "both sides of both bounds: " + std::to_string(walked) + " of 4");
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_c172p_heavier_or_lighter_than_it_was_trained_at) {
+    refused_outside_the_weights_trained_at("c172p", 25.0, 100.0, "1730 to 1880");
+}
+
+// **And the C182's**: 2,205 to 2,505 lb, her model with 50 to 200 lb a tank
+// (tools/rl/aircraft/c182.txt). A session starts her with 200 lb a tank, at
+// the very top of it.
+GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_c182_heavier_or_lighter_than_it_was_trained_at) {
+    refused_outside_the_weights_trained_at("c182", 50.0, 200.0, "2205 to 2505");
 }
 
 // **A copilot's route arriving during a learnt landing replaces it**, as it
@@ -1802,6 +1821,34 @@ GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_
 // centreline from 16 and 19 of the 32 corners, outside the 5 m limit
 // (docs/status/2026-11-04-the-c182-s-learnt-landing.md). Her gate still
 // admits them: a tail of the item, named in docs/COMPLETION_PLAN.md.
+// **Her corners' coverage, asserted**: of the gate's nine winds, the seven
+// below are flown for her, and exactly the two named above are left out.
+GLIDESLOPE_TEST(the_c182s_corner_landings_are_flown_in_seven_of_the_nine_winds_and_only_the_two_named_are_left_out) {
+    const std::vector<std::string> flown{"calm",
+                                         "across from the left",
+                                         "across from the right",
+                                         "behind",
+                                         "quartering ahead from the right",
+                                         "behind and across from the left",
+                                         "behind and across from the right"};
+    const std::vector<std::string> left_out{"ahead", "quartering ahead from the left"};
+    const std::vector<CornerWind> all = corner_winds();
+    std::size_t covered = 0;
+    std::size_t named = 0;
+    for (const CornerWind& w : all) {
+        const bool is_flown = std::find(flown.begin(), flown.end(), w.name) != flown.end();
+        const bool is_named = std::find(left_out.begin(), left_out.end(), w.name) != left_out.end();
+        check(is_flown != is_named, std::string(w.name) + " is either flown for her or named");
+        covered += is_flown ? 1U : 0U;
+        named += is_named ? 1U : 0U;
+    }
+    std::printf("  %zu winds: %zu flown for the C182, %zu left out and named\n", all.size(),
+                covered, named);
+    check(all.size() == 9 && covered == 7 && named == 2,
+          "nine winds, seven flown, two named: " + std::to_string(all.size()) + ", " +
+              std::to_string(covered) + ", " + std::to_string(named));
+}
+
 GLIDESLOPE_TEST(the_c182s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air) {
     lands_from_every_corner_in("calm", "c182");
 }
