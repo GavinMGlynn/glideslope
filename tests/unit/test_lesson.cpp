@@ -3114,7 +3114,8 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
     // no longer, since 2026-11-04: her nose held to her capped attitude in
     // the hold-off with her own gains (`Lander::hull_elevator`), and a
     // gust's climb in that level hold-off no longer gone around from as a
-    // balloon. macOS's are not yet measured with it.
+    // balloon. macOS's seeds 3, 10 and 11 likewise, measured in the full
+    // run dispatched on #313; her 18 and 32 are named below.
     static const std::vector<NamedOnASeed> named = {
         // The 737-300 and 787-8 since 2026-11-04, flown at Boeing's full gust
         // with their noses let rise faster: forty seeds of forty here and on

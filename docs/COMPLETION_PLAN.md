@@ -1175,8 +1175,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       183 to 1,293 ft/min or rises off her wheels up to 25 ft.
       *Verification: every aeroplane lands light, heavy and in gusts with
       no aircraft and no loading named, and a gust on an approach flown well
-      makes no go-around; a name on a single seed on a single platform
-      closes on its measured figure (owner, 2026-11-04).*
+      makes no go-around; a name on a single seed on a single platform,
+      a go-around among them, closes on its measured figure (owner,
+      2026-11-04).*
 - [x] **In a steady headwind the S.23 skips off the water after
       alighting.** The rollout now judges her lift by her airspeed in all
       air, and the thirteen landplanes roll out into 15 kt without lifting
