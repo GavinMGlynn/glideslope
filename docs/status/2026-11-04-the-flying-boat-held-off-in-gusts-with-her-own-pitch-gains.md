@@ -131,3 +131,11 @@ the margin), her highest rise 0.34 ft (seeds 4 and 21), her flattest touch
   and a half seconds is a fault in starting up - its server or clients -
   not a flight run slow under load; it flies no flying boat and no gusts.
   Its cause is not found here.
+
+**macOS, from the full workflow dispatched on this branch (run 41732333742,
+every preset, seeds 1 to 40).** She lands seeds 3, 10 and 11 there now, on
+macOS debug and release alike, and their names are taken off. On seeds 18
+and 32 she touches at 342.0 and 340.4 ft/min, inside the 360 limit but not
+by its 25 margin, on both, and is named on them. Every other aeroplane and
+seed passed on every preset. The spiral test's start-up failure is a tail in
+the plan.
