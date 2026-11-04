@@ -953,14 +953,18 @@ GLIDESLOPE_TEST(every_aircrafts_touchdown_sink_is_within_nasas_go_around_criteri
               std::to_string(figured_models().size()));
 }
 
-// **Only the Mosquito's figures give her own stall warning**
-// (`stall_warning_kts`): her Pilot's Notes' buffet "some 10 knots before the
-// stall" (A.P. 2019E, 1950, para. 43 (ii)). Every other aircraft is warned at
+// **Only the Mosquito's and the F-22A's figures give their own stall
+// warning** (`stall_warning_kts`): the Mosquito's Pilot's Notes' buffet "some
+// 10 knots before the stall" (A.P. 2019E, 1950, para. 43 (ii)), sourced; the
+// F-22A's 12 knots, tuned, not sourced (assets/figures/f22.xml: at the rule's
+// 5% the AI's recovery, entered at her gear-down alpha limit, slowed her under
+// her stall for her weight; 2026-11-04). Every other aircraft is warned at
 // the rule's 5 knots or 5% (sim::stall_warning_kts), so a file that gains one
-// turns this red, to be added here with its source. Every aircraft in the
-// catalogue is walked, and its landing speeds carry the margin its file gives.
-GLIDESLOPE_TEST(only_the_mosquitos_figures_give_her_own_stall_warning_ten_knots_over_her_stall) {
-    const std::map<std::string, double> expected = {{"mosquito-fb6", 10.0}};
+// turns this red, to be added here with its source or its tuning. Every
+// aircraft in the catalogue is walked, and its landing speeds carry the
+// margin its file gives.
+GLIDESLOPE_TEST(only_the_mosquito_and_the_f22a_give_their_own_stall_warnings) {
+    const std::map<std::string, double> expected = {{"f22", 12.0}, {"mosquito-fb6", 10.0}};
     const auto data = std::filesystem::path(data_dir).parent_path();
     const auto catalogue = glideslope::sim::read_catalogue(data);
     std::size_t walked = 0;
@@ -984,7 +988,7 @@ GLIDESLOPE_TEST(only_the_mosquitos_figures_give_her_own_stall_warning_ten_knots_
     std::printf("%zu aircraft walked, %zu give their own stall warning\n", walked, given.size());
     check(given == expected, std::to_string(given.size()) +
                                  " aircraft give their own stall warning; only the Mosquito's, "
-                                 "10 kt, is expected");
+                                 "10 kt, and the F-22A's, 12 kt, are expected");
     check(walked == catalogue.size() && walked == figured_models().size(),
           "every aircraft walked: " + std::to_string(walked) + " of " +
               std::to_string(figured_models().size()));
