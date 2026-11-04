@@ -258,8 +258,10 @@ across with 5 behind, where it had touched short from the left, trained
 there). Since 2026-11-04 the approach autopilot flies its approach, at the
 policy's speed and judged by the stabilized gate, and the policy lands her
 from 35 ft: the policy flown from the gate passed 500 ft up to 41 kt fast.
-Since 2026-11-04 the C182 has one too, trained on from the 172P's, but
-it drifts off the centreline in 15 kt from ahead; since 2026-11-05 the
+Since 2026-11-04 the C182 has one too, trained on from the 172P's, and
+since 2026-11-05 lands from every corner of her gate in its nine winds,
+15 kt from ahead among them (slipping in the flare, her nose 6 to 8
+degrees left of the runway); since 2026-11-05 the
 PA-28 has one, trained on from the C182's, and the J-3 Cub, trained on
 from the PA-28's - nose up, 8.7 to 13.9 degrees, but under power, not
 three-point with the throttle closed as the AI's lander touches her. Each

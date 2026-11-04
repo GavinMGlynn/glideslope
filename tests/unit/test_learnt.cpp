@@ -1979,40 +1979,36 @@ GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_
     lands_from_every_corner_in("behind and across from the right");
 }
 
-// **And the C182's, from the same gate, in seven of the nine winds**: her
-// policy is offered at it as the C172P's is (sim::LearntGate, around her
-// own reference speed). **Left out, and failing, 2026-11-04: the most
-// headwind (15 kt) and the most wind quartering ahead from the left** - in
-// both she lands under 220 ft/min but touches up to 6.8 m right of the
-// centreline from 16 and 19 of the 32 corners, outside the 5 m limit
-// (docs/status/2026-11-04-the-c182-s-learnt-landing.md). Her gate still
-// admits them: a tail of the item, named in docs/COMPLETION_PLAN.md.
-// **Her corners' coverage, asserted**: of the gate's nine winds, the seven
-// below are flown for her, and exactly the two named above are left out.
-GLIDESLOPE_TEST(the_c182s_corner_landings_are_flown_in_seven_of_the_nine_winds_and_only_the_two_named_are_left_out) {
+// **And the C182's, from the same gate, in every one of its nine winds**:
+// her policy is offered at it as the C172P's is (sim::LearntGate, around her
+// own reference speed). Until 2026-11-05 the most headwind (15 kt) and the
+// most wind quartering ahead from the left were left out for her: she
+// touched up to 6.8 m right of the centreline there
+// (docs/status/2026-11-04-the-c182-s-learnt-landing.md), and was trained on
+// (docs/status/2026-11-05-the-c182-s-learnt-landing-at-her-gate-s-corners.md).
+// **Her corners' coverage, asserted**: of the gate's nine winds, every one is
+// flown for her, and none is left out.
+GLIDESLOPE_TEST(the_c182s_corner_landings_are_flown_in_every_one_of_the_nine_winds) {
     const std::vector<std::string> flown{"calm",
                                          "across from the left",
                                          "across from the right",
+                                         "ahead",
                                          "behind",
+                                         "quartering ahead from the left",
                                          "quartering ahead from the right",
                                          "behind and across from the left",
                                          "behind and across from the right"};
-    const std::vector<std::string> left_out{"ahead", "quartering ahead from the left"};
     const std::vector<CornerWind> all = corner_winds();
     std::size_t covered = 0;
-    std::size_t named = 0;
     for (const CornerWind& w : all) {
         const bool is_flown = std::find(flown.begin(), flown.end(), w.name) != flown.end();
-        const bool is_named = std::find(left_out.begin(), left_out.end(), w.name) != left_out.end();
-        check(is_flown != is_named, std::string(w.name) + " is either flown for her or named");
+        check(is_flown, std::string(w.name) + " is flown for her");
         covered += is_flown ? 1U : 0U;
-        named += is_named ? 1U : 0U;
     }
-    std::printf("  %zu winds: %zu flown for the C182, %zu left out and named\n", all.size(),
-                covered, named);
-    check(all.size() == 9 && covered == 7 && named == 2,
-          "nine winds, seven flown, two named: " + std::to_string(all.size()) + ", " +
-              std::to_string(covered) + ", " + std::to_string(named));
+    std::printf("  %zu winds: %zu flown for the C182, none left out\n", all.size(), covered);
+    check(all.size() == 9 && covered == 9 && flown.size() == 9,
+          "nine winds, nine flown, none left out: " + std::to_string(all.size()) + ", " +
+              std::to_string(covered));
 }
 
 GLIDESLOPE_TEST(the_c182s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air) {
@@ -2027,8 +2023,16 @@ GLIDESLOPE_TEST(the_c182s_learnt_landing_is_stabilized_by_500_ft_and_lands_withi
     lands_from_every_corner_in("across from the right", "c182");
 }
 
+GLIDESLOPE_TEST(the_c182s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_headwind) {
+    lands_from_every_corner_in("ahead", "c182");
+}
+
 GLIDESLOPE_TEST(the_c182s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_tailwind) {
     lands_from_every_corner_in("behind", "c182");
+}
+
+GLIDESLOPE_TEST(the_c182s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_left) {
+    lands_from_every_corner_in("quartering ahead from the left", "c182");
 }
 
 GLIDESLOPE_TEST(the_c182s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_right) {

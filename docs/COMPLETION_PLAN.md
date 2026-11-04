@@ -1397,17 +1397,18 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       (Boeing's FCOM). *Verification: her approach speed from a published
       figure, and she lands within her limits.* Done 2026-11-01; her gust
       landings are named under the gust item.
-- [ ] **Learnt landings for other aircraft.** Every light aircraft has
+- [x] **Learnt landings for other aircraft.** Every light aircraft has
       one: the Cessna 172P, the C182 (since 2026-11-04), the PA-28 and the
-      J-3 Cub (since 2026-11-05). **Still open: the C182's two named
-      corners** - she drifts up to 6.8 m off the centreline from her gate
-      in 15 kt from ahead or quartering ahead from the left, which her gate
-      still admits. The PA-28's flies her 8.7 kt over the autopilot's speed
-      for her weight; the Cub's touches at 8.7 to 13.9 degrees nose up with
-      some power on, not three-point at idle. *Verification: each light
+      J-3 Cub (since 2026-11-05), the C182 now from every corner of her
+      gate in its nine winds. Where they differ from the book, named: the
+      PA-28's flies her 8.7 kt over the autopilot's speed for her weight;
+      the Cub's touches at 8.7 to 13.9 degrees nose up with some power on,
+      not three-point at idle; the C182's flares in calm air slipping, her
+      nose 6 to 8 degrees left of the runway. *Verification: each light
       aircraft's policy lands within the autopilot's limits from the same
       starts, in calm air and a 10-knot crosswind.* Owner 2026-10-09: needs RL training per aircraft; the
-      172P's is retrained first.
+      172P's is retrained first. Done 2026-11-05
+      (docs/status/2026-11-05-the-c182-s-learnt-landing-at-her-gate-s-corners.md).
 - [x] **A landing taken over on its roll is braked for a dry runway**: a
       wet or contaminated one, which needs more, is not known.
       *Verification: on a wet short runway an aeroplane handed over on its
