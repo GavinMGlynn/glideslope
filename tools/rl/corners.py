@@ -6,7 +6,10 @@ and 50 ft, or bound past the touchdown zone, two seconds running, as
 sim::unstabilized judges) and each landing outside evaluate.py's limits.
 For choosing a checkpoint on the gate; the C++ tests are the verification.
 
-    ~/.venvs/glideslope-rl/bin/python tools/rl/corners.py CHECKPOINT.zip|POLICY.txt [--jobs N] [--wind NAME,...] [-v]
+    ~/.venvs/glideslope-rl/bin/python tools/rl/corners.py CHECKPOINT.zip|POLICY.txt [--aircraft MODEL] [--jobs N] [--wind NAME,...] [-v]
+
+A checkpoint names no aircraft: --aircraft says which it was trained on
+(a policy file says itself).
 
 The corners' numbers are LearntGate's, copied: a change there is a change
 here.
@@ -20,11 +23,9 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import landing as L  # noqa: E402
 import policy_file  # noqa: E402
-from env import Flier  # noqa: E402
-from evaluate import within_limits  # noqa: E402
+from evaluate import flier_for, within_limits  # noqa: E402
 
-VREF = 59.8
-NEAREST, FURTHEST = 1.6 * 1852.0, 2.4 * 1852.0
+NEAREST, FURTHEST = 1.7 * 1852.0, 2.4 * 1852.0
 MOST_WIND = 15.0  # LearntGate::most_wind_kts (a test holds the two equal)
 MOST_TAILWIND = 5.0  # LearntGate::most_tailwind_kts (and this)
 QUARTER = MOST_WIND / math.sqrt(2.0)  # the most wind in all from 45 degrees ahead
@@ -38,7 +39,7 @@ WINDS = {"calm": (0.0, 0.0), "left": (15.0, 0.0), "right": (-15.0, 0.0),
          "behind-right": (-BEHIND_EDGE, -MOST_TAILWIND)}
 
 
-def corners(only=None):
+def corners(vref, only=None):
     out = []
     for wname, (cross, head) in WINDS.items():
         if only and wname not in only:
@@ -47,7 +48,7 @@ def corners(only=None):
             e = lambda bit, lo, hi: hi if c & (1 << bit) else lo  # noqa: E731
             s = L.Start(out_m=e(0, NEAREST + 5, FURTHEST - 5), across_m=e(1, -59.5, 59.5),
                         high_m=e(2, -19.5, 19.5), heading_offset_deg=e(3, -4.9, 4.9),
-                        airspeed_kts=e(4, VREF - 3 + 0.2, VREF + 8 - 0.2),
+                        airspeed_kts=e(4, vref - 3 + 0.2, vref + 8 - 0.2),
                         crosswind_kts=cross, headwind_kts=head)
             out.append((f"{wname} c{c:02d}", s))
     return out
@@ -56,7 +57,7 @@ def corners(only=None):
 def load(path):
     if path.endswith(".zip"):
         import export
-        return export.from_checkpoint(path, [])
+        return export.from_checkpoint(path, [], sys.argv[sys.argv.index("--aircraft") + 1])
     return policy_file.read(path)
 
 
@@ -69,7 +70,8 @@ def one(arg):
     if POLICY is None:
         POLICY = load(path)
     p = POLICY
-    flier = Flier(L.Runway(), p.approach)
+    VREF = p.approach.vref_kts
+    flier = flier_for(p)
     obs = flier.begin(s)
     run = most = 0
     worst_fast = worst_slow = -99.0
@@ -109,7 +111,7 @@ def main():
     jobs = int(sys.argv[sys.argv.index("--jobs") + 1]) if "--jobs" in sys.argv else 4
     # --wind NAME[,NAME...] flies only those of the nine winds.
     only = sys.argv[sys.argv.index("--wind") + 1].split(",") if "--wind" in sys.argv else None
-    args = [(path, n, s) for n, s in corners(only)]
+    args = [(path, n, s) for n, s in corners(load(path).approach.vref_kts, only)]
     with ProcessPoolExecutor(jobs) as ex:
         res = list(ex.map(one, args))
     unstab = short = 0

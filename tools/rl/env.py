@@ -103,24 +103,26 @@ class Flier:
     """One aeroplane flown decision by decision: the part of the environment
     that a trained policy is evaluated with too."""
 
-    def __init__(self, runway: L.Runway, approach: L.Approach, speed_costs: bool = False):
+    def __init__(self, runway: L.Runway, approach: L.Approach, plane: L.Aeroplane,
+                 speed_costs: bool = False):
         self.rw = runway
         self.ap = approach
+        self.plane = plane
         # The stabilized approach's speed costs (STABILIZED), or the reward
         # the committed policy was trained with (the default).
         self.speed_costs = speed_costs
-        self.fdm = L.new_fdm(JSBSIM_ROOT)
+        self.fdm = L.new_fdm(JSBSIM_ROOT, plane.model)
         # What she weighs with no fuel: the empty aeroplane and what is on
         # board, as the model has them.
         self.dry_lbs = self.fdm["inertia/empty-weight-lbs"] + sum(
             self.fdm[f"inertia/pointmass-weight-lbs[{i}]"] for i in range(5))
 
     def begin(self, start: L.Start) -> list[float]:
-        L.initialise(self.fdm, self.rw, self.ap, start)
+        L.initialise(self.fdm, self.rw, self.ap, start, self.plane)
         # **She weighs what the start says**: the fuel is the start's, not
         # what the last flight left.
         weight = self.fdm["inertia/weight-lbs"]
-        wanted = self.dry_lbs + L.TANKS * start.fuel_lbs
+        wanted = self.dry_lbs + self.plane.tanks * L.fuel_of(start, self.plane)
         if abs(weight - wanted) > 0.01:
             raise RuntimeError(f"she weighs {weight} lb, and the start says {wanted}")
         self.previous = [0.0] * L.ACTIONS
@@ -289,7 +291,8 @@ class Flier:
         return r
 
 
-def random_start(rng: np.random.Generator, behind_left: float = 0.0) -> L.Start:
+def random_start(rng: np.random.Generator, plane: L.Aeroplane,
+                 behind_left: float = 0.0) -> L.Start:
     # **Behind and across from the left** (train.py's `--behind-left`): this
     # fraction of the flights from near the two corners of the learnt
     # landing's gate (sim::LearntGate) the policy of 2026-11-02 touched short
@@ -307,8 +310,8 @@ def random_start(rng: np.random.Generator, behind_left: float = 0.0) -> L.Start:
             across_m=low_end(-60.0, 60.0),
             high_m=low_end(-20.0, 20.0),
             heading_offset_deg=float(rng.choice([-1.0, 1.0])) * (5.0 - rng.uniform(0.0, 0.5)),
-            airspeed_kts=59.8 + low_end(-3.0, 8.0),
-            fuel_lbs=float(rng.uniform(*L.TRAINING_FUEL_LBS)),
+            airspeed_kts=plane.approach.vref_kts + low_end(-3.0, 8.0),
+            fuel_lbs=float(rng.uniform(*plane.training_fuel_lbs)),
             **behind_and_across_from_the_left(rng),
         )
     # Three in four from a final-approach gate, where the whole approach is
@@ -324,8 +327,8 @@ def random_start(rng: np.random.Generator, behind_left: float = 0.0) -> L.Start:
         across_m=rng.uniform(-across_limit, across_limit),
         high_m=rng.uniform(-high_limit, high_limit),
         heading_offset_deg=rng.uniform(-8.0, 8.0),
-        airspeed_kts=59.8 + rng.uniform(-3.0, 8.0),
-        fuel_lbs=float(rng.uniform(*L.TRAINING_FUEL_LBS)),
+        airspeed_kts=plane.approach.vref_kts + rng.uniform(-3.0, 8.0),
+        fuel_lbs=float(rng.uniform(*plane.training_fuel_lbs)),
         **wind(rng),
     )
 
@@ -355,10 +358,12 @@ def behind_and_across_from_the_left(rng: np.random.Generator) -> dict[str, float
 class LandingEnv(gym.Env):
     metadata = {"render_modes": []}
 
-    def __init__(self, seed: int = 0, speed_costs: bool = False, behind_left: float = 0.0):
+    def __init__(self, model: str, seed: int = 0, speed_costs: bool = False,
+                 behind_left: float = 0.0):
         super().__init__()
         self.behind_left = behind_left
-        self.flier = Flier(L.Runway(), L.Approach(), speed_costs)
+        plane = L.aeroplane(model)
+        self.flier = Flier(L.Runway(), plane.approach, plane, speed_costs)
         self.observation_space = gym.spaces.Box(-np.inf, np.inf, (L.OBSERVATIONS,), np.float64)
         self.action_space = gym.spaces.Box(-1.0, 1.0, (L.ACTIONS,), np.float32)
         self.rng = np.random.default_rng(seed)
@@ -366,7 +371,7 @@ class LandingEnv(gym.Env):
     def reset(self, *, seed=None, options=None):
         if seed is not None:
             self.rng = np.random.default_rng(seed)
-        start = random_start(self.rng, self.behind_left)
+        start = random_start(self.rng, self.flier.plane, self.behind_left)
         obs = self.flier.begin(start)
         return np.asarray(obs, dtype=np.float64), {}
 

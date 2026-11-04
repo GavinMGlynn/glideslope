@@ -1,11 +1,11 @@
-"""Trains the C172P landing policy: PPO, from stable-baselines3, on the
+"""Trains a light aircraft's landing policy (--aircraft, tools/rl/aircraft/): PPO, from stable-baselines3, on the
 environment in env.py. Run it with the packages in requirements.txt, in a
 virtual environment outside the repository:
 
     python3 -m venv ~/.venvs/glideslope-rl
     ~/.venvs/glideslope-rl/bin/pip install -r tools/rl/requirements.txt \
         --extra-index-url https://download.pytorch.org/whl/cpu
-    nice -n 10 ~/.venvs/glideslope-rl/bin/python tools/rl/train.py --seed 7 --envs 8
+    nice -n 10 ~/.venvs/glideslope-rl/bin/python tools/rl/train.py --aircraft c172p --seed 7 --envs 8
 
 Eight environments, niced: the machine is shared with builds and CI runs,
 and a timing test elsewhere has failed under the load of more.
@@ -112,6 +112,8 @@ class Landings(BaseCallback):
 
 def main() -> None:
     ap = argparse.ArgumentParser()
+    ap.add_argument("--aircraft", required=True,
+                    help="the aircraft trained on: tools/rl/aircraft/AIRCRAFT.txt")
     ap.add_argument("--seed", type=int, default=1)
     ap.add_argument("--steps", type=int, default=20_000_000)
     ap.add_argument("--envs", type=int, default=8)
@@ -139,7 +141,7 @@ def main() -> None:
     torch.set_num_threads(1)
 
     def make(i: int):
-        return lambda: LandingEnv(seed=args.seed * 1000 + i, speed_costs=args.speed_costs,
+        return lambda: LandingEnv(args.aircraft, seed=args.seed * 1000 + i, speed_costs=args.speed_costs,
                                   behind_left=args.behind_left)
 
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])

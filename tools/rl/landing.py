@@ -1,8 +1,10 @@
-"""The C172P's final approach and landing, as a reinforcement-learning task.
+"""A light aircraft's final approach and landing, as a reinforcement-learning task.
 
 A small gym-style environment of glideslope's own around JSBSim's Python
-bindings - no third-party gym wrapper - flying the repository's committed
-flight model (assets/jsbsim, the C172P) with the settings the simulation
+bindings - no third-party gym wrapper - flying one of the repository's
+committed flight models (assets/jsbsim; which one, and what training needs to
+know of her, is data: tools/rl/aircraft/MODEL.txt, `aeroplane`) with the
+settings the simulation
 uses: 120 Hz steps, the flaps and the initial trim as sim::Aircraft sets
 them, the controls written to the properties sim::Aircraft::set_controls
 writes.
@@ -24,6 +26,7 @@ is imported by `LandingEnv`, which is what training uses.
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, field
 
 DEGREES = 180.0 / math.pi
@@ -55,12 +58,6 @@ READINGS = (
 
 OBSERVATIONS = 25
 
-# The C172P's two tanks, and what each holds full - as the simulation's
-# aircraft starts, and as the verification is flown.
-TANKS = 2
-FULL_TANK_LBS = 100.0
-# What training draws for each tank, per flight: from a quarter full to full.
-TRAINING_FUEL_LBS = (25.0, 100.0)
 
 # **The drift the agent remembers**: a leaky integral of its distance across
 # the centreline, metre-seconds, forgetting with this time constant - what
@@ -94,11 +91,50 @@ class Approach:
     """How the approach is flown, which the policy file carries: the speed
     it is trained at, the landing flap, the glidepath and where it aims."""
 
-    vref_kts: float = 59.8  # 1.3 times the C172P's published landing stall
+    vref_kts: float = 0.0  # sim::approach_speeds' Vref, the aeroplane's file's
     flaps: float = 1.0
     glidepath_deg: float = 3.0
     aim_m: float = 300.0  # past the threshold, as sim::ApproachSpeeds aims
     decision_steps: int = 12
+
+
+@dataclass
+class Aeroplane:
+    """**What training needs to know of an aircraft**, from its file in
+    tools/rl/aircraft (that directory's c172p.txt says what each line is):
+    her model, the approach she is trained to fly, her tanks and the fuel
+    drawn for them."""
+
+    model: str
+    approach: Approach
+    tanks: int
+    full_tank_lbs: float  # in each, as the simulation's aircraft starts
+    training_fuel_lbs: tuple[float, float]  # drawn for each tank, per flight
+
+
+AIRCRAFT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aircraft")
+
+
+def aeroplane(model: str) -> Aeroplane:
+    """tools/rl/aircraft/`model`.txt, read."""
+    path = os.path.join(AIRCRAFT_DIR, model + ".txt")
+    kv: dict[str, list[str]] = {}
+    with open(path) as f:
+        for line in f:
+            line = line.split("#", 1)[0].strip()
+            if line:
+                key, *values = line.split()
+                kv[key] = values
+    if kv["model"] != [model]:
+        raise ValueError(f"{path} is the file of {kv['model']}, not of {model}")
+    least, most = (float(v) for v in kv["training_fuel_lbs"])
+    return Aeroplane(
+        model=model,
+        approach=Approach(vref_kts=float(kv["vref_kts"][0]), flaps=float(kv["flaps"][0])),
+        tanks=int(kv["tanks"][0]),
+        full_tank_lbs=float(kv["full_tank_lbs"][0]),
+        training_fuel_lbs=(least, most),
+    )
 
 
 def metres_per_degree_latitude(latitude_deg: float) -> float:
@@ -248,8 +284,9 @@ class Start:
     """Where a flight begins: `out_m` before the threshold on the extended
     centreline, `across_m` right of it, `high_m` above the glidepath, and a
     steady wind - `crosswind_kts` from the left of the landing direction,
-    `headwind_kts` down it - and `fuel_lbs` in each of the C172P's two tanks,
-    full (100 lb) unless said otherwise, as the simulation's aircraft starts."""
+    `headwind_kts` down it - and `fuel_lbs` in each of her tanks: unless
+    said otherwise (None) what she starts with in the simulation, her
+    `Aeroplane.full_tank_lbs`."""
 
     out_m: float = 2.0 * METRES_PER_NM
     across_m: float = 0.0
@@ -258,7 +295,7 @@ class Start:
     airspeed_kts: float | None = None
     crosswind_kts: float = 0.0
     headwind_kts: float = 0.0
-    fuel_lbs: float = FULL_TANK_LBS
+    fuel_lbs: float | None = None
 
 
 def wind_ned_fps(rw: Runway, s: Start) -> tuple[float, float]:
@@ -287,8 +324,8 @@ def start_position(rw: Runway, ap: Approach, s: Start) -> tuple[float, float, fl
     return lat, lon, alt_ft
 
 
-def new_fdm(jsbsim_root: str):
-    """A C172P, loaded once and flown many times. **Its tanks are filled by
+def new_fdm(jsbsim_root: str, model: str):
+    """An aeroplane, loaded once and flown many times. **Its tanks are filled by
     `initialise` every time**: JSBSim's RunIC does not start the propulsion
     again, so without it each flight began with the fuel the last one left -
     the training environments ran dry after about nine simulated hours, and
@@ -298,13 +335,13 @@ def new_fdm(jsbsim_root: str):
     jsbsim.FGJSBBase().debug_lvl = 0
     fdm = jsbsim.FGFDMExec(jsbsim_root)
     fdm.set_debug_level(0)
-    if not fdm.load_model("c172p"):
-        raise RuntimeError("JSBSim could not load the c172p from " + jsbsim_root)
+    if not fdm.load_model(model):
+        raise RuntimeError(f"JSBSim could not load the {model} from {jsbsim_root}")
     fdm.set_dt(1.0 / STEPS_PER_SECOND)
     return fdm
 
 
-def initialise(fdm, rw: Runway, ap: Approach, s: Start) -> None:
+def initialise(fdm, rw: Runway, ap: Approach, s: Start, plane: Aeroplane) -> None:
     """As sim::Aircraft::initialize does with `flaps`, `flight_path_deg` and
     `trim` set: the flaps run out while JSBSim trims, the engine started, and
     the longitudinal trim."""
@@ -319,8 +356,16 @@ def initialise(fdm, rw: Runway, ap: Approach, s: Start) -> None:
     fdm["ic/vc-kts"] = ap.vref_kts if s.airspeed_kts is None else s.airspeed_kts
     fdm["ic/gamma-deg"] = -ap.glidepath_deg
     fdm["fcs/flap-cmd-norm"] = ap.flaps
-    for tank in range(TANKS):
-        fdm[f"propulsion/tank[{tank}]/contents-lbs"] = s.fuel_lbs
+    # **Her levers as she is flown**, before the trim: the propeller lever
+    # at the highest rpm and the mixture full rich, as sim::Aircraft sets
+    # them below the height her handbook leans from, and write_controls holds
+    # them. JSBSim's own default is the lowest rpm, at which the C182's
+    # governed propeller could not be trimmed ("Trim Failed") and every
+    # flight began in a dive.
+    fdm["fcs/advance-cmd-norm[0]"] = 1.0
+    fdm["fcs/mixture-cmd-norm[0]"] = 1.0
+    for tank in range(plane.tanks):
+        fdm[f"propulsion/tank[{tank}]/contents-lbs"] = fuel_of(s, plane)
     fdm.set_trim_status(True)
     ok = fdm.run_ic()
     fdm.set_trim_status(False)
@@ -342,6 +387,11 @@ def initialise(fdm, rw: Runway, ap: Approach, s: Start) -> None:
     fdm["atmosphere/wind-north-fps"] = north
     fdm["atmosphere/wind-east-fps"] = east
     fdm["atmosphere/wind-down-fps"] = 0.0
+
+
+def fuel_of(s: Start, plane: Aeroplane) -> float:
+    """What the start puts in each tank."""
+    return plane.full_tank_lbs if s.fuel_lbs is None else s.fuel_lbs
 
 
 def read(fdm) -> list[float]:

@@ -19,7 +19,7 @@ from env import Flier
 
 def fly(policy: policy_file.Policy, start: L.Start, flier: Flier | None = None,
         record=None) -> L.Flight:
-    flier = flier or Flier(L.Runway(), policy.approach)
+    flier = flier or flier_for(policy)
     obs = flier.begin(start)
     while True:
         if record is not None:
@@ -30,6 +30,11 @@ def fly(policy: policy_file.Policy, start: L.Start, flier: Flier | None = None,
             if record is not None:
                 record(flier, obs)
             return flier.flight
+
+
+def flier_for(policy: policy_file.Policy, rw: L.Runway | None = None) -> Flier:
+    """A flier of the aircraft the policy was trained on, at its approach."""
+    return Flier(rw or L.Runway(), policy.approach, L.aeroplane(policy.aircraft))
 
 
 def within_limits(f: L.Flight, runway: L.Runway) -> list[str]:
@@ -61,15 +66,16 @@ def main() -> int:
     # verification's, which are flown once, for the final report.
     starts = L.held_out_starts() if "--held-out" in sys.argv[2:] else L.verification_starts()
     rw = L.Runway()
-    # --fuel LBS flies every start with that much in each tank; full otherwise.
-    fuel = float(sys.argv[sys.argv.index("--fuel") + 1]) if "--fuel" in sys.argv else L.FULL_TANK_LBS
+    # --fuel LBS flies every start with that much in each tank; otherwise
+    # what she starts with in the simulation.
+    fuel = float(sys.argv[sys.argv.index("--fuel") + 1]) if "--fuel" in sys.argv else None
     bad = 0
     worst_sink = worst_across = 0.0
     for name, start in starts:
         start.fuel_lbs = fuel
         # A fresh aeroplane for every start, so that no start depends on the
         # ones flown before it.
-        f = fly(policy, start, Flier(rw, policy.approach))
+        f = fly(policy, start, flier_for(policy, rw))
         wrong = within_limits(f, rw)
         bad += bool(wrong)
         worst_sink = max(worst_sink, f.touch.sink_fpm)
