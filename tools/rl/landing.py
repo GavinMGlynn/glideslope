@@ -539,6 +539,18 @@ def trim_by_flying(fdm, alt_ft: float) -> None:
     fdm["propulsion/fuel_freeze"] = 0.0
 
 
+def dry_lbs(fdm) -> float:
+    """What she weighs with no fuel: the empty aeroplane and every point mass
+    her model has on board (the Cessnas and the PA-28 have five, the J-3 Cub
+    three)."""
+    lbs = fdm["inertia/empty-weight-lbs"]
+    i = 0
+    while fdm.get_property_manager().hasNode(f"inertia/pointmass-weight-lbs[{i}]"):
+        lbs += fdm[f"inertia/pointmass-weight-lbs[{i}]"]
+        i += 1
+    return lbs
+
+
 def fuel_of(s: Start, plane: Aeroplane) -> float:
     """What the start puts in each tank."""
     return plane.full_tank_lbs if s.fuel_lbs is None else s.fuel_lbs
