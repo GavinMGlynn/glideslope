@@ -25,6 +25,10 @@ touches at 342 and 340 ft/min against her 360 limit (CI run 41732333742;
 2026-11-04-the-flying-boat-held-off-in-gusts-with-her-own-pitch-gains).
 Both names stay.
 
+**Go-arounds on a single seed close the same way**: they are single-seed
+names too. Two remain: the F-15C on Linux seed 34 and the 737-300 on macOS
+seed 3.
+
 **What it changes**: the gust item's verification now reads "no aircraft
 and no loading named", with single-seed names closing on their figures. The
 gust item stays open for the F-22A, for the A380 until #322 lands, and for
