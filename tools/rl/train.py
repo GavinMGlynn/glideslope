@@ -152,6 +152,9 @@ def main() -> None:
     ap.add_argument("--nose-falling", type=float, default=0.0,
                     help="at the touch, this much reward lost for each degree a second her nose is "
                          "falling, to 30 (env.py's Flier); none without it")
+    ap.add_argument("--idle-touch", type=float, default=0.0,
+                    help="at the touch, this much reward lost for the throttle still open, 0 closed "
+                         "to 1 full (env.py's Flier); none without it")
     ap.add_argument("--full-fuel", type=float, default=0.0,
                     help="this fraction of the flights with her tanks full (env.py's LandingEnv); "
                          "none without it")
@@ -169,7 +172,8 @@ def main() -> None:
                                   ahead=args.ahead, nose_up=args.nose_up,
                                   handover_across=args.handover_across,
                                   nose_up_from_deg=args.nose_up_from, full_fuel=args.full_fuel,
-                                  sink_over=args.sink_over, nose_falling=args.nose_falling)
+                                  sink_over=args.sink_over, nose_falling=args.nose_falling,
+                                  idle_touch=args.idle_touch)
 
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])
     if args.resume:
