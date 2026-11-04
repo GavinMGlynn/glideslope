@@ -137,5 +137,10 @@ F-16's pitch-rate gyros, which gave the fix.
 - Windows release (tools/windows_build.sh, this branch's first commit):
   seeds 1 to 40 fail on the fourteen seeds above and on no others, each for
   the F-22A alone; with the fourteen named, seeds 1 to 40 pass.
+- The linux-release suite but the nightly and gust-sweep labels, no
+  display, in three sittings of at most 30 minutes: 1,454 of its 1,469
+  tests ran, every one passed or was skipped (the live recordings, with no
+  key). The 15 not reached are multi-process client-and-server tests
+  (prediction, take-over, weather); they are left to CI.
 - `python3 tools/make_f22.py --check` passes; the committed model is what
   the script makes.
