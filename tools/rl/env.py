@@ -344,7 +344,12 @@ def random_start(rng: np.random.Generator, plane: L.Aeroplane,
         # **In strong wind** (train.py's `--handover-across`, 2026-11-04):
         # this fraction of the hand-over's flights in `strong_wind`, where the
         # PA-28's policy of that day, handed over at 35 ft in 10 kt from the
-        # left, sank 465 ft/min. Without it no random number is drawn for it.
+        # left, sank 465 ft/min - and those at her speed down to 6 kt slow
+        # and up to 3 kt fast, not 3 either side. With it every hand-over
+        # start is made as the simulation hands her over: crabbed into the
+        # wind besides the 8 degrees either side, unslipped, with her trimmed
+        # controls as the last action (landing.py's `into_the_wind`). Without
+        # it no random number is drawn for it.
         strong = handover_across > 0.0 and rng.random() < handover_across
         ap = plane.approach
         tan = math.tan(ap.glidepath_deg / L.DEGREES)
@@ -354,8 +359,9 @@ def random_start(rng: np.random.Generator, plane: L.Aeroplane,
             across_m=rng.uniform(-5.0, 5.0),
             high_m=rng.uniform(-2.0, 2.0),
             heading_offset_deg=rng.uniform(-8.0, 8.0),
-            # In strong wind down to 6 kt slow: the approach autopilot hands
-            # her over up to 5 kt under her speed (the gate corner tests).
+            # In strong wind from 6 kt slow to 3 kt fast: the approach
+            # autopilot hands her over up to 5 kt under her speed (the gate
+            # corner tests).
             airspeed_kts=ap.vref_kts + (rng.uniform(-6.0, 3.0) if strong else rng.uniform(-3.0, 3.0)),
             fuel_lbs=float(rng.uniform(*plane.training_fuel_lbs)),
             controls_as_trimmed=handover_across > 0.0,
