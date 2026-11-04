@@ -33,7 +33,32 @@
   operating procedures ask a rate of about three degrees a second (Airbus
   Safety First, "A Focus on the Takeoff Rotation").
 -->
-<published_figures aircraft="a380" rotation_degps="3" flaps_full_deg="32" touchdown_fpm="200">
+<!--
+  **How she is landed in gusts** (sim::Lander; docs/status, 2026-11-04):
+
+  **gusty_retard_ft** is the height over her wheels her flare's power is
+  closed at in gusts, where the lander otherwise holds half of it to the
+  touch: 20 ft, Airbus's "RETARD" call, which Airbus gives for the A380
+  among others - Safety First, "A Focus on the Landing Flare" (September
+  2020), p. 7: "Delaying the retard of the thrust levers may increase the
+  landing distance because the autothrust will target Vapp". Sourced. With
+  her power held to the touch she floated 907 m down the runway (seed 7).
+
+  **gusty_aileron_per_deg** is her aileron for each degree of bank off what
+  is wanted, in gusts: 0.07, the B-2A's, twice calm air's. At 0.035 her
+  aileron trim, wound up holding a gust's steady bank on short final, rolled
+  her 7.4 degrees the other way in her flare, and her wing met the runway
+  (seed 34). Tuned on the gust tests' forty seeds, not sourced.
+
+  **gusty_most_nose_down_deg** is how far under the attitude she flew the
+  path at she may have her nose put, for the path, below 200 ft in gusts: 3
+  degrees. Lifted over the path at 110 ft by a lull flown out at full
+  throttle, she had her nose put down to -5.4 degrees, sank at 1,500 ft/min
+  into her flare and met the runway at 350 (seed 18). Judged a second ahead
+  of her nose's fall (sim::Lander). Tuned on the gust tests' forty seeds,
+  not sourced: forty of forty on Linux, thirty-eight on Windows release.
+-->
+<published_figures aircraft="a380" rotation_degps="3" flaps_full_deg="32" touchdown_fpm="200" gusty_retard_ft="20" gusty_aileron_per_deg="0.07" gusty_most_nose_down_deg="3">
   <source>Airbus A380 AC rev 20, 2025; EASA TCDS A.110; FAA TCDS A58NM</source>
 
   <!-- 575,000 kg, the heaviest maximum take-off weight (weight variants 008

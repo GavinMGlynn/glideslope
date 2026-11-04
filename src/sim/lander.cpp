@@ -70,6 +70,17 @@ constexpr double gusty_most_begun_sink_fpm = 1000.0;
 constexpr double gusty_speed_throttle_per_kt = 0.05;
 constexpr double gusty_held_kts = 5.0;
 constexpr double gusty_throttle_opened_per_s = 0.5;
+// **The height her nose is held up to the path from, in gusts**, feet over
+// the runway, as the path is flown (`ApproachSpeeds::gusty_most_nose_down_deg`,
+// `fly_laws`). Tuned on the gust tests' forty seeds: the A380 passed all
+// forty from 200 and from 300 ft with her three degrees (docs/status,
+// 2026-11-04).
+constexpr double gusty_nose_held_below_ft = 200.0;
+// **How far ahead of her nose that least is judged**, seconds: the least
+// raised by her nose-down rate times this. Tuned on the gust tests' forty
+// seeds (docs/status, 2026-11-04): at 1 the A380 passed forty here and 38
+// on Windows, against 35 there at 0; at 2, 38 here.
+constexpr double gusty_nose_floor_lead_s = 1.0;
 // **The nose-up rate a gusty flare lets through undamped**, knot-degrees a
 // second: divided by her approach speed it is the rate (`fly_laws`), never
 // less than a degree a second. A gust's sink is the same feet a minute
@@ -233,6 +244,8 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     if (figures.gusty_closing_nose_degps > 0.0) {
         speeds.gusty_closing_nose_degps = figures.gusty_closing_nose_degps;
     }
+    speeds.gusty_retard_ft = figures.gusty_retard_ft;
+    speeds.gusty_most_nose_down_deg = figures.gusty_most_nose_down_deg;
     if (figures.yaw_rate_pedal_per_degps > 0.0) {
         speeds.yaw_damper_per_degps = figures.yaw_rate_pedal_per_degps;
     }
@@ -1682,14 +1695,28 @@ Controls Lander::fly_laws() {
         // no more than `gusty_throttle_opened_per_s`. All three figures tuned
         // on a sweep of the gust tests' forty seeds (docs/status,
         // 2026-11-03), not sourced.
+        // **Unless her maker retards it at a height** (her figures'
+        // `gusty_retard_ft`, `ApproachSpeeds::gusty_retard_ft`): below it,
+        // over her wheels, neither the half nor the speed's floor holds her
+        // power on, and it comes off at the flare's own pace - though a sink
+        // is still cushioned (below). Airbus, Safety First, "A Focus on the
+        // Landing Flare" (September 2020), p. 7, for the A380 among others:
+        // the 20 ft "RETARD" call, and "Delaying the retard of the thrust
+        // levers may increase the landing distance because the autothrust
+        // will target Vapp". Held on to the touch, the A380 floated 907 m
+        // down the runway (seed 7, docs/status 2026-11-04).
+        const bool retarded =
+            gusty && speeds_.gusty_retard_ft > 0.0 &&
+            std::max(0.0, above_m_ * feet_per_metre - wheels_hang_ft(s)) <
+                speeds_.gusty_retard_ft;
         const double gust_speed_floor =
-            gusty ? std::min(1.0, 0.5 * flare_throttle_ +
+            gusty && !retarded ? std::min(1.0, 0.5 * flare_throttle_ +
                                       gusty_speed_throttle_per_kt *
                                           std::max(0.0, approach_kts() - gusty_held_kts - kcas))
                   : 0.0;
         const double gust_opened =
             throttle_before + gusty_throttle_opened_per_s / steps_per_second;
-        if (gusty) {
+        if (gusty && !retarded) {
             c.throttle = std::max(c.throttle, std::min(gust_opened, gust_speed_floor));
         }
         last_throttle_ = c.throttle;
@@ -1995,12 +2022,13 @@ Controls Lander::fly_laws() {
         } else if (cushioned && power_error < 0.0) {
             // **And taken off again as soon as the sink is arrested**, judged
             // as far ahead, at twice a hand's pace.
-            const double floor = gusty ? std::min(throttle_before, 0.5 * flare_throttle_) : 0.0;
+            const double floor =
+                gusty && !retarded ? std::min(throttle_before, 0.5 * flare_throttle_) : 0.0;
             c.throttle = std::max(floor, throttle_before - 1.0 / steps_per_second);
             last_throttle_ = c.throttle;
         }
         // Never under the gusty flare's floor, whatever the cushion did.
-        if (gusty) {
+        if (gusty && !retarded) {
             c.throttle = std::max(c.throttle, std::min(gust_opened, gust_speed_floor));
             last_throttle_ = c.throttle;
         }
@@ -2057,6 +2085,30 @@ Controls Lander::fly_laws() {
                                      -8.0, most_path_pitch_deg);
         }
         want_pitch = std::clamp(want_pitch, -8.0, most_path_pitch_deg);
+        // **In gusts, her nose not put down far for the path in the last
+        // `gusty_nose_held_below_ft`**, where her figures give how far
+        // (`ApproachSpeeds::gusty_most_nose_down_deg`): no further under the
+        // attitude she flew the path at as she came down through that
+        // height. Lifted over the path at 110 ft by a lull flown out at
+        // full throttle, the A380 had her nose put down to -5.4 degrees to
+        // regain it, and her quarter of a million kilograms sank on past
+        // the 1,200 ft/min the path asked, to 1,500 into her flare; she met
+        // the runway at 350 ft/min (seed 18, docs/status 2026-11-04). Her
+        // figure and the height are tuned on the gust tests' forty seeds,
+        // not sourced. **Judged `gusty_nose_floor_lead_s` ahead of her
+        // nose**: held at the least alone, her nose, coming down at 2.7
+        // degrees a second, went on past it to -4.7 on Windows (seed 31).
+        if (in_gusts() && speeds_.gusty_most_nose_down_deg > 0.0 &&
+            above_m_ * feet_per_metre < gusty_nose_held_below_ft) {
+            if (!least_path_pitch_set_) {
+                least_path_pitch_deg_ = path_pitch_ - speeds_.gusty_most_nose_down_deg;
+                least_path_pitch_set_ = true;
+            }
+            const double nose_down_degps = std::max(0.0, -s.q_radps * degrees);
+            want_pitch =
+                std::max(want_pitch, least_path_pitch_deg_ +
+                                         gusty_nose_floor_lead_s * nose_down_degps);
+        }
         flare_pitch_ = s.pitch_deg;
 
         // The speed, on the throttle - **and the path too, once the nose has

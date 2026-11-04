@@ -100,6 +100,15 @@ struct ApproachSpeeds {
     // unless her figures give her own
     // (`PublishedFigures::gusty_closing_nose_degps`).
     double gusty_closing_nose_degps = 1.0;
+    // **The height over her wheels her gusty flare's power is closed at**,
+    // feet: 0, held on to the touch as the FAA's handbook lands in
+    // turbulence, unless her figures give her maker's retard
+    // (`PublishedFigures::gusty_retard_ft`).
+    double gusty_retard_ft = 0.0;
+    // **How far under her path's attitude her nose may be put for the path
+    // near the ground in gusts**, degrees: 0, as far as the path asks,
+    // unless her figures give it (`PublishedFigures::gusty_most_nose_down_deg`).
+    double gusty_most_nose_down_deg = 0.0;
     // **The approach yaw damper's pedal for each degree a second**: 0.05,
     // unless her figures say her pedals command a yaw rate
     // (`yaw_rate_pedal_per_degps`).
@@ -567,6 +576,10 @@ private:
     // from the attitude she has on the first step of the approach.
     double path_pitch_ = 0.0;
     bool path_pitch_set_ = false;
+    // The least nose the gusty path is flown at near the ground, set as she
+    // comes down through `gusty_nose_held_below_ft` (`fly_laws`).
+    double least_path_pitch_deg_ = 0.0;
+    bool least_path_pitch_set_ = false;
     // Where the flare began: the attitude and the throttle on its first
     // step, from which its nose is let down in a float and its power found.
     bool flare_begun_ = false;
