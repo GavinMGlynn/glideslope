@@ -27,7 +27,14 @@ figures:
      simulator forums and the high-alpha test releases.
    - Measured (linux-release): 8 kt over, she slowed to 120.2, under the
      test's floor of 121.5; 10 kt over, to 122.5; **12 kt over, to 125.1,
-     losing 287 ft**. 12 is written.
+     losing 287 ft**. 12 is written, not 10: at 10 she cleared the floor
+     by only 0.8 kt. That is less than her stall figures have scattered
+     between machines (113.78 to 114.54 KCAS across entry speeds, plus the
+     drift between builds and platforms), so she would pass on one machine
+     and fail on another. At 12 she clears it by 3.2 kt.
+   - **From the review of #318**: the reason for 12 rather than 10 is
+     written here and in f22.xml. The stall watch's unused `HeldTo`
+     figures are removed, since no name is held to a figure now.
    - `only_the_mosquitos_figures_give_her_own_stall_warning_ten_knots_over_her_stall`
      is renamed `only_the_mosquito_and_the_f22a_give_their_own_stall_warnings`
      and expects her 12 kt, labelled tuned. Its CI cost lines are renamed
