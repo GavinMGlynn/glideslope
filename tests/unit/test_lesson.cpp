@@ -3795,8 +3795,13 @@ void held_at(glideslope::sim::Aircraft& aircraft, double pace_kts) {
 // there every step, so it pitches her not at all: what pitches her is the
 // brake at her wheels, as a deceleration that size would. Its strength is a
 // proportional-integral hand on her groundspeed, in JSBSim's own flight
-// control system (`<pid>`): half her weight for each foot a second she is
+// control system (`<pid>`): all her weight for each foot a second she is
 // short and all of it for each foot a second held a second, never pulling.
+// **All of it, not half** (2026-11-04): at half, the F-22A's wet brakes,
+// coming on in the first third of a second, slowed her from 0.5 kt to 0.244
+// before the hand caught them - eight steps under the quarter of a knot that
+// counts as rolling. The hand is the test's, not hers: at all of it she
+// rolls all 30 s, and so does every other landplane, dry, wet and across.
 // It pushes from `from_s` of simulation time for `for_s`, and its integral
 // is held at none outside that. **Why a push**: what holds her rolling
 // against the autobrake with nothing to slow has to be neither her brakes
@@ -3865,7 +3870,7 @@ public:
             "  </summer>\n"
             "  <pid name=\"test-push/weights\">\n"
             "   <input>test-push/short-fps</input>\n"
-            "   <kp>0.5</kp> <ki>1.0</ki> <kd>0</kd>\n"
+            "   <kp>1.0</kp> <ki>1.0</ki> <kd>0</kd>\n"
             "   <trigger>test-push/trigger</trigger>\n"
             "   <clipto><min>0</min><max>2</max></clipto>\n"
             "  </pid>\n"
@@ -3983,19 +3988,12 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
     // How near her pace the push holds her, from `settle_s` on: less than the
     // half knot between paces.
     constexpr double most_off_pace_kts = 0.4;
-    // **Named, not yet**: a run that does not roll all of its 30 s, held to
-    // its own measured figure instead, so it gets no worse unseen. The
-    // F-22A at 0.5 kt wet rolled 29.93 s of 30 (2026-11-02): eight steps
-    // under a quarter of a knot. Item "The F-22A flies her stall-figure
-    // tests", docs/COMPLETION_PLAN.md.
-    struct NamedRoll {
-        const char* id;
-        double pace_kts;
-        bool wet;
-        double rolled_s;
-    };
-    constexpr NamedRoll named_rolls[] = {{"f22", 0.5, true, 29.93}};
-    std::size_t named_runs = 0;
+    // **None named.** The F-22A at 0.5 kt wet was named from 2026-11-02 to
+    // 2026-11-04, rolling 29.93 s of 30: eight steps under a quarter of a
+    // knot as her wet brakes came on in the hand-over's first third of a
+    // second, faster than the push's hand, at half her weight a foot a
+    // second, caught them (`PushedData`). With the hand at all of it she
+    // rolls all 30 s.
     std::vector<std::string> left_out;
     std::vector<std::string> wrong;
     for (const std::string& id : taught) {
@@ -4131,26 +4129,7 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
                 creep_at_idle_pedal += at_idle_pedal || let_off ? 1U : 0U;
                 creep_let_off += !at_idle_pedal && let_off ? 1U : 0U;
             }
-            const NamedRoll* named_roll = nullptr;
-            for (const NamedRoll& n : named_rolls) {
-                if (id == n.id && pace_kts == n.pace_kts && wet == n.wet) {
-                    named_roll = &n;
-                }
-            }
-            if (named_roll != nullptr) {
-                ++named_runs;
-                if (rolled_all) {
-                    wrong.push_back(where + " is named for rolling only " +
-                                    std::to_string(named_roll->rolled_s) +
-                                    " s and now rolls all of it: take its name off");
-                } else if (rolled_s < named_roll->rolled_s - 0.01) {
-                    wrong.push_back(where + " is named at " + std::to_string(named_roll->rolled_s) +
-                                    " s rolled, and is worse: " + std::to_string(rolled_s));
-                } else {
-                    std::printf("      named, not yet: %s rolled %.2f s of %d\n", where.c_str(),
-                                rolled_s, held_s);
-                }
-            } else if (!rolled_all) {
+            if (!rolled_all) {
                 wrong.push_back(where + " rolled only " + std::to_string(rolled_s) + " s of " +
                                 std::to_string(held_s));
             } else if (most_off_pace > most_off_pace_kts) {
@@ -4213,16 +4192,12 @@ void held_at_walking_pace(double crosswind_kts, bool wet) {
     const std::size_t space = landplanes * paces;
     check(taught.size() == 16 && landplanes == 15 && left_out.size() == 1 && runs == space &&
               held == space && reached == space && stopped_runs == space &&
-              rolled_through + named_runs == space && held_to_pace + named_runs == space &&
-              named_runs == static_cast<std::size_t>(std::count_if(
-                                std::begin(named_rolls), std::end(named_rolls),
-                                [&](const NamedRoll& n) { return n.wet == wet; })),
+              rolled_through == space && held_to_pace == space,
           "every landplane of fifteen at each of " + std::to_string(paces) + " paces: " +
               std::to_string(runs) + " runs of " + std::to_string(space) + ", " +
               std::to_string(held) + " held " + std::to_string(held_s) + " s, " +
               std::to_string(rolled_through) + " rolling all of it, " +
-              std::to_string(held_to_pace) + " at her pace, " + std::to_string(named_runs) +
-              " named, " + std::to_string(reached) +
+              std::to_string(held_to_pace) + " at her pace, " + std::to_string(reached) +
               " with her autobrake at its ceiling, " + std::to_string(stopped_runs) +
               " stopped; the flying boat left out: " + std::to_string(left_out.size()));
     // **The idle allowance is reached, not believed**: every nose-wheel
@@ -6555,17 +6530,19 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
     // g (2026-11-04): noticed at 126.8 kt, she slows to 118.2 against her
     // 120.8 at her weight, and loses 303 ft. At her limit she sinks at about
     // 0.8 g, so she flies slower than her 1-g stall there; the warning, at
-    // the rule's 5%, does not come early enough to keep her above it. Item
-    // "The F-22A flies her stall-figure tests".
-    const std::map<std::string, std::string> not_yet = {
-        {"a380", "slowed under her stall"}, {"f22", "slowed under her stall for her weight"}};
-    // Her figures, held with the tolerance in hand so she gets no worse
-    // unseen: the slowest she reached, and the height she lost after.
+    // the rule's 5%, did not come early enough to keep her above it. **Her
+    // name is off since her own warning, 12 kt over** (assets/figures/f22.xml,
+    // tuned, not sourced): noticed at 132.8 kt she slows to 125.1 and loses
+    // 287 ft (2026-11-04).
+    const std::map<std::string, std::string> not_yet = {{"a380", "slowed under her stall"}};
+    // A name's figures, held with the tolerance in hand so she gets no worse
+    // unseen: the slowest she reached, and the height she lost after. None is
+    // held now; the A380's name is for her published stall alone.
     struct HeldTo {
         double slowest_kts;
         double lost_ft;
     };
-    const std::map<std::string, HeldTo> held_to = {{"f22", {118.2, 303.0}}};
+    const std::map<std::string, HeldTo> held_to = {};
     std::set<std::string> named_seen;
     const Taught taught = taught_for("stalls");
     const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
