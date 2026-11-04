@@ -303,12 +303,6 @@ class Start:
     # (train.py's `--handover-across`); nothing moved (zeros) otherwise. And
     # she is started in the wind and crabbed into it (`initialise`).
     controls_as_trimmed: bool = False
-    # **And for an aeroplane trimmed by flying her** (`trim_by_flying`; train.py's
-    # `--flown-into-the-wind`, 2026-11-05): a hand-over start put into the
-    # wind as JSBSim's trim's are (`into_the_wind`), at her speed through
-    # the air. Without it the wind is set after her trim flight, and the
-    # C182 was handed over in 15 kt from ahead at 79 kt, not her 64.
-    flown_into_the_wind: bool = False
 
 
 def wind_ned_fps(rw: Runway, s: Start) -> tuple[float, float]:
@@ -403,7 +397,15 @@ def initialise(fdm, rw: Runway, ap: Approach, s: Start, plane: Aeroplane) -> Non
     fdm["propulsion/set-running"] = -1
     if plane.trim_flown:
         trim_by_flying(fdm, alt_ft)
-        if s.controls_as_trimmed and s.flown_into_the_wind:
+        # **A hand-over start put into the wind**, as JSBSim's trim's are,
+        # at her speed through the air. Until 2026-11-05 the wind was set
+        # after her trim flight, and the C182 was handed over in 15 kt from
+        # ahead at 79 kt, where the simulation hands her over at 64 - and
+        # the simulation's hand-over drifted her 6 m off the centreline
+        # where training's never had (train.py's `--flown-into-the-wind`
+        # at 16c36c5f, by which her policy of that day was trained, made
+        # it so; it is now the only way).
+        if s.controls_as_trimmed:
             return into_the_wind(fdm, rw, s)
         return set_wind(fdm, rw, s)
     try:

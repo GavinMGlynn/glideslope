@@ -2,7 +2,7 @@
 # Made by tools/rl/train.py (PPO) and written by tools/rl/export.py;
 # do not edit - train again and export.
 # Seed 1833. Training steps (decisions, ten a second): 42000002 in all: 39000002 by the C182's policy of 2026-11-04 (its checkpoint step39000002.zip, sha256 f2dc756250c3e4febb3b744445e7e43fa6ab34c6585c32cea69444f9a93b7aa2, and step39000002.vecnorm, sha256 8174ed803a39e8720ed8e61043413fbfa8aecfcd0fcc66d71b382cbb68e1f39c), then 3000000 more on her (2026-11-05).
-# tools/rl as trained: 06045658 for her last 3000000 (2026-11-05); the 39000002 before them as the policy of 2026-11-04 was trained, below.
+# tools/rl as trained: 16c36c5f for her last 3000000 (2026-11-05); the 39000002 before them as the policy of 2026-11-04 was trained, below.
 # Source checkpoint, kept outside the repository: step42000002.zip (sha256 7b49f42426ec1765815c4e9e38967f85b541b30a77c8586c7647891a7190004e) and step42000002.vecnorm (sha256 6c4a4db21cd85e0c866d8e95761114d01a920be2f46ad3762d7b71ce5c5232cd).
 # Exporting that checkpoint with export.py is deterministic and gives this file;
 # training it again with the command below, on the same packages and machine, gives that checkpoint.
@@ -14,14 +14,18 @@
 #         nice -n 10 python tools/rl/train.py --aircraft c182 --seed 182 --envs 6 --steps 8000000 --every 250000 --resume step33031250.zip --lr 1e-4 --log-std -2.5257 --critic-first 100000 --handover 0.3
 #      b. 499,998 of a 2 million run at 5d0b7918 from a's checkpoint, its checkpoint at 39000002:
 #         nice -n 10 python tools/rl/train.py --aircraft c182 --seed 1822 --envs 6 --steps 2000000 --every 125000 --resume step38500004.zip --lr 1e-5 --log-std -3.0 --handover 0.5 --ahead 0.25 --hold-norm
-#   1. 1,624,998 of a 3 million run at 06045658, learning rate 1e-4, the noise held (log standard deviation -3), seven in ten of the flights from the hand-over and half of those in strong wind,
+#   1. 1,624,998 of a 3 million run at 16c36c5f, learning rate 1e-4, the noise held (log standard deviation -3), seven in ten of the flights from the hand-over and half of those in strong wind,
 #      half the rest in 10 to 15 kt from within 50 degrees of ahead, a third with full tanks, the touch's sink over 200 ft/min, its nose falling and its distance off the centreline past 3 m costed,
 #      and the hand-over flown into the wind at her speed through the air:
 #      nice -n 10 python tools/rl/train.py --aircraft c182 --seed 1832 --envs 6 --steps 3000000 --every 125000 --resume step39000002.zip --lr 1e-4 --log-std -3.0 --critic-first 100000 --handover 0.7 --handover-across 0.5 --ahead 0.5 --full-fuel 0.35 --sink-over 0.3 --nose-falling 1.0 --across-over 3.0 --flown-into-the-wind
 #      stopped past 40.7 million; its checkpoint at 40625000 (sha256 845b84ab85eb6d1487c4d21fd3479d653203e13e81057fb2d712346df9b9f4df);
-#   2. 1,375,002 of a 3 million run at 06045658, the distance off the centreline costed more:
+#   2. 1,375,002 of a 3 million run at 16c36c5f, the distance off the centreline costed more:
 #      nice -n 10 python tools/rl/train.py --aircraft c182 --seed 1833 --envs 6 --steps 3000000 --every 125000 --resume step40625000.zip --lr 1e-4 --log-std -3.0 --handover 0.7 --handover-across 0.5 --ahead 0.5 --full-fuel 0.35 --sink-over 0.3 --nose-falling 1.0 --across-over 10.0 --flown-into-the-wind
 #      stopped past 42.5 million; this is its checkpoint at 42000002.
+# Parts 1 and 2 ran at 06045658, since rebased as 16c36c5f onto the J-3 Cub's tools/rl, which adds nothing her training uses (--idle-touch off, her dry weight the same five point masses).
+# Parts 1 and 2 held the observation and reward normalisation as step39000002.vecnorm has it, without --hold-norm: that file was saved with training=False, which VecNormalize.load keeps;
+#   step42000002.vecnorm's statistics are step39000002.vecnorm's, unchanged.
+# --flown-into-the-wind, in tools/rl at 16c36c5f, is since the only way a hand-over start is made for her (landing.py's initialise), and the flag is gone.
 # Trained with 50 to 200 lb a tank drawn for each flight, and trimmed by flying her (landing.py's trim_by_flying): JSBSim's trim fails her governed propeller.
 # Chosen on the simulation's tests (tests/unit/test_learnt.cpp): the first checkpoint, of those flown on them, whose every landing from the verification's 27 starts
 # - full, and at 50, 100 and 150 lb a tank, the policy flying the whole approach, and full with the approach autopilot to 35 ft - and from every corner of her gate in its nine winds was within the limits.

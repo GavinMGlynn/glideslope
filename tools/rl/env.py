@@ -75,14 +75,6 @@ and the C182's policy, handed over within 3 m of the centreline in 15 kt
 from ahead and quartering ahead from the left, held her off long enough
 to drift 5 to 7 m right of it. Without it (0) the reward is unchanged.
 
-**`flown_into_the_wind`** (train.py `--flown-into-the-wind`, 2026-11-05):
-an aeroplane trimmed by flying her (the C182) is handed over in the wind
-as JSBSim's trim's are, at her speed through the air (landing.py's
-`Start.flown_into_the_wind`). Without it her hand-over starts had the wind
-set after the trim flight: in 15 kt from ahead she began at 79 kt, not her
-64, and the simulation's hand-over, at 64, drifted her 6 m off the
-centreline where training's never had.
-
 **`full_fuel`** (train.py `--full-fuel`, 2026-11-05): this fraction of the
 flights with her tanks full, the edge of training's fuel that drew few of
 them and failed her verification. Without it no random number is drawn for
@@ -525,10 +517,8 @@ class LandingEnv(gym.Env):
                  behind_left: float = 0.0, handover: float = 0.0, ahead: float = 0.0,
                  nose_up: float = 0.0, handover_across: float = 0.0,
                  nose_up_from_deg: float = 0.0, full_fuel: float = 0.0, sink_over: float = 0.0,
-                 nose_falling: float = 0.0, idle_touch: float = 0.0, across_over: float = 0.0,
-                 flown_into_the_wind: bool = False):
+                 nose_falling: float = 0.0, idle_touch: float = 0.0, across_over: float = 0.0):
         super().__init__()
-        self.flown_into_the_wind = flown_into_the_wind
         self.full_fuel = full_fuel
         self.handover_across = handover_across
         self.ahead = ahead
@@ -548,8 +538,6 @@ class LandingEnv(gym.Env):
                              self.ahead, self.handover_across)
         if self.full_fuel > 0.0 and self.rng.random() < self.full_fuel:
             start = dataclasses.replace(start, fuel_lbs=self.flier.plane.full_tank_lbs)
-        if self.flown_into_the_wind:
-            start = dataclasses.replace(start, flown_into_the_wind=True)
         obs = self.flier.begin(start)
         return np.asarray(obs, dtype=np.float64), {}
 
