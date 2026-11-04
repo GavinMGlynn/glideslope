@@ -96,6 +96,22 @@ set(_relays_held 0)        # ... and holds before it runs anything on them
 set(_listen_on_nothing
     "frame_terrain_imagery_refused.cmake=its PORT is one nobody listens on, so every fetch is refused"
     "imagery_stale_refused.cmake=its PORT is one nobody listens on, so every fetch is refused")
+# **Tests that listen and were not seen to fail as "cannot listen"** with
+# every port held (2026-11-04, docs/status): each skips before it runs
+# anything on a development machine, and its script's calls are checked
+# here like any other. Each must still be a test given a port.
+set(_live "a live model call costs money, made only with GLIDESLOPE_LIVE_MODEL=1")
+set(_not_run_held
+    "a_players_aircraft_handed_to_the_ai_in_the_air_is_planned_by_chatgpt_and_flown_asking_openai_now=${_live}"
+    "a_players_aircraft_handed_to_the_ai_in_the_air_is_planned_by_claude_and_flown_asking_anthropic_now=${_live}"
+    "a_players_copilot_asked_on_the_players_machine_is_flown_by_the_server_asking_anthropic_now=${_live}"
+    "a_players_copilot_glides_its_aircraft_on_a_server_when_the_engine_stops_asking_anthropic_now=${_live}"
+    "a_players_copilot_glides_when_the_engine_stops_while_it_is_thinking_asking_anthropic_now=${_live}"
+    "a_players_copilot_stands_by_when_its_pilot_takes_the_aircraft_back_asking_anthropic_now=${_live}"
+    "an_aircraft_left_by_a_player_who_goes_is_planned_in_the_air_by_the_servers_claude_asking_anthropic_now=${_live}"
+    "an_aircraft_left_by_a_take_over_is_planned_in_the_air_by_the_servers_chatgpt_asking_openai_now=${_live}"
+    "the_servers_window_shows_the_terminals_dashboard_and_its_drop_button_drops_a_player=it opens a window, and WSL has no display to run it headless on")
+set(_given_names "")
 set(_problems "")
 # **Every call that listens on a held port, checked first**: reads one
 # script's calls, and queues in _rl_queue each script it runs on its port
@@ -335,6 +351,7 @@ foreach(_i RANGE ${_last_index})
     endif()
     if(NOT _port STREQUAL "")
         math(EXPR _given "${_given} + 1")
+        list(APPEND _given_names "${_name}")
         if(NOT _port MATCHES "^[0-9]+$")
             list(APPEND _problems "${_name}: -DPORT=${_port} is not a number")
             continue()
@@ -425,6 +442,18 @@ if(NOT _locking EQUAL _needing)
     list(APPEND _problems
          "${_needing} tests' scripts use a port and ${_locking} of them hold it first")
 endif()
+set(_not_held_count 0)
+foreach(_entry IN LISTS _not_run_held)
+    string(REGEX REPLACE "=.*$" "" _entry_name "${_entry}")
+    string(REGEX REPLACE "^[^=]*=" "" _entry_reason "${_entry}")
+    if(NOT _entry_name IN_LIST _given_names)
+        list(APPEND _problems "${_entry_name}: named as not run held, and no test given a port "
+                              "has that name")
+    else()
+        math(EXPR _not_held_count "${_not_held_count} + 1")
+        message(STATUS "not run held: ${_entry_name} (${_entry_reason})")
+    endif()
+endforeach()
 if(NOT _checked_calls EQUAL _listening_calls OR NOT _checked_scripts EQUAL _listening_scripts)
     list(APPEND _problems
          "${_listening_scripts} scripts make ${_listening_calls} calls that listen on a held "
@@ -472,4 +501,5 @@ message(STATUS "walked ${_count} tests: ${_needing} run a script that needs a po
                "${_listening_scripts} scripts make ${_listening_calls} calls that listen on a "
                "held port, ${_checked_calls} of them, in ${_checked_scripts} scripts, checked "
                "by port_listened before anything is judged; ${_ports} ports claimed, all in "
-               "${FIRST}-${LAST} and no two the same; ${_left} left out as listening on nothing")
+               "${FIRST}-${LAST} and no two the same; ${_left} left out as listening on nothing; "
+               "${_not_held_count} named as not run with their ports held")

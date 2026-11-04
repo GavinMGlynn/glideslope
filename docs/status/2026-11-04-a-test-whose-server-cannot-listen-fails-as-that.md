@@ -53,12 +53,17 @@ sooner; the failure is named right, not made fast.
   skipped before they run anything (no key, no display) - covered by
   test_ports.cmake alone; and three window-client tests that ran after the
   listener's two hours had run out, and so passed unheld: the hand-over,
-  server-weather and NaN tests. The hand-over test, run again held (24744
-  and its relay 24745), failed "could not listen on port 24744" ("impair:
-  cannot listen on port 24745" with it) in 302 s. **Still to do**: the
-  weather (client_in_server_weather.cmake) and NaN
-  (client_let_go_of_a_nan.cmake) window tests run held; the item stays open
-  until they are.
+  server-weather and NaN tests. Each was run again held, headless with no
+  display, and failed as "could not listen": the hand-over test on 24744
+  (its relay's "impair: cannot listen on port 24745" too), the NaN test on
+  24902 (relay 24903) and the weather test on 24920 (relay 24924), each in
+  302 s. So **110 of the 119 tests that listen failed as "could not
+  listen"**, and the other 9 skip before they run anything here. Those 9
+  are named in test_ports.cmake, with their reasons. The 8 live-model tests
+  ask a paid model, and only with GLIDESLOPE_LIVE_MODEL=1. The server's
+  window test needs a display, and WSL has no Xvfb. The check fails if a
+  named test is no longer a test given a port. Seen red with one name
+  misspelt, on a scratch copy.
 - Held one at a time: the dashboard test (server_ping.cmake) with 24758
   held failed "a program could not listen on port 24758"; with the check
   taken out it failed "the server stopped badly". The relay test
@@ -81,9 +86,11 @@ sooner; the failure is named right, not made fast.
   reverted.
 - Windows (tools/windows_build.sh, windows-debug): built; the coverage test
   and the lock test pass there. No server test was run held on Windows.
-- The full linux-release suite was not run on this branch: the held run took
-  the machine's ctest for two hours, and another agent was waiting on it.
-  CI's run is the suite.
+- Full linux-release suite, -j4, no display, capped at 40 minutes (ctest
+  --stop-time): 1,471 of 1,506 passed, the skips above among them, none
+  failed; the cap stopped the weather window test 17 s in (it passed
+  unheld in 40 s during the held run) and the 34 after it did not start.
+  CI's run covers them.
 
 **Looked up first** (the owner's rule): CMake's file(LOCK) - locking a file
 twice in one process is refused "File already locked", hence the held list;
