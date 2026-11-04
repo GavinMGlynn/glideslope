@@ -114,6 +114,8 @@ struct CrosswindFlown {
     // tables hold (Aircraft::outside_its_tables), and the flight was stopped
     // there - not held, whatever else it did.
     bool left_tables = false;
+    // **Seconds flown**: the two minutes, or fewer where it was stopped.
+    double flown_s = 0.0;
 
     // Its sideslip within a degree and its heading within two.
     bool held() const {

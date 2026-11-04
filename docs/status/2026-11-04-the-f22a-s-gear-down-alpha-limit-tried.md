@@ -301,3 +301,11 @@ S.23 at 65 kt (below her stall: her alpha past her tables' -16 to 90
 degrees) and the A320 at 125 kt left their tables. The test now flies the
 S.23 at 65 kt, a stall rather than an edge; it passes on linux-release and
 an x86-64-v2 build, sideslip at most 43.0 on both.
+
+**From the review of the S.23's trial.** Its second check, her sideslip at
+most 90 degrees, could never fail: JSBSim's sideslip never passes 90, and
+no table bounds hers. The trial now records the seconds it flew
+(`CrosswindFlown::flown_s`), and the test checks the flight ended short of its
+two minutes: 36.06 s of 120 on linux-release. Seen red: with the trial's stop
+at its tables taken out, she flew all 120 s and the test failed, "and the
+flight was stopped there, no step flown past them"; restored, it passes.
