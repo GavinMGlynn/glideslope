@@ -49,7 +49,7 @@ def main() -> None:
     n_old = old.observation_space.shape[0]
     assert n_old == 21 and L.OBSERVATIONS == 25, (n_old, L.OBSERVATIONS)
 
-    venv = VecNormalize(DummyVecEnv([lambda: LandingEnv(0)]), norm_obs=True,
+    venv = VecNormalize(DummyVecEnv([lambda: LandingEnv("c172p", 0)]), norm_obs=True,
                         norm_reward=True, clip_obs=10.0, gamma=GAMMA)
     new = PPO("MlpPolicy", venv, n_steps=1024, batch_size=4096, n_epochs=10,
               learning_rate=3e-4, gamma=GAMMA, gae_lambda=0.95, clip_range=0.2,
@@ -70,7 +70,7 @@ def main() -> None:
     new.policy.load_state_dict(new_state)
 
     # The new inputs as the old policy meets them, over fifty flights.
-    env = LandingEnv(20261001)
+    env = LandingEnv("c172p", 20261001)
     seen = []
     for _ in range(50):
         obs, _ = env.reset()

@@ -2,12 +2,12 @@
 records the parity fixture the simulation's test holds its observation and
 action to.
 
-    ~/.venvs/glideslope-rl/bin/python tools/rl/export.py CHECKPOINT \
+    ~/.venvs/glideslope-rl/bin/python tools/rl/export.py CHECKPOINT --aircraft MODEL \
         --seed 1 --steps 20000000
 
-CHECKPOINT is a stable-baselines3 .zip written by train.py, with its
-.vecnorm beside it. Writes assets/rl/c172p-landing.txt and
-tests/data/rl/c172p-landing-parity.txt.
+CHECKPOINT is a stable-baselines3 .zip written by train.py --aircraft MODEL,
+with its .vecnorm beside it. Writes assets/rl/MODEL-landing.txt and
+tests/data/rl/MODEL-landing-parity.txt.
 
 **The policy is the mean of the trained action distribution** - the network
 from the observation, normalised as in training, through the policy's hidden
@@ -16,11 +16,11 @@ checkpoint's own network (PyTorch, in single precision) before it is written.
 
 **The parity fixture alone, from the committed policy**, with no checkpoint:
 
-    ~/.venvs/glideslope-rl/bin/python tools/rl/export.py --parity-only
+    ~/.venvs/glideslope-rl/bin/python tools/rl/export.py --parity-only --aircraft MODEL
 
-flies assets/rl/c172p-landing.txt as committed, in JSBSim's Python bindings
-on the C172P in assets/jsbsim as it is now, and writes the fixture alone.
-The fixture records the sha256 of the c172p.xml it was flown on, and the
+flies assets/rl/MODEL-landing.txt as committed, in JSBSim's Python bindings
+on her model in assets/jsbsim as it is now, and writes the fixture alone.
+The fixture records the sha256 of the MODEL.xml it was flown on, and the
 simulation's parity tests fail by name when the model they fly is not that
 one: a change to her model is followed by flying the fixture again, so that
 it holds the simulation to the bindings on the same model. The policy is not
@@ -45,9 +45,18 @@ import policy_file
 from env import Flier, JSBSIM_ROOT, REPO
 from evaluate import fly
 
-POLICY = os.path.join(REPO, "assets", "rl", "c172p-landing.txt")
-PARITY = os.path.join(REPO, "tests", "data", "rl", "c172p-landing-parity.txt")
-MODEL = os.path.join(JSBSIM_ROOT, "aircraft", "c172p", "c172p.xml")
+
+
+def policy_path(model: str) -> str:
+    return os.path.join(REPO, "assets", "rl", model + "-landing.txt")
+
+
+def parity_path(model: str) -> str:
+    return os.path.join(REPO, "tests", "data", "rl", model + "-landing-parity.txt")
+
+
+def model_path(model: str) -> str:
+    return os.path.join(JSBSIM_ROOT, "aircraft", model, model + ".xml")
 
 
 def sha256(path: str) -> str:
@@ -63,7 +72,7 @@ def number(x: float) -> str:
     return repr(float(x))
 
 
-def from_checkpoint(path: str, header: list[str]) -> policy_file.Policy:
+def from_checkpoint(path: str, header: list[str], model: str) -> policy_file.Policy:
     from stable_baselines3 import PPO
     from stable_baselines3.common.vec_env import VecNormalize
 
@@ -73,7 +82,8 @@ def from_checkpoint(path: str, header: list[str]) -> policy_file.Policy:
 
         vecnorm: VecNormalize = pickle.load(f)
     rms = vecnorm.obs_rms
-    p = policy_file.Policy(header=header)
+    plane = L.aeroplane(model)
+    p = policy_file.Policy(aircraft=model, approach=plane.approach, header=header)
     p.obs_mean = [float(v) for v in rms.mean]
     p.obs_scale = [float(1.0 / np.sqrt(v + vecnorm.epsilon)) for v in rms.var]
     p.obs_clip = float(vecnorm.clip_obs)
@@ -104,17 +114,19 @@ def from_checkpoint(path: str, header: list[str]) -> policy_file.Policy:
     return p
 
 
-def trained_lbs() -> tuple[float, float]:
-    """The least and most the C172P weighed in training: her model with no
+def trained_lbs(model: str) -> tuple[float, float]:
+    """The least and most the aeroplane weighed in training: her model with no
     fuel - the empty aeroplane and what is on board - and the fuel a start
-    puts in each tank, from the least to the most (landing.TRAINING_FUEL_LBS)."""
+    puts in each tank, from the least to the most (her Aeroplane's
+    training_fuel_lbs)."""
     from env import JSBSIM_ROOT
 
-    fdm = L.new_fdm(JSBSIM_ROOT)
+    plane = L.aeroplane(model)
+    fdm = L.new_fdm(JSBSIM_ROOT, model)
     dry = fdm["inertia/empty-weight-lbs"] + sum(
         fdm[f"inertia/pointmass-weight-lbs[{i}]"] for i in range(5))
-    least, most = L.TRAINING_FUEL_LBS
-    return (dry + L.TANKS * least, dry + L.TANKS * most)
+    least, most = plane.training_fuel_lbs
+    return (dry + plane.tanks * least, dry + plane.tanks * most)
 
 
 def parity(policy: policy_file.Policy) -> list[str]:
@@ -139,16 +151,16 @@ def parity(policy: policy_file.Policy) -> list[str]:
         fly(policy, start, record=record)
     lines = [
         "# The simulation's observation and action, held to the training's.",
-        "# Made by tools/rl/export.py, from flights of assets/rl/c172p-landing.txt",
+        f"# Made by tools/rl/export.py, from flights of assets/rl/{policy.aircraft}-landing.txt",
         "# in JSBSim's Python bindings. Each case: the previous action (4), the",
         "# remembered drift (1, landing.remember's), the",
         "# readings (17, tools/rl/landing.py's READINGS), the observation (25)",
         "# and the policy's action (4). Then each of the verification's flights:",
         "# touched (1 or 0), the sink ft/min, across m, along m, the most it rose,",
         "# banked and pitched down (ft, degrees) in the five seconds after.",
-        "# Flown on the c172p.xml whose sha256 follows; the simulation's tests",
+        f"# Flown on the {policy.aircraft}.xml whose sha256 follows; the simulation's tests",
         "# refuse a fixture flown on another (export.py --parity-only flies it again).",
-        "model " + sha256(MODEL),
+        "model " + sha256(model_path(policy.aircraft)),
         "runway " + " ".join(number(v) for v in (rw.threshold_lat_deg, rw.threshold_lon_deg,
                                                   rw.elevation_ft, rw.heading_deg, rw.length_m)),
         f"cases {len(cases)}",
@@ -174,19 +186,25 @@ def parity(policy: policy_file.Policy) -> list[str]:
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("checkpoint", nargs="?")
+    ap.add_argument("--aircraft", required=True,
+                    help="the aircraft it was trained on: tools/rl/aircraft/AIRCRAFT.txt")
+    ap.add_argument("--name", help="what the header calls her: \"C182\"; AIRCRAFT otherwise")
     ap.add_argument("--seed", type=int)
     ap.add_argument("--steps", help="the training steps the checkpoint took")
     ap.add_argument("--trained-at",
                     help="the tools/rl commit the checkpoint was trained with, in words if more than one")
     ap.add_argument("--note", action="append", default=[],
                     help="a line of the header saying how it was trained and chosen; repeatable")
-    ap.add_argument("--policy", default=POLICY, help="where to write the policy")
-    ap.add_argument("--parity", default=PARITY, help="where to write the parity cases")
+    ap.add_argument("--policy", help="where to write the policy; assets/rl/AIRCRAFT-landing.txt")
+    ap.add_argument("--parity", help="where to write the parity cases; "
+                                     "tests/data/rl/AIRCRAFT-landing-parity.txt")
     ap.add_argument("--policy-only", action="store_true",
                     help="write the policy alone: no parity cases, no flights of the verification's starts")
     ap.add_argument("--parity-only", action="store_true",
                     help="no checkpoint: fly the committed policy and write the parity cases alone")
     args = ap.parse_args()
+    args.policy = args.policy or policy_path(args.aircraft)
+    args.parity = args.parity or parity_path(args.aircraft)
     if args.parity_only:
         if args.checkpoint or args.policy_only:
             ap.error("--parity-only takes no checkpoint and not --policy-only")
@@ -202,7 +220,7 @@ def main() -> None:
         for p in ("jsbsim", "gymnasium", "stable_baselines3", "torch", "numpy")
     )
     header = [
-        "The C172P's final approach and landing, learnt by reinforcement learning.",
+        f"The {args.name or args.aircraft}'s final approach and landing, learnt by reinforcement learning.",
         "Made by tools/rl/train.py (PPO) and written by tools/rl/export.py;",
         "do not edit - train again and export.",
         f"Seed {args.seed}. Training steps (decisions, ten a second): {args.steps}.",
@@ -216,8 +234,8 @@ def main() -> None:
         "Flown by src/sim/learnt.cpp. Observation and action: tools/rl/landing.py.",
     ]
     header += args.note
-    p = from_checkpoint(args.checkpoint, header)
-    p.trained_lbs = trained_lbs()
+    p = from_checkpoint(args.checkpoint, header, args.aircraft)
+    p.trained_lbs = trained_lbs(args.aircraft)
     os.makedirs(os.path.dirname(os.path.abspath(args.policy)), exist_ok=True)
     policy_file.write(args.policy, p)
     again = policy_file.read(args.policy)
