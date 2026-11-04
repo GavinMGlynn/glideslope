@@ -725,10 +725,13 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_the_limits_from_every_s
 // to 35 ft, as in a session (LearntLander's default).
 namespace {
 
-void lands_the_c182_from_every_start(double lbs, LearntLander::Approach approach) {
-    const auto policy = the_policy("c182");
-    check(policy->aircraft == "c182", "the policy is the C182's");
-    const ApproachSpeeds published = speeds("c182");
+// `model`'s policy from each of the 27 starts, at `lbs` a tank (her tanks as
+// she starts, at -1), the approach flown as `approach` says.
+void lands_her_from_every_start(const std::string& model, double lbs,
+                                LearntLander::Approach approach) {
+    const auto policy = the_policy(model);
+    check(policy->aircraft == model, "the policy is the " + model + "'s");
+    const ApproachSpeeds published = speeds(model);
     check(std::abs(policy->vref_kts - published.vref_kts) < 1e-9 &&
               std::abs(policy->flaps - published.flap) < 1e-9,
           "she is flown at her own reference speed and landing flap: " +
@@ -744,29 +747,29 @@ void lands_the_c182_from_every_start(double lbs, LearntLander::Approach approach
     }
     check(calm == 9 && from_left == 9 && from_right == 9,
           "nine starts each in calm air and ten knots from either side");
-    lands_every_start_with(lbs, "c182", approach);
+    lands_every_start_with(lbs, model, approach);
 }
 
 } // namespace
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_the_c182_within_5_m_of_the_centreline_under_300_ft_a_minute_in_calm_air_and_a_ten_knot_crosswind) {
-    lands_the_c182_from_every_start(-1.0, LearntLander::Approach::policy);
+    lands_her_from_every_start("c182", -1.0, LearntLander::Approach::policy);
 }
 
 GLIDESLOPE_TEST(the_learnt_landing_lands_the_c182_within_its_limits_from_every_start_with_its_approach_flown_by_the_approach_autopilot) {
-    lands_the_c182_from_every_start(-1.0, LearntLander::Approach::autopilot);
+    lands_her_from_every_start("c182", -1.0, LearntLander::Approach::autopilot);
 }
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_the_c182_within_the_limits_from_every_start_with_a_quarter_of_her_fuel) {
-    lands_the_c182_from_every_start(50.0, LearntLander::Approach::policy);
+    lands_her_from_every_start("c182", 50.0, LearntLander::Approach::policy);
 }
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_the_c182_within_the_limits_from_every_start_with_half_her_fuel) {
-    lands_the_c182_from_every_start(100.0, LearntLander::Approach::policy);
+    lands_her_from_every_start("c182", 100.0, LearntLander::Approach::policy);
 }
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_the_c182_within_the_limits_from_every_start_with_three_quarters_of_her_fuel) {
-    lands_the_c182_from_every_start(150.0, LearntLander::Approach::policy);
+    lands_her_from_every_start("c182", 150.0, LearntLander::Approach::policy);
 }
 
 // **Every learnt landing flies its aircraft's own approach**: the reference
