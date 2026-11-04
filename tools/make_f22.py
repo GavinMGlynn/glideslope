@@ -190,6 +190,25 @@ controls at every angle it tries, up to 45 degrees, and the limit asked there
 wound her pitch loop's integrator to its stop. Her up-and-away figures are
 unchanged: the limit is off with her gear up.
 
+**Her rate gyros sense her body's rotation** (with_inertial_rate_gyros;
+sourced as physics, not as her flight manual): the pinned model's flight
+controls read velocities/[pqr]-aero-rad_sec, her rotation against the air.
+JSBSim takes those as her body rates less its turbulence's rotation
+(FGAuxiliary: vAeroPQR = vPQR - TurbPQR), and in turbulence that rotation
+is MIL-STD-1797A's (FGWinds, its eqs. 33 to 35: the air's own pitch rate
+from the change of its vertical gust over her span, pi/4b). A gyro senses
+the rotation of what it is bolted to, not of the air - the F-16's pitch loop
+takes its rate from four pitch-rate gyros (the RSAF's 2024 investigation of
+its F-16 crash at Tengah) - so her pitch loop held her rotation against the
+air at what her stick asked, and in moderate turbulence the air's rotation
+became hers: on the gust tests' forty seeds she landed within every limit on
+two (docs/status, 2026-11-05). Fed velocities/[pqr]-rad_sec, her rotation
+against the earth, she lands on twenty-eight. Not velocities/[pqr]i-rad_sec,
+against inertial space: the earth's own rotation, 0.004 degrees a second,
+is below anything a flight here measures, and without it her flights in
+calm air, where JSBSim's turbulence rotation is exactly 0, are the same to
+the bit. Her aerodynamics keep the air's rates, as damping is the air's.
+
 **Her speedbrake lifts her no more** (SPEEDBRAKE_LIFT; the value is not
 sourced): the pinned model's speedbrake channel is "borrowed from F-16",
 whose speedbrakes are petals on its fuselage, and its dCLsb added 0.35 to her
@@ -456,6 +475,7 @@ def airframe():
         raise SystemExit(f"{SCRIPT}: found {n} throttle gains, not 2 - has the pinned model changed?")
     text = with_trimmable_pitch_and_power(text)
     text = with_gear_down_alpha_limit(text)
+    text = with_inertial_rate_gyros(text)
     text = replace_once(
         text,
         r"(            <!-- Stick filter -->\s*<lag_filter name=\"fcs/roll-cmd-filter\">\s*<input>)fcs/aileron-cmd-limiter(</input>)",
@@ -772,6 +792,27 @@ def with_pitch_ground_mode(text):
         r"(<integrator name=\"fcs/pitch-rate-integrator\">\s*<!--trigger>fcs/pitch-int-trigger</trigger-->\s*"
         r"<input>fcs/pitch-rate-error</input>\s*<c1>) 1 (</c1>)",
         r"\1fcs/pitch-integrator-gain\2", "the pitch loop's integrator's gain")
+
+
+# **Her flight controls' rate gyros, and how many of the pinned model's rates
+# they feed** (with_inertial_rate_gyros): p, q and r, read nine times in her
+# flight control system.
+GYRO_READS = 9
+
+
+def with_inertial_rate_gyros(text):
+    """Her flight controls fed the rates her gyros sense: her body's rotation,
+    velocities/[pqr]-rad_sec, not its rotation against the air,
+    velocities/[pqr]-aero-rad_sec (see "Her rate gyros" in the docstring).
+    Only inside <flight_control>: her aerodynamics keep the air's rates."""
+    start = text.index("<flight_control")
+    end = text.index("</flight_control>")
+    section, n = re.subn(r"velocities/([pqr])-aero-rad_sec", r"velocities/\1-rad_sec",
+                         text[start:end])
+    if n != GYRO_READS:
+        raise SystemExit(f"{SCRIPT}: found {n} of her flight controls' rates, not {GYRO_READS} - "
+                         "has the pinned model changed?")
+    return text[:start] + section + text[end:]
 
 
 def with_gear_down_alpha_limit(text):

@@ -1168,10 +1168,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       judged on every other. Over forty seeds the F-15C floats into
       a go-around on one; at
       her light loading the 737-300 balloons, and the Mosquito at her
-      heaviest. The F-22A, taught the approach since her stall was
-      measured (2026-11-02), fails all forty seeds: she goes round on
-      sixteen, past the zone or for a balloon, and on the rest touches at
-      183 to 1,293 ft/min or rises off her wheels up to 25 ft.
+      heaviest. The F-22A, her flight controls fed her body's rotation
+      since 2026-11-05, as rate gyros sense it, not the air's, lands
+      twenty-eight of forty seeds on Linux, where she landed two; she is
+      named on the twelve others (goes round from a float on two, climbs
+      in her flare on five, touches at up to 462 ft/min or rises 1.23 ft
+      off her wheels on five). Windows and macOS are not yet seen.
       *Verification: every aeroplane lands light, heavy and in gusts with
       no aircraft and no loading named, and a gust on an approach flown well
       makes no go-around; a name on a single seed on a single platform,
@@ -1382,10 +1384,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       her rise after the touch, the stall watch (her own warning, 12 kt
       over, tuned), the wet walking pace and the wet crosswind roll-out
       (3.85 m, with her own roll-out rudder gains, tuned) now pass without
-      her name. Still named, with their figures: her gusts, on forty seeds
-      (2026-11-04-the-f22a-s-gear-down-alpha-limit-tried,
-      2026-11-04-the-f22a-s-stall-figure-names,
-      2026-11-04-the-f22a-s-wet-crosswind-roll-out).
+      her name. Since 2026-11-05 her gusts are named seed by seed, not
+      whole: twelve of forty on Linux, under the gust item; Windows and
+      macOS are not yet seen
+      (2026-11-05-the-f22a-lands-in-gusts-on-twenty-eight-seeds-of-forty).
       *Verification: every one of those tests passes with her name taken
       off, on every platform.*
 - [x] **The AI lands the 747-400 at Boeing's published approach speed**:
