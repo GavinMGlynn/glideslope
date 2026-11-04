@@ -14,7 +14,7 @@ gust test flown for the F-22A alone, and with a seed offset so that seeds
 41 to 120 serve as a check on what seeds 1 to 40 suggest; each sweep of
 forty takes ten seconds):
 
-- **Her scatter is twice the F-15C's.** Over the forty seeds, her touch
+- **Her scatter is about 1.7 times the F-15C's.** Over the forty seeds, her touch
   sink averages 230 ft/min with a standard deviation of 97, her most climb
   in the flare -29 with 90, her touch 553 m along with 147. The F-15C's,
   flown by the same lander: 203 and 57, -66 and 53, 617 and 91. On seeds
@@ -64,12 +64,14 @@ The best of them, the flare's power from her approach's four-second mean
 with a 0.3 floor (33 of 40), passed 58 of seeds 41 to 120 where as
 committed she passes 56: no better than the forty seeds' own scatter, about
 three seeds either way. Nothing beat that. Each figure moves which seeds
-fail, not how many; the gust flare's laws are not what holds her at 70%.
+fail, not how many; the gust flare's laws are not what holds her near 70%: the best of them
+landed 91 of 120 (76%), within noise of her committed 84 (70%).
 
 **Searched first** (2026-11-05):
 - fighter landing in gusts: AFMAN 11-2F-22A volume 3 (found, but its PDF
   is refused to a script and is not archived), AFMAN 11-2F-16 volume 3
-  (read, from the Internet Archive): section 3.17, "Final approach normally
+  (read, from the Internet Archive; the section and wording were not
+  checked again in review): section 3.17, "Final approach normally
   is flown at 11 degrees AOA", and no gust additive; AFMAN 11-2F-15E
   volume 3 (read): the aerobrake is flown with flaps down, and no approach
   angle or gust additive; T.O. 1F-16C-1 and 1F-15A-1 (not public; forum
