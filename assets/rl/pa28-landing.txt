@@ -8,8 +8,10 @@
 # training it again with the command below, on the same packages and machine, gives that checkpoint.
 # Packages: jsbsim 1.3.1, gymnasium 1.3.0, stable_baselines3 2.9.0, torch 2.14.0+cpu, numpy 2.5.3.
 # Flown by src/sim/learnt.cpp. Observation and action: tools/rl/landing.py.
+# Only parts 2 to 5 below train again with their commands: part 1 was trained from uncommitted work before e0c12c4f, its commands not recorded, and is not reproducible.
 # Its lineage on the PA-28 (tools/rl/aircraft/pa28.txt), each part resumed from the one before (train.py --resume, 6 envs):
-#   1. to step57250004.zip (sha256 8d0a691cf69fe40af5d06817ab4acd0aafb3f21a111ddf676c47428737eb20b3), 18,250,002 decisions from the C182's step39000002.zip in two rounds
+#   1. to step57250004.zip (sha256 8d0a691cf69fe40af5d06817ab4acd0aafb3f21a111ddf676c47428737eb20b3), 18,250,002 decisions from the C182's step39000002.zip in two rounds,
+#      the first ending at step45000002.zip (sha256 28d08de20b95d54d5cc28de8ef33525012d3fd7a7d7fc33b8167222887c0b0f7)
 #      (2026-11-04): learning rates 1e-4 then 5e-5, three then six in ten of the flights from the hand-over, --nose-up 4 then 8, and last --handover-across 0.6;
 #      their exact commands were not recorded - docs/status/2026-11-04-the-pa-28-s-learnt-landing.md says what each round did;
 #   2. 500,000 at e0c12c4f, learning rate 5e-5, the noise held (log standard deviation -3), half the flights with full tanks and a touch's sink over 200 ft/min costed:
