@@ -35,6 +35,10 @@
 
 cmake_minimum_required(VERSION 3.28)
 
+# **Its port held machine-wide** while it runs (port_lock.cmake): another
+# build's run of this test on the same port waits for it.
+include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
+
 if(DEFINED CACHE)
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
 endif()
@@ -74,7 +78,10 @@ if(NOT EXISTS "${_heard}")
 endif()
 file(READ "${_heard}" _said)
 if(NOT _said MATCHES "aircraft [0-9]+ handed to the AI")
-    message(FATAL_ERROR "the client never heard its aircraft handed to the AI:\n${_said}")
+    # With what the server said: "cannot listen on port" is a port another
+    # run holds, and the client's "refused, reason 6" that run's server.
+    message(FATAL_ERROR "the client never heard its aircraft handed to the AI:\n${_said}\n"
+                        "${_out}\n${_err}")
 endif()
 if(_said MATCHES "handed to its pilot")
     message(FATAL_ERROR "the aircraft was given back, and is to stay the AI's:\n${_said}")
