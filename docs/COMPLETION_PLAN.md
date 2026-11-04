@@ -1208,6 +1208,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       same test held its port; every test now holds its port machine-wide.
       With another run on its port it failed 100 of 100 before, and waited
       and passed 100 of 100 after.
+- [ ] **A test whose server cannot listen fails on its client's refusal.**
+      Only the spiral test checks its own server's "cannot listen" first;
+      the others still fail on what their client heard, and the relay ports
+      derived from a test's port are not locked. *Verification: every
+      test that listens fails as "cannot listen" with its port held by a
+      bare listener, and its relay port is held while it runs.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
       It flies her slipped, up to 18 degrees in the flare in calm air; with
       her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min
