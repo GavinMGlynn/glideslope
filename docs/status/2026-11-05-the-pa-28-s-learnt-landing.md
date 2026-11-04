@@ -15,6 +15,12 @@ The item stays open.
 - Part 1 of her lineage (those 18,250,002 decisions) is not reproducible;
   her policy file says so, and records the sha256 of its first round's end,
   step45000002.zip, as well as its last's.
+- Her learnt landing flies her at 64.3 kt at her model's own weight, where
+  the approach autopilot flies 55.6 kt for that weight: 8.7 kt (16%) fast.
+  This is by design, as with the C172P and C182: her reference speed is 1.3
+  times the stall published at 2,400 lb, and she is trained only at 1,565
+  to 1,790 lb. No test pins it, since the server's weight test moved to the
+  J-3 Cub, which has no learnt landing.
 
 **What now works.**
 - **assets/rl/pa28-landing.txt**: the PA-28-180's learnt landing, step
