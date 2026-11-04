@@ -2307,6 +2307,23 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "and at most 10");
         }
     }
+    // **A pitch gains' speed that is none, or past 300 knots, is refused**;
+    // and a flare's lead that is none, or past a second.
+    if (root->HasAttribute("pitch_gains_kcas")) {
+        out.pitch_gains_kcas = root->GetAttributeValueAsNumber("pitch_gains_kcas");
+        if (!(out.pitch_gains_kcas > 0.0 && out.pitch_gains_kcas <= 300.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a pitch_gains_kcas that is not above 0 and at "
+                                     "most 300");
+        }
+    }
+    if (root->HasAttribute("flare_lead_s")) {
+        out.flare_lead_s = root->GetAttributeValueAsNumber("flare_lead_s");
+        if (!(out.flare_lead_s > 0.0 && out.flare_lead_s <= 1.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a flare_lead_s that is not above 0 and at most 1");
+        }
+    }
     // **A yaw rate pedal gain that is not above 0, or past a full pedal for
     // a degree a second, is refused.**
     if (root->HasAttribute("yaw_rate_pedal_per_degps")) {

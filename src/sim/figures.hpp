@@ -161,6 +161,16 @@ struct PublishedFigures {
     // degrees, where her file gives it. 0 where it gives none: as far as
     // the path asks (sim::Lander).
     double gusty_most_nose_down_deg = 0.0;
+    // **The speed her approach's pitch gains are right at**
+    // (`pitch_gains_kcas`), knots, where her file gives one: flown slower,
+    // her elevator law is scaled up by the dynamic pressure she has lost,
+    // (this over her approach speed) squared (sim::Lander). 0 where it gives
+    // none: the gains are flown as they are at every speed.
+    double pitch_gains_kcas = 0.0;
+    // **How far ahead her calm flare judges her sink** (`flare_lead_s`),
+    // seconds, where her file gives one. 0 where it gives none: the
+    // lander's own three tenths (sim::Lander).
+    double flare_lead_s = 0.0;
     // **Her stick on the ground commands a pitch rate**
     // (`roll_out_stick_per_degps`): the stick the roll-out's nose law asks
     // for each degree a second she is off the rate it wants (sim::Lander,
