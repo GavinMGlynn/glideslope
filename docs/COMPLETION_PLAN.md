@@ -1218,10 +1218,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       test that listens fails as "cannot listen" with its port held by a
       bare listener, and its relay port is held while it runs.* Done
       2026-11-04: every call that listens is checked first (79 in 72
-      scripts) and every relay port is held (30 of 30). With ports held, 110
-      of the 119 tests that listen failed as "could not listen". The other 9
-      skip before running: 8 ask a paid live model and one needs a display.
-      They are named in the test, with their reasons.
+      scripts) and every relay port is held (30 of 30). With their ports
+      held, all 119 tests that listen failed as "could not listen". That
+      includes the 8 live-model tests and, on Windows, the server's window
+      test.
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
       It flies her slipped, up to 18 degrees in the flare in calm air; with
       her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min

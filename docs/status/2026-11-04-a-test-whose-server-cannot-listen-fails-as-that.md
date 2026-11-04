@@ -49,21 +49,34 @@ sooner; the failure is named right, not made fast.
   file took its five minutes. Not failed so: 4 imagery tests, which listen
   on nothing (their port is one nobody listens on) and passed; the
   vertical-landing loading test's ALONE case, which runs no server and
-  passed; 6 tests that ask a live model and the server's window test, which
-  skipped before they run anything (no key, no display) - covered by
-  test_ports.cmake alone; and three window-client tests that ran after the
+  passed; 8 tests that ask a live model and the server's window test, which
+  skipped before they run anything (no GLIDESLOPE_LIVE_MODEL, no display);
+  and three window-client tests that ran after the
   listener's two hours had run out, and so passed unheld: the hand-over,
   server-weather and NaN tests. Each was run again held, headless with no
   display, and failed as "could not listen": the hand-over test on 24744
   (its relay's "impair: cannot listen on port 24745" too), the NaN test on
   24902 (relay 24903) and the weather test on 24920 (relay 24924), each in
-  302 s. So **110 of the 119 tests that listen failed as "could not
-  listen"**, and the other 9 skip before they run anything here. Those 9
-  are named in test_ports.cmake, with their reasons. The 8 live-model tests
-  ask a paid model, and only with GLIDESLOPE_LIVE_MODEL=1. The server's
-  window test needs a display, and WSL has no Xvfb. The check fails if a
-  named test is no longer a test given a port. Seen red with one name
-  misspelt, on a scratch copy.
+  302 s.
+- The 8 live-model tests, run once held with GLIDESLOPE_LIVE_MODEL=1 and the
+  keys in ~/.config/glideslope: all 8 failed "could not listen" in 62 s. The
+  server binds before it asks a model, so no model was asked.
+- The server's window test, on Windows (tools/windows_build.sh,
+  windows-debug, its port 24753 held by a Python bare listener running on
+  Windows): failed "a program could not listen on port 24753"
+  ("glideslope_server: cannot listen on port 24753") in 67 s. WSL has no
+  display or Xvfb to run it on.
+- So **all 119 tests that listen failed as "could not listen"** with their
+  ports held. test_ports.cmake keeps a list for any test that listens and has
+  not been run that way, with its reason, and fails if a name on it is no
+  longer a test given a port. It is empty now. Seen red, while it still
+  named 9, with one name misspelt on a scratch copy.
+- **A call's end found too soon cannot hide a flag** (from the review):
+  test_ports.cmake counts each script's listening flags twice, once in the
+  whole script with comment lines aside and once in the calls it reads, and
+  fails if the counts differ. Seen red with " --note (planted)" ending a line
+  of server_ping.cmake's call: "1 flags listen on a held port and 0 of them
+  were read in its calls". Restored after.
 - Held one at a time: the dashboard test (server_ping.cmake) with 24758
   held failed "a program could not listen on port 24758"; with the check
   taken out it failed "the server stopped badly". The relay test
