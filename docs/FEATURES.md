@@ -213,9 +213,11 @@ the controls to an AI pilot whenever you like, then take them back.
 - **Pilots that learned to fly.** `CANDIDATE`
   AI trained to land or fly aerobatics rather than programmed to. A stretch
   goal.
-  In a session, a Cessna 172 on final can be handed to its learnt landing
-  (L) two miles out, lined up and at its approach speed with full flap.
-  *Not yet:* only the Cessna 172 has a learnt landing, the server's own AI
+  In a session, a Cessna 172 or 182 on final can be handed to its learnt
+  landing (L) two miles out, lined up and at its approach speed with full
+  flap.
+  *Not yet:* the Piper PA-28 and the Cub have no learnt landing, the 182's
+  drifts off the centreline in a strong wind from ahead, the server's own AI
   aircraft never use it, and from the keyboard the flaps cannot be set.
   What is learnt is the last 35 ft of the landing; the approach above it is
   flown by the autopilot.

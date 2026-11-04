@@ -13,11 +13,11 @@
 # joining for the learnt landing (`--learnt-landing-at`), and stays until
 # the server has said the learnt landing has it and an update shows it at
 # rest (`--until-landed`) - waiting on those events, not on the clock. The
-# second asks for a Cessna 182S, which has no learnt landing, and asks the
+# second asks for a Piper PA-28, which has no learnt landing, and asks the
 # same. The server must say it handed the first to the learnt landing on
 # final to YSSY 16R, and that the learnt landing touched it down within 5 m
 # of the centreline under 300 ft/min and stopped it on the runway; and must
-# refuse the second, saying the c182 has none - and the second client must
+# refuse the second, saying the pa28 has none - and the second client must
 # never hear its aircraft handed over. The third flies a C172P too, started
 # three miles out, and asks two seconds after joining: outside the gate, it
 # is refused, the runway named and how far out it is. **Each refused client
@@ -60,7 +60,7 @@ execute_process(
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 600 --after 1
             --learnt-landing-at 1 --until-landed --heard "${_first}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 12 --after 3
-            --aircraft c182 --learnt-landing-at 2 --heard "${_second}"
+            --aircraft pa28 --learnt-landing-at 2 --heard "${_second}"
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 12 --after 5
             --learnt-landing-at 2 --heard "${_third}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
@@ -96,16 +96,16 @@ foreach(_heard IN ITEMS "aircraft ${_first_number} handed to the learnt landing"
     endif()
 endforeach()
 
-if(NOT _out MATCHES "aircraft ([0-9]+) not handed to the learnt landing: the c182 has no learnt landing")
-    message(FATAL_ERROR "the server did not refuse the C182S the learnt landing:\n${_out}")
+if(NOT _out MATCHES "aircraft ([0-9]+) not handed to the learnt landing: the pa28 has no learnt landing")
+    message(FATAL_ERROR "the server did not refuse the PA-28 the learnt landing:\n${_out}")
 endif()
 set(_second_number "${CMAKE_MATCH_1}")
 file(READ "${_second}" _second_said)
 if(_second_said MATCHES "aircraft ${_second_number} handed to")
-    message(FATAL_ERROR "the C182S was handed over:\n${_second_said}")
+    message(FATAL_ERROR "the PA-28 was handed over:\n${_second_said}")
 endif()
-if(NOT _second_said MATCHES "aircraft ${_second_number} refused the learnt landing: the c182 has no learnt landing")
-    message(FATAL_ERROR "the C182S's client was not told why it was refused:\n${_second_said}")
+if(NOT _second_said MATCHES "aircraft ${_second_number} refused the learnt landing: the pa28 has no learnt landing")
+    message(FATAL_ERROR "the PA-28's client was not told why it was refused:\n${_second_said}")
 endif()
 
 # **Outside the gate, refused**: the third, a C172P three miles out.
@@ -124,5 +124,5 @@ if(_first_said MATCHES "refused the learnt landing")
     message(FATAL_ERROR "the client landed was told it was refused:\n${_first_said}")
 endif()
 message(STATUS "the C172P landed by the learnt landing on YSSY 16R: ${_sink} ft/min, ${_across} m "
-               "across, stopped ${_along} m along, ${_stopped_across} m across; the C182S "
+               "across, stopped ${_along} m along, ${_stopped_across} m across; the PA-28 "
                "and the C172P outside the gate refused")
