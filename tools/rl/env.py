@@ -28,6 +28,14 @@ docs/PROJECT_STATUS.md): the speed off a band inside the gate's +10/-5 kt
 from 500 ft down to the flare, every tenth of a second, and going wrong
 charged what the speed could still have cost. No committed policy was
 trained with them.
+
+**`nose_up`** (train.py `--nose-up`, 2026-11-04) costs that much at the
+touch for each degree her nose is below level, to 15. The flight ends at
+the touch, so how she rolls after it is never seen in training, and the
+PA-28's policy touched at 8 degrees nose down - on her nosewheel - and in
+the simulation's roll-out pitched to 15 degrees nose down and banked 20.
+Without it (0) the reward is the one the C172P's and the C182's policies
+were trained with.
 """
 
 from __future__ import annotations
@@ -104,8 +112,9 @@ class Flier:
     that a trained policy is evaluated with too."""
 
     def __init__(self, runway: L.Runway, approach: L.Approach, plane: L.Aeroplane,
-                 speed_costs: bool = False):
+                 speed_costs: bool = False, nose_up: float = 0.0):
         self.rw = runway
+        self.nose_up = nose_up
         self.ap = approach
         self.plane = plane
         # The stabilized approach's speed costs (STABILIZED), or the reward
@@ -185,6 +194,7 @@ class Flier:
                 self.touch_above_m = w.above_m
                 self.touch_agl_ft = self.fdm["position/h-agl-ft"]
                 reward += self.touchdown_reward(f.touch)
+                reward -= self.nose_up * min(15.0, max(0.0, -f.touch.pitch_deg))
             if not f.touched:
                 self.judge_the_gate()
             if f.touched:
@@ -403,13 +413,14 @@ class LandingEnv(gym.Env):
     metadata = {"render_modes": []}
 
     def __init__(self, model: str, seed: int = 0, speed_costs: bool = False,
-                 behind_left: float = 0.0, handover: float = 0.0, ahead: float = 0.0):
+                 behind_left: float = 0.0, handover: float = 0.0, ahead: float = 0.0,
+                 nose_up: float = 0.0):
         super().__init__()
         self.ahead = ahead
         self.behind_left = behind_left
         self.handover = handover
         plane = L.aeroplane(model)
-        self.flier = Flier(L.Runway(), plane.approach, plane, speed_costs)
+        self.flier = Flier(L.Runway(), plane.approach, plane, speed_costs, nose_up)
         self.observation_space = gym.spaces.Box(-np.inf, np.inf, (L.OBSERVATIONS,), np.float64)
         self.action_space = gym.spaces.Box(-1.0, 1.0, (L.ACTIONS,), np.float32)
         self.rng = np.random.default_rng(seed)

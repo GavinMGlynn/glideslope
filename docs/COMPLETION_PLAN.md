@@ -1381,9 +1381,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       landings are named under the gust item.
 - [ ] **Learnt landings for other aircraft.** The Cessna 172P and, since
       2026-11-04, the C182 have one; **the PA-28 and the J-3 Cub have none
-      yet**, and the C182's drifts up to 6.8 m off the centreline from her gate
-      in 15 kt from ahead or quartering ahead from the left, which her gate
-      still admits. *Verification: each light aircraft's policy lands within
+      yet** (the PA-28's training sinks too hard from the autopilot's
+      hand-over in a crosswind from the left), and the C182's drifts up to
+      6.8 m off the centreline from her gate in 15 kt from ahead or
+      quartering ahead from the left, which her gate still admits. *Verification: each light aircraft's policy lands within
       the autopilot's limits from the same starts, in calm air and a 10-knot
       crosswind.* Owner 2026-10-09: needs RL training per aircraft; the
       172P's is retrained first.
