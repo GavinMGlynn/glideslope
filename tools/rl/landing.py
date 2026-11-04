@@ -298,6 +298,11 @@ class Start:
     crosswind_kts: float = 0.0
     headwind_kts: float = 0.0
     fuel_lbs: float | None = None
+    # The policy's last action at the start: the controls she is trimmed
+    # with, as sim::LearntLander hands her over with the approach autopilot's
+    # (train.py's `--handover-across`); nothing moved (zeros) otherwise. And
+    # she is started in the wind and crabbed into it (`initialise`).
+    controls_as_trimmed: bool = False
 
 
 def wind_ned_fps(rw: Runway, s: Start) -> tuple[float, float]:
@@ -352,10 +357,26 @@ def initialise(fdm, rw: Runway, ap: Approach, s: Start, plane: Aeroplane) -> Non
     fdm["ic/long-gc-deg"] = lon
     fdm["ic/terrain-elevation-ft"] = rw.elevation_ft
     fdm["ic/h-sl-ft"] = alt_ft
-    fdm["ic/psi-true-deg"] = rw.heading_deg + s.heading_offset_deg
+    kts = ap.vref_kts if s.airspeed_kts is None else s.airspeed_kts
+    crab_deg = 0.0
+    if s.controls_as_trimmed:
+        # **Handed over as the approach autopilot hands her over**: crabbed
+        # into the wind, her track down the runway, not slipping. Trimmed in
+        # still air on the crabbed heading, then started again in the wind
+        # (`into_the_wind`). Every other start begins with the wind set after
+        # the trim, which slips her while it catches her up.
+        north, east = wind_ned_fps(rw, s)
+        h = math.radians(rw.heading_deg)
+        wind_across = east * math.cos(h) - north * math.sin(h)
+        crab_deg = -math.degrees(math.asin(max(-0.9, min(0.9, wind_across / (kts * 1.6878)))))
+        # Trimmed in still air: not in the last flight's wind.
+        fdm["atmosphere/wind-north-fps"] = 0.0
+        fdm["atmosphere/wind-east-fps"] = 0.0
+        fdm["atmosphere/wind-down-fps"] = 0.0
+    fdm["ic/psi-true-deg"] = rw.heading_deg + s.heading_offset_deg + crab_deg
     fdm["ic/theta-deg"] = 0.0
     fdm["ic/phi-deg"] = 0.0
-    fdm["ic/vc-kts"] = ap.vref_kts if s.airspeed_kts is None else s.airspeed_kts
+    fdm["ic/vc-kts"] = kts
     fdm["ic/gamma-deg"] = -ap.glidepath_deg
     fdm["fcs/flap-cmd-norm"] = ap.flaps
     # **Her levers as she is flown**, before the trim: the propeller lever
@@ -388,7 +409,45 @@ def initialise(fdm, rw: Runway, ap: Approach, s: Start, plane: Aeroplane) -> Non
         if not ok:
             raise RuntimeError("JSBSim refused the initial conditions after a failed trim")
         fdm["propulsion/set-running"] = -1
+    if s.controls_as_trimmed:
+        return into_the_wind(fdm, rw, s)
     set_wind(fdm, rw, s)
+
+
+def into_the_wind(fdm, rw: Runway, s: Start) -> None:
+    """Her trimmed flight started again with the wind added to her ground
+    velocity, so that she flies on as she was through the air: JSBSim's
+    initial conditions take no wind, so a wind set after them slips her."""
+    north, east = wind_ned_fps(rw, s)
+    held = {k: fdm[k] for k in ("fcs/elevator-cmd-norm", "fcs/pitch-trim-cmd-norm",
+                                "fcs/aileron-cmd-norm", "fcs/rudder-cmd-norm",
+                                "fcs/throttle-cmd-norm[0]")}
+    state = {
+        "ic/lat-geod-deg": fdm["position/lat-geod-deg"],
+        "ic/long-gc-deg": fdm["position/long-gc-deg"],
+        "ic/h-sl-ft": fdm["position/h-sl-ft"],
+        "ic/psi-true-deg": fdm["attitude/psi-deg"],
+        "ic/theta-deg": fdm["attitude/theta-deg"],
+        "ic/phi-deg": fdm["attitude/phi-deg"],
+        "ic/vn-fps": fdm["velocities/v-north-fps"] + north,
+        "ic/ve-fps": fdm["velocities/v-east-fps"] + east,
+        "ic/vd-fps": fdm["velocities/v-down-fps"],
+    }
+    for k, v in state.items():
+        fdm[k] = v
+    set_wind(fdm, rw, s)
+    fdm.set_trim_status(True)
+    ok = fdm.run_ic()
+    fdm.set_trim_status(False)
+    if not ok:
+        raise RuntimeError("JSBSim refused the initial conditions in the wind")
+    fdm["propulsion/set-running"] = -1
+    set_wind(fdm, rw, s)
+    for k, v in held.items():
+        fdm[k] = v
+    # One step, so that what is read of her - the airspeed and sideslip -
+    # is through the wind, as the initial conditions do not make it.
+    fdm.run()
 
 
 def set_wind(fdm, rw: Runway, s: Start) -> None:
