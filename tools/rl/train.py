@@ -146,6 +146,9 @@ def main() -> None:
                          "level, to 15 (env.py's Flier); none without it")
     ap.add_argument("--nose-up-from", type=float, default=0.0,
                     help="--nose-up's degrees measured below this attitude, not level (env.py's Flier)")
+    ap.add_argument("--sink-over", type=float, default=0.0,
+                    help="at the touch, this much reward lost for each ft/min of sink over 200, "
+                         "to 1,000 (env.py's Flier); none without it")
     ap.add_argument("--full-fuel", type=float, default=0.0,
                     help="this fraction of the flights with her tanks full (env.py's LandingEnv); "
                          "none without it")
@@ -162,7 +165,8 @@ def main() -> None:
                                   behind_left=args.behind_left, handover=args.handover,
                                   ahead=args.ahead, nose_up=args.nose_up,
                                   handover_across=args.handover_across,
-                                  nose_up_from_deg=args.nose_up_from, full_fuel=args.full_fuel)
+                                  nose_up_from_deg=args.nose_up_from, full_fuel=args.full_fuel,
+                                  sink_over=args.sink_over)
 
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])
     if args.resume:
