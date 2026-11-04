@@ -2288,6 +2288,25 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "and at most 6");
         }
     }
+    // **A retard height that is none, or above the 50 ft a flare begins
+    // under, is refused**; and a nose let down that is none, or past ten
+    // degrees.
+    if (root->HasAttribute("gusty_retard_ft")) {
+        out.gusty_retard_ft = root->GetAttributeValueAsNumber("gusty_retard_ft");
+        if (!(out.gusty_retard_ft > 0.0 && out.gusty_retard_ft <= 50.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a gusty_retard_ft that is not above 0 and at "
+                                     "most 50");
+        }
+    }
+    if (root->HasAttribute("gusty_most_nose_down_deg")) {
+        out.gusty_most_nose_down_deg = root->GetAttributeValueAsNumber("gusty_most_nose_down_deg");
+        if (!(out.gusty_most_nose_down_deg > 0.0 && out.gusty_most_nose_down_deg <= 10.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a gusty_most_nose_down_deg that is not above 0 "
+                                     "and at most 10");
+        }
+    }
     // **A yaw rate pedal gain that is not above 0, or past a full pedal for
     // a degree a second, is refused.**
     if (root->HasAttribute("yaw_rate_pedal_per_degps")) {

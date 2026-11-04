@@ -156,9 +156,12 @@ and since 2026-11-03 the F-15C, F-35B, C172P and C182, with the PA-28, and
 the flying boat, since 2026-11-04 on all forty seeds on Linux and Windows
 (still named on macOS's seeds 3, 10 and 11, not yet flown there since), and
 since 2026-11-04 the B-2A, on all forty seeds on Linux, an x86-64-v2 build
-and Windows release: eleven of sixteen; five are still named. The 737-300
+and Windows release. The 737-300
 and 787-8 now land on all forty here but touch hard on one seed each on
-Windows release, so stay named; the A380 and F-22A are unchanged. Since
+Windows release, so stay named. Since 2026-11-04 the A380 lands on all
+forty seeds on Linux and an x86-64-v2 build, her power retarded at Airbus's
+20 ft, and is named on Windows release's seeds 3 and 7 alone: twelve of
+sixteen are judged. The F-22A is unchanged. Since
 2026-11-04 the J-3 Cub is wheel-landed in gusts and lands on thirty-nine
 of forty seeds on Linux, named on seed 33 alone, where she touches at 387
 ft/min in a 14 kt lull, and thirty-seven on Windows release, named on

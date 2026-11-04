@@ -151,6 +151,16 @@ struct PublishedFigures {
     // none: a jet keeps the degree a second, a propeller aeroplane her own
     // (sim::Lander).
     double gusty_closing_nose_degps = 0.0;
+    // **The height over her wheels her maker has her flare's power closed
+    // at** (`gusty_retard_ft`), feet, where her file gives one: in gusts too,
+    // where the lander otherwise holds it to the touch. 0 where it gives
+    // none (sim::Lander).
+    double gusty_retard_ft = 0.0;
+    // **How far under her path's attitude her nose may be put for the path
+    // in the last of a gusty approach** (`gusty_most_nose_down_deg`),
+    // degrees, where her file gives it. 0 where it gives none: as far as
+    // the path asks (sim::Lander).
+    double gusty_most_nose_down_deg = 0.0;
     // **Her stick on the ground commands a pitch rate**
     // (`roll_out_stick_per_degps`): the stick the roll-out's nose law asks
     // for each degree a second she is off the rate it wants (sim::Lander,
