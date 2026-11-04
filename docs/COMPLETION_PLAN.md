@@ -1174,8 +1174,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       sixteen, past the zone or for a balloon, and on the rest touches at
       183 to 1,293 ft/min or rises off her wheels up to 25 ft.
       *Verification: every aeroplane lands light, heavy and in gusts with
-      none named, and a gust on an approach flown well makes no
-      go-around.*
+      no aircraft and no loading named, and a gust on an approach flown well
+      makes no go-around; a name on a single seed on a single platform
+      closes on its measured figure (owner, 2026-11-04).*
 - [x] **In a steady headwind the S.23 skips off the water after
       alighting.** The rollout now judges her lift by her airspeed in all
       air, and the thirteen landplanes roll out into 15 kt without lifting
@@ -1195,12 +1196,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       heading, in calm air and 15 kt across.* Done 2026-10-30: a tail-wheel
       aeroplane's steering brake no longer fades at a crawl; every landplane
       rolled up from rest to 0.5-4.5 kt and stopped keeps within 8.9 degrees.
-- [ ] **The flying boat lands in gusts without skipping.** She lands on
+- [x] **The flying boat lands in gusts without skipping.** She lands on
       every gust seed on Linux and Windows (2026-11-04), and on macOS all but
       two, 18 and 32, where she touches at 342 and 340 ft/min: inside her
       limit, not her margin (owner's rulings and figures in docs/status).
       *Verification: the S.23 lands in calm air and in gusts within the
-      landplanes' limits.*
+      landplanes' limits.* Done 2026-11-04, on the owner's ruling that a
+      single-seed name closes on its measured figure: her two macOS names
+      stay, and fail "take her name off" if she passes them.
 - [ ] **The spiral hand-over test failed at its start, once.** Handed to the
       AI from a spiral over two AI layers, it failed after 2.5 s of its 125
       under a full local suite (2026-11-04) and passed alone; cause not
