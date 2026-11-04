@@ -114,4 +114,7 @@ these and changed nothing; it was not kept.
   gust seeds): before the names, 37 of 40 passed. The three failures were
   the Cub's alone, seeds 8, 32 and 37, now named. No other aeroplane failed.
 - **The full linux-release suite** (`ctest --preset linux-release -j4`):
-  the result is in the pull request.
+  1,457 of its 1,487 tests had finished, none failed, when the run was
+  stopped. Every platform's suite is the full CI workflow dispatched on the
+  branch after its rebase onto #313 and #315, and its seeds are named from
+  that run.
