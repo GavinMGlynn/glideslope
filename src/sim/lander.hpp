@@ -411,6 +411,12 @@ public:
     // out begun higher, and a gust's lift met by holding and letting down
     // the nose (lander.cpp). Any gust factor over 0.
     bool in_gusts() const;
+    // **Whether she is wheel-landed**: in gusts, where her figures land her
+    // three-point in calm air (`ApproachSpeeds::three_point`, the J-3 Cub),
+    // and not on a hull. The FAA's Airplane Flying Handbook (FAA-H-8083-3C,
+    // ch. 14) lands a tailwheel aeroplane on her main wheels in gusty wind
+    // (lander.cpp, `wheel_landing_let_down_deg`).
+    bool wheel_landing() const;
 
     // **The most incidence the flare raises the nose to**: twelve degrees,
     // or four over what she flew the glidepath at, short of the stall

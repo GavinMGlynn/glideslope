@@ -1154,7 +1154,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       eight seeds: the PA-28, C172P, C182, 747-400, A320, Learjet 35A,
       Mosquito, F-15C, F-35B and, since 2026-11-04, the B-2A, her wings held
       level harder; and the flying boat on all but macOS
-      release's seed 3, where she skips 0.93 ft. Touch sink scatters about
+      release's seed 3, where she skips 0.93 ft. Wheel-landed in gusts
+      since 2026-11-04, the J-3 Cub lands thirty-nine of forty seeds on
+      Linux but touches at 387 ft/min in a 14 kt lull on seed 33; she is
+      not yet seen on Windows or macOS. Touch sink scatters about
       80 ft/min a landing, so one platform's pass is no other's. Flown at
       Boeing's full gust with a faster nose while closing, the 737-300 and
       787-8 land on all forty seeds on Linux but touch at 347 and 338 ft/min
@@ -1162,8 +1165,7 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       judged on every other. Over forty seeds the
       A380 still comes down hard on one, floats past
       the zone on one and strikes her airframe on one, the F-15C floats into
-      a go-around on one, and the Cub balloons on three, touches hard on one and
-      rises off her wheels on one; at
+      a go-around on one; at
       her light loading the 737-300 balloons, and the Mosquito at her
       heaviest. The F-22A, taught the approach since her stall was
       measured (2026-11-02), fails all forty seeds: she goes round on
