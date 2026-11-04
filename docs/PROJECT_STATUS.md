@@ -183,7 +183,8 @@ tuned) pass without her name. Since 2026-11-05 her flight controls are
 fed her body's rotation, as rate gyros sense it, not the air's, and in
 gusts she lands on twenty-eight of forty seeds on Linux (two before);
 the twelve she does not are named seed by seed with their figures, and
-she is judged on every other (Windows and macOS not yet seen). A stall begun at 1,000 ft is handed to the
+she is judged on every other. On Windows release she lands
+twenty-six, named on fourteen; macOS is not yet seen. A stall begun at 1,000 ft is handed to the
 recovery at the break, and every aeroplane taught a stall is handed over
 above the ground there with full power at once (2026-11-04); left thirty
 seconds stalled at idle there, eight reach the ground first, sinking at
