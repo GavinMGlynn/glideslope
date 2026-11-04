@@ -1200,11 +1200,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       limit, not her margin (owner's rulings and figures in docs/status).
       *Verification: the S.23 lands in calm air and in gusts within the
       landplanes' limits.*
-- [ ] **The spiral hand-over test failed at its start, once.** Handed to the
+- [x] **The spiral hand-over test failed at its start, once.** Handed to the
       AI from a spiral over two AI layers, it failed after 2.5 s of its 125
-      under a full local suite (2026-11-04) and passed alone; cause not
-      found. *Verification: the cause found and fixed, or the test failing
-      no more in a hundred runs under load.*
+      under a full local suite (2026-11-04) and passed alone. *Verification:
+      the cause found and fixed, or the test failing no more in a hundred
+      runs under load.* Done 2026-11-04: another working copy's run of the
+      same test held its port; every test now holds its port machine-wide.
+      With another run on its port it failed 100 of 100 before, and waited
+      and passed 100 of 100 after.
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
       It flies her slipped, up to 18 degrees in the flare in calm air; with
       her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min
