@@ -104,3 +104,38 @@ inside 360"); and on Windows, without the lead, seed 31 ("touched at
 451.200611 ft/min"). Each passed again once restored. On linux-release
 the 207 tests matching figures, registration, gusts, landings, flares and
 approaches pass (one skipped without a key); the full suite is left to CI.
+
+**From the review of #322.**
+
+- **macOS, named on its seeds** (the full workflow dispatched on this
+  branch, CI run 41814841853): she touches at 351 ft/min on seed 5, 349 on
+  seed 6 and 336 on seed 31, and climbs at 118 ft/min in her flare on seed
+  37, a balloon, on macOS debug and release alike. Seed 6 on debug ran in a
+  shard later cancelled, and failed there before it was; so all four are
+  named for macOS (`macos()`), debug and release. Windows debug and clang
+  passed every seed but 3 and 7, which hold there. Not tuned further: the
+  owner, 2026-11-04, has single seeds close on their measured figures.
+- **The retard labelled honestly**: its 20 ft is sourced from Airbus's
+  RETARD call; its use in gusts, against the AFH's power held to the
+  touch, is chosen and tuned. Alone it made her worse (35 of forty against
+  37); it helped only with her harder aileron.
+- **The nose's least applied before the path's [-8, 20] degree bound**, so
+  the bound has the last word. Her forty seeds are unchanged by it, line
+  for line, on linux-release and the x86-64-v2 build. Its aim, not its
+  figure, is Airbus's: on a stabilized approach "only small changes in
+  heading and pitch are required to maintain this flight path" (Airbus
+  Flight Operations Briefing Note, "Flying Stabilized Approaches").
+- **The bounds test seen red**: with a retard height of up to 100 ft
+  accepted, it failed ("all four outside their bounds were refused, not
+  3"), and passed again once restored.
+- **Searched** (2026-11-04, as the owner asks): "A380 FCTM landing gusty
+  conditions flare technique thrust idle"; "A380 maximum bank angle at
+  touchdown wingtip engine pod clearance FCOM"; "Airbus do not chase the
+  glideslope below 100 ft avoid large pitch changes"; and before, "Airbus
+  FCOM VAPP wind correction one third headwind ... ground speed mini A380"
+  and "A380 FCTM manual landing RETARD callout 20 ft". Found: the Safety
+  First article (RETARD at 20 ft; flare at about 40 ft for the A380; no
+  forward stick once the flare is begun), Airbus's third of the headwind
+  between 5 and 15 kt with ground speed mini (forums), and the stabilized
+  approach briefing note. Not found: the A380 FCTM's gusty landing text,
+  and her bank limit at the touch.
