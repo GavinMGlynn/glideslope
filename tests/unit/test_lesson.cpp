@@ -3147,10 +3147,16 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
          "on Linux she floats into a go-around from a touch 1,039 m along (seed 34)"},
         // The J-3 Cub since 2026-11-04, wheel-landed in gusts (sim/lander.cpp,
         // `wheel_landing_let_down_deg`): thirty-nine of forty here, and the
-        // same figures on an x86-64-v2 build.
+        // same figures on an x86-64-v2 build; thirty-seven of forty on
+        // Windows release, where she passes seed 33.
         {"j3cub", 33, linux_(),
          "on Linux she loses 14 kt of headwind and meets a 6 ft/s down-gust in her last "
          "four feet, and touches at 387 ft/min (seed 33)"},
+        {"j3cub", 8, windows(), "on Windows she touches at 364 ft/min (seed 8)"},
+        {"j3cub", 32, windows(),
+         "on Windows a gust climbs her at 107 ft/min in her flare (seed 32)"},
+        {"j3cub", 37, windows(),
+         "on Windows a gust climbs her at 93 ft/min in her flare (seed 37)"},
         {"747-400", 29, windows(), "on Windows she touches at 385 ft/min (seed 29)"},
         {"747-400", 31, windows(),
          "on Windows she floats into a go-around from a touch 1,036 m along (seed 31)"},

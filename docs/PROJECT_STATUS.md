@@ -161,7 +161,8 @@ and 787-8 now land on all forty here but touch hard on one seed each on
 Windows release, so stay named; the A380 and F-22A are unchanged. Since
 2026-11-04 the J-3 Cub is wheel-landed in gusts and lands on thirty-nine
 of forty seeds on Linux, named on seed 33 alone, where she touches at 387
-ft/min in a 14 kt lull; Windows and macOS are not yet seen. The 747-400 is
+ft/min in a 14 kt lull, and thirty-seven on Windows release, named on
+seeds 8, 32 and 37; macOS is not yet seen. The 747-400 is
 taught the approach but not yet the take-off, climb or circuit (her speeds
 are measured, not a book's). The F-22A is taught stalls and the approach
 since 2026-11-02, with a stall figure measured from her model. Since

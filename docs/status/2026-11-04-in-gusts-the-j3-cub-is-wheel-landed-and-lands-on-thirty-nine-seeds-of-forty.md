@@ -1,11 +1,15 @@
 ### In gusts the J-3 Cub is wheel-landed, and lands on thirty-nine seeds of forty, 2026-11-04 - item still open
 
-**What is still missing, first**: the item. On seed 33 the Cub still touches
-at 387 ft/min, and she is named on that seed in `named_on_a_seed()`
-(tests/unit/test_lesson.cpp). Her margins elsewhere are thin: she touches at
-321 ft/min on seed 4 against the 335 the margin allows, and climbs at 70
-ft/min in her flare on seed 19 against 75. Windows release and macOS are not
-yet seen with this change. The A380 and F-22A are still named whole.
+**What is still missing, first**: the item. On Linux, on seed 33, the Cub
+still touches at 387 ft/min. On Windows release she fails three seeds of
+forty: she touches at 364 ft/min on seed 8, and a gust climbs her at 107 and
+93 ft/min in her flare on seeds 32 and 37. She was failing those three there
+before, at 357, 118 and 136. She is named on each of those seeds in
+`named_on_a_seed()` (tests/unit/test_lesson.cpp), and passes seed 33 on
+Windows. Her margins elsewhere are thin: on Linux she touches at 321 ft/min
+on seed 4 against the 335 the margin allows, and climbs at 70 ft/min in her
+flare on seed 19 against 75. macOS is not yet seen with this change. The
+A380 and F-22A are still named whole.
 
 **What now works**: the J-3 Cub is taken off `not_yet_landed_in_gusts()`.
 On linux-release and on an x86-64-v2 build (no fused multiply-adds, as CI
@@ -39,9 +43,9 @@ x86-64-v2 build gave the same figures):
   from 52 to 39 kt. A 6 ft/s down-gust followed four feet up. She met the
   runway sinking at 360 to 390 ft/min whatever the flare did; nothing tried
   changed it by more than 30.
-- **Windows release's seed 8 (357 and 359.7 ft/min in CI run
-  38028434284), and seeds 32 and 37 there**, are not traced: Windows is not
-  yet run with this change.
+- **Windows release's seeds 8, 32 and 37** (357, 118 and 136 before; 364,
+  107 and 93 after) are not traced. On Windows the same seed meets other
+  gusts at the flare, as `gusty_margin_fpm` in the test says.
 
 **The published technique** (each as found):
 
@@ -106,5 +110,8 @@ these and changed nothing; it was not kept.
   after on linux-release and the x86-64-v2 build. All 600 match.
 - **A stale name fails**: her seed-33 naming is checked by "take her name
   off" (`every_aeroplane_lands_in_gusts`), as every naming is.
+- **Windows release** (`tools/windows_build.sh windows-release`, the forty
+  gust seeds): before the names, 37 of 40 passed. The three failures were
+  the Cub's alone, seeds 8, 32 and 37, now named. No other aeroplane failed.
 - **The full linux-release suite** (`ctest --preset linux-release -j4`):
   the result is in the pull request.
