@@ -1,8 +1,15 @@
 ### The 737-300 light and the Mosquito at her heaviest land without a balloon, 2026-11-05
 
-**What is still wrong first.** The gust item stays open: the F-22A is
-still named whole in gusts, and the A380 waits on #322. This removes the
-item's two loading names. Nothing else is named at any loading.
+**What is still wrong first.** The gust item stays open. Neither the
+A380 nor the F-22A is named whole any more, but both still have
+single-seed gust names:
+- the F-22A on 12 seeds on Linux, 14 on Windows and 12 on macOS, and the
+  owner is still to rule on whether her per-seed names close her;
+- a few others on one seed each, which close on their figures by the
+  2026-11-04 ruling.
+
+This removes the item's two loading names. Nothing is named at any
+loading now.
 
 **What now works.** Every aeroplane taught the approach (16) lands light and
 heavy in calm air with none named. Before this, the 737-300 at her light
@@ -99,10 +106,17 @@ Her own other lines move:
 - the Mosquito at 18,000 lb touches 680 m along, against 724, and at
   19,800 lb 720 m, against 777.
 
-On the local x86-64-v3 build (FMA), adding the scheduled branch changes how
-GCC fuses the unscaled law. Only the J-3 Cub's figures-loading touch moves,
-116 to 113 ft/min, and nothing changes pass or fail. CI's builds are not
-FMA.
+On the local x86-64-v3 build (FMA), the J-3 Cub's figures-loading touch
+moved from 116 to 113 ft/min. Nothing changed pass or fail. Bisected, the
+move came with the elevator's scheduled branch: with the branch taken out
+and the `lead_s` change kept, she touched at 116 again. So the likely
+source is how the compiler fused the unscaled law beside the new code.
+`lead_s` becoming a load from a constant did not move it. How GCC fused it
+was not inspected. CI's builds are not FMA.
+
+**From the review:**
+- the pitch-gain factor is capped at 2;
+- the law is computed once and scaled only when the factor is over 1.
 
 **Verification**:
 - `every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce_or_a_go_around`:

@@ -1169,8 +1169,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       a go-around on one. Since 2026-11-05 no loading is named: the
       737-300 light, her pitch gains raised for the airspeed she has lost,
       and the Mosquito at her heaviest, her flare judging her sink further
-      ahead, land without climbing in their flares. The F-22A, her flight controls fed her body's rotation
-      since 2026-11-05, as rate gyros sense it, not the air's, lands
+      ahead, land without climbing in their flares. The F-22A, her
+      flight controls fed her body's rotation since 2026-11-05, as rate
+      gyros sense it, not the air's, lands
       twenty-eight of forty seeds on Linux, where she landed two; she is
       named on the twelve others (goes round from a float on two, climbs
       in her flare on five, touches at up to 462 ft/min or rises 1.23 ft

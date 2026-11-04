@@ -2300,17 +2300,13 @@ Controls Lander::fly_laws() {
     // climbed at 140 ft/min in her flare. Never scaled down: at or over
     // that speed, as every gusty approach of hers is, the gains are as they
     // were, exactly.
-    c.elevator =
-        std::clamp(flare_gain_ * (0.05 * pitch_error - 0.05 * (q_degps - want_q_degps)) +
-                       pitch_trim_,
-                   -1.0, 1.0);
-    if (speeds_.pitch_gains_kcas > approach_kts()) {
-        const double gains_over = speeds_.pitch_gains_kcas / approach_kts();
-        const double gain = 0.05 * gains_over * gains_over;
-        c.elevator = std::clamp(
-            flare_gain_ * (gain * pitch_error - gain * (q_degps - want_q_degps)) + pitch_trim_,
-            -1.0, 1.0);
-    }
+    // **No more than twice**, whatever she weighs: a law scaled further is
+    // one nobody has flown (the 737-300 light is scaled 1.5).
+    const double law = flare_gain_ * (0.05 * pitch_error - 0.05 * (q_degps - want_q_degps));
+    const double gains_over = speeds_.pitch_gains_kcas / std::max(1.0, approach_kts());
+    const double scaled_law =
+        gains_over > 1.0 ? std::min(2.0, gains_over * gains_over) * law : law;
+    c.elevator = std::clamp(scaled_law + pitch_trim_, -1.0, 1.0);
     // **A hull held off over rough water is held to her attitude with her
     // own gains, not the landplane's** (`hull_elevator`, as on the water):
     // the whole stick for `rough_water_hold_off_band_deg` of error, damped
