@@ -1381,12 +1381,14 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       landings are named under the gust item.
 - [ ] **Learnt landings for other aircraft.** The Cessna 172P and, since
       2026-11-04, the C182 have one; **the PA-28 and the J-3 Cub have none
-      yet** (the PA-28's training sinks too hard from the autopilot's
-      hand-over in a crosswind from the left), and the C182's drifts up to
-      6.8 m off the centreline from her gate in 15 kt from ahead or
-      quartering ahead from the left, which her gate still admits. *Verification: each light aircraft's policy lands within
-      the autopilot's limits from the same starts, in calm air and a 10-knot
-      crosswind.* Owner 2026-10-09: needs RL training per aircraft; the
+      yet**. The PA-28's best sinks 335 ft/min after the hand-over in 10 kt
+      from the left, banks 21 degrees after the touch with full tanks, and
+      sinks too hard from her gate's corners in wind from ahead and
+      quartering ahead from the left. The C182's drifts up to 6.8 m off the
+      centreline from her gate in 15 kt from ahead or quartering ahead from
+      the left, which her gate still admits. *Verification: each light
+      aircraft's policy lands within the autopilot's limits from the same
+      starts, in calm air and a 10-knot crosswind.* Owner 2026-10-09: needs RL training per aircraft; the
       172P's is retrained first.
 - [x] **A landing taken over on its roll is braked for a dry runway**: a
       wet or contaminated one, which needs more, is not known.

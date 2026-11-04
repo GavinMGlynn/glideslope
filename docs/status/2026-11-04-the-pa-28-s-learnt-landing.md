@@ -30,9 +30,11 @@ stays open.
   is below level, to 15. Off by default, so the C172P's and C182's training
   is unchanged: `export.py --parity-only --aircraft c172p` writes a fixture
   byte-identical to the committed one.
-- **The server test's aircraft with no learnt landing is now the J-3 Cub**:
-  `a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_a_j3_cub_and_one_outside_the_gate_are_refused`,
-  passed (linux-release, 164 s).
+- **The server test's aircraft with no learnt landing is now the F-22A**,
+  which will never be given one (it was the PA-28, and for a round the J-3
+  Cub, who may yet be):
+  `a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_an_f22a_and_one_outside_the_gate_are_refused`,
+  passed (linux-release, 155 s).
 - The C182's 27-start helper in tests/unit/test_learnt.cpp names the
   aircraft it flies, for the PA-28's tests to come.
 
@@ -98,6 +100,8 @@ from the left (337 ft/min), ahead (336) and quartering ahead from the left
 The best checkpoint, its run's logs and the PA-28's tests as written are kept
 outside the repository (the session's scratchpad, learnt-landing-pa28/).
 
-**Verification** (linux-release, no display): the server test above, and
-every C182 and C172P learnt-landing test it shares a file with, 20 of 20
-passed. The C172P's parity fixture is unchanged.
+**Verification** (linux-release, no display): the server test above (with
+the J-3 Cub, 164 s, and with the F-22A, 155 s, alongside the test that the
+learnt landing is offered for exactly the aircraft that have one), and every
+C182 and C172P learnt-landing test it shares a file with, 20 of 20 passed.
+The C172P's parity fixture is unchanged.
