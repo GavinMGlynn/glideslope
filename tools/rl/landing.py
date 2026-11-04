@@ -433,6 +433,9 @@ def trim_by_flying(fdm, alt_ft: float) -> None:
     fdm.set_trim_status(True)
     fdm.run_ic()
     fdm.set_trim_status(False)
+    # Her fuel frozen while she is flown, as sim::Aircraft freezes it while
+    # she is started: she weighs what the start says.
+    fdm["propulsion/fuel_freeze"] = 1.0
     dt = 1.0 / STEPS_PER_SECOND
     steps = int(TRIM_FLIGHT_S * STEPS_PER_SECOND)
     alpha = 0.0
@@ -473,6 +476,7 @@ def trim_by_flying(fdm, alt_ft: float) -> None:
     fdm.set_trim_status(False)
     if not ok:
         raise RuntimeError("JSBSim refused the initial conditions after the trim flight")
+    fdm["propulsion/fuel_freeze"] = 0.0
 
 
 def fuel_of(s: Start, plane: Aeroplane) -> float:
