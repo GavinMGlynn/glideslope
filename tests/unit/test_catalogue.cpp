@@ -1864,21 +1864,21 @@ GLIDESLOPE_TEST(every_aircraft_knows_the_alpha_and_sideslip_its_tables_hold) {
 }
 
 // **A trial stops a flight that leaves its tables, and judges it not held**:
-// the F-22A at 120 kt in calm air, at 3,000 ft on the autopilot with her
-// gear down - 20 kt under her slowest - departs, her alpha past the 90
-// degrees her tables hold. Gear down, as she was measured: with it up -
-// the trials' clean since 2026-10-10 - her flight controls give her their
-// thrust vectoring and full pitch rate, and she holds 115 kt without
-// departing (sinking 2,700 ft in the two minutes). It was 130 kt, 10 under; that is a flight figure of its own
-// now (the next test), so that the rule here does not hang on where between
-// 120 and 130 she stops holding. Flown on, MSVC's debug JSBSim asserted in a table lookup
-// (CI run 37609045925); stopped there, nothing is looked up past them.
+// the S.23 at 65 kt in calm air, at 3,000 ft on the autopilot, below her
+// stall, departs, her alpha past the -16 to 90 degrees her tables hold (her
+// sideslip, which no table bounds, reaching 43). Until 2026-11-04 it was the F-22A at 120 kt with her gear
+// down; since her alpha limit with her gear down (tools/make_f22.py) she
+// holds every speed from 100 kt up, gear up or down, and no longer leaves
+// them. Of every aircraft at half, 0.7 and 0.85 of her start speed, gear
+// down, only the S.23 at 65 and the A320 at 125 left their tables; the
+// S.23's is a stall, the A320's an edge. Flown on, MSVC's debug JSBSim
+// asserted in a table lookup (CI run 37609045925); stopped there, nothing is
+// looked up past them.
 GLIDESLOPE_TEST(a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables_and_judges_it_not_held) {
-    const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "f22");
+    const CatalogueEntry e = glideslope::sim::find_aircraft(data(), "short_s23");
     const glideslope::sim::CrosswindFlown f =
-        glideslope::sim::fly_heading_in_crosswind(data(), e, 120.0, false, 30.0,
-                                                  glideslope::sim::TrialConfiguration::gear_down());
-    std::printf("  f22 at 120 kt in calm air, gear down: left its tables %s, sideslip at most %.1f\n",
+        glideslope::sim::fly_heading_in_crosswind(data(), e, 65.0, false, 30.0);
+    std::printf("  short_s23 at 65 kt in calm air: left its tables %s, sideslip at most %.1f\n",
                 f.left_tables ? "yes" : "no", f.most_sideslip_ever_deg);
     check(f.left_tables, "she left her tables, and the flight was stopped");
     check(f.most_sideslip_ever_deg <= 90.0, "no step was looked up past them");

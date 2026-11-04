@@ -291,3 +291,13 @@ recovery's dive: it hangs on the autopilot's learnt stall alpha.
 her alone at the warning and at thirty seconds, linux-release, no display.
 Nothing measured here is committed; `python3 tools/make_f22.py --check`
 passes on what is.
+
+**From CI on #314 (run 41730328368).** `a_trial_stops_a_flight_whose_alpha_or_sideslip_leaves_its_tables_and_judges_it_not_held`
+flew the F-22A at 120 kt with her gear down as its departure, and since her
+alpha limit she holds there: it failed on every preset. Probed on
+linux-release, she holds every speed from 100 kt up, gear up or down; of
+every aircraft at half, 0.7 and 0.85 of her start speed, gear down, only the
+S.23 at 65 kt (below her stall: her alpha past her tables' -16 to 90
+degrees) and the A320 at 125 kt left their tables. The test now flies the
+S.23 at 65 kt, a stall rather than an edge; it passes on linux-release and
+an x86-64-v2 build, sideslip at most 43.0 on both.
