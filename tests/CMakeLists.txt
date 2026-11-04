@@ -25,6 +25,16 @@ add_test(NAME every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two
         -DLAST=${GLIDESLOPE_TEST_PORTS_LAST}
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test_ports.cmake)
 
+# **A second run of a test on a port another run holds waits for it**, from
+# any build on the machine, and a script the holder runs on the same port does
+# not wait on its own parent. See cmake/port_lock.cmake; test_ports.cmake
+# checks every test that listens holds its port so.
+add_test(NAME a_second_run_of_a_test_on_a_port_another_run_holds_waits_for_it_and_a_script_the_holder_runs_does_not
+    COMMAND ${CMAKE_COMMAND} -DWORK=${CMAKE_CURRENT_BINARY_DIR}/port_lock_waits
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/port_lock_waits.cmake)
+set_tests_properties(a_second_run_of_a_test_on_a_port_another_run_holds_waits_for_it_and_a_script_the_holder_runs_does_not
+    PROPERTIES TIMEOUT 300)
+
 # **A test's server is slow-client-proof**: the silence after which a server
 # lets a client go is 30 s or more in every test but those about the silence,
 # which cmake/test_server_timeouts.cmake names, each with its reason. A
