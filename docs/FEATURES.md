@@ -217,6 +217,8 @@ the controls to an AI pilot whenever you like, then take them back.
   (L) two miles out, lined up and at its approach speed with full flap.
   *Not yet:* only the Cessna 172 has a learnt landing, the server's own AI
   aircraft never use it, and from the keyboard the flaps cannot be set.
+  What is learnt is the last 35 ft of the landing; the approach above it is
+  flown by the autopilot.
 
 ## Flying together
 

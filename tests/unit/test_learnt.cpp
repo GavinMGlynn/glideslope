@@ -606,7 +606,9 @@ GLIDESLOPE_TEST(the_learnt_policy_touches_down_in_the_simulation_where_it_did_in
 }
 
 // **The item's verification**: from each of the 27 starts the committed
-// policy lands the C172P within the autopilot's limits - on the runway,
+// policy - flying the whole approach itself, as that item verified it
+// (`LearntLander::Approach::policy`; in a session the approach autopilot
+// flies it to 35 ft since 2026-11-04) - lands the C172P within the autopilot's limits - on the runway,
 // within 5 m of the centreline, sinking under 300 ft/min, down and upright
 // after - in calm air and a ten-knot crosswind from either side, and the
 // rollout it hands over to stops her on the runway. Flown in the
@@ -624,7 +626,7 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_u
     double worst_across = 0.0;
     std::vector<std::string> failures;
     for (const Start& s : all) {
-        const Landing l = land(policy, s, true);
+        const Landing l = land(policy, s, true, -1.0, LearntLander::Approach::policy);
         ++flown;
         calm += s.crosswind_kts == 0.0 ? 1U : 0U;
         from_left += s.crosswind_kts == 10.0 ? 1U : 0U;
@@ -658,7 +660,8 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c172p_within_5_m_of_the_centreline_u
 // **And with any fuel on board**: a session's aircraft arrive with whatever
 // they have left, and the policy was trained on 25 to 100 lb a tank. Every
 // one of the 27 starts again at 25, 50 and 75 lb a tank - full is the test
-// above - within the same limits and stopped on the runway. One test a load,
+// above - within the same limits and stopped on the runway, the policy
+// flying the whole approach as above. One test a load,
 // so that each fits well inside ctest's time on the slowest build.
 namespace {
 
@@ -671,7 +674,7 @@ void lands_every_start_with(double lbs) {
     std::vector<std::string> failures;
     for (const Start& s : all) {
         std::printf("  with %.0f lb a tank:\n", lbs);
-        const Landing l = land(policy, s, true, lbs);
+        const Landing l = land(policy, s, true, lbs, LearntLander::Approach::policy);
         ++flown;
         worst_sink = std::max(worst_sink, l.sink_fpm);
         worst_across = std::max(worst_across, std::abs(l.across_m));
@@ -1665,39 +1668,39 @@ GLIDESLOPE_TEST(the_corners_the_training_tools_fly_with_the_wind_behind_are_the_
     check(found == 2, "both of corners.py's figures found: " + std::to_string(found) + " of 2");
 }
 
-GLIDESLOPE_TEST(the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air) {
+GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air) {
     lands_from_every_corner_in("calm");
 }
 
-GLIDESLOPE_TEST(the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_left) {
+GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_left) {
     lands_from_every_corner_in("across from the left");
 }
 
-GLIDESLOPE_TEST(the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_right) {
+GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_right) {
     lands_from_every_corner_in("across from the right");
 }
 
-GLIDESLOPE_TEST(the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_headwind) {
+GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_headwind) {
     lands_from_every_corner_in("ahead");
 }
 
-GLIDESLOPE_TEST(the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_tailwind) {
+GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_tailwind) {
     lands_from_every_corner_in("behind");
 }
 
-GLIDESLOPE_TEST(the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_left) {
+GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_left) {
     lands_from_every_corner_in("quartering ahead from the left");
 }
 
-GLIDESLOPE_TEST(the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_right) {
+GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_right) {
     lands_from_every_corner_in("quartering ahead from the right");
 }
 
-GLIDESLOPE_TEST(the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_left) {
+GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_left) {
     lands_from_every_corner_in("behind and across from the left");
 }
 
-GLIDESLOPE_TEST(the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_right) {
+GLIDESLOPE_TEST(the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_right) {
     lands_from_every_corner_in("behind and across from the right");
 }
 
@@ -1946,6 +1949,64 @@ GLIDESLOPE_TEST(a_learnt_landing_not_stabilized_below_500_ft_is_sent_round_by_th
     check(weather->sheared, "the shear was met below 500 ft");
     check(!touched, "not landed");
     check(why.find("kt fast") != std::string::npos, "sent round for her speed: " + why);
+    check(controller.unstable_go_arounds() == 1, "counted as the gate's go-around");
+}
+
+// **And once the policy has her, below 35 ft, the gate still judges her**
+// (LearntLander::unstabilized, the policy's part): built on a runway 450 m
+// long, whose touchdown zone ends a third of the way along, at 150 m. The
+// approach autopilot aims at half the zone and is stabilized; the policy,
+// aiming at its own 300 m, floats in its round out until her path down the
+// glidepath would meet the runway past the zone - for the gate's two
+// seconds running, all of them after the policy took her - and the
+// controller sends her round for it, counted as the gate's go-around.
+// Measured 2026-11-04: unstabilized from about 20 ft, sent round at 8.6
+// (flown on, she touches at 160 m). **Seen to fail** with the policy's part
+// of the judging taken out (learnt.cpp never setting `unstabilized_` once
+// the policy has her): landed.
+GLIDESLOPE_TEST(a_learnt_landing_bound_past_the_touchdown_zone_after_the_policy_has_her_is_sent_round_by_the_gate) {
+    const auto policy = the_policy();
+    Runway runway = a_runway();
+    runway.length_m = 450.0;
+    auto aircraft = placed("c172p", runway, *policy, 2.0 * metres_per_nm, 0.0, 0.0, 0.0,
+                           policy->vref_kts, policy->flaps);
+    check(glideslope::sim::outside_learnt_gate(*aircraft, runway, *policy).empty(),
+          "she is at the gate");
+    glideslope::sim::Controller controller(*aircraft, glideslope::sim::trimmed_controls(*aircraft));
+    controller.to_ai_approach(runway, speeds(), policy);
+    bool handed = false;
+    bool touched = false;
+    double lowest_unjudged_ft = 1e9; // the lowest she was flown with no reason to go round
+    double sent_ft = -1.0;
+    std::string why;
+    for (long tick = 0; tick < 300L * steps_per_second && why.empty() && !touched; ++tick) {
+        aircraft->set_controls(controller.fly());
+        aircraft->step();
+        const LearntLander* l = controller.learnt();
+        handed = handed || l != nullptr;
+        if (l != nullptr) {
+            touched = l->touched();
+            if (l->unstabilized().empty()) {
+                lowest_unjudged_ft =
+                    std::min(lowest_unjudged_ft, l->rollout().above_m() * feet_per_metre);
+            }
+        }
+        if (controller.lander() != nullptr &&
+            controller.lander()->stage() == glideslope::sim::Lander::Stage::go_around) {
+            why = controller.lander()->why_gone_around();
+            sent_ft = controller.lander()->above_m() * feet_per_metre;
+        }
+    }
+    std::printf("  flown unjudged down to %.1f ft; %s at %.1f ft\n", lowest_unjudged_ft,
+                why.empty() ? (touched ? "LANDED" : "NOT GONE AROUND") : ("sent round: " + why).c_str(),
+                sent_ft);
+    check(handed, "she was handed to the learnt landing at its gate");
+    check(!touched, "not landed");
+    check(why.find("touchdown zone") != std::string::npos,
+          "sent round for where she would touch: " + why);
+    check(sent_ft >= 0.0 && sent_ft < glideslope::sim::LearntLander::policy_takes_her_ft &&
+              lowest_unjudged_ft < glideslope::sim::LearntLander::policy_takes_her_ft,
+          "sent round below the height the policy takes her at, the policy flying her there");
     check(controller.unstable_go_arounds() == 1, "counted as the gate's go-around");
 }
 

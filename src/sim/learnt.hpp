@@ -118,7 +118,7 @@ double remember_drift(double integral, double across_m, const LearntPolicy& poli
 // flown from, at every one of its corners, and landed within its own limits
 // - 5 m of the centreline, under 300 ft/min, stopped on the runway - in every
 // wind at the edges of what it admits, and stabilized by 500 ft since
-// 2026-11-04 (the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_
+// 2026-11-04 (the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_
 // its_limits_from_every_corner_of_its_gate_* in nine winds: 288 landings,
 // worst 2.36 m and 244 ft/min). Between 1.7
 // and 2.4 miles before the threshold, no more than 60 m either side of the
@@ -280,9 +280,6 @@ public:
     long decisions() const { return decisions_; }
     // The rollout's lander, for where she is on the runway.
     const Lander& rollout() const { return rollout_; }
-    // **Whether the policy has her yet**: not while the approach autopilot
-    // flies her down to `policy_takes_her_ft`.
-    bool policy_has_her() const { return !approach_; }
     // **Why the stabilized-approach gate sends her round**: empty until the
     // approach autopilot flying her approach has gone around for it - or,
     // once the policy has her, the gate (sim::unstabilized, at the policy's

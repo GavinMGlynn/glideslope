@@ -83,7 +83,7 @@ as before.
   runway or, handed it directly, its own; counted as the gate's go-around.
 
 **Tests.** The nine winds' corner tests are renamed
-`the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_*`
+`the_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_*`
 and, with the four inside-the-quarter tests, now assert each corner never
 two seconds running unstabilized and not sent round, and print the speed
 between 500 and 50 ft. c08 at 10 and 12.5 kt across with 5 behind is no
@@ -122,3 +122,22 @@ every corner unstabilized.
 **Verification.** linux-release, the full suite (`-LE nightly`, `ctest -j4`,
 no display): 1483 of 1483 passed (some skipped: no key, device or
 service). The selftest flies no approach and its hash is not moved.
+
+**From the review of #315.**
+- The nine winds' corner tests are named `the_learnt_landing_is_stabilized_by_500_ft_*`,
+  not `the_learnt_policy_...`: at 500 ft it is the approach autopilot that
+  flies her.
+- The earlier verification's tests - the 27 starts in calm air and ten knots
+  across from either side, and again at 25, 50 and 75 lb a tank - fly the
+  policy over the whole approach again (`Approach::policy`), as that item
+  verified it, with its figures: worst 157 ft/min and 0.82 m full; 203 and
+  1.14, 190 and 0.88, 174 and 0.86 at 25, 50 and 75 lb a tank.
+- The gate's judging once the policy has her is tested:
+  `a_learnt_landing_bound_past_the_touchdown_zone_after_the_policy_has_her_is_sent_round_by_the_gate`
+  - on a runway 450 m long (its zone ending at 150 m) the autopilot is
+  stabilized, the policy floats long, and she is sent round at 8.6 ft
+  ("would touch down 180 m past the threshold"). Seen red with that part of
+  the judging taken out: landed.
+- `LearntLander::policy_has_her`, unused, is gone.
+- Run in linux-release and in an `-march=x86-64-v2` build (CI does not
+  contract to FMA): the 45 tests named learnt or gate green in both.

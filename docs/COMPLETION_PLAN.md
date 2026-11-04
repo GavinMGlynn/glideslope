@@ -1244,8 +1244,7 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 - [x] **The learnt landing flies its approach up to 35 kt fast**, so the
       stabilized-approach gate does not judge it. By the owner's decision of
       2026-10-10, a larger project: its flare trained as its own
-      stage, or started from the approach autopilot's flare. The gate's
-      judging waits on branch `learnt-landing-gate-wip`. *Verification:
+      stage, or started from the approach autopilot's flare. *Verification:
       from every corner of its gate it is stabilized by 500 ft and lands.*
       Done 2026-11-04, without training: the approach autopilot flies the
       approach at the policy's speed, judged by the gate, and the policy
