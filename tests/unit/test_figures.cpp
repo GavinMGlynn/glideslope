@@ -928,6 +928,70 @@ GLIDESLOPE_TEST(a_gust_additive_and_a_gusty_aileron_and_nose_rate_are_read_and_r
                                            std::to_string(refused));
 }
 
+// **Her maker's retard height and her nose's let-down near the ground in
+// gusts are read, and a height of none or past 50 ft, or a let-down of none
+// or past ten degrees, is refused** (`gusty_retard_ft`,
+// `gusty_most_nose_down_deg`, sim::Lander): the A380's 20 ft and 3 degrees
+// read as written, the A320's - which gives neither - as 0; the A320's file
+// given each at the most allowed, 50 and 10, read back; heights of 0 and 60
+// and let-downs of 0 and 12 refused, each naming its attribute. Coverage
+// asserted: four refused.
+GLIDESLOPE_TEST(a_gusty_retard_height_and_nose_let_down_are_read_and_refused_outside_their_bounds) {
+    const auto a380 = read_published_figures(figures_file("a380"));
+    check(a380.gusty_retard_ft == 20.0 && a380.gusty_most_nose_down_deg == 3.0,
+          "the A380 is retarded at 20 ft and her nose let down no more than 3 degrees: " +
+              std::to_string(a380.gusty_retard_ft) + ", " +
+              std::to_string(a380.gusty_most_nose_down_deg));
+    const auto a320 = read_published_figures(figures_file("a320"));
+    check(a320.gusty_retard_ft == 0.0 && a320.gusty_most_nose_down_deg == 0.0,
+          "the A320 gives neither, and has 0");
+
+    std::ifstream in(figures_file("a320"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const std::string attribute = "rotation_degps=\"3\"";
+    const auto at = text.find(attribute);
+    if (at == std::string::npos) {
+        fail("assets/figures/a320.xml does not give rotation_degps=\"3\"");
+    }
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_gusty_retard_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& name, const std::string& value) {
+        std::string changed = text;
+        changed.replace(at, attribute.size(), attribute + " " + name + "=\"" + value + "\"");
+        std::ofstream out(file);
+        out << changed;
+    };
+
+    write("gusty_retard_ft", "50");
+    check(read_published_figures(file).gusty_retard_ft == 50.0,
+          "a retard height of 50 ft, the most allowed, is read back as written");
+    write("gusty_most_nose_down_deg", "10");
+    check(read_published_figures(file).gusty_most_nose_down_deg == 10.0,
+          "a let-down of 10 degrees, the most allowed, is read back as written");
+    const std::pair<const char*, const char*> wrong[] = {{"gusty_retard_ft", "0"},
+                                                         {"gusty_retard_ft", "60"},
+                                                         {"gusty_most_nose_down_deg", "0"},
+                                                         {"gusty_most_nose_down_deg", "12"}};
+    std::size_t refused = 0;
+    for (const auto& [name, value] : wrong) {
+        write(name, value);
+        try {
+            read_published_figures(file);
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            check(said.find(name) != std::string::npos,
+                  std::string("the refusal of ") + name + " " + value + " names it: " + said);
+            ++refused;
+        }
+    }
+    std::filesystem::remove(file);
+    check(refused == std::size(wrong), "all four outside their bounds were refused, not " +
+                                           std::to_string(refused));
+}
+
 // **How a tail-wheel aeroplane is landed is read, and anything but
 // three_point or wheels is refused** (`lands`, sim::Lander): the J-3 Cub's
 // three_point read as written, the A320's - which gives none - as no
