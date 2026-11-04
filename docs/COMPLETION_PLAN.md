@@ -1192,11 +1192,16 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       aeroplane's steering brake no longer fades at a crawl; every landplane
       rolled up from rest to 0.5-4.5 kt and stopped keeps within 8.9 degrees.
 - [ ] **The flying boat lands in gusts without skipping.** She lands on
-      every gust seed on Linux and Windows (2026-11-04); still named on
-      macOS's seeds 3, 10 and 11, not yet flown there with the change
-      (owner's rulings and figures in docs/status).
+      every gust seed on Linux and Windows (2026-11-04), and on macOS all but
+      two, 18 and 32, where she touches at 342 and 340 ft/min: inside her
+      limit, not her margin (owner's rulings and figures in docs/status).
       *Verification: the S.23 lands in calm air and in gusts within the
       landplanes' limits.*
+- [ ] **The spiral hand-over test failed at its start, once.** Handed to the
+      AI from a spiral over two AI layers, it failed after 2.5 s of its 125
+      under a full local suite (2026-11-04) and passed alone; cause not
+      found. *Verification: the cause found and fixed, or the test failing
+      no more in a hundred runs under load.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
       It flies her slipped, up to 18 degrees in the flare in calm air; with
       her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min

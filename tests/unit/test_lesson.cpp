@@ -3132,10 +3132,15 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
          "41703342974"},
         {"737-300", 17, macos(),
          "on macOS she touches at 554 ft/min (seed 17), CI run 41703342974"},
-        {"short_s23", 3, macos(),
-         "on macOS she rises 0.93 ft off the water after touching (seed 3), CI runs "
-         "41303118662 and 41597667557 (after her stick's band, 2026-11-03), and on macOS "
-         "debug too, 41640422104; 0.19 on Linux"},
+        // macOS, debug and release alike, CI run 41732333742 (dispatched on
+        // #313): held off on her own pitch law, the S.23 lands seeds 3, 10 and
+        // 11 there now, and touches inside her limit but not her margin on two.
+        {"short_s23", 18, macos(),
+         "on macOS she touches at 342 ft/min, inside 360 but not by 25 (seed 18), CI run "
+         "41732333742"},
+        {"short_s23", 32, macos(),
+         "on macOS she touches at 340 ft/min, inside 360 but not by 25 (seed 32), CI run "
+         "41732333742"},
         // **The sweep's seeds, 9 to 40** (`..._seed_9` to `_40`, gust_sweep):
         // measured on linux-release and an x86-64-v2 build here (the same
         // figures) and on Windows release, 2026-11-03, with the light
@@ -3152,10 +3157,6 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"747-400", 40, windows(),
          "on Windows she floats into a go-around from a touch 1,040 m along (seed 40)"},
         // macOS, debug and release alike, CI run 41640422104 (dispatched on #308).
-        {"short_s23", 10, macos(),
-         "on macOS she rises 1.13 ft off the water (seed 10), CI run 41640422104"},
-        {"short_s23", 11, macos(),
-         "on macOS she rises 2.03 ft off the water (seed 11), CI run 41640422104"},
         {"c172p", 16, macos(),
          "on macOS she touches at 396 ft/min (seed 16), CI run 41640422104"},
         {"c182", 16, macos(),
