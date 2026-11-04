@@ -6535,14 +6535,6 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
     // tuned, not sourced): noticed at 132.8 kt she slows to 125.1 and loses
     // 287 ft (2026-11-04).
     const std::map<std::string, std::string> not_yet = {{"a380", "slowed under her stall"}};
-    // A name's figures, held with the tolerance in hand so she gets no worse
-    // unseen: the slowest she reached, and the height she lost after. None is
-    // held now; the A380's name is for her published stall alone.
-    struct HeldTo {
-        double slowest_kts;
-        double lost_ft;
-    };
-    const std::map<std::string, HeldTo> held_to = {};
     std::set<std::string> named_seen;
     const Taught taught = taught_for("stalls");
     const std::size_t roster = glideslope::sim::read_catalogue(data()).size();
@@ -6625,16 +6617,7 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_a_stall_coming_and_recovers_from_it) {
             fault = "not back at her approach speed and level";
         }
         const auto name = not_yet.find(id);
-        const auto figure = held_to.find(id);
-        if (name != not_yet.end() && name->second == fault && figure != held_to.end() &&
-            (slowest < figure->second.slowest_kts / (1.0 + between_machines) ||
-             highest - lowest > figure->second.lost_ft * (1.0 + between_machines))) {
-            named_seen.insert(id);
-            faults.push_back(id + " is named at " + std::to_string(figure->second.slowest_kts) +
-                             " kt and " + std::to_string(figure->second.lost_ft) +
-                             " ft lost, and is worse: " + std::to_string(slowest) + " kt and " +
-                             std::to_string(highest - lowest) + " ft");
-        } else if (name != not_yet.end() && name->second == fault) {
+        if (name != not_yet.end() && name->second == fault) {
             named_seen.insert(id);
             std::printf("      named, not yet: %s %s\n", id.c_str(), fault.c_str());
         } else if (name != not_yet.end()) {
