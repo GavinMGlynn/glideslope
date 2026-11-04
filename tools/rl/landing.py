@@ -110,6 +110,7 @@ class Aeroplane:
     tanks: int
     full_tank_lbs: float  # in each, as the simulation's aircraft starts
     training_fuel_lbs: tuple[float, float]  # drawn for each tank, per flight
+    trim_flown: bool = False  # trimmed by trim_by_flying, not JSBSim's trim
 
 
 AIRCRAFT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aircraft")
@@ -134,6 +135,7 @@ def aeroplane(model: str) -> Aeroplane:
         tanks=int(kv["tanks"][0]),
         full_tank_lbs=float(kv["full_tank_lbs"][0]),
         training_fuel_lbs=(least, most),
+        trim_flown=kv.get("trim") == ["flown"],
     )
 
 
@@ -372,6 +374,9 @@ def initialise(fdm, rw: Runway, ap: Approach, s: Start, plane: Aeroplane) -> Non
     if not ok:
         raise RuntimeError("JSBSim refused the initial conditions")
     fdm["propulsion/set-running"] = -1
+    if plane.trim_flown:
+        trim_by_flying(fdm, alt_ft)
+        return set_wind(fdm, rw, s)
     try:
         fdm.do_trim(1)  # tLongitudinal
     except Exception:
@@ -383,10 +388,91 @@ def initialise(fdm, rw: Runway, ap: Approach, s: Start, plane: Aeroplane) -> Non
         if not ok:
             raise RuntimeError("JSBSim refused the initial conditions after a failed trim")
         fdm["propulsion/set-running"] = -1
+    set_wind(fdm, rw, s)
+
+
+def set_wind(fdm, rw: Runway, s: Start) -> None:
     north, east = wind_ned_fps(rw, s)
     fdm["atmosphere/wind-north-fps"] = north
     fdm["atmosphere/wind-east-fps"] = east
     fdm["atmosphere/wind-down-fps"] = 0.0
+
+
+# How long the trim flight of `trim_by_flying` is flown, and how far above the
+# start: well clear of the ground from any start, for no more than a few
+# per cent of the air's density.
+TRIM_FLIGHT_S = 30.0
+TRIM_FLIGHT_ABOVE_FT = 500.0
+
+
+def trim_by_flying(fdm, alt_ft: float) -> None:
+    """**Trimmed by flying her, where JSBSim's trim cannot** (an Aeroplane
+    with `trim flown`): the C182's governed propeller defeats JSBSim's trim,
+    which runs her engine half a second at a time (sim::Aircraft says how;
+    there it finds her throttle itself, through JSBSim's custom trim, which
+    the Python bindings do not reach). From most of training's starts it
+    failed, and she began untrimmed, in a dive. So she is flown, in calm air
+    and `TRIM_FLIGHT_ABOVE_FT` above the start, for `TRIM_FLIGHT_S` at the
+    start's speed and flight path - the throttle integrating the speed's
+    error, the elevator the flight path's, damped by the pitch rate - and
+    started again where she was asked with the controls, angle of attack and
+    engine that flight settled at. The initial conditions are fdm's `ic/`
+    as `initialise` set them."""
+    kts = fdm["ic/vc-kts"]
+    gamma = fdm["ic/gamma-deg"]
+    fdm["atmosphere/wind-north-fps"] = 0.0
+    fdm["atmosphere/wind-east-fps"] = 0.0
+    fdm["atmosphere/wind-down-fps"] = 0.0
+    fdm["ic/h-sl-ft"] = alt_ft + TRIM_FLIGHT_ABOVE_FT
+    fdm["fcs/elevator-cmd-norm"] = 0.0
+    fdm["fcs/aileron-cmd-norm"] = 0.0
+    fdm["fcs/rudder-cmd-norm"] = 0.0
+    fdm["fcs/pitch-trim-cmd-norm"] = 0.0
+    throttle, up = 0.55, 0.25
+    fdm["fcs/throttle-cmd-norm[0]"] = throttle
+    fdm.set_trim_status(True)
+    fdm.run_ic()
+    fdm.set_trim_status(False)
+    dt = 1.0 / STEPS_PER_SECOND
+    steps = int(TRIM_FLIGHT_S * STEPS_PER_SECOND)
+    alpha = 0.0
+    path_held = 0.0
+    for i in range(steps):
+        dv = fdm["velocities/vc-kts"] - kts
+        vg = math.hypot(fdm["velocities/v-north-fps"], fdm["velocities/v-east-fps"])
+        flight_path = math.degrees(math.atan2(-fdm["velocities/v-down-fps"], vg))
+        # The throttle on the speed, the pitch on the flight path, the
+        # elevator on the pitch.
+        throttle = min(1.0, max(0.0, throttle + 0.02 * (gamma - flight_path) * dt))
+        path_held = min(10.0, max(-10.0, path_held + 0.05 * dv * dt))
+        pitch_wanted = gamma + fdm["aero/alpha-deg"] + path_held + 0.5 * dv
+        pitch_off = pitch_wanted - fdm["attitude/theta-deg"]
+        up = min(1.0, max(-1.0, up + 0.01 * pitch_off * dt))
+        elevator = up + 0.02 * pitch_off - 0.3 * fdm["velocities/q-rad_sec"]
+        fdm["fcs/throttle-cmd-norm[0]"] = min(1.0, max(0.0, throttle + 0.03 * (gamma - flight_path)))
+        fdm["fcs/elevator-cmd-norm"] = -min(1.0, max(-1.0, elevator))
+        # Wings held level, her nose down the start's heading.
+        fdm["fcs/aileron-cmd-norm"] = -2.0 * fdm["attitude/phi-rad"] - 0.3 * fdm["velocities/p-rad_sec"]
+        fdm.run()
+        # Her angle of attack as the flight path has it, wings level in
+        # still air: the pitch above the path.
+        alpha = fdm["attitude/theta-deg"] - flight_path
+    elevator_cmd = fdm["fcs/elevator-cmd-norm"]
+    throttle = fdm["fcs/throttle-cmd-norm[0]"]
+    fdm["ic/h-sl-ft"] = alt_ft
+    fdm["ic/vc-kts"] = kts
+    fdm["ic/gamma-deg"] = gamma
+    fdm["ic/alpha-deg"] = alpha
+    fdm["ic/theta-deg"] = gamma + alpha
+    fdm["ic/phi-deg"] = 0.0
+    fdm["fcs/elevator-cmd-norm"] = elevator_cmd
+    fdm["fcs/aileron-cmd-norm"] = 0.0
+    fdm["fcs/throttle-cmd-norm[0]"] = throttle
+    fdm.set_trim_status(True)
+    ok = fdm.run_ic()
+    fdm.set_trim_status(False)
+    if not ok:
+        raise RuntimeError("JSBSim refused the initial conditions after the trim flight")
 
 
 def fuel_of(s: Start, plane: Aeroplane) -> float:
