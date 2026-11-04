@@ -1213,9 +1213,11 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       With another run on its port it failed 100 of 100 before, and waited
       and passed 100 of 100 after.
 - [ ] **A test whose server cannot listen fails on its client's refusal.**
-      Only the spiral test checks its own server's "cannot listen" first;
-      the others still fail on what their client heard, and the relay ports
-      derived from a test's port are not locked. *Verification: every
+      Every call that listens on a test's port or relay now checks it first
+      (79 in 72 scripts) and every relay port is held (30 of 30); with every
+      port held, 108 tests failed as "could not listen". Two window-client
+      tests ran after the listener had let go and are still to be run held:
+      the weather and the NaN ones. *Verification: every
       test that listens fails as "cannot listen" with its port held by a
       bare listener, and its relay port is held while it runs.*
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
