@@ -780,7 +780,7 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_c182_within_the_limits_from_every_st
     lands_her_from_every_start("c182", 150.0, LearntLander::Approach::policy);
 }
 
-// **The Piper PA-28-180's own learnt landing** (2026-11-04), trained on from
+// **The Piper PA-28-180's own learnt landing** (2026-11-05), trained on from
 // the C182's (tools/rl/aircraft/pa28.txt; its file's header says how): the
 // same verification - the 27 starts, calm air and ten knots across from
 // either side, within the autopilot's limits and stopped on the runway - at

@@ -15,7 +15,7 @@
 # that she is flown down it at KTS (within 0.1 kt), that she has left 16R
 # and stopped beside it - landed - and never that she went around or was
 # wrecked. **Seen to fail** with the speeds unscaled: all three, flown down
-# at their figures' speeds (the PA-28 at 64.4 kt, the A380 136.3, the B-2A
+# at their figures' speeds (the PA-28, the light one then, at 64.4 kt, the A380 136.3, the B-2A
 # 124.0) - and the B-2A, at 327,000 lb against her speed's 177,160, went
 # around.
 #

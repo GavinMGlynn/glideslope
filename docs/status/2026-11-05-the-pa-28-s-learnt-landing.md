@@ -12,9 +12,9 @@ The item stays open.
   file's header names them by what each round did, and their last
   checkpoint by its sha256. The five parts after it are recorded command by
   command.
-- The PA-28's weight-refusal test's new heavier case (full tanks and 2 lb
-  more on board) has not been seen to fail on purpose; its lighter case and
-  the C172P's and C182's are unchanged.
+- Part 1 of her lineage (those 18,250,002 decisions) is not reproducible;
+  her policy file says so, and records the sha256 of its first round's end,
+  step45000002.zip, as well as its last's.
 
 **What now works.**
 - **assets/rl/pa28-landing.txt**: the PA-28-180's learnt landing, step
@@ -29,7 +29,9 @@ The item stays open.
   lighter than she was trained at. Her tanks are full at the top of her
   trained weights, so the heavier case is full tanks and 2 lb more in the
   first seat (`at`'s new `aboard_lbs`) - written as 151 lb a tank, it
-  failed: her tanks hold 150.
+  failed: her tanks hold 150. **Seen red**: with `at` not loading the
+  extra 2 lb, she weighed 1,790 lb and was let to the gate, and the test
+  failed on it; put back, green.
 - **tools/rl, all off by default** (the C172P's and C182's training is
   unchanged):
   - `--nose-up-from DEG`: `--nose-up`'s degrees measured below DEG, not
@@ -39,6 +41,17 @@ The item stays open.
   - `--sink-over W`: W lost at the touch per ft/min over 200, to 1,000;
   - `--nose-falling W`: W lost at the touch per degree a second the nose
     is falling, to 30 - the stall's break.
+
+- **The server's light AI aircraft flown down at the speed for her model's
+  weight is now the J-3 Cub** (922 lb, 39.4 kt for her figures' 42.9):
+  the PA-28, given a learnt landing, is now handed to it on final and
+  flown at its own 64.3 kt, so
+  `the_servers_ai_pa28_on_final_at_its_models_own_weight_is_landed_at_the_approach_speed_for_it`
+  failed (seen in ctest) and is now
+  `the_servers_ai_j3cub_on_final_..._for_it`, with her own plan (55 kt, the
+  speed her plans are held to) and 57,600 steps, as she takes nearly five
+  minutes from three miles. Seen red against her unscaled 42.9 kt; passed,
+  with the B-2A's and A380's.
 
 **What was searched first** (owner's rule): RL for aircraft landing and
 crosswind landing (PPO/SAC on JSBSim; RL for fixed-wing control surveys;
@@ -100,5 +113,8 @@ well as judge it, as they did the C172P's and C182's.
 67 of 67, in linux-release; the PA-28's sixteen and the two that count
 the policies (`every_learnt_landing_is_trained_at_its_aircrafts_published_reference_speed_and_landing_flap`,
 `the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other`)
-in an x86-64-v2 build, figures identical. Each test was run as its own
-process, one at a time, while another session held the machine's ctest.
+in an x86-64-v2 build, figures identical. Then through ctest
+(linux-release, `-R "learnt|pa28"`, 68 tests, 522 s): every one passed,
+the PA-28's sixteen new names among them and the server's learnt-landing
+tests, but for the PA-28's server weight test above, since moved to the
+Cub and passed.

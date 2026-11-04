@@ -3584,19 +3584,25 @@ set_tests_properties(the_servers_ai_c172p_flying_a_plan_that_ends_in_a_landing_i
 # **The server's AI aircraft, put on final at their models' own weights, are
 # flown down at the approach speeds for those weights and landed, with no
 # go-around**: heavy, the B-2A and A380, far heavier than their figures'
-# speeds are for; light, the PA-28, 610 lb lighter. See
+# speeds are for; light, the J-3 Cub, 170 lb lighter (the PA-28 was, until
+# she was given a learnt landing, which flies her at its own speed). See
 # cmake/server_ai_lands_at_its_model_weight.cmake.
 # Each at her approach speed for that weight: the unit test's figures
 # (the_ai_flies_every_approach_at_the_speed_for_its_models_own_weight...).
 set(_kts_b2 168.5)
 set(_kts_a380 159.4)
-set(_kts_pa28 55.6)
-foreach(_model IN ITEMS b2 a380 pa28)
+set(_kts_j3cub 39.4)
+# Steps flown: five minutes for the heavy two; the Cub, three miles out at
+# 39 kt, takes nearly that to reach the runway, and is given eight.
+set(_steps_b2 36000)
+set(_steps_a380 36000)
+set(_steps_j3cub 57600)
+foreach(_model IN ITEMS b2 a380 j3cub)
     add_test(NAME the_servers_ai_${_model}_on_final_at_its_models_own_weight_is_landed_at_the_approach_speed_for_it
         COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
             -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DPLAN=${CMAKE_CURRENT_SOURCE_DIR}/data/plans/${_model}-on-final.plan
-            -DMODEL=${_model} -DSTEPS=36000 -DKTS=${_kts_${_model}}
+            -DMODEL=${_model} -DSTEPS=${_steps_${_model}} -DKTS=${_kts_${_model}}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai_lands_at_its_model_weight.cmake)
     set_tests_properties(the_servers_ai_${_model}_on_final_at_its_models_own_weight_is_landed_at_the_approach_speed_for_it
         PROPERTIES SKIP_RETURN_CODE 77)
