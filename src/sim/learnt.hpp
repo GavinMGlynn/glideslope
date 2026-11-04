@@ -51,6 +51,11 @@ struct LearntPolicy {
     // weight - the policy flies `vref_kts` whatever she weighs.
     double trained_least_lbs = 0.0;
     double trained_most_lbs = 0.0;
+    // **The crosswind her handbook says she was demonstrated in**, knots,
+    // from her figures (PublishedFigures::demonstrated_crosswind_kts), set by
+    // `learnt_landing`: her gate admits no more across
+    // (learnt_gate_most_crosswind_kts). 0 where her figures give none.
+    double demonstrated_crosswind_kts = 0.0;
 
     // Whether `weight_lbs` is within the weights it was trained at.
     bool trained_for(double weight_lbs) const {
@@ -170,6 +175,12 @@ struct LearntGate {
     // policy's part 13), it lands from every corner of both sides with 5%
     // to spare, and the limit is gone.
 };
+
+// **The most crosswind her gate admits**: LearntGate::most_crosswind_kts,
+// what training blew, or less where her figures give a demonstrated
+// crosswind under it (LearntPolicy::demonstrated_crosswind_kts) - the J-3
+// Cub's 12 kt. Never more: no policy was trained in more.
+double learnt_gate_most_crosswind_kts(const LearntPolicy& policy);
 
 // **Why `aircraft` is not at `runway`'s gate for `policy`**, in words a pilot
 // reads - "4.1 miles out; the gate is 1.7 to 2.4" - the first reason found,

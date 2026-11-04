@@ -3,6 +3,8 @@
 # do not edit - train again and export.
 # Seed 3105. Training steps (decisions, ten a second): 81000002 in all: 62875004 by the PA-28's committed policy (assets/rl/pa28-landing.txt's checkpoint), then 18124998 on the J-3 Cub.
 # tools/rl as trained: e06ade65 for her first 10624998 decisions, 5c45334a for the next 6499998, 2e993a81 for her last 1000002.
+# Those are commits on the branch learnt-landing-j3cub (pull request #330) before it was rebased into main: on main the same changes have other SHAs,
+# found by their subjects - "tools/rl: the J-3 Cub's training file...", "tools/rl: her dry weight in one place...", "tools/rl: --idle-touch...".
 # Source checkpoint, kept outside the repository: step81000002.zip (sha256 c747b5c43b5aa6c953a96e03a0528fa561aa99c2f2a7251f7278a9c36f8d862f) and step81000002.vecnorm (sha256 dc9fe75ed84e9be4864a905d9941014d05008c6ae142488d45f8838f37176117).
 # Exporting that checkpoint with export.py is deterministic and gives this file;
 # training it again with the command below, on the same packages and machine, gives that checkpoint.

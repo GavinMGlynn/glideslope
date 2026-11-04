@@ -179,6 +179,11 @@ struct PublishedFigures {
     // off until she touches at the attitude she stands at (sim::Lander), or
     // "wheels", the default, flown on to her main wheels.
     bool three_point = false;
+    // **The crosswind her handbook says she was demonstrated in**, knots
+    // (`demonstrated_crosswind_kts`), where her file gives one: the most her
+    // learnt landing's gate admits across, if under training's
+    // (sim::learnt_gate_most_crosswind_kts). 0 where it gives none.
+    double demonstrated_crosswind_kts = 0.0;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;

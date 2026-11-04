@@ -28,8 +28,15 @@
   is near the attitude she stands at (sim/lander.cpp), as the FAA's Airplane
   Flying Handbook (FAA-H-8083-3C, chapter 14, "Normal Landing") lands a
   tailwheel aeroplane; in gusts she is flown on to her main wheels.
+
+  demonstrated_crosswind_kts: 12 knots, not Piper's - Piper published none
+  for the J-3 - but Steve Krog's "about 12 knots" (EAA Inspire, 10 December
+  2019), accepted by the owner as her limit on 2026-10-30
+  (docs/status/2026-10-29-the-ai-lands-the-j3-cub-within-her-published-crosswind.md):
+  the most across her learnt landing's gate admits
+  (sim::learnt_gate_most_crosswind_kts).
 -->
-<published_figures aircraft="j3cub" flaps_full_deg="0" lands="three_point">
+<published_figures aircraft="j3cub" flaps_full_deg="0" lands="three_point" demonstrated_crosswind_kts="12">
   <source>Piper J3C-65 Owner's Manual; Piper, How to Fly a Piper Cub, 1945</source>
 
   <!-- 1,220 lb, the gross weight: the booklet's empty weight, 680 lb, and its

@@ -1,5 +1,7 @@
 #include "sim/learnt.hpp"
 
+#include "sim/figures.hpp"
+
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
@@ -473,6 +475,12 @@ double LearntLander::most_unstable_s() const {
     return static_cast<double>(most_unstable_steps_) / steps_per_second;
 }
 
+double learnt_gate_most_crosswind_kts(const LearntPolicy& policy) {
+    return policy.demonstrated_crosswind_kts > 0.0
+               ? std::min(LearntGate::most_crosswind_kts, policy.demonstrated_crosswind_kts)
+               : LearntGate::most_crosswind_kts;
+}
+
 std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
                                 const LearntPolicy& policy) {
     char text[160];
@@ -504,9 +512,10 @@ std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
         const double wind_e = r.values[11] * mps_per_fps - vt * std::sin(air);
         const double across_kts = (wind_e * std::cos(hr) - wind_n * std::sin(hr)) * kts_per_mps;
         const double behind_kts = (wind_e * std::sin(hr) + wind_n * std::cos(hr)) * kts_per_mps;
-        if (std::abs(across_kts) > LearntGate::most_crosswind_kts + 0.05) {
+        const double most_across_kts = learnt_gate_most_crosswind_kts(policy);
+        if (std::abs(across_kts) > most_across_kts + 0.05) {
             std::snprintf(text, sizeof text, "%.0f kt of crosswind; the gate is within %.0f",
-                          std::abs(across_kts), LearntGate::most_crosswind_kts);
+                          std::abs(across_kts), most_across_kts);
             return text;
         }
         if (behind_kts > LearntGate::most_tailwind_kts + 0.05) {
@@ -642,12 +651,19 @@ std::shared_ptr<const LearntPolicy> learnt_landing(const std::filesystem::path& 
     if (!std::filesystem::exists(file)) {
         return nullptr;
     }
-    auto policy = std::make_shared<const LearntPolicy>(LearntPolicy::read(file));
-    if (policy->aircraft != model) {
-        throw std::runtime_error(file.string() + " is the " + policy->aircraft +
+    LearntPolicy policy = LearntPolicy::read(file);
+    if (policy.aircraft != model) {
+        throw std::runtime_error(file.string() + " is the " + policy.aircraft +
                                  "'s learnt landing, not the " + model + "'s");
     }
-    return policy;
+    // **Her demonstrated crosswind, from her figures**, which her gate admits
+    // no more than.
+    if (const std::filesystem::path figures = data / "figures" / (model + ".xml");
+        std::filesystem::exists(figures)) {
+        policy.demonstrated_crosswind_kts =
+            read_published_figures(figures).demonstrated_crosswind_kts;
+    }
+    return std::make_shared<const LearntPolicy>(std::move(policy));
 }
 
 double approach_kts_flown(const std::filesystem::path& data, const std::string& model) {
