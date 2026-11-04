@@ -18,7 +18,11 @@ ticked.
 - **assets/rl/c182-landing.txt**: the C182's learnt landing, step
   42,000,002, trained 3,000,000 decisions on from her committed policy.
   Its header records the lineage command by command: part 0 (her policy of
-  2026-11-04, as its header had it), then parts 1 and 2 at 06045658.
+  2026-11-04, as its header had it), then parts 1 and 2 at 06045658,
+  rebased as 16c36c5f onto the J-3 Cub's tools/rl (nothing her training
+  uses changed). Parts 1 and 2 held the normalisation without
+  `--hold-norm`: step39000002.vecnorm was saved with `training=False`,
+  which loading keeps; the header says so.
 - **Every corner of her gate in its nine winds**: the two winds left out on
   2026-11-04, 15 kt from ahead and 15 kt quartering ahead from the left,
   are flown for her (tests/unit/test_learnt.cpp,
@@ -29,18 +33,23 @@ ticked.
   nine winds, nine flown, none left out. **Seen red**: both new tests
   failed with her policy of 2026-11-04 (16 and 19 of 32 corners, to 6.61
   and 6.79 m across), as that day's status file said.
-- **tools/rl, both off by default** (no committed policy's training moves):
-  - `--flown-into-the-wind`: an aeroplane trimmed by flying her (the C182)
-    is handed over in the wind as JSBSim's trim's are, at her speed through
-    the air (landing.py's `Start.flown_into_the_wind`). **The cause**:
+- **tools/rl**:
+  - **A hand-over start of an aeroplane trimmed by flying her (only the
+    C182) is put into the wind** as JSBSim's trim's are, at her speed
+    through the air (landing.py's `initialise`). She was trained with it as
+    `--flown-into-the-wind` (16c36c5f); from the review of #331 it is the
+    only way, and the flag and the old path are gone. **The cause**:
     without it the wind was set after her trim flight, so in 15 kt from
     ahead training handed her over at 79 kt, where the simulation hands her
     over at 64. Flown in Python from a start made as the simulation's
     (35 ft, 15 kt ahead, 64 kt), her old policy then drifted 6.2 m right,
     as in the simulation (6.4) - slipping right, right wing down and nose
     left; with the old start it drifted 0.7.
-  - `--across-over W`: W lost at the touch for each metre off the
-    centreline past 3, to 20.
+  - `--across-over W`, off by default: W lost at the touch for each metre
+    off the centreline past 3, to 20.
+  - The C172P is unchanged: `export.py --parity-only --aircraft c172p`
+    writes a fixture byte-identical to tests/data/rl/c172p-landing-parity.txt,
+    after the rebase and with the old path gone.
 
 **What was searched first** (owner's rule): her handbook's crosswind
 technique (Cessna 182S Information Manual, as quoted by the AAIB: 15 kt
