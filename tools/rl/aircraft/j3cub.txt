@@ -1,0 +1,17 @@
+# The Piper J-3 Cub (J3C-65) as the learnt landing is trained on her
+# (tools/rl/landing.py's `aeroplane`; tools/rl/aircraft/c172p.txt says what
+# each line is).
+#
+# vref_kts: sim::approach_speeds' Vref, 1.3 times her published stall, 38 mph
+# (Piper J3C-65 Owner's Manual, p. 47; How to Fly a Piper Cub, 1945, p. 12:
+# the 65 hp Trainer's "landing speed"), 33.0 kt (assets/figures/j3cub.xml):
+# 1.3 x 33.0, 49 mph, inside the manual's glide of "50-60 M.P.H. depending
+# upon loading of airplane" at the light end; not scaled for her weight.
+# flaps: none - she has no flaps.
+# tanks: one, 72 lb (12 US gallons), full as she starts.
+model j3cub
+vref_kts 42.9
+flaps 0.0
+tanks 1
+full_tank_lbs 72.0
+training_fuel_lbs 18.0 72.0
