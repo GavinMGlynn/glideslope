@@ -518,6 +518,70 @@ GLIDESLOPE_TEST(the_speedbrake_an_approach_is_flown_with_is_read_and_refused_out
                                            std::to_string(refused));
 }
 
+// **Her own roll-out rudder gains are read from her figures**, are the
+// lander's where they give none, and are refused at 0 or past their range
+// rather than flown: the track rudder above 0 and at most 2 a degree, the
+// share of the yaw damping above 0 and at most all of it. Each file tried is
+// the F-22A's own with one attribute changed, so a refusal is that
+// attribute's and nothing else's. Coverage is asserted: two attributes, two
+// wrong values each, four refusals.
+GLIDESLOPE_TEST(her_own_roll_out_rudder_gains_are_read_and_refused_at_0_or_past_their_range) {
+    check(read_published_figures(figures_file("f22")).roll_out_track_rudder_per_deg == 0.8 &&
+              read_published_figures(figures_file("f22")).roll_out_yaw_damping_share == 0.5,
+          "the F-22A gives 0.8 of track rudder and half the damping");
+    check(read_published_figures(figures_file("737-300")).roll_out_track_rudder_per_deg == 0.0 &&
+              read_published_figures(figures_file("737-300")).roll_out_yaw_damping_share == 0.0,
+          "the 737-300 gives neither, so the lander's own are flown");
+
+    std::ifstream in(figures_file("f22"));
+    const std::string f22((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+    // A name no other run of this test, in this build or another, shares.
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_roll_out_rudder_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    struct Tried {
+        const char* attribute;
+        const char* written;
+        const char* wrong[2];
+    };
+    const Tried tried[] = {
+        {"roll_out_track_rudder_per_deg", "0.8", {"0", "2.5"}},
+        {"roll_out_yaw_damping_share", "0.5", {"0", "1.5"}},
+    };
+    std::size_t refused = 0;
+    std::size_t asked = 0;
+    for (const Tried& t : tried) {
+        const std::string as_written = std::string(t.attribute) + "=\"" + t.written + "\"";
+        const auto at = f22.find(as_written);
+        if (at == std::string::npos) {
+            fail("assets/figures/f22.xml does not give " + as_written);
+        }
+        for (const char* value : t.wrong) {
+            ++asked;
+            std::string text = f22;
+            text.replace(at, as_written.size(), std::string(t.attribute) + "=\"" + value + "\"");
+            {
+                std::ofstream out(file);
+                out << text;
+            }
+            try {
+                read_published_figures(file);
+            } catch (const std::runtime_error& e) {
+                const std::string said = e.what();
+                check(said.find(t.attribute) != std::string::npos,
+                      std::string("the refusal of ") + t.attribute + "=" + value + " names it: " +
+                          said);
+                ++refused;
+            }
+        }
+    }
+    std::filesystem::remove(file);
+    check(asked == 4 && refused == asked,
+          "four wrong values asked, each refused: " + std::to_string(refused) + " of " +
+              std::to_string(asked));
+}
+
 // **The sink a flare brings the wheels to the runway at is read from the
 // figures**, is none where they give none - and the approach autopilot's
 // forty then - and is refused where the gear could not take it, rather than

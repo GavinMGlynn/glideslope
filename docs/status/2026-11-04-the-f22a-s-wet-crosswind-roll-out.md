@@ -182,3 +182,16 @@ So every gain above is tuned, not sourced.
   set in the build's copy of her figures. The copy was restored after each
   sweep.
 - `python3 tools/make_f22.py --check` passes. Her model is not changed.
+
+**From the review of #321.**
+- The lander's comment now points to this file. It also says that at 0.8 of
+  track, with all the damping, she banked 15.6 degrees and failed, and that
+  at 1.5 and 2 she struck her airframe.
+- `her_own_roll_out_rudder_gains_are_read_and_refused_at_0_or_past_their_range`
+  (tests/unit/test_figures.cpp) reads her two gains back. It also refuses 0
+  and a value past each one's range: 2.5 for the track rudder, 1.5 for the
+  share. Four refusals, asserted.
+- Seen red: with the track rudder's limit widened to 5, it failed, "3 of
+  4". Restored, it passes.
+- Linux-release: the 211 figure, refusal, roll-out, take-back, wet and
+  crosswind tests all pass.
