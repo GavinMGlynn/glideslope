@@ -3181,6 +3181,19 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"pa28", 34, macos(),
          "on macOS a gust climbs her at 76 ft/min in her flare (seed 34), CI run "
          "41640422104"},
+        // The J-3 Cub, wheel-landed in gusts: CI run 41773183933, dispatched on
+        // #316's branch, macOS debug and release alike.
+        {"j3cub", 9, macos(),
+         "on macOS a gust climbs her at 85 ft/min in her flare (seed 9), CI run "
+         "41773183933"},
+        {"j3cub", 10, macos(),
+         "on macOS she touches at 448 ft/min (seed 10), CI run 41773183933"},
+        {"j3cub", 30, macos(),
+         "on macOS she touches at 343 ft/min, inside her limit but not her margin (seed "
+         "30), CI run 41773183933"},
+        {"j3cub", 40, macos(),
+         "on macOS she touches at 352 ft/min, inside her limit but not her margin (seed "
+         "40), CI run 41773183933"},
     };
     return named;
 }

@@ -8,7 +8,11 @@ before, at 357, 118 and 136. She is named on each of those seeds in
 `named_on_a_seed()` (tests/unit/test_lesson.cpp), and passes seed 33 on
 Windows. Her margins elsewhere are thin: on Linux she touches at 321 ft/min
 on seed 4 against the 335 the margin allows, and climbs at 70 ft/min in her
-flare on seed 19 against 75. macOS is not yet seen with this change. The
+flare on seed 19 against 75. On macOS, debug and release alike (CI run
+41773183933, the full workflow dispatched on the branch), she fails four
+seeds of forty: a gust climbs her at 85 ft/min in her flare on seed 9, and
+she touches at 448, 343 and 352 ft/min on seeds 10, 30 and 40, the last two
+inside her 360 limit but not its 25 ft/min margin; each is named. The
 A380 and F-22A are still named whole.
 
 **What now works**: the J-3 Cub is taken off `not_yet_landed_in_gusts()`.
