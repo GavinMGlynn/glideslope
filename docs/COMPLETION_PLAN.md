@@ -1212,14 +1212,16 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       same test held its port; every test now holds its port machine-wide.
       With another run on its port it failed 100 of 100 before, and waited
       and passed 100 of 100 after.
-- [ ] **A test whose server cannot listen fails on its client's refusal.**
-      Every call that listens on a test's port or relay now checks it first
-      (79 in 72 scripts) and every relay port is held (30 of 30); with every
-      port held, 108 tests failed as "could not listen". Two window-client
-      tests ran after the listener had let go and are still to be run held:
-      the weather and the NaN ones. *Verification: every
+- [x] **A test whose server cannot listen fails on its client's refusal.**
+      Only the spiral test checked its own server's "cannot listen" first,
+      and relay ports were not locked. *Verification: every
       test that listens fails as "cannot listen" with its port held by a
-      bare listener, and its relay port is held while it runs.*
+      bare listener, and its relay port is held while it runs.* Done
+      2026-11-04: every call that listens is checked first (79 in 72
+      scripts) and every relay port is held (30 of 30). With ports held, 110
+      of the 119 tests that listen failed as "could not listen". The other 9
+      skip before running: 8 ask a paid live model and one needs a display.
+      They are named in the test, with their reasons.
 - [x] **The learnt landing's policy flies a C172P it was not trained on.**
       It flies her slipped, up to 18 degrees in the flare in calm air; with
       her lift's crosswind moved it lands up to 100 m shorter and 105 ft/min
