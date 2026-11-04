@@ -84,7 +84,29 @@
   and the drift between builds and platforms on top), so at 10 she would
   pass on one machine and fail on another. 3.2 kt clears that.
 -->
-<published_figures aircraft="f22" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="0" touchdown_fpm="200" yaw_rate_pedal_per_degps="0.3" roll_out_stick_per_degps="0.07" stall_warning_kts="12">
+<!--
+  **roll_out_track_rudder_per_deg** and **roll_out_yaw_damping_share** are
+  the rudder the lander's roll-out asks for each degree her track over the
+  runway is off the one wanted, and the share of its yaw-rate damping she is
+  given (sim::Lander). Both tuned, not sourced; every other aircraft flies
+  0.5 and all of it. Her model's side force for a degree of sideslip is -1.79
+  a radian (the pinned JSBSim f22's CYb): handed over on her roll at 133.6 kt
+  as 15 kt arrived across, it pushed her with 11,000 lb while her wheels bore
+  15,000, and at 0.5 her track turned into the wind too slowly: 6.13 m from
+  the centreline wet. A stronger track rudder alone set her weaving: her
+  pedals drive her rudders directly on her wheels, through an actuator
+  limited to 2.67 of its travel a second, and all of the damping beat them
+  from stop to stop at about two cycles a second; taken back at the touch in
+  calm air she rocked to 16 degrees of bank at 0.8 a degree and at 1.5. With
+  half the damping, measured on linux-release (wet m / bank at the touch):
+  track 0.5, 5.09 / 0.0; 0.7, 4.20 / 0.1; 0.8, 3.85 / 0.1; 1.0, 3.29 / 0.1;
+  1.2, 2.85 / 0.0; 1.3, 2.67 / 16.8, wrecked; 1.5, 2.36 / 12.0. At 0.8 the
+  damping may be 0.3 to 0.75 of it (3.55 to 4.30 m wet, bank 0.1 at most).
+  0.8 and a half are written, inside both bands. Nothing published gives
+  hers: no F-22 crosswind limit or ground-handling figure was found
+  (searched 2026-11-04).
+-->
+<published_figures aircraft="f22" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="0" touchdown_fpm="200" yaw_rate_pedal_per_degps="0.3" roll_out_stick_per_degps="0.07" roll_out_track_rudder_per_deg="0.8" roll_out_yaw_damping_share="0.5" stall_warning_kts="12">
   <source>DoD Selected Acquisition Report, F-22, December 2010; USAF F-22 fact sheet</source>
 
   <!-- 54,960 lb: the fact sheet's empty weight, 43,340 lb; the pilot, 230

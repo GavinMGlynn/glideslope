@@ -1364,16 +1364,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       alpha is limited with her gear down (tuned, not sourced), and her
       stall is measured at that limit: 114.1 KCAS. Both stall recoveries,
       her rise after the touch, the stall watch (her own warning, 12 kt
-      over, tuned) and the wet walking pace now pass without her name.
-      Still named, with their figures:
-      - a 6.13 m wet crosswind roll-out (7.37 on main): her model's side
-        force as the crosswind arrives outruns the roll-out's track rudder.
-        A stronger rudder of her own clears it, but it rocks her onto a
-        wingtip when an approach is taken back at the touch
-        (2026-11-04-the-f22a-s-wet-crosswind-roll-out);
-      - her gusts, on forty seeds
-        (2026-11-04-the-f22a-s-gear-down-alpha-limit-tried,
-        2026-11-04-the-f22a-s-stall-figure-names).
+      over, tuned), the wet walking pace and the wet crosswind roll-out
+      (3.85 m, with her own roll-out rudder gains, tuned) now pass without
+      her name. Still named, with their figures: her gusts, on forty seeds
+      (2026-11-04-the-f22a-s-gear-down-alpha-limit-tried,
+      2026-11-04-the-f22a-s-stall-figure-names,
+      2026-11-04-the-f22a-s-wet-crosswind-roll-out).
       *Verification: every one of those tests passes with her name taken
       off, on every platform.*
 - [x] **The AI lands the 747-400 at Boeing's published approach speed**:

@@ -1077,15 +1077,16 @@ GLIDESLOPE_TEST(every_landplane_rolled_out_dry_or_wet_as_15_kt_of_crosswind_arri
     // at 133.6 kt, her nose already 4 degrees up from her take-off's
     // rotation; her speedbrake no longer lifts her and her roll-out's stick
     // asks her a pitch rate (her figures' `roll_out_stick_per_degps`), and
-    // wet she goes 6.13 m (2.35 dry). **Not her nose wheel** (traced
-    // 2026-11-04): as 15 kt arrives, her model's side force at 6.4 degrees
-    // of sideslip is 11,000 lb against the 15,000 on her wheels, and the
-    // roll-out's track rudder turns her into the wind too slowly; lowered
-    // in one second her nose gives 5.99 m. A track rudder of her own clears
-    // the 5 m from 0.8 a degree, but at 0.8 and at 1.5 an approach taken
-    // back at the touch rocked her to 16 degrees of bank in calm air and
-    // struck her airframe. Item "The F-22A flies her stall-figure tests".
-    const std::map<std::string, double> named_wet = {{"f22", 6.13}};
+    // wet she went 6.13 m (2.35 dry). **Not her nose wheel** (traced
+    // 2026-11-04): as 15 kt arrived, her model's side force at 6.4 degrees
+    // of sideslip was 11,000 lb against the 15,000 on her wheels, and the
+    // roll-out's track rudder turned her into the wind too slowly; lowered
+    // in one second her nose gave 5.99 m. **Her name is off since
+    // 2026-11-04**: her figures give her own track rudder and half the
+    // roll-out's yaw damping (`roll_out_track_rudder_per_deg`,
+    // `roll_out_yaw_damping_share`), and she goes 3.85 m wet, 1.48 dry.
+    // None is named now.
+    const std::map<std::string, double> named_wet = {};
     std::size_t named_seen = 0;
     const auto judge = [&](const std::string& id, const RolledOut& out, const char* runway) {
         if (!(out.handed && out.stopped && out.wrecked.empty())) {
