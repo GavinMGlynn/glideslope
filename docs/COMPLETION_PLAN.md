@@ -1177,6 +1177,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       in her flare on five, touches at up to 462 ft/min or rises 1.23 ft
       off her wheels on five), and twenty-six on Windows release, named
       on the fourteen others, and twenty-eight on macOS, named on twelve.
+      Her touch scatters twice as widely as the F-15C's, and no figure or
+      law of the gust flare, nor a fighter's slower approach, lands her
+      on more than about 70% of 120 seeds (2026-11-05): what is left is
+      her airframe's answer to a gust, or the owner's call on her names.
       *Verification: every aeroplane lands light, heavy and in gusts with
       no aircraft and no loading named, and a gust on an approach flown well
       makes no go-around; a name on a single seed on a single platform,
