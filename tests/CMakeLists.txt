@@ -3530,15 +3530,15 @@ set_tests_properties(an_aircraft_its_player_rolled_into_a_spiral_over_two_ai_lay
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/handed_spiral_kept_apart)
 
 # **A player's C172P on final is handed to the learnt landing and landed by
-# the server; a PA-28, and a C172P outside the gate, are refused it.** See
+# the server; a J-3 Cub, and a C172P outside the gate, are refused it.** See
 # cmake/server_learnt_landing.cmake.
-add_test(NAME a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_a_pa28_and_one_outside_the_gate_are_refused
+add_test(NAME a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_a_j3_cub_and_one_outside_the_gate_are_refused
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/learnt_landing -DPORT=24806
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_learnt_landing.cmake)
-set_tests_properties(a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_a_pa28_and_one_outside_the_gate_are_refused
+set_tests_properties(a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_a_j3_cub_and_one_outside_the_gate_are_refused
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 
