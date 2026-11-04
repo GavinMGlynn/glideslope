@@ -34,11 +34,17 @@ endif()
 
 if(NOT "$ENV{GLIDESLOPE_PORT_LOCK_HELD}" STREQUAL "${PORT}")
     # One place for every working copy on the machine: the system's temporary
-    # directory, not one of the build's own.
-    if(CMAKE_HOST_WIN32)
-        set(_port_lock_dir "$ENV{TEMP}")
-    else()
-        set(_port_lock_dir "/tmp")
+    # directory, not one of the build's own - TEMP, else TMP, else /tmp.
+    set(_port_lock_dir "")
+    foreach(_port_lock_try IN ITEMS "$ENV{TEMP}" "$ENV{TMP}" "/tmp")
+        if(NOT _port_lock_try STREQUAL "" AND IS_DIRECTORY "${_port_lock_try}")
+            set(_port_lock_dir "${_port_lock_try}")
+            break()
+        endif()
+    endforeach()
+    if(_port_lock_dir STREQUAL "")
+        message(FATAL_ERROR "port_lock.cmake: none of TEMP ('$ENV{TEMP}'), TMP "
+                            "('$ENV{TMP}') or /tmp is a directory to hold port ${PORT}'s lock in")
     endif()
     set(_port_lock "${_port_lock_dir}/glideslope-test-port-${PORT}.lock")
     file(LOCK "${_port_lock}" GUARD PROCESS TIMEOUT 0 RESULT_VARIABLE _port_lock_rc)

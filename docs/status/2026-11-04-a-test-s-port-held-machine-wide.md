@@ -18,7 +18,8 @@ ports, and nothing kept those apart. CI runs one suite per runner and never
 meets it.
 
 **Now.** `tests/cmake/port_lock.cmake` takes a lock for the test's port in the
-system's temporary directory (`/tmp`, or `%TEMP%` on Windows), held by the
+system's temporary directory - TEMP, else TMP, else /tmp, failing loudly if
+none is a directory - held by the
 cmake -P process until it ends; a second run on the port waits for it, and
 says so. A script the holder runs on its own port (client_server_gone.cmake
 runs server_started_again.cmake) does not wait on its parent: the holder
@@ -26,7 +27,21 @@ names its port in `GLIDESLOPE_PORT_LOCK_HELD`. Every one of the 74 scripts
 that uses `${PORT}` includes it before it runs anything, and
 test_ports.cmake checks that of every test given a port (124 of 124). The
 spiral test's failure there now prints the server's own words too.
-Not covered: a port one test derives (a relay at PORT + K) is not locked
+**What the lock costs, and what it does not hold.** A run that waits for
+the lock waits inside its own test, so the wait counts against that test's
+TIMEOUT: a run behind a 125 s test has that much less of its own. And the
+lock is the cmake -P process's: if that process is killed and its server is
+not, the port is let go while a server still listens on it. Checked on Linux
+(ctest 3.31.8): a test holding port 23945, its server listening (its ready
+file written), killed by a 3 s TIMEOUT, left no process on 23945, and a new
+server listened there at once - ctest killed the server with the script. A
+script killed some other way, by its process alone, would leave its server.
+The spiral test now checks its own server before the client's words: a
+server that "cannot listen" fails it as that, and a server that ended other
+than 0 fails it. Seen red with a bare UDP listener on its port ("the server
+could not listen on port 23946"), and green after on that port.
+Two more: the lock directory is a machine's only if every run sees the same
+TEMP and TMP; and a port one test derives (a relay at PORT + K) is not locked
 apart, so two working copies whose port numbering differs could still meet on
 one; within a version, two runs of a test are kept apart by its PORT.
 
