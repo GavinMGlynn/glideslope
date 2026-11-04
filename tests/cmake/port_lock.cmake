@@ -35,7 +35,7 @@ endif()
 if(NOT "$ENV{GLIDESLOPE_PORT_LOCK_HELD}" STREQUAL "${PORT}")
     # One place for every working copy on the machine: the system's temporary
     # directory, not one of the build's own.
-    if(WIN32)
+    if(CMAKE_HOST_WIN32)
         set(_port_lock_dir "$ENV{TEMP}")
     else()
         set(_port_lock_dir "/tmp")
