@@ -1153,9 +1153,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       turbulence she lands twelve of sixteen within limits with a margin on
       eight seeds: the PA-28, C172P, C182, 747-400, A320, Learjet 35A,
       Mosquito, F-15C, F-35B and, since 2026-11-04, the B-2A, her wings held
-      level harder, and the A380, her power retarded at Airbus's 20 ft, on
-      all forty seeds on Linux but floating long on one and touching hard
-      on one on Windows (macOS not yet seen); and the flying boat on all but macOS
+      level harder, and the A380, named on two Windows and four macOS
+      seeds; and the flying boat on all but macOS
       release's seed 3, where she skips 0.93 ft. Wheel-landed in gusts
       since 2026-11-04, the J-3 Cub lands thirty-nine of forty seeds on
       Linux, touching at 387 ft/min in a 14 kt lull on seed 33, and

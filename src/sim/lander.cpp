@@ -1703,7 +1703,10 @@ Controls Lander::fly_laws() {
         // Landing Flare" (September 2020), p. 7, for the A380 among others:
         // the 20 ft "RETARD" call, and "Delaying the retard of the thrust
         // levers may increase the landing distance because the autothrust
-        // will target Vapp". Held on to the touch, the A380 floated 907 m
+        // will target Vapp". The height is sourced; its use in gusts, against
+        // the AFH's power to the touch, is chosen and tuned: alone it made
+        // the A380 worse (35 seeds of forty, against 37), and helped only
+        // with her harder aileron. Held on to the touch, she floated 907 m
         // down the runway (seed 7, docs/status 2026-11-04).
         const bool retarded =
             gusty && speeds_.gusty_retard_ft > 0.0 &&
@@ -2084,7 +2087,6 @@ Controls Lander::fly_laws() {
             path_pitch_ = std::clamp(path_pitch_ + 0.0006 * fpm_error / steps_per_second,
                                      -8.0, most_path_pitch_deg);
         }
-        want_pitch = std::clamp(want_pitch, -8.0, most_path_pitch_deg);
         // **In gusts, her nose not put down far for the path in the last
         // `gusty_nose_held_below_ft`**, where her figures give how far
         // (`ApproachSpeeds::gusty_most_nose_down_deg`): no further under the
@@ -2109,6 +2111,7 @@ Controls Lander::fly_laws() {
                 std::max(want_pitch, least_path_pitch_deg_ +
                                          gusty_nose_floor_lead_s * nose_down_degps);
         }
+        want_pitch = std::clamp(want_pitch, -8.0, most_path_pitch_deg);
         flare_pitch_ = s.pitch_deg;
 
         // The speed, on the throttle - **and the path too, once the nose has
