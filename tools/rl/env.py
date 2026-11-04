@@ -68,6 +68,13 @@ touched with two thirds of her throttle open, and in the simulation's
 roll-out she rose three to four feet back into the air. Without it (0) the
 reward is unchanged.
 
+**`across_over`** (train.py `--across-over`, 2026-11-05) costs that much
+at the touch for each metre she is off the centreline past 3, to 20: the
+touch's own centreline term flattens past its bowl (4.7 a metre at 6 m),
+and the C182's policy, handed over within 3 m of the centreline in 15 kt
+from ahead and quartering ahead from the left, held her off long enough
+to drift 5 to 7 m right of it. Without it (0) the reward is unchanged.
+
 **`full_fuel`** (train.py `--full-fuel`, 2026-11-05): this fraction of the
 flights with her tanks full, the edge of training's fuel that drew few of
 them and failed her verification. Without it no random number is drawn for
@@ -150,9 +157,11 @@ class Flier:
 
     def __init__(self, runway: L.Runway, approach: L.Approach, plane: L.Aeroplane,
                  speed_costs: bool = False, nose_up: float = 0.0, nose_up_from_deg: float = 0.0,
-                 sink_over: float = 0.0, nose_falling: float = 0.0, idle_touch: float = 0.0):
+                 sink_over: float = 0.0, nose_falling: float = 0.0, idle_touch: float = 0.0,
+                 across_over: float = 0.0):
         self.rw = runway
         self.idle_touch = idle_touch
+        self.across_over = across_over
         self.nose_falling = nose_falling
         self.nose_up = nose_up
         self.nose_up_from_deg = nose_up_from_deg
@@ -254,6 +263,7 @@ class Flier:
                 reward -= self.sink_over * min(1000.0, max(0.0, f.touch.sink_fpm - 200.0))
                 reward -= self.nose_falling * min(30.0, max(0.0, -r[7] * L.DEGREES))
                 reward -= self.idle_touch * c["throttle"]
+                reward -= self.across_over * min(20.0, max(0.0, abs(f.touch.across_m) - 3.0))
             if not f.touched:
                 self.judge_the_gate()
             if f.touched:
@@ -507,7 +517,7 @@ class LandingEnv(gym.Env):
                  behind_left: float = 0.0, handover: float = 0.0, ahead: float = 0.0,
                  nose_up: float = 0.0, handover_across: float = 0.0,
                  nose_up_from_deg: float = 0.0, full_fuel: float = 0.0, sink_over: float = 0.0,
-                 nose_falling: float = 0.0, idle_touch: float = 0.0):
+                 nose_falling: float = 0.0, idle_touch: float = 0.0, across_over: float = 0.0):
         super().__init__()
         self.full_fuel = full_fuel
         self.handover_across = handover_across
@@ -516,7 +526,7 @@ class LandingEnv(gym.Env):
         self.handover = handover
         plane = L.aeroplane(model)
         self.flier = Flier(L.Runway(), plane.approach, plane, speed_costs, nose_up, nose_up_from_deg,
-                           sink_over, nose_falling, idle_touch)
+                           sink_over, nose_falling, idle_touch, across_over)
         self.observation_space = gym.spaces.Box(-np.inf, np.inf, (L.OBSERVATIONS,), np.float64)
         self.action_space = gym.spaces.Box(-1.0, 1.0, (L.ACTIONS,), np.float32)
         self.rng = np.random.default_rng(seed)
