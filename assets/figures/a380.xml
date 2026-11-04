@@ -41,7 +41,10 @@
   touch: 20 ft, Airbus's "RETARD" call, which Airbus gives for the A380
   among others - Safety First, "A Focus on the Landing Flare" (September
   2020), p. 7: "Delaying the retard of the thrust levers may increase the
-  landing distance because the autothrust will target Vapp". Sourced. With
+  landing distance because the autothrust will target Vapp". The height is
+  sourced from that call; its use in gusts, against the FAA's power held to
+  the touch, is chosen and tuned. Alone it made her worse (35 of forty
+  seeds, against 37); it helped only with her harder aileron (below). With
   her power held to the touch she floated 907 m down the runway (seed 7).
 
   **gusty_aileron_per_deg** is her aileron for each degree of bank off what
@@ -57,6 +60,9 @@
   into her flare and met the runway at 350 (seed 18). Judged a second ahead
   of her nose's fall (sim::Lander). Tuned on the gust tests' forty seeds,
   not sourced: forty of forty on Linux, thirty-eight on Windows release.
+  Its aim, not its figure, is Airbus's: on a stabilized approach "only small
+  changes in heading and pitch are required to maintain this flight path"
+  (Flight Operations Briefing Note, "Flying Stabilized Approaches").
 -->
 <published_figures aircraft="a380" rotation_degps="3" flaps_full_deg="32" touchdown_fpm="200" gusty_retard_ft="20" gusty_aileron_per_deg="0.07" gusty_most_nose_down_deg="3">
   <source>Airbus A380 AC rev 20, 2025; EASA TCDS A.110; FAA TCDS A58NM</source>

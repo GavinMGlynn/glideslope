@@ -160,7 +160,8 @@ and Windows release. The 737-300
 and 787-8 now land on all forty here but touch hard on one seed each on
 Windows release, so stay named. Since 2026-11-04 the A380 lands on all
 forty seeds on Linux and an x86-64-v2 build, her power retarded at Airbus's
-20 ft, and is named on Windows release's seeds 3 and 7 alone: twelve of
+20 ft, and is named on Windows's seeds 3 and 7 and macOS's 5, 6, 31 and
+37 alone: twelve of
 sixteen are judged. The F-22A is unchanged. Since
 2026-11-04 the J-3 Cub is wheel-landed in gusts and lands on thirty-nine
 of forty seeds on Linux, named on seed 33 alone, where she touches at 387
