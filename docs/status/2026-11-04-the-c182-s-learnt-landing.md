@@ -97,4 +97,23 @@ Local gcc contracts to FMA; the same tests were run in an
 `-march=x86-64-v2` build: her twelve learnt-landing tests green, every figure above the same to the printed digit.
 
 **The full suite** (linux-release, `-LE nightly`, `ctest -j4`, no display):
-the first 1,479 of 1,498 tests passed, none failed (some skipped: no key, device or service); the last 19, serial multi-process tests that fly no learnt landing, were still running when this was pushed - CI runs them. The selftest flies no approach; its hash is not moved.
+1,498 of 1,498 passed (some skipped: no key, device or service). The
+selftest flies no approach; its hash is not moved.
+
+**From the review of #317.**
+- **Her weight gate is tested**:
+  `the_learnt_landing_is_refused_a_c182_heavier_or_lighter_than_it_was_trained_at`
+  - at 50 and 200 lb a tank (2,205 and 2,505 lb, the top being how a
+  session starts her) she is at the gate; at 49 and 201 (2,203 and 2,507)
+  she is refused, the weights trained at named, and the approach autopilot
+  flies her at the speed for her weight.
+- **Her corners' coverage is asserted**:
+  `the_c182s_corner_landings_are_flown_in_seven_of_the_nine_winds_and_only_the_two_named_are_left_out`.
+  Seen red with a third wind named as left out.
+- **The C172P is unchanged by her levers set before the trim**:
+  `export.py --parity-only --aircraft c172p`, flying the committed policy
+  in the bindings as tools/rl now has it, writes a fixture byte-identical to
+  tests/data/rl/c172p-landing-parity.txt (148 lines).
+- trim_by_flying's comments say what it does: the throttle on the flight
+  path, the pitch on the speed. corners.py says what is missing when a
+  checkpoint comes without `--aircraft`.

@@ -57,6 +57,9 @@ def corners(vref, only=None):
 def load(path):
     if path.endswith(".zip"):
         import export
+        if "--aircraft" not in sys.argv[:-1]:
+            sys.exit(f"corners.py: {path} is a checkpoint, which names no aircraft: "
+                     "say which it was trained on with --aircraft MODEL")
         return export.from_checkpoint(path, [], sys.argv[sys.argv.index("--aircraft") + 1])
     return policy_file.read(path)
 
