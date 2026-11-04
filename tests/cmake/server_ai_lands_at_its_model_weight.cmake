@@ -17,7 +17,9 @@
 # wrecked. **Seen to fail** with the speeds unscaled: all three, flown down
 # at their figures' speeds (the PA-28, the light one then, at 64.4 kt, the A380 136.3, the B-2A
 # 124.0) - and the B-2A, at 327,000 lb against her speed's 177,160, went
-# around.
+# around. The light one is now the Boeing 737-300 (2026-11-05: the PA-28,
+# then the J-3 Cub, were given learnt landings), seen to fail with her
+# figures' 137.4 kt: she is flown down at 126.5.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.

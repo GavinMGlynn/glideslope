@@ -260,8 +260,9 @@ policy's speed and judged by the stabilized gate, and the policy lands her
 from 35 ft: the policy flown from the gate passed 500 ft up to 41 kt fast.
 Since 2026-11-04 the C182 has one too, trained on from the 172P's, but
 it drifts off the centreline in 15 kt from ahead; since 2026-11-05 the
-PA-28 has one, trained on from the C182's; the Cub has none. The learnt
-landing is offered for those three aircraft, by the CLI, to a player at its gate on a server (L in the window
+PA-28 has one, trained on from the C182's, and the J-3 Cub, trained on
+from the PA-28's, landing her near her three-point attitude with the
+throttle closed. The learnt landing is offered for those four aircraft, by the CLI, to a player at its gate on a server (L in the window
 client, told why when refused), and to an AI aircraft the server is told to
 flying a plan that ends in a landing, which then taxis off the runway; a
 landing goes around from a runway not clear (since 2026-10-08) - but a

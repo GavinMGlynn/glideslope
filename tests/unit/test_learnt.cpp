@@ -213,7 +213,9 @@ std::unique_ptr<glideslope::sim::Aircraft> at(const LearntPolicy& policy, const 
             want += aircraft->property("inertia/pointmass-weight-lbs[" + std::to_string(i) + "]");
         }
         const double weight = aircraft->property("inertia/weight-lbs");
-        check(tanks == 2 && std::abs(weight - want) < 0.01,
+        // Two tanks, or the J-3 Cub's one.
+        const std::size_t has = policy.aircraft == "j3cub" ? 1U : 2U;
+        check(tanks == has && std::abs(weight - want) < 0.01,
               "with " + std::to_string(fuel_lbs) + " lb in each of " + std::to_string(tanks) +
                   " tanks she weighs " + std::to_string(weight) + " lb, not " +
                   std::to_string(want));
@@ -807,6 +809,32 @@ GLIDESLOPE_TEST(the_learnt_policy_lands_the_pa28_within_the_limits_from_every_st
     lands_her_from_every_start("pa28", 112.5, LearntLander::Approach::policy);
 }
 
+// **The Piper J-3 Cub's own learnt landing** (2026-11-05), trained on from
+// the PA-28's (tools/rl/aircraft/j3cub.txt; its file's header says how): the
+// same verification - the 27 starts, calm air and ten knots across from
+// either side, within the autopilot's limits and stopped on the runway - at
+// her own reference speed, with her own fuel. Her one tank holds 72 lb, full
+// as she starts; a quarter, half and three quarters of it are 18, 36 and 54.
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_j3cub_within_5_m_of_the_centreline_under_300_ft_a_minute_in_calm_air_and_a_ten_knot_crosswind) {
+    lands_her_from_every_start("j3cub", -1.0, LearntLander::Approach::policy);
+}
+
+GLIDESLOPE_TEST(the_learnt_landing_lands_the_j3cub_within_its_limits_from_every_start_with_its_approach_flown_by_the_approach_autopilot) {
+    lands_her_from_every_start("j3cub", -1.0, LearntLander::Approach::autopilot);
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_j3cub_within_the_limits_from_every_start_with_a_quarter_of_her_fuel) {
+    lands_her_from_every_start("j3cub", 18.0, LearntLander::Approach::policy);
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_j3cub_within_the_limits_from_every_start_with_half_her_fuel) {
+    lands_her_from_every_start("j3cub", 36.0, LearntLander::Approach::policy);
+}
+
+GLIDESLOPE_TEST(the_learnt_policy_lands_the_j3cub_within_the_limits_from_every_start_with_three_quarters_of_her_fuel) {
+    lands_her_from_every_start("j3cub", 54.0, LearntLander::Approach::policy);
+}
+
 // **Every learnt landing flies its aircraft's own approach**: the reference
 // speed and landing flap its policy was trained at are the ones
 // sim::approach_speeds finds in her published figures, unscaled for weight
@@ -833,7 +861,9 @@ GLIDESLOPE_TEST(every_learnt_landing_is_trained_at_its_aircrafts_published_refer
         check(std::abs(policy->flaps - published.flap) < 1e-9,
               model + "'s policy flies her published landing flap");
     }
-    check(files == 3, "the C172P's, the C182's and the PA-28's learnt landings, and no other: " +
+    check(files == 4,
+          "the C172P's, the C182's, the PA-28's and the J-3 Cub's learnt landings, and no "
+          "other: " +
                           std::to_string(files));
 }
 
@@ -1133,6 +1163,14 @@ GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_pa28_heavier_or_lighter_than_it_
     refused_outside_the_weights_trained_at("pa28", 37.5, 150.0, "1565 to 1790", 2.0);
 }
 
+// **And the J-3 Cub's**: 868 to 922 lb, her model - 680 lb empty and her
+// 170 lb pilot - with 18 to 72 lb in her one tank (tools/rl/aircraft/j3cub.txt).
+// A session starts her with it full, at the very top, and it holds no more:
+// the heavier side is a full tank and 2 lb more on board.
+GLIDESLOPE_TEST(the_learnt_landing_is_refused_a_j3cub_heavier_or_lighter_than_it_was_trained_at) {
+    refused_outside_the_weights_trained_at("j3cub", 18.0, 72.0, "868 to 922", 2.0);
+}
+
 // **A copilot's route arriving during a learnt landing replaces it**, as it
 // does an approach (sim::Controller::replan): the learnt landing is let go,
 // the autopilot is engaged from the controls it had - so no control moves at
@@ -1241,7 +1279,7 @@ std::unique_ptr<glideslope::sim::Aircraft> placed(const std::string& model, cons
 
 // **Every aircraft that has a learnt landing is offered it, and no other**:
 // the catalogue walked whole, each aircraft's landing looked for as a
-// session looks for it. Only the Cessna 172P has one; every other is offered
+// session looks for it. The Cessna 172P and 182S, the J-3 Cub and the PA-28 have one; every other is offered
 // none - and every learnt landing in the data is some catalogue aircraft's.
 GLIDESLOPE_TEST(the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other) {
     const std::vector<glideslope::sim::CatalogueEntry> catalogue =
@@ -1263,8 +1301,9 @@ GLIDESLOPE_TEST(the_learnt_landing_is_offered_for_every_aircraft_that_has_one_an
                 catalogue.size(), offered.size());
     check(walked == catalogue.size() && walked == 16,
           "every one of the catalogue's sixteen aircraft was walked: " + std::to_string(walked));
-    check(offered == std::vector<std::string>({"c172p", "c182", "pa28"}),
-          "the Cessna 172P and 182S and the Piper PA-28 are offered it, and no other aircraft");
+    check(offered == std::vector<std::string>({"c172p", "c182", "j3cub", "pa28"}),
+          "the Cessna 172P and 182S, the J-3 Cub and the Piper PA-28 are offered it, and no "
+          "other aircraft");
     std::size_t files = 0;
     for (const auto& file : std::filesystem::directory_iterator(data() / "rl")) {
         const std::string name = file.path().filename().string();
@@ -1992,6 +2031,68 @@ GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_withi
 
 GLIDESLOPE_TEST(the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_right) {
     lands_from_every_corner_in("behind and across from the right", "pa28");
+}
+
+// **And the J-3 Cub's, from the same gate, in every one of its nine winds**
+// (at her own reference speed). **Her corners' coverage, asserted**: every
+// one of the gate's winds is flown for her, and none is left out.
+GLIDESLOPE_TEST(the_j3cubs_corner_landings_are_flown_in_every_one_of_the_nine_winds) {
+    const std::vector<std::string> flown{"calm",
+                                         "across from the left",
+                                         "across from the right",
+                                         "ahead",
+                                         "behind",
+                                         "quartering ahead from the left",
+                                         "quartering ahead from the right",
+                                         "behind and across from the left",
+                                         "behind and across from the right"};
+    const std::vector<CornerWind> all = corner_winds();
+    std::size_t covered = 0;
+    for (const CornerWind& w : all) {
+        const bool is_flown = std::find(flown.begin(), flown.end(), w.name) != flown.end();
+        check(is_flown, std::string(w.name) + " is flown for her");
+        covered += is_flown ? 1U : 0U;
+    }
+    std::printf("  %zu winds: %zu flown for the J-3 Cub, none left out\n", all.size(), covered);
+    check(all.size() == 9 && covered == 9 && flown.size() == 9,
+          "nine winds, nine flown: " + std::to_string(all.size()) + ", " +
+              std::to_string(covered));
+}
+
+GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air) {
+    lands_from_every_corner_in("calm", "j3cub");
+}
+
+GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_left) {
+    lands_from_every_corner_in("across from the left", "j3cub");
+}
+
+GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_right) {
+    lands_from_every_corner_in("across from the right", "j3cub");
+}
+
+GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_headwind) {
+    lands_from_every_corner_in("ahead", "j3cub");
+}
+
+GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_tailwind) {
+    lands_from_every_corner_in("behind", "j3cub");
+}
+
+GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_left) {
+    lands_from_every_corner_in("quartering ahead from the left", "j3cub");
+}
+
+GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_right) {
+    lands_from_every_corner_in("quartering ahead from the right", "j3cub");
+}
+
+GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_left) {
+    lands_from_every_corner_in("behind and across from the left", "j3cub");
+}
+
+GLIDESLOPE_TEST(the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_right) {
+    lands_from_every_corner_in("behind and across from the right", "j3cub");
 }
 
 GLIDESLOPE_TEST(the_learnt_policy_lands_within_its_margin_from_every_corner_of_its_gate_with_5_kt_behind_and_5_across_from_the_left) {
