@@ -1397,13 +1397,12 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       (Boeing's FCOM). *Verification: her approach speed from a published
       figure, and she lands within her limits.* Done 2026-11-01; her gust
       landings are named under the gust item.
-- [ ] **Learnt landings for other aircraft.** The Cessna 172P, the C182
-      (since 2026-11-04) and the PA-28 (since 2026-11-05) have one; **the
-      J-3 Cub has none yet**. The C182's drifts up to 6.8 m off the
-      centreline from her gate in 15 kt from ahead or quartering ahead from
-      the left, which her gate still admits. The PA-28's flies her 8.7 kt
-      over the autopilot's speed for her weight, from her reference speed at
-      the published 2,400 lb stall. *Verification: each light
+- [ ] **Learnt landings for other aircraft.** Every light aircraft has
+      one: the Cessna 172P, the C182 (since 2026-11-04), the PA-28 and the
+      J-3 Cub (since 2026-11-05). **Still open: the C182's two named
+      corners** - she drifts up to 6.8 m off the centreline from her gate
+      in 15 kt from ahead or quartering ahead from the left, which her gate
+      still admits. *Verification: each light
       aircraft's policy lands within the autopilot's limits from the same
       starts, in calm air and a 10-knot crosswind.* Owner 2026-10-09: needs RL training per aircraft; the
       172P's is retrained first.

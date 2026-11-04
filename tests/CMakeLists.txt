@@ -500,12 +500,18 @@ set(GLIDESLOPE_UNIT_TESTS
     the_learnt_policy_lands_the_pa28_within_the_limits_from_every_start_with_a_quarter_of_her_fuel
     the_learnt_policy_lands_the_pa28_within_the_limits_from_every_start_with_half_her_fuel
     the_learnt_policy_lands_the_pa28_within_the_limits_from_every_start_with_three_quarters_of_her_fuel
+    the_learnt_policy_lands_the_j3cub_within_5_m_of_the_centreline_under_300_ft_a_minute_in_calm_air_and_a_ten_knot_crosswind
+    the_learnt_landing_lands_the_j3cub_within_its_limits_from_every_start_with_its_approach_flown_by_the_approach_autopilot
+    the_learnt_policy_lands_the_j3cub_within_the_limits_from_every_start_with_a_quarter_of_her_fuel
+    the_learnt_policy_lands_the_j3cub_within_the_limits_from_every_start_with_half_her_fuel
+    the_learnt_policy_lands_the_j3cub_within_the_limits_from_every_start_with_three_quarters_of_her_fuel
     every_learnt_landing_is_trained_at_its_aircrafts_published_reference_speed_and_landing_flap
     an_aeroplane_handed_to_the_learnt_landing_at_the_gate_lands_within_5_m_of_the_centreline_with_no_step_in_its_controls
     a_policy_file_that_does_not_fit_the_simulation_is_refused
     the_learnt_landing_is_refused_a_c172p_heavier_or_lighter_than_it_was_trained_at
     the_learnt_landing_is_refused_a_c182_heavier_or_lighter_than_it_was_trained_at
     the_learnt_landing_is_refused_a_pa28_heavier_or_lighter_than_it_was_trained_at
+    the_learnt_landing_is_refused_a_j3cub_heavier_or_lighter_than_it_was_trained_at
     a_learnt_landing_handed_another_aircraft_is_refused_and_the_pilot_keeps_her
     the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other
     the_learnt_landing_at_a_fast_corner_of_its_gate_is_stabilized_by_500_ft_and_not_sent_round
@@ -541,6 +547,16 @@ set(GLIDESLOPE_UNIT_TESTS
     the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_right
     the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_left
     the_pa28s_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_right
+    the_j3cubs_corner_landings_are_flown_in_every_one_of_the_nine_winds
+    the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_calm_air
+    the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_left
+    the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_crosswind_from_the_right
+    the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_headwind
+    the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_the_most_tailwind
+    the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_left
+    the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_in_its_most_wind_quartering_ahead_from_the_right
+    the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_left
+    the_j3cubs_learnt_landing_is_stabilized_by_500_ft_and_lands_within_its_limits_from_every_corner_of_its_gate_with_the_most_wind_behind_and_across_from_the_right
     the_learnt_policy_lands_within_its_margin_from_every_corner_of_its_gate_with_5_kt_behind_and_5_across_from_the_left
     the_learnt_policy_lands_within_its_margin_from_every_corner_of_its_gate_with_5_kt_behind_and_7_5_across_from_the_left
     the_learnt_policy_lands_within_its_margin_from_every_corner_of_its_gate_with_5_kt_behind_and_10_across_from_the_left
@@ -3584,27 +3600,29 @@ set_tests_properties(the_servers_ai_c172p_flying_a_plan_that_ends_in_a_landing_i
 # **The server's AI aircraft, put on final at their models' own weights, are
 # flown down at the approach speeds for those weights and landed, with no
 # go-around**: heavy, the B-2A and A380, far heavier than their figures'
-# speeds are for; light, the J-3 Cub, 170 lb lighter (the PA-28 was, until
-# she was given a learnt landing, which flies her at its own speed). See
+# speeds are for; lighter, the Boeing 737-300, 17,460 lb under the weight her
+# figures' speed is for - an airliner, which no learnt landing will ever fly
+# at its own speed (the PA-28 and then the J-3 Cub were the light one, until
+# each was given a learnt landing). See
 # cmake/server_ai_lands_at_its_model_weight.cmake.
 # Each at her approach speed for that weight: the unit test's figures
 # (the_ai_flies_every_approach_at_the_speed_for_its_models_own_weight...).
 set(_kts_b2 168.5)
 set(_kts_a380 159.4)
-set(_kts_j3cub 39.4)
-# Steps flown: five minutes for the heavy two; the Cub, three miles out at
-# 39 kt, takes nearly that to reach the runway, and is given eight.
+set(_kts_737-300 126.5)
+# Steps flown: five minutes each.
 set(_steps_b2 36000)
 set(_steps_a380 36000)
-set(_steps_j3cub 57600)
-foreach(_model IN ITEMS b2 a380 j3cub)
-    add_test(NAME the_servers_ai_${_model}_on_final_at_its_models_own_weight_is_landed_at_the_approach_speed_for_it
+set(_steps_737-300 36000)
+foreach(_model IN ITEMS b2 a380 737-300)
+    string(REPLACE "-" "_" _name "${_model}")
+    add_test(NAME the_servers_ai_${_name}_on_final_at_its_models_own_weight_is_landed_at_the_approach_speed_for_it
         COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
             -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DPLAN=${CMAKE_CURRENT_SOURCE_DIR}/data/plans/${_model}-on-final.plan
             -DMODEL=${_model} -DSTEPS=${_steps_${_model}} -DKTS=${_kts_${_model}}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai_lands_at_its_model_weight.cmake)
-    set_tests_properties(the_servers_ai_${_model}_on_final_at_its_models_own_weight_is_landed_at_the_approach_speed_for_it
+    set_tests_properties(the_servers_ai_${_name}_on_final_at_its_models_own_weight_is_landed_at_the_approach_speed_for_it
         PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
 
@@ -4521,8 +4539,8 @@ if(NOT _measured_landings EQUAL 5)
 endif()
 add_test(NAME the_cli_refuses_a_learnt_landing_for_an_aircraft_that_has_none
     COMMAND ${CMAKE_COMMAND}
-        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=land j3cub --learnt" -DEXIT=1
-        "-DSTDERR_MATCHES=j3cub has no learnt landing"
+        -DPROGRAM=$<TARGET_FILE:glideslope_cli> "-DARGS=land 737-300 --learnt" -DEXIT=1
+        "-DSTDERR_MATCHES=737-300 has no learnt landing"
         -P ${GLIDESLOPE_EXPECT_RUN})
 
 add_test(NAME the_cli_lists_the_aircraft_the_data_holds
