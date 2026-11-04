@@ -87,6 +87,38 @@ constexpr double gusty_throttle_opened_per_s = 0.5;
 // nose-wheel propeller aeroplane's: a jet and a tailwheel aeroplane keep a
 // degree a second (`fly_laws` says why).
 constexpr double gusty_nose_rate_kt_degps = 265.0;
+// **A wheel landing in gusts** (`Lander::wheel_landing`: the J-3 Cub, whose
+// figures land her three-point in calm air). The FAA's Airplane Flying
+// Handbook (FAA-H-8083-3C, ch. 14, "Wheel Landing", p. 14-5): "In some wind
+// conditions ... landing in a flatter pitch attitude on the main wheels
+// only, with the tailwheel still off the surface ... if the tail is off the
+// ground, it tends to drop and put the plane airborne, so a soft touchdown
+// and a slight relaxation of back elevator just after the wheels touch are
+// key"; and AOPA's Flight Training ("Touchy subject", January 2022): "When
+// in doubt, wheel it on in gusty winds", for "when three-pointing in a
+// gusty wind, there is the risk that a gust will pick the airplane up, then
+// quickly abandon it". Three figures, each tuned on the gust tests' forty
+// seeds (docs/status, 2026-11-04), not sourced:
+// - **her nose let down past the attitude her flare began at**, in a float
+//   and against a gust's lift, by up to `wheel_landing_let_down_deg`. Held
+//   to that attitude, as every other aeroplane's is, she floated a few feet
+//   up at 45 to 57 kt for five seconds on seeds 20 and 37 - her model's
+//   wing loading is 5.2 lb/ft^2, and her flare begins 1.4 to 1.6 times her
+//   stall - and a gust's lift climbed her at 132 to 137 ft/min. 1.5, 2,
+//   3 and 4 degrees tried: from 2 nothing climbs past 75 ft/min;
+// - **the nose-up rate her gusty flare lets through undamped**,
+//   `wheel_landing_nose_degps`, where a tailwheel aeroplane keeps a degree
+//   a second (`fly_laws` says why): let down further, she met the runway at
+//   up to 386 ft/min on seeds 13 and 26 at a degree a second; 1.5, 2, 2.5
+//   and 3 tried, 2 the fewest failures;
+// - **and her forward pressure once her wheels are on**,
+//   `wheel_landing_forward_deg` under the attitude she touched at while she
+//   can fly, where every other aeroplane's in gusts is four: a 7 ft/s
+//   up-gust with 8 kt more headwind lifted her 0.82 ft off the runway at 49
+//   kt (seed 39). 6 and 8 tried, both 0.04 ft or less.
+constexpr double wheel_landing_let_down_deg = 2.0;
+constexpr double wheel_landing_nose_degps = 2.0;
+constexpr double wheel_landing_forward_deg = 6.0;
 // **The least nose a jet's flare raises**, degrees: the FAA's Airplane
 // Flying Handbook (FAA-H-8083-3C, ch. 16, "The Flare"): "In most jet
 // airplanes, this requires a pitch attitude increase of only 1 to 3 degrees".
@@ -410,6 +442,10 @@ double Lander::approach_kts() const {
 
 bool Lander::in_gusts() const {
     return a_.gust_factor_kt() > 0.0;
+}
+
+bool Lander::wheel_landing() const {
+    return three_point_ && in_gusts() && !lands_on_hull();
 }
 
 double Lander::flare_height_ft() const {
@@ -1156,7 +1192,8 @@ Controls Lander::fly_laws() {
         // attitude she touched at while she can fly, not two - so that a
         // gust over her wing does not lift her off again (the AFH, ch. 9,
         // flies her on to the runway in turbulence and holds her there).
-        const double forward_deg = in_gusts() ? 4.0 : 2.0;
+        const double forward_deg =
+            wheel_landing() ? wheel_landing_forward_deg : in_gusts() ? 4.0 : 2.0;
         const double hold_error = touchdown_pitch_deg_ - forward_deg * flying - s.pitch_deg;
         const double hold = std::clamp(
             0.05 * hold_error - 0.05 * s.q_radps * degrees + pitch_trim_, -1.0, 1.0);
@@ -1773,9 +1810,14 @@ Controls Lander::fly_laws() {
             flare_begun_pitch_ = flare_pitch_;
             flare_begun_ = true;
         }
+        // **A wheel landing in gusts is flown on to the runway, not floated**
+        // (`wheel_landing_let_down_deg`): her nose may be let down that much
+        // past the attitude her flare began at.
+        const double least_flare_pitch =
+            flare_begun_pitch_ - (wheel_landing() ? wheel_landing_let_down_deg : 0.0);
         const double least_pitch =
             ahead_error < 0.0
-                ? std::max(flare_begun_pitch_, flare_pitch_ - 2.0 / steps_per_second)
+                ? std::max(least_flare_pitch, flare_pitch_ - 2.0 / steps_per_second)
                 : flare_pitch_;
         flare_pitch_ = std::max(
             -4.0, std::max(least_pitch,
@@ -1823,7 +1865,7 @@ Controls Lander::fly_laws() {
             flare_pitch_ = std::min(flare_pitch_, s.pitch_deg);
         }
         if (gusty && ahead_climb_fpm > 0.0) {
-            flare_pitch_ = std::max(flare_begun_pitch_,
+            flare_pitch_ = std::max(least_flare_pitch,
                                     flare_pitch_ - 1.0 * ahead_climb_fpm / 100.0);
         }
         // **And brought back under it, if she is over it** - as she can be
@@ -2137,6 +2179,7 @@ Controls Lander::fly_laws() {
         stage_ == Stage::flare && in_gusts() && !lands_on_hull() && flare_gain_ > 1.0
             ? std::clamp((want_pitch - last_want_pitch_) * steps_per_second, 0.0,
                          jet_ ? (closing_past_flare_ ? speeds_.gusty_closing_nose_degps : 1.0)
+                         : wheel_landing() ? wheel_landing_nose_degps
                          : tail_wheel_ ? 1.0
                                       : std::max(1.0, gusty_nose_rate_kt_degps / approach_kts()))
         : stage_ == Stage::flare && holding_three_point_

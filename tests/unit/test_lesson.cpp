@@ -3049,7 +3049,8 @@ std::vector<std::string> how_the_hull_held_off(const std::string& where,
 // let rise faster the slower she flies; and since 2026-11-04 the 737-300
 // and 787-8 flown at Boeing's full gust with their noses let rise faster
 // while they close with the runway faster than their flares want, and the
-// B-2A's wings held level harder, each as her figures say.)
+// B-2A's wings held level harder, each as her figures say; and the J-3
+// Cub, wheel-landed in gusts.)
 const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
     static const std::map<std::string, std::string> named = {
         {"a380", "she touches 907 m along, not 25 m inside the touchdown zone (seed 7); on "
@@ -3062,11 +3063,6 @@ const std::map<std::string, std::string>& not_yet_landed_in_gusts() {
                 "ft/min; on the other fourteen touching at 183 to 543 ft/min, 961 m along "
                 "on seed 20, and rising up to 3.03 ft; item \"The F-22A flies her "
                 "stall-figure tests\""},
-        {"j3cub", "she touches at 359.7 ft/min on Windows release and clang (seed 8), "
-                  "CI run 38028434284; on forty seeds here a gust's lift climbs her at 137, "
-                  "132 and 78 ft/min in her flare (seeds 20, 37, 40), she touches at 356 "
-                  "(seed 33) and rises 0.82 ft after touching (seed 39); on Windows release "
-                  "she climbs at 118 and 136 (seeds 32, 37) and touches at 357 (seed 8)"},
     };
     return named;
 }
@@ -3149,6 +3145,12 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // below with it.
         {"f15c", 34, linux_(),
          "on Linux she floats into a go-around from a touch 1,039 m along (seed 34)"},
+        // The J-3 Cub since 2026-11-04, wheel-landed in gusts (sim/lander.cpp,
+        // `wheel_landing_let_down_deg`): thirty-nine of forty here, and the
+        // same figures on an x86-64-v2 build.
+        {"j3cub", 33, linux_(),
+         "on Linux she loses 14 kt of headwind and meets a 6 ft/s down-gust in her last "
+         "four feet, and touches at 387 ft/min (seed 33)"},
         {"747-400", 29, windows(), "on Windows she touches at 385 ft/min (seed 29)"},
         {"747-400", 31, windows(),
          "on Windows she floats into a go-around from a touch 1,036 m along (seed 31)"},
