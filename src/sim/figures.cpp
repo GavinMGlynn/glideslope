@@ -2308,6 +2308,28 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "at most 1");
         }
     }
+    // **A roll-out track rudder that is not above 0, or past a full rudder
+    // for half a degree, is refused; so is a share of the roll-out's yaw
+    // damping that is not above 0 or is more than all of it.**
+    if (root->HasAttribute("roll_out_track_rudder_per_deg")) {
+        out.roll_out_track_rudder_per_deg =
+            root->GetAttributeValueAsNumber("roll_out_track_rudder_per_deg");
+        if (!(out.roll_out_track_rudder_per_deg > 0.0 &&
+              out.roll_out_track_rudder_per_deg <= 2.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a roll_out_track_rudder_per_deg that is not above "
+                                     "0 and at most 2");
+        }
+    }
+    if (root->HasAttribute("roll_out_yaw_damping_share")) {
+        out.roll_out_yaw_damping_share =
+            root->GetAttributeValueAsNumber("roll_out_yaw_damping_share");
+        if (!(out.roll_out_yaw_damping_share > 0.0 && out.roll_out_yaw_damping_share <= 1.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a roll_out_yaw_damping_share that is not above 0 "
+                                     "and at most 1");
+        }
+    }
     // **A landing that is neither three-point nor on her wheels is refused.**
     if (root->HasAttribute("lands")) {
         const std::string lands = root->GetAttributeValue("lands");

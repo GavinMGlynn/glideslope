@@ -110,6 +110,14 @@ struct ApproachSpeeds {
     // `lower_the_nose`). 0 where her figures give none: her stick moves her
     // elevator, and the attitude law is flown.
     double roll_out_stick_per_degps = 0.0;
+    // **Her rudder on the roll for each degree her track is off the one
+    // wanted**: 0.5, unless her figures give her own
+    // (`PublishedFigures::roll_out_track_rudder_per_deg`).
+    double roll_out_track_rudder_per_deg = 0.5;
+    // **The share of the roll-out's yaw-rate damping she is given**: all of
+    // it, unless her figures give her own
+    // (`PublishedFigures::roll_out_yaw_damping_share`).
+    double roll_out_yaw_damping_share = 1.0;
     // **Whether a tail-wheel aeroplane is landed three-point**, her figures'
     // `lands="three_point"`: held off in the flare until her nose is at the
     // attitude she stands at, and her stick fully back from the touch. Not
