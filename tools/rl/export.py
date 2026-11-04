@@ -123,8 +123,7 @@ def trained_lbs(model: str) -> tuple[float, float]:
 
     plane = L.aeroplane(model)
     fdm = L.new_fdm(JSBSIM_ROOT, model)
-    dry = fdm["inertia/empty-weight-lbs"] + sum(
-        fdm[f"inertia/pointmass-weight-lbs[{i}]"] for i in range(5))
+    dry = L.dry_lbs(fdm)
     least, most = plane.training_fuel_lbs
     return (dry + plane.tanks * least, dry + plane.tanks * most)
 

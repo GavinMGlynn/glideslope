@@ -1,7 +1,7 @@
-# An AI J-3 Cub for the server to put on final to 16R (`--ai-on-final YSSY/16R`)
+# An AI Boeing 737-300 for the server to put on final to 16R (`--ai-on-final YSSY/16R`)
 # at her model's own weight: tests/cmake/server_ai_lands_at_its_model_weight.cmake.
 # The plan itself is not flown - she starts three miles out on final.
-aircraft j3cub
-start -33.75045 151.12585 4000 168 55
-waypoint CENTRELINE_8NM -33.79925 151.13843 3000 55
+aircraft 737-300
+start -33.75045 151.12585 4000 168 200
+waypoint CENTRELINE_8NM -33.79925 151.13843 3000 200
 land YSSY_16R -33.929401 151.171997 8 167.9 3962
