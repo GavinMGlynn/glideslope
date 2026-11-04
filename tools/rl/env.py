@@ -298,7 +298,8 @@ HANDOVER_FT = 35.0
 
 
 def random_start(rng: np.random.Generator, plane: L.Aeroplane,
-                 behind_left: float = 0.0, handover: float = 0.0) -> L.Start:
+                 behind_left: float = 0.0, handover: float = 0.0,
+                 ahead: float = 0.0) -> L.Start:
     # **From the approach autopilot's hand-over** (train.py's `--handover`,
     # 2026-11-04): this fraction of the flights from near where a session's
     # approach autopilot hands her to the policy - 25 to 45 ft over the
@@ -307,6 +308,13 @@ def random_start(rng: np.random.Generator, plane: L.Aeroplane,
     # trimmed down the glidepath, in training's wind - so that the round out
     # and the touch from there are learnt, not only reached. Without it no
     # random number is drawn for it, as for `behind_left`.
+    # **Strong wind ahead** (train.py's `--ahead`, 2026-11-04): this fraction
+    # of the flights as the rest, but in 10 to 15 kt from no more than 50
+    # degrees either side of ahead, where the C182's policy of that day
+    # drifted 6 to 8 m off the centreline from the gate's corners (15 ahead,
+    # and 15 quartering ahead from the left). Without it no random number is
+    # drawn for it.
+    strong_ahead = ahead > 0.0 and rng.random() < ahead
     if handover > 0.0 and rng.random() < handover:
         ap = plane.approach
         tan = math.tan(ap.glidepath_deg / L.DEGREES)
@@ -318,7 +326,7 @@ def random_start(rng: np.random.Generator, plane: L.Aeroplane,
             heading_offset_deg=rng.uniform(-8.0, 8.0),
             airspeed_kts=ap.vref_kts + rng.uniform(-3.0, 3.0),
             fuel_lbs=float(rng.uniform(*plane.training_fuel_lbs)),
-            **wind(rng),
+            **(wind_ahead(rng) if strong_ahead else wind(rng)),
         )
     # **Behind and across from the left** (train.py's `--behind-left`): this
     # fraction of the flights from near the two corners of the learnt
@@ -356,7 +364,7 @@ def random_start(rng: np.random.Generator, plane: L.Aeroplane,
         heading_offset_deg=rng.uniform(-8.0, 8.0),
         airspeed_kts=plane.approach.vref_kts + rng.uniform(-3.0, 8.0),
         fuel_lbs=float(rng.uniform(*plane.training_fuel_lbs)),
-        **wind(rng),
+        **(wind_ahead(rng) if strong_ahead else wind(rng)),
     )
 
 
@@ -370,6 +378,15 @@ def wind(rng: np.random.Generator) -> dict[str, float]:
         cross, head = speed * np.sin(towards), speed * np.cos(towards)
         if head >= -5.0:
             return {"crosswind_kts": float(cross), "headwind_kts": float(head)}
+
+
+def wind_ahead(rng: np.random.Generator) -> dict[str, float]:
+    """10 to 15 kt from no more than 50 degrees either side of ahead
+    (random_start's `ahead`)."""
+    speed = rng.uniform(10.0, 15.0)
+    towards = rng.uniform(-50.0, 50.0) / L.DEGREES
+    return {"crosswind_kts": float(speed * np.sin(towards)),
+            "headwind_kts": float(speed * np.cos(towards))}
 
 
 def behind_and_across_from_the_left(rng: np.random.Generator) -> dict[str, float]:
@@ -386,8 +403,9 @@ class LandingEnv(gym.Env):
     metadata = {"render_modes": []}
 
     def __init__(self, model: str, seed: int = 0, speed_costs: bool = False,
-                 behind_left: float = 0.0, handover: float = 0.0):
+                 behind_left: float = 0.0, handover: float = 0.0, ahead: float = 0.0):
         super().__init__()
+        self.ahead = ahead
         self.behind_left = behind_left
         self.handover = handover
         plane = L.aeroplane(model)
@@ -399,7 +417,8 @@ class LandingEnv(gym.Env):
     def reset(self, *, seed=None, options=None):
         if seed is not None:
             self.rng = np.random.default_rng(seed)
-        start = random_start(self.rng, self.flier.plane, self.behind_left, self.handover)
+        start = random_start(self.rng, self.flier.plane, self.behind_left, self.handover,
+                             self.ahead)
         obs = self.flier.begin(start)
         return np.asarray(obs, dtype=np.float64), {}
 

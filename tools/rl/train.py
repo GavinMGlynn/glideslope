@@ -135,6 +135,9 @@ def main() -> None:
     ap.add_argument("--handover", type=float, default=0.0,
                     help="this fraction of the flights from near where the approach autopilot hands "
                          "her to the policy, 35 ft over the runway (env.py's random_start); none without it")
+    ap.add_argument("--ahead", type=float, default=0.0,
+                    help="this fraction of the flights in 10 to 15 kt from within 50 degrees of ahead "
+                         "(env.py's random_start); none without it")
     ap.add_argument("--hold-norm", action="store_true",
                     help="resuming: hold the checkpoint's observation and reward normalisation")
     ap.add_argument("--critic-first", type=int, default=0,
@@ -145,7 +148,8 @@ def main() -> None:
 
     def make(i: int):
         return lambda: LandingEnv(args.aircraft, seed=args.seed * 1000 + i, speed_costs=args.speed_costs,
-                                  behind_left=args.behind_left, handover=args.handover)
+                                  behind_left=args.behind_left, handover=args.handover,
+                                  ahead=args.ahead)
 
     venv = SubprocVecEnv([make(i) for i in range(args.envs)])
     if args.resume:
