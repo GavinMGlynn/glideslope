@@ -72,7 +72,7 @@ def number(x: float) -> str:
     return repr(float(x))
 
 
-def from_checkpoint(path: str, header: list[str], model: str) -> policy_file.Policy:
+def from_checkpoint(path: str, header: list[str], aircraft: str) -> policy_file.Policy:
     from stable_baselines3 import PPO
     from stable_baselines3.common.vec_env import VecNormalize
 
@@ -82,8 +82,8 @@ def from_checkpoint(path: str, header: list[str], model: str) -> policy_file.Pol
 
         vecnorm: VecNormalize = pickle.load(f)
     rms = vecnorm.obs_rms
-    plane = L.aeroplane(model)
-    p = policy_file.Policy(aircraft=model, approach=plane.approach, header=header)
+    plane = L.aeroplane(aircraft)
+    p = policy_file.Policy(aircraft=aircraft, approach=plane.approach, header=header)
     p.obs_mean = [float(v) for v in rms.mean]
     p.obs_scale = [float(1.0 / np.sqrt(v + vecnorm.epsilon)) for v in rms.var]
     p.obs_clip = float(vecnorm.clip_obs)
