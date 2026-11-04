@@ -1366,8 +1366,11 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       her rise after the touch, the stall watch (her own warning, 12 kt
       over, tuned) and the wet walking pace now pass without her name.
       Still named, with their figures:
-      - a 6.13 m wet crosswind roll-out (7.37 on main): handed over at
-        take-off power, her nose wheel up, she slides on her main wheels;
+      - a 6.13 m wet crosswind roll-out (7.37 on main): her model's side
+        force as the crosswind arrives outruns the roll-out's track rudder.
+        A stronger rudder of her own clears it, but it rocks her onto a
+        wingtip when an approach is taken back at the touch
+        (2026-11-04-the-f22a-s-wet-crosswind-roll-out);
       - her gusts, on forty seeds
         (2026-11-04-the-f22a-s-gear-down-alpha-limit-tried,
         2026-11-04-the-f22a-s-stall-figure-names).
