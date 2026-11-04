@@ -246,6 +246,10 @@ ApproachSpeeds approach_speeds(const std::filesystem::path& data,
     }
     speeds.gusty_retard_ft = figures.gusty_retard_ft;
     speeds.gusty_most_nose_down_deg = figures.gusty_most_nose_down_deg;
+    speeds.pitch_gains_kcas = figures.pitch_gains_kcas;
+    if (figures.flare_lead_s > 0.0) {
+        speeds.flare_lead_s = figures.flare_lead_s;
+    }
     if (figures.yaw_rate_pedal_per_degps > 0.0) {
         speeds.yaw_damper_per_degps = figures.yaw_rate_pedal_per_degps;
     }
@@ -1816,7 +1820,15 @@ Controls Lander::fly_laws() {
             climb_trend_fpm_s_ += (rate - climb_trend_fpm_s_) / (0.25 * steps_per_second);
         }
         last_climb_fpm_ = s.climb_rate_fpm;
-        const double lead_s = gusty ? std::max(0.3, gusty_lead_s_per_kt * kcas) : 0.3;
+        //
+        // **Out of gusts, as far ahead as her figures say**
+        // (`ApproachSpeeds::flare_lead_s`, three tenths unless they give
+        // her own): the Mosquito at 21,462 lb, flown down at 134 kt, had
+        // her sink arrested 17 ft up, her nose still coming up, and climbed
+        // at 22 ft/min in her flare; judged half a second ahead she does not
+        // (docs/status, 2026-11-05). Tuned, not sourced.
+        const double lead_s =
+            gusty ? std::max(0.3, gusty_lead_s_per_kt * kcas) : speeds_.flare_lead_s;
         const double ahead_error =
             want_fpm - (s.climb_rate_fpm + lead_s * climb_trend_fpm_s_);
         // **The nose comes up through the flare, and no faster than a pilot
@@ -2277,10 +2289,28 @@ Controls Lander::fly_laws() {
                       ? std::min(holding_three_point_ ? 6.0 : 3.0,
                                  flare_gain_ + (in_gusts() ? 8.0 : 2.0) / steps_per_second)
                       : 1.0;
+    // **Scaled for the dynamic pressure she has lost, where her figures say
+    // at what speed the gains are right** (`ApproachSpeeds::pitch_gains_kcas`):
+    // her elevator's authority goes as her airspeed squared, and an
+    // autopilot's pitch gains are scheduled on dynamic pressure for it. The
+    // 737-300 at 76,098 lb, flown down at 112 kt where her gains were set at
+    // her 114,000 lb's 137, had too little elevator for the attitude asked:
+    // her nose swung four degrees either side of her path every eleven
+    // seconds, her sink 0 to 1,300 ft/min, all the way down, and she
+    // climbed at 140 ft/min in her flare. Never scaled down: at or over
+    // that speed, as every gusty approach of hers is, the gains are as they
+    // were, exactly.
     c.elevator =
         std::clamp(flare_gain_ * (0.05 * pitch_error - 0.05 * (q_degps - want_q_degps)) +
                        pitch_trim_,
                    -1.0, 1.0);
+    if (speeds_.pitch_gains_kcas > approach_kts()) {
+        const double gains_over = speeds_.pitch_gains_kcas / approach_kts();
+        const double gain = 0.05 * gains_over * gains_over;
+        c.elevator = std::clamp(
+            flare_gain_ * (gain * pitch_error - gain * (q_degps - want_q_degps)) + pitch_trim_,
+            -1.0, 1.0);
+    }
     // **A hull held off over rough water is held to her attitude with her
     // own gains, not the landplane's** (`hull_elevator`, as on the water):
     // the whole stick for `rough_water_hold_off_band_deg` of error, damped
