@@ -257,7 +257,7 @@ struct TakeOverRefused {
 // **The learnt landing refused** (protocol version 9), sent by the server to
 // the client that asked for it for its own aircraft and to no other: the
 // aircraft, and why, in the words the server's log says it in - "not at the
-// learnt landing's gate: YSSY 16R: 2.9 miles out; the gate is 1.6 to 2.4
+// learnt landing's gate: YSSY 16R: 2.9 miles out; the gate is 1.7 to 2.4
 // miles out". Without it a player pressing L heard nothing, and only the
 // server's operator knew why (PROJECT_STATUS.md, 2026-10-08).
 struct LearntLandingRefused {

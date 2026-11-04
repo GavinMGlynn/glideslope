@@ -17,6 +17,7 @@ constexpr double pi = 3.14159265358979323846;
 constexpr double degrees = 180.0 / pi;
 constexpr double feet_per_metre = 3.280839895013123;
 constexpr double mps_per_fps = 0.3048;
+constexpr double steps_per_second = 120.0;
 
 
 struct Where {
@@ -356,7 +357,7 @@ bool towards(Controls& from, const Controls& to) {
 
 LearntLander::LearntLander(const Aircraft& aircraft, const Runway& runway,
                            std::shared_ptr<const LearntPolicy> policy,
-                           const ApproachSpeeds& speeds)
+                           const ApproachSpeeds& speeds, Approach approach)
     : a_(aircraft), runway_(runway), policy_(std::move(policy)),
       rollout_(aircraft, runway, speeds, policy_ ? policy_->glidepath_deg : 3.0) {
     if (!policy_) {
@@ -366,6 +367,19 @@ LearntLander::LearntLander(const Aircraft& aircraft, const Runway& runway,
     if (policy_->aircraft != aircraft.figures().model) {
         throw std::invalid_argument("the learnt landing is the " + policy_->aircraft +
                                     "'s, and this is the " + aircraft.figures().model);
+    }
+    if (approach == Approach::autopilot) {
+        // **At the policy's own speed and flap**, not the speed for her
+        // weight (sim::for_weight, which a reference weight of none leaves
+        // as given): what the policy was trained to be handed her at, and
+        // what its gate admits her at. Scaled for the C172P's 1,880 lb she
+        // would come down at 52.9 kt, and the policy, handed her 7 kt under
+        // its 59.8, flew on past the runway at seven of the gate's 32 corners.
+        ApproachSpeeds flown = speeds;
+        flown.vref_kts = policy_->vref_kts;
+        flown.reference_lbs = 0.0;
+        flown.flap = policy_->flaps;
+        approach_.emplace(aircraft, runway, flown, policy_->glidepath_deg);
     }
 }
 
@@ -384,6 +398,51 @@ Controls LearntLander::fly() {
     }
     // The rollout's lander watches, to know where she touched.
     rollout_.watch();
+    // **Judged by the stabilized-approach gate**, step by step as sim::Lander
+    // is, at the speed the policy was trained to fly and with what gusts add
+    // to it - whoever flies her: the approach autopilot goes around for it
+    // itself; once the policy has her, `unstabilized` asks the controller to.
+    {
+        ApproachSpeeds flown = rollout_.speeds();
+        flown.vref_kts = policy_->vref_kts;
+        std::string why = sim::unstabilized(
+            runway_, flown, policy_->glidepath_deg, rollout_.along_m(), rollout_.above_m(),
+            a_.state().airspeed_kts, rollout_.approach_kts() - rollout_.speeds().vref_kts);
+        unstable_steps_ = why.empty() ? 0 : unstable_steps_ + 1;
+        most_unstable_steps_ = std::max(most_unstable_steps_, unstable_steps_);
+        if (!approach_ && unstabilized_.empty() &&
+            static_cast<double>(unstable_steps_) >=
+                StabilizedApproach::sustained_s * steps_per_second) {
+            unstabilized_ = std::move(why);
+        }
+    }
+    if (approach_) {
+        const Controls flown = approach_->fly();
+        held_ = flown;
+        if (approach_->stage() == Lander::Stage::go_around) {
+            if (unstabilized_.empty()) {
+                unstabilized_ = approach_->why_gone_around().empty()
+                                    ? std::string("the approach autopilot went around")
+                                    : approach_->why_gone_around();
+            }
+            return flown;
+        }
+        if (approach_->stage() == Lander::Stage::approach && !approach_->touched() &&
+            approach_->above_m() * feet_per_metre > policy_takes_her_ft) {
+            // The drift remembered all along, as the policy would have.
+            if (steps_ % policy_->decision_steps == 0) {
+                integral_ = remember_drift(
+                    integral_, where(LandingReadings::of(a_), runway_).across_m, *policy_);
+            }
+            ++steps_;
+            return flown;
+        }
+        // **The policy takes her**, deciding at once, its last action the
+        // autopilot's controls.
+        previous_ = {flown.elevator, flown.aileron, flown.rudder, flown.throttle * 2.0 - 1.0};
+        approach_.reset();
+        steps_ = 0;
+    }
     const LandingReadings r = LandingReadings::of(a_);
     if (!touched_ && r.values[15] > 0.5) {
         const Where w = where(r, runway_);
@@ -408,6 +467,10 @@ Controls LearntLander::fly() {
     }
     ++steps_;
     return held_;
+}
+
+double LearntLander::most_unstable_s() const {
+    return static_cast<double>(most_unstable_steps_) / steps_per_second;
 }
 
 std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,

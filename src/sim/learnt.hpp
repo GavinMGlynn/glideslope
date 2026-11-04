@@ -31,6 +31,7 @@
 #include <cstddef>
 #include <filesystem>
 #include <memory>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -116,10 +117,11 @@ double remember_drift(double integral, double across_m, const LearntPolicy& poli
 // **The gate the learnt landing is offered at**: a box the policy has been
 // flown from, at every one of its corners, and landed within its own limits
 // - 5 m of the centreline, under 300 ft/min, stopped on the runway - in every
-// wind at the edges of what it admits (the_learnt_policy_lands_within_its_
-// limits_from_every_corner_of_its_gate_* in nine winds: 288 landings, worst
-// 1.96 m and 281 ft/min, with the policy of 2026-11-03). Between 1.6 and
-// 2.4 miles before the threshold, no more than 60 m either side of the
+// wind at the edges of what it admits, and stabilized by 500 ft since
+// 2026-11-04 (the_learnt_policy_is_stabilized_by_500_ft_and_lands_within_
+// its_limits_from_every_corner_of_its_gate_* in nine winds: 288 landings,
+// worst 2.36 m and 244 ft/min). Between 1.7
+// and 2.4 miles before the threshold, no more than 60 m either side of the
 // extended centreline, 20 m above or below the glidepath and 5 degrees off
 // the runway's heading; from 3 kt under the policy's reference speed to 8 kt
 // over it; the landing flap out and not moving; and the wind as the
@@ -137,8 +139,15 @@ double remember_drift(double integral, double across_m, const LearntPolicy& poli
 // The CLI's start (`glideslope_cli land --learnt`: two miles out on the
 // centreline and the glidepath, at the reference speed) is its middle.
 // Outside it she is not offered: nothing says the policy lands from there.
+// **1.7 miles out at the nearest since 2026-11-04** (1.6 before): its
+// nearest, lowest corner was 494 ft over the runway, under the stabilized
+// gate's 500, and the approach autopilot that now flies the approach
+// (LearntLander), climbing back to the glidepath from 20 m under it with
+// the wind ahead or behind, was 5 kt slow there or 14 kt fast, and went
+// round from 6 or 7 of the 32 corners in five of the nine winds. From 1.7
+// (527 ft) it is stabilized from all 288.
 struct LearntGate {
-    static constexpr double nearest_m = 1.6 * 1852.0;
+    static constexpr double nearest_m = 1.7 * 1852.0;
     static constexpr double furthest_m = 2.4 * 1852.0;
     static constexpr double most_across_m = 60.0;
     static constexpr double most_off_glidepath_m = 20.0;
@@ -163,7 +172,7 @@ struct LearntGate {
 };
 
 // **Why `aircraft` is not at `runway`'s gate for `policy`**, in words a pilot
-// reads - "4.1 miles out; the gate is 1.6 to 2.4" - the first reason found,
+// reads - "4.1 miles out; the gate is 1.7 to 2.4" - the first reason found,
 // the aircraft first, then the wind, then the rest in LearntGate's order; empty
 // when she is at it.
 std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
@@ -210,6 +219,17 @@ double approach_kts_flown(const std::filesystem::path& data, const std::string& 
 // Flies `aircraft` down to `runway` with `policy`, as sim::Lander does with
 // its own laws: call `fly` once a step for that step's controls.
 //
+// **The approach autopilot flies the approach; the policy lands**
+// (2026-11-04). The policy flies its approach up to 35 kt fast - it was
+// rewarded for the touch alone, and dives down the glidepath on power
+// (docs/status, 2026-10-10) - so the stabilized-approach gate would send it
+// round from every corner of its gate. So a sim::Lander at the policy's own
+// speed (`vref_kts`, the speed its gate admits her at) flies her from the
+// gate to `policy_takes_her_ft` over the runway, judged by the gate as any
+// approach of the autopilot's is, and the policy flies the rest - the round
+// out and the touch - from there. Gone around by that lander, she is not
+// the policy's: `unstabilized` says why, and the controller goes around.
+//
 // **The policy lands; the approach autopilot rolls out.** The policy flies
 // from wherever it is given the aeroplane to the moment the wheels first
 // touch, and then hands the rollout to a sim::Lander on the same runway,
@@ -223,9 +243,26 @@ double approach_kts_flown(const std::filesystem::path& data, const std::string& 
 class LearntLander {
 public:
     enum class Stage { flying, rollout, stopped };
+    // **Who flies the approach**: the approach autopilot down to
+    // `policy_takes_her_ft`, the policy from there (the default, and how
+    // every landing in a session is flown); or the policy from wherever it
+    // is given her, as it was trained - for the tests that hold the
+    // simulation's policy to training's.
+    enum class Approach { autopilot, policy };
+
+    // **The height over the runway the policy takes her at**, feet: 35,
+    // tuned. Measured from every corner of the gate in its nine edge winds
+    // (2026-11-04): handed over at the autopilot's own flare, 19 ft, the
+    // policy met the runway at 348 ft/min with 15 kt ahead; at 50, where the
+    // gate stops judging the speed, at 315 with 5 kt behind and 14.1 across
+    // from the right; at 30, 290 quartering ahead from the left; at 35 its
+    // worst was 245, and over a grid of 85 winds, four corners and four
+    // loads, 1,360 landings, 267.
+    static constexpr double policy_takes_her_ft = 35.0;
 
     LearntLander(const Aircraft& aircraft, const Runway& runway,
-                 std::shared_ptr<const LearntPolicy> policy, const ApproachSpeeds& speeds);
+                 std::shared_ptr<const LearntPolicy> policy, const ApproachSpeeds& speeds,
+                 Approach approach = Approach::autopilot);
 
     Controls fly();
 
@@ -243,12 +280,27 @@ public:
     long decisions() const { return decisions_; }
     // The rollout's lander, for where she is on the runway.
     const Lander& rollout() const { return rollout_; }
+    // **Whether the policy has her yet**: not while the approach autopilot
+    // flies her down to `policy_takes_her_ft`.
+    bool policy_has_her() const { return !approach_; }
+    // **Why the stabilized-approach gate sends her round**: empty until the
+    // approach autopilot flying her approach has gone around for it - or,
+    // once the policy has her, the gate (sim::unstabilized, at the policy's
+    // own speed) has found her unstabilized for StabilizedApproach::
+    // sustained_s running - and then the first such reason, kept. The
+    // controller goes around for it.
+    const std::string& unstabilized() const { return unstabilized_; }
+    // The longest the gate has found her unstabilized, running, seconds,
+    // below 500 ft and before the touch, whoever flew her.
+    double most_unstable_s() const;
 
 private:
     const Aircraft& a_;
     Runway runway_;
     std::shared_ptr<const LearntPolicy> policy_;
     Lander rollout_;
+    // The approach autopilot, at the policy's speed, until the policy has her.
+    std::optional<Lander> approach_;
     Stage stage_ = Stage::flying;
     std::array<double, LearntPolicy::actions> previous_{};
     double integral_ = 0.0;
@@ -260,6 +312,9 @@ private:
     double touchdown_sink_fpm_ = 0.0;
     double touchdown_across_m_ = 0.0;
     double touchdown_along_m_ = 0.0;
+    long unstable_steps_ = 0;
+    long most_unstable_steps_ = 0;
+    std::string unstabilized_;
 };
 
 } // namespace glideslope::sim

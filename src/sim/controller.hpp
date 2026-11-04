@@ -248,7 +248,7 @@ public:
     // autopilot flies her down the glidepath, and the first step she is at
     // `policy`'s gate (sim::outside_learnt_gate) the policy takes her from
     // there, as to_ai_learnt_approach does - eased in, no step. Past the
-    // gate without meeting it - flared, or under 1.6 miles out - she is left
+    // gate without meeting it - flared, or under 1.7 miles out - she is left
     // to the approach autopilot, which lands her as to_ai_approach does.
     // How the server's own AI aircraft are landed by it.
     void to_ai_approach(const Runway& runway, const ApproachSpeeds& speeds,
@@ -277,8 +277,10 @@ public:
     const Lander* lander() const { return lander_ ? &*lander_ : nullptr; }
     // **Go around**, where the AI is flying an approach: it climbs away and
     // flies round to the same runway again (sim/circuit.hpp).
-    // From the learnt landing too, while she is in the air.
-    void go_around();
+    // From the learnt landing too, while she is in the air. `why`, where it
+    // is the AI's own reason (an approach not stabilized), for the lander's
+    // `why_gone_around`.
+    void go_around(std::string why = {});
     // **Whether the runway she is landing on is clear**, asked of the
     // caller - the other aircraft are not the controller's to know - once
     // a step on an approach below RunwayClear::decide_ft (sim/vacate.hpp):
