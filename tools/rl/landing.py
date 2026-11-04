@@ -413,8 +413,9 @@ def trim_by_flying(fdm, alt_ft: float) -> None:
     the Python bindings do not reach). From most of training's starts it
     failed, and she began untrimmed, in a dive. So she is flown, in calm air
     and `TRIM_FLIGHT_ABOVE_FT` above the start, for `TRIM_FLIGHT_S` at the
-    start's speed and flight path - the throttle integrating the speed's
-    error, the elevator the flight path's, damped by the pitch rate - and
+    start's speed and flight path - the throttle on the flight path's error,
+    the pitch she is held at on the speed's, the elevator on the pitch,
+    damped by the pitch rate - and
     started again where she was asked with the controls, angle of attack and
     engine that flight settled at. The initial conditions are fdm's `ic/`
     as `initialise` set them."""
@@ -444,8 +445,8 @@ def trim_by_flying(fdm, alt_ft: float) -> None:
         dv = fdm["velocities/vc-kts"] - kts
         vg = math.hypot(fdm["velocities/v-north-fps"], fdm["velocities/v-east-fps"])
         flight_path = math.degrees(math.atan2(-fdm["velocities/v-down-fps"], vg))
-        # The throttle on the speed, the pitch on the flight path, the
-        # elevator on the pitch.
+        # The throttle on the flight path, the pitch on the speed (and the
+        # path: her angle of attack added), the elevator on the pitch.
         throttle = min(1.0, max(0.0, throttle + 0.02 * (gamma - flight_path) * dt))
         path_held = min(10.0, max(-10.0, path_held + 0.05 * dv * dt))
         pitch_wanted = gamma + fdm["aero/alpha-deg"] + path_held + 0.5 * dv
