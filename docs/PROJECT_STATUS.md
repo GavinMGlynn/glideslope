@@ -248,7 +248,9 @@ across with 5 behind, where it had touched short from the left, trained
 there). Since 2026-11-04 the approach autopilot flies its approach, at the
 policy's speed and judged by the stabilized gate, and the policy lands her
 from 35 ft: the policy flown from the gate passed 500 ft up to 41 kt fast.
-The learnt landing is offered for one
+Since 2026-11-04 the C182 has one too, trained on from the 172P's, but
+it drifts off the centreline in 15 kt from ahead; the PA-28 and the Cub have
+none. The learnt landing is offered for those two
 aircraft, by the CLI, to a player at its gate on a server (L in the window
 client, told why when refused), and to an AI aircraft the server is told to
 flying a plan that ends in a landing, which then taxis off the runway; a
