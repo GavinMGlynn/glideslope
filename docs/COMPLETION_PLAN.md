@@ -1158,7 +1158,8 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       since 2026-11-04, the J-3 Cub lands thirty-nine of forty seeds on
       Linux, touching at 387 ft/min in a 14 kt lull on seed 33, and
       thirty-seven on Windows, where a gust climbs her on two and she
-      touches hard on one; macOS is not yet seen. Touch sink scatters about
+      touches hard on one, and thirty-six on macOS, where a gust climbs
+      her on one and she touches hard on three. Touch sink scatters about
       80 ft/min a landing, so one platform's pass is no other's. Flown at
       Boeing's full gust with a faster nose while closing, the 737-300 and
       787-8 land on all forty seeds on Linux but touch at 347 and 338 ft/min
