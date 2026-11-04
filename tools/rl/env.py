@@ -121,12 +121,20 @@ class Flier:
         # the committed policy was trained with (the default).
         self.speed_costs = speed_costs
         self.fdm = L.new_fdm(JSBSIM_ROOT, plane.model)
+        self.started_in_the_wind = False
         # What she weighs with no fuel: the empty aeroplane and what is on
         # board, as the model has them.
         self.dry_lbs = self.fdm["inertia/empty-weight-lbs"] + sum(
             self.fdm[f"inertia/pointmass-weight-lbs[{i}]"] for i in range(5))
 
     def begin(self, start: L.Start) -> list[float]:
+        # **A hand-over start in the wind gets an aeroplane of its own**, and so
+        # does the start after it: L.into_the_wind's initial conditions, given
+        # as ground velocities, are kept by JSBSim into the next start's, which
+        # then began slipping and, a few starts on, tumbling.
+        if start.controls_as_trimmed or self.started_in_the_wind:
+            self.fdm = L.new_fdm(JSBSIM_ROOT, self.plane.model)
+        self.started_in_the_wind = start.controls_as_trimmed
         L.initialise(self.fdm, self.rw, self.ap, start, self.plane)
         # **She weighs what the start says**: the fuel is the start's, not
         # what the last flight left.
@@ -135,6 +143,13 @@ class Flier:
         if abs(weight - wanted) > 0.01:
             raise RuntimeError(f"she weighs {weight} lb, and the start says {wanted}")
         self.previous = [0.0] * L.ACTIONS
+        if start.controls_as_trimmed:
+            # The elevator with what JSBSim trimmed on the pitch trim, which
+            # write_controls holds at nothing.
+            self.previous = [-(self.fdm["fcs/elevator-cmd-norm"] + self.fdm["fcs/pitch-trim-cmd-norm"]),
+                             self.fdm["fcs/aileron-cmd-norm"],
+                             self.fdm["fcs/rudder-cmd-norm"],
+                             self.fdm["fcs/throttle-cmd-norm[0]"] * 2.0 - 1.0]
         self.flight = L.Flight()
         self.touch_above_m = 0.0
         self.touch_agl_ft = 0.0
@@ -309,7 +324,7 @@ HANDOVER_FT = 35.0
 
 def random_start(rng: np.random.Generator, plane: L.Aeroplane,
                  behind_left: float = 0.0, handover: float = 0.0,
-                 ahead: float = 0.0) -> L.Start:
+                 ahead: float = 0.0, handover_across: float = 0.0) -> L.Start:
     # **From the approach autopilot's hand-over** (train.py's `--handover`,
     # 2026-11-04): this fraction of the flights from near where a session's
     # approach autopilot hands her to the policy - 25 to 45 ft over the
@@ -326,6 +341,11 @@ def random_start(rng: np.random.Generator, plane: L.Aeroplane,
     # drawn for it.
     strong_ahead = ahead > 0.0 and rng.random() < ahead
     if handover > 0.0 and rng.random() < handover:
+        # **In strong wind** (train.py's `--handover-across`, 2026-11-04):
+        # this fraction of the hand-over's flights in `strong_wind`, where the
+        # PA-28's policy of that day, handed over at 35 ft in 10 kt from the
+        # left, sank 465 ft/min. Without it no random number is drawn for it.
+        strong = handover_across > 0.0 and rng.random() < handover_across
         ap = plane.approach
         tan = math.tan(ap.glidepath_deg / L.DEGREES)
         above_m = rng.uniform(HANDOVER_FT - 10.0, HANDOVER_FT + 10.0) / L.FEET_PER_METRE
@@ -334,9 +354,13 @@ def random_start(rng: np.random.Generator, plane: L.Aeroplane,
             across_m=rng.uniform(-5.0, 5.0),
             high_m=rng.uniform(-2.0, 2.0),
             heading_offset_deg=rng.uniform(-8.0, 8.0),
-            airspeed_kts=ap.vref_kts + rng.uniform(-3.0, 3.0),
+            # In strong wind down to 6 kt slow: the approach autopilot hands
+            # her over up to 5 kt under her speed (the gate corner tests).
+            airspeed_kts=ap.vref_kts + (rng.uniform(-6.0, 3.0) if strong else rng.uniform(-3.0, 3.0)),
             fuel_lbs=float(rng.uniform(*plane.training_fuel_lbs)),
-            **(wind_ahead(rng) if strong_ahead else wind(rng)),
+            controls_as_trimmed=handover_across > 0.0,
+            **(strong_wind(rng) if strong else
+               wind_ahead(rng) if strong_ahead else wind(rng)),
         )
     # **Behind and across from the left** (train.py's `--behind-left`): this
     # fraction of the flights from near the two corners of the learnt
@@ -390,6 +414,23 @@ def wind(rng: np.random.Generator) -> dict[str, float]:
             return {"crosswind_kts": float(cross), "headwind_kts": float(head)}
 
 
+def strong_wind(rng: np.random.Generator) -> dict[str, float]:
+    """**Strong wind at the hand-over** (random_start's `handover_across`):
+    half the flights 8 to 15 kt across from either side, with up to 5 kt
+    behind or ahead and no more than 15 in all; the rest 12 to 15 kt from
+    anywhere `wind` blows from - the learnt landing's gate's edge winds."""
+    if rng.random() < 0.5:
+        cross = float(rng.choice([-1.0, 1.0])) * rng.uniform(8.0, 15.0)
+        most = min(5.0, np.sqrt(15.0**2 - cross**2))
+        return {"crosswind_kts": float(cross), "headwind_kts": float(rng.uniform(-most, most))}
+    while True:
+        speed = rng.uniform(12.0, 15.0)
+        towards = rng.uniform(0.0, 2.0 * np.pi)
+        cross, head = speed * np.sin(towards), speed * np.cos(towards)
+        if head >= -5.0:
+            return {"crosswind_kts": float(cross), "headwind_kts": float(head)}
+
+
 def wind_ahead(rng: np.random.Generator) -> dict[str, float]:
     """10 to 15 kt from no more than 50 degrees either side of ahead
     (random_start's `ahead`)."""
@@ -414,8 +455,9 @@ class LandingEnv(gym.Env):
 
     def __init__(self, model: str, seed: int = 0, speed_costs: bool = False,
                  behind_left: float = 0.0, handover: float = 0.0, ahead: float = 0.0,
-                 nose_up: float = 0.0):
+                 nose_up: float = 0.0, handover_across: float = 0.0):
         super().__init__()
+        self.handover_across = handover_across
         self.ahead = ahead
         self.behind_left = behind_left
         self.handover = handover
@@ -429,7 +471,7 @@ class LandingEnv(gym.Env):
         if seed is not None:
             self.rng = np.random.default_rng(seed)
         start = random_start(self.rng, self.flier.plane, self.behind_left, self.handover,
-                             self.ahead)
+                             self.ahead, self.handover_across)
         obs = self.flier.begin(start)
         return np.asarray(obs, dtype=np.float64), {}
 
