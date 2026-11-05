@@ -293,7 +293,7 @@ touch scatters 1.7 times as widely as the F-15C's, and no sourced change
 moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
-**Phase 11, traffic and separation: 8 of 11 items.** Every AI aircraft a
+**Phase 11, traffic and separation: 10 of 12 items.** Every AI aircraft a
 server runs is measured against every other, and in runs of every route
 kind none comes within 500 ft and 1.5 nm of another. The kinds are planned,
 the plan file, handed over holding its course, handed over in a spiral,
@@ -336,12 +336,20 @@ straight in or departing; an AI departure behind a person in the circuit
 goes once she is behind the threshold and going away; and an AI aircraft
 behind a person who stays leaves the circuit after one racetrack for a hold
 outside it, and comes back to land once the person is down. A person who
-takes off under an AI aircraft going around is not kept apart from her: no
-turn takes the AI clear in time. All 1,350 flights of every landplane
+takes off under an AI aircraft going around is not kept apart from her: she
+lifts off within the minimum of her, which no manoeuvre undoes. All 1,350 flights of every landplane
 pair, in six situations, stayed 500 ft or 1.5 nm apart, the closest
 541 ft within 1.5 nm; the one behind a person who stays left within 1,190 s, and a
 departure behind a left-hand circuit was held at most 455 s
 (2026-11-05-a-person-straight-in-departing-or-staying-in-the-circuit).
+Since 2026-11-06 a person who flies 10 nm from the circuit loses her place,
+and the AI holding behind her comes back and lands: the slowest and the
+fastest each with each, on eight bearings, were down within 800 s, kept
+apart. Over raised ground the AI climbs to her hold before setting off -
+she had skipped it, leaving near her fix - and was never within 500 ft or
+1.5 nm of the person while she did. Every landplane pair is not flown in
+these two; and a racetrack can reach high ground its circuit did not
+sample (2026-11-06-a-person-flying-away-and-the-climb-before-a-hold-on-raised-ground).
 
 Since 2026-11-05 a take-off given no plan levels off at its height. It
 leads the height by a tenth of her climb, and the autopilot holds it. The

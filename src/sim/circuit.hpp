@@ -177,6 +177,21 @@ bool departing_by_hand(const Runway& runway, const AircraftState& her);
 // beyond the runway she never is: one orbiting over the climb-out holds
 // the departure, as a tower would not release one into her.
 bool clear_of_departures_by_hand(const Runway& runway, const AircraftState& her);
+// **Gone from the circuit** (`left_the_circuit_by_hand`), a person's
+// aircraft with a place in it: further than `left_the_circuit_nm` from the
+// runway's threshold, horizontally - whatever her height and heading. Her
+// place is dropped (Controller::fly), and the one behind her, holding
+// outside, comes back to land. A tower's surface area is about 4 nm round
+// (AIM 3-2-5: Class D, "usually" 4 nm; 5 statute miles in practice), and
+// outside it a pilot need not ask to leave the tower's frequency (AIM
+// 4-3-2): the tower has no more say in her. But a circuit is flown further
+// out than that - 6.5 nm the furthest measured, a jet's downwind extended -
+// and the one behind comes back by legs to final 6 and 4 nm out; so the
+// reach is the furthest of those and twice the 1.5 nm minimum on it, and a
+// little: 10 nm, chosen, not sourced. At 8 nm, an F-15C flying away down
+// the approach was 2,673 m and 474 ft from the F-15C coming back.
+bool left_the_circuit_by_hand(const Runway& runway, const AircraftState& her);
+constexpr double left_the_circuit_nm = 10.0;
 constexpr double by_hand_final_nm = 5.0;
 constexpr double by_hand_departure_nm = 1.5;
 constexpr double by_hand_heading_deg = 30.0;
