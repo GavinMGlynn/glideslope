@@ -196,10 +196,34 @@ this:
   player went to +4,000 ft and the run passed.
 
 Reproduced here in linux-debug on the old code: "aircraft 5 is a wreck,
-aircraft 0 is a wreck", word for word as on CI. Now the player goes one
-layer over the more of the aircraft in the sky and the plan-file layers
-(`plan_layers_`). And the test now fails at once, saying so, when the
-client hears a wreck.
+aircraft 0 is a wreck", word for word as on CI. And the test now fails at
+once, saying so, when the client hears a wreck.
+
+**Each player on a layer of their own** (review of b97ec439). The first fix
+put a joining player one layer over the more of the aircraft in the sky
+and the plan-file layers (`plan_layers_`). That put two players who both
+joined before the planned aircraft were up on the same layer, max(2, 4) + 1
+and max(3, 4) + 1. Before it, they got 3 and 4. Now a player goes one
+layer over the more of these two counts:
+- the aircraft in the sky;
+- the plan-file layers plus the players already flying.
+
+Both counts grow with every join, so no two joins share a layer.
+**`plan_layers_` only ever grows**: it is one more than the highest AI
+number a plan-file aircraft was made with, kept for the session. A
+plan-file aircraft that is wrecked or leaves does not lower it, so a
+player may start higher than needed, never lower.
+`two_players_joining_before_a_planned_ai_aircraft_takes_off_each_get_a_layer_of_their_own_and_neither_is_wrecked`
+(`server_players_join_before_takeoff.cmake`) builds the case:
+- four AI aircraft, two planned, the second held on the ground by
+  `--ai-spacing 600`;
+- two clients joining at once, each told of at least five aircraft;
+- nothing wrecked.
+
+**Seen to fail** on b97ec439's server: "aircraft 0, c172p (slot 0), is a
+wreck: collided with aircraft 1". It passes with the fix, as do the five
+other run tests that put a player on the server: both copilot runs, the
+handed run, the spiral run, and the server's copilot as recorded.
 
 The selftest hash does not move: the selftest flies the test pilot, which
 the monitor does not touch. The new tests' entries in `tests/ci_costs/` are

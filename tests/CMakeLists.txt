@@ -3590,6 +3590,20 @@ set_tests_properties(an_aircraft_flying_its_copilots_route_is_measured_against_m
     PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/copilot_planned_kept_apart)
 
+# **Two players who join while a planned AI aircraft is on the ground are
+# each given a layer of their own** and neither is wrecked. See
+# cmake/server_players_join_before_takeoff.cmake.
+add_test(NAME two_players_joining_before_a_planned_ai_aircraft_takes_off_each_get_a_layer_of_their_own_and_neither_is_wrecked
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/join_before_takeoff -DPORT=24978
+        -DPLANNED=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_players_join_before_takeoff.cmake)
+set_tests_properties(two_players_joining_before_a_planned_ai_aircraft_takes_off_each_get_a_layer_of_their_own_and_neither_is_wrecked
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/join_before_takeoff)
+
 # **An aircraft its player rolled into a spiral over two AI layers, handed to
 # the AI in it, is rolled level and kept apart from both.** See
 # cmake/server_handed_spiral_kept_apart.cmake.
