@@ -137,6 +137,11 @@ public:
     // `ease_climb_fpm_per_s`). Once the climb asked is reached, or is more,
     // it is flown as asked.
     void ease_climb(double climb_fpm) { eased_climb_fpm_ = climb_fpm; }
+    // **Levelling off at the height asked, she captures it** at the
+    // capture's gain (autopilot.cpp, `capture_fpm_per_foot`), not the
+    // plain hold's, which closed the last few feet over minutes; and holds
+    // it so, for as long as that is the height asked.
+    void capture();
     // How far the speed asked has been raised for a climb now, knots.
     double climb_speed_kts() const { return climb_speed_kts_; }
     // The height it is flying to, within its limits, or none when it holds
@@ -169,6 +174,8 @@ private:
     std::optional<double> fastest_kts_;
     std::optional<double> away_deg_;
     std::optional<double> eased_climb_fpm_;
+    // The height captured (`capture`).
+    std::optional<double> capture_ft_;
     bool seed_climb_ = true; // the climb loop's integral, seeded on the first step
     Controls last_;
     // Holding the speed rather than the height: the most climb the altitude

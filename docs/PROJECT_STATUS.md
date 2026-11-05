@@ -350,6 +350,14 @@ stalls. Before, she raised them under her clean stall and stalled into the
 ground. All 15 landplanes taken off to 3,000 ft held it for ten minutes,
 within 100 ft from two minutes on
 (2026-11-05-a-take-off-with-no-plan-levels-off-and-holds-its-height).
+Since 2026-11-06 the autopilot captures that height at 7 ft/min a foot,
+not 3, so the last few feet no longer take minutes. Every landplane taken
+off to 650 or 3,000 ft is within 2 ft of it from 64 s after the hand-over
+at the latest. The Mosquito reaches 650 ft 32 s after the hand-over; she
+used to take 167 s. A jet taken off to 650 ft still climbs 139 to 532 ft
+past it before coming back, and the circuit tests still ask 750 ft for a
+PA-28 overshoot. Both are tails
+(2026-11-06-a-take-off-with-no-plan-captures-its-height-promptly).
 
 Since 2026-11-05 an AI take-off raises her gear on a second of positive
 climb, with a plan or without; until then every planned flight cruised

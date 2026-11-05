@@ -1145,13 +1145,31 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       take-off raises it on a second of positive climb; the 747-400's and
       F-22A's measured climb-away speeds rise to 175 and 230 kt, and their
       CBD-orbit plans were recorded again for them.
-- [ ] **A take-off with no plan creeps up the last few feet of its height.**
+- [x] **A take-off with no plan creeps up the last few feet of its height.**
       Handed over a tenth of her climb short, the Mosquito took 2.7 minutes
       and 7 nm to close the last 4 ft of 650; the circuit lesson tests now
       ask every aircraft's take-off for 750 ft, to join at 650 climbing.
       *Verification: every landplane
       given a take-off with no plan is within 2 ft of its height a stated
-      time after the hand-over.*
+      time after the hand-over.* Done 2026-11-06: the autopilot captures
+      the height at 7 ft/min a foot, not 3; every landplane, to 650 and to
+      3,000 ft, is within 2 ft of it from 64 s after the hand-over at the
+      latest (75 s stated). The circuit tests still ask 750 ft, for the
+      tail below.
+- [ ] **A light aeroplane's climb to circuit height overshoots it.** Found
+      2026-11-06: joined level at 650 ft, the PA-28 climbs to 1,078 ft for
+      the circuit's 1,000 and fails the lesson's downwind band by 4 ft, so
+      the circuit lesson tests still ask the take-off for 750 ft.
+      *Verification: every light aeroplane joined to the circuit level at
+      650 ft is within 50 ft of circuit height along her downwind leg, and the
+      circuit tests ask for 650 ft.*
+- [ ] **A jet's take-off with no plan to a low height climbs far past
+      it.** Found 2026-11-06: asked for 650 ft, the airliners, the F-22A and
+      the Learjet go 139 to 532 ft past it, most handed over already above
+      it: a jet's flaps come up from 400 ft, and the take-off waits for
+      them.
+      *Verification: every landplane taken off with no plan to 650 ft goes
+      no more than 100 ft past it, or the reason is named.*
 
 ---
 
