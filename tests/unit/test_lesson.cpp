@@ -15,6 +15,7 @@
 #include "sim/orbit_trial.hpp"
 #include "sim/plan.hpp"
 #include "sim/runway_condition.hpp"
+#include "sim/separation.hpp"
 #include "sim/learnt.hpp"
 #include "sim/test_pilot.hpp"
 #include "sim/vacate.hpp"
@@ -8017,7 +8018,7 @@ GLIDESLOPE_TEST(an_instructor_demonstrates_a_take_off_and_hands_it_over) {
 
 namespace {
 
-// **Two miles out on the glidepath, established**: at the weight its
+// **Two miles out on the glidepath, established** (or `out_nm`): at the weight its
 // reference speed was measured at, the landing flap down and coming down the
 // path, over a runway at sea level - or water, for a flying boat.
 // `model_weight`: at her model's own weight instead, as a server flies her,
@@ -8025,7 +8026,8 @@ namespace {
 void put_on_final(glideslope::sim::Aircraft& aircraft,
                   const glideslope::sim::CatalogueEntry& entry,
                   const glideslope::sim::Runway& runway,
-                  const glideslope::sim::ApproachSpeeds& published, bool model_weight = false) {
+                  const glideslope::sim::ApproachSpeeds& published, bool model_weight = false,
+                  double out_nm = 2.0) {
     // At the weight its reference speed was measured at: the B-2A's is taken
     // at its light loading, and flown at the model's own weight 124 knots is
     // below its stall - it fell at 110 ft/s and was passed, because every
@@ -8036,7 +8038,7 @@ void put_on_final(glideslope::sim::Aircraft& aircraft,
     aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
         [](double, double) { return 0.0; },
         [water = entry.seaplane](double, double) { return water; }));
-    const double out_m = 2.0 * metres_per_nm;
+    const double out_m = out_nm * metres_per_nm;
     const double heading = runway.heading_deg / degrees;
     glideslope::sim::InitialConditions ic;
     ic.latitude_deg =
@@ -10480,6 +10482,243 @@ GLIDESLOPE_TEST(an_aeroplane_landing_on_a_runway_another_is_on_goes_around_and_l
     second_lands_once_the_first_has_left("c172p", false);
     second_lands_once_the_first_has_left("c172p", true);
     second_lands_once_the_first_has_left("a380", false);
+}
+
+namespace {
+
+// **Two going around together, as built**: the one ahead on the glidepath
+// at 200 ft over the runway, the one behind two miles further out on the
+// same glidepath (636 ft higher: apart by both measures), both established,
+// and both told to go around in the same step - as a tower sends round two
+// on final to a runway blocked. Each asks of the other whether the runway is
+// clear and where to turn off, as a server's do; `sequenced`: each is told
+// whom it follows round the circuit, as a server's are
+// (sim::circuit_ahead_alt_ft).
+//
+// From the go-around until the first is down (landed is not traffic, as the
+// server has it) they are apart every step by the separation minimum
+// (sim::Separation): 500 ft vertically or 1.5 nm horizontally. Both land,
+// the one ahead first, and both taxi clear.
+struct TwoAround {
+    bool lost = false;             // separation lost at some step
+    double least_m = 1e9;          // horizontally, while within 500 ft
+    double least_ft = 1e9;         // vertically, while within 1.5 nm
+    bool followed = false;         // the one behind was told it followed
+    bool ahead_down_first = false; // touched down before the one behind
+    bool both_clear = false;       // both landed and taxied clear
+    int behind_circuits = 0;       // circuits flown by the one behind
+    std::string wreck;
+};
+
+TwoAround two_go_around_together(const std::string& ahead_id, const std::string& behind_id,
+                                 bool sequenced) {
+    const glideslope::sim::Runway runway = a_runway();
+    const auto ahead_entry = glideslope::sim::find_aircraft(data(), ahead_id);
+    const auto behind_entry = glideslope::sim::find_aircraft(data(), behind_id);
+    const auto ahead_speeds = glideslope::sim::approach_speeds(data(), ahead_entry.model);
+    const auto behind_speeds = glideslope::sim::approach_speeds(data(), behind_entry.model);
+    // 200 ft over the runway on the three-degree path, and two miles behind
+    // on the same path (each aims at her own point on the runway).
+    const double ahead_out_nm =
+        (200.0 / feet_per_metre / std::tan(3.0 / degrees) - ahead_speeds.aim_m) / metres_per_nm;
+    const double behind_out_nm =
+        ahead_out_nm + (ahead_speeds.aim_m - behind_speeds.aim_m) / metres_per_nm + 2.0;
+    glideslope::sim::Aircraft ahead(data() / "jsbsim", ahead_entry.model);
+    put_on_final(ahead, ahead_entry, runway, ahead_speeds, false, ahead_out_nm);
+    glideslope::sim::Aircraft behind(data() / "jsbsim", behind_entry.model);
+    put_on_final(behind, behind_entry, runway, behind_speeds, false, behind_out_nm);
+
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    glideslope::sim::Controller ahead_c(ahead, flying);
+    glideslope::sim::Controller behind_c(behind, flying);
+    ahead_c.to_ai_approach(runway, ahead_speeds);
+    behind_c.to_ai_approach(runway, behind_speeds);
+    struct Pair {
+        glideslope::sim::Controller* c;
+        glideslope::sim::Aircraft* self;
+        glideslope::sim::Aircraft* other;
+        const glideslope::sim::CatalogueEntry* entry;
+    };
+    const std::vector<Pair> both{{&ahead_c, &ahead, &behind, &ahead_entry},
+                                 {&behind_c, &behind, &ahead, &behind_entry}};
+    for (std::size_t i = 0; i < both.size(); ++i) {
+        const Pair p = both[i];
+        p.c->limit_speed(glideslope::sim::plan_speeds(data(), p.entry->model).fastest_kts);
+        p.c->vacates_runways([other = p.other](const glideslope::sim::Runway& r, double along_m,
+                                                double side) {
+            const glideslope::sim::AircraftState o = other->state();
+            return !glideslope::sim::beside_runway(r, o.latitude_deg, o.longitude_deg,
+                                                   o.altitude_ft - r.elevation_ft, along_m, side);
+        });
+        p.c->clears_with([other = p.other](const glideslope::sim::Runway& r) {
+            const glideslope::sim::AircraftState o = other->state();
+            return !glideslope::sim::on_runway(r, o.latitude_deg, o.longitude_deg,
+                                               o.altitude_ft - r.elevation_ft);
+        });
+        if (sequenced) {
+            p.c->follows_with([&ahead_c, &behind_c, i] {
+                return glideslope::sim::circuit_ahead_alt_ft(
+                    i, {ahead_c.circling(), behind_c.circling()});
+            });
+        }
+    }
+    ahead_c.go_around();
+    behind_c.go_around();
+
+    glideslope::sim::GroundJudge judge_ahead(false);
+    glideslope::sim::GroundJudge judge_behind(false);
+    TwoAround out;
+    bool ahead_touched = false;
+    bool behind_touched = false;
+    bool behind_circling = false;
+    for (int t = 0; t < 3600 * steps_per_second; ++t) {
+        for (const Pair& p : both) {
+            p.self->set_controls(p.c->fly());
+            p.self->step();
+        }
+        if (const auto what = judge_ahead.judge(ahead)) {
+            out.wreck = ahead_id + " ahead: " + *what;
+            break;
+        }
+        if (const auto what = judge_behind.judge(behind)) {
+            out.wreck = behind_id + " behind: " + *what;
+            break;
+        }
+        const bool circling = behind_c.circuit() != nullptr;
+        out.behind_circuits += circling && !behind_circling ? 1 : 0;
+        behind_circling = circling;
+        out.followed = out.followed || (circling && behind_c.circuit()->following());
+        const bool ahead_now = ahead.property("gear/wow") > 0.5;
+        const bool behind_now = behind.property("gear/wow") > 0.5;
+        if (behind_now && !behind_touched) {
+            out.ahead_down_first = ahead_touched;
+        }
+        ahead_touched = ahead_touched || ahead_now;
+        behind_touched = behind_touched || behind_now;
+        // **Both in the air**, until the first touches: then it is landed,
+        // and landed is not traffic.
+        if (!ahead_touched && !behind_touched) {
+            const glideslope::sim::AircraftState a = ahead.state();
+            const glideslope::sim::AircraftState b = behind.state();
+            const double apart_m = glideslope::sim::distance_m(a.latitude_deg, a.longitude_deg,
+                                                               b.latitude_deg, b.longitude_deg);
+            const double apart_ft = std::abs(a.altitude_ft - b.altitude_ft);
+            if (apart_ft < glideslope::sim::Separation::minimum_ft) {
+                out.least_m = std::min(out.least_m, apart_m);
+            }
+            if (apart_m < glideslope::sim::Separation::minimum_m) {
+                out.least_ft = std::min(out.least_ft, apart_ft);
+            }
+            out.lost = out.lost || (apart_ft < glideslope::sim::Separation::minimum_ft &&
+                                    apart_m < glideslope::sim::Separation::minimum_m);
+        }
+        if (ahead_c.vacate() != nullptr && ahead_c.vacate()->clear() &&
+            behind_c.vacate() != nullptr && behind_c.vacate()->clear()) {
+            out.both_clear = true;
+            break;
+        }
+    }
+    return out;
+}
+
+// **Every way two can go around together, by speed**: the slowest
+// approach of every landplane taught it, the fastest, and the C172P's
+// between them, each ahead of each - a slower one behind, a faster one
+// behind (catching up), and one behind its own kind: nine pairs, three to
+// a test, every one flown. The flying boat is named and left out: it has
+// no runway to go round to.
+void two_going_around_together_with_ahead(const std::string& which) {
+    const auto taught = everyone_taught("approach-and-landing");
+    std::string slowest;
+    std::string fastest;
+    double slowest_kts = 1e9;
+    double fastest_kts = 0.0;
+    for (const std::string& id : taught) {
+        const auto entry = glideslope::sim::find_aircraft(data(), id);
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat has no runway to fly round to\n",
+                        id.c_str());
+            continue;
+        }
+        const double vref = glideslope::sim::approach_speeds(data(), entry.model).vref_kts;
+        if (vref < slowest_kts) {
+            slowest_kts = vref;
+            slowest = id;
+        }
+        if (vref > fastest_kts) {
+            fastest_kts = vref;
+            fastest = id;
+        }
+    }
+    const std::vector<std::string> kinds{slowest, "c172p", fastest};
+    check(slowest != "c172p" && fastest != "c172p" && slowest != fastest,
+          "three speeds: " + slowest + ", c172p, " + fastest);
+    const std::string ahead_id = which == "slowest"   ? slowest
+                                 : which == "fastest" ? fastest
+                                                      : which;
+    std::size_t flown = 0;
+    std::vector<std::string> wrong;
+    for (const std::string& behind_id : kinds) {
+        const TwoAround r = two_go_around_together(ahead_id, behind_id, true);
+        ++flown;
+        // "never": they were not that close by the other measure at all.
+        const auto figure = [](double v, const char* unit) {
+            return v > 1e8 ? std::string("never") : std::to_string(std::lround(v)) + unit;
+        };
+        const std::string least = "least " + figure(r.least_m, " m") +
+                                  " apart within 500 ft, least " + figure(r.least_ft, " ft") +
+                                  " apart within 1.5 nm";
+        std::printf("  %s ahead, %s behind: %s; the one behind %s, %d circuit(s), %s%s%s%s\n",
+                    ahead_id.c_str(), behind_id.c_str(), least.c_str(),
+                    r.followed ? "followed" : "DID NOT FOLLOW", r.behind_circuits,
+                    r.ahead_down_first ? "the one ahead down first" : "THE ONE BEHIND DOWN FIRST",
+                    r.both_clear ? ", both landed and clear" : ", NOT BOTH LANDED",
+                    r.wreck.empty() ? "" : ", wrecked: ", r.wreck.c_str());
+        const std::string pair = ahead_id + " ahead of " + behind_id;
+        if (r.lost) {
+            wrong.push_back(pair + ": not kept apart by 500 ft or 1.5 nm until the first was "
+                                   "down: " +
+                            least);
+        }
+        if (!r.followed) {
+            wrong.push_back(pair + ": the one behind did not follow the one ahead");
+        }
+        if (!r.wreck.empty()) {
+            wrong.push_back(pair + ": wrecked: " + r.wreck);
+        }
+        if (!r.ahead_down_first) {
+            wrong.push_back(pair + ": the one behind landed first");
+        }
+        if (!r.both_clear) {
+            wrong.push_back(pair + ": not both landed and taxied clear of the runway");
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(flown == kinds.size() && kinds.size() == 3,
+          ahead_id + " ahead of every one of the three: " + std::to_string(flown));
+}
+
+} // namespace
+
+// **Two going around together are kept apart round the circuit, and both
+// land, one after the other** (sim/circuit.hpp): the one behind follows,
+// 700 ft over the circuit ahead and down her downwind leg until the one
+// ahead is down. The space: the slowest landplane's approach, the C172P's
+// and the fastest's, each ahead of each - nine pairs, three to a test.
+GLIDESLOPE_TEST(two_going_around_together_behind_the_slowest_are_kept_apart_and_both_land) {
+    two_going_around_together_with_ahead("slowest");
+}
+GLIDESLOPE_TEST(two_going_around_together_behind_the_c172p_are_kept_apart_and_both_land) {
+    two_going_around_together_with_ahead("c172p");
+}
+GLIDESLOPE_TEST(two_going_around_together_behind_the_fastest_are_kept_apart_and_both_land) {
+    two_going_around_together_with_ahead("fastest");
 }
 
 // **The server and the client tell a controller how she lands from the same

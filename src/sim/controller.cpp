@@ -124,6 +124,7 @@ void Controller::engage() {
     departure_.reset();
     lander_.reset();
     circuit_.reset();
+    circling_.reset();
     vacate_.reset();
     learnt_.reset();
     at_gate_.reset();
@@ -753,6 +754,7 @@ void Controller::to_pilot() {
     }
     lander_.reset();
     circuit_.reset();
+    circling_.reset();
     vacate_.reset();
 }
 
@@ -805,6 +807,24 @@ Controls Controller::fly() {
         }
     }
     if (flying_ == Flying::ai) {
+        // **Down, she is out of the circuit's sequence**: the one behind
+        // may turn base.
+        if (circling_ && (vacate_ || (lander_ && lander_->touched()) ||
+                          (learnt_ && learnt_->touched()))) {
+            circling_.reset();
+        }
+        // **Into the sequence as she goes around**: her place is from the
+        // moment she does - her first go-around; round again, she keeps it -
+        // and, two in one step, the one further down the runway first.
+        if (lander_ && lander_->stage() == Lander::Stage::go_around &&
+            (!circling_ || !same_runway(circling_->runway, lander_->runway()))) {
+            const AircraftState s = a_.state();
+            circling_ = CirclePlace{
+                lander_->runway(), s.sim_time_s,
+                along_runway_nm(lander_->runway(), s.latitude_deg, s.longitude_deg),
+                lander_->runway().elevation_ft +
+                    GoAroundCircuit(a_, lander_->runway(), lander_->speeds()).circuit_ft()};
+        }
         // **Landed, she taxis off the runway** and stops beside it, where
         // she is told to (`vacates_runways`).
         if (vacate_) {
@@ -934,6 +954,10 @@ Controls Controller::fly() {
                 applied_ = lander_->fly();
                 return applied_;
             }
+            // **Following traffic ahead in the sequence**: raised over its
+            // circuit, and down the downwind leg until it is down.
+            circuit_->follow(circuit_ahead_ ? circuit_ahead_() : std::nullopt);
+            circling_->circuit_alt_ft = circuit_->runway().elevation_ft + circuit_->circuit_ft();
             autopilot_->set(circuit_->modes());
             notice_a_stall();
             autopilot_->limit_height(floor_ft_, ceiling_ft_);

@@ -3484,7 +3484,28 @@ private:
         controller->clears_with([this, &aircraft](const glideslope::sim::Runway& runway) {
             return runway_clear_of_others(runway, aircraft);
         });
+        // **Round a go-around's circuit, number two follows** (sim/circuit.hpp):
+        // the circuit ahead of her to her runway, of every aircraft the
+        // server flies, wrecks aside.
+        controller->follows_with([this, &aircraft] { return circuit_ahead_of(aircraft); });
         return controller;
+    }
+
+    // **The highest circuit ahead of `self`** in its runway's sequence
+    // (sim::circuit_ahead_alt_ft), of every aircraft the server flies, in its
+    // order; none, she is number one.
+    std::optional<double> circuit_ahead_of(const glideslope::sim::Aircraft& self) const {
+        std::vector<std::optional<glideslope::sim::CirclePlace>> places;
+        places.reserve(flown_.size());
+        std::size_t mine = flown_.size();
+        for (const Aircraft& b : flown_) {
+            if (b.aircraft.get() == &self) {
+                mine = places.size();
+            }
+            places.push_back(b.controller && b.wrecked_at_s < 0.0 ? b.controller->circling()
+                                                                  : std::nullopt);
+        }
+        return glideslope::sim::circuit_ahead_alt_ft(mine, places);
     }
 
     // **Whether nothing but `self` is on `runway`**: no other aircraft the
