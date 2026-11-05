@@ -6,19 +6,39 @@
   not wait for it, and it does not wait for her. The separation monitor
   (sim/separation.hpp) and the runway's rule (sim/vacate.hpp) still keep
   those apart. That is a tail.
-- **A person's aircraft ahead is waited for until she is down.** Taken
-  over in the circuit, she keeps her place. A person who never lands holds
-  the one behind in her racetrack for as long as she flies.
 - **No server run yet has two go around together.** The server asks every
-  aircraft it flies, by its own clock, but the verification is the unit
-  tests below. They call the same `sim::circuit_ahead_alt_ft` the server
-  does.
+  aircraft it flies, by the server's clock, but the verification is the
+  unit tests below. They call the same `sim::circuit_ahead_alt_ft` the
+  server does.
 - **The circuit is still left-hand only.** The order does not change once
   set: number two waits for number one even where she could have landed
   first.
-- **The F-15C wrecks after four racetracks.** Behind a C172P that goes
-  around a second time, at 34,478 lb, she strikes the runway with her
-  airframe on her roll-out. Her landing at that weight is a tail.
+
+**A stated behaviour, not a missing part: a person's aircraft ahead is
+waited for**, as a tower would hold the one behind for a pilot going round
+in its circuit. Taken over in the circuit, she keeps her place for ten
+minutes at most (`Controller::pilots_place_kept_s`, chosen: a C172P's
+whole circuit from a go-around is about six). After that her place goes,
+and the one behind lands with her as with any person's aircraft. The
+separation monitor and the runway's rule keep her clear.
+
+**The F-15C's wreck behind a C172P that goes around twice was the
+racetrack's, and is fixed.** Searched first: the F-15's roll-out is
+aerobraked nose high, 12 to 15 degrees, and braked once the nose wheel is
+down (DCS forum posts quoting the flight manual; no technical order text
+found). Her light weight was not the cause. A plain approach lands her
+cleanly at her figures' lightest loading and at 600, 1,234, 1,800 and
+2,400 lb a tank lighter: 34,478 lb and below, 387 to 438 ft/min, 283 to
+288 m along. Traced, the racetrack took the downwind line again from where
+it rolled out each time round. Each right turn back on to it carried her a
+turn's radius nearer the runway: -6.9, -4.3, -1.7 and then +0.8 km, past
+the centreline. Released there, she flew base, intercept and final in one
+step and joined final from its far side, 870 m right at 2.3 nm. She was
+still correcting 28 m left as she touched at 153 kt. On her roll-out her
+right main lifted and she struck the runway with her airframe. Now the
+line is taken once, the first time, and the turn in begins a turn's radius
+short of it: every lap is flown on the same line (-6.3 km), and she
+lands.
 
 **Researched first** (owner's standing rule):
 - FAA JO 7110.65BB 3-8-1, Sequence/Spacing Application: "Establish the
@@ -116,7 +136,12 @@ wheels touch, whoever flies her, or when she is handed back to the AI.
   named and left out: it has no runway).
   `every_landplane_has_a_test_of_two_going_around_together_with_her_ahead`
   fails if a landplane is added without its test. Each test asserts that
-  every landplane flew behind it.
+  every landplane flew behind it. They are labelled gust_sweep, as the
+  gust landings' long seeds are: every night on every preset, and on no
+  pull request's run.
+- `two_going_around_together_the_slowest_the_c172p_and_the_fastest_each_behind_each_are_kept_apart_and_both_land`:
+  the Cub, the C172P and the F-15C, each ahead of each - nine pairs, on
+  every run, pull requests' included.
   - The situation is built explicitly: the one ahead on the glidepath at
     200 ft, the one behind two miles further out on it (636 ft higher),
     both told to go around in the same step, and each asked of the other
@@ -128,20 +153,22 @@ wheels touch, whoever flies her, or when she is handed back to the AI.
     than her base point plus 2 nm.
   - Across all 225 pairs the least was 618 ft vertically within 1.5 nm,
     and 3,090 m horizontally within 500 ft. The one behind flew no
-    racetrack in 52 pairs, one in 132, two in 35 and three in 6.
+    racetrack in 52 pairs, one in 130, two in 27 and three in 16.
   - 52 to 76 s each on linux-release, about 3.5 s a pair. Each has a
     1,800 s timeout, as the rising-ground go-around test has, for Linux
     debug's runners.
 - `the_one_behind_two_going_around_whose_leader_goes_around_again_flies_a_racetrack_and_both_land`:
   the one ahead goes around a second time, below 300 ft on her circuit's
-  approach. The one behind flies one to three racetracks, 7.6 to 9.2 nm
+  approach. The one behind flies one to four racetracks, 7.3 to 9.2 nm
   out against limits of 7.7 to 9.3 (her base point plus the test's own
-  2 nm). Both land, kept apart (least 684 ft within 1.5 nm). The pairs are the Cub behind the C172P, and the C172P
-  behind the Cub and behind the F-15C. The F-15C behind the C172P is named
-  and left out (above).
+  2 nm). Both land, kept apart (least 658 ft within 1.5 nm). The pairs
+  are the Cub and the F-15C behind the C172P, and the C172P behind the Cub
+  and behind the F-15C: all four flown.
 - `the_one_ahead_of_two_going_around_taken_by_her_pilot_on_downwind_is_still_followed`:
-  the one ahead is taken by her pilot on her downwind leg; the one behind
-  follows her every step of the next minute.
+  the one ahead is taken by her pilot on her downwind leg and held in the
+  air there (her aircraft not stepped, her controller flying). The one
+  behind follows her every step of the ten minutes, and half a minute
+  after them follows her no longer.
 - `two_going_around_are_sequenced_by_the_callers_clock_not_their_own`: an
   aircraft made 30 s before another goes around 5 s before it, by the
   shared clock, and is number one.
@@ -159,7 +186,11 @@ wheels touch, whoever flies her, or when she is handed back to the AI.
 - **Each aircraft's own clock** for the place: "the one that went around
   first, by the shared clock, is number one" failed.
 - **The place dropped when her pilot takes her**: "the one behind followed
-  every step of the minute" failed.
+  every step of the ten minutes" failed. **The place never dropped**: "half
+  a minute after them, the one behind follows her no longer" failed.
+- **The racetrack's line taken again each time round**: the F-15C behind
+  the C172P walked across the runway and struck it with her airframe
+  (above).
 - **No limit on the extension** (2,000 nm): all three pairs flew no
   racetrack and went 14.0, 23.7 and 12.4 nm out, against limits of 7.9,
   7.7 and 9.3. Before the test stated its own 2 nm, it read the circuit's
@@ -168,7 +199,8 @@ wheels touch, whoever flies her, or when she is handed back to the AI.
   1,323 m. **The place's height only its set one**: three pairs with the
   PA-28 ahead fell to 476 ft.
 
-Unchanged and green after the fix round: every test matching go-around,
+Unchanged and green after the second fix round: every test matching go-around,
 circuit, land, separation, vacate, taxi, kept apart, lesson, controller and
-the selftest, 302 of 302 on linux-release (one skipped, as it needs a key).
+the selftest, the CI shard checks and the gust sweep, 304 of 304 on
+linux-release (one skipped, as it needs a key).
 The server and the tests build on Windows (windows-debug).

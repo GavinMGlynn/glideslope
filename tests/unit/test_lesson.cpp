@@ -10508,8 +10508,9 @@ enum class Then {
     // Down her circuit's approach again, below 300 ft, she goes around a
     // second time: the one behind has to wait a whole circuit more.
     ahead_goes_around_again,
-    // On her downwind leg, her pilot takes her and flies her on as the AI
-    // had her, for a minute.
+    // On her downwind leg, her pilot takes her and holds her there in the
+    // air - built: her aircraft is no longer stepped, her controller still
+    // flies - for her place's ten minutes and half a minute more.
     ahead_taken_by_her_pilot,
 };
 
@@ -10538,8 +10539,10 @@ struct TwoAround {
     int racetracks = 0;            // flown by the one behind
     double furthest_out_nm = 0.0;  // the one behind, before the threshold
     double leave_downwind_nm = 0.0; // where she turns base, unextended
-    // Taken by her pilot: the one behind followed every step of the minute.
+    // Taken by her pilot: the one behind followed every step of her place's
+    // ten minutes, and followed no longer half a minute after them.
     bool followed_while_taken = false;
+    bool released_after = false;
     std::string wreck;
 };
 
@@ -10630,8 +10633,10 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
             ahead_c.go_around();
         }
         ahead_last = ahead_c.fly();
-        ahead.set_controls(ahead_last);
-        ahead.step();
+        if (taken_at < 0) {
+            ahead.set_controls(ahead_last);
+            ahead.step();
+        }
         behind.set_controls(behind_c.fly());
         behind.step();
         now_s += 1.0 / steps_per_second;
@@ -10660,9 +10665,12 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
             out.leave_downwind_nm = c->leave_downwind_nm();
         }
         if (taken_at >= 0) {
-            out.followed_while_taken =
-                out.followed_while_taken && circling && behind_c.circuit()->following();
-            if (t - taken_at >= 60 * steps_per_second) {
+            const double held_s = static_cast<double>(t - taken_at) / steps_per_second;
+            if (held_s < glideslope::sim::Controller::pilots_place_kept_s) {
+                out.followed_while_taken =
+                    out.followed_while_taken && circling && behind_c.circuit()->following();
+            } else if (held_s >= glideslope::sim::Controller::pilots_place_kept_s + 30.0) {
+                out.released_after = !(circling && behind_c.circuit()->following());
                 break;
             }
             continue;
@@ -10742,6 +10750,42 @@ std::vector<std::string> judged(const std::string& pair, const TwoAround& r) {
     return wrong;
 }
 
+// **Each of `aheads` ahead of each of `behinds`**, flown and judged; every
+// pair asserted flown.
+void going_around_together(const std::vector<std::string>& aheads,
+                           const std::vector<std::string>& behinds) {
+    std::set<std::pair<std::string, std::string>> flown;
+    std::vector<std::string> wrong;
+    for (const std::string& ahead_id : aheads) {
+        for (const std::string& behind_id : behinds) {
+            const auto started = std::chrono::steady_clock::now();
+            const TwoAround r = two_go_around_together(ahead_id, behind_id, true);
+            flown.insert({ahead_id, behind_id});
+            std::printf("  %s ahead, %s behind: %s; the one behind %s, %d circuit(s), %d "
+                        "racetrack(s), %.1f nm out at most; %s%s%s%s (%.1f s)\n",
+                        ahead_id.c_str(), behind_id.c_str(), least_of(r).c_str(),
+                        r.followed ? "followed" : "DID NOT FOLLOW", r.behind_circuits,
+                        r.racetracks, r.furthest_out_nm,
+                        r.ahead_down_first ? "the one ahead down first"
+                                           : "THE ONE BEHIND DOWN FIRST",
+                        r.both_clear ? ", both landed and clear" : ", NOT BOTH LANDED",
+                        r.wreck.empty() ? "" : ", wrecked: ", r.wreck.c_str(),
+                        std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
+                            .count());
+            const auto w = judged(ahead_id + " ahead of " + behind_id, r);
+            wrong.insert(wrong.end(), w.begin(), w.end());
+        }
+    }
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(flown.size() == aheads.size() * behinds.size(),
+          "every pair flown: " + std::to_string(flown.size()) + " of " +
+              std::to_string(aheads.size() * behinds.size()));
+}
+
 // **Every landplane behind `ahead_id`**, the one ahead going around with
 // each: a slower one behind, a faster one catching up, and one behind its
 // own kind.
@@ -10749,33 +10793,7 @@ void every_landplane_going_around_behind(const std::string& ahead_id) {
     const std::vector<std::string> kinds = landplanes_going_around();
     check(std::find(kinds.begin(), kinds.end(), ahead_id) != kinds.end(),
           ahead_id + " is a landplane that goes around");
-    std::set<std::string> flown;
-    std::vector<std::string> wrong;
-    for (const std::string& behind_id : kinds) {
-        const auto started = std::chrono::steady_clock::now();
-        const TwoAround r = two_go_around_together(ahead_id, behind_id, true);
-        flown.insert(behind_id);
-        std::printf("  %s ahead, %s behind: %s; the one behind %s, %d circuit(s), %d "
-                    "racetrack(s), %.1f nm out at most; %s%s%s%s (%.1f s)\n",
-                    ahead_id.c_str(), behind_id.c_str(), least_of(r).c_str(),
-                    r.followed ? "followed" : "DID NOT FOLLOW", r.behind_circuits, r.racetracks,
-                    r.furthest_out_nm,
-                    r.ahead_down_first ? "the one ahead down first" : "THE ONE BEHIND DOWN FIRST",
-                    r.both_clear ? ", both landed and clear" : ", NOT BOTH LANDED",
-                    r.wreck.empty() ? "" : ", wrecked: ", r.wreck.c_str(),
-                    std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
-                        .count());
-        const auto w = judged(ahead_id + " ahead of " + behind_id, r);
-        wrong.insert(wrong.end(), w.begin(), w.end());
-    }
-    for (const std::string& w : wrong) {
-        std::printf("  WRONG: %s\n", w.c_str());
-    }
-    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
-                             (wrong.empty() ? "" : wrong.front()));
-    check(flown == std::set<std::string>(kinds.begin(), kinds.end()),
-          ahead_id + " ahead of every landplane: " + std::to_string(flown.size()) + " of " +
-              std::to_string(kinds.size()));
+    going_around_together({ahead_id}, kinds);
 }
 
 // **The landplanes with a test of their own ahead of every other**, below:
@@ -10794,6 +10812,34 @@ const std::vector<std::string>& ahead_tested() {
 // 700 ft over the circuit ahead and down her downwind leg until the one
 // ahead is down. The space is every landplane ahead of every landplane,
 // each pair flown; this test holds that every one has its test below.
+// **On every run, pull requests' too**: the slowest approach of every
+// landplane that goes around (the J-3 Cub), the C172P and the fastest (the
+// F-15C), each ahead of each - nine pairs, every kind of closing. All 225
+// pairs are the fifteen tests below, run every night (gust_sweep).
+GLIDESLOPE_TEST(two_going_around_together_the_slowest_the_c172p_and_the_fastest_each_behind_each_are_kept_apart_and_both_land) {
+    std::string slowest;
+    std::string fastest;
+    double slowest_kts = 1e9;
+    double fastest_kts = 0.0;
+    for (const std::string& id : landplanes_going_around()) {
+        const double vref =
+            glideslope::sim::approach_speeds(data(), glideslope::sim::find_aircraft(data(), id).model)
+                .vref_kts;
+        if (vref < slowest_kts) {
+            slowest_kts = vref;
+            slowest = id;
+        }
+        if (vref > fastest_kts) {
+            fastest_kts = vref;
+            fastest = id;
+        }
+    }
+    check(slowest != "c172p" && fastest != "c172p" && slowest != fastest,
+          "three speeds: " + slowest + ", c172p, " + fastest);
+    const std::vector<std::string> three{slowest, "c172p", fastest};
+    going_around_together(three, three);
+}
+
 GLIDESLOPE_TEST(every_landplane_has_a_test_of_two_going_around_together_with_her_ahead) {
     std::vector<std::string> kinds = landplanes_going_around();
     std::vector<std::string> tested = ahead_tested();
@@ -10861,25 +10907,17 @@ GLIDESLOPE_TEST(two_going_around_together_behind_the_pa28_are_kept_apart_and_bot
 // no further out than where she would turn base and
 // GoAroundCircuit::longest_extension_nm, until the one ahead is down; both
 // land, the one ahead first, kept apart all the while. The slowest and the
-// fastest landplane behind the C172P, and the C172P behind each - but the
-// F-15C behind the C172P is named and left out: after four racetracks,
-// at 34,478 lb, she touches down and on her roll-out, 1.5 degrees nose
-// down at 128 kt, strikes the runway with her airframe (a tail: her
-// landing light, not the sequence; kept apart all the while, 658 ft).
-// Behind the C172P without the second go-around she lands (above).
+// fastest landplane behind the C172P, and the C172P behind each. The
+// F-15C behind the C172P flies four racetracks: when each joined the
+// downwind line again where it rolled out, four walked her across the
+// runway and she joined final from its far side, unestablished, and
+// struck the runway with her airframe on her roll-out.
 GLIDESLOPE_TEST(the_one_behind_two_going_around_whose_leader_goes_around_again_flies_a_racetrack_and_both_land) {
     const std::vector<std::pair<std::string, std::string>> pairs{
         {"c172p", "j3cub"}, {"c172p", "f15c"}, {"j3cub", "c172p"}, {"f15c", "c172p"}};
     std::vector<std::string> wrong;
     std::size_t flown = 0;
-    std::size_t left_out = 0;
     for (const auto& [ahead_id, behind_id] : pairs) {
-        if (ahead_id == "c172p" && behind_id == "f15c") {
-            std::printf("  left out - the f15c behind the c172p: her roll-out at 34,478 lb "
-                        "strikes the runway with her airframe (a tail)\n");
-            ++left_out;
-            continue;
-        }
         const TwoAround r =
             two_go_around_together(ahead_id, behind_id, true, Then::ahead_goes_around_again);
         ++flown;
@@ -10906,18 +10944,21 @@ GLIDESLOPE_TEST(the_one_behind_two_going_around_whose_leader_goes_around_again_f
     }
     check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
                              (wrong.empty() ? "" : wrong.front()));
-    check(flown == 3 && left_out == 1 && flown + left_out == pairs.size(),
-          "three pairs flown and one named, of four: " + std::to_string(flown) + " flown");
+    check(flown == 4 && flown == pairs.size(), "four pairs flown, not " + std::to_string(flown));
 }
 
-// **Taken by her pilot in the circuit, the one ahead keeps her place**:
-// the one behind goes on following her - raised over her, and not turning
-// base - every step of the minute her pilot flies her down the downwind leg.
+// **Taken by her pilot in the circuit, the one ahead keeps her place** for
+// Controller::pilots_place_kept_s: the one behind goes on following her -
+// raised over her, and not turning base - every step of the ten minutes her
+// pilot holds her in the air, and half a minute after them follows her no
+// longer.
 GLIDESLOPE_TEST(the_one_ahead_of_two_going_around_taken_by_her_pilot_on_downwind_is_still_followed) {
     const TwoAround r =
         two_go_around_together("c172p", "c172p", true, Then::ahead_taken_by_her_pilot);
     check(r.followed_while_taken,
-          "the one behind followed every step of the minute the one ahead was her pilot's");
+          "the one behind followed every step of the ten minutes the one ahead was her "
+          "pilot's");
+    check(r.released_after, "half a minute after them, the one behind follows her no longer");
 }
 
 // **The sequence is by one clock, not each aircraft's own** (the server's

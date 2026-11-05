@@ -170,14 +170,22 @@ AutopilotModes GoAroundCircuit::modes() {
         // from the runway and flies back up a racetrack outside her own
         // circuit, still at her raised height, to join the downwind leg
         // again where she would have turned base.
-        downwind_m_ = across_m();
+        // The downwind line is taken once, the first time: taken again each
+        // time round, every turn back on to it carried her a turn's radius
+        // nearer the runway, and four racetracks walked an F-15C across it
+        // to join final from its far side.
+        if (!downwind_m_) {
+            downwind_m_ = across_m();
+        }
         leg_ = Leg::turn_out;
-    } else if (leg_ == Leg::turn_out && across_m() <= downwind_m_ - 2.0 * turn_radius_m_) {
+    } else if (leg_ == Leg::turn_out && across_m() <= *downwind_m_ - 2.0 * turn_radius_m_) {
         leg_ = Leg::outbound;
         ++racetracks_;
     } else if (leg_ == Leg::outbound && along_nm() >= -leave_downwind_nm_) {
         leg_ = Leg::turn_in;
-    } else if (leg_ == Leg::turn_in && across_m() >= downwind_m_) {
+    } else if (leg_ == Leg::turn_in && across_m() >= *downwind_m_ - turn_radius_m_) {
+        // A turn's radius short of the line: her right turn on to the
+        // downwind heading rolls her out on it.
         leg_ = Leg::downwind;
     } else if (leg_ == Leg::base && across_m() >= -(2.0 * turn_radius_m_ + 200.0)) {
         leg_ = Leg::intercept;

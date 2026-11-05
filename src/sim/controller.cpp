@@ -125,6 +125,7 @@ void Controller::engage() {
     lander_.reset();
     circuit_.reset();
     circling_.reset();
+    taken_with_place_s_.reset();
     vacate_.reset();
     learnt_.reset();
     at_gate_.reset();
@@ -756,8 +757,16 @@ void Controller::to_pilot() {
     circuit_.reset();
     // **Her place in a circuit's sequence is kept**: taken over in the
     // circuit, she is still ahead of the one behind until she is down
-    // (below), or handed back to the AI (`engage`).
+    // (below), handed back to the AI (`engage`), or `pilots_place_kept_s`
+    // has passed.
+    if (circling_) {
+        taken_with_place_s_ = sequence_now();
+    }
     vacate_.reset();
+}
+
+double Controller::sequence_now() const {
+    return sequence_clock_ ? sequence_clock_() : a_.state().sim_time_s;
 }
 
 void Controller::go_around(std::string why) {
@@ -784,6 +793,11 @@ bool Controller::runway_not_clear(const Runway& runway) const {
 }
 
 Controls Controller::fly() {
+    // Her pilot's for longer than her place is kept: out of the sequence.
+    if (flying_ == Flying::pilot && circling_ && taken_with_place_s_ &&
+        sequence_now() - *taken_with_place_s_ >= pilots_place_kept_s) {
+        circling_.reset();
+    }
     if (a_.property("gear/wow") > 0.5) {
         // Down, whoever flies her: out of the circuit's sequence.
         circling_.reset();
@@ -826,7 +840,7 @@ Controls Controller::fly() {
             // From the caller's clock, which every aircraft shares: her own
             // starts when she was made.
             circling_ = CirclePlace{
-                lander_->runway(), sequence_clock_ ? sequence_clock_() : s.sim_time_s,
+                lander_->runway(), sequence_now(),
                 along_runway_nm(lander_->runway(), s.latitude_deg, s.longitude_deg),
                 lander_->runway().elevation_ft +
                     GoAroundCircuit(a_, lander_->runway(), lander_->speeds()).circuit_ft()};
