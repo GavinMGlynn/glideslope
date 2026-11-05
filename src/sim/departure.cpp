@@ -87,6 +87,10 @@ constexpr double a_hands_pace = 1.0 / steps_per_second;
 constexpr double flaps_still_deg = 1e-6;
 // Where a take-off whose flap will not come up ends anyway (fly_laws).
 constexpr double take_off_path_ft = 1500.0;
+// **A positive rate of climb**: as a circuit raises her gear on (circuit.cpp),
+// and held for a second (Departure::raise_the_gear).
+constexpr double positive_rate_fpm = 100.0;
+constexpr double positive_rate_held_s = 1.0;
 constexpr double take_off_power_s = 300.0;
 
 
@@ -367,6 +371,11 @@ Departure::Departure(const Aircraft& aircraft, const Runway& runway,
         flap_lever_ = std::clamp(a_.property("fcs/flap-cmd-norm"), 0.0, 1.0);
         flap_aim_ = flap_lever_;
     }
+    // **And the gear lever too**: a take-off handed back with her gear
+    // already coming up does not put it down again.
+    if (a_.property("gear/wow") < 0.5 && !a_.in_water() && a_.gear_retracts()) {
+        gear_lever_ = std::clamp(a_.property("gear/gear-cmd-norm"), 0.0, 1.0);
+    }
     standing_m_ = above_m_;
     standing_pitch_deg_ = a_.state().pitch_deg;
     // **The stick as she is handed over is where this autopilot last put
@@ -468,6 +477,32 @@ void Departure::retract_flaps(double kcas) {
     move_lever();
 }
 
+// **Gear up on a positive rate of climb**, where her gear retracts: off the
+// ground, and climbing for a second together - a rate confirmed, not a
+// bounce. "After a positive rate of climb is indicated on the altimeter,
+// retract the landing gear" (Boeing's 737 Flight Crew Training Manual, as
+// pilots quote it); Airbus's PM calls "positive climb" and the PF orders
+// the gear up; the FAA's Airplane Flying Handbook warns against raising it
+// before a positive rate is established; and the Mosquito's Pilot's Notes
+// (A.P. 2019E, take-off): "When comfortably airborne, brake the wheels and
+// raise the undercarriage". The fighters' manuals that say are not public,
+// and they are flown by the same rule. Until 2026-11-05 no AI take-off
+// raised it, and every planned flight climbed and cruised with it down, the
+// fighters at 337 to 384 kt. Fixed gear has no lever to move.
+void Departure::raise_the_gear(bool on_ground) {
+    if (gear_lever_ <= 0.0 || !a_.gear_retracts()) {
+        return;
+    }
+    if (unstuck_ && !on_ground && a_.state().climb_rate_fpm > positive_rate_fpm) {
+        ++climbing_steps_;
+    } else {
+        climbing_steps_ = 0;
+    }
+    if (static_cast<double>(climbing_steps_) >= positive_rate_held_s * steps_per_second) {
+        gear_lever_ = 0.0;
+    }
+}
+
 bool Departure::flaps_up() const {
     return flap_lever_ <= 0.0 &&
            static_cast<double>(flaps_still_steps_) >= flaps_settle_s * steps_per_second;
@@ -514,7 +549,6 @@ Controls Departure::fly_laws() {
     const double kcas = s.airspeed_kts;
 
     Controls c;
-    c.gear = 1.0;
     c.propeller = 1.0;
     // **The flaps where the take-off has them**: the take-off flap, until
     // they come up (retract_flaps, below). They were once put back to the
@@ -598,6 +632,8 @@ Controls Departure::fly_laws() {
         retract_flaps(kcas);
         c.flaps = flap_lever_;
     }
+    raise_the_gear(on_ground);
+    c.gear = gear_lever_;
     //
     // **But it always ends.** A take-off that never makes the speed its flap
     // comes up at - asked for one she cannot reach, or short of thrust -
