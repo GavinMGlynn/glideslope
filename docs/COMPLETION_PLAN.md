@@ -1586,6 +1586,12 @@ AI aircraft kept apart from each other and clear of the runway.
       but a wreck flown again goes back to its own starting layer.
       *Verification: a wreck flown again while a player is at the start on
       its layer is kept 500 ft or 1.5 nm from her.*
+- [ ] **The climb before a hold on raised ground is not measured against a
+      person**: an AI aircraft leaving the circuit climbs in turns before
+      setting off when the ground ahead is high, and nothing measures her
+      separation from a person still flying the circuit while she does.
+      *Verification: on raised ground, an AI climbing before her hold stays
+      500 ft or 1.5 nm from a person flying the circuit.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the
