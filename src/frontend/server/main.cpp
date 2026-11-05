@@ -1584,7 +1584,6 @@ public:
                 // plan's heights at its first waypoint and they flew the tour
                 // on top of one another, 37 m apart.
                 const double stack_ft = static_cast<double>(i) * ai_stack_ft;
-                plan_layers_ = std::max(plan_layers_, static_cast<std::size_t>(i) + 1);
                 controller->to_ai(stacked(plan, stack_ft));
                 flown_.push_back({plan.aircraft + " (AI " + std::to_string(i + 1) + ")",
                                   std::move(aircraft), std::move(controller),
@@ -1715,26 +1714,50 @@ public:
         glideslope::sim::InitialConditions ic;
         ic.latitude_deg = start_.latitude_deg;
         ic.longitude_deg = start_.longitude_deg;
-        // Above everything already flying, so that being given an aircraft
-        // never puts one inside another - **and above every plan-file AI
-        // aircraft's layer**: those are stacked by their AI number, so with
-        // planned aircraft not yet taken off the top one flies higher than
-        // the count of those in the sky reaches. Counted alone, a player
-        // who joined before the first planned aircraft was away was put on
-        // the top plan-file aircraft's layer, at its start, and both were
-        // wrecks at once (CI, #337's run 41961819690). **Each player a
-        // layer of their own over those**: over the plan-file layers by
-        // one more than the players already flying, so that two who join
-        // before the planned aircraft are up are not both put one over the
-        // plan-file layers (review of #337) - and over everything in the
-        // sky as ever. Both terms grow with every join, so no two joins
-        // share one.
-        const auto players_flying = static_cast<std::size_t>(std::count_if(
-            flown_.begin(), flown_.end(), [](const Aircraft& a) { return a.slot >= 0; }));
-        ic.altitude_ft =
-            start_.altitude_ft +
-            static_cast<double>(std::max(flown_.size(), plan_layers_ + players_flying) + 1) *
-                ai_stack_ft;
+        // **The lowest free layer at or above one over everything flying**:
+        // one layer over the count of aircraft in the sky, as ever, and up
+        // from there past any layer an aircraft holds near the start -
+        // within 1.5 nm of it and 700 ft of the layer's height. Counted
+        // alone, the layer was taken by another (each wrecks at once or
+        // flies on top of the other):
+        // - a planned aircraft not yet away leaves the plan-file aircraft,
+        //   stacked by their AI number, higher than the count reaches (CI,
+        //   #337's run 41961819690);
+        // - two players joining then both went one over those (review of
+        //   b97ec439);
+        // - a player who left was taken out of the sky, and the next to join
+        //   was put on the layer of a player still at the start (review of
+        //   700a9049; so before #337 too).
+        // Bounded: it never climbs past one layer over everything near the
+        // start.
+        glideslope::sim::Traffic at_start;
+        at_start.latitude_deg = start_.latitude_deg;
+        at_start.longitude_deg = start_.longitude_deg;
+        std::size_t layer = flown_.size() + 1;
+        const auto held = [&](std::size_t k) {
+            const double layer_ft = start_.altitude_ft + static_cast<double>(k) * ai_stack_ft;
+            return std::any_of(flown_.begin(), flown_.end(), [&](const Aircraft& a) {
+                if (a.wrecked_at_s >= 0.0) {
+                    return false;
+                }
+                const glideslope::sim::AircraftState s = a.aircraft->state();
+                glideslope::sim::Traffic t;
+                t.latitude_deg = s.latitude_deg;
+                t.longitude_deg = s.longitude_deg;
+                return glideslope::sim::horizontal_m(at_start, t) <
+                           glideslope::sim::Separation::minimum_m &&
+                       std::abs(s.altitude_ft - layer_ft) <
+                           glideslope::sim::Separation::minimum_ft +
+                               glideslope::sim::Separation::margin_ft;
+            });
+        };
+        while (held(layer)) {
+            ++layer;
+        }
+        ic.altitude_ft = start_.altitude_ft + static_cast<double>(layer) * ai_stack_ft;
+        std::printf("a player's aircraft starts on layer %zu, %.0f ft over the plan's start\n",
+                    layer, static_cast<double>(layer) * ai_stack_ft);
+        std::fflush(stdout);
         ic.heading_deg = start_.heading_deg;
         ic.airspeed_kts = airspeed_kts;
         ic.engine_running = true;
@@ -4020,10 +4043,6 @@ private:
         return std::nullopt;
     }
     int ai_ = 0;
-    // How many layers the plan-file AI aircraft are stacked on: one more than
-    // the highest AI number among them, counted from 0. A player joining
-    // starts above them all.
-    std::size_t plan_layers_ = 0;
     // How many aircraft have been made, for each to have a serial.
     std::uint64_t made_ = 0;
     // **How close every two AI aircraft have come**, by their serials: what

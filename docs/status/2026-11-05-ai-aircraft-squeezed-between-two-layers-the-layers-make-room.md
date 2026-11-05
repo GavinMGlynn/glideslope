@@ -199,30 +199,43 @@ Reproduced here in linux-debug on the old code: "aircraft 5 is a wreck,
 aircraft 0 is a wreck", word for word as on CI. And the test now fails at
 once, saying so, when the client hears a wreck.
 
-**Each player on a layer of their own** (review of b97ec439). The first fix
-put a joining player one layer over the more of the aircraft in the sky
-and the plan-file layers (`plan_layers_`). That put two players who both
-joined before the planned aircraft were up on the same layer, max(2, 4) + 1
-and max(3, 4) + 1. Before it, they got 3 and 4. Now a player goes one
-layer over the more of these two counts:
-- the aircraft in the sky;
-- the plan-file layers plus the players already flying.
+**Each player on a free layer** (reviews of b97ec439 and 700a9049). Two
+counting rules were tried, and both failed:
+- **One over the more of the aircraft in the sky and the plan-file
+  layers** (b97ec439). Two players who both joined before the planned
+  aircraft were up got the same layer: max(2, 4) + 1 and max(3, 4) + 1.
+- **Over the plan-file layers by the players flying** (700a9049). A
+  player who left was taken out of the sky, and the next to join was
+  counted onto the layer of a player still at the start.
 
-Both counts grow with every join, so no two joins share a layer.
-**`plan_layers_` only ever grows**: it is one more than the highest AI
-number a plan-file aircraft was made with, kept for the session. A
-plan-file aircraft that is wrecked or leaves does not lower it, so a
-player may start higher than needed, never lower.
-`two_players_joining_before_a_planned_ai_aircraft_takes_off_each_get_a_layer_of_their_own_and_neither_is_wrecked`
-(`server_players_join_before_takeoff.cmake`) builds the case:
-- four AI aircraft, two planned, the second held on the ground by
-  `--ai-spacing 600`;
-- two clients joining at once, each told of at least five aircraft;
-- nothing wrecked.
+That second fault **existed before #337**: the old rule, one over the
+count in the sky, gives the same 3, 4, 4.
 
-**Seen to fail** on b97ec439's server: "aircraft 0, c172p (slot 0), is a
-wreck: collided with aircraft 1". It passes with the fix, as do the five
-other run tests that put a player on the server: both copilot runs, the
+**Now a join takes the lowest free layer** at or above one over the count
+in the sky (the old rule, so every join that was clear before starts where
+it did). It goes up past any layer an aircraft holds near the start,
+within 1.5 nm of it and 700 ft of the layer's height. It never climbs past
+one layer over everything near the start, so it does not grow without
+bound on a long-running server. No `plan_layers_` or join counter is kept.
+The server says where each player starts ("a player's aircraft starts on
+layer N").
+
+Two tests build the cases:
+- `two_players_joining_before_a_planned_ai_aircraft_takes_off_each_get_a_layer_of_their_own_and_neither_is_wrecked`
+  (`server_players_join_before_takeoff.cmake`): four AI aircraft, two
+  planned, the second held on the ground by `--ai-spacing 600`, and two
+  clients joining at once. Each client is told of at least five aircraft,
+  and nothing is wrecked. **Seen to fail** on b97ec439: "aircraft 0,
+  c172p (slot 0), is a wreck: collided with aircraft 1".
+- `a_player_joining_after_another_has_left_is_put_on_a_layer_no_aircraft_near_the_start_holds`
+  (`server_rejoin_layer.cmake`): two plan-file AI aircraft. A joins and
+  leaves after 6 s, B joins at 1 s and stays, and C joins at 12 s while B
+  is still near the start. **Seen to fail** on 700a9049's rule (its start
+  line put in for the run): layers 3, 4, 4, "C ... was put on B's layer
+  4". Now C is clear of B's layer.
+
+Both pass with the fix. So do the six other run tests that put a player on
+the server: both copilot runs, the copilot against planned aircraft, the
 handed run, the spiral run, and the server's copilot as recorded.
 
 The selftest hash does not move: the selftest flies the test pilot, which
