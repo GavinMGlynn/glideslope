@@ -29,9 +29,22 @@
 // take-off on to crosswind at the take-off's turn height, climbing at its
 // climb speed and rate with the take-off flap out. **It is flown that high over the
 // highest ground of the circuit**, where the ground rises above the runway,
-// as her terrain has it. **It knows no traffic**: nothing keeps it clear of
-// another aircraft in the circuit but what the separation monitor puts on
-// the autopilot's height (sim/separation.hpp).
+// as her terrain has it.
+//
+// **Number two follows** (`follow`): two or more going round to one runway
+// are sequenced as a tower sequences them (FAA JO 7110.65, 3-8-1: "EXTEND
+// DOWNWIND", "NUMBER (sequence), FOLLOW (traffic)"), in the order they went
+// around (`circuit_ahead_alt_ft`). One with traffic ahead of her flies her
+// circuit `above_ahead_ft` over the highest circuit ahead of her - the
+// separation minimum's 500 ft (JO 7110.65, 7-9-4; sim/separation.hpp) and the
+// monitor's 200 in hand - and flies on down her downwind leg, not turning
+// base, until everything ahead has touched down: no arrival crosses the
+// threshold until the one before has landed (JO 7110.65, 3-10-3), and the
+// runway's own rule (sim/vacate.hpp) sends her round again if it is still on
+// it. So on every leg she is the height apart from the one ahead until it is
+// down, and only then comes down through its height to the runway.
+// Anything else - an aircraft on the approach straight in, a departure - is
+// left to the separation monitor and the runway's rule.
 //
 // It flies through the plain autopilot: what it gives is the modes to hold,
 // and the flap and gear to set over what the autopilot flies.
@@ -40,7 +53,9 @@
 #include "sim/lander.hpp"
 #include "sim/plan.hpp"
 
+#include <cstddef>
 #include <optional>
+#include <vector>
 
 namespace glideslope::sim {
 
@@ -61,8 +76,35 @@ struct CircuitEntry {
     std::optional<double> flaps;      // none: half the landing flap
 };
 
+// **Where she is in a circuit's sequence**: the runway she is going round
+// to, when she joined it (sim time, s: her first go-around, kept through
+// another), how far down the runway she was then (nm past the threshold),
+// and the height her circuit is flown at, above sea level, ft. Held from
+// the go-around until she touches down.
+struct CirclePlace {
+    Runway runway;
+    double since_s = 0.0;
+    double along_nm = 0.0;
+    double circuit_alt_ft = 0.0;
+};
+
+// Whether two runways are one: the same name and threshold.
+bool same_runway(const Runway& a, const Runway& b);
+
+// **The traffic `self` follows**, of every aircraft's place in order (none
+// for one not in a circuit): the highest circuit height of those going round
+// to her runway ahead of her - joined earlier; at the same time, further
+// down the runway; and level with her there too, before her in the order -
+// or none, she is number one.
+std::optional<double> circuit_ahead_alt_ft(std::size_t self,
+                                           const std::vector<std::optional<CirclePlace>>& all);
+
 class GoAroundCircuit {
 public:
+    // **How far above the circuit ahead she flies hers**: the separation
+    // minimum, 500 ft, and the 200 the monitor keeps in hand.
+    static constexpr double above_ahead_ft = 700.0;
+
     enum class Leg { upwind, crosswind, downwind, base, intercept, final };
 
     GoAroundCircuit(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
@@ -74,6 +116,14 @@ public:
     // The configuration over the autopilot's controls: the go-around flap,
     // and the gear up once she climbs, where it retracts.
     void configure(Controls& controls) const;
+
+    // **Traffic ahead in the sequence**, told every step: the height of the
+    // highest circuit ahead of her, above sea level, or none. With traffic
+    // ahead her circuit is raised to `above_ahead_ft` over it (and stays so)
+    // and she flies on down the downwind leg; with none, she turns base where
+    // her circuit has her.
+    void follow(std::optional<double> ahead_alt_ft);
+    bool following() const { return following_; }
 
     Leg leg() const { return leg_; }
     bool on_final() const { return leg_ == Leg::final; }
@@ -102,6 +152,7 @@ private:
     double turn_radius_m_ = 0.0;
     double leave_downwind_nm_ = 0.0;
     bool gear_up_ = false;
+    bool following_ = false;
 };
 
 } // namespace glideslope::sim

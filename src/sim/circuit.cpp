@@ -32,6 +32,34 @@ double across_runway_m(const Runway& r, double latitude_deg, double longitude_de
     return east_m * std::cos(h) - north_m * std::sin(h);
 }
 
+bool same_runway(const Runway& a, const Runway& b) {
+    return a.name == b.name && a.threshold_lat_deg == b.threshold_lat_deg &&
+           a.threshold_lon_deg == b.threshold_lon_deg;
+}
+
+std::optional<double> circuit_ahead_alt_ft(std::size_t self,
+                                           const std::vector<std::optional<CirclePlace>>& all) {
+    if (self >= all.size() || !all[self]) {
+        return std::nullopt;
+    }
+    const CirclePlace& mine = *all[self];
+    std::optional<double> highest;
+    for (std::size_t i = 0; i < all.size(); ++i) {
+        if (i == self || !all[i] || !same_runway(all[i]->runway, mine.runway)) {
+            continue;
+        }
+        const CirclePlace& other = *all[i];
+        const bool ahead =
+            other.since_s < mine.since_s ||
+            (other.since_s == mine.since_s &&
+             (other.along_nm > mine.along_nm || (other.along_nm == mine.along_nm && i < self)));
+        if (ahead) {
+            highest = std::max(highest.value_or(all[i]->circuit_alt_ft), all[i]->circuit_alt_ft);
+        }
+    }
+    return highest;
+}
+
 GoAroundCircuit::GoAroundCircuit(const Aircraft& aircraft, const Runway& runway,
                                  const ApproachSpeeds& speeds, const CircuitEntry& entry)
     // Her speeds for what she weighs (`for_weight`); already so from a
@@ -81,6 +109,20 @@ GoAroundCircuit::GoAroundCircuit(const Aircraft& aircraft, const Runway& runway,
     leave_downwind_nm_ = circuit_ft_ / 318.0 + 0.33;
 }
 
+void GoAroundCircuit::follow(std::optional<double> ahead_alt_ft) {
+    following_ = ahead_alt_ft.has_value();
+    if (!ahead_alt_ft) {
+        return;
+    }
+    // Raised, and kept raised: the downwind leg is left where the glidepath
+    // meets the height she is at.
+    const double above_ft = *ahead_alt_ft + above_ahead_ft - runway_.elevation_ft;
+    if (above_ft > circuit_ft_) {
+        circuit_ft_ = above_ft;
+        leave_downwind_nm_ = circuit_ft_ / 318.0 + 0.33;
+    }
+}
+
 double GoAroundCircuit::along_nm() const {
     const AircraftState s = a_.state();
     return along_runway_nm(runway_, s.latitude_deg, s.longitude_deg);
@@ -111,7 +153,8 @@ AutopilotModes GoAroundCircuit::modes() {
         // Far enough out to turn base and final from, and at circuit height:
         // downwind is flown level.
         leg_ = Leg::downwind;
-    } else if (leg_ == Leg::downwind && along_nm() <= -leave_downwind_nm_) {
+    } else if (leg_ == Leg::downwind && along_nm() <= -leave_downwind_nm_ && !following_) {
+        // Following traffic, she extends her downwind until it is down.
         leg_ = Leg::base;
     } else if (leg_ == Leg::base && across_m() >= -(2.0 * turn_radius_m_ + 200.0)) {
         leg_ = Leg::intercept;
