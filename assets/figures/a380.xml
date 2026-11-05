@@ -167,16 +167,17 @@
        to flaps 8 (CONF 1+F) and flaps up by the square root of her lift
        table's greatest coefficients, 2.11 at 17 degrees, 1.94 at 8 and
        1.333 clean - 142.6 and 172.1 kt - so F is 175 and S 212 at that
-       weight, under CONF 1+F's 222 kt limit. The offsets are taken there,
-       at her heaviest, where Vref scaled is 164.7 kt: a lighter A380 is
-       flown a few knots over them, never under. Flaps 17 comes up to 8 at
+       weight (175.4 and 211.7), under CONF 1+F's 222 kt limit. The offsets
+       are taken there, at her heaviest, where Vref scaled is 164.68 kt, and
+       rounded up - 10.75 to 11 and 46.97 to 47 - so she is never under
+       them at her heaviest, and a lighter A380 is flown a few knots over. Flaps 17 comes up to 8 at
        F, flaps 8 up at S. Without them her climb out raised her flaps at
        her 174 kt initial climb speed, her clean wing at its greatest lift,
        and the autopilot left holding 177 kt at 3,000 ft stalled her into
        the ground 41 s after the take-off ended (2026-11-05). -->
   <flap_manoeuvre_speeds>
     <flap deg="0" over_approach_kts="47"/>
-    <flap deg="8" over_approach_kts="10"/>
+    <flap deg="8" over_approach_kts="11"/>
   </flap_manoeuvre_speeds>
 
   <figure name="climb_rate" from="measured" loading="landing" unit="ft/min"

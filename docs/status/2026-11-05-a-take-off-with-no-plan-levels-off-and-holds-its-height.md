@@ -1,14 +1,14 @@
 ### A take-off with no plan levels off and holds its height, 2026-11-05
 
 **What it does not do, first.**
-- **No AI take-off raises her gear**, with a plan or without. Every
-  landplane here held 3,000 ft for ten minutes with her wheels down, the
-  fighters at 337 to 384 kt. The F-22A's thrust vectoring is off while
-  her gear is down (her model's `fcs/tvc-inhibit`), and her pitch hunts
-  for a minute after the hand-over: she goes 386 ft past her height before
-  she settles within 100 ft of it. Her bound in the test is named, at the
-  level-off's own lead at her climb, 970 ft. Every other landplane goes no
-  more than 10 ft past.
+- **No AI take-off raises her gear**, with a plan or without: Phase 10a's
+  item on it. Every landplane here held 3,000 ft for ten minutes with her
+  wheels down, the fighters at 337 to 384 kt. The F-22A's thrust vectoring
+  is off while her gear is down (her model's `fcs/tvc-inhibit`), and her
+  pitch hunts for a minute after the hand-over: she goes 386 ft past her
+  height before she settles within 100 ft of it. Her bound in the test is
+  named, 450 ft, her measured 386 and a margin. Every other landplane goes
+  no more than 10 ft past.
 - **The A380's F and S speeds are not Airbus's tables**, which are not
   public. They are Airbus's rule, 1.23 times the stall, applied to her
   model's own stalls (below).
@@ -28,8 +28,8 @@
   greatest coefficients: 2.11, 1.94 and 1.333. That gives 142.6 and
   172.1 kt, so F is 175 kt and S is 212 kt, under CONF 1+F's 222 kt limit.
   They are written over the approach speed worked from her landing stall,
-  at her heaviest, so a lighter A380 is flown a few knots over them, never
-  under. Flap manoeuvre speeds may now be given over that worked approach
+  at her heaviest, rounded up (10.75 to 11 kt, 46.97 to 47), so she is
+  never under them there, and a lighter A380 is flown a few knots over. Flap manoeuvre speeds may now be given over that worked approach
   speed as well as over a published `<approach>` (`sim/figures.cpp`).
 - **A take-off with no plan levels off at its height**
   (`Departure::level_off_at_end`, set by `Controller::to_ai_take_off`,
@@ -64,7 +64,7 @@ for 600 s. The test asserts:
 - she is handed over a tenth of her climb short of 3,000 ft;
 - she never sinks 100 ft under where she was handed over;
 - she goes no more than 100 ft past her height, the F-22A no more than
-  970 ft;
+  450 ft, and every aeroplane named with a bound of her own is one flown;
 - she is within 100 ft of it from two minutes on, the FAA's altitude
   tolerance (Private Pilot ACS);
 - she keeps four fifths of the speed she was handed over at.
