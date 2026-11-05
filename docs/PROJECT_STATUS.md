@@ -300,7 +300,9 @@ the plan file, handed over holding its course, handed over in a spiral,
 and handed over flying its copilot's route.
 
 When one is handed over between two layers, the layers make room, one
-climbing and one descending (2026-11-05).
+climbing and one descending (2026-11-05). One handed over already inside
+the minimum is judged from the hand-over (the owner's ruling, 2026-11-05):
+it is out within 14 s and never under again, 12.5 s measured.
 
 Since 2026-11-05 two
 AI aircraft going around to one runway are sequenced in the order they
@@ -315,9 +317,6 @@ behind a person who stays in the circuit holds until they leave it:
 nothing yet asks the person to land or offers the AI another runway
 (2026-11-05-two-going-around-together-are-kept-apart-and-both-land).
 
-Missing: one handed over already inside the minimum is under it for up
-to 12.5 s (bound 14 s), while the gap opens, and whether that counts is
-the owner's to decide.
 
 ## Gaps
 
