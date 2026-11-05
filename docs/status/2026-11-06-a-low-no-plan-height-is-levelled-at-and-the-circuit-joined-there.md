@@ -12,6 +12,23 @@ Two Phase 10a tails found on 2026-11-06
   for the screen height and the gear coming up, not for the 400 ft an
   airliner's altitude capture waits for (below). With a 400 ft floor the
   F-22A went 291 ft past 650.
+- **No flap limit speed (VFE) is watched.** No model here gives one.
+  Levelling off at 650 ft at take-off thrust, the fastest each flew with
+  any flap still out (more than half a degree, so including flap still
+  running up):
+  - 737-300 193 kt;
+  - 747-400 269;
+  - 787-8 199;
+  - A320 206;
+  - A380 228;
+  - F-22A 265;
+  - Learjet 35A 179.
+
+  This is a Phase 10a tail. The levelling autopilot is given her plan's
+  fastest (`limit_speed`), as every engaged autopilot is.
+- **A take-off demonstrated to the default 500 ft** levels a jet off at
+  about 200 ft with her flap out, and she flies out of the lesson's band.
+  This is a Phase 10a tail; nothing in the programs asks for the default.
 - **Measured on linux-release only.** Nothing here is platform-specific
   code, so there was no Windows build.
 
@@ -142,7 +159,12 @@ unchanged.
   and it failed.
 - `the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief` now asks
   the take-off for 650 ft. It also asserts that every aeroplane's downwind
-  leg is within 100 ft of its circuit height: 14 of the 16, the 747-400 and
+  leg is within 100 ft of its circuit height. The lower bound catches a
+  sink along the leg, not a low entry, because the pattern turns downwind
+  from 100 ft under. Each bound was seen red with the downwind leg's
+  height in `circuit.cpp` moved 150 ft, then reverted. Moved up, the
+  737-300 flew 1,559 to 1,650 ft of 1,500; moved down, 1,350 to 1,377.
+  14 of the 16 are flown, the 747-400 and
   F-22A named and left out as before. At 650 ft with the old join it was
   red: the PA-28's debrief said "Hold the circuit height downwind".
   `a_circuit_flown_low_downwind_is_named_in_the_debrief` and the circuit

@@ -679,6 +679,8 @@ Controls Departure::fly_laws() {
     if (levels_off_ && !levelling_ && !clean && unstuck_ && !on_ground && screen_passed &&
         gear_up && stage_ != Stage::done && above_ft >= to_ft_ - level_off_lead * climb_fpm) {
         levelling_.emplace(a_, last_);
+        // No faster than her plan's fastest, as every engaged autopilot.
+        levelling_->limit_speed(fastest_kts_);
         AutopilotModes modes = levelling_->modes();
         modes.altitude_ft = level_off_ft();
         modes.vertical_speed_fpm = std::max(modes.vertical_speed_fpm, climb_fpm);
