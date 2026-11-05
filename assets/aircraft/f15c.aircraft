@@ -22,3 +22,7 @@ speedbrakes
 # Hydro-Aire's Mark III, continuously modulating (Crane's brake control
 # overview).
 brakes 305 fully-modulating
+# Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): T.O. 1F-15A-1 (docs/ASSETS.md), section V, Operating Limitations,
+# Systems Limitations, Airspeeds: landing gear extension, retraction or
+# flight with gear extended, 250 knots, +2.0 g.
+gear-extended 250

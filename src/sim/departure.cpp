@@ -88,9 +88,16 @@ constexpr double flaps_still_deg = 1e-6;
 // Where a take-off whose flap will not come up ends anyway (fly_laws).
 constexpr double take_off_path_ft = 1500.0;
 // **A positive rate of climb**: as a circuit raises her gear on (circuit.cpp),
-// and held for a second (Departure::raise_the_gear).
+// and held for a second (Departure::raise_the_gear). The second is chosen,
+// not sourced - the manuals say "positive rate", "confirmed" and
+// "established", and give no time - as are the 5 ft she is taken to be off
+// the ground at (`unstuck_`).
 constexpr double positive_rate_fpm = 100.0;
 constexpr double positive_rate_held_s = 1.0;
+// **How far under her gear-extended speed the climb away is held while her
+// gear is out**, knots: chosen, not sourced - enough that her overshoot of
+// the speed asked - the Mosquito's, 6 kt - leaves her at least 5 under it.
+constexpr double gear_transit_margin_kts = 15.0;
 constexpr double take_off_power_s = 300.0;
 
 
@@ -345,6 +352,7 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
         if (e.model == model) {
             speeds.flaps_up_ft = flaps_up_ft(e.aircraft_class);
             speeds.climb_for_any_weight = e.aircraft_class == AircraftClass::light_aircraft;
+            speeds.gear_extended_kts = e.gear_extended_kts;
         }
     }
     return speeds;
@@ -935,6 +943,16 @@ Controls Departure::fly_laws() {
         }
         climb_target_kts_ = std::min(climb_target_kts_ + climb_gain_ktps_ / steps_per_second,
                                      climb_out_kts());
+        // **Under her gear-extended speed while any of her gear is out**,
+        // by `gear_transit_margin_kts`: the Mosquito's gear takes 15 s to
+        // come up, and climbing away at 148 kt she reached 154 in it,
+        // against her Pilot's Notes' 155 (A.P. 2019E, maximum speeds,
+        // "Undercarriage down").
+        if (speeds_.gear_extended_kts && a_.gear_retracts() &&
+            a_.property("gear/gear-pos-norm") > 0.0) {
+            climb_target_kts_ = std::min(climb_target_kts_,
+                                         *speeds_.gear_extended_kts - gear_transit_margin_kts);
+        }
         const double fast_by = kcas - climb_target_kts_;
         const double ki = fast_by < 0.0 ? 0.05 : 0.2;
         rotate_pitch_ = std::clamp(rotate_pitch_ + ki * fast_by / steps_per_second,

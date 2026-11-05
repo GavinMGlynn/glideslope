@@ -25,3 +25,6 @@ brakes 209 fully-modulating
 # TSB's report A05H0002 (1.17.6) gives it - "At 70 knots ... move the thrust
 # levers to idle reverse" - and stowed at taxi speed (docs/ASSETS.md).
 reversers 70
+# Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): FCOM LIM-AG-SPD, as limitations summaries reproduce it: 280 kt/M.67
+# (extension 250, retraction 220).
+gear-extended 280

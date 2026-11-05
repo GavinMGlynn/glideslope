@@ -145,6 +145,11 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
                 throw wrong("reversers IDLE_BY_KT");
             }
             e.reverse_idle_kts = number(w[1], "the speed reverse is brought to idle at", 20.0, 120.0);
+        } else if (w[0] == "gear-extended") {
+            if (w.size() != 2) {
+                throw wrong("gear-extended KCAS");
+            }
+            e.gear_extended_kts = number(w[1], "her gear-extended speed", 60.0, 400.0);
         } else if (w[0] == "yaw-damper") {
             if (w.size() != 3) {
                 throw wrong("yaw-damper PER_DEGPS INTEGRAL_RATE");

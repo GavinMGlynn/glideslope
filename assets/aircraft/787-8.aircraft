@@ -23,3 +23,6 @@ brakes 228 fully-modulating
 # reverse brought to idle at 60 kt, as Boeing's training manual has it (the
 # 737-300's file says where; docs/ASSETS.md).
 reversers 60
+# Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): a crews' study set: 270 kt/M.82, extended and operating alike; no
+# limitations page was found.
+gear-extended 270
