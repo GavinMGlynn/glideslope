@@ -10,12 +10,22 @@ the owner's rulings:
 named on twelve of forty seeds on Linux and on macOS, and on fourteen on
 Windows. Each name carries its figure in `named_on_a_seed()`
 (tests/unit/test_lesson.cpp), and each fails "take her name off" if she
-passes the seed. A few other aircraft keep single-seed names of the same
-kind:
-- the 737-300, 787-8 and J-3 Cub on Windows or macOS;
-- the A380 on Windows and macOS;
-- the F-15C on Linux seed 34;
-- the S.23 on macOS seeds 18 and 32.
+passes the seed. In all, 69 names remain, each one seed on one platform,
+in `named_on_a_seed()` on 2026-11-05:
+
+| Aircraft | Linux | Windows | macOS |
+|---|---|---|---|
+| F-22A | 9, 10, 11, 13, 15, 20, 21, 28, 32, 34, 39, 40 | 1, 3, 5, 9, 11, 15, 16, 17, 19, 22, 23, 28, 31, 37 | 4, 6, 7, 9, 10, 11, 23, 27, 31, 33, 35, 37 |
+| J-3 Cub | 33 | 8, 32, 37 | 9, 10, 30, 40 |
+| A380 | | 3, 7 | 5, 6, 31, 37 |
+| 747-400 | | 29, 31, 33, 40 | 24 |
+| 737-300 | | 8 | 3, 17 |
+| 787-8 | | 4 | |
+| F-15C | 34 | | 28 |
+| C182 | | | 16, 34 |
+| C172P | | | 16 |
+| PA-28 | | | 34 |
+| S.23 | | | 18, 32 |
 
 **Why this is blocked, not unfinished**: her touch sink scatters about 1.7
 times as widely as the F-15C's, with a standard deviation of 97 ft/min
