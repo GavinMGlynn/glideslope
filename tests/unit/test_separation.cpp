@@ -280,9 +280,9 @@ GLIDESLOPE_TEST(a_layer_above_held_at_its_limits_makes_no_room_and_the_squeezed_
                                 at(0, 3000, 100, true, 3000),
                                 at(-1000, 3300, 100, true, 3300)};
     const auto h = glideslope::sim::separate(capped);
-    check(about(h[1].ceiling_ft, 4600 - apart_ft) && !about(h[1].floor_ft, 3400 + apart_ft),
+    check(about(h[1].ceiling_ft, 4600 - apart_ft) && about(h[1].floor_ft, 3800),
           "the layer above, held under the person's at 3,900, is not given the room over "
-          "the middle it cannot take");
+          "the old middle it cannot take, only the 3,800 over the middle that followed it");
     const double above_held = std::clamp(3800.0, h[1].floor_ft.value_or(-1e18),
                                          h[1].ceiling_ft.value_or(1e18));
     check(h[3].squeezed && about(h[3].floor_ft, 3800 - apart_ft) &&
@@ -292,6 +292,27 @@ GLIDESLOPE_TEST(a_layer_above_held_at_its_limits_makes_no_room_and_the_squeezed_
           "keeps the minimum and margin from it");
     check(about(h[2].ceiling_ft, 3800 - apart_ft - apart_ft) && h[2].clear_of == std::size_t{3},
           "the layer below makes room from the middle that followed the one above");
+    // **And the same below**: the AI layer at 3,000 ft gives way to a
+    // person's aircraft at 2,300, so it is held over 3,000. Room under the
+    // 3,400 middle - a ceiling at 2,700 - would cross that, and is refused,
+    // though its ground is far below; the middle is kept 700 ft over the
+    // layer's held 3,000, at 3,700, and the layer above makes room from
+    // there, to 4,400.
+    std::vector<Traffic> floored{at(-500, 2300, 100, false, std::nullopt),
+                                 at(0, 3000, 100, true, 3000),
+                                 at(500, 3800, 100, true, 3800),
+                                 at(-1000, 3300, 100, true, 3300)};
+    const auto f = glideslope::sim::separate(floored);
+    check(about(f[1].floor_ft, 2300 + apart_ft) &&
+              (!f[1].ceiling_ft || *f[1].ceiling_ft >= 3000 - 1.0),
+          "the layer below, held over the person's at 3,000, is not given the room under "
+          "the middle it cannot take");
+    check(f[3].squeezed && about(f[3].floor_ft, 3000 + apart_ft) &&
+              about(f[3].ceiling_ft, 3000 + apart_ft),
+          "with the layer below held at its limits, the squeezed aircraft's held height "
+          "keeps the minimum and margin from it");
+    check(about(f[2].floor_ft, 3000 + apart_ft + apart_ft) && f[2].clear_of == std::size_t{3},
+          "the layer above makes room from the middle that followed the one below");
 }
 
 namespace {
