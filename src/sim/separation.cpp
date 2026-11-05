@@ -86,6 +86,32 @@ struct Room {
     std::size_t for_whom = 0;
 };
 
+// **A layer's limits with the room asked of it**, or nothing where it cannot
+// give it: itself squeezed, its own limits crossed by the room, or a ceiling
+// within 500 ft of its ground.
+std::optional<HeightLimit> with_room(const HeightLimit& own, const Traffic& layer,
+                                     const Room& room) {
+    if (own.squeezed) {
+        return std::nullopt;
+    }
+    HeightLimit with = own;
+    if (room.ceiling_ft) {
+        with.ceiling_ft = std::min(with.ceiling_ft.value_or(1e18), *room.ceiling_ft);
+    }
+    if (room.floor_ft) {
+        with.floor_ft = std::max(with.floor_ft.value_or(-1e18), *room.floor_ft);
+    }
+    const bool crossed = with.floor_ft && with.ceiling_ft && *with.floor_ft > *with.ceiling_ft;
+    const bool grounded =
+        with.ceiling_ft &&
+        *with.ceiling_ft < layer.ground_ft + Separation::least_above_ground_ft;
+    if (crossed || grounded) {
+        return std::nullopt;
+    }
+    with.clear_of = room.for_whom;
+    return with;
+}
+
 std::vector<HeightLimit> separate_with(const std::vector<Traffic>& traffic,
                                        const std::vector<std::optional<Room>>& room) {
     const std::size_t n = traffic.size();
@@ -217,20 +243,28 @@ std::vector<HeightLimit> separate_with(const std::vector<Traffic>& traffic,
                                 : 0.5 * (limit.floor_ft.value_or(g.altitude_ft) +
                                          limit.ceiling_ft.value_or(g.altitude_ft));
             // **The middle follows those that cannot make room**: a person's
-            // aircraft, one taking off, or a layer that would be taken
-            // within 500 ft of its ground. The latch keeps the middle still
-            // while the layers that can move do; one that cannot may climb
-            // or descend, and the middle is kept the minimum and margin from
-            // it. Between two that cannot, the middle of what they leave.
+            // aircraft, one taking off, or a layer the room cannot be put on
+            // (`with_room`) - one it would take within 500 ft of its ground,
+            // or past its own limits, as a layer above held under another
+            // is. The latch keeps the middle still while the layers that can
+            // move do; one that cannot may climb or descend, and the middle
+            // is kept the minimum and margin from it. Between two that
+            // cannot, the middle of what they leave. (Every one it gives way
+            // to is before it or gives way to nobody, so its limits are
+            // already worked out.)
             double lowest = -1e18;
             double highest = 1e18;
             for (const Near& k : near) {
                 const Traffic& p = traffic[k.j];
                 const bool below = k.above;
-                const bool movable =
-                    p.gives_way &&
-                    (!below ||
-                     middle - apart_ft >= p.ground_ft + Separation::least_above_ground_ft);
+                Room asked;
+                asked.for_whom = i;
+                if (below) {
+                    asked.ceiling_ft = middle - apart_ft;
+                } else {
+                    asked.floor_ft = middle + apart_ft;
+                }
+                const bool movable = p.gives_way && with_room(limits[k.j], p, asked);
                 if (movable) {
                     continue;
                 }
@@ -266,22 +300,9 @@ std::vector<HeightLimit> separate_with(const std::vector<Traffic>& traffic,
         // for a layer below, a floor over it for one above - but only where
         // that leaves the layer a height to fly, and none of its own limits
         // crossed.
-        if (room[i] && !limit.squeezed) {
-            HeightLimit with = limit;
-            if (room[i]->ceiling_ft) {
-                with.ceiling_ft = std::min(with.ceiling_ft.value_or(1e18), *room[i]->ceiling_ft);
-            }
-            if (room[i]->floor_ft) {
-                with.floor_ft = std::max(with.floor_ft.value_or(-1e18), *room[i]->floor_ft);
-            }
-            const bool crossed =
-                with.floor_ft && with.ceiling_ft && *with.floor_ft > *with.ceiling_ft;
-            const bool grounded =
-                with.ceiling_ft &&
-                *with.ceiling_ft < g.ground_ft + Separation::least_above_ground_ft;
-            if (!crossed && !grounded) {
-                with.clear_of = room[i]->for_whom;
-                limit = with;
+        if (room[i]) {
+            if (const std::optional<HeightLimit> with = with_room(limit, g, *room[i])) {
+                limit = *with;
             }
         }
         held[i] = limited(held[i], limit);

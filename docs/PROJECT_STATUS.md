@@ -293,14 +293,16 @@ touch scatters 1.7 times as widely as the F-15C's, and no sourced change
 moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
-**Phase 11, traffic and separation: 2 of 6 items.** Every AI aircraft a
+**Phase 11, traffic and separation: 3 of 6 items.** Every AI aircraft a
 server runs is measured against every other, and in runs of every route
 kind none comes within 500 ft and 1.5 nm of another. The kinds are planned,
 the plan file, handed over holding its course, handed over in a spiral,
 and handed over flying its copilot's route.
 
 When one is handed over between two layers, the layers make room, one
-climbing and one descending (2026-11-05).
+climbing and one descending (2026-11-05). A layer that cannot give the
+room, held at its own limits, is treated like a person's aircraft: the
+held middle follows it and keeps the minimum from it.
 
 Since 2026-11-05 two
 AI aircraft going around to one runway are sequenced in the order they

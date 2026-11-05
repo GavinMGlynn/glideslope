@@ -1544,7 +1544,7 @@ AI aircraft kept apart from each other and clear of the runway.
       *Verification: an AI aircraft in the circuit and one on a straight-in
       approach to the same runway are kept 500 ft or 1.5 nm apart, and both
       land.*
-- [ ] **A layer above that cannot give way still counts as making room**:
+- [x] **A layer above that cannot give way still counts as making room**:
       when its floor would cross its own limits the room is refused, but
       the squeezed aircraft's held middle does not move with it.
       *Verification: with the layer above held at its limits, the
