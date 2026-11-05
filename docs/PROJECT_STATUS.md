@@ -162,11 +162,12 @@ Windows release, so stay named. Since 2026-11-04 the A380 lands on all
 forty seeds on Linux and an x86-64-v2 build, her power retarded at Airbus's
 20 ft, and is named on Windows's seeds 3 and 7 and macOS's 5, 6, 31 and
 37 alone: twelve of
-sixteen are judged. The F-22A is unchanged. Since
+sixteen are judged. Since
 2026-11-04 the J-3 Cub is wheel-landed in gusts and lands on thirty-nine
 of forty seeds on Linux, named on seed 33 alone, where she touches at 387
 ft/min in a 14 kt lull, and thirty-seven on Windows release, named on
-seeds 8, 32 and 37; macOS is not yet seen. The 747-400 is
+seeds 8, 32 and 37, and thirty-six on macOS, named on seeds 9, 10, 30
+and 40. The 747-400 is
 taught the approach but not yet the take-off, climb or circuit (her speeds
 are measured, not a book's). The F-22A is taught stalls and the approach
 since 2026-11-02, with a stall figure measured from her model. Since
@@ -280,6 +281,17 @@ publish no landing distance are refused a runway shorter than their
 measured landing (since 2026-11-02, the F-22A's included: 7,300 ft since 2026-11-03).
 Everything a model answered is recorded,
 and CI flies it again with no key.
+
+**Phase 10b, landing, go-around and the AI pilot, is complete - 44 of 44
+items** (2026-11-05). Two closed on measured figures by the owner's rulings
+on single-seed names and blocked items: the gusts, and the F-22A's
+stall-figure tests. No aircraft and no loading is named in gusts. What
+remains is a name on one seed on one platform, each with its figure, and
+it fails "take her name off" if she passes it. Most of those are the
+F-22A's: twelve of forty on Linux and macOS, fourteen on Windows. Her
+touch scatters 1.7 times as widely as the F-15C's, and no sourced change
+moves her past 70% of seeds
+(2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
 ## Gaps
 
