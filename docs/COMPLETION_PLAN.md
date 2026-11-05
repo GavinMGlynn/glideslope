@@ -1566,6 +1566,11 @@ AI aircraft kept apart from each other and clear of the runway.
       aircraft's held middle moves with it.
       *Verification: with a layer above or below held at its limits, the
       squeezed aircraft's held height keeps the minimum from it.*
+- [ ] **A wreck flown again starts on a layer a joining player may take**:
+      a player's join skips wrecked aircraft when it looks for a free layer,
+      but a wreck flown again goes back to its own starting layer.
+      *Verification: a wreck flown again while a player is at the start on
+      its layer is kept 500 ft or 1.5 nm from her.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the
