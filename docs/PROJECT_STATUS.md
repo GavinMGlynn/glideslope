@@ -293,7 +293,7 @@ touch scatters 1.7 times as widely as the F-15C's, and no sourced change
 moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
-**Phase 11, traffic and separation: 2 of 6 items.** Every AI aircraft a
+**Phase 11, traffic and separation: 3 of 8 items.** Every AI aircraft a
 server runs is measured against every other, and in runs of every route
 kind none comes within 500 ft and 1.5 nm of another. The kinds are planned,
 the plan file, handed over holding its course, handed over in a spiral,
@@ -311,11 +311,20 @@ of the centreline on her climb and flies her circuit 700 ft over the one
 ahead. She extends her downwind until it has landed, by at most 2 nm,
 and past that flies a racetrack. All 225 landplane pairs stayed 500 ft or
 1.5 nm apart and both landed, in order. Without the sequencing all of the
-first nine lost separation, the closest at 46 m. Traffic straight in or
-departing is not in the sequence yet, and that is a tail. An AI aircraft
+first nine lost separation, the closest at 46 m. An AI aircraft
 behind a person who stays in the circuit holds until they leave it:
 nothing yet asks the person to land or offers the AI another runway
 (2026-11-05-two-going-around-together-are-kept-apart-and-both-land).
+
+Since 2026-11-05 the circuit gives way, wide, to an AI aircraft straight in
+or departing, until she turns base. An approach closing on traffic ahead
+goes around early, and a departure is held until the one going round is
+clear of it. All 675 flights of every landplane pair, in three situations,
+stayed 500 ft or 1.5 nm apart, the closest 558 ft within 1.5 nm, and landed
+or departed in order. Without the hold or the early go-around they lost
+separation, down to 0 ft at 667 m and 1 m. A person straight in or taking
+off is not in the sequence yet
+(2026-11-05-a-go-arounds-circuit-gives-way-to-a-straight-in-and-holds-a-departure).
 
 
 ## Gaps

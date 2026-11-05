@@ -368,6 +368,23 @@ set(GLIDESLOPE_UNIT_TESTS
     the_one_ahead_of_two_going_around_taken_by_her_pilot_on_downwind_is_still_followed
     two_going_around_are_sequenced_by_the_callers_clock_not_their_own
     who_follows_whom_round_a_circuit_is_by_time_then_down_the_runway_then_the_order
+    a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
+    every_landplane_has_a_test_of_her_circuit_with_every_straight_in_and_departure
+    a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    a_787_8_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    an_a320_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    an_a380_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    a_b2_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    a_c172p_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    a_c182_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    an_f15c_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    an_f22_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    an_f35b_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    a_j3cub_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    a_learjet35a_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    a_mosquito_fb6_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+    a_pa28_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
     how_she_lands_is_what_her_approach_is_flown_at_or_none_without_a_stall_speed
     every_jets_spool_up_is_measured_from_its_model_and_a_propeller_has_none
     every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce_or_a_go_around
@@ -1358,6 +1375,19 @@ foreach(_t 737_300 747_400 787_8 a320 a380 b2 c172p c182 f15c f22 f35b j3cub
     set_tests_properties(two_going_around_together_behind_the_${_t}_are_kept_apart_and_both_land
         PROPERTIES TIMEOUT 1800 LABELS gust_sweep)
 endforeach()
+# **Every landplane's circuit with every landplane straight in or
+# departing**, in three situations (tests/unit/test_lesson.cpp): fifteen
+# tests of forty-five flights, labelled gust_sweep as the pairs going around
+# together are. The twelve flights of the slowest and the fastest run on
+# every run: 55 s on linux-release, and Linux debug's runners take about
+# fourteen times release's for these.
+foreach(_t a_737_300 a_747_400 a_787_8 an_a320 an_a380 a_b2 a_c172p a_c182 an_f15c an_f22
+        an_f35b a_j3cub a_learjet35a a_mosquito_fb6 a_pa28)
+    set_tests_properties(${_t}_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+        PROPERTIES TIMEOUT 1800 LABELS gust_sweep)
+endforeach()
+set_tests_properties(a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
+    PROPERTIES TIMEOUT 1800)
 
 # **A program that has ended can still allocate until its last thread is gone**
 # (tests/unit/test_process_end.cpp, src/platform/end_process.hpp). What it

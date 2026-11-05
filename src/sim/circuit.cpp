@@ -1,5 +1,7 @@
 #include "sim/circuit.hpp"
+#include "sim/separation.hpp"
 #include "sim/terrain.hpp"
+#include "sim/vacate.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -109,8 +111,46 @@ GoAroundCircuit::GoAroundCircuit(const Aircraft& aircraft, const Runway& runway,
     leave_downwind_nm_ = circuit_ft_ / 318.0 + 0.33;
 }
 
-void GoAroundCircuit::follow(std::optional<double> ahead_alt_ft) {
-    following_ = ahead_alt_ft.has_value();
+bool departure_held(const Runway& runway, const std::vector<std::optional<CirclePlace>>& all) {
+    return std::any_of(all.begin(), all.end(), [&runway](const std::optional<CirclePlace>& p) {
+        return p && same_runway(p->runway, runway) && !p->clear_of_departures;
+    });
+}
+
+bool close_ahead_on_approach(const Runway& runway, const AircraftState& me,
+                             const AircraftState& other) {
+    // On the runway it is the runway's rule; on the ground beside it, or
+    // no higher, it is not traffic.
+    if (other.altitude_ft - runway.elevation_ft <= RunwayClear::occupied_ft) {
+        return false;
+    }
+    const double ahead_nm = along_runway_nm(runway, other.latitude_deg, other.longitude_deg) -
+                            along_runway_nm(runway, me.latitude_deg, me.longitude_deg);
+    return ahead_nm > 0.0 &&
+           std::abs(across_runway_m(runway, other.latitude_deg, other.longitude_deg)) <
+               Separation::minimum_m &&
+           me.altitude_ft >= other.altitude_ft && me.altitude_ft - other.altitude_ft < close_ft &&
+           distance_m(me.latitude_deg, me.longitude_deg, other.latitude_deg,
+                      other.longitude_deg) < close_m(runway, me, other);
+}
+
+double close_m(const Runway& runway, const AircraftState& me, const AircraftState& other) {
+    // Each one's speed along the landing direction, from her airspeed and
+    // heading: calm air's ground speed, near enough to judge a closing by.
+    const auto along_kts = [&runway](const AircraftState& s) {
+        return s.airspeed_kts * std::cos((s.heading_deg - runway.heading_deg) / degrees);
+    };
+    const double closing_mps = std::max(0.0, along_kts(me) - along_kts(other)) * 0.514444;
+    return Separation::minimum_m + std::max(close_in_hand_m, closing_mps * close_lead_s);
+}
+
+void GoAroundCircuit::follow(std::optional<double> ahead_alt_ft, bool straight_in) {
+    // **A straight-in is followed only until she turns base**: past it she
+    // is committed, and it is the one behind.
+    const bool before_base = leg_ != Leg::base && leg_ != Leg::intercept && leg_ != Leg::final;
+    const bool giving_way = straight_in && before_base;
+    wide_ = wide_ || giving_way;
+    following_ = ahead_alt_ft.has_value() || giving_way;
     if (!ahead_alt_ft) {
         return;
     }
@@ -151,8 +191,11 @@ AutopilotModes GoAroundCircuit::modes() {
     if (leg_ == Leg::upwind && agl_ft >= circuit_ft_ - (following_ ? 100.0 : 300.0) &&
         along_nm() > 0.0) {
         leg_ = Leg::crosswind;
-    } else if (leg_ == Leg::crosswind && across_m() <= -(2.0 * turn_radius_m_ + 600.0) &&
+    } else if (leg_ == Leg::crosswind &&
+               across_m() <= -(2.0 * turn_radius_m_ + 600.0) &&
+               (!wide_ || across_m() <= -(wide_downwind_m - turn_radius_m_)) &&
                agl_ft >= circuit_ft_ - 100.0) {
+        // Wide, she turns a radius short of her wide line, and rolls out on it.
         // Far enough out to turn base and final from, and at circuit height:
         // downwind is flown level.
         leg_ = Leg::downwind;
@@ -224,6 +267,14 @@ AutopilotModes GoAroundCircuit::modes() {
         break;
     case Leg::downwind:
         m.heading_deg = runway_.heading_deg - 180.0;
+        if (wide_) {
+            // **Wide for a straight-in**: steered out on to her line,
+            // `wide_downwind_m` left of the centreline, at up to 45 degrees
+            // - flying the reciprocal, the runway's left is her right.
+            const double off_m = across_m() + wide_downwind_m;
+            m.heading_deg = *m.heading_deg +
+                            std::clamp(std::atan2(off_m, 1000.0) * degrees, -45.0, 45.0);
+        }
         break;
     // The racetrack: right turns, away from the runway and back, so that
     // she never crosses her own final approach.
