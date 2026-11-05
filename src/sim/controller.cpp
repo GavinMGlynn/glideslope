@@ -125,6 +125,8 @@ void Controller::engage() {
     departure_.reset();
     lander_.reset();
     circuit_.reset();
+    holding_out_.reset();
+    rejoin_.reset();
     circling_.reset();
     vacate_.reset();
     learnt_.reset();
@@ -756,6 +758,8 @@ void Controller::to_pilot() {
     }
     lander_.reset();
     circuit_.reset();
+    holding_out_.reset();
+    rejoin_.reset();
     // **Her place in a circuit's sequence is kept**: taken over in the
     // circuit, she is still ahead of the one behind until she is down
     // (below) or handed back to the AI (`engage`).
@@ -1036,26 +1040,17 @@ Controls Controller::fly() {
                 return applied_;
             }
             // **Behind a person who stays in the circuit, she leaves it**
-            // (`leaves_with`): on her outbound leg, a whole racetrack flown.
+            // (`leaves_with`): on her outbound leg, a whole racetrack flown,
+            // for a hold outside it (sim::HoldOutside), keeping her place.
             if (behind_a_person_ &&
                 circuit_->racetracks() > racetracks_behind_a_person &&
                 circuit_->leg() == GoAroundCircuit::Leg::outbound && behind_a_person_()) {
-                AutopilotModes away;
-                away.heading_deg = std::fmod(circuit_->runway().heading_deg - 45.0 + 360.0, 360.0);
-                away.altitude_ft = circuit_->runway().elevation_ft + circuit_->circuit_ft();
-                away.airspeed_kts = circuit_->speeds().vref_kts + 20.0;
                 left_the_circuit_s_ = a_.state().sim_time_s;
+                holding_out_.emplace(a_, circuit_->runway(), circuit_->speeds(),
+                              circuit_->runway().elevation_ft + circuit_->circuit_ft());
                 circuit_.reset();
-                circling_.reset();
                 navigator_.reset();
-                autopilot_->set(away);
-                notice_a_stall();
-                autopilot_->limit_height(floor_ft_, ceiling_ft_);
-                autopilot_->turn_away(away_deg_);
-                autopilot_->limit_speed(fastest_kts_);
-                applied_ = autopilot_->fly();
-                // The circuit's flap and gear kept as they were.
-                return applied_;
+                return fly();
             }
             // **Following traffic ahead in the sequence**: raised over its
             // circuit, and down the downwind leg until it is down.
@@ -1092,6 +1087,48 @@ Controls Controller::fly() {
             autopilot_->limit_speed(fastest_kts_);
             applied_ = autopilot_->fly();
             circuit_->configure(applied_);
+            return applied_;
+        }
+        // **Holding outside the circuit** until the person ahead is down,
+        // and then **back to land**: the legs to final (6 and 4 nm out on
+        // the extended centreline) and the approach, her place kept so
+        // that she is still ahead of anything behind her.
+        if (holding_out_) {
+            if (behind_a_person_ && behind_a_person_()) {
+                autopilot_->set(holding_out_->modes());
+                notice_a_stall();
+                autopilot_->limit_height(floor_ft_, ceiling_ft_);
+                autopilot_->turn_away(away_deg_);
+                autopilot_->limit_speed(fastest_kts_);
+                applied_ = autopilot_->fly();
+                holding_out_->configure(applied_);
+                return applied_;
+            }
+            rejoined_at_s_ = a_.state().sim_time_s;
+            rejoin_.emplace(Rejoin{holding_out_->runway(), holding_out_->speeds()});
+            navigator_.emplace(a_, final_legs(rejoin_->runway, rejoin_->speeds));
+            navigator_->begin_here();
+            holding_out_.reset();
+        }
+        if (rejoin_ && navigator_ && navigator_->finished()) {
+            lander_.emplace(a_, rejoin_->runway, rejoin_->speeds);
+            lander_->hand_mixture(applied_.mixture);
+            navigator_.reset();
+            rejoin_.reset();
+            applied_ = lander_->fly();
+            return applied_;
+        }
+        if (rejoin_ && navigator_) {
+            // The legs to final flown at the approach's speed with half the
+            // landing flap, as the circuit's are, until the approach puts
+            // out what the landing needs.
+            autopilot_->set(navigator_->steer());
+            notice_a_stall();
+            autopilot_->limit_height(floor_ft_, ceiling_ft_);
+            autopilot_->turn_away(away_deg_);
+            autopilot_->limit_speed(fastest_kts_);
+            applied_ = autopilot_->fly();
+            applied_.flaps = 0.5 * rejoin_->speeds.flap;
             return applied_;
         }
         // **A plan that ends in a landing**: its waypoints passed, the way on
