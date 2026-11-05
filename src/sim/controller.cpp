@@ -1025,6 +1025,10 @@ Controls Controller::fly() {
             close_ahead_ && close_ahead_(lander_->runway())) {
             lander_->go_around("traffic close ahead on final");
         }
+        if (lander_ && !lander_->touched() && lander_->stage() == Lander::Stage::approach &&
+            departure_ahead_ && departure_ahead_(lander_->runway())) {
+            lander_->go_around("a person departing ahead");
+        }
         if (lander_) {
             if (lander_->stage() == Lander::Stage::stopped && vacates_) {
                 vacate_.emplace(a_, lander_->runway(), applied_, spot_free_);

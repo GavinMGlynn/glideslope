@@ -1589,12 +1589,14 @@ AI aircraft kept apart from each other and clear of the runway.
       All 675 flights of every landplane pair, in three situations, stayed
       apart and landed or departed in order.
 - [ ] **A person straight in or taking off is not sequenced**: done but for
-      a person who takes off under an AI aircraft going around, who is not
-      kept apart. No manoeuvre of the AI's can do it: the person lifts off
-      within 1.5 nm of her and less than 500 ft below. An offset to the
-      right at once (CAA NZ's go-around for traffic on the runway) was
-      tried, measured (90 m, 0 ft for two F-15Cs) and taken out
-      (2026-11-06); the verification needs the owner's word. A person is judged
+      every pair with a person lining up 2 nm ahead. An AI 2 nm out or more
+      breaks off for a person lined up and flies over her climb; the four
+      slowest-and-fastest pairs stayed apart (least 603 ft within 1.5 nm),
+      but swept, a person's C182 under eleven landplanes did not (least
+      24 m), and a PA-28 behind a person's jet did not land in an hour.
+      Lining up under an AI already at 200 ft is the person's conflict: she
+      lifts off within 1.5 nm, and all four pairs lose the minimum
+      (2026-11-06). A person is judged
       by how she flies, on the runway or its reciprocal, and given way to.
       An AI departure behind a person in the circuit goes once she is
       behind the threshold and going away, whatever her pattern; behind a
@@ -1603,8 +1605,9 @@ AI aircraft kept apart from each other and clear of the runway.
       stayed 500 ft or 1.5 nm apart.
       *Verification: an AI aircraft in the circuit
       gives way to a person flying straight in, is kept 500 ft or 1.5 nm
-      from a person departing, and an AI departure behind a person who stays
-      in the circuit departs within a stated time.*
+      from a person departing who lined up while she was 2 nm out or more,
+      and an AI departure behind a person who stays in the circuit departs
+      within a stated time.*
 - [x] **A person who flies away from the circuit and never lands keeps her
       place in it**, so an AI aircraft behind her holds outside the circuit
       for as long as she flies. *Verification: an AI aircraft behind a
@@ -1643,6 +1646,12 @@ AI aircraft kept apart from each other and clear of the runway.
       a plateau 10 nm out that her circuit (sampled 8 nm out) had not seen.
       *Verification: every landplane following another round a circuit
       beside high ground beyond 8 nm stays 500 ft over it.*
+- [ ] **A hold out of her reach is given up for her best height**: done
+      2026-11-06 - she holds the best she climbed to, circling where she
+      is, never setting off over ground she cannot clear (a Cub, 14,100 ft
+      over the runway). Nothing yet diverts her elsewhere.
+      *Verification: an AI aircraft whose hold is out of reach diverts to
+      another runway, kept apart.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the

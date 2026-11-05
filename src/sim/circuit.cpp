@@ -199,6 +199,41 @@ bool using_by_hand(const Runway& runway, const AircraftState& her) {
            straight_in_by_hand(other, her) || departing_by_hand(other, her);
 }
 
+namespace {
+// Departing, or climbing on out along the runway's heading in the air
+// within `over_departure_nm` past its far end.
+bool climbing_out_by_hand(const Runway& runway, const AircraftState& her) {
+    if (departing_by_hand(runway, her)) {
+        return true;
+    }
+    const double along_m =
+        along_runway_nm(runway, her.latitude_deg, her.longitude_deg) * metres_per_nm;
+    return her.altitude_ft - runway.elevation_ft > RunwayClear::occupied_ft &&
+           off_deg(her.heading_deg, runway.heading_deg) <= by_hand_heading_deg &&
+           along_m >= 0.0 && along_m <= runway.length_m + over_departure_nm * metres_per_nm &&
+           std::abs(across_runway_m(runway, her.latitude_deg, her.longitude_deg)) <
+               Separation::minimum_m;
+}
+} // namespace
+
+bool ahead_of_an_approach_by_hand(const Runway& runway, const AircraftState& her) {
+    const auto lined_up = [&her](const Runway& r) {
+        const double along_m =
+            along_runway_nm(r, her.latitude_deg, her.longitude_deg) * metres_per_nm;
+        return on_runway(r, her.latitude_deg, her.longitude_deg, her.altitude_ft - r.elevation_ft) &&
+               along_m <= lined_up_m && off_deg(her.heading_deg, r.heading_deg) <= by_hand_heading_deg;
+    };
+    return lined_up(runway) || lined_up(reciprocal(runway)) ||
+           circuit_over_departure_ft(runway, her).has_value();
+}
+
+std::optional<double> circuit_over_departure_ft(const Runway& runway, const AircraftState& her) {
+    if (climbing_out_by_hand(runway, her) || climbing_out_by_hand(reciprocal(runway), her)) {
+        return her.altitude_ft;
+    }
+    return std::nullopt;
+}
+
 HoldOutside::HoldOutside(const Aircraft& aircraft, const Runway& runway,
                          const ApproachSpeeds& speeds, double at_least_alt_ft)
     : a_(aircraft), runway_(runway),
@@ -234,6 +269,26 @@ HoldOutside::HoldOutside(const Aircraft& aircraft, const Runway& runway,
         }
     }
     altitude_ft_ = std::max(at_least_alt_ft, highest_ft + 1000.0);
+    best_alt_ft_ = s.altitude_ft;
+    best_at_s_ = s.sim_time_s;
+}
+
+bool HoldOutside::climbing_first(const AircraftState& s) {
+    if (out_of_reach_) {
+        return true;
+    }
+    if (laps_ != 0 || s.altitude_ft >= altitude_ft_ - sets_off_within_ft) {
+        return false;
+    }
+    if (s.altitude_ft >= best_alt_ft_ + stalled_gain_ft) {
+        best_alt_ft_ = s.altitude_ft;
+        best_at_s_ = s.sim_time_s;
+    } else if (s.sim_time_s - best_at_s_ >= stalled_s) {
+        // **Out of her reach**: her best, held where she is.
+        out_of_reach_ = true;
+        altitude_ft_ = std::max(best_alt_ft_, s.altitude_ft);
+    }
+    return true;
 }
 
 AutopilotModes HoldOutside::modes() {
@@ -250,7 +305,7 @@ AutopilotModes HoldOutside::modes() {
         // outbound leg 7 nm out - she counted a lap at once, skipped the
         // climb where she was, and flew the hold's outbound leg on towards
         // the high ground below its height.
-        if (laps_ == 0 && s.altitude_ft < altitude_ft_ - 200.0) {
+        if (climbing_first(s)) {
             break;
         }
         // Past the fix: within 2 nm of it and it behind her - abeam or
@@ -289,7 +344,7 @@ AutopilotModes HoldOutside::modes() {
         // high ground, she climbs in right turns where she is - outside
         // the circuit, over ground her circuit was cleared for - rather
         // than climbing towards the high ground.
-        if (laps_ == 0 && s.altitude_ft < altitude_ft_ - 200.0) {
+        if (climbing_first(s)) {
             m.bank_deg = bank_deg;
             break;
         }
