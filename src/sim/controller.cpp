@@ -829,8 +829,16 @@ bool Controller::runway_not_clear(const Runway& runway) const {
 Controls Controller::fly() {
     // Her pilot's, with a place in a circuit's sequence: the one behind is
     // kept over the highest she is flown.
+    // Her place is marked clear of departures as a pilot flies a downwind
+    // leg (sim::clear_of_departures_by_hand), afresh every step, and marked
+    // a person's.
+    if (circling_) {
+        circling_->by_hand = flying_ == Flying::pilot;
+    }
     if (flying_ == Flying::pilot && circling_) {
-        circling_->circuit_alt_ft = std::max(circling_->circuit_alt_ft, a_.state().altitude_ft);
+        const AircraftState s = a_.state();
+        circling_->circuit_alt_ft = std::max(circling_->circuit_alt_ft, s.altitude_ft);
+        circling_->clear_of_departures = clear_of_departures_by_hand(circling_->runway, s);
     }
     if (a_.property("gear/wow") > 0.5) {
         // Down, whoever flies her: out of the circuit's sequence.
@@ -1025,6 +1033,28 @@ Controls Controller::fly() {
                 }
                 circuit_.reset();
                 applied_ = lander_->fly();
+                return applied_;
+            }
+            // **Behind a person who stays in the circuit, she leaves it**
+            // (`leaves_with`): on her outbound leg, a whole racetrack flown.
+            if (behind_a_person_ &&
+                circuit_->racetracks() > racetracks_behind_a_person &&
+                circuit_->leg() == GoAroundCircuit::Leg::outbound && behind_a_person_()) {
+                AutopilotModes away;
+                away.heading_deg = std::fmod(circuit_->runway().heading_deg - 45.0 + 360.0, 360.0);
+                away.altitude_ft = circuit_->runway().elevation_ft + circuit_->circuit_ft();
+                away.airspeed_kts = circuit_->speeds().vref_kts + 20.0;
+                left_the_circuit_s_ = a_.state().sim_time_s;
+                circuit_.reset();
+                circling_.reset();
+                navigator_.reset();
+                autopilot_->set(away);
+                notice_a_stall();
+                autopilot_->limit_height(floor_ft_, ceiling_ft_);
+                autopilot_->turn_away(away_deg_);
+                autopilot_->limit_speed(fastest_kts_);
+                applied_ = autopilot_->fly();
+                // The circuit's flap and gear kept as they were.
                 return applied_;
             }
             // **Following traffic ahead in the sequence**: raised over its
