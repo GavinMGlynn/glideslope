@@ -913,23 +913,27 @@ Each aircraft file's `flap-limit` lines (src/sim/catalogue.hpp), checked
 against every AI take-off by
 `no_flap_is_ever_flown_past_its_limit_speed_in_an_ai_take_off`. Only the
 figures are taken. **Five are from the aircraft's own manual (and the
-F-15C's, whose model has no flaps); the five airliners' are not**: no Boeing
-or Airbus limitations document giving them was found public, and their
-figures are from secondary sources, each named.
+F-15C's, whose model has no flaps), the A320's from her type certificate data
+sheet, and the A380's from Airbus's pilots' briefing; the 737-300's,
+747-400's and 787-8's are from secondary sources**, each named with its
+address. Their type certificate data sheets (FAA A16WE revision 64, FAA
+A20WE, EASA IM.A.120 issue 30, EASA IM.A.115 issue 30) send every airspeed
+limit but VMO/MMO to the flight manual, which Boeing does not publish; so
+does the A380's (EASA.A.110 issue 17).
 
 | Aircraft | Limits, knots, by flap | Source |
 | --- | --- | --- |
 | C172P | 10 deg 108 KCAS; 10 to 30 deg 84 KCAS | Pilot's Operating Handbook, section 2, figure 2-1, airspeed limitations (110 and 85 KIAS), as copied at <https://tx435.cap.gov/media/cms/C172PPOHwoSupplements_0A69C5AA130B9.pdf>, SHA-256 `4d17d416aa9b8a3ec69ed07b988c88399a8ab1b0015148063248040ae5c06bb4` |
 | C182S | to 10 deg 137 KCAS; 10 to 20 deg 118; 20 deg to full 100 | Information Manual (1997), section 2, figure 2-1 (140, 120 and 100 KIAS), at <http://tssflyingclub.org/documents/C182S_POH.pdf>, SHA-256 `6f8ecc3cda71ca2bc0f9a913872cae7c64789396c42c5683cee45dbce52d4897` |
-| PA-28-180 | every setting 100 | Airplane Flight Manual, PA-28-180, FAA approved 3 August 1962: "Flaps extended 115", white arc "57 to 115 mph (50 to 100 knots)", at <https://www.nehemiahaviation.com/files/pa28flightmanual.pdf>; the Cherokee "E" Owner's Handbook, "Flaps - set (115 MPH MAX)", at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>, SHA-256 `ae20fb9a8a8d88ff0638313d9dd1051519f904de54f05e50be5ec89fd318b2e9` |
+| PA-28-180 | every setting 100 (115 mph indicated) | Airplane Flight Manual, PA-28-180, FAA approved 3 August 1962: "Flaps extended 115", the white arc, indicated, "57 to 115 mph (50 to 100 knots)", at <https://www.nehemiahaviation.com/files/pa28flightmanual.pdf>; the Cherokee "E" Owner's Handbook, "Flaps - set (115 MPH MAX)", at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>, SHA-256 `ae20fb9a8a8d88ff0638313d9dd1051519f904de54f05e50be5ec89fd318b2e9` |
 | Learjet 35A | 8 deg 200; 20 deg 185; 40 deg 150 (KIAS) | Airplane Flight Manual FM-108, section I, page 1-9, the scan above (SHA-256 `e3e34e6b721854f12c7334b4e8911552eb857360d40bcafade87100919cd3a44`): flaps 1 to 8 degrees 200; 9 to 20 degrees 185 for the serials it names without FCN 85-6, 200 for the rest - the lower taken; 21 to 40 degrees 150 |
 | Mosquito FB.VI | to 25 deg 175; fully down, 45 deg, 130 | Pilot's Notes, A.P. 2019E-P.N., part III, maximum speeds: "Flaps not more than 25 deg. down 175", "Flaps fully down 130", at <https://www.zenoswarbirdvideos.com/Images/Mosquito/MosquitoFB6Manual.pdf>, SHA-256 `6f959cf1ff410096f5764a05107611ab0feddbd414477b154c662c37ce8996fd` |
 | F-15C | none in her file: "FLAPS 250 Knots", but her model has no flaps | T.O. 1F-15A-1, section V, airspeed limitations, the scan above (its OCR text, `F15 Manual_djvu.txt`); her flaps blow up at about 250 knots (section I) |
-| 737-300 | 1 and 2 deg 230; 5 deg 225; 10 deg 210; 15 deg 195; 25 deg 190; 30 deg 185; 40 deg 158 | **Secondary**: "Boeing 737-300/-400 Limitations", Maximum Flap Operating Speeds, 737-300 column, a virtual airline's compilation for simulator use (Matt Zagoren), <http://edusapco-va.weebly.com/uploads/8/9/7/6/8976510/737limitations.pdf>; flaps 1 and 5 agree with pilots' study cards (Brainscape) |
-| 747-400 | 1 deg 280; 5 deg 260; 10 deg 240; 20 deg 230; 25 deg 205; 30 deg 180 | **Secondary**: an Airliners.net post, uncited; flaps 30's 180 agrees with pilots' study cards (Brainscape) |
-| 787-8 | 1 deg 250; 5 deg 230; 15 deg 210; 20 deg 210; 25 deg 180; 30 deg 170 | **Secondary**: pilots' study cards (Brainscape, "Limitations", two sets, which differ only on flaps 15, 210 or 215: the lower taken) |
-| A320 | CONF 1+F (flaps 10) 215; 2 (15) 200; 3 (20) 185; FULL (40) 177 | **Secondary**: pilots' study cards, and a copy of Airbus's A320 flight deck briefing on Scribd whose text is garbled; the flaps' angles from FlyByWire's A32NX documentation. CONF 1's 230 is slats alone, with no flap here to limit |
-| A380 | CONF 1+F (flaps 8) 222; 2 (17) 220; 3 (26) 196; FULL (32) 182 | **Secondary**: FlyByWire's A380X documentation and pilots' study cards. CONF 1's 263 is slats alone |
+| A320 | CONF 1+F (slats 18, flaps 10) 215; 2 (22/15) 200; 3 (22/20) 185; FULL (27/35) 177 (KIAS) | **Type certificate data sheet**: EASA.A.064, issue 62, 26 June 2026, section 1 (A320 series), 10, Airspeed Limits, page 45, <https://www.easa.europa.eu/en/downloads/16507/en>, SHA-256 `957199eed247c3fcfedc193c1d8ad5fee45aa6bc2039693d1118f5b3b538182f`. CONF 1's 230 is slats alone, with no flap here to limit; her model's full flap is 40 degrees (FULL is 27/40 with IAE or LEAP engines) |
+| A380 | CONF 1+F (flaps 8) 222; 2 (17) 220; 3 (26) 196; FULL (32) 182 | **Airbus's own briefing, not a limitations document**: A380-800 Flight Deck and Systems Briefing for Pilots, STL 945.1380/05 issue 3 (above), its slats and flaps table, read through the third party's copy at <https://pdfcoffee.com/a380-800-flight-deck-systems-briefing-for-pilots-3-pdf-free.html>, whose table text is scrambled and was matched by position. A simulator community's uncited list, <https://community.infiniteflight.com/t/flap-limits-for-infinite-flight-20-1-edition/453409>, agrees but for FULL, 186; the lower is kept. Her type certificate data sheet, EASA.A.110 issue 17 (<https://www.easa.europa.eu/en/downloads/7309/en>, SHA-256 `fca8e2e6640e0276eeaeec1c22486bf3a9d31a22ae83d585c06429b1dc9cff3c`), refers to the flight manual |
+| 737-300 | 1 and 2 deg 230; 5 deg 225; 10 deg 210; 15 deg 195; 25 deg 190; 30 deg 185; 40 deg 158 | **Secondary**: "Boeing 737-300/-400 Limitations", Maximum Flap Operating Speeds, 737-300 column, a virtual airline's compilation for simulator use (Matt Zagoren), <http://edusapco-va.weebly.com/uploads/8/9/7/6/8976510/737limitations.pdf>; flaps 1 and 5 agree with pilots' study cards, <https://brainscape.com/flashcards/flap-gear-speeds-300-400-800-6926814/packs/10535485>. FAA A16WE revision 64 (<https://upload.wikimedia.org/wikipedia/commons/9/94/A16WE_Rev_64.pdf>, SHA-256 `bebd72be8bd647f338b02226b7cc77ffd22d788a67345620e5e21f7992082a7d`) and EASA IM.A.120 issue 30 (<https://www.easa.europa.eu/en/downloads/7297/en>) give none |
+| 747-400 | 1 deg 280; 5 deg 260; 10 deg 240; 20 deg 230; 25 deg 205; 30 deg 180 | **Secondary**: pilots' study cards, <https://brainscape.com/flashcards/limitations-9530494/packs/16863123>, and a simulator community's uncited list, <https://community.infiniteflight.com/t/flap-limits-for-infinite-flight-20-1-edition/453409>, which agree |
+| 787-8 | 1 deg 250; 5 deg 230; 15 deg 210; 20 deg 210; 25 deg 180; 30 deg 170 | **Secondary**: pilots' study cards, "787 - 8 Flap Placard Speeds", <https://www.brainscape.com/flashcards/limitations-8779923/packs/15020038>; the simulator community's list above gives flaps 15 215, and the lower is taken. EASA IM.A.115 issue 30 (<https://www.easa.europa.eu/en/downloads/7302/en>) gives none |
 
 **None published**, each named in the test: the B-2A and the F-22A (no
 flight manual is public), the F-35B (none public, and her model has no
@@ -938,9 +942,10 @@ left out; the FlightGear wiki's 100 kt for her flaps fully out was seen only
 in a search's summary and is not used.
 
 **Calibrated, not indicated.** The simulation flies calibrated airspeed. The
-Cessnas' and the Piper's limits are their handbooks' calibrated figures; the
-rest are indicated speeds, taken as calibrated, the difference at these speeds
-being a few knots at most and not published for them.
+Cessnas' limits are their handbooks' calibrated figures; the rest are
+indicated speeds - the PA-28's 115 mph is her white arc's top, indicated -
+taken as calibrated, the difference at these speeds being a few knots at
+most and not published for them.
 
 ### Thrust reversers: which aircraft have them, how much they reverse, and when they are used
 

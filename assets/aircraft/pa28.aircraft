@@ -21,7 +21,7 @@ mixture-lever 5000
 # Piper PA-28 Cherokee owner's handbooks (PA-28-140; 150/160/180, 753-683):
 # 6.00-6 mains at 24 psi; Cleveland disc brakes on a hand lever, no anti-skid.
 brakes 24 none
-# Her flap limit speed, VFE, knots, at every flap (src/sim/catalogue.hpp):
+# Her flap limit speed, VFE, knots indicated, at every flap (src/sim/catalogue.hpp):
 # 115 mph, which the PA-28-180 Airplane Flight Manual (FAA approved 3 August
 # 1962, revision 3; docs/ASSETS.md) gives as "Flaps extended 115" and its
 # white arc as "57 to 115 mph (50 to 100 knots)": 100 knots. The Cherokee

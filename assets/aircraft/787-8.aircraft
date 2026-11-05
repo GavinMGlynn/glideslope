@@ -26,11 +26,17 @@ reversers 60
 # Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): a crews' study set: 270 kt/M.82, extended and operating alike; no
 # limitations page was found.
 gear-extended 270
-# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp). No
-# Boeing document giving them was found public: the 787-8's flap placard
-# as pilots' study cards give it (Brainscape, "Limitations", two sets):
-# flaps 1 250, 5 230, 15 210 (one set 215; the lower is taken), 20 210,
-# 25 180, 30 170. Secondary, and named so in docs/ASSETS.md.
+# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp).
+# **Secondary**: her type certificate data sheet, EASA IM.A.115 (issue 30),
+# says "For other airspeed limits, see the appropriate EASA approved
+# Airplane Flight Manual", and no Boeing limitations document was found
+# public. The 787-8's flap placard as pilots' study cards give it, "787 - 8
+# Flap Placard Speeds",
+# https://www.brainscape.com/flashcards/limitations-8779923/packs/15020038:
+# flaps 1 250, 5 230, 15 210, 20 210, 25 180, 30 170. A simulator
+# community's list gives flaps 15 215,
+# https://community.infiniteflight.com/t/flap-limits-for-infinite-flight-20-1-edition/453409;
+# the lower is taken.
 flap-limit 1 250
 flap-limit 5 230
 flap-limit 15 210

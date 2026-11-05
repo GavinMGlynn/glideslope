@@ -1190,25 +1190,19 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       1,000 ft, the acceleration height Boeing's training manual names for
       a training flight; flown to it, every taught aeroplane's debrief is
       empty, and at 500 the 737-300's was not.
-- [x] **No flap limit speed is watched in the level-off.** Found 2026-11-06
+- [ ] **No flap limit speed is watched in the level-off.** Found 2026-11-06
       in the review of #348: levelling off at 650 ft at take-off thrust,
       the jets reach 179 to 269 kt with some flap still out (A380 228,
       F-22A 265, 747-400 269), and no model here gives her published flap
-      limit speeds (VFE).
+      limit speeds (VFE). Since 2026-11-06 ten landplanes carry theirs and
+      no AI take-off flies a flap past it; **missing: a primary source for
+      the 737-300's, 747-400's and 787-8's** (study cards and compilations
+      only; their type certificate data sheets send them to the flight
+      manual) **and the A380's** (Airbus's pilots' briefing, not a
+      limitations document). The A320's are from her EASA data sheet.
       *Verification: every jet's published VFE, sourced, in her aircraft
       data, the aircraft with none named; no flap ever over its VFE in a
-      take-off with no plan to 650 ft, seen red.* Done 2026-11-06: ten
-      landplanes carry theirs, each with its source, and five are named
-      with none; in 50 AI take-offs (no plan to 500, 650, 1,000 and 3,000
-      ft, and a plan) no flap passes its limit. Red on the old code: the
-      747-400 at 500 ft flew 32 kt past.
-- [ ] **The airliners' flap limit speeds are from secondary sources.**
-      Found 2026-11-06: no Boeing or Airbus limitations document giving the
-      737-300's, 747-400's, 787-8's, A320's or A380's was found public, so
-      theirs are from study cards and compilations, each named.
-      *Verification: each airliner's flap limit speeds read from her
-      manufacturer's own document, or the search for one recorded and the
-      figures kept named as secondary.*
+      take-off with no plan to 650 ft, seen red.*
 
 ---
 

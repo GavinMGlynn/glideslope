@@ -83,9 +83,10 @@ constexpr double flaps_settle_s = 1.0;
 // (FAA-H-8083-15) teach it.
 constexpr double level_off_lead = 0.1;
 // **How far under her flap's limit speed a level-off holds her**, knots:
-// five, the margin Boeing's 737 training manual keeps under a flap placard
-// on the approach - "landing flap placard speed minus 5 knots" (FCT 737 CL
-// (TM) revision 20, 30 June 2021, Approach) - taken for the level-off too.
+// five, chosen, not sourced for a level-off. It is the margin Boeing's 737
+// training manual keeps under a flap placard on the approach - "landing
+// flap placard speed minus 5 knots" (FCT 737 CL (TM) revision 20, 30 June
+// 2021, Approach) - borrowed; no manual found gives one for a level-off.
 constexpr double flap_limit_margin_kts = 5.0;
 // The least change in the speed the level-off asks that is passed on to
 // its autopilot, knots: her manoeuvre speed moves with every pound of fuel.
@@ -684,8 +685,8 @@ Controls Departure::fly_laws() {
     // clean, at the height and speed her flaps came up at.
     if (unstuck_) {
         retract_flaps(kcas);
+        c.flaps = flap_lever_;
     }
-    c.flaps = flap_lever_;
     raise_the_gear(on_ground);
     c.gear = gear_lever_;
     //
