@@ -69,8 +69,12 @@ public:
     // Engaged on `aircraft` as it is now, flying with `controls`.
     Autopilot(const Aircraft& aircraft, const Controls& controls);
 
+    // **Setting the modes lets go of a capture** (`capture`), whatever
+    // they ask, the same height or not: a plan or a new height brings its
+    // own, and only the take-off that levels off captures again after it.
     void set(const AutopilotModes& modes) {
         modes_ = modes;
+        capture_ft_.reset();
     }
     const AutopilotModes& modes() const {
         return modes_;
@@ -140,8 +144,11 @@ public:
     // **Levelling off at the height asked, she captures it** at the
     // capture's gain (autopilot.cpp, `capture_fpm_per_foot`), not the
     // plain hold's, which closed the last few feet over minutes; and holds
-    // it so, for as long as that is the height asked.
+    // it so until the modes are set again (`set`) or the height it flies
+    // to moves.
     void capture();
+    // Capturing a height now.
+    bool capturing() const { return capture_ft_.has_value(); }
     // How far the speed asked has been raised for a climb now, knots.
     double climb_speed_kts() const { return climb_speed_kts_; }
     // The height it is flying to, within its limits, or none when it holds
