@@ -1571,7 +1571,7 @@ const std::vector<GlideBand> glide_bands = {
     {"f15c", Ways::left, 190, 200},
     {"f15c", Ways::right, 170, 185},
     {"f15c", Ways::right, 190, 200},
-    {"f22", Ways::both, 225, 225},
+    {"f22", Ways::both, 225, 230},
     {"f35b", Ways::both, 188, 204},
 };
 
@@ -2049,10 +2049,11 @@ GLIDESLOPE_TEST(the_f15c_glides_round_its_tightest_orbit_turning_right_from_190_
     glides_in_band("f15c", Ways::right, 190);
 }
 
-// **The F-22A glides at 225 kt**, her one glide: 220, 5 below, departs, and
-// her climb speed, 220, is under it. She glided nowhere while the trial
-// flew her gear down (2026-10-10).
-GLIDESLOPE_TEST(the_f22a_glides_round_its_tightest_orbit_at_225_kt_without_stalling) {
+// **The F-22A glides from 225 to 230 kt**: 220, 5 below, departs. Her
+// climb speed, the fastest a glide may ask, is 230 since her take-off
+// raised her gear (2026-11-05); it was 225, and 225 her one glide. She
+// glided nowhere while the trial flew her gear down (2026-10-10).
+GLIDESLOPE_TEST(the_f22a_glides_round_its_tightest_orbit_from_225_to_230_kt_without_stalling) {
     glides_in_band("f22", Ways::both, 225);
 }
 

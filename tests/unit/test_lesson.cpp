@@ -8996,6 +8996,11 @@ LowHold holds_a_low_height(const glideslope::sim::CatalogueEntry& entry, double 
     for (long tick = 0; tick < most_ticks; ++tick) {
         left = left || aircraft.property("gear/wow") < 0.5;
         glideslope::sim::Controls c = takeoff.fly();
+        // **Her gear held down**, the situation built: the take-off raises
+        // it on a positive rate (Departure::raise_the_gear, since
+        // 2026-11-05), before the screen, and a pilot who hands her to the
+        // autopilot there with it still down is what is tested here.
+        c.gear = 1.0;
         if (!held && left && aircraft.property("position/h-agl-ft") >= 35.0) {
             held.emplace(aircraft, c);
             glideslope::sim::AutopilotModes modes = held->modes();
@@ -13202,7 +13207,15 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     // every stage after it one turn early, so the downwind leg was counted
     // inside the turn on to it.
     constexpr double turn_crosswind_ft = 650.0;
-    controller.to_ai_take_off(runway, dep, turn_crosswind_ft);
+    // **The take-off asked for 100 ft more than that**, so she is joined to
+    // the circuit climbing, as a take-off joined to one is. Given no plan, a
+    // take-off levels off at its height, over a tenth of her climb short of
+    // it (Departure::level_off_at_end), and the plain autopilot closes the
+    // last few feet slowly: asked for 650 ft itself, the Mosquito - her gear
+    // up since 2026-11-05, so climbing faster and handed over further
+    // short - flew 2.7 minutes and 7 nm upwind at 646 to 650 ft before she
+    // was joined, and her rollout ran past the lesson's fifteen minutes.
+    controller.to_ai_take_off(runway, dep, turn_crosswind_ft + 100.0);
 
     // **The pattern is the go-around's circuit** (sim/circuit.hpp), joined
     // from the take-off: one set of rules for both. Its sizes, its legs and
@@ -13741,8 +13754,8 @@ HeldAfterTakeOff no_plan_after_take_off(const std::string& id) {
 // to_ai_take_off). Each is taken off at the weight her take-off figures are
 // for and left on the plain autopilot: no wreck; handed over climbing, a
 // tenth of her climb short of her height, and never lower than that after
-// it, less 100 ft; no more than 100 ft past it at the capture - but for the
-// F-22A, named below; within 100 ft of it from two minutes after the
+// it, less 100 ft; no more than 100 ft past it at the capture; within
+// 100 ft of it from two minutes after the
 // hand-over to the end; and never slower than four fifths of the speed she
 // was handed over at. Until 2026-11-05 an A380 raised her flaps at her
 // 174 kt initial climb speed, under her clean wing's stall, and was left
@@ -13750,14 +13763,15 @@ HeldAfterTakeOff no_plan_after_take_off(const std::string& id) {
 // hand-over. The space is every aeroplane in the catalogue that takes off
 // from a runway; the flying boat is named and left out.
 GLIDESLOPE_TEST(every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it_for_ten_minutes) {
-    // **The F-22A's capture**: handed over at 2,025 ft climbing 9,700 ft/min
-    // at 384 kt with her gear down - no AI take-off raises it - and her
-    // thrust vectoring off with it (her model's `fcs/tvc-inhibit`), her
-    // pitch hunts for a minute and she goes 386 ft past her height before
-    // she settles within 100 ft of it. Bounded here by that and a margin,
-    // 450 ft. Every aeroplane named here must be one flown, so a bound left
-    // behind for one no longer in the catalogue fails.
-    const std::map<std::string, double> capture_over_ft = {{"f22", 450.0}};
+    // **Bounds of their own past the 100 ft, for any that need one**: none
+    // now. Until 2026-11-05 the F-22A had one, 450 ft: handed over with her
+    // gear down - no AI take-off raised it - her thrust vectoring was off
+    // with it (her model's `fcs/tvc-inhibit`), her pitch hunted for a minute
+    // and she went 386 ft past her height. Her gear up (Departure::
+    // raise_the_gear), she goes none past. Every aeroplane named here must
+    // be one flown, so a bound left behind for one no longer in the
+    // catalogue fails.
+    const std::map<std::string, double> capture_over_ft = {};
     std::size_t landplanes = 0;
     std::vector<std::string> flown;
     for (const auto& entry : glideslope::sim::read_catalogue(data())) {
@@ -13808,4 +13822,244 @@ GLIDESLOPE_TEST(every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it
               id + ", given a capture bound of " + std::to_string(over_ft) +
                   " ft, is a landplane flown here");
     }
+}
+
+namespace {
+
+// **What became of her gear on an AI take-off**, flown by
+// `gear_after_take_off`.
+struct GearAfterTakeOff {
+    std::string wreck;              // what hit the ground, if anything did
+    bool lifted = false;            // her wheels left the runway
+    double lift_off_s = 0.0;        // when, from brakes off
+    bool commanded = false;         // the gear lever went up
+    double commanded_after_s = 0.0; // how long after lift-off
+    double commanded_ft = 0.0;      // her height above the runway then
+    double commanded_fpm = 0.0;     // and her climb
+    bool up = false;                // the gear reached up
+    double up_after_s = 0.0;        // how long after lift-off
+    bool lowered_again = false;     // out again after it was up
+    double fastest_down_kts = 0.0;  // her fastest in the air with any gear out
+    bool handed_over = false;       // the take-off was over
+    double flown_after_s = 0.0;     // how long she was flown after the hand-over
+    double fastest_kts = 0.0;       // her fastest at all
+};
+
+// **A take-off to a plan, or to no plan**, from brakes off at the weight her
+// take-off figures are for. With a plan, the take-off to 1,500 ft and a
+// waypoint 30 nm on at 5,000 ft, flown at her fastest plan speed - the
+// speed the gear was found down at; with none, the take-off to 3,000 ft and
+// the plain autopilot. Flown until three minutes after the hand-over.
+GearAfterTakeOff gear_after_take_off(const std::string& id, bool planned) {
+    const glideslope::sim::Runway runway = a_runway();
+    const auto entry = glideslope::sim::find_aircraft(data(), id);
+    const auto speeds = glideslope::sim::departure_speeds(data(), entry.model);
+    const auto plan_speeds = glideslope::sim::plan_speeds(data(), entry.model);
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = 0.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    load_for_the_take_off(aircraft, entry.model);
+    aircraft.initialize(ic);
+
+    glideslope::sim::Controls standing;
+    standing.gear = 1.0;
+    standing.left_brake = 1.0;
+    standing.right_brake = 1.0;
+    glideslope::sim::Controller controller(aircraft, standing);
+    controller.limit_speed(plan_speeds.fastest_kts);
+    if (planned) {
+        glideslope::sim::FlightPlan plan;
+        plan.takeoff = glideslope::sim::FlightPlan::TakeOff{runway, 1500.0};
+        const double out_m = 30.0 * metres_per_nm;
+        const double h = runway.heading_deg / degrees;
+        glideslope::sim::Waypoint on;
+        on.name = "out";
+        on.latitude_deg = runway.threshold_lat_deg +
+                          out_m * std::cos(h) /
+                              glideslope::sim::metres_per_degree_latitude(runway.threshold_lat_deg);
+        on.longitude_deg =
+            runway.threshold_lon_deg +
+            out_m * std::sin(h) /
+                glideslope::sim::metres_per_degree_longitude(runway.threshold_lat_deg);
+        on.altitude_ft = runway.elevation_ft + 5000.0;
+        on.airspeed_kts = plan_speeds.fastest_kts;
+        plan.waypoints.push_back(on);
+        controller.to_ai_flying(plan, speeds);
+    } else {
+        controller.to_ai_take_off(runway, speeds, 3000.0);
+    }
+
+    glideslope::sim::GroundJudge judge(false);
+    GearAfterTakeOff out;
+    int lifted_at = -1;
+    int handed_at = -1;
+    // Her height standing on the runway: heights here are over it.
+    const double standing_ft = aircraft.property("position/h-sl-ft") - runway.elevation_ft;
+    // Ten minutes for the take-off - the J-3 Cub's to 3,000 ft is over in
+    // seven - and three after it.
+    const int most = (600 + 180) * steps_per_second;
+    for (int t = 0; t < most; ++t) {
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        if (const auto what = judge.judge(aircraft)) {
+            out.wreck = *what;
+            break;
+        }
+        const double ft =
+            aircraft.property("position/h-sl-ft") - runway.elevation_ft - standing_ft;
+        const double kts = aircraft.property("velocities/vc-kts");
+        const bool airborne = aircraft.property("gear/wow") < 0.5;
+        const double gear_pos = aircraft.property("gear/gear-pos-norm");
+        if (lifted_at < 0 && airborne && ft > 5.0) {
+            lifted_at = t;
+            out.lifted = true;
+            out.lift_off_s = static_cast<double>(t) / steps_per_second;
+        }
+        if (lifted_at >= 0) {
+            const double after_s = static_cast<double>(t - lifted_at) / steps_per_second;
+            if (!out.commanded && aircraft.property("gear/gear-cmd-norm") <= 0.0) {
+                out.commanded = true;
+                out.commanded_after_s = after_s;
+                out.commanded_ft = ft;
+                out.commanded_fpm = aircraft.property("velocities/h-dot-fps") * 60.0;
+            }
+            if (!out.up && gear_pos <= 0.0) {
+                out.up = true;
+                out.up_after_s = after_s;
+            }
+            if (out.up && gear_pos > 0.0) {
+                out.lowered_again = true;
+            }
+            if (airborne && gear_pos > 0.0) {
+                out.fastest_down_kts = std::max(out.fastest_down_kts, kts);
+            }
+            out.fastest_kts = std::max(out.fastest_kts, kts);
+        }
+        if (handed_at < 0 && t > steps_per_second && !controller.departing().has_value()) {
+            handed_at = t;
+            out.handed_over = true;
+        }
+        if (handed_at >= 0) {
+            out.flown_after_s = static_cast<double>(t - handed_at) / steps_per_second;
+            if (out.flown_after_s >= 180.0) {
+                break;
+            }
+        }
+    }
+    return out;
+}
+
+// **Her gear-extended speed, VLE**, knots calibrated, where it is
+// published; it bounds her speed in the air with any of her gear out.
+//   - 737-300, 320 kt/M.82 (extension 270, retraction 235): Boeing's
+//     737-300/400/500 limitations, as operators' copies of them publish it.
+//   - 747-400, 320 kt/M.82, 270 to operate it: her limitations as published
+//     for simulator crews; one study card gives 270 for both.
+//   - 787-8, 270 kt/M.82, extended and operating alike: a crew's study set;
+//     no limitations page was found.
+//   - A320, 280 kt/M.67 (extension 250, retraction 220): FCOM LIM-AG-SPD, as
+//     its limitations summaries reproduce it.
+//   - A380, 250 kt/M.55, extended and operating alike: her FCOM's
+//     limitations as crews' study sets give them.
+//   - Learjet 35A, 260 kt (operating 200): her limitations as crews' study
+//     sets give them for serials 443 and 509.
+//   - Mosquito FB 6, 155 kt: A.P. 2019E, Pilot's Notes for the Mosquito
+//     FB 6 (docs/ASSETS.md), maximum speeds in knots, "Undercarriage down
+//     ... 155". Her model's gear takes 15 s to come up, and she reaches 154
+//     kt in it: the margin is a knot.
+// **The F-15C, F-22A, F-35B and B-2A publish none** that a search found:
+// their flight manuals (T.O. 1F-15A-1 and the rest) are not public in the
+// part that has it. 250 kt, the lowest of the jets' above, stands in.
+const std::map<std::string, double> gear_extended_kts = {
+    {"737-300", 320.0}, {"747-400", 320.0},    {"787-8", 270.0},
+    {"a320", 280.0},    {"a380", 250.0},       {"learjet35a", 260.0},
+    {"mosquito-fb6", 155.0}, {"f15c", 250.0}, {"f22", 250.0},
+    {"f35b", 250.0},    {"b2", 250.0},
+};
+
+// **Her gear lever up within this long of lift-off**, taken as five feet
+// over where she stood: a second of positive rate confirmed (Departure::
+// raise_the_gear) after she first climbs at 100 ft/min. Measured
+// 2026-11-05 (linux-release): 1.0 s for the Mosquito to 4.7 s for the
+// 747-400, whose rotation floats her longest; 6 s gives a margin.
+constexpr double gear_commanded_within_s = 6.0;
+
+} // namespace
+
+// **Every landplane whose gear retracts raises it on a positive rate of
+// climb after any AI take-off, and is never faster than her gear-extended
+// speed with it out** (sim::Departure::raise_the_gear). Each of the
+// catalogue's landplanes is taken off twice, at the weight her take-off
+// figures are for: to a plan flown at her fastest plan speed, and to no
+// plan. One whose model's gear retracts has her gear lever up within
+// `gear_commanded_within_s` of lift-off, climbing, never lowers it again up
+// to three minutes past the hand-over, and is never faster in the air with
+// any gear out than her VLE (gear_extended_kts). One whose gear is fixed has
+// no lever moved. Until 2026-11-05 no AI take-off raised the gear: every
+// planned flight climbed and cruised with it down, the fighters at 337 to
+// 384 kt. The space is the 15 landplanes, two ways each; the flying boat is
+// named and left out. A take-off taken over in the air is the next test's.
+GLIDESLOPE_TEST(every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate_after_any_ai_take_off_and_is_never_past_her_gear_extended_speed_with_it_out) {
+    std::size_t landplanes = 0;
+    std::size_t flights = 0;
+    std::size_t retracting = 0;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat takes off from water, not a runway\n",
+                        entry.id.c_str());
+            continue;
+        }
+        ++landplanes;
+        const bool retracts = glideslope::sim::Aircraft(data() / "jsbsim", entry.model).gear_retracts();
+        retracting += retracts ? 1 : 0;
+        for (const bool planned : {true, false}) {
+            const GearAfterTakeOff r = gear_after_take_off(entry.id, planned);
+            ++flights;
+            const std::string id = entry.id + (planned ? " (planned)" : " (no plan)");
+            std::printf("  %s: %s; off at %.0f s; gear lever up %s%.1f s after, at %.0f ft "
+                        "%+.0f ft/min, up %.1f s after; fastest gear out %.0f kt, at all %.0f "
+                        "kt; flown %.0f s past the hand-over\n",
+                        id.c_str(), r.wreck.empty() ? "flying" : r.wreck.c_str(), r.lift_off_s,
+                        r.commanded ? "" : "never; ", r.commanded_after_s, r.commanded_ft,
+                        r.commanded_fpm, r.up_after_s, r.fastest_down_kts, r.fastest_kts,
+                        r.flown_after_s);
+            check(r.wreck.empty(), id + " was not wrecked: " + r.wreck);
+            check(r.lifted && r.handed_over && r.flown_after_s >= 180.0,
+                  id + " took off and was flown three minutes past the hand-over: " +
+                      std::to_string(r.flown_after_s) + " s");
+            if (!retracts) {
+                check(!r.commanded, id + "'s gear is fixed and no lever moved it");
+                continue;
+            }
+            check(r.commanded && r.commanded_after_s <= gear_commanded_within_s,
+                  id + "'s gear lever went up within " +
+                      std::to_string(gear_commanded_within_s) + " s of lift-off: " +
+                      std::to_string(r.commanded_after_s) + " s");
+            check(r.commanded_fpm > 0.0,
+                  id + " was climbing as it did: " + std::to_string(r.commanded_fpm) + " ft/min");
+            check(r.up && !r.lowered_again, id + "'s gear came up and stayed up");
+            const auto vle = gear_extended_kts.find(entry.id);
+            check(vle != gear_extended_kts.end(), id + " has a gear-extended speed named");
+            if (vle != gear_extended_kts.end()) {
+                check(r.fastest_down_kts <= vle->second,
+                      id + " was never faster than her " + std::to_string(vle->second) +
+                          " kt VLE with her gear out: " + std::to_string(r.fastest_down_kts));
+            }
+        }
+    }
+    check(landplanes == 15 && flights == 2 * landplanes,
+          "every one of the catalogue's 15 landplanes flown both ways: " +
+              std::to_string(flights) + " flights of " + std::to_string(landplanes));
+    check(retracting == gear_extended_kts.size(),
+          "every landplane whose gear retracts has a VLE named: " + std::to_string(retracting) +
+              " retract, " + std::to_string(gear_extended_kts.size()) + " named");
 }

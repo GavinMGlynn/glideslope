@@ -343,10 +343,19 @@ leads the height by a tenth of her climb, and the autopilot holds it. The
 A380 raises her flaps at Airbus's F and S speeds, worked from her model's
 stalls. Before, she raised them under her clean stall and stalled into the
 ground. All 15 landplanes taken off to 3,000 ft held it for ten minutes,
-within 100 ft from two minutes on. No AI take-off raises her gear yet, and
-the F-22A, whose thrust vectoring is off with her gear down, goes 386 ft
-past her height first
+within 100 ft from two minutes on
 (2026-11-05-a-take-off-with-no-plan-levels-off-and-holds-its-height).
+
+Since 2026-11-05 an AI take-off raises her gear on a second of positive
+climb, with a plan or without; until then every planned flight cruised
+with it down. All 11 landplanes whose gear retracts have it coming up
+within 5 s of lift-off and are never past their gear-extended speed with
+it out; the fighters' and B-2A's limits are not published, and 250 kt
+stands in. The 747-400's and F-22A's measured climb-away speeds rose to 175
+and 230 kt, and the F-22A no longer overshoots a level-off. Their recorded
+CBD-orbit plans must be recorded again for the new speeds, and are red
+until they are
+(2026-11-05-an-ai-take-off-raises-her-gear-on-a-positive-rate).
 
 
 ## Gaps

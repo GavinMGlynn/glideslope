@@ -256,6 +256,12 @@ private:
     // stood still.
     double flap_lever_ = 0.0;
     double flap_aim_ = 0.0;
+    // **The gear lever as this take-off has it**: down on the runway, up
+    // once she has a positive rate of climb, where her gear retracts
+    // (raise_the_gear); taken over in the air, where it was found. And how
+    // many steps in a row she has been climbing off the ground.
+    double gear_lever_ = 1.0;
+    int climbing_steps_ = 0;
     double last_flap_deg_ = 0.0;
     int flaps_still_steps_ = 0;
     bool climbed_out_ = false;
@@ -308,6 +314,7 @@ private:
     void measure();
     void read_the_gear();
     void retract_flaps(double kcas);
+    void raise_the_gear(bool on_ground);
     // The lever up and the flaps stopped.
     bool flaps_up() const;
 

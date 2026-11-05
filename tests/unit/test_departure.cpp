@@ -456,6 +456,56 @@ GLIDESLOPE_TEST(a_take_off_taken_over_in_the_air_never_puts_out_a_flap_it_found_
           "the take-off ended: " + std::to_string(steps / steps_per_second) + " s");
 }
 
+// **Taken over in the air, the take-off keeps the gear it found up**: every
+// aircraft in the catalogue whose gear retracts, flying at 500 ft at her
+// initial climb speed with her gear up, given to a take-off, never has her
+// gear lever put down in the 20 s it is flown - a take-off once asked for
+// the gear down on every step, wherever it was. The space is every
+// aircraft whose model's gear retracts; those whose gear is fixed have no
+// lever to keep, and are counted.
+GLIDESLOPE_TEST(a_take_off_taken_over_in_the_air_never_puts_down_a_gear_it_found_up) {
+    const Runway runway = a_runway();
+    std::size_t retracting = 0;
+    std::size_t fixed = 0;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+        if (!aircraft.gear_retracts()) {
+            ++fixed;
+            continue;
+        }
+        ++retracting;
+        const DepartureSpeeds speeds = glideslope::sim::departure_speeds(data(), entry.model);
+        aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [](double, double) { return 0.0; }, [](double, double) { return false; }));
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = runway.threshold_lat_deg;
+        ic.longitude_deg = runway.threshold_lon_deg;
+        ic.altitude_ft = runway.elevation_ft + 500.0;
+        ic.terrain_elevation_ft = runway.elevation_ft;
+        ic.heading_deg = runway.heading_deg;
+        ic.airspeed_kts = speeds.initial_climb_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        aircraft.initialize(ic);
+        Departure departure(aircraft, runway, speeds);
+        double most_lever = 0.0;
+        for (int t = 0; t < 20 * steps_per_second; ++t) {
+            const glideslope::sim::Controls c = departure.fly();
+            most_lever = std::max(most_lever, c.gear);
+            aircraft.set_controls(c);
+            aircraft.step();
+        }
+        std::printf("  %s: the gear lever at most %.3f, the gear at %.3f at the end\n",
+                    entry.id.c_str(), most_lever, aircraft.property("gear/gear-pos-norm"));
+        check(most_lever == 0.0,
+              entry.id + "'s gear lever stayed up: at most " + std::to_string(most_lever));
+    }
+    std::printf("  %zu retract, %zu fixed\n", retracting, fixed);
+    check(retracting == 11 && retracting + fixed == 16,
+          "every aircraft in the catalogue counted, 11 of 16 retracting: " +
+              std::to_string(retracting) + " of " + std::to_string(retracting + fixed));
+}
+
 // **A take-off on a wet runway rolls as it does on a dry one**: every
 // aircraft that takes off from a runway (the flying boat named) takes off by
 // the take-off autopilot at its own speeds, dry and on runway condition code
