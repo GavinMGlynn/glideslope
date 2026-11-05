@@ -297,6 +297,17 @@ public:
     const Vacate* vacate() const { return vacate_ ? &*vacate_ : nullptr; }
     // The circuit a go-around is being flown round, if one is.
     const GoAroundCircuit* circuit() const { return circuit_ ? &*circuit_ : nullptr; }
+    // **Her place in a circuit's sequence** (sim::CirclePlace), from her
+    // go-around until she touches down - round the circuit and down its
+    // approach - or none.
+    const std::optional<CirclePlace>& circling() const { return circling_; }
+    // **Whom she follows round the circuit**, asked of the caller - the
+    // other aircraft are not the controller's to know - every step she flies
+    // one: the height of the highest circuit ahead of her in the sequence
+    // (sim::circuit_ahead_alt_ft), or none. Without it, nothing is asked
+    // and she is number one.
+    using CircuitAheadQuery = std::function<std::optional<double>()>;
+    void follows_with(CircuitAheadQuery ahead) { circuit_ahead_ = std::move(ahead); }
     // How many times this approach has gone around for being unstabilized;
     // from StabilizedApproach::most_go_arounds on, the gate is waived.
     int unstable_go_arounds() const { return unstable_go_arounds_; }
@@ -481,6 +492,8 @@ private:
     std::optional<Lander> lander_;
     // A go-around flown round to the approach again.
     std::optional<GoAroundCircuit> circuit_;
+    std::optional<CirclePlace> circling_;
+    CircuitAheadQuery circuit_ahead_;
     int unstable_go_arounds_ = 0;
     // Off the runway after landing, and stopped beside it.
     std::optional<Vacate> vacate_;

@@ -293,6 +293,16 @@ touch scatters 1.7 times as widely as the F-15C's, and no sourced change
 moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
+**Phase 11, traffic and separation, is under way.** Since 2026-11-05 two
+AI aircraft going around to one runway are sequenced in the order they
+went around. The one behind flies her circuit 700 ft over the one ahead,
+and extends her downwind until it has landed. The slowest landplane, the
+C172P and the fastest were flown each behind each, nine pairs: all stayed
+500 ft or 1.5 nm apart and both landed, in order. Without the sequencing
+all nine lost separation, the closest at 46 m. Traffic straight in or
+departing is not in the sequence yet, and that is a tail
+(2026-11-05-two-going-around-together-are-kept-apart-and-both-land).
+
 ## Gaps
 
 Everything in `COMPLETION_PLAN.md`. The ones worth naming first, because they

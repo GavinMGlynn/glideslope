@@ -1517,12 +1517,21 @@ AI aircraft kept apart from each other and clear of the runway.
       *Verification: every AI aircraft a server runs, planned or not, stays a
       stated distance from every other along the whole of its route,
       measured over a whole run.*
-- [ ] **The AI's go-around circuit knows no traffic**: an approach long or
+- [x] **The AI's go-around circuit knows no traffic**: an approach long or
       fast now goes around, but two circuits are kept apart only by the
       separation monitor's height limits. *Verification: an aeroplane that
       goes around is flown round and landed (done), one arriving long or fast
       goes around (done), and two going around together are kept apart and
-      both land.*
+      both land.* Done 2026-11-05: the one behind flies her circuit 700 ft
+      over the one ahead and extends her downwind until it has landed.
+      The Cub, the C172P and the F-15C were flown each behind each, and
+      every pair stayed 500 ft or 1.5 nm apart and landed in order.
+- [ ] **A go-around's circuit does not sequence with traffic straight in or
+      departing**: only aircraft going around wait for one another, and the
+      rest are left to the separation monitor and the runway's rule.
+      *Verification: an AI aircraft in the circuit and one on a straight-in
+      approach to the same runway are kept 500 ft or 1.5 nm apart, and both
+      land.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the
