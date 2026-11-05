@@ -204,6 +204,12 @@ her own whose intentions nothing else is told.
   longest held was 455 s (a 737-300 behind a person's PA-28; the bound is
   600 s) - a left-hand circuit's, the only pattern flown. Every one
   climbed out.
+- **Run again after the hold's climb-first change** (the review of #342's
+  last round), in two chunks on linux-release: all sixteen green, and the
+  least the same - 541 ft within 1.5 nm and 3,090 m within 500 ft; holds
+  6.7 to 14.4 nm out; the longest leave 1,190 s and hold of a departure
+  455 s. On flat ground the climb-first turn never acts: the hold's height
+  is the one she leaves her circuit at.
 - **Found on the way**: the hold's fix taken as passed only within half a
   mile of it and opening, a B-2A, a Learjet 35A and a Mosquito circled it
   wider and never crossed it in 600 s; it is passed now once it is behind
