@@ -125,7 +125,6 @@ void Controller::engage() {
     lander_.reset();
     circuit_.reset();
     circling_.reset();
-    taken_with_place_s_.reset();
     vacate_.reset();
     learnt_.reset();
     at_gate_.reset();
@@ -757,11 +756,7 @@ void Controller::to_pilot() {
     circuit_.reset();
     // **Her place in a circuit's sequence is kept**: taken over in the
     // circuit, she is still ahead of the one behind until she is down
-    // (below), handed back to the AI (`engage`), or `pilots_place_kept_s`
-    // has passed.
-    if (circling_) {
-        taken_with_place_s_ = sequence_now();
-    }
+    // (below) or handed back to the AI (`engage`).
     vacate_.reset();
 }
 
@@ -793,10 +788,10 @@ bool Controller::runway_not_clear(const Runway& runway) const {
 }
 
 Controls Controller::fly() {
-    // Her pilot's for longer than her place is kept: out of the sequence.
-    if (flying_ == Flying::pilot && circling_ && taken_with_place_s_ &&
-        sequence_now() - *taken_with_place_s_ >= pilots_place_kept_s) {
-        circling_.reset();
+    // Her pilot's, with a place in a circuit's sequence: the one behind is
+    // kept over the highest she is flown.
+    if (flying_ == Flying::pilot && circling_) {
+        circling_->circuit_alt_ft = std::max(circling_->circuit_alt_ft, a_.state().altitude_ft);
     }
     if (a_.property("gear/wow") > 0.5) {
         // Down, whoever flies her: out of the circuit's sequence.

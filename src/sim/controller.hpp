@@ -308,14 +308,11 @@ public:
     // and she is number one. `clock`: the time her place is taken at, one
     // clock for every aircraft the caller sequences - each aircraft's own
     // starts when it was made, so a later one's would put it ahead.
-    // **Her pilot's for no more than `pilots_place_kept_s`**: taken over in
-    // a circuit she keeps her place, as a tower would keep a pilot who
-    // goes round in its circuit, so the one behind holds for her - for ten
-    // minutes at most (chosen, not sourced: a C172P's whole circuit from a
-    // go-around is about six). Past that her place goes, and the one behind
-    // lands with her as with any person's aircraft: kept clear by the
-    // separation monitor and the runway's rule.
-    static constexpr double pilots_place_kept_s = 600.0;
+    // **Taken over in a circuit, she keeps her place for as long as she
+    // flies**, as a tower holds the one behind for a pilot still in its
+    // circuit: the one behind holds in her racetrack, over the highest her
+    // pilot flies her, until her wheels touch. Nothing asks her pilot to
+    // land, nor offers the one behind another runway.
     using CircuitAheadQuery = std::function<std::optional<double>()>;
     void follows_with(CircuitAheadQuery ahead, std::function<double()> clock) {
         circuit_ahead_ = std::move(ahead);
@@ -510,8 +507,6 @@ private:
     std::function<double()> sequence_clock_;
     // The sequence's time now: the caller's clock, or her own.
     double sequence_now() const;
-    // When her pilot took her with a place in a circuit's sequence.
-    std::optional<double> taken_with_place_s_;
     int unstable_go_arounds_ = 0;
     // Off the runway after landing, and stopped beside it.
     std::optional<Vacate> vacate_;
