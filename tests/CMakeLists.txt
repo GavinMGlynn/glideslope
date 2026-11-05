@@ -347,6 +347,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_speed_the_autopilot_raises_for_a_climb_never_passes_the_fastest_she_may_hold
     every_aeroplane_the_ai_lands_taxis_off_the_runway_and_stops_clear_of_it
     an_aeroplane_landing_on_a_runway_another_is_on_goes_around_and_lands_once_it_has_left
+    two_going_around_together_the_slowest_the_c172p_and_the_fastest_each_behind_each_are_kept_apart_and_both_land
     every_landplane_has_a_test_of_two_going_around_together_with_her_ahead
     two_going_around_together_behind_the_737_300_are_kept_apart_and_both_land
     two_going_around_together_behind_the_747_400_are_kept_apart_and_both_land
@@ -1345,13 +1346,17 @@ set_tests_properties(${GLIDESLOPE_GUST_SWEEP_SEEDS} PROPERTIES LABELS gust_sweep
 # 41703342974. Nothing gives up on a slow machine sooner than it needs.
 set_tests_properties(an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands
     PROPERTIES TIMEOUT 1800)
-# Fifteen pairs each, two aircraft round a circuit and down, in simulated
-# time: 52 to 76 s on linux-release locally, and Linux debug's runners take
-# about fourteen times release's for these (the go-around test above).
+# **Every landplane pair going around together** (tests/unit/test_lesson.cpp):
+# fifteen tests of fifteen pairs, two aircraft round a circuit and down, in
+# simulated time - 52 to 76 s each on linux-release locally, and Linux
+# debug's runners take about fourteen times release's for these (the
+# go-around test above). Labelled gust_sweep, as the gust landings' long
+# seeds are: every night, on every preset, and on no pull request's run.
+# The nine pairs of the slowest, the C172P and the fastest run on every run.
 foreach(_t 737_300 747_400 787_8 a320 a380 b2 c172p c182 f15c f22 f35b j3cub
         learjet35a mosquito_fb6 pa28)
     set_tests_properties(two_going_around_together_behind_the_${_t}_are_kept_apart_and_both_land
-        PROPERTIES TIMEOUT 1800)
+        PROPERTIES TIMEOUT 1800 LABELS gust_sweep)
 endforeach()
 
 # **A program that has ended can still allocate until its last thread is gone**
