@@ -3637,6 +3637,18 @@ set_tests_properties(two_players_joining_before_a_planned_ai_aircraft_takes_off_
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/join_before_takeoff)
 
+# **A player who joins after another has left is put on a layer no aircraft
+# near the start holds.** See cmake/server_rejoin_layer.cmake.
+add_test(NAME a_player_joining_after_another_has_left_is_put_on_a_layer_no_aircraft_near_the_start_holds
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/rejoin_layer -DPORT=24956
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_rejoin_layer.cmake)
+set_tests_properties(a_player_joining_after_another_has_left_is_put_on_a_layer_no_aircraft_near_the_start_holds
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rejoin_layer)
+
 # **An aircraft its player rolled into a spiral over two AI layers, handed to
 # the AI in it, is rolled level and kept apart from both.** See
 # cmake/server_handed_spiral_kept_apart.cmake.
