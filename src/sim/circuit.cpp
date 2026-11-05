@@ -165,10 +165,133 @@ bool departing_by_hand(const Runway& runway, const AircraftState& her) {
 }
 
 bool clear_of_departures_by_hand(const Runway& runway, const AircraftState& her) {
-    return across_runway_m(runway, her.latitude_deg, her.longitude_deg) < 0.0 &&
-           off_deg(her.heading_deg, runway.heading_deg + 180.0) <= 60.0 &&
+    // Not closing on the threshold: heading 90 degrees or more off the
+    // bearing to it.
+    const double to_threshold_deg = bearing_deg(her.latitude_deg, her.longitude_deg,
+                                                runway.threshold_lat_deg, runway.threshold_lon_deg);
+    return off_deg(her.heading_deg, to_threshold_deg) >= 90.0 &&
            -along_runway_nm(runway, her.latitude_deg, her.longitude_deg) * metres_per_nm >=
                Separation::minimum_m;
+}
+
+Runway reciprocal(const Runway& runway) {
+    Runway r = runway;
+    const double h = runway.heading_deg / degrees;
+    r.threshold_lat_deg = runway.threshold_lat_deg +
+                          runway.length_m * std::cos(h) /
+                              metres_per_degree_latitude(runway.threshold_lat_deg);
+    r.threshold_lon_deg = runway.threshold_lon_deg +
+                          runway.length_m * std::sin(h) /
+                              metres_per_degree_longitude(runway.threshold_lat_deg);
+    r.heading_deg = std::fmod(runway.heading_deg + 180.0, 360.0);
+    r.name = runway.name + " reciprocal";
+    return r;
+}
+
+bool using_by_hand(const Runway& runway, const AircraftState& her) {
+    const Runway other = reciprocal(runway);
+    return straight_in_by_hand(runway, her) || departing_by_hand(runway, her) ||
+           straight_in_by_hand(other, her) || departing_by_hand(other, her);
+}
+
+HoldOutside::HoldOutside(const Aircraft& aircraft, const Runway& runway,
+                         const ApproachSpeeds& speeds, double at_least_alt_ft)
+    : a_(aircraft), runway_(runway),
+      speeds_(for_weight(speeds, aircraft.property("inertia/weight-lbs"))) {
+    const AircraftState s = a_.state();
+    const double lat_m = metres_per_degree_latitude(runway_.threshold_lat_deg);
+    const double lon_m = metres_per_degree_longitude(runway_.threshold_lat_deg);
+    // The fix, on the bearing from the threshold she left at.
+    const double out = bearing_deg(runway_.threshold_lat_deg, runway_.threshold_lon_deg,
+                                   s.latitude_deg, s.longitude_deg) /
+                       degrees;
+    fix_lat_deg_ = runway_.threshold_lat_deg + fix_nm * metres_per_nm * std::cos(out) / lat_m;
+    fix_lon_deg_ = runway_.threshold_lon_deg + fix_nm * metres_per_nm * std::sin(out) / lon_m;
+    inbound_deg_ = std::fmod(out * degrees + 180.0, 360.0);
+    speed_kts_ = std::clamp(1.4 * speeds_.vref_kts, speeds_.vref_kts + 20.0,
+                            std::max(200.0, speeds_.vref_kts + 20.0));
+    // 1,000 ft over the highest ground within 4 nm of the hold: the fix,
+    // and a leg and a turn beyond it.
+    double highest_ft = runway_.elevation_ft;
+    if (const auto& terrain = a_.terrain()) {
+        constexpr double feet_per_metre = 3.280839895013123;
+        const double leg_m = speed_kts_ * 0.514444 * leg_s;
+        const double reach_m = 4.0 * metres_per_nm + leg_m + 2000.0;
+        for (double north = -reach_m; north <= reach_m; north += 250.0) {
+            for (double east = -reach_m; east <= reach_m; east += 250.0) {
+                if (std::hypot(north, east) > reach_m) {
+                    continue;
+                }
+                highest_ft = std::max(highest_ft, terrain->height_m(fix_lat_deg_ + north / lat_m,
+                                                                    fix_lon_deg_ + east / lon_m) *
+                                                      feet_per_metre);
+            }
+        }
+    }
+    altitude_ft_ = std::max(at_least_alt_ft, highest_ft + 1000.0);
+}
+
+AutopilotModes HoldOutside::modes() {
+    const AircraftState s = a_.state();
+    const double to_fix_m =
+        distance_m(s.latitude_deg, s.longitude_deg, fix_lat_deg_, fix_lon_deg_);
+    const double to_fix_deg =
+        bearing_deg(s.latitude_deg, s.longitude_deg, fix_lat_deg_, fix_lon_deg_);
+    const double outbound_deg = std::fmod(inbound_deg_ + 180.0, 360.0);
+    switch (leg_) {
+    case Leg::to_fix:
+        // Past the fix: within 2 nm of it and it behind her - abeam or
+        // over it. Only "over it" (within half a mile and opening), a wide
+        // turner circled it, never closer: a B-2A, a Learjet 35A and a
+        // Mosquito never crossed it in 600 s.
+        if (to_fix_m < 2.0 * metres_per_nm && off_deg(s.heading_deg, to_fix_deg) > 90.0) {
+            leg_ = Leg::turn_out;
+            ++laps_;
+        }
+        break;
+    case Leg::turn_out:
+        if (off_deg(s.heading_deg, outbound_deg) < 15.0) {
+            leg_ = Leg::outbound;
+            leg_began_s_ = s.sim_time_s;
+        }
+        break;
+    case Leg::outbound:
+        if (s.sim_time_s - leg_began_s_ >= leg_s) {
+            leg_ = Leg::turn_in;
+        }
+        break;
+    case Leg::turn_in:
+        if (off_deg(s.heading_deg, to_fix_deg) < 15.0) {
+            leg_ = Leg::to_fix;
+        }
+        break;
+    }
+    AutopilotModes m;
+    m.altitude_ft = altitude_ft_;
+    m.vertical_speed_fpm = std::clamp(speeds_.vref_kts * 10.0, 500.0, 1500.0);
+    m.airspeed_kts = speed_kts_;
+    switch (leg_) {
+    case Leg::to_fix:
+        m.heading_deg = to_fix_deg;
+        break;
+    case Leg::outbound:
+        m.heading_deg = outbound_deg;
+        break;
+    case Leg::turn_out:
+    case Leg::turn_in:
+        // Right turns, at a set bank.
+        m.bank_deg = bank_deg;
+        break;
+    }
+    return m;
+}
+
+void HoldOutside::configure(Controls& controls) const {
+    controls.flaps = 0.0;
+    controls.speedbrake = 0.0;
+    if (a_.gear_retracts()) {
+        controls.gear = 0.0;
+    }
 }
 
 bool departure_held(const Runway& runway, const std::vector<std::optional<CirclePlace>>& all) {

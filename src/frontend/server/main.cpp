@@ -3565,13 +3565,12 @@ private:
             if (b.aircraft.get() == &self || b.wrecked_at_s >= 0.0) {
                 continue;
             }
-            // **A person's, judged by how she flies** (sim::straight_in_by_hand,
-            // departing_by_hand): nothing holds her, and she is given way to.
+            // **A person's, judged by how she flies** (sim::using_by_hand):
+            // straight in or departing, this runway or its reciprocal -
+            // nothing holds her, and she is given way to.
             if (!b.controller ||
                 b.controller->flying() == glideslope::sim::Controller::Flying::pilot) {
-                const glideslope::sim::AircraftState her = b.aircraft->state();
-                if (glideslope::sim::straight_in_by_hand(runway, her) ||
-                    glideslope::sim::departing_by_hand(runway, her)) {
+                if (glideslope::sim::using_by_hand(runway, b.aircraft->state())) {
                     return true;
                 }
                 continue;
