@@ -155,9 +155,11 @@ bool departing_by_hand(const Runway& runway, const AircraftState& her) {
     if (on_runway(runway, her.latitude_deg, her.longitude_deg, above_ft)) {
         return her.airspeed_kts >= by_hand_rolling_kts;
     }
+    // Off the runway, she is departing only in the air: stopped beside it,
+    // lined up with it, she is not traffic.
     const double along_m = along_runway_nm(runway, her.latitude_deg, her.longitude_deg) *
                            metres_per_nm;
-    return along_m >= 0.0 && along_m <= runway.length_m + by_hand_departure_nm * metres_per_nm &&
+    return above_ft > RunwayClear::occupied_ft && along_m >= 0.0 && along_m <= runway.length_m + by_hand_departure_nm * metres_per_nm &&
            std::abs(across_runway_m(runway, her.latitude_deg, her.longitude_deg)) <
                Separation::minimum_m;
 }
