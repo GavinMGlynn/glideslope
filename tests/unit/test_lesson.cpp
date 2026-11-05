@@ -10502,15 +10502,21 @@ std::vector<std::string> landplanes_going_around() {
     return out;
 }
 
+// How long a person stays in the circuit ahead, in the test of one: a
+// quarter of an hour, more than two of a C172P's circuits.
+constexpr double person_in_circuit_s = 900.0;
+
 // What else happens to the one ahead, once both have gone around.
 enum class Then {
     nothing,
     // Down her circuit's approach again, below 300 ft, she goes around a
     // second time: the one behind has to wait a whole circuit more.
     ahead_goes_around_again,
-    // On her downwind leg, her pilot takes her and holds her there in the
-    // air - built: her aircraft is no longer stepped, her controller still
-    // flies - for her place's ten minutes and half a minute more.
+    // On her downwind leg, her pilot takes her and stays in the circuit:
+    // round it, and round again from each approach below 300 ft, for
+    // `person_in_circuit_s`, and then lands. Her pilot is built: a second
+    // controller on her aircraft, flying her circuit as the AI would,
+    // whose controls are her pilot's.
     ahead_taken_by_her_pilot,
 };
 
@@ -10539,10 +10545,10 @@ struct TwoAround {
     int racetracks = 0;            // flown by the one behind
     double furthest_out_nm = 0.0;  // the one behind, before the threshold
     double leave_downwind_nm = 0.0; // where she turns base, unextended
-    // Taken by her pilot: the one behind followed every step of her place's
-    // ten minutes, and followed no longer half a minute after them.
+    // Taken by her pilot: the one behind followed every step until her
+    // wheels touched, and how long her pilot flew her in the circuit.
     bool followed_while_taken = false;
-    bool released_after = false;
+    double person_s = 0.0;
     std::string wreck;
 };
 
@@ -10604,6 +10610,26 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
                 [&now_s] { return now_s; });
         }
     }
+    // **Her pilot**, standing in: flying from the start alongside her own
+    // controller, on the same aircraft, so that taking her over is seamless.
+    std::optional<glideslope::sim::Controller> pilot;
+    if (then == Then::ahead_taken_by_her_pilot) {
+        pilot.emplace(ahead, flying);
+        pilot->to_ai_approach(runway, ahead_speeds);
+        pilot->limit_speed(glideslope::sim::plan_speeds(data(), ahead_entry.model).fastest_kts);
+        pilot->vacates_runways([&behind](const glideslope::sim::Runway& r, double along_m,
+                                         double side) {
+            const glideslope::sim::AircraftState o = behind.state();
+            return !glideslope::sim::beside_runway(r, o.latitude_deg, o.longitude_deg,
+                                                   o.altitude_ft - r.elevation_ft, along_m, side);
+        });
+        pilot->clears_with([&behind](const glideslope::sim::Runway& r) {
+            const glideslope::sim::AircraftState o = behind.state();
+            return !glideslope::sim::on_runway(r, o.latitude_deg, o.longitude_deg,
+                                               o.altitude_ft - r.elevation_ft);
+        });
+        pilot->go_around();
+    }
     ahead_c.go_around();
     behind_c.go_around();
 
@@ -10625,6 +10651,15 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
             ahead_c.set_pilot(ahead_last);
             ahead_c.to_pilot();
         }
+        // **Her pilot stays in the circuit**: round again from her approach,
+        // until `person_in_circuit_s` have passed.
+        if (pilot && taken_at >= 0 &&
+            static_cast<double>(t - taken_at) / steps_per_second < person_in_circuit_s &&
+            !pilot->circuit() && pilot->lander() &&
+            pilot->lander()->stage() == glideslope::sim::Lander::Stage::approach &&
+            ahead.property("position/h-agl-ft") < 300.0) {
+            pilot->go_around();
+        }
         if (then == Then::ahead_goes_around_again && !again && out.ahead_circuits == 1 &&
             !ahead_c.circuit() && ahead_c.lander() &&
             ahead_c.lander()->stage() == glideslope::sim::Lander::Stage::approach &&
@@ -10632,11 +10667,15 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
             again = true;
             ahead_c.go_around();
         }
-        ahead_last = ahead_c.fly();
-        if (taken_at < 0) {
-            ahead.set_controls(ahead_last);
-            ahead.step();
+        if (pilot) {
+            const glideslope::sim::Controls hers = pilot->fly();
+            if (taken_at >= 0) {
+                ahead_c.set_pilot(hers);
+            }
         }
+        ahead_last = ahead_c.fly();
+        ahead.set_controls(ahead_last);
+        ahead.step();
         behind.set_controls(behind_c.fly());
         behind.step();
         now_s += 1.0 / steps_per_second;
@@ -10664,16 +10703,11 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
             // Where she would have turned base.
             out.leave_downwind_nm = c->leave_downwind_nm();
         }
-        if (taken_at >= 0) {
-            const double held_s = static_cast<double>(t - taken_at) / steps_per_second;
-            if (held_s < glideslope::sim::Controller::pilots_place_kept_s) {
-                out.followed_while_taken =
-                    out.followed_while_taken && circling && behind_c.circuit()->following();
-            } else if (held_s >= glideslope::sim::Controller::pilots_place_kept_s + 30.0) {
-                out.released_after = !(circling && behind_c.circuit()->following());
-                break;
-            }
-            continue;
+        // Her pilot's, in the air: the one behind follows her every step.
+        if (taken_at >= 0 && !ahead_touched && ahead.property("gear/wow") < 0.5) {
+            out.followed_while_taken =
+                out.followed_while_taken && circling && behind_c.circuit()->following();
+            out.person_s = static_cast<double>(t - taken_at) / steps_per_second;
         }
         const bool ahead_now = ahead.property("gear/wow") > 0.5;
         const bool behind_now = behind.property("gear/wow") > 0.5;
@@ -10700,7 +10734,8 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
                                   apart_m < glideslope::sim::Separation::minimum_m;
             out.lost = out.lost || lost_now;
         }
-        if (ahead_c.vacate() != nullptr && ahead_c.vacate()->clear() &&
+        const glideslope::sim::Controller& ahead_flier = pilot ? *pilot : ahead_c;
+        if (ahead_flier.vacate() != nullptr && ahead_flier.vacate()->clear() &&
             behind_c.vacate() != nullptr && behind_c.vacate()->clear()) {
             out.both_clear = true;
             break;
@@ -10947,18 +10982,27 @@ GLIDESLOPE_TEST(the_one_behind_two_going_around_whose_leader_goes_around_again_f
     check(flown == 4 && flown == pairs.size(), "four pairs flown, not " + std::to_string(flown));
 }
 
-// **Taken by her pilot in the circuit, the one ahead keeps her place** for
-// Controller::pilots_place_kept_s: the one behind goes on following her -
-// raised over her, and not turning base - every step of the ten minutes her
-// pilot holds her in the air, and half a minute after them follows her no
-// longer.
+// **Taken by her pilot in the circuit, the one ahead keeps her place for as
+// long as she flies**, as a tower holds the one behind: her pilot stays in
+// the circuit for a quarter of an hour, round and round again, and then
+// lands. The one behind follows her every step of it - raised over her, in
+// her racetrack, never down through her circuit - kept 500 ft or 1.5 nm
+// apart until her wheels touch, and then lands after her.
 GLIDESLOPE_TEST(the_one_ahead_of_two_going_around_taken_by_her_pilot_on_downwind_is_still_followed) {
     const TwoAround r =
         two_go_around_together("c172p", "c172p", true, Then::ahead_taken_by_her_pilot);
-    check(r.followed_while_taken,
-          "the one behind followed every step of the ten minutes the one ahead was her "
-          "pilot's");
-    check(r.released_after, "half a minute after them, the one behind follows her no longer");
+    std::printf("  her pilot flew her %.0f s in the circuit; %s; %d racetrack(s); %s%s%s\n",
+                r.person_s, least_of(r).c_str(), r.racetracks,
+                r.followed_while_taken ? "followed throughout" : "NOT FOLLOWED THROUGHOUT",
+                r.ahead_down_first ? ", hers down first" : ", THE AI DOWN FIRST",
+                r.both_clear ? ", both landed and clear" : ", NOT BOTH LANDED");
+    for (const std::string& w : judged("her pilot's c172p ahead of a c172p", r)) {
+        check(false, w);
+    }
+    check(r.person_s >= person_in_circuit_s,
+          "her pilot flew her in the circuit for " + std::to_string(r.person_s) + " s, not " +
+              std::to_string(person_in_circuit_s));
+    check(r.followed_while_taken, "the one behind followed her every step her pilot flew her");
 }
 
 // **The sequence is by one clock, not each aircraft's own** (the server's

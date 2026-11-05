@@ -301,8 +301,9 @@ ahead. She extends her downwind until it has landed, by at most 2 nm,
 and past that flies a racetrack. All 225 landplane pairs stayed 500 ft or
 1.5 nm apart and both landed, in order. Without the sequencing all of the
 first nine lost separation, the closest at 46 m. Traffic straight in or
-departing is not in the sequence yet, and that is a tail. A person's
-aircraft ahead is waited for, for ten minutes at most
+departing is not in the sequence yet, and that is a tail. An AI aircraft
+behind a person who stays in the circuit holds until they leave it:
+nothing yet asks the person to land or offers the AI another runway
 (2026-11-05-two-going-around-together-are-kept-apart-and-both-land).
 
 ## Gaps

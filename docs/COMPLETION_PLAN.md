@@ -1527,8 +1527,13 @@ AI aircraft kept apart from each other and clear of the runway.
       downwind at most 2 nm, flying a racetrack past that, until the one
       ahead has landed. All 225 landplane pairs stayed 500 ft or 1.5 nm
       apart and landed in order, and so did a pair whose leader went
-      around twice. A person's aircraft ahead is waited for, as a tower
-      would wait for her, for ten minutes at most.
+      around twice. An AI aircraft behind a person's lands after her, kept
+      apart all the while she flies the circuit.
+- [ ] **An AI aircraft behind a person who stays in the circuit holds until
+      they leave it**: nothing yet asks the person to land or offers the AI
+      another runway. *Verification: an AI aircraft held behind a person
+      who stays in the circuit is offered another runway, or the person is
+      asked to land, and the AI lands within a stated time.*
 - [ ] **A go-around's circuit does not sequence with traffic straight in or
       departing**: only aircraft going around wait for one another, and the
       rest are left to the separation monitor and the runway's rule.

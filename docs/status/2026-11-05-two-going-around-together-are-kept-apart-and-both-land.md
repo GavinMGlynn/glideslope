@@ -14,13 +14,19 @@
   set: number two waits for number one even where she could have landed
   first.
 
-**A stated behaviour, not a missing part: a person's aircraft ahead is
-waited for**, as a tower would hold the one behind for a pilot going round
-in its circuit. Taken over in the circuit, she keeps her place for ten
-minutes at most (`Controller::pilots_place_kept_s`, chosen: a C172P's
-whole circuit from a go-around is about six). After that her place goes,
-and the one behind lands with her as with any person's aircraft. The
-separation monitor and the runway's rule keep her clear.
+- **An AI aircraft behind a person who stays in the circuit holds until
+  they leave it.** Nothing yet asks the person to land, or offers the AI
+  another runway (an open plan item).
+
+**What a person ahead gets: the one behind holds for her, as a tower would
+hold her.** Taken over in the circuit, she keeps her place for as long as
+she flies, until her wheels touch. The one behind holds in her racetrack,
+700 ft over the highest the person flies, and never comes down through
+the person's circuit. When the person lands, the one behind lands after
+her. A ten-minute release was tried in the last round and taken out: past
+it, the one behind came down through the circuit of a person still flying
+it. With the place dropped, the one behind lost separation (1,624 m,
+0 ft) and landed first.
 
 **The F-15C's wreck behind a C172P that goes around twice was the
 racetrack's, and is fixed.** Searched first: the F-15's roll-out is
@@ -165,10 +171,14 @@ wheels touch, whoever flies her, or when she is handed back to the AI.
   are the Cub and the F-15C behind the C172P, and the C172P behind the Cub
   and behind the F-15C: all four flown.
 - `the_one_ahead_of_two_going_around_taken_by_her_pilot_on_downwind_is_still_followed`:
-  the one ahead is taken by her pilot on her downwind leg and held in the
-  air there (her aircraft not stepped, her controller flying). The one
-  behind follows her every step of the ten minutes, and half a minute
-  after them follows her no longer.
+  the one ahead is taken by her pilot on her downwind leg. Her pilot is
+  built: a second controller on her aircraft, flying her circuit as the AI
+  would, whose controls are given as her pilot's. It stays in the circuit,
+  going round again from each approach below 300 ft, for 15 simulated
+  minutes, and then lands. Her pilot flew her 974 s in the circuit. The
+  one behind followed her every step, kept 751 ft or more apart within
+  1.5 nm and never within 500 ft closer than 1.5 nm, and landed after her.
+  Both taxied clear.
 - `two_going_around_are_sequenced_by_the_callers_clock_not_their_own`: an
   aircraft made 30 s before another goes around 5 s before it, by the
   shared clock, and is number one.
@@ -185,9 +195,10 @@ wheels touch, whoever flies her, or when she is handed back to the AI.
   came to 0 ft vertically within 1.5 nm.
 - **Each aircraft's own clock** for the place: "the one that went around
   first, by the shared clock, is number one" failed.
-- **The place dropped when her pilot takes her**: "the one behind followed
-  every step of the ten minutes" failed. **The place never dropped**: "half
-  a minute after them, the one behind follows her no longer" failed.
+- **The place dropped when her pilot takes her** (the hold removed): the
+  one behind turned base under the person's circuit and lost separation,
+  1,624 m apart within 500 ft and 0 ft within 1.5 nm. She landed first,
+  and did not follow throughout.
 - **The racetrack's line taken again each time round**: the F-15C behind
   the C172P walked across the runway and struck it with her airframe
   (above).
@@ -199,7 +210,7 @@ wheels touch, whoever flies her, or when she is handed back to the AI.
   1,323 m. **The place's height only its set one**: three pairs with the
   PA-28 ahead fell to 476 ft.
 
-Unchanged and green after the second fix round: every test matching go-around,
+Unchanged and green after the third fix round: every test matching go-around,
 circuit, land, separation, vacate, taxi, kept apart, lesson, controller and
 the selftest, the CI shard checks and the gust sweep, 304 of 304 on
 linux-release (one skipped, as it needs a key).
