@@ -2552,9 +2552,17 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         }
     }
     if (JSBSim::Element* schedule = root->FindElement("flap_manoeuvre_speeds")) {
-        if (out.approach_kcas <= 0.0) {
+        // **Over her approach speed**: the `<approach>` the file gives, or
+        // the one worked from her landing stall (sim::approach_speeds) - the
+        // A380's, whose flight manual is not public.
+        const bool stalls = std::any_of(out.figures.begin(), out.figures.end(),
+                                        [](const FigureSpec& spec) {
+                                            return spec.flight == "stall_speed";
+                                        });
+        if (out.approach_kcas <= 0.0 && !stalls) {
             throw std::runtime_error(file.string() + " gives flap manoeuvre speeds over an "
-                                     "<approach> speed it does not give");
+                                     "approach speed it neither gives nor has a stall to "
+                                     "work from");
         }
         for (JSBSim::Element* flap = schedule->FindElement("flap"); flap != nullptr;
              flap = schedule->FindNextElement("flap")) {

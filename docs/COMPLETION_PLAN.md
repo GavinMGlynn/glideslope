@@ -1556,11 +1556,16 @@ AI aircraft kept apart from each other and clear of the runway.
       gives way to a person flying straight in, is kept 500 ft or 1.5 nm
       from a person departing, and an AI departure behind a person who stays
       in the circuit departs within a stated time.*
-- [ ] **An A380 given a take-off and no plan flies into the ground**: the
-      plain autopilot left holding what the take-off ended in lost her from
-      3,000 ft in 455 s. It was there before, and no server reaches it:
-      every take-off the server gives has a plan. *Verification: every landplane given a take-off to
+- [x] **An A380 given a take-off and no plan flies into the ground**:
+      she now raises her flaps at Airbus's F and S speeds, and a take-off
+      with no plan levels off at its height, leading it by a tenth of her
+      climb. *Verification: every landplane given a take-off to
       3,000 ft and no plan holds it for ten minutes.*
+- [ ] **No AI take-off raises her gear**: with a plan or without, she flies
+      on with her wheels down. The F-22A's thrust vectoring is off with
+      them, and she goes 386 ft past a 3,000 ft level-off.
+      *Verification: every landplane's AI take-off raises her gear once
+      she climbs, and her take-off figures are re-measured with it up.*
 - [x] **A layer that cannot make room is followed**: a layer above or below
       held at its own limits is refused the room, and the squeezed
       aircraft's held middle moves with it.

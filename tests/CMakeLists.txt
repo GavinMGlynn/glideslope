@@ -370,6 +370,7 @@ set(GLIDESLOPE_UNIT_TESTS
     who_follows_whom_round_a_circuit_is_by_time_then_down_the_runway_then_the_order
     a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
     every_landplane_has_a_test_of_her_circuit_with_every_straight_in_and_departure
+    every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it_for_ten_minutes
     a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
     a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
     a_787_8_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
@@ -1388,6 +1389,11 @@ foreach(_t a_737_300 a_747_400 a_787_8 an_a320 an_a380 a_b2 a_c172p a_c182 an_f1
         PROPERTIES TIMEOUT 1800 LABELS gust_sweep)
 endforeach()
 set_tests_properties(a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
+    PROPERTIES TIMEOUT 1800)
+# **Every landplane's take-off to 3,000 ft and ten minutes held there**, in
+# simulated time: 22 s on linux-release locally, and Linux debug's runners
+# take about fourteen times release's for flights like these.
+set_tests_properties(every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it_for_ten_minutes
     PROPERTIES TIMEOUT 1800)
 
 # **A program that has ended can still allocate until its last thread is gone**

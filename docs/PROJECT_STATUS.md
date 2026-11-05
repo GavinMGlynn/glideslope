@@ -293,7 +293,7 @@ touch scatters 1.7 times as widely as the F-15C's, and no sourced change
 moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
-**Phase 11, traffic and separation: 5 of 9 items.** Every AI aircraft a
+**Phase 11, traffic and separation: 6 of 10 items.** Every AI aircraft a
 server runs is measured against every other, and in runs of every route
 kind none comes within 500 ft and 1.5 nm of another. The kinds are planned,
 the plan file, handed over holding its course, handed over in a spiral,
@@ -328,6 +328,16 @@ separation, down to 0 ft at 667 m and 1 m. A person straight in or taking
 off is not in the sequence yet, and a person in the circuit holds every AI
 departure from her runway until she lands
 (2026-11-05-a-go-arounds-circuit-gives-way-to-a-straight-in-and-holds-a-departure).
+
+Since 2026-11-05 a take-off given no plan levels off at its height. It
+leads the height by a tenth of her climb, and the autopilot holds it. The
+A380 raises her flaps at Airbus's F and S speeds, worked from her model's
+stalls. Before, she raised them under her clean stall and stalled into the
+ground. All 15 landplanes taken off to 3,000 ft held it for ten minutes,
+within 100 ft from two minutes on. No AI take-off raises her gear yet, and
+the F-22A, whose thrust vectoring is off with her gear down, goes 386 ft
+past her height first
+(2026-11-05-a-take-off-with-no-plan-levels-off-and-holds-its-height).
 
 
 ## Gaps
