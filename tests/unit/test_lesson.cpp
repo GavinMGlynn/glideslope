@@ -7919,7 +7919,13 @@ Demonstrated demonstrate_a_take_off(const std::string& id) {
 
     glideslope::sim::Controls standing;
     glideslope::sim::Controller controller(aircraft, standing);
-    controller.to_ai_take_off(runway, speeds);
+    // **To a height clear of the lesson's end**, 500 ft, so that the lesson
+    // judges her climb away and not her level-off. Asked for 500 ft itself,
+    // a jet whose flap is still out at her lead levels off there and cleans
+    // up level at her take-off thrust (sim::Departure::level_off_at_end):
+    // the 737-300 accelerated past the lesson's band for the climb before
+    // she reached 500.
+    controller.to_ai_take_off(runway, speeds, 1000.0);
     check(controller.departure() != nullptr, "the AI pilot has a take-off to fly");
 
     glideslope::sim::Controls pilot;
@@ -13148,6 +13154,8 @@ struct Circuit {
     double fastest_climb_out_kts = 0.0;
     double lowest_downwind_ft = 1e9;
     double highest_downwind_ft = 0.0;
+    // The circuit's height above the runway, as she was joined to it.
+    double circuit_ft = 0.0;
     double slowest_final_kts = 1e9;
     double fastest_final_kts = 0.0;
 };
@@ -13207,18 +13215,13 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     // every stage after it one turn early, so the downwind leg was counted
     // inside the turn on to it.
     constexpr double turn_crosswind_ft = 650.0;
-    // **The take-off asked for 100 ft more than that**, so she is joined to
-    // the circuit climbing, as a take-off joined to one is. Given no plan, a
-    // take-off levels off at its height (Departure::level_off_at_end) and the
-    // autopilot captures it (Autopilot::capture). Before the capture the
-    // last few feet came slowly: the Mosquito flew 2.7 minutes and 7 nm
-    // upwind at 646 to 650 ft before she was joined. Captured, she is at it
-    // 32 s after the hand-over; but asked for 650 ft itself, every aeroplane
-    // is joined level, and the PA-28, levelled there and then climbing to the
-    // circuit's 1,000 ft at seven tenths of her climb, began her downwind
-    // leg at 954 ft and went on to 1,078: 124 ft over where it began, past
-    // the lesson's 120 ft band (a Phase 10a tail).
-    controller.to_ai_take_off(runway, dep, turn_crosswind_ft + 100.0);
+    // **The take-off asks for that height**, and she is joined to the
+    // circuit levelled there. Until 2026-11-06 it asked for 100 ft more, to
+    // join climbing: asked for 650 ft itself, the PA-28 climbed on to the
+    // circuit's height with her take-off flap put back out (below), slowed
+    // to 51 kt and went 43 ft past it, and began her downwind leg 124 ft
+    // under the highest she flew it at, past the lesson's 120 ft band.
+    controller.to_ai_take_off(runway, dep, turn_crosswind_ft);
 
     // **The pattern is the go-around's circuit** (sim/circuit.hpp), joined
     // from the take-off: one set of rules for both. Its sizes, its legs and
@@ -13234,8 +13237,14 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     // Boeing's circuit is flown at, and could not line up with the runway
     // before she touched - 186 metres to the left of it. For the light
     // aircraft seven tenths of their climb is below six hundred anyway.
-    // **The take-off flap stays out round the pattern**, as a jet's
-    // downwind leg is flown with it.
+    // **A jet's take-off flap stays out round the pattern**, as her
+    // downwind leg is flown with it. **A light aeroplane's does not**: her
+    // take-off brought it up from 50 ft (DepartureSpeeds::flaps_up_ft, the
+    // Airplane Flying Handbook's), and she is joined with the flap she has
+    // (below). Until 2026-11-06 it was put back out at the join: the PA-28's
+    // 25 degrees, with which she slowed to 51 kt climbing to circuit height,
+    // 23 under her climbing speed, and ballooned 43 ft past it as she rolled
+    // out downwind and the speed came back.
     glideslope::sim::CircuitEntry joined;
     joined.from_take_off = true;
     joined.climb_kts = dep.initial_climb_kts;
@@ -13271,6 +13280,8 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     controller.set_pilot(pilot);
     int hand_over = -1;
     int take_back = -1;
+    // The flap lever she was last flown with: what she is joined with.
+    double flown_flaps = 0.0;
     glideslope::sim::Controls last;
     bool first = true;
     for (int tick = 0; tick < 900 * steps_per_second; ++tick) {
@@ -13297,7 +13308,11 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
         if (climbing_out && agl >= turn_crosswind_ft) {
             climbing_out = false;
             controller.to_ai();
+            if (entry.aircraft_class == glideslope::sim::AircraftClass::light_aircraft) {
+                joined.flaps = flown_flaps;
+            }
             pattern.emplace(aircraft, runway, app, joined);
+            out.circuit_ft = pattern->circuit_ft();
             out.circuit_legs = 1;
         }
         if (pattern && !pattern->on_final()) {
@@ -13328,6 +13343,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
             }
         }
         glideslope::sim::Controls flown = controller.fly();
+        flown_flaps = flown.flaps;
         if (pattern && !approach) {
             pattern->configure(flown);
         }
@@ -13403,6 +13419,7 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
 // aeroplane: off the runway, round the pattern left-hand at circuit height,
 // and back on to the same runway.
 GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
+    constexpr double circuit_within_ft = 100.0;
     const auto taught = everyone_taught("circuit");
     check(!taught.empty(), "some aeroplane is taught the circuit");
     std::size_t walked = 0;
@@ -13426,10 +13443,10 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
             glideslope::sim::find_aircraft(data(), id).model);
         const auto a = glideslope::sim::approach_speeds(data(),
             glideslope::sim::find_aircraft(data(), id).model);
-        std::printf("      climb out %.0f-%.0f kt (climb %.0f), downwind %.0f-%.0f ft, "
+        std::printf("      climb out %.0f-%.0f kt (climb %.0f), downwind %.0f-%.0f ft of %.0f, "
                     "final %.0f-%.0f kt (vref %.0f)\n",
                     flown.slowest_climb_out_kts, flown.fastest_climb_out_kts,
-                    d.climb_kts, flown.lowest_downwind_ft, flown.highest_downwind_ft,
+                    d.climb_kts, flown.lowest_downwind_ft, flown.highest_downwind_ft, flown.circuit_ft,
                     flown.slowest_final_kts, flown.fastest_final_kts, a.vref_kts);
         for (const std::string& said : flown.debrief) {
             std::printf("      %s\n", said.c_str());
@@ -13458,6 +13475,18 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
               id + " touched down " + std::to_string(flown.touch_along_m) +
                   " m beyond the threshold, which is not on the runway's " +
                   std::to_string(a_runway().length_m) + " m");
+        // **Downwind within 100 ft of circuit height**: the FAA's tolerance
+        // for traffic pattern altitude (Private Pilot Airman Certification
+        // Standards, FAA-S-ACS-6C, Area III, Task B, "maintain traffic
+        // pattern altitude ±100 feet"), against the circuit's height, not
+        // where the lesson's stage began. The pattern itself turns downwind
+        // from 100 ft under it (GoAroundCircuit::modes).
+        check(flown.lowest_downwind_ft >= flown.circuit_ft - circuit_within_ft &&
+                  flown.highest_downwind_ft <= flown.circuit_ft + circuit_within_ft,
+              id + " flew her downwind leg within 100 ft of her circuit height, " +
+                  std::to_string(flown.circuit_ft) + " ft: " +
+                  std::to_string(flown.lowest_downwind_ft) + " to " +
+                  std::to_string(flown.highest_downwind_ft));
         check(flown.debrief.empty(),
               id + " flew the circuit inside the lesson's limits, and said " +
                   std::to_string(flown.debrief.size()) + " things");
@@ -13667,6 +13696,9 @@ struct HeldAfterTakeOff {
     // `no_plan_close_ft` from her height: from then on she was within it.
     double last_off_s = 0.0;
     double reached_s = -1.0; // when she first reached her height after the hand-over
+    // The most she went past her height from brakes off: before the
+    // hand-over as well as after it.
+    double most_over_all_ft = -1e9;
 };
 
 // **The height she is taken off to, and how long she is left there**: the
@@ -13738,6 +13770,7 @@ HeldAfterTakeOff no_plan_after_take_off(const std::string& id, double to_ft = no
             out.handed_fpm = aircraft.property("velocities/h-dot-fps") * 60.0;
         }
         was_departing = departing;
+        out.most_over_all_ft = std::max(out.most_over_all_ft, ft - to_ft);
         if (handed_at < 0) {
             continue;
         }
@@ -13886,6 +13919,55 @@ GLIDESLOPE_TEST(every_landplane_given_a_take_off_with_no_plan_is_within_2_ft_of_
     check(landplanes == 15 && flown == landplanes * heights.size(),
           "every one of the catalogue's 15 landplanes flown to both heights: " +
               std::to_string(flown) + " of " + std::to_string(landplanes * heights.size()));
+}
+
+// **Every landplane taken off with no plan to 650 ft goes no more than
+// 100 ft past it** (sim::Departure::level_off_at_end), from brakes off to
+// two minutes after the hand-over: the FAA's altitude tolerance for a pilot
+// holding one (`no_plan_within_ft`). 650 ft is the circuit lessons' height
+// to turn crosswind. A jet's flap comes up from 400 ft, and the take-off
+// once climbed on until it was up: the 737-300, 747-400, A320 and A380 were
+// handed over 185 to 412 ft past 650, and with the 787-8, the Learjet 35A
+// and the F-22A, climbing hard when handed over, went 139 to 532 ft past
+// it. Now each levels off at her lead and cleans up level. The space is
+// every landplane; the flying boat is named and left out.
+GLIDESLOPE_TEST(every_landplane_taken_off_with_no_plan_to_650_ft_goes_no_more_than_100_ft_past_it) {
+    constexpr double to_ft = 650.0;
+    constexpr double held_s = 120.0;
+    std::size_t landplanes = 0;
+    std::size_t flown = 0;
+    double worst_ft = -1e9;
+    std::string worst;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat takes off from water, not a runway\n",
+                        entry.id.c_str());
+            continue;
+        }
+        ++landplanes;
+        const HeldAfterTakeOff r = no_plan_after_take_off(entry.id, to_ft, held_s);
+        ++flown;
+        std::printf("  %s: %s; handed over at %.0f ft, %+.0f ft/min, %.0f kt; %+.1f ft past "
+                    "650 at most (%+.1f after the hand-over); %.1f ft at the end\n",
+                    entry.id.c_str(), r.wreck.empty() ? "flying" : r.wreck.c_str(),
+                    r.handed_ft, r.handed_fpm, r.handed_kts, r.most_over_all_ft,
+                    r.most_over_ft, r.end_ft);
+        if (r.most_over_all_ft > worst_ft) {
+            worst_ft = r.most_over_all_ft;
+            worst = entry.id;
+        }
+        check(r.wreck.empty(), entry.id + " was not wrecked: " + r.wreck);
+        check(r.handed_over, entry.id + "'s take-off was over");
+        check(r.held_s >= held_s,
+              entry.id + " was held two minutes: " + std::to_string(r.held_s) + " s");
+        check(r.most_over_all_ft <= no_plan_within_ft,
+              entry.id + " went no more than 100 ft past 650 ft: " +
+                  std::to_string(r.most_over_all_ft));
+    }
+    std::printf("  the most past: %s, %.1f ft\n", worst.c_str(), worst_ft);
+    check(landplanes == 15 && flown == landplanes,
+          "every one of the catalogue's 15 landplanes flown: " + std::to_string(flown) + " of " +
+              std::to_string(landplanes));
 }
 
 // **A capture is let go when the modes are set again, even to the same

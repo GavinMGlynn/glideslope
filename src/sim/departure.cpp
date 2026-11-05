@@ -87,6 +87,8 @@ constexpr double a_hands_pace = 1.0 / steps_per_second;
 constexpr double flaps_still_deg = 1e-6;
 // Where a take-off whose flap will not come up ends anyway (fly_laws).
 constexpr double take_off_path_ft = 1500.0;
+// The screen height a take-off is measured to, feet above where she stood.
+constexpr double screen_ft = 35.0;
 // **A positive rate of climb**: as a circuit raises her gear on (circuit.cpp),
 // and held for a second (Departure::raise_the_gear). The second is chosen,
 // not sourced - the manuals say "positive rate", "confirmed" and
@@ -548,6 +550,7 @@ void Departure::hand_mixture(double mixture) {
 Controls Departure::fly() {
     Controls c = fly_laws();
     c.mixture = leaner_ ? leaner_->lean(c.throttle) : 1.0;
+    last_ = c;
     return c;
 }
 
@@ -663,8 +666,46 @@ Controls Departure::fly_laws() {
     // tenth of her climb (`level_off_at_end`): the lead an instrument pilot
     // levels off by.
     const double climb_fpm = std::max(0.0, a_.property("velocities/h-dot-fps") * 60.0);
-    const bool at_the_lead = levels_off_ && takeoff_trim_ == 0.0 && flaps_up() &&
-                             above_m_ * feet_per_metre >= to_ft_ - level_off_lead * climb_fpm;
+    const double above_ft = above_m_ * feet_per_metre;
+    const bool clean = takeoff_trim_ == 0.0 && flaps_up();
+    const bool at_the_lead =
+        levels_off_ && clean && above_ft >= to_ft_ - level_off_lead * climb_fpm;
+    // **At the lead with her flap or trim still to come off, she levels off
+    // and cleans up level** (level_off_at_end): once she is through the
+    // screen height and her gear is up, where it retracts - the take-off's
+    // own guards near the ground, and on her gear's speed, are done with.
+    const bool screen_passed = (above_m_ - standing_m_) * feet_per_metre >= screen_ft;
+    const bool gear_up = !a_.gear_retracts() || a_.property("gear/gear-pos-norm") <= 0.0;
+    if (levels_off_ && !levelling_ && !clean && unstuck_ && !on_ground && screen_passed &&
+        gear_up && stage_ != Stage::done && above_ft >= to_ft_ - level_off_lead * climb_fpm) {
+        levelling_.emplace(a_, last_);
+        AutopilotModes modes = levelling_->modes();
+        modes.altitude_ft = level_off_ft();
+        modes.vertical_speed_fpm = std::max(modes.vertical_speed_fpm, climb_fpm);
+        // **At the take-off's thrust**, accelerating: the throttle left where
+        // the take-off has it, as Airbus's engine-out departure levels off,
+        // accelerates and cleans up at its take-off thrust. Held to her climb
+        // speed instead, the 737-300, her flap up at it, was flown level
+        // clean at 166 kt, under her clean wing's stall, and sank into the
+        // ground from 638 ft.
+        modes.airspeed_kts.reset();
+        levelling_->set(modes);
+        levelling_->capture();
+    }
+    if (levelling_) {
+        // Her flap, gear and take-off trim as the take-off has them.
+        Controls level = levelling_->fly();
+        level.flaps = c.flaps;
+        level.gear = c.gear;
+        level.pitch_trim = c.pitch_trim;
+        level.propeller = c.propeller;
+        // Over once she is clean - or, as any take-off, once its path or
+        // its rated power's five minutes are (`path_over`, above).
+        if (clean || path_over) {
+            stage_ = Stage::done;
+        }
+        return level;
+    }
     if (stage_ != Stage::done && ((climbed_out_ && (flaps_up() || path_over)) || at_the_lead)) {
         stage_ = Stage::done;
     } else if (unstuck_) {
@@ -977,7 +1018,7 @@ Controls Departure::fly_laws() {
         // points before her tail was raised on it, is not flying, and is let
         // back down on to it.
         if (!on_water && rotated_off_) {
-            const bool screen = (above_m_ - standing_m_) * feet_per_metre < 35.0;
+            const bool screen = (above_m_ - standing_m_) * feet_per_metre < screen_ft;
             want_pitch = std::max(want_pitch, a_.property("aero/alpha-deg") +
                                                   (screen ? climb_floor_deg : 0.0));
         }
@@ -1010,7 +1051,7 @@ Controls Departure::fly_laws() {
             if (s.pitch_deg > strike_pitch_deg_ - strike_margin_deg) {
                 pull_ = std::max(pull_ - 1.0 / steps_per_second, 0.0);
             }
-        } else if ((above_m_ - standing_m_) * feet_per_metre < 35.0) {
+        } else if ((above_m_ - standing_m_) * feet_per_metre < screen_ft) {
             // **Off the ground but not yet clear of it, the nose is never
             // pushed below the attitude she stands at** - level, for a
             // tail-wheel aeroplane, which stands on her tail - whatever
