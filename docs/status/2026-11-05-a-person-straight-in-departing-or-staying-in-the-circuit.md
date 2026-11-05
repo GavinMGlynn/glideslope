@@ -12,18 +12,22 @@
   off when a tower would release her: the one going round on her downwind
   leg, the minimum short of the threshold. So the item about a person
   departing stays open, with this named.
-- **The AI behind a person who stays in the circuit leaves and does not
-  come back.** She turns 45 degrees away from the circuit at her raised
-  height and flies on, on the plain autopilot, her landing given up. Nothing
-  brings her back to land once the person has gone, nor sends her to
-  another runway or airport. Nothing is said to the person either: no
-  server-to-client message carries a tower's words today.
+- **The AI behind a person who stays in the circuit holds outside it for
+  as long as the person stays.** She comes back once the person is down;
+  nothing sends her to another runway or airport, and nothing is said to
+  the person: no server-to-client message carries a tower's words today.
+- **A person orbiting over the climb-out, or never behind the threshold
+  and going away from it, holds an AI departure for as long as she does**,
+  as a tower would not release one into her. Every pattern that passes
+  behind the threshold going away releases it, either hand, wide or an
+  orbit (judged by the unit test below); only the left-hand circuit's 455 s
+  is a flown figure.
 - **A person's aircraft is judged only by how she flies.** Straight in is
   heading within 30 degrees of the runway, within 1.5 nm of its extended
   centreline, before the threshold and within 5 nm, and no higher than a
   three-degree path and 700 ft; departing is rolling down the runway faster
   than 30 kt, or in the air past the threshold, within 1.5 nm past its far
-  end. A person flying her own circuit from a take-off by hand has no place
+  end - either way on the runway or its reciprocal. A person flying her own circuit from a take-off by hand has no place
   in the sequence: she is known only while she is straight in or departing.
   A place is a person's only when she was taken over in the circuit.
 - **A person's place is kept until her wheels touch**, as before, even if
@@ -39,18 +43,26 @@
   AI circuit that has not turned base follows her - offset right on her
   upwind leg, and down her downwind leg until the person is down or climbed
   out. Turned base, the AI is committed.
-- **An AI departure behind a person in the circuit is released on her
-  downwind leg**, as one behind an AI is: her place is marked clear of
-  departures while she is left of the centreline, heading within 60 degrees
-  of the runway's reciprocal and the 1.5 nm minimum short of the threshold
-  - judged afresh every step, so turned base she holds it again. A person
-  who stays in the circuit holds it at most one of her circuits, not until
-  she lands.
-- **An AI aircraft behind a person who stays in the circuit leaves it**
-  (`Controller::leaves_with`): on her second racetrack's outbound leg -
-  outside the circuit, 700 ft over the highest the person flies hers - she
-  turns 45 degrees away from the runway, gives up her place and flies on
-  at that height.
+- **An AI departure behind a person in the circuit is released once she is
+  behind the threshold and going away from it**: the 1.5 nm minimum short
+  of it, and heading 90 degrees or more off the bearing to it - whatever
+  her pattern's shape. Judged afresh every step, so turned towards the
+  runway she holds it again. A person who stays in a left-hand circuit
+  held it at most one of her circuits, not until she lands.
+- **An AI aircraft behind a person who stays in the circuit holds outside
+  it, and comes back to land once she is down** (`Controller::leaves_with`,
+  `sim::HoldOutside`): on her second racetrack's outbound leg she leaves
+  for a standard hold - right turns, one-minute legs (AIM 5-3-8) - about a
+  fix 9 nm from the threshold on the bearing she left at, cleaned up (flap
+  up, gear up where it retracts), at 1.4 times her reference speed (at
+  most 200 kt, AIM 5-3-8's limit at or below 6,000 ft, unless her reference
+  and twenty is more), 700 ft over the highest the person flies and 1,000
+  ft over the highest ground within 4 nm of the hold (14 CFR
+  91.177(a)(2)(ii)). She keeps her place. Once no person is ahead of it -
+  the person down - she flies the legs to final, 6 and 4 nm out, and the
+  approach, and lands.
+- **A person using the reciprocal runway is seen**, straight in to its far
+  end or departing the other way (`sim::reciprocal`, `using_by_hand`).
 
 **Researched first** (owner's standing rule). Searched: JO 7110.65 3-8-1,
 3-8-2, 3-9, 3-10 and 2-1-21; holding a departure for pattern traffic and
@@ -93,21 +105,28 @@ from pointsixtyfive.com's copies and FAA notices.
   700 ft over the path are chosen.
 - The departure released on a person's downwind leg: the AI's rule
   (sourced as 3-9-6's "turned"), applied to how a pilot flies a downwind.
-- Leaving the circuit, not another runway or asking the person to land: a
-  person cannot be asked here, and there is one runway. The 45-degree turn
-  away is sourced (AIM 4-3-2, AC 90-66C); after one whole racetrack is
-  chosen - no figure for how long to hold was found.
+- Holding outside, not another runway or asking the person to land: a
+  person cannot be asked here, and there is one runway. A tower's "remain
+  outside the Class D airspace" (AIM 3-2-5) and the standard hold's shape,
+  legs and speed (AIM 5-3-8) are sourced; the 9 nm fix, the 1.4 times her
+  reference speed, and leaving after one whole racetrack are chosen - no
+  figure for how long to hold was found. The 1,000 ft over the ground is
+  14 CFR 91.177's IFR minimum, taken as the floor.
+- The departure released whatever the person's pattern: the AI's rule's
+  1.5 nm short of the threshold, and "going away" chosen as heading 90
+  degrees or more off the bearing to it.
 
 **What changed** (`sim/circuit.hpp`, `sim/controller.hpp`,
 `src/frontend/server/main.cpp`):
 - `sim::straight_in_by_hand`, `departing_by_hand`,
   `clear_of_departures_by_hand`, `behind_a_person`; `CirclePlace::by_hand`.
-- `Controller::leaves_with`, `left_the_circuit_s`,
+- `sim::HoldOutside`, `sim::reciprocal`, `sim::using_by_hand`.
+- `Controller::leaves_with`, `left_the_circuit_s`, `hold`, `rejoined_at_s`,
   `racetracks_behind_a_person`; a person's place marked clear of
   departures afresh every step.
 - The server's `straight_in_to` judges a person's aircraft (no controller,
-  or her pilot's) by how she flies; `behind_a_person` is asked of every
-  controller.
+  or her pilot's) by how she flies, on the runway or its reciprocal;
+  `behind_a_person` is asked of every controller.
 - **Fixed on the way**: a person's aircraft stopped beside the runway, lined
   up with it, counted as departing, and an A380 straight in, landed and
   taxied clear, held every AI circuit in racetracks for an hour - two of
@@ -122,17 +141,31 @@ her own whose intentions nothing else is told.
   gives way to a straight-in), the straight-in or the departure a person's.
 - `an_ai_aircraft_behind_a_person_who_stays_in_the_circuit_leaves_it_kept_apart_the_slowest_and_the_fastest_each_with_each`:
   two going around together, the one ahead taken by her pilot on her
-  downwind leg and flown round again from every approach below 300 ft for
-  the whole run; it ends 300 s after the one behind has left.
+  downwind leg and flown round again from every approach below 300 ft. In
+  one situation she stays the whole run, which ends 600 s after the one
+  behind has left: the one behind is round her hold's fix at least once,
+  stays 6.5 to 15 nm from the threshold (`away_nm`; never nearer than the
+  furthest circuit, never flown off), and does not come back. In the other
+  the person lands once the one behind has crossed her hold's fix: the one
+  behind comes back and lands after her, both taxiing clear.
+- `a_persons_place_is_clear_of_departures_behind_the_threshold_and_going_away_whatever_her_pattern`:
+  ten placed cases, each stated, the count asserted - left- and right-hand
+  and wide downwinds and an orbit going away are clear; inside the minimum,
+  a base of either hand, final, an orbit coming back and one over the
+  climb-out are not.
+- `a_person_straight_in_to_or_departing_the_reciprocal_runway_is_seen`:
+  rolling, climbing out and straight in the other way, each not the
+  runway's own and each seen.
 - `an_ai_departure_behind_a_person_who_stays_in_the_circuit_departs_kept_apart_the_slowest_and_the_fastest_each_with_each`:
   a person who stays as above, the departure lined up on the threshold and
   given its take-off as she turns final - the longest hold there is.
 - These three run the J-3 Cub and the F-15C each with each (20 flights) on
   every run. `<id>_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart`:
-  fifteen tests, every landplane with every other in each of the five
-  situations - 1,125 flights - labelled gust_sweep.
+  fifteen tests, every landplane with every other in each of the six
+  situations - 1,350 flights - labelled gust_sweep.
   `every_landplane_has_a_test_with_every_person_straight_in_departing_or_staying_in_the_circuit`
-  fails if a landplane is added without its test; each sweep asserts every
+  reads the tests registered (the harness's registry), not a list kept
+  beside them, and fails if a landplane has none; each sweep asserts every
   pair flown. The flying boat is named and left out.
 - In every flight, every step both are in the air, they are 500 ft or 1.5
   nm apart; nothing is wrecked.
@@ -141,21 +174,29 @@ her own whose intentions nothing else is told.
   approach (471 s), short of the 801 s a C172P behind her holds; the one
   behind follows her throughout and lands after her.
 
-**The least, across all 1,125** (all sixteen tests green, linux-release,
-4 to 8 minutes a test):
+**The least, across all 1,350** (all sixteen tests green, linux-release,
+6 to 10 minutes a test, after the review of #342's round):
 - A person straight in or departing, 675 flights: 3,321 m horizontally
   within 500 ft and 541 ft vertically within 1.5 nm (both a C182 in the
-  circuit with a person's J-3 Cub straight in as she goes around). 222 of
-  the person's straight-ins went around early behind the AI and followed
-  her round.
-- Behind a person who stays, 225 flights: 3,090 m and 618 ft (a person's
-  J-3 Cub ahead of a 747-400). Every one behind left the circuit, the
-  latest 1,190 s after the person was taken (a PA-28 behind a person's
-  F-35B); the test's bound is 1,500 s.
+  circuit with a person's J-3 Cub straight in as she goes around).
+- Behind a person who stays, and behind one who lands once the one behind
+  holds, 450 flights: 3,090 m and 618 ft (a person's J-3 Cub ahead of a
+  747-400). Every one behind left the circuit, the latest 1,190 s after
+  the person was taken (a PA-28 behind a person's F-35B; the bound is
+  1,500 s); every hold was 6.7 to 14.4 nm from the threshold (bound 6.5 to
+  15); every one behind a person who landed came back and landed after
+  her, and none behind one who stayed came back.
 - A departure behind a person who stays, 225 flights: 5,289 m within 500 ft
   (an F-22A departing behind a person's J-3 Cub), never within 1.5 nm. The
-  longest held was 455 s (a 737-300 behind a person's PA-28); the test's
-  bound is 600 s. Every one climbed out.
+  longest held was 455 s (a 737-300 behind a person's PA-28; the bound is
+  600 s) - a left-hand circuit's, the only pattern flown. Every one
+  climbed out.
+- **Found on the way**: the hold's fix taken as passed only within half a
+  mile of it and opening, a B-2A, a Learjet 35A and a Mosquito circled it
+  wider and never crossed it in 600 s; it is passed now once it is behind
+  her within 2 nm.
+- The three per-PR tests on linux-debug, three at once beside a -j4
+  sweep: 589, 689 and 334 s; their timeout is 3,600 s.
 
 **Seen to fail**, each rule taken out and the failure watched, in the three
 small tests:
@@ -165,6 +206,15 @@ small tests:
   person's climb out.
 - Leaving taken out: all four behind a person who stays never left the
   circuit.
+- Coming back taken out (she holds whatever): all four behind a person who
+  lands once she holds never came back to land; and in that long hold at
+  a fix 8 nm out an F-15C came within 6.0 nm of the threshold, so the fix
+  was moved to 9 nm.
+- The release's old rule (a left-hand downwind's): a right-hand downwind 2
+  nm short was not clear.
+- `using_by_hand` without the reciprocal: rolling the other way not seen.
+- The coverage check with the PA-28's test left out of what it read: "15
+  landplanes go around, 14 tests registered", the PA-28 named.
 - `clear_of_departures_by_hand` never true: all four departures were held
   for the whole run and never climbed out.
 - Before the person's stand-in waited for a release, as above: 6 of 12
@@ -177,4 +227,4 @@ Unchanged and green: every test matching person, go-around, going around,
 circuit, straight-in, separation, vacate, taxi, kept apart, controller,
 runway, selftest and the CI shard checks, the gust_sweep label aside - 132
 of 132 on linux-release (one skipped, as it needs a key). The server and
-the tests build on Windows (windows-debug).
+the tests build on Windows (windows-debug), after the review's round too.
