@@ -158,7 +158,8 @@ the flying boat, since 2026-11-04 on all forty seeds on Linux and Windows
 since 2026-11-04 the B-2A, on all forty seeds on Linux, an x86-64-v2 build
 and Windows release. The 737-300
 and 787-8 now land on all forty here but touch hard on one seed each on
-Windows release, named on those seeds alone. Since 2026-11-04 the A380 lands on all
+Windows release, named on those seeds, and the 737-300 on macOS's 3 and
+17 too. Since 2026-11-04 the A380 lands on all
 forty seeds on Linux and an x86-64-v2 build, her power retarded at Airbus's
 20 ft, and is named on Windows's seeds 3 and 7 and macOS's 5, 6, 31 and
 37 alone; since 2026-11-05 no aeroplane is named whole. Since
