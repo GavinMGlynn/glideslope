@@ -1190,7 +1190,7 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       1,000 ft, the acceleration height Boeing's training manual names for
       a training flight; flown to it, every taught aeroplane's debrief is
       empty, and at 500 the 737-300's was not.
-- [ ] **No flap limit speed is watched in the level-off.** Found 2026-11-06
+- [x] **No flap limit speed is watched in the level-off.** Found 2026-11-06
       in the review of #348: levelling off at 650 ft at take-off thrust,
       the jets reach 179 to 269 kt with some flap still out (A380 228,
       F-22A 265, 747-400 269), and no model here gives her published flap
@@ -1202,7 +1202,11 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       limitations document). The A320's are from her EASA data sheet.
       *Verification: every jet's published VFE, sourced, in her aircraft
       data, the aircraft with none named; no flap ever over its VFE in a
-      take-off with no plan to 650 ft, seen red.*
+      take-off with no plan to 650 ft, seen red.* Done 2026-11-06 on the
+      owner's ruling that blocked items close on measured figures
+      (2026-10-09): the four airliners' flight manuals are not public, so
+      their published figures from secondary sources stand, each labelled
+      and linked, until a primary turns up.
 
 ---
 
