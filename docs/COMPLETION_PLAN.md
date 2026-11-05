@@ -1178,6 +1178,23 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       reaching her lead with her flap out, she levels off there and cleans
       up level at take-off thrust; all 15 landplanes are within 21 ft of
       650 (the F-22A), seen red on the old code.
+- [ ] **A take-off demonstrated to its default 500 ft flies out of the
+      lesson's climb band.** Found 2026-11-06 in the review of #348: with
+      the default height, a jet reaches her lead at about 200 ft with her
+      flap out, levels off at take-off thrust and accelerates past the
+      take-off lesson's band; nothing in the programs asks the default
+      today, and the demonstration test asks 1,000 ft.
+      *Verification: the take-off demonstration, flown to the default
+      height, leaves every taught aeroplane's debrief empty, or the default
+      is changed and the reason named.*
+- [ ] **No flap limit speed is watched in the level-off.** Found 2026-11-06
+      in the review of #348: levelling off at 650 ft at take-off thrust,
+      the jets reach 179 to 269 kt with some flap still out (A380 228,
+      F-22A 265, 747-400 269), and no model here gives her published flap
+      limit speeds (VFE).
+      *Verification: every jet's published VFE, sourced, in her aircraft
+      data, the aircraft with none named; no flap ever over its VFE in a
+      take-off with no plan to 650 ft, seen red.*
 
 ---
 
