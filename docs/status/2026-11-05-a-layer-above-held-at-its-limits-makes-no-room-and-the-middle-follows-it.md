@@ -32,7 +32,30 @@ from it. The room-making itself is unchanged, now written as a call to
     layer's held 3,800;
   - the lower layer makes room from there, down to 2,400.
 
-  **Seen to fail** with the fix taken out for a layer above (`movable`
+  The same test then checks the case below (review of #340). A person's
+  aircraft is at 2,300 ft. The AI layer at 3,000 gives way to it, so it is
+  held over 3,000. A ceiling of 2,700 under the old middle would cross
+  that, though its ground is far below. The squeezed aircraft is held at
+  3,700, which is 700 ft over the layer, and the layer above makes room
+  from there, up to 4,400. The old code checked only the ground for a
+  layer below, so this case behaves differently now.
+
+  **A layer that is itself squeezed** is also refused the room
+  (`with_room`, as the room-making always did), and the middle now follows
+  it as well. No test builds that case: it needs two aircraft squeezed at
+  once, one of them a layer of the other.
+
+  **Seen to fail**, each with its own half of the fix taken out:
+  - below (the old ground-only check for a layer below): held at 3,400,
+    400 ft from the layer below. Red on "with the layer below held at its
+    limits, the squeezed aircraft's held height keeps the minimum and
+    margin from it";
+  - the whole old `movable` back: red on the first assertion, "the layer
+    above ... only the 3,800 over the middle that followed it".
+
+  Green again with the fix restored.
+
+  Earlier, **seen to fail** with the fix taken out for a layer above (`movable`
   again true for any layer above that gives way): the held height stays at
   the 3,400 middle, 400 ft from the layer above. The test went red on "with
   the layer above held at its limits, the squeezed aircraft's held height
