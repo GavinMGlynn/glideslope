@@ -10,20 +10,39 @@
   went 1,004 to 1,035 ft. Joined climbing at 650, from a take-off to
   750 ft, she goes 978 to 1,076 ft and passes. This is a Phase 10a tail:
   a light aeroplane's climb to circuit height overshoots it.
-- **A jet taken off with no plan to a low height climbs far past it.**
-  Asked for 650 ft, the 737-300, 747-400, 787-8, A320, A380, F-22A and
-  Learjet 35A go 139 to 532 ft past it. Most are handed over already
-  above it, because a jet's flaps come up from 400 ft and the take-off
-  waits for them. The capture brings each back, within 2 ft by 64 s at
-  the latest. This is a Phase 10a tail.
+- **A jet taken off with no plan to a low height climbs far past it**,
+  as she did before this change. Asked for 650 ft, the 737-300, 747-400,
+  787-8, A320, A380, F-22A and Learjet 35A go 139 to 532 ft past it. Most
+  are handed over already above it, because a jet's flaps come up from
+  400 ft and the take-off waits for them. The capture brings each back,
+  within 2 ft by 64 s at the latest. This is a Phase 10a tail.
+
+  | Aircraft | Handed over at | Past 650 ft, old (3) | Past 650 ft, now (7) |
+  |---|---|---|---|
+  | 737-300 | 888 ft | 323.4 ft | 323.3 ft |
+  | 747-400 | 1,062 ft | 453.7 ft | 453.7 ft |
+  | A320 | 1,049 ft | 531.6 ft | 531.5 ft |
+  | A380 | 835 ft | 468.5 ft | 468.4 ft |
+  | 787-8 | 660 ft, +2,414 ft/min | 140.5 ft | 139.4 ft |
+  | Learjet 35A | 641 ft, +3,310 ft/min | 199.1 ft | 195.5 ft |
+  | F-22A | 514 ft, +6,933 ft/min | 364.1 ft | 313.0 ft |
+  | B-2A | 288 ft, +3,656 ft/min | 70.6 ft | 6.6 ft |
+
+  - The first four are handed over above 650 ft. Their overshoot is
+    the take-off's, and the gain does not touch it.
+  - The other four climb past after the hand-over, so the gain matters
+    for them. It brings each back less far past.
+
 - **7 ft/min a foot is chosen, measured on every landplane.** It is not
   sourced. The lead implies 10 (below), and 10 made the 787-8 ring.
 
 **What it does.** When a take-off with no plan hands her over at its
 lead, the autopilot captures that height (`Autopilot::capture`, called by
 `Controller` at the hand-over). It flies to the height at 7 ft/min for
-each foot off, not the plain hold's 3. It holds the height that way for
-as long as it is still the height it flies to. Every other altitude hold
+each foot off, not the plain hold's 3. It holds the height that way
+until the modes are set again, even to the same height
+(`Autopilot::set`): a plan or a new height given later is flown at the
+plain hold's gain. Every other altitude hold
 is unchanged, and so is every plan's take-off.
 
 **Why she crept.** The plain hold asks 3 ft/min for each foot off. That
@@ -103,6 +122,12 @@ short:
 Red on the old code: the 3 ft/min a foot put back, the 737-300 to 650 ft
 was within 2 ft only from 100.1 s, and the test failed.
 
+`a_capture_is_let_go_when_the_autopilot_modes_are_set_again_even_to_the_same_height`
+(tests/unit/test_lesson.cpp) takes a C172P off to 650 ft with no plan.
+She is capturing a second after the hand-over, and still five minutes on.
+Her modes are then set again, unchanged, and she is not capturing. Red
+with the reset taken out of `set()`: the capture was not let go.
+
 **What moved.** Measured on linux-release.
 - **Overshoot of the level-off**: light aeroplanes go a few feet more
   past it.
@@ -123,7 +148,7 @@ was within 2 ft only from 100.1 s, and the test failed.
   before it is over.
 - Run on linux-release, excluding the gust_sweep label: every test
   matching take, depart, circuit, lesson, controller, autopilot,
-  selftest, lift_off, level or hand: 240 of 240 passed, 9 skipped for want of
+  selftest, lift_off, level, hand or capture: 241 of 241 passed, 9 skipped for want of
   a key or of Windows. Nothing here is
   platform-specific code, so there was no Windows build.
 - **The selftest hash does not move**: the selftest flies a pilot's input

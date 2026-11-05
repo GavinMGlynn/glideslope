@@ -13844,7 +13844,7 @@ GLIDESLOPE_TEST(every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it
 // capture). Taken off to the circuit lessons' 650 ft and to 3,000 ft, at
 // the weight her take-off figures are for, and held five minutes. The plain
 // hold's 3 ft/min a foot closed the last feet exponentially: within 2 ft
-// only 74 to 113 s after it, and the Mosquito at 650 ft at it only 167 s
+// only 12 to 113 s after it, and the Mosquito at 650 ft at it only 167 s
 // after it - 2.7 minutes and 7 nm upwind in the circuit lesson. At the
 // capture's 7, the slowest is within 2 ft 64 s after the hand-over: the
 // 747-400 at 650 ft, handed over 412 ft above it because her flaps came up
@@ -13886,6 +13886,68 @@ GLIDESLOPE_TEST(every_landplane_given_a_take_off_with_no_plan_is_within_2_ft_of_
     check(landplanes == 15 && flown == landplanes * heights.size(),
           "every one of the catalogue's 15 landplanes flown to both heights: " +
               std::to_string(flown) + " of " + std::to_string(landplanes * heights.size()));
+}
+
+// **A capture is let go when the modes are set again, even to the same
+// height** (Autopilot::set, Autopilot::capture): a plan given after a
+// take-off with no plan, or a height asked again, is flown at the plain
+// hold's gain, not the capture's. A Cessna 172P taken off to 650 ft with no
+// plan is capturing it a second after the hand-over, and five minutes on; the modes set
+// again as they are, she is not.
+GLIDESLOPE_TEST(a_capture_is_let_go_when_the_autopilot_modes_are_set_again_even_to_the_same_height) {
+    const glideslope::sim::Runway runway = a_runway();
+    const auto entry = glideslope::sim::find_aircraft(data(), "c172p");
+    const auto speeds = glideslope::sim::departure_speeds(data(), entry.model);
+    glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    aircraft.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = 0.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    load_for_the_take_off(aircraft, entry.model);
+    aircraft.initialize(ic);
+    glideslope::sim::Controls standing;
+    standing.gear = 1.0;
+    standing.left_brake = 1.0;
+    standing.right_brake = 1.0;
+    glideslope::sim::Controller controller(aircraft, standing);
+    controller.to_ai_take_off(runway, speeds, 650.0);
+    int handed_at = -1;
+    bool captured_at_hand_over = false;
+    bool was_departing = true;
+    for (int t = 0; t < 900 * steps_per_second; ++t) {
+        aircraft.set_controls(controller.fly());
+        aircraft.step();
+        const bool departing = controller.departing().has_value();
+        const bool over = was_departing && !departing && t > steps_per_second;
+        was_departing = departing;
+        if (handed_at < 0 && over) {
+            handed_at = t;
+        }
+        if (handed_at >= 0 && t - handed_at == steps_per_second) {
+            captured_at_hand_over =
+                controller.autopilot() != nullptr && controller.autopilot()->capturing();
+        }
+        if (handed_at >= 0 && t - handed_at >= 300 * steps_per_second) {
+            break;
+        }
+    }
+    check(handed_at >= 0, "the take-off was over");
+    check(captured_at_hand_over, "a second after the hand-over, she was capturing her height");
+    check(controller.autopilot() != nullptr && controller.autopilot()->capturing(),
+          "five minutes on she was capturing it still");
+    if (controller.autopilot() != nullptr) {
+        const glideslope::sim::AutopilotModes same = controller.autopilot()->modes();
+        controller.autopilot()->set(same);
+        check(!controller.autopilot()->capturing(),
+              "set again to the same height, the capture was let go");
+    }
 }
 
 namespace {
