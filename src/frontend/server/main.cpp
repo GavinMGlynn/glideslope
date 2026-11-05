@@ -249,6 +249,10 @@ struct Options {
     // as a debug server's start does on a loaded machine
     // (`--test-slow-start MS`).
     double test_slow_start_ms = 0.0;
+    // For a test: a wreck does not fly again until this many players have
+    // been given aircraft (`--test-wreck-waits-for-joins N`), so that a
+    // join during a wreck is built on that event, not on its five seconds.
+    int test_wreck_waits_for_joins = 0;
     // Whether a player may take over an aircraft the AI is flying.
     bool take_over = true;
     // **The weather the server flies, and sends every client** (REQUIREMENTS
@@ -392,6 +396,8 @@ void print_usage(std::FILE* out) {
         "  --test-slow-start MS  make the fleet's first steps take MS\n"
         "                     milliseconds more, as a slow machine's start\n"
         "                     does, for tests\n"
+        "  --test-wreck-waits-for-joins N  no wreck flies again until N players\n"
+        "                     have been given aircraft, for tests\n"
         "  --test-held-up EVERY_S MS  every EVERY_S seconds on the session's\n"
         "                     clock run nothing for a quarter, a half, three\n"
         "                     quarters, then all of MS milliseconds in turn, as\n"
@@ -642,6 +648,14 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             }
             o.test_stopped_at_s = *at;
             o.test_stopped_ms = *ms;
+        } else if (a == "--test-wreck-waits-for-joins") {
+            if (!next(value)) return std::nullopt;
+            const auto n = number(value);
+            if (!n || *n < 0.0 || *n > 1000.0 || *n != std::floor(*n)) {
+                why = "--test-wreck-waits-for-joins wants a whole number of joins";
+                return std::nullopt;
+            }
+            o.test_wreck_waits_for_joins = static_cast<int>(*n);
         } else if (a == "--test-slow-start") {
             if (!next(value)) return std::nullopt;
             const auto ms = number(value);
@@ -1729,6 +1743,7 @@ public:
         //   was put on the layer of a player still at the start (review of
         //   700a9049; so before #337 too).
         const std::size_t layer = free_layer();
+        ++joins_;
         ic.altitude_ft = start_.altitude_ft + static_cast<double>(layer) * ai_stack_ft;
         std::printf("a player's aircraft starts on layer %zu, %.0f ft over the plan's start\n",
                     layer, static_cast<double>(layer) * ai_stack_ft);
@@ -2864,7 +2879,8 @@ public:
         keep_apart(happened);
         for (Aircraft& a : flown_) {
             if (a.wrecked_at_s >= 0.0) {
-                if (now_s - a.wrecked_at_s >= wreck_s && may_fly_again(a, happened)) {
+                if (now_s - a.wrecked_at_s >= wreck_s && joins_ >= wrecks_wait_for_joins_ &&
+                    may_fly_again(a, happened)) {
                     fly_again(a);
                     happened.push_back("aircraft " + std::to_string(a.index) + ", " + a.id +
                                        ", flies again");
@@ -3072,6 +3088,10 @@ public:
 
     void fail_engines_at(double s) {
         fail_engines_at_s_ = s;
+    }
+    // `--test-wreck-waits-for-joins`.
+    void wrecks_wait_for_joins(int n) {
+        wrecks_wait_for_joins_ = n;
     }
     // **Whether any of its engines has stopped**, as the state update says
     // (`net::Condition::engine_stopped`).
@@ -3941,14 +3961,18 @@ public:
     }
 
 private:
-    // **Whether anything flying holds the height `altitude_ft` near the
-    // start**: within 1.5 nm of it and 700 ft of that height. A wreck holds
-    // nothing - it is not in the sky - and one flying again asks this before
-    // it is put back, so it never finds itself.
+    // **Whether anything flying holds the height `altitude_ft` at a place**,
+    // the start unless another is given: within 1.5 nm of it and 700 ft of
+    // that height. A wreck holds nothing - it is not in the sky - and one
+    // flying again asks this, from its own start, before it is put back, so
+    // it never finds itself.
     bool held_at_start(double altitude_ft) const {
+        return held_at(start_.latitude_deg, start_.longitude_deg, altitude_ft);
+    }
+    bool held_at(double latitude_deg, double longitude_deg, double altitude_ft) const {
         glideslope::sim::Traffic at_start;
-        at_start.latitude_deg = start_.latitude_deg;
-        at_start.longitude_deg = start_.longitude_deg;
+        at_start.latitude_deg = latitude_deg;
+        at_start.longitude_deg = longitude_deg;
         return std::any_of(flown_.begin(), flown_.end(), [&](const Aircraft& a) {
             if (a.wrecked_at_s >= 0.0) {
                 return false;
@@ -4045,15 +4069,27 @@ private:
             own.longitude_deg = a.start.longitude_deg;
             if (glideslope::sim::horizontal_m(at_start, own) <
                 glideslope::sim::Separation::minimum_m) {
-                const bool taken = held_at_start(a.start.altitude_ft);
+                // Measured from its own start, which may be up to 1.5 nm
+                // from the plan's; the layer it is given instead is the
+                // join's, counted from the plan's start.
+                const bool taken = held_at(a.start.latitude_deg, a.start.longitude_deg,
+                                           a.start.altitude_ft);
                 if (taken) {
                     const std::size_t layer = free_layer();
                     const double moved_ft = start_.altitude_ft +
                                             static_cast<double>(layer) * ai_stack_ft -
                                             a.start.altitude_ft;
                     a.start.altitude_ft += moved_ft;
+                    // Its plan moved with it, or the autopilot flies it
+                    // back to the heights it had: a plan-file aircraft's
+                    // stack, and a plan of its own's waypoints.
                     if (a.on_plan && !a.own_plan) {
                         a.stack_ft += moved_ft;
+                    }
+                    if (a.on_plan && a.own_plan) {
+                        for (glideslope::sim::Waypoint& w : a.own_plan->waypoints) {
+                            w.altitude_ft += moved_ft;
+                        }
                     }
                 }
                 // Said, moved or not, for a test to hold against the
@@ -4182,6 +4218,10 @@ private:
     // Where players start, on final (`--players-on-final`), or none.
     std::optional<glideslope::sim::Runway> on_final_;
     double fail_engines_at_s_ = -1.0;
+    // Players given aircraft so far, and how many a wreck waits for
+    // (`--test-wreck-waits-for-joins`; nought, none).
+    int joins_ = 0;
+    int wrecks_wait_for_joins_ = 0;
     bool engines_failed_ = false;
     // **The number to give an aircraft nobody is flying**: the lowest from
     // `most_slots` up that no aircraft has, so that numbers are used again
@@ -5221,6 +5261,7 @@ int run(const Options& o) {
         fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s,
                       wet_runways, o.hand_over_planner);
         fleet->fail_engines_at(o.fail_engine_at_s);
+        fleet->wrecks_wait_for_joins(o.test_wreck_waits_for_joins);
         if (!o.ai_on_final.empty()) {
             const std::string refused = fleet->ai_on_final(o.ai_on_final);
             if (!refused.empty()) {
