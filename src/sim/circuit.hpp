@@ -61,10 +61,8 @@
 // yet turned base, with a straight-in on the approach to her runway or a
 // departure climbing out from it, follows it as she follows a circuit
 // ahead - offset right on her upwind leg, and down her downwind leg until
-// it is down or climbed out - and flies that downwind leg wide,
-// `wide_downwind_m` left of the centreline they fly along: the separation
-// minimum and some, so that she is apart from them on every leg whatever
-// her height. Turned base, she is committed, and it is the one behind.
+// it is down or climbed out. Turned base, she is committed, and it is the
+// one behind.
 //
 // **Traffic close ahead on an approach sends her round early**, whoever she
 // is (the Airplane Flying Handbook, chapter 8: with a conflict on final "an
@@ -192,11 +190,6 @@ public:
     // every leg of a left-hand circuit ahead lies on or left of the
     // centreline, so on her upwind leg she is never nearer it than that.
     static constexpr double following_offset_m = 2778.0;
-    // **How far left of the centreline she flies her downwind leg
-    // following a straight-in**: the 1.5 nm minimum and 500 m in hand for
-    // the turns the autopilot carries past its line. Chosen, not sourced:
-    // a tower's "wide downwind" has no published distance.
-    static constexpr double wide_downwind_m = following_offset_m + 500.0;
 
     GoAroundCircuit(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
                     const CircuitEntry& entry = {});
@@ -214,12 +207,10 @@ public:
     // and she flies on down the downwind leg; with none, she turns base where
     // her circuit has her.
     // `straight_in`: an aircraft on a straight-in approach to her runway -
-    // followed, wide, until she turns base; from there she is committed and
+    // followed until she turns base; from there she is committed and
     // it is not.
     void follow(std::optional<double> ahead_alt_ft, bool straight_in = false);
     bool following() const { return following_; }
-    // Whether she has flown her downwind leg wide for a straight-in.
-    bool wide() const { return wide_; }
     // How many racetracks she has flown from a downwind extended its
     // furthest.
     int racetracks() const { return racetracks_; }
@@ -254,7 +245,6 @@ private:
     double leave_downwind_nm_ = 0.0;
     bool gear_up_ = false;
     bool following_ = false;
-    bool wide_ = false;
     // Across, where the racetrack first left the downwind leg: the line it
     // joins again every time round.
     std::optional<double> downwind_m_;

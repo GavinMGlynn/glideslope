@@ -149,7 +149,6 @@ void GoAroundCircuit::follow(std::optional<double> ahead_alt_ft, bool straight_i
     // is committed, and it is the one behind.
     const bool before_base = leg_ != Leg::base && leg_ != Leg::intercept && leg_ != Leg::final;
     const bool giving_way = straight_in && before_base;
-    wide_ = wide_ || giving_way;
     following_ = ahead_alt_ft.has_value() || giving_way;
     if (!ahead_alt_ft) {
         return;
@@ -193,9 +192,7 @@ AutopilotModes GoAroundCircuit::modes() {
         leg_ = Leg::crosswind;
     } else if (leg_ == Leg::crosswind &&
                across_m() <= -(2.0 * turn_radius_m_ + 600.0) &&
-               (!wide_ || across_m() <= -(wide_downwind_m - turn_radius_m_)) &&
                agl_ft >= circuit_ft_ - 100.0) {
-        // Wide, she turns a radius short of her wide line, and rolls out on it.
         // Far enough out to turn base and final from, and at circuit height:
         // downwind is flown level.
         leg_ = Leg::downwind;
@@ -267,14 +264,6 @@ AutopilotModes GoAroundCircuit::modes() {
         break;
     case Leg::downwind:
         m.heading_deg = runway_.heading_deg - 180.0;
-        if (wide_) {
-            // **Wide for a straight-in**: steered out on to her line,
-            // `wide_downwind_m` left of the centreline, at up to 45 degrees
-            // - flying the reciprocal, the runway's left is her right.
-            const double off_m = across_m() + wide_downwind_m;
-            m.heading_deg = *m.heading_deg +
-                            std::clamp(std::atan2(off_m, 1000.0) * degrees, -45.0, 45.0);
-        }
         break;
     // The racetrack: right turns, away from the runway and back, so that
     // she never crosses her own final approach.

@@ -11129,7 +11129,6 @@ struct StraightAndCircuit {
     double least_m = 1e9;            // horizontally, while within 500 ft
     double least_ft = 1e9;           // vertically, while within 1.5 nm
     bool gave_way = false;           // the one in the circuit followed the straight-in
-    bool wide = false;               // and flew her downwind wide for it
     bool straight_in_around = false; // the straight-in went around
     std::string straight_in_why;     // and why
     bool straight_in_flown = false;  // the straight-in was made and flew
@@ -11292,7 +11291,6 @@ StraightAndCircuit circuit_and_straight_in(const std::string& circuit_id,
         }
         if (const auto* c = circuit_c.circuit()) {
             out.gave_way = out.gave_way || c->following();
-            out.wide = out.wide || c->wide();
             out.racetracks = std::max(out.racetracks, c->racetracks());
             const glideslope::sim::AircraftState s = circuit.state();
             out.furthest_out_nm = std::max(
@@ -11551,11 +11549,11 @@ std::vector<std::string> judged(const std::string& pair, StraightInWhen when,
         }
     } else if (when == StraightInWhen::as_she_goes_around) {
         // **On final, the straight-in has the right of way**: the one in
-        // the circuit gives way, wide - and the straight-in lands first,
+        // the circuit gives way - and the straight-in lands first,
         // unless she closes on the one going around ahead of her, and goes
         // around early for it: then she is number two, and lands second.
-        if (!r.straight_in_around && (!r.gave_way || !r.wide)) {
-            wrong.push_back(pair + ": the one in the circuit did not give way wide");
+        if (!r.straight_in_around && !r.gave_way) {
+            wrong.push_back(pair + ": the one in the circuit did not give way");
         }
         if (r.straight_in_around && r.straight_in_why != "traffic close ahead on final") {
             wrong.push_back(pair + ": the straight-in went around (" + r.straight_in_why + ")");
@@ -11617,10 +11615,10 @@ void circuits_and_straight_ins(const std::vector<std::string>& circuits,
                 flown.insert({circuit_id, straight_id, static_cast<int>(when)});
                 early += r.straight_in_around ? 1 : 0;
                 std::printf(
-                    "  %s in the circuit, %s %s: %s; %s%s, %d racetrack(s), %.1f nm "
+                    "  %s in the circuit, %s %s: %s; %s, %d racetrack(s), %.1f nm "
                     "out at most; %s%s%s%s%s%s (%.1f s)\n",
                     circuit_id.c_str(), straight_id.c_str(), named(when), least_of(r).c_str(),
-                    r.gave_way ? "gave way" : "did not give way", r.wide ? " wide" : "",
+                    r.gave_way ? "gave way" : "did not give way",
                     r.racetracks, r.furthest_out_nm,
                     r.circuit_down_first       ? "the circuit down first"
                     : r.straight_in_down_first ? "the straight-in down first"
@@ -11689,7 +11687,7 @@ std::vector<std::string> slowest_and_fastest() {
 // runway are kept 500 ft or 1.5 nm apart, and land or depart in the order
 // the situation gives** (sim/circuit.hpp):
 //   - a straight-in on the approach as she goes around: she gives way,
-//     wide, and the straight-in lands first - unless the straight-in
+//     and the straight-in lands first - unless the straight-in
 //     closes on her and goes around early, and then lands second;
 //   - a straight-in joining two miles behind her as she joins final: she
 //     is committed, does not give way, and lands first;
