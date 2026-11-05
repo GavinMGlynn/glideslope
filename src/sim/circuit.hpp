@@ -34,17 +34,26 @@
 // **Number two follows** (`follow`): two or more going round to one runway
 // are sequenced as a tower sequences them (FAA JO 7110.65, 3-8-1: "EXTEND
 // DOWNWIND", "NUMBER (sequence), FOLLOW (traffic)"), in the order they went
-// around (`circuit_ahead_alt_ft`). One with traffic ahead of her flies her
-// circuit `above_ahead_ft` over the highest circuit ahead of her - the
-// separation minimum's 500 ft (JO 7110.65, 7-9-4; sim/separation.hpp) and the
-// monitor's 200 in hand - and flies on down her downwind leg, not turning
-// base, until everything ahead has touched down: no arrival crosses the
-// threshold until the one before has landed (JO 7110.65, 3-10-3), and the
-// runway's own rule (sim/vacate.hpp) sends her round again if it is still on
-// it. So on every leg she is the height apart from the one ahead until it is
-// down, and only then comes down through its height to the runway.
-// Anything else - an aircraft on the approach straight in, a departure - is
-// left to the separation monitor and the runway's rule.
+// around by the caller's clock (`circuit_ahead_alt_ft`). One with traffic
+// ahead of her:
+//   - climbs on her upwind leg `following_offset_m` right of the
+//     centreline, the side a pilot going around for another aeroplane
+//     offsets to (sourced; the distance is the 1.5 nm minimum), and turns
+//     crosswind only within 100 ft of her raised height;
+//   - flies her circuit `above_ahead_ft` over the highest the one ahead has
+//     flown hers - derived, not sourced: the separation minimum's 500 ft
+//     (JO 7110.65, 7-9-4; sim/separation.hpp) and the monitor's 200 in hand;
+//   - flies on down her downwind leg, not turning base, until everything
+//     ahead has touched down (JO 7110.65, 3-10-3: no arrival crosses the
+//     threshold until the one before has landed). The extension is the
+//     tower's; waiting for the touch, and its limit, `longest_extension_nm`,
+//     are chosen, not sourced. Past it she flies a racetrack back to her
+//     base point at her raised height.
+// The runway's own rule (sim/vacate.hpp) sends her round again if the one
+// ahead is still on it. So she is apart from the one ahead on every leg
+// until it is down, and only then comes down through its height. Anything
+// else - an aircraft on the approach straight in, a departure - is left to
+// the separation monitor and the runway's rule.
 //
 // It flies through the plain autopilot: what it gives is the modes to hold,
 // and the flap and gear to set over what the autopilot flies.
@@ -79,8 +88,9 @@ struct CircuitEntry {
 // **Where she is in a circuit's sequence**: the runway she is going round
 // to, when she joined it (sim time, s: her first go-around, kept through
 // another), how far down the runway she was then (nm past the threshold),
-// and the height her circuit is flown at, above sea level, ft. Held from
-// the go-around until she touches down.
+// and the height her circuit is flown at, above sea level, ft - or the
+// highest she has flown it, where she overshot it. Held from the go-around
+// until she touches down.
 struct CirclePlace {
     Runway runway;
     double since_s = 0.0;
@@ -105,7 +115,25 @@ public:
     // minimum, 500 ft, and the 200 the monitor keeps in hand.
     static constexpr double above_ahead_ft = 700.0;
 
-    enum class Leg { upwind, crosswind, downwind, base, intercept, final };
+    // turn_out, outbound and turn_in: the racetrack flown from a downwind
+    // leg extended as far as it goes (`longest_extension_nm`).
+    enum class Leg { upwind, crosswind, downwind, base, intercept, final, turn_out, outbound, turn_in };
+
+    // **The furthest she extends her downwind leg past where she would turn
+    // base**, following traffic: chosen, not sourced. No published figure
+    // was found; a pilot's account of a tower's "extend downwind" runs to
+    // three or four miles, and a tower that wants more asks for a 360 or a
+    // go-around. Past it she flies a racetrack back to where she would have
+    // turned base, outside her own circuit and at her raised height.
+    static constexpr double longest_extension_nm = 2.0;
+    // **How far right of the centreline she flies her upwind leg,
+    // following**: the side away from the circuit, where a pilot going
+    // around for another aeroplane offsets (the Airplane Flying Handbook,
+    // FAA-H-8083-3, 8-11 to 8-13, as flight-training checklists cite it).
+    // The distance is the separation minimum's 1.5 nm (sim/separation.hpp):
+    // every leg of a left-hand circuit ahead lies on or left of the
+    // centreline, so on her upwind leg she is never nearer it than that.
+    static constexpr double following_offset_m = 2778.0;
 
     GoAroundCircuit(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
                     const CircuitEntry& entry = {});
@@ -124,6 +152,9 @@ public:
     // her circuit has her.
     void follow(std::optional<double> ahead_alt_ft);
     bool following() const { return following_; }
+    // How many racetracks she has flown from a downwind extended its
+    // furthest.
+    int racetracks() const { return racetracks_; }
 
     Leg leg() const { return leg_; }
     bool on_final() const { return leg_ == Leg::final; }
@@ -132,6 +163,8 @@ public:
     // Feet over the runway the circuit is flown at: over the highest ground
     // of the circuit, where that rises above the runway.
     double circuit_ft() const { return circuit_ft_; }
+    // How far before the threshold, nm, she turns base from downwind.
+    double leave_downwind_nm() const { return leave_downwind_nm_; }
 
 private:
     double along_nm() const;  // past the threshold, negative before it
@@ -143,6 +176,7 @@ private:
     // final is never joined slower than the approach is flown.
     double base_kts() const;
 
+
     const Aircraft& a_;
     Runway runway_;
     ApproachSpeeds speeds_;
@@ -153,6 +187,8 @@ private:
     double leave_downwind_nm_ = 0.0;
     bool gear_up_ = false;
     bool following_ = false;
+    double downwind_m_ = 0.0; // across, where the racetrack left downwind
+    int racetracks_ = 0;
 };
 
 } // namespace glideslope::sim

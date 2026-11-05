@@ -347,9 +347,26 @@ set(GLIDESLOPE_UNIT_TESTS
     the_speed_the_autopilot_raises_for_a_climb_never_passes_the_fastest_she_may_hold
     every_aeroplane_the_ai_lands_taxis_off_the_runway_and_stops_clear_of_it
     an_aeroplane_landing_on_a_runway_another_is_on_goes_around_and_lands_once_it_has_left
-    two_going_around_together_behind_the_slowest_are_kept_apart_and_both_land
+    every_landplane_has_a_test_of_two_going_around_together_with_her_ahead
+    two_going_around_together_behind_the_737_300_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_747_400_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_787_8_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_a320_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_a380_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_b2_are_kept_apart_and_both_land
     two_going_around_together_behind_the_c172p_are_kept_apart_and_both_land
-    two_going_around_together_behind_the_fastest_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_c182_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_f15c_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_f22_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_f35b_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_j3cub_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_learjet35a_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_mosquito_fb6_are_kept_apart_and_both_land
+    two_going_around_together_behind_the_pa28_are_kept_apart_and_both_land
+    the_one_behind_two_going_around_whose_leader_goes_around_again_flies_a_racetrack_and_both_land
+    the_one_ahead_of_two_going_around_taken_by_her_pilot_on_downwind_is_still_followed
+    two_going_around_are_sequenced_by_the_callers_clock_not_their_own
+    who_follows_whom_round_a_circuit_is_by_time_then_down_the_runway_then_the_order
     how_she_lands_is_what_her_approach_is_flown_at_or_none_without_a_stall_speed
     every_jets_spool_up_is_measured_from_its_model_and_a_propeller_has_none
     every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce_or_a_go_around
@@ -1328,6 +1345,14 @@ set_tests_properties(${GLIDESLOPE_GUST_SWEEP_SEEDS} PROPERTIES LABELS gust_sweep
 # 41703342974. Nothing gives up on a slow machine sooner than it needs.
 set_tests_properties(an_aeroplane_going_around_beside_rising_ground_flies_its_circuit_height_over_it_and_lands
     PROPERTIES TIMEOUT 1800)
+# Fifteen pairs each, two aircraft round a circuit and down, in simulated
+# time: 52 to 76 s on linux-release locally, and Linux debug's runners take
+# about fourteen times release's for these (the go-around test above).
+foreach(_t 737_300 747_400 787_8 a320 a380 b2 c172p c182 f15c f22 f35b j3cub
+        learjet35a mosquito_fb6 pa28)
+    set_tests_properties(two_going_around_together_behind_the_${_t}_are_kept_apart_and_both_land
+        PROPERTIES TIMEOUT 1800)
+endforeach()
 
 # **A program that has ended can still allocate until its last thread is gone**
 # (tests/unit/test_process_end.cpp, src/platform/end_process.hpp). What it

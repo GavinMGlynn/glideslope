@@ -754,7 +754,9 @@ void Controller::to_pilot() {
     }
     lander_.reset();
     circuit_.reset();
-    circling_.reset();
+    // **Her place in a circuit's sequence is kept**: taken over in the
+    // circuit, she is still ahead of the one behind until she is down
+    // (below), or handed back to the AI (`engage`).
     vacate_.reset();
 }
 
@@ -783,6 +785,8 @@ bool Controller::runway_not_clear(const Runway& runway) const {
 
 Controls Controller::fly() {
     if (a_.property("gear/wow") > 0.5) {
+        // Down, whoever flies her: out of the circuit's sequence.
+        circling_.reset();
         const AircraftState s = a_.state();
         wheels_down_at_s_ = s.sim_time_s;
         wheels_down_agl_ft_ = a_.property("position/h-agl-ft");
@@ -819,8 +823,10 @@ Controls Controller::fly() {
         if (lander_ && lander_->stage() == Lander::Stage::go_around &&
             (!circling_ || !same_runway(circling_->runway, lander_->runway()))) {
             const AircraftState s = a_.state();
+            // From the caller's clock, which every aircraft shares: her own
+            // starts when she was made.
             circling_ = CirclePlace{
-                lander_->runway(), s.sim_time_s,
+                lander_->runway(), sequence_clock_ ? sequence_clock_() : s.sim_time_s,
                 along_runway_nm(lander_->runway(), s.latitude_deg, s.longitude_deg),
                 lander_->runway().elevation_ft +
                     GoAroundCircuit(a_, lander_->runway(), lander_->speeds()).circuit_ft()};
@@ -957,7 +963,13 @@ Controls Controller::fly() {
             // **Following traffic ahead in the sequence**: raised over its
             // circuit, and down the downwind leg until it is down.
             circuit_->follow(circuit_ahead_ ? circuit_ahead_() : std::nullopt);
-            circling_->circuit_alt_ft = circuit_->runway().elevation_ft + circuit_->circuit_ft();
+            // The highest she flies it: where the autopilot overshoots her
+            // circuit's height levelling off, the one behind keeps clear of
+            // where she is.
+            circling_->circuit_alt_ft =
+                std::max({circling_->circuit_alt_ft,
+                          circuit_->runway().elevation_ft + circuit_->circuit_ft(),
+                          a_.state().altitude_ft});
             autopilot_->set(circuit_->modes());
             notice_a_stall();
             autopilot_->limit_height(floor_ft_, ceiling_ft_);

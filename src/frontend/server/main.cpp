@@ -3487,7 +3487,9 @@ private:
         // **Round a go-around's circuit, number two follows** (sim/circuit.hpp):
         // the circuit ahead of her to her runway, of every aircraft the
         // server flies, wrecks aside.
-        controller->follows_with([this, &aircraft] { return circuit_ahead_of(aircraft); });
+        // Her place taken by the server's clock, which every aircraft shares.
+        controller->follows_with([this, &aircraft] { return circuit_ahead_of(aircraft); },
+                                 [this] { return now_s(); });
         return controller;
     }
 

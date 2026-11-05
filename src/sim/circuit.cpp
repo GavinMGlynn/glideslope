@@ -146,7 +146,10 @@ double GoAroundCircuit::across_m() const {
 AutopilotModes GoAroundCircuit::modes() {
     const double agl_ft = a_.state().altitude_ft - runway_.elevation_ft;
     // Moved on a leg where she has reached the end of hers.
-    if (leg_ == Leg::upwind && agl_ft >= circuit_ft_ - 300.0 && along_nm() > 0.0) {
+    // Following, she turns crosswind only at her raised height, which is
+    // 600 ft or more over the circuit ahead: she crosses its legs above it.
+    if (leg_ == Leg::upwind && agl_ft >= circuit_ft_ - (following_ ? 100.0 : 300.0) &&
+        along_nm() > 0.0) {
         leg_ = Leg::crosswind;
     } else if (leg_ == Leg::crosswind && across_m() <= -(2.0 * turn_radius_m_ + 600.0) &&
                agl_ft >= circuit_ft_ - 100.0) {
@@ -154,8 +157,28 @@ AutopilotModes GoAroundCircuit::modes() {
         // downwind is flown level.
         leg_ = Leg::downwind;
     } else if (leg_ == Leg::downwind && along_nm() <= -leave_downwind_nm_ && !following_) {
-        // Following traffic, she extends her downwind until it is down.
         leg_ = Leg::base;
+    } else if (leg_ == Leg::downwind && following_ &&
+               along_nm() <= -(leave_downwind_nm_ +
+                               std::max(0.0, longest_extension_nm -
+                                                 2.0 * turn_radius_m_ / metres_per_nm))) {
+        // Begun two turns' radius short of it: she rolls into her turn away
+        // and carries on round it about one and a half (measured), and the
+        // racetrack's far end is to be inside the extension.
+        // **Following traffic, she extends her downwind until it is down** -
+        // but no further than `longest_extension_nm`: there she turns away
+        // from the runway and flies back up a racetrack outside her own
+        // circuit, still at her raised height, to join the downwind leg
+        // again where she would have turned base.
+        downwind_m_ = across_m();
+        leg_ = Leg::turn_out;
+    } else if (leg_ == Leg::turn_out && across_m() <= downwind_m_ - 2.0 * turn_radius_m_) {
+        leg_ = Leg::outbound;
+        ++racetracks_;
+    } else if (leg_ == Leg::outbound && along_nm() >= -leave_downwind_nm_) {
+        leg_ = Leg::turn_in;
+    } else if (leg_ == Leg::turn_in && across_m() >= downwind_m_) {
+        leg_ = Leg::downwind;
     } else if (leg_ == Leg::base && across_m() >= -(2.0 * turn_radius_m_ + 200.0)) {
         leg_ = Leg::intercept;
     } else if (leg_ == Leg::intercept && across_m() >= -turn_radius_m_) {
@@ -177,6 +200,14 @@ AutopilotModes GoAroundCircuit::modes() {
     switch (leg_) {
     case Leg::upwind:
         m.heading_deg = runway_.heading_deg;
+        if (following_) {
+            // **Offset to the side away from the circuit**, as a pilot going
+            // around for another aeroplane does: `following_offset_m` right
+            // of the centreline, steered on to it at up to 45 degrees.
+            const double off_m = following_offset_m - across_m();
+            m.heading_deg = runway_.heading_deg +
+                            std::clamp(std::atan2(off_m, 1000.0) * degrees, -45.0, 45.0);
+        }
         m.airspeed_kts = entry_.climb_kts.value_or(*m.airspeed_kts);
         break;
     case Leg::crosswind:
@@ -185,6 +216,17 @@ AutopilotModes GoAroundCircuit::modes() {
         break;
     case Leg::downwind:
         m.heading_deg = runway_.heading_deg - 180.0;
+        break;
+    // The racetrack: right turns, away from the runway and back, so that
+    // she never crosses her own final approach.
+    case Leg::turn_out:
+        m.heading_deg = runway_.heading_deg - 90.0;
+        break;
+    case Leg::outbound:
+        m.heading_deg = runway_.heading_deg;
+        break;
+    case Leg::turn_in:
+        m.heading_deg = runway_.heading_deg + 90.0;
         break;
     case Leg::base:
         m.heading_deg = runway_.heading_deg + 90.0;

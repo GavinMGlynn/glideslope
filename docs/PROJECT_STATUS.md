@@ -295,12 +295,15 @@ moves her past 70% of seeds
 
 **Phase 11, traffic and separation, is under way.** Since 2026-11-05 two
 AI aircraft going around to one runway are sequenced in the order they
-went around. The one behind flies her circuit 700 ft over the one ahead,
-and extends her downwind until it has landed. The slowest landplane, the
-C172P and the fastest were flown each behind each, nine pairs: all stayed
-500 ft or 1.5 nm apart and both landed, in order. Without the sequencing
-all nine lost separation, the closest at 46 m. Traffic straight in or
-departing is not in the sequence yet, and that is a tail
+went around, by the server's clock. The one behind offsets 1.5 nm right
+of the centreline on her climb and flies her circuit 700 ft over the one
+ahead. She extends her downwind until it has landed, by at most 2 nm,
+and past that flies a racetrack. All 225 landplane pairs stayed 500 ft or
+1.5 nm apart and both landed, in order. Without the sequencing all of the
+first nine lost separation, the closest at 46 m. Traffic straight in or
+departing is not in the sequence yet, and that is a tail. So are a
+person's aircraft ahead that never lands, and the F-15C's roll-out at a
+light weight
 (2026-11-05-two-going-around-together-are-kept-apart-and-both-land).
 
 ## Gaps
