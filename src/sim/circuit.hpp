@@ -51,9 +51,30 @@
 //     base point at her raised height.
 // The runway's own rule (sim/vacate.hpp) sends her round again if the one
 // ahead is still on it. So she is apart from the one ahead on every leg
-// until it is down, and only then comes down through its height. Anything
-// else - an aircraft on the approach straight in, a departure - is left to
-// the separation monitor and the runway's rule.
+// until it is down, and only then comes down through its height.
+//
+// **An aircraft on a straight-in approach lands first, and a departure
+// climbing out is given way to** (`follow`'s `straight_in`): "aircraft,
+// while on final approach to land or while landing, have the right-of-way
+// over other aircraft in flight" (14 CFR 91.113(g)), and a tower sequences
+// the rest round them (JO 7110.65, 3-8-1). One in the circuit who has not
+// yet turned base, with a straight-in on the approach to her runway or a
+// departure climbing out from it, follows it as she follows a circuit
+// ahead - offset right on her upwind leg, and down her downwind leg until
+// it is down or climbed out - and flies that downwind leg wide,
+// `wide_downwind_m` left of the centreline they fly along: the separation
+// minimum and some, so that she is apart from them on every leg whatever
+// her height. Turned base, she is committed, and it is the one behind.
+//
+// **Traffic close ahead on an approach sends her round early**, whoever she
+// is (the Airplane Flying Handbook, chapter 8: with a conflict on final "an
+// early go-around may be in order"; `close_ahead_on_approach`) - a
+// straight-in closing on one going around ahead of her, or on one turned
+// final from the circuit - and she joins the circuit's sequence behind it.
+//
+// **A departure is held** while one going round is still over the runway
+// or climbing out ahead of it (`departure_held`), and released once she is
+// on her downwind leg the minimum short of the threshold.
 //
 // It flies through the plain autopilot: what it gives is the modes to hold,
 // and the flap and gear to set over what the autopilot flies.
@@ -96,6 +117,11 @@ struct CirclePlace {
     double since_s = 0.0;
     double along_nm = 0.0;
     double circuit_alt_ft = 0.0;
+    // **Clear of a departure**: on her downwind leg (or past it) and 1.5 nm
+    // or more short of the threshold - so that a departure climbing out
+    // ahead of the threshold goes away from her, never nearer than the
+    // minimum along the runway.
+    bool clear_of_departures = false;
 };
 
 // Whether two runways are one: the same name and threshold.
@@ -108,6 +134,38 @@ bool same_runway(const Runway& a, const Runway& b);
 // or none, she is number one.
 std::optional<double> circuit_ahead_alt_ft(std::size_t self,
                                            const std::vector<std::optional<CirclePlace>>& all);
+
+// **Whether a departure from `runway` is held** for the circuit's sequence:
+// while anything going round to it is not yet clear of departures
+// (CirclePlace::clear_of_departures). A tower holds a departure until the
+// one going around - a departing aircraft from the moment she crosses the
+// threshold (JO 7110.65, 3-8-2) - "has departed and crossed the runway end
+// or turned to avert any conflict" (3-9-6); which turn is clear of one
+// climbing out after her is chosen: her downwind leg, the 1.5 nm minimum
+// short of the threshold.
+bool departure_held(const Runway& runway, const std::vector<std::optional<CirclePlace>>& all);
+
+// **Whether `other` is close ahead of `me` on her approach to `runway`**,
+// close enough that she goes around early: further along the landing
+// direction than she is, within the 1.5 nm minimum of the extended
+// centreline, no higher than she is and within `close_ft` below her - a
+// go-around climbs away from what is below her, and into what is above -
+// and within `close_m` of her -
+// and in the air, higher over the runway than RunwayClear::occupied_ft:
+// on the runway it is the runway's rule (sim/vacate.hpp), and stopped
+// beside it, it is not traffic.
+// `close_ft` is the vertical minimum (sim/separation.hpp) and the 200 ft
+// the monitor keeps in hand; `close_m` the horizontal minimum and the
+// greater of half a mile and a minute's closing on the one ahead - a
+// minute, because her go-around climbs at 500 ft/min or more (the circuit's
+// least), so that she has the vertical minimum before she could have
+// closed to the horizontal one. Derived, not sourced.
+bool close_ahead_on_approach(const Runway& runway, const AircraftState& me,
+                             const AircraftState& other);
+double close_m(const Runway& runway, const AircraftState& me, const AircraftState& other);
+constexpr double close_ft = 500.0 + 200.0;
+constexpr double close_in_hand_m = 926.0;
+constexpr double close_lead_s = 60.0;
 
 class GoAroundCircuit {
 public:
@@ -134,6 +192,11 @@ public:
     // every leg of a left-hand circuit ahead lies on or left of the
     // centreline, so on her upwind leg she is never nearer it than that.
     static constexpr double following_offset_m = 2778.0;
+    // **How far left of the centreline she flies her downwind leg
+    // following a straight-in**: the 1.5 nm minimum and 500 m in hand for
+    // the turns the autopilot carries past its line. Chosen, not sourced:
+    // a tower's "wide downwind" has no published distance.
+    static constexpr double wide_downwind_m = following_offset_m + 500.0;
 
     GoAroundCircuit(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
                     const CircuitEntry& entry = {});
@@ -150,8 +213,13 @@ public:
     // ahead her circuit is raised to `above_ahead_ft` over it (and stays so)
     // and she flies on down the downwind leg; with none, she turns base where
     // her circuit has her.
-    void follow(std::optional<double> ahead_alt_ft);
+    // `straight_in`: an aircraft on a straight-in approach to her runway -
+    // followed, wide, until she turns base; from there she is committed and
+    // it is not.
+    void follow(std::optional<double> ahead_alt_ft, bool straight_in = false);
     bool following() const { return following_; }
+    // Whether she has flown her downwind leg wide for a straight-in.
+    bool wide() const { return wide_; }
     // How many racetracks she has flown from a downwind extended its
     // furthest.
     int racetracks() const { return racetracks_; }
@@ -186,6 +254,7 @@ private:
     double leave_downwind_nm_ = 0.0;
     bool gear_up_ = false;
     bool following_ = false;
+    bool wide_ = false;
     // Across, where the racetrack first left the downwind leg: the line it
     // joins again every time round.
     std::optional<double> downwind_m_;

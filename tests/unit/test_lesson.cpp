@@ -41,6 +41,7 @@
 #include <set>
 #include <stdexcept>
 #include <string>
+#include <tuple>
 #include <utility>
 #include <vector>
 
@@ -11093,6 +11094,675 @@ GLIDESLOPE_TEST(who_follows_whom_round_a_circuit_is_by_time_then_down_the_runway
           "past the end, nothing");
     check(all.size() == 6, "six places asked of");
 }
+
+namespace {
+
+// **When the straight-in comes**, to an aeroplane going around.
+enum class StraightInWhen {
+    // On the approach as she goes around, four miles out on the glidepath:
+    // on final, she has the right of way, and the one in the circuit gives
+    // way to her.
+    as_she_goes_around,
+    // Joining the approach as the one in the circuit joins final from her
+    // circuit, two miles behind her on the glidepath (636 ft over her: apart
+    // by both measures): she is committed, does not give way, and lands
+    // first - the straight-in, if she closes on her, going around early.
+    as_she_joins_final,
+    // **Not a straight-in but a departure**, lined up on the threshold as
+    // she comes down to 200 ft: the runway not clear, she goes around, and
+    // the departure is given its take-off as she does - held until she is
+    // clear of it (sim::departure_held), and then off, before she lands.
+    departure_lined_up,
+};
+
+// How high the departure climbs straight out, over the runway: out of the
+// circuit, above the highest of them (1,500 ft) and the 700 kept.
+constexpr double departure_to_ft = 3000.0;
+
+// How far out the straight-in starts, going around: four miles.
+constexpr double straight_in_out_nm = 4.0;
+// And, as she joins final, how far behind her.
+constexpr double straight_in_behind_nm = 2.0;
+
+struct StraightAndCircuit {
+    bool lost = false;
+    double least_m = 1e9;            // horizontally, while within 500 ft
+    double least_ft = 1e9;           // vertically, while within 1.5 nm
+    bool gave_way = false;           // the one in the circuit followed the straight-in
+    bool wide = false;               // and flew her downwind wide for it
+    bool straight_in_around = false; // the straight-in went around
+    std::string straight_in_why;     // and why
+    bool straight_in_flown = false;  // the straight-in was made and flew
+    bool circuit_down_first = false;
+    bool straight_in_down_first = false;
+    bool both_clear = false;
+    int racetracks = 0;
+    double furthest_out_nm = 0.0;
+    double leave_downwind_nm = 0.0;
+    // The departure: held until the one in the circuit was clear of it,
+    // lifted off before she touched down, and climbed out.
+    bool rolled_only_when_clear = false;
+    bool departed_first = false;
+    bool departed = false;
+    std::string wreck;
+};
+
+StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
+                                         const std::string& departure_id, bool sequenced);
+
+// **A go-around's circuit and a straight-in to the same runway, as built**:
+// the one going around from 200 ft on the glidepath, as in the test of two
+// going around together, and the straight-in established on the glidepath
+// (`when`). Each is told of the other what a server tells them: whether the
+// runway is clear, where to turn off, whom she follows round the circuit
+// (one clock), and - `sequenced` - whether a straight-in is on the approach
+// to her runway and whether traffic is close ahead of her approach.
+// Without those two nothing gives way to a straight-in, as before.
+StraightAndCircuit circuit_and_straight_in(const std::string& circuit_id,
+                                           const std::string& straight_id, StraightInWhen when,
+                                           bool sequenced) {
+    if (when == StraightInWhen::departure_lined_up) {
+        return circuit_and_departure(circuit_id, straight_id, sequenced);
+    }
+    const glideslope::sim::Runway runway = a_runway();
+    const auto circuit_entry = glideslope::sim::find_aircraft(data(), circuit_id);
+    const auto straight_entry = glideslope::sim::find_aircraft(data(), straight_id);
+    const auto circuit_speeds = glideslope::sim::approach_speeds(data(), circuit_entry.model);
+    const auto straight_speeds = glideslope::sim::approach_speeds(data(), straight_entry.model);
+    const double circuit_out_nm =
+        (200.0 / feet_per_metre / std::tan(3.0 / degrees) - circuit_speeds.aim_m) / metres_per_nm;
+    glideslope::sim::Aircraft circuit(data() / "jsbsim", circuit_entry.model);
+    put_on_final(circuit, circuit_entry, runway, circuit_speeds, false, circuit_out_nm);
+    std::optional<glideslope::sim::Aircraft> straight;
+
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    glideslope::sim::Controller circuit_c(circuit, flying);
+    circuit_c.to_ai_approach(runway, circuit_speeds);
+    std::optional<glideslope::sim::Controller> straight_c;
+    double now_s = 0.0;
+    // **Told what a server tells her**, of the other.
+    using OtherAircraft = std::function<const glideslope::sim::Aircraft*()>;
+    using OtherController = std::function<const glideslope::sim::Controller*()>;
+    const auto wire = [&](glideslope::sim::Controller& c, glideslope::sim::Aircraft& self,
+                          const glideslope::sim::CatalogueEntry& entry, std::size_t i,
+                          const OtherAircraft& other, const OtherController& other_c) {
+        c.limit_speed(glideslope::sim::plan_speeds(data(), entry.model).fastest_kts);
+        c.vacates_runways([other](const glideslope::sim::Runway& r, double along_m, double side) {
+            const glideslope::sim::Aircraft* o = other();
+            if (o == nullptr) {
+                return true;
+            }
+            const glideslope::sim::AircraftState s = o->state();
+            return !glideslope::sim::beside_runway(r, s.latitude_deg, s.longitude_deg,
+                                                   s.altitude_ft - r.elevation_ft, along_m, side);
+        });
+        c.clears_with([other](const glideslope::sim::Runway& r) {
+            const glideslope::sim::Aircraft* o = other();
+            if (o == nullptr) {
+                return true;
+            }
+            const glideslope::sim::AircraftState s = o->state();
+            return !glideslope::sim::on_runway(r, s.latitude_deg, s.longitude_deg,
+                                               s.altitude_ft - r.elevation_ft);
+        });
+        c.follows_with(
+            [&circuit_c, &straight_c, i] {
+                return glideslope::sim::circuit_ahead_alt_ft(
+                    i, {circuit_c.circling(),
+                        straight_c ? straight_c->circling() : std::nullopt});
+            },
+            [&now_s] { return now_s; });
+        if (sequenced) {
+            c.gives_way_with([other_c](const glideslope::sim::Runway& r) {
+                const glideslope::sim::Controller* o = other_c();
+                const std::optional<glideslope::sim::Runway> in =
+                    o != nullptr ? o->straight_in() : std::nullopt;
+                return in && glideslope::sim::same_runway(*in, r);
+            });
+            c.spaced_with([&self, other](const glideslope::sim::Runway& r) {
+                const glideslope::sim::Aircraft* o = other();
+                return o != nullptr &&
+                       glideslope::sim::close_ahead_on_approach(r, self.state(), o->state());
+            });
+        }
+    };
+    wire(circuit_c, circuit, circuit_entry, 0,
+         [&straight]() -> const glideslope::sim::Aircraft* {
+             return straight ? &*straight : nullptr;
+         },
+         [&straight_c]() -> const glideslope::sim::Controller* {
+             return straight_c ? &*straight_c : nullptr;
+         });
+    const auto make_straight_in = [&](double out_nm) {
+        straight.emplace(data() / "jsbsim", straight_entry.model);
+        put_on_final(*straight, straight_entry, runway, straight_speeds, false, out_nm);
+        straight_c.emplace(*straight, flying);
+        straight_c->to_ai_approach(runway, straight_speeds);
+        wire(*straight_c, *straight, straight_entry, 1,
+             [&circuit]() -> const glideslope::sim::Aircraft* { return &circuit; },
+             [&circuit_c]() -> const glideslope::sim::Controller* { return &circuit_c; });
+    };
+    if (when == StraightInWhen::as_she_goes_around) {
+        make_straight_in(straight_in_out_nm - straight_speeds.aim_m / metres_per_nm);
+    }
+    circuit_c.go_around();
+
+    glideslope::sim::GroundJudge judge_circuit(false);
+    glideslope::sim::GroundJudge judge_straight(false);
+    StraightAndCircuit out;
+    bool circuit_touched = false;
+    bool straight_touched = false;
+    bool flown_circuit = false;
+    for (int t = 0; t < 3600 * steps_per_second; ++t) {
+        flown_circuit = flown_circuit || circuit_c.circuit() != nullptr;
+        if (!straight && when == StraightInWhen::as_she_joins_final && flown_circuit &&
+            circuit_c.lander() &&
+            circuit_c.lander()->stage() == glideslope::sim::Lander::Stage::approach) {
+            const glideslope::sim::AircraftState s = circuit.state();
+            make_straight_in(
+                -glideslope::sim::along_runway_nm(runway, s.latitude_deg, s.longitude_deg) +
+                straight_in_behind_nm);
+        }
+        circuit.set_controls(circuit_c.fly());
+        circuit.step();
+        if (straight) {
+            out.straight_in_flown = true;
+            straight->set_controls(straight_c->fly());
+            straight->step();
+        }
+        now_s += 1.0 / steps_per_second;
+        if (const auto what = judge_circuit.judge(circuit)) {
+            out.wreck = circuit_id + " in the circuit: " + *what;
+            break;
+        }
+        if (straight) {
+            if (const auto what = judge_straight.judge(*straight)) {
+                out.wreck = straight_id + " straight in: " + *what;
+                break;
+            }
+            if (straight_c->circling() && !out.straight_in_around) {
+                out.straight_in_around = true;
+                out.straight_in_why = straight_c->why_gone_around();
+                if (out.straight_in_why.empty()) {
+                    out.straight_in_why = "the runway not clear";
+                }
+            }
+        }
+        if (const auto* c = circuit_c.circuit()) {
+            out.gave_way = out.gave_way || c->following();
+            out.wide = out.wide || c->wide();
+            out.racetracks = std::max(out.racetracks, c->racetracks());
+            const glideslope::sim::AircraftState s = circuit.state();
+            out.furthest_out_nm = std::max(
+                out.furthest_out_nm,
+                -glideslope::sim::along_runway_nm(runway, s.latitude_deg, s.longitude_deg));
+            out.leave_downwind_nm = c->leave_downwind_nm();
+        }
+        const bool circuit_now = circuit.property("gear/wow") > 0.5;
+        const bool straight_now = straight && straight->property("gear/wow") > 0.5;
+        if (circuit_now && !circuit_touched && !straight_touched) {
+            out.circuit_down_first = true;
+        }
+        if (straight_now && !straight_touched && !circuit_touched) {
+            out.straight_in_down_first = true;
+        }
+        circuit_touched = circuit_touched || circuit_now;
+        straight_touched = straight_touched || straight_now;
+        // **Both in the air**, until the first touches: landed is not
+        // traffic, as the server has it.
+        if (straight && !circuit_touched && !straight_touched) {
+            const glideslope::sim::AircraftState a = circuit.state();
+            const glideslope::sim::AircraftState b = straight->state();
+            const double apart_m = glideslope::sim::distance_m(a.latitude_deg, a.longitude_deg,
+                                                               b.latitude_deg, b.longitude_deg);
+            const double apart_ft = std::abs(a.altitude_ft - b.altitude_ft);
+            if (apart_ft < glideslope::sim::Separation::minimum_ft) {
+                out.least_m = std::min(out.least_m, apart_m);
+            }
+            if (apart_m < glideslope::sim::Separation::minimum_m) {
+                out.least_ft = std::min(out.least_ft, apart_ft);
+            }
+            out.lost = out.lost || (apart_ft < glideslope::sim::Separation::minimum_ft &&
+                                    apart_m < glideslope::sim::Separation::minimum_m);
+        }
+        if (straight && circuit_c.vacate() != nullptr && circuit_c.vacate()->clear() &&
+            straight_c->vacate() != nullptr && straight_c->vacate()->clear()) {
+            out.both_clear = true;
+            break;
+        }
+    }
+    return out;
+}
+
+// **A go-around's circuit and a departure from the same runway, as
+// built**: the one going around from 200 ft on the glidepath, as above, and
+// the departure standing on the threshold, lined up, its engines running -
+// so that the runway's rule sends her round in her first step. The
+// departure is given its plan once she is in the circuit's sequence: the
+// take-off, climbing straight out to `departure_to_ft`, and on. Each is told of the other
+// what a server tells them; `sequenced`: the departure is told whether it
+// is held.
+StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
+                                         const std::string& departure_id, bool sequenced) {
+    const glideslope::sim::Runway runway = a_runway();
+    const auto circuit_entry = glideslope::sim::find_aircraft(data(), circuit_id);
+    const auto departure_entry = glideslope::sim::find_aircraft(data(), departure_id);
+    const auto circuit_speeds = glideslope::sim::approach_speeds(data(), circuit_entry.model);
+    const auto departure_speeds =
+        glideslope::sim::departure_speeds(data(), departure_entry.model);
+    const double circuit_out_nm =
+        (200.0 / feet_per_metre / std::tan(3.0 / degrees) - circuit_speeds.aim_m) / metres_per_nm;
+    glideslope::sim::Aircraft circuit(data() / "jsbsim", circuit_entry.model);
+    put_on_final(circuit, circuit_entry, runway, circuit_speeds, false, circuit_out_nm);
+
+    glideslope::sim::Aircraft departure(data() / "jsbsim", departure_entry.model);
+    departure.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+        [](double, double) { return 0.0; }, [](double, double) { return false; }));
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = runway.threshold_lat_deg;
+    ic.longitude_deg = runway.threshold_lon_deg;
+    ic.altitude_ft = runway.elevation_ft;
+    ic.terrain_elevation_ft = runway.elevation_ft;
+    ic.heading_deg = runway.heading_deg;
+    ic.airspeed_kts = 0.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    load_for_the_take_off(departure, departure_entry.model);
+    departure.initialize(ic);
+
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.4;
+    flying.gear = 1.0;
+    glideslope::sim::Controller circuit_c(circuit, flying);
+    circuit_c.to_ai_approach(runway, circuit_speeds);
+    glideslope::sim::Controls standing;
+    standing.gear = 1.0;
+    standing.left_brake = 1.0;
+    standing.right_brake = 1.0;
+    glideslope::sim::Controller departure_c(departure, standing);
+    double now_s = 0.0;
+    circuit_c.limit_speed(glideslope::sim::plan_speeds(data(), circuit_entry.model).fastest_kts);
+    circuit_c.vacates_runways(
+        [&departure](const glideslope::sim::Runway& r, double along_m, double side) {
+            const glideslope::sim::AircraftState s = departure.state();
+            return !glideslope::sim::beside_runway(r, s.latitude_deg, s.longitude_deg,
+                                                   s.altitude_ft - r.elevation_ft, along_m, side);
+        });
+    circuit_c.clears_with([&departure](const glideslope::sim::Runway& r) {
+        const glideslope::sim::AircraftState s = departure.state();
+        return !glideslope::sim::on_runway(r, s.latitude_deg, s.longitude_deg,
+                                           s.altitude_ft - r.elevation_ft);
+    });
+    circuit_c.follows_with(
+        [&circuit_c] { return glideslope::sim::circuit_ahead_alt_ft(0, {circuit_c.circling()}); },
+        [&now_s] { return now_s; });
+    circuit_c.spaced_with([&circuit, &departure](const glideslope::sim::Runway& r) {
+        return glideslope::sim::close_ahead_on_approach(r, circuit.state(), departure.state());
+    });
+    departure_c.limit_speed(
+        glideslope::sim::plan_speeds(data(), departure_entry.model).fastest_kts);
+    if (sequenced) {
+        circuit_c.gives_way_with([&departure_c](const glideslope::sim::Runway& r) {
+            const std::optional<glideslope::sim::Runway> out = departure_c.departing();
+            return out && glideslope::sim::same_runway(*out, r);
+        });
+        departure_c.holds_with([&circuit_c](const glideslope::sim::Runway& r) {
+            return glideslope::sim::departure_held(r, {circuit_c.circling()});
+        });
+    }
+
+    // **Her plan**: the take-off, and on out along the runway's heading to a
+    // point 20 nm on at `departure_to_ft`, flown at the middle of her
+    // speeds - as a server's departure flies a plan, not the plain
+    // autopilot left holding whatever the take-off ended in.
+    glideslope::sim::FlightPlan departure_plan;
+    departure_plan.takeoff = glideslope::sim::FlightPlan::TakeOff{runway, departure_to_ft};
+    {
+        const double out_m = 20.0 * metres_per_nm;
+        const double h = runway.heading_deg / degrees;
+        glideslope::sim::Waypoint on;
+        on.name = "out";
+        on.latitude_deg = runway.threshold_lat_deg +
+                          out_m * std::cos(h) /
+                              glideslope::sim::metres_per_degree_latitude(runway.threshold_lat_deg);
+        on.longitude_deg =
+            runway.threshold_lon_deg +
+            out_m * std::sin(h) /
+                glideslope::sim::metres_per_degree_longitude(runway.threshold_lat_deg);
+        on.altitude_ft = runway.elevation_ft + departure_to_ft;
+        const auto plan = glideslope::sim::plan_speeds(data(), departure_entry.model);
+        on.airspeed_kts = 0.5 * (plan.slowest_kts + plan.fastest_kts);
+        departure_plan.waypoints.push_back(on);
+    }
+    glideslope::sim::GroundJudge judge_circuit(false);
+    glideslope::sim::GroundJudge judge_departure(false);
+    StraightAndCircuit out;
+    out.straight_in_flown = true;
+    bool given = false;
+    bool rolled = false;
+    bool circuit_touched = false;
+    bool lifted = false;
+    for (int t = 0; t < 3600 * steps_per_second; ++t) {
+        if (!given && circuit_c.circling()) {
+            given = true;
+            departure_c.to_ai_flying(departure_plan, departure_speeds);
+        }
+        circuit.set_controls(circuit_c.fly());
+        circuit.step();
+        departure.set_controls(departure_c.fly());
+        departure.step();
+        now_s += 1.0 / steps_per_second;
+        if (const auto what = judge_circuit.judge(circuit)) {
+            out.wreck = circuit_id + " in the circuit: " + *what;
+            break;
+        }
+        if (const auto what = judge_departure.judge(departure)) {
+            out.wreck = departure_id + " departing: " + *what;
+            break;
+        }
+        if (given && !rolled && departure_c.rolling()) {
+            rolled = true;
+            out.rolled_only_when_clear =
+                !circuit_c.circling() || circuit_c.circling()->clear_of_departures;
+        }
+        if (const auto* c = circuit_c.circuit()) {
+            out.gave_way = out.gave_way || c->following();
+            out.racetracks = std::max(out.racetracks, c->racetracks());
+            const glideslope::sim::AircraftState s = circuit.state();
+            out.furthest_out_nm = std::max(
+                out.furthest_out_nm,
+                -glideslope::sim::along_runway_nm(runway, s.latitude_deg, s.longitude_deg));
+            out.leave_downwind_nm = c->leave_downwind_nm();
+        }
+        // Up once she has rolled: her wheels off the runway.
+        const bool departure_up = rolled && departure.property("gear/wow") < 0.5;
+        if (departure_up && !lifted) {
+            lifted = true;
+            out.departed_first = !circuit_touched;
+        }
+        // Down, after her go-around: her first touch is the landing (she
+        // starts in the air).
+        circuit_touched = circuit_touched || circuit.property("gear/wow") > 0.5;
+        out.departed = out.departed || (given && departure_c.departure() == nullptr);
+        // **Both in the air**: the departure from her lift-off, until the
+        // one in the circuit is down.
+        if (departure_up && !circuit_touched) {
+            const glideslope::sim::AircraftState a = circuit.state();
+            const glideslope::sim::AircraftState b = departure.state();
+            const double apart_m = glideslope::sim::distance_m(a.latitude_deg, a.longitude_deg,
+                                                               b.latitude_deg, b.longitude_deg);
+            const double apart_ft = std::abs(a.altitude_ft - b.altitude_ft);
+            if (apart_ft < glideslope::sim::Separation::minimum_ft) {
+                out.least_m = std::min(out.least_m, apart_m);
+            }
+            if (apart_m < glideslope::sim::Separation::minimum_m) {
+                out.least_ft = std::min(out.least_ft, apart_ft);
+            }
+            out.lost = out.lost || (apart_ft < glideslope::sim::Separation::minimum_ft &&
+                                    apart_m < glideslope::sim::Separation::minimum_m);
+        }
+        if (out.departed && circuit_c.vacate() != nullptr && circuit_c.vacate()->clear()) {
+            out.both_clear = true;
+            break;
+        }
+    }
+    return out;
+}
+
+std::string least_of(const StraightAndCircuit& r) {
+    const auto figure = [](double v, const char* unit) {
+        return v > 1e8 ? std::string("never") : std::to_string(std::lround(v)) + unit;
+    };
+    return "least " + figure(r.least_m, " m") + " apart within 500 ft, least " +
+           figure(r.least_ft, " ft") + " apart within 1.5 nm";
+}
+
+// What went wrong with one pair, if anything: apart, landed, clear, in the
+// order the situation states, and no further out than the circuit's limit.
+std::vector<std::string> judged(const std::string& pair, StraightInWhen when,
+                                const StraightAndCircuit& r) {
+    std::vector<std::string> wrong;
+    if (!r.straight_in_flown) {
+        wrong.push_back(pair + ": no straight-in was flown");
+    }
+    if (r.lost) {
+        wrong.push_back(pair + ": not kept apart by 500 ft or 1.5 nm: " + least_of(r));
+    }
+    if (!r.wreck.empty()) {
+        wrong.push_back(pair + ": wrecked: " + r.wreck);
+    }
+    if (!r.both_clear) {
+        wrong.push_back(pair + (when == StraightInWhen::departure_lined_up
+                                    ? ": not departed and landed clear of the runway"
+                                    : ": not both landed and taxied clear of the runway"));
+    }
+    if (when == StraightInWhen::departure_lined_up) {
+        // **Held until she is clear of it, and off before she lands.**
+        if (!r.rolled_only_when_clear) {
+            wrong.push_back(pair + ": the departure rolled before she was clear of it");
+        }
+        if (!r.departed_first) {
+            wrong.push_back(pair + ": the departure did not lift off before she landed");
+        }
+        if (!r.departed) {
+            wrong.push_back(pair + ": the departure did not climb out");
+        }
+    } else if (when == StraightInWhen::as_she_goes_around) {
+        // **On final, the straight-in has the right of way**: the one in
+        // the circuit gives way, wide - and the straight-in lands first,
+        // unless she closes on the one going around ahead of her, and goes
+        // around early for it: then she is number two, and lands second.
+        if (!r.straight_in_around && (!r.gave_way || !r.wide)) {
+            wrong.push_back(pair + ": the one in the circuit did not give way wide");
+        }
+        if (r.straight_in_around && r.straight_in_why != "traffic close ahead on final") {
+            wrong.push_back(pair + ": the straight-in went around (" + r.straight_in_why + ")");
+        }
+        if (!r.straight_in_around && !r.straight_in_down_first) {
+            wrong.push_back(pair + ": the straight-in did not land first");
+        }
+        if (r.straight_in_around && !r.circuit_down_first) {
+            wrong.push_back(pair + ": the straight-in went around early and landed first");
+        }
+    } else {
+        // **On final, she is committed**: she does not give way, and lands
+        // first.
+        if (r.gave_way) {
+            wrong.push_back(pair + ": the one in the circuit gave way from final");
+        }
+        if (!r.circuit_down_first) {
+            wrong.push_back(pair + ": the one in the circuit did not land first");
+        }
+    }
+    constexpr double longest_extension_nm = 2.0;
+    const double furthest_nm = r.leave_downwind_nm + longest_extension_nm;
+    if (r.furthest_out_nm > furthest_nm) {
+        wrong.push_back(pair + ": the one in the circuit flew " +
+                        std::to_string(r.furthest_out_nm) + " nm out, past " +
+                        std::to_string(furthest_nm));
+    }
+    return wrong;
+}
+
+const char* named(StraightInWhen when) {
+    switch (when) {
+    case StraightInWhen::as_she_goes_around:
+        return "straight in as she goes around";
+    case StraightInWhen::as_she_joins_final:
+        return "straight in as she joins final";
+    case StraightInWhen::departure_lined_up:
+        return "departing";
+    }
+    return "";
+}
+
+// **Each of `circuits` in the circuit with each of `straights` straight
+// in**, in each situation; every pair asserted flown.
+void circuits_and_straight_ins(const std::vector<std::string>& circuits,
+                               const std::vector<std::string>& straights) {
+    const std::vector<StraightInWhen> whens{StraightInWhen::as_she_goes_around,
+                                            StraightInWhen::as_she_joins_final,
+                                            StraightInWhen::departure_lined_up};
+    std::set<std::tuple<std::string, std::string, int>> flown;
+    std::vector<std::string> wrong;
+    int early = 0;
+    for (const StraightInWhen when : whens) {
+        for (const std::string& circuit_id : circuits) {
+            for (const std::string& straight_id : straights) {
+                const auto started = std::chrono::steady_clock::now();
+                const StraightAndCircuit r =
+                    circuit_and_straight_in(circuit_id, straight_id, when, true);
+                flown.insert({circuit_id, straight_id, static_cast<int>(when)});
+                early += r.straight_in_around ? 1 : 0;
+                std::printf(
+                    "  %s in the circuit, %s %s: %s; %s%s, %d racetrack(s), %.1f nm "
+                    "out at most; %s%s%s%s%s%s (%.1f s)\n",
+                    circuit_id.c_str(), straight_id.c_str(), named(when), least_of(r).c_str(),
+                    r.gave_way ? "gave way" : "did not give way", r.wide ? " wide" : "",
+                    r.racetracks, r.furthest_out_nm,
+                    r.circuit_down_first       ? "the circuit down first"
+                    : r.straight_in_down_first ? "the straight-in down first"
+                                               : "NEITHER DOWN",
+                    r.straight_in_around ? ", the straight-in went around: " : "",
+                    r.straight_in_why.c_str(),
+                    r.both_clear ? ", both landed and clear" : ", NOT BOTH LANDED",
+                    r.wreck.empty() ? "" : ", wrecked: ", r.wreck.c_str(),
+                    std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
+                        .count());
+                const auto w = judged(circuit_id + " in the circuit, " + straight_id + " " +
+                                          named(when),
+                                      when, r);
+                wrong.insert(wrong.end(), w.begin(), w.end());
+            }
+        }
+    }
+    std::printf("  the straight-in went around in %d of %zu\n", early, flown.size());
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    const std::size_t space = whens.size() * circuits.size() * straights.size();
+    check(flown.size() == space, "every pair flown in every situation: " +
+                                     std::to_string(flown.size()) + " of " +
+                                     std::to_string(space));
+}
+
+// **Every landplane straight in with `circuit_id` in the circuit**, in
+// both situations.
+void every_landplane_straight_in_with(const std::string& circuit_id) {
+    const std::vector<std::string> kinds = landplanes_going_around();
+    check(std::find(kinds.begin(), kinds.end(), circuit_id) != kinds.end(),
+          circuit_id + " is a landplane that goes around");
+    circuits_and_straight_ins({circuit_id}, kinds);
+}
+
+// The slowest approach of every landplane that goes around and the
+// fastest.
+std::vector<std::string> slowest_and_fastest() {
+    std::string slowest;
+    std::string fastest;
+    double slowest_kts = 1e9;
+    double fastest_kts = 0.0;
+    for (const std::string& id : landplanes_going_around()) {
+        const double vref = glideslope::sim::approach_speeds(
+                                data(), glideslope::sim::find_aircraft(data(), id).model)
+                                .vref_kts;
+        if (vref < slowest_kts) {
+            slowest_kts = vref;
+            slowest = id;
+        }
+        if (vref > fastest_kts) {
+            fastest_kts = vref;
+            fastest = id;
+        }
+    }
+    check(slowest != fastest, "two speeds: " + slowest + ", " + fastest);
+    return {slowest, fastest};
+}
+
+} // namespace
+
+// **A go-around's circuit and a straight-in or a departure on the same
+// runway are kept 500 ft or 1.5 nm apart, and land or depart in the order
+// the situation gives** (sim/circuit.hpp):
+//   - a straight-in on the approach as she goes around: she gives way,
+//     wide, and the straight-in lands first - unless the straight-in
+//     closes on her and goes around early, and then lands second;
+//   - a straight-in joining two miles behind her as she joins final: she
+//     is committed, does not give way, and lands first;
+//   - a departure lined up as she comes down: she goes around for it, it is
+//     held until she is clear of it, lifts off, and she lands after.
+// The space is every landplane in the circuit with every landplane straight
+// in or departing, in all three situations; the test after this holds that
+// every one has its test below. **On every run, pull requests' too**: the
+// slowest and the fastest (the J-3 Cub and the F-15C), each with each, in
+// all three - twelve flights, the widest closings both ways. All 675 are
+// the fifteen tests below, every night (gust_sweep).
+GLIDESLOPE_TEST(a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order) {
+    const std::vector<std::string> two = slowest_and_fastest();
+    circuits_and_straight_ins(two, two);
+}
+
+GLIDESLOPE_TEST(every_landplane_has_a_test_of_her_circuit_with_every_straight_in_and_departure) {
+    std::vector<std::string> kinds = landplanes_going_around();
+    std::vector<std::string> tested = ahead_tested();
+    std::sort(kinds.begin(), kinds.end());
+    std::sort(tested.begin(), tested.end());
+    check(kinds == tested, std::to_string(kinds.size()) + " landplanes go around, " +
+                               std::to_string(tested.size()) +
+                               " have a test of their circuit with every straight-in and departure");
+}
+
+GLIDESLOPE_TEST(a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("737-300");
+}
+GLIDESLOPE_TEST(a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("747-400");
+}
+GLIDESLOPE_TEST(a_787_8_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("787-8");
+}
+GLIDESLOPE_TEST(an_a320_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("a320");
+}
+GLIDESLOPE_TEST(an_a380_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("a380");
+}
+GLIDESLOPE_TEST(a_b2_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("b2");
+}
+GLIDESLOPE_TEST(a_c172p_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("c172p");
+}
+GLIDESLOPE_TEST(a_c182_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("c182");
+}
+GLIDESLOPE_TEST(an_f15c_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("f15c");
+}
+GLIDESLOPE_TEST(an_f22_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("f22");
+}
+GLIDESLOPE_TEST(an_f35b_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("f35b");
+}
+GLIDESLOPE_TEST(a_j3cub_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("j3cub");
+}
+GLIDESLOPE_TEST(a_learjet35a_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("learjet35a");
+}
+GLIDESLOPE_TEST(a_mosquito_fb6_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("mosquito-fb6");
+}
+GLIDESLOPE_TEST(a_pa28_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
+    every_landplane_straight_in_with("pa28");
+}
+
+
 
 // **The server and the client tell a controller how she lands from the same
 // figures** (`sim::landing_speeds`, which both call): for every aircraft in

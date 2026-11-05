@@ -202,6 +202,7 @@ public:
     // had - the controls a controller hands over - to lean from.
     void hand_mixture(double mixture);
     Stage stage() const { return stage_; }
+    const Runway& runway() const { return runway_; }
     // **Through its height with its take-off trim off**: where the take-off
     // was over before it waited for the flap too. The take-off trials read
     // their climb away here, at the take-off flap their speeds were found at.

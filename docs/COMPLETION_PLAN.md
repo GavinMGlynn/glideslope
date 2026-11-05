@@ -1538,12 +1538,25 @@ AI aircraft kept apart from each other and clear of the runway.
       another runway. *Verification: an AI aircraft held behind a person
       who stays in the circuit is offered another runway, or the person is
       asked to land, and the AI lands within a stated time.*
-- [ ] **A go-around's circuit does not sequence with traffic straight in or
+- [x] **A go-around's circuit does not sequence with traffic straight in or
       departing**: only aircraft going around wait for one another, and the
       rest are left to the separation monitor and the runway's rule.
       *Verification: an AI aircraft in the circuit and one on a straight-in
       approach to the same runway are kept 500 ft or 1.5 nm apart, and both
-      land.*
+      land.* Done 2026-11-05: the circuit gives way, wide, to a straight-in
+      until she turns base; an approach closing on traffic ahead goes around
+      early; a departure is held until the one going round is clear of it.
+      All 675 flights of every landplane pair, in three situations, stayed
+      apart and landed or departed in order.
+- [ ] **A person straight in or taking off is not sequenced**: the AI's
+      circuit gives way only to AI straight-ins and departures, and nothing
+      holds a person's take-off. *Verification: an AI aircraft in the circuit
+      gives way to a person flying straight in, and is kept 500 ft or 1.5 nm
+      from a person departing.*
+- [ ] **An A380 given a take-off and no plan flies into the ground**: the
+      plain autopilot left holding what the take-off ended in lost her from
+      3,000 ft in 455 s. *Verification: every landplane given a take-off to
+      3,000 ft and no plan holds it for ten minutes.*
 - [ ] **A layer above that cannot give way still counts as making room**:
       when its floor would cross its own limits the room is refused, but
       the squeezed aircraft's held middle does not move with it.
