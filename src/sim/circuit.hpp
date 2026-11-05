@@ -176,7 +176,6 @@ private:
     // final is never joined slower than the approach is flown.
     double base_kts() const;
 
-
     const Aircraft& a_;
     Runway runway_;
     ApproachSpeeds speeds_;
@@ -187,7 +186,9 @@ private:
     double leave_downwind_nm_ = 0.0;
     bool gear_up_ = false;
     bool following_ = false;
-    double downwind_m_ = 0.0; // across, where the racetrack left downwind
+    // Across, where the racetrack first left the downwind leg: the line it
+    // joins again every time round.
+    std::optional<double> downwind_m_;
     int racetracks_ = 0;
 };
 
