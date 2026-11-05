@@ -1722,10 +1722,19 @@ public:
         // the count of those in the sky reaches. Counted alone, a player
         // who joined before the first planned aircraft was away was put on
         // the top plan-file aircraft's layer, at its start, and both were
-        // wrecks at once (CI, #337's run 41961819690).
-        ic.altitude_ft = start_.altitude_ft +
-                         static_cast<double>(std::max(flown_.size(), plan_layers_) + 1) *
-                             ai_stack_ft;
+        // wrecks at once (CI, #337's run 41961819690). **Each player a
+        // layer of their own over those**: over the plan-file layers by
+        // one more than the players already flying, so that two who join
+        // before the planned aircraft are up are not both put one over the
+        // plan-file layers (review of #337) - and over everything in the
+        // sky as ever. Both terms grow with every join, so no two joins
+        // share one.
+        const auto players_flying = static_cast<std::size_t>(std::count_if(
+            flown_.begin(), flown_.end(), [](const Aircraft& a) { return a.slot >= 0; }));
+        ic.altitude_ft =
+            start_.altitude_ft +
+            static_cast<double>(std::max(flown_.size(), plan_layers_ + players_flying) + 1) *
+                ai_stack_ft;
         ic.heading_deg = start_.heading_deg;
         ic.airspeed_kts = airspeed_kts;
         ic.engine_running = true;
