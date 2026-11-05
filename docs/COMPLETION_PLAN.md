@@ -1566,6 +1566,11 @@ AI aircraft kept apart from each other and clear of the runway.
       gives way to a person flying straight in, is kept 500 ft or 1.5 nm
       from a person departing, and an AI departure behind a person who stays
       in the circuit departs within a stated time.*
+- [ ] **A person who flies away from the circuit and never lands keeps her
+      place in it**, so an AI aircraft behind her holds outside the circuit
+      for as long as she flies. *Verification: an AI aircraft behind a
+      person who leaves the circuit without landing comes back and lands
+      within a stated time, kept 500 ft or 1.5 nm apart.*
 - [ ] **An A380 given a take-off and no plan flies into the ground**: the
       plain autopilot left holding what the take-off ended in lost her from
       3,000 ft in 455 s. It was there before, and no server reaches it:
