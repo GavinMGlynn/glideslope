@@ -371,6 +371,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
     every_landplane_has_a_test_of_her_circuit_with_every_straight_in_and_departure
     every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it_for_ten_minutes
+    every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate_after_any_ai_take_off_and_is_never_past_her_gear_extended_speed_with_it_out
     a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
     a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
     a_787_8_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
@@ -780,7 +781,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_f15c_glides_round_its_tightest_orbit_turning_left_from_190_to_200_kt_without_stalling
     the_f15c_glides_round_its_tightest_orbit_turning_right_from_170_to_185_kt_without_stalling
     the_f15c_glides_round_its_tightest_orbit_turning_right_from_190_to_200_kt_without_stalling
-    the_f22a_glides_round_its_tightest_orbit_at_225_kt_without_stalling
+    the_f22a_glides_round_its_tightest_orbit_from_225_to_230_kt_without_stalling
     the_f35b_glides_round_its_tightest_orbit_from_188_to_204_kt_without_stalling
     the_slowest_a_glide_may_fly_an_aircraft_at_is_read_and_refused_where_it_is_wrong
     the_boeing_737_300_needs_about_its_published_takeoff_runway_length_at_maximum_weight
@@ -1327,6 +1328,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_flap_levers_notches_are_the_settings_of_each_models_flap_kinematic
     a_take_off_that_never_makes_its_flap_speed_ends_with_the_flap_still_out
     a_take_off_taken_over_in_the_air_never_puts_out_a_flap_it_found_up
+    a_take_off_taken_over_in_the_air_never_puts_down_a_gear_it_found_up
     handing_the_aircraft_between_pilot_and_ai_steps_nothing_in_any_phase
     an_aircraft_named_from_the_wire_is_one_in_the_catalogue_or_none
     an_aircraft_says_its_gear_retracts_only_where_its_model_has_it
@@ -1437,6 +1439,10 @@ set_tests_properties(a_circuit_gives_way_to_a_person_straight_in_and_is_kept_apa
 # simulated time: 22 s on linux-release locally, and Linux debug's runners
 # take about fourteen times release's for flights like these.
 set_tests_properties(every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it_for_ten_minutes
+    PROPERTIES TIMEOUT 1800)
+# **Every landplane's take-off, planned and not, and three minutes after it**,
+# in simulated time, flown for her gear.
+set_tests_properties(every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate_after_any_ai_take_off_and_is_never_past_her_gear_extended_speed_with_it_out
     PROPERTIES TIMEOUT 1800)
 
 # **A program that has ended can still allocate until its last thread is gone**
