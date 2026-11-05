@@ -403,6 +403,11 @@ bool connect_until_told_ground = false;
 // initiation was read, emptying a server run `--until-empty`, which stopped
 // and answered this one nothing (CI's macOS release, 2026-10-07).
 std::string connect_told_file;
+// **And says a wreck was heard** (`--wreck-file FILE`): FILE is written the
+// first time this client hears any aircraft become a wreck, so that a test
+// can start another client while that wreck waits to fly again - its five
+// seconds too short to be hit by a wait on the clock.
+std::string connect_wreck_file;
 
 // **What the server says the session is** (REQUIREMENTS.md 6.3), as a
 // connecting client takes it: its own collision ground, from the data it
@@ -543,6 +548,8 @@ void print_usage(std::FILE* out) {
         "                            key that is, rather than a new one.\n"
         "                            --heard FILE also writes each aircraft heard\n"
         "                            becoming a wreck, and flying again, to FILE.\n"
+        "                            --wreck-file FILE writes FILE the first time\n"
+        "                            any aircraft is heard becoming a wreck.\n"
         "                            --until-flying-again N leaves once N aircraft\n"
         "                            have been heard flying again, SECONDS the most\n"
         "                            it will wait.\n"
@@ -5010,6 +5017,12 @@ int stay(glideslope::platform::UdpSocket& socket,
                     // with - an engine stopped among it.
                     if (a.condition == glideslope::net::Condition::wrecked) {
                         say_heard("aircraft " + std::to_string(a.index) + " is a wreck");
+                        if (!connect_wreck_file.empty() &&
+                            !std::filesystem::exists(connect_wreck_file)) {
+                            std::ofstream(connect_wreck_file)
+                                << "aircraft " << static_cast<unsigned>(a.index)
+                                << " is a wreck\n";
+                        }
                     } else if (was != heard_as.end() &&
                                was->second == glideslope::net::Condition::wrecked) {
                         say_heard("aircraft " + std::to_string(a.index) + " flies again");
@@ -6155,6 +6168,11 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--told-file" && i + 1 < args.size()) {
                     connect_told_file = std::string(args[i + 1]);
+                    ++i;
+                    continue;
+                }
+                if (args[i] == "--wreck-file" && i + 1 < args.size()) {
+                    connect_wreck_file = std::string(args[i + 1]);
                     ++i;
                     continue;
                 }

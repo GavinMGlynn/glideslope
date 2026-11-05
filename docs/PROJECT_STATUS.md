@@ -293,7 +293,7 @@ touch scatters 1.7 times as widely as the F-15C's, and no sourced change
 moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
-**Phase 11, traffic and separation: 5 of 9 items.** Every AI aircraft a
+**Phase 11, traffic and separation: 6 of 9 items.** Every AI aircraft a
 server runs is measured against every other, and in runs of every route
 kind none comes within 500 ft and 1.5 nm of another. The kinds are planned,
 the plan file, handed over holding its course, handed over in a spiral,
@@ -305,6 +305,11 @@ the minimum is judged from the hand-over (the owner's ruling, 2026-11-05):
 it is out within 14 s and never under again, 12.5 s measured. A layer that cannot give the
 room, held at its own limits, is treated like a person's aircraft: the
 held middle follows it and keeps the minimum from it.
+
+A wreck flown again near the start whose layer a joining player took while
+it was a wreck is given the lowest free layer instead, by the join's rule:
+1,000 ft from her in the test, 0 ft before
+(2026-11-05-a-wreck-flown-again-is-kept-off-a-joining-players-layer).
 
 Since 2026-11-05 two
 AI aircraft going around to one runway are sequenced in the order they
