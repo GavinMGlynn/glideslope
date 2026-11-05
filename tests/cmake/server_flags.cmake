@@ -57,7 +57,9 @@ list(LENGTH _flags _count)
 # step a player's controls change, so the first-input test counts the steps
 # her nudge was flown (server_first_input.cmake), and --test-slow-start makes
 # the fleet's first steps slow, a loaded machine's start built
-# (starved_f35b_placed.cmake).
+# (starved_f35b_placed.cmake). --test-wreck-waits-for-joins keeps a wreck a
+# wreck until that many players have joined, so a join during one is built on
+# the event (server_wreck_flown_again_layer.cmake).
 # --drop-once-flown
 # drops the first player it has flown, as the drop button would, headless
 # (server_drop_keeps_out.cmake), and --lose-goodbyes sends it no goodbye, as
@@ -90,6 +92,7 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms --test-pace
               --test-stopped-once --test-say-controls --test-slow-start
+              --test-wreck-waits-for-joins
               --test-held-up --test-say-slipped
               --drop-once-flown --lose-goodbyes --stop-once-flown
               --ai-planner --ai-task --ai-playback --ai-spacing
