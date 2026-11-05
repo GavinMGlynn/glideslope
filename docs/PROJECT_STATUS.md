@@ -326,15 +326,16 @@ separation, down to 0 ft at 667 m and 1 m
 (2026-11-05-a-go-arounds-circuit-gives-way-to-a-straight-in-and-holds-a-departure).
 
 Since 2026-11-05 a person's aircraft is in the sequence, judged by how she
-flies. The circuit gives way to a person straight in or departing; an AI
-departure behind a person who stays in the circuit goes on her downwind
-leg; and an AI aircraft behind a person who stays leaves the circuit after
-one racetrack, 45 degrees away, and does not come back to land. A person
-who takes off under an AI aircraft going around is not kept apart from
-her: no turn takes the AI clear in time. All 1,125 flights of every
-landplane pair, in five situations, stayed 500 ft or 1.5 nm apart, the
-closest 541 ft within 1.5 nm; the one behind a person who stays left within
-1,190 s, and a departure behind her was held at most 455 s
+flies, on the runway or its reciprocal. The circuit gives way to a person
+straight in or departing; an AI departure behind a person in the circuit
+goes once she is behind the threshold and going away; and an AI aircraft
+behind a person who stays leaves the circuit after one racetrack for a hold
+outside it, and comes back to land once the person is down. A person who
+takes off under an AI aircraft going around is not kept apart from her: no
+turn takes the AI clear in time. All 1,350 flights of every landplane
+pair, in six situations, stayed 500 ft or 1.5 nm apart, the closest
+541 ft within 1.5 nm; the one behind a person who stays left within 1,190 s, and a
+departure behind a left-hand circuit was held at most 455 s
 (2026-11-05-a-person-straight-in-departing-or-staying-in-the-circuit).
 
 
