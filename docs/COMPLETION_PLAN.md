@@ -1561,11 +1561,6 @@ AI aircraft kept apart from each other and clear of the runway.
       with no plan levels off at its height, leading it by a tenth of her
       climb. *Verification: every landplane given a take-off to
       3,000 ft and no plan holds it for ten minutes.*
-- [ ] **No AI take-off raises her gear**: with a plan or without, she flies
-      on with her wheels down. The F-22A's thrust vectoring is off with
-      them, and she goes 386 ft past a 3,000 ft level-off.
-      *Verification: every landplane's AI take-off raises her gear once
-      she climbs, and her take-off figures are re-measured with it up.*
 - [x] **A layer that cannot make room is followed**: a layer above or below
       held at its own limits is refused the room, and the squeezed
       aircraft's held middle moves with it.

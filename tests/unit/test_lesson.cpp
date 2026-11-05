@@ -13138,9 +13138,10 @@ GLIDESLOPE_TEST(every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it
     // at 384 kt with her gear down - no AI take-off raises it - and her
     // thrust vectoring off with it (her model's `fcs/tvc-inhibit`), her
     // pitch hunts for a minute and she goes 386 ft past her height before
-    // she settles within 100 ft of it. Bounded here by the level-off's own
-    // lead at that climb, 970 ft, short of which she is handed over.
-    const std::map<std::string, double> capture_over_ft = {{"f22", 970.0}};
+    // she settles within 100 ft of it. Bounded here by that and a margin,
+    // 450 ft. Every aeroplane named here must be one flown, so a bound left
+    // behind for one no longer in the catalogue fails.
+    const std::map<std::string, double> capture_over_ft = {{"f22", 450.0}};
     std::size_t landplanes = 0;
     std::vector<std::string> flown;
     for (const auto& entry : glideslope::sim::read_catalogue(data())) {
@@ -13186,4 +13187,9 @@ GLIDESLOPE_TEST(every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it
     check(landplanes == 15 && flown.size() == landplanes,
           "every one of the catalogue's 15 landplanes flown: " + std::to_string(flown.size()) +
               " of " + std::to_string(landplanes));
+    for (const auto& [id, over_ft] : capture_over_ft) {
+        check(std::find(flown.begin(), flown.end(), id) != flown.end(),
+              id + ", given a capture bound of " + std::to_string(over_ft) +
+                  " ft, is a landplane flown here");
+    }
 }
