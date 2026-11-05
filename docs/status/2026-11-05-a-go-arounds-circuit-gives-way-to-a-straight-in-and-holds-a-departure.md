@@ -191,3 +191,9 @@ was read from pointsixtyfive.com's copies and FAA notices.
     plain autopilot, and flew into the ground at 455 s, 225 kt: the test now
     gives every departure a plan, as a server's has. That a plain autopilot
     after a take-off flies an A380 into the ground is a tail.
+
+Unchanged and green: every test matching go-around, circuit, straight-in,
+separation, vacate, taxi, kept apart, controller, runway, selftest and the
+CI shard checks, 130 of 130 on linux-release (one skipped, as it needs a
+key), the gust_sweep label aside - its fifteen new tests were run above,
+all green. The server and the tests build on Windows (windows-debug).
