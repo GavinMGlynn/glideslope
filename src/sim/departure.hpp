@@ -20,6 +20,7 @@
 // the runway's own elevation.
 
 #include "sim/aircraft.hpp"
+#include "sim/autopilot.hpp"
 #include "sim/catalogue.hpp"
 #include "sim/leaner.hpp"
 #include "sim/lander.hpp"
@@ -215,6 +216,14 @@ public:
     // ft/min through 3,000 ft was handed over there and went on to 4,636.
     // Off by default, and for a plan, which climbs on to its own heights.
     // `climbed_out` is not moved by it.
+    //
+    // **Reaching that lead with her flap still out, or her take-off trim
+    // still on, she levels off there and cleans up level** (`levelling_`):
+    // the autopilot captures the height, the throttle left at the
+    // take-off's, while her flap comes up as it would have in the climb; the
+    // take-off is over once it is up. Only once she is through the screen
+    // height with her gear up. Until 2026-11-06 she climbed on until her
+    // flap was up: asked for 650 ft, the jets went 139 to 532 ft past it.
     void level_off_at_end(bool levels_off) { levels_off_ = levels_off; }
     bool levels_off() const { return levels_off_; }
     // The height she levels off at, feet above sea level.
@@ -270,6 +279,10 @@ private:
     int flaps_still_steps_ = 0;
     bool climbed_out_ = false;
     bool levels_off_ = false;
+    // The autopilot levelling her off while she cleans up, and the controls
+    // she was last flown with, to engage it on.
+    std::optional<Autopilot> levelling_;
+    Controls last_;
     int steps_ = 0; // flown since the throttle began to open
     Stage stage_ = Stage::roll;
 

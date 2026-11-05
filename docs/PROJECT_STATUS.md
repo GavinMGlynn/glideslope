@@ -354,10 +354,16 @@ Since 2026-11-06 the autopilot captures that height at 7 ft/min a foot,
 not 3, so the last few feet no longer take minutes. Every landplane taken
 off to 650 or 3,000 ft is within 2 ft of it from 64 s after the hand-over
 at the latest. The Mosquito reaches 650 ft 32 s after the hand-over; she
-used to take 167 s. A jet taken off to 650 ft still climbs 139 to 532 ft
-past it before coming back, and the circuit tests still ask 750 ft for a
-PA-28 overshoot. Both are tails
+used to take 167 s
 (2026-11-06-a-take-off-with-no-plan-captures-its-height-promptly).
+Since 2026-11-06, too, a take-off with no plan that reaches its lead with
+its flap still out levels off there and cleans up level, at take-off
+thrust. Taken off to 650 ft, the jets went 139 to 532 ft past it; now
+every landplane is within 21 ft. The circuit tests ask the take-off for
+650 ft, and a light aeroplane is joined to the circuit with the flap her
+take-off left, which is up. Every aeroplane flies her downwind leg within
+100 ft of circuit height
+(2026-11-06-a-low-no-plan-height-is-levelled-at-and-the-circuit-joined-there).
 
 Since 2026-11-05 an AI take-off raises her gear on a second of positive
 climb, with a plan or without; until then every planned flight cruised

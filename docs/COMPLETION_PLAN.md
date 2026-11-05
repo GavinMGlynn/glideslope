@@ -1156,20 +1156,28 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       3,000 ft, is within 2 ft of it from 64 s after the hand-over at the
       latest (75 s stated). The circuit tests still ask 750 ft, for the
       tail below.
-- [ ] **A light aeroplane's climb to circuit height overshoots it.** Found
+- [x] **A light aeroplane's climb to circuit height overshoots it.** Found
       2026-11-06: joined level at 650 ft, the PA-28 climbs to 1,078 ft for
       the circuit's 1,000 and fails the lesson's downwind band by 4 ft, so
       the circuit lesson tests still ask the take-off for 750 ft.
       *Verification: every light aeroplane joined to the circuit level at
-      650 ft is within 50 ft of circuit height along her downwind leg, and the
-      circuit tests ask for 650 ft.*
-- [ ] **A jet's take-off with no plan to a low height climbs far past
+      650 ft is within 100 ft of circuit height along her downwind leg (the
+      FAA's pattern-altitude tolerance; 50 ft was tighter than any source),
+      and the circuit tests ask for 650 ft.* Done 2026-11-06: the test had
+      put her 25 degrees of take-off flap back out at the join; joined
+      clean, the PA-28 flies downwind at 1,004 to 1,035 ft of her 1,035.
+      Every aeroplane in the circuit test is within 100 ft, and the tests
+      ask for 650 ft.
+- [x] **A jet's take-off with no plan to a low height climbs far past
       it.** Found 2026-11-06: asked for 650 ft, the airliners, the F-22A and
       the Learjet go 139 to 532 ft past it, most handed over already above
       it: a jet's flaps come up from 400 ft, and the take-off waits for
       them.
       *Verification: every landplane taken off with no plan to 650 ft goes
-      no more than 100 ft past it, or the reason is named.*
+      no more than 100 ft past it, or the reason is named.* Done 2026-11-06:
+      reaching her lead with her flap out, she levels off there and cleans
+      up level at take-off thrust; all 15 landplanes are within 21 ft of
+      650 (the F-22A), seen red on the old code.
 
 ---
 
