@@ -1584,6 +1584,7 @@ public:
                 // plan's heights at its first waypoint and they flew the tour
                 // on top of one another, 37 m apart.
                 const double stack_ft = static_cast<double>(i) * ai_stack_ft;
+                plan_layers_ = std::max(plan_layers_, static_cast<std::size_t>(i) + 1);
                 controller->to_ai(stacked(plan, stack_ft));
                 flown_.push_back({plan.aircraft + " (AI " + std::to_string(i + 1) + ")",
                                   std::move(aircraft), std::move(controller),
@@ -1715,9 +1716,16 @@ public:
         ic.latitude_deg = start_.latitude_deg;
         ic.longitude_deg = start_.longitude_deg;
         // Above everything already flying, so that being given an aircraft
-        // never puts one inside another.
+        // never puts one inside another - **and above every plan-file AI
+        // aircraft's layer**: those are stacked by their AI number, so with
+        // planned aircraft not yet taken off the top one flies higher than
+        // the count of those in the sky reaches. Counted alone, a player
+        // who joined before the first planned aircraft was away was put on
+        // the top plan-file aircraft's layer, at its start, and both were
+        // wrecks at once (CI, #337's run 41961819690).
         ic.altitude_ft = start_.altitude_ft +
-                         static_cast<double>(flown_.size() + 1) * ai_stack_ft;
+                         static_cast<double>(std::max(flown_.size(), plan_layers_) + 1) *
+                             ai_stack_ft;
         ic.heading_deg = start_.heading_deg;
         ic.airspeed_kts = airspeed_kts;
         ic.engine_running = true;
@@ -4026,6 +4034,10 @@ private:
         return std::nullopt;
     }
     int ai_ = 0;
+    // How many layers the plan-file AI aircraft are stacked on: one more than
+    // the highest AI number among them, counted from 0. A player joining
+    // starts above them all.
+    std::size_t plan_layers_ = 0;
     // How many aircraft have been made, for each to have a serial.
     std::uint64_t made_ = 0;
     // **How close every two AI aircraft have come**, by their serials: what
