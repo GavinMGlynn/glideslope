@@ -36,7 +36,14 @@
 //     through, then taken above them all or below, as a controller's
 //     safety alert turns and climbs an aircraft (FAA JO 7110.65 2-1-6).
 //     TCAS's resolution advisories are vertical only, and the vertical
-//     alone cannot be had here.
+//     alone cannot be had here - **unless the layers move**: so every AI
+//     aircraft it is squeezed between that can be moved (whose autopilot
+//     flies it) is moved away from the middle of the gap, the one below
+//     down and the one above up, to the minimum and margin from it, until
+//     it is clear - as TCAS II coordinates complementary advisories, one
+//     climbing and the other descending, and as a safety alert may be
+//     given to either aircraft. Arriving inside the minimum, it is out of
+//     it once the gap has opened, not once it has turned 1.5 nm away.
 //
 // **Who gives way**: an AI aircraft whose autopilot is flying (not one taking
 // off, landing or gliding with its engine stopped, nor a person's), to every aircraft that does not give way -
@@ -90,6 +97,9 @@ struct Squeeze {
     bool up = false;
     double away_deg = 0.0;
     bool clear = false;
+    // The middle of the gap it is held in until clear, chosen once: the
+    // layers make room about it (`separate`).
+    std::optional<double> middle_ft;
 };
 
 // One aircraft, as the monitor sees it. Heights are in one frame - the

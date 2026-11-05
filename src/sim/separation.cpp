@@ -75,7 +75,19 @@ bool within_guard(const Traffic& a, const Traffic& b) {
     return std::hypot(rn + vn * t, re + ve * t) < Separation::guard_m;
 }
 
-std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
+namespace {
+
+// **Room asked of a layer** for one squeezed between it and another: a
+// ceiling for one below, a floor for one above, and which aircraft it is
+// made for.
+struct Room {
+    std::optional<double> floor_ft;
+    std::optional<double> ceiling_ft;
+    std::size_t for_whom = 0;
+};
+
+std::vector<HeightLimit> separate_with(const std::vector<Traffic>& traffic,
+                                       const std::vector<std::optional<Room>>& room) {
     const std::size_t n = traffic.size();
     std::vector<HeightLimit> limits(n);
     // The height each is flying to, as limited so far.
@@ -144,7 +156,14 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
         // only once 1.5 nm from every one it would pass through**: until
         // then it is held in the middle of the gap, as far from both as the
         // gap allows, and turned directly away from the nearest of those.
-        if (limit.floor_ft && limit.ceiling_ft && *limit.floor_ft > *limit.ceiling_ft) {
+        // **Latched while it is not yet clear**: once the layers have made
+        // room (below), the gap is wide enough and the floor no longer
+        // crosses the ceiling - but let go then, the room would be let go
+        // too, the layers would close again, and it would be squeezed again.
+        const bool squeezed_now =
+            limit.floor_ft && limit.ceiling_ft && *limit.floor_ft > *limit.ceiling_ft;
+        const bool still_held = g.squeezed && !g.squeezed->clear && !near.empty();
+        if (squeezed_now || still_held) {
             double top = -1e18;
             double bottom = 1e18;
             for (const Near& k : near) {
@@ -183,9 +202,16 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
                         360.0,
                     360.0);
             }
+            // The middle of the gap, latched once chosen: the layers make
+            // room about it, and as they move their bands would move it.
+            const double middle =
+                was && was->middle_ft
+                    ? *was->middle_ft
+                    : 0.5 * (limit.floor_ft.value_or(g.altitude_ft) +
+                             limit.ceiling_ft.value_or(g.altitude_ft));
             limit.heading_deg = away;
             if (away) {
-                limit.squeezed = Squeeze{up, *away, clear};
+                limit.squeezed = Squeeze{up, *away, clear, middle};
             }
             if (clear) {
                 if (up) {
@@ -196,7 +222,6 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
                     limit.floor_ft.reset();
                 }
             } else {
-                const double middle = 0.5 * (*limit.floor_ft + *limit.ceiling_ft);
                 limit.floor_ft = middle;
                 limit.ceiling_ft = middle;
             }
@@ -204,9 +229,101 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
         } else {
             limit.clear_of = ceiling_for ? ceiling_for : floor_for;
         }
+        // **Room made for one squeezed** (`separate`): a ceiling under it
+        // for a layer below, a floor over it for one above - but only where
+        // that leaves the layer a height to fly, and none of its own limits
+        // crossed.
+        if (room[i] && !limit.squeezed) {
+            HeightLimit with = limit;
+            if (room[i]->ceiling_ft) {
+                with.ceiling_ft = std::min(with.ceiling_ft.value_or(1e18), *room[i]->ceiling_ft);
+            }
+            if (room[i]->floor_ft) {
+                with.floor_ft = std::max(with.floor_ft.value_or(-1e18), *room[i]->floor_ft);
+            }
+            const bool crossed =
+                with.floor_ft && with.ceiling_ft && *with.floor_ft > *with.ceiling_ft;
+            const bool grounded =
+                with.ceiling_ft &&
+                *with.ceiling_ft < g.ground_ft + Separation::least_above_ground_ft;
+            if (!crossed && !grounded) {
+                with.clear_of = room[i]->for_whom;
+                limit = with;
+            }
+        }
         held[i] = limited(held[i], limit);
     }
     return limits;
+}
+
+} // namespace
+
+// **Squeezed between two, the two make room** - as TCAS II coordinates
+// complementary advisories, one aircraft climbing and the other descending,
+// and as a controller's safety alert may move either aircraft (FAA JO
+// 7110.65 2-1-6): an aircraft that is squeezed and not yet clear is held in
+// the middle of the gap, and every AI aircraft it gives way to there that
+// gives way itself - an autopilot's, which can be moved - is moved away
+// from it: one below to `minimum_ft` and `margin_ft` under the middle, one
+// above to as much over it. Worked out twice: the first time finds who is
+// squeezed, the second puts the room on the layers before those after them
+// are worked out, so those keep clear of where the layers are going.
+std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
+    const std::size_t n = traffic.size();
+    const std::vector<std::optional<Room>> none(n);
+    const std::vector<HeightLimit> first = separate_with(traffic, none);
+    const double apart_ft = Separation::minimum_ft + Separation::margin_ft;
+    std::vector<std::optional<Room>> room(n);
+    bool any = false;
+    for (std::size_t i = 0; i < n; ++i) {
+        const std::optional<Squeeze>& sq = first[i].squeezed;
+        if (!sq || sq->clear || !sq->middle_ft) {
+            continue;
+        }
+        const Traffic& g = traffic[i];
+        for (std::size_t j = 0; j < n; ++j) {
+            const Traffic& p = traffic[j];
+            if (j == i || !p.gives_way || j > i || !within_guard(g, p)) {
+                continue;
+            }
+            // Below the middle is below it; a layer level with it is left
+            // where it is.
+            Room r;
+            r.for_whom = i;
+            if (p.altitude_ft < *sq->middle_ft - 50.0) {
+                r.ceiling_ft = *sq->middle_ft - apart_ft;
+            } else if (p.altitude_ft > *sq->middle_ft + 50.0) {
+                r.floor_ft = *sq->middle_ft + apart_ft;
+            } else {
+                continue;
+            }
+            // Two asking room of one layer: the most asked.
+            if (room[j]) {
+                if (r.ceiling_ft) {
+                    room[j]->ceiling_ft =
+                        std::min(room[j]->ceiling_ft.value_or(1e18), *r.ceiling_ft);
+                }
+                if (r.floor_ft) {
+                    room[j]->floor_ft = std::max(room[j]->floor_ft.value_or(-1e18), *r.floor_ft);
+                }
+            } else {
+                room[j] = r;
+            }
+            any = true;
+        }
+    }
+    if (!any) {
+        return first;
+    }
+    // Worked out again with the squeezes the first time latched, so the
+    // second keeps the side, heading and middle the first chose.
+    std::vector<Traffic> again = traffic;
+    for (std::size_t i = 0; i < n; ++i) {
+        if (first[i].squeezed) {
+            again[i].squeezed = first[i].squeezed;
+        }
+    }
+    return separate_with(again, room);
 }
 
 } // namespace glideslope::sim

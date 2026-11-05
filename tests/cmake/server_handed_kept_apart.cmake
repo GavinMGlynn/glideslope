@@ -3,6 +3,7 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli> -DDATA=<data dir>
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
+#         [-DCOPILOT=<recording>]
 #         -P server_handed_kept_apart.cmake
 #
 # **Built, not hoped for.** A server with two AI aircraft flying the plan
@@ -28,6 +29,23 @@
 # one - and each pair with the handed one is measured over exactly the
 # HANDED steps asked. Before, the handed one was never measured: one pair.
 # Separation lost for no step of any pair.
+#
+# **With COPILOT, the aircraft is handed over by its copilot's route**: the
+# client asks its copilot five seconds in to fly to Manly at 3,000 ft and
+# orbit over Manly beach, played back from the recording COPILOT (no key:
+# CI flies without one), and the route it answers is sent to the server,
+# which hands the aircraft to the AI to fly it - a handed aircraft flying a
+# copilot's route, measured against the two plan-file aircraft over the
+# HANDED steps it flies it, as the hand-over's is. **Coverage is asserted
+# by kind**: three pairs - the two on the plan file (1), and the copilot's
+# with each (2), every pair with the copilot's over exactly HANDED steps.
+# **Left out, by name**: the copilot's with a model-planned aircraft. Those
+# take off from 16R 90 s apart, so a run with both up and the copilot's
+# flying is four minutes of a client's real time (266 s, tried), in which
+# the copilot's came within 1.5 nm of none of them; and two aircraft are
+# measured the same whatever their routes - planned pairs are measured in
+# server_kept_apart.cmake's run. The server must say it flies the copilot's
+# route.
 #
 # Without the DEM's tiles it reports itself skipped (exit 77).
 
@@ -64,10 +82,21 @@ endif()
 # Thirty simulated seconds of the hand-over; the client stays at most ten
 # minutes waiting for them.
 set(_handed 3600)
+set(_ai --ai 2)
+set(_pairs_wanted 3)
+set(_with_handed_wanted 2)
+if(DEFINED COPILOT)
+    set(_handing --predict --copilot-at 5 --copilot c172p
+                 "fly to Manly at 3,000 ft, then orbit over Manly beach"
+                 --copilot-provider anthropic --copilot-model claude-haiku-4-5-20251001
+                 --copilot-stay 600 --copilot-playback "${COPILOT}")
+else()
+    set(_handing --hand-over-at 2)
+endif()
 execute_process(
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 600 --after 1
-            --hand-over-at 2 --heard "${_heard}" --until-exists "${_stopped}"
-    COMMAND "${SERVER}" --port ${PORT} --seconds 900 --ai 2 --headless
+    COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 600 --after 1
+            ${_handing} --heard "${_heard}" --until-exists "${_stopped}"
+    COMMAND "${SERVER}" --port ${PORT} --seconds 900 ${_ai} --headless
             --data "${DATA}" --store "${_store}" --steps-after-hand-over ${_handed}
             --stopped-file "${_stopped}"
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -82,6 +111,14 @@ endif()
 if(_said MATCHES "handed to its pilot")
     message(FATAL_ERROR "the aircraft was given back, and is to stay the AI's:\n${_said}")
 endif()
+if(DEFINED COPILOT)
+    if(NOT _said MATCHES "sent its copilot's route of ([0-9]+)")
+        message(FATAL_ERROR "the client sent no copilot's route:\n${_said}\n${_err}")
+    endif()
+    if(NOT _out MATCHES "flies its copilot's route")
+        message(FATAL_ERROR "the server did not fly the copilot's route:\n${_out}")
+    endif()
+endif()
 if(_out MATCHES "is a wreck")
     message(FATAL_ERROR "an aircraft was wrecked:\n${_out}")
 endif()
@@ -91,9 +128,9 @@ if(NOT _out MATCHES "kept apart: ([0-9]+) pairs of AI aircraft over ([0-9]+) ste
 endif()
 set(_pairs "${CMAKE_MATCH_1}")
 set(_lost "${CMAKE_MATCH_3}")
-if(NOT _pairs EQUAL 3)
-    message(FATAL_ERROR "${_pairs} pairs were measured, not the three that two AI aircraft "
-                        "and one handed to the AI make:\n${_out}")
+if(NOT _pairs EQUAL _pairs_wanted)
+    message(FATAL_ERROR "${_pairs} pairs were measured, not the ${_pairs_wanted} that the AI "
+                        "aircraft and the one handed to the AI make:\n${_out}")
 endif()
 string(REGEX MATCHALL "\napart: [^\n]*" _lines "${_out}")
 list(TRANSFORM _lines STRIP)
@@ -101,8 +138,27 @@ if(NOT _out MATCHES "stopped after ${_handed} steps of a player's aircraft with 
     message(FATAL_ERROR "the server did not stop ${_handed} steps after the hand-over:\n${_out}")
 endif()
 set(_with_handed 0)
+# Each pair's kind, by the routes its two fly: "planned" (a model's plan),
+# "file" (the plan file) or "copilot" (the handed one's copilot's route).
+set(_kinds)
 foreach(_line IN LISTS _lines)
     message(STATUS "${_line}")
+    if(NOT _line MATCHES "^apart: (.*) and (.*), over ")
+        message(FATAL_ERROR "a pair's line names no two aircraft: ${_line}")
+    endif()
+    set(_two)
+    foreach(_who "${CMAKE_MATCH_1}" "${CMAKE_MATCH_2}")
+        if(_who MATCHES "\\(slot [0-9]+\\)")
+            list(APPEND _two copilot)
+        elseif(_who MATCHES "'s plan\\)")
+            list(APPEND _two planned)
+        else()
+            list(APPEND _two file)
+        endif()
+    endforeach()
+    list(SORT _two)
+    list(JOIN _two "+" _kind)
+    list(APPEND _kinds "${_kind}")
     if(_line MATCHES "\\(slot [0-9]+\\)")
         math(EXPR _with_handed "${_with_handed} + 1")
         if(NOT _line MATCHES ", over ([0-9]+) steps, " OR NOT CMAKE_MATCH_1 EQUAL _handed)
@@ -114,11 +170,31 @@ foreach(_line IN LISTS _lines)
         message(FATAL_ERROR "separation was lost: ${_line}\n${_out}")
     endif()
 endforeach()
-if(NOT _with_handed EQUAL 2)
-    message(FATAL_ERROR "the handed aircraft is in ${_with_handed} pairs, not two:\n${_out}")
+if(NOT _with_handed EQUAL _with_handed_wanted)
+    message(FATAL_ERROR "the handed aircraft is in ${_with_handed} pairs, not "
+                        "${_with_handed_wanted}:\n${_out}")
+endif()
+if(DEFINED COPILOT)
+    # Every kind of pair, as many of each as three aircraft make.
+    foreach(_want "file+file=1" "copilot+file=2")
+        string(REPLACE "=" ";" _want "${_want}")
+        list(GET _want 0 _kind)
+        list(GET _want 1 _count)
+        set(_seen 0)
+        foreach(_k IN LISTS _kinds)
+            if(_k STREQUAL _kind)
+                math(EXPR _seen "${_seen} + 1")
+            endif()
+        endforeach()
+        if(NOT _seen EQUAL _count)
+            message(FATAL_ERROR "${_seen} pairs of kind ${_kind} were measured, not ${_count}: "
+                                "${_kinds}")
+        endif()
+    endforeach()
+    message(STATUS "three pairs of two kinds measured: ${_kinds}")
 endif()
 if(NOT _lost EQUAL 0)
     message(FATAL_ERROR "separation lost for ${_lost} steps")
 endif()
-message(STATUS "the aircraft handed to the AI measured against both AI aircraft, "
+message(STATUS "the aircraft handed to the AI measured against every AI aircraft, "
                "over ${_handed} steps each, as asked; separation never lost")
