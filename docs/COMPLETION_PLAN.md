@@ -1562,8 +1562,8 @@ AI aircraft kept apart from each other and clear of the runway.
       every take-off the server gives has a plan. *Verification: every landplane given a take-off to
       3,000 ft and no plan holds it for ten minutes.*
 - [x] **A layer that cannot make room is followed**: a layer above or below
-      held at its own limits, or itself squeezed, is refused the room, and
-      the squeezed aircraft's held middle moves with it.
+      held at its own limits is refused the room, and the squeezed
+      aircraft's held middle moves with it.
       *Verification: with a layer above or below held at its limits, the
       squeezed aircraft's held height keeps the minimum from it.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
