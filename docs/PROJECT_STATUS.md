@@ -302,7 +302,9 @@ and handed over flying its copilot's route.
 When one is handed over between two layers, the layers make room, one
 climbing and one descending (2026-11-05). One handed over already inside
 the minimum is judged from the hand-over (the owner's ruling, 2026-11-05):
-it is out within 14 s and never under again, 12.5 s measured.
+it is out within 14 s and never under again, 12.5 s measured. A layer that cannot give the
+room, held at its own limits, is treated like a person's aircraft: the
+held middle follows it and keeps the minimum from it.
 
 Since 2026-11-05 two
 AI aircraft going around to one runway are sequenced in the order they
