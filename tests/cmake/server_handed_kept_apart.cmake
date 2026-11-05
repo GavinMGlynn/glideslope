@@ -127,6 +127,11 @@ if(NOT EXISTS "${_heard}")
     message(FATAL_ERROR "the client heard nothing:\n${_out}\n${_err}")
 endif()
 file(READ "${_heard}" _said)
+# Said first, since a wreck is why it would never be handed over: a player
+# put on an AI aircraft's layer at its start was a wreck at once with it.
+if(_said MATCHES "aircraft [0-9]+ is a wreck")
+    message(FATAL_ERROR "an aircraft was wrecked:\n${_said}\n${_out}")
+endif()
 if(NOT _said MATCHES "aircraft [0-9]+ handed to the AI")
     message(FATAL_ERROR "the client never heard its aircraft handed to the AI:\n${_said}")
 endif()

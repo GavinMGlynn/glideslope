@@ -1,4 +1,4 @@
-### An AI aircraft squeezed between two layers: the layers make room; and one flying its copilot's route is measured in a run, 2026-11-05 — item still open
+### An AI aircraft squeezed between two layers: the layers make room; and one flying its copilot's route is measured in a run, 2026-11-05 — item done
 
 **What was missing.** On 2026-10-09 one handed to the AI between two
 layers 1,000 ft apart, inside 1.5 nm of the lower, was turned away and held
@@ -165,15 +165,41 @@ same kind of move.
   were the F-35B and STOVL prediction tests through a server, which fly a
   player's aircraft, which the monitor gives no limit; CI runs them.
 
-**Why the item stays open.** One handed over already inside the minimum
-cannot be out of it at that instant. The 12.5 s is how long the AI takes to
-open the gap it was given, and nothing the AI flew put it there. Whether
-an inherited conflict like this is judged from the hand-over is the
-owner's to decide. **Proposed wording** for the verification, if the owner
-accepts it: "every AI aircraft a server runs stays 500 ft or 1.5 nm from
-every other along the whole of its route; one handed over inside it is out
-within 14 s and never under again". Nothing keeps a person's aircraft
-clear: it is given way to, not measured.
+**The owner's ruling, 2026-11-05: a conflict an aircraft inherits at a
+hand-over is judged from the hand-over.** The verification now reads:
+"every AI aircraft a server runs, planned or not, keeps a stated distance
+from every other along the whole of its route, measured over a whole run;
+one handed over already inside the minimum is out of it within 14 s and
+never under it again". The tests assert exactly that:
+- the between-layers case: lost at most 14 s in all, and never after the
+  first 14 s (12.5 s measured);
+- every run: 0 s for every pair.
+
+So the item is ticked. Nothing keeps a person's aircraft clear: it is
+given way to, not measured.
+
+**A player joining is now put above every plan-file AI aircraft's layer**
+(fix after CI, `src/frontend/server/main.cpp`). The copilot-against-planned
+run failed on every CI platform with "the client never heard its aircraft
+handed to the AI": its own aircraft and aircraft 5 were wrecks at once
+(#337's run 41961819690, train #338's run 41971152181). The cause was
+this:
+- a joining player was put at the plan's start, one layer over as many
+  aircraft as were in the sky;
+- the plan-file aircraft are stacked by their AI number, so with four AI
+  aircraft the two on the plan file are AI 3 and 4, at +2,000 and
+  +3,000 ft;
+- on a debug build the client joined at 0.07 s, before the first planned
+  aircraft was away, with two in the sky. That put it at +3,000 ft, on
+  AI 4, at the same place, and both were wrecks at once;
+- release builds here joined at 0.57 s, after the first had gone, so the
+  player went to +4,000 ft and the run passed.
+
+Reproduced here in linux-debug on the old code: "aircraft 5 is a wreck,
+aircraft 0 is a wreck", word for word as on CI. Now the player goes one
+layer over the more of the aircraft in the sky and the plan-file layers
+(`plan_layers_`). And the test now fails at once, saying so, when the
+client hears a wreck.
 
 The selftest hash does not move: the selftest flies the test pilot, which
 the monitor does not touch. The new tests' entries in `tests/ci_costs/` are
