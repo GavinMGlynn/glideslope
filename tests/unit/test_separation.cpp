@@ -265,6 +265,35 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
     }
 }
 
+// **A layer above that cannot give way is no room made** (a tail of the
+// layers making room): the middle follows it as it follows a person's aircraft.
+GLIDESLOPE_TEST(a_layer_above_held_at_its_limits_makes_no_room_and_the_squeezed_aircrafts_held_height_keeps_the_minimum_from_it) {
+    // **A layer above held at its own limits makes no room, and the
+    // middle follows it**: the AI layer at 3,800 ft gives way to a
+    // person's aircraft at 4,600, so it is held under 3,900. Room over
+    // the 3,400 middle - a floor at 4,100 - would cross that, and is
+    // refused; the middle is kept 700 ft under the layer's held 3,800,
+    // at 3,100, the lower layer makes room from there, to 2,400, and
+    // the layer above is asked only 3,800, which it can give.
+    std::vector<Traffic> capped{at(800, 4600, 100, false, std::nullopt),
+                                at(500, 3800, 100, true, 3800),
+                                at(0, 3000, 100, true, 3000),
+                                at(-1000, 3300, 100, true, 3300)};
+    const auto h = glideslope::sim::separate(capped);
+    check(about(h[1].ceiling_ft, 4600 - apart_ft) && !about(h[1].floor_ft, 3400 + apart_ft),
+          "the layer above, held under the person's at 3,900, is not given the room over "
+          "the middle it cannot take");
+    const double above_held = std::clamp(3800.0, h[1].floor_ft.value_or(-1e18),
+                                         h[1].ceiling_ft.value_or(1e18));
+    check(h[3].squeezed && about(h[3].floor_ft, 3800 - apart_ft) &&
+              about(h[3].ceiling_ft, 3800 - apart_ft) &&
+              above_held - *h[3].ceiling_ft >= apart_ft - 1.0,
+          "with the layer above held at its limits, the squeezed aircraft's held height "
+          "keeps the minimum and margin from it");
+    check(about(h[2].ceiling_ft, 3800 - apart_ft - apart_ft) && h[2].clear_of == std::size_t{3},
+          "the layer below makes room from the middle that followed the one above");
+}
+
 namespace {
 
 // **Two Cessnas, flown in one sky**, the second built to lose separation
