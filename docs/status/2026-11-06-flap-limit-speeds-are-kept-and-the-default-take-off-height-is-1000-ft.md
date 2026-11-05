@@ -4,15 +4,21 @@ Two Phase 10a tails found in the review of #348
 (2026-11-06-a-low-no-plan-height-is-levelled-at-and-the-circuit-joined-there).
 
 **What it does not do, first.**
-- **The five airliners' flap limit speeds are from secondary sources.**
-  No Boeing or Airbus limitations document giving the 737-300's, 747-400's,
-  787-8's, A320's or A380's was found public. Theirs are from pilots' study
-  cards, a virtual airline's compilation and FlyByWire's documentation,
-  each named in her aircraft file and in docs/ASSETS.md. This is a new
-  Phase 10a tail.
-- **Indicated limits are taken as calibrated.** The Cessnas' and the
-  Piper's are their handbooks' calibrated figures; the rest are indicated,
-  and the simulation flies calibrated airspeed.
+- **The flap limit item stays open: three airliners' limits are from
+  secondary sources only, and the A380's from a briefing.** The 737-300's,
+  747-400's and 787-8's are from pilots' study cards, a virtual airline's
+  compilation and a simulator community's list, each with its address in
+  her aircraft file and docs/ASSETS.md. Their type certificate data sheets
+  (FAA A16WE revision 64, FAA A20WE, EASA IM.A.120 issue 30, EASA
+  IM.A.115 issue 30) give VMO/MMO and send the rest to the flight manual,
+  which Boeing does not publish. The A380's are from Airbus's A380-800
+  Flight Deck and Systems Briefing for Pilots, a third party's copy, not a
+  limitations document; her data sheet, EASA.A.110 issue 17, gives none.
+  **The A320's are primary**: EASA.A.064 issue 62, page 45.
+- **Indicated limits are taken as calibrated.** The Cessnas' are their
+  handbooks' calibrated figures; the rest are indicated (the PA-28's
+  115 mph is her white arc's top), and the simulation flies calibrated
+  airspeed.
 - **Five landplanes have no limit to keep**, named in the test: the B-2A
   and F-22A (no flight manual public), the F-35B (none public, and no flaps
   in her model), the F-15C (her manual's 250 kt, but no flaps in her
@@ -47,8 +53,9 @@ reduced thrust, or raise the default.
 settings is held to the limit of the one with more flap.
 - **A level-off never passes her flap's limit.** At the take-off's
   thrust, the throttle holds her 5 kt under the limit of the flap she
-  has until her flap is up past it. The 5 kt is Boeing's margin under the
-  landing flap placard on the approach (the same manual). The manual's low
+  has until her flap is up past it. The 5 kt is chosen: no manual found gives a margin for a level-off,
+  and it is borrowed from the one Boeing keeps under the landing flap
+  placard on the approach (the same manual). The manual's low
   level-off: "use manual thrust control as needed to manage speed and
   prevent flap overspeeds" (4.2, Low Altitude Level Off).
 - **Nor does a climb.** Where the next flap's manoeuvre speed is past the
@@ -60,7 +67,19 @@ settings is held to the limit of the one with more flap.
 The limits, and where each is from, are in docs/ASSETS.md ("Each
 landplane's flap limit speeds").
 
-**Research.** Searches:
+**Research.** Searches, the second round (from the review of #349):
+- the FAA type certificate data sheets A16WE (737; revision 64 read),
+  A20WE (747; boeing.com's copy would not download, revision 41 seen in a
+  search: "see AFM"), T00021SE (787), A58NM (A380, not found to read);
+- EASA's: EASA.A.064 (A320, issue 62, read: VFE by configuration),
+  EASA.A.110 (A380, issue 17, read: "Refer to approved Airplane Flight
+  Manual"), IM.A.120 (737, issue 30, read: "See Airplane Flight Manual"),
+  IM.A.115 (787, issue 30, read: the same);
+- the 747-400's, 787-8's and A380's flap placards again, for addresses;
+  Airbus's A380 pilots' briefing, already in docs/ASSETS.md, for its
+  slats and flaps table.
+
+Searches, the first round:
 - VFE placards and limitations: 737-300 (FCOM, flap placard, the bespin
   limitations PDF, which would not download), 747-400 (three wordings),
   787-8 (two), A320 VFE CONF, A380 VFE CONF and flap angles, Airbus flight
@@ -106,9 +125,19 @@ landplane's flap limit speeds").
   A320 3.0 to 3.3, 787-8 4.7 to 4.8; the rest unchanged.
 - The circuit lesson's climb out, now: 737-300 164 to 189 kt, A320 160 to
   192, A380 153 to 174, Learjet 35A 163 to 192, inside its band.
+- **A take-off to a plan** now keeps her flap under its limit too. Before
+  and now, fastest past her flap's limit, planned to 1,500 ft and on: the
+  747-400 31.8 kt past (262 kt with her flap at 10.5 degrees, held to
+  flaps 20's 230: her model's lever stops at 15 degrees, and she was
+  accelerated to her flaps-up manoeuvre speed before it came up) to 5.1
+  kt under (225 kt). Every other planned take-off is unchanged: the
+  737-300 48.6 kt under, 787-8 30.5, A320 31.7, A380 0.9, Learjet 35A
+  24.1, C172P 33.3, C182 37.4, PA-28 23.2; the Mosquito flies none out.
+- Taken off to 650 ft with no plan, before and now, against the limits:
+  the 747-400 32.3 kt past to 4.6 under, the A380 5.9 past to 1.6 under.
 - Nothing else calls the take-off's default height.
 - The selftest hash does not move: it flies a pilot's input log.
 - Run on linux-release, excluding the gust_sweep label: every test
   matching take, depart, circuit, lesson, autopilot, selftest, lift_off,
   level, hand, capture, gear, go_around, going_around, instructor, flap,
-  catalogue or aircraft: 414 of 414 passed, 11 of them skipped for want of a key (the language-model tests asking a provider now).
+  catalogue or aircraft: 414 of 414 passed, 11 of them skipped for want of a key (the language-model tests asking a provider now). After the review of #349 (comments, sources, the flap lever line put back): every test matching take, depart, circuit, lesson, level, capture, gear, flap, catalogue or instructor, 202 of 202.

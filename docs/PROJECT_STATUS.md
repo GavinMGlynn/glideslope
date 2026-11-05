@@ -367,8 +367,9 @@ take-off left, which is up. Every aeroplane flies her downwind leg within
 Since 2026-11-06, too, ten landplanes carry their flap limit speeds (VFE),
 and no AI take-off, level-off or clean-up flies a flap past its limit: 50
 take-offs, each of the ten five ways. Five are from the aircraft's own
-manuals; the five airliners' are from secondary sources, named, since
-no Boeing or Airbus limitations document was found public. Five
+manuals and the A320's from her EASA type certificate data sheet; the
+A380's are from Airbus's pilots' briefing, and the 737-300's, 747-400's
+and 787-8's from secondary sources only, so the item stays open. Five
 landplanes are named as having none to keep. Levelling off at 650 ft, the
 747-400 flew 262 kt with flaps 20's 230 kt limit; now she is held 5 kt
 under it. An AI take-off with no height given now ends at 1,000 ft, a

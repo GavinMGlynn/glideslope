@@ -29,13 +29,17 @@ reversers 60
 # Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): Boeing's 737-300/400/500 limitations, as operators' copies of them
 # publish it: gear extended 320 kt/M.82 (extension 270, retraction 235).
 gear-extended 320
-# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp). No
-# Boeing document giving them was found public: from the 737-300 column of
-# "Boeing 737-300/-400 Limitations", Maximum Flap Operating Speeds, a
-# virtual airline's compilation (Matt Zagoren, for simulator use) at
+# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp).
+# **Secondary**: her type certificate data sheets give none - FAA A16WE
+# (revision 64) and EASA IM.A.120 (issue 30) both say "See approved
+# Airplane Flight Manual" - and no Boeing limitations document was found
+# public. From the 737-300 column of "Boeing 737-300/-400 Limitations",
+# Maximum Flap Operating Speeds, a virtual airline's compilation for
+# simulator use (Matt Zagoren),
 # http://edusapco-va.weebly.com/uploads/8/9/7/6/8976510/737limitations.pdf;
-# flaps 1 and 5 agree with pilots' study cards (Brainscape, "Flap / Gear
-# speeds 300/400/800"). Secondary, and named so in docs/ASSETS.md.
+# flaps 1 and 5 agree with pilots' study cards, "Flap / Gear speeds
+# 300/400/800",
+# https://brainscape.com/flashcards/flap-gear-speeds-300-400-800-6926814/packs/10535485
 flap-limit 1 230
 flap-limit 2 230
 flap-limit 5 225
