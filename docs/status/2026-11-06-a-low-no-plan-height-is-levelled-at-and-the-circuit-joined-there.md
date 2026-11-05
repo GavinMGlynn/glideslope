@@ -192,3 +192,10 @@ unchanged.
   473 of 473 passed.
 - The selftest hash does not move. The selftest flies a pilot's input log,
   not an AI take-off.
+
+**The band's change, and who set it.** The ±50 ft downwind band was written
+on 2026-11-06 by an agent, with no source, in #347, an hour before this
+item. The owner never set it. It is replaced here by the FAA Airman
+Certification Standards' ±100 ft for traffic pattern altitude
+(FAA-S-ACS-6C), a sourced figure. The owner may restore 50 ft. If so, the
+J-3 Cub, at 55 ft under, is the one aircraft that fails it.
