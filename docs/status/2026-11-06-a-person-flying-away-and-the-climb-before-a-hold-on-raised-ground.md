@@ -1,25 +1,47 @@
 ### A person flying away from the circuit, and the climb before a hold on raised ground, 2026-11-06
 
 **What it does not do, first.**
-- **A person who takes off under an AI aircraft going around is still not
-  kept apart from her**, and no manoeuvre of the AI's can keep her apart:
-  the minimum is lost the moment the person lifts off. The AI goes around
-  from 200 ft about 0.6 nm short of the threshold; a person rolling in
-  that step lifts off 10 to 25 s later within 1.5 nm of her and less than
-  500 ft below her - a Cub going around has climbed perhaps 100 ft by
-  then. Measured, with the AI's go-around offsetting right at once (a
-  sidestep, tried and taken out again): a Cub under a Cub 668 m and 0 ft,
-  an F-15C under a Cub 1,090 m and 0 ft, a Cub under an F-15C 856 m and
-  195 ft, an F-15C under an F-15C 90 m and 0 ft - worse than the 684 m
-  without it. Holding her level instead only keeps her in the band the
-  departure climbs through. The plan item stays open, for the owner: the
-  verification as written cannot be met by the AI alone.
+- **A person who lines up and rolls with an AI aircraft 2 nm out is kept
+  apart from her only in the four pairs flown on every run.** The AI
+  breaks off her approach for a person lined up on the runway
+  (`sim::ahead_of_an_approach_by_hand`) and flies her circuit 700 ft over
+  the person's climb (`sim::circuit_over_departure_ft`). The slowest and
+  the fastest each with each stayed apart: least 3,401 m within 500 ft and
+  603 ft within 1.5 nm (623 ft with the circuit raised over her; the raise
+  was not seen needed by these four). Swept over every pair it was not: a
+  person's C182 under eleven landplanes lost the minimum (the least 24 m;
+  under the 747-400 797 m and 440 ft, her climb drifting 25 degrees left
+  as the jet, no longer giving way past where she counts as departing,
+  turned crosswind across it), and a PA-28 behind a person's F-15C, F-22A
+  or F-35B did not land within the hour. So the sweep leaves this case
+  out, named, and the item stays open on it.
+- **A person who lines up under an AI aircraft already at 200 ft is the
+  conflict she makes**: she lifts off within 1.5 nm of the one going
+  around over her, and every pair loses the minimum, without any
+  sidestep: Cub under Cub 670 m and 0 ft (lift-off 862 m, 196 ft); F-15C
+  under Cub 1,074 m and 0 ft (1,074 m, 280 ft); Cub under F-15C 856 m and
+  195 ft (861 m, 196 ft); F-15C under F-15C 665 m and 0 ft (369 m, 855 ft).
+  The sidestep, tried, made it worse (90 m and 0 ft for two F-15Cs) and is
+  taken out. Under the owner's ruling of 2026-10-09 - an item that cannot
+  be met closes on today's measured figures with the shortfall written
+  down - this case is closed on these figures; the item stays open on the
+  2 nm case swept above.
+- **A hold out of her reach is held at her best height, where she is**
+  (`HoldOutside::out_of_reach`): where her climb gains less than 100 ft in
+  two minutes she gives the hold up, holds the best height she reached and
+  circles there, over ground her circuit was cleared for. Nothing diverts
+  her to another runway or airport; a plan item. A Cub under ground
+  20,000 ft high climbed to 14,100 ft, gave it up at 3,474 s, and held it
+  within 2 ft, 0.26 nm from where she left.
 - **A person's place is dropped only by distance**, 10 nm from the
   threshold. A person who flies away and comes straight back in under that
   keeps it; one who comes back after it is not in the sequence, and is
   given way to only while she is straight in or departing.
-- **Only the slowest and the fastest are flown**, each with each, in the
-  two new situations: every landplane with every other is not.
+- **Every landplane with every other** flies the new situations in the
+  fifteen gust_sweep tests (`every_landplane_with_a_person`): flying away
+  on all eight bearings and the climb on raised ground, every pair
+  (linux-release, -j4, 444 to 1,493 s a test). Every flight of those two
+  kept apart and landed. Lining up 2 nm ahead is left out, named (above).
 - **A racetrack reaches past the ground its circuit sampled**: an F-15C
   following another, her circuit raised 700 ft, flew her racetrack into a
   plateau 10 nm out that her circuit had not seen (it samples 8 nm before
@@ -105,3 +127,19 @@ the person flown by a stand-in).
 - A descent of 2,400 ft put in place of the climb: all four failed.
 - The plateau at 8.5 nm: every circuit raised 2,500 ft, nothing to measure;
   at 10 nm, the F-15C's racetrack flew into it.
+
+**The review of #351's round.**
+- The break-off for a person lined up: without it, an F-15C 2 nm out
+  went around only at 400 ft and came 1,760 m and 347 ft from a Cub just
+  lifted off; breaking off only once she rolled faster than 30 kt, 2,375 m
+  and 480 ft - both seen red.
+- The coverage check of the flying-away tests reads the registry: with
+  one of the two tests not registered it failed (seen).
+- The hold's out-of-reach end taken out: the Cub never gave the hold up
+  (seen).
+- Per run, the flying-away flights are the four pairs down the approach
+  (287 s on linux-debug beside a -j4 sweep); the other seven bearings are
+  gust_sweep (211 s on linux-release). The lining up 313 s, the conflict
+  325 s, the out-of-reach 79 s, all linux-debug beside the sweep.
+- The 200 ft at which she sets off is `HoldOutside::sets_off_within_ft`;
+  one `least_figure` prints every least.

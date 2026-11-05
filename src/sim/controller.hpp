@@ -346,6 +346,18 @@ public:
     // is asked.
     using CloseAheadQuery = std::function<bool(const Runway&)>;
     void spaced_with(CloseAheadQuery close) { close_ahead_ = std::move(close); }
+    // **A person lined up or departing ahead of her approach**, asked of
+    // the caller every step she flies one (sim::ahead_of_an_approach_by_hand
+    // of every person's aircraft): there is, and she breaks
+    // off at once - goes around, to fly her circuit over the person's climb
+    // (sim::circuit_over_departure_ft). Nothing holds a person's take-off;
+    // left to the runway's rule at 400 ft, a jet went around over a Cub
+    // just lifted off, overtook her and came within 1,760 m and 347 ft.
+    // Without it, nothing is asked.
+    using DepartureAheadQuery = std::function<bool(const Runway&)>;
+    void breaks_off_with(DepartureAheadQuery departure) {
+        departure_ahead_ = std::move(departure);
+    }
     // **A departure held for the circuit**, asked of the caller every step
     // before her take-off roll begins (sim::departure_held of every
     // aircraft's place): held, she stands on the runway with the brakes on
@@ -597,6 +609,7 @@ private:
     std::string why_gone_around_;
     bool released_ = false;
     CloseAheadQuery close_ahead_;
+    DepartureAheadQuery departure_ahead_;
     bool runway_not_clear(const Runway& runway) const;
     // Into the circuit's sequence as she goes around from `lander_`'s
     // approach, unless she is in it for that runway already.
