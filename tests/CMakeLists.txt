@@ -371,6 +371,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
     every_landplane_has_a_test_of_her_circuit_with_every_straight_in_and_departure
     every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it_for_ten_minutes
+    every_landplane_given_a_take_off_with_no_plan_is_within_2_ft_of_her_height_from_75_s_after_the_hand_over
     every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate_after_any_ai_take_off_and_is_never_past_her_gear_extended_speed_with_it_out
     a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
     a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
@@ -1439,6 +1440,10 @@ set_tests_properties(a_circuit_gives_way_to_a_person_straight_in_and_is_kept_apa
 # simulated time: 22 s on linux-release locally, and Linux debug's runners
 # take about fourteen times release's for flights like these.
 set_tests_properties(every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it_for_ten_minutes
+    PROPERTIES TIMEOUT 1800)
+# **Every landplane's take-off to 650 and to 3,000 ft and five minutes held
+# at each**, in simulated time: 15 s on linux-release locally.
+set_tests_properties(every_landplane_given_a_take_off_with_no_plan_is_within_2_ft_of_her_height_from_75_s_after_the_hand_over
     PROPERTIES TIMEOUT 1800)
 # **Every landplane's take-off, planned and not, and three minutes after it**,
 # in simulated time, flown for her gear.

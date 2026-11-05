@@ -13209,12 +13209,15 @@ Circuit fly_a_circuit(const std::string& id, bool trace, double sink_downwind_ft
     constexpr double turn_crosswind_ft = 650.0;
     // **The take-off asked for 100 ft more than that**, so she is joined to
     // the circuit climbing, as a take-off joined to one is. Given no plan, a
-    // take-off levels off at its height, over a tenth of her climb short of
-    // it (Departure::level_off_at_end), and the plain autopilot closes the
-    // last few feet slowly: asked for 650 ft itself, the Mosquito - her gear
-    // up since 2026-11-05, so climbing faster and handed over further
-    // short - flew 2.7 minutes and 7 nm upwind at 646 to 650 ft before she
-    // was joined, and her rollout ran past the lesson's fifteen minutes.
+    // take-off levels off at its height (Departure::level_off_at_end) and the
+    // autopilot captures it (Autopilot::capture). Before the capture the
+    // last few feet came slowly: the Mosquito flew 2.7 minutes and 7 nm
+    // upwind at 646 to 650 ft before she was joined. Captured, she is at it
+    // 32 s after the hand-over; but asked for 650 ft itself, every aeroplane
+    // is joined level, and the PA-28, levelled there and then climbing to the
+    // circuit's 1,000 ft at seven tenths of her climb, began her downwind
+    // leg at 954 ft and went on to 1,078: 124 ft over where it began, past
+    // the lesson's 120 ft band (a Phase 10a tail).
     controller.to_ai_take_off(runway, dep, turn_crosswind_ft + 100.0);
 
     // **The pattern is the go-around's circuit** (sim/circuit.hpp), joined
@@ -13660,6 +13663,10 @@ struct HeldAfterTakeOff {
     double settled_off_ft = 0.0;
     double end_ft = 0.0;        // above the runway at the end
     double slowest_kts = 1e9;   // her slowest after it
+    // The last time, after the hand-over, she was more than
+    // `no_plan_close_ft` from her height: from then on she was within it.
+    double last_off_s = 0.0;
+    double reached_s = -1.0; // when she first reached her height after the hand-over
 };
 
 // **The height she is taken off to, and how long she is left there**: the
@@ -13672,12 +13679,14 @@ constexpr double no_plan_settled_after_s = 120.0;
 // one (Private Pilot Airman Certification Standards, FAA-S-ACS-6C, Area of
 // Operation IV, "maintain altitude ±100 feet").
 constexpr double no_plan_within_ft = 100.0;
+constexpr double no_plan_close_ft = 2.0;
 
 // **A take-off to `no_plan_to_ft` and no plan after it**: brakes off at the
 // weight her take-off figures are for, the take-off flown until it is over,
 // and the plain autopilot then left holding what it handed her for
 // `no_plan_held_s`, as `Controller::to_ai_take_off` leaves her.
-HeldAfterTakeOff no_plan_after_take_off(const std::string& id) {
+HeldAfterTakeOff no_plan_after_take_off(const std::string& id, double to_ft = no_plan_to_ft,
+                                        double held_s = no_plan_held_s) {
     const glideslope::sim::Runway runway = a_runway();
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     const auto speeds = glideslope::sim::departure_speeds(data(), entry.model);
@@ -13702,14 +13711,14 @@ HeldAfterTakeOff no_plan_after_take_off(const std::string& id) {
     standing.right_brake = 1.0;
     glideslope::sim::Controller controller(aircraft, standing);
     controller.limit_speed(glideslope::sim::plan_speeds(data(), entry.model).fastest_kts);
-    controller.to_ai_take_off(runway, speeds, no_plan_to_ft);
+    controller.to_ai_take_off(runway, speeds, to_ft);
 
     glideslope::sim::GroundJudge judge(false);
     HeldAfterTakeOff out;
     bool was_departing = true;
     // The take-off is given ten minutes to be over - the slowest, the J-3
     // Cub's, is over in seven - and the hold its ten after that.
-    const int most = static_cast<int>((600.0 + no_plan_held_s) * steps_per_second);
+    const int most = static_cast<int>((600.0 + held_s) * steps_per_second);
     int handed_at = -1;
     for (int t = 0; t < most; ++t) {
         aircraft.set_controls(controller.fly());
@@ -13734,13 +13743,19 @@ HeldAfterTakeOff no_plan_after_take_off(const std::string& id) {
         }
         out.held_s = static_cast<double>(t - handed_at) / steps_per_second;
         out.lowest_ft = std::min(out.lowest_ft, ft);
-        out.most_over_ft = std::max(out.most_over_ft, ft - no_plan_to_ft);
+        out.most_over_ft = std::max(out.most_over_ft, ft - to_ft);
         if (out.held_s >= no_plan_settled_after_s) {
-            out.settled_off_ft = std::max(out.settled_off_ft, std::abs(ft - no_plan_to_ft));
+            out.settled_off_ft = std::max(out.settled_off_ft, std::abs(ft - to_ft));
         }
         out.end_ft = ft;
         out.slowest_kts = std::min(out.slowest_kts, aircraft.property("velocities/vc-kts"));
-        if (out.held_s >= no_plan_held_s) {
+        if (std::abs(ft - to_ft) > no_plan_close_ft) {
+            out.last_off_s = out.held_s;
+        }
+        if (out.reached_s < 0.0 && ft >= to_ft) {
+            out.reached_s = out.held_s;
+        }
+        if (out.held_s >= held_s) {
             break;
         }
     }
@@ -13822,6 +13837,55 @@ GLIDESLOPE_TEST(every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it
               id + ", given a capture bound of " + std::to_string(over_ft) +
                   " ft, is a landplane flown here");
     }
+}
+
+// **Every landplane given a take-off with no plan is within 2 ft of her
+// height from 75 s after the hand-over, and stays there** (Autopilot::
+// capture). Taken off to the circuit lessons' 650 ft and to 3,000 ft, at
+// the weight her take-off figures are for, and held five minutes. The plain
+// hold's 3 ft/min a foot closed the last feet exponentially: within 2 ft
+// only 74 to 113 s after it, and the Mosquito at 650 ft at it only 167 s
+// after it - 2.7 minutes and 7 nm upwind in the circuit lesson. At the
+// capture's 7, the slowest is within 2 ft 64 s after the hand-over: the
+// 747-400 at 650 ft, handed over 412 ft above it because her flaps came up
+// past it. The 75 s is that and a margin. The space is every landplane at
+// both heights; the flying boat is named and left out.
+GLIDESLOPE_TEST(every_landplane_given_a_take_off_with_no_plan_is_within_2_ft_of_her_height_from_75_s_after_the_hand_over) {
+    constexpr double within_after_s = 75.0;
+    constexpr double held_s = 300.0;
+    const std::vector<double> heights = {650.0, 3000.0};
+    std::size_t landplanes = 0;
+    std::size_t flown = 0;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat takes off from water, not a runway\n",
+                        entry.id.c_str());
+            continue;
+        }
+        ++landplanes;
+        for (const double to_ft : heights) {
+            const HeldAfterTakeOff r = no_plan_after_take_off(entry.id, to_ft, held_s);
+            ++flown;
+            const std::string what =
+                entry.id + " to " + std::to_string(static_cast<int>(to_ft)) + " ft";
+            std::printf("  %s: %s; handed over at %.0f ft, %+.0f ft/min, %.0f kt; within %.0f ft "
+                        "from %.1f s after, at her height from %.1f s; %+.1f ft past at most; "
+                        "%.1f ft at the end\n",
+                        what.c_str(), r.wreck.empty() ? "flying" : r.wreck.c_str(), r.handed_ft,
+                        r.handed_fpm, r.handed_kts, no_plan_close_ft, r.last_off_s, r.reached_s,
+                        r.most_over_ft, r.end_ft);
+            check(r.wreck.empty(), what + " was not wrecked: " + r.wreck);
+            check(r.handed_over, what + ": the take-off was over");
+            check(r.held_s >= held_s,
+                  what + " was held five minutes: " + std::to_string(r.held_s) + " s");
+            check(r.last_off_s <= within_after_s,
+                  what + " was within 2 ft of her height from 75 s after the hand-over on: from " +
+                      std::to_string(r.last_off_s) + " s");
+        }
+    }
+    check(landplanes == 15 && flown == landplanes * heights.size(),
+          "every one of the catalogue's 15 landplanes flown to both heights: " +
+              std::to_string(flown) + " of " + std::to_string(landplanes * heights.size()));
 }
 
 namespace {

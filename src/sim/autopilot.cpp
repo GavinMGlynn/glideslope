@@ -288,6 +288,26 @@ constexpr double fps_per_kt = 1852.0 / 3600.0 / 0.3048;
 // at 25, 1.0 at 15, 1.6 at 50, 2.1 stepped.
 constexpr double ease_climb_fpm_per_s = 25.0;
 
+// **A level-off is captured, and held, at 7 ft/min for each foot off**
+// (Autopilot::capture), not the plain hold's 3. That 3 closes on its
+// height exponentially, as any linear capture law does (US 5,117,362: "an
+// exponential capture characteristic of linear controllers"), with a 20 s
+// time constant: a take-off with no plan, handed over a tenth of her climb
+// short (sim::Departure), was within 2 ft of her height up to 113 s after
+// it, and at it after up to 199 s - the Mosquito closed her last 4 ft of
+// 650 over 2.7 minutes and 7 nm. A real capture hands over to its hold
+// close by: an Airbus's ALT* to ALT within 20 ft (FlyByWire's A32NX
+// guidance notes), a Garmin GFC 700's ALTS to ALT at 50 ft (its pilot's
+// guide), and the hold has it from there.
+// **Why 7.** The lead itself implies 10: taken a tenth of her climb short
+// - 0.1 minute of her climb - a capture that starts from her climb without
+// a step closes at 10 ft/min a foot, a 6 s time constant. At 10 the
+// 787-8's pitch rang - 7 ft past 3,000 and within 2 ft of it only after
+// 54 s; at 7 she is within it after 38 s, and every landplane within 64 s
+// of her hand-over (5: 77 s). The step at the hand-over is to seven tenths
+// of her climb, not three.
+constexpr double capture_fpm_per_foot = 7.0;
+
 // **Asked for a height it cannot hold, the height goes and the airspeed
 // stays.** With the throttle at its stop the altitude hold can only buy
 // height with airspeed, and it used to go on buying: a Cessna 172P asked for
@@ -480,6 +500,10 @@ Autopilot::Autopilot(const Aircraft& aircraft, const Controls& controls)
     }
 }
 
+void Autopilot::capture() {
+    capture_ft_ = height_flown_to_ft();
+}
+
 std::optional<double> Autopilot::height_flown_to_ft() const {
     if (!modes_.altitude_ft) {
         return std::nullopt;
@@ -502,7 +526,12 @@ Controls Autopilot::fly() {
     double climb_wanted = modes_.vertical_speed_fpm;
     if (const std::optional<double> to_ft = height_flown_to_ft()) {
         const double rate = std::abs(modes_.vertical_speed_fpm);
-        climb_wanted = std::clamp(fpm_per_foot * (*to_ft - a_.property("position/h-sl-ft")),
+        // The capture is let go once the height flown to is another.
+        if (capture_ft_ && *capture_ft_ != *to_ft) {
+            capture_ft_.reset();
+        }
+        const double per_foot = capture_ft_ ? capture_fpm_per_foot : fpm_per_foot;
+        climb_wanted = std::clamp(per_foot * (*to_ft - a_.property("position/h-sl-ft")),
                                   -rate, rate);
     } else {
         // A vertical speed held, no further than the limits: at either, held

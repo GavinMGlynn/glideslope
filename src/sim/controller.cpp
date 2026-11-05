@@ -938,6 +938,7 @@ Controls Controller::fly() {
                 modes.vertical_speed_fpm = std::max(
                     modes.vertical_speed_fpm, a_.property("velocities/h-dot-fps") * 60.0);
                 autopilot_->set(modes);
+                autopilot_->capture();
             }
             // **A light aeroplane's climb is eased down to the plan's**
             // (Autopilot::ease_climb): handed over at full throttle on her
