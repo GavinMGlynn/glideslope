@@ -241,8 +241,9 @@ bool using_by_hand(const Runway& runway, const AircraftState& her);
 //   - Her height: 700 ft over the highest the person ahead flies (she is
 //     held there, raised), and 1,000 ft over the highest ground within
 //     4 nm of the hold - 14 CFR 91.177(a)(2)(ii)'s IFR minimum, the
-//     ground sampled every 250 m within `fix_nm`'s 4 nm and a leg's
-//     reach of the fix.
+//     ground sampled every 250 m within 4 nm and a leg's reach of the fix,
+//     once, as the hold is set up. Below that height she climbs in right
+//     turns where she is before she sets off for the fix.
 class HoldOutside {
 public:
     static constexpr double fix_nm = 9.0;

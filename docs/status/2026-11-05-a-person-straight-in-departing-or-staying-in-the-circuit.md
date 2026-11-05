@@ -31,7 +31,8 @@
   in the sequence: she is known only while she is straight in or departing.
   A place is a person's only when she was taken over in the circuit.
 - **A person's place is kept until her wheels touch**, as before, even if
-  she flies away from the circuit.
+  she flies away from the circuit: the AI behind her then holds outside for
+  as long as she flies (a plan item).
 - **No server run yet has a person in the sequence.** The server asks every
   aircraft by the same functions the tests call (`sim::straight_in_by_hand`,
   `departing_by_hand`, `behind_a_person`; the controller's own
@@ -148,6 +149,18 @@ her own whose intentions nothing else is told.
   furthest circuit, never flown off), and does not come back. In the other
   the person lands once the one behind has crossed her hold's fix: the one
   behind comes back and lands after her, both taxiing clear.
+- `a_hold_outside_the_circuit_over_raised_ground_is_flown_1000_ft_over_it`:
+  a plateau 2,500 ft over the runway from 8.5 nm out, higher than any
+  circuit and beyond where a circuit's ground is sampled, and a C172P
+  leaving her circuit 1,700 ft over the runway. Her hold is set 1,000 ft
+  over the plateau; she climbs to it in right turns where she is (found
+  needed: heading for the fix while climbing, she would have met the
+  plateau's edge below it), and over 1,200 s out to her fix and round it
+  is never less than 900 ft over the ground. The ground is sampled once,
+  as the hold is set up: 0.20 ms on this test's ground, against
+  0.008 ms for one of her steps (linux-release). The DEM's lookup is not
+  measured here. She was 993 ft over the ground at the least, round her
+  fix five times.
 - `a_persons_place_is_clear_of_departures_behind_the_threshold_and_going_away_whatever_her_pattern`:
   ten placed cases, each stated, the count asserted - left- and right-hand
   and wide downwinds and an orbit going away are clear; inside the minimum,
@@ -210,6 +223,8 @@ small tests:
   lands once she holds never came back to land; and in that long hold at
   a fix 8 nm out an F-15C came within 6.0 nm of the threshold, so the fix
   was moved to 9 nm.
+- The hold's 1,000 ft floor taken out: her hold was set at the plateau's
+  own 2,500 ft, and the test failed.
 - The release's old rule (a left-hand downwind's): a right-hand downwind 2
   nm short was not clear.
 - `using_by_hand` without the reciprocal: rolling the other way not seen.

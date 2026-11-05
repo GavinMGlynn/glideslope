@@ -12142,6 +12142,90 @@ glideslope::sim::AircraftState placed(const glideslope::sim::Runway& r, double a
 
 } // namespace
 
+// **A hold outside the circuit over raised ground is flown 1,000 ft over
+// it** (sim::HoldOutside, 14 CFR 91.177(a)(2)(ii)): a plateau 2,500 ft over
+// the runway from 8.5 nm out - higher than any circuit, beyond where a
+// circuit's ground is sampled - and a C172P leaving her circuit 1,700 ft
+// over the runway, 4 nm short and 5 km left of it. Her hold is set at the
+// plateau and 1,000 ft; she climbs to it in turns where she is, and in the
+// 1,200 s she then flies - out to her fix and round it - she is never less
+// than 1,000 ft, less the 100 a level-off may sag, over the ground beneath
+// her. The ground is sampled once, as the hold is set up: its cost is
+// printed beside a step's.
+GLIDESLOPE_TEST(a_hold_outside_the_circuit_over_raised_ground_is_flown_1000_ft_over_it) {
+    const glideslope::sim::Runway r = a_runway();
+    const auto entry = glideslope::sim::find_aircraft(data(), "c172p");
+    const auto speeds = glideslope::sim::approach_speeds(data(), entry.model);
+    constexpr double plateau_ft = 2500.0;
+    const auto ground_m = [r](double lat, double lon) {
+        const double out_nm = glideslope::sim::distance_m(lat, lon, r.threshold_lat_deg,
+                                                          r.threshold_lon_deg) /
+                              metres_per_nm;
+        return out_nm >= 8.5 ? (r.elevation_ft + plateau_ft) / feet_per_metre
+                             : r.elevation_ft / feet_per_metre;
+    };
+    glideslope::sim::Aircraft a(data() / "jsbsim", entry.model);
+    a.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(ground_m));
+    const glideslope::sim::AircraftState at =
+        placed(r, -4.0, -5000.0, 1700.0, r.heading_deg, speeds.vref_kts + 20.0);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = at.latitude_deg;
+    ic.longitude_deg = at.longitude_deg;
+    ic.altitude_ft = at.altitude_ft;
+    ic.terrain_elevation_ft = r.elevation_ft;
+    ic.heading_deg = r.heading_deg;
+    ic.airspeed_kts = speeds.vref_kts + 20.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    a.initialize(ic);
+
+    const auto set_up = std::chrono::steady_clock::now();
+    glideslope::sim::HoldOutside hold(a, r, speeds, r.elevation_ft + 1700.0);
+    const double set_up_ms =
+        std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - set_up)
+            .count();
+    check(hold.altitude_ft() >= r.elevation_ft + plateau_ft + 1000.0,
+          "her hold is set " + std::to_string(hold.altitude_ft() - r.elevation_ft) +
+              " ft over the runway, not 1,000 over the plateau's " +
+              std::to_string(plateau_ft));
+
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.6;
+    flying.gear = 1.0;
+    glideslope::sim::Autopilot pilot(a, flying);
+    double least_over_ft = 1e9;
+    double step_ms = 0.0;
+    int steps = 0;
+    for (int t = 0; t < 1200 * steps_per_second; ++t) {
+        const auto began = std::chrono::steady_clock::now();
+        pilot.set(hold.modes());
+        glideslope::sim::Controls c = pilot.fly();
+        hold.configure(c);
+        a.set_controls(c);
+        a.step();
+        step_ms += std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() -
+                                                             began)
+                       .count();
+        ++steps;
+        const glideslope::sim::AircraftState s = a.state();
+        // Once she is at her hold's height: from then on, over the ground.
+        if (s.altitude_ft >= hold.altitude_ft() - 100.0 || least_over_ft < 1e9) {
+            least_over_ft =
+                std::min(least_over_ft,
+                         s.altitude_ft - ground_m(s.latitude_deg, s.longitude_deg) * feet_per_metre);
+        }
+        check(s.altitude_ft - ground_m(s.latitude_deg, s.longitude_deg) * feet_per_metre > 0.0,
+              "she struck the ground at " + std::to_string(t / steps_per_second) + " s");
+    }
+    std::printf("  hold set %.0f ft over the runway; least %.0f ft over the ground once there; "
+                "round her fix %d time(s); setting it up took %.2f ms, a step %.3f ms\n",
+                hold.altitude_ft() - r.elevation_ft, least_over_ft, hold.laps(), set_up_ms,
+                step_ms / steps);
+    check(hold.laps() >= 1, "she reached her hold's fix");
+    check(least_over_ft >= 900.0,
+          "least " + std::to_string(least_over_ft) + " ft over the ground, not 1,000 less 100");
+}
+
 // **A person's place is clear of departures behind the threshold and going
 // away from it, whatever her pattern's shape**
 // (sim::clear_of_departures_by_hand): the AI's release rule, judged by how

@@ -272,6 +272,14 @@ AutopilotModes HoldOutside::modes() {
     m.airspeed_kts = speed_kts_;
     switch (leg_) {
     case Leg::to_fix:
+        // **Up to her height before she goes**: where the hold is raised over
+        // high ground, she climbs in right turns where she is - outside
+        // the circuit, over ground her circuit was cleared for - rather
+        // than climbing towards the high ground.
+        if (laps_ == 0 && s.altitude_ft < altitude_ft_ - 200.0) {
+            m.bank_deg = bank_deg;
+            break;
+        }
         m.heading_deg = to_fix_deg;
         break;
     case Leg::outbound:
