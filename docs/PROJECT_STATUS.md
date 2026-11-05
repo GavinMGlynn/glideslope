@@ -306,6 +306,11 @@ it is out within 14 s and never under again, 12.5 s measured. A layer that canno
 room, held at its own limits, is treated like a person's aircraft: the
 held middle follows it and keeps the minimum from it.
 
+A wreck flown again near the start whose layer a joining player took while
+it was a wreck is given the lowest free layer instead, by the join's rule:
+1,000 ft from her in the test, 0 ft before
+(2026-11-05-a-wreck-flown-again-is-kept-off-a-joining-players-layer).
+
 Since 2026-11-05 two
 AI aircraft going around to one runway are sequenced in the order they
 went around, by the server's clock. The one behind offsets 1.5 nm right

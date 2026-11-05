@@ -3735,6 +3735,18 @@ set_tests_properties(a_player_joining_after_another_has_left_is_put_on_a_layer_n
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/rejoin_layer)
 
+# **A wreck flown again while a player is at the start on its layer is kept
+# 500 ft from her.** See cmake/server_wreck_flown_again_layer.cmake.
+add_test(NAME a_wreck_flown_again_while_a_player_is_at_the_start_on_its_layer_is_kept_500_ft_from_her
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/wreck_flown_again_layer -DPORT=24903
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_wreck_flown_again_layer.cmake)
+set_tests_properties(a_wreck_flown_again_while_a_player_is_at_the_start_on_its_layer_is_kept_500_ft_from_her
+    PROPERTIES SKIP_RETURN_CODE 77)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/wreck_flown_again_layer)
+
 # **An aircraft its player rolled into a spiral over two AI layers, handed to
 # the AI in it, is rolled level and kept apart from both.** See
 # cmake/server_handed_spiral_kept_apart.cmake.
