@@ -1,4 +1,5 @@
 #include "sim/controller.hpp"
+#include "sim/separation.hpp"
 
 #include "sim/fixed_step.hpp"
 
@@ -666,6 +667,7 @@ void Controller::notice_a_stall() {
 void Controller::to_ai_take_off(const Runway& runway, const DepartureSpeeds& speeds,
                                 double to_ft) {
     engage();
+    released_ = false;
     departure_.emplace(a_, runway, speeds, to_ft);
     departure_->limit_speed(fastest_kts_);
     departure_->hand_mixture(applied_.mixture);
@@ -782,6 +784,43 @@ void Controller::go_around(std::string why) {
     }
 }
 
+std::optional<Runway> Controller::departing() const {
+    if (flying_ != Flying::ai || !departure_ || !released_ ||
+        departure_->stage() == Departure::Stage::done) {
+        return std::nullopt;
+    }
+    return departure_->runway();
+}
+
+std::optional<Runway> Controller::straight_in() const {
+    if (flying_ != Flying::ai || circling_) {
+        return std::nullopt;
+    }
+    if (lander_ && !lander_->touched() &&
+        (lander_->stage() == Lander::Stage::approach || lander_->stage() == Lander::Stage::flare)) {
+        return lander_->runway();
+    }
+    if (learnt_ && learnt_->stage() == LearntLander::Stage::flying && !learnt_->touched() &&
+        gate_runway_) {
+        return *gate_runway_;
+    }
+    return std::nullopt;
+}
+
+void Controller::join_the_sequence() {
+    if (circling_ && same_runway(circling_->runway, lander_->runway())) {
+        return;
+    }
+    const AircraftState s = a_.state();
+    // From the caller's clock, which every aircraft shares: her own starts
+    // when she was made.
+    circling_ = CirclePlace{
+        lander_->runway(), sequence_now(),
+        along_runway_nm(lander_->runway(), s.latitude_deg, s.longitude_deg),
+        lander_->runway().elevation_ft +
+            GoAroundCircuit(a_, lander_->runway(), lander_->speeds()).circuit_ft()};
+}
+
 bool Controller::runway_not_clear(const Runway& runway) const {
     return runway_clear_ && a_.state().height_above_ground_ft < RunwayClear::decide_ft &&
            !runway_clear_(runway);
@@ -829,16 +868,9 @@ Controls Controller::fly() {
         // **Into the sequence as she goes around**: her place is from the
         // moment she does - her first go-around; round again, she keeps it -
         // and, two in one step, the one further down the runway first.
-        if (lander_ && lander_->stage() == Lander::Stage::go_around &&
-            (!circling_ || !same_runway(circling_->runway, lander_->runway()))) {
-            const AircraftState s = a_.state();
-            // From the caller's clock, which every aircraft shares: her own
-            // starts when she was made.
-            circling_ = CirclePlace{
-                lander_->runway(), sequence_now(),
-                along_runway_nm(lander_->runway(), s.latitude_deg, s.longitude_deg),
-                lander_->runway().elevation_ft +
-                    GoAroundCircuit(a_, lander_->runway(), lander_->speeds()).circuit_ft()};
+        if (lander_ && lander_->stage() == Lander::Stage::go_around) {
+            join_the_sequence();
+            why_gone_around_ = lander_->why_gone_around();
         }
         // **Landed, she taxis off the runway** and stops beside it, where
         // she is told to (`vacates_runways`).
@@ -852,6 +884,16 @@ Controls Controller::fly() {
         // left, so the aeroplane does not lurch at the moment the AI stops
         // taking off and starts flying.
         if (departure_) {
+            // **Held for the circuit's sequence** before her roll: standing
+            // with the brakes on and the power off.
+            if (!released_ && departure_->stage() == Departure::Stage::roll && hold_ &&
+                hold_(departure_->runway())) {
+                applied_.throttle = 0.0;
+                applied_.left_brake = 1.0;
+                applied_.right_brake = 1.0;
+                return applied_;
+            }
+            released_ = true;
             if (departure_->stage() != Departure::Stage::done) {
                 // Taken over at lift-off, its controls reached from the
                 // pilot's at a hand's pace, as a landing's are.
@@ -878,6 +920,13 @@ Controls Controller::fly() {
             if (navigator_) {
                 navigator_->begin_here();
             }
+        }
+        // **Traffic close ahead on final: an early go-around**, as the
+        // Airplane Flying Handbook has it (sim::close_ahead_on_approach).
+        if (learnt_ && learnt_->stage() == LearntLander::Stage::flying && !learnt_->touched() &&
+            gate_runway_ && close_ahead_ && close_ahead_(*gate_runway_)) {
+            go_around("traffic close ahead on final");
+            return fly();
         }
         if (learnt_ && learnt_->stage() == LearntLander::Stage::flying && !learnt_->touched() &&
             gate_runway_ && runway_not_clear(*gate_runway_)) {
@@ -934,6 +983,10 @@ Controls Controller::fly() {
             runway_not_clear(lander_->runway())) {
             lander_->go_around();
         }
+        if (lander_ && !lander_->touched() && lander_->stage() == Lander::Stage::approach &&
+            close_ahead_ && close_ahead_(lander_->runway())) {
+            lander_->go_around("traffic close ahead on final");
+        }
         if (lander_) {
             if (lander_->stage() == Lander::Stage::stopped && vacates_) {
                 vacate_.emplace(a_, lander_->runway(), applied_, spot_free_);
@@ -953,6 +1006,11 @@ Controls Controller::fly() {
             // (sim/circuit.hpp), not left climbing on the plain autopilot.
             if (lander_->gone_around()) {
                 unstable_go_arounds_ += lander_->went_around_unstabilized() ? 1 : 0;
+                // Gone around and done with it in one step - from high up,
+                // traffic close ahead (`spaced_with`) - she is in the
+                // sequence all the same.
+                join_the_sequence();
+                why_gone_around_ = lander_->why_gone_around();
                 circuit_.emplace(a_, lander_->runway(), lander_->speeds());
             }
             lander_.reset();
@@ -971,10 +1029,28 @@ Controls Controller::fly() {
             }
             // **Following traffic ahead in the sequence**: raised over its
             // circuit, and down the downwind leg until it is down.
-            circuit_->follow(circuit_ahead_ ? circuit_ahead_() : std::nullopt);
+            // And a straight-in on the approach to her runway, until she
+            // turns base.
+            circuit_->follow(circuit_ahead_ ? circuit_ahead_() : std::nullopt,
+                             straight_in_ && straight_in_(circuit_->runway()));
             // The highest she flies it: where the autopilot overshoots her
             // circuit's height levelling off, the one behind keeps clear of
             // where she is.
+            // Clear of a departure, on her downwind leg or past it and
+            // 1.5 nm or more short of the threshold: one released then
+            // climbs out ahead of the threshold, away from her, never nearer
+            // than the minimum along the runway (sim::departure_held).
+            {
+                using Leg = GoAroundCircuit::Leg;
+                const Leg leg = circuit_->leg();
+                const AircraftState s = a_.state();
+                circling_->clear_of_departures =
+                    leg != Leg::upwind && leg != Leg::crosswind &&
+                    (circling_->clear_of_departures ||
+                     -along_runway_nm(circuit_->runway(), s.latitude_deg, s.longitude_deg) *
+                             1852.0 >=
+                         Separation::minimum_m);
+            }
             circling_->circuit_alt_ft =
                 std::max({circling_->circuit_alt_ft,
                           circuit_->runway().elevation_ft + circuit_->circuit_ft(),

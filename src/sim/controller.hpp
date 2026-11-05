@@ -318,6 +318,39 @@ public:
         circuit_ahead_ = std::move(ahead);
         sequence_clock_ = std::move(clock);
     }
+    // **An aircraft on a straight-in approach, or departing**, asked of the
+    // caller every step she flies a circuit: whether one is on the approach
+    // to the runway she is going round to, or climbing out from it
+    // (another's `straight_in` or `departing`). One is, and she has not
+    // turned base, she follows it, wide (sim/circuit.hpp). Without it,
+    // nothing is asked.
+    using StraightInQuery = std::function<bool(const Runway&)>;
+    void gives_way_with(StraightInQuery straight_in) { straight_in_ = std::move(straight_in); }
+    // **Traffic close ahead on her approach**, asked of the caller every
+    // step she flies one (sim::close_ahead_on_approach of each other
+    // aircraft): there is, and she goes around early. Without it, nothing
+    // is asked.
+    using CloseAheadQuery = std::function<bool(const Runway&)>;
+    void spaced_with(CloseAheadQuery close) { close_ahead_ = std::move(close); }
+    // **A departure held for the circuit**, asked of the caller every step
+    // before her take-off roll begins (sim::departure_held of every
+    // aircraft's place): held, she stands on the runway with the brakes on
+    // and the power off; released once, she rolls and is not held again.
+    // Without it, nothing is asked.
+    using DepartureHoldQuery = std::function<bool(const Runway&)>;
+    void holds_with(DepartureHoldQuery hold) { hold_ = std::move(hold); }
+    // Whether her take-off roll has begun (none: no take-off).
+    bool rolling() const { return departure_ && released_; }
+    // **The runway she is departing**: her take-off rolling or climbing
+    // out, until it is over - or none.
+    std::optional<Runway> departing() const;
+    // Why she last went around, as her approach's lander gave it (empty:
+    // the runway not clear, or never).
+    const std::string& why_gone_around() const { return why_gone_around_; }
+    // **The runway she is flying a straight-in approach to**: the AI's
+    // approach, or her learnt landing, in the air and not from a circuit's
+    // sequence (`circling`) - or none.
+    std::optional<Runway> straight_in() const;
     // How many times this approach has gone around for being unstabilized;
     // from StabilizedApproach::most_go_arounds on, the gate is waived.
     int unstable_go_arounds() const { return unstable_go_arounds_; }
@@ -515,7 +548,15 @@ private:
     std::optional<PlanSpeeds> plan_speeds_;
     Vacate::SpotFree spot_free_;
     RunwayClearQuery runway_clear_;
+    StraightInQuery straight_in_;
+    DepartureHoldQuery hold_;
+    std::string why_gone_around_;
+    bool released_ = false;
+    CloseAheadQuery close_ahead_;
     bool runway_not_clear(const Runway& runway) const;
+    // Into the circuit's sequence as she goes around from `lander_`'s
+    // approach, unless she is in it for that runway already.
+    void join_the_sequence();
     std::optional<LearntLander> learnt_;
     // The learnt landing an approach is handed to at its gate, while it is
     // still to be met: with the runway and speeds it lands with.

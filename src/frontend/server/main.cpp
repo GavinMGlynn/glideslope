@@ -3490,7 +3490,63 @@ private:
         // Her place taken by the server's clock, which every aircraft shares.
         controller->follows_with([this, &aircraft] { return circuit_ahead_of(aircraft); },
                                  [this] { return now_s(); });
+        // **And with traffic straight in** (sim/circuit.hpp): a circuit
+        // gives way to a straight-in on the approach to her runway, and an
+        // approach with traffic close ahead goes around early.
+        controller->gives_way_with([this, &aircraft](const glideslope::sim::Runway& runway) {
+            return straight_in_to(runway, aircraft);
+        });
+        controller->spaced_with([this, &aircraft](const glideslope::sim::Runway& runway) {
+            return close_ahead_of(runway, aircraft);
+        });
+        // **And a departure held for the circuit** until everything going
+        // round to its runway is clear of it (sim::departure_held).
+        controller->holds_with([this](const glideslope::sim::Runway& runway) {
+            std::vector<std::optional<glideslope::sim::CirclePlace>> places;
+            places.reserve(flown_.size());
+            for (const Aircraft& b : flown_) {
+                places.push_back(b.controller && b.wrecked_at_s < 0.0 ? b.controller->circling()
+                                                                      : std::nullopt);
+            }
+            return glideslope::sim::departure_held(runway, places);
+        });
         return controller;
+    }
+
+    // **Whether another aircraft the server flies, wrecks aside, is on a
+    // straight-in approach to `runway` or departing it**
+    // (sim::Controller::straight_in, departing).
+    bool straight_in_to(const glideslope::sim::Runway& runway,
+                        const glideslope::sim::Aircraft& self) const {
+        for (const Aircraft& b : flown_) {
+            if (b.aircraft.get() == &self || !b.controller || b.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            const std::optional<glideslope::sim::Runway> in = b.controller->straight_in();
+            const std::optional<glideslope::sim::Runway> out = b.controller->departing();
+            if ((in && glideslope::sim::same_runway(*in, runway)) ||
+                (out && glideslope::sim::same_runway(*out, runway))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    // **Whether any other aircraft the server flies, wrecks aside, is close
+    // ahead of `self` on her approach to `runway`**
+    // (sim::close_ahead_on_approach) - every one looked at.
+    bool close_ahead_of(const glideslope::sim::Runway& runway,
+                        const glideslope::sim::Aircraft& self) const {
+        const glideslope::sim::AircraftState me = self.state();
+        for (const Aircraft& b : flown_) {
+            if (b.aircraft.get() == &self || b.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            if (glideslope::sim::close_ahead_on_approach(runway, me, b.aircraft->state())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // **The highest circuit ahead of `self`** in its runway's sequence
