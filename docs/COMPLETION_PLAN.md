@@ -1143,53 +1143,22 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 The AI's approach, flare, touchdown, roll-out and go-around, and the learnt landing.
 
 - [x] **The AI cannot land every aeroplane in gusts**: she flies half
-      the gust factor faster with the power on to the touch, rotates her
-      flare to the touch, judges a gusty round out as far ahead as her path
-      lags her nose (2026-11-02), and since 2026-11-03 keeps her speed on
-      the power to the touch and begins the flare for the sink she has, as
-      the Airplane Flying Handbook lands in turbulence, and a nose-wheel
-      propeller aeroplane's flare raises her nose faster the slower she
-      flies. Seeds 9 to 40 are flown every night. In moderate
-      turbulence she lands twelve of sixteen within limits with a margin on
-      eight seeds: the PA-28, C172P, C182, 747-400, A320, Learjet 35A,
-      Mosquito, F-15C, F-35B and, since 2026-11-04, the B-2A, her wings held
-      level harder, and the A380, named on two Windows and four macOS
-      seeds; and the flying boat on all but macOS
-      release's seed 3, where she skips 0.93 ft. Wheel-landed in gusts
-      since 2026-11-04, the J-3 Cub lands thirty-nine of forty seeds on
-      Linux, touching at 387 ft/min in a 14 kt lull on seed 33, and
-      thirty-seven on Windows, where a gust climbs her on two and she
-      touches hard on one, and thirty-six on macOS, where a gust climbs
-      her on one and she touches hard on three. Touch sink scatters about
-      80 ft/min a landing, so one platform's pass is no other's. Flown at
-      Boeing's full gust with a faster nose while closing, the 737-300 and
-      787-8 land on all forty seeds on Linux but touch at 347 and 338 ft/min
-      on one each on Windows, and the 737-300 fails two on macOS; both are
-      judged on every other. Over forty seeds the F-15C floats into
-      a go-around on one. Since 2026-11-05 no loading is named: the
-      737-300 light, her pitch gains raised for the airspeed she has lost,
-      and the Mosquito at her heaviest, her flare judging her sink further
-      ahead, land without climbing in their flares. The F-22A, her
-      flight controls fed her body's rotation since 2026-11-05, as rate
-      gyros sense it, not the air's, lands
-      twenty-eight of forty seeds on Linux, where she landed two; she is
-      named on the twelve others (goes round from a float on two, climbs
-      in her flare on five, touches at up to 462 ft/min or rises 1.23 ft
-      off her wheels on five), and twenty-six on Windows release, named
-      on the fourteen others, and twenty-eight on macOS, named on twelve.
-      Her touch scatters about 1.7 times as widely as the F-15C's, and no
-      figure or law of the gust flare, nor a fighter's slower approach,
-      lands her beyond noise of her 70% of 120 seeds (2026-11-05): what is
-      left is her airframe's answer to a gust, or the owner's call on her
-      names.
-      *Verification: every aeroplane lands light, heavy and in gusts with
-      no aircraft and no loading named, and a gust on an approach flown well
-      makes no go-around; a name on a single seed on a single platform,
-      a go-around among them, closes on its measured figure (owner,
-      2026-11-04).* Done 2026-11-05 on the owner's rulings (single-seed names
-      and blocked items close on measured figures): no aircraft or loading
-      is named; every name left is one seed on one platform, with its
-      figure, and fails "take her name off" if she passes it.
+      the gust factor faster with the power on to the touch, and flares for
+      the sink she has, as the Airplane Flying Handbook lands in turbulence,
+      with each aeroplane's own gust figures where her type needs them
+      (status files from 2026-11-02 on). In moderate turbulence over forty
+      seeds every aeroplane lands, light and heavy, with no aircraft and no
+      loading named; 69 names remain, each one seed on one platform with
+      its figure, 38 of them the F-22A's, whose touch scatters 1.7 times as
+      widely as the F-15C's and whom no sourced change moves past 70% of
+      seeds. *Verification: every aeroplane lands light, heavy and in gusts
+      with no aircraft and no loading named, and a gust on an approach
+      flown well makes no go-around; a name on a single seed on a single
+      platform, a go-around among them, closes on its measured figure
+      (owner, 2026-11-04).* Done 2026-11-05 on the owner's rulings
+      (single-seed names and blocked items close on measured figures):
+      every name fails "take her name off" if she passes it
+      (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 - [x] **In a steady headwind the S.23 skips off the water after
       alighting.** The rollout now judges her lift by her airspeed in all
       air, and the thirteen landplanes roll out into 15 kt without lifting
