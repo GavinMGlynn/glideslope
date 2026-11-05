@@ -82,6 +82,14 @@ constexpr double flaps_settle_s = 1.0;
 // Force's (AFMAN 11-217 vol. 1) and the FAA's Instrument Flying Handbook
 // (FAA-H-8083-15) teach it.
 constexpr double level_off_lead = 0.1;
+// **How far under her flap's limit speed a level-off holds her**, knots:
+// five, the margin Boeing's 737 training manual keeps under a flap placard
+// on the approach - "landing flap placard speed minus 5 knots" (FCT 737 CL
+// (TM) revision 20, 30 June 2021, Approach) - taken for the level-off too.
+constexpr double flap_limit_margin_kts = 5.0;
+// The least change in the speed the level-off asks that is passed on to
+// its autopilot, knots: her manoeuvre speed moves with every pound of fuel.
+constexpr double levelling_speed_step_kts = 0.5;
 constexpr double a_hands_pace = 1.0 / steps_per_second;
 // The flaps standing still: moving less than this a step, degrees.
 constexpr double flaps_still_deg = 1e-6;
@@ -324,8 +332,32 @@ double Departure::climb_out_kts() const {
             next = notch;
         }
     }
-    const std::optional<double> needed = manoeuvre_kts(flap_lever_ > 0.0 ? next : 0.0);
-    return needed ? std::max(kts, *needed + flaps_up_within_kts) : kts;
+    std::optional<double> needed = manoeuvre_kts(flap_lever_ > 0.0 ? next : 0.0);
+    if (needed) {
+        needed = *needed + flaps_up_within_kts;
+    }
+    // **Never past her flap's limit speed** for the flap she has, less the
+    // margin, where the next flap's manoeuvre speed is past it.
+    if (const std::optional<double> under = flap_limited_kts(); needed && under) {
+        needed = std::min(*needed, *under);
+    }
+    return needed ? std::max(kts, *needed) : kts;
+}
+
+std::optional<double> Departure::flap_limited_kts() const {
+    if (speeds_.flap_limits_kts.empty() || !a_.has_property("fcs/flap-pos-deg")) {
+        return std::nullopt;
+    }
+    const std::optional<double> limit =
+        flap_limit_kts(speeds_.flap_limits_kts, a_.property("fcs/flap-pos-deg"));
+    if (!limit) {
+        return std::nullopt;
+    }
+    return *limit - flap_limit_margin_kts;
+}
+
+std::optional<double> Departure::levelling_speed_kts() const {
+    return flap_limited_kts();
 }
 
 DepartureSpeeds departure_speeds(const std::filesystem::path& data,
@@ -355,6 +387,7 @@ DepartureSpeeds departure_speeds(const std::filesystem::path& data,
             speeds.flaps_up_ft = flaps_up_ft(e.aircraft_class);
             speeds.climb_for_any_weight = e.aircraft_class == AircraftClass::light_aircraft;
             speeds.gear_extended_kts = e.gear_extended_kts;
+            speeds.flap_limits_kts = e.flap_limits_kts;
         }
     }
     return speeds;
@@ -479,8 +512,18 @@ void Departure::retract_flaps(double kcas) {
             next = notch;
         }
     }
-    // **Not below the next setting's manoeuvre speed**, where she has them.
-    if (const std::optional<double> needed = manoeuvre_kts(next); needed && kcas < *needed) {
+    // **Not below the next setting's manoeuvre speed**, where she has them
+    // - or, where that is past the limit speed of the flap she has, at
+    // that limit less its margin (flap_limited_kts): a limit is a
+    // limitation, a manoeuvre speed a recommendation. Her model's lever may
+    // stop where her type's does not: the 747-400's at 15 degrees, whose
+    // flaps up manoeuvre speed, 257 kt at her take-off weight, is past the
+    // 230 kt of the flaps 20 she is held to there.
+    std::optional<double> needed = manoeuvre_kts(next);
+    if (const std::optional<double> under = flap_limited_kts(); needed && under) {
+        needed = std::min(*needed, *under - flaps_up_within_kts);
+    }
+    if (needed && kcas < *needed) {
         return;
     }
     flap_aim_ = next;
@@ -641,8 +684,8 @@ Controls Departure::fly_laws() {
     // clean, at the height and speed her flaps came up at.
     if (unstuck_) {
         retract_flaps(kcas);
-        c.flaps = flap_lever_;
     }
+    c.flaps = flap_lever_;
     raise_the_gear(on_ground);
     c.gear = gear_lever_;
     //
@@ -686,15 +729,30 @@ Controls Departure::fly_laws() {
         modes.vertical_speed_fpm = std::max(modes.vertical_speed_fpm, climb_fpm);
         // **At the take-off's thrust**, accelerating: the throttle left where
         // the take-off has it, as Airbus's engine-out departure levels off,
-        // accelerates and cleans up at its take-off thrust. Held to her climb
-        // speed instead, the 737-300, her flap up at it, was flown level
-        // clean at 166 kt, under her clean wing's stall, and sank into the
-        // ground from 638 ft.
-        modes.airspeed_kts.reset();
+        // accelerates and cleans up at its take-off thrust - **but never
+        // past her flap's limit speed** (levelling_speed_kts): there the
+        // throttle holds her `flap_limit_margin_kts` under it until her flap
+        // has come up past it. Held to her climb speed instead, the 737-300,
+        // her flap up at it, was flown level clean at 166 kt, under her
+        // clean wing's stall, and sank into the ground from 638 ft; held to
+        // it until level and accelerated only then, the A380 fell to 143 kt
+        // in the circuit lesson's climb out, under its band, as her throttle
+        // came back.
+        modes.airspeed_kts = levelling_speed_kts();
+        levelling_asked_kts_ = modes.airspeed_kts;
         levelling_->set(modes);
         levelling_->capture();
     }
     if (levelling_) {
+        const std::optional<double> asked = levelling_speed_kts();
+        if (asked.has_value() != levelling_asked_kts_.has_value() ||
+            (asked && std::abs(*asked - *levelling_asked_kts_) > levelling_speed_step_kts)) {
+            AutopilotModes modes = levelling_->modes();
+            modes.airspeed_kts = asked;
+            levelling_->set(modes);
+            levelling_->capture();
+            levelling_asked_kts_ = asked;
+        }
         // Her flap, gear and take-off trim as the take-off has them.
         Controls level = levelling_->fly();
         level.flaps = c.flaps;

@@ -61,6 +61,11 @@ struct DepartureSpeeds {
     // (`gear-extended`); none where it gives none. The climb away is held
     // `gear_transit_margin_kts` under it until her gear is up.
     std::optional<double> gear_extended_kts;
+    // **Her flap limit speeds, VFE**, from her catalogue file
+    // (`flap-limit`, CatalogueEntry::flap_limits_kts); empty where it gives
+    // none. A level-off with her flap out holds her `flap_limit_margin_kts`
+    // under the limit of the flap she has (Departure::level_off_at_end).
+    std::vector<std::pair<double, double>> flap_limits_kts;
     // **A flying boat's running attitude on the water**, degrees, held from
     // the start of the run until the rotation speed, and three more from
     // there until the hull is clear - as Arthur Gouge flew the Short S.23's
@@ -224,6 +229,16 @@ public:
     // take-off is over once it is up. Only once she is through the screen
     // height with her gear up. Until 2026-11-06 she climbed on until her
     // flap was up: asked for 650 ft, the jets went 139 to 532 ft past it.
+    //
+    // **Levelling, never past her flap's limit speed** (`levelling_speed_kts`,
+    // `flap_limits_kts`): at her take-off thrust until she is
+    // `flap_limit_margin_kts` under the limit of the flap she has, and the
+    // throttle holds her there until her flap has come up past it - "use
+    // manual thrust control as needed to manage speed and prevent flap
+    // overspeeds" (Boeing's 737 Classic Flight Crew Training Manual, FCT 737
+    // CL (TM) revision 20, 30 June 2021, 4.2, Low Altitude Level Off). Until
+    // 2026-11-06 nothing held her under it: at 650 ft the 747-400 flew 262
+    // kt with flaps 20's 230 kt limit.
     void level_off_at_end(bool levels_off) { levels_off_ = levels_off; }
     bool levels_off() const { return levels_off_; }
     // The height she levels off at, feet above sea level.
@@ -250,6 +265,12 @@ public:
 private:
     // The controls, but for the mixture.
     double climb_out_kts() const;
+    // The speed the levelling holds her at, by the throttle - her flap's
+    // limit less its margin: none where she is left at the take-off's thrust.
+    std::optional<double> levelling_speed_kts() const;
+    // Her flap's limit speed less its margin, for the flap she has now;
+    // none with her flap in or no limits.
+    std::optional<double> flap_limited_kts() const;
     Controls fly_laws();
 
     const Aircraft& a_;
@@ -282,6 +303,9 @@ private:
     // The autopilot levelling her off while she cleans up, and the controls
     // she was last flown with, to engage it on.
     std::optional<Autopilot> levelling_;
+    // The speed the levelling last asked of its autopilot (none: the
+    // take-off's thrust).
+    std::optional<double> levelling_asked_kts_;
     Controls last_;
     int steps_ = 0; // flown since the throttle began to open
     Stage stage_ = Stage::roll;

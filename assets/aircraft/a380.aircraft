@@ -28,3 +28,12 @@ reversers 70
 # Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): her FCOM's limitations as crews' study sets give them: 250 kt/M.55,
 # extended and operating alike.
 gear-extended 250
+# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp): CONF
+# 1+F 222 (flaps 8), CONF 2 220 (17), CONF 3 196 (26), FULL 182 (32). No
+# Airbus document giving them was found public: FlyByWire's A380X
+# documentation and pilots' study cards agree. CONF 1's 263, slats alone,
+# has no flap to limit here. Secondary, and named so in docs/ASSETS.md.
+flap-limit 8 222
+flap-limit 17 220
+flap-limit 26 196
+flap-limit 32 182

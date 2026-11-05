@@ -25,3 +25,12 @@ brakes 156 fully-modulating
 # Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): her limitations as crews' study sets give them for serials 443 and
 # 509: 260 kt (operating 200).
 gear-extended 260
+# Her flap limit speeds, VFE, knots indicated, by flap (src/sim/catalogue.hpp):
+# Gates Learjet 35A/36A Airplane Flight Manual FM-108, section I,
+# limitations, page 1-9 (docs/ASSETS.md): "VFE - Flaps 1 to 8 degrees ...
+# 200 KIAS"; flaps 9 to 20 degrees 185 KIAS for the serials named there
+# without FCN 85-6, 200 for the rest - the lower is taken; "Flaps 21 to 40
+# degrees ... 150 KIAS".
+flap-limit 8 200
+flap-limit 20 185
+flap-limit 40 150

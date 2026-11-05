@@ -28,3 +28,16 @@ reversers 70
 # Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): FCOM LIM-AG-SPD, as limitations summaries reproduce it: 280 kt/M.67
 # (extension 250, retraction 220).
 gear-extended 280
+# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp): CONF
+# 1+F 215 (flaps 10), CONF 2 200 (flaps 15), CONF 3 185 (flaps 20), FULL
+# 177 (flaps 40). No Airbus document giving them was found public whole:
+# pilots' study cards, and a copy of Airbus's A320 flight deck briefing on
+# Scribd whose text is garbled, agree on the speeds; the flaps' angles for
+# each configuration are FlyByWire's A32NX documentation's. CONF 1's 230,
+# slats alone, has no flap to limit here. Secondary, and named so in
+# docs/ASSETS.md. Her model's flaps 25 and 30, which the A320 has no
+# configuration for, are held to FULL's.
+flap-limit 10 215
+flap-limit 15 200
+flap-limit 20 185
+flap-limit 40 177

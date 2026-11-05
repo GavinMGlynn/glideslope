@@ -54,6 +54,19 @@ std::optional<AircraftClass> class_from_name(std::string_view name) {
     return std::nullopt;
 }
 
+std::optional<double> flap_limit_kts(const std::vector<std::pair<double, double>>& limits,
+                                     double flap_deg) {
+    if (limits.empty() || flap_deg <= flap_in_deg) {
+        return std::nullopt;
+    }
+    for (const auto& [deg, kts] : limits) {
+        if (deg >= flap_deg - flap_in_deg) {
+            return kts;
+        }
+    }
+    return limits.back().second;
+}
+
 CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view text) {
     CatalogueEntry e;
     e.id = id;
@@ -150,6 +163,19 @@ CatalogueEntry parse_catalogue_entry(const std::string& id, std::string_view tex
                 throw wrong("gear-extended KCAS");
             }
             e.gear_extended_kts = number(w[1], "her gear-extended speed", 60.0, 400.0);
+        } else if (w[0] == "flap-limit") {
+            if (w.size() != 3) {
+                throw wrong("flap-limit DEG KCAS");
+            }
+            const double deg = number(w[1], "the flap", flap_in_deg, 90.0);
+            const double kts = number(w[2], "her flap limit speed", 40.0, 400.0);
+            for (const auto& [at, limit] : e.flap_limits_kts) {
+                if (at == deg) {
+                    throw wrong("a second flap-limit for " + w[1] + " degrees");
+                }
+            }
+            e.flap_limits_kts.emplace_back(deg, kts);
+            std::sort(e.flap_limits_kts.begin(), e.flap_limits_kts.end());
         } else if (w[0] == "yaw-damper") {
             if (w.size() != 3) {
                 throw wrong("yaw-damper PER_DEGPS INTEGRAL_RATE");

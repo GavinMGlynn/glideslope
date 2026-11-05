@@ -7919,13 +7919,13 @@ Demonstrated demonstrate_a_take_off(const std::string& id) {
 
     glideslope::sim::Controls standing;
     glideslope::sim::Controller controller(aircraft, standing);
-    // **To a height clear of the lesson's end**, 500 ft, so that the lesson
-    // judges her climb away and not her level-off. Asked for 500 ft itself,
-    // a jet whose flap is still out at her lead levels off there and cleans
-    // up level at her take-off thrust (sim::Departure::level_off_at_end):
-    // the 737-300 accelerated past the lesson's band for the climb before
-    // she reached 500.
-    controller.to_ai_take_off(runway, speeds, 1000.0);
+    // **To the take-off's default height**, 1,000 ft (Controller::
+    // ai_take_off_to_ft): a training flight's acceleration height, clear of
+    // the lesson's end at 500 ft, so that the lesson judges her climb away
+    // and not her level-off. Until 2026-11-06 the default was 500, and
+    // flown to it the 737-300 levelled off a few feet short of the lesson's
+    // end and accelerated past its band for the climb.
+    controller.to_ai_take_off(runway, speeds);
     check(controller.departure() != nullptr, "the AI pilot has a take-off to fly");
 
     glideslope::sim::Controls pilot;
@@ -13678,6 +13678,35 @@ GLIDESLOPE_TEST(a_pilot_flies_the_b2a_approach_lesson_by_hand_inside_its_band_on
 
 namespace {
 
+// **How near her flap limit speeds she was flown** (sim::flap_limit_kts,
+// CatalogueEntry::flap_limits_kts), watched step by step.
+struct FlapLimitKept {
+    double most_past_kts = -1e9; // her speed less her flap's limit, at most
+    double flap_deg = 0.0;       // her flap then
+    double kts = 0.0;            // her speed then
+    double ft = 0.0;             // her height above the runway then
+    long steps = 0;              // steps flown with a limit to keep to
+    void watch(const glideslope::sim::Aircraft& aircraft,
+               const glideslope::sim::CatalogueEntry& entry, double ft_now) {
+        if (!aircraft.has_property("fcs/flap-pos-deg")) {
+            return;
+        }
+        const double deg = aircraft.property("fcs/flap-pos-deg");
+        const auto limit = glideslope::sim::flap_limit_kts(entry.flap_limits_kts, deg);
+        if (!limit) {
+            return;
+        }
+        ++steps;
+        const double now = aircraft.property("velocities/vc-kts");
+        if (now - *limit > most_past_kts) {
+            most_past_kts = now - *limit;
+            flap_deg = deg;
+            kts = now;
+            ft = ft_now;
+        }
+    }
+};
+
 // **What a take-off with no plan after it leaves her doing**, flown by
 // `no_plan_after_take_off`.
 struct HeldAfterTakeOff {
@@ -13704,6 +13733,11 @@ struct HeldAfterTakeOff {
     // The most she went past her height from brakes off: before the
     // hand-over as well as after it.
     double most_over_all_ft = -1e9;
+    // **Her flap limit speed** (sim::flap_limit_kts): the most she was
+    // ever flown past the limit of the flap she had, knots, from brakes off
+    // - negative, the least she was ever under it - and her flap, speed and
+    // height then; and how many steps she flew with a limit to keep to.
+    FlapLimitKept flap_limit;
 };
 
 // **The height she is taken off to, and how long she is left there**: the
@@ -13776,6 +13810,7 @@ HeldAfterTakeOff no_plan_after_take_off(const std::string& id, double to_ft = no
         }
         was_departing = departing;
         out.most_over_all_ft = std::max(out.most_over_all_ft, ft - to_ft);
+        out.flap_limit.watch(aircraft, entry, ft);
         if (aircraft.has_property("fcs/flap-pos-deg") &&
             aircraft.property("fcs/flap-pos-deg") > 0.5) {
             out.fastest_flap_out_kts =
@@ -14062,6 +14097,7 @@ struct GearAfterTakeOff {
     bool handed_over = false;       // the take-off was over
     double flown_after_s = 0.0;     // how long she was flown after the hand-over
     double fastest_kts = 0.0;       // her fastest at all
+    FlapLimitKept flap_limit;       // how near her flap limit speeds
 };
 
 // **A take-off to a plan, or to no plan**, from brakes off at the weight her
@@ -14138,6 +14174,7 @@ GearAfterTakeOff gear_after_take_off(const std::string& id, bool planned) {
         const double kts = aircraft.property("velocities/vc-kts");
         const bool airborne = aircraft.property("gear/wow") < 0.5;
         const double gear_pos = aircraft.property("gear/gear-pos-norm");
+        out.flap_limit.watch(aircraft, entry, ft);
         if (lifted_at < 0 && airborne && ft > 5.0) {
             lifted_at = t;
             out.lifted = true;
@@ -14196,6 +14233,102 @@ constexpr double gear_down_margin_kts = 5.0;
 constexpr double gear_commanded_within_s = 1.5;
 
 } // namespace
+
+// **No flap is ever flown past its limit speed in an AI take-off**
+// (CatalogueEntry::flap_limits_kts, sim::Departure::level_off_at_end):
+// from brakes off through the take-off, the level-off and the clean-up,
+// every step, her speed is no more than the flap limit speed (VFE) her
+// placard gives for the flap she has - between two settings, the one with
+// more flap. Flown with no plan to the take-off lessons' 500 ft, the
+// circuit lessons' 650 ft, the default 1,000 ft and 3,000 ft, and to a
+// plan's 1,500 ft and on at her fastest. Levelling off at 650 ft at her
+// take-off thrust, the jets flew 179 to 269 kt with flap still out. The
+// space is every landplane with a limit, each of the five ways; every one
+// with none is named here with its reason, and the flying boat is named and
+// left out.
+GLIDESLOPE_TEST(no_flap_is_ever_flown_past_its_limit_speed_in_an_ai_take_off) {
+    // Each landplane with no flap limit speed to keep to, and why.
+    const std::map<std::string, std::string> unpublished = {
+        {"b2", "no flight manual for the B-2A is public, and none gives a flap limit"},
+        {"f15c", "her flight manual gives 250 kt flaps down, and her model has no flaps"},
+        {"f22", "no flight manual for the F-22A is public, and none gives a flap limit"},
+        {"f35b", "no flight manual for the F-35B is public, and her model has no flaps"},
+        {"j3cub", "the J-3 Cub has no flaps"},
+    };
+    const std::vector<double> no_plan_heights = {
+        500.0, 650.0, glideslope::sim::Controller::ai_take_off_to_ft, 3000.0};
+    constexpr double held_s = 30.0;
+    std::size_t landplanes = 0;
+    std::size_t limited = 0;
+    std::size_t flown = 0;
+    std::vector<std::string> named;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        if (entry.seaplane) {
+            std::printf("  left out - %s: a flying boat takes off from water, not a runway\n",
+                        entry.id.c_str());
+            continue;
+        }
+        ++landplanes;
+        if (entry.flap_limits_kts.empty()) {
+            const auto why = unpublished.find(entry.id);
+            check(why != unpublished.end(),
+                  entry.id + " has no flap limit speed, and is named as publishing none");
+            if (why != unpublished.end()) {
+                std::printf("  named - %s: %s\n", entry.id.c_str(), why->second.c_str());
+                named.push_back(entry.id);
+            }
+            continue;
+        }
+        check(unpublished.count(entry.id) == 0,
+              entry.id + " is named as publishing no flap limit speed, and has one");
+        ++limited;
+        // **Whether she takes off with any flap**: one that takes off clean
+        // has no flap out to keep to its limit, and must fly none.
+        const bool flapped = glideslope::sim::departure_speeds(data(), entry.model).flap > 0.0;
+        if (!flapped) {
+            std::printf("  %s takes off with no flap: she must fly none out\n", entry.id.c_str());
+        }
+        const auto report = [&](const std::string& what, const std::string& wreck,
+                                const FlapLimitKept& kept) {
+            ++flown;
+            std::printf("  %s: %s; %ld steps with flap out; %+.1f kt past her flap's limit at "
+                        "most (%.0f kt, flap %.1f deg, %.0f ft)\n",
+                        what.c_str(), wreck.empty() ? "flying" : wreck.c_str(), kept.steps,
+                        kept.most_past_kts, kept.kts, kept.flap_deg, kept.ft);
+            check(wreck.empty(), what + " was not wrecked: " + wreck);
+            check(flapped ? kept.steps > 0 : kept.steps == 0,
+                  what + (flapped ? " flew with a flap out" : " flew with no flap out") + ": " +
+                      std::to_string(kept.steps) + " steps");
+            check(kept.most_past_kts <= 0.0,
+                  what + " never flew past her flap's limit speed: " +
+                      std::to_string(kept.most_past_kts) + " kt past, " +
+                      std::to_string(kept.kts) + " kt at " + std::to_string(kept.flap_deg) +
+                      " deg");
+        };
+        for (const double to_ft : no_plan_heights) {
+            const HeldAfterTakeOff r = no_plan_after_take_off(entry.id, to_ft, held_s);
+            const std::string what = entry.id + " to " +
+                                     std::to_string(static_cast<int>(to_ft)) + " ft, no plan";
+            check(r.handed_over, what + ": the take-off was over");
+            report(what, r.wreck, r.flap_limit);
+        }
+        const GearAfterTakeOff planned = gear_after_take_off(entry.id, true);
+        check(planned.handed_over, entry.id + " to a plan: the take-off was over");
+        report(entry.id + " to a plan", planned.wreck, planned.flap_limit);
+    }
+    for (const auto& [id, why] : unpublished) {
+        check(std::find(named.begin(), named.end(), id) != named.end(),
+              id + ", named as publishing no flap limit speed, is a landplane without one");
+    }
+    std::printf("  %zu landplanes, %zu with flap limits, %zu named; %zu take-offs flown\n",
+                landplanes, limited, named.size(), flown);
+    check(landplanes == 15 && limited + named.size() == landplanes,
+          "every one of the catalogue's 15 landplanes has flap limits or is named: " +
+              std::to_string(limited) + " and " + std::to_string(named.size()));
+    check(flown == limited * (no_plan_heights.size() + 1),
+          "every landplane with flap limits flown five ways: " + std::to_string(flown) +
+              " of " + std::to_string(limited * (no_plan_heights.size() + 1)));
+}
 
 // **Every landplane whose gear retracts raises it on a positive rate of
 // climb after any AI take-off, and is never faster than her gear-extended

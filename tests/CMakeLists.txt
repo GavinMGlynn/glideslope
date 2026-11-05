@@ -375,6 +375,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_landplane_taken_off_with_no_plan_to_650_ft_goes_no_more_than_100_ft_past_it
     a_capture_is_let_go_when_the_autopilot_modes_are_set_again_even_to_the_same_height
     every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate_after_any_ai_take_off_and_is_never_past_her_gear_extended_speed_with_it_out
+    no_flap_is_ever_flown_past_its_limit_speed_in_an_ai_take_off
     a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
     a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
     a_787_8_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
@@ -1361,6 +1362,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_aircraft_the_data_holds_takes_off_from_a_runway
     every_aircraft_the_data_holds_that_alights_on_water_does_not_roll_out_on_it
     an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_wrong
+    a_flap_limit_speed_is_read_for_each_setting_and_a_flap_between_two_is_held_to_the_lower
     no_flight_model_opens_a_network_socket
     a_download_cannot_be_killed_by_a_server_hanging_up
     a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound
@@ -1454,6 +1456,10 @@ set_tests_properties(every_landplane_taken_off_with_no_plan_to_650_ft_goes_no_mo
 # **Every landplane's take-off, planned and not, and three minutes after it**,
 # in simulated time, flown for her gear.
 set_tests_properties(every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate_after_any_ai_take_off_and_is_never_past_her_gear_extended_speed_with_it_out
+    PROPERTIES TIMEOUT 1800)
+# **Every landplane with flap limits taken off three ways with no plan and
+# once to a plan**, in simulated time, her flap watched every step.
+set_tests_properties(no_flap_is_ever_flown_past_its_limit_speed_in_an_ai_take_off
     PROPERTIES TIMEOUT 1800)
 
 # **A program that has ended can still allocate until its last thread is gone**
