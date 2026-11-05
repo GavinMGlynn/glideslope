@@ -293,18 +293,21 @@ touch scatters 1.7 times as widely as the F-15C's, and no sourced change
 moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
-**Phase 11, traffic and separation: 2 of 3 items.** Every AI aircraft a
+**Phase 11, traffic and separation: 1 of 3 items.** Every AI aircraft a
 server runs is measured against every other, and in runs of every route
 kind none comes within 500 ft and 1.5 nm of another. The kinds are planned,
 the plan file, handed over holding its course, handed over in a spiral,
 and handed over flying its copilot's route.
 
 When one is handed over between two layers, the layers make room, one
-climbing and one descending (2026-11-05). One handed over already inside
-the minimum is under it for 12.5 s, the time the gap takes to open.
+climbing and one descending (2026-11-05).
 
-Missing: the AI's go-around circuit knows no traffic. Two aircraft going
-around together are kept apart only by the monitor's height limits.
+Missing:
+- one handed over already inside the minimum is under it for up to 12.5 s
+  (bound 14 s), while the gap opens, and whether that counts is the
+  owner's to decide;
+- the AI's go-around circuit knows no traffic, so two aircraft going
+  around together are kept apart only by the monitor's height limits.
 
 ## Gaps
 

@@ -3,7 +3,7 @@
 #
 #   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli> -DDATA=<data dir>
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
-#         [-DCOPILOT=<recording>]
+#         [-DCOPILOT=<recording> [-DPLANNED=<dir of cbd-orbit-*.jsonl>]]
 #         -P server_handed_kept_apart.cmake
 #
 # **Built, not hoped for.** A server with two AI aircraft flying the plan
@@ -39,13 +39,23 @@
 # HANDED steps it flies it, as the hand-over's is. **Coverage is asserted
 # by kind**: three pairs - the two on the plan file (1), and the copilot's
 # with each (2), every pair with the copilot's over exactly HANDED steps.
-# **Left out, by name**: the copilot's with a model-planned aircraft. Those
-# take off from 16R 90 s apart, so a run with both up and the copilot's
-# flying is four minutes of a client's real time (266 s, tried), in which
-# the copilot's came within 1.5 nm of none of them; and two aircraft are
-# measured the same whatever their routes - planned pairs are measured in
-# server_kept_apart.cmake's run. The server must say it flies the copilot's
-# route.
+# The server must say it flies the copilot's route.
+#
+# **With PLANNED as well** (a directory of cbd-orbit-*.jsonl): the copilot's
+# with model-planned aircraft too. The server runs four AI aircraft, as
+# server_kept_apart.cmake's does: two planned by OpenAI's model and
+# Anthropic's, played back from PLANNED and taking off from 16R 90 s apart,
+# and two flying the plan file. The run is 30,000 steps of the hand-over
+# (250 s), so that the second planned aircraft is up for most of it. Five
+# aircraft make ten pairs, each kind counted: planned + planned (1),
+# planned + plan file (4), plan file + plan file (1), copilot + planned (2)
+# and copilot + plan file (2). Every pair with the copilot's is measured over
+# exactly the 30,000 steps, except with the second planned aircraft, which is
+# airborne only from its take-off: at least 30,000 less 90 s of steps.
+# **What it shows, honestly**: the copilot's route flies to Manly and the
+# planned aircraft orbit the CBD, so the copilot's comes within 1.5 nm of
+# neither (7.5 and 9.0 km at closest, measured). It shows those pairs are
+# measured over the whole run, not that the rule was tested between them.
 #
 # Without the DEM's tiles it reports itself skipped (exit 77).
 
@@ -85,6 +95,18 @@ set(_handed 3600)
 set(_ai --ai 2)
 set(_pairs_wanted 3)
 set(_with_handed_wanted 2)
+set(_kinds_wanted "file+file=1" "copilot+file=2")
+if(DEFINED PLANNED)
+    set(_handed 30000)
+    set(_ai --ai 4 --ai-planner 1=openai:gpt-5.4-mini-2026-03-17
+            --ai-playback "1=${PLANNED}/cbd-orbit-openai.jsonl"
+            --ai-planner 2=anthropic:claude-haiku-4-5-20251001
+            --ai-playback "2=${PLANNED}/cbd-orbit-anthropic.jsonl")
+    set(_pairs_wanted 10)
+    set(_with_handed_wanted 4)
+    set(_kinds_wanted "planned+planned=1" "file+planned=4" "file+file=1" "copilot+planned=2"
+                      "copilot+file=2")
+endif()
 if(DEFINED COPILOT)
     set(_handing --predict --copilot-at 5 --copilot c172p
                  "fly to Manly at 3,000 ft, then orbit over Manly beach"
@@ -161,9 +183,16 @@ foreach(_line IN LISTS _lines)
     list(APPEND _kinds "${_kind}")
     if(_line MATCHES "\\(slot [0-9]+\\)")
         math(EXPR _with_handed "${_with_handed} + 1")
-        if(NOT _line MATCHES ", over ([0-9]+) steps, " OR NOT CMAKE_MATCH_1 EQUAL _handed)
-            message(FATAL_ERROR "the handed aircraft was measured over other than ${_handed} "
-                                "steps: ${_line}")
+        # The second planned aircraft takes off 90 s after the first: with
+        # it, from its take-off.
+        set(_least ${_handed})
+        if(_line MATCHES "AI 2, anthropic's plan")
+            math(EXPR _least "${_handed} - 90 * 120")
+        endif()
+        if(NOT _line MATCHES ", over ([0-9]+) steps, " OR CMAKE_MATCH_1 LESS _least OR
+           CMAKE_MATCH_1 GREATER _handed)
+            message(FATAL_ERROR "the handed aircraft was measured over other than ${_least} "
+                                "to ${_handed} steps: ${_line}")
         endif()
     endif()
     if(NOT _line MATCHES "separation lost for 0\\.00 s$")
@@ -175,8 +204,8 @@ if(NOT _with_handed EQUAL _with_handed_wanted)
                         "${_with_handed_wanted}:\n${_out}")
 endif()
 if(DEFINED COPILOT)
-    # Every kind of pair, as many of each as three aircraft make.
-    foreach(_want "file+file=1" "copilot+file=2")
+    # Every kind of pair, as many of each as the aircraft make.
+    foreach(_want IN LISTS _kinds_wanted)
         string(REPLACE "=" ";" _want "${_want}")
         list(GET _want 0 _kind)
         list(GET _want 1 _count)
@@ -191,7 +220,7 @@ if(DEFINED COPILOT)
                                 "${_kinds}")
         endif()
     endforeach()
-    message(STATUS "three pairs of two kinds measured: ${_kinds}")
+    message(STATUS "${_pairs} pairs of every kind measured: ${_kinds}")
 endif()
 if(NOT _lost EQUAL 0)
     message(FATAL_ERROR "separation lost for ${_lost} steps")

@@ -1,4 +1,4 @@
-### An AI aircraft squeezed between two layers: the layers make room; and one flying its copilot's route is measured in a run, 2026-11-05 — item done
+### An AI aircraft squeezed between two layers: the layers make room; and one flying its copilot's route is measured in a run, 2026-11-05 — item still open
 
 **What was missing.** On 2026-10-09 one handed to the AI between two
 layers 1,000 ft apart, inside 1.5 nm of the lower, was turned away and held
@@ -33,10 +33,11 @@ layers already are: stacked 1,000 ft apart, and planned departures stacked
 downwards. Delaying entry does not fit, because this aircraft is not
 entering anything: it is handed over already inside. Vectoring is what
 the 2026-10-09 rule does, and it alone is the 38.9 s. What remains is to
-move the other two, as TCAS II does when it gives two aircraft
-complementary advisories, one climbing and one descending. A
-controller's safety alert (JO 7110.65 2-1-6) may likewise go to either
-aircraft. A stack moving down a level, once the bottom has left, is the
+move the other two. The nearer precedent is a controller's safety alert
+(JO 7110.65 2-1-6), which may go to either aircraft, and which the
+2026-10-09 rule already follows for the turn. The move is TCAS-like:
+TCAS II gives two aircraft complementary advisories, one climbing and one
+descending. A stack moving down a level, once the bottom has left, is the
 same kind of move.
 
 **What changed** (`sim::separate`, `sim/separation.cpp`):
@@ -57,6 +58,21 @@ same kind of move.
   not yet clear, even once the gap is wide enough that its floor and
   ceiling no longer cross. Otherwise the room would be let go, the layers
   would close, and it would be squeezed again.
+- **Only while there is still one on each side** (review of #337, (a)).
+  At first the latch held it in the middle while anything at all was near.
+  A gap opened because a layer had gone (landed, left, or out of the
+  guard) still kept it held and turned away from nothing. Now the latch
+  needs one near below it and one near above. Otherwise it is let go, and
+  flies its ordinary limits.
+- **The middle follows those that cannot make room** (review of #337, (b)).
+  At first the latched middle stayed put while a person's aircraft below
+  climbed, so the held height could sit inside that person's minimum. Now
+  the middle is kept the minimum and margin from every aircraft near that
+  cannot be moved: a person's, one taking off, or a layer the move would
+  take within 500 ft of its ground. Between two that cannot be moved, it
+  is held in the middle of what they leave. And the side a layer makes
+  room on is its side of the squeezed aircraft, not of the middle, which
+  may have followed an aircraft that cannot move past one that can.
 - Once clear (1.5 nm from every layer it would pass through), it is
   taken above them all or below, as before, and the layers fly their own
   heights again.
@@ -81,11 +97,21 @@ same kind of move.
   - clear of the one it passes, no room is made;
   - once the room is made, it stays held in the middle and the layers stay
     apart;
-  - a person's aircraft below is not moved, but the AI's above is;
-  - a layer that would be taken within 500 ft of its ground is not moved,
-    but the other is.
+  - a person's aircraft below is not moved, the middle is kept 700 ft over
+    it, at 3,700, and the AI's above makes room from there, to 4,400;
+  - a layer that would be taken within 500 ft of its ground is not taken
+    lower, and the middle and the other's room follow it in the same way;
+  - (b) the person's aircraft then climbs 200 ft: the middle follows it to
+    3,900, and the room above goes to 4,600;
+  - (a) latched, and then the lower layer is gone: it is let go, not
+    turned, and held only below the one above, at 3,100.
 
-  **Seen to fail** with the room taken out: "the one below makes room".
+  **Seen to fail**, each with its own fix taken out:
+  - the room taken out: "the one below makes room";
+  - the middle not following once latched: "the person's aircraft climbs
+    200 ft: the middle follows it";
+  - the old latch: "the lower layer gone, it is let go of the squeeze";
+  - the middle following nothing: "a person's aircraft is not moved".
 - **A handed aircraft flying a copilot's route, measured in a run**:
   `an_aircraft_flying_its_copilots_route_is_measured_against_every_other_ai_aircraft_and_kept_apart_from_them`
   (`server_handed_kept_apart.cmake`, `-DCOPILOT`). The client's copilot,
@@ -101,14 +127,27 @@ same kind of move.
   plan-file aircraft came within 303 m, at least 993 ft apart. Separation
   was lost for 0 s, every pair.
 
-  **Left out, by name in the test**: the copilot's with a model-planned
-  aircraft. Tried with all four AI aircraft (two planned from the
-  recordings), 30,000 steps of hand-over, it took 266 s of real time. The
-  copilot's came within 1.5 nm of none of them, and the second planned
-  aircraft was up for only 21,001 of those steps. Two aircraft are
-  measured the same whatever their routes, and planned pairs are measured
-  in the four-aircraft run. **Seen to fail** with a copilot-flown aircraft
-  left out of the measurement: "1 pairs were measured, not the 3".
+  **Seen to fail** with a copilot-flown aircraft left out of the
+  measurement: "1 pairs were measured, not the 3".
+- **The copilot's against model-planned aircraft too** (review of #337):
+  `an_aircraft_flying_its_copilots_route_is_measured_against_model_planned_and_plan_file_ai_aircraft_over_a_whole_run`
+  (`-DPLANNED`, TIMEOUT 1500). The setup:
+  - four AI aircraft: two planned from the recordings, taking off from 16R
+    90 s apart, and two on the plan file;
+  - the copilot's aircraft as above;
+  - 30,000 steps of the hand-over, 267 s of real time.
+
+  **Ten pairs, each kind counted**: planned + planned 1, plan file +
+  planned 4, plan file + plan file 1, copilot + planned 2, copilot + plan
+  file 2. Every pair with the copilot's was measured over 30,000 steps, but
+  the one with the second planned aircraft, measured from its take-off
+  (21,001 steps; at least 30,000 less 90 s asserted). Separation was lost
+  for 0 s, every pair. **What it shows, honestly**: the copilot's route goes
+  to Manly and the planned aircraft orbit the CBD, so the copilot's came
+  within 1.5 nm of neither (8,972 and 7,487 m at closest). It shows those
+  pairs are measured over the whole run, not that the rule was tested
+  between them. Against the plan-file aircraft it did come close: 721 and
+  461 m, at least 1,751 and 753 ft apart.
 - **Every route kind, each in a whole run, separation lost for 0 s**,
   linux-release:
   - planned + planned, planned + plan file, plan file + plan file: the
@@ -126,12 +165,25 @@ same kind of move.
   were the F-35B and STOVL prediction tests through a server, which fly a
   player's aircraft, which the monitor gives no limit; CI runs them.
 
-**What the minimum does not cover.** One handed over already inside it
+**Why the item stays open.** One handed over already inside the minimum
 cannot be out of it at that instant. The 12.5 s is how long the AI takes to
-open the gap it was given, and nothing the AI flew put it there. Nothing
-keeps a person's aircraft clear: it is given way to, not measured.
+open the gap it was given, and nothing the AI flew put it there. Whether
+an inherited conflict like this is judged from the hand-over is the
+owner's to decide. **Proposed wording** for the verification, if the owner
+accepts it: "every AI aircraft a server runs stays 500 ft or 1.5 nm from
+every other along the whole of its route; one handed over inside it is out
+within 14 s and never under again". Nothing keeps a person's aircraft
+clear: it is given way to, not measured.
 
 The selftest hash does not move: the selftest flies the test pilot, which
-the monitor does not touch. The new test's entries in `tests/ci_costs/` are
-estimates, the hand-over test's time plus 15 s, until CI's own replace
-them.
+the monitor does not touch. The new tests' entries in `tests/ci_costs/` are
+estimates until CI's own replace them: the hand-over test's time plus 15 s,
+and for the run against planned aircraft this machine's 267 s and a half
+again.
+
+After the review's changes, linux-release: the twelve separation and
+kept-apart tests (the monitor's rules, the between-layers case, the
+climb-through and head-on, the four-aircraft run, the handed, spiral and
+both copilot runs, two on one runway, two wrecked together) and the
+port-uniqueness test all pass. The between-layers figure is unchanged at
+12.5 s.
