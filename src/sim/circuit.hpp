@@ -120,6 +120,10 @@ struct CirclePlace {
     // ahead of the threshold goes away from her, never nearer than the
     // minimum along the runway.
     bool clear_of_departures = false;
+    // **Flown by her pilot**, a person, this step: she cannot be told to
+    // land, and the one behind her may leave the circuit rather than hold
+    // for her for ever (Controller::leaves_with, `behind_a_person`).
+    bool by_hand = false;
 };
 
 // Whether two runways are one: the same name and threshold.
@@ -132,6 +136,46 @@ bool same_runway(const Runway& a, const Runway& b);
 // or none, she is number one.
 std::optional<double> circuit_ahead_alt_ft(std::size_t self,
                                            const std::vector<std::optional<CirclePlace>>& all);
+
+// **Whether any of those ahead of `self` in her runway's sequence** - as
+// `circuit_ahead_alt_ft` orders them - is flown by a person (`by_hand`).
+bool behind_a_person(std::size_t self, const std::vector<std::optional<CirclePlace>>& all);
+
+// **A person's aircraft, judged by where she is and how she flies**: what
+// her pilot means is not the AI's to know, and a person is never told what
+// to do. A tower has only what it sees too.
+//
+// **Straight in** (`straight_in_by_hand`): on final approach - "a flight
+// path of a landing aircraft in the direction of landing along the
+// extended runway centerline ... straight in to the runway" (the
+// Pilot/Controller Glossary, final approach - VFR) - which 14 CFR
+// 91.113(g) gives the right of way: in the air, higher over the runway
+// than RunwayClear::occupied_ft; before the threshold and no further out
+// than `by_hand_final_nm`; within the 1.5 nm minimum of the extended
+// centreline; heading within `by_hand_heading_deg` of the runway's; and no
+// higher than a three-degree glidepath and `close_ft`. Chosen, not sourced:
+// the reach, the heading and the height.
+bool straight_in_by_hand(const Runway& runway, const AircraftState& her);
+// **Departing** (`departing_by_hand`): rolling down the runway in its
+// direction faster than `by_hand_rolling_kts`, or in the air past the
+// threshold and within `by_hand_departure_nm` past the runway's far end,
+// within the minimum of its centreline and heading within
+// `by_hand_heading_deg` of it - a take-off, and also a low approach past
+// the threshold, which JO 7110.65 3-8-2 calls a departing aircraft from
+// there. She is departing until she turns off the runway's heading - AC
+// 90-66C and AIM 4-3-2: straight out, or a turn once beyond the departure
+// end - or is that far past its end.
+bool departing_by_hand(const Runway& runway, const AircraftState& her);
+// **Clear of a departure**, a person in the circuit: on her downwind leg as
+// a pilot flies one - left of the centreline, heading within 60 degrees of
+// the runway's reciprocal - and the 1.5 nm minimum short of the threshold,
+// as an AI's place is marked (CirclePlace::clear_of_departures). Judged
+// afresh every step: turned base, she is not.
+bool clear_of_departures_by_hand(const Runway& runway, const AircraftState& her);
+constexpr double by_hand_final_nm = 5.0;
+constexpr double by_hand_departure_nm = 1.5;
+constexpr double by_hand_heading_deg = 30.0;
+constexpr double by_hand_rolling_kts = 30.0;
 
 // **Whether a departure from `runway` is held** for the circuit's sequence:
 // while anything going round to it is not yet clear of departures
