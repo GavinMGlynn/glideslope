@@ -24,3 +24,9 @@ mixture-lever 3000
 # Cessna 172P Pilot's Operating Handbook (1980), section 8: 6.00-6 mains at
 # 28 psi; single-disc toe brakes, no anti-skid.
 brakes 28 none
+# Her flap limit speeds, VFE, knots calibrated, by flap (src/sim/catalogue.hpp):
+# Cessna 172P Pilot's Operating Handbook, section 2, figure 2-1, airspeed
+# limitations (docs/ASSETS.md): 10 degrees 108 KCAS (110 KIAS), 10 to 30
+# degrees 84 KCAS (85 KIAS, the white arc's top).
+flap-limit 10 108
+flap-limit 30 84

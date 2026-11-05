@@ -364,6 +364,16 @@ every landplane is within 21 ft. The circuit tests ask the take-off for
 take-off left, which is up. Every aeroplane flies her downwind leg within
 100 ft of circuit height
 (2026-11-06-a-low-no-plan-height-is-levelled-at-and-the-circuit-joined-there).
+Since 2026-11-06, too, ten landplanes carry their flap limit speeds (VFE),
+and no AI take-off, level-off or clean-up flies a flap past its limit: 50
+take-offs, each of the ten five ways. Five are from the aircraft's own
+manuals; the five airliners' are from secondary sources, named, since
+no Boeing or Airbus limitations document was found public. Five
+landplanes are named as having none to keep. Levelling off at 650 ft, the
+747-400 flew 262 kt with flaps 20's 230 kt limit; now she is held 5 kt
+under it. An AI take-off with no height given now ends at 1,000 ft, a
+training flight's acceleration height, not 500
+(2026-11-06-flap-limit-speeds-are-kept-and-the-default-take-off-height-is-1000-ft).
 
 Since 2026-11-05 an AI take-off raises her gear on a second of positive
 climb, with a plan or without; until then every planned flight cruised

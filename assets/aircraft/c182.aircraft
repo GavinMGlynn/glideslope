@@ -20,3 +20,10 @@ mixture-lever 3000
 # Cessna 182S Information Manual (1997), section 8: 6.00-6 mains at 42 psi;
 # hydraulic disc brakes, no anti-skid.
 brakes 42 none
+# Her flap limit speeds, VFE, knots calibrated, by flap (src/sim/catalogue.hpp):
+# Cessna 182S Information Manual, section 2, figure 2-1, airspeed
+# limitations (docs/ASSETS.md): to 10 degrees 137 KCAS (140 KIAS), 10 to 20
+# degrees 118 KCAS (120 KIAS), 20 degrees to full, her 38, 100 KCAS.
+flap-limit 10 137
+flap-limit 20 118
+flap-limit 38 100

@@ -201,8 +201,8 @@ public:
     // ft/min is what the stall recovery counts as level (`notice_a_stall`),
     // so a level hand-over is never a climb. Five minutes is the most rated
     // take-off power may be used for (14 CFR 1.1), where a take-off's own
-    // law ends (sim::Departure). 500 ft is where the AI's own take-off ends
-    // by default (`to_ai_take_off`).
+    // law ends (sim::Departure). 500 ft is the take-off lessons' end; the
+    // AI's own take-off ends at 1,000 by default (`ai_take_off_to_ft`).
     static constexpr double lift_off_below_ft = 400.0;
     static constexpr double lift_off_climbing_fpm = 100.0;
     static constexpr double lift_off_throttle = 0.5;
@@ -221,8 +221,21 @@ public:
     // the runway; `to_ai_approach` flies it down the glidepath to a stop.
     // Both end by holding what the aeroplane is doing, so a demonstration
     // that runs past its end does not fall out of the sky.
+    //
+    // **Its height is 1,000 ft by default** (`ai_take_off_to_ft`): the
+    // acceleration height a training flight cleans up at - "During training
+    // flights, 1,000 feet AFE is normally used as the acceleration height
+    // to initiate thrust reduction and flap retraction" (Boeing's 737
+    // Classic Flight Crew Training Manual, FCT 737 CL (TM) revision 20, 30
+    // June 2021, 3.28, Flap Retraction Schedule) - and clear of the take-off
+    // lessons' end at 500 ft, so that a demonstration's climb away is judged
+    // and not its level-off. Until 2026-11-06 it was 500: a jet still has her
+    // flap out at her lead to it, levels off there and cleans up level once
+    // she is (sim::Departure::level_off_at_end), and the 737-300 accelerated
+    // past the take-off lesson's band for her climb a few feet short of 500.
+    static constexpr double ai_take_off_to_ft = 1000.0;
     void to_ai_take_off(const Runway& runway, const DepartureSpeeds& speeds,
-                        double to_ft = 500.0);
+                        double to_ft = ai_take_off_to_ft);
     // **A plan that takes off** (`takeoff` in it): the take-off, from the
     // plan's runway to its height, and then the plan, flown from where the
     // take-off left the aeroplane. A plan without one is `to_ai(plan)`.

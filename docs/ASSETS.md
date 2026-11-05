@@ -907,6 +907,41 @@ military aircraft' systems: fully modulating is this project's reading.
 | F-35B | 300, **estimate** | fully modulating (reading) | Nothing published of her tyre; by the F-15's and F-22's. Honeywell's wheels and brakes brochure C61-1547: <https://aerospace.honeywell.com/content/dam/aerobt/en/documents/landing-pages/brochures/C61-1547-000-000-WheelsAndBrakingSystems-bro.pdf>, SHA-256 `c4ee5bf666ffae08692e1fe4fbb1fb5bf5891bbb55a072b8a9fcb95672b8e35e` |
 | B-2A | 224, **estimate** | fully modulating (reading) | Goodyear's rating of her 43x16.0-20, 215 psi unloaded for 38,600 lb, plus 4 per cent loaded: Goodyear Aviation Data Book (6/2018), <https://www.goodyearaviation.com/resources/pdf/databook-6-2018.pdf>, SHA-256 `20171e53fe1c5251c1deb8ddf3325760651829e691c3614d6f917ad2645bcfdf` |
 
+### Each landplane's flap limit speeds (VFE)
+
+Each aircraft file's `flap-limit` lines (src/sim/catalogue.hpp), checked
+against every AI take-off by
+`no_flap_is_ever_flown_past_its_limit_speed_in_an_ai_take_off`. Only the
+figures are taken. **Five are from the aircraft's own manual (and the
+F-15C's, whose model has no flaps); the five airliners' are not**: no Boeing
+or Airbus limitations document giving them was found public, and their
+figures are from secondary sources, each named.
+
+| Aircraft | Limits, knots, by flap | Source |
+| --- | --- | --- |
+| C172P | 10 deg 108 KCAS; 10 to 30 deg 84 KCAS | Pilot's Operating Handbook, section 2, figure 2-1, airspeed limitations (110 and 85 KIAS), as copied at <https://tx435.cap.gov/media/cms/C172PPOHwoSupplements_0A69C5AA130B9.pdf>, SHA-256 `4d17d416aa9b8a3ec69ed07b988c88399a8ab1b0015148063248040ae5c06bb4` |
+| C182S | to 10 deg 137 KCAS; 10 to 20 deg 118; 20 deg to full 100 | Information Manual (1997), section 2, figure 2-1 (140, 120 and 100 KIAS), at <http://tssflyingclub.org/documents/C182S_POH.pdf>, SHA-256 `6f8ecc3cda71ca2bc0f9a913872cae7c64789396c42c5683cee45dbce52d4897` |
+| PA-28-180 | every setting 100 | Airplane Flight Manual, PA-28-180, FAA approved 3 August 1962: "Flaps extended 115", white arc "57 to 115 mph (50 to 100 knots)", at <https://www.nehemiahaviation.com/files/pa28flightmanual.pdf>; the Cherokee "E" Owner's Handbook, "Flaps - set (115 MPH MAX)", at <https://www.coyoteflight.com/resources/Aircraft_Manuals/Piper_PA-28-180E.pdf>, SHA-256 `ae20fb9a8a8d88ff0638313d9dd1051519f904de54f05e50be5ec89fd318b2e9` |
+| Learjet 35A | 8 deg 200; 20 deg 185; 40 deg 150 (KIAS) | Airplane Flight Manual FM-108, section I, page 1-9, the scan above (SHA-256 `e3e34e6b721854f12c7334b4e8911552eb857360d40bcafade87100919cd3a44`): flaps 1 to 8 degrees 200; 9 to 20 degrees 185 for the serials it names without FCN 85-6, 200 for the rest - the lower taken; 21 to 40 degrees 150 |
+| Mosquito FB.VI | to 25 deg 175; fully down, 45 deg, 130 | Pilot's Notes, A.P. 2019E-P.N., part III, maximum speeds: "Flaps not more than 25 deg. down 175", "Flaps fully down 130", at <https://www.zenoswarbirdvideos.com/Images/Mosquito/MosquitoFB6Manual.pdf>, SHA-256 `6f959cf1ff410096f5764a05107611ab0feddbd414477b154c662c37ce8996fd` |
+| F-15C | none in her file: "FLAPS 250 Knots", but her model has no flaps | T.O. 1F-15A-1, section V, airspeed limitations, the scan above (its OCR text, `F15 Manual_djvu.txt`); her flaps blow up at about 250 knots (section I) |
+| 737-300 | 1 and 2 deg 230; 5 deg 225; 10 deg 210; 15 deg 195; 25 deg 190; 30 deg 185; 40 deg 158 | **Secondary**: "Boeing 737-300/-400 Limitations", Maximum Flap Operating Speeds, 737-300 column, a virtual airline's compilation for simulator use (Matt Zagoren), <http://edusapco-va.weebly.com/uploads/8/9/7/6/8976510/737limitations.pdf>; flaps 1 and 5 agree with pilots' study cards (Brainscape) |
+| 747-400 | 1 deg 280; 5 deg 260; 10 deg 240; 20 deg 230; 25 deg 205; 30 deg 180 | **Secondary**: an Airliners.net post, uncited; flaps 30's 180 agrees with pilots' study cards (Brainscape) |
+| 787-8 | 1 deg 250; 5 deg 230; 15 deg 210; 20 deg 210; 25 deg 180; 30 deg 170 | **Secondary**: pilots' study cards (Brainscape, "Limitations", two sets, which differ only on flaps 15, 210 or 215: the lower taken) |
+| A320 | CONF 1+F (flaps 10) 215; 2 (15) 200; 3 (20) 185; FULL (40) 177 | **Secondary**: pilots' study cards, and a copy of Airbus's A320 flight deck briefing on Scribd whose text is garbled; the flaps' angles from FlyByWire's A32NX documentation. CONF 1's 230 is slats alone, with no flap here to limit |
+| A380 | CONF 1+F (flaps 8) 222; 2 (17) 220; 3 (26) 196; FULL (32) 182 | **Secondary**: FlyByWire's A380X documentation and pilots' study cards. CONF 1's 263 is slats alone |
+
+**None published**, each named in the test: the B-2A and the F-22A (no
+flight manual is public), the F-35B (none public, and her model has no
+flaps), the J-3 Cub (no flaps). The Short S.23 takes off from water and is
+left out; the FlightGear wiki's 100 kt for her flaps fully out was seen only
+in a search's summary and is not used.
+
+**Calibrated, not indicated.** The simulation flies calibrated airspeed. The
+Cessnas' and the Piper's limits are their handbooks' calibrated figures; the
+rest are indicated speeds, taken as calibrated, the difference at these speeds
+being a few knots at most and not published for them.
+
 ### Thrust reversers: which aircraft have them, how much they reverse, and when they are used
 
 Read by `tools/airliner.py` (the flight models' reverser channel), the

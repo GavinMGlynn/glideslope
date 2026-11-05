@@ -23,3 +23,9 @@ brakes 50 none
 # Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): A.P. 2019E, Pilot's Notes for the Mosquito FB 6 (docs/ASSETS.md),
 # maximum speeds in knots: "Undercarriage down ... 155".
 gear-extended 155
+# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp): her
+# Pilot's Notes, A.P. 2019E-P.N. (docs/ASSETS.md), part III, maximum
+# speeds: "Flaps not more than 25 degrees down 175", "Flaps fully down
+# 130", her fully down 45 degrees.
+flap-limit 25 175
+flap-limit 45 130
