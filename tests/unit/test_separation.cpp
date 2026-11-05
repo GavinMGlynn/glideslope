@@ -145,6 +145,44 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
               "squeezed, but 1.5 nm from the one it passes, it is taken below them all, "
               "still turned away");
         check(!l[0].heading_deg && !l[1].heading_deg, "nothing is turned that is not squeezed");
+        // **The two make room**: the one below is held 700 ft under the
+        // middle, the one above 700 ft over it, each clear of the one
+        // squeezed; and the middle is latched for next step.
+        check(about(l[0].ceiling_ft, 3400 - apart_ft) && !l[0].floor_ft &&
+                  l[0].clear_of == std::size_t{2},
+              "squeezed between two, the one below makes room: held 700 ft under the middle");
+        check(about(l[1].floor_ft, 3400 + apart_ft) && !l[1].ceiling_ft &&
+                  l[1].clear_of == std::size_t{2},
+              "squeezed between two, the one above makes room: held 700 ft over the middle");
+        check(l[2].squeezed && about(l[2].squeezed->middle_ft, 3400),
+              "the middle it is held at is latched");
+        // (The second is held 700 ft over the first, which it gives way to,
+        // as ever - not the 4,100 ft room would ask.)
+        check(!far[0].ceiling_ft && about(far[1].floor_ft, 3000 + apart_ft),
+              "clear of the one it passes, no room is made: the layers keep only their own limits");
+        // Latched with the room made: the gap now wide enough that its floor
+        // no longer crosses its ceiling, it is still held in the middle, and
+        // the layers still held apart, until it is clear.
+        std::vector<Traffic> opened{at(0, 2700, 100, true, 3000), at(500, 4100, 100, true, 3800),
+                                    at(-1000, 3400, 100, true, 3300)};
+        opened[2].squeezed = l[2].squeezed;
+        const auto o = glideslope::sim::separate(opened);
+        check(about(o[2].floor_ft, 3400) && about(o[2].ceiling_ft, 3400) && o[2].heading_deg &&
+                  about(o[0].ceiling_ft, 3400 - apart_ft) && about(o[1].floor_ft, 3400 + apart_ft),
+              "the room made, it stays held in the middle and the layers stay apart until clear");
+        // One that cannot be moved makes no room: a person's, or one that
+        // would be taken within 500 ft of the ground under it.
+        const auto person = glideslope::sim::separate({at(0, 3000, 100, false, std::nullopt),
+                                                       at(500, 3800, 100, true, 3800),
+                                                       at(-1000, 3300, 100, true, 3300)});
+        check(!person[0].ceiling_ft && about(person[1].floor_ft, 3400 + apart_ft),
+              "a person's aircraft is not moved to make room; the AI's above it is");
+        std::vector<Traffic> low{at(0, 3000, 100, true, 3000), at(500, 3800, 100, true, 3800),
+                                 at(-1000, 3300, 100, true, 3300)};
+        low[0].ground_ft = 2400.0;
+        const auto g = glideslope::sim::separate(low);
+        check(!g[0].ceiling_ft && about(g[1].floor_ft, 3400 + apart_ft),
+              "one that would be taken within 500 ft of the ground makes no room; the other does");
     }
     // **Latched**: clear once, it stays clear until under 1.3 nm, so a
     // distance that dips back under 1.5 nm mid-climb does not send it back
@@ -162,17 +200,17 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
         check(about(fresh[2].floor_ft, 3400) && about(fresh[2].ceiling_ft, 3400) &&
                   fresh[2].squeezed && !fresh[2].squeezed->clear,
               "under 1.5 nm and never clear: held in the middle");
-        const auto kept = build(glideslope::sim::Squeeze{false, 200.0, true}, 2600.0);
+        const auto kept = build(glideslope::sim::Squeeze{false, 200.0, true, std::nullopt}, 2600.0);
         check(about(kept[2].ceiling_ft, 3000 - apart_ft) && !kept[2].floor_ft &&
                   kept[2].squeezed && kept[2].squeezed->clear,
               "clear before, dipped to 1.4 nm: still clear, still taken below them all");
         check(kept[2].heading_deg && about(kept[2].heading_deg, 200.0),
               "the heading it was turned to is kept, not chosen again");
-        const auto lost = build(glideslope::sim::Squeeze{false, 200.0, true}, 2300.0);
+        const auto lost = build(glideslope::sim::Squeeze{false, 200.0, true, std::nullopt}, 2300.0);
         check(about(lost[2].floor_ft, 3400) && about(lost[2].ceiling_ft, 3400) &&
                   lost[2].squeezed && !lost[2].squeezed->clear,
               "clear before, now under 1.3 nm: back to the middle");
-        const auto side = build(glideslope::sim::Squeeze{true, 200.0, true}, 3000.0);
+        const auto side = build(glideslope::sim::Squeeze{true, 200.0, true, std::nullopt}, 3000.0);
         check(about(side[2].floor_ft, 3800 + apart_ft) && !side[2].ceiling_ft,
               "the side chosen is kept: above them all, though below asks less");
     }
@@ -327,6 +365,7 @@ struct Between {
     double at_middle_s = -1.0; // first within 20 ft of 3,500, the gap's middle
     double highest_ft = 0.0;   // the highest it climbed before 1.5 nm from the lower
     double opened_s = -1.0;    // first 1.5 nm from the lower
+    double lowest_lower_ft = 1e18; // the lowest the lower layer flew, its room made
     int steps = 0;
 };
 
@@ -411,6 +450,7 @@ Between fly_between_layers(bool monitor, double seconds) {
         if (out.opened_s < 0.0) {
             out.highest_ft = std::max(out.highest_ft, traffic[2].altitude_ft);
         }
+        out.lowest_lower_ft = std::min(out.lowest_lower_ft, traffic[0].altitude_ft);
         if (out.opened_s < 0.0 &&
             glideslope::sim::horizontal_m(traffic[0], traffic[2]) >= Separation::minimum_m) {
             out.opened_s = now_s;
@@ -432,19 +472,21 @@ Between fly_between_layers(bool monitor, double seconds) {
 
 } // namespace
 
-// **Squeezed between two layers, turned away**: one handed to the AI 400 ft
-// over a layer and 600 ft under the next, behind the lower - where no
-// height is 700 ft from both - is held in the middle of the gap and turned
-// away until 1.5 nm from the layer it must pass, then taken past it, and
-// never loses separation again. **Not zero**: it arrives within the
-// minimum of the lower, and no height in a 1,000 ft gap is more than 500 ft
-// from both, so until it is 1.5 nm away it is at the minimum at best - the
-// bound is the time to turn about at the autopilot's 25 degrees of bank and
-// open 1.5 nm - 38.9 s here, the climb to the gap's middle, slow while
-// banked, not done before it - and an eighth: 44 s, and nothing after 44 s.
-// Without the monitor it
-// loses separation from the lower for most of the run. Its controls move no
-// faster than a hand, full travel in a second, through all of it.
+// **Squeezed between two layers, turned away, and the layers make room**:
+// one handed to the AI 400 ft over a layer and 600 ft under the next, behind
+// the lower - where no height is 700 ft from both - is held in the middle of
+// the gap and turned away, and the two layers move apart from that middle,
+// the lower down and the higher up, 700 ft each; once 1.5 nm from the layer
+// it must pass it is taken past it, and it never loses separation again.
+// **Not zero**: it arrives 400 ft from the lower, inside the minimum, and is
+// out of it only once the gap has opened the last 100 ft - 12.5 s here, the
+// lower's descent and its own climb, each started from level - and an
+// eighth: 14 s, and nothing after 14 s. Before the layers made room it was
+// 38.9 s: no height in a 1,000 ft gap is more than 500 ft from both, so it
+// was inside the minimum until it had turned 1.5 nm away. Without the
+// monitor it loses separation from the lower for most of the run. Its
+// controls move no faster than a hand, full travel in a second, through all
+// of it.
 GLIDESLOPE_TEST(an_aircraft_handed_to_the_ai_between_two_layers_is_turned_away_and_kept_apart_from_both_after_its_arrival) {
     const double seconds = 300.0;
     const Between without = fly_between_layers(false, seconds);
@@ -459,9 +501,11 @@ GLIDESLOPE_TEST(an_aircraft_handed_to_the_ai_between_two_layers_is_turned_away_a
     }
     std::fprintf(stderr,
                  "with the monitor: within 20 ft of the gap's middle at %.1f s (highest %.0f ft "
-                 "before 1.5 nm), 1.5 nm from the lower at %.1f s; turned away for %.1f s, last under the minimum at %.1f s, "
+                 "before 1.5 nm), 1.5 nm from the lower at %.1f s; the lower down to %.0f ft; "
+                 "turned away for %.1f s, last under the minimum at %.1f s, "
                  "the most a control moved in a step %.4f; %d of %d steps flown\n",
-                 with.at_middle_s, with.highest_ft, with.opened_s, with.turned_s, with.last_lost_s,
+                 with.at_middle_s, with.highest_ft, with.opened_s, with.lowest_lower_ft,
+                 with.turned_s, with.last_lost_s,
                  with.most_control_step, with.steps,
                  static_cast<int>(seconds) * steps_per_second);
     check(with.steps == static_cast<int>(seconds) * steps_per_second &&
@@ -470,9 +514,11 @@ GLIDESLOPE_TEST(an_aircraft_handed_to_the_ai_between_two_layers_is_turned_away_a
     check(without.lost_s[0] > 60.0,
           "without the monitor, separation from the lower is lost: the situation is built");
     check(with.turned_s > 0.0, "it was squeezed between the two, and turned away");
-    check(with.lost_s[0] + with.lost_s[1] <= 44.0,
-          "with it, separation is lost only until it has turned away and opened 1.5 nm: 44 s at most");
-    check(with.last_lost_s <= 44.0, "with it, never lost after the first 44 s");
+    check(with.lowest_lower_ft <= 3000.0 - 150.0,
+          "the lower layer made room: it went down, not only the one squeezed up");
+    check(with.lost_s[0] + with.lost_s[1] <= 14.0,
+          "with it, separation is lost only until the layers have made room: 14 s at most");
+    check(with.last_lost_s <= 14.0, "with it, never lost after the first 14 s");
     check(with.least_ft_within[1] >= Separation::minimum_ft,
           "with it, never within the minimum of the higher layer");
     check(with.most_control_step <= 1.0 / steps_per_second + 1e-9,
