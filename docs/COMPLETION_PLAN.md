@@ -1139,12 +1139,19 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       review of #343: every planned flight climbed and cruised with her
       wheels down, the fighters at 337 to 384 kt. *Verification: every
       landplane whose gear retracts, taken off by the AI with a plan and
-      without, has her gear lever up within 6 s of lift-off, climbing, and is
-      never faster than her gear-extended speed with any gear out; fixed
-      gear is left alone; seen red on the old code.* Done 2026-11-05: the
+      without, has her gear lever up within 1.5 s of lift-off, climbing, and
+      is never within 5 kt of her gear-extended speed with any gear out;
+      fixed gear is left alone; seen red on the old code.* Done 2026-11-05: the
       take-off raises it on a second of positive climb; the 747-400's and
       F-22A's measured climb-away speeds rise to 175 and 230 kt, and their
       CBD-orbit plans were recorded again for them.
+- [ ] **A take-off with no plan creeps up the last few feet of its height.**
+      Handed over a tenth of her climb short, the Mosquito took 2.7 minutes
+      and 7 nm to close the last 4 ft of 650; the circuit lesson tests now
+      ask every aircraft's take-off for 750 ft, to join at 650 climbing.
+      *Verification: every landplane
+      given a take-off with no plan is within 2 ft of its height a stated
+      time after the hand-over.*
 
 ---
 

@@ -25,3 +25,6 @@ brakes 218 fully-modulating
 # (tools/make_a380.py), and the reverse brought to idle at 70 kt, as
 # Airbus's procedure has it (the A320's file says where; docs/ASSETS.md).
 reversers 70
+# Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): her FCOM's limitations as crews' study sets give them: 250 kt/M.55,
+# extended and operating alike.
+gear-extended 250

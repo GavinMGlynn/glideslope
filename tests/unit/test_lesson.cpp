@@ -13958,40 +13958,23 @@ GearAfterTakeOff gear_after_take_off(const std::string& id, bool planned) {
     return out;
 }
 
-// **Her gear-extended speed, VLE**, knots calibrated, where it is
-// published; it bounds her speed in the air with any of her gear out.
-//   - 737-300, 320 kt/M.82 (extension 270, retraction 235): Boeing's
-//     737-300/400/500 limitations, as operators' copies of them publish it.
-//   - 747-400, 320 kt/M.82, 270 to operate it: her limitations as published
-//     for simulator crews; one study card gives 270 for both.
-//   - 787-8, 270 kt/M.82, extended and operating alike: a crew's study set;
-//     no limitations page was found.
-//   - A320, 280 kt/M.67 (extension 250, retraction 220): FCOM LIM-AG-SPD, as
-//     its limitations summaries reproduce it.
-//   - A380, 250 kt/M.55, extended and operating alike: her FCOM's
-//     limitations as crews' study sets give them.
-//   - Learjet 35A, 260 kt (operating 200): her limitations as crews' study
-//     sets give them for serials 443 and 509.
-//   - Mosquito FB 6, 155 kt: A.P. 2019E, Pilot's Notes for the Mosquito
-//     FB 6 (docs/ASSETS.md), maximum speeds in knots, "Undercarriage down
-//     ... 155". Her model's gear takes 15 s to come up, and she reaches 154
-//     kt in it: the margin is a knot.
-// **The F-15C, F-22A, F-35B and B-2A publish none** that a search found:
-// their flight manuals (T.O. 1F-15A-1 and the rest) are not public in the
-// part that has it. 250 kt, the lowest of the jets' above, stands in.
-const std::map<std::string, double> gear_extended_kts = {
-    {"737-300", 320.0}, {"747-400", 320.0},    {"787-8", 270.0},
-    {"a320", 280.0},    {"a380", 250.0},       {"learjet35a", 260.0},
-    {"mosquito-fb6", 155.0}, {"f15c", 250.0}, {"f22", 250.0},
-    {"f35b", 250.0},    {"b2", 250.0},
-};
+// **Her gear-extended speed, VLE**, knots calibrated, is her catalogue
+// file's `gear-extended`, with its source beside it: published for the
+// airliners, the Learjet 35A, the Mosquito and the F-15C; for the F-22A,
+// F-35B and B-2A, which publish none, 250 kt stands in, named so there.
+// **And under it by more than this while her gear is out**, knots: the
+// take-off holds her climb 15 under it until her gear is up (Departure,
+// `gear_transit_margin_kts`), and she must keep a third of that. The
+// Mosquito, whose gear takes 15 s to come up, reached 154 kt against 155
+// before the take-off held her under it.
+constexpr double gear_down_margin_kts = 5.0;
 
 // **Her gear lever up within this long of lift-off**, taken as five feet
-// over where she stood: a second of positive rate confirmed (Departure::
-// raise_the_gear) after she first climbs at 100 ft/min. Measured
-// 2026-11-05 (linux-release): 1.0 s for the Mosquito to 4.7 s for the
-// 747-400, whose rotation floats her longest; 6 s gives a margin.
-constexpr double gear_commanded_within_s = 6.0;
+// over where she stood: the second of positive rate the take-off confirms
+// it over (Departure::raise_the_gear) and a half more. Measured 2026-11-06
+// (linux-release): 1.0 s for every one of the eleven, each climbing 337 to
+// 1,377 ft/min as she reached the five feet.
+constexpr double gear_commanded_within_s = 1.5;
 
 } // namespace
 
@@ -14003,7 +13986,7 @@ constexpr double gear_commanded_within_s = 6.0;
 // plan. One whose model's gear retracts has her gear lever up within
 // `gear_commanded_within_s` of lift-off, climbing, never lowers it again up
 // to three minutes past the hand-over, and is never faster in the air with
-// any gear out than her VLE (gear_extended_kts). One whose gear is fixed has
+// any gear out than 5 kt under her VLE (`gear-extended`). One whose gear is fixed has
 // no lever moved. Until 2026-11-05 no AI take-off raised the gear: every
 // planned flight climbed and cruised with it down, the fighters at 337 to
 // 384 kt. The space is the 15 landplanes, two ways each; the flying boat is
@@ -14012,6 +13995,7 @@ GLIDESLOPE_TEST(every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate
     std::size_t landplanes = 0;
     std::size_t flights = 0;
     std::size_t retracting = 0;
+    std::size_t vle_named = 0;
     for (const auto& entry : glideslope::sim::read_catalogue(data())) {
         if (entry.seaplane) {
             std::printf("  left out - %s: a flying boat takes off from water, not a runway\n",
@@ -14047,11 +14031,13 @@ GLIDESLOPE_TEST(every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate
             check(r.commanded_fpm > 0.0,
                   id + " was climbing as it did: " + std::to_string(r.commanded_fpm) + " ft/min");
             check(r.up && !r.lowered_again, id + "'s gear came up and stayed up");
-            const auto vle = gear_extended_kts.find(entry.id);
-            check(vle != gear_extended_kts.end(), id + " has a gear-extended speed named");
-            if (vle != gear_extended_kts.end()) {
-                check(r.fastest_down_kts <= vle->second,
-                      id + " was never faster than her " + std::to_string(vle->second) +
+            check(entry.gear_extended_kts.has_value(),
+                  id + " has a gear-extended speed in her catalogue file");
+            if (entry.gear_extended_kts) {
+                vle_named += planned ? 1 : 0;
+                check(r.fastest_down_kts <= *entry.gear_extended_kts - gear_down_margin_kts,
+                      id + " was never within 5 kt of her " +
+                          std::to_string(*entry.gear_extended_kts) +
                           " kt VLE with her gear out: " + std::to_string(r.fastest_down_kts));
             }
         }
@@ -14059,7 +14045,7 @@ GLIDESLOPE_TEST(every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate
     check(landplanes == 15 && flights == 2 * landplanes,
           "every one of the catalogue's 15 landplanes flown both ways: " +
               std::to_string(flights) + " flights of " + std::to_string(landplanes));
-    check(retracting == gear_extended_kts.size(),
-          "every landplane whose gear retracts has a VLE named: " + std::to_string(retracting) +
-              " retract, " + std::to_string(gear_extended_kts.size()) + " named");
+    check(retracting == 11 && vle_named == retracting,
+          "every one of the 11 landplanes whose gear retracts has a VLE named: " +
+              std::to_string(retracting) + " retract, " + std::to_string(vle_named) + " named");
 }

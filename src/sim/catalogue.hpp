@@ -42,6 +42,12 @@
 //                                manual has them brought to idle reverse at
 //                                this speed, knots: Boeing's 60, Airbus's 70.
 //                                A test holds this to her flight model
+//   gear-extended KCAS           her gear-extended speed, VLE: the fastest
+//                                she may fly with any of her gear out. Every
+//                                aircraft whose model's gear retracts must
+//                                give it, a test says; her file says where
+//                                it is from, or that it stands in for one
+//                                not published
 //
 // with `#` beginning a comment. Its published figures, if it has them, are
 // data/figures/MODEL.xml, and its selftest's log data/selftest/MODEL.log.
@@ -98,6 +104,8 @@ struct CatalogueEntry {
     // Her thrust reversers, and the speed they are brought to idle at; none
     // where she has none.
     std::optional<double> reverse_idle_kts;
+    // Her gear-extended speed, VLE, knots; none where her file gives none.
+    std::optional<double> gear_extended_kts;
     // The autopilot's rudder: its yaw damper's travel per degree a second of
     // yaw rate, and its integral's rate on the sideslip (sim/autopilot.cpp).
     double yaw_damper_per_degps = 0.05;

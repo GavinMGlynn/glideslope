@@ -349,9 +349,9 @@ within 100 ft from two minutes on
 Since 2026-11-05 an AI take-off raises her gear on a second of positive
 climb, with a plan or without; until then every planned flight cruised
 with it down. All 11 landplanes whose gear retracts have it coming up
-within 5 s of lift-off and are never past their gear-extended speed with
-it out; the fighters' and B-2A's limits are not published, and 250 kt
-stands in. The 747-400's and F-22A's measured climb-away speeds rose to 175
+within 1.5 s of lift-off (1.0 s each) and are never within 5 kt of their
+gear-extended speed with it out; the F-22A's, F-35B's and B-2A's limits
+are not published, and 250 kt, the F-15C's, stands in. The 747-400's and F-22A's measured climb-away speeds rose to 175
 and 230 kt, and the F-22A no longer overshoots a level-off; their
 CBD-orbit plans were recorded again for the new speeds
 (2026-11-05-an-ai-take-off-raises-her-gear-on-a-positive-rate).
