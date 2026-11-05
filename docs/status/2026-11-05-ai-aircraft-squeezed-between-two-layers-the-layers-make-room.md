@@ -120,8 +120,11 @@ same kind of move.
     the handed one at least 995 ft, AI 1 and AI 2 at least 700 ft;
   - handed and flying its copilot's route: above;
   - and two landing on one runway, and two wrecked together flying again.
-- The wider run, every server, hand-over, copilot, separation, monitor,
-  selftest and layer test in linux-release but the live ones: see below.
+- **The wider run**, linux-release, `-R "server|handed|hand_over|copilot|separation|monitor|selftest|apart|layer" -LE live`,
+  246 tests, held to 30 minutes: 225 run and every one passed but one
+  skipped (the server window's dashboard, no display). The 21 not reached
+  were the F-35B and STOVL prediction tests through a server, which fly a
+  player's aircraft, which the monitor gives no limit; CI runs them.
 
 **What the minimum does not cover.** One handed over already inside it
 cannot be out of it at that instant. The 12.5 s is how long the AI takes to
