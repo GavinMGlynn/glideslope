@@ -1598,11 +1598,12 @@ AI aircraft kept apart from each other and clear of the runway.
       aircraft's held middle moves with it.
       *Verification: with a layer above or below held at its limits, the
       squeezed aircraft's held height keeps the minimum from it.*
-- [ ] **A wreck flown again starts on a layer a joining player may take**:
-      a player's join skips wrecked aircraft when it looks for a free layer,
-      but a wreck flown again goes back to its own starting layer.
+- [x] **A wreck flown again starts on a layer a joining player may take**:
+      a player's join skips wrecked aircraft when it looks for a free layer;
+      a wreck flown again near the start now takes the lowest free layer by
+      the same rule when its own has been taken.
       *Verification: a wreck flown again while a player is at the start on
-      its layer is kept 500 ft or 1.5 nm from her.*
+      its layer is kept 500 ft or 1.5 nm from her.* Done 2026-11-05.
 - [ ] **The climb before a hold on raised ground is not measured against a
       person**: an AI aircraft leaving the circuit climbs in turns before
       setting off when the ground ahead is high, and nothing measures her

@@ -1728,32 +1728,7 @@ public:
         // - a player who left was taken out of the sky, and the next to join
         //   was put on the layer of a player still at the start (review of
         //   700a9049; so before #337 too).
-        // Bounded: it never climbs past one layer over everything near the
-        // start.
-        glideslope::sim::Traffic at_start;
-        at_start.latitude_deg = start_.latitude_deg;
-        at_start.longitude_deg = start_.longitude_deg;
-        std::size_t layer = flown_.size() + 1;
-        const auto held = [&](std::size_t k) {
-            const double layer_ft = start_.altitude_ft + static_cast<double>(k) * ai_stack_ft;
-            return std::any_of(flown_.begin(), flown_.end(), [&](const Aircraft& a) {
-                if (a.wrecked_at_s >= 0.0) {
-                    return false;
-                }
-                const glideslope::sim::AircraftState s = a.aircraft->state();
-                glideslope::sim::Traffic t;
-                t.latitude_deg = s.latitude_deg;
-                t.longitude_deg = s.longitude_deg;
-                return glideslope::sim::horizontal_m(at_start, t) <
-                           glideslope::sim::Separation::minimum_m &&
-                       std::abs(s.altitude_ft - layer_ft) <
-                           glideslope::sim::Separation::minimum_ft +
-                               glideslope::sim::Separation::margin_ft;
-            });
-        };
-        while (held(layer)) {
-            ++layer;
-        }
+        const std::size_t layer = free_layer();
         ic.altitude_ft = start_.altitude_ft + static_cast<double>(layer) * ai_stack_ft;
         std::printf("a player's aircraft starts on layer %zu, %.0f ft over the plan's start\n",
                     layer, static_cast<double>(layer) * ai_stack_ft);
@@ -3966,6 +3941,43 @@ public:
     }
 
 private:
+    // **Whether anything flying holds the height `altitude_ft` near the
+    // start**: within 1.5 nm of it and 700 ft of that height. A wreck holds
+    // nothing - it is not in the sky - and one flying again asks this before
+    // it is put back, so it never finds itself.
+    bool held_at_start(double altitude_ft) const {
+        glideslope::sim::Traffic at_start;
+        at_start.latitude_deg = start_.latitude_deg;
+        at_start.longitude_deg = start_.longitude_deg;
+        return std::any_of(flown_.begin(), flown_.end(), [&](const Aircraft& a) {
+            if (a.wrecked_at_s >= 0.0) {
+                return false;
+            }
+            const glideslope::sim::AircraftState s = a.aircraft->state();
+            glideslope::sim::Traffic t;
+            t.latitude_deg = s.latitude_deg;
+            t.longitude_deg = s.longitude_deg;
+            return glideslope::sim::horizontal_m(at_start, t) <
+                       glideslope::sim::Separation::minimum_m &&
+                   std::abs(s.altitude_ft - altitude_ft) <
+                       glideslope::sim::Separation::minimum_ft +
+                           glideslope::sim::Separation::margin_ft;
+        });
+    }
+
+    // **The lowest free layer at or above one over everything flying**,
+    // counted from the start: what a player joining is given, and a wreck
+    // flown again whose own layer has been taken meanwhile (fly_again).
+    // Bounded: it never climbs past one layer over everything near the
+    // start.
+    std::size_t free_layer() const {
+        std::size_t layer = flown_.size() + 1;
+        while (held_at_start(start_.altitude_ft + static_cast<double>(layer) * ai_stack_ft)) {
+            ++layer;
+        }
+        return layer;
+    }
+
     // **Whether a wreck whose time is up may fly again now.** Anything but a
     // planned aircraft that takes off may. That one starts again on its
     // runway's threshold, and two planned aircraft may well have the same
@@ -4016,6 +4028,42 @@ private:
         // fuel she wrecked with, as every aircraft did before loadings.
         if (!a.loading_name.empty()) {
             a.aircraft->load(a.loading);
+        }
+        // **Not onto a layer taken while it was a wreck**: a player joining
+        // skips a wreck when she looks for a free layer (free_layer), so
+        // one flown again from the start could be put on top of her. One
+        // that starts near the start, in the air, and finds its height held
+        // there is given the lowest free layer instead, by the rule a join
+        // uses, and keeps it from then on. One taking off from its runway
+        // waits for that to be clear instead (may_fly_again).
+        if (!(a.on_plan && a.own_plan && a.own_plan->takeoff)) {
+            glideslope::sim::Traffic at_start;
+            at_start.latitude_deg = start_.latitude_deg;
+            at_start.longitude_deg = start_.longitude_deg;
+            glideslope::sim::Traffic own;
+            own.latitude_deg = a.start.latitude_deg;
+            own.longitude_deg = a.start.longitude_deg;
+            if (glideslope::sim::horizontal_m(at_start, own) <
+                glideslope::sim::Separation::minimum_m) {
+                const bool taken = held_at_start(a.start.altitude_ft);
+                if (taken) {
+                    const std::size_t layer = free_layer();
+                    const double moved_ft = start_.altitude_ft +
+                                            static_cast<double>(layer) * ai_stack_ft -
+                                            a.start.altitude_ft;
+                    a.start.altitude_ft += moved_ft;
+                    if (a.on_plan && !a.own_plan) {
+                        a.stack_ft += moved_ft;
+                    }
+                }
+                // Said, moved or not, for a test to hold against the
+                // layer of whoever is at the start.
+                std::printf("aircraft %u, %s, flies again %.0f ft over the plan's start%s\n",
+                            static_cast<unsigned>(a.index), a.id.c_str(),
+                            a.start.altitude_ft - start_.altitude_ft,
+                            taken ? ": its own layer was taken while it was a wreck" : "");
+                std::fflush(stdout);
+            }
         }
         a.aircraft->initialize(a.start);
         a.copilot_route.clear();
