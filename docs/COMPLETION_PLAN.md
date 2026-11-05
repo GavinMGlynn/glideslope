@@ -1135,17 +1135,16 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       *Verification: decided in `REQUIREMENTS.md`; if smoothed, reference
       runways roll with no bump beyond a bound.* Done 2026-10-01: flattened
       for every runway the data places; reference runways within 5 cm.
-- [ ] **An AI take-off never raises her gear.** Found 2026-11-05 in the
+- [x] **An AI take-off never raises her gear.** Found 2026-11-05 in the
       review of #343: every planned flight climbed and cruised with her
-      wheels down, the fighters at 337 to 384 kt. Still to do: the 747-400's
-      and F-22A's recorded CBD-orbit plans must be recorded again, since
-      their climb speeds in the prompt moved; that spends the owner's key. *Verification: every
+      wheels down, the fighters at 337 to 384 kt. *Verification: every
       landplane whose gear retracts, taken off by the AI with a plan and
       without, has her gear lever up within 6 s of lift-off, climbing, and is
       never faster than her gear-extended speed with any gear out; fixed
-      gear is left alone; seen red on the old code.* Met 2026-11-05: the
+      gear is left alone; seen red on the old code.* Done 2026-11-05: the
       take-off raises it on a second of positive climb; the 747-400's and
-      F-22A's measured climb-away speeds rise to 175 and 230 kt.
+      F-22A's measured climb-away speeds rise to 175 and 230 kt, and their
+      CBD-orbit plans were recorded again for them.
 
 ---
 

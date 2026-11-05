@@ -1,15 +1,12 @@
 ### An AI take-off raises her gear on a positive rate, 2026-11-05
 
 **What it does not do, first.**
-- **Two copilot recordings are red and must be recorded again**:
-  `take_off_climb_to_3000_ft_and_orbit_the_cbd_is_planned_for_the_747-400_by_anthropic_as_recorded_and_flown`
-  and its F-22A twin. The prompt carries each aircraft's climb speed, which
-  moved (below), so the recorded exchange no longer matches it. Recording
-  spends the owner's Anthropic key, which is not done without his say-so;
-  the item stays open until it is.
-- **The whole suite was not run locally**: the linux-release run stopped
-  at its 30-minute cap at 1,227 of 1,575 tests. The take-off subset (548
-  tests) was run in full, before and after.
+- **The whole suite was run locally in three parts** (linux-release): the
+  first stopped at its 30-minute cap at 1,227 of 1,575 tests, and the 363
+  it never reached were run after it, all green but for the few that
+  skip for want of a display or a platform; the 8 that ask a model now are
+  left out by label. Of the first part's 1,227, the three red ones - the two
+  recordings and the F-22A's glide count - are fixed (below) and green.
 - **The fighters' and the B-2A's gear limits are not published.** Their
   flight manuals (T.O. 1F-15A-1 and the rest) are not public in the part
   that has them, and no search found a figure. The test holds them to 250 kt,
@@ -103,5 +100,12 @@ which is only for a clean aeroplane, stayed off for every retractable.
   so she is now asked 225 and 230 kt, and her band is 225 to 230
   (`the_f22a_glides_round_its_tightest_orbit_from_225_to_230_kt_without_stalling`,
   renamed from `..._at_225_kt_...`); she glides round at both.
+- **The 747-400's and F-22A's CBD-orbit plans were recorded again**
+  (`tests/data/copilot/cbd-orbit-747-400-anthropic.jsonl`, `...-f22-...`):
+  the prompt carries each aircraft's climb speed, which moved, so the old
+  exchanges no longer played back. Asked of Anthropic once each, live, by
+  the owner's standing word of 2026-10-31 that recordings are made again
+  when their prompts change; no key is in them. Both
+  `..._as_recorded_and_flown` tests play back and fly green.
 - **The selftest hash does not move**: the selftest flies a pilot's input
   log, not an AI take-off.

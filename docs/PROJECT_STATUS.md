@@ -343,9 +343,8 @@ with it down. All 11 landplanes whose gear retracts have it coming up
 within 5 s of lift-off and are never past their gear-extended speed with
 it out; the fighters' and B-2A's limits are not published, and 250 kt
 stands in. The 747-400's and F-22A's measured climb-away speeds rose to 175
-and 230 kt, and the F-22A no longer overshoots a level-off. Their recorded
-CBD-orbit plans must be recorded again for the new speeds, and are red
-until they are
+and 230 kt, and the F-22A no longer overshoots a level-off; their
+CBD-orbit plans were recorded again for the new speeds
 (2026-11-05-an-ai-take-off-raises-her-gear-on-a-positive-rate).
 
 
