@@ -13,6 +13,21 @@ namespace {
 constexpr double degrees = 180.0 / 3.14159265358979323846;
 constexpr double metres_per_nm = 1852.0;
 
+// How far her heading is off `deg`, 0 to 180.
+double off_deg(double heading_deg, double deg) {
+    const double d = std::fmod(std::abs(heading_deg - deg), 360.0);
+    return d > 180.0 ? 360.0 - d : d;
+}
+
+// Whether `other`, the `i`th, is ahead of `mine`, the `self`th, in a
+// sequence: joined earlier; at the same time, further down the runway; and
+// level there too, before her in the order.
+bool ahead_in_sequence(const CirclePlace& other, std::size_t i, const CirclePlace& mine,
+                       std::size_t self) {
+    return other.since_s < mine.since_s ||
+           (other.since_s == mine.since_s &&
+            (other.along_nm > mine.along_nm || (other.along_nm == mine.along_nm && i < self)));
+}
 
 } // namespace
 
@@ -50,12 +65,7 @@ std::optional<double> circuit_ahead_alt_ft(std::size_t self,
         if (i == self || !all[i] || !same_runway(all[i]->runway, mine.runway)) {
             continue;
         }
-        const CirclePlace& other = *all[i];
-        const bool ahead =
-            other.since_s < mine.since_s ||
-            (other.since_s == mine.since_s &&
-             (other.along_nm > mine.along_nm || (other.along_nm == mine.along_nm && i < self)));
-        if (ahead) {
+        if (ahead_in_sequence(*all[i], i, mine, self)) {
             highest = std::max(highest.value_or(all[i]->circuit_alt_ft), all[i]->circuit_alt_ft);
         }
     }
@@ -109,6 +119,54 @@ GoAroundCircuit::GoAroundCircuit(const Aircraft& aircraft, const Runway& runway,
         circuit_ft_ += highest_ft - runway_.elevation_ft;
     }
     leave_downwind_nm_ = circuit_ft_ / 318.0 + 0.33;
+}
+
+bool behind_a_person(std::size_t self, const std::vector<std::optional<CirclePlace>>& all) {
+    if (self >= all.size() || !all[self]) {
+        return false;
+    }
+    const CirclePlace& mine = *all[self];
+    for (std::size_t i = 0; i < all.size(); ++i) {
+        if (i != self && all[i] && all[i]->by_hand && same_runway(all[i]->runway, mine.runway) &&
+            ahead_in_sequence(*all[i], i, mine, self)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+bool straight_in_by_hand(const Runway& runway, const AircraftState& her) {
+    const double above_ft = her.altitude_ft - runway.elevation_ft;
+    const double along_nm = along_runway_nm(runway, her.latitude_deg, her.longitude_deg);
+    // A three-degree path's height, nm before the threshold: 318 ft a mile.
+    return above_ft > RunwayClear::occupied_ft && along_nm <= 0.0 &&
+           along_nm >= -by_hand_final_nm &&
+           std::abs(across_runway_m(runway, her.latitude_deg, her.longitude_deg)) <
+               Separation::minimum_m &&
+           off_deg(her.heading_deg, runway.heading_deg) <= by_hand_heading_deg &&
+           above_ft <= -along_nm * 318.0 + close_ft;
+}
+
+bool departing_by_hand(const Runway& runway, const AircraftState& her) {
+    const double above_ft = her.altitude_ft - runway.elevation_ft;
+    if (off_deg(her.heading_deg, runway.heading_deg) > by_hand_heading_deg) {
+        return false;
+    }
+    if (on_runway(runway, her.latitude_deg, her.longitude_deg, above_ft)) {
+        return her.airspeed_kts >= by_hand_rolling_kts;
+    }
+    const double along_m = along_runway_nm(runway, her.latitude_deg, her.longitude_deg) *
+                           metres_per_nm;
+    return along_m >= 0.0 && along_m <= runway.length_m + by_hand_departure_nm * metres_per_nm &&
+           std::abs(across_runway_m(runway, her.latitude_deg, her.longitude_deg)) <
+               Separation::minimum_m;
+}
+
+bool clear_of_departures_by_hand(const Runway& runway, const AircraftState& her) {
+    return across_runway_m(runway, her.latitude_deg, her.longitude_deg) < 0.0 &&
+           off_deg(her.heading_deg, runway.heading_deg + 180.0) <= 60.0 &&
+           -along_runway_nm(runway, her.latitude_deg, her.longitude_deg) * metres_per_nm >=
+               Separation::minimum_m;
 }
 
 bool departure_held(const Runway& runway, const std::vector<std::optional<CirclePlace>>& all) {

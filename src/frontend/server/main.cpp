@@ -3530,6 +3530,9 @@ private:
         // Her place taken by the server's clock, which every aircraft shares.
         controller->follows_with([this, &aircraft] { return circuit_ahead_of(aircraft); },
                                  [this] { return now_s(); });
+        // **Behind a person who stays in the circuit, she leaves it**
+        // (Controller::leaves_with, sim::behind_a_person).
+        controller->leaves_with([this, &aircraft] { return behind_a_person(aircraft); });
         // **And with traffic straight in** (sim/circuit.hpp): a circuit
         // gives way to a straight-in on the approach to her runway, and an
         // approach with traffic close ahead goes around early.
@@ -3559,7 +3562,18 @@ private:
     bool straight_in_to(const glideslope::sim::Runway& runway,
                         const glideslope::sim::Aircraft& self) const {
         for (const Aircraft& b : flown_) {
-            if (b.aircraft.get() == &self || !b.controller || b.wrecked_at_s >= 0.0) {
+            if (b.aircraft.get() == &self || b.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            // **A person's, judged by how she flies** (sim::straight_in_by_hand,
+            // departing_by_hand): nothing holds her, and she is given way to.
+            if (!b.controller ||
+                b.controller->flying() == glideslope::sim::Controller::Flying::pilot) {
+                const glideslope::sim::AircraftState her = b.aircraft->state();
+                if (glideslope::sim::straight_in_by_hand(runway, her) ||
+                    glideslope::sim::departing_by_hand(runway, her)) {
+                    return true;
+                }
                 continue;
             }
             const std::optional<glideslope::sim::Runway> in = b.controller->straight_in();
@@ -3587,6 +3601,22 @@ private:
             }
         }
         return false;
+    }
+
+    // **Whether a person's aircraft is ahead of `self`** in its runway's
+    // sequence (sim::behind_a_person), of every aircraft the server flies.
+    bool behind_a_person(const glideslope::sim::Aircraft& self) const {
+        std::vector<std::optional<glideslope::sim::CirclePlace>> places;
+        places.reserve(flown_.size());
+        std::size_t mine = flown_.size();
+        for (const Aircraft& b : flown_) {
+            if (b.aircraft.get() == &self) {
+                mine = places.size();
+            }
+            places.push_back(b.controller && b.wrecked_at_s < 0.0 ? b.controller->circling()
+                                                                  : std::nullopt);
+        }
+        return glideslope::sim::behind_a_person(mine, places);
     }
 
     // **The highest circuit ahead of `self`** in its runway's sequence
