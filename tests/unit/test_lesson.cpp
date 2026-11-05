@@ -13479,8 +13479,11 @@ GLIDESLOPE_TEST(the_circuit_lesson_flown_by_the_book_leaves_an_empty_debrief) {
         // for traffic pattern altitude (Private Pilot Airman Certification
         // Standards, FAA-S-ACS-6C, Area III, Task B, "maintain traffic
         // pattern altitude ±100 feet"), against the circuit's height, not
-        // where the lesson's stage began. The pattern itself turns downwind
-        // from 100 ft under it (GoAroundCircuit::modes).
+        // where the lesson's stage began. **The lower bound cannot catch a
+        // low entry**: the pattern itself turns downwind only from 100 ft
+        // under it (GoAroundCircuit::modes). It catches a sink along the
+        // leg, and the upper bound an overshoot; each was seen red with
+        // the downwind leg's height in circuit.cpp moved 150 ft.
         check(flown.lowest_downwind_ft >= flown.circuit_ft - circuit_within_ft &&
                   flown.highest_downwind_ft <= flown.circuit_ft + circuit_within_ft,
               id + " flew her downwind leg within 100 ft of her circuit height, " +
@@ -13692,6 +13695,8 @@ struct HeldAfterTakeOff {
     double settled_off_ft = 0.0;
     double end_ft = 0.0;        // above the runway at the end
     double slowest_kts = 1e9;   // her slowest after it
+    // Her fastest from brakes off with any flap out, knots.
+    double fastest_flap_out_kts = 0.0;
     // The last time, after the hand-over, she was more than
     // `no_plan_close_ft` from her height: from then on she was within it.
     double last_off_s = 0.0;
@@ -13771,6 +13776,11 @@ HeldAfterTakeOff no_plan_after_take_off(const std::string& id, double to_ft = no
         }
         was_departing = departing;
         out.most_over_all_ft = std::max(out.most_over_all_ft, ft - to_ft);
+        if (aircraft.has_property("fcs/flap-pos-deg") &&
+            aircraft.property("fcs/flap-pos-deg") > 0.5) {
+            out.fastest_flap_out_kts =
+                std::max(out.fastest_flap_out_kts, aircraft.property("velocities/vc-kts"));
+        }
         if (handed_at < 0) {
             continue;
         }
@@ -13948,10 +13958,11 @@ GLIDESLOPE_TEST(every_landplane_taken_off_with_no_plan_to_650_ft_goes_no_more_th
         const HeldAfterTakeOff r = no_plan_after_take_off(entry.id, to_ft, held_s);
         ++flown;
         std::printf("  %s: %s; handed over at %.0f ft, %+.0f ft/min, %.0f kt; %+.1f ft past "
-                    "650 at most (%+.1f after the hand-over); %.1f ft at the end\n",
+                    "650 at most (%+.1f after the hand-over); %.1f ft at the end; fastest "
+                    "with flap out %.0f kt\n",
                     entry.id.c_str(), r.wreck.empty() ? "flying" : r.wreck.c_str(),
                     r.handed_ft, r.handed_fpm, r.handed_kts, r.most_over_all_ft,
-                    r.most_over_ft, r.end_ft);
+                    r.most_over_ft, r.end_ft, r.fastest_flap_out_kts);
         if (r.most_over_all_ft > worst_ft) {
             worst_ft = r.most_over_all_ft;
             worst = entry.id;
