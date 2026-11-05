@@ -343,20 +343,24 @@ public:
     // **Behind a person who stays in the circuit, she leaves it**, asked of
     // the caller every step she flies a circuit (sim::behind_a_person of
     // every aircraft's place): a person cannot be told to land, so a
-    // tower's other means are the AI's - a departure from the pattern (AIM
-    // 4-3-2, AC 90-66C: a 45-degree turn away from it). Having flown
-    // `racetracks_behind_a_person` whole racetracks behind her, on her next
-    // outbound leg - outside the circuit and 700 ft over the highest the
-    // person flies it - she turns 45 degrees away from the runway, gives up
-    // her place, and flies on at that height on the plain autopilot. She
-    // does not come back to land. Without it, nothing is asked and she
-    // holds until the person lands.
+    // tower's other means are the AI's - "remain outside the Class D" (AIM
+    // 3-2-5). Having flown `racetracks_behind_a_person` whole racetracks
+    // behind her, on her next outbound leg - outside the circuit and 700 ft
+    // over the highest the person flies it - she leaves for a standard hold
+    // outside it (sim::HoldOutside), cleaned up, keeping her place. Once
+    // the person is down (no person ahead of her place), she comes back:
+    // the legs to final and the approach. Without it, nothing is asked and
+    // she holds in her racetrack until the person lands.
     using BehindAPersonQuery = std::function<bool()>;
     void leaves_with(BehindAPersonQuery behind) { behind_a_person_ = std::move(behind); }
     static constexpr int racetracks_behind_a_person = 1;
     // Whether she has left a circuit behind a person, and the sim time she
     // did, s.
     std::optional<double> left_the_circuit_s() const { return left_the_circuit_s_; }
+    // The hold she is flying outside the circuit, if she is; and the sim
+    // time she left it to come back and land, s.
+    const HoldOutside* hold() const { return holding_out_ ? &*holding_out_ : nullptr; }
+    std::optional<double> rejoined_at_s() const { return rejoined_at_s_; }
     // Whether her take-off roll has begun (none: no take-off).
     bool rolling() const { return departure_ && released_; }
     // **The runway she is departing**: her take-off rolling or climbing
@@ -569,6 +573,13 @@ private:
     StraightInQuery straight_in_;
     BehindAPersonQuery behind_a_person_;
     std::optional<double> left_the_circuit_s_;
+    std::optional<double> rejoined_at_s_;
+    std::optional<HoldOutside> holding_out_;
+    struct Rejoin {
+        Runway runway;
+        ApproachSpeeds speeds;
+    };
+    std::optional<Rejoin> rejoin_;
     DepartureHoldQuery hold_;
     std::string why_gone_around_;
     bool released_ = false;

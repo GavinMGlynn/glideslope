@@ -389,6 +389,8 @@ set(GLIDESLOPE_UNIT_TESTS
     an_ai_aircraft_behind_a_person_who_stays_in_the_circuit_leaves_it_kept_apart_the_slowest_and_the_fastest_each_with_each
     an_ai_departure_behind_a_person_who_stays_in_the_circuit_departs_kept_apart_the_slowest_and_the_fastest_each_with_each
     every_landplane_has_a_test_with_every_person_straight_in_departing_or_staying_in_the_circuit
+    a_persons_place_is_clear_of_departures_behind_the_threshold_and_going_away_whatever_her_pattern
+    a_person_straight_in_to_or_departing_the_reciprocal_runway_is_seen
     a_737_300_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
     a_747_400_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
     a_787_8_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
@@ -1421,10 +1423,14 @@ foreach(_t a_737_300 a_747_400 a_787_8 an_a320 an_a380 a_b2 a_c172p a_c182 an_f1
     set_tests_properties(${_t}_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
         PROPERTIES TIMEOUT 3600 LABELS gust_sweep)
 endforeach()
+# The three a person's on every run: on linux-debug locally, three at once
+# beside a -j4 sweep, 589, 689 and 334 s - over the presets' 900 on a slower
+# runner, as a sibling of theirs went. An hour each: five times the local
+# debug figure, and nothing gives up on a slow machine sooner than it needs.
 set_tests_properties(a_circuit_gives_way_to_a_person_straight_in_and_is_kept_apart_from_her_departing_the_slowest_and_the_fastest_each_with_each
     an_ai_aircraft_behind_a_person_who_stays_in_the_circuit_leaves_it_kept_apart_the_slowest_and_the_fastest_each_with_each
     an_ai_departure_behind_a_person_who_stays_in_the_circuit_departs_kept_apart_the_slowest_and_the_fastest_each_with_each
-    PROPERTIES TIMEOUT 1800)
+    PROPERTIES TIMEOUT 3600)
 
 # **A program that has ended can still allocate until its last thread is gone**
 # (tests/unit/test_process_end.cpp, src/platform/end_process.hpp). What it

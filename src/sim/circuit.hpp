@@ -167,11 +167,15 @@ bool straight_in_by_hand(const Runway& runway, const AircraftState& her);
 // 90-66C and AIM 4-3-2: straight out, or a turn once beyond the departure
 // end - or is that far past its end.
 bool departing_by_hand(const Runway& runway, const AircraftState& her);
-// **Clear of a departure**, a person in the circuit: on her downwind leg as
-// a pilot flies one - left of the centreline, heading within 60 degrees of
-// the runway's reciprocal - and the 1.5 nm minimum short of the threshold,
-// as an AI's place is marked (CirclePlace::clear_of_departures). Judged
-// afresh every step: turned base, she is not.
+// **Clear of a departure**, a person in the circuit: the 1.5 nm minimum
+// short of the threshold, as an AI's place is marked
+// (CirclePlace::clear_of_departures), and not closing on it - heading 90
+// degrees or more off the bearing to it - whatever her pattern's shape:
+// either hand, wide, or an orbit, so long as she is behind the threshold.
+// A departure climbing out ahead of the threshold then goes away from her.
+// Judged afresh every step: turned towards the runway, she is not. Over or
+// beyond the runway she never is: one orbiting over the climb-out holds
+// the departure, as a tower would not release one into her.
 bool clear_of_departures_by_hand(const Runway& runway, const AircraftState& her);
 constexpr double by_hand_final_nm = 5.0;
 constexpr double by_hand_departure_nm = 1.5;
@@ -209,6 +213,72 @@ double close_m(const Runway& runway, const AircraftState& me, const AircraftStat
 constexpr double close_ft = 500.0 + 200.0;
 constexpr double close_in_hand_m = 926.0;
 constexpr double close_lead_s = 60.0;
+
+// **The reciprocal of a runway**: the same pavement landed the other way -
+// its threshold at the far end, its heading turned round.
+Runway reciprocal(const Runway& runway);
+// **Whether a person is using `runway` or its reciprocal**, straight in or
+// departing (`straight_in_by_hand`, `departing_by_hand`): one taking off
+// the other way is in the circuit's way as much as one taking off with it.
+bool using_by_hand(const Runway& runway, const AircraftState& her);
+
+// **Holding outside the circuit**, behind a person who stays in it
+// (Controller::leaves_with): a tower's "remain outside the Class D" (AIM
+// 3-2-5) flown as a standard holding pattern (AIM 5-3-8): right turns,
+// one-minute legs at or below 14,000 ft, no faster than 200 kt at or below
+// 6,000 ft.
+//   - The fix: `fix_nm` from the threshold, on the bearing she left at -
+//     so that, turning out over it towards the runway, she stays beyond
+//     the furthest any circuit is flown (6.5 nm, measured) and a Class D
+//     surface area's usual 4 nm. Chosen, not sourced: at 8 nm a long hold
+//     of the F-15C's came within 6.0 nm.
+//   - The inbound leg towards the runway, through the fix, and the
+//     outbound leg away from it: the hold lies beyond the fix.
+//   - Cleaned up: flap up, gear up where it retracts. Flown at 1.4 times
+//     her reference speed - a clean wing's margin over its stall, chosen -
+//     at least twenty knots over it and at most 200 kt, or the reference
+//     and twenty where that is faster.
+//   - Her height: 700 ft over the highest the person ahead flies (she is
+//     held there, raised), and 1,000 ft over the highest ground within
+//     4 nm of the hold - 14 CFR 91.177(a)(2)(ii)'s IFR minimum, the
+//     ground sampled every 250 m within `fix_nm`'s 4 nm and a leg's
+//     reach of the fix.
+class HoldOutside {
+public:
+    static constexpr double fix_nm = 9.0;
+    static constexpr double leg_s = 60.0;
+    static constexpr double bank_deg = 25.0;
+    enum class Leg { to_fix, turn_out, outbound, turn_in };
+
+    // `at_least_alt_ft`: the height she leaves her circuit at, above sea
+    // level.
+    HoldOutside(const Aircraft& aircraft, const Runway& runway, const ApproachSpeeds& speeds,
+                double at_least_alt_ft);
+    AutopilotModes modes();
+    void configure(Controls& controls) const;
+    Leg leg() const { return leg_; }
+    const Runway& runway() const { return runway_; }
+    const ApproachSpeeds& speeds() const { return speeds_; }
+    double altitude_ft() const { return altitude_ft_; }
+    double speed_kts() const { return speed_kts_; }
+    double fix_lat_deg() const { return fix_lat_deg_; }
+    double fix_lon_deg() const { return fix_lon_deg_; }
+    // How many times she has crossed the fix.
+    int laps() const { return laps_; }
+
+private:
+    const Aircraft& a_;
+    Runway runway_;
+    ApproachSpeeds speeds_;
+    double fix_lat_deg_ = 0.0;
+    double fix_lon_deg_ = 0.0;
+    double inbound_deg_ = 0.0;
+    double altitude_ft_ = 0.0;
+    double speed_kts_ = 0.0;
+    Leg leg_ = Leg::to_fix;
+    double leg_began_s_ = 0.0;
+    int laps_ = 0;
+};
 
 class GoAroundCircuit {
 public:
