@@ -20,3 +20,6 @@ start 220 0.45
 # 60 psi; 50 taken. Dunlop pneumatic brakes, no anti-skid (the Maxaret came
 # after the war).
 brakes 50 none
+# Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): A.P. 2019E, Pilot's Notes for the Mosquito FB 6 (docs/ASSETS.md),
+# maximum speeds in knots: "Undercarriage down ... 155".
+gear-extended 155

@@ -24,3 +24,6 @@ start 300 0.47
 # the F-15's 305 and the F-22's 286. Her anti-skid, fully modulating, is an
 # estimate too (Hydro-Aire's Mark V was on the X-35).
 brakes 300 fully-modulating
+# Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): NOT PUBLISHED: no figure was found, her flight manual being not public.
+# 250 kt stands in, the F-15C's and the lowest of the jets' published limits.
+gear-extended 250

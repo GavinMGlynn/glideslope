@@ -22,3 +22,6 @@ speedbrakes
 # cold, loaded, the basic aeroplane's (the top of it taken); Jane's: fully
 # modulated anti-skid.
 brakes 156 fully-modulating
+# Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): her limitations as crews' study sets give them for serials 443 and
+# 509: 260 kt (operating 200).
+gear-extended 260

@@ -27,3 +27,6 @@ yaw-damper 0.15 0.005
 # weight; loaded, 4 per cent more, 286. Her anti-skid, digital and fully
 # modulating, is an estimate too: no public source.
 brakes 286 fully-modulating
+# Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): NOT PUBLISHED: no figure was found, her flight manual being not public.
+# 250 kt stands in, the F-15C's and the lowest of the jets' published limits.
+gear-extended 250

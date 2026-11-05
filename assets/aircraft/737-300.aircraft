@@ -26,3 +26,6 @@ brakes 201 fully-modulating
 # (as excerpted in NTSB DCA19MA143, attachment 17) - "Reverse thrust is
 # reduced to idle between 60 KIAS and taxi speed" (docs/ASSETS.md).
 reversers 60
+# Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): Boeing's 737-300/400/500 limitations, as operators' copies of them
+# publish it: gear extended 320 kt/M.82 (extension 270, retraction 235).
+gear-extended 320

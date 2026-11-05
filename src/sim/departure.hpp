@@ -56,6 +56,10 @@ struct DepartureSpeeds {
     // height of its own. Speeds made by hand, with no class to go by, take
     // the higher (`flaps_up_ft`, below, gives either).
     double flaps_up_ft = 400.0;
+    // **Her gear-extended speed, VLE**, knots, from her catalogue file
+    // (`gear-extended`); none where it gives none. The climb away is held
+    // `gear_transit_margin_kts` under it until her gear is up.
+    std::optional<double> gear_extended_kts;
     // **A flying boat's running attitude on the water**, degrees, held from
     // the start of the run until the rotation speed, and three more from
     // there until the hull is clear - as Arthur Gouge flew the Short S.23's

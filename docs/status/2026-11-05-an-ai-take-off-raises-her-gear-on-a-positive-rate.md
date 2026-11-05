@@ -7,20 +7,27 @@
   skip for want of a display or a platform; the 8 that ask a model now are
   left out by label. Of the first part's 1,227, the three red ones - the two
   recordings and the F-22A's glide count - are fixed (below) and green.
-- **The fighters' and the B-2A's gear limits are not published.** Their
-  flight manuals (T.O. 1F-15A-1 and the rest) are not public in the part
-  that has them, and no search found a figure. The test holds them to 250 kt,
-  the lowest of the airliners' and the Learjet's, named as a stand-in.
+- **The F-22A's, F-35B's and B-2A's gear limits are not published.** Their
+  flight manuals are not public, and no search found a figure. Their
+  catalogue files give 250 kt, the F-15C's and the lowest of the jets'
+  published limits, named there as a stand-in.
 - **Several of the published VLEs are crews' copies, not the manufacturer's
   page**: the 737-300's, 747-400's, 787-8's, A320's, A380's and Learjet
   35A's come from operators' limitations sheets and crews' study sets that
-  agree with one another. Only the Mosquito's is read from the manual
-  itself (A.P. 2019E, the copy hashed in `docs/ASSETS.md`: "Maximum speeds
-  in knots ... Undercarriage down ... 155").
-- **The gear limit is checked by the test, not flown to.** Nothing in the
-  autopilot holds her under VLE with the gear out; she is simply never
-  there. The Mosquito comes closest: her model's gear takes 15 s to come up,
-  and she reaches 154 kt against 155 in it.
+  agree with one another. Two are read from the manual itself: the
+  Mosquito's (A.P. 2019E, the copy hashed in `docs/ASSETS.md`: "Maximum
+  speeds in knots ... Undercarriage down ... 155"), and the F-15C's (T.O.
+  1F-15A-1, the archive.org scan `docs/ASSETS.md` names, section V,
+  Operating Limitations, Systems Limitations, Airspeeds: landing gear
+  extension, retraction or flight with gear extended, 250 knots at +2.0 g;
+  read in the scan's text, `F15 Manual_djvu.txt`, SHA-256
+  `ad7d9478d00c24fb31147f0462a9b6d43129efa3972dc895f3cf6bc014d2da22`).
+  Each aircraft's is her catalogue file's `gear-extended`, with its source
+  beside it.
+- **The 5 ft, the second and the 15 kt are chosen, not sourced.** The
+  manuals say "positive rate", "confirmed" and "established", and give no
+  time or height; nor does any say how far under VLE to climb with the gear
+  in transit.
 - **The fighters are flown by the airliners' rule.** Their manuals' take-off
   procedures are not public either.
 
@@ -39,7 +46,12 @@ same for every type whose model's gear retracts (`Aircraft::gear_retracts`):
   airborne, brake the wheels and raise the undercarriage."
 
 100 ft/min is what a circuit joined from a take-off already raised it on
-(`circuit.cpp`). A take-off taken over in the air keeps the gear lever where
+(`circuit.cpp`). **While any of her gear is out the climb away is held
+15 kt under her gear-extended speed** (`gear_transit_margin_kts`), where her
+catalogue file gives one: the Mosquito's gear takes 15 s to come up, and
+climbing away at 148 kt she reached 154 in it against her 155. Held to 140,
+she reaches 147. No other aircraft climbs away within 15 kt of hers, so
+none else is touched. A take-off taken over in the air keeps the gear lever where
 it found it, as it keeps the flap lever. Fixed gear (the 172P, 182, Cub and
 Cherokee) has no lever, and nothing is moved.
 
@@ -55,10 +67,12 @@ which is only for a clean aeroplane, stayed off for every retractable.
   off twice at her take-off figures' weight - to a plan at her fastest plan
   speed, and to no plan - and flown three minutes past the hand-over; the
   Short S.23 is named and left out. The 11 whose gear retracts have the
-  lever up 1.0 s (Mosquito) to 4.7 s (747-400) after lift-off, at 14 to 28
-  ft climbing 337 to 1,377 ft/min, bounded at 6 s; the gear stays up; and
-  none is past her VLE with any gear out (fastest: 747-400 180 kt of 320,
-  F-15C 231, F-22A 224 and F-35B 239 of 250, Mosquito 154 of 155). The four
+  lever up 1.0 s after lift-off, taken as 5 ft over where she stood, each
+  climbing 337 to 1,377 ft/min then, bounded at 1.5 s; the gear stays up;
+  and none comes within 5 kt of her VLE with any gear out (fastest:
+  747-400 180 kt of 320, F-15C 231, F-22A 224 and F-35B 239 of 250,
+  Mosquito 147 of 155). The same in an x86-64-v2 build (`-march=x86-64-v2`,
+  no FMA, as CI's runners): Mosquito 147 kt, every lever up at 1.0 s. The four
   with fixed gear have no lever moved. Every retractable has a VLE named,
   asserted. Red on the old code: the 737-300's lever never went up, and she
   cruised at 301 kt gear down.
@@ -84,8 +98,10 @@ which is only for a clean aeroplane, stayed off for every retractable.
   climbing faster and so handed over further short of the take-off's 650 ft,
   was left 2.7 minutes and 7 nm upwind while the autopilot closed the last
   4 ft, and ran out of the lesson's fifteen minutes on her rollout. The
-  test's take-off is now asked for 750 ft, so she is joined to the circuit at
-  650 climbing, as a take-off joined to one is.
+  test's take-off is now asked for 750 ft, for every aircraft's circuit, so
+  each is joined to the circuit at 650 climbing, as a take-off joined to one
+  is. The creep itself, a no-plan take-off's last few feet, is a Phase 10a
+  tail.
 - **The airliners' low hold at take-off flap and gear**
   (`every_airliner_at_her_take_off_flap_and_gear_holds_a_low_height_settled_inside_a_minute`)
   builds its situation, gear down at the 35 ft screen, by holding the lever
@@ -105,7 +121,10 @@ which is only for a clean aeroplane, stayed off for every retractable.
   the prompt carries each aircraft's climb speed, which moved, so the old
   exchanges no longer played back. Asked of Anthropic once each, live, by
   the owner's standing word of 2026-10-31 that recordings are made again
-  when their prompts change; no key is in them. Both
+  when their prompts change: `GLIDESLOPE_LIVE_MODEL=1 ctest --preset
+  linux-release -R "orbit_the_cbd_is_planned_for_the_(747-400|f22)_by_anthropic_now_and_flown"`,
+  whose recordings, written to `build/linux-release/tests/plans_flown/`,
+  were copied into `tests/data/copilot/`; no key is in them. Both
   `..._as_recorded_and_flown` tests play back and fly green.
 - **The selftest hash does not move**: the selftest flies a pilot's input
   log, not an AI take-off.
