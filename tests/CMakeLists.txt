@@ -1371,6 +1371,10 @@ set_tests_properties(an_aeroplane_going_around_beside_rising_ground_flies_its_ci
 # go-around test above). Labelled gust_sweep, as the gust landings' long
 # seeds are: every night, on every preset, and on no pull request's run.
 # The nine pairs of the slowest, the C172P and the fastest run on every run.
+# Their test flies eighteen aircraft round in simulated time and ran past
+# the presets' 900 s on Linux debug in run 41986064242.
+set_tests_properties(two_going_around_together_the_slowest_the_c172p_and_the_fastest_each_behind_each_are_kept_apart_and_both_land
+    PROPERTIES TIMEOUT 1800)
 foreach(_t 737_300 747_400 787_8 a320 a380 b2 c172p c182 f15c f22 f35b j3cub
         learjet35a mosquito_fb6 pa28)
     set_tests_properties(two_going_around_together_behind_the_${_t}_are_kept_apart_and_both_land
