@@ -174,6 +174,11 @@ bool clear_of_departures_by_hand(const Runway& runway, const AircraftState& her)
                Separation::minimum_m;
 }
 
+bool left_the_circuit_by_hand(const Runway& runway, const AircraftState& her) {
+    return distance_m(her.latitude_deg, her.longitude_deg, runway.threshold_lat_deg,
+                      runway.threshold_lon_deg) > left_the_circuit_nm * metres_per_nm;
+}
+
 Runway reciprocal(const Runway& runway) {
     Runway r = runway;
     const double h = runway.heading_deg / degrees;
@@ -240,6 +245,14 @@ AutopilotModes HoldOutside::modes() {
     const double outbound_deg = std::fmod(inbound_deg_ + 180.0, 360.0);
     switch (leg_) {
     case Leg::to_fix:
+        // Not round it until she has climbed to her height (below): left
+        // within 2 nm of the fix with it behind her - a racetrack's
+        // outbound leg 7 nm out - she counted a lap at once, skipped the
+        // climb where she was, and flew the hold's outbound leg on towards
+        // the high ground below its height.
+        if (laps_ == 0 && s.altitude_ft < altitude_ft_ - 200.0) {
+            break;
+        }
         // Past the fix: within 2 nm of it and it behind her - abeam or
         // over it. Only "over it" (within half a mile and opening), a wide
         // turner circled it, never closer: a B-2A, a Learjet 35A and a

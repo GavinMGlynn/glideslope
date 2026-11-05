@@ -1,0 +1,107 @@
+### A person flying away from the circuit, and the climb before a hold on raised ground, 2026-11-06
+
+**What it does not do, first.**
+- **A person who takes off under an AI aircraft going around is still not
+  kept apart from her**, and no manoeuvre of the AI's can keep her apart:
+  the minimum is lost the moment the person lifts off. The AI goes around
+  from 200 ft about 0.6 nm short of the threshold; a person rolling in
+  that step lifts off 10 to 25 s later within 1.5 nm of her and less than
+  500 ft below her - a Cub going around has climbed perhaps 100 ft by
+  then. Measured, with the AI's go-around offsetting right at once (a
+  sidestep, tried and taken out again): a Cub under a Cub 668 m and 0 ft,
+  an F-15C under a Cub 1,090 m and 0 ft, a Cub under an F-15C 856 m and
+  195 ft, an F-15C under an F-15C 90 m and 0 ft - worse than the 684 m
+  without it. Holding her level instead only keeps her in the band the
+  departure climbs through. The plan item stays open, for the owner: the
+  verification as written cannot be met by the AI alone.
+- **A person's place is dropped only by distance**, 10 nm from the
+  threshold. A person who flies away and comes straight back in under that
+  keeps it; one who comes back after it is not in the sequence, and is
+  given way to only while she is straight in or departing.
+- **Only the slowest and the fastest are flown**, each with each, in the
+  two new situations: every landplane with every other is not.
+- **A racetrack reaches past the ground its circuit sampled**: an F-15C
+  following another, her circuit raised 700 ft, flew her racetrack into a
+  plateau 10 nm out that her circuit had not seen (it samples 8 nm before
+  the threshold). A plan item; the test's plateau is 12 nm out.
+
+**What it does.**
+- **A person who flies away from the circuit loses her place**
+  (`sim::left_the_circuit_by_hand`): further than
+  `sim::left_the_circuit_nm`, 10 nm, from the threshold, her place is
+  dropped, and an AI aircraft holding outside behind her comes back by its
+  legs to final and lands. 32 flights - the J-3 Cub and the F-15C each
+  with each, the person flying away level on each of eight bearings, every
+  45 degrees off the runway's heading, once the one behind is round her
+  hold's fix: every place dropped at 10 nm, every one behind on the runway
+  and clear of it, the longest 800 s after the drop (stated:
+  900 s), the least apart 3,821 m within 500 ft and 686 ft within 1.5 nm.
+- **The climb before a hold on raised ground is flown before the hold**,
+  and measured against a person in the circuit. Leaving her circuit from a
+  racetrack's outbound leg, she was within 2 nm of her hold's fix with it
+  behind her, counted a lap at once and skipped the climb where she was:
+  she flew the hold's outbound leg on towards the high ground below its
+  height. Now she is not round the fix until she has climbed to within
+  200 ft of the hold's height, in right turns where she is. Over a plateau
+  2,500 ft high from 12 nm out, a person staying in the circuit ahead, all
+  four pairs climbed 1,243 to 1,772 ft before setting off, and while they
+  did were never within 500 ft of the person nor within 1.5 nm of her.
+  The whole runs: least 686 ft within 1.5 nm, 3,821 m within 500 ft.
+
+**Researched first** (owner's standing rule). Searched: a go-around with
+traffic on the runway, sidestep and offset (AIM 4-3-2, the Airplane Flying
+Handbook, the ACS's go-around task, pilots' forums); JO 7110.65 on
+missed approaches and departures on one runway (3-9-6, 3-10); ICAO Doc
+4444 on a departure beneath a missed approach; when a tower drops an
+aircraft from the pattern and the Class D surface area's radius; terrain
+clearance in a climbing turn and climb-in-hold (AIM 5-3-8, the AIP's ENR
+1.5). FAA's own pages refused several fetches (403, 429).
+- CAA of New Zealand, Vector 2017, "Go-arounds": "If the go-around was
+  initiated due to traffic on the runway ... it is advisable to perform the
+  procedure to the right of centreline. This ensures that any aircraft on
+  the runway, or climbing out, remain in sight". The sidestep was built on
+  this, measured, and taken out (above).
+- An FAA notice (N JO 7110.531): the order does not prescribe separation
+  for a go-around against a departure; it is a situation not covered.
+  JO 7110.65 has a missed approach by a heavy flown under 3-9-6, so that
+  it "does not overtake or cross in front of a departing aircraft" - the
+  geometry a person rolling under her makes unavoidable.
+- AIM 4-3-2: outside the Class B, C and D surface areas a pilot need not
+  ask to leave the tower's frequency. A Class D surface area is usually
+  4 nm round (5 statute miles). Used: the drop is past that and past every
+  circuit (6.5 nm measured) and the legs to final (6 nm), with twice the
+  1.5 nm minimum: 10 nm, chosen. At 8 nm an F-15C flying away down the
+  approach was 2,673 m and 474 ft from the F-15C coming back.
+- Climb-in-hold (AIP ENR 1.5): a published hold may be climbed in, its
+  protected area enlarged for it. Departure procedures assume no turn below
+  400 ft and 200 ft a mile. Used: the climb is flown in turns where she is,
+  over ground her circuit was cleared for, before the hold - as the hold's
+  rule already said; the fix makes it so.
+
+**What changed.**
+- `sim::left_the_circuit_by_hand`, `sim::left_the_circuit_nm`; the
+  controller drops a person's place past it (`src/sim/controller.cpp`).
+  The server needs nothing new: it asks `behind_a_person` of every place.
+- `sim::HoldOutside::modes`: no lap before the climb.
+
+**Verification** (tests/unit/test_lesson.cpp, the two-going-around harness,
+the person flown by a stand-in).
+- `an_ai_aircraft_behind_a_person_who_flies_away_from_the_circuit_square_to_the_runway_comes_back_and_lands_kept_apart`
+  (every run) and `..._between_the_squares_...` (gust_sweep): the bearings
+  0, 90, 180, 270 and 45, 135, 225, 315; each pair on each, the count
+  asserted. `the_two_tests_of_a_person_flying_away_fly_every_bearing_once`
+  holds that the halves are the eight.
+- `on_raised_ground_an_ai_aircraft_climbing_before_her_hold_is_kept_apart_from_a_person_in_the_circuit`:
+  four pairs, each asserted to have climbed 500 ft or more before her fix.
+- linux-debug, two or three at once: each half of the flying-away flights
+  1,060 and 1,042 s; the raised ground 247 s. Timeouts 5,400 and 3,600 s.
+
+**Seen to fail.**
+- The drop at 8 nm: an F-15C flying away down the approach ahead of an
+  F-15C, 2,673 m and 474 ft - the reason for 10 nm.
+- The drop taken out: an F-15C flying away straight out ahead of an F-15C: her place was never dropped, and the one behind never came back ("not dropped as she passed 10 nm", "not back on the runway ... within 900 s").
+- The lap before the climb (the old rule): two of four pairs never
+  climbed before their fix, "no climb before the hold to measure".
+- A descent of 2,400 ft put in place of the climb: all four failed.
+- The plateau at 8.5 nm: every circuit raised 2,500 ft, nothing to measure;
+  at 10 nm, the F-15C's racetrack flew into it.
