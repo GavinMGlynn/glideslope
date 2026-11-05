@@ -314,14 +314,15 @@ behind a person who stays in the circuit holds until they leave it:
 nothing yet asks the person to land or offers the AI another runway
 (2026-11-05-two-going-around-together-are-kept-apart-and-both-land).
 
-Since 2026-11-05 the circuit gives way, wide, to an AI aircraft straight in
+Since 2026-11-05 the circuit gives way to an AI aircraft straight in
 or departing, until she turns base. An approach closing on traffic ahead
 goes around early, and a departure is held until the one going round is
 clear of it. All 675 flights of every landplane pair, in three situations,
-stayed 500 ft or 1.5 nm apart, the closest 558 ft within 1.5 nm, and landed
+stayed 500 ft or 1.5 nm apart, the closest 541 ft within 1.5 nm, and landed
 or departed in order. Without the hold or the early go-around they lost
 separation, down to 0 ft at 667 m and 1 m. A person straight in or taking
-off is not in the sequence yet
+off is not in the sequence yet, and a person in the circuit holds every AI
+departure from her runway until she lands
 (2026-11-05-a-go-arounds-circuit-gives-way-to-a-straight-in-and-holds-a-departure).
 
 Missing: one handed over already inside the minimum is under it for up

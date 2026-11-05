@@ -322,7 +322,7 @@ public:
     // caller every step she flies a circuit: whether one is on the approach
     // to the runway she is going round to, or climbing out from it
     // (another's `straight_in` or `departing`). One is, and she has not
-    // turned base, she follows it, wide (sim/circuit.hpp). Without it,
+    // turned base, she follows it (sim/circuit.hpp). Without it,
     // nothing is asked.
     using StraightInQuery = std::function<bool(const Runway&)>;
     void gives_way_with(StraightInQuery straight_in) { straight_in_ = std::move(straight_in); }

@@ -5,9 +5,13 @@
   taking off by hand, is not known to the AI as a straight-in or a
   departure: the circuit does not give way to them, and nothing holds
   them. The separation monitor and the runway's rule still keep those
-  apart. A person taken over in the circuit keeps her place (as before),
-  but her place is never marked clear of departures, so a departure from
-  her runway is held until she lands.
+  apart.
+- **The runway is held for a person in the circuit, and the hold never
+  ends if she never lands.** Taken over in the circuit she keeps her place
+  (as before), and her place is never marked clear of departures, so every
+  AI departure from her runway stands on it, held, until her wheels touch.
+  Her place is not skipped: nothing else would keep an AI departure apart
+  from her, since a person does not give way to it (the review of #339).
 - **No server run yet has a straight-in or a departure meet a circuit.**
   The server asks every aircraft it flies, by the same functions the tests
   call (`sim::close_ahead_on_approach`, `sim::departure_held`,
@@ -25,8 +29,7 @@
   circuit who has not yet turned base, with an AI aircraft on a straight-in
   approach to her runway, follows it as she follows a circuit ahead: her
   upwind leg offset 1.5 nm right, and her downwind leg extended (at most
-  2 nm, then the racetrack) until it has landed. Her downwind leg is flown
-  wide, 3,278 m left of the centreline the straight-in flies down.
+  2 nm, then the racetrack) until it has landed.
 - **Turned base, she is committed**, and a straight-in behind her is the one
   to give way.
 - **Traffic close ahead on an approach sends her round early** (the
@@ -80,8 +83,11 @@ was read from pointsixtyfive.com's copies and FAA notices.
 
 **Chosen.** Sourced and chosen apart:
 - **The straight-in first** (sourced: 91.113(g)). Not past base (chosen).
-- **The wide downwind, 3,278 m**: the 1.5 nm minimum and 500 m in hand for
-  the autopilot's turns. Chosen; no figure was found.
+- **No wide downwind.** One was tried - 3,278 m left of the centreline,
+  the minimum and 500 m in hand - and taken out in the review of #339: for
+  the A380, the 747-400 and the F-15C it was 300 to 700 m inside their own
+  downwind leg, and pulled them in; and with it removed (below) no flight
+  lost separation. No published distance for one was found.
 - **The early go-around's closeness**: 700 ft is the minimum and the 200 the
   monitor keeps in hand; the distance is the minimum and the greater of
   half a mile and a minute's closing, because her go-around climbs at
@@ -97,8 +103,7 @@ was read from pointsixtyfive.com's copies and FAA notices.
 
 **What changed** (`sim/circuit.hpp`, `sim/controller.hpp`,
 `sim/departure.hpp`, `src/frontend/server/main.cpp`):
-- `GoAroundCircuit::follow(ahead, straight_in)` and `wide()`;
-  `wide_downwind_m`.
+- `GoAroundCircuit::follow(ahead, straight_in)`.
 - `sim::close_ahead_on_approach`, `sim::close_m`; `Controller::spaced_with`
   goes around from an approach (the lander's or the learnt one's) with
   traffic close ahead, "traffic close ahead on final".
@@ -132,7 +137,7 @@ was read from pointsixtyfive.com's copies and FAA notices.
   from 200 ft on the glidepath, as in the test of two going around together.
   - *A straight-in as she goes around*: established on the glidepath 4 nm
     from her aim point. **Order**: the straight-in lands first, the one in
-    the circuit having given way, wide - unless the straight-in closes on
+    the circuit having given way - unless the straight-in closes on
     her and goes around early, and then she lands second. Of 225 pairs, 181
     went the first way and 44 the second; no straight-in went round for
     any other reason.
@@ -147,16 +152,18 @@ was read from pointsixtyfive.com's copies and FAA notices.
     on) as she goes around. **Order**: she crosses the runway first; the
     departure is held until she is clear of it, lifts off before she lands,
     and climbs out. She gives way to it while it climbs out: no racetrack in
-    101 pairs, one in 88, two in 36.
+    96 pairs, one in 93, two in 36.
 - In every flight, every step both are in the air, they are 500 ft apart
   vertically or 1.5 nm horizontally; both land (or the departure climbs
   out) and taxi clear; nothing is wrecked; the one in the circuit flies no
   further out than her base point and 2 nm.
-- **The least, across all 675**: 3,670 m horizontally within 500 ft (a C182
-  in the circuit with a Mosquito straight in as she goes around), 558 ft
-  vertically within 1.5 nm (a J-3 Cub in the circuit, a 747-400 straight in
-  as she joins final). A departure was never within 1.5 nm, nor nearer than
-  5,304 m within 500 ft.
+- **The least, across all 675** (without the wide downwind, run again after
+  the review of #339; all sixteen tests green): 3,321 m horizontally within
+  500 ft and 541 ft vertically within 1.5 nm (both a C182 in the circuit with
+  a J-3 Cub straight in as she goes around). A departure was never within
+  1.5 nm, nor nearer than 5,329 m within 500 ft. With the wide downwind in
+  they were 3,670 m and 558 ft. The orders and early go-arounds were as
+  above; one circuit flew a racetrack for a straight-in.
 
 **Seen to fail**, each bug put in and the failure watched:
 - **No giving way to a straight-in** (`follow` ignoring it): the small
@@ -170,10 +177,10 @@ was read from pointsixtyfive.com's copies and FAA notices.
 - **No departure held** (`departure_held` never true): all four departures
   in the small test rolled under the go-around and lost separation, the
   closest 667 m and 0 ft.
-- **No wide downwind** (`wide_` never set): the C172P's 45 flights failed on
-  four pairs not giving way wide. None lost separation: the wide downwind is
-  not shown needed by these situations, and is kept for one that joins the
-  approach while she is on her downwind leg, which none here builds.
+- **The wide downwind removed** (when it was in): the C172P's 45 flights
+  failed only on its own assertion, four pairs not flown wide; none lost
+  separation. So it was taken out, and the sweep run again without it
+  (above).
 - **Found on the way, each seen as a failure first**:
   - A straight-in sent round from 1,600 ft was in no sequence: the lander's
     go-around was over in the step it began, so she followed nobody and flew
@@ -190,7 +197,9 @@ was read from pointsixtyfive.com's copies and FAA notices.
   - An A380 given a bare take-off to 3,000 ft and no plan was left on the
     plain autopilot, and flew into the ground at 455 s, 225 kt: the test now
     gives every departure a plan, as a server's has. That a plain autopilot
-    after a take-off flies an A380 into the ground is a tail.
+    after a take-off flies an A380 into the ground is a tail. It was there
+    before this item, and the server cannot reach it today: every take-off
+    the server gives has a plan after it.
 
 Unchanged and green: every test matching go-around, circuit, straight-in,
 separation, vacate, taxi, kept apart, controller, runway, selftest and the
