@@ -1142,7 +1142,7 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
 
 The AI's approach, flare, touchdown, roll-out and go-around, and the learnt landing.
 
-- [ ] **The AI cannot land every aeroplane in gusts**: she flies half
+- [x] **The AI cannot land every aeroplane in gusts**: she flies half
       the gust factor faster with the power on to the touch, rotates her
       flare to the touch, judges a gusty round out as far ahead as her path
       lags her nose (2026-11-02), and since 2026-11-03 keeps her speed on
@@ -1186,7 +1186,10 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       no aircraft and no loading named, and a gust on an approach flown well
       makes no go-around; a name on a single seed on a single platform,
       a go-around among them, closes on its measured figure (owner,
-      2026-11-04).*
+      2026-11-04).* Done 2026-11-05 on the owner's rulings (single-seed names
+      and blocked items close on measured figures): no aircraft or loading
+      is named; every name left is one seed on one platform, with its
+      figure, and fails "take her name off" if she passes it.
 - [x] **In a steady headwind the S.23 skips off the water after
       alighting.** The rollout now judges her lift by her airspeed in all
       air, and the thirteen landplanes roll out into 15 kt without lifting
@@ -1386,7 +1389,7 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       before any recovery; low, it now recovers at the break, as the FAA
       trains a stall at 1,000 ft, and all sixteen are handed over above the
       ground.
-- [ ] **The F-22A flies her stall-figure tests.** Since 2026-11-04 her
+- [x] **The F-22A flies her stall-figure tests.** Since 2026-11-04 her
       alpha is limited with her gear down (tuned, not sourced), and her
       stall is measured at that limit: 114.1 KCAS. Both stall recoveries,
       her rise after the touch, the stall watch (her own warning, 12 kt
@@ -1397,7 +1400,9 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
       macOS, under the gust item
       (2026-11-05-the-f22a-lands-in-gusts-on-twenty-eight-seeds-of-forty).
       *Verification: every one of those tests passes with her name taken
-      off, on every platform.*
+      off, on every platform.* Done 2026-11-05: every one passes without her
+      name but her gusts, which close with the gust item on her measured
+      single-seed figures.
 - [x] **The AI lands the 747-400 at Boeing's published approach speed**:
       153 kt at 630,000 lb, in calm air, wind and crosswind, within her
       limits, her flaps raised after a take-off by her manoeuvre speeds
