@@ -26,3 +26,14 @@ reversers 60
 # Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): her limitations as published for simulator crews: gear extended
 # 320 kt/M.82, 270 to operate it (one crews' study card gives 270 for both).
 gear-extended 320
+# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp). No
+# Boeing document giving them was found public: flaps 1, 5, 10, 20, 25 and
+# 30 at 280, 260, 240, 230, 205 and 180 as an Airliners.net post gives
+# them, uncited; flaps 30's 180 agrees with pilots' study cards. Secondary,
+# and named so in docs/ASSETS.md.
+flap-limit 1 280
+flap-limit 5 260
+flap-limit 10 240
+flap-limit 20 230
+flap-limit 25 205
+flap-limit 30 180

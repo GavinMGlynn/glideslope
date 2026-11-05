@@ -1525,6 +1525,38 @@ GLIDESLOPE_TEST(an_aircraft_is_added_by_its_file_alone_and_refused_where_it_is_w
     check(none, "an aircraft the data does not hold is not found");
 }
 
+// **A flap limit speed, VFE, is read for each setting, and a flap is held to
+// the limit of the least setting at or past it** (`flap-limit`, sim::
+// flap_limit_kts): between two settings, the one with more flap; past her
+// last, its limit; with her flap in, none. Lines in any order are sorted,
+// and a second line for one setting, or a line short of its speed, refused.
+GLIDESLOPE_TEST(a_flap_limit_speed_is_read_for_each_setting_and_a_flap_between_two_is_held_to_the_lower) {
+    const std::string plane =
+        "name A\nmodel m\nclass airliner\nstart 250 0.5\nbrakes 200 fully-modulating\n";
+    const CatalogueEntry e = glideslope::sim::parse_catalogue_entry(
+        "x", plane + "flap-limit 15 200\nflap-limit 5 250\nflap-limit 40 162\n");
+    check(e.flap_limits_kts ==
+              std::vector<std::pair<double, double>>{{5.0, 250.0}, {15.0, 200.0}, {40.0, 162.0}},
+          "three settings read, least flap first");
+    check(glideslope::sim::parse_catalogue_entry("x", plane).flap_limits_kts.empty(),
+          "a file with none gives none");
+    const auto limit = [&](double deg) {
+        return glideslope::sim::flap_limit_kts(e.flap_limits_kts, deg);
+    };
+    check(!limit(0.0) && !limit(0.5), "flap in, within half a degree, has no limit");
+    check(limit(0.6) == 250.0 && limit(5.0) == 250.0 && limit(5.4) == 250.0,
+          "up to 5 degrees and half a degree past, flaps 5's 250 kt");
+    check(limit(5.6) == 200.0 && limit(15.0) == 200.0,
+          "running between 5 and 15, flaps 15's 200 kt");
+    check(limit(15.6) == 162.0 && limit(45.0) == 162.0, "past 15, and past her last, 162 kt");
+    check(refused(plane + "flap-limit 5 250\nflap-limit 5 240\n",
+                  "line 7: a second flap-limit for 5 degrees"),
+          "a second limit for one setting");
+    check(refused(plane + "flap-limit 5\n", "line 6: flap-limit DEG KCAS"),
+          "a flap-limit line without its speed");
+    check(refused(plane + "flap-limit 0 250\n", "line 6: the flap"), "a limit for flap in");
+}
+
 // **Every aircraft says what kind of flying it is for, and the roster agrees
 // with `REQUIREMENTS.md`'s own table.** A lesson is written against a class -
 // a circuit in a Cub and a circuit in a 747 are not the same lesson - so the

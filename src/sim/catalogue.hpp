@@ -48,6 +48,12 @@
 //                                give it, a test says; her file says where
 //                                it is from, or that it stands in for one
 //                                not published
+//   flap-limit DEG KCAS          her flap limit speed, VFE, for her flap at
+//                                DEG degrees: the fastest she may fly with
+//                                it out that far. One line for each setting
+//                                her placard gives, in any order; her file
+//                                says where each is from, or names her as
+//                                publishing none (sim::flap_limit_kts)
 //
 // with `#` beginning a comment. Its published figures, if it has them, are
 // data/figures/MODEL.xml, and its selftest's log data/selftest/MODEL.log.
@@ -57,6 +63,7 @@
 #include <optional>
 #include <string>
 #include <string_view>
+#include <utility>
 #include <vector>
 
 #include "sim/runway_condition.hpp"
@@ -106,6 +113,10 @@ struct CatalogueEntry {
     std::optional<double> reverse_idle_kts;
     // Her gear-extended speed, VLE, knots; none where her file gives none.
     std::optional<double> gear_extended_kts;
+    // Her flap limit speeds, VFE: each setting's flap, degrees, and the
+    // fastest she may fly with it, knots, least flap first; empty where her
+    // file gives none.
+    std::vector<std::pair<double, double>> flap_limits_kts;
     // The autopilot's rudder: its yaw damper's travel per degree a second of
     // yaw rate, and its integral's rate on the sideslip (sim/autopilot.cpp).
     double yaw_damper_per_degps = 0.05;
@@ -114,6 +125,16 @@ struct CatalogueEntry {
     std::optional<WheelBrakes> brakes;
     AircraftClass aircraft_class = AircraftClass::light_aircraft;
 };
+
+// **The fastest she may fly with her flap at `flap_deg`**, from `limits`
+// (CatalogueEntry::flap_limits_kts): the limit of the least setting at or
+// past it, so a flap between two settings - running from one to the next -
+// is held to the limit of the setting with more flap; past her last, its
+// limit. None with her flap in, within `flap_in_deg` of up, or where she
+// has no limits.
+inline constexpr double flap_in_deg = 0.5;
+std::optional<double> flap_limit_kts(const std::vector<std::pair<double, double>>& limits,
+                                     double flap_deg);
 
 // One aircraft's file. Throws CatalogueError naming the line of anything it
 // cannot read, and for a file missing its name, model, start or class, or

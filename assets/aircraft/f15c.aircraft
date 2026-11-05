@@ -26,3 +26,7 @@ brakes 305 fully-modulating
 # Systems Limitations, Airspeeds: landing gear extension, retraction or
 # flight with gear extended, 250 knots, +2.0 g.
 gear-extended 250
+# No flap limit speed (src/sim/catalogue.hpp): her flight manual gives
+# "FLAPS 250 Knots" (T.O. 1F-15A-1, section V, airspeed limitations;
+# docs/ASSETS.md), and her flaps blow up at about 250 knots by themselves,
+# but her flight model has no flaps for it to limit.
