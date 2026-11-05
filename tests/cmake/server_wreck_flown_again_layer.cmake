@@ -5,21 +5,23 @@
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
 #         -P server_wreck_flown_again_layer.cmake
 #
-# **Built, not hoped for.** A player's join skips a wreck when it looks for a
-# free layer; a wreck flies again from its own start. A server with one AI
-# aircraft (with none it never steps) and room for two players, whose
-# aircraft is taken out of the sky when its player goes (`--on-leave
-# remove`, the default). Three clients:
-# - A joins at once, on layer 2 (one over the AI and A), and leaves 3 s
-#   later;
+# **Built, not hoped for**, on events, not on a clock. A player's join skips
+# a wreck when it looks for a free layer; a wreck flies again from its own
+# start. A server with one AI aircraft (with none it never steps) and room
+# for two players, whose aircraft is taken out of the sky when its player
+# goes (`--on-leave remove`, the default), and whose wrecks wait to fly
+# again until three players have joined (`--test-wreck-waits-for-joins 3`).
+# Three clients:
+# - A joins at once, on layer 2 (one over the AI and A), and leaves once C
+#   is in the session (`--until-exists` C's `--told-file`);
 # - C joins 1 s in, on layer 3, sends inputs (`--fly`), and dives into the
-#   ground 4 s after that (`--dive-after`); it writes a file the moment it
+#   water 4 s after that (`--dive-after`); it writes a file the moment it
 #   hears the wreck (`--wreck-file`), and leaves once it hears its aircraft
 #   fly again;
-# - B joins when that file appears, so during C's five seconds as a wreck,
-#   not on a clock: the AI and C (a wreck) make layer 3 the first B may
-#   take, and a wreck holds no layer, so B starts on C's layer.
-# C then flies again near the start, where B still is, five seconds in.
+# - B joins when that file appears. The wreck waits for her join, however
+#   slow it is. The AI and C (a wreck) make layer 3 the first B may take,
+#   and a wreck holds no layer, so B starts on C's layer.
+# C then flies again near the start, where B is.
 # **Checked**: the situation was built - C a wreck, then B started, then C
 # flew again, in that order, with B on C's layer - and C flies again at least
 # 500 ft from B's height (they are within 1.5 nm of each other at the start,
@@ -55,27 +57,34 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+set(_c_in "${WORK}/c-in.txt")
+file(REMOVE "${_c_in}")
 execute_process(
-    COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 3
+    COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 120
+            --until-exists "${_c_in}"
     COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 120 --after 1
-            --fly --dive-after 4 --wreck-file "${_wrecked}" --until-flying-again 1
+            --told-file "${_c_in}" --fly --dive-after 4 --wreck-file "${_wrecked}"
+            --until-flying-again 1
     COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 15
             --after-ready "${_wrecked}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --players 2 --headless
             --data "${DATA}" --store "${_store}" --ai 1
+            --test-wreck-waits-for-joins 3
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 port_listened("${_out}" "${_err}")
 
 # **Three joins**, B's the third.
-string(REGEX MATCHALL "a player's aircraft starts on layer [0-9]+" _starts "${_out}")
+string(REGEX MATCHALL "a player's aircraft starts on layer [0-9]+, -?[0-9]+ ft" _starts
+       "${_out}")
 list(LENGTH _starts _count)
 if(NOT _count EQUAL 3)
     message(FATAL_ERROR "${_count} players' starts were said, not the three joins:\n${_out}")
 endif()
 list(GET _starts 1 _c_start)
-string(REGEX REPLACE ".* layer " "" _c_layer "${_c_start}")
+string(REGEX REPLACE ".* layer ([0-9]+),.*" "\\1" _c_layer "${_c_start}")
 list(GET _starts 2 _b_start)
-string(REGEX REPLACE ".* layer " "" _b_layer "${_b_start}")
+string(REGEX REPLACE ".* layer ([0-9]+),.*" "\\1" _b_layer "${_b_start}")
+string(REGEX REPLACE ".*, (-?[0-9]+) ft" "\\1" _b_ft "${_b_start}")
 
 # **C a wreck, once.**
 string(REGEX MATCHALL "aircraft [0-9]+, [^,\n]+, is a wreck" _wrecks "${_out}")
@@ -104,13 +113,16 @@ if(NOT (_at_wreck LESS _at_b AND _at_b LESS _at_again))
     message(FATAL_ERROR "B did not join while C was a wreck (wreck at ${_at_wreck}, B's start at "
                         "${_at_b}, C flown again at ${_at_again}) - the case is not built:\n${_out}")
 endif()
+string(FIND "${_out}" "let go" _at_a_gone)
+if(_at_a_gone LESS 0 OR NOT _at_a_gone LESS _at_wreck)
+    message(FATAL_ERROR "A had not left before C's wreck - the case is not built:\n${_out}")
+endif()
 if(NOT _b_layer EQUAL _c_layer)
     message(FATAL_ERROR "B started on layer ${_b_layer}, not C's layer ${_c_layer} - the case "
                         "is not built:\n${_out}")
 endif()
 
 # **Kept 500 ft from her**: both at the start, so by height.
-math(EXPR _b_ft "${_b_layer} * 1000")
 math(EXPR _apart "${_c_ft} - ${_b_ft}")
 if(_apart LESS 0)
     math(EXPR _apart "0 - ${_apart}")
