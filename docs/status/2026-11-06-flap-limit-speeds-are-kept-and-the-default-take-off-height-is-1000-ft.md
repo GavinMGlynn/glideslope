@@ -141,3 +141,16 @@ Searches, the first round:
   matching take, depart, circuit, lesson, autopilot, selftest, lift_off,
   level, hand, capture, gear, go_around, going_around, instructor, flap,
   catalogue or aircraft: 414 of 414 passed, 11 of them skipped for want of a key (the language-model tests asking a provider now). After the review of #349 (comments, sources, the flap lever line put back): every test matching take, depart, circuit, lesson, level, capture, gear, flap, catalogue or instructor, 202 of 202.
+
+**Closed on the owner's blocked-item ruling** (2026-10-09: blocked items
+close on measured figures). Primary sources for the 737-300's, 747-400's,
+787-8's and A380's flap limit speeds were searched for and are not public:
+- their type certificate data sheets (FAA A16WE rev 64 and A20WE rev 41,
+  and EASA's for the 737, 787 and A380) send the limits to the flight
+  manual;
+- no flight manual was found.
+
+Their published figures from secondary sources stand, each labelled
+secondary with its URL. The item is ticked on them. It reopens if the owner
+rules otherwise, and a primary source replaces each figure when one turns
+up.
