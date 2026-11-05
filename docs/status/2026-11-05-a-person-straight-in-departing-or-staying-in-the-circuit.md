@@ -249,3 +249,8 @@ circuit, straight-in, separation, vacate, taxi, kept apart, controller,
 runway, selftest and the CI shard checks, the gust_sweep label aside - 132
 of 132 on linux-release (one skipped, as it needs a key). The server and
 the tests build on Windows (windows-debug), after the review's round too.
+
+**Not yet checked**: while she climbs in turns before setting off for her
+hold on raised ground, nothing measures her separation from a person still
+flying the circuit. The plateau test has no person in it, and on the sweep's
+flat ground the climb never happens.
