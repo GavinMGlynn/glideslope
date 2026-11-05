@@ -157,8 +157,9 @@ bool behind_a_person(std::size_t self, const std::vector<std::optional<CirclePla
 // the reach, the heading and the height.
 bool straight_in_by_hand(const Runway& runway, const AircraftState& her);
 // **Departing** (`departing_by_hand`): rolling down the runway in its
-// direction faster than `by_hand_rolling_kts`, or in the air past the
-// threshold and within `by_hand_departure_nm` past the runway's far end,
+// direction faster than `by_hand_rolling_kts`, or in the air - higher over
+// it than RunwayClear::occupied_ft - past the threshold and within
+// `by_hand_departure_nm` past the runway's far end,
 // within the minimum of its centreline and heading within
 // `by_hand_heading_deg` of it - a take-off, and also a low approach past
 // the threshold, which JO 7110.65 3-8-2 calls a departing aircraft from

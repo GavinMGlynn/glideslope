@@ -1533,11 +1533,14 @@ AI aircraft kept apart from each other and clear of the runway.
       apart and landed in order, and so did a pair whose leader went
       around twice. An AI aircraft behind a person's lands after her, kept
       apart all the while she flies the circuit.
-- [ ] **An AI aircraft behind a person who stays in the circuit holds until
-      they leave it**: nothing yet asks the person to land or offers the AI
-      another runway. *Verification: an AI aircraft held behind a person
-      who stays in the circuit is offered another runway, or the person is
-      asked to land, and the AI lands within a stated time.*
+- [x] **An AI aircraft behind a person who stays in the circuit holds until
+      they leave it.** *Verification (the owner's brief, 2026-11-05): an AI
+      aircraft behind a person who stays in the circuit leaves the hold
+      within a stated time, kept apart - by another runway, a departure
+      from the circuit, or a stated choice.* Done 2026-11-05: after one
+      whole racetrack she departs the circuit 45 degrees away, at her raised
+      height, and does not come back to land. All 225 landplane pairs left
+      within 1,190 s (stated: 25 minutes), kept 500 ft or 1.5 nm apart.
 - [x] **A go-around's circuit does not sequence with traffic straight in or
       departing**: only aircraft going around wait for one another, and the
       rest are left to the separation monitor and the runway's rule.
@@ -1548,10 +1551,13 @@ AI aircraft kept apart from each other and clear of the runway.
       early; a departure is held until the one going round is clear of it.
       All 675 flights of every landplane pair, in three situations, stayed
       apart and landed or departed in order.
-- [ ] **A person straight in or taking off is not sequenced**: the AI's
-      circuit gives way only to AI straight-ins and departures, and nothing
-      holds a person's take-off; and a person in the circuit holds every AI
-      departure from her runway until she lands, however long that is.
+- [ ] **A person straight in or taking off is not sequenced**: done but for
+      a person who takes off under an AI aircraft going around, who is not
+      kept apart - no turn takes the AI clear in time. A person is judged
+      by how she flies and given way to, and an AI departure behind a
+      person who stays in the circuit goes on her downwind leg, held at
+      most 455 s (stated: 10 minutes). All 900 such flights of every
+      landplane pair stayed 500 ft or 1.5 nm apart.
       *Verification: an AI aircraft in the circuit
       gives way to a person flying straight in, is kept 500 ft or 1.5 nm
       from a person departing, and an AI departure behind a person who stays
