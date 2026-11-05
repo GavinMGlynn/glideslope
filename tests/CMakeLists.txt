@@ -396,6 +396,10 @@ set(GLIDESLOPE_UNIT_TESTS
     a_persons_place_is_clear_of_departures_behind_the_threshold_and_going_away_whatever_her_pattern
     a_person_straight_in_to_or_departing_the_reciprocal_runway_is_seen
     a_hold_outside_the_circuit_over_raised_ground_is_flown_1000_ft_over_it
+    an_ai_aircraft_behind_a_person_who_flies_away_from_the_circuit_square_to_the_runway_comes_back_and_lands_kept_apart
+    an_ai_aircraft_behind_a_person_who_flies_away_from_the_circuit_between_the_squares_comes_back_and_lands_kept_apart
+    the_two_tests_of_a_person_flying_away_fly_every_bearing_once
+    on_raised_ground_an_ai_aircraft_climbing_before_her_hold_is_kept_apart_from_a_person_in_the_circuit
     a_737_300_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
     a_747_400_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
     a_787_8_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
@@ -1437,6 +1441,19 @@ set_tests_properties(a_circuit_gives_way_to_a_person_straight_in_and_is_kept_apa
     an_ai_aircraft_behind_a_person_who_stays_in_the_circuit_leaves_it_kept_apart_the_slowest_and_the_fastest_each_with_each
     an_ai_departure_behind_a_person_who_stays_in_the_circuit_departs_kept_apart_the_slowest_and_the_fastest_each_with_each
     PROPERTIES TIMEOUT 3600)
+# **A person flying away from the circuit, and the climb before a hold on
+# raised ground** (docs/status, 2026-11-06): on linux-debug locally, three
+# at once, 1,060 and 1,042 s for the halves of the flying-away flights and
+# 247 s for the raised ground. An hour and a half for the halves, an hour
+# for the raised ground: five times the local figure and more. The half
+# between the squares every night.
+set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_from_the_circuit_square_to_the_runway_comes_back_and_lands_kept_apart
+    an_ai_aircraft_behind_a_person_who_flies_away_from_the_circuit_between_the_squares_comes_back_and_lands_kept_apart
+    PROPERTIES TIMEOUT 5400)
+set_tests_properties(on_raised_ground_an_ai_aircraft_climbing_before_her_hold_is_kept_apart_from_a_person_in_the_circuit
+    PROPERTIES TIMEOUT 3600)
+set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_from_the_circuit_between_the_squares_comes_back_and_lands_kept_apart
+    PROPERTIES LABELS gust_sweep)
 # **Every landplane's take-off to 3,000 ft and ten minutes held there**, in
 # simulated time: 22 s on linux-release locally, and Linux debug's runners
 # take about fourteen times release's for flights like these.

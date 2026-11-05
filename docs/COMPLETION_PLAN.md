@@ -1590,7 +1590,11 @@ AI aircraft kept apart from each other and clear of the runway.
       apart and landed or departed in order.
 - [ ] **A person straight in or taking off is not sequenced**: done but for
       a person who takes off under an AI aircraft going around, who is not
-      kept apart - no turn takes the AI clear in time. A person is judged
+      kept apart. No manoeuvre of the AI's can do it: the person lifts off
+      within 1.5 nm of her and less than 500 ft below. An offset to the
+      right at once (CAA NZ's go-around for traffic on the runway) was
+      tried, measured (90 m, 0 ft for two F-15Cs) and taken out
+      (2026-11-06); the verification needs the owner's word. A person is judged
       by how she flies, on the runway or its reciprocal, and given way to.
       An AI departure behind a person in the circuit goes once she is
       behind the threshold and going away, whatever her pattern; behind a
@@ -1601,11 +1605,14 @@ AI aircraft kept apart from each other and clear of the runway.
       gives way to a person flying straight in, is kept 500 ft or 1.5 nm
       from a person departing, and an AI departure behind a person who stays
       in the circuit departs within a stated time.*
-- [ ] **A person who flies away from the circuit and never lands keeps her
+- [x] **A person who flies away from the circuit and never lands keeps her
       place in it**, so an AI aircraft behind her holds outside the circuit
       for as long as she flies. *Verification: an AI aircraft behind a
       person who leaves the circuit without landing comes back and lands
-      within a stated time, kept 500 ft or 1.5 nm apart.*
+      within a stated time, kept 500 ft or 1.5 nm apart.* Done 2026-11-06:
+      10 nm out her place is dropped. The slowest and the fastest each with
+      each, flying away on eight bearings, came back and were down within
+      800 s (stated: 900), kept apart.
 - [x] **An A380 given a take-off and no plan flies into the ground**:
       she now raises her flaps at Airbus's F and S speeds, and a take-off
       with no plan levels off at its height, leading it by a tenth of her
@@ -1622,12 +1629,20 @@ AI aircraft kept apart from each other and clear of the runway.
       the same rule when its own has been taken.
       *Verification: a wreck flown again while a player is at the start on
       its layer is kept 500 ft or 1.5 nm from her.* Done 2026-11-05.
-- [ ] **The climb before a hold on raised ground is not measured against a
+- [x] **The climb before a hold on raised ground is not measured against a
       person**: an AI aircraft leaving the circuit climbs in turns before
       setting off when the ground ahead is high, and nothing measures her
       separation from a person still flying the circuit while she does.
       *Verification: on raised ground, an AI climbing before her hold stays
-      500 ft or 1.5 nm from a person flying the circuit.*
+      500 ft or 1.5 nm from a person flying the circuit.* Done 2026-11-06:
+      leaving near her fix she skipped the climb, and now does not. All
+      four pairs climbed over 1,200 ft before their fix, never within
+      500 ft or 1.5 nm of the person.
+- [ ] **A racetrack can reach past the ground its circuit sampled**: an
+      F-15C following another, her circuit raised, flew her racetrack into
+      a plateau 10 nm out that her circuit (sampled 8 nm out) had not seen.
+      *Verification: every landplane following another round a circuit
+      beside high ground beyond 8 nm stays 500 ft over it.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the

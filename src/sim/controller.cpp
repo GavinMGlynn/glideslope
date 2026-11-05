@@ -847,6 +847,12 @@ Controls Controller::fly() {
         const AircraftState s = a_.state();
         circling_->circuit_alt_ft = std::max(circling_->circuit_alt_ft, s.altitude_ft);
         circling_->clear_of_departures = clear_of_departures_by_hand(circling_->runway, s);
+        // **Flown away from the circuit, she has left it**
+        // (sim::left_the_circuit_by_hand): her place is dropped, and the
+        // one behind, holding outside, comes back to land.
+        if (left_the_circuit_by_hand(circling_->runway, s)) {
+            circling_.reset();
+        }
     }
     if (a_.property("gear/wow") > 0.5) {
         // Down, whoever flies her: out of the circuit's sequence.
