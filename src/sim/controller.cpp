@@ -673,6 +673,9 @@ void Controller::to_ai_take_off(const Runway& runway, const DepartureSpeeds& spe
     departure_.emplace(a_, runway, speeds, to_ft);
     departure_->limit_speed(fastest_kts_);
     departure_->hand_mixture(applied_.mixture);
+    // **With no plan after it, she levels off at its height** (sim::
+    // Departure::level_off_at_end); a plan climbs on to its own.
+    departure_->level_off_at_end(true);
 }
 
 void Controller::to_ai_flying(FlightPlan plan, const DepartureSpeeds& speeds) {
@@ -682,6 +685,7 @@ void Controller::to_ai_flying(FlightPlan plan, const DepartureSpeeds& speeds) {
     }
     const FlightPlan::TakeOff takeoff = *plan.takeoff;
     to_ai_take_off(takeoff.runway, speeds, takeoff.to_ft);
+    departure_->level_off_at_end(false);
     navigator_.emplace(a_, to_its_point(std::move(plan)));
 }
 
@@ -918,15 +922,30 @@ Controls Controller::fly() {
                 return applied_;
             }
             easing_in_ = false;
+            const std::optional<double> level_ft =
+                departure_->levels_off() ? std::optional<double>(departure_->level_off_ft())
+                                         : std::nullopt;
             departure_.reset();
             autopilot_.emplace(a_, applied_);
+            // **Handed over short of her height, she is levelled off at it**,
+            // not where she was handed over: closed on at up to the climb she
+            // was handed over with, not stepped down to 700 ft/min, and not
+            // eased (below) - the lead is the easing. Eased, a C182 went
+            // 132 ft past; stepped, the F-22A 852.
+            if (level_ft) {
+                AutopilotModes modes = autopilot_->modes();
+                modes.altitude_ft = *level_ft;
+                modes.vertical_speed_fpm = std::max(
+                    modes.vertical_speed_fpm, a_.property("velocities/h-dot-fps") * 60.0);
+                autopilot_->set(modes);
+            }
             // **A light aeroplane's climb is eased down to the plan's**
             // (Autopilot::ease_climb): handed over at full throttle on her
             // best-climb floor. A jet climbs away at thousands of feet a
             // minute, which 25 ft/min a second would take minutes to bring
             // down; the F-22A, eased, climbed past her orbit's height to
             // 14,000 ft.
-            if (a_.climb_floor_kts()) {
+            if (a_.climb_floor_kts() && !level_ft) {
                 autopilot_->ease_climb(a_.property("velocities/h-dot-fps") * 60.0);
             }
             if (navigator_) {

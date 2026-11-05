@@ -154,6 +154,31 @@
     knot, so the number is the model's and not the entry's.
   </figure>
 
+  <!-- **Her flaps' manoeuvre speeds**: Airbus's F and S speeds, over her
+       approach speed (1.3 times the landing stall above, 136.3 kt at
+       868,620 lb), which sim::Departure scales by the square root of her
+       weight and adds these to. Airbus defines them as multiples of the
+       one-g stall: F, the least speed to retract from CONF 2 or 3 to 1+F,
+       about 1.18 to 1.26 times the CONF 1+F stall, and S, the least to go
+       clean, about 1.21 to 1.25 times the clean stall (Airbus Safety First,
+       "The Airbus Speed Tape"; SKYbrary's bookshelf copy). No A380 table
+       of them is public, so each is 1.23 times her model's own stall: the
+       take-off flap's measured 136.76 kt at 1,267,657 lb (above), carried
+       to flaps 8 (CONF 1+F) and flaps up by the square root of her lift
+       table's greatest coefficients, 2.11 at 17 degrees, 1.94 at 8 and
+       1.333 clean - 142.6 and 172.1 kt - so F is 175 and S 212 at that
+       weight, under CONF 1+F's 222 kt limit. The offsets are taken there,
+       at her heaviest, where Vref scaled is 164.7 kt: a lighter A380 is
+       flown a few knots over them, never under. Flaps 17 comes up to 8 at
+       F, flaps 8 up at S. Without them her climb out raised her flaps at
+       her 174 kt initial climb speed, her clean wing at its greatest lift,
+       and the autopilot left holding 177 kt at 3,000 ft stalled her into
+       the ground 41 s after the take-off ended (2026-11-05). -->
+  <flap_manoeuvre_speeds>
+    <flap deg="0" over_approach_kts="47"/>
+    <flap deg="8" over_approach_kts="10"/>
+  </flap_manoeuvre_speeds>
+
   <figure name="climb_rate" from="measured" loading="landing" unit="ft/min"
           value="4773" tolerance_percent="5" speed_kcas="270">
     **Measured, not published.** No flight manual for this aeroplane is

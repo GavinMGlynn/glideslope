@@ -338,6 +338,16 @@ pair, in six situations, stayed 500 ft or 1.5 nm apart, the closest
 departure behind a left-hand circuit was held at most 455 s
 (2026-11-05-a-person-straight-in-departing-or-staying-in-the-circuit).
 
+Since 2026-11-05 a take-off given no plan levels off at its height. It
+leads the height by a tenth of her climb, and the autopilot holds it. The
+A380 raises her flaps at Airbus's F and S speeds, worked from her model's
+stalls. Before, she raised them under her clean stall and stalled into the
+ground. All 15 landplanes taken off to 3,000 ft held it for ten minutes,
+within 100 ft from two minutes on. No AI take-off raises her gear yet, and
+the F-22A, whose thrust vectoring is off with her gear down, goes 386 ft
+past her height first
+(2026-11-05-a-take-off-with-no-plan-levels-off-and-holds-its-height).
+
 
 ## Gaps
 
