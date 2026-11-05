@@ -1522,16 +1522,25 @@ AI aircraft kept apart from each other and clear of the runway.
       separation monitor's height limits. *Verification: an aeroplane that
       goes around is flown round and landed (done), one arriving long or fast
       goes around (done), and two going around together are kept apart and
-      both land.* Done 2026-11-05: the one behind flies her circuit 700 ft
-      over the one ahead and extends her downwind until it has landed.
-      The Cub, the C172P and the F-15C were flown each behind each, and
-      every pair stayed 500 ft or 1.5 nm apart and landed in order.
+      both land.* Done 2026-11-05: the one behind offsets right on her
+      climb, flies her circuit 700 ft over the one ahead, and extends her
+      downwind at most 2 nm, flying a racetrack past that, until the one
+      ahead has landed. All 225 landplane pairs stayed 500 ft or 1.5 nm
+      apart and landed in order.
 - [ ] **A go-around's circuit does not sequence with traffic straight in or
       departing**: only aircraft going around wait for one another, and the
       rest are left to the separation monitor and the runway's rule.
       *Verification: an AI aircraft in the circuit and one on a straight-in
       approach to the same runway are kept 500 ft or 1.5 nm apart, and both
       land.*
+- [ ] **The F-15C strikes the runway on her roll-out at 34,478 lb**, after
+      four racetracks behind a C172P that went around twice: 1.5 degrees
+      nose down at 128 kt. *Verification: she lands and stops unwrecked at
+      that weight, and the racetrack test flies her behind the C172P.*
+- [ ] **A person's aircraft ahead in a circuit is waited for until she
+      lands**: one who never does holds the AI behind her in its racetrack.
+      *Verification: an AI aircraft behind a person who flies away from the
+      circuit lands without waiting for her.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the
