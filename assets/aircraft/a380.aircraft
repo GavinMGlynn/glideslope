@@ -28,11 +28,18 @@ reversers 70
 # Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): her FCOM's limitations as crews' study sets give them: 250 kt/M.55,
 # extended and operating alike.
 gear-extended 250
-# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp): CONF
-# 1+F 222 (flaps 8), CONF 2 220 (17), CONF 3 196 (26), FULL 182 (32). No
-# Airbus document giving them was found public: FlyByWire's A380X
-# documentation and pilots' study cards agree. CONF 1's 263, slats alone,
-# has no flap to limit here. Secondary, and named so in docs/ASSETS.md.
+# Her flap limit speeds, VFE, knots calibrated, by flap (src/sim/catalogue.hpp).
+# Her type certificate data sheet, EASA.A.110 issue 17, gives none: "Refer
+# to approved Airplane Flight Manual". From Airbus's A380-800 Flight Deck
+# and Systems Briefing for Pilots (STL 945.1380/05 issue 3, May 2009,
+# docs/ASSETS.md), its slats and flaps table, read through a third party's
+# copy whose table text is scrambled and matched by position,
+# https://pdfcoffee.com/a380-800-flight-deck-systems-briefing-for-pilots-3-pdf-free.html:
+# configuration 1+F, flaps 8, 222; 2, 17, 220; 3, 26, 196; Full, 32, 182.
+# Configuration 1's 263 is slats alone. A briefing, not a limitations
+# document. A simulator community's list gives Full 186,
+# https://community.infiniteflight.com/t/flap-limits-for-infinite-flight-20-1-edition/453409;
+# the briefing's lower figure is kept.
 flap-limit 8 222
 flap-limit 17 220
 flap-limit 26 196

@@ -26,11 +26,14 @@ reversers 60
 # Her gear-extended speed, VLE, knots (src/sim/catalogue.hpp): her limitations as published for simulator crews: gear extended
 # 320 kt/M.82, 270 to operate it (one crews' study card gives 270 for both).
 gear-extended 320
-# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp). No
-# Boeing document giving them was found public: flaps 1, 5, 10, 20, 25 and
-# 30 at 280, 260, 240, 230, 205 and 180 as an Airliners.net post gives
-# them, uncited; flaps 30's 180 agrees with pilots' study cards. Secondary,
-# and named so in docs/ASSETS.md.
+# Her flap limit speeds, VFE, knots, by flap (src/sim/catalogue.hpp).
+# **Secondary**: her type certificate data sheet, FAA A20WE, sends other
+# airspeed limits to the flight manual, and no Boeing limitations document
+# was found public. Flaps 1, 5, 10, 20, 25 and 30 at 280, 260, 240, 230, 205
+# and 180, as pilots' study cards give them,
+# https://brainscape.com/flashcards/limitations-9530494/packs/16863123, and
+# a simulator community's list, uncited,
+# https://community.infiniteflight.com/t/flap-limits-for-infinite-flight-20-1-edition/453409
 flap-limit 1 280
 flap-limit 5 260
 flap-limit 10 240
