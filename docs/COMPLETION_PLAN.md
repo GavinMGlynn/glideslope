@@ -1510,16 +1510,17 @@ The AI's approach, flare, touchdown, roll-out and go-around, and the learnt land
 
 AI aircraft kept apart from each other and clear of the runway.
 
-- [x] **An AI aircraft that arrives between two layers inside 1.5 nm of
-      one is under the minimum until it has turned 1.5 nm away** (39 s
-      measured). *Verification: every AI aircraft a server runs, planned or
-      not, stays a stated distance from every other along the whole of its
-      route, measured over a whole run.* Done 2026-11-05. The two layers now
-      make room, one climbing and one descending, as TCAS does. One handed
-      over 400 ft from a layer is now under the minimum for 12.5 s, not 39,
-      and can never be out of it at the instant it is handed over. Runs of
-      every route kind lose separation for 0 s, among them a handed
-      aircraft flying its copilot's route from a recording.
+- [ ] **An AI aircraft handed over already inside the minimum stays under
+      it for up to 12.5 s** (bound 14 s), until the layers it is squeezed
+      between have made room. The layers now make room, one climbing and
+      one descending, in a TCAS-like move after JO 7110.65 2-1-6's safety
+      alert. Runs of every route kind lose separation for 0 s, a handed
+      aircraft flying its copilot's route among them. Open: whether a
+      conflict inherited at a hand-over is judged from the hand-over, the
+      owner's to decide.
+      *Verification: every AI aircraft a server runs, planned or not, stays a
+      stated distance from every other along the whole of its route,
+      measured over a whole run.*
 - [x] **The AI's go-around circuit knows no traffic**: an approach long or
       fast now goes around, but two circuits are kept apart only by the
       separation monitor's height limits. *Verification: an aeroplane that

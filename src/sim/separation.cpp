@@ -160,9 +160,17 @@ std::vector<HeightLimit> separate_with(const std::vector<Traffic>& traffic,
         // room (below), the gap is wide enough and the floor no longer
         // crosses the ceiling - but let go then, the room would be let go
         // too, the layers would close again, and it would be squeezed again.
+        // **Only while there is still one on each side**: a gap opened
+        // because a layer has gone - landed, left, or out of the guard - is
+        // no squeeze, and it flies its ordinary limits again.
         const bool squeezed_now =
             limit.floor_ft && limit.ceiling_ft && *limit.floor_ft > *limit.ceiling_ft;
-        const bool still_held = g.squeezed && !g.squeezed->clear && !near.empty();
+        const bool one_below = std::any_of(near.begin(), near.end(),
+                                           [](const Near& k) { return k.above; });
+        const bool one_above = std::any_of(near.begin(), near.end(),
+                                           [](const Near& k) { return !k.above; });
+        const bool still_held =
+            g.squeezed && !g.squeezed->clear && one_below && one_above;
         if (squeezed_now || still_held) {
             double top = -1e18;
             double bottom = 1e18;
@@ -204,11 +212,36 @@ std::vector<HeightLimit> separate_with(const std::vector<Traffic>& traffic,
             }
             // The middle of the gap, latched once chosen: the layers make
             // room about it, and as they move their bands would move it.
-            const double middle =
-                was && was->middle_ft
-                    ? *was->middle_ft
-                    : 0.5 * (limit.floor_ft.value_or(g.altitude_ft) +
-                             limit.ceiling_ft.value_or(g.altitude_ft));
+            double middle = was && was->middle_ft
+                                ? *was->middle_ft
+                                : 0.5 * (limit.floor_ft.value_or(g.altitude_ft) +
+                                         limit.ceiling_ft.value_or(g.altitude_ft));
+            // **The middle follows those that cannot make room**: a person's
+            // aircraft, one taking off, or a layer that would be taken
+            // within 500 ft of its ground. The latch keeps the middle still
+            // while the layers that can move do; one that cannot may climb
+            // or descend, and the middle is kept the minimum and margin from
+            // it. Between two that cannot, the middle of what they leave.
+            double lowest = -1e18;
+            double highest = 1e18;
+            for (const Near& k : near) {
+                const Traffic& p = traffic[k.j];
+                const bool below = k.above;
+                const bool movable =
+                    p.gives_way &&
+                    (!below ||
+                     middle - apart_ft >= p.ground_ft + Separation::least_above_ground_ft);
+                if (movable) {
+                    continue;
+                }
+                if (below) {
+                    lowest = std::max(lowest, k.band.high_ft + apart_ft);
+                } else {
+                    highest = std::min(highest, k.band.low_ft - apart_ft);
+                }
+            }
+            middle = lowest <= highest ? std::clamp(middle, lowest, highest)
+                                       : 0.5 * (lowest + highest);
             limit.heading_deg = away;
             if (away) {
                 limit.squeezed = Squeeze{up, *away, clear, middle};
@@ -258,10 +291,10 @@ std::vector<HeightLimit> separate_with(const std::vector<Traffic>& traffic,
 
 } // namespace
 
-// **Squeezed between two, the two make room** - as TCAS II coordinates
-// complementary advisories, one aircraft climbing and the other descending,
-// and as a controller's safety alert may move either aircraft (FAA JO
-// 7110.65 2-1-6): an aircraft that is squeezed and not yet clear is held in
+// **Squeezed between two, the two make room** - after a controller's safety
+// alert, which may move either aircraft (FAA JO 7110.65 2-1-6), and
+// TCAS-like, one climbing and the other descending as TCAS II's
+// complementary advisories have them: an aircraft that is squeezed and not yet clear is held in
 // the middle of the gap, and every AI aircraft it gives way to there that
 // gives way itself - an autopilot's, which can be moved - is moved away
 // from it: one below to `minimum_ft` and `margin_ft` under the middle, one
@@ -286,13 +319,15 @@ std::vector<HeightLimit> separate(const std::vector<Traffic>& traffic) {
             if (j == i || !p.gives_way || j > i || !within_guard(g, p)) {
                 continue;
             }
-            // Below the middle is below it; a layer level with it is left
-            // where it is.
+            // Which side of it the layer is: of the squeezed aircraft, not
+            // of the middle, which may have followed one that cannot move
+            // past a layer that can. A layer level with it is left where
+            // it is.
             Room r;
             r.for_whom = i;
-            if (p.altitude_ft < *sq->middle_ft - 50.0) {
+            if (p.altitude_ft < g.altitude_ft - 50.0) {
                 r.ceiling_ft = *sq->middle_ft - apart_ft;
-            } else if (p.altitude_ft > *sq->middle_ft + 50.0) {
+            } else if (p.altitude_ft > g.altitude_ft + 50.0) {
                 r.floor_ft = *sq->middle_ft + apart_ft;
             } else {
                 continue;
