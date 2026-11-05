@@ -203,6 +203,18 @@ public:
     void hand_mixture(double mixture);
     Stage stage() const { return stage_; }
     const Runway& runway() const { return runway_; }
+    // **Whether she levels off at `to_ft`**, with nothing after the take-off
+    // to climb on to (Controller::to_ai_take_off): then the take-off is
+    // over, flaps up and her take-off trim off, a tenth of her climb in feet
+    // a minute short of it - the lead an instrument pilot levels off by -
+    // and the autopilot holds `level_off_ft`. A fighter climbing 11,000
+    // ft/min through 3,000 ft was handed over there and went on to 4,636.
+    // Off by default, and for a plan, which climbs on to its own heights.
+    // `climbed_out` is not moved by it.
+    void level_off_at_end(bool levels_off) { levels_off_ = levels_off; }
+    bool levels_off() const { return levels_off_; }
+    // The height she levels off at, feet above sea level.
+    double level_off_ft() const { return runway_.elevation_ft + to_ft_; }
     // **Through its height with its take-off trim off**: where the take-off
     // was over before it waited for the flap too. The take-off trials read
     // their climb away here, at the take-off flap their speeds were found at.
@@ -247,6 +259,7 @@ private:
     double last_flap_deg_ = 0.0;
     int flaps_still_steps_ = 0;
     bool climbed_out_ = false;
+    bool levels_off_ = false;
     int steps_ = 0; // flown since the throttle began to open
     Stage stage_ = Stage::roll;
 

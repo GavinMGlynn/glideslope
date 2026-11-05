@@ -75,6 +75,13 @@ constexpr double light_flaps_up_ft = 50.0;
 constexpr double transport_flaps_up_ft = 400.0;
 constexpr double flaps_up_within_kts = 2.0;
 constexpr double flaps_settle_s = 1.0;
+// **The level-off's lead, in feet for each foot a minute she climbs**: a
+// tenth. "Lead the level off by approximately 10 percent of the vertical
+// speed" - at 3,000 ft/min, 300 ft short - the U.S. Navy's instrument
+// flight manual (CNATRA P-1204, Constant Airspeed Climbs), as the Air
+// Force's (AFMAN 11-217 vol. 1) and the FAA's Instrument Flying Handbook
+// (FAA-H-8083-15) teach it.
+constexpr double level_off_lead = 0.1;
 constexpr double a_hands_pace = 1.0 / steps_per_second;
 // The flaps standing still: moving less than this a step, degrees.
 constexpr double flaps_still_deg = 1e-6;
@@ -608,7 +615,13 @@ Controls Departure::fly_laws() {
     climbed_out_ = climbed_out_ || (above_m_ * feet_per_metre >= to_ft_ && takeoff_trim_ == 0.0);
     const bool path_over = above_m_ * feet_per_metre >= take_off_path_ft ||
                            static_cast<double>(steps_) >= take_off_power_s * steps_per_second;
-    if (stage_ != Stage::done && climbed_out_ && (flaps_up() || path_over)) {
+    // **Levelling off at her height, she is handed over short of it** by a
+    // tenth of her climb (`level_off_at_end`): the lead an instrument pilot
+    // levels off by.
+    const double climb_fpm = std::max(0.0, a_.property("velocities/h-dot-fps") * 60.0);
+    const bool at_the_lead = levels_off_ && takeoff_trim_ == 0.0 && flaps_up() &&
+                             above_m_ * feet_per_metre >= to_ft_ - level_off_lead * climb_fpm;
+    if (stage_ != Stage::done && ((climbed_out_ && (flaps_up() || path_over)) || at_the_lead)) {
         stage_ = Stage::done;
     } else if (unstuck_) {
         stage_ = Stage::climb;

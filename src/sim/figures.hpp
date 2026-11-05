@@ -214,9 +214,11 @@ struct PublishedFigures {
     // 747-400 - is landed with it.
     double approach_flaps_deg = -1.0;
     // **The least speed each flap may be flown at as it comes up after a
-    // take-off**, knots over her `<approach>` speed for her weight, by flap
+    // take-off**, knots over her approach speed for her weight - her
+    // `<approach>`, or the one worked from her landing stall - by flap
     // degrees: `<flap_manoeuvre_speeds>`, where the file gives them (the
-    // 747-400's, over her Vref30). Empty where it gives none: her flaps then
+    // 747-400's, over her Vref30; the A380's, Airbus's F and S speeds over
+    // the approach speed worked from her stall). Empty where it gives none: her flaps then
     // come up as every aeroplane's do (sim::Departure).
     std::vector<std::pair<double, double>> flap_manoeuvre_over_approach_kts;
     // **The lift-off speed worked from its flight manual's**, KCAS, where the file
