@@ -236,6 +236,30 @@ Runway reciprocal(const Runway& runway);
 // departing (`straight_in_by_hand`, `departing_by_hand`): one taking off
 // the other way is in the circuit's way as much as one taking off with it.
 bool using_by_hand(const Runway& runway, const AircraftState& her);
+// **A person departing under a circuit is kept below it**
+// (`circuit_over_departure_ft`): while she is departing `runway` or its
+// reciprocal (`departing_by_hand`), her height - which a circuit going
+// round to it takes as the height of a circuit ahead, and so flies 700 ft
+// over (GoAroundCircuit::above_ahead_ft), raised as she climbs - or none.
+// Nothing holds a person's take-off: one who lines up and rolls while an
+// AI aircraft is on the approach is climbing out under the one going
+// around for her, and a jet going around over a Cub overtook her and came
+// down into her climb, 1,760 m and 347 ft from her. Kept over her while she
+// climbs straight out in the air to `over_departure_nm` past the runway's
+// far end, not only to `by_hand_departure_nm`: past that, still climbing
+// on, a jet's crosswind leg crossed her climb 480 ft over her. Chosen.
+std::optional<double> circuit_over_departure_ft(const Runway& runway, const AircraftState& her);
+constexpr double over_departure_nm = 5.0;
+// **A person ahead of an approach, to break off for**
+// (`ahead_of_an_approach_by_hand`): departing `runway` or its reciprocal,
+// or lined up on it - on the runway within `lined_up_m` of a threshold,
+// heading within `by_hand_heading_deg` of the runway's - however fast.
+// Waiting for her roll to reach `by_hand_rolling_kts`, an F-15C 2 nm out
+// broke off only at 1.2 nm and 480 ft, as a Cub lifted off 2,375 m ahead.
+// Lined up further down the runway, she is landed and rolling out, and the
+// runway's rule (sim/vacate.hpp) is the one that applies. Chosen.
+bool ahead_of_an_approach_by_hand(const Runway& runway, const AircraftState& her);
+constexpr double lined_up_m = 300.0;
 
 // **Holding outside the circuit**, behind a person who stays in it
 // (Controller::leaves_with): a tower's "remain outside the Class D" (AIM
@@ -257,10 +281,21 @@ bool using_by_hand(const Runway& runway, const AircraftState& her);
 //     held there, raised), and 1,000 ft over the highest ground within
 //     4 nm of the hold - 14 CFR 91.177(a)(2)(ii)'s IFR minimum, the
 //     ground sampled every 250 m within 4 nm and a leg's reach of the fix,
-//     once, as the hold is set up. Below that height she climbs in right
-//     turns where she is before she sets off for the fix.
+//     once, as the hold is set up. More than `sets_off_within_ft` below
+//     that height she climbs in right turns where she is - over ground her
+//     circuit was cleared for - before she sets off for the fix, and is
+//     not round the fix until she has.
+//   - **Out of her reach**: where her climb stalls - less than
+//     `stalled_gain_ft` gained in `stalled_s`, her ceiling, chosen - she
+//     gives the hold up: she holds the best height she reached, circling
+//     where she is, never setting off over ground she cannot clear, and
+//     says so (`out_of_reach`). It ends as any hold does, the person down
+//     or gone (Controller::leaves_with).
 class HoldOutside {
 public:
+    static constexpr double sets_off_within_ft = 200.0;
+    static constexpr double stalled_gain_ft = 100.0;
+    static constexpr double stalled_s = 120.0;
     static constexpr double fix_nm = 9.0;
     static constexpr double leg_s = 60.0;
     static constexpr double bank_deg = 25.0;
@@ -281,6 +316,9 @@ public:
     double fix_lon_deg() const { return fix_lon_deg_; }
     // How many times she has crossed the fix.
     int laps() const { return laps_; }
+    // Whether her hold's height was out of her reach, and she holds her
+    // best instead where she is.
+    bool out_of_reach() const { return out_of_reach_; }
 
 private:
     const Aircraft& a_;
@@ -294,6 +332,14 @@ private:
     Leg leg_ = Leg::to_fix;
     double leg_began_s_ = 0.0;
     int laps_ = 0;
+    // The best height of her climb before the hold, and when she last
+    // gained `stalled_gain_ft` on it.
+    double best_alt_ft_ = 0.0;
+    double best_at_s_ = 0.0;
+    bool out_of_reach_ = false;
+    // Still to climb before setting off, where she is: and her climb
+    // judged, giving the hold up where it has stalled.
+    bool climbing_first(const AircraftState& s);
 };
 
 class GoAroundCircuit {
