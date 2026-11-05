@@ -175,14 +175,53 @@ GLIDESLOPE_TEST(the_monitor_holds_an_aircraft_that_gives_way_off_the_heights_of_
         const auto person = glideslope::sim::separate({at(0, 3000, 100, false, std::nullopt),
                                                        at(500, 3800, 100, true, 3800),
                                                        at(-1000, 3300, 100, true, 3300)});
-        check(!person[0].ceiling_ft && about(person[1].floor_ft, 3400 + apart_ft),
-              "a person's aircraft is not moved to make room; the AI's above it is");
+        // The middle follows the one that cannot move: 700 ft over the
+        // person's, at 3,700, and the room above made from there.
+        check(!person[0].ceiling_ft && about(person[2].floor_ft, 3000 + apart_ft) &&
+                  about(person[2].ceiling_ft, 3000 + apart_ft) &&
+                  about(person[1].floor_ft, 3000 + apart_ft + apart_ft),
+              "a person's aircraft is not moved to make room, and the middle is kept 700 ft "
+              "from it; the AI's above makes room from there");
         std::vector<Traffic> low{at(0, 3000, 100, true, 3000), at(500, 3800, 100, true, 3800),
                                  at(-1000, 3300, 100, true, 3300)};
         low[0].ground_ft = 2400.0;
         const auto g = glideslope::sim::separate(low);
-        check(!g[0].ceiling_ft && about(g[1].floor_ft, 3400 + apart_ft),
-              "one that would be taken within 500 ft of the ground makes no room; the other does");
+        // (Held, it may be given a ceiling at its own height - the room
+        // from the middle that follows it - but nothing lower.)
+        check((!g[0].ceiling_ft || *g[0].ceiling_ft >= 3000.0 - 1.0) &&
+                  about(g[2].floor_ft, 3000 + apart_ft) &&
+                  about(g[1].floor_ft, 3000 + apart_ft + apart_ft),
+              "one that would be taken within 500 ft of the ground makes no room, and the "
+              "middle is kept 700 ft from it; the other makes room from there");
+        // **(b) The latched middle follows one that cannot move**: squeezed
+        // over a person's aircraft at 3,000 ft, held at 3,700; the person
+        // then climbs to 3,200 - held 700 ft over that, at 3,900, not left
+        // at the 3,700 latched, 500 ft from it; and the room above made
+        // from 3,900.
+        std::vector<Traffic> climbed{at(0, 3200, 100, false, std::nullopt),
+                                     at(500, 3800, 100, true, 3800),
+                                     at(-1000, 3500, 100, true, 3300)};
+        climbed[2].squeezed = person[2].squeezed;
+        const auto c = glideslope::sim::separate(climbed);
+        check(person[2].squeezed && about(person[2].squeezed->middle_ft, 3700) &&
+                  about(c[2].floor_ft, 3200 + apart_ft) &&
+                  about(c[2].ceiling_ft, 3200 + apart_ft) &&
+                  about(c[1].floor_ft, 3200 + apart_ft + apart_ft),
+              "the person's aircraft climbs 200 ft: the middle follows it, 700 ft over it, and "
+              "the room above with it");
+        // **(a) A gap opened by a layer gone is no squeeze**: latched in the
+        // middle, then the lower is gone (landed, or left) - it is let go,
+        // no longer turned, held only below the one above, as ever.
+        std::vector<Traffic> gone{at(500, 3800, 100, true, 3800),
+                                  at(-1000, 3400, 100, true, 3300)};
+        gone[1].squeezed = l[2].squeezed;
+        const auto x = glideslope::sim::separate(gone);
+        check(!x[1].heading_deg && !x[1].squeezed && about(x[1].ceiling_ft, 3800 - apart_ft) &&
+                  !x[1].floor_ft,
+              "the lower layer gone, it is let go of the squeeze: not turned, held only below "
+              "the one above");
+        // And with both still there, the latch holds though its own limits
+        // no longer cross (the room made): see `opened` above.
     }
     // **Latched**: clear once, it stays clear until under 1.3 nm, so a
     // distance that dips back under 1.5 nm mid-climb does not send it back

@@ -40,10 +40,12 @@
 //     aircraft it is squeezed between that can be moved (whose autopilot
 //     flies it) is moved away from the middle of the gap, the one below
 //     down and the one above up, to the minimum and margin from it, until
-//     it is clear - as TCAS II coordinates complementary advisories, one
-//     climbing and the other descending, and as a safety alert may be
-//     given to either aircraft. Arriving inside the minimum, it is out of
-//     it once the gap has opened, not once it has turned 1.5 nm away.
+//     it is clear - after a controller's safety alert, which may be given
+//     to either aircraft (FAA JO 7110.65 2-1-6), and TCAS-like, one
+//     climbing and the other descending as TCAS II's complementary
+//     advisories have them. The middle follows any near it that cannot be
+//     moved. Arriving inside the minimum, it is out of it once the gap has
+//     opened, not once it has turned 1.5 nm away.
 //
 // **Who gives way**: an AI aircraft whose autopilot is flying (not one taking
 // off, landing or gliding with its engine stopped, nor a person's), to every aircraft that does not give way -

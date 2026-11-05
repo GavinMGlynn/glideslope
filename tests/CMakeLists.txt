@@ -3611,6 +3611,17 @@ add_test(NAME an_aircraft_flying_its_copilots_route_is_measured_against_every_ot
 set_tests_properties(an_aircraft_flying_its_copilots_route_is_measured_against_every_other_ai_aircraft_and_kept_apart_from_them
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/copilot_kept_apart)
+add_test(NAME an_aircraft_flying_its_copilots_route_is_measured_against_model_planned_and_plan_file_ai_aircraft_over_a_whole_run
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/copilot_planned_kept_apart -DPORT=24969
+        -DCOPILOT=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/manly-server-anthropic.jsonl
+        -DPLANNED=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_handed_kept_apart.cmake)
+set_tests_properties(an_aircraft_flying_its_copilots_route_is_measured_against_model_planned_and_plan_file_ai_aircraft_over_a_whole_run
+    PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1500)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/copilot_planned_kept_apart)
 
 # **An aircraft its player rolled into a spiral over two AI layers, handed to
 # the AI in it, is rolled level and kept apart from both.** See
