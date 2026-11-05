@@ -215,3 +215,9 @@ circuit, land, separation, vacate, taxi, kept apart, lesson, controller and
 the selftest, the CI shard checks and the gust sweep, 304 of 304 on
 linux-release (one skipped, as it needs a key).
 The server and the tests build on Windows (windows-debug).
+
+**Named on the train**: the height an AI aircraft holds above a person's
+only ever rises. If the person climbs to 15,000 ft and comes back down, the
+AI behind is still held at 15,700 ft, capped only by the autopilot's
+ceiling. That falls under the open item for an AI aircraft behind a person
+who stays in the circuit.
