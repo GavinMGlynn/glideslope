@@ -186,12 +186,14 @@ bool clear_of_departures_by_hand(const Runway& runway, const AircraftState& her)
 // outside it a pilot need not ask to leave the tower's frequency (AIM
 // 4-3-2): the tower has no more say in her. But a circuit is flown further
 // out than that - 6.5 nm the furthest measured, a jet's downwind extended -
-// and the one behind comes back by legs to final 6 and 4 nm out; so the
-// reach is the furthest of those and twice the 1.5 nm minimum on it, and a
-// little: 10 nm, chosen, not sourced. At 8 nm, an F-15C flying away down
-// the approach was 2,673 m and 474 ft from the F-15C coming back.
+// and the one behind holds outside as far as 15 nm (HoldOutside, the
+// furthest a test allows); so the reach is that and the 1.5 nm minimum,
+// and a little: 17 nm, chosen, not sourced. Nearer, a person flying away
+// down the approach passed the hold as the one behind set off down from
+// it - at 8 nm two F-15Cs were 2,673 m and 474 ft apart, and at 10 nm a
+// person's F-15C and a B-2A behind her 1,304 m and 464 ft.
 bool left_the_circuit_by_hand(const Runway& runway, const AircraftState& her);
-constexpr double left_the_circuit_nm = 10.0;
+constexpr double left_the_circuit_nm = 17.0;
 constexpr double by_hand_final_nm = 5.0;
 constexpr double by_hand_departure_nm = 1.5;
 constexpr double by_hand_heading_deg = 30.0;
@@ -236,23 +238,18 @@ Runway reciprocal(const Runway& runway);
 // departing (`straight_in_by_hand`, `departing_by_hand`): one taking off
 // the other way is in the circuit's way as much as one taking off with it.
 bool using_by_hand(const Runway& runway, const AircraftState& her);
-// **A person departing under a circuit is kept below it**
-// (`circuit_over_departure_ft`): while she is departing `runway` or its
-// reciprocal (`departing_by_hand`), her height - which a circuit going
-// round to it takes as the height of a circuit ahead, and so flies 700 ft
-// over (GoAroundCircuit::above_ahead_ft), raised as she climbs - or none.
-// Nothing holds a person's take-off: one who lines up and rolls while an
-// AI aircraft is on the approach is climbing out under the one going
-// around for her, and a jet going around over a Cub overtook her and came
-// down into her climb, 1,760 m and 347 ft from her. Kept over her while she
-// climbs straight out in the air to `over_departure_nm` past the runway's
-// far end, not only to `by_hand_departure_nm`: past that, still climbing
-// on, a jet's crosswind leg crossed her climb 480 ft over her. Chosen.
-std::optional<double> circuit_over_departure_ft(const Runway& runway, const AircraftState& her);
+// **A person climbing out** (`climbing_out_by_hand`): departing `runway`
+// or its reciprocal (`departing_by_hand`), or on out in the air along its
+// heading, within the minimum of its centreline, to `over_departure_nm`
+// past its far end. A circuit going round to it does not turn crosswind
+// across her climb while she is (GoAroundCircuit::follow): turned once she
+// was past `by_hand_departure_nm`, a 747-400's crosswind leg crossed a
+// C182's climb 440 ft over her, 797 m off. Chosen.
+bool climbing_out_by_hand(const Runway& runway, const AircraftState& her);
 constexpr double over_departure_nm = 5.0;
 // **A person ahead of an approach, to break off for**
-// (`ahead_of_an_approach_by_hand`): departing `runway` or its reciprocal,
-// or lined up on it - on the runway within `lined_up_m` of a threshold,
+// (`ahead_of_an_approach_by_hand`): climbing out from `runway` or its
+// reciprocal (`climbing_out_by_hand`), or lined up on it - on the runway within `lined_up_m` of a threshold,
 // heading within `by_hand_heading_deg` of the runway's - however fast.
 // Waiting for her roll to reach `by_hand_rolling_kts`, an F-15C 2 nm out
 // broke off only at 1.2 nm and 480 ft, as a Cub lifted off 2,375 m ahead.
@@ -386,7 +383,14 @@ public:
     // `straight_in`: an aircraft on a straight-in approach to her runway -
     // followed until she turns base; from there she is committed and
     // it is not.
-    void follow(std::optional<double> ahead_alt_ft, bool straight_in = false);
+    // `climbing_out`: a person climbing out from her runway ahead of her
+    // (sim::climbing_out_by_hand) - she flies on up her upwind leg, offset
+    // right, and turns crosswind only once the person has gone: the AIM's
+    // crosswind turn is "beyond the departure end", and a tower's
+    // departure goes once the one before has "turned to avert any
+    // conflict" (JO 7110.65 3-9-6); turning across the climb is not that.
+    void follow(std::optional<double> ahead_alt_ft, bool straight_in = false,
+                bool climbing_out = false);
     bool following() const { return following_; }
     // How many racetracks she has flown from a downwind extended its
     // furthest.
@@ -422,6 +426,7 @@ private:
     double leave_downwind_nm_ = 0.0;
     bool gear_up_ = false;
     bool following_ = false;
+    bool climbing_out_ = false;
     // Across, where the racetrack first left the downwind leg: the line it
     // joins again every time round.
     std::optional<double> downwind_m_;

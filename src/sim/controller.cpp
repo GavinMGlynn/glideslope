@@ -1087,7 +1087,8 @@ Controls Controller::fly() {
             // And a straight-in on the approach to her runway, until she
             // turns base.
             circuit_->follow(circuit_ahead_ ? circuit_ahead_() : std::nullopt,
-                             straight_in_ && straight_in_(circuit_->runway()));
+                             straight_in_ && straight_in_(circuit_->runway()),
+                             climbing_out_ && climbing_out_(circuit_->runway()));
             // The highest she flies it: where the autopilot overshoots her
             // circuit's height levelling off, the one behind keeps clear of
             // where she is.

@@ -399,6 +399,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_hold_out_of_her_reach_is_given_up_for_her_best_height_where_she_is
     a_person_who_lines_up_and_rolls_with_an_ai_aircraft_2_nm_out_is_kept_apart_from_her_the_slowest_and_the_fastest_each_with_each
     a_person_who_lines_up_and_rolls_under_an_ai_aircraft_at_200_ft_lifts_off_inside_the_minimum_of_her
+    every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
     an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_comes_back_and_lands_kept_apart
     an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
     the_tests_of_a_person_flying_away_fly_every_bearing_once
@@ -1446,7 +1447,7 @@ set_tests_properties(a_circuit_gives_way_to_a_person_straight_in_and_is_kept_apa
     PROPERTIES TIMEOUT 3600)
 # **A person flying away, lining up, and the climb before a hold on raised
 # ground** (docs/status, 2026-11-06): on linux-debug locally beside a -j4
-# sweep, 287 s down the approach, 313 s lining up 2 nm out, 325 s lining
+# sweep, 319 s down the approach, 179 s lining up 2 nm out, 181 s lining
 # up at 200 ft, 247 s on raised ground, 79 s out of reach; the other seven
 # bearings 211 s on linux-release (gust_sweep), about 3,000 on debug at
 # fourteen times. Five times the local figure and more.
@@ -1460,7 +1461,10 @@ set_tests_properties(a_hold_out_of_her_reach_is_given_up_for_her_best_height_whe
 set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
     PROPERTIES TIMEOUT 5400)
 set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
+    every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
     PROPERTIES LABELS gust_sweep)
+set_tests_properties(every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
+    PROPERTIES TIMEOUT 3600)
 # **Every landplane's take-off to 3,000 ft and ten minutes held there**, in
 # simulated time: 22 s on linux-release locally, and Linux debug's runners
 # take about fourteen times release's for flights like these.

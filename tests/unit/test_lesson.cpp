@@ -10766,7 +10766,11 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
                 out_m * std::sin(b) /
                     glideslope::sim::metres_per_degree_longitude(runway.threshold_lat_deg);
             w.altitude_ft = a.altitude_ft;
-            w.airspeed_kts = ahead_speeds.vref_kts + 20.0;
+            // At the middle of her plan's speeds, as a departure's plan is
+            // flown: at her reference and twenty, an F-22A's stand-in fell
+            // out of the sky.
+            const auto plan = glideslope::sim::plan_speeds(data(), ahead_entry.model);
+            w.airspeed_kts = 0.5 * (plan.slowest_kts + plan.fastest_kts);
             glideslope::sim::FlightPlan away;
             away.waypoints.push_back(w);
             pilot->to_ai(away);
@@ -11630,21 +11634,10 @@ StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
         return !glideslope::sim::on_runway(r, s.latitude_deg, s.longitude_deg,
                                            s.altitude_ft - r.elevation_ft);
     });
-    // And, a person's departure, over her as she climbs out
-    // (sim::circuit_over_departure_ft), as a server's does.
-    const bool departure_persons = whose == Whose::persons || whose == Whose::person_rolling_at_once;
+    const bool departure_persons =
+        whose == Whose::persons || whose == Whose::person_rolling_at_once;
     circuit_c.follows_with(
-        [&circuit_c, &departure, departure_persons]() -> std::optional<double> {
-            std::optional<double> ahead =
-                glideslope::sim::circuit_ahead_alt_ft(0, {circuit_c.circling()});
-            if (departure_persons && circuit_c.circling()) {
-                if (const std::optional<double> under = glideslope::sim::circuit_over_departure_ft(
-                        circuit_c.circling()->runway, departure.state())) {
-                    ahead = std::max(ahead.value_or(*under), *under);
-                }
-            }
-            return ahead;
-        },
+        [&circuit_c] { return glideslope::sim::circuit_ahead_alt_ft(0, {circuit_c.circling()}); },
         [&now_s] { return now_s; });
     circuit_c.spaced_with([&circuit, &departure](const glideslope::sim::Runway& r) {
         return glideslope::sim::close_ahead_on_approach(r, circuit.state(), departure.state());
@@ -11653,6 +11646,9 @@ StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
     if (departure_persons) {
         circuit_c.breaks_off_with([&departure](const glideslope::sim::Runway& r) {
             return glideslope::sim::ahead_of_an_approach_by_hand(r, departure.state());
+        });
+        circuit_c.holds_upwind_with([&departure](const glideslope::sim::Runway& r) {
+            return glideslope::sim::climbing_out_by_hand(r, departure.state());
         });
     }
     departure_c.limit_speed(
@@ -12484,13 +12480,7 @@ void every_landplane_with_a_person(const std::string& id) {
     circuits_and_straight_ins({id}, kinds, Whose::persons);
     behind_persons_who_stay({id}, kinds);
     departures_behind_persons_who_stay({id}, kinds);
-    // **Left out, named: a person lining up 2 nm ahead** of every
-    // landplane. Swept, it was not kept apart - a person's C182 under eleven
-    // of them, the least 24 m, and a PA-28 not landed behind a person's jet
-    // within the hour - so it is flown for the slowest and the fastest only,
-    // and its plan item stays open (docs/status, 2026-11-06).
-    std::printf("  left out - a person lining up 2 nm ahead: not kept apart in every pair "
-                "(a plan item)\n");
+    persons_lining_up_ahead({id}, kinds, lining_up_far_nm);
     behind_persons_who_fly_away({id}, kinds, away_bearings_deg());
     behind_persons_who_stay_on_raised_ground({id}, kinds);
 }
@@ -12553,6 +12543,41 @@ GLIDESLOPE_TEST(a_person_who_lines_up_and_rolls_with_an_ai_aircraft_2_nm_out_is_
 // The slowest and the fastest each with each; each pair's least is
 // printed, and the lift-off within 1.5 nm and the loss asserted for every
 // one, so that a change that kept them apart turns this red, to be read.
+// **Every landplane pair, a person lining up under an AI aircraft at 200
+// ft, measured**: the stated shortfall's figures, every AI aircraft with
+// every person's departure - the lift-off's distance and height apart and
+// the least of the flight, printed for each, with how many lost the
+// minimum. Nothing is asserted of the separation, which no manoeuvre of the
+// AI's keeps (the test above); every pair flown is, and none wrecked.
+// gust_sweep: 225 flights.
+GLIDESLOPE_TEST(every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured) {
+    const std::vector<std::string> kinds = landplanes_going_around();
+    std::size_t flown = 0;
+    std::size_t lost = 0;
+    double least_m = 1e9;
+    double least_ft = 1e9;
+    for (const std::string& circuit_id : kinds) {
+        for (const std::string& departure_id : kinds) {
+            const StraightAndCircuit r = circuit_and_departure(
+                circuit_id, departure_id, true, Whose::person_rolling_at_once);
+            ++flown;
+            lost += r.lost ? 1 : 0;
+            least_m = std::min(least_m, r.least_m);
+            least_ft = std::min(least_ft, r.least_ft);
+            std::printf("  %s at 200 ft, a person's %s rolling under her: at her lift-off "
+                        "%.0f m and %.0f ft apart; %s%s\n",
+                        circuit_id.c_str(), departure_id.c_str(), r.lift_off_m, r.lift_off_ft,
+                        least_of(r).c_str(), r.lost ? "; LOST" : "");
+            check(r.wreck.empty(), circuit_id + " and " + departure_id + ": wrecked: " + r.wreck);
+        }
+    }
+    std::printf("  %zu of %zu lost the minimum; least %s within 500 ft, %s within 1.5 nm\n", lost,
+                flown, least_figure(least_m, " m").c_str(), least_figure(least_ft, " ft").c_str());
+    check(flown == kinds.size() * kinds.size(),
+          "every pair flown: " + std::to_string(flown) + " of " +
+              std::to_string(kinds.size() * kinds.size()));
+}
+
 GLIDESLOPE_TEST(a_person_who_lines_up_and_rolls_under_an_ai_aircraft_at_200_ft_lifts_off_inside_the_minimum_of_her) {
     const std::vector<std::string> two = slowest_and_fastest();
     std::size_t flown = 0;

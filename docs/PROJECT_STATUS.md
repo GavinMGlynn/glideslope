@@ -343,16 +343,16 @@ pair, in six situations, stayed 500 ft or 1.5 nm apart, the closest
 departure behind a left-hand circuit was held at most 455 s
 (2026-11-05-a-person-straight-in-departing-or-staying-in-the-circuit).
 Since 2026-11-06 a person who flies 10 nm from the circuit loses her place,
-and the AI holding behind her comes back and lands - but swept over
-every landplane pair, a fast person flying away down the approach came
-within 1,304 m and 463 ft of the one coming back, in 12 pairs, and a
-person's F-22A flying away at 315 degrees struck the ground. Over raised ground the AI climbs to her hold before setting off -
+and the AI holding behind her comes back and lands. Past 10 nm, a fast
+person flying away down the approach passed the hold as the one behind
+came down from it, in 12 pairs; dropped at 17 nm, the sweep so far keeps
+every pair apart, but it is part-run. Over raised ground the AI climbs to her hold before setting off -
 she had skipped it, leaving near her fix - and was never within 500 ft or
 1.5 nm of the person while she did. A hold out of her reach is given up
 for her best height, circling where she is; nothing diverts her yet. An
 AI 2 nm out or more breaks off for a person lined up and flies over her
-climb: kept apart in the four slowest-and-fastest pairs, but not swept
-over every pair - a person's C182 under eleven landplanes came within 24 m. A racetrack can
+climb, holding her upwind leg while the person climbs out: the four
+slowest-and-fastest pairs kept apart, and 120 of 225 swept so far. A racetrack can
 reach high ground its circuit did not sample
 (2026-11-06-a-person-flying-away-and-the-climb-before-a-hold-on-raised-ground).
 
