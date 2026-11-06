@@ -177,6 +177,23 @@ bool departing_by_hand(const Runway& runway, const AircraftState& her);
 // beyond the runway she never is: one orbiting over the climb-out holds
 // the departure, as a tower would not release one into her.
 bool clear_of_departures_by_hand(const Runway& runway, const AircraftState& her);
+// **Gone from the circuit** (`left_the_circuit_by_hand`), a person's
+// aircraft with a place in it: further than `left_the_circuit_nm` from the
+// runway's threshold, horizontally - whatever her height and heading. Her
+// place is dropped (Controller::fly), and the one behind her, holding
+// outside, comes back to land. A tower's surface area is about 4 nm round
+// (AIM 3-2-5: Class D, "usually" 4 nm; 5 statute miles in practice), and
+// outside it a pilot need not ask to leave the tower's frequency (AIM
+// 4-3-2): the tower has no more say in her. But a circuit is flown further
+// out than that - 6.5 nm the furthest measured, a jet's downwind extended -
+// and the one behind holds outside as far as 15 nm (HoldOutside, the
+// furthest a test allows); so the reach is that and the 1.5 nm minimum,
+// and a little: 17 nm, chosen, not sourced. Nearer, a person flying away
+// down the approach passed the hold as the one behind set off down from
+// it - at 8 nm two F-15Cs were 2,673 m and 474 ft apart, and at 10 nm a
+// person's F-15C and a B-2A behind her 1,304 m and 464 ft.
+bool left_the_circuit_by_hand(const Runway& runway, const AircraftState& her);
+constexpr double left_the_circuit_nm = 17.0;
 constexpr double by_hand_final_nm = 5.0;
 constexpr double by_hand_departure_nm = 1.5;
 constexpr double by_hand_heading_deg = 30.0;
@@ -221,6 +238,25 @@ Runway reciprocal(const Runway& runway);
 // departing (`straight_in_by_hand`, `departing_by_hand`): one taking off
 // the other way is in the circuit's way as much as one taking off with it.
 bool using_by_hand(const Runway& runway, const AircraftState& her);
+// **A person climbing out** (`climbing_out_by_hand`): departing `runway`
+// or its reciprocal (`departing_by_hand`), or on out in the air along its
+// heading, within the minimum of its centreline, to `over_departure_nm`
+// past its far end. A circuit going round to it does not turn crosswind
+// across her climb while she is (GoAroundCircuit::follow): turned once she
+// was past `by_hand_departure_nm`, a 747-400's crosswind leg crossed a
+// C182's climb 440 ft over her, 797 m off. Chosen.
+bool climbing_out_by_hand(const Runway& runway, const AircraftState& her);
+constexpr double over_departure_nm = 5.0;
+// **A person ahead of an approach, to break off for**
+// (`ahead_of_an_approach_by_hand`): climbing out from `runway` or its
+// reciprocal (`climbing_out_by_hand`), or lined up on it - on the runway within `lined_up_m` of a threshold,
+// heading within `by_hand_heading_deg` of the runway's - however fast.
+// Waiting for her roll to reach `by_hand_rolling_kts`, an F-15C 2 nm out
+// broke off only at 1.2 nm and 480 ft, as a Cub lifted off 2,375 m ahead.
+// Lined up further down the runway, she is landed and rolling out, and the
+// runway's rule (sim/vacate.hpp) is the one that applies. Chosen.
+bool ahead_of_an_approach_by_hand(const Runway& runway, const AircraftState& her);
+constexpr double lined_up_m = 300.0;
 
 // **Holding outside the circuit**, behind a person who stays in it
 // (Controller::leaves_with): a tower's "remain outside the Class D" (AIM
@@ -242,10 +278,21 @@ bool using_by_hand(const Runway& runway, const AircraftState& her);
 //     held there, raised), and 1,000 ft over the highest ground within
 //     4 nm of the hold - 14 CFR 91.177(a)(2)(ii)'s IFR minimum, the
 //     ground sampled every 250 m within 4 nm and a leg's reach of the fix,
-//     once, as the hold is set up. Below that height she climbs in right
-//     turns where she is before she sets off for the fix.
+//     once, as the hold is set up. More than `sets_off_within_ft` below
+//     that height she climbs in right turns where she is - over ground her
+//     circuit was cleared for - before she sets off for the fix, and is
+//     not round the fix until she has.
+//   - **Out of her reach**: where her climb stalls - less than
+//     `stalled_gain_ft` gained in `stalled_s`, her ceiling, chosen - she
+//     gives the hold up: she holds the best height she reached, circling
+//     where she is, never setting off over ground she cannot clear, and
+//     says so (`out_of_reach`). It ends as any hold does, the person down
+//     or gone (Controller::leaves_with).
 class HoldOutside {
 public:
+    static constexpr double sets_off_within_ft = 200.0;
+    static constexpr double stalled_gain_ft = 100.0;
+    static constexpr double stalled_s = 120.0;
     static constexpr double fix_nm = 9.0;
     static constexpr double leg_s = 60.0;
     static constexpr double bank_deg = 25.0;
@@ -266,6 +313,9 @@ public:
     double fix_lon_deg() const { return fix_lon_deg_; }
     // How many times she has crossed the fix.
     int laps() const { return laps_; }
+    // Whether her hold's height was out of her reach, and she holds her
+    // best instead where she is.
+    bool out_of_reach() const { return out_of_reach_; }
 
 private:
     const Aircraft& a_;
@@ -279,6 +329,14 @@ private:
     Leg leg_ = Leg::to_fix;
     double leg_began_s_ = 0.0;
     int laps_ = 0;
+    // The best height of her climb before the hold, and when she last
+    // gained `stalled_gain_ft` on it.
+    double best_alt_ft_ = 0.0;
+    double best_at_s_ = 0.0;
+    bool out_of_reach_ = false;
+    // Still to climb before setting off, where she is: and her climb
+    // judged, giving the hold up where it has stalled.
+    bool climbing_first(const AircraftState& s);
 };
 
 class GoAroundCircuit {
@@ -325,7 +383,14 @@ public:
     // `straight_in`: an aircraft on a straight-in approach to her runway -
     // followed until she turns base; from there she is committed and
     // it is not.
-    void follow(std::optional<double> ahead_alt_ft, bool straight_in = false);
+    // `climbing_out`: a person climbing out from her runway ahead of her
+    // (sim::climbing_out_by_hand) - she flies on up her upwind leg, offset
+    // right, and turns crosswind only once the person has gone: the AIM's
+    // crosswind turn is "beyond the departure end", and a tower's
+    // departure goes once the one before has "turned to avert any
+    // conflict" (JO 7110.65 3-9-6); turning across the climb is not that.
+    void follow(std::optional<double> ahead_alt_ft, bool straight_in = false,
+                bool climbing_out = false);
     bool following() const { return following_; }
     // How many racetracks she has flown from a downwind extended its
     // furthest.
@@ -361,6 +426,7 @@ private:
     double leave_downwind_nm_ = 0.0;
     bool gear_up_ = false;
     bool following_ = false;
+    bool climbing_out_ = false;
     // Across, where the racetrack first left the downwind leg: the line it
     // joins again every time round.
     std::optional<double> downwind_m_;

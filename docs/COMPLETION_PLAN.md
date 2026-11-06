@@ -1626,8 +1626,12 @@ AI aircraft kept apart from each other and clear of the runway.
       All 675 flights of every landplane pair, in three situations, stayed
       apart and landed or departed in order.
 - [ ] **A person straight in or taking off is not sequenced**: done but for
-      a person who takes off under an AI aircraft going around, who is not
-      kept apart - no turn takes the AI clear in time. A person is judged
+      a person lining up under an AI already at 200 ft, who lifts off within
+      1.5 nm of her: 171 of 225 pairs lose the minimum (least 59 m and
+      0 ft), a stated shortfall for the owner's decision. An AI 2 nm out or
+      more breaks off for a person lined up and holds her upwind leg while
+      the person climbs out: all 225 pairs kept apart, least 585 ft within
+      1.5 nm (2026-11-06). A person is judged
       by how she flies, on the runway or its reciprocal, and given way to.
       An AI departure behind a person in the circuit goes once she is
       behind the threshold and going away, whatever her pattern; behind a
@@ -1642,7 +1646,13 @@ AI aircraft kept apart from each other and clear of the runway.
       place in it**, so an AI aircraft behind her holds outside the circuit
       for as long as she flies. *Verification: an AI aircraft behind a
       person who leaves the circuit without landing comes back and lands
-      within a stated time, kept 500 ft or 1.5 nm apart.*
+      within a stated time, kept 500 ft or 1.5 nm apart.* 17 nm out, beyond
+      the hold, her place is dropped (2026-11-06); at 10 nm 12 pairs lost
+      the minimum. Swept over every pair, all kept apart (least 618 ft
+      within 1.5 nm) and back within 783 s, but for two pairs: a person's
+      737-300 stand-in fell flying away on five bearings ahead of a PA-28,
+      and an F-22A behind a person's Cub hit the ground landing (0 degrees)
+      and was not clear of the runway (45 degrees).
 - [x] **An A380 given a take-off and no plan flies into the ground**:
       she now raises her flaps at Airbus's F and S speeds, and a take-off
       with no plan levels off at its height, leading it by a tenth of her
@@ -1659,12 +1669,26 @@ AI aircraft kept apart from each other and clear of the runway.
       the same rule when its own has been taken.
       *Verification: a wreck flown again while a player is at the start on
       its layer is kept 500 ft or 1.5 nm from her.* Done 2026-11-05.
-- [ ] **The climb before a hold on raised ground is not measured against a
+- [x] **The climb before a hold on raised ground is not measured against a
       person**: an AI aircraft leaving the circuit climbs in turns before
       setting off when the ground ahead is high, and nothing measures her
       separation from a person still flying the circuit while she does.
       *Verification: on raised ground, an AI climbing before her hold stays
-      500 ft or 1.5 nm from a person flying the circuit.*
+      500 ft or 1.5 nm from a person flying the circuit.* Done 2026-11-06:
+      leaving near her fix she skipped the climb, and now does not. All
+      four pairs climbed over 1,200 ft before their fix, never within
+      500 ft or 1.5 nm of the person.
+- [ ] **A racetrack can reach past the ground its circuit sampled**: an
+      F-15C following another, her circuit raised, flew her racetrack into
+      a plateau 10 nm out that her circuit (sampled 8 nm out) had not seen.
+      *Verification: every landplane following another round a circuit
+      beside high ground beyond 8 nm stays 500 ft over it.*
+- [ ] **A hold out of her reach is given up for her best height**: done
+      2026-11-06 - she holds the best she climbed to, circling where she
+      is, never setting off over ground she cannot clear (a Cub, 14,100 ft
+      over the runway). Nothing yet diverts her elsewhere.
+      *Verification: an AI aircraft whose hold is out of reach diverts to
+      another runway, kept apart.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the

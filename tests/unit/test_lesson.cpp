@@ -10541,7 +10541,40 @@ enum class Then {
     // hold's fix once; then she lands, and the one behind comes back and
     // lands after her.
     ahead_stays_until_the_one_behind_holds,
+    // **And stays until the one behind is holding outside, and then flies
+    // away from the circuit**, never landing: once the one behind is round
+    // her hold's fix, her pilot flies straight for a point `away_nm` from
+    // the threshold on the bearing she is given, level at the height she
+    // is at. Past sim::left_the_circuit_nm her place is dropped, and the
+    // one behind comes back and lands; the run ends once that one is clear
+    // of the runway.
+    ahead_stays_then_flies_away,
 };
+
+// How far out the point a person flying away from the circuit makes for
+// is: far past sim::left_the_circuit_nm, and past the furthest of a hold.
+constexpr double away_nm = 30.0;
+
+// **The plateau a hold is set over**: 2,500 ft over the runway from
+// `from_nm` out - higher than any circuit. From `circuits_clear_nm`, it is
+// beyond where any circuit's ground is sampled (sim::GoAroundCircuit: 8 nm
+// before the threshold and two turns and two kilometres to its side, an
+// F-15C's corner 9.1 nm out) and beyond the furthest racetrack flown
+// following a raised circuit, so that two flying circuits fly them as on
+// flat ground and only the hold is raised. At 8.5 nm, the test of a hold
+// alone, with no circuit flown, raised an F-15C's circuit 2,500 ft; at
+// 10 nm, an F-15C behind another flew her racetrack into it - a racetrack
+// reaches past the ground her circuit sampled (a plan item).
+constexpr double plateau_ft = 2500.0;
+constexpr double circuits_clear_nm = 12.0;
+double plateau_m(const glideslope::sim::Runway& r, double lat, double lon,
+                 double from_nm = circuits_clear_nm) {
+    const double out_nm =
+        glideslope::sim::distance_m(lat, lon, r.threshold_lat_deg, r.threshold_lon_deg) /
+        metres_per_nm;
+    return out_nm >= from_nm ? (r.elevation_ft + plateau_ft) / feet_per_metre
+                             : r.elevation_ft / feet_per_metre;
+}
 
 // How long a run goes on after the one behind leaves the circuit, the
 // person staying: long enough to see her in her hold, round its fix.
@@ -10588,11 +10621,29 @@ struct TwoAround {
     double hold_nearest_nm = 1e9;
     double hold_furthest_nm = 0.0;
     bool rejoined = false;
+    // **Her climb before setting off for her hold**, on raised ground: how
+    // far her hold was set over the height she left the circuit at, ft;
+    // whether she reached it before she was round her fix; and the least
+    // apart while she climbed to it, as above.
+    double hold_over_leaving_ft = 0.0;
+    bool climbed_first = false;
+    double climb_least_m = 1e9;
+    double climb_least_ft = 1e9;
+    // **A person flying away**: her place dropped - how far out she was,
+    // nm, and how long after she set off, s - and how long after it was
+    // dropped the one behind touched down, s (negative: never).
+    bool dropped = false;
+    double dropped_at_nm = 0.0;
+    double dropped_after_s = -1.0;
+    double landed_after_drop_s = -1.0;
     std::string wreck;
 };
 
+// `away_deg`: a person flying away, the bearing she flies, off the runway's
+// heading. `raised`: over the plateau (`plateau_m`).
 TwoAround two_go_around_together(const std::string& ahead_id, const std::string& behind_id,
-                                 bool sequenced, Then then = Then::nothing) {
+                                 bool sequenced, Then then = Then::nothing,
+                                 double away_deg = 0.0, bool raised = false) {
     const glideslope::sim::Runway runway = a_runway();
     const auto ahead_entry = glideslope::sim::find_aircraft(data(), ahead_id);
     const auto behind_entry = glideslope::sim::find_aircraft(data(), behind_id);
@@ -10608,6 +10659,12 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
     put_on_final(ahead, ahead_entry, runway, ahead_speeds, false, ahead_out_nm);
     glideslope::sim::Aircraft behind(data() / "jsbsim", behind_entry.model);
     put_on_final(behind, behind_entry, runway, behind_speeds, false, behind_out_nm);
+    if (raised) {
+        for (glideslope::sim::Aircraft* a : {&ahead, &behind}) {
+            a->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+                [runway](double lat, double lon) { return plateau_m(runway, lat, lon); }));
+        }
+    }
 
     glideslope::sim::Controls flying;
     flying.throttle = 0.4;
@@ -10660,7 +10717,8 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
     std::optional<glideslope::sim::Controller> pilot;
     const bool taken_over = then == Then::ahead_taken_by_her_pilot ||
                             then == Then::ahead_taken_and_stays ||
-                            then == Then::ahead_stays_until_the_one_behind_holds;
+                            then == Then::ahead_stays_until_the_one_behind_holds ||
+                            then == Then::ahead_stays_then_flies_away;
     if (taken_over) {
         pilot.emplace(ahead, flying);
         pilot->to_ai_approach(runway, ahead_speeds);
@@ -10690,8 +10748,39 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
     bool ahead_circling = false;
     bool again = false;
     int taken_at = -1;
+    int away_at = -1;
+    int dropped_at = -1;
+    std::optional<double> left_alt_ft;
     glideslope::sim::Controls ahead_last = flying;
     for (int t = 0; t < 3600 * steps_per_second; ++t) {
+        // **Flying away**: once the one behind is round her hold's fix, her
+        // pilot sets off for a point `away_nm` out on her bearing, level.
+        if (then == Then::ahead_stays_then_flies_away && pilot && away_at < 0 &&
+            out.hold_laps >= 1) {
+            away_at = t;
+            const glideslope::sim::AircraftState a = ahead.state();
+            const double b = (runway.heading_deg + away_deg) / degrees;
+            const double out_m = away_nm * metres_per_nm;
+            glideslope::sim::Waypoint w;
+            w.name = "away";
+            w.latitude_deg =
+                runway.threshold_lat_deg +
+                out_m * std::cos(b) /
+                    glideslope::sim::metres_per_degree_latitude(runway.threshold_lat_deg);
+            w.longitude_deg =
+                runway.threshold_lon_deg +
+                out_m * std::sin(b) /
+                    glideslope::sim::metres_per_degree_longitude(runway.threshold_lat_deg);
+            w.altitude_ft = a.altitude_ft;
+            // At the middle of her plan's speeds, as a departure's plan is
+            // flown: at her reference and twenty, an F-22A's stand-in fell
+            // out of the sky.
+            const auto plan = glideslope::sim::plan_speeds(data(), ahead_entry.model);
+            w.airspeed_kts = 0.5 * (plan.slowest_kts + plan.fastest_kts);
+            glideslope::sim::FlightPlan away;
+            away.waypoints.push_back(w);
+            pilot->to_ai(away);
+        }
         if (taken_over && taken_at < 0 && ahead_c.circuit() &&
             ahead_c.circuit()->leg() == glideslope::sim::GoAroundCircuit::Leg::downwind) {
             taken_at = t;
@@ -10703,7 +10792,9 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
         // until `person_in_circuit_s` have passed.
         if (pilot && taken_at >= 0 &&
             (then == Then::ahead_taken_and_stays ||
-             (then == Then::ahead_stays_until_the_one_behind_holds && out.hold_laps < 1) ||
+             ((then == Then::ahead_stays_until_the_one_behind_holds ||
+               then == Then::ahead_stays_then_flies_away) &&
+              out.hold_laps < 1) ||
              (then == Then::ahead_taken_by_her_pilot &&
               static_cast<double>(t - taken_at) / steps_per_second < person_in_circuit_s)) &&
             !pilot->circuit() && pilot->lander() &&
@@ -10740,6 +10831,25 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
         }
         if (taken_at >= 0 && out.left_after_s < 0.0 && behind_c.left_the_circuit_s()) {
             out.left_after_s = static_cast<double>(t - taken_at) / steps_per_second;
+            left_alt_ft = behind.state().altitude_ft;
+            if (const glideslope::sim::HoldOutside* h = behind_c.hold()) {
+                out.hold_over_leaving_ft = h->altitude_ft() - *left_alt_ft;
+            }
+        }
+        // Her place dropped, flown away: how far out, and when.
+        if (away_at >= 0 && dropped_at < 0 && !ahead_c.circling()) {
+            dropped_at = t;
+            out.dropped = true;
+            const glideslope::sim::AircraftState a = ahead.state();
+            out.dropped_at_nm = glideslope::sim::distance_m(a.latitude_deg, a.longitude_deg,
+                                                            runway.threshold_lat_deg,
+                                                            runway.threshold_lon_deg) /
+                                metres_per_nm;
+            out.dropped_after_s = static_cast<double>(t - away_at) / steps_per_second;
+        }
+        if (dropped_at >= 0 && out.landed_after_drop_s < 0.0 &&
+            behind.property("gear/wow") > 0.5) {
+            out.landed_after_drop_s = static_cast<double>(t - dropped_at) / steps_per_second;
         }
         if (out.left_after_s >= 0.0) {
             const glideslope::sim::AircraftState b = behind.state();
@@ -10809,6 +10919,32 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
             const bool lost_now = apart_ft < glideslope::sim::Separation::minimum_ft &&
                                   apart_m < glideslope::sim::Separation::minimum_m;
             out.lost = out.lost || lost_now;
+            // **Her climb before setting off**: from leaving the circuit
+            // until she is within the 200 ft of her hold's height at which
+            // she sets off for its fix (sim::HoldOutside).
+            if (const glideslope::sim::HoldOutside* h = behind_c.hold();
+                h != nullptr && left_alt_ft && !out.climbed_first) {
+                if (b.altitude_ft >=
+                    h->altitude_ft() - glideslope::sim::HoldOutside::sets_off_within_ft) {
+                    // Before she is round her fix: climbed where she was.
+                    out.climbed_first = h->laps() == 0;
+                    left_alt_ft.reset();
+                } else {
+                    if (apart_ft < glideslope::sim::Separation::minimum_ft) {
+                        out.climb_least_m = std::min(out.climb_least_m, apart_m);
+                    }
+                    if (apart_m < glideslope::sim::Separation::minimum_m) {
+                        out.climb_least_ft = std::min(out.climb_least_ft, apart_ft);
+                    }
+                }
+            }
+        }
+        // **Flown away, she never lands**: the run ends once the one behind
+        // is down and clear of the runway.
+        if (then == Then::ahead_stays_then_flies_away && behind_c.vacate() != nullptr &&
+            behind_c.vacate()->clear()) {
+            out.both_clear = true;
+            break;
         }
         const glideslope::sim::Controller& ahead_flier = pilot ? *pilot : ahead_c;
         if (ahead_flier.vacate() != nullptr && ahead_flier.vacate()->clear() &&
@@ -10820,13 +10956,15 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
     return out;
 }
 
+// **A least figure, or "never"** where they were never that close by the
+// other measure.
+std::string least_figure(double v, const char* unit) {
+    return v > 1e8 ? std::string("never") : std::to_string(std::lround(v)) + unit;
+}
+
 std::string least_of(const TwoAround& r) {
-    // "never": they were not that close by the other measure at all.
-    const auto figure = [](double v, const char* unit) {
-        return v > 1e8 ? std::string("never") : std::to_string(std::lround(v)) + unit;
-    };
-    return "least " + figure(r.least_m, " m") + " apart within 500 ft, least " +
-           figure(r.least_ft, " ft") + " apart within 1.5 nm";
+    return "least " + least_figure(r.least_m, " m") + " apart within 500 ft, least " +
+           least_figure(r.least_ft, " ft") + " apart within 1.5 nm";
 }
 
 // What went wrong with one pair flown to the end, if anything.
@@ -11221,6 +11359,9 @@ struct StraightAndCircuit {
     // Behind a person who stays in the circuit: how long the departure was
     // held, from her take-off given to her roll (negative: never rolled).
     double held_s = -1.0;
+    // How far apart they were as the departure lifted off: m, and ft.
+    double lift_off_m = 0.0;
+    double lift_off_ft = 0.0;
     std::string wreck;
 };
 
@@ -11231,11 +11372,16 @@ struct StraightAndCircuit {
 // Or the one in the circuit is a person's, taken by her pilot on her
 // downwind leg, who stays in the circuit; the departure is lined up on the
 // threshold as before, and given its take-off as she turns final.
-enum class Whose { ai, persons, person_in_the_circuit };
+// Or **a person's departure that rolls as she lines up**, held by
+// nothing (`person_rolling_at_once`): with the one coming in `out_nm` out
+// on the glidepath (circuit_and_departure).
+enum class Whose { ai, persons, person_in_the_circuit, person_rolling_at_once };
 
+// `out_nm`, a person rolling at once: how far out the one coming in is,
+// on the glidepath, as she lines up and rolls; 0, the 200 ft point.
 StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
                                          const std::string& departure_id, bool sequenced,
-                                         Whose whose = Whose::ai);
+                                         Whose whose = Whose::ai, double out_nm = 0.0);
 
 // **A go-around's circuit and a straight-in to the same runway, as built**:
 // the one going around from 200 ft on the glidepath, as in the test of two
@@ -11442,7 +11588,7 @@ StraightAndCircuit circuit_and_straight_in(const std::string& circuit_id,
 // is held.
 StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
                                          const std::string& departure_id, bool sequenced,
-                                         Whose whose) {
+                                         Whose whose, double out_nm) {
     const glideslope::sim::Runway runway = a_runway();
     const auto circuit_entry = glideslope::sim::find_aircraft(data(), circuit_id);
     const auto departure_entry = glideslope::sim::find_aircraft(data(), departure_id);
@@ -11450,7 +11596,9 @@ StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
     const auto departure_speeds =
         glideslope::sim::departure_speeds(data(), departure_entry.model);
     const double circuit_out_nm =
-        (200.0 / feet_per_metre / std::tan(3.0 / degrees) - circuit_speeds.aim_m) / metres_per_nm;
+        out_nm > 0.0 ? out_nm
+                     : (200.0 / feet_per_metre / std::tan(3.0 / degrees) - circuit_speeds.aim_m) /
+                           metres_per_nm;
     glideslope::sim::Aircraft circuit(data() / "jsbsim", circuit_entry.model);
     put_on_final(circuit, circuit_entry, runway, circuit_speeds, false, circuit_out_nm);
 
@@ -11492,18 +11640,29 @@ StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
         return !glideslope::sim::on_runway(r, s.latitude_deg, s.longitude_deg,
                                            s.altitude_ft - r.elevation_ft);
     });
+    const bool departure_persons =
+        whose == Whose::persons || whose == Whose::person_rolling_at_once;
     circuit_c.follows_with(
         [&circuit_c] { return glideslope::sim::circuit_ahead_alt_ft(0, {circuit_c.circling()}); },
         [&now_s] { return now_s; });
     circuit_c.spaced_with([&circuit, &departure](const glideslope::sim::Runway& r) {
         return glideslope::sim::close_ahead_on_approach(r, circuit.state(), departure.state());
     });
+    // **And breaks off for a person's departure ahead**, as a server's does.
+    if (departure_persons) {
+        circuit_c.breaks_off_with([&departure](const glideslope::sim::Runway& r) {
+            return glideslope::sim::ahead_of_an_approach_by_hand(r, departure.state());
+        });
+        circuit_c.holds_upwind_with([&departure](const glideslope::sim::Runway& r) {
+            return glideslope::sim::climbing_out_by_hand(r, departure.state());
+        });
+    }
     departure_c.limit_speed(
         glideslope::sim::plan_speeds(data(), departure_entry.model).fastest_kts);
     if (sequenced) {
         circuit_c.gives_way_with([&departure_c, &departure, whose](const glideslope::sim::Runway& r) {
             // **A person's, judged by how she flies.**
-            if (whose == Whose::persons) {
+            if (whose == Whose::persons || whose == Whose::person_rolling_at_once) {
                 return glideslope::sim::using_by_hand(r, departure.state());
             }
             const std::optional<glideslope::sim::Runway> out = departure_c.departing();
@@ -11521,9 +11680,12 @@ StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
         // lift-off, and one rolling as a J-3 Cub turned downwind climbed
         // through hers abeam, 1,700 m off - no turn takes either clear in
         // time.
-        departure_c.holds_with([&circuit_c](const glideslope::sim::Runway& r) {
-            return glideslope::sim::departure_held(r, {circuit_c.circling()});
-        });
+        // Or she rolls as she lines up (Whose::person_rolling_at_once).
+        if (whose != Whose::person_rolling_at_once) {
+            departure_c.holds_with([&circuit_c](const glideslope::sim::Runway& r) {
+                return glideslope::sim::departure_held(r, {circuit_c.circling()});
+            });
+        }
     }
     // **Her pilot, standing in** (Whose::person_in_the_circuit): a second
     // controller on her aircraft, flying her circuit as the AI would and
@@ -11586,9 +11748,10 @@ StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
         }
         // Given as the one in the circuit goes around - or, a person who
         // stays, as she turns final once she is hers.
-        const bool give = pilot ? taken_at >= 0 && glideslope::sim::straight_in_by_hand(
-                                                       runway, circuit.state())
-                                : circuit_c.circling().has_value();
+        const bool give = whose == Whose::person_rolling_at_once ? true
+                          : pilot ? taken_at >= 0 && glideslope::sim::straight_in_by_hand(
+                                                         runway, circuit.state())
+                                  : circuit_c.circling().has_value();
         if (!given && give) {
             given = true;
             given_at = t;
@@ -11634,6 +11797,11 @@ StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
         if (departure_up && !lifted) {
             lifted = true;
             out.departed_first = !circuit_touched;
+            const glideslope::sim::AircraftState a = circuit.state();
+            const glideslope::sim::AircraftState b = departure.state();
+            out.lift_off_m = glideslope::sim::distance_m(a.latitude_deg, a.longitude_deg,
+                                                         b.latitude_deg, b.longitude_deg);
+            out.lift_off_ft = std::abs(a.altitude_ft - b.altitude_ft);
         }
         // Down, after her go-around: her first touch is the landing (she
         // starts in the air).
@@ -11676,12 +11844,16 @@ StraightAndCircuit circuit_and_departure(const std::string& circuit_id,
 }
 
 std::string least_of(const StraightAndCircuit& r) {
-    const auto figure = [](double v, const char* unit) {
-        return v > 1e8 ? std::string("never") : std::to_string(std::lround(v)) + unit;
-    };
-    return "least " + figure(r.least_m, " m") + " apart within 500 ft, least " +
-           figure(r.least_ft, " ft") + " apart within 1.5 nm";
+    return "least " + least_figure(r.least_m, " m") + " apart within 500 ft, least " +
+           least_figure(r.least_ft, " ft") + " apart within 1.5 nm";
 }
+
+// **How far out the one coming in is, at least, when a person lining up
+// ahead of her is hers to keep apart from**: 2 nm on the glidepath.
+// Nearer - at 200 ft, 0.6 nm out - the person lifts off within 1.5 nm of
+// her and less than 500 ft below: the conflict is the person's, and no
+// manoeuvre of the AI's undoes it (docs/status, 2026-11-06).
+constexpr double lining_up_far_nm = 2.0;
 
 // What went wrong with one pair, if anything: apart, landed, clear, in the
 // order the situation states, and no further out than the circuit's limit.
@@ -12030,6 +12202,227 @@ void behind_persons_who_stay(const std::vector<std::string>& aheads,
                                      " of " + std::to_string(space));
 }
 
+// **Each of `departures`, a person's, lining up and rolling at once as
+// each of `circuits` comes in `out_nm` out on the glidepath**
+// (Whose::person_rolling_at_once): kept 500 ft or 1.5 nm apart, the
+// departure off before the one coming in lands, climbed out, and both
+// clear; every pair asserted flown. The least apart of all is returned,
+// m within 500 ft and ft within 1.5 nm.
+std::pair<double, double> persons_lining_up_ahead(const std::vector<std::string>& circuits,
+                                                  const std::vector<std::string>& departures,
+                                                  double out_nm) {
+    std::set<std::pair<std::string, std::string>> flown;
+    std::vector<std::string> wrong;
+    double least_m = 1e9;
+    double least_ft = 1e9;
+    for (const std::string& circuit_id : circuits) {
+        for (const std::string& departure_id : departures) {
+            const auto started = std::chrono::steady_clock::now();
+            const StraightAndCircuit r = circuit_and_departure(
+                circuit_id, departure_id, true, Whose::person_rolling_at_once, out_nm);
+            flown.insert({circuit_id, departure_id});
+            least_m = std::min(least_m, r.least_m);
+            least_ft = std::min(least_ft, r.least_ft);
+            std::printf("  %s %.1f nm out, a person's %s lining up and rolling: %s; %s; %s%s%s "
+                        "(%.1f s)\n",
+                        circuit_id.c_str(), out_nm, departure_id.c_str(), least_of(r).c_str(),
+                        r.gave_way ? "gave way" : "did not give way",
+                        r.both_clear ? "both clear" : "NOT BOTH CLEAR",
+                        r.wreck.empty() ? "" : ", wrecked: ", r.wreck.c_str(),
+                        std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
+                            .count());
+            const auto w = judged(circuit_id + " " + std::to_string(out_nm) +
+                                      " nm out, a person's " + departure_id +
+                                      " lining up and rolling",
+                                  StraightInWhen::departure_lined_up, r,
+                                  Whose::person_rolling_at_once);
+            wrong.insert(wrong.end(), w.begin(), w.end());
+        }
+    }
+    std::printf("  %.1f nm out: least %s within 500 ft, %s within 1.5 nm\n", out_nm,
+                least_figure(least_m, " m").c_str(), least_figure(least_ft, " ft").c_str());
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(flown.size() == circuits.size() * departures.size(),
+          "every pair flown: " + std::to_string(flown.size()) + " of " +
+              std::to_string(circuits.size() * departures.size()));
+    return {least_m, least_ft};
+}
+
+// **The longest from a person's place dropped, flown away, to the one
+// behind on the runway**, s: what the sweeps below measured, and a little
+// over (docs/status, 2026-11-06).
+constexpr double longest_back_after_a_person_left_s = 900.0;
+
+// **The bearings a person flies away from the circuit on**, off the
+// runway's heading: every 45 degrees - straight out, the AIM's 45-degree
+// turn out of the pattern either way, out abeam either side, back the way
+// she came either side of the approach, and down the approach itself.
+const std::vector<double>& away_bearings_deg() {
+    static const std::vector<double> bearings{0.0, 45.0, 90.0, 135.0, 180.0, 225.0, 270.0, 315.0};
+    return bearings;
+}
+// **Which test flies which of them**, by its registered name: down the
+// approach - where at 8 nm two F-15Cs came 2,673 m and 474 ft apart - on
+// every run; the other seven every night (gust_sweep). The test after
+// these reads the registry against this table.
+const std::vector<std::pair<std::string, std::vector<double>>>& away_bearing_tests() {
+    static const std::vector<std::pair<std::string, std::vector<double>>> tests{
+        {"an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_comes_back_and_lands_kept_apart",
+         {180.0}},
+        {"an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart",
+         {0.0, 45.0, 90.0, 135.0, 225.0, 270.0, 315.0}},
+    };
+    return tests;
+}
+std::vector<double> away_bearings_of(const std::string& test) {
+    for (const auto& [name, bearings] : away_bearing_tests()) {
+        if (name == test) {
+            return bearings;
+        }
+    }
+    check(false, "no bearings for " + test);
+    return {};
+}
+
+// **Each of `aheads`, a person's who stays in the circuit until the one
+// behind holds outside and then flies away on each of `bearings`, ahead of
+// each of `behinds`**: her place is dropped past sim::left_the_circuit_nm,
+// and the one behind comes back and is on the runway within
+// `longest_back_after_a_person_left_s`, kept 500 ft or 1.5 nm from her
+// throughout; every case asserted flown.
+void behind_persons_who_fly_away(const std::vector<std::string>& aheads,
+                                 const std::vector<std::string>& behinds,
+                                 const std::vector<double>& bearings) {
+    std::set<std::tuple<std::string, std::string, double>> flown;
+    std::vector<std::string> wrong;
+    double longest_s = 0.0;
+    double least_m = 1e9;
+    double least_ft = 1e9;
+    for (const std::string& ahead_id : aheads) {
+        for (const std::string& behind_id : behinds) {
+            for (const double bearing : bearings) {
+                const auto started = std::chrono::steady_clock::now();
+                const TwoAround r = two_go_around_together(ahead_id, behind_id, true,
+                                                           Then::ahead_stays_then_flies_away,
+                                                           bearing);
+                flown.insert({ahead_id, behind_id, bearing});
+                longest_s = std::max(longest_s, r.landed_after_drop_s);
+                least_m = std::min(least_m, r.least_m);
+                least_ft = std::min(least_ft, r.least_ft);
+                std::printf("  a person's %s ahead flying away %.0f deg off the runway, %s "
+                            "behind: %s; her place dropped %.2f nm out, %.0f s after she set "
+                            "off; the one behind down %.0f s after%s%s%s (%.1f s)\n",
+                            ahead_id.c_str(), bearing, behind_id.c_str(), least_of(r).c_str(),
+                            r.dropped_at_nm, r.dropped_after_s, r.landed_after_drop_s,
+                            r.both_clear ? ", clear of the runway" : ", NOT CLEAR",
+                            r.wreck.empty() ? "" : ", wrecked: ", r.wreck.c_str(),
+                            std::chrono::duration<double>(std::chrono::steady_clock::now() -
+                                                          started)
+                                .count());
+                const std::string pair = "a person's " + ahead_id + " flying away " +
+                                         std::to_string(std::lround(bearing)) +
+                                         " deg off the runway, ahead of " + behind_id;
+                if (r.lost) {
+                    wrong.push_back(pair + ": not kept apart by 500 ft or 1.5 nm: " +
+                                    least_of(r));
+                }
+                if (!r.wreck.empty()) {
+                    wrong.push_back(pair + ": wrecked: " + r.wreck);
+                }
+                if (r.hold_laps < 1) {
+                    wrong.push_back(pair + ": the one behind never held outside");
+                }
+                if (!r.dropped || r.dropped_at_nm < glideslope::sim::left_the_circuit_nm ||
+                    r.dropped_at_nm > glideslope::sim::left_the_circuit_nm + 0.5) {
+                    wrong.push_back(pair + ": her place was not dropped as she passed " +
+                                    std::to_string(glideslope::sim::left_the_circuit_nm) +
+                                    " nm (" + std::to_string(r.dropped_at_nm) + ")");
+                }
+                if (!r.rejoined || !r.both_clear || r.landed_after_drop_s < 0.0 ||
+                    r.landed_after_drop_s > longest_back_after_a_person_left_s) {
+                    wrong.push_back(pair + ": the one behind was not back on the runway and "
+                                           "clear within " +
+                                    std::to_string(longest_back_after_a_person_left_s) +
+                                    " s (" + std::to_string(r.landed_after_drop_s) + ")");
+                }
+            }
+        }
+    }
+    std::printf("  the longest back: %.0f s; least %.0f m within 500 ft, %.0f ft within 1.5 nm\n",
+                longest_s, least_m, least_ft);
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    const std::size_t space = aheads.size() * behinds.size() * bearings.size();
+    check(flown.size() == space, "every case flown: " + std::to_string(flown.size()) + " of " +
+                                     std::to_string(space));
+}
+
+// **Each of `aheads`, a person's who stays in the circuit, ahead of each of
+// `behinds`, over the plateau** (`plateau_m`): the one behind's hold is set
+// over it, higher than she leaves the circuit at, and she climbs to it in
+// turns where she is before setting off - kept 500 ft or 1.5 nm from the
+// person all the while; every pair asserted flown, and the climb asserted
+// to have happened in every one.
+void behind_persons_who_stay_on_raised_ground(const std::vector<std::string>& aheads,
+                                              const std::vector<std::string>& behinds) {
+    std::set<std::pair<std::string, std::string>> flown;
+    std::vector<std::string> wrong;
+    double least_m = 1e9;
+    double least_ft = 1e9;
+    for (const std::string& ahead_id : aheads) {
+        for (const std::string& behind_id : behinds) {
+            const auto started = std::chrono::steady_clock::now();
+            const TwoAround r = two_go_around_together(ahead_id, behind_id, true,
+                                                       Then::ahead_taken_and_stays, 0.0, true);
+            flown.insert({ahead_id, behind_id});
+            least_m = std::min(least_m, r.climb_least_m);
+            least_ft = std::min(least_ft, r.climb_least_ft);
+            std::printf("  a person's %s staying ahead, %s behind, over raised ground: hold set "
+                        "%.0f ft over where she left; climbing to it, least %s within 500 ft, "
+                        "%s within 1.5 nm%s; the whole run %s%s%s (%.1f s)\n",
+                        ahead_id.c_str(), behind_id.c_str(), r.hold_over_leaving_ft,
+                        least_figure(r.climb_least_m, " m").c_str(),
+                        least_figure(r.climb_least_ft, " ft").c_str(),
+                        r.climbed_first ? ", reached it before her fix" : ", NOT CLIMBED BEFORE HER FIX",
+                        least_of(r).c_str(), r.wreck.empty() ? "" : ", wrecked: ",
+                        r.wreck.c_str(),
+                        std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
+                            .count());
+            const std::string pair =
+                "a person's " + ahead_id + " staying ahead of " + behind_id + " on raised ground";
+            if (r.lost) {
+                wrong.push_back(pair + ": not kept apart by 500 ft or 1.5 nm: " + least_of(r));
+            }
+            if (!r.wreck.empty()) {
+                wrong.push_back(pair + ": wrecked: " + r.wreck);
+            }
+            // **The climb happened**: her hold well over where she left, and
+            // reached - else this pair measured nothing of it.
+            if (r.left_after_s < 0.0 || r.hold_over_leaving_ft < 500.0 || !r.climbed_first) {
+                wrong.push_back(pair + ": no climb before the hold to measure (hold " +
+                                std::to_string(r.hold_over_leaving_ft) + " ft over leaving)");
+            }
+        }
+    }
+    std::printf("  climbing before the hold: least %s within 500 ft, %s within 1.5 nm\n",
+                least_figure(least_m, " m").c_str(), least_figure(least_ft, " ft").c_str());
+    for (const std::string& w : wrong) {
+        std::printf("  WRONG: %s\n", w.c_str());
+    }
+    check(wrong.empty(), std::to_string(wrong.size()) + " things went wrong, the first: " +
+                             (wrong.empty() ? "" : wrong.front()));
+    check(flown.size() == aheads.size() * behinds.size(),
+          "every pair flown: " + std::to_string(flown.size()) + " of " +
+              std::to_string(aheads.size() * behinds.size()));
+}
+
 // **Each of `departures` lined up behind each of `circuits`, a person's who
 // stays in the circuit**: held as she turns final, released within
 // `longest_held_behind_a_person_s`, off and climbed out, kept 500 ft or
@@ -12093,6 +12486,9 @@ void every_landplane_with_a_person(const std::string& id) {
     circuits_and_straight_ins({id}, kinds, Whose::persons);
     behind_persons_who_stay({id}, kinds);
     departures_behind_persons_who_stay({id}, kinds);
+    persons_lining_up_ahead({id}, kinds, lining_up_far_nm);
+    behind_persons_who_fly_away({id}, kinds, away_bearings_deg());
+    behind_persons_who_stay_on_raised_ground({id}, kinds);
 }
 
 } // namespace
@@ -12126,6 +12522,136 @@ GLIDESLOPE_TEST(an_ai_aircraft_behind_a_person_who_stays_in_the_circuit_leaves_i
 GLIDESLOPE_TEST(an_ai_departure_behind_a_person_who_stays_in_the_circuit_departs_kept_apart_the_slowest_and_the_fastest_each_with_each) {
     const std::vector<std::string> two = slowest_and_fastest();
     departures_behind_persons_who_stay(two, two);
+}
+
+// **An AI aircraft behind a person who flies away from the circuit comes
+// back and lands** (sim::left_the_circuit_by_hand): the person stays in the
+// circuit until the one behind holds outside it, round her fix once, and
+// then flies away level - past sim::left_the_circuit_nm her place is
+// dropped, and the one behind comes back and is on the runway and clear of
+// it within `longest_back_after_a_person_left_s`, kept 500 ft or 1.5 nm
+// from her throughout. The slowest and the fastest each with each, on
+// every bearing of `away_bearings_deg`: 32 flights, in two tests - the
+// four square to the runway on every run, and the four between them
+// every night (gust_sweep), as a debug run of all 32 takes half an hour.
+// **A person who lines up and rolls while an AI aircraft is 2 nm out or
+// more is kept apart from her** (`lining_up_far_nm`): the slowest and the
+// fastest each with each, four flights.
+GLIDESLOPE_TEST(a_person_who_lines_up_and_rolls_with_an_ai_aircraft_2_nm_out_is_kept_apart_from_her_the_slowest_and_the_fastest_each_with_each) {
+    const std::vector<std::string> two = slowest_and_fastest();
+    persons_lining_up_ahead(two, two, lining_up_far_nm);
+}
+
+// **A person who lines up and rolls under an AI aircraft at 200 ft is the
+// conflict she makes**: she lifts off within 1.5 nm of the one going around
+// over her - 369 to 1,074 m - and the minimum is lost, as it is in every
+// pair: which is why the AI's keeping apart starts at `lining_up_far_nm`.
+// The slowest and the fastest each with each; each pair's least is
+// printed, and the lift-off within 1.5 nm and the loss asserted for every
+// one, so that a change that kept them apart turns this red, to be read.
+// **Every landplane pair, a person lining up under an AI aircraft at 200
+// ft, measured**: the stated shortfall's figures, every AI aircraft with
+// every person's departure - the lift-off's distance and height apart and
+// the least of the flight, printed for each, with how many lost the
+// minimum. Nothing is asserted of the separation, which no manoeuvre of the
+// AI's keeps (the test above); every pair flown is, and none wrecked.
+// gust_sweep: 225 flights.
+GLIDESLOPE_TEST(every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured) {
+    const std::vector<std::string> kinds = landplanes_going_around();
+    std::size_t flown = 0;
+    std::size_t lost = 0;
+    double least_m = 1e9;
+    double least_ft = 1e9;
+    for (const std::string& circuit_id : kinds) {
+        for (const std::string& departure_id : kinds) {
+            const StraightAndCircuit r = circuit_and_departure(
+                circuit_id, departure_id, true, Whose::person_rolling_at_once);
+            ++flown;
+            lost += r.lost ? 1 : 0;
+            least_m = std::min(least_m, r.least_m);
+            least_ft = std::min(least_ft, r.least_ft);
+            std::printf("  %s at 200 ft, a person's %s rolling under her: at her lift-off "
+                        "%.0f m and %.0f ft apart; %s%s\n",
+                        circuit_id.c_str(), departure_id.c_str(), r.lift_off_m, r.lift_off_ft,
+                        least_of(r).c_str(), r.lost ? "; LOST" : "");
+            check(r.wreck.empty(), circuit_id + " and " + departure_id + ": wrecked: " + r.wreck);
+        }
+    }
+    std::printf("  %zu of %zu lost the minimum; least %s within 500 ft, %s within 1.5 nm\n", lost,
+                flown, least_figure(least_m, " m").c_str(), least_figure(least_ft, " ft").c_str());
+    check(flown == kinds.size() * kinds.size(),
+          "every pair flown: " + std::to_string(flown) + " of " +
+              std::to_string(kinds.size() * kinds.size()));
+}
+
+GLIDESLOPE_TEST(a_person_who_lines_up_and_rolls_under_an_ai_aircraft_at_200_ft_lifts_off_inside_the_minimum_of_her) {
+    const std::vector<std::string> two = slowest_and_fastest();
+    std::size_t flown = 0;
+    for (const std::string& circuit_id : two) {
+        for (const std::string& departure_id : two) {
+            const StraightAndCircuit r = circuit_and_departure(
+                circuit_id, departure_id, true, Whose::person_rolling_at_once);
+            ++flown;
+            std::printf("  %s at 200 ft, a person's %s rolling under her: at her lift-off "
+                        "%.0f m and %.0f ft apart; %s\n",
+                        circuit_id.c_str(), departure_id.c_str(), r.lift_off_m, r.lift_off_ft,
+                        least_of(r).c_str());
+            check(r.lift_off_m < glideslope::sim::Separation::minimum_m && r.lost,
+                  circuit_id + " and " + departure_id + ": lifted off outside 1.5 nm of her (" +
+                      std::to_string(r.lift_off_m) + " m), or never lost the minimum");
+            check(r.wreck.empty(), circuit_id + " and " + departure_id + ": wrecked: " + r.wreck);
+        }
+    }
+    check(flown == two.size() * two.size(), "every pair flown: " + std::to_string(flown));
+}
+
+GLIDESLOPE_TEST(an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_comes_back_and_lands_kept_apart) {
+    const std::vector<std::string> two = slowest_and_fastest();
+    behind_persons_who_fly_away(
+        two, two,
+        away_bearings_of(
+            "an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_comes_back_and_lands_kept_apart"));
+}
+GLIDESLOPE_TEST(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart) {
+    const std::vector<std::string> two = slowest_and_fastest();
+    behind_persons_who_fly_away(
+        two, two,
+        away_bearings_of(
+            "an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart"));
+}
+// **The tests registered fly the eight bearings, each once**: read from the
+// harness's registry, not from the table alone - a test of the table not
+// registered flies nothing.
+GLIDESLOPE_TEST(the_tests_of_a_person_flying_away_fly_every_bearing_once) {
+    std::vector<double> flown;
+    std::size_t registered = 0;
+    for (const auto& test : glideslope::test::registry()) {
+        for (const auto& [name, bearings] : away_bearing_tests()) {
+            if (test.name == name) {
+                ++registered;
+                flown.insert(flown.end(), bearings.begin(), bearings.end());
+            }
+        }
+    }
+    std::sort(flown.begin(), flown.end());
+    check(registered == away_bearing_tests().size(),
+          std::to_string(registered) + " of the " + std::to_string(away_bearing_tests().size()) +
+              " tests of a person flying away registered");
+    check(flown == away_bearings_deg(), std::to_string(flown.size()) +
+                                            " bearings flown by the tests registered, not the "
+                                            "eight, each once");
+}
+
+// **On raised ground, an AI aircraft climbing before her hold stays 500 ft
+// or 1.5 nm from a person flying the circuit**: a plateau 2,500 ft over the
+// runway from 12 nm out, beyond every circuit's ground (`plateau_m`), and
+// a person staying in the circuit ahead; the one behind leaves for a hold
+// set over the plateau and climbs to it in turns where she is. The slowest
+// and the fastest each with each: four flights, the climb asserted in
+// every one.
+GLIDESLOPE_TEST(on_raised_ground_an_ai_aircraft_climbing_before_her_hold_is_kept_apart_from_a_person_in_the_circuit) {
+    const std::vector<std::string> two = slowest_and_fastest();
+    behind_persons_who_stay_on_raised_ground(two, two);
 }
 
 namespace {
@@ -12167,14 +12693,7 @@ GLIDESLOPE_TEST(a_hold_outside_the_circuit_over_raised_ground_is_flown_1000_ft_o
     const glideslope::sim::Runway r = a_runway();
     const auto entry = glideslope::sim::find_aircraft(data(), "c172p");
     const auto speeds = glideslope::sim::approach_speeds(data(), entry.model);
-    constexpr double plateau_ft = 2500.0;
-    const auto ground_m = [r](double lat, double lon) {
-        const double out_nm = glideslope::sim::distance_m(lat, lon, r.threshold_lat_deg,
-                                                          r.threshold_lon_deg) /
-                              metres_per_nm;
-        return out_nm >= 8.5 ? (r.elevation_ft + plateau_ft) / feet_per_metre
-                             : r.elevation_ft / feet_per_metre;
-    };
+    const auto ground_m = [r](double lat, double lon) { return plateau_m(r, lat, lon, 8.5); };
     glideslope::sim::Aircraft a(data() / "jsbsim", entry.model);
     a.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(ground_m));
     const glideslope::sim::AircraftState at =
@@ -12235,6 +12754,83 @@ GLIDESLOPE_TEST(a_hold_outside_the_circuit_over_raised_ground_is_flown_1000_ft_o
     check(hold.laps() >= 1, "she reached her hold's fix");
     check(least_over_ft >= 900.0,
           "least " + std::to_string(least_over_ft) + " ft over the ground, not 1,000 less 100");
+}
+
+// **A hold out of her reach is given up for her best height, where she
+// is** (sim::HoldOutside::out_of_reach): ground 20,000 ft over the runway
+// from 8.5 nm out - far over a J-3 Cub's ceiling - and a Cub leaving her
+// circuit 1,700 ft over the runway, 4 nm short and 5 km left of it. She
+// climbs in turns where she is until her climb stalls, then holds the best
+// height she reached, circling there: within two hours - she climbs to
+// 14,100 ft and gives it up at about 3,500 s - she has given the hold up,
+// never set off for its fix, stayed within 2 nm of where she
+// left, and from giving it up held her height within 300 ft.
+GLIDESLOPE_TEST(a_hold_out_of_her_reach_is_given_up_for_her_best_height_where_she_is) {
+    const glideslope::sim::Runway r = a_runway();
+    const auto entry = glideslope::sim::find_aircraft(data(), "j3cub");
+    const auto speeds = glideslope::sim::approach_speeds(data(), entry.model);
+    constexpr double out_of_reach_ft = 20000.0;
+    const auto ground_m = [r](double lat, double lon) {
+        const double out_nm =
+            glideslope::sim::distance_m(lat, lon, r.threshold_lat_deg, r.threshold_lon_deg) /
+            metres_per_nm;
+        return out_nm >= 8.5 ? (r.elevation_ft + out_of_reach_ft) / feet_per_metre
+                             : r.elevation_ft / feet_per_metre;
+    };
+    glideslope::sim::Aircraft a(data() / "jsbsim", entry.model);
+    a.set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(ground_m));
+    const glideslope::sim::AircraftState at =
+        placed(r, -4.0, -5000.0, 1700.0, r.heading_deg, speeds.vref_kts + 20.0);
+    glideslope::sim::InitialConditions ic;
+    ic.latitude_deg = at.latitude_deg;
+    ic.longitude_deg = at.longitude_deg;
+    ic.altitude_ft = at.altitude_ft;
+    ic.terrain_elevation_ft = r.elevation_ft;
+    ic.heading_deg = r.heading_deg;
+    ic.airspeed_kts = speeds.vref_kts + 20.0;
+    ic.engine_running = true;
+    ic.gear = 1.0;
+    a.initialize(ic);
+
+    glideslope::sim::HoldOutside hold(a, r, speeds, r.elevation_ft + 1700.0);
+    glideslope::sim::Controls flying;
+    flying.throttle = 0.6;
+    flying.gear = 1.0;
+    glideslope::sim::Autopilot pilot(a, flying);
+    std::optional<double> gave_up_s;
+    double furthest_nm = 0.0;
+    double most_off_ft = 0.0;
+    for (int t = 0; t < 7200 * steps_per_second; ++t) {
+        pilot.set(hold.modes());
+        glideslope::sim::Controls c = pilot.fly();
+        hold.configure(c);
+        a.set_controls(c);
+        a.step();
+        const glideslope::sim::AircraftState s = a.state();
+        furthest_nm = std::max(furthest_nm, glideslope::sim::distance_m(s.latitude_deg,
+                                                                        s.longitude_deg,
+                                                                        at.latitude_deg,
+                                                                        at.longitude_deg) /
+                                                metres_per_nm);
+        if (!gave_up_s && hold.out_of_reach()) {
+            gave_up_s = s.sim_time_s;
+        }
+        // From a minute after giving it up: her best height held.
+        if (gave_up_s && s.sim_time_s > *gave_up_s + 60.0) {
+            most_off_ft = std::max(most_off_ft, std::abs(s.altitude_ft - hold.altitude_ft()));
+        }
+        check(s.altitude_ft - ground_m(s.latitude_deg, s.longitude_deg) * feet_per_metre > 0.0,
+              "she struck the ground at " + std::to_string(t / steps_per_second) + " s");
+    }
+    std::printf("  gave the hold up at %.0f s, holding %.0f ft over the runway, %.0f ft off it "
+                "at most; %.2f nm from where she left at most; round the fix %d time(s)\n",
+                gave_up_s.value_or(-1.0), hold.altitude_ft() - r.elevation_ft, most_off_ft,
+                furthest_nm, hold.laps());
+    check(gave_up_s.has_value(), "she never gave the hold up");
+    check(hold.laps() == 0, "she set off for a fix over ground she cannot clear");
+    check(furthest_nm <= 2.0, "she went " + std::to_string(furthest_nm) + " nm from where she left");
+    check(most_off_ft <= 300.0, "her best height held within " + std::to_string(most_off_ft) +
+                                    " ft, not 300");
 }
 
 // **A person's place is clear of departures behind the threshold and going

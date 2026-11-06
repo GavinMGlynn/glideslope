@@ -174,6 +174,11 @@ bool clear_of_departures_by_hand(const Runway& runway, const AircraftState& her)
                Separation::minimum_m;
 }
 
+bool left_the_circuit_by_hand(const Runway& runway, const AircraftState& her) {
+    return distance_m(her.latitude_deg, her.longitude_deg, runway.threshold_lat_deg,
+                      runway.threshold_lon_deg) > left_the_circuit_nm * metres_per_nm;
+}
+
 Runway reciprocal(const Runway& runway) {
     Runway r = runway;
     const double h = runway.heading_deg / degrees;
@@ -192,6 +197,35 @@ bool using_by_hand(const Runway& runway, const AircraftState& her) {
     const Runway other = reciprocal(runway);
     return straight_in_by_hand(runway, her) || departing_by_hand(runway, her) ||
            straight_in_by_hand(other, her) || departing_by_hand(other, her);
+}
+
+namespace {
+bool climbing_out_one_way(const Runway& runway, const AircraftState& her) {
+    if (departing_by_hand(runway, her)) {
+        return true;
+    }
+    const double along_m =
+        along_runway_nm(runway, her.latitude_deg, her.longitude_deg) * metres_per_nm;
+    return her.altitude_ft - runway.elevation_ft > RunwayClear::occupied_ft &&
+           off_deg(her.heading_deg, runway.heading_deg) <= by_hand_heading_deg &&
+           along_m >= 0.0 && along_m <= runway.length_m + over_departure_nm * metres_per_nm &&
+           std::abs(across_runway_m(runway, her.latitude_deg, her.longitude_deg)) <
+               Separation::minimum_m;
+}
+} // namespace
+
+bool climbing_out_by_hand(const Runway& runway, const AircraftState& her) {
+    return climbing_out_one_way(runway, her) || climbing_out_one_way(reciprocal(runway), her);
+}
+
+bool ahead_of_an_approach_by_hand(const Runway& runway, const AircraftState& her) {
+    const auto lined_up = [&her](const Runway& r) {
+        const double along_m =
+            along_runway_nm(r, her.latitude_deg, her.longitude_deg) * metres_per_nm;
+        return on_runway(r, her.latitude_deg, her.longitude_deg, her.altitude_ft - r.elevation_ft) &&
+               along_m <= lined_up_m && off_deg(her.heading_deg, r.heading_deg) <= by_hand_heading_deg;
+    };
+    return lined_up(runway) || lined_up(reciprocal(runway)) || climbing_out_by_hand(runway, her);
 }
 
 HoldOutside::HoldOutside(const Aircraft& aircraft, const Runway& runway,
@@ -229,6 +263,26 @@ HoldOutside::HoldOutside(const Aircraft& aircraft, const Runway& runway,
         }
     }
     altitude_ft_ = std::max(at_least_alt_ft, highest_ft + 1000.0);
+    best_alt_ft_ = s.altitude_ft;
+    best_at_s_ = s.sim_time_s;
+}
+
+bool HoldOutside::climbing_first(const AircraftState& s) {
+    if (out_of_reach_) {
+        return true;
+    }
+    if (laps_ != 0 || s.altitude_ft >= altitude_ft_ - sets_off_within_ft) {
+        return false;
+    }
+    if (s.altitude_ft >= best_alt_ft_ + stalled_gain_ft) {
+        best_alt_ft_ = s.altitude_ft;
+        best_at_s_ = s.sim_time_s;
+    } else if (s.sim_time_s - best_at_s_ >= stalled_s) {
+        // **Out of her reach**: her best, held where she is.
+        out_of_reach_ = true;
+        altitude_ft_ = std::max(best_alt_ft_, s.altitude_ft);
+    }
+    return true;
 }
 
 AutopilotModes HoldOutside::modes() {
@@ -240,6 +294,14 @@ AutopilotModes HoldOutside::modes() {
     const double outbound_deg = std::fmod(inbound_deg_ + 180.0, 360.0);
     switch (leg_) {
     case Leg::to_fix:
+        // Not round it until she has climbed to her height (below): left
+        // within 2 nm of the fix with it behind her - a racetrack's
+        // outbound leg 7 nm out - she counted a lap at once, skipped the
+        // climb where she was, and flew the hold's outbound leg on towards
+        // the high ground below its height.
+        if (climbing_first(s)) {
+            break;
+        }
         // Past the fix: within 2 nm of it and it behind her - abeam or
         // over it. Only "over it" (within half a mile and opening), a wide
         // turner circled it, never closer: a B-2A, a Learjet 35A and a
@@ -276,7 +338,7 @@ AutopilotModes HoldOutside::modes() {
         // high ground, she climbs in right turns where she is - outside
         // the circuit, over ground her circuit was cleared for - rather
         // than climbing towards the high ground.
-        if (laps_ == 0 && s.altitude_ft < altitude_ft_ - 200.0) {
+        if (climbing_first(s)) {
             m.bank_deg = bank_deg;
             break;
         }
@@ -335,7 +397,9 @@ double close_m(const Runway& runway, const AircraftState& me, const AircraftStat
     return Separation::minimum_m + std::max(close_in_hand_m, closing_mps * close_lead_s);
 }
 
-void GoAroundCircuit::follow(std::optional<double> ahead_alt_ft, bool straight_in) {
+void GoAroundCircuit::follow(std::optional<double> ahead_alt_ft, bool straight_in,
+                             bool climbing_out) {
+    climbing_out_ = climbing_out && leg_ == Leg::upwind;
     // **A straight-in is followed only until she turns base**: past it she
     // is committed, and it is the one behind.
     const bool before_base = leg_ != Leg::base && leg_ != Leg::intercept && leg_ != Leg::final;
@@ -378,8 +442,8 @@ AutopilotModes GoAroundCircuit::modes() {
     // Moved on a leg where she has reached the end of hers.
     // Following, she turns crosswind only at her raised height, which is
     // 600 ft or more over the circuit ahead: she crosses its legs above it.
-    if (leg_ == Leg::upwind && agl_ft >= circuit_ft_ - (following_ ? 100.0 : 300.0) &&
-        along_nm() > 0.0) {
+    if (leg_ == Leg::upwind && !climbing_out_ &&
+        agl_ft >= circuit_ft_ - (following_ ? 100.0 : 300.0) && along_nm() > 0.0) {
         leg_ = Leg::crosswind;
     } else if (leg_ == Leg::crosswind &&
                across_m() <= -(2.0 * turn_radius_m_ + 600.0) &&

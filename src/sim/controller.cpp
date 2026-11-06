@@ -847,6 +847,12 @@ Controls Controller::fly() {
         const AircraftState s = a_.state();
         circling_->circuit_alt_ft = std::max(circling_->circuit_alt_ft, s.altitude_ft);
         circling_->clear_of_departures = clear_of_departures_by_hand(circling_->runway, s);
+        // **Flown away from the circuit, she has left it**
+        // (sim::left_the_circuit_by_hand): her place is dropped, and the
+        // one behind, holding outside, comes back to land.
+        if (left_the_circuit_by_hand(circling_->runway, s)) {
+            circling_.reset();
+        }
     }
     if (a_.property("gear/wow") > 0.5) {
         // Down, whoever flies her: out of the circuit's sequence.
@@ -1019,6 +1025,10 @@ Controls Controller::fly() {
             close_ahead_ && close_ahead_(lander_->runway())) {
             lander_->go_around("traffic close ahead on final");
         }
+        if (lander_ && !lander_->touched() && lander_->stage() == Lander::Stage::approach &&
+            departure_ahead_ && departure_ahead_(lander_->runway())) {
+            lander_->go_around("a person departing ahead");
+        }
         if (lander_) {
             if (lander_->stage() == Lander::Stage::stopped && vacates_) {
                 vacate_.emplace(a_, lander_->runway(), applied_, spot_free_);
@@ -1077,7 +1087,8 @@ Controls Controller::fly() {
             // And a straight-in on the approach to her runway, until she
             // turns base.
             circuit_->follow(circuit_ahead_ ? circuit_ahead_() : std::nullopt,
-                             straight_in_ && straight_in_(circuit_->runway()));
+                             straight_in_ && straight_in_(circuit_->runway()),
+                             climbing_out_ && climbing_out_(circuit_->runway()));
             // The highest she flies it: where the autopilot overshoots her
             // circuit's height levelling off, the one behind keeps clear of
             // where she is.
