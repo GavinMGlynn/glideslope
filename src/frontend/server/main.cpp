@@ -3552,6 +3552,21 @@ private:
             }
             return false;
         });
+        // **And holds her upwind leg while a person climbs out** below it
+        // (Controller::holds_upwind_with).
+        controller->holds_upwind_with([this, &aircraft](const glideslope::sim::Runway& runway) {
+            for (const Aircraft& b : flown_) {
+                if (b.aircraft.get() == &aircraft || b.wrecked_at_s >= 0.0 ||
+                    (b.controller &&
+                     b.controller->flying() != glideslope::sim::Controller::Flying::pilot)) {
+                    continue;
+                }
+                if (glideslope::sim::climbing_out_by_hand(runway, b.aircraft->state())) {
+                    return true;
+                }
+            }
+            return false;
+        });
         // **And a departure held for the circuit** until everything going
         // round to its runway is clear of it (sim::departure_held).
         controller->holds_with([this](const glideslope::sim::Runway& runway) {
@@ -3642,23 +3657,7 @@ private:
             places.push_back(b.controller && b.wrecked_at_s < 0.0 ? b.controller->circling()
                                                                   : std::nullopt);
         }
-        std::optional<double> ahead = glideslope::sim::circuit_ahead_alt_ft(mine, places);
-        // **And over a person departing her runway** below her
-        // (sim::circuit_over_departure_ft): nothing holds her take-off.
-        if (mine < places.size() && places[mine]) {
-            for (const Aircraft& b : flown_) {
-                if (b.aircraft.get() == &self || b.wrecked_at_s >= 0.0 ||
-                    (b.controller &&
-                     b.controller->flying() != glideslope::sim::Controller::Flying::pilot)) {
-                    continue;
-                }
-                if (const std::optional<double> under = glideslope::sim::circuit_over_departure_ft(
-                        places[mine]->runway, b.aircraft->state())) {
-                    ahead = std::max(ahead.value_or(*under), *under);
-                }
-            }
-        }
-        return ahead;
+        return glideslope::sim::circuit_ahead_alt_ft(mine, places);
     }
 
     // **Whether nothing but `self` is on `runway`**: no other aircraft the
