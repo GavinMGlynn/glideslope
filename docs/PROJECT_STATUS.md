@@ -293,7 +293,7 @@ touch scatters 1.7 times as widely as the F-15C's, and no sourced change
 moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
-**Phase 11, traffic and separation: 10 of 13 items.** Every AI aircraft a
+**Phase 11, traffic and separation: 9 of 13 items.** Every AI aircraft a
 server runs is measured against every other, and in runs of every route
 kind none comes within 500 ft and 1.5 nm of another. The kinds are planned,
 the plan file, handed over holding its course, handed over in a spiral,
@@ -343,9 +343,10 @@ pair, in six situations, stayed 500 ft or 1.5 nm apart, the closest
 departure behind a left-hand circuit was held at most 455 s
 (2026-11-05-a-person-straight-in-departing-or-staying-in-the-circuit).
 Since 2026-11-06 a person who flies 10 nm from the circuit loses her place,
-and the AI holding behind her comes back and lands: the slowest and the
-fastest each with each, on eight bearings, were down within 800 s, kept
-apart. Over raised ground the AI climbs to her hold before setting off -
+and the AI holding behind her comes back and lands - but swept over
+every landplane pair, a fast person flying away down the approach came
+within 1,304 m and 463 ft of the one coming back, in 12 pairs, and a
+person's F-22A flying away at 315 degrees struck the ground. Over raised ground the AI climbs to her hold before setting off -
 she had skipped it, leaving near her fix - and was never within 500 ft or
 1.5 nm of the person while she did. A hold out of her reach is given up
 for her best height, circling where she is; nothing diverts her yet. An
