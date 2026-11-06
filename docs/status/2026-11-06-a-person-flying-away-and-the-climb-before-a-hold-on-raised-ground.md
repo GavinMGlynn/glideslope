@@ -184,13 +184,26 @@ conflict".
   hold, not 10; and the person's stand-in flies away at the middle of her
   plan's speeds, not her reference and twenty, at which an F-22A's
   stand-in struck the ground.
-- **The sweep is part-run** (linux-release, -j4, 20 to 28 minutes a test):
-  5 of the 15 tests green when this was written, and no flight wrong in
-  any test so far - 120 pairs lining up 2 nm out (least 585 ft within
-  1.5 nm), 867 flying away (645 ft, back within 783 s), 75 on raised
-  ground, and the six earlier situations (541 ft). The 200 ft case over
-  every pair (`every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured`,
-  gust_sweep) had not yet run. Neither item is ticked until both are
-  whole.
+- **The whole sweep** (linux-release, -j4, 20 to 28 minutes a test, 29
+  tests): 27 green. Lining up 2 nm out, all 225 pairs kept apart, least
+  2,877 m within 500 ft and 585 ft within 1.5 nm. The six earlier
+  situations unchanged (541 ft within 1.5 nm). Raised ground: least 622 ft.
+  Flying away with the 17 nm drop: every flight kept apart, least 3,090 m
+  and 618 ft, back within 783 s - but two pairs failed, named, not fixed:
+  - a person's 737-300 ahead of a PA-28: her stand-in, flying away level at
+    the middle of her plan's speeds, hit the ground sinking at 5,700 to
+    6,600 ft/min on five bearings (0, 45, 90, 270, 315). The stand-in's
+    flying, not the AI's: at her reference and twenty an F-22A's fell, at
+    the middle of her plan's speeds a 737-300's does;
+  - an F-22A behind a person's J-3 Cub: after her hold she hit the ground
+    landing, sinking at 2,783 ft/min (0 degrees), and landed but was not
+    clear of the runway within the run (45 degrees) - her landing's
+    scatter after a long hold.
+  Item 2 is not ticked.
+- **The 200 ft case over every pair**
+  (`every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured`):
+  171 of 225 lost the minimum, the least 59 m within 500 ft and 0 ft
+  within 1.5 nm; each pair's lift-off and least are printed by the test.
+  Item 1 is not ticked: this is its stated shortfall, for the owner.
 - linux-debug beside the sweep: 319 s down the approach, 179 s lining up
   2 nm out, 181 s at 200 ft.

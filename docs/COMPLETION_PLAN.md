@@ -1627,11 +1627,11 @@ AI aircraft kept apart from each other and clear of the runway.
       apart and landed or departed in order.
 - [ ] **A person straight in or taking off is not sequenced**: done but for
       a person lining up under an AI already at 200 ft, who lifts off within
-      1.5 nm of her: all four slowest-and-fastest pairs lose the minimum
-      (665 to 1,074 m at 0 to 195 ft); every pair's figures are not yet
-      measured. An AI 2 nm out or more breaks off for a person lined up and
-      holds her upwind leg while the person climbs out; the sweep over
-      every pair is part-run, 120 of 225 kept apart so far (2026-11-06). A person is judged
+      1.5 nm of her: 171 of 225 pairs lose the minimum (least 59 m and
+      0 ft), a stated shortfall for the owner's decision. An AI 2 nm out or
+      more breaks off for a person lined up and holds her upwind leg while
+      the person climbs out: all 225 pairs kept apart, least 585 ft within
+      1.5 nm (2026-11-06). A person is judged
       by how she flies, on the runway or its reciprocal, and given way to.
       An AI departure behind a person in the circuit goes once she is
       behind the threshold and going away, whatever her pattern; behind a
@@ -1648,8 +1648,11 @@ AI aircraft kept apart from each other and clear of the runway.
       person who leaves the circuit without landing comes back and lands
       within a stated time, kept 500 ft or 1.5 nm apart.* 17 nm out, beyond
       the hold, her place is dropped (2026-11-06); at 10 nm 12 pairs lost
-      the minimum. The sweep over every pair is part-run: 867 of 1,800
-      flights flown, all kept apart and back within 783 s.
+      the minimum. Swept over every pair, all kept apart (least 618 ft
+      within 1.5 nm) and back within 783 s, but for two pairs: a person's
+      737-300 stand-in fell flying away on five bearings ahead of a PA-28,
+      and an F-22A behind a person's Cub hit the ground landing (0 degrees)
+      and was not clear of the runway (45 degrees).
 - [x] **An A380 given a take-off and no plan flies into the ground**:
       she now raises her flaps at Airbus's F and S speeds, and a take-off
       with no plan levels off at its height, leading it by a tenth of her
