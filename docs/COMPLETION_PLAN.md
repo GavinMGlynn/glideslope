@@ -1626,14 +1626,12 @@ AI aircraft kept apart from each other and clear of the runway.
       All 675 flights of every landplane pair, in three situations, stayed
       apart and landed or departed in order.
 - [ ] **A person straight in or taking off is not sequenced**: done but for
-      every pair with a person lining up 2 nm ahead. An AI 2 nm out or more
-      breaks off for a person lined up and flies over her climb; the four
-      slowest-and-fastest pairs stayed apart (least 603 ft within 1.5 nm),
-      but swept, a person's C182 under eleven landplanes did not (least
-      24 m), and a PA-28 behind a person's jet did not land in an hour.
-      Shortfall, stated: a person lining up under an AI already at 200 ft
-      lifts off within 1.5 nm of her, and all four pairs flown lose the
-      minimum - 665 to 1,074 m at 0 to 195 ft (2026-11-06). A person is judged
+      a person lining up under an AI already at 200 ft, who lifts off within
+      1.5 nm of her: all four slowest-and-fastest pairs lose the minimum
+      (665 to 1,074 m at 0 to 195 ft); every pair's figures are not yet
+      measured. An AI 2 nm out or more breaks off for a person lined up and
+      holds her upwind leg while the person climbs out; the sweep over
+      every pair is part-run, 120 of 225 kept apart so far (2026-11-06). A person is judged
       by how she flies, on the runway or its reciprocal, and given way to.
       An AI departure behind a person in the circuit goes once she is
       behind the threshold and going away, whatever her pattern; behind a
@@ -1648,11 +1646,10 @@ AI aircraft kept apart from each other and clear of the runway.
       place in it**, so an AI aircraft behind her holds outside the circuit
       for as long as she flies. *Verification: an AI aircraft behind a
       person who leaves the circuit without landing comes back and lands
-      within a stated time, kept 500 ft or 1.5 nm apart.* 10 nm out her
-      place is dropped (2026-11-06), but swept over every pair, a fast
-      person flying away down the approach passed the hold as the one
-      behind came down from it: 12 pairs lost the minimum, the least
-      1,304 m and 463 ft.
+      within a stated time, kept 500 ft or 1.5 nm apart.* 17 nm out, beyond
+      the hold, her place is dropped (2026-11-06); at 10 nm 12 pairs lost
+      the minimum. The sweep over every pair is part-run: 867 of 1,800
+      flights flown, all kept apart and back within 783 s.
 - [x] **An A380 given a take-off and no plan flies into the ground**:
       she now raises her flaps at Airbus's F and S speeds, and a take-off
       with no plan levels off at its height, leading it by a tenth of her

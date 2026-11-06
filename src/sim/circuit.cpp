@@ -200,9 +200,7 @@ bool using_by_hand(const Runway& runway, const AircraftState& her) {
 }
 
 namespace {
-// Departing, or climbing on out along the runway's heading in the air
-// within `over_departure_nm` past its far end.
-bool climbing_out_by_hand(const Runway& runway, const AircraftState& her) {
+bool climbing_out_one_way(const Runway& runway, const AircraftState& her) {
     if (departing_by_hand(runway, her)) {
         return true;
     }
@@ -216,6 +214,10 @@ bool climbing_out_by_hand(const Runway& runway, const AircraftState& her) {
 }
 } // namespace
 
+bool climbing_out_by_hand(const Runway& runway, const AircraftState& her) {
+    return climbing_out_one_way(runway, her) || climbing_out_one_way(reciprocal(runway), her);
+}
+
 bool ahead_of_an_approach_by_hand(const Runway& runway, const AircraftState& her) {
     const auto lined_up = [&her](const Runway& r) {
         const double along_m =
@@ -223,15 +225,7 @@ bool ahead_of_an_approach_by_hand(const Runway& runway, const AircraftState& her
         return on_runway(r, her.latitude_deg, her.longitude_deg, her.altitude_ft - r.elevation_ft) &&
                along_m <= lined_up_m && off_deg(her.heading_deg, r.heading_deg) <= by_hand_heading_deg;
     };
-    return lined_up(runway) || lined_up(reciprocal(runway)) ||
-           circuit_over_departure_ft(runway, her).has_value();
-}
-
-std::optional<double> circuit_over_departure_ft(const Runway& runway, const AircraftState& her) {
-    if (climbing_out_by_hand(runway, her) || climbing_out_by_hand(reciprocal(runway), her)) {
-        return her.altitude_ft;
-    }
-    return std::nullopt;
+    return lined_up(runway) || lined_up(reciprocal(runway)) || climbing_out_by_hand(runway, her);
 }
 
 HoldOutside::HoldOutside(const Aircraft& aircraft, const Runway& runway,
@@ -403,7 +397,9 @@ double close_m(const Runway& runway, const AircraftState& me, const AircraftStat
     return Separation::minimum_m + std::max(close_in_hand_m, closing_mps * close_lead_s);
 }
 
-void GoAroundCircuit::follow(std::optional<double> ahead_alt_ft, bool straight_in) {
+void GoAroundCircuit::follow(std::optional<double> ahead_alt_ft, bool straight_in,
+                             bool climbing_out) {
+    climbing_out_ = climbing_out && leg_ == Leg::upwind;
     // **A straight-in is followed only until she turns base**: past it she
     // is committed, and it is the one behind.
     const bool before_base = leg_ != Leg::base && leg_ != Leg::intercept && leg_ != Leg::final;
@@ -446,8 +442,8 @@ AutopilotModes GoAroundCircuit::modes() {
     // Moved on a leg where she has reached the end of hers.
     // Following, she turns crosswind only at her raised height, which is
     // 600 ft or more over the circuit ahead: she crosses its legs above it.
-    if (leg_ == Leg::upwind && agl_ft >= circuit_ft_ - (following_ ? 100.0 : 300.0) &&
-        along_nm() > 0.0) {
+    if (leg_ == Leg::upwind && !climbing_out_ &&
+        agl_ft >= circuit_ft_ - (following_ ? 100.0 : 300.0) && along_nm() > 0.0) {
         leg_ = Leg::crosswind;
     } else if (leg_ == Leg::crosswind &&
                across_m() <= -(2.0 * turn_radius_m_ + 600.0) &&

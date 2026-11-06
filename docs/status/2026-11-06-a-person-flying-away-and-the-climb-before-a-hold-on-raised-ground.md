@@ -158,3 +158,39 @@ F-15C ahead of a B-2A). And a person's F-22A, her stand-in flying away
 level at 315 degrees ahead of a Cub, struck the ground. Item 2 is
 unticked until both are fixed. The raised
 ground's 105 flights kept apart (622 ft within 1.5 nm).
+
+**Round two of the review of #351: item 1's sweep failures, and flying
+away.** Researched first: the AIM's crosswind turn is begun beyond the
+departure end and near pattern altitude, and a go-around continues
+straight ahead beyond the departure end watching for traffic (AOPA,
+"Turning crosswind"; AIM 4-3-3 as quoted by angleofattack.com); JO 7110.65
+3-9-6's departure goes once the one before has "turned to avert any
+conflict".
+- **Why they failed, traced.** The C182 under a 747-400 was direction: the
+  jet went round offset right, turned crosswind at circuit height 0.4 nm
+  past the threshold and flew left across the C182's climb-out, 489 ft
+  over her at 801 m. The PA-28 behind a person's F-15C was climb: the
+  circuit raised 700 ft over the person's climb went to 4,474 ft over a
+  jet that overshot 3,000, and the PA-28 was still climbing to it when the
+  hour ended. Neither was timing: the break-off came at the line-up.
+- **Fixed**: the raise is taken out, and a circuit holds her upwind leg,
+  offset right, while a person climbs out (`Controller::holds_upwind_with`,
+  `sim::climbing_out_by_hand`: departing, or on out along the heading to
+  5 nm past the far end) - not while she is only lined up, which held a
+  waiting person's release for ever (seen: every person-departing pair of
+  the earlier sweep failed so). Both traced pairs now keep apart: 3,012 m
+  and 781 ft; the PA-28 lands.
+- **Flying away**: the place is dropped 17 nm out, beyond the furthest
+  hold, not 10; and the person's stand-in flies away at the middle of her
+  plan's speeds, not her reference and twenty, at which an F-22A's
+  stand-in struck the ground.
+- **The sweep is part-run** (linux-release, -j4, 20 to 28 minutes a test):
+  5 of the 15 tests green when this was written, and no flight wrong in
+  any test so far - 120 pairs lining up 2 nm out (least 585 ft within
+  1.5 nm), 867 flying away (645 ft, back within 783 s), 75 on raised
+  ground, and the six earlier situations (541 ft). The 200 ft case over
+  every pair (`every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured`,
+  gust_sweep) had not yet run. Neither item is ticked until both are
+  whole.
+- linux-debug beside the sweep: 319 s down the approach, 179 s lining up
+  2 nm out, 181 s at 200 ft.
