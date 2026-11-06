@@ -22,10 +22,8 @@
   under Cub 1,074 m and 0 ft (1,074 m, 280 ft); Cub under F-15C 856 m and
   195 ft (861 m, 196 ft); F-15C under F-15C 665 m and 0 ft (369 m, 855 ft).
   The sidestep, tried, made it worse (90 m and 0 ft for two F-15Cs) and is
-  taken out. Under the owner's ruling of 2026-10-09 - an item that cannot
-  be met closes on today's measured figures with the shortfall written
-  down - this case is closed on these figures; the item stays open on the
-  2 nm case swept above.
+  taken out. These figures are the item's stated shortfall; the item is
+  not closed in part, and stays open on the 2 nm case swept above.
 - **A hold out of her reach is held at her best height, where she is**
   (`HoldOutside::out_of_reach`): where her climb gains less than 100 ft in
   two minutes she gives the hold up, holds the best height she reached and
@@ -143,3 +141,20 @@ the person flown by a stand-in).
   325 s, the out-of-reach 79 s, all linux-debug beside the sweep.
 - The 200 ft at which she sets off is `HoldOutside::sets_off_within_ft`;
   one `least_figure` prints every least.
+
+**The six earlier situations, re-run with the break-off in** (the review
+of #351's second round; linux-release, -j4): all 1,350 flights of every
+landplane pair kept apart and in order, the least unchanged - 541 ft
+within 1.5 nm and 3,321 m within 500 ft straight in or departing; 618 ft
+and 3,090 m behind a person who stays; departures behind her never within
+1.5 nm, 5,266 m within 500 ft.
+
+**Found by the same sweep: flying away down the approach fails at 10 nm.**
+Every pair flying away on the eight bearings - the slowest and the
+fastest had all passed - lost the minimum in 12 pairs, all flying away at
+180 degrees: a fast person (the F-15C, A380, B-2A) passing the hold as the
+one behind set off down from it, the least 1,304 m and 463 ft (a person's
+F-15C ahead of a B-2A). And a person's F-22A, her stand-in flying away
+level at 315 degrees ahead of a Cub, struck the ground. Item 2 is
+unticked until both are fixed. The raised
+ground's 105 flights kept apart (622 ft within 1.5 nm).
