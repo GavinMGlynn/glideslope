@@ -555,9 +555,10 @@ are the risks the phase order is built around:
   200 km of every aircraft (aviationweather.gov's `bbox=`), flies each
   place in the nearer's weather - blended across a 20 km band halfway
   between two, with no step in the wind - and tells every client each
-  station, so that prediction flies the same air (2026-11-11). A flight on
-  its own, and a server given one `--weather` station, fly one station's
-  weather everywhere; a client joining while the server's stations change
+  station, so that prediction flies the same air; a box that answers
+  nothing keeps the stations flown, and a change mid-blend blends from the
+  air then (2026-11-11). A flight on its own, and a server given one
+  `--weather` station, fly one station's weather everywhere; a client joining while the server's stations change
   flies the new ones whole until the blend ends; and the AI's planners are
   told no wet runway under the stations around them - each a tail in
   `COMPLETION_PLAN.md`. On a server the server's weather travels and every
