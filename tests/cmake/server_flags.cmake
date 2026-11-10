@@ -81,7 +81,8 @@ list(LENGTH _flags _count)
 # --changed-file is written once --metar-then's has taken over, for a client
 # to join while it blends in (server_weather_join.cmake).
 # --players-on-final starts every player on final to a runway, at the learnt
-# landing's gate (server_learnt_landing.cmake), and --ai-on-final the AI
+# landing's gate (server_learnt_landing.cmake) - the first as many miles out
+# as it says after an @ (client_stays_at_gate.cmake) - and --ai-on-final the AI
 # aircraft, outside it, to be landed (server_ai_learnt_landing.cmake).
 # --ai-route gives the first AI aircraft a route file as a copilot's route
 # is, flown in simulated time (server_route_landing.cmake).

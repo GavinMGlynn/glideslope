@@ -158,6 +158,10 @@ struct Options {
     std::filesystem::path data;
     std::vector<Flown> fly;
     std::string on_final; // AIRPORT/RUNWAY, or empty
+    // How far out the first player on final starts, in nautical miles
+    // (`--players-on-final AIRPORT/RUNWAY@MILES`; two, the gate's middle,
+    // unless said).
+    double on_final_out_nm = 2.0;
     std::string ai_on_final; // AIRPORT/RUNWAY, or empty
     std::string ai_route;    // a route file for the first AI aircraft, or empty
     int ai = default_ai;
@@ -292,11 +296,13 @@ void print_usage(std::FILE* out) {
         "                     or HEADING; may be given up to four\n"
         "                     times, and the server flies them all at 120 Hz over\n"
         "                     the collision terrain wherever on Earth they are\n"
-        "  --players-on-final AIRPORT/RUNWAY  each player starts on the final\n"
-        "                     approach to that runway end - 'YSSY/16R' - trimmed at\n"
-        "                     the aeroplane's approach speed with the landing flap:\n"
-        "                     the first two miles out, the gate the learnt landing\n"
-        "                     is offered at, and each after half a mile further\n"
+        "  --players-on-final AIRPORT/RUNWAY[@MILES]  each player starts on the\n"
+        "                     final approach to that runway end - 'YSSY/16R' -\n"
+        "                     trimmed at the aeroplane's approach speed with the\n"
+        "                     landing flap: the first two miles out, or MILES (0.5\n"
+        "                     to 10), two being the middle of the gate the learnt\n"
+        "                     landing is offered at, and each after half a mile\n"
+        "                     further\n"
         "  --ai-route FILE    the first AI aircraft flying the plan file is given\n"
         "                     this route at once, as a player's copilot's route\n"
         "                     is: checked against it and flown, or refused and\n"
@@ -862,7 +868,22 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.seconds = *n;
         } else if (a == "--players-on-final") {
             if (!next(value)) return std::nullopt;
-            const std::string spec(value);
+            std::string spec(value);
+            // **And how far out, if said** (`@MILES`): half a mile to ten.
+            // A test that flies her thirty seconds down the final and asks
+            // whether she is still at the learnt landing's gate starts her
+            // near its far edge, since from its middle she has flown out of
+            // its near one by then (client_stays_at_gate.cmake).
+            if (const std::size_t at = spec.find('@'); at != std::string::npos) {
+                const auto miles = number(std::string_view(spec).substr(at + 1));
+                if (!miles || !(*miles >= 0.5 && *miles <= 10.0)) {
+                    why = "--players-on-final wants its miles out from 0.5 to 10, "
+                          "'YSSY/16R@2.35', not '" + spec + "'";
+                    return std::nullopt;
+                }
+                o.on_final_out_nm = *miles;
+                spec.resize(at);
+            }
             const std::size_t slash = spec.find('/');
             if (slash == std::string::npos || slash == 0 || slash + 1 == spec.size()) {
                 why = "--players-on-final wants AIRPORT/RUNWAY, 'YSSY/16R', not '" + spec + "'";
@@ -958,9 +979,12 @@ void print_settings(const Options& o, std::FILE* out) {
     std::fprintf(out, "seconds   %s\n",
                  o.seconds > 0.0 ? std::to_string(o.seconds).c_str()
                                  : "(until killed)");
-    std::fprintf(out, "on final  %s\n",
-                 o.on_final.empty() ? "(no: players start where the plan does)"
-                                    : o.on_final.c_str());
+    if (o.on_final.empty()) {
+        std::fprintf(out, "on final  (no: players start where the plan does)\n");
+    } else {
+        std::fprintf(out, "on final  %s, the first %.2f miles out\n", o.on_final.c_str(),
+                     o.on_final_out_nm);
+    }
     std::fprintf(out, "ai final  %s\n",
                  o.ai_on_final.empty() ? "(no: the AI flies its plan)" : o.ai_on_final.c_str());
     std::fprintf(out, "ai route  %s\n",
@@ -1779,10 +1803,14 @@ public:
         if (on_final_ && final_speeds) {
             const auto players = static_cast<double>(std::count_if(
                 flown_.begin(), flown_.end(), [](const Aircraft& a) { return a.slot >= 0; }));
-            const double out_m = (2.0 + 0.5 * players) * 1852.0;
+            const double out_m = (on_final_out_nm_ + 0.5 * players) * 1852.0;
             ic = glideslope::sim::final_approach_start(
                 *on_final_, out_m, final_start_kts(model, *final_speeds, *aircraft),
                 final_speeds->flap, final_speeds->aim_m, 3.0);
+            std::printf("slot %d's %s starts on final to %s %.2f miles out\n",
+                        static_cast<int>(slot), id.c_str(), on_final_->name.c_str(),
+                        out_m / 1852.0);
+            std::fflush(stdout);
             // **Trimmed wings and all, as level**: trimmed in pitch alone
             // and her client keeping that trim (frontend::keep_held), a
             // C172P on final banked 5.9 degrees in her first 1.3 s and was
@@ -1926,12 +1954,14 @@ public:
     }
 
     // **Every player starts on the final approach to `spec`'s runway end**
-    // (`--players-on-final AIRPORT/RUNWAY`), as the CLI's landings do: the
-    // first two miles out on the centreline and the glidepath - the learnt
-    // landing's gate - and each after half a mile further out, so that no
-    // two are put in one place. Why not, or nothing.
-    std::string players_on_final(const std::string& spec) {
+    // (`--players-on-final AIRPORT/RUNWAY[@MILES]`), as the CLI's landings
+    // do: the first `first_out_nm` out on the centreline and the glidepath -
+    // two, the middle of the learnt landing's gate, unless said - and each
+    // after half a mile further out, so that no two are put in one place.
+    // Why not, or nothing.
+    std::string players_on_final(const std::string& spec, double first_out_nm) {
         std::string why;
+        on_final_out_nm_ = first_out_nm;
         on_final_ = runway_end_named(spec, why);
         if (!on_final_) {
             return why;
@@ -4326,6 +4356,7 @@ private:
     std::map<std::string, std::shared_ptr<const glideslope::sim::LearntPolicy>> learnt_;
     // Where players start, on final (`--players-on-final`), or none.
     std::optional<glideslope::sim::Runway> on_final_;
+    double on_final_out_nm_ = 2.0; // the first player's miles out
     double fail_engines_at_s_ = -1.0;
     // Players given aircraft so far, and how many a wreck waits for
     // (`--test-wreck-waits-for-joins`; nought, none).
@@ -5383,7 +5414,7 @@ int run(const Options& o) {
             fleet->ai_route(o.ai_route);
         }
         if (!o.on_final.empty()) {
-            const std::string refused = fleet->players_on_final(o.on_final);
+            const std::string refused = fleet->players_on_final(o.on_final, o.on_final_out_nm);
             if (!refused.empty()) {
                 std::fprintf(stderr, "glideslope_server: --players-on-final %s: %s\n",
                              o.on_final.c_str(), refused.c_str());
