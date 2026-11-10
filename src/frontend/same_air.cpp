@@ -1,5 +1,9 @@
 #include "frontend/same_air.hpp"
 
+#include <cstdio>
+
+#include <algorithm>
+
 #include "world/digest.hpp"
 #include "world/metar.hpp"
 #include "world/runway_ground.hpp"
@@ -297,6 +301,61 @@ std::string describe(const net::TerrainDataset& dataset) {
 bool same_ground(const net::TerrainDataset& a, const net::TerrainDataset& b) {
     // The hash is what is compared; the name and version are for a person.
     return a.sha256 == b.sha256;
+}
+
+void AirFlown::note(const sim::Aircraft& aircraft, const world::StationSlots& stations) {
+    if (!stations.any()) {
+        return;
+    }
+    constexpr double mps_per_fps = 0.3048;
+    const std::array<double, 3> wind{aircraft.property("atmosphere/wind-north-fps") * mps_per_fps,
+                                     aircraft.property("atmosphere/wind-east-fps") * mps_per_fps,
+                                     aircraft.property("atmosphere/wind-down-fps") * mps_per_fps};
+    if (last_wind_) {
+        worst_wind_step_mps_ = std::max(
+            worst_wind_step_mps_, std::hypot(wind[0] - (*last_wind_)[0], wind[1] - (*last_wind_)[1],
+                                             wind[2] - (*last_wind_)[2]));
+    }
+    last_wind_ = wind;
+    std::vector<std::pair<double, double>> places;
+    std::vector<std::string> names;
+    for (const auto& slot : stations.slots()) {
+        if (slot) {
+            places.emplace_back(slot->report().surface.latitude_deg,
+                                slot->report().surface.longitude_deg);
+            names.push_back(slot->report().surface.metar.station);
+        }
+    }
+    const std::vector<double> shares =
+        world::station_weights(places, aircraft.property("position/lat-geod-deg"),
+                               aircraft.property("position/long-gc-deg"));
+    const auto most =
+        static_cast<std::size_t>(std::max_element(shares.begin(), shares.end()) - shares.begin());
+    if (steps_ == 0) {
+        first_station_ = names[most];
+        first_share_ = shares[most];
+    }
+    double first_share = 0.0;
+    for (std::size_t i = 0; i < names.size(); ++i) {
+        if (names[i] == first_station_) {
+            first_share = shares[i];
+        }
+    }
+    least_first_share_ = std::min(least_first_share_, first_share);
+    last_station_ = names[most];
+    last_share_ = shares[most];
+    ++steps_;
+}
+
+std::string AirFlown::said() const {
+    char line[320];
+    std::snprintf(line, sizeof line,
+                  "air flown: %zu steps, the wind changing by at most %.5f m/s in one; most of "
+                  "it %s's at the first (%.3f of it), %s's at the last (%.3f of it), the "
+                  "first's share at least %.3f",
+                  steps_, worst_wind_step_mps_, first_station_.c_str(), first_share_,
+                  last_station_.c_str(), last_share_, least_first_share_);
+    return line;
 }
 
 } // namespace glideslope::frontend

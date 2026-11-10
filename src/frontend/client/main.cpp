@@ -302,7 +302,9 @@ void usage(std::FILE* out) {
         "                name then a latitude and longitude - and print it; nothing\n"
         "                is drawn and nothing is flown\n"
         "  --weather     fly in the weather reported now at an airfield, by its\n"
-        "                ICAO code - its METAR, and Open-Meteo's winds aloft\n"
+        "                ICAO code - its METAR, and Open-Meteo's winds aloft - or,\n"
+        "                'around', at the airfields within 200 km of her wherever\n"
+        "                she goes, the nearer's\n"
         "  --microburst  a microburst in that weather at a latitude and longitude,\n"
         "                for the flight's first fifteen minutes\n"
         "  --metar       show the terrain screen in the weather a METAR reports:\n"
@@ -560,11 +562,12 @@ static int run_program(int argc, char** argv) {
             }
         } else if (a == "--weather" && has_value) {
             o.weather_station = std::string(args[++i]);
-            ok = o.weather_station.size() == 4 &&
+            ok = o.weather_station == glideslope::client::weather_around ||
+                 (o.weather_station.size() == 4 &&
                  std::all_of(
                      o.weather_station.begin(), o.weather_station.end(), [](char c) {
                          return std::isalnum(static_cast<unsigned char>(c)) != 0;
-                     });
+                     }));
         } else if (a == "--metar" && has_value) {
             o.metar = std::string(args[++i]);
             try {
@@ -840,6 +843,12 @@ static int run_program(int argc, char** argv) {
     }
     if (!o.microbursts.empty() && o.weather_station.empty()) {
         std::fputs("glideslope: a --microburst is put into --weather\n", stderr);
+        return 2;
+    }
+    if (!o.microbursts.empty() && o.weather_station == glideslope::client::weather_around) {
+        std::fputs("glideslope: a --microburst is put into one station's --weather, not "
+                   "the stations around\n",
+                   stderr);
         return 2;
     }
     if (!o.quit_once.empty() && o.quit_at <= 0) {
@@ -2161,6 +2170,9 @@ static int run_program(int argc, char** argv) {
                     std::printf("glideslope: a weather refresh is %s\n",
                                 flight->refreshing_weather() ? "under way"
                                                              : "not under way");
+                }
+                if (flight && !flight->air_flown().empty()) {
+                    std::printf("glideslope: %s\n", flight->air_flown().c_str());
                 }
                 std::printf("glideslope: quitting at tick %lld\n",
                             static_cast<long long>(ticks));

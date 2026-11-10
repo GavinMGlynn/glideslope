@@ -63,7 +63,8 @@ struct FlightStart {
     double pitch_deg = 0.0;
     double roll_deg = 0.0;
     // The airfield - its ICAO code - whose reported weather the flight is flown
-    // in; empty for the standard atmosphere with no wind.
+    // in; empty for the standard atmosphere with no wind; or `around`
+    // (weather_around), the stations around her wherever she goes.
     std::string weather_station;
     // Microbursts put into that weather, for as long as each lasts.
     std::vector<world::Microburst> microbursts;
@@ -121,6 +122,9 @@ gfx::Placement placement_of(const world::Ecef& centre, double heading_deg,
                             const ModelGeometry& geometry);
 
 inline constexpr double weather_blend_seconds = 5 * 60.0;
+// **`--weather around`**: the stations around her, wherever she goes, as a
+// server flies them (world::StationSlots), in place of one station.
+inline constexpr const char* weather_around = "around";
 
 class Flight {
 public:
@@ -341,7 +345,13 @@ public:
     // yet answered or given up. A test quitting mid-refresh reads it at the
     // moment it quits, so that it knows the refresh was there to be quit.
     bool refreshing_weather() const {
-        return next_weather_.has_value() && !next_weather_->done();
+        return (next_weather_.has_value() && !next_weather_->done()) ||
+               (stations_around_ && stations_around_->looking());
+    }
+    // **The air she flew of the stations around her** (`--weather around`;
+    // frontend::AirFlown), said as a flight is quit; empty without them.
+    std::string air_flown() const {
+        return stations_ && air_flown_.steps() > 0 ? air_flown_.said() : std::string();
     }
 
     // The weather report flown in now, or null without one; and where its
@@ -474,6 +484,14 @@ private:
     // Last, so that a fetch still under way is given up, and waited for,
     // before anything it could reach is destroyed.
     std::optional<world::WeatherFetch> next_weather_;
+    // **The stations around her** (`--weather around`): flown as
+    // glideslope_server flies them (world::StationSlots), found again as
+    // world::StationsAround says, and the air she flew of them.
+    std::shared_ptr<world::StationSlots> stations_;
+    std::unique_ptr<world::StationsAround> stations_around_;
+    frontend::AirFlown air_flown_;
+    // Where she is, for the stations around her.
+    std::pair<double, double> place() const;
 };
 
 } // namespace glideslope::client

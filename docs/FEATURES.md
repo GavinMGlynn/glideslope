@@ -48,10 +48,9 @@ the controls to an AI pilot whenever you like, then take them back.
 - **Live weather.** `CORE`
   The wind and conditions come from real reports for where you are flying, so
   the weather over an airfield is the weather there today.
-  A server can fly the reports of every airfield around its aircraft, each
-  flying the nearer airfield's weather, changing smoothly between them.
-  *Not yet:* a flight on its own, with no server, flies the weather of the
-  one airfield it names wherever it goes.
+  A flight - on a server or on its own - can fly the reports of every
+  airfield around it, the nearer airfield's weather, changing smoothly
+  between them.
 
 - **Wind that shears and gusts.** `DONE`
   The wind changes with height and from moment to moment, as real wind does. It

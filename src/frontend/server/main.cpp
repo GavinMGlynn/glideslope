@@ -2544,43 +2544,9 @@ public:
     // found anew takes an empty slot, and one no longer found empties its
     // own - which changes the stations, blended from now (world::StationSlots).
     void stations_change(std::vector<glideslope::world::WeatherReport> stations) {
-        std::vector<std::optional<glideslope::world::WeatherReport>> next(air_->slots().size());
-        std::vector<bool> placed(stations.size(), false);
-        for (std::size_t i = 0; i < air_->slots().size(); ++i) {
-            if (!air_->slots()[i]) {
-                continue;
-            }
-            for (std::size_t j = 0; j < stations.size(); ++j) {
-                if (!placed[j] && stations[j].surface.metar.station ==
-                                      air_->slots()[i]->report().surface.metar.station) {
-                    next[i] = std::move(stations[j]);
-                    placed[j] = true;
-                    break;
-                }
-            }
-        }
-        for (std::size_t j = 0; j < stations.size(); ++j) {
-            if (placed[j]) {
-                continue;
-            }
-            // An empty slot, or one being emptied, before a new one.
-            std::size_t i = 0;
-            while (i < next.size() && next[i]) {
-                ++i;
-            }
-            if (i == glideslope::world::most_stations) {
-                break;
-            }
-            if (i == next.size()) {
-                next.emplace_back();
-            }
-            next[i] = std::move(stations[j]);
-        }
-        for (std::size_t i = 0; i < next.size(); ++i) {
-            const bool had = i < air_->slots().size() && air_->slots()[i];
-            if (next[i] || had) {
-                set_slot(i, std::move(next[i]));
-            }
+        for (glideslope::world::SlotChange& c :
+             glideslope::world::slot_changes(*air_, std::move(stations))) {
+            set_slot(c.slot, std::move(c.report));
         }
     }
     // **A report's runway states laid on its station's runways once they
@@ -2649,18 +2615,9 @@ public:
     double weather_blend_s() const { return weather_blend_s_; }
     // How many weathers a slot has had: a client told an older count is told again.
     int weathers(std::size_t i) const { return slots_[i].weathers; }
-    // **The stations flown now**, each its latest report: what a place
-    // whose box answers nothing keeps (world::fetch_stations_weather).
+    // **The stations flown now** (world::StationSlots::stations_flown).
     std::vector<glideslope::world::WeatherReport> stations_flown() const {
-        std::vector<glideslope::world::WeatherReport> out;
-        if (air_) {
-            for (const auto& slot : air_->slots()) {
-                if (slot) {
-                    out.push_back(slot->report());
-                }
-            }
-        }
-        return out;
+        return air_ ? air_->stations_flown() : std::vector<glideslope::world::WeatherReport>{};
     }
     // **Where every aircraft is**, for the stations around them.
     std::vector<std::pair<double, double>> places() const {
@@ -5615,20 +5572,17 @@ int run(const Options& o) {
     std::optional<glideslope::world::WeatherFetch> weather_fetch;
     double weather_fetched_at_s = 0.0;
     // **The stations around every aircraft** (`--weather around`), found
-    // again every --weather-refresh, and whenever an aircraft has flown
-    // restation_m from where they were last found: off this thread, and
-    // changed from when they came (Fleet::stations_change).
-    std::optional<glideslope::world::StationsFetch> stations_fetch;
-    std::vector<std::pair<double, double>> stations_found_for;
-    constexpr double restation_m = 50000.0;
+    // again as world::StationsAround says, and changed from when they came
+    // (Fleet::stations_change).
+    glideslope::world::StationsAround stations_around(glideslope::world::http_fetch(),
+                                                      o.weather_refresh_s);
     const auto stations_due = [&]() {
-        if (stations_fetch && stations_fetch->done()) {
-            try {
-                glideslope::world::StationsFound got = stations_fetch->get();
-                for (const std::string& why : got.unanswered) {
+        try {
+            if (auto got = stations_around.found(fleet->now_s())) {
+                for (const std::string& why : got->unanswered) {
                     std::printf("stations kept: %s\n", why.c_str());
                 }
-                std::vector<glideslope::world::WeatherReport> found = std::move(got.stations);
+                std::vector<glideslope::world::WeatherReport> found = std::move(got->stations);
                 for (glideslope::world::WeatherReport& r : found) {
                     r = glideslope::frontend::fit_to_send(std::move(r));
                 }
@@ -5640,29 +5594,13 @@ int run(const Options& o) {
                 }
                 std::fflush(stdout);
                 fleet->stations_change(std::move(found));
-            } catch (const std::exception& e) {
-                std::fprintf(stderr, "glideslope_server: the stations are not updated: %s\n",
-                             e.what());
             }
-            stations_fetch.reset();
-            weather_fetched_at_s = fleet->now_s();
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "glideslope_server: the stations are not updated: %s\n",
+                         e.what());
         }
-        if (stations_fetch) {
-            return;
-        }
-        const std::vector<std::pair<double, double>> places = fleet->places();
-        bool moved = places.size() != stations_found_for.size();
-        for (std::size_t i = 0; !moved && i < places.size(); ++i) {
-            moved = glideslope::sim::distance_m(places[i].first, places[i].second,
-                                                stations_found_for[i].first,
-                                                stations_found_for[i].second) > restation_m;
-        }
-        if (moved || fleet->now_s() - weather_fetched_at_s >= o.weather_refresh_s) {
-            stations_found_for = places;
-            stations_fetch.emplace(places,
-                                   glideslope::world::utc_hour(std::chrono::system_clock::now()),
-                                   glideslope::world::http_fetch(), fleet->stations_flown());
-        }
+        stations_around.look(fleet->places(), fleet->now_s(),
+                             [&] { return fleet->stations_flown(); });
     };
     bool metar_then_done = o.metar_then.empty();
     if (fleet) {
@@ -5698,7 +5636,7 @@ int run(const Options& o) {
                              e.what());
                 return 1;
             }
-            stations_found_for = places;
+            stations_around.had(places, 0.0);
         }
         say_weather(fleet->weather(), 0.0);
     }
