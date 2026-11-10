@@ -245,3 +245,14 @@ stand-in and the F-22A behind a person's Cub).
   without the stand-in's fuel, a person's F-22A struck the ground on two
   bearings and the 737-300's on five.
 - Item 2 is ticked.
+
+**The flights short of fuel are named, and asserted exactly** (the
+review of #351's last fix). A flight that comes back from its hold short
+of fuel is left out of the drop and timing checks; which flights those
+are is now named in the test (`short_of_fuel_named`: an F-22A behind a
+person's J-3 Cub flying away, on every bearing - the eight of the sweep,
+none staying), printed as left out with its reason, and both the
+flying-away and the staying tests assert that the flights that came back
+short of fuel are exactly the named ones of the pairs they fly. Seen red:
+with the F-15C behind the Cub added to the named set, the per-run test
+failed, "0 flights came back short of fuel, 1 named".
