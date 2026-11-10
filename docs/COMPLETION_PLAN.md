@@ -1689,9 +1689,10 @@ AI aircraft kept apart from each other and clear of the runway.
       is, never setting off over ground she cannot clear (a Cub, 14,100 ft
       over the runway). Since 2026-11-11 she diverts to the nearest
       suitable runway the server knows within her fuel; with none she comes
-      down and back at once, with priority. Not done: the F-22A, too short
-      of fuel to divert, comes back and lands but passes the person's
-      downwind 1,606 m off at 0 ft.
+      down and back at once, with priority, and lands. Not done: coming
+      back behind a person still in the circuit, every landplane loses the
+      minimum to her (the F-22A, too short of fuel to divert, 1,606 m and
+      0 ft) - nothing yet times her final behind the person.
       *Verification: an AI aircraft whose hold is out of reach diverts to
       another runway, kept apart.* 14 landplanes diverted and landed, kept
       apart.

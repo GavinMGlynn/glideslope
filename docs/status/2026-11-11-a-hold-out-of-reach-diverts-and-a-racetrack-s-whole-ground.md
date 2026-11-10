@@ -139,3 +139,29 @@ second; the slowest and fastest diverting 191 s; the racetrack's two
 100 s - timeouts 1,800 s. linux-release: every landplane diverting 145 s,
 every landplane's racetrack 79 s (gust_sweep; about 2,600 and 1,100 s on
 debug at fourteen times) - timeouts 14,400 s.
+
+**The review's third round: coming back with priority behind a person.**
+Researched first: AIM 4-3-3 (large and turbine aircraft enter the pattern
+500 ft over it; the 45-degree downwind entry), AIM 5-5-15 (minimum fuel
+asks no priority; an emergency does), JO 7110.65 3-8-1 ("number two,
+follow ..."). The whole space measured: every landplane coming back, with
+no other airfield, behind a person's C172P staying in the circuit
+(`every_landplane_coming_back_with_priority_behind_a_person_in_the_circuit_lands_and_is_measured`,
+gust_sweep, 106 s on linux-release). All 15 come down, come back and
+land; **all 15 lose the minimum** - least 1 m within 500 ft (the Cub), 0
+ft within 1.5 nm: a final to the runway passes a left-hand downwind 1.6 km
+off, within 1.5 nm, at its height. The test asserts the landing and the
+count, and prints each least; item 1 stays open on it.
+- **Tried, and taken out: "number two, follow"** - she waited circling a
+  gate 8 nm out, 700 ft over the circuit, and set off for the legs to
+  final as the person turned on to it. Not kept apart either way: an
+  F-15C caught the person still on final (0 m; nothing in the test's
+  harness spaces her behind traffic on final, as the server's
+  `spaced_with` does), and a Cub's long final met the person on her next
+  downwind (1,614 m, 99 ft). Told the server's own "straight in or
+  departing", she set off as the person flew the downwind, which
+  `sim::using_by_hand` counts as a straight-in to the reciprocal. A
+  timing rule that holds for every speed - set off by her time to the
+  threshold against the person's to come round - is the plan item's.
+- linux-release, beside another test: item 1's every-landplane test 130 s,
+  the F-22A's separation named as above.
