@@ -10584,10 +10584,10 @@ struct Extra {
     // or departing her runway (sim::using_by_hand of the one ahead).
     bool gives_way = false;
     // **Waiting on a person who stays, she is left this long before she
-    // must go** (Controller::minimum_fuel_s and fuel_back_s): as she first
-    // asks for the circuit cleared, her tanks are set to last that much past
-    // the reserve and her way back at what she burns then. Negative: left
-    // as they are.
+    // must go** (Controller::fuel_to_go_lbs): as she first asks for the
+    // circuit cleared, her tanks are set to hold that much past the reserve
+    // and her way back, at what they are counted at (going_burn_pps).
+    // Negative: left as they are.
     double fuel_past_minimum_when_asking_s = -1.0;
     std::optional<double> ceiling_ft;
     double run_s = 3600.0;
@@ -10868,12 +10868,11 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
             out.told = glideslope::sim::leave_the_circuit_for("aircraft 2 (" + behind_id + ")",
                                                               runway);
             if (extra.fuel_past_minimum_when_asking_s >= 0.0) {
-                const double lasts_s = behind_c.fuel_lasts_s();
                 const double keep =
-                    std::min(1.0, (glideslope::sim::Controller::minimum_fuel_s +
-                                   behind_c.fuel_back_s() +
-                                   extra.fuel_past_minimum_when_asking_s) /
-                                      lasts_s);
+                    std::min(1.0, (behind_c.fuel_to_go_lbs() +
+                                   extra.fuel_past_minimum_when_asking_s *
+                                       behind_c.going_burn_pps()) /
+                                      behind.property("propulsion/total-fuel-lbs"));
                 // Every tank by the same share, through what a replay sets.
                 glideslope::sim::ReplayState tanks = behind.replay_state();
                 for (double& lbs : tanks.tank_lbs) {
@@ -13309,19 +13308,16 @@ std::size_t ends_in_reach(const glideslope::world::RunwaySurfaces& world,
 // and back with priority once short of it - or leaves on the heading told,
 // and the one behind comes back once her place is dropped.
 constexpr double waits_on_a_person_s = 300.0;
-void diverting_from_behind_persons_who_stay(const std::vector<std::string>& aheads,
-                                            const std::vector<std::string>& behinds,
-                                            const std::set<std::string>& came_back = {},
-                                            bool alternate = true,
-                                            const std::set<std::string>& not_kept_apart = {},
-                                            bool leaves = false,
-                                            const std::set<std::string>& not_landed = {}) {
+void diverting_from_behind_persons_who_stay(
+    const std::vector<std::string>& aheads, const std::vector<std::string>& behinds,
+    const std::set<std::string>& came_back = {}, bool alternate = true,
+    const std::set<std::string>& not_kept_apart = {}, bool leaves = false) {
     std::set<std::pair<std::string, std::string>> flown;
     std::vector<std::string> wrong;
     double least_m = 1e9;
     double least_ft = 1e9;
     std::set<std::string> lost;
-    std::set<std::string> unlanded;
+    std::set<std::string> landed;
     const auto world = a_world_of_runways(alternate);
     const std::size_t near = alternate ? 2 : 1;
     check(world->size() == far_strips + near, "a world of " + std::to_string(world->size()) +
@@ -13379,16 +13375,12 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
                 lost.insert(behind_id);
                 std::printf("  NOT KEPT APART - %s: %s\n", behind_id.c_str(), least_of(t).c_str());
             }
-            // **The pairs that do not land, asserted exactly**
-            // (`not_landed`): come back on her reserve to a person who
-            // stays in the circuit, she may be sent round behind her and
-            // run her tanks dry. Their landing is not judged below.
-            const bool unlanded_here = !t.both_clear;
-            if (unlanded_here) {
-                unlanded.insert(behind_id);
+            // **Every one lands**, counted: come back on her reserve to a
+            // person who stays in the circuit, too.
+            if (t.both_clear && t.wreck.empty()) {
+                landed.insert(behind_id);
             }
-            const bool judge_landing = not_landed.count(behind_id) == 0;
-            if (!t.wreck.empty() && judge_landing) {
+            if (!t.wreck.empty()) {
                 wrong.push_back(pair + ": wrecked: " + t.wreck);
             }
             if (t.left_after_s < 0.0) {
@@ -13407,14 +13399,15 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
                                 std::to_string(most_looked_up) + ", of the " +
                                 std::to_string(in_reach) + " ends within her reach");
             }
-            if (!t.both_clear && judge_landing) {
+            if (!t.both_clear) {
                 wrong.push_back(pair + ": not landed and clear of the runway");
             }
             if (back) {
                 // Come back with nowhere to divert, or - waiting on a person
                 // who stays - short of fuel; on her own runway.
-                if (!t.diverted_to.empty() || !(t.came_back_out_of_reach || t.short_of_fuel) ||
-                    (judge_landing && !t.landed_on_her_own)) {
+                if (!t.diverted_to.empty() ||
+                    !(t.came_back_out_of_reach || t.short_of_fuel) ||
+                    !t.landed_on_her_own) {
                     wrong.push_back(pair + ": did not come back and land on her own runway");
                 }
                 // **She asked for the circuit cleared, and the person was
@@ -13444,11 +13437,12 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
     std::printf("  diverting: least %s within 500 ft, %s within 1.5 nm; %zu not kept apart\n",
                 least_figure(least_m, " m").c_str(), least_figure(least_ft, " ft").c_str(),
                 lost.size());
+    check(landed == std::set<std::string>(behinds.begin(), behinds.end()),
+          std::to_string(landed.size()) + " of " + std::to_string(behinds.size()) +
+              " landed");
     check(lost == not_kept_apart,
           std::to_string(lost.size()) + " lost the minimum, not the " +
               std::to_string(not_kept_apart.size()) + " named");
-    check(unlanded == not_landed, std::to_string(unlanded.size()) + " did not land, not the " +
-                                      std::to_string(not_landed.size()) + " named");
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
@@ -13568,26 +13562,30 @@ GLIDESLOPE_TEST(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_anothe
     diverting_from_behind_persons_who_stay({"c172p"}, all, {"f22"}, true, {"f22"});
 }
 
-// **Every landplane with nowhere to divert, behind a person told to leave
-// the circuit who stays, waits until short of fuel and lands; the pairs
-// that lose the minimum are asserted exactly**: the same hold out of reach,
-// and no other airfield in her world. Come down where she is, she asks for
-// the circuit cleared; the person is told and stays, never leaving it. Left
-// `waits_on_a_person_s` past her minimum fuel, she waits that long, and
-// then comes back with priority, short of fuel (AIM 5-5-15's emergency
-// fuel), whatever the person does: a person who never leaves is back on
-// her downwind 90 s after the threshold, and any final crosses it within
-// 1.5 nm - the person's conflict, closed on its figures (the owner's ruling
-// of 2026-10-09). 14 lose the minimum, all but the F-15C; and four do not
-// land - the A320 and the A380 run dry and strike the ground, the 787-8 and
-// the B-2A are not down by the run's end - asserted exactly.
-GLIDESLOPE_TEST(every_landplane_with_nowhere_to_divert_behind_a_person_who_stays_when_told_to_leave_is_measured_for_separation_and_landing) {
+// **Every landplane back on her reserve behind a person told to leave the
+// circuit who stays lands; the pairs that lose the minimum are asserted
+// exactly**: the same hold out of reach, and no other airfield in her
+// world. Come down where she is, she asks for the circuit cleared; the
+// person is told and stays, never leaving it. Left `waits_on_a_person_s`
+// past what her fuel needs to go (Controller::fuel_to_go_lbs: her reserve
+// and her way back, at the most of what she burns now and what she burnt
+// round her circuit), she waits, and then comes back with priority (ICAO's
+// MAYDAY FUEL) whatever the person does, and lands - every one of the 15,
+// asserted. Measured at what she burnt circling as she came down, an
+// airliner's reserve was a fifth of what her way back burns: the A320 and
+// the A380 ran dry short of the runway, the 787-8 and the B-2A on it. A
+// person who never leaves is back on her downwind 90 s after the
+// threshold, and any final crosses it within 1.5 nm - the person's
+// conflict, closed on its figures (the owner's ruling of 2026-10-09): the
+// pairs that lose the minimum are asserted exactly.
+GLIDESLOPE_TEST(
+    every_landplane_back_on_her_reserve_behind_a_person_who_stays_in_the_circuit_lands_measured_for_separation) {
     const std::vector<std::string> all = landplanes_going_around();
     check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
-    std::set<std::string> lose(all.begin(), all.end());
-    lose.erase("f15c");
-    diverting_from_behind_persons_who_stay({"c172p"}, all, {}, false, lose, false,
-                                           {"787-8", "a320", "a380", "b2"});
+    // All 15 lose the minimum: the F-15C, kept apart by 658 ft when her
+    // reserve was counted at what she burnt circling, crosses 218 ft under.
+    const std::set<std::string> lose(all.begin(), all.end());
+    diverting_from_behind_persons_who_stay({"c172p"}, all, {}, false, lose, false);
 }
 
 // **An AI aircraft with nowhere to divert lands kept apart from a person

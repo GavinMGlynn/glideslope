@@ -411,11 +411,28 @@ public:
     // she flies most of it, which allows for the more she burns there
     // gear down. She stops waiting for the circuit when what she has lasts
     // less than this and `minimum_fuel_s` (ICAO's MAYDAY FUEL: her fuel on
-    // landing below the reserve). Nought when not holding.
+    // landing below the reserve; `fuel_to_go_lbs`). Nought when not
+    // holding.
     double fuel_back_s() const;
     // How long what is in her tanks lasts at what her engines burn now, s
     // (infinite: burning nothing).
     double fuel_lasts_s() const;
+    // What her engines burn now, lb/s.
+    double burning_pps() const;
+    // What she burnt on average flying her circuit, lb/s - configured, at
+    // her approach's speeds, round it and up from its go-arounds; nought
+    // before she has flown one.
+    double circuit_burn_pps() const;
+    // **What her reserve and her way back are counted at, lb/s**: the more
+    // of what she burns now and what she burnt round her circuit. Now
+    // alone, circling down to wait at idle, an A320 burnt 0.46 lb/s, and
+    // her way back - level at her circuit's height, flap out - 2.3: her
+    // ten minutes were two, and her tanks ran dry 1.2 nm out (2026-11-11).
+    double going_burn_pps() const;
+    // **The fuel she must go on, lb**, waiting with nowhere to divert:
+    // `minimum_fuel_s` and `fuel_back_s` at `going_burn_pps` - ICAO's
+    // MAYDAY FUEL, her fuel on landing below her reserve.
+    double fuel_to_go_lbs() const;
     // Whether she came back from her hold short of fuel.
     bool came_back_short_of_fuel() const { return came_back_short_; }
     // Whether she has priority, come back short of fuel or with nowhere to
@@ -674,6 +691,12 @@ private:
     BehindAPersonQuery behind_a_person_;
     std::optional<double> left_the_circuit_s_;
     std::optional<double> rejoined_at_s_;
+    // What she burnt flying her circuit, lb, over how long, s, and the sim
+    // time of the step it was last measured at (`measure_circuit_burn`).
+    double circuit_burn_lbs_ = 0.0;
+    double circuit_burn_s_ = 0.0;
+    double circuit_burn_last_s_ = -1.0e9;
+    void measure_circuit_burn();
     bool came_back_short_ = false;
     bool came_back_out_of_reach_ = false;
     bool asks_the_circuit_cleared_ = false;

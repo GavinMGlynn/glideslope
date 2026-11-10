@@ -374,10 +374,14 @@ person in the circuit to leave it on its dead side (protocol 17,
 `TRAFFIC_INSTRUCTION`, shown on her HUD); nothing makes her. Every
 landplane is kept apart from a person who leaves (least 657 ft within 1.5
 nm). If she stays, the AI goes when her fuel on landing would fall below
-ten minutes: 14 of 15 lose the minimum, the A320 and the A380 run dry
-short of the runway, and the 787-8 and the B-2A are not down within 2 h -
-an item of its own
+ten minutes
 (2026-11-11-a-person-in-the-circuit-is-told-to-leave-it-for-an-ai-with-nowhere-to-divert).
+Counted at what she burnt idling down to wait, the A320 and the A380 ran
+dry short of the runway and the 787-8 and the B-2A on it; since then her
+reserve and her way back are counted at what she burnt flying her
+circuit, and all 15 land with it. All 15 lose the minimum to a person who
+stays - the person's conflict
+(2026-11-11-back-on-her-reserve-behind-a-person-who-stays-every-landplane-lands).
 
 Since 2026-11-05 a take-off given no plan levels off at its height. It
 leads the height by a tenth of her climb, and the autopilot holds it. The
