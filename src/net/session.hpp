@@ -154,6 +154,13 @@ public:
         out.swap(learnt_refusals_);
         return out;
     }
+    // **The instructions the server has given since last asked**
+    // (`TRAFFIC_INSTRUCTION`), oldest first.
+    std::vector<TrafficInstruction> take_instructions() {
+        std::vector<TrafficInstruction> out;
+        out.swap(instructions_);
+        return out;
+    }
     std::uint8_t your_aircraft() const { return mine_; }
     double simulation_time_s() const { return clock_s_; }
 
@@ -243,6 +250,7 @@ private:
     Told told_;
     std::vector<std::uint8_t> refusals_;
     std::vector<LearntLandingRefused> learnt_refusals_;
+    std::vector<TrafficInstruction> instructions_;
     // **Until anything has opened under this session, it knocks**: a sealed
     // `PING` every `prove_every_s` from the first `poll()`. A server sends a
     // session nothing but its handshake answer until something sealed under

@@ -2852,6 +2852,14 @@ public:
     // AI** (`measure_apart`): what a test counts a hand-over in.
     std::int64_t handed_steps() const { return handed_steps_; }
 
+    // **What each person has been told to do for other traffic since last
+    // asked** (`TRAFFIC_INSTRUCTION`): her aircraft's number, and the words.
+    std::vector<std::pair<std::uint8_t, std::string>> take_instructions() {
+        std::vector<std::pair<std::uint8_t, std::string>> out;
+        out.swap(instructions_);
+        return out;
+    }
+
     std::vector<std::string> step() {
         ++steps_;
         const double now_s =
@@ -2952,6 +2960,9 @@ public:
                 happened.push_back(std::move(line));
             }
         }
+        // **A person in the circuit is told to leave it** for an AI
+        // aircraft that asks.
+        clear_circuits(happened);
         // How close every two AI aircraft have come, for the end to say.
         measure_apart();
         // Every two still flying, closer than the mean of their wingspans.
@@ -3655,6 +3666,42 @@ private:
         return false;
     }
 
+    // **A person in the circuit told to leave it** (sim::persons_in_her_circuit)
+    // when an AI aircraft there asks (Controller::asks_the_circuit_cleared):
+    // once for each person and each asking, as a tower would. Nothing makes
+    // her: the AI waits for her place to be dropped, or until short of fuel.
+    void clear_circuits(std::vector<std::string>& happened) {
+        std::vector<std::optional<glideslope::sim::CirclePlace>> places;
+        places.reserve(flown_.size());
+        for (const Aircraft& b : flown_) {
+            places.push_back(b.controller && b.wrecked_at_s < 0.0 ? b.controller->circling()
+                                                                  : std::nullopt);
+        }
+        for (std::size_t i = 0; i < flown_.size(); ++i) {
+            const Aircraft& a = flown_[i];
+            const bool asks = a.controller && a.wrecked_at_s < 0.0 &&
+                              a.controller->asks_the_circuit_cleared();
+            if (!asks) {
+                std::erase_if(told_to_clear_, [&a](const auto& told) {
+                    return told.first == a.index;
+                });
+                continue;
+            }
+            for (const std::size_t p : glideslope::sim::persons_in_her_circuit(i, places)) {
+                const Aircraft& person = flown_[p];
+                if (!told_to_clear_.insert({a.index, person.index}).second) {
+                    continue;
+                }
+                const std::string what = glideslope::sim::leave_the_circuit_for(
+                    "aircraft " + std::to_string(a.index) + " (" + a.catalogue_id + ")",
+                    places[i]->runway);
+                instructions_.emplace_back(person.index, what);
+                happened.push_back("aircraft " + std::to_string(person.index) +
+                                   " told to " + what);
+            }
+        }
+    }
+
     // **Whether a person's aircraft is ahead of `self`** in its runway's
     // sequence (sim::behind_a_person), of every aircraft the server flies.
     bool behind_a_person(const glideslope::sim::Aircraft& self) const {
@@ -4242,6 +4289,10 @@ private:
     std::shared_ptr<glideslope::sim::FunctionTerrain> ground_;
     std::filesystem::path data_;
     std::vector<Aircraft> flown_;
+    // Who has been told to leave a circuit for whom, by number: {the AI
+    // asking, the person}; forgotten when she stops asking.
+    std::set<std::pair<std::uint8_t, std::uint8_t>> told_to_clear_;
+    std::vector<std::pair<std::uint8_t, std::string>> instructions_;
     // **Hand-over questions let go and not yet finished**: given up, and
     // kept until nothing of them is running (`Copilot::settled`), so that
     // letting one go never waits on the stepping thread - for its model, or
@@ -5646,6 +5697,21 @@ int run(const Options& o) {
                     std::printf("%s\n", line.c_str());
                     std::fflush(stdout);
                     happened.add(up_s, line);
+                }
+                // **Told to the person it is for**, and to no other client.
+                for (const auto& [number, what] : fleet->take_instructions()) {
+                    for (auto& [address, c] : connections) {
+                        if (!c.proven || c.aircraft != number) {
+                            continue;
+                        }
+                        const std::vector<std::uint8_t> told = glideslope::net::write(
+                            glideslope::net::TrafficInstruction{number, what});
+                        if (!c.reliable.send(std::span<const std::uint8_t>(told.data(), told.size()))) {
+                            std::printf("aircraft %u's instruction could not be queued\n",
+                                        static_cast<unsigned>(number));
+                            std::fflush(stdout);
+                        }
+                    }
                 }
                 if (o.test_step_ms > 0.0) {
                     take_at_least(o.test_step_ms);

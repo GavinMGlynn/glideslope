@@ -5245,6 +5245,13 @@ int stay(glideslope::platform::UdpSocket& socket,
                     say_heard("aircraft " + std::to_string(refused.aircraft) +
                               " refused the learnt landing: " + refused.why);
                 }
+                glideslope::net::TrafficInstruction instruction;
+                if (glideslope::net::read(
+                        std::span<const std::uint8_t>(message.data(), message.size()),
+                        instruction)) {
+                    say_heard("aircraft " + std::to_string(instruction.aircraft) +
+                              " told: " + instruction.what);
+                }
             }
             continue;
         }

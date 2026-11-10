@@ -405,6 +405,14 @@ public:
     // final and the approach from a hold 9 nm out, and a go-around.
     static constexpr double minimum_fuel_s = 600.0;
     bool short_of_fuel() const;
+    // **How long her way back to land takes, s**, waiting with nowhere to
+    // divert: from where she is to the six-mile point and down the final to
+    // the threshold, flown at her approach's reference speed - slower than
+    // she flies most of it, which allows for the more she burns there
+    // gear down. She stops waiting for the circuit when what she has lasts
+    // less than this and `minimum_fuel_s` (ICAO's MAYDAY FUEL: her fuel on
+    // landing below the reserve). Nought when not holding.
+    double fuel_back_s() const;
     // How long what is in her tanks lasts at what her engines burn now, s
     // (infinite: burning nothing).
     double fuel_lasts_s() const;
@@ -416,6 +424,14 @@ public:
     // Whether she came back from a hold out of her reach, with nowhere to
     // divert.
     bool came_back_out_of_reach() const { return came_back_out_of_reach_; }
+    // **Whether she asks for her runway's circuit to be cleared of a
+    // person**: her hold out of her reach with nowhere to divert, come down
+    // where she is and waiting, while a person is ahead of her in that
+    // runway's sequence (`leaves_with`). A server tells that person to leave
+    // the circuit (net::TrafficInstruction); she comes back once the
+    // person's place is dropped, or once she is short of fuel whatever the
+    // person does.
+    bool asks_the_circuit_cleared() const { return asks_the_circuit_cleared_; }
     // **Her hold out of her reach, she diverts** (HoldOutside::out_of_reach):
     // asked once, as she gives her hold up, for the runways the caller knows
     // of within her fuel's reach - where she is, and how far she can fly at
@@ -660,6 +676,7 @@ private:
     std::optional<double> rejoined_at_s_;
     bool came_back_short_ = false;
     bool came_back_out_of_reach_ = false;
+    bool asks_the_circuit_cleared_ = false;
     bool priority_ = false;
     std::optional<HoldOutside> holding_out_;
     struct Rejoin {

@@ -2297,6 +2297,15 @@ static int run_program(int argc, char** argv) {
                     notice_until = ticks + 10 * glideslope::sim::steps_per_second;
                     say_the_hud = true;
                 }
+                // **An instruction for other traffic**, as a tower gives
+                // one: on the HUD for thirty seconds of flight, and here.
+                for (const std::string& what : online->instructions()) {
+                    std::printf("glideslope: the server asks: %s\n", what.c_str());
+                    std::fflush(stdout);
+                    notice = what;
+                    notice_until = ticks + 30 * glideslope::sim::steps_per_second;
+                    say_the_hud = true;
+                }
                 // --press-after: each key at its time, its event and the key
                 // held for the next pass's keyboard, as a finger would.
                 while (presses_made < o.presses.size() && !test_key_held &&

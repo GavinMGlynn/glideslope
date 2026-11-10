@@ -437,6 +437,7 @@ that is handed one has been handed something with no meaning.
 | `LEARNT_LANDING_REFUSED` | server | no |
 | `RUNWAY_CONDITIONS` | server | no |
 | `LAW_STATE` | server | no |
+| `TRAFFIC_INSTRUCTION` | server | no |
 
 **`LAW_STATE` (protocol `10`) is the server's alone**, and the server drops
 one a client sends, as it drops the other server-only kinds. Its threat is
@@ -449,8 +450,14 @@ state updates put right; it reaches no other client and no file. It is read
 in `src/net/state.cpp`, not `messages.cpp`, because it carries a client's
 own motion as a state update does.
 
+**`TRAFFIC_INSTRUCTION` (protocol `11`) is the server's alone** too. A
+hostile server could tell a person to leave the circuit for traffic that is
+not there; it is words she reads and may ignore, it moves nothing, and its
+reader refuses any byte outside printable ASCII, as a learnt landing's
+refusal's does, since it is printed on her terminal.
+
 **So `CONTROLLER_SWAP`, `WATCH` and `COPILOT_ROUTE` are the three with a
-client-to-server threat surface**, and the readers for the other nine matter in the opposite
+client-to-server threat surface**, and the readers for the other eleven matter in the opposite
 direction: they are what defends a client against a server that is hostile,
 broken or a different version. That direction is not hypothetical - a client
 is told a server's host, port and key by whoever ran the server: on a command

@@ -404,6 +404,10 @@ void ClientSession::read_what_arrived(double now_s) {
                 if (read(all_of(message), learnt_refused)) {
                     learnt_refusals_.push_back(std::move(learnt_refused));
                 }
+                TrafficInstruction instruction;
+                if (read(all_of(message), instruction)) {
+                    instructions_.push_back(std::move(instruction));
+                }
                 ControllerSwap swap;
                 if (read(all_of(message), swap)) {
                     swaps_[swap.aircraft] = swap.to;

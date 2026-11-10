@@ -84,6 +84,7 @@
 #include <cstddef>
 #include <functional>
 #include <optional>
+#include <string>
 #include <vector>
 
 namespace glideslope::sim {
@@ -141,6 +142,24 @@ std::optional<double> circuit_ahead_alt_ft(std::size_t self,
 // **Whether any of those ahead of `self` in her runway's sequence** - as
 // `circuit_ahead_alt_ft` orders them - is flown by a person (`by_hand`).
 bool behind_a_person(std::size_t self, const std::vector<std::optional<CirclePlace>>& all);
+
+// **The people in `self`'s runway's circuit**: every other place there flown
+// by a person, ahead of her or not, by index - those a server tells to leave
+// it when she asks (Controller::asks_the_circuit_cleared). None when `self`
+// has no place.
+std::vector<std::size_t> persons_in_her_circuit(std::size_t self,
+                                                const std::vector<std::optional<CirclePlace>>& all);
+
+// **What a person in the circuit is asked**, as a tower would ask it: to
+// leave the circuit on its dead side - away from a left-hand circuit, from
+// the holds beside it (HoldOutside: on the bearing she left the circuit at)
+// and from the approach - on a heading `leave_off_runway_deg` right of the
+// runway's, true, and to rejoin once `who`, coming back with nowhere to
+// divert or short of fuel, has landed on `runway`. Printable ASCII, under
+// net::most_reason_bytes for a catalogue id of 25 bytes and a runway name's
+// 32 (a_person_in_her_runways_circuit_ahead_or_behind_is_told_...).
+constexpr double leave_off_runway_deg = 45.0;
+std::string leave_the_circuit_for(const std::string& who, const Runway& runway);
 
 // **A person's aircraft, judged by where she is and how she flies**: what
 // her pilot means is not the AI's to know, and a person is never told what

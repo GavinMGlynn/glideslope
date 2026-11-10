@@ -127,6 +127,7 @@ void Controller::engage() {
     lander_.reset();
     circuit_.reset();
     holding_out_.reset();
+    asks_the_circuit_cleared_ = false;
     rejoin_.reset();
     circling_.reset();
     vacate_.reset();
@@ -764,6 +765,7 @@ void Controller::to_pilot() {
     lander_.reset();
     circuit_.reset();
     holding_out_.reset();
+    asks_the_circuit_cleared_ = false;
     rejoin_.reset();
     // **Her place in a circuit's sequence is kept**: taken over in the
     // circuit, she is still ahead of the one behind until she is down
@@ -844,6 +846,22 @@ double Controller::fuel_lasts_s() const {
 
 bool Controller::short_of_fuel() const { return fuel_lasts_s() < minimum_fuel_s; }
 
+double Controller::fuel_back_s() const {
+    if (!holding_out_) {
+        return 0.0;
+    }
+    const Runway& r = holding_out_->runway();
+    const AircraftState s = a_.state();
+    const double h = r.heading_deg * std::numbers::pi / 180.0;
+    constexpr double out_m = 6.0 * 1852.0;
+    const double six_lat =
+        r.threshold_lat_deg - out_m * std::cos(h) / metres_per_degree_latitude(r.threshold_lat_deg);
+    const double six_lon = r.threshold_lon_deg - out_m * std::sin(h) /
+                                                     metres_per_degree_longitude(r.threshold_lat_deg);
+    const double way_m = distance_m(s.latitude_deg, s.longitude_deg, six_lat, six_lon) + out_m;
+    return way_m / (holding_out_->speeds().vref_kts * 1852.0 / 3600.0);
+}
+
 bool Controller::runway_not_clear(const Runway& runway) const {
     return runway_clear_ && a_.state().height_above_ground_ft < RunwayClear::decide_ft &&
            !runway_clear_(runway);
@@ -872,6 +890,7 @@ Controls Controller::fly() {
     if (a_.property("gear/wow") > 0.5) {
         // Down, whoever flies her: out of the circuit's sequence.
         circling_.reset();
+        asks_the_circuit_cleared_ = false;
         const AircraftState s = a_.state();
         wheels_down_at_s_ = s.sim_time_s;
         wheels_down_agl_ft_ = a_.property("position/h-agl-ft");
@@ -1196,7 +1215,23 @@ Controls Controller::fly() {
                 holding_out_->configure(applied_);
                 return applied_;
             }
-            if (behind_a_person_ && behind_a_person_() && !short_of_it && !nowhere) {
+            // **With nowhere to divert, she waits for the circuit to be
+            // cleared** (`asks_the_circuit_cleared`): come down, she circles
+            // where she is, her height the one she left her circuit at, and
+            // asks for the person ahead to be told to leave the circuit - a
+            // tower moving other traffic out of the pattern for a fuel
+            // emergency - until that person's place is dropped
+            // (sim::left_the_circuit_by_hand) or she is short of fuel; then
+            // back with priority. Her final crosses any downwind the person
+            // flies: coming back while the person stayed, all 15 landplanes
+            // lost the minimum (2026-11-11).
+            // **Waiting, until her fuel on landing would fall below the
+            // reserve** (ICAO's MAYDAY FUEL; AIM 5-5-15's emergency fuel):
+            // the reserve, and the time back to the threshold at her
+            // approach's speed (`fuel_back_s`).
+            const bool must_go = nowhere && fuel_lasts_s() < minimum_fuel_s + fuel_back_s();
+            if (behind_a_person_ && behind_a_person_() && !short_of_it && !must_go) {
+                asks_the_circuit_cleared_ = nowhere;
                 autopilot_->set(holding_out_->modes());
                 notice_a_stall();
                 autopilot_->limit_height(floor_ft_, ceiling_ft_);
@@ -1206,9 +1241,14 @@ Controls Controller::fly() {
                 holding_out_->configure(applied_);
                 return applied_;
             }
+            // Short of fuel with a person ahead, she comes back at once and
+            // still asks, until she is down: the person is told to leave.
+            const bool emergency =
+                short_of_it || (nowhere && fuel_lasts_s() < minimum_fuel_s + fuel_back_s());
+            asks_the_circuit_cleared_ = emergency && behind_a_person_ && behind_a_person_();
             rejoined_at_s_ = a_.state().sim_time_s;
-            came_back_short_ = short_of_it;
-            came_back_out_of_reach_ = nowhere && !short_of_it;
+            came_back_short_ = emergency;
+            came_back_out_of_reach_ = nowhere && !emergency;
             // **Coming back short of fuel or with nowhere to go, she has
             // priority** (AIM 5-5-15's emergency fuel; ICAO's MAYDAY FUEL):
             // first in her runway's sequence, followed and not following,
