@@ -1023,7 +1023,6 @@ or missing when it is, a value after an unset `08` or `40` flag that is not
 `0`, every bit of it, an own motion the state update would refuse or whose
 height asked is -1, and a NaN or infinity anywhere.
 
-
 ### `TRAFFIC_INSTRUCTION`
 
 **What a person is asked to do for other traffic**, as a tower would ask
@@ -1047,6 +1046,7 @@ byte outside printable ASCII, and an empty one is allowed.
 | `u8` | `0E`, the kind |
 | `u8` | the aircraft's number, the person's |
 | text | what she is asked to do, 0 to 160 bytes |
+
 ### What a reader must refuse
 
 A count larger than the limit above is refused rather than trimmed: a sender

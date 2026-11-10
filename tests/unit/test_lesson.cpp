@@ -13581,7 +13581,7 @@ GLIDESLOPE_TEST(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_anothe
 // of 2026-10-09). 14 lose the minimum, all but the F-15C; and four do not
 // land - the A320 and the A380 run dry and strike the ground, the 787-8 and
 // the B-2A are not down by the run's end - asserted exactly.
-GLIDESLOPE_TEST(every_landplane_with_nowhere_to_divert_behind_a_person_who_stays_when_told_to_leave_waits_until_short_of_fuel_and_lands_measured) {
+GLIDESLOPE_TEST(every_landplane_with_nowhere_to_divert_behind_a_person_who_stays_when_told_to_leave_is_measured_for_separation_and_landing) {
     const std::vector<std::string> all = landplanes_going_around();
     check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
     std::set<std::string> lose(all.begin(), all.end());

@@ -79,7 +79,7 @@ harness; `Then::ahead_leaves_when_told`; release figures).
   500 ft (the 747-400), 657 ft within 1.5 nm. 14 came back for the person
   leaving, waiting 737 to 823 s; the F-22A's fuel said go after 64 s, and
   she was still kept apart (14.3 km).
-- `every_landplane_with_nowhere_to_divert_behind_a_person_who_stays_when_told_to_leave_waits_until_short_of_fuel_and_lands_measured`
+- `every_landplane_with_nowhere_to_divert_behind_a_person_who_stays_when_told_to_leave_is_measured_for_separation_and_landing`
   (gust_sweep; the old coming-back test): the person told, and staying.
   Her tanks are set as she first asks to last 300 s past what her fuel
   needs to go, so the wait is short. Every one waited (8 to 343 s) and
@@ -114,3 +114,9 @@ staying test 135 to 183 s (gust_sweep; about 2,600 s on debug at fourteen
 times - 14,400 s timeouts, as their neighbours'); the slowest and fastest
 leaving 39 s, and 205 s on linux-debug beside other tests (1,800 s). The
 message tests under 4 s on debug.
+
+**The item closed on its measured figures**, under the owner's ruling of
+2026-10-09, as #351's 200 ft case was: its verification (kept 500 ft or
+1.5 nm from a person staying in the circuit) is not met by a person who
+stays - 14 of 15 lose the minimum - and is met by every pair when she
+leaves as told, least 657 ft within 1.5 nm. Both sets asserted.
