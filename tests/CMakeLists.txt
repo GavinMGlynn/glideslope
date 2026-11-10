@@ -3919,7 +3919,7 @@ set(_turns_names
     four_players_joining_on_final_a_c172p_c182_cub_and_pa28_take_turns_and_each_is_at_the_gate_thirty_seconds_after_she_starts
     the_window_client_joining_on_final_behind_a_pa28_waits_told_why_and_is_at_the_gate_thirty_seconds_after_she_starts
     a_player_begun_again_on_her_key_while_she_waits_her_turn_on_final_keeps_it_and_is_at_the_gate_thirty_seconds_after)
-set(_turns_ports 24834 24849 24897)
+set(_turns_ports 24834 24887 24897)
 foreach(_turns_run IN ITEMS 0 1 2)
     list(GET _turns_names ${_turns_run} _turns_name)
     list(GET _turns_ports ${_turns_run} _turns_port)
