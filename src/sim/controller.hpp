@@ -410,19 +410,30 @@ public:
     double fuel_lasts_s() const;
     // Whether she came back from her hold short of fuel.
     bool came_back_short_of_fuel() const { return came_back_short_; }
+    // Whether she has priority, come back short of fuel or with nowhere to
+    // divert: first in her runway's sequence, never sent to hold again.
+    bool has_priority() const { return priority_; }
+    // Whether she came back from a hold out of her reach, with nowhere to
+    // divert.
+    bool came_back_out_of_reach() const { return came_back_out_of_reach_; }
     // **Her hold out of her reach, she diverts** (HoldOutside::out_of_reach):
     // asked once, as she gives her hold up, for the runways the caller knows
-    // of (a server: the runway ends of its collision ground, every airfield
-    // whose ground it has loaded), she leaves for the nearest suitable one
+    // of within her fuel's reach - where she is, and how far she can fly at
+    // her hold's speed in her fuel less `minimum_fuel_s` (a server: the
+    // runway ends of its world's runways that near, world::runway_ends_
+    // within) - she leaves for the nearest suitable one
     // (sim::choose_diversion) - her place in the sequence dropped, cleaned
     // up at her hold's speed and at the way's height, joining its extended
     // centreline and then its legs to final (six and four miles out) and its
-    // approach, as a landing from her hold is flown; there a straight-in, given
-    // way to and spaced as any is. `needs_m`: her landing's need, metres (0:
-    // none refused for length). Where none is suitable, or nothing is asked,
-    // she holds her best where she is (HoldOutside), and her fuel
-    // (`short_of_fuel`) brings her back to the runway she held for.
-    using AlternatesQuery = std::function<std::vector<Runway>()>;
+    // approach, as a landing from her hold is flown; there a straight-in,
+    // given way to and spaced as any is. `needs_m`: her landing's need,
+    // metres (0: none refused for length). **Where none is suitable, or
+    // nothing is asked, she comes back at once** to the runway she held for,
+    // as one short of fuel does (`short_of_fuel`): holding on where she is
+    // only burns what she will need there.
+    using AlternatesQuery =
+        std::function<std::vector<Runway>(double latitude_deg, double longitude_deg,
+                                          double within_m)>;
     void diverts_with(AlternatesQuery alternates, double needs_m) {
         alternates_ = std::move(alternates);
         alternate_needs_m_ = needs_m;
@@ -643,6 +654,8 @@ private:
     std::optional<double> left_the_circuit_s_;
     std::optional<double> rejoined_at_s_;
     bool came_back_short_ = false;
+    bool came_back_out_of_reach_ = false;
+    bool priority_ = false;
     std::optional<HoldOutside> holding_out_;
     struct Rejoin {
         Runway runway;

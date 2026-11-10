@@ -222,6 +222,18 @@ std::optional<sim::Runway> runway_rolled_on(const RunwaySurfaces& surfaces,
                                             const sim::Aircraft& aircraft,
                                             const std::function<double(double, double)>& ground_m);
 
+// **The runway ends within `within_m` of a place** (sim::Controller::
+// diverts_with): both ends of every runway of `surfaces`, by the great
+// circle from the place to the end's threshold, nearer than `within_m` -
+// and only those given their elevation, the ground's there by
+// `elevation_ft` (which may fetch ground), so that a world's runways cost
+// a distance each and only the few in reach a lookup. `looked_up`, if
+// given, is added the number of elevations asked for.
+std::vector<sim::Runway> runway_ends_within(const RunwaySurfaces& surfaces, double latitude_deg,
+                                            double longitude_deg, double within_m,
+                                            const std::function<double(double, double)>& elevation_ft,
+                                            std::size_t* looked_up = nullptr);
+
 // One end of runway `i` of `surfaces`, as the landing autopilots have a
 // runway: `he` for its `he_` end. Its elevation is `elevation_ft`.
 sim::Runway runway_end(const RunwaySurfaces& surfaces, std::size_t i, bool he,

@@ -1468,9 +1468,9 @@ set_tests_properties(a_hold_out_of_her_reach_is_given_up_for_her_best_height_whe
     PROPERTIES TIMEOUT 600)
 # **A hold out of reach diverts, and a racetrack's whole ground**
 # (docs/status, 2026-11-11): on linux-debug locally, beside another test,
-# the slowest and fastest diverting 204 s, the F-15C and the Cub
+# the slowest and fastest diverting 191 s, the F-15C and the Cub
 # behind an F-15C beside high ground 100 s; every landplane each,
-# gust_sweep, 185 and 79 s on linux-release - about 2,600 and 1,100 on
+# gust_sweep, 145 and 79 s on linux-release - about 2,600 and 1,100 on
 # debug at fourteen times. Five times the local figure and more.
 set_tests_properties(an_ai_aircraft_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart_the_slowest_and_the_fastest
     a_racetrack_beside_high_ground_past_its_circuits_ground_is_flown_1000_ft_over_it

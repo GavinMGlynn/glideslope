@@ -351,7 +351,8 @@ land whatever (an F-22A behind a person's Cub had run her tanks dry). Over raise
 she had skipped it, leaving near her fix - and was never within 500 ft or
 1.5 nm of the person while she did. A hold out of her reach is given up
 for her best height, circling where she is; since 2026-11-11 she then
-diverts to the nearest suitable runway the server knows, and lands. An
+diverts to the nearest suitable runway the server knows within her fuel,
+or, with none, comes back at once. An
 AI 2 nm out or more breaks off for a person lined up and flies over her
 climb, holding her upwind leg while the person climbs out: all 225
 pairs kept apart. Under an AI already at 200 ft, 171 of 225 lose the
@@ -362,8 +363,9 @@ whole area, sized by her speed and height: every landplane following an
 F-15C beside high ground past 8 nm stayed 884 ft or more over it. Held out
 of her hold's reach, 14 landplanes diverted 25 nm to another runway and
 landed, kept apart from the person (least 657 ft within 1.5 nm). The
-F-22A, at her landing weight, has too little fuel to divert, and coming
-back short of fuel behind the person she strikes the ground: a plan item
+F-22A, at her landing weight, has too little fuel to divert: she comes
+down and back at once with priority and lands, but passes the person's
+downwind 1,606 m off at 0 ft - not yet kept apart
 (2026-11-11-a-hold-out-of-reach-diverts-and-a-racetrack-s-whole-ground).
 
 Since 2026-11-05 a take-off given no plan levels off at its height. It

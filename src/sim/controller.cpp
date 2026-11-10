@@ -1088,7 +1088,7 @@ Controls Controller::fly() {
             // (`leaves_with`): on her outbound leg, a whole racetrack flown,
             // for a hold outside it (sim::HoldOutside), keeping her place.
             if (behind_a_person_ &&
-                circuit_->racetracks() > racetracks_behind_a_person &&
+                !priority_ && circuit_->racetracks() > racetracks_behind_a_person &&
                 circuit_->leg() == GoAroundCircuit::Leg::outbound && behind_a_person_()) {
                 left_the_circuit_s_ = a_.state().sim_time_s;
                 holding_out_.emplace(a_, circuit_->runway(), circuit_->speeds(),
@@ -1145,11 +1145,15 @@ Controls Controller::fly() {
             if (holding_out_->out_of_reach() && alternates_ && !alternates_asked_ &&
                 !short_of_it) {
                 alternates_asked_ = true;
+                const double within_s = std::min(fuel_lasts_s(), 1.0e9) - minimum_fuel_s;
+                const AircraftState here = a_.state();
                 diverted_to_ = choose_diversion(
-                    a_, holding_out_->runway(), holding_out_->speeds(), alternates_(),
+                    a_, holding_out_->runway(), holding_out_->speeds(),
+                    alternates_(here.latitude_deg, here.longitude_deg,
+                                std::max(0.0, holding_out_->speed_kts() * 1852.0 / 3600.0 *
+                                                  within_s)),
                     holding_out_->left_at_alt_ft(), holding_out_->altitude_ft(),
-                    alternate_needs_m_, holding_out_->speed_kts(),
-                    std::min(fuel_lasts_s(), 1.0e9) - minimum_fuel_s);
+                    alternate_needs_m_, holding_out_->speed_kts(), within_s);
                 if (diverted_to_) {
                     // Out of the sequence she held for: she is not coming
                     // back to it.
@@ -1173,7 +1177,25 @@ Controls Controller::fly() {
         }
         if (holding_out_) {
             const bool short_of_it = short_of_fuel();
-            if (behind_a_person_ && behind_a_person_() && !short_of_it) {
+            // **Out of her reach with nowhere to divert, she comes back at
+            // once**, as short of fuel.
+            const bool nowhere = holding_out_->out_of_reach();
+            // **Down first, where she is**: given up high, she comes down in
+            // right turns over the ground she climbed over to the height she
+            // left her circuit at, so that she joins the legs to final at
+            // their height - from 6,000 ft an F-22A came in 5 nm long and
+            // went around.
+            if (nowhere && !holding_out_->come_down_to_leaving()) {
+                autopilot_->set(holding_out_->modes());
+                notice_a_stall();
+                autopilot_->limit_height(floor_ft_, ceiling_ft_);
+                autopilot_->turn_away(away_deg_);
+                autopilot_->limit_speed(fastest_kts_);
+                applied_ = autopilot_->fly();
+                holding_out_->configure(applied_);
+                return applied_;
+            }
+            if (behind_a_person_ && behind_a_person_() && !short_of_it && !nowhere) {
                 autopilot_->set(holding_out_->modes());
                 notice_a_stall();
                 autopilot_->limit_height(floor_ft_, ceiling_ft_);
@@ -1185,6 +1207,15 @@ Controls Controller::fly() {
             }
             rejoined_at_s_ = a_.state().sim_time_s;
             came_back_short_ = short_of_it;
+            came_back_out_of_reach_ = nowhere && !short_of_it;
+            // **Coming back short of fuel or with nowhere to go, she has
+            // priority** (AIM 5-5-15's emergency fuel; ICAO's MAYDAY FUEL):
+            // first in her runway's sequence, followed and not following,
+            // and never sent out to hold again.
+            if ((short_of_it || nowhere) && circling_) {
+                circling_->since_s = -std::numeric_limits<double>::infinity();
+                priority_ = true;
+            }
             rejoin_.emplace(Rejoin{holding_out_->runway(), holding_out_->speeds()});
             navigator_.emplace(a_, final_legs(rejoin_->runway, rejoin_->speeds));
             navigator_->begin_here();

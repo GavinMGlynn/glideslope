@@ -268,6 +268,11 @@ HoldOutside::HoldOutside(const Aircraft& aircraft, const Runway& runway,
     best_at_s_ = s.sim_time_s;
 }
 
+bool HoldOutside::come_down_to_leaving() {
+    altitude_ft_ = left_at_alt_ft_;
+    return std::abs(a_.state().altitude_ft - altitude_ft_) <= sets_off_within_ft;
+}
+
 bool HoldOutside::climbing_first(const AircraftState& s) {
     if (out_of_reach_) {
         return true;
@@ -420,6 +425,11 @@ std::optional<Diversion> choose_diversion(const Aircraft& aircraft, const Runway
                      [](const auto& x, const auto& y) { return x.first < y.first; });
     const auto& terrain = aircraft.terrain();
     for (const auto& [straight_m, r] : nearest) {
+        // Her fuel first, by the straight line - no shorter than any way
+        // there - before any ground is sampled.
+        if (kts <= 0.0 || straight_m / metres_per_nm / kts * 3600.0 > within_s) {
+            continue;
+        }
         // The glidepath's height at six miles, as the legs to final have it.
         const double six_m = 6.0 * metres_per_nm;
         const double g6_ft =
@@ -469,7 +479,6 @@ std::optional<Diversion> choose_diversion(const Aircraft& aircraft, const Runway
         if (kts <= 0.0 || route_nm / kts * 3600.0 > within_s) {
             continue;
         }
-        (void)straight_m;
         Diversion d;
         d.runway = *r;
         d.route_alt_ft = route_alt_ft;
