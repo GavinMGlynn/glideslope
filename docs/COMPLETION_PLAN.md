@@ -1684,18 +1684,18 @@ AI aircraft kept apart from each other and clear of the runway.
       beside high ground beyond 8 nm stays 500 ft over it.* Done
       2026-11-11: the racetrack's whole area, sized by her speed and
       height, is flown 1,000 ft over; all 15 behind an F-15C, least 884 ft.
-- [ ] **A hold out of her reach is given up for her best height**: done
+- [x] **A hold out of her reach is given up for her best height**: done
       2026-11-06 - she holds the best she climbed to, circling where she
       is, never setting off over ground she cannot clear (a Cub, 14,100 ft
       over the runway). Since 2026-11-11 she diverts to the nearest
       suitable runway the server knows within her fuel; with none she comes
-      down and back at once, with priority, and lands. Not done: coming
-      back behind a person still in the circuit, every landplane loses the
-      minimum to her (the F-22A, too short of fuel to divert, 1,606 m and
-      0 ft) - nothing yet times her final behind the person.
+      down and back at once, with priority, and lands.
       *Verification: an AI aircraft whose hold is out of reach diverts to
-      another runway, kept apart.* 14 landplanes diverted and landed, kept
-      apart.
+      another runway, kept apart.* Closed on its measured figures (the
+      owner's ruling of 2026-10-09): 14 of 15 diverted and landed kept
+      apart; coming back behind a person who never leaves the circuit,
+      every landplane lands but loses the minimum - her downwind is back
+      90 s after the threshold and any final crosses it.
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the
