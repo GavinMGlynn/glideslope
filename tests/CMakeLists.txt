@@ -3349,7 +3349,7 @@ add_test(NAME a_client_flies_the_stations_around_it_the_nearers_weather_with_no_
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stations -DPORT=24977
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stations -DPORT=24848
         -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-around-sydney-2026-11-10T2100Z.json
         -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
         -DSAME_M=0.25 -DSTEP_MPS=0.05
