@@ -45,6 +45,10 @@
 
 cmake_minimum_required(VERSION 3.28)
 
+# **Its port held machine-wide** while it runs (port_lock.cmake); the inner
+# half, run by this, holds it already.
+include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
+
 if(DEFINED STUB_PORT_FILE)
     while(NOT EXISTS "${STUB_PORT_FILE}")
         execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.05)
@@ -52,7 +56,6 @@ if(DEFINED STUB_PORT_FILE)
     file(STRINGS "${STUB_PORT_FILE}" _stub LIMIT_COUNT 1)
     set(ENV{GLIDESLOPE_WEATHER_SERVICE} "http://127.0.0.1:${_stub}")
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
-    include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
     set(_heard "${WORK}/heard.txt")
     file(REMOVE "${_heard}")
     execute_process(
@@ -73,7 +76,6 @@ if(DEFINED STUB_PORT_FILE)
     return()
 endif()
 
-include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
 if(DEFINED CACHE)
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
 endif()
@@ -147,8 +149,9 @@ execute_process(
     COMMAND "${CMAKE_COMMAND}" "-DSERVER=${SERVER}" "-DCLIENT=${CLIENT}" "-DDATA=${DATA}"
             "-DCACHE=${CACHE}" "-DWORK=${WORK}" "-DPORT=${PORT}" "-DKEY=${_key}"
             "-DSTORE=${_store}" "-DPLAN=${_plan}" "-DSTUB_PORT_FILE=${_port_file}"
-            "-DRESULT_FILE=${_result_file}" -P "${CMAKE_CURRENT_LIST_FILE}"
-    RESULTS_VARIABLE _stub_rcs ERROR_VARIABLE _stub_said)
+            "-DRESULT_FILE=${_result_file}" -P "${CMAKE_CURRENT_LIST_DIR}/server_stations.cmake"
+    RESULTS_VARIABLE _stub_rcs OUTPUT_VARIABLE _stub_out ERROR_VARIABLE _stub_said)
+port_listened("${_stub_out}" "${_stub_said}")
 if(NOT EXISTS "${_result_file}")
     message(FATAL_ERROR "the server was not run against the stub (${_stub_rcs}):\n"
                         "${_stub_said}")
