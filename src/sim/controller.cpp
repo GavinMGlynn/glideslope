@@ -1153,7 +1153,8 @@ Controls Controller::fly() {
                                 std::max(0.0, holding_out_->speed_kts() * 1852.0 / 3600.0 *
                                                   within_s)),
                     holding_out_->left_at_alt_ft(), holding_out_->altitude_ft(),
-                    alternate_needs_m_, holding_out_->speed_kts(), within_s);
+                    alternate_needs_m_, holding_out_->speed_kts(), within_s,
+                    alternate_elevation_);
                 if (diverted_to_) {
                     // Out of the sequence she held for: she is not coming
                     // back to it.

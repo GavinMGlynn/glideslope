@@ -82,6 +82,7 @@
 #include "sim/plan.hpp"
 
 #include <cstddef>
+#include <functional>
 #include <optional>
 #include <vector>
 
@@ -385,11 +386,16 @@ struct Diversion {
     double route_nm = 0.0;      // from her to there
 };
 constexpr double apart_nm = 10.0;
+// An end of `known` whose elevation is not given (NaN) is given it by
+// `elevation_ft` (feet, by where its threshold is) only when it is judged -
+// past her fuel, the other airfield and its length - nearest first.
 std::optional<Diversion> choose_diversion(const Aircraft& aircraft, const Runway& holding_for,
                                           const ApproachSpeeds& speeds,
                                           const std::vector<Runway>& known, double floor_alt_ft,
                                           double best_alt_ft, double needs_m, double kts,
-                                          double within_s);
+                                          double within_s,
+                                          const std::function<double(double, double)>&
+                                              elevation_ft = {});
 
 class GoAroundCircuit {
 public:

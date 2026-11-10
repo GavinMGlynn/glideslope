@@ -224,15 +224,25 @@ std::optional<sim::Runway> runway_rolled_on(const RunwaySurfaces& surfaces,
 
 // **The runway ends within `within_m` of a place** (sim::Controller::
 // diverts_with): both ends of every runway of `surfaces`, by the great
-// circle from the place to the end's threshold, nearer than `within_m` -
-// and only those given their elevation, the ground's there by
-// `elevation_ft` (which may fetch ground), so that a world's runways cost
-// a distance each and only the few in reach a lookup. `looked_up`, if
-// given, is added the number of elevations asked for.
+// circle from the place to the end's threshold, nearer than `within_m` - a
+// distance each - their elevation not looked up (NaN): that is asked of
+// the ground only for an end a diversion judges (`DiversionRunways`).
 std::vector<sim::Runway> runway_ends_within(const RunwaySurfaces& surfaces, double latitude_deg,
-                                            double longitude_deg, double within_m,
-                                            const std::function<double(double, double)>& elevation_ft,
-                                            std::size_t* looked_up = nullptr);
+                                            double longitude_deg, double within_m);
+
+// **What a server tells an aircraft choosing a diversion**
+// (sim::Controller::diverts_with): the runway ends within a reach of her
+// (`runway_ends_within`), and an end's elevation, the ground's there by
+// `ground_ft` (which may fetch ground) - asked by sim::choose_diversion
+// only of the ends it judges, nearest first. `looked_up`, if given, counts
+// the elevations asked for. `surfaces` must outlive both.
+struct DiversionRunways {
+    std::function<std::vector<sim::Runway>(double, double, double)> within;
+    std::function<double(double, double)> elevation_ft;
+};
+DiversionRunways diversion_runways(const RunwaySurfaces& surfaces,
+                                   std::function<double(double, double)> ground_ft,
+                                   std::size_t* looked_up = nullptr);
 
 // One end of runway `i` of `surfaces`, as the landing autopilots have a
 // runway: `he` for its `he_` end. Its elevation is `elevation_ft`.

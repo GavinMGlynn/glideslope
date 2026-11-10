@@ -393,9 +393,7 @@ std::shared_ptr<const RunwaySurfaces> runway_surfaces(const std::filesystem::pat
 }
 
 std::vector<sim::Runway> runway_ends_within(const RunwaySurfaces& surfaces, double latitude_deg,
-                                            double longitude_deg, double within_m,
-                                            const std::function<double(double, double)>& elevation_ft,
-                                            std::size_t* looked_up) {
+                                            double longitude_deg, double within_m) {
     std::vector<sim::Runway> out;
     for (std::size_t i = 0; i < surfaces.size(); ++i) {
         const RunwayStrip& strip = surfaces.at(i).strip;
@@ -405,12 +403,26 @@ std::vector<sim::Runway> runway_ends_within(const RunwaySurfaces& surfaces, doub
             if (sim::distance_m(latitude_deg, longitude_deg, lat, lon) >= within_m) {
                 continue;
             }
-            if (looked_up != nullptr) {
-                ++*looked_up;
-            }
-            out.push_back(runway_end(surfaces, i, he, elevation_ft(lat, lon)));
+            out.push_back(
+                runway_end(surfaces, i, he, std::numeric_limits<double>::quiet_NaN()));
         }
     }
+    return out;
+}
+
+DiversionRunways diversion_runways(const RunwaySurfaces& surfaces,
+                                   std::function<double(double, double)> ground_ft,
+                                   std::size_t* looked_up) {
+    DiversionRunways out;
+    out.within = [&surfaces](double lat, double lon, double within_m) {
+        return runway_ends_within(surfaces, lat, lon, within_m);
+    };
+    out.elevation_ft = [ground_ft = std::move(ground_ft), looked_up](double lat, double lon) {
+        if (looked_up != nullptr) {
+            ++*looked_up;
+        }
+        return ground_ft(lat, lon);
+    };
     return out;
 }
 

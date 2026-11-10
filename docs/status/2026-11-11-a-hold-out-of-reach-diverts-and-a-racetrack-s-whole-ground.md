@@ -11,13 +11,17 @@
   1,611 m left): a final approach passes any left-hand downwind within
   1.5 nm. The every-landplane test asserts her landing and names her
   separation as the shortfall.
-- **The server tells her only the runways within her fuel's reach**: of
-  every runway in its world, each end is judged by its great-circle
-  distance first - a distance each - and only those nearer than she can fly
-  at her hold's speed in her fuel less ten minutes are given an elevation
-  (`world::runway_ends_within`). In the tests' world of 2,002 runways she
-  looked up 4 to 52 ends of 4,004 (reach 67 to 1,400 km), each count
-  asserted equal to the ends within her reach.
+- **The server tells her only the runways within her fuel's reach, and
+  looks up an elevation only for an end she judges**: of every runway in
+  its world, each end is judged by its great-circle distance first - a
+  distance each - and only those nearer than she can fly at her hold's
+  speed in her fuel less ten minutes are told her, with no elevation
+  (`world::diversion_runways`); `sim::choose_diversion` asks one only as it
+  judges that end, nearest first, past her fuel, the other airfield and its
+  length. In the tests' world (the server's own function, counting) she
+  looked up 1 or 2 elevations of the 4 ends in her reach diverting, and
+  none coming back, asserted at most 2 and 0; seen red with the lookups
+  made eager ("4 runway elevations looked up, past 2").
 - **The final two miles of the alternate's approach are not judged**: the
   approach she must be able to fly is judged from where she joins its
   centreline to the six-mile point, 4 nm either side; inside that it is the
@@ -151,7 +155,7 @@ gust_sweep, 106 s on linux-release). All 15 come down, come back and
 land; **all 15 lose the minimum** - least 1 m within 500 ft (the Cub), 0
 ft within 1.5 nm: a final to the runway passes a left-hand downwind 1.6 km
 off, within 1.5 nm, at its height. The test asserts the landing and the
-count, and prints each least; item 1 stays open on it.
+count, and prints each least.
 - **Tried, and taken out: "number two, follow"** - she waited circling a
   gate 8 nm out, 700 ft over the circuit, and set off for the legs to
   final as the person turned on to it. Not kept apart either way: an
@@ -203,10 +207,7 @@ back, raised 700 ft over her, turns base 5.7 nm out: her final takes 140 s
 at 150 kt, six minutes at 60, and it crosses the 500-to-1,500 ft band
 from 4.7 to 1.5 nm out - all within 1.5 nm of that downwind, 1.6 km off -
 while the person flies it, or catches her on final ahead. No release
-point on her lap gives a raised circuit's final the time it needs. The
-coming-back test stays a measurement (asserting the landings and the
-count, printing each least), and item 1 stays open, for the owner to
-judge.
+point on her lap gives a raised circuit's final the time it needs.
 
 **Item 1 closed on its measured figures**, under the owner's ruling of
 2026-10-09 (an item that cannot be met closes on today's measured figures

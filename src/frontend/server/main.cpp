@@ -2412,14 +2412,13 @@ public:
         return out;
     }
 
-    // **The runway ends the server knows of within reach of a place**
-    // (world::runway_ends_within): both ends of every runway of its
-    // collision ground's world, by distance first - a distance each - and
-    // only those within `within_m` given the ground's elevation there.
-    std::vector<glideslope::sim::Runway> known_runway_ends(double lat, double lon,
-                                                           double within_m) {
-        return glideslope::world::runway_ends_within(
-            collision_->runways(), lat, lon, within_m, [this](double end_lat, double end_lon) {
+    // **The runway ends the server knows of, for a diversion**
+    // (world::diversion_runways): both ends of every runway of its
+    // collision ground's world within reach, by distance - a distance each -
+    // and the ground's elevation looked up only for an end judged.
+    glideslope::world::DiversionRunways known_runway_ends() {
+        return glideslope::world::diversion_runways(
+            collision_->runways(), [this](double end_lat, double end_lon) {
                 return collision_->height_above_geoid(end_lat, end_lon) * feet_per_metre;
             });
     }
@@ -3552,11 +3551,11 @@ private:
                                  "for length (%s)\n",
                          model.c_str(), e.what());
         }
-        controller->diverts_with(
-            [this](double lat, double lon, double within_m) {
-                return known_runway_ends(lat, lon, within_m);
-            },
-            needs_m);
+        {
+            glideslope::world::DiversionRunways known = known_runway_ends();
+            controller->diverts_with(std::move(known.within), std::move(known.elevation_ft),
+                                     needs_m);
+        }
         // **And with traffic straight in** (sim/circuit.hpp): a circuit
         // gives way to a straight-in on the approach to her runway, and an
         // approach with traffic close ahead goes around early.

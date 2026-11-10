@@ -406,7 +406,9 @@ std::optional<Diversion> choose_diversion(const Aircraft& aircraft, const Runway
                                           const ApproachSpeeds& speeds,
                                           const std::vector<Runway>& known, double floor_alt_ft,
                                           double best_alt_ft, double needs_m, double kts,
-                                          double within_s) {
+                                          double within_s,
+                                          const std::function<double(double, double)>&
+                                              elevation_ft) {
     constexpr double within_m = 4.0 * metres_per_nm; // 14 CFR 91.177(a)(2)(ii)
     constexpr double clearance_ft = 1000.0;
     const AircraftState s = aircraft.state();
@@ -424,12 +426,21 @@ std::optional<Diversion> choose_diversion(const Aircraft& aircraft, const Runway
     std::stable_sort(nearest.begin(), nearest.end(),
                      [](const auto& x, const auto& y) { return x.first < y.first; });
     const auto& terrain = aircraft.terrain();
-    for (const auto& [straight_m, r] : nearest) {
+    for (const auto& [straight_m, known_r] : nearest) {
         // Her fuel first, by the straight line - no shorter than any way
         // there - before any ground is sampled.
         if (kts <= 0.0 || straight_m / metres_per_nm / kts * 3600.0 > within_s) {
             continue;
         }
+        // Its elevation, looked up now it is judged.
+        Runway judged = *known_r;
+        if (std::isnan(judged.elevation_ft)) {
+            if (!elevation_ft) {
+                continue;
+            }
+            judged.elevation_ft = elevation_ft(judged.threshold_lat_deg, judged.threshold_lon_deg);
+        }
+        const Runway* r = &judged;
         // The glidepath's height at six miles, as the legs to final have it.
         const double six_m = 6.0 * metres_per_nm;
         const double g6_ft =
