@@ -294,15 +294,15 @@ moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
 **Phase 11, traffic and separation, is complete - 15 of 15 items**
-(2026-11-10). Three closed on measured figures by the owner's rulings:
-#351's 200 ft case (a person lining up under an AI aircraft already at
-200 ft, 171 of 225 pairs losing the minimum) and the short-of-fuel item
-with nowhere to divert (all 15 landplanes lose the minimum to a person who
-stays in the circuit; every one is kept 657 ft or more from one who leaves),
-both under the blocked-items ruling of 2026-10-09; and the hand-over judged
-from the hand-over (2026-11-05). What remains is a person's conflict, not
-an AI's: nothing makes a person leave the circuit
-(2026-11-10-phase-11-complete). Every AI aircraft a
+(2026-11-11). Three closed on measured figures under the owner's ruling of
+2026-10-09 on blocked items: #351's 200 ft case (a person lining up under
+an AI aircraft already at 200 ft; 171 of 225 pairs lose the minimum), a
+hold out of her reach given up for her best height (every landplane coming
+back behind a person who never leaves the circuit loses the minimum), and
+short of fuel with nowhere to divert (all 15 lose the minimum to a person
+who stays; every one is kept 657 ft or more from one who leaves). What
+remains is a person's conflict, not an AI's: nothing makes a person leave
+the circuit (2026-11-11-phase-11-complete). Every AI aircraft a
 server runs is measured against every other, and in runs of every route
 kind none comes within 500 ft and 1.5 nm of another. The kinds are planned,
 the plan file, handed over holding its course, handed over in a spiral,
