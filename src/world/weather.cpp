@@ -10,6 +10,9 @@
 #include <utility>
 #include <cctype>
 #include <cmath>
+#include <cstdio>
+#include <iterator>
+#include <stdexcept>
 
 namespace glideslope::world {
 
@@ -26,6 +29,49 @@ std::vector<SurfaceReport> parse_aviationweather(std::string_view text) {
     }
     return reports;
 }
+
+namespace {
+
+// **aviationweather.gov's METARs at a URL**: every report its answer holds.
+// An answer that is not JSON is fetched again, as a failed download is
+// (answered_json says why); a well-formed answer that says something
+// unwelcome is not retried. No content (204) is none.
+std::vector<SurfaceReport> fetch_reports(const std::string& url, const Fetch& fetch,
+                                         std::chrono::milliseconds retry_wait) {
+    for (int attempt = 1;; ++attempt) {
+        platform::HttpResponse r;
+        try {
+            r = fetch_with_retries(fetch, url, 5, retry_wait);
+        } catch (const platform::HttpError& e) {
+            throw ServiceUnavailable(std::string("could not download: ") + e.what());
+        }
+        // No content is how it says it has no report.
+        if (r.status == 204) {
+            return {};
+        }
+        // A server error, or turned away for now (429), to every retry.
+        if (r.status >= 500 || r.status == 429) {
+            throw ServiceUnavailable("could not download " + url + ": status " +
+                                     std::to_string(r.status));
+        }
+        if (r.status != 200) {
+            throw DemError("could not download " + url + ": status " + std::to_string(r.status));
+        }
+        const std::string_view text(reinterpret_cast<const char*>(r.body.data()), r.body.size());
+        if (answered_json(text, url, attempt)) {
+            // JSON that is not a report is ours to mend: a failure, named
+            // for where it came from.
+            try {
+                return parse_aviationweather(text);
+            } catch (const JsonError& e) {
+                throw DemError(url + ": its answer is JSON and not aviationweather.gov's "
+                                     "METARs (" + e.what() + ")");
+            }
+        }
+    }
+}
+
+} // namespace
 
 SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
                           std::chrono::milliseconds retry_wait) {
@@ -47,48 +93,64 @@ SurfaceReport fetch_metar(const std::string& station, const Fetch& fetch,
     const std::string url =
         weather_host("https://aviationweather.gov") + "/api/data/metar?ids=" + id +
         "&format=json";
-    // **An answer that is not JSON is fetched again**, as a failed download
-    // is (answered_json says why). A well-formed answer that says something
-    // unwelcome is not retried.
-    std::vector<SurfaceReport> reports;
-    for (int attempt = 1;; ++attempt) {
-        platform::HttpResponse r;
-        try {
-            r = fetch_with_retries(fetch, url, 5, retry_wait);
-        } catch (const platform::HttpError& e) {
-            throw ServiceUnavailable(std::string("could not download: ") + e.what());
-        }
-        // No content is how it says it has no report for a station.
-        if (r.status == 204) {
-            throw MetarError("aviationweather.gov has no METAR for " + id);
-        }
-        // A server error, or turned away for now (429), to every retry.
-        if (r.status >= 500 || r.status == 429) {
-            throw ServiceUnavailable("could not download " + url + ": status " +
-                                     std::to_string(r.status));
-        }
-        if (r.status != 200) {
-            throw DemError("could not download " + url + ": status " +
-                           std::to_string(r.status));
-        }
-        const std::string_view text(reinterpret_cast<const char*>(r.body.data()),
-                                    r.body.size());
-        if (answered_json(text, url, attempt)) {
-            // JSON that is not a report is ours to mend: a failure, named
-            // for where it came from.
-            try {
-                reports = parse_aviationweather(text);
-            } catch (const JsonError& e) {
-                throw DemError(url + ": its answer is JSON and not aviationweather.gov's "
-                                     "METARs (" + e.what() + ")");
-            }
-            break;
-        }
-    }
+    std::vector<SurfaceReport> reports = fetch_reports(url, fetch, retry_wait);
     if (reports.empty()) {
         throw MetarError("aviationweather.gov has no METAR for " + id);
     }
     return reports.front();
+}
+
+std::vector<SurfaceReport> fetch_metars_around(double latitude_deg, double longitude_deg,
+                                               const Fetch& fetch,
+                                               std::chrono::milliseconds retry_wait) {
+    // The box, in degrees, clipped to the Earth: a box across the
+    // antimeridian is cut at it, and its far side left out.
+    const double north = stations_radius_m / sim::metres_per_degree_latitude(latitude_deg);
+    const double east =
+        stations_radius_m / std::max(1000.0, sim::metres_per_degree_longitude(latitude_deg));
+    char box[160];
+    std::snprintf(box, sizeof(box), "%.4f,%.4f,%.4f,%.4f", std::max(-90.0, latitude_deg - north),
+                  std::max(-180.0, longitude_deg - east), std::min(90.0, latitude_deg + north),
+                  std::min(180.0, longitude_deg + east));
+    const std::string url = weather_host("https://aviationweather.gov") +
+                            "/api/data/metar?bbox=" + box + "&format=json";
+    return fetch_reports(url, fetch, retry_wait);
+}
+
+std::vector<SurfaceReport> stations_around(const std::vector<SurfaceReport>& reports,
+                                           const std::vector<std::pair<double, double>>& places) {
+    std::vector<SurfaceReport> out;
+    const auto have = [&out](const SurfaceReport& r) {
+        return std::any_of(out.begin(), out.end(), [&r](const SurfaceReport& o) {
+            return o.metar.station == r.metar.station;
+        });
+    };
+    for (const auto& [lat, lon] : places) {
+        std::vector<std::pair<double, const SurfaceReport*>> near;
+        for (const SurfaceReport& r : reports) {
+            const double d = sim::distance_m(lat, lon, r.latitude_deg, r.longitude_deg);
+            if (d <= stations_radius_m && !r.metar.station.empty()) {
+                near.emplace_back(d, &r);
+            }
+        }
+        std::stable_sort(near.begin(), near.end(),
+                         [](const auto& a, const auto& b) { return a.first < b.first; });
+        // A station reported twice counts once: its nearer report.
+        std::vector<std::string> named;
+        for (const auto& [d, r] : near) {
+            if (named.size() == stations_per_aircraft || out.size() == most_stations) {
+                break;
+            }
+            if (std::find(named.begin(), named.end(), r->metar.station) != named.end()) {
+                continue;
+            }
+            named.push_back(r->metar.station);
+            if (!have(*r)) {
+                out.push_back(*r);
+            }
+        }
+    }
+    return out;
 }
 
 WeatherReport fetch_weather(const std::string& station, const std::string& time,
@@ -750,6 +812,149 @@ sim::Conditions StationsWeather::at(double latitude_deg, double longitude_deg, d
         }
     }
     return c;
+}
+
+namespace {
+
+// The same station: its name and its place.
+bool same_station(const WeatherReport& a, const WeatherReport& b) {
+    return a.surface.metar.station == b.surface.metar.station &&
+           a.surface.latitude_deg == b.surface.latitude_deg &&
+           a.surface.longitude_deg == b.surface.longitude_deg;
+}
+
+} // namespace
+
+void StationSlots::set(std::size_t slot, std::optional<WeatherReport> report,
+                       double changed_at_s, double blend_s, double set_changed_at_s) {
+    if (slot >= most_stations) {
+        throw std::out_of_range("a weather station's slot " + std::to_string(slot) +
+                                ", of at most " + std::to_string(most_stations));
+    }
+    if (slots_.size() <= slot) {
+        slots_.resize(slot + 1);
+    }
+    std::shared_ptr<ReportedWeather>& s = slots_[slot];
+    if (!report && !s) {
+        return;
+    }
+    if (report && s && same_station(s->report(), *report)) {
+        s->update(std::move(*report), changed_at_s, blend_s);
+        return;
+    }
+    // **The stations change**: once for every change at one moment, and
+    // from none flown whole at once.
+    if (set_changed_at_s != set_changed_at_s_) {
+        before_ = any() ? now_ : nullptr;
+        set_changed_at_s_ = set_changed_at_s;
+        set_blend_s_ = blend_s;
+    }
+    if (report) {
+        s = std::make_shared<ReportedWeather>(std::move(*report), geoid_, blend_s, ground_);
+    } else {
+        s.reset();
+    }
+    std::vector<std::shared_ptr<ReportedWeather>> flown;
+    for (const auto& each : slots_) {
+        if (each) {
+            flown.push_back(each);
+        }
+    }
+    now_ = std::make_shared<StationsWeather>(std::move(flown));
+}
+
+bool StationSlots::any() const {
+    return std::any_of(slots_.begin(), slots_.end(), [](const auto& s) { return s != nullptr; });
+}
+
+std::shared_ptr<ReportedWeather> StationSlots::nearest(double latitude_deg,
+                                                       double longitude_deg) const {
+    if (now_->stations().empty()) {
+        return nullptr;
+    }
+    return now_->stations()[now_->nearest(latitude_deg, longitude_deg)];
+}
+
+sim::Conditions StationSlots::at(double latitude_deg, double longitude_deg, double height_m,
+                                 double time_s) {
+    const sim::Conditions now = now_->at(latitude_deg, longitude_deg, height_m, time_s);
+    if (!before_ || set_blend_s_ <= 0.0) {
+        return now;
+    }
+    const double w = std::clamp((time_s - set_changed_at_s_) / set_blend_s_, 0.0, 1.0);
+    if (w >= 1.0) {
+        before_.reset();
+        return now;
+    }
+    const sim::Conditions before = before_->at(latitude_deg, longitude_deg, height_m, time_s);
+    const auto mix = [w](double a, double b) { return a + w * (b - a); };
+    sim::Conditions c;
+    c.wind_north_mps = mix(before.wind_north_mps, now.wind_north_mps);
+    c.wind_east_mps = mix(before.wind_east_mps, now.wind_east_mps);
+    c.wind_down_mps = mix(before.wind_down_mps, now.wind_down_mps);
+    c.temperature_offset_c = mix(before.temperature_offset_c, now.temperature_offset_c);
+    c.sea_level_pressure_hpa = mix(before.sea_level_pressure_hpa, now.sea_level_pressure_hpa);
+    c.wind_at_20ft_mps = mix(before.wind_at_20ft_mps, now.wind_at_20ft_mps);
+    c.gust_factor_kt = mix(before.gust_factor_kt, now.gust_factor_kt);
+    // Codes that cannot be mixed change halfway, as a report's do.
+    c.runway_condition = w < 0.5 ? before.runway_condition : now.runway_condition;
+    c.turbulence_severity = w < 0.5 ? before.turbulence_severity : now.turbulence_severity;
+    return c;
+}
+
+std::vector<WeatherReport> fetch_stations_weather(
+    const std::vector<std::pair<double, double>>& places, const std::string& time,
+    const Fetch& fetch, std::chrono::milliseconds retry_wait) {
+    std::vector<WeatherReport> out;
+    try {
+        std::vector<SurfaceReport> reports;
+        std::vector<std::pair<double, double>> looked;
+        for (const auto& [lat, lon] : places) {
+            const bool near_one = std::any_of(looked.begin(), looked.end(), [&](const auto& p) {
+                return sim::distance_m(lat, lon, p.first, p.second) <= 1000.0;
+            });
+            if (near_one) {
+                continue;
+            }
+            looked.emplace_back(lat, lon);
+            std::vector<SurfaceReport> here = fetch_metars_around(lat, lon, fetch, retry_wait);
+            reports.insert(reports.end(), std::make_move_iterator(here.begin()),
+                           std::make_move_iterator(here.end()));
+        }
+        for (SurfaceReport& surface : stations_around(reports, places)) {
+            WeatherReport r;
+            r.surface = std::move(surface);
+            r.air_seed = air_seed_of(r.surface.metar);
+            r.aloft = fetch_winds_aloft(r.surface.latitude_deg, r.surface.longitude_deg, time,
+                                        fetch, retry_wait);
+            out.push_back(std::move(r));
+        }
+    } catch (const ServiceUnavailable& e) {
+        throw ServiceUnavailable(std::string("the weather could not be had: ") + e.what());
+    }
+    return out;
+}
+
+StationsFetch::StationsFetch(std::vector<std::pair<double, double>> places, std::string time,
+                             Fetch fetch, std::chrono::milliseconds retry_wait)
+    : reports_(std::async(std::launch::async,
+                          [this, places = std::move(places), time = std::move(time),
+                           fetch = std::move(fetch), retry_wait] {
+                              const FetchesGivenUp given_up(give_up_);
+                              return fetch_stations_weather(places, time, fetch, retry_wait);
+                          })) {}
+
+StationsFetch::~StationsFetch() {
+    // Before reports_ is destroyed, which waits for the thread.
+    give_up_ = true;
+}
+
+bool StationsFetch::done() const {
+    return reports_.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
+}
+
+std::vector<WeatherReport> StationsFetch::get() {
+    return reports_.get();
 }
 
 } // namespace glideslope::world

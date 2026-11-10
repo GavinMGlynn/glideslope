@@ -195,6 +195,7 @@ set(GLIDESLOPE_UNIT_TESTS
     every_refusal_the_document_names_for_a_weather_is_refused
     the_weather_a_server_sends_is_flown_to_the_last_bit_by_its_clients
     a_client_joining_mid_blend_is_told_what_it_blends_from_and_flies_the_servers_air
+    a_client_flies_the_servers_stations_to_the_last_bit_through_every_change
     a_clients_gusts_are_the_servers_at_the_servers_moment_and_differ_at_a_skewed_one
     still_air_is_said_as_an_empty_metar_and_flown_as_no_weather
     a_weather_is_taken_whole_or_not_at_all
@@ -1093,6 +1094,9 @@ set(GLIDESLOPE_UNIT_TESTS
     a_new_weather_report_blends_in_over_its_interval_with_no_step_in_the_wind
     a_flight_between_two_stations_flies_the_nearers_weather_with_no_step_in_the_wind
     every_stations_share_of_the_weather_is_whole_and_continuous_over_a_grid
+    a_station_found_or_let_go_blends_in_over_the_blend_and_steps_nothing
+    the_stations_kept_are_the_six_nearest_within_200_km_of_each_aircraft
+    the_metars_around_a_place_are_asked_for_by_a_box_200_km_each_way
     an_instant_is_named_by_the_utc_hour_it_falls_in_as_open_meteo_names_hours
     the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo
     a_fetch_is_tried_again_after_a_server_error_or_no_answer_and_not_after_a_refusal
@@ -3335,6 +3339,23 @@ add_test(NAME a_client_flies_the_servers_weather_and_every_change_of_it_not_its_
 set_tests_properties(a_client_flies_the_servers_weather_and_every_change_of_it_not_its_own
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_weather)
+# **A client flies the server's stations around it, the nearer's weather,
+# with no step in the wind** (REQUIREMENTS.md 6.3): the stations found from a
+# recorded answer of aviationweather.gov's, served by glideslope_http_stub.
+# Its median prediction error within the 0.25 m of the test above. See
+# cmake/server_stations.cmake.
+add_test(NAME a_client_flies_the_stations_around_it_the_nearers_weather_with_no_step_in_the_wind
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stations -DPORT=24977
+        -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-around-sydney-2026-11-10T2100Z.json
+        -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
+        -DSAME_M=0.25 -DSTEP_MPS=0.05
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stations.cmake)
+set_tests_properties(a_client_flies_the_stations_around_it_the_nearers_weather_with_no_step_in_the_wind
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stations)
 # **A client joining while a weather blends in predicts within the same bound
 # as one there before it** (REQUIREMENTS.md 6.3). See
 # cmake/server_weather_join.cmake.

@@ -1124,7 +1124,10 @@ std::vector<WithNumbers> every_kind_that_carries_a_number() {
     weather.microbursts = {burst};
     weather.changed_at_s = next();
     weather.blend_s = next();
+    weather.stations_changed_at_s = next();
     ranged_fields.push_back({weather.changed_at_s, 0.0, std::numeric_limits<double>::max()});
+    ranged_fields.push_back(
+        {weather.stations_changed_at_s, 0.0, std::numeric_limits<double>::max()});
     ranged_fields.push_back({weather.blend_s, 0.0, glideslope::net::most_blend_s});
     out.push_back({"weather", glideslope::net::write(weather), fields,
                    [](std::span<const std::uint8_t> b) {
@@ -1380,6 +1383,33 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_weather_is_refused) {
     full("a change before the session began", [](Weather& w) { w.changed_at_s = -1.0; });
     full("a blend below nought", [](Weather& w) { w.blend_s = -1.0; });
     full("a blend over a day", [](Weather& w) { w.blend_s = 86400.5; });
+    full("a slot of 32", [](Weather& w) {
+        w.station = static_cast<std::uint8_t>(glideslope::net::most_weather_stations);
+    });
+    full("stations changed before the session began",
+         [](Weather& w) { w.stations_changed_at_s = -1.0; });
+    with("still air in a slot of 32", [](Weather& w) {
+        w.station = static_cast<std::uint8_t>(glideslope::net::most_weather_stations);
+    });
+    {
+        Weather last = a_weather();
+        last.station = static_cast<std::uint8_t>(glideslope::net::most_weather_stations - 1);
+        last.stations_changed_at_s = 0.0;
+        check(reads(glideslope::net::write(last)), "a weather in slot 31 reads");
+        WeatherAloft aloft = a_weather_aloft();
+        aloft.station = last.station;
+        WeatherAloft got;
+        const std::vector<std::uint8_t> said = glideslope::net::write(aloft);
+        check(glideslope::net::read(std::span<const std::uint8_t>(said.data(), said.size()),
+                                    got) &&
+                  got.station == last.station,
+              "a forecast for slot 31 reads, for slot 31");
+        aloft.station = static_cast<std::uint8_t>(glideslope::net::most_weather_stations);
+        const std::vector<std::uint8_t> past = glideslope::net::write(aloft);
+        check(!glideslope::net::read(std::span<const std::uint8_t>(past.data(), past.size()),
+                                     got),
+              "a forecast for a slot of 32 must be refused");
+    }
     {
         Weather edge = a_weather();
         edge.latitude_deg = -90.0;
@@ -1393,7 +1423,7 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_a_weather_is_refused) {
         check(!reads(body), what + " must be refused");
         ++walked;
     }
-    check(walked == 15, "every refusal named was built: " + std::to_string(walked));
+    check(walked == 18, "every refusal named was built: " + std::to_string(walked));
 }
 
 // **Every refusal `docs/TRANSPORT.md` names for a `COPILOT_ROUTE`**, each
@@ -1714,9 +1744,9 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_runway_conditions_is_refuse
     refuse(glideslope::net::write(m), "a wet-until below nought");
     m.wet_until_s = 5.0;
     std::vector<std::uint8_t> body = glideslope::net::write(m);
-    body[9] = 2; // the wet flag, after the kind and the moment
+    body[10] = 2; // the wet flag, after the kind, the slot and the moment
     refuse(body, "a wet flag of 2");
-    body[9] = 0; // the flag says none, and the time is 5
+    body[10] = 0; // the flag says none, and the time is 5
     refuse(body, "a wet-until with the flag 00");
     RunwayConditions many;
     many.now.assign(glideslope::net::most_runway_conditions + 1, fine);
@@ -1728,6 +1758,11 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_runway_conditions_is_refuse
     std::vector<std::uint8_t> trailing = glideslope::net::write(many);
     trailing.push_back(0);
     refuse(trailing, "a byte after the last field");
+    RunwayConditions slot;
+    slot.station = static_cast<std::uint8_t>(glideslope::net::most_weather_stations);
+    refuse(glideslope::net::write(slot), "a slot of 32");
+    slot.station = static_cast<std::uint8_t>(glideslope::net::most_weather_stations - 1);
+    read(glideslope::net::write(slot), "a slot of 31");
 
     c = fine;
     c.code = 1;
@@ -1740,7 +1775,7 @@ GLIDESLOPE_TEST(every_refusal_the_document_names_for_runway_conditions_is_refuse
     many.now.assign(glideslope::net::most_runway_conditions, fine);
     many.before = many.now;
     read(glideslope::net::write(many), "16 runways now and before");
-    check(refused == 16 && read_back == 3,
-          "sixteen refused and three read: " + std::to_string(refused) + " and " +
+    check(refused == 17 && read_back == 4,
+          "seventeen refused and four read: " + std::to_string(refused) + " and " +
               std::to_string(read_back));
 }
