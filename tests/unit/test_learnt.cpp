@@ -2633,3 +2633,36 @@ GLIDESLOPE_TEST(an_ai_approach_is_handed_to_the_learnt_landing_inside_its_gate_a
     }
     check(flown == 2, "both approaches were flown, offered the learnt landing and not");
 }
+
+// **A player put on final with no distance said starts where her gate holds
+// her thirty seconds left alone** (sim::learnt_gate_start_m): inside the
+// gate, and short of its near edge after thirty seconds at the fastest it
+// admits (vref + 8 kt). Every aircraft with a learnt landing, counted: the
+// four the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other
+// finds in the catalogue.
+GLIDESLOPE_TEST(every_learnt_landings_default_start_on_final_is_inside_its_gate_and_still_inside_it_thirty_seconds_later_at_its_fastest) {
+    using glideslope::sim::LearntGate;
+    using glideslope::sim::LearntGateStart;
+    const std::vector<std::string> models = {"c172p", "c182", "j3cub", "pa28"};
+    constexpr double mps_per_kt = 1852.0 / 3600.0;
+    std::size_t walked = 0;
+    for (const std::string& model : models) {
+        const auto policy = the_policy(model);
+        const double start_m = glideslope::sim::learnt_gate_start_m(*policy);
+        const double fastest_m =
+            (policy->vref_kts + LearntGate::most_over_vref_kts) * mps_per_kt *
+            LearntGateStart::held_s;
+        const double at_vref_m = policy->vref_kts * mps_per_kt * LearntGateStart::held_s;
+        std::printf("  %s: starts %.3f miles out; 30 s later %.0f m short of the near edge at "
+                    "vref, %.0f at its fastest\n",
+                    model.c_str(), start_m / 1852.0, start_m - at_vref_m - LearntGate::nearest_m,
+                    start_m - fastest_m - LearntGate::nearest_m);
+        check(start_m > LearntGate::nearest_m && start_m < LearntGate::furthest_m,
+              model + " starts inside the gate");
+        check(start_m - fastest_m > LearntGate::nearest_m,
+              model + " is still inside it thirty seconds later at its fastest");
+        ++walked;
+    }
+    check(walked == 4,
+          "the four aircraft with a learnt landing walked: " + std::to_string(walked));
+}

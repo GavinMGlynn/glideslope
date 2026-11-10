@@ -583,6 +583,21 @@ std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
     return {};
 }
 
+double learnt_gate_along_m(const Aircraft& aircraft, const Runway& runway) {
+    return where(LandingReadings::of(aircraft), runway).along_m;
+}
+
+double learnt_gate_start_m(const LearntPolicy& policy) {
+    constexpr double mps_per_kt = 1852.0 / 3600.0;
+    const double flown_m = (policy.vref_kts + LearntGate::most_over_vref_kts) * mps_per_kt *
+                           LearntGateStart::held_s;
+    const double nearest_then_m = LearntGate::nearest_m + flown_m;
+    if (nearest_then_m >= LearntGate::furthest_m) {
+        return 0.5 * (LearntGate::nearest_m + LearntGate::furthest_m);
+    }
+    return 0.5 * (nearest_then_m + LearntGate::furthest_m);
+}
+
 InitialConditions final_approach_start(const Runway& runway, double out_m, double airspeed_kts,
                                        double flaps, double aim_m, double glidepath_deg) {
     const double h = runway.heading_deg / degrees;

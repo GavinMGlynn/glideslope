@@ -189,6 +189,25 @@ double learnt_gate_most_crosswind_kts(const LearntPolicy& policy);
 std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
                                 const LearntPolicy& policy);
 
+// **How far out a player put on final starts, for `policy`'s gate**: so
+// that, joined and left alone, she is at the gate when she starts and still
+// at it `LearntGateStart::held_s` later. In that time she flies at most
+// `held_s` at the fastest the gate admits (her vref and its
+// `most_over_vref_kts`, in still air); the start is halfway between the near
+// edge that far out and the far edge - as much to spare at either end. For
+// the C172P (59.8 kt) 2.33 miles, the C182 and the PA-28 (64.35) 2.35, the
+// J-3 Cub (42.9) 2.26: at vref, 210 to 380 m short of the near edge after
+// thirty seconds. Where that cannot be done - a gate too short for the time
+// - the gate's middle.
+struct LearntGateStart {
+    static constexpr double held_s = 30.0;
+};
+double learnt_gate_start_m(const LearntPolicy& policy);
+
+// **How far before `runway`'s threshold she is**, along its centreline, in
+// metres - as her gate measures it (outside_learnt_gate's miles out).
+double learnt_gate_along_m(const Aircraft& aircraft, const Runway& runway);
+
 // **On final to `runway`**, as the CLI's landings and the learnt landing's
 // training start: `out_m` before the threshold on the extended centreline,
 // on a `glidepath_deg` glidepath aimed `aim_m` past it, pointing down the
