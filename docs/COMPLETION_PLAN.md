@@ -1625,13 +1625,14 @@ AI aircraft kept apart from each other and clear of the runway.
       early; a departure is held until the one going round is clear of it.
       All 675 flights of every landplane pair, in three situations, stayed
       apart and landed or departed in order.
-- [ ] **A person straight in or taking off is not sequenced**: done but for
-      a person lining up under an AI already at 200 ft, who lifts off within
-      1.5 nm of her: 171 of 225 pairs lose the minimum (least 59 m and
-      0 ft), a stated shortfall for the owner's decision. An AI 2 nm out or
-      more breaks off for a person lined up and holds her upwind leg while
-      the person climbs out: all 225 pairs kept apart, least 585 ft within
-      1.5 nm (2026-11-06). A person is judged
+- [x] **A person straight in or taking off is not sequenced**: closed
+      2026-11-06 on its measured figures, under the owner's ruling of
+      2026-10-09. An AI 2 nm out or more breaks off for a person lined up and
+      holds her upwind leg while the person climbs out: all 225 pairs kept
+      apart, least 585 ft within 1.5 nm. Shortfall, stated: a person lining
+      up under an AI already at 200 ft, inside the minimum, lifts off within
+      1.5 nm of her - 171 of 225 pairs lose the minimum, closest 59 m and
+      0 ft; no manoeuvre recovers it. A person is judged
       by how she flies, on the runway or its reciprocal, and given way to.
       An AI departure behind a person in the circuit goes once she is
       behind the threshold and going away, whatever her pattern; behind a
@@ -1642,17 +1643,15 @@ AI aircraft kept apart from each other and clear of the runway.
       gives way to a person flying straight in, is kept 500 ft or 1.5 nm
       from a person departing, and an AI departure behind a person who stays
       in the circuit departs within a stated time.*
-- [ ] **A person who flies away from the circuit and never lands keeps her
+- [x] **A person who flies away from the circuit and never lands keeps her
       place in it**, so an AI aircraft behind her holds outside the circuit
       for as long as she flies. *Verification: an AI aircraft behind a
       person who leaves the circuit without landing comes back and lands
-      within a stated time, kept 500 ft or 1.5 nm apart.* 17 nm out, beyond
-      the hold, her place is dropped (2026-11-06); at 10 nm 12 pairs lost
-      the minimum. Swept over every pair, all kept apart (least 618 ft
-      within 1.5 nm) and back within 783 s, but for two pairs: a person's
-      737-300 stand-in fell flying away on five bearings ahead of a PA-28,
-      and an F-22A behind a person's Cub hit the ground landing (0 degrees)
-      and was not clear of the runway (45 degrees).
+      within a stated time, kept 500 ft or 1.5 nm apart.* Done 2026-11-11:
+      17 nm out, beyond the hold, her place is dropped, and an AI short of
+      fuel comes back from her hold whatever. All 1,800 flights of every
+      pair on eight bearings kept apart (least 618 ft within 1.5 nm) and
+      were down within 781 s (stated: 900).
 - [x] **An A380 given a take-off and no plan flies into the ground**:
       she now raises her flaps at Airbus's F and S speeds, and a take-off
       with no plan levels off at its height, leading it by a tenth of her

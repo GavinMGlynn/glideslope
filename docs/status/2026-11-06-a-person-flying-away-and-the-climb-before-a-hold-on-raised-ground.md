@@ -207,3 +207,41 @@ conflict".
   Item 1 is not ticked: this is its stated shortfall, for the owner.
 - linux-debug beside the sweep: 319 s down the approach, 179 s lining up
   2 nm out, 181 s at 200 ft.
+
+**Item 1 closed on its measured figures**, under the owner's ruling of
+2026-10-09 (an item that cannot be met closes on today's measured figures
+with the shortfall written down), the owner's decision of 2026-11-06: the
+2 nm case passes for all 225 pairs; the 200 ft case - a person lining up
+under an AI aircraft already inside the minimum, which no manoeuvre
+recovers - loses it in 171 of 225 pairs, closest 59 m and 0 ft.
+
+**Item 2's last round, 2026-11-11** (the coordinator's: the 737-300
+stand-in and the F-22A behind a person's Cub).
+- **The F-22A behind a person's Cub ran out of fuel.** Traced: put on final
+  at her landing weight, she held some 15 minutes while the Cub flew 17 nm
+  away, and on her approach back her tanks emptied - 45,960 lb, against
+  her 43,340 lb empty weight - at 200 ft; at full throttle she slowed from
+  136 to 99 kt and hit the ground sinking at 2,783 ft/min (0 degrees), or
+  landed and could not taxi clear (45 degrees). Fixed in the AI: **short
+  of fuel, she comes back from her hold to land whether or not the person
+  is gone** (`Controller::short_of_fuel`: under `minimum_fuel_s`, ten
+  minutes, at what her engines burn now) - AIM 5-5-15's "minimum fuel",
+  no undue delay accepted. In the sweep the F-22A behind a person's Cub
+  came back so on all eight bearings, landed, clear and kept apart; no
+  other pair did, and every other figure is as before.
+- **The 737-300's stand-in ran out of fuel too**, flying away at 236 kt at
+  full power with her circuit's flap and gear out; so, cleaned up at 200
+  kt, did an F-22A's. Fixed in the test: the stand-in flies away cleaned
+  up - flap up, gear up where it retracts - at a hold's speed for her (1.4
+  times her reference, at most 200 kt), and her fuel is hers to carry,
+  frozen from when her pilot takes her: what is measured is the AI behind.
+- **Re-run in chunks under 30 minutes** (one ahead a chunk, four at once,
+  linux-release, 832 to 1,327 s each): every landplane ahead of every
+  other, staying (450 flights) and flying away on the eight bearings
+  (1,800): no flight wrong. Flying away: least 3,090 m within 500 ft and
+  618 ft within 1.5 nm, down within 781 s; behind a person who stays, the
+  same least, left within 1,192 s.
+- **Seen to fail**: without the fuel rule, the F-22A's two failures above;
+  without the stand-in's fuel, a person's F-22A struck the ground on two
+  bearings and the 737-300's on five.
+- Item 2 is ticked.

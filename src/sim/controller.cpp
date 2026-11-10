@@ -829,6 +829,18 @@ void Controller::join_the_sequence() {
             GoAroundCircuit(a_, lander_->runway(), lander_->speeds()).circuit_ft()};
 }
 
+bool Controller::short_of_fuel() const {
+    double burning_pps = 0.0;
+    for (int e = 0; e < a_.engine_count(); ++e) {
+        const std::string flow = "propulsion/engine[" + std::to_string(e) + "]/fuel-flow-rate-pps";
+        if (a_.has_property(flow)) {
+            burning_pps += a_.property(flow);
+        }
+    }
+    return burning_pps > 0.0 &&
+           a_.property("propulsion/total-fuel-lbs") / burning_pps < minimum_fuel_s;
+}
+
 bool Controller::runway_not_clear(const Runway& runway) const {
     return runway_clear_ && a_.state().height_above_ground_ft < RunwayClear::decide_ft &&
            !runway_clear_(runway);
@@ -1125,7 +1137,8 @@ Controls Controller::fly() {
         // the extended centreline) and the approach, her place kept so
         // that she is still ahead of anything behind her.
         if (holding_out_) {
-            if (behind_a_person_ && behind_a_person_()) {
+            const bool short_of_it = short_of_fuel();
+            if (behind_a_person_ && behind_a_person_() && !short_of_it) {
                 autopilot_->set(holding_out_->modes());
                 notice_a_stall();
                 autopilot_->limit_height(floor_ft_, ceiling_ft_);
@@ -1136,6 +1149,7 @@ Controls Controller::fly() {
                 return applied_;
             }
             rejoined_at_s_ = a_.state().sim_time_s;
+            came_back_short_ = short_of_it;
             rejoin_.emplace(Rejoin{holding_out_->runway(), holding_out_->speeds()});
             navigator_.emplace(a_, final_legs(rejoin_->runway, rejoin_->speeds));
             navigator_->begin_here();

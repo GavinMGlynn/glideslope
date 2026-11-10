@@ -395,6 +395,18 @@ public:
     // time she left it to come back and land, s.
     const HoldOutside* hold() const { return holding_out_ ? &*holding_out_ : nullptr; }
     std::optional<double> rejoined_at_s() const { return rejoined_at_s_; }
+    // **Short of fuel, she comes back from her hold to land** whether or not
+    // the person ahead is down: what is in her tanks lasts less than
+    // `minimum_fuel_s` at what her engines burn now. "Minimum fuel" (AIM
+    // 5-5-15; ICAO's MINIMUM FUEL): no undue delay can be accepted. An
+    // F-22A put on final at her landing weight, held 15 minutes behind a
+    // person flying away, ran her tanks dry on her approach back and fell
+    // 0.3 nm short at 2,783 ft/min. The ten minutes are chosen: the legs to
+    // final and the approach from a hold 9 nm out, and a go-around.
+    static constexpr double minimum_fuel_s = 600.0;
+    bool short_of_fuel() const;
+    // Whether she came back from her hold short of fuel.
+    bool came_back_short_of_fuel() const { return came_back_short_; }
     // Whether her take-off roll has begun (none: no take-off).
     bool rolling() const { return departure_ && released_; }
     // **The runway she is departing**: her take-off rolling or climbing
@@ -608,6 +620,7 @@ private:
     BehindAPersonQuery behind_a_person_;
     std::optional<double> left_the_circuit_s_;
     std::optional<double> rejoined_at_s_;
+    bool came_back_short_ = false;
     std::optional<HoldOutside> holding_out_;
     struct Rejoin {
         Runway runway;

@@ -10621,6 +10621,9 @@ struct TwoAround {
     double hold_nearest_nm = 1e9;
     double hold_furthest_nm = 0.0;
     bool rejoined = false;
+    // She came back from her hold short of fuel (Controller::short_of_fuel),
+    // the person ahead not down or gone: landed, kept apart, it is right.
+    bool short_of_fuel = false;
     // **Her climb before setting off for her hold**, on raised ground: how
     // far her hold was set over the height she left the circuit at, ft;
     // whether she reached it before she was round her fix; and the least
@@ -10772,11 +10775,14 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
                 out_m * std::sin(b) /
                     glideslope::sim::metres_per_degree_longitude(runway.threshold_lat_deg);
             w.altitude_ft = a.altitude_ft;
-            // At the middle of her plan's speeds, as a departure's plan is
-            // flown: at her reference and twenty, an F-22A's stand-in fell
-            // out of the sky.
-            const auto plan = glideslope::sim::plan_speeds(data(), ahead_entry.model);
-            w.airspeed_kts = 0.5 * (plan.slowest_kts + plan.fastest_kts);
+            // **Flown away as a pilot would**: cleaned up - flap up, gear
+            // up where it retracts (below) - at a hold's speed for her, 1.4
+            // times her reference, at most 200 kt below 6,000 ft (AIM
+            // 5-3-8; HoldOutside's rule). Left in her circuit's flap and
+            // gear, a 737-300's stand-in flew at 236 kt at full power until
+            // her tanks ran dry (her fuel is now hers to carry, above).
+            w.airspeed_kts = std::clamp(1.4 * ahead_speeds.vref_kts, ahead_speeds.vref_kts + 20.0,
+                                        std::max(200.0, ahead_speeds.vref_kts + 20.0));
             glideslope::sim::FlightPlan away;
             away.waypoints.push_back(w);
             pilot->to_ai(away);
@@ -10787,6 +10793,11 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
             out.followed_while_taken = true;
             ahead_c.set_pilot(ahead_last);
             ahead_c.to_pilot();
+            // **Her fuel is hers to carry**: put on final at her landing
+            // weight, a person's F-22A flying away ran her tanks dry 2,300 s
+            // in and fell. A pilot staying in a circuit and flying off has
+            // the fuel she needs; what is measured is the AI behind her.
+            ahead.freeze_fuel(true);
         }
         // **Her pilot stays in the circuit**: round again from her approach,
         // until `person_in_circuit_s` have passed.
@@ -10810,7 +10821,11 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
             ahead_c.go_around();
         }
         if (pilot) {
-            const glideslope::sim::Controls hers = pilot->fly();
+            glideslope::sim::Controls hers = pilot->fly();
+            if (away_at >= 0) {
+                hers.flaps = 0.0;
+                hers.gear = ahead.gear_retracts() ? 0.0 : 1.0;
+            }
             if (taken_at >= 0) {
                 ahead_c.set_pilot(hers);
             }
@@ -10865,6 +10880,7 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
                 }
             }
             out.rejoined = out.rejoined || behind_c.rejoined_at_s().has_value();
+            out.short_of_fuel = out.short_of_fuel || behind_c.came_back_short_of_fuel();
             if (then == Then::ahead_taken_and_stays &&
                 static_cast<double>(t - taken_at) / steps_per_second >
                     out.left_after_s + after_leaving_s) {
@@ -12181,10 +12197,14 @@ void behind_persons_who_stay(const std::vector<std::string>& aheads,
                                     " nm out, not within " + std::to_string(hold_nearest_nm) +
                                     " to " + std::to_string(hold_furthest_nm));
                 }
-                if (stays && r.rejoined) {
+                if (r.short_of_fuel) {
+                    std::printf("    she came back short of fuel\n");
+                }
+                if (stays && r.rejoined && !r.short_of_fuel) {
                     wrong.push_back(pair + ": the one behind came back while the person stayed");
                 }
-                if (!stays && (!r.rejoined || !r.ahead_down_first || !r.both_clear)) {
+                if (!stays && !r.short_of_fuel &&
+                    (!r.rejoined || !r.ahead_down_first || !r.both_clear)) {
                     wrong.push_back(pair + ": the one behind did not come back and land after "
                                            "her, both clear");
                 }
@@ -12335,6 +12355,16 @@ void behind_persons_who_fly_away(const std::vector<std::string>& aheads,
                 }
                 if (r.hold_laps < 1) {
                     wrong.push_back(pair + ": the one behind never held outside");
+                }
+                // **Short of fuel**, she came back before the person was
+                // gone: landed and clear is what is asked of her.
+                if (r.short_of_fuel) {
+                    std::printf("    she came back short of fuel\n");
+                    if (!r.both_clear) {
+                        wrong.push_back(pair + ": short of fuel, the one behind did not land "
+                                               "and clear the runway");
+                    }
+                    continue;
                 }
                 if (!r.dropped || r.dropped_at_nm < glideslope::sim::left_the_circuit_nm ||
                     r.dropped_at_nm > glideslope::sim::left_the_circuit_nm + 0.5) {
