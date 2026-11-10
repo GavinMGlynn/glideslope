@@ -1,6 +1,13 @@
 ### A 172 joined on final stays at the gate, 2026-11-11
 
-**What is still not true first.** Only the four aeroplanes with a learnt
+**What is still not true first.** **Only the first player on final starts
+in the gate**: the players after her start 2.9, 3.4 and 3.9 miles out,
+outside its far edge (2.4 miles), and a person who joins second is not at
+the gate thirty seconds later. Half a mile apart, two cannot both fit in its
+0.7 of a mile and each still be in it thirty seconds on; starting each later
+one where the first started, once the one ahead has gone on, is a delayed
+start the server does not have. A plan item of its own, "A second player
+joining on final starts outside the gate". Only the four aeroplanes with a learnt
 landing (C172P, C182, J-3 Cub, PA-28) have a gate to stay at; the other
 twelve are named in the test as having none. The verdict is taken once,
 thirty seconds in, when L asks for the learnt landing: the gate is not
@@ -91,16 +98,20 @@ nose down and 11 kt fast. Nothing was left to fix in the client.
   the start put back at the gate's middle ("the server did not start her
   where her gate holds her").
 - `every_learnt_landings_default_start_on_final_is_inside_its_gate_and_still_inside_it_thirty_seconds_later_at_its_fastest`
-  (tests/unit/test_learnt.cpp): all four, each inside the gate at the start
+  (tests/unit/test_learnt.cpp): the catalogue walked, each aircraft with a
+  learnt landing found as a session finds it, counted against the policy
+  files in the data (4 of 4): each inside the gate at the start
   and still inside it 30 s later at vref + 8 kt - 125, 90, 255 and 90 m to
   spare (C172P, C182, Cub, PA-28); 248, 213, 379 and 213 m at vref. Red
-  with the start put back at the gate's middle.
+  with the start put back at the gate's middle, and with the C182 skipped
+  in the walk ("every learnt landing in the data walked: 3 of 4").
 - Every other test that uses `--players-on-final` passes:
   `a_players_c172p_handed_to_the_learnt_landing_on_final_is_landed_by_the_server_and_an_f22a_and_one_outside_the_gate_are_refused`
   (its C172P now starts 2.33 miles out, not 2.0: 167 ft/min, +2.02 m
   across, stopped 600 m along, -0.05 m across; on 2026-10-08 from two
   miles, 214 ft/min, +1.37 m, 463 m; the third player, 3.4 miles out, is
-  refused for distance as before), and
+  refused for distance as before - its comments and its pattern now say
+  2.33 and 3.4 miles), and
   `the_client_with_the_window_on_final_is_refused_the_learnt_landing_with_its_flaps_moving_told_why_and_handed_to_it_with_l`
   (167 ft/min, +2.02 m across, stopped 600 m along, -0.04 m across); the
   server's flag and usage tests and the test-ports check too.

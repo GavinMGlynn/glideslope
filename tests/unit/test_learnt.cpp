@@ -2637,17 +2637,21 @@ GLIDESLOPE_TEST(an_ai_approach_is_handed_to_the_learnt_landing_inside_its_gate_a
 // **A player put on final with no distance said starts where her gate holds
 // her thirty seconds left alone** (sim::learnt_gate_start_m): inside the
 // gate, and short of its near edge after thirty seconds at the fastest it
-// admits (vref + 8 kt). Every aircraft with a learnt landing, counted: the
-// four the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other
-// finds in the catalogue.
+// admits (vref + 8 kt). Every aircraft with a learnt landing: the catalogue
+// walked whole, each one's landing looked for as a session looks for it,
+// and those walked counted against the learnt landings in the data
+// (rl/NAME-landing.txt), so that one added and not walked fails.
 GLIDESLOPE_TEST(every_learnt_landings_default_start_on_final_is_inside_its_gate_and_still_inside_it_thirty_seconds_later_at_its_fastest) {
     using glideslope::sim::LearntGate;
     using glideslope::sim::LearntGateStart;
-    const std::vector<std::string> models = {"c172p", "c182", "j3cub", "pa28"};
     constexpr double mps_per_kt = 1852.0 / 3600.0;
     std::size_t walked = 0;
-    for (const std::string& model : models) {
-        const auto policy = the_policy(model);
+    for (const glideslope::sim::CatalogueEntry& entry : glideslope::sim::read_catalogue(data())) {
+        const std::string& model = entry.model;
+        const auto policy = glideslope::sim::learnt_landing(data(), model);
+        if (!policy) {
+            continue;
+        }
         const double start_m = glideslope::sim::learnt_gate_start_m(*policy);
         const double fastest_m =
             (policy->vref_kts + LearntGate::most_over_vref_kts) * mps_per_kt *
@@ -2663,6 +2667,18 @@ GLIDESLOPE_TEST(every_learnt_landings_default_start_on_final_is_inside_its_gate_
               model + " is still inside it thirty seconds later at its fastest");
         ++walked;
     }
-    check(walked == 4,
-          "the four aircraft with a learnt landing walked: " + std::to_string(walked));
+    std::size_t files = 0;
+    const std::string suffix = "-landing.txt";
+    for (const auto& file : std::filesystem::directory_iterator(data() / "rl")) {
+        const std::string name = file.path().filename().string();
+        if (name.size() > suffix.size() &&
+            name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0) {
+            ++files;
+        }
+    }
+    std::printf("  %zu aircraft with a learnt landing walked of %zu in the data\n", walked,
+                files);
+    check(walked == files && walked > 0,
+          "every learnt landing in the data walked: " + std::to_string(walked) + " of " +
+              std::to_string(files));
 }
