@@ -31,6 +31,7 @@
 #include <chrono>
 #include <condition_variable>
 #include <functional>
+#include <cstdio>
 #include <mutex>
 #include <cstdint>
 #include <map>
@@ -552,15 +553,27 @@ sim::Motion motion_of(const net::OwnMotion& yours);
 
 template <typename Clock>
 std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
-    const double began = local_s();
+    // **Given up on `give_up_after_s` after the server was last heard**, not
+    // after joining began: a server that admits a player and gives her no
+    // aircraft yet - her turn on final not come (`--players-on-final`) -
+    // says so in every update (`no_aircraft`), and she waits as long as it
+    // goes on saying it.
+    double heard_last = local_s();
+    bool said_waiting = false;
     std::optional<net::StatePacket> newest;
-    while (local_s() - began < give_up_after_s) {
+    while (local_s() - heard_last < give_up_after_s) {
         {
             const auto lock = held();
             poll_here(local_s());
             for (net::StatePacket& state : session_.take_states()) {
+                heard_last = local_s();
                 if (state.yours) {
                     newest = std::move(state);
+                } else if (state.your_aircraft == net::no_aircraft && !said_waiting) {
+                    said_waiting = true;
+                    std::printf("glideslope: the server has given it no aircraft yet: "
+                                "waiting for one\n");
+                    std::fflush(stdout);
                 }
             }
             if (newest) {

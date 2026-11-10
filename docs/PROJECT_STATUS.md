@@ -270,7 +270,9 @@ gate admits no more crosswind than her figures' demonstrated crosswind
 (the Cub's 12 kt), and no more than training's 15. The learnt landing is offered for those four aircraft, by the CLI, to a player at its gate on a server (L in the window
 client, told why when refused; since 2026-11-11 the first player on final starts
 where her gate holds her thirty seconds, and each of the four, joined on
-final in the window client and left alone, is still at it then, though a second starts outside it - 2026-11-11-a-172-joined-on-final-stays-at-the-gate), and to an AI aircraft the server is told to
+final in the window client and left alone, is still at it then; the players after her start there too, each in her
+turn, once the one ahead is three miles on or landed - 2026-11-11-a-172-joined-on-final-stays-at-the-gate,
+2026-11-11-players-joining-on-final-take-turns-in-the-gate), and to an AI aircraft the server is told to
 flying a plan that ends in a landing, which then taxis off the runway; a
 landing goes around from a runway not clear (since 2026-10-08) - but a
 copilot's route cannot end in one (a tail). A landing a model plans is

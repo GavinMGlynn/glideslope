@@ -167,7 +167,8 @@ struct ConnectFlood {
 };
 ConnectFlood connect_flood;
 
-// **The learnt landing asked for** (`--learnt-landing-at S`): S seconds in,
+// **The learnt landing asked for** (`--learnt-landing-at S`): S seconds
+// after its aircraft is given (at joining, or once its turn on final has come),
 // its own aircraft is asked to be handed to the landing learnt by
 // reinforcement learning; with `--until-landed`, it leaves once the server
 // has said the learnt landing has it and an update shows it at rest.
@@ -175,9 +176,17 @@ struct ConnectLearnt {
     double at_s = -1.0;
     bool asked = false;
     bool until_landed = false;
+    // `--until-answered`: it leaves once the server has answered - handed it
+    // to the learnt landing, or refused and said why - a player who goes,
+    // leaving the final to the next.
+    bool until_answered = false;
+    bool refused = false; // the server said so
     bool handed = false; // the server said so
     bool landed = false; // and updates showed it at rest since, two seconds
     double rest_from_s = -1.0; // when they began to, on the session's clock
+    // When its aircraft was given, on this client's clock since joining: the
+    // learnt landing's S is counted from it.
+    double given_up_s = -1.0;
 };
 ConnectLearnt connect_learnt;
 
@@ -566,9 +575,11 @@ void print_usage(std::FILE* out) {
         "                            --take-back-at S for it back (or\n"
         "                            --take-back-while-looking, once its copilot has\n"
         "                            a routine look out);\n"
-        "                            --learnt-landing-at S, S seconds in, for it to be\n"
-        "                            handed to the learnt landing, and with\n"
-        "                            --until-landed leaves once that has it at rest; with\n"
+        "                            --learnt-landing-at S, S seconds after its aircraft\n"
+        "                            is given (at joining, or its turn on final),\n"
+        "                            for it to be handed to the learnt landing, and with\n"
+        "                            --until-landed leaves once that has it at rest\n"
+        "                            (--until-answered, once handed or refused); with\n"
         "                            --hand-over-model P, anthropic or openai (each\n"
         "                            with :MODEL if wanted) or none,\n"
         "                            the hand-over is planned by that model, asked\n"
@@ -4248,6 +4259,10 @@ int stay(glideslope::platform::UdpSocket& socket,
         if (connect_learnt.until_landed && connect_learnt.landed) {
             break;
         }
+        // **Answered, it goes** (`--until-answered`).
+        if (connect_learnt.until_answered && (connect_learnt.handed || connect_learnt.refused)) {
+            break;
+        }
         // **On other ground, it leaves**, saying goodbye below.
         if (refused_ground) {
             break;
@@ -4520,6 +4535,18 @@ int stay(glideslope::platform::UdpSocket& socket,
             }
         }
         if (mine != glideslope::net::no_aircraft) {
+            // **When its aircraft was given**: at joining, or later, where
+            // the server made it wait its turn on final with none
+            // (`--players-on-final`) - which the learnt landing's time is
+            // counted from, as a person counts from when she has her
+            // aircraft.
+            if (connect_learnt.given_up_s < 0.0) {
+                connect_learnt.given_up_s = up_s;
+                if (up_s > 1.0) {
+                    say_heard("given its aircraft, " + std::to_string(mine) + ", " +
+                              std::to_string(static_cast<int>(up_s)) + " s after joining");
+                }
+            }
             if (hand_over_at_s >= 0.0 && up_s >= hand_over_at_s && !asked_to_hand_over &&
                 (!connect_hand_over_when_slowing || (predicting && predicting->stovl_slowing_below(120.0))) &&
                 (!hand_over_model || hc.hand_over_tried)) {
@@ -4536,7 +4563,8 @@ int stay(glideslope::platform::UdpSocket& socket,
                               ": the AI holds its course");
                 }
             }
-            if (connect_learnt.at_s >= 0.0 && up_s >= connect_learnt.at_s &&
+            if (connect_learnt.at_s >= 0.0 &&
+                up_s - connect_learnt.given_up_s >= connect_learnt.at_s &&
                 !connect_learnt.asked) {
                 connect_learnt.asked = true;
                 ask(glideslope::net::Controller::learnt_landing);
@@ -5266,6 +5294,9 @@ int stay(glideslope::platform::UdpSocket& socket,
                         refused)) {
                     say_heard("aircraft " + std::to_string(refused.aircraft) +
                               " refused the learnt landing: " + refused.why);
+                    if (refused.aircraft == mine) {
+                        connect_learnt.refused = true;
+                    }
                 }
                 glideslope::net::TrafficInstruction instruction;
                 if (glideslope::net::read(
@@ -6491,6 +6522,10 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--until-landed") {
                     connect_learnt.until_landed = true;
+                    continue;
+                }
+                if (args[i] == "--until-answered") {
+                    connect_learnt.until_answered = true;
                     continue;
                 }
                 if (args[i] == "--hand-over-at" && i + 1 < args.size()) {

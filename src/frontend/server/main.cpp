@@ -307,9 +307,9 @@ void print_usage(std::FILE* out) {
         "                     by default where the gate the learnt landing is\n"
         "                     offered at holds her for 30 s left alone (its\n"
         "                     middle, two miles, for an aeroplane without one);\n"
-        "                     each after half a mile apart, the second half a mile\n"
-        "                     past the furthest the first may be (MILES, or the\n"
-        "                     gate's far edge)\n"
+        "                     a player joining while another player's aircraft is\n"
+        "                     flying within 3 miles of where she would start waits,\n"
+        "                     with no aircraft, until it is 3 miles on or landed\n"
         "  --ai-route FILE    the first AI aircraft flying the plan file is given\n"
         "                     this route at once, as a player's copilot's route\n"
         "                     is: checked against it and flown, or refused and\n"
@@ -1106,6 +1106,16 @@ struct Connection {
     // `no_aircraft` if the server had none to give - which is what a server
     // with nothing to fly has, since it has loaded no terrain to put one over.
     std::uint8_t aircraft = glideslope::net::no_aircraft;
+    // **Waiting for her turn on final** (`--players-on-final`): the slot
+    // admitted and what it asked for, given its aircraft once the one ahead
+    // is three miles on or landed (Fleet::final_wait); until then its state
+    // updates say `no_aircraft`.
+    struct WaitsOnFinal {
+        std::uint8_t slot = 0;
+        std::optional<glideslope::net::AskedAircraft> asked;
+        bool unreadable = false;
+    };
+    std::optional<WaitsOnFinal> waits_on_final;
     // Their inputs, and how far through them the server has got. The number
     // goes back in every state update so the client knows what to reconcile.
     glideslope::net::InputReceiver inputs;
@@ -1820,31 +1830,13 @@ public:
             }
         }
         if (on_final_ && final_speeds) {
-            const auto players = static_cast<double>(std::count_if(
-                flown_.begin(), flown_.end(), [](const Aircraft& a) { return a.slot >= 0; }));
-            // **The first where her gate holds her thirty seconds** left
+            // **Every player where her gate holds her thirty seconds** left
             // alone, unless told (`@MILES`): from the gate's middle she flew
             // out of its near edge in seventeen (client_stays_at_gate.cmake).
-            // Two miles for one with no gate, as before.
-            // **Each after that half a mile apart, from half a mile past
-            // the furthest the first can be** (her gate's far edge, or the
-            // distance told): a first player's start differs by aeroplane,
-            // and counted from her own a fast second was put 0.22 of a mile
-            // behind a C172P and flew into her (server_learnt_landing.cmake).
-            double out_m = 2.0 * 1852.0;
-            if (on_final_out_nm_) {
-                out_m = *on_final_out_nm_ * 1852.0;
-            } else if (const auto policy = learnt_for(model);
-                       players == 0.0 && policy &&
-                       policy->trained_for(aircraft->loaded_weight_lbs())) {
-                out_m = glideslope::sim::learnt_gate_start_m(*policy);
-            }
-            if (players > 0.0) {
-                const double furthest_first_m =
-                    on_final_out_nm_ ? *on_final_out_nm_ * 1852.0
-                                     : glideslope::sim::LearntGate::furthest_m;
-                out_m = furthest_first_m + 0.5 * players * 1852.0;
-            }
+            // Every one, not the first alone: a player after the first waits
+            // for her turn (`final_wait`) rather than starting further out,
+            // past the gate (2.9, 3.4 and 3.9 miles, until 2026-11-11).
+            const double out_m = first_on_final_m(model, aircraft->loaded_weight_lbs());
             ic = glideslope::sim::final_approach_start(
                 *on_final_, out_m, final_start_kts(model, *final_speeds, *aircraft),
                 final_speeds->flap, final_speeds->aim_m, 3.0);
@@ -1994,14 +1986,78 @@ public:
         return false;
     }
 
+    // **How far out a player in `model` starts on final**: `@MILES` if
+    // said; where her learnt landing's gate holds her thirty seconds left
+    // alone, at a weight it was trained at (sim::learnt_gate_start_m);
+    // two miles otherwise, as before.
+    double first_on_final_m(const std::string& model, std::optional<double> lbs) {
+        if (on_final_out_nm_) {
+            return *on_final_out_nm_ * 1852.0;
+        }
+        if (const auto policy = learnt_for(model);
+            policy && (!lbs || policy->trained_for(*lbs))) {
+            return glideslope::sim::learnt_gate_start_m(*policy);
+        }
+        return 2.0 * 1852.0;
+    }
+
+    // **How far down the approach the one ahead must be** before the next
+    // player starts on final where she did: three miles, the radar minimum
+    // in trail on a final approach (FAA JO 7110.65, 5-5-4), which no wake
+    // category adds to between two light aeroplanes - or landed, since a
+    // start under three miles from the threshold leaves the one ahead
+    // stopped on the runway short of three miles from it.
+    static constexpr double final_in_trail_m = 3.0 * 1852.0;
+    static constexpr double final_landed_ft = 5.0;
+
+    // **Whether a player asking for `asked` must wait for her turn on
+    // final** (`--players-on-final`), and why, or empty if she may start
+    // now: every other player's aircraft flying must be three miles from
+    // where she would start, or on the ground. Only players' aircraft are
+    // counted, not the AI's.
+    std::string final_wait(const std::optional<glideslope::net::AskedAircraft>& asked) {
+        if (!on_final_) {
+            return {};
+        }
+        std::string model = player_model_;
+        if (asked) {
+            if (const auto entry = catalogue_.find(asked->id); entry != catalogue_.end()) {
+                model = entry->second.model;
+            }
+        }
+        const glideslope::sim::InitialConditions at = glideslope::sim::final_approach_start(
+            *on_final_, first_on_final_m(model, std::nullopt), 0.0, 0.0, 0.0, 3.0);
+        glideslope::sim::Traffic here;
+        here.latitude_deg = at.latitude_deg;
+        here.longitude_deg = at.longitude_deg;
+        for (const Aircraft& a : flown_) {
+            if (a.slot < 0 || a.wrecked_at_s >= 0.0) {
+                continue;
+            }
+            const glideslope::sim::AircraftState st = a.aircraft->state();
+            glideslope::sim::Traffic t;
+            t.latitude_deg = st.latitude_deg;
+            t.longitude_deg = st.longitude_deg;
+            const double apart_m = glideslope::sim::horizontal_m(here, t);
+            if (apart_m < final_in_trail_m && st.height_above_ground_ft > final_landed_ft) {
+                char text[160];
+                std::snprintf(text, sizeof text,
+                              "aircraft %u is %.2f miles from where she starts on final, and "
+                              "flying; she starts once it is 3 miles on or landed",
+                              static_cast<unsigned>(a.index), apart_m / 1852.0);
+                return text;
+            }
+        }
+        return {};
+    }
+
     // **Every player starts on the final approach to `spec`'s runway end**
     // (`--players-on-final AIRPORT/RUNWAY[@MILES]`), as the CLI's landings
-    // do: the first `first_out_nm` out on the centreline and the glidepath -
-    // unless said, where her learnt landing's gate holds her thirty seconds
-    // left alone (sim::learnt_gate_start_m), or two miles for one with none
-    // - and each after half a mile apart, from half a mile past the furthest
-    // the first may be, so that no two are put in one place. Why not, or
-    // nothing.
+    // do: `first_out_nm` out on the centreline and the glidepath - unless
+    // said, where her learnt landing's gate holds her thirty seconds left
+    // alone (sim::learnt_gate_start_m), or two miles for one with none -
+    // each in her turn (`final_wait`), so that no two are put in one place.
+    // Why not, or nothing.
     std::string players_on_final(const std::string& spec, std::optional<double> first_out_nm) {
         std::string why;
         on_final_out_nm_ = first_out_nm;
@@ -5000,7 +5056,15 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
         } else if (fleet != nullptr) {
             const auto asked = glideslope::net::read_asked_aircraft(
                 std::span<const std::uint8_t>(payload.data(), payload.size()));
-            c.aircraft = fleet->give(*slot, asked, !payload.empty() && !asked);
+            const bool unreadable = !payload.empty() && !asked;
+            if (const std::string wait = fleet->final_wait(asked); !wait.empty()) {
+                c.waits_on_final = Connection::WaitsOnFinal{*slot, asked, unreadable};
+                std::printf("slot %d waits for its turn on final: %s\n",
+                            static_cast<int>(*slot), wait.c_str());
+                std::fflush(stdout);
+            } else {
+                c.aircraft = fleet->give(*slot, asked, unreadable);
+            }
         }
 
         glideslope::net::Writer w =
@@ -5898,6 +5962,29 @@ int run(const Options& o) {
                     std::printf("%s\n", line.c_str());
                     std::fflush(stdout);
                     happened.add(up_s, line);
+                }
+                // **Her turn on final**: the longest waiting first, one a
+                // step, so that the next is judged with her in the sky.
+                {
+                    Connection* next = nullptr;
+                    for (auto& [address, c] : connections) {
+                        if (c.waits_on_final &&
+                            (next == nullptr || c.admitted_s < next->admitted_s)) {
+                            next = &c;
+                        }
+                    }
+                    if (next != nullptr && fleet->final_wait(next->waits_on_final->asked).empty()) {
+                        const Connection::WaitsOnFinal w = *next->waits_on_final;
+                        next->waits_on_final.reset();
+                        next->aircraft = fleet->give(w.slot, w.asked, w.unreadable);
+                        std::printf("slot %d's turn on final: aircraft %u, %.1f s on the "
+                                    "session's clock\n",
+                                    static_cast<int>(w.slot),
+                                    static_cast<unsigned>(next->aircraft),
+                                    static_cast<double>(stepped + i) /
+                                        static_cast<double>(glideslope::sim::steps_per_second));
+                        std::fflush(stdout);
+                    }
                 }
                 // **Told to the person it is for**, and to no other client.
                 for (const auto& [number, what] : fleet->take_instructions()) {
