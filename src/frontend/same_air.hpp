@@ -11,7 +11,6 @@
 // back the client's (net/messages.hpp). Both are here.
 
 #include "net/messages.hpp"
-#include "sim/aircraft.hpp"
 #include "sim/weather.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
@@ -202,8 +201,10 @@ private:
 // say it the same way.
 class AirFlown {
 public:
-    // After each step: the aircraft as it is, and the stations it flew.
-    void note(const sim::Aircraft& aircraft, const world::StationSlots& stations);
+    // After each step: the wind the aircraft flew, metres a second north,
+    // east and down, where it is, and the stations it flew.
+    void note(const std::array<double, 3>& wind_mps, double latitude_deg, double longitude_deg,
+              const world::StationSlots& stations);
     // Steps noted; nought, none.
     std::size_t steps() const { return steps_; }
     // "air flown: N steps, the wind changing by at most ... m/s in one; most

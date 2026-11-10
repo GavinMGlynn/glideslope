@@ -572,7 +572,11 @@ void Flight::refresh_weather() {
         stations_around_->look({place()}, now, [this] { return stations_->stations_flown(); });
         const auto [lat, lon] = place();
         weather_ = stations_->nearest(lat, lon);
-        air_flown_.note(*aircraft_, *stations_);
+        constexpr double mps_per_fps = 0.3048;
+        air_flown_.note({aircraft_->property("atmosphere/wind-north-fps") * mps_per_fps,
+                         aircraft_->property("atmosphere/wind-east-fps") * mps_per_fps,
+                         aircraft_->property("atmosphere/wind-down-fps") * mps_per_fps},
+                        lat, lon, *stations_);
         return;
     }
     if (next_weather_) {
