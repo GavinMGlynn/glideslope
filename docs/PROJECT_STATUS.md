@@ -366,7 +366,8 @@ landed, kept apart from the person (least 657 ft within 1.5 nm). The
 F-22A, at her landing weight, has too little fuel to divert: she comes
 down and back at once with priority and lands, but passes the person's
 downwind 1,606 m off at 0 ft; every landplane coming back so behind a
-person in the circuit loses the minimum - not yet kept apart
+person who never leaves the circuit loses the minimum - the person's
+conflict, closed on its figures
 (2026-11-11-a-hold-out-of-reach-diverts-and-a-racetrack-s-whole-ground).
 
 Since 2026-11-05 a take-off given no plan levels off at its height. It

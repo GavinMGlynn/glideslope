@@ -207,3 +207,38 @@ point on her lap gives a raised circuit's final the time it needs. The
 coming-back test stays a measurement (asserting the landings and the
 count, printing each least), and item 1 stays open, for the owner to
 judge.
+
+**Item 1 closed on its measured figures**, under the owner's ruling of
+2026-10-09 (an item that cannot be met closes on today's measured figures
+with the shortfall written down), as #351's item 1 closed on its 200 ft
+case. Diversion: 14 of 15 landplanes diverted and landed kept apart; the
+F-22A, too short of fuel, came back and landed, not kept apart. Coming
+back with nowhere to divert behind a person's C172P who never leaves the
+circuit, with the code as it stands (the legs to final with priority),
+every landplane landed and every one lost the minimum - the person's
+conflict: she is back on her downwind 90 s after crossing the threshold,
+and any final to the runway crosses it within 1.5 nm.
+
+| coming back | least within 500 ft | least within 1.5 nm |
+|---|---|---|
+| 737-300 | 1,613 m | 0 ft |
+| 747-400 | 1,615 m | 0 ft |
+| 787-8 | 1,577 m | 0 ft |
+| A320 | 1,609 m | 0 ft |
+| A380 | 1,615 m | 0 ft |
+| B-2A | 47 m | 0 ft |
+| C172P | 1,614 m | 0 ft |
+| C182 | 2,136 m | 0 ft |
+| F-15C | 1,573 m | 0 ft |
+| F-22A | 1,606 m | 0 ft (also her figure in item 1's test) |
+| F-35B | 1,608 m | 0 ft |
+| J-3 Cub | 1 m | 0 ft |
+| Learjet 35A | 1,081 m | 0 ft |
+| Mosquito | 809 m | 0 ft |
+| PA-28 | 765 m | 0 ft |
+
+**The pairs that lose the minimum are asserted exactly**: the coming-back
+test asserts all 15 land and that the set not kept apart is all 15; item
+1's every-landplane test that it is the F-22A alone. Seen red with each
+set altered: "15 lost the minimum, not the 14 named"; "1 lost the
+minimum, not the 0 named". linux-release: 108 and 132 s (gust_sweep).
