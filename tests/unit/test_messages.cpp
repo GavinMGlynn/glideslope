@@ -1283,7 +1283,7 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
     std::size_t refused = 0;
     std::size_t accepted = 0;
     std::size_t out_of_range = 0;
-    check(ranged_fields.size() == 10, "ten fields have ranges of their own");
+    check(ranged_fields.size() == 11, "eleven fields have ranges of their own");
     for (const WithNumbers& k : kinds) {
         check(k.reads(k.bytes), k.name + " reads as it stands");
         for (const double field : k.fields) {
@@ -1323,18 +1323,19 @@ GLIDESLOPE_TEST(every_floating_point_field_of_every_message_refuses_a_nan_and_an
             ++walked;
         }
     }
-    check(walked == 38, "thirty-eight floating-point fields were walked, not " +
+    check(walked == 39, "thirty-nine floating-point fields were walked, not " +
                             std::to_string(walked));
-    check(refused == 38 * 6, "228 numbers that are not numbers were refused, not " +
+    check(refused == 39 * 6, "234 numbers that are not numbers were refused, not " +
                                  std::to_string(refused));
     // Outside: both extremes for a weather's place and blend and a runway's
-    // place and heading, the most negative alone for when a weather changed
+    // place and heading, the most negative alone for when a weather and its
+    // stations changed
     // and until when it is wet, and a runway of no length either way too.
-    check(accepted == 38 * 5 - 19, "171 extreme numbers still read, not " +
+    check(accepted == 39 * 5 - 20, "175 extreme numbers still read, not " +
                                        std::to_string(accepted));
-    check(out_of_range == 19, "19 outside a ranged field's range were refused, not " +
+    check(out_of_range == 20, "20 outside a ranged field's range were refused, not " +
                                   std::to_string(out_of_range));
-    std::printf("  38 floating-point fields: %zu refused, %zu still read, %zu out of range\n",
+    std::printf("  39 floating-point fields: %zu refused, %zu still read, %zu out of range\n",
                 refused, accepted, out_of_range);
 }
 
