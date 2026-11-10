@@ -1,0 +1,219 @@
+# server_players_take_turns_on_final.cmake - players joining a server that
+# starts them on final each start in the learnt landing's gate, in their
+# turn, and each is still at the gate thirty seconds after she starts.
+#
+#   cmake -DSERVER=<glideslope_server> -DCLIENT=<glideslope_cli> -DDATA=<data dir>
+#         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
+#         -DORDERS=<a|b|...> -DRUN=<which of them> -P server_players_take_turns_on_final.cmake
+#
+# **Built, not hoped for.** The server starts every player on final to
+# Sydney's 16R (`--players-on-final YSSY/16R`), each where her own gate holds
+# her thirty seconds - and a player who joins while another player's
+# aircraft is flying within three miles of that point waits, given no
+# aircraft (her updates say `no_aircraft`), until it is three miles on or
+# landed: the radar minimum in trail on a final approach (FAA JO 7110.65,
+# 5-5-4), between two light aeroplanes with no wake minimum to add. Until
+# 2026-11-11 the second, third and fourth started 2.9, 3.4 and 3.9 miles out,
+# outside the gate (1.7 to 2.4 miles).
+#
+# ORDERS is a list of runs, `|` between them, each the aeroplanes of its
+# players in the order they join, `,` between them; RUN says which this
+# test flies. All of them join at once, a second apart, through the
+# command-line client as the window client does (`--predict --from-held`:
+# every input what the server held her on - a player who touches nothing),
+# and each asks for the learnt landing thirty seconds after her aircraft is
+# given (`--learnt-landing-at 30`, counted from then). The server hands her
+# over only if its own aircraft is at the gate - and the test holds her at
+# least 100 m before its near edge. Each but the last stays until the
+# learnt landing has her at rest, and goes (`--until-landed`); the last goes
+# once handed over (`--until-answered`). A player after the first must have
+# been told to wait, and been given her aircraft only after the one ahead
+# was handed over.
+#
+# **Coverage, asserted.** Across all the runs ORDERS names, every aeroplane
+# with a learnt landing in the data (rl/NAME-landing.txt) must join second
+# or later at least once, and the second, third and fourth places must each
+# be flown: so 2, 3 and 4 players. The first place is
+# client_stays_at_gate.cmake's.
+#
+# It needs the DEM's tiles, so without the network it reports itself skipped
+# (exit 77), never passed.
+
+cmake_minimum_required(VERSION 3.28)
+
+# **Its port held machine-wide** while it runs (port_lock.cmake): another
+# build's run of this test on the same port waits for it.
+include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
+
+# **The space**: every aeroplane with a learnt landing, as a follower; the
+# second to fourth places.
+file(GLOB _policies RELATIVE "${DATA}/rl" "${DATA}/rl/*-landing.txt")
+set(_gated "")
+foreach(_p IN LISTS _policies)
+    string(REGEX REPLACE "-landing\\.txt$" "" _p "${_p}")
+    list(APPEND _gated "${_p}")
+endforeach()
+list(SORT _gated)
+string(REPLACE "|" ";" _runs "${ORDERS}")
+set(_followers "")
+set(_places "")
+foreach(_run IN LISTS _runs)
+    string(REPLACE "," ";" _order "${_run}")
+    list(LENGTH _order _n)
+    math(EXPR _last "${_n} - 1")
+    foreach(_i RANGE 1 ${_last})
+        list(GET _order ${_i} _a)
+        list(APPEND _followers "${_a}")
+        math(EXPR _place "${_i} + 1")
+        list(APPEND _places "${_place}")
+    endforeach()
+endforeach()
+list(REMOVE_DUPLICATES _followers)
+list(SORT _followers)
+list(REMOVE_DUPLICATES _places)
+list(SORT _places)
+if(NOT _followers STREQUAL "${_gated}")
+    message(FATAL_ERROR "the aeroplanes with a learnt landing are ${_gated}, and the runs fly "
+                        "${_followers} after the first: every one must follow at least once")
+endif()
+if(NOT _places STREQUAL "2;3;4")
+    message(FATAL_ERROR "the runs fly the places ${_places} after the first; 2, 3 and 4 wanted")
+endif()
+list(LENGTH _gated _gated_n)
+
+list(GET _runs ${RUN} _run)
+string(REPLACE "," ";" _order "${_run}")
+list(LENGTH _order _n)
+
+if(DEFINED CACHE)
+    set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
+endif()
+set(_store "${WORK}/turns.sqlite")
+file(REMOVE "${_store}")
+execute_process(
+    COMMAND "${SERVER}" --port 0 --seconds 0.05 --ai 0 --store "${_store}"
+    RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+if(NOT _out MATCHES "server key ([0-9a-f][0-9a-f]+)\n")
+    message(FATAL_ERROR "the server did not print a key:\n${_out}${_err}")
+endif()
+set(_key "${CMAKE_MATCH_1}")
+
+execute_process(
+    COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}"
+            --players-on-final YSSY/16R
+    RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
+if(NOT _rc EQUAL 0)
+    message(STATUS "the server could not get its terrain: ${_err}")
+    cmake_language(EXIT 77)
+endif()
+
+# The clients, each writing down the pipe to the next; the server, last, to
+# here. **In their order, by events**: the first once the server is flying
+# (`--ready-file`), and each after once the one before has heard something
+# (its `--heard` file exists) - admitted, not a second later on the clock.
+set(_commands "")
+set(_ready "${WORK}/flying")
+file(REMOVE "${_ready}")
+math(EXPR _last "${_n} - 1")
+foreach(_i RANGE ${_last})
+    list(GET _order ${_i} _a)
+    if(_i EQUAL 0)
+        set(_after "${_ready}")
+    else()
+        math(EXPR _before "${_i} - 1")
+        set(_after "${WORK}/heard${_before}.txt")
+    endif()
+    set(_leaves --until-landed)
+    if(_i EQUAL _last)
+        set(_leaves --until-answered)
+    endif()
+    file(REMOVE "${WORK}/heard${_i}.txt")
+    list(APPEND _commands COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 1500
+         --after-ready "${_after}" --aircraft ${_a} --predict --from-held --learnt-landing-at 30
+         ${_leaves} --heard "${WORK}/heard${_i}.txt")
+endforeach()
+execute_process(
+    ${_commands}
+    COMMAND "${SERVER}" --port ${PORT} --seconds 1800 --until-empty --ai 1 --headless
+            --data "${DATA}" --store "${_store}" --timeout 30 --ready-file "${_ready}"
+            --players-on-final YSSY/16R
+    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+port_listened("${_out}" "${_err}")
+file(WRITE "${WORK}/server.txt" "${_out}")
+foreach(_rc IN LISTS _rcs)
+    if(NOT _rc EQUAL 0)
+        message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
+    endif()
+endforeach()
+
+
+# **Each player, by her aeroplane, read from where she is given it on**: a
+# slot is a place in the lobby's order of keys, not a player, and an
+# aircraft's number is given again once the aircraft that had it has gone,
+# so neither names one player through a run.
+string(REGEX MATCHALL "waits for its turn on final: " _waits "${_out}")
+list(LENGTH _waits _waited)
+if(NOT _waited EQUAL _last)
+    message(FATAL_ERROR "${_waited} players were told to wait their turn, and ${_last} join "
+                        "behind another:\n${_out}")
+endif()
+set(_said "")
+set(_handed_before -1)
+foreach(_i RANGE ${_last})
+    list(GET _order ${_i} _a)
+    math(EXPR _place "${_i} + 1")
+    string(FIND "${_out}" " asked for ${_a}, and flies it\n" _given)
+    if(_given EQUAL -1)
+        message(FATAL_ERROR "place ${_place}: the ${_a} was never given:\n${_out}")
+    endif()
+    string(SUBSTRING "${_out}" ${_given} -1 _since)
+    if(NOT _since MATCHES "^ asked for ${_a}, and flies it\n([^\n]*\n)*slot [0-9]+'s ${_a} starts on final to YSSY 16R (2\\.[23][0-9]) miles out\n")
+        message(FATAL_ERROR "place ${_place}, the ${_a}: not started where her gate holds her:\n${_since}")
+    endif()
+    set(_from "${CMAKE_MATCH_2}")
+    if(_i GREATER 0)
+        # Her own turn: the first said after she was given her aeroplane.
+        string(FIND "${_since}" "'s turn on final: aircraft " _turn_at)
+        if(_turn_at EQUAL -1)
+            message(FATAL_ERROR "place ${_place}, the ${_a}: her turn never came:\n${_since}")
+        endif()
+        string(SUBSTRING "${_since}" ${_turn_at} -1 _turn_line)
+        if(NOT _turn_line MATCHES "^'s turn on final: aircraft ([0-9]+), ([0-9.]+) s")
+            message(FATAL_ERROR "place ${_place}, the ${_a}: her turn unread:\n${_turn_line}")
+        endif()
+        set(_number "${CMAKE_MATCH_1}")
+        set(_turn "given at ${CMAKE_MATCH_2} s")
+        if(_given LESS _handed_before)
+            message(FATAL_ERROR "place ${_place}, the ${_a}: given her aircraft before the one "
+                                "ahead was handed over:\n${_out}")
+        endif()
+    else()
+        if(NOT _since MATCHES "^[^\n]*\n([^\n]*\n)*slot [0-9]+'s ${_a} starts on final[^\n]*\nadmitted [0-9a-f]+ to slot")
+            message(FATAL_ERROR "the first was not given her aircraft at once:\n${_out}")
+        endif()
+        set(_number 0)
+        set(_turn "given at once")
+    endif()
+    if(_since MATCHES "aircraft ${_number} not handed to the learnt landing: ([^\n]*)")
+        message(FATAL_ERROR "place ${_place}, the ${_a}: left alone, not at the gate thirty "
+                            "seconds after she started: ${CMAKE_MATCH_1}")
+    endif()
+    if(NOT _since MATCHES "aircraft ${_number} handed to the learnt landing, on final to YSSY 16R, ([0-9.]+) miles out, (-?[0-9]+) m before the gate's near edge")
+        message(FATAL_ERROR "place ${_place}, the ${_a}: never handed over:\n${_since}")
+    endif()
+    set(_then "${CMAKE_MATCH_1}")
+    set(_spare "${CMAKE_MATCH_2}")
+    if(_spare LESS 100)
+        message(FATAL_ERROR "place ${_place}, the ${_a}: only ${_spare} m before the gate's near edge")
+    endif()
+    string(FIND "${_since}" "aircraft ${_number} handed to the learnt landing" _handed_at)
+    math(EXPR _handed_before "${_given} + ${_handed_at}")
+    file(READ "${WORK}/heard${_i}.txt" _heard)
+    if(NOT _heard MATCHES "asked for the learnt landing")
+        message(FATAL_ERROR "place ${_place}: the client never asked:\n${_heard}")
+    endif()
+    string(APPEND _said " ${_place}. ${_a}, ${_turn}, ${_from} to ${_then} miles, ${_spare} m "
+                        "to spare;")
+endforeach()
+message(STATUS "run ${RUN} of ${ORDERS} (${_gated_n} aeroplanes with a gate, each following "
+               "in some run; places 2 to 4):${_said}")

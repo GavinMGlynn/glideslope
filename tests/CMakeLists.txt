@@ -3906,6 +3906,31 @@ set_tests_properties(a_players_c172p_handed_to_the_learnt_landing_on_final_is_la
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 
+# **Players joining on final take turns, each starting in the learnt
+# landing's gate, and each is still at it thirty seconds after she starts**:
+# two runs, between them every aeroplane with a learnt landing following
+# another and the second, third and fourth places flown. See
+# cmake/server_players_take_turns_on_final.cmake.
+set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p")
+foreach(_turns_run IN ITEMS 0 1)
+    if(_turns_run EQUAL 0)
+        set(_turns_name four_players_joining_on_final_a_c172p_c182_cub_and_pa28_take_turns_and_each_is_at_the_gate_thirty_seconds_after_she_starts)
+        set(_turns_port 24834)
+    else()
+        set(_turns_name a_c172p_joining_on_final_behind_a_pa28_waits_her_turn_and_is_at_the_gate_thirty_seconds_after_she_starts)
+        set(_turns_port 24848)
+    endif()
+    add_test(NAME ${_turns_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/turns_on_final_${_turns_run} -DPORT=${_turns_port}
+            "-DORDERS=${GLIDESLOPE_TURNS_ON_FINAL}" -DRUN=${_turns_run}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_players_take_turns_on_final.cmake)
+    set_tests_properties(${_turns_name} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/turns_on_final_${_turns_run})
+endforeach()
+
 # **The server's own AI C172P, flying a plan that ends in a landing - or put
 # on final by the operator - is flown into the gate, handed to the learnt
 # landing there, and landed.** See

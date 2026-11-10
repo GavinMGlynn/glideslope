@@ -1825,11 +1825,15 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       on final now starts where her gate holds her thirty seconds, and each of
       the four aeroplanes with a gate is still at it then, by the server's
       verdict. Only the first: the next item.
-- [ ] **A second player joining on final starts outside the gate**: the
+- [x] **A second player joining on final starts outside the gate**: the
       players after the first start 2.9, 3.4 and 3.9 miles out, past the
       gate's far edge (2.4), since two cannot be half a mile apart inside its
       0.7 of a mile and each still in it thirty seconds later. *Verification:
       every player joining on final is at the gate thirty seconds later.*
+      Done 2026-11-11: each now starts in the gate in her turn, once the one
+      ahead is three miles on or landed; all four aeroplanes with a gate
+      follow, as second, third and fourth, each at it 30 s after she starts.
+      She is not told why she waits, beyond having no aircraft yet.
 - [ ] **The engine-stop prediction test fails on Windows clang when the
       server is held up**: its client, pacing 1.6 to 1.7 times its own clock
       to catch up, is put right by metres and misses its speed bound - since

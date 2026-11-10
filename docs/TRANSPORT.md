@@ -1456,6 +1456,10 @@ need, any byte left over at the end, more than 20 aircraft, a controller or a
 condition this version does not know, and any NaN or infinity in any of the ten numbers. It
 does not refuse a `your_aircraft` that names no aircraft in the packet: a
 client that cannot find itself has no aircraft yet, which is what `FF` says.
+A server that starts its players on final admits a player whose turn has
+not come with no aircraft, and says `FF` until it gives her one; a client
+waits on that for as long as updates keep coming. No message says why: the
+version and the layout are unchanged by it.
 
 ### The session's clock
 

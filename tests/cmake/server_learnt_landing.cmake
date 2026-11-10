@@ -7,21 +7,26 @@
 #         -P server_learnt_landing.cmake
 #
 # **Built, not hoped for.** The server starts every player on final to
-# Sydney's 16R (`--players-on-final YSSY/16R`): the first where her gate
-# holds her thirty seconds - the C172P 2.33 miles out - and the next 2.9
-# and 3.4 miles out, outside it. The first
+# Sydney's 16R (`--players-on-final YSSY/16R`), each where her gate holds
+# her thirty seconds - the C172P 2.33 miles out - in her turn: a player
+# joining while another's aircraft flies within three miles of there waits
+# with none until it is three miles on or landed
+# (server_players_take_turns_on_final.cmake). The first
 # client flies the plan's aeroplane, the C172P, and asks a second after
 # joining for the learnt landing (`--learnt-landing-at`), and stays until
 # the server has said the learnt landing has it and an update shows it at
 # rest (`--until-landed`) - waiting on those events, not on the clock. The
 # second asks for a Lockheed Martin F-22A, which has no learnt landing and
-# will never be given one, and asks the same. The server must say it handed the first to the learnt landing on
+# will never be given one, and asks two seconds after her turn comes - at
+# two miles, an aeroplane with no gate's start - and goes once answered
+# (`--until-answered`). The server must say it handed the first to the learnt landing on
 # final to YSSY 16R, and that the learnt landing touched it down within 5 m
 # of the centreline under 300 ft/min and stopped it on the runway; and must
 # refuse the second, saying the f22 has none - and the second client must
-# never hear its aircraft handed over. The third flies a C172P too, started
-# 3.4 miles out, and asks two seconds after joining: outside the gate, it
-# is refused, the runway named and how far out it is. **Each refused client
+# never hear its aircraft handed over. The third flies a C172P too, and
+# asks fifty seconds after her turn comes, flown by then past the gate's
+# near edge (1.7 miles) to about 1.5: outside the gate, it is refused, the
+# runway named and how far out it is. **Each refused client
 # is told why** (`LEARNT_LANDING_REFUSED`, since protocol version 9), in the
 # server's own words, and the one landed is told nothing of the kind.
 #
@@ -64,10 +69,10 @@ execute_process(
     # Each writes down the pipe to the next; the server, last, to here.
     COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 600 --after 1
             --learnt-landing-at 1 --until-landed --heard "${_first}"
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 12 --after 3
-            --aircraft f22 --learnt-landing-at 2 --heard "${_second}"
-    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 12 --after 5
-            --learnt-landing-at 2 --heard "${_third}"
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 900 --after 3
+            --aircraft f22 --learnt-landing-at 2 --until-answered --heard "${_second}"
+    COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 900 --after 5
+            --learnt-landing-at 50 --until-answered --heard "${_third}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
             --data "${DATA}" --store "${_store}" --players-on-final YSSY/16R
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
@@ -114,16 +119,16 @@ if(NOT _second_said MATCHES "aircraft ${_second_number} refused the learnt landi
     message(FATAL_ERROR "the F-22A's client was not told why it was refused:\n${_second_said}")
 endif()
 
-# **Outside the gate, refused**: the third, a C172P 3.4 miles out.
-if(NOT _out MATCHES "aircraft ([0-9]+) not handed to the learnt landing: not at the learnt landing's gate: YSSY 16R: 3\\.[34] miles out")
-    message(FATAL_ERROR "the server did not refuse the C172P 3.4 miles out:\n${_out}")
+# **Outside the gate, refused**: the third, a C172P flown past it.
+if(NOT _out MATCHES "aircraft ([0-9]+) not handed to the learnt landing: not at the learnt landing's gate: YSSY 16R: 1\\.[3-6] miles out")
+    message(FATAL_ERROR "the server did not refuse the C172P flown past the gate:\n${_out}")
 endif()
 set(_third_number "${CMAKE_MATCH_1}")
 file(READ "${_third}" _third_said)
 if(_third_said MATCHES "aircraft ${_third_number} handed to")
     message(FATAL_ERROR "the C172P outside the gate was handed over:\n${_third_said}")
 endif()
-if(NOT _third_said MATCHES "aircraft ${_third_number} refused the learnt landing: not at the learnt landing's gate: YSSY 16R: 3\\.[34] miles out")
+if(NOT _third_said MATCHES "aircraft ${_third_number} refused the learnt landing: not at the learnt landing's gate: YSSY 16R: 1\\.[3-6] miles out")
     message(FATAL_ERROR "the client outside the gate was not told why it was refused:\n${_third_said}")
 endif()
 if(_first_said MATCHES "refused the learnt landing")
