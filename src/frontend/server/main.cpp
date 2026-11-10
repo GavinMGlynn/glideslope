@@ -159,9 +159,10 @@ struct Options {
     std::vector<Flown> fly;
     std::string on_final; // AIRPORT/RUNWAY, or empty
     // How far out the first player on final starts, in nautical miles
-    // (`--players-on-final AIRPORT/RUNWAY@MILES`; two, the gate's middle,
-    // unless said).
-    double on_final_out_nm = 2.0;
+    // (`--players-on-final AIRPORT/RUNWAY@MILES`), or, unless said, where
+    // her learnt landing's gate holds her thirty seconds
+    // (sim::learnt_gate_start_m) - two miles for one with none.
+    std::optional<double> on_final_out_nm;
     std::string ai_on_final; // AIRPORT/RUNWAY, or empty
     std::string ai_route;    // a route file for the first AI aircraft, or empty
     int ai = default_ai;
@@ -299,10 +300,13 @@ void print_usage(std::FILE* out) {
         "  --players-on-final AIRPORT/RUNWAY[@MILES]  each player starts on the\n"
         "                     final approach to that runway end - 'YSSY/16R' -\n"
         "                     trimmed at the aeroplane's approach speed with the\n"
-        "                     landing flap: the first two miles out, or MILES (0.5\n"
-        "                     to 10), two being the middle of the gate the learnt\n"
-        "                     landing is offered at, and each after half a mile\n"
-        "                     further\n"
+        "                     landing flap: the first MILES out (0.5 to 10), or\n"
+        "                     by default where the gate the learnt landing is\n"
+        "                     offered at holds her for 30 s left alone (its\n"
+        "                     middle, two miles, for an aeroplane without one);\n"
+        "                     each after half a mile apart, the second half a mile\n"
+        "                     past the furthest the first may be (MILES, or the\n"
+        "                     gate's far edge)\n"
         "  --ai-route FILE    the first AI aircraft flying the plan file is given\n"
         "                     this route at once, as a player's copilot's route\n"
         "                     is: checked against it and flown, or refused and\n"
@@ -982,8 +986,13 @@ void print_settings(const Options& o, std::FILE* out) {
     if (o.on_final.empty()) {
         std::fprintf(out, "on final  (no: players start where the plan does)\n");
     } else {
-        std::fprintf(out, "on final  %s, the first %.2f miles out\n", o.on_final.c_str(),
-                     o.on_final_out_nm);
+        if (o.on_final_out_nm) {
+            std::fprintf(out, "on final  %s, the first %.2f miles out\n", o.on_final.c_str(),
+                         *o.on_final_out_nm);
+        } else {
+            std::fprintf(out, "on final  %s, the first where her gate holds her 30 s\n",
+                         o.on_final.c_str());
+        }
     }
     std::fprintf(out, "ai final  %s\n",
                  o.ai_on_final.empty() ? "(no: the AI flies its plan)" : o.ai_on_final.c_str());
@@ -1803,7 +1812,29 @@ public:
         if (on_final_ && final_speeds) {
             const auto players = static_cast<double>(std::count_if(
                 flown_.begin(), flown_.end(), [](const Aircraft& a) { return a.slot >= 0; }));
-            const double out_m = (on_final_out_nm_ + 0.5 * players) * 1852.0;
+            // **The first where her gate holds her thirty seconds** left
+            // alone, unless told (`@MILES`): from the gate's middle she flew
+            // out of its near edge in seventeen (client_stays_at_gate.cmake).
+            // Two miles for one with no gate, as before.
+            // **Each after that half a mile apart, from half a mile past
+            // the furthest the first can be** (her gate's far edge, or the
+            // distance told): a first player's start differs by aeroplane,
+            // and counted from her own a fast second was put 0.22 of a mile
+            // behind a C172P and flew into her (server_learnt_landing.cmake).
+            double out_m = 2.0 * 1852.0;
+            if (on_final_out_nm_) {
+                out_m = *on_final_out_nm_ * 1852.0;
+            } else if (const auto policy = learnt_for(model);
+                       players == 0.0 && policy &&
+                       policy->trained_for(aircraft->loaded_weight_lbs())) {
+                out_m = glideslope::sim::learnt_gate_start_m(*policy);
+            }
+            if (players > 0.0) {
+                const double furthest_first_m =
+                    on_final_out_nm_ ? *on_final_out_nm_ * 1852.0
+                                     : glideslope::sim::LearntGate::furthest_m;
+                out_m = furthest_first_m + 0.5 * players * 1852.0;
+            }
             ic = glideslope::sim::final_approach_start(
                 *on_final_, out_m, final_start_kts(model, *final_speeds, *aircraft),
                 final_speeds->flap, final_speeds->aim_m, 3.0);
@@ -1956,10 +1987,12 @@ public:
     // **Every player starts on the final approach to `spec`'s runway end**
     // (`--players-on-final AIRPORT/RUNWAY[@MILES]`), as the CLI's landings
     // do: the first `first_out_nm` out on the centreline and the glidepath -
-    // two, the middle of the learnt landing's gate, unless said - and each
-    // after half a mile further out, so that no two are put in one place.
-    // Why not, or nothing.
-    std::string players_on_final(const std::string& spec, double first_out_nm) {
+    // unless said, where her learnt landing's gate holds her thirty seconds
+    // left alone (sim::learnt_gate_start_m), or two miles for one with none
+    // - and each after half a mile apart, from half a mile past the furthest
+    // the first may be, so that no two are put in one place. Why not, or
+    // nothing.
+    std::string players_on_final(const std::string& spec, std::optional<double> first_out_nm) {
         std::string why;
         on_final_out_nm_ = first_out_nm;
         on_final_ = runway_end_named(spec, why);
@@ -2177,8 +2210,14 @@ public:
             announced_.push_back({index, glideslope::net::Controller::learnt_landing,
                                   static_cast<double>(steps_) /
                                       static_cast<double>(glideslope::sim::steps_per_second)});
-            std::printf("aircraft %u handed to the learnt landing, on final to %s\n",
-                        static_cast<unsigned>(index), gate.runway->name.c_str());
+            // **And how far inside the gate's near edge**, for a test that
+            // judges how much she had to spare (client_stays_at_gate.cmake).
+            const double along_m =
+                glideslope::sim::learnt_gate_along_m(*a.aircraft, *gate.runway);
+            std::printf("aircraft %u handed to the learnt landing, on final to %s, %.3f miles "
+                        "out, %.0f m before the gate's near edge\n",
+                        static_cast<unsigned>(index), gate.runway->name.c_str(),
+                        along_m / 1852.0, along_m - glideslope::sim::LearntGate::nearest_m);
             std::fflush(stdout);
             return {};
         }
@@ -4356,7 +4395,7 @@ private:
     std::map<std::string, std::shared_ptr<const glideslope::sim::LearntPolicy>> learnt_;
     // Where players start, on final (`--players-on-final`), or none.
     std::optional<glideslope::sim::Runway> on_final_;
-    double on_final_out_nm_ = 2.0; // the first player's miles out
+    std::optional<double> on_final_out_nm_; // the first player's miles out, if said
     double fail_engines_at_s_ = -1.0;
     // Players given aircraft so far, and how many a wreck waits for
     // (`--test-wreck-waits-for-joins`; nought, none).
