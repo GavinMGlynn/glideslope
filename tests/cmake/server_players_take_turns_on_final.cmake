@@ -58,6 +58,7 @@ string(REPLACE "|" ";" _runs "${ORDERS}")
 set(_followers "")
 set(_places "")
 foreach(_run IN LISTS _runs)
+    string(REGEX REPLACE "\\+[a-z]+$" "" _run "${_run}")
     string(REPLACE "," ";" _order "${_run}")
     list(LENGTH _order _n)
     math(EXPR _last "${_n} - 1")
@@ -82,6 +83,16 @@ endif()
 list(LENGTH _gated _gated_n)
 
 list(GET _runs ${RUN} _run)
+# **How the last joins** (`+window`, `+restart`): the window client's own
+# program, run --headless as every window test runs it, waiting with no
+# aircraft and told why, then given hers; or the command-line client begun
+# again on the same key while it waits - its first session going silent,
+# as a client killed does - which must keep her turn.
+set(_how "")
+if(_run MATCHES "\\+([a-z]+)$")
+    set(_how "${CMAKE_MATCH_1}")
+    string(REGEX REPLACE "\\+[a-z]+$" "" _run "${_run}")
+endif()
 string(REPLACE "," ";" _order "${_run}")
 list(LENGTH _order _n)
 
@@ -128,23 +139,96 @@ foreach(_i RANGE ${_last})
         set(_leaves --until-answered)
     endif()
     file(REMOVE "${WORK}/heard${_i}.txt")
-    list(APPEND _commands COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 1500
+    if(_i EQUAL _last AND _how STREQUAL "window")
+        continue()
+    endif()
+    if(_i EQUAL _last AND _how STREQUAL "restart")
+        # Its first session: given up on, silent, eight seconds in.
+        set(_secret "1111111111111111111111111111111111111111111111111111111111111111")
+        file(REMOVE "${WORK}/heard_first.txt")
+        list(APPEND _commands COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 8
+             --after-ready "${_after}" --aircraft ${_a} --key ${_secret} --no-goodbye
+             --heard "${WORK}/heard_first.txt")
+        set(_after "${WORK}/heard_first.txt")
+        set(_again --key ${_secret})
+    else()
+        set(_again "")
+    endif()
+    list(APPEND _commands COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 900
          --after-ready "${_after}" --aircraft ${_a} --predict --from-held --learnt-landing-at 30
-         ${_leaves} --heard "${WORK}/heard${_i}.txt")
+         ${_leaves} ${_again} --heard "${WORK}/heard${_i}.txt")
 endforeach()
-execute_process(
-    ${_commands}
-    COMMAND "${SERVER}" --port ${PORT} --seconds 1800 --until-empty --ai 1 --headless
-            --data "${DATA}" --store "${_store}" --timeout 30 --ready-file "${_ready}"
-            --players-on-final YSSY/16R
-    RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
-port_listened("${_out}" "${_err}")
+if(_how STREQUAL "window")
+    # The window client last, through a relay that holds nothing back
+    # (glideslope_impair, at PORT + 1), which passes the server's standard
+    # output on to standard error: the client's is read from the one and the
+    # server's from the other.
+    math(EXPR _relay "${PORT} + 1")
+    port_lock_hold(${_relay})
+    math(EXPR _before "${_last} - 1")
+    list(GET _order ${_last} _a)
+    execute_process(
+        ${_commands}
+        COMMAND "${SERVER}" --port ${PORT} --seconds 1800 --until-empty --ai 1 --headless
+                --data "${DATA}" --store "${_store}" --timeout 30 --ready-file "${_ready}"
+                --players-on-final YSSY/16R
+        COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
+                --seed 1 --until-input-ends --seconds 1800
+        COMMAND "${WINDOW}" --headless --gpu-driver "${DRIVER}" --size 320x200
+                --aircraft ${_a} --shot "${WORK}/window.bmp" --shot-at 999999
+                --quit-at 4800 --view cockpit --press-after 30 L
+                --after-ready "${WORK}/heard${_before}.txt"
+                --server 127.0.0.1 ${_relay} --server-key ${_key}
+        RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _window ERROR_VARIABLE _out)
+    port_listened("${_window}" "${_out}")
+    if(_out MATCHES "no GPU|could not create|no device")
+        message(STATUS "the window client cannot draw here: ${_out}")
+        cmake_language(EXIT 77)
+    endif()
+    file(WRITE "${WORK}/window.txt" "${_window}")
+else()
+    execute_process(
+        ${_commands}
+        COMMAND "${SERVER}" --port ${PORT} --seconds 1800 --until-empty --ai 1 --headless
+                --data "${DATA}" --store "${_store}" --timeout 30 --ready-file "${_ready}"
+                --players-on-final YSSY/16R
+        RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+    port_listened("${_out}" "${_err}")
+endif()
 file(WRITE "${WORK}/server.txt" "${_out}")
+# The first session of one begun again is ended by the server for the newer
+# on its key, and says so, exiting 1: as it should.
+if(_how STREQUAL "restart")
+    list(REMOVE_AT _rcs ${_last})
+    file(READ "${WORK}/heard_first.txt" _first)
+    if(NOT _first MATCHES "taken over by a newer session for this key")
+        message(FATAL_ERROR "the first session was not ended for the newer:\n${_first}")
+    endif()
+endif()
 foreach(_rc IN LISTS _rcs)
     if(NOT _rc EQUAL 0)
-        message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
+        message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}")
     endif()
 endforeach()
+
+# **The window client waited, was told why, and was given her**: no
+# aircraft yet, the server's reason, and then hers, in that order.
+if(_how STREQUAL "window")
+    if(NOT _window MATCHES "the server has given it no aircraft yet: waiting for one\n(.*\n)?glideslope: the server says: waiting for the aircraft ahead: aircraft [0-9]+, [0-9.]+ miles from where she starts, until it is 3 miles on or landed, at most [0-9]+ s more\n(.*\n)?glideslope: the server gave this client aircraft [0-9]+, the ${_a}\n")
+        message(FATAL_ERROR "the window client did not wait, told why, and then fly:\n${_window}")
+    endif()
+    if(NOT _window MATCHES "pressed L, 30\\.[0-4] s in")
+        message(FATAL_ERROR "the window client did not ask 30 s after it was given her:\n${_window}")
+    endif()
+endif()
+# **The session begun again kept her turn**: its first session was told to
+# wait, and went silent; the second, on its key, was given her.
+if(_how STREQUAL "restart")
+    file(READ "${WORK}/heard${_last}.txt" _heard)
+    if(NOT _heard MATCHES "given its aircraft, [0-9]+, [0-9]+ s after joining")
+        message(FATAL_ERROR "the session begun again was never given her aircraft:\n${_heard}\n${_out}")
+    endif()
+endif()
 
 
 # **Each player, by her aeroplane, read from where she is given it on**: a
@@ -183,6 +267,17 @@ foreach(_i RANGE ${_last})
         endif()
         set(_number "${CMAKE_MATCH_1}")
         set(_turn "given at ${CMAKE_MATCH_2} s")
+        # **Let by at touchdown or at three miles, never sooner**: the one
+        # ahead landed, or 3 miles or more from her start.
+        if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, [0-9.]+ s on the session's clock: aircraft [0-9]+ (landed|3 miles on), ([0-9.]+) miles from her start\n")
+            message(FATAL_ERROR "place ${_place}, the ${_a}: let by other than at touchdown or "
+                                "three miles:\n${_turn_line}")
+        endif()
+        set(_let "${CMAKE_MATCH_1} ${CMAKE_MATCH_2}")
+        if(CMAKE_MATCH_1 STREQUAL "3 miles on" AND CMAKE_MATCH_2 LESS 3.0)
+            message(FATAL_ERROR "place ${_place}, the ${_a}: let by at ${CMAKE_MATCH_2} miles")
+        endif()
+        string(APPEND _turn " (the one ahead ${_let} miles from her start)")
         if(_given LESS _handed_before)
             message(FATAL_ERROR "place ${_place}, the ${_a}: given her aircraft before the one "
                                 "ahead was handed over:\n${_out}")
@@ -208,9 +303,11 @@ foreach(_i RANGE ${_last})
     endif()
     string(FIND "${_since}" "aircraft ${_number} handed to the learnt landing" _handed_at)
     math(EXPR _handed_before "${_given} + ${_handed_at}")
-    file(READ "${WORK}/heard${_i}.txt" _heard)
-    if(NOT _heard MATCHES "asked for the learnt landing")
-        message(FATAL_ERROR "place ${_place}: the client never asked:\n${_heard}")
+    if(NOT (_i EQUAL _last AND _how STREQUAL "window"))
+        file(READ "${WORK}/heard${_i}.txt" _heard)
+        if(NOT _heard MATCHES "asked for the learnt landing")
+            message(FATAL_ERROR "place ${_place}: the client never asked:\n${_heard}")
+        endif()
     endif()
     string(APPEND _said " ${_place}. ${_a}, ${_turn}, ${_from} to ${_then} miles, ${_spare} m "
                         "to spare;")

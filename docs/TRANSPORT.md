@@ -1074,8 +1074,14 @@ byte outside printable ASCII, and an empty one is allowed.
 | written as | field |
 | --- | --- |
 | `u8` | `0E`, the kind |
-| `u8` | the aircraft's number, the person's |
+| `u8` | the aircraft's number, the person's; `FF` for a person given none yet |
 | text | what she is asked to do, 0 to 160 bytes |
+
+**To `FF`, why she waits**: a server that starts its players on final sends
+one to a person admitted with no aircraft, her turn not come - `waiting for
+the aircraft ahead: aircraft 0, 0.02 miles from where she starts, until it is
+3 miles on or landed, at most 228 s more` - once a session, to her client
+alone. A reader already read any number here; nothing in the layout moved.
 
 ### What a reader must refuse
 
@@ -1458,8 +1464,9 @@ does not refuse a `your_aircraft` that names no aircraft in the packet: a
 client that cannot find itself has no aircraft yet, which is what `FF` says.
 A server that starts its players on final admits a player whose turn has
 not come with no aircraft, and says `FF` until it gives her one; a client
-waits on that for as long as updates keep coming. No message says why: the
-version and the layout are unchanged by it.
+waits on that for as long as updates keep coming. Why is a
+`TRAFFIC_INSTRUCTION` to aircraft `FF` (below). The version and the layout
+are unchanged by either.
 
 ### The session's clock
 
