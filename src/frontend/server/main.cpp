@@ -2412,6 +2412,25 @@ public:
         return out;
     }
 
+    // **Every runway end the server knows of**: both ends of every runway
+    // of its collision ground, each its threshold, heading, length and the
+    // ground's elevation there - what an aircraft diverting chooses from.
+    std::vector<glideslope::sim::Runway> known_runway_ends() {
+        std::vector<glideslope::sim::Runway> out;
+        const glideslope::world::RunwaySurfaces& surfaces = collision_->runways();
+        for (std::size_t i = 0; i < surfaces.size(); ++i) {
+            const glideslope::world::RunwayStrip& strip = surfaces.at(i).strip;
+            for (const bool he : {false, true}) {
+                const double end_lat = he ? strip.he_latitude_deg : strip.le_latitude_deg;
+                const double end_lon = he ? strip.he_longitude_deg : strip.le_longitude_deg;
+                out.push_back(glideslope::world::runway_end(
+                    surfaces, i, he,
+                    collision_->height_above_geoid(end_lat, end_lon) * feet_per_metre));
+            }
+        }
+        return out;
+    }
+
     // The simulation's clock.
     double now_s() const {
         return static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
@@ -3528,6 +3547,19 @@ private:
         // **Behind a person who stays in the circuit, she leaves it**
         // (Controller::leaves_with, sim::behind_a_person).
         controller->leaves_with([this, &aircraft] { return behind_a_person(aircraft); });
+        // **Her hold out of her reach, she diverts** (Controller::diverts_with,
+        // sim::choose_diversion): to the nearest suitable of every runway end
+        // of the collision ground the server has loaded - every airfield
+        // near any aircraft it flies - long enough for her landing's need.
+        double needs_m = 0.0;
+        try {
+            needs_m = glideslope::sim::landing_need_m(data_, model);
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "  %s: no landing distance, so no runway refused a diversion "
+                                 "for length (%s)\n",
+                         model.c_str(), e.what());
+        }
+        controller->diverts_with([this] { return known_runway_ends(); }, needs_m);
         // **And with traffic straight in** (sim/circuit.hpp): a circuit
         // gives way to a straight-in on the approach to her runway, and an
         // approach with traffic close ahead goes around early.

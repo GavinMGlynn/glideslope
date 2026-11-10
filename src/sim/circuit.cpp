@@ -262,6 +262,7 @@ HoldOutside::HoldOutside(const Aircraft& aircraft, const Runway& runway,
             }
         }
     }
+    left_at_alt_ft_ = at_least_alt_ft;
     altitude_ft_ = std::max(at_least_alt_ft, highest_ft + 1000.0);
     best_alt_ft_ = s.altitude_ft;
     best_at_s_ = s.sim_time_s;
@@ -364,6 +365,123 @@ void HoldOutside::configure(Controls& controls) const {
     }
 }
 
+namespace {
+
+// The highest ground within `within_m` of the course from one place to
+// another, ft: sampled every 500 m along it, and across it to `within_m`
+// either side, the course run on `within_m` past each end. A flat frame
+// about the first place: what is measured here is tens of miles.
+double highest_near_course_ft(Terrain& terrain, double lat_1, double lon_1, double lat_2,
+                              double lon_2, double within_m) {
+    constexpr double feet_per_metre = 3.280839895013123;
+    constexpr double spacing_m = 500.0;
+    const double lat_m = metres_per_degree_latitude(lat_1);
+    const double lon_m = metres_per_degree_longitude(lat_1);
+    const double north_2 = (lat_2 - lat_1) * lat_m;
+    const double east_2 = (lon_2 - lon_1) * lon_m;
+    const double length_m = std::hypot(north_2, east_2);
+    const double un = length_m > 0.0 ? north_2 / length_m : 1.0;
+    const double ue = length_m > 0.0 ? east_2 / length_m : 0.0;
+    double highest_ft = -1.0e9;
+    for (double along = -within_m; along <= length_m + within_m; along += spacing_m) {
+        for (double across = -within_m; across <= within_m; across += spacing_m) {
+            const double north = along * un - across * ue;
+            const double east = along * ue + across * un;
+            highest_ft = std::max(highest_ft, terrain.height_m(lat_1 + north / lat_m,
+                                                               lon_1 + east / lon_m) *
+                                                  feet_per_metre);
+        }
+    }
+    return highest_ft;
+}
+
+} // namespace
+
+std::optional<Diversion> choose_diversion(const Aircraft& aircraft, const Runway& holding_for,
+                                          const ApproachSpeeds& speeds,
+                                          const std::vector<Runway>& known, double floor_alt_ft,
+                                          double best_alt_ft, double needs_m, double kts,
+                                          double within_s) {
+    constexpr double within_m = 4.0 * metres_per_nm; // 14 CFR 91.177(a)(2)(ii)
+    constexpr double clearance_ft = 1000.0;
+    const AircraftState s = aircraft.state();
+    std::vector<std::pair<double, const Runway*>> nearest;
+    for (const Runway& r : known) {
+        if (distance_m(r.threshold_lat_deg, r.threshold_lon_deg, holding_for.threshold_lat_deg,
+                       holding_for.threshold_lon_deg) < apart_nm * metres_per_nm ||
+            (needs_m > 0.0 && r.length_m < needs_m)) {
+            continue;
+        }
+        nearest.emplace_back(
+            distance_m(s.latitude_deg, s.longitude_deg, r.threshold_lat_deg, r.threshold_lon_deg),
+            &r);
+    }
+    std::stable_sort(nearest.begin(), nearest.end(),
+                     [](const auto& x, const auto& y) { return x.first < y.first; });
+    const auto& terrain = aircraft.terrain();
+    for (const auto& [straight_m, r] : nearest) {
+        // The glidepath's height at six miles, as the legs to final have it.
+        const double six_m = 6.0 * metres_per_nm;
+        const double g6_ft =
+            r->elevation_ft + (six_m + speeds.aim_m) * std::tan(3.0 / degrees) * 3.280839895013123;
+        const double h = r->heading_deg / degrees;
+        const double lat_m = metres_per_degree_latitude(r->threshold_lat_deg);
+        const double lon_m = metres_per_degree_longitude(r->threshold_lat_deg);
+        const auto out_along = [&](double out_nm, double& lat, double& lon) {
+            lat = r->threshold_lat_deg - out_nm * metres_per_nm * std::cos(h) / lat_m;
+            lon = r->threshold_lon_deg - out_nm * metres_per_nm * std::sin(h) / lon_m;
+        };
+        double six_lat = 0.0;
+        double six_lon = 0.0;
+        out_along(6.0, six_lat, six_lon);
+        // The approach: from where she joins down to six miles, over the
+        // ground near it - judged at the six-mile point's height, its
+        // lowest.
+        // The way there first, which sets the height she joins at.
+        double route_alt_ft = floor_alt_ft;
+        double join_out_nm = 6.0;
+        double join_lat = six_lat;
+        double join_lon = six_lon;
+        // Twice: the join moves out with the way's height, and the way's
+        // ground is judged to where it then is.
+        for (int pass = 0; pass < 2; ++pass) {
+            const double ground_ft =
+                terrain ? highest_near_course_ft(*terrain, s.latitude_deg, s.longitude_deg,
+                                                 join_lat, join_lon, within_m)
+                        : -1.0e9;
+            route_alt_ft = std::max(floor_alt_ft, ground_ft + clearance_ft);
+            join_out_nm = 6.0 + std::max(0.0, route_alt_ft - g6_ft) / 318.0;
+            out_along(join_out_nm, join_lat, join_lon);
+        }
+        if (route_alt_ft > best_alt_ft) {
+            continue;
+        }
+        if (terrain && highest_near_course_ft(*terrain, join_lat, join_lon, six_lat, six_lon,
+                                              within_m) +
+                               clearance_ft >
+                           g6_ft) {
+            continue;
+        }
+        const double route_nm =
+            (distance_m(s.latitude_deg, s.longitude_deg, join_lat, join_lon) +
+             distance_m(join_lat, join_lon, r->threshold_lat_deg, r->threshold_lon_deg)) /
+            metres_per_nm;
+        if (kts <= 0.0 || route_nm / kts * 3600.0 > within_s) {
+            continue;
+        }
+        (void)straight_m;
+        Diversion d;
+        d.runway = *r;
+        d.route_alt_ft = route_alt_ft;
+        d.join_lat_deg = join_lat;
+        d.join_lon_deg = join_lon;
+        d.join_out_nm = join_out_nm;
+        d.route_nm = route_nm;
+        return d;
+    }
+    return std::nullopt;
+}
+
 bool departure_held(const Runway& runway, const std::vector<std::optional<CirclePlace>>& all) {
     return std::any_of(all.begin(), all.end(), [&runway](const std::optional<CirclePlace>& p) {
         return p && same_runway(p->runway, runway) && !p->clear_of_departures;
@@ -405,14 +523,63 @@ void GoAroundCircuit::follow(std::optional<double> ahead_alt_ft, bool straight_i
     const bool before_base = leg_ != Leg::base && leg_ != Leg::intercept && leg_ != Leg::final;
     const bool giving_way = straight_in && before_base;
     following_ = ahead_alt_ft.has_value() || giving_way;
-    if (!ahead_alt_ft) {
+    if (ahead_alt_ft) {
+        // Raised, and kept raised: the downwind leg is left where the
+        // glidepath meets the height she is at.
+        const double above_ft = *ahead_alt_ft + above_ahead_ft - runway_.elevation_ft;
+        if (above_ft > circuit_ft_) {
+            circuit_ft_ = above_ft;
+            leave_downwind_nm_ = circuit_ft_ / 318.0 + 0.33;
+        }
+    }
+    if (following_) {
+        clear_the_racetrack_ground();
+    }
+}
+
+void GoAroundCircuit::clear_the_racetrack_ground() {
+    const auto& terrain = a_.terrain();
+    if (!terrain || circuit_ft_ <= racetrack_sampled_ft_ + resampled_over_ft) {
         return;
     }
-    // Raised, and kept raised: the downwind leg is left where the glidepath
-    // meets the height she is at.
-    const double above_ft = *ahead_alt_ft + above_ahead_ft - runway_.elevation_ft;
-    if (above_ft > circuit_ft_) {
-        circuit_ft_ = above_ft;
+    constexpr double feet_per_metre = 3.280839895013123;
+    constexpr double spacing_m = 250.0;
+    const double h = runway_.heading_deg / degrees;
+    const double lat_m = metres_per_degree_latitude(runway_.threshold_lat_deg);
+    const double lon_m = metres_per_degree_longitude(runway_.threshold_lat_deg);
+    // Up to twenty raises: each makes a bigger racetrack, sampled again.
+    for (int raised = 0; raised < 20; ++raised) {
+        // Sampled for a circuit `resampled_over_ft` higher than hers, so
+        // that a raise short of it, not sampled again, is inside the area.
+        const double area_ft = circuit_ft_ + resampled_over_ft;
+        // Her downwind speed made true at that height (ISA, the
+        // troposphere), and her turn at it.
+        const double alt_ft = runway_.elevation_ft + area_ft;
+        const double sigma = std::pow(std::max(0.1, 1.0 - 6.8756e-6 * alt_ft), 4.2559);
+        const double tas_mps = (speeds_.vref_kts + 20.0) * 0.514444 / std::sqrt(sigma);
+        const double turn_m = tas_mps * tas_mps / (9.80665 * std::tan(25.0 / degrees));
+        const double turns_away_nm =
+            area_ft / 318.0 + 0.33 +
+            std::max(0.0, longest_extension_nm - 2.0 * turn_radius_m_ / metres_per_nm);
+        const double reach_m = turns_away_nm * metres_per_nm + reach_turns * turn_m;
+        double highest_ft = runway_.elevation_ft;
+        for (double along = 0.0; along >= -reach_m; along -= spacing_m) {
+            for (double across = 500.0; across >= -(4.0 * turn_m + 2000.0); across -= spacing_m) {
+                const double north = along * std::cos(h) - across * std::sin(h);
+                const double east = along * std::sin(h) + across * std::cos(h);
+                highest_ft = std::max(highest_ft,
+                                      terrain->height_m(runway_.threshold_lat_deg + north / lat_m,
+                                                        runway_.threshold_lon_deg + east / lon_m) *
+                                          feet_per_metre);
+            }
+        }
+        racetrack_sampled_ft_ = circuit_ft_;
+        racetrack_sampled_nm_ = reach_m / metres_per_nm;
+        const double over_ft = highest_ft + racetrack_clearance_ft - runway_.elevation_ft;
+        if (over_ft <= circuit_ft_) {
+            return;
+        }
+        circuit_ft_ = over_ft;
         leave_downwind_nm_ = circuit_ft_ / 318.0 + 0.33;
     }
 }

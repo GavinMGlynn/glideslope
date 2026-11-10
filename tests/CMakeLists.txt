@@ -399,6 +399,11 @@ set(GLIDESLOPE_UNIT_TESTS
     a_person_straight_in_to_or_departing_the_reciprocal_runway_is_seen
     a_hold_outside_the_circuit_over_raised_ground_is_flown_1000_ft_over_it
     a_hold_out_of_her_reach_is_given_up_for_her_best_height_where_she_is
+    a_diversion_is_to_the_nearest_runway_she_is_told_of_that_is_another_airfield_long_enough_reachable_and_clear_to_approach
+    an_ai_aircraft_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart_the_slowest_and_the_fastest
+    every_landplane_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart
+    a_racetrack_beside_high_ground_past_its_circuits_ground_is_flown_1000_ft_over_it
+    every_landplane_following_another_round_a_circuit_beside_high_ground_beyond_8_nm_stays_500_ft_over_it
     a_person_who_lines_up_and_rolls_with_an_ai_aircraft_2_nm_out_is_kept_apart_from_her_the_slowest_and_the_fastest_each_with_each
     a_person_who_lines_up_and_rolls_under_an_ai_aircraft_at_200_ft_lifts_off_inside_the_minimum_of_her
     every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
@@ -1461,6 +1466,18 @@ set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_down_the_appr
     PROPERTIES TIMEOUT 1800)
 set_tests_properties(a_hold_out_of_her_reach_is_given_up_for_her_best_height_where_she_is
     PROPERTIES TIMEOUT 600)
+# **A hold out of reach diverts, and a racetrack's whole ground**
+# (docs/status, 2026-11-11): on linux-debug locally, beside another test,
+# the slowest and fastest diverting 204 s, the F-15C and the Cub
+# behind an F-15C beside high ground 100 s; every landplane each,
+# gust_sweep, 185 and 79 s on linux-release - about 2,600 and 1,100 on
+# debug at fourteen times. Five times the local figure and more.
+set_tests_properties(an_ai_aircraft_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart_the_slowest_and_the_fastest
+    a_racetrack_beside_high_ground_past_its_circuits_ground_is_flown_1000_ft_over_it
+    PROPERTIES TIMEOUT 1800)
+set_tests_properties(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart
+    every_landplane_following_another_round_a_circuit_beside_high_ground_beyond_8_nm_stays_500_ft_over_it
+    PROPERTIES TIMEOUT 14400 LABELS gust_sweep)
 set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
     PROPERTIES TIMEOUT 5400)
 set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart

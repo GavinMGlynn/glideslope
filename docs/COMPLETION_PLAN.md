@@ -1677,17 +1677,28 @@ AI aircraft kept apart from each other and clear of the runway.
       leaving near her fix she skipped the climb, and now does not. All
       four pairs climbed over 1,200 ft before their fix, never within
       500 ft or 1.5 nm of the person.
-- [ ] **A racetrack can reach past the ground its circuit sampled**: an
+- [x] **A racetrack can reach past the ground its circuit sampled**: an
       F-15C following another, her circuit raised, flew her racetrack into
       a plateau 10 nm out that her circuit (sampled 8 nm out) had not seen.
       *Verification: every landplane following another round a circuit
-      beside high ground beyond 8 nm stays 500 ft over it.*
-- [ ] **A hold out of her reach is given up for her best height**: done
+      beside high ground beyond 8 nm stays 500 ft over it.* Done
+      2026-11-11: the racetrack's whole area, sized by her speed and
+      height, is flown 1,000 ft over; all 15 behind an F-15C, least 884 ft.
+- [x] **A hold out of her reach is given up for her best height**: done
       2026-11-06 - she holds the best she climbed to, circling where she
       is, never setting off over ground she cannot clear (a Cub, 14,100 ft
-      over the runway). Nothing yet diverts her elsewhere.
+      over the runway). Since 2026-11-11 she diverts to the nearest
+      suitable runway the server knows; with none, she holds until her
+      fuel brings her back.
       *Verification: an AI aircraft whose hold is out of reach diverts to
-      another runway, kept apart.*
+      another runway, kept apart.* 14 landplanes diverted and landed, kept
+      apart; the F-22A, too short of fuel to divert, is named (next item).
+- [ ] **Short of fuel behind a person who stays, an F-22A strikes the
+      ground**: put on final at her landing weight, her hold out of reach,
+      she comes back to her runway with ten minutes' fuel while the person
+      still flies the circuit, and does not get down.
+      *Verification: an F-22A coming back short of fuel behind a person who
+      stays in the circuit lands.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the
