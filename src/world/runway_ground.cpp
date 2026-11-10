@@ -392,6 +392,28 @@ std::shared_ptr<const RunwaySurfaces> runway_surfaces(const std::filesystem::pat
     return surfaces;
 }
 
+std::vector<sim::Runway> runway_ends_within(const RunwaySurfaces& surfaces, double latitude_deg,
+                                            double longitude_deg, double within_m,
+                                            const std::function<double(double, double)>& elevation_ft,
+                                            std::size_t* looked_up) {
+    std::vector<sim::Runway> out;
+    for (std::size_t i = 0; i < surfaces.size(); ++i) {
+        const RunwayStrip& strip = surfaces.at(i).strip;
+        for (const bool he : {false, true}) {
+            const double lat = he ? strip.he_latitude_deg : strip.le_latitude_deg;
+            const double lon = he ? strip.he_longitude_deg : strip.le_longitude_deg;
+            if (sim::distance_m(latitude_deg, longitude_deg, lat, lon) >= within_m) {
+                continue;
+            }
+            if (looked_up != nullptr) {
+                ++*looked_up;
+            }
+            out.push_back(runway_end(surfaces, i, he, elevation_ft(lat, lon)));
+        }
+    }
+    return out;
+}
+
 sim::Runway runway_end(const RunwaySurfaces& surfaces, std::size_t i, bool he,
                        double elevation_ft) {
     const RunwaySurfaces::Runway& r = surfaces.at(i);

@@ -318,6 +318,10 @@ public:
     // Whether her hold's height was out of her reach, and she holds her
     // best instead where she is.
     bool out_of_reach() const { return out_of_reach_; }
+    // **Coming down where she is**, her hold given up: her height set to the
+    // one she left her circuit at, circling where she is; whether she is
+    // within `sets_off_within_ft` of it.
+    bool come_down_to_leaving();
 
 private:
     const Aircraft& a_;
@@ -362,7 +366,8 @@ private:
 //     within 4 nm of the course (14 CFR 91.177(a)(2)(ii)) and never under
 //     `floor_alt_ft` (the height she left her circuit at: 700 ft over the
 //     person in it); and short enough to fly at `kts` in her fuel less the
-//     ten minutes' minimum (`within_s`).
+//     ten minutes' minimum (`within_s`) - judged first, by the straight
+//     line, before any ground is sampled.
 //   - **an approach she can fly**: from where she joins its centreline to
 //     its six-mile point, descending to the glidepath there, 1,000 ft over
 //     the highest ground within 4 nm of that leg too.
@@ -370,7 +375,7 @@ private:
 // and the descent from her way's height to the glidepath there at three
 // degrees, 318 ft a mile - she comes down on the extended centreline, as
 // a straight-in approach is flown. Sampled every 500 m; none: nothing
-// suitable, and she holds where she is until her fuel brings her back.
+// suitable, and she comes back at once (Controller::diverts_with).
 struct Diversion {
     Runway runway;
     double route_alt_ft = 0.0;  // the way there, above sea level
@@ -457,21 +462,23 @@ public:
     // sampled while she follows: a downwind leg extended and its racetrack
     // reach past the 8 nm her circuit's ground was sampled to - an F-15C
     // behind another, raised 700 ft, flew hers into a plateau 10 nm out.
-    // The area: from the threshold out to where the racetrack's turn away
-    // begins (`leave_downwind_nm` and the extension) and `reach_turns`
-    // turn radii beyond it, a turn's lateral reach in a turn begun late,
-    // and across from 500 m right of the centreline to four turn radii and
-    // two kilometres left of it, as her circuit's is - each radius her turn
-    // at 25 degrees of bank and her downwind speed made true at the
-    // circuit's height (ISA), so that a higher, faster racetrack is a
-    // bigger one, as a hold's protected area is sized by its speed and
-    // height (FAA Order 7130.3A's templates). Over its highest ground she
-    // flies `racetrack_clearance_ft`, the 1,000 ft a level hold's primary
-    // area keeps (7130.3A as the AIM and TERPS's users quote it; 14 CFR
-    // 91.177(a)(2)(ii)). Raised for it, the area is sampled again for the
-    // racetrack the raise makes, until the two agree. Sampled every 250 m,
-    // for a circuit `resampled_over_ft` higher than hers, and again only
-    // when hers is raised past what was sampled.
+    // The area, its shape chosen, not sourced: from the threshold out to
+    // where the racetrack's turn away begins (`leave_downwind_nm` and the
+    // extension) and `reach_turns` turn radii beyond it - chosen, a turn's
+    // reach in a turn begun late - and across from 500 m right of the
+    // centreline to four turn radii and two kilometres left of it, as her
+    // circuit's is. Each radius is her turn at 25 degrees of bank and her
+    // downwind speed made true at the circuit's height (ISA), so that a
+    // higher, faster racetrack is a bigger one, as a hold's protected area
+    // grows with its true airspeed and altitude; the published holding
+    // templates' dimensions were not obtained, and are not what this is.
+    // Over its highest ground she flies `racetrack_clearance_ft`, the
+    // 1,000 ft a level hold's primary area keeps, as the AIM's and TERPS's
+    // users quote it (14 CFR 91.177(a)(2)(ii) too); no secondary area is
+    // added. Raised for it, the area is sampled again for the racetrack the
+    // raise makes, until the two agree. Sampled every 250 m, for a circuit
+    // `resampled_over_ft` higher than hers, and again only when hers is
+    // raised past what was sampled.
     static constexpr double reach_turns = 2.0;
     static constexpr double racetrack_clearance_ft = 1000.0;
     static constexpr double resampled_over_ft = 100.0;
