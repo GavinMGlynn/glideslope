@@ -378,8 +378,8 @@ ten minutes
 (2026-11-11-a-person-in-the-circuit-is-told-to-leave-it-for-an-ai-with-nowhere-to-divert).
 Counted at what she burnt idling down to wait, the A320 and the A380 ran
 dry short of the runway and the 787-8 and the B-2A on it; since then her
-reserve and her way back are counted at what she burnt flying her
-circuit, and all 15 land with it. All 15 lose the minimum to a person who
+reserve, her way back and being short of fuel are counted at what she
+burnt flying her circuit, and all 15 land with their reserve. All 15 lose the minimum to a person who
 stays - the person's conflict
 (2026-11-11-back-on-her-reserve-behind-a-person-who-stays-every-landplane-lands).
 

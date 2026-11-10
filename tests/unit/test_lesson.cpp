@@ -10689,6 +10689,10 @@ struct TwoAround {
     bool landed_on_alternate = false;
     bool came_back_out_of_reach = false;
     bool landed_on_her_own = false;
+    // The one behind's fuel as she touched down, lb, and her reserve then:
+    // Controller::minimum_fuel_s at what she burnt round her circuit.
+    double behind_landed_lbs = -1.0;
+    double behind_reserve_lbs = -1.0;
     // **Asking for the circuit cleared**: how long after the go-around she
     // first asked (negative: never), whether the person ahead was one a
     // server tells (sim::persons_in_her_circuit), what she was told, and
@@ -11048,6 +11052,9 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
         const bool ahead_now = ahead.property("gear/wow") > 0.5;
         const bool behind_now = behind.property("gear/wow") > 0.5;
         if (behind_now && !behind_touched) {
+            out.behind_landed_lbs = behind.property("propulsion/total-fuel-lbs");
+            out.behind_reserve_lbs = glideslope::sim::Controller::minimum_fuel_s *
+                                     behind_c.circuit_burn_pps();
             out.ahead_down_first = ahead_touched;
             const glideslope::sim::AircraftState b = behind.state();
             if (const auto& d = behind_c.diverted_to()) {
@@ -13420,6 +13427,19 @@ void diverting_from_behind_persons_who_stay(
                 if (!leaves && !t.short_of_fuel) {
                     wrong.push_back(pair + ": did not wait until her fuel said go");
                 }
+                // **Staying, she lands with her reserve**: her ten minutes
+                // at what she burnt round her circuit, still in her tanks.
+                std::printf("  %s landed with %.0f lb, her reserve %.0f lb (%.0f%%)\n",
+                            behind_id.c_str(), t.behind_landed_lbs,
+                            t.behind_reserve_lbs,
+                            100.0 * t.behind_landed_lbs / t.behind_reserve_lbs);
+                if (!leaves && !(t.behind_reserve_lbs > 0.0 &&
+                                 t.behind_landed_lbs >= t.behind_reserve_lbs)) {
+                    wrong.push_back(
+                        pair + ": landed with " + std::to_string(t.behind_landed_lbs) +
+                        " lb, under her " + std::to_string(t.behind_reserve_lbs) +
+                        " lb reserve");
+                }
             } else {
                 if (t.diverted_to.rfind("the alternate", 0) != 0) {
                     wrong.push_back(pair + ": diverted to \"" + t.diverted_to +
@@ -13570,7 +13590,8 @@ GLIDESLOPE_TEST(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_anothe
 // past what her fuel needs to go (Controller::fuel_to_go_lbs: her reserve
 // and her way back, at the most of what she burns now and what she burnt
 // round her circuit), she waits, and then comes back with priority (ICAO's
-// MAYDAY FUEL) whatever the person does, and lands - every one of the 15,
+// MAYDAY FUEL) whatever the person does, and lands with her reserve in her
+// tanks - every one of the 15,
 // asserted. Measured at what she burnt circling as she came down, an
 // airliner's reserve was a fifth of what her way back burns: the A320 and
 // the A380 ran dry short of the runway, the 787-8 and the B-2A on it. A

@@ -397,7 +397,8 @@ public:
     std::optional<double> rejoined_at_s() const { return rejoined_at_s_; }
     // **Short of fuel, she comes back from her hold to land** whether or not
     // the person ahead is down: what is in her tanks lasts less than
-    // `minimum_fuel_s` at what her engines burn now. "Minimum fuel" (AIM
+    // `minimum_fuel_s` at `going_burn_pps` - the more of what she burns now
+    // and what she burnt round her circuit. "Minimum fuel" (AIM
     // 5-5-15; ICAO's MINIMUM FUEL): no undue delay can be accepted. An
     // F-22A put on final at her landing weight, held 15 minutes behind a
     // person flying away, ran her tanks dry on her approach back and fell
@@ -409,10 +410,10 @@ public:
     // divert: from where she is to the six-mile point and down the final to
     // the threshold, flown at her approach's reference speed - slower than
     // she flies most of it, which allows for the more she burns there
-    // gear down. She stops waiting for the circuit when what she has lasts
-    // less than this and `minimum_fuel_s` (ICAO's MAYDAY FUEL: her fuel on
-    // landing below the reserve; `fuel_to_go_lbs`). Nought when not
-    // holding.
+    // gear down - and her turns onto it at 3 degrees a second. She stops waiting for
+    // the circuit when what she has lasts less than this and `minimum_fuel_s` (ICAO's
+    // MAYDAY FUEL: her fuel on landing below the reserve; `fuel_to_go_lbs`). Nought
+    // when not holding.
     double fuel_back_s() const;
     // How long what is in her tanks lasts at what her engines burn now, s
     // (infinite: burning nothing).
