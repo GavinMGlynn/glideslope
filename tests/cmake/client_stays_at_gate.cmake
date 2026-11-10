@@ -7,13 +7,14 @@
 #         -DDRIVER=<gpu driver> -P client_stays_at_gate.cmake
 #
 # **Built, not hoped for.** For each aeroplane, a server of its own starts
-# its one player on final to Sydney's 16R 2.35 miles out
-# (`--players-on-final YSSY/16R@2.35`): inside the gate (1.7 to 2.4 miles),
-# near its far edge, so that thirty seconds down the glidepath at her
-# approach speed - at most 0.63 of a mile at 75 kt - she is still short of
-# its near one. From its middle, two miles, she has flown out of it by
-# then however well she holds the rest. The client with the window joins in
-# that aeroplane and touches nothing, but for L thirty seconds in
+# its one player on final to Sydney's 16R where it starts any person who
+# joins on final and says no distance (`--players-on-final YSSY/16R`): where
+# her gate holds her thirty seconds (sim::learnt_gate_start_m, 2.26 to 2.35
+# miles). From the gate's middle, two miles, where it started her until
+# 2026-11-11, she flew out of its near edge (1.7 miles) in about seventeen
+# seconds however well she held the rest. The client with the window - the
+# window client's own program, run --headless as every window test runs it
+# - joins in that aeroplane and touches nothing, but for L thirty seconds in
 # (`--press-after 30 L`), which asks the server for the learnt landing:
 # the server hands her over only if its own aircraft is at the gate then -
 # on the centreline, the glidepath, the runway's heading within 5 degrees,
@@ -84,8 +85,8 @@ endif()
 set(_store "${WORK}/gate.sqlite")
 file(REMOVE "${_store}")
 
-# **The distance out, as the server reads it**: one it takes, and one it
-# refuses.
+# **A distance out said** (`@MILES`), as the server reads it: one it
+# takes, and one it refuses; and none said.
 execute_process(COMMAND "${SERVER}" --dry-run --players-on-final YSSY/16R@2.35
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(NOT _rc EQUAL 0 OR NOT _out MATCHES "on final  YSSY/16R, the first 2\\.35 miles out\n")
@@ -95,6 +96,11 @@ execute_process(COMMAND "${SERVER}" --dry-run --players-on-final YSSY/16R@0.2
                 RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 if(_rc EQUAL 0 OR NOT _err MATCHES "wants its miles out from 0\\.5 to 10")
     message(FATAL_ERROR "the server took 0.2 miles out:\n${_out}${_err}")
+endif()
+execute_process(COMMAND "${SERVER}" --dry-run --players-on-final YSSY/16R
+                RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+if(NOT _rc EQUAL 0 OR NOT _out MATCHES "on final  YSSY/16R, the first where her gate holds her 30 s\n")
+    message(FATAL_ERROR "the server did not say its own start:\n${_out}${_err}")
 endif()
 
 execute_process(
@@ -107,7 +113,7 @@ set(_key "${CMAKE_MATCH_1}")
 
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}"
-            --players-on-final YSSY/16R@2.35
+            --players-on-final YSSY/16R
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
 if(NOT _rc EQUAL 0)
     message(STATUS "the server could not get its terrain: ${_err}")
@@ -134,7 +140,7 @@ foreach(_aircraft IN LISTS _gated)
     execute_process(
         COMMAND "${SERVER}" --port ${PORT} --seconds 900 --until-empty --ai 1 --headless
                 --data "${DATA}" --timeout 30 --store "${_store}" --ready-file "${_ready}"
-                --players-on-final YSSY/16R@2.35
+                --players-on-final YSSY/16R
         COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
                 --seed 1 --until-input-ends --seconds 900
         COMMAND "${CLIENT}" --headless --gpu-driver "${DRIVER}" --size 320x200
@@ -156,26 +162,40 @@ foreach(_aircraft IN LISTS _gated)
     endif()
     # **Touched nothing**: L, once, thirty seconds in, and no other key.
     string(REGEX MATCHALL "glideslope: pressed [^\n]*\n" _presses "${_out}")
-    if(NOT _presses MATCHES "^glideslope: pressed L, 3[0-9]\\.[0-9] s in\n$")
-        message(FATAL_ERROR "${_aircraft}: the client pressed ${_presses}, not L alone 30 s in")
+    # **Pressed by 30.5 s**: the client says the time to a tenth, on the
+    # flight's clock since joining; a press made later would be judged
+    # later, at least a second inside the margin every one has (below).
+    if(NOT _presses MATCHES "^glideslope: pressed L, 30\\.[0-4] s in\n$")
+        message(FATAL_ERROR "${_aircraft}: the client pressed ${_presses}, not L alone by 30.5 s")
     endif()
-    if(NOT _err MATCHES "slot 0.s ${_aircraft} starts on final to YSSY 16R 2\\.35 miles out")
-        message(FATAL_ERROR "${_aircraft}: the server did not start her 2.35 miles out:\n${_err}")
+    if(NOT _err MATCHES "slot 0.s ${_aircraft} starts on final to YSSY 16R (2\\.[23][0-9]) miles out")
+        message(FATAL_ERROR "${_aircraft}: the server did not start her where her gate holds "
+                            "her:\n${_err}")
     endif()
+    set(_out_nm "${CMAKE_MATCH_1}")
     if(_err MATCHES "aircraft ([0-9]+) not handed to the learnt landing: ([^\n]*)")
         message(FATAL_ERROR "${_aircraft}: left alone, she was not at the gate thirty seconds "
                             "in: ${CMAKE_MATCH_2}")
     endif()
-    if(NOT _err MATCHES "aircraft [0-9]+ handed to the learnt landing, on final to YSSY 16R")
+    if(NOT _err MATCHES "aircraft [0-9]+ handed to the learnt landing, on final to YSSY 16R, ([0-9.]+) miles out, (-?[0-9]+) m before the gate's near edge")
         message(FATAL_ERROR "${_aircraft}: the server never judged her at its gate:\n${_err}")
     endif()
+    set(_then_nm "${CMAKE_MATCH_1}")
+    set(_spare_m "${CMAKE_MATCH_2}")
+    # **At least a few seconds to spare**: 100 m, three seconds and more at
+    # every one's approach speed.
+    if(_spare_m LESS 100)
+        message(FATAL_ERROR "${_aircraft}: at the gate, but only ${_spare_m} m before its near "
+                            "edge")
+    endif()
     math(EXPR _flown "${_flown} + 1")
-    string(APPEND _said " ${_aircraft}")
+    string(APPEND _said " ${_aircraft} (from ${_out_nm} to ${_then_nm} miles, ${_spare_m} m to "
+                        "spare)")
 endforeach()
 
 if(NOT _flown EQUAL _wanted)
     message(FATAL_ERROR "${_flown} of ${_wanted} aeroplanes with a gate flown")
 endif()
 message(STATUS "of ${_space} aeroplanes, the ${_wanted} with a learnt landing's gate each "
-               "joined 2.35 miles out on final, left alone, and still at the gate 30 s "
+               "joined on final, left alone, and still at the gate 30 s "
                "in:${_said}; the rest have no gate (${_no_gate})")
