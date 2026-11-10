@@ -350,13 +350,21 @@ and was down within 781 s. Short of fuel, an AI in a hold comes back to
 land whatever (an F-22A behind a person's Cub had run her tanks dry). Over raised ground the AI climbs to her hold before setting off -
 she had skipped it, leaving near her fix - and was never within 500 ft or
 1.5 nm of the person while she did. A hold out of her reach is given up
-for her best height, circling where she is; nothing diverts her yet. An
+for her best height, circling where she is; since 2026-11-11 she then
+diverts to the nearest suitable runway the server knows, and lands. An
 AI 2 nm out or more breaks off for a person lined up and flies over her
 climb, holding her upwind leg while the person climbs out: all 225
 pairs kept apart. Under an AI already at 200 ft, 171 of 225 lose the
-minimum, least 59 m and 0 ft: the item's stated shortfall. A racetrack can
-reach high ground its circuit did not sample
+minimum, least 59 m and 0 ft: the item's stated shortfall
 (2026-11-06-a-person-flying-away-and-the-climb-before-a-hold-on-raised-ground).
+Since 2026-11-11 a racetrack is flown 1,000 ft over the ground of its
+whole area, sized by her speed and height: every landplane following an
+F-15C beside high ground past 8 nm stayed 884 ft or more over it. Held out
+of her hold's reach, 14 landplanes diverted 25 nm to another runway and
+landed, kept apart from the person (least 657 ft within 1.5 nm). The
+F-22A, at her landing weight, has too little fuel to divert, and coming
+back short of fuel behind the person she strikes the ground: a plan item
+(2026-11-11-a-hold-out-of-reach-diverts-and-a-racetrack-s-whole-ground).
 
 Since 2026-11-05 a take-off given no plan levels off at its height. It
 leads the height by a tenth of her climb, and the autopilot holds it. The

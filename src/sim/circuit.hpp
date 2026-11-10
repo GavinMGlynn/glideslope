@@ -308,6 +308,8 @@ public:
     const Runway& runway() const { return runway_; }
     const ApproachSpeeds& speeds() const { return speeds_; }
     double altitude_ft() const { return altitude_ft_; }
+    // The height she left her circuit at, above sea level.
+    double left_at_alt_ft() const { return left_at_alt_ft_; }
     double speed_kts() const { return speed_kts_; }
     double fix_lat_deg() const { return fix_lat_deg_; }
     double fix_lon_deg() const { return fix_lon_deg_; }
@@ -325,6 +327,7 @@ private:
     double fix_lon_deg_ = 0.0;
     double inbound_deg_ = 0.0;
     double altitude_ft_ = 0.0;
+    double left_at_alt_ft_ = 0.0;
     double speed_kts_ = 0.0;
     Leg leg_ = Leg::to_fix;
     double leg_began_s_ = 0.0;
@@ -338,6 +341,50 @@ private:
     // judged, giving the hold up where it has stalled.
     bool climbing_first(const AircraftState& s);
 };
+
+// **Where she diverts to, her hold out of her reach**
+// (Controller::diverts_with): the nearest suitable runway the caller knows
+// of, as a pilot who cannot make her clearance diverts to "the nearest
+// suitable airport" - the words of a fuel emergency's rule (ICAO's MAYDAY
+// FUEL, as the AIM's 5-5-15 and its controllers' guidance carry it), and of
+// an alternate's choice (14 CFR 91.169: one whose weather and approach she
+// can use; 91.167's fuel to reach it). Of `known`, nearest first by the
+// straight line from her to its threshold, the first that is:
+//   - **another airfield**: its threshold `apart_nm` or more from the one
+//     she holds for - beyond the furthest any circuit there is flown
+//     (6.5 nm, measured) with the 1.5 nm minimum and more, so that she
+//     never flies into the circuit she was kept out of. Chosen.
+//   - **long enough**: no shorter than `needs_m`, her landing's need
+//     (sim::landing_need_m; 0: none refused for length).
+//   - **reachable**: the way there - straight from her to where she joins
+//     its extended centreline (`join` below) - at a height she has
+//     reached, `best_alt_ft` or under, 1,000 ft over the highest ground
+//     within 4 nm of the course (14 CFR 91.177(a)(2)(ii)) and never under
+//     `floor_alt_ft` (the height she left her circuit at: 700 ft over the
+//     person in it); and short enough to fly at `kts` in her fuel less the
+//     ten minutes' minimum (`within_s`).
+//   - **an approach she can fly**: from where she joins its centreline to
+//     its six-mile point, descending to the glidepath there, 1,000 ft over
+//     the highest ground within 4 nm of that leg too.
+// Where she joins its centreline: out from the threshold by its six miles
+// and the descent from her way's height to the glidepath there at three
+// degrees, 318 ft a mile - she comes down on the extended centreline, as
+// a straight-in approach is flown. Sampled every 500 m; none: nothing
+// suitable, and she holds where she is until her fuel brings her back.
+struct Diversion {
+    Runway runway;
+    double route_alt_ft = 0.0;  // the way there, above sea level
+    double join_lat_deg = 0.0;  // where she joins its extended centreline
+    double join_lon_deg = 0.0;
+    double join_out_nm = 0.0;   // out from its threshold
+    double route_nm = 0.0;      // from her to there
+};
+constexpr double apart_nm = 10.0;
+std::optional<Diversion> choose_diversion(const Aircraft& aircraft, const Runway& holding_for,
+                                          const ApproachSpeeds& speeds,
+                                          const std::vector<Runway>& known, double floor_alt_ft,
+                                          double best_alt_ft, double needs_m, double kts,
+                                          double within_s);
 
 class GoAroundCircuit {
 public:
@@ -406,6 +453,32 @@ public:
     // How far before the threshold, nm, she turns base from downwind.
     double leave_downwind_nm() const { return leave_downwind_nm_; }
 
+    // **A racetrack's ground is the ground of its whole protected area**,
+    // sampled while she follows: a downwind leg extended and its racetrack
+    // reach past the 8 nm her circuit's ground was sampled to - an F-15C
+    // behind another, raised 700 ft, flew hers into a plateau 10 nm out.
+    // The area: from the threshold out to where the racetrack's turn away
+    // begins (`leave_downwind_nm` and the extension) and `reach_turns`
+    // turn radii beyond it, a turn's lateral reach in a turn begun late,
+    // and across from 500 m right of the centreline to four turn radii and
+    // two kilometres left of it, as her circuit's is - each radius her turn
+    // at 25 degrees of bank and her downwind speed made true at the
+    // circuit's height (ISA), so that a higher, faster racetrack is a
+    // bigger one, as a hold's protected area is sized by its speed and
+    // height (FAA Order 7130.3A's templates). Over its highest ground she
+    // flies `racetrack_clearance_ft`, the 1,000 ft a level hold's primary
+    // area keeps (7130.3A as the AIM and TERPS's users quote it; 14 CFR
+    // 91.177(a)(2)(ii)). Raised for it, the area is sampled again for the
+    // racetrack the raise makes, until the two agree. Sampled every 250 m,
+    // for a circuit `resampled_over_ft` higher than hers, and again only
+    // when hers is raised past what was sampled.
+    static constexpr double reach_turns = 2.0;
+    static constexpr double racetrack_clearance_ft = 1000.0;
+    static constexpr double resampled_over_ft = 100.0;
+    // How far before the threshold her racetrack's area was sampled to, nm
+    // (0: never).
+    double racetrack_sampled_nm() const { return racetrack_sampled_nm_; }
+
 private:
     double along_nm() const;  // past the threshold, negative before it
     double across_m() const;  // right of the centreline
@@ -415,6 +488,10 @@ private:
     // stall (the F-35B's, 2026-10-30), the same margin over it, so that
     // final is never joined slower than the approach is flown.
     double base_kts() const;
+    // The racetrack's area sampled and her circuit raised over it.
+    void clear_the_racetrack_ground();
+    double racetrack_sampled_ft_ = -1.0e9;
+    double racetrack_sampled_nm_ = 0.0;
 
     const Aircraft& a_;
     Runway runway_;

@@ -4,6 +4,7 @@
 #include "sim/fixed_step.hpp"
 
 #include <algorithm>
+#include <limits>
 #include <cmath>
 #include <numbers>
 
@@ -829,7 +830,7 @@ void Controller::join_the_sequence() {
             GoAroundCircuit(a_, lander_->runway(), lander_->speeds()).circuit_ft()};
 }
 
-bool Controller::short_of_fuel() const {
+double Controller::fuel_lasts_s() const {
     double burning_pps = 0.0;
     for (int e = 0; e < a_.engine_count(); ++e) {
         const std::string flow = "propulsion/engine[" + std::to_string(e) + "]/fuel-flow-rate-pps";
@@ -837,9 +838,11 @@ bool Controller::short_of_fuel() const {
             burning_pps += a_.property(flow);
         }
     }
-    return burning_pps > 0.0 &&
-           a_.property("propulsion/total-fuel-lbs") / burning_pps < minimum_fuel_s;
+    return burning_pps > 0.0 ? a_.property("propulsion/total-fuel-lbs") / burning_pps
+                             : std::numeric_limits<double>::infinity();
 }
+
+bool Controller::short_of_fuel() const { return fuel_lasts_s() < minimum_fuel_s; }
 
 bool Controller::runway_not_clear(const Runway& runway) const {
     return runway_clear_ && a_.state().height_above_ground_ft < RunwayClear::decide_ft &&
@@ -1138,6 +1141,38 @@ Controls Controller::fly() {
         // that she is still ahead of anything behind her.
         if (holding_out_) {
             const bool short_of_it = short_of_fuel();
+            // **Out of her reach, she diverts** (`diverts_with`), asked once.
+            if (holding_out_->out_of_reach() && alternates_ && !alternates_asked_ &&
+                !short_of_it) {
+                alternates_asked_ = true;
+                diverted_to_ = choose_diversion(
+                    a_, holding_out_->runway(), holding_out_->speeds(), alternates_(),
+                    holding_out_->left_at_alt_ft(), holding_out_->altitude_ft(),
+                    alternate_needs_m_, holding_out_->speed_kts(),
+                    std::min(fuel_lasts_s(), 1.0e9) - minimum_fuel_s);
+                if (diverted_to_) {
+                    // Out of the sequence she held for: she is not coming
+                    // back to it.
+                    circling_.reset();
+                    FlightPlan way = final_legs(diverted_to_->runway, holding_out_->speeds());
+                    Waypoint join;
+                    join.name = "DIVERT";
+                    join.latitude_deg = diverted_to_->join_lat_deg;
+                    join.longitude_deg = diverted_to_->join_lon_deg;
+                    join.altitude_ft = diverted_to_->route_alt_ft;
+                    join.airspeed_kts = holding_out_->speed_kts();
+                    way.waypoints.insert(way.waypoints.begin(), join);
+                    rejoined_at_s_ = a_.state().sim_time_s;
+                    rejoin_.emplace(Rejoin{diverted_to_->runway, holding_out_->speeds()});
+                    navigator_.emplace(a_, std::move(way));
+                    navigator_->begin_here();
+                    diverting_en_route_ = true;
+                    holding_out_.reset();
+                }
+            }
+        }
+        if (holding_out_) {
+            const bool short_of_it = short_of_fuel();
             if (behind_a_person_ && behind_a_person_() && !short_of_it) {
                 autopilot_->set(holding_out_->modes());
                 notice_a_stall();
@@ -1173,6 +1208,17 @@ Controls Controller::fly() {
             autopilot_->turn_away(away_deg_);
             autopilot_->limit_speed(fastest_kts_);
             applied_ = autopilot_->fly();
+            // Diverting, the way there is flown as her hold was, cleaned
+            // up, until she has joined the extended centreline.
+            diverting_en_route_ = diverting_en_route_ && navigator_->next() == 0;
+            if (diverting_en_route_) {
+                applied_.flaps = 0.0;
+                applied_.speedbrake = 0.0;
+                if (a_.gear_retracts()) {
+                    applied_.gear = 0.0;
+                }
+                return applied_;
+            }
             applied_.flaps = 0.5 * rejoin_->speeds.flap;
             return applied_;
         }
