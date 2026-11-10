@@ -431,11 +431,16 @@ public:
     // nothing is asked, she comes back at once** to the runway she held for,
     // as one short of fuel does (`short_of_fuel`): holding on where she is
     // only burns what she will need there.
+    // An end told with no elevation (NaN) is given it by `elevation`
+    // (feet, at its threshold) only when it is judged, nearest first
+    // (world::diversion_runways).
     using AlternatesQuery =
         std::function<std::vector<Runway>(double latitude_deg, double longitude_deg,
                                           double within_m)>;
-    void diverts_with(AlternatesQuery alternates, double needs_m) {
+    using ElevationQuery = std::function<double(double latitude_deg, double longitude_deg)>;
+    void diverts_with(AlternatesQuery alternates, ElevationQuery elevation, double needs_m) {
         alternates_ = std::move(alternates);
+        alternate_elevation_ = std::move(elevation);
         alternate_needs_m_ = needs_m;
     }
     // Where she diverted to, and the way there, if she has.
@@ -663,6 +668,7 @@ private:
     };
     std::optional<Rejoin> rejoin_;
     AlternatesQuery alternates_;
+    ElevationQuery alternate_elevation_;
     double alternate_needs_m_ = 0.0;
     bool alternates_asked_ = false;
     std::optional<Diversion> diverted_to_;

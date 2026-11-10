@@ -10727,20 +10727,22 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
     ahead_c.to_ai_approach(runway, ahead_speeds);
     behind_c.to_ai_approach(runway, behind_speeds);
     if (extra.runways) {
+        // **The server's own** (world::diversion_runways), counting its
+        // elevations; only where she asked from is noted here.
+        glideslope::world::DiversionRunways known = glideslope::world::diversion_runways(
+            *extra.runways,
+            [ground = extra.ground](double end_lat, double end_lon) {
+                return ground ? ground(end_lat, end_lon) * feet_per_metre : 0.0;
+            },
+            extra.looked_up);
         behind_c.diverts_with(
-            [runways = extra.runways, looked_up = extra.looked_up, asked = extra.asked,
-             ground = extra.ground](double lat, double lon, double within_m) {
+            [within = known.within, asked = extra.asked](double lat, double lon, double within_m) {
                 if (asked != nullptr) {
                     *asked = {lat, lon, within_m};
                 }
-                return glideslope::world::runway_ends_within(
-                    *runways, lat, lon, within_m,
-                    [ground](double end_lat, double end_lon) {
-                        return ground ? ground(end_lat, end_lon) * feet_per_metre : 0.0;
-                    },
-                    looked_up);
+                return within(lat, lon, within_m);
             },
-            glideslope::sim::landing_need_m(data(), behind_entry.model));
+            known.elevation_ft, glideslope::sim::landing_need_m(data(), behind_entry.model));
     }
     if (extra.ceiling_ft) {
         behind_c.limit_height(std::nullopt, extra.ceiling_ft);
@@ -13216,6 +13218,25 @@ std::shared_ptr<const glideslope::world::RunwaySurfaces> a_world_of_runways(bool
     return std::make_shared<const glideslope::world::RunwaySurfaces>(std::move(strips));
 }
 
+// How many runway ends of `world` are within `asked`'s reach of where she
+// asked from ({latitude, longitude, metres}).
+std::size_t ends_in_reach(const glideslope::world::RunwaySurfaces& world,
+                          const std::array<double, 3>& asked) {
+    std::size_t n = 0;
+    for (std::size_t i = 0; i < world.size(); ++i) {
+        const glideslope::world::RunwayStrip& st = world.at(i).strip;
+        for (const bool he : {false, true}) {
+            n += glideslope::sim::distance_m(asked[0], asked[1],
+                                             he ? st.he_latitude_deg : st.le_latitude_deg,
+                                             he ? st.he_longitude_deg : st.le_longitude_deg) <
+                         asked[2]
+                     ? std::size_t{1}
+                     : std::size_t{0};
+        }
+    }
+    return n;
+}
+
 // **Each of `behinds` behind each of `aheads`, a person's who stays in the
 // circuit, the one behind's hold out of her reach**: she leaves the circuit,
 // gives her hold up, and diverts to the alternate and lands on it - or,
@@ -13260,10 +13281,10 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
             least_m = std::min(least_m, t.least_m);
             least_ft = std::min(least_ft, t.least_ft);
             const bool back = !alternate || came_back.count(behind_id) != 0;
-            std::printf("  a person's %s staying ahead, %s behind: left the circuit %s; %zu of "
-                        "%zu runway ends looked up, %.0f km her reach; diverted to %s%s%s%s; %s%s%s%s (%.1f s)\n",
+            std::printf("  a person's %s staying ahead, %s behind: left the circuit %s; "
+                        "%zu elevations looked up, %zu ends in %.0f km her reach; diverted to %s%s%s%s; %s%s%s%s (%.1f s)\n",
                         ahead_id.c_str(), behind_id.c_str(),
-                        t.left_after_s >= 0.0 ? "yes" : "NO", looked_up, 2 * world->size(), asked[2] / 1000.0,
+                        t.left_after_s >= 0.0 ? "yes" : "NO", looked_up, ends_in_reach(*world, asked), asked[2] / 1000.0,
                         t.diverted_to.empty() ? "nothing" : t.diverted_to.c_str(),
                         t.landed_on_alternate ? ", landed on it" : "",
                         t.came_back_out_of_reach ? ", came back with nowhere to divert" : "",
@@ -13289,24 +13310,18 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
             if (t.left_after_s < 0.0) {
                 wrong.push_back(pair + ": never left the circuit for a hold");
             }
-            // **Only the ends in her fuel's reach looked up**: counted here
-            // from the world, by where she asked from and how far.
-            std::size_t in_reach = 0;
-            for (std::size_t i = 0; i < world->size(); ++i) {
-                const glideslope::world::RunwayStrip& st = world->at(i).strip;
-                for (const bool he : {false, true}) {
-                    in_reach += glideslope::sim::distance_m(
-                                    asked[0], asked[1],
-                                    he ? st.he_latitude_deg : st.le_latitude_deg,
-                                    he ? st.he_longitude_deg : st.le_longitude_deg) < asked[2]
-                                    ? std::size_t{1}
-                                    : std::size_t{0};
-                }
-            }
-            if (asked[2] < 0.0 || looked_up != in_reach || looked_up >= 2 * world->size()) {
+            // **Elevations looked up only for the ends judged**, nearest
+            // first: of those in her fuel's reach (counted here from the
+            // world), her own runway's two are refused before any, and the
+            // alternate's - two ends, the nearer suitable - are the most.
+            // With nowhere to divert, none.
+            const std::size_t in_reach = ends_in_reach(*world, asked);
+            const std::size_t most_looked_up = alternate ? 2 : 0;
+            if (asked[2] < 0.0 || looked_up > most_looked_up) {
                 wrong.push_back(pair + ": " + std::to_string(looked_up) +
-                                " runway ends looked up, not the " + std::to_string(in_reach) +
-                                " within her reach of " + std::to_string(asked[2]) + " m");
+                                " runway elevations looked up, past " +
+                                std::to_string(most_looked_up) + ", of the " +
+                                std::to_string(in_reach) + " ends within her reach");
             }
             if (!t.both_clear) {
                 wrong.push_back(pair + ": not landed and clear of the runway");
@@ -13317,7 +13332,7 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
                                     ": did not come back at once and land on her own runway");
                 }
             } else {
-                if (t.diverted_to.rfind("the alternate", 0) != 0 || looked_up == 0) {
+                if (t.diverted_to.rfind("the alternate", 0) != 0) {
                     wrong.push_back(pair + ": diverted to \"" + t.diverted_to +
                                     "\", not the alternate");
                 }

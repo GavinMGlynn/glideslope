@@ -1696,6 +1696,14 @@ AI aircraft kept apart from each other and clear of the runway.
       apart; coming back behind a person who never leaves the circuit,
       every landplane lands but loses the minimum - her downwind is back
       90 s after the threshold and any final crosses it.
+- [ ] **Short of fuel with nowhere to divert, an AI cannot keep the
+      minimum from a person who stays in the circuit**: coming back behind
+      a person who never leaves it, every landplane lands but her final
+      crosses the person's downwind within 1.5 nm (least 1 m and 0 ft).
+      Something must give way - the server telling the person to, or
+      another runway offered her.
+      *Verification: an AI aircraft short of fuel with nowhere to divert
+      lands kept 500 ft or 1.5 nm from a person staying in the circuit.*
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the
