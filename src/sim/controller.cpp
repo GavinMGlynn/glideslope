@@ -859,7 +859,9 @@ double Controller::fuel_back_s() const {
     const double six_lon = r.threshold_lon_deg - out_m * std::sin(h) /
                                                      metres_per_degree_longitude(r.threshold_lat_deg);
     const double way_m = distance_m(s.latitude_deg, s.longitude_deg, six_lat, six_lon) + out_m;
-    return way_m / (holding_out_->speeds().vref_kts * 1852.0 / 3600.0);
+    // No reference speed to fly it at: no time known, so none is added.
+    const double vref_kts = holding_out_->speeds().vref_kts;
+    return vref_kts > 0.0 ? way_m / (vref_kts * 1852.0 / 3600.0) : 0.0;
 }
 
 bool Controller::runway_not_clear(const Runway& runway) const {
@@ -1243,8 +1245,7 @@ Controls Controller::fly() {
             }
             // Short of fuel with a person ahead, she comes back at once and
             // still asks, until she is down: the person is told to leave.
-            const bool emergency =
-                short_of_it || (nowhere && fuel_lasts_s() < minimum_fuel_s + fuel_back_s());
+            const bool emergency = short_of_it || must_go;
             asks_the_circuit_cleared_ = emergency && behind_a_person_ && behind_a_person_();
             rejoined_at_s_ = a_.state().sim_time_s;
             came_back_short_ = emergency;

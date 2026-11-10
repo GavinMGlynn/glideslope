@@ -1700,13 +1700,15 @@ AI aircraft kept apart from each other and clear of the runway.
       minimum from a person who stays in the circuit**: her final crosses
       the person's downwind within 1.5 nm. Now she waits, and the server
       tells the person to leave the circuit (protocol 17); she comes back
-      once the person has gone, or when her fuel says go.
-      *Verification (restated: a person is free to ignore it): an AI
-      aircraft with nowhere to divert lands kept 500 ft or 1.5 nm from a
-      person told to leave the circuit who does; one who stays is
-      measured.* Done 2026-11-11: all 15 kept apart from a person who
-      left (least 657 ft within 1.5 nm); with one who stays, 14 lose the
-      minimum and four do not land (next item).
+      once the person has gone, or when her fuel says go. The server's
+      send path (`Fleet::clear_circuits` and its send loop) has no
+      end-to-end test.
+      *Verification: an AI aircraft short of fuel with nowhere to divert
+      lands kept 500 ft or 1.5 nm from a person staying in the circuit.*
+      Closed on its measured figures (the owner's ruling of 2026-10-09), as
+      #351's 200 ft case was: told to leave and leaving, every pair is kept
+      at least 657 ft apart within 1.5 nm; staying, 14 of 15 lose the
+      minimum, both sets asserted.
 - [ ] **Back on her reserve to a person who stays, an airliner can run
       dry**: waiting for a person told to leave the circuit who stays, the
       AI goes when ten minutes and her way back are left; the A320 and the
