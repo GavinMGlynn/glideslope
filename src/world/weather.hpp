@@ -438,6 +438,9 @@ public:
     const std::vector<std::shared_ptr<ReportedWeather>>& slots() const { return slots_; }
     // Whether any slot has a station.
     bool any() const;
+    // **The stations flown now**, each its latest report: what a place whose
+    // box answers nothing keeps (fetch_stations_weather).
+    std::vector<WeatherReport> stations_flown() const;
     // **The station whose weather is most of the air at a place**: what
     // draws the sky there. Null with none.
     std::shared_ptr<ReportedWeather> nearest(double latitude_deg, double longitude_deg) const;
@@ -518,6 +521,61 @@ StationsFound fetch_stations_weather(
     const std::vector<std::pair<double, double>>& places, const std::string& time,
     const Fetch& fetch, const std::vector<WeatherReport>& kept = {},
     std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
+
+// **What each slot is to fly when stations are found** (fetch_stations_weather):
+// a station still found keeps the slot it had, and its new report there; a
+// station found anew takes the first empty slot, or one being emptied, or a
+// new one, up to most_stations; a slot whose station is no longer found is
+// emptied (none). Only the slots that change, in order. What glideslope_server
+// and a flight on its own both fly.
+struct SlotChange {
+    std::size_t slot = 0;
+    std::optional<WeatherReport> report;
+};
+std::vector<SlotChange> slot_changes(const StationSlots& slots,
+                                     std::vector<WeatherReport> stations);
+
+// **How far an aircraft flies before the stations around it are looked for
+// again**, metres, sooner than the refresh: 50 km, a quarter of
+// stations_radius_m, so that the stations are always found well ahead of
+// where they come into the air.
+inline constexpr double restation_m = 50000.0;
+
+class StationsFetch;
+
+// **When the stations around aircraft are looked for**, for a server and a
+// flight on its own alike: again every `refresh_s` from when they last came,
+// whenever an aircraft has flown restation_m from where they were looked for,
+// or the aircraft are more or fewer - on a thread of its own, never waited
+// for (StationsFetch).
+class StationsAround {
+public:
+    using Kept = std::function<std::vector<WeatherReport>()>;
+    StationsAround(Fetch fetch, double refresh_s) : fetch_(std::move(fetch)), refresh_s_(refresh_s) {}
+    ~StationsAround();
+    StationsAround(const StationsAround&) = delete;
+    StationsAround& operator=(const StationsAround&) = delete;
+
+    // The stations were had for `places` at `now_s`, without this: the first,
+    // fetched before the clock starts.
+    void had(std::vector<std::pair<double, double>> places, double now_s);
+    // **Begins a look if one is due** and none is under way; `kept` is asked
+    // for the weather flown only then.
+    void look(const std::vector<std::pair<double, double>>& places, double now_s,
+              const Kept& kept);
+    // **What a look found, once it is done**, or nothing; throws what it
+    // threw. Either way the refresh is counted from `now_s`.
+    std::optional<StationsFound> found(double now_s);
+    // Whether a look is under way.
+    bool looking() const;
+
+private:
+    Fetch fetch_;
+    double refresh_s_;
+    std::unique_ptr<StationsFetch> under_way_;
+    std::vector<std::pair<double, double>> looked_for_;
+    double came_at_s_ = 0.0;
+};
 
 // **fetch_stations_weather on a thread of its own, given up when let go**,
 // as WeatherFetch is.

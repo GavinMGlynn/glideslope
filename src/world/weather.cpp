@@ -878,6 +878,98 @@ void StationSlots::set(std::size_t slot, std::optional<WeatherReport> report,
     air_->stations = std::make_shared<StationsWeather>(std::move(flown));
 }
 
+std::vector<WeatherReport> StationSlots::stations_flown() const {
+    std::vector<WeatherReport> out;
+    for (const auto& slot : slots_) {
+        if (slot) {
+            out.push_back(slot->report());
+        }
+    }
+    return out;
+}
+
+std::vector<SlotChange> slot_changes(const StationSlots& slots,
+                                     std::vector<WeatherReport> stations) {
+    const auto& now = slots.slots();
+    std::vector<std::optional<WeatherReport>> next(now.size());
+    std::vector<bool> placed(stations.size(), false);
+    for (std::size_t i = 0; i < now.size(); ++i) {
+        if (!now[i]) {
+            continue;
+        }
+        for (std::size_t j = 0; j < stations.size(); ++j) {
+            if (!placed[j] &&
+                stations[j].surface.metar.station == now[i]->report().surface.metar.station) {
+                next[i] = std::move(stations[j]);
+                placed[j] = true;
+                break;
+            }
+        }
+    }
+    for (std::size_t j = 0; j < stations.size(); ++j) {
+        if (placed[j]) {
+            continue;
+        }
+        // An empty slot, or one being emptied, before a new one.
+        std::size_t i = 0;
+        while (i < next.size() && next[i]) {
+            ++i;
+        }
+        if (i == most_stations) {
+            break;
+        }
+        if (i == next.size()) {
+            next.emplace_back();
+        }
+        next[i] = std::move(stations[j]);
+    }
+    std::vector<SlotChange> out;
+    for (std::size_t i = 0; i < next.size(); ++i) {
+        const bool had = i < now.size() && now[i];
+        if (next[i] || had) {
+            out.push_back({i, std::move(next[i])});
+        }
+    }
+    return out;
+}
+
+StationsAround::~StationsAround() = default;
+
+void StationsAround::had(std::vector<std::pair<double, double>> places, double now_s) {
+    looked_for_ = std::move(places);
+    came_at_s_ = now_s;
+}
+
+bool StationsAround::looking() const {
+    return under_way_ != nullptr;
+}
+
+void StationsAround::look(const std::vector<std::pair<double, double>>& places, double now_s,
+                          const Kept& kept) {
+    if (under_way_) {
+        return;
+    }
+    bool moved = places.size() != looked_for_.size();
+    for (std::size_t i = 0; !moved && i < places.size(); ++i) {
+        moved = sim::distance_m(places[i].first, places[i].second, looked_for_[i].first,
+                                looked_for_[i].second) > restation_m;
+    }
+    if (moved || now_s - came_at_s_ >= refresh_s_) {
+        looked_for_ = places;
+        under_way_ = std::make_unique<StationsFetch>(
+            places, utc_hour(std::chrono::system_clock::now()), fetch_, kept());
+    }
+}
+
+std::optional<StationsFound> StationsAround::found(double now_s) {
+    if (!under_way_ || !under_way_->done()) {
+        return std::nullopt;
+    }
+    const std::unique_ptr<StationsFetch> done = std::move(under_way_);
+    came_at_s_ = now_s;
+    return done->get();
+}
+
 bool StationSlots::any() const {
     return std::any_of(slots_.begin(), slots_.end(), [](const auto& s) { return s != nullptr; });
 }
