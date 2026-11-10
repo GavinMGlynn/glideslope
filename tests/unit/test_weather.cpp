@@ -1,6 +1,7 @@
 #include "harness.hpp"
 
 #include "sim/aircraft.hpp"
+#include "sim/plan.hpp"
 #include "sim/runway_condition.hpp"
 #include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
@@ -2031,4 +2032,226 @@ GLIDESLOPE_TEST(a_runway_end_no_client_would_read_is_never_laid) {
     check(ends.size() == 1 + wrong.size() && wrong.size() == 5, "five wrong ends walked");
     check(glideslope::world::longest_runway_laid_m == glideslope::net::most_runway_m,
           "the longest laid is the longest a client reads");
+}
+
+namespace {
+
+// A station's weather from a METAR, at a place, with its own seed.
+std::shared_ptr<glideslope::world::ReportedWeather>
+station_at(const std::string& metar, double latitude_deg, double longitude_deg) {
+    glideslope::world::WeatherReport r;
+    r.surface.metar = glideslope::world::parse_metar(metar);
+    r.surface.latitude_deg = latitude_deg;
+    r.surface.longitude_deg = longitude_deg;
+    r.surface.elevation_m = 5.0;
+    r.air_seed = glideslope::world::air_seed_of(r.surface.metar);
+    return std::make_shared<glideslope::world::ReportedWeather>(r, nullptr, 0.0);
+}
+
+bool same_air(const glideslope::sim::Conditions& a, const glideslope::sim::Conditions& b) {
+    return a.wind_north_mps == b.wind_north_mps && a.wind_east_mps == b.wind_east_mps &&
+           a.wind_down_mps == b.wind_down_mps &&
+           a.temperature_offset_c == b.temperature_offset_c &&
+           a.sea_level_pressure_hpa == b.sea_level_pressure_hpa &&
+           a.runway_condition == b.runway_condition && a.gust_factor_kt == b.gust_factor_kt;
+}
+
+double wind_apart(const glideslope::sim::Conditions& a, const glideslope::sim::Conditions& b) {
+    return std::hypot(a.wind_north_mps - b.wind_north_mps, a.wind_east_mps - b.wind_east_mps,
+                      a.wind_down_mps - b.wind_down_mps);
+}
+
+} // namespace
+
+// **A flight from one station to another flies the nearer's weather**, and
+// changes between them across station_blend_m with no step in the wind. Two
+// stations 60 km apart on a meridian, their winds opposed and their pressures
+// 10 hPa apart, flown straight from one to the other at 300 m above the
+// first, one 120 Hz step at a time. Every scenario: each way, at 50 and
+// 250 m/s, in steady air and in gusts - eight flights. At every step:
+// - where one station is nearer by station_blend_m or more, the air is that
+//   station's own, to the bit;
+// - the wind moves by no more than the blend allows - its share's change, at
+//   most 2 s / station_blend_m for a step of s metres, times the two
+//   stations' winds' difference there - plus the most either station's own
+//   air moved in the step (its gusts), and the last bit.
+// (No flight flies more than one station yet: the server and the wire carry
+// one - COMPLETION_PLAN.md.)
+GLIDESLOPE_TEST(a_flight_between_two_stations_flies_the_nearers_weather_with_no_step_in_the_wind) {
+    using glideslope::sim::Conditions;
+    // The band as claimed, not as the code has it: a narrower one must fail.
+    constexpr double station_blend_m = 20000.0;
+    constexpr double south = -33.95;
+    constexpr double north = south + 60000.0 / 110950.0; // about 60 km north
+    constexpr double longitude = 151.18;
+    constexpr double height_m = 300.0;
+    constexpr double dt = 1.0 / 120.0;
+    const std::array<std::pair<std::string, std::string>, 2> airs{{
+        {"YAAA 111200Z 27010KT 9999 FEW030 20/10 Q1013",
+         "YBBB 111200Z 09020KT 9999 FEW030 15/10 Q1003"},
+        {"YAAA 111200Z 27010G25KT 9999 FEW030 20/10 Q1013",
+         "YBBB 111200Z 09020G35KT 9999 FEW030 15/10 Q1003"},
+    }};
+    const std::array<double, 2> speeds{50.0, 250.0};
+    const std::array<bool, 2> northwards{true, false};
+    constexpr int scenarios = 2 * 2 * 2;
+    int flown = 0;
+    for (const auto& [metar_a, metar_b] : airs) {
+        for (const double speed : speeds) {
+            for (const bool up : northwards) {
+                const auto a = station_at(metar_a, south, longitude);
+                const auto b = station_at(metar_b, north, longitude);
+                glideslope::world::StationsWeather both({a, b});
+                const double from = up ? south : north;
+                const double to = up ? north : south;
+                const double length =
+                    glideslope::sim::distance_m(from, longitude, to, longitude);
+                const double step_m = speed * dt;
+                const int steps = static_cast<int>(std::ceil(length / step_m));
+                std::optional<Conditions> before;
+                Conditions a_before, b_before;
+                double worst_step = 0.0;
+                int alone_a = 0, alone_b = 0, blended = 0;
+                const std::string name =
+                    std::string(metar_a.find('G') != std::string::npos ? "gusts" : "steady") +
+                    ", " + std::to_string(static_cast<int>(speed)) + " m/s, " +
+                    (up ? "a to b" : "b to a");
+                for (int i = 0; i <= steps; ++i) {
+                    const double f = std::min(1.0, i * step_m / length);
+                    const double lat = from + f * (to - from);
+                    const double t = i * dt;
+                    const Conditions air = both.at(lat, longitude, height_m, t);
+                    const Conditions on_a = a->at(lat, longitude, height_m, t);
+                    const Conditions on_b = b->at(lat, longitude, height_m, t);
+                    const double da =
+                        glideslope::sim::distance_m(lat, longitude, south, longitude);
+                    const double db =
+                        glideslope::sim::distance_m(lat, longitude, north, longitude);
+                    if (db - da >= station_blend_m) {
+                        ++alone_a;
+                        check(same_air(air, on_a), name + ": a's air alone near a, step " +
+                                                       std::to_string(i));
+                    } else if (da - db >= station_blend_m) {
+                        ++alone_b;
+                        check(same_air(air, on_b), name + ": b's air alone near b, step " +
+                                                       std::to_string(i));
+                    } else {
+                        ++blended;
+                    }
+                    if (i == 0) {
+                        check(same_air(air, up ? on_a : on_b), name + ": its start's air");
+                    }
+                    if (i == steps) {
+                        check(same_air(air, up ? on_b : on_a), name + ": its end's air");
+                    }
+                    if (before) {
+                        const double allowed =
+                            2.0 * step_m / station_blend_m * wind_apart(on_a, on_b) +
+                            std::max(wind_apart(on_a, a_before), wind_apart(on_b, b_before)) +
+                            1e-9;
+                        const double moved = wind_apart(air, *before);
+                        worst_step = std::max(worst_step, moved);
+                        check(moved <= allowed, name + ": the wind stepped " +
+                                                    std::to_string(moved) + " m/s at step " +
+                                                    std::to_string(i) + ", more than " +
+                                                    std::to_string(allowed));
+                    }
+                    before = air;
+                    a_before = on_a;
+                    b_before = on_b;
+                }
+                check(alone_a > 0 && alone_b > 0,
+                      name + ": flown in each station's air alone");
+                // The band is station_blend_m across along the line: as many
+                // steps as that takes, give or take one at each edge.
+                const double band_steps = station_blend_m / step_m;
+                check(std::abs(blended - band_steps) <= 2.0,
+                      name + ": " + std::to_string(blended) + " steps in the blend, not " +
+                          std::to_string(band_steps));
+                std::printf("%s: worst step %.5f m/s, %d steps blended\n", name.c_str(),
+                            worst_step, blended);
+                ++flown;
+            }
+        }
+    }
+    check(flown == scenarios,
+          "every scenario flown: " + std::to_string(flown) + " of " + std::to_string(scenarios));
+}
+
+// **Every station's share is whole and continuous over a grid**: three
+// stations at the corners of a triangle about 50 km on a side, and every
+// place of a grid 1 km apart over 100 km square around them. At every place
+// the shares sum to one and the nearest station's is the greatest; where
+// the next is station_blend_m farther it is all of it; and between
+// neighbouring places no share moves by more than 2 n s / station_blend_m,
+// n stations and s metres apart - continuous across every band and where
+// the bands meet.
+GLIDESLOPE_TEST(every_stations_share_of_the_weather_is_whole_and_continuous_over_a_grid) {
+    // The band as claimed, not as the code has it: a narrower one must fail.
+    constexpr double station_blend_m = 20000.0;
+    const std::vector<std::pair<double, double>> stations{
+        {-34.0, 151.0}, {-34.0, 151.0 + 50000.0 / 92300.0}, {-34.0 + 43301.0 / 110950.0, 151.27}};
+    constexpr int side = 101;
+    constexpr double spacing_m = 1000.0;
+    constexpr double lat0 = -34.45;
+    constexpr double lon0 = 150.73;
+    const double dlat = spacing_m / 110950.0;
+    const double dlon = spacing_m / 92300.0;
+    std::vector<std::vector<double>> row_before;
+    std::vector<std::vector<double>> row;
+    int places = 0;
+    int alone = 0;
+    int shared = 0;
+    for (int y = 0; y < side; ++y) {
+        row.clear();
+        for (int x = 0; x < side; ++x) {
+            const double lat = lat0 + y * dlat;
+            const double lon = lon0 + x * dlon;
+            std::vector<double> w = glideslope::world::station_weights(stations, lat, lon);
+            check(w.size() == stations.size(), "a share for each station");
+            double sum = 0.0;
+            for (const double v : w) {
+                check(v >= 0.0, "no share below nought");
+                sum += v;
+            }
+            check(std::abs(sum - 1.0) < 1e-12, "the shares are whole");
+            std::vector<double> d;
+            for (const auto& [slat, slon] : stations) {
+                d.push_back(glideslope::sim::distance_m(lat, lon, slat, slon));
+            }
+            std::vector<double> sorted = d;
+            std::sort(sorted.begin(), sorted.end());
+            const auto near =
+                static_cast<std::size_t>(std::min_element(d.begin(), d.end()) - d.begin());
+            check(*std::max_element(w.begin(), w.end()) == w[near],
+                  "the nearest station's share the greatest");
+            if (sorted[1] - sorted[0] >= station_blend_m) {
+                ++alone;
+                check(w[near] == 1.0, "the nearest's alone outside the band");
+            } else {
+                ++shared;
+            }
+            const double allowed = 2.0 * 3.0 * spacing_m * 1.01 / station_blend_m;
+            for (std::size_t i = 0; i < w.size(); ++i) {
+                if (x > 0) {
+                    check(std::abs(w[i] - row.back()[i]) <= allowed,
+                          "no share steps between places east and west");
+                }
+                if (y > 0) {
+                    check(std::abs(w[i] - row_before[static_cast<std::size_t>(x)][i]) <= allowed,
+                          "no share steps between places north and south");
+                }
+            }
+            row.push_back(std::move(w));
+            ++places;
+        }
+        row_before = row;
+    }
+    check(places == side * side, "every place of the grid: " + std::to_string(places));
+    check(alone > 0 && shared > 0, "places in one station's weather and in a band: " +
+                                       std::to_string(alone) + " and " + std::to_string(shared));
+    check(glideslope::world::station_weights({}, 0.0, 0.0).empty(), "no stations, no shares");
+    check(glideslope::world::station_weights({{1.0, 2.0}}, 40.0, 50.0) ==
+              std::vector<double>{1.0},
+          "one station's weather everywhere");
 }
