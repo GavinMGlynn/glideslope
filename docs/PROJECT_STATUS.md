@@ -293,7 +293,16 @@ touch scatters 1.7 times as widely as the F-15C's, and no sourced change
 moves her past 70% of seeds
 (2026-11-05-phase-10b-gust-items-close-on-measured-figures).
 
-**Phase 11, traffic and separation: 11 of 13 items.** Every AI aircraft a
+**Phase 11, traffic and separation, is complete - 15 of 15 items**
+(2026-11-10). Three closed on measured figures by the owner's rulings:
+#351's 200 ft case (a person lining up under an AI aircraft already at
+200 ft, 171 of 225 pairs losing the minimum) and the short-of-fuel item
+with nowhere to divert (all 15 landplanes lose the minimum to a person who
+stays in the circuit; every one is kept 657 ft or more from one who leaves),
+both under the blocked-items ruling of 2026-10-09; and the hand-over judged
+from the hand-over (2026-11-05). What remains is a person's conflict, not
+an AI's: nothing makes a person leave the circuit
+(2026-11-10-phase-11-complete). Every AI aircraft a
 server runs is measured against every other, and in runs of every route
 kind none comes within 500 ft and 1.5 nm of another. The kinds are planned,
 the plan file, handed over holding its course, handed over in a spiral,
