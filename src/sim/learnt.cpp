@@ -1,6 +1,7 @@
 #include "sim/learnt.hpp"
 
 #include "sim/figures.hpp"
+#include "sim/separation.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -581,6 +582,54 @@ std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
         return text;
     }
     return {};
+}
+
+TurnOnFinal turn_on_final(const AheadOnFinal& a) {
+    if (a.height_above_ground_ft <= TurnOnFinalRule::landed_ft) {
+        return TurnOnFinal::landed;
+    }
+    if (a.from_start_m >= TurnOnFinalRule::in_trail_m) {
+        return TurnOnFinal::three_miles_on;
+    }
+    if (a.above_her_start_ft >= TurnOnFinalRule::gone_around_ft) {
+        return TurnOnFinal::gone_around;
+    }
+    if (std::abs(a.across_m) >= Separation::minimum_m) {
+        return TurnOnFinal::left_final;
+    }
+    if (a.on_final_s >= longest_behind_s(a.approach_kts)) {
+        return TurnOnFinal::waited_out;
+    }
+    return TurnOnFinal::holds;
+}
+
+double longest_behind_s(double approach_kts) {
+    constexpr double mps_per_kt = 1852.0 / 3600.0;
+    return TurnOnFinalRule::in_trail_m / (std::max(approach_kts, 1.0) * mps_per_kt) +
+           TurnOnFinalRule::margin_s;
+}
+
+const char* said(TurnOnFinal turn) {
+    switch (turn) {
+    case TurnOnFinal::holds:
+        return "on final within 3 miles";
+    case TurnOnFinal::three_miles_on:
+        return "3 miles on";
+    case TurnOnFinal::landed:
+        return "landed";
+    case TurnOnFinal::gone_around:
+        return "gone around";
+    case TurnOnFinal::left_final:
+        return "off the final";
+    case TurnOnFinal::waited_out:
+        return "waited out";
+    }
+    return "?";
+}
+
+OnFinal on_final(const Aircraft& aircraft, const Runway& runway) {
+    const Where w = where(LandingReadings::of(aircraft), runway);
+    return {w.along_m, w.across_m, w.above_m};
 }
 
 double learnt_gate_along_m(const Aircraft& aircraft, const Runway& runway) {

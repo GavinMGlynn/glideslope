@@ -576,6 +576,15 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
                     std::fflush(stdout);
                 }
             }
+            // **Why it waits**, as the server says it: an instruction to
+            // `no_aircraft`, which its own is until it is given one - her
+            // turn on final not come (noticed() keeps it, as it keeps one to
+            // its own aircraft). Said here, while it waits, not after.
+            for (const std::string& told : instructions_) {
+                std::printf("glideslope: the server says: %s\n", told.c_str());
+                std::fflush(stdout);
+            }
+            instructions_.clear();
             if (newest) {
                 if (auto joined = joined_by(*newest)) {
                     mine_ = joined->number;

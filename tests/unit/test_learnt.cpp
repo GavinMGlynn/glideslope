@@ -2682,3 +2682,67 @@ GLIDESLOPE_TEST(every_learnt_landings_default_start_on_final_is_inside_its_gate_
           "every learnt landing in the data walked: " + std::to_string(walked) + " of " +
               std::to_string(files));
 }
+
+// **The turn on final, every way it comes and the bound on it**
+// (sim::turn_on_final): one ahead within three miles, flying, on her final,
+// not long on it, holds the next; three miles on, landed, gone around, off
+// the final or waited out lets her by - each at its edge and just inside it.
+// One mile on is not three: a rule of a mile fails here.
+GLIDESLOPE_TEST(the_next_player_on_final_waits_until_the_one_ahead_is_three_miles_on_landed_gone_around_off_the_final_or_waited_out) {
+    using glideslope::sim::AheadOnFinal;
+    using glideslope::sim::TurnOnFinal;
+    using glideslope::sim::TurnOnFinalRule;
+    const auto holding = [] {
+        AheadOnFinal a;
+        a.from_start_m = 1000.0;
+        a.height_above_ground_ft = 500.0;
+        a.above_her_start_ft = -200.0;
+        a.across_m = 10.0;
+        a.on_final_s = 60.0;
+        a.approach_kts = 59.8;
+        return a;
+    };
+    std::size_t cases = 0;
+    const auto expect = [&](const AheadOnFinal& a, TurnOnFinal want, const std::string& what) {
+        ++cases;
+        check(glideslope::sim::turn_on_final(a) == want,
+              what + ": " + glideslope::sim::said(glideslope::sim::turn_on_final(a)) +
+                  ", wanted " + glideslope::sim::said(want));
+    };
+    expect(holding(), TurnOnFinal::holds, "on final, a kilometre on");
+    AheadOnFinal a = holding();
+    a.from_start_m = 1852.0;
+    expect(a, TurnOnFinal::holds, "one mile on");
+    a.from_start_m = TurnOnFinalRule::in_trail_m - 1.0;
+    expect(a, TurnOnFinal::holds, "just short of three miles on");
+    a.from_start_m = TurnOnFinalRule::in_trail_m;
+    expect(a, TurnOnFinal::three_miles_on, "three miles on");
+    a = holding();
+    a.height_above_ground_ft = 5.0;
+    expect(a, TurnOnFinal::landed, "5 ft over the ground");
+    a.height_above_ground_ft = 5.5;
+    expect(a, TurnOnFinal::holds, "5.5 ft over it");
+    a = holding();
+    a.above_her_start_ft = 100.0;
+    expect(a, TurnOnFinal::gone_around, "100 ft over her start");
+    a.above_her_start_ft = 99.0;
+    expect(a, TurnOnFinal::holds, "99 ft over it");
+    a = holding();
+    a.across_m = -2778.0;
+    expect(a, TurnOnFinal::left_final, "1.5 miles left of the final");
+    a.across_m = 2700.0;
+    expect(a, TurnOnFinal::holds, "2,700 m right of it");
+    a = holding();
+    a.on_final_s = glideslope::sim::longest_behind_s(59.8);
+    expect(a, TurnOnFinal::waited_out, "on final as long as the bound");
+    a.on_final_s -= 1.0;
+    expect(a, TurnOnFinal::holds, "a second short of it");
+    // **The bound itself**: three miles at her approach speed and a minute.
+    const double c172p_s = glideslope::sim::longest_behind_s(59.8);
+    const double cub_s = glideslope::sim::longest_behind_s(42.9);
+    std::printf("  %zu cases; the longest wait behind a C172P %.1f s, behind a J-3 Cub %.1f s\n",
+                cases, c172p_s, cub_s);
+    check(std::abs(c172p_s - 240.6) < 0.1, "behind a C172P at most 240.6 s");
+    check(std::abs(cub_s - 311.7) < 0.1, "behind a J-3 Cub at most 311.7 s");
+    check(cases == 12, "twelve cases: " + std::to_string(cases));
+}

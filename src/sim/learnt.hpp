@@ -204,6 +204,54 @@ struct LearntGateStart {
 };
 double learnt_gate_start_m(const LearntPolicy& policy);
 
+// **Whether a player waiting her turn on final may start**, judged against
+// one aircraft ahead of her (a player's, flying): the server gives the
+// waiting player her aircraft once every one ahead has done one of these.
+//
+// - **three miles on**: 3 nm from where she would start - the radar minimum
+//   in trail on a final approach (FAA JO 7110.65, 5-5-4), between two light
+//   aeroplanes with no wake minimum to add;
+// - **landed**: within 5 ft of the ground - a start 2.3 miles out leaves
+//   the one ahead stopped on the runway short of three miles from it;
+// - **gone around**: 100 ft higher than the one ahead started - on final she
+//   only comes down, so above her start she has climbed away, and a tower
+//   sequences the next arrival behind a go-around afresh;
+// - **left the final**: 1.5 nm across its course, the lateral minimum the
+//   server keeps aircraft apart by (Separation::minimum_m);
+// - **waited out**: the one ahead has been on final as long as three miles
+//   take her at her approach speed, and a minute more - the bound on any
+//   wait behind her: 240 s behind a C172P at 59.8 kt, 312 s behind a J-3 Cub
+//   at 42.9.
+struct AheadOnFinal {
+    double from_start_m = 0.0;            // from where the waiting player would start
+    double height_above_ground_ft = 0.0;
+    double above_her_start_ft = 0.0;      // above where the one ahead started
+    double across_m = 0.0;                // across the final's course
+    double on_final_s = 0.0;              // since the one ahead started on final
+    double approach_kts = 0.0;            // hers
+};
+enum class TurnOnFinal { holds, three_miles_on, landed, gone_around, left_final, waited_out };
+struct TurnOnFinalRule {
+    static constexpr double in_trail_m = 3.0 * 1852.0;
+    static constexpr double landed_ft = 5.0;
+    static constexpr double gone_around_ft = 100.0;
+    static constexpr double margin_s = 60.0;
+};
+TurnOnFinal turn_on_final(const AheadOnFinal& ahead);
+// The longest the next waits behind one flying her final at `approach_kts`.
+double longest_behind_s(double approach_kts);
+// In words: "landed", "3 miles on", ...
+const char* said(TurnOnFinal turn);
+
+// **Where she is against `runway`'s final**: before its threshold along its
+// centreline, right of it, and above its elevation, in metres.
+struct OnFinal {
+    double along_m = 0.0;
+    double across_m = 0.0;
+    double above_m = 0.0;
+};
+OnFinal on_final(const Aircraft& aircraft, const Runway& runway);
+
 // **How far before `runway`'s threshold she is**, along its centreline, in
 // metres - as her gate measures it (outside_learnt_gate's miles out).
 double learnt_gate_along_m(const Aircraft& aircraft, const Runway& runway);

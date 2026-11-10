@@ -600,6 +600,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_learnt_landing_handed_another_aircraft_is_refused_and_the_pilot_keeps_her
     the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other
     every_learnt_landings_default_start_on_final_is_inside_its_gate_and_still_inside_it_thirty_seconds_later_at_its_fastest
+    the_next_player_on_final_waits_until_the_one_ahead_is_three_miles_on_landed_gone_around_off_the_final_or_waited_out
     the_learnt_landing_at_a_fast_corner_of_its_gate_is_stabilized_by_500_ft_and_not_sent_round
     a_learnt_landing_not_stabilized_below_500_ft_is_sent_round_by_the_gate
     a_learnt_landing_bound_past_the_touchdown_zone_after_the_policy_has_her_is_sent_round_by_the_gate
@@ -3908,22 +3909,25 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 
 # **Players joining on final take turns, each starting in the learnt
 # landing's gate, and each is still at it thirty seconds after she starts**:
-# two runs, between them every aeroplane with a learnt landing following
-# another and the second, third and fourth places flown. See
+# three runs, between them every aeroplane with a learnt landing following
+# another and the second, third and fourth places flown; the second's
+# follower the window client (headless) waiting and told why, the third's
+# begun again on its key while it waits. See
 # cmake/server_players_take_turns_on_final.cmake.
-set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p")
-foreach(_turns_run IN ITEMS 0 1)
-    if(_turns_run EQUAL 0)
-        set(_turns_name four_players_joining_on_final_a_c172p_c182_cub_and_pa28_take_turns_and_each_is_at_the_gate_thirty_seconds_after_she_starts)
-        set(_turns_port 24834)
-    else()
-        set(_turns_name a_c172p_joining_on_final_behind_a_pa28_waits_her_turn_and_is_at_the_gate_thirty_seconds_after_she_starts)
-        set(_turns_port 24848)
-    endif()
+set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p+window|pa28,c172p+restart")
+set(_turns_names
+    four_players_joining_on_final_a_c172p_c182_cub_and_pa28_take_turns_and_each_is_at_the_gate_thirty_seconds_after_she_starts
+    the_window_client_joining_on_final_behind_a_pa28_waits_told_why_and_is_at_the_gate_thirty_seconds_after_she_starts
+    a_player_begun_again_on_her_key_while_she_waits_her_turn_on_final_keeps_it_and_is_at_the_gate_thirty_seconds_after)
+set(_turns_ports 24834 24849 24897)
+foreach(_turns_run IN ITEMS 0 1 2)
+    list(GET _turns_names ${_turns_run} _turns_name)
+    list(GET _turns_ports ${_turns_run} _turns_port)
     add_test(NAME ${_turns_name}
         COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
-            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
-            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DWINDOW=$<TARGET_FILE:glideslope>
+            -DIMPAIR=$<TARGET_FILE:glideslope_impair> -DDRIVER=vulkan
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/turns_on_final_${_turns_run} -DPORT=${_turns_port}
             "-DORDERS=${GLIDESLOPE_TURNS_ON_FINAL}" -DRUN=${_turns_run}
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_players_take_turns_on_final.cmake)
