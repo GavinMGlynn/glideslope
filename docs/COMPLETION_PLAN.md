@@ -1708,14 +1708,17 @@ AI aircraft kept apart from each other and clear of the runway.
       Closed on its measured figures (the owner's ruling of 2026-10-09), as
       #351's 200 ft case was: told to leave and leaving, every pair is kept
       at least 657 ft apart within 1.5 nm; staying, 14 of 15 lose the
-      minimum, both sets asserted.
-- [ ] **Back on her reserve to a person who stays, an airliner can run
+      minimum (all 15 once she goes on her circuit's burn), both sets
+      asserted.
+- [x] **Back on her reserve to a person who stays, an airliner can run
       dry**: waiting for a person told to leave the circuit who stays, the
       AI goes when ten minutes and her way back are left; the A320 and the
       A380 then ran dry short of the runway, and the 787-8 and the B-2A
-      were not down in two hours.
+      were not down in two hours. Now those minutes are counted at what she
+      burnt flying her circuit, not at her idle while she waits.
       *Verification: every landplane coming back on her reserve behind a
-      person who stays in the circuit lands.*
+      person who stays in the circuit lands.* All 15 land, with their
+      reserve.
 - [x] **Nothing clears a runway for a copilot's route**: an AI aircraft
       landed now leaves the runway, one arriving at a runway not clear goes
       around, and a copilot's route may end in a landing on a runway the

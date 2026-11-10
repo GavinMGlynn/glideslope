@@ -832,16 +832,45 @@ void Controller::join_the_sequence() {
             GoAroundCircuit(a_, lander_->runway(), lander_->speeds()).circuit_ft()};
 }
 
-double Controller::fuel_lasts_s() const {
-    double burning_pps = 0.0;
+double Controller::burning_pps() const {
+    double pps = 0.0;
     for (int e = 0; e < a_.engine_count(); ++e) {
         const std::string flow = "propulsion/engine[" + std::to_string(e) + "]/fuel-flow-rate-pps";
         if (a_.has_property(flow)) {
-            burning_pps += a_.property(flow);
+            pps += a_.property(flow);
         }
     }
-    return burning_pps > 0.0 ? a_.property("propulsion/total-fuel-lbs") / burning_pps
-                             : std::numeric_limits<double>::infinity();
+    return pps;
+}
+
+double Controller::fuel_lasts_s() const {
+    const double pps = burning_pps();
+    return pps > 0.0 ? a_.property("propulsion/total-fuel-lbs") / pps
+                     : std::numeric_limits<double>::infinity();
+}
+
+void Controller::measure_circuit_burn() {
+    const double now_s = a_.state().sim_time_s;
+    // Step by step only: a gap - out of the circuit and back into it - is
+    // not flown in it.
+    const double dt_s = now_s - circuit_burn_last_s_;
+    if (dt_s > 0.0 && dt_s < 0.1) {
+        circuit_burn_lbs_ += burning_pps() * dt_s;
+        circuit_burn_s_ += dt_s;
+    }
+    circuit_burn_last_s_ = now_s;
+}
+
+double Controller::circuit_burn_pps() const {
+    return circuit_burn_s_ > 0.0 ? circuit_burn_lbs_ / circuit_burn_s_ : 0.0;
+}
+
+double Controller::going_burn_pps() const {
+    return std::max(burning_pps(), circuit_burn_pps());
+}
+
+double Controller::fuel_to_go_lbs() const {
+    return (minimum_fuel_s + fuel_back_s()) * going_burn_pps();
 }
 
 bool Controller::short_of_fuel() const { return fuel_lasts_s() < minimum_fuel_s; }
@@ -1105,6 +1134,7 @@ Controls Controller::fly() {
                 applied_ = lander_->fly();
                 return applied_;
             }
+            measure_circuit_burn();
             // **Behind a person who stays in the circuit, she leaves it**
             // (`leaves_with`): on her outbound leg, a whole racetrack flown,
             // for a hold outside it (sim::HoldOutside), keeping her place.
@@ -1231,7 +1261,8 @@ Controls Controller::fly() {
             // reserve** (ICAO's MAYDAY FUEL; AIM 5-5-15's emergency fuel):
             // the reserve, and the time back to the threshold at her
             // approach's speed (`fuel_back_s`).
-            const bool must_go = nowhere && fuel_lasts_s() < minimum_fuel_s + fuel_back_s();
+            const bool must_go =
+                nowhere && a_.property("propulsion/total-fuel-lbs") < fuel_to_go_lbs();
             if (behind_a_person_ && behind_a_person_() && !short_of_it && !must_go) {
                 asks_the_circuit_cleared_ = nowhere;
                 autopilot_->set(holding_out_->modes());
