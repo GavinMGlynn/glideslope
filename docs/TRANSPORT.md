@@ -91,6 +91,9 @@ Said first, because a transport's limits matter more than its features.
   Version `10` is on the same ground, and is the first whose server tells
   a client given an aircraft while her STOVL law flies her the whole of
   that law (`LAW_STATE`, below).
+  Version `11` is on the same ground, and is the first whose server tells
+  a person what to do for other traffic, as a tower would
+  (`TRAFFIC_INSTRUCTION`, below).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -101,7 +104,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `10` |
+| 4 | 1 | version | `11` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -147,7 +150,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `10`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `11`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -432,7 +435,8 @@ These things must each arrive, exactly once, in the order they were sent: the
 lobby, the session, the weather, an aircraft's definition, the terrain
 dataset, a controller swap, which aircraft a client is watching, a
 copilot's route, a take-over or a learnt landing refused, the runways'
-conditions and a STOVL law's state. They go as **thirteen kinds of message**,
+conditions, a STOVL law's state and an instruction to a person for other
+traffic. They go as **fourteen kinds of message**,
 because the weather is two of them. They ride the reliable layer below,
 which numbers them and repeats them until they are acknowledged.
 
@@ -475,6 +479,7 @@ is that kind's fields in the order given here.
 | `0B` | `LEARNT_LANDING_REFUSED` |
 | `0C` | `RUNWAY_CONDITIONS` |
 | `0D` | `LAW_STATE` |
+| `0E` | `TRAFFIC_INSTRUCTION` |
 
 A kind this version does not know is not a message, and is refused rather
 than skipped.
@@ -1018,6 +1023,30 @@ or missing when it is, a value after an unset `08` or `40` flag that is not
 `0`, every bit of it, an own motion the state update would refuse or whose
 height asked is -1, and a NaN or infinity anywhere.
 
+
+### `TRAFFIC_INSTRUCTION`
+
+**What a person is asked to do for other traffic**, as a tower would ask
+it, sent by the server to the client flying that aircraft and to no other
+(since `11`): the aircraft's number, and the instruction in words. The
+server sends one when an AI aircraft with nowhere to divert, or short of
+fuel, asks for her runway's circuit to be cleared, to each person whose
+aircraft has a place in that runway's circuit - once for each AI aircraft
+asking, until she stops asking and asks again: `leave the circuit on the
+dead side, heading 205 true; rejoin when aircraft 3 (737-300), with
+priority, has landed on 16R`. Nothing makes the person do it: an AI aircraft waits for
+her to leave until it is short of fuel, and then lands whatever she does.
+The wording is for a person to read, not for a program to parse: it is not
+part of the protocol. As a `LEARNT_LANDING_REFUSED`'s reason, a server cuts
+a longer one at 160 bytes and writes any byte outside printable ASCII (`20`
+to `7E`) as `?`; a reader refuses one longer than that and one with any
+byte outside printable ASCII, and an empty one is allowed.
+
+| written as | field |
+| --- | --- |
+| `u8` | `0E`, the kind |
+| `u8` | the aircraft's number, the person's |
+| text | what she is asked to do, 0 to 160 bytes |
 ### What a reader must refuse
 
 A count larger than the limit above is refused rather than trimmed: a sender

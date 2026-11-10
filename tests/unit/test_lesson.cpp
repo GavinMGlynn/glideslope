@@ -10556,6 +10556,14 @@ enum class Then {
     // the alternate she is told of (Controller::diverts_with) and lands
     // there; the run ends once she is clear of its runway.
     ahead_stays_and_the_one_behind_diverts,
+    // **And stays until she is told to leave it, and then does**: the one
+    // behind, her hold out of her reach with nowhere to divert, asks for
+    // the circuit cleared (Controller::asks_the_circuit_cleared) - a server
+    // tells the person to leave it on its dead side (sim::leave_the_circuit_
+    // for) - and her pilot flies for a point `away_nm` out on the bearing
+    // she is told, off the runway's heading (`away_deg`), level, never
+    // landing. The run ends once the one behind is down and clear.
+    ahead_leaves_when_told,
 };
 
 // **What a run is flown with, beyond the pair**: the ground (metres over
@@ -10575,6 +10583,12 @@ struct Extra {
     // The one behind told, as a server tells her, of a person straight in to
     // or departing her runway (sim::using_by_hand of the one ahead).
     bool gives_way = false;
+    // **Waiting on a person who stays, she is left this long before she
+    // must go** (Controller::minimum_fuel_s and fuel_back_s): as she first
+    // asks for the circuit cleared, her tanks are set to last that much past
+    // the reserve and her way back at what she burns then. Negative: left
+    // as they are.
+    double fuel_past_minimum_when_asking_s = -1.0;
     std::optional<double> ceiling_ft;
     double run_s = 3600.0;
     double over_ground_from_nm = 1e9;
@@ -10675,6 +10689,14 @@ struct TwoAround {
     bool landed_on_alternate = false;
     bool came_back_out_of_reach = false;
     bool landed_on_her_own = false;
+    // **Asking for the circuit cleared**: how long after the go-around she
+    // first asked (negative: never), whether the person ahead was one a
+    // server tells (sim::persons_in_her_circuit), what she was told, and
+    // how long the one behind waited from asking to coming back, s.
+    double asked_at_s = -1.0;
+    bool person_told = false;
+    std::string told;
+    double waited_s = -1.0;
     // **Over the ground before the threshold** from Extra's
     // `over_ground_from_nm`: the least the one behind was over it, ft -
     // round her circuit (upwind to final, her racetrack's legs among
@@ -10798,7 +10820,8 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
                             then == Then::ahead_taken_and_stays ||
                             then == Then::ahead_stays_until_the_one_behind_holds ||
                             then == Then::ahead_stays_then_flies_away ||
-                            then == Then::ahead_stays_and_the_one_behind_diverts;
+                            then == Then::ahead_stays_and_the_one_behind_diverts ||
+                            then == Then::ahead_leaves_when_told;
     if (taken_over) {
         pilot.emplace(ahead, flying);
         pilot->to_ai_approach(runway, ahead_speeds);
@@ -10831,12 +10854,43 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
     int away_at = -1;
     int dropped_at = -1;
     std::optional<double> left_alt_ft;
+    double asked_sim_s = 0.0;
     glideslope::sim::Controls ahead_last = flying;
     for (int t = 0; t < static_cast<int>(extra.run_s) * steps_per_second; ++t) {
+        // **Asking for the circuit cleared**: who a server tells, and what.
+        if (out.asked_at_s < 0.0 && behind_c.asks_the_circuit_cleared()) {
+            out.asked_at_s = static_cast<double>(t) / steps_per_second;
+            asked_sim_s = behind.state().sim_time_s;
+            const std::vector<std::optional<glideslope::sim::CirclePlace>> places{
+                ahead_c.circling(), behind_c.circling()};
+            const std::vector<std::size_t> told = glideslope::sim::persons_in_her_circuit(1, places);
+            out.person_told = told.size() == 1 && told.front() == 0;
+            out.told = glideslope::sim::leave_the_circuit_for("aircraft 2 (" + behind_id + ")",
+                                                              runway);
+            if (extra.fuel_past_minimum_when_asking_s >= 0.0) {
+                const double lasts_s = behind_c.fuel_lasts_s();
+                const double keep =
+                    std::min(1.0, (glideslope::sim::Controller::minimum_fuel_s +
+                                   behind_c.fuel_back_s() +
+                                   extra.fuel_past_minimum_when_asking_s) /
+                                      lasts_s);
+                // Every tank by the same share, through what a replay sets.
+                glideslope::sim::ReplayState tanks = behind.replay_state();
+                for (double& lbs : tanks.tank_lbs) {
+                    lbs *= keep;
+                }
+                behind.set_replay_state(tanks);
+            }
+        }
+        if (out.asked_at_s >= 0.0 && out.waited_s < 0.0 && behind_c.rejoined_at_s()) {
+            out.waited_s = *behind_c.rejoined_at_s() - asked_sim_s;
+        }
         // **Flying away**: once the one behind is round her hold's fix, her
-        // pilot sets off for a point `away_nm` out on her bearing, level.
-        if (then == Then::ahead_stays_then_flies_away && pilot && away_at < 0 &&
-            out.hold_laps >= 1) {
+        // pilot sets off for a point `away_nm` out on her bearing, level;
+        // or, told to leave the circuit, on the runway's heading.
+        if (pilot && away_at < 0 &&
+            ((then == Then::ahead_stays_then_flies_away && out.hold_laps >= 1) ||
+             (then == Then::ahead_leaves_when_told && out.asked_at_s >= 0.0))) {
             away_at = t;
             const glideslope::sim::AircraftState a = ahead.state();
             const double b = (runway.heading_deg + away_deg) / degrees;
@@ -10881,6 +10935,7 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
         if (pilot && taken_at >= 0 &&
             (then == Then::ahead_taken_and_stays ||
              then == Then::ahead_stays_and_the_one_behind_diverts ||
+             (then == Then::ahead_leaves_when_told && away_at < 0) ||
              ((then == Then::ahead_stays_until_the_one_behind_holds ||
                then == Then::ahead_stays_then_flies_away) &&
               out.hold_laps < 1) ||
@@ -11067,7 +11122,8 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
         // **Flown away, she never lands**: the run ends once the one behind
         // is down and clear of the runway.
         if ((then == Then::ahead_stays_then_flies_away ||
-             then == Then::ahead_stays_and_the_one_behind_diverts) &&
+             then == Then::ahead_stays_and_the_one_behind_diverts ||
+             then == Then::ahead_leaves_when_told) &&
             behind_c.vacate() != nullptr && behind_c.vacate()->clear()) {
             out.both_clear = true;
             break;
@@ -13245,16 +13301,27 @@ std::size_t ends_in_reach(const glideslope::world::RunwaySurfaces& world,
 // all the while. She is told of the world's runways within her fuel's
 // reach, and no more than the four ends of the two near ones are given an
 // elevation. Every pair asserted flown.
+//
+// **Told to leave, she stays or she leaves** (`leaves`): with nowhere to
+// divert, the one behind waits, asking for the circuit cleared; the person
+// is told (sim::persons_in_her_circuit), and her pilot either stays -
+// the one behind then left `waits_on_a_person_s` past her minimum fuel,
+// and back with priority once short of it - or leaves on the heading told,
+// and the one behind comes back once her place is dropped.
+constexpr double waits_on_a_person_s = 300.0;
 void diverting_from_behind_persons_who_stay(const std::vector<std::string>& aheads,
                                             const std::vector<std::string>& behinds,
                                             const std::set<std::string>& came_back = {},
                                             bool alternate = true,
-                                            const std::set<std::string>& not_kept_apart = {}) {
+                                            const std::set<std::string>& not_kept_apart = {},
+                                            bool leaves = false,
+                                            const std::set<std::string>& not_landed = {}) {
     std::set<std::pair<std::string, std::string>> flown;
     std::vector<std::string> wrong;
     double least_m = 1e9;
     double least_ft = 1e9;
     std::set<std::string> lost;
+    std::set<std::string> unlanded;
     const auto world = a_world_of_runways(alternate);
     const std::size_t near = alternate ? 2 : 1;
     check(world->size() == far_strips + near, "a world of " + std::to_string(world->size()) +
@@ -13274,21 +13341,29 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
             e.ceiling_ft = r.elevation_ft + held_under_ft;
             e.run_s = 7200.0;
             e.gives_way = true;
+            if (!leaves) {
+                e.fuel_past_minimum_when_asking_s = waits_on_a_person_s;
+            }
             const TwoAround t = two_go_around_together(
-                ahead_id, behind_id, true, Then::ahead_stays_and_the_one_behind_diverts, 0.0,
-                false, e);
+                ahead_id, behind_id, true,
+                leaves ? Then::ahead_leaves_when_told : Then::ahead_stays_and_the_one_behind_diverts,
+                leaves ? glideslope::sim::leave_off_runway_deg : 0.0, false, e);
             flown.insert({ahead_id, behind_id});
             least_m = std::min(least_m, t.least_m);
             least_ft = std::min(least_ft, t.least_ft);
             const bool back = !alternate || came_back.count(behind_id) != 0;
             std::printf("  a person's %s staying ahead, %s behind: left the circuit %s; "
-                        "%zu elevations looked up, %zu ends in %.0f km her reach; diverted to %s%s%s%s; %s%s%s%s (%.1f s)\n",
+                        "%zu elevations looked up, %zu ends in %.0f km her reach; diverted to %s%s%s%s; %s%s%s%s%s (%.1f s)\n",
                         ahead_id.c_str(), behind_id.c_str(),
                         t.left_after_s >= 0.0 ? "yes" : "NO", looked_up, ends_in_reach(*world, asked), asked[2] / 1000.0,
                         t.diverted_to.empty() ? "nothing" : t.diverted_to.c_str(),
                         t.landed_on_alternate ? ", landed on it" : "",
                         t.came_back_out_of_reach ? ", came back with nowhere to divert" : "",
                         t.short_of_fuel ? ", came back short of fuel" : "", least_of(t).c_str(),
+                        t.asked_at_s < 0.0
+                            ? std::string(", never asked for the circuit cleared").c_str()
+                            : (", asked the circuit cleared at " + std::to_string(std::lround(t.asked_at_s)) +
+                               " s, waited " + std::to_string(std::lround(t.waited_s)) + " s").c_str(),
                         t.both_clear ? ", landed and clear" : ", NOT LANDED AND CLEAR",
                         t.wreck.empty() ? "" : ", wrecked: ", t.wreck.c_str(),
                         std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
@@ -13304,7 +13379,16 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
                 lost.insert(behind_id);
                 std::printf("  NOT KEPT APART - %s: %s\n", behind_id.c_str(), least_of(t).c_str());
             }
-            if (!t.wreck.empty()) {
+            // **The pairs that do not land, asserted exactly**
+            // (`not_landed`): come back on her reserve to a person who
+            // stays in the circuit, she may be sent round behind her and
+            // run her tanks dry. Their landing is not judged below.
+            const bool unlanded_here = !t.both_clear;
+            if (unlanded_here) {
+                unlanded.insert(behind_id);
+            }
+            const bool judge_landing = not_landed.count(behind_id) == 0;
+            if (!t.wreck.empty() && judge_landing) {
                 wrong.push_back(pair + ": wrecked: " + t.wreck);
             }
             if (t.left_after_s < 0.0) {
@@ -13323,13 +13407,25 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
                                 std::to_string(most_looked_up) + ", of the " +
                                 std::to_string(in_reach) + " ends within her reach");
             }
-            if (!t.both_clear) {
+            if (!t.both_clear && judge_landing) {
                 wrong.push_back(pair + ": not landed and clear of the runway");
             }
             if (back) {
-                if (!t.diverted_to.empty() || !t.came_back_out_of_reach || !t.landed_on_her_own) {
-                    wrong.push_back(pair +
-                                    ": did not come back at once and land on her own runway");
+                // Come back with nowhere to divert, or - waiting on a person
+                // who stays - short of fuel; on her own runway.
+                if (!t.diverted_to.empty() || !(t.came_back_out_of_reach || t.short_of_fuel) ||
+                    (judge_landing && !t.landed_on_her_own)) {
+                    wrong.push_back(pair + ": did not come back and land on her own runway");
+                }
+                // **She asked for the circuit cleared, and the person was
+                // told**, unless she came back short of fuel before she
+                // could wait.
+                if (t.asked_at_s < 0.0 || !t.person_told) {
+                    wrong.push_back(pair + ": never asked for the person to be told to leave");
+                }
+                // Staying, she waited until she had to go.
+                if (!leaves && !t.short_of_fuel) {
+                    wrong.push_back(pair + ": did not wait until her fuel said go");
                 }
             } else {
                 if (t.diverted_to.rfind("the alternate", 0) != 0) {
@@ -13351,6 +13447,8 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
     check(lost == not_kept_apart,
           std::to_string(lost.size()) + " lost the minimum, not the " +
               std::to_string(not_kept_apart.size()) + " named");
+    check(unlanded == not_landed, std::to_string(unlanded.size()) + " did not land, not the " +
+                                      std::to_string(not_landed.size()) + " named");
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
@@ -13470,20 +13568,103 @@ GLIDESLOPE_TEST(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_anothe
     diverting_from_behind_persons_who_stay({"c172p"}, all, {"f22"}, true, {"f22"});
 }
 
-// **Every landplane coming back with priority behind a person still in the
-// circuit lands, and the pairs that lose the minimum are asserted
-// exactly**: the same hold out of reach, and no other airfield in her
-// world, so that every one comes back - down where she is, and the legs to
-// final with priority. Each lands and taxies clear; all 15 lose the
-// minimum, the set asserted: a person who never leaves the circuit is back
-// on her downwind 90 s after the threshold, and any final crosses it
-// within 1.5 nm - the person's conflict, closed on its figures (the
-// owner's ruling of 2026-10-09).
-GLIDESLOPE_TEST(every_landplane_coming_back_with_priority_behind_a_person_in_the_circuit_lands_and_is_measured) {
+// **Every landplane with nowhere to divert, behind a person told to leave
+// the circuit who stays, waits until short of fuel and lands; the pairs
+// that lose the minimum are asserted exactly**: the same hold out of reach,
+// and no other airfield in her world. Come down where she is, she asks for
+// the circuit cleared; the person is told and stays, never leaving it. Left
+// `waits_on_a_person_s` past her minimum fuel, she waits that long, and
+// then comes back with priority, short of fuel (AIM 5-5-15's emergency
+// fuel), whatever the person does: a person who never leaves is back on
+// her downwind 90 s after the threshold, and any final crosses it within
+// 1.5 nm - the person's conflict, closed on its figures (the owner's ruling
+// of 2026-10-09). 14 lose the minimum, all but the F-15C; and four do not
+// land - the A320 and the A380 run dry and strike the ground, the 787-8 and
+// the B-2A are not down by the run's end - asserted exactly.
+GLIDESLOPE_TEST(every_landplane_with_nowhere_to_divert_behind_a_person_who_stays_when_told_to_leave_waits_until_short_of_fuel_and_lands_measured) {
     const std::vector<std::string> all = landplanes_going_around();
     check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
-    diverting_from_behind_persons_who_stay(
-        {"c172p"}, all, {}, false, std::set<std::string>(all.begin(), all.end()));
+    std::set<std::string> lose(all.begin(), all.end());
+    lose.erase("f15c");
+    diverting_from_behind_persons_who_stay({"c172p"}, all, {}, false, lose, false,
+                                           {"787-8", "a320", "a380", "b2"});
+}
+
+// **An AI aircraft with nowhere to divert lands kept apart from a person
+// told to leave the circuit, who does** (Controller::asks_the_circuit_cleared,
+// sim::persons_in_her_circuit): the same hold out of reach and no other
+// airfield; come down where she is, she asks for the circuit cleared, the
+// person is told - as a server tells her, `TRAFFIC_INSTRUCTION` - and her
+// pilot leaves on the dead side, 45 degrees right of the runway's heading,
+// level; once her place is dropped the one
+// behind comes back with priority and lands, kept 500 ft or 1.5 nm from her.
+// On every run the slowest and the fastest; every landplane in the next
+// test (gust_sweep).
+GLIDESLOPE_TEST(an_ai_aircraft_with_nowhere_to_divert_lands_kept_apart_from_a_person_who_leaves_the_circuit_when_told_the_slowest_and_the_fastest) {
+    diverting_from_behind_persons_who_stay({"c172p"}, slowest_and_fastest(), {}, false, {}, true);
+}
+GLIDESLOPE_TEST(every_landplane_with_nowhere_to_divert_lands_kept_apart_from_a_person_who_leaves_the_circuit_when_told) {
+    const std::vector<std::string> all = landplanes_going_around();
+    check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
+    diverting_from_behind_persons_who_stay({"c172p"}, all, {}, false, {}, true);
+}
+
+// **Who is told to leave a circuit, and in words a message carries**
+// (sim::persons_in_her_circuit, sim::leave_the_circuit_for): every person
+// with a place in her runway's circuit, ahead of her or behind; no AI's, no
+// other runway's, and nobody when she has no place. Each case built and the
+// count asserted; and the words for the longest name and runway a server
+// gives fit `TRAFFIC_INSTRUCTION`'s 160 bytes, in printable ASCII.
+GLIDESLOPE_TEST(a_person_in_her_runways_circuit_ahead_or_behind_is_told_to_leave_it_in_words_a_message_carries) {
+    const glideslope::sim::Runway r = a_runway();
+    glideslope::sim::Runway other = r;
+    other.name = "the other";
+    other.threshold_lat_deg += 0.2;
+    const auto place = [](const glideslope::sim::Runway& runway, double since_s, bool by_hand) {
+        glideslope::sim::CirclePlace p;
+        p.runway = runway;
+        p.since_s = since_s;
+        p.by_hand = by_hand;
+        return std::optional<glideslope::sim::CirclePlace>(p);
+    };
+    struct Case {
+        const char* what;
+        std::vector<std::optional<glideslope::sim::CirclePlace>> places;
+        std::vector<std::size_t> told;
+    };
+    const std::vector<Case> cases{
+        {"a person ahead", {place(r, 10.0, false), place(r, 5.0, true)}, {1}},
+        {"a person behind", {place(r, 5.0, false), place(r, 10.0, true)}, {1}},
+        {"an AI's ahead", {place(r, 10.0, false), place(r, 5.0, false)}, {}},
+        {"a person on another runway", {place(r, 10.0, false), place(other, 5.0, true)}, {}},
+        {"a person with no place", {place(r, 10.0, false), std::nullopt}, {}},
+        {"she has no place", {std::nullopt, place(r, 5.0, true)}, {}},
+        {"two people and an AI's",
+         {place(r, 10.0, false), place(r, 5.0, true), place(r, 7.0, false), place(r, 12.0, true)},
+         {1, 3}},
+    };
+    std::size_t judged_cases = 0;
+    for (const Case& c : cases) {
+        check(glideslope::sim::persons_in_her_circuit(0, c.places) == c.told,
+              std::string(c.what) + ": not those told");
+        ++judged_cases;
+    }
+    check(judged_cases == 7 && judged_cases == cases.size(),
+          "seven cases judged, not " + std::to_string(judged_cases));
+    // The longest a server names her - "aircraft 255 (" and the longest
+    // catalogue id there is - and a runway's 32 bytes.
+    std::size_t longest_id = 0;
+    for (const auto& entry : glideslope::sim::read_catalogue(data())) {
+        longest_id = std::max(longest_id, entry.id.size());
+    }
+    glideslope::sim::Runway longest_name = r;
+    longest_name.name = std::string(32, 'R');
+    const std::string words = glideslope::sim::leave_the_circuit_for(
+        "aircraft 255 (" + std::string(longest_id, 'x') + ")", longest_name);
+    std::printf("  told: \"%s\" (%zu bytes, the longest)\n", words.c_str(), words.size());
+    check(words.size() <= 160, std::to_string(words.size()) + " bytes, past 160");
+    check(std::all_of(words.begin(), words.end(), [](char ch) { return ch >= 0x20 && ch <= 0x7E; }),
+          "printable ASCII");
 }
 
 // **A racetrack's ground is the ground of its whole area**

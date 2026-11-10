@@ -276,6 +276,14 @@ public:
         out.swap(learnt_refused_);
         return out;
     }
+    // **What the server has told it to do for other traffic**, each time
+    // since last asked, oldest first (`TRAFFIC_INSTRUCTION`).
+    std::vector<std::string> instructions() {
+        const auto lock = held();
+        std::vector<std::string> out;
+        out.swap(instructions_);
+        return out;
+    }
     // **Its copilot's route** (`COPILOT_ROUTE`) for its own aircraft: the
     // model was asked on this machine, with the player's key; only the route
     // goes. The server checks it, and flies it with its AI - handing the
@@ -421,6 +429,7 @@ private:
     std::optional<std::uint8_t> taking_over_;
     std::vector<std::uint8_t> refused_;
     std::vector<std::string> learnt_refused_;
+    std::vector<std::string> instructions_;
     // The input sent last when the take-over was heard, and the last the
     // server has applied.
     std::optional<std::uint32_t> taken_at_;

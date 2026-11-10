@@ -127,6 +127,7 @@ bool known_message(std::uint8_t kind) {
     case Message::learnt_landing_refused:
     case Message::runway_conditions:
     case Message::law_state:
+    case Message::traffic_instruction:
         return true;
     }
     return false;
@@ -584,6 +585,40 @@ bool read(std::span<const std::uint8_t> body, LearntLandingRefused& out) {
     // terminal and drawn on the HUD, and an escape from a hostile server
     // would reach the terminal.
     if (!r.done() || std::any_of(got.why.begin(), got.why.end(),
+                                 [](char c) { return c < 0x20 || c > 0x7E; })) {
+        return false;
+    }
+    out = std::move(got);
+    return true;
+}
+
+std::vector<std::uint8_t> write(const TrafficInstruction& m) {
+    Writer w = begin_message(Message::traffic_instruction);
+    w.u8(m.aircraft);
+    // As a refusal's reason: cut at the limit, and a byte outside printable
+    // ASCII written as '?'.
+    std::string what = m.what.substr(0, most_reason_bytes);
+    for (char& c : what) {
+        if (c < 0x20 || c > 0x7E) {
+            c = '?';
+        }
+    }
+    w.text(what);
+    return w.take();
+}
+
+bool read(std::span<const std::uint8_t> body, TrafficInstruction& out) {
+    bool is_kind = false;
+    MessageReader r = after_kind(body, Message::traffic_instruction, is_kind);
+    if (!is_kind) {
+        return false;
+    }
+    TrafficInstruction got;
+    got.aircraft = r.u8();
+    got.what = r.text(most_reason_bytes);
+    // **Printable ASCII and nothing else**, as a refusal's reason: printed
+    // on the player's terminal and drawn on the HUD.
+    if (!r.done() || std::any_of(got.what.begin(), got.what.end(),
                                  [](char c) { return c < 0x20 || c > 0x7E; })) {
         return false;
     }

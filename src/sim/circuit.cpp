@@ -5,6 +5,8 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
+#include <string>
 
 namespace glideslope::sim {
 
@@ -133,6 +135,29 @@ bool behind_a_person(std::size_t self, const std::vector<std::optional<CirclePla
         }
     }
     return false;
+}
+
+std::vector<std::size_t> persons_in_her_circuit(std::size_t self,
+                                                const std::vector<std::optional<CirclePlace>>& all) {
+    std::vector<std::size_t> out;
+    if (self >= all.size() || !all[self]) {
+        return out;
+    }
+    for (std::size_t i = 0; i < all.size(); ++i) {
+        if (i != self && all[i] && all[i]->by_hand && same_runway(all[i]->runway, all[self]->runway)) {
+            out.push_back(i);
+        }
+    }
+    return out;
+}
+
+std::string leave_the_circuit_for(const std::string& who, const Runway& runway) {
+    long heading = std::lround(std::fmod(runway.heading_deg + leave_off_runway_deg, 360.0));
+    heading = heading == 0 ? 360 : heading;
+    char three[8];
+    std::snprintf(three, sizeof three, "%03ld", heading);
+    return std::string("leave the circuit on the dead side, heading ") + three +
+           " true; rejoin when " + who + ", with priority, has landed on " + runway.name;
 }
 
 bool straight_in_by_hand(const Runway& runway, const AircraftState& her) {

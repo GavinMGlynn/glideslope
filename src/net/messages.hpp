@@ -63,6 +63,7 @@ enum class Message : std::uint8_t {
     learnt_landing_refused = 11,
     runway_conditions = 12,
     law_state = 13,
+    traffic_instruction = 14,
 };
 
 // Whether `kind` is one this version knows.
@@ -265,6 +266,19 @@ struct LearntLandingRefused {
     std::string why; // up to most_reason_bytes; cut there by whoever writes it
 };
 
+// **An instruction to a person, as a tower gives one** (protocol version
+// 17), sent by the server to the client flying `aircraft` and to no other:
+// what it is to do for another aircraft, in words - "leave the circuit on
+// the dead side, heading 205 true; rejoin when aircraft 3 (737-300), with
+// priority, has landed on 16R". An AI aircraft with nowhere to divert asks for
+// her runway's circuit to be cleared of a person (sim::Controller::
+// asks_the_circuit_cleared); nothing makes the person do it. Its wording is
+// for a person to read, not a program to parse.
+struct TrafficInstruction {
+    std::uint8_t aircraft = 0;
+    std::string what; // up to most_reason_bytes; cut there by whoever writes it
+};
+
 // **A copilot's route for a client's own aircraft** (REQUIREMENTS.md section
 // 5, decided 2026-09-30): the player's own client asks the language model,
 // with the player's key, which never leaves it, and sends only what came of
@@ -366,6 +380,7 @@ std::vector<std::uint8_t> write(const Watch& m);
 std::vector<std::uint8_t> write(const CopilotRoute& m);
 std::vector<std::uint8_t> write(const TakeOverRefused& m);
 std::vector<std::uint8_t> write(const LearntLandingRefused& m);
+std::vector<std::uint8_t> write(const TrafficInstruction& m);
 std::vector<std::uint8_t> write(const RunwayConditions& m);
 
 // Which kind a body is, or nothing if it is empty or a kind this version
@@ -387,6 +402,7 @@ bool read(std::span<const std::uint8_t> body, ControllerSwap& out);
 bool read(std::span<const std::uint8_t> body, Watch& out);
 bool read(std::span<const std::uint8_t> body, TakeOverRefused& out);
 bool read(std::span<const std::uint8_t> body, LearntLandingRefused& out);
+bool read(std::span<const std::uint8_t> body, TrafficInstruction& out);
 bool read(std::span<const std::uint8_t> body, RunwayConditions& out);
 bool read(std::span<const std::uint8_t> body, CopilotRoute& out);
 

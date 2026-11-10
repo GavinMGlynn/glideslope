@@ -382,6 +382,12 @@ void Online::noticed() {
             learnt_refused_.push_back(std::move(refused.why));
         }
     }
+    // **An instruction for its own aircraft**, as a tower gives one.
+    for (net::TrafficInstruction& instruction : session_.take_instructions()) {
+        if (instruction.aircraft == mine_) {
+            instructions_.push_back(std::move(instruction.what));
+        }
+    }
     // **A take-over refused** is answered: its own is the one it had.
     for (const std::uint8_t refused : session_.take_refusals()) {
         refused_.push_back(refused);
