@@ -84,7 +84,7 @@ glideslope_judge_leaks("${_err}")
 if(NOT _rcs STREQUAL "0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
 endif()
-if(NOT _out MATCHES "flying the server's weather \\(1\\): ${_west}\n")
+if(NOT _out MATCHES "flying the server's weather \\(1, station 0\\): ${_west}\n")
     message(FATAL_ERROR "the client did not say it flies the server's weather, "
                         "'${_west}':\n${_out}")
 endif()

@@ -44,24 +44,18 @@ Told::Heard Told::hear(std::span<const std::uint8_t> body) {
             return Heard::nothing;
         }
         waiting_for_aloft_.reset();
-        before_ = std::move(weather_);
-        before_aloft_ = std::move(aloft_);
-        weather_ = std::move(m);
-        aloft_.reset();
-        ++weathers_;
+        took(std::move(m), std::nullopt);
         return Heard::weather;
     }
     case Message::weather_aloft: {
         WeatherAloft m;
-        if (!waiting_for_aloft_ || !read(body, m)) {
+        // The forecast for the slot of the weather it completes, or none.
+        if (!waiting_for_aloft_ || !read(body, m) || m.station != waiting_for_aloft_->station) {
             return Heard::nothing;
         }
-        before_ = std::move(weather_);
-        before_aloft_ = std::move(aloft_);
-        weather_ = std::move(*waiting_for_aloft_);
+        Weather w = std::move(*waiting_for_aloft_);
         waiting_for_aloft_.reset();
-        aloft_ = std::move(m);
-        ++weathers_;
+        took(std::move(w), std::move(m));
         return Heard::weather;
     }
     case Message::runway_conditions: {
@@ -69,7 +63,10 @@ Told::Heard Told::hear(std::span<const std::uint8_t> body) {
         if (!read(body, m)) {
             return Heard::nothing;
         }
-        runway_conditions_ = std::move(m);
+        last_station_ = m.station;
+        Station& s = stations_[m.station];
+        s.runway_conditions = std::move(m);
+        ++s.runway_conditions_heard;
         ++runway_conditions_heard_;
         return Heard::runway_conditions;
     }
@@ -92,6 +89,17 @@ Told::Heard Told::hear(std::span<const std::uint8_t> body) {
         return Heard::nothing;
     }
     return Heard::nothing;
+}
+
+void Told::took(Weather weather, std::optional<WeatherAloft> aloft) {
+    last_station_ = weather.station;
+    Station& s = stations_[weather.station];
+    s.before = std::move(s.weather);
+    s.before_aloft = std::move(s.aloft);
+    s.weather = std::move(weather);
+    s.aloft = std::move(aloft);
+    ++s.weathers;
+    ++weathers_;
 }
 
 } // namespace glideslope::net

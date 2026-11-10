@@ -390,4 +390,114 @@ private:
     std::vector<std::shared_ptr<ReportedWeather>> stations_;
 };
 
+// **The most stations a flight's weather is made of**: what a server finds
+// around its aircraft (stations_around), and what a `WEATHER` may number.
+inline constexpr std::size_t most_stations = 32;
+
+// **The weather of the stations a server has found, in numbered slots**, as
+// the server flies it and every client is told it (net::Weather::station):
+// each slot empty or one station's ReportedWeather, the whole flown as a
+// StationsWeather.
+//
+// **A slot's station sending a new report** blends it in over its blend, as
+// ReportedWeather does. **A slot taking another station, or emptied, or
+// filled** changes which stations there are: the stations before and after
+// are each flown whole (StationsWeather), and the air blends from the one to
+// the other over the blend from `set_changed_at_s` - so a station found or
+// let go never steps the wind. Changes at one `set_changed_at_s` are one
+// change. The first stations there are, from none, are flown whole at once,
+// as a first report is.
+class StationSlots : public sim::Weather {
+public:
+    explicit StationSlots(const Geoid* geoid, GroundAt ground = {})
+        : geoid_(geoid), ground_(std::move(ground)), now_(std::make_shared<StationsWeather>(
+                                                         std::vector<std::shared_ptr<ReportedWeather>>{})) {}
+
+    // **What slot `slot` flies**: `report`, or nothing. `changed_at_s` and
+    // `blend_s` as ReportedWeather::update's; `set_changed_at_s`, when the
+    // stations changed, if this changes them. Throws std::out_of_range for a
+    // slot of most_stations or more.
+    void set(std::size_t slot, std::optional<WeatherReport> report, double changed_at_s,
+             double blend_s, double set_changed_at_s);
+
+    // The slots, each null when empty; as many as the highest set.
+    const std::vector<std::shared_ptr<ReportedWeather>>& slots() const { return slots_; }
+    // Whether any slot has a station.
+    bool any() const;
+    // **The station whose weather is most of the air at a place**: what
+    // draws the sky there. Null with none.
+    std::shared_ptr<ReportedWeather> nearest(double latitude_deg, double longitude_deg) const;
+    // When the stations last changed, and over how long they blend.
+    double set_changed_at_s() const { return set_changed_at_s_; }
+
+    sim::Conditions at(double latitude_deg, double longitude_deg, double height_m,
+                       double time_s) override;
+
+private:
+    const Geoid* geoid_;
+    GroundAt ground_;
+    std::vector<std::shared_ptr<ReportedWeather>> slots_;
+    std::shared_ptr<StationsWeather> now_;
+    std::shared_ptr<StationsWeather> before_;
+    double set_changed_at_s_ = -std::numeric_limits<double>::infinity();
+    double set_blend_s_ = 0.0;
+};
+
+// **How far around an aircraft its stations are looked for**, metres: 200 km
+// each way, a box 400 km across. About 6,500 stations report METARs
+// (MADIS's count), over about 149 million km^2 of land - one for every
+// 150 km or so, evenly spread; they are not, so a box reaching 200 km finds
+// a station for most places over land, and the nearest few of them are
+// what the air is made of (stations_around).
+inline constexpr double stations_radius_m = 200000.0;
+// **How many of the nearest stations an aircraft's air is made of**: six.
+// Only those within station_blend_m of the nearest have any share, and six
+// is more than lie within 20 km of each other but at the busiest airfields.
+inline constexpr std::size_t stations_per_aircraft = 6;
+
+// **The METARs reported around a place**: aviationweather.gov's answer for
+// the box stations_radius_m each way of it (`bbox=`), each with its
+// station's place. Throws as fetch_metar does; none reported is empty, not
+// an error.
+std::vector<SurfaceReport> fetch_metars_around(double latitude_deg, double longitude_deg,
+                                               const Fetch& fetch,
+                                               std::chrono::milliseconds retry_wait =
+                                                   std::chrono::milliseconds(2000));
+
+// **The stations whose weather is flown**: for each place (an aircraft),
+// the stations_per_aircraft nearest of `reports` within stations_radius_m of
+// it, each station once, in order of the first place they are nearest to -
+// at most most_stations of them.
+std::vector<SurfaceReport> stations_around(const std::vector<SurfaceReport>& reports,
+                                           const std::vector<std::pair<double, double>>& places);
+
+// **The weather now of the stations around places** (aircraft): the METARs
+// around each (fetch_metars_around; a place within 1 km of one already
+// looked around is not looked around again), the stations of them
+// (stations_around), and Open-Meteo's winds aloft over each for the hour
+// `time`. Throws as fetch_weather does.
+std::vector<WeatherReport> fetch_stations_weather(
+    const std::vector<std::pair<double, double>>& places, const std::string& time,
+    const Fetch& fetch, std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
+
+// **fetch_stations_weather on a thread of its own, given up when let go**,
+// as WeatherFetch is.
+class StationsFetch {
+public:
+    StationsFetch(std::vector<std::pair<double, double>> places, std::string time, Fetch fetch,
+                  std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
+    ~StationsFetch();
+    StationsFetch(const StationsFetch&) = delete;
+    StationsFetch& operator=(const StationsFetch&) = delete;
+
+    // Whether get() would return without waiting.
+    bool done() const;
+    // What fetch_stations_weather returned, or throws what it threw. Once.
+    std::vector<WeatherReport> get();
+
+private:
+    std::atomic<bool> give_up_{false};
+    std::future<std::vector<WeatherReport>> reports_;
+};
+
 } // namespace glideslope::world

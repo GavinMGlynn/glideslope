@@ -240,6 +240,8 @@ bool read(std::span<const std::uint8_t> body, Session& out) {
 
 std::vector<std::uint8_t> write(const Weather& m) {
     Writer w = begin_message(Message::weather);
+    w.u8(m.station);
+    w.f64(m.stations_changed_at_s);
     w.text(m.metar);
     w.f64(m.latitude_deg);
     w.f64(m.longitude_deg);
@@ -261,6 +263,8 @@ bool read(std::span<const std::uint8_t> body, Weather& out) {
         return false;
     }
     Weather got;
+    got.station = r.u8();
+    got.stations_changed_at_s = r.f64();
     got.metar = r.text(most_metar_bytes);
     got.latitude_deg = r.f64();
     got.longitude_deg = r.f64();
@@ -290,7 +294,8 @@ bool read(std::span<const std::uint8_t> body, Weather& out) {
     // a day**: a station past the pole, a change before the session began
     // or a blend that never ends is not a weather.
     if (std::abs(got.latitude_deg) > 90.0 || std::abs(got.longitude_deg) > 180.0 ||
-        got.changed_at_s < 0.0 || got.blend_s < 0.0 || got.blend_s > most_blend_s) {
+        got.changed_at_s < 0.0 || got.blend_s < 0.0 || got.blend_s > most_blend_s ||
+        got.station >= most_weather_stations || !(got.stations_changed_at_s >= 0.0)) {
         return false;
     }
     got.aloft_follows = aloft == 1;
@@ -354,6 +359,7 @@ bool read_runway_conditions(MessageReader& r, std::vector<RunwayCondition>& out)
 
 std::vector<std::uint8_t> write(const RunwayConditions& m) {
     Writer w = begin_message(Message::runway_conditions);
+    w.u8(m.station);
     w.f64(m.weather_changed_at_s);
     w.u8(m.wet_until_s ? 1u : 0u);
     w.f64(m.wet_until_s.value_or(0.0));
@@ -369,11 +375,13 @@ bool read(std::span<const std::uint8_t> body, RunwayConditions& out) {
         return false;
     }
     RunwayConditions got;
+    got.station = r.u8();
     got.weather_changed_at_s = r.f64();
     const std::uint8_t has_wet = r.u8();
     const double wet_until = r.f64();
     // The time is held to nought when the flag says there is none.
-    if (!r.ok() || has_wet > 1 || (has_wet == 0 && wet_until != 0.0) ||
+    if (!r.ok() || got.station >= most_weather_stations || has_wet > 1 ||
+        (has_wet == 0 && wet_until != 0.0) ||
         got.weather_changed_at_s < 0.0 || wet_until < 0.0) {
         return false;
     }
@@ -392,6 +400,7 @@ bool read(std::span<const std::uint8_t> body, RunwayConditions& out) {
 
 std::vector<std::uint8_t> write(const WeatherAloft& m) {
     Writer w = begin_message(Message::weather_aloft);
+    w.u8(m.station);
     w.text(m.time);
     w.u8(static_cast<std::uint8_t>(m.levels.size()));
     for (const AloftLevel& l : m.levels) {
@@ -417,8 +426,9 @@ bool read(std::span<const std::uint8_t> body, WeatherAloft& out) {
         return false;
     }
     WeatherAloft got;
+    got.station = r.u8();
     got.time = r.text(most_time_bytes);
-    bool ok = r.ok();
+    bool ok = r.ok() && got.station < most_weather_stations;
     const std::size_t levels = count(r, most_levels, ok);
     if (!ok) {
         return false;

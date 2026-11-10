@@ -2045,6 +2045,56 @@ public:
             (void)air_->conditions_heard(conditions);
         }
     }
+    // **The air its own aircraft flew, step by step**, of the server's
+    // stations (world::StationSlots): how much the wind changed in the
+    // worst step, and which station was most of the air at the first step
+    // and the last, and the least share the first had - a flight from one
+    // station towards another (server_stations.cmake).
+    void note_air() {
+        if (!air_ || !air_->stations() || !air_->stations()->any()) {
+            return;
+        }
+        constexpr double mps_per_fps = 0.3048;
+        const std::array<double, 3> wind{
+            aircraft_->property("atmosphere/wind-north-fps") * mps_per_fps,
+            aircraft_->property("atmosphere/wind-east-fps") * mps_per_fps,
+            aircraft_->property("atmosphere/wind-down-fps") * mps_per_fps};
+        if (last_wind_) {
+            worst_wind_step_mps_ =
+                std::max(worst_wind_step_mps_,
+                         std::hypot(wind[0] - (*last_wind_)[0], wind[1] - (*last_wind_)[1],
+                                    wind[2] - (*last_wind_)[2]));
+        }
+        last_wind_ = wind;
+        std::vector<std::pair<double, double>> places;
+        std::vector<std::string> names;
+        for (const auto& slot : air_->stations()->slots()) {
+            if (slot) {
+                places.emplace_back(slot->report().surface.latitude_deg,
+                                    slot->report().surface.longitude_deg);
+                names.push_back(slot->report().surface.metar.station);
+            }
+        }
+        const std::vector<double> shares = glideslope::world::station_weights(
+            places, aircraft_->property("position/lat-geod-deg"),
+            aircraft_->property("position/long-gc-deg"));
+        const auto most = static_cast<std::size_t>(
+            std::max_element(shares.begin(), shares.end()) - shares.begin());
+        if (air_steps_ == 0) {
+            first_station_ = names[most];
+        }
+        double first_share = 0.0;
+        for (std::size_t i = 0; i < names.size(); ++i) {
+            if (names[i] == first_station_) {
+                first_share = shares[i];
+            }
+        }
+        least_first_share_ = std::min(least_first_share_, first_share);
+        last_station_ = names[most];
+        last_share_ = shares[most];
+        ++air_steps_;
+    }
+
     // False, with why, for a weather refused (frontend::HeardAir::heard).
     bool weather(const glideslope::net::Weather& w,
                  const std::optional<glideslope::net::WeatherAloft>& aloft, std::string& why) {
@@ -2147,6 +2197,7 @@ public:
             if (predicted_at_.size() > glideslope::sim::most_unacknowledged) {
                 predicted_at_.pop_front();
             }
+            note_air();
         }
         if (!prediction_) {
             // Let go of on the way (let_go): the rest kept for the next.
@@ -3133,6 +3184,15 @@ public:
                       "%.1f s in",
                       compared_, worst_error_m_, joining_.size(), worst_error_at_s_);
         lines.emplace_back(line);
+        if (air_steps_ > 0) {
+            std::snprintf(line, sizeof line,
+                          "air flown: %zu steps, the wind changing by at most %.5f m/s in one; "
+                          "most of it %s's at the first, %s's at the last (%.3f of it), the "
+                          "first's share at least %.3f",
+                          air_steps_, worst_wind_step_mps_, first_station_.c_str(),
+                          last_station_.c_str(), last_share_, least_first_share_);
+            lines.emplace_back(line);
+        }
         // **Off where, and off when** (`own_word`): the worst of every word
         // against the path flown, and the most steps its input placed one
         // from the nearest step on it.
@@ -3923,6 +3983,14 @@ private:
     std::vector<std::uint32_t> joining_;
     bool answered_ = false;
     double worst_error_m_ = 0.0;
+    // The air flown (note_air).
+    std::optional<std::array<double, 3>> last_wind_;
+    double worst_wind_step_mps_ = 0.0;
+    std::size_t air_steps_ = 0;
+    std::string first_station_;
+    std::string last_station_;
+    double last_share_ = 0.0;
+    double least_first_share_ = 1.0;
     double worst_error_at_s_ = 0.0;
     std::size_t corrections_ = 0;
     std::size_t snapped_ = 0;
@@ -5136,8 +5204,11 @@ int stay(glideslope::platform::UdpSocket& socket,
                     std::snprintf(when, sizeof(when), " (weather %d, from %.3f s over %.0f s%s)",
                                   told.weathers(), w.changed_at_s, w.blend_s,
                                   told.aloft() ? ", with the forecast above it" : "");
-                    say_heard("told the weather: " + (w.metar.empty() ? "still air" : w.metar) +
-                              when);
+                    // The station's slot, where it is not the first.
+                    const std::string slot =
+                        w.station == 0 ? "" : " (station " + std::to_string(w.station) + ")";
+                    say_heard("told the weather" + slot + ": " +
+                              (w.metar.empty() ? "still air" : w.metar) + when);
                     try {
                         glideslope::world::WeatherReport heard_air;
                         if (!w.metar.empty()) {

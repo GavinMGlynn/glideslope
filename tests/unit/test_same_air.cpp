@@ -195,11 +195,11 @@ GLIDESLOPE_TEST(a_client_joining_mid_blend_is_told_what_it_blends_from_and_flies
     glideslope::frontend::HeardAir as_told(nullptr, hills, clock);
     send(*from, 0.0, 300.0, told, as_told);
     send(server_air->report(), 900.0, 300.0, told, as_told);
-    check(told.before() && told.before()->metar == first.surface.metar.raw,
+    check(told.stations().at(0).before && told.stations().at(0).before->metar == first.surface.metar.raw,
           "the weather before the newest is kept");
     // A flight made since, from what was kept: the one before, then the newest.
     glideslope::frontend::HeardAir made_since(nullptr, hills, clock);
-    made_since.heard(*told.before(), told.before_aloft());
+    made_since.heard(*told.stations().at(0).before, told.stations().at(0).before_aloft);
     made_since.heard(*told.weather(), told.aloft());
     glideslope::frontend::HeardAir newest_alone(nullptr, hills, clock);
     newest_alone.heard(*told.weather(), told.aloft());
@@ -338,7 +338,7 @@ GLIDESLOPE_TEST(still_air_is_said_as_an_empty_metar_and_flown_as_no_weather) {
           "still air reads");
     glideslope::frontend::HeardAir fresh(nullptr, {}, [] { return 0.0; });
     fresh.heard(*told.weather(), told.aloft());
-    check(fresh.air() == nullptr && fresh.reported() == nullptr,
+    check(fresh.air() == nullptr && fresh.reported(-33.9, 151.2) == nullptr,
           "a client that hears still air first flies no weather");
 
     glideslope::frontend::HeardAir had(nullptr, {}, [] { return 0.0; });
@@ -350,7 +350,7 @@ GLIDESLOPE_TEST(still_air_is_said_as_an_empty_metar_and_flown_as_no_weather) {
           "a client that heard a wind flies it");
     had.heard(still.weather, std::nullopt);
     const glideslope::sim::Conditions calm = had.air()->at(-33.9, 151.2, 500.0, 0.0);
-    check(had.reported() == nullptr && calm.wind_north_mps == 0.0 && calm.wind_east_mps == 0.0 &&
+    check(had.reported(-33.9, 151.2) == nullptr && calm.wind_north_mps == 0.0 && calm.wind_east_mps == 0.0 &&
               calm.wind_down_mps == 0.0 && calm.sea_level_pressure_hpa == 1013.25,
           "and then still air flies the standard atmosphere with no wind");
 }
@@ -679,4 +679,94 @@ GLIDESLOPE_TEST(runways_that_could_not_be_had_are_asked_for_again_after_the_wait
               "failure " + std::to_string(i + 1) + " said as itself: " + said[i]);
     }
     check(tries == 4 && air.runways_laid(), "tried four times, and laid at the fourth");
+}
+
+// **A client flies the server's stations to the last bit, through every
+// change of them.** A server flies stations in slots (world::StationSlots),
+// told each slot's weather through the wire's bytes as glideslope_server
+// tells it (net::Weather's slot and stations' change), heard by net::Told
+// and flown by frontend::HeardAir. From 0 s, YSSY in slot 0 and YSWS in slot
+// 1; at 600 s a new report of YSWS; at 900 s YSWS let go for YSRI and YWLM
+// found, in slots 1 and 2; at 1500 s slot 0 emptied. Each blends over 120 s.
+// The air is compared at 4 places between and beyond them, 3 heights and 12
+// times - through every blend and after - 144 points, each to the last bit.
+GLIDESLOPE_TEST(a_client_flies_the_servers_stations_to_the_last_bit_through_every_change) {
+    double now_s = 0.0;
+    const auto clock = [&now_s] { return now_s; };
+    constexpr double blend_s = 120.0;
+    const auto at = [](const std::string& metar, double lat, double lon) {
+        glideslope::world::WeatherReport r = a_full_report(metar);
+        r.surface.latitude_deg = lat;
+        r.surface.longitude_deg = lon;
+        r.aloft->latitude_deg = lat;
+        r.aloft->longitude_deg = lon;
+        r.microbursts.clear();
+        return r;
+    };
+    const auto server = std::make_shared<glideslope::world::StationSlots>(nullptr);
+    glideslope::frontend::SessionClocked server_air(server, clock);
+    glideslope::net::Told told;
+    glideslope::frontend::HeardAir client(nullptr, {}, clock);
+    // A slot's weather, from now, as glideslope_server's Fleet sets and says it.
+    const auto set = [&](std::size_t slot, std::optional<glideslope::world::WeatherReport> r) {
+        server->set(slot, r, now_s, blend_s, now_s);
+        const glideslope::frontend::WeatherSaid said = glideslope::frontend::weather_said(
+            r ? &*r : nullptr, now_s, blend_s, static_cast<std::uint8_t>(slot),
+            server->set_changed_at_s());
+        (void)told.hear(all_of(glideslope::net::write(said.weather)));
+        if (said.aloft) {
+            (void)told.hear(all_of(glideslope::net::write(*said.aloft)));
+        }
+        check(told.last_station() == slot, "heard for its slot");
+        client.heard(*told.weather(), told.aloft());
+    };
+    set(0, at("YSSY 102100Z 28016G28KT CAVOK 20/13 Q1015", -33.946, 151.173));
+    set(1, at("YSWS 102100Z 22006KT 9999 16/11 Q1012", -33.888, 150.715));
+
+    const std::vector<std::array<double, 2>> places{
+        {-33.93, 151.06}, {-33.917, 150.944}, {-33.70, 150.80}, {-33.0, 151.7}};
+    const std::vector<double> heights{9.0, 300.0, 1200.0};
+    const std::vector<double> times{10.0,   600.0,  650.0,  800.0,  900.0,  960.0,
+                                    1100.0, 1500.0, 1530.0, 1580.0, 1700.0, 2000.0};
+    std::size_t compared = 0;
+    std::size_t changes = 0;
+    for (const double t : times) {
+        now_s = t;
+        if (t == 600.0) {
+            set(1, at("YSWS 102130Z 24012KT 9999 17/11 Q1013", -33.888, 150.715));
+            ++changes;
+        }
+        if (t == 900.0) {
+            set(1, at("YSRI 102100Z 01003KT 9999 18/11 Q1015", -33.601, 150.777));
+            set(2, at("YWLM 102100Z 27005KT CAVOK 18/14 Q1016", -32.794, 151.836));
+            ++changes;
+        }
+        if (t == 1500.0) {
+            set(0, std::nullopt);
+            ++changes;
+        }
+        for (const auto& p : places) {
+            for (const double h : heights) {
+                const glideslope::sim::Conditions a = server_air.at(p[0], p[1], h, 1.0);
+                const glideslope::sim::Conditions b = client.air()->at(p[0], p[1], h, 77.0);
+                check(a.wind_north_mps == b.wind_north_mps && a.wind_east_mps == b.wind_east_mps &&
+                          a.wind_down_mps == b.wind_down_mps &&
+                          a.temperature_offset_c == b.temperature_offset_c &&
+                          a.sea_level_pressure_hpa == b.sea_level_pressure_hpa &&
+                          a.turbulence_severity == b.turbulence_severity &&
+                          a.wind_at_20ft_mps == b.wind_at_20ft_mps &&
+                          a.runway_condition == b.runway_condition,
+                      "the air at " + std::to_string(p[0]) + ", " + std::to_string(h) + " m, " +
+                          std::to_string(t) + " s is the server's");
+                ++compared;
+            }
+        }
+    }
+    check(compared == 4 * 3 * 12 && changes == 3,
+          "every point compared through every change: " + std::to_string(compared));
+    check(told.stations().size() == 3 && client.stations()->slots().size() == 3 &&
+              !client.stations()->slots()[0],
+          "three slots heard, the first emptied");
+    std::printf("  %zu points of the air of three slots, each the server's to the last bit\n",
+                compared);
 }

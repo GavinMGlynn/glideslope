@@ -550,12 +550,17 @@ are the risks the phase order is built around:
   over a sunlit field, and the terrain's lift is linear theory seen along the
   wind only: no rotor, and no lee waves trapped under a stable layer. A tail
   in `COMPLETION_PLAN.md`.
-- **Weather is one station's.** A flight flies in the weather of the airfield
-  it names, everywhere it goes; nothing picks the nearest station - a tail in
-  `COMPLETION_PLAN.md`. The air of several stations is blended - the
-  nearer's alone but in a 20 km band halfway between them, with no step in
-  the wind (2026-11-11) - but neither the server nor the wire carries more
-  than one station yet, so no flight flies it. On a server the server's weather travels and every
+- **Weather is the nearer station's on a server asked for it, one station's
+  elsewhere.** A server given `--weather around` finds the stations within
+  200 km of every aircraft (aviationweather.gov's `bbox=`), flies each
+  place in the nearer's weather - blended across a 20 km band halfway
+  between two, with no step in the wind - and tells every client each
+  station, so that prediction flies the same air (2026-11-11). A flight on
+  its own, and a server given one `--weather` station, fly one station's
+  weather everywhere; a client joining while the server's stations change
+  flies the new ones whole until the blend ends; and the AI's planners are
+  told no wet runway under the stations around them - each a tail in
+  `COMPLETION_PLAN.md`. On a server the server's weather travels and every
   client flies it - one joining mid-blend blended from the same weather - but
   over no ground: no ridge or wave lift there, a tail.
 - **Summits are low in the DEM.** A 30 m grid does not hold a peak: at five

@@ -22,6 +22,7 @@
 #include <atomic>
 #include <chrono>
 #include <functional>
+#include <map>
 #include <future>
 #include <memory>
 #include <optional>
@@ -87,18 +88,22 @@ world::ContaminatedRunway condition_heard(const net::RunwayCondition& c);
 // (net::RunwayConditions), for the weather that took over at `changed_at_s`,
 // at `now_s` on the session's clock.
 net::RunwayConditions runway_conditions_said(const world::ReportedWeather& air,
-                                             double changed_at_s, double now_s);
+                                             double changed_at_s, double now_s,
+                                             std::uint8_t station = 0);
 
 // What the server sends of the weather it flies: still air (an empty METAR)
 // for none, and the forecast above the station as a `WEATHER_ALOFT` where the
 // report has one. `changed_at_s` and `blend_s` are when it took over on the
-// session's clock and how long it blends in over (net::Weather).
+// session's clock and how long it blends in over (net::Weather); `station`
+// its slot, and `stations_changed_at_s` when the server's stations last
+// changed (world::StationSlots).
 struct WeatherSaid {
     net::Weather weather;
     std::optional<net::WeatherAloft> aloft;
 };
 WeatherSaid weather_said(const world::WeatherReport* report, double changed_at_s,
-                         double blend_s);
+                         double blend_s, std::uint8_t station = 0,
+                         double stations_changed_at_s = 0.0);
 
 // **What a client makes of it**: the report the server flies, read with the
 // same rules, or nothing for still air. Throws world::MetarError for a METAR
@@ -139,7 +144,8 @@ private:
 };
 
 // **A client's copy of the server's air**: each whole weather heard
-// (net::Told), made into the air a predicted aircraft flies - over `ground`
+// (net::Told), into the slot it is for (world::StationSlots), made into the
+// air a predicted aircraft flies - the same stations the server flies, over `ground`
 // (none, as on the server: glideslope_server's Fleet::fly_in),
 // on the session's `clock`, blended from when the server blended it and over
 // as long - so that the client flies the server's weather and not a fetch of
@@ -167,18 +173,23 @@ public:
 
     // What an aircraft is to fly: null for still air from the start.
     const std::shared_ptr<sim::Weather>& air() const { return air_; }
-    // The report flown, for drawing its sky; null for still air.
-    std::shared_ptr<world::ReportedWeather> reported() const { return still_ ? nullptr : reported_; }
+    // **The station most of the air at a place is**, for drawing its sky;
+    // null for still air.
+    std::shared_ptr<world::ReportedWeather> reported(double latitude_deg,
+                                                     double longitude_deg) const {
+        return slots_ ? slots_->nearest(latitude_deg, longitude_deg) : nullptr;
+    }
+    // The stations flown; null for still air from the start.
+    const std::shared_ptr<world::StationSlots>& stations() const { return slots_; }
 
 private:
     const world::Geoid* geoid_;
     world::GroundAt ground_;
     std::function<double()> clock_;
-    std::shared_ptr<world::ReportedWeather> reported_;
-    // When the weather flown took over, as its server said.
-    double changed_at_s_ = 0.0;
+    std::shared_ptr<world::StationSlots> slots_;
+    // When each slot's weather took over, as its server said.
+    std::map<std::uint8_t, double> changed_at_s_;
     std::shared_ptr<sim::Weather> air_;
-    bool still_ = true;
 };
 
 } // namespace glideslope::frontend

@@ -1843,14 +1843,25 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       nearest. *Verification: with the server stopped for up to 800 ms at a
       time it passes, and an engine left running fails it plain, stopped
       and slowed.* Done 2026-10-17.
-- [ ] **A flight flies one station's weather wherever it goes**: nothing
+- [x] **A flight flies one station's weather wherever it goes**: nothing
       picks the nearest station. *Verification: a flight from one station to
       another flies the nearer's weather, changing between them with no step
-      in the wind.* 2026-11-11: several stations' air blends into the
-      nearer's across a 20 km band, measured with no step in the wind; still
-      missing: the server takes one station and the wire carries one, so no
-      flight flies more than one, and nothing finds the stations around an
-      aircraft.
+      in the wind.* Done 2026-11-11: `--weather around` flies the stations
+      within 200 km of every aircraft, the nearer's alone but in a 20 km band
+      between two; a client predicting between two recorded stations flew
+      the server's blend with no step over 0.0015 m/s.
+- [ ] **A client joining while the server's stations change flies the new
+      ones whole** until the change's blend ends, as one joining mid-blend
+      did before it was told what a weather blends from. *Verification: a
+      client joining mid-change flies the server's air to the last bit.*
+- [ ] **The AI's planners are told no wet runway under `--weather around`**:
+      a station's runway states reach the air, not the plans. *Verification:
+      a planner under the stations around it is told the runway its nearest
+      station reports wet.*
+- [ ] **A flight on its own flies one station's weather wherever it goes**:
+      the window's own `--weather` names one, and finds no others.
+      *Verification: a flight of the window's own from one station to
+      another flies the nearer's weather, with no step in the wind.*
 - [x] **The network checks on macOS drew another aircraft metres off** (8.6 m
       at 100 ms, 8.5 m at 200 ms). *Verification: the cause found, and the
       check run a hundred times on macOS within its bound.* Done 2026-09-30:
