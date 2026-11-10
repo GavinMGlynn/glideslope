@@ -303,14 +303,11 @@ bool same_ground(const net::TerrainDataset& a, const net::TerrainDataset& b) {
     return a.sha256 == b.sha256;
 }
 
-void AirFlown::note(const sim::Aircraft& aircraft, const world::StationSlots& stations) {
+void AirFlown::note(const std::array<double, 3>& wind, double latitude_deg,
+                    double longitude_deg, const world::StationSlots& stations) {
     if (!stations.any()) {
         return;
     }
-    constexpr double mps_per_fps = 0.3048;
-    const std::array<double, 3> wind{aircraft.property("atmosphere/wind-north-fps") * mps_per_fps,
-                                     aircraft.property("atmosphere/wind-east-fps") * mps_per_fps,
-                                     aircraft.property("atmosphere/wind-down-fps") * mps_per_fps};
     if (last_wind_) {
         worst_wind_step_mps_ = std::max(
             worst_wind_step_mps_, std::hypot(wind[0] - (*last_wind_)[0], wind[1] - (*last_wind_)[1],
@@ -326,9 +323,7 @@ void AirFlown::note(const sim::Aircraft& aircraft, const world::StationSlots& st
             names.push_back(slot->report().surface.metar.station);
         }
     }
-    const std::vector<double> shares =
-        world::station_weights(places, aircraft.property("position/lat-geod-deg"),
-                               aircraft.property("position/long-gc-deg"));
+    const std::vector<double> shares = world::station_weights(places, latitude_deg, longitude_deg);
     const auto most =
         static_cast<std::size_t>(std::max_element(shares.begin(), shares.end()) - shares.begin());
     if (steps_ == 0) {

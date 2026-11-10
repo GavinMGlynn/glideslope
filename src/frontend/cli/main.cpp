@@ -2049,7 +2049,12 @@ public:
     // stations (frontend::AirFlown).
     void note_air() {
         if (air_ && air_->stations()) {
-            air_flown_.note(*aircraft_, *air_->stations());
+            constexpr double mps_per_fps = 0.3048;
+            air_flown_.note({aircraft_->property("atmosphere/wind-north-fps") * mps_per_fps,
+                             aircraft_->property("atmosphere/wind-east-fps") * mps_per_fps,
+                             aircraft_->property("atmosphere/wind-down-fps") * mps_per_fps},
+                            aircraft_->property("position/lat-geod-deg"),
+                            aircraft_->property("position/long-gc-deg"), *air_->stations());
         }
     }
 
