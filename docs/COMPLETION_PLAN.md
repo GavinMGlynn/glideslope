@@ -1707,9 +1707,8 @@ AI aircraft kept apart from each other and clear of the runway.
       lands kept 500 ft or 1.5 nm from a person staying in the circuit.*
       Closed on its measured figures (the owner's ruling of 2026-10-09), as
       #351's 200 ft case was: told to leave and leaving, every pair is kept
-      at least 657 ft apart within 1.5 nm; staying, 14 of 15 lose the
-      minimum (all 15 once she goes on her circuit's burn), both sets
-      asserted.
+      at least 657 ft apart within 1.5 nm; staying, all 15 lose the
+      minimum, both sets asserted.
 - [x] **Back on her reserve to a person who stays, an airliner can run
       dry**: waiting for a person told to leave the circuit who stays, the
       AI goes when ten minutes and her way back are left; the A320 and the

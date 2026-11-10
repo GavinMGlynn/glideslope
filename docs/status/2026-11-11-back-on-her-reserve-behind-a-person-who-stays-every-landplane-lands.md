@@ -2,7 +2,7 @@
 
 **What it does not do, first.**
 - **Nothing keeps her apart from a person who stays**: all 15 lose the
-  minimum (the F-15C too now, 218 ft within 1.5 nm, where she was 658 ft
+  minimum (the F-15C too now, 217 ft within 1.5 nm, where she was 658 ft
   under the old count) - the person's conflict, closed on its figures with
   the previous item (the owner's ruling of 2026-10-09).
 - **Her reserve is still ten minutes**, not ICAO's 30 minutes at holding
@@ -10,8 +10,8 @@
   (14 CFR 91.167, 121.639): `minimum_fuel_s` is shared with the short-of-
   fuel rule and the diversion's reach, which every diversion test is
   measured with. What changed is what the ten minutes are counted at.
-- **Short of fuel (`short_of_fuel`) is still counted at what she burns
-  now**; only the wait with nowhere to divert counts at her circuit's burn.
+- **The diversion's reach is still counted at what she burns now**: her
+  fuel less ten minutes, flown at her hold's speed, clean, as her hold is.
 
 **The cause, measured** (the old rule, the A320, 787-8, A380 and B-2A
 behind a person's C172P who stays, linux-release). The wait's rule - go when
@@ -36,9 +36,23 @@ the runway, 1.08 and 0.83 nm past the threshold, unable to taxi clear -
   is what her way back burns. She waits until what is in her tanks falls
   below ten minutes and her way back at that burn (ICAO's MAYDAY FUEL: her
   fuel on landing below her reserve), then comes back with priority.
-- Landed so, she kept her reserve: the A320 touched down with 1,788 lb (594
-  s at her circuit's 3.01 lb/s), the A380 8,687 (662 s at 13.1), the 787-8
-  2,018 (619 s at 3.26), the B-2A 2,643 (638 s at 4.14).
+- **Short of fuel (`short_of_fuel`) is counted the same way**: under ten
+  minutes at `going_burn_pps`, she comes back from any hold at once.
+- **Her way back includes her turns** (`fuel_back_s`): from her heading to
+  the six-mile point and there onto the final, at 3 degrees a second.
+  Without them the A320 landed with 1,805 lb of her 1,806 lb reserve and
+  the F-35B with 1,315 of 1,332.
+- Landed so, every one kept her reserve - ten minutes at her circuit's
+  burn: least the F-35B, 1,447 lb of 1,332 (109%); the A320 2,061 of
+  1,806, the A380 9,264 of 7,870, the 787-8 2,269 of 1,957, the B-2A 2,932
+  of 2,484.
+- **What moved elsewhere**: the F-22A, counted at her circuit's burn,
+  is short of fuel 9 s after she asks (64 s before) and comes back at
+  once; behind a person who leaves she is kept 12.1 km apart (14.3
+  before); the least of that test, 657 ft within 1.5 nm, is unchanged.
+- **The tripwire did not move**: `glideslope_cli selftest` printed hash
+  `197366fd3fe6a7dc` before the change (the controller of #354) and after
+  it, linux-release.
 
 **Researched first** (owner's standing rule). Searched: ICAO Annex 6 final
 reserve fuel (30 minutes at holding speed at 1,500 ft for turbine
@@ -62,18 +76,21 @@ burns two or more times clean, and an idle descent far less.
   a person's C172P staying in the circuit, told to leave and staying; the
   one behind's hold out of reach and nowhere to divert. Her tanks are set
   as she first asks to hold 300 s past what she must go on, at the burn it
-  is counted at. All 15 asked, waited (64 to 556 s) and came back on her
-  fuel, and landed on her own runway and taxied clear - the set of the 15
-  asserted landed, and the set losing the minimum (all 15) asserted
-  exactly.
-- The other tests of the wait and the hold out of reach unchanged and
-  green: every landplane kept apart from a person who leaves when told,
-  every landplane diverting (the F-22A's fuel still says go after 64 s),
-  and their slowest-and-fastest.
+  is counted at. All 15 asked, waited (9 to 548 s) and came back on her
+  fuel, and landed on her own runway and taxied clear with her reserve in
+  her tanks - the set of the 15 asserted landed, each one's fuel on
+  landing asserted at or above her reserve, and the set losing the
+  minimum (all 15) asserted exactly.
+- The 21 tests of the circuit, the hold, the diversion and the person
+  (`ctest -I 243,263`) green on linux-release: every landplane kept apart
+  from a person who leaves when told, every landplane diverting, and their
+  slowest-and-fastest.
 
 **Seen to fail.** `going_burn_pps` set back to what she burns now alone -
 the old rule, the tanks set by it as before: "11 of 15 landed"; the A320
 and the A380 struck the ground (2,133 and 2,030 ft/min), the 787-8 and the
-B-2A not landed and clear - the four the old test named.
+B-2A not landed and clear - the four the old test named. The reserve on
+landing asserted, with the turns left out of her way back: "landed with
+1805.1 lb, under her 1805.7 lb reserve" (the A320; the F-35B too).
 
 **Times.** linux-release: the every-landplane staying test about 150 s.

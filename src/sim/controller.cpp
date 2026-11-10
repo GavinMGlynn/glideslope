@@ -873,7 +873,9 @@ double Controller::fuel_to_go_lbs() const {
     return (minimum_fuel_s + fuel_back_s()) * going_burn_pps();
 }
 
-bool Controller::short_of_fuel() const { return fuel_lasts_s() < minimum_fuel_s; }
+bool Controller::short_of_fuel() const {
+    return a_.property("propulsion/total-fuel-lbs") < minimum_fuel_s * going_burn_pps();
+}
 
 double Controller::fuel_back_s() const {
     if (!holding_out_) {
@@ -890,7 +892,21 @@ double Controller::fuel_back_s() const {
     const double way_m = distance_m(s.latitude_deg, s.longitude_deg, six_lat, six_lon) + out_m;
     // No reference speed to fly it at: no time known, so none is added.
     const double vref_kts = holding_out_->speeds().vref_kts;
-    return vref_kts > 0.0 ? way_m / (vref_kts * 1852.0 / 3600.0) : 0.0;
+    if (vref_kts <= 0.0) {
+        return 0.0;
+    }
+    // **And her turns**, at a standard rate of 3 degrees a second: from her
+    // heading to the six-mile point, and there onto the final. Without
+    // them, the A320 landed with 1,805 lb of her 1,806 lb reserve and the
+    // F-35B 1,315 of 1,332 (2026-11-11).
+    const auto off_deg = [](double a_deg, double b_deg) {
+        return std::abs(std::remainder(a_deg - b_deg, 360.0));
+    };
+    const double to_six_deg =
+        bearing_deg(s.latitude_deg, s.longitude_deg, six_lat, six_lon);
+    const double turns_s =
+        (off_deg(to_six_deg, s.heading_deg) + off_deg(r.heading_deg, to_six_deg)) / 3.0;
+    return way_m / (vref_kts * 1852.0 / 3600.0) + turns_s;
 }
 
 bool Controller::runway_not_clear(const Runway& runway) const {
