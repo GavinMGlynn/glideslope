@@ -35,16 +35,23 @@ cost figures in tests/ci_costs are copied from Linux, not measured.
   - **off the final**: 1.5 miles across its course, the lateral minimum the
     server keeps aircraft apart by;
   - **waited out**: the one ahead on final as long as three miles take her
-    at her approach speed, and a minute more - **the bound on any wait**:
-    240.6 s behind a C172P, 311.7 s behind a J-3 Cub.
+    at her approach speed, and a minute more (240.6 s behind a C172P, 311.7
+    s behind a J-3 Cub), **and 1.5 nm or more from where the next would
+    start**, the lateral minimum: past the bound the next is never put on
+    top of her, and waits on for one of the others. So the wait is bounded
+    by the one ahead landing, climbing away, leaving the final, or being
+    1.5 nm on once the bound has passed - not by the clock alone: one who
+    circles over the start holds the next for as long as she does.
 - **She is told why**: a `TRAFFIC_INSTRUCTION` to aircraft `FF` - hers, as
   she has none - once a session: "waiting for the aircraft ahead: aircraft
   0, 0.02 miles from where she starts, until it is 3 miles on or landed, at
-  most 228 s more". The window client says it while it waits; the server
+  most 228 s more" - and again when the aircraft she waits on changes. The
+  window client says it while it waits; the server
   says what let her by ("slot 1's turn on final: aircraft 1, 142.2 s on the
   session's clock: aircraft 0 landed, 2.52 miles from her start").
-- **A session begun again on her key while she waits keeps her turn**, and
-  her aircraft, when it comes, is every session of her key's.
+- **A session begun again on her key while she waits keeps her turn and
+  her place** (her first session's admission time), and her aircraft, when
+  it comes, is every session of her key's.
 - **The window client waits**: it gave up joining ten seconds after it
   began; now ten seconds after it last heard the server.
 - **glideslope_cli**: `--learnt-landing-at S` counts from when its aircraft
@@ -60,7 +67,7 @@ cost figures in tests/ci_costs are copied from Linux, not measured.
   `the_window_client_joining_on_final_behind_a_pa28_waits_told_why_and_is_at_the_gate_thirty_seconds_after_she_starts`
   and
   `a_player_begun_again_on_her_key_while_she_waits_her_turn_on_final_keeps_it_and_is_at_the_gate_thirty_seconds_after`
-  (tests/cmake/server_players_take_turns_on_final.cmake, ports 24834, 24849
+  (tests/cmake/server_players_take_turns_on_final.cmake, ports 24834, 24887
   and its relay, 24897): each player joins once the one before is admitted, touches
   nothing, asks for the learnt landing 30 s after her aircraft is given,
   and must be handed over at least 100 m before the gate's near edge; each
@@ -73,7 +80,8 @@ cost figures in tests/ci_costs are copied from Linux, not measured.
   every window test runs it), which must say it has no aircraft yet, the
   server's reason, and then hers, and press L 30.0 s after; the third's is
   the command-line client begun again on its key while it waits, its first
-  session going silent, and must be given her. linux-release, 529 s, 185 s
+  session going silent, after a third player (a C182) has joined behind it:
+  it must be given her, and before the third. linux-release, 529 s, 185 s
   and 174 s (the window and restart runs' C172P 2.33 to 1.818 and 1.829
   miles, 218 and 238 m to spare, each given at 142.2 s when the PA-28
   landed 2.52 miles from her start):
@@ -110,7 +118,8 @@ cost figures in tests/ci_costs are copied from Linux, not measured.
   The C172P's landing is unchanged: 167 ft/min, +2.02 m across, stopped
   600 m along, -0.05 m across. 204 s.
 - `the_next_player_on_final_waits_until_the_one_ahead_is_three_miles_on_landed_gone_around_off_the_final_or_waited_out`
-  (tests/unit/test_learnt.cpp): twelve cases, each way of letting her by at
-  its edge and just short of it, one mile on held, and the bound pinned:
-  240.6 s behind a C172P, 311.7 s behind a J-3 Cub. Red with three miles
-  made one.
+  (tests/unit/test_learnt.cpp): fourteen cases, each way of letting her by
+  at its edge and just short of it, one mile on held, the bound pinned
+  (240.6 s behind a C172P, 311.7 s behind a J-3 Cub), and past it held
+  still with the one ahead 2,700 m on or over the start. Red with three
+  miles made one.
