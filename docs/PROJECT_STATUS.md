@@ -268,7 +268,9 @@ from the PA-28's - nose up, 8.7 to 13.9 degrees, but under power, not
 three-point with the throttle closed as the AI's lander touches her. Each
 gate admits no more crosswind than her figures' demonstrated crosswind
 (the Cub's 12 kt), and no more than training's 15. The learnt landing is offered for those four aircraft, by the CLI, to a player at its gate on a server (L in the window
-client, told why when refused), and to an AI aircraft the server is told to
+client, told why when refused; since 2026-11-11 each of the four, joined on
+final in the window client and left alone, is still at its gate thirty
+seconds later - 2026-11-11-a-172-joined-on-final-stays-at-the-gate), and to an AI aircraft the server is told to
 flying a plan that ends in a landing, which then taxis off the runway; a
 landing goes around from a runway not clear (since 2026-10-08) - but a
 copilot's route cannot end in one (a tail). A landing a model plans is

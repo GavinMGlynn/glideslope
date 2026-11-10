@@ -1814,12 +1814,16 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       end-to-end test that tells a wrong gust clock (the steady bound passed
       one five seconds out), and the cause of a worst of up to 4 m in a
       weather's change, where the steady air's is 0.4 m.
-- [ ] **A 172 a window client joins on final leaves the gate in seconds**:
+- [x] **A 172 a window client joins on final leaves the gate in seconds**:
       left alone, it is 8 degrees off the runway's heading six seconds in. The
       client keeps the server's flaps and throttle but not its pitch trim,
       which no update carries; whether that is why is not yet measured.
       *Verification: a window client joining on final and touching nothing is
-      still at the gate thirty seconds later.*
+      still at the gate thirty seconds later.* Done 2026-11-11: the missing
+      roll and yaw trim was why (8.9 degrees off at six seconds without them;
+      without the pitch trim, 9.6 degrees nose down), both carried since
+      protocol 0F; each of the four aeroplanes with a gate is still at it 30 s
+      in, by the server's own verdict.
 - [ ] **The engine-stop prediction test fails on Windows clang when the
       server is held up**: its client, pacing 1.6 to 1.7 times its own clock
       to catch up, is put right by metres and misses its speed bound - since

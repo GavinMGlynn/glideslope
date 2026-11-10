@@ -4312,6 +4312,21 @@ if("vulkan" IN_LIST GLIDESLOPE_GPU_DRIVERS)
     set_tests_properties(the_client_with_the_window_on_final_is_refused_the_learnt_landing_with_its_flaps_moving_told_why_and_handed_to_it_with_l
         PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_learnt)
+
+    # **Every aeroplane with a learnt landing, joined on final by the client
+    # with the window and left alone, is still at its gate thirty seconds
+    # later**: the server's own verdict, asked for by L. See
+    # cmake/client_stays_at_gate.cmake.
+    add_test(NAME every_aeroplane_with_a_learnt_landing_joined_on_final_and_left_alone_is_still_at_its_gate_thirty_seconds_later
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/client_gate -DPORT=24890 -DDRIVER=vulkan
+            -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_stays_at_gate.cmake)
+    set_tests_properties(every_aeroplane_with_a_learnt_landing_joined_on_final_and_left_alone_is_still_at_its_gate_thirty_seconds_later
+        PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/client_gate)
 endif()
 
 # **The client with the window hands its own aircraft to the AI on a
