@@ -1115,6 +1115,7 @@ struct Connection {
         std::optional<glideslope::net::AskedAircraft> asked;
         bool unreadable = false;
         bool told = false; // why, in a TRAFFIC_INSTRUCTION to `no_aircraft`
+        std::uint8_t told_ahead = glideslope::net::no_aircraft; // whom it named
     };
     std::optional<WaitsOnFinal> waits_on_final;
     // Their inputs, and how far through them the server has got. The number
@@ -2019,6 +2020,7 @@ public:
     struct FinalWait {
         std::string why;       // empty: she may start
         std::string let_by;    // what let her, when she may
+        std::uint8_t ahead = glideslope::net::no_aircraft; // whom she waits on
     };
     FinalWait final_wait(const std::optional<glideslope::net::AskedAircraft>& asked) {
         FinalWait out;
@@ -2066,6 +2068,7 @@ public:
                                   ahead.on_final_s);
                 out.why = text;
                 out.let_by.clear();
+                out.ahead = a.index;
                 return out;
             }
             std::snprintf(text, sizeof text, "%saircraft %u %s, %.2f miles from her start",
@@ -5093,6 +5096,8 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
             c.waits_on_final = same_key->second.waits_on_final;
             if (c.waits_on_final) {
                 c.waits_on_final->told = false;
+                // **Her place, not a new one**: the turns go oldest first.
+                c.admitted_s = same_key->second.admitted_s;
             }
         } else if (fleet != nullptr) {
             const auto asked = glideslope::net::read_asked_aircraft(
@@ -6037,12 +6042,19 @@ int run(const Options& o) {
                                     wait.let_by.c_str());
                         std::fflush(stdout);
                     }
-                    // **Told why she waits**, once each session is proven: a
+                    // **Told why she waits**, once each session is proven,
+                    // and again when the aircraft she waits on changes: a
                     // TRAFFIC_INSTRUCTION to `no_aircraft`, hers having none.
                     for (auto& [address, c] : connections) {
-                        if (c.proven && c.waits_on_final && !c.waits_on_final->told) {
+                        if (!c.proven || !c.waits_on_final) {
+                            continue;
+                        }
+                        const auto waiting = fleet->final_wait(c.waits_on_final->asked);
+                        if (!c.waits_on_final->told ||
+                            waiting.ahead != c.waits_on_final->told_ahead) {
                             c.waits_on_final->told = true;
-                            const auto why = fleet->final_wait(c.waits_on_final->asked).why;
+                            c.waits_on_final->told_ahead = waiting.ahead;
+                            const auto& why = waiting.why;
                             const std::vector<std::uint8_t> told = glideslope::net::write(
                                 glideslope::net::TrafficInstruction{
                                     glideslope::net::no_aircraft,

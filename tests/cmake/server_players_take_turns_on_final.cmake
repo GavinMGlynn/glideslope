@@ -83,11 +83,12 @@ endif()
 list(LENGTH _gated _gated_n)
 
 list(GET _runs ${RUN} _run)
-# **How the last joins** (`+window`, `+restart`): the window client's own
-# program, run --headless as every window test runs it, waiting with no
-# aircraft and told why, then given hers; or the command-line client begun
-# again on the same key while it waits - its first session going silent,
-# as a client killed does - which must keep her turn.
+# **How one joins** (`+window`, `+restart`): the last, the window client's
+# own program, run --headless as every window test runs it, waiting with no
+# aircraft and told why, then given hers; or the second, the command-line
+# client begun again on the same key while it waits - its first session
+# going silent, as a client killed does - after the third has joined, and
+# it must keep its place ahead of the third.
 set(_how "")
 if(_run MATCHES "\\+([a-z]+)$")
     set(_how "${CMAKE_MATCH_1}")
@@ -130,6 +131,8 @@ foreach(_i RANGE ${_last})
     list(GET _order ${_i} _a)
     if(_i EQUAL 0)
         set(_after "${_ready}")
+    elseif(_i EQUAL 2 AND _how STREQUAL "restart")
+        set(_after "${WORK}/heard_first.txt")
     else()
         math(EXPR _before "${_i} - 1")
         set(_after "${WORK}/heard${_before}.txt")
@@ -142,14 +145,15 @@ foreach(_i RANGE ${_last})
     if(_i EQUAL _last AND _how STREQUAL "window")
         continue()
     endif()
-    if(_i EQUAL _last AND _how STREQUAL "restart")
-        # Its first session: given up on, silent, eight seconds in.
+    if(_i EQUAL 1 AND _how STREQUAL "restart")
+        # Its first session: given up on, silent, eight seconds in; begun
+        # again once the third has joined behind it.
         set(_secret "1111111111111111111111111111111111111111111111111111111111111111")
         file(REMOVE "${WORK}/heard_first.txt")
         list(APPEND _commands COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 8
              --after-ready "${_after}" --aircraft ${_a} --key ${_secret} --no-goodbye
              --heard "${WORK}/heard_first.txt")
-        set(_after "${WORK}/heard_first.txt")
+        set(_after "${WORK}/heard2.txt")
         set(_again --key ${_secret})
     else()
         set(_again "")
@@ -199,7 +203,7 @@ file(WRITE "${WORK}/server.txt" "${_out}")
 # The first session of one begun again is ended by the server for the newer
 # on its key, and says so, exiting 1: as it should.
 if(_how STREQUAL "restart")
-    list(REMOVE_AT _rcs ${_last})
+    list(REMOVE_AT _rcs 1)
     file(READ "${WORK}/heard_first.txt" _first)
     if(NOT _first MATCHES "taken over by a newer session for this key")
         message(FATAL_ERROR "the first session was not ended for the newer:\n${_first}")
@@ -222,9 +226,11 @@ if(_how STREQUAL "window")
     endif()
 endif()
 # **The session begun again kept her turn**: its first session was told to
-# wait, and went silent; the second, on its key, was given her.
+# wait, and went silent; the second, on its key, begun after the third had
+# joined, was given her - and before the third (her place, asserted below
+# as each follower is given hers only after the one ahead is handed over).
 if(_how STREQUAL "restart")
-    file(READ "${WORK}/heard${_last}.txt" _heard)
+    file(READ "${WORK}/heard1.txt" _heard)
     if(NOT _heard MATCHES "given its aircraft, [0-9]+, [0-9]+ s after joining")
         message(FATAL_ERROR "the session begun again was never given her aircraft:\n${_heard}\n${_out}")
     endif()

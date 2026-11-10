@@ -597,7 +597,8 @@ TurnOnFinal turn_on_final(const AheadOnFinal& a) {
     if (std::abs(a.across_m) >= Separation::minimum_m) {
         return TurnOnFinal::left_final;
     }
-    if (a.on_final_s >= longest_behind_s(a.approach_kts)) {
+    if (a.on_final_s >= longest_behind_s(a.approach_kts) &&
+        a.from_start_m >= Separation::minimum_m) {
         return TurnOnFinal::waited_out;
     }
     return TurnOnFinal::holds;

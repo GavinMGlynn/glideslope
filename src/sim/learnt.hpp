@@ -219,16 +219,19 @@ double learnt_gate_start_m(const LearntPolicy& policy);
 // - **left the final**: 1.5 nm across its course, the lateral minimum the
 //   server keeps aircraft apart by (Separation::minimum_m);
 // - **waited out**: the one ahead has been on final as long as three miles
-//   take her at her approach speed, and a minute more - the bound on any
-//   wait behind her: 240 s behind a C172P at 59.8 kt, 312 s behind a J-3 Cub
-//   at 42.9.
+//   take her at her approach speed, and a minute more - 240 s behind a C172P
+//   at 59.8 kt, 312 s behind a J-3 Cub at 42.9 - and is at least 1.5 nm from
+//   where the next would start, the lateral minimum the server keeps
+//   aircraft apart by: past the bound the next is never put on top of her,
+//   and waits on for one of the others. (At three miles she is let by
+//   already, so the bound eases the spacing to the minimum, not to none.)
 struct AheadOnFinal {
     double from_start_m = 0.0;            // from where the waiting player would start
     double height_above_ground_ft = 0.0;
     double above_her_start_ft = 0.0;      // above where the one ahead started
     double across_m = 0.0;                // across the final's course
     double on_final_s = 0.0;              // since the one ahead started on final
-    double approach_kts = 0.0;            // hers
+    double approach_kts = 0.0;            // the one ahead's, as she started on final
 };
 enum class TurnOnFinal { holds, three_miles_on, landed, gone_around, left_final, waited_out };
 struct TurnOnFinalRule {
