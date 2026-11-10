@@ -1839,7 +1839,11 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
 - [ ] **A flight flies one station's weather wherever it goes**: nothing
       picks the nearest station. *Verification: a flight from one station to
       another flies the nearer's weather, changing between them with no step
-      in the wind.*
+      in the wind.* 2026-11-11: several stations' air blends into the
+      nearer's across a 20 km band, measured with no step in the wind; still
+      missing: the server takes one station and the wire carries one, so no
+      flight flies more than one, and nothing finds the stations around an
+      aircraft.
 - [x] **The network checks on macOS drew another aircraft metres off** (8.6 m
       at 100 ms, 8.5 m at 200 ms). *Verification: the cause found, and the
       check run a hundred times on macOS within its bound.* Done 2026-09-30:
