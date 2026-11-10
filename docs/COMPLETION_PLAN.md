@@ -1843,15 +1843,13 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       nearest. *Verification: with the server stopped for up to 800 ms at a
       time it passes, and an engine left running fails it plain, stopped
       and slowed.* Done 2026-10-17.
-- [ ] **A flight flies one station's weather wherever it goes**: nothing
+- [x] **A flight flies one station's weather wherever it goes**: nothing
       picks the nearest station. *Verification: a flight from one station to
       another flies the nearer's weather, changing between them with no step
-      in the wind.* 2026-11-11: on a server, `--weather around` flies the
-      stations within 200 km of every aircraft, the nearer's alone but in a
-      20 km band between two; a client predicting between two recorded
-      stations flew the server's blend with no step over 0.0015 m/s. Still
-      missing: a flight on its own, with no server, flies the one station
-      its `--weather` names.
+      in the wind.* Done 2026-11-11: `--weather around`, on a server and on a
+      flight of her own, flies the stations within 200 km of her, the
+      nearer's alone but in a 20 km band between two; between two recorded
+      stations neither stepped the wind by more than 0.005 m/s.
 - [ ] **A client joining while the server's stations change flies the new
       ones whole** until the change's blend ends, as one joining mid-blend
       did before it was told what a weather blends from. *Verification: a

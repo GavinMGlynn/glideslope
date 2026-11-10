@@ -159,7 +159,36 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
                 start.loading.empty() ? "as her model is" : start.loading.c_str());
     std::fflush(stdout);
 
-    if (!start.weather_station.empty()) {
+    if (start.weather_station == weather_around) {
+        // **The stations around her**, found before she flies, as a
+        // server finds them; one that cannot be had stops the flight, as a
+        // station's does.
+        weather_refresh_s_ = start.weather_refresh_s;
+        stations_ = std::make_shared<world::StationSlots>(
+            geoid_.get(), [ground](double lat, double lon) {
+                return ground->height_above_geoid(lat, lon);
+            });
+        const std::pair<double, double> at{start.latitude_deg, start.longitude_deg};
+        world::StationsFound found = world::fetch_stations_weather(
+            {at}, world::utc_hour(std::chrono::system_clock::now()), fetch_);
+        for (const std::string& why : found.unanswered) {
+            std::printf("glideslope: stations kept: %s\n", why.c_str());
+        }
+        for (world::SlotChange& c : world::slot_changes(*stations_, std::move(found.stations))) {
+            if (c.report) {
+                std::printf("glideslope: station %s at %.4f,%.4f: %s\n",
+                            c.report->surface.metar.station.c_str(),
+                            c.report->surface.latitude_deg, c.report->surface.longitude_deg,
+                            c.report->surface.metar.raw.c_str());
+            }
+            stations_->set(c.slot, std::move(c.report), 0.0, weather_blend_seconds, 0.0);
+        }
+        std::fflush(stdout);
+        stations_around_ = std::make_unique<world::StationsAround>(fetch_, weather_refresh_s_);
+        stations_around_->had({at}, 0.0);
+        weather_ = stations_->nearest(at.first, at.second);
+        aircraft_->set_weather(stations_);
+    } else if (!start.weather_station.empty()) {
         weather_station_ = start.weather_station;
         weather_refresh_s_ = start.weather_refresh_s;
         world::WeatherReport report = world::fetch_weather(
@@ -177,7 +206,27 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     }
 }
 
+std::pair<double, double> Flight::place() const {
+    return {aircraft_->property("position/lat-geod-deg"),
+            aircraft_->property("position/long-gc-deg")};
+}
+
 void Flight::lay_runways_when_had() {
+    if (stations_) {
+        for (const auto& slot : stations_->slots()) {
+            std::string why;
+            if (slot && station_runways_->lay(*slot, &why)) {
+                std::printf("glideslope: runways laid at %s: %zu reported contaminated\n",
+                            slot->report().surface.metar.station.c_str(),
+                            slot->report().contaminated.size());
+                std::fflush(stdout);
+            }
+            if (!why.empty()) {
+                std::fprintf(stderr, "glideslope: %s\n", why.c_str());
+            }
+        }
+        return;
+    }
     if (!weather_ || heard_air_) {
         return;
     }
@@ -369,7 +418,7 @@ void Flight::step(const sim::Controls& controls) {
         if (checklist_) {
             checklist_->update(*aircraft_, tick_);
         }
-        if (weather_ || heard_air_) {
+        if (weather_ || heard_air_ || stations_) {
             refresh_weather();
         }
         return;
@@ -396,7 +445,7 @@ void Flight::step(const sim::Controls& controls) {
         checklist_->update(*aircraft_, tick_);
     }
     report_navigation();
-    if (weather_ || heard_air_) {
+    if (weather_ || heard_air_ || stations_) {
         refresh_weather();
     }
 }
@@ -501,6 +550,31 @@ void Flight::refresh_weather() {
     }
     lay_runways_when_had();
     const double now = aircraft_->state().sim_time_s;
+    if (stations_) {
+        // **The stations around her, as a server's**: found again when
+        // due, each change blended from now (world::slot_changes).
+        try {
+            if (auto found = stations_around_->found(now)) {
+                for (const std::string& why : found->unanswered) {
+                    std::printf("glideslope: stations kept: %s\n", why.c_str());
+                }
+                std::printf("glideslope: stations at %.3f s: %zu found\n", now,
+                            found->stations.size());
+                std::fflush(stdout);
+                for (world::SlotChange& c :
+                     world::slot_changes(*stations_, std::move(found->stations))) {
+                    stations_->set(c.slot, std::move(c.report), now, weather_blend_seconds, now);
+                }
+            }
+        } catch (const std::exception& e) {
+            std::fprintf(stderr, "glideslope: the stations are not updated: %s\n", e.what());
+        }
+        stations_around_->look({place()}, now, [this] { return stations_->stations_flown(); });
+        const auto [lat, lon] = place();
+        weather_ = stations_->nearest(lat, lon);
+        air_flown_.note(*aircraft_, *stations_);
+        return;
+    }
     if (next_weather_) {
         if (!next_weather_->done()) {
             return;

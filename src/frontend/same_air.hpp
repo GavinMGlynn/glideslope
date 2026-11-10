@@ -11,6 +11,7 @@
 // back the client's (net/messages.hpp). Both are here.
 
 #include "net/messages.hpp"
+#include "sim/aircraft.hpp"
 #include "sim/weather.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
@@ -19,6 +20,7 @@
 #include "world/weather.hpp"
 
 #include <filesystem>
+#include <array>
 #include <atomic>
 #include <chrono>
 #include <functional>
@@ -190,6 +192,34 @@ private:
     // When each slot's weather took over, as its server said.
     std::map<std::uint8_t, double> changed_at_s_;
     std::shared_ptr<sim::Weather> air_;
+};
+
+// **The air an aircraft flew, step by step, of stations** (world::StationSlots):
+// how much the wind changed in the worst step, which station was most of the
+// air at the first step and the last, and the least share the first had - a
+// flight from one station towards another (server_stations.cmake,
+// window_stations.cmake). Both the headless client and the window's flight
+// say it the same way.
+class AirFlown {
+public:
+    // After each step: the aircraft as it is, and the stations it flew.
+    void note(const sim::Aircraft& aircraft, const world::StationSlots& stations);
+    // Steps noted; nought, none.
+    std::size_t steps() const { return steps_; }
+    // "air flown: N steps, the wind changing by at most ... m/s in one; most
+    // of it X's at the first (F of it), Y's at the last (S of it), the
+    // first's share at least L".
+    std::string said() const;
+
+private:
+    std::optional<std::array<double, 3>> last_wind_;
+    double worst_wind_step_mps_ = 0.0;
+    std::size_t steps_ = 0;
+    std::string first_station_;
+    double first_share_ = 0.0;
+    std::string last_station_;
+    double last_share_ = 0.0;
+    double least_first_share_ = 1.0;
 };
 
 } // namespace glideslope::frontend
