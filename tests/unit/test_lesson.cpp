@@ -10572,6 +10572,9 @@ struct Extra {
     std::size_t* looked_up = nullptr;
     // Where she asked from and how far, as {latitude, longitude, metres}.
     std::array<double, 3>* asked = nullptr;
+    // The one behind told, as a server tells her, of a person straight in to
+    // or departing her runway (sim::using_by_hand of the one ahead).
+    bool gives_way = false;
     std::optional<double> ceiling_ft;
     double run_s = 3600.0;
     double over_ground_from_nm = 1e9;
@@ -10741,6 +10744,11 @@ TwoAround two_go_around_together(const std::string& ahead_id, const std::string&
     }
     if (extra.ceiling_ft) {
         behind_c.limit_height(std::nullopt, extra.ceiling_ft);
+    }
+    if (extra.gives_way) {
+        behind_c.gives_way_with([&ahead](const glideslope::sim::Runway& r) {
+            return glideslope::sim::using_by_hand(r, ahead.state());
+        });
     }
     struct Pair {
         glideslope::sim::Controller* c;
@@ -13165,7 +13173,8 @@ constexpr double held_under_ft = 6000.0;
 
 // **A world of runways, as a server has them** (world::RunwaySurfaces): the
 // test's runway, the alternate, and `far_strips` more spread over the
-// globe, none within 500 km - so that what she is told of is chosen from a
+// globe, none within 3,000 km - past every landplane's reach (1,400 km at
+// most, measured; at 500 km a C172P diverted to one) - so that what she is told of is chosen from a
 // world by her fuel's reach (world::runway_ends_within), as the server's
 // are.
 constexpr std::size_t far_strips = 2000;
@@ -13187,16 +13196,19 @@ glideslope::world::RunwayStrip strip_of(const glideslope::sim::Runway& r,
     s.width_m = 45.0;
     return s;
 }
-std::shared_ptr<const glideslope::world::RunwaySurfaces> a_world_of_runways() {
+std::shared_ptr<const glideslope::world::RunwaySurfaces> a_world_of_runways(bool alternate) {
     const glideslope::sim::Runway r = a_runway();
-    std::vector<glideslope::world::RunwayStrip> strips{strip_of(r, "the runway"),
-                                                       strip_of(the_alternate(), "the alternate")};
-    for (std::size_t i = 0; strips.size() < far_strips + 2; ++i) {
+    std::vector<glideslope::world::RunwayStrip> strips{strip_of(r, "the runway")};
+    if (alternate) {
+        strips.push_back(strip_of(the_alternate(), "the alternate"));
+    }
+    const std::size_t near = strips.size();
+    for (std::size_t i = 0; strips.size() < far_strips + near; ++i) {
         glideslope::sim::Runway far = r;
         far.threshold_lat_deg = -60.0 + static_cast<double>(i % 40) * 3.0;
-        far.threshold_lon_deg = -175.0 + static_cast<double>(i / 40) * 7.0;
+        far.threshold_lon_deg = -175.0 + static_cast<double>(i / 40) * 3.5;
         if (glideslope::sim::distance_m(far.threshold_lat_deg, far.threshold_lon_deg,
-                                        r.threshold_lat_deg, r.threshold_lon_deg) < 500000.0) {
+                                        r.threshold_lat_deg, r.threshold_lon_deg) < 3000000.0) {
             continue;
         }
         strips.push_back(strip_of(far, "far " + std::to_string(i)));
@@ -13214,15 +13226,19 @@ std::shared_ptr<const glideslope::world::RunwaySurfaces> a_world_of_runways() {
 // elevation. Every pair asserted flown.
 void diverting_from_behind_persons_who_stay(const std::vector<std::string>& aheads,
                                             const std::vector<std::string>& behinds,
-                                            const std::set<std::string>& came_back = {}) {
+                                            const std::set<std::string>& came_back = {},
+                                            bool alternate = true) {
     std::set<std::pair<std::string, std::string>> flown;
     std::vector<std::string> wrong;
     double least_m = 1e9;
     double least_ft = 1e9;
-    const auto world = a_world_of_runways();
-    check(world->size() == far_strips + 2, "a world of " + std::to_string(world->size()) +
-                                               " runways, not " +
-                                               std::to_string(far_strips + 2));
+    int back_lost = 0;
+    int back_flown = 0;
+    const auto world = a_world_of_runways(alternate);
+    const std::size_t near = alternate ? 2 : 1;
+    check(world->size() == far_strips + near, "a world of " + std::to_string(world->size()) +
+                                                  " runways, not " +
+                                                  std::to_string(far_strips + near));
     for (const std::string& ahead_id : aheads) {
         for (const std::string& behind_id : behinds) {
             const auto started = std::chrono::steady_clock::now();
@@ -13236,13 +13252,14 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
             e.looked_up = &looked_up;
             e.ceiling_ft = r.elevation_ft + held_under_ft;
             e.run_s = 7200.0;
+            e.gives_way = true;
             const TwoAround t = two_go_around_together(
                 ahead_id, behind_id, true, Then::ahead_stays_and_the_one_behind_diverts, 0.0,
                 false, e);
             flown.insert({ahead_id, behind_id});
             least_m = std::min(least_m, t.least_m);
             least_ft = std::min(least_ft, t.least_ft);
-            const bool back = came_back.count(behind_id) != 0;
+            const bool back = !alternate || came_back.count(behind_id) != 0;
             std::printf("  a person's %s staying ahead, %s behind: left the circuit %s; %zu of "
                         "%zu runway ends looked up, %.0f km her reach; diverted to %s%s%s%s; %s%s%s%s (%.1f s)\n",
                         ahead_id.c_str(), behind_id.c_str(),
@@ -13257,12 +13274,17 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
                             .count());
             const std::string pair = "a person's " + ahead_id + " staying ahead of " + behind_id +
                                      ", her hold out of reach";
+            // **Coming back, her separation is measured, named**: a final
+            // to the runway passes a person's left-hand downwind within
+            // 1.5 nm (a plan item).
             if (t.lost && !back) {
                 wrong.push_back(pair + ": not kept apart by 500 ft or 1.5 nm: " + least_of(t));
-            } else if (t.lost) {
-                std::printf("  NOT KEPT APART, named - %s: coming back with priority, %s (a "
-                            "plan item)\n",
-                            behind_id.c_str(), least_of(t).c_str());
+            } else if (back) {
+                std::printf("  MEASURED, named - %s coming back with priority: %s%s\n",
+                            behind_id.c_str(), least_of(t).c_str(),
+                            t.lost ? ", NOT KEPT APART (a plan item)" : ", kept apart");
+                back_lost += t.lost ? 1 : 0;
+                ++back_flown;
             }
             if (!t.wreck.empty()) {
                 wrong.push_back(pair + ": wrecked: " + t.wreck);
@@ -13311,8 +13333,10 @@ void diverting_from_behind_persons_who_stay(const std::vector<std::string>& ahea
             }
         }
     }
-    std::printf("  diverting: least %s within 500 ft, %s within 1.5 nm\n",
-                least_figure(least_m, " m").c_str(), least_figure(least_ft, " ft").c_str());
+    std::printf("  diverting: least %s within 500 ft, %s within 1.5 nm; coming back, %d of %d "
+                "not kept apart\n",
+                least_figure(least_m, " m").c_str(), least_figure(least_ft, " ft").c_str(),
+                back_lost, back_flown);
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
@@ -13423,13 +13447,25 @@ GLIDESLOPE_TEST(an_ai_aircraft_whose_hold_is_out_of_her_reach_diverts_to_another
 // too little fuel when her hold is given up to reach the alternate with ten
 // minutes' reserve, so she comes down where she is and comes back at once,
 // with priority, to the runway she held for, and lands there. **Her
-// separation is not asserted, named**: her final passes the person's
-// downwind 1,606 m off and 0 ft (a plan item).
-//
+// separation is measured, not asserted, named** (a plan item): her final
+// passes the person's downwind 1,606 m off and 0 ft.
 GLIDESLOPE_TEST(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart) {
     const std::vector<std::string> all = landplanes_going_around();
     check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
     diverting_from_behind_persons_who_stay({"c172p"}, all, {"f22"});
+}
+
+// **Every landplane coming back with priority behind a person still in the
+// circuit lands, her separation measured** (a plan item): the same hold out
+// of reach, and no other airfield in her world, so that every one comes
+// back - down where she is, and the legs to final with priority. Each
+// lands and taxies clear; how near each came to the person is printed, and
+// how many lost the minimum. A final to the runway passes a left-hand
+// downwind within 1.5 nm; nothing yet times it behind the person.
+GLIDESLOPE_TEST(every_landplane_coming_back_with_priority_behind_a_person_in_the_circuit_lands_and_is_measured) {
+    const std::vector<std::string> all = landplanes_going_around();
+    check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
+    diverting_from_behind_persons_who_stay({"c172p"}, all, {}, false);
 }
 
 // **A racetrack's ground is the ground of its whole area**
