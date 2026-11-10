@@ -678,4 +678,78 @@ WeatherReport WeatherFetch::get() {
     return report_.get();
 }
 
+std::vector<double> station_weights(const std::vector<std::pair<double, double>>& stations,
+                                    double latitude_deg, double longitude_deg) {
+    std::vector<double> distance;
+    distance.reserve(stations.size());
+    double nearest = std::numeric_limits<double>::infinity();
+    for (const auto& [lat, lon] : stations) {
+        distance.push_back(sim::distance_m(latitude_deg, longitude_deg, lat, lon));
+        nearest = std::min(nearest, distance.back());
+    }
+    std::vector<double> weight;
+    weight.reserve(stations.size());
+    double sum = 0.0;
+    for (const double d : distance) {
+        weight.push_back(std::max(0.0, 1.0 - (d - nearest) / station_blend_m));
+        sum += weight.back();
+    }
+    // The nearest has a share of one before dividing, so the sum is never
+    // below one.
+    for (double& w : weight) {
+        w /= sum;
+    }
+    return weight;
+}
+
+std::vector<std::pair<double, double>> StationsWeather::places() const {
+    std::vector<std::pair<double, double>> out;
+    out.reserve(stations_.size());
+    for (const auto& s : stations_) {
+        out.emplace_back(s->report().surface.latitude_deg, s->report().surface.longitude_deg);
+    }
+    return out;
+}
+
+std::size_t StationsWeather::nearest(double latitude_deg, double longitude_deg) const {
+    const std::vector<double> w = station_weights(places(), latitude_deg, longitude_deg);
+    return w.empty() ? 0
+                     : static_cast<std::size_t>(std::max_element(w.begin(), w.end()) - w.begin());
+}
+
+sim::Conditions StationsWeather::at(double latitude_deg, double longitude_deg, double height_m,
+                                    double time_s) {
+    const std::vector<double> w = station_weights(places(), latitude_deg, longitude_deg);
+    if (w.empty()) {
+        return {};
+    }
+    const std::size_t most =
+        static_cast<std::size_t>(std::max_element(w.begin(), w.end()) - w.begin());
+    // **The nearer's alone, as it is**, outside the band: not a sum that
+    // might differ from it in its last bit.
+    if (w[most] >= 1.0) {
+        return stations_[most]->at(latitude_deg, longitude_deg, height_m, time_s);
+    }
+    sim::Conditions c;
+    c.sea_level_pressure_hpa = 0.0;
+    for (std::size_t i = 0; i < stations_.size(); ++i) {
+        if (w[i] <= 0.0) {
+            continue;
+        }
+        const sim::Conditions s = stations_[i]->at(latitude_deg, longitude_deg, height_m, time_s);
+        c.wind_north_mps += w[i] * s.wind_north_mps;
+        c.wind_east_mps += w[i] * s.wind_east_mps;
+        c.wind_down_mps += w[i] * s.wind_down_mps;
+        c.temperature_offset_c += w[i] * s.temperature_offset_c;
+        c.sea_level_pressure_hpa += w[i] * s.sea_level_pressure_hpa;
+        c.wind_at_20ft_mps += w[i] * s.wind_at_20ft_mps;
+        c.gust_factor_kt += w[i] * s.gust_factor_kt;
+        if (i == most) {
+            c.turbulence_severity = s.turbulence_severity;
+            c.runway_condition = s.runway_condition;
+        }
+    }
+    return c;
+}
+
 } // namespace glideslope::world

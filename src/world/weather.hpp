@@ -17,6 +17,7 @@
 #include <cstdint>
 #include <functional>
 #include <limits>
+#include <memory>
 #include <future>
 #include <optional>
 #include <string>
@@ -336,6 +337,57 @@ private:
     bool runways_laid_ = false;
     const Geoid* geoid_;
     double blend_seconds_;
+};
+
+// **How wide the blend between two stations' weathers is**, metres of
+// difference in distance: 20 km. A place is in the nearer station's weather
+// alone where the next is farther by this or more, and between two stations
+// that is everywhere but a band 20 km wide across the line halfway between
+// them - 10 km either side of it, along the line joining them. An estimate,
+// not a source's: wider than a METAR's vicinity (16 km, metar_radius_m's
+// note), so that a band never ends inside one station's vicinity of the
+// other, and narrower than the 40 to 100 km between most reporting
+// aerodromes, so that each station's weather is its own around it. No
+// simulator found publishes its own: FlightGear's interpolates by inverse
+// distance everywhere, MSFS's is said to have a transition about each
+// station (2026-11-11 searches, docs/status).
+inline constexpr double station_blend_m = 20000.0;
+
+// **The weight each station's weather has at a place**: each station
+// `1 - (d - d_nearest) / station_blend_m`, none below nought, then all
+// divided by their sum - the nearer station's weather alone outside the
+// band, and a share that moves continuously with the place inside it. A
+// flight moving `s` metres changes each difference in distance by at most
+// 2 s, so no station's share moves by more than about 2 s / station_blend_m
+// in a step. In the order of `stations`, latitude and longitude in degrees;
+// empty for none.
+std::vector<double> station_weights(const std::vector<std::pair<double, double>>& stations,
+                                    double latitude_deg, double longitude_deg);
+
+// **A flight's weather from several stations** (REQUIREMENTS.md 6.3): each a
+// ReportedWeather of its own - its report, blended in time as it changes,
+// its runways - flown by its share at the place (station_weights). Every
+// value but two is the shares' weighted sum; the runway's condition and the
+// turbulence's severity, codes that cannot be mixed, are the station with
+// the greatest share's. Each station's gusts and turbulence keep their own
+// pattern from their own seed and clock, so two ends that have the same
+// stations fly the same air.
+class StationsWeather : public sim::Weather {
+public:
+    explicit StationsWeather(std::vector<std::shared_ptr<ReportedWeather>> stations)
+        : stations_(std::move(stations)) {}
+
+    const std::vector<std::shared_ptr<ReportedWeather>>& stations() const { return stations_; }
+    // **The station whose weather is most of it at a place**: what draws the
+    // sky there. Its index in stations(); 0 with none.
+    std::size_t nearest(double latitude_deg, double longitude_deg) const;
+
+    sim::Conditions at(double latitude_deg, double longitude_deg, double height_m,
+                       double time_s) override;
+
+private:
+    std::vector<std::pair<double, double>> places() const;
+    std::vector<std::shared_ptr<ReportedWeather>> stations_;
 };
 
 } // namespace glideslope::world
