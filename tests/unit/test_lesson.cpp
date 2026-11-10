@@ -12131,6 +12131,44 @@ namespace {
 constexpr double longest_behind_a_person_s = 1500.0;
 constexpr double longest_held_behind_a_person_s = 600.0;
 
+// **The flights that come back from their hold short of fuel**
+// (Controller::short_of_fuel), named and left out of the drop and timing
+// checks - landed and clear is what is asked of them, kept apart as every
+// flight is: an F-22A behind a person's J-3 Cub flying away, on every
+// bearing. Put on final at her landing weight, she burns her tanks down
+// in the hold while the Cub - the slowest - takes some fifteen minutes to
+// reach sim::left_the_circuit_nm. Measured 2026-11-11 over every pair: those
+// eight flights and no other, flying away; none staying. Each test asserts
+// that the flights that came back short of fuel are exactly these, of the
+// pairs it flies: a change to that set fails.
+bool short_of_fuel_named(const std::string& ahead_id, const std::string& behind_id,
+                         bool flying_away) {
+    return flying_away && ahead_id == "j3cub" && behind_id == "f22";
+}
+
+// The set a test flew that came back short of fuel against the set named.
+void check_short_of_fuel(const std::set<std::string>& came_back,
+                         const std::set<std::string>& named) {
+    for (const std::string& n : named) {
+        std::printf("  left out of the drop and timing checks - %s: short of fuel, she comes "
+                    "back from her hold (named)\n",
+                    n.c_str());
+    }
+    for (const std::string& c : came_back) {
+        if (named.count(c) == 0) {
+            std::printf("  SHORT OF FUEL, NOT NAMED: %s\n", c.c_str());
+        }
+    }
+    for (const std::string& n : named) {
+        if (came_back.count(n) == 0) {
+            std::printf("  NAMED, NOT SHORT OF FUEL: %s\n", n.c_str());
+        }
+    }
+    check(came_back == named, std::to_string(came_back.size()) +
+                                  " flights came back short of fuel, " +
+                                  std::to_string(named.size()) + " named");
+}
+
 // **Each of `aheads`, a person's who stays in the circuit, ahead of each of
 // `behinds`**: the one behind leaves the circuit within
 // `longest_behind_a_person_s`, kept 500 ft or 1.5 nm from her all the
@@ -12142,6 +12180,8 @@ void behind_persons_who_stay(const std::vector<std::string>& aheads,
     double longest_s = 0.0;
     const std::vector<Then> thens{Then::ahead_taken_and_stays,
                                   Then::ahead_stays_until_the_one_behind_holds};
+    std::set<std::string> came_back_short;
+    std::set<std::string> named_short;
     // **Where her hold is**: never nearer than the furthest any circuit is
     // flown (6.5 nm, measured) - she turns out over the fix from her
     // inbound leg towards the runway, and comes in a turn's radius and
@@ -12199,6 +12239,10 @@ void behind_persons_who_stay(const std::vector<std::string>& aheads,
                 }
                 if (r.short_of_fuel) {
                     std::printf("    she came back short of fuel\n");
+                    came_back_short.insert(pair);
+                }
+                if (short_of_fuel_named(ahead_id, behind_id, false)) {
+                    named_short.insert(pair);
                 }
                 if (stays && r.rejoined && !r.short_of_fuel) {
                     wrong.push_back(pair + ": the one behind came back while the person stayed");
@@ -12212,6 +12256,7 @@ void behind_persons_who_stay(const std::vector<std::string>& aheads,
         }
     }
     std::printf("  the longest held behind a person: %.0f s\n", longest_s);
+    check_short_of_fuel(came_back_short, named_short);
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
@@ -12319,6 +12364,8 @@ void behind_persons_who_fly_away(const std::vector<std::string>& aheads,
                                  const std::vector<double>& bearings) {
     std::set<std::tuple<std::string, std::string, double>> flown;
     std::vector<std::string> wrong;
+    std::set<std::string> came_back_short;
+    std::set<std::string> named_short;
     double longest_s = 0.0;
     double least_m = 1e9;
     double least_ft = 1e9;
@@ -12357,8 +12404,13 @@ void behind_persons_who_fly_away(const std::vector<std::string>& aheads,
                     wrong.push_back(pair + ": the one behind never held outside");
                 }
                 // **Short of fuel**, she came back before the person was
-                // gone: landed and clear is what is asked of her.
+                // gone: landed and clear is what is asked of her - in the
+                // flights named (`short_of_fuel_named`), and only those.
+                if (short_of_fuel_named(ahead_id, behind_id, true)) {
+                    named_short.insert(pair);
+                }
                 if (r.short_of_fuel) {
+                    came_back_short.insert(pair);
                     std::printf("    she came back short of fuel\n");
                     if (!r.both_clear) {
                         wrong.push_back(pair + ": short of fuel, the one behind did not land "
@@ -12384,6 +12436,7 @@ void behind_persons_who_fly_away(const std::vector<std::string>& aheads,
     }
     std::printf("  the longest back: %.0f s; least %.0f m within 500 ft, %.0f ft within 1.5 nm\n",
                 longest_s, least_m, least_ft);
+    check_short_of_fuel(came_back_short, named_short);
     for (const std::string& w : wrong) {
         std::printf("  WRONG: %s\n", w.c_str());
     }
