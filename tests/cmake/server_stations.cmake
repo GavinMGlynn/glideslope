@@ -5,7 +5,7 @@
 #         -DSTUB=<glideslope_http_stub> -DDATA=<data dir> -DCACHE=<downloads dir>
 #         -DWORK=<scratch> -DPORT=<a port> -DMETAR_FILE=<recorded bbox answer>
 #         -DFORECAST_FILE=<recorded Open-Meteo answer> -DSAME_M=<m> -DSTEP_MPS=<m/s>
-#         -P server_stations.cmake
+#         -DCASE=<recorded|204|404> -P server_stations.cmake
 #
 # **The stations around the aircraft, from recordings.** The server is told
 # `--weather around`: it asks aviationweather.gov for the METARs in a box
@@ -36,6 +36,14 @@
 #   changing by no more than STEP_MPS in any step;
 # - its prediction error's median, against where the server says it was, is
 #   within SAME_M: the client flies the stations the server does.
+#
+# **CASE**: `recorded`, every request answered from the files; `204` and
+# `404`, the first five - the box and the four stations' forecasts the
+# server asks for before its clock starts - answered from them, and every one
+# after with no content (204) or refused (404). The player's joining moves
+# the server to look again (an aircraft more), and the box then answers
+# nothing: **the stations are kept**, said by the server, and the client is
+# told none emptied - it flies the four still, in the blend, as above.
 #
 # Without the DEM's tiles it reports itself skipped (exit 77), never passed.
 #
@@ -140,11 +148,18 @@ string(REPLACE "@TIMES@" "[${_times}]" _text "${_text}")
 set(_forecast "${WORK}/forecast.json")
 file(WRITE "${_forecast}" "${_text}")
 
+if(CASE STREQUAL "recorded")
+    set(_stub_case 404)
+elseif(CASE STREQUAL "204" OR CASE STREQUAL "404")
+    set(_stub_case --files-for 5 ${CASE})
+else()
+    message(FATAL_ERROR "CASE is recorded, 204 or 404, not '${CASE}'")
+endif()
 set(_port_file "${WORK}/stub.port")
 set(_result_file "${WORK}/result.txt")
 file(REMOVE "${_port_file}" "${_result_file}")
 execute_process(
-    COMMAND "${STUB}" 404 "${_port_file}"
+    COMMAND "${STUB}" ${_stub_case} "${_port_file}"
             /api/data/metar "${METAR_FILE}" /v1/forecast "${_forecast}"
     COMMAND "${CMAKE_COMMAND}" "-DSERVER=${SERVER}" "-DCLIENT=${CLIENT}" "-DDATA=${DATA}"
             "-DCACHE=${CACHE}" "-DWORK=${WORK}" "-DPORT=${PORT}" "-DKEY=${_key}"
@@ -170,6 +185,16 @@ foreach(_station IN ITEMS YSSY YSWS YSRI YWLM)
         message(FATAL_ERROR "the server did not keep ${_station}:\n${_ran}")
     endif()
 endforeach()
+# **The stations kept** when the box answered nothing, and no slot emptied.
+if(NOT CASE STREQUAL "recorded")
+    if(NOT _ran MATCHES "stations kept: around [^\n]*\nstations at [0-9.]+ s: 4 found\n")
+        message(FATAL_ERROR "the server did not keep its four stations when the box "
+                            "answered ${CASE}:\n${_ran}")
+    endif()
+endif()
+if(_ran MATCHES "told the weather[^\n]*: still air")
+    message(FATAL_ERROR "the client was told a slot of still air:\n${_ran}")
+endif()
 # The client was told each slot's weather.
 foreach(_slot IN ITEMS 1 2 3)
     if(NOT _ran MATCHES "told the weather \\(station ${_slot}\\): METAR ")

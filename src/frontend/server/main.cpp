@@ -2649,6 +2649,19 @@ public:
     double weather_blend_s() const { return weather_blend_s_; }
     // How many weathers a slot has had: a client told an older count is told again.
     int weathers(std::size_t i) const { return slots_[i].weathers; }
+    // **The stations flown now**, each its latest report: what a place
+    // whose box answers nothing keeps (world::fetch_stations_weather).
+    std::vector<glideslope::world::WeatherReport> stations_flown() const {
+        std::vector<glideslope::world::WeatherReport> out;
+        if (air_) {
+            for (const auto& slot : air_->slots()) {
+                if (slot) {
+                    out.push_back(slot->report());
+                }
+            }
+        }
+        return out;
+    }
     // **Where every aircraft is**, for the stations around them.
     std::vector<std::pair<double, double>> places() const {
         std::vector<std::pair<double, double>> out;
@@ -5611,7 +5624,11 @@ int run(const Options& o) {
     const auto stations_due = [&]() {
         if (stations_fetch && stations_fetch->done()) {
             try {
-                std::vector<glideslope::world::WeatherReport> found = stations_fetch->get();
+                glideslope::world::StationsFound got = stations_fetch->get();
+                for (const std::string& why : got.unanswered) {
+                    std::printf("stations kept: %s\n", why.c_str());
+                }
+                std::vector<glideslope::world::WeatherReport> found = std::move(got.stations);
                 for (glideslope::world::WeatherReport& r : found) {
                     r = glideslope::frontend::fit_to_send(std::move(r));
                 }
@@ -5644,7 +5661,7 @@ int run(const Options& o) {
             stations_found_for = places;
             stations_fetch.emplace(places,
                                    glideslope::world::utc_hour(std::chrono::system_clock::now()),
-                                   glideslope::world::http_fetch());
+                                   glideslope::world::http_fetch(), fleet->stations_flown());
         }
     };
     bool metar_then_done = o.metar_then.empty();
@@ -5659,10 +5676,13 @@ int run(const Options& o) {
             // stops the server, as a station's does.
             const std::vector<std::pair<double, double>> places = fleet->places();
             try {
-                std::vector<glideslope::world::WeatherReport> found =
-                    glideslope::world::fetch_stations_weather(
-                        places, glideslope::world::utc_hour(std::chrono::system_clock::now()),
-                        glideslope::world::http_fetch());
+                glideslope::world::StationsFound got = glideslope::world::fetch_stations_weather(
+                    places, glideslope::world::utc_hour(std::chrono::system_clock::now()),
+                    glideslope::world::http_fetch());
+                for (const std::string& why : got.unanswered) {
+                    std::printf("stations kept: %s\n", why.c_str());
+                }
+                std::vector<glideslope::world::WeatherReport> found = std::move(got.stations);
                 for (glideslope::world::WeatherReport& r : found) {
                     r = glideslope::frontend::fit_to_send(std::move(r));
                     std::printf("station %s at %.4f,%.4f: %s\n", r.surface.metar.station.c_str(),

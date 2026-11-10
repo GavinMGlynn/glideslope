@@ -2422,3 +2422,161 @@ GLIDESLOPE_TEST(the_metars_around_a_place_are_asked_for_by_a_box_200_km_each_way
     check(asked.size() == 1 && asked.front().find(",180.0000&") != std::string::npos,
           "a box past the antimeridian cut at it: " + asked.front());
 }
+
+// **Changes that overlap step nothing.** Three stations about 15 km apart
+// and a place where each has a share. Stations are found, a station's
+// report changes and a station is let go, each 10 to 20 s after the last,
+// every one blending over 60 s - so up to five blends run at once, each
+// from the air as it was mid-blend. Every 120th of a second for 400 s
+// (counted), the wind moves by no more than five blends' even spread of
+// the largest difference between any of the reports' winds there. Before
+// 2026-11-11's review, a change mid-blend blended from the stations or the
+// report alone, and the wind stepped.
+GLIDESLOPE_TEST(changes_of_the_stations_and_their_reports_that_overlap_step_nothing) {
+    using glideslope::sim::Conditions;
+    constexpr double blend_s = 60.0;
+    constexpr double south = -33.95;
+    constexpr double west = 151.0;
+    const auto report = [](const std::string& metar, double lat, double lon) {
+        glideslope::world::WeatherReport r;
+        r.surface.metar = glideslope::world::parse_metar(metar);
+        r.surface.latitude_deg = lat;
+        r.surface.longitude_deg = lon;
+        r.surface.elevation_m = 5.0;
+        r.air_seed = glideslope::world::air_seed_of(r.surface.metar);
+        return r;
+    };
+    const double north = south + 15000.0 / 110950.0;
+    const double east = west + 15000.0 / 92300.0;
+    const std::vector<glideslope::world::WeatherReport> reports{
+        report("YAAA 111200Z 27010KT 9999 20/10 Q1013", south, west),
+        report("YBBB 111200Z 09025KT 9999 15/10 Q1003", north, west),
+        report("YAAA 111230Z 18030KT 9999 19/10 Q1010", south, west),
+        report("YCCC 111200Z 36020KT 9999 17/10 Q1008", south, east),
+        report("YBBB 111230Z 27005KT 9999 16/10 Q1006", north, west)};
+    const double lat = south + 6000.0 / 110950.0;
+    const double lon = west + 6000.0 / 92300.0;
+    constexpr double height_m = 300.0;
+    double largest = 0.0;
+    for (const auto& a : reports) {
+        for (const auto& b : reports) {
+            glideslope::world::ReportedWeather wa(a, nullptr, 0.0);
+            glideslope::world::ReportedWeather wb(b, nullptr, 0.0);
+            largest = std::max(largest, wind_apart(wa.at(lat, lon, height_m, 0.0),
+                                                   wb.at(lat, lon, height_m, 0.0)));
+        }
+    }
+    // When, which slot, and what: each a change of the stations but two.
+    struct Change {
+        double at_s;
+        std::size_t slot;
+        std::optional<glideslope::world::WeatherReport> report;
+    };
+    const std::vector<Change> changes{{100.0, 1, reports[1]},
+                                      {115.0, 0, reports[2]},
+                                      {130.0, 2, reports[3]},
+                                      {140.0, 1, reports[4]},
+                                      {150.0, 0, std::nullopt}};
+    glideslope::world::StationSlots slots(nullptr);
+    slots.set(0, reports[0], 0.0, blend_s, 0.0);
+    std::size_t next = 0;
+    std::optional<Conditions> before;
+    double worst = 0.0;
+    std::size_t steps = 0;
+    for (int i = 0; i <= 400 * 120; ++i) {
+        const double t = i / 120.0;
+        while (next < changes.size() && t >= changes[next].at_s) {
+            slots.set(changes[next].slot, changes[next].report, t, blend_s, t);
+            ++next;
+        }
+        const Conditions air = slots.at(lat, lon, height_m, t);
+        if (before) {
+            worst = std::max(worst, wind_apart(air, *before));
+        }
+        before = air;
+        ++steps;
+    }
+    const double allowed = 5.0 * largest / (blend_s * 120.0) + 1e-9;
+    check(next == changes.size() && steps == 400 * 120 + 1,
+          "every change made and every step flown: " + std::to_string(steps));
+    check(worst <= allowed, "the wind stepped " + std::to_string(worst) + " m/s, more than " +
+                                std::to_string(allowed));
+    std::printf("  the worst step %.6f m/s against %.6f allowed, five changes overlapping\n",
+                worst, allowed);
+}
+
+// **A place whose box answers nothing keeps the stations it had.** Three
+// aircraft: the first's box answers aviationweather.gov's recorded answer
+// around Sydney, the second's (over New Zealand) fails to every retry and
+// the third's (over Fiji) answers 204, no content. Each of the last two keeps
+// the station flown near it - NZAA and NFFN, the weather kept - and is said;
+// YSSY's forecast fails, and it keeps the one it had. No place answering,
+// with nothing kept, is the one failure.
+GLIDESLOPE_TEST(a_place_whose_box_answers_nothing_keeps_the_stations_it_had) {
+    const auto file = [](const char* name) {
+        std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) / "data/weather" / name,
+                         std::ios::binary);
+        const std::string text(std::istreambuf_iterator<char>(in), {});
+        return std::vector<std::uint8_t>(text.begin(), text.end());
+    };
+    const std::vector<std::uint8_t> around = file("aviationweather-around-sydney-2026-11-10T2100Z.json");
+    const std::vector<std::uint8_t> forecast = file("open-meteo-sydney-2026-09-17.json");
+    const glideslope::world::Fetch fetch = [&](const std::string& url) {
+        glideslope::platform::HttpResponse r;
+        if (url.find("/api/data/metar?bbox=-38") != std::string::npos) {
+            r.status = 503;
+        } else if (url.find("/api/data/metar?bbox=-35") != std::string::npos) {
+            r.status = 200;
+            r.body = around;
+        } else if (url.find("/api/data/metar") != std::string::npos) {
+            r.status = 204;
+        } else if (url.find("latitude=-33.9460") != std::string::npos) {
+            r.status = 503; // YSSY's forecast
+        } else {
+            r.status = 200;
+            r.body = forecast;
+        }
+        return r;
+    };
+    const auto kept_report = [](const std::string& metar, double lat, double lon) {
+        glideslope::world::WeatherReport r;
+        r.surface.metar = glideslope::world::parse_metar(metar);
+        r.surface.latitude_deg = lat;
+        r.surface.longitude_deg = lon;
+        return r;
+    };
+    std::vector<glideslope::world::WeatherReport> kept{
+        kept_report("NZAA 102100Z 23012KT 9999 15/10 Q1009", -37.008, 174.792),
+        kept_report("NFFN 102100Z 09008KT 9999 29/22 Q1011", -17.755, 177.443),
+        kept_report("YSSY 102030Z 28006KT CAVOK 20/13 Q1015", -33.946, 151.173)};
+    kept.back().aloft = glideslope::world::WindsAloft{};
+    kept.back().aloft->time = "kept";
+    const glideslope::world::StationsFound found = glideslope::world::fetch_stations_weather(
+        {{-33.93, 151.06}, {-37.0, 174.8}, {-17.7, 177.4}}, "2026-09-17T06:00", fetch, kept,
+        std::chrono::milliseconds(1));
+    std::vector<std::string> names;
+    for (const auto& r : found.stations) {
+        names.push_back(r.surface.metar.station);
+    }
+    std::string said;
+    for (const auto& n : names) {
+        said += n + " ";
+    }
+    const std::vector<std::string> expected{"YSSY", "YSWS", "YSRI", "YWLM", "NZAA", "NFFN"};
+    check(names == expected, "the stations found and kept: " + said);
+    check(found.stations.front().aloft && found.stations.front().aloft->time == "kept",
+          "YSSY's forecast kept when its own failed");
+    check(found.stations[1].aloft && found.stations[1].aloft->time != "kept",
+          "YSWS's forecast fetched");
+    check(found.unanswered.size() == 3, "three things said unanswered: " +
+                                            std::to_string(found.unanswered.size()));
+    bool threw = false;
+    try {
+        (void)glideslope::world::fetch_stations_weather({{-37.0, 174.8}}, "2026-09-17T06:00",
+                                                        fetch, {}, std::chrono::milliseconds(1));
+    } catch (const glideslope::world::ServiceUnavailable&) {
+        threw = true;
+    }
+    check(threw, "no place answering and nothing kept is the weather not had");
+}
+

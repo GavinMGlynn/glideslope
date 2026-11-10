@@ -645,8 +645,14 @@ void ReportedWeather::update(WeatherReport report, double now_s) {
     if (runway_condition_of(current_.surface.metar) != sim::dry_runway) {
         wet_until_s_ = now_s + 0.5 * std::max(0.0, blend_seconds_) + still_wet_after_rain_s;
     }
-    previous_ = std::move(current_);
-    previous_lift_ = current_lift_;
+    // The weather as it is, its own blend and all, is what the new report
+    // blends from; a blend of its that ended blend_kept_s ago is let go.
+    auto was = std::make_shared<ReportedWeather>(*this);
+    if (was->before_ && now_s >= was->changed_at_s_ + std::max(0.0, was->blend_seconds_) +
+                                     blend_kept_s) {
+        was->before_.reset();
+    }
+    before_ = std::move(was);
     runways_laid_ = false;
     current_ = std::move(report);
     current_lift_ = lift_of(current_);
@@ -655,15 +661,16 @@ void ReportedWeather::update(WeatherReport report, double now_s) {
 
 bool ReportedWeather::has_runway_states() const {
     return !current_.surface.metar.runway_states.empty() ||
-           (previous_ && !previous_->surface.metar.runway_states.empty());
+           (before_ && !before_->current_.surface.metar.runway_states.empty());
 }
 
 void ReportedWeather::lay_runways(const std::vector<RunwayEnd>& all) {
     current_.contaminated = contaminated_runways(
         current_.surface.metar, runways_at(all, current_.surface.metar.station));
-    if (previous_) {
-        previous_->contaminated = contaminated_runways(
-            previous_->surface.metar, runways_at(all, previous_->surface.metar.station));
+    if (before_) {
+        before_->current_.contaminated = contaminated_runways(
+            before_->current_.surface.metar,
+            runways_at(all, before_->current_.surface.metar.station));
     }
     runways_laid_ = true;
 }
@@ -671,8 +678,8 @@ void ReportedWeather::lay_runways(const std::vector<RunwayEnd>& all) {
 void ReportedWeather::lay(std::vector<ContaminatedRunway> now,
                           std::vector<ContaminatedRunway> before, double wet_until_s) {
     current_.contaminated = std::move(now);
-    if (previous_) {
-        previous_->contaminated = std::move(before);
+    if (before_) {
+        before_->current_.contaminated = std::move(before);
     }
     wet_until_s_ = wet_until_s;
     runways_laid_ = true;
@@ -692,17 +699,14 @@ sim::Conditions ReportedWeather::at(double latitude_deg, double longitude_deg,
                         current_.surface.longitude_deg) <= metar_radius_m) {
         now.runway_condition = sim::wet_runway;
     }
-    if (!previous_ || blend_seconds_ <= 0.0) {
+    if (!before_ || blend_seconds_ <= 0.0) {
         return now;
     }
     const double w = std::clamp((time_s - changed_at_s_) / blend_seconds_, 0.0, 1.0);
     if (w >= 1.0) {
-        previous_.reset();
         return now;
     }
-    const sim::Conditions before = with_air_motion(
-        *previous_, previous_lift_, ground_, conditions_at(*previous_, msl),
-        latitude_deg, longitude_deg, msl, time_s);
+    const sim::Conditions before = before_->at(latitude_deg, longitude_deg, height_m, time_s);
     const auto mix = [w](double a, double b) { return a + w * (b - a); };
     sim::Conditions c;
     c.wind_north_mps = mix(before.wind_north_mps, now.wind_north_mps);
@@ -842,12 +846,23 @@ void StationSlots::set(std::size_t slot, std::optional<WeatherReport> report,
         s->update(std::move(*report), changed_at_s, blend_s);
         return;
     }
-    // **The stations change**: once for every change at one moment, and
-    // from none flown whole at once.
+    // **The stations change**: once for every change at one moment, from
+    // the stations as they are - mid-blend or not - and from none flown
+    // whole at once.
     if (set_changed_at_s != set_changed_at_s_) {
-        before_ = any() ? now_ : nullptr;
+        auto next = std::make_shared<Stations>();
+        next->stations = air_->stations;
+        if (any()) {
+            if (air_->from &&
+                set_changed_at_s >= air_->at_s + std::max(0.0, air_->blend_s) + blend_kept_s) {
+                air_->from.reset();
+            }
+            next->from = air_;
+        }
+        next->at_s = set_changed_at_s;
+        next->blend_s = blend_s;
+        air_ = std::move(next);
         set_changed_at_s_ = set_changed_at_s;
-        set_blend_s_ = blend_s;
     }
     if (report) {
         s = std::make_shared<ReportedWeather>(std::move(*report), geoid_, blend_s, ground_);
@@ -860,7 +875,7 @@ void StationSlots::set(std::size_t slot, std::optional<WeatherReport> report,
             flown.push_back(each);
         }
     }
-    now_ = std::make_shared<StationsWeather>(std::move(flown));
+    air_->stations = std::make_shared<StationsWeather>(std::move(flown));
 }
 
 bool StationSlots::any() const {
@@ -869,24 +884,28 @@ bool StationSlots::any() const {
 
 std::shared_ptr<ReportedWeather> StationSlots::nearest(double latitude_deg,
                                                        double longitude_deg) const {
-    if (now_->stations().empty()) {
+    if (air_->stations->stations().empty()) {
         return nullptr;
     }
-    return now_->stations()[now_->nearest(latitude_deg, longitude_deg)];
+    return air_->stations->stations()[air_->stations->nearest(latitude_deg, longitude_deg)];
 }
 
 sim::Conditions StationSlots::at(double latitude_deg, double longitude_deg, double height_m,
                                  double time_s) {
-    const sim::Conditions now = now_->at(latitude_deg, longitude_deg, height_m, time_s);
-    if (!before_ || set_blend_s_ <= 0.0) {
+    return air_->at(latitude_deg, longitude_deg, height_m, time_s);
+}
+
+sim::Conditions StationSlots::Stations::at(double latitude_deg, double longitude_deg,
+                                           double height_m, double time_s) {
+    const sim::Conditions now = stations->at(latitude_deg, longitude_deg, height_m, time_s);
+    if (!from || blend_s <= 0.0) {
         return now;
     }
-    const double w = std::clamp((time_s - set_changed_at_s_) / set_blend_s_, 0.0, 1.0);
+    const double w = std::clamp((time_s - at_s) / blend_s, 0.0, 1.0);
     if (w >= 1.0) {
-        before_.reset();
         return now;
     }
-    const sim::Conditions before = before_->at(latitude_deg, longitude_deg, height_m, time_s);
+    const sim::Conditions before = from->at(latitude_deg, longitude_deg, height_m, time_s);
     const auto mix = [w](double a, double b) { return a + w * (b - a); };
     sim::Conditions c;
     c.wind_north_mps = mix(before.wind_north_mps, now.wind_north_mps);
@@ -902,46 +921,106 @@ sim::Conditions StationSlots::at(double latitude_deg, double longitude_deg, doub
     return c;
 }
 
-std::vector<WeatherReport> fetch_stations_weather(
-    const std::vector<std::pair<double, double>>& places, const std::string& time,
-    const Fetch& fetch, std::chrono::milliseconds retry_wait) {
-    std::vector<WeatherReport> out;
-    try {
-        std::vector<SurfaceReport> reports;
-        std::vector<std::pair<double, double>> looked;
-        for (const auto& [lat, lon] : places) {
-            const bool near_one = std::any_of(looked.begin(), looked.end(), [&](const auto& p) {
-                return sim::distance_m(lat, lon, p.first, p.second) <= 1000.0;
-            });
-            if (near_one) {
+StationsFound fetch_stations_weather(const std::vector<std::pair<double, double>>& places,
+                                     const std::string& time, const Fetch& fetch,
+                                     const std::vector<WeatherReport>& kept,
+                                     std::chrono::milliseconds retry_wait) {
+    StationsFound out;
+    std::vector<SurfaceReport> reports;
+    std::vector<std::pair<double, double>> answered;
+    std::vector<std::pair<double, double>> not_answered;
+    std::vector<std::pair<double, double>> looked;
+    for (const auto& [lat, lon] : places) {
+        const bool near_one = std::any_of(looked.begin(), looked.end(), [&](const auto& p) {
+            return sim::distance_m(lat, lon, p.first, p.second) <= 1000.0;
+        });
+        if (near_one) {
+            // As the place it is near was answered, or not.
+            const bool that_answered =
+                std::any_of(answered.begin(), answered.end(), [&](const auto& p) {
+                    return sim::distance_m(lat, lon, p.first, p.second) <= 1000.0;
+                });
+            (that_answered ? answered : not_answered).emplace_back(lat, lon);
+            continue;
+        }
+        looked.emplace_back(lat, lon);
+        char where[64];
+        std::snprintf(where, sizeof(where), "%.4f,%.4f", lat, lon);
+        try {
+            std::vector<SurfaceReport> here = fetch_metars_around(lat, lon, fetch, retry_wait);
+            if (here.empty()) {
+                out.unanswered.push_back(std::string("around ") + where + ": no report");
+                not_answered.emplace_back(lat, lon);
                 continue;
             }
-            looked.emplace_back(lat, lon);
-            std::vector<SurfaceReport> here = fetch_metars_around(lat, lon, fetch, retry_wait);
             reports.insert(reports.end(), std::make_move_iterator(here.begin()),
                            std::make_move_iterator(here.end()));
+            answered.emplace_back(lat, lon);
+        } catch (const std::exception& e) {
+            out.unanswered.push_back(std::string("around ") + where + ": " + e.what());
+            not_answered.emplace_back(lat, lon);
         }
-        for (SurfaceReport& surface : stations_around(reports, places)) {
-            WeatherReport r;
-            r.surface = std::move(surface);
-            r.air_seed = air_seed_of(r.surface.metar);
+    }
+    const auto kept_named = [&kept](const std::string& station) -> const WeatherReport* {
+        for (const WeatherReport& k : kept) {
+            if (k.surface.metar.station == station) {
+                return &k;
+            }
+        }
+        return nullptr;
+    };
+    for (SurfaceReport& surface : stations_around(reports, answered)) {
+        WeatherReport r;
+        r.surface = std::move(surface);
+        r.air_seed = air_seed_of(r.surface.metar);
+        try {
             r.aloft = fetch_winds_aloft(r.surface.latitude_deg, r.surface.longitude_deg, time,
                                         fetch, retry_wait);
-            out.push_back(std::move(r));
+        } catch (const std::exception& e) {
+            const WeatherReport* had = kept_named(r.surface.metar.station);
+            if (had != nullptr) {
+                r.aloft = had->aloft;
+            }
+            out.unanswered.push_back("the forecast over " + r.surface.metar.station + ": " +
+                                     e.what());
         }
-    } catch (const ServiceUnavailable& e) {
-        throw ServiceUnavailable(std::string("the weather could not be had: ") + e.what());
+        out.stations.push_back(std::move(r));
+    }
+    // **The places that answered nothing keep what they had.**
+    if (!not_answered.empty()) {
+        std::vector<SurfaceReport> kept_surfaces;
+        for (const WeatherReport& k : kept) {
+            kept_surfaces.push_back(k.surface);
+        }
+        for (const SurfaceReport& surface : stations_around(kept_surfaces, not_answered)) {
+            const bool have = std::any_of(
+                out.stations.begin(), out.stations.end(), [&surface](const WeatherReport& r) {
+                    return r.surface.metar.station == surface.metar.station;
+                });
+            if (!have && out.stations.size() < most_stations) {
+                out.stations.push_back(*kept_named(surface.metar.station));
+            }
+        }
+    }
+    if (answered.empty() && kept.empty() && !places.empty()) {
+        std::string why = "the weather could not be had: ";
+        for (const std::string& w : out.unanswered) {
+            why += w + "; ";
+        }
+        throw ServiceUnavailable(why);
     }
     return out;
 }
 
 StationsFetch::StationsFetch(std::vector<std::pair<double, double>> places, std::string time,
-                             Fetch fetch, std::chrono::milliseconds retry_wait)
+                             Fetch fetch, std::vector<WeatherReport> kept,
+                             std::chrono::milliseconds retry_wait)
     : reports_(std::async(std::launch::async,
                           [this, places = std::move(places), time = std::move(time),
-                           fetch = std::move(fetch), retry_wait] {
+                           fetch = std::move(fetch), kept = std::move(kept), retry_wait] {
                               const FetchesGivenUp given_up(give_up_);
-                              return fetch_stations_weather(places, time, fetch, retry_wait);
+                              return fetch_stations_weather(places, time, fetch, kept,
+                                                            retry_wait);
                           })) {}
 
 StationsFetch::~StationsFetch() {
@@ -953,7 +1032,7 @@ bool StationsFetch::done() const {
     return reports_.wait_for(std::chrono::seconds(0)) == std::future_status::ready;
 }
 
-std::vector<WeatherReport> StationsFetch::get() {
+StationsFound StationsFetch::get() {
     return reports_.get();
 }
 
