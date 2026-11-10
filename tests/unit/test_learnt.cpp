@@ -2734,9 +2734,18 @@ GLIDESLOPE_TEST(the_next_player_on_final_waits_until_the_one_ahead_is_three_mile
     expect(a, TurnOnFinal::holds, "2,700 m right of it");
     a = holding();
     a.on_final_s = glideslope::sim::longest_behind_s(59.8);
-    expect(a, TurnOnFinal::waited_out, "on final as long as the bound");
+    a.from_start_m = 2778.0;
+    expect(a, TurnOnFinal::waited_out, "on final as long as the bound, 1.5 miles on");
     a.on_final_s -= 1.0;
     expect(a, TurnOnFinal::holds, "a second short of it");
+    // **Never on top of her**: past the bound, but within the lateral
+    // minimum of where the next would start, she still holds.
+    a = holding();
+    a.on_final_s = glideslope::sim::longest_behind_s(59.8) + 600.0;
+    a.from_start_m = 2700.0;
+    expect(a, TurnOnFinal::holds, "ten minutes past the bound, 2,700 m on");
+    a.from_start_m = 0.0;
+    expect(a, TurnOnFinal::holds, "past the bound, over the start");
     // **The bound itself**: three miles at her approach speed and a minute.
     const double c172p_s = glideslope::sim::longest_behind_s(59.8);
     const double cub_s = glideslope::sim::longest_behind_s(42.9);
@@ -2744,5 +2753,5 @@ GLIDESLOPE_TEST(the_next_player_on_final_waits_until_the_one_ahead_is_three_mile
                 cases, c172p_s, cub_s);
     check(std::abs(c172p_s - 240.6) < 0.1, "behind a C172P at most 240.6 s");
     check(std::abs(cub_s - 311.7) < 0.1, "behind a J-3 Cub at most 311.7 s");
-    check(cases == 12, "twelve cases: " + std::to_string(cases));
+    check(cases == 14, "fourteen cases: " + std::to_string(cases));
 }

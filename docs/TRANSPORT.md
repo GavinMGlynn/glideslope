@@ -1080,8 +1080,13 @@ byte outside printable ASCII, and an empty one is allowed.
 **To `FF`, why she waits**: a server that starts its players on final sends
 one to a person admitted with no aircraft, her turn not come - `waiting for
 the aircraft ahead: aircraft 0, 0.02 miles from where she starts, until it is
-3 miles on or landed, at most 228 s more` - once a session, to her client
-alone. A reader already read any number here; nothing in the layout moved.
+3 miles on or landed, at most 228 s more` - once a session, and again when
+the aircraft she waits on changes, to her client alone. A reader already read
+any number here; nothing in the layout moved. **An older reader** is
+harmless with it: the window client keeps an instruction to its own
+aircraft, and its own is `FF` until it is joined, so it keeps this one and
+says it once joined; the command-line client prints it as it prints any,
+`aircraft 255 told: ...`. The version is unchanged.
 
 ### What a reader must refuse
 
