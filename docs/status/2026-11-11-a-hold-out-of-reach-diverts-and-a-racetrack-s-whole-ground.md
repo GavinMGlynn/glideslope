@@ -165,3 +165,45 @@ count, and prints each least; item 1 stays open on it.
   threshold against the person's to come round - is the plan item's.
 - linux-release, beside another test: item 1's every-landplane test 130 s,
   the F-22A's separation named as above.
+
+**The review's fourth round: number two behind the person, as two AI
+aircraft are sequenced (#336).** Tried, measured, and taken out. Coming
+back with priority she joined her circuit again on its racetrack,
+following the person 700 ft over her - downwind extended, then racetracks
+- and was released to turn base once the person had passed the threshold
+by enough that she would cross it 1.5 nm behind her (the person's
+distance past it, and what she flies on while the one coming back flies
+base and final from where she is). Every landplane behind a person's
+C172P, nowhere to divert (linux-release, 111 s): all 15 landed, **all 15
+lost the minimum**, closer than before:
+
+| behind | least within 500 ft | least within 1.5 nm | where |
+|---|---|---|---|
+| 737-300 | 1,614 m | 42 ft | her final 2.9 nm, the person on downwind |
+| 747-400 | 529 m | 0 ft | her final 2.3 nm, the person ahead on final 0.8 nm, 296 ft |
+| 787-8 | 1,615 m | 0 ft | final 3.2 nm, the person on downwind |
+| A320 | 1,613 m | 0 ft | final 3.0 nm, the person on downwind |
+| A380 | 40 m | 0 ft | final 2.7 nm, the person ahead on final 1.2 nm |
+| B-2A | 0 m | 0 ft | on her downwind, the person on downwind beside her |
+| C172P | 2,054 m | 0 ft | final 4.6 nm, the person turning final at 3.2 nm |
+| C182 | 1,613 m | 0 ft | final 3.5 nm, the person on downwind |
+| F-15C | 588 m | 0 ft | final 4.5 nm, the person on base at 3.7 nm |
+| F-22A | 1,613 m | 0 ft | final 3.0 nm, the person on downwind |
+| F-35B | 805 m | 0 ft | final 2.2 nm, the person ahead on final 0.7 nm |
+| J-3 Cub | 88 m | 0 ft | final 4.3 nm, the person on downwind |
+| Learjet 35A | 1 m | 0 ft | final 4.5 nm, the person turning base |
+| Mosquito | 3 m | 0 ft | final 4.5 nm, the person turning base |
+| PA-28 | 855 m | 0 ft | final 4.3 nm, the person on downwind |
+
+**Why**: two AI aircraft are kept apart because the one ahead lands, and
+the gap it leaves is for good. A person staying in the circuit is back on
+her downwind some 90 s after crossing the threshold (a C172P's: through
+it at 1,090 s, abeam it on the downwind at 1,180 s), and the one coming
+back, raised 700 ft over her, turns base 5.7 nm out: her final takes 140 s
+at 150 kt, six minutes at 60, and it crosses the 500-to-1,500 ft band
+from 4.7 to 1.5 nm out - all within 1.5 nm of that downwind, 1.6 km off -
+while the person flies it, or catches her on final ahead. No release
+point on her lap gives a raised circuit's final the time it needs. The
+coming-back test stays a measurement (asserting the landings and the
+count, printing each least), and item 1 stays open, for the owner to
+judge.
