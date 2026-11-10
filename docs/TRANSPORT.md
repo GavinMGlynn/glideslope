@@ -94,6 +94,10 @@ Said first, because a transport's limits matter more than its features.
   Version `11` is on the same ground, and is the first whose server tells
   a person what to do for other traffic, as a tower would
   (`TRAFFIC_INSTRUCTION`, below).
+  Version `12` is on the same ground, and is the first whose server flies
+  the weather of several stations, each in a numbered slot: `WEATHER`,
+  `WEATHER_ALOFT` and `RUNWAY_CONDITIONS` each begin with the slot, and
+  `WEATHER` says when the stations last changed (below).
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -104,7 +108,7 @@ Every datagram begins with the same 6 bytes.
 | offset | size | field | value |
 | --- | --- | --- | --- |
 | 0 | 4 | magic | `47 4C 44 53`, the ASCII `GLDS` |
-| 4 | 1 | version | `11` |
+| 4 | 1 | version | `12` |
 | 5 | 1 | type | see below |
 
 The body follows immediately, and what it is depends on the type.
@@ -150,7 +154,7 @@ A reason a client does not know is read as `UNKNOWN`, so `DROPPED`, added
 after the other six, is refused as an unknown reason by a client older than
 it: it still stops that client's attempt.
 
-A `REFUSAL` is always 7 bytes - the envelope, with this version, `11`, and
+A `REFUSAL` is always 7 bytes - the envelope, with this version, `12`, and
 type `04`, then the reason - whatever the datagram it answers said its version
 was. The server sends one:
 
@@ -535,6 +539,8 @@ wire and the receiver parses it with the same rules the sender did.
 | written as | field |
 | --- | --- |
 | `u8` | `03`, the kind |
+| `u8` | the station's slot, 0 to 31 (since `12`) |
+| `f64` | when the server's stations last changed, on the simulation's clock, not below nought (since `12`) |
 | text | the raw METAR, at most 256 bytes |
 | `f64` | the station's latitude, degrees |
 | `f64` | its longitude, degrees |
@@ -555,7 +561,27 @@ wire and the receiver parses it with the same rules the sender did.
 | `f64` | how long it blends in over from then, seconds, 0 to 86,400; nought, none |
 | `u8` | `01` if a `WEATHER_ALOFT` follows it, `00` if none does |
 
-At its limits this is 1,079 bytes.
+At its limits this is 1,088 bytes.
+
+**A server flies the weather of several stations** (since `12`), each in a
+numbered slot, 0 to 31, and a `WEATHER` is one slot's. Each place flies the
+nearer station's weather: each station has a share `1 - (d - d0) / 20 km` -
+`d` its distance, `d0` the nearest's - none below nought, all divided by
+their sum, so that the nearer station's weather is flown alone wherever the
+next is 20 km farther or more, and in a band between them the shares move
+with the place and the wind does not step. Every value is the shares' sum
+but the runway's condition code and the turbulence's severity, which are
+the greatest share's. A slot's station sending a new report (the same
+station, by its METAR's name and its place) blends it in as below. **A slot
+given another station, emptied (an empty METAR) or filled changes the
+stations**: the air of the stations before and the air of those after are
+each made whole, and the air blends from the one to the other over the
+`WEATHER`'s blend, from when the stations changed - a moment every `WEATHER`
+of the change names, so that a change of several slots is one change. The
+first stations there are, from none, are flown whole. A server that flies
+one station flies it in slot 0, and its `WEATHER` names the moment it was
+given as when the stations changed. A client joining while the stations
+blend flies the new ones whole: it is not told the old.
 
 **Both ends blend from the same moment.** A new weather is blended in, not
 stepped to: every value moving linearly, over the blend, from what the old
@@ -588,7 +614,8 @@ rather than left to fly one of its own.
 
 **A reader refuses a station past the pole** - a latitude beyond 90 degrees
 either way or a longitude beyond 180 - a change before nought or a blend
-below nought or over a day (86,400 s). A METAR the receiver cannot read is
+below nought or over a day (86,400 s), a slot of 32 or more, or stations
+changed before nought. A METAR the receiver cannot read is
 refused too: the weather flown before it is kept, and the client says so.
 
 **A METAR longer than 256 bytes is cut by the server, whole words from its
@@ -604,6 +631,7 @@ The forecast has no raw text of its own, so its levels are numbers.
 | written as | field |
 | --- | --- |
 | `u8` | `07`, the kind |
+| `u8` | the slot of the `WEATHER` it completes, 0 to 31 (since `12`); one for another slot is dropped |
 | text | the forecast's time, `2026-09-22T00:00`, UTC, at most 32 bytes |
 | `u8` | how many pressure levels follow, at most 24 |
 | | then, per level: |
@@ -618,8 +646,8 @@ The forecast has no raw text of its own, so its levels are numbers.
 | `f64` | the air's velocity towards north, metres a second |
 | `f64` | towards east |
 
-At its limits this is 1,093 bytes, the largest message there is. The forecast
-this project actually fetches - nineteen levels and four winds - is 877.
+At its limits this is 1,094 bytes, the largest message there is. The forecast
+this project actually fetches - nineteen levels and four winds - is 878.
 
 ### `AIRCRAFT`
 
@@ -687,17 +715,18 @@ another build or has other data, and its remedy is the matching release.
 **A server tells each client what the session is** before anything else it
 must arrive, in this order, once the session is proven (it has opened
 something sealed under it) and on the update after: `TERRAIN_DATASET`, then
-`SESSION` - its clock as it was when sent - then `LOBBY`, then `WEATHER`, and
-`WEATHER_ALOFT` after it where the weather has a forecast (and, while a
-weather blends in, the one it blends from before it, the same way), then
-`RUNWAY_CONDITIONS`; then each `AIRCRAFT`. After that:
+`SESSION` - its clock as it was when sent - then `LOBBY`, then for each
+slot in order a `WEATHER`, and `WEATHER_ALOFT` after it where the weather
+has a forecast (and, while a weather blends in, the one it blends from before
+it, the same way), then that slot's `RUNWAY_CONDITIONS`; then each
+`AIRCRAFT`. After that:
 
 - **the lobby again, whole, whenever it is not what was last sent** - a
   player joining or going;
 - **the weather again whenever it changes**: a station's fetched again
-  (every fifteen minutes by default), or a test's change, each saying when it
-  took over and over how long it blends in, with `RUNWAY_CONDITIONS` after
-  it;
+  (every fifteen minutes by default), the stations around the aircraft
+  found again, or a test's change, each slot changed saying when it took
+  over and over how long it blends in, with `RUNWAY_CONDITIONS` after it;
 - **the runways' conditions again when the server's runways come**;
 - the ground and the session never again: neither changes in a session.
 
@@ -918,6 +947,7 @@ the runways of the one it blends from too, after both weathers.
 | written as | field |
 | --- | --- |
 | `u8` | `0C`, the kind |
+| `u8` | the slot of the weather it is for, 0 to 31 (since `12`) |
 | `f64` | when the weather it is for took over, on the simulation's clock, not below nought |
 | `u8` | `01` if the runways stay wet until a moment, `00` if not |
 | `f64` | that moment, on the simulation's clock, not below nought; `0` when not given |
@@ -932,7 +962,7 @@ the runways of the one it blends from too, after both weathers.
 | `u8` | how many the weather it blends from lays a condition on, at most 16 |
 | | and each as above |
 
-At its limits this is 1,076 bytes. A place on a runway is on it when it is
+At its limits this is 1,077 bytes. A place on a runway is on it when it is
 along it from the threshold no farther than its length and within 30 m of
 its centreline; the most slippery code of any runway it is on, and of the
 weather's own, is flown. **It does not say** which runway state a condition

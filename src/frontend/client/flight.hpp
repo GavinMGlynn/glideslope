@@ -27,6 +27,7 @@
 #include <array>
 #include <cstdint>
 #include <deque>
+#include <map>
 #include <filesystem>
 #include <functional>
 #include <limits>
@@ -350,13 +351,17 @@ public:
     // is heard: flown and drawn in place of any of this flight's own, over
     // the collision ground, on the session's `clock`. From the first, this
     // flight fetches no weather of its own.
-    // `count` is the server's count of its weathers (net::Told::weathers),
-    // which `server_weathers` gives back: nought before any.
+    // `count` is the server's count of the weathers of the slot it is for
+    // (net::Told::Station::weathers), which `server_weathers` gives back for
+    // that slot: nought before any.
     // False, with why, for one refused (frontend::HeardAir::heard): the
     // weather flown before it is kept.
     bool heard_weather(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
                        std::function<double()> clock, std::int64_t count, std::string& why);
-    std::int64_t server_weathers() const { return server_weathers_; }
+    std::int64_t server_weathers(std::uint8_t station) const {
+        const auto it = server_weathers_.find(station);
+        return it == server_weathers_.end() ? 0 : it->second;
+    }
     // **The runways the server's air lays a condition on** (net::
     // RunwayConditions), laid on its weather if they are for it: false if
     // not, or there is no server's weather.
@@ -464,7 +469,7 @@ private:
     std::optional<frontend::StationRunways> station_runways_;
     // The server's air, once it has said any (`heard_weather`).
     std::optional<frontend::HeardAir> heard_air_;
-    std::int64_t server_weathers_ = 0;
+    std::map<std::uint8_t, std::int64_t> server_weathers_;
     double weather_fetched_at_s_ = 0.0;
     // Last, so that a fetch still under way is given up, and waited for,
     // before anything it could reach is destroyed.

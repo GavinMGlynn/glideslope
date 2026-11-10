@@ -84,8 +84,10 @@ world::ContaminatedRunway condition_heard(const net::RunwayCondition& c) {
 }
 
 net::RunwayConditions runway_conditions_said(const world::ReportedWeather& air,
-                                             double changed_at_s, double now_s) {
+                                             double changed_at_s, double now_s,
+                                             std::uint8_t station) {
     net::RunwayConditions out;
+    out.station = station;
     out.weather_changed_at_s = changed_at_s;
     if (std::isfinite(air.wet_until_s()) && air.wet_until_s() >= 0.0) {
         out.wet_until_s = air.wet_until_s();
@@ -102,9 +104,15 @@ net::RunwayConditions runway_conditions_said(const world::ReportedWeather& air,
 }
 
 bool HeardAir::conditions_heard(const net::RunwayConditions& conditions) {
-    if (!reported_ || still_ || conditions.weather_changed_at_s != changed_at_s_) {
+    if (!slots_ || conditions.station >= slots_->slots().size() ||
+        !slots_->slots()[conditions.station]) {
         return false;
     }
+    const auto changed = changed_at_s_.find(conditions.station);
+    if (changed == changed_at_s_.end() || conditions.weather_changed_at_s != changed->second) {
+        return false;
+    }
+    world::ReportedWeather& reported = *slots_->slots()[conditions.station];
     std::vector<world::ContaminatedRunway> now;
     std::vector<world::ContaminatedRunway> before;
     for (const net::RunwayCondition& c : conditions.now) {
@@ -113,7 +121,7 @@ bool HeardAir::conditions_heard(const net::RunwayConditions& conditions) {
     for (const net::RunwayCondition& c : conditions.before) {
         before.push_back(condition_heard(c));
     }
-    reported_->lay(std::move(now), std::move(before),
+    reported.lay(std::move(now), std::move(before),
                    conditions.wet_until_s.value_or(-std::numeric_limits<double>::infinity()));
     return true;
 }
@@ -132,8 +140,10 @@ world::WeatherReport fit_to_send(world::WeatherReport report) {
 }
 
 WeatherSaid weather_said(const world::WeatherReport* report, double changed_at_s,
-                         double blend_s) {
+                         double blend_s, std::uint8_t station, double stations_changed_at_s) {
     WeatherSaid out;
+    out.weather.station = station;
+    out.weather.stations_changed_at_s = stations_changed_at_s;
     out.weather.changed_at_s = changed_at_s;
     out.weather.blend_s = blend_s;
     if (report == nullptr) {
@@ -156,6 +166,7 @@ WeatherSaid weather_said(const world::WeatherReport* report, double changed_at_s
     if (report->aloft) {
         w.aloft_follows = true;
         net::WeatherAloft a;
+        a.station = station;
         a.time = report->aloft->time;
         for (const world::AloftLevel& l : report->aloft->levels) {
             a.levels.push_back(
@@ -222,22 +233,18 @@ bool HeardAir::heard(const net::Weather& weather, const std::optional<net::Weath
         }
         return false;
     }
-    if (!report) {
-        if (air_) {
-            air_ = std::make_shared<sim::SteadyWeather>(sim::Conditions{});
-        }
-        still_ = true;
+    // **Still air from the start is no weather at all**, as on a server
+    // given none; after a station, a slot emptied, as the server's is.
+    if (!report && !slots_) {
         return true;
     }
-    changed_at_s_ = weather.changed_at_s;
-    if (!reported_ || still_) {
-        reported_ = std::make_shared<world::ReportedWeather>(std::move(*report), geoid_,
-                                                             weather.blend_s, ground_);
-    } else {
-        reported_->update(std::move(*report), weather.changed_at_s, weather.blend_s);
+    if (!slots_) {
+        slots_ = std::make_shared<world::StationSlots>(geoid_, ground_);
+        air_ = std::make_shared<SessionClocked>(slots_, clock_);
     }
-    still_ = false;
-    air_ = std::make_shared<SessionClocked>(reported_, clock_);
+    changed_at_s_[weather.station] = weather.changed_at_s;
+    slots_->set(weather.station, std::move(report), weather.changed_at_s, weather.blend_s,
+                weather.stations_changed_at_s);
     return true;
 }
 

@@ -369,7 +369,7 @@ void Flight::step(const sim::Controls& controls) {
         if (checklist_) {
             checklist_->update(*aircraft_, tick_);
         }
-        if (weather_) {
+        if (weather_ || heard_air_) {
             refresh_weather();
         }
         return;
@@ -396,7 +396,7 @@ void Flight::step(const sim::Controls& controls) {
         checklist_->update(*aircraft_, tick_);
     }
     report_navigation();
-    if (weather_) {
+    if (weather_ || heard_air_) {
         refresh_weather();
     }
 }
@@ -462,7 +462,7 @@ void Flight::report_navigation() {
 bool Flight::heard_weather(const net::Weather& weather,
                            const std::optional<net::WeatherAloft>& aloft,
                            std::function<double()> clock, std::int64_t count, std::string& why) {
-    server_weathers_ = count;
+    server_weathers_[weather.station] = count;
     if (!heard_air_) {
         // Over no ground, as the server's is (glideslope_server's Fleet::fly_in).
         // On the clock of the step being flown, forward or again in a replay,
@@ -483,7 +483,8 @@ bool Flight::heard_weather(const net::Weather& weather,
     if (!heard_air_->heard(weather, aloft, &why)) {
         return false;
     }
-    weather_ = heard_air_->reported();
+    weather_ = heard_air_->reported(aircraft_->property("position/lat-geod-deg"),
+                                    aircraft_->property("position/long-gc-deg"));
     if (heard_air_->air()) {
         aircraft_->set_weather(heard_air_->air());
     }
@@ -491,8 +492,11 @@ bool Flight::heard_weather(const net::Weather& weather,
 }
 
 void Flight::refresh_weather() {
-    // The server's weather is the server's to change.
+    // The server's weather is the server's to change: what is drawn is
+    // its station nearest the aircraft.
     if (heard_air_) {
+        weather_ = heard_air_->reported(aircraft_->property("position/lat-geod-deg"),
+                                        aircraft_->property("position/long-gc-deg"));
         return;
     }
     lay_runways_when_had();

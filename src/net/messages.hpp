@@ -146,6 +146,15 @@ struct Microburst {
 // nought or absent. It is sent all the same, so that a client is told the
 // server flies no weather rather than left to fly its own.
 struct Weather {
+    // **Which of the server's stations this is** (world::StationSlots), 0 to
+    // most_weather_stations - 1: a server flies the weather of several, each
+    // in its slot, and an empty METAR empties its slot. Every client fills
+    // its slots as told, so that it flies the stations the server does.
+    std::uint8_t station = 0;
+    // **When the server's stations last changed**, on the session's clock:
+    // a slot told another station, or emptied, or filled, changes them then,
+    // and the stations before blend into those after over `blend_s` from it.
+    double stations_changed_at_s = 0.0;
     std::string metar; // the raw report, parsed by the receiver; empty, still air
     double latitude_deg = 0.0;
     double longitude_deg = 0.0;
@@ -191,6 +200,7 @@ struct RunwayCondition {
 // again when the server's runways come; for the weather that took over at
 // `weather_changed_at_s`, and dropped by a client flying another.
 struct RunwayConditions {
+    std::uint8_t station = 0; // the slot of the weather they are for
     double weather_changed_at_s = 0.0;
     std::optional<double> wet_until_s;
     std::vector<RunwayCondition> now;    // the newest weather's runways
@@ -201,6 +211,7 @@ struct RunwayConditions {
 // there is a forecast: a station with none simply has no `WEATHER_ALOFT`,
 // which is how its absence is said.
 struct WeatherAloft {
+    std::uint8_t station = 0; // the slot of the WEATHER it completes
     std::string time; // "2026-09-17T16:00", UTC
     std::vector<AloftLevel> levels;
     std::vector<NearGroundWind> near_ground;
@@ -347,6 +358,8 @@ inline constexpr double most_blend_s = 86400.0;
 inline constexpr std::size_t most_waypoint_name_bytes = 32;
 // The longest reason a refusal gives.
 inline constexpr std::size_t most_reason_bytes = 160;
+// The most stations a server's weather is made of: world::most_stations.
+inline constexpr std::size_t most_weather_stations = 32;
 // The most runways a `RUNWAY_CONDITIONS` carries for each weather.
 inline constexpr std::size_t most_runway_conditions = 16;
 // The longest runway a `RUNWAY_CONDITIONS` may carry, metres.

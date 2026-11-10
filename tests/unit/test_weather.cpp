@@ -2255,3 +2255,170 @@ GLIDESLOPE_TEST(every_stations_share_of_the_weather_is_whole_and_continuous_over
               std::vector<double>{1.0},
           "one station's weather everywhere");
 }
+
+// **A station found or let go blends in, and steps nothing.** Two stations
+// 60 km apart, their winds opposed (as above). Slot 0 flies the first alone;
+// at 100 s the second is found (slot 1), and at 400 s the first is let go,
+// each blended over 60 s from when the stations changed. At a place nearer
+// the second, every 120th of a second from 0 to 600 s:
+// - before 100 s, the first's air alone, to the bit; from 160 s to 400 s,
+//   the two stations' (StationsWeather), to the bit; from 460 s, the
+//   second's alone, to the bit;
+// - and the wind never moves by more than an even spread of each change
+//   over its blend.
+// A slot's new report of the same station is no change of stations: it
+// blends as ReportedWeather does. The first stations, from none, are flown
+// whole at once.
+GLIDESLOPE_TEST(a_station_found_or_let_go_blends_in_over_the_blend_and_steps_nothing) {
+    using glideslope::sim::Conditions;
+    constexpr double south = -33.95;
+    constexpr double north = south + 60000.0 / 110950.0;
+    constexpr double longitude = 151.18;
+    constexpr double blend_s = 60.0;
+    const auto report = [](const std::string& metar, double lat) {
+        glideslope::world::WeatherReport r;
+        r.surface.metar = glideslope::world::parse_metar(metar);
+        r.surface.latitude_deg = lat;
+        r.surface.longitude_deg = longitude;
+        r.surface.elevation_m = 5.0;
+        r.air_seed = glideslope::world::air_seed_of(r.surface.metar);
+        return r;
+    };
+    const auto a = report("YAAA 111200Z 27010KT 9999 FEW030 20/10 Q1013", south);
+    const auto b = report("YBBB 111200Z 09020KT 9999 FEW030 15/10 Q1003", north);
+    glideslope::world::StationSlots slots(nullptr);
+    slots.set(0, a, 0.0, blend_s, 0.0);
+    const auto only_a = std::make_shared<glideslope::world::ReportedWeather>(a, nullptr, blend_s);
+    const auto only_b = std::make_shared<glideslope::world::ReportedWeather>(b, nullptr, blend_s);
+    glideslope::world::StationsWeather both({only_a, only_b});
+    // Nearer the second, within the band: both have a share.
+    const double lat = south + 0.6 * (north - south);
+    constexpr double height_m = 300.0;
+    const double largest =
+        wind_apart(only_a->at(lat, longitude, height_m, 0.0), both.at(lat, longitude, height_m, 0.0)) +
+        wind_apart(both.at(lat, longitude, height_m, 0.0), only_b->at(lat, longitude, height_m, 0.0));
+    std::optional<Conditions> before;
+    double worst = 0.0;
+    std::size_t steps = 0;
+    std::size_t alone_a = 0;
+    std::size_t together = 0;
+    std::size_t alone_b = 0;
+    bool found = false;
+    bool let_go = false;
+    for (int i = 0; i <= 600 * 120; ++i) {
+        const double t = i / 120.0;
+        if (!found && t >= 100.0) {
+            found = true;
+            slots.set(1, b, t, blend_s, t);
+        }
+        if (!let_go && t >= 400.0) {
+            let_go = true;
+            slots.set(0, std::nullopt, t, blend_s, t);
+        }
+        const Conditions air = slots.at(lat, longitude, height_m, t);
+        if (t < 100.0) {
+            check(same_air(air, only_a->at(lat, longitude, height_m, t)), "the first's alone");
+            ++alone_a;
+        } else if (t >= 160.0 && t < 400.0) {
+            check(same_air(air, both.at(lat, longitude, height_m, t)), "the two stations'");
+            ++together;
+        } else if (t >= 460.0) {
+            check(same_air(air, only_b->at(lat, longitude, height_m, t)), "the second's alone");
+            ++alone_b;
+        }
+        if (before) {
+            worst = std::max(worst, wind_apart(air, *before));
+        }
+        before = air;
+        ++steps;
+    }
+    // Each change spread evenly over its blend's steps, the larger of them.
+    const double allowed = largest / (blend_s * 120.0) * 1.001 + 1e-9;
+    check(worst <= allowed, "the wind stepped " + std::to_string(worst) + " m/s, more than " +
+                                std::to_string(allowed));
+    check(steps == 600 * 120 + 1 && alone_a == 100 * 120 && together == 240 * 120 &&
+              alone_b == 140 * 120 + 1,
+          "every step flown and judged: " + std::to_string(steps) + ", " +
+              std::to_string(alone_a) + ", " + std::to_string(together) + ", " +
+              std::to_string(alone_b));
+    std::printf("  the worst step %.6f m/s against %.6f allowed\n", worst, allowed);
+
+    // A new report of the same station is no change of stations.
+    glideslope::world::StationSlots refreshed(nullptr);
+    refreshed.set(0, a, 0.0, blend_s, 0.0);
+    auto a_later = a;
+    a_later.surface.metar = glideslope::world::parse_metar("YAAA 111230Z 30015KT 9999 19/10 Q1011");
+    refreshed.set(0, a_later, 50.0, blend_s, 50.0);
+    check(refreshed.set_changed_at_s() == 0.0 && refreshed.slots()[0]->blending_from(60.0),
+          "a station's new report blends in as its own, the stations unchanged");
+    check(slots.nearest(north, longitude) == slots.slots()[1] && !slots.slots()[0],
+          "the second station nearest, the first let go");
+}
+
+// **The stations kept around each place** (world::stations_around): the six
+// nearest within 200 km of each, each station once, in order of the first
+// place they are nearest to. Built: eight stations 10 to 80 km north of the
+// first place, one 250 km away, one with no name, and one reported twice; a
+// second place 1,000 km away with one station of its own. The first place
+// keeps its six nearest; the second its one; nothing else.
+GLIDESLOPE_TEST(the_stations_kept_are_the_six_nearest_within_200_km_of_each_aircraft) {
+    std::vector<glideslope::world::SurfaceReport> reports;
+    const auto station = [&reports](const std::string& name, double lat, double lon) {
+        glideslope::world::SurfaceReport r;
+        r.metar = glideslope::world::parse_metar("YXXX 111200Z 27010KT 9999 20/10 Q1013");
+        r.metar.station = name;
+        r.latitude_deg = lat;
+        r.longitude_deg = lon;
+        reports.push_back(r);
+    };
+    for (int i = 8; i >= 1; --i) {
+        station("YS0" + std::to_string(i), -34.0 + i * 10000.0 / 110950.0, 151.0);
+    }
+    station("YFAR", -34.0 + 250000.0 / 110950.0, 151.0);
+    station("", -34.0, 151.01);
+    station("YS01", -34.0 + 10000.0 / 110950.0, 151.0);
+    station("NZXX", -40.0, 160.0);
+    const auto kept =
+        glideslope::world::stations_around(reports, {{-34.0, 151.0}, {-40.01, 160.0}});
+    std::vector<std::string> names;
+    for (const auto& r : kept) {
+        names.push_back(r.metar.station);
+    }
+    const std::vector<std::string> expected{"YS01", "YS02", "YS03", "YS04", "YS05", "YS06", "NZXX"};
+    std::string said;
+    for (const auto& n : names) {
+        said += n + " ";
+    }
+    check(names == expected, "kept " + said);
+    check(glideslope::world::stations_around(reports, {}).empty(), "no aircraft, no stations");
+}
+
+// **The METARs around a place are asked for by a box 200 km each way**
+// (`bbox=` south, west, north, east), and read whole: aviationweather.gov's
+// answer around Sydney recorded at 2100Z on 2026-11-10, five stations. A
+// box at the antimeridian is cut at it.
+GLIDESLOPE_TEST(the_metars_around_a_place_are_asked_for_by_a_box_200_km_each_way) {
+    std::ifstream in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) /
+                         "data/weather/aviationweather-around-sydney-2026-11-10T2100Z.json",
+                     std::ios::binary);
+    const std::string text(std::istreambuf_iterator<char>(in), {});
+    std::vector<std::string> asked;
+    const glideslope::world::Fetch fetch = [&](const std::string& url) {
+        asked.push_back(url);
+        glideslope::platform::HttpResponse r;
+        r.status = 200;
+        r.body.assign(text.begin(), text.end());
+        return r;
+    };
+    const auto around = glideslope::world::fetch_metars_around(-33.93, 151.06, fetch);
+    check(asked.size() == 1 &&
+              asked.front().find("/api/data/metar?bbox=-35.7331,148.8969,-32.1269,153.2231"
+                                 "&format=json") != std::string::npos,
+          "asked for the box: " + (asked.empty() ? std::string("nothing") : asked.front()));
+    check(around.size() == 5 && around.front().metar.station == "YSWS",
+          "every station of the answer read: " + std::to_string(around.size()));
+    asked.clear();
+    (void)glideslope::world::fetch_metars_around(-17.0, 179.5, fetch);
+    check(asked.size() == 1 && asked.front().find(",180.0000&") != std::string::npos,
+          "a box past the antimeridian cut at it: " + asked.front());
+}
