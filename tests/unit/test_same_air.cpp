@@ -770,3 +770,85 @@ GLIDESLOPE_TEST(a_client_flies_the_servers_stations_to_the_last_bit_through_ever
     std::printf("  %zu points of the air of three slots, each the server's to the last bit\n",
                 compared);
 }
+
+// **The air at a moment is the same whenever it is asked** - flown forward
+// past a blend's end and then again from before it, as a client puts its
+// prediction right (sim::Prediction). A server flies two stations, then a
+// third found at 100 s and a new report of the first at 110 s, over 60 s;
+// its air at every second from 90 to 200 s is kept. A client told the same
+// flies to 400 s, past both blends' ends, and then again from 90 s: at every
+// one of those 111 seconds, at 3 places and 2 heights, its air is the
+// server's to the last bit. Before 2026-11-11's review the blend was let go
+// when asked past its end, and a step flown again flew the new air alone.
+GLIDESLOPE_TEST(a_client_flying_again_from_before_a_blends_end_flies_the_servers_air) {
+    double now_s = 0.0;
+    const auto clock = [&now_s] { return now_s; };
+    constexpr double blend_s = 60.0;
+    const auto at = [](const std::string& metar, double lat, double lon) {
+        glideslope::world::WeatherReport r = a_full_report(metar);
+        r.surface.latitude_deg = lat;
+        r.surface.longitude_deg = lon;
+        r.microbursts.clear();
+        return r;
+    };
+    const auto server = std::make_shared<glideslope::world::StationSlots>(nullptr);
+    glideslope::net::Told told;
+    glideslope::frontend::HeardAir client(nullptr, {}, clock);
+    const auto set = [&](std::size_t slot, glideslope::world::WeatherReport r) {
+        server->set(slot, r, now_s, blend_s, now_s);
+        const glideslope::frontend::WeatherSaid said = glideslope::frontend::weather_said(
+            &r, now_s, blend_s, static_cast<std::uint8_t>(slot), server->set_changed_at_s());
+        (void)told.hear(all_of(glideslope::net::write(said.weather)));
+        if (said.aloft) {
+            (void)told.hear(all_of(glideslope::net::write(*said.aloft)));
+        }
+        client.heard(*told.weather(), told.aloft());
+    };
+    set(0, at("YSSY 102100Z 28016KT CAVOK 20/13 Q1015", -33.946, 151.173));
+    set(1, at("YSWS 102100Z 22012KT 9999 16/11 Q1012", -33.888, 150.715));
+    const std::vector<std::array<double, 2>> places{
+        {-33.93, 151.06}, {-33.917, 150.944}, {-33.75, 150.85}};
+    const std::vector<double> heights{300.0, 1200.0};
+    std::vector<glideslope::sim::Conditions> server_said;
+    for (int t = 90; t <= 200; ++t) {
+        now_s = t;
+        if (t == 100) {
+            set(2, at("YSRI 102100Z 01015KT 9999 18/11 Q1015", -33.601, 150.777));
+        }
+        if (t == 110) {
+            set(0, at("YSSY 102130Z 18025KT CAVOK 19/13 Q1011", -33.946, 151.173));
+        }
+        for (const auto& p : places) {
+            for (const double h : heights) {
+                server_said.push_back(server->at(p[0], p[1], h, now_s));
+            }
+        }
+    }
+    // The client flies on, past both blends' ends ...
+    for (int t = 201; t <= 400; ++t) {
+        for (const auto& p : places) {
+            (void)client.air()->at(p[0], p[1], 300.0, 0.0);
+        }
+        now_s = t;
+    }
+    // ... and then again from 90 s.
+    std::size_t compared = 0;
+    for (int t = 90; t <= 200; ++t) {
+        now_s = t;
+        for (const auto& p : places) {
+            for (const double h : heights) {
+                const glideslope::sim::Conditions a = server_said[compared];
+                const glideslope::sim::Conditions b = client.air()->at(p[0], p[1], h, 0.0);
+                check(a.wind_north_mps == b.wind_north_mps && a.wind_east_mps == b.wind_east_mps &&
+                          a.wind_down_mps == b.wind_down_mps &&
+                          a.temperature_offset_c == b.temperature_offset_c &&
+                          a.sea_level_pressure_hpa == b.sea_level_pressure_hpa,
+                      "flown again at " + std::to_string(t) + " s, the server's air");
+                ++compared;
+            }
+        }
+    }
+    check(compared == 111 * 3 * 2, "every point compared: " + std::to_string(compared));
+    std::printf("  %zu points flown again from before the blends' ends, each the server's\n",
+                compared);
+}

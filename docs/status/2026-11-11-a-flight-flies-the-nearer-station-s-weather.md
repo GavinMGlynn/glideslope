@@ -1,11 +1,12 @@
-### A flight flies the nearer station's weather, with no step in the wind, 2026-11-11
+### On a server a flight flies the nearer station's weather, with no step in the wind, 2026-11-11
 
 **What it does not do, first.**
+- **The plan item is not done: a flight on its own does not.** A flight of
+  the window's own, with no server, flies the one station its `--weather`
+  names wherever it goes; that is what the item still owes.
 - **Only a server asked for it flies the stations around it** (`--weather
   around`). A server given one `--weather` station, or a `--metar`, flies
-  that one everywhere, as before. So does a flight of the window's own,
-  with no server, whose `--weather` names one station: a tail in
-  `COMPLETION_PLAN.md`.
+  that one everywhere, as before.
 - **A client joining while the server's stations change flies the new ones
   whole** until the change's blend ends (five minutes by default): it is
   told each slot's weather now, not the stations before the change. A
@@ -42,6 +43,22 @@
   in as a report always has; a slot given another station, emptied or
   filled changes the stations, and the air of those before blends into the
   air of those after over the weather's blend, from that moment.
+- **A change in the middle of a blend blends from the air then** (from the
+  review of #358): what a new report blends from is the whole weather as it
+  was, its own blend and all (`world::ReportedWeather`), and what new
+  stations blend from is the stations as they were, theirs and all
+  (`world::StationSlots::Stations`) - so a jet finding stations again every
+  200 s against a 300 s blend steps nothing. A blend that ended
+  `blend_kept_s` (60 s) before the next change is let go then.
+- **The air is pure in time** (from the review): nothing is let go when the
+  air is asked for past a blend's end, so a client flying steps again from
+  before it (sim::Prediction) flies what the server flew. Before, the
+  blend was dropped when asked past its end, on either end.
+- **A box that answers nothing keeps the stations flown** (from the
+  review): an aircraft's box that fails, or answers 204 or no report,
+  keeps the stations flown near it, as they are, and the server says so
+  ("stations kept: ..."); a station whose forecast fails keeps the one it
+  had. Only no place answering, with nothing flown, is the weather not had.
 - **The wire carries each slot** (protocol 18, `12`): `WEATHER`,
   `WEATHER_ALOFT` and `RUNWAY_CONDITIONS` begin with the slot, and `WEATHER`
   says when the stations last changed; `docs/TRANSPORT.md` writes them out.
@@ -100,6 +117,20 @@ an estimate: wider than a METAR's vicinity (16 km), narrower than the 40 to
   `frontend::HeardAir`; 144 points of the air, each the server's to the bit.
 - The message refusals: a slot of 32 and stations changed before nought,
   for each message, refused; slot 31 read.
+- `changes_of_the_stations_and_their_reports_that_overlap_step_nothing`:
+  three stations, five changes - stations found, a report changed, a
+  station let go - 10 to 20 s apart, each over 60 s; every 120th of a second
+  for 400 s the worst step 0.0026 m/s against five blends' even spread,
+  0.018. With what blends made the newest alone, as before the review, it
+  stepped 4.02 m/s: seen to fail, and reverted.
+- `a_client_flying_again_from_before_a_blends_end_flies_the_servers_air`:
+  a client flown to 400 s and again from 90 s, 666 points, each the
+  server's to the bit; with a blend let go when asked past its end, as
+  before the review, it failed at 90 s: seen, and reverted.
+- `a_place_whose_box_answers_nothing_keeps_the_stations_it_had`: three
+  aircraft, one box answered, one 503 to every retry, one 204; the last two
+  keep their stations, YSSY its forecast; with nothing kept and nothing
+  answered, the weather is not had.
 - **End to end**, `a_client_flies_the_stations_around_it_the_nearers_weather_with_no_step_in_the_wind`
   (`tests/cmake/server_stations.cmake`): a server given `--weather around`,
   its weather services answered by `glideslope_http_stub` from the recorded
@@ -110,6 +141,14 @@ an estimate: wider than a METAR's vicinity (16 km), narrower than the 40 to
   share down to 0.923, the wind changing by at most 0.0014 m/s in a step
   (bound 0.05), and the prediction error's median 0.000 m over 950 updates
   (bound 0.25 m).
+- **And with the stub server**, `the_stations_flown_are_kept_when_the_box_around_an_aircraft_answers_204`
+  and `..._404`: the same flight, the stub answering the first five
+  requests from the files and every one after 204, or 404; the player's
+  joining makes the server look again, the box answers nothing, and the
+  four stations are kept and said; no slot is told still air. With keeping
+  taken out, the 204 case failed: the client was told still air.
+- Each end-to-end test took 44 s in linux-debug; that is the time put for it
+  in every `tests/ci_costs/*.txt`, until CI measures its own.
 - **Seen to fail**, each introduced, watched and reverted: the band made
   1 m stepped the unit flight's wind 2.72 m/s and the grid's shares; the
   first station flown everywhere failed "b's air alone near b"; a client

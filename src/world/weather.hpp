@@ -316,18 +316,24 @@ public:
     // more, and this is null. A client joining mid-blend is told it first, so
     // that it blends as the server does (frontend::weather_said).
     const WeatherReport* blending_from(double now_s) const {
-        return previous_ && blend_seconds_ > 0.0 && now_s < changed_at_s_ + blend_seconds_
-                   ? &*previous_
+        return before_ && blend_seconds_ > 0.0 && now_s < changed_at_s_ + blend_seconds_
+                   ? &before_->current_
                    : nullptr;
     }
 
+    // **Pure in time**: the air at a moment is the same whenever it is
+    // asked, before or after a blend has ended - a client flying a step
+    // again (sim::Prediction) flies what the server flew at it.
     sim::Conditions at(double latitude_deg, double longitude_deg, double height_m,
                        double time_s) override;
 
 private:
-    std::optional<WeatherReport> previous_;
+    // **What it blends from: the whole weather as it was**, its own blend
+    // and all, so that a report arriving mid-blend blends from the air then
+    // and steps nothing. A blend that ended blend_kept_s before the next
+    // change is let go then.
+    std::shared_ptr<ReportedWeather> before_;
     WeatherReport current_;
-    Lift previous_lift_;
     Lift current_lift_;
     GroundAt ground_;
     double changed_at_s_ = 0.0;
@@ -390,6 +396,13 @@ private:
     std::vector<std::shared_ptr<ReportedWeather>> stations_;
 };
 
+// **How long after a blend has ended what it blended from is kept**,
+// seconds: a minute, far more than a client flies again of its past
+// (sim::most_unacknowledged steps), so that a step flown again meets the
+// air the server flew at it. Cut when the next change comes, on both ends
+// alike.
+inline constexpr double blend_kept_s = 60.0;
+
 // **The most stations a flight's weather is made of**: what a server finds
 // around its aircraft (stations_around), and what a `WEATHER` may number.
 inline constexpr std::size_t most_stations = 32;
@@ -410,8 +423,9 @@ inline constexpr std::size_t most_stations = 32;
 class StationSlots : public sim::Weather {
 public:
     explicit StationSlots(const Geoid* geoid, GroundAt ground = {})
-        : geoid_(geoid), ground_(std::move(ground)), now_(std::make_shared<StationsWeather>(
-                                                         std::vector<std::shared_ptr<ReportedWeather>>{})) {}
+        : geoid_(geoid), ground_(std::move(ground)), air_(std::make_shared<Stations>()) {
+        air_->stations = std::make_shared<StationsWeather>(std::vector<std::shared_ptr<ReportedWeather>>{});
+    }
 
     // **What slot `slot` flies**: `report`, or nothing. `changed_at_s` and
     // `blend_s` as ReportedWeather::update's; `set_changed_at_s`, when the
@@ -430,17 +444,29 @@ public:
     // When the stations last changed, and over how long they blend.
     double set_changed_at_s() const { return set_changed_at_s_; }
 
+    // Pure in time, as ReportedWeather::at is.
     sim::Conditions at(double latitude_deg, double longitude_deg, double height_m,
                        double time_s) override;
+
+    // **The stations from one change to the next**: flown whole, blended
+    // from the stations before - themselves as they were, mid-blend or not -
+    // over `blend_s` from `at_s`, so that a change in the middle of another
+    // steps nothing.
+    struct Stations : sim::Weather {
+        std::shared_ptr<StationsWeather> stations;
+        std::shared_ptr<Stations> from;
+        double at_s = 0.0;
+        double blend_s = 0.0;
+        sim::Conditions at(double latitude_deg, double longitude_deg, double height_m,
+                           double time_s) override;
+    };
 
 private:
     const Geoid* geoid_;
     GroundAt ground_;
     std::vector<std::shared_ptr<ReportedWeather>> slots_;
-    std::shared_ptr<StationsWeather> now_;
-    std::shared_ptr<StationsWeather> before_;
+    std::shared_ptr<Stations> air_;
     double set_changed_at_s_ = -std::numeric_limits<double>::infinity();
-    double set_blend_s_ = 0.0;
 };
 
 // **How far around an aircraft its stations are looked for**, metres: 200 km
@@ -475,16 +501,30 @@ std::vector<SurfaceReport> stations_around(const std::vector<SurfaceReport>& rep
 // around each (fetch_metars_around; a place within 1 km of one already
 // looked around is not looked around again), the stations of them
 // (stations_around), and Open-Meteo's winds aloft over each for the hour
-// `time`. Throws as fetch_weather does.
-std::vector<WeatherReport> fetch_stations_weather(
+// `time`.
+//
+// **A place whose box answers nothing keeps the stations it had**: one that
+// fails, or answers no content (204) or no report, is given the stations
+// of `kept` - the weather flown now - around it, as they are, and said in
+// `unanswered`; a station whose forecast fails keeps its forecast in `kept`,
+// or flies none. Throws as fetch_weather does only when no place answered
+// and nothing was kept.
+struct StationsFound {
+    std::vector<WeatherReport> stations;
+    // For each place that answered nothing, why.
+    std::vector<std::string> unanswered;
+};
+StationsFound fetch_stations_weather(
     const std::vector<std::pair<double, double>>& places, const std::string& time,
-    const Fetch& fetch, std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
+    const Fetch& fetch, const std::vector<WeatherReport>& kept = {},
+    std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
 
 // **fetch_stations_weather on a thread of its own, given up when let go**,
 // as WeatherFetch is.
 class StationsFetch {
 public:
     StationsFetch(std::vector<std::pair<double, double>> places, std::string time, Fetch fetch,
+                  std::vector<WeatherReport> kept,
                   std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
     ~StationsFetch();
     StationsFetch(const StationsFetch&) = delete;
@@ -493,11 +533,11 @@ public:
     // Whether get() would return without waiting.
     bool done() const;
     // What fetch_stations_weather returned, or throws what it threw. Once.
-    std::vector<WeatherReport> get();
+    StationsFound get();
 
 private:
     std::atomic<bool> give_up_{false};
-    std::future<std::vector<WeatherReport>> reports_;
+    std::future<StationsFound> reports_;
 };
 
 } // namespace glideslope::world

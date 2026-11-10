@@ -196,6 +196,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_weather_a_server_sends_is_flown_to_the_last_bit_by_its_clients
     a_client_joining_mid_blend_is_told_what_it_blends_from_and_flies_the_servers_air
     a_client_flies_the_servers_stations_to_the_last_bit_through_every_change
+    a_client_flying_again_from_before_a_blends_end_flies_the_servers_air
     a_clients_gusts_are_the_servers_at_the_servers_moment_and_differ_at_a_skewed_one
     still_air_is_said_as_an_empty_metar_and_flown_as_no_weather
     a_weather_is_taken_whole_or_not_at_all
@@ -1097,6 +1098,8 @@ set(GLIDESLOPE_UNIT_TESTS
     a_station_found_or_let_go_blends_in_over_the_blend_and_steps_nothing
     the_stations_kept_are_the_six_nearest_within_200_km_of_each_aircraft
     the_metars_around_a_place_are_asked_for_by_a_box_200_km_each_way
+    changes_of_the_stations_and_their_reports_that_overlap_step_nothing
+    a_place_whose_box_answers_nothing_keeps_the_stations_it_had
     an_instant_is_named_by_the_utc_hour_it_falls_in_as_open_meteo_names_hours
     the_weather_now_at_an_airfield_is_fetched_from_aviationweather_and_open_meteo
     a_fetch_is_tried_again_after_a_server_error_or_no_answer_and_not_after_a_refusal
@@ -3344,18 +3347,30 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_weather)
 # recorded answer of aviationweather.gov's, served by glideslope_http_stub.
 # Its median prediction error within the 0.25 m of the test above. See
 # cmake/server_stations.cmake.
-add_test(NAME a_client_flies_the_stations_around_it_the_nearers_weather_with_no_step_in_the_wind
-    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
-        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
-        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stations -DPORT=24848
-        -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-around-sydney-2026-11-10T2100Z.json
-        -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
-        -DSAME_M=0.25 -DSTEP_MPS=0.05
-        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stations.cmake)
-set_tests_properties(a_client_flies_the_stations_around_it_the_nearers_weather_with_no_step_in_the_wind
-    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
-file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stations)
+# **And when the box answers nothing, or is refused, the stations flown are
+# kept**: the same, its later requests answered 204 and 404.
+foreach(_case_port IN ITEMS "recorded:24848" "204:24846" "404:24850")
+    string(REPLACE ":" ";" _case_port "${_case_port}")
+    list(GET _case_port 0 _case)
+    list(GET _case_port 1 _port)
+    if(_case STREQUAL "recorded")
+        set(_name a_client_flies_the_stations_around_it_the_nearers_weather_with_no_step_in_the_wind)
+    else()
+        set(_name the_stations_flown_are_kept_when_the_box_around_an_aircraft_answers_${_case})
+    endif()
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_stations_${_case} -DPORT=${_port}
+            -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-around-sydney-2026-11-10T2100Z.json
+            -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
+            -DSAME_M=0.25 -DSTEP_MPS=0.05 -DCASE=${_case}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_stations.cmake)
+    set_tests_properties(${_name}
+        PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_stations_${_case})
+endforeach()
 # **A client joining while a weather blends in predicts within the same bound
 # as one there before it** (REQUIREMENTS.md 6.3). See
 # cmake/server_weather_join.cmake.
