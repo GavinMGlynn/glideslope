@@ -399,6 +399,11 @@ not the session.
   taking off or landing, and to every AI aircraft put in the sky before
   it. A person's aircraft is not controlled: nothing stops a person flying
   into an AI aircraft faster than it can climb or descend clear.
+- **The server never moves or repositions a person's aircraft** (owner,
+  2026-11-11). It may tell her what other traffic needs (a
+  `TRAFFIC_INSTRUCTION`), and arrange the others round her - another runway
+  for a player waiting her turn on final - but where she does not do as
+  told, she is left where she flies (section 9).
 
 ### 6.6 Server shape (following gearstick)
 
@@ -881,6 +886,15 @@ The replacement:
   `AIRCRAFT`, and a predicting client loads her so. A session file that
   loads players was the other way; it was not taken, because the player
   picks the aeroplane (4.2) and her loading is part of that pick.
+
+**Closed 2026-11-11:**
+
+- **The server never moves or repositions a person's aircraft** (owner,
+  2026-11-11; section 6.5). Asked when a person holding a final over where
+  the next player starts would not leave it: the server tells her to, and
+  starts the next on another runway end whose wind her gate admits; where
+  there is none, the next waits, told why, for as long as she stays. Moving
+  her to her downwind was built and taken out.
 
 **Open:**
 

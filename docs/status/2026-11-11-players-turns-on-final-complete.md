@@ -12,6 +12,37 @@ quits the client cleanly (it says so and exits 0), but no test closes one.
 Run on linux-release only; the Windows cost figures in tests/ci_costs are
 copied from Linux, not measured.
 
+**Left alone in wind, she leaves the gate; the item is open for it.**
+Measured 2026-11-11 with the command-line client joined as the window
+client joins (`--predict --from-held`), one player on final to 16R, the
+server's verdict 30 s on, at the gate's wind limits (15 kt ahead, 15 across
+from either side - 12 for the Cub - and 5 behind), each start three ways:
+pointing down the runway, as now; crabbed into the wind by the whole wind
+correction angle, asin(crosswind / airspeed); and crabbed at most 4.5
+degrees, inside the gate's heading limit.
+
+| | 15 ahead | 5 behind | 15 from the right | 15 from the left |
+| --- | --- | --- | --- | --- |
+| C172P, down the runway | refused: 15 kt of headwind (the estimate over 15) | at the gate, 141 m | refused: 15 kt of crosswind | heading 10 degrees off |
+| C172P, crabbed 14.5 | as above | at the gate | 15 kt of crosswind | 147 m left of the centreline |
+| C182, down the runway | 189 m right of the centreline | heading 5 degrees off | 15 kt of crosswind | 15 kt of crosswind |
+| C182, crabbed 13.5 | 189 m right | at the gate, 107 m | 15 kt of crosswind | 227 m left |
+| PA-28, down the runway | 15 kt of headwind | at the gate, 104 m | 143 m left | 201 m right |
+| PA-28, crabbed 13.5 | 15 kt of headwind | at the gate | 81 m right | heading 10 degrees off |
+| J-3 Cub (12 across), down the runway | heading 12 degrees off | heading 5 degrees off | 0.7 miles past 25's gate | 0.9 miles past 07's |
+| J-3 Cub, crabbed 16.2 | as above | as above | as above | as above |
+
+Crabbed at most 4.5 degrees did no better (C182 115 m, PA-28 67 and 126 m
+off the centreline). So the crab is not the cause: an aeroplane left alone
+in wind wanders - the Cub and the C182 even with it straight ahead - and in
+a crosswind the gate's 5-degree heading limit is less than her crab at 6 kt
+across. A crabbed start was built, measured and taken out; it is not in
+this change. Searched: the wind correction angle (WCA = asin(crosswind /
+true airspeed)), FlightGear's `--in-air`, `--offset-distance` and `--wind`
+starts, and X-Plane's start on final - none of them crabs an aircraft
+started on final. Both this item and "A 172 a window client joins on final"
+are unticked for it.
+
 **What changed.**
 
 - **The window opens before joining**, and while the server has given her
@@ -136,6 +167,18 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   aircraft at 420.1 s, when the C172P's client goes, 319 m inside the gate
   30 s on. The run holds that the server moved nobody, and ends by
   `--until-empty` once both have gone (452 s).
+- **Seen red, the three past the bound**: with no other runway end tried,
+  the 34L run "place 2, the pa28: not started where her gate holds her, on
+  final to 34L" and the 25 run "... on final to 25"; with the wind not
+  refused there, the Richmond run sent her to 28: "... on final to 10".
+- **Never moved, asserted**: in each past-the-bound run the orbiting
+  player's client tracks her (`--track`), and every two updates heard of
+  her must be within 200 m (she flies 2 m between two); the run fails if
+  fewer than 1,000 were heard. Seen red with a person's aircraft put 0.03
+  degrees north once, in the Richmond run: "the one orbiting jumped
+  between two updates (5363129 square metres)".
+- **Every run ends by `--until-empty`**: the server's "everybody who joined
+  has gone" is required of each.
 - `glideslope_cli selftest`, linux-release: hash 197366fd3fe6a7dc before the
   runway kept for a player's learnt landing, 197366fd3fe6a7dc, unmoved after - the
   selftest flies no learnt landing.

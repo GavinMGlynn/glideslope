@@ -272,7 +272,8 @@ gate admits no more crosswind than her figures' demonstrated crosswind
 (the Cub's 12 kt), and no more than training's 15. The learnt landing is offered for those four aircraft, by the CLI, to a player at its gate on a server (L in the window
 client, told why when refused; since 2026-11-11 the first player on final starts
 where her gate holds her thirty seconds, and each of the four, joined on
-final in the window client and left alone, is still at it then; the players after her start there too, each in her
+final in the window client and left alone, is still at it then in still air
+- but not in wind at her gate's limits, crabbed or not (an open item); the players after her start there too, each in her
 turn, once the one ahead is three miles on or landed, gone around, off the
 final or waited out - an AI aircraft on that final too, put there or its
 plan landing there - her window showing why while she waits; held past the
