@@ -2149,7 +2149,7 @@ foreach(_driver IN LISTS GLIDESLOPE_GPU_DRIVERS)
             -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DMETAR_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/aviationweather-around-sydney-2026-11-10T2100Z.json
             -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
-            -DSTEP_MPS=0.05
+            -DSTEP_MPS=0.05 -DHOUR=13
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/window_stations.cmake)
     set_tests_properties(a_flight_on_its_own_flies_the_stations_around_her_the_nearers_weather_with_no_step_in_the_wind_on_${_driver}
         PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads)

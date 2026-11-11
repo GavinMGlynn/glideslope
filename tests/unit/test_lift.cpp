@@ -284,6 +284,67 @@ GLIDESLOPE_TEST(
                                std::to_string(most_step));
 }
 
+// **Up through the top of the layer the air steps nothing.** Allen's mean
+// updraught at the top is not nought but -0.1 w* (w* (z/zi)^(1/3) (1 - 1.1
+// z/zi) at z = zi), and his model ends there: above the layer no thermals;
+// and his ring of sinking air and the sink's share of it end 0.9 of the way
+// up at all of themselves. So those are held from 0.9 up, the thermals fade
+// to nothing over the layer's top tenth, and a flight whose
+// height above the ground crosses the top - climbing, or over ground falling
+// away beneath her - meets no step. Walked up in metre steps from 0.85 to 1.05
+// of the layer's depth over every point 20 m apart across four cells, at a
+// thermal's birth, its prime and its fading; the walk states its size and how
+// much of it met air that moved.
+GLIDESLOPE_TEST(up_through_the_top_of_the_convective_layer_the_thermals_air_steps_nothing) {
+    using glideslope::world::thermal_spacing_m;
+    using glideslope::world::thermal_updraught;
+    const std::uint64_t seed = 7;
+    const double spacing = thermal_spacing_m(allens);
+    const double zi = allens.depth_m;
+    constexpr double step_m = 1.0;
+    constexpr double most_mps = 0.01; // a metre's; 0.0059 measured, a tenth of a metre 0.00059: no step left
+    const int across = static_cast<int>(2.0 * spacing / 20.0);
+    const int heights = static_cast<int>((0.2 * zi) / step_m);
+    int walks = 0;
+    int moving = 0;
+    double most_step = 0.0;
+    double most_above = 0.0;
+    for (const double time_s : {90.0, 600.0, 1110.0}) {
+        for (int i = 0; i < across; ++i) {
+            for (int j = 0; j < across; ++j) {
+                const double east = i * 20.0;
+                const double north = j * 20.0;
+                double last = thermal_updraught(seed, allens, {east, north, 0.85 * zi}, time_s);
+                bool moved = std::abs(last) > 0.01;
+                for (int k = 1; k <= heights; ++k) {
+                    const double z = 0.85 * zi + k * step_m;
+                    const double w = thermal_updraught(seed, allens, {east, north, z}, time_s);
+                    most_step = std::max(most_step, std::abs(w - last));
+                    if (z >= zi) {
+                        most_above = std::max(most_above, std::abs(w));
+                    }
+                    last = w;
+                }
+                ++walks;
+                moving += moved ? 1 : 0;
+            }
+        }
+    }
+    const int expected = 3 * across * across;
+    check(walks == expected && across >= 40 && heights >= 200,
+          "every walk was made: " + std::to_string(walks) + " of " + std::to_string(expected) +
+              ", " + std::to_string(heights) + " steps each");
+    check(moving > walks / 4,
+          "the air 0.85 of the way up moved in most of the walks, so the top was crossed in "
+          "air that had something to lose: " + std::to_string(moving) + " of " +
+              std::to_string(walks));
+    check(most_step < most_mps,
+          "up through the layer's top the thermals' air changed by at most " +
+              std::to_string(most_step) + " m/s in a metre, against " + std::to_string(most_mps));
+    check(most_above == 0.0, "above the layer there are no thermals: " +
+                                 std::to_string(most_above) + " m/s");
+}
+
 GLIDESLOPE_TEST(a_ridge_in_stable_air_makes_the_mountain_waves_of_linear_theory) {
     using glideslope::world::terrain_updraught;
     // Linear theory's vertical wind over Queney's ridge, whose transform is
