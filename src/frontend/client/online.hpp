@@ -55,6 +55,11 @@ struct Joined {
     // The server's step the motion was true at: what a take-over flies it on
     // from (Flight::adopt).
     std::uint64_t server_steps = 0;
+    // **The server's step she was first heard at as this client's own** -
+    // when the server gave her, to a network's delay - which `server_steps`
+    // moves on from while her levers are asked: what "seconds after joining"
+    // counts from on the session's clock (glideslope's `--press-after`).
+    std::uint64_t given_steps = 0;
     // Given by joining again after the server let this client go, not by a
     // take-over.
     bool again = false;
@@ -279,6 +284,12 @@ public:
     }
     // **What the server has told it to do for other traffic**, each time
     // since last asked, oldest first (`TRAFFIC_INSTRUCTION`).
+    // **The session's clock as last heard**: the newest update's
+    // simulation time, or none before one.
+    std::optional<double> newest_heard_s() const {
+        const auto lock = held();
+        return newest_heard_s_;
+    }
     std::vector<std::string> instructions() {
         const auto lock = held();
         std::vector<std::string> out;
@@ -587,6 +598,7 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
             instructions_.clear();
             if (newest) {
                 if (auto joined = joined_by(*newest)) {
+                    joined->given_steps = joined->server_steps;
                     mine_ = joined->number;
                     laws_used_ = session_.told().law_states_heard();
                     // Its levers, before any input of this client's has

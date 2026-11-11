@@ -163,6 +163,11 @@ foreach(_i RANGE ${_last})
          ${_leaves} ${_again} --heard "${WORK}/heard${_i}.txt")
 endforeach()
 if(_how STREQUAL "window")
+    # **Built slowly on purpose** (`--slow-start 5`): its flight begun five
+    # seconds after the server gave her, as a Windows debug client's was
+    # (CI run 42930877921: 89 m from the gate's near edge) - and still asked
+    # 30 s after she was given on the session's clock, not after its own
+    # flight began.
     # The window client last, through a relay that holds nothing back
     # (glideslope_impair, at PORT + 1), which passes the server's standard
     # output on to standard error: the client's is read from the one and the
@@ -180,7 +185,7 @@ if(_how STREQUAL "window")
                 --seed 1 --until-input-ends --seconds 1800
         COMMAND "${WINDOW}" --headless --gpu-driver "${DRIVER}" --size 320x200
                 --aircraft ${_a} --shot "${WORK}/window.bmp" --shot-at 999999
-                --quit-at 4800 --view cockpit --press-after 30 L
+                --quit-at 4800 --view cockpit --press-after 30 L --slow-start 5
                 --after-ready "${WORK}/heard${_before}.txt"
                 --server 127.0.0.1 ${_relay} --server-key ${_key}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _window ERROR_VARIABLE _out)
