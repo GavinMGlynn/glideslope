@@ -437,6 +437,16 @@ and 230 kt, and the F-22A no longer overshoots a level-off; their
 CBD-orbit plans were recorded again for the new speeds
 (2026-11-05-an-ai-take-off-raises-her-gear-on-a-positive-rate).
 
+Since 2026-11-11 the F-22A holds every speed a plan may ask of her again,
+42 of 42 from 157 to 360 kt; from 2026-11-03 the nightly found her speed
+hunting 10 kt round her tightest orbit at 197, 222 and 237 kt. Her pinned
+model's one-second throttle filter, on top of her engines' own spool, is
+removed - and with it her sustained turn rose to 7.87 deg/s, over the
+report's band's 7.84: her `figures` test is red until the owner chooses
+how to set it (a tail). Her measured rotation is 145 kt. Pull requests
+fly those three speeds; the rest of her 42 are the nightly's
+(2026-11-11-the-f22a-holds-every-plan-speed-again).
+
 
 ## Gaps
 
