@@ -550,8 +550,8 @@ are the risks the phase order is built around:
   over a sunlit field, and the terrain's lift is linear theory seen along the
   wind only: no rotor, and no lee waves trapped under a stable layer. A tail
   in `COMPLETION_PLAN.md`.
-- **Weather is the nearer station's where asked for.** A server or a flight
-  on its own given `--weather around` finds the stations within
+- **Weather is the nearer station's where asked for.** A server, or the
+  window's flight on its own, given `--weather around` finds the stations within
   200 km of every aircraft (aviationweather.gov's `bbox=`), flies each
   place in the nearer's weather - blended across a 20 km band halfway
   between two, with no step in the wind - and tells every client each
@@ -561,7 +561,8 @@ are the risks the phase order is built around:
   server flies that station's weather everywhere; a client joining while the server's stations change
   flies the new ones whole until the blend ends; and the AI's planners are
   told no wet runway under the stations around them - each a tail in
-  `COMPLETION_PLAN.md`. On a server the server's weather travels and every
+  `COMPLETION_PLAN.md`. glideslope_cli has no weather of its own: it flies a
+  server's, or none. On a server the server's weather travels and every
   client flies it - one joining mid-blend blended from the same weather - but
   over no ground: no ridge or wave lift there, a tail.
 - **Summits are low in the DEM.** A 30 m grid does not hold a peak: at five

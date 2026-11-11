@@ -551,7 +551,10 @@ class StationsFetch;
 class StationsAround {
 public:
     using Kept = std::function<std::vector<WeatherReport>()>;
-    StationsAround(Fetch fetch, double refresh_s) : fetch_(std::move(fetch)), refresh_s_(refresh_s) {}
+    // `again_m`: how far an aircraft flies before they are looked for again -
+    // restation_m, but for a test.
+    StationsAround(Fetch fetch, double refresh_s, double again_m = restation_m)
+        : fetch_(std::move(fetch)), refresh_s_(refresh_s), again_m_(again_m) {}
     ~StationsAround();
     StationsAround(const StationsAround&) = delete;
     StationsAround& operator=(const StationsAround&) = delete;
@@ -572,6 +575,7 @@ public:
 private:
     Fetch fetch_;
     double refresh_s_;
+    double again_m_;
     std::unique_ptr<StationsFetch> under_way_;
     std::vector<std::pair<double, double>> looked_for_;
     double came_at_s_ = 0.0;
