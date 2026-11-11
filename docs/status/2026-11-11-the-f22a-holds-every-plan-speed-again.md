@@ -77,5 +77,11 @@ the three speeds: 0 fails all three; 0.5, 1, 2 and 4 s hold all three.
 - The quick tests on linux-debug - every test under 5 s in
   tests/ci_costs/linux-debug.txt, live ones left out, and the three new
   ones: 666 of 666.
+- `a_throttle_lag_is_read_and_refused_unless_over_0_and_at_most_5_s`: the
+  F-22A's 1 and the A320's none read; 1 and 5 read back; 0, -1, NaN and 5.01
+  refused, each naming the attribute (JSBSim refuses "nan" itself, and the
+  reader now names it). Seen red with the range check disabled: 1 of 4
+  refused. Where the lag is 0 the lead is not computed at all, so a NaN
+  speed trend cannot reach another aircraft's throttle through it.
 - The selftest hash does not move (`ctest -R selftest`): the C172P gives no
   throttle lag.

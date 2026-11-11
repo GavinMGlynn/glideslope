@@ -742,6 +742,63 @@ GLIDESLOPE_TEST(the_rotation_loops_stick_per_degree_a_second_is_read_and_refused
                                            std::to_string(refused));
 }
 
+// **A throttle lag is read, and one not over 0 and at most 5 s is refused**
+// (`throttle_lag_s`, the autothrottle's lead, sim/autopilot.cpp): the
+// F-22A's 1 read as written, the A320's - which gives none - as nought, and
+// the A320's file given one: 1 and 5, the most allowed, read back; 0, a
+// negative, NaN and 5.01 refused, each naming it. Every value is flown.
+GLIDESLOPE_TEST(a_throttle_lag_is_read_and_refused_unless_over_0_and_at_most_5_s) {
+    check(read_published_figures(figures_file("f22")).throttle_lag_s == 1.0,
+          "the F-22A's throttles lag a second");
+    check(read_published_figures(figures_file("a320")).throttle_lag_s == 0.0,
+          "the A320 gives none");
+
+    std::ifstream in(figures_file("a320"));
+    const std::string text((std::istreambuf_iterator<char>(in)),
+                           std::istreambuf_iterator<char>());
+    const std::string attribute = "rotation_degps=\"3\"";
+    const auto at = text.find(attribute);
+    if (at == std::string::npos) {
+        fail("assets/figures/a320.xml does not give rotation_degps=\"3\"");
+    }
+    const auto file =
+        std::filesystem::temp_directory_path() /
+        ("glideslope_throttle_lag_" + std::to_string(std::random_device{}()) + "_" +
+         std::to_string(std::chrono::steady_clock::now().time_since_epoch().count()) + ".xml");
+    const auto write = [&](const std::string& value) {
+        std::string changed = text;
+        changed.replace(at, attribute.size(), attribute + " throttle_lag_s=\"" + value + "\"");
+        std::ofstream out(file);
+        out << changed;
+    };
+
+    const char* const right[] = {"1", "5"};
+    std::size_t read = 0;
+    for (const char* value : right) {
+        write(value);
+        check(read_published_figures(file).throttle_lag_s == std::stod(value),
+              std::string("a lag of ") + value + " s is read back as written");
+        ++read;
+    }
+    const char* const wrong[] = {"0", "-1", "nan", "5.01"};
+    std::size_t refused = 0;
+    for (const char* value : wrong) {
+        write(value);
+        try {
+            read_published_figures(file);
+        } catch (const std::runtime_error& e) {
+            const std::string said = e.what();
+            check(said.find("throttle_lag_s") != std::string::npos,
+                  std::string("the refusal of ") + value + " names throttle_lag_s: " + said);
+            ++refused;
+        }
+    }
+    std::filesystem::remove(file);
+    check(read == std::size(right), "both lags allowed were read");
+    check(refused == std::size(wrong),
+          "all four lags outside over 0 to 5 s were refused, not " + std::to_string(refused));
+}
+
 // **Her elevator's pitching moment at full travel is read, and one that is
 // none or past any aeroplane's is refused** (`elevator_full_cm`, which damps
 // the lander's hold of a hull's trim on the step): the S.23's 0.28 read as

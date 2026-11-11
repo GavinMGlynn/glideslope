@@ -244,9 +244,10 @@ constexpr double a_hands_pace = 1.0 / static_cast<double>(steps_per_second);
 // throttle 0.08 to 0.99 every 7.5 s. An autothrottle's lead on the speed's
 // rate - its acceleration - is the usual answer to an engine that answers
 // late: a windshear patent (US 3,955,071) adds a proportional acceleration
-// term to its autothrottle for the lead it gives the throttle command. Led by 0.5, 1, 2 or 4 s she held all three; 1 s, the lag
-// itself, is written. Without a lag the term is nothing, so no other
-// aircraft moves.
+// term to its autothrottle for the lead it gives the throttle command. Led
+// by 0.5, 1, 2 or 4 s she held all three; 1 s, the lag itself, is written.
+// Without a lag the term is not taken at all - not even a NaN trend times
+// nought - so no other aircraft moves.
 constexpr double throttle_per_knot = 0.08;
 constexpr double throttle_integral_per_knot = 0.02;
 constexpr double throttle_rate = 0.25;
@@ -1161,12 +1162,13 @@ Controls Autopilot::fly() {
                 : std::clamp(climb_as_speed_s * g_fps2 * (climb_off / 60.0) /
                                  std::max(speed_fps, 1.0) / fps_per_kt,
                              -most_climb_as_kts, most_climb_as_kts);
+        const double lag_s = a_.throttle_lag_s();
+        const double lead_kts = lag_s > 0.0 ? lag_s * kts_per_s_ : 0.0;
+        const double led_kts = speed_off + climb_as_kts - lead_kts;
         const double wanted =
             unloading_                   ? last_.throttle
             : holding_speed_ || on_speed ? 1.0
-                                         : throttle_integral_ +
-                                               throttle_per_knot * (speed_off + climb_as_kts -
-                                                                    a_.throttle_lag_s() * kts_per_s_);
+                                         : throttle_integral_ + throttle_per_knot * led_kts;
 
         const double next =
             std::clamp(toward(last_.throttle, wanted, throttle_rate * dt), 0.0, 1.0);

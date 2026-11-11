@@ -1058,8 +1058,9 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       file; plans, the copilot's routes and plan files outside them are
       refused; all sixteen hold their height and speed round the orbit
       every 5 kt between them. The nightly was red on the F-22A from
-      2026-11-03 to 11-11, her autothrottle hunting against her engines' lag at
-      three speeds; fixed, and those three are flown on every pull request.
+      2026-11-03 to 11-11, her autothrottle hunting against her engines' lag
+      at three speeds. Fixed 2026-11-11: all 42 of hers hold, and those three
+      are flown on every pull request. Done; nothing is left open.
 - [x] **At its fastest, a fast aircraft's tightest orbit is flown well off
       its circle.** Round 13 to 19 km circles at 300 to 360 kt the jets
       hold their height and speed but wander up to 18% of the radius off the
