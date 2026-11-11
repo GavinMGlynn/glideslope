@@ -1,0 +1,13 @@
+# A Cessna begun 6.2 miles out on Sydney 16R's extended centreline, on its
+# glidepath, flying a plan that ends in a landing there: for a test of a
+# player joining on that final behind an AI whose own plan lands on it
+# (tests/cmake/server_players_take_turns_on_final.cmake, `+planai`).
+#
+#   start LATITUDE LONGITUDE ALTITUDE_FT HEADING_DEG AIRSPEED_KT
+#   waypoint NAME LATITUDE LONGITUDE ALTITUDE_FT AIRSPEED_KT
+#   land NAME LATITUDE LONGITUDE ELEVATION_FT HEADING_DEG LENGTH_M
+
+aircraft c172p
+start -33.82816 151.14595 2030 168 75
+waypoint CENTRELINE_6NM -33.82979 151.14637 2000 75
+land YSSY_16R -33.929401 151.171997 8 167.9 3962
