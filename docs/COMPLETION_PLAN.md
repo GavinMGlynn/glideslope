@@ -1845,9 +1845,10 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       that final - put there, or its own plan landing there - holds her as a
       player does; a player the learnt landing has stopped leaves the runway
       before the next touches; one held past the bound by a leader over the
-      start starts on the runway's other end where its wind allows, and
-      otherwise the leader, told to leave and still there a minute later, is
-      moved to her downwind by the server.
+      start starts on another runway end at that airfield whose wind her
+      gate admits. A measured limit, allowed by the owner's ruling of
+      2026-11-11 (the server never moves a person's aircraft): where none
+      will do, she waits, told why, until the person holding the final goes.
 - [ ] **The engine-stop prediction test fails on Windows clang when the
       server is held up**: its client, pacing 1.6 to 1.7 times its own clock
       to catch up, is put right by metres and misses its speed bound - since

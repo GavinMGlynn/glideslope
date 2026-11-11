@@ -1,12 +1,16 @@
 ### Players' turns on final: the window, AI leaders, the runway, the bound, 2026-11-11
 
-**What is still not true first.** The window shows why she waits as text
-over the sky, not the airfield: no flight is built until her turn. No AI
-aircraft waits for a player. Closing the window while she waits quits the
-client cleanly (it says so and exits 0), but no test closes one. A leader
-moved to her downwind is moved, not flown there: her client sees her jump
-two miles, as it sees any correction. Run on linux-release only; the
-Windows cost figures in tests/ci_costs are copied from Linux, not measured.
+**What is still not true first.** **A measured limit, which the owner's
+ruling of 2026-11-11 allows**: where a person holds the final over the
+start past the bound and no other runway end at the airfield takes her -
+each behind her, across her more than her gate admits, or not clear - the
+next waits, told why, for as long as that person stays; the server never
+moves a person's aircraft (REQUIREMENTS 6.5). The window shows why she
+waits as text over the sky, not the airfield: no flight is built until her
+turn. No AI aircraft waits for a player. Closing the window while she waits
+quits the client cleanly (it says so and exits 0), but no test closes one.
+Run on linux-release only; the Windows cost figures in tests/ci_costs are
+copied from Linux, not measured.
 
 **What changed.**
 
@@ -24,35 +28,28 @@ Windows cost figures in tests/ci_costs are copied from Linux, not measured.
   controller's vacating takes her off. Before this she stayed where she
   stopped. Her learnt landing now also goes around if the runway is not
   clear, or if traffic is close ahead on final, as an AI's does.
-- **Past the bound, the other end**: when the aircraft holding her is past
-  the bound and still over the start, the server does two things:
-  - it tells that aircraft's player to leave the final (a
+- **Past the bound, another runway**: when the aircraft holding her is past
+  the bound and still over the start, the server
+  - tells that aircraft's player to leave the final (a
     `TRAFFIC_INSTRUCTION`: "leave the final to YSSY 16R: go around and clear
-    it; traffic has waited behind you past its time, and is put on final to
-    YSSY 34L");
-  - it starts the waiting player on final to the runway's other end, once
-    that end's start is clear by the same rule.
-
-  The two starts are more than six miles apart, so one aircraft cannot hold
-  both, and the wait is bounded - where the other end's wind is one her
-  learnt landing's gate admits (`sim::learnt_gate_wind_refuses`: 5 kt
-  behind, 15 ahead, her crosswind, 15 in all). A southerly at Sydney is
-  behind 34L: then she stays held until the one holding the final goes, and
-  the server says why once ("held past the bound, and the other end, YSSY
-  34L, refused: 10 kt of tailwind; the gate is within 5"); the wait is not
-  bounded by the next rule.
-- **Moved to her downwind**: past the bound, told to leave the final, and
-  still over the start a minute later (`TurnOnFinalRule::told_grace_s`), the
-  one holding it is put by the server - which owns every aircraft - two
-  miles abeam the start (past the 1.5-mile lateral minimum), heading back up
-  the downwind at her height and speed; a copilot's route she flies is
-  cleared and the AI holds that course; a person flying her flies on from
-  there. She is told so. Then she is off the final, and the next is let by
-  on her own end. A controller faced with an aircraft that will not leave
-  the final can only instruct it and move the others (Doc 4444 has an
-  aircraft dangerously placed on final told to go around; the search found
-  no procedure for one that does not); the server can move her, and does,
-  so the wait is bounded in every wind: the bound, a minute, and a step.
+    it; traffic has waited behind you past its time, and is put on another
+    runway if one will take her"), and
+  - starts the waiting player on final to another runway end at that
+    airfield: of those whose wind her learnt landing's gate admits
+    (`sim::learnt_gate_wind_refuses`: 5 kt behind, 15 ahead, her crosswind,
+    15 in all), the most into the wind first and the runway's own other end
+    first among equals, the first whose start is clear by three miles (the
+    bound not eased there). A tower turns a following arrival to another
+    runway rather than keep it waiting behind one holding the final; the
+    only phraseology the search found is "go around" or "break off the
+    approach" and resequencing, with no published rule for an aircraft
+    that will not (Doc 4444 has one dangerously placed on final told to go
+    around).
+  - **Where none will do**, she waits, and is told why ("...; past its
+    time, and no other runway here will take her: YSSY 34L 13 kt of
+    tailwind; ..."), sent again when that changes; the server says it once.
+    It never moves a person's aircraft: the owner's ruling of 2026-11-11
+    (REQUIREMENTS 6.5).
 - **An AI aircraft whose own plan lands on that final is a leader**: the
   server's plan it flies, its own (a model's or a copilot's), or an
   approach it flies straight in, to the same runway end (threshold within
@@ -67,11 +64,7 @@ Windows cost figures in tests/ci_costs are copied from Linux, not measured.
   other aircraft's spacing (the AI's giving way to one straight in, as it
   gives way to an AI's), where before she was not.
 - **The window's close while she waits** quits the client: it says
-  "closed while waiting for an aircraft; quitting" and exits 0. A tower does the same when it turns a
-  following arrival away from a final someone is holding. The only
-  phraseology the search found for this is "go around" or "break off the
-  approach" and resequencing; there is no published rule for an aircraft
-  orbiting on final.
+  "closed while waiting for an aircraft; quitting" and exits 0.
 
 **Verification.**
 
@@ -102,37 +95,51 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   from 6.2 miles out; the player joins at 90 s on the session's clock (the
   server's `--changed-file` for a METAR of calm again, an event), 2.23
   miles behind it, and waits; she is given her aircraft at 330.0 s, the AI then 1.87 miles on past the bound (it flies its final slower than the bound allows for: on final from 90 s, at its speed of the plan, and the bound reckoned at 60 kt), and is 231 m inside the gate 30 s on (362 s in all). Seen red with plan-landing AI
-  not counted: "0 players were told to wait their turn". Seen red with the runway not
-  recorded: "place 1, the pa28: never left the runway".
-- **The other end's wind**:
+  not counted: "0 players were told to wait their turn".
+- **The other ends' wind**:
   `a_runways_other_end_is_offered_only_into_a_wind_its_learnt_landings_gate_admits`
   (tests/unit/test_learnt.cpp), eight cases: a southerly of 10 kt is 10 kt
   behind 34L, refused, and ahead on 16R, admitted; a northerly the other
   way round; calm admitted; 5 kt straight behind admitted and 5.2 refused;
-  16 kt across refused. And end to end:
-  `a_player_held_past_the_bound_with_the_wind_behind_the_other_end_waits_on_and_starts_into_it`
-  (`a_player_held_past_the_bound_with_the_wind_behind_the_other_end_until_the_server_moves_the_one_holding_it`,
-  port 24937), the orbit below in a METAR southerly of 10 kt: 34L refused
-  for its tailwind, the C172P told to leave at 240.6 s and moved to her
-  downwind a minute later while her client was still there; the PA-28
-  given her aircraft at 300.6 s, "aircraft 0 off the final", on 16R into
-  the wind, and 350 m inside its gate 30 s on (422 s in all). Seen red with
-  the tailwind not refused: the unit test's "a southerly is refused on 34L
-  for its tailwind", and in this run she was sent to 34L: "place 2, the pa28: not started where her gate holds her, on final to 16R". The northerly run's
-  PA-28 started on 34L at 240.6 s and was 318 m inside its gate.
-- **The bound**: in
+  16 kt across refused. Seen red with the tailwind not refused: "a southerly
+  is refused on 34L for its tailwind".
+- **Into the wind on its own other end**:
   `a_player_held_past_the_bound_by_one_orbiting_over_the_start_starts_on_final_to_the_other_end_and_is_at_its_gate`
-  (port 24927), in a METAR northerly of 8 kt (into 34L), the C172P's
-  copilot route orbits 1,000 m round the 16R start at 700 ft (`tests/data/copilot/route-orbit-over-the-16r-start.txt`), and a
-  PA-28 joins behind her. At 240.6 s (the bound behind a C172P) the PA-28
-  starts 2.35 miles out on final to 34L, 7.12 miles from the orbit. She is
-  318 m inside that gate 30 s on. The C172P's client heard that it was told
-  to leave the final. Seen red with the other end not used: "the one
-  orbiting over the start was not told to leave the final".
+  (port 24927), in a METAR northerly of 8 kt, the C172P's copilot route
+  orbits 1,000 m round the 16R start at 700 ft
+  (`tests/data/copilot/route-orbit-over-the-16r-start.txt`), and a PA-28
+  joins behind her. At 240.6 s (the bound behind a C172P) she starts 2.35
+  miles out on final to 34L, its own other end and most into the wind, and
+  is 317 m inside that gate 30 s on; the C172P's client heard it was told
+  to leave the final.
+- **A crossing runway**:
+  `a_player_held_past_the_bound_with_the_wind_across_her_runway_starts_on_final_to_a_crossing_runway_into_it`
+  (port 24937), the orbit in a METAR wind from 250 at 10 kt: 25, the
+  crossing runway, is the end most into it (16L not clear of the orbit),
+  and the PA-28 starts there at 240.6 s, 2.35 miles out, and is 352 m
+  inside its gate 30 s on (422 s in all). Tried first with the Cub in 13 kt
+  and the C172P's other runways across a southerly: a J-3 Cub left alone
+  on final in 13 kt of headwind turned 12 to 18 degrees off the runway's
+  heading in 30 s, and a PA-28 started on 25 with 9 kt across drifted 138 m
+  - a player is started pointing down the runway, not crabbed into the
+  wind, which is a limit of the start for every player in a crosswind,
+  named here and not this item's.
+- **None will do**:
+  `a_player_held_past_the_bound_with_no_other_runway_in_the_wind_waits_told_why_until_the_one_holding_it_goes`
+  (port 24828), at Richmond (YSRI), a field of one runway: players on
+  final to 10, the C172P orbiting its start
+  (`tests/data/copilot/route-orbit-over-the-ysri-10-start.txt`) in a METAR
+  wind from 100 at 8 kt, 28 behind her ("held past the bound, and no other
+  runway will take her: YSRI 28 8 kt of tailwind; the gate is within 5").
+  The PA-28 is told "waiting for aircraft 0 ahead, past its time over where
+  she starts: no other runway here will take her", waits, and is given her
+  aircraft at 420.1 s, when the C172P's client goes, 319 m inside the gate
+  30 s on. The run holds that the server moved nobody, and ends by
+  `--until-empty` once both have gone (452 s).
 - `glideslope_cli selftest`, linux-release: hash 197366fd3fe6a7dc before the
   runway kept for a player's learnt landing, 197366fd3fe6a7dc, unmoved after - the
   selftest flies no learnt landing.
-- Coverage is asserted across the seven runs: every aeroplane with a learnt
+- Coverage is asserted across the eight runs: every aeroplane with a learnt
   landing follows at least once, and the second, third and fourth places
   are flown. The server-timeouts check passes with its totals unchanged.
   The other learnt-landing tests pass with the runway now cleared: 109

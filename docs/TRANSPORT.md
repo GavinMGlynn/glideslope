@@ -1068,9 +1068,10 @@ her to leave until it is short of fuel, and then lands whatever she does.
 It sends one too, once, to a person whose aircraft has held the final past
 the bound over where the next player would start, on a server that starts
 its players on final: `leave the final to YSSY 16R: go around and clear it;
-traffic has waited behind you past its time, and is put on final to YSSY
-34L`. Nothing makes her do that either: the next is put on the other end,
-where its wind allows, whether she goes or not.
+traffic has waited behind you past its time, and is put on another runway
+if one will take her`. Nothing makes her do that either: the next is put on
+another runway end whose wind her gate admits, whether she goes or not, and
+where there is none she waits.
 The wording is for a person to read, not for a program to parse: it is not
 part of the protocol. As a `LEARNT_LANDING_REFUSED`'s reason, a server cuts
 a longer one at 160 bytes and writes any byte outside printable ASCII (`20`
