@@ -1834,9 +1834,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       the four aeroplanes with a gate is still at it then, by the server's
       verdict. Only the first: the next item. Left alone in wind she leaves
       the gate, so under the owner's ruling of 2026-11-11 (REQUIREMENTS 6.5)
-      a player is put on final only inside her measured wind limits (C172P 8
-      kt ahead, 4 behind, 2 across; PA-28 13, 4, 3; J-3 Cub 10, 4, 0; C182
-      still air only), and in each is at the gate 30 s on.
+      a player is put on final only inside her measured wind limits (C172P 5
+      kt ahead, 4 behind, 2 across; PA-28 13, 4, 3; J-3 Cub calm; C182 only
+      where no weather is flown), and in each is at the gate 30 s on.
 - [x] **A second player joining on final starts outside the gate**: the
       players after the first start 2.9, 3.4 and 3.9 miles out, past the
       gate's far edge (2.4), since two cannot be half a mile apart inside its

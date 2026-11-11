@@ -13,16 +13,14 @@
 # her figures (`on_final_headwind_kts`, `on_final_tailwind_kts`,
 # `on_final_crosswind_kts`), read here from the data, not written here.
 #
-# **Every case, counted**: four winds - straight ahead, straight behind, and
-# across from the right and from the left of Sydney's 16R (heading 167.9) -
-# each at her limit (calm where her limit is nought; still air, no weather,
-# where her figures put her on final only in that) and one knot past it,
-# the session's METAR. At her limit the command-line client, joined as the
+# **Every case, counted** (below): the session's METAR at each limit and a
+# knot past it; the cases that reach their verdict are counted, and must be
+# all of them. At her limit the command-line client, joined as the
 # window client joins (`--predict --from-held`), touches nothing and asks for
 # the learnt landing thirty seconds after her aircraft is given: the server
 # must hand her over - its own gate check. Past it, the server must say she
 # is not put on final and starts where the plan does, and her client must be
-# told why. Eight cases; the test fails if it ran fewer.
+# told why.
 #
 # It needs the DEM's tiles, so without the network it reports itself skipped
 # (exit 77), never passed.
@@ -66,46 +64,106 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
-# Direction the wind is from, and the limit it is judged by.
-set(_cases "ahead:168:${_headwind}" "behind:348:${_tailwind}" "from the right:258:${_crosswind}"
-           "from the left:078:${_crosswind}")
-set(_ran 0)
-set(_said "")
-foreach(_case IN LISTS _cases)
-    string(REPLACE ":" ";" _parts "${_case}")
+# **The cases**, each "what|wind|in or out": at each limit (calm, once,
+# where a limit is nought; still air, no weather flown, where her figures put
+# her on final only in that) and a knot past it, ahead, behind, from the
+# right and from the left of 16R (heading 167.9); a quartering wind with both
+# its parts inside her limits, where she has a crosswind to quarter in; and
+# for a crosswind limit of nought, 0.4 kt across (4 kt from 174, 4.0 ahead,
+# inside her headwind), which any
+# crosswind past nought must refuse.
+#
+# **Not swept, and why**: one temperature and pressure (the METAR's 20
+# degrees and 1015 hPa, near the standard atmosphere at Sydney - a server's
+# weather moves them, and the limits are for the wind); no gusts (a METAR
+# without a gust group: her gust factor 0); her model's own loading; Sydney's
+# 16R at 8 ft only - another field's height is another density.
+set(_cases "")
+set(_calm_listed OFF)
+if(_still)
+    list(APPEND _cases "still air|NONE|in")
+endif()
+foreach(_dir "ahead:168:${_headwind}" "behind:348:${_tailwind}"
+             "from the right:258:${_crosswind}" "from the left:078:${_crosswind}")
+    string(REPLACE ":" ";" _parts "${_dir}")
     list(GET _parts 0 _name)
     list(GET _parts 1 _from)
     list(GET _parts 2 _limit)
     math(EXPR _past "${_limit} + 1")
-    foreach(_inside IN ITEMS ON OFF)
-        if(_inside)
-            set(_kts ${_limit})
+    if(_still)
+        list(APPEND _cases "1 kt ${_name}|${_from}01KT|out")
+        continue()
+    endif()
+    if(_limit EQUAL 0)
+        if(NOT _calm_listed)
+            list(APPEND _cases "calm|00000KT|in")
+            set(_calm_listed ON)
+        endif()
+    else()
+        string(LENGTH "${_limit}" _digits)
+        if(_digits EQUAL 1)
+            list(APPEND _cases "${_limit} kt ${_name}|${_from}0${_limit}KT|in")
         else()
-            set(_kts ${_past})
+            list(APPEND _cases "${_limit} kt ${_name}|${_from}${_limit}KT|in")
         endif()
-        if(_kts EQUAL 0)
-            set(_wind "00000KT")
-        else()
-            string(LENGTH "${_kts}" _digits)
-            if(_digits EQUAL 1)
-                set(_wind "${_from}0${_kts}KT")
-            else()
-                set(_wind "${_from}${_kts}KT")
-            endif()
-        endif()
-        set(_air --metar "YSSY 111200Z ${_wind} 9999 FEW030 20/10 Q1015"
-                 --station -33.9461,151.1772)
-        if(_still AND _inside)
-            set(_air "")
-            set(_kts "still air,")
-        elseif(_still)
-            set(_air --metar "YSSY 111200Z ${_from}01KT 9999 FEW030 20/10 Q1015"
-                     --station -33.9461,151.1772)
-            set(_kts 1)
-        endif()
-        set(_heard "${WORK}/heard.txt")
-        set(_ready "${WORK}/flying")
-        file(REMOVE "${_heard}" "${_ready}")
+    endif()
+    string(LENGTH "${_past}" _digits)
+    if(_digits EQUAL 1)
+        list(APPEND _cases "${_past} kt ${_name}|${_from}0${_past}KT|out")
+    else()
+        list(APPEND _cases "${_past} kt ${_name}|${_from}${_past}KT|out")
+    endif()
+endforeach()
+if(NOT _still AND _crosswind EQUAL 0)
+    list(APPEND _cases "0.4 kt across (4 from 174)|17404KT|out")
+endif()
+# Quartering, both parts at her limits as near as a METAR's whole knots and
+# degrees give: 5 kt from 190 for the C172P (4.7 ahead, 1.97 across), 13
+# from 181 for the PA-28 (12.7 ahead, 2.9 across);
+# none for the Cub (no crosswind) or the C182 (no weather).
+if(AIRCRAFT STREQUAL "c172p")
+    list(APPEND _cases "quartering 5 kt from 190|19005KT|in")
+elseif(AIRCRAFT STREQUAL "pa28")
+    list(APPEND _cases "quartering 13 kt from 181|18113KT|in")
+endif()
+list(LENGTH _cases _wanted)
+
+set(_verdicts 0)
+set(_said "")
+set(_two_told OFF)
+foreach(_case IN LISTS _cases)
+    string(REPLACE "|" ";" _parts "${_case}")
+    list(GET _parts 0 _name)
+    list(GET _parts 1 _wind)
+    list(GET _parts 2 _expect)
+    set(_air --metar "YSSY 111200Z ${_wind} 9999 FEW030 20/10 Q1015"
+             --station -33.9461,151.1772)
+    if(_wind STREQUAL "NONE")
+        set(_air "")
+    endif()
+    set(_heard "${WORK}/heard.txt")
+    set(_heard_b "${WORK}/heard_b.txt")
+    set(_ready "${WORK}/flying")
+    file(REMOVE "${_heard}" "${_heard_b}" "${_ready}")
+    # **Two sessions, once**: in the first case past a limit a second player
+    # joins too, and each is told why once - her own reason, kept on her
+    # session, never the other's.
+    set(_second OFF)
+    if(_expect STREQUAL "out" AND NOT _two_told)
+        set(_second ON)
+        execute_process(
+            COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300
+                    --after-ready "${_ready}" --aircraft ${AIRCRAFT} --predict --from-held
+                    --learnt-landing-at 30 --until-answered --heard "${_heard}"
+            COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300
+                    --after-ready "${_heard}" --aircraft ${AIRCRAFT} --learnt-landing-at 30
+                    --until-answered --heard "${_heard_b}"
+            COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --ai 1 --headless
+                    --data "${DATA}" --store "${_store}" --timeout 30 --ready-file "${_ready}"
+                    --players-on-final YSSY/16R ${_air}
+            RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
+        port_listened("${_out}" "${_err}")
+    else()
         execute_process(
             COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${_key}" 300
                     --after-ready "${_ready}" --aircraft ${AIRCRAFT} --predict --from-held
@@ -115,30 +173,51 @@ foreach(_case IN LISTS _cases)
                     --players-on-final YSSY/16R ${_air}
             RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
         port_listened("${_out}" "${_err}")
-        file(READ "${_heard}" _client)
-        if(_inside)
-            if(_out MATCHES "is not put on final")
-                message(FATAL_ERROR "${AIRCRAFT}, ${_kts} kt ${_name} (her limit): not put on final:\n${_out}")
-            endif()
-            if(NOT _out MATCHES "handed to the learnt landing, on final to YSSY 16R, ([0-9.]+) miles out, (-?[0-9]+) m before the gate's near edge")
-                message(FATAL_ERROR "${AIRCRAFT}, ${_kts} kt ${_name} (her limit): not at the gate 30 s on:\n${_out}")
-            endif()
-            string(APPEND _said " ${_kts} ${_name}: at the gate, ${CMAKE_MATCH_2} m;")
-        else()
-            if(NOT _out MATCHES "slot [0-9]+'s ${AIRCRAFT} is not put on final to YSSY 16R: ([^\n]*); it starts where the plan does\n")
-                message(FATAL_ERROR "${AIRCRAFT}, ${_kts} kt ${_name} (past her limit): put on final:\n${_out}")
-            endif()
-            set(_why "${CMAKE_MATCH_1}")
-            if(NOT _client MATCHES "told: not put on final to YSSY 16R: ")
-                message(FATAL_ERROR "${AIRCRAFT}, ${_kts} kt ${_name}: her client was not told why:\n${_client}")
-            endif()
-            string(APPEND _said " ${_kts} ${_name}: not on final (${_why});")
+    endif()
+    file(READ "${_heard}" _client)
+    if(_expect STREQUAL "in")
+        if(_out MATCHES "is not put on final")
+            message(FATAL_ERROR "${AIRCRAFT}, ${_name} (inside her limits): not put on final:\n${_out}")
         endif()
-        math(EXPR _ran "${_ran} + 1")
-    endforeach()
+        if(_out MATCHES "handed to the learnt landing, on final to YSSY 16R, ([0-9.]+) miles out, (-?[0-9]+) m before the gate's near edge")
+            math(EXPR _verdicts "${_verdicts} + 1")
+            string(APPEND _said " ${_name}: at the gate, ${CMAKE_MATCH_2} m;")
+        else()
+            message(FATAL_ERROR "${AIRCRAFT}, ${_name} (inside her limits): not at the gate 30 s on:\n${_out}")
+        endif()
+    else()
+        if(NOT _out MATCHES "slot [0-9]+'s ${AIRCRAFT} is not put on final to YSSY 16R: ([^\n]*); it starts where the plan does\n")
+            message(FATAL_ERROR "${AIRCRAFT}, ${_name} (past her limit): put on final:\n${_out}")
+        endif()
+        set(_why "${CMAKE_MATCH_1}")
+        string(REGEX MATCHALL "told: not put on final to YSSY 16R: " _told "${_client}")
+        list(LENGTH _told _told_n)
+        if(NOT _told_n EQUAL 1)
+            message(FATAL_ERROR "${AIRCRAFT}, ${_name}: her client was told why ${_told_n} times, not once:\n${_client}")
+        endif()
+        if(_second)
+            set(_two_told ON)
+            file(READ "${_heard_b}" _client_b)
+            string(REGEX MATCHALL "told: not put on final to YSSY 16R: " _told_b "${_client_b}")
+            list(LENGTH _told_b _told_b_n)
+            if(NOT _told_b_n EQUAL 1)
+                message(FATAL_ERROR "${AIRCRAFT}, ${_name}: the second session was told why ${_told_b_n} times, not once:\n${_client_b}")
+            endif()
+            if(NOT _client MATCHES "aircraft ([0-9]+) told: not put on final")
+                message(FATAL_ERROR "no aircraft in what the first was told:\n${_client}")
+            endif()
+            set(_a_number "${CMAKE_MATCH_1}")
+            if(_client_b MATCHES "aircraft ${_a_number} told: not put on final")
+                message(FATAL_ERROR "the second session was told the first's reason:\n${_client_b}")
+            endif()
+            string(APPEND _said " (and a second session, told its own once);")
+        endif()
+        math(EXPR _verdicts "${_verdicts} + 1")
+        string(APPEND _said " ${_name}: not on final (${_why});")
+    endif()
 endforeach()
-if(NOT _ran EQUAL 8)
-    message(FATAL_ERROR "${_ran} of 8 cases ran")
+if(NOT _verdicts EQUAL _wanted)
+    message(FATAL_ERROR "${_verdicts} of ${_wanted} cases reached their verdict")
 endif()
 message(STATUS "${AIRCRAFT}, limits ${_headwind} ahead, ${_tailwind} behind, ${_crosswind} across, "
-               "8 of 8 cases:${_said}")
+               "${_verdicts} of ${_wanted} cases:${_said}")

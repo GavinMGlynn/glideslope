@@ -95,11 +95,12 @@ list(GET _runs ${RUN} _run)
 # would for a player. `+circle`: the first player's copilot route orbits
 # where the next would start (data/copilot/route-orbit-over-the-16r-start.txt),
 # and the next, held past the bound, starts on final to another runway end
-# at Sydney whose wind her gate admits: in a northerly 34L, its own other
-# end; `+circlesouth`, a wind from 250 at 10 kt: 25, the crossing runway,
+# at Sydney whose wind is inside her limits: `+circle`, 3 kt from 348, 34L,
+# its own other end; `+circlesouth`, 2 kt from 250: 25, the crossing runway,
 # most into it (16L not clear of the orbit, 34L and 34R across it);
-# `+circlenone`, at Richmond (YSRI), one runway, 10, in a wind from 100 at
-# 8 kt, its other end 28 behind her: none will do, and she waits, told why,
+# `+circlenone`, at Richmond (YSRI), one runway, 10, in 5 kt from 108, its
+# other end 28 5 kt behind her - inside her gate's 5, past her limit of 4:
+# none will do, and she waits, told why,
 # until the one orbiting goes - the server
 # never moves a person's aircraft (REQUIREMENTS 6.5; the owner's ruling,
 # 2026-11-11).
@@ -111,7 +112,7 @@ endif()
 string(REPLACE "," ";" _order "${_run}")
 list(LENGTH _order _n)
 # **Where**: Sydney's 16R, but for `+circlenone`, Richmond's 10 - a field of
-# one runway, whose other end, 28, is behind her in a wind from 100.
+# one runway, whose other end, 28, is behind her in a wind from 108.
 set(_field YSSY)
 set(_own 16R)
 set(_orbit "${ORBIT}")
@@ -238,16 +239,17 @@ else()
     if(_how STREQUAL "ai")
         set(_ai_final --ai-on-final YSSY/16R)
     endif()
-    # **The wind at the other ends**: a northerly of 8 kt is into 34L, which
-    # her gate admits; from 250 at 10 kt, nearly straight down 25; at
-    # Richmond from 100 at 8 kt, behind 28.
+    # **The wind at the other ends**: 3 kt from 348 is into 34L; 2 kt from
+    # 250 nearly straight down 25; at Richmond 5 kt from 108, behind 28.
     # **Light winds**, inside the followers' measured limits on their own
     # runway, so that each is put on final and waits (the owner's ruling,
     # 2026-11-11): 3 kt from 348, behind 16R and into 34L, for the PA-28
     # (4 behind at most); 2 from 250 for the C172P (2 across at most): 25
-    # most into it; at Richmond 5 kt from 108, straight down 10 for the J-3
-    # Cub (none across) - and 5 behind 28, which her gate admits but her
-    # limit, 4 behind, does not: no other end inside it.
+    # most into it; at Richmond 5 kt from 108 for a C172P, 0.04 across 10
+    # (runway 107.6) - not the J-3 Cub, whose crosswind limit of nought
+    # refuses any wind not exactly down the runway, which a METAR's whole
+    # degrees cannot give there - and 5 behind 28, which her gate admits but
+    # her limit, 4 behind, does not: no other end inside it.
     if(_how STREQUAL "circle")
         set(_ai_final --metar "YSSY 111200Z 34803KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)

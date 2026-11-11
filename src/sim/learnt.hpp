@@ -266,8 +266,9 @@ std::string learnt_gate_wind_refuses(const LearntPolicy* policy, double heading_
 // this wind (blowing towards the north and east, metres a second): more
 // ahead, behind or across than she stays at her gate in, left alone, thirty
 // seconds (`policy`'s on_final_* limits, measured and in her figures; the
-// owner's ruling, 2026-11-11), to the nearest knot - a knot past a limit is
-// outside it; empty where the wind is inside them, or her figures give none.
+// owner's ruling, 2026-11-11): any wind past a limit, however little, is
+// outside it - a crosswind limit of nought refuses any across; empty where
+// the wind is inside them, or her figures give none.
 std::string on_final_wind_refuses(const LearntPolicy& policy, double heading_deg,
                                   double wind_north_mps, double wind_east_mps);
 
