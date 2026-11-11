@@ -37,9 +37,11 @@ endforeach()
 
 # **The totals**, changed only deliberately, with the list below (66 and 54
 # since 2026-11-11: client_stays_at_gate.cmake and server_stations.cmake,
-# a long one each).
-set(_expect_uses 66)
-set(_expect_long 54)
+# a long one each; 68 and 56 since 2026-11-11 too:
+# server_players_take_turns_on_final.cmake, two long ones - its server run
+# with the window client, and without).
+set(_expect_uses 68)
+set(_expect_long 56)
 set(_expect_short 12)
 set(_expect_nonvalue 4)
 
