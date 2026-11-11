@@ -60,7 +60,7 @@ if(DEFINED STUB_PORT_FILE)
     return()
 endif()
 
-foreach(_needed PROGRAM STUB DRIVER WORK CACHE METAR_FILE FORECAST_FILE STEP_MPS)
+foreach(_needed PROGRAM STUB DRIVER WORK CACHE METAR_FILE FORECAST_FILE STEP_MPS HOUR)
     if(NOT DEFINED ${_needed})
         message(FATAL_ERROR "window_stations.cmake needs ${_needed}")
     endif()
@@ -73,7 +73,21 @@ set(_plan "${WORK}/towards-ysws.plan")
 file(WRITE "${_plan}" "aircraft c172p\nstart -33.93176 151.06051 2500 279 100\n"
                       "waypoint WEST -33.880 150.600 2500 100 flyover\n")
 
-# **The forecast's hours, three days of them** (client_quits_mid_refresh.cmake).
+# **One hour's air, whatever the hour she flies** (`HOUR`, of the recorded
+# day). The flight asks Open-Meteo for the hour it is when she flies, UTC,
+# and the forecast's temperatures aloft at that hour decide the thermals over
+# the ground (world::lift_of): given every hour of the recording, her air - and
+# so the wind's worst step - would be the clock's. So every hour of yesterday,
+# today and tomorrow, UTC, is answered with the recording's hour `HOUR`: the
+# same air at any hour, a run crossing midnight still finding its hour
+# (client_quits_mid_refresh.cmake). The hour is 13Z: in its air her height
+# above the ground crosses the top of YSWS's convective layer (679.7 m) late
+# in her flight, where the thermals once stepped the wind 0.141 m/s
+# (docs/status/2026-11-11-window-stations-wind-step.md), so the bound holds
+# there too.
+if(NOT HOUR MATCHES "^[0-9]+$" OR HOUR GREATER 23)
+    message(FATAL_ERROR "HOUR is an hour of the recorded day, 0 to 23, not '${HOUR}'")
+endif()
 set(_had_epoch "")
 if(DEFINED ENV{SOURCE_DATE_EPOCH})
     set(_had_epoch "$ENV{SOURCE_DATE_EPOCH}")
@@ -96,15 +110,46 @@ if(NOT _text MATCHES "\"time\":\\[([^]]*)\\]")
     message(FATAL_ERROR "${FORECAST_FILE} has no hourly times")
 endif()
 set(_hours "${CMAKE_MATCH_1}")
+string(REPLACE "," ";" _hours "${_hours}")
+list(LENGTH _hours _count)
+if(NOT _count EQUAL 24)
+    message(FATAL_ERROR "${FORECAST_FILE} has ${_count} hours, not a day's 24")
+endif()
 set(_times "")
 foreach(_day IN LISTS _days)
-    string(REPLACE "\"2026-09-17T" "\"${_day}T" _these "${_hours}")
-    list(APPEND _times "${_these}")
+    foreach(_hour RANGE 23)
+        if(_hour LESS 10)
+            set(_hour "0${_hour}")
+        endif()
+        list(APPEND _times "\"${_day}T${_hour}:00\"")
+    endforeach()
 endforeach()
 list(JOIN _times "," _times)
-string(REPLACE "\"time\":[${_hours}]" "\"time\":@TIMES@" _text "${_text}")
-string(REGEX REPLACE "\\[([^]]*)\\]" "[\\1,\\1,\\1]" _text "${_text}")
-string(REPLACE "@TIMES@" "[${_times}]" _text "${_text}")
+string(REPLACE "\"time\":[${CMAKE_MATCH_1}]" "\"time\":[${_times}]" _text "${_text}")
+string(REGEX MATCHALL "\"[A-Za-z0-9_]+\":\\[[^]\"]*\\]" _series "${_text}")
+set(_replaced 0)
+foreach(_one IN LISTS _series)
+    string(REGEX MATCH "^(\"[A-Za-z0-9_]+\":)\\[([^]]*)\\]$" _ "${_one}")
+    set(_name "${CMAKE_MATCH_1}")
+    string(REPLACE "," ";" _values "${CMAKE_MATCH_2}")
+    list(LENGTH _values _n)
+    if(NOT _n EQUAL 24)
+        message(FATAL_ERROR "${_name} has ${_n} values in ${FORECAST_FILE}, not 24")
+    endif()
+    list(GET _values ${HOUR} _value)
+    set(_repeated "")
+    foreach(_i RANGE 71)
+        list(APPEND _repeated "${_value}")
+    endforeach()
+    list(JOIN _repeated "," _repeated)
+    string(REPLACE "${_one}" "${_name}[${_repeated}]" _text "${_text}")
+    math(EXPR _replaced "${_replaced} + 1")
+endforeach()
+# Every series but the times, each a level's wind speed, direction, height or
+# temperature: none left with the recording's other hours.
+if(_replaced EQUAL 0)
+    message(FATAL_ERROR "${FORECAST_FILE} has no hourly series")
+endif()
 set(_forecast "${WORK}/forecast-${DRIVER}.json")
 file(WRITE "${_forecast}" "${_text}")
 
