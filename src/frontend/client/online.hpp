@@ -282,14 +282,14 @@ public:
         out.swap(learnt_refused_);
         return out;
     }
-    // **What the server has told it to do for other traffic**, each time
-    // since last asked, oldest first (`TRAFFIC_INSTRUCTION`).
     // **The session's clock as last heard**: the newest update's
     // simulation time, or none before one.
     std::optional<double> newest_heard_s() const {
         const auto lock = held();
         return newest_heard_s_;
     }
+    // **What the server has told it to do for other traffic**, each time
+    // since last asked, oldest first (`TRAFFIC_INSTRUCTION`).
     std::vector<std::string> instructions() {
         const auto lock = held();
         std::vector<std::string> out;
