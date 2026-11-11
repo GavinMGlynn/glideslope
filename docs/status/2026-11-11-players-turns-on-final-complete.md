@@ -1,6 +1,8 @@
 ### Players' turns on final: the window, AI leaders, the runway, the bound, 2026-11-11
 
-**What is still not true first.** **A measured limit, which the owner's
+**What is still not true first.** **In wind past her measured limits a player
+is not put on final** (the owner's ruling, 2026-11-11): she starts where the
+plan does, told why; the C182 is put on final only in calm. **A measured limit, which the owner's
 ruling of 2026-11-11 allows**: where a person holds the final over the
 start past the bound and no other runway end at the airfield takes her -
 each behind her, across her more than her gate admits, or not clear - the
@@ -12,36 +14,40 @@ quits the client cleanly (it says so and exits 0), but no test closes one.
 Run on linux-release only; the Windows cost figures in tests/ci_costs are
 copied from Linux, not measured.
 
-**Left alone in wind, she leaves the gate; the item is open for it.**
-Measured 2026-11-11 with the command-line client joined as the window
-client joins (`--predict --from-held`), one player on final to 16R, the
-server's verdict 30 s on, at the gate's wind limits (15 kt ahead, 15 across
-from either side - 12 for the Cub - and 5 behind), each start three ways:
-pointing down the runway, as now; crabbed into the wind by the whole wind
-correction angle, asin(crosswind / airspeed); and crabbed at most 4.5
-degrees, inside the gate's heading limit.
+**Left alone in wind, she leaves the gate: so she is put on final only in
+light wind** (the owner's ruling, 2026-11-11; REQUIREMENTS 6.5 and section
+9). First measured with the command-line client joined as the window client
+joins (`--predict --from-held`), one player on final to 16R, the server's
+verdict 30 s on, at the gate's wind limits (15 kt ahead, 15 across - 12 for
+the Cub - 5 behind), started three ways: down the runway; crabbed by the
+whole wind correction angle, asin(crosswind / airspeed); crabbed at most 4.5
+degrees. None held: the C172P 10 degrees off heading or 147 m off the
+centreline in 15 across, the C182 189 m off in 15 straight ahead, the PA-28
+143 to 201 m off across, the Cub 12 degrees off even straight ahead; the
+gate's 5-degree heading limit is less than her crab at 6 kt across. The
+crabbed start was taken out. Searched: the wind correction angle, and
+FlightGear's `--in-air`, `--offset-distance` and `--wind` starts and
+X-Plane's start on final - none crabs an aircraft started on final.
 
-| | 15 ahead | 5 behind | 15 from the right | 15 from the left |
+Then swept in light wind, the same way, each speed one run:
+
+| | ahead | behind | across from the right | across from the left |
 | --- | --- | --- | --- | --- |
-| C172P, down the runway | refused: 15 kt of headwind (the estimate over 15) | at the gate, 141 m | refused: 15 kt of crosswind | heading 10 degrees off |
-| C172P, crabbed 14.5 | as above | at the gate | 15 kt of crosswind | 147 m left of the centreline |
-| C182, down the runway | 189 m right of the centreline | heading 5 degrees off | 15 kt of crosswind | 15 kt of crosswind |
-| C182, crabbed 13.5 | 189 m right | at the gate, 107 m | 15 kt of crosswind | 227 m left |
-| PA-28, down the runway | 15 kt of headwind | at the gate, 104 m | 143 m left | 201 m right |
-| PA-28, crabbed 13.5 | 15 kt of headwind | at the gate | 81 m right | heading 10 degrees off |
-| J-3 Cub (12 across), down the runway | heading 12 degrees off | heading 5 degrees off | 0.7 miles past 25's gate | 0.9 miles past 07's |
-| J-3 Cub, crabbed 16.2 | as above | as above | as above | as above |
+| C172P | 5, 8 at the gate; 10, 13 not (heading 5 to 7 off) | 2, 4 at it | 1, 2 at it; 3 to 10 not (heading 5 to 12 off) | 1 to 8 at it; 10 not |
+| PA-28 | 5, 10, 13 at it | 2, 4 at it | 3, 5, 6 at it; 7 not (60 m off) | 3 at it; 4 not (62 m off) |
+| J-3 Cub | 3, 5, 8, 10 at it | 2, 4 at it; 5 not | 1 not (heading 11 off) | 1 not (heading 7 off) |
+| C182 | 1, 2, 3, 5 not (heading 6 to 7 off) | 1, 2 not, 4 at it | 1, 2 not | 1, 3, 5 at it |
 
-Crabbed at most 4.5 degrees did no better (C182 115 m, PA-28 67 and 126 m
-off the centreline). So the crab is not the cause: an aeroplane left alone
-in wind wanders - the Cub and the C182 even with it straight ahead - and in
-a crosswind the gate's 5-degree heading limit is less than her crab at 6 kt
-across. A crabbed start was built, measured and taken out; it is not in
-this change. Searched: the wind correction angle (WCA = asin(crosswind /
-true airspeed)), FlightGear's `--in-air`, `--offset-distance` and `--wind`
-starts, and X-Plane's start on final - none of them crabs an aircraft
-started on final. Both this item and "A 172 a window client joins on final"
-are unticked for it.
+**Her limits**, the most at which every speed swept up to it was at the
+gate, kept in her figures (`on_final_headwind_kts`, `on_final_tailwind_kts`,
+`on_final_crosswind_kts`, the crosswind the lesser side's): C172P 8 ahead, 4
+behind, 2 across; PA-28 13, 4, 3; J-3 Cub 10, 4, 0; C182 still air only
+(`on_final_still_air_only`): her heading wandered 5 to 7 degrees in a knot of
+almost any wind, and 6 degrees in a METAR of calm (20 degrees, 1015 hPa),
+where in still air - no weather flown - she stayed 202 m inside the gate.
+Judged to the nearest knot: a knot past a limit is outside it.
+Only the speeds swept are known: the PA-28 at 1 and 2 across is not, nor
+is any half knot.
 
 **What changed.**
 
@@ -86,6 +92,14 @@ are unticked for it.
   approach it flies straight in, to the same runway end (threshold within
   50 m, heading within 5 degrees), counted on final from when it first
   comes within three miles of the start.
+- **Put on final only in light wind**: a player is put on final only where
+  the wind at her start is inside her figures' limits
+  (`sim::on_final_wind_refuses`, read into her learnt landing's policy);
+  otherwise the server says "slot N's MODEL is not put on final to YSSY 16R:
+  N kt across; she is put on final in M across at most; it starts where the
+  plan does" and tells her client the same (a `TRAFFIC_INSTRUCTION` to her
+  aircraft); she waits for nobody's turn. A runway end chosen past the bound
+  must be inside them too, as well as inside her gate's.
 - **Her wheels' touch is said as it happens** ("aircraft N, ID, touched
   YSSY 16R"): the touchdown's figures are said once she has stopped.
 - `outside_learnt_gate` judges the wind with `learnt_gate_wind_refuses`, not
@@ -136,41 +150,39 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   is refused on 34L for its tailwind".
 - **Into the wind on its own other end**:
   `a_player_held_past_the_bound_by_one_orbiting_over_the_start_starts_on_final_to_the_other_end_and_is_at_its_gate`
-  (port 24927), in a METAR northerly of 8 kt, the C172P's copilot route
+  (port 24927), in a METAR wind from 348 at 3 kt (3 behind 16R, inside
+  the PA-28's limit), the C172P's copilot route
   orbits 1,000 m round the 16R start at 700 ft
   (`tests/data/copilot/route-orbit-over-the-16r-start.txt`), and a PA-28
   joins behind her. At 240.6 s (the bound behind a C172P) she starts 2.35
   miles out on final to 34L, its own other end and most into the wind, and
-  is 317 m inside that gate 30 s on; the C172P's client heard it was told
+  is 239 m inside that gate 30 s on; the C172P's client heard it was told
   to leave the final.
 - **A crossing runway**:
   `a_player_held_past_the_bound_with_the_wind_across_her_runway_starts_on_final_to_a_crossing_runway_into_it`
-  (port 24937), the orbit in a METAR wind from 250 at 10 kt: 25, the
-  crossing runway, is the end most into it (16L not clear of the orbit),
-  and the PA-28 starts there at 240.6 s, 2.35 miles out, and is 352 m
-  inside its gate 30 s on (422 s in all). Tried first with the Cub in 13 kt
-  and the C172P's other runways across a southerly: a J-3 Cub left alone
-  on final in 13 kt of headwind turned 12 to 18 degrees off the runway's
-  heading in 30 s, and a PA-28 started on 25 with 9 kt across drifted 138 m
-  - a player is started pointing down the runway, not crabbed into the
-  wind, which is a limit of the start for every player in a crosswind,
-  named here and not this item's.
+  (port 24937), the orbit in a METAR wind from 250 at 2 kt (inside the
+  C172P's 2 across on 16R): 25, the crossing runway, is the end most into
+  it (16L not clear of the orbit), and a C172P behind starts there at
+  240.6 s, 2.33 miles out, and is 262 m inside its gate 30 s on (423 s in
+  all).
 - **None will do**:
   `a_player_held_past_the_bound_with_no_other_runway_in_the_wind_waits_told_why_until_the_one_holding_it_goes`
   (port 24828), at Richmond (YSRI), a field of one runway: players on
   final to 10, the C172P orbiting its start
   (`tests/data/copilot/route-orbit-over-the-ysri-10-start.txt`) in a METAR
-  wind from 100 at 8 kt, 28 behind her ("held past the bound, and no other
-  runway will take her: YSRI 28 8 kt of tailwind; the gate is within 5").
-  The PA-28 is told "waiting for aircraft 0 ahead, past its time over where
-  she starts: no other runway here will take her", waits, and is given her
-  aircraft at 420.1 s, when the C172P's client goes, 319 m inside the gate
-  30 s on. The run holds that the server moved nobody, and ends by
+  wind from 108 at 5 kt, straight down 10 and 5 behind 28 ("held past the
+  bound, and no other runway will take her: YSRI 28 5 kt behind; she is put
+  on final in 4 behind at most"). The J-3 Cub behind is told "waiting for
+  aircraft 0 ahead, past its time over where she starts: no other runway
+  here will take her", waits, and is given her aircraft at 420.0 s, when
+  the C172P's client goes, 441 m inside the gate 30 s on. The run holds that the server moved nobody, and ends by
   `--until-empty` once both have gone (452 s).
 - **Seen red, the three past the bound**: with no other runway end tried,
   the 34L run "place 2, the pa28: not started where her gate holds her, on
   final to 34L" and the 25 run "... on final to 25"; with the wind not
-  refused there, the Richmond run sent her to 28: "... on final to 10".
+  refused there, the Richmond run sent her to 28: "... on final to 10"
+  (with the PA-28 and the winds before this round's; the runs were not
+  seen red again with the Cub and the C172P restored).
 - **Never moved, asserted**: in each past-the-bound run the orbiting
   player's client tracks her (`--track`), and every two updates heard of
   her must be within 200 m (she flies 2 m between two); the run fails if
@@ -179,6 +191,29 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   between two updates (5363129 square metres)".
 - **Every run ends by `--until-empty`**: the server's "everybody who joined
   has gone" is required of each.
+- **Her limits, both ways, every aeroplane**:
+  `a_c172p_is_put_on_final_only_inside_her_measured_wind_limits_and_at_her_gate_thirty_seconds_on_inside_them`
+  and the C182's, the J-3 Cub's and the PA-28's (tests/cmake/server_on_final_wind_limits.cmake,
+  ports 24810, 24818, 24830, 24836): the limits read from her figures;
+  ahead, behind, from the right and from the left, at her limit (calm for
+  a limit of nought) she is on final and at the gate 30 s on, and a knot
+  past it she is not put on final and her client is told why - 8 of 8
+  cases each, counted, 32 in all, about 247 s each: the C172P at 8 ahead
+  352 m inside the gate, 4 behind 160 m, 2 across 223 m either side; the
+  PA-28 394, 124, 185 and 186 m; the J-3 Cub 512, 298, 358 and 359 m; the
+  C182 in still air 200 to 201 m - and each a knot past, not put on final
+  and told why ("9 kt ahead; she is put on final in 8 ahead at most"; the
+  C182 in any METAR, "she is put on final only in still air"). Seen red
+  with the limits not applied: all four, "...past her limit: put on final".
+  A refusal told to a client whose session is not yet proven was dropped
+  until now; it is kept until it is.
+- **Only ends inside her limits past the bound**: the Richmond run, a wind
+  from 108 at 5 kt, puts its J-3 Cub on final to 10 (5 ahead, inside her
+  10) and refuses 28: "YSRI 28 5 kt behind; she is put on final in 4 behind
+  at most" - a tailwind her gate admits (5), outside her limit. The 34L run
+  is now in 3 kt from 348 (inside the PA-28's 4 behind on 16R), the 25 run a
+  C172P in 2 kt from 250 (inside her 2 across), the Richmond run a J-3 Cub
+  again - the Cub and the C172P runs restored.
 - `glideslope_cli selftest`, linux-release: hash 197366fd3fe6a7dc before the
   runway kept for a player's learnt landing, 197366fd3fe6a7dc, unmoved after - the
   selftest flies no learnt landing.

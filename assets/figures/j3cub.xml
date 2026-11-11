@@ -35,8 +35,15 @@
   (docs/status/2026-10-29-the-ai-lands-the-j3-cub-within-her-published-crosswind.md):
   the most across her learnt landing's gate admits
   (sim::learnt_gate_most_crosswind_kts).
+
+  on_final_headwind_kts, on_final_tailwind_kts, on_final_crosswind_kts: the
+  wind a server puts a player flying her on final in (the owner's
+  ruling of 2026-11-11, REQUIREMENTS 6.5) - measured, not published: the
+  most in which, left alone two and a third miles out on final to Sydney's
+  16R, she was still at her learnt landing's gate thirty seconds later
+  (docs/status/2026-11-11-players-turns-on-final-complete.md): head 3 to 10 kt, behind 2 and 4 (5 not: heading 5 off), but 1 kt across from either side turned her 7 to 11 degrees off heading.
 -->
-<published_figures aircraft="j3cub" flaps_full_deg="0" lands="three_point" demonstrated_crosswind_kts="12">
+<published_figures aircraft="j3cub" flaps_full_deg="0" lands="three_point" demonstrated_crosswind_kts="12" on_final_headwind_kts="10" on_final_tailwind_kts="4" on_final_crosswind_kts="0">
   <source>Piper J3C-65 Owner's Manual; Piper, How to Fly a Piper Cub, 1945</source>
 
   <!-- 1,220 lb, the gross weight: the booklet's empty weight, 680 lb, and its

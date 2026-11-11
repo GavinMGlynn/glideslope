@@ -34,8 +34,18 @@
   direct crosswind as the AAIB quotes it for a 2000-built 182S (Bulletin
   4/2003, G-ZBLT): the most across her learnt landing's gate admits
   (sim::learnt_gate_most_crosswind_kts).
+
+  on_final_headwind_kts, on_final_tailwind_kts, on_final_crosswind_kts: the
+  wind a server puts a player flying her on final in (the owner's
+  ruling of 2026-11-11, REQUIREMENTS 6.5) - measured, not published: the
+  most in which, left alone two and a third miles out on final to Sydney's
+  16R, she was still at her learnt landing's gate thirty seconds later
+  (docs/status/2026-11-11-players-turns-on-final-complete.md): calm only: 1 kt ahead, behind or from the right turned her 5 to 7 degrees off the runway's heading (the gate is within 5); 1, 3 and 5 from the left and 4 behind stayed, but no wind from 0 up holds her at every value; and in a METAR of calm (20 degrees, 1015 hPa) she was 6 degrees off,
+  where in still air - the session flying no weather - she stayed 202 m
+  inside it. on_final_still_air_only: so she is put on final only where the
+  session flies no weather.
 -->
-<published_figures aircraft="c182" rotation_degps="4" flaps_full_deg="38" demonstrated_crosswind_kts="15">
+<published_figures aircraft="c182" rotation_degps="4" flaps_full_deg="38" demonstrated_crosswind_kts="15" on_final_headwind_kts="0" on_final_tailwind_kts="0" on_final_crosswind_kts="0" on_final_still_air_only="true">
   <source>Cessna Model 182S Skylane Information Manual, 1997</source>
 
   <!-- 3,100 lb, the maximum take-off weight the handbook's figures are for:

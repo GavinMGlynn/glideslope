@@ -40,8 +40,15 @@
   demonstrated_crosswind_kts: the POH's "maximum demonstrated crosswind
   velocity", 15 knots (section 4; as quoted, not seen in a scan): the most
   across her learnt landing's gate admits (sim::learnt_gate_most_crosswind_kts).
+
+  on_final_headwind_kts, on_final_tailwind_kts, on_final_crosswind_kts: the
+  wind a server puts a player flying her on final in (the owner's
+  ruling of 2026-11-11, REQUIREMENTS 6.5) - measured, not published: the
+  most in which, left alone two and a third miles out on final to Sydney's
+  16R, she was still at her learnt landing's gate thirty seconds later
+  (docs/status/2026-11-11-players-turns-on-final-complete.md): head 5 and 8 kt, behind 2 and 4, across 1 and 2 from either side, 3 from the left to 8 (10 not), but 3 from the right not: heading 5 degrees off; 10 ahead, heading 5 off.
 -->
-<published_figures aircraft="c172p" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="30" demonstrated_crosswind_kts="15">
+<published_figures aircraft="c172p" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="30" demonstrated_crosswind_kts="15" on_final_headwind_kts="8" on_final_tailwind_kts="4" on_final_crosswind_kts="2">
   <source>Cessna Model 172P Pilot's Operating Handbook, 12 May 1981</source>
 
   <!-- 2400 lb, the maximum take-off weight the handbook's figures are for:
