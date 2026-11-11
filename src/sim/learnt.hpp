@@ -56,6 +56,13 @@ struct LearntPolicy {
     // `learnt_landing`: her gate admits no more across
     // (learnt_gate_most_crosswind_kts). 0 where her figures give none.
     double demonstrated_crosswind_kts = 0.0;
+    // **The wind she is put on final in**, from her figures
+    // (PublishedFigures::on_final_headwind_kts and the rest), set by
+    // `learnt_landing`; below nought, none given.
+    double on_final_headwind_kts = -1.0;
+    double on_final_tailwind_kts = -1.0;
+    double on_final_crosswind_kts = -1.0;
+    bool on_final_still_air_only = false;
 
     // Whether `weight_lbs` is within the weights it was trained at.
     bool trained_for(double weight_lbs) const {
@@ -254,6 +261,15 @@ const char* said(TurnOnFinal turn);
 // a player held past the bound may be sent to a runway's other end.
 std::string learnt_gate_wind_refuses(const LearntPolicy* policy, double heading_deg,
                                      double wind_north_mps, double wind_east_mps);
+
+// **Why a player is not put on final to a runway heading `heading_deg`** in
+// this wind (blowing towards the north and east, metres a second): more
+// ahead, behind or across than she stays at her gate in, left alone, thirty
+// seconds (`policy`'s on_final_* limits, measured and in her figures; the
+// owner's ruling, 2026-11-11), to the nearest knot - a knot past a limit is
+// outside it; empty where the wind is inside them, or her figures give none.
+std::string on_final_wind_refuses(const LearntPolicy& policy, double heading_deg,
+                                  double wind_north_mps, double wind_east_mps);
 
 // **Where she is against `runway`'s final**: before its threshold along its
 // centreline, right of it, and above its elevation, in metres.

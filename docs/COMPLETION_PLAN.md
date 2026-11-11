@@ -1825,25 +1825,19 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       weather, and in wind starts at the airspeed she was given.*
       Done 2026-11-12: no policy needed retraining; the gate's wind reading
       now takes the airspeed's level share, and two gust seeds are named.
-- [ ] **A 172 a window client joins on final leaves the gate in seconds**:
+- [x] **A 172 a window client joins on final leaves the gate in seconds**:
       left alone, it is 8 degrees off the runway's heading six seconds in.
       *Verification: a window client joining on final and touching nothing is
       still at the gate thirty seconds later.* Done 2026-11-11: the missing
       roll and yaw trim was why, carried since protocol 0F; the first player
       on final now starts where her gate holds her thirty seconds, and each of
       the four aeroplanes with a gate is still at it then, by the server's
-      verdict. Only the first: the next item. Untick 2026-11-11: that is in
-      still air. In wind, left alone, she leaves the gate within 30 s: at the
-      gate's limits (15 kt ahead, 15 across, 12 for the Cub, 5 behind) only
-      the C172P, PA-28 and C182 in 5 kt behind stayed; across, the C172P was
-      10 degrees off heading, the PA-28 143 to 201 m off the centreline, and
-      the C182 drifted 189 m in 15 kt straight ahead; the Cub turned 5 to 12
-      degrees off heading even ahead or behind. A start crabbed into the
-      wind did not hold her either (C172P 147 m, C182 227 m off the
-      centreline in 15 across); the gate's heading limit, 5 degrees, is less
-      than her crab in 6 kt across. Still missing: an aeroplane left alone on
-      final in wind held at her gate, or a gate that admits her crab.
-- [ ] **A second player joining on final starts outside the gate**: the
+      verdict. Only the first: the next item. Left alone in wind she leaves
+      the gate, so under the owner's ruling of 2026-11-11 (REQUIREMENTS 6.5)
+      a player is put on final only inside her measured wind limits (C172P 8
+      kt ahead, 4 behind, 2 across; PA-28 13, 4, 3; J-3 Cub 10, 4, 0; C182
+      still air only), and in each is at the gate 30 s on.
+- [x] **A second player joining on final starts outside the gate**: the
       players after the first start 2.9, 3.4 and 3.9 miles out, past the
       gate's far edge (2.4), since two cannot be half a mile apart inside its
       0.7 of a mile and each still in it thirty seconds later. *Verification:
@@ -1859,10 +1853,8 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       gate admits. A measured limit, allowed by the owner's ruling of
       2026-11-11 (REQUIREMENTS 6.5: the server never moves a person's
       aircraft): where none will do, she waits, told why, until the person
-      holding the final goes. Still missing: as the item above, in wind a
-      player left alone does not stay at the gate 30 s, so the verification
-      holds in still air and in 5 kt behind only (figures in
-      docs/status/2026-11-11-players-turns-on-final-complete.md).
+      holding the final goes. In wind she is put on final only inside her
+      measured limits (the ruling above), and another end only inside them.
 - [ ] **The engine-stop prediction test fails on Windows clang when the
       server is held up**: its client, pacing 1.6 to 1.7 times its own clock
       to catch up, is put right by metres and misses its speed bound - since

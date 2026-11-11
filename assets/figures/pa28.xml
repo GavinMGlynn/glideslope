@@ -51,8 +51,15 @@
   quotes it (PA-28-140 G-BOSR, Bulletin 2/2009; the same 17 for the PA-28-181,
   G-BSIM, 1/2020). Her learnt landing's gate admits no more than training's
   15 across (sim::learnt_gate_most_crosswind_kts).
+
+  on_final_headwind_kts, on_final_tailwind_kts, on_final_crosswind_kts: the
+  wind a server puts a player flying her on final in (the owner's
+  ruling of 2026-11-11, REQUIREMENTS 6.5) - measured, not published: the
+  most in which, left alone two and a third miles out on final to Sydney's
+  16R, she was still at her learnt landing's gate thirty seconds later
+  (docs/status/2026-11-11-players-turns-on-final-complete.md): head 5, 10 and 13 kt, behind 2 and 4, across 3 from the left (4 not: 62 m off the centreline) and 3 to 6 from the right (7 not).
 -->
-<published_figures aircraft="pa28" rotation_degps="4" rotation_stick_per_degps="0.15" flaps_full_deg="40" go_around_flaps_deg="25" demonstrated_crosswind_kts="17">
+<published_figures aircraft="pa28" rotation_degps="4" rotation_stick_per_degps="0.15" flaps_full_deg="40" go_around_flaps_deg="25" demonstrated_crosswind_kts="17" on_final_headwind_kts="13" on_final_tailwind_kts="4" on_final_crosswind_kts="3">
   <source>Piper Cherokee 180 "E" Owner's Handbook, 1969-1974</source>
 
   <!-- 2,400 lb, the gross weight the handbook's figures are for: its
