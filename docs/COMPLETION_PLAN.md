@@ -1835,7 +1835,8 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       she waits, and every one is at the gate 30 s after she starts. Still
       missing: the window client's window does not open until her turn (it
       says why in its output only); AI aircraft on the same final are not
-      counted; nothing clears the runway for the next.
+      counted; nothing clears the runway for the next; a leader circling
+      over the start holds the next player indefinitely.
 - [ ] **The engine-stop prediction test fails on Windows clang when the
       server is held up**: its client, pacing 1.6 to 1.7 times its own clock
       to catch up, is put right by metres and misses its speed bound - since
