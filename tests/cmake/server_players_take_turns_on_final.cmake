@@ -94,7 +94,15 @@ list(GET _runs ${RUN} _run)
 # on the final first (`--ai-on-final`), and every player waits for it as she
 # would for a player. `+circle`: the first player's copilot route orbits
 # where the next would start (data/copilot/route-orbit-over-the-16r-start.txt),
-# and the next, held past the bound, starts on final to 34L instead.
+# and the next, held past the bound, starts on final to another runway end
+# at Sydney whose wind her gate admits: in a northerly 34L, its own other
+# end; `+circlesouth`, a wind from 250 at 10 kt: 25, the crossing runway,
+# most into it (16L not clear of the orbit, 34L and 34R across it);
+# `+circlenone`, at Richmond (YSRI), one runway, 10, in a wind from 100 at
+# 8 kt, its other end 28 behind her: none will do, and she waits, told why,
+# until the one orbiting goes - the server
+# never moves a person's aircraft (REQUIREMENTS 6.5; the owner's ruling,
+# 2026-11-11).
 set(_how "")
 if(_run MATCHES "\\+([a-z]+)$")
     set(_how "${CMAKE_MATCH_1}")
@@ -102,6 +110,17 @@ if(_run MATCHES "\\+([a-z]+)$")
 endif()
 string(REPLACE "," ";" _order "${_run}")
 list(LENGTH _order _n)
+# **Where**: Sydney's 16R, but for `+circlenone`, Richmond's 10 - a field of
+# one runway, whose other end, 28, is behind her in a wind from 100.
+set(_field YSSY)
+set(_own 16R)
+set(_orbit "${ORBIT}")
+if(_how STREQUAL "circlenone")
+    set(_field YSRI)
+    set(_own 10)
+    set(_orbit "${ORBIT_YSRI}")
+endif()
+set(_spec "${_field}/${_own}")
 
 if(DEFINED CACHE)
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
@@ -118,7 +137,7 @@ set(_key "${CMAKE_MATCH_1}")
 
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}"
-            --players-on-final YSSY/16R
+            --players-on-final ${_spec}
     RESULT_VARIABLE _rc OUTPUT_VARIABLE _warm ERROR_VARIABLE _err TIMEOUT 300)
 if(NOT _rc EQUAL 0)
     message(STATUS "the server could not get its terrain: ${_err}")
@@ -155,7 +174,7 @@ foreach(_i RANGE ${_last})
     set(_asks --learnt-landing-at 30)
     if(_i EQUAL 0 AND _how MATCHES "^circle")
         # Orbiting over the start, until the next has had her turn and gone.
-        set(_asks --send-route "${ORBIT}")
+        set(_asks --send-route "${_orbit}")
         set(_leaves --copilot-stay 420)
     endif()
     file(REMOVE "${WORK}/heard${_i}.txt")
@@ -197,7 +216,7 @@ if(_how STREQUAL "window")
         ${_commands}
         COMMAND "${SERVER}" --port ${PORT} --seconds 1800 --until-empty --ai 1 --headless
                 --data "${DATA}" --store "${_store}" --timeout 30 --ready-file "${_ready}"
-                --players-on-final YSSY/16R
+                --players-on-final ${_spec}
         COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
                 --seed 1 --until-input-ends --seconds 1800
         COMMAND "${WINDOW}" --headless --gpu-driver "${DRIVER}" --size 320x200
@@ -218,14 +237,18 @@ else()
     if(_how STREQUAL "ai")
         set(_ai_final --ai-on-final YSSY/16R)
     endif()
-    # **The wind at the other end**: a northerly of 8 kt is into 34L, which
-    # her gate admits; a southerly of 10 kt is behind it, which it refuses.
+    # **The wind at the other ends**: a northerly of 8 kt is into 34L, which
+    # her gate admits; from 250 at 10 kt, nearly straight down 25; at
+    # Richmond from 100 at 8 kt, behind 28.
     if(_how STREQUAL "circle")
         set(_ai_final --metar "YSSY 111200Z 36008KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
     elseif(_how STREQUAL "circlesouth")
-        set(_ai_final --metar "YSSY 111200Z 18010KT 9999 FEW030 20/10 Q1015"
+        set(_ai_final --metar "YSSY 111200Z 25010KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
+    elseif(_how STREQUAL "circlenone")
+        set(_ai_final --metar "YSRI 111200Z 10008KT 9999 FEW030 20/10 Q1015"
+            --station -33.6006,150.7808)
     elseif(_how STREQUAL "planai")
         # The AI flies a plan that ends in a landing on 16R, begun 6.2 miles
         # out on its centreline (data/plans/landing-on-16r-from-6nm.plan).
@@ -239,7 +262,7 @@ else()
         ${_commands}
         COMMAND "${SERVER}" --port ${PORT} --seconds 1800 --until-empty --ai 1 --headless
                 --data "${DATA}" --store "${_store}" --timeout 30 --ready-file "${_ready}"
-                --players-on-final YSSY/16R ${_ai_final}
+                --players-on-final ${_spec} ${_ai_final}
         RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
     port_listened("${_out}" "${_err}")
 endif()
@@ -311,14 +334,16 @@ foreach(_i RANGE ${_last})
         message(FATAL_ERROR "place ${_place}: the ${_a} was never given:\n${_out}")
     endif()
     string(SUBSTRING "${_out}" ${_given} -1 _since)
-    set(_end 16R)
+    set(_end ${_own})
     if(_i GREATER 0 AND _how STREQUAL "circle")
         set(_end 34L)
+    elseif(_i GREATER 0 AND _how STREQUAL "circlesouth")
+        set(_end 25)
     endif()
     set(_leader_before "${_leader_number}")
     set(_leader_from_before "${_leader_from}")
     unset(_leader_number)
-    if(NOT _since MATCHES "^ asked for ${_a}, and flies it\n([^\n]*\n)*slot [0-9]+'s ${_a} starts on final to YSSY ${_end} (2\\.[23][0-9]) miles out\n")
+    if(NOT _since MATCHES "^ asked for ${_a}, and flies it\n([^\n]*\n)*slot [0-9]+'s ${_a} starts on final to ${_field} ${_end} (2\\.[23][0-9]) miles out\n")
         message(FATAL_ERROR "place ${_place}, the ${_a}: not started where her gate holds her, on final to ${_end}:\n${_since}")
     endif()
     set(_from "${CMAKE_MATCH_2}")
@@ -326,7 +351,7 @@ foreach(_i RANGE ${_last})
         # The one orbiting over the start: no learnt landing asked of her;
         # told to leave the final once she has held the next past the bound.
         file(READ "${WORK}/heard0.txt" _heard)
-        if(NOT _heard MATCHES "told: leave the final to YSSY 16R: go around and clear it")
+        if(NOT _heard MATCHES "told: leave the final to ${_field} ${_own}: go around and clear it")
             message(FATAL_ERROR "the one orbiting over the start was not told to leave the "
                                 "final:\n${_heard}")
         endif()
@@ -348,22 +373,28 @@ foreach(_i RANGE ${_last})
         # **Let by at touchdown or at three miles, never sooner**: the one
         # ahead landed, or 3 miles or more from her start.
         if(_how STREQUAL "circlesouth")
-            # **Held past the bound, and the other end refused for its
-            # tailwind**: she waits on until the one orbiting has gone, and
-            # starts on 16R, into the wind.
-            if(NOT _out MATCHES "held past the bound, and the other end, YSSY 34L, refused: (9|10) kt of tailwind; the gate is within 5\n")
-                message(FATAL_ERROR "place ${_place}, the ${_a}: 34L not refused for its tailwind:\n${_out}")
+            # **Held past the bound: to 25**, the end most into the wind.
+            if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, ([0-9.]+) s on the session's clock: aircraft [0-9]+ held the final to YSSY 16R past the bound; she starts on final to YSSY 25 \\(")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: not sent to 25 past the bound:\n${_turn_line}")
             endif()
-            # **Ended by the server's rule**: told to leave, and a minute
-            # later moved to its downwind, the one orbiting is off the final -
-            # while its client is still there.
-            if(NOT _out MATCHES "aircraft [0-9]+ moved off the final to YSSY 16R to its downwind, 2\\.0 miles abeam the start")
-                message(FATAL_ERROR "place ${_place}, the ${_a}: the one orbiting was never moved:\n${_out}")
+            string(APPEND _turn " (to 25, most into the wind, held past the bound)")
+        elseif(_how STREQUAL "circlenone")
+            # **None will do: she waits, told why**, until the one orbiting
+            # goes on its own; the server does not move it.
+            if(NOT _out MATCHES "held past the bound, and no other runway will take her: YSRI 28 [0-9]+ kt of tailwind; the gate is within 5\n")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: no other runway refused as it should be:\n${_out}")
             endif()
-            if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, ([0-9.]+) s on the session's clock: aircraft [0-9]+ off the final, ")
-                message(FATAL_ERROR "place ${_place}, the ${_a}: not let by for the one orbiting moved off the final:\n${_turn_line}")
+            file(READ "${WORK}/heard${_i}.txt" _heard)
+            if(NOT _heard MATCHES "aircraft 255 told: waiting for aircraft [0-9]+ ahead, past its time over where she starts: no other runway here will take her\n")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: not told why she waits on:\n${_heard}")
             endif()
-            string(APPEND _turn " (34L refused for its tailwind; the one orbiting moved off the final)")
+            if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, ([0-9.]+) s on the session's clock: nobody ahead\n")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: not held until the one orbiting had gone:\n${_turn_line}")
+            endif()
+            if(_out MATCHES "moved off the final")
+                message(FATAL_ERROR "the server moved a person's aircraft:\n${_out}")
+            endif()
+            string(APPEND _turn " (no other runway in this wind; told why, held until the one orbiting went)")
         elseif(_how STREQUAL "circle")
             # **Held past the bound, to the other end**: the one orbiting
             # held the final past it, and the other end's start was clear.
@@ -406,7 +437,7 @@ foreach(_i RANGE ${_last})
         message(FATAL_ERROR "place ${_place}, the ${_a}: left alone, not at the gate thirty "
                             "seconds after she started: ${CMAKE_MATCH_1}")
     endif()
-    if(NOT _since MATCHES "aircraft ${_number} handed to the learnt landing, on final to YSSY ${_end}, ([0-9.]+) miles out, (-?[0-9]+) m before the gate's near edge")
+    if(NOT _since MATCHES "aircraft ${_number} handed to the learnt landing, on final to ${_field} ${_end}, ([0-9.]+) miles out, (-?[0-9]+) m before the gate's near edge")
         message(FATAL_ERROR "place ${_place}, the ${_a}: never handed over:\n${_since}")
     endif()
     set(_then "${CMAKE_MATCH_1}")
@@ -422,9 +453,9 @@ foreach(_i RANGE ${_last})
     # stopped beside it") - counted, and the count must not be nought where
     # one lands behind another.
     if(NOT _leader_before STREQUAL "")
-        string(REGEX MATCH "aircraft ${_number}, [^\n]*, touched YSSY ${_end}\n" _touch "${_since}")
+        string(REGEX MATCH "aircraft ${_number}, [^\n]*, touched ${_field} ${_end}\n" _touch "${_since}")
         string(SUBSTRING "${_out}" ${_leader_from_before} -1 _leader_since)
-        string(REGEX MATCH "aircraft ${_leader_before}, [^\n]*, has left YSSY ${_end}, stopped beside it" _left "${_leader_since}")
+        string(REGEX MATCH "aircraft ${_leader_before}, [^\n]*, has left ${_field} ${_end}, stopped beside it" _left "${_leader_since}")
         if(NOT _touch STREQUAL "")
             string(FIND "${_since}" "${_touch}" _touch_at)
             math(EXPR _touch_abs "${_given} + ${_touch_at}")

@@ -218,10 +218,6 @@ double learnt_gate_start_m(const LearntPolicy& policy);
 //   sequences the next arrival behind a go-around afresh;
 // - **left the final**: 1.5 nm across its course, the lateral minimum the
 //   server keeps aircraft apart by (Separation::minimum_m);
-// - **moved**: past the bound, told to leave the final and still over the
-//   start a minute later, the one ahead is put on her downwind by the server,
-//   which owns every aircraft (`TurnOnFinalRule::told_grace_s`,
-//   `moved_abeam_m`) - and is then off the final;
 // - **waited out**: the one ahead has been on final as long as three miles
 //   take her at her approach speed, and a minute more - 240 s behind a C172P
 //   at 59.8 kt, 312 s behind a J-3 Cub at 42.9 - and is at least 1.5 nm from
@@ -243,10 +239,6 @@ struct TurnOnFinalRule {
     static constexpr double landed_ft = 5.0;
     static constexpr double gone_around_ft = 100.0;
     static constexpr double margin_s = 60.0;
-    // A minute to comply once told to leave the final, and then put this
-    // far abeam its start, past the lateral minimum, on the downwind.
-    static constexpr double told_grace_s = 60.0;
-    static constexpr double moved_abeam_m = 2.0 * 1852.0;
 };
 TurnOnFinal turn_on_final(const AheadOnFinal& ahead);
 // The longest the next waits behind one flying her final at `approach_kts`.
