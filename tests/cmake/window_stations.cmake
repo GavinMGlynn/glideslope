@@ -18,17 +18,20 @@
 # world::StationSlots), and the air she flew said by the same as the headless
 # client's (frontend::AirFlown).
 #
-# **A flight from one station towards the next.** Her plan, written here,
-# starts 10.5 km from YSSY on the line to YSWS, 42.8 km apart, and flies
-# along it towards YSWS at 100 kt: at the start YSWS is 21.8 km farther, so
-# the air is YSSY's alone, and 0.9 km on she is in the band where the two
-# blend (world::station_blend_m). She flies 60 s, about 3 km. **Built, not
-# hoped for**:
+# **A flight from one station's air into the next's.** Her plan, written
+# here, starts 10.5 km from YSSY on the line to YSWS, 42.8 km apart, and
+# flies along it towards YSWS at 100 kt: at the start YSWS is 21.8 km
+# farther, so the air is YSSY's alone. She flies 450 s, about 24 km: through
+# the band where the two blend (world::station_blend_m), across the
+# midpoint, its steepest part, and out into YSWS's alone. She looks for the
+# stations again every 10 km (`--restation`, 50 km but for this).
+# **Built, not hoped for**:
 #
-# - she keeps four stations, YSSY, YSWS, YSRI and YWLM (YSCB, 248 km, not);
-# - the air she flew: YSSY's alone at the first step - its share then 1 -
-#   YSSY's share below one later - into the blend - and the wind changing by
-#   no more than STEP_MPS in any step.
+# - she keeps four stations, YSSY, YSWS, YSRI and YWLM (YSCB, 248 km, not),
+#   and looks again for them as she flies on;
+# - the air she flew: YSSY's alone at the first step, YSWS's alone at the
+#   last, YSSY's share down to nought between, and the wind changing by no
+#   more than STEP_MPS in any step - where the worst came is said.
 #
 # Without the DEM it is skipped (exit 77), never passed.
 #
@@ -48,8 +51,9 @@ if(DEFINED STUB_PORT_FILE)
     set(ENV{LSAN_OPTIONS} "exitcode=0")
     execute_process(
         COMMAND "${PROGRAM}" --headless --gpu-driver "${DRIVER}" --size 320x240
-                --screen flight --weather around --plan "${PLAN}" --imagery off
-                --shot-at 7300 --quit-at 7200 --shot "${WORK}/stations-${DRIVER}.bmp"
+                --screen flight --weather around --restation 10000 --plan "${PLAN}"
+                --imagery off --shot-at 54100 --quit-at 54000
+                --shot "${WORK}/stations-${DRIVER}.bmp"
         RESULT_VARIABLE _rc OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
     file(WRITE "${RESULT_FILE}" "=== exited ${_rc}\n${_out}\n${_err}\n")
     file(DOWNLOAD "http://127.0.0.1:${_stub}/stop" "${RESULT_FILE}.stop")
@@ -136,33 +140,44 @@ endforeach()
 if(_ran MATCHES "glideslope: station YSCB at ")
     message(FATAL_ERROR "she kept YSCB, 248 km away:\n${_ran}")
 endif()
-set(_said_air "air flown: ([0-9]+) steps, the wind changing by at most ([0-9.]+) m/s in one; ")
-string(APPEND _said_air "most of it ([A-Z0-9]+)'s at the first \\(([0-9.]+) of it\\), ")
-string(APPEND _said_air "([A-Z0-9]+)'s at the last ")
+# **She looked again** as she flew on: at 10 km (`--restation`), and 20.
+if(NOT _ran MATCHES "glideslope: stations at [0-9.]+ s: 4 found\n")
+    message(FATAL_ERROR "she never looked again for the stations around her:\n${_ran}")
+endif()
+set(_said_air "air flown: ([0-9]+) steps, the wind changing by at most ([0-9.]+) m/s in one, ")
+string(APPEND _said_air "at step ([0-9]+), where the first's share was ([0-9.]+); most of it ")
+string(APPEND _said_air "([A-Z0-9]+)'s at the first \\(([0-9.]+) of it\\), ([A-Z0-9]+)'s at the last ")
 string(APPEND _said_air "\\(([0-9.]+) of it\\), the first's share at least ([0-9.]+)")
 if(NOT _ran MATCHES "${_said_air}")
-    message(FATAL_ERROR "she did not say the air she flew:\n${_ran}")
+    message(FATAL_ERROR "she did not say the air flown:\n${_ran}")
 endif()
 set(_steps ${CMAKE_MATCH_1})
 set(_step ${CMAKE_MATCH_2})
-set(_first ${CMAKE_MATCH_3})
-set(_first_share ${CMAKE_MATCH_4})
-set(_least ${CMAKE_MATCH_7})
+set(_worst_at ${CMAKE_MATCH_3})
+set(_worst_share ${CMAKE_MATCH_4})
+set(_first ${CMAKE_MATCH_5})
+set(_first_share ${CMAKE_MATCH_6})
+set(_last ${CMAKE_MATCH_7})
+set(_last_share ${CMAKE_MATCH_8})
+set(_least ${CMAKE_MATCH_9})
+# **From one station's air alone to the other's alone**: the whole band
+# crossed, its steepest part - the middle, where the shares change fastest -
+# with it, so that the step bound held across all of it.
 if(NOT _first STREQUAL "YSSY" OR NOT _first_share STREQUAL "1.000")
-    message(FATAL_ERROR "the air at her first step was not YSSY's alone, the nearer's by "
+    message(FATAL_ERROR "the air at the first step was not YSSY's alone, the nearer's by "
                         "more than the band, but ${_first_share} ${_first}'s:\n${_ran}")
 endif()
-if(_steps LESS 7000)
-    message(FATAL_ERROR "she flew ${_steps} steps in the stations' air, not the 7,200 of "
-                        "60 s:\n${_ran}")
+if(NOT _last STREQUAL "YSWS" OR NOT _last_share STREQUAL "1.000")
+    message(FATAL_ERROR "the air at the last step was not YSWS's alone, the nearer's then, "
+                        "but ${_last_share} ${_last}'s - the band was not crossed:\n${_ran}")
 endif()
-if(NOT _least LESS 1)
-    message(FATAL_ERROR "YSSY's share never fell below one: she did not reach the blend, "
-                        "and this tested nothing of it:\n${_ran}")
+if(NOT _least STREQUAL "0.000")
+    message(FATAL_ERROR "YSSY's share fell only to ${_least}, not to nought:\n${_ran}")
 endif()
+message(STATUS "over ${_steps} steps from YSSY's air alone to YSWS's alone the wind changed "
+               "by at most ${_step} m/s in one, at step ${_worst_at}, where YSSY's share was "
+               "${_worst_share}")
 if(_step GREATER STEP_MPS)
     message(FATAL_ERROR "the wind changed by ${_step} m/s in a step, more than ${STEP_MPS}:\n"
                         "${_ran}")
 endif()
-message(STATUS "over ${_steps} steps the wind changed by at most ${_step} m/s in one; YSSY's "
-               "share fell from 1 to ${_least}")

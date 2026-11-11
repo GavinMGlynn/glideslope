@@ -952,7 +952,7 @@ void StationsAround::look(const std::vector<std::pair<double, double>>& places, 
     bool moved = places.size() != looked_for_.size();
     for (std::size_t i = 0; !moved && i < places.size(); ++i) {
         moved = sim::distance_m(places[i].first, places[i].second, looked_for_[i].first,
-                                looked_for_[i].second) > restation_m;
+                                looked_for_[i].second) > again_m_;
     }
     if (moved || now_s - came_at_s_ >= refresh_s_) {
         looked_for_ = places;

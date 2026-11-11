@@ -308,10 +308,10 @@ void AirFlown::note(const std::array<double, 3>& wind, double latitude_deg,
     if (!stations.any()) {
         return;
     }
+    double moved = -1.0;
     if (last_wind_) {
-        worst_wind_step_mps_ = std::max(
-            worst_wind_step_mps_, std::hypot(wind[0] - (*last_wind_)[0], wind[1] - (*last_wind_)[1],
-                                             wind[2] - (*last_wind_)[2]));
+        moved = std::hypot(wind[0] - (*last_wind_)[0], wind[1] - (*last_wind_)[1],
+                           wind[2] - (*last_wind_)[2]);
     }
     last_wind_ = wind;
     std::vector<std::pair<double, double>> places;
@@ -337,18 +337,24 @@ void AirFlown::note(const std::array<double, 3>& wind, double latitude_deg,
         }
     }
     least_first_share_ = std::min(least_first_share_, first_share);
+    if (moved > worst_wind_step_mps_) {
+        worst_wind_step_mps_ = moved;
+        worst_at_step_ = steps_;
+        first_share_at_worst_ = first_share;
+    }
     last_station_ = names[most];
     last_share_ = shares[most];
     ++steps_;
 }
 
 std::string AirFlown::said() const {
-    char line[320];
+    char line[400];
     std::snprintf(line, sizeof line,
-                  "air flown: %zu steps, the wind changing by at most %.5f m/s in one; most of "
-                  "it %s's at the first (%.3f of it), %s's at the last (%.3f of it), the "
-                  "first's share at least %.3f",
-                  steps_, worst_wind_step_mps_, first_station_.c_str(), first_share_,
+                  "air flown: %zu steps, the wind changing by at most %.5f m/s in one, at step "
+                  "%zu, where the first's share was %.3f; most of it %s's at the first (%.3f of "
+                  "it), %s's at the last (%.3f of it), the first's share at least %.3f",
+                  steps_, worst_wind_step_mps_, worst_at_step_, first_share_at_worst_,
+                  first_station_.c_str(), first_share_,
                   last_station_.c_str(), last_share_, least_first_share_);
     return line;
 }
