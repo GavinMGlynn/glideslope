@@ -1106,6 +1106,67 @@ GLIDESLOPE_TEST(the_f22a_holds_nothing_a_plan_asks_one_step_past_its_fastest) {
     holds_nothing_one_step_past("f22", Bounds::fastest);
 }
 
+// **The F-22A holds her speed round her tightest orbit at the speeds where
+// her throttle once hunted**: 197, 222 and 237 KCAS, a test each, both ways
+// round in calm air and a 10 kt wind - four orbits each, every one flown.
+// Through the 1 s lag filter her pinned model put on her throttles, on top of
+// her engines' own spool, the autothrottle swung her 10 kt peak to peak every
+// 7.5 s at these speeds and no other the nightly flies (`plan-speeds f22
+// --every`, red every night from 2026-11-03), while the tests above fly only
+// her slowest and fastest. The rest of her 42 speeds are the nightly's: two
+// orbits' worth of a pull request's time each. Each orbit stops as soon as it
+// is lost (OrbitTrial::stop_when_lost), as plan-speeds flies it.
+namespace {
+
+void holds_her_speed_where_her_throttle_once_hunted(double kts) {
+    const std::filesystem::path data =
+        std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    const auto entry = glideslope::sim::find_aircraft(data, "f22");
+    check(glideslope::sim::within_plan_speeds(glideslope::sim::plan_speeds(data, entry.model), kts),
+          "the F-22A may be planned at " + std::to_string(kts) + " kt");
+    std::size_t flown = 0;
+    std::string failures;
+    for (const bool right : {false, true}) {
+        for (const bool windy : {false, true}) {
+            glideslope::sim::OrbitTrial trial;
+            trial.airspeed_kts = kts;
+            trial.right = right;
+            trial.windy = windy;
+            trial.stop_when_lost = true;
+            const glideslope::sim::OrbitFlown f =
+                glideslope::sim::fly_tightest_orbit(data, entry, trial);
+            char which[300];
+            std::snprintf(which, sizeof which,
+                          "f22 %.0f kt round %.0f m, %s, %s: %.2f turns, within %.0f ft, "
+                          "%.1f to %.1f kt",
+                          kts, f.radius_m, right ? "right" : "left",
+                          windy ? "10 kt wind" : "calm", f.turns, f.worst_height_ft,
+                          f.slowest_kts, f.fastest_kts);
+            std::fprintf(stderr, "%s\n", which);
+            if (!f.held(kts)) {
+                failures += std::string("\n  ") + which;
+            }
+            ++flown;
+        }
+    }
+    check(flown == 4, "both ways round, calm and windy: four orbits flown");
+    check(failures.empty(), "the F-22A held her speed within 5 kt:" + failures);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(the_f22a_holds_197_kt_round_her_tightest_orbit_where_her_throttle_once_hunted) {
+    holds_her_speed_where_her_throttle_once_hunted(197.0);
+}
+
+GLIDESLOPE_TEST(the_f22a_holds_222_kt_round_her_tightest_orbit_where_her_throttle_once_hunted) {
+    holds_her_speed_where_her_throttle_once_hunted(222.0);
+}
+
+GLIDESLOPE_TEST(the_f22a_holds_237_kt_round_her_tightest_orbit_where_her_throttle_once_hunted) {
+    holds_her_speed_where_her_throttle_once_hunted(237.0);
+}
+
 GLIDESLOPE_TEST(the_tightest_orbit_at_the_slowest_speed_a_plan_may_ask_is_flown_by_the_f35b) {
     fly_its_tightest_orbits("f35b", End::slowest);
 }
