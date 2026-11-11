@@ -2180,10 +2180,18 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
         }
     }
     if (root->HasAttribute("throttle_lag_s")) {
-        out.throttle_lag_s = root->GetAttributeValueAsNumber("throttle_lag_s");
-        if (!(out.throttle_lag_s > 0.0 && out.throttle_lag_s <= 5.0)) {
+        // JSBSim refuses a word that is not a number, NaN among them, in its
+        // own words; this names the attribute.
+        try {
+            out.throttle_lag_s = root->GetAttributeValueAsNumber("throttle_lag_s");
+        } catch (const std::runtime_error& e) {
             throw std::runtime_error(file.string() +
-                                     " gives a throttle_lag_s that is not over 0 and at most 5");
+                                     " gives a throttle_lag_s that is not a number: " +
+                                     e.what());
+        }
+        if (!(out.throttle_lag_s > 0.0 && out.throttle_lag_s <= 5.0)) {
+            throw std::runtime_error(
+                file.string() + " gives a throttle_lag_s that is not over 0 and at most 5");
         }
     }
     // **No more than 20 knots**: twice the one published warning found, the
