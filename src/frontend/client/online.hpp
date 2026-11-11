@@ -142,8 +142,12 @@ public:
     // **Waits to be given an aircraft**: until a state update carries this
     // client's own motion and the server has said what aeroplane it is, or
     // `give_up_after_s` passes. `local_s` reads this machine's clock.
+    // `waiting`, if given, is called on every pass while the server has
+    // given it no aircraft yet, with the newest reason it said (empty until
+    // it says one): what the window shows while she waits her turn.
     template <typename Clock>
-    std::optional<Joined> join(double give_up_after_s, Clock local_s);
+    std::optional<Joined> join(double give_up_after_s, Clock local_s,
+                               const std::function<void(const std::string&)>& waiting = {});
 
     // **One frame, before its ticks are flown.** Sends the stick if an input
     // is due, and returns the controls to fly the ticks on: the input sent
@@ -563,7 +567,8 @@ private:
 sim::Motion motion_of(const net::OwnMotion& yours);
 
 template <typename Clock>
-std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
+std::optional<Joined> Online::join(double give_up_after_s, Clock local_s,
+                                   const std::function<void(const std::string&)>& waiting) {
     // **Given up on `give_up_after_s` after the server was last heard**, not
     // after joining began: a server that admits a player and gives her no
     // aircraft yet - her turn on final not come (`--players-on-final`) -
@@ -571,6 +576,7 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
     // goes on saying it.
     double heard_last = local_s();
     bool said_waiting = false;
+    std::string reason;
     std::optional<net::StatePacket> newest;
     while (local_s() - heard_last < give_up_after_s) {
         {
@@ -594,6 +600,7 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
             for (const std::string& told : instructions_) {
                 std::printf("glideslope: the server says: %s\n", told.c_str());
                 std::fflush(stdout);
+                reason = told;
             }
             instructions_.clear();
             if (newest) {
@@ -662,6 +669,9 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
                     return joined;
                 }
             }
+        }
+        if (said_waiting && waiting) {
+            waiting(reason);
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }

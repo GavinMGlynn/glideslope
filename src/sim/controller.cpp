@@ -729,6 +729,11 @@ void Controller::to_ai_learnt_approach(const Runway& runway, const ApproachSpeed
     engage();
     learnt_.emplace(std::move(landing));
     easing_in_ = true;
+    // **And off the runway once stopped**, as an AI's landing is
+    // (vacates_runways): without the runway, a player's aircraft the learnt
+    // landing had stopped stayed on it, and the next player on final came
+    // down to find her there (2026-11-11).
+    gate_runway_ = runway;
 }
 
 void Controller::to_pilot() {
