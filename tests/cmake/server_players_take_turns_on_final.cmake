@@ -148,7 +148,7 @@ foreach(_i RANGE ${_last})
         set(_leaves --until-answered)
     endif()
     set(_asks --learnt-landing-at 30)
-    if(_i EQUAL 0 AND _how STREQUAL "circle")
+    if(_i EQUAL 0 AND _how MATCHES "^circle")
         # Orbiting over the start, until the next has had her turn and gone.
         set(_asks --send-route "${ORBIT}")
         set(_leaves --copilot-stay 300)
@@ -212,6 +212,15 @@ else()
     set(_ai_final "")
     if(_how STREQUAL "ai")
         set(_ai_final --ai-on-final YSSY/16R)
+    endif()
+    # **The wind at the other end**: a northerly of 8 kt is into 34L, which
+    # her gate admits; a southerly of 10 kt is behind it, which it refuses.
+    if(_how STREQUAL "circle")
+        set(_ai_final --metar "YSSY 111200Z 36008KT 9999 FEW030 20/10 Q1015"
+            --station -33.9461,151.1772)
+    elseif(_how STREQUAL "circlesouth")
+        set(_ai_final --metar "YSSY 111200Z 18010KT 9999 FEW030 20/10 Q1015"
+            --station -33.9461,151.1772)
     endif()
     execute_process(
         ${_commands}
@@ -292,11 +301,13 @@ foreach(_i RANGE ${_last})
     if(_i GREATER 0 AND _how STREQUAL "circle")
         set(_end 34L)
     endif()
+    set(_left_before "${_left_abs}")
+    unset(_left_abs)
     if(NOT _since MATCHES "^ asked for ${_a}, and flies it\n([^\n]*\n)*slot [0-9]+'s ${_a} starts on final to YSSY ${_end} (2\\.[23][0-9]) miles out\n")
         message(FATAL_ERROR "place ${_place}, the ${_a}: not started where her gate holds her, on final to ${_end}:\n${_since}")
     endif()
     set(_from "${CMAKE_MATCH_2}")
-    if(_i EQUAL 0 AND _how STREQUAL "circle")
+    if(_i EQUAL 0 AND _how MATCHES "^circle")
         # The one orbiting over the start: no learnt landing asked of her;
         # told to leave the final once she has held the next past the bound.
         file(READ "${WORK}/heard0.txt" _heard)
@@ -321,7 +332,18 @@ foreach(_i RANGE ${_last})
         set(_turn "given at ${CMAKE_MATCH_2} s")
         # **Let by at touchdown or at three miles, never sooner**: the one
         # ahead landed, or 3 miles or more from her start.
-        if(_how STREQUAL "circle")
+        if(_how STREQUAL "circlesouth")
+            # **Held past the bound, and the other end refused for its
+            # tailwind**: she waits on until the one orbiting has gone, and
+            # starts on 16R, into the wind.
+            if(NOT _out MATCHES "held past the bound, and the other end, YSSY 34L, refused: (9|10) kt of tailwind; the gate is within 5\n")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: 34L not refused for its tailwind:\n${_out}")
+            endif()
+            if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, ([0-9.]+) s on the session's clock: nobody ahead\n")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: not held until the one orbiting had gone:\n${_turn_line}")
+            endif()
+            string(APPEND _turn " (34L refused for its tailwind; held until the one orbiting went)")
+        elseif(_how STREQUAL "circle")
             # **Held past the bound, to the other end**: the one orbiting
             # held the final past it, and the other end's start was clear.
             if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, ([0-9.]+) s on the session's clock: aircraft [0-9]+ held the final to YSSY 16R past the bound; she starts on final to YSSY 34L \\(")
@@ -364,6 +386,21 @@ foreach(_i RANGE ${_last})
     endif()
     string(FIND "${_since}" "aircraft ${_number} handed to the learnt landing" _handed_at)
     math(EXPR _handed_before "${_given} + ${_handed_at}")
+    # **The one ahead off the runway before she came down**: her own
+    # touchdown, where the run has it, said after the one ahead had left the
+    # runway (the server says a touchdown once she has stopped, so this is
+    # later than the wheels touched, and the leaving earlier still).
+    if(NOT _left_before STREQUAL "")
+        string(FIND "${_since}" "aircraft ${_number}: the learnt landing touched down on YSSY" _down_at)
+        if(NOT _down_at EQUAL -1)
+            math(EXPR _down_abs "${_given} + ${_down_at}")
+            if(_down_abs LESS _left_before)
+                message(FATAL_ERROR "place ${_place}, the ${_a}: came down before the one ahead had "
+                                    "left the runway:\n${_out}")
+            endif()
+            string(APPEND _turn ", down after the one ahead left the runway")
+        endif()
+    endif()
     # **The runway cleared**: each who lands and stays to rest leaves it,
     # stopped beside it, before the next comes down.
     if(NOT _i EQUAL _last)
@@ -371,6 +408,8 @@ foreach(_i RANGE ${_last})
         if(NOT _after_handed MATCHES "aircraft ${_number}, [^\n]*, has left YSSY ${_end}, stopped beside it")
             message(FATAL_ERROR "place ${_place}, the ${_a}: never left the runway:\n${_after_handed}")
         endif()
+        string(FIND "${_after_handed}" "${CMAKE_MATCH_0}" _left_at)
+        math(EXPR _left_abs "${_given} + ${_handed_at} + ${_left_at}")
         string(APPEND _turn ", left the runway")
     endif()
     if(NOT (_i EQUAL _last AND _how STREQUAL "window"))

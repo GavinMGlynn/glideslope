@@ -639,6 +639,41 @@ const char* said(TurnOnFinal turn) {
     return "?";
 }
 
+std::string learnt_gate_wind_refuses(const LearntPolicy* policy, double heading_deg,
+                                     double wind_north_mps, double wind_east_mps) {
+    constexpr double kts_per_mps = 1.0 / 0.514444;
+    const double h = heading_deg / degrees;
+    const double across_kts =
+        (wind_east_mps * std::cos(h) - wind_north_mps * std::sin(h)) * kts_per_mps;
+    const double behind_kts =
+        (wind_east_mps * std::sin(h) + wind_north_mps * std::cos(h)) * kts_per_mps;
+    const double most_across_kts = policy != nullptr ? learnt_gate_most_crosswind_kts(*policy)
+                                                     : LearntGate::most_crosswind_kts;
+    char text[160];
+    if (behind_kts > LearntGate::most_tailwind_kts + 0.05) {
+        std::snprintf(text, sizeof text, "%.0f kt of tailwind; the gate is within %.0f",
+                      behind_kts, LearntGate::most_tailwind_kts);
+        return text;
+    }
+    if (std::abs(across_kts) > most_across_kts + 0.05) {
+        std::snprintf(text, sizeof text, "%.0f kt of crosswind; the gate is within %.0f",
+                      std::abs(across_kts), most_across_kts);
+        return text;
+    }
+    if (-behind_kts > LearntGate::most_headwind_kts + 0.05) {
+        std::snprintf(text, sizeof text, "%.0f kt of headwind; the gate is within %.0f",
+                      -behind_kts, LearntGate::most_headwind_kts);
+        return text;
+    }
+    if (const double kts = std::hypot(across_kts, behind_kts);
+        kts > LearntGate::most_wind_kts + 0.05) {
+        std::snprintf(text, sizeof text, "%.0f kt of wind; the gate is within %.0f", kts,
+                      LearntGate::most_wind_kts);
+        return text;
+    }
+    return {};
+}
+
 OnFinal on_final(const Aircraft& aircraft, const Runway& runway) {
     const Where w = where(LandingReadings::of(aircraft), runway);
     return {w.along_m, w.across_m, w.above_m};
