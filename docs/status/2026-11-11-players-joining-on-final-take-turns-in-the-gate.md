@@ -135,5 +135,18 @@ cost figures in tests/ci_costs are copied from Linux, not measured.
   first said she was its own (`Joined::given_steps`) to the newest it has
   said; with `--slow-start 5`, 238 m to spare, as the command-line client's.
   The window run keeps `--slow-start 5`, so that a slow client is the case
-  it tests. The same count serves every window test's `--press-after` on a
-  server, #357's at-the-gate test among them.
+  it tests. **What moved is `--press-after` alone**, for every window test
+  on a server (#357's at-the-gate test and the learnt-landing window test
+  among them): the client's other test timings (`--copilot-after`,
+  `--learnt-landing-after`, `--hand-over-after`, `--stall-after`,
+  `--take-back-after`, `--next-model-after`, `--next-aircraft-after`) stay
+  on its own ticks, since on the session's clock a slow client would catch
+  up on them at once and send on consecutive passes what they space out.
+  **A take-over or a joining again keeps the step her presses count from**
+  (`joined = *taken` put it to nought): the window client says when it was
+  given ("given at 0.042 s on the session's clock") and what each press
+  counted from, and
+  `the_client_with_the_window_takes_over_the_ai_aircraft_it_rides_along_in`
+  presses K 12 s after joining, after its take-over, counted from its
+  given time - seen red with the step put to nought on the take-over
+  ("counted from 0.000").

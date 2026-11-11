@@ -1100,6 +1100,9 @@ static int run_program(int argc, char** argv) {
                 std::printf("glideslope: the server gave this client aircraft %u, the %s\n",
                             static_cast<unsigned>(joined->number),
                             joined->aircraft_id.c_str());
+                std::printf("glideslope: given at %.3f s on the session's clock\n",
+                            static_cast<double>(joined->given_steps) /
+                                static_cast<double>(glideslope::sim::steps_per_second));
                 // What the server's AIRCRAFT said she is loaded as: its word,
                 // which on a server wins over `--loading`.
                 if (!joined->loading.empty()) {
@@ -2242,20 +2245,25 @@ static int run_program(int argc, char** argv) {
                         press_a();
                     }
                 }
-                // **Seconds after joining, on the session's clock** where on
-                // a server: from the step the server gave her to the newest
-                // it has said - not this client's ticks, which begin only
-                // once its flight is built. A Windows debug client built
-                // hers some 4 s after the server gave her, pressed L 30 s
-                // after that, and found her 89 m from the gate's near edge
-                // (CI run 42930877921); held up 5 s on purpose
-                // (`--slow-start 5`), 66 m. Alone, its own ticks.
-                double joined_s =
+                const double joined_s =
                     static_cast<double>(ticks) /
                     static_cast<double>(glideslope::sim::steps_per_second);
+                // **A test's key presses, on the session's clock** where on
+                // a server (`--press-after`): from the step the server gave
+                // her to the newest it has said - not this client's ticks,
+                // which begin only once its flight is built. A Windows debug
+                // client built hers some 4 s after the server gave her,
+                // pressed L 30 s after that, and found her 89 m from the
+                // gate's near edge (CI run 42930877921); held up 5 s on
+                // purpose (`--slow-start 5`), 66 m. Its other test timings
+                // (`--copilot-after` and the rest) stay on its ticks: on the
+                // session's clock a slow client caught up on them at once,
+                // and sent what it was told to space out on one pass after
+                // another. Alone, its ticks too.
+                double pressed_s = joined_s;
                 if (online && joined) {
                     if (const auto heard_s = online->newest_heard_s()) {
-                        joined_s = std::max(
+                        pressed_s = std::max(
                             0.0, *heard_s - static_cast<double>(joined->given_steps) /
                                                 static_cast<double>(
                                                     glideslope::sim::steps_per_second));
@@ -2358,7 +2366,7 @@ static int run_program(int argc, char** argv) {
                 // held for the next pass's keyboard, as a finger would.
                 while (presses_made < o.presses.size() && !test_key_held &&
                        key_passes > pressed_in_pass + 1 &&
-                       joined_s >= o.presses[presses_made].first) {
+                       pressed_s >= o.presses[presses_made].first) {
                     const SDL_Scancode key = o.presses[presses_made].second;
                     ++presses_made;
                     SDL_Event press{};
@@ -2369,7 +2377,12 @@ static int run_program(int argc, char** argv) {
                     SDL_PushEvent(&press);
                     test_key_held = key;
                     std::printf("glideslope: pressed %s, %.1f s in\n", SDL_GetScancodeName(key),
-                                joined_s);
+                                pressed_s);
+                    if (online && joined) {
+                        std::printf("glideslope: counted from %.3f s on the session's clock\n",
+                                    static_cast<double>(joined->given_steps) /
+                                        static_cast<double>(glideslope::sim::steps_per_second));
+                    }
                     std::fflush(stdout);
                     break; // one a pass, so that each is a press of its own
                 }
@@ -2452,7 +2465,11 @@ static int run_program(int argc, char** argv) {
                     if (!taken->again) {
                         own_shown.taken_over(taken->number);
                     }
+                    // **Given when she was first given**: a take-over or a
+                    // joining again keeps the step the presses count from.
+                    const std::uint64_t given_steps = joined ? joined->given_steps : 0;
                     joined = *taken;
+                    joined->given_steps = given_steps;
                     std::printf(taken->again
                                     ? "glideslope: joined again: the server gave this client "
                                       "aircraft %u, the %s\n"

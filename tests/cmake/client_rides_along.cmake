@@ -94,7 +94,11 @@ endif()
 
 set(_take_over)
 if(TAKE_OVER)
-    set(_take_over --take-over-after 4 --late-update-after-take-over)
+    # And a key pressed 12 s after joining, on the session's clock, after the
+    # take-over at 4 s of its ticks (9 s and more on that clock, its start
+    # held 5 s): the step her presses count from is carried over to the
+    # aircraft taken, not put back to nought (`K`, bound to nothing).
+    set(_take_over --take-over-after 4 --late-update-after-take-over --press-after 12 K)
 endif()
 set(_server_take_over)
 if(DEFINED A_DURING)
@@ -208,6 +212,14 @@ if(TAKE_OVER)
         message(FATAL_ERROR "the client did not take the AI's Cessna over:\n${_out}")
     endif()
     set(_taken "${CMAKE_MATCH_1}")
+    if(NOT _out MATCHES "given at ([0-9.]+) s on the session's clock\n")
+        message(FATAL_ERROR "the client did not say when it was given its aircraft:\n${_out}")
+    endif()
+    set(_given_at "${CMAKE_MATCH_1}")
+    if(NOT _out MATCHES "took over aircraft [0-9]+[^\n]*\n(.*\n)?glideslope: pressed K, 12\\.[0-4] s in\nglideslope: counted from ${_given_at} s on the session's clock\n")
+        message(FATAL_ERROR "the key pressed 12 s after joining, after the take-over, was not "
+                            "counted from when it was given (${_given_at} s):\n${_out}")
+    endif()
     # **Reordered across the take-over**: the last update from before it,
     # naming the aircraft given up as its own, is heard again after it
     # (`--late-update-after-take-over`), as the network reorders them. Only
