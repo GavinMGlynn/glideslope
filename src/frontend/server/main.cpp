@@ -76,6 +76,7 @@
 #include <iterator>
 #include <memory>
 #include <map>
+#include <numbers>
 #include <optional>
 #include <random>
 #include <set>
@@ -2015,16 +2016,83 @@ public:
 
     // **Whether a player asking for `asked` must wait for her turn on
     // final** (`--players-on-final`), and why; or, if she may start now,
-    // what let her (sim::turn_on_final, judged against every other player's
-    // aircraft flying: three miles on, landed, gone around, off the final,
-    // or waited out - the bound on any wait). Only players' aircraft are
-    // counted, not the AI's.
+    // what let her (sim::turn_on_final, judged against every aircraft ahead:
+    // three miles on, landed, gone around, off the final, moved, or waited
+    // out).
     struct FinalWait {
         std::string why;       // empty: she may start
         std::string let_by;    // what let her, when she may
         std::uint8_t ahead = glideslope::net::no_aircraft; // whom she waits on
         bool other_end = false; // she starts on final to the runway's other end
     };
+    // **Whether two runway ends are one**: the same threshold, within 50 m,
+    // pointing the same way, within 5 degrees - a plan names its own.
+    static bool same_end(const glideslope::sim::Runway& a, const glideslope::sim::Runway& b) {
+        glideslope::sim::Traffic x;
+        x.latitude_deg = a.threshold_lat_deg;
+        x.longitude_deg = a.threshold_lon_deg;
+        glideslope::sim::Traffic y;
+        y.latitude_deg = b.threshold_lat_deg;
+        y.longitude_deg = b.threshold_lon_deg;
+        return glideslope::sim::horizontal_m(x, y) < 50.0 &&
+               std::abs(std::remainder(a.heading_deg - b.heading_deg, 360.0)) < 5.0;
+    }
+    // **Whether an AI aircraft's own plan ends in a landing on `end`**: the
+    // server's plan it flies, a model's or a copilot's own, or an approach
+    // it is flying straight in.
+    bool lands_on(const Aircraft& a, const glideslope::sim::Runway& end) const {
+        if (a.slot >= 0 || !ai_flying(a)) {
+            return false;
+        }
+        if (a.on_plan && plan_.landing && same_end(*plan_.landing, end)) {
+            return true;
+        }
+        if (a.own_plan && a.own_plan->landing && same_end(*a.own_plan->landing, end)) {
+            return true;
+        }
+        const auto straight = a.controller->straight_in();
+        return straight && same_end(*straight, end);
+    }
+
+    // **Put her on her downwind**: the one holding the final past the bound,
+    // told to leave it and still over the start a minute later, is moved by
+    // the server - which owns every aircraft - two miles abeam the start,
+    // past the lateral minimum, heading back up the downwind at her height
+    // and speed; her copilot's route, if she flies one, is cleared and the
+    // AI holds that course; a person flying her flies on from there.
+    void move_to_downwind(Aircraft& a, const glideslope::sim::Runway& end,
+                          const glideslope::sim::InitialConditions& start_at) {
+        const glideslope::sim::AircraftState st = a.aircraft->state();
+        glideslope::sim::InitialConditions ic = a.start;
+        const double side = (end.heading_deg + 90.0) * std::numbers::pi / 180.0;
+        const double d = glideslope::sim::TurnOnFinalRule::moved_abeam_m;
+        ic.latitude_deg = start_at.latitude_deg +
+                          d * std::cos(side) /
+                              glideslope::sim::metres_per_degree_latitude(start_at.latitude_deg);
+        ic.longitude_deg = start_at.longitude_deg +
+                           d * std::sin(side) /
+                               glideslope::sim::metres_per_degree_longitude(start_at.latitude_deg);
+        ic.altitude_ft = st.altitude_ft;
+        ic.heading_deg = std::fmod(end.heading_deg + 180.0, 360.0);
+        ic.airspeed_kts = st.airspeed_kts;
+        ic.terrain_elevation_ft =
+            collision_->height_above_ellipsoid(ic.latitude_deg, ic.longitude_deg) * feet_per_metre;
+        a.aircraft->initialize(ic);
+        a.start = ic;
+        const bool by_ai = ai_flying(a);
+        a.copilot_route.clear();
+        if (by_ai) {
+            hold_course(a);
+        }
+        std::printf("aircraft %u moved off the final to %s to its downwind, %.1f miles abeam "
+                    "the start: told to leave it, it held it a minute past being told\n",
+                    static_cast<unsigned>(a.index), end.name.c_str(), d / 1852.0);
+        std::fflush(stdout);
+        instructions_.push_back(
+            {a.index, "moved off the final to " + end.name +
+                          " to your downwind: you held it a minute past being told to leave"});
+    }
+
     // **Judged against one runway end's start**: every aircraft ahead -
     // a player's, or an AI's put on final (`--ai-on-final`) - and whether
     // the one that holds her has held her past the bound.
@@ -2041,8 +2109,8 @@ public:
         here.longitude_deg = at.longitude_deg;
         const double now_s =
             static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
-        for (const Aircraft& a : flown_) {
-            if ((a.slot < 0 && !a.on_final_to) || a.wrecked_at_s >= 0.0) {
+        for (Aircraft& a : flown_) {
+            if ((a.slot < 0 && !a.on_final_to && !lands_on(a, end)) || a.wrecked_at_s >= 0.0) {
                 continue;
             }
             const glideslope::sim::AircraftState st = a.aircraft->state();
@@ -2051,6 +2119,13 @@ public:
             t.longitude_deg = st.longitude_deg;
             glideslope::sim::AheadOnFinal ahead;
             ahead.from_start_m = glideslope::sim::horizontal_m(here, t);
+            // **An AI whose own plan lands here**, on final from when it
+            // first comes within three miles of the start.
+            if (a.on_final_since_s < 0.0 &&
+                ahead.from_start_m < glideslope::sim::TurnOnFinalRule::in_trail_m) {
+                a.on_final_since_s = now_s;
+                a.on_final_start_ft = st.altitude_ft;
+            }
             ahead.height_above_ground_ft = st.height_above_ground_ft;
             ahead.above_her_start_ft =
                 a.on_final_since_s >= 0.0 ? st.altitude_ft - a.on_final_start_ft : 0.0;
@@ -2096,6 +2171,21 @@ public:
     // holding the final is told to leave it (a TRAFFIC_INSTRUCTION, if a
     // person's). The two ends' starts are more than six miles apart, so no
     // aircraft holds both: the wait is bounded.
+    // **Moved, once told a minute since** and still holding the final.
+    void move_if_told(std::uint8_t ahead, const std::string& model, double now_s) {
+        for (Aircraft& a : flown_) {
+            if (a.index == ahead && a.told_to_leave_final_s >= 0.0 &&
+                now_s - a.told_to_leave_final_s >=
+                    glideslope::sim::TurnOnFinalRule::told_grace_s) {
+                a.told_to_leave_final_s = -1.0;
+                move_to_downwind(a, *on_final_,
+                                 glideslope::sim::final_approach_start(
+                                     *on_final_, first_on_final_m(model, std::nullopt), 0.0, 0.0,
+                                     0.0, 3.0));
+            }
+        }
+    }
+
     FinalWait final_wait(const std::optional<glideslope::net::AskedAircraft>& asked) {
         if (!on_final_) {
             return {};
@@ -2110,9 +2200,12 @@ public:
         if (here.wait.why.empty() || !here.past_bound || !on_final_other_) {
             return here.wait;
         }
+        const double now_s =
+            static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
         for (Aircraft& a : flown_) {
             if (a.index == here.wait.ahead && a.slot >= 0 && !a.told_to_leave_final) {
                 a.told_to_leave_final = true;
+                a.told_to_leave_final_s = now_s;
                 instructions_.push_back(
                     {a.index, "leave the final to " + on_final_->name +
                                   ": go around and clear it; traffic has waited behind you "
@@ -2145,11 +2238,13 @@ public:
                                 on_final_other_->name.c_str(), refused.c_str());
                     std::fflush(stdout);
                 }
+                move_if_told(here.wait.ahead, model, now_s);
                 return here.wait;
             }
         }
         EndJudged there = judge_end(*on_final_other_, model);
         if (!there.wait.why.empty()) {
+            move_if_told(here.wait.ahead, model, now_s);
             return here.wait;
         }
         there.wait.other_end = true;
@@ -3407,8 +3502,12 @@ public:
         double on_final_since_s = -1.0;
         double on_final_kts = 0.0;
         double on_final_start_ft = 0.0;
-        // Told to leave the final for one held behind her past the bound.
+        // Told to leave the final for one held behind her past the bound,
+        // and when, on the session's clock.
         bool told_to_leave_final = false;
+        double told_to_leave_final_s = -1.0;
+        // Her wheels' touch said, for the next's spacing behind her.
+        bool touch_said = false;
         // **Kept apart** (sim/separation.hpp): which aircraft it is held
         // clear of, by number, while a limit on its height binds - said when
         // it begins and ends; a departure held until the sky over its runway
@@ -4152,6 +4251,14 @@ private:
                                ", goes around from " + circuit->runway().name);
         }
         a.circling = circuit != nullptr;
+        // **Her wheels' touch**, said as it happens - the touchdown's figures
+        // are said once she has stopped.
+        if (a.controller->learnt() != nullptr && a.controller->learnt()->touched() &&
+            !a.touch_said) {
+            a.touch_said = true;
+            happened.push_back("aircraft " + std::to_string(a.index) + ", " + a.id +
+                               ", touched " + a.controller->learnt()->rollout().runway().name);
+        }
         const glideslope::sim::Vacate* off = a.controller->vacate();
         const bool clear = off != nullptr && off->clear();
         if (clear && !a.vacated) {

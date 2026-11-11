@@ -135,7 +135,12 @@ file(REMOVE "${_ready}")
 math(EXPR _last "${_n} - 1")
 foreach(_i RANGE ${_last})
     list(GET _order ${_i} _a)
-    if(_i EQUAL 0)
+    if(_i EQUAL 0 AND _how STREQUAL "planai")
+        # **Once the AI is on its approach**: the session's clock at 90 s,
+        # when the weather's change of nothing is written (`--changed-file`),
+        # the AI 4.3 miles out, inside three of her start.
+        set(_after "${WORK}/changed")
+    elseif(_i EQUAL 0)
         set(_after "${_ready}")
     elseif(_i EQUAL 2 AND _how STREQUAL "restart")
         set(_after "${WORK}/heard_first.txt")
@@ -151,7 +156,7 @@ foreach(_i RANGE ${_last})
     if(_i EQUAL 0 AND _how MATCHES "^circle")
         # Orbiting over the start, until the next has had her turn and gone.
         set(_asks --send-route "${ORBIT}")
-        set(_leaves --copilot-stay 300)
+        set(_leaves --copilot-stay 420)
     endif()
     file(REMOVE "${WORK}/heard${_i}.txt")
     if(_i EQUAL _last AND _how STREQUAL "window")
@@ -221,6 +226,14 @@ else()
     elseif(_how STREQUAL "circlesouth")
         set(_ai_final --metar "YSSY 111200Z 18010KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
+    elseif(_how STREQUAL "planai")
+        # The AI flies a plan that ends in a landing on 16R, begun 6.2 miles
+        # out on its centreline (data/plans/landing-on-16r-from-6nm.plan).
+        file(REMOVE "${WORK}/changed")
+        set(_ai_final --plan "${PLANAI}"
+            --metar "YSSY 111200Z 00000KT 9999 FEW030 20/10 Q1015"
+            --metar-then 90 "YSSY 111201Z 00000KT 9999 FEW030 20/10 Q1015"
+            --weather-blend 1 --changed-file "${WORK}/changed" --station -33.9461,151.1772)
     endif()
     execute_process(
         ${_commands}
@@ -280,7 +293,7 @@ endif()
 string(REGEX MATCHALL "waits for its turn on final: " _waits "${_out}")
 list(LENGTH _waits _waited)
 set(_waiting ${_last})
-if(_how STREQUAL "ai")
+if(_how STREQUAL "ai" OR _how STREQUAL "planai")
     set(_waiting ${_n})
 endif()
 if(NOT _waited EQUAL _waiting)
@@ -289,6 +302,7 @@ if(NOT _waited EQUAL _waiting)
 endif()
 set(_said "")
 set(_handed_before -1)
+set(_touches_checked 0)
 foreach(_i RANGE ${_last})
     list(GET _order ${_i} _a)
     math(EXPR _place "${_i} + 1")
@@ -301,8 +315,9 @@ foreach(_i RANGE ${_last})
     if(_i GREATER 0 AND _how STREQUAL "circle")
         set(_end 34L)
     endif()
-    set(_left_before "${_left_abs}")
-    unset(_left_abs)
+    set(_leader_before "${_leader_number}")
+    set(_leader_from_before "${_leader_from}")
+    unset(_leader_number)
     if(NOT _since MATCHES "^ asked for ${_a}, and flies it\n([^\n]*\n)*slot [0-9]+'s ${_a} starts on final to YSSY ${_end} (2\\.[23][0-9]) miles out\n")
         message(FATAL_ERROR "place ${_place}, the ${_a}: not started where her gate holds her, on final to ${_end}:\n${_since}")
     endif()
@@ -318,7 +333,7 @@ foreach(_i RANGE ${_last})
         string(APPEND _said " 1. ${_a}, orbiting over the start, told to leave the final;")
         continue()
     endif()
-    if(_i GREATER 0 OR _how STREQUAL "ai")
+    if(_i GREATER 0 OR _how STREQUAL "ai" OR _how STREQUAL "planai")
         # Her own turn: the first said after she was given her aeroplane.
         string(FIND "${_since}" "'s turn on final: aircraft " _turn_at)
         if(_turn_at EQUAL -1)
@@ -339,10 +354,16 @@ foreach(_i RANGE ${_last})
             if(NOT _out MATCHES "held past the bound, and the other end, YSSY 34L, refused: (9|10) kt of tailwind; the gate is within 5\n")
                 message(FATAL_ERROR "place ${_place}, the ${_a}: 34L not refused for its tailwind:\n${_out}")
             endif()
-            if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, ([0-9.]+) s on the session's clock: nobody ahead\n")
-                message(FATAL_ERROR "place ${_place}, the ${_a}: not held until the one orbiting had gone:\n${_turn_line}")
+            # **Ended by the server's rule**: told to leave, and a minute
+            # later moved to its downwind, the one orbiting is off the final -
+            # while its client is still there.
+            if(NOT _out MATCHES "aircraft [0-9]+ moved off the final to YSSY 16R to its downwind, 2\\.0 miles abeam the start")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: the one orbiting was never moved:\n${_out}")
             endif()
-            string(APPEND _turn " (34L refused for its tailwind; held until the one orbiting went)")
+            if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, ([0-9.]+) s on the session's clock: aircraft [0-9]+ off the final, ")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: not let by for the one orbiting moved off the final:\n${_turn_line}")
+            endif()
+            string(APPEND _turn " (34L refused for its tailwind; the one orbiting moved off the final)")
         elseif(_how STREQUAL "circle")
             # **Held past the bound, to the other end**: the one orbiting
             # held the final past it, and the other end's start was clear.
@@ -351,13 +372,22 @@ foreach(_i RANGE ${_last})
             endif()
             string(APPEND _turn " (to 34L, held past the bound)")
         else()
-            if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, [0-9.]+ s on the session's clock: aircraft [0-9]+ (landed|3 miles on), ([0-9.]+) miles from her start\n")
-                message(FATAL_ERROR "place ${_place}, the ${_a}: let by other than at touchdown or "
-                                    "three miles:\n${_turn_line}")
+            # (Or waited out, past the bound, 1.5 miles or more on: the AI
+            # whose plan lands there flies her final slower than the bound
+            # allows for.)
+            if(NOT _turn_line MATCHES "^'s turn on final: aircraft [0-9]+, [0-9.]+ s on the session's clock: aircraft [0-9]+ (landed|3 miles on|waited out), ([0-9.]+) miles from her start\n")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: let by other than at touchdown, "
+                                    "three miles or the bound:\n${_turn_line}")
             endif()
             set(_let "${CMAKE_MATCH_1} ${CMAKE_MATCH_2}")
             if(CMAKE_MATCH_1 STREQUAL "3 miles on" AND CMAKE_MATCH_2 LESS 3.0)
                 message(FATAL_ERROR "place ${_place}, the ${_a}: let by at ${CMAKE_MATCH_2} miles")
+            endif()
+            if(CMAKE_MATCH_1 STREQUAL "waited out" AND CMAKE_MATCH_2 LESS 1.5)
+                message(FATAL_ERROR "place ${_place}, the ${_a}: let by at the bound ${CMAKE_MATCH_2} miles on")
+            endif()
+            if(CMAKE_MATCH_1 STREQUAL "waited out" AND NOT _how STREQUAL "planai")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: let by at the bound behind a player")
             endif()
             string(APPEND _turn " (the one ahead ${_let} miles from her start)")
         endif()
@@ -386,32 +416,35 @@ foreach(_i RANGE ${_last})
     endif()
     string(FIND "${_since}" "aircraft ${_number} handed to the learnt landing" _handed_at)
     math(EXPR _handed_before "${_given} + ${_handed_at}")
-    # **The one ahead off the runway before she came down**: her own
-    # touchdown, where the run has it, said after the one ahead had left the
-    # runway (the server says a touchdown once she has stopped, so this is
-    # later than the wheels touched, and the leaving earlier still).
-    if(NOT _left_before STREQUAL "")
-        string(FIND "${_since}" "aircraft ${_number}: the learnt landing touched down on YSSY" _down_at)
-        if(NOT _down_at EQUAL -1)
-            math(EXPR _down_abs "${_given} + ${_down_at}")
-            if(_down_abs LESS _left_before)
+    # **The runway cleared before she came down**: where her wheels touched
+    # in the run ("aircraft N, ..., touched YSSY 16R", said as they touch),
+    # the one ahead had left the runway before it ("has left YSSY 16R,
+    # stopped beside it") - counted, and the count must not be nought where
+    # one lands behind another.
+    if(NOT _leader_before STREQUAL "")
+        string(REGEX MATCH "aircraft ${_number}, [^\n]*, touched YSSY ${_end}\n" _touch "${_since}")
+        string(SUBSTRING "${_out}" ${_leader_from_before} -1 _leader_since)
+        string(REGEX MATCH "aircraft ${_leader_before}, [^\n]*, has left YSSY ${_end}, stopped beside it" _left "${_leader_since}")
+        if(NOT _touch STREQUAL "")
+            string(FIND "${_since}" "${_touch}" _touch_at)
+            math(EXPR _touch_abs "${_given} + ${_touch_at}")
+            set(_left_abs -1)
+            if(NOT _left STREQUAL "")
+                string(FIND "${_leader_since}" "${_left}" _left_at)
+                math(EXPR _left_abs "${_leader_from_before} + ${_left_at}")
+            endif()
+            if(_left_abs EQUAL -1 OR _touch_abs LESS _left_abs)
                 message(FATAL_ERROR "place ${_place}, the ${_a}: came down before the one ahead had "
                                     "left the runway:\n${_out}")
             endif()
+            math(EXPR _touches_checked "${_touches_checked} + 1")
             string(APPEND _turn ", down after the one ahead left the runway")
+        elseif(_left STREQUAL "")
+            message(FATAL_ERROR "place ${_place}, the ${_a}: the one ahead never left the runway:\n${_leader_since}")
         endif()
     endif()
-    # **The runway cleared**: each who lands and stays to rest leaves it,
-    # stopped beside it, before the next comes down.
-    if(NOT _i EQUAL _last)
-        string(SUBSTRING "${_since}" ${_handed_at} -1 _after_handed)
-        if(NOT _after_handed MATCHES "aircraft ${_number}, [^\n]*, has left YSSY ${_end}, stopped beside it")
-            message(FATAL_ERROR "place ${_place}, the ${_a}: never left the runway:\n${_after_handed}")
-        endif()
-        string(FIND "${_after_handed}" "${CMAKE_MATCH_0}" _left_at)
-        math(EXPR _left_abs "${_given} + ${_handed_at} + ${_left_at}")
-        string(APPEND _turn ", left the runway")
-    endif()
+    set(_leader_number "${_number}")
+    math(EXPR _leader_from "${_given} + ${_handed_at}")
     if(NOT (_i EQUAL _last AND _how STREQUAL "window"))
         file(READ "${WORK}/heard${_i}.txt" _heard)
         if(NOT _heard MATCHES "asked for the learnt landing")
@@ -421,5 +454,11 @@ foreach(_i RANGE ${_last})
     string(APPEND _said " ${_place}. ${_a}, ${_turn}, ${_from} to ${_then} miles, ${_spare} m "
                         "to spare;")
 endforeach()
+# **The touch checked where one lands behind another**: the four-player
+# run and the one begun again, whose followers stay to land.
+if((_how STREQUAL "" OR _how STREQUAL "restart") AND _touches_checked EQUAL 0)
+    message(FATAL_ERROR "no touchdown was checked against the one ahead's leaving the runway")
+endif()
 message(STATUS "run ${RUN} of ${ORDERS} (${_gated_n} aeroplanes with a gate, each following "
-               "in some run; places 2 to 4):${_said}")
+               "in some run; places 2 to 4):${_said}; ${_touches_checked} touchdowns after the "
+               "one ahead left the runway")

@@ -274,10 +274,11 @@ client, told why when refused; since 2026-11-11 the first player on final starts
 where her gate holds her thirty seconds, and each of the four, joined on
 final in the window client and left alone, is still at it then; the players after her start there too, each in her
 turn, once the one ahead is three miles on or landed, gone around, off the
-final or waited out - an AI aircraft put on that final too, but not one
-whose plan ends there - her window showing why while she waits; held past
-the bound by one over the start, she starts on final to the other end where
-its wind allows; a player the learnt landing stopped leaves the runway - 2026-11-11-a-172-joined-on-final-stays-at-the-gate,
+final or waited out - an AI aircraft on that final too, put there or its
+plan landing there - her window showing why while she waits; held past the
+bound by one over the start, she starts on final to the other end where its
+wind allows, and otherwise the one holding it is moved to her downwind; a
+player the learnt landing stopped leaves the runway - 2026-11-11-a-172-joined-on-final-stays-at-the-gate,
 2026-11-11-players-joining-on-final-take-turns-in-the-gate,
 2026-11-11-players-turns-on-final-complete), and to an AI aircraft the server is told to
 flying a plan that ends in a landing, which then taxis off the runway; a
