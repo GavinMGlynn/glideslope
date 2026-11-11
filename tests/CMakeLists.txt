@@ -3965,6 +3965,33 @@ set_tests_properties(a_players_c172p_handed_to_the_learnt_landing_on_final_is_la
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 
+# **A player is put on final only in light wind**: for each aeroplane with a
+# learnt landing, at her measured limit straight ahead, behind and across
+# either way she is on final and at the gate 30 s on; one knot past it she
+# starts where the plan does, told why. See
+# cmake/server_on_final_wind_limits.cmake.
+foreach(_limits_ac c172p c182 j3cub pa28)
+    if(_limits_ac STREQUAL "c172p")
+        set(_limits_port 24810)
+    elseif(_limits_ac STREQUAL "c182")
+        set(_limits_port 24818)
+    elseif(_limits_ac STREQUAL "j3cub")
+        set(_limits_port 24830)
+    else()
+        set(_limits_port 24836)
+    endif()
+    add_test(NAME a_${_limits_ac}_is_put_on_final_only_inside_her_measured_wind_limits_and_at_her_gate_thirty_seconds_on_inside_them
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_final_limits_${_limits_ac} -DPORT=${_limits_port}
+            -DAIRCRAFT=${_limits_ac}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_on_final_wind_limits.cmake)
+    set_tests_properties(a_${_limits_ac}_is_put_on_final_only_inside_her_measured_wind_limits_and_at_her_gate_thirty_seconds_on_inside_them
+        PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_final_limits_${_limits_ac})
+endforeach()
+
 # **Players joining on final take turns, each starting in the learnt
 # landing's gate, and each is still at it thirty seconds after she starts**:
 # three runs, between them every aeroplane with a learnt landing following
@@ -3972,7 +3999,7 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 # follower the window client (headless) waiting and told why, the third's
 # begun again on its key while it waits. See
 # cmake/server_players_take_turns_on_final.cmake.
-set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p+window|pa28,c172p,c182+restart|c172p+ai|c172p,pa28+circle|c172p,pa28+circlesouth|c172p+planai|c172p,pa28+circlenone")
+set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p+window|pa28,c172p,c182+restart|c172p+ai|c172p,pa28+circle|c172p,c172p+circlesouth|c172p+planai|c172p,j3cub+circlenone")
 set(_turns_names
     four_players_joining_on_final_a_c172p_c182_cub_and_pa28_take_turns_and_each_is_at_the_gate_thirty_seconds_after_she_starts
     the_window_client_joining_on_final_behind_a_pa28_waits_told_why_and_is_at_the_gate_thirty_seconds_after_she_starts

@@ -653,6 +653,39 @@ std::string learnt_gate_wind_refuses(const LearntPolicy* policy, double heading_
     return {};
 }
 
+std::string on_final_wind_refuses(const LearntPolicy& policy, double heading_deg,
+                                  double wind_north_mps, double wind_east_mps) {
+    constexpr double kts_per_mps = 1.0 / 0.514444;
+    const double h = heading_deg / degrees;
+    const double across_kts =
+        (wind_east_mps * std::cos(h) - wind_north_mps * std::sin(h)) * kts_per_mps;
+    const double behind_kts =
+        (wind_east_mps * std::sin(h) + wind_north_mps * std::cos(h)) * kts_per_mps;
+    char text[160];
+    if (policy.on_final_crosswind_kts >= 0.0 &&
+        std::abs(across_kts) > policy.on_final_crosswind_kts + 0.5) {
+        std::snprintf(text, sizeof text,
+                      "%.0f kt across; she is put on final in %.0f across at most",
+                      std::abs(across_kts), policy.on_final_crosswind_kts);
+        return text;
+    }
+    if (policy.on_final_tailwind_kts >= 0.0 &&
+        behind_kts > policy.on_final_tailwind_kts + 0.5) {
+        std::snprintf(text, sizeof text,
+                      "%.0f kt behind; she is put on final in %.0f behind at most", behind_kts,
+                      policy.on_final_tailwind_kts);
+        return text;
+    }
+    if (policy.on_final_headwind_kts >= 0.0 &&
+        -behind_kts > policy.on_final_headwind_kts + 0.5) {
+        std::snprintf(text, sizeof text,
+                      "%.0f kt ahead; she is put on final in %.0f ahead at most", -behind_kts,
+                      policy.on_final_headwind_kts);
+        return text;
+    }
+    return {};
+}
+
 OnFinal on_final(const Aircraft& aircraft, const Runway& runway) {
     const Where w = where(LandingReadings::of(aircraft), runway);
     return {w.along_m, w.across_m, w.above_m};
@@ -750,8 +783,12 @@ std::shared_ptr<const LearntPolicy> learnt_landing(const std::filesystem::path& 
     // no more than.
     if (const std::filesystem::path figures = data / "figures" / (model + ".xml");
         std::filesystem::exists(figures)) {
-        policy.demonstrated_crosswind_kts =
-            read_published_figures(figures).demonstrated_crosswind_kts;
+        const PublishedFigures published = read_published_figures(figures);
+        policy.demonstrated_crosswind_kts = published.demonstrated_crosswind_kts;
+        policy.on_final_headwind_kts = published.on_final_headwind_kts;
+        policy.on_final_tailwind_kts = published.on_final_tailwind_kts;
+        policy.on_final_crosswind_kts = published.on_final_crosswind_kts;
+        policy.on_final_still_air_only = published.on_final_still_air_only;
     }
     return std::make_shared<const LearntPolicy>(std::move(policy));
 }

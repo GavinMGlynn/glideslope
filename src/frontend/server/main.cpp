@@ -1834,8 +1834,24 @@ public:
                 std::fflush(stdout);
             }
         }
-        double final_kts = 0.0;
+        // **Only in light wind** (the owner's ruling, 2026-11-11): a player
+        // is put on final only where the wind there is inside what she,
+        // left alone, stays at her gate in for thirty seconds - measured,
+        // in her figures (sim::on_final_wind_refuses); in any other she
+        // starts where the plan does, and is told why.
+        std::string wind_refused;
         if (on_final_ && final_speeds) {
+            const glideslope::sim::Runway& to = final_to_given ? *final_to_given : *on_final_;
+            wind_refused = on_final_refused(model, to);
+            if (!wind_refused.empty()) {
+                wind_refused = "not put on final to " + to.name + ": " + wind_refused;
+                std::printf("slot %d's %s is %s; it starts where the plan does\n",
+                            static_cast<int>(slot), id.c_str(), wind_refused.c_str());
+                std::fflush(stdout);
+            }
+        }
+        double final_kts = 0.0;
+        if (on_final_ && final_speeds && wind_refused.empty()) {
             // **Every player where her gate holds her thirty seconds** left
             // alone, unless told (`@MILES`): from the gate's middle she flew
             // out of its near edge in seventeen (client_stays_at_gate.cmake).
@@ -1901,6 +1917,9 @@ public:
             flown_.back().loading = loading->loading;
         }
         learn_speeds(flown_.back());
+        if (!wind_refused.empty()) {
+            instructions_.push_back({index, wind_refused});
+        }
         // **On final since now**, for the next player's turn (`final_wait`).
         if (final_kts > 0.0) {
             flown_.back().on_final_since_s =
@@ -2059,6 +2078,26 @@ public:
         return straight && same_end(*straight, end);
     }
 
+    // **Why a player in `model` is not put on final to `end` in the wind
+    // there now** (sim::on_final_wind_refuses, her measured limits), or
+    // empty: where she has no learnt landing, or the air is still, nothing.
+    std::string on_final_refused(const std::string& model, const glideslope::sim::Runway& end) {
+        const auto policy = learnt_for(model);
+        if (!policy || !session_air_) {
+            return {};
+        }
+        if (policy->on_final_still_air_only) {
+            return "she is put on final only in still air";
+        }
+        const glideslope::sim::InitialConditions at = glideslope::sim::final_approach_start(
+            end, first_on_final_m(model, std::nullopt), 0.0, 0.0, 0.0, 3.0);
+        const glideslope::sim::Conditions air = session_air_->at(
+            at.latitude_deg, at.longitude_deg, at.altitude_ft / feet_per_metre,
+            static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second));
+        return glideslope::sim::on_final_wind_refuses(*policy, end.heading_deg, air.wind_north_mps,
+                                                      air.wind_east_mps);
+    }
+
     // **Judged against one runway end's start**: every aircraft ahead -
     // a player's, or an AI's put on final (`--ai-on-final`) - and whether
     // the one that holds her has held her past the bound.
@@ -2155,6 +2194,10 @@ public:
                 model = entry->second.model;
             }
         }
+        // Not put on final in this wind, she waits for nobody's turn.
+        if (!on_final_refused(model, *on_final_).empty()) {
+            return {};
+        }
         EndJudged here = judge_end(*on_final_, model);
         if (here.wait.why.empty() || !here.past_bound || on_final_ends_.empty()) {
             return here.wait;
@@ -2188,8 +2231,15 @@ public:
                     there_at.altitude_ft / feet_per_metre,
                     static_cast<double>(steps_) /
                         static_cast<double>(glideslope::sim::steps_per_second));
-                const std::string refused = glideslope::sim::learnt_gate_wind_refuses(
+                // Her gate's limits, and the lighter ones she is put on
+                // final in (sim::on_final_wind_refuses): only an end she
+                // stays at the gate on, left alone.
+                std::string refused = glideslope::sim::learnt_gate_wind_refuses(
                     policy.get(), end.heading_deg, air.wind_north_mps, air.wind_east_mps);
+                if (refused.empty() && policy) {
+                    refused = glideslope::sim::on_final_wind_refuses(
+                        *policy, end.heading_deg, air.wind_north_mps, air.wind_east_mps);
+                }
                 if (!refused.empty()) {
                     refusals += (refusals.empty() ? "" : "; ") + end.name + " " + refused;
                     continue;
@@ -3285,7 +3335,15 @@ public:
 
     // **What each person has been told to do for other traffic since last
     // asked** (`TRAFFIC_INSTRUCTION`): her aircraft's number, and the words.
+    // An instruction kept for a session not yet proven.
+    void tell_later(std::uint8_t number, const std::string& what) {
+        later_.push_back({number, what});
+    }
     std::vector<std::pair<std::uint8_t, std::string>> take_instructions() {
+        for (auto& kept : later_) {
+            instructions_.push_back(std::move(kept));
+        }
+        later_.clear();
         std::vector<std::pair<std::uint8_t, std::string>> out;
         out.swap(instructions_);
         return out;
@@ -4761,6 +4819,7 @@ private:
     // asking, the person}; forgotten when she stops asking.
     std::set<std::pair<std::uint8_t, std::uint8_t>> told_to_clear_;
     std::vector<std::pair<std::uint8_t, std::string>> instructions_;
+    std::vector<std::pair<std::uint8_t, std::string>> later_;
     // **Hand-over questions let go and not yet finished**: given up, and
     // kept until nothing of them is running (`Copilot::settled`), so that
     // letting one go never waits on the stepping thread - for its model, or
@@ -6312,8 +6371,21 @@ int run(const Options& o) {
                         }
                     }
                 }
-                // **Told to the person it is for**, and to no other client.
+                // **Told to the person it is for**, and to no other client;
+                // one for an aircraft just given, whose session is not yet
+                // proven, kept until it is.
                 for (const auto& [number, what] : fleet->take_instructions()) {
+                    if (std::any_of(connections.begin(), connections.end(),
+                                    [&, n = number](const auto& each) {
+                                        return each.second.aircraft == n && !each.second.proven;
+                                    }) &&
+                        std::none_of(connections.begin(), connections.end(),
+                                     [&, n = number](const auto& each) {
+                                         return each.second.aircraft == n && each.second.proven;
+                                     })) {
+                        fleet->tell_later(number, what);
+                        continue;
+                    }
                     for (auto& [address, c] : connections) {
                         if (!c.proven || c.aircraft != number) {
                             continue;

@@ -241,14 +241,21 @@ else()
     # **The wind at the other ends**: a northerly of 8 kt is into 34L, which
     # her gate admits; from 250 at 10 kt, nearly straight down 25; at
     # Richmond from 100 at 8 kt, behind 28.
+    # **Light winds**, inside the followers' measured limits on their own
+    # runway, so that each is put on final and waits (the owner's ruling,
+    # 2026-11-11): 3 kt from 348, behind 16R and into 34L, for the PA-28
+    # (4 behind at most); 2 from 250 for the C172P (2 across at most): 25
+    # most into it; at Richmond 5 kt from 108, straight down 10 for the J-3
+    # Cub (none across) - and 5 behind 28, which her gate admits but her
+    # limit, 4 behind, does not: no other end inside it.
     if(_how STREQUAL "circle")
-        set(_ai_final --metar "YSSY 111200Z 36008KT 9999 FEW030 20/10 Q1015"
+        set(_ai_final --metar "YSSY 111200Z 34803KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
     elseif(_how STREQUAL "circlesouth")
-        set(_ai_final --metar "YSSY 111200Z 25010KT 9999 FEW030 20/10 Q1015"
+        set(_ai_final --metar "YSSY 111200Z 25002KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
     elseif(_how STREQUAL "circlenone")
-        set(_ai_final --metar "YSRI 111200Z 10008KT 9999 FEW030 20/10 Q1015"
+        set(_ai_final --metar "YSRI 111200Z 10805KT 9999 FEW030 20/10 Q1015"
             --station -33.6006,150.7808)
     elseif(_how STREQUAL "planai")
         # The AI flies a plan that ends in a landing on 16R, begun 6.2 miles
@@ -417,7 +424,7 @@ foreach(_i RANGE ${_last})
         elseif(_how STREQUAL "circlenone")
             # **None will do: she waits, told why**, until the one orbiting
             # goes on its own; the server does not move it.
-            if(NOT _out MATCHES "held past the bound, and no other runway will take her: YSRI 28 [0-9]+ kt of tailwind; the gate is within 5\n")
+            if(NOT _out MATCHES "held past the bound, and no other runway will take her: YSRI 28 5 kt behind; she is put on final in 4 behind at most\n")
                 message(FATAL_ERROR "place ${_place}, the ${_a}: no other runway refused as it should be:\n${_out}")
             endif()
             file(READ "${WORK}/heard${_i}.txt" _heard)

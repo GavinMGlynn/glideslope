@@ -404,6 +404,11 @@ not the session.
   `TRAFFIC_INSTRUCTION`), and arrange the others round her - another runway
   for a player waiting her turn on final - but where she does not do as
   told, she is left where she flies (section 9).
+- **A player is put on final only in light wind** (owner, 2026-11-11): only
+  where the wind on that final is inside what her aeroplane, left alone,
+  stays at its learnt landing's gate in for thirty seconds - ahead, behind
+  and across, measured and kept in her figures. In any other wind she starts
+  where the session's plan does, and is told why.
 
 ### 6.6 Server shape (following gearstick)
 
@@ -895,6 +900,13 @@ The replacement:
   starts the next on another runway end whose wind her gate admits; where
   there is none, the next waits, told why, for as long as she stays. Moving
   her to her downwind was built and taken out.
+- **A player is put on final only in light wind** (owner, 2026-11-11;
+  section 6.5). Left alone on final in wind, an aeroplane wanders out of
+  the learnt landing's gate within thirty seconds - crabbed into the wind
+  or not; the gate's heading limit, 5 degrees, is less than her crab in 6
+  kt across. So each aeroplane's limits ahead, behind and across are
+  measured and kept in her figures, and a player is put on final only
+  inside them; a runway end chosen past the bound is one inside them too.
 
 **Open:**
 
