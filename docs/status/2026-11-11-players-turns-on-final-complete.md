@@ -2,7 +2,7 @@
 
 **What is still not true first.** **In wind past her measured limits a player
 is not put on final** (the owner's ruling, 2026-11-11): she starts where the
-plan does, told why; the C182 is put on final only in calm. **A measured limit, which the owner's
+plan does, told why; the C182 is put on final only where no weather is flown. **A measured limit, which the owner's
 ruling of 2026-11-11 allows**: where a person holds the final over the
 start past the bound and no other runway end at the airfield takes her -
 each behind her, across her more than her gate admits, or not clear - the
@@ -38,16 +38,31 @@ Then swept in light wind, the same way, each speed one run:
 | J-3 Cub | 3, 5, 8, 10 at it | 2, 4 at it; 5 not | 1 not (heading 11 off) | 1 not (heading 7 off) |
 | C182 | 1, 2, 3, 5 not (heading 6 to 7 off) | 1, 2 not, 4 at it | 1, 2 not | 1, 3, 5 at it |
 
-**Her limits**, the most at which every speed swept up to it was at the
-gate, kept in her figures (`on_final_headwind_kts`, `on_final_tailwind_kts`,
-`on_final_crosswind_kts`, the crosswind the lesser side's): C172P 8 ahead, 4
-behind, 2 across; PA-28 13, 4, 3; J-3 Cub 10, 4, 0; C182 still air only
-(`on_final_still_air_only`): her heading wandered 5 to 7 degrees in a knot of
-almost any wind, and 6 degrees in a METAR of calm (20 degrees, 1015 hPa),
-where in still air - no weather flown - she stayed 202 m inside the gate.
-Judged to the nearest knot: a knot past a limit is outside it.
-Only the speeds swept are known: the PA-28 at 1 and 2 across is not, nor
-is any half knot.
+**Then every whole knot up to each limit**, ahead, behind and across from
+either side, one run each (57 runs), and one quartering wind each with both
+parts near their limits: every knot held but the Cub at 5 ahead (heading 5
+off, where 3, 4, 8 and 10 held) and the C172P quartering - 6 kt from 187
+(5.7 ahead, 1.95 across) and 7 from 184 failed (heading 5 off), 5 from 190
+(4.7 ahead, 1.97 across) and 4 from 194 held; the PA-28 quartering at 13
+from 181 (12.7 ahead, 2.9 across) held; the Cub at 4 kt from 174, 0.4
+across, held, but is refused (below).
+
+**Her limits**, kept in her figures (`on_final_headwind_kts`,
+`on_final_tailwind_kts`, `on_final_crosswind_kts`), the highest at which
+every whole knot below it held: C172P 5 ahead (8 held alone; 5 for a wind
+both ahead and across), 4 behind, 2 across; PA-28 13, 4, 3; J-3 Cub calm
+only - 1 to 4 kt ahead and behind held, and up to 0.55 kt across from the
+left, but 0.21 kt from the right turned her 6 degrees off, so her crosswind
+limit is nought, and a wind exactly down a runway heading 167.9 is no
+METAR's whole degree; C182 only where no weather is flown (`on_final_still_air_only`): her heading
+wandered 5 to 7 degrees in a knot of almost any wind, and 6 degrees in a
+METAR of calm (20 degrees, 1015 hPa), where in still air she stayed 202 m
+inside the gate. **Judged strictly**: any wind past a limit, however little,
+is outside it - a crosswind limit of nought refuses 0.4 kt across.
+**Not swept, and why**: one temperature and pressure (the METAR's 20 degrees
+and 1015 hPa, near the standard atmosphere at Sydney: the limits are for the
+wind); no gusts (no gust group: her gust factor 0); her model's own loading;
+16R at 8 ft only; no half knots or other directions than the five named.
 
 **What changed.**
 
@@ -195,31 +210,42 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   `a_c172p_is_put_on_final_only_inside_her_measured_wind_limits_and_at_her_gate_thirty_seconds_on_inside_them`
   and the C182's, the J-3 Cub's and the PA-28's (tests/cmake/server_on_final_wind_limits.cmake,
   ports 24810, 24818, 24830, 24836): the limits read from her figures;
-  ahead, behind, from the right and from the left, at her limit (calm for
-  a limit of nought) she is on final and at the gate 30 s on, and a knot
-  past it she is not put on final and her client is told why - 8 of 8
-  cases each, counted, 32 in all, about 247 s each: the C172P at 8 ahead
-  352 m inside the gate, 4 behind 160 m, 2 across 223 m either side; the
-  PA-28 394, 124, 185 and 186 m; the J-3 Cub 512, 298, 358 and 359 m; the
-  C182 in still air 200 to 201 m - and each a knot past, not put on final
-  and told why ("9 kt ahead; she is put on final in 8 ahead at most"; the
-  C182 in any METAR, "she is put on final only in still air"). Seen red
-  with the limits not applied: all four, "...past her limit: put on final".
-  A refusal told to a client whose session is not yet proven was dropped
-  until now; it is kept until it is.
+  ahead, behind, from the right and from the left, at her limit she is on
+  final and at the gate 30 s on, and a knot past it she is not put on final
+  and her client is told why, once; calm once where a limit is nought; a
+  quartering wind at her limits (the C172P and PA-28); the Cub at 0.4 across
+  refused; the C182 in still air once - its four directions would be one
+  case - and a knot each way past it. The cases that reach their verdict
+  are counted against the cases listed: C172P 9, PA-28 9, Cub 6, C182 5.
+  The C172P at 5 ahead 304 m inside the gate, 4 behind 162 m, 2 across 225
+  m either side, quartering 299 m; the PA-28 396, 126, 188 and 187 m,
+  quartering 390 m; the Cub in calm, the C182 in still air, 201 m. Seen red: with the limits not applied, all four ("...past her
+  limit: put on final"); with each limit a hundredth of a knot tighter, the
+  at-limit cases of all three with a limit ("13 kt ahead (inside her
+  limits): not put on final") - a wind exactly at a limit never arises, so
+  `>=` for `>` alone did not; with half a knot of slack across, as before,
+  the Cub's 0.4 across ("put on final"). **Told her own reason, on her
+  session**: the reason is kept on the session it was given to, not on the
+  aircraft's number, which is given again once that aircraft has gone; in
+  each test's first case past a limit a second player joins too, and each
+  is told once, never the other's - seen red with every proven session told
+  each reason ("told why 2 times, not once").
 - **Only ends inside her limits past the bound**: the Richmond run, a wind
-  from 108 at 5 kt, puts its J-3 Cub on final to 10 (5 ahead, inside her
-  10) and refuses 28: "YSRI 28 5 kt behind; she is put on final in 4 behind
-  at most" - a tailwind her gate admits (5), outside her limit. The 34L run
-  is now in 3 kt from 348 (inside the PA-28's 4 behind on 16R), the 25 run a
-  C172P in 2 kt from 250 (inside her 2 across), the Richmond run a J-3 Cub
-  again - the Cub and the C172P runs restored.
+  from 108 at 5 kt, puts its C172P on final to 10 (5 ahead, inside her 5)
+  and refuses 28: "YSRI 28 5 kt behind; she is put on final in 4 behind at
+  most" - a tailwind her gate admits (5), outside her limit; seen red with
+  that check off ("no other runway refused as it should be"). Not the J-3
+  Cub: with no crosswind limit she is put on final in no wind that is not
+  exactly down the runway, and Richmond's 10 (107.6) is no METAR's whole
+  degree. The 34L run is in 3 kt from 348 (inside the PA-28's 4 behind on
+  16R), the 25 run a C172P in 2 kt from 250 (inside her 2 across).
 - `glideslope_cli selftest`, linux-release: hash 197366fd3fe6a7dc before the
   runway kept for a player's learnt landing, 197366fd3fe6a7dc, unmoved after - the
   selftest flies no learnt landing.
 - Coverage is asserted across the eight runs: every aeroplane with a learnt
   landing follows at least once, and the second, third and fourth places
-  are flown. The server-timeouts check passes with its totals unchanged.
+  are flown. The server-timeouts check passes, its totals moved to 70 and
+  58 (the wind-limits test's two servers, long ones).
   The other learnt-landing tests pass with the runway now cleared: 109
   tests matching learnt, on_final, gate, ports, flags and usage, and the
   66 window and client tests, with the window now opened before joining

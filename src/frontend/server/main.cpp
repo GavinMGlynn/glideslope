@@ -1120,6 +1120,9 @@ struct Connection {
         bool told_no_runway = false; // and whether that no other runway would do
     };
     std::optional<WaitsOnFinal> waits_on_final;
+    // **Why her aircraft was not put on final**, told her once this session
+    // is proven; empty, nothing to tell.
+    std::string told_later;
     // Their inputs, and how far through them the server has got. The number
     // goes back in every state update so the client knows what to reconcile.
     glideslope::net::InputReceiver inputs;
@@ -1917,9 +1920,9 @@ public:
             flown_.back().loading = loading->loading;
         }
         learn_speeds(flown_.back());
-        if (!wind_refused.empty()) {
-            instructions_.push_back({index, wind_refused});
-        }
+        // Said to her session, not to her aircraft's number: a number is
+        // given again once its aircraft has gone (Connection::told_later).
+        not_on_final_said_ = wind_refused;
         // **On final since now**, for the next player's turn (`final_wait`).
         if (final_kts > 0.0) {
             flown_.back().on_final_since_s =
@@ -2087,7 +2090,7 @@ public:
             return {};
         }
         if (policy->on_final_still_air_only) {
-            return "she is put on final only in still air";
+            return "she is put on final only where no weather is flown";
         }
         const glideslope::sim::InitialConditions at = glideslope::sim::final_approach_start(
             end, first_on_final_m(model, std::nullopt), 0.0, 0.0, 0.0, 3.0);
@@ -3335,15 +3338,14 @@ public:
 
     // **What each person has been told to do for other traffic since last
     // asked** (`TRAFFIC_INSTRUCTION`): her aircraft's number, and the words.
-    // An instruction kept for a session not yet proven.
-    void tell_later(std::uint8_t number, const std::string& what) {
-        later_.push_back({number, what});
+    // **Why the aircraft last given was not put on final**, or empty: for
+    // the session it was given to, told once that session is proven.
+    std::string take_not_on_final() {
+        std::string out;
+        out.swap(not_on_final_said_);
+        return out;
     }
     std::vector<std::pair<std::uint8_t, std::string>> take_instructions() {
-        for (auto& kept : later_) {
-            instructions_.push_back(std::move(kept));
-        }
-        later_.clear();
         std::vector<std::pair<std::uint8_t, std::string>> out;
         out.swap(instructions_);
         return out;
@@ -4819,7 +4821,7 @@ private:
     // asking, the person}; forgotten when she stops asking.
     std::set<std::pair<std::uint8_t, std::uint8_t>> told_to_clear_;
     std::vector<std::pair<std::uint8_t, std::string>> instructions_;
-    std::vector<std::pair<std::uint8_t, std::string>> later_;
+    std::string not_on_final_said_;
     // **Hand-over questions let go and not yet finished**: given up, and
     // kept until nothing of them is running (`Copilot::settled`), so that
     // letting one go never waits on the stepping thread - for its model, or
@@ -5413,6 +5415,7 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                 std::fflush(stdout);
             } else {
                 c.aircraft = fleet->give(*slot, asked, unreadable);
+                c.told_later = fleet->take_not_on_final();
             }
         }
 
@@ -6332,10 +6335,12 @@ int run(const Options& o) {
                             fleet->give(w.slot, w.asked, w.unreadable, wait.final_to);
                         // Every session of her key: one begun again while she
                         // waited is hers too.
+                        const std::string not_on_final = fleet->take_not_on_final();
                         for (auto& [address, c] : connections) {
                             if (c.who == who && c.waits_on_final) {
                                 c.waits_on_final.reset();
                                 c.aircraft = given;
+                                c.told_later = not_on_final;
                             }
                         }
                         std::printf("slot %d's turn on final: aircraft %u, %.1f s on the "
@@ -6371,21 +6376,21 @@ int run(const Options& o) {
                         }
                     }
                 }
-                // **Told to the person it is for**, and to no other client;
-                // one for an aircraft just given, whose session is not yet
-                // proven, kept until it is.
-                for (const auto& [number, what] : fleet->take_instructions()) {
-                    if (std::any_of(connections.begin(), connections.end(),
-                                    [&, n = number](const auto& each) {
-                                        return each.second.aircraft == n && !each.second.proven;
-                                    }) &&
-                        std::none_of(connections.begin(), connections.end(),
-                                     [&, n = number](const auto& each) {
-                                         return each.second.aircraft == n && each.second.proven;
-                                     })) {
-                        fleet->tell_later(number, what);
+                // **Why she was not put on final**, to her session once it is
+                // proven - kept on the session, so that one let go before it
+                // was takes it with it, and another given the same number
+                // later is never told it.
+                for (auto& [address, c] : connections) {
+                    if (!c.proven || c.told_later.empty()) {
                         continue;
                     }
+                    const std::vector<std::uint8_t> told = glideslope::net::write(
+                        glideslope::net::TrafficInstruction{c.aircraft, c.told_later});
+                    (void)c.reliable.send(std::span<const std::uint8_t>(told.data(), told.size()));
+                    c.told_later.clear();
+                }
+                // **Told to the person it is for**, and to no other client.
+                for (const auto& [number, what] : fleet->take_instructions()) {
                     for (auto& [address, c] : connections) {
                         if (!c.proven || c.aircraft != number) {
                             continue;

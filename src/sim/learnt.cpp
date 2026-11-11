@@ -663,21 +663,21 @@ std::string on_final_wind_refuses(const LearntPolicy& policy, double heading_deg
         (wind_east_mps * std::sin(h) + wind_north_mps * std::cos(h)) * kts_per_mps;
     char text[160];
     if (policy.on_final_crosswind_kts >= 0.0 &&
-        std::abs(across_kts) > policy.on_final_crosswind_kts + 0.5) {
+        std::abs(across_kts) > policy.on_final_crosswind_kts) {
         std::snprintf(text, sizeof text,
-                      "%.0f kt across; she is put on final in %.0f across at most",
+                      "%.1f kt across; she is put on final in %.0f across at most",
                       std::abs(across_kts), policy.on_final_crosswind_kts);
         return text;
     }
     if (policy.on_final_tailwind_kts >= 0.0 &&
-        behind_kts > policy.on_final_tailwind_kts + 0.5) {
+        behind_kts > policy.on_final_tailwind_kts) {
         std::snprintf(text, sizeof text,
                       "%.0f kt behind; she is put on final in %.0f behind at most", behind_kts,
                       policy.on_final_tailwind_kts);
         return text;
     }
     if (policy.on_final_headwind_kts >= 0.0 &&
-        -behind_kts > policy.on_final_headwind_kts + 0.5) {
+        -behind_kts > policy.on_final_headwind_kts) {
         std::snprintf(text, sizeof text,
                       "%.0f kt ahead; she is put on final in %.0f ahead at most", -behind_kts,
                       policy.on_final_headwind_kts);

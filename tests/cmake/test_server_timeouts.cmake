@@ -40,9 +40,10 @@ endforeach()
 # a long one each; 68 and 56 since 2026-11-11 too:
 # server_players_take_turns_on_final.cmake, two long ones - its server run
 # with the window client, and without; 69 and 57 since 2026-11-11 too:
-# server_on_final_wind_limits.cmake, a long one).
-set(_expect_uses 69)
-set(_expect_long 57)
+# server_on_final_wind_limits.cmake, a long one; 70 and 58 since 2026-11-11
+# too: its run with a second session, a second long one).
+set(_expect_uses 70)
+set(_expect_long 58)
 set(_expect_short 12)
 set(_expect_nonvalue 4)
 
