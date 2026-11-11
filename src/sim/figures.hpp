@@ -92,6 +92,12 @@ struct PublishedFigures {
     // aeroplane's handbooks, which the file cites. None: the recovery leaves
     // the flaps where they are.
     std::optional<double> go_around_flaps_deg;
+    // **How long her throttles take to reach her engines**, seconds
+    // (`throttle_lag_s`): a first-order lag her model puts between the
+    // throttle lever and the engine, ahead of the engine's own spool. The
+    // autothrottle leads its proportional term by her speed's trend over that
+    // time (sim/autopilot.cpp). 0, none: the lever is the engine's.
+    double throttle_lag_s = 0.0;
     // **Where her own stall warning begins**, knots above her stall
     // (`stall_warning_kts`): the buffet or the horn her handbooks give, which
     // the AI's notice and her plan's slowest keep, where it is more than the

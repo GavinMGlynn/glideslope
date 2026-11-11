@@ -2179,6 +2179,13 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "its full flap");
         }
     }
+    if (root->HasAttribute("throttle_lag_s")) {
+        out.throttle_lag_s = root->GetAttributeValueAsNumber("throttle_lag_s");
+        if (!(out.throttle_lag_s > 0.0 && out.throttle_lag_s <= 5.0)) {
+            throw std::runtime_error(file.string() +
+                                     " gives a throttle_lag_s that is not over 0 and at most 5");
+        }
+    }
     // **No more than 20 knots**: twice the one published warning found, the
     // Mosquito's 10 (A.P. 2019E, 1950, para. 43 (ii)), and four times the
     // rule's least (14 CFR 25.207(c)). A margin past it is more likely a

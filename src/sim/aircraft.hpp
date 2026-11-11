@@ -336,6 +336,7 @@ struct CatalogueFacts {
     double yaw_damper_per_degps = 0.05;
     double rudder_integral_rate = 0.05;
     std::optional<double> go_around_flaps;
+    double throttle_lag_s = 0.0;
     std::optional<WheelBrakes> brakes;
 };
 
@@ -423,6 +424,11 @@ public:
     // catalogue.
     std::optional<double> go_around_flaps() const {
         return go_around_flaps_;
+    }
+    // **How long her throttles take to reach her engines**, seconds, where
+    // her published figures give it (`throttle_lag_s`); 0 otherwise.
+    double throttle_lag_s() const {
+        return throttle_lag_s_;
     }
 
     // **The flap lever's notches**, 0 to 1 and in order, 0 and 1 among
@@ -741,6 +747,7 @@ private:
     double yaw_damper_per_degps_ = 0.05;
     double rudder_integral_rate_ = 0.05;
     std::optional<double> go_around_flaps_;
+    double throttle_lag_s_ = 0.0;
     std::optional<WheelBrakes> wheel_brakes_;
     std::vector<double> flap_notches_;
     bool flap_lever_ = false;
