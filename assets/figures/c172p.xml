@@ -46,9 +46,13 @@
   ruling of 2026-11-11, REQUIREMENTS 6.5) - measured, not published: the
   most in which, left alone two and a third miles out on final to Sydney's
   16R, she was still at her learnt landing's gate thirty seconds later
-  (docs/status/2026-11-11-players-turns-on-final-complete.md): head 5 and 8 kt, behind 2 and 4, across 1 and 2 from either side, 3 from the left to 8 (10 not), but 3 from the right not: heading 5 degrees off; 10 ahead, heading 5 off.
+  (docs/status/2026-11-11-players-turns-on-final-complete.md): every whole
+  knot from 0 to 8 ahead, 4 behind and 2 across either way held; but
+  quartering, 2 across with 5.7 ahead (6 kt from 187) did not (heading 5
+  off), and 1.97 across with 4.7 ahead (5 from 190) did - so 5 ahead, for a
+  wind both ahead and across. Before: head 5 and 8 kt, behind 2 and 4, across 1 and 2 from either side, 3 from the left to 8 (10 not), but 3 from the right not: heading 5 degrees off; 10 ahead, heading 5 off.
 -->
-<published_figures aircraft="c172p" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="30" demonstrated_crosswind_kts="15" on_final_headwind_kts="8" on_final_tailwind_kts="4" on_final_crosswind_kts="2">
+<published_figures aircraft="c172p" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="30" demonstrated_crosswind_kts="15" on_final_headwind_kts="5" on_final_tailwind_kts="4" on_final_crosswind_kts="2">
   <source>Cessna Model 172P Pilot's Operating Handbook, 12 May 1981</source>
 
   <!-- 2400 lb, the maximum take-off weight the handbook's figures are for:
