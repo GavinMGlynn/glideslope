@@ -123,3 +123,17 @@ cost figures in tests/ci_costs are copied from Linux, not measured.
   (240.6 s behind a C172P, 311.7 s behind a J-3 Cub), and past it held
   still with the one ahead 2,700 m on or over the start. Red with three
   miles made one.
+- **Thirty seconds on the session's clock, not the client's** (from CI run
+  42930877921, Windows debug, tests 4/8): the window run failed "place 2,
+  the c172p: only 89 m before the gate's near edge". The window client
+  counted `--press-after` from its own first tick, which comes only once
+  its flight is built: a slow debug client built hers about 4 s after the
+  server gave her (89 m against 220 m here is 131 m, 4.2 s at her 31 m/s),
+  and asked 30 s after that. Reproduced here with the client held up 5 s
+  on purpose (`--slow-start 5`): 66 m, failed. Now, on a server, its
+  seconds after joining are the session's clock from the step the server
+  first said she was its own (`Joined::given_steps`) to the newest it has
+  said; with `--slow-start 5`, 238 m to spare, as the command-line client's.
+  The window run keeps `--slow-start 5`, so that a slow client is the case
+  it tests. The same count serves every window test's `--press-after` on a
+  server, #357's at-the-gate test among them.

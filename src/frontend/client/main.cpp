@@ -2242,9 +2242,25 @@ static int run_program(int argc, char** argv) {
                         press_a();
                     }
                 }
-                const double joined_s =
+                // **Seconds after joining, on the session's clock** where on
+                // a server: from the step the server gave her to the newest
+                // it has said - not this client's ticks, which begin only
+                // once its flight is built. A Windows debug client built
+                // hers some 4 s after the server gave her, pressed L 30 s
+                // after that, and found her 89 m from the gate's near edge
+                // (CI run 42930877921); held up 5 s on purpose
+                // (`--slow-start 5`), 66 m. Alone, its own ticks.
+                double joined_s =
                     static_cast<double>(ticks) /
                     static_cast<double>(glideslope::sim::steps_per_second);
+                if (online && joined) {
+                    if (const auto heard_s = online->newest_heard_s()) {
+                        joined_s = std::max(
+                            0.0, *heard_s - static_cast<double>(joined->given_steps) /
+                                                static_cast<double>(
+                                                    glideslope::sim::steps_per_second));
+                    }
+                }
                 make_the_copilot();
                 if (o.copilot_after_s >= 0.0 && !asked_the_copilot &&
                     joined_s >= o.copilot_after_s) {
