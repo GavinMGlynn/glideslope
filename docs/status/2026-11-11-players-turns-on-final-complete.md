@@ -132,7 +132,7 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
 - `glideslope_cli selftest`, linux-release: hash 197366fd3fe6a7dc before the
   runway kept for a player's learnt landing, 197366fd3fe6a7dc, unmoved after - the
   selftest flies no learnt landing.
-- Coverage is asserted across the six runs: every aeroplane with a learnt
+- Coverage is asserted across the seven runs: every aeroplane with a learnt
   landing follows at least once, and the second, third and fourth places
   are flown. The server-timeouts check passes with its totals unchanged.
   The other learnt-landing tests pass with the runway now cleared: 109
