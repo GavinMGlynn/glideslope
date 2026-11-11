@@ -1119,13 +1119,25 @@ static int run_program(int argc, char** argv) {
             // taken so that it answers.
             double drew_waiting_s = -1.0;
             bool shot_waiting = false;
+            bool closed_while_waiting = false;
             const auto show_waiting = [&](const std::string& reason) {
                 const double now_s = seconds_since_start();
                 if (drew_waiting_s >= 0.0 && now_s - drew_waiting_s < 0.1) {
-                    return;
+                    return true;
                 }
                 drew_waiting_s = now_s;
-                SDL_PumpEvents();
+                // **Closed while she waits**: the window's close, or the
+                // terminal's interrupt, quits as it does in flight.
+                SDL_Event event;
+                while (SDL_PollEvent(&event)) {
+                    if (event.type == SDL_EVENT_QUIT) {
+                        closed_while_waiting = true;
+                    }
+                }
+                if (closed_while_waiting || glideslope::platform::stop_requested()) {
+                    closed_while_waiting = true;
+                    return false;
+                }
                 std::vector<std::string> lines{"WAITING FOR THE AIRCRAFT AHEAD"};
                 for (const std::string& line : glideslope::gfx::hud_notice_lines(reason)) {
                     lines.push_back(line);
@@ -1143,8 +1155,14 @@ static int run_program(int argc, char** argv) {
                     std::printf("glideslope: the window, waiting, shows %s\n", said.c_str());
                     std::fflush(stdout);
                 }
+                return true;
             };
             joined = online->join(10.0, [&] { return seconds_since_start(); }, show_waiting);
+            if (closed_while_waiting) {
+                std::printf("glideslope: closed while waiting for an aircraft; quitting\n");
+                std::fflush(stdout);
+                return 0;
+            }
             if (joined) {
                 std::printf("glideslope: the server gave this client aircraft %u, the %s\n",
                             static_cast<unsigned>(joined->number),

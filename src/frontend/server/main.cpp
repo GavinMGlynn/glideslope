@@ -2120,6 +2120,34 @@ public:
                                   on_final_other_->name});
             }
         }
+        // **Only into a wind her gate admits there**: a southerly at Sydney
+        // is a tailwind down 34L, and the gate refuses more than 5 kt of it;
+        // then she stays held, and the one holding the final has been told
+        // to leave it.
+        if (session_air_) {
+            const glideslope::sim::InitialConditions there_at =
+                glideslope::sim::final_approach_start(*on_final_other_,
+                                                      first_on_final_m(model, std::nullopt),
+                                                      0.0, 0.0, 0.0, 3.0);
+            const glideslope::sim::Conditions air = session_air_->at(
+                there_at.latitude_deg, there_at.longitude_deg,
+                there_at.altitude_ft / feet_per_metre,
+                static_cast<double>(steps_) /
+                    static_cast<double>(glideslope::sim::steps_per_second));
+            const auto policy = learnt_for(model);
+            const std::string refused = glideslope::sim::learnt_gate_wind_refuses(
+                policy.get(), on_final_other_->heading_deg, air.wind_north_mps,
+                air.wind_east_mps);
+            if (!refused.empty()) {
+                if (other_end_refused_said_ != refused) {
+                    other_end_refused_said_ = refused;
+                    std::printf("held past the bound, and the other end, %s, refused: %s\n",
+                                on_final_other_->name.c_str(), refused.c_str());
+                    std::fflush(stdout);
+                }
+                return here.wait;
+            }
+        }
         EndJudged there = judge_end(*on_final_other_, model);
         if (!there.wait.why.empty()) {
             return here.wait;
@@ -4675,6 +4703,8 @@ private:
     std::optional<glideslope::sim::Runway> on_final_;
     // Its runway's other end, where a player held past the bound starts.
     std::optional<glideslope::sim::Runway> on_final_other_;
+    // Why the other end was last refused her, said once.
+    std::string other_end_refused_said_;
     std::optional<double> on_final_out_nm_; // the first player's miles out, if said
     double fail_engines_at_s_ = -1.0;
     // Players given aircraft so far, and how many a wreck waits for

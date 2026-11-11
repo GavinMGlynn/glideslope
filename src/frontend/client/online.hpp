@@ -144,10 +144,12 @@ public:
     // `give_up_after_s` passes. `local_s` reads this machine's clock.
     // `waiting`, if given, is called on every pass while the server has
     // given it no aircraft yet, with the newest reason it said (empty until
-    // it says one): what the window shows while she waits her turn.
+    // it says one): what the window shows while she waits her turn. It
+    // returns false to stop waiting - the window closed - and then this
+    // returns nothing.
     template <typename Clock>
     std::optional<Joined> join(double give_up_after_s, Clock local_s,
-                               const std::function<void(const std::string&)>& waiting = {});
+                               const std::function<bool(const std::string&)>& waiting = {});
 
     // **One frame, before its ticks are flown.** Sends the stick if an input
     // is due, and returns the controls to fly the ticks on: the input sent
@@ -568,7 +570,7 @@ sim::Motion motion_of(const net::OwnMotion& yours);
 
 template <typename Clock>
 std::optional<Joined> Online::join(double give_up_after_s, Clock local_s,
-                                   const std::function<void(const std::string&)>& waiting) {
+                                   const std::function<bool(const std::string&)>& waiting) {
     // **Given up on `give_up_after_s` after the server was last heard**, not
     // after joining began: a server that admits a player and gives her no
     // aircraft yet - her turn on final not come (`--players-on-final`) -
@@ -670,8 +672,8 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s,
                 }
             }
         }
-        if (said_waiting && waiting) {
-            waiting(reason);
+        if (said_waiting && waiting && !waiting(reason)) {
+            return std::nullopt;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(5));
     }

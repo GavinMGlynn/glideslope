@@ -246,6 +246,15 @@ double longest_behind_s(double approach_kts);
 // In words: "landed", "3 miles on", ...
 const char* said(TurnOnFinal turn);
 
+// **Why the wind refuses a final to a runway heading `heading_deg`** for a
+// learnt landing's gate (`policy`, or none: the gate's own limits), the wind
+// blowing towards the north and east at `wind_north_mps` and
+// `wind_east_mps`; empty where it admits it. Its tailwind, headwind,
+// crosswind and the wind in all, as outside_learnt_gate judges them: where
+// a player held past the bound may be sent to a runway's other end.
+std::string learnt_gate_wind_refuses(const LearntPolicy* policy, double heading_deg,
+                                     double wind_north_mps, double wind_east_mps);
+
 // **Where she is against `runway`'s final**: before its threshold along its
 // centreline, right of it, and above its elevation, in metres.
 struct OnFinal {
