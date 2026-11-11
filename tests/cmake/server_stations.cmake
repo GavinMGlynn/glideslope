@@ -42,7 +42,9 @@
 # after with no content (204) or refused (404). The player's joining moves
 # the server to look again (an aircraft more), and the box then answers
 # nothing: **the stations are kept**, said by the server, and the client is
-# told none emptied - it flies the four still, in the blend, as above.
+# told none emptied - it flies the four still. These two fly 40 s, not 190:
+# enough to keep the stations, YSSY's air alone at the first step and no
+# step in the wind; the crossing is the recorded case's.
 #
 # Without the DEM's tiles it reports itself skipped (exit 77), never passed.
 #
@@ -66,7 +68,7 @@ if(DEFINED STUB_PORT_FILE)
     set(_heard "${WORK}/heard.txt")
     file(REMOVE "${_heard}")
     execute_process(
-        COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${KEY}" 190 --after 1 --predict
+        COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${KEY}" ${SECONDS} --after 1 --predict
                 --from-held
                 --heard "${_heard}"
         COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
@@ -148,6 +150,14 @@ string(REPLACE "@TIMES@" "[${_times}]" _text "${_text}")
 set(_forecast "${WORK}/forecast.json")
 file(WRITE "${_forecast}" "${_text}")
 
+# The crossing, flown in full; the kept stations, briefly.
+if(CASE STREQUAL "recorded")
+    set(_seconds 190)
+    set(_least_updates 3000)
+else()
+    set(_seconds 40)
+    set(_least_updates 500)
+endif()
 if(CASE STREQUAL "recorded")
     set(_stub_case 404)
 elseif(CASE STREQUAL "204" OR CASE STREQUAL "404")
@@ -164,7 +174,8 @@ execute_process(
     COMMAND "${CMAKE_COMMAND}" "-DSERVER=${SERVER}" "-DCLIENT=${CLIENT}" "-DDATA=${DATA}"
             "-DCACHE=${CACHE}" "-DWORK=${WORK}" "-DPORT=${PORT}" "-DKEY=${_key}"
             "-DSTORE=${_store}" "-DPLAN=${_plan}" "-DSTUB_PORT_FILE=${_port_file}"
-            "-DRESULT_FILE=${_result_file}" -P "${CMAKE_CURRENT_LIST_DIR}/server_stations.cmake"
+            "-DRESULT_FILE=${_result_file}" "-DSECONDS=${_seconds}"
+            -P "${CMAKE_CURRENT_LIST_DIR}/server_stations.cmake"
     RESULTS_VARIABLE _stub_rcs OUTPUT_VARIABLE _stub_out ERROR_VARIABLE _stub_said)
 port_listened("${_stub_out}" "${_stub_said}")
 if(NOT EXISTS "${_result_file}")
@@ -225,16 +236,19 @@ if(NOT _first STREQUAL "YSSY" OR NOT _first_share STREQUAL "1.000")
     message(FATAL_ERROR "the air at the first step was not YSSY's alone, the nearer's by "
                         "more than the band, but ${_first_share} ${_first}'s:\n${_ran}")
 endif()
-if(NOT _last STREQUAL "YSWS" OR NOT _last_share STREQUAL "1.000")
-    message(FATAL_ERROR "the air at the last step was not YSWS's alone, the nearer's then, "
-                        "but ${_last_share} ${_last}'s - the band was not crossed:\n${_ran}")
+if(CASE STREQUAL "recorded")
+    if(NOT _last STREQUAL "YSWS" OR NOT _last_share STREQUAL "1.000")
+        message(FATAL_ERROR "the air at the last step was not YSWS's alone, the nearer's "
+                            "then, but ${_last_share} ${_last}'s - the band was not "
+                            "crossed:\n${_ran}")
+    endif()
+    if(NOT _least STREQUAL "0.000")
+        message(FATAL_ERROR "YSSY's share fell only to ${_least}, not to nought:\n${_ran}")
+    endif()
 endif()
-if(NOT _least STREQUAL "0.000")
-    message(FATAL_ERROR "YSSY's share fell only to ${_least}, not to nought:\n${_ran}")
-endif()
-message(STATUS "over ${_steps} steps from YSSY's air alone to YSWS's alone the wind changed "
-               "by at most ${_step} m/s in one, at step ${_worst_at}, where YSSY's share was "
-               "${_worst_share}")
+message(STATUS "over ${_steps} steps from YSSY's air alone to ${_last_share} ${_last}'s the "
+               "wind changed by at most ${_step} m/s in one, at step ${_worst_at}, where "
+               "YSSY's share was ${_worst_share}")
 if(_step GREATER STEP_MPS)
     message(FATAL_ERROR "the wind changed by ${_step} m/s in a step, more than ${STEP_MPS}:\n"
                         "${_ran}")
@@ -244,9 +258,9 @@ if(NOT _ran MATCHES "prediction error median: ([0-9.]+) m over ([0-9]+) updates"
 endif()
 set(_median ${CMAKE_MATCH_1})
 set(_updates ${CMAKE_MATCH_2})
-if(_updates LESS 3000)
-    message(FATAL_ERROR "the client compared ${_updates} updates, fewer than the 3,000 a "
-                        "flight of 190 s gives:\n${_ran}")
+if(_updates LESS _least_updates)
+    message(FATAL_ERROR "the client compared ${_updates} updates, fewer than the "
+                        "${_least_updates} a flight of ${_seconds} s gives:\n${_ran}")
 endif()
 message(STATUS "the prediction error's median was ${_median} m over ${_updates} updates")
 if(_median GREATER SAME_M)
