@@ -51,20 +51,21 @@ no flight model.
   50,867, where YSSY's share was 0.000 - the terrain's lift under her, past
   the band - against a bound of 0.05.
 - The server's, `a_client_flies_the_stations_around_it_the_nearers_weather_with_no_step_in_the_wind`
-  (`tests/cmake/server_stations.cmake`; and its 204 and 404 cases), had the
+  (`tests/cmake/server_stations.cmake`), had the
   same gap - its client only entered the band - and now crosses it too: a
   737-300 at 250 kt from the same start, the client predicting her for
   190 s on the trim the server holds her on (`--from-held`), straight along
   the line. Her air was YSSY's alone at the first step and YSWS's alone at
   the last of 22,696; the worst step 0.0096 m/s, at step 2,103, where YSSY's
   share was 0.857 - in the band; the prediction error's median 0.000 m over
-  4,701 updates.
+  4,701 updates. Its 204 and 404 cases fly 40 s, not 190 - enough to show
+  the stations kept - since the three run one at a time.
 - **Seen to fail**, each reverted: with the window's flight given only the
   first slot's station, "the air at the last step was not YSWS's alone ...
   but 1.000"; with a client that keeps slot 0 alone, the server's test the
   same; and before this, `--weather around` was refused.
 - The times put in every `tests/ci_costs/*.txt`, for each driver its
-  platform runs: 150 s for the window's, 195 s for each of the server's
-  three, as measured in linux-debug, until CI measures its own.
+  platform runs: 150 s for the window's, 195 s for the server's crossing
+  and 45 s for each of its 204 and 404 cases, as measured in linux-debug, until CI measures its own.
 
 The selftest hash does not move: the selftest flies no weather.
