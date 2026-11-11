@@ -184,7 +184,8 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
             stations_->set(c.slot, std::move(c.report), 0.0, weather_blend_seconds, 0.0);
         }
         std::fflush(stdout);
-        stations_around_ = std::make_unique<world::StationsAround>(fetch_, weather_refresh_s_);
+        stations_around_ = std::make_unique<world::StationsAround>(fetch_, weather_refresh_s_,
+                                                                   start.restation_m);
         stations_around_->had({at}, 0.0);
         weather_ = stations_->nearest(at.first, at.second);
         aircraft_->set_weather(stations_);

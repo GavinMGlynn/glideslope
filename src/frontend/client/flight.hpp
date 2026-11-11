@@ -66,6 +66,9 @@ struct FlightStart {
     // in; empty for the standard atmosphere with no wind; or `around`
     // (weather_around), the stations around her wherever she goes.
     std::string weather_station;
+    // With `around`, how far she flies before the stations around her are
+    // looked for again (world::restation_m, but for a test).
+    double restation_m = world::restation_m;
     // Microbursts put into that weather, for as long as each lasts.
     std::vector<world::Microburst> microbursts;
     // How often that weather is fetched again, in seconds of the flight: a

@@ -207,14 +207,17 @@ public:
               const world::StationSlots& stations);
     // Steps noted; nought, none.
     std::size_t steps() const { return steps_; }
-    // "air flown: N steps, the wind changing by at most ... m/s in one; most
-    // of it X's at the first (F of it), Y's at the last (S of it), the
-    // first's share at least L".
+    // "air flown: N steps, the wind changing by at most W m/s in one, at step
+    // K, where the first's share was R; most of it X's at the first (F of
+    // it), Y's at the last (S of it), the first's share at least L" - where
+    // the worst step came, so that a reader sees whether it was in the blend.
     std::string said() const;
 
 private:
     std::optional<std::array<double, 3>> last_wind_;
     double worst_wind_step_mps_ = 0.0;
+    std::size_t worst_at_step_ = 0;
+    double first_share_at_worst_ = 0.0;
     std::size_t steps_ = 0;
     std::string first_station_;
     double first_share_ = 0.0;

@@ -17,23 +17,22 @@
 # client_quits_mid_refresh.cmake does - so that a run crossing midnight still
 # finds its hour. YSCB is 248 km away and is not kept.
 #
-# **A flight between one station and the next.** The AI's plan, written here,
-# starts 11.6 km from YSSY on the line to YSWS, 42.8 km apart, pointing at
-# YSWS: YSWS is 19.6 km farther, inside the band where the two blend
-# (world::station_blend_m), so the air is most of it YSSY's, and a little
-# YSWS's, and every way the aircraft flies moves the shares. A player joins
-# and predicts its own aircraft, starting there (2,000 ft above it), for
-# 40 s; the headless client's controls bank it hard both ways, so where it
-# goes is not a straight line, and starting inside the band is what makes
-# the blend certain to be flown. (That the nearer's air is flown alone
-# outside the band, and the whole way from one station to the next, is
-# world's unit tests'.) **Built, not hoped for**:
+# **A flight from one station's air into the next's.** The plan, written
+# here, is a 737-300's: it starts 10.5 km from YSSY on the line to YSWS,
+# 42.8 km apart, pointing along it at YSWS at 250 kt. YSWS is 21.8 km
+# farther there, so the air is YSSY's alone. A player joins and predicts her
+# own 737, starting there (2,000 ft above it), for 190 s, held on the trim
+# and levers the server holds her on (`--from-held`) - straight on along the
+# line, about 25 km: through the band where the two blend
+# (world::station_blend_m), across the midpoint, its steepest part, and out
+# into YSWS's alone. **Built, not hoped for**:
 #
 # - the server says it found four stations and keeps them;
 # - the client is told a weather in each of four slots;
-# - the client says the air it flew: most of it YSSY's, the nearer, at the
-#   first step, YSSY's share below one - in the blend - and the wind
-#   changing by no more than STEP_MPS in any step;
+# - the client says the air it flew: YSSY's alone at the first step, YSWS's
+#   alone at the last, YSSY's share down to nought between, and the wind
+#   changing by no more than STEP_MPS in any step - where the worst came is
+#   said;
 # - its prediction error's median, against where the server says it was, is
 #   within SAME_M: the client flies the stations the server does.
 #
@@ -67,7 +66,8 @@ if(DEFINED STUB_PORT_FILE)
     set(_heard "${WORK}/heard.txt")
     file(REMOVE "${_heard}")
     execute_process(
-        COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${KEY}" 40 --after 1 --predict
+        COMMAND "${CLIENT}" connect "127.0.0.1:${PORT}" "${KEY}" 190 --after 1 --predict
+                --from-held
                 --heard "${_heard}"
         COMMAND "${SERVER}" --port ${PORT} --seconds 300 --until-empty --ai 1 --headless
                 --players 1 --data "${DATA}" --timeout 30 --store "${STORE}"
@@ -99,11 +99,11 @@ if(NOT _out MATCHES "server key ([0-9a-f][0-9a-f]+)\n")
 endif()
 set(_key "${CMAKE_MATCH_1}")
 
-# The plan: from 11.6 km out of YSSY on the line to YSWS, at 2,500 ft,
-# heading 279 true - along that line - at 100 kt, to a point beyond YSWS.
+# The plan: from 10.5 km out of YSSY on the line to YSWS, at 2,500 ft,
+# heading 279 true - along that line - at 250 kt, to a point beyond YSWS.
 set(_plan "${WORK}/towards-ysws.plan")
-file(WRITE "${_plan}" "aircraft c172p\nstart -33.93026 151.04873 2500 279 100\n"
-                      "waypoint WEST -33.880 150.600 2500 100 flyover\n")
+file(WRITE "${_plan}" "aircraft 737-300\nstart -33.93176 151.06051 2500 279 250\n"
+                      "waypoint WEST -33.880 150.600 2500 250 flyover\n")
 
 execute_process(
     COMMAND "${SERVER}" --port 0 --seconds 1 --ai 1 --data "${DATA}" --plan "${_plan}"
@@ -202,25 +202,39 @@ foreach(_slot IN ITEMS 1 2 3)
     endif()
 endforeach()
 # The air it flew.
-set(_said_air "air flown: ([0-9]+) steps, the wind changing by at most ([0-9.]+) m/s in one; ")
-string(APPEND _said_air "most of it ([A-Z0-9]+)'s at the first \\(([0-9.]+) of it\\), ")
-string(APPEND _said_air "([A-Z0-9]+)'s at the last ")
+set(_said_air "air flown: ([0-9]+) steps, the wind changing by at most ([0-9.]+) m/s in one, ")
+string(APPEND _said_air "at step ([0-9]+), where the first's share was ([0-9.]+); most of it ")
+string(APPEND _said_air "([A-Z0-9]+)'s at the first \\(([0-9.]+) of it\\), ([A-Z0-9]+)'s at the last ")
 string(APPEND _said_air "\\(([0-9.]+) of it\\), the first's share at least ([0-9.]+)")
 if(NOT _ran MATCHES "${_said_air}")
-    message(FATAL_ERROR "the client did not say the air it flew:\n${_ran}")
+    message(FATAL_ERROR "the client did not say the air flown:\n${_ran}")
 endif()
 set(_steps ${CMAKE_MATCH_1})
 set(_step ${CMAKE_MATCH_2})
-set(_first ${CMAKE_MATCH_3})
-set(_least ${CMAKE_MATCH_7})
-if(NOT _first STREQUAL "YSSY")
-    message(FATAL_ERROR "the air at the first step was ${_first}'s, not the nearer YSSY's:\n"
-                        "${_ran}")
+set(_worst_at ${CMAKE_MATCH_3})
+set(_worst_share ${CMAKE_MATCH_4})
+set(_first ${CMAKE_MATCH_5})
+set(_first_share ${CMAKE_MATCH_6})
+set(_last ${CMAKE_MATCH_7})
+set(_last_share ${CMAKE_MATCH_8})
+set(_least ${CMAKE_MATCH_9})
+# **From one station's air alone to the other's alone**: the whole band
+# crossed, its steepest part - the middle, where the shares change fastest -
+# with it, so that the step bound held across all of it.
+if(NOT _first STREQUAL "YSSY" OR NOT _first_share STREQUAL "1.000")
+    message(FATAL_ERROR "the air at the first step was not YSSY's alone, the nearer's by "
+                        "more than the band, but ${_first_share} ${_first}'s:\n${_ran}")
 endif()
-if(NOT _least LESS 1)
-    message(FATAL_ERROR "YSSY's share was never below one: the flight was not in the "
-                        "blend, and this tested nothing of it:\n${_ran}")
+if(NOT _last STREQUAL "YSWS" OR NOT _last_share STREQUAL "1.000")
+    message(FATAL_ERROR "the air at the last step was not YSWS's alone, the nearer's then, "
+                        "but ${_last_share} ${_last}'s - the band was not crossed:\n${_ran}")
 endif()
+if(NOT _least STREQUAL "0.000")
+    message(FATAL_ERROR "YSSY's share fell only to ${_least}, not to nought:\n${_ran}")
+endif()
+message(STATUS "over ${_steps} steps from YSSY's air alone to YSWS's alone the wind changed "
+               "by at most ${_step} m/s in one, at step ${_worst_at}, where YSSY's share was "
+               "${_worst_share}")
 if(_step GREATER STEP_MPS)
     message(FATAL_ERROR "the wind changed by ${_step} m/s in a step, more than ${STEP_MPS}:\n"
                         "${_ran}")
@@ -230,13 +244,11 @@ if(NOT _ran MATCHES "prediction error median: ([0-9.]+) m over ([0-9]+) updates"
 endif()
 set(_median ${CMAKE_MATCH_1})
 set(_updates ${CMAKE_MATCH_2})
-if(_updates LESS 500)
-    message(FATAL_ERROR "the client compared ${_updates} updates, fewer than the 500 a flight "
-                        "of 40 s gives:\n${_ran}")
+if(_updates LESS 3000)
+    message(FATAL_ERROR "the client compared ${_updates} updates, fewer than the 3,000 a "
+                        "flight of 190 s gives:\n${_ran}")
 endif()
-message(STATUS "over ${_steps} steps the wind changed by at most ${_step} m/s in one; YSSY's "
-               "share fell to ${_least}; the prediction error's median was ${_median} m over "
-               "${_updates} updates")
+message(STATUS "the prediction error's median was ${_median} m over ${_updates} updates")
 if(_median GREATER SAME_M)
     message(FATAL_ERROR "the prediction's median error was ${_median} m, more than ${SAME_M}:"
                         "\n${_ran}")

@@ -170,6 +170,9 @@ struct Options {
     // the step it is flown from (sim::Prediction::sent). Negative: none.
     double stopped_sending_at_s = -1.0;
     double stopped_sending_ms = 0.0;
+    // Test flag: with --weather around, how far she flies before the stations
+    // around her are looked for again, metres.
+    std::optional<double> restation_m;
     // Test flag: how often --weather is fetched again, in seconds of flight.
     double weather_refresh_s = glideslope::client::weather_refresh_seconds;
     bool weather_refresh_given = false;
@@ -392,6 +395,9 @@ void usage(std::FILE* out) {
         "                nothing more and waiting for nothing (for tests)\n"
         "  --quit-once FILE  hold --quit-at's quit, flying on, until FILE\n"
         "                exists, up to two minutes (for tests)\n"
+        "  --restation M  with --weather around, look for the stations around her\n"
+        "                again each time she has flown M metres, 1,000 or more, not\n"
+        "                50 km (for tests)\n"
         "  --weather-refresh S  fetch --weather again every S seconds of the flight\n"
         "                (at least 1; 900 unless given) (for tests)\n"
         "  --after-ready FILE  on a server, connect only once FILE exists - the\n"
@@ -612,6 +618,11 @@ static int run_program(int argc, char** argv) {
             const auto tick = parse_integer(args[++i]);
             ok = tick && *tick >= 1;
             o.quit_at = tick.value_or(-1);
+        } else if (a == "--restation" && has_value) {
+            const std::string text(args[++i]);
+            char* end = nullptr;
+            o.restation_m = std::strtod(text.c_str(), &end);
+            ok = end != text.c_str() && *end == '\0' && *o.restation_m >= 1000.0;
         } else if (a == "--weather-refresh" && has_value) {
             const std::string text(args[++i]);
             char* end = nullptr;
@@ -843,6 +854,12 @@ static int run_program(int argc, char** argv) {
     }
     if (!o.microbursts.empty() && o.weather_station.empty()) {
         std::fputs("glideslope: a --microburst is put into --weather\n", stderr);
+        return 2;
+    }
+    if (o.restation_m && o.weather_station != glideslope::client::weather_around) {
+        std::fputs("glideslope: --restation is how far she flies before the stations around "
+                   "her are looked for again, with --weather around\n",
+                   stderr);
         return 2;
     }
     if (!o.microbursts.empty() && o.weather_station == glideslope::client::weather_around) {
@@ -1124,6 +1141,9 @@ static int run_program(int argc, char** argv) {
             start.weather_station = o.weather_station;
             start.microbursts = o.microbursts;
             start.weather_refresh_s = o.weather_refresh_s;
+            if (o.restation_m) {
+                start.restation_m = *o.restation_m;
+            }
             start.autopilot = o.autopilot;
             if (!o.plan.empty()) {
                 // A file, or a plan in the data by its name.
