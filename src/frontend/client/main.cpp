@@ -242,6 +242,9 @@ struct Options {
     // For a test: hold the shot, up to five minutes of the flight past its
     // tick, until the learnt landing has its own aircraft at rest.
     bool shot_once_landed = false;
+    // For a test: the window's frame while it waits its turn on final,
+    // written once the server has said why (`--shot-waiting FILE`).
+    std::string shot_waiting;
     // On a server, hold the shot until it has joined again - let go, or its
     // server restarted under it - and been flown by an input sent since.
     bool shot_once_joined_again = false;
@@ -374,6 +377,9 @@ void usage(std::FILE* out) {
         "  --stall-after S  on a server, S seconds after joining, send and answer\n"
         "                nothing, as a stopped process, until the server has let\n"
         "                this client go; it then joins again by itself (for tests)\n"
+        "  --shot-waiting FILE  on a server, write the frame the window shows while\n"
+        "                it waits for an aircraft, once the server has said why\n"
+        "                (for tests)\n"
         "  --shot-once-landed  on a server, hold the shot, up to five minutes of\n"
         "                the flight past its tick, until the learnt landing has this\n"
         "                client's aircraft at rest (for tests)\n"
@@ -735,6 +741,8 @@ static int run_program(int argc, char** argv) {
             o.shot_once_joined_again = true;
         } else if (a == "--shot-once-back") {
             o.shot_once_back = true;
+        } else if (a == "--shot-waiting" && has_value) {
+            o.shot_waiting = std::string(args[++i]);
         } else if (a == "--shot-once-landed") {
             o.shot_once_landed = true;
         } else if (a == "--take-back-after" && has_value) {
@@ -1022,6 +1030,17 @@ static int run_program(int argc, char** argv) {
             return std::chrono::duration<double>(std::chrono::steady_clock::now() - started)
                 .count();
         };
+        // **The window, first**: opened before joining, so that a player the
+        // server makes wait her turn on final sees why while she waits.
+        if (!o.headless) {
+            window =
+                SDL_CreateWindow("glideslope", o.width, o.height, SDL_WINDOW_RESIZABLE);
+            if (window == nullptr) {
+                throw std::runtime_error(std::string("no window: ") + SDL_GetError());
+            }
+        }
+        glideslope::gfx::Renderer renderer(o.driver, window, o.width, o.height);
+        std::printf("glideslope: GPU driver %s\n", renderer.driver().c_str());
         // **Joining a server, if this client was told to.** The session is
         // the network's, not this program's: `glideslope_cli` uses the same
         // one. What the client does with it is still only to stay in it -
@@ -1095,7 +1114,37 @@ static int run_program(int argc, char** argv) {
             if (o.spend_requests_first) {
                 online->spend_requests_first();
             }
-            joined = online->join(10.0, [&] { return seconds_since_start(); });
+            // **While she waits**: the window shows why, as the server says
+            // it, over the sky - redrawn ten times a second, and its events
+            // taken so that it answers.
+            double drew_waiting_s = -1.0;
+            bool shot_waiting = false;
+            const auto show_waiting = [&](const std::string& reason) {
+                const double now_s = seconds_since_start();
+                if (drew_waiting_s >= 0.0 && now_s - drew_waiting_s < 0.1) {
+                    return;
+                }
+                drew_waiting_s = now_s;
+                SDL_PumpEvents();
+                std::vector<std::string> lines{"WAITING FOR THE AIRCRAFT AHEAD"};
+                for (const std::string& line : glideslope::gfx::hud_notice_lines(reason)) {
+                    lines.push_back(line);
+                }
+                const glideslope::gfx::Mesh text =
+                    glideslope::gfx::credits_mesh(lines, o.width, o.height);
+                renderer.render(glideslope::gfx::Camera{}, {}, &text);
+                if (!o.shot_waiting.empty() && !shot_waiting && !reason.empty()) {
+                    shot_waiting = true;
+                    glideslope::gfx::save_bmp(renderer.capture(), o.shot_waiting);
+                    std::string said;
+                    for (const std::string& line : lines) {
+                        said += (said.empty() ? "" : " / ") + line;
+                    }
+                    std::printf("glideslope: the window, waiting, shows %s\n", said.c_str());
+                    std::fflush(stdout);
+                }
+            };
+            joined = online->join(10.0, [&] { return seconds_since_start(); }, show_waiting);
             if (joined) {
                 std::printf("glideslope: the server gave this client aircraft %u, the %s\n",
                             static_cast<unsigned>(joined->number),
@@ -1257,15 +1306,6 @@ static int run_program(int argc, char** argv) {
             scene = glideslope::client::make_scene(o.screen, at);
         }
 
-        if (!o.headless) {
-            window =
-                SDL_CreateWindow("glideslope", o.width, o.height, SDL_WINDOW_RESIZABLE);
-            if (window == nullptr) {
-                throw std::runtime_error(std::string("no window: ") + SDL_GetError());
-            }
-        }
-        glideslope::gfx::Renderer renderer(o.driver, window, o.width, o.height);
-        std::printf("glideslope: GPU driver %s\n", renderer.driver().c_str());
 
         // **How far the terrain drawn is from the terrain flown.** The ground
         // an aircraft meets is always the open DEM; a visual provider may put

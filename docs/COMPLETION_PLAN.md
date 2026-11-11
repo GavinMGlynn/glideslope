@@ -1833,18 +1833,19 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       on final now starts where her gate holds her thirty seconds, and each of
       the four aeroplanes with a gate is still at it then, by the server's
       verdict. Only the first: the next item.
-- [ ] **A second player joining on final starts outside the gate**: the
+- [x] **A second player joining on final starts outside the gate**: the
       players after the first start 2.9, 3.4 and 3.9 miles out, past the
       gate's far edge (2.4), since two cannot be half a mile apart inside its
       0.7 of a mile and each still in it thirty seconds later. *Verification:
       every player joining on final is at the gate thirty seconds later.*
       2026-11-11: each now starts in the gate in her turn (the one ahead 3
       miles on, landed, gone around, off the final, or waited out), told why
-      she waits, and every one is at the gate 30 s after she starts. Still
-      missing: the window client's window does not open until her turn (it
-      says why in its output only); AI aircraft on the same final are not
-      counted; nothing clears the runway for the next; a leader circling
-      over the start holds the next player indefinitely.
+      she waits, and every one is at the gate 30 s after she starts. Done
+      2026-11-11: the window shows why while she waits; an AI aircraft put on
+      that final holds her as a player does; a player the learnt landing has
+      stopped leaves the runway; and one held past the bound by a leader over
+      the start starts on final to the runway's other end, the leader told to
+      leave the final.
 - [ ] **The engine-stop prediction test fails on Windows clang when the
       server is held up**: its client, pacing 1.6 to 1.7 times its own clock
       to catch up, is put right by metres and misses its speed bound - since

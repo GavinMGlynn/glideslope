@@ -3971,13 +3971,15 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 # follower the window client (headless) waiting and told why, the third's
 # begun again on its key while it waits. See
 # cmake/server_players_take_turns_on_final.cmake.
-set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p+window|pa28,c172p,c182+restart")
+set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p+window|pa28,c172p,c182+restart|c172p+ai|c172p,pa28+circle")
 set(_turns_names
     four_players_joining_on_final_a_c172p_c182_cub_and_pa28_take_turns_and_each_is_at_the_gate_thirty_seconds_after_she_starts
     the_window_client_joining_on_final_behind_a_pa28_waits_told_why_and_is_at_the_gate_thirty_seconds_after_she_starts
-    a_player_begun_again_on_her_key_while_she_waits_her_turn_on_final_keeps_it_and_is_at_the_gate_thirty_seconds_after)
-set(_turns_ports 24834 24887 24897)
-foreach(_turns_run IN ITEMS 0 1 2)
+    a_player_begun_again_on_her_key_while_she_waits_her_turn_on_final_keeps_it_and_is_at_the_gate_thirty_seconds_after
+    a_player_joining_on_final_behind_an_ai_aircraft_on_it_waits_for_it_and_is_at_the_gate_thirty_seconds_after_she_starts
+    a_player_held_past_the_bound_by_one_orbiting_over_the_start_starts_on_final_to_the_other_end_and_is_at_its_gate)
+set(_turns_ports 24834 24887 24897 24917 24927)
+foreach(_turns_run IN ITEMS 0 1 2 3 4)
     list(GET _turns_names ${_turns_run} _turns_name)
     list(GET _turns_ports ${_turns_run} _turns_port)
     add_test(NAME ${_turns_name}
@@ -3987,6 +3989,7 @@ foreach(_turns_run IN ITEMS 0 1 2)
             -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/turns_on_final_${_turns_run} -DPORT=${_turns_port}
             "-DORDERS=${GLIDESLOPE_TURNS_ON_FINAL}" -DRUN=${_turns_run}
+            -DORBIT=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/route-orbit-over-the-16r-start.txt
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_players_take_turns_on_final.cmake)
     set_tests_properties(${_turns_name} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/turns_on_final_${_turns_run})
