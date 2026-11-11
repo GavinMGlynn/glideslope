@@ -106,7 +106,12 @@
   hers: no F-22 crosswind limit or ground-handling figure was found
   (searched 2026-11-04).
 -->
-<published_figures aircraft="f22" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="0" touchdown_fpm="200" yaw_rate_pedal_per_degps="0.3" roll_out_stick_per_degps="0.07" roll_out_track_rudder_per_deg="0.8" roll_out_yaw_damping_share="0.5" stall_warning_kts="12">
+<!-- **throttle_lag_s, 1**: her model's own throttle filter, a lag of a
+     second between each throttle and its engine (fcs/throttle-filter,
+     tools/make_f22.py), ahead of the engine's spool. Her autothrottle leads
+     by it (sim/autopilot.cpp); without, her speed hunted 10 kt round her
+     tightest orbit at 197, 222 and 237 KCAS (2026-11-11). -->
+<published_figures aircraft="f22" rotation_degps="4" rotation_stick_per_degps="0.1" flaps_full_deg="0" touchdown_fpm="200" yaw_rate_pedal_per_degps="0.3" roll_out_stick_per_degps="0.07" roll_out_track_rudder_per_deg="0.8" roll_out_yaw_damping_share="0.5" stall_warning_kts="12" throttle_lag_s="1">
   <source>DoD Selected Acquisition Report, F-22, December 2010; USAF F-22 fact sheet</source>
 
   <!-- 54,960 lb: the fact sheet's empty weight, 43,340 lb; the pilot, 230
@@ -233,8 +238,8 @@
        NAS Fallon, 13 April 2018 (released 15 November 2018), gives that
        day's take-off data for a military power take-off as 143 KCAS to
        rotate and 164 KCAS to take off, at a weight it does not give. -->
-  <takeoff_speeds rotate_kcas="145" climb_kcas="230" flaps_deg="0" weight_lbs="61570">
-    Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 145 kt, unstuck (5 ft up) at 156 kt; 150 is written, 5 kt to spare, and she is unstuck at about 158 - against the Fallon report's 143 and 164. Rotated sooner, her nose comes up at four degrees a second and she floats in ground effect: rotated at 110 she was unstuck only at 143, and at 140 at 155, just over 15 kt on. Until 2026-10-14 110 was written: her pitch loop's integrator, wound up against her nose wheel, snatched her nose up at ten to thirteen degrees a second and threw her off at about 119. The climb away: asked 120 to 205 kt, at military power she was at 500 ft never slower than 222.7 kt, and faster the faster asked - she cannot be held slower - which is written rounded up. With no flap, at 61,570 lb, the weight her model flies a plan at. Measured again on 2026-11-05 (linux-release), once the take-off raised her gear on a positive rate of climb (sim::Departure::raise_the_gear), where until then it never raised it: the rotation is unchanged, and the slowest she climbed away at was 226.6 kt, written as 230 (it was 222.7, written as 225). Measured again on 2026-11-11 (linux-release), once her throttles reached her engines without the pinned model's second of lag (tools/make_f22.py): she lifted off from 140 kt, so 145 is written; the slowest she climbed away at was 225.1 kt, still written as 230.
+  <takeoff_speeds rotate_kcas="150" climb_kcas="230" flaps_deg="0" weight_lbs="61570">
+    Rotation: from 100 kt in 5 kt steps, the first that lifted her off within 15 kt of itself, unwrecked, inside the 3,500 m runway, and never 5 kt slower once off, was 145 kt, unstuck (5 ft up) at 156 kt; 150 is written, 5 kt to spare, and she is unstuck at about 158 - against the Fallon report's 143 and 164. Rotated sooner, her nose comes up at four degrees a second and she floats in ground effect: rotated at 110 she was unstuck only at 143, and at 140 at 155, just over 15 kt on. Until 2026-10-14 110 was written: her pitch loop's integrator, wound up against her nose wheel, snatched her nose up at ten to thirteen degrees a second and threw her off at about 119. The climb away: asked 120 to 205 kt, at military power she was at 500 ft never slower than 222.7 kt, and faster the faster asked - she cannot be held slower - which is written rounded up. With no flap, at 61,570 lb, the weight her model flies a plan at. Measured again on 2026-11-05 (linux-release), once the take-off raised her gear on a positive rate of climb (sim::Departure::raise_the_gear), where until then it never raised it: the rotation is unchanged, and the slowest she climbed away at was 226.6 kt, written as 230 (it was 222.7, written as 225).
   </takeoff_speeds>
 
   <landing_distance ft="8400" basis="measured" factor="1">

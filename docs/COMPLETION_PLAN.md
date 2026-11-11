@@ -927,12 +927,6 @@ Engines, figures, airframes, aerodynamics and stalls: each aircraft flown to wha
       runs; 0.002 everywhere else); their bound is 0.025, the lone scene's
       stays 0.010. Still to do: the three run 20 times on Windows debug here,
       alone and loaded.
-- [ ] **The F-22A's sustained turn is 7.87 deg/s, over the report's band**
-      (2026-11-11): with her throttle filter removed her thrust comes a
-      second sooner in the 12 s turn. Each span efficiency that fixes it
-      breaks her glide, her climb speed's recording or her stall; the owner
-      decides. *Verification: her sustained turn inside 6.84 to 7.84 deg/s,
-      with her glide, stall, take-off and plan-speed tests green.*
 
 ---
 
@@ -1064,8 +1058,8 @@ The autopilot's navigator and the plans it flies: orbits, glides, the speeds a p
       file; plans, the copilot's routes and plan files outside them are
       refused; all sixteen hold their height and speed round the orbit
       every 5 kt between them. The nightly was red on the F-22A from
-      2026-11-03 to 11-11, her throttle hunting at three speeds; fixed, and
-      those three are flown on every pull request.
+      2026-11-03 to 11-11, her autothrottle hunting against her engines' lag at
+      three speeds; fixed, and those three are flown on every pull request.
 - [x] **At its fastest, a fast aircraft's tightest orbit is flown well off
       its circle.** Round 13 to 19 km circles at 300 to 360 kt the jets
       hold their height and speed but wander up to 18% of the radius off the

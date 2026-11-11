@@ -275,6 +275,7 @@ CatalogueFacts from_catalogue(const std::filesystem::path& data, const std::stri
         const std::filesystem::path figures = data / "figures" / (model + ".xml");
         if (std::filesystem::is_regular_file(figures)) {
             const PublishedFigures published = read_published_figures(figures);
+            found.throttle_lag_s = published.throttle_lag_s;
             if (published.go_around_flaps_deg) {
                 found.go_around_flaps =
                     *published.go_around_flaps_deg / published.flaps_full_deg;
@@ -544,6 +545,7 @@ Aircraft::Aircraft(const std::filesystem::path& jsbsim_root, const std::string& 
       yaw_damper_per_degps_(catalogue.yaw_damper_per_degps),
       rudder_integral_rate_(catalogue.rudder_integral_rate),
       go_around_flaps_(catalogue.go_around_flaps),
+      throttle_lag_s_(catalogue.throttle_lag_s),
       wheel_brakes_(catalogue.brakes),
       model_(model),
       exec_(quiet_exec()) {

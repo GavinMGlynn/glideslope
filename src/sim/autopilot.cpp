@@ -235,6 +235,18 @@ constexpr double upset_roll_rate_degps = 15.0;
 constexpr double a_hands_pace = 1.0 / static_cast<double>(steps_per_second);
 // Airspeed to throttle, which moves at a quarter of its travel a second -
 // slower than a hand, because an engine does not care to be slammed.
+// **Where her throttles reach her engines through a lag, the proportional
+// term leads by it** (Aircraft::throttle_lag_s, her figures file's
+// `throttle_lag_s`): the speed off less her speed's trend over that time.
+// The F-22A's model lags her throttles a second ahead of her engines' own
+// spool, and with thrust near her weight the loop swung: round her tightest
+// orbit at 197, 222 and 237 KCAS her speed hunted 10 kt peak to peak and her
+// throttle 0.08 to 0.99 every 7.5 s. An autothrottle's lead on the speed's
+// rate - its acceleration - is the usual answer to an engine that answers
+// late: a windshear patent (US 3,955,071) adds a proportional acceleration
+// term to its autothrottle for the lead it gives the throttle command. Led by 0.5, 1, 2 or 4 s she held all three; 1 s, the lag
+// itself, is written. Without a lag the term is nothing, so no other
+// aircraft moves.
 constexpr double throttle_per_knot = 0.08;
 constexpr double throttle_integral_per_knot = 0.02;
 constexpr double throttle_rate = 0.25;
@@ -1153,7 +1165,8 @@ Controls Autopilot::fly() {
             unloading_                   ? last_.throttle
             : holding_speed_ || on_speed ? 1.0
                                          : throttle_integral_ +
-                                               throttle_per_knot * (speed_off + climb_as_kts);
+                                               throttle_per_knot * (speed_off + climb_as_kts -
+                                                                    a_.throttle_lag_s() * kts_per_s_);
 
         const double next =
             std::clamp(toward(last_.throttle, wanted, throttle_rate * dt), 0.0, 1.0);

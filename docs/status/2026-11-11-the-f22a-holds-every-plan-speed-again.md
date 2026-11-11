@@ -4,24 +4,9 @@
 - **Pull requests fly three of her 42 plan speeds** (197, 222 and 237 KCAS,
   below) besides her two ends; the rest stay with the nightly's
   `plan-speeds --every`.
-- **Her throttle response is not sourced.** The filter removed here was the
-  pinned model's, and no F119 spool time or F-22 throttle filter was found
-  published.
-- **Her sustained turn is out of its band: 7.87 deg/s against the report's
-  7.34, whose band ends at 7.84** (`figures f22`, and the test
-  `the_f22_sustains_its_published_turn_at_mach_0_9_and_30000_ft`, red). The
-  turn is measured over 12 s from a throttle step, and without the filter
-  her thrust arrives a second sooner. SPAN_EFFICIENCY, which that turn set,
-  is left at 0.62 for the owner to decide, because every value that fixes
-  the turn breaks something else (swept on linux-release):
-  0.62 7.87; 0.61 7.82, 0.02 inside the band, her glide speed held, her
-  climb-away speed 225 - which changes the brief, and the recorded CBD-orbit
-  plan must be recorded again; 0.60 7.75, but she stalls gliding round her
-  tightest orbit at her glide speed, 225 kt; 0.54 7.37, pinned to the
-  report, and her glide stalls and her stall at idle moves 1.1 kt.
-  Alternatively a half-second filter (lag 2) holds the three speeds with her
-  turn at 7.63, but it moves her take-off speeds too, and its 42 speeds,
-  glide and landing were not flown.
+- **Her throttle lag is her model's, not a source's.** The one-second filter
+  the autothrottle now leads by is the pinned JSBSim model's; no F119 spool
+  time or F-22 throttle response was found published.
 
 **What was red.** The nightly job "Every speed a plan may ask of every
 aircraft" failed every night from 2026-11-03 (run 41728129167) to 2026-11-10
@@ -45,50 +30,52 @@ her stall with the gear down), and the nightly's 5 kt steps moved from 140,
 (196 failed) and then 157, 162, ... (197, 222 and 237 failed). Those speeds
 were always unsafe; the nightly only now flew them.
 
-**The cause.** Traced every half second round the 197 kt orbit, her speed
-hunted 197.5 to 209 kt and her throttle 0.08 to 0.99 every 7.5 s, from the
-start and never settling. The pinned model sends each throttle through a lag
-filter of a second (`fcs/throttle-filter`, made an actuator by make_f22.py
-for the trim) before the engine, whose own spool (JSBSim's turbine) lags
-again; the F-15C's and the F-35B's throttles reach their engines directly.
-Two lags in the autothrottle's loop, against thrust near her weight, leave
-it a limit cycle at some speeds. With the filter's lag 100 a second, all
-nine speeds from 197 to 237 held within a knot.
+**The cause: the autothrottle, against a lagged engine.** Traced every half
+second round the 197 kt orbit, her speed hunted 197.5 to 209 kt and her
+throttle 0.08 to 0.99 every 7.5 s, from the start and never settling. Her
+model sends each throttle through a lag of a second (`fcs/throttle-filter`)
+ahead of the engine's own spool; with thrust near her weight, the
+autothrottle's proportional and integral law on the speed alone - 0.08 of
+the throttle a knot - is a loop that limit-cycles. A real F-22's engines lag
+too, so the controller is what is fixed, not the model. (Removing the filter
+held the speeds as well, but moved her sustained turn from 7.35 to 7.87
+deg/s, out of the report's band, and her rotation speed; it was not kept.)
 
-**Searched, 2026-11-11**: JSBSim's f22 and its throttle filter, FGTurbine's
-spool (its rate is set by the bypass ratio), the F119's FADEC and its idle
-to military time, and autothrottle limit cycles with engine lag. No F119
-spool time or F-22 throttle filter is published that we found; the F119's
-descriptions say only that its FADEC tolerates rapid throttle movement, and
-an autothrottle patent notes that filters in its path cause overshoot -
-which is what the trace shows.
+**Searched, 2026-11-11**: autothrottle design with engine spool lag, speed
+loops with acceleration or derivative terms; JSBSim's own autothrottles
+(its Global 5000 and C310 autopilots, and the FlightGear and JSBSim
+autopilot documentation); JSBSim's f22 and its throttle filter; FGTurbine's
+spool; the F119's FADEC and its spool time. Patents for autothrottles and
+flight-path guidance compensate spool lag with an acceleration term or a
+thrust-error term; a windshear patent (US 3,955,071) adds a proportional
+acceleration term for the lead it gives the throttle command and models an
+engine as a 1 to 2 s first-order lag. No F119 spool time was found.
 
-**The fix.** `tools/make_f22.py` removes the filter: each throttle command
-reaches its engine's summer as the other fighters' do, and the engine spools
-("The throttles reach the engines" in its docstring). Nothing in the
-autopilot changes, so no other aircraft moves. Two of her figures, each
-measured over seconds from a throttle step, moved with it:
-
-- **Her sustained turn**, 7.35 to 7.87 deg/s (above: open). Traced: at the
-  end of the turn both models make 21,000 lb an engine; it is the second's
-  head start in the 12 s that moves it.
-- **Her rotation speed**, `takeoff-speeds f22`: she lifts off from 140 kt,
-  so 145 is written where 150 was. Her climb-away, 225.1 kt at 500 ft, is
-  still written as 230.
+**The fix.** The autothrottle's proportional term leads by the aircraft's
+throttle lag: it answers the speed off less the speed's trend (its own,
+smoothed over a second) times `throttle_lag_s`, a new attribute of the
+figures file's `<published_figures>` (checked: over 0 and at most 5 s).
+The F-22A's is 1, her filter's own; no other aircraft gives one, and where
+it is 0 the term is nothing, so no other aircraft's flight changes. Swept on
+the three speeds: 0 fails all three; 0.5, 1, 2 and 4 s hold all three.
+`tools/make_f22.py` and her model are main's, unchanged.
 
 **Verification.**
-- `plan-speeds f22 --every`: 42 of 42 from 157 to 360 kt held. Of the
-  other fifteen, flown the same way three at a time, the thirteen that ran
-  through hold all of their speeds; the A380's and the C172P's runs were cut
-  short by a reconfigure of the build under them (the A380 held every speed
-  it reached, to 271 kt). No file of theirs is changed here.
+- `plan-speeds --every` on linux-release, three at a time, nothing
+  reconfigured under the runs: the F-22A 42 of 42 from 157 to 360 kt; and
+  every other aircraft all of its speeds - 737-300 27, 747-400 19, 787-8
+  23, A320 29, A380 21, B-2A 28, C172P 11, C182 14, F-15C 41, F-35B 41,
+  J-3 Cub 5, Learjet 35A 34, Mosquito 28, PA-28 11, S.23 11.
 - Three new tests, run on pull requests, each flying one of the speeds that
   failed, both ways round in calm air and a 10 kt wind:
   `the_f22a_holds_{197,222,237}_kt_round_her_tightest_orbit_where_her_throttle_once_hunted`,
-  about 10 s each on linux-release. Seen red on main's model: all three
-  fail, each in 2 to 6 s.
-- `ctest -R f22` on linux-release: her gust, stall, roll-out, landing,
-  take-off, glide and orbit tests pass but for her sustained turn (above);
-  `figures f22`, 5 of 6 in range.
-- `make_f22.py --check` passes. The selftest hash does not move: it flies
-  the C172P, whose files are untouched.
+  about 7 s each on linux-release, 67 to 83 s on linux-debug under -j4. Seen
+  red with the lead at 0 - main's autothrottle - all three, in 2 to 6 s.
+- `ctest -R f22` on linux-release: 44 of 44 (one live-model test skipped,
+  no key asked), her sustained turn 7.35 deg/s and rotation 150 kt as on
+  main.
+- The quick tests on linux-debug - every test under 5 s in
+  tests/ci_costs/linux-debug.txt, live ones left out, and the three new
+  ones: 666 of 666.
+- The selftest hash does not move (`ctest -R selftest`): the C172P gives no
+  throttle lag.
