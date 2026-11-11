@@ -121,27 +121,12 @@ The changes, and what each is for:
                         holds her at until her player's first input, found
                         by glideslope's trim (sim/aircraft.cpp), about which
                         the integrator works from nought.
-    The throttles reach the engines
-                        The throttles reached the engines through a lag
-                        filter of a second, on top of the engine's own spool
-                        (JSBSim's turbine, from its bypass ratio), which the
-                        F-15C's and the F-35B's throttles reach theirs
-                        without. The two lags together, against her thrust -
-                        near her weight - made the autothrottle a loop that
-                        swung: at 197, 222 and 237 KCAS round a plan's
-                        tightest orbit her speed hunted 10 kt peak to peak,
-                        throttle from 0.1 to 1 every 7.5 s, and never
-                        settled (docs/status/2026-11-11-the-f22a-holds-every-
-                        plan-speed-again.md); without the filter it holds
-                        within a knot. No published F-22 figure gives the
-                        filter, and with time stopped it did not move either,
-                        so the trim could not find her power. It is removed:
-                        the throttles reach the engines as the other
-                        fighters' do, and the engine spools. Her sustained
-                        turn, measured over 12 s from full throttle, then
-                        rose from 7.35 to 7.87 deg/s, past the report's
-                        band's 7.84; SPAN_EFFICIENCY, which it set, is left
-                        as it was until that is decided (COMPLETION_PLAN.md).
+    The throttle lags   The throttles reached the engines through a lag
+                        filter of a second, which with time stopped does not
+                        move either, so the trim could not find her power.
+                        Each is an actuator with the same lag, which JSBSim
+                        passes straight through while it trims and lags the
+                        same as the filter in flight.
     The leading edge flaps' filter
                         The flaps follow her angle of attack through a lead
                         filter, (2s + 7.25) / (s + 7.25), which with time
@@ -541,9 +526,9 @@ LEF_LAG = 7.25  # the leading edge flaps' filter's pole, per second, the model's
 
 def with_trimmable_pitch_and_power(text):
     """A held trim on the elevators' command after the pitch loop, and the
-    throttles straight to the engines and the flaps' filter an actuator, so
-    that a trim moves them: see "The held trim", "The throttles reach the
-    engines" and "The leading edge flaps' filter" above."""
+    throttle lags and the flaps' filter actuators, so that a trim moves them:
+    see "The held trim", "The throttle lags" and "The leading edge flaps'
+    filter" above."""
     text = replace_once(
         text, r"(    <flight_control name=\"F-22 FC\">\n)",
         lambda m: m.group(1) + "        <!-- glideslope: tools/make_f22.py - the held trim -->\n"
@@ -558,11 +543,9 @@ def with_trimmable_pitch_and_power(text):
         "            </summer>\n\n" + m.group(1) + "fcs/elevator-trimmed" + m.group(2),
         "the elevators' actuator")
     text, n = re.subn(
-        r"            <!-- Throttle filter -->\s*<lag_filter name=\"(fcs/throttle1?-filter)\">\s*"
-        r"<input>(fcs/throttle-cmd-norm(?:\[1\])?)</input>\s*<c1>1</c1>\s*</lag_filter>\s*"
-        r"(<summer name=\"fcs/t[12]-summer\">\s*<input>)fcs/throttle1?-filter(</input>)",
-        r"            <!-- glideslope: tools/make_f22.py - no throttle filter: the engine spools -->\n"
-        r"            \3\2\4", text)
+        r"<lag_filter name=\"(fcs/throttle1?-filter)\">(\s*<input>fcs/throttle-cmd-norm(?:\[1\])?</input>\s*)"
+        r"<c1>1</c1>(\s*)</lag_filter>",
+        r'<actuator name="\1">\2<lag>1</lag>\3</actuator>', text)
     if n != 2:
         raise SystemExit(f"{SCRIPT}: found {n} throttle filters, not 2 - has the pinned model changed?")
     # (2s + 7.25) / (s + 7.25) is 2 - 7.25 / (s + 7.25): twice the input less

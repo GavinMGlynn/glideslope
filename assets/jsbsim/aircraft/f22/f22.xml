@@ -1800,9 +1800,14 @@
                 <output>fcs/throttle-override</output>
             </pure_gain>
 
-            <!-- glideslope: tools/make_f22.py - no throttle filter: the engine spools -->
-            <summer name="fcs/t1-summer">
+            <!-- Throttle filter -->
+            <actuator name="fcs/throttle-filter">
                 <input>fcs/throttle-cmd-norm</input>
+                <lag>1</lag>
+            </actuator>
+
+            <summer name="fcs/t1-summer">
+                <input>fcs/throttle-filter</input>
                 <!--input>fcs/throttle-override</input-->
                 <clipto>
                     <min>fcs/throttle-override</min>
@@ -1816,9 +1821,14 @@
                 <output>fcs/throttle-pos-norm</output>
             </pure_gain>
 
-            <!-- glideslope: tools/make_f22.py - no throttle filter: the engine spools -->
-            <summer name="fcs/t2-summer">
+            <!-- Throttle filter -->
+            <actuator name="fcs/throttle1-filter">
                 <input>fcs/throttle-cmd-norm[1]</input>
+                <lag>1</lag>
+            </actuator>
+
+            <summer name="fcs/t2-summer">
+                <input>fcs/throttle1-filter</input>
                 <!--input>fcs/throttle-override</input-->
                 <clipto>
                     <min>fcs/throttle-override</min>

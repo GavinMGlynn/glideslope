@@ -1109,9 +1109,10 @@ GLIDESLOPE_TEST(the_f22a_holds_nothing_a_plan_asks_one_step_past_its_fastest) {
 // **The F-22A holds her speed round her tightest orbit at the speeds where
 // her throttle once hunted**: 197, 222 and 237 KCAS, a test each, both ways
 // round in calm air and a 10 kt wind - four orbits each, every one flown.
-// Through the 1 s lag filter her pinned model put on her throttles, on top of
-// her engines' own spool, the autothrottle swung her 10 kt peak to peak every
-// 7.5 s at these speeds and no other the nightly flies (`plan-speeds f22
+// Against the 1 s lag her model puts on her throttles, ahead of her engines'
+// own spool, the autothrottle - until it led by that lag (her figures'
+// throttle_lag_s) - swung her 10 kt peak to peak every 7.5 s at these speeds
+// and no other the nightly flies (`plan-speeds f22
 // --every`, red every night from 2026-11-03), while the tests above fly only
 // her slowest and fastest. The rest of her 42 speeds are the nightly's: two
 // orbits' worth of a pull request's time each. Each orbit stops as soon as it
