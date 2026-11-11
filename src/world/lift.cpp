@@ -175,7 +175,10 @@ double environment_sink(const Convection& c, double height_m) {
     const double zzi = height_m / c.depth_m;
     const double rbar = mean_radius(c, height_m);
     const double wtbar = allen_mean_updraught(c, height_m);
-    const double swd = zzi > 0.5 && zzi <= 0.9 ? 2.5 * (zzi - 0.5) : 0.0;
+    // Allen's downdraft share rises from nought halfway up to all of it 0.9 of
+    // the way up, where his ends; held there, not dropped, so that the air
+    // steps nothing (thermal_updraught fades it all over the top tenth).
+    const double swd = zzi > 0.5 ? std::min(1.0, 2.5 * (zzi - 0.5)) : 0.0;
     const double spacing = thermal_spacing_m(c);
     const double area = spacing * spacing;
     const double updrafts = mean_life * pi * rbar * rbar;
@@ -210,8 +213,9 @@ double allen_updraught(const Convection& c, double height_m, double distance_m,
     // The ring of sinking air at its edge, in the layer's upper half.
     const double w1 = r > r1 && rr2 < 2.0 ? (pi / 6.0) * std::sin(pi * rr2) : 0.0;
     double wd = 0.0;
-    if (zzi > 0.5 && zzi <= 0.9) {
-        wd = std::min(0.0, 2.5 * (zzi - 0.5) * w1);
+    if (zzi > 0.5) {
+        // Held above 0.9 of the way up as the sink's share is.
+        wd = std::min(0.0, std::min(1.0, 2.5 * (zzi - 0.5)) * w1);
     }
     const double w2 = ws * wc + wd * wt;
 
@@ -262,7 +266,12 @@ double thermal_updraught(std::uint64_t seed, const Convection& c, const Enu& pos
             w += t.life * (allen_updraught(c, z, distance, t.gain, sink) - sink);
         }
     }
-    return w;
+    // **Fading to nothing over the layer's top tenth.** Allen's mean
+    // updraught at the top is -0.1 w*, not nought, and above it there are no
+    // thermals: without this a flight crossing the top - climbing, or over
+    // ground falling away beneath her - met a step in the wind.
+    const double top = 0.1 * c.depth_m;
+    return w * std::min(1.0, (c.depth_m - z) / top);
 }
 
 double terrain_updraught(const TerrainAlong& terrain, double height_msl_m,

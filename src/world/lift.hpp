@@ -19,7 +19,9 @@
 // Lenschow measured their spacing, sets the grid's size. Each lives twenty
 // minutes, growing over its first three and fading over its last three, and
 // the next rises elsewhere in its cell; where two overlap, what each adds to
-// the sink between them is added.
+// the sink between them is added. His mean updraught at the layer's top is
+// not nought but -0.1 w*, and above it there are none, so they fade to
+// nothing over the layer's top tenth: the air steps nothing there.
 //
 // **Ridge lift and mountain waves** are linear theory: air of buoyancy
 // frequency N crossing terrain h(x) at a speed U is displaced upwards by
