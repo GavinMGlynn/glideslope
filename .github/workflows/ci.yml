@@ -136,8 +136,11 @@ env:
 #   - Every night (schedule): everything, every preset, timing in release,
 #     and the tests labelled nightly, which no pull request's run has (they
 #     fail on CI twice for one cause; tests/CMakeLists.txt names each), and
-#     those labelled gust_sweep, which no pull request's run has either: the
-#     gust landings' seeds 9 to 40, too long for one (tests/CMakeLists.txt).
+#     those labelled gust_sweep, which no pull request's run has either:
+#     flights too long for one (tests/CMakeLists.txt). Since 2026-11-13 the
+#     gust_sweep tests run in sweep jobs of their own (below, at "The gust
+#     sweep"), and the shard jobs leave them out on every event. A dispatch
+#     runs what a night does.
 #
 # **Every preset runs somewhere.** The Linux presets on Ubuntu (both) and Rocky 9
 # (release), the macOS presets on macOS, the Windows presets on Windows. A
@@ -298,9 +301,9 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }} || rc=$?
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }} || rc=$?
           kill $xvfb
           exit $rc
       # **The figures the tests said, whether they passed or not** (each
@@ -368,9 +371,9 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }} || rc=$?
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }} || rc=$?
           kill $xvfb
           exit $rc
       # **The figures the tests said, whether they passed or not** (each
@@ -569,9 +572,9 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           source /opt/rh/gcc-toolset-14/enable
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly|gust_sweep' || '' }}" -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly|gust_sweep' || 'gust_sweep' }}" -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
-          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && '-LE "nightly|gust_sweep"' || '' }} || rc=$?
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && '-LE "nightly|gust_sweep"' || '-LE gust_sweep' }} || rc=$?
           kill $xvfb
           exit $rc
       # **The figures the tests said, whether they passed or not** (each
@@ -758,8 +761,8 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake
-          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
       # afresh by a test that runs ctest itself), so that a bound is set from
@@ -823,8 +826,8 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake
-          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
       # afresh by a test that runs ctest itself), so that a bound is set from
@@ -1049,8 +1052,8 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake || exit /b 1
-          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake || exit /b 1
+          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
 
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
@@ -1180,8 +1183,8 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake || exit /b 1
-          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake || exit /b 1
+          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
 
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
@@ -1245,6 +1248,340 @@ jobs:
             !.downloads/test-scratch
           key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
           enableCrossOsArchive: true
+
+  # ---------------------------------------------------------------------------
+  # **The gust sweep** (tests labelled gust_sweep, tests/CMakeLists.txt): on
+  # a schedule and a dispatch only, in shards of their own, so that a pull
+  # request's shards - which leave the label out - are sized as before. Every
+  # scheduled run from 2026-11-05 to 11-11 was cut off in every shard (runs
+  # 42115457538 to 43111884667): the sweep's tests had grown by 51, of 1,400 to
+  # 2,500 s and more each on CI, dealt into the pull requests' shards at the
+  # 60 s the table gave a test it did not know.
+  #
+  # Each row's minutes is its job's limit: half as long again as the
+  # preset's longest sweep test in tests/ci_costs, and at least 60; a debug
+  # preset's 90, since most of its figures are floors - its shards were cut
+  # off around them - and a person test's ctest limit is 3,600 s. The shard
+  # count holds each shard's work to three fifths of its limit (the dealing
+  # warns past it, and tests/cmake/ci_shards.cmake fails). A test the table
+  # does not name costs as much as the longest it does (DEFAULT=longest).
+  # The steps are the test jobs', repeated, but for the downloads' cache,
+  # which the test jobs save.
+  # ---------------------------------------------------------------------------
+
+  ubuntu-sweep:
+    name: Ubuntu ${{ matrix.preset }} - gust sweep ${{ matrix.shard }}/${{ matrix.of }}
+    needs: ubuntu-build
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: linux-debug, shard: 1, of: 10, minutes: 90 }
+          - { preset: linux-debug, shard: 2, of: 10, minutes: 90 }
+          - { preset: linux-debug, shard: 3, of: 10, minutes: 90 }
+          - { preset: linux-debug, shard: 4, of: 10, minutes: 90 }
+          - { preset: linux-debug, shard: 5, of: 10, minutes: 90 }
+          - { preset: linux-debug, shard: 6, of: 10, minutes: 90 }
+          - { preset: linux-debug, shard: 7, of: 10, minutes: 90 }
+          - { preset: linux-debug, shard: 8, of: 10, minutes: 90 }
+          - { preset: linux-debug, shard: 9, of: 10, minutes: 90 }
+          - { preset: linux-debug, shard: 10, of: 10, minutes: 90 }
+          - { preset: linux-release, shard: 1, of: 5, minutes: 60 }
+          - { preset: linux-release, shard: 2, of: 5, minutes: 60 }
+          - { preset: linux-release, shard: 3, of: 5, minutes: 60 }
+          - { preset: linux-release, shard: 4, of: 5, minutes: 60 }
+          - { preset: linux-release, shard: 5, of: 5, minutes: 60 }
+    env:
+      CXX: g++-14
+      CC: gcc-14
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/ubuntu-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-ubuntu-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - gust sweep ${{ matrix.shard }} of ${{ matrix.of }}
+        run: |
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" -L gust_sweep || rc=$?
+          kill $xvfb
+          exit $rc
+      # **The figures the tests said, whether they passed or not** (each
+      # test's figures.txt in its work directory: LastTest.log is written
+      # afresh by a test that runs ctest itself), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: cat build/${{ matrix.preset }}/tests/*/figures.txt 2>/dev/null || echo "no figures said"
+      # Every frame the tests wrote, to look at.
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-sweep-ubuntu-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+
+
+  rocky-sweep:
+    name: Rocky 9 ${{ matrix.preset }} - gust sweep ${{ matrix.shard }}/${{ matrix.of }}
+    needs: rocky-build
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.minutes }}
+    container: rockylinux/rockylinux:9
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: linux-release, shard: 1, of: 5, minutes: 60 }
+          - { preset: linux-release, shard: 2, of: 5, minutes: 60 }
+          - { preset: linux-release, shard: 3, of: 5, minutes: 60 }
+          - { preset: linux-release, shard: 4, of: 5, minutes: 60 }
+          - { preset: linux-release, shard: 5, of: 5, minutes: 60 }
+    steps:
+      - name: git, for the checkout
+        run: |
+          for attempt in 1 2 3 4; do
+            dnf --setopt=install_weak_deps=False -y install git && exit 0
+            echo "::warning::dnf attempt $attempt failed; retrying"
+            dnf clean all || true; sleep $((attempt * 15))
+          done
+          exit 1
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/rocky-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-rocky-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - gust sweep ${{ matrix.shard }} of ${{ matrix.of }}
+        run: |
+          source /opt/rh/gcc-toolset-14/enable
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" -L gust_sweep || rc=$?
+          kill $xvfb
+          exit $rc
+      # **The figures the tests said, whether they passed or not** (each
+      # test's figures.txt in its work directory: LastTest.log is written
+      # afresh by a test that runs ctest itself), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: cat build/${{ matrix.preset }}/tests/*/figures.txt 2>/dev/null || echo "no figures said"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-sweep-rocky-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+
+
+  macos-sweep:
+    name: macOS ${{ matrix.preset }} - gust sweep ${{ matrix.shard }}/${{ matrix.of }}
+    needs: macos-build
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: macos-15
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: macos-release, shard: 1, of: 4, minutes: 60 }
+          - { preset: macos-release, shard: 2, of: 4, minutes: 60 }
+          - { preset: macos-release, shard: 3, of: 4, minutes: 60 }
+          - { preset: macos-release, shard: 4, of: 4, minutes: 60 }
+          - { preset: macos-debug, shard: 1, of: 7, minutes: 90 }
+          - { preset: macos-debug, shard: 2, of: 7, minutes: 90 }
+          - { preset: macos-debug, shard: 3, of: 7, minutes: 90 }
+          - { preset: macos-debug, shard: 4, of: 7, minutes: 90 }
+          - { preset: macos-debug, shard: 5, of: 7, minutes: 90 }
+          - { preset: macos-debug, shard: 6, of: 7, minutes: 90 }
+          - { preset: macos-debug, shard: 7, of: 7, minutes: 90 }
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/macos-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-macos-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - gust sweep ${{ matrix.shard }} of ${{ matrix.of }}
+        run: |
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake
+          ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" -L gust_sweep
+      # **The figures the tests said, whether they passed or not** (each
+      # test's figures.txt in its work directory: LastTest.log is written
+      # afresh by a test that runs ctest itself), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: cat build/${{ matrix.preset }}/tests/*/figures.txt 2>/dev/null || echo "no figures said"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-sweep-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+
+
+  windows-sweep:
+    name: Windows ${{ matrix.preset }} - gust sweep ${{ matrix.shard }}/${{ matrix.of }}
+    needs: windows-build
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: windows-latest
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: windows-debug, shard: 1, of: 6, minutes: 90 }
+          - { preset: windows-debug, shard: 2, of: 6, minutes: 90 }
+          - { preset: windows-debug, shard: 3, of: 6, minutes: 90 }
+          - { preset: windows-debug, shard: 4, of: 6, minutes: 90 }
+          - { preset: windows-debug, shard: 5, of: 6, minutes: 90 }
+          - { preset: windows-debug, shard: 6, of: 6, minutes: 90 }
+          - { preset: windows-release, shard: 1, of: 5, minutes: 60 }
+          - { preset: windows-release, shard: 2, of: 5, minutes: 60 }
+          - { preset: windows-release, shard: 3, of: 5, minutes: 60 }
+          - { preset: windows-release, shard: 4, of: 5, minutes: 60 }
+          - { preset: windows-release, shard: 5, of: 5, minutes: 60 }
+          - { preset: windows-clang, shard: 1, of: 5, minutes: 60 }
+          - { preset: windows-clang, shard: 2, of: 5, minutes: 60 }
+          - { preset: windows-clang, shard: 3, of: 5, minutes: 60 }
+          - { preset: windows-clang, shard: 4, of: 5, minutes: 60 }
+          - { preset: windows-clang, shard: 5, of: 5, minutes: 60 }
+    env:
+      SDL_LOGGING: gpu=debug
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/windows-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-windows-${{ matrix.preset }}' }
+      - shell: cmd
+        run: tar -xzf tree.tar.gz && del tree.tar.gz
+
+      # **A crash is written down by Windows, not only by the program.** Two
+      # tests crashed on the way out - after their work was done - and the
+      # program's own handlers (src/platform/no_crash_dialogs.hpp) printed
+      # nothing: a crash in the process's own shutdown comes where they
+      # cannot. Windows Error Reporting's local dumps catch it from outside,
+      # and the step after the tests reads each dump's stack with cdb. The
+      # programs write a dump of their own first crash too, into the same
+      # folder, from inside the fault (GLIDESLOPE_CRASH_DUMPS): WER's is of the
+      # process as it died, which can be long after the fault that began it.
+      - name: Keep a dump of any crash
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value "$env:RUNNER_TEMP\dumps" -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount -PropertyType DWord -Value 20 -Force | Out-Null
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\dumps" | Out-Null
+          "GLIDESLOPE_CRASH_DUMPS=$env:RUNNER_TEMP\dumps" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: ${{ matrix.preset }} - gust sweep ${{ matrix.shard }} of ${{ matrix.of }}
+        shell: cmd
+        run: |
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake || exit /b 1
+          ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt -L gust_sweep
+
+      # **The figures the tests said, whether they passed or not** (each
+      # test's figures.txt in its work directory: LastTest.log is written
+      # afresh by a test that runs ctest itself), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $figures = Get-ChildItem "build\${{ matrix.preset }}\tests\*\figures.txt" -ErrorAction SilentlyContinue
+          if (-not $figures) { Write-Output "no figures said"; exit 0 }
+          $figures | ForEach-Object { Get-Content $_.FullName }
+
+      # **The machine's stalls, said whether the tests passed or not**: every
+      # frame a predicting client's machine mostly took (frontend::
+      # MachineStalls), from every test's output, so that how often a runner
+      # stops them is counted, not met only when one fails. And whether
+      # Defender scans in real time here, which is one reason a Windows
+      # runner can stop every process of a test at once.
+      - name: The machine's stalls
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          Get-MpComputerStatus -ErrorAction SilentlyContinue | Select-Object AMRunningMode, AntivirusEnabled, RealTimeProtectionEnabled, OnAccessProtectionEnabled | Format-List
+          $log = "build\${{ matrix.preset }}\Testing\Temporary\LastTest.log"
+          if (-not (Test-Path $log)) { Write-Output "no test log"; exit 0 }
+          $stalls = Select-String -Path $log -Pattern "the machine's stall [0-9]+: .*"
+          Write-Output "the machine's stalls in this shard: $($stalls.Count)"
+          $stalls | ForEach-Object { Write-Output $_.Line }
+
+      - name: The stack of every crash
+        if: ${{ failure() }}
+        shell: pwsh
+        run: |
+          $dumps = Get-ChildItem "$env:RUNNER_TEMP\dumps" -Filter *.dmp -ErrorAction SilentlyContinue
+          if (-not $dumps) { Write-Output "no crash dumps"; exit 0 }
+          $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue
+          if (-not $cdb) { Write-Output "no cdb on this runner; dumps: $($dumps.Name -join ', ')"; exit 0 }
+          $symbols = (Get-ChildItem build\${{ matrix.preset }} -Recurse -Filter *.pdb | ForEach-Object { $_.DirectoryName } | Sort-Object -Unique) -join ';'
+          # Windows' own symbols from Microsoft's server, so ntdll's frames are
+          # named rather than guessed from its exports.
+          $symbols = "$symbols;srv*$env:RUNNER_TEMP\symbols*https://msdl.microsoft.com/download/symbols"
+          # The exception, its thread's stack deep enough to reach the thread's
+          # start, every other thread's, and the debugger's own analysis.
+          foreach ($d in $dumps) {
+            Write-Output "===== $($d.Name)"
+            & $cdb.FullName -z $d.FullName -y "$symbols" -c ".exr -1; .ecxr; kn 200; ~*kn 60; !analyze -v; q"
+          }
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-sweep-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+      - uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with: { name: 'dumps-sweep-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: '${{ runner.temp }}/dumps/*.dmp', if-no-files-found: ignore, retention-days: 3 }
 
   # ---------------------------------------------------------------------------
   # The same flights everywhere.
@@ -1433,8 +1770,8 @@ jobs:
     name: CI passed
     if: ${{ always() }}
     needs: [ubuntu-build, ubuntu-test, ubuntu-release-test, rocky-build, rocky-test, macos-build, macos-test,
-            macos-debug-test, windows-build, windows-test, windows-release-test, cross-platform, server-image,
-            changes, package]
+            macos-debug-test, windows-build, windows-test, windows-release-test, ubuntu-sweep, rocky-sweep,
+            macos-sweep, windows-sweep, cross-platform, server-image, changes, package]
     runs-on: ubuntu-latest
     steps:
       - name: Every job passed
@@ -1460,7 +1797,8 @@ jobs:
                   or ($event == "push"
                       and (.key | IN("ubuntu-test", "ubuntu-release-test", "rocky-test", "macos-test",
                                      "windows-test", "windows-release-test", "server-image")))
-                  or ($event == "pull_request" and .key == "macos-debug-test"))))' > /dev/null
+                  or ($event == "pull_request" and .key == "macos-debug-test")
+                  or (($event == "pull_request" or $event == "push") and (.key | endswith("-sweep"))))))' > /dev/null
 
   # **CI draft passed**: a draft pull request's reduced run, green - every
   # build, linux-debug's and windows-debug's tests, and the flights compared.

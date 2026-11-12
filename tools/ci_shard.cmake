@@ -5,7 +5,17 @@
 #
 # EXCLUDE is the run's -LE, the same regex, or nothing when the run has none:
 # ctest numbers -I's tests among those -LE leaves, so the dealing must list
-# the same (below).
+# the same (below). INCLUDE is a run's -L, the same way: the gust_sweep
+# shards (ci.yml) deal and run the tests labelled gust_sweep alone.
+#
+# **A sweep shard is sized, and the sizing asserted.** With MINUTES, its
+# job's timeout-minutes, the dealing checks that every shard's work is at
+# most three fifths of it and that the longest test, half as long again,
+# still fits in it: a warning on the run's page, or with STRICT a failure
+# (tests/cmake/ci_shards.cmake). DEFAULT=longest costs a test the table does
+# not name as the longest test it does - the gust_sweep tests' figures are
+# mostly floors, taken from shards cut off around them, and one the table has
+# not seen is no shorter than its siblings.
 #
 # Every test of build/PRESET is dealt to one of OF shards, longest first, each
 # to the shard with the least work so far (longest-processing-time first).
@@ -106,6 +116,9 @@ set(_exclude "")
 if(DEFINED EXCLUDE AND NOT EXCLUDE STREQUAL "")
     set(_exclude -LE "${EXCLUDE}")
 endif()
+if(DEFINED INCLUDE AND NOT INCLUDE STREQUAL "")
+    list(APPEND _exclude -L "${INCLUDE}")
+endif()
 execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} --show-only=json-v1 ${_exclude}
     OUTPUT_VARIABLE _json RESULT_VARIABLE _rc)
 if(NOT _rc EQUAL 0)
@@ -126,6 +139,22 @@ foreach(_line IN LISTS _lines)
         list(APPEND _tabled ${CMAKE_MATCH_2})
     endif()
 endforeach()
+
+# The longest test the table names, of those dealt: DEFAULT=longest's cost.
+set(_longest 0)
+math(EXPR _last "${_count} - 1")
+foreach(_i RANGE ${_last})
+    string(JSON _name GET "${_tests}" ${_i} name)
+    if(DEFINED _cost_${_name} AND _cost_${_name} GREATER _longest)
+        set(_longest ${_cost_${_name}})
+    endif()
+endforeach()
+if(DEFAULT STREQUAL "longest")
+    set(DEFAULT ${_longest})
+    if(DEFAULT EQUAL 0)
+        set(DEFAULT 60)
+    endif()
+endif()
 
 # Each test: its cost, what it holds, and the fixtures it sets up or needs.
 set(_unmeasured "")
@@ -171,6 +200,9 @@ foreach(_i RANGE ${_last})
     else()
         set(_c ${DEFAULT})
         list(APPEND _unmeasured ${_name})
+    endif()
+    if(_c GREATER _longest)
+        set(_longest ${_c})
     endif()
     string(APPEND _costdata "${_name} 1 ${_c}\n")
     math(EXPR _w_${_n} "${_c} * ${_holds}")
@@ -262,6 +294,7 @@ foreach(_key IN LISTS _keys)
 endforeach()
 
 # Every test dealt, and to one shard only.
+set(_oversized "")
 set(_dealt "")
 foreach(_s RANGE ${_olast})
     list(APPEND _dealt ${_tests_${_s}})
@@ -274,7 +307,30 @@ foreach(_s RANGE ${_olast})
     if(_n EQUAL 0)
         message(FATAL_ERROR "ci_shard: shard ${_k} of ${OF} was dealt no tests")
     endif()
+    # Three fifths of the job's limit: work in seconds at JOBS at a time,
+    # against MINUTES * 60 * 3 / 5.
+    if(DEFINED MINUTES)
+        math(EXPR _over "${_load_${_s}} * 5 - ${JOBS} * ${MINUTES} * 36 * 5")
+        if(_over GREATER 0)
+            list(APPEND _oversized "shard ${_k} holds ${_minutes} min of work, over three fifths of ${MINUTES}")
+        endif()
+    endif()
 endforeach()
+if(DEFINED MINUTES)
+    # The longest test, half as long again, inside the limit.
+    math(EXPR _over "${_longest} * 3 - ${MINUTES} * 120")
+    if(_over GREATER 0)
+        list(APPEND _oversized "its longest test, ${_longest} s, half as long again is past ${MINUTES} min")
+    endif()
+    if(_oversized)
+        list(JOIN _oversized "; " _list)
+        if(STRICT)
+            message(FATAL_ERROR "ci_shard: ${PRESET} in ${OF} shards of ${MINUTES} min: ${_list}")
+        endif()
+        execute_process(COMMAND ${CMAKE_COMMAND} -E echo
+            "::warning title=Shards too small::${PRESET} in ${OF} shards of ${MINUTES} min: ${_list} (ci.yml's gust_sweep rows)")
+    endif()
+endif()
 list(LENGTH _dealt _dealt_n)
 list(REMOVE_DUPLICATES _dealt)
 list(LENGTH _dealt _distinct_n)
@@ -293,9 +349,10 @@ if(_unmeasured)
 endif()
 set(_gone ${_tabled})
 list(REMOVE_ITEM _gone ${_names})
-# A test the run leaves out is still a test of the preset.
+# A test the run leaves out is still a test of the preset: every test the
+# build has is listed, whatever the run's -L and -LE.
 if(_gone AND _exclude)
-    execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N -L "${EXCLUDE}"
+    execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N
         OUTPUT_VARIABLE _left_out)
     string(REGEX MATCHALL "Test +#[0-9]+: [^\n]+" _left_out "${_left_out}")
     foreach(_l IN LISTS _left_out)

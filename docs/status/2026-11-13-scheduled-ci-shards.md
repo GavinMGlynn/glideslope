@@ -1,9 +1,7 @@
-# The scheduled run's gust_sweep tests costed (in progress)
+# The gust_sweep tests in shards of their own, on a schedule and a dispatch
 
-**Not done yet.** The cost tables now hold the gust_sweep tests' costs, but
-the scheduled run still has the pull requests' shard counts, so it still
-cannot finish. The shard capacity for those tests is the open part of this
-item.
+**Not verified yet.** A dispatched run has to show every shard finishing
+inside its limit. Until then this item is open.
 
 ## What was wrong
 
@@ -52,7 +50,58 @@ on 2026-11-04.
   41918525620 (the last green one, which has seeds 9 to 40). 34 of the
   costs are cut-off floors.
 
+- **The sweep jobs** in ci.yml: ubuntu-sweep, rocky-sweep, macos-sweep
+  and windows-sweep. They run on a schedule and on a dispatch only, and
+  carry the tests labelled gust_sweep alone (`-L gust_sweep`). The shard
+  jobs now leave gust_sweep out on every event, so a pull request's shards
+  and their 45-minute limit are unchanged.
+  - Each row's `minutes` is its job's timeout-minutes. It is the preset's
+    longest sweep test × 1.5, at least 60 (linux-debug's longest floor of
+    2,486 s gives 63).
+  - The debug presets get 90 minutes, because most of their figures are
+    floors and a person test's ctest limit is 3,600 s.
+  - Each preset has the fewest shards that hold every shard's work to
+    three fifths of 60 minutes (63 for linux-debug). The counts are
+    linux-debug 10, linux-release 5 on Ubuntu and 5 on Rocky 9,
+    macos-release 4, macos-debug 7, windows-debug 6, windows-release 5 and
+    windows-clang 5: 47 jobs.
+- **tools/ci_shard.cmake** has three new options:
+  - INCLUDE deals the tests of one label, matching the run's `-L`.
+  - DEFAULT=longest costs a test that the table does not name at the
+    longest that it does.
+  - MINUTES checks the sizing: each shard's work at most three fifths of
+    MINUTES, and the longest test × 1.5 inside it. CI gets a warning on the
+    run's page; with STRICT the check fails.
+- **tests/cmake/ci_shards.cmake**, which ctest runs as
+  every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once,
+  now also checks the sweep jobs:
+  - It reads each sweep job's rows, and deals and reads back each one with
+    `-L gust_sweep`, STRICT at its row's minutes.
+  - It asserts that every preset that is sharded is also swept, and that
+    every sweep job's limit is its row's minutes.
+  - It deals the shard jobs' new other-event ways, which leave out
+    timing|gust_sweep and gust_sweep.
+  - Seen red twice, then reverted both times:
+    - macos-debug's rows set to 30 minutes failed the test: "shard 1 holds
+      32.3 min of work".
+    - One sweep job's limit written as 90 failed it: "4 gust sweep runs, 4
+      jobs named -sweep, 3 limits of the row's minutes".
+- **The gust_sweep tests' ctest TIMEOUT** now comes from the cost tables, at
+  configure time. It is 1.5 × the slowest preset's figure, or the limit
+  already set if that is longer. Five circuits with every straight-in and
+  departure had given up at 1,800 s on linux-debug in run 43111884667; they
+  now have 2,702 s. Other circuits, pairs and the person tests have
+  2,082 to 3,600 s.
+- **tools/ci_test_costs.py** also measures shards named "gust sweep".
+
+## Runner time
+
+A scheduled run, or a dispatch, gains about 1,520 minutes of dealt work.
+With each shard's setup (about 8 minutes, 47 jobs) that comes to about
+1,900 runner-minutes a night. About 420 of those are on macOS, at five jobs
+at once. Pull requests' runs are unchanged.
+
 ## Verification
 
-Not yet verified. The scheduled run, or a dispatch, has to show every shard
-finishing inside its limit, and that needs the shard capacity above.
+Not yet verified: one `gh workflow run ci.yml --ref scheduled-ci-shards`
+has to show every shard inside its limit.
