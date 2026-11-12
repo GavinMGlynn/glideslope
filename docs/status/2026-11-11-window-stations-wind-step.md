@@ -41,5 +41,15 @@ flew at 13Z, whose layer over YSWS is 679.7 m deep and was crossed;
 - The stations' flight with `HOUR=13` reproduced CI's failure exactly
   (0.14130 m/s at step 53804) before the fix, and passes after: at most
   0.00763 m/s in a step, at step 149, in YSSY's air alone.
+- The selftest hash is unchanged: `glideslope_cli selftest` prints
+  `27e94c795b47141c` on linux-debug with the fix and with `lift.cpp` as on
+  main.
+- From #364's review, 37 tests in linux-debug pass: the whole of test_lift,
+  the stations' flight, the stations and blend tests, the warm afternoon's
+  report, the aircraft circling in a thermal, the same-air and gust-restore
+  tests, the cross-platform check and the unit-test registration test.
+  `cross_platform_flights.cmake` runs on this build's figures, selftest and
+  thousand air samples (one platform's copied five times, so it checks only
+  that they parse).
 - The 51 tests matching thermal, lift, convect, updraft, soar, selftest,
   stations, ridge, glider, allen or hash pass on linux-debug.
