@@ -3143,7 +3143,8 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // Windows release, tools/windows_build.sh on 2026-11-05: twenty-six of forty.
         {"f22", 1, windows(),
          "on Windows a gust climbs her at 100 ft/min in her flare (seed 1)"},
-        {"f22", 3, windows(), "on Windows she touches at 351 ft/min (seed 3)"},
+        // Seed 3 no longer, since 2026-11-12: started moving with her wind,
+        // Windows debug lands it with every margin (CI run 43153806780).
         {"f22", 5, windows(),
          "on Windows a gust climbs her at 80 ft/min in her flare (seed 5)"},
         {"f22", 9, windows(),

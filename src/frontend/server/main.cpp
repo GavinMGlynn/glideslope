@@ -2201,6 +2201,16 @@ public:
     // its gate where her model has one.
     void land_on_final(Aircraft& a) {
         a.controller = controller_for(*a.aircraft, a.model, trimmed_controls(*a.aircraft));
+        // **Said: the controls she begins on**, her trim's, for a test to
+        // hold against the trim she was started with.
+        {
+            const glideslope::sim::Controls& begins = a.controller->pilot();
+            std::printf("aircraft %u, an AI's %s on final, begins on throttle %.4f, elevator "
+                        "%.4f, pitch trim %.4f\n",
+                        static_cast<unsigned>(a.index), a.model.c_str(), begins.throttle,
+                        begins.elevator, begins.pitch_trim);
+            std::fflush(stdout);
+        }
         const auto speeds = figures_.find(a.model);
         if (speeds == figures_.end() || !speeds->second.lands) {
             hold_course(a);
@@ -2616,16 +2626,33 @@ public:
         for (std::vector<Aircraft>* each : {&flown_, &waiting_}) {
             for (Aircraft& a : *each) {
                 a.aircraft->set_weather(session_air_);
-                // **Started again in it**, one started in the air and not
-                // yet flown, so that she is trimmed in the session's air
-                // (sim::Aircraft::set_weather).
-                if (a.aircraft->started_unstepped()) {
-                    a.aircraft->initialize(a.start);
-                }
             }
         }
         weather_blend_s_ = blend_s;
         stations_change(std::move(stations));
+        // **Started again in it, once it is had**: one started in the air
+        // and not yet flown, so that she is trimmed in the session's air
+        // (sim::Aircraft::set_weather) - its stations set, not the empty
+        // slots before them.
+        for (std::vector<Aircraft>* each : {&flown_, &waiting_}) {
+            for (Aircraft& a : *each) {
+                if (!a.aircraft->started_unstepped()) {
+                    continue;
+                }
+                a.aircraft->initialize(a.start);
+                const glideslope::sim::Controls trim = trimmed_controls(*a.aircraft);
+                std::printf("aircraft %u, %s, started again in the session's air: trimmed at "
+                            "throttle %.4f, elevator %.4f, pitch trim %.4f\n",
+                            static_cast<unsigned>(a.index), a.id.c_str(), trim.throttle,
+                            trim.elevator, trim.pitch_trim);
+                std::fflush(stdout);
+                // **And her controller with it**: one put on final began on
+                // the trim she had in standard air (land_on_final).
+                if (a.on_final_to && !a.on_plan) {
+                    land_on_final(a);
+                }
+            }
+        }
     }
     // **A new report for the first station**, blended in from now over the
     // blend `fly_in` was given (`--metar-then`).

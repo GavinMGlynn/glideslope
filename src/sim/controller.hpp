@@ -129,6 +129,10 @@ public:
     void set_pilot(const Controls& controls) {
         pilot_ = controls;
     }
+    // The pilot's controls as last given: at first, those it was made with.
+    const Controls& pilot() const {
+        return pilot_;
+    }
 
     // Hands the aircraft to the AI, holding what it is doing, or flying `plan`
     // - or, on the landing roll of an approach it was given, landing her to

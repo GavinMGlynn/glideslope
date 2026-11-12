@@ -207,9 +207,12 @@ GLIDESLOPE_TEST(the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb
     // altitude through the vertical gusts trades airspeed, so the airspeed is
     // held to its band once it is in it, and to twice the band after a minute.
     const Limit heading_rough{5.0, 5.0, 40.0};
-    // Settled in 70.8 s since 2026-11-12, started in the turbulent air's
-    // own temperature and pressure (sim::Aircraft::set_weather) rather than
-    // meeting them on her first step; 70 s was the bound before.
+    // **The altitude's 75 s is one seed's sensitivity to her start, not a
+    // physical change.** Since 2026-11-12 she is started in the turbulent
+    // air (sim::Aircraft::set_weather) - 15 degrees, Q1013, 0.25 hPa off
+    // the standard atmosphere she was trimmed in before - and that hair
+    // moves where this one seed's gusts meet her: settled in 70.8 s, where
+    // it was 69.6 against a bound of 70 (the heading's 29.9 s went 32.1).
     const Limit altitude_rough{50.0, 50.0, 75.0};
     // The climb's 45 s is a measured margin, not a handbook figure: it
     // settles in 38.2 s. At 100 kt and 4,000 ft the throttle is at its stop
@@ -2075,10 +2078,14 @@ RoughSpeedHold hold_speed_in_moderate_turbulence(const std::string& id) {
 // slow-spooling 747-400 and A380, the business jet, the Mosquito and the
 // 172P. Each one's RMS off the speed asked is held to 5% over what it
 // measures, and its throttle reversals to 10% over: measured on 2026-11-12
-// (linux-release), started in the turbulent air rather than meeting it on
-// her first step (sim::Aircraft::set_weather) - the 172P's reversals went
-// 221 to 255, and each one's RMS moved 0.01 to 0.18 kt (2026-10-10's: 3.35,
-// 3.81, 3.21, 6.14, 2.99; reversals 210, 200, 210, 156, 221). **A lead on the speed's trend was tried for the take-off's hand-over
+// (linux-release). **Re-measured for one seed's sensitivity to her start,
+// not a physical change**: since then she is started in the turbulent air
+// (sim::Aircraft::set_weather) - 15 degrees, Q1013, 0.25 hPa off the
+// standard atmosphere she was trimmed in before - and that hair moves
+// where this seed's gusts meet her. RMS, kt, 2026-10-10 to 2026-11-12:
+// 747-400 3.35 to 3.31, A380 3.81 to 3.63, Learjet 3.21 to 3.22, Mosquito
+// 6.14 to 6.21, 172P 2.99 to 3.09; reversals 210 to 212, 200 to 204, 210
+// to 206, 156 to 150, 221 to 255 (past its 10%, 243). **A lead on the speed's trend was tried for the take-off's hand-over
 // and taken out** (PROJECT_STATUS, 2026-10-10): reading the speed two
 // seconds ahead, the RMS went 747-400 3.35 -> 3.61, A380 3.81 -> 4.27,
 // Learjet 3.21 -> 3.63, Mosquito 6.14 -> 8.18, 172P 2.99 -> 3.23, with
