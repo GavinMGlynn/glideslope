@@ -8,10 +8,11 @@
 # the same (below). INCLUDE is a run's -L, the same way: the gust_sweep
 # shards (ci.yml) deal and run the tests labelled gust_sweep alone.
 #
-# **A sweep shard is sized, and the sizing asserted.** With MINUTES, its
-# job's timeout-minutes, the dealing checks that every shard's work is at
-# most three fifths of it and that the longest test, half as long again,
-# still fits in it: a warning on the run's page, or with STRICT a failure
+# **A shard is sized, and the sizing asserted.** With MINUTES, its job's
+# timeout-minutes, the dealing checks that every shard's work is at most
+# SHARE percent of it (60 unless given: a gust sweep's; the shard jobs' are
+# 75) and that the longest test, half as long again, still fits in it: a
+# warning on the run's page, or with STRICT a failure
 # (tests/cmake/ci_shards.cmake). DEFAULT=longest costs a test the table does
 # not name as the longest test it does - the gust_sweep tests' figures are
 # mostly floors, taken from shards cut off around them, and one the table has
@@ -307,12 +308,15 @@ foreach(_s RANGE ${_olast})
     if(_n EQUAL 0)
         message(FATAL_ERROR "ci_shard: shard ${_k} of ${OF} was dealt no tests")
     endif()
-    # Three fifths of the job's limit: work in seconds at JOBS at a time,
-    # against MINUTES * 60 * 3 / 5.
+    # SHARE percent of the job's limit: work in seconds at JOBS at a time,
+    # against MINUTES * 60 * SHARE / 100.
     if(DEFINED MINUTES)
-        math(EXPR _over "${_load_${_s}} * 5 - ${JOBS} * ${MINUTES} * 36 * 5")
+        if(NOT DEFINED SHARE)
+            set(SHARE 60)
+        endif()
+        math(EXPR _over "${_load_${_s}} * 100 - ${JOBS} * ${MINUTES} * 60 * ${SHARE}")
         if(_over GREATER 0)
-            list(APPEND _oversized "shard ${_k} holds ${_minutes} min of work, over three fifths of ${MINUTES}")
+            list(APPEND _oversized "shard ${_k} holds ${_minutes} min of work, over ${SHARE}% of ${MINUTES}")
         endif()
     endif()
 endforeach()
@@ -328,7 +332,7 @@ if(DEFINED MINUTES)
             message(FATAL_ERROR "ci_shard: ${PRESET} in ${OF} shards of ${MINUTES} min: ${_list}")
         endif()
         execute_process(COMMAND ${CMAKE_COMMAND} -E echo
-            "::warning title=Shards too small::${PRESET} in ${OF} shards of ${MINUTES} min: ${_list} (ci.yml's gust_sweep rows)")
+            "::warning title=Shards too small::${PRESET} in ${OF} shards of ${MINUTES} min: ${_list} (ci.yml's rows)")
     endif()
 endif()
 list(LENGTH _dealt _dealt_n)

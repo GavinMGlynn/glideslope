@@ -107,7 +107,13 @@ env:
 #     ctest numbers -I's tests among those its -LE leaves, so each dealing
 #     lists its tests with the run's -LE (EXCLUDE, tools/ci_shard.cmake).
 #     A full run's jobs peaked at 37 at once (run 41415219089); two more
-#     shards make 39, inside the plan's 40.
+#     shards make 39, inside the plan's 40. On 2026-11-13 every count was
+#     set so that each shard's dealt work is at most three quarters of its
+#     job's limit (tests/cmake/ci_shards.cmake asserts it): a Windows debug
+#     shard dealt 43 of its 45 minutes finished its last test 13 s before it
+#     was cut off (#367's run). Linux debug 13, Linux release 3 (Ubuntu),
+#     macOS release 4 and debug 7, Windows debug 11, release and clang-cl 5:
+#     eleven more jobs, so a full run's shards queue past 40 at once.
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may
@@ -266,17 +272,19 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-debug, shard: 1, of: 11 }
-          - { preset: linux-debug, shard: 2, of: 11 }
-          - { preset: linux-debug, shard: 3, of: 11 }
-          - { preset: linux-debug, shard: 4, of: 11 }
-          - { preset: linux-debug, shard: 5, of: 11 }
-          - { preset: linux-debug, shard: 6, of: 11 }
-          - { preset: linux-debug, shard: 7, of: 11 }
-          - { preset: linux-debug, shard: 8, of: 11 }
-          - { preset: linux-debug, shard: 9, of: 11 }
-          - { preset: linux-debug, shard: 10, of: 11 }
-          - { preset: linux-debug, shard: 11, of: 11 }
+          - { preset: linux-debug, shard: 1, of: 13 }
+          - { preset: linux-debug, shard: 2, of: 13 }
+          - { preset: linux-debug, shard: 3, of: 13 }
+          - { preset: linux-debug, shard: 4, of: 13 }
+          - { preset: linux-debug, shard: 5, of: 13 }
+          - { preset: linux-debug, shard: 6, of: 13 }
+          - { preset: linux-debug, shard: 7, of: 13 }
+          - { preset: linux-debug, shard: 8, of: 13 }
+          - { preset: linux-debug, shard: 9, of: 13 }
+          - { preset: linux-debug, shard: 10, of: 13 }
+          - { preset: linux-debug, shard: 11, of: 13 }
+          - { preset: linux-debug, shard: 12, of: 13 }
+          - { preset: linux-debug, shard: 13, of: 13 }
     env:
       CXX: g++-14
       CC: gcc-14
@@ -345,8 +353,9 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-release, shard: 1, of: 2 }
-          - { preset: linux-release, shard: 2, of: 2 }
+          - { preset: linux-release, shard: 1, of: 3 }
+          - { preset: linux-release, shard: 2, of: 3 }
+          - { preset: linux-release, shard: 3, of: 3 }
     env:
       CXX: g++-14
       CC: gcc-14
@@ -737,9 +746,10 @@ jobs:
         # take-over tests came, and shard 2 of run 40678447800 finished its
         # tests at 43 minutes and was cancelled at 45 in its last steps.
         include:
-          - { preset: macos-release, shard: 1, of: 3 }
-          - { preset: macos-release, shard: 2, of: 3 }
-          - { preset: macos-release, shard: 3, of: 3 }
+          - { preset: macos-release, shard: 1, of: 4 }
+          - { preset: macos-release, shard: 2, of: 4 }
+          - { preset: macos-release, shard: 3, of: 4 }
+          - { preset: macos-release, shard: 4, of: 4 }
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -800,11 +810,13 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: macos-debug, shard: 1, of: 5 }
-          - { preset: macos-debug, shard: 2, of: 5 }
-          - { preset: macos-debug, shard: 3, of: 5 }
-          - { preset: macos-debug, shard: 4, of: 5 }
-          - { preset: macos-debug, shard: 5, of: 5 }
+          - { preset: macos-debug, shard: 1, of: 7 }
+          - { preset: macos-debug, shard: 2, of: 7 }
+          - { preset: macos-debug, shard: 3, of: 7 }
+          - { preset: macos-debug, shard: 4, of: 7 }
+          - { preset: macos-debug, shard: 5, of: 7 }
+          - { preset: macos-debug, shard: 6, of: 7 }
+          - { preset: macos-debug, shard: 7, of: 7 }
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -999,14 +1011,17 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-debug, shard: 1, of: 8 }
-          - { preset: windows-debug, shard: 2, of: 8 }
-          - { preset: windows-debug, shard: 3, of: 8 }
-          - { preset: windows-debug, shard: 4, of: 8 }
-          - { preset: windows-debug, shard: 5, of: 8 }
-          - { preset: windows-debug, shard: 6, of: 8 }
-          - { preset: windows-debug, shard: 7, of: 8 }
-          - { preset: windows-debug, shard: 8, of: 8 }
+          - { preset: windows-debug, shard: 1, of: 11 }
+          - { preset: windows-debug, shard: 2, of: 11 }
+          - { preset: windows-debug, shard: 3, of: 11 }
+          - { preset: windows-debug, shard: 4, of: 11 }
+          - { preset: windows-debug, shard: 5, of: 11 }
+          - { preset: windows-debug, shard: 6, of: 11 }
+          - { preset: windows-debug, shard: 7, of: 11 }
+          - { preset: windows-debug, shard: 8, of: 11 }
+          - { preset: windows-debug, shard: 9, of: 11 }
+          - { preset: windows-debug, shard: 10, of: 11 }
+          - { preset: windows-debug, shard: 11, of: 11 }
     env:
       SDL_LOGGING: gpu=debug
     steps:
@@ -1130,14 +1145,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-release, shard: 1, of: 4 }
-          - { preset: windows-release, shard: 2, of: 4 }
-          - { preset: windows-release, shard: 3, of: 4 }
-          - { preset: windows-release, shard: 4, of: 4 }
-          - { preset: windows-clang, shard: 1, of: 4 }
-          - { preset: windows-clang, shard: 2, of: 4 }
-          - { preset: windows-clang, shard: 3, of: 4 }
-          - { preset: windows-clang, shard: 4, of: 4 }
+          - { preset: windows-release, shard: 1, of: 5 }
+          - { preset: windows-release, shard: 2, of: 5 }
+          - { preset: windows-release, shard: 3, of: 5 }
+          - { preset: windows-release, shard: 4, of: 5 }
+          - { preset: windows-release, shard: 5, of: 5 }
+          - { preset: windows-clang, shard: 1, of: 5 }
+          - { preset: windows-clang, shard: 2, of: 5 }
+          - { preset: windows-clang, shard: 3, of: 5 }
+          - { preset: windows-clang, shard: 4, of: 5 }
+          - { preset: windows-clang, shard: 5, of: 5 }
     env:
       SDL_LOGGING: gpu=debug
     steps:
