@@ -62,13 +62,29 @@ builds all five orders; seen red with the refusal taken out.
 | the tests | weather, then start: 22 tests in eight files gave it after, and the refusal stopped each (16 call sites reordered; `airborne` in test_lesson.cpp and `at` in test_learnt.cpp now take the air to start her in; the client prediction test's clock is the prediction made once she is started). Starts at rest that are given weather after (the figures', the braking and standing tests) are left: no trim is flown |
 
 **What else moved, and why.**
-- **Two autopilot figures in moderate turbulence**, once those tests start
-  her in their air (15 degrees, Q1013 - a hair off the standard 1013.25):
-  the altitude capture from 4,000 to 4,500 ft settles in 70.8 s against a
-  bound of 70, now 75; and the speed hold's measured table is re-measured -
-  the 172P's throttle reversals 221 to 255, past its 10% (243), and each
-  aircraft's RMS within 0.18 kt of 2026-10-10's. The orbit trials and the
-  CLI's flights, reordered too, moved no figure a test holds.
+- **Two autopilot bounds in moderate turbulence, loosened for one seed's
+  sensitivity to her start - not a physical effect.** Those tests' air is
+  15 degrees and Q1013, 0.25 hPa off the standard atmosphere she was
+  trimmed in before; started in it, one seed's gusts meet her elsewhere.
+  The altitude capture from 4,000 to 4,500 ft settled in 69.6 s and now
+  70.8 against a bound of 70, now 75 (the heading capture 29.9 s, now 32.1,
+  inside its 40). The speed hold's table is re-measured, RMS in kt and
+  throttle reversals, before and after: 747-400 3.35 and 210, 3.31 and 212;
+  A380 3.81 and 200, 3.63 and 204; Learjet 3.21 and 210, 3.22 and 206;
+  Mosquito 6.14 and 156, 6.21 and 150; 172P 2.99 and 221, 3.09 and 255 -
+  past its 10% (243), which is why. The orbit trials and the CLI's flights,
+  reordered too, moved no figure a test holds.
+- **An AI put on final before the session's weather** (`--ai-on-final`,
+  made with the fleet, before `--metar` is had) was started again in it,
+  but in its empty slots - the restart ran before the stations were set,
+  so she was trimmed in standard air again - and her controller kept the
+  first trim. Now the restart follows the stations, and her controller is
+  made again from the new trim:
+  `an_ai_put_on_final_before_the_sessions_weather_begins_on_her_trim_in_it`
+  (a 737-300 in 35 degrees, Q1035: throttle 0.4548 and pitch trim -0.3723
+  in standard air, 0.4684 and -0.3721 in it). Seen red both ways: with
+  her controller not made again, and, by its check that the two trims
+  differ, with the restart before the stations.
 - **The gate's wind reading.** Placed in her wind, she is now judged in it
   at once: the corner tests of every learnt gate put her at exactly its most
   headwind (15 kt), and its wind estimate - ground velocity less the whole
@@ -83,8 +99,10 @@ builds all five orders; seen red with the refusal taken out.
   A380 on seed 34 at 350 (inside 360, not by 25); her start moved, so each
   flight's gusts meet her elsewhere. The other 39 seeds of each still land;
   both are named on Linux in `named_on_a_seed`, as single-seed names are
-  (the owner's ruling of 2026-11-04). Windows's and macOS's names are as
-  CI finds them.
+  (the owner's ruling of 2026-11-04). On Windows the F-22A's seed 3 is
+  landed with every margin now (windows-debug, CI run 43153806780), and
+  its name is taken off; the rest of Windows's and macOS's names are as
+  the full CI run finds them.
 - **The first attempt's 81 reds**, wind given through the initial
   conditions, were that double-counted wind; none of them is red now.
 - `the_stations_flown_are_kept_..._204` and `_404`: green on this branch,

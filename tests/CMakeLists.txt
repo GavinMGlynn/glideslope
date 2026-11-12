@@ -4032,6 +4032,17 @@ foreach(_model IN ITEMS b2 a380 737-300)
         PROPERTIES SKIP_RETURN_CODE 77)
 endforeach()
 
+# **An AI put on final before the session's weather is had begins on her
+# trim in it**, not the standard air's she was first started in. See
+# cmake/server_ai_on_final_begins_on_her_trim_in_the_sessions_air.cmake.
+add_test(NAME an_ai_put_on_final_before_the_sessions_weather_begins_on_her_trim_in_it
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DPLAN=${CMAKE_CURRENT_SOURCE_DIR}/data/plans/737-300-on-final.plan
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ai_on_final_begins_on_her_trim_in_the_sessions_air.cmake)
+set_tests_properties(an_ai_put_on_final_before_the_sessions_weather_begins_on_her_trim_in_it
+    PROPERTIES SKIP_RETURN_CODE 77)
+
 # **Two AI aircraft on plans ending at one runway both land, the second once
 # the first has left it.** See cmake/server_two_land_on_one_runway.cmake.
 add_test(NAME two_ai_aircraft_on_plans_ending_at_one_runway_both_land_the_second_once_the_first_has_left_it
