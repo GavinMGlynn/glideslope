@@ -1279,7 +1279,8 @@ jobs:
   # preset's longest sweep test in tests/ci_costs - which is that test's own
   # ctest limit (tests/CMakeLists.txt) - and ten minutes more for the job's
   # setup, at least 60. Many figures are floors: a test cut off with its
-  # shard, or at its ctest limit, in dispatch run 43257673789. The shard
+  # shard, or at its ctest limit, in dispatch run 43257673789. macOS debug's
+  # is 180: at 60 its five-at-once runners would need over 120 shards. The shard
   # count holds each shard's work to three fifths of its limit (the dealing
   # warns past it, and tests/cmake/ci_shards.cmake fails). A test the table
   # does not name costs as much as the longest it does (DEFAULT=longest).
@@ -1297,17 +1298,53 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-debug, shard: 1, of: 7, minutes: 142 }
-          - { preset: linux-debug, shard: 2, of: 7, minutes: 142 }
-          - { preset: linux-debug, shard: 3, of: 7, minutes: 142 }
-          - { preset: linux-debug, shard: 4, of: 7, minutes: 142 }
-          - { preset: linux-debug, shard: 5, of: 7, minutes: 142 }
-          - { preset: linux-debug, shard: 6, of: 7, minutes: 142 }
-          - { preset: linux-debug, shard: 7, of: 7, minutes: 142 }
-          - { preset: linux-release, shard: 1, of: 4, minutes: 99 }
-          - { preset: linux-release, shard: 2, of: 4, minutes: 99 }
-          - { preset: linux-release, shard: 3, of: 4, minutes: 99 }
-          - { preset: linux-release, shard: 4, of: 4, minutes: 99 }
+          - { preset: linux-debug, shard: 1, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 2, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 3, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 4, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 5, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 6, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 7, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 8, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 9, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 10, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 11, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 12, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 13, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 14, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 15, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 16, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 17, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 18, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 19, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 20, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 21, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 22, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 23, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 24, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 25, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 26, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 27, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 28, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 29, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 30, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 31, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 32, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 33, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 34, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 35, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 36, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 37, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 38, of: 39, minutes: 142 }
+          - { preset: linux-debug, shard: 39, of: 39, minutes: 142 }
+          - { preset: linux-release, shard: 1, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 2, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 3, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 4, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 5, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 6, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 7, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 8, of: 8, minutes: 60 }
     env:
       CXX: g++-14
       CC: gcc-14
@@ -1361,10 +1398,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-release, shard: 1, of: 4, minutes: 99 }
-          - { preset: linux-release, shard: 2, of: 4, minutes: 99 }
-          - { preset: linux-release, shard: 3, of: 4, minutes: 99 }
-          - { preset: linux-release, shard: 4, of: 4, minutes: 99 }
+          - { preset: linux-release, shard: 1, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 2, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 3, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 4, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 5, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 6, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 7, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 8, of: 8, minutes: 60 }
     steps:
       - name: git, for the checkout
         run: |
@@ -1422,19 +1463,54 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: macos-release, shard: 1, of: 5, minutes: 60 }
-          - { preset: macos-release, shard: 2, of: 5, minutes: 60 }
-          - { preset: macos-release, shard: 3, of: 5, minutes: 60 }
-          - { preset: macos-release, shard: 4, of: 5, minutes: 60 }
-          - { preset: macos-release, shard: 5, of: 5, minutes: 60 }
-          - { preset: macos-debug, shard: 1, of: 8, minutes: 101 }
-          - { preset: macos-debug, shard: 2, of: 8, minutes: 101 }
-          - { preset: macos-debug, shard: 3, of: 8, minutes: 101 }
-          - { preset: macos-debug, shard: 4, of: 8, minutes: 101 }
-          - { preset: macos-debug, shard: 5, of: 8, minutes: 101 }
-          - { preset: macos-debug, shard: 6, of: 8, minutes: 101 }
-          - { preset: macos-debug, shard: 7, of: 8, minutes: 101 }
-          - { preset: macos-debug, shard: 8, of: 8, minutes: 101 }
+          - { preset: macos-release, shard: 1, of: 10, minutes: 60 }
+          - { preset: macos-release, shard: 2, of: 10, minutes: 60 }
+          - { preset: macos-release, shard: 3, of: 10, minutes: 60 }
+          - { preset: macos-release, shard: 4, of: 10, minutes: 60 }
+          - { preset: macos-release, shard: 5, of: 10, minutes: 60 }
+          - { preset: macos-release, shard: 6, of: 10, minutes: 60 }
+          - { preset: macos-release, shard: 7, of: 10, minutes: 60 }
+          - { preset: macos-release, shard: 8, of: 10, minutes: 60 }
+          - { preset: macos-release, shard: 9, of: 10, minutes: 60 }
+          - { preset: macos-release, shard: 10, of: 10, minutes: 60 }
+          - { preset: macos-debug, shard: 1, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 2, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 3, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 4, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 5, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 6, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 7, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 8, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 9, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 10, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 11, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 12, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 13, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 14, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 15, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 16, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 17, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 18, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 19, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 20, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 21, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 22, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 23, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 24, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 25, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 26, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 27, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 28, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 29, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 30, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 31, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 32, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 33, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 34, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 35, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 36, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 37, of: 38, minutes: 180 }
+          - { preset: macos-debug, shard: 38, of: 38, minutes: 180 }
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -1480,24 +1556,72 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-debug, shard: 1, of: 7, minutes: 111 }
-          - { preset: windows-debug, shard: 2, of: 7, minutes: 111 }
-          - { preset: windows-debug, shard: 3, of: 7, minutes: 111 }
-          - { preset: windows-debug, shard: 4, of: 7, minutes: 111 }
-          - { preset: windows-debug, shard: 5, of: 7, minutes: 111 }
-          - { preset: windows-debug, shard: 6, of: 7, minutes: 111 }
-          - { preset: windows-debug, shard: 7, of: 7, minutes: 111 }
-          - { preset: windows-release, shard: 1, of: 6, minutes: 99 }
-          - { preset: windows-release, shard: 2, of: 6, minutes: 99 }
-          - { preset: windows-release, shard: 3, of: 6, minutes: 99 }
-          - { preset: windows-release, shard: 4, of: 6, minutes: 99 }
-          - { preset: windows-release, shard: 5, of: 6, minutes: 99 }
-          - { preset: windows-release, shard: 6, of: 6, minutes: 99 }
-          - { preset: windows-clang, shard: 1, of: 5, minutes: 99 }
-          - { preset: windows-clang, shard: 2, of: 5, minutes: 99 }
-          - { preset: windows-clang, shard: 3, of: 5, minutes: 99 }
-          - { preset: windows-clang, shard: 4, of: 5, minutes: 99 }
-          - { preset: windows-clang, shard: 5, of: 5, minutes: 99 }
+          - { preset: windows-debug, shard: 1, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 2, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 3, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 4, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 5, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 6, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 7, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 8, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 9, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 10, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 11, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 12, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 13, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 14, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 15, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 16, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 17, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 18, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 19, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 20, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 21, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 22, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 23, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 24, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 25, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 26, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 27, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 28, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 29, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 30, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 31, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 32, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 33, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 34, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 35, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 36, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 37, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 38, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 39, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 40, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 41, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 42, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 43, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 44, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 45, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 46, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 47, of: 48, minutes: 111 }
+          - { preset: windows-debug, shard: 48, of: 48, minutes: 111 }
+          - { preset: windows-release, shard: 1, of: 9, minutes: 60 }
+          - { preset: windows-release, shard: 2, of: 9, minutes: 60 }
+          - { preset: windows-release, shard: 3, of: 9, minutes: 60 }
+          - { preset: windows-release, shard: 4, of: 9, minutes: 60 }
+          - { preset: windows-release, shard: 5, of: 9, minutes: 60 }
+          - { preset: windows-release, shard: 6, of: 9, minutes: 60 }
+          - { preset: windows-release, shard: 7, of: 9, minutes: 60 }
+          - { preset: windows-release, shard: 8, of: 9, minutes: 60 }
+          - { preset: windows-release, shard: 9, of: 9, minutes: 60 }
+          - { preset: windows-clang, shard: 1, of: 9, minutes: 60 }
+          - { preset: windows-clang, shard: 2, of: 9, minutes: 60 }
+          - { preset: windows-clang, shard: 3, of: 9, minutes: 60 }
+          - { preset: windows-clang, shard: 4, of: 9, minutes: 60 }
+          - { preset: windows-clang, shard: 5, of: 9, minutes: 60 }
+          - { preset: windows-clang, shard: 6, of: 9, minutes: 60 }
+          - { preset: windows-clang, shard: 7, of: 9, minutes: 60 }
+          - { preset: windows-clang, shard: 8, of: 9, minutes: 60 }
+          - { preset: windows-clang, shard: 9, of: 9, minutes: 60 }
     env:
       SDL_LOGGING: gpu=debug
     steps:

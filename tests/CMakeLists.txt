@@ -396,7 +396,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_circuit_gives_way_to_a_person_straight_in_and_is_kept_apart_from_her_departing_the_slowest_and_the_fastest_each_with_each
     an_ai_aircraft_behind_a_person_who_stays_in_the_circuit_leaves_it_kept_apart_the_slowest_and_the_fastest_each_with_each
     an_ai_departure_behind_a_person_who_stays_in_the_circuit_departs_kept_apart_the_slowest_and_the_fastest_each_with_each
-    every_landplane_has_a_test_with_every_person_straight_in_departing_or_staying_in_the_circuit
+    the_person_pieces_between_them_fly_every_landplane_with_every_person_each_flight_once
     a_persons_place_is_clear_of_departures_behind_the_threshold_and_going_away_whatever_her_pattern
     a_person_straight_in_to_or_departing_the_reciprocal_runway_is_seen
     a_hold_outside_the_circuit_over_raised_ground_is_flown_1000_ft_over_it
@@ -412,26 +412,11 @@ set(GLIDESLOPE_UNIT_TESTS
     every_landplane_following_another_round_a_circuit_beside_high_ground_beyond_8_nm_stays_500_ft_over_it
     a_person_who_lines_up_and_rolls_with_an_ai_aircraft_2_nm_out_is_kept_apart_from_her_the_slowest_and_the_fastest_each_with_each
     a_person_who_lines_up_and_rolls_under_an_ai_aircraft_at_200_ft_lifts_off_inside_the_minimum_of_her
-    every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
+    the_lining_up_pieces_between_them_measure_every_landplane_pair_once
     an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_comes_back_and_lands_kept_apart
     an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
     the_tests_of_a_person_flying_away_fly_every_bearing_once
     on_raised_ground_an_ai_aircraft_climbing_before_her_hold_is_kept_apart_from_a_person_in_the_circuit
-    a_737_300_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    a_747_400_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    a_787_8_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    an_a320_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    an_a380_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    a_b2_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    a_c172p_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    a_c182_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    an_f15c_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    an_f22_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    an_f35b_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    a_j3cub_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    a_learjet35a_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    a_mosquito_fb6_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-    a_pa28_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
     how_she_lands_is_what_her_approach_is_flown_at_or_none_without_a_stall_speed
     every_jets_spool_up_is_measured_from_its_model_and_a_propeller_has_none
     every_aeroplane_lands_light_and_heavy_without_a_balloon_a_bounce_or_a_go_around
@@ -1408,6 +1393,34 @@ set(GLIDESLOPE_UNIT_TESTS
 # it). Forty seeds' flights are too long for a pull request's run. Not the
 # nightly label: that is for tests moved out of pull requests' runs after
 # failing on CI (tests/cmake/nightly_tests.cmake), and these have not.
+# **Every landplane with every person, in pieces** (tests/unit/test_lesson.cpp,
+# which says why): for each landplane with each other, her eight flights
+# straight in, departing or staying, and the eight behind a person's flying
+# away - 450 tests, labelled gust_sweep. The coverage test there asserts the
+# pieces fly the whole space, each flight once, and registered_tests.cmake
+# that the names here are the ones it compiled.
+set(GLIDESLOPE_PERSON_SWEEP_SPELT a_737_300 a_747_400 a_787_8 an_a320 an_a380 a_b2 a_c172p
+    a_c182 an_f15c an_f22 an_f35b a_j3cub a_learjet35a a_mosquito_fb6 a_pa28)
+set(GLIDESLOPE_PERSON_PIECES "")
+foreach(_id IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
+    string(REGEX REPLACE "^an?_" "" _bare ${_id})
+    foreach(_other IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
+        list(APPEND GLIDESLOPE_PERSON_PIECES
+            ${_id}_and_${_other}_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
+            ${_other}_behind_a_persons_${_bare}_flying_away_on_every_bearing_comes_back_kept_apart)
+    endforeach()
+endforeach()
+# **Every landplane pair with a person lining up under her at 200 ft, in
+# pieces** (tests/unit/test_lesson.cpp): for each landplane, the persons'
+# departures of the first eight and of the last seven - 30 tests.
+set(GLIDESLOPE_LINING_UP_PIECES "")
+foreach(_id IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
+    foreach(_half first_eight last_seven)
+        list(APPEND GLIDESLOPE_LINING_UP_PIECES
+            every_persons_departure_of_the_${_half}_landplanes_lining_up_under_${_id}_at_200_ft_is_measured)
+    endforeach()
+endforeach()
+list(APPEND GLIDESLOPE_UNIT_TESTS ${GLIDESLOPE_PERSON_PIECES} ${GLIDESLOPE_LINING_UP_PIECES})
 set(GLIDESLOPE_GUST_SWEEP_SEEDS "")
 foreach(_seed RANGE 9 40)
     list(APPEND GLIDESLOPE_GUST_SWEEP_SEEDS
@@ -1457,15 +1470,63 @@ foreach(_t a_737_300 a_747_400 a_787_8 an_a320 an_a380 a_b2 a_c172p a_c182 an_f1
 endforeach()
 set_tests_properties(a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
     PROPERTIES TIMEOUT 1800)
-# **Every landplane with every person straight in, departing or staying in
-# the circuit** (tests/unit/test_lesson.cpp): fifteen tests of sixty
-# flights, labelled gust_sweep as those above. The twenty flights of the
-# slowest and the fastest run on every run.
-foreach(_t a_737_300 a_747_400 a_787_8 an_a320 an_a380 a_b2 a_c172p a_c182 an_f15c an_f22
-        an_f35b a_j3cub a_learjet35a a_mosquito_fb6 a_pa28)
-    set_tests_properties(${_t}_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-        PROPERTIES TIMEOUT 3600 LABELS gust_sweep)
+# **The person pieces' cost and time limit, until CI has measured them**:
+# each landplane's whole test with every person took up to 3,553 s on a
+# release runner (tests/ci_costs, before it was split), sixteen flights a
+# pair in thirty pieces, and a debug runner takes about twelve times a
+# release one's (the racetrack test: 856 s on Linux debug, 68 on release).
+# A piece's estimate is its landplane's whole test's longest release figure
+# over 30: its COST, which tools/ci_shard.cmake deals by (twelve times on a
+# debug preset) where the table has no figure yet; and its TIMEOUT half as
+# long again as twice this build's estimate - the heaviest pairs' - or the
+# presets' 900 if longer. Once measured, the
+# tables' figures rule (the time limits at the end of this file).
+get_filename_component(_this_preset ${PROJECT_BINARY_DIR} NAME)
+set(_debug_times 1)
+if(_this_preset MATCHES "-debug$")
+    set(_debug_times 12)
+endif()
+file(GLOB _release_tables ${CMAKE_CURRENT_SOURCE_DIR}/ci_costs/*-release.txt
+    ${CMAKE_CURRENT_SOURCE_DIR}/ci_costs/windows-clang.txt)
+foreach(_id IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
+    set(_whole_s 3553)
+    foreach(_table IN LISTS _release_tables)
+        file(STRINGS ${_table} _whole
+            REGEX "^[0-9]+ ${_id}_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart$")
+        if(_whole MATCHES "^([0-9]+) " AND CMAKE_MATCH_1 GREATER _whole_s)
+            set(_whole_s ${CMAKE_MATCH_1})
+        endif()
+    endforeach()
+    math(EXPR _piece_s "(${_whole_s} + 29) / 30")
+    math(EXPR _limit "${_piece_s} * ${_debug_times} * 3")
+    if(_limit LESS 900)
+        set(_limit 900)
+    endif()
+    string(REGEX REPLACE "^an?_" "" _bare ${_id})
+    foreach(_other IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
+        set_tests_properties(
+            ${_id}_and_${_other}_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
+            ${_other}_behind_a_persons_${_bare}_flying_away_on_every_bearing_comes_back_kept_apart
+            PROPERTIES LABELS gust_sweep COST ${_piece_s} TIMEOUT ${_limit})
+    endforeach()
 endforeach()
+# The lining-up pieces the same way: the whole test's longest release
+# figure over 30 (3,424 s on Windows release, before it was split).
+set(_whole_s 3424)
+foreach(_table IN LISTS _release_tables)
+    file(STRINGS ${_table} _whole
+        REGEX "^[0-9]+ every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured$")
+    if(_whole MATCHES "^([0-9]+) " AND CMAKE_MATCH_1 GREATER _whole_s)
+        set(_whole_s ${CMAKE_MATCH_1})
+    endif()
+endforeach()
+math(EXPR _piece_s "(${_whole_s} + 29) / 30")
+math(EXPR _limit "${_piece_s} * ${_debug_times} * 3")
+if(_limit LESS 900)
+    set(_limit 900)
+endif()
+set_tests_properties(${GLIDESLOPE_LINING_UP_PIECES}
+    PROPERTIES LABELS gust_sweep COST ${_piece_s} TIMEOUT ${_limit})
 # The three a person's on every run: on linux-debug locally, three at once
 # beside a -j4 sweep, 589, 689 and 334 s - over the presets' 900 on a slower
 # runner, as a sibling of theirs went. An hour each: five times the local
@@ -1510,10 +1571,7 @@ set_tests_properties(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_a
 set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
     PROPERTIES TIMEOUT 5400)
 set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
-    every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
     PROPERTIES LABELS gust_sweep)
-set_tests_properties(every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
-    PROPERTIES TIMEOUT 3600)
 # **Every landplane's take-off to 3,000 ft and ten minutes held there**, in
 # simulated time: 22 s on linux-release locally, and Linux debug's runners
 # take about fourteen times release's for flights like these.
