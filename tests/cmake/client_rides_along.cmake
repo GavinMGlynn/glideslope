@@ -216,7 +216,15 @@ if(TAKE_OVER)
         message(FATAL_ERROR "the client did not say when it was given its aircraft:\n${_out}")
     endif()
     set(_given_at "${CMAKE_MATCH_1}")
-    if(NOT _out MATCHES "took over aircraft [0-9]+[^\n]*\n(.*\n)?glideslope: pressed K, 12\\.[0-4] s in\nglideslope: counted from ${_given_at} s on the session's clock\n")
+    # A clock reset to nought across the take-over moves the press by only
+    # the time she was given at, too little for "12.[0-4]" to see; the
+    # "counted from" line sees it, and only while that time is not nought.
+    if(_given_at MATCHES "^0+(\\.0*)?$")
+        message(FATAL_ERROR "the client was given its aircraft at 0 s, where a clock reset "
+                            "to nought across the take-over could not be told apart:\n${_out}")
+    endif()
+    string(REPLACE "." "\\." _given_at_re "${_given_at}")
+    if(NOT _out MATCHES "took over aircraft [0-9]+[^\n]*\n(.*\n)?glideslope: pressed K, 12\\.[0-4] s in\nglideslope: counted from ${_given_at_re} s on the session's clock\n")
         message(FATAL_ERROR "the key pressed 12 s after joining, after the take-over, was not "
                             "counted from when it was given (${_given_at} s):\n${_out}")
     endif()
