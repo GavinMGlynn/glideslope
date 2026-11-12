@@ -1817,6 +1817,14 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       end-to-end test that tells a wrong gust clock (the steady bound passed
       one five seconds out), and the cause of a worst of up to 4 m in a
       weather's change, where the steady air's is 0.4 m.
+- [x] **Every aircraft trims in the session's air**: she was trimmed in
+      the standard atmosphere and still air, and the METAR's temperature,
+      pressure and wind reached her on her first step - a C182 in a calm
+      METAR turned off her heading. *Verification: every aircraft trimmed in
+      a warm, high-pressure METAR holds her heading and track as in no
+      weather, and in wind starts at the airspeed she was given.*
+      Done 2026-11-12: no policy needed retraining; the gate's wind reading
+      now takes the airspeed's level share, and two gust seeds are named.
 - [x] **A 172 a window client joins on final leaves the gate in seconds**:
       left alone, it is 8 degrees off the runway's heading six seconds in.
       *Verification: a window client joining on final and touching nothing is

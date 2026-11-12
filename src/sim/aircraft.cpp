@@ -722,6 +722,23 @@ void Aircraft::initialize(const InitialConditions& ic) {
     } fuel_frozen{exec_->GetPropulsion().get(), exec_->GetPropulsion()->GetFuelFreeze()};
     fuel_frozen.propulsion->SetFuelFreeze(true);
     const auto fgic = exec_->GetIC();
+    // **Trimmed in her weather's temperature and pressure, not JSBSim's
+    // standard air**: both set before her airspeed is, since JSBSim turns a
+    // calibrated airspeed into a true one through the atmosphere it has
+    // then, and before her trim. Until 2026-11-12 they arrived on her first
+    // step, after her trim: a C182 trimmed in JSBSim's standard air and
+    // flown in a calm METAR of 20 degrees and 1015 hPa was 6 degrees off her
+    // heading thirty seconds later, where in no weather she held it. Her
+    // wind is given her once she is trimmed (moved_with_the_wind, below).
+    if (weather_) {
+        constexpr double psf_per_hpa = 2.0885434233;
+        const Conditions c = weather_->at(ic.latitude_deg, ic.longitude_deg,
+                                          ic.altitude_ft * 0.3048, exec_->GetSimTime());
+        set("atmosphere/delta-T", c.temperature_offset_c * 1.8);
+        applied_temperature_offset_c_ = c.temperature_offset_c;
+        set("atmosphere/P-sl-psf", c.sea_level_pressure_hpa * psf_per_hpa);
+        applied_pressure_hpa_ = c.sea_level_pressure_hpa;
+    }
     // Geodetic, as every latitude here is. JSBSim's SetLatitudeDegIC is the
     // geocentric latitude: given 45 degrees it started the aircraft 0.19
     // degrees - 21 km - north of where it was asked to be.
@@ -1288,7 +1305,43 @@ void Aircraft::initialize(const InitialConditions& ic) {
     if (alpha_limited) {
         exec_->SetPropertyValue(alpha_limit_armed_property, 1.0);
     }
+    moved_with_the_wind(ic);
     initialized_ = true;
+}
+
+// **Started moving with the air she is in.** She is trimmed, and her levers
+// set, in still air; a steady wind changes no force on her, so her trimmed
+// state is the same in it once the air she flies through is moving with it.
+// Her velocity over the ground is her airspeed's plus the wind's, and the
+// wind is set with it, so she starts at the airspeed she was given, along
+// the heading she was given, and drifts with the wind - where until
+// 2026-11-12 she started at that speed over the ground and the wind arrived
+// on her first step as a gust. Not through JSBSim's initial conditions: its
+// FGInitialCondition takes a wind as her airspeed less her velocity over
+// the ground (GetWindNEDFpsIC), and FGFDMExec::Initialize hands that to
+// FGWinds, which takes it the other way round (FGAuxiliary: airspeed is her
+// velocity less the wind) - a wind given there was felt twice over, and
+// turned her airspeed along it. An aircraft started at rest is left at
+// rest, in the wind.
+void Aircraft::moved_with_the_wind(const InitialConditions& ic) {
+    if (!weather_ || ic.airspeed_kts <= 0.0) {
+        return;
+    }
+    constexpr double feet_per_metre = 1.0 / 0.3048;
+    const Conditions c = weather_->at(value("position/lat-geod-deg"),
+                                      value("position/long-gc-deg"),
+                                      value("position/geod-alt-ft") * 0.3048, exec_->GetSimTime());
+    const JSBSim::FGColumnVector3 wind(c.wind_north_mps * feet_per_metre,
+                                       c.wind_east_mps * feet_per_metre,
+                                       c.wind_down_mps * feet_per_metre);
+    if (wind.Magnitude() == 0.0) {
+        return;
+    }
+    const auto propagate = exec_->GetPropagate();
+    propagate->SetInertialVelocity(propagate->GetInertialVelocity() + propagate->GetTl2i() * wind);
+    set("atmosphere/wind-north-fps", wind(1));
+    set("atmosphere/wind-east-fps", wind(2));
+    set("atmosphere/wind-down-fps", wind(3));
 }
 
 std::optional<double> Aircraft::held_trim() const {

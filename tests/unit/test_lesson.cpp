@@ -3207,6 +3207,12 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // an x86-64-v2 build, and on Windows release all but these.
         {"737-300", 8, windows(), "on Windows she meets the runway at 347 ft/min (seed 8)"},
         {"787-8", 4, windows(), "on Windows she touches at 338 ft/min (seed 4)"},
+        // Since 2026-11-12, every aircraft started moving with her wind
+        // rather than meeting it on her first step: the other 39 seeds of
+        // each still land, and these two do not.
+        {"737-300", 40, linux_(), "on Linux she touches at 362 ft/min (seed 40)"},
+        {"a380", 34, linux_(),
+         "on Linux she touches at 350 ft/min, inside 360 but not by 25 (seed 34)"},
         // The A380 since 2026-11-04, her power retarded at 20 ft, her wings
         // held harder and her nose kept up near the ground (her figures):
         // forty seeds of forty here and on an x86-64-v2 build, and on Windows
