@@ -8,8 +8,8 @@ hold short of fuel and fails when the set flown differs from the set named.
 
 **Cause.** #363 (2026-11-12) made the autothrottle lead by an aircraft's
 throttle lag, and only the F-22A has one. Of what landed after the names
-were measured (2026-11-11: #359, #363, #364), it is the only change to how
-she flies, so it is taken as the likeliest cause; no bisect was run. Her fuel
+were measured (2026-11-11: #359, #363, #364), it is the only change to her
+autopilot, so it is taken as the likeliest cause; no bisect was run. Her fuel
 in the hold, and how far the 180 deg flight is from the short-of-fuel
 trigger, were not measured. At 180 deg the Cub's place is dropped soonest,
 875 s after she set off; on the other seven bearings it is 896 to 1081 s. The
