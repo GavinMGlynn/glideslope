@@ -94,6 +94,33 @@ on 2026-11-04.
   2,082 to 3,600 s.
 - **tools/ci_test_costs.py** also measures shards named "gust sweep".
 
+- **The shard jobs' counts**: each shard's dealt work is now at most three
+  quarters of its job's limit. tests/cmake/ci_shards.cmake asserts this for
+  every shard job (MINUTES is read from the job's timeout-minutes, with
+  SHARE=75 and STRICT), and the limits are unchanged. #367's full run had
+  Windows debug tests 6/8 finish 206 of 206 at 16:33:07 and get cut off at
+  16:33:20; #359's had shard 8/8 cut off at 203 of 207. With the counts
+  unchanged, the test failed: "1_linux-debug ... shard 2 holds 51.4 min of
+  work, over 75% of 60". The largest shard's dealt work, in minutes, for a
+  pull request's way and then a night's (without gust_sweep):
+
+  | preset (limit) | before | after |
+  | --- | --- | --- |
+  | linux-debug (60) | 11 shards: 51.4 / 51.9 | 13: 43.4 / 43.9 |
+  | linux-release, Ubuntu (60) | 2: 59.8 / 62.4 | 3: 39.9 / 41.6 |
+  | linux-release, Rocky 9 (45) | 4: 29.9 / 31.2 | 4, unchanged |
+  | macos-release (45) | 3: 40.5 / 42.4 | 4: 30.4 / 31.8 |
+  | macos-debug (45, night only) | 5: 44.3 | 7: 31.6 |
+  | windows-debug (45) | 8: 42.9 / 43.7 | 11: 31.2 / 31.8 |
+  | windows-release (45) | 4: 35.8 / 37.3 | 5: 28.6 / 29.8 |
+  | windows-clang (45) | 4: 32.5 / 34.0 | 5: 26.0 / 27.2 |
+
+  These are from the re-measured tables, which take the longer of the pull
+  requests' and the scheduled runs' figures. The new counts add eleven
+  test jobs, nine of them to a pull request's full run (macos-debug runs
+  only after a merge and at night). A full run's jobs now queue beyond the
+  plan's 40 at once.
+
 ## Runner time
 
 A scheduled run, or a dispatch, gains about 1,520 minutes of dealt work.

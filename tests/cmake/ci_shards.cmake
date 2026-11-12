@@ -33,6 +33,12 @@ set(_presets "")
 set(_job 0)
 foreach(_block IN LISTS _blocks)
     math(EXPR _job "${_job} + 1")
+    # The job's limit: the last timeout-minutes before its rows.
+    string(FIND "${_yml}" "${_block}" _at)
+    string(SUBSTRING "${_yml}" 0 ${_at} _head)
+    string(REGEX MATCHALL "timeout-minutes: [^\n]+" _limits "${_head}")
+    list(GET _limits -1 _limit)
+    string(REGEX REPLACE "^timeout-minutes: " "" _limit_${_job} "${_limit}")
     string(REGEX MATCHALL "- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+(, minutes: [0-9]+)? }" _block_rows "${_block}")
     foreach(_row IN LISTS _block_rows)
         string(REGEX MATCH "preset: ([a-z-]+), shard: ([0-9]+), of: ([0-9]+)(, minutes: ([0-9]+))?" _ "${_row}")
@@ -183,7 +189,10 @@ endforeach()
 # costs. A gust sweep job's preset is dealt the tests labelled gust_sweep
 # alone, read back with -L, and sized: STRICT, so a shard holding more than
 # three fifths of its row's minutes, or a longest test that half as long again
-# is past them, fails here (tools/ci_shard.cmake).
+# is past them, fails here (tools/ci_shard.cmake). A shard job's dealing is
+# sized the same way against its job's timeout-minutes, at three quarters: a
+# Windows debug shard dealt 43 of its 45 minutes finished its last test 13 s
+# before it was cut off (#367's run, 2026-11-12).
 function(ci_filter way out)
     set(_le "")
     if(way STREQUAL "sweep")
@@ -231,7 +240,10 @@ foreach(_p IN LISTS _presets)
         list(APPEND _swept ${_preset_${_p}})
     elseif(NOT _minutes_${_p} STREQUAL "")
         message(FATAL_ERROR "${_p}: only a gust sweep job's rows say minutes")
+    elseif(NOT _limit_${_jobn} MATCHES "^[0-9]+$")
+        message(FATAL_ERROR "${_p}: a shard job's limit is a number of minutes, not ${_limit_${_jobn}}")
     elseif(_preset_${_p} MATCHES "-debug$")
+        set(_deal_args -DMINUTES=${_limit_${_jobn}} -DSHARE=75 -DSTRICT=ON)
         list(APPEND _sharded ${_preset_${_p}})
         set(_ways "timing|nightly|gust_sweep")
         if(_other_debug STREQUAL "")
@@ -239,6 +251,7 @@ foreach(_p IN LISTS _presets)
             list(APPEND _ways "timing|gust_sweep")
         endif()
     else()
+        set(_deal_args -DMINUTES=${_limit_${_jobn}} -DSHARE=75 -DSTRICT=ON)
         list(APPEND _sharded ${_preset_${_p}})
         set(_ways "nightly|gust_sweep")
         if(_other_release STREQUAL "")
