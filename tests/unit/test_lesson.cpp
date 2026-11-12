@@ -5406,7 +5406,8 @@ struct InFlight {
 // `loading`, where given, is what she is loaded with in place of the one her
 // figures were measured at.
 InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0,
-                  const glideslope::sim::Loading* loading = nullptr) {
+                  const glideslope::sim::Loading* loading = nullptr,
+                  std::shared_ptr<glideslope::sim::Weather> air = nullptr) {
     const auto entry = glideslope::sim::find_aircraft(data(), id);
     InFlight out;
     out.aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim",
@@ -5427,6 +5428,10 @@ InFlight airborne(const std::string& id, double agl_ft, double start_kcas = 0.0,
         out.aircraft->load(*loading);
     } else {
         load_as_its_figures_were_measured(*out.aircraft, entry.model);
+    }
+    // In `air`, where given: started in it (sim::Aircraft::set_weather).
+    if (air) {
+        out.aircraft->set_weather(std::move(air));
     }
     out.aircraft->initialize(ic);
     // **An aeroplane that publishes no figures still has lessons.** Eleven of
@@ -7024,10 +7029,10 @@ double held_for_a_plan(const std::string& id, double asked_kts,
     ic.heading_deg = 0.0;
     ic.airspeed_kts = entry.start_airspeed_kts;
     ic.engine_running = true;
-    aircraft.initialize(ic);
     if (weather) {
         aircraft.set_weather(weather);
     }
+    aircraft.initialize(ic);
     glideslope::sim::Controls held;
     held.throttle = entry.start_throttle;
     glideslope::sim::Controller controller(aircraft, held);
@@ -7119,9 +7124,8 @@ GLIDESLOPE_TEST(an_aircraft_has_its_airs_gust_factor_after_a_step_blended_as_its
     calm.surface.longitude_deg = 151.1772;
     glideslope::world::WeatherReport rough = calm;
     rough.turbulence_severity = 3;
-    InFlight f = airborne("c172p", 3000.0);
     const auto weather = std::make_shared<glideslope::world::ReportedWeather>(calm, nullptr, 60.0);
-    f.aircraft->set_weather(weather);
+    InFlight f = airborne("c172p", 3000.0, 0.0, nullptr, weather);
     f.aircraft->step();
     check(f.aircraft->gust_factor_kt() == 0.0,
           "in calm air none: " + std::to_string(f.aircraft->gust_factor_kt()));
@@ -7260,7 +7264,6 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
             ++not_watched;
             continue;
         }
-        InFlight f = airborne(entry.id, stalls_are_practised_at(entry));
         glideslope::world::WeatherReport report;
         report.surface.metar =
             glideslope::world::parse_metar("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013");
@@ -7268,7 +7271,8 @@ GLIDESLOPE_TEST(the_ai_pilot_notices_no_stall_cruising_or_climbing_in_moderate_t
         report.surface.longitude_deg = 151.1772;
         report.turbulence_severity = 3; // moderate
         report.air_seed = 0xa170;
-        f.aircraft->set_weather(
+        InFlight f = airborne(
+            entry.id, stalls_are_practised_at(entry), 0.0, nullptr,
             std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0));
         glideslope::sim::Controls held;
         held.throttle = 0.7;
@@ -8349,6 +8353,12 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
     const glideslope::sim::Runway runway = a_runway();
     const auto published = glideslope::sim::approach_speeds(data(), entry.model);
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
+    if (when == OnTheRoll::landed_by_hand_on_a_wet_short_runway) {
+        // Wet everywhere, still air: the weather gives her runway code 5.
+        glideslope::sim::Conditions wet;
+        wet.runway_condition = glideslope::sim::wet_runway;
+        aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wet));
+    }
     put_on_final(aircraft, entry, runway, published);
 
     glideslope::sim::Controls flying;
@@ -8377,12 +8387,6 @@ TakenBackOnTheRoll take_back_on_the_roll(const std::string& id, OnTheRoll when) 
         controller.finds_runways_with([rolled_on](const glideslope::sim::Aircraft&) {
             return std::optional<glideslope::sim::Runway>(rolled_on);
         });
-    }
-    if (when == OnTheRoll::landed_by_hand_on_a_wet_short_runway) {
-        // Wet everywhere, still air: the weather gives her runway code 5.
-        glideslope::sim::Conditions wet;
-        wet.runway_condition = glideslope::sim::wet_runway;
-        aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wet));
     }
     if (by_hand) {
         // The pilot has her from the start, and the AI is told only how
@@ -10097,8 +10101,8 @@ GLIDESLOPE_TEST(an_approach_unstabilized_every_time_goes_around_twice_and_then_l
     const glideslope::sim::Runway runway = a_runway();
     const auto published = glideslope::sim::approach_speeds(data(), entry.model);
     glideslope::sim::Aircraft aircraft(data() / "jsbsim", entry.model);
-    put_on_final(aircraft, entry, runway, published);
     aircraft.set_weather(std::make_shared<RisingOnFinal>(runway));
+    put_on_final(aircraft, entry, runway, published);
     glideslope::sim::Controls flying;
     flying.throttle = 0.4;
     flying.gear = 1.0;

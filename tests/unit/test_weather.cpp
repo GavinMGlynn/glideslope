@@ -339,8 +339,8 @@ std::pair<double, double> jsbsim_wind(std::shared_ptr<glideslope::sim::Weather> 
     ic.altitude_ft = height_m * fps_per_mps;
     ic.terrain_elevation_ft = 0.0;
     ic.airspeed_kts = 100.0;
-    aircraft.initialize(ic);
     aircraft.set_weather(std::move(weather));
+    aircraft.initialize(ic);
     aircraft.step();
     return {aircraft.property("atmosphere/wind-north-fps"),
             aircraft.property("atmosphere/wind-east-fps")};
@@ -438,10 +438,10 @@ Drift fly_north(std::shared_ptr<glideslope::sim::Weather> weather) {
     ic.terrain_elevation_ft = 0.0;
     ic.heading_deg = 0.0;
     ic.airspeed_kts = 100.0;
-    aircraft.initialize(ic);
     if (weather) {
         aircraft.set_weather(std::move(weather));
     }
+    aircraft.initialize(ic);
     glideslope::sim::TestPilot pilot(aircraft);
     Drift d;
     double start_longitude = 0.0;
@@ -559,8 +559,8 @@ GLIDESLOPE_TEST(
     ic.longitude_deg = 151.18;
     ic.altitude_ft = 3000.0;
     ic.airspeed_kts = 100.0;
-    aircraft.initialize(ic);
     aircraft.set_weather(weather);
+    aircraft.initialize(ic);
 
     constexpr double fps_per_knot = 1852.0 / 3600.0 / 0.3048;
     const double east_before = 10.0 * fps_per_knot;
@@ -774,8 +774,8 @@ GLIDESLOPE_TEST(
     ic.terrain_elevation_ft = ground / 0.3048;
     ic.airspeed_kts = 70.0;
     ic.engine_running = true;
-    aircraft.initialize(ic);
     aircraft.set_weather(weather);
+    aircraft.initialize(ic);
     glideslope::sim::TestPilot pilot(aircraft);
     const double descent_mps = 70.0 * 1852.0 / 3600.0 * std::tan(3.0 * radians);
     double worst = 0.0;

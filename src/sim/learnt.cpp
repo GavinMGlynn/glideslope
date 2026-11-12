@@ -508,7 +508,10 @@ std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
     // three-degree path that is 0.1 kt at 57 kt, which the gate's edge,
     // judged to 0.05, sees: she has been started in her wind since
     // 2026-11-12, and a C172P put at the gate in exactly its most headwind
-    // read a hair over 15 kt of it, and was refused.
+    // read a hair over 15 kt of it, and was refused. Approximate where the
+    // air itself rises or sinks - a thermal, a microburst: her descent over
+    // the ground (v-down-fps) is then not her descent through the air, and
+    // the level share is off by as much.
     {
         constexpr double kts_per_mps = 1.0 / 0.514444;
         const double hr = runway.heading_deg / degrees;

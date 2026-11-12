@@ -60,7 +60,6 @@ std::vector<double> after_a_step(const std::function<void(AutopilotModes&)>& cha
     ic.heading_deg = 0.0;
     ic.airspeed_kts = 100.0;
     ic.engine_running = true;
-    aircraft.initialize(ic);
     if (turbulent) {
         glideslope::world::WeatherReport report;
         report.surface.metar =
@@ -72,6 +71,7 @@ std::vector<double> after_a_step(const std::function<void(AutopilotModes&)>& cha
         aircraft.set_weather(
             std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0));
     }
+    aircraft.initialize(ic);
     glideslope::sim::Controls controls;
     controls.throttle = 0.7;
     Autopilot autopilot(aircraft, controls);
@@ -207,7 +207,10 @@ GLIDESLOPE_TEST(the_autopilot_captures_a_new_heading_altitude_airspeed_and_climb
     // altitude through the vertical gusts trades airspeed, so the airspeed is
     // held to its band once it is in it, and to twice the band after a minute.
     const Limit heading_rough{5.0, 5.0, 40.0};
-    const Limit altitude_rough{50.0, 50.0, 70.0};
+    // Settled in 70.8 s since 2026-11-12, started in the turbulent air's
+    // own temperature and pressure (sim::Aircraft::set_weather) rather than
+    // meeting them on her first step; 70 s was the bound before.
+    const Limit altitude_rough{50.0, 50.0, 75.0};
     // The climb's 45 s is a measured margin, not a handbook figure: it
     // settles in 38.2 s. At 100 kt and 4,000 ft the throttle is at its stop
     // for most of it, and on the FAA's mixture curve (tools/piston_mixture.py)
@@ -1077,10 +1080,10 @@ GLIDESLOPE_TEST(the_ailerons_trim_from_a_turn_in_gusts_is_gone_within_half_a_sec
         ic.airspeed_kts = e.start_airspeed_kts;
         ic.engine_running = true;
         ic.gear = 0.0;
-        aircraft.initialize(ic);
         glideslope::sim::Conditions gusts;
         gusts.turbulence_severity = 3; // moderate
         aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(gusts));
+        aircraft.initialize(ic);
         glideslope::sim::Controls controls;
         controls.throttle = e.start_throttle;
         Autopilot autopilot(aircraft, controls);
@@ -2005,7 +2008,6 @@ RoughSpeedHold hold_speed_in_moderate_turbulence(const std::string& id) {
     ic.airspeed_kts = e.start_airspeed_kts;
     ic.engine_running = true;
     ic.gear = 0.0;
-    aircraft.initialize(ic);
     glideslope::world::WeatherReport report;
     report.surface.metar =
         glideslope::world::parse_metar("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013");
@@ -2015,6 +2017,7 @@ RoughSpeedHold hold_speed_in_moderate_turbulence(const std::string& id) {
     report.air_seed = 0xa170;
     aircraft.set_weather(
         std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0));
+    aircraft.initialize(ic);
     glideslope::sim::Controls controls;
     controls.throttle = e.start_throttle;
     Autopilot autopilot(aircraft, controls);
@@ -2071,8 +2074,11 @@ RoughSpeedHold hold_speed_in_moderate_turbulence(const std::string& id) {
 // turbulence for three minutes (hold_speed_in_moderate_turbulence): the
 // slow-spooling 747-400 and A380, the business jet, the Mosquito and the
 // 172P. Each one's RMS off the speed asked is held to 5% over what it
-// measured on 2026-10-10 (linux-release), and its throttle reversals to 10%
-// over. **A lead on the speed's trend was tried for the take-off's hand-over
+// measures, and its throttle reversals to 10% over: measured on 2026-11-12
+// (linux-release), started in the turbulent air rather than meeting it on
+// her first step (sim::Aircraft::set_weather) - the 172P's reversals went
+// 221 to 255, and each one's RMS moved 0.01 to 0.18 kt (2026-10-10's: 3.35,
+// 3.81, 3.21, 6.14, 2.99; reversals 210, 200, 210, 156, 221). **A lead on the speed's trend was tried for the take-off's hand-over
 // and taken out** (PROJECT_STATUS, 2026-10-10): reading the speed two
 // seconds ahead, the RMS went 747-400 3.35 -> 3.61, A380 3.81 -> 4.27,
 // Learjet 3.21 -> 3.63, Mosquito 6.14 -> 8.18, 172P 2.99 -> 3.23, with
@@ -2083,11 +2089,11 @@ GLIDESLOPE_TEST(the_autopilot_holds_five_classes_speeds_in_moderate_turbulence_t
         double rms_kts;
         int reversals;
     };
-    const Measured measured[] = {{"747-400", 3.35, 210},
-                                 {"a380", 3.81, 200},
-                                 {"learjet35a", 3.21, 210},
-                                 {"mosquito-fb6", 6.14, 156},
-                                 {"c172p", 2.99, 221}};
+    const Measured measured[] = {{"747-400", 3.31, 212},
+                                 {"a380", 3.63, 204},
+                                 {"learjet35a", 3.22, 206},
+                                 {"mosquito-fb6", 6.21, 150},
+                                 {"c172p", 3.09, 255}};
     std::size_t flown = 0;
     for (const Measured& m : measured) {
         const RoughSpeedHold h = hold_speed_in_moderate_turbulence(m.id);
@@ -2231,7 +2237,6 @@ TrimFlown fly_for_the_trim(const CatalogueEntry& e, bool approach) {
     ic.airspeed_kts = kts;
     ic.engine_running = true;
     ic.gear = approach ? 1.0 : 0.0;
-    aircraft.initialize(ic);
     glideslope::world::WeatherReport report;
     report.surface.metar =
         glideslope::world::parse_metar("XXXX 181200Z 00000KT 9999 SKC 15/05 Q1013");
@@ -2241,6 +2246,7 @@ TrimFlown fly_for_the_trim(const CatalogueEntry& e, bool approach) {
     report.air_seed = 0xa170;
     aircraft.set_weather(
         std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0));
+    aircraft.initialize(ic);
     glideslope::sim::Controls controls;
     controls.throttle = 0.7;
     controls.flaps = approach ? lands->flap : 0.0;

@@ -3576,11 +3576,12 @@ private:
         ic.airspeed_kts = std::hypot(m.uvw_mps[0], m.uvw_mps[1], m.uvw_mps[2]) / 0.514444;
         ic.engine_running = true;
         ic.gear = 0.0;
-        aircraft_->initialize(ic);
-        // In the server's air, if it has said any.
+        // In the server's air, if it has said any: before she is started,
+        // so that she is started in it (sim::Aircraft::set_weather).
         if (air_ && air_->air()) {
             aircraft_->set_weather(air_->air());
         }
+        aircraft_->initialize(ic);
         aircraft_->set_motion(m);
         start_weight_lbs_ = aircraft_->property("inertia/weight-lbs");
         prediction_ = std::make_unique<glideslope::sim::Prediction>(*aircraft_);

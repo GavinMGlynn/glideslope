@@ -170,15 +170,19 @@ std::size_t trained_tanks(const std::string& model) {
     return 0;
 }
 
-// The C172P at `start`, trimmed on the glidepath, in its wind.
+// The C172P at `start`, trimmed on the glidepath, in its wind - or in
+// `air`, where given, started in it (sim::Aircraft::set_weather).
 // `fuel_lbs` in each of her two tanks; below nothing, as the model has them - full.
-std::unique_ptr<glideslope::sim::Aircraft> at(const LearntPolicy& policy, const Start& start,
-                                              double fuel_lbs = -1.0, double aboard_lbs = 0.0) {
+std::unique_ptr<glideslope::sim::Aircraft> at(
+    const LearntPolicy& policy, const Start& start, double fuel_lbs = -1.0,
+    double aboard_lbs = 0.0, std::shared_ptr<glideslope::sim::Weather> air = nullptr) {
     const Runway runway = a_runway();
     auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", policy.aircraft);
     aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
         [](double, double) { return 0.0; }, [](double, double) { return false; }));
-    if (start.crosswind_kts != 0.0) {
+    if (air) {
+        aircraft->set_weather(std::move(air));
+    } else if (start.crosswind_kts != 0.0) {
         // From the left, as tests/unit/test_lander.cpp's crosswind: blowing
         // towards the right of the landing direction.
         glideslope::sim::Conditions conditions;
@@ -533,7 +537,6 @@ GLIDESLOPE_TEST(the_wind_the_learnt_landing_estimates_is_the_steady_wind_blowing
     const std::vector<Wind> winds{{0.0, 0.0}, {10.0, 0.0}, {-10.0, 0.0}, {0.0, 5.0}, {0.0, -5.0}};
     std::size_t flown = 0;
     for (const Wind& wind : winds) {
-        auto aircraft = at(policy, Start{0.0, 0.0, 0.0});
         const double h = runway.heading_deg / degrees;
         const double right = h + 90.0 / degrees;
         const double across = wind.across_kts * 0.514444;
@@ -541,7 +544,8 @@ GLIDESLOPE_TEST(the_wind_the_learnt_landing_estimates_is_the_steady_wind_blowing
         glideslope::sim::Conditions conditions;
         conditions.wind_north_mps = across * std::cos(right) + along * std::cos(h);
         conditions.wind_east_mps = across * std::sin(right) + along * std::sin(h);
-        aircraft->set_weather(std::make_shared<glideslope::sim::SteadyWeather>(conditions));
+        auto aircraft = at(policy, Start{0.0, 0.0, 0.0}, -1.0, 0.0,
+                           std::make_shared<glideslope::sim::SteadyWeather>(conditions));
         LearntLander lander(*aircraft, runway, flown_by, speeds(),
                             LearntLander::Approach::policy);
         for (int tick = 0; tick < 10 * steps_per_second; ++tick) {

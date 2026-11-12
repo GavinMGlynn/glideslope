@@ -125,8 +125,8 @@ GLIDESLOPE_TEST(an_aircraft_restored_in_a_gust_flies_on_in_the_same_air) {
     ic.airspeed_kts = 100.0;
     ic.engine_running = true;
     glideslope::sim::Aircraft flown(GLIDESLOPE_TEST_DATA_DIR, "c172p");
-    flown.initialize(ic);
     flown.set_weather(weather);
+    flown.initialize(ic);
     glideslope::sim::Controls c;
     c.throttle = 0.7;
     for (int i = 0; i < 15 * 120; ++i) {
@@ -242,9 +242,9 @@ GLIDESLOPE_TEST(a_recorded_gusty_metar_gives_winds_between_its_mean_and_gust_spe
         ic.terrain_elevation_ft = surface.elevation_m / 0.3048;
         ic.airspeed_kts = 100.0;
         ic.engine_running = true;
-        aircraft.initialize(ic);
         aircraft.set_weather(std::make_shared<glideslope::world::ReportedWeather>(
             report_for(surface), nullptr, 0.0));
+        aircraft.initialize(ic);
         glideslope::sim::Controls c;
         c.throttle = 0.7;
         for (int i = 0; i < 60 * 120; ++i) {

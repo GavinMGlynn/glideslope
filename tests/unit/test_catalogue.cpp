@@ -2032,3 +2032,61 @@ GLIDESLOPE_TEST(every_aircraft_trimmed_in_a_calm_metar_away_from_the_standard_at
     check(failed.empty(), "heading and track as in no weather, within half a degree, and her "
                           "airspeed in wind as she was given it, within half a knot:" + failed);
 }
+
+// **Weather given after a start in the air is refused her next step**: she
+// is trimmed in her weather and started moving with its wind
+// (sim::Aircraft::initialize), so weather given her after that and before
+// her first step would have her fly a trim made in standard still air. Her
+// step refuses it, unless she was started again in it; weather given after
+// her first step, or after a start on the ground, is taken. Each of the
+// five cases is built here, not hoped for.
+GLIDESLOPE_TEST(an_aircraft_given_her_weather_after_she_is_started_in_the_air_is_refused_her_next_step) {
+    glideslope::sim::Conditions windy;
+    windy.wind_east_mps = 5.0;
+    windy.temperature_offset_c = 10.0;
+    const auto weather = std::make_shared<glideslope::sim::SteadyWeather>(windy);
+    glideslope::sim::InitialConditions in_the_air;
+    in_the_air.latitude_deg = -33.9;
+    in_the_air.longitude_deg = 151.2;
+    in_the_air.altitude_ft = 3000.0;
+    in_the_air.airspeed_kts = 100.0;
+    in_the_air.engine_running = true;
+    // Whether her first step is refused, given the weather as `order` says.
+    const auto refused = [&](const std::string& order) {
+        glideslope::sim::Aircraft a(data() / "jsbsim", "c172p");
+        glideslope::sim::InitialConditions ic = in_the_air;
+        if (order == "on the ground, then weather") {
+            ic.altitude_ft = 0.0;
+            ic.airspeed_kts = 0.0;
+            ic.gear = 1.0;
+        }
+        if (order == "weather, then start") {
+            a.set_weather(weather);
+        }
+        a.initialize(ic);
+        if (order == "start, then weather" || order == "on the ground, then weather") {
+            a.set_weather(weather);
+        }
+        if (order == "start, weather, start again") {
+            a.set_weather(weather);
+            a.initialize(ic);
+        }
+        if (order == "start, a step, then weather") {
+            a.step();
+            a.set_weather(weather);
+        }
+        try {
+            a.step();
+        } catch (const std::logic_error& e) {
+            std::printf("  %-28s refused: %s\n", order.c_str(), e.what());
+            return true;
+        }
+        std::printf("  %-28s taken\n", order.c_str());
+        return false;
+    };
+    check(refused("start, then weather"), "weather after a start in the air is refused");
+    check(!refused("weather, then start"), "weather before her start is taken");
+    check(!refused("start, weather, start again"), "started again in it, it is taken");
+    check(!refused("start, a step, then weather"), "after her first step it is a change of air");
+    check(!refused("on the ground, then weather"), "after a start at rest on the ground it is taken");
+}

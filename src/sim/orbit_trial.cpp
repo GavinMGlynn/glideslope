@@ -46,12 +46,12 @@ CrosswindFlown fly_heading_in_crosswind(const std::filesystem::path& data,
     ic.gear = configuration.gear;
     ic.flaps = configuration.flaps;
     ic.speedbrake = configuration.speedbrake;
-    aircraft.initialize(ic);
     if (windy) {
         Conditions wind;
         wind.wind_east_mps = 20.0 * 1852.0 / 3600.0;
         aircraft.set_weather(std::make_shared<SteadyWeather>(wind));
     }
+    aircraft.initialize(ic);
     Controls controls;
     controls.throttle = entry.start_throttle;
     controls.gear = configuration.gear;
@@ -118,12 +118,12 @@ OrbitFlown fly_tightest_orbit(const std::filesystem::path& data, const Catalogue
     ic.airspeed_kts = plan.start->airspeed_kts;
     ic.engine_running = true;
     ic.gear = 0.0; // clean: up, where it retracts (Aircraft::initialize)
-    aircraft.initialize(ic);
     if (trial.windy) {
         Conditions wind;
         wind.wind_east_mps = 10.0 * 1852.0 / 3600.0;
         aircraft.set_weather(std::make_shared<SteadyWeather>(wind));
     }
+    aircraft.initialize(ic);
     Controls controls;
     controls.throttle = entry.start_throttle;
     controls.gear = 0.0;
@@ -216,12 +216,12 @@ OrbitEntered fly_orbit_from_waypoint(const std::filesystem::path& data,
     ic.airspeed_kts = plan.start->airspeed_kts;
     ic.engine_running = true;
     ic.gear = 0.0; // clean: up, where it retracts (Aircraft::initialize)
-    aircraft.initialize(ic);
     if (trial.wind_kts > 0.0) {
         Conditions wind;
         wind.wind_east_mps = trial.wind_kts * 1852.0 / 3600.0;
         aircraft.set_weather(std::make_shared<SteadyWeather>(wind));
     }
+    aircraft.initialize(ic);
     Controls controls;
     controls.throttle = entry.start_throttle;
     controls.gear = 0.0;

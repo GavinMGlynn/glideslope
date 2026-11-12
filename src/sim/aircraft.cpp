@@ -1307,6 +1307,8 @@ void Aircraft::initialize(const InitialConditions& ic) {
     }
     moved_with_the_wind(ic);
     initialized_ = true;
+    started_moving_unstepped_ = ic.airspeed_kts > 0.0;
+    weather_after_start_ = false;
 }
 
 // **Started moving with the air she is in.** She is trimmed, and her levers
@@ -1644,6 +1646,9 @@ void Aircraft::freeze_fuel(bool frozen) {
 }
 
 void Aircraft::set_weather(std::shared_ptr<Weather> weather, int turbulence_seed) {
+    if (started_moving_unstepped_) {
+        weather_after_start_ = true;
+    }
     weather_ = std::move(weather);
     // The same turbulence every flight, so a flight in it can be repeated.
     exec_->SetPropertyValue("atmosphere/randomseed", static_cast<double>(turbulence_seed));
@@ -1765,6 +1770,12 @@ void Aircraft::apply_weather() {
 }
 
 void Aircraft::step() {
+    if (weather_after_start_) {
+        throw std::logic_error(model_ + " was given her weather after she was started in the "
+                                        "air and trimmed, and not started again in it: give it "
+                                        "before initialize");
+    }
+    started_moving_unstepped_ = false;
     if (weather_) {
         apply_weather();
     }
@@ -2091,6 +2102,8 @@ Motion Aircraft::motion() const {
 }
 
 void Aircraft::set_motion(const Motion& m) {
+    started_moving_unstepped_ = false;
+    weather_after_start_ = false;
     constexpr double ft_per_m = 1.0 / 0.3048;
     const auto propagate = exec_->GetPropagate();
     JSBSim::FGPropagate::VehicleState vs = propagate->GetVState();
