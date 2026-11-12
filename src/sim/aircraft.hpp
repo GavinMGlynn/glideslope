@@ -475,7 +475,19 @@ public:
     // Turbulence is seeded the same every time, so a flight in it repeats:
     // with `turbulence_seed`, 1 unless a test asks for other gusts in the
     // same air (the gust landing's seeds).
+    //
+    // **Before initialize, for a start in the air**: she is trimmed in her
+    // weather's temperature and pressure and started moving with its wind
+    // (initialize), so weather given her after a start in the air and
+    // before her first step would leave her trimmed in standard still air.
+    // Her next step refuses it, with std::logic_error, unless she has been
+    // initialized again in it first. After her first step it is a change of
+    // weather, and taken; set_motion, which puts her where she is said to
+    // be, counts as one.
     void set_weather(std::shared_ptr<Weather> weather, int turbulence_seed = 1);
+    // Started in the air by initialize and neither stepped nor moved since:
+    // weather given her now must be followed by initialize again.
+    bool started_unstepped() const { return started_moving_unstepped_; }
     // **The runway condition code she last rolled on** (sim/runway_condition.hpp),
     // as her weather gave it before her last step: 6, dry, without weather.
     // Her braked wheels grip as it says.
@@ -758,6 +770,11 @@ private:
     bool trimmed_laterally_ = false;
     std::optional<std::string> trim_fallback_;
     bool initialized_ = false;
+    // Started in the air and not yet stepped: weather given now would come
+    // after her trim (set_weather).
+    bool started_moving_unstepped_ = false;
+    // Weather given her while started_moving_unstepped_: refused by step().
+    bool weather_after_start_ = false;
     std::shared_ptr<Terrain> terrain_;
     // Each contact point's height above the surface, by JSBSim's property:
     // gear/unit[i] for a wheel, contact/unit[i] for structure.

@@ -2616,6 +2616,12 @@ public:
         for (std::vector<Aircraft>* each : {&flown_, &waiting_}) {
             for (Aircraft& a : *each) {
                 a.aircraft->set_weather(session_air_);
+                // **Started again in it**, one started in the air and not
+                // yet flown, so that she is trimmed in the session's air
+                // (sim::Aircraft::set_weather).
+                if (a.aircraft->started_unstepped()) {
+                    a.aircraft->initialize(a.start);
+                }
             }
         }
         weather_blend_s_ = blend_s;

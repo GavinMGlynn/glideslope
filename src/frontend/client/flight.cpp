@@ -150,15 +150,6 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
         ic.airspeed_kts = 0.0;
         ic.gear = 1.0;
     }
-    aircraft_->initialize(ic);
-    // What she weighs as her flight begins - at her loading if she has one -
-    // so that a test reads it, as glideslope_cli says what its prediction
-    // weighed.
-    std::printf("glideslope: the %s's flight begins at %.0f lb, loaded %s\n",
-                aircraft_entry_.id.c_str(), aircraft_->property("inertia/weight-lbs"),
-                start.loading.empty() ? "as her model is" : start.loading.c_str());
-    std::fflush(stdout);
-
     if (start.weather_station == weather_around) {
         // **The stations around her**, found before she flies, as a
         // server finds them; one that cannot be had stops the flight, as a
@@ -205,6 +196,16 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
             });
         aircraft_->set_weather(weather_);
     }
+    // **Started once her weather is hers**, so that she is trimmed in it
+    // (sim::Aircraft::set_weather).
+    aircraft_->initialize(ic);
+    // What she weighs as her flight begins - at her loading if she has one -
+    // so that a test reads it, as glideslope_cli says what its prediction
+    // weighed.
+    std::printf("glideslope: the %s's flight begins at %.0f lb, loaded %s\n",
+                aircraft_entry_.id.c_str(), aircraft_->property("inertia/weight-lbs"),
+                start.loading.empty() ? "as her model is" : start.loading.c_str());
+    std::fflush(stdout);
 }
 
 std::pair<double, double> Flight::place() const {

@@ -195,7 +195,6 @@ GLIDESLOPE_TEST(
         ic.heading_deg = plan.start->heading_deg;
         ic.airspeed_kts = plan.start->airspeed_kts;
         ic.engine_running = true;
-        aircraft.initialize(ic);
         if (windy) {
             // 20 kt from the south: behind it up the coast, across it along the
             // river, and against it back to the airport.
@@ -204,6 +203,7 @@ GLIDESLOPE_TEST(
             aircraft.set_weather(
                 std::make_shared<glideslope::sim::SteadyWeather>(wind));
         }
+        aircraft.initialize(ic);
         glideslope::sim::Controls controls;
         controls.throttle = 0.7;
         glideslope::sim::Autopilot autopilot(aircraft, controls);
@@ -372,7 +372,6 @@ GLIDESLOPE_TEST(the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_
             ic.heading_deg = plan.start->heading_deg;
             ic.airspeed_kts = plan.start->airspeed_kts;
             ic.engine_running = true;
-            aircraft.initialize(ic);
             if (windy) {
                 // 20 kt from the west: across the circle, so that one side of
                 // it is flown downwind and the other up.
@@ -381,6 +380,7 @@ GLIDESLOPE_TEST(the_navigator_flies_an_orbit_round_its_centre_as_often_as_asked_
                 aircraft.set_weather(
                     std::make_shared<glideslope::sim::SteadyWeather>(wind));
             }
+            aircraft.initialize(ic);
             glideslope::sim::Controls controls;
             controls.throttle = 0.7;
             glideslope::sim::Autopilot autopilot(aircraft, controls);
@@ -485,13 +485,13 @@ GLIDESLOPE_TEST(an_orbit_begun_from_its_centre_counts_its_turns_only_from_its_ci
             ic.heading_deg = plan.start->heading_deg;
             ic.airspeed_kts = plan.start->airspeed_kts;
             ic.engine_running = true;
-            aircraft.initialize(ic);
             if (windy) {
                 glideslope::sim::Conditions wind;
                 wind.wind_east_mps = 20.0 * 1852.0 / 3600.0;
                 aircraft.set_weather(
                     std::make_shared<glideslope::sim::SteadyWeather>(wind));
             }
+            aircraft.initialize(ic);
             glideslope::sim::Controls controls;
             controls.throttle = 0.7;
             glideslope::sim::Autopilot autopilot(aircraft, controls);
@@ -2400,12 +2400,12 @@ TurnFlown fly_legs(const glideslope::sim::CatalogueEntry& e, double kts,
     ic.airspeed_kts = kts;
     ic.engine_running = true;
     ic.gear = 0.0;
-    aircraft.initialize(ic);
     if (wind_kts > 0.0) {
         glideslope::sim::Conditions wind;
         wind.wind_east_mps = wind_kts * 1852.0 / 3600.0;
         aircraft.set_weather(std::make_shared<glideslope::sim::SteadyWeather>(wind));
     }
+    aircraft.initialize(ic);
     glideslope::sim::Controls controls;
     controls.throttle = e.start_throttle;
     glideslope::sim::Autopilot autopilot(aircraft, controls);

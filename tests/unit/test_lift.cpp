@@ -652,12 +652,12 @@ GLIDESLOPE_TEST(
         ic.airspeed_kts = 65.0;
         ic.engine_running = false;
         sim::Aircraft a(GLIDESLOPE_TEST_DATA_DIR, "c172p");
-        a.initialize(ic);
         if (rising) {
             a.set_weather(reported);
         } else {
             a.set_weather(std::make_shared<StillAir>(reported));
         }
+        a.initialize(ic);
         sim::TestPilot pilot(a);
         sim::Controls c;
         c.mixture = 0.0;

@@ -32,7 +32,43 @@ and turned 4.7 degrees in twenty seconds, a Cub 12.2.
   issues and its current `FGInitialCondition.cpp` (unchanged on master)
   say nothing of the sense either way.
 
+**The wrong order cannot pass unseen.** Weather given an aircraft after a
+start in the air and before her first step is refused by that step
+(`std::logic_error`), unless she was started again in it; after her first
+step, after `set_motion`, or after a start at rest it is a change of air.
+`an_aircraft_given_her_weather_after_she_is_started_in_the_air_is_refused_her_next_step`
+builds all five orders; seen red with the refusal taken out.
+
+**Every `Aircraft::initialize` caller, and its order** (`grep -rn
+"initialize(" src`):
+
+| Caller | Order |
+|---|---|
+| `frontend/client/flight.cpp` (her own start, `--weather`) | weather, then start - **reordered**; it was start, then weather |
+| `frontend/client/flight.cpp:539` (heard air, online) | not a start: the server's air as it changes, after she flies |
+| `frontend/cli/main.cpp` `Predicting` (connected: the server's motion) | weather, then start, then `set_motion` - **reordered** |
+| `frontend/cli/main.cpp` `land` | weather, then start |
+| `frontend/cli/main.cpp` (`fly-plan`) | no weather |
+| `frontend/cli/fly_copilot.cpp` | no weather |
+| `frontend/server/main.cpp`: a player's start, AI from the planner, the circuit's starts | weather (when the session has it), then start |
+| `frontend/server/main.cpp`: on final, flown again after a wreck | started again, her weather already hers |
+| `frontend/server/main.cpp` `Fleet::fly_in` (the session's weather first had) | weather, then each aircraft started in the air and not yet flown started again in it - **added**: a plan-file AI starting in the air was trimmed in standard air |
+| `sim/orbit_trial.cpp`, its three windy trials | weather, then start - **reordered** |
+| `sim/orbit_trial.cpp`, its glide and climb trials | no weather |
+| `sim/takeoff_trial.cpp` | weather, then start |
+| `sim/figures.cpp` (every figure's flight) | start on the runway, then weather: a start at rest |
+| `sim/lander.cpp` (spool-up) | no weather |
+| `sim/selftest.cpp` | no weather |
+| the tests | weather, then start: 22 tests in eight files gave it after, and the refusal stopped each (16 call sites reordered; `airborne` in test_lesson.cpp and `at` in test_learnt.cpp now take the air to start her in; the client prediction test's clock is the prediction made once she is started). Starts at rest that are given weather after (the figures', the braking and standing tests) are left: no trim is flown |
+
 **What else moved, and why.**
+- **Two autopilot figures in moderate turbulence**, once those tests start
+  her in their air (15 degrees, Q1013 - a hair off the standard 1013.25):
+  the altitude capture from 4,000 to 4,500 ft settles in 70.8 s against a
+  bound of 70, now 75; and the speed hold's measured table is re-measured -
+  the 172P's throttle reversals 221 to 255, past its 10% (243), and each
+  aircraft's RMS within 0.18 kt of 2026-10-10's. The orbit trials and the
+  CLI's flights, reordered too, moved no figure a test holds.
 - **The gate's wind reading.** Placed in her wind, she is now judged in it
   at once: the corner tests of every learnt gate put her at exactly its most
   headwind (15 kt), and its wind estimate - ground velocity less the whole
@@ -70,6 +106,8 @@ and turned 4.7 degrees in twenty seconds, a Cub 12.2.
   above - and those 14 plus the new test green after the gate's reading
   and the names; then all 116 gate, learnt-landing and on-final tests
   again, green.
+- With the refusal and every caller reordered: the whole linux-release
+  suite, 1,638 tests, green; the selftest hash unmoved.
 - Reproduced first on main, with the new test: in 30 degrees and 1030 hPa
   the C172P, C182, Cub and PA-28 turned 1.14, 0.96, 0.99 and 1.28
   degrees in twenty seconds that in no weather they held.

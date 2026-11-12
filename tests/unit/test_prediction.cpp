@@ -1081,11 +1081,15 @@ public:
 // there is no such moment.
 GLIDESLOPE_TEST(every_step_a_client_flies_meets_the_air_at_the_moment_the_server_flies_it) {
     Aircraft client_aircraft(data() / "jsbsim", "c172p");
-    set_up(client_aircraft);
-    Prediction client(client_aircraft);
+    // Her air before she is started (sim::Aircraft::set_weather), on the
+    // clock of the prediction made of her once she is.
+    const Prediction* clock = nullptr;
     const auto asked = std::make_shared<MomentsAsked>();
     client_aircraft.set_weather(std::make_shared<glideslope::frontend::SessionClocked>(
-        asked, [&client] { return client.session_time_s().value_or(-1.0); }));
+        asked, [&clock] { return clock ? clock->session_time_s().value_or(-1.0) : -1.0; }));
+    set_up(client_aircraft);
+    Prediction client(client_aircraft);
+    clock = &client;
     Controls c;
     c.throttle = 0.7;
     c.mixture = 1.0;
