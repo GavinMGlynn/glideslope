@@ -12307,15 +12307,21 @@ constexpr double longest_held_behind_a_person_s = 600.0;
 // (Controller::short_of_fuel), named and left out of the drop and timing
 // checks - landed and clear is what is asked of them, kept apart as every
 // flight is: an F-22A behind a person's J-3 Cub flying away, on every
-// bearing. Put on final at her landing weight, she burns her tanks down
-// in the hold while the Cub - the slowest - takes some fifteen minutes to
-// reach sim::left_the_circuit_nm. Measured 2026-11-11 over every pair: those
-// eight flights and no other, flying away; none staying. Each test asserts
-// that the flights that came back short of fuel are exactly these, of the
-// pairs it flies: a change to that set fails.
+// bearing but 180 deg. Put on final at her landing weight, she burns her
+// tanks down in the hold while the Cub - the slowest - takes some fifteen
+// minutes to reach sim::left_the_circuit_nm. Measured 2026-11-11 over every
+// pair: eight flights, every bearing, and no other, flying away; none
+// staying. Since the autothrottle leads by her throttle lag (#363,
+// 2026-11-12) her hold burns less, and at 180 deg - the Cub's place dropped
+// 875 s after she set off, the soonest of the eight (135 and 225 deg: 896
+// and 898 s; 0 deg: 1081 s) - she is down 242 s after it, not short of
+// fuel: seven flights. Each test asserts that the flights that came back
+// short of fuel are exactly these, of the pairs it flies: a change to that
+// set fails.
 bool short_of_fuel_named(const std::string& ahead_id, const std::string& behind_id,
-                         bool flying_away) {
-    return flying_away && ahead_id == "j3cub" && behind_id == "f22";
+                         bool flying_away, double bearing) {
+    return flying_away && ahead_id == "j3cub" && behind_id == "f22" &&
+           std::lround(bearing) != 180;
 }
 
 // The set a test flew that came back short of fuel against the set named.
@@ -12413,7 +12419,7 @@ void behind_persons_who_stay(const std::vector<std::string>& aheads,
                     std::printf("    she came back short of fuel\n");
                     came_back_short.insert(pair);
                 }
-                if (short_of_fuel_named(ahead_id, behind_id, false)) {
+                if (short_of_fuel_named(ahead_id, behind_id, false, 0.0)) {
                     named_short.insert(pair);
                 }
                 if (stays && r.rejoined && !r.short_of_fuel) {
@@ -12578,7 +12584,7 @@ void behind_persons_who_fly_away(const std::vector<std::string>& aheads,
                 // **Short of fuel**, she came back before the person was
                 // gone: landed and clear is what is asked of her - in the
                 // flights named (`short_of_fuel_named`), and only those.
-                if (short_of_fuel_named(ahead_id, behind_id, true)) {
+                if (short_of_fuel_named(ahead_id, behind_id, true, bearing)) {
                     named_short.insert(pair);
                 }
                 if (r.short_of_fuel) {
