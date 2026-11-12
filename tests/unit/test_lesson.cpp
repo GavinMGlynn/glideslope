@@ -3176,9 +3176,12 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"f22", 6, macos(),
          "on macOS a gust climbs her at 146 ft/min in her flare (seed 6), CI run "
          "41867348299"},
-        {"f22", 7, macos(),
-         "on macOS she rises 0.80 ft off her wheels after her touch (seed 7), CI run "
-         "41867348299"},
+        // Seed 7 no longer, and seed 3 instead, since 2026-11-12: started
+        // moving with her wind, macOS release lands seed 7 with every
+        // margin and not seed 3 (CI run 43240423674) - twenty-eight of forty
+        // still.
+        {"f22", 3, macos_release(),
+         "on macOS she touches at 372 ft/min (seed 3), CI run 43240423674"},
         {"f22", 9, macos(),
          "on macOS she floats into a go-around from a touch 1,066 m along (seed 9), CI "
          "run 41867348299"},
@@ -3222,12 +3225,9 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"a380", 3, windows(), "on Windows she touches at 374 ft/min (seed 3)"},
         {"a380", 7, windows(),
          "on Windows she floats at idle into a go-around from a touch 1,010 m along (seed 7)"},
-        // macOS, debug and release alike, CI run 41814841853 (seed 6 on debug
-        // in a shard cancelled after it ran, failed there too).
-        {"a380", 5, macos(), "on macOS she touches at 351 ft/min (seed 5), CI run 41814841853"},
-        {"a380", 6, macos(),
-         "on macOS she touches at 349 ft/min, inside 360 but not by 25 (seed 6), CI run "
-         "41814841853"},
+        // macOS, debug and release alike, CI run 41814841853. Seeds 5 and 6
+        // no longer, since 2026-11-12: started moving with her wind, macOS
+        // release lands both with every margin (CI run 43240423674).
         {"a380", 31, macos(),
          "on macOS she touches at 336 ft/min, inside 360 but not by 25 (seed 31), CI run "
          "41814841853"},
@@ -3236,9 +3236,12 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
          "41814841853"},
         // macOS, debug and release alike, CI run 41703342974 (dispatched on
         // #310): the 787-8 lands seed 2 there now, at Boeing's full gust.
-        {"737-300", 3, macos(),
-         "on macOS she floats into a go-around from a touch 1,017 m along (seed 3), CI run "
-         "41703342974"},
+        // Seed 3 no longer, and seed 6 instead, since 2026-11-12: started
+        // moving with her wind, macOS release lands seed 3 with every margin
+        // and not seed 6 (CI run 43240423674).
+        {"737-300", 6, macos_release(),
+         "on macOS she touches at 349 ft/min, inside 360 but not by 25 (seed 6), CI run "
+         "43240423674"},
         {"737-300", 17, macos(),
          "on macOS she touches at 554 ft/min (seed 17), CI run 41703342974"},
         // macOS, debug and release alike, CI run 41732333742 (dispatched on
