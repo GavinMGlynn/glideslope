@@ -1,13 +1,12 @@
 # The gust_sweep tests in shards of their own, on a schedule and a dispatch
 
-**Not verified yet, and the gust sweep's debug presets may not fit at all.**
-The first dispatch, run 43257673789, cut off 22 jobs: 18 gust sweep shards
-and 4 test shards. That run's figures resized everything below, and a
-second dispatch has to show every shard finishing inside its limit. Every
-person test timed out at 3,600 s on all three debug presets, so its real
-time there is unknown. If the debug sweep still does not fit, the person
-tests need splitting, or the gust sweep has to leave the debug presets.
-That is the owner's decision.
+**Not verified on CI, and round 3 has not been dispatched.** Dispatch run
+43257673789 (round 1) cut off 22 jobs. Since then, the person tests and the
+lining-up test have been split so that each piece fits a debug runner. The
+split tests pass locally on linux-release, except one j3cub piece (#367). A
+night's gust sweep is now 169 jobs, 125 of them on debug presets. The 38
+macOS debug jobs take about 14 hours, five at a time. Whether to dispatch
+at that size is the owner's decision.
 
 ## What was wrong
 
@@ -70,9 +69,69 @@ on 2026-11-04.
     macos-release 4×60, macos-debug 7×90, windows-debug 6×90,
     windows-release 5×60 and windows-clang 5×60. 18 of those shards were
     cut off.
-  - Now (shards × minutes), 46 jobs: linux-debug 7×142, linux-release
-    4×99 on Ubuntu and on Rocky, macos-release 5×60, macos-debug 8×101,
-    windows-debug 7×111, windows-release 6×99 and windows-clang 5×99.
+  - Round 2 (shards × minutes), 46 jobs: linux-debug 7×142,
+    linux-release 4×99 on Ubuntu and on Rocky, macos-release 5×60,
+    macos-debug 8×101, windows-debug 7×111, windows-release 6×99 and
+    windows-clang 5×99. These rows were never dispatched.
+  - Now, with the pieces below (shards × minutes), 169 jobs:
+    linux-debug 39×142, linux-release 8×60 on Ubuntu and on Rocky,
+    macos-release 10×60, macos-debug 38×180, windows-debug 48×111,
+    windows-release 9×60 and windows-clang 9×60. macOS debug gets 180
+    minutes, because at 60 it would need more than 120 shards. These
+    limits are under GitHub's 6-hour maximum for a job on a hosted runner,
+    which is also the default timeout-minutes
+    (docs.github.com/en/actions/reference/actions-limits).
+- **The person tests and the lining-up test in pieces.**
+  - The 15 tests of every landplane with every person straight in,
+    departing or staying in the circuit took up to 3,553 s each on a
+    release runner (more than 3,500 s on Windows release, where they were
+    cut off). On all three debug presets they ran past their 3,600 s limit.
+  - every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
+    took 3,424 s on Windows release and past 3,600 s on the debug presets.
+  - Debug runs about twelve times release: the racetrack test takes 856 s
+    on linux-debug against 68 s on linux-release. At that rate one person
+    test would take about twelve hours on debug, past the 6-hour job
+    maximum.
+  - The split, in tests/unit/test_lesson.cpp:
+    - Each landplane pair is two pieces: 225 pieces of 8 flights straight
+      in, departing or staying (named like
+      `a_737_300_and_an_a320_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart`)
+      and 225 of 8 flying away (`an_a320_behind_a_persons_737_300_flying_away_on_every_bearing_comes_back_kept_apart`).
+    - The lining-up test is 30 pieces: each landplane with the persons'
+      departures of the first eight landplanes, and of the last seven.
+    - Each piece flies its slice through the same functions the whole
+      test used, and each of those still asserts its own cases flown.
+  - **Coverage is asserted** by two tests:
+    - the_person_pieces_between_them_fly_every_landplane_with_every_person_each_flight_once
+      states the space (15 × 15 landplanes, 16 flights a pair, 3,600
+      flights). It fails if the union of the pieces' slices differs from
+      that space, if any flight is dropped, flown twice or outside the
+      space, or if a piece is not registered exactly once.
+    - the_lining_up_pieces_between_them_measure_every_landplane_pair_once
+      does the same for the 225 pairs.
+    - Seen red: with one pair's two pieces left out, the person test
+      failed: "16 flights dropped, 0 flown twice, 0 outside the space".
+      Reverted.
+  - **Estimates until measured:**
+    - A piece's ctest COST is its whole test's longest release figure
+      divided by 30: about 119 s for a person piece and 115 s for a
+      lining-up piece.
+    - tools/ci_shard.cmake deals a piece by that COST, times twelve on a
+      debug preset, wherever the table has no figure for it.
+    - A piece's TIMEOUT is 3 × the estimate × twelve on debug (half as
+      long again as twice the average, for the heaviest pairs), and at
+      least 900 s.
+  - **Run locally** on linux-release, -j4, with DISPLAY and
+    WAYLAND_DISPLAY unset:
+    - The 450 person pieces took 5,608 s in all, 31 to 104 s each, and
+      449 passed.
+    - One failed: an_f22_behind_a_persons_j3cub_flying_away_on_every_bearing_comes_back_kept_apart,
+      "7 flights came back short of fuel, 8 named" ("NAMED, NOT SHORT OF
+      FUEL: a person's j3cub flying away 180 deg off the runway, ahead of
+      f22"). This is the j3cub person test that #367 fixes.
+    - The 30 lining-up pieces took 35 to 39 s each, and both coverage
+      tests and the registration check passed. That is 33 of 33.
+    - The dealing test passed with the new rows (221 s).
 - **tools/ci_shard.cmake** has three new options:
   - INCLUDE deals the tests of one label, matching the run's `-L`.
   - DEFAULT=longest costs a test that the table does not name at the
@@ -107,45 +166,30 @@ on 2026-11-04.
     gets 1,800 s by hand. It timed out at 900 s on Windows debug and
     Windows release in run 43257673789, once the sweep's shards were dealt
     as well.
-  - The 54 tests the tables raise (seconds):
+  - The 38 tests the tables raise (seconds; the person and lining-up
+    tests, now split, are no longer among them):
 
     | test | limit before | now |
     | --- | --- | --- |
-    | a_737_300_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4019 |
-    | a_747_400_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3753 |
-    | a_787_8_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | a_787_8_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 2702 |
-    | a_b2_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | a_b2_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 2702 |
-    | a_c172p_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5400 |
     | a_c172p_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3470 |
-    | a_c182_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | a_c182_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
     | a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order | 1800 | 2264 |
     | a_flight_on_its_own_flies_the_stations_around_her_the_nearers_weather_with_no_step_in_the_wind_on_vulkan | 900 | 1044 |
-    | a_j3cub_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | a_j3cub_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3953 |
-    | a_learjet35a_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | a_learjet35a_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3723 |
-    | a_mosquito_fb6_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | a_mosquito_fb6_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 2702 |
-    | a_pa28_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | a_pa28_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
-    | an_a320_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5237 |
     | an_a320_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
-    | an_a380_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | an_a380_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3125 |
     | an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart | 5400 | 7892 |
-    | an_f15c_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | an_f15c_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
-    | an_f22_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | an_f22_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
-    | an_f35b_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart | 3600 | 5402 |
     | an_f35b_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 2702 |
     | every_first_party_source_compiles_clean_under_clang_too | 900 | 930 |
-    | every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured | 3600 | 5402 |
     | the_737_300_and_a320_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway | 900 | 924 |
     | the_cessnas_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway | 900 | 1049 |
     | the_f22a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle | 900 | 908 |
@@ -206,11 +250,17 @@ on 2026-11-04.
 
 ## Runner time
 
-A scheduled run, or a dispatch, gains about 2,610 minutes of dealt sweep
-work. With each job's setup (about 10 minutes, 46 jobs) that comes to
-about 3,070 runner-minutes a night, of which about 690 are on macOS, five
-jobs at once. A pull request's full run gains nine shard jobs (above), and
-the dealt minutes do not change.
+With the pieces, a night's gust sweep is 169 jobs:
+- The debug presets get 125 jobs, with dealt minutes of 3,195 on
+  linux-debug, 3,094 on windows-debug and 3,963 on macos-debug. Each shard
+  holds at most 60% of its limit.
+- macOS debug's 38 jobs, five at a time, take about 13 to 14 hours.
+- The release presets get 44 jobs, with about 1,500 dealt minutes.
+- With about 10 minutes of setup a job, that is about 13,400
+  runner-minutes a night.
+
+A pull request's full run gains nine shard jobs, and the dealt minutes do
+not change.
 
 ## Dispatch run 43257673789 (round 1): the slowest shard per preset
 

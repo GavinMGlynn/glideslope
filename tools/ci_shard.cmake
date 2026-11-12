@@ -22,6 +22,8 @@
 # to the shard with the least work so far (longest-processing-time first).
 # What each test costs is tests/ci_costs/PRESET.txt, one "seconds name" a line,
 # measured on CI by tools/ci_test_costs.py; a test it does not name costs
+# its ctest COST, where tests/CMakeLists.txt gives one as an estimate of a
+# release runner's seconds (twelve times that on a debug preset), or else
 # DEFAULT seconds and is warned of, and a name it has that the build does not
 # is reported, so the table can be measured again.
 #
@@ -169,6 +171,7 @@ foreach(_i RANGE ${_last})
     string(JSON _name GET "${_t}" name)
     list(APPEND _names ${_name})
     set(_holds 1)
+    set(_estimate "")
     set(_fix_${_n} "")
     string(JSON _props ERROR_VARIABLE _e GET "${_t}" properties)
     if(NOT _e)
@@ -181,6 +184,10 @@ foreach(_i RANGE ${_last})
                 set(_holds ${JOBS})
             elseif(_pn STREQUAL "PROCESSORS" AND _pv GREATER _holds)
                 set(_holds ${_pv})
+            elseif(_pn STREQUAL "COST")
+                # ctest's COST, set where a test has an estimate and no
+                # figure yet (the person pieces, tests/CMakeLists.txt).
+                string(REGEX REPLACE "\\..*$" "" _estimate "${_pv}")
             elseif(_pn MATCHES "^FIXTURES_(SETUP|REQUIRED|CLEANUP)$")
                 string(JSON _nv LENGTH "${_pv}")
                 math(EXPR _vlast "${_nv} - 1")
@@ -198,6 +205,14 @@ foreach(_i RANGE ${_last})
     # run, and costs what the table says.
     if(DEFINED _cost_${_name})
         set(_c ${_cost_${_name}})
+    elseif(NOT _estimate STREQUAL "")
+        # A release runner's estimate; a debug runner takes about twelve
+        # times as long (tests/CMakeLists.txt, the person pieces).
+        if(PRESET MATCHES "-debug$")
+            math(EXPR _c "${_estimate} * 12")
+        else()
+            set(_c ${_estimate})
+        endif()
     else()
         set(_c ${DEFAULT})
         list(APPEND _unmeasured ${_name})

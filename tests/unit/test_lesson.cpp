@@ -12730,22 +12730,6 @@ void departures_behind_persons_who_stay(const std::vector<std::string>& circuits
               std::to_string(circuits.size() * departures.size()));
 }
 
-// **Every landplane with `id`**: hers in the circuit with every person
-// straight in or departing, in all three situations; every landplane
-// behind a person's `id` who stays; and every landplane departing behind
-// her.
-void every_landplane_with_a_person(const std::string& id) {
-    const std::vector<std::string> kinds = landplanes_going_around();
-    check(std::find(kinds.begin(), kinds.end(), id) != kinds.end(),
-          id + " is a landplane that goes around");
-    circuits_and_straight_ins({id}, kinds, Whose::persons);
-    behind_persons_who_stay({id}, kinds);
-    departures_behind_persons_who_stay({id}, kinds);
-    persons_lining_up_ahead({id}, kinds, lining_up_far_nm);
-    behind_persons_who_fly_away({id}, kinds, away_bearings_deg());
-    behind_persons_who_stay_on_raised_ground({id}, kinds);
-}
-
 } // namespace
 
 // **A person straight in or departing is given way to and kept apart from,
@@ -12804,41 +12788,6 @@ GLIDESLOPE_TEST(a_person_who_lines_up_and_rolls_with_an_ai_aircraft_2_nm_out_is_
 // The slowest and the fastest each with each; each pair's least is
 // printed, and the lift-off within 1.5 nm and the loss asserted for every
 // one, so that a change that kept them apart turns this red, to be read.
-// **Every landplane pair, a person lining up under an AI aircraft at 200
-// ft, measured**: the stated shortfall's figures, every AI aircraft with
-// every person's departure - the lift-off's distance and height apart and
-// the least of the flight, printed for each, with how many lost the
-// minimum. Nothing is asserted of the separation, which no manoeuvre of the
-// AI's keeps (the test above); every pair flown is, and none wrecked.
-// gust_sweep: 225 flights.
-GLIDESLOPE_TEST(every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured) {
-    const std::vector<std::string> kinds = landplanes_going_around();
-    std::size_t flown = 0;
-    std::size_t lost = 0;
-    double least_m = 1e9;
-    double least_ft = 1e9;
-    for (const std::string& circuit_id : kinds) {
-        for (const std::string& departure_id : kinds) {
-            const StraightAndCircuit r = circuit_and_departure(
-                circuit_id, departure_id, true, Whose::person_rolling_at_once);
-            ++flown;
-            lost += r.lost ? 1 : 0;
-            least_m = std::min(least_m, r.least_m);
-            least_ft = std::min(least_ft, r.least_ft);
-            std::printf("  %s at 200 ft, a person's %s rolling under her: at her lift-off "
-                        "%.0f m and %.0f ft apart; %s%s\n",
-                        circuit_id.c_str(), departure_id.c_str(), r.lift_off_m, r.lift_off_ft,
-                        least_of(r).c_str(), r.lost ? "; LOST" : "");
-            check(r.wreck.empty(), circuit_id + " and " + departure_id + ": wrecked: " + r.wreck);
-        }
-    }
-    std::printf("  %zu of %zu lost the minimum; least %s within 500 ft, %s within 1.5 nm\n", lost,
-                flown, least_figure(least_m, " m").c_str(), least_figure(least_ft, " ft").c_str());
-    check(flown == kinds.size() * kinds.size(),
-          "every pair flown: " + std::to_string(flown) + " of " +
-              std::to_string(kinds.size() * kinds.size()));
-}
-
 GLIDESLOPE_TEST(a_person_who_lines_up_and_rolls_under_an_ai_aircraft_at_200_ft_lifts_off_inside_the_minimum_of_her) {
     const std::vector<std::string> two = slowest_and_fastest();
     std::size_t flown = 0;
@@ -13763,92 +13712,352 @@ GLIDESLOPE_TEST(a_person_straight_in_to_or_departing_the_reciprocal_runway_is_se
     check(cases.size() == 3, "three cases");
 }
 
-// **Read from the tests registered**, not from a list kept beside them: a
-// test named `<article>_<id>` + `person_sweep_suffix` for every landplane
-// that goes around, and none for anything else.
-GLIDESLOPE_TEST(every_landplane_has_a_test_with_every_person_straight_in_departing_or_staying_in_the_circuit) {
-    constexpr std::string_view suffix =
-        "_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart";
-    // The id as a test name spells it.
-    const auto spelt = [](std::string id) {
-        std::replace(id.begin(), id.end(), '-', '_');
-        return id;
-    };
-    std::vector<std::string> kinds;
-    for (const std::string& id : landplanes_going_around()) {
-        kinds.push_back(spelt(id));
-    }
-    std::vector<std::string> tested;
-    for (const auto& test : glideslope::test::registry()) {
-        const std::string_view name = test.name;
-        if (name.size() <= suffix.size() || name.substr(name.size() - suffix.size()) != suffix) {
-            continue;
-        }
-        std::string_view id = name.substr(0, name.size() - suffix.size());
-        for (const std::string_view article : {"an_", "a_"}) {
-            if (id.substr(0, article.size()) == article) {
-                id.remove_prefix(article.size());
-                break;
-            }
-        }
-        tested.emplace_back(id);
-    }
-    std::sort(kinds.begin(), kinds.end());
-    std::sort(tested.begin(), tested.end());
-    for (const std::string& k : kinds) {
-        if (!std::binary_search(tested.begin(), tested.end(), k)) {
-            std::printf("  no test with every person for %s\n", k.c_str());
+// **Every landplane with every person, in pieces** (gust_sweep): each
+// landplane's circuit with every person straight in or departing, in all
+// three situations; every landplane behind a person's who stays, in both;
+// every landplane departing behind her, lining up under her and behind her
+// on raised ground; and every landplane behind her as she flies away on
+// every bearing of `away_bearings_deg`. Sixteen flights a pair, 3,600 in
+// all. As fifteen tests, one a landplane, a person test took up to 3,553 s
+// on a release runner and past its 3,600 s on every debug one (dispatch run
+// 43257673789): debug runs about twelve times release, so one would take
+// about twelve hours there, past a hosted runner's six-hour job. So each
+// pair is two pieces - her eight flights straight in, departing or staying,
+// and her eight flying away - each about 120 s on a release runner, under
+// 40 minutes on a debug one. Each piece states its slice
+// (`person_piece_flights`); the test after them asserts that the slices
+// between them are the whole space, each flight once.
+namespace {
+
+// The landplanes that go around, as a test name spells each, article and
+// all; `landplanes_going_around` is the list, and the coverage test holds
+// the two to each other.
+constexpr std::array<std::string_view, 15> person_sweep_spelt{
+    "a_737_300", "a_747_400", "a_787_8",    "an_a320",      "an_a380",
+    "a_b2",      "a_c172p",   "a_c182",     "an_f15c",      "an_f22",
+    "an_f35b",   "a_j3cub",   "a_learjet35a", "a_mosquito_fb6", "a_pa28"};
+
+std::string person_sweep_id(std::string_view spelt) {
+    for (const std::string_view article : {"an_", "a_"}) {
+        if (spelt.substr(0, article.size()) == article) {
+            spelt.remove_prefix(article.size());
+            break;
         }
     }
-    check(kinds == tested, std::to_string(kinds.size()) + " landplanes go around, " +
-                               std::to_string(tested.size()) +
-                               " tests registered with every person");
+    std::string id(spelt);
+    std::replace(id.begin(), id.end(), '_', '-');
+    return id;
 }
 
-GLIDESLOPE_TEST(a_737_300_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("737-300");
+constexpr std::string_view person_staying_piece =
+    "_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart";
+constexpr std::string_view person_away_piece =
+    "_flying_away_on_every_bearing_comes_back_kept_apart";
+
+struct PersonPiece {
+    std::string name;
+    std::string id;    // hers: in the circuit, or the person's
+    std::string other; // the other landplane: the person's, or behind her
+    bool away;         // flying away, or straight in, departing or staying
+};
+
+// Every piece: for each landplane `id`, with each `other`, the eight flights
+// straight in, departing or staying ("a_737_300_and_an_a320_with_a_person_
+// straight_in_...") and the eight flying away ("an_a320_behind_a_persons_
+// 737_300_flying_away_..."), each named as a sentence.
+const std::vector<PersonPiece>& person_pieces() {
+    static const std::vector<PersonPiece> pieces = [] {
+        std::vector<PersonPiece> out;
+        for (const std::string_view id : person_sweep_spelt) {
+            for (const std::string_view other : person_sweep_spelt) {
+                out.push_back({std::string(id) + "_and_" + std::string(other) +
+                                   std::string(person_staying_piece),
+                               person_sweep_id(id), person_sweep_id(other), false});
+                out.push_back({std::string(other) + "_behind_a_persons_" +
+                                   std::string(id.substr(id.find('_') + 1)) +
+                                   std::string(person_away_piece),
+                               person_sweep_id(id), person_sweep_id(other), true});
+            }
+        }
+        return out;
+    }();
+    return pieces;
 }
-GLIDESLOPE_TEST(a_747_400_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("747-400");
+
+// **A piece's slice**: the flights it flies, each named as the function
+// that flies it names its case.
+std::vector<std::string> person_piece_flights(const PersonPiece& p) {
+    std::vector<std::string> flights;
+    if (p.away) {
+        for (const double bearing : away_bearings_deg()) {
+            flights.push_back("a person's " + p.id + " flying away " +
+                              std::to_string(std::lround(bearing)) + " deg, " + p.other +
+                              " behind");
+        }
+        return flights;
+    }
+    for (const char* when : {"as she goes around", "as she joins final", "a departure lined up"}) {
+        flights.push_back(p.id + " in the circuit, a person's " + p.other + " straight in, " +
+                          when);
+    }
+    for (const char* then : {"taken and stays", "stays until the one behind holds"}) {
+        flights.push_back("a person's " + p.id + " ahead, " + then + ", " + p.other + " behind");
+    }
+    flights.push_back("a person's " + p.id + " in the circuit, " + p.other + " departing");
+    flights.push_back(p.id + " coming in, a person's " + p.other + " lining up and rolling");
+    flights.push_back("a person's " + p.id + " staying, " + p.other +
+                      " behind over raised ground");
+    return flights;
 }
-GLIDESLOPE_TEST(a_787_8_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("787-8");
+
+// **One piece flown**: the same functions the whole was flown by, given
+// her and the other alone - each asserts every case of its own flown.
+void fly_person_piece(const PersonPiece& p) {
+    const std::vector<std::string> kinds = landplanes_going_around();
+    for (const std::string& id : {p.id, p.other}) {
+        check(std::find(kinds.begin(), kinds.end(), id) != kinds.end(),
+              id + " is a landplane that goes around");
+    }
+    if (p.away) {
+        behind_persons_who_fly_away({p.id}, {p.other}, away_bearings_deg());
+        return;
+    }
+    circuits_and_straight_ins({p.id}, {p.other}, Whose::persons);
+    behind_persons_who_stay({p.id}, {p.other});
+    departures_behind_persons_who_stay({p.id}, {p.other});
+    persons_lining_up_ahead({p.id}, {p.other}, lining_up_far_nm);
+    behind_persons_who_stay_on_raised_ground({p.id}, {p.other});
 }
-GLIDESLOPE_TEST(an_a320_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("a320");
+
+const bool person_pieces_registered = [] {
+    for (const PersonPiece& p : person_pieces()) {
+        const ::glideslope::test::Register r(p.name, [&p] { fly_person_piece(p); });
+        static_cast<void>(r);
+    }
+    return true;
+}();
+
+} // namespace
+
+// **The person pieces between them fly every landplane with every person,
+// each flight once**: the space - every landplane that goes around, as
+// her, with every one as the other, sixteen flights a pair - against the
+// union of every piece's slice, with nothing dropped and nothing twice;
+// every piece registered under its name, and no other test named as one.
+GLIDESLOPE_TEST(the_person_pieces_between_them_fly_every_landplane_with_every_person_each_flight_once) {
+    static_cast<void>(person_pieces_registered);
+    std::vector<std::string> kinds = landplanes_going_around();
+    std::vector<std::string> spelt_ids;
+    for (const std::string_view s : person_sweep_spelt) {
+        spelt_ids.push_back(person_sweep_id(s));
+    }
+    std::sort(kinds.begin(), kinds.end());
+    std::sort(spelt_ids.begin(), spelt_ids.end());
+    check(kinds == spelt_ids, std::to_string(kinds.size()) + " landplanes go around, " +
+                                  std::to_string(spelt_ids.size()) + " spelt for the pieces");
+    std::set<std::string> space;
+    for (const std::string& id : kinds) {
+        for (const std::string& other : kinds) {
+            for (const bool away : {false, true}) {
+                for (const std::string& f : person_piece_flights({"", id, other, away})) {
+                    space.insert(f);
+                }
+            }
+        }
+    }
+    std::map<std::string, int> covered;
+    std::size_t flights = 0;
+    for (const PersonPiece& p : person_pieces()) {
+        for (const std::string& f : person_piece_flights(p)) {
+            ++covered[f];
+            ++flights;
+        }
+    }
+    std::size_t twice = 0;
+    std::size_t outside = 0;
+    for (const auto& [f, n] : covered) {
+        if (n > 1) {
+            ++twice;
+        }
+        if (space.count(f) == 0) {
+            ++outside;
+        }
+    }
+    std::size_t dropped = 0;
+    for (const std::string& f : space) {
+        if (covered.count(f) == 0) {
+            ++dropped;
+        }
+    }
+    std::printf("  %zu pieces, %zu flights; the space %zu flights (%zu landplanes, 16 a pair)\n",
+                person_pieces().size(), flights, space.size(), kinds.size());
+    check(space.size() == kinds.size() * kinds.size() * 16,
+          "the space is sixteen flights a pair: " + std::to_string(space.size()));
+    check(dropped == 0 && twice == 0 && outside == 0 && flights == space.size(),
+          std::to_string(dropped) + " flights dropped, " + std::to_string(twice) +
+              " flown twice, " + std::to_string(outside) + " outside the space");
+    check(person_pieces().size() == kinds.size() * kinds.size() * 2,
+          "two pieces a pair: " + std::to_string(person_pieces().size()));
+    // Registered: every piece by its name, once; nothing else named as one.
+    std::map<std::string, int> registered;
+    for (const auto& test : glideslope::test::registry()) {
+        const std::string_view name = test.name;
+        for (const std::string_view suffix : {person_staying_piece, person_away_piece}) {
+            if (name.size() > suffix.size() && name.substr(name.size() - suffix.size()) == suffix) {
+                ++registered[std::string(name)];
+            }
+        }
+    }
+    std::size_t unregistered = 0;
+    for (const PersonPiece& p : person_pieces()) {
+        if (registered[p.name] != 1) {
+            ++unregistered;
+        }
+    }
+    check(unregistered == 0 && registered.size() == person_pieces().size(),
+          std::to_string(unregistered) + " pieces not registered once; " +
+              std::to_string(registered.size()) + " tests named as pieces, " +
+              std::to_string(person_pieces().size()) + " pieces");
 }
-GLIDESLOPE_TEST(an_a380_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("a380");
+
+// **Every landplane pair, a person lining up under an AI aircraft at 200
+// ft, measured**: the stated shortfall's figures, every AI aircraft with
+// every person's departure - the lift-off's distance and height apart and
+// the least of the flight, printed for each, with how many lost the
+// minimum. Nothing is asserted of the separation, which no manoeuvre of the
+// AI's keeps (a_person_who_lines_up_and_rolls_under_an_ai_aircraft_at_200_ft_
+// lifts_off_inside_the_minimum_of_her); every pair flown is, and none
+// wrecked.
+// gust_sweep: 225 flights, in thirty pieces - for each landplane at 200 ft,
+// the persons' departures of the first eight landplanes that go around, and
+// of the last seven. As one test it took 3,424 s on a Windows release runner
+// and past its 3,600 s on every debug one (dispatch run 43257673789); a
+// piece is about 115 s on a release runner, under 40 minutes on a debug
+// one. The test after them asserts that the pieces between them fly every
+// pair, each once.
+namespace {
+
+struct LiningUpPiece {
+    std::string name;
+    std::string circuit; // hers, at 200 ft
+    bool first_eight;    // the persons' departures: the first eight, or the last seven
+};
+
+const std::vector<LiningUpPiece>& lining_up_pieces() {
+    static const std::vector<LiningUpPiece> pieces = [] {
+        std::vector<LiningUpPiece> out;
+        for (const std::string_view spelt : person_sweep_spelt) {
+            for (const bool first : {true, false}) {
+                out.push_back({std::string("every_persons_departure_of_the_") +
+                                   (first ? "first_eight" : "last_seven") +
+                                   "_landplanes_lining_up_under_" + std::string(spelt) +
+                                   "_at_200_ft_is_measured",
+                               person_sweep_id(spelt), first});
+            }
+        }
+        return out;
+    }();
+    return pieces;
 }
-GLIDESLOPE_TEST(a_b2_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("b2");
+
+// **A piece's slice**: the persons' departures it flies, from the
+// landplanes that go around in their order.
+std::vector<std::string> lining_up_departures(const LiningUpPiece& p,
+                                              const std::vector<std::string>& kinds) {
+    std::vector<std::string> out;
+    for (std::size_t i = 0; i < kinds.size(); ++i) {
+        if ((i < 8) == p.first_eight) {
+            out.push_back(kinds[i]);
+        }
+    }
+    return out;
 }
-GLIDESLOPE_TEST(a_c172p_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("c172p");
+
+void fly_lining_up_piece(const LiningUpPiece& p) {
+    const std::vector<std::string> kinds = landplanes_going_around();
+    check(kinds.size() == 15, "fifteen landplanes go around, not " + std::to_string(kinds.size()));
+    const std::vector<std::string> departures = lining_up_departures(p, kinds);
+    std::size_t flown = 0;
+    std::size_t lost = 0;
+    double least_m = 1e9;
+    double least_ft = 1e9;
+    for (const std::string& departure_id : departures) {
+        const StraightAndCircuit r = circuit_and_departure(p.circuit, departure_id, true,
+                                                           Whose::person_rolling_at_once);
+        ++flown;
+        if (r.lost) {
+            ++lost;
+        }
+        least_m = std::min(least_m, r.least_m);
+        least_ft = std::min(least_ft, r.least_ft);
+        std::printf("  %s at 200 ft, a person's %s rolling under her: at her lift-off "
+                    "%.0f m and %.0f ft apart; %s%s\n",
+                    p.circuit.c_str(), departure_id.c_str(), r.lift_off_m, r.lift_off_ft,
+                    least_of(r).c_str(), r.lost ? "; LOST" : "");
+        check(r.wreck.empty(), p.circuit + " and " + departure_id + ": wrecked: " + r.wreck);
+    }
+    std::printf("  %zu of %zu lost the minimum; least %s within 500 ft, %s within 1.5 nm\n", lost,
+                flown, least_figure(least_m, " m").c_str(), least_figure(least_ft, " ft").c_str());
+    check(flown == departures.size() && flown == (p.first_eight ? 8u : 7u),
+          "every pair flown: " + std::to_string(flown) + " of " +
+              std::to_string(departures.size()));
 }
-GLIDESLOPE_TEST(a_c182_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("c182");
-}
-GLIDESLOPE_TEST(an_f15c_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("f15c");
-}
-GLIDESLOPE_TEST(an_f22_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("f22");
-}
-GLIDESLOPE_TEST(an_f35b_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("f35b");
-}
-GLIDESLOPE_TEST(a_j3cub_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("j3cub");
-}
-GLIDESLOPE_TEST(a_learjet35a_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("learjet35a");
-}
-GLIDESLOPE_TEST(a_mosquito_fb6_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("mosquito-fb6");
-}
-GLIDESLOPE_TEST(a_pa28_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart) {
-    every_landplane_with_a_person("pa28");
+
+const bool lining_up_pieces_registered = [] {
+    for (const LiningUpPiece& p : lining_up_pieces()) {
+        const ::glideslope::test::Register r(p.name, [&p] { fly_lining_up_piece(p); });
+        static_cast<void>(r);
+    }
+    return true;
+}();
+
+} // namespace
+
+// **The lining-up pieces between them measure every landplane pair once**:
+// every landplane at 200 ft with every person's departure under her, 225
+// pairs, against the union of the pieces' slices - nothing dropped, nothing
+// twice; and every piece registered under its name, once.
+GLIDESLOPE_TEST(the_lining_up_pieces_between_them_measure_every_landplane_pair_once) {
+    static_cast<void>(lining_up_pieces_registered);
+    const std::vector<std::string> kinds = landplanes_going_around();
+    std::map<std::pair<std::string, std::string>, int> covered;
+    for (const LiningUpPiece& p : lining_up_pieces()) {
+        for (const std::string& d : lining_up_departures(p, kinds)) {
+            ++covered[{p.circuit, d}];
+        }
+    }
+    std::size_t dropped = 0;
+    std::size_t twice = 0;
+    for (const std::string& c : kinds) {
+        for (const std::string& d : kinds) {
+            const auto it = covered.find({c, d});
+            if (it == covered.end()) {
+                ++dropped;
+            } else if (it->second > 1) {
+                ++twice;
+            }
+        }
+    }
+    std::printf("  %zu pieces; %zu pairs covered of %zu\n", lining_up_pieces().size(),
+                covered.size(), kinds.size() * kinds.size());
+    check(dropped == 0 && twice == 0 && covered.size() == kinds.size() * kinds.size(),
+          std::to_string(dropped) + " pairs dropped, " + std::to_string(twice) +
+              " flown twice, " + std::to_string(covered.size()) + " covered");
+    std::size_t unregistered = 0;
+    for (const LiningUpPiece& p : lining_up_pieces()) {
+        std::size_t n = 0;
+        for (const auto& test : glideslope::test::registry()) {
+            if (test.name == p.name) {
+                ++n;
+            }
+        }
+        if (n != 1) {
+            ++unregistered;
+        }
+    }
+    check(unregistered == 0 && lining_up_pieces().size() == 30,
+          std::to_string(unregistered) + " pieces not registered once, of " +
+              std::to_string(lining_up_pieces().size()));
 }
 
 
