@@ -24,20 +24,26 @@ foreach(_v ROOT BUILD WORK)
 endforeach()
 
 file(READ ${ROOT}/.github/workflows/ci.yml _yml)
-string(REGEX MATCHALL "- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+ }" _rows "${_yml}")
+string(REGEX MATCHALL "- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+(, minutes: [0-9]+)? }" _rows "${_yml}")
 # Each sharded job's matrix: its "include:" and the rows under it. A dealing is
 # named by the job's place among them and the preset, "2_linux-release" (no
 # colon: it is part of variable names).
-string(REGEX MATCHALL "include:\n( *- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+ }\n)+" _blocks "${_yml}")
+string(REGEX MATCHALL "include:\n( *- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+(, minutes: [0-9]+)? }\n)+" _blocks "${_yml}")
 set(_presets "")
 set(_job 0)
 foreach(_block IN LISTS _blocks)
     math(EXPR _job "${_job} + 1")
-    string(REGEX MATCHALL "- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+ }" _block_rows "${_block}")
+    string(REGEX MATCHALL "- { preset: [a-z-]+, shard: [0-9]+, of: [0-9]+(, minutes: [0-9]+)? }" _block_rows "${_block}")
     foreach(_row IN LISTS _block_rows)
-        string(REGEX MATCH "preset: ([a-z-]+), shard: ([0-9]+), of: ([0-9]+)" _ "${_row}")
+        string(REGEX MATCH "preset: ([a-z-]+), shard: ([0-9]+), of: ([0-9]+)(, minutes: ([0-9]+))?" _ "${_row}")
         set(_p ${_job}_${CMAKE_MATCH_1})
         set(_preset_${_p} ${CMAKE_MATCH_1})
+        set(_job_of_${_p} ${_job})
+        if(NOT DEFINED _of_${_p})
+            set(_minutes_${_p} "${CMAKE_MATCH_5}")
+        elseif(NOT "${_minutes_${_p}}" STREQUAL "${CMAKE_MATCH_5}")
+            message(FATAL_ERROR "${_p}: rows say minutes '${_minutes_${_p}}' and '${CMAKE_MATCH_5}'")
+        endif()
         if(NOT DEFINED _of_${_p})
             list(APPEND _presets ${_p})
             set(_of_${_p} ${CMAKE_MATCH_3})
@@ -102,15 +108,17 @@ list(SORT _labelled)
 if(NOT _nnamed EQUAL NIGHTLY_COUNT OR NOT _nnight EQUAL NIGHTLY_COUNT OR NOT _named STREQUAL _labelled)
     message(FATAL_ERROR "${NIGHTLY_COUNT} nightly tests expected; ${_nnamed} named, ${_nnight} labelled.\nnamed: ${_named}\nlabelled: ${_labelled}")
 endif()
-# Every test job's ctest line ends in one of two expressions, read whole: on a
-# pull request a debug preset leaves out timing, nightly and gust_sweep and a
-# release preset nightly and gust_sweep, on every other event a debug preset
-# leaves out timing alone and a release preset nothing; or, for a job of
-# release presets alone (Rocky 9), nightly and gust_sweep on a pull request
-# and nothing otherwise. (gust_sweep: the gust test's seeds 9 to 40,
-# tests/CMakeLists.txt.)
-set(_gate_any [=[${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE timing' || '') }}]=])
-set(_gate_release [=[${{ github.event_name == 'pull_request' && '-LE "nightly|gust_sweep"' || '' }}]=])
+# Every test job's ctest line ends in one of three expressions, read whole: on
+# a pull request a debug preset leaves out timing, nightly and gust_sweep and
+# a release preset nightly and gust_sweep, on every other event a debug preset
+# leaves out timing and gust_sweep and a release preset gust_sweep; or, for a
+# job of release presets alone (Rocky 9), nightly and gust_sweep on a pull
+# request and gust_sweep otherwise; or, for a gust sweep job, gust_sweep alone.
+# (gust_sweep: tests too long for a pull request's run, tests/CMakeLists.txt;
+# the sweep jobs run them nightly and on a dispatch, in shards of their own.)
+set(_gate_any [=[${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}]=])
+set(_gate_release [=[${{ github.event_name == 'pull_request' && '-LE "nightly|gust_sweep"' || '-LE gust_sweep' }}]=])
+set(_gate_sweep [=[-L gust_sweep]=])
 string(REGEX MATCHALL "ctest --preset [^\n]*shard.txt[^\n]*" _test_runs "${_yml}")
 set(_nnr 0)
 set(_run_kinds "")
@@ -118,7 +126,7 @@ foreach(_run IN LISTS _test_runs)
     # The Linux jobs keep ctest's code for a step after it.
     string(REGEX REPLACE " \\|\\| rc=\\$\\?$" "" _run "${_run}")
     set(_gated FALSE)
-    foreach(_kind IN ITEMS any release)
+    foreach(_kind IN ITEMS any release sweep)
         set(_gate "${_gate_${_kind}}")
         string(LENGTH "${_run}" _len)
         string(LENGTH "${_gate}" _glen)
@@ -146,8 +154,9 @@ message(STATUS "${_nnight} nightly test, named with its reason; ${_nnr} of ${_nj
 # each shard run, from the first test left out on, a test after the one it
 # was dealt (run 41415219089). Each job's call of the dealing passes, as
 # EXCLUDE, the same regex its ctest line gives -LE.
-set(_exclude_any [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing' || '') }}" -P tools/ci_shard.cmake]=])
-set(_exclude_release [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly|gust_sweep' || '' }}" -P tools/ci_shard.cmake]=])
+set(_exclude_any [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake]=])
+set(_exclude_release [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly|gust_sweep' || 'gust_sweep' }}" -P tools/ci_shard.cmake]=])
+set(_exclude_sweep [=["-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake]=])
 set(_i 0)
 foreach(_call IN LISTS _calls)
     list(GET _run_kinds ${_i} _kind)
@@ -168,14 +177,24 @@ endforeach()
 # preset is dealt as a pull request's run of it leaves tests out - a debug
 # preset timing and nightly, a release preset nightly - and each shard's -I
 # file read back by ctest with that -LE: the tests it lists must be the ones
-# the dealing named. Every other event's runs leave out timing alone (debug)
-# or nothing (release): those are dealt once each, for the first preset of
-# each kind - the dealing does not depend on the preset beyond its costs.
-function(ci_count exclude out)
+# the dealing named. Every other event's runs leave out timing and gust_sweep
+# (debug) or gust_sweep (release): those are dealt once each, for the first
+# preset of each kind - the dealing does not depend on the preset beyond its
+# costs. A gust sweep job's preset is dealt the tests labelled gust_sweep
+# alone, read back with -L, and sized: STRICT, so a shard holding more than
+# three fifths of its row's minutes, or a longest test that half as long again
+# is past them, fails here (tools/ci_shard.cmake).
+function(ci_filter way out)
     set(_le "")
-    if(NOT exclude STREQUAL "")
-        set(_le -LE "${exclude}")
+    if(way STREQUAL "sweep")
+        set(_le -L gust_sweep)
+    elseif(NOT way STREQUAL "none")
+        set(_le -LE "${way}")
     endif()
+    set(${out} "${_le}" PARENT_SCOPE)
+endfunction()
+function(ci_count way out)
+    ci_filter("${way}" _le)
     execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N ${_le}
         OUTPUT_VARIABLE _listing RESULT_VARIABLE _rc)
     if(NOT _rc EQUAL 0 OR NOT _listing MATCHES "Total Tests: ([0-9]+)")
@@ -187,6 +206,8 @@ endfunction()
 set(_dealings 0)
 set(_other_debug "")
 set(_other_release "")
+set(_swept "")
+set(_sharded "")
 foreach(_p IN LISTS _presets)
     set(_want "")
     foreach(_k RANGE 1 ${_of_${_p}})
@@ -197,41 +218,53 @@ foreach(_p IN LISTS _presets)
     if(NOT _have STREQUAL _want)
         message(FATAL_ERROR "${_p}: the matrix has shards ${_have}, not 1 to ${_of_${_p}} once each")
     endif()
-    if(_preset_${_p} MATCHES "-debug$")
+    string(REGEX REPLACE "_.*" "" _jobn ${_p})
+    math(EXPR _jobi "${_jobn} - 1")
+    list(GET _run_kinds ${_jobi} _job_kind)
+    set(_deal_args "")
+    if(_job_kind STREQUAL "sweep")
+        if(_minutes_${_p} STREQUAL "")
+            message(FATAL_ERROR "${_p}: a gust sweep job's rows need their minutes")
+        endif()
+        set(_ways "sweep")
+        set(_deal_args -DINCLUDE=gust_sweep -DDEFAULT=longest -DMINUTES=${_minutes_${_p}} -DSTRICT=ON)
+        list(APPEND _swept ${_preset_${_p}})
+    elseif(NOT _minutes_${_p} STREQUAL "")
+        message(FATAL_ERROR "${_p}: only a gust sweep job's rows say minutes")
+    elseif(_preset_${_p} MATCHES "-debug$")
+        list(APPEND _sharded ${_preset_${_p}})
         set(_ways "timing|nightly|gust_sweep")
         if(_other_debug STREQUAL "")
             set(_other_debug ${_p})
-            list(APPEND _ways "timing")
+            list(APPEND _ways "timing|gust_sweep")
         endif()
     else()
+        list(APPEND _sharded ${_preset_${_p}})
         set(_ways "nightly|gust_sweep")
         if(_other_release STREQUAL "")
             set(_other_release ${_p})
-            list(APPEND _ways "none")
+            list(APPEND _ways "gust_sweep")
         endif()
     endif()
 
     list(GET _ways 0 _first_way)
     foreach(_way IN LISTS _ways)
         set(_exclude "${_way}")
-        if(_way STREQUAL "none")
+        if(_way STREQUAL "none" OR _way STREQUAL "sweep")
             set(_exclude "")
         endif()
-        ci_count("${_exclude}" _count)
+        ci_count("${_way}" _count)
         string(REPLACE "|" "_" _wayname "${_way}")
         set(_dir ${WORK}/${_p}_${_wayname})
         file(REMOVE_RECURSE ${_dir})
         file(MAKE_DIRECTORY ${_dir})
         execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_preset_${_p}} -DBUILD=${BUILD} -DOF=${_of_${_p}}
-                "-DEXCLUDE=${_exclude}" -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
+                "-DEXCLUDE=${_exclude}" ${_deal_args} -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
             OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
         if(NOT _rc EQUAL 0)
             message(FATAL_ERROR "${_p}: the dealing failed:\n${_out}")
         endif()
-        set(_le "")
-        if(NOT _exclude STREQUAL "")
-            set(_le -LE "${_exclude}")
-        endif()
+        ci_filter("${_way}" _le)
         set(_dealt "")
         foreach(_k RANGE 1 ${_of_${_p}})
             file(READ ${_dir}/shard_${_k}.txt _file)
@@ -284,11 +317,38 @@ foreach(_p IN LISTS _presets)
     endforeach()
 endforeach()
 # Every way a run leaves tests out, dealt and read back: four.
-foreach(_wayname IN ITEMS timing_nightly_gust_sweep nightly_gust_sweep timing none)
+foreach(_wayname IN ITEMS timing_nightly_gust_sweep nightly_gust_sweep timing_gust_sweep gust_sweep sweep)
     if(NOT _did_${_wayname})
         message(FATAL_ERROR "no dealing left tests out as a run does by '${_wayname}'")
     endif()
 endforeach()
+
+# **Every preset sharded is swept**: what the shard jobs leave out on a
+# schedule or a dispatch - gust_sweep - a sweep job of the same preset runs,
+# one for each (linux-release twice: Ubuntu and Rocky 9). And every sweep
+# job's limit is its row's minutes.
+list(SORT _swept)
+list(SORT _sharded)
+list(REMOVE_DUPLICATES _sharded)
+set(_swept_once ${_swept})
+list(REMOVE_DUPLICATES _swept_once)
+if(NOT _swept_once STREQUAL _sharded)
+    message(FATAL_ERROR "presets sharded: ${_sharded}; presets swept: ${_swept_once}")
+endif()
+string(REGEX MATCHALL "\n  [a-z-]+-sweep:\n" _sweep_jobs "${_yml}")
+string(REGEX MATCHALL "timeout-minutes: \\\${{ matrix.minutes }}\n" _sweep_limits "${_yml}")
+list(LENGTH _sweep_jobs _nsj)
+list(LENGTH _sweep_limits _nsl)
+set(_nsk 0)
+foreach(_k IN LISTS _run_kinds)
+    if(_k STREQUAL "sweep")
+        math(EXPR _nsk "${_nsk} + 1")
+    endif()
+endforeach()
+if(NOT _nsj EQUAL _nsk OR NOT _nsl EQUAL _nsk)
+    message(FATAL_ERROR "${_nsk} gust sweep runs, ${_nsj} jobs named -sweep, ${_nsl} limits of the row's minutes")
+endif()
+message(STATUS "every preset sharded is swept: ${_sharded}; ${_nsk} sweep jobs, each limited to its row's minutes")
 
 list(LENGTH _presets _np)
 list(LENGTH _rows _nrows)
