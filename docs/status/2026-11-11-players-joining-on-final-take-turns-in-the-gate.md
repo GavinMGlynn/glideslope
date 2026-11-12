@@ -150,3 +150,10 @@ cost figures in tests/ci_costs are copied from Linux, not measured.
   presses K 12 s after joining, after its take-over, counted from its
   given time - seen red with the step put to nought on the take-over
   ("counted from 0.000").
+
+  From the review of the clock round: that take-over test now refuses a
+  given time of nought, where a clock reset across the take-over could not
+  be told apart (she is given at 0.042 s, and "12.[0-4]" alone cannot see a
+  42 ms move), and matches the given time escaped, not as a pattern. The
+  guard was checked on 0, 0.000, 0.042 and 12.500, and the escaped match
+  refuses a time differing only where the dot was.
