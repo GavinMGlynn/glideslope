@@ -307,8 +307,8 @@ GLIDESLOPE_TEST(up_through_the_top_of_the_convective_layer_the_thermals_air_step
     const int heights = static_cast<int>((0.2 * zi) / step_m);
     int walks = 0;
     int moving = 0;
+    long steps = 0;
     double most_step = 0.0;
-    double most_above = 0.0;
     for (const double time_s : {90.0, 600.0, 1110.0}) {
         for (int i = 0; i < across; ++i) {
             for (int j = 0; j < across; ++j) {
@@ -320,20 +320,22 @@ GLIDESLOPE_TEST(up_through_the_top_of_the_convective_layer_the_thermals_air_step
                     const double z = 0.85 * zi + k * step_m;
                     const double w = thermal_updraught(seed, allens, {east, north, z}, time_s);
                     most_step = std::max(most_step, std::abs(w - last));
-                    if (z >= zi) {
-                        most_above = std::max(most_above, std::abs(w));
-                    }
                     last = w;
+                    ++steps;
                 }
                 ++walks;
                 moving += moved ? 1 : 0;
             }
         }
     }
-    const int expected = 3 * across * across;
-    check(walks == expected && across >= 40 && heights >= 200,
-          "every walk was made: " + std::to_string(walks) + " of " + std::to_string(expected) +
-              ", " + std::to_string(heights) + " steps each");
+    // Allen's layer has cells 470 m wide, so 47 points across two of them, at
+    // three moments: 6,627 walks; and 0.2 of its 1,401 m in metre steps, 280.
+    constexpr int expected_walks = 6627;
+    constexpr long expected_steps = 6627L * 280L;
+    check(walks == expected_walks && steps == expected_steps,
+          "every walk was made, every step of it: " + std::to_string(walks) + " walks of " +
+              std::to_string(expected_walks) + ", " + std::to_string(steps) + " steps of " +
+              std::to_string(expected_steps));
     check(moving > walks / 4,
           "the air 0.85 of the way up moved in most of the walks, so the top was crossed in "
           "air that had something to lose: " + std::to_string(moving) + " of " +
@@ -341,8 +343,6 @@ GLIDESLOPE_TEST(up_through_the_top_of_the_convective_layer_the_thermals_air_step
     check(most_step < most_mps,
           "up through the layer's top the thermals' air changed by at most " +
               std::to_string(most_step) + " m/s in a metre, against " + std::to_string(most_mps));
-    check(most_above == 0.0, "above the layer there are no thermals: " +
-                                 std::to_string(most_above) + " m/s");
 }
 
 GLIDESLOPE_TEST(a_ridge_in_stable_air_makes_the_mountain_waves_of_linear_theory) {

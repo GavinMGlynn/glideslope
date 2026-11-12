@@ -1124,6 +1124,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_convective_layer_is_as_deep_as_a_warmer_parcel_rises
     each_thermal_in_its_prime_is_allens_updraft_and_between_them_the_air_sinks
     a_thermal_grows_lives_and_fades_and_the_next_rises_elsewhere_in_its_cell
+    up_through_the_top_of_the_convective_layer_the_thermals_air_steps_nothing
     a_ridge_in_stable_air_makes_the_mountain_waves_of_linear_theory
     without_stability_the_wind_over_a_ridge_is_potential_flow
     a_warm_afternoons_report_lifts_the_air_in_thermals_and_over_its_ridges
