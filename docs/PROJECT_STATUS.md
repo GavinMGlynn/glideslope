@@ -90,7 +90,9 @@ in the collision ground since 2026-10-01.
 platform (run 35250647710) and fetched by every package (run 35248205205):
 METARs from aviationweather.gov; winds aloft from Open-Meteo; both in JSBSim's
 atmosphere, with MIL-F-8785C turbulence; and new reports blended in during a
-flight.
+flight. Since 2026-11-12 every aircraft is trimmed in the
+session's temperature and pressure and started moving with its wind, not
+handed them on her first step.
 
 **Phase 3b, wind that shears and gusts and hazardous air, is complete — 7
 of 7 items**, proved in CI on every platform (runs 35331164089, 35336574855

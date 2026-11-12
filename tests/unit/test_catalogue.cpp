@@ -12,6 +12,7 @@
 #include "sim/plan.hpp"
 #include "sim/terrain.hpp"
 #include "sim/test_pilot.hpp"
+#include "sim/weather.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -1941,4 +1942,93 @@ GLIDESLOPE_TEST(the_f22a_held_at_130_kt_on_the_autopilot_with_her_gear_down_keep
     std::printf("  f22 at 130 kt in calm air, gear down: left its tables %s, sideslip at most %.1f\n",
                 f.left_tables ? "yes" : "no", f.most_sideslip_ever_deg);
     check(!f.left_tables, "she kept inside her tables at 130 kt");
+}
+
+// **Every aircraft trimmed in a calm METAR away from the standard atmosphere
+// holds her heading and track as in no weather**: started in the air,
+// trimmed wings and all, and held on what her trim found
+// (sim::held_until_moved) for twenty seconds - once in no weather, once in
+// still air of 30 degrees and 1030 hPa (sim::SteadyWeather) - her heading
+// and track move alike, within half a degree. And in that air with 15 kt
+// across her, she starts at the airspeed she was given, within half a
+// knot, and her heading moves as in no weather, within half a degree: the
+// wind carries her, it does not turn her. Until 2026-11-12 the weather
+// reached her only on her first step, after her trim in JSBSim's standard
+// air: a C182 left alone on final in a calm METAR of 20 degrees and 1015
+// hPa was 6 degrees off her heading thirty seconds on. The S.23 is left
+// out: she is started on the water here in no other case.
+GLIDESLOPE_TEST(every_aircraft_trimmed_in_a_calm_metar_away_from_the_standard_atmosphere_holds_her_heading_and_track_as_in_no_weather) {
+    const std::vector<CatalogueEntry> catalogue = glideslope::sim::read_catalogue(data());
+    glideslope::sim::Conditions warm;
+    warm.temperature_offset_c = 15.0;
+    warm.sea_level_pressure_hpa = 1030.0;
+    const auto weather = std::make_shared<glideslope::sim::SteadyWeather>(warm);
+    // 15 kt from her right, as she heads north: the air moving west.
+    glideslope::sim::Conditions windy = warm;
+    windy.wind_east_mps = -15.0 * 0.514444;
+    const auto wind = std::make_shared<glideslope::sim::SteadyWeather>(windy);
+    double started_kts = 0.0;
+    // Heading and track moved in twenty seconds, degrees.
+    const auto flown = [&](const CatalogueEntry& e,
+                           const std::shared_ptr<glideslope::sim::SteadyWeather>& in) {
+        auto a = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", e.model);
+        if (in) {
+            a->set_weather(in);
+        }
+        glideslope::sim::InitialConditions ic;
+        ic.latitude_deg = -33.9;
+        ic.longitude_deg = 151.2;
+        ic.altitude_ft = 3000.0;
+        ic.airspeed_kts = e.start_airspeed_kts;
+        ic.engine_running = true;
+        ic.gear = 0.0;
+        ic.trim = true;
+        ic.trim_lateral = true;
+        a->initialize(ic);
+        const glideslope::sim::Controls held = glideslope::sim::held_until_moved(*a);
+        const auto was = a->state();
+        a->set_controls(held);
+        a->step();
+        started_kts = a->state().airspeed_kts;
+        for (int i = 1; i < 20 * steps_per_second; ++i) {
+            a->set_controls(held);
+            a->step();
+        }
+        const auto now = a->state();
+        double heading = now.heading_deg - was.heading_deg;
+        heading -= 360.0 * std::round(heading / 360.0);
+        const double north = now.latitude_deg - was.latitude_deg;
+        const double east = (now.longitude_deg - was.longitude_deg) *
+                            std::cos(was.latitude_deg * std::numbers::pi / 180.0);
+        double track = std::atan2(east, north) * 180.0 / std::numbers::pi - was.heading_deg;
+        track -= 360.0 * std::round(track / 360.0);
+        return std::pair{heading, track};
+    };
+    std::size_t walked = 0;
+    std::string failed;
+    double worst = 0.0;
+    for (const CatalogueEntry& e : catalogue) {
+        if (e.seaplane) {
+            continue;
+        }
+        const auto [h0, t0] = flown(e, nullptr);
+        const auto [h1, t1] = flown(e, weather);
+        const auto [h2, t2] = flown(e, wind);
+        const double windy_kts = started_kts;
+        const double off = std::max({std::abs(h1 - h0), std::abs(t1 - t0), std::abs(h2 - h0)});
+        worst = std::max(worst, off);
+        std::printf("  %-14s heading %+6.2f and track %+6.2f in no weather, %+6.2f and %+6.2f "
+                    "in 30 degrees, 1030 hPa; in 15 kt across heading %+6.2f, started at %.1f "
+                    "of %.1f kt\n",
+                    e.id.c_str(), h0, t0, h1, t1, h2, windy_kts, e.start_airspeed_kts);
+        if (off > 0.5 || std::abs(windy_kts - e.start_airspeed_kts) > 0.5) {
+            failed += " " + e.id;
+        }
+        ++walked;
+    }
+    std::printf("  %zu aircraft walked of %zu (the S.23 left out); the most apart %.2f degrees\n",
+                walked, catalogue.size(), worst);
+    check(walked + 1 == catalogue.size(), "every landplane walked: " + std::to_string(walked));
+    check(failed.empty(), "heading and track as in no weather, within half a degree, and her "
+                          "airspeed in wind as she was given it, within half a knot:" + failed);
 }

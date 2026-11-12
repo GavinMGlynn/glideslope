@@ -501,13 +501,21 @@ std::string outside_learnt_gate(const Aircraft& aircraft, const Runway& runway,
     const LandingReadings r = LandingReadings::of(aircraft);
     const Where w = where(r, runway);
     constexpr double metres_per_nm = 1852.0;
-    // The wind as the instruments estimate it, as the policy sees it: the
-    // ground velocity less the true airspeed along the heading turned by
-    // the sideslip.
+    // The wind as the instruments estimate it: the ground velocity less the
+    // true airspeed along the heading turned by the sideslip - the
+    // airspeed's level share, her rate of descent taken off it, where the
+    // policy's own reading (LandingReadings) takes the whole of it. On a
+    // three-degree path that is 0.1 kt at 57 kt, which the gate's edge,
+    // judged to 0.05, sees: she has been started in her wind since
+    // 2026-11-12, and a C172P put at the gate in exactly its most headwind
+    // read a hair over 15 kt of it, and was refused.
     {
         constexpr double kts_per_mps = 1.0 / 0.514444;
         const double hr = runway.heading_deg / degrees;
-        const double vt = r.values[16] * mps_per_fps;
+        const double true_mps = r.values[16] * mps_per_fps;
+        const double down_mps = r.values[12] * mps_per_fps;
+        const double vt =
+            std::sqrt(std::max(0.0, true_mps * true_mps - down_mps * down_mps));
         const double air = r.values[5] + r.values[14];
         const double wind_n = r.values[10] * mps_per_fps - vt * std::cos(air);
         const double wind_e = r.values[11] * mps_per_fps - vt * std::sin(air);

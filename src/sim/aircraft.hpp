@@ -731,6 +731,7 @@ private:
     void find_replay_nodes();
 
     void apply_weather();
+    void moved_with_the_wind(const InitialConditions& ic);
     void apply_ground(double latitude_deg, double longitude_deg);
     bool meets_the_surface() const;
 
