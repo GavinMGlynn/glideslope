@@ -1514,39 +1514,6 @@ set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_on_every_othe
     PROPERTIES LABELS gust_sweep)
 set_tests_properties(every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
     PROPERTIES TIMEOUT 3600)
-# **A gust_sweep test's time limit is from what it took on CI**: half as long
-# again as the slowest preset's figure in tests/ci_costs (measured, or a
-# floor where its shard was cut off around it), or the limit set above if
-# that is longer. Five circuits with every straight-in and departure gave up
-# at their 1800 s on Linux debug's runners in run 43111884667 - nothing gives
-# up on a slow machine sooner than a slow machine needs. The tables are
-# measured again by tools/ci_test_costs.py, and the limits follow them.
-file(GLOB _ci_cost_tables ${CMAKE_CURRENT_SOURCE_DIR}/ci_costs/*.txt)
-set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_ci_cost_tables})
-foreach(_t IN LISTS GLIDESLOPE_UNIT_TESTS)
-    if(NOT TEST ${_t})
-        continue()
-    endif()
-    get_test_property(${_t} LABELS _labels)
-    if(NOT "gust_sweep" IN_LIST _labels)
-        continue()
-    endif()
-    set(_slowest 0)
-    foreach(_table IN LISTS _ci_cost_tables)
-        file(STRINGS ${_table} _line REGEX "^[0-9]+ ${_t}$")
-        if(_line MATCHES "^([0-9]+) " AND CMAKE_MATCH_1 GREATER _slowest)
-            set(_slowest ${CMAKE_MATCH_1})
-        endif()
-    endforeach()
-    math(EXPR _limit "(${_slowest} * 3 + 1) / 2")
-    get_test_property(${_t} TIMEOUT _set)
-    if(NOT _set)
-        set(_set 900)   # the test presets' (CMakePresets.json)
-    endif()
-    if(_limit GREATER _set)
-        set_tests_properties(${_t} PROPERTIES TIMEOUT ${_limit})
-    endif()
-endforeach()
 # **Every landplane's take-off to 3,000 ft and ten minutes held there**, in
 # simulated time: 22 s on linux-release locally, and Linux debug's runners
 # take about fourteen times release's for flights like these.
@@ -4051,6 +4018,12 @@ add_test(NAME every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_
     COMMAND ${CMAKE_COMMAND} -DROOT=${PROJECT_SOURCE_DIR} -DBUILD=${PROJECT_BINARY_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/ci_shards
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/ci_shards.cmake)
+# Every shard's -I file is read back by a ctest of its own: 648 s on Windows
+# debug's runners (tests/ci_costs), and past the presets' 900 there and on
+# Windows release in dispatch run 43257673789, once the gust sweep's shards
+# were dealt too. Nothing gives up on a slow machine sooner than it needs.
+set_tests_properties(every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+    PROPERTIES TIMEOUT 1800)
 
 # **Run as a git hook runs it, the hooks' test leaves the repository being
 # pushed alone.** See cmake/githooks_in_a_hook.cmake.
@@ -5047,3 +5020,43 @@ add_test(NAME the_cli_refuses_an_argument_it_does_not_know
         -DPROGRAM=$<TARGET_FILE:glideslope_cli> -DARGS=--fly -DEXIT=2
         -DSTDERR_MATCHES=^usage:
         -P ${GLIDESLOPE_EXPECT_RUN})
+
+# **Every test's time limit covers what it took on CI**: at least half as long
+# again as the slowest preset's figure in tests/ci_costs (measured, or a
+# floor where its shard was cut off around it), or the limit set above if
+# that is longer. A test's limit set by hand was a guess at its slowest
+# runner, and runners move: five gust_sweep circuits gave up at their 1800 s
+# on Linux debug in run 43111884667, and the one behind two going around whose
+# leader goes around again at the presets' 900 s on Linux debug in #365's run
+# 43261047217, with 856 s in the table. Nothing gives up on a slow machine
+# sooner than a slow machine needs. The tables are measured again by
+# tools/ci_test_costs.py, and the limits follow them.
+file(GLOB _ci_cost_tables ${CMAKE_CURRENT_SOURCE_DIR}/ci_costs/*.txt)
+set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS ${_ci_cost_tables})
+foreach(_table IN LISTS _ci_cost_tables)
+    file(STRINGS ${_table} _lines REGEX "^[0-9]+ ")
+    foreach(_line IN LISTS _lines)
+        if(_line MATCHES "^([0-9]+) (.+)$")
+            if(NOT DEFINED _ci_slowest_${CMAKE_MATCH_2} OR CMAKE_MATCH_1 GREATER _ci_slowest_${CMAKE_MATCH_2})
+                set(_ci_slowest_${CMAKE_MATCH_2} ${CMAKE_MATCH_1})
+            endif()
+        endif()
+    endforeach()
+endforeach()
+get_property(_all_tests DIRECTORY PROPERTY TESTS)
+set(_raised 0)
+foreach(_t IN LISTS _all_tests)
+    if(NOT DEFINED _ci_slowest_${_t})
+        continue()
+    endif()
+    math(EXPR _limit "(${_ci_slowest_${_t}} * 3 + 1) / 2")
+    get_test_property(${_t} TIMEOUT _set)
+    if(NOT _set)
+        set(_set 900)   # the test presets' (CMakePresets.json)
+    endif()
+    if(_limit GREATER _set)
+        set_tests_properties(${_t} PROPERTIES TIMEOUT ${_limit})
+        math(EXPR _raised "${_raised} + 1")
+    endif()
+endforeach()
+message(STATUS "glideslope: ${_raised} tests' time limits raised to half as long again as their slowest CI figure")
