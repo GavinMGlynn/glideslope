@@ -12252,7 +12252,8 @@ constexpr double longest_held_behind_a_person_s = 600.0;
 // minutes to reach sim::left_the_circuit_nm. Measured 2026-11-11 over every
 // pair: eight flights, every bearing, and no other, flying away; none
 // staying. Since the autothrottle leads by her throttle lag (#363,
-// 2026-11-12) her hold burns less, and at 180 deg - the Cub's place dropped
+// 2026-11-12) - the likeliest cause, not bisected, her fuel in the hold
+// not measured - at 180 deg, where the Cub's place dropped
 // 875 s after she set off, the soonest of the eight (135 and 225 deg: 896
 // and 898 s; 0 deg: 1081 s) - she is down 242 s after it, not short of
 // fuel: seven flights. Each test asserts that the flights that came back
