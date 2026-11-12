@@ -101,8 +101,13 @@ builds all five orders; seen red with the refusal taken out.
   both are named on Linux in `named_on_a_seed`, as single-seed names are
   (the owner's ruling of 2026-11-04). On Windows the F-22A's seed 3 is
   landed with every margin now (windows-debug, CI run 43153806780), and
-  its name is taken off; the rest of Windows's and macOS's names are as
-  the full CI run finds them.
+  its name is taken off. On macOS release (CI run 43240423674) four named
+  seeds now land with every margin and their names are taken off - the
+  737-300's 3, the A380's 5 and 6, the F-22A's 7 - and two are named in
+  their place, each one seed of one aircraft: the 737-300's seed 6 (349
+  ft/min, inside 360 but not by 25) and the F-22A's seed 3 (372 ft/min;
+  she lands twenty-eight of forty there still). macOS debug is not run on
+  a pull request; the nightly will say whether it agrees.
 - **The first attempt's 81 reds**, wind given through the initial
   conditions, were that double-counted wind; none of them is red now.
 - `the_stations_flown_are_kept_..._204` and `_404`: green on this branch,
