@@ -2,7 +2,13 @@
 
 **What is still not true first.** **In wind past her measured limits a player
 is not put on final** (the owner's ruling, 2026-11-11): she starts where the
-plan does, told why; the C182 is put on final only where no weather is flown. **A measured limit, which the owner's
+plan does, told why: past 15 kt ahead, 5 behind or 3 across, every
+aeroplane alike since the re-sweep of 2026-11-14 (below). **No run shows
+another runway end refused by her limit rather than her gate**: ahead and
+behind her limits are now the gate's own, and across, a one-runway field's
+other end has her own end's crosswind; a crossing runway at Sydney refused
+for more than 3 kt across (inside the gate's 15) would show it, and is not
+built. **A measured limit, which the owner's
 ruling of 2026-11-11 allows**: where a person holds the final over the
 start past the bound and no other runway end at the airfield takes her -
 each behind her, across her more than her gate admits, or not clear - the
@@ -63,6 +69,40 @@ is outside it - a crosswind limit of nought refuses 0.4 kt across.
 and 1015 hPa, near the standard atmosphere at Sydney: the limits are for the
 wind); no gusts (no gust group: her gust factor 0); her model's own loading;
 16R at 8 ft only; no half knots or other directions than the five named.
+
+**Re-swept on the corrected start, 2026-11-14.** The limits above were
+measured when she was trimmed in still air and met the session's wind on her
+first step; since 2026-11-12 (#365, "Every aircraft trims in the session's
+air") she starts trimmed and moving with it. Swept again the same way -
+the command-line client joined as the window client joins, one run per knot,
+on a copy of the data with the limits taken out - knot by knot from 1 up
+each way until the first that did not hold, and calm and still air:
+
+| | ahead | behind | across from the right | across from the left |
+| --- | --- | --- | --- | --- |
+| C172P | 1 to 15 at the gate (236 to 457 m inside) | 1 to 5 (209 to 145 m) | 1 to 3 (223 m); 4 not, 64 m left of the centreline | 1 to 3; 4 not, 61 m right |
+| C182 | 1 to 15 (196 to 419 m) | 1 to 5 (169 to 107 m) | 1 to 3 (186 m); 4 not, 65 m left | 1 to 3; 4 not, 60 m right |
+| J-3 Cub | 1 to 15 (373 to 594 m) | 1 to 5 (345 to 283 m) | 1 to 3 (361 m); 4 not, 64 m left | 1 to 3; 4 not, 61 m right |
+| PA-28 | 1 to 15 (196 to 420 m) | 1 to 5 (170 to 107 m) | 1 to 3 (186 m); 4 not, 64 m left | 1 to 3; 4 not, 61 m right |
+
+All four in calm and in still air were at the gate. 15 ahead and 5 behind
+are the gate's own most (LearntGate), so not swept past. Quartering, both
+parts near the new limits: 15 kt from 179 (14.7 ahead, 2.9 across) and 5
+from 330 (4.8 behind, 1.5 across), every aeroplane at the gate (C172P 452
+and 148 m, C182 414 and 110, Cub 590 and 287, PA-28 414 and 111). 88 runs.
+
+**Her limits now**, every aeroplane alike: 15 ahead, 5 behind, 3 across
+(before: C172P 5, 4, 2; PA-28 13, 4, 3; the Cub calm only; the C182 only
+where no weather is flown). What failed before was the start, not the
+aeroplane: her heading wandered 5 to 11 degrees as the wind reached her on
+her first step. What fails now is plain drift: she is started pointing down
+the runway, not crabbed, and in 4 kt across drifts 2 m/s, 60 to 65 m off the
+centreline in thirty seconds, where the gate is within 60 - the same in all
+four. `on_final_still_air_only` is taken out: no aeroplane needs it. The
+Richmond run moves to 6 kt from 108: 5 behind 28 is now inside her limit,
+so 28 is refused by her gate's tailwind ("YSRI 28 6 kt of tailwind; the gate
+is within 5"). The sweep's scripts were scratchpad/on-final-turns-complete/
+(sweep.sh), not committed.
 
 **What changed.**
 
@@ -212,11 +252,17 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   ports 24810, 24818, 24830, 24836): the limits read from her figures;
   ahead, behind, from the right and from the left, at her limit she is on
   final and at the gate 30 s on, and a knot past it she is not put on final
-  and her client is told why, once; calm once where a limit is nought; a
-  quartering wind at her limits (the C172P and PA-28); the Cub at 0.4 across
-  refused; the C182 in still air once - its four directions would be one
-  case - and a knot each way past it. The cases that reach their verdict
-  are counted against the cases listed: C172P 9, PA-28 9, Cub 6, C182 5.
+  and her client is told why, once, and refused by the part of the wind
+  that is past her limit ("16 kt ahead; she is put on final in 15 ahead at
+  most"); calm once where a limit is nought, and 0.4 across refused where
+  her crosswind limit is nought (no aeroplane, since 2026-11-14); quartering
+  winds ahead and behind where her limits admit them. The cases that reach
+  their verdict are counted against the cases listed: 10 each, since
+  2026-11-14 (before: C172P 9, PA-28 9, Cub 6, C182 5). Passed on the new
+  limits, linux-release, each about 320 s. Seen red on the new limits: the
+  C172P's crosswind limit put at 4, a knot too wide ("c172p, 4 kt from
+  the right (inside her limits): not at the gate 30 s on").
+  Before 2026-11-14:
   The C172P at 5 ahead 304 m inside the gate, 4 behind 162 m, 2 across 225
   m either side, quartering 299 m; the PA-28 396, 126, 188 and 187 m,
   quartering 390 m; the Cub in calm, the C182 in still air, 201 m. Seen red: with the limits not applied, all four ("...past her
@@ -230,7 +276,8 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   each test's first case past a limit a second player joins too, and each
   is told once, never the other's - seen red with every proven session told
   each reason ("told why 2 times, not once").
-- **Only ends inside her limits past the bound**: the Richmond run, a wind
+- **Only ends inside her limits past the bound** (before 2026-11-14; now
+  6 kt from 108, refused by her gate - see the top): the Richmond run, a wind
   from 108 at 5 kt, puts its C172P on final to 10 (5 ahead, inside her 5)
   and refuses 28: "YSRI 28 5 kt behind; she is put on final in 4 behind at
   most" - a tailwind her gate admits (5), outside her limit; seen red with

@@ -36,12 +36,6 @@ foreach(_which headwind tailwind crosswind)
     endif()
     set(_${_which} "${CMAKE_MATCH_1}")
 endforeach()
-# **Or still air only** (`on_final_still_air_only`, the C182): inside is a
-# session flying no weather, and past it any METAR - one knot each way.
-set(_still OFF)
-if(_figures MATCHES "on_final_still_air_only=\"true\"")
-    set(_still ON)
-endif()
 
 if(DEFINED CACHE)
     set(ENV{GLIDESLOPE_CACHE} "${CACHE}")
@@ -65,13 +59,14 @@ if(NOT _rc EQUAL 0)
 endif()
 
 # **The cases**, each "what|wind|in or out": at each limit (calm, once,
-# where a limit is nought; still air, no weather flown, where her figures put
-# her on final only in that) and a knot past it, ahead, behind, from the
-# right and from the left of 16R (heading 167.9); a quartering wind with both
-# its parts inside her limits, where she has a crosswind to quarter in; and
-# for a crosswind limit of nought, 0.4 kt across (4 kt from 174, 4.0 ahead,
-# inside her headwind), which any
-# crosswind past nought must refuse.
+# where a limit is nought) and a knot past it, ahead, behind, from the
+# right and from the left of 16R (heading 167.9); quartering winds with both
+# their parts inside her limits, where her limits admit them; and
+# for a crosswind limit of nought, 0.4 kt across (4 kt from 174), which any
+# crosswind past nought must refuse. Each refused case names the part of the
+# wind that must refuse it: ahead, behind or across - and
+# where her crosswind limit is nought, across for every wind, since no whole
+# degree lies down 16R (167.9) and the least across is past nought.
 #
 # **Not swept, and why**: one temperature and pressure (the METAR's 20
 # degrees and 1015 hPa, near the standard atmosphere at Sydney - a server's
@@ -80,20 +75,17 @@ endif()
 # 16R at 8 ft only - another field's height is another density.
 set(_cases "")
 set(_calm_listed OFF)
-if(_still)
-    list(APPEND _cases "still air|NONE|in")
-endif()
-foreach(_dir "ahead:168:${_headwind}" "behind:348:${_tailwind}"
-             "from the right:258:${_crosswind}" "from the left:078:${_crosswind}")
+foreach(_dir "ahead:168:${_headwind}:ahead" "behind:348:${_tailwind}:behind"
+             "from the right:258:${_crosswind}:across" "from the left:078:${_crosswind}:across")
     string(REPLACE ":" ";" _parts "${_dir}")
     list(GET _parts 0 _name)
     list(GET _parts 1 _from)
     list(GET _parts 2 _limit)
-    math(EXPR _past "${_limit} + 1")
-    if(_still)
-        list(APPEND _cases "1 kt ${_name}|${_from}01KT|out")
-        continue()
+    list(GET _parts 3 _part)
+    if(_crosswind EQUAL 0)
+        set(_part across)
     endif()
+    math(EXPR _past "${_limit} + 1")
     if(_limit EQUAL 0)
         if(NOT _calm_listed)
             list(APPEND _cases "calm|00000KT|in")
@@ -109,22 +101,23 @@ foreach(_dir "ahead:168:${_headwind}" "behind:348:${_tailwind}"
     endif()
     string(LENGTH "${_past}" _digits)
     if(_digits EQUAL 1)
-        list(APPEND _cases "${_past} kt ${_name}|${_from}0${_past}KT|out")
+        list(APPEND _cases "${_past} kt ${_name}|${_from}0${_past}KT|out|${_part}")
     else()
-        list(APPEND _cases "${_past} kt ${_name}|${_from}${_past}KT|out")
+        list(APPEND _cases "${_past} kt ${_name}|${_from}${_past}KT|out|${_part}")
     endif()
 endforeach()
-if(NOT _still AND _crosswind EQUAL 0)
-    list(APPEND _cases "0.4 kt across (4 from 174)|17404KT|out")
+if(_crosswind EQUAL 0)
+    list(APPEND _cases "0.4 kt across (4 from 174)|17404KT|out|across")
 endif()
-# Quartering, both parts at her limits as near as a METAR's whole knots and
-# degrees give: 5 kt from 190 for the C172P (4.7 ahead, 1.97 across), 13
-# from 181 for the PA-28 (12.7 ahead, 2.9 across);
-# none for the Cub (no crosswind) or the C182 (no weather).
-if(AIRCRAFT STREQUAL "c172p")
-    list(APPEND _cases "quartering 5 kt from 190|19005KT|in")
-elseif(AIRCRAFT STREQUAL "pa28")
-    list(APPEND _cases "quartering 13 kt from 181|18113KT|in")
+# Quartering, both parts near her limits as a METAR's whole knots and
+# degrees give: ahead, 15 kt from 179 (14.7 ahead, 2.9 across), where her
+# limits are at least 15 ahead and 3 across; behind, 5 kt from 330 (4.8
+# behind, 1.5 across), where they are at least 5 behind and 2 across.
+if(_headwind GREATER_EQUAL 15 AND _crosswind GREATER_EQUAL 3)
+    list(APPEND _cases "quartering 15 kt from 179|17915KT|in")
+endif()
+if(_tailwind GREATER_EQUAL 5 AND _crosswind GREATER_EQUAL 2)
+    list(APPEND _cases "quartering 5 kt from 330|33005KT|in")
 endif()
 list(LENGTH _cases _wanted)
 
@@ -136,11 +129,12 @@ foreach(_case IN LISTS _cases)
     list(GET _parts 0 _name)
     list(GET _parts 1 _wind)
     list(GET _parts 2 _expect)
+    set(_part "")
+    if(_expect STREQUAL "out")
+        list(GET _parts 3 _part)
+    endif()
     set(_air --metar "YSSY 111200Z ${_wind} 9999 FEW030 20/10 Q1015"
              --station -33.9461,151.1772)
-    if(_wind STREQUAL "NONE")
-        set(_air "")
-    endif()
     set(_heard "${WORK}/heard.txt")
     set(_heard_b "${WORK}/heard_b.txt")
     set(_ready "${WORK}/flying")
@@ -190,6 +184,12 @@ foreach(_case IN LISTS _cases)
             message(FATAL_ERROR "${AIRCRAFT}, ${_name} (past her limit): put on final:\n${_out}")
         endif()
         set(_why "${CMAKE_MATCH_1}")
+        # **Refused by the part of the wind it should be.**
+        set(_by "kt ${_part}; she is put on final in ")
+        string(FIND "${_why}" "${_by}" _by_at)
+        if(_by_at EQUAL -1)
+            message(FATAL_ERROR "${AIRCRAFT}, ${_name}: refused, but not for the wind ${_part}: ${_why}")
+        endif()
         string(REGEX MATCHALL "told: not put on final to YSSY 16R: " _told "${_client}")
         list(LENGTH _told _told_n)
         if(NOT _told_n EQUAL 1)

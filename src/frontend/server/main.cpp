@@ -2089,9 +2089,6 @@ public:
         if (!policy || !session_air_) {
             return {};
         }
-        if (policy->on_final_still_air_only) {
-            return "she is put on final only where no weather is flown";
-        }
         const glideslope::sim::InitialConditions at = glideslope::sim::final_approach_start(
             end, first_on_final_m(model, std::nullopt), 0.0, 0.0, 0.0, 3.0);
         const glideslope::sim::Conditions air = session_air_->at(

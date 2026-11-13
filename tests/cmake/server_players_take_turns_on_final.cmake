@@ -98,8 +98,8 @@ list(GET _runs ${RUN} _run)
 # at Sydney whose wind is inside her limits: `+circle`, 3 kt from 348, 34L,
 # its own other end; `+circlesouth`, 2 kt from 250: 25, the crossing runway,
 # most into it (16L not clear of the orbit, 34L and 34R across it);
-# `+circlenone`, at Richmond (YSRI), one runway, 10, in 5 kt from 108, its
-# other end 28 5 kt behind her - inside her gate's 5, past her limit of 4:
+# `+circlenone`, at Richmond (YSRI), one runway, 10, in 6 kt from 108, its
+# other end 28 6 kt behind her - past her gate's 5 and her limit of 5:
 # none will do, and she waits, told why,
 # until the one orbiting goes - the server
 # never moves a person's aircraft (REQUIREMENTS 6.5; the owner's ruling,
@@ -240,16 +240,16 @@ else()
         set(_ai_final --ai-on-final YSSY/16R)
     endif()
     # **The wind at the other ends**: 3 kt from 348 is into 34L; 2 kt from
-    # 250 nearly straight down 25; at Richmond 5 kt from 108, behind 28.
+    # 250 nearly straight down 25; at Richmond 6 kt from 108, behind 28.
     # **Light winds**, inside the followers' measured limits on their own
     # runway, so that each is put on final and waits (the owner's ruling,
     # 2026-11-11): 3 kt from 348, behind 16R and into 34L, for the PA-28
-    # (4 behind at most); 2 from 250 for the C172P (2 across at most): 25
-    # most into it; at Richmond 5 kt from 108 for a C172P, 0.04 across 10
-    # (runway 107.6) - not the J-3 Cub, whose crosswind limit of nought
-    # refuses any wind not exactly down the runway, which a METAR's whole
-    # degrees cannot give there - and 5 behind 28, which her gate admits but
-    # her limit, 4 behind, does not: no other end inside it.
+    # (5 behind at most); 2 from 250 for the C172P (3 across at most): 25
+    # most into it; at Richmond 6 kt from 108 for a C172P, 0.04 across 10
+    # (runway 107.6), and 6 behind 28, which neither her gate (5) nor her
+    # limit (5 behind) admits: no other end inside it. Her limits ahead and
+    # behind are her gate's own since 2026-11-12, so no one-runway field can
+    # have its other end refused by her limit and not her gate.
     if(_how STREQUAL "circle")
         set(_ai_final --metar "YSSY 111200Z 34803KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
@@ -257,7 +257,7 @@ else()
         set(_ai_final --metar "YSSY 111200Z 25002KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
     elseif(_how STREQUAL "circlenone")
-        set(_ai_final --metar "YSRI 111200Z 10805KT 9999 FEW030 20/10 Q1015"
+        set(_ai_final --metar "YSRI 111200Z 10806KT 9999 FEW030 20/10 Q1015"
             --station -33.6006,150.7808)
     elseif(_how STREQUAL "planai")
         # The AI flies a plan that ends in a landing on 16R, begun 6.2 miles
@@ -426,7 +426,7 @@ foreach(_i RANGE ${_last})
         elseif(_how STREQUAL "circlenone")
             # **None will do: she waits, told why**, until the one orbiting
             # goes on its own; the server does not move it.
-            if(NOT _out MATCHES "held past the bound, and no other runway will take her: YSRI 28 5 kt behind; she is put on final in 4 behind at most\n")
+            if(NOT _out MATCHES "held past the bound, and no other runway will take her: YSRI 28 6 kt of tailwind; the gate is within 5\n")
                 message(FATAL_ERROR "place ${_place}, the ${_a}: no other runway refused as it should be:\n${_out}")
             endif()
             file(READ "${WORK}/heard${_i}.txt" _heard)

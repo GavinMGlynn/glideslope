@@ -2412,14 +2412,6 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
             }
         }
     }
-    if (root->HasAttribute("on_final_still_air_only")) {
-        const std::string still = root->GetAttributeValue("on_final_still_air_only");
-        if (still != "true" && still != "false") {
-            throw std::runtime_error(file.string() + " gives on_final_still_air_only=\"" + still +
-                                     "\", which is neither true nor false");
-        }
-        out.on_final_still_air_only = still == "true";
-    }
     if (JSBSim::Element* source = root->FindElement("source")) {
         out.source = collapse_whitespace(source->GetDataLine());
     }
