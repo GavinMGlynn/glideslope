@@ -118,7 +118,7 @@ jobs:
           cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DEXCLUDE=timing "-DREGEX=$MULTIPROCESS" -DREPEAT=5 -DMINUTES=120 -DSHARE=75 -DELSEWHERE=ON -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0
-          DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" -R "$MULTIPROCESS" -LE timing --repeat until-fail:5 || rc=$?
+          DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" -R "$MULTIPROCESS" -LE timing --repeat until-fail:5 --output-on-failure || rc=$?
           kill $xvfb
           exit $rc
       # One shard saves the night's downloads: every shard would save the same key.
