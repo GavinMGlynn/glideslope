@@ -67,15 +67,15 @@ nights 11-10 to 11-12 passed (558, 567 and 427 runs).
 
 ## The shards
 
-Dealt from linux-release's test list at this head (281 tests picked, each
-five times, four at a time):
+As CI's linux-debug dealing gave them in dispatch run 43507588675: 281
+tests picked, each run five times, four at a time.
 
 | shard | tests | dealt work | limit | three quarters |
 |------:|------:|-----------:|------:|---------------:|
-| 1 | 40 | 82.7 min | 120 | 90 |
-| 2 | 40 | 82.7 min | 120 | 90 |
-| 3 | 41 | 82.7 min | 120 | 90 |
-| 4 | 41 | 82.7 min | 120 | 90 |
+| 1 | 40 | 82.6 min | 120 | 90 |
+| 2 | 40 | 82.6 min | 120 | 90 |
+| 3 | 41 | 82.6 min | 120 | 90 |
+| 4 | 40 | 82.6 min | 120 | 90 |
 | 5 | 40 | 82.6 min | 120 | 90 |
 | 6 | 40 | 82.6 min | 120 | 90 |
 | 7 | 40 | 82.6 min | 120 | 90 |
@@ -115,10 +115,16 @@ held all 42 (docs/status/2026-11-11-the-f22a-holds-every-plan-speed-again.md).
 
   Shard 5 failed on
   `a_player_joining_after_another_has_left_is_put_on_a_layer_no_aircraft_near_the_start_holds`.
-  It passed its first run (50 s) and failed its second (55 s). Its cause is
-  unknown: the job's ctest had no `--output-on-failure`, so the test's own
-  message was not kept. That failure is followed in its own item, not here.
-  The nightly stays red until that item lands.
-- **The nightly's ctest now says `--output-on-failure`**, and the shards test
-  asserts it in the ctest line, so the next failure shows its cause. The
-  macOS network checks already said it.
+  It passed its first run (50 s) and failed its second (55 s), saying
+  (job 132169186462):
+
+  ```
+  server_rejoin_layer.cmake:63: 2 players' starts were said, not the three joins
+  ```
+
+  Its cause is not yet found. It is followed in its own item in Phase 12a,
+  not here, and the nightly stays red until that item lands.
+- **The nightly's ctest also says `--output-on-failure`**, and the shards
+  test asserts it in the ctest line. This is belt-and-braces: the test
+  preset already sets outputOnFailure (CMakePresets.json), which is why the
+  message above was kept. The macOS network checks already said it.
