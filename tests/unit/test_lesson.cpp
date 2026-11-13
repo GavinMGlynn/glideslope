@@ -12131,10 +12131,13 @@ const char* named(StraightInWhen when) {
 // in**, in each situation; every pair asserted flown.
 void circuits_and_straight_ins(const std::vector<std::string>& circuits,
                                const std::vector<std::string>& straights,
-                               Whose whose = Whose::ai) {
-    const std::vector<StraightInWhen> whens{StraightInWhen::as_she_goes_around,
-                                            StraightInWhen::as_she_joins_final,
-                                            StraightInWhen::departure_lined_up};
+                               Whose whose = Whose::ai,
+                               const std::vector<StraightInWhen>& only = {}) {
+    const std::vector<StraightInWhen> whens =
+        !only.empty() ? only
+                      : std::vector<StraightInWhen>{StraightInWhen::as_she_goes_around,
+                                                    StraightInWhen::as_she_joins_final,
+                                                    StraightInWhen::departure_lined_up};
     std::set<std::tuple<std::string, std::string, int>> flown;
     std::vector<std::string> wrong;
     int early = 0;
@@ -12181,14 +12184,6 @@ void circuits_and_straight_ins(const std::vector<std::string>& circuits,
                                      std::to_string(space));
 }
 
-// **Every landplane straight in with `circuit_id` in the circuit**, in
-// both situations.
-void every_landplane_straight_in_with(const std::string& circuit_id) {
-    const std::vector<std::string> kinds = landplanes_going_around();
-    check(std::find(kinds.begin(), kinds.end(), circuit_id) != kinds.end(),
-          circuit_id + " is a landplane that goes around");
-    circuits_and_straight_ins({circuit_id}, kinds);
-}
 
 // The slowest approach of every landplane that goes around and the
 // fastest.
@@ -12231,67 +12226,12 @@ std::vector<std::string> slowest_and_fastest() {
 // every one has its test below. **On every run, pull requests' too**: the
 // slowest and the fastest (the J-3 Cub and the F-15C), each with each, in
 // all three - twelve flights, the widest closings both ways. All 675 are
-// the fifteen tests below, every night (gust_sweep).
+// the 45 circuit pieces (`circuit_pieces`), every night (gust_sweep).
 GLIDESLOPE_TEST(a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order) {
     const std::vector<std::string> two = slowest_and_fastest();
     circuits_and_straight_ins(two, two);
 }
 
-GLIDESLOPE_TEST(every_landplane_has_a_test_of_her_circuit_with_every_straight_in_and_departure) {
-    std::vector<std::string> kinds = landplanes_going_around();
-    std::vector<std::string> tested = ahead_tested();
-    std::sort(kinds.begin(), kinds.end());
-    std::sort(tested.begin(), tested.end());
-    check(kinds == tested, std::to_string(kinds.size()) + " landplanes go around, " +
-                               std::to_string(tested.size()) +
-                               " have a test of their circuit with every straight-in and departure");
-}
-
-GLIDESLOPE_TEST(a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("737-300");
-}
-GLIDESLOPE_TEST(a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("747-400");
-}
-GLIDESLOPE_TEST(a_787_8_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("787-8");
-}
-GLIDESLOPE_TEST(an_a320_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("a320");
-}
-GLIDESLOPE_TEST(an_a380_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("a380");
-}
-GLIDESLOPE_TEST(a_b2_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("b2");
-}
-GLIDESLOPE_TEST(a_c172p_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("c172p");
-}
-GLIDESLOPE_TEST(a_c182_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("c182");
-}
-GLIDESLOPE_TEST(an_f15c_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("f15c");
-}
-GLIDESLOPE_TEST(an_f22_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("f22");
-}
-GLIDESLOPE_TEST(an_f35b_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("f35b");
-}
-GLIDESLOPE_TEST(a_j3cub_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("j3cub");
-}
-GLIDESLOPE_TEST(a_learjet35a_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("learjet35a");
-}
-GLIDESLOPE_TEST(a_mosquito_fb6_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("mosquito-fb6");
-}
-GLIDESLOPE_TEST(a_pa28_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order) {
-    every_landplane_straight_in_with("pa28");
-}
 
 namespace {
 
@@ -12504,15 +12444,24 @@ const std::vector<double>& away_bearings_deg() {
 }
 // **Which test flies which of them**, by its registered name: down the
 // approach - where at 8 nm two F-15Cs came 2,673 m and 474 ft apart - on
-// every run; the other seven every night (gust_sweep). The test after
-// these reads the registry against this table.
+// every run; each of the other seven a test of its own every night
+// (gust_sweep). They were one test, of up to 967 s on a release runner and
+// past 5,261 s on a debug one - about twelve times release - so past a debug
+// sweep shard's two hours; one bearing is under 40 minutes there. The test
+// after these reads the registry against this table.
 const std::vector<std::pair<std::string, std::vector<double>>>& away_bearing_tests() {
-    static const std::vector<std::pair<std::string, std::vector<double>>> tests{
-        {"an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_comes_back_and_lands_kept_apart",
-         {180.0}},
-        {"an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart",
-         {0.0, 45.0, 90.0, 135.0, 225.0, 270.0, 315.0}},
-    };
+    static const std::vector<std::pair<std::string, std::vector<double>>> tests = [] {
+        std::vector<std::pair<std::string, std::vector<double>>> out{
+            {"an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_comes_back_and_lands_kept_apart",
+             {180.0}}};
+        for (const int bearing : {0, 45, 90, 135, 225, 270, 315}) {
+            out.push_back({"an_ai_aircraft_behind_a_person_who_flies_away_" +
+                               std::to_string(bearing) +
+                               "_deg_off_the_runway_comes_back_and_lands_kept_apart",
+                           {static_cast<double>(bearing)}});
+        }
+        return out;
+    }();
     return tests;
 }
 std::vector<double> away_bearings_of(const std::string& test) {
@@ -12816,17 +12765,28 @@ GLIDESLOPE_TEST(an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_
         away_bearings_of(
             "an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_comes_back_and_lands_kept_apart"));
 }
-GLIDESLOPE_TEST(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart) {
-    const std::vector<std::string> two = slowest_and_fastest();
-    behind_persons_who_fly_away(
-        two, two,
-        away_bearings_of(
-            "an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart"));
-}
+// Each of the other seven bearings, registered from the table.
+namespace {
+const bool away_bearing_tests_registered = [] {
+    for (const auto& [name, bearings] : away_bearing_tests()) {
+        if (name.find("down_the_approach") != std::string::npos) {
+            continue; // GLIDESLOPE_TEST above
+        }
+        const std::vector<double>* flown = &bearings;
+        const ::glideslope::test::Register r(name, [flown] {
+            const std::vector<std::string> two = slowest_and_fastest();
+            behind_persons_who_fly_away(two, two, *flown);
+        });
+        static_cast<void>(r);
+    }
+    return true;
+}();
+} // namespace
 // **The tests registered fly the eight bearings, each once**: read from the
 // harness's registry, not from the table alone - a test of the table not
 // registered flies nothing.
 GLIDESLOPE_TEST(the_tests_of_a_person_flying_away_fly_every_bearing_once) {
+    static_cast<void>(away_bearing_tests_registered);
     std::vector<double> flown;
     std::size_t registered = 0;
     for (const auto& test : glideslope::test::registry()) {
@@ -13513,27 +13473,22 @@ void following_beside_high_ground(const std::vector<std::string>& aheads,
 // with her hold's fix over ground 20,000 ft high; told of the runway she
 // held for and of an airfield 25 nm to its right, she diverts there and
 // lands. On every run the slowest and the fastest behind the C172P; every
-// landplane behind it in the next test (gust_sweep).
+// landplane behind it in thirds (`diversion_pieces`, gust_sweep).
 GLIDESLOPE_TEST(an_ai_aircraft_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart_the_slowest_and_the_fastest) {
     diverting_from_behind_persons_who_stay({"c172p"}, slowest_and_fastest());
 }
 //
-// **The F-22A comes back**: put on final at her landing weight, she has
+// **The F-22A comes back** (`diversion_pieces`): put on final at her landing weight, she has
 // too little fuel when her hold is given up to reach the alternate with ten
 // minutes' reserve, so she comes down where she is and comes back at once,
 // with priority, to the runway she held for, and lands there. **She is
 // the one pair not kept apart**, asserted exactly: her final passes the
 // person's downwind 1,606 m off and 0 ft - closed on its figures (the
 // owner's ruling of 2026-10-09).
-GLIDESLOPE_TEST(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart) {
-    const std::vector<std::string> all = landplanes_going_around();
-    check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
-    diverting_from_behind_persons_who_stay({"c172p"}, all, {"f22"}, true, {"f22"});
-}
 
 // **Every landplane back on her reserve behind a person told to leave the
 // circuit who stays lands; the pairs that lose the minimum are asserted
-// exactly**: the same hold out of reach, and no other airfield in her
+// exactly** (`diversion_pieces`, in thirds): the same hold out of reach, and no other airfield in her
 // world. Come down where she is, she asks for the circuit cleared; the
 // person is told and stays, never leaving it. Left `waits_on_a_person_s`
 // past what her fuel needs to go (Controller::fuel_to_go_lbs: her reserve
@@ -13548,15 +13503,6 @@ GLIDESLOPE_TEST(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_anothe
 // threshold, and any final crosses it within 1.5 nm - the person's
 // conflict, closed on its figures (the owner's ruling of 2026-10-09): the
 // pairs that lose the minimum are asserted exactly.
-GLIDESLOPE_TEST(
-    every_landplane_back_on_her_reserve_behind_a_person_who_stays_in_the_circuit_lands_measured_for_separation) {
-    const std::vector<std::string> all = landplanes_going_around();
-    check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
-    // All 15 lose the minimum: the F-15C, kept apart by 658 ft when her
-    // reserve was counted at what she burnt circling, crosses 218 ft under.
-    const std::set<std::string> lose(all.begin(), all.end());
-    diverting_from_behind_persons_who_stay({"c172p"}, all, {}, false, lose, false);
-}
 
 // **An AI aircraft with nowhere to divert lands kept apart from a person
 // told to leave the circuit, who does** (Controller::asks_the_circuit_cleared,
@@ -13566,15 +13512,10 @@ GLIDESLOPE_TEST(
 // pilot leaves on the dead side, 45 degrees right of the runway's heading,
 // level; once her place is dropped the one
 // behind comes back with priority and lands, kept 500 ft or 1.5 nm from her.
-// On every run the slowest and the fastest; every landplane in the next
-// test (gust_sweep).
+// On every run the slowest and the fastest; every landplane in thirds
+// (`diversion_pieces`, gust_sweep).
 GLIDESLOPE_TEST(an_ai_aircraft_with_nowhere_to_divert_lands_kept_apart_from_a_person_who_leaves_the_circuit_when_told_the_slowest_and_the_fastest) {
     diverting_from_behind_persons_who_stay({"c172p"}, slowest_and_fastest(), {}, false, {}, true);
-}
-GLIDESLOPE_TEST(every_landplane_with_nowhere_to_divert_lands_kept_apart_from_a_person_who_leaves_the_circuit_when_told) {
-    const std::vector<std::string> all = landplanes_going_around();
-    check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
-    diverting_from_behind_persons_who_stay({"c172p"}, all, {}, false, {}, true);
 }
 
 // **Who is told to leave a circuit, and in words a message carries**
@@ -13640,7 +13581,7 @@ GLIDESLOPE_TEST(a_person_in_her_runways_circuit_ahead_or_behind_is_told_to_leave
 // - an F-15C behind one flew her racetrack into a plateau past her
 // circuit's ground - with high ground 1,800 ft over the runway from 8.25 nm
 // before it. On every run the F-15C and the J-3 Cub behind it; every
-// landplane behind it in the next test (gust_sweep).
+// landplane behind it in thirds (`diversion_pieces`, gust_sweep).
 GLIDESLOPE_TEST(a_racetrack_beside_high_ground_past_its_circuits_ground_is_flown_1000_ft_over_it) {
     following_beside_high_ground({"f15c"}, {"f15c", "j3cub"});
 }
@@ -13918,6 +13859,194 @@ GLIDESLOPE_TEST(the_person_pieces_between_them_fly_every_landplane_with_every_pe
           std::to_string(unregistered) + " pieces not registered once; " +
               std::to_string(registered.size()) + " tests named as pieces, " +
               std::to_string(person_pieces().size()) + " pieces");
+}
+
+// **Every landplane's circuit with every straight-in and departure, in
+// pieces** (gust_sweep): for each landplane in the circuit, every landplane
+// straight in as she goes around, straight in as she joins final, and
+// departing - each situation a test of its own, 45 in all. One landplane's
+// three were one test, of up to 797 s on a release runner: about two and a
+// half hours on a debug one, at twelve times, past a debug sweep shard's
+// two; a situation is under an hour.
+namespace {
+
+struct CircuitPiece {
+    std::string name;
+    std::string circuit;
+    StraightInWhen when;
+};
+
+const std::vector<CircuitPiece>& circuit_pieces() {
+    static const std::vector<CircuitPiece> pieces = [] {
+        std::vector<CircuitPiece> out;
+        for (const std::string_view spelt : person_sweep_spelt) {
+            const std::string circuit(spelt);
+            out.push_back({circuit + "_circuit_and_every_straight_in_as_she_goes_around_are_kept_apart_and_in_order",
+                           person_sweep_id(spelt), StraightInWhen::as_she_goes_around});
+            out.push_back({circuit + "_circuit_and_every_straight_in_as_she_joins_final_are_kept_apart_and_in_order",
+                           person_sweep_id(spelt), StraightInWhen::as_she_joins_final});
+            out.push_back({circuit + "_circuit_and_every_departure_lined_up_are_kept_apart_and_in_order",
+                           person_sweep_id(spelt), StraightInWhen::departure_lined_up});
+        }
+        return out;
+    }();
+    return pieces;
+}
+
+const bool circuit_pieces_registered = [] {
+    for (const CircuitPiece& p : circuit_pieces()) {
+        const ::glideslope::test::Register r(p.name, [&p] {
+            circuits_and_straight_ins({p.circuit}, landplanes_going_around(), Whose::ai,
+                                      {p.when});
+        });
+        static_cast<void>(r);
+    }
+    return true;
+}();
+
+// **The diversion tests of every landplane, in thirds** (gust_sweep): the
+// landplanes behind, the first five, the middle five and the last five that
+// go around. Each whole test took up to 687 s on a release runner: past
+// two hours on a debug one, at twelve times; a third is under an hour.
+struct DiversionPiece {
+    std::string name;
+    std::string test; // the whole test's own words
+    int third;        // 0, 1, 2
+};
+
+const std::vector<DiversionPiece>& diversion_pieces() {
+    static const std::vector<DiversionPiece> pieces = [] {
+        std::vector<DiversionPiece> out;
+        const std::array<const char*, 3> thirds{"the_first_five", "the_middle_five", "the_last_five"};
+        for (int t = 0; t < 3; ++t) {
+            const std::string of(thirds[static_cast<std::size_t>(t)]);
+            out.push_back({of + "_landplanes_whose_hold_is_out_of_her_reach_divert_to_another_runway_kept_apart",
+                           "hold out of reach", t});
+            out.push_back({of + "_landplanes_with_nowhere_to_divert_land_kept_apart_from_a_person_who_leaves_the_circuit_when_told",
+                           "nowhere to divert", t});
+            out.push_back({of + "_landplanes_back_on_their_reserve_behind_a_person_who_stays_in_the_circuit_land_measured_for_separation",
+                           "back on her reserve", t});
+        }
+        return out;
+    }();
+    return pieces;
+}
+
+// A third of the landplanes that go around, in their order.
+std::vector<std::string> third_of(const std::vector<std::string>& all, int third) {
+    std::vector<std::string> out;
+    for (std::size_t i = 0; i < all.size(); ++i) {
+        if (static_cast<int>(i / 5) == third) {
+            out.push_back(all[i]);
+        }
+    }
+    return out;
+}
+
+void fly_diversion_piece(const DiversionPiece& p) {
+    const std::vector<std::string> all = landplanes_going_around();
+    check(all.size() == 15, "fifteen landplanes, not " + std::to_string(all.size()));
+    const std::vector<std::string> behinds = third_of(all, p.third);
+    const std::set<std::string> these(behinds.begin(), behinds.end());
+    // The named, of those flown here.
+    const auto within = [&these](const std::set<std::string>& named) {
+        std::set<std::string> out;
+        for (const std::string& n : named) {
+            if (these.count(n) != 0) {
+                out.insert(n);
+            }
+        }
+        return out;
+    };
+    if (p.test == "hold out of reach") {
+        diverting_from_behind_persons_who_stay({"c172p"}, behinds, {"f22"}, true, within({"f22"}));
+    } else if (p.test == "nowhere to divert") {
+        diverting_from_behind_persons_who_stay({"c172p"}, behinds, {}, false, {}, true);
+    } else {
+        // All 15 lose the minimum: the F-15C, kept apart by 658 ft when her
+        // reserve was counted at what she burnt circling, crosses 218 ft under.
+        diverting_from_behind_persons_who_stay({"c172p"}, behinds, {}, false,
+                                               within(std::set<std::string>(all.begin(), all.end())),
+                                               false);
+    }
+}
+
+const bool diversion_pieces_registered = [] {
+    for (const DiversionPiece& p : diversion_pieces()) {
+        const ::glideslope::test::Register r(p.name, [&p] { fly_diversion_piece(p); });
+        static_cast<void>(r);
+    }
+    return true;
+}();
+
+} // namespace
+
+// **The circuit and diversion pieces between them fly every case once**:
+// every landplane's circuit in each of the three situations, a piece each
+// (45); and each diversion test's fifteen landplanes behind, in thirds that
+// between them are all fifteen, each once. Every piece registered under its
+// name, once.
+GLIDESLOPE_TEST(the_circuit_and_diversion_pieces_between_them_fly_every_case_once) {
+    static_cast<void>(circuit_pieces_registered);
+    static_cast<void>(diversion_pieces_registered);
+    const std::vector<std::string> kinds = landplanes_going_around();
+    std::map<std::pair<std::string, int>, int> circuits;
+    for (const CircuitPiece& p : circuit_pieces()) {
+        ++circuits[{p.circuit, static_cast<int>(p.when)}];
+    }
+    std::size_t circuit_wrong = 0;
+    for (const std::string& k : kinds) {
+        for (const StraightInWhen w : {StraightInWhen::as_she_goes_around,
+                                       StraightInWhen::as_she_joins_final,
+                                       StraightInWhen::departure_lined_up}) {
+            const auto it = circuits.find({k, static_cast<int>(w)});
+            if (it == circuits.end() || it->second != 1) {
+                ++circuit_wrong;
+            }
+        }
+    }
+    check(circuit_wrong == 0 && circuits.size() == kinds.size() * 3,
+          std::to_string(circuit_wrong) + " of " + std::to_string(kinds.size() * 3) +
+              " circuit cases not flown once; " + std::to_string(circuits.size()) + " flown");
+    std::map<std::pair<std::string, std::string>, int> diverted;
+    for (const DiversionPiece& p : diversion_pieces()) {
+        for (const std::string& b : third_of(kinds, p.third)) {
+            ++diverted[{p.test, b}];
+        }
+    }
+    std::size_t diversion_wrong = 0;
+    for (const char* test : {"hold out of reach", "nowhere to divert", "back on her reserve"}) {
+        for (const std::string& k : kinds) {
+            const auto it = diverted.find({test, k});
+            if (it == diverted.end() || it->second != 1) {
+                ++diversion_wrong;
+            }
+        }
+    }
+    check(diversion_wrong == 0 && diverted.size() == kinds.size() * 3,
+          std::to_string(diversion_wrong) + " of " + std::to_string(kinds.size() * 3) +
+              " diversion cases not flown once; " + std::to_string(diverted.size()) + " flown");
+    std::size_t unregistered = 0;
+    const auto registered_once = [](const std::string& name) {
+        std::size_t n = 0;
+        for (const auto& test : glideslope::test::registry()) {
+            if (test.name == name) {
+                ++n;
+            }
+        }
+        return n == 1;
+    };
+    for (const CircuitPiece& p : circuit_pieces()) {
+        if (!registered_once(p.name)) {
+            ++unregistered;
+        }
+    }
+    for (const DiversionPiece& p : diversion_pieces()) {
+        if (!registered_once(p.name)) {
+            ++unregistered;
+        }
+    }
+    check(unregistered == 0, std::to_string(unregistered) + " pieces not registered once");
 }
 
 // **Every landplane pair, a person lining up under an AI aircraft at 200

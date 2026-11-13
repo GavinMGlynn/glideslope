@@ -336,9 +336,128 @@ foreach(_wayname IN ITEMS timing_nightly_gust_sweep nightly_gust_sweep timing_gu
     endif()
 endforeach()
 
+# **The debug presets' gust sweep, a day at a time** (the owner's decision of
+# 2026-11-13; tests/CMakeLists.txt labels each gust_sweep test sweep_day_1 to
+# sweep_day_7). Each debug sweep job's matrix is its preset, its limit, its
+# shard count and its shards, and the days a run gives it. Asserted:
+#   - each such job deals and runs one day's label, `^sweep_day_N$`, at its
+#     limit, every shard at most three quarters of it (SHARE=75, STRICT);
+#   - each day 1 to 7, dealt into its shards and every shard's -I file read
+#     back by ctest with that label, runs exactly the tests dealt it;
+#   - the seven days between them are every gust_sweep test, each once.
+set(_day_block_re "matrix:\n        preset: \\[([a-z-]+)\\]\n        minutes: \\[([0-9]+)\\]\n        of: \\[([0-9]+)\\]\n        shard: \\[([0-9, ]+)\\]\n        day: \\\${{ fromJSON\\(needs.sweep-days.outputs.days\\) }}\n")
+string(REGEX MATCHALL "${_day_block_re}" _day_blocks "${_yml}")
+string(REGEX MATCHALL "cmake \"-DINCLUDE=[^\n]*-P tools/ci_shard.cmake" _day_calls "${_yml}")
+string(REGEX MATCHALL "ctest -L [^\n]*shard.txt[^\n]*" _day_runs "${_yml}")
+set(_day_call [=[cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -P tools/ci_shard.cmake]=])
+list(LENGTH _day_blocks _ndb)
+list(LENGTH _day_calls _ndc)
+list(LENGTH _day_runs _ndr)
+string(REGEX MATCHALL "\n  [a-z-]+-debug-sweep:\n" _day_jobs "${_yml}")
+list(LENGTH _day_jobs _ndj)
+if(_ndb EQUAL 0 OR NOT _ndb EQUAL _ndc OR NOT _ndb EQUAL _ndr OR NOT _ndb EQUAL _ndj)
+    message(FATAL_ERROR "${_ndj} debug sweep jobs, ${_ndb} matrices of a day, ${_ndc} calls of a day's dealing, ${_ndr} ctest runs of a day")
+endif()
+foreach(_call IN LISTS _day_calls)
+    if(NOT _call STREQUAL _day_call)
+        message(FATAL_ERROR "a debug sweep job deals other than its day at its limit:\n${_call}")
+    endif()
+endforeach()
+foreach(_run IN LISTS _day_runs)
+    if(NOT _run MATCHES [=[^ctest -L "\^sweep_day_\${{ matrix\.day }}\$" --preset \${{ matrix\.preset }} -I ("\$PWD/shard\.txt"|%CD%\\shard\.txt)( \|\| rc=\$\?)?$]=])
+        message(FATAL_ERROR "a debug sweep job runs other than its day:\n${_run}")
+    endif()
+endforeach()
+set(_days_all "")
+foreach(_day RANGE 1 7)
+    execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N -L "^sweep_day_${_day}$" -FA ".*"
+        OUTPUT_VARIABLE _listing)
+    string(REGEX MATCHALL "Test +#[0-9]+: [^\n]+" _listing "${_listing}")
+    foreach(_l IN LISTS _listing)
+        string(REGEX REPLACE "^Test +#[0-9]+: +" "" _l "${_l}")
+        string(STRIP "${_l}" _l)
+        list(APPEND _days_all ${_l})
+    endforeach()
+endforeach()
+execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N -L "^gust_sweep$" -FA ".*"
+    OUTPUT_VARIABLE _listing)
+string(REGEX MATCHALL "Test +#[0-9]+: [^\n]+" _listing "${_listing}")
+set(_sweep_all "")
+foreach(_l IN LISTS _listing)
+    string(REGEX REPLACE "^Test +#[0-9]+: +" "" _l "${_l}")
+    string(STRIP "${_l}" _l)
+    list(APPEND _sweep_all ${_l})
+endforeach()
+list(LENGTH _days_all _nday_tests)
+list(LENGTH _sweep_all _nsweep_tests)
+set(_days_once ${_days_all})
+list(REMOVE_DUPLICATES _days_once)
+list(LENGTH _days_once _nday_once)
+list(SORT _days_once)
+list(SORT _sweep_all)
+if(NOT _days_once STREQUAL _sweep_all OR NOT _nday_tests EQUAL _nsweep_tests)
+    set(_dropped ${_sweep_all})
+    list(REMOVE_ITEM _dropped ${_days_once})
+    math(EXPR _twice "${_nday_tests} - ${_nday_once}")
+    message(FATAL_ERROR "the seven days: ${_nday_tests} runs of ${_nday_once} tests; "
+        "${_nsweep_tests} gust_sweep tests; ${_twice} run twice; dropped: ${_dropped}")
+endif()
+message(STATUS "the seven days of the debug sweep are the ${_nsweep_tests} gust_sweep tests, each once")
+foreach(_block IN LISTS _day_blocks)
+    string(REGEX MATCH "${_day_block_re}" _ "${_block}")
+    set(_dp ${CMAKE_MATCH_1})
+    set(_dmin ${CMAKE_MATCH_2})
+    set(_dof ${CMAKE_MATCH_3})
+    string(REPLACE " " "" _dshards "${CMAKE_MATCH_4}")
+    string(REPLACE "," ";" _dshards "${_dshards}")
+    set(_want "")
+    foreach(_k RANGE 1 ${_dof})
+        list(APPEND _want ${_k})
+    endforeach()
+    if(NOT _dshards STREQUAL _want)
+        message(FATAL_ERROR "${_dp}'s debug sweep: shards ${_dshards}, not 1 to ${_dof}")
+    endif()
+    if(_dmin GREATER 120)
+        message(FATAL_ERROR "${_dp}'s debug sweep: a limit of ${_dmin} minutes, past 120")
+    endif()
+    list(APPEND _swept ${_dp})
+    foreach(_day RANGE 1 7)
+        set(_dir ${WORK}/day_${_dp}_${_day})
+        file(REMOVE_RECURSE ${_dir})
+        file(MAKE_DIRECTORY ${_dir})
+        execute_process(COMMAND ${CMAKE_COMMAND} "-DINCLUDE=^sweep_day_${_day}$" -DPRESET=${_dp}
+                -DBUILD=${BUILD} -DOF=${_dof} -DDEFAULT=longest -DMINUTES=${_dmin} -DSHARE=75 -DSTRICT=ON
+                -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
+            OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
+        if(NOT _rc EQUAL 0)
+            message(FATAL_ERROR "${_dp}, day ${_day}: the dealing failed:\n${_out}")
+        endif()
+        foreach(_k RANGE 1 ${_dof})
+            execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N
+                    -I ${_dir}/shard_${_k}.txt -L "^sweep_day_${_day}$" -FA ".*"
+                OUTPUT_VARIABLE _ran)
+            string(REGEX MATCHALL "Test +#[0-9]+: [^\n]+" _ran "${_ran}")
+            set(_ran_names "")
+            foreach(_l IN LISTS _ran)
+                string(REGEX REPLACE "^Test +#[0-9]+: +" "" _l "${_l}")
+                string(STRIP "${_l}" _l)
+                list(APPEND _ran_names ${_l})
+            endforeach()
+            file(STRINGS ${_dir}/shard_${_k}.names _named)
+            list(SORT _ran_names)
+            list(SORT _named)
+            if(NOT _ran_names STREQUAL _named)
+                message(FATAL_ERROR "${_dp}, day ${_day}, shard ${_k}: ctest runs other tests than were dealt it")
+            endif()
+        endforeach()
+    endforeach()
+    message(STATUS "${_dp}'s debug sweep: each of the seven days in ${_dof} shards of ${_dmin} min, each shard at most three quarters of it, each shard's run its dealing")
+endforeach()
+
 # **Every preset sharded is swept**: what the shard jobs leave out on a
 # schedule or a dispatch - gust_sweep - a sweep job of the same preset runs,
-# one for each (linux-release twice: Ubuntu and Rocky 9). And every sweep
+# one for each (linux-release twice: Ubuntu and Rocky 9), a debug preset's a
+# day at a time. And every sweep
 # job's limit is its row's minutes.
 list(SORT _swept)
 list(SORT _sharded)
@@ -352,6 +471,10 @@ string(REGEX MATCHALL "\n  [a-z-]+-sweep:\n" _sweep_jobs "${_yml}")
 string(REGEX MATCHALL "timeout-minutes: \\\${{ matrix.minutes }}\n" _sweep_limits "${_yml}")
 list(LENGTH _sweep_jobs _nsj)
 list(LENGTH _sweep_limits _nsl)
+# The debug sweep jobs, a day at a time, above: named -sweep and limited to
+# their matrix's minutes too.
+math(EXPR _nsj "${_nsj} - ${_ndj}")
+math(EXPR _nsl "${_nsl} - ${_ndj}")
 set(_nsk 0)
 foreach(_k IN LISTS _run_kinds)
     if(_k STREQUAL "sweep")

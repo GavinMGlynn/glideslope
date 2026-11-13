@@ -9,6 +9,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
+    inputs:
+      sweep_day:
+        description: "The debug presets' gust sweep: today's day (UTC), a day 1 (Monday) to 7, or all seven"
+        type: choice
+        default: today
+        options: [today, '1', '2', '3', '4', '5', '6', '7', all]
   # The full run, every preset and every label, on main every night (16:00
   # UTC, two in the morning in Sydney); a failure there is a red tree, but for
   # a test named in tests/cmake/nightly_tests.cmake (CLAUDE.md).
@@ -1275,15 +1281,16 @@ jobs:
   # 2,500 s and more each on CI, dealt into the pull requests' shards at the
   # 60 s the table gave a test it did not know.
   #
-  # Each row's minutes is its job's limit: half as long again as the
-  # preset's longest sweep test in tests/ci_costs - which is that test's own
-  # ctest limit (tests/CMakeLists.txt) - and ten minutes more for the job's
-  # setup, at least 60. Many figures are floors: a test cut off with its
-  # shard, or at its ctest limit, in dispatch run 43257673789. macOS debug's
-  # is 180: at 60 its five-at-once runners would need over 120 shards. The shard
-  # count holds each shard's work to three fifths of its limit (the dealing
-  # warns past it, and tests/cmake/ci_shards.cmake fails). A test the table
-  # does not name costs as much as the longest it does (DEFAULT=longest).
+  # A release preset runs every gust_sweep test every night, in its rows'
+  # shards; a debug preset one seventh of them, a day of the week's (the
+  # owner's decision of 2026-11-13: sweep-days and the debug sweep jobs,
+  # below). Each row's minutes is its job's limit: half as long again as the
+  # preset's longest sweep test in tests/ci_costs - its ctest limit - and ten
+  # minutes for setup, at least 60 and at most 120. A release shard holds at
+  # most three fifths of its limit, a debug day's shard three quarters (the
+  # dealing warns past it, and tests/cmake/ci_shards.cmake fails). A test the
+  # table does not name costs its ctest COST, an estimate (tests/CMakeLists.txt),
+  # or else as much as the longest it does (DEFAULT=longest).
   # The steps are the test jobs', repeated, but for the downloads' cache,
   # which the test jobs save.
   # ---------------------------------------------------------------------------
@@ -1298,53 +1305,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-debug, shard: 1, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 2, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 3, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 4, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 5, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 6, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 7, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 8, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 9, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 10, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 11, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 12, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 13, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 14, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 15, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 16, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 17, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 18, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 19, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 20, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 21, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 22, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 23, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 24, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 25, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 26, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 27, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 28, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 29, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 30, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 31, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 32, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 33, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 34, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 35, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 36, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 37, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 38, of: 39, minutes: 142 }
-          - { preset: linux-debug, shard: 39, of: 39, minutes: 142 }
-          - { preset: linux-release, shard: 1, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 2, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 3, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 4, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 5, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 6, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 7, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 8, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 1, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 2, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 3, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 4, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 5, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 6, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 7, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 8, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 9, of: 9, minutes: 60 }
     env:
       CXX: g++-14
       CC: gcc-14
@@ -1398,14 +1367,15 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-release, shard: 1, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 2, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 3, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 4, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 5, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 6, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 7, of: 8, minutes: 60 }
-          - { preset: linux-release, shard: 8, of: 8, minutes: 60 }
+          - { preset: linux-release, shard: 1, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 2, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 3, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 4, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 5, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 6, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 7, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 8, of: 9, minutes: 60 }
+          - { preset: linux-release, shard: 9, of: 9, minutes: 60 }
     steps:
       - name: git, for the checkout
         run: |
@@ -1463,54 +1433,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: macos-release, shard: 1, of: 10, minutes: 60 }
-          - { preset: macos-release, shard: 2, of: 10, minutes: 60 }
-          - { preset: macos-release, shard: 3, of: 10, minutes: 60 }
-          - { preset: macos-release, shard: 4, of: 10, minutes: 60 }
-          - { preset: macos-release, shard: 5, of: 10, minutes: 60 }
-          - { preset: macos-release, shard: 6, of: 10, minutes: 60 }
-          - { preset: macos-release, shard: 7, of: 10, minutes: 60 }
-          - { preset: macos-release, shard: 8, of: 10, minutes: 60 }
-          - { preset: macos-release, shard: 9, of: 10, minutes: 60 }
-          - { preset: macos-release, shard: 10, of: 10, minutes: 60 }
-          - { preset: macos-debug, shard: 1, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 2, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 3, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 4, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 5, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 6, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 7, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 8, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 9, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 10, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 11, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 12, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 13, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 14, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 15, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 16, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 17, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 18, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 19, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 20, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 21, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 22, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 23, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 24, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 25, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 26, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 27, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 28, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 29, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 30, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 31, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 32, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 33, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 34, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 35, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 36, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 37, of: 38, minutes: 180 }
-          - { preset: macos-debug, shard: 38, of: 38, minutes: 180 }
+          - { preset: macos-release, shard: 1, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 2, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 3, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 4, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 5, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 6, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 7, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 8, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 9, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 10, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 11, of: 12, minutes: 60 }
+          - { preset: macos-release, shard: 12, of: 12, minutes: 60 }
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -1556,54 +1490,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-debug, shard: 1, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 2, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 3, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 4, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 5, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 6, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 7, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 8, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 9, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 10, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 11, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 12, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 13, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 14, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 15, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 16, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 17, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 18, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 19, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 20, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 21, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 22, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 23, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 24, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 25, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 26, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 27, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 28, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 29, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 30, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 31, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 32, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 33, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 34, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 35, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 36, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 37, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 38, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 39, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 40, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 41, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 42, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 43, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 44, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 45, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 46, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 47, of: 48, minutes: 111 }
-          - { preset: windows-debug, shard: 48, of: 48, minutes: 111 }
           - { preset: windows-release, shard: 1, of: 9, minutes: 60 }
           - { preset: windows-release, shard: 2, of: 9, minutes: 60 }
           - { preset: windows-release, shard: 3, of: 9, minutes: 60 }
@@ -1723,6 +1609,255 @@ jobs:
       - uses: actions/upload-artifact@v7
         if: ${{ failure() }}
         with: { name: 'dumps-sweep-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: '${{ runner.temp }}/dumps/*.dmp', if-no-files-found: ignore, retention-days: 3 }
+
+  # **Which day of the debug presets' gust sweep runs** (the owner's decision
+  # of 2026-11-13): a debug preset runs one seventh of the gust_sweep tests a
+  # night - those labelled sweep_day_N, N the scheduled run's UTC weekday, 1
+  # (Monday) to 7 (tests/CMakeLists.txt deals them) - so that every one runs
+  # on every debug preset once a week. A dispatch runs the day it is given,
+  # today's, or all seven.
+  sweep-days:
+    name: The debug sweep's days
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      days: ${{ steps.days.outputs.days }}
+    steps:
+      - id: days
+        env:
+          CHOSEN: ${{ github.event.inputs.sweep_day || 'today' }}
+        run: |
+          case "$CHOSEN" in
+            today) days="[$(date -u +%u)]" ;;
+            all) days='[1, 2, 3, 4, 5, 6, 7]' ;;
+            [1-7]) days="[$CHOSEN]" ;;
+            *) echo "::error::no such sweep day: $CHOSEN"; exit 1 ;;
+          esac
+          echo "days=$days" >> "$GITHUB_OUTPUT"
+          echo "the debug presets' gust sweep: days $days"
+
+
+  ubuntu-debug-sweep:
+    name: Ubuntu ${{ matrix.preset }} - gust sweep day ${{ matrix.day }} ${{ matrix.shard }}/${{ matrix.of }}
+    needs: [ubuntu-build, sweep-days]
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [linux-debug]
+        minutes: [120]
+        of: [7]
+        shard: [1, 2, 3, 4, 5, 6, 7]
+        day: ${{ fromJSON(needs.sweep-days.outputs.days) }}
+    env:
+      CXX: g++-14
+      CC: gcc-14
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/ubuntu-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-ubuntu-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - gust sweep day ${{ matrix.day }} ${{ matrix.shard }} of ${{ matrix.of }}
+        run: |
+          cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -P tools/ci_shard.cmake
+          Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
+          rc=0; DISPLAY=:99 ctest -L "^sweep_day_${{ matrix.day }}$" --preset ${{ matrix.preset }} -I "$PWD/shard.txt" || rc=$?
+          kill $xvfb
+          exit $rc
+      # **The figures the tests said, whether they passed or not** (each
+      # test's figures.txt in its work directory: LastTest.log is written
+      # afresh by a test that runs ctest itself), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: cat build/${{ matrix.preset }}/tests/*/figures.txt 2>/dev/null || echo "no figures said"
+      # Every frame the tests wrote, to look at.
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-day-sweep-${{ matrix.day }}-ubuntu-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+
+
+  macos-debug-sweep:
+    name: macOS ${{ matrix.preset }} - gust sweep day ${{ matrix.day }} ${{ matrix.shard }}/${{ matrix.of }}
+    needs: [macos-build, sweep-days]
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: macos-15
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [macos-debug]
+        minutes: [120]
+        of: [8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        day: ${{ fromJSON(needs.sweep-days.outputs.days) }}
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/macos-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-macos-${{ matrix.preset }}' }
+      - run: tar -xzf tree.tar.gz && rm tree.tar.gz
+
+      - name: ${{ matrix.preset }} - gust sweep day ${{ matrix.day }} ${{ matrix.shard }} of ${{ matrix.of }}
+        run: |
+          cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -P tools/ci_shard.cmake
+          ctest -L "^sweep_day_${{ matrix.day }}$" --preset ${{ matrix.preset }} -I "$PWD/shard.txt"
+      # **The figures the tests said, whether they passed or not** (each
+      # test's figures.txt in its work directory: LastTest.log is written
+      # afresh by a test that runs ctest itself), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        run: cat build/${{ matrix.preset }}/tests/*/figures.txt 2>/dev/null || echo "no figures said"
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-day-sweep-${{ matrix.day }}-macos-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+
+
+  windows-debug-sweep:
+    name: Windows ${{ matrix.preset }} - gust sweep day ${{ matrix.day }} ${{ matrix.shard }}/${{ matrix.of }}
+    needs: [windows-build, sweep-days]
+    if: ${{ github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' }}
+    runs-on: windows-latest
+    timeout-minutes: ${{ matrix.minutes }}
+    strategy:
+      fail-fast: false
+      matrix:
+        preset: [windows-debug]
+        minutes: [120]
+        of: [7]
+        shard: [1, 2, 3, 4, 5, 6, 7]
+        day: ${{ fromJSON(needs.sweep-days.outputs.days) }}
+    env:
+      SDL_LOGGING: gpu=debug
+    steps:
+      - uses: actions/checkout@v5
+        with: { submodules: true }
+      - uses: ./.github/actions/windows-setup
+      - uses: actions/cache/restore@v6
+        with:
+          path: |
+            .downloads/*
+            !.downloads/cesium-*.sqlite
+            !.downloads/test-scratch
+          key: downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-${{ github.run_id }}
+          restore-keys: |
+            downloads-${{ hashFiles('tests/data/downloads/files.txt', 'assets/models/sources.txt', 'tests/data/dem/surveyed.txt', 'tests/unit/test_ground.cpp') }}-
+            downloads-
+          enableCrossOsArchive: true
+      - uses: actions/download-artifact@v8
+        with: { name: 'tree-windows-${{ matrix.preset }}' }
+      - shell: cmd
+        run: tar -xzf tree.tar.gz && del tree.tar.gz
+
+      # **A crash is written down by Windows, not only by the program.** Two
+      # tests crashed on the way out - after their work was done - and the
+      # program's own handlers (src/platform/no_crash_dialogs.hpp) printed
+      # nothing: a crash in the process's own shutdown comes where they
+      # cannot. Windows Error Reporting's local dumps catch it from outside,
+      # and the step after the tests reads each dump's stack with cdb. The
+      # programs write a dump of their own first crash too, into the same
+      # folder, from inside the fault (GLIDESLOPE_CRASH_DUMPS): WER's is of the
+      # process as it died, which can be long after the fault that began it.
+      - name: Keep a dump of any crash
+        shell: pwsh
+        run: |
+          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps'
+          New-Item -Path $key -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpFolder -PropertyType ExpandString -Value "$env:RUNNER_TEMP\dumps" -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpType -PropertyType DWord -Value 1 -Force | Out-Null
+          New-ItemProperty -Path $key -Name DumpCount -PropertyType DWord -Value 20 -Force | Out-Null
+          New-Item -ItemType Directory -Force "$env:RUNNER_TEMP\dumps" | Out-Null
+          "GLIDESLOPE_CRASH_DUMPS=$env:RUNNER_TEMP\dumps" | Out-File -Append -Encoding utf8 $env:GITHUB_ENV
+
+      - name: ${{ matrix.preset }} - gust sweep day ${{ matrix.day }} ${{ matrix.shard }} of ${{ matrix.of }}
+        shell: cmd
+        run: |
+          cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -P tools/ci_shard.cmake || exit /b 1
+          ctest -L "^sweep_day_${{ matrix.day }}$" --preset ${{ matrix.preset }} -I %CD%\shard.txt
+
+      # **The figures the tests said, whether they passed or not** (each
+      # test's figures.txt in its work directory: LastTest.log is written
+      # afresh by a test that runs ctest itself), so that a bound is set from
+      # every platform's runs, not from those that failed it.
+      - name: The figures said
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          $figures = Get-ChildItem "build\${{ matrix.preset }}\tests\*\figures.txt" -ErrorAction SilentlyContinue
+          if (-not $figures) { Write-Output "no figures said"; exit 0 }
+          $figures | ForEach-Object { Get-Content $_.FullName }
+
+      # **The machine's stalls, said whether the tests passed or not**: every
+      # frame a predicting client's machine mostly took (frontend::
+      # MachineStalls), from every test's output, so that how often a runner
+      # stops them is counted, not met only when one fails. And whether
+      # Defender scans in real time here, which is one reason a Windows
+      # runner can stop every process of a test at once.
+      - name: The machine's stalls
+        if: ${{ !cancelled() }}
+        shell: pwsh
+        run: |
+          Get-MpComputerStatus -ErrorAction SilentlyContinue | Select-Object AMRunningMode, AntivirusEnabled, RealTimeProtectionEnabled, OnAccessProtectionEnabled | Format-List
+          $log = "build\${{ matrix.preset }}\Testing\Temporary\LastTest.log"
+          if (-not (Test-Path $log)) { Write-Output "no test log"; exit 0 }
+          $stalls = Select-String -Path $log -Pattern "the machine's stall [0-9]+: .*"
+          Write-Output "the machine's stalls in this shard: $($stalls.Count)"
+          $stalls | ForEach-Object { Write-Output $_.Line }
+
+      - name: The stack of every crash
+        if: ${{ failure() }}
+        shell: pwsh
+        run: |
+          $dumps = Get-ChildItem "$env:RUNNER_TEMP\dumps" -Filter *.dmp -ErrorAction SilentlyContinue
+          if (-not $dumps) { Write-Output "no crash dumps"; exit 0 }
+          $cdb = Get-ChildItem 'C:\Program Files (x86)\Windows Kits\10\Debuggers\x64\cdb.exe' -ErrorAction SilentlyContinue
+          if (-not $cdb) { Write-Output "no cdb on this runner; dumps: $($dumps.Name -join ', ')"; exit 0 }
+          $symbols = (Get-ChildItem build\${{ matrix.preset }} -Recurse -Filter *.pdb | ForEach-Object { $_.DirectoryName } | Sort-Object -Unique) -join ';'
+          # Windows' own symbols from Microsoft's server, so ntdll's frames are
+          # named rather than guessed from its exports.
+          $symbols = "$symbols;srv*$env:RUNNER_TEMP\symbols*https://msdl.microsoft.com/download/symbols"
+          # The exception, its thread's stack deep enough to reach the thread's
+          # start, every other thread's, and the debugger's own analysis.
+          foreach ($d in $dumps) {
+            Write-Output "===== $($d.Name)"
+            & $cdb.FullName -z $d.FullName -y "$symbols" -c ".exr -1; .ecxr; kn 200; ~*kn 60; !analyze -v; q"
+          }
+      - uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() }}
+        with: { name: 'frames-day-sweep-${{ matrix.day }}-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: 'build/${{ matrix.preset }}/tests/frames/*.bmp', if-no-files-found: ignore }
+      - uses: actions/upload-artifact@v7
+        if: ${{ failure() }}
+        with: { name: 'dumps-day-sweep-${{ matrix.day }}-windows-${{ matrix.preset }}-${{ matrix.shard }}', path: '${{ runner.temp }}/dumps/*.dmp', if-no-files-found: ignore, retention-days: 3 }
 
   # ---------------------------------------------------------------------------
   # The same flights everywhere.
@@ -1912,7 +2047,8 @@ jobs:
     if: ${{ always() }}
     needs: [ubuntu-build, ubuntu-test, ubuntu-release-test, rocky-build, rocky-test, macos-build, macos-test,
             macos-debug-test, windows-build, windows-test, windows-release-test, ubuntu-sweep, rocky-sweep,
-            macos-sweep, windows-sweep, cross-platform, server-image, changes, package]
+            macos-sweep, windows-sweep, sweep-days, ubuntu-debug-sweep, macos-debug-sweep,
+            windows-debug-sweep, cross-platform, server-image, changes, package]
     runs-on: ubuntu-latest
     steps:
       - name: Every job passed
@@ -1939,7 +2075,7 @@ jobs:
                       and (.key | IN("ubuntu-test", "ubuntu-release-test", "rocky-test", "macos-test",
                                      "windows-test", "windows-release-test", "server-image")))
                   or ($event == "pull_request" and .key == "macos-debug-test")
-                  or (($event == "pull_request" or $event == "push") and (.key | endswith("-sweep"))))))' > /dev/null
+                  or (($event == "pull_request" or $event == "push") and (.key | endswith("-sweep") or . == "sweep-days")))))' > /dev/null
 
   # **CI draft passed**: a draft pull request's reduced run, green - every
   # build, linux-debug's and windows-debug's tests, and the flights compared.
