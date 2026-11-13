@@ -101,7 +101,10 @@ list(GET _runs ${RUN} _run)
 # `+circlenone`, at Richmond (YSRI), one runway, 10, in 6 kt from 108, its
 # other end 28 6 kt behind her - past her gate's 5 and her limit of 5:
 # none will do, and she waits, told why,
-# until the one orbiting goes - the server
+# until the one orbiting goes; `+circlewait`, at Sydney in 6 kt from 168:
+# 34L and 34R 6 behind (past her gate's 5), 16L not clear of the orbit, and
+# 25 and 07 about 6 across - inside her gate's 15, past her limit of 3, so
+# refused by her limit alone - and she waits the same way - the server
 # never moves a person's aircraft (REQUIREMENTS 6.5; the owner's ruling,
 # 2026-11-11).
 set(_how "")
@@ -255,6 +258,9 @@ else()
             --station -33.9461,151.1772)
     elseif(_how STREQUAL "circlesouth")
         set(_ai_final --metar "YSSY 111200Z 25002KT 9999 FEW030 20/10 Q1015"
+            --station -33.9461,151.1772)
+    elseif(_how STREQUAL "circlewait")
+        set(_ai_final --metar "YSSY 111200Z 16806KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
     elseif(_how STREQUAL "circlenone")
         set(_ai_final --metar "YSRI 111200Z 10806KT 9999 FEW030 20/10 Q1015"
@@ -423,12 +429,28 @@ foreach(_i RANGE ${_last})
                 message(FATAL_ERROR "place ${_place}, the ${_a}: not sent to 25 past the bound:\n${_turn_line}")
             endif()
             string(APPEND _turn " (to 25, most into the wind, held past the bound)")
-        elseif(_how STREQUAL "circlenone")
+        elseif(_how STREQUAL "circlenone" OR _how STREQUAL "circlewait")
             # **None will do: she waits, told why**, until the one orbiting
             # goes on its own; the server does not move it.
-            if(NOT _out MATCHES "held past the bound, and no other runway will take her: YSRI 28 6 kt of tailwind; the gate is within 5\n")
-                message(FATAL_ERROR "place ${_place}, the ${_a}: no other runway refused as it should be:\n${_out}")
+            if(_how STREQUAL "circlenone")
+                set(_refusals "YSRI 28 6 kt of tailwind; the gate is within 5")
+            else()
+                # Each end for its own reason: 25 and 07 by her limit across,
+                # which her gate (15 across) would admit.
+                set(_refusals "YSSY 16L not clear" "YSSY 34L 6 kt of tailwind; the gate is within 5"
+                    "YSSY 34R 6 kt of tailwind; the gate is within 5"
+                    "YSSY 25 [56][.][0-9] kt across; she is put on final in 3 across at most"
+                    "YSSY 07 [56][.][0-9] kt across; she is put on final in 3 across at most")
             endif()
+            if(NOT _out MATCHES "held past the bound, and no other runway will take her: ([^\n]*)\n")
+                message(FATAL_ERROR "place ${_place}, the ${_a}: no other runway refused:\n${_out}")
+            endif()
+            set(_refused "${CMAKE_MATCH_1}")
+            foreach(_r IN LISTS _refusals)
+                if(NOT _refused MATCHES "${_r}")
+                    message(FATAL_ERROR "place ${_place}, the ${_a}: not refused \"${_r}\": ${_refused}")
+                endif()
+            endforeach()
             file(READ "${WORK}/heard${_i}.txt" _heard)
             if(NOT _heard MATCHES "aircraft 255 told: waiting for aircraft [0-9]+ ahead, past its time over where she starts: no other runway here will take her\n")
                 message(FATAL_ERROR "place ${_place}, the ${_a}: not told why she waits on:\n${_heard}")

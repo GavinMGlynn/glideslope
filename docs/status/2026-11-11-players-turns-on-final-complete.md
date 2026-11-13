@@ -3,12 +3,9 @@
 **What is still not true first.** **In wind past her measured limits a player
 is not put on final** (the owner's ruling, 2026-11-11): she starts where the
 plan does, told why: past 15 kt ahead, 5 behind or 3 across, every
-aeroplane alike since the re-sweep of 2026-11-14 (below). **No run shows
-another runway end refused by her limit rather than her gate**: ahead and
-behind her limits are now the gate's own, and across, a one-runway field's
-other end has her own end's crosswind; a crossing runway at Sydney refused
-for more than 3 kt across (inside the gate's 15) would show it, and is not
-built. **A measured limit, which the owner's
+aeroplane alike since the re-sweep of 2026-11-14 (below). A crabbed start
+is not measured on her trim in her wind (below; a Phase 12a tail). **A
+measured limit, which the owner's
 ruling of 2026-11-11 allows**: where a person holds the final over the
 start past the bound and no other runway end at the airfield takes her -
 each behind her, across her more than her gate admits, or not clear - the
@@ -34,6 +31,11 @@ gate's 5-degree heading limit is less than her crab at 6 kt across. The
 crabbed start was taken out. Searched: the wind correction angle, and
 FlightGear's `--in-air`, `--offset-distance` and `--wind` starts and
 X-Plane's start on final - none crabs an aircraft started on final.
+That was at 15 kt only, and before 2026-11-12, when she was trimmed in still
+air and met the wind on her first step: a crabbed start on her trim in her
+wind is not measured, and whether it would lift her 3 kt across is the
+Phase 12a tail "A crabbed start on final, measured on the trim in her
+wind".
 
 Then swept in light wind, the same way, each speed one run:
 
@@ -89,7 +91,9 @@ All four in calm and in still air were at the gate. 15 ahead and 5 behind
 are the gate's own most (LearntGate), so not swept past. Quartering, both
 parts near the new limits: 15 kt from 179 (14.7 ahead, 2.9 across) and 5
 from 330 (4.8 behind, 1.5 across), every aeroplane at the gate (C172P 452
-and 148 m, C182 414 and 110, Cub 590 and 287, PA-28 414 and 111). 88 runs.
+and 148 m, C182 414 and 110, Cub 590 and 287, PA-28 414 and 111). 128
+runs: 30 an aeroplane (still air, calm, 15 ahead, 5 behind, 4 from each
+side) and the 8 quartering.
 
 **Her limits now**, every aeroplane alike: 15 ahead, 5 behind, 3 across
 (before: C172P 5, 4, 2; PA-28 13, 4, 3; the Cub calm only; the C182 only
@@ -254,14 +258,17 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   final and at the gate 30 s on, and a knot past it she is not put on final
   and her client is told why, once, and refused by the part of the wind
   that is past her limit ("16 kt ahead; she is put on final in 15 ahead at
-  most"); calm once where a limit is nought, and 0.4 across refused where
-  her crosswind limit is nought (no aeroplane, since 2026-11-14); quartering
-  winds ahead and behind where her limits admit them. The cases that reach
+  most"); quartering winds ahead (15 kt from 179) and behind (5 from
+  330). (Before 2026-11-14 also calm, and 0.4 across for the Cub's nought.) The cases that reach
   their verdict are counted against the cases listed: 10 each, since
   2026-11-14 (before: C172P 9, PA-28 9, Cub 6, C182 5). Passed on the new
   limits, linux-release, each about 320 s. Seen red on the new limits: the
   C172P's crosswind limit put at 4, a knot too wide ("c172p, 4 kt from
-  the right (inside her limits): not at the gate 30 s on").
+  the right (inside her limits): not at the gate 30 s on"). The refused-by
+  check seen red with the behind cases labelled ahead ("c172p, 6 kt behind:
+  refused, but not for the wind ahead"). No case of a limit of nought or
+  under the quartering winds' parts is left in it: such limits fail the
+  test until their cases are written.
   Before 2026-11-14:
   The C172P at 5 ahead 304 m inside the gate, 4 behind 162 m, 2 across 225
   m either side, quartering 299 m; the PA-28 396, 126, 188 and 187 m,
@@ -276,6 +283,16 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   each test's first case past a limit a second player joins too, and each
   is told once, never the other's - seen red with every proven session told
   each reason ("told why 2 times, not once").
+- **Another end refused by her limit, not her gate**:
+  `a_player_held_past_the_bound_whose_crossing_runway_is_past_her_crosswind_limit_but_not_her_gates_waits_told_why`
+  (port 24852), the `+circlesouth` run's orbit over 16R's start in 6 kt
+  from 168: 34L and 34R 6 behind (her gate's 5), 16L not clear of the
+  orbit, and 25 and 07 about 6 across - inside her gate's 15, past her
+  limit of 3. The C172P behind is refused each for its own reason, the two
+  crossing ends by "kt across; she is put on final in 3 across at most",
+  and waits, told why, until the one orbiting goes. Seen red with
+  `on_final_wind_refuses` taken off the other ends ("place 2, the c172p: no
+  other runway refused": she was started on final to 07).
 - **Only ends inside her limits past the bound** (before 2026-11-14; now
   6 kt from 108, refused by her gate - see the top): the Richmond run, a wind
   from 108 at 5 kt, puts its C172P on final to 10 (5 ahead, inside her 5)
@@ -289,7 +306,7 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
 - `glideslope_cli selftest`, linux-release: hash 197366fd3fe6a7dc before the
   runway kept for a player's learnt landing, 197366fd3fe6a7dc, unmoved after - the
   selftest flies no learnt landing.
-- Coverage is asserted across the eight runs: every aeroplane with a learnt
+- Coverage is asserted across the nine runs: every aeroplane with a learnt
   landing follows at least once, and the second, third and fourth places
   are flown. The server-timeouts check passes, its totals moved to 70 and
   58 (the wind-limits test's two servers, long ones).

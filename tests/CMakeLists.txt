@@ -3999,7 +3999,7 @@ endforeach()
 # follower the window client (headless) waiting and told why, the third's
 # begun again on its key while it waits. See
 # cmake/server_players_take_turns_on_final.cmake.
-set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p+window|pa28,c172p,c182+restart|c172p+ai|c172p,pa28+circle|c172p,c172p+circlesouth|c172p+planai|c172p,c172p+circlenone")
+set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p+window|pa28,c172p,c182+restart|c172p+ai|c172p,pa28+circle|c172p,c172p+circlesouth|c172p+planai|c172p,c172p+circlenone|c172p,c172p+circlewait")
 set(_turns_names
     four_players_joining_on_final_a_c172p_c182_cub_and_pa28_take_turns_and_each_is_at_the_gate_thirty_seconds_after_she_starts
     the_window_client_joining_on_final_behind_a_pa28_waits_told_why_and_is_at_the_gate_thirty_seconds_after_she_starts
@@ -4008,9 +4008,10 @@ set(_turns_names
     a_player_held_past_the_bound_by_one_orbiting_over_the_start_starts_on_final_to_the_other_end_and_is_at_its_gate
     a_player_held_past_the_bound_with_the_wind_across_her_runway_starts_on_final_to_a_crossing_runway_into_it
     a_player_joining_on_final_behind_an_ai_whose_plan_lands_there_waits_for_it_and_is_at_the_gate_thirty_seconds_after
-    a_player_held_past_the_bound_with_no_other_runway_in_the_wind_waits_told_why_until_the_one_holding_it_goes)
-set(_turns_ports 24834 24887 24897 24917 24927 24937 24820 24828)
-foreach(_turns_run IN ITEMS 0 1 2 3 4 5 6 7)
+    a_player_held_past_the_bound_with_no_other_runway_in_the_wind_waits_told_why_until_the_one_holding_it_goes
+    a_player_held_past_the_bound_whose_crossing_runway_is_past_her_crosswind_limit_but_not_her_gates_waits_told_why)
+set(_turns_ports 24834 24887 24897 24917 24927 24937 24820 24828 24852)
+foreach(_turns_run IN ITEMS 0 1 2 3 4 5 6 7 8)
     list(GET _turns_names ${_turns_run} _turns_name)
     list(GET _turns_ports ${_turns_run} _turns_port)
     add_test(NAME ${_turns_name}
