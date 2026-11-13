@@ -40,12 +40,15 @@
   ruling of 2026-11-11, REQUIREMENTS 6.5) - measured, not published: the
   most in which, left alone two and a third miles out on final to Sydney's
   16R, she was still at her learnt landing's gate thirty seconds later
-  (docs/status/2026-11-11-players-turns-on-final-complete.md): only where no weather is flown: 1 kt ahead, behind or from the right turned her 5 to 7 degrees off the runway's heading (the gate is within 5); 1, 3 and 5 from the left and 4 behind stayed, but no wind from 0 up holds her at every value; and in a METAR of calm (20 degrees, 1015 hPa) she was 6 degrees off,
-  where in still air - the session flying no weather - she stayed 202 m
-  inside it. on_final_still_air_only: so she is put on final only where the
-  session flies no weather.
+  (docs/status/2026-11-11-players-turns-on-final-complete.md). Swept knot by
+  knot on the start of 2026-11-12, trimmed and moving with her wind: every
+  knot to 15 ahead and 5 behind held - the gate's own most - and 1 to 3
+  across from either side; 4 across did not, 65 m left from the right, 60 m right from the left of the centreline (the gate
+  is within 60): she is started down the runway, not crabbed, and drifts
+  with it. Before, when she was trimmed in still air and met the wind on her
+  first step: put on final only where no weather was flown.
 -->
-<published_figures aircraft="c182" rotation_degps="4" flaps_full_deg="38" demonstrated_crosswind_kts="15" on_final_headwind_kts="0" on_final_tailwind_kts="0" on_final_crosswind_kts="0" on_final_still_air_only="true">
+<published_figures aircraft="c182" rotation_degps="4" flaps_full_deg="38" demonstrated_crosswind_kts="15" on_final_headwind_kts="15" on_final_tailwind_kts="5" on_final_crosswind_kts="3">
   <source>Cessna Model 182S Skylane Information Manual, 1997</source>
 
   <!-- 3,100 lb, the maximum take-off weight the handbook's figures are for:

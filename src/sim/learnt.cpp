@@ -788,7 +788,6 @@ std::shared_ptr<const LearntPolicy> learnt_landing(const std::filesystem::path& 
         policy.on_final_headwind_kts = published.on_final_headwind_kts;
         policy.on_final_tailwind_kts = published.on_final_tailwind_kts;
         policy.on_final_crosswind_kts = published.on_final_crosswind_kts;
-        policy.on_final_still_air_only = published.on_final_still_air_only;
     }
     return std::make_shared<const LearntPolicy>(std::move(policy));
 }
