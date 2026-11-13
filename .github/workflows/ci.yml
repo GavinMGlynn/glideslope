@@ -124,7 +124,9 @@ env:
 #     43446046011), Linux release 3 (Ubuntu), macOS release 4, Windows
 #     release and clang-cl 5: eleven more jobs on a full run (macOS debug's
 #     three more run only at night), so a full run's shards queue past 40
-#     at once.
+#     at once. Linux release went to 4 on 2026-11-14: #362's turns-on-final
+#     and wind-limits runs put each of 3 at 47.8 of its 60 minutes' 45, a
+#     night's way.
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may
@@ -365,9 +367,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-release, shard: 1, of: 3 }
-          - { preset: linux-release, shard: 2, of: 3 }
-          - { preset: linux-release, shard: 3, of: 3 }
+          - { preset: linux-release, shard: 1, of: 4 }
+          - { preset: linux-release, shard: 2, of: 4 }
+          - { preset: linux-release, shard: 3, of: 4 }
+          - { preset: linux-release, shard: 4, of: 4 }
     env:
       CXX: g++-14
       CC: gcc-14
