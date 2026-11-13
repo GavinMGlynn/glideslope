@@ -33,6 +33,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 
 REPO = 'GavinMGlynn/glideslope'
 TEST = re.compile(r'Test\s+#\d+: (\S+) \.+.*?\s([\d.]+) sec')
@@ -46,7 +47,15 @@ START = re.compile(r'Start\s+\d+: (\S+)')
 
 
 def gh(*args):
-    return subprocess.run(['gh', *args], check=True, capture_output=True).stdout
+    # Three tries: GitHub's API answers an error now and then (a `gh run
+    # view` of run 43257673789 failed once and answered the next time).
+    for attempt in range(3):
+        r = subprocess.run(['gh', *args], capture_output=True)
+        if r.returncode == 0 or attempt == 2:
+            break
+        time.sleep(10 * (attempt + 1))
+    r.check_returncode()
+    return r.stdout
 
 
 def measure(run, costs, finished, not_green, cut_off):

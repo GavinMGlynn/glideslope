@@ -142,6 +142,43 @@ foreach(_line IN LISTS _lines)
         list(APPEND _tabled ${CMAKE_MATCH_2})
     endif()
 endforeach()
+# **A debug preset's gust sweep is dealt at twelve times release at least**
+# (MODEL_DEBUG): a debug runner takes about twelve times a release one's,
+# and a debug figure is often a floor - a test given up at its limit, as
+# three pairs going around were at 1,800 to 2,096 s on Linux debug in
+# dispatch run 43384660740, where twelve times release is 2,700 to 3,900 s.
+if(MODEL_DEBUG)
+    string(REPLACE "-debug" "-release" _release_preset "${PRESET}")
+    file(STRINGS ${_source}/tests/ci_costs/${_release_preset}.txt _lines REGEX "^[0-9]+ ")
+    foreach(_line IN LISTS _lines)
+        if(_line MATCHES "^([0-9]+) ([^ ]+)$")
+            math(EXPR _modelled "${CMAKE_MATCH_1} * 12")
+            if(DEFINED _cost_${CMAKE_MATCH_2} AND _modelled GREATER _cost_${CMAKE_MATCH_2})
+                set(_cost_${CMAKE_MATCH_2} ${_modelled})
+            endif()
+        endif()
+    endforeach()
+endif()
+
+# **Dealt from another host's build** (ELSEWHERE, tests/cmake/ci_shards.cmake,
+# which deals every preset from whichever host's build it runs in): a test
+# this preset's table does not name but another preset's does is that
+# host's own - an _on_direct3d12 test dealt for linux-debug - which this
+# preset never runs, so it costs nothing here. Dealt at DEFAULT instead,
+# Windows' 46 such tests put a linux-debug shard 0.9 minutes over three
+# quarters of its limit on Windows alone (#368's run 43384652902).
+if(ELSEWHERE)
+    file(GLOB _other_tables ${_source}/tests/ci_costs/*.txt)
+    list(REMOVE_ITEM _other_tables ${COSTS})
+    foreach(_table IN LISTS _other_tables)
+        file(STRINGS ${_table} _lines REGEX "^[0-9]+ ")
+        foreach(_line IN LISTS _lines)
+            if(_line MATCHES "^[0-9]+ ([^ ]+)$")
+                set(_elsewhere_${CMAKE_MATCH_1} TRUE)
+            endif()
+        endforeach()
+    endforeach()
+endif()
 
 # The longest test the table names, of those dealt: DEFAULT=longest's cost.
 set(_longest 0)
@@ -213,6 +250,8 @@ foreach(_i RANGE ${_last})
         else()
             set(_c ${_estimate})
         endif()
+    elseif(DEFINED _elsewhere_${_name})
+        set(_c 0)
     else()
         set(_c ${DEFAULT})
         list(APPEND _unmeasured ${_name})
