@@ -62,7 +62,6 @@ struct LearntPolicy {
     double on_final_headwind_kts = -1.0;
     double on_final_tailwind_kts = -1.0;
     double on_final_crosswind_kts = -1.0;
-    bool on_final_still_air_only = false;
 
     // Whether `weight_lbs` is within the weights it was trained at.
     bool trained_for(double weight_lbs) const {

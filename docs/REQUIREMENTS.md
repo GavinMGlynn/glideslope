@@ -904,7 +904,9 @@ The replacement:
   section 6.5). Left alone on final in wind, an aeroplane wanders out of
   the learnt landing's gate within thirty seconds - crabbed into the wind
   or not; the gate's heading limit, 5 degrees, is less than her crab in 6
-  kt across. So each aeroplane's limits ahead, behind and across are
+  kt across. Started trimmed in her wind (2026-11-12), every aeroplane
+  stays at it to the gate's own most ahead and behind, but drifts out of
+  it in 4 kt across, uncrabbed. So each aeroplane's limits ahead, behind and across are
   measured and kept in her figures, and a player is put on final only
   inside them; a runway end chosen past the bound is one inside them too.
 

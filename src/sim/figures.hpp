@@ -209,9 +209,6 @@ struct PublishedFigures {
     double on_final_headwind_kts = -1.0;
     double on_final_tailwind_kts = -1.0;
     double on_final_crosswind_kts = -1.0;
-    // `on_final_still_air_only`: put on final only where the session flies
-    // no weather - she leaves her gate left alone in any it was measured in.
-    bool on_final_still_air_only = false;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;
