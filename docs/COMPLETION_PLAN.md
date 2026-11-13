@@ -1924,6 +1924,10 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       *Verification: a check names every short server `--timeout` in the tests
       exactly and fails on any other; watched red; the changed tests pass.*
       Done 2026-10-28.
+- [ ] **a_player_joining_after_another_has_left_is_put_on_a_layer_no_aircraft_near_the_start_holds
+      failed once in five on the nightly** ("2 players' starts were said, not the three joins",
+      run 43507588675); fix in progress on branch join-layer-intermittent. *Verification: it passes
+      every run of a dispatched nightly.*
 
 ---
 
