@@ -327,6 +327,42 @@ foreach(_n RANGE 1 ${_count})
     math(EXPR _weight_${_unit} "${_weight_${_unit}} + ${_w_${_n}}")
 endforeach()
 
+# **Sized as the preset's own host would deal it** (PHANTOMS, which
+# tests/cmake/ci_shards.cmake passes, never CI): a test this preset's table
+# names that this host's build has not got at all - another system's own,
+# an _on_metal test dealt for macos-debug on a Linux host - is dealt too, at
+# its table's figure, as weight with no test number. Without it a Linux host
+# sized macos-debug's night at 31.1 minutes of a shard and a macOS host, which
+# has those tests, at 34.7 (train run 43446046011): each host judged a
+# different list. With it, every host deals the preset's tests as its table
+# knows them, plus whatever its own build has that no table of another
+# system names; a name the table keeps for a test gone everywhere is dealt
+# too, which only over-counts. The -I files are unchanged: a phantom is
+# weight, not a test to run.
+# Not for a run of one label (INCLUDE, the gust sweep): another system's own
+# tests are not in it, and the table does not say which label a test has.
+if(PHANTOMS AND (NOT DEFINED INCLUDE OR INCLUDE STREQUAL ""))
+    execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} -N OUTPUT_VARIABLE _host_listing)
+    string(REGEX MATCHALL "Test +#[0-9]+: [^\n]+" _host_listing "${_host_listing}")
+    foreach(_l IN LISTS _host_listing)
+        string(REGEX REPLACE "^Test +#[0-9]+: +" "" _l "${_l}")
+        string(STRIP "${_l}" _l)
+        set(_on_host_${_l} TRUE)
+    endforeach()
+    set(_np 0)
+    foreach(_name IN LISTS _tabled)
+        if(DEFINED _on_host_${_name})
+            continue()
+        endif()
+        math(EXPR _np "${_np} + 1")
+        set(_u p${_np})
+        list(APPEND _units ${_u})
+        set(_members_${_u} "")
+        set(_weight_${_u} ${_cost_${_name}})
+        math(EXPR _first_${_u} "900000 + ${_np}")
+    endforeach()
+endif()
+
 # Sorted as text, padded: heaviest first, and between equals the first test first.
 set(_keys "")
 foreach(_u IN LISTS _units)

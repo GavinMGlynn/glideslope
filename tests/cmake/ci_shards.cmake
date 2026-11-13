@@ -276,7 +276,7 @@ foreach(_p IN LISTS _presets)
         file(REMOVE_RECURSE ${_ndir})
         file(MAKE_DIRECTORY ${_ndir})
         execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_preset_${_p}} -DBUILD=${BUILD} -DOF=${_of_${_p}}
-                "-DEXCLUDE=${_night}" ${_deal_args} -DELSEWHERE=ON -DOUT_ALL=${_ndir}
+                "-DEXCLUDE=${_night}" ${_deal_args} -DELSEWHERE=ON -DPHANTOMS=ON -DOUT_ALL=${_ndir}
                 -P ${ROOT}/tools/ci_shard.cmake
             OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
         if(NOT _rc EQUAL 0)
@@ -296,7 +296,7 @@ foreach(_p IN LISTS _presets)
         file(REMOVE_RECURSE ${_dir})
         file(MAKE_DIRECTORY ${_dir})
         execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_preset_${_p}} -DBUILD=${BUILD} -DOF=${_of_${_p}}
-                "-DEXCLUDE=${_exclude}" ${_deal_args} -DELSEWHERE=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
+                "-DEXCLUDE=${_exclude}" ${_deal_args} -DELSEWHERE=ON -DPHANTOMS=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
             OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
         if(NOT _rc EQUAL 0)
             message(FATAL_ERROR "${_p}: the dealing failed:\n${_out}")
@@ -452,7 +452,7 @@ foreach(_block IN LISTS _day_blocks)
         execute_process(COMMAND ${CMAKE_COMMAND} "-DINCLUDE=^sweep_day_${_day}$" -DPRESET=${_dp}
                 -DBUILD=${BUILD} -DOF=${_dof} -DDEFAULT=longest -DMINUTES=${_dmin} -DSHARE=75 -DSTRICT=ON
                 -DMODEL_DEBUG=ON
-                -DELSEWHERE=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
+                -DELSEWHERE=ON -DPHANTOMS=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
             OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
         if(NOT _rc EQUAL 0)
             message(FATAL_ERROR "${_dp}, day ${_day}: the dealing failed:\n${_out}")
