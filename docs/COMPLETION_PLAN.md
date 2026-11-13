@@ -2305,12 +2305,10 @@ The pipeline: its length, its caches and what it costs a pull request.
       run builds everything and tests only Linux and Windows debug, with "CI
       passed" red and "CI draft passed" green; marked ready, the full run
       goes green; both runs' runner-minutes recorded.*
-- [ ] **The nightly's multi-process tests were cut off at their 120 minutes
-      every night from 2026-09-28**: 282 tests five times each in one job.
-      They are dealt into shards by measured cost, and the shards test fails
-      a pull request that would put a shard past three quarters of its limit.
-      *Verification: a dispatched nightly runs every shard green, each inside
-      its limit.* Owed: that dispatch.
+- [x] **The nightly's multi-process tests were cut off at 120 minutes every
+      night from 2026-09-28**; they now run in seven shards dealt by measured
+      cost. *Verification: every shard of a dispatched nightly finishes inside
+      its limit.* Done 2026-11-14: 70-86 of 120 minutes (run 43507588675).
 
 ---
 

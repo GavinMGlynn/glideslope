@@ -1,6 +1,9 @@
 # The nightly's multi-process tests in shards, dealt by what they cost
 
-**Not yet verified on CI.** A dispatched nightly of this branch is owed (below).
+**The shards fit their runners; the nightly is still red.** In dispatch run
+43507588675 every shard finished inside its limit. Six were green. Shard 5
+failed on one intermittent test, which is followed in its own item. The
+nightly stays red until that item lands (below).
 
 ## What was wrong
 
@@ -95,6 +98,27 @@ held all 42 (docs/status/2026-11-11-the-f22a-holds-every-plan-speed-again.md).
   minutes over three quarters of it); the ctest line repeating three times
   against the dealing's five; and, before `-FA` in the dealing's list, shard
   1's read-back running other tests than it was dealt.
-- Owed: `gh workflow run nightly.yml --ref nightly-multiprocess-shards -f
-  linux_repeats=true -f macos_network_repeats=0`, every shard green inside
-  its 120 minutes.
+- Dispatch run 43507588675 (`gh workflow run nightly.yml --ref
+  nightly-multiprocess-shards -f linux_repeats=true -f
+  macos_network_repeats=0`), at 6ef5028f. Every shard finished inside its
+  120-minute limit:
+
+  | shard | job minutes | result |
+  |------:|------------:|--------|
+  | 1 | 70.8 | green |
+  | 2 | 79.8 | green |
+  | 3 | 86.2 | green |
+  | 4 | 69.8 | green |
+  | 5 | 80.5 | failed |
+  | 6 | 85.0 | green |
+  | 7 | 70.9 | green |
+
+  Shard 5 failed on
+  `a_player_joining_after_another_has_left_is_put_on_a_layer_no_aircraft_near_the_start_holds`.
+  It passed its first run (50 s) and failed its second (55 s). Its cause is
+  unknown: the job's ctest had no `--output-on-failure`, so the test's own
+  message was not kept. That failure is followed in its own item, not here.
+  The nightly stays red until that item lands.
+- **The nightly's ctest now says `--output-on-failure`**, and the shards test
+  asserts it in the ctest line, so the next failure shows its cause. The
+  macOS network checks already said it.
