@@ -1,12 +1,77 @@
 # The gust_sweep tests in shards of their own, on a schedule and a dispatch
 
-**Not verified on CI, and round 3 has not been dispatched.** Dispatch run
-43257673789 (round 1) cut off 22 jobs. Since then, the person tests and the
-lining-up test have been split so that each piece fits a debug runner. The
-split tests pass locally on linux-release, except one j3cub piece (#367). A
-night's gust sweep is now 169 jobs, 125 of them on debug presets. The 38
-macOS debug jobs take about 14 hours, five at a time. Whether to dispatch
-at that size is the owner's decision.
+**Not verified on CI yet.** Round 4's dispatch, all seven days, is the
+proof run.
+
+## The owner's decision, 2026-11-13: the debug gust sweep rotates weekly
+
+The gust sweep stays on every preset, debug included. Each release preset
+runs the whole sweep every night. Each debug preset runs one seventh of it
+a night, chosen by the scheduled run's UTC weekday, so every gust_sweep
+test runs on every debug preset once a week. A dispatch can run today's
+day, any one day from 1 to 7, or all seven (the `sweep_day` input).
+
+- **Days.** At configure time, tests/CMakeLists.txt gives each gust_sweep
+  test one label, from sweep_day_1 (Monday) to sweep_day_7.
+  - Tests are dealt longest first, back and forth across the week.
+  - Cost is linux-debug's figure in the table, or 12 × a piece's release
+    estimate where there is none.
+  - Each day gets 84 or 85 of the 589 tests and about 530 dealt minutes on
+    linux-debug.
+- **Jobs.**
+  - A job named sweep-days turns the event into the days to run. For a
+    scheduled run that is `date -u +%u`.
+  - ubuntu-debug-sweep, macos-debug-sweep and windows-debug-sweep each
+    have a matrix of shards × days. Each shard deals and runs one day's
+    label, `^sweep_day_N$`.
+  - The release sweep jobs keep only their release rows.
+- **Coverage is asserted** by tests/cmake/ci_shards.cmake (ctest's
+  every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once):
+  - The seven days' labels between them are every gust_sweep test, each
+    once: 589 of 589.
+  - Each day is dealt into each debug job's shards with STRICT at 75% of
+    the job's limit, and every shard's -I file is read back.
+  - Each debug job's limit is at most 120 minutes.
+  - Seen red with one piece left without a day: "the seven days: 588 runs
+    of 588 tests; 589 gust_sweep tests; 0 run twice; dropped:
+    a_pa28_and_a_pa28_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart".
+    Then reverted.
+- **Sizing.** Every job limit is 120 minutes or less, and every shard
+  holds at most 75% of it.
+  - Debug sweep, one day: linux-debug 7 shards of 120 minutes (529–534
+    dealt minutes a day), windows-debug 7 of 120 (about 530) and
+    macos-debug 8 of 120 (about 704).
+  - Release sweep: linux-release 9 of 60 on Ubuntu and on Rocky,
+    macos-release 12, windows-release 9 and windows-clang 9, each shard at
+    60% or less.
+  - The release counts come from estimates for the new pieces, using the
+    largest release figure of any table, so they shrink once CI measures
+    the pieces.
+- **Tests split further so that no test is past a 120-minute debug job.**
+  The rule: release × 12 × 1.5 must fit, so a test may cost at most 80
+  minutes on debug.
+  - an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing
+    (up to 967 s on release, past 5,261 s on linux-debug) is now seven
+    tests, one per bearing.
+  - The 15 circuit tests (up to 797 s on release) are now 45, one per
+    situation.
+  - The three diversion tests of every landplane (up to 687 s on release)
+    are now nine, one per third of the landplanes.
+  - Coverage: the_circuit_and_diversion_pieces_between_them_fly_every_case_once
+    and the_tests_of_a_person_flying_away_fly_every_bearing_once.
+  - The sweep is now 589 tests.
+  - Run locally on linux-release (-j4, no display), 66 of 66 passed in
+    792 s: the 61 new pieces (at most 78 s each), the five coverage tests
+    and the registration check.
+
+## Runner minutes a night (estimated, dealt minutes plus about 10 minutes of setup a job)
+
+| | jobs | dealt minutes | runner-minutes |
+| --- | --- | --- | --- |
+| debug sweep, one day | 22 | about 1,770 | about 1,990 |
+| release sweep | 48 | about 1,670 | about 2,150 |
+| a night's sweep | 70 | about 3,440 | about 4,140, about 1,310 on macOS |
+| a dispatch of all seven days | 202 | about 14,060 | about 16,100 |
 
 ## What was wrong
 

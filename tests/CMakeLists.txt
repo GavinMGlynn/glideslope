@@ -371,28 +371,13 @@ set(GLIDESLOPE_UNIT_TESTS
     two_going_around_are_sequenced_by_the_callers_clock_not_their_own
     who_follows_whom_round_a_circuit_is_by_time_then_down_the_runway_then_the_order
     a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
-    every_landplane_has_a_test_of_her_circuit_with_every_straight_in_and_departure
+    the_circuit_and_diversion_pieces_between_them_fly_every_case_once
     every_landplane_given_a_take_off_to_3000_ft_and_no_plan_holds_it_for_ten_minutes
     every_landplane_given_a_take_off_with_no_plan_is_within_2_ft_of_her_height_from_75_s_after_the_hand_over
     every_landplane_taken_off_with_no_plan_to_650_ft_goes_no_more_than_100_ft_past_it
     a_capture_is_let_go_when_the_autopilot_modes_are_set_again_even_to_the_same_height
     every_landplane_whose_gear_retracts_raises_it_on_a_positive_rate_after_any_ai_take_off_and_is_never_past_her_gear_extended_speed_with_it_out
     no_flap_is_ever_flown_past_its_limit_speed_in_an_ai_take_off
-    a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    a_787_8_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    an_a320_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    an_a380_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    a_b2_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    a_c172p_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    a_c182_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    an_f15c_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    an_f22_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    an_f35b_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    a_j3cub_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    a_learjet35a_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    a_mosquito_fb6_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-    a_pa28_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
     a_circuit_gives_way_to_a_person_straight_in_and_is_kept_apart_from_her_departing_the_slowest_and_the_fastest_each_with_each
     an_ai_aircraft_behind_a_person_who_stays_in_the_circuit_leaves_it_kept_apart_the_slowest_and_the_fastest_each_with_each
     an_ai_departure_behind_a_person_who_stays_in_the_circuit_departs_kept_apart_the_slowest_and_the_fastest_each_with_each
@@ -403,10 +388,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_hold_out_of_her_reach_is_given_up_for_her_best_height_where_she_is
     a_diversion_is_to_the_nearest_runway_she_is_told_of_that_is_another_airfield_long_enough_reachable_and_clear_to_approach
     an_ai_aircraft_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart_the_slowest_and_the_fastest
-    every_landplane_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart
-    every_landplane_back_on_her_reserve_behind_a_person_who_stays_in_the_circuit_lands_measured_for_separation
     an_ai_aircraft_with_nowhere_to_divert_lands_kept_apart_from_a_person_who_leaves_the_circuit_when_told_the_slowest_and_the_fastest
-    every_landplane_with_nowhere_to_divert_lands_kept_apart_from_a_person_who_leaves_the_circuit_when_told
     a_person_in_her_runways_circuit_ahead_or_behind_is_told_to_leave_it_in_words_a_message_carries
     a_racetrack_beside_high_ground_past_its_circuits_ground_is_flown_1000_ft_over_it
     every_landplane_following_another_round_a_circuit_beside_high_ground_beyond_8_nm_stays_500_ft_over_it
@@ -414,7 +396,6 @@ set(GLIDESLOPE_UNIT_TESTS
     a_person_who_lines_up_and_rolls_under_an_ai_aircraft_at_200_ft_lifts_off_inside_the_minimum_of_her
     the_lining_up_pieces_between_them_measure_every_landplane_pair_once
     an_ai_aircraft_behind_a_person_who_flies_away_down_the_approach_comes_back_and_lands_kept_apart
-    an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
     the_tests_of_a_person_flying_away_fly_every_bearing_once
     on_raised_ground_an_ai_aircraft_climbing_before_her_hold_is_kept_apart_from_a_person_in_the_circuit
     how_she_lands_is_what_her_approach_is_flown_at_or_none_without_a_stall_speed
@@ -1420,7 +1401,32 @@ foreach(_id IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
             every_persons_departure_of_the_${_half}_landplanes_lining_up_under_${_id}_at_200_ft_is_measured)
     endforeach()
 endforeach()
-list(APPEND GLIDESLOPE_UNIT_TESTS ${GLIDESLOPE_PERSON_PIECES} ${GLIDESLOPE_LINING_UP_PIECES})
+# **Every landplane's circuit with every straight-in and departure, a
+# situation a test** (45), **the three diversion tests of every landplane,
+# a third a test** (9), and **a person flying away on each of the seven
+# bearings not down the approach, a test each** (7): tests/unit/test_lesson.cpp
+# says why - each whole test was past a debug sweep shard's two hours.
+set(GLIDESLOPE_CIRCUIT_PIECES "")
+foreach(_id IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
+    list(APPEND GLIDESLOPE_CIRCUIT_PIECES
+        ${_id}_circuit_and_every_straight_in_as_she_goes_around_are_kept_apart_and_in_order
+        ${_id}_circuit_and_every_straight_in_as_she_joins_final_are_kept_apart_and_in_order
+        ${_id}_circuit_and_every_departure_lined_up_are_kept_apart_and_in_order)
+endforeach()
+set(GLIDESLOPE_DIVERSION_PIECES "")
+foreach(_third the_first_five the_middle_five the_last_five)
+    list(APPEND GLIDESLOPE_DIVERSION_PIECES
+        ${_third}_landplanes_whose_hold_is_out_of_her_reach_divert_to_another_runway_kept_apart
+        ${_third}_landplanes_with_nowhere_to_divert_land_kept_apart_from_a_person_who_leaves_the_circuit_when_told
+        ${_third}_landplanes_back_on_their_reserve_behind_a_person_who_stays_in_the_circuit_land_measured_for_separation)
+endforeach()
+set(GLIDESLOPE_BEARING_PIECES "")
+foreach(_bearing 0 45 90 135 225 270 315)
+    list(APPEND GLIDESLOPE_BEARING_PIECES
+        an_ai_aircraft_behind_a_person_who_flies_away_${_bearing}_deg_off_the_runway_comes_back_and_lands_kept_apart)
+endforeach()
+list(APPEND GLIDESLOPE_UNIT_TESTS ${GLIDESLOPE_PERSON_PIECES} ${GLIDESLOPE_LINING_UP_PIECES}
+    ${GLIDESLOPE_CIRCUIT_PIECES} ${GLIDESLOPE_DIVERSION_PIECES} ${GLIDESLOPE_BEARING_PIECES})
 set(GLIDESLOPE_GUST_SWEEP_SEEDS "")
 foreach(_seed RANGE 9 40)
     list(APPEND GLIDESLOPE_GUST_SWEEP_SEEDS
@@ -1457,76 +1463,74 @@ foreach(_t 737_300 747_400 787_8 a320 a380 b2 c172p c182 f15c f22 f35b j3cub
     set_tests_properties(two_going_around_together_behind_the_${_t}_are_kept_apart_and_both_land
         PROPERTIES TIMEOUT 1800 LABELS gust_sweep)
 endforeach()
-# **Every landplane's circuit with every landplane straight in or
-# departing**, in three situations (tests/unit/test_lesson.cpp): fifteen
-# tests of forty-five flights, labelled gust_sweep as the pairs going around
-# together are. The twelve flights of the slowest and the fastest run on
-# every run: 55 s on linux-release, and Linux debug's runners take about
-# fourteen times release's for these.
-foreach(_t a_737_300 a_747_400 a_787_8 an_a320 an_a380 a_b2 a_c172p a_c182 an_f15c an_f22
-        an_f35b a_j3cub a_learjet35a a_mosquito_fb6 a_pa28)
-    set_tests_properties(${_t}_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
-        PROPERTIES TIMEOUT 1800 LABELS gust_sweep)
-endforeach()
 set_tests_properties(a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order
     PROPERTIES TIMEOUT 1800)
-# **The person pieces' cost and time limit, until CI has measured them**:
-# each landplane's whole test with every person took up to 3,553 s on a
-# release runner (tests/ci_costs, before it was split), sixteen flights a
-# pair in thirty pieces, and a debug runner takes about twelve times a
-# release one's (the racetrack test: 856 s on Linux debug, 68 on release).
-# A piece's estimate is its landplane's whole test's longest release figure
-# over 30: its COST, which tools/ci_shard.cmake deals by (twelve times on a
-# debug preset) where the table has no figure yet; and its TIMEOUT half as
-# long again as twice this build's estimate - the heaviest pairs' - or the
-# presets' 900 if longer. Once measured, the
-# tables' figures rule (the time limits at the end of this file).
+# **A piece's cost and time limit, until CI has measured it**: each piece is
+# a share of a whole test that was too long for a debug sweep shard. A
+# debug runner takes about twelve times a release one's (the racetrack
+# test: 856 s on Linux debug, 68 on release). A piece's estimate is its
+# whole test's longest release figure in tests/ci_costs over the pieces it
+# became (or FALLBACK where no table has it): its COST, which
+# tools/ci_shard.cmake deals by - twelve times on a debug preset - where the
+# table has no figure yet; and its TIMEOUT, three times this build's
+# estimate (half as long again as twice it, for the heaviest), or the
+# presets' 900 if longer. Once measured, the tables' figures rule (the time
+# limits at the end of this file).
 get_filename_component(_this_preset ${PROJECT_BINARY_DIR} NAME)
-set(_debug_times 1)
+set(GLIDESLOPE_DEBUG_TIMES 1)
 if(_this_preset MATCHES "-debug$")
-    set(_debug_times 12)
+    set(GLIDESLOPE_DEBUG_TIMES 12)
 endif()
-file(GLOB _release_tables ${CMAKE_CURRENT_SOURCE_DIR}/ci_costs/*-release.txt
+file(GLOB GLIDESLOPE_RELEASE_TABLES ${CMAKE_CURRENT_SOURCE_DIR}/ci_costs/*-release.txt
     ${CMAKE_CURRENT_SOURCE_DIR}/ci_costs/windows-clang.txt)
-foreach(_id IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
-    set(_whole_s 3553)
-    foreach(_table IN LISTS _release_tables)
-        file(STRINGS ${_table} _whole
-            REGEX "^[0-9]+ ${_id}_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart$")
-        if(_whole MATCHES "^([0-9]+) " AND CMAKE_MATCH_1 GREATER _whole_s)
+function(glideslope_pieces_estimated whole parts fallback)
+    set(_whole_s ${fallback})
+    foreach(_table IN LISTS GLIDESLOPE_RELEASE_TABLES)
+        file(STRINGS ${_table} _line REGEX "^[0-9]+ ${whole}$")
+        if(_line MATCHES "^([0-9]+) " AND CMAKE_MATCH_1 GREATER _whole_s)
             set(_whole_s ${CMAKE_MATCH_1})
         endif()
     endforeach()
-    math(EXPR _piece_s "(${_whole_s} + 29) / 30")
-    math(EXPR _limit "${_piece_s} * ${_debug_times} * 3")
+    math(EXPR _piece_s "(${_whole_s} + ${parts} - 1) / ${parts}")
+    math(EXPR _limit "${_piece_s} * ${GLIDESLOPE_DEBUG_TIMES} * 3")
     if(_limit LESS 900)
         set(_limit 900)
     endif()
+    set_tests_properties(${ARGN} PROPERTIES LABELS gust_sweep COST ${_piece_s} TIMEOUT ${_limit})
+endfunction()
+foreach(_id IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
     string(REGEX REPLACE "^an?_" "" _bare ${_id})
+    set(_pieces "")
     foreach(_other IN LISTS GLIDESLOPE_PERSON_SWEEP_SPELT)
-        set_tests_properties(
+        list(APPEND _pieces
             ${_id}_and_${_other}_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-            ${_other}_behind_a_persons_${_bare}_flying_away_on_every_bearing_comes_back_kept_apart
-            PROPERTIES LABELS gust_sweep COST ${_piece_s} TIMEOUT ${_limit})
+            ${_other}_behind_a_persons_${_bare}_flying_away_on_every_bearing_comes_back_kept_apart)
     endforeach()
+    glideslope_pieces_estimated(
+        ${_id}_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
+        30 3553 ${_pieces})
+    glideslope_pieces_estimated(${_id}_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order
+        3 797
+        ${_id}_circuit_and_every_straight_in_as_she_goes_around_are_kept_apart_and_in_order
+        ${_id}_circuit_and_every_straight_in_as_she_joins_final_are_kept_apart_and_in_order
+        ${_id}_circuit_and_every_departure_lined_up_are_kept_apart_and_in_order)
 endforeach()
-# The lining-up pieces the same way: the whole test's longest release
-# figure over 30 (3,424 s on Windows release, before it was split).
-set(_whole_s 3424)
-foreach(_table IN LISTS _release_tables)
-    file(STRINGS ${_table} _whole
-        REGEX "^[0-9]+ every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured$")
-    if(_whole MATCHES "^([0-9]+) " AND CMAKE_MATCH_1 GREATER _whole_s)
-        set(_whole_s ${CMAKE_MATCH_1})
-    endif()
+glideslope_pieces_estimated(every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
+    30 3424 ${GLIDESLOPE_LINING_UP_PIECES})
+foreach(_whole_and_part
+        "every_landplane_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart|whose_hold_is_out_of_her_reach"
+        "every_landplane_with_nowhere_to_divert_lands_kept_apart_from_a_person_who_leaves_the_circuit_when_told|with_nowhere_to_divert"
+        "every_landplane_back_on_her_reserve_behind_a_person_who_stays_in_the_circuit_lands_measured_for_separation|back_on_their_reserve")
+    string(REPLACE "|" ";" _wp "${_whole_and_part}")
+    list(GET _wp 0 _whole)
+    list(GET _wp 1 _part)
+    set(_pieces ${GLIDESLOPE_DIVERSION_PIECES})
+    list(FILTER _pieces INCLUDE REGEX "_landplanes_${_part}_")
+    glideslope_pieces_estimated(${_whole} 3 687 ${_pieces})
 endforeach()
-math(EXPR _piece_s "(${_whole_s} + 29) / 30")
-math(EXPR _limit "${_piece_s} * ${_debug_times} * 3")
-if(_limit LESS 900)
-    set(_limit 900)
-endif()
-set_tests_properties(${GLIDESLOPE_LINING_UP_PIECES}
-    PROPERTIES LABELS gust_sweep COST ${_piece_s} TIMEOUT ${_limit})
+glideslope_pieces_estimated(
+    an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
+    7 967 ${GLIDESLOPE_BEARING_PIECES})
 # The three a person's on every run: on linux-debug locally, three at once
 # beside a -j4 sweep, 589, 689 and 334 s - over the presets' 900 on a slower
 # runner, as a sibling of theirs went. An hour each: five times the local
@@ -1563,15 +1567,8 @@ set_tests_properties(an_ai_aircraft_whose_hold_is_out_of_her_reach_diverts_to_an
     an_ai_aircraft_with_nowhere_to_divert_lands_kept_apart_from_a_person_who_leaves_the_circuit_when_told_the_slowest_and_the_fastest
     a_racetrack_beside_high_ground_past_its_circuits_ground_is_flown_1000_ft_over_it
     PROPERTIES TIMEOUT 1800)
-set_tests_properties(every_landplane_whose_hold_is_out_of_her_reach_diverts_to_another_runway_kept_apart
-    every_landplane_back_on_her_reserve_behind_a_person_who_stays_in_the_circuit_lands_measured_for_separation
-    every_landplane_with_nowhere_to_divert_lands_kept_apart_from_a_person_who_leaves_the_circuit_when_told
-    every_landplane_following_another_round_a_circuit_beside_high_ground_beyond_8_nm_stays_500_ft_over_it
+set_tests_properties(every_landplane_following_another_round_a_circuit_beside_high_ground_beyond_8_nm_stays_500_ft_over_it
     PROPERTIES TIMEOUT 14400 LABELS gust_sweep)
-set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
-    PROPERTIES TIMEOUT 5400)
-set_tests_properties(an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart
-    PROPERTIES LABELS gust_sweep)
 # **Every landplane's take-off to 3,000 ft and ten minutes held there**, in
 # simulated time: 22 s on linux-release locally, and Linux debug's runners
 # take about fourteen times release's for flights like these.
@@ -5095,8 +5092,13 @@ foreach(_table IN LISTS _ci_cost_tables)
     file(STRINGS ${_table} _lines REGEX "^[0-9]+ ")
     foreach(_line IN LISTS _lines)
         if(_line MATCHES "^([0-9]+) (.+)$")
-            if(NOT DEFINED _ci_slowest_${CMAKE_MATCH_2} OR CMAKE_MATCH_1 GREATER _ci_slowest_${CMAKE_MATCH_2})
-                set(_ci_slowest_${CMAKE_MATCH_2} ${CMAKE_MATCH_1})
+            set(_s ${CMAKE_MATCH_1})
+            set(_n ${CMAKE_MATCH_2})
+            if(NOT DEFINED _ci_slowest_${_n} OR _s GREATER _ci_slowest_${_n})
+                set(_ci_slowest_${_n} ${_s})
+            endif()
+            if(_table MATCHES "/linux-debug\\.txt$")
+                set(_ci_debug_${_n} ${_s})
             endif()
         endif()
     endforeach()
@@ -5118,3 +5120,50 @@ foreach(_t IN LISTS _all_tests)
     endif()
 endforeach()
 message(STATUS "glideslope: ${_raised} tests' time limits raised to half as long again as their slowest CI figure")
+
+# **The gust sweep's day on a debug preset** (the owner's decision of
+# 2026-11-13): a release preset runs every gust_sweep test every night; a
+# debug preset one seventh of them, by the scheduled run's UTC weekday
+# (ci.yml's debug sweep jobs, `-L sweep_day_N`), so that each runs on every
+# debug preset once a week. Each test is given a day 1 (Monday) to 7, dealt
+# longest first and back and forth across the week by what it costs on
+# Linux debug's runners - the table's figure, or twelve times a piece's
+# release estimate (COST) - so that the days hold about the same work.
+# tests/cmake/ci_shards.cmake asserts that the seven days between them are
+# every gust_sweep test, each once.
+set(_sweep_keys "")
+foreach(_t IN LISTS _all_tests)
+    get_test_property(${_t} LABELS _labels)
+    if(NOT "gust_sweep" IN_LIST _labels)
+        continue()
+    endif()
+    set(_c 60)
+    if(DEFINED _ci_debug_${_t})
+        set(_c ${_ci_debug_${_t}})
+    else()
+        get_test_property(${_t} COST _estimate)
+        if(_estimate)
+            string(REGEX REPLACE "\\..*$" "" _estimate "${_estimate}")
+            math(EXPR _c "${_estimate} * 12")
+        endif()
+    endif()
+    string(LENGTH "${_c}" _cl)
+    math(EXPR _pad "12 - ${_cl}")
+    string(REPEAT "0" ${_pad} _zeros)
+    list(APPEND _sweep_keys "${_zeros}${_c}|${_t}")
+endforeach()
+list(SORT _sweep_keys ORDER DESCENDING)
+set(_i 0)
+foreach(_key IN LISTS _sweep_keys)
+    string(REGEX REPLACE "^[0-9]+\\|" "" _t "${_key}")
+    math(EXPR _round "${_i} / 7")
+    math(EXPR _at "${_i} % 7")
+    math(EXPR _odd "${_round} % 2")
+    if(_odd)
+        math(EXPR _day "7 - ${_at}")
+    else()
+        math(EXPR _day "${_at} + 1")
+    endif()
+    set_property(TEST ${_t} APPEND PROPERTY LABELS sweep_day_${_day})
+    math(EXPR _i "${_i} + 1")
+endforeach()

@@ -39,7 +39,7 @@ TEST = re.compile(r'Test\s+#\d+: (\S+) \.+.*?\s([\d.]+) sec')
 # One word of platform, then the preset: Rocky 9's shards ("Rocky 9 linux-release -
 # tests 1/3") do not match, so linux-release's table is Ubuntu's runners alone.
 # A shard of the tests or of the gust sweep ("Ubuntu linux-debug - gust sweep 2/10").
-SHARD_JOB = re.compile(r'^\S+ (\S+) - (?:tests|gust sweep) \d+/\d+$')
+SHARD_JOB = re.compile(r'^\S+ (\S+) - (?:tests|gust sweep(?: day \d)?) \d+/\d+$')
 # A log line's time, and a test's start in ctest's output.
 STAMP = re.compile(r'^(\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d+)Z')
 START = re.compile(r'Start\s+\d+: (\S+)')
