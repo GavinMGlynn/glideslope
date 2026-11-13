@@ -58,23 +58,29 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
-# **The cases**, each "what|wind|in or out": at each limit (calm, once,
-# where a limit is nought) and a knot past it, ahead, behind, from the
-# right and from the left of 16R (heading 167.9); quartering winds with both
-# their parts inside her limits, where her limits admit them; and
-# for a crosswind limit of nought, 0.4 kt across (4 kt from 174), which any
-# crosswind past nought must refuse. Each refused case names the part of the
-# wind that must refuse it: ahead, behind or across - and
-# where her crosswind limit is nought, across for every wind, since no whole
-# degree lies down 16R (167.9) and the least across is past nought.
+# **The cases**, each "what|wind|in or out": at each limit and a knot past
+# it, ahead, behind, from the right and from the left of 16R (heading
+# 167.9), and two quartering winds with both parts near her limits. Each
+# refused case names the part of the wind that must refuse it: ahead, behind
+# or across.
+#
+# **Limits these cases are not for, refused**: a limit of nought (a calm
+# case, and a crosswind of nought would need one a fraction of a knot
+# across, no whole degree lying down 16R) and limits under the quartering
+# winds' parts (15 ahead, 5 behind, 3 across). Every aeroplane's limits were
+# measured at 15, 5 and 3 (2026-11-14); where a re-sweep finds others, this
+# fails until those cases are written, rather than leave them unswept.
 #
 # **Not swept, and why**: one temperature and pressure (the METAR's 20
 # degrees and 1015 hPa, near the standard atmosphere at Sydney - a server's
 # weather moves them, and the limits are for the wind); no gusts (a METAR
 # without a gust group: her gust factor 0); her model's own loading; Sydney's
 # 16R at 8 ft only - another field's height is another density.
+if(_headwind LESS 15 OR _tailwind LESS 5 OR _crosswind LESS 3)
+    message(FATAL_ERROR "the ${AIRCRAFT}'s limits, ${_headwind} ahead, ${_tailwind} behind and "
+                        "${_crosswind} across, are under the 15, 5 and 3 these cases are written for")
+endif()
 set(_cases "")
-set(_calm_listed OFF)
 foreach(_dir "ahead:168:${_headwind}:ahead" "behind:348:${_tailwind}:behind"
              "from the right:258:${_crosswind}:across" "from the left:078:${_crosswind}:across")
     string(REPLACE ":" ";" _parts "${_dir}")
@@ -82,43 +88,23 @@ foreach(_dir "ahead:168:${_headwind}:ahead" "behind:348:${_tailwind}:behind"
     list(GET _parts 1 _from)
     list(GET _parts 2 _limit)
     list(GET _parts 3 _part)
-    if(_crosswind EQUAL 0)
-        set(_part across)
-    endif()
     math(EXPR _past "${_limit} + 1")
-    if(_limit EQUAL 0)
-        if(NOT _calm_listed)
-            list(APPEND _cases "calm|00000KT|in")
-            set(_calm_listed ON)
-        endif()
-    else()
-        string(LENGTH "${_limit}" _digits)
+    foreach(_kts_expect "${_limit}:in" "${_past}:out")
+        string(REPLACE ":" ";" _ke "${_kts_expect}")
+        list(GET _ke 0 _kts)
+        list(GET _ke 1 _expect)
+        string(LENGTH "${_kts}" _digits)
+        set(_metar_kts "${_kts}")
         if(_digits EQUAL 1)
-            list(APPEND _cases "${_limit} kt ${_name}|${_from}0${_limit}KT|in")
-        else()
-            list(APPEND _cases "${_limit} kt ${_name}|${_from}${_limit}KT|in")
+            set(_metar_kts "0${_kts}")
         endif()
-    endif()
-    string(LENGTH "${_past}" _digits)
-    if(_digits EQUAL 1)
-        list(APPEND _cases "${_past} kt ${_name}|${_from}0${_past}KT|out|${_part}")
-    else()
-        list(APPEND _cases "${_past} kt ${_name}|${_from}${_past}KT|out|${_part}")
-    endif()
+        list(APPEND _cases "${_kts} kt ${_name}|${_from}${_metar_kts}KT|${_expect}|${_part}")
+    endforeach()
 endforeach()
-if(_crosswind EQUAL 0)
-    list(APPEND _cases "0.4 kt across (4 from 174)|17404KT|out|across")
-endif()
 # Quartering, both parts near her limits as a METAR's whole knots and
-# degrees give: ahead, 15 kt from 179 (14.7 ahead, 2.9 across), where her
-# limits are at least 15 ahead and 3 across; behind, 5 kt from 330 (4.8
-# behind, 1.5 across), where they are at least 5 behind and 2 across.
-if(_headwind GREATER_EQUAL 15 AND _crosswind GREATER_EQUAL 3)
-    list(APPEND _cases "quartering 15 kt from 179|17915KT|in")
-endif()
-if(_tailwind GREATER_EQUAL 5 AND _crosswind GREATER_EQUAL 2)
-    list(APPEND _cases "quartering 5 kt from 330|33005KT|in")
-endif()
+# degrees give: ahead, 15 kt from 179 (14.7 ahead, 2.9 across); behind,
+# 5 kt from 330 (4.8 behind, 1.5 across).
+list(APPEND _cases "quartering 15 kt from 179|17915KT|in" "quartering 5 kt from 330|33005KT|in")
 list(LENGTH _cases _wanted)
 
 set(_verdicts 0)
