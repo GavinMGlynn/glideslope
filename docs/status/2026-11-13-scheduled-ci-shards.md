@@ -115,26 +115,30 @@ The gust sweep stays on every preset, debug included:
       scheduled runs. It corrects itself at the next re-measure of macOS's
       tables (tools/ci_test_costs.py over a run with macOS shards), which
       gives the test its own figure there.
-- **PHANTOMS: the check sizes a preset as its own host would deal it.**
-  tools/ci_shard.cmake takes this option, and only tests/cmake/ci_shards.cmake
-  passes it.
-  - What went wrong: the dealing test deals every preset from the test list
-    of the build it runs in. Train run 43446046011 failed it on macOS and
-    Windows alone. macOS dealt macos-debug's night at 34.7 minutes a shard
-    at 7 shards (job 131962073795), and Windows dealt windows-debug's at
-    34.2 at 11 (job 131969273982), both past 33.75. From a Linux build the
-    same dealings were 31.1 and 32.5, because Linux lacks those systems' own
-    tests (_on_metal, _on_direct3d12).
-  - The option deals every test that the preset's table names but the
-    host's build has not got, at the table's figure, as weight with no
-    test number. Every host then sizes the preset's own list. Run on Linux
-    with it, the dealing gives 34.7 for macos-debug and 34.3 for
-    windows-debug, the hosts' own figures.
-  - It does not apply to a single-label run, the gust sweep, because the
-    table does not say which labels a test has.
-  - A name the table keeps for a test that is gone everywhere is dealt as
-    well, which can only over-count.
-  - With it, macos-debug needs 8 shards (30.4) and windows-debug 12 (31.4).
+- **A shard job is sized on its own operating system's hosts.**
+  - What went wrong: the dealing test deals every preset from the test
+    list of the build it runs in. Train run 43446046011 failed it on macOS
+    and Windows alone. A macOS host dealt macos-debug's night at 34.7
+    minutes a shard at 7 shards (job 131962073795), and a Windows host
+    dealt windows-debug's at 34.2 at 11 (job 131969273982), both past
+    33.75. A Linux host dealt the same at 31.1 and 32.5, because it lacks
+    those systems' own tests (_on_metal, _on_direct3d12).
+  - Now every host asserts every preset's coverage, but sizes (STRICT, a
+    pull request's way and a night's) only the shard jobs of its own
+    system's presets. Each preset is therefore sized on its own list,
+    wherever the check runs.
+  - A full pull-request run has Linux, macOS and Windows hosts, so every
+    preset is sized; a draft's has Linux and Windows only. Locally (Linux)
+    only the Linux presets are sized. The macOS and Windows presets are
+    verified by the next full run on those hosts.
+  - An earlier version of this round dealt the missing tests as "phantoms"
+    from the table, which reproduced the hosts' figures within about 0.1
+    min (34.7 and 34.3 from Linux, against 34.7 and 34.2 logged). It
+    dropped those tests' properties, though: four hold the runner and
+    seven share a fixture dealt whole. So it was removed rather than kept
+    as an unchecked assumption.
+  - The counts were set from those figures: macos-debug 8 shards (30.4)
+    and windows-debug 12 (31.4).
 - **tests/cmake/ci_shards.cmake** (ctest:
   every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once)
   now also checks the following:
@@ -186,8 +190,8 @@ night's.
 | windows-clang (45) | 4: 32.5 / 34.0 | 5: 26.8 / 28.0 |
 
 A pull request's full run gains ten shard jobs, a draft's four (linux-debug
-and windows-debug). The figures are as each preset's own host deals it
-(PHANTOMS, below).
+and windows-debug). The macOS and Windows figures are those hosts' own
+dealings as reproduced from Linux; their hosts check them.
 
 Gust sweep, 60% of a release limit and 75% of a debug one:
 - Release, every night, 60 minutes: linux-release 6 shards on Ubuntu and 6

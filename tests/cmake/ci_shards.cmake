@@ -155,6 +155,22 @@ if(NOT _nnr EQUAL _njobs)
 endif()
 message(STATUS "${_nnight} nightly test, named with its reason; ${_nnr} of ${_njobs} test jobs leave it out of pull requests")
 
+# **A shard job's sizing is checked on hosts of its own operating system**:
+# every host deals every preset, from the tests of the build it runs in, and
+# a host of another system lacks the preset's own tests (_on_metal,
+# _on_direct3d12) - so a Linux host sized macos-debug's night at 31.1 minutes
+# a shard where a macOS host, with them, dealt 34.7 (train run 43446046011).
+# Each preset's coverage is asserted on every host; its shards' sizing only
+# where its tests are all there, so every preset is sized on one list, its
+# own, whichever host runs this. A pull request's full run has every system's
+# hosts (CI passed); a draft's only Linux and Windows.
+get_filename_component(_host_preset ${BUILD} NAME)
+string(REGEX MATCH "^[a-z]+" _host_system "${_host_preset}")
+if(NOT _host_system MATCHES "^(linux|macos|windows)$")
+    message(FATAL_ERROR "the build ${BUILD} is of no system a preset names (${_host_preset})")
+endif()
+set(_sized_here "")
+
 # **Every dealing lists what its run leaves out**: ctest numbers -I's tests
 # among those its -LE leaves, so a dealing that listed the whole build had
 # each shard run, from the first test left out on, a test after the one it
@@ -243,7 +259,10 @@ foreach(_p IN LISTS _presets)
     elseif(NOT _limit_${_jobn} MATCHES "^[0-9]+$")
         message(FATAL_ERROR "${_p}: a shard job's limit is a number of minutes, not ${_limit_${_jobn}}")
     elseif(_preset_${_p} MATCHES "-debug$")
-        set(_deal_args -DMINUTES=${_limit_${_jobn}} -DSHARE=75 -DSTRICT=ON)
+        if(_preset_${_p} MATCHES "^${_host_system}-")
+            set(_deal_args -DMINUTES=${_limit_${_jobn}} -DSHARE=75 -DSTRICT=ON)
+            list(APPEND _sized_here ${_p})
+        endif()
         list(APPEND _sharded ${_preset_${_p}})
         set(_ways "timing|nightly|gust_sweep")
         if(_other_debug STREQUAL "")
@@ -251,7 +270,10 @@ foreach(_p IN LISTS _presets)
             list(APPEND _ways "timing|gust_sweep")
         endif()
     else()
-        set(_deal_args -DMINUTES=${_limit_${_jobn}} -DSHARE=75 -DSTRICT=ON)
+        if(_preset_${_p} MATCHES "^${_host_system}-")
+            set(_deal_args -DMINUTES=${_limit_${_jobn}} -DSHARE=75 -DSTRICT=ON)
+            list(APPEND _sized_here ${_p})
+        endif()
         list(APPEND _sharded ${_preset_${_p}})
         set(_ways "nightly|gust_sweep")
         if(_other_release STREQUAL "")
@@ -259,14 +281,14 @@ foreach(_p IN LISTS _presets)
             list(APPEND _ways "gust_sweep")
         endif()
     endif()
-    # **A night's way is sized too, for every preset**: a night's run of a
-    # shard job leaves out less than a pull request's (the nightly tests
-    # come in), so its shards hold more; read back above for the first
-    # preset of each kind only, it is dealt here for each, at the job's
-    # limit (STRICT). macOS debug, which no pull request runs, was dealt
-    # 34.0 of its 33.75 minutes so on a night (2026-11-14), and only a
-    # pull request's way had been checked.
-    if(NOT _job_kind STREQUAL "sweep")
+    # **A night's way is sized too, for every preset sized on this host**: a
+    # night's run of a shard job leaves out less than a pull request's (the
+    # nightly tests come in), so its shards hold more; read back above for
+    # the first preset of each kind only, it is dealt here for each, at the
+    # job's limit (STRICT). macOS debug, which no pull request runs, was
+    # dealt 34.7 of its 33.75 minutes so on a macOS host (train run
+    # 43446046011), and only a pull request's way had been checked.
+    if(NOT _job_kind STREQUAL "sweep" AND _deal_args)
         if(_preset_${_p} MATCHES "-debug$")
             set(_night "timing|gust_sweep")
         else()
@@ -276,7 +298,7 @@ foreach(_p IN LISTS _presets)
         file(REMOVE_RECURSE ${_ndir})
         file(MAKE_DIRECTORY ${_ndir})
         execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_preset_${_p}} -DBUILD=${BUILD} -DOF=${_of_${_p}}
-                "-DEXCLUDE=${_night}" ${_deal_args} -DELSEWHERE=ON -DPHANTOMS=ON -DOUT_ALL=${_ndir}
+                "-DEXCLUDE=${_night}" ${_deal_args} -DELSEWHERE=ON -DOUT_ALL=${_ndir}
                 -P ${ROOT}/tools/ci_shard.cmake
             OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
         if(NOT _rc EQUAL 0)
@@ -296,7 +318,7 @@ foreach(_p IN LISTS _presets)
         file(REMOVE_RECURSE ${_dir})
         file(MAKE_DIRECTORY ${_dir})
         execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_preset_${_p}} -DBUILD=${BUILD} -DOF=${_of_${_p}}
-                "-DEXCLUDE=${_exclude}" ${_deal_args} -DELSEWHERE=ON -DPHANTOMS=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
+                "-DEXCLUDE=${_exclude}" ${_deal_args} -DELSEWHERE=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
             OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
         if(NOT _rc EQUAL 0)
             message(FATAL_ERROR "${_p}: the dealing failed:\n${_out}")
@@ -359,6 +381,12 @@ foreach(_wayname IN ITEMS timing_nightly_gust_sweep nightly_gust_sweep timing_gu
         message(FATAL_ERROR "no dealing left tests out as a run does by '${_wayname}'")
     endif()
 endforeach()
+
+list(LENGTH _sized_here _nsized)
+if(_nsized EQUAL 0)
+    message(FATAL_ERROR "no shard job of a ${_host_system} preset to size on this ${_host_system} host")
+endif()
+message(STATUS "shard jobs sized on this ${_host_system} host, both ways, at three quarters of their limits: ${_sized_here}")
 
 # **The debug presets' gust sweep, a day at a time** (the owner's decision of
 # 2026-11-13; tests/CMakeLists.txt labels each gust_sweep test sweep_day_1 to
@@ -452,7 +480,7 @@ foreach(_block IN LISTS _day_blocks)
         execute_process(COMMAND ${CMAKE_COMMAND} "-DINCLUDE=^sweep_day_${_day}$" -DPRESET=${_dp}
                 -DBUILD=${BUILD} -DOF=${_dof} -DDEFAULT=longest -DMINUTES=${_dmin} -DSHARE=75 -DSTRICT=ON
                 -DMODEL_DEBUG=ON
-                -DELSEWHERE=ON -DPHANTOMS=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
+                -DELSEWHERE=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
             OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
         if(NOT _rc EQUAL 0)
             message(FATAL_ERROR "${_dp}, day ${_day}: the dealing failed:\n${_out}")
