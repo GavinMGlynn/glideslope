@@ -68,6 +68,10 @@ The gust sweep stays on every preset, debug included:
     states the space: 15 × 15 pairs, 16 flights a pair, 3,600 flights. A
     piece flies exactly the calls that `person_piece_calls` lists, and the
     test counts those calls' flights, so what is flown is what is counted.
+    A piece flies every call even when one fails, and reports every
+    failure together at the end. With two bearings broken it reported both:
+    "2 of 8 calls went wrong: ... flying away 45 deg ...; ... 90 deg ...".
+    Reverted.
     With the raised-ground call dropped from the list, it failed: "the
     space is sixteen flights a pair: 3375". Reverted. With one pair's
     pieces left out, it failed: "16 flights dropped".
@@ -102,9 +106,15 @@ The gust sweep stays on every preset, debug included:
       table never measured, each costed at 60 s. That is 2,760 s over 13
       shards × 4, 0.9 min a shard: 45.4 of 45 minutes, as job
       131752441587 logged.
-    - A test of this preset's own system that the table has not measured
-      still costs DEFAULT, in both. macOS debug's are the likeliest case,
-      since they are measured only on scheduled runs.
+    - A test of this preset's own system that no table of that system has
+      measured, and no other system's either, costs DEFAULT in both.
+    - The case it gets wrong: a new test that runs everywhere and that a
+      Linux table measures before macOS's tables are measured again costs
+      0 on macOS, not DEFAULT, because only another system's table names
+      it. macOS debug is the likeliest victim, since it is measured only on
+      scheduled runs. It corrects itself at the next re-measure of macOS's
+      tables (tools/ci_test_costs.py over a run with macOS shards), which
+      gives the test its own figure there.
 - **tests/cmake/ci_shards.cmake** (ctest:
   every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once)
   now also checks the following:

@@ -13779,16 +13779,32 @@ std::vector<std::string> person_piece_flights(const PersonPiece& p) {
 }
 
 // **One piece flown**: every call of its slice, and nothing else - each
-// call asserts every case of its own flown.
+// call asserts every case of its own flown. A call that fails does not stop
+// the ones after it: every call is flown, and what each found wrong is
+// reported together at the end, so one red bearing hides none after it.
 void fly_person_piece(const PersonPiece& p) {
     const std::vector<std::string> kinds = landplanes_going_around();
     for (const std::string& id : {p.id, p.other}) {
         check(std::find(kinds.begin(), kinds.end(), id) != kinds.end(),
               id + " is a landplane that goes around");
     }
+    std::vector<std::string> failed;
     for (const PieceCall& c : person_piece_calls(p)) {
-        c.fly();
+        try {
+            c.fly();
+        } catch (const glideslope::test::Failure& f) {
+            failed.push_back(c.flights.front() + (c.flights.size() > 1 ? " and the rest of its call" : "") +
+                             ": " + f.message);
+        }
     }
+    std::string all;
+    for (const std::string& f : failed) {
+        std::printf("  WRONG: %s\n", f.c_str());
+        all += (all.empty() ? "" : "; ") + f;
+    }
+    check(failed.empty(), std::to_string(failed.size()) + " of " +
+                              std::to_string(person_piece_calls(p).size()) +
+                              " calls went wrong: " + all);
 }
 
 const bool person_pieces_registered = [] {
