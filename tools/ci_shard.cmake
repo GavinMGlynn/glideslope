@@ -6,7 +6,13 @@
 # EXCLUDE is the run's -LE, the same regex, or nothing when the run has none:
 # ctest numbers -I's tests among those -LE leaves, so the dealing must list
 # the same (below). INCLUDE is a run's -L, the same way: the gust_sweep
-# shards (ci.yml) deal and run the tests labelled gust_sweep alone.
+# shards (ci.yml) deal and run the tests labelled gust_sweep alone. REGEX is a
+# run's -R, the same way: the nightly's multi-process shards (nightly.yml)
+# deal the tests whose names say they run programs against each other.
+#
+# **A run that repeats its tests says so.** REPEAT is a run's `--repeat
+# until-fail:N`: a test that passes is run N times, one run after another,
+# so it costs N times its figure.
 #
 # **A shard is sized, and the sizing asserted.** With MINUTES, its job's
 # timeout-minutes, the dealing checks that every shard's work is at most
@@ -106,6 +112,11 @@ endwhile()
 if(JOBS STREQUAL "")
     message(FATAL_ERROR "ci_shard: test preset ${PRESET} says no jobs")
 endif()
+if(NOT DEFINED REPEAT)
+    set(REPEAT 1)
+elseif(NOT REPEAT MATCHES "^[1-9][0-9]*$")
+    message(FATAL_ERROR "ci_shard: REPEAT=${REPEAT} is not a number of runs")
+endif()
 
 # **The tests listed as the shard's ctest will number them.** ctest's -I
 # numbers count the tests left once -LE has left some out, not the build's
@@ -121,6 +132,13 @@ if(DEFINED EXCLUDE AND NOT EXCLUDE STREQUAL "")
 endif()
 if(DEFINED INCLUDE AND NOT INCLUDE STREQUAL "")
     list(APPEND _exclude -L "${INCLUDE}")
+endif()
+# With -R, ctest adds the setup of a fixture a picked test needs though its
+# name is not picked (the downloads), and numbers -I's tests before it does:
+# listed with it, every test after it was dealt one place off. So the list is
+# the picked tests alone (-FA), as -I numbers them; the run adds the setup.
+if(DEFINED REGEX AND NOT REGEX STREQUAL "")
+    list(APPEND _exclude -R "${REGEX}" -FA ".*")
 endif()
 execute_process(COMMAND ${CMAKE_CTEST_COMMAND} --test-dir ${BUILD} --show-only=json-v1 ${_exclude}
     OUTPUT_VARIABLE _json RESULT_VARIABLE _rc)
@@ -208,6 +226,8 @@ if(DEFAULT STREQUAL "longest")
 endif()
 
 # Each test: its cost, what it holds, and the fixtures it sets up or needs.
+# _longest_run: the longest a test takes with its repeats, for the sizing.
+set(_longest_run 0)
 set(_unmeasured "")
 set(_costdata "")
 set(_names "")
@@ -271,6 +291,10 @@ foreach(_i RANGE ${_last})
         set(_longest ${_c})
     endif()
     string(APPEND _costdata "${_name} 1 ${_c}\n")
+    math(EXPR _c "${_c} * ${REPEAT}")
+    if(_c GREATER _longest_run)
+        set(_longest_run ${_c})
+    endif()
     math(EXPR _w_${_n} "${_c} * ${_holds}")
     math(EXPR _total "${_total} + ${_w_${_n}}")
     list(REMOVE_DUPLICATES _fix_${_n})
@@ -369,7 +393,11 @@ foreach(_s RANGE ${_olast})
     math(EXPR _minutes10 "${_load_${_s}} * 10 / (${JOBS} * 60)")
     string(REGEX REPLACE "([0-9])$" ".\\1" _minutes "${_minutes10}")
     string(REGEX REPLACE "^\\." "0." _minutes "${_minutes}")
-    message(STATUS "ci_shard: ${PRESET} shard ${_k} of ${OF}: ${_n} tests, about ${_minutes} min of work at ${JOBS} at a time")
+    set(_times "")
+    if(REPEAT GREATER 1)
+        set(_times ", each ${REPEAT} times")
+    endif()
+    message(STATUS "ci_shard: ${PRESET} shard ${_k} of ${OF}: ${_n} tests${_times}, about ${_minutes} min of work at ${JOBS} at a time")
     if(_n EQUAL 0)
         message(FATAL_ERROR "ci_shard: shard ${_k} of ${OF} was dealt no tests")
     endif()
@@ -386,10 +414,11 @@ foreach(_s RANGE ${_olast})
     endif()
 endforeach()
 if(DEFINED MINUTES)
-    # The longest test, half as long again, inside the limit.
-    math(EXPR _over "${_longest} * 3 - ${MINUTES} * 120")
+    # The longest test, half as long again, inside the limit - with its
+    # repeats, which run one after another.
+    math(EXPR _over "${_longest_run} * 3 - ${MINUTES} * 120")
     if(_over GREATER 0)
-        list(APPEND _oversized "its longest test, ${_longest} s, half as long again is past ${MINUTES} min")
+        list(APPEND _oversized "its longest test, ${_longest_run} s with its repeats, half as long again is past ${MINUTES} min")
     endif()
     if(_oversized)
         list(JOIN _oversized "; " _list)

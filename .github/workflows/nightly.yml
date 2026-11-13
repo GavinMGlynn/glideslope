@@ -27,14 +27,39 @@ on:
         default: false
 
 jobs:
+  # **In shards, dealt by what each test costs** (tools/ci_shard.cmake, from
+  # tests/ci_costs/linux-debug.txt, five times each). In one job it last
+  # finished on 2026-09-27: 100 tests five times in 98 of its 120 minutes.
+  # The next night the same 100 took 22% longer and were cut off, and it was
+  # cut off every night after, while what the names pick grew to 282 tests:
+  # on 2026-11-12 it had run 85 of them when it was. Seven shards hold about
+  # 83 minutes of measured work each, under three quarters of their 120, and
+  # tests/cmake/ci_shards.cmake deals them on every pull request and fails
+  # one that would put a shard past that - so a job that grows fails a pull
+  # request before it fails a night. Four at a time, the test preset's jobs,
+  # as the costs were measured (it was two at a time in one job).
   repeat:
-    name: The multi-process tests, five times each
+    name: The multi-process tests, five times each - shard ${{ matrix.shard }} of ${{ matrix.of }}
     # Every night; by hand only when asked, so that asking for the macOS
     # repeats does not also spend an hour of Linux on them.
     if: ${{ github.event_name == 'schedule' || inputs.linux_repeats }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { preset: linux-debug, shard: 1, of: 7 }
+          - { preset: linux-debug, shard: 2, of: 7 }
+          - { preset: linux-debug, shard: 3, of: 7 }
+          - { preset: linux-debug, shard: 4, of: 7 }
+          - { preset: linux-debug, shard: 5, of: 7 }
+          - { preset: linux-debug, shard: 6, of: 7 }
+          - { preset: linux-debug, shard: 7, of: 7 }
     env:
+      # The tests whose names say they run programs against each other: the
+      # dealing and the run pick the same ones by it.
+      MULTIPROCESS: 'server|client|window|player|collision|systemd|online|package'
       CXX: g++-14
       CC: gcc-14
       CCACHE_DIR: ${{ github.workspace }}/.ccache
@@ -86,18 +111,19 @@ jobs:
           enableCrossOsArchive: true
       - name: Build
         run: |
-          cmake --preset linux-debug -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
-          cmake --build --preset linux-debug
-      - name: Five times each
+          cmake --preset ${{ matrix.preset }} -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_SCAN_FOR_MODULES=OFF
+          cmake --build --preset ${{ matrix.preset }}
+      - name: Five times each, shard ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DEXCLUDE=timing "-DREGEX=$MULTIPROCESS" -DREPEAT=5 -DMINUTES=120 -DSHARE=75 -DELSEWHERE=ON -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0
-          DISPLAY=:99 ctest --preset linux-debug -j2 --repeat until-fail:5 \
-              -R 'server|client|window|player|collision|systemd|online|package' -LE timing || rc=$?
+          DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" -R "$MULTIPROCESS" -LE timing --repeat until-fail:5 || rc=$?
           kill $xvfb
           exit $rc
+      # One shard saves the night's downloads: every shard would save the same key.
       - uses: actions/cache/save@v6
-        if: ${{ !cancelled() && github.event_name != 'pull_request' }}
+        if: ${{ !cancelled() && github.event_name != 'pull_request' && matrix.shard == 1 }}
         with:
           path: |
             .downloads/*
