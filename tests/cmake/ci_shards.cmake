@@ -259,6 +259,30 @@ foreach(_p IN LISTS _presets)
             list(APPEND _ways "gust_sweep")
         endif()
     endif()
+    # **A night's way is sized too, for every preset**: a night's run of a
+    # shard job leaves out less than a pull request's (the nightly tests
+    # come in), so its shards hold more; read back above for the first
+    # preset of each kind only, it is dealt here for each, at the job's
+    # limit (STRICT). macOS debug, which no pull request runs, was dealt
+    # 34.0 of its 33.75 minutes so on a night (2026-11-14), and only a
+    # pull request's way had been checked.
+    if(NOT _job_kind STREQUAL "sweep")
+        if(_preset_${_p} MATCHES "-debug$")
+            set(_night "timing|gust_sweep")
+        else()
+            set(_night "gust_sweep")
+        endif()
+        set(_ndir ${WORK}/${_p}_night_sized)
+        file(REMOVE_RECURSE ${_ndir})
+        file(MAKE_DIRECTORY ${_ndir})
+        execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_preset_${_p}} -DBUILD=${BUILD} -DOF=${_of_${_p}}
+                "-DEXCLUDE=${_night}" ${_deal_args} -DELSEWHERE=ON -DOUT_ALL=${_ndir}
+                -P ${ROOT}/tools/ci_shard.cmake
+            OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
+        if(NOT _rc EQUAL 0)
+            message(FATAL_ERROR "${_p}, a night's way ('${_night}'): the dealing failed:\n${_out}")
+        endif()
+    endif()
 
     list(GET _ways 0 _first_way)
     foreach(_way IN LISTS _ways)
@@ -272,7 +296,7 @@ foreach(_p IN LISTS _presets)
         file(REMOVE_RECURSE ${_dir})
         file(MAKE_DIRECTORY ${_dir})
         execute_process(COMMAND ${CMAKE_COMMAND} -DPRESET=${_preset_${_p}} -DBUILD=${BUILD} -DOF=${_of_${_p}}
-                "-DEXCLUDE=${_exclude}" ${_deal_args} -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
+                "-DEXCLUDE=${_exclude}" ${_deal_args} -DELSEWHERE=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
             OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
         if(NOT _rc EQUAL 0)
             message(FATAL_ERROR "${_p}: the dealing failed:\n${_out}")
@@ -349,7 +373,7 @@ set(_day_block_re "matrix:\n        preset: \\[([a-z-]+)\\]\n        minutes: \\
 string(REGEX MATCHALL "${_day_block_re}" _day_blocks "${_yml}")
 string(REGEX MATCHALL "cmake \"-DINCLUDE=[^\n]*-P tools/ci_shard.cmake" _day_calls "${_yml}")
 string(REGEX MATCHALL "ctest -L [^\n]*shard.txt[^\n]*" _day_runs "${_yml}")
-set(_day_call [=[cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -P tools/ci_shard.cmake]=])
+set(_day_call [=[cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -DMODEL_DEBUG=ON -P tools/ci_shard.cmake]=])
 list(LENGTH _day_blocks _ndb)
 list(LENGTH _day_calls _ndc)
 list(LENGTH _day_runs _ndr)
@@ -427,7 +451,8 @@ foreach(_block IN LISTS _day_blocks)
         file(MAKE_DIRECTORY ${_dir})
         execute_process(COMMAND ${CMAKE_COMMAND} "-DINCLUDE=^sweep_day_${_day}$" -DPRESET=${_dp}
                 -DBUILD=${BUILD} -DOF=${_dof} -DDEFAULT=longest -DMINUTES=${_dmin} -DSHARE=75 -DSTRICT=ON
-                -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
+                -DMODEL_DEBUG=ON
+                -DELSEWHERE=ON -DOUT_ALL=${_dir} -P ${ROOT}/tools/ci_shard.cmake
             OUTPUT_VARIABLE _out ERROR_VARIABLE _out RESULT_VARIABLE _rc)
         if(NOT _rc EQUAL 0)
             message(FATAL_ERROR "${_dp}, day ${_day}: the dealing failed:\n${_out}")

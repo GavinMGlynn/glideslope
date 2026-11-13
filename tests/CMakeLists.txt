@@ -4076,9 +4076,11 @@ add_test(NAME every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_
 # Every shard's -I file is read back by a ctest of its own: 648 s on Windows
 # debug's runners (tests/ci_costs), and past the presets' 900 there and on
 # Windows release in dispatch run 43257673789, once the gust sweep's shards
-# were dealt too. Nothing gives up on a slow machine sooner than it needs.
+# were dealt too; and now every debug preset's seven days are dealt and read
+# back as well - 358 s on linux-release locally, against 146 before. An hour:
+# nothing gives up on a slow machine sooner than it needs.
 set_tests_properties(every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
-    PROPERTIES TIMEOUT 1800)
+    PROPERTIES TIMEOUT 3600)
 
 # **Run as a git hook runs it, the hooks' test leaves the repository being
 # pushed alone.** See cmake/githooks_in_a_hook.cmake.
@@ -5100,6 +5102,11 @@ foreach(_table IN LISTS _ci_cost_tables)
             if(_table MATCHES "/linux-debug\\.txt$")
                 set(_ci_debug_${_n} ${_s})
             endif()
+            if(_table MATCHES "-release\\.txt$|/windows-clang\\.txt$")
+                if(NOT DEFINED _ci_release_${_n} OR _s GREATER _ci_release_${_n})
+                    set(_ci_release_${_n} ${_s})
+                endif()
+            endif()
         endif()
     endforeach()
 endforeach()
@@ -5110,6 +5117,19 @@ foreach(_t IN LISTS _all_tests)
         continue()
     endif()
     math(EXPR _limit "(${_ci_slowest_${_t}} * 3 + 1) / 2")
+    # **A gust_sweep test in a debug build**: twelve times its slowest
+    # release figure too, half as long again. A debug figure is often a
+    # floor - a test given up at its limit - and three pairs going around
+    # gave up at 1,800 to 2,096 s on Linux debug in dispatch run
+    # 43384660740, where twelve times their release figures is 2,700 to
+    # 3,900 s.
+    get_test_property(${_t} LABELS _labels)
+    if(GLIDESLOPE_DEBUG_TIMES GREATER 1 AND "gust_sweep" IN_LIST _labels AND DEFINED _ci_release_${_t})
+        math(EXPR _modelled "(${_ci_release_${_t}} * ${GLIDESLOPE_DEBUG_TIMES} * 3 + 1) / 2")
+        if(_modelled GREATER _limit)
+            set(_limit ${_modelled})
+        endif()
+    endif()
     get_test_property(${_t} TIMEOUT _set)
     if(NOT _set)
         set(_set 900)   # the test presets' (CMakePresets.json)

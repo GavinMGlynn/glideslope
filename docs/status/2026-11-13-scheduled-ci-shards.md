@@ -1,7 +1,75 @@
 # The gust_sweep tests in shards of their own, on a schedule and a dispatch
 
-**Not verified on CI yet.** Round 4's dispatch, all seven days, is the
-proof run.
+**Verified by dispatch run 43384660740** (round 4, all seven days, 242
+jobs): no shard reached its limit on any preset. The tests that failed in
+that run are listed below. After it, the tables were measured again and
+the counts re-sized from the measurements (round 5, below). Round 5 itself
+has not been dispatched.
+
+## Dispatch run 43384660740 (round 4): the slowest shard per preset
+
+| preset | tests: slowest / limit | gust sweep: slowest / limit |
+| --- | --- | --- |
+| linux-debug | 47.6 / 60 (13 shards) | 94.4 / 120 (day 2; days 76–94) |
+| linux-release, Ubuntu | 39.7 / 60 | 34.4 / 60 |
+| linux-release, Rocky 9 | 34.2 / 45 | 34.0 / 60 |
+| macos-debug | 35.8 / 45 | 26.0 / 120 (days 21–26) |
+| macos-release | 30.3 / 45 | 19.6 / 60 |
+| windows-debug | 36.8 / 45 | 49.3 / 120 (days 32–49) |
+| windows-release | 31.4 / 45 | 54.7 / 60 |
+| windows-clang | 29.1 / 45 | 41.5 / 60 |
+
+Tests that genuinely failed:
+- an_f22_behind_a_persons_j3cub_flying_away_on_every_bearing_comes_back_kept_apart
+  failed on every preset ("7 flights came back short of fuel, 8 named").
+  This is the j3cub test #367 fixes.
+- On linux-debug, three pairs going around timed out at their limits:
+  two_going_around_together_behind_the_pa28 (2,096 s), _c182 (1,907 s) and
+  _a320 (1,800 s). This is fixed below by the twelve-times-release limit.
+- every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+  failed on the Windows hosts. This is also in #368's PR run 43384652902,
+  and is fixed below.
+- Package / macOS arm64 tarball failed:
+  "glideslope_cli: the weather could not be had: could not download:
+  https://api.open-meteo.com/v1/forecast?...". That is a network fetch,
+  not this item's.
+
+## Round 5: the Windows host, the tables measured again, the counts re-sized
+
+- **Why only Windows tripped the dealing test.** It deals every preset from
+  the test list of the build it runs in.
+  - From a Linux build, linux-debug's 13 shards held 44.5 min each.
+  - A Windows build has 46 Direct3D 12 tests that linux-debug's table
+    never measured, each dealt at the default 60 s. That is 2,760 s over
+    13 shards × 4 at once, 0.9 min a shard: 45.4 min, the figure in job
+    131752441587's log, past three quarters of 60.
+  - The fix, tools/ci_shard.cmake ELSEWHERE, which ci_shards.cmake passes:
+    a test that the preset's table does not name but another preset's
+    table does is another host's own. The preset never runs it, so it
+    costs nothing in the check, and the result holds whichever host deals.
+  - linux-debug's PR shards also go from 13 to 14 for margin: 42.0 and
+    42.4 of 45.
+- **A night's way of every shard job is now sized** at its limit (STRICT).
+  Before, only a pull request's way was sized, plus the night's way for
+  the first preset of each kind. macos-debug was dealt 34.0 of its 33.75
+  minutes on a night (31.1 with ELSEWHERE).
+- **A debug preset's gust sweep is dealt at 12 × release at least**
+  (MODEL_DEBUG). The gust_sweep tests' ctest limit in a debug build is
+  1.5 × that too, because a debug figure is often a floor.
+- **Tables** were measured again with dispatch runs 43257673789 and
+  43384660740 added, which measured every piece. The 37 whole tests that
+  were split were dropped from them. tools/ci_test_costs.py now retries
+  `gh` twice: one `gh run view` failed once and answered the next time.
+- **Counts from the measurements**:
+  - Debug sweep, a day: linux-debug 6 shards of 120 minutes (437–465
+    dealt minutes a day), windows-debug 7 of 120 (568–612) and
+    macos-debug 4 of 120 (265–283).
+  - Release sweep: linux-release 6 of 60 on Ubuntu and on Rocky,
+    macos-release 5, windows-release 10 and windows-clang 8.
+  - every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+    takes 358 s locally now. It ran 901 s on Windows and timed out at 900
+    there, so its limit is now 3,600 s.
+
 
 ## The owner's decision, 2026-11-13: the debug gust sweep rotates weekly
 
@@ -36,8 +104,8 @@ day, any one day from 1 to 7, or all seven (the `sweep_day` input).
     of 588 tests; 589 gust_sweep tests; 0 run twice; dropped:
     a_pa28_and_a_pa28_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart".
     Then reverted.
-- **Sizing.** Every job limit is 120 minutes or less, and every shard
-  holds at most 75% of it.
+- **Sizing (round 4; round 5's counts are above).** Every job limit is
+  120 minutes or less, and every shard holds at most 75% of it.
   - Debug sweep, one day: linux-debug 7 shards of 120 minutes (529–534
     dealt minutes a day), windows-debug 7 of 120 (about 530) and
     macos-debug 8 of 120 (about 704).
@@ -68,10 +136,13 @@ day, any one day from 1 to 7, or all seven (the `sweep_day` input).
 
 | | jobs | dealt minutes | runner-minutes |
 | --- | --- | --- | --- |
-| debug sweep, one day | 22 | about 1,770 | about 1,990 |
-| release sweep | 48 | about 1,670 | about 2,150 |
-| a night's sweep | 70 | about 3,440 | about 4,140, about 1,310 on macOS |
-| a dispatch of all seven days | 202 | about 14,060 | about 16,100 |
+| debug sweep, one day | 17 | about 1,310 | about 1,480 |
+| release sweep | 35 | about 1,200 | about 1,550 |
+| a night's sweep | 52 | about 2,510 | about 3,030, about 520 on macOS |
+| a dispatch of all seven days | 154 | about 10,370 | about 11,900 |
+
+From round 5's counts and the measured tables. Round 4's figures, from
+estimates, were about 4,140 runner-minutes a night.
 
 ## What was wrong
 
