@@ -160,9 +160,9 @@ message(STATUS "${_nnight} nightly test, named with its reason; ${_nnr} of ${_nj
 # each shard run, from the first test left out on, a test after the one it
 # was dealt (run 41415219089). Each job's call of the dealing passes, as
 # EXCLUDE, the same regex its ctest line gives -LE.
-set(_exclude_any [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake]=])
-set(_exclude_release [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly|gust_sweep' || 'gust_sweep' }}" -P tools/ci_shard.cmake]=])
-set(_exclude_sweep [=["-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake]=])
+set(_exclude_any [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -DELSEWHERE=ON -P tools/ci_shard.cmake]=])
+set(_exclude_release [=["-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly|gust_sweep' || 'gust_sweep' }}" -DELSEWHERE=ON -P tools/ci_shard.cmake]=])
+set(_exclude_sweep [=["-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DELSEWHERE=ON -P tools/ci_shard.cmake]=])
 set(_i 0)
 foreach(_call IN LISTS _calls)
     list(GET _run_kinds ${_i} _kind)
@@ -373,7 +373,7 @@ set(_day_block_re "matrix:\n        preset: \\[([a-z-]+)\\]\n        minutes: \\
 string(REGEX MATCHALL "${_day_block_re}" _day_blocks "${_yml}")
 string(REGEX MATCHALL "cmake \"-DINCLUDE=[^\n]*-P tools/ci_shard.cmake" _day_calls "${_yml}")
 string(REGEX MATCHALL "ctest -L [^\n]*shard.txt[^\n]*" _day_runs "${_yml}")
-set(_day_call [=[cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -DMODEL_DEBUG=ON -P tools/ci_shard.cmake]=])
+set(_day_call [=[cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -DMODEL_DEBUG=ON -DELSEWHERE=ON -P tools/ci_shard.cmake]=])
 list(LENGTH _day_blocks _ndb)
 list(LENGTH _day_calls _ndc)
 list(LENGTH _day_runs _ndr)

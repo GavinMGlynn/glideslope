@@ -318,7 +318,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -DELSEWHERE=ON -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }} || rc=$?
           kill $xvfb
@@ -389,7 +389,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -DELSEWHERE=ON -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }} || rc=$?
           kill $xvfb
@@ -590,7 +590,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           source /opt/rh/gcc-toolset-14/enable
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly|gust_sweep' || 'gust_sweep' }}" -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && 'nightly|gust_sweep' || 'gust_sweep' }}" -DELSEWHERE=ON -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && '-LE "nightly|gust_sweep"' || '-LE gust_sweep' }} || rc=$?
           kill $xvfb
@@ -780,7 +780,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -DELSEWHERE=ON -P tools/ci_shard.cmake
           ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
@@ -847,7 +847,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -DELSEWHERE=ON -P tools/ci_shard.cmake
           ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
@@ -1076,7 +1076,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake || exit /b 1
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -DELSEWHERE=ON -P tools/ci_shard.cmake || exit /b 1
           ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
 
       # **The figures the tests said, whether they passed or not** (each
@@ -1209,7 +1209,7 @@ jobs:
       - name: ${{ matrix.preset }} - tests ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -P tools/ci_shard.cmake || exit /b 1
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DEXCLUDE=${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && 'timing|nightly|gust_sweep' || 'nightly|gust_sweep') || (endsWith(matrix.preset, '-debug') && 'timing|gust_sweep' || 'gust_sweep') }}" -DELSEWHERE=ON -P tools/ci_shard.cmake || exit /b 1
           ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt ${{ github.event_name == 'pull_request' && (endsWith(matrix.preset, '-debug') && '-LE "timing|nightly|gust_sweep"' || '-LE "nightly|gust_sweep"') || (endsWith(matrix.preset, '-debug') && '-LE "timing|gust_sweep"' || '-LE gust_sweep') }}
 
       # **The figures the tests said, whether they passed or not** (each
@@ -1338,7 +1338,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - gust sweep ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DELSEWHERE=ON -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" -L gust_sweep || rc=$?
           kill $xvfb
@@ -1403,7 +1403,7 @@ jobs:
       - name: ${{ matrix.preset }} - gust sweep ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
           source /opt/rh/gcc-toolset-14/enable
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DELSEWHERE=ON -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" -L gust_sweep || rc=$?
           kill $xvfb
@@ -1456,7 +1456,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - gust sweep ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DELSEWHERE=ON -P tools/ci_shard.cmake
           ctest --preset ${{ matrix.preset }} -I "$PWD/shard.txt" -L gust_sweep
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
@@ -1543,7 +1543,7 @@ jobs:
       - name: ${{ matrix.preset }} - gust sweep ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: |
-          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -P tools/ci_shard.cmake || exit /b 1
+          cmake -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt "-DINCLUDE=gust_sweep" -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DELSEWHERE=ON -P tools/ci_shard.cmake || exit /b 1
           ctest --preset ${{ matrix.preset }} -I %CD%\shard.txt -L gust_sweep
 
       # **The figures the tests said, whether they passed or not** (each
@@ -1666,7 +1666,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - gust sweep day ${{ matrix.day }} ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -DMODEL_DEBUG=ON -P tools/ci_shard.cmake
+          cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -DMODEL_DEBUG=ON -DELSEWHERE=ON -P tools/ci_shard.cmake
           Xvfb :99 -screen 0 1280x1024x24 & xvfb=$!
           rc=0; DISPLAY=:99 ctest -L "^sweep_day_${{ matrix.day }}$" --preset ${{ matrix.preset }} -I "$PWD/shard.txt" || rc=$?
           kill $xvfb
@@ -1719,7 +1719,7 @@ jobs:
 
       - name: ${{ matrix.preset }} - gust sweep day ${{ matrix.day }} ${{ matrix.shard }} of ${{ matrix.of }}
         run: |
-          cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -DMODEL_DEBUG=ON -P tools/ci_shard.cmake
+          cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -DMODEL_DEBUG=ON -DELSEWHERE=ON -P tools/ci_shard.cmake
           ctest -L "^sweep_day_${{ matrix.day }}$" --preset ${{ matrix.preset }} -I "$PWD/shard.txt"
       # **The figures the tests said, whether they passed or not** (each
       # test's figures.txt in its work directory: LastTest.log is written
@@ -1744,8 +1744,8 @@ jobs:
       matrix:
         preset: [windows-debug]
         minutes: [120]
-        of: [7]
-        shard: [1, 2, 3, 4, 5, 6, 7]
+        of: [8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
         day: ${{ fromJSON(needs.sweep-days.outputs.days) }}
     env:
       SDL_LOGGING: gpu=debug
@@ -1792,7 +1792,7 @@ jobs:
       - name: ${{ matrix.preset }} - gust sweep day ${{ matrix.day }} ${{ matrix.shard }} of ${{ matrix.of }}
         shell: cmd
         run: |
-          cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -DMODEL_DEBUG=ON -P tools/ci_shard.cmake || exit /b 1
+          cmake "-DINCLUDE=^sweep_day_${{ matrix.day }}$" -DPRESET=${{ matrix.preset }} -DSHARD=${{ matrix.shard }} -DOF=${{ matrix.of }} -DOUT=shard.txt -DDEFAULT=longest -DMINUTES=${{ matrix.minutes }} -DSHARE=75 -DMODEL_DEBUG=ON -DELSEWHERE=ON -P tools/ci_shard.cmake || exit /b 1
           ctest -L "^sweep_day_${{ matrix.day }}$" --preset ${{ matrix.preset }} -I %CD%\shard.txt
 
       # **The figures the tests said, whether they passed or not** (each
