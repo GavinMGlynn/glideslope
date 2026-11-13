@@ -5,18 +5,27 @@
 #         -DCACHE=<downloads dir> -DWORK=<scratch> -DPORT=<a port>
 #         -P server_rejoin_layer.cmake
 #
-# **Built, not hoped for.** A server with two AI aircraft on the plan file
-# and room for two players, whose aircraft is taken out of the sky when its
-# player goes (`--on-leave remove`, the default). Three clients:
-# - A joins at once and leaves 6 s later;
-# - B joins 1 s in and stays 40 s, untouched, so it is still within 1.5 nm
-#   of the start when C joins;
-# - C joins 12 s in, after A has gone, and stays 10 s.
+# **Built, not hoped for**, on events, not on a clock. A server with two AI
+# aircraft on the plan file and room for two players, whose aircraft is
+# taken out of the sky when its player goes (`--on-leave remove`, the
+# default). Three clients, each waiting on the one before:
+# - A joins once the server is flying (`--after-ready` its `--ready-file`),
+#   and leaves once B is in the session (`--until-exists` B's
+#   `--told-file`), writing a file when it has gone (`--done`);
+# - B joins once A is in (`--after-ready` A's `--told-file`), and stays,
+#   untouched, until C is in - so it is still within 1.5 nm of the start
+#   when C joins;
+# - C joins once A has gone (`--after-ready` A's `--done` file), and leaves
+#   once it is in.
+# Its joins were once on a clock - A for 6 s, B 1 s in, C 12 s in - and a
+# debug server that took 7 s to start flying on a loaded runner (nightly run
+# 43507588675) still had A when C knocked: C was refused, the server full.
 # Each layer was once worked out from a count of aircraft. With A's aircraft
 # gone from the sky, C was counted onto B's layer, at the start: the two
 # AI aircraft and B make three, so C went on layer four, which is B's.
-# **Checked**: the server says where each of the three starts, and no two
-# share a layer - C's above B's - and nothing is wrecked.
+# **Checked**: the situation was built - A, B and C started in that order,
+# with A let go between B's start and C's - and no two share a layer, C's
+# above B's, and nothing is wrecked.
 #
 # Without the DEM's tiles it reports itself skipped (exit 77).
 
@@ -46,12 +55,22 @@ if(NOT _rc EQUAL 0)
     cmake_language(EXIT 77)
 endif()
 
+set(_ready "${WORK}/ready.txt")
+set(_a_in "${WORK}/a-in.txt")
+set(_a_gone "${WORK}/a-gone.txt")
+set(_b_in "${WORK}/b-in.txt")
+set(_c_in "${WORK}/c-in.txt")
+file(REMOVE "${_ready}" "${_a_in}" "${_a_gone}" "${_b_in}" "${_c_in}")
 execute_process(
-    COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 6
-    COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 40 --after 1
-    COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 10 --after 12
+    COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 300
+            --after-ready "${_ready}" --told-file "${_a_in}" --until-exists "${_b_in}"
+            --done "${_a_gone}"
+    COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 300
+            --after-ready "${_a_in}" --told-file "${_b_in}" --until-exists "${_c_in}"
+    COMMAND "${CLIENT}" --data "${DATA}" connect "127.0.0.1:${PORT}" "${_key}" 300
+            --after-ready "${_a_gone}" --told-file "${_c_in}" --until-exists "${_c_in}"
     COMMAND "${SERVER}" --port ${PORT} --seconds 600 --until-empty --players 2 --headless
-            --data "${DATA}" --store "${_store}" --ai 2
+            --data "${DATA}" --store "${_store}" --ai 2 --ready-file "${_ready}"
     RESULTS_VARIABLE _rcs OUTPUT_VARIABLE _out ERROR_VARIABLE _err)
 port_listened("${_out}" "${_err}")
 if(_out MATCHES "is a wreck")
@@ -62,17 +81,32 @@ list(LENGTH _starts _count)
 if(NOT _count EQUAL 3)
     message(FATAL_ERROR "${_count} players' starts were said, not the three joins:\n${_out}")
 endif()
+# **The situation, built**: the server's starts and lettings-go in the order
+# it said them - B's start, then A let go, then C's: C joined with A gone and
+# B still there, the case the rule is for.
+string(REGEX MATCHALL "(a player's aircraft starts on layer|let go)" _said "${_out}")
+list(TRANSFORM _said REPLACE "a player's aircraft starts on layer" "start")
+list(TRANSFORM _said REPLACE "let go" "gone")
+list(SUBLIST _said 0 4 _first_four)
+if(NOT _first_four STREQUAL "start;start;gone;start")
+    message(FATAL_ERROR "the joins and leavings came as ${_said}, not A and B in, A gone, "
+                        "then C in:\n${_out}")
+endif()
 set(_layers)
 foreach(_start IN LISTS _starts)
     string(REGEX REPLACE ".* layer " "" _layer "${_start}")
     list(APPEND _layers "${_layer}")
 endforeach()
+list(GET _layers 0 _a)
 list(GET _layers 1 _b)
 list(GET _layers 2 _c)
 message(STATUS "A, B and C started on layers ${_layers}")
-if(_c EQUAL _b)
-    message(FATAL_ERROR "C, joining after A left, was put on B's layer ${_b}, at the start "
-                        "while B was still near it:\n${_out}")
+if(_b EQUAL _a)
+    message(FATAL_ERROR "B was put on A's layer ${_a}:\n${_out}")
+endif()
+if(NOT _c GREATER _b)
+    message(FATAL_ERROR "C, joining after A left, was put on layer ${_c}, not above B's "
+                        "${_b}, at the start while B was still near it:\n${_out}")
 endif()
 if(NOT _rcs STREQUAL "0;0;0;0")
     message(FATAL_ERROR "the programs' exit codes were ${_rcs}:\n${_out}\n${_err}")
