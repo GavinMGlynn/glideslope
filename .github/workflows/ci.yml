@@ -122,8 +122,9 @@ env:
 #     macOS debug 8 and Windows debug 12 (a night's way, sized as their own
 #     hosts deal it: 34.7 and 34.2 of 33.75 at 7 and 11, train run
 #     43446046011), Linux release 3 (Ubuntu), macOS release 4, Windows
-#     release and clang-cl 5: twelve more jobs, so a full run's shards queue
-#     past 40 at once.
+#     release and clang-cl 5: eleven more jobs on a full run (macOS debug's
+#     three more run only at night), so a full run's shards queue past 40
+#     at once.
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may

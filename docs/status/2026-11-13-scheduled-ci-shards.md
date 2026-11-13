@@ -189,9 +189,10 @@ night's.
 | windows-release (45) | 4: 35.8 / 37.3 | 5: 29.4 / 30.6 |
 | windows-clang (45) | 4: 32.5 / 34.0 | 5: 26.8 / 28.0 |
 
-A pull request's full run gains ten shard jobs, a draft's four (linux-debug
-and windows-debug). The macOS and Windows figures are those hosts' own
-dealings as reproduced from Linux; their hosts check them.
+A pull request's full run gains eleven shard jobs, a draft's seven
+(linux-debug three, windows-debug four); macOS debug's three more run only
+at night. The macOS and Windows figures are unverified until a full run
+deals them on those hosts.
 
 Gust sweep, 60% of a release limit and 75% of a debug one:
 - Release, every night, 60 minutes: linux-release 6 shards on Ubuntu and 6
