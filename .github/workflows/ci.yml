@@ -119,7 +119,9 @@ env:
 #     shard dealt 43 of its 45 minutes finished its last test 13 s before it
 #     was cut off (#367's run). Linux debug 14 (13 held 44.9 of its 45
 #     minutes' three quarters, and 45.4 dealt on Windows, run 43384652902),
-#     Linux release 3 (Ubuntu),
+#     macOS debug 8 and Windows debug 12 (a night's way, sized as their own
+#     hosts deal it: 34.7 and 34.2 of 33.75 at 7 and 11, train run
+#     43446046011), Linux release 3 (Ubuntu),
 #     macOS release 4 and debug 7, Windows debug 11, release and clang-cl 5:
 #     eleven more jobs, so a full run's shards queue past 40 at once.
 #   - Build and test are separate steps, so each one's time is in plain view.
@@ -819,13 +821,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: macos-debug, shard: 1, of: 7 }
-          - { preset: macos-debug, shard: 2, of: 7 }
-          - { preset: macos-debug, shard: 3, of: 7 }
-          - { preset: macos-debug, shard: 4, of: 7 }
-          - { preset: macos-debug, shard: 5, of: 7 }
-          - { preset: macos-debug, shard: 6, of: 7 }
-          - { preset: macos-debug, shard: 7, of: 7 }
+          - { preset: macos-debug, shard: 1, of: 8 }
+          - { preset: macos-debug, shard: 2, of: 8 }
+          - { preset: macos-debug, shard: 3, of: 8 }
+          - { preset: macos-debug, shard: 4, of: 8 }
+          - { preset: macos-debug, shard: 5, of: 8 }
+          - { preset: macos-debug, shard: 6, of: 8 }
+          - { preset: macos-debug, shard: 7, of: 8 }
+          - { preset: macos-debug, shard: 8, of: 8 }
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -1020,17 +1023,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-debug, shard: 1, of: 11 }
-          - { preset: windows-debug, shard: 2, of: 11 }
-          - { preset: windows-debug, shard: 3, of: 11 }
-          - { preset: windows-debug, shard: 4, of: 11 }
-          - { preset: windows-debug, shard: 5, of: 11 }
-          - { preset: windows-debug, shard: 6, of: 11 }
-          - { preset: windows-debug, shard: 7, of: 11 }
-          - { preset: windows-debug, shard: 8, of: 11 }
-          - { preset: windows-debug, shard: 9, of: 11 }
-          - { preset: windows-debug, shard: 10, of: 11 }
-          - { preset: windows-debug, shard: 11, of: 11 }
+          - { preset: windows-debug, shard: 1, of: 12 }
+          - { preset: windows-debug, shard: 2, of: 12 }
+          - { preset: windows-debug, shard: 3, of: 12 }
+          - { preset: windows-debug, shard: 4, of: 12 }
+          - { preset: windows-debug, shard: 5, of: 12 }
+          - { preset: windows-debug, shard: 6, of: 12 }
+          - { preset: windows-debug, shard: 7, of: 12 }
+          - { preset: windows-debug, shard: 8, of: 12 }
+          - { preset: windows-debug, shard: 9, of: 12 }
+          - { preset: windows-debug, shard: 10, of: 12 }
+          - { preset: windows-debug, shard: 11, of: 12 }
+          - { preset: windows-debug, shard: 12, of: 12 }
     env:
       SDL_LOGGING: gpu=debug
     steps:
