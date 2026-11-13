@@ -60,8 +60,8 @@ re-measure brings them down.
 
 ## Verification
 
-- **With the slow server, after the fix:** 3 out of 3 passed (A, B and C on
-  layers 3, 4 and 5), and 10 more runs were clean too (below).
+- **With the slow server, after the fix:** 13 out of 13 passed (A, B and C
+  on layers 3, 4 and 5).
 - **Under load, after the fix:** `--repeat until-fail:15`, `-j4`, on four
   cores, with its siblings: all passed.
 - **A deliberate bug turns it red.** `free_layer` was made to skip its
