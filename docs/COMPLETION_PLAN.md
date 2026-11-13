@@ -2052,6 +2052,12 @@ Joining, leaving, being dropped and coming back; the handshake, the reliable lay
       started again** with its key from `--store`. *Verification: the window
       client, its server restarted under it, joins again and flies an
       aircraft the new server gives it.* Done 2026-10-06.
+- [x] **The test of a player joining after another has left ran on a clock**,
+      so a server slow to start still had the first player when the third
+      knocked, and refused her as full (nightly 43507588675). *Verification:
+      with a server started 7 s late it failed 3 times in 3 before the fix
+      and passed 13 in 13 after; it fails on a layer search that is
+      deliberately broken.* Done 2026-11-14: its joins wait on events.
 
 ---
 
