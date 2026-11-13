@@ -1855,6 +1855,12 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       aircraft): where none will do, she waits, told why, until the person
       holding the final goes. In wind she is put on final only inside her
       measured limits (the ruling above), and another end only inside them.
+- [ ] **A crabbed start on final, measured on the trim in her wind**: a
+      start crabbed into the wind was flown only at 15 kt across, before
+      every aircraft was trimmed in the session's air; measure it again
+      there, and whether it lifts the 3 kt crosswind limit on final.
+      *Verification: every aeroplane with a learnt landing, started crabbed,
+      swept knot by knot across, with the limit it gives recorded.*
 - [ ] **The engine-stop prediction test fails on Windows clang when the
       server is held up**: its client, pacing 1.6 to 1.7 times its own clock
       to catch up, is put right by metres and misses its speed bound - since
