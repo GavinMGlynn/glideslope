@@ -1924,10 +1924,12 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       *Verification: a check names every short server `--timeout` in the tests
       exactly and fails on any other; watched red; the changed tests pass.*
       Done 2026-10-28.
-- [ ] **a_player_joining_after_another_has_left_is_put_on_a_layer_no_aircraft_near_the_start_holds
-      failed once in five on the nightly** ("2 players' starts were said, not the three joins",
-      run 43507588675); fix in progress on branch join-layer-intermittent. *Verification: it passes
-      every run of a dispatched nightly.*
+- [ ] **The test of a player joining after another has left ran on a clock**:
+      a server slow to start still had the first player when the third knocked,
+      and refused her as full (nightly 43507588675). Its joins now wait on events.
+      *Verification: with a server started 7 s late it fails 3 in 3 before and
+      passes 13 in 13 after; a broken layer search turns it red; it passes every
+      run of a dispatched nightly.*
 
 ---
 
@@ -2052,12 +2054,6 @@ Joining, leaving, being dropped and coming back; the handshake, the reliable lay
       started again** with its key from `--store`. *Verification: the window
       client, its server restarted under it, joins again and flies an
       aircraft the new server gives it.* Done 2026-10-06.
-- [x] **The test of a player joining after another has left ran on a clock**,
-      so a server slow to start still had the first player when the third
-      knocked, and refused her as full (nightly 43507588675). *Verification:
-      with a server started 7 s late it failed 3 times in 3 before the fix
-      and passed 13 in 13 after; it fails on a layer search that is
-      deliberately broken.* Done 2026-11-14: its joins wait on events.
 
 ---
 
