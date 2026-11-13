@@ -13581,7 +13581,7 @@ GLIDESLOPE_TEST(a_person_in_her_runways_circuit_ahead_or_behind_is_told_to_leave
 // - an F-15C behind one flew her racetrack into a plateau past her
 // circuit's ground - with high ground 1,800 ft over the runway from 8.25 nm
 // before it. On every run the F-15C and the J-3 Cub behind it; every
-// landplane behind it in thirds (`diversion_pieces`, gust_sweep).
+// landplane behind it in the next test (gust_sweep).
 GLIDESLOPE_TEST(a_racetrack_beside_high_ground_past_its_circuits_ground_is_flown_1000_ft_over_it) {
     following_beside_high_ground({"f15c"}, {"f15c", "j3cub"});
 }
@@ -13725,49 +13725,70 @@ const std::vector<PersonPiece>& person_pieces() {
     return pieces;
 }
 
-// **A piece's slice**: the flights it flies, each named as the function
-// that flies it names its case.
-std::vector<std::string> person_piece_flights(const PersonPiece& p) {
+// **A piece's slice, and how it is flown**: each call of the functions the
+// whole test was flown by, with the flights that call flies, named as the
+// function names its cases. `fly_person_piece` makes these calls and no
+// others, and the coverage test counts these flights - so what is flown is
+// what is counted, and a call left out drops its flights from the count.
+struct PieceCall {
     std::vector<std::string> flights;
+    std::function<void()> fly;
+};
+
+std::vector<PieceCall> person_piece_calls(const PersonPiece& p) {
+    const std::vector<std::string> id{p.id};
+    const std::vector<std::string> other{p.other};
+    std::vector<PieceCall> calls;
     if (p.away) {
         for (const double bearing : away_bearings_deg()) {
-            flights.push_back("a person's " + p.id + " flying away " +
+            calls.push_back({{"a person's " + p.id + " flying away " +
                               std::to_string(std::lround(bearing)) + " deg, " + p.other +
-                              " behind");
+                              " behind"},
+                             [id, other, bearing] { behind_persons_who_fly_away(id, other, {bearing}); }});
         }
-        return flights;
+        return calls;
     }
-    for (const char* when : {"as she goes around", "as she joins final", "a departure lined up"}) {
-        flights.push_back(p.id + " in the circuit, a person's " + p.other + " straight in, " +
-                          when);
+    for (const auto& [when, words] :
+         std::vector<std::pair<StraightInWhen, const char*>>{
+             {StraightInWhen::as_she_goes_around, "as she goes around"},
+             {StraightInWhen::as_she_joins_final, "as she joins final"},
+             {StraightInWhen::departure_lined_up, "a departure lined up"}}) {
+        const StraightInWhen w = when;
+        calls.push_back({{p.id + " in the circuit, a person's " + p.other + " straight in, " + words},
+                         [id, other, w] { circuits_and_straight_ins(id, other, Whose::persons, {w}); }});
     }
-    for (const char* then : {"taken and stays", "stays until the one behind holds"}) {
-        flights.push_back("a person's " + p.id + " ahead, " + then + ", " + p.other + " behind");
+    calls.push_back({{"a person's " + p.id + " ahead, taken and stays, " + p.other + " behind",
+                      "a person's " + p.id + " ahead, stays until the one behind holds, " + p.other +
+                          " behind"},
+                     [id, other] { behind_persons_who_stay(id, other); }});
+    calls.push_back({{"a person's " + p.id + " in the circuit, " + p.other + " departing"},
+                     [id, other] { departures_behind_persons_who_stay(id, other); }});
+    calls.push_back({{p.id + " coming in, a person's " + p.other + " lining up and rolling"},
+                     [id, other] { persons_lining_up_ahead(id, other, lining_up_far_nm); }});
+    calls.push_back({{"a person's " + p.id + " staying, " + p.other + " behind over raised ground"},
+                     [id, other] { behind_persons_who_stay_on_raised_ground(id, other); }});
+    return calls;
+}
+
+std::vector<std::string> person_piece_flights(const PersonPiece& p) {
+    std::vector<std::string> flights;
+    for (const PieceCall& c : person_piece_calls(p)) {
+        flights.insert(flights.end(), c.flights.begin(), c.flights.end());
     }
-    flights.push_back("a person's " + p.id + " in the circuit, " + p.other + " departing");
-    flights.push_back(p.id + " coming in, a person's " + p.other + " lining up and rolling");
-    flights.push_back("a person's " + p.id + " staying, " + p.other +
-                      " behind over raised ground");
     return flights;
 }
 
-// **One piece flown**: the same functions the whole was flown by, given
-// her and the other alone - each asserts every case of its own flown.
+// **One piece flown**: every call of its slice, and nothing else - each
+// call asserts every case of its own flown.
 void fly_person_piece(const PersonPiece& p) {
     const std::vector<std::string> kinds = landplanes_going_around();
     for (const std::string& id : {p.id, p.other}) {
         check(std::find(kinds.begin(), kinds.end(), id) != kinds.end(),
               id + " is a landplane that goes around");
     }
-    if (p.away) {
-        behind_persons_who_fly_away({p.id}, {p.other}, away_bearings_deg());
-        return;
+    for (const PieceCall& c : person_piece_calls(p)) {
+        c.fly();
     }
-    circuits_and_straight_ins({p.id}, {p.other}, Whose::persons);
-    behind_persons_who_stay({p.id}, {p.other});
-    departures_behind_persons_who_stay({p.id}, {p.other});
-    persons_lining_up_ahead({p.id}, {p.other}, lining_up_far_nm);
-    behind_persons_who_stay_on_raised_ground({p.id}, {p.other});
 }
 
 const bool person_pieces_registered = [] {

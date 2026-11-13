@@ -1,427 +1,252 @@
-# The gust_sweep tests in shards of their own, on a schedule and a dispatch
+# The scheduled run's gust sweep in shards of its own, the debug presets' a day of the week at a time
 
-**Verified by dispatch run 43384660740** (round 4, all seven days, 242
-jobs): no shard reached its limit on any preset. The tests that failed in
-that run are listed below. After it, the tables were measured again and
-the counts re-sized from the measurements (round 5, below). Round 5 itself
-has not been dispatched.
+**Not verified at this head.** No run of this head has dispatched the sweep.
+Dispatch run 43384660740 ran the same layout one round earlier, all seven
+days, 242 jobs, and no shard reached its limit (below). Since then:
 
-## Dispatch run 43384660740 (round 4): the slowest shard per preset
+- the days come from a hash of each test's name rather than from the cost
+  tables;
+- the counts were re-sized from the measured tables;
+- every dealing now uses ELSEWHERE.
 
-| preset | tests: slowest / limit | gust sweep: slowest / limit |
-| --- | --- | --- |
-| linux-debug | 47.6 / 60 (13 shards) | 94.4 / 120 (day 2; days 76–94) |
-| linux-release, Ubuntu | 39.7 / 60 | 34.4 / 60 |
-| linux-release, Rocky 9 | 34.2 / 45 | 34.0 / 60 |
-| macos-debug | 35.8 / 45 | 26.0 / 120 (days 21–26) |
-| macos-release | 30.3 / 45 | 19.6 / 60 |
-| windows-debug | 36.8 / 45 | 49.3 / 120 (days 32–49) |
-| windows-release | 31.4 / 45 | 54.7 / 60 |
-| windows-clang | 29.1 / 45 | 41.5 / 60 |
-
-Tests that genuinely failed:
-- an_f22_behind_a_persons_j3cub_flying_away_on_every_bearing_comes_back_kept_apart
-  failed on every preset ("7 flights came back short of fuel, 8 named").
-  This is the j3cub test #367 fixes.
-- On linux-debug, three pairs going around timed out at their limits:
-  two_going_around_together_behind_the_pa28 (2,096 s), _c182 (1,907 s) and
-  _a320 (1,800 s). This is fixed below by the twelve-times-release limit.
-- every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
-  failed on the Windows hosts. This is also in #368's PR run 43384652902,
-  and is fixed below.
-- Package / macOS arm64 tarball failed:
-  "glideslope_cli: the weather could not be had: could not download:
-  https://api.open-meteo.com/v1/forecast?...". That is a network fetch,
-  not this item's.
-
-## Round 5: the Windows host, the tables measured again, the counts re-sized
-
-- **Why only Windows tripped the dealing test.** It deals every preset from
-  the test list of the build it runs in.
-  - From a Linux build, linux-debug's 13 shards held 44.5 min each.
-  - A Windows build has 46 Direct3D 12 tests that linux-debug's table
-    never measured, each dealt at the default 60 s. That is 2,760 s over
-    13 shards × 4 at once, 0.9 min a shard: 45.4 min, the figure in job
-    131752441587's log, past three quarters of 60.
-  - The fix, tools/ci_shard.cmake ELSEWHERE, which ci_shards.cmake passes:
-    a test that the preset's table does not name but another preset's
-    table does is another host's own. The preset never runs it, so it
-    costs nothing in the check, and the result holds whichever host deals.
-  - linux-debug's PR shards also go from 13 to 14 for margin: 42.0 and
-    42.4 of 45.
-- **A night's way of every shard job is now sized** at its limit (STRICT).
-  Before, only a pull request's way was sized, plus the night's way for
-  the first preset of each kind. macos-debug was dealt 34.0 of its 33.75
-  minutes on a night (31.1 with ELSEWHERE).
-- **A debug preset's gust sweep is dealt at 12 × release at least**
-  (MODEL_DEBUG). The gust_sweep tests' ctest limit in a debug build is
-  1.5 × that too, because a debug figure is often a floor.
-- **Tables** were measured again with dispatch runs 43257673789 and
-  43384660740 added, which measured every piece. The 37 whole tests that
-  were split were dropped from them. tools/ci_test_costs.py now retries
-  `gh` twice: one `gh run view` failed once and answered the next time.
-- **Counts from the measurements**:
-  - Debug sweep, a day: linux-debug 6 shards of 120 minutes (437–465
-    dealt minutes a day), windows-debug 7 of 120 (568–612) and
-    macos-debug 4 of 120 (265–283).
-  - Release sweep: linux-release 6 of 60 on Ubuntu and on Rocky,
-    macos-release 5, windows-release 10 and windows-clang 8.
-  - every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
-    takes 358 s locally now. It ran 901 s on Windows and timed out at 900
-    there, so its limit is now 3,600 s.
-
-
-## The owner's decision, 2026-11-13: the debug gust sweep rotates weekly
-
-The gust sweep stays on every preset, debug included. Each release preset
-runs the whole sweep every night. Each debug preset runs one seventh of it
-a night, chosen by the scheduled run's UTC weekday, so every gust_sweep
-test runs on every debug preset once a week. A dispatch can run today's
-day, any one day from 1 to 7, or all seven (the `sweep_day` input).
-
-- **Days.** At configure time, tests/CMakeLists.txt gives each gust_sweep
-  test one label, from sweep_day_1 (Monday) to sweep_day_7.
-  - Tests are dealt longest first, back and forth across the week.
-  - Cost is linux-debug's figure in the table, or 12 × a piece's release
-    estimate where there is none.
-  - Each day gets 84 or 85 of the 589 tests and about 530 dealt minutes on
-    linux-debug.
-- **Jobs.**
-  - A job named sweep-days turns the event into the days to run. For a
-    scheduled run that is `date -u +%u`.
-  - ubuntu-debug-sweep, macos-debug-sweep and windows-debug-sweep each
-    have a matrix of shards × days. Each shard deals and runs one day's
-    label, `^sweep_day_N$`.
-  - The release sweep jobs keep only their release rows.
-- **Coverage is asserted** by tests/cmake/ci_shards.cmake (ctest's
-  every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once):
-  - The seven days' labels between them are every gust_sweep test, each
-    once: 589 of 589.
-  - Each day is dealt into each debug job's shards with STRICT at 75% of
-    the job's limit, and every shard's -I file is read back.
-  - Each debug job's limit is at most 120 minutes.
-  - Seen red with one piece left without a day: "the seven days: 588 runs
-    of 588 tests; 589 gust_sweep tests; 0 run twice; dropped:
-    a_pa28_and_a_pa28_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart".
-    Then reverted.
-- **Sizing (round 4; round 5's counts are above).** Every job limit is
-  120 minutes or less, and every shard holds at most 75% of it.
-  - Debug sweep, one day: linux-debug 7 shards of 120 minutes (529–534
-    dealt minutes a day), windows-debug 7 of 120 (about 530) and
-    macos-debug 8 of 120 (about 704).
-  - Release sweep: linux-release 9 of 60 on Ubuntu and on Rocky,
-    macos-release 12, windows-release 9 and windows-clang 9, each shard at
-    60% or less.
-  - The release counts come from estimates for the new pieces, using the
-    largest release figure of any table, so they shrink once CI measures
-    the pieces.
-- **Tests split further so that no test is past a 120-minute debug job.**
-  The rule: release × 12 × 1.5 must fit, so a test may cost at most 80
-  minutes on debug.
-  - an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing
-    (up to 967 s on release, past 5,261 s on linux-debug) is now seven
-    tests, one per bearing.
-  - The 15 circuit tests (up to 797 s on release) are now 45, one per
-    situation.
-  - The three diversion tests of every landplane (up to 687 s on release)
-    are now nine, one per third of the landplanes.
-  - Coverage: the_circuit_and_diversion_pieces_between_them_fly_every_case_once
-    and the_tests_of_a_person_flying_away_fly_every_bearing_once.
-  - The sweep is now 589 tests.
-  - Run locally on linux-release (-j4, no display), 66 of 66 passed in
-    792 s: the 61 new pieces (at most 78 s each), the five coverage tests
-    and the registration check.
-
-## Runner minutes a night (estimated, dealt minutes plus about 10 minutes of setup a job)
-
-| | jobs | dealt minutes | runner-minutes |
-| --- | --- | --- | --- |
-| debug sweep, one day | 17 | about 1,310 | about 1,480 |
-| release sweep | 35 | about 1,200 | about 1,550 |
-| a night's sweep | 52 | about 2,510 | about 3,030, about 520 on macOS |
-| a dispatch of all seven days | 154 | about 10,370 | about 11,900 |
-
-From round 5's counts and the measured tables. Round 4's figures, from
-estimates, were about 4,140 runner-minutes a night.
+The tests named below were run locally on linux-release.
 
 ## What was wrong
 
 Every scheduled run of ci.yml from 2026-11-05 to 2026-11-11 was cancelled
-(runs 42115457538 to 43111884667). In run 43111884667, every one of the 41
-test shards was cut off at its job limit: 45 minutes on macOS, Rocky and
-Windows, and 60 on Ubuntu. The last green scheduled run was 41918525620,
+(runs 42115457538 to 43111884667). In 43111884667, all 41 test shards were
+cut off at their job limits. The last green scheduled run was 41918525620,
 on 2026-11-04.
 
-- From 2026-11-05 to 11-11, 51 tests labelled gust_sweep were added beside
-  the gust seeds 9 to 40 (commits ef5592b6, 94f4bfd6, 65515620, 83845b55
-  and 1913acb2): fifteen pairs going around together, fifteen circuits with
-  every straight-in and departure, fifteen of every person straight in,
-  departing or staying in the circuit, and six more.
-- No pull request's run includes gust_sweep, and tools/ci_test_costs.py had
-  only been given pull requests' runs. So none of these tests had a cost,
-  and tools/ci_shard.cmake dealt each of them at its default of 60 s. One
-  shard's log warns of this: "103 tests of macos-release are not in
-  tests/ci_costs/macos-release.txt and count 60 s each".
-- They are far longer than that. On CI, the person tests take 1,400 to
-  2,200 s each on release presets. On linux-debug, an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing
-  was still running at 2,486 s when its shard was cut off.
-- The shard counts are sized for a pull request's tests, so the scheduled
-  run got the same shards plus several hours of work. Below is the
-  gust_sweep work that the new tables hold for each preset. Each figure is a
-  floor, because many of these tests were cut off before they finished,
-  and is given at the preset's tests-at-once. The work of every other test
-  is in brackets for comparison:
-  - linux-debug: 274 min (529)
-  - linux-release: 102 min (83)
-  - macos-debug: 135 min (172)
-  - macos-release: 109 min (82)
-  - windows-debug: 155 min (320)
-  - windows-release: 152 min (113)
-  - windows-clang: 151 min (99)
+From 11-05 to 11-11, 51 long tests labelled gust_sweep were added:
+- fifteen pairs going around together;
+- fifteen circuits with every straight-in and departure;
+- fifteen with every person straight in, departing or staying;
+- six more.
 
-## What changed
+No pull request's run includes gust_sweep, and tools/ci_test_costs.py had
+only been given pull requests' runs. So none of these tests had a cost, and
+tools/ci_shard.cmake dealt each at its default 60 s into the pull requests'
+shard counts. One shard's log warns of this: "103 tests of macos-release are
+not in tests/ci_costs/macos-release.txt and count 60 s each". On CI they
+took 1,400 to 3,550 s each on release. On debug they ran past their limits.
 
-- tools/ci_test_costs.py --finished now also counts a test that was cut off
-  when its shard was. Its cost is the time it had run, and the table's
-  header gives the number of such floors. A job whose log is gone is
-  skipped with a warning. Run 43111884667's linux-debug shard 11 has no
-  log (BlobNotFound).
-- The tables were measured again from the four pull-request runs that
-  already fed them, plus the scheduled runs 43111884667 (cancelled) and
-  41918525620 (the last green one, which has seeds 9 to 40). 34 of the
-  costs are cut-off floors.
+## The owner's decision, 2026-11-13: the debug gust sweep rotates weekly
 
-- **The sweep jobs** in ci.yml: ubuntu-sweep, rocky-sweep, macos-sweep
-  and windows-sweep. They run on a schedule and on a dispatch only, and
-  carry the tests labelled gust_sweep alone (`-L gust_sweep`). The shard
-  jobs now leave gust_sweep out on every event, so a pull request's shards
-  and their 45-minute limit are unchanged.
-  - Each row's `minutes` is its job's timeout-minutes: the preset's
-    longest sweep test × 1.5 (that test's own ctest limit) plus 10 minutes
-    for the job's setup, and at least 60. Each preset has the fewest shards
-    that hold every shard's work to three fifths of its minutes.
-  - The first round, from the tables before run 43257673789, gave 47
-    jobs: linux-debug 10×90, linux-release 5×60 on Ubuntu and on Rocky,
-    macos-release 4×60, macos-debug 7×90, windows-debug 6×90,
-    windows-release 5×60 and windows-clang 5×60. 18 of those shards were
-    cut off.
-  - Round 2 (shards × minutes), 46 jobs: linux-debug 7×142,
-    linux-release 4×99 on Ubuntu and on Rocky, macos-release 5×60,
-    macos-debug 8×101, windows-debug 7×111, windows-release 6×99 and
-    windows-clang 5×99. These rows were never dispatched.
-  - Now, with the pieces below (shards × minutes), 169 jobs:
-    linux-debug 39×142, linux-release 8×60 on Ubuntu and on Rocky,
-    macos-release 10×60, macos-debug 38×180, windows-debug 48×111,
-    windows-release 9×60 and windows-clang 9×60. macOS debug gets 180
-    minutes, because at 60 it would need more than 120 shards. These
-    limits are under GitHub's 6-hour maximum for a job on a hosted runner,
-    which is also the default timeout-minutes
-    (docs.github.com/en/actions/reference/actions-limits).
-- **The person tests and the lining-up test in pieces.**
-  - The 15 tests of every landplane with every person straight in,
-    departing or staying in the circuit took up to 3,553 s each on a
-    release runner (more than 3,500 s on Windows release, where they were
-    cut off). On all three debug presets they ran past their 3,600 s limit.
-  - every_landplane_pair_with_a_person_lining_up_under_it_at_200_ft_is_measured
-    took 3,424 s on Windows release and past 3,600 s on the debug presets.
-  - Debug runs about twelve times release: the racetrack test takes 856 s
-    on linux-debug against 68 s on linux-release. At that rate one person
-    test would take about twelve hours on debug, past the 6-hour job
-    maximum.
-  - The split, in tests/unit/test_lesson.cpp:
-    - Each landplane pair is two pieces: 225 pieces of 8 flights straight
-      in, departing or staying (named like
-      `a_737_300_and_an_a320_with_a_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart`)
-      and 225 of 8 flying away (`an_a320_behind_a_persons_737_300_flying_away_on_every_bearing_comes_back_kept_apart`).
-    - The lining-up test is 30 pieces: each landplane with the persons'
-      departures of the first eight landplanes, and of the last seven.
-    - Each piece flies its slice through the same functions the whole
-      test used, and each of those still asserts its own cases flown.
-  - **Coverage is asserted** by two tests:
-    - the_person_pieces_between_them_fly_every_landplane_with_every_person_each_flight_once
-      states the space (15 × 15 landplanes, 16 flights a pair, 3,600
-      flights). It fails if the union of the pieces' slices differs from
-      that space, if any flight is dropped, flown twice or outside the
-      space, or if a piece is not registered exactly once.
-    - the_lining_up_pieces_between_them_measure_every_landplane_pair_once
-      does the same for the 225 pairs.
-    - Seen red: with one pair's two pieces left out, the person test
-      failed: "16 flights dropped, 0 flown twice, 0 outside the space".
-      Reverted.
-  - **Estimates until measured:**
-    - A piece's ctest COST is its whole test's longest release figure
-      divided by 30: about 119 s for a person piece and 115 s for a
-      lining-up piece.
-    - tools/ci_shard.cmake deals a piece by that COST, times twelve on a
-      debug preset, wherever the table has no figure for it.
-    - A piece's TIMEOUT is 3 × the estimate × twelve on debug (half as
-      long again as twice the average, for the heaviest pairs), and at
-      least 900 s.
-  - **Run locally** on linux-release, -j4, with DISPLAY and
-    WAYLAND_DISPLAY unset:
-    - The 450 person pieces took 5,608 s in all, 31 to 104 s each, and
-      449 passed.
-    - One failed: an_f22_behind_a_persons_j3cub_flying_away_on_every_bearing_comes_back_kept_apart,
-      "7 flights came back short of fuel, 8 named" ("NAMED, NOT SHORT OF
-      FUEL: a person's j3cub flying away 180 deg off the runway, ahead of
-      f22"). This is the j3cub person test that #367 fixes.
-    - The 30 lining-up pieces took 35 to 39 s each, and both coverage
-      tests and the registration check passed. That is 33 of 33.
-    - The dealing test passed with the new rows (221 s).
-- **tools/ci_shard.cmake** has three new options:
-  - INCLUDE deals the tests of one label, matching the run's `-L`.
-  - DEFAULT=longest costs a test that the table does not name at the
-    longest that it does.
-  - MINUTES checks the sizing: each shard's work at most three fifths of
-    MINUTES, and the longest test × 1.5 inside it. CI gets a warning on the
-    run's page; with STRICT the check fails.
-- **tests/cmake/ci_shards.cmake**, which ctest runs as
-  every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once,
-  now also checks the sweep jobs:
-  - It reads each sweep job's rows, and deals and reads back each one with
-    `-L gust_sweep`, STRICT at its row's minutes.
-  - It asserts that every preset that is sharded is also swept, and that
-    every sweep job's limit is its row's minutes.
-  - It deals the shard jobs' new other-event ways, which leave out
-    timing|gust_sweep and gust_sweep.
-  - Seen red twice, then reverted both times:
-    - macos-debug's rows set to 30 minutes failed the test: "shard 1 holds
-      32.3 min of work".
-    - One sweep job's limit written as 90 failed it: "4 gust sweep runs, 4
-      jobs named -sweep, 3 limits of the row's minutes".
-- **Every test's ctest TIMEOUT** now comes from the cost tables, at
-  configure time, not only the gust_sweep tests'. It is 1.5 × the slowest
-  preset's figure, or the limit already set if that is longer.
-  - #365's run 43261047217 had
-    the_one_behind_two_going_around_whose_leader_goes_around_again_flies_a_racetrack_and_both_land
-    time out at 900 s on linux-debug, where its table figure is 856 s.
-  - A figure that is a timeout, such as
-    two_going_around_together_behind_the_f35b's 900, raises the test's
-    limit the next time the tables are measured.
-  - every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
-    gets 1,800 s by hand. It timed out at 900 s on Windows debug and
-    Windows release in run 43257673789, once the sweep's shards were dealt
-    as well.
-  - The 38 tests the tables raise (seconds; the person and lining-up
-    tests, now split, are no longer among them):
+The gust sweep stays on every preset, debug included:
+- Each release preset runs every gust_sweep test every night.
+- Each debug preset runs one seventh of them a night, chosen by the
+  scheduled run's UTC weekday, so every test runs on every debug preset
+  once a week.
+- A dispatch's `sweep_day` input runs today's day, a day from 1 to 7, or
+  all seven.
 
-    | test | limit before | now |
-    | --- | --- | --- |
-    | a_737_300_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4019 |
-    | a_747_400_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3753 |
-    | a_787_8_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 2702 |
-    | a_b2_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 2702 |
-    | a_c172p_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3470 |
-    | a_c182_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
-    | a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order | 1800 | 2264 |
-    | a_flight_on_its_own_flies_the_stations_around_her_the_nearers_weather_with_no_step_in_the_wind_on_vulkan | 900 | 1044 |
-    | a_j3cub_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3953 |
-    | a_learjet35a_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3723 |
-    | a_mosquito_fb6_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 2702 |
-    | a_pa28_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
-    | an_a320_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
-    | an_a380_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 3125 |
-    | an_ai_aircraft_behind_a_person_who_flies_away_on_every_other_bearing_comes_back_and_lands_kept_apart | 5400 | 7892 |
-    | an_f15c_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
-    | an_f22_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 4055 |
-    | an_f35b_circuit_and_every_straight_in_and_departure_are_kept_apart_and_in_order | 1800 | 2702 |
-    | every_first_party_source_compiles_clean_under_clang_too | 900 | 930 |
-    | the_737_300_and_a320_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway | 900 | 924 |
-    | the_cessnas_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway | 900 | 1049 |
-    | the_f22a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle | 900 | 908 |
-    | the_one_behind_two_going_around_whose_leader_goes_around_again_flies_a_racetrack_and_both_land | 900 | 1284 |
-    | two_going_around_together_behind_the_737_300_are_kept_apart_and_both_land | 1800 | 2379 |
-    | two_going_around_together_behind_the_747_400_are_kept_apart_and_both_land | 1800 | 3155 |
-    | two_going_around_together_behind_the_787_8_are_kept_apart_and_both_land | 1800 | 2702 |
-    | two_going_around_together_behind_the_a380_are_kept_apart_and_both_land | 1800 | 2232 |
-    | two_going_around_together_behind_the_b2_are_kept_apart_and_both_land | 1800 | 2657 |
-    | two_going_around_together_behind_the_c172p_are_kept_apart_and_both_land | 1800 | 2270 |
-    | two_going_around_together_behind_the_c182_are_kept_apart_and_both_land | 1800 | 1907 |
-    | two_going_around_together_behind_the_f15c_are_kept_apart_and_both_land | 1800 | 2082 |
-    | two_going_around_together_behind_the_f22_are_kept_apart_and_both_land | 1800 | 2606 |
-    | two_going_around_together_behind_the_f35b_are_kept_apart_and_both_land | 1800 | 2373 |
-    | two_going_around_together_behind_the_j3cub_are_kept_apart_and_both_land | 1800 | 2535 |
-    | two_going_around_together_behind_the_learjet35a_are_kept_apart_and_both_land | 1800 | 2162 |
-    | two_going_around_together_behind_the_mosquito_fb6_are_kept_apart_and_both_land | 1800 | 2339 |
-    | two_going_around_together_behind_the_pa28_are_kept_apart_and_both_land | 1800 | 2096 |
-    | two_going_around_together_the_slowest_the_c172p_and_the_fastest_each_behind_each_are_kept_apart_and_both_land | 1800 | 2010 |
-- **tools/ci_test_costs.py** also measures shards named "gust sweep".
+## What lands
 
-- **The shard jobs' counts**: each shard's dealt work is now at most three
-  quarters of its job's limit. tests/cmake/ci_shards.cmake asserts this for
-  every shard job (MINUTES is read from the job's timeout-minutes, with
-  SHARE=75 and STRICT), and the limits are unchanged. #367's full run had
-  Windows debug tests 6/8 finish 206 of 206 at 16:33:07 and get cut off at
-  16:33:20; #359's had shard 8/8 cut off at 203 of 207. With the counts
-  unchanged, the test failed: "1_linux-debug ... shard 2 holds 51.4 min of
-  work, over 75% of 60". The largest shard's dealt work, in minutes, for a
-  pull request's way and then a night's (without gust_sweep):
+- **Sweep jobs (ci.yml).** They run on a schedule and on a dispatch only.
+  The shard jobs leave gust_sweep out on every event, so a pull request
+  runs no sweep test.
+  - Release presets: ubuntu-sweep, rocky-sweep, macos-sweep and
+    windows-sweep run `-L gust_sweep`.
+  - Debug presets: ubuntu-debug-sweep, macos-debug-sweep and
+    windows-debug-sweep each have a matrix of shards × days. The days come
+    from the sweep-days job, which reads `date -u +%u` or the dispatch's
+    input. Each shard deals and runs `-L ^sweep_day_N$`.
+- **A test's day is its name's.** tests/CMakeLists.txt takes the MD5 of the
+  name, its first seven hex digits modulo 7, plus 1. Because a re-measure
+  cannot move a test's day, no test goes a fortnight unrun or runs twice
+  in a week. 589 sweep tests fall 77 to 86 a day.
+- **Long tests split, so that each fits a debug job.** The rule is that a
+  test may cost at most 80 minutes on debug: about 12 × release, × 1.5 for
+  its limit, inside 120. A debug runner takes about twelve times a release
+  one's: the racetrack test is 856 s on linux-debug and 68 s on release.
+  Each split has a coverage test, each seen red once:
+  - **Every landplane with every person:** 15 tests became 450 pieces. Each
+    pair has 8 flights straight in, departing or staying, and 8 flying
+    away. The whole tests took up to 3,553 s on release.
+    the_person_pieces_between_them_fly_every_landplane_with_every_person_each_flight_once
+    states the space: 15 × 15 pairs, 16 flights a pair, 3,600 flights. A
+    piece flies exactly the calls that `person_piece_calls` lists, and the
+    test counts those calls' flights, so what is flown is what is counted.
+    With the raised-ground call dropped from the list, it failed: "the
+    space is sixteen flights a pair: 3375". Reverted. With one pair's
+    pieces left out, it failed: "16 flights dropped".
+  - **The lining-up test:** 30 pieces (3,424 s on release before the
+    split). Covered by the_lining_up_pieces_between_them_measure_every_landplane_pair_once.
+  - **The circuit tests:** 45 pieces, a situation each (797 s), and **the
+    three diversion tests:** 9 pieces, a third of the landplanes each
+    (687 s). Covered by the_circuit_and_diversion_pieces_between_them_fly_every_case_once.
+  - **The other seven bearings of a person flying away:** 7 tests, a
+    bearing each (967 s). Covered by the_tests_of_a_person_flying_away_fly_every_bearing_once.
+- **Estimates until measured.** A piece's ctest COST is its whole test's
+  largest release figure divided by its number of pieces. tools/ci_shard.cmake
+  deals by that COST, × 12 on a debug preset, where the table has none.
+- **tools/ci_shard.cmake** gained these options:
+  - **INCLUDE:** a run's `-L`.
+  - **DEFAULT=longest:** cost a test the table does not name as the
+    longest it does.
+  - **MINUTES, SHARE, STRICT:** each shard's work must be at most SHARE%
+    of MINUTES, and the longest test × 1.5 must fit in MINUTES. On CI this
+    gives a warning; with STRICT it fails.
+  - **MODEL_DEBUG:** a debug preset's sweep is dealt at least at 12 ×
+    release. A debug figure is often a floor; three pairs going around
+    gave up at 1,800 to 2,096 s on linux-debug in 43384660740.
+  - **ELSEWHERE:** every dealing passes it, CI's and the check's alike. A
+    test that this preset's table does not name, nor any table of its own
+    operating system, but another system's table does, costs nothing: it
+    is that system's own and this preset never runs it. The check and CI
+    therefore cost every test the same.
+    - This is why only Windows hosts failed #368's run 43384652902. The
+      dealing test deals every preset from the test list of the build it
+      runs in. A Windows build has 46 Direct3D 12 tests that linux-debug's
+      table never measured, each costed at 60 s. That is 2,760 s over 13
+      shards × 4, 0.9 min a shard: 45.4 of 45 minutes, as job
+      131752441587 logged.
+    - A test of this preset's own system that the table has not measured
+      still costs DEFAULT, in both. macOS debug's are the likeliest case,
+      since they are measured only on scheduled runs.
+- **tests/cmake/ci_shards.cmake** (ctest:
+  every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once)
+  now also checks the following:
+  - every sweep job's rows and limit;
+  - every debug day dealt into its shards at 75% of its limit, each
+    shard's -I file read back;
+  - that the seven days between them are every gust_sweep test, each
+    once. With one piece left without a day it failed: "the seven days:
+    588 runs of 588 tests; 589 gust_sweep tests; 0 run twice; dropped: ...".
+    Reverted;
+  - that every sharded preset is swept;
+  - that every shard job is sized at 75% of its limit, a night's run as
+    well as a pull request's.
 
-  | preset (limit) | before | after |
-  | --- | --- | --- |
-  | linux-debug (60) | 11 shards: 51.4 / 51.9 | 13: 44.5 / 44.9 |
-  | linux-release, Ubuntu (60) | 2: 59.8 / 62.4 | 3: 40.7 / 42.4 |
-  | linux-release, Rocky 9 (45) | 4: 29.9 / 31.2 | 4, unchanged: 30.5 / 31.8 |
-  | macos-release (45) | 3: 40.5 / 42.4 | 4: 30.8 / 32.2 |
-  | macos-debug (45, night only) | 5: 44.3 | 7: 32.6 |
-  | windows-debug (45) | 8: 42.9 / 43.7 | 11: 31.6 / 32.2 |
-  | windows-release (45) | 4: 35.8 / 37.3 | 5: 29.4 / 30.6 |
-  | windows-clang (45) | 4: 32.5 / 34.0 | 5: 26.7 / 27.9 |
+  Its own limit is 3,600 s. It takes 463 s on linux-release locally, and
+  once ran 901 s on Windows, past the presets' 900.
+- **Every test's time limit is from the cost tables** (end of
+  tests/CMakeLists.txt). It is at least 1.5 × the test's slowest figure in
+  any table. A gust_sweep test in a debug build also gets 1.5 × 12 × its
+  slowest release figure. Below are the limits this raises in a
+  linux-release build; a debug build raises the gust_sweep tests' further.
+- **tools/ci_test_costs.py**:
+  - `--finished` counts a test cut off with its shard at the time it had
+    run, a floor;
+  - it skips a job whose log is gone;
+  - it measures the sweep shards' jobs;
+  - it retries `gh`.
 
-  "Before" is from the tables measured before run 43257673789 and "after"
-  from the tables measured with it. Both take the longer of the pull
-  requests' and the scheduled runs' figures. Run 43257673789 confirms the
-  "before" column: on the old counts, macos-debug tests 1/5 and 3/5 were
-  cut off at 45 minutes, and Ubuntu linux-release tests 2/2 at 60. The new counts add eleven
-  test jobs, nine of them to a pull request's full run (macos-debug runs
-  only after a merge and at night). A full run's jobs now queue beyond the
-  plan's 40 at once.
+  The tables were measured from pull-request runs 43138678345,
+  43129942786, 42838785343 and 42103685797, and from scheduled or
+  dispatched runs 43111884667, 41918525620, 43257673789 and 43384660740.
+  The 37 whole tests that were split were then dropped from them.
 
-- The tables were measured again with dispatch run 43257673789 added. Each
-  figure for a test that was cut off, or that hit its ctest limit, is a
-  floor. The gust sweep's work, in minutes at each preset's tests-at-once,
-  went from the floors above to: linux-debug 577, linux-release 215,
-  macos-debug 461, macos-release 147, windows-debug 435, windows-release
-  303 and windows-clang 261.
+## Shard counts (each shard's dealt work against its job's limit)
 
-## Runner time
+Pull requests' shard jobs: the limits are unchanged, and each shard holds at
+most 75% of its limit. The figures are for a pull request's way, then a
+night's.
 
-With the pieces, a night's gust sweep is 169 jobs:
-- The debug presets get 125 jobs, with dealt minutes of 3,195 on
-  linux-debug, 3,094 on windows-debug and 3,963 on macos-debug. Each shard
-  holds at most 60% of its limit.
-- macOS debug's 38 jobs, five at a time, take about 13 to 14 hours.
-- The release presets get 44 jobs, with about 1,500 dealt minutes.
-- With about 10 minutes of setup a job, that is about 13,400
-  runner-minutes a night.
+| preset (limit) | before | now |
+| --- | --- | --- |
+| linux-debug (60) | 11 shards: 51.4 / 51.9 | 14: 42.0 / 42.4 |
+| linux-release, Ubuntu (60) | 2: 59.8 / 62.4 | 3: 41.5 / 43.3 |
+| linux-release, Rocky 9 (45) | 4: 29.9 / 31.2 | 4: 31.1 / 32.5 |
+| macos-release (45) | 3: 40.5 / 42.4 | 4: 26.0 / 27.4 |
+| macos-debug (45, no PR) | 5: 44.3 (night) | 7: 31.1 (night) |
+| windows-debug (45) | 8: 42.9 / 43.7 | 11: 31.9 / 32.5 |
+| windows-release (45) | 4: 35.8 / 37.3 | 5: 29.4 / 30.6 |
+| windows-clang (45) | 4: 32.5 / 34.0 | 5: 26.8 / 28.0 |
 
-A pull request's full run gains nine shard jobs, and the dealt minutes do
-not change.
+A pull request's full run gains nine shard jobs.
 
-## Dispatch run 43257673789 (round 1): the slowest shard per preset
+Gust sweep, 60% of a release limit and 75% of a debug one:
+- Release, every night, 60 minutes: linux-release 6 shards on Ubuntu and 6
+  on Rocky 9, macos-release 5, windows-release 10, windows-clang 8.
+- Debug, one day, 120 minutes: linux-debug 6 shards (dealt 437–465 minutes
+  a day), windows-debug 8 (483–632) and macos-debug 4 (222–299).
+
+## Runner minutes a night (dealt minutes, plus about 10 minutes of setup a job)
+
+| | jobs | dealt minutes | runner-minutes |
+| --- | --- | --- | --- |
+| debug sweep, one day | 18 | about 1,320 | about 1,500 |
+| release sweep | 35 | about 1,200 | about 1,550 |
+| a night's sweep | 53 | about 2,520 | about 3,050, about 520 on macOS |
+| a dispatch of all seven days | 161 | about 10,440 | about 12,050 |
+
+## Dispatch run 43384660740 (the previous round's layout, all seven days)
 
 | preset | tests: slowest / limit | gust sweep: slowest / limit |
 | --- | --- | --- |
-| linux-debug | 54.8 / 60 | 90.3 / 90, 3 of 10 cut off |
-| linux-release (Ubuntu) | 60.3 / 60, 1 of 2 cut off | 60.2 / 60, 1 of 5 cut off |
-| linux-release (Rocky 9) | 28.9 / 45 | 60.1 / 60, 1 of 5 cut off |
-| macos-debug | 45.3 / 45, 2 of 5 cut off | 90.4 / 90, 3 of 7 cut off |
-| macos-release | 38.3 / 45 | 44.3 / 60 |
-| windows-debug | 44.1 / 45 | 90.1 / 90, 5 of 6 cut off |
-| windows-release | 40.7 / 45 | 60.1 / 60, 5 of 5 cut off |
-| windows-clang | 37.2 / 45 | 60.1 / 60, 4 of 5 cut off |
+| linux-debug | 47.6 / 60 (13 shards) | 94.4 / 120 |
+| linux-release, Ubuntu | 39.7 / 60 | 34.4 / 60 |
+| linux-release, Rocky 9 | 34.2 / 45 | 34.0 / 60 |
+| macos-debug | 35.8 / 45 | 26.0 / 120 |
+| macos-release | 30.3 / 45 | 19.6 / 60 |
+| windows-debug | 36.8 / 45 | 49.3 / 120 |
+| windows-release | 31.4 / 45 | 54.7 / 60 |
+| windows-clang | 29.1 / 45 | 41.5 / 60 |
 
-Tests that genuinely failed, besides the ones that timed out:
-- a_j3cub_and_every_person_straight_in_departing_or_staying_in_the_circuit_are_kept_apart
-  failed on linux-release (Ubuntu and Rocky 9), macos-release and
-  windows-clang. #367 is fixing it.
-- a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_still_begins_on_the_servers_law_state
-  failed on linux-debug ("***Failed 120.02 sec"). It is labelled nightly
-  (tests/cmake/nightly_tests.cmake).
-- On linux-debug, macos-debug and windows-debug, every person test timed
-  out at its 3,600 s, as did most circuits at 1,800 to 2,702 s.
+Tests that failed in it:
+- an_f22_behind_a_persons_j3cub_flying_away_on_every_bearing_comes_back_kept_apart
+  failed on every preset: "7 flights came back short of fuel, 8 named".
+  This is the j3cub test #367 fixes.
+- Three pairs going around timed out on linux-debug at 1,800 to 2,096 s.
+  The twelve-times-release limit now covers them.
+- every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+  failed on Windows hosts. ELSEWHERE fixes this (above).
+- Package / macOS arm64 tarball: "the weather could not be had: could not
+  download: https://api.open-meteo.com/...". That is a network fetch, not
+  this item's.
+- Not this item's: a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_still_begins_on_the_servers_law_state
+  failed on linux-debug in dispatch run 43257673789. It is labelled
+  nightly (tests/cmake/nightly_tests.cmake).
 
-## Verification
+## Verification at this head (local, linux-release, -j4, no display)
 
-Not yet verified: one `gh workflow run ci.yml --ref scheduled-ci-shards`
-has to show every shard inside its limit.
+- every_ci_test_shard_is_dealt_and_between_them_they_run_every_test_once
+  passed in 463 s.
+- the_person_pieces_between_them_fly_every_landplane_with_every_person_each_flight_once
+  and the registration check passed.
+- Four person pieces flown through their calls (c172p with f15c, j3cub
+  with pa28, both kinds each) passed, 34 to 68 s each.
+- The lining-up, circuit and diversion coverage tests passed.
+
+In the previous round, all 450 person pieces ran in 5,608 s, and 449
+passed (the j3cub piece above). The 66 circuit, diversion and bearing
+pieces and checks passed.
+
+## The time limits the tables raise (a linux-release build)
+
+| tests | how many | limit before | now |
+| --- | --- | --- | --- |
+| person pieces, straight in, departing or staying | 200 | 900-900 | 902-2490 |
+| person pieces, flying away | 225 | 900-900 | 902-3932 |
+| lining-up pieces | 13 | 900-900 | 933-1409 |
+| circuit pieces | 45 | 900-900 | 987-3467 |
+| diversion pieces | 9 | 900-900 | 1592-2655 |
+| bearing pieces | 7 | 900-900 | 1052-1695 |
+
+| test | limit before | now |
+| --- | --- | --- |
+| a_circuit_and_a_straight_in_or_a_departure_the_slowest_and_the_fastest_each_with_each_are_kept_apart_and_in_order | 1800 | 2264 |
+| a_flight_on_its_own_flies_the_stations_around_her_the_nearers_weather_with_no_step_in_the_wind_on_vulkan | 900 | 1083 |
+| every_first_party_source_compiles_clean_under_clang_too | 900 | 930 |
+| the_737_300_and_a320_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway | 900 | 924 |
+| the_cessnas_handed_over_at_any_half_second_of_the_ten_after_lift_off_climb_away_and_never_touch_the_runway | 900 | 1049 |
+| the_f22a_enters_an_orbit_from_a_waypoint_in_calm_air_heading_north_or_northeast_and_holds_its_circle | 900 | 908 |
+| the_one_behind_two_going_around_whose_leader_goes_around_again_flies_a_racetrack_and_both_land | 900 | 1284 |
+| two_going_around_together_behind_the_737_300_are_kept_apart_and_both_land | 1800 | 3153 |
+| two_going_around_together_behind_the_747_400_are_kept_apart_and_both_land | 1800 | 3248 |
+| two_going_around_together_behind_the_787_8_are_kept_apart_and_both_land | 1800 | 3116 |
+| two_going_around_together_behind_the_a320_are_kept_apart_and_both_land | 1800 | 2702 |
+| two_going_around_together_behind_the_a380_are_kept_apart_and_both_land | 1800 | 3323 |
+| two_going_around_together_behind_the_b2_are_kept_apart_and_both_land | 1800 | 3228 |
+| two_going_around_together_behind_the_c172p_are_kept_apart_and_both_land | 1800 | 2391 |
+| two_going_around_together_behind_the_c182_are_kept_apart_and_both_land | 1800 | 2862 |
+| two_going_around_together_behind_the_f15c_are_kept_apart_and_both_land | 1800 | 3120 |
+| two_going_around_together_behind_the_f22_are_kept_apart_and_both_land | 1800 | 2630 |
+| two_going_around_together_behind_the_f35b_are_kept_apart_and_both_land | 1800 | 3105 |
+| two_going_around_together_behind_the_j3cub_are_kept_apart_and_both_land | 1800 | 2535 |
+| two_going_around_together_behind_the_learjet35a_are_kept_apart_and_both_land | 1800 | 2952 |
+| two_going_around_together_behind_the_mosquito_fb6_are_kept_apart_and_both_land | 1800 | 3461 |
+| two_going_around_together_behind_the_pa28_are_kept_apart_and_both_land | 1800 | 3146 |
+| two_going_around_together_the_slowest_the_c172p_and_the_fastest_each_behind_each_are_kept_apart_and_both_land | 1800 | 2244 |

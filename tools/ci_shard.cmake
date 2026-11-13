@@ -160,21 +160,32 @@ if(MODEL_DEBUG)
     endforeach()
 endif()
 
-# **Dealt from another host's build** (ELSEWHERE, tests/cmake/ci_shards.cmake,
-# which deals every preset from whichever host's build it runs in): a test
-# this preset's table does not name but another preset's does is that
-# host's own - an _on_direct3d12 test dealt for linux-debug - which this
-# preset never runs, so it costs nothing here. Dealt at DEFAULT instead,
-# Windows' 46 such tests put a linux-debug shard 0.9 minutes over three
-# quarters of its limit on Windows alone (#368's run 43384652902).
+# **A test of another operating system's costs nothing** (ELSEWHERE, which
+# every dealing passes - CI's and tests/cmake/ci_shards.cmake's, which deals
+# every preset from whichever host's build it runs in): a test this preset's
+# table does not name, nor any table of its own operating system, but a
+# table of another one does, is that system's own - an _on_direct3d12 test
+# dealt for linux-debug - which this preset never runs. Dealt at DEFAULT
+# instead, Windows' 46 such tests put a linux-debug shard 0.9 minutes over
+# three quarters of its limit on Windows alone (#368's run 43384652902).
+# Scoped to other systems, and the same in CI's dealing and in the check, so
+# the check never costs a test less than CI does: a test of this system the
+# table has not measured - macOS debug's, measured only on scheduled runs -
+# costs DEFAULT in both.
 if(ELSEWHERE)
-    file(GLOB _other_tables ${_source}/tests/ci_costs/*.txt)
-    list(REMOVE_ITEM _other_tables ${COSTS})
-    foreach(_table IN LISTS _other_tables)
+    string(REGEX MATCH "^[a-z]+" _system "${PRESET}")
+    file(GLOB _tables ${_source}/tests/ci_costs/*.txt)
+    foreach(_table IN LISTS _tables)
+        get_filename_component(_tname ${_table} NAME)
         file(STRINGS ${_table} _lines REGEX "^[0-9]+ ")
         foreach(_line IN LISTS _lines)
             if(_line MATCHES "^[0-9]+ ([^ ]+)$")
-                set(_elsewhere_${CMAKE_MATCH_1} TRUE)
+                set(_tn ${CMAKE_MATCH_1})
+                if(_tname MATCHES "^${_system}-")
+                    set(_ours_${_tn} TRUE)
+                else()
+                    set(_elsewhere_${_tn} TRUE)
+                endif()
             endif()
         endforeach()
     endforeach()
@@ -250,7 +261,7 @@ foreach(_i RANGE ${_last})
         else()
             set(_c ${_estimate})
         endif()
-    elseif(DEFINED _elsewhere_${_name})
+    elseif(DEFINED _elsewhere_${_name} AND NOT DEFINED _ours_${_name})
         set(_c 0)
     else()
         set(_c ${DEFAULT})

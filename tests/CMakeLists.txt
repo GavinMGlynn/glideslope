@@ -5099,9 +5099,6 @@ foreach(_table IN LISTS _ci_cost_tables)
             if(NOT DEFINED _ci_slowest_${_n} OR _s GREATER _ci_slowest_${_n})
                 set(_ci_slowest_${_n} ${_s})
             endif()
-            if(_table MATCHES "/linux-debug\\.txt$")
-                set(_ci_debug_${_n} ${_s})
-            endif()
             if(_table MATCHES "-release\\.txt$|/windows-clang\\.txt$")
                 if(NOT DEFINED _ci_release_${_n} OR _s GREATER _ci_release_${_n})
                     set(_ci_release_${_n} ${_s})
@@ -5144,46 +5141,23 @@ message(STATUS "glideslope: ${_raised} tests' time limits raised to half as long
 # **The gust sweep's day on a debug preset** (the owner's decision of
 # 2026-11-13): a release preset runs every gust_sweep test every night; a
 # debug preset one seventh of them, by the scheduled run's UTC weekday
-# (ci.yml's debug sweep jobs, `-L sweep_day_N`), so that each runs on every
-# debug preset once a week. Each test is given a day 1 (Monday) to 7, dealt
-# longest first and back and forth across the week by what it costs on
-# Linux debug's runners - the table's figure, or twelve times a piece's
-# release estimate (COST) - so that the days hold about the same work.
-# tests/cmake/ci_shards.cmake asserts that the seven days between them are
-# every gust_sweep test, each once.
-set(_sweep_keys "")
+# (ci.yml's debug sweep jobs, `-L ^sweep_day_N$`), so that each runs on
+# every debug preset once a week. **A test's day is its name's**: the MD5 of
+# the name, its first seven hex digits modulo 7, plus 1 (Monday) - so a
+# test keeps its day whatever the cost tables say, and is never left a
+# fortnight unrun or run twice in a week when they are measured again (a
+# day dealt by cost moved whenever a test's rank moved). How the days
+# balance is checked where it matters, against the debug sweep jobs'
+# limits: tests/cmake/ci_shards.cmake deals each day into its shards at
+# three quarters of the limit, and asserts that the seven days between them
+# are every gust_sweep test, each once.
 foreach(_t IN LISTS _all_tests)
     get_test_property(${_t} LABELS _labels)
     if(NOT "gust_sweep" IN_LIST _labels)
         continue()
     endif()
-    set(_c 60)
-    if(DEFINED _ci_debug_${_t})
-        set(_c ${_ci_debug_${_t}})
-    else()
-        get_test_property(${_t} COST _estimate)
-        if(_estimate)
-            string(REGEX REPLACE "\\..*$" "" _estimate "${_estimate}")
-            math(EXPR _c "${_estimate} * 12")
-        endif()
-    endif()
-    string(LENGTH "${_c}" _cl)
-    math(EXPR _pad "12 - ${_cl}")
-    string(REPEAT "0" ${_pad} _zeros)
-    list(APPEND _sweep_keys "${_zeros}${_c}|${_t}")
-endforeach()
-list(SORT _sweep_keys ORDER DESCENDING)
-set(_i 0)
-foreach(_key IN LISTS _sweep_keys)
-    string(REGEX REPLACE "^[0-9]+\\|" "" _t "${_key}")
-    math(EXPR _round "${_i} / 7")
-    math(EXPR _at "${_i} % 7")
-    math(EXPR _odd "${_round} % 2")
-    if(_odd)
-        math(EXPR _day "7 - ${_at}")
-    else()
-        math(EXPR _day "${_at} + 1")
-    endif()
+    string(MD5 _hash "${_t}")
+    string(SUBSTRING "${_hash}" 0 7 _hash)
+    math(EXPR _day "0x${_hash} % 7 + 1")
     set_property(TEST ${_t} APPEND PROPERTY LABELS sweep_day_${_day})
-    math(EXPR _i "${_i} + 1")
 endforeach()
