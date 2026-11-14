@@ -126,7 +126,9 @@ env:
 #     three more run only at night), so a full run's shards queue past 40
 #     at once. Linux release went to 4 on 2026-11-14: #362's turns-on-final
 #     and wind-limits runs put each of 3 at 47.8 of its 60 minutes' 45, a
-#     night's way.
+#     night's way. Windows release went to 6 the same day: those runs put
+#     each of 5 at 35.2 of its 45 minutes' 33.75 (run 43524070063); 29.3
+#     at 6. clang-cl stays at 5, about 32.5 by the same tables.
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may
@@ -1162,11 +1164,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-release, shard: 1, of: 5 }
-          - { preset: windows-release, shard: 2, of: 5 }
-          - { preset: windows-release, shard: 3, of: 5 }
-          - { preset: windows-release, shard: 4, of: 5 }
-          - { preset: windows-release, shard: 5, of: 5 }
+          - { preset: windows-release, shard: 1, of: 6 }
+          - { preset: windows-release, shard: 2, of: 6 }
+          - { preset: windows-release, shard: 3, of: 6 }
+          - { preset: windows-release, shard: 4, of: 6 }
+          - { preset: windows-release, shard: 5, of: 6 }
+          - { preset: windows-release, shard: 6, of: 6 }
           - { preset: windows-clang, shard: 1, of: 5 }
           - { preset: windows-clang, shard: 2, of: 5 }
           - { preset: windows-clang, shard: 3, of: 5 }
