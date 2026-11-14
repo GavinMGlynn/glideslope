@@ -108,6 +108,34 @@ so 28 is refused by her gate's tailwind ("YSRI 28 6 kt of tailwind; the gate
 is within 5"). The sweep's scripts were scratchpad/on-final-turns-complete/
 (sweep.sh), not committed.
 
+**Her thirty seconds, on the session's clock (2026-11-14).** CI run
+43538125107, Ubuntu linux-debug: the PA-28 and the C182, 5 kt behind, were
+"not at the learnt landing's gate: YSSY 16R: 1.7 miles out" - asked for
+33.56 s after she was admitted, where a local debug run asks at 30.95 and
+finds her 81 m short of the near edge. The start was not the cause: the
+command-line client counted `--learnt-landing-at`'s 30 s on its own clock
+from when it first *read* the update giving it her aircraft, so every
+second it was slow to read it (0.8 s on a local debug build; about 3.4 on
+the runner) was a second more she flew before she was judged. Reproduced
+locally: a 3 s stall put in the client where it first reads its aircraft's
+number, and the PA-28 at 5 behind failed as on CI ("not at the gate 30 s
+on", let go 34.0 s after admitted). Fixed in the client: the 30 s are
+counted on the session's clock, from the time of the first update that
+names her aircraft to the newest update's. With the same 3 s stall she
+was handed over 117 m short of the near edge, 30.24 s after admitted. The
+fix broken (the ask counted from this client's clock again), with the
+stall, red as on CI. The placement (`learnt_gate_start_m`) and the limits
+are unchanged; what is left between her 30 s and the server's judging is
+the ask's way to the server, one pass of the client's loop. linux-debug,
+after: the 14 tests that ask for the learnt landing at a time (the four
+wind-limits tests, the turns-on-final runs, the learnt-landing refusals)
+pass but one, the window client's behind a PA-28 - not this client: every
+verdict in it held (handed over 199 and 237 m short of the near edge), and
+the window client (`glideslope`, which this change does not build) exited 1
+on a LeakSanitizer report of 112 bytes in two callocs, unsymbolized, at its
+end, here without a display; on CI it passed in the failing run. The 400
+quick tests pass.
+
 **What changed.**
 
 - **The window opens before joining**, and while the server has given her
