@@ -26,7 +26,9 @@ cmake_minimum_required(VERSION 3.28)
 include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
 include("${CMAKE_CURRENT_LIST_DIR}/bmp.cmake")
 # For glideslope_judge_leaks: a window loads the display's own libraries, and
-# what they leak is theirs; a leak with a frame in glideslope still fails.
+# what they leak is theirs. A leak fails only when its first frame past the
+# runtime is glideslope's; one whose first such frame is a library's or
+# unsymbolized counts as foreign.
 include("${CMAKE_CURRENT_LIST_DIR}/client.cmake")
 
 if(CMAKE_HOST_SYSTEM_NAME STREQUAL "Linux" AND "$ENV{DISPLAY}" STREQUAL ""
