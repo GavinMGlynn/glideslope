@@ -590,8 +590,17 @@ std::optional<Joined> Online::join(double give_up_after_s, Clock local_s) {
             // **Why it waits**, as the server says it: an instruction to
             // `no_aircraft`, which its own is until it is given one - her
             // turn on final not come (noticed() keeps it, as it keeps one to
-            // its own aircraft). Said here, while it waits, not after.
+            // its own aircraft). Said here, while it waits, not after - and
+            // **after saying it has none**, which a reason to wait says as
+            // surely as an update does: the reason is sent with an update,
+            // and heard on its own when that update is late or lost (CI run
+            // 43513776356, a slow runner; --test-first-update-lost builds it).
             for (const std::string& told : instructions_) {
+                if (!said_waiting && mine_ == net::no_aircraft) {
+                    said_waiting = true;
+                    std::printf("glideslope: the server has given it no aircraft yet: "
+                                "waiting for one\n");
+                }
                 std::printf("glideslope: the server says: %s\n", told.c_str());
                 std::fflush(stdout);
             }

@@ -176,11 +176,18 @@ if(_how STREQUAL "window")
     port_lock_hold(${_relay})
     math(EXPR _before "${_last} - 1")
     list(GET _order ${_last} _a)
+    # **Told why before any update** (`--test-first-update-lost`): every
+    # session's first state update is lost on the way, so the window client
+    # hears the reason it waits - sent with that update - before it hears an
+    # update saying it has no aircraft. It must still say it has none first.
+    # The order it heard them in was left to the machine until 2026-11-14,
+    # and on a slow runner (CI run 43513776356) the reason came first in a
+    # poll of its own, and was said first.
     execute_process(
         ${_commands}
         COMMAND "${SERVER}" --port ${PORT} --seconds 1800 --until-empty --ai 1 --headless
                 --data "${DATA}" --store "${_store}" --timeout 30 --ready-file "${_ready}"
-                --players-on-final YSSY/16R
+                --players-on-final YSSY/16R --test-first-update-lost
         COMMAND "${IMPAIR}" ${_relay} "127.0.0.1:${PORT}" --delay 0 --jitter 0 --loss 0
                 --seed 1 --until-input-ends --seconds 1800
         COMMAND "${WINDOW}" --headless --gpu-driver "${DRIVER}" --size 320x200
@@ -223,6 +230,9 @@ endforeach()
 # **The window client waited, was told why, and was given her**: no
 # aircraft yet, the server's reason, and then hers, in that order.
 if(_how STREQUAL "window")
+    if(NOT _out MATCHES "a session's first state update is lost, as asked\n")
+        message(FATAL_ERROR "the server did not lose a first update as asked:\n${_out}")
+    endif()
     if(NOT _window MATCHES "the server has given it no aircraft yet: waiting for one\n(.*\n)?glideslope: the server says: waiting for the aircraft ahead: aircraft [0-9]+, [0-9.]+ miles from where she starts, until it is 3 miles on or landed, at most [0-9]+ s more\n(.*\n)?glideslope: the server gave this client aircraft [0-9]+, the ${_a}\n")
         message(FATAL_ERROR "the window client did not wait, told why, and then fly:\n${_window}")
     endif()
