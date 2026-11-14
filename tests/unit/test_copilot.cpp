@@ -1732,9 +1732,11 @@ GLIDESLOPE_TEST(a_session_whose_metar_reports_rain_refuses_a_runway_long_enough_
 // - both dry: told nothing, taken;
 // - the near reporting ice on 29C in a runway-state group: told the runway
 //   laid contaminated, both its ends at code 1, and the far's rain not told;
-// - and no station reported around it: the weather not had, thrown as
-//   world::fetch_stations_weather throws - the server says so and tells
-//   that planner nothing wet.
+// - no station reported around it: told of no station, and nothing wet;
+// - and the service not answering: thrown, as world::fetch_metars_around
+//   throws - the server says so and tells that planner nothing wet.
+// **Its METARs alone are asked for**, once each time: a planner is told no
+// winds aloft, so none are fetched.
 GLIDESLOPE_TEST(a_planner_under_the_stations_around_it_is_told_the_runway_its_nearest_station_reports_wet) {
     const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
     glideslope::world::RunwayEnd end;
@@ -1754,11 +1756,6 @@ GLIDESLOPE_TEST(a_planner_under_the_stations_around_it_is_told_the_runway_its_ne
     const std::vector<glideslope::world::RunwayEnd> all{end, other};
     const double near_lat = end.latitude_deg + 1000.0 / 111195.0;
     const double far_lat = end.latitude_deg - 5000.0 / 111195.0;
-    std::ifstream forecast_in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) /
-                                  "data/weather/open-meteo-sydney-2026-09-17.json",
-                              std::ios::binary);
-    const std::string forecast_text(std::istreambuf_iterator<char>(forecast_in), {});
-    check(!forecast_text.empty(), "the recorded forecast is read");
     const auto station = [](const std::string& id, const std::string& metar, double lat,
                             double lon) {
         return "{\"icaoId\":\"" + id + "\",\"rawOb\":\"" + metar +
@@ -1768,8 +1765,9 @@ GLIDESLOPE_TEST(a_planner_under_the_stations_around_it_is_told_the_runway_its_ne
     const std::string rain = " 100600Z 29012KT 6000 -RA BKN015 14/12 Q1012";
     const std::string dry = " 100600Z 29012KT 9999 FEW030 14/08 Q1012";
     const std::string ice = " 100600Z 29012KT 9999 FEW030 01/M02 Q1012 R29C/7900//";
+    std::vector<std::string> asked;
     const auto told = [&](const std::string& near_metar, const std::string& far_metar,
-                          bool reported) {
+                          bool reported, int status = 200) {
         const std::string body =
             reported ? "[" + station("YSBK", "METAR YSBK" + near_metar, near_lat,
                                      end.longitude_deg) +
@@ -1778,17 +1776,25 @@ GLIDESLOPE_TEST(a_planner_under_the_stations_around_it_is_told_the_runway_its_ne
                                    end.longitude_deg) +
                            "]"
                      : "[]";
-        const glideslope::world::Fetch fetch = [&](const std::string& url) {
+        asked.clear();
+        const glideslope::world::Fetch fetch = [&, status](const std::string& url) {
+            asked.push_back(url);
             glideslope::platform::HttpResponse r;
-            r.status = 200;
-            const std::string& text =
-                url.find("/api/data/metar") != std::string::npos ? body : forecast_text;
-            r.body.assign(text.begin(), text.end());
+            r.status = status;
+            if (status == 200 && url.find("/api/data/metar?bbox=") != std::string::npos) {
+                r.body.assign(body.begin(), body.end());
+            }
             return r;
         };
-        return glideslope::frontend::wet_runways_around(end.latitude_deg, end.longitude_deg,
-                                                        "2026-09-17T06:00", fetch, all,
-                                                        std::chrono::milliseconds(1));
+        const glideslope::frontend::StationWet found = glideslope::frontend::wet_runways_around(
+            end.latitude_deg, end.longitude_deg, fetch, all, std::chrono::milliseconds(1));
+        check(asked.size() == 1 && asked.front().find("/api/data/metar?bbox=") != std::string::npos,
+              "the METARs around it alone asked for, once: " + std::to_string(asked.size()) +
+                  " requests");
+        check(found.station == (reported ? "YSBK" : ""),
+              "told of the nearest station, YSBK, where any is reported: '" + found.station +
+                  "'");
+        return found.wet;
     };
     glideslope::sim::FlightPlan land;
     land.aircraft = "c172p";
@@ -1856,17 +1862,23 @@ GLIDESLOPE_TEST(a_planner_under_the_stations_around_it_is_told_the_runway_its_ne
         ++walked;
     }
     {
-        bool threw = false;
-        try {
-            (void)told(rain, rain, false);
-        } catch (const glideslope::world::ServiceUnavailable&) {
-            threw = true;
-        }
-        check(threw, "no station reported around it: the weather not had, which the server "
-                     "says and tells the planner nothing wet");
+        const auto wet = told(rain, rain, false);
+        check(!wet, "no station reported around it: told nothing wet");
         ++walked;
     }
-    check(walked == 6, "six cases of six walked: " + std::to_string(walked));
+    {
+        bool threw = false;
+        try {
+            (void)told(rain, rain, true, 503);
+        } catch (const std::exception&) {
+            threw = true;
+        }
+        check(threw && asked.size() > 1,
+              "the service not answering: thrown, after asking again: " +
+                  std::to_string(asked.size()) + " requests");
+        ++walked;
+    }
+    check(walked == 7, "seven cases of seven walked: " + std::to_string(walked));
 }
 
 // **Every aircraft on every runway condition code, through the one landing

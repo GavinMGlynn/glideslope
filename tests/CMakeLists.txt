@@ -4750,6 +4750,29 @@ set_tests_properties(an_ai_aircraft_whose_runways_cannot_be_read_flies_the_plan_
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planned_runways)
 
+# **A server's AI planner under the stations around it is told the runway its
+# nearest station reports wet**, and not a farther station's rain: both
+# cases. See cmake/server_planner_stations.cmake.
+foreach(_case IN ITEMS near_wet far_wet)
+    if(_case STREQUAL "near_wet")
+        set(_name a_servers_planner_under_the_stations_around_it_is_told_the_runway_its_nearest_station_reports_wet)
+    else()
+        set(_name a_servers_planner_under_the_stations_around_it_is_not_told_a_farther_stations_rain)
+    endif()
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_planner_stations_${_case}
+            -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot
+            -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
+            -DCASE=${_case}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_planner_stations.cmake)
+    set_tests_properties(${_name}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planner_stations_${_case})
+endforeach()
+
 # **A server keeps its rate while the runways a reported state lies on are
 # slow to come.** See cmake/server_runways_slow.cmake.
 add_test(NAME a_server_keeps_stepping_at_its_rate_while_the_runways_a_reported_state_lies_on_are_slow_to_come

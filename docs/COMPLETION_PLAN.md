@@ -1879,8 +1879,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       station nearest its airport reports, rain or a runway's state, and
       nothing a farther one does.
 - [ ] **A copilot is told one station's wet runways under `--weather
-      around`** - the server's hand-over its first station's, a player's her
-      flight's one report - not the station nearest the aircraft.
+      around`** - the server's hand-over copilot the first slot's station, a
+      player's her flight's one report - not the station nearest the
+      aircraft.
       *Verification: a copilot under the stations around it is told the
       runway its nearest station reports wet.*
 - [x] **The network checks on macOS drew another aircraft metres off** (8.6 m

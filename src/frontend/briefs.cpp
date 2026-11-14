@@ -9,8 +9,8 @@
 #include "sim/departure.hpp"
 #include "sim/figures.hpp"
 #include "sim/lander.hpp"
-#include "sim/plan.hpp"
 #include "sim/learnt.hpp"
+#include "sim/plan.hpp"
 #include "sim/runway_condition.hpp"
 
 namespace glideslope::frontend {
@@ -54,30 +54,30 @@ std::optional<world::WetRunways> wet_runways(const world::WeatherReport* report)
                              wet ? world::metar_radius_m : 0.0, report->contaminated};
 }
 
-std::optional<world::WetRunways> wet_runways_around(double latitude_deg, double longitude_deg,
-                                                    const std::string& time,
-                                                    const world::Fetch& fetch,
-                                                    const std::vector<world::RunwayEnd>& all,
-                                                    std::chrono::milliseconds retry_wait) {
-    world::StationsFound found =
-        world::fetch_stations_weather({{latitude_deg, longitude_deg}}, time, fetch, {}, retry_wait);
-    const auto away = [&](const world::WeatherReport& r) {
-        return sim::distance_m(latitude_deg, longitude_deg, r.surface.latitude_deg,
-                               r.surface.longitude_deg);
+StationWet wet_runways_around(double latitude_deg, double longitude_deg,
+                              const world::Fetch& fetch,
+                              const std::vector<world::RunwayEnd>& all,
+                              std::chrono::milliseconds retry_wait) {
+    const std::vector<world::SurfaceReport> reports =
+        world::fetch_metars_around(latitude_deg, longitude_deg, fetch, retry_wait);
+    const auto away = [&](const world::SurfaceReport& r) {
+        return sim::distance_m(latitude_deg, longitude_deg, r.latitude_deg, r.longitude_deg);
     };
     const auto nearest = std::min_element(
-        found.stations.begin(), found.stations.end(),
-        [&](const world::WeatherReport& a, const world::WeatherReport& b) {
+        reports.begin(), reports.end(),
+        [&](const world::SurfaceReport& a, const world::SurfaceReport& b) {
             return away(a) < away(b);
         });
-    if (nearest == found.stations.end()) {
-        return std::nullopt;
+    if (nearest == reports.end()) {
+        return {};
     }
-    if (!nearest->surface.metar.runway_states.empty()) {
-        nearest->contaminated = world::contaminated_runways(
-            nearest->surface.metar, world::runways_at(all, nearest->surface.metar.station));
+    world::WeatherReport report;
+    report.surface = *nearest;
+    if (!report.surface.metar.runway_states.empty()) {
+        report.contaminated = world::contaminated_runways(
+            report.surface.metar, world::runways_at(all, report.surface.metar.station));
     }
-    return wet_runways(&*nearest);
+    return {report.surface.metar.station, wet_runways(&report)};
 }
 
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,

@@ -5666,32 +5666,48 @@ int run(const Options& o) {
         // the aircraft's stations are not looked for until the fleet is
         // built, and the planners are asked while it is. Stations that
         // cannot be had are said, and that planner told no runway wet.
+        // **Asked once an airport**: planners at one airport share what its
+        // stations said, or that they said nothing.
         PlannersWet planners_wet;
         if (o.weather_around) {
-            planners_wet = [](const glideslope::world::RunwayEnd& airport,
-                              const std::vector<glideslope::world::RunwayEnd>& all)
+            auto asked = std::make_shared<
+                std::map<std::string, std::optional<glideslope::world::WetRunways>>>();
+            planners_wet = [asked](const glideslope::world::RunwayEnd& airport,
+                                   const std::vector<glideslope::world::RunwayEnd>& all)
                 -> std::optional<glideslope::world::WetRunways> {
+                if (const auto had = asked->find(airport.airport); had != asked->end()) {
+                    return had->second;
+                }
+                std::optional<glideslope::world::WetRunways> wet;
                 try {
-                    auto wet = glideslope::frontend::wet_runways_around(
-                        airport.latitude_deg, airport.longitude_deg,
-                        glideslope::world::utc_hour(std::chrono::system_clock::now()),
-                        glideslope::world::http_fetch(), all);
-                    const std::size_t contaminated = wet ? wet->contaminated.size() : 0;
-                    std::printf("planner at %s told %s, and %zu runway%s reported contaminated\n",
-                                airport.airport.c_str(),
-                                wet && wet->radius_m > 0.0
-                                    ? "its nearest station wets the runways"
-                                    : "its nearest station wets no runway",
-                                contaminated, contaminated == 1 ? "" : "s");
-                    std::fflush(stdout);
-                    return wet;
+                    const glideslope::frontend::StationWet found =
+                        glideslope::frontend::wet_runways_around(
+                            airport.latitude_deg, airport.longitude_deg,
+                            glideslope::world::http_fetch(), all);
+                    if (found.station.empty()) {
+                        std::fprintf(stderr,
+                                     "glideslope_server: no station is reported around %s, and "
+                                     "its planners are told no runway wet\n",
+                                     airport.airport.c_str());
+                    } else {
+                        wet = found.wet;
+                        const std::size_t contaminated = wet ? wet->contaminated.size() : 0;
+                        std::printf("planners at %s told by %s, its nearest station: %s, and %zu "
+                                    "runway%s reported contaminated\n",
+                                    airport.airport.c_str(), found.station.c_str(),
+                                    wet && wet->radius_m > 0.0 ? "the runways wet near it"
+                                                               : "no runway wet by its weather",
+                                    contaminated, contaminated == 1 ? "" : "s");
+                        std::fflush(stdout);
+                    }
                 } catch (const std::exception& e) {
                     std::fprintf(stderr,
                                  "glideslope_server: the stations around %s cannot be had, and "
-                                 "its planner is told no runway wet: %s\n",
+                                 "its planners are told no runway wet: %s\n",
                                  airport.airport.c_str(), e.what());
-                    return std::nullopt;
                 }
+                asked->emplace(airport.airport, wet);
+                return wet;
             };
         } else {
             planners_wet = [wet = glideslope::frontend::wet_runways(planned_in)](
