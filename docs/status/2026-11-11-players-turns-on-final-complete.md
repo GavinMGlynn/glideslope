@@ -364,3 +364,16 @@ The setting covers every program in that run, the server and command-line
 clients too, and all their standard error is judged; as in the other window
 tests, a leak with no symbolized frame of glideslope's would be counted as
 a library's.
+
+**macOS release's pull-request shards, 4 to 5.** In full run 43571140116 two
+of macOS release's four shards (2/4, 3/4) were cancelled at their 45
+minutes in both attempts, each dealt 31.2 minutes by the table (inside
+33.75); the two that finished took 2155 and 2226 s of tests, 36 and 37
+minutes. A macOS shard's tests overlap about 1.8 at a time, not the 3 the
+dealing's minutes assume (3871 s of tests in 2155 s), so real time is 1.15 to
+1.45 times dealt. macos-release.txt now holds the measured cost of the held
+past the bound orbiting test (423 s, was 305) and of the runway's other end
+test (1 s, was missing). Five shards: 24.9 dealt, about 29 to 36 real; the
+account runs five macOS jobs at once, so no more. Not yet seen: the full run
+on five shards. The nightly's 7 multi-process shards now hold 89.3 of their 90
+minutes, so the next multi-process test needs an eighth shard.
