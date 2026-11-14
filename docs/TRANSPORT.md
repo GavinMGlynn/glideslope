@@ -588,7 +588,7 @@ first, each as the slots that differ from the change before: a `WEATHER`
 for each slot filled or given another station, with the weather it blends
 from before it while it does, and an empty METAR for each slot emptied, each
 naming that change's moment as when the stations changed, and the station's
-`RUNWAY_CONDITIONS` after the weather of every slot told in such a change;
+`RUNWAY_CONDITIONS` straight after that slot's weather;
 then the slots the newest change differs in, at its moment. A station there
 in both changes is told once, so that it is one station's weather on the
 client as on the server. Each `WEATHER` names, as when it took over, the
