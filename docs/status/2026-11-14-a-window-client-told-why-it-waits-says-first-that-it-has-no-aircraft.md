@@ -59,4 +59,4 @@ YSSY/16R` to `--players-on-final ${_spec}`, and this branch adds
 `said_waiting` is set. Both changes stay there too. With this fix, a reason
 heard before any update sets `said_waiting`, so the window shows why she
 waits from that moment. Without the fix it would show nothing until the
-first update. Not yet rebased onto #362.
+first update. On the train with #362, its window run passes `--players-on-final ${_spec} --test-first-update-lost`; that path runs only for YSSY/16R.
