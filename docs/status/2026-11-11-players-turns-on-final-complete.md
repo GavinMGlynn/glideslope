@@ -342,3 +342,17 @@ The tests are runs of `tests/cmake/server_players_take_turns_on_final.cmake`.
   tests matching learnt, on_final, gate, ports, flags and usage, and the
   66 window and client tests, with the window now opened before joining
   (two skipped: they need a display, which these runs do not have).
+
+## The window turns test judges leaks as every window test does
+
+`the_window_client_joining_on_final_behind_a_pa28_...` failed twice on
+linux-debug in WSL, with every on-final check in it holding: the window
+client exited 1 on LeakSanitizer reports wholly inside the Mesa lavapipe
+driver, loaded at run time. CI's runners did not show it. Its script now
+runs with `LSAN_OPTIONS=exitcode=0` and gives standard error to
+`glideslope_judge_leaks` (tests/cmake/client.cmake), as the other window tests
+do: a leak with a frame in glideslope still fails it. Verification: it passes
+on linux-debug here, its log reading "2 leak reports were allocated by
+libraries loaded at run time; not glideslope's". No deliberate glideslope leak
+was introduced to watch it fail here; the judge is the one the other window
+tests share.
