@@ -273,8 +273,11 @@ public:
     // `geoid` converts the aircraft's height above the ellipsoid to height above
     // mean sea level; without one they are taken as the same. `ground` gives
     // the terrain the air rises and sinks over; without it, there is none.
+    // `changed_at_s` is when it took over, which nothing flown depends on
+    // until a new report blends in from it: what is said of it
+    // (changed_at_s).
     ReportedWeather(WeatherReport report, const Geoid* geoid, double blend_seconds,
-                    GroundAt ground = {});
+                    GroundAt ground = {}, double changed_at_s = 0.0);
 
     // A new report, blending in from simulation time `now_s`.
     void update(WeatherReport report, double now_s);
@@ -320,6 +323,11 @@ public:
                    ? &before_->current_
                    : nullptr;
     }
+
+    // When the latest report took over - update's `now_s`, or when it was
+    // made - and when the one it blends from did.
+    double changed_at_s() const { return changed_at_s_; }
+    double blending_from_changed_at_s() const { return before_ ? before_->changed_at_s_ : 0.0; }
 
     // **Pure in time**: the air at a moment is the same whenever it is
     // asked, before or after a blend has ended - a client flying a step
@@ -447,6 +455,12 @@ public:
     // When the stations last changed, and over how long they blend.
     double set_changed_at_s() const { return set_changed_at_s_; }
 
+    struct Stations;
+    // **The stations flown, change by change** (Stations): what a client
+    // joining mid-change is told, the oldest first
+    // (frontend::weather_said_on_joining).
+    const Stations& air() const { return *air_; }
+
     // Pure in time, as ReportedWeather::at is.
     sim::Conditions at(double latitude_deg, double longitude_deg, double height_m,
                        double time_s) override;
@@ -457,6 +471,9 @@ public:
     // steps nothing.
     struct Stations : sim::Weather {
         std::shared_ptr<StationsWeather> stations;
+        // **The slots as they were**, each null when empty: what a client
+        // joining mid-change is told of these stations.
+        std::vector<std::shared_ptr<ReportedWeather>> slots;
         std::shared_ptr<Stations> from;
         double at_s = 0.0;
         double blend_s = 0.0;

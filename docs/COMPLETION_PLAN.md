@@ -1872,6 +1872,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       ones whole** until the change's blend ends, as one joining mid-blend
       did before it was told what a weather blends from. *Verification: a
       client joining mid-change flies the server's air to the last bit.*
+      The server and the headless client do (2026-11-14); **the window
+      client does not**: it keeps two weathers a slot, so a slot told three
+      or more on joining is flown otherwise, and no test flies its path.
 - [ ] **The AI's planners are told no wet runway under `--weather around`**:
       a station's runway states reach the air, not the plans. *Verification:
       a planner under the stations around it is told the runway its nearest

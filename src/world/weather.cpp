@@ -635,9 +635,10 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
 }
 
 ReportedWeather::ReportedWeather(WeatherReport report, const Geoid* geoid,
-                                 double blend_seconds, GroundAt ground)
+                                 double blend_seconds, GroundAt ground, double changed_at_s)
     : current_(std::move(report)), current_lift_(lift_of(current_)),
-      ground_(std::move(ground)), geoid_(geoid), blend_seconds_(blend_seconds) {}
+      ground_(std::move(ground)), changed_at_s_(changed_at_s), geoid_(geoid),
+      blend_seconds_(blend_seconds) {}
 
 void ReportedWeather::update(WeatherReport report, double now_s) {
     // Rain the old report said keeps the runways wet a while after the new
@@ -853,9 +854,16 @@ void StationSlots::set(std::size_t slot, std::optional<WeatherReport> report,
         auto next = std::make_shared<Stations>();
         next->stations = air_->stations;
         if (any()) {
-            if (air_->from &&
-                set_changed_at_s >= air_->at_s + std::max(0.0, air_->blend_s) + blend_kept_s) {
-                air_->from.reset();
+            // **Only the changes that still reach the air are kept**: the
+            // newest whose blend ended blend_kept_s before this change lets
+            // go of what it blended from, and with it every change before.
+            // So the stations flown are at most the changes made within a
+            // blend and blend_kept_s of each other, however long a session.
+            for (Stations* c = air_.get(); c != nullptr; c = c->from.get()) {
+                if (c->from && set_changed_at_s >= c->at_s + std::max(0.0, c->blend_s) + blend_kept_s) {
+                    c->from.reset();
+                    break;
+                }
             }
             next->from = air_;
         }
@@ -865,7 +873,8 @@ void StationSlots::set(std::size_t slot, std::optional<WeatherReport> report,
         set_changed_at_s_ = set_changed_at_s;
     }
     if (report) {
-        s = std::make_shared<ReportedWeather>(std::move(*report), geoid_, blend_s, ground_);
+        s = std::make_shared<ReportedWeather>(std::move(*report), geoid_, blend_s, ground_,
+                                              changed_at_s);
     } else {
         s.reset();
     }
@@ -876,6 +885,7 @@ void StationSlots::set(std::size_t slot, std::optional<WeatherReport> report,
         }
     }
     air_->stations = std::make_shared<StationsWeather>(std::move(flown));
+    air_->slots = slots_;
 }
 
 std::vector<WeatherReport> StationSlots::stations_flown() const {

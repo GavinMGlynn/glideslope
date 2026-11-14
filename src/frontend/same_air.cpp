@@ -184,6 +184,80 @@ WeatherSaid weather_said(const world::WeatherReport* report, double changed_at_s
     return out;
 }
 
+namespace {
+
+void write_said(const WeatherSaid& said, std::vector<std::vector<std::uint8_t>>& out) {
+    out.push_back(net::write(said.weather));
+    if (said.aloft) {
+        out.push_back(net::write(*said.aloft));
+    }
+}
+
+} // namespace
+
+std::vector<std::vector<std::uint8_t>> weather_said_on_joining(const world::StationSlots& slots,
+                                                               std::size_t slot_count,
+                                                               double blend_s, double now_s) {
+    std::vector<std::vector<std::uint8_t>> out;
+    const world::StationSlots::Stations& newest = slots.air();
+    const double stations_changed_at_s =
+        std::isfinite(slots.set_changed_at_s()) ? slots.set_changed_at_s() : 0.0;
+    // **The changes of the stations that still reach the air from now on**,
+    // the oldest first: the newest, and what each blends from while its
+    // blend has not ended. One alone - not mid-change - is each slot now.
+    std::vector<const world::StationSlots::Stations*> changes{&newest};
+    for (const world::StationSlots::Stations* c = &newest;
+         c->from && c->blend_s > 0.0 && now_s < c->at_s + c->blend_s; c = c->from.get()) {
+        changes.push_back(c->from.get());
+    }
+    std::reverse(changes.begin(), changes.end());
+    // Each change told as the slots that differ from the one before - a
+    // station there in both is the same weather on the server, told once,
+    // so that the joiner's is one weather in both too. Not mid-change, every
+    // slot, emptied or not.
+    const bool mid_change = changes.size() > 1;
+    std::vector<const world::ReportedWeather*> joiner;
+    for (const world::StationSlots::Stations* c : changes) {
+        const bool last = c == &newest;
+        // The newest change's slots are the slots now, every one there has
+        // been; an older one's as they were.
+        const std::size_t n = std::max({last ? slot_count : c->slots.size(),
+                                        joiner.size(), c->slots.size()});
+        const double at_s = last ? stations_changed_at_s : c->at_s;
+        joiner.resize(n, nullptr);
+        for (std::size_t i = 0; i < n; ++i) {
+            const world::ReportedWeather* air =
+                last ? (i < slots.slots().size() ? slots.slots()[i].get() : nullptr)
+                     : (i < c->slots.size() ? c->slots[i].get() : nullptr);
+            if (mid_change && air == joiner[i]) {
+                continue;
+            }
+            joiner[i] = air;
+            const auto slot = static_cast<std::uint8_t>(i);
+            // An empty slot names the moment of the change it is told with.
+            if (air == nullptr) {
+                write_said(weather_said(nullptr, at_s, blend_s, slot, at_s), out);
+                continue;
+            }
+            if (const world::WeatherReport* from = air->blending_from(now_s)) {
+                write_said(weather_said(from, air->blending_from_changed_at_s(), blend_s, slot,
+                                        at_s),
+                           out);
+            }
+            write_said(weather_said(&air->report(), air->changed_at_s(), blend_s, slot, at_s),
+                       out);
+            // The runways of a station let go since: told now, while the
+            // joiner's slot is its; those of the slots now come after every
+            // weather, as at every change.
+            if (!last) {
+                out.push_back(
+                    net::write(runway_conditions_said(*air, air->changed_at_s(), now_s, slot)));
+            }
+        }
+    }
+    return out;
+}
+
 std::optional<world::WeatherReport> weather_heard(const net::Weather& weather,
                                                   const std::optional<net::WeatherAloft>& aloft) {
     if (weather.metar.empty()) {

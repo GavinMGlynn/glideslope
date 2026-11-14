@@ -277,37 +277,64 @@ void Online::hear(Flight& flight) {
         // ground, nor before the ground is known**: the reliable layer
         // delivers in order and the ground is said first, so a weather is
         // always heard after it.
+        //
+        // **In the order the stations changed**: a client joining while the
+        // server's stations change is told the stations the change blends
+        // from first (frontend::weather_said_on_joining), each at its change.
+        // Heard slot by slot, a slot's new station would make a change of
+        // its own after another slot's older one; so every weather to fly is
+        // gathered and flown by when its stations changed, each slot's in
+        // the order it was told.
+        struct ToFly {
+            double stations_changed_at_s;
+            std::uint8_t slot;
+            const net::Weather* weather;
+            const std::optional<net::WeatherAloft>* aloft;
+            std::int64_t key;
+            int weathers;
+            bool before;
+        };
+        std::vector<ToFly> to_fly;
         for (const auto& [slot, heard] : told.stations()) {
             const std::int64_t key = (static_cast<std::int64_t>(told_in_) << 32) |
                                      static_cast<std::int64_t>(heard.weathers);
             if (heard.weather && ground_compared_ && other_ground_.empty() &&
                 key != flight.server_weathers(slot)) {
-                std::string why;
                 // **One that has not flown the weather before the newest
                 // flies it first** - joined mid-blend, or a flight made
                 // since - so that the newest blends in from it as on the
                 // server, and is not flown whole until the blend ends. Past
                 // its blend it changes nothing.
                 if (heard.before && key - 1 != flight.server_weathers(slot)) {
-                    std::string before_why;
-                    (void)flight.heard_weather(*heard.before, heard.before_aloft,
-                                               [this] { return session_now_s_; }, key - 1,
-                                               before_why);
+                    to_fly.push_back({heard.before->stations_changed_at_s, slot, &*heard.before,
+                                      &heard.before_aloft, key - 1, heard.weathers - 1, true});
                 }
-                if (flight.heard_weather(*heard.weather, heard.aloft,
-                                         [this] { return session_now_s_; }, key, why)) {
-                    weathers_flown_ = told.weathers();
-                    std::printf("glideslope: flying the server's weather (%d, station %u): %s\n",
-                                heard.weathers, static_cast<unsigned>(slot),
-                                heard.weather->metar.empty() ? "still air"
-                                                             : heard.weather->metar.c_str());
-                } else {
-                    std::printf(
-                        "glideslope: refused the server's weather, and flies the last: %s\n",
-                        why.c_str());
-                }
-                std::fflush(stdout);
+                to_fly.push_back({heard.weather->stations_changed_at_s, slot, &*heard.weather,
+                                  &heard.aloft, key, heard.weathers, false});
             }
+        }
+        std::stable_sort(to_fly.begin(), to_fly.end(), [](const ToFly& a, const ToFly& b) {
+            return a.stations_changed_at_s < b.stations_changed_at_s;
+        });
+        for (const ToFly& w : to_fly) {
+            std::string why;
+            const bool flown = flight.heard_weather(*w.weather, *w.aloft,
+                                                    [this] { return session_now_s_; }, w.key, why);
+            if (w.before) {
+                continue;
+            }
+            if (flown) {
+                weathers_flown_ = told.weathers();
+                std::printf("glideslope: flying the server's weather (%d, station %u): %s\n",
+                            w.weathers, static_cast<unsigned>(w.slot),
+                            w.weather->metar.empty() ? "still air" : w.weather->metar.c_str());
+            } else {
+                std::printf("glideslope: refused the server's weather, and flies the last: %s\n",
+                            why.c_str());
+            }
+            std::fflush(stdout);
+        }
+        for (const auto& [slot, heard] : told.stations()) {
             // **The runways the server's air lays a condition on**, laid
             // whenever they are new or the weather they are for was flown
             // again - a flight made since; dropped when for another weather.

@@ -106,6 +106,27 @@ WeatherSaid weather_said(const world::WeatherReport* report, double changed_at_s
                          double blend_s, std::uint8_t station = 0,
                          double stations_changed_at_s = 0.0);
 
+// **Everything a client joining is told of a server's weather**, as the
+// messages' bodies (`WEATHER`, `WEATHER_ALOFT`, `RUNWAY_CONDITIONS`), in
+// order. Not while the stations change: each of `slot_count` slots - every
+// one the server has had - its weather now, after what it blends from while
+// it does (world::ReportedWeather::blending_from), an empty slot naming the
+// moment the stations last changed. **Joining while the stations change**,
+// before the newest change's blend has ended: first each change of the
+// stations that still reaches the air - what the newest blends from, and
+// what that blends from while its own blend has not ended, the oldest first
+// - told as the slots that differ from the change before, at the moment of
+// its change, each station let go since with its runways after it; then the
+// slots the newest differs in. So the joiner's world::StationSlots makes the
+// server's changes from the server's stations, and does not fly the new
+// stations whole until the blend ends. Each weather names when it took over
+// (world::ReportedWeather::changed_at_s), and an emptied slot the moment of
+// its change. The runways of the slots now are not in it: they are told as
+// at every change (runway_conditions_said).
+std::vector<std::vector<std::uint8_t>> weather_said_on_joining(const world::StationSlots& slots,
+                                                               std::size_t slot_count,
+                                                               double blend_s, double now_s);
+
 // **What a client makes of it**: the report the server flies, read with the
 // same rules, or nothing for still air. Throws world::MetarError for a METAR
 // these rules cannot read, which a server of this version never sends.
