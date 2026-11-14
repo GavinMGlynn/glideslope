@@ -44,6 +44,7 @@ cmake_minimum_required(VERSION 3.28)
 # **Its port held machine-wide** while it runs (port_lock.cmake): another
 # build's run of this test on the same port waits for it.
 include(${CMAKE_CURRENT_LIST_DIR}/port_lock.cmake)
+include(${CMAKE_CURRENT_LIST_DIR}/client.cmake)
 
 # **The space**: every aeroplane with a learnt landing, as a follower; the
 # second to fourth places.
@@ -213,6 +214,11 @@ if(_how STREQUAL "window")
     # (glideslope_impair, at PORT + 1), which passes the server's standard
     # output on to standard error: the client's is read from the one and the
     # server's from the other.
+    # **Leaks judged as every window test judges them**
+    # (`glideslope_judge_leaks`): one with a frame in glideslope fails; one
+    # wholly in a library loaded at run time (a GPU driver's) is counted and
+    # let be, so the exit code is left to the judging.
+    set(ENV{LSAN_OPTIONS} "exitcode=0")
     math(EXPR _relay "${PORT} + 1")
     port_lock_hold(${_relay})
     math(EXPR _before "${_last} - 1")
@@ -236,6 +242,7 @@ if(_how STREQUAL "window")
         message(STATUS "the window client cannot draw here: ${_out}")
         cmake_language(EXIT 77)
     endif()
+    glideslope_judge_leaks("${_out}")
     file(WRITE "${WORK}/window.txt" "${_window}")
 else()
     set(_ai_final "")
