@@ -10,10 +10,11 @@ so `selftest`'s hash does not move.
 - **short_s23, seed 15, Windows debug and clang**: touches at 336.335134
   ft/min, inside 360 but not by 25. Failed on windows-debug (gust sweep day 5,
   3/8) and windows-clang (gust sweep 8/8), the same figure on both. It uses a
-  new helper, `windows_debug()` (Windows without NDEBUG), not `windows()`:
-  windows-release's seed 15 is not in the run's logs (its gust sweep shards
-  5/10 and 6/10 have no logs, 404), so it is not named there. If it fails
-  there, name it from that figure.
+  new helper, `windows_debug_or_clang()` (Windows without NDEBUG, or built
+  by clang-cl, whose preset is a release one and has NDEBUG), not
+  `windows()`: windows-release's gust sweep shards 5/10 and 6/10 were still
+  running when this was written, so its seed 15 is unmeasured and not named.
+  If it fails there, name it from that figure.
 - **f22, seed 3, every macOS preset**: was `macos_release()` at 372 ft/min
   (CI run 43240423674); macos-debug fails the same seed at 372.363196 ft/min,
   so it is now `macos()`.

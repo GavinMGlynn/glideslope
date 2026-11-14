@@ -3079,10 +3079,11 @@ struct NamedOnASeed {
     return false;
 #endif
 }
-// Windows debug and clang alone (no NDEBUG): where a name is measured and
-// windows-release's run is not.
-[[maybe_unused]] constexpr bool windows_debug() {
-#if defined(_WIN32) && !defined(NDEBUG)
+// Windows debug and clang-cl (a release build, so it has NDEBUG; told
+// apart by __clang__): where a name is measured and windows-release's run
+// is not.
+[[maybe_unused]] constexpr bool windows_debug_or_clang() {
+#if defined(_WIN32) && (!defined(NDEBUG) || defined(__clang__))
     return true;
 #else
     return false;
@@ -3261,7 +3262,7 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // Windows debug and clang, CI run 43513776356 (the scheduled run of
         // 2026-11-13): seed 15 at 336 ft/min, inside 360 but not by 25;
         // windows-release's run of it is not in that run's logs.
-        {"short_s23", 15, windows_debug(),
+        {"short_s23", 15, windows_debug_or_clang(),
          "on Windows debug and clang she touches at 336 ft/min, inside 360 but not by 25 "
          "(seed 15), CI run 43513776356"},
         {"short_s23", 18, macos(),
