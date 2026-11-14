@@ -194,10 +194,28 @@ endif()
 # towards it, is not taken for one made on it (review of #374: made 40 m
 # south, she was 23 m south after 290 ms, inside a bound on the distance
 # alone). The relay makes her fly long enough for the floor to be above
-# the start. East of it, no more than the eleven metres. A
-# hundred-thousandth of a degree of latitude is 1.1132 m.
+# the start. A hundred-thousandth of a degree of latitude is 1.1132 m.
 math(EXPR _farthest_e5 "${_start_kts} * 12 * 5144 * ${_flown_ms} / 10000 / 11132 + 10")
 math(EXPR _least_e5 "${_start_kts} * 8 * 5144 * ${_flown_ms} / 10000 / 11132 - 10")
+# **East or west of it, as far as her track to the first waypoint goes**
+# for as far north as she can have gone, twice over for her turn onto it,
+# and the eleven metres: THE_HEADS is 0.002 degrees east of the start, and
+# a fixed eleven metres failed a correct run after about seven seconds of
+# flight (re-review of #374) - a slow machine failed sooner than it need be.
+if(NOT _plan MATCHES "\nwaypoint [A-Z_]+ +([-0-9.]+) ([-0-9.]+) ")
+    message(FATAL_ERROR "cannot read the plan's first waypoint")
+endif()
+_e5("${CMAKE_MATCH_1}" _first_lat_e5)
+_e5("${CMAKE_MATCH_2}" _first_lon_e5)
+math(EXPR _track_north "${_first_lat_e5} - ${_start_lat_e5}")
+math(EXPR _track_east "${_first_lon_e5} - ${_start_lon_e5}")
+if(NOT _track_north GREATER 0)
+    message(FATAL_ERROR "the plan's first waypoint is not north of its start")
+endif()
+if(_track_east LESS 0)
+    math(EXPR _track_east "0 - ${_track_east}")
+endif()
+math(EXPR _farthest_east_e5 "(${_farthest_e5} - 10) * ${_track_east} * 2 / ${_track_north} + 10")
 set(_moved 0)
 set(_still 0)
 set(_nearest_ai_e5 -1)
@@ -235,10 +253,11 @@ foreach(_line IN LISTS _lines)
                     "${_flown_ms} ms since it was made, at ${_made_s} s, it would have gone "
                     "${_least_e5} to ${_farthest_e5}")
         endif()
-        if(_east GREATER 10)
+        if(_east GREATER _farthest_east_e5)
             message(FATAL_ERROR
                     "the client's own aircraft is ${_signed_east} hundred-thousandths of a "
-                    "degree east of the plan's start, flying north from it")
+                    "degree east of the plan's start, and in the ${_flown_ms} ms since it "
+                    "was made it would have gone no more than ${_farthest_east_e5} either way")
         endif()
         set(_mine_e5 ${_away_e5})
         math(EXPR _still "${_still} + 1")

@@ -32,7 +32,11 @@ way (a copy of the test in the scratchpad). The old check then fails as on CI:
   between T and the first update's clock, with a fifth added for true
   airspeed up to the top layer, plus 11 m for rounding. It must also be no
   less than four fifths of that speed for the same time, less the same 11 m.
-  East of the start she may be no more than the 11 m.
+  East or west of the start she may be no farther than her track to the
+  first waypoint, THE_HEADS (0.002 degrees east), takes her for as far north
+  as she can have gone. That is doubled for her turn onto the track, plus
+  11 m. A fixed 11 m, as first written, would have failed a correct run after
+  about 7 s of flight (re-review of #374).
 - The floor is there because of a review of #374. A bound on the distance
   alone passed an aircraft made 40 m south of the start: flying north, back
   towards it, she was 23 m from it after 290 ms. The relay makes her fly long
@@ -60,6 +64,11 @@ way (a copy of the test in the scratchpad). The old check then fails as on CI:
   to 28". The distance-only bound would have passed it (19 against 28). The
   bug was then reverted.
 - The test then passed five repeats under `-j4` load.
+- A third deliberate bug started her 0.00043 degrees (40 m) east of the
+  start. The test failed: "43 hundred-thousandths of a degree east ... in the
+  292 ms since it was made it would have gone no more than 10 either way".
+  The bug was then reverted, and the test passed five more repeats under
+  `-j4`.
 - `every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one`
   passes. It caught the first choice, PORT + 2, which was server_leave's
   relay.
