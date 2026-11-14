@@ -1868,10 +1868,13 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       flight of her own, flies the stations within 200 km of her, the
       nearer's alone but in a 20 km band between two; between two recorded
       stations neither stepped the wind by more than 0.005 m/s.
-- [ ] **A client joining while the server's stations change flies the new
+- [x] **A client joining while the server's stations change flies the new
       ones whole** until the change's blend ends, as one joining mid-blend
       did before it was told what a weather blends from. *Verification: a
       client joining mid-change flies the server's air to the last bit.*
+      Done 2026-11-14: a joiner is told the stations the change blends from
+      first, and joined inside two changes' blends flew the server's air at
+      all 120 points compared.
 - [ ] **The AI's planners are told no wet runway under `--weather around`**:
       a station's runway states reach the air, not the plans. *Verification:
       a planner under the stations around it is told the runway its nearest

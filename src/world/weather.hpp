@@ -321,6 +321,11 @@ public:
                    : nullptr;
     }
 
+    // When the latest report took over (update's `now_s`), and when the one
+    // it blends from did: nought for a report flown since it was made.
+    double changed_at_s() const { return changed_at_s_; }
+    double blending_from_changed_at_s() const { return before_ ? before_->changed_at_s_ : 0.0; }
+
     // **Pure in time**: the air at a moment is the same whenever it is
     // asked, before or after a blend has ended - a client flying a step
     // again (sim::Prediction) flies what the server flew at it.
@@ -447,6 +452,12 @@ public:
     // When the stations last changed, and over how long they blend.
     double set_changed_at_s() const { return set_changed_at_s_; }
 
+    struct Stations;
+    // **The stations flown, change by change** (Stations): what a client
+    // joining mid-change is told, the oldest first
+    // (frontend::weather_said_on_joining).
+    const Stations& air() const { return *air_; }
+
     // Pure in time, as ReportedWeather::at is.
     sim::Conditions at(double latitude_deg, double longitude_deg, double height_m,
                        double time_s) override;
@@ -457,6 +468,9 @@ public:
     // steps nothing.
     struct Stations : sim::Weather {
         std::shared_ptr<StationsWeather> stations;
+        // **The slots as they were**, each null when empty: what a client
+        // joining mid-change is told of these stations.
+        std::vector<std::shared_ptr<ReportedWeather>> slots;
         std::shared_ptr<Stations> from;
         double at_s = 0.0;
         double blend_s = 0.0;
