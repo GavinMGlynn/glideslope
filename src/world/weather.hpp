@@ -273,8 +273,11 @@ public:
     // `geoid` converts the aircraft's height above the ellipsoid to height above
     // mean sea level; without one they are taken as the same. `ground` gives
     // the terrain the air rises and sinks over; without it, there is none.
+    // `changed_at_s` is when it took over, which nothing flown depends on
+    // until a new report blends in from it: what is said of it
+    // (changed_at_s).
     ReportedWeather(WeatherReport report, const Geoid* geoid, double blend_seconds,
-                    GroundAt ground = {});
+                    GroundAt ground = {}, double changed_at_s = 0.0);
 
     // A new report, blending in from simulation time `now_s`.
     void update(WeatherReport report, double now_s);
@@ -321,8 +324,8 @@ public:
                    : nullptr;
     }
 
-    // When the latest report took over (update's `now_s`), and when the one
-    // it blends from did: nought for a report flown since it was made.
+    // When the latest report took over - update's `now_s`, or when it was
+    // made - and when the one it blends from did.
     double changed_at_s() const { return changed_at_s_; }
     double blending_from_changed_at_s() const { return before_ ? before_->changed_at_s_ : 0.0; }
 

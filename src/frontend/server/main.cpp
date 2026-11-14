@@ -2733,12 +2733,8 @@ public:
     // (frontend::weather_said_on_joining): mid-change, the stations it
     // blends from first.
     std::vector<std::vector<std::uint8_t>> weather_said_on_joining() const {
-        std::vector<glideslope::frontend::SlotTold> told;
-        for (const WeatherSlot& slot : slots_) {
-            told.push_back({slot.changed_at_s, slot.previous_changed_at_s});
-        }
         const glideslope::world::StationSlots none(nullptr);
-        return glideslope::frontend::weather_said_on_joining(air_ ? *air_ : none, told,
+        return glideslope::frontend::weather_said_on_joining(air_ ? *air_ : none, slots_.size(),
                                                              weather_blend_s_, now_s());
     }
     double previous_weather_changed_at_s(std::size_t i) const {
@@ -6201,8 +6197,22 @@ int run(const Options& o) {
                 // the change blends from first, so that it flies the blend
                 // the server flies and not the new stations whole.
                 if (c.weathers_told.empty() && fleet->weather_slots() > 0) {
-                    for (const std::vector<std::uint8_t>& body : fleet->weather_said_on_joining()) {
-                        send(body);
+                    const std::vector<std::vector<std::uint8_t>> bodies =
+                        fleet->weather_said_on_joining();
+                    std::size_t refused = 0;
+                    for (const std::vector<std::uint8_t>& body : bodies) {
+                        refused += c.reliable.send(std::span<const std::uint8_t>(
+                                       body.data(), body.size()))
+                                       ? 0U
+                                       : 1U;
+                    }
+                    // **Never silently short**: a client told part of the
+                    // weather flies other air, so a refusal is said.
+                    if (refused > 0) {
+                        std::fprintf(stderr,
+                                     "glideslope_server: %zu of the weather's %zu messages to a "
+                                     "client joining could not be queued (%zu already in flight)\n",
+                                     refused, bodies.size(), c.reliable.in_flight());
                     }
                     for (std::size_t i = 0; i < fleet->weather_slots(); ++i) {
                         c.weathers_told.push_back(fleet->weathers(i));

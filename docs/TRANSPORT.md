@@ -581,19 +581,28 @@ of the change names, so that a change of several slots is one change. The
 first stations there are, from none, are flown whole. A server that flies
 one station flies it in slot 0, and its `WEATHER` names the moment it was
 given as when the stations changed. **A client joining while the stations
-blend is told first the stations they blend from**: every change of the
-stations the server still flies, the oldest first, each as the slots that
-differ from the change before - a `WEATHER` for each slot filled or given
-another station, with the weather it blends from before it while it does,
-and an empty METAR for each slot emptied - each naming that change's moment
-as when the stations changed, with a slot's runways (`RUNWAY_CONDITIONS`)
-after the weather of a station let go since; and then the slots that the
-newest change differs in, as now. A station there in both changes is told
-once, so that it is one station's weather on the client as on the server.
-So it blends from the same stations as the server, and does not fly the new
-ones whole until the blend ends. No byte of any message changed with this,
-nor the version: a client that keeps only each slot's newest flies the new
-stations whole, as before.
+blend is told first the stations they blend from**: each change of the
+stations that still reaches the air - what the newest change blends from,
+and what that blends from while its own blend has not ended - the oldest
+first, each as the slots that differ from the change before: a `WEATHER`
+for each slot filled or given another station, with the weather it blends
+from before it while it does, and an empty METAR for each slot emptied, each
+naming that change's moment as when the stations changed, and the station's
+`RUNWAY_CONDITIONS` after the weather of every slot told in such a change;
+then the slots the newest change differs in, at its moment. A station there
+in both changes is told once, so that it is one station's weather on the
+client as on the server. Each `WEATHER` names, as when it took over, the
+moment its report did - the moment its station was given its slot, or of its
+last new report - and an emptied slot the moment of the change it is told
+with. So it blends from the same stations as the server, and does not fly
+the new ones whole until the blend ends. **What the server keeps, and so
+tells, is bounded**: a change of the stations lets go of every change before
+the newest whose blend ended a minute or more before it (blend_kept_s), so
+the changes kept are those made within a blend and a minute of each other,
+and a joiner is told those whose blend has not ended. A server that cannot
+queue all of it (256 messages in flight) says so on its standard error. No
+byte of any message changed with this, nor the version: a client that keeps
+only each slot's newest flies the new stations whole, as before.
 
 **Both ends blend from the same moment.** A new weather is blended in, not
 stepped to: every value moving linearly, over the blend, from what the old
@@ -731,8 +740,11 @@ something sealed under it) and on the update after: `TERRAIN_DATASET`, then
 slot in order a `WEATHER`, and `WEATHER_ALOFT` after it where the weather
 has a forecast (and, while a weather blends in, the one it blends from before
 it, the same way; and while the stations change, the stations they blend
-from before all of them, as above), then for each slot in order its
-`RUNWAY_CONDITIONS`; then each `AIRCRAFT`. After that:
+from before all of them, as above), and an empty slot naming the moment
+the stations last changed; then, after every slot's weather, each slot's
+`RUNWAY_CONDITIONS` in order - **an order changed on 2026-11-14**: before,
+each slot's `RUNWAY_CONDITIONS` followed that slot's own weather; then each
+`AIRCRAFT`. After that:
 
 - **the lobby again, whole, whenever it is not what was last sent** - a
   player joining or going;
