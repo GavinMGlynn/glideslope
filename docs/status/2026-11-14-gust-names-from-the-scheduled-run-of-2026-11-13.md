@@ -19,8 +19,11 @@ does not move.
   now `macos()`.
 - **737-300, seed 6, every macOS preset**: was `macos_release()`; macos-debug
   (tests 1/8) fails it at the same 349.072720 ft/min, so it is now `macos()`.
-- **macOS release only** (`macos_release()`); macOS debug did not fly these
-  seeds that night (the weekly rotation), so they are not named there:
+- **Every macOS preset** (`macos()`), measured on macOS release. macOS debug
+  did not fly these seeds that night (the weekly rotation), but the two seeds
+  it did fly, the F-22A's 3 and the 737-300's 6, it failed at release's
+  figures to the sixth place, so it is named on debug too: left off, its
+  sweep days (2, 4 and 7) would be red:
   - j3cub, seed 18: touches at 352.085248 ft/min (gust sweep 4/5);
   - 737-300, seed 20: touches at 382.507879 ft/min (5/5);
   - 747-400, seed 23: touches at 353.905731 ft/min (2/5);
@@ -53,5 +56,6 @@ no other gust failure is in the run.
 ## Verification
 
 linux-release builds with `-j6`, and the gust naming tests of test_lesson
-pass. On Linux none of these names is `here`, so the change is exercised by
-the next macOS and Windows sweep: this pull request's dispatched full run.
+pass. On Linux none of these names is `here`, and pull requests run no gust
+sweep, so ci.yml is dispatched on this branch to fly the sweep on macOS and
+Windows, and its run is named in the pull request.

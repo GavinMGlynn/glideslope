@@ -3109,7 +3109,8 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
     // the hold-off with her own gains (`Lander::hull_elevator`), and a
     // gust's climb in that level hold-off no longer gone around from as a
     // balloon. macOS's seeds 3, 10 and 11 likewise, measured in the full
-    // run dispatched on #313; her 32 is named below.
+    // run dispatched on #313; her 32 and 28 (macOS) and 15 (Windows) are
+    // named below.
     static const std::vector<NamedOnASeed> named = {
         // The F-22A since 2026-11-05, her flight controls fed her body's
         // rates, not the air's (tools/make_f22.py, "Her rate gyros"):
@@ -3313,21 +3314,23 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"j3cub", 40, macos(),
          "on macOS she touches at 352 ft/min, inside her limit but not her margin (seed "
          "40), CI run 41773183933"},
-        // macOS release, CI run 43513776356 (the scheduled run of
-        // 2026-11-13), since every aircraft started moving with her wind;
-        // macOS debug did not fly these seeds that night.
-        {"j3cub", 18, macos_release(),
+        // Measured on macOS release, CI run 43513776356 (the scheduled run
+        // of 2026-11-13), since every aircraft started moving with her wind;
+        // named on debug too, which did not fly these seeds that night: the
+        // two it did fly (the F-22A's 3, the 737-300's 6) it failed at
+        // release's figures to the sixth place.
+        {"j3cub", 18, macos(),
          "on macOS she touches at 352 ft/min, inside her limit but not her margin (seed "
          "18), CI run 43513776356"},
-        {"737-300", 20, macos_release(),
+        {"737-300", 20, macos(),
          "on macOS she touches at 383 ft/min (seed 20), CI run 43513776356"},
-        {"747-400", 23, macos_release(),
+        {"747-400", 23, macos(),
          "on macOS she touches at 354 ft/min, inside 360 but not by 25 (seed 23), CI run "
          "43513776356"},
-        {"pa28", 16, macos_release(),
+        {"pa28", 16, macos(),
          "on macOS a gust climbs her at 92 ft/min in her flare (seed 16), CI run "
          "43513776356"},
-        {"short_s23", 28, macos_release(),
+        {"short_s23", 28, macos(),
          "on macOS she rises 0.77 ft after her touch (seed 28), CI run "
          "43513776356"},
     };
