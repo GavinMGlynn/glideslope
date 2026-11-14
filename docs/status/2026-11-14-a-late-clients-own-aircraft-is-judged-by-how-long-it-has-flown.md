@@ -27,10 +27,16 @@ way (a copy of the test in the scratchpad). The old check then fails as on CI:
   T s on the session's clock".
 - The test checks that she was made after the session's first second, not
   with the AI at the start.
-- It checks that she is no farther from the start (north plus east) than the
-  plan's 100 kt can carry her, with a fifth added for true airspeed up to the
-  top layer, between T and the first update's clock. Another 11 m allows for
-  rounding.
+- It checks how far north of the start she is, signed, since the plan heads
+  her north. That must be no more than the plan's 100 kt can carry her
+  between T and the first update's clock, with a fifth added for true
+  airspeed up to the top layer, plus 11 m for rounding. It must also be no
+  less than four fifths of that speed for the same time, less the same 11 m.
+  East of the start she may be no more than the 11 m.
+- The floor is there because of a review of #374. A bound on the distance
+  alone passed an aircraft made 40 m south of the start: flying north, back
+  towards it, she was 23 m from it after 290 ms. The relay makes her fly long
+  enough for the floor to lie north of the start.
 - It checks that she is nearer the start than either AI.
 - It asserts still air, so that her ground speed is her airspeed.
 - The test now always joins through the 100 ms relay (at PORT + 12), so the
@@ -45,6 +51,15 @@ way (a copy of the test in the scratchpad). The old check then fails as on CI:
   it fails: "67 hundred-thousandths of a degree from the plan's start, and in
   the 334 ms since it was made ... it could have gone 28". The bug was then
   reverted.
+- With the floor added, a typical run reads "made at 5.108 s, 17
+  hundred-thousandths of a degree from it of the 2 to 28 it would have
+  flown".
+- A second deliberate bug started her 0.00036 degrees (40 m) south of the
+  start. The test failed: "-19 hundred-thousandths of a degree north of the
+  plan's start, and in the 334 ms since it was made ... it would have gone 2
+  to 28". The distance-only bound would have passed it (19 against 28). The
+  bug was then reverted.
+- The test then passed five repeats under `-j4` load.
 - `every_fixed_test_port_lies_outside_the_ephemeral_ranges_and_no_two_tests_share_one`
   passes. It caught the first choice, PORT + 2, which was server_leave's
   relay.
