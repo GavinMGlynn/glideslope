@@ -2759,3 +2759,35 @@ GLIDESLOPE_TEST(the_next_player_on_final_waits_until_the_one_ahead_is_three_mile
     check(std::abs(cub_s - 311.7) < 0.1, "behind a J-3 Cub at most 311.7 s");
     check(cases == 14, "fourteen cases: " + std::to_string(cases));
 }
+
+// **The other end only into a wind her gate admits**
+// (sim::learnt_gate_wind_refuses): at Sydney, 34L points 347.9 and 16R
+// 167.9. A southerly of 10 kt (blowing north) is 9.8 kt behind on 34L,
+// refused; 9.8 kt ahead on 16R, admitted. A northerly of 10 kt is the other
+// way round. Calm is admitted on both; 5 kt straight behind is the edge.
+GLIDESLOPE_TEST(a_runways_other_end_is_offered_only_into_a_wind_its_learnt_landings_gate_admits) {
+    using glideslope::sim::learnt_gate_wind_refuses;
+    const auto policy = the_policy("c172p");
+    constexpr double mps = 0.514444;
+    std::size_t cases = 0;
+    const auto refused = [&](double heading, double north_kts, double east_kts) {
+        ++cases;
+        return learnt_gate_wind_refuses(policy.get(), heading, north_kts * mps, east_kts * mps);
+    };
+    const std::string southerly_34l = refused(347.9, 10.0, 0.0);
+    std::printf("  southerly on 34L: %s\n", southerly_34l.c_str());
+    check(southerly_34l.rfind("10 kt of tailwind", 0) == 0,
+          "a southerly is refused on 34L for its tailwind: " + southerly_34l);
+    check(refused(167.9, 10.0, 0.0).empty(), "a southerly is admitted on 16R, into it");
+    check(refused(347.9, -10.0, 0.0).empty(), "a northerly is admitted on 34L, into it");
+    check(!refused(167.9, -10.0, 0.0).empty(), "a northerly is refused on 16R");
+    check(refused(347.9, 0.0, 0.0).empty(), "calm is admitted");
+    const double h = 347.9 / 57.29577951308232;
+    check(refused(347.9, 5.0 * std::cos(h), 5.0 * std::sin(h)).empty(),
+          "5 kt straight behind is admitted, the edge");
+    check(!refused(347.9, 5.2 * std::cos(h), 5.2 * std::sin(h)).empty(),
+          "5.2 kt straight behind is refused");
+    check(!refused(347.9 + 90.0, 16.0 * std::cos(h), 16.0 * std::sin(h)).empty(),
+          "16 kt straight across is refused, past the gate's 15");
+    check(cases == 8, "eight cases: " + std::to_string(cases));
+}

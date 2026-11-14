@@ -272,11 +272,18 @@ gate admits no more crosswind than her figures' demonstrated crosswind
 (the Cub's 12 kt), and no more than training's 15. The learnt landing is offered for those four aircraft, by the CLI, to a player at its gate on a server (L in the window
 client, told why when refused; since 2026-11-11 the first player on final starts
 where her gate holds her thirty seconds, and each of the four, joined on
-final in the window client and left alone, is still at it then; the players after her start there too, each in her
+final in the window client and left alone, is still at it then - put on
+final only in light wind, inside each aeroplane's measured limits (the owner's
+ruling, 2026-11-11); the players after her start there too, each in her
 turn, once the one ahead is three miles on or landed, gone around, off the
-final or waited out (the window client's window not open while she waits;
-AI aircraft not counted) - 2026-11-11-a-172-joined-on-final-stays-at-the-gate,
-2026-11-11-players-joining-on-final-take-turns-in-the-gate), and to an AI aircraft the server is told to
+final or waited out - an AI aircraft on that final too, put there or its
+plan landing there - her window showing why while she waits; held past the
+bound by one over the start, she starts on final to another runway end there
+whose wind her gate admits, and otherwise waits, told why (the server never
+moves a person's aircraft: the owner's ruling, 2026-11-11); a
+player the learnt landing stopped leaves the runway - 2026-11-11-a-172-joined-on-final-stays-at-the-gate,
+2026-11-11-players-joining-on-final-take-turns-in-the-gate,
+2026-11-11-players-turns-on-final-complete), and to an AI aircraft the server is told to
 flying a plan that ends in a landing, which then taxis off the runway; a
 landing goes around from a runway not clear (since 2026-10-08) - but a
 copilot's route cannot end in one (a tail). A landing a model plans is

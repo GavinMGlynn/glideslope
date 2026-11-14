@@ -124,7 +124,18 @@ env:
 #     43446046011), Linux release 3 (Ubuntu), macOS release 4, Windows
 #     release and clang-cl 5: eleven more jobs on a full run (macOS debug's
 #     three more run only at night), so a full run's shards queue past 40
-#     at once.
+#     at once. Linux release went to 4 on 2026-11-14: #362's turns-on-final
+#     and wind-limits runs put each of 3 at 47.8 of its 60 minutes' 45, a
+#     night's way. Windows release went to 6 the same day: those runs put
+#     each of 5 at 35.2 of its 45 minutes' 33.75 (run 43524070063); 29.3
+#     at 6. clang-cl stays at 5, about 32.5 by the same tables. macOS
+#     release went to 5 the same day: at 4, each dealt 31.2 minutes (inside
+#     33.75) and two were cut off at 45 in both attempts of run 43571140116,
+#     the two that finished taking 36 and 37 minutes of tests (2155 and
+#     2226 s): a macOS shard's tests overlap about 1.8 at a time, not the
+#     3 the table's minutes assume, so its real time is 1.15 to 1.45 times
+#     its dealt. 24.9 at 5, about 29 to 36 real; the account runs 5 macOS
+#     jobs at once, so no more shards than that.
 #   - Build and test are separate steps, so each one's time is in plain view.
 #
 # A shard cannot finish sooner than its longest test, which is why no test may
@@ -365,9 +376,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-release, shard: 1, of: 3 }
-          - { preset: linux-release, shard: 2, of: 3 }
-          - { preset: linux-release, shard: 3, of: 3 }
+          - { preset: linux-release, shard: 1, of: 4 }
+          - { preset: linux-release, shard: 2, of: 4 }
+          - { preset: linux-release, shard: 3, of: 4 }
+          - { preset: linux-release, shard: 4, of: 4 }
     env:
       CXX: g++-14
       CC: gcc-14
@@ -754,14 +766,15 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Three shards: two held 42 minutes of work each once the STOVL
-        # take-over tests came, and shard 2 of run 40678447800 finished its
-        # tests at 43 minutes and was cancelled at 45 in its last steps.
+        # Five shards: at four, shards 2 and 3 of run 43571140116 were cut
+        # off at 45 minutes in both attempts, once #362's turns-on-final
+        # tests came. Five is the account's macOS job limit.
         include:
-          - { preset: macos-release, shard: 1, of: 4 }
-          - { preset: macos-release, shard: 2, of: 4 }
-          - { preset: macos-release, shard: 3, of: 4 }
-          - { preset: macos-release, shard: 4, of: 4 }
+          - { preset: macos-release, shard: 1, of: 5 }
+          - { preset: macos-release, shard: 2, of: 5 }
+          - { preset: macos-release, shard: 3, of: 5 }
+          - { preset: macos-release, shard: 4, of: 5 }
+          - { preset: macos-release, shard: 5, of: 5 }
     steps:
       - uses: actions/checkout@v5
         with: { submodules: true }
@@ -1159,11 +1172,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: windows-release, shard: 1, of: 5 }
-          - { preset: windows-release, shard: 2, of: 5 }
-          - { preset: windows-release, shard: 3, of: 5 }
-          - { preset: windows-release, shard: 4, of: 5 }
-          - { preset: windows-release, shard: 5, of: 5 }
+          - { preset: windows-release, shard: 1, of: 6 }
+          - { preset: windows-release, shard: 2, of: 6 }
+          - { preset: windows-release, shard: 3, of: 6 }
+          - { preset: windows-release, shard: 4, of: 6 }
+          - { preset: windows-release, shard: 5, of: 6 }
+          - { preset: windows-release, shard: 6, of: 6 }
           - { preset: windows-clang, shard: 1, of: 5 }
           - { preset: windows-clang, shard: 2, of: 5 }
           - { preset: windows-clang, shard: 3, of: 5 }

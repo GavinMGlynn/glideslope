@@ -76,6 +76,7 @@
 #include <iterator>
 #include <memory>
 #include <map>
+#include <numbers>
 #include <optional>
 #include <random>
 #include <set>
@@ -1116,8 +1117,12 @@ struct Connection {
         bool unreadable = false;
         bool told = false; // why, in a TRAFFIC_INSTRUCTION to `no_aircraft`
         std::uint8_t told_ahead = glideslope::net::no_aircraft; // whom it named
+        bool told_no_runway = false; // and whether that no other runway would do
     };
     std::optional<WaitsOnFinal> waits_on_final;
+    // **Why her aircraft was not put on final**, told her once this session
+    // is proven; empty, nothing to tell.
+    std::string told_later;
     // Their inputs, and how far through them the server has got. The number
     // goes back in every state update so the client knows what to reconcile.
     glideslope::net::InputReceiver inputs;
@@ -1716,7 +1721,8 @@ public:
     // with her `AIRCRAFT`, so that a prediction flies her as heavy as she is.
     std::uint8_t give(std::uint8_t slot,
                       const std::optional<glideslope::net::AskedAircraft>& asked = std::nullopt,
-                      bool unreadable = false) {
+                      bool unreadable = false,
+                      const std::optional<glideslope::sim::Runway>& final_to_given = std::nullopt) {
         std::string model = player_model_;
         std::string id = player_id_;
         double airspeed_kts = player_airspeed_kts_;
@@ -1831,8 +1837,24 @@ public:
                 std::fflush(stdout);
             }
         }
-        double final_kts = 0.0;
+        // **Only in light wind** (the owner's ruling, 2026-11-11): a player
+        // is put on final only where the wind there is inside what she,
+        // left alone, stays at her gate in for thirty seconds - measured,
+        // in her figures (sim::on_final_wind_refuses); in any other she
+        // starts where the plan does, and is told why.
+        std::string wind_refused;
         if (on_final_ && final_speeds) {
+            const glideslope::sim::Runway& to = final_to_given ? *final_to_given : *on_final_;
+            wind_refused = on_final_refused(model, to);
+            if (!wind_refused.empty()) {
+                wind_refused = "not put on final to " + to.name + ": " + wind_refused;
+                std::printf("slot %d's %s is %s; it starts where the plan does\n",
+                            static_cast<int>(slot), id.c_str(), wind_refused.c_str());
+                std::fflush(stdout);
+            }
+        }
+        double final_kts = 0.0;
+        if (on_final_ && final_speeds && wind_refused.empty()) {
             // **Every player where her gate holds her thirty seconds** left
             // alone, unless told (`@MILES`): from the gate's middle she flew
             // out of its near edge in seventeen (client_stays_at_gate.cmake).
@@ -1841,10 +1863,12 @@ public:
             // past the gate (2.9, 3.4 and 3.9 miles, until 2026-11-11).
             const double out_m = first_on_final_m(model, aircraft->loaded_weight_lbs());
             final_kts = final_start_kts(model, *final_speeds, *aircraft);
+            const glideslope::sim::Runway& final_to =
+                final_to_given ? *final_to_given : *on_final_;
             ic = glideslope::sim::final_approach_start(
-                *on_final_, out_m, final_kts, final_speeds->flap, final_speeds->aim_m, 3.0);
+                final_to, out_m, final_kts, final_speeds->flap, final_speeds->aim_m, 3.0);
             std::printf("slot %d's %s starts on final to %s %.2f miles out\n",
-                        static_cast<int>(slot), id.c_str(), on_final_->name.c_str(),
+                        static_cast<int>(slot), id.c_str(), final_to.name.c_str(),
                         out_m / 1852.0);
             std::fflush(stdout);
             // **Trimmed wings and all, as level**: trimmed in pitch alone
@@ -1896,6 +1920,9 @@ public:
             flown_.back().loading = loading->loading;
         }
         learn_speeds(flown_.back());
+        // Said to her session, not to her aircraft's number: a number is
+        // given again once its aircraft has gone (Connection::told_later).
+        not_on_final_said_ = wind_refused;
         // **On final since now**, for the next player's turn (`final_wait`).
         if (final_kts > 0.0) {
             flown_.back().on_final_since_s =
@@ -2013,35 +2040,86 @@ public:
 
     // **Whether a player asking for `asked` must wait for her turn on
     // final** (`--players-on-final`), and why; or, if she may start now,
-    // what let her (sim::turn_on_final, judged against every other player's
-    // aircraft flying: three miles on, landed, gone around, off the final,
-    // or waited out - the bound on any wait). Only players' aircraft are
-    // counted, not the AI's.
+    // what let her (sim::turn_on_final, judged against every aircraft ahead:
+    // three miles on, landed, gone around, off the final, moved, or waited
+    // out).
     struct FinalWait {
         std::string why;       // empty: she may start
         std::string let_by;    // what let her, when she may
         std::uint8_t ahead = glideslope::net::no_aircraft; // whom she waits on
+        // She starts on final to another runway end than the session's.
+        std::optional<glideslope::sim::Runway> final_to;
+        // Held past the bound with no other runway end to start on.
+        bool no_runway = false;
     };
-    FinalWait final_wait(const std::optional<glideslope::net::AskedAircraft>& asked) {
-        FinalWait out;
-        if (!on_final_) {
-            return out;
+    // **Whether two runway ends are one**: the same threshold, within 50 m,
+    // pointing the same way, within 5 degrees - a plan names its own.
+    static bool same_end(const glideslope::sim::Runway& a, const glideslope::sim::Runway& b) {
+        glideslope::sim::Traffic x;
+        x.latitude_deg = a.threshold_lat_deg;
+        x.longitude_deg = a.threshold_lon_deg;
+        glideslope::sim::Traffic y;
+        y.latitude_deg = b.threshold_lat_deg;
+        y.longitude_deg = b.threshold_lon_deg;
+        return glideslope::sim::horizontal_m(x, y) < 50.0 &&
+               std::abs(std::remainder(a.heading_deg - b.heading_deg, 360.0)) < 5.0;
+    }
+    // **Whether an AI aircraft's own plan ends in a landing on `end`**: the
+    // server's plan it flies, a model's or a copilot's own, or an approach
+    // it is flying straight in.
+    bool lands_on(const Aircraft& a, const glideslope::sim::Runway& end) const {
+        if (a.slot >= 0 || !ai_flying(a)) {
+            return false;
         }
-        std::string model = player_model_;
-        if (asked) {
-            if (const auto entry = catalogue_.find(asked->id); entry != catalogue_.end()) {
-                model = entry->second.model;
-            }
+        if (a.on_plan && plan_.landing && same_end(*plan_.landing, end)) {
+            return true;
+        }
+        if (a.own_plan && a.own_plan->landing && same_end(*a.own_plan->landing, end)) {
+            return true;
+        }
+        const auto straight = a.controller->straight_in();
+        return straight && same_end(*straight, end);
+    }
+
+    // **Why a player in `model` is not put on final to `end` in the wind
+    // there now** (sim::on_final_wind_refuses, her measured limits), or
+    // empty: where she has no learnt landing, or the air is still, nothing.
+    std::string on_final_refused(const std::string& model, const glideslope::sim::Runway& end) {
+        const auto policy = learnt_for(model);
+        if (!policy || !session_air_) {
+            return {};
         }
         const glideslope::sim::InitialConditions at = glideslope::sim::final_approach_start(
-            *on_final_, first_on_final_m(model, std::nullopt), 0.0, 0.0, 0.0, 3.0);
+            end, first_on_final_m(model, std::nullopt), 0.0, 0.0, 0.0, 3.0);
+        const glideslope::sim::Conditions air = session_air_->at(
+            at.latitude_deg, at.longitude_deg, at.altitude_ft / feet_per_metre,
+            static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second));
+        return glideslope::sim::on_final_wind_refuses(*policy, end.heading_deg, air.wind_north_mps,
+                                                      air.wind_east_mps);
+    }
+
+    // **Judged against one runway end's start**: every aircraft ahead -
+    // a player's, or an AI's put on final (`--ai-on-final`) - and whether
+    // the one that holds her has held her past the bound.
+    struct EndJudged {
+        FinalWait wait;
+        bool past_bound = false;
+    };
+    // `bound`: whether the one holding her may have held her past the bound,
+    // eased to the lateral minimum; not for another end she is put on
+    // instead, which must be clear by three miles.
+    EndJudged judge_end(const glideslope::sim::Runway& end, const std::string& model,
+                        bool bound = true) {
+        EndJudged out;
+        const glideslope::sim::InitialConditions at = glideslope::sim::final_approach_start(
+            end, first_on_final_m(model, std::nullopt), 0.0, 0.0, 0.0, 3.0);
         glideslope::sim::Traffic here;
         here.latitude_deg = at.latitude_deg;
         here.longitude_deg = at.longitude_deg;
         const double now_s =
             static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
-        for (const Aircraft& a : flown_) {
-            if (a.slot < 0 || a.wrecked_at_s >= 0.0) {
+        for (Aircraft& a : flown_) {
+            if ((a.slot < 0 && !a.on_final_to && !lands_on(a, end)) || a.wrecked_at_s >= 0.0) {
                 continue;
             }
             const glideslope::sim::AircraftState st = a.aircraft->state();
@@ -2050,36 +2128,160 @@ public:
             t.longitude_deg = st.longitude_deg;
             glideslope::sim::AheadOnFinal ahead;
             ahead.from_start_m = glideslope::sim::horizontal_m(here, t);
+            // **An AI whose own plan lands here**, on final from when it
+            // first comes within three miles of the start.
+            if (a.on_final_since_s < 0.0 &&
+                ahead.from_start_m < glideslope::sim::TurnOnFinalRule::in_trail_m) {
+                a.on_final_since_s = now_s;
+                a.on_final_start_ft = st.altitude_ft;
+            }
             ahead.height_above_ground_ft = st.height_above_ground_ft;
             ahead.above_her_start_ft =
                 a.on_final_since_s >= 0.0 ? st.altitude_ft - a.on_final_start_ft : 0.0;
-            ahead.across_m = glideslope::sim::on_final(*a.aircraft, *on_final_).across_m;
-            ahead.on_final_s = a.on_final_since_s >= 0.0 ? now_s - a.on_final_since_s : 0.0;
+            ahead.across_m = glideslope::sim::on_final(*a.aircraft, end).across_m;
+            ahead.on_final_s =
+                bound && a.on_final_since_s >= 0.0 ? now_s - a.on_final_since_s : 0.0;
             ahead.approach_kts = a.on_final_kts > 0.0 ? a.on_final_kts : 60.0;
             const glideslope::sim::TurnOnFinal turn = glideslope::sim::turn_on_final(ahead);
             char text[160];
             if (turn == glideslope::sim::TurnOnFinal::holds) {
+                const double left_s =
+                    glideslope::sim::longest_behind_s(ahead.approach_kts) - ahead.on_final_s;
                 std::snprintf(text, sizeof text,
                               "waiting for the aircraft ahead: aircraft %u, %.2f miles from "
                               "where she starts, until it is 3 miles on or landed, at most "
                               "%.0f s more",
                               static_cast<unsigned>(a.index), ahead.from_start_m / 1852.0,
-                              glideslope::sim::longest_behind_s(ahead.approach_kts) -
-                                  ahead.on_final_s);
-                out.why = text;
-                out.let_by.clear();
-                out.ahead = a.index;
+                              std::max(left_s, 0.0));
+                out.wait.why = text;
+                out.wait.let_by.clear();
+                out.wait.ahead = a.index;
+                out.past_bound = left_s <= 0.0;
                 return out;
             }
             std::snprintf(text, sizeof text, "%saircraft %u %s, %.2f miles from her start",
-                          out.let_by.empty() ? "" : "; ", static_cast<unsigned>(a.index),
+                          out.wait.let_by.empty() ? "" : "; ", static_cast<unsigned>(a.index),
                           glideslope::sim::said(turn), ahead.from_start_m / 1852.0);
-            out.let_by += text;
+            out.wait.let_by += text;
         }
-        if (out.let_by.empty()) {
-            out.let_by = "nobody ahead";
+        if (out.wait.let_by.empty()) {
+            out.wait.let_by = "nobody ahead";
         }
         return out;
+    }
+
+    // **Whether a player asking for `asked` must wait for her turn on
+    // final** (`--players-on-final`), and why; or, if she may start now,
+    // what let her (sim::turn_on_final, judged against every aircraft ahead:
+    // three miles on, landed, gone around, off the final, or waited out).
+    // **Held past the bound by one that stays over the start** - circling
+    // there, or flying the final back and forth - the one holding it is told
+    // to leave it (a TRAFFIC_INSTRUCTION, if a person's), and she starts on
+    // final to another runway end at that airfield instead: the most into
+    // the wind first, of those whose wind her learnt landing's gate admits
+    // and whose start is clear by the same rule - as a tower turns the next
+    // arrival to another runway rather than keep it waiting. **The server
+    // never moves a person's aircraft** (REQUIREMENTS 6.5; the owner's
+    // ruling of 2026-11-11): where no other end will do, she waits, told why,
+    // until the one holding the final goes.
+    FinalWait final_wait(const std::optional<glideslope::net::AskedAircraft>& asked) {
+        if (!on_final_) {
+            return {};
+        }
+        std::string model = player_model_;
+        if (asked) {
+            if (const auto entry = catalogue_.find(asked->id); entry != catalogue_.end()) {
+                model = entry->second.model;
+            }
+        }
+        // Not put on final in this wind, she waits for nobody's turn.
+        if (!on_final_refused(model, *on_final_).empty()) {
+            return {};
+        }
+        EndJudged here = judge_end(*on_final_, model);
+        if (here.wait.why.empty() || !here.past_bound || on_final_ends_.empty()) {
+            return here.wait;
+        }
+        for (Aircraft& a : flown_) {
+            if (a.index == here.wait.ahead && a.slot >= 0 && !a.told_to_leave_final) {
+                a.told_to_leave_final = true;
+                instructions_.push_back(
+                    {a.index, "leave the final to " + on_final_->name +
+                                  ": go around and clear it; traffic has waited behind you "
+                                  "past its time, and is put on another runway if one will "
+                                  "take her"});
+            }
+        }
+        // **The other ends, the most into the wind first**, each only into a
+        // wind her gate admits there: a southerly at Sydney is a tailwind
+        // down 34L and 34R, and the gate refuses more than 5 kt of it.
+        const auto policy = learnt_for(model);
+        // Ranked by the whole knots behind (most ahead first), the session's
+        // runway's other end first among equals.
+        std::vector<std::pair<double, const glideslope::sim::Runway*>> ends;
+        std::string refusals;
+        for (const glideslope::sim::Runway& end : on_final_ends_) {
+            double behind_kts = 0.0;
+            if (session_air_) {
+                const glideslope::sim::InitialConditions there_at =
+                    glideslope::sim::final_approach_start(
+                        end, first_on_final_m(model, std::nullopt), 0.0, 0.0, 0.0, 3.0);
+                const glideslope::sim::Conditions air = session_air_->at(
+                    there_at.latitude_deg, there_at.longitude_deg,
+                    there_at.altitude_ft / feet_per_metre,
+                    static_cast<double>(steps_) /
+                        static_cast<double>(glideslope::sim::steps_per_second));
+                // Her gate's limits, and the lighter ones she is put on
+                // final in (sim::on_final_wind_refuses): only an end she
+                // stays at the gate on, left alone.
+                std::string refused = glideslope::sim::learnt_gate_wind_refuses(
+                    policy.get(), end.heading_deg, air.wind_north_mps, air.wind_east_mps);
+                if (refused.empty() && policy) {
+                    refused = glideslope::sim::on_final_wind_refuses(
+                        *policy, end.heading_deg, air.wind_north_mps, air.wind_east_mps);
+                }
+                if (!refused.empty()) {
+                    refusals += (refusals.empty() ? "" : "; ") + end.name + " " + refused;
+                    continue;
+                }
+                const double h = end.heading_deg * std::numbers::pi / 180.0;
+                behind_kts = (air.wind_east_mps * std::sin(h) + air.wind_north_mps * std::cos(h)) /
+                             0.514444;
+            }
+            ends.push_back({std::round(behind_kts), &end});
+        }
+        std::stable_sort(ends.begin(), ends.end(),
+                         [](const auto& x, const auto& y) { return x.first < y.first; });
+        for (const auto& [behind_kts, end] : ends) {
+            EndJudged there = judge_end(*end, model, false);
+            if (!there.wait.why.empty()) {
+                refusals += (refusals.empty() ? "" : "; ") + end->name + " not clear";
+                continue;
+            }
+            there.wait.final_to = *end;
+            there.wait.let_by = "aircraft " + std::to_string(here.wait.ahead) +
+                                " held the final to " + on_final_->name +
+                                " past the bound; she starts on final to " + end->name + " (" +
+                                there.wait.let_by + ")";
+            return there.wait;
+        }
+        // **None will do**: she waits, told why.
+        if (other_ends_refused_said_ != refusals) {
+            other_ends_refused_said_ = refusals;
+            std::printf("held past the bound, and no other runway will take her: %s\n",
+                        refusals.c_str());
+            std::fflush(stdout);
+        }
+        // (The runways' reasons the server says; what she is told is cut at
+        // 160 bytes, and says only that none will.)
+        char text[160];
+        std::snprintf(text, sizeof text,
+                      "waiting for aircraft %u ahead, past its time over where she starts: no "
+                      "other runway here will take her",
+                      static_cast<unsigned>(here.wait.ahead));
+        here.wait.why = text;
+        here.wait.no_runway = true;
+        return here.wait;
     }
 
     // **Every player starts on the final approach to `spec`'s runway end**
@@ -2096,6 +2298,7 @@ public:
         if (!on_final_) {
             return why;
         }
+        on_final_ends_ = other_ends_of(spec);
         std::printf("players start on final to %s, heading %.0f, threshold %.0f ft\n",
                     on_final_->name.c_str(), on_final_->heading_deg, on_final_->elevation_ft);
         std::fflush(stdout);
@@ -2147,6 +2350,12 @@ public:
             remember_start(a, ic, player_seaplane_);
             a.on_plan = false;
             a.on_final_to = *runway;
+            // **On final since now**, a leader for a player's turn
+            // (`final_wait`), as a player started there is.
+            a.on_final_since_s =
+                static_cast<double>(steps_) / static_cast<double>(glideslope::sim::steps_per_second);
+            a.on_final_kts = final_start_kts(a.model, *speeds, *a.aircraft);
+            a.on_final_start_ft = ic.altitude_ft;
             land_on_final(a);
             std::printf("aircraft %u, an AI's %s, starts on final to %s %.1f miles out, %s\n",
                         static_cast<unsigned>(a.index), a.model.c_str(), runway->name.c_str(),
@@ -2239,6 +2448,41 @@ public:
     // **A runway end by `AIRPORT/RUNWAY`** - 'YSSY/16R' - from the strips
     // the collision ground is made from, its threshold's elevation that
     // ground's; or none, with why.
+    // **Every other runway end at the airfield `spec` names**: at Sydney,
+    // for 16R, 34L, 16L, 34R, 07 and 25 - as the runways the ground is made
+    // from have them.
+    std::vector<glideslope::sim::Runway> other_ends_of(const std::string& spec) {
+        const std::size_t slash = spec.find('/');
+        const std::string airport = spec.substr(0, slash);
+        const std::string ident = spec.substr(slash + 1);
+        std::vector<glideslope::sim::Runway> out;
+        const auto surfaces = glideslope::world::runway_surfaces(data_);
+        for (std::size_t i = 0; i < surfaces->size(); ++i) {
+            const glideslope::world::RunwayStrip& strip = surfaces->at(i).strip;
+            if (strip.airport != airport) {
+                continue;
+            }
+            const bool ours = strip.le_ident == ident || strip.he_ident == ident;
+            for (const bool he : {false, true}) {
+                if ((he ? strip.he_ident : strip.le_ident) == ident) {
+                    continue;
+                }
+                const double lat = he ? strip.he_latitude_deg : strip.le_latitude_deg;
+                const double lon = he ? strip.he_longitude_deg : strip.le_longitude_deg;
+                const auto end = glideslope::world::runway_end(
+                    *surfaces, i, he,
+                    collision_->height_above_ellipsoid(lat, lon) * feet_per_metre);
+                // Its own runway's other end first.
+                if (ours) {
+                    out.insert(out.begin(), end);
+                } else {
+                    out.push_back(end);
+                }
+            }
+        }
+        return out;
+    }
+
     std::optional<glideslope::sim::Runway> runway_end_named(const std::string& spec,
                                                             std::string& why) {
         const std::size_t slash = spec.find('/');
@@ -3091,6 +3335,13 @@ public:
 
     // **What each person has been told to do for other traffic since last
     // asked** (`TRAFFIC_INSTRUCTION`): her aircraft's number, and the words.
+    // **Why the aircraft last given was not put on final**, or empty: for
+    // the session it was given to, told once that session is proven.
+    std::string take_not_on_final() {
+        std::string out;
+        out.swap(not_on_final_said_);
+        return out;
+    }
     std::vector<std::pair<std::uint8_t, std::string>> take_instructions() {
         std::vector<std::pair<std::uint8_t, std::string>> out;
         out.swap(instructions_);
@@ -3296,6 +3547,10 @@ public:
         double on_final_since_s = -1.0;
         double on_final_kts = 0.0;
         double on_final_start_ft = 0.0;
+        // Told to leave the final for one held behind her past the bound.
+        bool told_to_leave_final = false;
+        // Her wheels' touch said, for the next's spacing behind her.
+        bool touch_said = false;
         // **Kept apart** (sim/separation.hpp): which aircraft it is held
         // clear of, by number, while a limit on its height binds - said when
         // it begins and ends; a departure held until the sky over its runway
@@ -4039,6 +4294,14 @@ private:
                                ", goes around from " + circuit->runway().name);
         }
         a.circling = circuit != nullptr;
+        // **Her wheels' touch**, said as it happens - the touchdown's figures
+        // are said once she has stopped.
+        if (a.controller->learnt() != nullptr && a.controller->learnt()->touched() &&
+            !a.touch_said) {
+            a.touch_said = true;
+            happened.push_back("aircraft " + std::to_string(a.index) + ", " + a.id +
+                               ", touched " + a.controller->learnt()->rollout().runway().name);
+        }
         const glideslope::sim::Vacate* off = a.controller->vacate();
         const bool clear = off != nullptr && off->clear();
         if (clear && !a.vacated) {
@@ -4555,6 +4818,7 @@ private:
     // asking, the person}; forgotten when she stops asking.
     std::set<std::pair<std::uint8_t, std::uint8_t>> told_to_clear_;
     std::vector<std::pair<std::uint8_t, std::string>> instructions_;
+    std::string not_on_final_said_;
     // **Hand-over questions let go and not yet finished**: given up, and
     // kept until nothing of them is running (`Copilot::settled`), so that
     // letting one go never waits on the stepping thread - for its model, or
@@ -4588,6 +4852,11 @@ private:
     std::map<std::string, std::shared_ptr<const glideslope::sim::LearntPolicy>> learnt_;
     // Where players start, on final (`--players-on-final`), or none.
     std::optional<glideslope::sim::Runway> on_final_;
+    // The airfield's other runway ends, where a player held past the bound
+    // may start instead.
+    std::vector<glideslope::sim::Runway> on_final_ends_;
+    // Why the other end was last refused her, said once.
+    std::string other_ends_refused_said_;
     std::optional<double> on_final_out_nm_; // the first player's miles out, if said
     double fail_engines_at_s_ = -1.0;
     // Players given aircraft so far, and how many a wreck waits for
@@ -5143,6 +5412,7 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                 std::fflush(stdout);
             } else {
                 c.aircraft = fleet->give(*slot, asked, unreadable);
+                c.told_later = fleet->take_not_on_final();
             }
         }
 
@@ -6058,13 +6328,16 @@ int run(const Options& o) {
                     if (next != nullptr && wait.why.empty()) {
                         const Connection::WaitsOnFinal w = *next->waits_on_final;
                         const glideslope::net::PublicKey who = next->who;
-                        const std::uint8_t given = fleet->give(w.slot, w.asked, w.unreadable);
+                        const std::uint8_t given =
+                            fleet->give(w.slot, w.asked, w.unreadable, wait.final_to);
                         // Every session of her key: one begun again while she
                         // waited is hers too.
+                        const std::string not_on_final = fleet->take_not_on_final();
                         for (auto& [address, c] : connections) {
                             if (c.who == who && c.waits_on_final) {
                                 c.waits_on_final.reset();
                                 c.aircraft = given;
+                                c.told_later = not_on_final;
                             }
                         }
                         std::printf("slot %d's turn on final: aircraft %u, %.1f s on the "
@@ -6084,9 +6357,11 @@ int run(const Options& o) {
                         }
                         const auto waiting = fleet->final_wait(c.waits_on_final->asked);
                         if (!c.waits_on_final->told ||
-                            waiting.ahead != c.waits_on_final->told_ahead) {
+                            waiting.ahead != c.waits_on_final->told_ahead ||
+                            waiting.no_runway != c.waits_on_final->told_no_runway) {
                             c.waits_on_final->told = true;
                             c.waits_on_final->told_ahead = waiting.ahead;
+                            c.waits_on_final->told_no_runway = waiting.no_runway;
                             const auto& why = waiting.why;
                             const std::vector<std::uint8_t> told = glideslope::net::write(
                                 glideslope::net::TrafficInstruction{
@@ -6097,6 +6372,19 @@ int run(const Options& o) {
                                 std::span<const std::uint8_t>(told.data(), told.size()));
                         }
                     }
+                }
+                // **Why she was not put on final**, to her session once it is
+                // proven - kept on the session, so that one let go before it
+                // was takes it with it, and another given the same number
+                // later is never told it.
+                for (auto& [address, c] : connections) {
+                    if (!c.proven || c.told_later.empty()) {
+                        continue;
+                    }
+                    const std::vector<std::uint8_t> told = glideslope::net::write(
+                        glideslope::net::TrafficInstruction{c.aircraft, c.told_later});
+                    (void)c.reliable.send(std::span<const std::uint8_t>(told.data(), told.size()));
+                    c.told_later.clear();
                 }
                 // **Told to the person it is for**, and to no other client.
                 for (const auto& [number, what] : fleet->take_instructions()) {

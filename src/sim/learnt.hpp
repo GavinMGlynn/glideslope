@@ -56,6 +56,12 @@ struct LearntPolicy {
     // `learnt_landing`: her gate admits no more across
     // (learnt_gate_most_crosswind_kts). 0 where her figures give none.
     double demonstrated_crosswind_kts = 0.0;
+    // **The wind she is put on final in**, from her figures
+    // (PublishedFigures::on_final_headwind_kts and the rest), set by
+    // `learnt_landing`; below nought, none given.
+    double on_final_headwind_kts = -1.0;
+    double on_final_tailwind_kts = -1.0;
+    double on_final_crosswind_kts = -1.0;
 
     // Whether `weight_lbs` is within the weights it was trained at.
     bool trained_for(double weight_lbs) const {
@@ -245,6 +251,25 @@ TurnOnFinal turn_on_final(const AheadOnFinal& ahead);
 double longest_behind_s(double approach_kts);
 // In words: "landed", "3 miles on", ...
 const char* said(TurnOnFinal turn);
+
+// **Why the wind refuses a final to a runway heading `heading_deg`** for a
+// learnt landing's gate (`policy`, or none: the gate's own limits), the wind
+// blowing towards the north and east at `wind_north_mps` and
+// `wind_east_mps`; empty where it admits it. Its tailwind, headwind,
+// crosswind and the wind in all, as outside_learnt_gate judges them: where
+// a player held past the bound may be sent to a runway's other end.
+std::string learnt_gate_wind_refuses(const LearntPolicy* policy, double heading_deg,
+                                     double wind_north_mps, double wind_east_mps);
+
+// **Why a player is not put on final to a runway heading `heading_deg`** in
+// this wind (blowing towards the north and east, metres a second): more
+// ahead, behind or across than she stays at her gate in, left alone, thirty
+// seconds (`policy`'s on_final_* limits, measured and in her figures; the
+// owner's ruling, 2026-11-11): any wind past a limit, however little, is
+// outside it - a crosswind limit of nought refuses any across; empty where
+// the wind is inside them, or her figures give none.
+std::string on_final_wind_refuses(const LearntPolicy& policy, double heading_deg,
+                                  double wind_north_mps, double wind_east_mps);
 
 // **Where she is against `runway`'s final**: before its threshold along its
 // centreline, right of it, and above its elevation, in metres.

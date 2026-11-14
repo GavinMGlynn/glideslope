@@ -567,6 +567,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_learnt_landing_is_offered_for_every_aircraft_that_has_one_and_for_no_other
     every_learnt_landings_default_start_on_final_is_inside_its_gate_and_still_inside_it_thirty_seconds_later_at_its_fastest
     the_next_player_on_final_waits_until_the_one_ahead_is_three_miles_on_landed_gone_around_off_the_final_or_waited_out
+    a_runways_other_end_is_offered_only_into_a_wind_its_learnt_landings_gate_admits
     the_learnt_landing_at_a_fast_corner_of_its_gate_is_stabilized_by_500_ft_and_not_sent_round
     a_learnt_landing_not_stabilized_below_500_ft_is_sent_round_by_the_gate
     a_learnt_landing_bound_past_the_touchdown_zone_after_the_policy_has_her_is_sent_round_by_the_gate
@@ -3964,6 +3965,33 @@ set_tests_properties(a_players_c172p_handed_to_the_learnt_landing_on_final_is_la
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 
+# **A player is put on final only in light wind**: for each aeroplane with a
+# learnt landing, at her measured limit straight ahead, behind and across
+# either way she is on final and at the gate 30 s on; one knot past it she
+# starts where the plan does, told why. See
+# cmake/server_on_final_wind_limits.cmake.
+foreach(_limits_ac c172p c182 j3cub pa28)
+    if(_limits_ac STREQUAL "c172p")
+        set(_limits_port 24810)
+    elseif(_limits_ac STREQUAL "c182")
+        set(_limits_port 24818)
+    elseif(_limits_ac STREQUAL "j3cub")
+        set(_limits_port 24830)
+    else()
+        set(_limits_port 24836)
+    endif()
+    add_test(NAME a_${_limits_ac}_is_put_on_final_only_inside_her_measured_wind_limits_and_at_her_gate_thirty_seconds_on_inside_them
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+            -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_final_limits_${_limits_ac} -DPORT=${_limits_port}
+            -DAIRCRAFT=${_limits_ac}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_on_final_wind_limits.cmake)
+    set_tests_properties(a_${_limits_ac}_is_put_on_final_only_inside_her_measured_wind_limits_and_at_her_gate_thirty_seconds_on_inside_them
+        PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_final_limits_${_limits_ac})
+endforeach()
+
 # **Players joining on final take turns, each starting in the learnt
 # landing's gate, and each is still at it thirty seconds after she starts**:
 # three runs, between them every aeroplane with a learnt landing following
@@ -3971,13 +3999,19 @@ file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/learnt_landing)
 # follower the window client (headless) waiting and told why, the third's
 # begun again on its key while it waits. See
 # cmake/server_players_take_turns_on_final.cmake.
-set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p+window|pa28,c172p,c182+restart")
+set(GLIDESLOPE_TURNS_ON_FINAL "c172p,c182,j3cub,pa28|pa28,c172p+window|pa28,c172p,c182+restart|c172p+ai|c172p,pa28+circle|c172p,c172p+circlesouth|c172p+planai|c172p,c172p+circlenone|c172p,c172p+circlewait")
 set(_turns_names
     four_players_joining_on_final_a_c172p_c182_cub_and_pa28_take_turns_and_each_is_at_the_gate_thirty_seconds_after_she_starts
     the_window_client_joining_on_final_behind_a_pa28_waits_told_why_and_is_at_the_gate_thirty_seconds_after_she_starts
-    a_player_begun_again_on_her_key_while_she_waits_her_turn_on_final_keeps_it_and_is_at_the_gate_thirty_seconds_after)
-set(_turns_ports 24834 24887 24897)
-foreach(_turns_run IN ITEMS 0 1 2)
+    a_player_begun_again_on_her_key_while_she_waits_her_turn_on_final_keeps_it_and_is_at_the_gate_thirty_seconds_after
+    a_player_joining_on_final_behind_an_ai_aircraft_on_it_waits_for_it_and_is_at_the_gate_thirty_seconds_after_she_starts
+    a_player_held_past_the_bound_by_one_orbiting_over_the_start_starts_on_final_to_the_other_end_and_is_at_its_gate
+    a_player_held_past_the_bound_with_the_wind_across_her_runway_starts_on_final_to_a_crossing_runway_into_it
+    a_player_joining_on_final_behind_an_ai_whose_plan_lands_there_waits_for_it_and_is_at_the_gate_thirty_seconds_after
+    a_player_held_past_the_bound_with_no_other_runway_in_the_wind_waits_told_why_until_the_one_holding_it_goes
+    a_player_held_past_the_bound_whose_crossing_runway_is_past_her_crosswind_limit_but_not_her_gates_waits_told_why)
+set(_turns_ports 24834 24887 24897 24917 24927 24937 24820 24828 24852)
+foreach(_turns_run IN ITEMS 0 1 2 3 4 5 6 7 8)
     list(GET _turns_names ${_turns_run} _turns_name)
     list(GET _turns_ports ${_turns_run} _turns_port)
     add_test(NAME ${_turns_name}
@@ -3987,6 +4021,9 @@ foreach(_turns_run IN ITEMS 0 1 2)
             -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
             -DWORK=${CMAKE_CURRENT_BINARY_DIR}/turns_on_final_${_turns_run} -DPORT=${_turns_port}
             "-DORDERS=${GLIDESLOPE_TURNS_ON_FINAL}" -DRUN=${_turns_run}
+            -DORBIT=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/route-orbit-over-the-16r-start.txt
+            -DORBIT_YSRI=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot/route-orbit-over-the-ysri-10-start.txt
+            -DPLANAI=${CMAKE_CURRENT_SOURCE_DIR}/data/plans/landing-on-16r-from-6nm.plan
             -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_players_take_turns_on_final.cmake)
     set_tests_properties(${_turns_name} PROPERTIES SKIP_RETURN_CODE 77 TIMEOUT 1800)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/turns_on_final_${_turns_run})

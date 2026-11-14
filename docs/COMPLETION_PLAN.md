@@ -1832,19 +1832,35 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       roll and yaw trim was why, carried since protocol 0F; the first player
       on final now starts where her gate holds her thirty seconds, and each of
       the four aeroplanes with a gate is still at it then, by the server's
-      verdict. Only the first: the next item.
-- [ ] **A second player joining on final starts outside the gate**: the
+      verdict. Only the first: the next item. Left alone in wind she leaves
+      the gate, so under the owner's ruling of 2026-11-11 (REQUIREMENTS 6.5)
+      a player is put on final only inside her measured wind limits (re-swept
+      on the start of 2026-11-12: every aeroplane 15 kt ahead, 5 behind, 3
+      across), and in each is at the gate 30 s on.
+- [x] **A second player joining on final starts outside the gate**: the
       players after the first start 2.9, 3.4 and 3.9 miles out, past the
       gate's far edge (2.4), since two cannot be half a mile apart inside its
       0.7 of a mile and each still in it thirty seconds later. *Verification:
       every player joining on final is at the gate thirty seconds later.*
       2026-11-11: each now starts in the gate in her turn (the one ahead 3
       miles on, landed, gone around, off the final, or waited out), told why
-      she waits, and every one is at the gate 30 s after she starts. Still
-      missing: the window client's window does not open until her turn (it
-      says why in its output only); AI aircraft on the same final are not
-      counted; nothing clears the runway for the next; a leader circling
-      over the start holds the next player indefinitely.
+      she waits, and every one is at the gate 30 s after she starts. Done
+      2026-11-11: the window shows why while she waits; an AI aircraft on
+      that final - put there, or its own plan landing there - holds her as a
+      player does; a player the learnt landing has stopped leaves the runway
+      before the next touches; one held past the bound by a leader over the
+      start starts on another runway end at that airfield whose wind her
+      gate admits. A measured limit, allowed by the owner's ruling of
+      2026-11-11 (REQUIREMENTS 6.5: the server never moves a person's
+      aircraft): where none will do, she waits, told why, until the person
+      holding the final goes. In wind she is put on final only inside her
+      measured limits (the ruling above), and another end only inside them.
+- [ ] **A crabbed start on final, measured on the trim in her wind**: a
+      start crabbed into the wind was flown only at 15 kt across, before
+      every aircraft was trimmed in the session's air; measure it again
+      there, and whether it lifts the 3 kt crosswind limit on final.
+      *Verification: every aeroplane with a learnt landing, started crabbed,
+      swept knot by knot across, with the limit it gives recorded.*
 - [ ] **The engine-stop prediction test fails on Windows clang when the
       server is held up**: its client, pacing 1.6 to 1.7 times its own clock
       to catch up, is put right by metres and misses its speed bound - since
@@ -2170,6 +2186,11 @@ What the client with the window does that the command-line client does, and what
       pull requests. Cause not found. *Verification: the cause shown, the test
       back on pull requests, and a shot with its imagery refused drawing as
       deep as one without in 20 of 20 runs here and every CI run for a week.*
+- [ ] **macOS shards are sized as if three tests ran at once; about 1.8
+      do**, so a shard estimated inside its limit ran 1.15 to 1.45 times
+      longer and was cut off (run 43571140116). *Verification: the sizing
+      uses macOS's measured overlap from several runs, and every macOS
+      shard's real time is within its estimate for a week of CI runs.*
 
 ---
 

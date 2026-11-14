@@ -200,6 +200,15 @@ struct PublishedFigures {
     // learnt landing's gate admits across, if under training's
     // (sim::learnt_gate_most_crosswind_kts). 0 where it gives none.
     double demonstrated_crosswind_kts = 0.0;
+    // **The wind she is put on final in** (`on_final_headwind_kts`,
+    // `on_final_tailwind_kts`, `on_final_crosswind_kts`), knots: measured,
+    // the most in which, left alone on final, she stays at her learnt
+    // landing's gate thirty seconds; a server puts a player on final only
+    // inside them (the owner's ruling, 2026-11-11). Below nought where her
+    // file gives none: no limit.
+    double on_final_headwind_kts = -1.0;
+    double on_final_tailwind_kts = -1.0;
+    double on_final_crosswind_kts = -1.0;
     // The file's first loading, the one a figure naming none is flown at.
     double total_lbs = 0.0;
     Loading loading;

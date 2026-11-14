@@ -2399,6 +2399,19 @@ PublishedFigures read_published_figures(const std::filesystem::path& file) {
                                      "and at most 60");
         }
     }
+    for (const auto& [name, field] :
+         {std::pair<const char*, double*>{"on_final_headwind_kts", &out.on_final_headwind_kts},
+          std::pair<const char*, double*>{"on_final_tailwind_kts", &out.on_final_tailwind_kts},
+          std::pair<const char*, double*>{"on_final_crosswind_kts",
+                                          &out.on_final_crosswind_kts}}) {
+        if (root->HasAttribute(name)) {
+            *field = root->GetAttributeValueAsNumber(name);
+            if (!(*field >= 0.0 && *field <= 60.0)) {
+                throw std::runtime_error(file.string() + " gives an " + name +
+                                         " that is not from 0 to 60");
+            }
+        }
+    }
     if (JSBSim::Element* source = root->FindElement("source")) {
         out.source = collapse_whitespace(source->GetDataLine());
     }

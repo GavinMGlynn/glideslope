@@ -168,10 +168,11 @@ struct ConnectFlood {
 ConnectFlood connect_flood;
 
 // **The learnt landing asked for** (`--learnt-landing-at S`): S seconds
-// after its aircraft is given (at joining, or once its turn on final has come),
-// its own aircraft is asked to be handed to the landing learnt by
-// reinforcement learning; with `--until-landed`, it leaves once the server
-// has said the learnt landing has it and an update shows it at rest.
+// of the session's clock after its aircraft is given (at joining, or once its
+// turn on final has come), its own aircraft is asked to be handed to the
+// landing learnt by reinforcement learning; with `--until-landed`, it leaves
+// once the server has said the learnt landing has it and an update shows it
+// at rest.
 struct ConnectLearnt {
     double at_s = -1.0;
     bool asked = false;
@@ -184,9 +185,17 @@ struct ConnectLearnt {
     bool handed = false; // the server said so
     bool landed = false; // and updates showed it at rest since, two seconds
     double rest_from_s = -1.0; // when they began to, on the session's clock
-    // When its aircraft was given, on this client's clock since joining: the
-    // learnt landing's S is counted from it.
+    // When its aircraft was given, on this client's clock since joining:
+    // said, when it was late.
     double given_up_s = -1.0;
+    // **And on the session's clock**: the time of the first update that
+    // names it as this client's - what the learnt landing's S is counted
+    // from, to the newest update's. Counted on this client's own clock from
+    // when it first read that update, S began as late as this client was
+    // to read it: on a debug runner, a PA-28 started 5 kt behind to be at
+    // her gate for 30 s was asked for about 33.4 s after the server started
+    // her, at the gate's near edge (CI run 43538125107).
+    double given_session_s = -1.0;
 };
 ConnectLearnt connect_learnt;
 
@@ -575,9 +584,10 @@ void print_usage(std::FILE* out) {
         "                            --take-back-at S for it back (or\n"
         "                            --take-back-while-looking, once its copilot has\n"
         "                            a routine look out);\n"
-        "                            --learnt-landing-at S, S seconds after its aircraft\n"
-        "                            is given (at joining, or its turn on final),\n"
-        "                            for it to be handed to the learnt landing, and with\n"
+        "                            --learnt-landing-at S, S seconds of the session's\n"
+        "                            clock after its aircraft is given (at joining, or\n"
+        "                            its turn on final), for it to be handed to the\n"
+        "                            learnt landing, and with\n"
         "                            --until-landed leaves once that has it at rest\n"
         "                            (--until-answered, once handed or refused); with\n"
         "                            --hand-over-model P, anthropic or openai (each\n"
@@ -4564,8 +4574,9 @@ int stay(glideslope::platform::UdpSocket& socket,
                               ": the AI holds its course");
                 }
             }
-            if (connect_learnt.at_s >= 0.0 &&
-                up_s - connect_learnt.given_up_s >= connect_learnt.at_s &&
+            if (connect_learnt.at_s >= 0.0 && connect_learnt.given_session_s >= 0.0 &&
+                newest_state_s &&
+                *newest_state_s - connect_learnt.given_session_s >= connect_learnt.at_s &&
                 !connect_learnt.asked) {
                 connect_learnt.asked = true;
                 ask(glideslope::net::Controller::learnt_landing);
@@ -4863,6 +4874,9 @@ int stay(glideslope::platform::UdpSocket& socket,
             if (newest_state) {
                 applied = state->last_input_applied;
                 mine = state->your_aircraft;
+                if (mine != glideslope::net::no_aircraft && connect_learnt.given_session_s < 0.0) {
+                    connect_learnt.given_session_s = state->simulation_time_s;
+                }
             }
             // **Its copilot, asked here and answered as a route sent** - or a
             // route read from a file, sent as it is.

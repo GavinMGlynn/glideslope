@@ -399,6 +399,16 @@ not the session.
   taking off or landing, and to every AI aircraft put in the sky before
   it. A person's aircraft is not controlled: nothing stops a person flying
   into an AI aircraft faster than it can climb or descend clear.
+- **The server never moves or repositions a person's aircraft** (owner,
+  2026-11-11). It may tell her what other traffic needs (a
+  `TRAFFIC_INSTRUCTION`), and arrange the others round her - another runway
+  for a player waiting her turn on final - but where she does not do as
+  told, she is left where she flies (section 9).
+- **A player is put on final only in light wind** (owner, 2026-11-11): only
+  where the wind on that final is inside what her aeroplane, left alone,
+  stays at its learnt landing's gate in for thirty seconds - ahead, behind
+  and across, measured and kept in her figures. In any other wind she starts
+  where the session's plan does, and is told why.
 
 ### 6.6 Server shape (following gearstick)
 
@@ -881,6 +891,25 @@ The replacement:
   `AIRCRAFT`, and a predicting client loads her so. A session file that
   loads players was the other way; it was not taken, because the player
   picks the aeroplane (4.2) and her loading is part of that pick.
+
+**Closed 2026-11-11:**
+
+- **The server never moves or repositions a person's aircraft** (owner,
+  2026-11-11; section 6.5). Asked when a person holding a final over where
+  the next player starts would not leave it: the server tells her to, and
+  starts the next on another runway end whose wind her gate admits; where
+  there is none, the next waits, told why, for as long as she stays. Moving
+  her to her downwind was built and taken out.
+- **A player is put on final only in light wind** (owner, 2026-11-11;
+  section 6.5). Left alone on final in wind, an aeroplane wanders out of
+  the learnt landing's gate within thirty seconds: started trimmed in her
+  wind (2026-11-12) and pointing down the runway, every aeroplane stays at
+  it to the gate's own most ahead and behind, but drifts out of it in 4 kt
+  across. A start crabbed into the wind was flown only at the gate's own
+  15 kt across, before that trim, and none held; it is not yet measured on
+  the trim (a Phase 12a tail). So each aeroplane's limits ahead, behind and across are
+  measured and kept in her figures, and a player is put on final only
+  inside them; a runway end chosen past the bound is one inside them too.
 
 **Open:**
 
