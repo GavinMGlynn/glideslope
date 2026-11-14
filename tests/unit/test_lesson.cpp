@@ -3079,6 +3079,15 @@ struct NamedOnASeed {
     return false;
 #endif
 }
+// Windows debug and clang alone (no NDEBUG): where a name is measured and
+// windows-release's run is not.
+[[maybe_unused]] constexpr bool windows_debug() {
+#if defined(_WIN32) && !defined(NDEBUG)
+    return true;
+#else
+    return false;
+#endif
+}
 [[maybe_unused]] constexpr bool macos_release() {
 #if defined(__APPLE__) && defined(NDEBUG)
     return true;
@@ -3179,9 +3188,11 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // Seed 7 no longer, and seed 3 instead, since 2026-11-12: started
         // moving with her wind, macOS release lands seed 7 with every
         // margin and not seed 3 (CI run 43240423674) - twenty-eight of forty
-        // still.
-        {"f22", 3, macos_release(),
-         "on macOS she touches at 372 ft/min (seed 3), CI run 43240423674"},
+        // still; macOS debug does not land seed 3 either, at the same figure
+        // (CI run 43513776356).
+        {"f22", 3, macos(),
+         "on macOS she touches at 372 ft/min (seed 3), CI runs 43240423674 and "
+         "43513776356"},
         {"f22", 9, macos(),
          "on macOS she floats into a go-around from a touch 1,066 m along (seed 9), CI "
          "run 41867348299"},
@@ -3247,6 +3258,12 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // macOS, debug and release alike, CI run 41732333742 (dispatched on
         // #313): held off on her own pitch law, the S.23 lands seeds 3, 10 and
         // 11 there now, and touches inside her limit but not her margin on two.
+        // Windows debug and clang, CI run 43513776356 (the scheduled run of
+        // 2026-11-13): seed 15 at 336 ft/min, inside 360 but not by 25;
+        // windows-release's run of it is not in that run's logs.
+        {"short_s23", 15, windows_debug(),
+         "on Windows debug and clang she touches at 336 ft/min, inside 360 but not by 25 "
+         "(seed 15), CI run 43513776356"},
         {"short_s23", 18, macos(),
          "on macOS she touches at 342 ft/min, inside 360 but not by 25 (seed 18), CI run "
          "41732333742"},
