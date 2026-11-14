@@ -1717,6 +1717,158 @@ GLIDESLOPE_TEST(a_session_whose_metar_reports_rain_refuses_a_runway_long_enough_
           "refused at the station and 7.9 km off, taken dry and 8.1 km off");
 }
 
+// **A planner under the stations around it (`--weather around`) is told the
+// runway its nearest station reports wet** - as one under a single station
+// is told its station's - and nothing that station does not report. The
+// planner's airport is YSBK, its runway 29C 600 m long: a C172P's 558 m dry
+// and 642 m wet (the test above). aviationweather.gov's answer around it is
+// built here, two stations each time: one 1 km north of the runway and one 5
+// km south, both well inside the 8 km a METAR's weather reaches
+// (world::metar_radius_m), so that only which station is nearest decides
+// what the planner is told. Every case of the two walked:
+// - the near raining, the far dry: told wet at the near station, refused;
+// - the near dry, the far raining: told nothing wet, taken;
+// - both raining: told wet at the near, refused;
+// - both dry: told nothing, taken;
+// - the near reporting ice on 29C in a runway-state group: told the runway
+//   laid contaminated, both its ends at code 1, and the far's rain not told;
+// - and no station reported around it: the weather not had, thrown as
+//   world::fetch_stations_weather throws - the server says so and tells
+//   that planner nothing wet.
+GLIDESLOPE_TEST(a_planner_under_the_stations_around_it_is_told_the_runway_its_nearest_station_reports_wet) {
+    const auto data = std::filesystem::path(GLIDESLOPE_TEST_DATA_DIR).parent_path();
+    glideslope::world::RunwayEnd end;
+    end.airport = "YSBK";
+    end.ident = "29C";
+    end.latitude_deg = -33.9268;
+    end.longitude_deg = 150.996002;
+    end.elevation_ft = 26;
+    end.heading_deg = 285;
+    end.length_m = 600;
+    glideslope::world::RunwayEnd other = end;
+    other.ident = "11C";
+    other.heading_deg = 105;
+    // Its other end, 600 m along 285 true from 29C's.
+    other.latitude_deg = end.latitude_deg + 0.0013966;
+    other.longitude_deg = end.longitude_deg - 0.006284;
+    const std::vector<glideslope::world::RunwayEnd> all{end, other};
+    const double near_lat = end.latitude_deg + 1000.0 / 111195.0;
+    const double far_lat = end.latitude_deg - 5000.0 / 111195.0;
+    std::ifstream forecast_in(std::filesystem::path(GLIDESLOPE_TEST_SOURCE_DIR) /
+                                  "data/weather/open-meteo-sydney-2026-09-17.json",
+                              std::ios::binary);
+    const std::string forecast_text(std::istreambuf_iterator<char>(forecast_in), {});
+    check(!forecast_text.empty(), "the recorded forecast is read");
+    const auto station = [](const std::string& id, const std::string& metar, double lat,
+                            double lon) {
+        return "{\"icaoId\":\"" + id + "\",\"rawOb\":\"" + metar +
+               "\",\"lat\":" + std::to_string(lat) + ",\"lon\":" + std::to_string(lon) +
+               ",\"elev\":8}";
+    };
+    const std::string rain = " 100600Z 29012KT 6000 -RA BKN015 14/12 Q1012";
+    const std::string dry = " 100600Z 29012KT 9999 FEW030 14/08 Q1012";
+    const std::string ice = " 100600Z 29012KT 9999 FEW030 01/M02 Q1012 R29C/7900//";
+    const auto told = [&](const std::string& near_metar, const std::string& far_metar,
+                          bool reported) {
+        const std::string body =
+            reported ? "[" + station("YSBK", "METAR YSBK" + near_metar, near_lat,
+                                     end.longitude_deg) +
+                           "," +
+                           station("YSCN", "METAR YSCN" + far_metar, far_lat,
+                                   end.longitude_deg) +
+                           "]"
+                     : "[]";
+        const glideslope::world::Fetch fetch = [&](const std::string& url) {
+            glideslope::platform::HttpResponse r;
+            r.status = 200;
+            const std::string& text =
+                url.find("/api/data/metar") != std::string::npos ? body : forecast_text;
+            r.body.assign(text.begin(), text.end());
+            return r;
+        };
+        return glideslope::frontend::wet_runways_around(end.latitude_deg, end.longitude_deg,
+                                                        "2026-09-17T06:00", fetch, all,
+                                                        std::chrono::milliseconds(1));
+    };
+    glideslope::sim::FlightPlan land;
+    land.aircraft = "c172p";
+    glideslope::sim::Runway r = glideslope::world::as_runway(end, end.elevation_ft);
+    r.name = "YSBK_29C";
+    land.landing = r;
+    const auto planner_says = [&](const std::optional<glideslope::world::WetRunways>& wet) {
+        const glideslope::copilot::PlanRequest request =
+            glideslope::frontend::plan_request_for(data, "c172p", wet);
+        return glideslope::copilot::landing_refusal(
+            request.approach_kts, request.landing_need_m, request.wet_landing_need_m,
+            request.landing_distance_m, request.reverse_thrust, request.wet_runways, land,
+            {end});
+    };
+    const auto at_near = [&](const std::optional<glideslope::world::WetRunways>& wet) {
+        return wet && std::abs(wet->latitude_deg - near_lat) < 1e-4 &&
+               std::abs(wet->longitude_deg - end.longitude_deg) < 1e-4;
+    };
+    const std::string refused =
+        "the runway YSBK 29C has 600 m to land on, and the aircraft needs 642 m on a wet runway: "
+        "choose a longer one";
+    std::size_t walked = 0;
+    {
+        const auto wet = told(rain, dry, true);
+        check(at_near(wet) && wet->radius_m == glideslope::world::metar_radius_m &&
+                  wet->contaminated.empty(),
+              "the near raining, the far dry: told wet within 8 km of the near station");
+        check(planner_says(wet) == refused, "and refused 29C: '" + planner_says(wet) + "'");
+        ++walked;
+    }
+    {
+        const auto wet = told(dry, rain, true);
+        check(!wet, "the near dry, the far raining: told nothing wet");
+        check(planner_says(wet).empty(), "and 29C taken: '" + planner_says(wet) + "'");
+        ++walked;
+    }
+    {
+        const auto wet = told(rain, rain, true);
+        check(at_near(wet) && wet->radius_m == glideslope::world::metar_radius_m,
+              "both raining: told wet at the near station");
+        check(planner_says(wet) == refused, "and refused 29C: '" + planner_says(wet) + "'");
+        ++walked;
+    }
+    {
+        const auto wet = told(dry, dry, true);
+        check(!wet, "both dry: told nothing wet");
+        check(planner_says(wet).empty(), "and 29C taken: '" + planner_says(wet) + "'");
+        ++walked;
+    }
+    {
+        const auto wet = told(ice, rain, true);
+        check(at_near(wet), "the near reporting ice on 29C: told of the near station");
+        check(wet && wet->radius_m == 0.0, "and not the far's rain");
+        check(wet && wet->contaminated.size() == 2 &&
+                  std::all_of(wet->contaminated.begin(), wet->contaminated.end(),
+                              [](const glideslope::world::ContaminatedRunway& c) {
+                                  return c.code == glideslope::sim::most_slippery_runway;
+                              }),
+              "and the runway 29C/11C laid contaminated, both ends at code 1: " +
+                  std::to_string(wet ? wet->contaminated.size() : 0) + " laid");
+        check(glideslope::world::reported_condition(wet ? wet->contaminated
+                                                        : std::vector<glideslope::world::ContaminatedRunway>{},
+                                                    end) == glideslope::sim::most_slippery_runway,
+              "29C is the runway reported icy");
+        ++walked;
+    }
+    {
+        bool threw = false;
+        try {
+            (void)told(rain, rain, false);
+        } catch (const glideslope::world::ServiceUnavailable&) {
+            threw = true;
+        }
+        check(threw, "no station reported around it: the weather not had, which the server "
+                     "says and tells the planner nothing wet");
+        ++walked;
+    }
+    check(walked == 6, "six cases of six walked: " + std::to_string(walked));
+}
+
 // **Every aircraft on every runway condition code, through the one landing
 // check the copilot and the planner both ask** (copilot::landing_refusal):
 // a runway reported - from its other end, as a runway-state group lays it -
