@@ -876,6 +876,7 @@ void StationSlots::set(std::size_t slot, std::optional<WeatherReport> report,
         }
     }
     air_->stations = std::make_shared<StationsWeather>(std::move(flown));
+    air_->slots = slots_;
 }
 
 std::vector<WeatherReport> StationSlots::stations_flown() const {

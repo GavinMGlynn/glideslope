@@ -771,6 +771,136 @@ GLIDESLOPE_TEST(a_client_flies_the_servers_stations_to_the_last_bit_through_ever
                 compared);
 }
 
+// **A client joining while the server's stations change flies the server's
+// air to the last bit.** A server flies stations in slots, as
+// glideslope_server's Fleet sets them: from 0 s YSSY in slot 0 and YSWS in
+// slot 1; at 600 s a new report of YSWS; at 650 s YSWS let go for YSRI and
+// YWLM found, in slot 2; at 700 s YWLM let go and YSCB found, in slot 3,
+// while the change at 650 s still blends; at 710 s a new report of YSSY.
+// Each blends over 120 s. A client there from the start is told each change
+// as it comes; one joining at 720 s - inside both changes' blends, built so,
+// and checked - is told what glideslope_server tells a joining client
+// (frontend::weather_said_on_joining), through the wire's bytes, net::Told
+// and frontend::HeardAir. The air of both is compared with the server's at 4
+// places, 3 heights and 10 times from the joining to past every blend's end,
+// 120 points each, to the last bit.
+GLIDESLOPE_TEST(a_client_joining_while_the_servers_stations_change_flies_the_servers_air) {
+    double now_s = 0.0;
+    const auto clock = [&now_s] { return now_s; };
+    constexpr double blend_s = 120.0;
+    const auto at = [](const std::string& metar, double lat, double lon) {
+        glideslope::world::WeatherReport r = a_full_report(metar);
+        r.surface.latitude_deg = lat;
+        r.surface.longitude_deg = lon;
+        r.aloft->latitude_deg = lat;
+        r.aloft->longitude_deg = lon;
+        r.microbursts.clear();
+        return r;
+    };
+    const auto server = std::make_shared<glideslope::world::StationSlots>(nullptr);
+    glideslope::frontend::SessionClocked server_air(server, clock);
+    std::vector<glideslope::frontend::SlotTold> slots_told;
+    glideslope::net::Told there_told;
+    glideslope::frontend::HeardAir there(nullptr, {}, clock);
+    // A slot's weather, from now, as glideslope_server's Fleet sets it and
+    // tells a client already there.
+    const auto set = [&](std::size_t slot, std::optional<glideslope::world::WeatherReport> r) {
+        if (slots_told.size() <= slot) {
+            slots_told.resize(slot + 1);
+        }
+        slots_told[slot].previous_changed_at_s = slots_told[slot].changed_at_s;
+        slots_told[slot].changed_at_s = now_s;
+        server->set(slot, r, now_s, blend_s, now_s);
+        const glideslope::frontend::WeatherSaid said = glideslope::frontend::weather_said(
+            r ? &*r : nullptr, now_s, blend_s, static_cast<std::uint8_t>(slot),
+            server->set_changed_at_s());
+        (void)there_told.hear(all_of(glideslope::net::write(said.weather)));
+        if (said.aloft) {
+            (void)there_told.hear(all_of(glideslope::net::write(*said.aloft)));
+        }
+        there.heard(*there_told.weather(), there_told.aloft());
+    };
+    set(0, at("YSSY 102100Z 28016G28KT CAVOK 20/13 Q1015", -33.946, 151.173));
+    set(1, at("YSWS 102100Z 22006KT 9999 16/11 Q1012", -33.888, 150.715));
+    now_s = 600.0;
+    set(1, at("YSWS 102130Z 24012KT 9999 17/11 Q1013", -33.888, 150.715));
+    now_s = 650.0;
+    set(1, at("YSRI 102100Z 01003KT 9999 18/11 Q1015", -33.601, 150.777));
+    set(2, at("YWLM 102100Z 27005KT CAVOK 18/14 Q1016", -32.794, 151.836));
+    now_s = 700.0;
+    set(2, std::nullopt);
+    set(3, at("YSCB 102100Z 33020KT CAVOK 12/02 Q1019", -35.307, 149.195));
+    now_s = 710.0;
+    set(0, at("YSSY 102130Z 18025KT CAVOK 19/13 Q1011", -33.946, 151.173));
+
+    // **Joining mid-change**, as built: inside the blends of both changes.
+    now_s = 720.0;
+    check(server->set_changed_at_s() == 700.0 && now_s < 650.0 + blend_s,
+          "joined inside the blends of both the change at 650 s and the one at 700 s");
+    glideslope::net::Told joiner_told;
+    glideslope::frontend::HeardAir joiner(nullptr, {}, clock);
+    std::size_t joiner_weathers = 0;
+    for (const std::vector<std::uint8_t>& body :
+         glideslope::frontend::weather_said_on_joining(*server, slots_told, blend_s, now_s)) {
+        const glideslope::net::Told::Heard heard = joiner_told.hear(all_of(body));
+        if (heard == glideslope::net::Told::Heard::weather) {
+            check(joiner.heard(*joiner_told.weather(), joiner_told.aloft()), "a weather flown");
+            ++joiner_weathers;
+        } else if (heard == glideslope::net::Told::Heard::runway_conditions) {
+            check(joiner.conditions_heard(
+                      *joiner_told.stations().at(joiner_told.last_station()).runway_conditions),
+                  "the runways of a weather let go since laid on it");
+        }
+    }
+    check(joiner_weathers > 4, "told more than the four slots now: " +
+                                   std::to_string(joiner_weathers) + " weathers");
+
+    const std::vector<std::array<double, 2>> places{
+        {-33.93, 151.06}, {-33.75, 150.80}, {-33.25, 151.40}, {-34.60, 150.0}};
+    const std::vector<double> heights{9.0, 300.0, 1200.0};
+    const std::vector<double> times{720.0, 730.0, 750.0, 770.0, 790.0,
+                                    800.0, 820.0, 829.0, 850.0, 1000.0};
+    const auto same = [](const glideslope::sim::Conditions& a,
+                         const glideslope::sim::Conditions& b) {
+        return a.wind_north_mps == b.wind_north_mps && a.wind_east_mps == b.wind_east_mps &&
+               a.wind_down_mps == b.wind_down_mps &&
+               a.temperature_offset_c == b.temperature_offset_c &&
+               a.sea_level_pressure_hpa == b.sea_level_pressure_hpa &&
+               a.turbulence_severity == b.turbulence_severity &&
+               a.wind_at_20ft_mps == b.wind_at_20ft_mps && a.gust_factor_kt == b.gust_factor_kt &&
+               a.runway_condition == b.runway_condition;
+    };
+    std::size_t compared = 0;
+    std::size_t joiner_same = 0;
+    std::size_t there_same = 0;
+    for (const double t : times) {
+        now_s = t;
+        for (const auto& p : places) {
+            for (const double h : heights) {
+                const glideslope::sim::Conditions a = server_air.at(p[0], p[1], h, 1.0);
+                const bool j = same(a, joiner.air()->at(p[0], p[1], h, 77.0));
+                const bool e = same(a, there.air()->at(p[0], p[1], h, 77.0));
+                joiner_same += j ? 1U : 0U;
+                there_same += e ? 1U : 0U;
+                check(j, "the joiner's air at " + std::to_string(p[0]) + ", " +
+                             std::to_string(p[1]) + ", " + std::to_string(h) + " m, " +
+                             std::to_string(t) + " s is the server's");
+                ++compared;
+            }
+        }
+    }
+    check(compared == 4 * 3 * 10, "every point compared: " + std::to_string(compared));
+    check(there_same == compared, "the client there from the start flies the server's air: " +
+                                      std::to_string(there_same) + " of " +
+                                      std::to_string(compared));
+    check(joiner.stations() && joiner.stations()->slots().size() == 4 &&
+              !joiner.stations()->slots()[2],
+          "the joiner flies four slots, the third emptied");
+    std::printf("  %zu points from the joining at 720 s to 1000 s: the joiner's air the "
+                "server's at %zu, the client there from the start's at %zu\n",
+                compared, joiner_same, there_same);
+}
+
 // **The air at a moment is the same whenever it is asked** - flown forward
 // past a blend's end and then again from before it, as a client puts its
 // prediction right (sim::Prediction). A server flies two stations, then a

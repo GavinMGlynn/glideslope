@@ -580,8 +580,20 @@ each made whole, and the air blends from the one to the other over the
 of the change names, so that a change of several slots is one change. The
 first stations there are, from none, are flown whole. A server that flies
 one station flies it in slot 0, and its `WEATHER` names the moment it was
-given as when the stations changed. A client joining while the stations
-blend flies the new ones whole: it is not told the old.
+given as when the stations changed. **A client joining while the stations
+blend is told first the stations they blend from**: every change of the
+stations the server still flies, the oldest first, each as the slots that
+differ from the change before - a `WEATHER` for each slot filled or given
+another station, with the weather it blends from before it while it does,
+and an empty METAR for each slot emptied - each naming that change's moment
+as when the stations changed, with a slot's runways (`RUNWAY_CONDITIONS`)
+after the weather of a station let go since; and then the slots that the
+newest change differs in, as now. A station there in both changes is told
+once, so that it is one station's weather on the client as on the server.
+So it blends from the same stations as the server, and does not fly the new
+ones whole until the blend ends. No byte of any message changed with this,
+nor the version: a client that keeps only each slot's newest flies the new
+stations whole, as before.
 
 **Both ends blend from the same moment.** A new weather is blended in, not
 stepped to: every value moving linearly, over the blend, from what the old
@@ -718,8 +730,9 @@ something sealed under it) and on the update after: `TERRAIN_DATASET`, then
 `SESSION` - its clock as it was when sent - then `LOBBY`, then for each
 slot in order a `WEATHER`, and `WEATHER_ALOFT` after it where the weather
 has a forecast (and, while a weather blends in, the one it blends from before
-it, the same way), then that slot's `RUNWAY_CONDITIONS`; then each
-`AIRCRAFT`. After that:
+it, the same way; and while the stations change, the stations they blend
+from before all of them, as above), then for each slot in order its
+`RUNWAY_CONDITIONS`; then each `AIRCRAFT`. After that:
 
 - **the lobby again, whole, whenever it is not what was last sent** - a
   player joining or going;

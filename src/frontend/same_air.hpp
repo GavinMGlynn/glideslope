@@ -106,6 +106,29 @@ WeatherSaid weather_said(const world::WeatherReport* report, double changed_at_s
                          double blend_s, std::uint8_t station = 0,
                          double stations_changed_at_s = 0.0);
 
+// **Each slot as a server tells it**: when its weather took over, and the
+// one before it (glideslope_server's Fleet keeps them).
+struct SlotTold {
+    double changed_at_s = 0.0;
+    double previous_changed_at_s = 0.0;
+};
+
+// **Everything a client joining is told of a server's weather**, as the
+// messages' bodies (`WEATHER`, `WEATHER_ALOFT`, `RUNWAY_CONDITIONS`), in
+// order: each slot's weather now, after what it blends from while it does
+// (world::ReportedWeather::blending_from). **Joining while the stations
+// change**, before the change's blend has ended, it is told first the
+// stations that change blends from - each change of them still flown, the
+// oldest first, slot by slot as they were, at the moment each was made -
+// so that its world::StationSlots is the server's, change for change, and
+// it does not fly the new stations whole until the blend ends. `told` is
+// each slot's (`slots.slots()`'s) as the server has said it; `blend_s` the
+// server's blend. The runways of the slots now are not in it: they are
+// told as at every change (runway_conditions_said).
+std::vector<std::vector<std::uint8_t>> weather_said_on_joining(const world::StationSlots& slots,
+                                                               const std::vector<SlotTold>& told,
+                                                               double blend_s, double now_s);
+
 // **What a client makes of it**: the report the server flies, read with the
 // same rules, or nothing for still air. Throws world::MetarError for a METAR
 // these rules cannot read, which a server of this version never sends.
