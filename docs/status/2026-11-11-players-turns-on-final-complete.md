@@ -126,7 +126,10 @@ was handed over 117 m short of the near edge, 30.24 s after admitted. The
 fix broken (the ask counted from this client's clock again), with the
 stall, red as on CI. The placement (`learnt_gate_start_m`) and the limits
 are unchanged; what is left between her 30 s and the server's judging is
-the ask's way to the server, one pass of the client's loop. linux-debug,
+the ask's way to the server, and how far behind the server's updates the
+client is reading when it asks: one pass of its loop for a stall at the start,
+as reproduced; more for a client that falls behind later in the 30 s, since it
+reads one datagram a pass. linux-debug,
 after: the 14 tests that ask for the learnt landing at a time (the four
 wind-limits tests, the turns-on-final runs, the learnt-landing refusals)
 pass but one, the window client's behind a PA-28 - not this client: every
@@ -353,6 +356,11 @@ runs with `LSAN_OPTIONS=exitcode=0` and gives standard error to
 `glideslope_judge_leaks` (tests/cmake/client.cmake), as the other window tests
 do: a leak with a frame in glideslope still fails it. Verification: it passes
 on linux-debug here, its log reading "2 leak reports were allocated by
-libraries loaded at run time; not glideslope's". No deliberate glideslope leak
-was introduced to watch it fail here; the judge is the one the other window
-tests share.
+libraries loaded at run time; not glideslope's". Watched to fail: 4,000 bytes
+leaked at the top of the window client's `run_program` (through a volatile
+pointer then nulled, so that nothing on a stack still held it) turned it red,
+"glideslope leaked, with frames in glideslope", quoting the line; reverted.
+The setting covers every program in that run, the server and command-line
+clients too, and all their standard error is judged; as in the other window
+tests, a leak with no symbolized frame of glideslope's would be counted as
+a library's.
