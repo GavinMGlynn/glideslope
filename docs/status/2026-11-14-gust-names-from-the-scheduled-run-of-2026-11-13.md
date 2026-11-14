@@ -7,17 +7,25 @@ so `selftest`'s hash does not move.
 
 ## Named, in `named_on_a_seed` (tests/unit/test_lesson.cpp)
 
-- **short_s23, seed 15, Windows debug and clang**: touches at 336.335134
-  ft/min, inside 360 but not by 25. Failed on windows-debug (gust sweep day 5,
-  3/8) and windows-clang (gust sweep 8/8), the same figure on both. It uses a
-  new helper, `windows_debug_or_clang()` (Windows without NDEBUG, or built
-  by clang-cl, whose preset is a release one and has NDEBUG), not
-  `windows()`: windows-release's gust sweep shards 5/10 and 6/10 were still
-  running when this was written, so its seed 15 is unmeasured and not named.
-  If it fails there, name it from that figure.
+- **short_s23, seed 15, every Windows preset** (`windows()`): touches at
+  336.335134 ft/min, inside 360 but not by 25, on windows-debug (gust sweep
+  day 5, 3/8), windows-clang (gust sweep 8/8) and windows-release (gust
+  sweep 5/10), the same figure on all three.
 - **f22, seed 3, every macOS preset**: was `macos_release()` at 372 ft/min
-  (CI run 43240423674); macos-debug fails the same seed at 372.363196 ft/min,
-  so it is now `macos()`.
+  (CI run 43240423674); macos-debug fails the same seed at 372.363196
+  ft/min, so it is now `macos()`.
+- **j3cub, seed 18, macOS release** (`macos_release()`): touches at
+  352.085248 ft/min (gust sweep 4/5). macOS debug did not fly seed 18 that
+  night (the weekly rotation), so it is not named there.
+
+## Names taken off, where they passed with every margin
+
+On macOS release (gust sweep 4/5) the test said to take two names off:
+- **a380, seed 31** and **short_s23, seed 18**, both named on `macos()`,
+  passed with every margin. Each is now `macos_debug()`, a new helper:
+  macOS debug was where they were measured failing alongside release, and it
+  did not fly either seed that night, so the name stays on debug until a
+  debug run measures it.
 
 ## Other failures in the run
 

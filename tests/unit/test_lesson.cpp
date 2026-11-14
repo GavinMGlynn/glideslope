@@ -3079,11 +3079,10 @@ struct NamedOnASeed {
     return false;
 #endif
 }
-// Windows debug and clang-cl (a release build, so it has NDEBUG; told
-// apart by __clang__): where a name is measured and windows-release's run
-// is not.
-[[maybe_unused]] constexpr bool windows_debug_or_clang() {
-#if defined(_WIN32) && (!defined(NDEBUG) || defined(__clang__))
+// macOS debug alone: where a name is measured on debug and macOS release
+// now lands the seed with every margin.
+[[maybe_unused]] constexpr bool macos_debug() {
+#if defined(__APPLE__) && !defined(NDEBUG)
     return true;
 #else
     return false;
@@ -3240,7 +3239,9 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // macOS, debug and release alike, CI run 41814841853. Seeds 5 and 6
         // no longer, since 2026-11-12: started moving with her wind, macOS
         // release lands both with every margin (CI run 43240423674).
-        {"a380", 31, macos(),
+        // Seed 31 on macOS debug alone since 2026-11-13: macOS release lands
+        // it with every margin (CI run 43513776356).
+        {"a380", 31, macos_debug(),
          "on macOS she touches at 336 ft/min, inside 360 but not by 25 (seed 31), CI run "
          "41814841853"},
         {"a380", 37, macos(),
@@ -3259,13 +3260,14 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // macOS, debug and release alike, CI run 41732333742 (dispatched on
         // #313): held off on her own pitch law, the S.23 lands seeds 3, 10 and
         // 11 there now, and touches inside her limit but not her margin on two.
-        // Windows debug and clang, CI run 43513776356 (the scheduled run of
-        // 2026-11-13): seed 15 at 336 ft/min, inside 360 but not by 25;
-        // windows-release's run of it is not in that run's logs.
-        {"short_s23", 15, windows_debug_or_clang(),
-         "on Windows debug and clang she touches at 336 ft/min, inside 360 but not by 25 "
-         "(seed 15), CI run 43513776356"},
-        {"short_s23", 18, macos(),
+        // Windows debug, release and clang-cl alike, CI run 43513776356 (the
+        // scheduled run of 2026-11-13): seed 15 at 336 ft/min, inside 360 but
+        // not by 25. Seed 18 on macOS debug alone since then: macOS release
+        // lands it with every margin there.
+        {"short_s23", 15, windows(),
+         "on Windows she touches at 336 ft/min, inside 360 but not by 25 (seed 15), CI run "
+         "43513776356"},
+        {"short_s23", 18, macos_debug(),
          "on macOS she touches at 342 ft/min, inside 360 but not by 25 (seed 18), CI run "
          "41732333742"},
         {"short_s23", 32, macos(),
@@ -3328,6 +3330,11 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"j3cub", 40, macos(),
          "on macOS she touches at 352 ft/min, inside her limit but not her margin (seed "
          "40), CI run 41773183933"},
+        // Seed 18 on macOS release, CI run 43513776356 (the scheduled run of
+        // 2026-11-13); macOS debug did not fly it that night.
+        {"j3cub", 18, macos_release(),
+         "on macOS she touches at 352 ft/min, inside her limit but not her margin (seed "
+         "18), CI run 43513776356"},
     };
     return named;
 }
