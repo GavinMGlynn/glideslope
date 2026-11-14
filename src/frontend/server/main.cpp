@@ -230,6 +230,12 @@ struct Options {
     // (`--test-say-controls`), so that a test counts in the server's own
     // steps how long an input it sent was flown.
     bool test_say_controls = false;
+    // For a test: **every session's first state update lost on the way**
+    // (`--test-first-update-lost`) - not sent, while the reliable messages
+    // that go with it are - as a datagram can be: a client then hears what
+    // it was told at that moment, a reason it waits among it, before any
+    // update.
+    bool test_first_update_lost = false;
     // For a test: say each time steps owed are let slip (`--test-say-slipped`,
     // net::CatchingUp), and how many in all.
     bool test_say_slipped = false;
@@ -403,6 +409,8 @@ void print_usage(std::FILE* out) {
         "                     then stop - simulated time, for a test\n"
         "  --test-say-controls  say each step a player's controls change at,\n"
         "                     for a test to count steps flown on an input\n"
+        "  --test-first-update-lost  send no session its first state update,\n"
+        "                     as though it were lost, for a test\n"
         "  --test-step-ms MS  make every step take at least MS milliseconds, so\n"
         "                     that a test can put the server behind real time\n"
         "  --test-pace F      run the simulation's clock at F (0 to 1) of real\n"
@@ -623,6 +631,8 @@ std::optional<Options> parse(const std::vector<std::string_view>& args,
             o.changed_file = std::string(value);
         } else if (a == "--test-say-controls") {
             o.test_say_controls = true;
+        } else if (a == "--test-first-update-lost") {
+            o.test_first_update_lost = true;
         } else if (a == "--test-say-slipped") {
             o.test_say_slipped = true;
         } else if (a == "--test-held-up") {
@@ -1163,6 +1173,8 @@ struct Connection {
     // sent, sent again whenever it changes; and the newest weather of each
     // slot it has been sent, by the fleet's count of them: -1 before any.
     bool told_session = false;
+    // Its first state update not sent (`--test-first-update-lost`), once.
+    bool first_update_lost = false;
     std::vector<std::uint8_t> lobby_told;
     std::vector<int> weathers_told;
     std::vector<int> runway_conditions_told;
@@ -6322,7 +6334,11 @@ int run(const Options& o) {
                                     std::span<const std::uint8_t>(body.data(), body.size()));
                     }
                 }
-                if (said && to) {
+                if (o.test_first_update_lost && !c.first_update_lost) {
+                    c.first_update_lost = true;
+                    std::printf("a session's first state update is lost, as asked\n");
+                    std::fflush(stdout);
+                } else if (said && to) {
                     send_sealed(*socket, *to, c,
                                 std::span<const std::uint8_t>(said->data(),
                                                               said->size()));

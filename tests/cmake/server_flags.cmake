@@ -55,7 +55,10 @@ list(LENGTH _flags _count)
 # --test-stopped-once runs nothing for a while at a time on its clock, a
 # machine's stall built (the same script), and --test-say-controls prints each
 # step a player's controls change, so the first-input test counts the steps
-# her nudge was flown (server_first_input.cmake), and --test-slow-start makes
+# her nudge was flown (server_first_input.cmake), and --test-first-update-lost
+# sends no session its first state update, so a client waiting her turn on
+# final hears why before any update (server_players_take_turns_on_final.cmake),
+# and --test-slow-start makes
 # the fleet's first steps slow, a loaded machine's start built
 # (starved_f35b_placed.cmake). --test-wreck-waits-for-joins keeps a wreck a
 # wreck until that many players have joined, so a join during one is built on
@@ -92,7 +95,8 @@ set(_expected --headless --players --port --store --key --timeout --plain
               --seconds --dry-run --data --ai --plan --fly --on-leave --version
               --help --window --window-dump --window-shot --window-press
               --until-empty --ready-file --no-take-over --test-step-ms --test-pace
-              --test-stopped-once --test-say-controls --test-slow-start
+              --test-stopped-once --test-say-controls --test-first-update-lost
+              --test-slow-start
               --test-wreck-waits-for-joins
               --test-held-up --test-say-slipped
               --drop-once-flown --lose-goodbyes --stop-once-flown
