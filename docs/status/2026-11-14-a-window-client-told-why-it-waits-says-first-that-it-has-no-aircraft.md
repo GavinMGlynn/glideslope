@@ -40,7 +40,9 @@ keeps the same ordering assertion in the test. It would fail the same way.
 **Verification.** Built on linux-debug. Run locally with
 `LSAN_OPTIONS=exitcode=0`, because this machine's Vulkan driver makes the
 window client report a 112-byte leak on exit even on main. CI's runs of this
-test do not report it.
+test do not report it. (`glideslope_judge_leaks` fails a leak only when its first
+frame past the runtime is glideslope's; one whose first such frame is a
+run-time library or unsymbolized counts as foreign and does not fail.)
 - With the flag and the old client, the test fails as CI did: "the server
   says: waiting for the aircraft ahead ..." comes before "no aircraft yet".
 - With the fix, it passes. The three take-turns runs and
