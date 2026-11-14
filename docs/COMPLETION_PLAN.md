@@ -1924,7 +1924,7 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       *Verification: a check names every short server `--timeout` in the tests
       exactly and fails on any other; watched red; the changed tests pass.*
       Done 2026-10-28.
-- [ ] **The test of a player joining after another has left ran on a clock**:
+- [x] **The test of a player joining after another has left ran on a clock**:
       a server slow to start still had the first player when the third knocked,
       and refused her as full (nightly 43507588675). Its joins now wait on events.
       *Verification: with a server started 7 s late it fails 3 in 3 before and

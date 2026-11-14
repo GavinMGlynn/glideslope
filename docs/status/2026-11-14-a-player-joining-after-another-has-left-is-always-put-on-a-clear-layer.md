@@ -67,5 +67,10 @@ re-measure brings them down.
 - **A deliberate bug turns it red.** `free_layer` was made to skip its
   held-at-start search. The test then failed: A, B and C started on
   layers 3, 4 and 4, at "not above B's". The bug was reverted.
+- **On the nightly's real runners:** nightly 43537826498, dispatched on
+  the train with the Linux repeats on, ran all seven multi-process shards;
+  this test passed all five of its runs. That run's one failure was
+  `a_client_joining_an_f35b_mid_bank_with_the_first_datagrams_lost_still_begins_on_the_servers_law_state`,
+  named in tests/cmake/nightly_tests.cmake under the open busy-machine item.
 
 No server code changed. The selftest hash does not move.
