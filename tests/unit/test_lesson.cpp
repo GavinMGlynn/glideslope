@@ -3109,7 +3109,8 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
     // the hold-off with her own gains (`Lander::hull_elevator`), and a
     // gust's climb in that level hold-off no longer gone around from as a
     // balloon. macOS's seeds 3, 10 and 11 likewise, measured in the full
-    // run dispatched on #313; her 18 and 32 are named below.
+    // run dispatched on #313; her 32 and 28 (macOS) and 15 (Windows) are
+    // named below.
     static const std::vector<NamedOnASeed> named = {
         // The F-22A since 2026-11-05, her flight controls fed her body's
         // rates, not the air's (tools/make_f22.py, "Her rate gyros"):
@@ -3179,9 +3180,11 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // Seed 7 no longer, and seed 3 instead, since 2026-11-12: started
         // moving with her wind, macOS release lands seed 7 with every
         // margin and not seed 3 (CI run 43240423674) - twenty-eight of forty
-        // still.
-        {"f22", 3, macos_release(),
-         "on macOS she touches at 372 ft/min (seed 3), CI run 43240423674"},
+        // still; macOS debug does not land seed 3 either, at the same figure
+        // (CI run 43513776356).
+        {"f22", 3, macos(),
+         "on macOS she touches at 372 ft/min (seed 3), CI runs 43240423674 and "
+         "43513776356"},
         {"f22", 9, macos(),
          "on macOS she floats into a go-around from a touch 1,066 m along (seed 9), CI "
          "run 41867348299"},
@@ -3228,9 +3231,6 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // macOS, debug and release alike, CI run 41814841853. Seeds 5 and 6
         // no longer, since 2026-11-12: started moving with her wind, macOS
         // release lands both with every margin (CI run 43240423674).
-        {"a380", 31, macos(),
-         "on macOS she touches at 336 ft/min, inside 360 but not by 25 (seed 31), CI run "
-         "41814841853"},
         {"a380", 37, macos(),
          "on macOS she climbs at 118 ft/min in her flare, a balloon (seed 37), CI run "
          "41814841853"},
@@ -3238,18 +3238,24 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         // #310): the 787-8 lands seed 2 there now, at Boeing's full gust.
         // Seed 3 no longer, and seed 6 instead, since 2026-11-12: started
         // moving with her wind, macOS release lands seed 3 with every margin
-        // and not seed 6 (CI run 43240423674).
-        {"737-300", 6, macos_release(),
-         "on macOS she touches at 349 ft/min, inside 360 but not by 25 (seed 6), CI run "
-         "43240423674"},
+        // and not seed 6 (CI run 43240423674); macOS debug does not land
+        // seed 6 either, at the same figure (CI run 43513776356).
+        {"737-300", 6, macos(),
+         "on macOS she touches at 349 ft/min, inside 360 but not by 25 (seed 6), CI runs "
+         "43240423674 and 43513776356"},
         {"737-300", 17, macos(),
          "on macOS she touches at 554 ft/min (seed 17), CI run 41703342974"},
         // macOS, debug and release alike, CI run 41732333742 (dispatched on
         // #313): held off on her own pitch law, the S.23 lands seeds 3, 10 and
         // 11 there now, and touches inside her limit but not her margin on two.
-        {"short_s23", 18, macos(),
-         "on macOS she touches at 342 ft/min, inside 360 but not by 25 (seed 18), CI run "
-         "41732333742"},
+        // Windows debug, release and clang-cl alike, CI run 43513776356 (the
+        // scheduled run of 2026-11-13): seed 15 at 336 ft/min, inside 360 but
+        // not by 25. Seeds 18 (here) and the A380's 31 no longer, since that
+        // run: started moving with her wind, macOS release lands both with
+        // every margin.
+        {"short_s23", 15, windows(),
+         "on Windows she touches at 336 ft/min, inside 360 but not by 25 (seed 15), CI run "
+         "43513776356"},
         {"short_s23", 32, macos(),
          "on macOS she touches at 340 ft/min, inside 360 but not by 25 (seed 32), CI run "
          "41732333742"},
@@ -3294,9 +3300,8 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
         {"c182", 34, macos(),
          "on macOS a gust climbs her at 92 ft/min in her flare (seed 34), CI run "
          "41640422104"},
-        {"pa28", 34, macos(),
-         "on macOS a gust climbs her at 76 ft/min in her flare (seed 34), CI run "
-         "41640422104"},
+        // The PA-28's seed 34 no longer, since CI run 43513776356: started
+        // moving with her wind, macOS release lands it with every margin.
         // The J-3 Cub, wheel-landed in gusts: CI run 41773183933, dispatched on
         // #316's branch, macOS debug and release alike.
         {"j3cub", 9, macos(),
@@ -3304,12 +3309,30 @@ const std::vector<NamedOnASeed>& named_on_a_seed() {
          "41773183933"},
         {"j3cub", 10, macos(),
          "on macOS she touches at 448 ft/min (seed 10), CI run 41773183933"},
-        {"j3cub", 30, macos(),
-         "on macOS she touches at 343 ft/min, inside her limit but not her margin (seed "
-         "30), CI run 41773183933"},
+        // Seed 30 no longer, since CI run 43513776356: started moving with
+        // her wind, macOS release lands it with every margin.
         {"j3cub", 40, macos(),
          "on macOS she touches at 352 ft/min, inside her limit but not her margin (seed "
          "40), CI run 41773183933"},
+        // Measured on macOS release, CI run 43513776356 (the scheduled run
+        // of 2026-11-13), since every aircraft started moving with her wind;
+        // named on debug too, which did not fly these seeds that night: the
+        // two it did fly (the F-22A's 3, the 737-300's 6) it failed at
+        // release's figures to the sixth place.
+        {"j3cub", 18, macos(),
+         "on macOS she touches at 352 ft/min, inside her limit but not her margin (seed "
+         "18), CI run 43513776356"},
+        {"737-300", 20, macos(),
+         "on macOS she touches at 383 ft/min (seed 20), CI run 43513776356"},
+        {"747-400", 23, macos(),
+         "on macOS she touches at 354 ft/min, inside 360 but not by 25 (seed 23), CI run "
+         "43513776356"},
+        {"pa28", 16, macos(),
+         "on macOS a gust climbs her at 92 ft/min in her flare (seed 16), CI run "
+         "43513776356"},
+        {"short_s23", 28, macos(),
+         "on macOS she rises 0.77 ft after her touch (seed 28), CI run "
+         "43513776356"},
     };
     return named;
 }
