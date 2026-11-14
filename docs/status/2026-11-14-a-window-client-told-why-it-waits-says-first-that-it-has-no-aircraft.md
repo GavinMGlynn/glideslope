@@ -46,3 +46,15 @@ test do not report it.
 - With the fix, it passes. The three take-turns runs and
   `every_flag_the_server_prints_in_its_usage_is_one_it_takes` pass twice each
   under `-j4`.
+
+**With #362.** #362 (on-final-turns-complete) lands first. This branch
+conflicts with it in `tests/cmake/server_players_take_turns_on_final.cmake`,
+on the window run's server command. #362 changes `--players-on-final
+YSSY/16R` to `--players-on-final ${_spec}`, and this branch adds
+`--test-first-update-lost`. Keep both:
+`--players-on-final ${_spec} --test-first-update-lost`. In `Online::join`,
+#362 adds a `waiting` callback (the window's `show_waiting`), which runs once
+`said_waiting` is set. Both changes stay there too. With this fix, a reason
+heard before any update sets `said_waiting`, so the window shows why she
+waits from that moment. Without the fix it would show nothing until the
+first update. Not yet rebased onto #362.
