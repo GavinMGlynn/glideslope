@@ -7,6 +7,7 @@
 // the client, the server and glideslope_cli, so that each tells a model the
 // same.
 
+#include <chrono>
 #include <filesystem>
 #include <optional>
 #include <cstddef>
@@ -44,6 +45,26 @@ copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
 // and every client's copilot and planner are told it from the weather they
 // fly; none where nothing is wet or reported.
 std::optional<world::WetRunways> wet_runways(const world::WeatherReport* report);
+
+// **Where the stations around a place wet the runways**, for a planner
+// under `--weather around`: the METARs reported around it
+// (world::fetch_metars_around - their surface reports alone, no winds
+// aloft, which a planner is not told), and of them the nearest station to
+// it - its runway-state groups laid on its runways from `all`
+// (world::contaminated_runways) - read as wet_runways reads the one
+// weather. A single `--weather` station's planner is told its station's;
+// this tells one under many the station nearest its airport. `station` is
+// that station, empty where none is reported around the place; `wet` none
+// where it wets and reports nothing. Throws as fetch_metars_around does
+// when the service does not answer.
+struct StationWet {
+    std::string station;
+    std::optional<world::WetRunways> wet;
+};
+StationWet wet_runways_around(double latitude_deg, double longitude_deg,
+                              const world::Fetch& fetch,
+                              const std::vector<world::RunwayEnd>& all,
+                              std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
 
 // **Where a plan from an airport may land** (copilot::PlanRequest::fields):
 // the airports of `all` within `landing_fields_m` of the first end of

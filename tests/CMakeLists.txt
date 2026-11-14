@@ -1031,6 +1031,7 @@ set(GLIDESLOPE_UNIT_TESTS
     the_five_with_no_published_landing_distance_are_refused_a_runway_shorter_than_a_measured_one
     the_f35b_is_held_to_her_rolling_figure_on_a_runway_and_refused_no_vertical_landing_for_length
     a_session_whose_metar_reports_rain_refuses_a_runway_long_enough_dry_but_short_wet
+    a_planner_under_the_stations_around_it_is_told_the_runway_its_nearest_station_reports_wet
     every_aircraft_is_refused_a_runway_reported_at_nil_braking_and_sized_by_ac_91_79b_on_every_other_code
     a_session_whose_metar_reports_a_runway_icy_refuses_a_landing_on_it_long_enough_wet
     a_copilot_and_a_planner_are_told_a_runway_is_reported_icy_and_what_the_aircraft_needs_on_it
@@ -4748,6 +4749,29 @@ add_test(NAME an_ai_aircraft_whose_runways_cannot_be_read_flies_the_plan_file_an
 set_tests_properties(an_ai_aircraft_whose_runways_cannot_be_read_flies_the_plan_file_and_the_server_goes_on
     PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planned_runways)
+
+# **A server's AI planner under the stations around it is told the runway its
+# nearest station reports wet**, and not a farther station's rain: both
+# cases. See cmake/server_planner_stations.cmake.
+foreach(_case IN ITEMS near_wet far_wet)
+    if(_case STREQUAL "near_wet")
+        set(_name a_servers_planner_under_the_stations_around_it_is_told_the_runway_its_nearest_station_reports_wet)
+    else()
+        set(_name a_servers_planner_under_the_stations_around_it_is_not_told_a_farther_stations_rain)
+    endif()
+    add_test(NAME ${_name}
+        COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+            -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+            -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_planner_stations_${_case}
+            -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot
+            -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
+            -DCASE=${_case}
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_planner_stations.cmake)
+    set_tests_properties(${_name}
+        PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
+    file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planner_stations_${_case})
+endforeach()
 
 # **A server keeps its rate while the runways a reported state lies on are
 # slow to come.** See cmake/server_runways_slow.cmake.

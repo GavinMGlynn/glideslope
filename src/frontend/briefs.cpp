@@ -10,6 +10,7 @@
 #include "sim/figures.hpp"
 #include "sim/lander.hpp"
 #include "sim/learnt.hpp"
+#include "sim/plan.hpp"
 #include "sim/runway_condition.hpp"
 
 namespace glideslope::frontend {
@@ -51,6 +52,32 @@ std::optional<world::WetRunways> wet_runways(const world::WeatherReport* report)
     return world::WetRunways{report->surface.latitude_deg,
                              report->surface.longitude_deg,
                              wet ? world::metar_radius_m : 0.0, report->contaminated};
+}
+
+StationWet wet_runways_around(double latitude_deg, double longitude_deg,
+                              const world::Fetch& fetch,
+                              const std::vector<world::RunwayEnd>& all,
+                              std::chrono::milliseconds retry_wait) {
+    const std::vector<world::SurfaceReport> reports =
+        world::fetch_metars_around(latitude_deg, longitude_deg, fetch, retry_wait);
+    const auto away = [&](const world::SurfaceReport& r) {
+        return sim::distance_m(latitude_deg, longitude_deg, r.latitude_deg, r.longitude_deg);
+    };
+    const auto nearest = std::min_element(
+        reports.begin(), reports.end(),
+        [&](const world::SurfaceReport& a, const world::SurfaceReport& b) {
+            return away(a) < away(b);
+        });
+    if (nearest == reports.end()) {
+        return {};
+    }
+    world::WeatherReport report;
+    report.surface = *nearest;
+    if (!report.surface.metar.runway_states.empty()) {
+        report.contaminated = world::contaminated_runways(
+            report.surface.metar, world::runways_at(all, report.surface.metar.station));
+    }
+    return {report.surface.metar.station, wet_runways(&report)};
 }
 
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,

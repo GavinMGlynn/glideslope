@@ -1872,10 +1872,18 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       ones whole** until the change's blend ends, as one joining mid-blend
       did before it was told what a weather blends from. *Verification: a
       client joining mid-change flies the server's air to the last bit.*
-- [ ] **The AI's planners are told no wet runway under `--weather around`**:
+- [x] **The AI's planners are told no wet runway under `--weather around`**:
       a station's runway states reach the air, not the plans. *Verification:
       a planner under the stations around it is told the runway its nearest
-      station reports wet.*
+      station reports wet.* Done 2026-11-14: each planner is told what the
+      station nearest its airport reports, rain or a runway's state, and
+      nothing a farther one does.
+- [ ] **A copilot is told one station's wet runways under `--weather
+      around`** - the server's hand-over copilot the first slot's station, a
+      player's her flight's one report - not the station nearest the
+      aircraft.
+      *Verification: a copilot under the stations around it is told the
+      runway its nearest station reports wet.*
 - [x] **The network checks on macOS drew another aircraft metres off** (8.6 m
       at 100 ms, 8.5 m at 200 ms). *Verification: the cause found, and the
       check run a hundred times on macOS within its bound.* Done 2026-09-30:

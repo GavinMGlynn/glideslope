@@ -72,6 +72,7 @@
 #include <exception>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <future>
 #include <iterator>
 #include <memory>
@@ -1355,6 +1356,14 @@ struct Unplannable : std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
+// **What a planner is told of the wet runways at its airport** - the
+// first of `airport`'s ends, from the runways `all` - for plan_by_model:
+// the one `--weather` station's, or under `--weather around` the station
+// nearest that airport (frontend::wet_runways_around). Empty: none.
+using PlannersWet = std::function<std::optional<glideslope::world::WetRunways>(
+    const glideslope::world::RunwayEnd& airport,
+    const std::vector<glideslope::world::RunwayEnd>& all)>;
+
 // **A model's plan for an AI aircraft**, asked when the server starts, before
 // its clock does: the server owner's key, the task file's words, and the
 // airport's runways as OurAirports gives them. What comes back is only a
@@ -1365,12 +1374,12 @@ struct Unplannable : std::runtime_error {
 glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
                                            const Planner& planner,
                                            const glideslope::copilot::Task& task,
-                                           std::optional<glideslope::world::WetRunways> wet_runways,
+                                           const PlannersWet& planners_wet,
                                            std::string& said_by) {
     const glideslope::sim::CatalogueEntry entry =
         glideslope::sim::find_aircraft(data, task.aircraft);
     glideslope::copilot::PlanRequest request =
-        glideslope::frontend::plan_request_for(data, entry.id, wet_runways);
+        glideslope::frontend::plan_request_for(data, entry.id, std::nullopt);
     request.command = task.command;
     request.airport = task.airport;
     const bool played_back = !planner.playback.empty();
@@ -1388,9 +1397,10 @@ glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
     // whole copy in the cache (one that is not the pinned file is fetched
     // again): the aircraft cannot be planned, which is said, and it flies
     // the plan file. Not the server stopped.
+    std::vector<glideslope::world::RunwayEnd> all;
     try {
-        const std::vector<glideslope::world::RunwayEnd> all = glideslope::world::world_runways(
-            glideslope::platform::cache_directory(), glideslope::world::http_fetch());
+        all = glideslope::world::world_runways(glideslope::platform::cache_directory(),
+                                               glideslope::world::http_fetch());
         request.runways = glideslope::world::runways_at(all, task.airport);
         request.fields = glideslope::frontend::landing_fields(all, request.runways);
     } catch (const std::exception& e) {
@@ -1398,6 +1408,11 @@ glideslope::copilot::Planned plan_by_model(const std::filesystem::path& data,
     }
     if (request.runways.empty()) {
         throw Unplannable("OurAirports has no runways at " + task.airport);
+    }
+    // **Where its runways are wet**, told once they are had: under
+    // `--weather around` the station nearest the airport (PlannersWet).
+    if (planners_wet) {
+        request.wet_runways = planners_wet(request.runways.front(), all);
     }
     said_by = provider->name() + ", " + provider->model() + (played_back ? ", played back" : "");
     return glideslope::copilot::plan_from_words(*provider, request);
@@ -1425,7 +1440,7 @@ public:
     Fleet(const std::filesystem::path& data, const std::vector<Flown>& fly, int ai,
           const std::filesystem::path& plan_file, const std::map<int, Planner>& planners,
           const std::filesystem::path& task_file, double departure_spacing_s,
-          std::optional<glideslope::world::WetRunways> wet_runways, const Planner& hand_over_planner = {})
+          const PlannersWet& planners_wet, const Planner& hand_over_planner = {})
         : departure_spacing_s_(departure_spacing_s),
           hand_over_planner_(hand_over_planner),
           hand_over_words_(hand_over_planner.provider.empty()
@@ -1574,7 +1589,7 @@ public:
                     }
                     std::string by;
                     const glideslope::copilot::Planned planned =
-                        plan_by_model(data, planner->second, *task, wet_runways, by);
+                        plan_by_model(data, planner->second, *task, planners_wet, by);
                     std::printf("%s planned by %s, in %d answer%s\n", name.c_str(), by.c_str(),
                                 planned.attempts, planned.attempts == 1 ? "" : "s");
                     for (const std::string& why : planned.refused) {
@@ -5646,9 +5661,61 @@ int run(const Options& o) {
                              e.what());
             }
         }
-        const auto wet_runways = glideslope::frontend::wet_runways(planned_in);
+        // **Under `--weather around`, each planner the station nearest its
+        // airport** (frontend::wet_runways_around), found as it is planned:
+        // the aircraft's stations are not looked for until the fleet is
+        // built, and the planners are asked while it is. Stations that
+        // cannot be had are said, and that planner told no runway wet.
+        // **Asked once an airport**: planners at one airport share what its
+        // stations said, or that they said nothing.
+        PlannersWet planners_wet;
+        if (o.weather_around) {
+            auto asked = std::make_shared<
+                std::map<std::string, std::optional<glideslope::world::WetRunways>>>();
+            planners_wet = [asked](const glideslope::world::RunwayEnd& airport,
+                                   const std::vector<glideslope::world::RunwayEnd>& all)
+                -> std::optional<glideslope::world::WetRunways> {
+                if (const auto had = asked->find(airport.airport); had != asked->end()) {
+                    return had->second;
+                }
+                std::optional<glideslope::world::WetRunways> wet;
+                try {
+                    const glideslope::frontend::StationWet found =
+                        glideslope::frontend::wet_runways_around(
+                            airport.latitude_deg, airport.longitude_deg,
+                            glideslope::world::http_fetch(), all);
+                    if (found.station.empty()) {
+                        std::fprintf(stderr,
+                                     "glideslope_server: no station is reported around %s, and "
+                                     "its planners are told no runway wet\n",
+                                     airport.airport.c_str());
+                    } else {
+                        wet = found.wet;
+                        const std::size_t contaminated = wet ? wet->contaminated.size() : 0;
+                        std::printf("planners at %s told by %s, its nearest station: %s, and %zu "
+                                    "runway%s reported contaminated\n",
+                                    airport.airport.c_str(), found.station.c_str(),
+                                    wet && wet->radius_m > 0.0 ? "the runways wet near it"
+                                                               : "no runway wet by its weather",
+                                    contaminated, contaminated == 1 ? "" : "s");
+                        std::fflush(stdout);
+                    }
+                } catch (const std::exception& e) {
+                    std::fprintf(stderr,
+                                 "glideslope_server: the stations around %s cannot be had, and "
+                                 "its planners are told no runway wet: %s\n",
+                                 airport.airport.c_str(), e.what());
+                }
+                asked->emplace(airport.airport, wet);
+                return wet;
+            };
+        } else {
+            planners_wet = [wet = glideslope::frontend::wet_runways(planned_in)](
+                               const glideslope::world::RunwayEnd&,
+                               const std::vector<glideslope::world::RunwayEnd>&) { return wet; };
+        }
         fleet.emplace(o.data, o.fly, o.ai, o.plan, o.planners, o.task, o.ai_spacing_s,
-                      wet_runways, o.hand_over_planner);
+                      planners_wet, o.hand_over_planner);
         fleet->fail_engines_at(o.fail_engine_at_s);
         fleet->wrecks_wait_for_joins(o.test_wreck_waits_for_joins);
         if (!o.ai_on_final.empty()) {

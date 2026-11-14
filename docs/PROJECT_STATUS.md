@@ -574,9 +574,11 @@ are the risks the phase order is built around:
   nothing keeps the stations flown, and a change mid-blend blends from the
   air then (2026-11-11). Given one `--weather` station, a flight or a
   server flies that station's weather everywhere; a client joining while the server's stations change
-  flies the new ones whole until the blend ends; and the AI's planners are
-  told no wet runway under the stations around them - each a tail in
-  `COMPLETION_PLAN.md`. glideslope_cli has no weather of its own: it flies a
+  flies the new ones whole until the blend ends - a tail in
+  `COMPLETION_PLAN.md`. The AI's planners under the stations around them
+  are told the runway their airport's nearest station reports wet or
+  contaminated (2026-11-14); a copilot, a hand-over's or a player's, is
+  still told one station's, a tail. glideslope_cli has no weather of its own: it flies a
   server's, or none. On a server the server's weather travels and every
   client flies it - one joining mid-blend blended from the same weather - but
   over no ground: no ridge or wave lift there, a tail.
