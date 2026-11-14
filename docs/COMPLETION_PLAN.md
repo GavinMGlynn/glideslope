@@ -2186,6 +2186,11 @@ What the client with the window does that the command-line client does, and what
       pull requests. Cause not found. *Verification: the cause shown, the test
       back on pull requests, and a shot with its imagery refused drawing as
       deep as one without in 20 of 20 runs here and every CI run for a week.*
+- [ ] **macOS shards are sized as if three tests ran at once; about 1.8
+      do**, so a shard estimated inside its limit ran 1.15 to 1.45 times
+      longer and was cut off (run 43571140116). *Verification: the sizing
+      uses macOS's measured overlap from several runs, and every macOS
+      shard's real time is within its estimate for a week of CI runs.*
 
 ---
 
