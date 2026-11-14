@@ -354,7 +354,9 @@ client exited 1 on LeakSanitizer reports wholly inside the Mesa lavapipe
 driver, loaded at run time. CI's runners did not show it. Its script now
 runs with `LSAN_OPTIONS=exitcode=0` and gives standard error to
 `glideslope_judge_leaks` (tests/cmake/client.cmake), as the other window tests
-do: a leak with a frame in glideslope still fails it. Verification: it passes
+do: a leak fails it only when its first frame past the runtime is
+glideslope's (a library's or an unsymbolized first frame counts as foreign).
+Verification: it passes
 on linux-debug here, its log reading "2 leak reports were allocated by
 libraries loaded at run time; not glideslope's". Watched to fail: 4,000 bytes
 leaked at the top of the window client's `run_program` (through a volatile

@@ -215,9 +215,10 @@ if(_how STREQUAL "window")
     # output on to standard error: the client's is read from the one and the
     # server's from the other.
     # **Leaks judged as every window test judges them**
-    # (`glideslope_judge_leaks`): one with a frame in glideslope fails; one
-    # wholly in a library loaded at run time (a GPU driver's) is counted and
-    # let be, so the exit code is left to the judging.
+    # (`glideslope_judge_leaks`): one whose first frame past the runtime is
+    # glideslope's fails; one whose first such frame is a library's (a GPU
+    # driver's, loaded at run time) or unsymbolized is counted and let be, so
+    # the exit code is left to the judging.
     set(ENV{LSAN_OPTIONS} "exitcode=0")
     math(EXPR _relay "${PORT} + 1")
     port_lock_hold(${_relay})
