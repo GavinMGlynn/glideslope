@@ -1800,8 +1800,13 @@ public:
         const std::size_t layer = free_layer();
         ++joins_;
         ic.altitude_ft = start_.altitude_ft + static_cast<double>(layer) * ai_stack_ft;
-        std::printf("a player's aircraft starts on layer %zu, %.0f ft over the plan's start\n",
-                    layer, static_cast<double>(layer) * ai_stack_ft);
+        // And when, on the session's clock: how long she has flown by any
+        // update after is that update's clock less this.
+        std::printf("a player's aircraft starts on layer %zu, %.0f ft over the plan's start, "
+                    "at %.3f s on the session's clock\n",
+                    layer, static_cast<double>(layer) * ai_stack_ft,
+                    static_cast<double>(steps_) /
+                        static_cast<double>(glideslope::sim::steps_per_second));
         std::fflush(stdout);
         ic.heading_deg = start_.heading_deg;
         ic.airspeed_kts = airspeed_kts;

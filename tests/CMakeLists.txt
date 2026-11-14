@@ -2770,7 +2770,8 @@ endforeach()
 # is the control in that measurement.
 add_test(NAME ai_aircraft_keep_flying_with_nobody_connected_and_a_late_client_finds_them_mid_flight
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
-        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DDATA=${GLIDESLOPE_DATA_DIR}
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_late -DPORT=24763
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_late.cmake)
