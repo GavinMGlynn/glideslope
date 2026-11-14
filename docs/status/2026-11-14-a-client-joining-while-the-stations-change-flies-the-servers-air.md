@@ -74,4 +74,9 @@ whole while the server flew the blend from the old ones.
   (204, 404) and the window client's `the_client_with_the_window_flies_the_servers_weather_...`
   pass; the unit tests on Windows debug too.
 
+On the Windows development machine the new join test crashed once at exit,
+in a thread, after printing that it passed; run again it passed. Neither
+new test starts a thread, so the cause is outside this change (Webroot, or
+the harness's exit), not traced; CI's Windows jobs are the comparison.
+
 The selftest's hash does not move: it flies no weather and no server.
