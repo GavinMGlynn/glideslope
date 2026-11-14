@@ -121,12 +121,19 @@ endif()
 # flown.** Where the plan starts and how fast, from the plan the server
 # flies; when the server made her, from what it said.
 file(READ "${DATA}/plans/sydney-harbour.plan" _plan)
-if(NOT _plan MATCHES "\nstart ([-0-9.]+) ([-0-9.]+) [0-9]+ [0-9]+ ([0-9]+)\n")
+if(NOT _plan MATCHES "\nstart ([-0-9.]+) ([-0-9.]+) [0-9]+ ([0-9]+) ([0-9]+)\n")
     message(FATAL_ERROR "cannot read where the plan starts and how fast")
 endif()
 set(_start_lat ${CMAKE_MATCH_1})
 set(_start_lon ${CMAKE_MATCH_2})
-set(_start_kts ${CMAKE_MATCH_3})
+set(_start_heading ${CMAKE_MATCH_3})
+set(_start_kts ${CMAKE_MATCH_4})
+# **Heading north**, which is what lets her be judged by how far north she
+# is: she starts flying away from the start along it.
+if(NOT _start_heading EQUAL 0)
+    message(FATAL_ERROR "the plan starts heading ${_start_heading}, and this judges her "
+                        "by how far north she has gone")
+endif()
 # In hundred-thousandths of a degree, as the client prints them.
 function(_e5 _deg _var)
     if(NOT _deg MATCHES "^(-?)([0-9]+)\\.([0-9]*)$")
@@ -178,14 +185,19 @@ if(_flown_ms LESS 0)
     message(FATAL_ERROR "the first update, at ${_clock} s, was before the client's aircraft "
                         "was made, at ${_made_s} s")
 endif()
-# **The farthest she can have gone**: the plan's calibrated airspeed, made a
-# fifth more for her true airspeed up to the top layer (6,000 ft: 12 % more,
-# at 2 % a thousand feet), for as long as she has flown; and eleven metres
-# more - a ten-thousandth of a degree - for where a position rounds and the
-# step she was made on. Measured as north plus east, which is never less
-# than the straight line. A hundred-thousandth of a degree of latitude is
-# 1.1132 m; of longitude here, less.
+# **The farthest she can have gone north**: the plan's calibrated airspeed,
+# made a fifth more for her true airspeed up to the top layer (6,000 ft: 12 %
+# more, at 2 % a thousand feet), for as long as she has flown; and eleven
+# metres more - a ten-thousandth of a degree - for where a position rounds
+# and the step she was made on. **And the least**: four fifths of it, less
+# the same eleven metres - so that one made behind the start, flying back
+# towards it, is not taken for one made on it (review of #374: made 40 m
+# south, she was 23 m south after 290 ms, inside a bound on the distance
+# alone). The relay makes her fly long enough for the floor to be above
+# the start. East of it, no more than the eleven metres. A
+# hundred-thousandth of a degree of latitude is 1.1132 m.
 math(EXPR _farthest_e5 "${_start_kts} * 12 * 5144 * ${_flown_ms} / 10000 / 11132 + 10")
+math(EXPR _least_e5 "${_start_kts} * 8 * 5144 * ${_flown_ms} / 10000 / 11132 - 10")
 set(_moved 0)
 set(_still 0)
 set(_nearest_ai_e5 -1)
@@ -206,6 +218,8 @@ foreach(_line IN LISTS _lines)
     _e5("${_lon}" _lon_e5)
     math(EXPR _north "${_lat_e5} - ${_start_lat_e5}")
     math(EXPR _east "${_lon_e5} - ${_start_lon_e5}")
+    set(_signed_north ${_north})
+    set(_signed_east ${_east})
     if(_north LESS 0)
         math(EXPR _north "0 - ${_north}")
     endif()
@@ -214,11 +228,17 @@ foreach(_line IN LISTS _lines)
     endif()
     math(EXPR _away_e5 "${_north} + ${_east}")
     if(_index EQUAL _mine)
-        if(_away_e5 GREATER _farthest_e5)
+        if(_signed_north GREATER _farthest_e5 OR _signed_north LESS _least_e5)
             message(FATAL_ERROR
-                    "the client's own aircraft is at ${_lat}, ${_away_e5} hundred-thousandths "
-                    "of a degree from the plan's start, and in the ${_flown_ms} ms since it "
-                    "was made, at ${_made_s} s, it could have gone ${_farthest_e5}")
+                    "the client's own aircraft is at ${_lat}, ${_signed_north} "
+                    "hundred-thousandths of a degree north of the plan's start, and in the "
+                    "${_flown_ms} ms since it was made, at ${_made_s} s, it would have gone "
+                    "${_least_e5} to ${_farthest_e5}")
+        endif()
+        if(_east GREATER 10)
+            message(FATAL_ERROR
+                    "the client's own aircraft is ${_signed_east} hundred-thousandths of a "
+                    "degree east of the plan's start, flying north from it")
         endif()
         set(_mine_e5 ${_away_e5})
         math(EXPR _still "${_still} + 1")
@@ -252,4 +272,4 @@ message(STATUS "the client joined after ${_wait} s and found a session at "
                "${_clock} s: two AI aircraft away from where the plan starts, "
                "and its own, numbered ${_mine}, made at ${_made_s} s, "
                "${_mine_e5} hundred-thousandths of a degree from it of the "
-               "${_farthest_e5} it could have flown")
+               "${_least_e5} to ${_farthest_e5} it would have flown")
