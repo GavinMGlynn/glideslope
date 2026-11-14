@@ -766,9 +766,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Three shards: two held 42 minutes of work each once the STOVL
-        # take-over tests came, and shard 2 of run 40678447800 finished its
-        # tests at 43 minutes and was cancelled at 45 in its last steps.
+        # Five shards: at four, shards 2 and 3 of run 43571140116 were cut
+        # off at 45 minutes in both attempts, once #362's turns-on-final
+        # tests came. Five is the account's macOS job limit.
         include:
           - { preset: macos-release, shard: 1, of: 5 }
           - { preset: macos-release, shard: 2, of: 5 }
