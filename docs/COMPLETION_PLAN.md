@@ -2197,11 +2197,13 @@ What the client with the window does that the command-line client does, and what
       pull requests. Cause not found. *Verification: the cause shown, the test
       back on pull requests, and a shot with its imagery refused drawing as
       deep as one without in 20 of 20 runs here and every CI run for a week.*
-- [ ] **macOS shards are sized as if three tests ran at once; about 1.8
-      do**, so a shard estimated inside its limit ran 1.15 to 1.45 times
-      longer and was cut off (run 43571140116). *Verification: the sizing
-      uses macOS's measured overlap from several runs, and every macOS
-      shard's real time is within its estimate for a week of CI runs.*
+- [ ] **The aircraft heard** — her engine following its RPM and power,
+      wind rising with airspeed, gear, flaps, touchdown and the stall
+      warning, and other aircraft placed by where they are and fading with
+      distance; each aircraft's sounds in her own data file. *Verification:
+      run on SDL's dummy audio driver, the mix follows the flight (the
+      engine's pitch rising with RPM, silence with the engine stopped), and
+      every aircraft has a sound set, asserted.*
 
 ---
 
@@ -2347,6 +2349,11 @@ The pipeline: its length, its caches and what it costs a pull request.
       night from 2026-09-28**; they now run in seven shards dealt by measured
       cost. *Verification: every shard of a dispatched nightly finishes inside
       its limit.* Done 2026-11-14: 70-86 of 120 minutes (run 43507588675).
+- [ ] **macOS shards are sized as if three tests ran at once; about 1.8
+      do**, so a shard estimated inside its limit ran 1.15 to 1.45 times
+      longer and was cut off (run 43571140116). *Verification: the sizing
+      uses macOS's measured overlap from several runs, and every macOS
+      shard's real time is within its estimate for a week of CI runs.*
 
 ---
 
@@ -2536,3 +2543,7 @@ downloads and a server for anyone: the first goal's world, widened.
       names a running server a client reaches with `--online`.*
 - [ ] **Free buildings for the default scenery.** *Verification: a source
       recorded in `ASSETS.md`, and a shot of a city shows its buildings.*
+- [ ] **Every aircraft heard as herself** — recordings of each type, or of
+      one close to it, under a licence the repository may ship.
+      *Verification: every sound's source and licence recorded in
+      `ASSETS.md`, and none of the placeholder set left in use.*
