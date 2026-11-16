@@ -33,13 +33,20 @@
 
 set -uo pipefail
 
-unavailable_words="the weather could not be had"
+# The program's own fatal word on it (the client's main.cpp and the cli's catch
+# of a ServiceUnavailable): "glideslope: " or "glideslope_cli: ", the weather's
+# prefix, and what went wrong. The client's non-fatal refresh path says the
+# same words and carries on, so the words alone are not enough: see
+# service_not_answering.
+fatal_line='^glideslope(_cli)?: the weather could not be had: '
 
 warn() {
     echo "::warning title=weather service not answering::$1"
 }
 
 stderr_file=$(mktemp)
+out=$(mktemp)
+trap 'rm -f "$stderr_file" "$out"' EXIT
 
 # Runs "$@", showing both streams, and keeps what stderr held in $stderr_file.
 run_keeping_stderr() {
@@ -49,19 +56,27 @@ run_keeping_stderr() {
     return "$rc"
 }
 
+# **An outage is the program ending with exit code 1 whose last word is that
+# line**: a program that said it and then went on to another error, or ended
+# any other way (another code, a signal), did not end for the service. Under
+# gdb its own closing lines ("No stack.", "[Inferior 1 ... exited") are not
+# the program's words and are passed over. $1 is the exit code.
 service_not_answering() {
-    grep -q "$unavailable_words" "$stderr_file"
+    [[ "$1" -eq 1 ]] || return 1
+    local last
+    last=$(grep -v -E '^(No stack\.|\[Inferior [0-9]+ .*exited)' "$stderr_file" \
+               | grep -v '^[[:space:]]*$' | tail -n 1)
+    [[ "$last" =~ $fatal_line ]]
 }
 
 case "${1:-}" in
 cli)
     [[ $# -eq 2 ]] || { echo "usage: $0 cli PATH_TO_GLIDESLOPE_CLI" >&2; exit 2; }
-    out=$(mktemp)
     run_keeping_stderr "$2" weather YSSY > "$out"
     status=$?
     cat "$out"
     if [[ $status -ne 0 ]]; then
-        if service_not_answering; then
+        if service_not_answering "$status"; then
             warn "SKIPPED the weather check: a weather service did not answer ($(tr '\n' ' ' < "$stderr_file")). The rest of the smoke ran and judged."
             exit 0
         fi
@@ -81,7 +96,7 @@ frame)
     if [[ $status -eq 0 ]]; then
         exit 0
     fi
-    if ! service_not_answering; then
+    if ! service_not_answering "$status"; then
         exit "$status"
     fi
     warn "SKIPPED the weather in the frame: a weather service did not answer ($(tr '\n' ' ' < "$stderr_file")). The frame is drawn again without it."
@@ -93,7 +108,9 @@ frame)
         again+=("$a")
     done
     [[ ${#again[@]} -lt $# ]] || { echo "::error::the frame failed, and had no --weather to leave out"; exit "$status"; }
-    exec "${again[@]}"
+    # Not exec: the trap that removes the temporary files must run.
+    "${again[@]}"
+    exit $?
     ;;
 *)
     echo "usage: $0 cli PATH | frame PROGRAM ARGS..." >&2
