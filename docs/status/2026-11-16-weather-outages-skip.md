@@ -42,7 +42,24 @@ CI hygiene, not a plan item; nothing is ticked. The owner's two decisions of
   request refused (port 1) gives exit 0 and the warning; with
   `glideslope_http_stub` answering 400 it fails; stand-ins cover the outage and
   another failure, for the CLI and for the frame's second run.
-- Each seen red with a deliberate bug (see the pull request).
+- **Seen red, with the bug put in and taken out again:**
+  1. In weather.cpp the 403 branch's test made never true (`r.status == 4030`):
+     `only_a_weather_service_that_does_not_answer_is_weather_not_to_be_had`
+     failed with "aviationweather.gov: a 403: should be weather not to be had,
+     and is: could not download https://aviationweather.gov/api/data/metar?ids=CYYZ&format=json: status 403".
+  2. In package_weather.sh `service_not_answering` made `true` (every failure
+     an outage): the package test failed with "the cli's weather, failing for
+     another reason: expected a failure, got 0".
+  3. The review's finding: the first version of the script (the words anywhere
+     in stderr, any exit code) run against the new cases failed at the
+     phrase-then-exit-3 case, "expected a failure, got 0" with the SKIPPED
+     warning printed. Fixed: an outage is exit code 1 and the last non-empty
+     stderr line (gdb's own "No stack." and "[Inferior ... exited" lines
+     passed over) matching `^glideslope(_cli)?: the weather could not be had: `,
+     the client's and the cli's fatal catches; the client's non-fatal refresh
+     path says the same words and goes on. Cases added: the words then exit 3,
+     then a signal, then another error line, for the cli and the frame.
+  The script removes its temporary files on exit (trap).
 - Not run here: the workflow itself and the Windows bash call; CI's package
   job is the first run of them.
 

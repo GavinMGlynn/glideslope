@@ -82,7 +82,18 @@ file(WRITE "${_other}" "#!/usr/bin/env bash
 echo \"glideslope: could not download https://aviationweather.gov/x: status 400\" >&2
 exit 3
 ")
-file(CHMOD "${_outage}" "${_other}" PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
+# **The words alone are not an outage**: the client's non-fatal refresh path
+# says them and goes on. Said, and then the program ends with exit 3, or by a
+# signal, or after another error line, it did not end for the service.
+set(_said_line "echo \"glideslope: the weather could not be had: status 503\" >&2")
+set(_then_3 "${WORK}/then_3.sh")
+file(WRITE "${_then_3}" "#!/usr/bin/env bash\n${_said_line}\nexit 3\n")
+set(_then_signal "${WORK}/then_signal.sh")
+file(WRITE "${_then_signal}" "#!/usr/bin/env bash\n${_said_line}\nkill -SEGV $$\n")
+set(_then_error "${WORK}/then_error.sh")
+file(WRITE "${_then_error}" "#!/usr/bin/env bash\n${_said_line}\necho \"glideslope: could not open the window\" >&2\nexit 1\n")
+file(CHMOD "${_outage}" "${_other}" "${_then_3}" "${_then_signal}" "${_then_error}"
+     PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 
 run_check(_rc _said cli "${_outage}")
 expect_skip("the cli's weather, a service not answering" "${_rc}" "${_said}")
@@ -95,6 +106,18 @@ if(NOT _said MATCHES "drew the frame without weather")
 endif()
 run_check(_rc _said frame "${_other}" --headless --weather YSSY --shot-at 600)
 expect_failure("the frame, failing for another reason" "${_rc}" "${_said}")
+if(NOT _rc EQUAL 3)
+    message(FATAL_ERROR "the frame's own exit code, 3, was lost: ${_rc}")
+endif()
+
+foreach(_stand_in IN ITEMS "${_then_3}" "${_then_signal}" "${_then_error}")
+    get_filename_component(_which "${_stand_in}" NAME_WE)
+    run_check(_rc _said cli "${_stand_in}")
+    expect_failure("the cli's weather, ${_which}" "${_rc}" "${_said}")
+    run_check(_rc _said frame "${_stand_in}" --headless --weather YSSY)
+    expect_failure("the frame, ${_which}" "${_rc}" "${_said}")
+endforeach()
+run_check(_rc _said frame "${_then_3}" --weather YSSY)
 if(NOT _rc EQUAL 3)
     message(FATAL_ERROR "the frame's own exit code, 3, was lost: ${_rc}")
 endif()
