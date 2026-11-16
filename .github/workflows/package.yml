@@ -17,6 +17,11 @@
 # seconds of the flight screen in Sydney's weather and writes its frame -
 # uploaded, one from every platform.
 #
+# **The weather is somebody else's**: a weather service that does not answer
+# (a timeout, a refused connection, a 5xx, a 429) is a `::warning::` and the
+# weather part skipped, through tools/package_weather.sh; every other check
+# still judges, and so does any other failure of the weather.
+#
 # **Part of every ready pull request's gate when the build could have changed
 # it** (a draft's reduced run skips it):
 # ci.yml calls this workflow when the build, the assets, the dependencies or
@@ -184,11 +189,10 @@ jobs:
           h=$(awk '/above sea level/ {print $(NF-1)}' height.txt)
           awk -v h="$h" 'BEGIN { exit !(h > 6.224 && h < 6.244) }' \
             || { echo "::error::Sydney airport at $h m, not 6.234 m"; exit 1; }
-          ./glideslope_cli weather YSSY | tee weather.txt
-          test "$(grep -c ' hPa .* m  *from ' weather.txt)" = 19 \
-            || { echo "::error::the weather does not have 19 levels"; exit 1; }
-          grep -q "Weather data by Open-Meteo.com" weather.txt \
-            || { echo "::error::the weather does not credit Open-Meteo"; exit 1; }
+          # The weather is somebody else's: a service that does not answer is
+          # a warning and a skipped check here, and nothing else is
+          # (tools/package_weather.sh says what is told from what).
+          "$GITHUB_WORKSPACE/tools/package_weather.sh" cli ./glideslope_cli
           # The licences of what is linked in travel with it.
           for licence in JSBSim expat GeographicLib SDL CesiumNative vcpkg/s2geometry vcpkg/openssl; do
             test -s "licenses/$licence.txt" || { echo "::error::no licenses/$licence.txt"; exit 1; }
@@ -203,7 +207,8 @@ jobs:
           else
             apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1 gdb
           fi
-          gdb -q -batch -return-child-result -ex "handle SIGPIPE nostop noprint pass" \
+          "$GITHUB_WORKSPACE/tools/package_weather.sh" frame \
+            gdb -q -batch -return-child-result -ex "handle SIGPIPE nostop noprint pass" \
             -ex run -ex "thread apply all bt" --args \
             ./glideslope --headless --gpu-driver vulkan --size 640x480 --screen flight \
             --weather YSSY --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-linux-${{ matrix.label }}.bmp"
@@ -296,12 +301,12 @@ jobs:
           h=$(awk '/above sea level/ {print $(NF-1)}' height.txt)
           awk -v h="$h" 'BEGIN { exit !(h > 6.224 && h < 6.244) }' \
             || { echo "::error::Sydney airport at $h m, not 6.234 m"; exit 1; }
-          ./glideslope_cli weather YSSY | tee weather.txt
-          test "$(grep -c ' hPa .* m  *from ' weather.txt)" = 19 \
-            || { echo "::error::the weather does not have 19 levels"; exit 1; }
-          grep -q "Weather data by Open-Meteo.com" weather.txt \
-            || { echo "::error::the weather does not credit Open-Meteo"; exit 1; }
-          ./glideslope --headless --gpu-driver metal --size 640x480 --screen flight \
+          # The weather is somebody else's: a service that does not answer is
+          # a warning and a skipped check here, and nothing else is
+          # (tools/package_weather.sh says what is told from what).
+          "$GITHUB_WORKSPACE/tools/package_weather.sh" cli ./glideslope_cli
+          "$GITHUB_WORKSPACE/tools/package_weather.sh" frame \
+            ./glideslope --headless --gpu-driver metal --size 640x480 --screen flight \
             --weather YSSY --shot-at 600 --shot "$GITHUB_WORKSPACE/frame-macos.bmp"
 
       - uses: actions/upload-artifact@v7
@@ -369,14 +374,16 @@ jobs:
           $height | Write-Output
           $h = [double](($height | Select-String 'above sea level').ToString().Split(' ', [StringSplitOptions]::RemoveEmptyEntries)[-2])
           if ($h -le 6.224 -or $h -ge 6.244) { throw "Sydney airport at $h m, not 6.234 m" }
-          $weather = & $exe weather YSSY
-          if ($LASTEXITCODE -ne 0) { throw "glideslope_cli weather exited $LASTEXITCODE" }
-          $weather | Write-Output
-          $levels = @($weather | Select-String ' hPa .* m +from ').Count
-          if ($levels -ne 19) { throw "the weather has $levels levels, not 19" }
-          if (-not ($weather | Select-String -SimpleMatch 'Weather data by Open-Meteo.com')) { throw "the weather does not credit Open-Meteo" }
+          # The weather is somebody else's: a service that does not answer is
+          # a warning and a skipped check here, and nothing else is
+          # (tools/package_weather.sh says what is told from what). Git's bash,
+          # by its path, not the WSL launcher's.
+          $bash = Join-Path $env:ProgramFiles 'Git\bin\bash.exe'
+          $check = (Join-Path $env:GITHUB_WORKSPACE 'tools/package_weather.sh') -replace '\\', '/'
+          & $bash $check cli ($exe -replace '\\', '/')
+          if ($LASTEXITCODE -ne 0) { throw "the weather check exited $LASTEXITCODE" }
           $client = Join-Path (Split-Path $exe) 'glideslope.exe'
-          & $client --headless --gpu-driver direct3d12 --size 640x480 --screen flight `
+          & $bash $check frame ($client -replace '\\', '/') --headless --gpu-driver direct3d12 --size 640x480 --screen flight `
             --weather YSSY --shot-at 600 --shot (Join-Path $env:GITHUB_WORKSPACE 'frame-windows.bmp')
           if ($LASTEXITCODE -ne 0) { throw "glideslope exited $LASTEXITCODE" }
 
