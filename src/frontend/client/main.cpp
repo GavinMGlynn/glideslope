@@ -373,7 +373,9 @@ void usage(std::FILE* out) {
         "                does (for tests)\n"
         "  --press-after S KEY  on a server, press the letter KEY S seconds after\n"
         "                joining - its key's event, and the key held for one pass\n"
-        "                of the frame loop; may be given again (for tests)\n"
+        "                of the frame loop; may be given again (for tests).\n"
+        "                A press made late keeps the presses after it as far\n"
+        "                behind it as they were asked to be\n"
         "  --stall-after S  on a server, S seconds after joining, send and answer\n"
         "                nothing, as a stopped process, until the server has let\n"
         "                this client go; it then joins again by itself (for tests)\n"
@@ -1574,6 +1576,11 @@ static int run_program(int argc, char** argv) {
         // pass's keyboard, if any.
         std::size_t presses_made = 0;
         std::optional<SDL_Scancode> test_key_held;
+        // How late a press has been made, on the session's clock: the
+        // presses after it wait as much longer, so that a client that built
+        // its flight after the first was due keeps the gaps it was asked for
+        // between them, and does not make them all on its first passes.
+        double presses_late_s = 0.0;
         // The keyboard's passes, and the one the last press was held in: a
         // press waits for a pass with its key up after the last, so that two
         // of one key are two presses.
@@ -2424,8 +2431,9 @@ static int run_program(int argc, char** argv) {
                 // held for the next pass's keyboard, as a finger would.
                 while (presses_made < o.presses.size() && !test_key_held &&
                        key_passes > pressed_in_pass + 1 &&
-                       pressed_s >= o.presses[presses_made].first) {
+                       pressed_s >= o.presses[presses_made].first + presses_late_s) {
                     const SDL_Scancode key = o.presses[presses_made].second;
+                    presses_late_s = pressed_s - o.presses[presses_made].first;
                     ++presses_made;
                     SDL_Event press{};
                     press.type = SDL_EVENT_KEY_DOWN;

@@ -107,11 +107,41 @@ if(NOT _out MATCHES "the server's levers kept: throttle [0-9.]+, flaps 1\\.00, p
 endif()
 
 # **Refused with the flaps running in, and told why**, here and on its HUD.
-foreach(_said IN ITEMS "pressed R, 1\\.[0-9] s in" "pressed L, 1\\.[0-9] s in"
-                      "pressed F, [12]\\.[0-9] s in")
-    if(NOT _out MATCHES "${_said}")
-        message(FATAL_ERROR "the client never said it ${_said}:\n${_out}")
+# Each press on the session's clock no sooner than asked, and each after the
+# first no sooner after the one before than asked: a client that built its
+# flight after R was due (2.4 s, on a WSL debug build) makes R late, and the
+# rest as late again, never all on its first passes - which made L ask with
+# the flaps already back out, and handed her over unrefused. Said to a tenth
+# of a second, so each gap is held to within one tenth.
+string(REGEX MATCHALL "pressed [RLF], [0-9]+\\.[0-9] s in" _presses "${_out}")
+list(LENGTH _presses _pressed)
+if(NOT _pressed EQUAL 4)
+    message(FATAL_ERROR "the client said ${_pressed} presses, not R, L, F and L:\n${_out}")
+endif()
+set(_keys R L F L)
+set(_asked 10 13 16 28)
+set(_before_key "")
+foreach(_i RANGE 3)
+    list(GET _presses ${_i} _press)
+    list(GET _keys ${_i} _key)
+    list(GET _asked ${_i} _asked_at)
+    if(NOT _press MATCHES "^pressed ${_key}, ([0-9]+)\\.([0-9]) s in$")
+        message(FATAL_ERROR "press ${_i} was not ${_key}: ${_press}\n${_out}")
     endif()
+    math(EXPR _at "${CMAKE_MATCH_1} * 10 + ${CMAKE_MATCH_2}")
+    if(_at LESS _asked_at)
+        message(FATAL_ERROR "${_key} was pressed at ${_at} tenths, before the ${_asked_at} asked:\n${_out}")
+    endif()
+    if(_i GREATER 0)
+        math(EXPR _gap "${_at} - ${_before_at}")
+        math(EXPR _gap_asked "${_asked_at} - ${_before_asked} - 1")
+        if(_gap LESS _gap_asked)
+            message(FATAL_ERROR "${_key} came ${_gap} tenths after ${_before_key}, not the ${_asked_at} - ${_before_asked} asked:\n${_out}")
+        endif()
+    endif()
+    set(_before_at ${_at})
+    set(_before_asked ${_asked_at})
+    set(_before_key ${_key})
 endforeach()
 if(NOT _out MATCHES "the server refused the learnt landing: not at the learnt landing's gate: YSSY 16R: flaps at ([0-9]+)%; the gate is the landing flap, 100%\n")
     message(FATAL_ERROR "the client was not told it was refused for its flaps:\n${_out}")
