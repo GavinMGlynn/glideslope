@@ -1999,6 +1999,22 @@ if(WIN32)
     target_link_libraries(glideslope_http_stub PRIVATE ws2_32)
 endif()
 glideslope_configure(glideslope_http_stub)
+# **The package smoke's weather checks skip, saying why, when a weather
+# service does not answer, and fail on every other fault** (tools/package_weather.sh,
+# used by package.yml). Where bash is Git's or the system's; Windows runs it in
+# CI's package job only, where the WSL launcher would shadow a bash found here.
+if(NOT WIN32)
+    find_program(GLIDESLOPE_BASH bash)
+    add_test(NAME the_package_smoke_skips_its_weather_checks_with_a_warning_when_a_weather_service_does_not_answer_and_fails_on_any_other_fault
+        COMMAND ${CMAKE_COMMAND}
+            -DBASH=${GLIDESLOPE_BASH}
+            -DSCRIPT=${CMAKE_SOURCE_DIR}/tools/package_weather.sh
+            -DCLI=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+            -DWORK=${CMAKE_CURRENT_BINARY_DIR}/package_weather
+            -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/package_weather.cmake)
+    set_tests_properties(the_package_smoke_skips_its_weather_checks_with_a_warning_when_a_weather_service_does_not_answer_and_fails_on_any_other_fault
+        PROPERTIES SKIP_RETURN_CODE 77)
+endif()
 # How long a program took to end after it said something, read through a
 # pipe (tests/cmake/client_quits_mid_refresh.cmake).
 add_executable(glideslope_exit_timer tools/exit_timer.cpp)

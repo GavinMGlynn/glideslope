@@ -54,6 +54,15 @@ std::vector<SurfaceReport> fetch_reports(const std::string& url, const Fetch& fe
             throw ServiceUnavailable("could not download " + url + ": status " +
                                      std::to_string(r.status));
         }
+        // **aviationweather.gov's 403 is the service turning us away**, not a
+        // fault of the request: it answered one from a Windows CI runner
+        // (2026-11), as bot filtering does. Any other 4xx - a 400 or 404 for a
+        // URL that is wrong - is ours, and still thrown below. Open-Meteo's 403
+        // is not covered: nothing says it answers so.
+        if (r.status == 403) {
+            throw ServiceUnavailable("could not download " + url +
+                                     ": status 403 (aviationweather.gov refused the request)");
+        }
         if (r.status != 200) {
             throw DemError("could not download " + url + ": status " + std::to_string(r.status));
         }

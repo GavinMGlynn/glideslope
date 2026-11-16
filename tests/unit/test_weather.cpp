@@ -641,6 +641,9 @@ GLIDESLOPE_TEST(
     try {
         report = glideslope::world::fetch_weather("yssy", hour, fetch);
     } catch (const glideslope::world::ServiceUnavailable& e) {
+        // The service and the status are in what it says: "the weather could
+        // not be had: could not download https://aviationweather.gov/...:
+        // status 403 ...", or the timeout's own words.
         glideslope::test::skip(e.what());
     }
 
@@ -1025,6 +1028,9 @@ GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be
         int status; // 0: nothing answers
         std::string body;
         bool unavailable;
+        // Whether it is not a fault at aviationweather.gov, where it differs.
+        bool metar_unavailable = false;
+        bool metar_differs = false;
     };
     const std::vector<Failure> failures{
         {"nothing answers", 0, "", true},
@@ -1035,7 +1041,9 @@ GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be
         {"a 400, as a misspelt variable is answered", 400,
          R"({"error":true,"reason":"Cannot initialize WeatherVariable"})", false},
         {"a 401", 401, "", false},
-        {"a 403", 403, "", false},
+        // aviationweather.gov turned a Windows CI runner away with a 403
+        // (2026-11), as bot filtering does: weather not to be had, there only.
+        {"a 403", 403, "", false, true, true},
         {"a 404", 404, "", false},
         {"a 429 to every retry, as Open-Meteo answered CI on 2026-09-27", 429, "", true},
         {"a 200 that is never JSON", 200, "<html>Service unavailable</html>", true},
@@ -1081,13 +1089,20 @@ GLIDESLOPE_TEST(only_a_weather_service_that_does_not_answer_is_weather_not_to_be
                 said = e.what();
             }
             const bool says_so = said.find("the weather could not be had") != std::string::npos;
-            check(unavailable == f.unavailable && says_so == f.unavailable,
-                  name + (f.unavailable ? ": should be weather not to be had, "
+            const bool expected = f.metar_differs && at_metar ? f.metar_unavailable
+                                                              : f.unavailable;
+            check(unavailable == expected && says_so == expected,
+                  name + (expected ? ": should be weather not to be had, "
                                         : ": should be a fault, not weather not to be had, ") +
                       "and is: " + said);
             check(asked >= 1, name + ": the failing service was asked");
             // A 200 that is ours to mend names the service it came from, and
             // is not a download's failure, which a test may skip on.
+            if (f.metar_differs && at_metar && f.metar_unavailable) {
+                check(said.find("aviationweather.gov") != std::string::npos &&
+                          said.find("status " + std::to_string(f.status)) != std::string::npos,
+                      name + ": should name the service and the status: " + said);
+            }
             if (f.status == 200 && !f.unavailable) {
                 check(said.find(at_metar ? "https://aviationweather.gov/"
                                          : "https://api.open-meteo.com/") != std::string::npos &&
