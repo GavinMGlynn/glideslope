@@ -101,6 +101,15 @@ StationWet wet_runways_nearest(const std::vector<const world::WeatherReport*>& s
     return {nearest->surface.metar.station, wet_runways(nearest)};
 }
 
+std::string told_by_nearest(const StationWet& told) {
+    const std::size_t contaminated = told.wet ? told.wet->contaminated.size() : 0;
+    return "told by " + told.station + ", its nearest station: " +
+           (told.wet && told.wet->radius_m > 0.0 ? "the runways wet near it"
+                                                 : "no runway wet by its weather") +
+           ", and " + std::to_string(contaminated) + " runway" + (contaminated == 1 ? "" : "s") +
+           " reported contaminated";
+}
+
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
                                       const std::string& catalogue_id,
                                       std::optional<world::WetRunways> wet) {
