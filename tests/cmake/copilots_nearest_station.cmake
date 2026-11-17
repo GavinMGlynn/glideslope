@@ -16,7 +16,11 @@
 # player's 2,000 ft over it:
 #
 # - YXFA, dry, 1.00 km south of the start: the nearest there, so slot 0;
-# - YXNE, raining, 1.05 km north of it: slot 1, and the nearest once she has
+# - YSCB, raining, put 1.05 km north of it (the ident is Canberra's, so that
+#   its runway-state group, R17/7900//, lies on Canberra's 17/35: both ends
+#   reported, at code 1 - 250 km off, so that no copilot here is shown that
+#   runway and the played-back questions are the ones recorded): slot 1, and
+#   the nearest once she has
 #   flown 25 m north - she is first asked about 250 m on (`--copilot-at 5`);
 # - YXZZ, dry, 30 km west: the farthest, slot 2, and the last told to the
 #   client joining.
@@ -25,8 +29,11 @@
 # answers is not what this tests), flies 20 s and leaves; the server hands
 # its aircraft to the AI (`--on-leave ai`) and its hand-over copilot (played
 # back) is asked. The player's copilot, the server's check of every route
-# sent, and the hand-over copilot must each say they were told by YXNE, its
-# rain - and none by YXFA or YXZZ. (Players are not started on final here:
+# sent, and the hand-over copilot must each say they were told by YSCB, its
+# rain - and none by YXFA or YXZZ - and the client's copilot, and the
+# hand-over's, its runway laid: the client hears it only as a
+# RUNWAY_CONDITIONS for YSCB's slot, so its matching of slot to station is
+# what that pins. (Players are not started on final here:
 # the recorded forecast's wind is across every runway near.) The Open-Meteo
 # forecast is the recorded Sydney one, given three days of the same hours
 # (server_stations.cmake).
@@ -63,7 +70,7 @@ set(_dry "100600Z 00000KT 9999 FEW030 14/08 Q1012")
 set(_metars "${WORK}/metars.json")
 file(WRITE "${_metars}"
      "[{\"icaoId\":\"YXFA\",\"rawOb\":\"METAR YXFA ${_dry}\",\"lat\":-33.913993,\"lon\":151.290,\"elev\":3},"
-     "{\"icaoId\":\"YXNE\",\"rawOb\":\"METAR YXNE ${_rain}\",\"lat\":-33.895557,\"lon\":151.290,\"elev\":3},"
+     "{\"icaoId\":\"YSCB\",\"rawOb\":\"METAR YSCB ${_rain} R17/7900//\",\"lat\":-33.895557,\"lon\":151.290,\"elev\":3},"
      "{\"icaoId\":\"YXZZ\",\"rawOb\":\"METAR YXZZ ${_dry}\",\"lat\":-33.905,\"lon\":150.966,\"elev\":3}]")
 
 # **The forecast's hours, three days of them** (server_stations.cmake).
@@ -146,15 +153,16 @@ endforeach()
 if(NOT _heard_text MATCHES "told the weather: METAR YXFA")
     message(FATAL_ERROR "slot 0 was not YXFA's:\n${_heard_text}")
 endif()
-string(REGEX MATCHALL "told the weather[^\n]*: METAR YX[A-Z][A-Z]" _told "${_heard_text}")
+string(REGEX MATCHALL "told the weather[^\n]*: METAR Y[A-Z][A-Z][A-Z]" _told "${_heard_text}")
 list(GET _told -1 _last_told)
 if(NOT _last_told MATCHES "YXZZ$")
     message(FATAL_ERROR "the last weather told was not YXZZ's, but '${_last_told}':\n"
                         "${_heard_text}")
 endif()
-set(_meant "told by YXNE, its nearest station: the runways wet near it, and 0 runways "
-           "reported contaminated")
-string(CONCAT _meant ${_meant})
+# Told by YSCB, its rain; its runway once laid (the route checked before
+# then may be told none).
+set(_station "told by YSCB, its nearest station: the runways wet near it, and ")
+set(_meant "${_station}2 runways reported contaminated")
 # **The server's hand-over copilot.**
 if(NOT _out MATCHES "the hand-over's copilot for aircraft [0-9]+ ([^\n]*)\n")
     message(FATAL_ERROR "the server's hand-over copilot was not asked:\n${_out}\n${_err}")
@@ -171,19 +179,27 @@ if(_times EQUAL 0)
     message(FATAL_ERROR "no route was checked:\n${_out}")
 endif()
 foreach(_line IN LISTS _checked)
-    if(NOT _line MATCHES " ${_meant}$")
-        message(FATAL_ERROR "a route was not checked ${_meant}, but '${_line}'")
+    string(FIND "${_line}" " ${_station}" _at)
+    if(_at LESS 0)
+        message(FATAL_ERROR "a route was not checked ${_station}..., but '${_line}'")
     endif()
 endforeach()
-# **The player's own copilot**, every time it was told: by YXNE alone.
+# **The player's own copilot**, every time it was told: by YSCB alone, and
+# last its runway laid, from the RUNWAY_CONDITIONS for its slot.
 string(REGEX MATCHALL "its copilot told by [^\n]*" _player_told "${_heard_text}")
 list(LENGTH _player_told _times)
 if(_times EQUAL 0)
     message(FATAL_ERROR "the client's copilot never said what it was told:\n${_heard_text}")
 endif()
 foreach(_line IN LISTS _player_told)
-    if(NOT _line STREQUAL "its copilot ${_meant}")
-        message(FATAL_ERROR "the client's copilot was not ${_meant}, but '${_line}'")
+    string(FIND "${_line}" "its copilot ${_station}" _at)
+    if(NOT _at EQUAL 0)
+        message(FATAL_ERROR "the client's copilot was not ${_station}..., but '${_line}'")
     endif()
 endforeach()
+list(GET _player_told -1 _last)
+if(NOT _last STREQUAL "its copilot ${_meant}")
+    message(FATAL_ERROR "the client's copilot was not told YSCB's runway laid: its last "
+                        "was '${_last}':\n${_heard_text}")
+endif()
 message(STATUS "both copilots ${_meant}")
