@@ -136,6 +136,14 @@ jobs:
           name: package-linux
           path: build/linux-release/glideslope-*-linux-x86_64.tar.gz*
           if-no-files-found: error
+      # The weather checks' script, for the stock containers below: they
+      # check nothing out (a bare image may have no git), so it goes beside
+      # the package as an artifact of its own.
+      - uses: actions/upload-artifact@v7
+        with:
+          name: package-weather-script
+          path: tools/package_weather.sh
+          if-no-files-found: error
 
   # **Machines that have never had a toolchain on them.** Unpacking on the
   # machine that built the package proves less than it looks, so the tarball is
@@ -155,6 +163,11 @@ jobs:
     steps:
       - uses: actions/download-artifact@v8
         with: { name: package-linux, path: downloaded }
+      - uses: actions/download-artifact@v8
+        with: { name: package-weather-script, path: tools }
+      - name: The weather checks' script, runnable
+        shell: bash
+        run: chmod +x "$GITHUB_WORKSPACE/tools/package_weather.sh"
 
       - name: Unpack somewhere else and run it
         shell: bash
