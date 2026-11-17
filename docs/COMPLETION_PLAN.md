@@ -1758,8 +1758,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       limit, its cause found (2026-10-08), not fixed. A server held up now
       flies every input from the step due when it came and catches up what it
       can (2026-10-28): stopped alone 3 s, the 95th percentile 0.5 to 1.5 m
-      (was 15 m), but the worst still 4.9 m - the inputs that came in the
-      stall are flown as one, which needs inputs that name their step. (A
+      (was 15 m). Inputs now name their step and those that came in the
+      stall are flown as far apart as they were sent (2026-11-17): the worst
+      0.9 to 1.4 m, was 2.6 to 4.7 m (Linux debug). (A
       server's slow start is no longer owed, 2026-10-28.) The first-input
       test and the F-22A's still run alone: not yet seen on CI held up.
 - [ ] **A test that fails twice on CI for the same cause has nowhere to go but
