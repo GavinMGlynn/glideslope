@@ -724,7 +724,15 @@ static int run_program(int argc, char** argv) {
                 std::fprintf(stderr, "glideslope: --press-after S KEY: KEY is a letter, A to Z\n");
                 return 2;
             }
-            o.presses.emplace_back(at_s, static_cast<SDL_Scancode>(SDL_SCANCODE_A + (key[0] - 'A')));
+            // Kept in the order they are made, whatever order they are
+            // given in: a press made late delays those after it.
+            const std::pair<double, SDL_Scancode> press{
+                at_s, static_cast<SDL_Scancode>(SDL_SCANCODE_A + (key[0] - 'A'))};
+            o.presses.insert(std::upper_bound(o.presses.begin(), o.presses.end(), press,
+                                              [](const auto& a_press, const auto& b_press) {
+                                                  return a_press.first < b_press.first;
+                                              }),
+                             press);
         } else if (a == "--test-nan-at" && has_value) {
             const std::string text(args[++i]);
             char* end = nullptr;
