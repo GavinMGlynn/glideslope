@@ -42,15 +42,19 @@ main 8.33 m worst, this branch 1.29 m.
   (test_held_inputs.cpp): six ways of naming steps, counted - ninety of a
   stall's, four apart, each flown from its own step and none let go; unevenly
   spaced; spaced wider than owed; spaced back past an input stamped before;
-  not said; a count begun again. Seen red with each older input due with the
+  not said; a count begun again; across the count's wrap. Seen red with each older input due with the
   one after it (main's rule): of ninety, one flown.
 - `every_input_frame_carries_the_step_it_was_sent_at_through_the_wire`
   (test_inputs.cpp): five frames, nought, not said and the most a step can
   be among them, each again in the packets after it. Seen red with the step
   written as nought.
-- The stopped-alone test's worst bound is now 3 m (was 10 m, for the
-  named limit this closes): twice the most measured since. The held-up-
-  unevenly test's 10 m stays until CI has run it on this code.
+- The stopped-alone test's worst bound is now 5 m (was 10 m, for the
+  named limit this closes): Windows debug's most before, 4.7 m, and a little
+  over, until CI's full run has measured Windows and macOS on this code - not
+  measured on Windows here (no `tools/windows_build.sh` run). Linux debug's
+  most since is 1.37 m; once the three platforms' figures are in, it is set
+  from them. The held-up-unevenly test's 10 m stays until CI has run it on
+  this code.
 - The version moved with its tests (`the_protocol_version_moves_...`,
   `an_envelope_that_is_wrong_...`, the gearstick refusal's bytes, the client
   written from the document, which sends its steps as not said).
@@ -60,6 +64,9 @@ main 8.33 m worst, this branch 1.29 m.
   take_over): 17 of 19 passed and one skipped for want of a key.
   `a_take_over_past_the_servers_rate_of_requests_is_refused_and_said` (the
   window client, 284 s beside three others) failed once and passed run alone
-  (96 s); its output was not kept, so the cause is not shown.
+  (96 s); its output was not kept, so the cause is not shown. Run again
+  alone after the review, three times with `--output-on-failure`: passed
+  all three (103.4, 75.5 and 77.4 s). It is not shown to be this change's,
+  nor shown not to be; a failure on CI is read from its log.
 - docs/TRANSPORT.md: the frame's new field, what a step is and what the
   server does with it, and version `13` in the list.

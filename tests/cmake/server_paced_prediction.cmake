@@ -75,8 +75,10 @@
 # the worst 2.6 to 4.7 m, Linux debug, three runs; flown apart, 0.90 to 1.37 m
 # (docs/status, 2026-11-17). **The bounds are from what was measured**: the
 # 95th percentile held to 3 m, twice Windows debug's most before (1.51 m,
-# 2026-10-28); the worst to 3 m, twice the most seen since. The rest is
-# held to the bounds below.
+# 2026-10-28); the worst to 5 m, Windows debug's most before (4.7 m) and a
+# little over, until CI's full run has measured all three platforms with
+# inputs flown apart - Linux debug's most since is 1.37 m. The rest is held
+# to the bounds below.
 # Not built: a server persistently behind, which the paced test is.
 #
 # **A named limit: on Windows about one update in a hundred is off by two
@@ -136,7 +138,7 @@ set(_server_held "")
 if(SERVER_HELD STREQUAL "alone")
     set(_pace 1)
     set(_server_held --test-stopped-once 12 3000)
-    set(_worst_allowed_mm 3000)
+    set(_worst_allowed_mm 5000)
     set(_p95_allowed_mm 3000)
 elseif(SERVER_HELD STREQUAL "unevenly")
     set(_pace 1)
