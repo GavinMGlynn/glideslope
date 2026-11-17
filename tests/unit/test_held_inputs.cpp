@@ -125,8 +125,8 @@ GLIDESLOPE_TEST(an_input_heard_while_the_server_owes_steps_is_flown_from_the_ste
 // go; spaced unevenly (3, 4 and 5 apart) - each its own gap; spaced wider
 // than what is owed - the oldest held to the step flown to;
 // spaced back past an input stamped before - held to that one's step; a
-// pair not said, and a pair whose count began again - flown as one, the
-// newer from the step due. Seen to fail with each older input stamped at
+// pair not said, a pair whose count began again, and a pair across the
+// count's wrap - flown as one, the newer from the step due. Seen to fail with each older input stamped at
 // the step due, as before: of the ninety, one was flown.
 GLIDESLOPE_TEST(inputs_read_together_are_flown_as_far_apart_as_their_client_sent_them) {
     std::size_t cases = 0;
@@ -202,19 +202,23 @@ GLIDESLOPE_TEST(inputs_read_together_are_flown_as_far_apart_as_their_client_sent
               "second, which overtook it, and the third from 124");
         ++cases;
     }
-    // A pair not said, and a pair whose count began again: as one.
-    for (const std::uint32_t older : {glideslope::net::step_not_said, std::uint32_t{900}}) {
+    // A pair not said, a pair whose count began again, and a pair across
+    // the count's wrap (the most a step names, 0xFFFFFFFE, then 8): as one.
+    for (const std::uint32_t older :
+         {glideslope::net::step_not_said, std::uint32_t{900}, std::uint32_t{0xFFFFFFFEu}}) {
         HeldInputs held;
         held.heard(1, with_throttle(0.1), 120, older);
         held.heard(2, with_throttle(0.2), 120, 8);
         held.stamp(100, 24);
         const auto flown = fly(held, 100, 100);
         check(flown.size() == 1 && flown[0].first == 2 && flown[0].second == 124,
-              std::string(older == glideslope::net::step_not_said ? "not said" : "begun again") +
+              std::string(older == glideslope::net::step_not_said ? "not said"
+                          : older == 900u                         ? "begun again"
+                                                                  : "across the wrap") +
                   ": flown as one, the newer from 124");
         ++cases;
     }
-    check(cases == 6, "six ways of naming steps: " + std::to_string(cases));
+    check(cases == 7, "seven ways of naming steps: " + std::to_string(cases));
 }
 
 namespace {
