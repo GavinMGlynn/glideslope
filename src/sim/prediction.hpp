@@ -254,6 +254,15 @@ public:
         std::int64_t from_began = 0;
     };
     std::optional<Sample> newest_sample() const { return newest_sample_; }
+    // **The step of this client's an input began on**, while it is held;
+    // none for one begun before this prediction, or let go of.
+    std::optional<std::uint64_t> began_at(std::uint32_t sequence) const {
+        const auto began = began_.find(sequence);
+        if (began == began_.end()) {
+            return std::nullopt;
+        }
+        return began->second;
+    }
 
     // **Another aircraft, as the server's word had it at `server_steps`**, flown
     // on to now: put there, and flown through this client's inputs since the

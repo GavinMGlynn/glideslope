@@ -2372,6 +2372,11 @@ private:
         // with the clocks' difference known, as it was read.
         bool across = false;
         bool joined = false;
+        // **The clocks' difference this word itself shows**: the server's
+        // step its input began on, less this client's - from the word and
+        // the step the input began here, not from the estimate placing it
+        // (`gust_clock_`). None for an input not begun here.
+        std::optional<std::int64_t> shown_difference;
     };
     using Words = glideslope::frontend::OwnWords<Unread>;
 
@@ -2397,7 +2402,7 @@ public:
             own->condition == glideslope::net::Condition::engine_stopped && !engine_stopped_at_s_) {
             engine_stopped_at_s_ = local_s;
         }
-        Unread word{state, local_s};
+        Unread word{state, local_s, false, false, std::nullopt};
         // Joined, and the clocks' difference known, before this word:
         // a correction from here on is the prediction's, not the
         // joining's (`predicted, joined:`).
@@ -2412,6 +2417,12 @@ public:
         applied_seen_ = std::max(applied_seen_, applied);
         const auto at =
             prediction_->hear_clock(applied, state.yours->steps_into_input, server_steps);
+        if (const auto began = prediction_->began_at(applied);
+            began && state.yours->steps_into_input <= server_steps) {
+            word.shown_difference =
+                static_cast<std::int64_t>(server_steps - state.yours->steps_into_input) -
+                static_cast<std::int64_t>(*began);
+        }
         // **Each word's sample, for a test to read**: the input, the clocks'
         // difference taken, how late its input was sent, and what it said
         // from the step the input began on.
@@ -2481,18 +2492,32 @@ public:
                 }
                 ++compared_;
                 // **The gust clock**: the moment this client met the air at,
-                // flying the step the word is placed at, against the
-                // server's - the word's own step, which it flew at
-                // `steps / 120` s (glideslope_server's now_s).
-                // A step flown before the clocks' difference moved was
-                // flown at the moment the difference then said: out by as
-                // much as it has moved since (`moved`).
-                const std::optional<std::int64_t> now = prediction_->clocks_difference();
-                if (at->air_at_s && at->clocks_difference && now) {
-                    const std::int64_t off = std::llround(
-                        (*at->air_at_s - state.simulation_time_s) *
-                        static_cast<double>(glideslope::sim::steps_per_second));
-                    gust_clock_.compared(off, *at->clocks_difference - *now, error);
+                // flying the step that is the word's own - found from the
+                // difference the word itself shows, not the estimate that
+                // placed it - against the server's: the word's step, which
+                // it flew at `steps / 120` s (glideslope_server's now_s). A
+                // step flown on an estimate other than that difference was
+                // flown out by exactly as much (`estimate_off`).
+                if (word.shown_difference) {
+                    const std::int64_t own =
+                        static_cast<std::int64_t>(
+                            glideslope::frontend::server_steps_of(state.simulation_time_s)) -
+                        *word.shown_difference;
+                    const Predicted* truly =
+                        own > 0 ? glideslope::frontend::flown_at(
+                                      predicted_at_, static_cast<std::uint64_t>(own))
+                                : nullptr;
+                    if (truly != nullptr && truly->air_at_s && truly->clocks_difference) {
+                        const std::int64_t off = std::llround(
+                            (*truly->air_at_s - state.simulation_time_s) *
+                            static_cast<double>(glideslope::sim::steps_per_second));
+                        gust_clock_.compared(
+                            off, *truly->clocks_difference - *word.shown_difference, error);
+                    } else {
+                        ++gust_clock_.unjudged_;
+                    }
+                } else {
+                    ++gust_clock_.unjudged_;
                 }
                 // **The steps each flew between the first update
                 // compared and the last**, counted, not timed: this
@@ -3183,7 +3208,7 @@ public:
         if (air_flown_.steps() > 0) {
             lines.emplace_back(air_flown_.said());
         }
-        if (gust_clock_.compared_ > 0) {
+        if (gust_clock_.compared_ + gust_clock_.unjudged_ > 0) {
             lines.emplace_back(gust_clock_.said());
         }
         // **Off where, and off when** (`own_word`): the worst of every word
@@ -3983,20 +4008,24 @@ private:
     std::vector<std::uint32_t> joining_;
     bool answered_ = false;
     double worst_error_m_ = 0.0;
-    // **Each compared step's moment in the air against the server's**: how
-    // many met the air at the server's moment; how many were flown before
-    // the clocks' difference moved, out by as much as it moved (`moved`) -
-    // which no client can know before its words say so; and how many are out
-    // otherwise, which is a wrong gust clock. With the worst prediction
-    // error of each, so that a gust clock wrong by a step shows, where the
-    // error alone does not (server_weather_gusts.cmake).
+    // **Each compared word's own step's moment in the air against the
+    // server's**, the step found from the difference the word itself shows
+    // (`Unread::shown_difference`): how many were flown at the server's
+    // moment; how many on an estimate of the clocks' difference other than
+    // the word's, out by exactly as much - which a client cannot know until
+    // the word says so; how many out otherwise, which is a wrong gust clock;
+    // and how many could not be judged (their input not begun here, or the
+    // step no longer kept). With the worst prediction error, as placed, of
+    // each (server_weather_gusts.cmake).
     struct GustClock {
         struct Kind {
             std::size_t count = 0;
+            std::size_t later = 0;
             std::int64_t most_steps = 0;
             double worst_m = 0.0;
             void add(std::int64_t steps, double error_m) {
                 ++count;
+                later += steps > 0 ? 1U : 0U;
                 if (std::llabs(steps) > std::llabs(most_steps)) {
                     most_steps = steps;
                 }
@@ -4004,22 +4033,25 @@ private:
             }
         };
         std::size_t compared_ = 0;
-        Kind at_, moved_, wrong_;
-        void compared(std::int64_t off, std::int64_t moved, double error_m) {
+        std::size_t unjudged_ = 0;
+        Kind at_, estimate_off_, wrong_;
+        void compared(std::int64_t off, std::int64_t estimate_off, double error_m) {
             ++compared_;
-            (off == 0 ? at_ : off == moved ? moved_ : wrong_).add(off, error_m);
+            (off == 0 ? at_ : off == estimate_off ? estimate_off_ : wrong_).add(off, error_m);
         }
         std::string said() const {
-            char line[384];
+            char line[448];
             std::snprintf(line, sizeof line,
-                          "gust clock: %zu updates compared in air; %zu flown at the server's "
-                          "moment, the worst error %.3f m; %zu flown before the clocks' "
-                          "difference moved, at most %lld steps out, the worst %.3f m; %zu out "
-                          "otherwise, at most %lld steps, the worst %.3f m",
-                          compared_, at_.count, at_.worst_m, moved_.count,
-                          static_cast<long long>(moved_.most_steps), moved_.worst_m,
-                          wrong_.count, static_cast<long long>(wrong_.most_steps),
-                          wrong_.worst_m);
+                          "gust clock: %zu updates judged in air, %zu not; %zu flown at the "
+                          "server's moment, the worst error %.3f m; %zu flown on another "
+                          "estimate of the clocks' difference than the word's, %zu of them "
+                          "later than the server, at most %lld steps out, the worst %.3f m; %zu "
+                          "out otherwise, at most %lld steps, the worst %.3f m",
+                          compared_, unjudged_, at_.count, at_.worst_m, estimate_off_.count,
+                          estimate_off_.later,
+                          static_cast<long long>(estimate_off_.most_steps),
+                          estimate_off_.worst_m, wrong_.count,
+                          static_cast<long long>(wrong_.most_steps), wrong_.worst_m);
             return line;
         }
     };
