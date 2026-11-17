@@ -60,24 +60,27 @@ station - what the server told every copilot before - the test failed at
 `--weather around` with `--on-leave ai` and a played-back hand-over planner,
 and glideslope_cli joined with its own played-back copilot, against
 glideslope_http_stub answering the box with three made-up calm stations
-about the plan's start: YXFA dry 1.00 km south (slot 0, asserted), YXNE
-raining 1.05 km north, YXZZ dry 30 km west (slot 2, the last told the
-client, asserted). She flies north, is asked from 5 s, and leaves at 20 s.
-The server's hand-over copilot, its check of every route sent (her
-copilot's and the hand-over's), and her own copilot each say they were
-`told by YXNE, its nearest station: the runways wet near it, and 0 runways
-reported contaminated`; none says another. About 40 s.
+about the plan's start: YXFA dry 1.00 km south (slot 0, asserted); the
+second, raining 1.05 km north, under Canberra's ident, YSCB, with the
+runway-state group R17/7900// - so that its runway 17/35 is laid at code 1,
+both ends, and the client hears that only as a `RUNWAY_CONDITIONS` for its
+slot (Canberra is 250 km off, so no copilot is shown the runway and the
+played-back questions stay the recorded ones); YXZZ dry 30 km west (slot 2,
+the last told the client, asserted). She flies north, is asked from 5 s,
+and leaves at 20 s. The server's hand-over copilot, its check of every
+route sent (her copilot's and the hand-over's), and her own copilot each say
+they were told by YSCB, none by another; the hand-over's, and her copilot's
+last word, `told by YSCB, its nearest station: the runways wet near it, and
+2 runways reported contaminated`. About 40 s.
 
 **Seen to fail**: with the server's `situation_of` and `fly_route_on` told
 slot 0's station again, it failed: "the server's hand-over copilot was not
-told by YXNE ... but 'told by YXFA ...'" (both route checks said YXFA too).
-With the CLI's copilot told only the last slot told, it failed: "the
-client's copilot was not told by YXNE ... but 'its copilot told by YXZZ
-...'". Each reverted; it passes.
-
-The runway states a slot's `RUNWAY_CONDITIONS` lays in the CLI are not
-reached by this run (no station reports one): the unit test's ice case
-pins the laying, not the CLI's per-slot matching of it.
+told by [the near station] ... but 'told by YXFA ...'" (both route checks
+said YXFA too). With the CLI's copilot told only the last slot told, it
+failed: "... but 'its copilot told by YXZZ ...'". With the CLI's
+`RUNWAY_CONDITIONS` matched to the next slot instead of its own, it failed:
+"the client's copilot was not told YSCB's runway laid: its last was '... and
+0 runways reported contaminated'". Each reverted; it passes.
 
 ## The stations test that failed here
 
