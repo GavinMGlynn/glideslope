@@ -2098,13 +2098,18 @@ public:
             // in a replay - as the server will fly it (sim::Prediction::
             // session_time_s), and this machine's estimate of the session's
             // clock before that is known.
+            // **The moment it was asked at is kept** (`air_asked_at_s_`),
+            // so that each step flown forward is held to the server's
+            // moment for it (`gust_clock_`).
             air_.emplace(geoid_for_air_.get(), glideslope::world::GroundAt{}, [this] {
+                double t = session_now_s_;
                 if (prediction_) {
-                    if (const auto t = prediction_->session_time_s()) {
-                        return *t;
+                    if (const auto known = prediction_->session_time_s()) {
+                        t = *known;
                     }
                 }
-                return session_now_s_;
+                air_asked_at_s_ = t;
+                return t;
             });
         }
         if (!air_->heard(w, aloft, &why)) {
@@ -2162,7 +2167,9 @@ public:
                 fed.elevator = std::numeric_limits<double>::quiet_NaN();
                 nan_given_ = true;
             }
+            air_asked_at_s_.reset();
             prediction_->step(sequence, fed);
+            const std::optional<double> air_at_s = air_asked_at_s_;
             busy_for(connect_slow_step_s);
             if (prediction_->lost()) {
                 let_go(sequence);
@@ -2177,7 +2184,7 @@ public:
             predicted_at_.push_back({step, flown.location_ecef_m,
                                      std::hypot(flown.uvw_mps[0], flown.uvw_mps[1],
                                                 flown.uvw_mps[2]),
-                                     counted && sequence > 0, pitch_of(flown)});
+                                     counted && sequence > 0, pitch_of(flown), air_at_s});
             if (predicted_at_.size() > glideslope::sim::most_unacknowledged) {
                 predicted_at_.pop_front();
             }
@@ -2483,6 +2490,16 @@ public:
                     worst_error_at_s_ = local_s;
                 }
                 ++compared_;
+                // **The gust clock**: the moment this client met the air at,
+                // flying the step the word is placed at, against the
+                // server's - the word's own step, which it flew at
+                // `steps / 120` s (glideslope_server's now_s).
+                if (at->air_at_s) {
+                    const std::int64_t off = std::llround(
+                        (*at->air_at_s - state.simulation_time_s) *
+                        static_cast<double>(glideslope::sim::steps_per_second));
+                    gust_clock_.compared(off, error);
+                }
                 // **The steps each flew between the first update
                 // compared and the last**, counted, not timed: this
                 // client's, from the step each was placed at, and the
@@ -3172,6 +3189,9 @@ public:
         if (air_flown_.steps() > 0) {
             lines.emplace_back(air_flown_.said());
         }
+        if (gust_clock_.compared_ > 0) {
+            lines.emplace_back(gust_clock_.said());
+        }
         // **Off where, and off when** (`own_word`): the worst of every word
         // against the path flown, and the most steps its input placed one
         // from the nearest step on it.
@@ -3440,6 +3460,7 @@ private:
         // **The errors counted from here**: what was compared before - the
         // aircraft it flew before a take-over - is another aircraft's.
         compared_ = 0;
+        gust_clock_ = {};
         errors_m_.clear();
         worst_error_m_ = 0.0;
         worst_error_at_s_ = 0.0;
@@ -3637,7 +3658,7 @@ private:
                 predicted_at_.push_back({step, flown.location_ecef_m,
                                          std::hypot(flown.uvw_mps[0], flown.uvw_mps[1],
                                                     flown.uvw_mps[2]),
-                                         false, pitch_of(flown)});
+                                         false, pitch_of(flown), std::nullopt});
             }
         }
         before_.clear();
@@ -3899,6 +3920,9 @@ private:
         bool counted = false;
         // And its pitch, degrees (`pitch_of`).
         double pitch_deg = 0.0;
+        // The moment on the session's clock the air was asked at, flying it;
+        // none in no air.
+        std::optional<double> air_at_s;
     };
     // **A motion's pitch**, degrees, from its quaternion (north-east-down to
     // the body, scalar first) - the same sum for the server's word and this
@@ -3963,6 +3987,42 @@ private:
     std::vector<std::uint32_t> joining_;
     bool answered_ = false;
     double worst_error_m_ = 0.0;
+    // **Each compared step's moment in the air against the server's**: how
+    // many met the air at the server's moment, how many not, the most steps
+    // out, and the worst prediction error of each kind - so that a gust
+    // clock wrong by a step shows, where the error alone does not
+    // (server_weather_gusts.cmake).
+    struct GustClock {
+        std::size_t compared_ = 0;
+        std::size_t off_ = 0;
+        std::int64_t most_off_ = 0;
+        double worst_at_m_ = 0.0;
+        double worst_off_m_ = 0.0;
+        void compared(std::int64_t off, double error_m) {
+            ++compared_;
+            if (off == 0) {
+                worst_at_m_ = std::max(worst_at_m_, error_m);
+                return;
+            }
+            ++off_;
+            if (std::llabs(off) > std::llabs(most_off_)) {
+                most_off_ = off;
+            }
+            worst_off_m_ = std::max(worst_off_m_, error_m);
+        }
+        std::string said() const {
+            char line[256];
+            std::snprintf(line, sizeof line,
+                          "gust clock: %zu updates compared in air, %zu flown at the server's "
+                          "moment and %zu not, at most %lld steps out; the worst error %.3f m "
+                          "at the server's moment, %.3f m not",
+                          compared_, compared_ - off_, off_, static_cast<long long>(most_off_),
+                          worst_at_m_, worst_off_m_);
+            return line;
+        }
+    };
+    GustClock gust_clock_;
+    std::optional<double> air_asked_at_s_;
     // The air flown (note_air).
     glideslope::frontend::AirFlown air_flown_;
     double worst_error_at_s_ = 0.0;
