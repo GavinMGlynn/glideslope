@@ -418,6 +418,7 @@ std::optional<std::uint64_t> Prediction::hear_clock(std::uint32_t last_applied,
             stamps_ ? std::max(sent->second, began->second) : began->second;
         const std::int64_t difference = static_cast<std::int64_t>(server_steps - steps_into) -
                                         static_cast<std::int64_t>(from);
+        ++samples_taken_;
         newest_sample_ = Sample{difference, static_cast<std::int64_t>(from - began->second),
                                 static_cast<std::int64_t>(server_steps - steps_into) -
                                     static_cast<std::int64_t>(began->second)};

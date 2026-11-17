@@ -254,6 +254,8 @@ public:
         std::int64_t from_began = 0;
     };
     std::optional<Sample> newest_sample() const { return newest_sample_; }
+    // How many samples have been taken: one more for each word that gave one.
+    std::size_t samples_taken() const { return samples_taken_; }
     // **The step of this client's an input began on**, while it is held;
     // none for one begun before this prediction, or let go of.
     std::optional<std::uint64_t> began_at(std::uint32_t sequence) const {
@@ -402,6 +404,7 @@ private:
     std::map<std::uint32_t, std::uint64_t> sent_;
     bool stamps_ = false;
     std::optional<Sample> newest_sample_;
+    std::size_t samples_taken_ = 0;
     std::uint64_t steps_ = 0;
     int engines_stopped_ = 0;
     bool wrecked_ = false;

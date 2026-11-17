@@ -35,8 +35,16 @@ a 250 ms relay. It holds:
 - the three kinds add up to every update judged;
 - at least 300 were judged;
 - none was out otherwise;
-- none was flown later than the server flew it, since the estimate is the
-  least of the words' differences;
+- none was flown later than the server flew it, except for a word setting
+  a new least. A step is flown on the least of the samples of the 50 words
+  before it (`sim::offset_window`), which leaves out the word judged and
+  drops old words. So a word counts as late only if its own difference is
+  not below the least of those words' own differences when the step was
+  flown. The client keeps that window itself, from the words' own
+  differences, so a bias in the estimate does not move it. Each sample is no
+  more than its word's difference, being taken from when the input was
+  sent, not begun. (Re-review of #381: the first form counted a new least as
+  late.);
 - the median error is within the steady air's 0.25 m.
 
 **Not caught**: an estimate wrong early by a step. Steps a step early are
@@ -55,7 +63,8 @@ expected, in about half of updates.
 - Prediction's offset biased a step late (`offsets_` given each
   difference plus one). This moves the placement and the air clock
   together, so the estimate alone cannot see it. The test went red: 360 of
-  518 were flown later than the server.
+  518 were flown later than the server; with the new-least rule, 276 of 555.
+  Three clean runs after it passed, none late.
 - The client's air clock (cli `air_`) a step out. The test went red: 249 of
   428 were out otherwise.
 
