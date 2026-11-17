@@ -2170,6 +2170,7 @@ public:
             air_asked_at_s_.reset();
             prediction_->step(sequence, fed);
             const std::optional<double> air_at_s = air_asked_at_s_;
+            const std::optional<std::int64_t> difference = prediction_->clocks_difference();
             busy_for(connect_slow_step_s);
             if (prediction_->lost()) {
                 let_go(sequence);
@@ -2184,7 +2185,7 @@ public:
             predicted_at_.push_back({step, flown.location_ecef_m,
                                      std::hypot(flown.uvw_mps[0], flown.uvw_mps[1],
                                                 flown.uvw_mps[2]),
-                                     counted && sequence > 0, pitch_of(flown), air_at_s});
+                                     counted && sequence > 0, pitch_of(flown), air_at_s, difference});
             if (predicted_at_.size() > glideslope::sim::most_unacknowledged) {
                 predicted_at_.pop_front();
             }
@@ -2494,11 +2495,15 @@ public:
                 // flying the step the word is placed at, against the
                 // server's - the word's own step, which it flew at
                 // `steps / 120` s (glideslope_server's now_s).
-                if (at->air_at_s) {
+                // A step flown before the clocks' difference moved was
+                // flown at the moment the difference then said: out by as
+                // much as it has moved since (`moved`).
+                const std::optional<std::int64_t> now = prediction_->clocks_difference();
+                if (at->air_at_s && at->clocks_difference && now) {
                     const std::int64_t off = std::llround(
                         (*at->air_at_s - state.simulation_time_s) *
                         static_cast<double>(glideslope::sim::steps_per_second));
-                    gust_clock_.compared(off, error);
+                    gust_clock_.compared(off, *at->clocks_difference - *now, error);
                 }
                 // **The steps each flew between the first update
                 // compared and the last**, counted, not timed: this
@@ -3658,7 +3663,7 @@ private:
                 predicted_at_.push_back({step, flown.location_ecef_m,
                                          std::hypot(flown.uvw_mps[0], flown.uvw_mps[1],
                                                     flown.uvw_mps[2]),
-                                         false, pitch_of(flown), std::nullopt});
+                                         false, pitch_of(flown), std::nullopt, std::nullopt});
             }
         }
         before_.clear();
@@ -3923,6 +3928,8 @@ private:
         // The moment on the session's clock the air was asked at, flying it;
         // none in no air.
         std::optional<double> air_at_s;
+        // And the clocks' difference it was flown with.
+        std::optional<std::int64_t> clocks_difference;
     };
     // **A motion's pitch**, degrees, from its quaternion (north-east-down to
     // the body, scalar first) - the same sum for the server's word and this
@@ -3988,36 +3995,42 @@ private:
     bool answered_ = false;
     double worst_error_m_ = 0.0;
     // **Each compared step's moment in the air against the server's**: how
-    // many met the air at the server's moment, how many not, the most steps
-    // out, and the worst prediction error of each kind - so that a gust
-    // clock wrong by a step shows, where the error alone does not
-    // (server_weather_gusts.cmake).
+    // many met the air at the server's moment; how many were flown before
+    // the clocks' difference moved, out by as much as it moved (`moved`) -
+    // which no client can know before its words say so; and how many are out
+    // otherwise, which is a wrong gust clock. With the worst prediction
+    // error of each, so that a gust clock wrong by a step shows, where the
+    // error alone does not (server_weather_gusts.cmake).
     struct GustClock {
+        struct Kind {
+            std::size_t count = 0;
+            std::int64_t most_steps = 0;
+            double worst_m = 0.0;
+            void add(std::int64_t steps, double error_m) {
+                ++count;
+                if (std::llabs(steps) > std::llabs(most_steps)) {
+                    most_steps = steps;
+                }
+                worst_m = std::max(worst_m, error_m);
+            }
+        };
         std::size_t compared_ = 0;
-        std::size_t off_ = 0;
-        std::int64_t most_off_ = 0;
-        double worst_at_m_ = 0.0;
-        double worst_off_m_ = 0.0;
-        void compared(std::int64_t off, double error_m) {
+        Kind at_, moved_, wrong_;
+        void compared(std::int64_t off, std::int64_t moved, double error_m) {
             ++compared_;
-            if (off == 0) {
-                worst_at_m_ = std::max(worst_at_m_, error_m);
-                return;
-            }
-            ++off_;
-            if (std::llabs(off) > std::llabs(most_off_)) {
-                most_off_ = off;
-            }
-            worst_off_m_ = std::max(worst_off_m_, error_m);
+            (off == 0 ? at_ : off == moved ? moved_ : wrong_).add(off, error_m);
         }
         std::string said() const {
-            char line[256];
+            char line[384];
             std::snprintf(line, sizeof line,
-                          "gust clock: %zu updates compared in air, %zu flown at the server's "
-                          "moment and %zu not, at most %lld steps out; the worst error %.3f m "
-                          "at the server's moment, %.3f m not",
-                          compared_, compared_ - off_, off_, static_cast<long long>(most_off_),
-                          worst_at_m_, worst_off_m_);
+                          "gust clock: %zu updates compared in air; %zu flown at the server's "
+                          "moment, the worst error %.3f m; %zu flown before the clocks' "
+                          "difference moved, at most %lld steps out, the worst %.3f m; %zu out "
+                          "otherwise, at most %lld steps, the worst %.3f m",
+                          compared_, at_.count, at_.worst_m, moved_.count,
+                          static_cast<long long>(moved_.most_steps), moved_.worst_m,
+                          wrong_.count, static_cast<long long>(wrong_.most_steps),
+                          wrong_.worst_m);
             return line;
         }
     };
