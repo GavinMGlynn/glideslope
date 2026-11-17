@@ -78,3 +78,12 @@ client's copilot was not told by YXNE ... but 'its copilot told by YXZZ
 The runway states a slot's `RUNWAY_CONDITIONS` lays in the CLI are not
 reached by this run (no station reports one): the unit test's ice case
 pins the laying, not the CLI's per-slot matching of it.
+
+## The stations test that failed here
+
+`a_client_flies_the_stations_around_it_the_nearers_weather_with_no_step_in_the_wind`
+failed twice in a linux-debug run while another working copy was building
+("the air at the first step was not YSSY's alone ... but 0.990 YSSY's").
+Run again with the machine quiet (load about 2), it passed on this branch
+(202 s) and on its base, 96f65181 (201 s). Nothing here touches the air
+flown; it is not this change's.
