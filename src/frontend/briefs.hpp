@@ -66,6 +66,16 @@ StationWet wet_runways_around(double latitude_deg, double longitude_deg,
                               const std::vector<world::RunwayEnd>& all,
                               std::chrono::milliseconds retry_wait = std::chrono::milliseconds(2000));
 
+// **Where the station nearest a place wets the runways**, of the stations
+// flown (`--weather around`, or one station's): the copilot's, judged where
+// the aircraft is as it is asked - not the first slot's station, nor the
+// last one told. `stations` are the reports flown, each its runways laid
+// (null entries, empty slots, passed over); of them the nearest the place
+// (sim::distance_m), read as wet_runways reads the one weather. `station`
+// is empty, and `wet` none, where there is none.
+StationWet wet_runways_nearest(const std::vector<const world::WeatherReport*>& stations,
+                               double latitude_deg, double longitude_deg);
+
 // **Where a plan from an airport may land** (copilot::PlanRequest::fields):
 // the airports of `all` within `landing_fields_m` of the first end of
 // `airport`'s that says its elevation, nearest first, each with all its ends
