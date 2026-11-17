@@ -108,6 +108,9 @@ struct ConnectCopilot {
     std::string route_file; // or, sent as it is: a route the model never saw
     bool route_for_another = false; // ...for another aircraft's number
     bool route_when_wrecked = false; // ...once its own is a wreck
+    // Which station's runways its copilot was last told
+    // (frontend::told_by_nearest), said when it changes.
+    std::string told_by;
     // **The model that plans its aircraft when it is handed to the AI**
     // (`--hand-over-model P[:MODEL]`, with `--hand-over-at`): none, the
     // default, or a copilot made - for the aircraft the server says is its
@@ -5081,11 +5084,19 @@ int stay(glideslope::platform::UdpSocket& socket,
                         }
                         const glideslope::world::Geodetic at =
                             glideslope::world::to_geodetic({a.x_m, a.y_m, a.z_m});
-                        const auto route = cc.seat->look(
-                            now_s, a,
+                        const glideslope::frontend::StationWet nearest =
                             glideslope::frontend::wet_runways_nearest(flown, at.latitude_deg,
-                                                                      at.longitude_deg)
-                                .wet);
+                                                                      at.longitude_deg);
+                        // What it is told, said each time it changes.
+                        if (!nearest.station.empty()) {
+                            const std::string told_by =
+                                glideslope::frontend::told_by_nearest(nearest);
+                            if (told_by != cc.told_by) {
+                                cc.told_by = told_by;
+                                say_heard("its copilot " + told_by);
+                            }
+                        }
+                        const auto route = cc.seat->look(now_s, a, nearest.wet);
                         for (const std::string& line : cc.seat->said()) {
                             say_heard(line);
                         }

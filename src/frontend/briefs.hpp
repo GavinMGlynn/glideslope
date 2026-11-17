@@ -75,6 +75,10 @@ StationWet wet_runways_around(double latitude_deg, double longitude_deg,
 // is empty, and `wet` none, where there is none.
 StationWet wet_runways_nearest(const std::vector<const world::WeatherReport*>& stations,
                                double latitude_deg, double longitude_deg);
+// What a copilot was told, in words: "told by YSSY, its nearest station: the
+// runways wet near it, and 0 runways reported contaminated" - what the
+// server and the headless client say of their copilots.
+std::string told_by_nearest(const StationWet& told);
 
 // **Where a plan from an airport may land** (copilot::PlanRequest::fields):
 // the airports of `all` within `landing_fields_m` of the first end of
