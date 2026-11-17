@@ -2251,6 +2251,7 @@ public:
         resuming_ = true;
         resumed_from_ = sequence + 1;
         prediction_.reset();
+        shown_window_.clear(); // as the prediction's own window is (`gust_clock_`)
         words_.drop("let go of, not finite");
         keep_built();
         before_.clear();
@@ -2854,6 +2855,7 @@ public:
         resuming_ = true;
         resumed_from_ = sequence + 1;
         prediction_.reset();
+        shown_window_.clear(); // as the prediction's own window is (`gust_clock_`)
         words_.drop("a take-over");
         keep_built();
         before_.clear();
@@ -2886,6 +2888,7 @@ public:
             resuming_ = true;
             resumed_from_ = sequence + 1;
             prediction_.reset();
+            shown_window_.clear(); // as the prediction's own window is (`gust_clock_`)
             words_.drop("a take-back");
             keep_built();
             before_.clear();
@@ -3661,6 +3664,7 @@ private:
         aircraft_->set_motion(m);
         start_weight_lbs_ = aircraft_->property("inertia/weight-lbs");
         prediction_ = std::make_unique<glideslope::sim::Prediction>(*aircraft_);
+        shown_window_.clear(); // as the prediction's own window is (`gust_clock_`)
         // **On the levers the server holds her on**, where it has said them
         // (`--stovl-at-once`, `--from-held`), as the windowed client begins.
         if (levers_) {
