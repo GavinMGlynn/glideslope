@@ -54,5 +54,12 @@ main 8.33 m worst, this branch 1.29 m.
 - The version moved with its tests (`the_protocol_version_moves_...`,
   `an_envelope_that_is_wrong_...`, the gearstick refusal's bytes, the client
   written from the document, which sends its steps as not said).
+- The related tests, Linux debug at `-j4` (`-R` stopped_alone,
+  held_up_unevenly, transport_document_alone, gearstick, clients_inputs_fly,
+  server_behind_real_time, first_input, impaired, starved, take_back,
+  take_over): 17 of 19 passed and one skipped for want of a key.
+  `a_take_over_past_the_servers_rate_of_requests_is_refused_and_said` (the
+  window client, 284 s beside three others) failed once and passed run alone
+  (96 s); its output was not kept, so the cause is not shown.
 - docs/TRANSPORT.md: the frame's new field, what a step is and what the
   server does with it, and version `13` in the list.
