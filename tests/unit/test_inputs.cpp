@@ -220,6 +220,34 @@ GLIDESLOPE_TEST(an_input_packet_that_arrives_twice_hands_up_nothing_the_second_t
     check(receiver.newest() == 3, "the newest is still three");
 }
 
+// **Every frame carries the step it was sent at** (since protocol 13): each
+// of five frames with its own - nought, the step not said, the most a step
+// can be - and each again in the packets after it while it rides in them.
+// Seen to fail with the step written as nought.
+GLIDESLOPE_TEST(every_input_frame_carries_the_step_it_was_sent_at_through_the_wire) {
+    const std::uint32_t steps[] = {0, 4, glideslope::net::step_not_said, 0xFFFFFFFEu, 12};
+    InputSender sender;
+    InputReceiver receiver;
+    std::size_t carried = 0;
+    for (std::uint32_t i = 0; i < std::size(steps); ++i) {
+        sender.add(i + 1, controls_of(i + 1), steps[i]);
+        for (const InputFrame& f : receiver.received(all_of(sender.packet()))) {
+            check(f.step == steps[f.sequence - 1] && carries_its_own_controls(f),
+                  "frame " + std::to_string(f.sequence) + " came with step " +
+                      std::to_string(f.step) + ", not " +
+                      std::to_string(steps[f.sequence - 1]));
+            ++carried;
+        }
+    }
+    check(carried == std::size(steps), "every frame carried: " + std::to_string(carried));
+    // Each again in the packets after it, while it rides in them.
+    InputReceiver late;
+    const std::vector<InputFrame> all = late.received(all_of(sender.packet()));
+    check(all.size() == glideslope::net::redundancy && all.front().step == 4 &&
+              all.back().step == 12,
+          "a late receiver hears the last four with their steps");
+}
+
 // **Nothing that is not an input packet is taken for one**: every truncation
 // of one, and a packet with anything after it.
 GLIDESLOPE_TEST(an_input_receiver_refuses_anything_that_is_not_an_input_packet) {

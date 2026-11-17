@@ -52,10 +52,24 @@ inline constexpr std::size_t redundancy = 4;
 inline constexpr std::size_t controls_on_the_wire = 21;
 using ControlList = std::array<double, controls_on_the_wire>;
 
-// One frame of a client's input: which frame it is, and what the controls
-// were.
+// **A frame's step not said**: a client not yet counting its steps - before
+// its prediction begins, or while the AI flies her - sends this.
+inline constexpr std::uint32_t step_not_said = 0xFFFFFFFFu;
+
+// One frame of a client's input: which frame it is, **the step of the
+// client's own it was sent at**, and what the controls were.
+//
+// **An input names its step** (since protocol `13`) so that a server held up
+// can fly the inputs that came in meanwhile as far apart as the client sent
+// them, rather than as one: read together after a stall, only the newest was
+// flown, and none of the stick's moves in those seconds was flown on the
+// server - its client put right 4.9 m at worst after a 3 s stop
+// (docs/status, 2026-10-28). The count is the client's and only its
+// differences mean anything to the server, as Overwatch's command frames
+// and Source's user commands carry the client's tick.
 struct InputFrame {
     std::uint32_t sequence = 0;
+    std::uint32_t step = step_not_said;
     ControlList controls{};
 };
 
@@ -72,9 +86,11 @@ ControlList as_sent(const ControlList& controls);
 // into every packet.
 class InputSender {
 public:
-    // Adds the frame for `sequence`. Sequences are the client's own count,
-    // from 1, and are expected to arrive here in order.
-    void add(std::uint32_t sequence, const ControlList& controls);
+    // Adds the frame for `sequence`, sent at the client's step `step`.
+    // Sequences are the client's own count, from 1, and are expected to
+    // arrive here in order.
+    void add(std::uint32_t sequence, const ControlList& controls,
+             std::uint32_t step = step_not_said);
 
     // The packet to send now: the frames it has, oldest first. Empty before
     // anything has been added.
