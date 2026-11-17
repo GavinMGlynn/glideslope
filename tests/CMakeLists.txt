@@ -3485,6 +3485,18 @@ add_test(NAME a_client_joining_while_a_weather_blends_in_blends_from_the_same_we
 set_tests_properties(a_client_joining_while_a_weather_blends_in_blends_from_the_same_weather
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_weather_join)
+# **A client predicting in gusting air meets every gust at the server's moment
+# and predicts within the steady air's bound** (REQUIREMENTS.md 6.3). See
+# cmake/server_weather_gusts.cmake.
+add_test(NAME a_client_predicting_in_gusts_meets_each_at_the_servers_moment_within_the_steady_bound
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_weather_gusts -DPORT=25000 -DSAME_M=0.25
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_weather_gusts.cmake)
+set_tests_properties(a_client_predicting_in_gusts_meets_each_at_the_servers_moment_within_the_steady_bound
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_weather_gusts)
 # **A client told the server's collision ground refuses other ground and
 # leaves** (REQUIREMENTS.md 6.3). See cmake/server_ground.cmake.
 add_test(NAME a_client_told_the_servers_collision_ground_refuses_other_ground_and_leaves
