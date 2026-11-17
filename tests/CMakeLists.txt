@@ -4814,6 +4814,22 @@ foreach(_case IN ITEMS near_wet far_wet)
     file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_planner_stations_${_case})
 endforeach()
 
+# **Both copilots under the stations around them are told the runway their
+# nearest station reports wet** - the server's hand-over copilot and a
+# player's own - not the first slot's, nor the last told. See
+# cmake/copilots_nearest_station.cmake.
+add_test(NAME the_hand_overs_and_a_players_copilot_under_the_stations_around_them_are_told_the_runway_their_nearest_station_reports_wet
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/copilots_nearest_station -DPORT=24717
+        -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot
+        -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/copilots_nearest_station.cmake)
+set_tests_properties(the_hand_overs_and_a_players_copilot_under_the_stations_around_them_are_told_the_runway_their_nearest_station_reports_wet
+    PROPERTIES SKIP_RETURN_CODE 77 FIXTURES_REQUIRED downloads TIMEOUT 600)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/copilots_nearest_station)
+
 # **A server keeps its rate while the runways a reported state lies on are
 # slow to come.** See cmake/server_runways_slow.cmake.
 add_test(NAME a_server_keeps_stepping_at_its_rate_while_the_runways_a_reported_state_lies_on_are_slow_to_come

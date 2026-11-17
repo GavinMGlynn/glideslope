@@ -2742,7 +2742,14 @@ public:
         }
         const glideslope::copilot::Brief& brief = *a.brief;
         glideslope::copilot::Situation now;
-        now.wet_runways = wet_nearest(lat, lon).wet;
+        const glideslope::frontend::StationWet told = wet_nearest(lat, lon);
+        now.wet_runways = told.wet;
+        // Which station's runways the route is checked against, said.
+        if (!told.station.empty()) {
+            std::printf("the route check for aircraft %u %s\n", static_cast<unsigned>(index),
+                        glideslope::frontend::told_by_nearest(told).c_str());
+            std::fflush(stdout);
+        }
         now.latitude_deg = lat;
         now.longitude_deg = lon;
         now.altitude_ft = craft.property("position/h-sl-ft") - undulation_ft;
@@ -3133,19 +3140,14 @@ public:
     // but for the runways near it, looked up on the question's own, from
     // the world's runways, read by now.
     void ask_hand_over(Aircraft& a) {
-        glideslope::copilot::Situation now = situation_of(a);
+        glideslope::frontend::StationWet told;
+        glideslope::copilot::Situation now = situation_of(a, &told);
         now.event = "the aircraft has been handed to you, " + a.handed_because;
         // Which station's runways it was told, said.
-        if (const glideslope::frontend::StationWet told =
-                wet_nearest(now.latitude_deg, now.longitude_deg);
-            !told.station.empty()) {
-            const std::size_t contaminated = told.wet ? told.wet->contaminated.size() : 0;
-            std::printf("the hand-over's copilot for aircraft %u told by %s, its nearest "
-                        "station: %s, and %zu runway%s reported contaminated\n",
-                        static_cast<unsigned>(a.index), told.station.c_str(),
-                        told.wet && told.wet->radius_m > 0.0 ? "the runways wet near it"
-                                                             : "no runway wet by its weather",
-                        contaminated, contaminated == 1 ? "" : "s");
+        if (!told.station.empty()) {
+            std::printf("the hand-over's copilot for aircraft %u %s\n",
+                        static_cast<unsigned>(a.index),
+                        glideslope::frontend::told_by_nearest(told).c_str());
             std::fflush(stdout);
         }
         const std::shared_future<std::shared_ptr<const std::vector<glideslope::world::RunwayEnd>>>
@@ -3171,12 +3173,19 @@ public:
     }
 
     // The flight as the server has it, for a model to be told.
-    glideslope::copilot::Situation situation_of(const Aircraft& a) {
+    // `told`, where given, is the station whose runways it was told.
+    glideslope::copilot::Situation situation_of(const Aircraft& a,
+                                                glideslope::frontend::StationWet* told = nullptr) {
         const glideslope::sim::Aircraft& craft = *a.aircraft;
         glideslope::copilot::Situation now;
         now.latitude_deg = craft.property("position/lat-geod-deg");
         now.longitude_deg = craft.property("position/long-gc-deg");
-        now.wet_runways = wet_nearest(now.latitude_deg, now.longitude_deg).wet;
+        const glideslope::frontend::StationWet nearest =
+            wet_nearest(now.latitude_deg, now.longitude_deg);
+        now.wet_runways = nearest.wet;
+        if (told != nullptr) {
+            *told = nearest;
+        }
         now.altitude_ft = craft.property("position/h-sl-ft") -
                           geoid_.undulation(now.latitude_deg, now.longitude_deg) * feet_per_metre;
         now.ground_ft =
