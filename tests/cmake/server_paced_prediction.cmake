@@ -68,17 +68,15 @@
 # two seconds while the server caught up. Linux debug, main's code: stopped
 # alone, the 95th percentile 15.3 m and the worst 103.9 m; unevenly, 9.7 m
 # and 14.9 m. With the rule: 0.62 m and 4.9 m; 0.35 m and 1.9 m
-# (docs/status, 2026-10-28). **A named limit, stopped alone**: the inputs
-# that came in the 3 s are read in one pass and the newest alone is flown, so
-# the server flies none of the stick's moves in them - 4.4 m off the path the
-# client flew - and every word of its catching up, 75 of the 600 at a word
-# every 4.8 steps, is that much off - by how much is the stick's moves', and
-# runs part three-fold. **The bounds are from what was measured**: nine runs
-# of Windows debug, the 95th percentile 0.49 to 1.51 m and the worst 2.1 to
-# 4.7 m (eight on this machine, 2026-10-28, and CI's run 40621099406), and
-# Linux debug's 0.62 and 4.9 m; the 95th held to 3 m and the worst to 10 m,
-# twice the most seen of each. Main's code put them at 24.8 and 104 m. The
-# rest is held to the bounds below.
+# (docs/status, 2026-10-28). **The inputs that came in the 3 s are flown
+# as far apart as the client sent them** (net::HeldInputs, protocol 13):
+# read in one pass and the newest alone flown, the server flew none of the
+# stick's moves in them, and every word of its catching up was off by them -
+# the worst 2.6 to 4.7 m, Linux debug, three runs; flown apart, 0.90 to 1.37 m
+# (docs/status, 2026-11-17). **The bounds are from what was measured**: the
+# 95th percentile held to 3 m, twice Windows debug's most before (1.51 m,
+# 2026-10-28); the worst to 3 m, twice the most seen since. The rest is
+# held to the bounds below.
 # Not built: a server persistently behind, which the paced test is.
 #
 # **A named limit: on Windows about one update in a hundred is off by two
@@ -138,21 +136,19 @@ set(_server_held "")
 if(SERVER_HELD STREQUAL "alone")
     set(_pace 1)
     set(_server_held --test-stopped-once 12 3000)
-    set(_worst_allowed_mm 10000)
+    set(_worst_allowed_mm 3000)
     set(_p95_allowed_mm 3000)
 elseif(SERVER_HELD STREQUAL "unevenly")
     set(_pace 1)
     set(_server_held --test-held-up 1 600)
-    # **Its worst update is the held-up item's open part**: a stick moved
-    # while the server is held up is flown as one move once it catches up,
-    # which needs inputs that name their step (COMPLETION_PLAN, Phase 12a),
-    # the worst 4.9 m stopped alone - taken to be what CI's worst updates
-    # were, not shown from their tracks. Bounded as that case is, at 10 m,
-    # twice the most seen: the default 3 m was the paced test's, never this
-    # one's, and CI went past it - 3.3 m on Windows release (run 40673705998)
-    # and 4.1 m on macOS (run 40673840988), their 95th percentiles 0.49 and
-    # 0.66 m, their 99th 2.23 m both. The 95th percentile's metre, held
-    # below, pins the rule: main's code before it was 9.7 m.
+    # **Its worst update**: before inputs named their step, a stick moved
+    # while the server was held up was flown as one move once it caught up,
+    # and CI went past the paced test's 3 m - 3.3 m on Windows release (run
+    # 40673705998) and 4.1 m on macOS (run 40673840988), their 95th
+    # percentiles 0.49 and 0.66 m, their 99th 2.23 m both. Held at 10 m until
+    # CI has run it with inputs flown apart (docs/status, 2026-11-17). The
+    # 95th percentile's metre, held below, pins the rule: main's code before
+    # it was 9.7 m.
     set(_worst_allowed_mm 10000)
 elseif(DEFINED SERVER_HELD)
     message(FATAL_ERROR "SERVER_HELD is alone or unevenly, not '${SERVER_HELD}'")

@@ -3206,9 +3206,10 @@ set_tests_properties(a_client_predicting_against_a_server_behind_real_time_whose
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_paced_prediction_stopped)
 # **The same with the server alone held up** - stopped 3 s once, or held up
 # 150 to 600 ms every second - while its client runs on: it catches up every
-# step it owes and flies each input from the step due when it came: within a
-# metre for 95 updates in a hundred held up unevenly, and within three stopped
-# alone, the stick's moves in the stall flown as one (a named limit).
+# step it owes and flies each input from the step due when it came, those
+# that came together as far apart as the client sent them: within a metre for
+# 95 updates in a hundred held up unevenly, and within three stopped alone,
+# its worst within three too.
 add_test(NAME a_client_predicting_against_a_server_stopped_alone_for_seconds_is_within_three_metres_for_ninety_five_updates_in_a_hundred
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
