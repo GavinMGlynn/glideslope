@@ -1897,12 +1897,15 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       station reports wet.* Done 2026-11-14: each planner is told what the
       station nearest its airport reports, rain or a runway's state, and
       nothing a farther one does.
-- [ ] **A copilot is told one station's wet runways under `--weather
+- [x] **A copilot is told one station's wet runways under `--weather
       around`** - the server's hand-over copilot the first slot's station, a
       player's her flight's one report - not the station nearest the
       aircraft.
       *Verification: a copilot under the stations around it is told the
-      runway its nearest station reports wet.*
+      runway its nearest station reports wet.* Done 2026-11-17: the
+      server's copilots and the headless client's are told the station
+      nearest the aircraft as they are asked; the window client already
+      was.
 - [x] **The network checks on macOS drew another aircraft metres off** (8.6 m
       at 100 ms, 8.5 m at 200 ms). *Verification: the cause found, and the
       check run a hundred times on macOS within its bound.* Done 2026-09-30:
