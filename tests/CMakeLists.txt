@@ -4853,7 +4853,7 @@ add_test(NAME the_hand_overs_and_a_players_copilot_under_the_stations_around_the
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope_cli> -DSTUB=$<TARGET_FILE:glideslope_http_stub>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
-        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/copilots_nearest_station -DPORT=24717
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/copilots_nearest_station -DPORT=24839
         -DRECORDINGS=${CMAKE_CURRENT_SOURCE_DIR}/data/copilot
         -DFORECAST_FILE=${CMAKE_CURRENT_SOURCE_DIR}/data/weather/open-meteo-sydney-2026-09-17.json
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/copilots_nearest_station.cmake)
