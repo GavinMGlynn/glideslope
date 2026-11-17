@@ -22,12 +22,19 @@
 # not hoped for**:
 #
 # - the client was told both gusting weathers - from 0 s, and from 12 s over 5;
-# - every update compared in air is told as one of three: flown at the
-#   server's moment; flown before the clocks' difference moved, out by as many
-#   steps as it moved - which a client cannot know until the words after say
+# - each update is judged at its own step: the step of the client's the
+#   difference the word itself shows places it at (the server's step its
+#   input began on, less the client's), not the estimate - the least over a
+#   window - that places it for the error. It is one of three: flown at the
+#   server's moment; flown on an estimate other than the word's difference,
+#   out by exactly as much - which a client cannot know until the word says
 #   so, and is the open part of COMPLETION_PLAN.md's item; or out otherwise,
-#   which is a wrong gust clock. At least 300 at the server's moment, and
-#   none out otherwise;
+#   which is a wrong gust clock. At least 300 judged; none out otherwise; and
+#   none flown later than the server flew it - the estimate is the least of
+#   the words' differences, so never more than a word's own. **Not caught**:
+#   an estimate wrong early, by a step or more - it is out that way by
+#   design in about half the updates, by 1 to 3 steps. Those not judged (an
+#   input not begun here, a step no longer kept) are counted and said;
 # - the prediction error's median is within SAME_M, server_weather.cmake's
 #   steady bound.
 #
@@ -104,38 +111,46 @@ if(NOT _said MATCHES "prediction error median: ([0-9.]+) m")
     message(FATAL_ERROR "the client did not say its median error:\n${_said}")
 endif()
 set(_median ${CMAKE_MATCH_1})
-set(_clock_said "gust clock: ([0-9]+) updates compared in air; ([0-9]+) flown at the ")
-string(APPEND _clock_said "server's moment, the worst error ([0-9.]+) m; ([0-9]+) flown before ")
-string(APPEND _clock_said "the clocks' difference moved, at most (-?[0-9]+) steps out, the ")
-string(APPEND _clock_said "worst ([0-9.]+) m; ([0-9]+) out otherwise, at most (-?[0-9]+) steps")
+set(_clock_said "gust clock: ([0-9]+) updates judged in air, ([0-9]+) not; ([0-9]+) flown at ")
+string(APPEND _clock_said "the server's moment, the worst error ([0-9.]+) m; ([0-9]+) flown on ")
+string(APPEND _clock_said "another estimate of the clocks' difference than the word's, ([0-9]+) of ")
+string(APPEND _clock_said "them later than the server, at most ")
+string(APPEND _clock_said "(-?[0-9]+) steps out, the worst ([0-9.]+) m; ([0-9]+) out otherwise, ")
+string(APPEND _clock_said "at most (-?[0-9]+) steps")
 if(NOT _said MATCHES "${_clock_said}")
     message(FATAL_ERROR "the client did not say its gust clock:\n${_said}")
 endif()
-set(_in_air ${CMAKE_MATCH_1})
-set(_at_moment ${CMAKE_MATCH_2})
-set(_worst_at_moment ${CMAKE_MATCH_3})
-set(_moved ${CMAKE_MATCH_4})
-set(_most_moved ${CMAKE_MATCH_5})
-set(_worst_moved ${CMAKE_MATCH_6})
-set(_wrong ${CMAKE_MATCH_7})
-set(_most_wrong ${CMAKE_MATCH_8})
-message(STATUS "in gusts, ${_in_air} updates compared in air: ${_at_moment} flown at the "
-               "server's moment, the worst error ${_worst_at_moment} m; ${_moved} before the "
-               "clocks' difference moved (at most ${_most_moved} steps out), the worst "
-               "${_worst_moved} m; ${_wrong} out otherwise. The median ${_median} m, the "
-               "worst ${_worst} m at ${_worst_at} s")
-math(EXPR _kinds "${_at_moment} + ${_moved} + ${_wrong}")
-if(NOT _kinds EQUAL _in_air)
-    message(FATAL_ERROR "of ${_in_air} updates compared in air, ${_kinds} were told apart")
+set(_judged ${CMAKE_MATCH_1})
+set(_unjudged ${CMAKE_MATCH_2})
+set(_at_moment ${CMAKE_MATCH_3})
+set(_worst_at_moment ${CMAKE_MATCH_4})
+set(_estimate_off ${CMAKE_MATCH_5})
+set(_later ${CMAKE_MATCH_6})
+set(_most_estimate_off ${CMAKE_MATCH_7})
+set(_worst_estimate_off ${CMAKE_MATCH_8})
+set(_wrong ${CMAKE_MATCH_9})
+message(STATUS "in gusts, ${_judged} updates judged in air (${_unjudged} not): ${_at_moment} "
+               "flown at the server's moment, the worst error ${_worst_at_moment} m; "
+               "${_estimate_off} on another estimate than the word's (${_later} later than the server, at most "
+               "${_most_estimate_off} steps out), the worst ${_worst_estimate_off} m; ${_wrong} "
+               "out otherwise. The median ${_median} m, the worst ${_worst} m at ${_worst_at} s")
+math(EXPR _kinds "${_at_moment} + ${_estimate_off} + ${_wrong}")
+if(NOT _kinds EQUAL _judged)
+    message(FATAL_ERROR "of ${_judged} updates judged in air, ${_kinds} were told apart")
 endif()
-if(_at_moment LESS 300)
-    message(FATAL_ERROR "${_at_moment} updates were flown at the server's moment, fewer than "
-                        "the 300 a flight of 20 s gives:\n${_said}")
+if(_judged LESS 300)
+    message(FATAL_ERROR "${_judged} updates were judged in air, fewer than the 300 a flight of "
+                        "20 s gives:\n${_said}")
+endif()
+if(NOT _later EQUAL 0)
+    message(FATAL_ERROR "${_later} steps were flown later than the server flew them: the "
+                        "estimate of the clocks' difference is the least of the words', and "
+                        "so is never more than a word's own:\n${_said}")
 endif()
 if(NOT _wrong EQUAL 0)
-    message(FATAL_ERROR "${_wrong} of ${_in_air} steps compared met the gusts at another moment "
-                        "than the server's, at most ${_most_wrong} steps out, and not for the "
-                        "clocks' difference moving:\n${_said}")
+    message(FATAL_ERROR "${_wrong} of ${_judged} steps judged met the gusts at another moment "
+                        "than the server's, and not for the "
+                        "estimate of the clocks' difference:\n${_said}")
 endif()
 if(_median GREATER SAME_M)
     message(FATAL_ERROR "in gusts the prediction's median error was ${_median} m, more than "
