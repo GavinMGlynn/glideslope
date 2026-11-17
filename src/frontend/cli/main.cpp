@@ -2201,16 +2201,17 @@ public:
     // **The step input `sequence` leaves at** (sim::Prediction::sent): the
     // step it will be flown from, plus the steps this machine's clock -
     // paced, as `advance` flies - has moved on since that was reckoned.
-    void sending(std::uint32_t sequence, double local_s) {
+    // Returns the step it names on the wire, or `net::step_not_said`.
+    std::uint32_t sending(std::uint32_t sequence, double local_s) {
         if (!prediction_ || ai_flying_) {
-            return;
+            return glideslope::net::step_not_said;
         }
         const double flown_s = paced_ ? pacing_.would_be_at(local_s) : local_s;
         const auto due = static_cast<long long>(
             flown_s * static_cast<double>(glideslope::sim::steps_per_second));
         const auto late = static_cast<std::uint64_t>(std::max(0LL, due - stepped_));
-        glideslope::frontend::stamp_sent(*prediction_, sequence, late);
         most_sent_late_ = std::max(most_sent_late_, late);
+        return glideslope::frontend::stamp_sent(*prediction_, sequence, late);
     }
 
     // Nothing to fly yet, but what would have been flown is kept: when the
@@ -4472,17 +4473,18 @@ int stay(glideslope::platform::UdpSocket& socket,
                                                 : Predicting::pilot(sequence))
                             .as_list()));
                 }
-                sending.add(sequence, glideslope::net::as_sent(stick.as_list()));
                 // **Stamped as it leaves** (sim::Prediction::sent): the step
                 // this client's flying has got to now, not the step the
                 // input will be flown from, which a pass slow to get here
-                // left behind.
+                // left behind - and that step named on the wire.
+                std::uint32_t step = glideslope::net::step_not_said;
                 if (predicting) {
-                    predicting->sending(
+                    step = predicting->sending(
                         sequence,
                         std::chrono::duration<double>(std::chrono::steady_clock::now() - began)
                             .count());
                 }
+                sending.add(sequence, glideslope::net::as_sent(stick.as_list()), step);
             }
             std::vector<std::uint8_t> body{
                 static_cast<std::uint8_t>(glideslope::net::Inside::inputs)};

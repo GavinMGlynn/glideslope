@@ -74,8 +74,9 @@ inline constexpr std::array<std::uint8_t, 4> magic{'G', 'L', 'D', 'S'};
 // (`TRAFFIC_INSTRUCTION`). Version 18 (`12`): the same ground, and the
 // weather of several stations, each in a slot: `WEATHER`,
 // `WEATHER_ALOFT` and `RUNWAY_CONDITIONS` say which, and `WEATHER` when the
-// stations last changed.
-inline constexpr std::uint8_t protocol_version = 18;
+// stations last changed. Version 19 (`13`): the same ground, and every
+// input frame names the client's step it was sent at.
+inline constexpr std::uint8_t protocol_version = 19;
 
 // The six bytes every datagram begins with: four of magic, one of version,
 // one of type.

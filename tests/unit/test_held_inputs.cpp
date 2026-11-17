@@ -8,6 +8,8 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <utility>
+#include <vector>
 
 using glideslope::net::CatchingUp;
 using glideslope::net::ControlList;
@@ -114,6 +116,105 @@ GLIDESLOPE_TEST(an_input_heard_while_the_server_owes_steps_is_flown_from_the_ste
         }
         check(held.size() == 120 && held.newest() == 130u, "a flood keeps the newest 120");
     }
+}
+
+// **Inputs read together are flown as far apart as their client sent
+// them** (net::HeldInputs::stamp, since protocol 13). Every case of how they
+// are named: 3 s of a stall's inputs, ninety sent four steps apart, read in
+// one pass owing 360 - each flown from its own step, 104 to 460, none let
+// go; spaced unevenly (3, 4 and 5 apart) - each its own gap; spaced wider
+// than what is owed - the oldest held to the step flown to;
+// spaced back past an input stamped before - held to that one's step; a
+// pair not said, and a pair whose count began again - flown as one, the
+// newer from the step due. Seen to fail with each older input stamped at
+// the step due, as before: of the ninety, one was flown.
+GLIDESLOPE_TEST(inputs_read_together_are_flown_as_far_apart_as_their_client_sent_them) {
+    std::size_t cases = 0;
+    // Every input flown and where, from `from` for `steps`.
+    const auto fly = [](HeldInputs& held, std::int64_t from, std::int64_t steps) {
+        std::vector<std::pair<std::uint32_t, std::int64_t>> flown;
+        for (std::int64_t s = from; s < from + steps; ++s) {
+            if (const auto due = held.due_by(s)) {
+                flown.emplace_back(due->sequence, s);
+            }
+        }
+        return flown;
+    };
+    // A stall's: ninety, four steps apart, read in one pass owing 360.
+    {
+        HeldInputs held;
+        for (std::uint32_t n = 1; n <= 90; ++n) {
+            held.heard(n, with_throttle(0.01 * n), 120, 1000 + 4 * n);
+        }
+        held.stamp(100, 360);
+        const auto flown = fly(held, 100, 400);
+        check(flown.size() == 90, "of ninety read together, " + std::to_string(flown.size()) +
+                                      " flown, not 90");
+        bool apart = flown.size() == 90;
+        for (std::size_t i = 0; apart && i < flown.size(); ++i) {
+            apart = flown[i].first == i + 1 &&
+                    flown[i].second == 460 - 4 * static_cast<std::int64_t>(89 - i);
+        }
+        check(apart, "each from its own step, 104 to 460, four apart");
+        ++cases;
+    }
+    // Unevenly: 3, 4 and 5 apart.
+    {
+        HeldInputs held;
+        held.heard(1, with_throttle(0.1), 120, 50);
+        held.heard(2, with_throttle(0.2), 120, 53);
+        held.heard(3, with_throttle(0.3), 120, 57);
+        held.heard(4, with_throttle(0.4), 120, 62);
+        held.stamp(100, 30);
+        const auto flown = fly(held, 100, 100);
+        check(flown.size() == 4 && flown[0].second == 118 && flown[1].second == 121 &&
+                  flown[2].second == 125 && flown[3].second == 130,
+              "unevenly spaced, each its own gap: 118, 121, 125, 130");
+        ++cases;
+    }
+    // Wider than what is owed: the oldest held to the step flown to.
+    {
+        HeldInputs held;
+        held.heard(1, with_throttle(0.1), 120, 0);
+        held.heard(2, with_throttle(0.2), 120, 10);
+        held.heard(3, with_throttle(0.3), 120, 14);
+        held.stamp(100, 8);
+        const auto flown = fly(held, 100, 100);
+        check(flown.size() == 3 && flown[0].first == 1 && flown[0].second == 100 &&
+                  flown[1].first == 2 && flown[1].second == 104 && flown[2].first == 3 &&
+                  flown[2].second == 108,
+              "spaced wider than owed: the oldest held to the step flown to, 100, the "
+              "rest from 104 and 108");
+        ++cases;
+    }
+    // Back past an input stamped before: held to its step.
+    {
+        HeldInputs held;
+        held.heard(1, with_throttle(0.1), 120, 0);
+        held.stamp(100, 20); // due 120
+        held.heard(2, with_throttle(0.2), 120, 4);
+        held.heard(3, with_throttle(0.3), 120, 40);
+        held.stamp(104, 20); // 3 due 124, 2 would be 88
+        const auto flown = fly(held, 100, 100);
+        check(flown.size() == 2 && flown[0].first == 2 && flown[0].second == 120 &&
+                  flown[1].first == 3 && flown[1].second == 124,
+              "never before the input stamped before: the first's 120 taken by the "
+              "second, which overtook it, and the third from 124");
+        ++cases;
+    }
+    // A pair not said, and a pair whose count began again: as one.
+    for (const std::uint32_t older : {glideslope::net::step_not_said, std::uint32_t{900}}) {
+        HeldInputs held;
+        held.heard(1, with_throttle(0.1), 120, older);
+        held.heard(2, with_throttle(0.2), 120, 8);
+        held.stamp(100, 24);
+        const auto flown = fly(held, 100, 100);
+        check(flown.size() == 1 && flown[0].first == 2 && flown[0].second == 124,
+              std::string(older == glideslope::net::step_not_said ? "not said" : "begun again") +
+                  ": flown as one, the newer from 124");
+        ++cases;
+    }
+    check(cases == 6, "six ways of naming steps: " + std::to_string(cases));
 }
 
 namespace {

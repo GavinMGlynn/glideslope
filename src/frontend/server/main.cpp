@@ -5603,7 +5603,8 @@ void take(glideslope::platform::UdpSocket& socket, const glideslope::net::KeyPai
                 if (frame.sequence > newest) {
                     c.inputs_heard.heard(
                         frame.sequence, frame.controls,
-                        static_cast<std::size_t>(glideslope::sim::steps_per_second));
+                        static_cast<std::size_t>(glideslope::sim::steps_per_second),
+                        frame.step);
                 }
             }
             return;
@@ -6381,7 +6382,8 @@ int run(const Options& o) {
                              static_cast<long long>(owed.slipped()));
             }
             std::int64_t n = std::min(owed.owed(), most_steps_between_looks);
-            // The inputs read in this pass are due at the step due now.
+            // The inputs read in this pass are due at the step due now, the
+            // older of them as far before it as their client sent them.
             for (auto& connection : connections) {
                 connection.second.inputs_heard.stamp(stepped, owed.owed());
             }
