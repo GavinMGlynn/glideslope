@@ -1813,10 +1813,11 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
 - [ ] **A client's gusts are not the server's while its clocks' difference
       settles**, a step or two out, metres in a strong gust. *Verification: a
       client predicting in gusting air stays within the steady air's bound.*
-      2026-11-17: an end-to-end test now holds every step's gust moment to
-      the server's (red a step and five seconds out); the large worst errors
-      are steps flown before the clocks' difference moved, in steady air too.
-      Still missing: those steps, a step out, until inputs name their step.
+      2026-11-17: an end-to-end test judges each word's step against the
+      difference the word itself shows: none out but by the estimate, none
+      late; the large worst errors are the estimate moving, in steady air
+      too. Still missing: up to half the steps are flown one to three steps
+      early, until inputs name their step.
 - [x] **Every aircraft trims in the session's air**: she was trimmed in
       the standard atmosphere and still air, and the METAR's temperature,
       pressure and wind reached her on her first step - a C182 in a calm
