@@ -4324,14 +4324,17 @@ int stay(glideslope::platform::UdpSocket& socket,
             predicting->track_to(track_out);
         }
     }
-    // **Whether the server's weather wets the runways** (frontend::wet_runways),
-    // from the last METAR it told: its copilot is told so. A METAR that cannot
-    // be read leaves it as it was, as the air before it is kept.
-    std::optional<glideslope::world::WetRunways> wet_runways_heard;
-    // The weather last told, and when it took over: the runways told after
-    // it are laid on it, for its copilot, when they are for it.
-    glideslope::world::WeatherReport told_air;
-    double told_air_changed_at_s = 0.0;
+    // **The server's stations as told, slot by slot**, each with when it
+    // took over: the runways told after it are laid on it when they are for
+    // it. Its copilot is told where **the one nearest its aircraft** wets the
+    // runways (frontend::wet_runways_nearest), judged as it looks - not the
+    // last one told. A slot told still air is emptied; a METAR that cannot
+    // be read leaves its slot as it was, as the air before it is kept.
+    struct ToldAir {
+        glideslope::world::WeatherReport air;
+        double changed_at_s = 0.0;
+    };
+    std::map<std::uint8_t, ToldAir> told_airs;
     const auto say_heard = [&](const std::string& line) {
         std::fprintf(stderr, "client %s: %s\n", me.c_str(), line.c_str());
         if (heard_out) {
@@ -5072,7 +5075,17 @@ int stay(glideslope::platform::UdpSocket& socket,
                             cc.asked = true;
                             cc.seat->ask();
                         }
-                        const auto route = cc.seat->look(now_s, a, wet_runways_heard);
+                        std::vector<const glideslope::world::WeatherReport*> flown;
+                        for (const auto& [slot, told_air] : told_airs) {
+                            flown.push_back(&told_air.air);
+                        }
+                        const glideslope::world::Geodetic at =
+                            glideslope::world::to_geodetic({a.x_m, a.y_m, a.z_m});
+                        const auto route = cc.seat->look(
+                            now_s, a,
+                            glideslope::frontend::wet_runways_nearest(flown, at.latitude_deg,
+                                                                      at.longitude_deg)
+                                .wet);
                         for (const std::string& line : cc.seat->said()) {
                             say_heard(line);
                         }
@@ -5353,10 +5366,11 @@ int stay(glideslope::platform::UdpSocket& socket,
                         }
                         heard_air.surface.latitude_deg = w.latitude_deg;
                         heard_air.surface.longitude_deg = w.longitude_deg;
-                        told_air = heard_air;
-                        told_air_changed_at_s = w.changed_at_s;
-                        wet_runways_heard = glideslope::frontend::wet_runways(
-                            w.metar.empty() ? nullptr : &told_air);
+                        if (w.metar.empty()) {
+                            told_airs.erase(w.station);
+                        } else {
+                            told_airs[w.station] = {std::move(heard_air), w.changed_at_s};
+                        }
                     } catch (const glideslope::world::MetarError&) {
                     }
                     std::string why;
@@ -5381,16 +5395,15 @@ int stay(glideslope::platform::UdpSocket& socket,
                         predicting->runway_conditions(rc);
                     }
                     // **Its copilot told them too**: the runways reported
-                    // contaminated, for the weather it was last told.
-                    if (rc.weather_changed_at_s == told_air_changed_at_s &&
-                        !told_air.surface.metar.raw.empty()) {
-                        told_air.contaminated.clear();
+                    // contaminated, for the weather its station was last told.
+                    if (const auto told_air = told_airs.find(rc.station);
+                        told_air != told_airs.end() &&
+                        rc.weather_changed_at_s == told_air->second.changed_at_s) {
+                        glideslope::world::WeatherReport& laid = told_air->second.air;
+                        laid.contaminated.clear();
                         for (const glideslope::net::RunwayCondition& c : rc.now) {
-                            told_air.contaminated.push_back(
-                                glideslope::frontend::condition_heard(c));
+                            laid.contaminated.push_back(glideslope::frontend::condition_heard(c));
                         }
-                        wet_runways_heard =
-                            glideslope::frontend::wet_runways(&told_air);
                     }
                     break;
                 }

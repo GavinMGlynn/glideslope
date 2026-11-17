@@ -80,6 +80,27 @@ StationWet wet_runways_around(double latitude_deg, double longitude_deg,
     return {report.surface.metar.station, wet_runways(&report)};
 }
 
+StationWet wet_runways_nearest(const std::vector<const world::WeatherReport*>& stations,
+                               double latitude_deg, double longitude_deg) {
+    const world::WeatherReport* nearest = nullptr;
+    double nearest_m = 0.0;
+    for (const world::WeatherReport* r : stations) {
+        if (r == nullptr) {
+            continue;
+        }
+        const double d = sim::distance_m(latitude_deg, longitude_deg, r->surface.latitude_deg,
+                                         r->surface.longitude_deg);
+        if (nearest == nullptr || d < nearest_m) {
+            nearest = r;
+            nearest_m = d;
+        }
+    }
+    if (nearest == nullptr) {
+        return {};
+    }
+    return {nearest->surface.metar.station, wet_runways(nearest)};
+}
+
 copilot::PlanRequest plan_request_for(const std::filesystem::path& data,
                                       const std::string& catalogue_id,
                                       std::optional<world::WetRunways> wet) {

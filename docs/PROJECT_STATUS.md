@@ -583,8 +583,9 @@ are the risks the phase order is built around:
   air then (2026-11-11). Given one `--weather` station, a flight or a
   server flies that station's weather everywhere. The AI's planners under
   the stations around them are told the runway their airport's nearest
-  station reports wet or contaminated (2026-11-14); a copilot, a hand-over's
-  or a player's, is still told one station's, a tail. A client joining while
+  station reports wet or contaminated (2026-11-14), and a copilot, a
+  hand-over's or a player's, the station nearest its aircraft as it is
+  asked (2026-11-17). A client joining while
   the server's stations change is told the stations they blend from first,
   and the headless client flies the server's air to the last bit
   (2026-11-14); the window client keeps two weathers a slot and does not,
