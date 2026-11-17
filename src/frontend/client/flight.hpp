@@ -278,9 +278,9 @@ public:
     // the one it steers by - what the frame loop flies by.
     double flown_in(double dt) const { return pacing_.flown_in(dt); }
     // **Input `sequence`, stamped as it leaves** (frontend::stamp_sent), with
-    // `steps_owed` of this frame's ticks not yet flown. Nothing without a
-    // prediction.
-    void sent(std::uint32_t sequence, std::uint64_t steps_owed);
+    // `steps_owed` of this frame's ticks not yet flown; the step it names on
+    // the wire, or `net::step_not_said` without a prediction.
+    std::uint32_t sent(std::uint32_t sequence, std::uint64_t steps_owed);
 
     // Hands the aircraft to the AI - flying what is left of the plan, if any
     // is - or back to the pilot (sim/controller.hpp).

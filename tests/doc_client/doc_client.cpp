@@ -77,10 +77,12 @@ constexpr std::array<std::uint8_t, 4> kMagic{0x47, 0x4C, 0x44, 0x53};
 // 2026-10-22 to 10, when a STOVL law's state was told (`LAW_STATE`), and on
 // 2026-11-11 to 11, when a person could be told to leave a circuit
 // (`TRAFFIC_INSTRUCTION`), and the same day to 12, when the weather became
-// several stations', each in a slot - kinds this client ignores: the
-// document gives the envelope's version as `12`. A test reads this line to keep the two together
+// several stations', each in a slot - kinds this client ignores - and on
+// 2026-11-17 to 13, when every input frame came to name the step it was
+// sent at, which this client sends as not said: the document gives the
+// envelope's version as `13`. A test reads this line to keep the two together
 // (the_protocol_version_moves_with_the_collision_ground).
-constexpr std::uint8_t kVersion = 0x12;
+constexpr std::uint8_t kVersion = 0x13;
 
 constexpr std::uint8_t kTypeInitiation = 0x01;
 constexpr std::uint8_t kTypeResponse = 0x02;
@@ -810,6 +812,7 @@ int main(int argc, char** argv) {
             w.u32(sequence);
             w.u8(static_cast<std::uint8_t>(recent.size()));
             for (const Frame& f : recent) {
+                w.u32(0xFFFFFFFFu); // its step, not said
                 for (std::int16_t c : f) w.i16(c);
             }
             udp.send(server, sealer.seal(w.data()));

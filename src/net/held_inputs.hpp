@@ -20,6 +20,16 @@
 // is owed. Held at most a quarter of a second on whatever was owed, as it
 // was, an input read after a stall was flown early by the rest, and a server
 // stopped alone 3 s put its client 104 m off (docs/status, 2026-10-28).
+//
+// **Inputs read together are flown as far apart as their client sent
+// them.** Each names the client's step it was sent at (net::InputFrame), so
+// of those read in one pass the newest is flown from the step due now and
+// each older one that many of its client's steps sooner - never sooner than
+// the step the server has flown to, nor than an input stamped before. A
+// server stopped 3 s read the 3 s of inputs in one pass and flew the newest
+// alone, none of the stick's moves in them, and put its client 4.9 m off at
+// worst (docs/status, 2026-10-28); an input that does not name its step is
+// stamped at the step due now, as before.
 
 #include "net/catching_up.hpp"
 #include "net/inputs.hpp"
@@ -39,6 +49,8 @@ public:
         ControlList controls{};
         // The step it is flown from; -1 until stamped.
         std::int64_t due = -1;
+        // The client's step it was sent at, or `step_not_said`.
+        std::uint32_t step = step_not_said;
     };
 
     // The newest input's number, if any is held.
@@ -53,21 +65,40 @@ public:
 
     // An input read, newer than any held; past `most` waiting the oldest is
     // let go - a flood.
-    void heard(std::uint32_t sequence, const ControlList& controls, std::size_t most) {
-        held_.push_back({sequence, controls, -1});
+    void heard(std::uint32_t sequence, const ControlList& controls, std::size_t most,
+               std::uint32_t step = step_not_said) {
+        held_.push_back({sequence, controls, -1, step});
         while (held_.size() > most) {
             held_.pop_front();
         }
     }
 
-    // **The inputs read in this pass, stamped** with the step due now: the
-    // server has flown `stepped` and owes `owed` - never sooner.
+    // **The inputs read in this pass, stamped**: the server has flown
+    // `stepped` and owes `owed`. The newest is due at the step due now, and
+    // each older one as many steps before the one after it as its client
+    // sent them apart, where both name their step - never before `stepped`,
+    // nor before the input stamped last; one that does not name its step is
+    // due with the one after it, which overtakes it.
     void stamp(std::int64_t stepped, std::int64_t owed) {
-        for (Held& h : held_) {
-            if (h.due < 0) {
-                h.due = stepped + owed;
-            }
+        std::size_t first = held_.size();
+        while (first > 0 && held_[first - 1].due < 0) {
+            --first;
         }
+        if (first == held_.size()) {
+            return;
+        }
+        const std::int64_t floor = std::max(stepped, last_due_);
+        held_.back().due = std::max(stepped + owed, floor);
+        for (std::size_t i = held_.size() - 1; i-- > first;) {
+            Held& h = held_[i];
+            const Held& next = held_[i + 1];
+            std::int64_t due = next.due;
+            if (h.step != step_not_said && next.step != step_not_said && next.step > h.step) {
+                due -= static_cast<std::int64_t>(next.step - h.step);
+            }
+            h.due = std::max(due, floor);
+        }
+        last_due_ = held_.back().due;
     }
 
     // **What is flown from step `step`**: the newest input due by then, the
@@ -97,6 +128,9 @@ public:
 
 private:
     std::deque<Held> held_;
+    // The step the newest input stamped is due at, which none after it is
+    // flown before.
+    std::int64_t last_due_ = -1;
 };
 
 } // namespace glideslope::net

@@ -261,10 +261,11 @@ void Flight::adopt(const sim::Motion& motion) {
     pacing_.hold();
 }
 
-void Flight::sent(std::uint32_t sequence, std::uint64_t steps_owed) {
+std::uint32_t Flight::sent(std::uint32_t sequence, std::uint64_t steps_owed) {
     if (prediction_) {
-        frontend::stamp_sent(*prediction_, sequence, steps_owed);
+        return frontend::stamp_sent(*prediction_, sequence, steps_owed);
     }
+    return net::step_not_said;
 }
 
 void Flight::adopt(const sim::Motion& motion, const std::optional<net::LawState>& law) {

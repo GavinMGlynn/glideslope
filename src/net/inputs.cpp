@@ -32,8 +32,9 @@ ControlList as_sent(const ControlList& controls) {
     return out;
 }
 
-void InputSender::add(std::uint32_t sequence, const ControlList& controls) {
-    recent_.push_back({sequence, controls});
+void InputSender::add(std::uint32_t sequence, const ControlList& controls,
+                      std::uint32_t step) {
+    recent_.push_back({sequence, step, controls});
     while (recent_.size() > redundancy) {
         recent_.pop_front();
     }
@@ -50,6 +51,7 @@ std::vector<std::uint8_t> InputSender::packet() const {
     w.u32(recent_.back().sequence);
     w.u8(static_cast<std::uint8_t>(recent_.size()));
     for (const InputFrame& f : recent_) {
+        w.u32(f.step);
         for (const double control : f.controls) {
             w.u16(std::bit_cast<std::uint16_t>(quantise(control)));
         }
@@ -70,6 +72,7 @@ std::vector<InputFrame> InputReceiver::received(std::span<const std::uint8_t> pa
     for (std::uint8_t i = 0; i < count; ++i) {
         InputFrame f;
         f.sequence = oldest + i;
+        f.step = r.u32();
         for (double& control : f.controls) {
             control = unquantise(std::bit_cast<std::int16_t>(r.u16()));
         }

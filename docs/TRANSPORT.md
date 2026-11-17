@@ -98,6 +98,10 @@ Said first, because a transport's limits matter more than its features.
   the weather of several stations, each in a numbered slot: `WEATHER`,
   `WEATHER_ALOFT` and `RUNWAY_CONDITIONS` each begin with the slot, and
   `WEATHER` says when the stations last changed (below).
+  Version `13` is on the same ground, and is the first whose input frame
+  names the step of the client's it was sent at (below, "Inputs"), so that a
+  server held up flies the inputs that came in meanwhile as far apart as
+  they were sent.
 - **It does not authenticate a person.** It authenticates a key. Who holds
   that key is the lobby's business.
 
@@ -1120,10 +1124,21 @@ have not been sent yet.
 | `u32` | the newest frame's sequence number, from 1 |
 | `u8` | how many frames follow, 1 to 4 |
 | | then, per frame, oldest first: |
+| `u32` | the step of the client's it was sent at, or `FFFFFFFF`, not said (since `13`) |
 | `i16` x21 | the twenty-one controls |
 
 The frames are consecutive, so only the newest sequence is sent: the oldest
 is the newest less one fewer than the count.
+
+**A frame names the step it was sent at**: the client's own count of its
+steps of 1/120 s, at the pace it flies, as the frame left. The server uses
+only the difference between two frames' steps, so the count may begin where
+the client likes, and may begin again: where a frame's step is not more than
+the one before it, that pair is taken as not said. A client not counting its
+steps - before it predicts, or while an AI pilot flies her - sends
+`FFFFFFFF`. What the server does with it is in "Where the server's word falls
+on the client's clock", below: of frames read together, each older one is
+flown as many steps before the next as their steps are apart.
 
 **Every control is a 16-bit fraction of -1 to 1**, written as a `u16` holding
 its two's-complement bits. `-32767` is -1 and `32767` is 1, both exact, so a
@@ -1513,8 +1528,15 @@ fly the inputs that came in meanwhile early: before 2026-10-08 it flew them
 from the step it had got to, and a stall of 24 steps put its clients'
 clocks' difference 24 steps low for two seconds. A server held up for longer
 than 30 steps flies them early by what is over; one that never catches up
-flies each 30 steps after it came. At a switch of controller the newest
-input is flown at once. The wire did not change, so the version did not. The update says how many steps the server had flown on the
+flies each 30 steps after it came. **Inputs read together** - several in
+one pass, as after a hold-up, whose inputs wait in the socket - are not
+flown as one: the newest is flown from the step due, and each older one as
+many steps before the input after it as their frames' steps are apart, never
+before the step the server has flown to nor before the input stamped before
+them (since `13`; before it only the newest was flown, and a server stopped
+3 s flew none of the stick's moves in those 3 s, its client put right 4.9 m
+at worst). A pair whose steps are not said is flown as one, as before. At a
+switch of controller the newest input is flown at once. The update says how many steps the server had flown on the
 input it names, and its clock says how many steps it had flown in all (the
 clock times 120): so the input began at the server's step `clock x 120 -
 steps into it`. Less the step at which the client began flying that input, that

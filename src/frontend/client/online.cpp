@@ -187,12 +187,13 @@ sim::Controls Online::fly(double local_s, const sim::Controls& stick, Flight& fl
         ++sequence_;
         const net::ControlList sent = net::as_sent(stick.as_list());
         sent_ = sim::Controls::from_list(sent);
-        sending_.add(sequence_, sent);
-        const std::vector<std::uint8_t> packet = sending_.packet();
-        session_.send_inputs(std::span<const std::uint8_t>(packet.data(), packet.size()));
         // The first, with nothing flown before it, is flown at once, from
         // the step its prediction is at; any other from after the ticks owed.
-        flight.sent(sequence_, sequence_ == 1 ? 0 : steps_owed);
+        // The step it leaves at goes with it (net::InputFrame::step).
+        const std::uint32_t step = flight.sent(sequence_, sequence_ == 1 ? 0 : steps_owed);
+        sending_.add(sequence_, sent, step);
+        const std::vector<std::uint8_t> packet = sending_.packet();
+        session_.send_inputs(std::span<const std::uint8_t>(packet.data(), packet.size()));
         if (sequence_ == 1) {
             flown(flight);
         }
