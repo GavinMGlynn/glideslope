@@ -2185,7 +2185,11 @@ public:
             predicted_at_.push_back({step, flown.location_ecef_m,
                                      std::hypot(flown.uvw_mps[0], flown.uvw_mps[1],
                                                 flown.uvw_mps[2]),
-                                     counted && sequence > 0, pitch_of(flown), air_at_s, difference});
+                                     counted && sequence > 0, pitch_of(flown), air_at_s, difference,
+                                     shown_window_.empty()
+                                         ? std::nullopt
+                                         : std::optional<std::int64_t>(*std::min_element(
+                                               shown_window_.begin(), shown_window_.end()))});
             if (predicted_at_.size() > glideslope::sim::most_unacknowledged) {
                 predicted_at_.pop_front();
             }
@@ -2426,6 +2430,7 @@ public:
             glideslope::frontend::server_steps_of(state.simulation_time_s);
         const std::uint32_t applied = state.last_input_applied;
         applied_seen_ = std::max(applied_seen_, applied);
+        const std::size_t samples_before = prediction_->samples_taken();
         const auto at =
             prediction_->hear_clock(applied, state.yours->steps_into_input, server_steps);
         if (const auto began = prediction_->began_at(applied);
@@ -2433,6 +2438,15 @@ public:
             word.shown_difference =
                 static_cast<std::int64_t>(server_steps - state.yours->steps_into_input) -
                 static_cast<std::int64_t>(*began);
+            // **The words' own differences, over the words the estimate is
+            // taken over** (sim::offset_window): the least of them is what
+            // the estimate would be were it right (`gust_clock_`).
+            if (prediction_->samples_taken() > samples_before) {
+                shown_window_.push_back(*word.shown_difference);
+                while (shown_window_.size() > glideslope::sim::offset_window) {
+                    shown_window_.pop_front();
+                }
+            }
         }
         // **Each word's sample, for a test to read**: the input, the clocks'
         // difference taken, how late its input was sent, and what it said
@@ -2522,8 +2536,19 @@ public:
                         const std::int64_t off = std::llround(
                             (*truly->air_at_s - state.simulation_time_s) *
                             static_cast<double>(glideslope::sim::steps_per_second));
-                        gust_clock_.compared(
-                            off, *truly->clocks_difference - *word.shown_difference, error);
+                        // **Later than the server is a fault only for a word
+                        // not below the least of the words' own differences
+                        // when the step was flown** (`shown_least`): the
+                        // estimate is the least of the words before it, each
+                        // sampled no later than its own difference, and a
+                        // word setting a new least shows the server flew it
+                        // sooner than any of them.
+                        const bool not_a_new_least =
+                            truly->shown_least &&
+                            *word.shown_difference >= *truly->shown_least;
+                        gust_clock_.compared(off,
+                                             *truly->clocks_difference - *word.shown_difference,
+                                             not_a_new_least, error);
                     } else {
                         ++gust_clock_.unjudged_;
                     }
@@ -3688,7 +3713,8 @@ private:
                 predicted_at_.push_back({step, flown.location_ecef_m,
                                          std::hypot(flown.uvw_mps[0], flown.uvw_mps[1],
                                                     flown.uvw_mps[2]),
-                                         false, pitch_of(flown), std::nullopt, std::nullopt});
+                                         false, pitch_of(flown), std::nullopt, std::nullopt,
+                                         std::nullopt});
             }
         }
         before_.clear();
@@ -3955,6 +3981,8 @@ private:
         std::optional<double> air_at_s;
         // And the clocks' difference it was flown with.
         std::optional<std::int64_t> clocks_difference;
+        // And the least of the words' own differences then (`shown_window_`).
+        std::optional<std::int64_t> shown_least;
     };
     // **A motion's pitch**, degrees, from its quaternion (north-east-down to
     // the body, scalar first) - the same sum for the server's word and this
@@ -4034,9 +4062,9 @@ private:
             std::size_t later = 0;
             std::int64_t most_steps = 0;
             double worst_m = 0.0;
-            void add(std::int64_t steps, double error_m) {
+            void add(std::int64_t steps, bool may_be_later, double error_m) {
                 ++count;
-                later += steps > 0 ? 1U : 0U;
+                later += steps > 0 && may_be_later ? 1U : 0U;
                 if (std::llabs(steps) > std::llabs(most_steps)) {
                     most_steps = steps;
                 }
@@ -4046,9 +4074,11 @@ private:
         std::size_t compared_ = 0;
         std::size_t unjudged_ = 0;
         Kind at_, estimate_off_, wrong_;
-        void compared(std::int64_t off, std::int64_t estimate_off, double error_m) {
+        void compared(std::int64_t off, std::int64_t estimate_off, bool may_be_later,
+                      double error_m) {
             ++compared_;
-            (off == 0 ? at_ : off == estimate_off ? estimate_off_ : wrong_).add(off, error_m);
+            (off == 0 ? at_ : off == estimate_off ? estimate_off_ : wrong_)
+                .add(off, may_be_later, error_m);
         }
         std::string said() const {
             char line[448];
@@ -4056,7 +4086,7 @@ private:
                           "gust clock: %zu updates judged in air, %zu not; %zu flown at the "
                           "server's moment, the worst error %.3f m; %zu flown on another "
                           "estimate of the clocks' difference than the word's, %zu of them "
-                          "later than the server, at most %lld steps out, the worst %.3f m; %zu "
+                          "later than the server and not for a new least, at most %lld steps out, the worst %.3f m; %zu "
                           "out otherwise, at most %lld steps, the worst %.3f m",
                           compared_, unjudged_, at_.count, at_.worst_m, estimate_off_.count,
                           estimate_off_.later,
@@ -4067,6 +4097,7 @@ private:
         }
     };
     GustClock gust_clock_;
+    std::deque<std::int64_t> shown_window_;
     std::optional<double> air_asked_at_s_;
     // The air flown (note_air).
     glideslope::frontend::AirFlown air_flown_;

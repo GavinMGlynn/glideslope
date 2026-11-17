@@ -30,8 +30,13 @@
 #   out by exactly as much - which a client cannot know until the word says
 #   so, and is the open part of COMPLETION_PLAN.md's item; or out otherwise,
 #   which is a wrong gust clock. At least 300 judged; none out otherwise; and
-#   none flown later than the server flew it - the estimate is the least of
-#   the words' differences, so never more than a word's own. **Not caught**:
+#   none flown later than the server flew it, but for a word setting a new
+#   least: a step is flown on the least of the samples of the 50 words
+#   before it (sim::offset_window), which leaves out the word judged and
+#   drops old words - so a word is judged late only if its own difference
+#   is not below the least of those words' own differences when the step was
+#   flown (each sample is no more than its word's difference, being taken
+#   from when the input was sent, not begun). **Not caught**:
 #   an estimate wrong early, by a step or more - it is out that way by
 #   design in about half the updates, by 1 to 3 steps. Those not judged (an
 #   input not begun here, a step no longer kept) are counted and said;
@@ -114,7 +119,7 @@ set(_median ${CMAKE_MATCH_1})
 set(_clock_said "gust clock: ([0-9]+) updates judged in air, ([0-9]+) not; ([0-9]+) flown at ")
 string(APPEND _clock_said "the server's moment, the worst error ([0-9.]+) m; ([0-9]+) flown on ")
 string(APPEND _clock_said "another estimate of the clocks' difference than the word's, ([0-9]+) of ")
-string(APPEND _clock_said "them later than the server, at most ")
+string(APPEND _clock_said "them later than the server and not for a new least, at most ")
 string(APPEND _clock_said "(-?[0-9]+) steps out, the worst ([0-9.]+) m; ([0-9]+) out otherwise, ")
 string(APPEND _clock_said "at most (-?[0-9]+) steps")
 if(NOT _said MATCHES "${_clock_said}")
@@ -143,9 +148,10 @@ if(_judged LESS 300)
                         "20 s gives:\n${_said}")
 endif()
 if(NOT _later EQUAL 0)
-    message(FATAL_ERROR "${_later} steps were flown later than the server flew them: the "
-                        "estimate of the clocks' difference is the least of the words', and "
-                        "so is never more than a word's own:\n${_said}")
+    message(FATAL_ERROR "${_later} steps were flown later than the server flew them, not "
+                        "for a word setting a new least: the estimate a step was flown on is "
+                        "the least of the samples of the words before it, each no more than "
+                        "its word's own difference:\n${_said}")
 endif()
 if(NOT _wrong EQUAL 0)
     message(FATAL_ERROR "${_wrong} of ${_judged} steps judged met the gusts at another moment "
