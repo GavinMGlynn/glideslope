@@ -39,7 +39,7 @@ A fourth run of each was made with a build beside it and is not counted:
 main 8.33 m worst, this branch 1.29 m.
 
 - `inputs_read_together_are_flown_as_far_apart_as_their_client_sent_them`
-  (test_held_inputs.cpp): six ways of naming steps, counted - ninety of a
+  (test_held_inputs.cpp): seven ways of naming steps, counted - ninety of a
   stall's, four apart, each flown from its own step and none let go; unevenly
   spaced; spaced wider than owed; spaced back past an input stamped before;
   not said; a count begun again; across the count's wrap. Seen red with each older input due with the
