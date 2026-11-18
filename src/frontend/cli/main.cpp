@@ -3452,6 +3452,7 @@ private:
         worst_pitch_on_path_at_s_ = 0.0;
         first_compared_.reset();
         last_compared_.reset();
+        steps_outside_stalls_ = {0, 0};
     }
 
     static std::unique_ptr<glideslope::sim::Aircraft> build(const std::string& model) {
@@ -3595,6 +3596,18 @@ private:
         aircraft_->set_motion(m);
         start_weight_lbs_ = aircraft_->property("inertia/weight-lbs");
         prediction_ = std::make_unique<glideslope::sim::Prediction>(*aircraft_);
+        // **The steps counted so far kept, and counted afresh from here**:
+        // a prediction begun again (a take-back, a take-over) numbers its
+        // steps from its own start, so the run before it is summed as a
+        // stall's is, not subtracted across (nightly 43988660972: "paced in
+        // steps: 18446744073709551541", the take-back's steps from the
+        // first compared before it).
+        if (first_compared_ && last_compared_) {
+            steps_outside_stalls_.first += last_compared_->first - first_compared_->first;
+            steps_outside_stalls_.second += last_compared_->second - first_compared_->second;
+        }
+        first_compared_.reset();
+        last_compared_.reset();
         // **On the levers the server holds her on**, where it has said them
         // (`--stovl-at-once`, `--from-held`), as the windowed client begins.
         if (levers_) {
