@@ -1745,7 +1745,11 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       sanitized build, every frame 0.8 s and more: 21.4 m once; CI run
       36674576086, the slow-frames test: linux-debug 20.624 m, windows-debug
       29.491 m). The plain on-server window test on the debug presets is in
-      the same regime. *Verification: the
+      the same regime. 2026-11-18: cause found - a frame's words, read
+      together, steer the pace as separate looks, so its drift is forgiven
+      as jumps, and a rate fit skewed by them starts it at 0.64; held 1 s
+      beside busy loops, 54 and 159 m. Steering for sparse looks still open
+      (docs/status). *Verification: the
       on-server window test with every frame held a second stays under 20 m.*
 - [ ] **A server that falls behind real time puts its clients' prediction off
       by metres**: it flies each input for fewer steps than the client does.
