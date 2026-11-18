@@ -686,6 +686,21 @@ std::string on_final_wind_refuses(const LearntPolicy& policy, double heading_deg
     return {};
 }
 
+double on_final_crab_deg(double heading_deg, double wind_north_mps, double wind_east_mps,
+                         double true_airspeed_kts) {
+    constexpr double kts_per_mps = 1.0 / 0.514444;
+    if (!(true_airspeed_kts > 0.0)) {
+        return 0.0;
+    }
+    const double h = heading_deg / degrees;
+    // Towards her right, knots: she points left of the runway into it.
+    const double across_kts =
+        (wind_east_mps * std::cos(h) - wind_north_mps * std::sin(h)) * kts_per_mps;
+    const double wca_deg =
+        -std::asin(std::clamp(across_kts / true_airspeed_kts, -1.0, 1.0)) * degrees;
+    return std::clamp(wca_deg, -OnFinalCrab::most_deg, OnFinalCrab::most_deg);
+}
+
 OnFinal on_final(const Aircraft& aircraft, const Runway& runway) {
     const Where w = where(LandingReadings::of(aircraft), runway);
     return {w.along_m, w.across_m, w.above_m};

@@ -9,7 +9,9 @@
 #include "sim/weather.hpp"
 #include "sim/catalogue.hpp"
 #include "world/digest.hpp"
+#include "world/metar.hpp"
 #include "world/runway_ground.hpp"
+#include "world/weather.hpp"
 
 #include <algorithm>
 #include <chrono>
@@ -2790,4 +2792,155 @@ GLIDESLOPE_TEST(a_runways_other_end_is_offered_only_into_a_wind_its_learnt_landi
     check(!refused(347.9 + 90.0, 16.0 * std::cos(h), 16.0 * std::sin(h)).empty(),
           "16 kt straight across is refused, past the gate's 15");
     check(cases == 8, "eight cases: " + std::to_string(cases));
+}
+
+// **Every aeroplane with a learnt landing, started on final crabbed into the
+// wind, swept knot by knot across: her crosswind limit on final is the most
+// in which she is at her gate thirty seconds on, and her figures say so.**
+// Started as the server starts a player on final (frontend/server's on-final
+// start): Sydney's 16R, where her gate holds her thirty seconds
+// (sim::learnt_gate_start_m), at her learnt landing's vref with her landing
+// flap, trimmed wings and all in the session's air - a METAR of 20 degrees
+// and Q1015, as the server's wind-limit runs fly
+// (server_on_final_wind_limits.cmake) - her true airspeed had from a trim
+// down the runway, then started again crabbed by sim::on_final_crab_deg,
+// held on what her trim found (sim::held_until_moved) and judged by her gate
+// (sim::outside_learnt_gate) thirty seconds on. **Every whole knot** from
+// calm to the most across her gate admits (sim::learnt_gate_most_crosswind_kts:
+// 15, the Cub's 12), from the right (258) and from the left (078); her limit
+// is the most up to which every knot held both ways. It must be her
+// on_final_crosswind_kts, and the next knot must fail one way - unless the
+// limit is her gate's own most. The catalogue walked whole and counted
+// against the learnt landings in the data, and every run counted against
+// the aeroplanes times the knots times two sides. **Not swept, and why**:
+// one temperature and pressure, as the server's wind-limit runs (the limits
+// are for the wind); no gusts; her model's own loading; 16R near sea level
+// only; the ground flat at the runway's elevation (she is 700 ft over it);
+// the server's 16-bit held controls (net::as_sent) not quantised here - the
+// server's own runs at each limit and a knot past it check this sweep
+// through the server itself.
+GLIDESLOPE_TEST(every_learnt_landings_aeroplane_started_on_final_crabbed_is_at_her_gate_thirty_seconds_on_up_to_her_crosswind_limit_and_not_a_knot_past_it) {
+    Runway runway;
+    runway.name = "YSSY 16R";
+    runway.threshold_lat_deg = -33.929401;
+    runway.threshold_lon_deg = 151.171997;
+    runway.elevation_ft = 8.0;
+    runway.heading_deg = 167.9;
+    runway.length_m = 3962.0;
+    const double ground_m = runway.elevation_ft / feet_per_metre;
+    // Why she is not at her gate thirty seconds on, started crabbed in a
+    // wind `kts` from `from_deg`; empty where she is.
+    const auto flown = [&](const std::string& model, const LearntPolicy& policy, int from_deg,
+                           int kts, double& crab_deg) {
+        char text[96];
+        std::snprintf(text, sizeof text, "YSSY 111200Z %03d%02dKT 9999 FEW030 20/10 Q1015",
+                      from_deg, kts);
+        glideslope::world::WeatherReport report;
+        report.surface.metar = glideslope::world::parse_metar(text);
+        report.surface.latitude_deg = -33.9461;
+        report.surface.longitude_deg = 151.1772;
+        report.surface.elevation_m = ground_m;
+        report.air_seed = glideslope::world::air_seed_of(report.surface.metar);
+        const auto air =
+            std::make_shared<glideslope::world::ReportedWeather>(report, nullptr, 0.0);
+        auto aircraft = std::make_unique<glideslope::sim::Aircraft>(data() / "jsbsim", model);
+        aircraft->set_terrain(std::make_shared<glideslope::sim::FunctionTerrain>(
+            [ground_m](double, double) { return ground_m; },
+            [](double, double) { return false; }));
+        aircraft->set_weather(air);
+        const auto speeds = glideslope::sim::landing_speeds(data(), model);
+        check(speeds.has_value(), model + " has approach speeds");
+        glideslope::sim::InitialConditions ic = glideslope::sim::final_approach_start(
+            runway, glideslope::sim::learnt_gate_start_m(policy), policy.vref_kts, speeds->flap,
+            speeds->aim_m, 3.0);
+        ic.trim_lateral = true;
+        aircraft->initialize(ic);
+        const glideslope::sim::Conditions here =
+            air->at(ic.latitude_deg, ic.longitude_deg, ic.altitude_ft / feet_per_metre, 0.0);
+        crab_deg = glideslope::sim::on_final_crab_deg(runway.heading_deg, here.wind_north_mps,
+                                                      here.wind_east_mps,
+                                                      aircraft->property("velocities/vtrue-kts"));
+        ic.heading_deg = runway.heading_deg + crab_deg;
+        aircraft->initialize(ic);
+        if (std::string why = glideslope::sim::outside_learnt_gate(*aircraft, runway, policy);
+            !why.empty()) {
+            return "at her start: " + why;
+        }
+        const Controls held = glideslope::sim::held_until_moved(*aircraft);
+        for (int i = 0; i < 30 * steps_per_second; ++i) {
+            aircraft->set_controls(held);
+            aircraft->step();
+        }
+        return glideslope::sim::outside_learnt_gate(*aircraft, runway, policy);
+    };
+    std::size_t walked = 0;
+    std::size_t runs = 0;
+    std::size_t wanted = 0;
+    std::vector<std::string> wrong;
+    for (const glideslope::sim::CatalogueEntry& entry : glideslope::sim::read_catalogue(data())) {
+        const std::string& model = entry.model;
+        const auto policy = glideslope::sim::learnt_landing(data(), model);
+        if (!policy) {
+            continue;
+        }
+        const int most =
+            static_cast<int>(glideslope::sim::learnt_gate_most_crosswind_kts(*policy));
+        wanted += static_cast<std::size_t>(most + 1) * 2;
+        int limit = -1;
+        int first_failed = -1;
+        for (int kts = 0; kts <= most; ++kts) {
+            bool held = true;
+            for (const int from : {258, 78}) {
+                double crab = 0.0;
+                const std::string why = flown(model, *policy, from, kts, crab);
+                ++runs;
+                std::printf("  %-6s %2d kt from %03d, crabbed %+5.2f degrees: %s\n",
+                            model.c_str(), kts, from, crab,
+                            why.empty() ? "at the gate 30 s on" : why.c_str());
+                held = held && why.empty();
+            }
+            if (first_failed < 0) {
+                if (held) {
+                    limit = kts;
+                } else {
+                    first_failed = kts;
+                }
+            }
+        }
+        std::printf("  %s: at the gate 30 s on up to %d kt across, crabbed; her figures say "
+                    "%.0f\n",
+                    model.c_str(), limit, policy->on_final_crosswind_kts);
+        if (static_cast<double>(limit) != policy->on_final_crosswind_kts) {
+            wrong.push_back(model + " held to " + std::to_string(limit) +
+                            " kt across, her figures say " +
+                            std::to_string(policy->on_final_crosswind_kts));
+        }
+        if (limit < most && first_failed != limit + 1) {
+            wrong.push_back(model + " did not fail a knot past her limit");
+        }
+        ++walked;
+    }
+    std::size_t files = 0;
+    const std::string suffix = "-landing.txt";
+    for (const auto& file : std::filesystem::directory_iterator(data() / "rl")) {
+        const std::string name = file.path().filename().string();
+        if (name.size() > suffix.size() &&
+            name.compare(name.size() - suffix.size(), suffix.size(), suffix) == 0) {
+            ++files;
+        }
+    }
+    std::printf("  %zu aeroplanes with a learnt landing walked of %zu in the data; %zu runs of "
+                "%zu\n",
+                walked, files, runs, wanted);
+    check(walked == files && walked > 0,
+          "every learnt landing in the data walked: " + std::to_string(walked) + " of " +
+              std::to_string(files));
+    check(runs == wanted && runs > 0,
+          "every knot both ways flown: " + std::to_string(runs) + " of " +
+              std::to_string(wanted));
+    std::string text;
+    for (const std::string& w : wrong) {
+        text += " " + w + ";";
+    }
+    check(wrong.empty(), "each limit as measured, and a knot past it failing:" + text);
 }
