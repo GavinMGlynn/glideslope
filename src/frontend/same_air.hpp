@@ -11,6 +11,7 @@
 // back the client's (net/messages.hpp). Both are here.
 
 #include "net/messages.hpp"
+#include "net/told.hpp"
 #include "sim/weather.hpp"
 #include "world/dem.hpp"
 #include "world/download.hpp"
@@ -192,6 +193,14 @@ public:
     // fetching any, and a client joined after the rain the wet runway the
     // server still flies.
     bool conditions_heard(const net::RunwayConditions& conditions);
+
+    // **One thing the server said of its air** (net::AirSaid), taken as it
+    // was said: a weather flown (`heard`), or runways laid
+    // (`conditions_heard`). Both clients make their air so, each thing in
+    // the order said - a slot told three weathers on joining is made three
+    // changes, as the server made them. False, with why for a weather, for
+    // what was not taken.
+    bool said(const net::AirSaid& said, std::string* why = nullptr);
 
     // What an aircraft is to fly: null for still air from the start.
     const std::shared_ptr<sim::Weather>& air() const { return air_; }

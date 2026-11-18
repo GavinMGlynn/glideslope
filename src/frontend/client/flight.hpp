@@ -360,25 +360,19 @@ public:
     // The weather report flown in now, or null without one; and where its
     // station is, for drawing its sky.
     const world::WeatherReport* weather_report() const;
-    // **The server's weather** (REQUIREMENTS.md 6.3), each whole one as it
-    // is heard: flown and drawn in place of any of this flight's own, over
-    // the collision ground, on the session's `clock`. From the first, this
-    // flight fetches no weather of its own.
-    // `count` is the server's count of the weathers of the slot it is for
-    // (net::Told::Station::weathers), which `server_weathers` gives back for
-    // that slot: nought before any.
-    // False, with why, for one refused (frontend::HeardAir::heard): the
-    // weather flown before it is kept.
-    bool heard_weather(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
-                       std::function<double()> clock, std::int64_t count, std::string& why);
-    std::int64_t server_weathers(std::uint8_t station) const {
-        const auto it = server_weathers_.find(station);
-        return it == server_weathers_.end() ? 0 : it->second;
-    }
-    // **The runways the server's air lays a condition on** (net::
-    // RunwayConditions), laid on its weather if they are for it: false if
-    // not, or there is no server's weather.
-    bool heard_runway_conditions(const net::RunwayConditions& conditions);
+    // **The server's weather** (REQUIREMENTS.md 6.3): the air a session
+    // makes of what its server says (frontend::HeardAir, kept by Online for
+    // the whole session, so that a flight made since - another aeroplane
+    // taken over - flies every change the server is still blending, not
+    // the newest of each slot). Flown and drawn in place of any of this
+    // flight's own, on the session's `clock` until a prediction's step says
+    // when it is; from the first, this flight fetches no weather of its own.
+    // Given again each frame: only a new air, or its first stations, changes
+    // what the aircraft flies.
+    void fly_server_air(std::shared_ptr<const frontend::HeardAir> air,
+                        std::function<double()> clock);
+    // The geoid this flight's ground stands on, for the server's air.
+    const std::shared_ptr<const world::Geoid>& geoid() const { return geoid_; }
     gfx::Station weather_station() const;
 
     // Simulation time, seconds.
@@ -412,7 +406,9 @@ private:
     world::Fetch fetch_;
     std::unique_ptr<world::DemCoverage> coverage_;
     std::unique_ptr<world::DemTiles> tiles_;
-    std::unique_ptr<world::Geoid> geoid_;
+    // Shared with the server's air a session keeps (Online), which outlives
+    // a flight.
+    std::shared_ptr<const world::Geoid> geoid_;
     // The DEM, with every runway its own surface (world/runway_ground.hpp): the
     // ground the server's aircraft meet, which this one's prediction must too.
     std::shared_ptr<world::CollisionGround> collision_;
@@ -480,9 +476,10 @@ private:
     std::vector<world::Microburst> microbursts_;
     std::shared_ptr<world::ReportedWeather> weather_;
     std::optional<frontend::StationRunways> station_runways_;
-    // The server's air, once it has said any (`heard_weather`).
-    std::optional<frontend::HeardAir> heard_air_;
-    std::map<std::uint8_t, std::int64_t> server_weathers_;
+    // The server's air, once it has said any (`fly_server_air`), and the
+    // stations of it this aircraft flies; null before.
+    std::shared_ptr<const frontend::HeardAir> server_air_;
+    std::shared_ptr<world::StationSlots> server_stations_flown_;
     double weather_fetched_at_s_ = 0.0;
     // Last, so that a fetch still under way is given up, and waited for,
     // before anything it could reach is destroyed.

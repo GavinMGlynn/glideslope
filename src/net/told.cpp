@@ -91,6 +91,16 @@ Told::Heard Told::hear(std::span<const std::uint8_t> body) {
     return Heard::nothing;
 }
 
+std::optional<AirSaid> Told::air_said(Heard heard) const {
+    if (heard == Heard::weather) {
+        return AirSaid{weather(), aloft(), std::nullopt};
+    }
+    if (heard == Heard::runway_conditions) {
+        return AirSaid{std::nullopt, std::nullopt, runway_conditions()};
+    }
+    return std::nullopt;
+}
+
 void Told::took(Weather weather, std::optional<WeatherAloft> aloft) {
     last_station_ = weather.station;
     Station& s = stations_[weather.station];

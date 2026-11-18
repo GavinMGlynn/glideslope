@@ -140,6 +140,17 @@ public:
     // it collides on, the session, the lobby and the weather it flies. A
     // session joined again is told afresh.
     const Told& told() const { return told_; }
+    // **Everything the server has said of its air since last asked**, in
+    // the order said (net::AirSaid): each whole weather and each slot's
+    // runways. A client makes its air of these, one after another, and not
+    // of what `told()` keeps of each slot - a client joining while the
+    // stations change is told a slot's weather more than twice. A session
+    // joined again starts them afresh.
+    std::vector<AirSaid> take_air() {
+        std::vector<AirSaid> out;
+        out.swap(air_said_);
+        return out;
+    }
     // **The take-overs the server has refused since last asked**, by the
     // aircraft each asked for (`TAKE_OVER_REFUSED`), oldest first.
     std::vector<std::uint8_t> take_refusals() {
@@ -248,6 +259,7 @@ private:
     std::map<std::uint8_t, AircraftDefinition> roster_;
     std::map<std::uint8_t, Controller> swaps_;
     Told told_;
+    std::vector<AirSaid> air_said_;
     std::vector<std::uint8_t> refusals_;
     std::vector<LearntLandingRefused> learnt_refusals_;
     std::vector<TrafficInstruction> instructions_;

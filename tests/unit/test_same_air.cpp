@@ -2,9 +2,12 @@
 // (src/frontend/same_air.hpp, src/net/told.hpp; REQUIREMENTS.md 6.3).
 
 #include "harness.hpp"
+#include "stand_in_server.hpp"
 
 #include "frontend/same_air.hpp"
 #include "net/messages.hpp"
+#include "net/reliable.hpp"
+#include "net/session.hpp"
 #include "net/told.hpp"
 #include "sim/fixed_step.hpp"
 #include "world/digest.hpp"
@@ -20,6 +23,7 @@
 #include <cstdio>
 #include <filesystem>
 #include <fstream>
+#include <functional>
 #include <future>
 #include <iterator>
 #include <memory>
@@ -771,6 +775,14 @@ GLIDESLOPE_TEST(a_client_flies_the_servers_stations_to_the_last_bit_through_ever
                 compared);
 }
 
+namespace {
+
+// **What a joining client makes of what it is told**: the bodies of every
+// reliable message glideslope_server tells it of the weather on joining, in
+// order, made into its air on `clock`.
+using Join = std::function<std::shared_ptr<glideslope::frontend::HeardAir>(
+    const std::vector<std::vector<std::uint8_t>>& told, const std::function<double()>& clock)>;
+
 // **A client joining while the server's stations change flies the server's
 // air to the last bit.** A server flies stations in slots, each set as
 // glideslope_server's Fleet::set_slot sets it (world::StationSlots::set, the
@@ -783,15 +795,14 @@ GLIDESLOPE_TEST(a_client_flies_the_servers_stations_to_the_last_bit_through_ever
 // each change as it comes. One joining at 715 s - inside both changes'
 // blends and YSWS's own, so that slot 1 is told three weathers: built so,
 // and checked - is told what glideslope_server tells a joining client
-// (frontend::weather_said_on_joining, and then each slot's runways), through
-// the wire's bytes, net::Told and frontend::HeardAir. The air of both is
-// compared with the server's at 5 places (one on UUEE's runway 24, one on
-// YSSY's), 3 heights and 10 times from the joining to past every blend's
-// end, 150 points each, to the last bit; the ice and the wet runway are
-// among them, counted.
-GLIDESLOPE_TEST(a_client_joining_while_the_servers_stations_change_flies_the_servers_air) {
+// (frontend::weather_said_on_joining, and then each slot's runways), and
+// makes its air of it by `join`. The air of both is compared with the
+// server's at 5 places (one on UUEE's runway 24, one on YSSY's), 3 heights
+// and 10 times from the joining to past every blend's end, 150 points each,
+// to the last bit; the ice and the wet runway are among them, counted.
+void joined_mid_change(const Join& join) {
     double now_s = 0.0;
-    const auto clock = [&now_s] { return now_s; };
+    const std::function<double()> clock = [&now_s] { return now_s; };
     constexpr double blend_s = 120.0;
     const auto at = [](const std::string& metar, double lat, double lon) {
         glideslope::world::WeatherReport r = a_full_report(metar);
@@ -806,14 +817,13 @@ GLIDESLOPE_TEST(a_client_joining_while_the_servers_stations_change_flies_the_ser
     glideslope::frontend::SessionClocked server_air(server, clock);
     glideslope::net::Told there_told;
     glideslope::frontend::HeardAir there(nullptr, {}, clock);
+    // As both clients hear the server: each thing said of the air, in the
+    // order said (net::Told::air_said, frontend::HeardAir::said).
     const auto hear = [](glideslope::net::Told& told, glideslope::frontend::HeardAir& air,
                          const std::vector<std::uint8_t>& body) {
-        const glideslope::net::Told::Heard heard = told.hear(all_of(body));
-        if (heard == glideslope::net::Told::Heard::weather) {
-            check(air.heard(*told.weather(), told.aloft()), "a weather flown");
-        } else if (heard == glideslope::net::Told::Heard::runway_conditions) {
-            check(air.conditions_heard(*told.stations().at(told.last_station()).runway_conditions),
-                  "runways laid on the weather they are for");
+        if (const auto said = told.air_said(told.hear(all_of(body)))) {
+            check(air.said(*said), said->weather ? "a weather flown"
+                                                 : "runways laid on the weather they are for");
         }
     };
     // A slot's weather, from now, as glideslope_server's Fleet::set_slot sets
@@ -863,20 +873,24 @@ GLIDESLOPE_TEST(a_client_joining_while_the_servers_stations_change_flies_the_ser
     check(server->set_changed_at_s() == 700.0 && now_s < 650.0 + blend_s &&
               now_s < 600.0 + blend_s,
           "joined inside the blends of the changes at 650 s and 700 s, and of YSWS's report");
-    glideslope::net::Told joiner_told;
-    glideslope::frontend::HeardAir joiner(nullptr, {}, clock);
-    for (const std::vector<std::uint8_t>& body :
-         glideslope::frontend::weather_said_on_joining(*server, slot_count, blend_s, now_s)) {
-        hear(joiner_told, joiner, body);
-    }
+    std::vector<std::vector<std::uint8_t>> told =
+        glideslope::frontend::weather_said_on_joining(*server, slot_count, blend_s, now_s);
     // Then each slot's runways, as the server tells them after the weather.
     for (std::size_t i = 0; i < server->slots().size(); ++i) {
         if (const auto& s = server->slots()[i]) {
-            hear(joiner_told, joiner,
-                 glideslope::net::write(glideslope::frontend::runway_conditions_said(
-                     *s, s->changed_at_s(), now_s, static_cast<std::uint8_t>(i))));
+            told.push_back(glideslope::net::write(glideslope::frontend::runway_conditions_said(
+                *s, s->changed_at_s(), now_s, static_cast<std::uint8_t>(i))));
         }
     }
+    std::size_t slot_1_told = 0;
+    for (const std::vector<std::uint8_t>& body : told) {
+        glideslope::net::Weather w;
+        slot_1_told += glideslope::net::read(all_of(body), w) && w.station == 1 ? 1U : 0U;
+    }
+    const std::shared_ptr<glideslope::frontend::HeardAir> joiner = join(told, clock);
+    check(joiner != nullptr && joiner->stations() != nullptr, "the joiner has stations");
+    // Flown as each client's aircraft flies it: the stations, on its clock.
+    glideslope::frontend::SessionClocked joiner_air(joiner->stations(), clock);
 
     const double uuee_lat = 55.97 - 0.004;
     const double uuee_lon = 37.41 - 0.004 * std::tan(60.0 * 3.14159265358979323846 / 180.0) /
@@ -909,7 +923,7 @@ GLIDESLOPE_TEST(a_client_joining_while_the_servers_stations_change_flies_the_ser
         for (const auto& p : places) {
             for (const double h : heights) {
                 const glideslope::sim::Conditions a = server_air.at(p[0], p[1], h, 1.0);
-                const bool j = same(a, joiner.air()->at(p[0], p[1], h, 77.0));
+                const bool j = same(a, joiner_air.at(p[0], p[1], h, 77.0));
                 const bool e = same(a, there.air()->at(p[0], p[1], h, 77.0));
                 joiner_same += j ? 1U : 0U;
                 there_same += e ? 1U : 0U;
@@ -923,16 +937,100 @@ GLIDESLOPE_TEST(a_client_joining_while_the_servers_stations_change_flies_the_ser
                 "server's at %zu, the client there from the start's at %zu; %zu on ice, %zu "
                 "wet\n",
                 compared, joiner_same, there_same, iced, wet);
-    check(joiner_told.stations().at(1).weathers >= 3,
-          "slot 1 told three weathers or more on joining: " +
-              std::to_string(joiner_told.stations().at(1).weathers));
+    check(slot_1_told >= 3,
+          "slot 1 told three weathers or more on joining: " + std::to_string(slot_1_told));
     check(compared == 5 * 3 * 10, "every point compared: " + std::to_string(compared));
     check(iced > 0 && wet > 0, "the ice and the wet runway among them");
     check(there_same == compared, "the client there from the start flies the server's air");
     check(joiner_same == compared, "the joiner flies the server's air at every point");
-    check(joiner.stations() && joiner.stations()->slots().size() == 4 &&
-              !joiner.stations()->slots()[2],
+    check(joiner->stations()->slots().size() == 4 && !joiner->stations()->slots()[2],
           "the joiner flies four slots, the third emptied");
+}
+
+} // namespace
+
+// **A client joining while the server's stations change flies the server's
+// air to the last bit** (joined_mid_change), hearing what it is told as the
+// headless client does: each body through net::Told, and each thing said of
+// the air made into it as it is heard.
+GLIDESLOPE_TEST(a_client_joining_while_the_servers_stations_change_flies_the_servers_air) {
+    joined_mid_change([](const std::vector<std::vector<std::uint8_t>>& told,
+                         const std::function<double()>& clock) {
+        glideslope::net::Told heard;
+        auto air = std::make_shared<glideslope::frontend::HeardAir>(
+            nullptr, glideslope::world::GroundAt{}, clock);
+        for (const std::vector<std::uint8_t>& body : told) {
+            if (const auto said = heard.air_said(heard.hear(all_of(body)))) {
+                check(air->said(*said), "what was said of the air taken");
+            }
+        }
+        return air;
+    });
+}
+
+// **The window client joining while the server's stations change flies the
+// server's air to the last bit** (joined_mid_change), told it as the window
+// client is: the bodies sent through the reliable layer, sealed, over the
+// loopback by a stand-in server, to a real net::ClientSession, and taken
+// from it as client::Online takes them - everything said of the air since
+// last asked, in the order said (net::ClientSession::take_air), each made
+// into one air for the session (frontend::HeardAir::said). Everything said
+// is taken - counted against what was sent - and slot 1's three weathers
+// among them. Its stations are flown as Flight::fly_server_air flies them,
+// on the aircraft's own clock.
+GLIDESLOPE_TEST(the_window_client_joining_while_the_servers_stations_change_flies_the_servers_air) {
+    joined_mid_change([](const std::vector<std::vector<std::uint8_t>>& told,
+                         const std::function<double()>& clock) {
+        glideslope::test::StandIn stand_in;
+        const std::string where = "127.0.0.1:" + std::to_string(stand_in.socket.port());
+        std::optional<glideslope::net::ClientSession> session;
+        std::thread connecting([&] {
+            if (auto made = glideslope::net::ClientSession::connect(
+                    where, stand_in.key.publik.text())) {
+                session.emplace(std::move(*made));
+            }
+        });
+        const bool answered = stand_in.answer_one();
+        connecting.join();
+        check(answered && session.has_value(), "the client has a session with the stand-in");
+        // What is to be taken: each whole weather - a WEATHER, with the
+        // WEATHER_ALOFT after it where it says one follows - and each
+        // slot's runways.
+        glideslope::net::Reliable reliable;
+        std::size_t to_take = 0;
+        for (const std::vector<std::uint8_t>& body : told) {
+            check(reliable.send(all_of(body)), "a message queued");
+            const auto kind = glideslope::net::kind_of(all_of(body));
+            to_take += kind == glideslope::net::Message::weather ||
+                               kind == glideslope::net::Message::runway_conditions
+                           ? 1U
+                           : 0U;
+        }
+        auto air = std::make_shared<glideslope::frontend::HeardAir>(
+            nullptr, glideslope::world::GroundAt{}, clock);
+        std::size_t taken = 0;
+        std::size_t weathers_of_slot_1 = 0;
+        const auto began = std::chrono::steady_clock::now();
+        for (double t = 0.0; taken < to_take &&
+                             std::chrono::steady_clock::now() - began < std::chrono::seconds(10);
+             t += 0.01) {
+            stand_in.send_reliable(reliable, t);
+            session->poll(t);
+            for (const glideslope::net::AirSaid& said : session->take_air()) {
+                check(air->said(said), "what was said of the air taken");
+                weathers_of_slot_1 += said.weather && said.weather->station == 1 ? 1U : 0U;
+                ++taken;
+            }
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+        std::printf("  %zu things said of the air sent over the loopback, %zu taken, %zu of "
+                    "them slot 1's weathers\n",
+                    to_take, taken, weathers_of_slot_1);
+        check(taken == to_take, "everything said of the air taken: " + std::to_string(taken) +
+                                    " of " + std::to_string(to_take));
+        check(weathers_of_slot_1 >= 3, "slot 1's three weathers among them");
+        return air;
+    });
 }
 
 // **The stations flown keep only the changes that still reach the air**,
