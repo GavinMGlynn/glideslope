@@ -1,4 +1,5 @@
 #include "harness.hpp"
+#include "stand_in_server.hpp"
 
 #include "net/handshake.hpp"
 #include "net/inside.hpp"
@@ -24,29 +25,13 @@ using glideslope::net::Responder;
 using glideslope::platform::Address;
 using glideslope::platform::UdpSocket;
 using glideslope::test::check;
+using glideslope::test::StandIn;
+using glideslope::test::wait_for;
 
 namespace {
 
 std::span<const std::uint8_t> all_of(const std::vector<std::uint8_t>& v) {
     return std::span<const std::uint8_t>(v.data(), v.size());
-}
-
-// Waits for a datagram, up to a second, which is a very long time on
-// loopback and short enough that a broken test fails rather than hangs.
-std::vector<std::uint8_t> wait_for(UdpSocket& socket, Address& from) {
-    std::vector<std::uint8_t> into(glideslope::platform::largest_datagram);
-    const auto began = std::chrono::steady_clock::now();
-    for (;;) {
-        const std::size_t got = socket.receive(into, from);
-        if (got > 0) {
-            into.resize(got);
-            return into;
-        }
-        if (std::chrono::steady_clock::now() - began > std::chrono::seconds(1)) {
-            return {};
-        }
-        std::this_thread::sleep_for(std::chrono::milliseconds(1));
-    }
 }
 
 } // namespace
@@ -276,69 +261,6 @@ GLIDESLOPE_TEST(a_client_whose_first_sealed_datagram_is_lost_still_proves_its_se
                           std::to_string(after) + " sealed after)");
 }
 
-namespace {
-
-// **A stand-in server** for a `net::ClientSession`: answers initiations on its
-// socket with the responder's keys, and seals to the client under the newest
-// session it made.
-struct StandIn {
-    UdpSocket socket = *UdpSocket::bound(0);
-    KeyPair key = glideslope::net::mint_key_pair();
-    Address client;
-    std::optional<glideslope::net::Sealer> sealing;
-    std::optional<glideslope::net::Unsealer> opening;
-    int sessions = 0;
-
-    // Waits for an initiation, skipping whatever else comes, and answers it.
-    bool answer_one() {
-        const auto began = std::chrono::steady_clock::now();
-        while (std::chrono::steady_clock::now() - began < std::chrono::seconds(5)) {
-            Address from;
-            const std::vector<std::uint8_t> got = wait_for(socket, from);
-            if (got.size() <= glideslope::net::envelope_size ||
-                got[glideslope::net::envelope_size - 1] !=
-                    static_cast<std::uint8_t>(glideslope::net::Type::handshake_initiation)) {
-                continue;
-            }
-            Responder responder(key);
-            const auto answer = responder.answer(
-                std::span<const std::uint8_t>(got).subspan(glideslope::net::envelope_size));
-            if (!answer) {
-                return false;
-            }
-            glideslope::net::Writer w =
-                glideslope::net::begin(glideslope::net::Type::handshake_response);
-            w.bytes(answer->message);
-            const std::vector<std::uint8_t> out = w.take();
-            (void)socket.send(from, all_of(out));
-            client = from;
-            sealing.emplace(answer->session.sending);
-            opening.emplace(answer->session.receiving);
-            ++sessions;
-            return true;
-        }
-        return false;
-    }
-
-    void send_state(double at_s) {
-        glideslope::net::StatePacket state;
-        state.simulation_time_s = at_s;
-        const auto body = glideslope::net::write_state(state);
-        glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::sealed);
-        w.bytes(sealing->seal(all_of(*body)));
-        const std::vector<std::uint8_t> out = w.take();
-        (void)socket.send(client, all_of(out));
-    }
-
-    void refuse(glideslope::net::Refusal why) {
-        glideslope::net::Writer w = glideslope::net::begin(glideslope::net::Type::refusal);
-        w.u8(static_cast<std::uint8_t>(why));
-        const std::vector<std::uint8_t> out = w.take();
-        (void)socket.send(client, all_of(out));
-    }
-};
-
-} // namespace
 
 // **A session joined again hands up nothing of the one let go**: an update
 // the old session left waiting is not handed up as the new one's - it would

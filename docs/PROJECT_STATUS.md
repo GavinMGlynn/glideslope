@@ -589,8 +589,11 @@ are the risks the phase order is built around:
   asked (2026-11-17). A client joining while
   the server's stations change is told the stations they blend from first,
   and the headless client flies the server's air to the last bit
-  (2026-11-14); the window client keeps two weathers a slot and does not,
-  where a slot is told three - its item, still open. glideslope_cli has no weather of its own: it flies a
+  (2026-11-14); the window client now takes everything said of the air in
+  the order said, into one air for the session, and a unit test of its
+  session flies the server's air to the last bit (2026-11-18) - no
+  end-to-end run of the window client joining mid-change yet, its item
+  still open. glideslope_cli has no weather of its own: it flies a
   server's, or none. On a server the server's weather travels and every
   client flies it - one joining mid-blend blended from the same weather - but
   over no ground: no ridge or wave lift there, a tail.

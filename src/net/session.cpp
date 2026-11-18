@@ -309,6 +309,7 @@ void ClientSession::keep_joining_again(double now_s) {
             refusals_.clear();
             learnt_refusals_.clear();
             told_ = Told{};
+            air_said_.clear();
             mine_ = no_aircraft;
             applied_ = 0;
             aircraft_.clear();
@@ -412,7 +413,9 @@ void ClientSession::read_what_arrived(double now_s) {
                 if (read(all_of(message), swap)) {
                     swaps_[swap.aircraft] = swap.to;
                 }
-                (void)told_.hear(all_of(message));
+                if (auto air = told_.air_said(told_.hear(all_of(message)))) {
+                    air_said_.push_back(std::move(*air));
+                }
             }
             continue;
         }

@@ -29,6 +29,18 @@
 
 namespace glideslope::net {
 
+// **One thing a server said of its air**: a whole weather and the forecast
+// above it, or the runways it lays a condition on - in the order said, which
+// is the order a client's air is to be made in (frontend::HeardAir::said).
+// A client joining while the stations change is told a slot's weather three
+// times or more, one change after another; what `Told` keeps of a slot -
+// its newest and the one before - is not all of it.
+struct AirSaid {
+    std::optional<Weather> weather;
+    std::optional<WeatherAloft> aloft;
+    std::optional<RunwayConditions> runway_conditions;
+};
+
 class Told {
 public:
     // What a message changed, if anything a caller acts on.
@@ -37,6 +49,10 @@ public:
     // **Takes one reliable message**, whatever its kind; a kind this does not
     // keep - an aircraft's definition, a swap - is `nothing` here.
     Heard hear(std::span<const std::uint8_t> body);
+    // **What `hear` has just taken of the air**, given what it returned: the
+    // whole weather for `Heard::weather`, the runways for
+    // `Heard::runway_conditions`, and nothing for anything else.
+    std::optional<AirSaid> air_said(Heard heard) const;
 
     const std::optional<Session>& session() const { return session_; }
     const std::optional<Lobby>& lobby() const { return lobby_; }
