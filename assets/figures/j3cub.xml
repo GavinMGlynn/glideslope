@@ -48,8 +48,14 @@
   is within 60): she is started down the runway, not crabbed, and drifts
   with it. Before, when she was trimmed in still air and met the wind on her
   first step: calm only.
+
+  on_final_crosswind_kts since 2026-11-18, 6: she is started crabbed into
+  the wind (sim::on_final_crab_deg, at most 4 degrees) and swept again knot
+  by knot across, both ways - at the gate 30 s on to 6 kt, not at 7
+  (docs/status/2026-11-18-a-crabbed-start-on-final.md; the sweep is
+  test_learnt.cpp's every_learnt_landings_aeroplane_started_on_final_crabbed_...).
 -->
-<published_figures aircraft="j3cub" flaps_full_deg="0" lands="three_point" demonstrated_crosswind_kts="12" on_final_headwind_kts="15" on_final_tailwind_kts="5" on_final_crosswind_kts="3">
+<published_figures aircraft="j3cub" flaps_full_deg="0" lands="three_point" demonstrated_crosswind_kts="12" on_final_headwind_kts="15" on_final_tailwind_kts="5" on_final_crosswind_kts="6">
   <source>Piper J3C-65 Owner's Manual; Piper, How to Fly a Piper Cub, 1945</source>
 
   <!-- 1,220 lb, the gross weight: the booklet's empty weight, 680 lb, and its
