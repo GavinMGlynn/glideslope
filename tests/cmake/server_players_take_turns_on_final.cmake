@@ -102,9 +102,9 @@ list(GET _runs ${RUN} _run)
 # `+circlenone`, at Richmond (YSRI), one runway, 10, in 6 kt from 108, its
 # other end 28 6 kt behind her - past her gate's 5 and her limit of 5:
 # none will do, and she waits, told why,
-# until the one orbiting goes; `+circlewait`, at Sydney in 6 kt from 168:
-# 34L and 34R 6 behind (past her gate's 5), 16L not clear of the orbit, and
-# 25 and 07 about 6 across - inside her gate's 15, past her limit of 3, so
+# until the one orbiting goes; `+circlewait`, at Sydney in 9 kt from 168:
+# 34L and 34R 9 behind (past her gate's 5), 16L not clear of the orbit, and
+# 25 and 07 about 9 across - inside her gate's 15, past her limit of 8, so
 # refused by her limit alone - and she waits the same way - the server
 # never moves a person's aircraft (REQUIREMENTS 6.5; the owner's ruling,
 # 2026-11-11).
@@ -262,7 +262,7 @@ else()
     # **Light winds**, inside the followers' measured limits on their own
     # runway, so that each is put on final and waits (the owner's ruling,
     # 2026-11-11): 3 kt from 348, behind 16R and into 34L, for the PA-28
-    # (5 behind at most); 2 from 250 for the C172P (3 across at most): 25
+    # (5 behind at most); 2 from 250 for the C172P (8 across at most): 25
     # most into it; at Richmond 6 kt from 108 for a C172P, 0.04 across 10
     # (runway 107.6), and 6 behind 28, which neither her gate (5) nor her
     # limit (5 behind) admits: no other end inside it. Her limits ahead and
@@ -275,7 +275,7 @@ else()
         set(_ai_final --metar "YSSY 111200Z 25002KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
     elseif(_how STREQUAL "circlewait")
-        set(_ai_final --metar "YSSY 111200Z 16806KT 9999 FEW030 20/10 Q1015"
+        set(_ai_final --metar "YSSY 111200Z 16809KT 9999 FEW030 20/10 Q1015"
             --station -33.9461,151.1772)
     elseif(_how STREQUAL "circlenone")
         set(_ai_final --metar "YSRI 111200Z 10806KT 9999 FEW030 20/10 Q1015"
@@ -455,10 +455,10 @@ foreach(_i RANGE ${_last})
             else()
                 # Each end for its own reason: 25 and 07 by her limit across,
                 # which her gate (15 across) would admit.
-                set(_refusals "YSSY 16L not clear" "YSSY 34L 6 kt of tailwind; the gate is within 5"
-                    "YSSY 34R 6 kt of tailwind; the gate is within 5"
-                    "YSSY 25 [56][.][0-9] kt across; she is put on final in 3 across at most"
-                    "YSSY 07 [56][.][0-9] kt across; she is put on final in 3 across at most")
+                set(_refusals "YSSY 16L not clear" "YSSY 34L 9 kt of tailwind; the gate is within 5"
+                    "YSSY 34R 9 kt of tailwind; the gate is within 5"
+                    "YSSY 25 [89][.][0-9] kt across; she is put on final in 8 across at most"
+                    "YSSY 07 [89][.][0-9] kt across; she is put on final in 8 across at most")
             endif()
             if(NOT _out MATCHES "held past the bound, and no other runway will take her: ([^\n]*)\n")
                 message(FATAL_ERROR "place ${_place}, the ${_a}: no other runway refused:\n${_out}")

@@ -271,6 +271,24 @@ std::string learnt_gate_wind_refuses(const LearntPolicy* policy, double heading_
 std::string on_final_wind_refuses(const LearntPolicy& policy, double heading_deg,
                                   double wind_north_mps, double wind_east_mps);
 
+// **How far a player put on final is crabbed into the wind**, degrees to add
+// to the runway's heading `heading_deg` (right positive): the wind
+// correction angle, asin(crosswind / true airspeed) - the crab that holds her
+// track down the centreline (FAA-H-8083-3C, chapter 9, the crab method) - but
+// never more than OnFinalCrab::most_deg, a degree inside the learnt landing's
+// gate (LearntGate::most_off_heading_deg, 5): left alone she wanders up to
+// 0.7 of a degree in thirty seconds, and a C182 crabbed the whole 4.4 degrees
+// in 5 kt across was 5 off the runway's heading when judged. Past that crab
+// she drifts what it leaves; her on_final_crosswind_kts (in her figures) are
+// measured with this start, the most in which that drift keeps her in the
+// gate thirty seconds (2026-11-18). The wind blows towards the north and
+// east, metres a second; `true_airspeed_kts` hers.
+struct OnFinalCrab {
+    static constexpr double most_deg = 4.0;
+};
+double on_final_crab_deg(double heading_deg, double wind_north_mps, double wind_east_mps,
+                         double true_airspeed_kts);
+
 // **Where she is against `runway`'s final**: before its threshold along its
 // centreline, right of it, and above its elevation, in metres.
 struct OnFinal {

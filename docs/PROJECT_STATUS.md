@@ -274,7 +274,8 @@ client, told why when refused; since 2026-11-11 the first player on final starts
 where her gate holds her thirty seconds, and each of the four, joined on
 final in the window client and left alone, is still at it then - put on
 final only in light wind, inside each aeroplane's measured limits (the owner's
-ruling, 2026-11-11); the players after her start there too, each in her
+ruling, 2026-11-11) - 15 kt ahead, 5 behind, and, started crabbed into the
+wind since 2026-11-18, 8 across, the Cub 6; the players after her start there too, each in her
 turn, once the one ahead is three miles on or landed, gone around, off the
 final or waited out - an AI aircraft on that final too, put there or its
 plan landing there - her window showing why while she waits; held past the

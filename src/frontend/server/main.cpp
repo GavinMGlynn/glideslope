@@ -1912,6 +1912,23 @@ public:
             ic.terrain_elevation_ft =
                 collision_->height_above_ellipsoid(ic.latitude_deg, ic.longitude_deg) *
                 feet_per_metre;
+            // **Crabbed into the wind** (sim::on_final_crab_deg), at most a
+            // degree inside her gate's heading: pointed down the runway she
+            // drifted out of the gate in 4 kt across; crabbed, in up to her
+            // measured on_final_crosswind_kts. Her true airspeed is had from
+            // her trim down the runway, in her air.
+            if (session_air_) {
+                aircraft->initialize(ic);
+                const glideslope::sim::Conditions air = session_air_->at(
+                    ic.latitude_deg, ic.longitude_deg, ic.altitude_ft / feet_per_metre,
+                    static_cast<double>(steps_) /
+                        static_cast<double>(glideslope::sim::steps_per_second));
+                ic.heading_deg = final_to.heading_deg +
+                                 glideslope::sim::on_final_crab_deg(
+                                     final_to.heading_deg, air.wind_north_mps,
+                                     air.wind_east_mps,
+                                     aircraft->property("velocities/vtrue-kts"));
+            }
         }
         aircraft->initialize(ic);
         // **A trim that failed, said**: she is held on what it left her.
