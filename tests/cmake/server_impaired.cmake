@@ -165,8 +165,46 @@ if(NOT _introductions EQUAL 3 OR NOT _different EQUAL 3)
                         "${_different} different aircraft, and there are 3 flying, each "
                         "told once:\n${_said}")
 endif()
-if(_corrections LESS 200)
-    message(FATAL_ERROR "only ${_corrections} corrections: its own aircraft was hardly flown")
+# **Its own aircraft flown all through**: every input it sent applied by
+# the server, and twenty seconds of them sent at no less than half the 25
+# a second its frames send (565 to 587 here, 503 on macOS). The corrections
+# are as many as the words heard on its own aircraft that moved it, and
+# those are fewer from a server not keeping real time or words lost and
+# superseded: 252 to 306 here, 165 on macOS (nightly 43988660972, whose
+# floor of 200 failed a run whose every bound held). Two a second over the
+# twenty is the floor that says it was put right all through, as the
+# updates compared are judged below.
+if(NOT _said MATCHES "sent ([0-9]+) input frames, the server applied ([0-9]+)\n")
+    message(FATAL_ERROR "the predicting client did not say the inputs it sent:\n${_said}")
+endif()
+set(_inputs_sent "${CMAKE_MATCH_1}")
+set(_inputs_applied "${CMAKE_MATCH_2}")
+if(_inputs_sent LESS 250 OR NOT _inputs_applied EQUAL _inputs_sent)
+    message(FATAL_ERROR "${_inputs_sent} inputs sent and ${_inputs_applied} applied: its own "
+                        "aircraft was hardly flown:\n${_said}")
+endif()
+if(_corrections LESS 40)
+    message(FATAL_ERROR "only ${_corrections} corrections: it was hardly put right")
+endif()
+# **As many steps flown as the server flew**, from the first update compared
+# to the last, outside the machine's stalls, summed across its hand-over
+# and take-back: its prediction begun again numbers its steps afresh, and
+# subtracted across that it said 18446744073709551541 (nightly
+# 43988660972) and 335 to the server's 2011 here. Within a step a hundred,
+# as the paced test holds it, and two: 0 to 1 apart here.
+if(NOT _said MATCHES "paced in steps: ([0-9]+) flown here while the server flew ([0-9]+),")
+    message(FATAL_ERROR "the predicting client did not say the steps it flew:\n${_said}")
+endif()
+set(_steps_here "${CMAKE_MATCH_1}")
+set(_steps_there "${CMAKE_MATCH_2}")
+math(EXPR _steps_apart "${_steps_here} - ${_steps_there}")
+if(_steps_apart LESS 0)
+    math(EXPR _steps_apart "0 - ${_steps_apart}")
+endif()
+math(EXPR _steps_allowed "${_steps_there} / 100 + 2")
+if(_steps_there LESS 500 OR _steps_apart GREATER _steps_allowed)
+    message(FATAL_ERROR "${_steps_here} steps flown here while the server flew "
+                        "${_steps_there}:\n${_said}")
 endif()
 if(NOT _snapped EQUAL 0)
     message(FATAL_ERROR "${_snapped} corrections were too large to hide:\n${_said}")
