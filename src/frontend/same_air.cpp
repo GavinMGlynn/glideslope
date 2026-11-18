@@ -300,6 +300,13 @@ std::optional<world::WeatherReport> weather_heard(const net::Weather& weather,
     return r;
 }
 
+bool HeardAir::said(const net::AirSaid& said, std::string* why) {
+    if (said.weather) {
+        return heard(*said.weather, said.aloft, why);
+    }
+    return said.runway_conditions && conditions_heard(*said.runway_conditions);
+}
+
 bool HeardAir::heard(const net::Weather& weather, const std::optional<net::WeatherAloft>& aloft,
                      std::string* why) {
     std::optional<world::WeatherReport> report;

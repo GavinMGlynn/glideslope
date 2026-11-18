@@ -50,7 +50,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     fetch_ = world::http_fetch();
     station_runways_.emplace(cache, fetch_);
     tiles_ = std::make_unique<world::DownloadedTiles>(cache, fetch_);
-    geoid_ = std::make_unique<world::Geoid>(world::egm2008_geoid(cache, fetch_));
+    geoid_ = std::make_shared<const world::Geoid>(world::egm2008_geoid(cache, fetch_));
     collision_ = std::make_shared<world::CollisionGround>(
         std::make_shared<world::Dem>(*coverage_, *tiles_, geoid_.get()),
         world::runway_surfaces(data));
@@ -229,7 +229,7 @@ void Flight::lay_runways_when_had() {
         }
         return;
     }
-    if (!weather_ || heard_air_) {
+    if (!weather_ || server_air_) {
         return;
     }
     std::string why;
@@ -241,10 +241,6 @@ void Flight::lay_runways_when_had() {
     if (!why.empty()) {
         std::fprintf(stderr, "glideslope: %s\n", why.c_str());
     }
-}
-
-bool Flight::heard_runway_conditions(const net::RunwayConditions& conditions) {
-    return heard_air_ && heard_air_->conditions_heard(conditions);
 }
 
 void Flight::adopt(const sim::Motion& motion) {
@@ -421,7 +417,7 @@ void Flight::step(const sim::Controls& controls) {
         if (checklist_) {
             checklist_->update(*aircraft_, tick_);
         }
-        if (weather_ || heard_air_ || stations_) {
+        if (weather_ || server_air_ || stations_) {
             refresh_weather();
         }
         return;
@@ -448,7 +444,7 @@ void Flight::step(const sim::Controls& controls) {
         checklist_->update(*aircraft_, tick_);
     }
     report_navigation();
-    if (weather_ || heard_air_ || stations_) {
+    if (weather_ || server_air_ || stations_) {
         refresh_weather();
     }
 }
@@ -511,44 +507,44 @@ void Flight::report_navigation() {
     }
 }
 
-bool Flight::heard_weather(const net::Weather& weather,
-                           const std::optional<net::WeatherAloft>& aloft,
-                           std::function<double()> clock, std::int64_t count, std::string& why) {
-    server_weathers_[weather.station] = count;
-    if (!heard_air_) {
-        // Over no ground, as the server's is (glideslope_server's Fleet::fly_in).
-        // On the clock of the step being flown, forward or again in a replay,
-        // as the server will fly it (sim::Prediction::session_time_s); before
-        // that is known, `clock`, this machine's estimate of the session's.
-        heard_air_.emplace(geoid_.get(), world::GroundAt{},
-                           [this, frame = std::move(clock)] {
-                               if (prediction_) {
-                                   if (const auto t = prediction_->session_time_s()) {
-                                       return *t;
-                                   }
-                               }
-                               return frame();
-                           });
+void Flight::fly_server_air(std::shared_ptr<const frontend::HeardAir> air,
+                            std::function<double()> clock) {
+    if (air != server_air_) {
+        server_air_ = std::move(air);
+        server_stations_flown_.reset();
         // None of its own from now: what was being fetched is let go.
         next_weather_.reset();
     }
-    if (!heard_air_->heard(weather, aloft, &why)) {
-        return false;
+    // Still air from the start is no weather at all, as on a server given
+    // none.
+    if (!server_air_ || !server_air_->stations() ||
+        server_air_->stations() == server_stations_flown_) {
+        return;
     }
-    weather_ = heard_air_->reported(aircraft_->property("position/lat-geod-deg"),
-                                    aircraft_->property("position/long-gc-deg"));
-    if (heard_air_->air()) {
-        aircraft_->set_weather(heard_air_->air());
-    }
-    return true;
+    server_stations_flown_ = server_air_->stations();
+    // Over no ground, as the server's is (glideslope_server's Fleet::fly_in),
+    // on the clock of the step being flown, forward or again in a replay, as
+    // the server will fly it (sim::Prediction::session_time_s); before that
+    // is known, `clock`, this machine's estimate of the session's.
+    aircraft_->set_weather(std::make_shared<frontend::SessionClocked>(
+        server_stations_flown_, [this, frame = std::move(clock)] {
+            if (prediction_) {
+                if (const auto t = prediction_->session_time_s()) {
+                    return *t;
+                }
+            }
+            return frame();
+        }));
+    weather_ = server_air_->reported(aircraft_->property("position/lat-geod-deg"),
+                                     aircraft_->property("position/long-gc-deg"));
 }
 
 void Flight::refresh_weather() {
     // The server's weather is the server's to change: what is drawn is
     // its station nearest the aircraft.
-    if (heard_air_) {
-        weather_ = heard_air_->reported(aircraft_->property("position/lat-geod-deg"),
-                                        aircraft_->property("position/long-gc-deg"));
+    if (server_air_) {
+        weather_ = server_air_->reported(aircraft_->property("position/lat-geod-deg"),
+                                         aircraft_->property("position/long-gc-deg"));
         return;
     }
     lay_runways_when_had();

@@ -517,10 +517,12 @@ private:
     // the weathers flown, and whether its ground was compared.
     double session_now_s_ = 0.0;
     int weathers_flown_ = 0;
-    // The runway conditions last laid, slot by slot
-    // (net::Told::Station::runway_conditions_heard), and on which of the
-    // server's weathers (Flight::server_weathers).
-    std::map<std::uint8_t, std::pair<int, std::int64_t>> runway_conditions_laid_;
+    // **The server's air**, made of all it has said this session
+    // (Flight::fly_server_air), with the geoid it stands on; null before
+    // any weather. And how many weathers each slot has been told.
+    std::shared_ptr<const world::Geoid> air_geoid_;
+    std::shared_ptr<frontend::HeardAir> server_air_;
+    std::map<std::uint8_t, int> weathers_told_;
     bool ground_compared_ = false;
     // Which session what it was told came in: net::ClientSession::joined_again.
     int told_in_ = 0;

@@ -257,6 +257,8 @@ void Online::hear(Flight& flight) {
         if (session_.joined_again() != told_in_) {
             told_in_ = session_.joined_again();
             ground_compared_ = false;
+            server_air_.reset();
+            weathers_told_.clear();
         }
         if (!told.dataset()) {
             ground_compared_ = false;
@@ -273,79 +275,50 @@ void Online::hear(Flight& flight) {
                 std::fflush(stdout);
             }
         }
-        // Each flight counts its own, slot by slot: one made since - another
-        // aeroplane taken over - is given the newest. **Not on other
-        // ground, nor before the ground is known**: the reliable layer
-        // delivers in order and the ground is said first, so a weather is
-        // always heard after it.
-        //
-        // **In the order the stations changed**: a client joining while the
-        // server's stations change is told the stations the change blends
-        // from first (frontend::weather_said_on_joining), each at its change.
-        // Heard slot by slot, a slot's new station would make a change of
-        // its own after another slot's older one; so every weather to fly is
-        // gathered and flown by when its stations changed, each slot's in
-        // the order it was told.
-        struct ToFly {
-            double stations_changed_at_s;
-            std::uint8_t slot;
-            const net::Weather* weather;
-            const std::optional<net::WeatherAloft>* aloft;
-            std::int64_t key;
-            int weathers;
-            bool before;
-        };
-        std::vector<ToFly> to_fly;
-        for (const auto& [slot, heard] : told.stations()) {
-            const std::int64_t key = (static_cast<std::int64_t>(told_in_) << 32) |
-                                     static_cast<std::int64_t>(heard.weathers);
-            if (heard.weather && ground_compared_ && other_ground_.empty() &&
-                key != flight.server_weathers(slot)) {
-                // **One that has not flown the weather before the newest
-                // flies it first** - joined mid-blend, or a flight made
-                // since - so that the newest blends in from it as on the
-                // server, and is not flown whole until the blend ends. Past
-                // its blend it changes nothing.
-                if (heard.before && key - 1 != flight.server_weathers(slot)) {
-                    to_fly.push_back({heard.before->stations_changed_at_s, slot, &*heard.before,
-                                      &heard.before_aloft, key - 1, heard.weathers - 1, true});
-                }
-                to_fly.push_back({heard.weather->stations_changed_at_s, slot, &*heard.weather,
-                                  &heard.aloft, key, heard.weathers, false});
-            }
-        }
-        std::stable_sort(to_fly.begin(), to_fly.end(), [](const ToFly& a, const ToFly& b) {
-            return a.stations_changed_at_s < b.stations_changed_at_s;
-        });
-        for (const ToFly& w : to_fly) {
-            std::string why;
-            const bool flown = flight.heard_weather(*w.weather, *w.aloft,
-                                                    [this] { return session_now_s_; }, w.key, why);
-            if (w.before) {
+        // **Everything the server says of its air, in the order said**
+        // (net::ClientSession::take_air), made into one air for the session
+        // (frontend::HeardAir::said) - as the headless client makes its own,
+        // message by message. A client joining while the server's stations
+        // change is told each change still blending, oldest first
+        // (frontend::weather_said_on_joining): a slot's weather three times
+        // or more, with the runways of each station let go after it. Kept
+        // here, not in a flight, so that a flight made since - another
+        // aeroplane taken over - flies the same air, and not the newest of
+        // each slot. **Not on other ground, nor before the ground is
+        // known**: the reliable layer delivers in order and the ground is
+        // said first, so a weather is always heard after it.
+        for (const net::AirSaid& said : session_.take_air()) {
+            if (!ground_compared_ || !other_ground_.empty()) {
                 continue;
             }
-            if (flown) {
-                weathers_flown_ = told.weathers();
+            if (!server_air_) {
+                // Over no ground, as the server's is (glideslope_server's
+                // Fleet::fly_in); the flight flies it on its own clock.
+                air_geoid_ = flight.geoid();
+                server_air_ = std::make_shared<frontend::HeardAir>(
+                    air_geoid_.get(), world::GroundAt{}, [this] { return session_now_s_; });
+            }
+            std::string why;
+            const bool taken = server_air_->said(said, &why);
+            if (!said.weather) {
+                continue;
+            }
+            const unsigned slot = said.weather->station;
+            const int count = ++weathers_told_[said.weather->station];
+            if (taken) {
+                ++weathers_flown_;
                 std::printf("glideslope: flying the server's weather (%d, station %u): %s\n",
-                            w.weathers, static_cast<unsigned>(w.slot),
-                            w.weather->metar.empty() ? "still air" : w.weather->metar.c_str());
+                            count, slot,
+                            said.weather->metar.empty() ? "still air"
+                                                        : said.weather->metar.c_str());
             } else {
                 std::printf("glideslope: refused the server's weather, and flies the last: %s\n",
                             why.c_str());
             }
             std::fflush(stdout);
         }
-        for (const auto& [slot, heard] : told.stations()) {
-            // **The runways the server's air lays a condition on**, laid
-            // whenever they are new or the weather they are for was flown
-            // again - a flight made since; dropped when for another weather.
-            auto& laid = runway_conditions_laid_[slot];
-            if (heard.runway_conditions && ground_compared_ && other_ground_.empty() &&
-                (heard.runway_conditions_heard != laid.first ||
-                 flight.server_weathers(slot) != laid.second)) {
-                laid = {heard.runway_conditions_heard, flight.server_weathers(slot)};
-                (void)flight.heard_runway_conditions(*heard.runway_conditions);
-            }
+        if (server_air_) {
+            flight.fly_server_air(server_air_, [this] { return session_now_s_; });
         }
     }
     // **Put right with the session let go**: a correction replays the
