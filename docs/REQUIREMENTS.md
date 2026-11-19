@@ -907,7 +907,7 @@ The replacement:
   it to the gate's own most ahead and behind, but drifts out of it in 4 kt
   across. Since 2026-11-18 she is started crabbed into the wind, at most 4
   degrees (a degree inside her gate's heading), and stays at it to 8 kt
-  across - the J-3 Cub 6. So each aeroplane's limits ahead, behind and across are
+  across - the C172P 7, the J-3 Cub 6, each 2 m inside the gate. So each aeroplane's limits ahead, behind and across are
   measured and kept in her figures, and a player is put on final only
   inside them; a runway end chosen past the bound is one inside them too.
 

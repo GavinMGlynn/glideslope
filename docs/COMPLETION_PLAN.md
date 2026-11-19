@@ -1862,9 +1862,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       there, and whether it lifts the 3 kt crosswind limit on final.
       *Verification: every aeroplane with a learnt landing, started crabbed,
       swept knot by knot across, with the limit it gives recorded.*
-      Done 2026-11-18: it does. Crabbed at most 4 degrees, the C172P, C182
-      and PA-28 stay at the gate to 8 kt across and the Cub to 6; those are
-      her limits now, in her figures.
+      Done 2026-11-18: it does. Crabbed at most 4 degrees, and at least 2 m
+      inside the gate on FMA and x86-64-v2 builds alike: C182 and PA-28 8 kt,
+      C172P 7, Cub 6 - her limits now, in her figures.
 - [ ] **The engine-stop prediction test fails on Windows clang when the
       server is held up**: its client, pacing 1.6 to 1.7 times its own clock
       to catch up, is put right by metres and misses its speed bound - since

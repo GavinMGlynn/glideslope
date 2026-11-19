@@ -2808,8 +2808,11 @@ GLIDESLOPE_TEST(a_runways_other_end_is_offered_only_into_a_wind_its_learnt_landi
 // (sim::outside_learnt_gate) thirty seconds on. **Every whole knot** from
 // calm to the most across her gate admits (sim::learnt_gate_most_crosswind_kts:
 // 15, the Cub's 12), from the right (258) and from the left (078); her limit
-// is the most up to which every knot held both ways. It must be her
-// on_final_crosswind_kts, and the next knot must fail one way - unless the
+// is the most up to which every knot held both ways, each at least 2 m
+// inside the gate's 60 m across (LearntGateEdge::margin_m), so that no
+// build's arithmetic - FMA or none - moves it a knot. It must be her
+// on_final_crosswind_kts, and the next knot must fail one way, or hold
+// inside the margin - unless the
 // limit is her gate's own most. The catalogue walked whole and counted
 // against the learnt landings in the data, and every run counted against
 // the aeroplanes times the knots times two sides. **Not swept, and why**:
@@ -2819,6 +2822,12 @@ GLIDESLOPE_TEST(a_runways_other_end_is_offered_only_into_a_wind_its_learnt_landi
 // the server's 16-bit held controls (net::as_sent) not quantised here - the
 // server's own runs at each limit and a knot past it check this sweep
 // through the server itself.
+// The gate's edge across, and the least a limit is kept from it either way.
+struct LearntGateEdge {
+    static constexpr double across_m = glideslope::sim::LearntGate::most_across_m;
+    static constexpr double margin_m = 2.0;
+};
+
 GLIDESLOPE_TEST(every_learnt_landings_aeroplane_started_on_final_crabbed_is_at_her_gate_thirty_seconds_on_up_to_her_crosswind_limit_and_not_a_knot_past_it) {
     Runway runway;
     runway.name = "YSSY 16R";
@@ -2831,7 +2840,7 @@ GLIDESLOPE_TEST(every_learnt_landings_aeroplane_started_on_final_crabbed_is_at_h
     // Why she is not at her gate thirty seconds on, started crabbed in a
     // wind `kts` from `from_deg`; empty where she is.
     const auto flown = [&](const std::string& model, const LearntPolicy& policy, int from_deg,
-                           int kts, double& crab_deg) {
+                           int kts, double& crab_deg, double& across_m) {
         char text[96];
         std::snprintf(text, sizeof text, "YSSY 111200Z %03d%02dKT 9999 FEW030 20/10 Q1015",
                       from_deg, kts);
@@ -2862,6 +2871,7 @@ GLIDESLOPE_TEST(every_learnt_landings_aeroplane_started_on_final_crabbed_is_at_h
                                                       aircraft->property("velocities/vtrue-kts"));
         ic.heading_deg = runway.heading_deg + crab_deg;
         aircraft->initialize(ic);
+        across_m = 0.0;
         if (std::string why = glideslope::sim::outside_learnt_gate(*aircraft, runway, policy);
             !why.empty()) {
             return "at her start: " + why;
@@ -2871,6 +2881,7 @@ GLIDESLOPE_TEST(every_learnt_landings_aeroplane_started_on_final_crabbed_is_at_h
             aircraft->set_controls(held);
             aircraft->step();
         }
+        across_m = glideslope::sim::on_final(*aircraft, runway).across_m;
         return glideslope::sim::outside_learnt_gate(*aircraft, runway, policy);
     };
     std::size_t walked = 0;
@@ -2888,17 +2899,28 @@ GLIDESLOPE_TEST(every_learnt_landings_aeroplane_started_on_final_crabbed_is_at_h
         wanted += static_cast<std::size_t>(most + 1) * 2;
         int limit = -1;
         int first_failed = -1;
+        // The most off the centreline either way at each knot, metres.
+        std::vector<double> most_across_m;
         for (int kts = 0; kts <= most; ++kts) {
             bool held = true;
+            double off_m = 0.0;
             for (const int from : {258, 78}) {
                 double crab = 0.0;
-                const std::string why = flown(model, *policy, from, kts, crab);
+                double across = 0.0;
+                const std::string why = flown(model, *policy, from, kts, crab, across);
                 ++runs;
-                std::printf("  %-6s %2d kt from %03d, crabbed %+5.2f degrees: %s\n",
-                            model.c_str(), kts, from, crab,
+                off_m = std::max(off_m, std::abs(across));
+                std::printf("  %-6s %2d kt from %03d, crabbed %+5.2f degrees, %5.1f m off the "
+                            "centreline: %s\n",
+                            model.c_str(), kts, from, crab, across,
                             why.empty() ? "at the gate 30 s on" : why.c_str());
                 held = held && why.empty();
             }
+            most_across_m.push_back(off_m);
+            // **Held with a margin**: at the gate, and at least margin_m
+            // inside its edge across, so that no build's arithmetic (FMA or
+            // none) moves her limit by a knot.
+            held = held && off_m <= LearntGateEdge::across_m - LearntGateEdge::margin_m;
             if (first_failed < 0) {
                 if (held) {
                     limit = kts;
@@ -2907,16 +2929,28 @@ GLIDESLOPE_TEST(every_learnt_landings_aeroplane_started_on_final_crabbed_is_at_h
                 }
             }
         }
-        std::printf("  %s: at the gate 30 s on up to %d kt across, crabbed; her figures say "
-                    "%.0f\n",
-                    model.c_str(), limit, policy->on_final_crosswind_kts);
+        // **Her margins**, recorded: inside the gate's edge at her limit, and
+        // where she was a knot past it - at the gate within the margin, or
+        // outside it.
+        const double inside_m =
+            limit >= 0 ? LearntGateEdge::across_m - most_across_m[static_cast<std::size_t>(limit)]
+                       : 0.0;
+        const double past_m =
+            first_failed >= 0
+                ? most_across_m[static_cast<std::size_t>(first_failed)] - LearntGateEdge::across_m
+                : 0.0;
+        std::printf("  %s: at the gate 30 s on, %.0f m inside its edge, up to %d kt across, "
+                    "crabbed (%.1f m inside); a knot past, %.1f m %s it; her figures say %.0f\n",
+                    model.c_str(), LearntGateEdge::margin_m, limit, inside_m, std::abs(past_m),
+                    past_m > 0.0 ? "outside" : "inside", policy->on_final_crosswind_kts);
         if (static_cast<double>(limit) != policy->on_final_crosswind_kts) {
             wrong.push_back(model + " held to " + std::to_string(limit) +
                             " kt across, her figures say " +
                             std::to_string(policy->on_final_crosswind_kts));
         }
         if (limit < most && first_failed != limit + 1) {
-            wrong.push_back(model + " did not fail a knot past her limit");
+            wrong.push_back(model + " was not out of the gate, or inside its margin, a knot past "
+                                    "her limit");
         }
         ++walked;
     }
