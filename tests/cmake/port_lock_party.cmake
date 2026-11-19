@@ -8,10 +8,21 @@
 
 cmake_minimum_required(VERSION 3.28)
 
-# Waits on a file another party writes: an event, not a time.
+# Waits on a file another party writes: an event, not a time - but said,
+# inside the test's own 300 s, if it never comes: once on CI (train #387's
+# Ubuntu release run) a party waited out the TIMEOUT and nothing said which
+# file it was waiting for, nor what the other party had written.
 function(wait_for _file)
+    string(TIMESTAMP _from "%s")
     while(NOT EXISTS "${_file}")
         execute_process(COMMAND "${CMAKE_COMMAND}" -E sleep 0.05)
+        string(TIMESTAMP _now "%s")
+        math(EXPR _waited "${_now} - ${_from}")
+        if(_waited GREATER 240)
+            file(GLOB _written "${WORK}/*")
+            message(FATAL_ERROR "${ROLE}: waited ${_waited} s for ${_file}; written so far: "
+                                "${_written}")
+        endif()
     endwhile()
 endfunction()
 
