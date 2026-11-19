@@ -1740,16 +1740,12 @@ session, the weather and the terrain dataset, the weather over hills, the blend,
 the window client in the server's weather (and a few more, in the phases below) were each
 named in `PROJECT_STATUS.md` as not done, with no item here.
 
-- [ ] **A client whose every frame is slow is not shown to stay under the
-      20 m correction bound** (the window client beside other tests in a
-      sanitized build, every frame 0.8 s and more: 21.4 m once; CI run
-      36674576086, the slow-frames test: linux-debug 20.624 m, windows-debug
-      29.491 m). The plain on-server window test on the debug presets is in
-      the same regime. 2026-11-18: cause found - a frame's words, read
-      together, steer the pace as separate looks, so its drift is forgiven
-      as jumps, and a rate fit skewed by them starts it at 0.64; held 1 s
-      beside busy loops, 54 and 159 m. Steering for sparse looks still open
-      (docs/status). *Verification: the
+- [x] **A client whose every frame is slow is not shown to stay under the
+      20 m correction bound** (21.4 m once in a sanitized build; CI: 20.6 m
+      and 29.5 m). A frame's words now steer the pace as one look, the loop
+      slows when looks are sparse, and the rate fit takes a long frame's
+      newest word: held 1 s, two clients beside 24 busy loops, 6.9 m at
+      worst (was 21 to 159 m). *Verification: the
       on-server window test with every frame held a second stays under 20 m.*
 - [ ] **A server that falls behind real time puts its clients' prediction off
       by metres**: it flies each input for fewer steps than the client does.

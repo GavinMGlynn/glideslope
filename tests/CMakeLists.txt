@@ -237,6 +237,7 @@ set(GLIDESLOPE_UNIT_TESTS
     an_aircraft_guessed_through_a_manoeuvre_moves_between_guesses_without_a_jump
     a_wreck_that_flies_again_is_drawn_where_it_flies_again_moving_sanely
     the_client_follows_the_servers_clock_at_the_servers_own_rate
+    a_client_whose_frames_are_long_fits_the_servers_rate
     the_clock_aircraft_are_drawn_at_does_not_step_under_long_uneven_frames
     a_real_change_of_the_sessions_clock_is_followed_within_its_stated_time
     prediction_and_correction_stay_within_their_bounds_at_100_and_200_ms
@@ -266,6 +267,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_seconds_frame_heard_at_once_is_put_right_once_from_its_newest_word
     a_long_frame_puts_a_client_right_by_little_whether_or_not_its_clocks_difference_is_known_yet
     a_client_paced_by_its_clocks_difference_flies_at_the_servers_pace_and_holds_it
+    a_client_whose_every_frame_is_long_holds_its_clocks_difference_and_flies_at_the_servers_pace
     a_clocks_difference_is_sampled_from_where_each_input_was_sent_and_an_input_not_stamped_says_nothing
     through_a_gap_without_a_word_a_paced_client_flies_at_the_pace_its_loop_has_learnt
     a_client_paces_itself_by_its_words_before_and_after_its_clocks_difference_is_known_and_after_starting_again
@@ -4278,21 +4280,24 @@ add_test(NAME the_client_with_the_window_draws_another_players_chosen_aeroplane_
 set_tests_properties(the_client_with_the_window_draws_another_players_chosen_aeroplane_as_that_aeroplane
     PROPERTIES SKIP_RETURN_CODE 77)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_chosen)
-# **The same, with its frames held 0.7 s**, as a slow machine's are: it hears
-# the server after the ticks those frames were owed, and is put right once a
-# frame - never too far to hide (cmake/client_on_server.cmake). LABELS timing,
-# as below: the holds are its point, and between them it needs the quick
-# frames a release build draws. Run beside two other window tests in the
-# sanitized build, where every frame was 0.8 s and more, it was put right by
-# 21 m once (PROJECT_STATUS.md, 2026-09-30).
-add_test(NAME a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide
+# **The same, with every frame held a second**, as a slow machine's are: it
+# hears the server after the ticks those frames were owed, a frame's words at
+# once, and is put right once a frame - never too far to hide
+# (cmake/client_on_server.cmake). LABELS timing, as below: the holds are its
+# point, and between them it needs the quick frames a release build draws.
+# Held 0.7 s beside two other window tests in the sanitized build, where
+# every frame was 0.8 s and more, it was put right by 21 m once
+# (PROJECT_STATUS.md, 2026-09-30); held a second, two at once beside 24 busy
+# loops, by 54 and 159 m, until a frame's words were one look for its pace
+# (docs/status, 2026-11-19).
+add_test(NAME a_client_whose_every_frame_is_held_a_second_is_never_put_right_too_far_to_hide
     COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
         -DCLIENT=$<TARGET_FILE:glideslope> -DDATA=${GLIDESLOPE_DATA_DIR}
         -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/on_server_slow -DPORT=24785 -DDRIVER=vulkan
-        -DSLOW_FRAMES=700
+        -DSLOW_FRAMES=1000
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/client_on_server.cmake)
-set_tests_properties(a_client_whose_frames_are_held_most_of_a_second_is_never_put_right_too_far_to_hide
+set_tests_properties(a_client_whose_every_frame_is_held_a_second_is_never_put_right_too_far_to_hide
     PROPERTIES SKIP_RETURN_CODE 77 LABELS timing RUN_SERIAL TRUE)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/on_server_slow)
 # **The client with the window, predicting an F-35B, stopped 3 s between

@@ -318,6 +318,47 @@ GLIDESLOPE_TEST(the_client_follows_the_servers_clock_at_the_servers_own_rate) {
                 worst_ahead_s * 1000.0, -worst_behind_s * 1000.0);
 }
 
+// **A client whose frames are long fits the server's rate too** - frames of
+// a quarter, a half and a whole second, against servers at 0.5, 0.8, 1 and
+// 1.25 of real time, each starting after a five-second stall, as the window
+// client's `--slow-start` does. Such a client hears a frame's updates
+// together, all at the frame's time; fitted through all of them, the line
+// said 0.5 to 0.64 of a server keeping real time, and a client's pace was
+// started from it, and here it was 0.56 to 1.2 off. From two seconds after
+// the stall on, every frame's fitted rate is within 0.03 of the server's: the
+// newest update of a frame is up to an update's 40 ms late, over a window of
+// two seconds, and it was 0.027 off at worst (docs/status, 2026-11-18).
+GLIDESLOPE_TEST(a_client_whose_frames_are_long_fits_the_servers_rate) {
+    constexpr double latency_s = 0.100;
+    constexpr double stalled_s = 5.0;
+    std::size_t sessions = 0;
+    for (const double frame_s : {0.25, 0.5, 1.0}) {
+        for (const double rate : {0.5, 0.8, 1.0, 1.25}) {
+            glideslope::net::SessionClock clock;
+            double next_session_s = 0.0;
+            double worst = 0.0;
+            std::size_t judged = 0;
+            for (double local_s = stalled_s; local_s < 30.0; local_s += frame_s) {
+                // Every update sent by now, heard now.
+                for (; (next_session_s / rate) + latency_s <= local_s; next_session_s += 0.04) {
+                    clock.heard(next_session_s, local_s);
+                }
+                if (local_s < stalled_s + 2.0) continue;
+                worst = std::max(worst, std::abs(clock.rate() - rate));
+                ++judged;
+            }
+            const std::string at = "frames " + std::to_string(frame_s) + " s long, a server at " +
+                                   std::to_string(rate);
+            check(worst <= 0.03, at + ": the fitted rate was " + std::to_string(worst) +
+                                     " from the server's");
+            check(judged >= static_cast<std::size_t>(22.0 / frame_s),
+                  at + ": judged at " + std::to_string(judged) + " frames");
+            ++sessions;
+        }
+    }
+    check(sessions == 12, "three frame lengths by four rates, not " + std::to_string(sessions));
+}
+
 // **The velocity an aircraft is drawn moving at is its path's own**, in
 // every state the path can be in: before anything straddles the moment,
 // between two snapshots, carried on through a gap, held still past the
