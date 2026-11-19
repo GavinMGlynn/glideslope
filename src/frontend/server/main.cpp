@@ -1916,8 +1916,13 @@ public:
             // degree inside her gate's heading: pointed down the runway she
             // drifted out of the gate in 4 kt across; crabbed, in up to her
             // measured on_final_crosswind_kts. Her true airspeed is had from
-            // her trim down the runway, in her air.
-            if (session_air_) {
+            // her trim down the runway, in her air. **Only an aeroplane
+            // whose learnt landing the crab was measured for**, at a weight
+            // it was trained at: any other starts down the runway, as
+            // before - no crab is measured for her.
+            if (const auto crabbed_for = learnt_for(model);
+                session_air_ && crabbed_for &&
+                crabbed_for->trained_for(aircraft->loaded_weight_lbs())) {
                 aircraft->initialize(ic);
                 const glideslope::sim::Conditions air = session_air_->at(
                     ic.latitude_deg, ic.longitude_deg, ic.altitude_ft / feet_per_metre,
