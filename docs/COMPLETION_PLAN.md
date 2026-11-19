@@ -1965,6 +1965,11 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       *Verification: with a server started 7 s late it fails 3 in 3 before and
       passes 13 in 13 after; a broken layer search turns it red; it passes every
       run of a dispatched nightly.*
+- [ ] **A client whose every frame is held two seconds paces itself
+      slowly**: against a server at half real time, after 60 s its clocks'
+      difference is still 40 steps off, about 55 m for the F-15C. *Verification:
+      the pacing unit test with 2 s frames holds the difference within two
+      steps over the last ten seconds.*
 
 ---
 
