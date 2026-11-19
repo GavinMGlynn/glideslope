@@ -169,7 +169,7 @@ private:
 // **A client's copy of the server's air**: each whole weather heard
 // (net::Told), into the slot it is for (world::StationSlots), made into the
 // air a predicted aircraft flies - the same stations the server flies, over `ground`
-// (none, as on the server: glideslope_server's Fleet::fly_in),
+// (the collision ground, as on the server: glideslope_server's Fleet::fly_in),
 // on the session's `clock`, blended from when the server blended it and over
 // as long - so that the client flies the server's weather and not a fetch of
 // its own. Still air from the start is no weather at all, as on a server given

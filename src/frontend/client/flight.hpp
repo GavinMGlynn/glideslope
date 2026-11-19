@@ -373,6 +373,7 @@ public:
                         std::function<double()> clock);
     // The geoid this flight's ground stands on, for the server's air.
     const std::shared_ptr<const world::Geoid>& geoid() const { return geoid_; }
+    const std::shared_ptr<world::CollisionGround>& collision() const { return collision_; }
     gfx::Station weather_station() const;
 
     // Simulation time, seconds.

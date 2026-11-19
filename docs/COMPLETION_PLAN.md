@@ -1803,13 +1803,18 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       failure; 2026-11-02: 61 mm on #298's run 41397416052, its second, and
       it moved to nightly (tests/cmake/nightly_tests.cmake), the 60 mm bound
       kept; its nightly result is reported here.
-- [ ] **On a server the air has no ground's lift**: the server and its
+- [x] **On a server the air has no ground's lift**: the server and its
       clients fly the weather over no ground, because the lift is too costly
       for a predicting client. *Verification: a client predicting over hills
       in a strong wind is within the same bound as over the sea, the lift
-      flown on both ends.* Still missing, found 2026-10-08: the headless
-      predicting client flies over no ground at all, so it needs the
-      collision DEM first.
+      flown on both ends.* Done 2026-11-19: the lift is kept over a lattice,
+      30 times cheaper a step; over hills in 50 kt a predicting client's
+      median was 0.04 m, and 0.09 m with the lift on the server's end only.
+- [ ] **The ground's lift fetches its DEM tiles mid-step**: the lift reaches
+      32 km up and down the wind, and a tile there not yet cached is fetched
+      in the middle of a step, on the server and every client. *Verification:
+      a server flying towards a tile it has not got keeps real time, and its
+      clients' lift agrees with it.*
 - [ ] **A client's gusts are not the server's while its clocks' difference
       settles**, a step or two out, metres in a strong gust. *Verification: a
       client predicting in gusting air stays within the steady air's bound.*

@@ -8,10 +8,13 @@
 #include "world/weather.hpp"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <memory>
 #include <string>
+#include <utility>
 #include <vector>
 
 using glideslope::test::check;
@@ -729,4 +732,207 @@ GLIDESLOPE_TEST(
               " m/s, where its still-air sink and the model's updraught make " +
               std::to_string(expected) + " m/s; the updraught is " +
               std::to_string(updraught) + " m/s");
+}
+
+namespace {
+
+// Hills inland of a coast: 200 m about a mean of 250, in ridges a few
+// kilometres apart, falling to the sea, at nought, over the 2 km to a coast
+// 9 km east.
+double hills(double latitude_deg, double longitude_deg) {
+    const double north = (latitude_deg + 33.45) * 111319.49;
+    const double east = (longitude_deg - 151.3) * 111319.49 * std::cos(33.45 * pi / 180.0);
+    const double inland = std::clamp((9000.0 - east) / 2000.0, 0.0, 1.0);
+    const double bell = (east - 3000.0) / 2000.0;
+    return inland * inland * (3.0 - 2.0 * inland) *
+           std::max(0.0, 250.0 + 200.0 * std::sin(east / 1800.0) * std::cos(north / 2600.0) +
+                             150.0 * std::exp(-bell * bell));
+}
+
+// A 40 kt wind from 250 degrees - towards 070 - and stable air.
+const double wind_north = 20.6 * std::cos(70.0 * pi / 180.0);
+const double wind_east = 20.6 * std::sin(70.0 * pi / 180.0);
+constexpr double stability = 0.01;
+
+// The exact lift over the hills at a place, as with_air_motion makes it
+// without a lattice.
+double exact_lift(double lat, double lon, double height) {
+    const double speed = std::hypot(wind_north, wind_east);
+    const double cosine = std::cos(lat * pi / 180.0);
+    return glideslope::world::terrain_updraught(
+        [&](double along) {
+            return hills(lat + wind_north / speed * along / 111319.49,
+                         lon + wind_east / speed * along / (111319.49 * cosine));
+        },
+        height, speed, stability);
+}
+
+} // namespace
+
+GLIDESLOPE_TEST(the_ground_lifts_lattice_is_its_exact_lift_at_each_of_its_places) {
+    using glideslope::world::ground_lift_lattice_deg;
+    glideslope::world::GroundLift lattice(hills);
+    const auto row0 = static_cast<long>(std::floor(-33.47 / ground_lift_lattice_deg));
+    const auto column0 = static_cast<long>(std::floor(151.29 / ground_lift_lattice_deg));
+    int compared = 0;
+    int same = 0;
+    for (long r = 0; r < 8; ++r) {
+        for (long c = 0; c < 16; ++c) {
+            const double lat = static_cast<double>(row0 + r) * ground_lift_lattice_deg;
+            const double lon = static_cast<double>(column0 + c) * ground_lift_lattice_deg;
+            for (const double above : {30.0, 150.0, 600.0, 2500.0}) {
+                const double height = hills(lat, lon) + above;
+                const double cheap =
+                    lattice.updraught(lat, lon, height, wind_north, wind_east, stability);
+                const double exact = exact_lift(lat, lon, height);
+                // Not to the last bit: a place's latitude over the lattice's
+                // spacing may fall a bit short of its row, and the place
+                // beside it is given a share as small.
+                check(std::abs(cheap - exact) < 1e-9,
+                      "at a place of the lattice its lift is the exact lift: " +
+                          std::to_string(cheap) + " against " + std::to_string(exact) +
+                          " m/s");
+                same += std::abs(cheap - exact) < 1e-9 ? 1 : 0;
+                ++compared;
+            }
+        }
+    }
+    check(compared == 8 * 16 * 4 && same == compared,
+          "every place and height was compared, " + std::to_string(compared) + ", and " +
+              std::to_string(same) + " were the same to 1e-9 m/s");
+}
+
+GLIDESLOPE_TEST(between_its_places_the_ground_lifts_lattice_is_within_3_percent_of_the_strongest_lift) {
+    glideslope::world::GroundLift lattice(hills);
+    double most = 0.0;
+    double worst = 0.0;
+    double worst_lat = 0.0;
+    double worst_lon = 0.0;
+    double worst_above = 0.0;
+    int compared = 0;
+    // Every 74 m north and 100 m east across the hills, from 12 km inland to
+    // the sea, at each height from 30 m above the ground to 2,500 m.
+    for (int i = 0; i < 60; ++i) {
+        const double lat = -33.47 + 74.0 * i / 111319.49;
+        for (int j = 0; j < 210; ++j) {
+            const double lon = 151.17 + 0.0011 * j;
+            for (const double above : {30.0, 150.0, 600.0, 2500.0}) {
+                const double height = hills(lat, lon) + above;
+                const double cheap =
+                    lattice.updraught(lat, lon, height, wind_north, wind_east, stability);
+                const double exact = exact_lift(lat, lon, height);
+                most = std::max(most, std::abs(exact));
+                if (std::abs(cheap - exact) > worst) {
+                    worst = std::abs(cheap - exact);
+                    worst_lat = lat;
+                    worst_lon = lon;
+                    worst_above = above;
+                }
+                ++compared;
+            }
+        }
+    }
+    std::printf("the lattice's lift over %d places: at worst %.4f m/s off at %.5f, %.5f, "
+                "%.0f m up, the strongest %.3f m/s; %zu transforms made\n",
+                compared, worst, worst_lat, worst_lon, worst_above, most,
+                lattice.transforms_made());
+    check(compared == 60 * 210 * 4, "every place and height was compared");
+    check(most > 2.0, "the hills lift the air strongly: the strongest " + std::to_string(most));
+    check(worst < 0.03 * most, "between its places the lattice is within 3% of the "
+                              "strongest lift: at worst " +
+                                  std::to_string(worst) + " m/s off");
+}
+
+GLIDESLOPE_TEST(the_ground_lifts_lattice_is_the_same_whatever_was_made_before) {
+    using glideslope::world::GroundLift;
+    using glideslope::world::ground_lift_lattice_deg;
+    std::vector<std::pair<double, double>> places;
+    for (int i = 0; i < 200; ++i) {
+        places.emplace_back(-33.47 + 0.00013 * i, 151.20 + 0.00071 * i);
+    }
+    GroundLift forward(hills);
+    GroundLift backward(hills);
+    std::vector<double> ahead;
+    for (const auto& [lat, lon] : places) {
+        ahead.push_back(forward.updraught(lat, lon, hills(lat, lon) + 100.0, wind_north,
+                                          wind_east, stability));
+    }
+    std::size_t same = 0;
+    for (std::size_t i = places.size(); i-- > 0;) {
+        const auto [lat, lon] = places[i];
+        same += backward.updraught(lat, lon, hills(lat, lon) + 100.0, wind_north, wind_east,
+                                   stability) == ahead[i]
+                    ? 1u
+                    : 0u;
+    }
+    check(same == places.size(), "flown backwards the lattice's lift is the same at " +
+                                     std::to_string(same) + " of " +
+                                     std::to_string(places.size()) + " places");
+
+    // Once more transforms are wanted than are kept, all are let go, and made
+    // again the same.
+    const auto [lat0, lon0] = places[0];
+    std::size_t wanted = 0;
+    for (long r = 0; forward.transforms_made() <= GroundLift::most_kept + 8; ++r) {
+        const double lat = -33.0 + static_cast<double>(r) * ground_lift_lattice_deg;
+        forward.updraught(lat, 151.0, 500.0, wind_north, wind_east, stability);
+        ++wanted;
+    }
+    const std::size_t before = forward.transforms_made();
+    const double again = forward.updraught(lat0, lon0, hills(lat0, lon0) + 100.0, wind_north,
+                                           wind_east, stability);
+    check(forward.transforms_made() > before,
+          "the first place's transforms had been let go, and were made again");
+    check(again == ahead[0], "made again, the lift is the same: " + std::to_string(again) +
+                                 " against " + std::to_string(ahead[0]) + " after " +
+                                 std::to_string(wanted) + " places");
+}
+
+GLIDESLOPE_TEST(a_minutes_flight_over_hills_makes_two_of_the_ground_lifts_transforms_a_cell) {
+    using glideslope::world::ground_lift_lattice_deg;
+    glideslope::world::GroundLift lattice(hills);
+    // Sixty seconds at 60 m/s, north-east across the hills, 120 steps a
+    // second, each flown three times as a predicting client flies it again.
+    constexpr int steps = 60 * 120;
+    const double cosine = std::cos(33.45 * pi / 180.0);
+    std::size_t cells = 0;
+    long last_row = 0;
+    long last_column = 0;
+    const auto start = std::chrono::steady_clock::now();
+    for (int s = 0; s < steps; ++s) {
+        const double travelled = 60.0 * s / 120.0;
+        const double lat = -33.47 + travelled * std::sqrt(0.5) / 111319.49;
+        const double lon = 151.22 + travelled * std::sqrt(0.5) / (111319.49 * cosine);
+        const auto row = static_cast<long>(std::floor(lat / ground_lift_lattice_deg));
+        const auto column = static_cast<long>(std::floor(lon / ground_lift_lattice_deg));
+        if (s == 0 || row != last_row || column != last_column) {
+            ++cells;
+            last_row = row;
+            last_column = column;
+        }
+        for (int again = 0; again < 3; ++again) {
+            lattice.updraught(lat, lon, hills(lat, lon) + 300.0, wind_north, wind_east,
+                              stability);
+        }
+    }
+    const double lattice_s =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - start).count();
+    const auto exact_start = std::chrono::steady_clock::now();
+    double sum = 0.0;
+    for (int s = 0; s < 120; ++s) {
+        const double lat = -33.47 + s * 0.5 / 111319.49;
+        sum += exact_lift(lat, 151.22, 600.0);
+    }
+    const double exact_s =
+        std::chrono::duration<double>(std::chrono::steady_clock::now() - exact_start).count();
+    std::printf("a minute's flight over the hills, each step three times: %zu cells, %zu "
+                "transforms, %.1f us a step flown; the exact lift %.1f us a step (%.3f)\n",
+                cells, lattice.transforms_made(), 1e6 * lattice_s / (3.0 * steps),
+                1e6 * exact_s / 120.0, sum / 120.0);
+    // Each cell entered wants at most the two places ahead of it that the
+    // last did not; the first, four.
+    check(cells > 20 && lattice.transforms_made() <= 4 + 2 * (cells - 1),
+          "each cell entered made at most two transforms: " +
+              std::to_string(lattice.transforms_made()) + " for " + std::to_string(cells) +
+              " cells");
 }

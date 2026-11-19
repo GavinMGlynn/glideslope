@@ -810,13 +810,12 @@ The replacement:
   microburst and a change's blend are of the session's time, so aircraft side
   by side meet the same gust whichever was made first, and a client blends a
   change from when, and over as long as, the server says.
-- **The air has no ground's lift on a server, for now.** The ground's lift is
-  256 DEM heights and a transform at every step; a predicting client flies
-  every step again at each update and could not keep up, and a client without
-  it was out by metres from a server with it. So the server and its clients
-  fly the air over no ground - thermals on the station's elevation, no ridge
-  or wave lift - until it is cheap enough for all (a tail). A flight alone
-  keeps it.
+- **The air has the ground's lift on a server too.** The ground's lift was
+  256 DEM heights and a transform at every step, too costly for a predicting
+  client that flies every step again; it is now made once at each place of
+  a lattice fixed on the Earth and blended between them, the same on every
+  machine whatever was made before, so the server and every client fly it
+  over the collision ground (2026-11-19).
 - **A server with no weather sends still air** (an empty METAR), so a client
   is never left to fly a weather of its own; a client on a server may not be
   given `--weather`.

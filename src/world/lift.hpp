@@ -40,8 +40,13 @@
 
 #include "world/air_motion.hpp"
 
+#include <array>
+#include <cstddef>
 #include <cstdint>
 #include <functional>
+#include <map>
+#include <utility>
+#include <vector>
 
 namespace glideslope::world {
 
@@ -115,5 +120,87 @@ inline constexpr double terrain_sample_spacing_m = 250.0;
 // disturbance dies away with height.
 double terrain_updraught(const TerrainAlong& terrain, double height_msl_m,
                          double speed_mps, double buoyancy_frequency);
+
+// The terrain's transform: its samples, and as many again of level ground
+// beyond them (lift.cpp says why).
+inline constexpr int terrain_transform_size = 2 * terrain_samples;
+
+// **The terrain along the wind through a place, transformed**: the median of
+// its samples, and the transform of the samples less it, tapered, for each
+// wavenumber below the highest - what terrain_updraught makes of them before
+// it looks at the height. Index 0, the mean, is nought.
+struct TerrainSpectrum {
+    double reference_m = 0.0;
+    std::array<double, terrain_transform_size / 2> re{};
+    std::array<double, terrain_transform_size / 2> im{};
+};
+TerrainSpectrum terrain_spectrum(const TerrainAlong& terrain);
+
+// terrain_updraught from the terrain's transform and the ground beneath:
+// the same to the last bit, given terrain_spectrum(terrain) and terrain(0).
+double terrain_updraught(const TerrainSpectrum& spectrum, double beneath_m,
+                         double height_msl_m, double speed_mps, double buoyancy_frequency);
+
+// **How far apart the places are whose terrain is transformed**, degrees of
+// latitude and of longitude: 1/480, 232 m north and south, and less east
+// and west by the cosine of the latitude. The lift's shortest waves are
+// twice the samples' spacing, 500 m.
+inline constexpr double ground_lift_lattice_deg = 1.0 / 480.0;
+
+// **The ground's lift, cheaply enough to be flown again**: terrain_updraught
+// over a lattice of places fixed on the Earth, each place's terrain along the
+// wind transformed once and kept, and the transforms of the four about a
+// place blended by how near it is to each - linearly, as is the vertical wind
+// they make - over the ground beneath it. A place's transform is made the
+// first time it is wanted, 256 heights of the ground and a transform; after
+// that the lift is one sum over the wavenumbers. **Pure in place**: what was
+// made before, and in what order, changes nothing - a client flying a step
+// again meets what the server met there. Made for one thread.
+//
+// **A place whose ground cannot be had** - the ground throws a
+// std::runtime_error, a DEM's tile that cannot be fetched - lifts nothing, and
+// nor does anywhere it is one of the four about.
+class GroundLift {
+public:
+    using Ground = std::function<double(double latitude_deg, double longitude_deg)>;
+    explicit GroundLift(Ground ground) : ground_(std::move(ground)) {}
+
+    // The vertical wind the terrain makes at a place, `height_msl_m` above
+    // the sea, in a wind blowing towards north and east at those speeds, in
+    // air of `buoyancy_frequency`; none in a wind under 1 m/s.
+    double updraught(double latitude_deg, double longitude_deg, double height_msl_m,
+                     double wind_north_mps, double wind_east_mps, double buoyancy_frequency);
+
+    // The ground beneath a place, as it was given.
+    double ground(double latitude_deg, double longitude_deg) const {
+        return ground_(latitude_deg, longitude_deg);
+    }
+
+    // How many places' transforms have been made, all told: what the lift
+    // has cost beyond its sums.
+    std::size_t transforms_made() const { return made_; }
+
+    // **The most transforms kept**, 2,048 of 4 kB: past that all are let go
+    // and made again as they are wanted.
+    static constexpr std::size_t most_kept = 2048;
+
+private:
+    struct Place {
+        bool had = false;
+        TerrainSpectrum spectrum;
+    };
+    const Place& place(std::size_t direction, long row, long column);
+
+    Ground ground_;
+    // Each wind's direction, north and east, and its places by row and column.
+    struct Direction {
+        double north = 0.0;
+        double east = 0.0;
+        std::map<std::pair<long, long>, Place> places;
+    };
+    std::vector<Direction> directions_;
+    std::size_t kept_ = 0;
+    std::size_t made_ = 0;
+};
 
 } // namespace glideslope::world
