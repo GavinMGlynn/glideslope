@@ -145,6 +145,14 @@ net::TerrainDataset collision_dataset(const std::filesystem::path& data);
 // Its hash as hexadecimal, and the whole of it as a line for a person.
 std::string hash_hex(const net::TerrainDataset& dataset);
 std::string describe(const net::TerrainDataset& dataset);
+
+// **The ground the air is flown over**, on the server and every client
+// alike: the collision ground's height above the sea, where `ahead` has its
+// tiles; elsewhere world::GroundNotHad, the tiles asked for, so that the
+// air's ground - its lift reaching 32 km up and down the wind - never waits
+// on the network (world::GroundLift says what is flown meanwhile).
+world::GroundAt air_ground(std::shared_ptr<world::CollisionGround> collision,
+                           std::shared_ptr<world::TilesAhead> ahead);
 bool same_ground(const net::TerrainDataset& a, const net::TerrainDataset& b);
 
 // **Weather on the session's clock**: the air at the session's time, not at

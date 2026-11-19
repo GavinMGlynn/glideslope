@@ -13,6 +13,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <utility>
 #include <vector>
@@ -935,4 +936,43 @@ GLIDESLOPE_TEST(a_minutes_flight_over_hills_makes_two_of_the_ground_lifts_transf
           "each cell entered made at most two transforms: " +
               std::to_string(lattice.transforms_made()) + " for " + std::to_string(cells) +
               " cells");
+}
+
+GLIDESLOPE_TEST(a_place_whose_ground_is_not_had_lifts_nothing_is_not_kept_and_lifts_once_it_is_had) {
+    using glideslope::world::GroundLift;
+    using glideslope::world::GroundNotHad;
+    // The ground east of 151.25 not had - a tile being fetched - and then
+    // had; and the same with a fetch that failed.
+    for (const bool failed : {false, true}) {
+        bool had = false;
+        int asked_while_not = 0;
+        GroundLift lattice([&](double lat, double lon) {
+            if (!had && lon > 151.25) {
+                ++asked_while_not;
+                if (failed) {
+                    throw std::runtime_error("the tile's fetch failed");
+                }
+                throw GroundNotHad("the tile is being fetched");
+            }
+            return hills(lat, lon);
+        });
+        GroundLift whole(hills);
+        const double lat = -33.4512;
+        const double lon = 151.2301;
+        const double height = hills(lat, lon) + 150.0;
+        const std::string why = failed ? "a fetch that failed" : "a tile being fetched";
+        check(lattice.updraught(lat, lon, height, wind_north, wind_east, stability) == 0.0,
+              "with " + why + " the place lifts nothing");
+        check(lattice.transforms_made() == 0 && lattice.not_had() > 0 && asked_while_not > 0,
+              "and nothing is kept: " + std::to_string(lattice.transforms_made()) +
+                  " transforms made, " + std::to_string(lattice.not_had()) + " not had");
+        check(lattice.updraught(lat, lon, height, wind_north, wind_east, stability) == 0.0,
+              "asked again before it is had, it still lifts nothing");
+        had = true;
+        const double now = lattice.updraught(lat, lon, height, wind_north, wind_east, stability);
+        const double always = whole.updraught(lat, lon, height, wind_north, wind_east, stability);
+        check(now == always && std::abs(now) > 0.05,
+              "had, after " + why + ", it lifts as a lattice that always had it: " +
+                  std::to_string(now) + " against " + std::to_string(always) + " m/s");
+    }
 }

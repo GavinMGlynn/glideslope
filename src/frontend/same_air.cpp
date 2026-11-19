@@ -379,6 +379,17 @@ std::string describe(const net::TerrainDataset& dataset) {
     return dataset.name + " (" + dataset.version + "), SHA-256 " + hash_hex(dataset);
 }
 
+world::GroundAt air_ground(std::shared_ptr<world::CollisionGround> collision,
+                           std::shared_ptr<world::TilesAhead> ahead) {
+    return [collision = std::move(collision), ahead = std::move(ahead)](double lat,
+                                                                        double lon) {
+        if (!ahead->had(lat, lon)) {
+            throw world::GroundNotHad("the ground's tiles there are being fetched");
+        }
+        return collision->height_above_geoid(lat, lon);
+    };
+}
+
 bool same_ground(const net::TerrainDataset& a, const net::TerrainDataset& b) {
     // The hash is what is compared; the name and version are for a person.
     return a.sha256 == b.sha256;

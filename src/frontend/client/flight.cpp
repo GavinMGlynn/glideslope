@@ -54,6 +54,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
     collision_ = std::make_shared<world::CollisionGround>(
         std::make_shared<world::Dem>(*coverage_, *tiles_, geoid_.get()),
         world::runway_surfaces(data));
+    air_tiles_ = std::make_shared<world::TilesAhead>(*coverage_, cache, fetch_);
 
     // A plan's altitudes are above sea level; the aircraft's, the ellipsoid.
     if (start.plan) {
@@ -156,9 +157,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
         // station's does.
         weather_refresh_s_ = start.weather_refresh_s;
         stations_ = std::make_shared<world::StationSlots>(
-            geoid_.get(), [ground](double lat, double lon) {
-                return ground->height_above_geoid(lat, lon);
-            });
+            geoid_.get(), frontend::air_ground(collision_, air_tiles_));
         const std::pair<double, double> at{start.latitude_deg, start.longitude_deg};
         world::StationsFound found = world::fetch_stations_weather(
             {at}, world::utc_hour(std::chrono::system_clock::now()), fetch_);
