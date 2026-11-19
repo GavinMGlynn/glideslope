@@ -32,8 +32,10 @@ jobs:
   # finished on 2026-09-27: 100 tests five times in 98 of its 120 minutes.
   # The next night the same 100 took 22% longer and were cut off, and it was
   # cut off every night after, while what the names pick grew to 282 tests:
-  # on 2026-11-12 it had run 85 of them when it was. Seven shards hold about
-  # 83 minutes of measured work each, under three quarters of their 120, and
+  # on 2026-11-12 it had run 85 of them when it was. Seven shards held about
+  # 83 minutes of measured work each; with the 2026-11-19 train's multi-process tests
+  # they would hold 90.8, past three quarters of their 120, so there are
+  # eight (about 79 each), and
   # tests/cmake/ci_shards.cmake deals them on every pull request and fails
   # one that would put a shard past that - so a job that grows fails a pull
   # request before it fails a night. Four at a time, the test preset's jobs,
@@ -49,13 +51,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { preset: linux-debug, shard: 1, of: 7 }
-          - { preset: linux-debug, shard: 2, of: 7 }
-          - { preset: linux-debug, shard: 3, of: 7 }
-          - { preset: linux-debug, shard: 4, of: 7 }
-          - { preset: linux-debug, shard: 5, of: 7 }
-          - { preset: linux-debug, shard: 6, of: 7 }
-          - { preset: linux-debug, shard: 7, of: 7 }
+          - { preset: linux-debug, shard: 1, of: 8 }
+          - { preset: linux-debug, shard: 2, of: 8 }
+          - { preset: linux-debug, shard: 3, of: 8 }
+          - { preset: linux-debug, shard: 4, of: 8 }
+          - { preset: linux-debug, shard: 5, of: 8 }
+          - { preset: linux-debug, shard: 6, of: 8 }
+          - { preset: linux-debug, shard: 7, of: 8 }
+          - { preset: linux-debug, shard: 8, of: 8 }
     env:
       # The tests whose names say they run programs against each other: the
       # dealing and the run pick the same ones by it.
