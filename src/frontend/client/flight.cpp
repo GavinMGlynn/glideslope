@@ -157,7 +157,7 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
         // station's does.
         weather_refresh_s_ = start.weather_refresh_s;
         stations_ = std::make_shared<world::StationSlots>(
-            geoid_.get(), frontend::air_ground(collision_, air_tiles_));
+            geoid_.get(), frontend::air_ground(collision_, air_tiles_, geoid_.get()));
         const std::pair<double, double> at{start.latitude_deg, start.longitude_deg};
         world::StationsFound found = world::fetch_stations_weather(
             {at}, world::utc_hour(std::chrono::system_clock::now()), fetch_);

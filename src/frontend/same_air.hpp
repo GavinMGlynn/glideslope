@@ -151,8 +151,11 @@ std::string describe(const net::TerrainDataset& dataset);
 // tiles; elsewhere world::GroundNotHad, the tiles asked for, so that the
 // air's ground - its lift reaching 32 km up and down the wind - never waits
 // on the network (world::GroundLift says what is flown meanwhile).
-world::GroundAt air_ground(std::shared_ptr<world::CollisionGround> collision,
-                           std::shared_ptr<world::TilesAhead> ahead);
+// Read through a Dem of its own over `ahead`'s tiles, which never fetches
+// (world::TilesAhead), with `collision`'s runways.
+world::GroundAt air_ground(const std::shared_ptr<world::CollisionGround>& collision,
+                           std::shared_ptr<world::TilesAhead> ahead,
+                           const world::Geoid* geoid);
 bool same_ground(const net::TerrainDataset& a, const net::TerrainDataset& b);
 
 // **Weather on the session's clock**: the air at the session's time, not at

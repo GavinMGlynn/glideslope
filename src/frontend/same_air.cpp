@@ -379,14 +379,19 @@ std::string describe(const net::TerrainDataset& dataset) {
     return dataset.name + " (" + dataset.version + "), SHA-256 " + hash_hex(dataset);
 }
 
-world::GroundAt air_ground(std::shared_ptr<world::CollisionGround> collision,
-                           std::shared_ptr<world::TilesAhead> ahead) {
-    return [collision = std::move(collision), ahead = std::move(ahead)](double lat,
-                                                                        double lon) {
+world::GroundAt air_ground(const std::shared_ptr<world::CollisionGround>& collision,
+                           std::shared_ptr<world::TilesAhead> ahead,
+                           const world::Geoid* geoid) {
+    // The runways the collision ground has, kept as long as it is.
+    const std::shared_ptr<const world::RunwaySurfaces> runways(collision,
+                                                               &collision->runways());
+    auto ground = std::make_shared<world::CollisionGround>(
+        std::make_shared<world::Dem>(ahead->coverage(), *ahead, geoid), runways);
+    return [ground = std::move(ground), ahead = std::move(ahead)](double lat, double lon) {
         if (!ahead->had(lat, lon)) {
             throw world::GroundNotHad("the ground's tiles there are being fetched");
         }
-        return collision->height_above_geoid(lat, lon);
+        return ground->height_above_geoid(lat, lon);
     };
 }
 

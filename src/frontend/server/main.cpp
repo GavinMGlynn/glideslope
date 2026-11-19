@@ -2928,7 +2928,7 @@ public:
                 coverage_, glideslope::platform::cache_directory(), fetch_);
         }
         air_ = std::make_shared<glideslope::world::StationSlots>(
-            &geoid_, glideslope::frontend::air_ground(collision_, air_tiles_));
+            &geoid_, glideslope::frontend::air_ground(collision_, air_tiles_, &geoid_));
         session_air_ = std::make_shared<glideslope::frontend::SessionClocked>(
             air_, [this] { return now_s(); });
         for (std::vector<Aircraft>* each : {&flown_, &waiting_}) {

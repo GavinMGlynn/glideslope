@@ -222,6 +222,8 @@ public:
 
     // Whether the tile is in the cache now: what open would not fetch.
     bool cached(DemDataset dataset, DemCell cell) const;
+    // The tile from the cache, never fetched; DemError if it is not there.
+    std::shared_ptr<const ByteSource> open_cached(DemDataset dataset, DemCell cell) const;
 
 private:
     std::filesystem::path path_of(DemDataset dataset, const std::string& name) const;
@@ -239,10 +241,18 @@ private:
 // the cells its interpolation may read - has no tile or has its tile in the
 // cache; one that is not is asked for, and fetched on a thread of its own
 // into the cache, where the Dem then finds it. A fetch that failed is asked
-// for again a minute after.
-class TilesAhead {
+// for again a minute after, by `now`.
+//
+// **The tiles a Dem reads the air's ground from** (DemTiles), never
+// fetched: a tile not in the cache is a DemError at once, and one the Dem
+// finds damaged is taken out of the cache, forgotten as had, and asked for
+// again on the fetching thread - the Dem's query fails, and the place it was
+// for lifts nothing until the tile is had anew.
+class TilesAhead : public DemTiles {
 public:
-    TilesAhead(DemCoverage coverage, std::filesystem::path cache, Fetch fetch);
+    using Clock = std::function<std::chrono::steady_clock::time_point()>;
+    TilesAhead(DemCoverage coverage, std::filesystem::path cache, Fetch fetch,
+               Clock now = [] { return std::chrono::steady_clock::now(); });
     ~TilesAhead();
     TilesAhead(const TilesAhead&) = delete;
     TilesAhead& operator=(const TilesAhead&) = delete;
@@ -255,11 +265,22 @@ public:
     int fetched() const;
     int failed() const;
 
+    const DemCoverage& coverage() const { return coverage_; }
+
+    // From the cache only (above).
+    std::shared_ptr<const ByteSource> open(DemDataset dataset, DemCell cell) override;
+    std::shared_ptr<const ByteSource> open_water_mask(DemDataset dataset,
+                                                      DemCell cell) override;
+    bool take_away(DemDataset dataset, DemCell cell,
+                   const std::optional<FileIdentity>& read) override;
+
 private:
+    void ask(DemCell cell);
     bool cell_had(DemCell cell);
     void fetch_loop();
 
     const DemCoverage coverage_; // a copy: it may outlive what it was made from
+    Clock now_;
     // Read on the asking thread only: cells known to be had.
     std::map<std::pair<int, int>, bool> had_;
     DownloadedTiles look_;

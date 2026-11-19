@@ -374,7 +374,9 @@ public:
     // The geoid this flight's ground stands on, for the server's air.
     const std::shared_ptr<const world::Geoid>& geoid() const { return geoid_; }
     // The ground the air is flown over (frontend::air_ground).
-    world::GroundAt air_ground() const { return frontend::air_ground(collision_, air_tiles_); }
+    world::GroundAt air_ground() const {
+        return frontend::air_ground(collision_, air_tiles_, geoid_.get());
+    }
     gfx::Station weather_station() const;
 
     // Simulation time, seconds.
