@@ -191,7 +191,9 @@ endif()
 # and take-back: its prediction begun again numbers its steps afresh, and
 # subtracted across that it said 18446744073709551541 (nightly
 # 43988660972) and 335 to the server's 2011 here. Within a step a hundred,
-# as the paced test holds it, and two: 0 to 1 apart here.
+# as the paced test holds it, and two: 0 to 1 apart here. At least 120 of
+# the server's, the steps of the 24 updates compared that are the floor
+# below at 25 a second: 984 to 1224 here, and a slow runner's fewer.
 if(NOT _said MATCHES "paced in steps: ([0-9]+) flown here while the server flew ([0-9]+),")
     message(FATAL_ERROR "the predicting client did not say the steps it flew:\n${_said}")
 endif()
@@ -202,7 +204,7 @@ if(_steps_apart LESS 0)
     math(EXPR _steps_apart "0 - ${_steps_apart}")
 endif()
 math(EXPR _steps_allowed "${_steps_there} / 100 + 2")
-if(_steps_there LESS 500 OR _steps_apart GREATER _steps_allowed)
+if(_steps_there LESS 120 OR _steps_apart GREATER _steps_allowed)
     message(FATAL_ERROR "${_steps_here} steps flown here while the server flew "
                         "${_steps_there}:\n${_said}")
 endif()
