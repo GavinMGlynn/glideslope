@@ -37,6 +37,13 @@ predicts (as it did for `--stovl-land`), and flies the server's air over
 it; `--no-ground-lift` flies the same air over no ground, for the test
 below.
 
+**Found on the way:** reading the runways under the NaN trap
+(`--trap-nan`) trapped: a strip whose width is not known is a NaN, and
+`world::RunwaySurfaces` compared it with an ordered comparison, which raises
+the invalid-operation flag. It compares quietly now (`std::isgreaterequal`),
+the default width as before. Caught by the two `--trap-nan` prediction tests
+once a predicting client read the collision ground.
+
 ## Verification
 
 - `the_ground_lifts_lattice_is_its_exact_lift_at_each_of_its_places`: at

@@ -106,7 +106,9 @@ RunwaySurfaces::RunwaySurfaces(std::vector<RunwayStrip> strips) {
         r.along_x = (he_x - r.le_x) / r.length_m;
         r.along_y = (he_y - r.le_y) / r.length_m;
         const double width_m =
-            s.width_m >= 3.0 && s.width_m <= 150.0 ? s.width_m : default_runway_width_m;
+            std::isgreaterequal(s.width_m, 3.0) && std::islessequal(s.width_m, 150.0)
+                ? s.width_m
+                : default_runway_width_m;
         r.half_width_m = width_m / 2.0;
         r.strip = std::move(s);
 
