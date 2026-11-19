@@ -37,6 +37,25 @@
 
 cmake_minimum_required(VERSION 3.28)
 include("${GLIDESLOPE_ROOT}/cmake/Copilot.cmake")
+
+# **The compiler and symbol tool it was built with, or this machine's**: CI
+# builds on one runner and tests on another, and while the runners' images
+# change the MSVC the build named may not be on the tester (train #387: built
+# with 14.51, tested where only 14.52 was), so every compile "would not
+# preprocess". Then the same tool by name on the PATH, said so - not skipped.
+foreach(_tool CXX NM)
+    if(DEFINED ${_tool} AND NOT "${${_tool}}" STREQUAL "" AND NOT EXISTS "${${_tool}}")
+        get_filename_component(_name "${${_tool}}" NAME)
+        find_program(_here_${_tool} NAMES "${_name}" NO_CACHE)
+        if(NOT _here_${_tool})
+            message(FATAL_ERROR "${_tool} ${${_tool}} is not on this machine, nor ${_name} "
+                                "on its PATH")
+        endif()
+        message(STATUS "${_tool} ${${_tool}}, the build's, is not on this machine: "
+                       "${_here_${_tool}}, on its PATH, instead")
+        set(${_tool} "${_here_${_tool}}")
+    endif()
+endforeach()
 set(_failures "")
 set(_walked 0)
 set(_expected 0)
