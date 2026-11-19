@@ -89,4 +89,4 @@ Its CI cost entries are renamed with it.
 
 **Not covered**: frames of 2 s converge more slowly. Against a server at
 0.5, a 60 s run ends 0.014 off the pace with the difference 40 steps off.
-No test holds frames that long.
+No test holds frames that long; it is an open tail in Phase 12a.
