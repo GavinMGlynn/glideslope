@@ -504,10 +504,16 @@ GLIDESLOPE_TEST(the_speedbrake_an_approach_is_flown_with_is_read_and_refused_out
     std::size_t refused = 0;
     for (const char* value : wrong) {
         write(value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find("approach_speedbrake") != std::string::npos,
                   std::string("the refusal of ") + value + " names approach_speedbrake: " + said);
             ++refused;
@@ -565,10 +571,16 @@ GLIDESLOPE_TEST(her_own_roll_out_rudder_gains_are_read_and_refused_at_0_or_past_
                 std::ofstream out(file);
                 out << text;
             }
+            // Caught, and judged after: MSVC 19.52 built a catch block that read
+            // the loop's value as garbage (train #387, test_figures's refusals).
+            std::optional<std::string> refusal;
             try {
                 read_published_figures(file);
             } catch (const std::runtime_error& e) {
-                const std::string said = e.what();
+                refusal = e.what();
+            }
+            if (refusal) {
+                const std::string said = *refusal;
                 check(said.find(t.attribute) != std::string::npos,
                       std::string("the refusal of ") + t.attribute + "=" + value + " names it: " +
                           said);
@@ -621,10 +633,16 @@ GLIDESLOPE_TEST(the_sink_a_flare_touches_down_at_is_read_and_refused_past_what_t
     std::size_t refused = 0;
     for (const char* value : wrong) {
         write(value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find("touchdown_fpm") != std::string::npos,
                   std::string("the refusal of ") + value + " names touchdown_fpm: " + said);
             ++refused;
@@ -674,10 +692,16 @@ GLIDESLOPE_TEST(the_rotation_rate_a_take_off_is_held_to_is_read_and_refused_outs
     std::size_t refused = 0;
     for (const char* value : wrong) {
         write(value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find("rotation_degps") != std::string::npos,
                   std::string("the refusal of ") + value + " names rotation_degps: " + said);
             ++refused;
@@ -727,10 +751,16 @@ GLIDESLOPE_TEST(the_rotation_loops_stick_per_degree_a_second_is_read_and_refused
     std::size_t refused = 0;
     for (const char* value : wrong) {
         write(value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find("rotation_stick_per_degps") != std::string::npos,
                   std::string("the refusal of ") + value + " names rotation_stick_per_degps: " +
                       said);
@@ -784,10 +814,16 @@ GLIDESLOPE_TEST(a_throttle_lag_is_read_and_refused_unless_over_0_and_at_most_5_s
     std::size_t refused = 0;
     for (const char* value : wrong) {
         write(value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find("throttle_lag_s") != std::string::npos,
                   std::string("the refusal of ") + value + " names throttle_lag_s: " + said);
             ++refused;
@@ -837,10 +873,16 @@ GLIDESLOPE_TEST(an_elevators_full_travel_pitching_moment_is_read_and_refused_out
     std::size_t refused = 0;
     for (const char* value : wrong) {
         write(value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find("elevator_full_cm") != std::string::npos,
                   std::string("the refusal of ") + value + " names elevator_full_cm: " + said);
             ++refused;
@@ -890,10 +932,16 @@ GLIDESLOPE_TEST(where_the_rollouts_stick_starts_back_is_read_and_refused_outside
     std::size_t refused = 0;
     for (const char* value : wrong) {
         write(value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find("stick_back_from_vref") != std::string::npos,
                   std::string("the refusal of ") + value + " names stick_back_from_vref: " + said);
             ++refused;
@@ -971,10 +1019,16 @@ GLIDESLOPE_TEST(a_gust_additive_and_a_gusty_aileron_and_nose_rate_are_read_and_r
     std::size_t refused = 0;
     for (const auto& [name, value] : wrong) {
         write(name, value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find(name) != std::string::npos,
                   std::string("the refusal of ") + name + " " + value + " names it: " + said);
             ++refused;
@@ -1035,10 +1089,16 @@ GLIDESLOPE_TEST(a_gusty_retard_height_and_nose_let_down_are_read_and_refused_out
     std::size_t refused = 0;
     for (const auto& [name, value] : wrong) {
         write(name, value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find(name) != std::string::npos,
                   std::string("the refusal of ") + name + " " + value + " names it: " + said);
             ++refused;
@@ -1097,10 +1157,16 @@ GLIDESLOPE_TEST(a_pitch_gains_speed_and_a_calm_flare_lead_are_read_and_refused_o
     std::size_t refused = 0;
     for (const auto& [name, value] : wrong) {
         write(name, value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find(name) != std::string::npos,
                   std::string("the refusal of ") + name + " " + value + " names it: " + said);
             ++refused;
@@ -1147,10 +1213,16 @@ GLIDESLOPE_TEST(how_a_tail_wheel_aeroplane_lands_is_read_and_anything_but_three_
     std::size_t refused = 0;
     for (const char* value : wrong) {
         write(value);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             check(said.find("lands") != std::string::npos,
                   std::string("the refusal of \"") + value + "\" names lands: " + said);
             ++refused;
@@ -1742,11 +1814,17 @@ GLIDESLOPE_TEST(the_speeds_a_plan_may_fly_an_aircraft_at_are_read_and_refused_wh
     std::string failures;
     for (const auto& [in_its_place, says] : wrong) {
         write(in_its_place);
+        // Caught, and judged after: MSVC 19.52 built a catch block that read
+        // the loop's value as garbage (train #387, test_figures's refusals).
+        std::optional<std::string> refusal;
         try {
             read_published_figures(file);
             failures += std::string("\n  taken: ") + in_its_place;
         } catch (const std::runtime_error& e) {
-            const std::string said = e.what();
+            refusal = e.what();
+        }
+        if (refusal) {
+            const std::string said = *refusal;
             if (said.find(says) == std::string::npos) {
                 failures += std::string("\n  ") + in_its_place + " refused, but not saying \"" +
                             says + "\": " + said;
