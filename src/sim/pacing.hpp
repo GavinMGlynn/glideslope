@@ -34,11 +34,35 @@ class Prediction;
 class Pacing {
 public:
     // **The loop's gains**, on the difference in seconds (steps over
-    // `steps_per_second`): critically damped at half a radian a second, a
+    // `steps_per_second`): critically damped - proportional twice the
+    // natural frequency, integral its square - at half a radian a second, a
     // time constant of two seconds - the same as the window the difference
-    // is the least over, and a hundred times the update interval.
-    static constexpr double proportional_per_s = 1.0;
-    static constexpr double integral_per_s2 = 0.25;
+    // is the least over, and fifty times the time between looks at 25 words
+    // a second.
+    static constexpr double damped_per_s = 0.5;
+    // **Slower when looks are sparse**: at most a radian of the loop's
+    // natural frequency in `looks_per_radian` looks, so a client whose frames
+    // are a second long - looking once a frame, at a difference a frame old,
+    // flown on for the next - steers at 0.2 a second, not 0.5. **Why**: at 0.5
+    // a look a second is under a look and a half a cycle's radian, a frame of
+    // delay on top, and the loop rang - it flew at 1.2 to 1.4 against a server
+    // keeping real time, and at 0.68 against one at 0.5 (docs/status,
+    // 2026-11-18); at four looks a radian it settled, at five it settles
+    // within 0.001 of the server's pace for frames from 0.1 to 1 s, 0.014 for
+    // 2 s (the unit test). At 25 words a second it is 0.5 as before.
+    static constexpr double looks_per_radian = 5.0;
+    // The time between looks the gains are set by: an average, a fifth of
+    // the way to each new one, each counted at most `longest_look_s` - a
+    // machine that stopped once is not taken to look that seldom.
+    static constexpr double looks_settle = 0.2;
+    static constexpr double longest_look_s = 2.0;
+    // **And steered between them** for `steered_looks` times the time
+    // between looks, if that is longer than `steered_without_a_word_s`: a
+    // client looking once a second flies all of its frame at what the loop
+    // asks, not a quarter of a second of it - with a quarter, its pace barely
+    // moved from the integral's, and against a server at 0.5 the difference
+    // ran 1,300 steps away.
+    static constexpr double steered_looks = 1.5;
     // The slowest and fastest it flies, as fractions of this machine's clock.
     static constexpr double slowest = 0.1;
     static constexpr double fastest = 2.0;
@@ -78,11 +102,22 @@ public:
     // alone, the server's pace as the loop has learnt it. Flown at all of
     // it, an F-35B's client steering 2% fast as it stopped for 3 s gained
     // eight steps on the server, which no word asked for, and the next words
-    // were placed six steps off, 8.3 m (docs/status, 2026-10-24).
+    // were placed six steps off, 8.3 m (docs/status, 2026-10-24). Or
+    // `steered_looks` times the time between looks, if that is longer.
     static constexpr double steered_without_a_word_s = 0.25;
 
     // **The clocks' difference the prediction measures**, in steps, at
-    // `local_s`. The first heard after `hold` is the one held to; from it the
+    // `local_s`. **Words read together are one look**: a client whose
+    // frame is long reads a frame's words at once, all at the frame's
+    // `local_s`, and each after the first is taken in place of the one
+    // before it, as if the newest had been heard alone - the loop steps once,
+    // over the time since the look before. Stepped by each, with no time
+    // between them, every move of the difference was a jump: frames held a
+    // second sample it once a frame, inputs being sent once a frame, and its
+    // move - 30 steps a frame, the client flying at 0.64 of a server keeping
+    // real time - came between two words read together and was forgiven,
+    // never steered by, and the words were placed 35 to 72 steps off: put
+    // right 48 to 159 m (docs/status, 2026-11-18). The first heard after `hold` is the one held to; from it the
     // pace starts at `rate` if given - what the session clock's fit says the
     // server's pace is, which the loop then corrects - or where it was.
     void heard(std::int64_t difference, double local_s, std::optional<double> rate = {});
@@ -123,13 +158,30 @@ private:
     std::optional<std::int64_t> held_;
     std::int64_t last_difference_ = 0;
     bool ever_held_ = false;
+    // The pace the integral adds to real time.
     double integral_ = 0.0;
     std::optional<double> heard_at_s_;
+    double between_looks_s_ = 1.0 / 25.0;
     std::optional<double> last_local_s_;
     double paced_s_ = 0.0;
     double pace_ = 1.0;
     std::int64_t worst_off_ = 0;
     std::int64_t off_ = 0;
+    // **The loop as it stood before the words read together** - heard at
+    // one `local_s` - so that each word after the first of them is taken in
+    // place of the one before, not after it with no time between.
+    struct Loop {
+        std::optional<std::int64_t> held;
+        std::int64_t last_difference = 0;
+        bool ever_held = false;
+        double integral = 0.0;
+        std::optional<double> heard_at_s;
+        double between_looks_s = 0.0;
+        double pace = 1.0;
+        std::int64_t worst_off = 0;
+        std::int64_t off = 0;
+    };
+    std::optional<Loop> before_read_together_;
 };
 
 } // namespace glideslope::sim

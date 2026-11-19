@@ -27,6 +27,7 @@
 #include <array>
 #include <cstddef>
 #include <deque>
+#include <optional>
 
 namespace glideslope::net {
 
@@ -140,6 +141,9 @@ class SessionClock {
 public:
     // How much of the past the fit is made over.
     static constexpr double window_s = 2.0;
+    // **A frame longer than this hears its updates as one** - the newest of
+    // them (`heard`): a tenth of a second, six frames at sixty a second.
+    static constexpr double long_frame_s = 0.1;
 
     // An update stamped `session_s`, heard at this machine's `local_s`.
     void heard(double session_s, double local_s);
@@ -158,6 +162,8 @@ private:
         double local_s = 0.0;
     };
     std::deque<Heard> heard_;
+    // The local time of the frame before the newest heard in.
+    std::optional<double> frame_before_s_;
     double rate_ = 1.0;
     // The session's time at local nought, on the fitted line through the
     // fastest-arriving update.

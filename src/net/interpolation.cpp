@@ -195,16 +195,36 @@ RemoteState Interpolated::at(double now_s) {
 }
 
 void SessionClock::heard(double session_s, double local_s) {
-    heard_.push_back({session_s, local_s});
+    // **Updates heard together are one point: the newest of them.** A
+    // client whose frame is long hears a frame's updates at once, all at the
+    // frame's time, so each frame was a column of points a frame's session
+    // time tall at one local time, and the line through such columns - one
+    // partly heard, or the first after a slow start - said 0.5 to 0.64 of a
+    // server keeping real time, which a client's pace was started from
+    // (docs/status, 2026-11-18). The newest of them waited least, as the
+    // offset below already takes it. **Only a long frame's**: at sixty
+    // frames a second, two updates a frame are two arrivals a few
+    // milliseconds apart, and keeping only the newest of them put the fit of
+    // a server at 1.25 with 60 ms of jitter 0.015 off.
+    if (!heard_.empty() && heard_.back().local_s == local_s &&
+        (!frame_before_s_ || local_s - *frame_before_s_ > long_frame_s)) {
+        heard_.back().session_s = std::max(heard_.back().session_s, session_s);
+    } else {
+        if (!heard_.empty() && heard_.back().local_s != local_s) {
+            frame_before_s_ = heard_.back().local_s;
+        }
+        heard_.push_back({session_s, local_s});
+    }
     while (heard_.size() > 2 && local_s - heard_.front().local_s > window_s) {
         heard_.pop_front();
     }
     // The rate: a least-squares line through what the window holds, once it
-    // holds enough of a span to say anything - until then, real time. Held
+    // holds enough of a span to say anything - until then, real time - and
+    // two points at least: a client looking once a second holds three. Held
     // between a half and twice, which no server that is running at all is
     // outside, so that a burst of updates cannot make it absurd.
     const double span = heard_.back().local_s - heard_.front().local_s;
-    if (heard_.size() >= 5 && span >= window_s / 4.0) {
+    if (heard_.size() >= 2 && span >= window_s / 4.0) {
         double sl = 0.0;
         double ss = 0.0;
         for (const Heard& h : heard_) {
