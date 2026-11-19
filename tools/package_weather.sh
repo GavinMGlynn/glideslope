@@ -48,11 +48,14 @@ stderr_file=$(mktemp)
 out=$(mktemp)
 trap 'rm -f "$stderr_file" "$out"' EXIT
 
-# Runs "$@", showing both streams, and keeps what stderr held in $stderr_file.
+# Runs "$@" with its stderr kept in $stderr_file, and then shows it. Not
+# through a tee in a process substitution: a bare `wait` does not wait for
+# one, so the file could still be empty when it was read, and an outage was
+# judged another fault (train #387's Ubuntu release run, 2026-11-19).
 run_keeping_stderr() {
-    "$@" 2> >(tee "$stderr_file" >&2)
+    "$@" 2> "$stderr_file"
     local rc=$?
-    wait # the tee's last bytes
+    cat "$stderr_file" >&2
     return "$rc"
 }
 
