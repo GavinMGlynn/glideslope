@@ -309,8 +309,9 @@ double connect_slow_preparation_ms = 0.0;
 // joining could make it.
 bool connect_spend_requests_first = false;
 
-// **The ground a STOVL landing is flown onto** (`--stovl-land`): the DEM's
-// coverage, its tiles, the geoid and the runways, as the server collides on.
+// **The ground a STOVL landing is flown onto** (`--stovl-land`), and a
+// prediction's air is flown over (`--predict`): the DEM's coverage, its
+// tiles, the geoid and the runways, as the server collides on.
 struct StovlGround {
     std::unique_ptr<glideslope::world::DemCoverage> coverage;
     std::unique_ptr<glideslope::world::DownloadedTiles> tiles;
@@ -435,10 +436,13 @@ std::string connect_wreck_file;
 // reads, to hold the server's against, and, for a test, whether its
 // prediction ignores the server's weather (`--own-air`) - flying still air
 // whatever the server flies, as a client that fetched its own would fly the
-// wrong air - to show what the server's weather is worth.
+// wrong air - to show what the server's weather is worth; or whether it
+// flies the server's weather over no ground (`--no-ground-lift`), with no
+// lift from the hills, to show what the ground's lift is worth.
 struct ConnectAir {
     std::filesystem::path data;
     bool own_air = false;
+    bool no_ground_lift = false;
 };
 ConnectAir connect_air;
 
@@ -618,6 +622,9 @@ void print_usage(std::FILE* out) {
         "                            --own-air (with --predict) flies its own in\n"
         "                            still air, whatever weather the server says it\n"
         "                            flies, to show what the server's is worth\n"
+        "                            --no-ground-lift (with --predict) flies the\n"
+        "                            server's weather over no ground: no lift from\n"
+        "                            the hills, to show what the ground's is worth\n"
         "                            --until-compared N (with --predict) stays until\n"
         "                            N updates are compared\n"
         "                            --until-compared-on-law N the same, counted once\n"
@@ -2085,7 +2092,13 @@ public:
     // False, with why, for a weather refused (frontend::HeardAir::heard).
     bool weather(const glideslope::net::Weather& w,
                  const std::optional<glideslope::net::WeatherAloft>& aloft, std::string& why) {
-        if (!geoid_for_air_ && !w.metar.empty()) {
+        // **Over the collision ground**, prepared before joining, as the
+        // server's air is (glideslope_server's Fleet::fly_in): its thermals
+        // stand on it and its lift is made from it. Without it - a client
+        // flying its own still air - over none; and over none for a test
+        // (`--no-ground-lift`).
+        const std::shared_ptr<const StovlGround> ground = connect_stovl_ground;
+        if (!ground && !geoid_for_air_ && !w.metar.empty()) {
             // Built for the first weather that is not still air; still air
             // before it was no weather at all, and nothing is lost.
             geoid_for_air_ = std::make_unique<glideslope::world::Geoid>(
@@ -2094,9 +2107,8 @@ public:
             air_.reset();
         }
         if (!air_) {
-            // **Over no ground**, as the server's is (glideslope_server's
-            // Fleet::fly_in says why). The geoid is kept: the wind's profile
-            // is in height above the sea.
+            // The geoid is kept: the wind's profile is in height above the
+            // sea.
             // **On the clock of the step being flown** - forward or again,
             // in a replay - as the server will fly it (sim::Prediction::
             // session_time_s), and this machine's estimate of the session's
@@ -2104,7 +2116,13 @@ public:
             // **The moment it was asked at is kept** (`air_asked_at_s_`),
             // so that each step flown forward is held to the server's
             // moment for it (`gust_clock_`).
-            air_.emplace(geoid_for_air_.get(), glideslope::world::GroundAt{}, [this] {
+            glideslope::world::GroundAt beneath;
+            if (ground && !connect_air.no_ground_lift) {
+                beneath = [collision = ground->collision](double lat, double lon) {
+                    return collision->height_above_geoid(lat, lon);
+                };
+            }
+            air_.emplace(ground ? ground->geoid.get() : geoid_for_air_.get(), beneath, [this] {
                 double t = session_now_s_;
                 if (prediction_) {
                     if (const auto known = prediction_->session_time_s()) {
@@ -6030,9 +6048,10 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
     w.bytes(initiator.begin(std::span<const std::uint8_t>(connect_asked_aircraft.data(),
                                                           connect_asked_aircraft.size())));
     const std::vector<std::uint8_t> first = w.take();
-    // What a STOVL landing needs, read before the server is asked for a
-    // session (prepare_stovl_ground).
-    if (connect_stovl_land && !connect_stovl_ground) {
+    // What a STOVL landing needs, and the ground a prediction's air is
+    // flown over, read before the server is asked for a session
+    // (prepare_stovl_ground).
+    if ((connect_stovl_land || (predict && !connect_air.own_air)) && !connect_stovl_ground) {
         connect_stovl_ground = prepare_stovl_ground();
     }
 
@@ -6602,6 +6621,10 @@ static int run_program(int argc, char** argv) {
                 }
                 if (args[i] == "--own-air") {
                     connect_air.own_air = true;
+                    continue;
+                }
+                if (args[i] == "--no-ground-lift") {
+                    connect_air.no_ground_lift = true;
                     continue;
                 }
                 if (args[i] == "--track" && i + 1 < args.size()) {

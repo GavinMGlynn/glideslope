@@ -522,8 +522,8 @@ void Flight::fly_server_air(std::shared_ptr<const frontend::HeardAir> air,
         return;
     }
     server_stations_flown_ = server_air_->stations();
-    // Over no ground, as the server's is (glideslope_server's Fleet::fly_in),
-    // on the clock of the step being flown, forward or again in a replay, as
+    // Over the collision ground, as the server's is (glideslope_server's
+    // Fleet::fly_in), on the clock of the step being flown, forward or again in a replay, as
     // the server will fly it (sim::Prediction::session_time_s); before that
     // is known, `clock`, this machine's estimate of the session's.
     aircraft_->set_weather(std::make_shared<frontend::SessionClocked>(

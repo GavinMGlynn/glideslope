@@ -292,11 +292,16 @@ void Online::hear(Flight& flight) {
                 continue;
             }
             if (!server_air_) {
-                // Over no ground, as the server's is (glideslope_server's
-                // Fleet::fly_in); the flight flies it on its own clock.
+                // Over the collision ground, as the server's is
+                // (glideslope_server's Fleet::fly_in), its lift and all; the
+                // flight flies it on its own clock.
                 air_geoid_ = flight.geoid();
                 server_air_ = std::make_shared<frontend::HeardAir>(
-                    air_geoid_.get(), world::GroundAt{}, [this] { return session_now_s_; });
+                    air_geoid_.get(),
+                    [ground = flight.collision()](double lat, double lon) {
+                        return ground->height_above_geoid(lat, lon);
+                    },
+                    [this] { return session_now_s_; });
             }
             std::string why;
             const bool taken = server_air_->said(said, &why);
