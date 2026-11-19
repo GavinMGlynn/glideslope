@@ -2571,14 +2571,7 @@ public:
                 // by the clocks' difference it moved (MachineStalls).
                 // Run by run, outside them, the steps are summed.
                 if (across) {
-                    if (first_compared_ && last_compared_) {
-                        steps_outside_stalls_.first +=
-                            last_compared_->first - first_compared_->first;
-                        steps_outside_stalls_.second +=
-                            last_compared_->second - first_compared_->second;
-                    }
-                    first_compared_.reset();
-                    last_compared_.reset();
+                    end_steps_run();
                 } else {
                     if (!first_compared_) {
                         first_compared_ = std::make_pair(*c.at_step, server_step);
@@ -3309,10 +3302,7 @@ public:
         // the server's, flown at its pace.
         if (first_compared_ || steps_outside_stalls_.second > 0) {
             std::pair<std::uint64_t, std::uint64_t> steps = steps_outside_stalls_;
-            if (first_compared_ && last_compared_) {
-                steps.first += last_compared_->first - first_compared_->first;
-                steps.second += last_compared_->second - first_compared_->second;
-            }
+            add_steps_run(steps);
             std::snprintf(line, sizeof line,
                           "paced in steps: %llu flown here while the server flew %llu, from the "
                           "first update compared to the last, outside the machine's stalls",
@@ -3686,12 +3676,7 @@ private:
         // stall's is, not subtracted across (nightly 43988660972: "paced in
         // steps: 18446744073709551541", the take-back's steps from the
         // first compared before it).
-        if (first_compared_ && last_compared_) {
-            steps_outside_stalls_.first += last_compared_->first - first_compared_->first;
-            steps_outside_stalls_.second += last_compared_->second - first_compared_->second;
-        }
-        first_compared_.reset();
-        last_compared_.reset();
+        end_steps_run();
         // **On the levers the server holds her on**, where it has said them
         // (`--stovl-at-once`, `--from-held`), as the windowed client begins.
         if (levers_) {
@@ -3932,6 +3917,22 @@ private:
     std::optional<std::pair<std::uint64_t, std::uint64_t>> last_compared_;
     // The steps of the runs between the machine's stalls before the latest.
     std::pair<std::uint64_t, std::uint64_t> steps_outside_stalls_{0, 0};
+
+    // **A run of steps, from the first update compared to the last**, added
+    // to a sum: its own steps here and the server's there.
+    void add_steps_run(std::pair<std::uint64_t, std::uint64_t>& sum) const {
+        if (first_compared_ && last_compared_) {
+            sum.first += last_compared_->first - first_compared_->first;
+            sum.second += last_compared_->second - first_compared_->second;
+        }
+    }
+    // **The run ended**, at a machine's stall or a prediction begun again:
+    // summed, and the next counted afresh.
+    void end_steps_run() {
+        add_steps_run(steps_outside_stalls_);
+        first_compared_.reset();
+        last_compared_.reset();
+    }
     bool paced_ = true;
     std::deque<std::pair<std::uint32_t, glideslope::sim::Controls>> before_;
     glideslope::net::SessionClock clock_;
