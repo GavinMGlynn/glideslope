@@ -88,8 +88,33 @@ while(TRUE)
     endforeach()
 endwhile()
 
-# **Every program in every pipeline.**
+# **A script another script runs** (`-P "${CMAKE_CURRENT_LIST_DIR}/x.cmake"`)
+# is given its programs by that script, each as "-DVAR=${VAR}": what the
+# caller's test gives it, the called one has (copilots_nearest_station_run,
+# run by copilots_nearest_station under its stub).
 file(GLOB _scripts "${SCRIPTS}/*.cmake")
+foreach(_path IN LISTS _scripts)
+    get_filename_component(_caller "${_path}" NAME_WE)
+    file(READ "${_path}" _text)
+    string(REGEX REPLACE "#[^\n]*" "" _text "${_text}")
+    string(REGEX MATCHALL "execute_process\\([^)]*-P[ \t\n]+\"?\\$\\{CMAKE_CURRENT_LIST_DIR\\}/[a-z_0-9]+\\.cmake"
+           _calls "${_text}")
+    foreach(_call IN LISTS _calls)
+        string(REGEX MATCH "/([a-z_0-9]+)\\.cmake$" _ "${_call}")
+        set(_called "${CMAKE_MATCH_1}")
+        string(REGEX MATCHALL "-D([A-Z_]+)=\\$\\{([A-Z_]+)\\}" _passed "${_call}")
+        foreach(_d IN LISTS _passed)
+            string(REGEX REPLACE "-D([A-Z_]+)=.*" "\\1" _var "${_d}")
+            string(REGEX REPLACE ".*\\$\\{([A-Z_]+)\\}" "\\1" _from "${_d}")
+            if(DEFINED _of_${_caller}_${_from})
+                list(APPEND _of_${_called}_${_var} ${_of_${_caller}_${_from}})
+                list(REMOVE_DUPLICATES _of_${_called}_${_var})
+            endif()
+        endforeach()
+    endforeach()
+endforeach()
+
+# **Every program in every pipeline.**
 set(_found "")
 set(_pipelines 0)
 set(_commands_seen 0)
