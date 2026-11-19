@@ -11,8 +11,14 @@
 #include <chrono>
 #include <cstdint>
 #include <filesystem>
+#include <condition_variable>
+#include <deque>
 #include <functional>
+#include <map>
+#include <mutex>
 #include <stdexcept>
+#include <thread>
+#include <utility>
 #include <string>
 #include <string_view>
 #include <vector>
@@ -214,6 +220,9 @@ public:
         return downloads_;
     }
 
+    // Whether the tile is in the cache now: what open would not fetch.
+    bool cached(DemDataset dataset, DemCell cell) const;
+
 private:
     std::filesystem::path path_of(DemDataset dataset, const std::string& name) const;
     std::shared_ptr<const ByteSource> fetched(DemDataset dataset, const std::string& name,
@@ -222,6 +231,52 @@ private:
     std::filesystem::path cache_;
     Fetch fetch_;
     int downloads_ = 0;
+};
+
+// **DEM tiles fetched ahead, never waited for**: what the ground's lift
+// (world::GroundLift) reads its ground through, so that a step never waits
+// on the network. A place is had when every cell within 0.01 degree of it -
+// the cells its interpolation may read - has no tile or has its tile in the
+// cache; one that is not is asked for, and fetched on a thread of its own
+// into the cache, where the Dem then finds it. A fetch that failed is asked
+// for again a minute after.
+class TilesAhead {
+public:
+    TilesAhead(DemCoverage coverage, std::filesystem::path cache, Fetch fetch);
+    ~TilesAhead();
+    TilesAhead(const TilesAhead&) = delete;
+    TilesAhead& operator=(const TilesAhead&) = delete;
+
+    // Whether the ground's height at a place can be read without fetching;
+    // if not, its tiles are asked for.
+    bool had(double latitude_deg, double longitude_deg);
+
+    // Tiles fetched, and fetches that failed, so far.
+    int fetched() const;
+    int failed() const;
+
+private:
+    bool cell_had(DemCell cell);
+    void fetch_loop();
+
+    const DemCoverage coverage_; // a copy: it may outlive what it was made from
+    // Read on the asking thread only: cells known to be had.
+    std::map<std::pair<int, int>, bool> had_;
+    DownloadedTiles look_;
+
+    mutable std::mutex mutex_;
+    std::condition_variable wake_;
+    std::deque<DemCell> asked_;
+    // Cells asked for and not yet answered, and when each failed.
+    std::map<std::pair<int, int>, bool> pending_;
+    std::map<std::pair<int, int>, std::chrono::steady_clock::time_point> failed_at_;
+    int fetched_ = 0;
+    int failed_ = 0;
+    bool stop_ = false;
+    // Set as it is let go: the fetch under way is given up (FetchesGivenUp).
+    std::atomic<bool> give_up_{false};
+    DownloadedTiles tiles_;
+    std::thread thread_;
 };
 
 // Every runway in the world: OurAirports' `runways.csv` at its pinned commit,

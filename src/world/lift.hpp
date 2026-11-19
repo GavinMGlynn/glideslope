@@ -45,6 +45,7 @@
 #include <cstdint>
 #include <functional>
 #include <map>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -147,6 +148,12 @@ double terrain_updraught(const TerrainSpectrum& spectrum, double beneath_m,
 // twice the samples' spacing, 500 m.
 inline constexpr double ground_lift_lattice_deg = 1.0 / 480.0;
 
+// **Ground not had yet**: what a ground that never waits throws for a place
+// whose ground it has asked for and has not got - a DEM tile being fetched.
+struct GroundNotHad : std::runtime_error {
+    using std::runtime_error::runtime_error;
+};
+
 // **The ground's lift, cheaply enough to be flown again**: terrain_updraught
 // over a lattice of places fixed on the Earth, each place's terrain along the
 // wind transformed once and kept, and the transforms of the four about a
@@ -157,9 +164,14 @@ inline constexpr double ground_lift_lattice_deg = 1.0 / 480.0;
 // made before, and in what order, changes nothing - a client flying a step
 // again meets what the server met there. Made for one thread.
 //
-// **A place whose ground cannot be had** - the ground throws a
-// std::runtime_error, a DEM's tile that cannot be fetched - lifts nothing, and
-// nor does anywhere it is one of the four about.
+// **A place whose ground is not had** - the ground throws a
+// std::runtime_error: GroundNotHad, a DEM tile not yet fetched, or a fetch
+// that failed - lifts nothing, nor does anywhere it is one of the four
+// about, and **is not kept**: it is made when it is next wanted, and once its
+// ground is had it lifts as it would have. So the step never waits on the
+// network where the ground does not (GroundNotHad), and two machines differ
+// only while one has a tile the other has not yet: by the lift there, no
+// more, until it arrives. The ground beneath not had, nothing lifts.
 class GroundLift {
 public:
     using Ground = std::function<double(double latitude_deg, double longitude_deg)>;
@@ -179,6 +191,8 @@ public:
     // How many places' transforms have been made, all told: what the lift
     // has cost beyond its sums.
     std::size_t transforms_made() const { return made_; }
+    // How many times a place's ground was not had, all told.
+    std::size_t not_had() const { return not_had_; }
 
     // **The most transforms kept**, 2,048 of 4 kB: past that all are let go
     // and made again as they are wanted.
@@ -186,10 +200,10 @@ public:
 
 private:
     struct Place {
-        bool had = false;
         TerrainSpectrum spectrum;
     };
-    const Place& place(std::size_t direction, long row, long column);
+    // The place's transform, or null when its ground is not had.
+    const Place* place(std::size_t direction, long row, long column);
 
     Ground ground_;
     // Each wind's direction, north and east, and its places by row and column.
@@ -201,6 +215,7 @@ private:
     std::vector<Direction> directions_;
     std::size_t kept_ = 0;
     std::size_t made_ = 0;
+    std::size_t not_had_ = 0;
 };
 
 } // namespace glideslope::world

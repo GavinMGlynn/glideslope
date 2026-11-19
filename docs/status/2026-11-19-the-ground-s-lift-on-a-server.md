@@ -2,13 +2,11 @@
 
 Phase 12a, "On a server the air has no ground's lift": done.
 
-**What is missing first:** the lift's ground reaches 32 km up and down the
-wind, and a DEM tile it reaches that is not yet in the cache is fetched in
-the middle of a step, on the server and every client alike - 20 to 30 MB,
-synchronously, as the collision ground already does under an aircraft but
-now up to 32 km ahead of her. A tile that cannot be fetched lifts nothing
-over the lattice's places that reach it, so the two ends differ only where
-one end could fetch it and the other could not. A tail in the plan.
+**What is missing first:** while one end has a DEM tile the lift reaches
+and the other is still fetching it, they differ there by the lift itself -
+up to the strongest lift (3.1 m/s over the test's hills in 40 kt), for as
+long as the fetch takes, 20 to 30 MB; nothing measures that window end to
+end yet. Nothing is waited for: see below.
 
 ## What now works
 
@@ -32,10 +30,25 @@ three times as a predicting client does, made 52 transforms over 25 cells.
 At most 2,048 transforms (4 kB each) are kept; past that all are let go and
 made again as wanted.
 
-The headless client reads the collision ground before joining when it
-predicts (as it did for `--stovl-land`), and flies the server's air over
-it; `--no-ground-lift` flies the same air over no ground, for the test
-below.
+**A step never waits on the network.** The lift reaches 32 km up and down
+the wind, into DEM tiles the aircraft has not flown over. Its ground
+(`frontend::air_ground`) reads the collision ground only where
+`world::TilesAhead` says its tiles are in the cache; elsewhere it throws
+`world::GroundNotHad` and asks for them, fetched on a thread of its own. A
+place whose ground is not had - being fetched, or its fetch failed - lifts
+nothing and **is not kept**: it is made again when next wanted, and once its
+tiles are had it lifts exactly as on a machine that always had them. So the
+two ends agree wherever both have the tiles, and differ only while one is
+still fetching, by the lift there (above). A failed fetch is asked for again
+a minute on. Thermals over ground not had stand on the station's elevation.
+
+**Every `--predict` client now reads the geoid and the DEM before joining**
+(as `--stovl-land` did): the geoid's zip and the coverage, about 0.8 s in an
+idle debug build. Offline, with no geoid cached, it says "the collision
+ground could not be had" and flies the server's air over no ground, rather
+than not joining; the multi-process tests that predict already skip (exit
+77) before then, their server unable to get its terrain. `--no-ground-lift`
+flies the server's air over no ground, for the test below.
 
 **Found on the way:** reading the runways under the NaN trap
 (`--trap-nan`) trapped: a strip whose width is not known is a NaN, and
@@ -45,6 +58,15 @@ the default width as before. Caught by the two `--trap-nan` prediction tests
 once a predicting client read the collision ground.
 
 ## Verification
+
+- `a_place_whose_ground_is_not_had_lifts_nothing_is_not_kept_and_lifts_once_it_is_had`:
+  a tile being fetched and a fetch that failed each lift nothing and keep
+  nothing; had, the place's lift is bit for bit a lattice's that always had
+  it. **Seen red** with the place kept as no lift: 4 transforms kept.
+- `tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_asked_again_a_minute_on`:
+  with the bucket's answer held, asking returns at once, not had, and the
+  tile is fetched once; let go, it is had; a failed fetch is not asked again
+  at once.
 
 - `the_ground_lifts_lattice_is_its_exact_lift_at_each_of_its_places`: at
   512 places and heights of the lattice, the exact lift to 1e-9 m/s.

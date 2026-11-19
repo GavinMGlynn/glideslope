@@ -11,6 +11,7 @@
 #include <atomic>
 #include <cerrno>
 #include <chrono>
+#include <condition_variable>
 #include <cstdlib>
 #include <cmath>
 #include <cstdio>
@@ -1578,4 +1579,70 @@ GLIDESLOPE_TEST(many_fetches_and_reads_of_one_tile_at_once_all_read_it_whole) {
     check(plain_reads == rounds * readers,
           std::to_string(plain_reads.load()) + " readers read it whole, of " +
               std::to_string(rounds * readers));
+}
+
+GLIDESLOPE_TEST(tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_asked_again_a_minute_on) {
+    const std::filesystem::path source(GLIDESLOPE_TEST_SOURCE_DIR);
+    std::ifstream coverage_file(source / "../assets/dem/coverage.txt", std::ios::binary);
+    const glideslope::world::DemCoverage coverage(
+        std::string(std::istreambuf_iterator<char>(coverage_file), {}));
+
+    // A bucket that answers only when let: the fetch is under way, and held.
+    std::mutex mutex;
+    std::condition_variable let;
+    bool answer = false;
+    bool fail_it = false;
+    std::atomic<int> asked{0};
+    const glideslope::world::Fetch held = [&](const std::string& url) {
+        ++asked;
+        std::unique_lock<std::mutex> lock(mutex);
+        let.wait(lock, [&] { return answer; });
+        if (fail_it) {
+            throw HttpError(url + ": no route to host");
+        }
+        HttpResponse r;
+        r.status = 200;
+        r.body = small_tile();
+        r.headers["etag"] = "\"parts-2\"";
+        return r;
+    };
+    {
+        const auto cache = scratch("ahead");
+        glideslope::world::TilesAhead ahead(coverage, cache, held);
+        // Sydney's cell has a tile; the sea east of it has none.
+        check(ahead.had(-33.5, 160.5), "a cell of the sea, with no tile, is had at once");
+        check(!ahead.had(-33.5, 151.5),
+              "a cell whose tile is not cached is not had, and the asking returns while "
+              "its fetch is held");
+        check(!ahead.had(-33.5, 151.5), "nor is it the next time");
+        while (asked.load() == 0) {
+            std::this_thread::yield();
+        }
+        check(asked.load() == 1, "it is fetched once, however often it is asked for");
+        {
+            const std::lock_guard<std::mutex> lock(mutex);
+            answer = true;
+        }
+        let.notify_all();
+        while (ahead.fetched() == 0) {
+            std::this_thread::yield();
+        }
+        check(ahead.had(-33.5, 151.5), "once fetched, it is had");
+        check(asked.load() == 1, "and was fetched once");
+    }
+    {
+        const auto cache = scratch("ahead-failed");
+        asked = 0;
+        fail_it = true;
+        glideslope::world::TilesAhead ahead(coverage, cache, held);
+        check(!ahead.had(-33.5, 151.5), "a tile being fetched is not had");
+        while (ahead.failed() == 0) {
+            std::this_thread::yield();
+        }
+        const int tries = asked.load();
+        check(!ahead.had(-33.5, 151.5), "a tile whose fetch failed is not had");
+        check(asked.load() == tries && ahead.failed() == 1,
+              "and is not asked for again at once: " + std::to_string(asked.load()) +
+                  " fetches");
+    }
 }

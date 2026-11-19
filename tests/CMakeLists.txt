@@ -1106,6 +1106,11 @@ set(GLIDESLOPE_UNIT_TESTS
     without_stability_the_wind_over_a_ridge_is_potential_flow
     a_warm_afternoons_report_lifts_the_air_in_thermals_and_over_its_ridges
     an_aircraft_circling_in_a_thermal_climbs_by_as_much_as_the_model_lifts_it
+    the_ground_lifts_lattice_is_its_exact_lift_at_each_of_its_places
+    between_its_places_the_ground_lifts_lattice_is_within_3_percent_of_the_strongest_lift
+    the_ground_lifts_lattice_is_the_same_whatever_was_made_before
+    a_minutes_flight_over_hills_makes_two_of_the_ground_lifts_transforms_a_cell
+    a_place_whose_ground_is_not_had_lifts_nothing_is_not_kept_and_lifts_once_it_is_had
     a_reports_cloud_is_drawn_as_decks_at_its_heights_and_cover
     a_decks_pattern_covers_as_much_of_the_sky_as_its_eighths_say
     a_reports_visibility_and_precipitation_are_drawn_as_it_gives_them
@@ -1376,6 +1381,7 @@ set(GLIDESLOPE_UNIT_TESTS
     a_flap_limit_speed_is_read_for_each_setting_and_a_flap_between_two_is_held_to_the_lower
     no_flight_model_opens_a_network_socket
     a_download_cannot_be_killed_by_a_server_hanging_up
+    tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_asked_again_a_minute_on
     a_parent_imagery_tile_scaled_into_a_missing_childs_place_is_sound
     a_program_that_has_ended_can_still_allocate_until_its_last_thread_is_gone)
 # **The gust landings' seeds 9 to 40** (tests/unit/test_lesson.cpp),

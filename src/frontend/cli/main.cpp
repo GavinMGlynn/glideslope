@@ -317,6 +317,8 @@ struct StovlGround {
     std::unique_ptr<glideslope::world::DownloadedTiles> tiles;
     std::unique_ptr<glideslope::world::Geoid> geoid;
     std::shared_ptr<glideslope::world::CollisionGround> collision;
+    // Its tiles for the air, fetched ahead (frontend::air_ground).
+    std::shared_ptr<glideslope::world::TilesAhead> air_tiles;
 };
 
 // **Prepared before joining, not after.** Reading it takes 0.8 s in an idle
@@ -344,6 +346,7 @@ std::shared_ptr<const StovlGround> prepare_stovl_ground() {
     g->collision = std::make_shared<glideslope::world::CollisionGround>(
         std::make_shared<glideslope::world::Dem>(*g->coverage, *g->tiles, g->geoid.get()),
         glideslope::world::runway_surfaces(data));
+    g->air_tiles = std::make_shared<glideslope::world::TilesAhead>(*g->coverage, cache, fetch);
     return g;
 }
 // Prepared by `connect` before it sends its initiation, for every stay.
@@ -2118,9 +2121,7 @@ public:
             // moment for it (`gust_clock_`).
             glideslope::world::GroundAt beneath;
             if (ground && !connect_air.no_ground_lift) {
-                beneath = [collision = ground->collision](double lat, double lon) {
-                    return collision->height_above_geoid(lat, lon);
-                };
+                beneath = glideslope::frontend::air_ground(ground->collision, ground->air_tiles);
             }
             air_.emplace(ground ? ground->geoid.get() : geoid_for_air_.get(), beneath, [this] {
                 double t = session_now_s_;
@@ -6051,8 +6052,20 @@ int connect_to(const std::string& where, const std::string& key_hex, double stay
     // What a STOVL landing needs, and the ground a prediction's air is
     // flown over, read before the server is asked for a session
     // (prepare_stovl_ground).
-    if ((connect_stovl_land || (predict && !connect_air.own_air)) && !connect_stovl_ground) {
+    if (connect_stovl_land && !connect_stovl_ground) {
         connect_stovl_ground = prepare_stovl_ground();
+    } else if (predict && !connect_air.own_air && !connect_stovl_ground) {
+        // **Without it, said**: a prediction whose ground cannot be had -
+        // the geoid not cached and no network - flies the server's air over
+        // no ground, and says so, rather than not joining.
+        try {
+            connect_stovl_ground = prepare_stovl_ground();
+        } catch (const std::exception& e) {
+            std::fprintf(stderr,
+                         "glideslope_cli: the collision ground could not be had (%s): the "
+                         "prediction flies the server's air over no ground\n",
+                         e.what());
+        }
     }
 
     // **A test flag's work (`--first-from-elsewhere`)**: a copy of this
