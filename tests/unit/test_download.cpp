@@ -1634,15 +1634,59 @@ GLIDESLOPE_TEST(tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_a
         const auto cache = scratch("ahead-failed");
         asked = 0;
         fail_it = true;
-        glideslope::world::TilesAhead ahead(coverage, cache, held);
+        // The clock, moved by hand.
+        std::atomic<long long> now_s{0};
+        glideslope::world::TilesAhead ahead(coverage, cache, held, [&] {
+            return std::chrono::steady_clock::time_point(std::chrono::seconds(now_s.load()));
+        });
         check(!ahead.had(-33.5, 151.5), "a tile being fetched is not had");
         while (ahead.failed() == 0) {
             std::this_thread::yield();
         }
+        // One fetch is several tries of the bucket (get's own retries).
         const int tries = asked.load();
         check(!ahead.had(-33.5, 151.5), "a tile whose fetch failed is not had");
+        now_s = 59;
+        check(!ahead.had(-33.5, 151.5), "nor 59 s on");
         check(asked.load() == tries && ahead.failed() == 1,
-              "and is not asked for again at once: " + std::to_string(asked.load()) +
-                  " fetches");
+              "and is not asked for again within the minute: " +
+                  std::to_string(asked.load()) + " tries after " + std::to_string(tries));
+        now_s = 60;
+        check(!ahead.had(-33.5, 151.5), "a minute on it is still not had");
+        while (ahead.failed() < 2) {
+            std::this_thread::yield();
+        }
+        check(asked.load() == 2 * tries, "but is fetched again: " +
+                                             std::to_string(asked.load()) + " tries");
+    }
+    {
+        // A tile in the cache the Dem finds damaged: taken away, asked for
+        // again on the fetching thread, and the query fails at once.
+        const auto cache = scratch("ahead-damaged");
+        asked = 0;
+        fail_it = false;
+        const std::filesystem::path tile = cache / "copernicus-dem-30m" /
+                                           "Copernicus_DSM_COG_10_S34_00_E151_00_DEM.tif";
+        std::filesystem::create_directories(tile.parent_path());
+        {
+            std::ofstream out(tile, std::ios::binary);
+            out << "not a tiff";
+        }
+        auto ahead = std::make_shared<glideslope::world::TilesAhead>(coverage, cache, held);
+        glideslope::world::Dem dem(coverage, *ahead, nullptr);
+        check(ahead->had(-33.5, 151.5), "a tile in the cache is had");
+        bool refused = false;
+        try {
+            dem.height_above_geoid(-33.5, 151.5);
+        } catch (const glideslope::world::DemError&) {
+            refused = true;
+        }
+        check(refused, "found damaged, the query fails rather than fetching it");
+        check(!ahead->had(-33.5, 151.5), "and it is had no more");
+        while (ahead->fetched() == 0) {
+            std::this_thread::yield();
+        }
+        check(asked.load() == 1 && ahead->had(-33.5, 151.5),
+              "it was fetched again on the fetching thread, and is had again");
     }
 }

@@ -40,7 +40,12 @@ nothing and **is not kept**: it is made again when next wanted, and once its
 tiles are had it lifts exactly as on a machine that always had them. So the
 two ends agree wherever both have the tiles, and differ only while one is
 still fetching, by the lift there (above). A failed fetch is asked for again
-a minute on. Thermals over ground not had stand on the station's elevation.
+a minute on. The air's ground is read through a Dem of its own over those
+tiles, which never fetches: a tile in the cache it finds damaged is taken
+away, forgotten as had and asked for again on the fetching thread, and the
+query fails at once - that place lifts nothing until the tile is had anew.
+Thermals over ground not had, or not to be had (a `DemError`), stand on the
+station's elevation; nothing of the air's ground leaves the step.
 
 **Every `--predict` client now reads the geoid and the DEM before joining**
 (as `--stovl-land` did): the geoid's zip and the coverage, about 0.8 s in an
@@ -65,8 +70,10 @@ once a predicting client read the collision ground.
   it. **Seen red** with the place kept as no lift: 4 transforms kept.
 - `tiles_fetched_ahead_are_never_waited_for_and_a_failed_fetch_is_asked_again_a_minute_on`:
   with the bucket's answer held, asking returns at once, not had, and the
-  tile is fetched once; let go, it is had; a failed fetch is not asked again
-  at once.
+  tile is fetched once; let go, it is had; a failed fetch, on a clock moved
+  by hand, is not fetched again 59 s on and is 60 s on; a tile in the cache
+  found damaged fails its query at once and is fetched again on the fetching
+  thread. **Seen red** with the damaged tile fetched again in the query.
 
 - `the_ground_lifts_lattice_is_its_exact_lift_at_each_of_its_places`: at
   512 places and heights of the lattice, the exact lift to 1e-9 m/s.

@@ -2121,7 +2121,8 @@ public:
             // moment for it (`gust_clock_`).
             glideslope::world::GroundAt beneath;
             if (ground && !connect_air.no_ground_lift) {
-                beneath = glideslope::frontend::air_ground(ground->collision, ground->air_tiles);
+                beneath = glideslope::frontend::air_ground(ground->collision, ground->air_tiles,
+                                                   ground->geoid.get());
             }
             air_.emplace(ground ? ground->geoid.get() : geoid_for_air_.get(), beneath, [this] {
                 double t = session_now_s_;

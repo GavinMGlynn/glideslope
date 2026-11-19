@@ -619,12 +619,14 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
     // Thermals, over the ground beneath, carried by the layer's wind.
     const double cosine = std::cos(latitude_deg * radians);
     if (thermals) {
-        // The ground not had yet (GroundNotHad), the station's elevation.
+        // The ground not had, the station's elevation.
         double beneath = report.surface.elevation_m;
         if (ground) {
             try {
                 beneath = ground(latitude_deg, longitude_deg);
-            } catch (const GroundNotHad&) {
+            } catch (const std::runtime_error&) {
+                // Not had yet (GroundNotHad), or not to be had (a DemError):
+                // never out of the step, as the lift's (GroundLift).
             }
         }
         const Enu drifted{from_station.east - lift.drift_east_mps * time_s,
