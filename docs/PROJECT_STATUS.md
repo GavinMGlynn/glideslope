@@ -599,7 +599,8 @@ are the risks the phase order is built around:
   server's, or none. On a server the server's weather travels and every
   client flies it - one joining mid-blend blended from the same weather -
   over the collision ground, its ridge and wave lift and all (2026-11-19);
-  a DEM tile the lift reaches 32 km away is fetched mid-step, a tail.
+  its DEM tiles fetched ahead and never waited for; where one end is still
+  fetching a tile, the two differ by the lift there, a tail.
 - **Summits are low in the DEM.** A 30 m grid does not hold a peak: at five
   surveyed summits the DEM is 8 to 35 m below the survey. Runway ends and
   coastlines are within the dataset's stated 4 m.

@@ -8,6 +8,7 @@
 #include <atomic>
 #include <cstdint>
 #include <cctype>
+#include <cmath>
 #include <fstream>
 #include <iterator>
 #include <optional>
@@ -373,6 +374,109 @@ bool DownloadedTiles::take_away_water_mask(DemDataset dataset, DemCell cell,
                                            const std::optional<FileIdentity>& read) {
     taken_away(path_of(dataset, dem_water_mask_name(dataset, cell)), read);
     return true;
+}
+
+bool DownloadedTiles::cached(DemDataset dataset, DemCell cell) const {
+    return there(path_of(dataset, dem_tile_name(dataset, cell)));
+}
+
+TilesAhead::TilesAhead(DemCoverage coverage, std::filesystem::path cache, Fetch fetch)
+    : coverage_(std::move(coverage)), look_(cache, fetch), tiles_(std::move(cache), std::move(fetch)),
+      thread_([this] { fetch_loop(); }) {}
+
+TilesAhead::~TilesAhead() {
+    {
+        const std::lock_guard<std::mutex> lock(mutex_);
+        stop_ = true;
+    }
+    give_up_ = true;
+    wake_.notify_all();
+    thread_.join();
+}
+
+int TilesAhead::fetched() const {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    return fetched_;
+}
+
+int TilesAhead::failed() const {
+    const std::lock_guard<std::mutex> lock(mutex_);
+    return failed_;
+}
+
+bool TilesAhead::cell_had(DemCell cell) {
+    const std::pair<int, int> key{cell.latitude, cell.longitude};
+    if (had_.contains(key)) {
+        return true;
+    }
+    const DemDataset dataset = coverage_.at(cell);
+    if (dataset == DemDataset::none || look_.cached(dataset, cell)) {
+        had_[key] = true;
+        return true;
+    }
+    const std::lock_guard<std::mutex> lock(mutex_);
+    if (pending_.contains(key)) {
+        return false;
+    }
+    const auto failed = failed_at_.find(key);
+    if (failed != failed_at_.end() &&
+        std::chrono::steady_clock::now() - failed->second < std::chrono::minutes(1)) {
+        return false;
+    }
+    pending_[key] = true;
+    asked_.push_back(cell);
+    wake_.notify_one();
+    return false;
+}
+
+bool TilesAhead::had(double latitude_deg, double longitude_deg) {
+    constexpr double margin = 0.01;
+    bool all = true;
+    for (const double lat : {latitude_deg - margin, latitude_deg + margin}) {
+        for (const double lon : {longitude_deg - margin, longitude_deg + margin}) {
+            DemCell cell;
+            cell.latitude = static_cast<int>(std::clamp(std::floor(lat), -90.0, 89.0));
+            double wrapped = std::fmod(lon + 180.0, 360.0);
+            if (wrapped < 0.0) {
+                wrapped += 360.0;
+            }
+            cell.longitude = static_cast<int>(std::floor(wrapped)) - 180;
+            all = cell_had(cell) && all;
+        }
+    }
+    return all;
+}
+
+void TilesAhead::fetch_loop() {
+    const FetchesGivenUp given_up(give_up_);
+    for (;;) {
+        DemCell cell;
+        {
+            std::unique_lock<std::mutex> lock(mutex_);
+            wake_.wait(lock, [this] { return stop_ || !asked_.empty(); });
+            if (stop_) {
+                return;
+            }
+            cell = asked_.front();
+            asked_.pop_front();
+        }
+        bool ok = false;
+        try {
+            tiles_.open(coverage_.at(cell), cell);
+            ok = true;
+        } catch (const std::exception&) {
+            ok = false;
+        }
+        const std::lock_guard<std::mutex> lock(mutex_);
+        const std::pair<int, int> key{cell.latitude, cell.longitude};
+        pending_.erase(key);
+        if (ok) {
+            ++fetched_;
+        } else {
+            ++failed_;
+            failed_at_[key] = std::chrono::steady_clock::now();
+        }
+    }
 }
 
 std::filesystem::path DownloadedTiles::path_of(DemDataset dataset,

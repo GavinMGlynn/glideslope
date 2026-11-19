@@ -2920,13 +2920,15 @@ public:
     // a lattice (world::GroundLift), each place's 256 heights and transform
     // made once, cheap enough for a predicting client to fly every step
     // again. Made exactly at every step it was not: a sanitized build fell
-    // 4.7 s behind (2026-10-06).
+    // 4.7 s behind (2026-10-06). **Its tiles fetched ahead, never waited
+    // for** (frontend::air_ground): a step never waits on the network.
     void fly_in(std::vector<glideslope::world::WeatherReport> stations, double blend_s) {
-        const std::shared_ptr<glideslope::world::CollisionGround> collision = collision_;
+        if (!air_tiles_) {
+            air_tiles_ = std::make_shared<glideslope::world::TilesAhead>(
+                coverage_, glideslope::platform::cache_directory(), fetch_);
+        }
         air_ = std::make_shared<glideslope::world::StationSlots>(
-            &geoid_, [collision](double lat, double lon) {
-                return collision->height_above_geoid(lat, lon);
-            });
+            &geoid_, glideslope::frontend::air_ground(collision_, air_tiles_));
         session_air_ = std::make_shared<glideslope::frontend::SessionClocked>(
             air_, [this] { return now_s(); });
         for (std::vector<Aircraft>* each : {&flown_, &waiting_}) {
@@ -4879,6 +4881,8 @@ private:
     glideslope::world::DownloadedTiles tiles_;
     glideslope::world::Geoid geoid_;
     std::shared_ptr<glideslope::world::CollisionGround> collision_;
+    // The air's ground's tiles, fetched ahead (frontend::air_ground).
+    std::shared_ptr<glideslope::world::TilesAhead> air_tiles_;
     // The weather (`fly_in`): none until it is given, which is still air.
     std::shared_ptr<glideslope::world::StationSlots> air_;
     // **Each slot as the clients are told it**: when its weather took over

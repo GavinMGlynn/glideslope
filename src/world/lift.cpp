@@ -383,11 +383,11 @@ double terrain_updraught(const TerrainAlong& terrain, double height_msl_m,
                              buoyancy_frequency);
 }
 
-const GroundLift::Place& GroundLift::place(std::size_t direction, long row, long column) {
+const GroundLift::Place* GroundLift::place(std::size_t direction, long row, long column) {
     Direction& d = directions_[direction];
     const auto found = d.places.find({row, column});
     if (found != d.places.end()) {
-        return found->second;
+        return &found->second;
     }
     if (kept_ >= most_kept) {
         for (Direction& each : directions_) {
@@ -407,13 +407,14 @@ const GroundLift::Place& GroundLift::place(std::size_t direction, long row, long
             return ground_(latitude + north * along_m / metres_per_degree,
                            longitude + east * along_m / (metres_per_degree * cosine));
         });
-        p.had = true;
     } catch (const std::runtime_error&) {
-        p = Place{};
+        // Not kept: made again when next wanted, its ground had by then or not.
+        ++not_had_;
+        return nullptr;
     }
     ++kept_;
     ++made_;
-    return d.places.emplace(std::pair{row, column}, p).first->second;
+    return &d.places.emplace(std::pair{row, column}, p).first->second;
 }
 
 double GroundLift::updraught(double latitude_deg, double longitude_deg, double height_msl_m,
@@ -449,14 +450,23 @@ double GroundLift::updraught(double latitude_deg, double longitude_deg, double h
     double reference = 0.0;
     for (int c = 0; c < 4; ++c) {
         // Made one at a time: a place made may let go of those before.
-        const Place& p = place(direction, row + c / 2, column + c % 2);
-        if (!p.had) {
+        if (place(direction, row + c / 2, column + c % 2) == nullptr) {
             return 0.0;
         }
     }
     for (int c = 0; c < 4; ++c) {
-        corner[c] = &place(direction, row + c / 2, column + c % 2);
+        corner[c] = place(direction, row + c / 2, column + c % 2);
+        if (corner[c] == nullptr) {
+            return 0.0;
+        }
         reference += weight[c] * corner[c]->spectrum.reference_m;
+    }
+    double beneath = 0.0;
+    try {
+        beneath = ground_(latitude_deg, longitude_deg);
+    } catch (const std::runtime_error&) {
+        ++not_had_;
+        return 0.0;
     }
     return updraught_of(
         [&](std::size_t k, double& re, double& im) {
@@ -465,8 +475,7 @@ double GroundLift::updraught(double latitude_deg, double longitude_deg, double h
             im = weight[0] * corner[0]->spectrum.im[k] + weight[1] * corner[1]->spectrum.im[k] +
                  weight[2] * corner[2]->spectrum.im[k] + weight[3] * corner[3]->spectrum.im[k];
         },
-        reference, ground_(latitude_deg, longitude_deg), height_msl_m, speed,
-        buoyancy_frequency);
+        reference, beneath, height_msl_m, speed, buoyancy_frequency);
 }
 
 } // namespace glideslope::world

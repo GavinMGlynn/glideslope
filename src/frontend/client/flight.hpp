@@ -373,7 +373,8 @@ public:
                         std::function<double()> clock);
     // The geoid this flight's ground stands on, for the server's air.
     const std::shared_ptr<const world::Geoid>& geoid() const { return geoid_; }
-    const std::shared_ptr<world::CollisionGround>& collision() const { return collision_; }
+    // The ground the air is flown over (frontend::air_ground).
+    world::GroundAt air_ground() const { return frontend::air_ground(collision_, air_tiles_); }
     gfx::Station weather_station() const;
 
     // Simulation time, seconds.
@@ -413,6 +414,8 @@ private:
     // The DEM, with every runway its own surface (world/runway_ground.hpp): the
     // ground the server's aircraft meet, which this one's prediction must too.
     std::shared_ptr<world::CollisionGround> collision_;
+    // Its tiles for the air, fetched ahead (frontend::air_ground).
+    std::shared_ptr<world::TilesAhead> air_tiles_;
     sim::CatalogueEntry aircraft_entry_;
     // The visual model, read once, and where it sits on this aeroplane.
     std::optional<gfx::Model> model_;
