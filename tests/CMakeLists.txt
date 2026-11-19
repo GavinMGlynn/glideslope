@@ -3456,6 +3456,19 @@ add_test(NAME a_client_flies_the_servers_weather_and_every_change_of_it_not_its_
 set_tests_properties(a_client_flies_the_servers_weather_and_every_change_of_it_not_its_own
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_weather)
+# **Over hills in a strong wind a predicting client flies the ground's lift
+# the server flies, within the sea's bound** - and is told from a client
+# flying it over no ground. See cmake/server_ground_lift.cmake.
+add_test(NAME a_client_predicting_over_hills_in_a_strong_wind_flies_the_servers_ground_lift_within_the_seas_bound
+    COMMAND ${CMAKE_COMMAND} -DSERVER=$<TARGET_FILE:glideslope_server>
+        -DCLIENT=$<TARGET_FILE:glideslope_cli> -DIMPAIR=$<TARGET_FILE:glideslope_impair>
+        -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
+        -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_ground_lift -DPORT=25010 -DSAME_M=0.25
+        -DLIFT_SHARE=0.7
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_ground_lift.cmake)
+set_tests_properties(a_client_predicting_over_hills_in_a_strong_wind_flies_the_servers_ground_lift_within_the_seas_bound
+    PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/server_ground_lift)
 # **A client flies the server's stations around it, the nearer's weather,
 # with no step in the wind** (REQUIREMENTS.md 6.3): the stations found from a
 # recorded answer of aviationweather.gov's, served by glideslope_http_stub.

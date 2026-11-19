@@ -208,7 +208,9 @@ using GroundAt = std::function<double(double latitude_deg, double longitude_deg)
 // carried by the surface wind, from the station. The thermals are `lift`'s,
 // over the ground beneath - or the station's elevation, without `ground` -
 // carried by its drift. The terrain's lift is made from `ground`, and without
-// it there is none. JSBSim's own turbulence is left off: the air is all here.
+// it there is none: exactly, terrain_updraught, or cheaply over
+// `ground_lift`'s lattice where one is given (GroundLift), whose ground must
+// be `ground`. JSBSim's own turbulence is left off: the air is all here.
 //
 // **The runway is the report's only near its station**: beyond
 // metar_radius_m, dry. Within it, as the report's weather says
@@ -217,7 +219,8 @@ using GroundAt = std::function<double(double latitude_deg, double longitude_deg)
 sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
                                 const GroundAt& ground, sim::Conditions mean,
                                 double latitude_deg, double longitude_deg,
-                                double height_msl_m, double time_s);
+                                double height_msl_m, double time_s,
+                                GroundLift* ground_lift = nullptr);
 
 // A station's weather now: its latest METAR, and Open-Meteo's winds aloft over
 // it for the hour `time` ("YYYY-MM-DDTHH:00", UTC). Throws as fetch_metar and
@@ -273,6 +276,8 @@ public:
     // `geoid` converts the aircraft's height above the ellipsoid to height above
     // mean sea level; without one they are taken as the same. `ground` gives
     // the terrain the air rises and sinks over; without it, there is none.
+    // Its lift is flown over a lattice (GroundLift), cheaply enough for a
+    // client to fly it again.
     // `changed_at_s` is when it took over, which nothing flown depends on
     // until a new report blends in from it: what is said of it
     // (changed_at_s).
@@ -344,6 +349,8 @@ private:
     WeatherReport current_;
     Lift current_lift_;
     GroundAt ground_;
+    // The ground's lift over `ground_`, shared with what it blends from.
+    std::shared_ptr<GroundLift> ground_lift_;
     double changed_at_s_ = 0.0;
     // Until when the runways near the station stay wet from rain the report
     // before said (still_wet_after_rain_s); -infinity, never.

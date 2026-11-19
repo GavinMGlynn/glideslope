@@ -504,7 +504,8 @@ double gust_factor_kt(const WeatherReport& report) {
 sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
                                 const GroundAt& ground, sim::Conditions mean,
                                 double latitude_deg, double longitude_deg,
-                                double height_msl_m, double time_s) {
+                                double height_msl_m, double time_s,
+                                GroundLift* ground_lift) {
     // **The runway is the report's only near its station**: beyond what a
     // METAR's present weather reaches, dry unless another report says so.
     if (sim::distance_m(latitude_deg, longitude_deg, report.surface.latitude_deg,
@@ -629,7 +630,12 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
 
     // The terrain's lift, along the wind through the aircraft.
     const double across = std::hypot(lift.wind_north_mps, lift.wind_east_mps);
-    if (ground && across >= 1.0) {
+    if (ground && ground_lift != nullptr) {
+        mean.wind_down_mps -=
+            ground_lift->updraught(latitude_deg, longitude_deg, height_msl_m,
+                                   lift.wind_north_mps, lift.wind_east_mps,
+                                   lift.buoyancy_frequency);
+    } else if (ground && across >= 1.0) {
         const double north = lift.wind_north_mps / across;
         const double east = lift.wind_east_mps / across;
         const TerrainAlong terrain = [&](double along_m) {
@@ -646,7 +652,9 @@ sim::Conditions with_air_motion(const WeatherReport& report, const Lift& lift,
 ReportedWeather::ReportedWeather(WeatherReport report, const Geoid* geoid,
                                  double blend_seconds, GroundAt ground, double changed_at_s)
     : current_(std::move(report)), current_lift_(lift_of(current_)),
-      ground_(std::move(ground)), changed_at_s_(changed_at_s), geoid_(geoid),
+      ground_(std::move(ground)),
+      ground_lift_(ground_ ? std::make_shared<GroundLift>(ground_) : nullptr),
+      changed_at_s_(changed_at_s), geoid_(geoid),
       blend_seconds_(blend_seconds) {}
 
 void ReportedWeather::update(WeatherReport report, double now_s) {
@@ -702,7 +710,7 @@ sim::Conditions ReportedWeather::at(double latitude_deg, double longitude_deg,
                            : height_m;
     sim::Conditions now =
         with_air_motion(current_, current_lift_, ground_, conditions_at(current_, msl),
-                        latitude_deg, longitude_deg, msl, time_s);
+                        latitude_deg, longitude_deg, msl, time_s, ground_lift_.get());
     // Still wet from the rain before, near the station.
     if (time_s < wet_until_s_ && now.runway_condition == sim::dry_runway &&
         sim::distance_m(latitude_deg, longitude_deg, current_.surface.latitude_deg,

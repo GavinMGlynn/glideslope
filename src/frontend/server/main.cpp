@@ -2915,17 +2915,18 @@ public:
     // same gust whenever each was made. Every aircraft flying now and every
     // one made later flies it.
     //
-    // **Over no ground**, on the server and every client alike: the ground's
-    // lift is 256 heights of the DEM and a transform at every step
-    // (world/lift.hpp), and a predicting client flies every step again at
-    // each update - a sanitized build fell 4.7 s behind, and without it a
-    // client was 6 m out from a server that had it (2026-10-06). So no end
-    // has the ground's lift, and thermals stand on the station's elevation,
-    // until the lift is cheap enough for a client to fly it too
-    // (COMPLETION_PLAN.md).
+    // **Over the collision ground**, on the server and every client alike:
+    // the thermals stand on it, and the ground's lift is made from it - over
+    // a lattice (world::GroundLift), each place's 256 heights and transform
+    // made once, cheap enough for a predicting client to fly every step
+    // again. Made exactly at every step it was not: a sanitized build fell
+    // 4.7 s behind (2026-10-06).
     void fly_in(std::vector<glideslope::world::WeatherReport> stations, double blend_s) {
-        air_ = std::make_shared<glideslope::world::StationSlots>(&geoid_,
-                                                                 glideslope::world::GroundAt{});
+        const std::shared_ptr<glideslope::world::CollisionGround> collision = collision_;
+        air_ = std::make_shared<glideslope::world::StationSlots>(
+            &geoid_, [collision](double lat, double lon) {
+                return collision->height_above_geoid(lat, lon);
+            });
         session_air_ = std::make_shared<glideslope::frontend::SessionClocked>(
             air_, [this] { return now_s(); });
         for (std::vector<Aircraft>* each : {&flown_, &waiting_}) {

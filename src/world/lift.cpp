@@ -4,6 +4,7 @@
 #include <array>
 #include <cmath>
 #include <cstddef>
+#include <stdexcept>
 
 namespace glideslope::world {
 
@@ -274,16 +275,11 @@ double thermal_updraught(std::uint64_t seed, const Convection& c, const Enu& pos
     return w * std::min(1.0, (c.depth_m - z) / top);
 }
 
-double terrain_updraught(const TerrainAlong& terrain, double height_msl_m,
-                         double speed_mps, double buoyancy_frequency) {
+TerrainSpectrum terrain_spectrum(const TerrainAlong& terrain) {
     constexpr int n = terrain_samples;
     constexpr int half = n / 2;
     constexpr int size = transform_size;
     constexpr int taper = 32; // samples: 8 km
-    constexpr double ground_fade_m = 500.0;
-    if (speed_mps < 1.0) {
-        return 0.0;
-    }
     static const Twiddles twiddles;
 
     // The samples, from the farthest upwind to the farthest downwind less one;
@@ -292,32 +288,21 @@ double terrain_updraught(const TerrainAlong& terrain, double height_msl_m,
     for (int j = 0; j < n; ++j) {
         h[static_cast<std::size_t>(j)] = terrain((j - half) * terrain_sample_spacing_m);
     }
-    const double beneath = h[half];
     std::array<double, n> sorted = h;
     std::nth_element(sorted.begin(), sorted.begin() + half, sorted.end());
-    const double reference = sorted[half];
+    TerrainSpectrum s;
+    s.reference_m = sorted[half];
     for (int j = 0; j < n; ++j) {
         const int from_end = std::min(j, n - 1 - j);
         const double weight =
             from_end >= taper ? 1.0 : 0.5 * (1.0 - std::cos(pi * from_end / taper));
         h[static_cast<std::size_t>(j)] =
-            (h[static_cast<std::size_t>(j)] - reference) * weight;
+            (h[static_cast<std::size_t>(j)] - s.reference_m) * weight;
     }
 
-    // The height in the waves: above the median, but near the ground above the
-    // ground beneath.
-    const double above_ground = std::max(0.0, height_msl_m - beneath);
-    const double base =
-        reference + (beneath - reference) * std::exp(-above_ground / ground_fade_m);
-    const double z = std::max(0.0, height_msl_m - base);
-    const double l = buoyancy_frequency > 0.0 ? buoyancy_frequency / speed_mps : 0.0;
-
-    // The slope of the displaced air under the aircraft, summed over the
-    // terrain's wavenumbers - each positive one with its negative, the
-    // complex conjugate - except the mean, which has none, and the highest,
+    // Each wavenumber but the mean, which has no slope, and the highest,
     // which is not seen. In the transform the aircraft is at its start: the
     // samples downwind follow it, and those upwind wrap round to its end.
-    double slope = 0.0;
     for (int k = 1; k < size / 2; ++k) {
         double re = 0.0;
         double im = 0.0;
@@ -327,6 +312,37 @@ double terrain_updraught(const TerrainAlong& terrain, double height_msl_m,
             re += h[static_cast<std::size_t>(j)] * twiddles.cos[q];
             im -= h[static_cast<std::size_t>(j)] * twiddles.sin[q];
         }
+        s.re[static_cast<std::size_t>(k)] = re;
+        s.im[static_cast<std::size_t>(k)] = im;
+    }
+    return s;
+}
+
+namespace {
+
+// The slope of the displaced air under the aircraft, from the terrain's
+// transform - `spectrum(k, re, im)` giving each wavenumber's - over the ground
+// `beneath_m` and the terrain's median `reference_m`; times the wind, the
+// vertical wind.
+template <typename Spectrum>
+double updraught_of(const Spectrum& spectrum, double reference_m, double beneath_m,
+                    double height_msl_m, double speed_mps, double buoyancy_frequency) {
+    constexpr int size = transform_size;
+    constexpr double ground_fade_m = 500.0;
+    // The height in the waves: above the median, but near the ground above the
+    // ground beneath.
+    const double above_ground = std::max(0.0, height_msl_m - beneath_m);
+    const double base =
+        reference_m + (beneath_m - reference_m) * std::exp(-above_ground / ground_fade_m);
+    const double z = std::max(0.0, height_msl_m - base);
+    const double l = buoyancy_frequency > 0.0 ? buoyancy_frequency / speed_mps : 0.0;
+
+    // Each positive wavenumber with its negative, the complex conjugate.
+    double slope = 0.0;
+    for (int k = 1; k < size / 2; ++k) {
+        double re = 0.0;
+        double im = 0.0;
+        spectrum(static_cast<std::size_t>(k), re, im);
         const double kappa = 2.0 * pi * k / (size * terrain_sample_spacing_m);
         double er = 0.0;
         double ei = 0.0;
@@ -341,6 +357,116 @@ double terrain_updraught(const TerrainAlong& terrain, double height_msl_m,
         slope -= kappa * (re * ei + im * er);
     }
     return speed_mps * slope * 2.0 / size;
+}
+
+} // namespace
+
+double terrain_updraught(const TerrainSpectrum& spectrum, double beneath_m,
+                         double height_msl_m, double speed_mps, double buoyancy_frequency) {
+    if (speed_mps < 1.0) {
+        return 0.0;
+    }
+    return updraught_of(
+        [&](std::size_t k, double& re, double& im) {
+            re = spectrum.re[k];
+            im = spectrum.im[k];
+        },
+        spectrum.reference_m, beneath_m, height_msl_m, speed_mps, buoyancy_frequency);
+}
+
+double terrain_updraught(const TerrainAlong& terrain, double height_msl_m,
+                         double speed_mps, double buoyancy_frequency) {
+    if (speed_mps < 1.0) {
+        return 0.0;
+    }
+    return terrain_updraught(terrain_spectrum(terrain), terrain(0.0), height_msl_m, speed_mps,
+                             buoyancy_frequency);
+}
+
+const GroundLift::Place& GroundLift::place(std::size_t direction, long row, long column) {
+    Direction& d = directions_[direction];
+    const auto found = d.places.find({row, column});
+    if (found != d.places.end()) {
+        return found->second;
+    }
+    if (kept_ >= most_kept) {
+        for (Direction& each : directions_) {
+            each.places.clear();
+        }
+        kept_ = 0;
+    }
+    constexpr double metres_per_degree = 111319.49;
+    const double latitude = static_cast<double>(row) * ground_lift_lattice_deg;
+    const double longitude = static_cast<double>(column) * ground_lift_lattice_deg;
+    const double cosine = std::cos(latitude * pi / 180.0);
+    const double north = d.north;
+    const double east = d.east;
+    Place p;
+    try {
+        p.spectrum = terrain_spectrum([&](double along_m) {
+            return ground_(latitude + north * along_m / metres_per_degree,
+                           longitude + east * along_m / (metres_per_degree * cosine));
+        });
+        p.had = true;
+    } catch (const std::runtime_error&) {
+        p = Place{};
+    }
+    ++kept_;
+    ++made_;
+    return d.places.emplace(std::pair{row, column}, p).first->second;
+}
+
+double GroundLift::updraught(double latitude_deg, double longitude_deg, double height_msl_m,
+                             double wind_north_mps, double wind_east_mps,
+                             double buoyancy_frequency) {
+    const double speed = std::hypot(wind_north_mps, wind_east_mps);
+    if (speed < 1.0) {
+        return 0.0;
+    }
+    const double north = wind_north_mps / speed;
+    const double east = wind_east_mps / speed;
+    std::size_t direction = 0;
+    while (direction < directions_.size() &&
+           !(directions_[direction].north == north && directions_[direction].east == east)) {
+        ++direction;
+    }
+    if (direction == directions_.size()) {
+        directions_.push_back({north, east, {}});
+    }
+
+    // The four places about it, and how near it is to each.
+    const double rows = latitude_deg / ground_lift_lattice_deg;
+    const double columns = longitude_deg / ground_lift_lattice_deg;
+    const double row_below = std::floor(rows);
+    const double column_below = std::floor(columns);
+    const double fn = rows - row_below;
+    const double fe = columns - column_below;
+    const auto row = static_cast<long>(row_below);
+    const auto column = static_cast<long>(column_below);
+    const Place* corner[4] = {};
+    const double weight[4] = {(1.0 - fn) * (1.0 - fe), (1.0 - fn) * fe, fn * (1.0 - fe),
+                              fn * fe};
+    double reference = 0.0;
+    for (int c = 0; c < 4; ++c) {
+        // Made one at a time: a place made may let go of those before.
+        const Place& p = place(direction, row + c / 2, column + c % 2);
+        if (!p.had) {
+            return 0.0;
+        }
+    }
+    for (int c = 0; c < 4; ++c) {
+        corner[c] = &place(direction, row + c / 2, column + c % 2);
+        reference += weight[c] * corner[c]->spectrum.reference_m;
+    }
+    return updraught_of(
+        [&](std::size_t k, double& re, double& im) {
+            re = weight[0] * corner[0]->spectrum.re[k] + weight[1] * corner[1]->spectrum.re[k] +
+                 weight[2] * corner[2]->spectrum.re[k] + weight[3] * corner[3]->spectrum.re[k];
+            im = weight[0] * corner[0]->spectrum.im[k] + weight[1] * corner[1]->spectrum.im[k] +
+                 weight[2] * corner[2]->spectrum.im[k] + weight[3] * corner[3]->spectrum.im[k];
+        },
+        reference, ground_(latitude_deg, longitude_deg), height_msl_m, speed,
+        buoyancy_frequency);
 }
 
 } // namespace glideslope::world
