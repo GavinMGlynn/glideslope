@@ -380,8 +380,22 @@ bool DownloadedTiles::cached(DemDataset dataset, DemCell cell) const {
     return there(path_of(dataset, dem_tile_name(dataset, cell)));
 }
 
-TilesAhead::TilesAhead(DemCoverage coverage, std::filesystem::path cache, Fetch fetch)
-    : coverage_(std::move(coverage)), look_(cache, fetch), tiles_(std::move(cache), std::move(fetch)),
+std::shared_ptr<const ByteSource> DownloadedTiles::open_cached(DemDataset dataset,
+                                                               DemCell cell) const {
+    const std::filesystem::path path = path_of(dataset, dem_tile_name(dataset, cell));
+    if (!there(path)) {
+        throw DemError(path.string() + " is not in the cache");
+    }
+    try {
+        return std::make_shared<FileSource>(path);
+    } catch (const ByteSourceError& e) {
+        throw DemError(e.what());
+    }
+}
+
+TilesAhead::TilesAhead(DemCoverage coverage, std::filesystem::path cache, Fetch fetch,
+                       Clock now)
+    : coverage_(std::move(coverage)), now_(std::move(now)), look_(cache, fetch), tiles_(std::move(cache), std::move(fetch)),
       thread_([this] { fetch_loop(); }) {}
 
 TilesAhead::~TilesAhead() {
@@ -414,18 +428,39 @@ bool TilesAhead::cell_had(DemCell cell) {
         had_[key] = true;
         return true;
     }
+    ask(cell);
+    return false;
+}
+
+void TilesAhead::ask(DemCell cell) {
+    const std::pair<int, int> key{cell.latitude, cell.longitude};
     const std::lock_guard<std::mutex> lock(mutex_);
     if (pending_.contains(key)) {
-        return false;
+        return;
     }
     const auto failed = failed_at_.find(key);
-    if (failed != failed_at_.end() &&
-        std::chrono::steady_clock::now() - failed->second < std::chrono::minutes(1)) {
-        return false;
+    if (failed != failed_at_.end() && now_() - failed->second < std::chrono::minutes(1)) {
+        return;
     }
     pending_[key] = true;
     asked_.push_back(cell);
     wake_.notify_one();
+}
+
+std::shared_ptr<const ByteSource> TilesAhead::open(DemDataset dataset, DemCell cell) {
+    return look_.open_cached(dataset, cell);
+}
+
+std::shared_ptr<const ByteSource> TilesAhead::open_water_mask(DemDataset, DemCell) {
+    throw DemError("the air's ground reads no water mask");
+}
+
+bool TilesAhead::take_away(DemDataset dataset, DemCell cell,
+                           const std::optional<FileIdentity>& read) {
+    look_.take_away(dataset, cell, read);
+    had_.erase({cell.latitude, cell.longitude});
+    ask(cell);
+    // Not had anew now: the Dem's query fails, and the tile comes later.
     return false;
 }
 
@@ -474,7 +509,7 @@ void TilesAhead::fetch_loop() {
             ++fetched_;
         } else {
             ++failed_;
-            failed_at_[key] = std::chrono::steady_clock::now();
+            failed_at_[key] = now_();
         }
     }
 }
