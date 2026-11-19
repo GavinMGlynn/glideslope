@@ -1440,11 +1440,13 @@ struct AtPace {
 // a look.
 // And `rate_after` of real time from `change_at_s` on, if it is given: a
 // server slowed all of a sudden, its clock running on from where it was.
+// And every frame `frame_s` long, if it is given: a slow machine's, which
+// sends one input a frame and reads the frame's words together, all at the
+// frame's time, as the client with the window does.
 AtPace fly_at_pace(double rate, double seconds, bool paced, std::int64_t jump = 0,
                    double jump_at_s = 0.0, double rate_after = -1.0,
-                   double change_at_s = 0.0) {
+                   double change_at_s = 0.0, double frame_s = 1.0 / 60.0) {
     constexpr double delay_s = 0.1;
-    constexpr double frame_s = 1.0 / 60.0;
     glideslope::sim::Pacing pacing;
     struct Sent {
         double at_s;
@@ -1606,6 +1608,40 @@ GLIDESLOPE_TEST(a_client_paced_by_its_clocks_difference_flies_at_the_servers_pac
               std::to_string(-unpaced.drifted) + " steps, not over a thousand");
 }
 
+// **A client whose every frame is long holds its clocks' difference and
+// flies at the server's pace** - frames of a quarter, a half and a whole
+// second, each against every server rate from half real time to real time,
+// in tenths. Such a client sends an input a frame and reads the frame's words
+// together, so it looks at the difference once a frame (sim::Pacing::heard).
+// Stepped by each word, the loop took every move of the difference for a jump
+// and forgave it, and the window client placed the server's words up to 72
+// steps off and was put right by up to 159 m; taking a frame's words as one
+// look, with the gains set for 25 looks a second, it rang, and against a
+// server at half real time flew at 0.68 (docs/status, 2026-11-18). Over the
+// last ten of 60 s it is within 0.002 of the server's pace and the difference
+// within two steps of the one held, as at sixty frames a second.
+GLIDESLOPE_TEST(a_client_whose_every_frame_is_long_holds_its_clocks_difference_and_flies_at_the_servers_pace) {
+    std::size_t flown = 0;
+    for (const double frame_s : {0.25, 0.5, 1.0}) {
+        for (int tenths = 5; tenths <= 10; ++tenths) {
+            const double rate = tenths / 10.0;
+            const AtPace p = fly_at_pace(rate, 60.0, true, 0, 0.0, -1.0, 0.0, frame_s);
+            const std::string against = "frames " + std::to_string(frame_s) +
+                                        " s long, against a server at " +
+                                        std::to_string(rate) + " of real time";
+            check(std::abs(p.pace - rate) <= 0.002,
+                  against + " it flew at " + std::to_string(p.pace));
+            check(std::llabs(p.worst_late_off) <= 2,
+                  against + " the clocks' difference moved " +
+                        std::to_string(p.worst_late_off) +
+                        " steps from the one held in the last ten seconds");
+            ++flown;
+        }
+    }
+    check(flown == 18, "three frame lengths at six server rates were flown: " +
+                           std::to_string(flown));
+}
+
 namespace {
 
 // Flies `inputs` inputs of four steps each, the first numbered `first`, and
@@ -1705,10 +1741,9 @@ GLIDESLOPE_TEST(through_a_gap_without_a_word_a_paced_client_flies_at_the_pace_it
     const double was = pacing.at(0.04);
     const double after = pacing.at(3.04);
     const double steered = glideslope::sim::Pacing::steered_without_a_word_s;
-    const double learnt = 1.0 + glideslope::sim::Pacing::integral_per_s2 *
-                                    ((pace - 1.0 - glideslope::sim::Pacing::proportional_per_s *
-                                                       2.0 / 120.0) /
-                                     glideslope::sim::Pacing::integral_per_s2);
+    // Looks 25 a second: proportional twice the natural frequency, 0.5.
+    const double learnt =
+        pace - 2.0 * glideslope::sim::Pacing::damped_per_s * 2.0 / 120.0;
     const double expected = steered * pace + (3.0 - steered) * learnt;
     check(std::abs((after - was) - expected) < 1e-9,
           "3 s flown as " + std::to_string(after - was) + ", not " + std::to_string(expected));
