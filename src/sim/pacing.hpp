@@ -47,9 +47,10 @@ public:
     // a look a second is under a look and a half a cycle's radian, a frame of
     // delay on top, and the loop rang - it flew at 1.2 to 1.4 against a server
     // keeping real time, and at 0.68 against one at 0.5 (docs/status,
-    // 2026-11-18); at four looks a radian it settled, at five it settles
-    // within 0.001 of the server's pace for frames from 0.1 to 1 s, 0.014 for
-    // 2 s (the unit test). At 25 words a second it is 0.5 as before.
+    // 2026-11-18). At five looks a radian, frames of 0.25, 0.5 and 1 s each
+    // settle within 0.002 of the server's pace (the unit test); frames of 2 s
+    // settle slower, 0.014 off after 60 s against a server at 0.5, and are
+    // not tested. At 25 words a second it is 0.5 as before.
     static constexpr double looks_per_radian = 5.0;
     // The time between looks the gains are set by: an average, a fifth of
     // the way to each new one, each counted at most `longest_look_s` - a
@@ -117,9 +118,10 @@ public:
     // move - 30 steps a frame, the client flying at 0.64 of a server keeping
     // real time - came between two words read together and was forgiven,
     // never steered by, and the words were placed 35 to 72 steps off: put
-    // right 48 to 159 m (docs/status, 2026-11-18). The first heard after `hold` is the one held to; from it the
-    // pace starts at `rate` if given - what the session clock's fit says the
-    // server's pace is, which the loop then corrects - or where it was.
+    // right 48 to 159 m (docs/status, 2026-11-18). The first heard after
+    // `hold` is the one held to; from it the pace starts at `rate` if given -
+    // what the session clock's fit says the server's pace is, which the loop
+    // then corrects - or where it was.
     void heard(std::int64_t difference, double local_s, std::optional<double> rate = {});
 
     // **Before the difference is first known**, flown at `rate` - what the
