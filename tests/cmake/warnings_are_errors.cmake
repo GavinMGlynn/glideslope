@@ -16,6 +16,10 @@
 # non-constant at /W4 - its nearest, C4365, is off by default and fires
 # throughout the standard library headers - so the probe is not built there.
 
+# The build's compiler, or the same by name where its path is not here.
+include("${CMAKE_CURRENT_LIST_DIR}/this_machines_tool.cmake")
+this_machines_tool(CXX)
+
 set(_build_types Debug Release RelWithDebInfo MinSizeRel)
 set(_probes clean narrowing sign_conversion)
 

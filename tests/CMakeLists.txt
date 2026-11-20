@@ -2582,6 +2582,13 @@ else()
     set(_cxx_style gnu)
 endif()
 glideslope_symbol_lister(_symbol_tool _symbol_style)
+# **A test runner without the build's compiler uses the same one by name**:
+# CI tests on other runners than it builds on (tests/cmake/this_machines_tool.cmake).
+add_test(NAME a_compiler_the_build_named_but_this_machine_lacks_is_found_by_name_on_the_path
+    COMMAND ${CMAKE_COMMAND} -DTOOL=${CMAKE_COMMAND}
+        -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/this_machines_tool_test.cmake
+    WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
+
 add_test(NAME the_copilot_can_see_include_and_call_nothing_that_drives_the_aircraft
     COMMAND ${CMAKE_COMMAND} -DGLIDESLOPE_ROOT=${PROJECT_SOURCE_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/copilot-walls
