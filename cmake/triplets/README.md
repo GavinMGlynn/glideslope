@@ -19,3 +19,10 @@ rebuild every dependency.
   the static C runtime, which is what the project links (`CMakeLists.txt`), in
   both debug and release, because MSVC's debug runtime and iterator checks
   cannot be mixed with release libraries.
+- **`x64-windows-static-v144`** — vcpkg's `x64-windows-static` built with the
+  MSVC 14.44 toolset (`v143`), for CI's clang-cl jobs only, which enter 14.44
+  (`.github/actions/msvc-dev-env`): 14.52's standard library refuses any clang
+  before 22, and the runners' clang-cl is 20. Left to itself vcpkg takes the
+  newest toolset it finds, whatever the job's environment, and a clang-cl link
+  against 14.44's library then missed the newer one's symbols (`__std_rotate`;
+  train #387's run 44711778312). A machine without 14.44 does not use it.
