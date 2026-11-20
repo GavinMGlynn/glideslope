@@ -8,6 +8,10 @@
 # One build directory for every case: only the first configure pays for
 # detecting the compiler.
 
+# The build's compiler, or the same by name where its path is not here.
+include("${CMAKE_CURRENT_LIST_DIR}/this_machines_tool.cmake")
+this_machines_tool(CXX)
+
 set(_refused direct through-a-public-dependency through-a-private-dependency
              through-an-interface-library by-library-name by-file-path)
 set(_accepted none)

@@ -3,10 +3,17 @@ description: >
   What a Windows job needs to build glideslope or run its tests - the same for
   both, so that a test job finds exactly the machine its build was made on.
 
+inputs:
+  toolset:
+    description: The MSVC toolset to enter (msvc-dev-env); empty for the newest.
+    required: false
+    default: ''
+
 runs:
   using: composite
   steps:
     - uses: ./.github/actions/msvc-dev-env
+      with: { toolset: '${{ inputs.toolset }}' }
 
     # **One Python, at one path, on every runner image.** The build job's
     # configure writes the Python it found into the tests' command lines, and

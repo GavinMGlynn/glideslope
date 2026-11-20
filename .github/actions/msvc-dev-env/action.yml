@@ -7,6 +7,14 @@ description: >
   targets Node.js 20 and has had no release since 2024 - and a dozen lines of
   PowerShell are a smaller dependency than an unmaintained action.
 
+inputs:
+  toolset:
+    description: >
+      An MSVC toolset to enter (vcvarsall's -vcvars_ver, e.g. 14.44), which the
+      runner must have; empty for the newest it has.
+    required: false
+    default: ''
+
 runs:
   using: composite
   steps:
@@ -21,17 +29,32 @@ runs:
         Write-Host "vcvarsall: $vcvars"
         # **The toolsets this runner has, said**: the images moved from MSVC
         # 19.51 to 19.52 runner by runner (2026-11-19), so a build and its
-        # tests may meet two (train #387). The newest is used; nothing pinned,
-        # since a runner without the pinned one would build with another.
+        # tests may meet two (train #387). MSVC's jobs use the newest, and
+        # the tests that compile find the build's compiler by name where its
+        # path is not on the tester (tests/cmake/this_machines_tool.cmake).
+        # **clang-cl's jobs enter 14.44**, which every image has: 14.52's
+        # standard library refuses any clang before 22 (STL1000), and the
+        # images' clang-cl is 20.1.8 - train #387's walls test, run where only
+        # 14.52 was, and a clang-cl build landing there would fail the same.
+        # A toolset asked for and not here fails the job, said.
         $tools = Join-Path $vs 'VC\Tools\MSVC'
         $installed = Get-ChildItem $tools -Directory | ForEach-Object { $_.Name } | Sort-Object
         Write-Host "MSVC toolsets installed: $($installed -join ', ')"
+        $toolset = '${{ inputs.toolset }}'
+        $vcvarsVer = ''
+        if ($toolset) {
+          if (-not ($installed | Where-Object { $_ -like "$toolset.*" })) {
+            throw "the $toolset toolset was asked for and this runner has only $($installed -join ', ')"
+          }
+          $vcvarsVer = " -vcvars_ver=$toolset"
+          Write-Host "entering the $toolset toolset"
+        }
         $before = @{}
         Get-ChildItem env: | ForEach-Object { $before[$_.Name] = $_.Value }
         # Through a batch file of its own, so that no quoting passes between
         # PowerShell and cmd.
         $script = Join-Path $env:RUNNER_TEMP 'msvc-dev-env.cmd'
-        Set-Content -Path $script -Encoding ascii -Value "@call `"$vcvars`" x64 >nul`r`n@if errorlevel 1 exit /b 1`r`n@set"
+        Set-Content -Path $script -Encoding ascii -Value "@call `"$vcvars`" x64$vcvarsVer >nul`r`n@if errorlevel 1 exit /b 1`r`n@set"
         $lines = & cmd.exe /d /c $script
         if ($LASTEXITCODE -ne 0) { throw "vcvarsall.bat x64 failed with $LASTEXITCODE" }
         $pathLike = 'PATH', 'INCLUDE', 'LIB', 'LIBPATH'
