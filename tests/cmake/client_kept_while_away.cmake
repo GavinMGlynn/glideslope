@@ -157,8 +157,11 @@ foreach(AWAY IN LISTS _cases)
     string(REGEX MATCHALL "let go [0-9.:]+ after it said it was leaving" _goodbyes "${_err}")
     list(LENGTH _goodbyes _goodbye_count)
     if(NOT _goodbye_count EQUAL 1)
+        # The client's words too: a client that never said goodbye kept the
+        # server its whole 300 s (nightly 44636793974), and only its own
+        # output says how far it got.
         message(FATAL_ERROR "the server let ${_goodbye_count} sessions go for a goodbye, not "
-                            "one:\n${_err}")
+                            "one (${AWAY}):\n${_err}\nthe client said:\n${_out}")
     endif()
     if(NOT EXISTS "${_shot}")
         message(FATAL_ERROR "the client drew nothing:\n${_err}\n${_out}")
