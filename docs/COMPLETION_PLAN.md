@@ -1803,9 +1803,9 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       failure; 2026-11-02: 61 mm on #298's run 41397416052, its second, and
       it moved to nightly (tests/cmake/nightly_tests.cmake), the 60 mm bound
       kept; its nightly result is reported here.
-- [x] **On a server the air has no ground's lift**: the server and its
-      clients fly the weather over no ground, because the lift is too costly
-      for a predicting client. *Verification: a client predicting over hills
+- [x] **On a server the air has the ground's lift**: the server and its
+      clients fly the weather over the collision ground, the lift cheap
+      enough for a predicting client. *Verification: a client predicting over hills
       in a strong wind is within the same bound as over the sea, the lift
       flown on both ends.* Done 2026-11-19: the lift is kept over a lattice,
       30 times cheaper a step; over hills in 50 kt a predicting client's
