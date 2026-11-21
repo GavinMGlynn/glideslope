@@ -61,8 +61,10 @@ likely cause, but it has not been shown.
 - `a_window_client_predicting_against_a_server_behind_real_time_flies_at_its_pace_and_is_off_by_centimetres`
   (port 24942, server at `--test-pace 0.6`) and
   `a_window_client_predicting_against_a_server_keeping_real_time_is_off_by_centimetres`
-  (port 24944), both RUN_SERIAL, costed at 200 and 160 s until
-  tests/ci_costs measures them: passed, 101 and 76 s, Linux debug.
+  (port 24944), both RUN_SERIAL, costed at 300 and 200 s until
+  tests/ci_costs measures them: passed, 101 and 76 s, Linux debug; on the
+  Windows machine (tools/windows_build.sh, windows-debug) both passed, 273
+  and 121 s.
 - **Seen red**: the paced one with `-DUNPACED=ON`: "its prediction was off
   by more than its bounds: 573 updates compared, the worst error 18043 mm,
   the 95th percentile 7966 mm, the median 4547 mm". The keeping-time one,
