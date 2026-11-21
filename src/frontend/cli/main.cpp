@@ -2701,12 +2701,28 @@ public:
                                                  predicted_at_[i - 1].pitch_deg);
                     }
                 }
+                // Those once the air's ground was had that are not held to
+                // the path, counted, so a test can say they were all seen.
+                if (ground_had_at_s_ && across) {
+                    ++off_path_ground_had_across_;
+                } else if (ground_had_at_s_ && at_an_end) {
+                    ++off_path_ground_had_at_an_end_;
+                }
                 if (!across) {
                     if (at_an_end) {
                         ++placed_at_an_end_;
                     } else {
                         ++placed_compared_;
                         worst_placed_error_m_ = std::max(worst_placed_error_m_, off_path_m);
+                        // **Its median, apart from where it was placed**:
+                        // a word placed a step off on a busy machine is a
+                        // step's travel at its step, and none off the
+                        // path; air flown wrong is off it
+                        // (server_tiles_arrive.cmake).
+                        off_path_m_.push_back(off_path_m);
+                        if (ground_had_at_s_) {
+                            off_path_ground_had_m_.push_back(off_path_m);
+                        }
                         worst_steps_off_ = std::max(worst_steps_off_, steps_off);
                         // **Her pitch where she was, not when**: the
                         // server's word against her pitch on the path
@@ -3315,6 +3331,17 @@ public:
             std::snprintf(line, sizeof line, "prediction error median: %.3f m over %zu updates",
                           *middle, sorted.size());
             lines.emplace_back(line);
+            // **And off the path flown**, outside the machine's stalls and
+            // not at an end of the steps kept: the median a word placed a
+            // step off does not move.
+            if (!off_path_m_.empty()) {
+                std::vector<double> off = off_path_m_;
+                std::sort(off.begin(), off.end());
+                std::snprintf(line, sizeof line,
+                              "prediction error off the path median: %.3f m over %zu updates",
+                              off[off.size() / 2], off.size());
+                lines.emplace_back(line);
+            }
             // **And the 95th and 99th percentiles**: what all but five and
             // one update in a hundred were within. On Windows about one in a
             // hundred is put right by two steps' travel as the clocks'
@@ -3359,6 +3386,13 @@ public:
                           "over %zu updates; once it was had: %.3f m over %zu updates",
                           median_of(errors_ground_not_had_m_), errors_ground_not_had_m_.size(),
                           median_of(errors_ground_had_m_), errors_ground_had_m_.size());
+            lines.emplace_back(line);
+            std::snprintf(line, sizeof line,
+                          "prediction error off the path once the air's ground was had: median "
+                          "%.3f m over %zu updates; %zu across the machine's stalls and %zu "
+                          "nearest an end of the steps kept, not held to it",
+                          median_of(off_path_ground_had_m_), off_path_ground_had_m_.size(),
+                          off_path_ground_had_across_, off_path_ground_had_at_an_end_);
             lines.emplace_back(line);
         }
         // **The pace it flew at** (sim::Pacing), and how far the clocks'
@@ -3588,6 +3622,10 @@ private:
         errors_m_.clear();
         errors_ground_not_had_m_.clear();
         errors_ground_had_m_.clear();
+        off_path_m_.clear();
+        off_path_ground_had_m_.clear();
+        off_path_ground_had_across_ = 0;
+        off_path_ground_had_at_an_end_ = 0;
         first_compared_at_s_.reset();
         ground_had_at_s_.reset();
         worst_error_m_ = 0.0;
@@ -4119,6 +4157,14 @@ private:
     std::optional<double> first_compared_at_s_;
     std::vector<double> errors_ground_not_had_m_;
     std::vector<double> errors_ground_had_m_;
+    // **Off the path flown** (`off_path_m`), every update outside the
+    // machine's stalls and not at an end of the steps kept, and those once
+    // the air's ground was had: where a word is, apart from where its
+    // input placed it.
+    std::vector<double> off_path_m_;
+    std::vector<double> off_path_ground_had_m_;
+    std::size_t off_path_ground_had_across_ = 0;
+    std::size_t off_path_ground_had_at_an_end_ = 0;
     void note_ground_had(double session_s) {
         if (ground_had_at_s_ || !connect_stovl_ground || !connect_stovl_ground->air_tiles ||
             connect_air.no_ground_lift) {
