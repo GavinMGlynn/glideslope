@@ -223,6 +223,10 @@ catches up what it can, letting slip only what it cannot (2026-10-28): stopped
 alone 3 s its client is within 0.5 to 1.5 m for 95 updates in 100 (was 15 m);
 inputs name their step, and those that came in the stall are flown as far
 apart as they were sent, the worst 0.9 to 1.4 m (was 2.6 to 4.7 m, 2026-11-17).
+The window client is held to the command-line client's bound too: flying a
+pilot's changing controls against a server at 0.6 of real time, and against
+one keeping it, its 95th percentile error is 0 m over 970 updates, the worst
+one step's travel (2026-11-22).
 The client with the window flies on a server and draws everyone. Four clients
 on Windows and Linux have flown together with an AI Cessna, and a fifth was
 refused. A player's aircraft is held trimmed until her first input, and
