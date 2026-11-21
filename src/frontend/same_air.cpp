@@ -4,6 +4,7 @@
 
 #include <algorithm>
 
+#include "platform/paths.hpp"
 #include "world/digest.hpp"
 #include "world/metar.hpp"
 #include "world/runway_ground.hpp"
@@ -398,6 +399,15 @@ world::GroundAt air_ground(const std::shared_ptr<world::CollisionGround>& collis
         }
         return ground->height_above_geoid(lat, lon);
     };
+}
+
+std::optional<std::string> dem_source_said() {
+    const std::string source = platform::dem_source();
+    if (source.empty()) {
+        return std::nullopt;
+    }
+    return "the DEM's tiles are fetched from GLIDESLOPE_DEM_SOURCE, " + source +
+           ", not the Copernicus bucket";
 }
 
 bool same_ground(const net::TerrainDataset& a, const net::TerrainDataset& b) {

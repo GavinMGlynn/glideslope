@@ -5950,6 +5950,9 @@ int run(const Options& o) {
     }
     std::printf("server key is %s\n", whence);
     std::printf("server key %s\n", mine.publik.text().c_str());
+    if (const auto said = glideslope::frontend::dem_source_said()) {
+        std::printf("%s\n", said->c_str());
+    }
     std::fflush(stdout);
 
     // The session the server keeps: its slots are what the dashboard shows

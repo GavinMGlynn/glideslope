@@ -54,8 +54,14 @@ bool weather_service_allowed(const std::string& service);
 
 // **Where a DEM tile's URL is fetched from**: the bucket's own, or the same
 // path on platform::dem_source() when a test names one. Throws DemError if it
-// names one that weather_service_allowed refuses.
+// names one dem_source_allowed refuses.
 std::string dem_fetched_from(const std::string& url);
+
+// **Where DEM tiles may be asked instead of the bucket**: http:// or https://
+// to 127.0.0.1, [::1] or localhost, with a port or without - a stand-in a test
+// runs, and nothing else. A tile from it must arrive with its MD5 as a plain
+// ETag (DownloadedTiles), which the bucket's own multipart uploads need not.
+bool dem_source_allowed(const std::string& source);
 
 // A GET through the platform's HTTP client, with a body limit to suit a DEM
 // tile, given up as a FetchesGivenUp on its thread says.

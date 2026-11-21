@@ -158,6 +158,13 @@ world::GroundAt air_ground(const std::shared_ptr<world::CollisionGround>& collis
                            const world::Geoid* geoid);
 bool same_ground(const net::TerrainDataset& a, const net::TerrainDataset& b);
 
+// **Whether the collision ground's tiles come from a stand-in**: with
+// GLIDESLOPE_DEM_SOURCE set (world::dem_fetched_from), the line every program
+// says as it prepares its ground - "the DEM's tiles are fetched from
+// GLIDESLOPE_DEM_SOURCE, <it>, not the Copernicus bucket" - so that a ground
+// a test served is never taken for the bucket's; nothing, when it is not.
+std::optional<std::string> dem_source_said();
+
 // **Weather on the session's clock**: the air at the session's time, not at
 // the aircraft's own. Each JSBSim instance counts its own time from when it
 // was made, and an aircraft made later - a player joining, a wreck flying

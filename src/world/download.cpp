@@ -350,16 +350,40 @@ std::filesystem::path fetch_pinned(const std::filesystem::path& cache,
                    ":" + passed_over);
 }
 
+bool dem_source_allowed(const std::string& source) {
+    for (const char* scheme : {"http://", "https://"}) {
+        for (const char* host : {"127.0.0.1", "[::1]", "localhost"}) {
+            const std::string start = std::string(scheme) + host;
+            if (source.rfind(start, 0) != 0) {
+                continue;
+            }
+            if (source.size() == start.size()) {
+                return true;
+            }
+            // A port: a colon and one to five digits, and nothing after.
+            const std::string rest = source.substr(start.size());
+            if (rest.size() < 2 || rest.size() > 6 || rest[0] != ':') {
+                return false;
+            }
+            return std::all_of(rest.begin() + 1, rest.end(), [](char c) {
+                return std::isdigit(static_cast<unsigned char>(c)) != 0;
+            });
+        }
+    }
+    return false;
+}
+
 std::string dem_fetched_from(const std::string& url) {
     const std::string instead = platform::dem_source();
     if (instead.empty()) {
         return url;
     }
-    // As a weather service's stand-in is allowed: https, or the loopback.
-    if (!weather_service_allowed(instead)) {
+    // **The loopback only**, over http or https: the tiles are the collision
+    // ground, and a stand-in is trusted for the ETag it sends with them.
+    if (!dem_source_allowed(instead)) {
         throw DemError("GLIDESLOPE_DEM_SOURCE is \"" + instead +
-                       "\": it must be an https:// host, or http:// to 127.0.0.1 or "
-                       "localhost");
+                       "\": it must be http:// or https:// to 127.0.0.1, [::1] or "
+                       "localhost, with a port or without");
     }
     // The bucket's scheme and host, up to the path's first '/'.
     const std::size_t host_from = url.find("://");
@@ -576,6 +600,12 @@ std::shared_ptr<const ByteSource> DownloadedTiles::fetched(DemDataset dataset,
         }
         for (char& ch : tag) {
             ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+        }
+        // **From a stand-in, a plain MD5 or nothing** (dem_source_allowed):
+        // the multipart form, unchecked from the bucket, is refused there.
+        if (tag.find('-') != std::string::npos && !platform::dem_source().empty()) {
+            throw DemError(url + " arrived from GLIDESLOPE_DEM_SOURCE with the ETag " + tag +
+                           ", not its MD5");
         }
         if (tag.find('-') == std::string::npos) {
             const std::string md5 = md5_hex(r.body);
