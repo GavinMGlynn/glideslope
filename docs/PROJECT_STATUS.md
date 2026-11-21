@@ -225,7 +225,7 @@ inputs name their step, and those that came in the stall are flown as far
 apart as they were sent, the worst 0.9 to 1.4 m (was 2.6 to 4.7 m, 2026-11-17).
 The window client is held to the command-line client's bound by a test too:
 in the C172P, flying a pilot's changing controls against a server at 0.6 of
-real time and against one keeping it, every update is within 0.6 m. Main's
+real time and against one keeping it, every update is under 0.65 m. Main's
 window client already did this; the test is new (2026-11-22).
 The client with the window flies on a server and draws everyone. Four clients
 on Windows and Linux have flown together with an AI Cessna, and a fifth was
