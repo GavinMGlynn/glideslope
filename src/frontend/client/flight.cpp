@@ -49,6 +49,9 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
         std::string(std::istreambuf_iterator<char>(coverage_file), {}));
     fetch_ = world::http_fetch();
     station_runways_.emplace(cache, fetch_);
+    if (const auto said = frontend::dem_source_said()) {
+        std::fprintf(stderr, "glideslope: %s\n", said->c_str());
+    }
     tiles_ = std::make_unique<world::DownloadedTiles>(cache, fetch_);
     geoid_ = std::make_shared<const world::Geoid>(world::egm2008_geoid(cache, fetch_));
     collision_ = std::make_shared<world::CollisionGround>(
