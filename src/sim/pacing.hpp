@@ -47,14 +47,23 @@ public:
     // a look a second is under a look and a half a cycle's radian, a frame of
     // delay on top, and the loop rang - it flew at 1.2 to 1.4 against a server
     // keeping real time, and at 0.68 against one at 0.5 (docs/status,
-    // 2026-11-18). At five looks a radian, frames of 0.25, 0.5 and 1 s each
-    // settle within 0.002 of the server's pace (the unit test); frames of 2 s
-    // settle slower, 0.014 off after 60 s against a server at 0.5, and are
-    // not tested. At 25 words a second it is 0.5 as before.
-    static constexpr double looks_per_radian = 5.0;
+    // 2026-11-18). **Two and a half**, now the loop steers by the difference
+    // still to come (Pacing::heard), not the one heard a look late: frames
+    // of 0.1 to 3 s each settle within 0.002 of the server's pace (the unit
+    // test takes 0.25 to 2 s). At five, needed while the loop steered by the
+    // difference heard, a client whose frames were 2 s long steered at 0.1 a
+    // second and was still 40 steps off after 60 s against a server at 0.5;
+    // at 3 and 3.5 without the difference still to come, it rang (docs/status,
+    // 2026-11-21). At 25 words a second it is 0.5 as before.
+    static constexpr double looks_per_radian = 2.5;
     // The time between looks the gains are set by: an average, a fifth of
     // the way to each new one, each counted at most `longest_look_s` - a
-    // machine that stopped once is not taken to look that seldom.
+    // machine that stopped once is not taken to look that seldom. **But
+    // never less than the look just taken**: slower at once, faster
+    // gradually. Starting from 25 looks a second and a fifth of the way at a
+    // time, a client whose frames were 2 s long steered its first looks at
+    // 0.5 a second, was flown at the slowest it may be, and went 316 steps
+    // off; with frames of 3 s, 74 steps off still in the last ten seconds.
     static constexpr double looks_settle = 0.2;
     static constexpr double longest_look_s = 2.0;
     // **And steered between them** for `steered_looks` times the time
@@ -169,6 +178,13 @@ private:
     double pace_ = 1.0;
     std::int64_t worst_off_ = 0;
     std::int64_t off_ = 0;
+    // **Where this client's flying stood at the last look**: this
+    // machine's time and the paced time at it.
+    struct Looked {
+        double local_s = 0.0;
+        double paced_s = 0.0;
+    };
+    std::optional<Looked> looked_;
     // **The loop as it stood before the words read together** - heard at
     // one `local_s` - so that each word after the first of them is taken in
     // place of the one before, not after it with no time between.
@@ -182,6 +198,7 @@ private:
         double pace = 1.0;
         std::int64_t worst_off = 0;
         std::int64_t off = 0;
+        std::optional<Looked> looked;
     };
     std::optional<Loop> before_read_together_;
 };
