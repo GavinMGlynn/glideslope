@@ -1902,6 +1902,12 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       Done 2026-11-21: the window client, joining a real server after three
       changes, flies its air to the last bit at 150 points; a station given
       new reports quicker than a blend is now told whole to a joiner.
+- [ ] **A join's weather can be more than the reliable layer holds in
+      flight**: 32 slots, each blending from a few reports, are more than
+      256 messages, and the joiner then flies other air (said on the
+      server's standard error). *Verification: a client joining 32 slots
+      each mid-blend over several reports flies the server's air to the
+      last bit.*
 - [x] **The AI's planners are told no wet runway under `--weather around`**:
       a station's runway states reach the air, not the plans. *Verification:
       a planner under the stations around it is told the runway its nearest

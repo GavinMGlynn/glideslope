@@ -345,6 +345,16 @@ public:
         return {chain.rbegin(), chain.rend()};
     }
 
+    // How many reports it keeps, the latest and every one it may still blend
+    // from (update): bounded however many it is given.
+    std::size_t reports_kept() const {
+        std::size_t n = 0;
+        for (const ReportedWeather* c = this; c != nullptr; c = c->before_.get()) {
+            ++n;
+        }
+        return n;
+    }
+
     // When the latest report took over - update's `now_s`, or when it was
     // made - and when the one it blends from did.
     double changed_at_s() const { return changed_at_s_; }

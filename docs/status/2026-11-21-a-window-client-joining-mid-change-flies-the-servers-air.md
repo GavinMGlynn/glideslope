@@ -3,9 +3,16 @@
 **What it does not do, first.** The new test needs a GPU driver (it is
 skipped, exit 77, without one) and runs on Linux and Windows, not macOS, as
 the other window tests. A station given new reports quicker than a blend is
-told to a joiner as its whole chain, one message per report: the chain is
-bounded only as the server bounds it (`blend_kept_s`), and a join that
-cannot be queued is said, as since 2026-11-14.
+told to a joiner as its whole chain, two messages per report (`WEATHER`
+and `WEATHER_ALOFT`). **The chain is bounded, the join's queue is not**:
+each station keeps at most (blend + `blend_kept_s`) / r + 2 reports, given
+one every r seconds - but a look is made at every refresh *and* whenever
+an aircraft is added or removed or has flown 50 km, so r is not a setting
+the server can refuse, and a join of 32 slots each blending from a few
+reports can be more than the reliable layer's 256 in flight. Such a join is
+said on the server's standard error (since 2026-11-14), and the joiner then
+flies other air; a tail in COMPLETION_PLAN.md. At the defaults (refresh
+900 s, blend 300 s) a station keeps two reports unless looks come quicker.
 
 **What was missing.** No test ran the window client itself joining a server
 mid-change (2026-11-18's open part). Run end to end, it was **not** the
@@ -25,8 +32,15 @@ no rain left in it, a different pressure, a dry runway. The unit test of
 - **`world::ReportedWeather::blending_chain`**: everything a station's
   weather blends from that still reaches the air, oldest first.
 - **`frontend::weather_said_on_joining`** tells all of it before each
-  slot's weather, where it told `blending_from` alone. The joiner's slot
-  makes the same updates, at the same moments, as the server's did.
+  slot's weather, where it told `blending_from` alone, and so does
+  glideslope_server for a slot that grows after a client joined. The
+  joiner's slot makes the same updates, at the same moments, as the
+  server's did.
+- **The chain is cut where it stops reaching the air** (from the review of
+  #389): `ReportedWeather::update` walks it from the newest and lets go of
+  what the first link whose blend ended `blend_kept_s` ago blended from.
+  It cut one level down only, so a station given reports quicker than
+  blend + 60 s was never cut, and its chain grew for the server's life.
 
 **The test's tools.**
 - `--test-say-air POINTS FILE`, on glideslope_server (as it stops) and on
@@ -49,6 +63,11 @@ no rain left in it, a different pressure, a dry runway. The unit test of
   15.1 s, is the server's at 150 of 150, every field to the bit.
   **Seen red**: with the joiner told one deep, as before, 66 of 150 (the
   first: at YSSY the client flew C's report whole, dry, at 1011 hPa).
+- `a_station_given_reports_quicker_than_a_blend_keeps_a_bounded_chain_a_joiner_flies`
+  (unit, every platform, no GPU): a report every 30 s for 3,000 s over a
+  120 s blend keeps at most 7, reaching it; a joiner made of
+  `blending_chain` (4 reports) flies the station's air at 15 of 15 points.
+  **Seen red** with the cut one level down, as before: 101 kept.
 - The unit tests of the same air (#45 to #50), the server's flags, the
   timeouts' and ports' checks, and the stub's other users (the stations
   tests, end to end, and quitting mid-refresh) pass.

@@ -1174,3 +1174,84 @@ GLIDESLOPE_TEST(a_client_flying_again_from_before_a_blends_end_flies_the_servers
     std::printf("  %zu points flown again from before the blends' ends, each the server's\n",
                 compared);
 }
+
+// **A station given a new report quicker than a blend keeps only the reports
+// that may still reach the air, and a joiner told its chain flies its air.**
+// One station's weather given a report every 30 s for 3,000 s, each
+// blending over 120 s - as glideslope_server gives every station kept at
+// every look (world::slot_changes): after every update the reports kept
+// (world::ReportedWeather::reports_kept) are never more than the newest and
+// those within a blend and blend_kept_s of it, (120 + 60) / 30 + 1 = 7, and
+// reach it. Then a joiner's weather, made of what blending_chain gives -
+// the oldest whole, each after it an update at its own moment, as a
+// joining client's slot makes them - is the server's to the last bit at 3
+// heights and 5 moments from now past the blends' ends, 15 points.
+GLIDESLOPE_TEST(a_station_given_reports_quicker_than_a_blend_keeps_a_bounded_chain_a_joiner_flies) {
+    constexpr double blend_s = 120.0;
+    constexpr double every_s = 30.0;
+    const auto report = [](std::size_t k) {
+        const int knots = 5 + static_cast<int>(k % 7) * 4;
+        glideslope::world::WeatherReport r = a_full_report(
+            "YSSY 102100Z 280" + std::string(knots < 10 ? "0" : "") + std::to_string(knots) +
+            "KT CAVOK 20/13 Q10" + std::to_string(10 + k % 9));
+        r.microbursts.clear();
+        return r;
+    };
+    glideslope::world::ReportedWeather server(report(0), nullptr, blend_s, {}, 0.0);
+    std::size_t most = 0;
+    std::size_t updates = 0;
+    double now_s = 0.0;
+    for (std::size_t k = 1; now_s < 3000.0; ++k) {
+        now_s = static_cast<double>(k) * every_s;
+        server.update(report(k), now_s, blend_s);
+        ++updates;
+        most = std::max(most, server.reports_kept());
+    }
+    const auto bound =
+        static_cast<std::size_t>((blend_s + glideslope::world::blend_kept_s) / every_s) + 1;
+    check(updates == 100, "a hundred updates: " + std::to_string(updates));
+    check(most == bound, "the reports kept never more than " + std::to_string(bound) +
+                             ", and reaching it: " + std::to_string(most));
+    // Joined just after the newest: inside the blends of the last four.
+    const double joined_s = now_s + 1.0;
+    const std::vector<const glideslope::world::ReportedWeather*> chain =
+        server.blending_chain(joined_s);
+    check(chain.size() == static_cast<std::size_t>(blend_s / every_s),
+          "the chain a joiner is told: " + std::to_string(chain.size()));
+    std::optional<glideslope::world::ReportedWeather> joiner;
+    for (const glideslope::world::ReportedWeather* r : chain) {
+        if (!joiner) {
+            joiner.emplace(r->report(), nullptr, blend_s, glideslope::world::GroundAt{},
+                           r->changed_at_s());
+        } else {
+            joiner->update(r->report(), r->changed_at_s(), blend_s);
+        }
+    }
+    check(joiner.has_value(), "a joiner made");
+    joiner->update(server.report(), server.changed_at_s(), blend_s);
+    std::size_t compared = 0;
+    std::size_t same = 0;
+    for (const double t : {joined_s, joined_s + 20.0, joined_s + 50.0, joined_s + 90.0,
+                           joined_s + 200.0}) {
+        for (const double h : {9.0, 150.0, 1200.0}) {
+            const glideslope::sim::Conditions a = server.at(-33.95, 151.17, h, t);
+            const glideslope::sim::Conditions b = joiner->at(-33.95, 151.17, h, t);
+            same += a.wind_north_mps == b.wind_north_mps && a.wind_east_mps == b.wind_east_mps &&
+                            a.wind_down_mps == b.wind_down_mps &&
+                            a.temperature_offset_c == b.temperature_offset_c &&
+                            a.sea_level_pressure_hpa == b.sea_level_pressure_hpa &&
+                            a.turbulence_severity == b.turbulence_severity &&
+                            a.wind_at_20ft_mps == b.wind_at_20ft_mps &&
+                            a.gust_factor_kt == b.gust_factor_kt &&
+                            a.runway_condition == b.runway_condition
+                        ? 1U
+                        : 0U;
+            ++compared;
+        }
+    }
+    std::printf("  %zu updates, at most %zu reports kept; a joiner told %zu flies the "
+                "server's air at %zu of %zu points\n",
+                updates, most, chain.size(), same, compared);
+    check(compared == 15, "every point compared: " + std::to_string(compared));
+    check(same == compared, "the joiner flies the server's air at every point");
+}

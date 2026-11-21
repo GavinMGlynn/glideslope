@@ -605,8 +605,16 @@ the new ones whole until the blend ends. **What the server keeps, and so
 tells, is bounded**: a change of the stations lets go of every change before
 the newest whose blend ended a minute or more before it (blend_kept_s), so
 the changes kept are those made within a blend and a minute of each other,
-and a joiner is told those whose blend has not ended. A server that cannot
-queue all of it (256 messages in flight) says so on its standard error. No
+and a joiner is told those whose blend has not ended. So is each station's
+chain of reports: a new report lets go of everything before the newest
+report whose blend ended a minute or more before it, so a station given a
+report every `r` seconds keeps at most (blend + 60) / `r` + 2 of them. **The
+queue is not bounded with it**: the server looks for the stations at every
+refresh and whenever an aircraft is added or removed or has flown 50 km, so
+how often a station is given a report is not a setting, and a join told
+more than the reliable layer holds in flight (256 messages) is possible -
+32 slots each blending from a few reports. A server that cannot queue all
+of it says so on its standard error. No
 byte of any message changed with this, nor the version: a client that keeps
 only each slot's newest flies the new stations whole, as before.
 

@@ -672,11 +672,19 @@ void ReportedWeather::update(WeatherReport report, double now_s) {
         wet_until_s_ = now_s + 0.5 * std::max(0.0, blend_seconds_) + still_wet_after_rain_s;
     }
     // The weather as it is, its own blend and all, is what the new report
-    // blends from; a blend of its that ended blend_kept_s ago is let go.
+    // blends from. **The chain is bounded**: walked from the newest, the
+    // first link whose blend ended blend_kept_s ago lets go of what it blended
+    // from, and with it every link older - so a station given reports every
+    // `r` seconds keeps at most (blend + blend_kept_s) / r + 2 of them, however
+    // long it is flown. Cut one level down only, as before, a chain given
+    // reports quicker than blend + blend_kept_s was never cut, and grew for
+    // the server's life.
     auto was = std::make_shared<ReportedWeather>(*this);
-    if (was->before_ && now_s >= was->changed_at_s_ + std::max(0.0, was->blend_seconds_) +
-                                     blend_kept_s) {
-        was->before_.reset();
+    for (ReportedWeather* c = was.get(); c->before_; c = c->before_.get()) {
+        if (now_s >= c->changed_at_s_ + std::max(0.0, c->blend_seconds_) + blend_kept_s) {
+            c->before_.reset();
+            break;
+        }
     }
     before_ = std::move(was);
     runways_laid_ = false;
