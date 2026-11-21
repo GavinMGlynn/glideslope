@@ -13,7 +13,14 @@ end yet. Nothing is waited for: see below.
 The server, the window client and the headless client (`glideslope_cli
 connect --predict`) fly the weather over the collision ground: its thermals
 stand on it, and the terrain's lift (ridge lift and mountain waves,
-`world/lift.hpp`) is made from it.
+`world/lift.hpp`) is made from it. **The headless client is run end to
+end** (the test below); the window client's server air is the same call
+(`Flight::air_ground`, used by `client/online.cpp`), checked by reading the
+code, not by a run of its own. Offline, both of the window client's weathers
+- the stations around her and a single station - read the same ground
+(`frontend::air_ground`), never waiting for a tile (the single station's
+waited, from the #388 re-review). The selftest's hash is unchanged
+(`27e94c795b47141c`): it flies in still air, where the lift is nothing.
 
 **The lift is cheap enough to fly again** (`world::GroundLift`). The exact
 lift is 256 DEM heights along the wind and a 255-wavenumber transform every

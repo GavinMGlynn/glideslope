@@ -187,12 +187,12 @@ Flight::Flight(const std::filesystem::path& data, const std::filesystem::path& c
             fetch_);
         report.microbursts = start.microbursts;
         microbursts_ = start.microbursts;
-        // The air rises and sinks over the same ground the aircraft meets.
+        // The air rises and sinks over the same ground the aircraft meets,
+        // read as the stations around her read it (frontend::air_ground): a
+        // tile not had yet is fetched ahead, never waited for in a step.
         weather_ = std::make_shared<world::ReportedWeather>(
             std::move(report), geoid_.get(), weather_blend_seconds,
-            [ground](double lat, double lon) {
-                return ground->height_above_geoid(lat, lon);
-            });
+            frontend::air_ground(collision_, air_tiles_, geoid_.get()));
         aircraft_->set_weather(weather_);
     }
     // **Started once her weather is hers**, so that she is trimmed in it
