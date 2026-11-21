@@ -1763,14 +1763,15 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       0.9 to 1.4 m, was 2.6 to 4.7 m (Linux debug). (A
       server's slow start is no longer owed, 2026-10-28.) The first-input
       test and the F-22A's still run alone: not yet seen on CI held up.
-- [ ] **A test that fails twice on CI for the same cause has nowhere to go but
+- [x] **A test that fails twice on CI for the same cause has nowhere to go but
       the pull request's run**: a test labelled `nightly` is left out of every
       pull request's run and run by the nightly one, and each is named with its
       reason. *Verification: a test labelled nightly runs every night and on no
       pull request, named with its reason; the first is the held-up-unevenly
-      prediction test (1 of 1 named).* Done but for the nightly half: pull
-      requests leave it out (run 40770584919); owed, the first scheduled run
-      after the merge showing it run.
+      prediction test (1 of 1 named).* Done 2026-11-21: pull
+      requests leave it out (run 40770584919, train #387's 44716997224), and
+      the nightly runs it five times a night (44418731482, 44832435697, all
+      passed). Five tests are named now.
 - [ ] **On Windows the server's word is placed two steps off now and then**:
       Windows' 15.6 ms timers spread the clocks' difference, and the least of
       it moves. *Verification: on Windows debug the paced test's 99th
@@ -1802,7 +1803,8 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       64 mm median on CI's Windows debug, run 41284303752, its first
       failure; 2026-11-02: 61 mm on #298's run 41397416052, its second, and
       it moved to nightly (tests/cmake/nightly_tests.cmake), the 60 mm bound
-      kept; its nightly result is reported here.
+      kept; its nightly result is reported here. 2026-11-20 nightly
+      44832435697: the lost-datagram STOVL join failed (shard 4 of 8).
 - [x] **On a server the air has the ground's lift**: the server and its
       clients fly the weather over the collision ground, the lift cheap
       enough for a predicting client. *Verification: a client predicting over hills
@@ -1885,7 +1887,10 @@ named in `PROJECT_STATUS.md` as not done, with no item here.
       platform, and a month of CI runs.* 2026-10-16: its speed bound is
       25 cm/s, from six Windows failures since 2026-10-08. 2026-10-17: the
       cause found and the test no longer depends on it (below); the month of
-      CI runs is still owed.
+      CI runs is still owed. 2026-11-21: every failed CI job since
+      2026-10-20 searched (265 runs): it failed only on 2026-10-23, three
+      branches' linux-debug ("only 144 updates were compared"), none since;
+      the month is had on 2026-11-23.
 - [x] **The engine-stop prediction test does not depend on the client's
       pacing**: it held the server's word against the step the clocks'
       difference named, which a server held up by fits and starts moves by
