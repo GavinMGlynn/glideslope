@@ -27,9 +27,19 @@ after that moment, so a test waits on the event and never on a time.
 **The DEM's tiles may be fetched from a stand-in, for a test**
 (`GLIDESLOPE_DEM_SOURCE`, `platform::dem_source()`), as the runways already
 could be (`GLIDESLOPE_RUNWAYS_SOURCE`). The stand-in takes the bucket's scheme
-and host and keeps the same path. It must be https or the loopback, and a tile
-is still checked against the MD5 its ETag gives (`world::dem_fetched_from`).
-`glideslope_http_stub --etag TAG` serves files with an ETag, as S3 does.
+and host and keeps the same path. **What is guaranteed, and what is not:** the
+stand-in must be on this machine: http or https to 127.0.0.1, [::1] or
+localhost (`world::dem_source_allowed`); any other host is refused, by name.
+A tile from it must arrive with a plain MD5 as its ETag, and the bytes must
+match it. A missing ETag is refused, and so is a dashed one, which S3's
+multipart form uses and the bucket's own fetch passes over unchecked. That
+ETag comes from the stand-in itself, so it shows the tile arrived whole, not
+that it is Copernicus's: a stand-in serves whatever tile it is given. So
+every program says so as it prepares its ground: "the DEM's tiles are fetched
+from GLIDESLOPE_DEM_SOURCE, ..., not the Copernicus bucket". The client
+prints it as it prepares its ground, the server after its key, and the
+window client as it builds its flight. `glideslope_http_stub --etag TAG`
+serves files with an ETag, as S3 does.
 
 ## Verification
 
@@ -60,10 +70,22 @@ is still checked against the MD5 its ETag gives (`world::dem_fetched_from`).
   the network for this. The downloads fixture already fetches the tile, and a
   fetch over the internet would make the window's length the network's.
 - `a_dem_tile_may_be_fetched_elsewhere_for_a_test_and_is_still_held_to_its_etag`:
-  with the source unset, a tile comes from the bucket. With it set to the
-  loopback, the bucket's path is asked of it. A tile that does not match its
-  ETag is refused and one that matches is kept. Plain http to another
-  machine is refused, by name.
+  with the source unset, a tile comes from the bucket. Set to the loopback
+  (127.0.0.1, [::1] and localhost, with and without a port), the stand-in is
+  asked for the bucket's path. A tile that does not match its ETag is
+  refused, and one that matches is kept. From a stand-in, a dashed ETag and a
+  missing one are each refused, and neither tile is kept. Every host off the
+  loopback, over https too, is refused by name (example.org over http and
+  https, a look-alike of the bucket, `127.0.0.1.example.org`, 10.0.0.1).
+  **Seen red** before the fix (from the review of #395): `https://example.org`
+  was accepted, and so was a dashed ETag from the stand-in. A missing ETag was
+  already refused before, so that case was never seen red.
+- The new test also checks that the fetching client said its tiles came from
+  the stand-in.
 
 `test_server_timeouts.cmake`'s totals: 75 uses, 63 long (the new test's
 server).
+
+**Built on Windows** before each push: `tools/windows_build.sh windows-debug`
+(under `flock /tmp/glideslope-windows.lock`) built the tests, the cli, the
+server and the window client with MSVC, after the review's fixes too.

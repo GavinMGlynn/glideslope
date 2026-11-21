@@ -343,6 +343,9 @@ std::shared_ptr<const StovlGround> prepare_stovl_ground() {
     }
     const std::filesystem::path cache = glideslope::platform::cache_directory();
     const glideslope::world::Fetch fetch = glideslope::world::http_fetch();
+    if (const auto said = glideslope::frontend::dem_source_said()) {
+        std::fprintf(stderr, "glideslope_cli: %s\n", said->c_str());
+    }
     g->coverage = std::make_unique<glideslope::world::DemCoverage>(
         std::string(std::istreambuf_iterator<char>(coverage_file), {}));
     g->tiles = std::make_unique<glideslope::world::DownloadedTiles>(cache, fetch);
@@ -3585,6 +3588,8 @@ private:
         errors_m_.clear();
         errors_ground_not_had_m_.clear();
         errors_ground_had_m_.clear();
+        first_compared_at_s_.reset();
+        ground_had_at_s_.reset();
         worst_error_m_ = 0.0;
         worst_error_at_s_ = 0.0;
         worst_pitch_error_deg_ = 0.0;

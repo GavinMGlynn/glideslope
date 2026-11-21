@@ -778,15 +778,60 @@ GLIDESLOPE_TEST(a_dem_tile_may_be_fetched_elsewhere_for_a_test_and_is_still_held
         (void)tiles.open(DemDataset::glo30, {-34, 151});
         check(tiles.cached(DemDataset::glo30, {-34, 151}), "one that is its ETag's is kept");
     }
-    {
-        const DemSource source("http://example.org");
+    // **Only the loopback**: the tiles are the collision ground, and a
+    // stand-in on another machine - over https or not - would be trusted for
+    // the ETag it sends with them.
+    for (const std::string& elsewhere :
+         {std::string("http://example.org"), std::string("https://example.org"),
+          std::string("https://copernicus-dem-30m.s3.amazonaws.com.example.org"),
+          std::string("http://127.0.0.1.example.org"), std::string("http://10.0.0.1:80")}) {
+        const DemSource source(elsewhere);
         bool refused = false;
         try {
             (void)glideslope::world::dem_fetched_from(bucket);
         } catch (const DemError& e) {
             refused = std::string(e.what()).find("GLIDESLOPE_DEM_SOURCE") != std::string::npos;
         }
-        check(refused, "plain http to another machine is refused, by name");
+        check(refused, "a stand-in not on the loopback is refused, by name: " + elsewhere);
+    }
+    for (const std::string& loopback :
+         {std::string("http://localhost:8080"), std::string("https://127.0.0.1"),
+          std::string("http://[::1]:9")}) {
+        const DemSource source(loopback);
+        check(glideslope::world::dem_fetched_from(bucket).rfind(loopback + "/", 0) == 0,
+              "a stand-in on the loopback is asked: " + loopback);
+    }
+    // **From a stand-in, the ETag must be the tile's MD5**: one with a dash
+    // (S3's multipart form, which the bucket's own fetch passes over) or none
+    // at all is refused, and nothing is kept.
+    {
+        const DemSource source("http://127.0.0.1:1");
+        const auto cache = scratch("dem-elsewhere-unchecked");
+        std::vector<std::string> asked;
+        bool refused = false;
+        try {
+            DownloadedTiles tiles(cache, serving(tile, unchecked_etag, asked));
+            (void)tiles.open(DemDataset::glo30, {-34, 151});
+        } catch (const DemError& e) {
+            refused = std::string(e.what()).find("GLIDESLOPE_DEM_SOURCE") != std::string::npos;
+        }
+        check(refused, "from a stand-in, a dashed ETag is refused");
+        refused = false;
+        try {
+            DownloadedTiles tiles(cache, [&tile](const std::string&) {
+                HttpResponse r;
+                r.status = 200;
+                r.body = tile;
+                return r;
+            });
+            (void)tiles.open(DemDataset::glo30, {-34, 151});
+        } catch (const DemError& e) {
+            refused = std::string(e.what()).find("no ETag") != std::string::npos;
+        }
+        check(refused, "from a stand-in, a tile with no ETag is refused");
+        check(!DownloadedTiles(cache, serving(tile, unchecked_etag, asked))
+                   .cached(DemDataset::glo30, {-34, 151}),
+              "and neither is kept");
     }
     check(glideslope::world::dem_fetched_from(bucket) == bucket, "unset again, the bucket again");
 }

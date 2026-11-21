@@ -158,6 +158,11 @@ if(NOT _stub_said MATCHES "answered 0 requests 404, and 1 with FILE")
                         "${_stub_said}")
 endif()
 
+# **And said so**: a ground a test served is never taken for the bucket's.
+if(NOT _ran MATCHES "glideslope_cli: the DEM's tiles are fetched from GLIDESLOPE_DEM_SOURCE, http://127.0.0.1:[0-9]+, not the Copernicus bucket\n")
+    message(FATAL_ERROR "the fetching client did not say its tiles came from the stand-in:\n"
+                        "${_ran}")
+endif()
 string(FIND "${_ran}" "=== fetching\n" _at_fetching)
 string(FIND "${_ran}" "=== liftless\n" _at_liftless)
 string(SUBSTRING "${_ran}" ${_at_fetching} -1 _fetching)
