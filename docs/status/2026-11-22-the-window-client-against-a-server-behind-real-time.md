@@ -145,6 +145,14 @@ debug, and 0.60 and 0.52 m on Windows debug.
 - **Selftest hash** 27e94c795b47141c, unchanged: the selftest does not fly
   the test pilot.
 
+**From the draft run 44941822221: windows-debug's tests in thirteen shards,
+not twelve.** The two new RUN_SERIAL tests tipped windows-debug's night's
+way to 34.0 min in each of twelve shards, over the 33.75 min that is 75% of
+a shard's 45. Dealt in thirteen, each shard holds about 31.4 min.
+windows-clang got the same fix for #395 (3d9fa7ed). The dealing check
+passed here, Linux debug. It deals Windows' presets only on Windows, so CI
+is its real run.
+
 **Tail (not a plan item).** A wreck flown again from its start is taken by
 `Flight::reconcile` as an ordinary correction. It is snapped as too large
 to hide, so the aircraft is drawn right at once. But the client's
