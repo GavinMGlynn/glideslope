@@ -188,6 +188,12 @@ struct Options {
     // ignored, the server's second of requests spent just before it.
     bool stovl_at_once = false;
     bool spend_requests_first = false;
+    // For a test (`--test-pilot`): on a server, every input sent is
+    // frontend::test_pilot's, controls that keep changing; and
+    // (`--unpaced`) its ticks flown at this machine's pace, not steered to
+    // the server's (sim::Pacing) - what the paced test shows failing.
+    bool test_pilot = false;
+    bool unpaced = false;
     // For a test: A pressed in the frame the take-over is asked, while the
     // server has yet to answer it.
     bool press_a_with_take_over = false;
@@ -356,6 +362,10 @@ void usage(std::FILE* out) {
         "                input, and say the pitch trim her law flies her on\n"
         "  --test-spend-requests-first  for a test: spend the server's second\n"
         "                of requests just before asking for her levers\n"
+        "  --test-pilot  for a test: on a server, send a pilot's controls that\n"
+        "                keep changing, as glideslope_cli's, not the stick\n"
+        "  --unpaced     for a test: fly at this machine's pace, not steered to\n"
+        "                the server's\n"
         "  --press-a-with-take-over  for a test: press A in the frame\n"
         "                --take-over-after asks, before the server has answered\n"
         "  --take-over-own  for a test: --take-over-after asks for its own aircraft\n"
@@ -696,6 +706,10 @@ static int run_program(int argc, char** argv) {
             o.stovl_at_once = true;
         } else if (a == "--test-spend-requests-first") {
             o.spend_requests_first = true;
+        } else if (a == "--test-pilot") {
+            o.test_pilot = true;
+        } else if (a == "--unpaced") {
+            o.unpaced = true;
         } else if (a == "--press-a-with-take-over") {
             o.press_a_with_take_over = true;
         } else if (a == "--take-over-own") {
@@ -1136,6 +1150,9 @@ static int run_program(int argc, char** argv) {
             }
             if (o.spend_requests_first) {
                 online->spend_requests_first();
+            }
+            if (o.test_pilot) {
+                online->fly_test_pilot();
             }
             // **While she waits**: the window shows why, as the server says
             // it, over the sky - redrawn ten times a second, and its events
@@ -2119,7 +2136,8 @@ static int run_program(int argc, char** argv) {
                 // **A gap without a word at the pace the loop learnt**
                 // (sim::Pacing::flown_in), not the one it steers by.
                 const double gap_s = std::chrono::duration<double>(now - last).count();
-                const double flown_s = online && flight ? flight->flown_in(gap_s) : gap_s;
+                const double flown_s =
+                    online && flight && !o.unpaced ? flight->flown_in(gap_s) : gap_s;
                 due = glideslope::sim::steps_to_fly(
                     clock.advance(std::chrono::duration_cast<std::chrono::nanoseconds>(
                         std::chrono::duration<double>(flown_s))),
@@ -3241,10 +3259,26 @@ static int run_program(int argc, char** argv) {
                 {
                     std::vector<double> errors = flight->prediction_errors_m();
                     std::sort(errors.begin(), errors.end());
+                    // **With its 95th percentile and how many were a metre
+                    // or more**, as glideslope_cli's paced test holds them
+                    // (server_paced_prediction.cmake).
+                    const std::size_t at_95 = errors.size() * 95 / 100;
+                    const auto over_a_metre = static_cast<std::size_t>(std::count_if(
+                        errors.begin(), errors.end(), [](double e) { return e >= 1.0; }));
                     std::printf("glideslope: prediction error: %zu updates compared, the "
-                                "median %.3f m, the worst %.3f m\n",
+                                "median %.3f m, the worst %.3f m, the 95th percentile %.3f m, "
+                                "%zu a metre or more\n",
                                 errors.size(), errors.empty() ? 0.0 : errors[errors.size() / 2],
-                                errors.empty() ? 0.0 : errors.back());
+                                errors.empty() ? 0.0 : errors.back(),
+                                errors.empty() ? 0.0 : errors[std::min(at_95, errors.size() - 1)],
+                                over_a_metre);
+                    // **The pace it flew at** (sim::Pacing), as glideslope_cli
+                    // says it: one at a server behind real time flies at its
+                    // pace, and `--unpaced` at this machine's.
+                    std::printf("glideslope: paced: flown at %.3f of this machine's clock "
+                                "at the end%s\n",
+                                o.unpaced ? 1.0 : flight->pace(),
+                                o.unpaced ? ", unpaced" : "");
                 }
                 std::printf("glideslope: let go of: %zu predictions gone to a number not "
                             "finite, %zu updates compared since the last\n",
