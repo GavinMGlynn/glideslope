@@ -3501,7 +3501,7 @@ add_test(NAME a_client_joining_over_hills_with_no_tiles_cached_flies_the_servers
         -DSTUB=$<TARGET_FILE:glideslope_http_stub>
         -DDATA=${GLIDESLOPE_DATA_DIR} -DCACHE=${GLIDESLOPE_DOWNLOADS_DIR}
         -DWORK=${CMAKE_CURRENT_BINARY_DIR}/server_tiles_arrive -DPORT=24879 -DSAME_M=0.25
-        -DLIFT_SHARE=0.5
+        -DLIFT_SHARE=0.4
         -P ${CMAKE_CURRENT_SOURCE_DIR}/cmake/server_tiles_arrive.cmake)
 set_tests_properties(a_client_joining_over_hills_with_no_tiles_cached_flies_the_servers_ground_lift_within_the_seas_bound_once_they_arrive
     PROPERTIES SKIP_RETURN_CODE 77 RUN_SERIAL TRUE FIXTURES_REQUIRED downloads)

@@ -26,15 +26,19 @@
 #   tile arrived (`--until-compared-on-ground`), however long it takes - an
 #   event, not a time; the time the tile took, and when on the session's
 #   clock it had it, are said;
-# - once it was had, the first client's median error is within SAME_M, the
-#   sea's bound (server_weather.cmake), and less than LIFT_SHARE of the
-#   second client's, which flies the same air over no ground
-#   (`--no-ground-lift`) - so the lift arrived with the tile, and is flown.
-#   The sea's bound alone would not tell them apart. Here (2026-11-21, a
-#   debug build) the first's median was 0.038 to 0.041 m and the second's
-#   0.096 to 0.114: 0.36 to 0.40 of it. With the first client's lift thrown away once its tile was had it
-#   was 0.070 to 0.074 m, 0.61 to 0.65 - inside server_ground_lift.cmake's
-#   0.7, so this holds 0.5.
+# - once it was had, the first client's median error **off the path it
+#   flew** is within SAME_M, the sea's bound (server_weather.cmake), and
+#   less than LIFT_SHARE of the second client's, which flies the same air
+#   over no ground (`--no-ground-lift`) - so the lift arrived with the tile,
+#   and is flown. The sea's bound alone would not tell them apart. Off the
+#   path, not at the word's step: on a busy machine a word is placed a step
+#   off, a step's travel (0.44 m on CI, 2026-11-22) on a path flown alike.
+#   Every update once the tile was had is held to the path or named as not.
+#   Here (2026-11-22, a debug build) the first's median off the path was
+#   0.009 to 0.016 m and the second's 0.080 to 0.107, 0.08 to 0.19 of it,
+#   idle and beside twice as many busy loops as cores. With the first
+#   client's lift thrown away once its tile was had it was 0.067 to 0.085 m,
+#   0.58 to 1.01 of it - so this holds 0.4.
 #
 # Without the DEM's tiles downloaded it reports itself skipped (exit 77),
 # never passed.
@@ -175,6 +179,12 @@ math(EXPR _fetching_length "${_at_liftless} - ${_at_fetching}")
 string(SUBSTRING "${_ran}" ${_at_fetching} ${_fetching_length} _fetching)
 string(SUBSTRING "${_ran}" ${_at_liftless} -1 _liftless)
 
+# **A failure says every figure both clients gave**: CI's log is all a red
+# run leaves behind (2026-11-22, run 44921665961).
+function(judged_red _why)
+    message(FATAL_ERROR "${_why}\n${_fetching}\n${_liftless}")
+endfunction()
+
 foreach(_who IN ITEMS fetching liftless)
     foreach(_told IN ITEMS
             "told the collision ground: [^\n]*, this client's too\n"
@@ -221,14 +231,51 @@ message(STATUS "the tile took ${_fetched_in} s to fetch, and was had at ${_had_a
                "prediction's median error before it ${_median_before} m over ${_before} "
                "updates, once it was had ${_median_lift} m over ${_after}; over no ground, "
                "${_median_liftless} m")
+# **Judged off the path flown, apart from where the words were placed**: a
+# word whose input reached a busy runner's server late is placed a step off,
+# and its error at that step is a step's travel - 0.44 m at the Cessna's
+# speed - on a path flown alike (CI, 2026-11-22: a median of 0.440 m, with
+# the lift had). Air flown wrong lifts her off the path. The median at the
+# word's step is said above, and not judged.
+if(NOT _fetching MATCHES
+       "prediction error off the path once the air's ground was had: median ([0-9.]+) m over ([0-9]+) updates; ([0-9]+) across the machine's stalls and ([0-9]+) nearest an end of the steps kept, not held to it\n")
+    judged_red("the fetching client did not say its error off the path once its ground was had")
+endif()
+set(_median_lift ${CMAKE_MATCH_1})
+set(_off_after ${CMAKE_MATCH_2})
+set(_across ${CMAKE_MATCH_3})
+set(_at_an_end ${CMAKE_MATCH_4})
+if(NOT _liftless MATCHES "prediction error off the path median: ([0-9.]+) m over ([0-9]+) updates")
+    judged_red("the liftless client did not say its median error off the path")
+endif()
+set(_median_liftless ${CMAKE_MATCH_1})
+set(_off_liftless ${CMAKE_MATCH_2})
+# **Every update once the tile was had is accounted for**: held to the path,
+# or named as not - one across a machine's stall (the server's catching up
+# and the words after it, MachineStalls), or nearest an end of the steps the
+# client kept, where the path may lie beyond them. Under twice as many busy
+# loops as cores, up to 85 of 300 were across a stall, and up to 23 at an end.
+math(EXPR _accounted "${_off_after} + ${_across} + ${_at_an_end}")
+if(NOT _accounted EQUAL _after)
+    judged_red("the fetching client held ${_off_after} of its ${_after} updates once its ground "
+               "was had to the path flown, and named ${_across} across a stall and "
+               "${_at_an_end} at an end: ${_accounted}, not ${_after}")
+endif()
+if(_off_after LESS 150)
+    judged_red("the fetching client held only ${_off_after} of its ${_after} updates once its "
+               "ground was had to the path flown, fewer than half")
+endif()
+message(STATUS "off the path flown, once the tile was had ${_median_lift} m over ${_off_after} "
+               "of its ${_after} updates (${_across} across a stall, ${_at_an_end} at an end); "
+               "over no ground, ${_median_liftless} m over ${_off_liftless}")
 if(_median_lift GREATER SAME_M)
-    message(FATAL_ERROR "once its tile arrived, the fetching client's median error was "
-                        "${_median_lift} m, more than the sea's ${SAME_M}")
+    judged_red("once its tile arrived, the fetching client's median error off the path was "
+               "${_median_lift} m, more than the sea's ${SAME_M}")
 endif()
 # In millimetres, for math(): the medians are said to the millimetre.
 foreach(_who IN ITEMS lift liftless)
     if(NOT _median_${_who} MATCHES "^([0-9]+)\\.([0-9][0-9][0-9])$")
-        message(FATAL_ERROR "the ${_who} median, ${_median_${_who}}, is not in millimetres")
+        judged_red("the ${_who} median, ${_median_${_who}}, is not in millimetres")
     endif()
     math(EXPR _mm_${_who} "${CMAKE_MATCH_1} * 1000 + 1${CMAKE_MATCH_2} - 1000")
 endforeach()
@@ -239,8 +286,7 @@ math(EXPR _share_tenths "${CMAKE_MATCH_1}")
 math(EXPR _ten_lift "10 * ${_mm_lift}")
 math(EXPR _share_of_liftless "${_share_tenths} * ${_mm_liftless}")
 if(NOT _ten_lift LESS _share_of_liftless)
-    message(FATAL_ERROR "once its tile arrived, the fetching client's median error was "
-                        "${_median_lift} m, not less than ${LIFT_SHARE} of the "
-                        "${_median_liftless} m flying the same air over no ground: the lift "
-                        "did not arrive with the tile")
+    judged_red("once its tile arrived, the fetching client's median error off the path was "
+               "${_median_lift} m, not less than ${LIFT_SHARE} of the ${_median_liftless} m "
+               "flying the same air over no ground: the lift did not arrive with the tile")
 endif()
